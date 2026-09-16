@@ -8,6 +8,19 @@ export interface SplitEntry {
   event_id: string;
   event_name: string;
   percentage: number;
+  /**
+   * Linha de BP DESTA perna (D-ERP73, fase 2). Cada perna leva a linha do seu
+   * próprio evento; a mãe é agregado e não consome verba.
+   */
+  forecast_id?: string | null;
+}
+
+/** Linha de BP candidata para uma perna (mesmo evento, mesma L3). */
+export interface SplitBPLine {
+  id: string;
+  description: string;
+  amount: number;
+  used: number;
 }
 
 export interface SplitBPInfo {
@@ -17,6 +30,8 @@ export interface SplitBPInfo {
   used: number;
   hasForecastMatch: boolean;
   hasAnyForecasts: boolean;
+  /** Linhas do BP deste evento na rubrica escolhida (D-ERP73). */
+  lines?: SplitBPLine[];
 }
 
 export type SplitInputMode = "percentage" | "absolute";
@@ -117,6 +132,14 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
     newEntries[idx] = { ...newEntries[idx], percentage: value };
     onChange(newEntries);
   };
+
+  /** D-ERP73 — linha de BP desta perna (do evento da perna, na rubrica escolhida). */
+  const updateForecast = (idx: number, forecastId: string) => {
+    const newEntries = [...splitEntries];
+    newEntries[idx] = { ...newEntries[idx], forecast_id: forecastId || null };
+    onChange(newEntries);
+  };
+
 
   const updateAbsoluteValue = (idx: number, absValue: number) => {
     const entry = splitEntries[idx];
@@ -226,8 +249,15 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
           const childAmount = getAbsoluteValue(entry);
           const bp = bpInfoByEvent[entry.event_id];
           const hasBP = bp && bp.hasAnyForecasts;
-          const remaining = hasBP ? bp.forecast - bp.used : 0;
-          const exceeds = hasBP && bp.hasForecastMatch && childAmount > remaining && bp.forecast > 0;
+          // D-ERP73: com linha escolhida, verba e disponível medem-se POR LINHA
+          // (é o que a trava mede numa transação simples). Sem linha, mantém-se
+          // a medida por rubrica (L3), como antes.
+          const lines = bp?.lines ?? [];
+          const pickedLine = entry.forecast_id ? lines.find((l) => l.id === entry.forecast_id) : undefined;
+          const budget = pickedLine ? pickedLine.amount : (hasBP ? bp.forecast : 0);
+          const usedValue = pickedLine ? pickedLine.used : (hasBP ? bp.used : 0);
+          const remaining = budget - usedValue;
+          const exceeds = (pickedLine || (hasBP && bp.hasForecastMatch)) && childAmount > remaining && budget > 0;
 
           return (
             <div key={entry.event_id} className="space-y-1">
@@ -279,12 +309,34 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
                     : `= ${entry.percentage.toFixed(2)}%`}
                 </div>
               )}
+              {/* Linha de BP desta perna (D-ERP73, fase 2) */}
+              <div className="ml-1 flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground shrink-0">Linha do BP:</span>
+                {lines.length > 0 ? (
+                  <select
+                    value={entry.forecast_id ?? ""}
+                    onChange={(e) => updateForecast(idx, e.target.value)}
+                    className="flex-1 min-w-0 rounded border border-border bg-background px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  >
+                    <option value="">— sem linha (resolve-se na aprovação) —</option>
+                    {lines.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.description || "(sem descrição)"} · BP {l.amount.toFixed(2)}€ · Disp {(l.amount - l.used).toFixed(2)}€
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-[10px] text-warning flex items-center gap-0.5">
+                    <AlertTriangle className="h-3 w-3" /> sem linha nesta rubrica — resolve-se na aprovação
+                  </span>
+                )}
+              </div>
               {/* BP info line */}
-              {hasBP && totalAmount > 0 && (
+              {(pickedLine || hasBP) && totalAmount > 0 && (
                 <div className="ml-1 flex items-center gap-2 text-[10px] font-mono">
-                  {bp.hasForecastMatch ? (
+                  {pickedLine || bp?.hasForecastMatch ? (
                     <>
-                      <span className="text-muted-foreground">BP: {bp.forecast.toFixed(2)}€</span>
+                      <span className="text-muted-foreground">BP: {budget.toFixed(2)}€</span>
                       <span className="text-muted-foreground">|</span>
                       <span className={remaining <= 0 ? "text-destructive" : "text-success"}>
                         Disp: {remaining.toFixed(2)}€

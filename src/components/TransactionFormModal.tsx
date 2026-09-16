@@ -943,36 +943,34 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     return true;
   };
 
-  // Confirm split (rateio) from disambiguation
-  const confirmSplitFromDisambiguation = () => {
-    const { parentForecast, parentId, siblings } = disambiguationForecast;
-    const parentEvent = events.find((e: any) => e.id === parentId);
-    const pct = +(100 / siblings.length).toFixed(2);
-    const entries: SplitEntry[] = siblings.map((child: any, idx: number) => {
-      const name = parentEvent ? `${parentEvent.name} — ${child.name}` : child.name;
-      const percentage = idx === siblings.length - 1
-        ? +(100 - pct * (siblings.length - 1)).toFixed(2)
-        : pct;
-      return { event_id: child.id, event_name: name, percentage };
-    });
+  /**
+   * D-ERP73 (fase 2, 16/09/2026) — "é custo da tour inteira": a transação passa
+   * a ser lançada UMA vez no MASTER, na linha do Master. A repartição pelas
+   * cidades é virtual, feita no relatório (proração Master→cidades). Antes esta
+   * opção rebentava a despesa em mãe + filhas por cidade, e era o caminho que
+   * escapava à guarda G1 (fatura 113-XP, 04/08/2026).
+   */
+  const confirmMasterFromDisambiguation = () => {
+    const { parentForecast, parentId } = disambiguationForecast;
 
-    setIsSplit(true);
-    setSplitAutoConfigured(true);
-    setSplitMasterEventId(parentId);
-    setSplitExpanded(false);
-    setSplitEntries(entries);
-    setSplitMethod("equal");
+    setIsSplit(false);
+    setSplitAutoConfigured(false);
+    setSplitMasterEventId("");
+    setSplitEntries([]);
 
-    // Fill form fields from the Master's BP forecast data
+    // Move a transação para o Master e vincula à linha do Master
     setForm(prev => ({
       ...prev,
-      event_id: "",
+      event_id: parentId,
       category_id: disambiguationCategoryId,
       description: parentForecast.description || "",
       amount: String(Number(parentForecast.amount) || ""),
       iva_rate: (parentForecast.iva_rate ?? 23) as IvaRate,
       specification: parentForecast.specification || "",
     }));
+    if (typeof parentForecast.id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parentForecast.id)) {
+      setSelectedForecastId(parentForecast.id);
+    }
 
     setShowSplitDisambiguation(false);
     setDisambiguationCategoryId("");
@@ -1085,7 +1083,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       if (splitEventIds.length === 0) return [];
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("event_id, type, category_id, amount")
+        .select("id, event_id, type, category_id, amount, description, status")
         .in("event_id", splitEventIds).is("version_id", null);
       if (error) throw error;
       return data;
@@ -1099,7 +1097,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       if (splitEventIds.length === 0) return [];
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, type, category_id, amount, parent_transaction_id")
+        .select("id, event_id, type, category_id, amount, parent_transaction_id, forecast_id, is_transitory, exclude_from_result, reversed_at, is_hidden, shared_cost_account_id")
         .in("event_id", splitEventIds);
       if (error) throw error;
       return data;
@@ -1199,6 +1197,19 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         ? splitParentUsedTotal
         : childUsed;
 
+      // D-ERP73 (fase 2) — linhas candidatas DESTE evento na rubrica escolhida,
+      // com verba e utilizado POR LINHA (vínculo canónico transactions.forecast_id).
+      const lines = evForecasts
+        .filter((f: any) => f.type === form.type && f.category_id === form.category_id && !!f.id)
+        .map((f: any) => ({
+          id: f.id as string,
+          description: (f.description as string) || "",
+          amount: Number(f.amount || 0),
+          used: splitTransactions
+            .filter((t: any) => t.forecast_id === f.id && countsAsBudgetCommitment(t))
+            .reduce((s: number, t: any) => s + Number(t.amount || 0), 0),
+        }));
+
       result[eventId] = {
         event_id: eventId,
         pl_mode: ev?.pl_mode ?? null,
@@ -1206,6 +1217,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         used,
         hasForecastMatch,
         hasAnyForecasts,
+        lines,
       };
     }
     return result;
@@ -1222,27 +1234,26 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     splitParentUsedTotal,
   ]);
 
-  // Validate split category against parent/child BP rules
-  const splitCategoryBlockReason = useMemo<string | null>(() => {
+  /**
+   * D-ERP73 (fase 2, 16/09/2026) — a antiga trava G1 ("esta categoria já existe
+   * no BP do Master → bloqueado") passa a AVISO. Confundia "a rubrica existe no
+   * BP do Master" com "esta despesa é do Master", que são coisas diferentes: a
+   * mesma rubrica pode legitimamente ter linha no Master E nas cidades (ex.:
+   * 2.2.02 Hospedagem no Deive — "Rateio dayoffs" no Master e as estadias de
+   * cada cidade nas cidades). A isenção `splitAutoConfigured` CAIU: era a fenda
+   * por onde entrou a fatura 113-XP a 04/08/2026.
+   */
+  const splitCategoryMasterNotice = useMemo<string | null>(() => {
     if (!isSplit || !form.category_id || splitEventIds.length === 0) return null;
-    // When auto-configured from sub-event selecting a Master BP category, skip blocking
-    if (splitAutoConfigured) return null;
-
-    // Rule 1: Category already exists in the parent/master event's BP → block
-    if (splitParentEventIds.length > 0 && splitCategoryExistsInParent) {
-      const parentEvent = events.find((e: any) => splitParentEventIds.includes(e.id));
-      const parentName = parentEvent?.name ?? "evento master";
-      return `Esta categoria já existe no BP do ${parentName}. A transação deve ser criada directamente no evento master, que fará o rateio automático para os sub-eventos.`;
-    }
-
-    // Rule 2: removed — now handled as warning only (splitCategoryWarning)
-
-    return null;
-  }, [isSplit, splitAutoConfigured, form.category_id, splitEventIds.length, splitParentEventIds, splitCategoryExistsInParent, events]);
+    if (splitParentEventIds.length === 0 || !splitCategoryExistsInParent) return null;
+    const parentEvent = events.find((e: any) => splitParentEventIds.includes(e.id));
+    const parentName = parentEvent?.name ?? "evento master";
+    return `Esta rubrica também tem linha no BP do ${parentName}. Se o custo é da tour inteira, lance directamente no Master (uma transação, na linha do Master — a repartição pelas cidades é virtual no relatório). Se é de cada cidade, escolha a linha de cada uma abaixo.`;
+  }, [isSplit, form.category_id, splitEventIds.length, splitParentEventIds, splitCategoryExistsInParent, events]);
 
   // Warning (non-blocking): category in all children but not in master
   const splitCategoryWarning = useMemo<string | null>(() => {
-    if (!isSplit || !form.category_id || splitEventIds.length < 2 || splitAutoConfigured) return null;
+    if (!isSplit || !form.category_id || splitEventIds.length < 2) return null;
     if (splitParentEventIds.length === 0) return null;
     if (splitCategoryExistsInParent) return null;
     const allChildrenHaveCategory = splitEventIds.every(eventId =>
@@ -1254,37 +1265,52 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     const selectedCat = categories.find((c: any) => c.id === form.category_id);
     const catLabel = selectedCat ? `${selectedCat.code} ${selectedCat.name}` : "esta categoria";
     return `A categoria "${catLabel}" existe no BP dos sub-eventos mas não no master (${parentName}). A transação será criada normalmente.`;
-  }, [isSplit, splitAutoConfigured, form.category_id, form.type, splitEventIds, splitParentEventIds, splitCategoryExistsInParent, splitForecasts, events, categories]);
+  }, [isSplit, form.category_id, form.type, splitEventIds, splitParentEventIds, splitCategoryExistsInParent, splitForecasts, events, categories]);
 
-  // Check if any split event needs BP bypass.
-  // Rateio Master → validates against the Master bucket as a whole (sum of fatias = totalAmount).
-  // Despesa local (Sub-only line) → validates per-Sub against the Sub bucket.
+  /**
+   * Verba de uma perna: com linha escolhida mede POR LINHA (D-ERP73); sem linha
+   * mantém o comportamento anterior por rubrica (balde Master ou balde local).
+   */
+  const splitEntryBudget = (entry: SplitEntry): { budget: number; used: number; hasMatch: boolean; hasAnyBP: boolean } => {
+    const bp = splitBPInfoByEvent[entry.event_id];
+    const line = entry.forecast_id ? bp?.lines?.find((l) => l.id === entry.forecast_id) : undefined;
+    if (line) return { budget: line.amount, used: line.used, hasMatch: true, hasAnyBP: true };
+    return {
+      budget: bp?.forecast ?? 0,
+      used: bp?.used ?? 0,
+      hasMatch: bp?.hasForecastMatch ?? false,
+      hasAnyBP: bp?.hasAnyForecasts ?? false,
+    };
+  };
+
+  // Check if any split leg needs BP bypass (G4).
   const splitNeedsBypass = useMemo(() => {
-    if (!isSplit || !form.category_id || splitCategoryBlockReason) return false;
+    if (!isSplit || !form.category_id) return false;
     const amount = parseFloat(form.amount) || 0;
     if (amount <= 0) return false;
 
-    // CASE A: rateio Master — the whole transaction consumes the Master bucket
-    if (splitCategoryExistsInParent) {
+    const anyEntryHasLine = splitEntries.some((e) => !!e.forecast_id);
+
+    // CASE A: rateio Master sem linha por perna — o total consome o balde do Master
+    if (splitCategoryExistsInParent && !anyEntryHasLine) {
       const remaining = splitParentForecastTotal - splitParentUsedTotal;
       return amount > remaining + 0.005;
     }
 
-    // CASE B: per-Sub validation against local BP
+    // CASE B: por perna — por LINHA quando há linha escolhida, senão por rubrica
     for (const entry of splitEntries) {
-      const bp = splitBPInfoByEvent[entry.event_id];
-      if (!bp || !bp.hasAnyForecasts) continue;
+      const { budget, used, hasMatch, hasAnyBP } = splitEntryBudget(entry);
+      if (!hasAnyBP) continue;
       const childAmount = +(amount * entry.percentage / 100).toFixed(2);
-      if (!bp.hasForecastMatch) return true;
-      const remaining = bp.forecast - bp.used;
-      if (bp.forecast > 0 && childAmount > remaining + 0.005) return true;
+      if (!hasMatch) return true;
+      const remaining = budget - used;
+      if (budget > 0 && childAmount > remaining + 0.005) return true;
     }
     return false;
   }, [
     isSplit,
     form.category_id,
     form.amount,
-    splitCategoryBlockReason,
     splitCategoryExistsInParent,
     splitParentForecastTotal,
     splitParentUsedTotal,
@@ -1324,18 +1350,18 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           const childAmount = isAbsoluteMode
             ? +(totalAmount * entry.percentage / 100).toFixed(2) // percentage was already computed from absolute
             : +(totalAmount * entry.percentage / 100).toFixed(2);
-          const bp = splitBPInfoByEvent[entry.event_id];
-          const hasBP = bp && bp.hasAnyForecasts;
-          const hasForecastMatch = bp?.hasForecastMatch ?? false;
-          
+          // D-ERP73: com linha escolhida na perna, verba e disponível medem-se
+          // POR LINHA; sem linha, mantém-se a medida por rubrica.
+          const { budget, used, hasMatch: hasForecastMatch, hasAnyBP: hasBP } = splitEntryBudget(entry);
+
           // Determine if this child needs override
           let needsOverride = false;
           if (hasBP) {
             if (!hasForecastMatch) {
               needsOverride = true;
             } else {
-              const remaining = bp.forecast - bp.used;
-              if (bp.forecast > 0 && childAmount > remaining) {
+              const remaining = budget - used;
+              if (budget > 0 && childAmount > remaining) {
                 needsOverride = true;
               }
             }
@@ -1350,12 +1376,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             iva_rate: data.iva_rate,
             event_id: entry.event_id,
             category_id: data.category_id || null,
-            // A FK canónica só desce à filha quando a linha escolhida é do evento dela
-            // (rateio Master: a linha é do Master e fica na mãe).
-            forecast_id:
-              !isPartnerExtra && selectedForecast && (selectedForecast as any).event_id === entry.event_id
-                ? selectedForecastId
-                : null,
+            // D-ERP73 (fase 2): a FK canónica vem da PERNA — cada perna leva a
+            // linha de BP do seu próprio evento, escolhida no painel de rateio.
+            forecast_id: isPartnerExtra ? null : (entry.forecast_id || null),
             supplier_id: data.supplier_id || null,
             account_id: null,
             specification: data.specification || null,
@@ -1397,7 +1420,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           iva_rate: data.iva_rate,
           event_id: null,
           category_id: data.category_id || null,
-          forecast_id: isPartnerExtra ? null : (selectedForecastId || null),
+          // D-ERP73: a mãe é agregado do rateio — não consome verba, logo nunca
+          // leva linha de BP. A verba é consumida pelas filhas, cada uma na sua linha.
+          forecast_id: null,
           supplier_id: data.supplier_id || null,
           account_id: parentAccountId,
           specification: data.specification || null,
@@ -2428,10 +2453,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     // Split validation — bypassed para Caução/Transitória, que sempre vai
     // como lançamento único no Master, ignorando o rateio.
     if (isSplit && !isTransitory) {
-      if (splitCategoryBlockReason) {
-        toast({ title: "Categoria bloqueada para rateio", description: splitCategoryBlockReason, variant: "destructive" });
-        return;
-      }
+      // D-ERP73: a antiga trava G1 (categoria existe no BP do Master) é agora só
+      // aviso — a mesma rubrica pode ter linha no Master E nas cidades.
       if (splitEntries.length < 2) {
         toast({ title: "Selecione pelo menos 2 eventos para rateio", variant: "destructive" });
         return;
@@ -2827,16 +2850,16 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   onInputModeChange={setSplitInputMode}
                 />
               )}
-              {splitCategoryBlockReason && (
-                <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-destructive">
+              {splitCategoryMasterNotice && (
+                <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
                     <AlertTriangle className="h-3.5 w-3.5" />
-                    Categoria bloqueada para rateio
+                    Esta rubrica também existe no BP do Master
                   </div>
-                  <p className="text-xs text-destructive/90 leading-relaxed">{splitCategoryBlockReason}</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{splitCategoryMasterNotice}</p>
                 </div>
               )}
-              {splitCategoryWarning && !splitCategoryBlockReason && (
+              {splitCategoryWarning && (
                 <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 space-y-1">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-warning">
                     <AlertTriangle className="h-3.5 w-3.5" />
@@ -2846,7 +2869,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 </div>
               )}
               {/* BP Override toggle for split mode */}
-              {splitNeedsBypass && !splitCategoryBlockReason && (
+              {splitNeedsBypass && (
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -2857,7 +2880,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   </button>
                 </div>
               )}
-              {plOverride && splitNeedsBypass && !splitCategoryBlockReason && (
+              {plOverride && splitNeedsBypass && (
                 <div>
                   <label className="mb-1 block text-xs font-medium text-warning">Justificação *</label>
                   <input
@@ -4326,7 +4349,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   <X className="h-4 w-4" />
                 </button>
               )}
-              <button type="submit" disabled={createMutation.isPending || !!(isSplit && !isTransitory && splitCategoryBlockReason)}
+              <button type="submit" disabled={createMutation.isPending}
                 className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50">
                 {createMutation.isPending ? "A guardar…" : "Criar Transação"}
               </button>
@@ -4341,10 +4364,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               <div className="space-y-1">
                 <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
                   <Split className="h-4 w-4 text-primary" />
-                  Rateio ou Exclusivo?
+                  Custo da tour ou desta cidade?
                 </h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Esta categoria existe no BP do evento Master (rateio). Como deseja lançar esta despesa?
+                  Esta rubrica existe no BP do evento Master. Este custo serve a tour inteira ou é só desta cidade?
                 </p>
               </div>
 
@@ -4369,15 +4392,16 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
                     <button
                       type="button"
-                      onClick={confirmSplitFromDisambiguation}
+                      onClick={confirmMasterFromDisambiguation}
                       className="w-full rounded-lg border-2 border-primary/30 bg-primary/5 p-3 text-left transition-all hover:border-primary/60 hover:bg-primary/10"
                     >
                       <div className="flex items-center gap-2">
                         <Split className="h-4 w-4 text-primary shrink-0" />
                         <div>
-                          <p className="text-sm font-medium text-foreground">Rateio — Dividir por {siblingCount} cidades</p>
+                          <p className="text-sm font-medium text-foreground">Custo da tour — lançar no Master ({parentEvent?.name})</p>
                           <p className="text-[11px] text-muted-foreground mt-0.5">
-                            O valor será dividido por todos os sub-eventos. Usa os dados do BP Master.
+                            Uma transação única no Master, na linha do BP do Master. A repartição pelas {siblingCount} cidades
+                            é virtual e acontece nos relatórios (DRE e BP).
                           </p>
                         </div>
                       </div>
