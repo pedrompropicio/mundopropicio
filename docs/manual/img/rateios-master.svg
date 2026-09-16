@@ -1,0 +1,9 @@
+<svg viewBox="0 0 640 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" style="font-family: inherit; color: hsl(var(--foreground));">
+  <title id="title">Rateio pelo Master</title><desc id="desc">Uma transação no Master é repartida virtualmente por várias cidades.</desc>
+  <defs><marker id="arrow-master" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10z" fill="hsl(var(--primary))"/></marker></defs>
+  <rect x="125" y="24" width="390" height="74" rx="10" fill="hsl(var(--primary) / .08)" stroke="hsl(var(--primary))" stroke-width="2"/>
+  <g fill="none" stroke="hsl(var(--primary))" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#arrow-master)"><path d="M320 98 V150 H105 V198"/><path d="M320 98 V198"/><path d="M320 150 H535 V198"/></g>
+  <g fill="none" stroke="hsl(var(--border))" stroke-width="2"><rect x="25" y="198" width="160" height="60" rx="10"/><rect x="240" y="198" width="160" height="60" rx="10"/><rect x="455" y="198" width="160" height="60" rx="10"/><rect x="175" y="282" width="290" height="34" rx="9" stroke-dasharray="6 5"/></g>
+  <g fill="currentColor" text-anchor="middle" font-size="16"><text x="320" y="54"><tspan x="320">Transação no Master</tspan><tspan x="320" dy="23">linha do BP do Master</tspan></text><text x="105" y="234">Cidade A</text><text x="320" y="234">Cidade B</text><text x="535" y="234">Cidade C</text><text x="320" y="305" font-size="14" fill="hsl(var(--muted-foreground))">sem transações nas cidades</text></g>
+  <text x="320" y="145" text-anchor="middle" fill="hsl(var(--muted-foreground))" font-size="14">parte virtual ÷N</text>
+</svg>
