@@ -1476,8 +1476,27 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           ? usedByForecastId[lineForecast.id] || 0
           : usedBudgetByCategory[budgetKey] || 0;
         const remaining = forecastTotal - usedTotal;
-        // Com desdobramento de custo partilhado, quem consome verba é a PERNA DA MP.
-        const newAmount = mpLegNetAmount;
+        // ============================================================
+        // Desdobramento do custo partilhado (D-ERP69) — SEMPRE POR LINHA.
+        // No caminho "Dividir por IVA" esta mutação corre UMA VEZ POR LINHA e
+        // `data.amount` é a base DAQUELA linha (`form.amount` tem a SOMA das bases).
+        // Portanto tudo o que decide verba, repartição e perna de terceiros lê
+        // `data.amount` — nunca `form.amount`. Sem desdobramento, o valor comparado
+        // com a verba é o da linha, exactamente como antes.
+        // Em multi-IVA a parte de terceiros aplica-se a cada linha pela mesma
+        // percentagem (o modo valor absoluto é recusado em handleSubmit).
+        // ============================================================
+        const lineTotalNet = parseFloat(data.amount) || 0;
+        const sharedCostSplitEligible =
+          !!sharedCostAccountId && !sharedCostSplitUnavailableReason && sharedCostThirdValue.trim() !== "";
+        const lineThirdNet = sharedCostSplitEligible
+          ? computeThirdPartyNet(lineTotalNet, sharedCostThirdMode, sharedCostThirdValue)
+          : 0;
+        const lineSplitActive = lineThirdNet > 0 && lineThirdNet < lineTotalNet;
+        // O resto do arredondamento cai na perna da MP, linha a linha.
+        const lineMpNet = lineSplitActive ? Number((lineTotalNet - lineThirdNet).toFixed(2)) : lineTotalNet;
+        // Com desdobramento, quem consome verba é a PERNA DA MP desta linha.
+        const newAmount = lineMpNet;
         const fitsWithinBudget = forecastTotal > 0 && newAmount <= remaining + 0.005;
         const autoApproved = hasForecastMatch && hasApprovedBPLine && fitsWithinBudget;
 
