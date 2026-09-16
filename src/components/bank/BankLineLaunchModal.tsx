@@ -39,6 +39,7 @@ import {
   type BankLineRule,
   type BankRuleAction,
 } from "@/lib/bank-statement/rules";
+import type { FeeLeg } from "@/lib/bank-statement/transfer-fees";
 
 const TRANSFER_CATEGORY_CODE = "10.3";
 /** Taxas bancárias (D-ERP30) — também as taxas de transferência (D-ERP74). */
