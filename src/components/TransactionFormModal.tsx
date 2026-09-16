@@ -2238,6 +2238,37 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       }
     }
 
+    // ===== Desdobramento do custo partilhado com terceiros (D-ERP69) =====
+    if (sharedCostAccountId && sharedCostThirdValue.trim() !== "" && !sharedCostSplitUnavailableReason) {
+      const totalAmt = parseFloat(form.amount) || 0;
+      if (sharedCostThirdNet <= 0 || sharedCostThirdNet >= totalAmt) {
+        toast({
+          title: "Parte de terceiros inválida",
+          description: `Tem de ser maior que 0 e menor que o total (${totalAmt.toFixed(2)} € s/IVA). A zero é uma despesa normal; pelo total inteiro basta marcar a linha com a conta de circuito, sem desdobrar.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      if (useInstallments) {
+        toast({
+          title: "Não é possível combinar parcelas com parte de terceiros",
+          description: "Lança a fatura em parcelas primeiro e marca depois a parte de terceiros na transação em causa.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!sharedCostThirdEventId) {
+        toast({
+          title: "A perna de terceiros exige um evento",
+          description: "O blocker de fecho procura as contas de circuito pelas transações com evento. Sem evento, o circuito passa o fecho sem aviso e a posição nunca é conferida.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+
+
     // ===== Ramo 10.1 · Capital (AEP) — sócio OBRIGATÓRIO =====
     // Um movimento de capital tem sempre um sócio associado (associado da
     // Associação em Participação). Sem sócio, o dado fica incompleto.
