@@ -564,6 +564,30 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
             </ul>
           </div>
 
+          {feePlan && (
+            <div className="rounded-lg border border-primary/40 bg-primary/5 p-3">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                Taxas da transferência {feePlan.ref}
+              </p>
+              <p className="mt-1 text-xs">
+                Custo do evento da transferência-mãe · rubrica 10.6.01 · {feePlan.motherDescription}
+              </p>
+              <ul className="mt-2 space-y-1 text-xs">
+                {feePlan.legs.map((leg) => (
+                  <li key={leg.key}>
+                    <strong>{leg.label}</strong> — base {formatCurrency(leg.amount)} · IVA {leg.ivaRate}% ·
+                    pago {formatCurrency(leg.paidAmount)} ({leg.lineIds.length} linha(s))
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[10px] text-muted-foreground">
+                Cria {feePlan.legs.length} transação(ões), cada uma ligada às suas linhas. Nada se edita
+                aqui — só a linha de BP, se o evento a exigir.
+              </p>
+            </div>
+          )}
+
+          {!feePlan && (
           <div className="grid gap-3 md:grid-cols-2">
             <div>
               <Label>O que é</Label>
