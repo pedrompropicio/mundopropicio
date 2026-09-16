@@ -2294,3 +2294,22 @@ Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a 
 **Ficheiros:** `src/components/TransactionSplitConfig.tsx` (campo `forecast_id` em `SplitEntry`, selector por perna, verba/disponível por linha), `src/components/TransactionFormModal.tsx` (query das linhas por evento, `splitBPInfoByEvent.lines`, `splitEntryBudget`, `forecast_id` da filha vindo da perna, mãe sem `forecast_id`, `splitCategoryMasterNotice`, `confirmMasterFromDisambiguation`).
 
 **Estado:** vigente. R3 por fazer.
+
+## D-ERP74 — Taxas de transferência identificadas pela referência são custo do evento da transferência-mãe (16/09/2026)
+
+**Contexto:** Uma transferência internacional emitida no Santander chega ao extrato em várias linhas: a `TRF.CRÉD.N.SEPA+EMITIDA <ref>` (o pagamento, que concilia com a transação do sistema) e depois `TRF.CRÉD.N.SEPA+(DESP.SHA) <ref>`, `DESPESAS SWIFT <ref>`, `IMP.S/VALOR ACRESCENTADO <ref>` e `IMP.DE SELO <ref>`. Estas últimas ficavam `unmatched` sem qualquer pista de a que pagamento pertenciam, e quem lançava tinha de descobrir o evento à mão. Caso real de 15/09/2026: ref. `001803486960041656` (mãe: Comissão Durex 750,00 €, Anitta EDA 2026, com linha de BP) e `001803486960041657` (mãe: Per diems Equipa EDA 1.806,25 €, Anitta EDA 2026, **sem** linha de BP).
+
+**Decisão:**
+
+1. **A referência é o elo.** As linhas de taxa agrupam-se pela referência numérica no fim da descrição e ligam-se à linha-mãe `TRF.CRÉD.N.SEPA+EMITIDA <ref>` já conciliada na **mesma conta**.
+2. **A taxa é custo do evento da mãe.** `event_id` e `forecast_id` **herdam-se da transação-mãe** — a taxa existe porque aquele pagamento existiu. Rubrica **10.6.01**, `is_transitory` false.
+3. **Lotes SEPA e comissões de gestão continuam sem evento (D-ERP30).** Não há mãe única: um lote paga N faturas de N eventos e a comissão de gestão é da conta, não de um evento.
+4. **Duas pernas, por causa do IVA.** SWIFT + IVA numa transação (`amount` = valor do SWIFT, `iva_rate` 23, `paid_amount` = soma); DESP.SHA + imposto de selo noutra (`amount` = soma, `iva_rate` 0). Não se mistura base tributável com o que não a tem.
+5. **Linha de BP na mesma regra do resto (D1+D8).** Mãe com evento `with_bp` e sem `forecast_id` → o modal exige a escolha antes de gravar.
+6. **Nada de regra em `bank_line_rules`.** O padrão do texto é sempre o mesmo mas o evento muda a cada transferência: uma regra reutilizaria o evento errado.
+7. **Nada órfão (#154).** Cada perna é inserida e ligada às suas linhas em sequência compensada: se a ligação falhar, a transação é apagada; se a segunda perna falhar, a primeira é revertida.
+8. **A regra continua a propor, a pessoa confirma (D-ERP29).** O botão "Lançar taxas (N linhas)" abre o formulário preenchido; nada é criado sem clique. Em paralelo, a lista de linhas por explicar passa a mostrar `Regra: <nome> → <ação legível>` quando uma regra ativa casa — informação, não automatismo.
+
+**Ficheiros:** `src/lib/bank-statement/transfer-fees.ts` (novo: `classifyFeeLine`, `extractMotherRef`, `buildFeeGroups`, `buildFeeLegs`), `src/lib/bank-statement/rules.ts` (`describeRuleAction`), `src/components/bank/BankLineLaunchModal.tsx` (`feePlan`, `insertAndLinkLines`, `revertLeg`, `confirmFees`), `src/pages/BankReconciliation.tsx` (proposta da regra por linha, grupos de taxa, botão "Lançar taxas").
+
+**Estado:** vigente. Não corrido em Live — sem dados criados.

@@ -209,6 +209,29 @@ depois de as três camadas falharem.
   faturas de plataformas; lançar como despesa contaria duas vezes.
 - **Taxas bancárias:** comissão de gestão, imposto de selo e os selos/comissões
   dos lotes SEPA vão para 10.6.01, sem evento.
+- **Regra visível antes do clique (#187):** na lista "Linhas do banco por explicar",
+  cada linha `unmatched` em que uma `bank_line_rules` **ativa** casa mostra por baixo
+  da descrição `Regra: <nome> → <ação legível>` ("despesa 2.2.02 · Hospedagem · Braga",
+  "transferência p/ Google Ads — conta corrente"). É **só texto**: usa o mesmo
+  `findMatchingRule` do modal (`describeRuleAction` para o rótulo) e nada é criado.
+- **Taxas de transferência internacional pela referência (D-ERP74):** as linhas
+  `TRF.CRÉD.N.SEPA+(DESP.SHA) <ref>`, `DESPESAS SWIFT <ref>`,
+  `IMP.S/VALOR ACRESCENTADO <ref>` e `IMP.DE SELO <ref>` agrupam-se pela **referência
+  numérica no fim da descrição** (`src/lib/bank-statement/transfer-fees.ts`). Procura-se
+  a **linha-mãe** `TRF.CRÉD.N.SEPA+EMITIDA <ref>` já `matched` na mesma conta; com mãe,
+  o grupo mostra `Taxa da transferência <ref> → <descrição da mãe> · <evento>` e um botão
+  **"Lançar taxas (N linhas)"** que abre o `BankLineLaunchModal` já preenchido, só para
+  confirmar. Cria **duas** transações: (1) SWIFT + IVA → `amount` = valor do SWIFT,
+  `iva_rate` 23, `paid_amount` = soma dos dois; (2) DESP.SHA + imposto de selo → `amount`
+  = soma, `iva_rate` 0. Ambas despesa em 10.6.01, data das linhas, conta do extrato,
+  `payment_method` `transfer`, `is_transitory` false, **`event_id` e `forecast_id`
+  herdados da transação-mãe**. Mãe com evento `with_bp` e sem `forecast_id` → o modal
+  **exige** a linha de BP (`LinkBpLineDialog` em `pickOnly`) antes de gravar. Cada perna
+  é inserida e ligada às suas linhas por `insertAndLinkLines`, que **apaga a transação**
+  se a ligação falhar, e a perna anterior é revertida se a seguinte rebentar (#154):
+  nunca fica transação órfã. Sem mãe conciliada, o grupo aparece apenas com a nota
+  "Taxa de transferência sem mãe conciliada" e o Lançar normal. **Não** se cria regra em
+  `bank_line_rules` para estes casos: o evento vem da mãe, não do padrão.
 
 As camadas de conciliação, a liquidação, as listas de pagamento e os
 Recorrentes ficaram intocados.
