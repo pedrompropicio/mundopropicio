@@ -3834,6 +3834,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 onValueChange: setSharedCostThirdValue,
                 onEventChange: setSharedCostThirdEventId,
                 unavailableReason: sharedCostSplitUnavailableReason,
+                multiIvaLineCount: pendingIvaSplit?.length ?? 0,
               }}
             />
           )}
