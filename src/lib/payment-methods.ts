@@ -49,6 +49,45 @@ export const PAYMENT_METHOD_ICONS: Record<PaymentMethod, LucideIcon> = {
   compensation: Scale,
 };
 
+/**
+ * Pagamento de Serviços (referência MB): Entidade tem 5 dígitos e Referência 9.
+ * ESPELHO do CHECK `transactions_service_payment_requires_mb` (NOT VALID em
+ * Live) e da mesma verificação em `supabase/functions/update-transaction`.
+ * Mensagem única — nunca mostrar o erro técnico da base ao utilizador.
+ */
+export const SERVICE_PAYMENT_ENTITY_PATTERN = /^\d{5}$/;
+export const SERVICE_PAYMENT_REFERENCE_PATTERN = /^\d{9}$/;
+export const SERVICE_PAYMENT_CHECK_CONSTRAINT = "transactions_service_payment_requires_mb";
+export const SERVICE_PAYMENT_FIELDS_MESSAGE =
+  "Pagamento de Serviços exige Entidade (5 dígitos) e Referência (9 dígitos)";
+
+/** Devolve `null` quando está válido, ou a mensagem única quando não está. */
+export function validateServicePaymentFields(input: {
+  payment_method?: string | null;
+  payment_entity?: string | null;
+  payment_reference?: string | null;
+}): string | null {
+  if (input.payment_method !== PAYMENT_METHOD.service_payment) return null;
+  const entity = (input.payment_entity ?? "").trim();
+  const reference = (input.payment_reference ?? "").trim();
+  if (!SERVICE_PAYMENT_ENTITY_PATTERN.test(entity)) return SERVICE_PAYMENT_FIELDS_MESSAGE;
+  if (!SERVICE_PAYMENT_REFERENCE_PATTERN.test(reference)) return SERVICE_PAYMENT_FIELDS_MESSAGE;
+  return null;
+}
+
+/** True quando o erro é a rejeição do CHECK da base (23514 com esta constraint). */
+export function isServicePaymentCheckViolation(err: unknown): boolean {
+  const e = err as { code?: string; message?: string } | null;
+  const text = `${e?.code ?? ""} ${e?.message ?? ""}`;
+  return text.includes(SERVICE_PAYMENT_CHECK_CONSTRAINT);
+}
+
+/** Mensagem a mostrar: troca o erro técnico do CHECK pela frase do domínio. */
+export function friendlyPaymentError(err: unknown): string {
+  if (isServicePaymentCheckViolation(err)) return SERVICE_PAYMENT_FIELDS_MESSAGE;
+  return (err as { message?: string } | null)?.message ?? "Erro desconhecido";
+}
+
 export function isPaymentMethod(value: unknown): value is PaymentMethod {
   return typeof value === "string" && (PAYMENT_METHODS as readonly string[]).includes(value);
 }
