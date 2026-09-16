@@ -514,6 +514,7 @@ export default function BankReconciliation() {
   }
 
   /** Linhas do ficheiro que já estão dentro do saldo implantado. */
+  // (helper de dias úteis definido no fim do módulo)
   const preCutoffParsed = useMemo(
     () => (parsed ? parsed.lines.filter((l) => isPreCutoff(l.bookingDate)) : []),
     [parsed, cutoff],
