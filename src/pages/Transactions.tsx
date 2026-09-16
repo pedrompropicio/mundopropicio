@@ -176,7 +176,7 @@ export default function Transactions() {
   const { data: suppliersList = [] } = useQuery({
     queryKey: ["suppliers-list-filter"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("id, name").eq("is_active", true).order("name");
+      const { data, error } = await supabase.from("suppliers").select("id, name, trade_name").eq("is_active", true).order("name");
       if (error) throw error;
       return data ?? [];
     },
@@ -249,7 +249,7 @@ export default function Transactions() {
       return await fetchAllPaged<any>((from, to) =>
         supabase
           .from("transactions")
-          .select("*, events(name, status, parent_event_id, event_type), account_categories(code, name), suppliers:suppliers!transactions_supplier_id_fkey(name), financial_accounts:financial_accounts!transactions_account_id_fkey(name)")
+          .select("*, events(name, status, parent_event_id, event_type), account_categories(code, name), suppliers:suppliers!transactions_supplier_id_fkey(name, trade_name), financial_accounts:financial_accounts!transactions_account_id_fkey(name)")
           .order("due_date", { ascending: true, nullsFirst: false })
           .order("id", { ascending: true })
           .range(from, to)
@@ -725,6 +725,7 @@ export default function Transactions() {
       t.type,
       (t.events as any)?.name,
       (t.suppliers as any)?.name,
+      (t.suppliers as any)?.trade_name,
       (t.financial_accounts as any)?.name,
       cat.code,
       cat.name,
@@ -1853,7 +1854,7 @@ export default function Transactions() {
           chips.push({ key: "accounts", label: `Conta: ${label}`, onRemove: () => setSelectedAccountIds(new Set()) });
         }
         if (selectedSupplierIds.size > 0) {
-          const names = suppliersList.filter((s: any) => selectedSupplierIds.has(s.id)).map((s: any) => s.name);
+          const names = suppliersList.filter((s: any) => selectedSupplierIds.has(s.id)).map((s: any) => s.trade_name ? `${s.name} (${s.trade_name})` : s.name);
           const label = names.length <= 2 ? names.join(", ") : `${names.length} fornecedores`;
           chips.push({ key: "suppliers", label: `Fornecedor: ${label}`, onRemove: () => setSelectedSupplierIds(new Set()) });
         }
