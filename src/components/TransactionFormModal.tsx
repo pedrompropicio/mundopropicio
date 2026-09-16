@@ -3558,6 +3558,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   <span>Utilizado: {used.toFixed(2)}€</span>
                   <span className={remaining < 0 ? "text-destructive" : "text-success"}>Disponível: {remaining.toFixed(2)}€</span>
                 </div>
+                {sharedCostSplitActive && (
+                  <p className="text-[10px] text-muted-foreground">
+                    A verba é comparada com a <strong>parte da MP</strong> ({newAmount.toFixed(2)} € s/IVA);
+                    a parte de terceiros não consome verba.
+                  </p>
+                )}
                 {exceedsForcast && (
                   <p className="flex items-center gap-1.5 text-xs text-warning font-medium pt-1">
                     <AlertTriangle className="h-3.5 w-3.5" />
