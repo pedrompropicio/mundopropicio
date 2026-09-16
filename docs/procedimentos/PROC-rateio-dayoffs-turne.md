@@ -56,7 +56,7 @@ O dinheiro entra no banco contra a conta corrente do circuito: par de transferê
 2. Ajustar as linhas de BP ao valor real.
 3. Conferir a conta de circuito: **fica a zero**.
 
-⚠️ **Saldo diferente de zero no fecho é erro** — falta um lançamento de custo por rubrica, falta uma devolução, ou a quota da MP nunca foi apurada. Nada no sistema obriga este passo: `event_close_blockers` não o testa e `raise_forecast_budget` só sobe linhas. O painel avisa; a decisão é de gestão.
+⚠️ **Saldo diferente de zero no fecho é erro** — falta um lançamento de custo por rubrica, falta uma devolução, ou a quota da MP nunca foi apurada. Desde 16/09/2026 o fecho do evento **bloqueia** (`event_close_blockers`, chave `circuit_accounts`, severidade hard) quando uma conta de circuito com movimentos no evento, no Master ou nas cidades tem posição ≠ 0 (tolerância 0,01 €). **Limite:** o bloqueio só encontra a conta pelas transações COM evento — um movimento do circuito sem `event_id` não é apanhado; conferir sempre o extrato da conta.
 
 ## Passo 6 — Conferir
 

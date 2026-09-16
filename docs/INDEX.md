@@ -46,6 +46,10 @@
 | Custo partilhado com terceiros (rateio) | `procedimentos/PROC-rateio-dayoffs-turne.md` |
 | Arranque de chat (moldes de mensagem inicial + regra de fecho) | `procedimentos/PROC-arranque-chat.md` |
 
+## Manual de Orientação (em construção)
+
+Artigos-fonte em `docs/manual/*.md`, um por capítulo. Cada secção leva um bloco ```ajuda (id, tooltip, ecras, perfis, fontes) que o importador lê para a base e que alimenta o `/ajuda`, o painel lateral e os tooltips. Primeiro capítulo: `docs/manual/rateios.md` (16/09/2026). Regra: o manual só descreve o que o ecrã faz hoje; o que está decidido mas por implementar fica fora ou em aviso ⚠️.
+
 ## Módulo Carreira Artística (empresa Social Artists)
 
 Não é uma frente com `estado-*.md` próprio: vive em `plataforma-e-infra`. Antes de mexer,
