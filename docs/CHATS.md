@@ -63,7 +63,7 @@ Cria chats com mensagem de arranque (`procedimentos/PROC-arranque-chat.md`), man
 
 **Abertos:** `fecho-e-socios` · `bp-verbas-e-rateio` · `vinculo-bp-transacoes` · `ticketing-e-receita` · `audience-meta` · `audience-google` · `crm-portal-e-leads` · `plataforma-e-infra` · `financeiro-e-tesouraria` · `gestao-de-chats` · `coala-portal` · `entrada-dados-erp` · `bp-coala-2027` · `bp-ghanem-2027` · `bp-deive-leonardo` · `fecho-anitta-2026` · `fecho-coala-2026` · `fecho-ivete-clareou-2026`
 
-**Frentes ainda sem chat:** `ticketing-e-receita` · `plataforma-e-infra`
+**Frentes ainda sem chat:** nenhuma — as 9 frentes estão todas abertas (16/09/2026).
 
 ## Ficheiro de estado por chat
 
