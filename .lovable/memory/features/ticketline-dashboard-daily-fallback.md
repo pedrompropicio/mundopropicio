@@ -10,3 +10,9 @@ Implementação (v2.29, 2026-08-22):
 - Parser `_shared/ticketline-dashboard-daily-parser.ts`: colunas "Total Vendas" (fallback "Total Geral"), meses PT/EN, validação bloqueante da linha TOTAL vs soma dos dias.
 - Import: full-replace em `ticketline_daily_sales` (delete + insert, dias a zero omitidos) e `ticketline_sync_config.daily_fallback_active=true`. NÃO toca em `ticket_sales` desses eventos (fica congelado). Caminho `.xlsx` normal põe a flag a false. Run: success, `source_mode="dashboard_daily"`.
 - RPCs `get_sales_position`, `get_sales_position_by_provider`, `get_daily_sales_series`: eventos com `daily_fallback_active` lêem janelas E total de `ticketline_daily_sales` (provider 'Ticketline') e ignoram `ticket_sales`. Nunca misturar fontes no mesmo evento.
+
+Regra nova (v2.41, 2026-09-16, issue #184) — CAPTURA e LEITURA são independentes:
+- `capture_day` (`runCaptureDay`) cobre TODOS os configs `enabled = true` da mesma company do `configId`, independentemente de `daily_fallback_active`. Escreve sempre em `ticketline_daily_sales`. É rede de segurança: se o `.xlsx` voltar a devolver HTML, a série diária já está lá.
+- `daily_fallback_active` decide APENAS a precedência de LEITURA (`get_daily_sales_series`, `get_sales_position`, `get_sales_position_by_provider`, `vw_event_daily_sales`) — inalterada.
+- A flag só DESCE por decisão humana (UI ou SQL). O caminho `.xlsx` com sucesso deixou de a pôr a `false` (era o único sítio; anulava a captura e deixou 5 cidades do Ghanem sem vendas de 14/09 a 16/09).
+- Sem alvos, `capture_day` grava uma corrida `status = "skipped"` em `ticketline_sync_runs` com `error_message` explicativo — já não devolve 200 sem rasto.
