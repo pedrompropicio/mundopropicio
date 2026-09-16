@@ -541,14 +541,52 @@ export default function BankReconciliation() {
     [parsed, cutoff],
   );
 
-  /** Último extrato da conta que fecha ANTES do início do ficheiro. */
-  const prevStatement = useMemo(() => {
-    if (!parsedPeriodFrom) return null;
-    const before = (statements as any[])
-      .filter((s) => s.period_to && String(s.period_to).slice(0, 10) < parsedPeriodFrom)
-      .sort((a, b) => String(a.period_to).localeCompare(String(b.period_to)));
-    return before.length > 0 ? before[before.length - 1] : null;
-  }, [statements, parsedPeriodFrom]);
+  /**
+   * Ramo 2 da cascata: a ÚLTIMA LINHA importada da conta com
+   * `booking_date < period_from` do ficheiro. Comparar com o
+   * `closing_balance` do extrato anterior falhava quando os períodos se
+   * sobrepunham (extrato 14→16 já importado, ficheiro 16→17 a entrar: o
+   * fecho do 14→16 já inclui os movimentos de 16 e a comparação era falsa).
+   * A referência certa é o saldo após o último movimento realmente
+   * importado antes do início do ficheiro.
+   */
+  const needsPrevLine = !!parsed && !hasCutoffLines && !!parsedPeriodFrom;
+  const { data: prevDayLines } = useQuery({
+    queryKey: ["bank-recon-prev-lines", accountId, parsedPeriodFrom],
+    enabled: !!accountId && needsPrevLine,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bank_statement_lines")
+        .select("booking_date, amount, balance_after")
+        .eq("financial_account_id", accountId)
+        .lt("booking_date", parsedPeriodFrom as string)
+        .order("booking_date", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return (data ?? []) as { booking_date: string; amount: number; balance_after: number | null }[];
+    },
+  });
+
+  /**
+   * Do lote de linhas anteriores fica a última do dia mais recente. Como não
+   * há coluna de ordem dentro do dia, reconstrói-se a cadeia: a última linha
+   * do dia é a única cujo `balance_after` não é preciso por nenhuma irmã
+   * (`balance_after[j] - amount[j]` = saldo anterior de j). Movimentos são
+   * únicos por conta (line_hash), por isso a cadeia é fechada.
+   */
+  const lastPrevLine = useMemo(() => {
+    if (!prevDayLines || prevDayLines.length === 0) return null;
+    const maxDate = prevDayLines[0].booking_date; // vem ordenado desc
+    const dayLines = prevDayLines.filter((l) => l.booking_date === maxDate);
+    const cents = (v: number) => Math.round(v * 100);
+    const needs = new Set(
+      dayLines.map((l) => cents(Number(l.balance_after ?? 0)) - cents(Number(l.amount ?? 0))),
+    );
+    const last =
+      dayLines.find((l) => !needs.has(cents(Number(l.balance_after ?? 0)))) ??
+      dayLines[dayLines.length - 1];
+    return { bookingDate: maxDate, balanceAfter: Number(last.balance_after ?? 0) };
+  }, [prevDayLines]);
 
   /** Véspera de `period_from` — só usada no 3.º ramo da cascata. */
   const eveOfPeriodFrom = useMemo(() => {
