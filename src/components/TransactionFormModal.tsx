@@ -191,6 +191,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [partnerExtraPartialAmount, setPartnerExtraPartialAmount] = useState("");
   const [isTransitory, setIsTransitory] = useState(false);
   const [isExcludeFromResult, setIsExcludeFromResult] = useState(false);
+  // Custo partilhado com terceiros (D-ERP69). A imposição de exclude_from_result
+  // é do trigger `force_exclude_from_result_for_shared_cost` — aqui só se reflecte.
+  const [sharedCostAccountId, setSharedCostAccountId] = useState("");
+  const [sharedCostCounterpartyId, setSharedCostCounterpartyId] = useState("");
   // Confidencial: só visível a quem tem a permissão de ver confidenciais.
   const [isConfidential, setIsConfidential] = useState(false);
   // Shortcut "Caução / Transitória": ativa is_transitory + abre selector "Pago por".
@@ -1305,7 +1309,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             split_amount: isAbsoluteMode ? childAmount : null,
             parent_transaction_id: "", // placeholder, set after parent insert
             is_transitory: isTransitory || isPartnerExtra,
-            exclude_from_result: isExcludeFromResult,
+            exclude_from_result: isExcludeFromResult || !!sharedCostAccountId,
+            shared_cost_account_id: sharedCostAccountId || null,
+            shared_cost_counterparty_id: sharedCostAccountId ? (sharedCostCounterpartyId || null) : null,
             is_confidential: isConfidential,
             payment_method: data.payment_method || "transfer",
             payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
@@ -1346,7 +1352,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
            parent_transaction_id: null,
            split_mode: isAbsoluteMode ? "absolute" : "percentage",
            is_transitory: isTransitory || isPartnerExtra,
-          exclude_from_result: isExcludeFromResult,
+          exclude_from_result: isExcludeFromResult || !!sharedCostAccountId,
+          shared_cost_account_id: sharedCostAccountId || null,
+          shared_cost_counterparty_id: sharedCostAccountId ? (sharedCostCounterpartyId || null) : null,
           is_confidential: isConfidential,
           invoice_ref: data.invoice_ref.trim() || null,
           payment_method: data.payment_method || "transfer",
@@ -1488,7 +1496,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           is_reimbursement: data.is_reimbursement,
           reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
           is_transitory: principalIsTransitory,
-          exclude_from_result: isExcludeFromResult,
+          exclude_from_result: isExcludeFromResult || !!sharedCostAccountId,
+          shared_cost_account_id: sharedCostAccountId || null,
+          shared_cost_counterparty_id: sharedCostAccountId ? (sharedCostCounterpartyId || null) : null,
           is_confidential: isConfidential,
           invoice_ref: data.invoice_ref.trim() || null,
           invoice_group_id: sharedInvoiceGroupId,
@@ -1639,7 +1649,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               payment_date: null,
               is_reimbursement: false,
               is_transitory: principalIsTransitory,
-              exclude_from_result: isExcludeFromResult,
+              exclude_from_result: isExcludeFromResult || !!sharedCostAccountId,
+              shared_cost_account_id: sharedCostAccountId || null,
+              shared_cost_counterparty_id: sharedCostAccountId ? (sharedCostCounterpartyId || null) : null,
               is_confidential: isConfidential,
               invoice_ref: data.invoice_ref.trim() || null,
               payment_method: data.payment_method || "transfer",
@@ -3586,6 +3598,21 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             </div>
           )}
 
+          {/* Custo partilhado com terceiros (D-ERP69) — só despesas */}
+          {form.type === "expense" && (
+            <SharedCostFields
+              accountId={sharedCostAccountId}
+              counterpartyId={sharedCostCounterpartyId}
+              onChange={({ accountId, counterpartyId }) => {
+                setSharedCostAccountId(accountId);
+                setSharedCostCounterpartyId(accountId ? counterpartyId : "");
+                if (accountId) setIsExcludeFromResult(true);
+              }}
+              grossAmount={calcWithIva(parseFloat(form.amount) || 0, form.iva_rate as any)}
+              suppliers={suppliers as any}
+            />
+          )}
+
           {/* Reimbursement toggle — only for expenses */}
           {form.type === "expense" && (
             <div className="space-y-2">
@@ -3661,7 +3688,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 {(authIsAdmin || authIsManager) && !isTransitory && !isPartnerExtra && (
                 <button
                   type="button"
-                  onClick={() => setIsExcludeFromResult(!isExcludeFromResult)}
+                  disabled={!!sharedCostAccountId}
+                  title={sharedCostAccountId ? "Imposto pelo custo partilhado com terceiros. Limpe a conta de circuito para poder desligar." : undefined}
+                  onClick={() => { if (!sharedCostAccountId) setIsExcludeFromResult(!isExcludeFromResult); }}
                   className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                     isExcludeFromResult
                       ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 ring-1 ring-sky-500/30"
