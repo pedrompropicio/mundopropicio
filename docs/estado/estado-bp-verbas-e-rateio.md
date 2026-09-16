@@ -27,7 +27,10 @@ Receitas manuais continuam como `event_forecasts` com `type='income'`. Totais e 
 Nada em execução.
 
 ## Próximo passo concreto
-1. **Marcar as duas linhas de hotel do Deive com a conta de circuito depois de pagas** (926,98 Vila Galé e 525,94 Meliã) e lançar a posição na conta "Acerto Turnê · Deive Leonardo Europa". Enquanto estiverem `approved` e não pagas, o espelho não nasce.
+1. **Fase 2 do D-ERP72 — linha de BP por perna no painel de rateio.** Hoje o painel escolhe eventos e percentagens mas não tem onde escolher a linha de BP de cada perna. Sem isso a R1 não fica completa e a R3 não pode entrar.
+2. **Fase 3 do D-ERP72 — estreitar a isenção da trava** para valer só em parcelas (`installment_group_id IS NOT NULL`), nas quatro camadas. Depende da fase 2.
+3. **Corrigir os dados do Deive (fatura 113-XP, 6.888,00 €).** Vincular os 6.888,00 € à **linha 3.2.01 do Master**, o que obriga a **elevar a verba de 6.880,00 para 6.888,00** ou a deixar a linha **em excedido** (decisão do Pedro), e **decidir o destino das duas filhas de 3.444,00** (Braga e Lisboa).
+4. **Marcar as duas linhas de hotel do Deive com a conta de circuito depois de pagas** (926,98 Vila Galé e 525,94 Meliã) e lançar a posição na conta "Acerto Turnê · Deive Leonardo Europa". Enquanto estiverem `approved` e não pagas, o espelho não nasce.
 2. **Registar o pagamento das passagens quando acontecer** — 5 quotas de 4.165,00 (circuito 20.825,00), com a quota da MP na linha 2.2.01 Voos do Master.
 3. **Fatura Meta 252466632 — 1.174,57 € por atribuir a evento** (mãe 9.995,23 € vs 5 filhas 8.820,66 €). É trabalho do chat `audience-meta`, não desta frente; aqui fica só o ponteiro e a invariante que a apanha.
 4. **Verbas por segmento de patrocínio nos eventos futuros** — o primeiro é Ghanem 2027. Hoje os patrocínios aparecem agregados; quando houver targets por segmento, o BP de receita deve mostrar 1.2.01 por segmento (não só por empresa).
