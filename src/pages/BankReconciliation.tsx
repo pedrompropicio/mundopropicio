@@ -1747,9 +1747,11 @@ export default function BankReconciliation() {
           accountId={account.id}
           accountName={account.name}
           rules={rules as BankLineRule[]}
-          onClose={() => setLaunchLines(null)}
+          feePlan={feePlan}
+          onClose={() => { setLaunchLines(null); setFeePlan(null); }}
           onDone={() => {
             setLaunchLines(null);
+            setFeePlan(null);
             setSelectedIds([]);
             queryClient.invalidateQueries({ queryKey: ["bank-recon-lines"] });
             queryClient.invalidateQueries({ queryKey: ["bank-recon-txns"] });
