@@ -521,28 +521,114 @@ export default function BankReconciliation() {
   const preCutoffParsedTotal = preCutoffParsed.reduce((acc, l) => acc + l.amount, 0);
 
   /**
-   * O saldo implantado é o saldo ao FECHO da data de corte. Se o extrato cobre
-   * essa data, compara-se com o `balance_after` da última linha até ao corte —
-   * não com a abertura do ficheiro, que é o saldo ANTES dos movimentos do dia.
-   * Só se o extrato começar depois do corte é que a abertura serve de referência.
+   * Contra o que se compara a abertura do extrato (issue #185) — em cascata:
+   *
+   * 1. O extrato COBRE a data de corte → o saldo implantado é o saldo ao FECHO
+   *    desse dia: compara-se com o `balance_after` da última linha até ao corte,
+   *    nunca com a abertura do ficheiro (que é o saldo ANTES dos movimentos).
+   * 2. O extrato começa DEPOIS do corte e já existe extrato anterior da mesma
+   *    conta → a abertura tem de encaixar no `closing_balance` desse extrato.
+   *    É isto que denuncia linhas em falta ou um extrato saltado. Comparar com
+   *    o implantado dava sempre a variação do saldo desde o corte (aviso falso).
+   * 3. Sem extrato anterior → compara-se a abertura com o saldo do SISTEMA à
+   *    véspera de `period_from`. Sem permissão para ver o saldo, não há aviso.
    */
+  const parsedPeriodFrom = parsed ? String(parsed.periodFrom).slice(0, 10) : null;
+
+  const hasCutoffLines = useMemo(
+    () => !!parsed && !!cutoff && parsed.lines.some((l) => l.bookingDate <= cutoff),
+    [parsed, cutoff],
+  );
+
+  /** Último extrato da conta que fecha ANTES do início do ficheiro. */
+  const prevStatement = useMemo(() => {
+    if (!parsedPeriodFrom) return null;
+    const before = (statements as any[])
+      .filter((s) => s.period_to && String(s.period_to).slice(0, 10) < parsedPeriodFrom)
+      .sort((a, b) => String(a.period_to).localeCompare(String(b.period_to)));
+    return before.length > 0 ? before[before.length - 1] : null;
+  }, [statements, parsedPeriodFrom]);
+
+  /** Véspera de `period_from` — só usada no 3.º ramo da cascata. */
+  const eveOfPeriodFrom = useMemo(() => {
+    if (!parsedPeriodFrom) return null;
+    const [y, m, d] = parsedPeriodFrom.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() - 1);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  }, [parsedPeriodFrom]);
+
+  const needsSystemEve = !!parsed && !hasCutoffLines && !prevStatement && !!eveOfPeriodFrom;
+
+  const { data: eveSystemBalances } = useQuery({
+    queryKey: ["bank-recon-eve-balance", accountId, eveOfPeriodFrom],
+    enabled: !!accountId && needsSystemEve,
+    queryFn: () => fetchAccountTrueBalancesAsOf([accountId], eveOfPeriodFrom),
+  });
+
   const cutoffMismatch = useMemo(() => {
     if (!parsed || !cutoff) return null;
-    const implanted = Number(account?.initial_balance ?? 0);
-    const upTo = parsed.lines.filter((l) => l.bookingDate <= cutoff);
-    let reference: number | null;
-    let label: string;
-    if (upTo.length > 0) {
-      reference = upTo[upTo.length - 1].balanceAfter;
-      label = "fecho da data de corte";
-    } else {
-      reference = parsed.openingBalance;
-      label = "abertura do extrato";
+    const tol = (a: number, b: number) => Math.abs(Math.round((a - b) * 100) / 100) <= 0.01;
+    const round = (v: number) => Math.round(v * 100) / 100;
+
+    // 1. O extrato cobre a data de corte.
+    if (hasCutoffLines) {
+      const upTo = parsed.lines.filter((l) => l.bookingDate <= cutoff);
+      const reference = upTo[upTo.length - 1].balanceAfter;
+      const implanted = Number(account?.initial_balance ?? 0);
+      if (reference === null) return null;
+      if (tol(reference, implanted)) return null;
+      return {
+        kind: "implanted" as const,
+        reference,
+        expected: implanted,
+        diff: round(reference - implanted),
+        label: "fecho da data de corte",
+      };
     }
-    if (reference === null) return null;
-    const diff = Math.round((reference - implanted) * 100) / 100;
-    return Math.abs(diff) <= 0.01 ? null : { diff, reference, implanted, label };
-  }, [parsed, account, cutoff]);
+
+    const opening = parsed.openingBalance;
+    if (opening === null || opening === undefined) return null;
+
+    // 2. Existe extrato anterior: a abertura encaixa no fecho dele.
+    if (prevStatement) {
+      const expected = Number(prevStatement.closing_balance ?? 0);
+      if (tol(opening, expected)) return null;
+      const prevTo = String(prevStatement.period_to).slice(0, 10);
+      return {
+        kind: "prev_statement" as const,
+        reference: opening,
+        expected,
+        diff: round(opening - expected),
+        prevPeriodTo: prevTo,
+        periodFrom: parsedPeriodFrom as string,
+        businessDays: businessDaysBetween(prevTo, parsedPeriodFrom as string),
+      };
+    }
+
+    // 3. Sem extrato anterior: saldo do sistema à véspera de `period_from`.
+    if (!eveSystemBalances || !accountId) return null;
+    const system = eveSystemBalances.get(accountId) ?? null;
+    if (system === null) return null; // sem permissão para ver o saldo → sem aviso
+    if (tol(opening, system)) return null;
+    return {
+      kind: "system" as const,
+      reference: opening,
+      expected: system,
+      diff: round(opening - system),
+      eve: eveOfPeriodFrom as string,
+    };
+  }, [
+    parsed,
+    account,
+    cutoff,
+    hasCutoffLines,
+    prevStatement,
+    parsedPeriodFrom,
+    eveSystemBalances,
+    eveOfPeriodFrom,
+  ]);
 
 
   async function saveImport() {
