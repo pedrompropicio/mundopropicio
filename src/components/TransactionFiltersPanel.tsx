@@ -47,7 +47,7 @@ interface FilterPanelProps {
 }
 
 interface MultiSelectListProps {
-  items: { id: string; name: string; is_partner?: boolean }[];
+  items: { id: string; name: string; trade_name?: string | null; is_partner?: boolean }[];
   selected: Set<string>;
   onToggle: (id: string) => void;
   onToggleAll: () => void;
@@ -59,7 +59,7 @@ function MultiSelectList({ items, selected, onToggle, onToggleAll, searchPlaceho
   const filtered = useMemo(() => {
     if (!q.trim()) return items;
     const term = q.toLowerCase();
-    return items.filter((i) => i.name.toLowerCase().includes(term));
+    return items.filter((i) => i.name.toLowerCase().includes(term) || (i.trade_name ?? "").toLowerCase().includes(term));
   }, [items, q]);
 
   return (
@@ -104,7 +104,7 @@ function MultiSelectList({ items, selected, onToggle, onToggleAll, searchPlaceho
                 className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/50 cursor-pointer"
               >
                 <Checkbox checked={selected.has(i.id)} onCheckedChange={() => onToggle(i.id)} />
-                <span className="truncate flex-1">{i.name}</span>
+                <span className="truncate flex-1">{i.trade_name ? `${i.name} (${i.trade_name})` : i.name}</span>
                 {i.is_partner && (
                   <span className="shrink-0 rounded-full bg-primary/15 text-primary px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">
                     Sócio
@@ -163,7 +163,7 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("suppliers")
-        .select("id, name, is_partner")
+        .select("id, name, trade_name, is_partner")
         .eq("is_active", true)
         .order("name");
       if (error) throw error;

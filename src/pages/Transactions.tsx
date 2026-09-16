@@ -1859,7 +1859,7 @@ export default function Transactions() {
           chips.push({ key: "suppliers", label: `Fornecedor: ${label}`, onRemove: () => setSelectedSupplierIds(new Set()) });
         }
         if (selectedPartnerIds.size > 0) {
-          const names = suppliersList.filter((s: any) => selectedPartnerIds.has(s.id)).map((s: any) => s.name);
+          const names = suppliersList.filter((s: any) => selectedPartnerIds.has(s.id)).map((s: any) => s.trade_name ? `${s.name} (${s.trade_name})` : s.name);
           const label = names.length > 0 && names.length <= 2 ? names.join(", ") : `${selectedPartnerIds.size} sócio(s)`;
           chips.push({ key: "partners", label: `Pago por sócio: ${label}`, onRemove: () => setSelectedPartnerIds(new Set()) });
         }
