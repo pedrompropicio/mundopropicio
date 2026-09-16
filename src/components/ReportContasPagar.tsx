@@ -12,7 +12,7 @@ import { cn, formatDatePT } from "@/lib/utils";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { fetchSupplierBankMap, mergeEmbeddedSupplierBank, collectSupplierIds } from "@/lib/supplier-bank";
-import { excludeRateioChildren, RATEIO_FILTER_COLUMNS } from "@/lib/rateio-children";
+import { excludeRateioChildren } from "@/lib/rateio-children";
 
 
 export default function ReportContasPagar() {

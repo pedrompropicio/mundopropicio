@@ -20,7 +20,7 @@ export default function ReportMonthlyEvolution() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("type, amount, paid_amount, status, date, is_transitory, exclude_from_result")
+        .select(`type, amount, paid_amount, status, date, is_transitory, exclude_from_result, ${RATEIO_FILTER_COLUMNS}`)
         .in("status", ["approved", "paid"])
         .gte("date", `${year}-01-01`)
         .lte("date", `${year}-12-31`);

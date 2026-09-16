@@ -22,7 +22,7 @@ export default function ReportAging() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, description, amount, paid_amount, date, due_date, status, type, supplier_id, suppliers:suppliers!transactions_supplier_id_fkey(name)")
+        .select(`id, description, amount, paid_amount, date, due_date, status, type, supplier_id, ${RATEIO_FILTER_COLUMNS}, suppliers:suppliers!transactions_supplier_id_fkey(name)`)
         .eq("type", "expense")
         .in("status", ["pending", "approved"]);
       if (error) throw error;
