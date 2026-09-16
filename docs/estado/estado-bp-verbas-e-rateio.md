@@ -97,6 +97,25 @@ Nenhum.
 - **`get_partner_bp_realized` alinhada ao filtro canónico do Fecho.** O portal do sócio mostrava **111.174,17 €** de despesa que o Fecho não conta, em **4 eventos** (Ivete, Mágicos, Anitta, Coala), por não filtrar `status` nem transitórias. Passou a exigir approved/paid e a excluir transitórias, `exclude_from_result`, estornadas e escondidas.
 - **Blocker de fecho `circuit_accounts`** — impede fechar evento com posição de circuito diferente de zero. **Limite conhecido:** procura as contas pelas transações **COM evento**; um movimento de circuito sem `event_id` não é apanhado.
 
+**Desdobramento da fatura no formulário (16/09, em produção).**
+- Campo **"parte de terceiros"** no bloco de custo partilhado, em **%** ou **€** (mesmo toggle do rateio multi-evento). Preenchido, a gravação cria **duas pernas** no **mesmo `invoice_group_id`**: a da **MP** (com linha de BP, dentro do resultado, sem conta de circuito) e a de **terceiros** (com `shared_cost_account_id`, fora do resultado pelo trigger). Ambas herdam fornecedor, datas, IVA, descrição, método, referência e estado.
+- O **arredondamento cai sempre na perna da MP**. A percentagem/valor aplica-se à **base sem IVA**.
+- A perna de terceiros **herda o evento da perna da MP** — é **etiqueta de origem da fatura**, não imputação de custo. Não tem selector de evento próprio.
+- Testado em Live a 16/09: **1.000,00 € a 6 % com 40 % de terceiros → 600,00 + 400,00**; ao pagar a perna de terceiros nasce espelho de **424,00 €** (pelo **bruto**, `paid_amount`) e **desfaz-se ao despagar**. Recusas confirmadas: zero, 100 % e parcelas.
+
+**Multi-IVA (16/09).**
+- Com "Dividir por IVA", a **percentagem aplica-se a cada linha de IVA**, com a **taxa dessa linha**; **todas** as pernas ficam no **mesmo grupo de fatura**.
+- **Só o modo percentagem é aceite** — o valor absoluto é ambíguo entre taxas e é **recusado** na gravação (e o botão € fica desactivado quando o split já está activo).
+- Testado: **1.000,00 € = 600 a 6 % + 400 a 0 % com 40 % de terceiros → quatro pernas de 360, 240, 240 e 160**, soma **1.000,00**, grupo único (`723f857a`), duas com `shared_cost_account_id` + `exclude_from_result = true`, as quatro no evento Lisboa.
+
+**Verba do BP por linha (16/09).** Em multi-IVA cada linha é comparada com a **sua própria perna da MP**, não com o total da fatura. Provado com verba de **700 €**: as pernas da MP de **360** e **240** nasceram `approved`; comparadas com o total de **1.000** teriam nascido `pending`.
+
+**Quinta excepção da trava de linha de BP (16/09).** `shared_cost_account_id IS NOT NULL` junta-se a `is_transitory`, `exclude_from_result`, `reversed_at` e `is_hidden`. Razão: significam **todas a mesma coisa — "não consome verba do BP"** — e uma linha de custo partilhado é dinheiro de terceiros. Vive na **base de dados** (trigger `enforce_transaction_approval_permission`), não no cliente, e está alinhada nas quatro camadas: trigger, `src/lib/bp-line-required.ts`, `supabase/functions/approve-transaction/index.ts` e `countsAsBudgetCommitment` do `TransactionFormModal.tsx`.
+
+**Limites conhecidos do desdobramento, os dois:**
+1. **Não está disponível quando o evento escolhido é um Master com filhos** — escolher um Master liga o rateio multi-evento automaticamente e apaga o evento do campo. Lançar na cidade que consumiu a fatura.
+2. **A linha de BP tem de ser escolhida na tabela de previsões**, não pelo selector de rubrica — pelo selector o `forecast_id` fica nulo e a trava recusa a aprovação.
+
 
 ## Onde ler mais
 - `docs/DECISIONS.md` — DR-2026-09-02-D1 a D11, D20, D21, D22, D23, D24 + adendas · **D-ERP69** (custo partilhado com terceiros) · **D-ERP70** (mãe/filhas do rateio)
