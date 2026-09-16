@@ -3708,6 +3708,18 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               }}
               grossAmount={calcWithIva(parseFloat(form.amount) || 0, form.iva_rate as any)}
               suppliers={suppliers as any}
+              split={{
+                totalNet: parseFloat(form.amount) || 0,
+                ivaRate: Number(form.iva_rate) || 0,
+                mode: sharedCostThirdMode,
+                value: sharedCostThirdValue,
+                eventId: sharedCostThirdEventId,
+                events: (events as any[]).map((ev) => ({ id: ev.id, name: ev.name })),
+                onModeChange: (m) => { setSharedCostThirdMode(m); setSharedCostThirdValue(""); },
+                onValueChange: setSharedCostThirdValue,
+                onEventChange: setSharedCostThirdEventId,
+                unavailableReason: sharedCostSplitUnavailableReason,
+              }}
             />
           )}
 
