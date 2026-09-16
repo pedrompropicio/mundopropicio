@@ -1545,10 +1545,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             ? (crypto as any).randomUUID()
             : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         }
-          sharedInvoiceGroupId = (typeof crypto !== "undefined" && (crypto as any).randomUUID)
-            ? (crypto as any).randomUUID()
-            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        }
 
         // Quando "Pagar em parcelas" está ativo, criamos N TRANSAÇÕES IRMÃS
         // (uma por vencimento) em vez de 1 TX + N transaction_payments.
