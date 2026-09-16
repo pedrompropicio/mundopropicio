@@ -3828,11 +3828,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 ivaRate: Number(form.iva_rate) || 0,
                 mode: sharedCostThirdMode,
                 value: sharedCostThirdValue,
-                eventId: sharedCostThirdEventId,
-                events: (events as any[]).map((ev) => ({ id: ev.id, name: ev.name })),
                 onModeChange: (m) => { setSharedCostThirdMode(m); setSharedCostThirdValue(""); },
                 onValueChange: setSharedCostThirdValue,
-                onEventChange: setSharedCostThirdEventId,
                 unavailableReason: sharedCostSplitUnavailableReason,
                 multiIvaLineCount: pendingIvaSplit?.length ?? 0,
               }}
