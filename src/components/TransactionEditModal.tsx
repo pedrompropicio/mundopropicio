@@ -84,6 +84,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     is_transitory: transaction.is_transitory ?? false,
     is_confidential: (transaction as any).is_confidential ?? false,
     exclude_from_result: transaction.exclude_from_result ?? false,
+    // Custo partilhado com terceiros (D-ERP69)
+    shared_cost_account_id: ((transaction as any).shared_cost_account_id ?? "") as string,
+    shared_cost_counterparty_id: ((transaction as any).shared_cost_counterparty_id ?? "") as string,
     invoice_ref: transaction.invoice_ref ?? "",
     payment_method: (transaction.payment_method ?? "transfer") as PaymentMethod,
     payment_entity: transaction.payment_entity ?? "",
@@ -493,6 +496,8 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         account_id: "Conta", specification: "Especificação", date: "Data", due_date: "Data Vencimento", payment_date: "Data Pagamento",
         is_transitory: "Transitória",
         exclude_from_result: "Fora do Resultado",
+        shared_cost_account_id: "Conta de circuito (custo partilhado)",
+        shared_cost_counterparty_id: "Terceiro do custo partilhado",
         invoice_ref: "Nº Fatura",
         payment_method: "Método Pagamento",
         payment_entity: "Entidade Pagamento",
@@ -509,7 +514,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         held_by_supplier_id: "Recebido por",
       };
       const allowedFields = (paidLocked
-        ? ["specification", "supplier_id", "is_transitory", "is_confidential", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "ordering_partner_id", "paying_partner_id", "event_settlement_id", "held_by_supplier_id",
+        ? ["specification", "supplier_id", "is_transitory", "is_confidential", "exclude_from_result", "shared_cost_account_id", "shared_cost_counterparty_id", "invoice_ref", "payment_method", "payment_entity", "payment_reference", "operation_key", "ordering_partner_id", "paying_partner_id", "event_settlement_id", "held_by_supplier_id",
            ...(canReallocBpWhenPaid ? ["category_id"] : [])]
         : Object.keys(fieldLabels)
       ).filter((k) => !(isInstallmentGroup && (k === "amount" || k === "iva_rate")));
@@ -571,7 +576,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         specification: form.specification || null,
         is_transitory: form.is_transitory,
         is_confidential: form.is_confidential,
-        exclude_from_result: form.exclude_from_result,
+        exclude_from_result: form.exclude_from_result || !!form.shared_cost_account_id,
+        shared_cost_account_id: form.shared_cost_account_id || null,
+        shared_cost_counterparty_id: form.shared_cost_account_id ? (form.shared_cost_counterparty_id || null) : null,
         invoice_ref: form.invoice_ref.trim() || null,
         event_settlement_id: form.event_settlement_id || null,
         ...(canReallocBpWhenPaid ? { category_id: form.category_id || null } : {}),
@@ -600,7 +607,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           : (canApprove && isPaid ? { payment_date: form.payment_date || null } : {})),
         is_transitory: form.is_transitory,
         is_confidential: form.is_confidential,
-        exclude_from_result: form.exclude_from_result,
+        exclude_from_result: form.exclude_from_result || !!form.shared_cost_account_id,
+        shared_cost_account_id: form.shared_cost_account_id || null,
+        shared_cost_counterparty_id: form.shared_cost_account_id ? (form.shared_cost_counterparty_id || null) : null,
         invoice_ref: form.invoice_ref.trim() || null,
         ordering_partner_id: transaction.type === "expense" ? (form.ordering_partner_id || null) : null,
         paying_partner_id: transaction.type === "expense" ? (form.paying_partner_id || null) : null,
@@ -2436,18 +2445,42 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           </div>
           )}
 
-          {/* Exclude from result toggle — only admin/manager, mutually exclusive with transitory */}
+          {/* Custo partilhado com terceiros (D-ERP69) — só despesas */}
+          {transaction.type === "expense" && (
+            <SharedCostFields
+              accountId={form.shared_cost_account_id}
+              counterpartyId={form.shared_cost_counterparty_id}
+              onChange={({ accountId, counterpartyId }) =>
+                setForm({
+                  ...form,
+                  shared_cost_account_id: accountId,
+                  shared_cost_counterparty_id: accountId ? counterpartyId : "",
+                  ...(accountId ? { exclude_from_result: true } : {}),
+                })
+              }
+              grossAmount={calcWithIva(parseFloat(form.amount) || 0, form.iva_rate as any)}
+              suppliers={suppliers as any}
+            />
+          )}
+
+          {/* Exclude from result toggle — only admin/manager, mutually exclusive with transitory.
+              Custo partilhado com terceiros: imposto pelo trigger, logo ligado e bloqueado. */}
           {(canApprove || isManager) && !form.is_transitory && (
           <div className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 p-3">
             <Switch
-              checked={form.exclude_from_result}
+              checked={form.exclude_from_result || !!form.shared_cost_account_id}
+              disabled={!!form.shared_cost_account_id}
               onCheckedChange={(v) => setForm({ ...form, exclude_from_result: v })}
             />
             <div className="flex items-center gap-1.5">
               <span className="text-sm font-medium">📋 Fora do Resultado</span>
               <HelpTooltip text={helpTexts.excludeFromResultToggle} size={13} />
             </div>
-            <span className="ml-auto text-xs text-muted-foreground">Apenas para registo</span>
+            <span className="ml-auto text-xs text-muted-foreground">
+              {form.shared_cost_account_id
+                ? "Imposto pelo custo partilhado com terceiros — limpe a conta de circuito para desligar"
+                : "Apenas para registo"}
+            </span>
           </div>
           )}
 
