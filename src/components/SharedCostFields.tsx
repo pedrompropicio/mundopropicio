@@ -46,6 +46,12 @@ interface Props {
     onEventChange: (eventId: string) => void;
     /** Quando presente, o desdobramento está indisponível e explica-se porquê. */
     unavailableReason?: string | null;
+    /**
+     * Nº de linhas do "Dividir por IVA" (≥2 = fatura multi-IVA). Nesse caso a parte
+     * aplica-se a CADA linha pela mesma percentagem e o modo € é recusado, por ser
+     * ambíguo entre taxas.
+     */
+    multiIvaLineCount?: number;
   };
 }
 
@@ -85,6 +91,7 @@ export function SharedCostFields({
   const splitActive = splitFilled && !splitInvalid && !split?.unavailableReason;
   const mpNet = splitActive ? Number((totalNet - thirdNet).toFixed(2)) : totalNet;
   const mult = 1 + (Number(split?.ivaRate) || 0) / 100;
+  const isMultiIva = (split?.multiIvaLineCount ?? 0) >= 2;
 
   return (
     <div className="rounded-lg border border-border bg-secondary/20">
@@ -154,7 +161,16 @@ export function SharedCostFields({
                     <button
                       key={m}
                       type="button"
-                      disabled={disabled || !!split.unavailableReason}
+                      disabled={
+                        disabled ||
+                        !!split.unavailableReason ||
+                        (isMultiIva && m === "absolute")
+                      }
+                      title={
+                        isMultiIva && m === "absolute"
+                          ? "Numa fatura com várias taxas de IVA a parte de terceiros indica-se em percentagem: um valor em € é ambíguo entre as linhas."
+                          : undefined
+                      }
                       onClick={() => split.onModeChange(m)}
                       className={`px-2 py-0.5 text-[11px] font-medium transition-colors disabled:opacity-50 ${
                         split.mode === m
@@ -167,6 +183,15 @@ export function SharedCostFields({
                   ))}
                 </div>
               </div>
+
+              {isMultiIva && !split.unavailableReason && (
+                <p className="rounded-md border border-primary/30 bg-primary/10 px-2 py-1.5 text-[10px] text-primary">
+                  Fatura com {split.multiIvaLineCount} taxas de IVA: a percentagem aplica-se a{" "}
+                  <strong>cada linha</strong>, com a taxa dessa linha. Nascem duas pernas por
+                  linha ({(split.multiIvaLineCount ?? 0) * 2} no total), todas no mesmo grupo de
+                  fatura. Só o modo % é aceite.
+                </p>
+              )}
 
               {split.unavailableReason ? (
                 <p className="flex items-start gap-1.5 rounded-md border border-warning/40 bg-warning/10 px-2 py-1.5 text-[11px] text-warning">
@@ -236,24 +261,28 @@ export function SharedCostFields({
                         <div className="flex justify-between gap-3">
                           <span>Parte da MP (custo, com linha de BP)</span>
                           <span className="font-mono">
-                            {mpNet.toFixed(2)} € s/IVA · {(mpNet * mult).toFixed(2)} € c/IVA
+                            {mpNet.toFixed(2)} € s/IVA
+                            {!isMultiIva && ` · ${(mpNet * mult).toFixed(2)} € c/IVA`}
                           </span>
                         </div>
                         <div className="flex justify-between gap-3">
                           <span>Parte de terceiros (adiantamento)</span>
                           <span className="font-mono">
-                            {thirdNet.toFixed(2)} € s/IVA · {(thirdNet * mult).toFixed(2)} € c/IVA
+                            {thirdNet.toFixed(2)} € s/IVA
+                            {!isMultiIva && ` · ${(thirdNet * mult).toFixed(2)} € c/IVA`}
                           </span>
                         </div>
                         <div className="flex justify-between gap-3 border-t border-border/60 pt-0.5 font-medium">
                           <span>Total da fatura</span>
                           <span className="font-mono">
-                            {totalNet.toFixed(2)} € s/IVA · {(totalNet * mult).toFixed(2)} € c/IVA
+                            {totalNet.toFixed(2)} € s/IVA
+                            {!isMultiIva && ` · ${(totalNet * mult).toFixed(2)} € c/IVA`}
                           </span>
                         </div>
                         <div className="border-t border-border/60 pt-1 text-muted-foreground">
-                          Duas linhas no mesmo grupo de fatura — uma só transferência na Lista de
-                          Pagamento. Só a perna de terceiros fica fora do resultado.
+                          {isMultiIva
+                            ? "As pernas de todas as linhas de IVA ficam no mesmo grupo de fatura — uma só transferência na Lista de Pagamento. Só as pernas de terceiros ficam fora do resultado."
+                            : "Duas linhas no mesmo grupo de fatura — uma só transferência na Lista de Pagamento. Só a perna de terceiros fica fora do resultado."}
                         </div>
                       </div>
                     </>

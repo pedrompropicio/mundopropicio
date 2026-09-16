@@ -1476,8 +1476,27 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           ? usedByForecastId[lineForecast.id] || 0
           : usedBudgetByCategory[budgetKey] || 0;
         const remaining = forecastTotal - usedTotal;
-        // Com desdobramento de custo partilhado, quem consome verba é a PERNA DA MP.
-        const newAmount = mpLegNetAmount;
+        // ============================================================
+        // Desdobramento do custo partilhado (D-ERP69) — SEMPRE POR LINHA.
+        // No caminho "Dividir por IVA" esta mutação corre UMA VEZ POR LINHA e
+        // `data.amount` é a base DAQUELA linha (`form.amount` tem a SOMA das bases).
+        // Portanto tudo o que decide verba, repartição e perna de terceiros lê
+        // `data.amount` — nunca `form.amount`. Sem desdobramento, o valor comparado
+        // com a verba é o da linha, exactamente como antes.
+        // Em multi-IVA a parte de terceiros aplica-se a cada linha pela mesma
+        // percentagem (o modo valor absoluto é recusado em handleSubmit).
+        // ============================================================
+        const lineTotalNet = parseFloat(data.amount) || 0;
+        const sharedCostSplitEligible =
+          !!sharedCostAccountId && !sharedCostSplitUnavailableReason && sharedCostThirdValue.trim() !== "";
+        const lineThirdNet = sharedCostSplitEligible
+          ? computeThirdPartyNet(lineTotalNet, sharedCostThirdMode, sharedCostThirdValue)
+          : 0;
+        const lineSplitActive = lineThirdNet > 0 && lineThirdNet < lineTotalNet;
+        // O resto do arredondamento cai na perna da MP, linha a linha.
+        const lineMpNet = lineSplitActive ? Number((lineTotalNet - lineThirdNet).toFixed(2)) : lineTotalNet;
+        // Com desdobramento, quem consome verba é a PERNA DA MP desta linha.
+        const newAmount = lineMpNet;
         const fitsWithinBudget = forecastTotal > 0 && newAmount <= remaining + 0.005;
         const autoApproved = hasForecastMatch && hasApprovedBPLine && fitsWithinBudget;
 
@@ -1498,26 +1517,30 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // sócio (irmã) → dupla contagem no acerto. Nunca mudar isto sem mudar
         // também a reversão parcial no TransactionEditModal.
         // ============================================================
-        const totalAmtNum = parseFloat(data.amount) || 0;
+        const totalAmtNum = lineTotalNet;
         const partnerExtraPartialNum = parseFloat(partnerExtraPartialAmount) || 0;
         const isPartnerExtraPartial = isPartnerExtra && partnerExtraPartialNum > 0 && partnerExtraPartialNum < totalAmtNum;
         // Desdobramento do custo partilhado com terceiros (D-ERP69): exactamente a mesma
         // aritmética — a fatura reparte-se em perna da MP (total − X) e perna de terceiros
-        // (X), no MESMO invoice_group_id. O resto do arredondamento fica na perna da MP:
-        // a de terceiros é dinheiro de outrem. Não se combina com rateio, Extra do Sócio
-        // nem parcelas (recusado em handleSubmit).
-        const sharedCostThirdNum = sharedCostSplitActive ? sharedCostThirdNet : 0;
+        // (X), no MESMO invoice_group_id. Em multi-IVA cada linha de IVA dá origem a duas
+        // pernas, ambas com a taxa daquela linha, e TODAS partilham o mesmo grupo de
+        // fatura (é uma fatura só, uma transferência só). O resto do arredondamento fica
+        // na perna da MP, linha a linha: a de terceiros é dinheiro de outrem.
+        // Não se combina com rateio, Extra do Sócio nem parcelas (recusado em handleSubmit).
+        const sharedCostThirdNum = lineSplitActive ? lineThirdNet : 0;
         // Base da principal já líquida da parte do sócio / da parte de terceiros.
         const principalNetAmount = isPartnerExtraPartial
           ? Number((totalAmtNum - partnerExtraPartialNum).toFixed(2))
-          : sharedCostSplitActive
-            ? Number((totalAmtNum - sharedCostThirdNum).toFixed(2))
+          : lineSplitActive
+            ? lineMpNet
             : totalAmtNum;
         const partnerPaidAmount = useInstallments ? 0 : (partnerPaidSettles ? principalNetAmount : (effectiveAutoMarkPaid ? principalNetAmount : 0));
         const principalIsTransitory = isTransitory || (isPartnerExtra && !isPartnerExtraPartial);
-        // Garante invoice_group_id partilhado para amarrar as duas linhas (se já não vier um, gera um).
+        // Garante invoice_group_id partilhado para amarrar as pernas (se já não vier um, gera um).
+        // No multi-IVA vem sempre um de fora (sharedGroupId), pelo que as pernas de todas
+        // as linhas de IVA ficam no MESMO grupo.
         let sharedInvoiceGroupId: string | null = data.invoice_group_id ?? null;
-        if ((isPartnerExtraPartial || sharedCostSplitActive) && !sharedInvoiceGroupId) {
+        if ((isPartnerExtraPartial || lineSplitActive) && !sharedInvoiceGroupId) {
           sharedInvoiceGroupId = (typeof crypto !== "undefined" && (crypto as any).randomUUID)
             ? (crypto as any).randomUUID()
             : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -1547,7 +1570,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           : parseDueDateForDb(data.due_date);
 
         // Sufixo curto que distingue as duas pernas na lista de transações.
-        const mpLegSuffix = sharedCostSplitActive ? " — parte MP" : "";
+        const mpLegSuffix = lineSplitActive ? " — parte MP" : "";
         const { data: insertedTx, error } = await supabase.from("transactions").insert({
           description: data.description + totalSuffix + mpLegSuffix,
           type: data.type,
@@ -1574,9 +1597,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           is_transitory: principalIsTransitory,
           // Com desdobramento esta é a PERNA DA MP: despesa normal, dentro do resultado,
           // a consumir verba do BP. A conta de circuito vive só na perna de terceiros.
-          exclude_from_result: sharedCostSplitActive ? isExcludeFromResult : (isExcludeFromResult || !!sharedCostAccountId),
-          shared_cost_account_id: sharedCostSplitActive ? null : (sharedCostAccountId || null),
-          shared_cost_counterparty_id: sharedCostSplitActive ? null : (sharedCostAccountId ? (sharedCostCounterpartyId || null) : null),
+          exclude_from_result: lineSplitActive ? isExcludeFromResult : (isExcludeFromResult || !!sharedCostAccountId),
+          shared_cost_account_id: lineSplitActive ? null : (sharedCostAccountId || null),
+          shared_cost_counterparty_id: lineSplitActive ? null : (sharedCostAccountId ? (sharedCostCounterpartyId || null) : null),
           is_confidential: isConfidential,
           invoice_ref: data.invoice_ref.trim() || null,
           invoice_group_id: sharedInvoiceGroupId,
@@ -1601,7 +1624,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // isso não exige linha de BP nem consome verba. Herda status da perna da MP:
         // as duas partilham o invoice_group_id e a aprovação de um grupo é atómica —
         // estados diferentes deixariam o grupo permanentemente parcial.
-        if (sharedCostSplitActive && insertedTx?.id) {
+        if (lineSplitActive && insertedTx?.id) {
           const thirdGross = Number((sharedCostThirdNum * ivaMultiplier).toFixed(2));
           const { data: thirdLeg, error: thirdErr } = await supabase
             .from("transactions")
@@ -2326,6 +2349,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         toast({
           title: "Parte de terceiros inválida",
           description: `Tem de ser maior que 0 e menor que o total (${totalAmt.toFixed(2)} € s/IVA). A zero é uma despesa normal; pelo total inteiro basta marcar a linha com a conta de circuito, sem desdobrar.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      // Multi-IVA: a parte de terceiros aplica-se a CADA linha, pela mesma percentagem.
+      // Um valor absoluto é ambíguo entre linhas — não há forma não-arbitrária de dizer
+      // quanto dele entra em cada taxa.
+      if (pendingIvaSplit && pendingIvaSplit.length >= 2 && sharedCostThirdMode === "absolute") {
+        toast({
+          title: "Numa fatura com várias taxas, indica a parte de terceiros em percentagem",
+          description: "Com \"Dividir por IVA\" a parte de terceiros aplica-se a cada linha pela mesma percentagem. Um valor em € é ambíguo entre as taxas. Troca o modo para %.",
           variant: "destructive",
         });
         return;
@@ -3800,6 +3834,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 onValueChange: setSharedCostThirdValue,
                 onEventChange: setSharedCostThirdEventId,
                 unavailableReason: sharedCostSplitUnavailableReason,
+                multiIvaLineCount: pendingIvaSplit?.length ?? 0,
               }}
             />
           )}
