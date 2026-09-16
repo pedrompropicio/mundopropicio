@@ -538,7 +538,9 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            Lançar {lines.length === 1 ? "movimento do banco" : `${lines.length} movimentos pela soma`}
+            {feePlan
+              ? `Lançar taxas da transferência ${feePlan.ref}`
+              : `Lançar ${lines.length === 1 ? "movimento do banco" : `${lines.length} movimentos pela soma`}`}
           </DialogTitle>
         </DialogHeader>
 
@@ -710,7 +712,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
             <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
           </div>
 
-          {!isTransfer && (
+          {!isTransfer && !feePlan && (
             <div className="rounded-lg border border-border p-3">
               <label className="flex items-start gap-2">
                 <Checkbox
@@ -750,7 +752,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
             </div>
           )}
 
-          {!transitory && (
+          {!transitory && !feePlan && (
           <div className="rounded-lg border border-border p-3">
             <label className="flex items-start gap-2">
               <Checkbox checked={saveRule} onCheckedChange={(v) => setSaveRule(!!v)} />
@@ -786,7 +788,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
           <Button onClick={confirm} disabled={saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirmar lançamento
+            {feePlan ? `Confirmar ${feePlan.legs.length} lançamento(s)` : "Confirmar lançamento"}
           </Button>
         </DialogFooter>
 
