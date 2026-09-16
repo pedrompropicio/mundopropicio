@@ -1435,7 +1435,10 @@ async function fetchSalesPerEventSjr(jar: Jar, token: string) {
 
 /**
  * action capture_day — captura o dia `dateISO` (default hoje Europe/Lisbon) para
- * todos os configs com daily_fallback_active=true da mesma company do configId.
+ * TODOS os configs enabled=true da mesma company do configId (v2.41, issue #184):
+ * a captura para `ticketline_daily_sales` é rede de segurança e não depende de
+ * `daily_fallback_active` — essa flag decide apenas a PRECEDÊNCIA DE LEITURA
+ * (get_daily_sales_series, get_sales_position*, vw_event_daily_sales).
  * Login FRESCO dedicado (não usa o SessionCache dos syncs xlsx, para não
  * contaminar essas sessões com um period alterado).
  */
@@ -1446,15 +1449,25 @@ async function runCaptureDay(admin: any, configId?: string, dateISO?: string) {
 
   const { cfg, creds } = await loadCfgAndCreds(admin, configId);
 
-  // Configs-alvo: daily_fallback_active=true da mesma company (independente de enabled).
+  // Configs-alvo (v2.41): todos os enabled=true da mesma company, independente
+  // de daily_fallback_active.
   const { data: targets, error: tErr } = await admin
     .from("ticketline_sync_config")
     .select("id, event_id, company_id, ticketline_event_id, organization_name, ticketline_report_codes")
     .eq("company_id", cfg.company_id)
-    .eq("daily_fallback_active", true);
+    .eq("enabled", true);
   if (tErr) return json(500, { error: tErr.message });
   const targetList = targets || [];
-  if (targetList.length === 0) return json(200, { ok: true, skipped: true, reason: "nenhum config com daily_fallback_active=true" });
+  if (targetList.length === 0) {
+    // v2.41: sem alvos deixa rasto — antes devolvia 200 silencioso.
+    const reason = "nenhum config enabled=true nesta company para capture_day";
+    await admin.from("ticketline_sync_runs").insert({
+      config_id: cfg.id, company_id: cfg.company_id, status: "skipped",
+      mode: "manual", triggered_by: `capture_day:${dayIso}`,
+      finished_at: new Date().toISOString(), error_message: reason,
+    });
+    return json(200, { ok: true, skipped: true, reason });
+  }
 
   const { data: evs } = await admin.from("events").select("id, name").in("id", targetList.map((t: any) => t.event_id));
   const nameById = new Map<string, string>((evs || []).map((e: any) => [e.id, e.name]));
