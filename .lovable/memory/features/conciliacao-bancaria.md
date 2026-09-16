@@ -232,6 +232,31 @@ depois de as três camadas falharem.
   nunca fica transação órfã. Sem mãe conciliada, o grupo aparece apenas com a nota
   "Taxa de transferência sem mãe conciliada" e o Lançar normal. **Não** se cria regra em
   `bank_line_rules` para estes casos: o evento vem da mãe, não do padrão.
+- **Peça C (#187) — a linha de BP proposta, medida, e a mãe ligada de arrasto.**
+  Quando a mãe tem `event_id`, **não** tem `forecast_id` e o evento é `with_bp`, o modal
+  "Lançar taxas da transferência":
+  1. **Propõe** a linha do BP do evento na **mesma rubrica da mãe** (`event_forecasts`
+     com `approved_at` não nulo, `version_id IS NULL`, `type = 'expense'`); havendo mais
+     do que uma, a de **maior `amount`**. Aparece já selecionada, com "Trocar linha".
+  2. Mostra **Previsto · Utilizado · Disponível** da linha (o utilizado é o mesmo cálculo
+     do modal Nova Transação: soma de `transactions.forecast_id = linha` que contam como
+     compromisso — sem transitórias, sem `exclude_from_result`, sem revertidas, sem
+     escondidas, sem `shared_cost_account_id`) e a frase "A taxa de X € cabe" ou
+     "A taxa de X € excede a linha em Y € — entra como custo fora do BP; a verba
+     aumenta-se no ecrã do BP". **Nunca bloqueia** (só a ausência de linha bloqueia).
+     Vale também quando a linha foi herdada da mãe.
+  3. Sem nenhuma linha aprovada nessa rubrica: "O BP deste evento não tem linha
+     `<código · nome>`. Escolhe outra ou cria a linha." e o `LinkBpLineDialog` em
+     `pickOnly` como antes.
+  4. Caixa **"Ligar também a transferência-mãe (<descrição> · <valor>) a esta linha"**,
+     marcada por defeito, visível só quando a mãe não tem `forecast_id`. Ao confirmar,
+     depois das pernas das taxas, faz o `UPDATE` de `transactions.forecast_id` na mãe
+     **pela edge function `update-transaction`** (nunca UPDATE directo do cliente; o campo
+     `forecast_id` foi acrescentado à `allowedFields`), dentro da mesma sequência: se o
+     update da mãe falhar, as pernas das taxas são revertidas e a mensagem diz porquê. A
+     auditoria da mãe é a normal (`transaction_audit_log`). Nota: a mãe está `paid`, logo o
+     ramo `paidAllowedFields` exige `approve_transactions` — quem não tem essa permissão
+     recebe 422 e as taxas não ficam criadas.
 
 As camadas de conciliação, a liquidação, as listas de pagamento e os
 Recorrentes ficaram intocados.
