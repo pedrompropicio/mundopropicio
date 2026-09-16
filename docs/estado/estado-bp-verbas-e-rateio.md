@@ -27,8 +27,11 @@ Receitas manuais continuam como `event_forecasts` com `type='income'`. Totais e 
 Nada em execução.
 
 ## Próximo passo concreto
-1. **Verbas por segmento de patrocínio nos eventos futuros** — o primeiro é Ghanem 2027. Hoje os patrocínios aparecem agregados; quando houver targets por segmento, o BP de receita deve mostrar 1.2.01 por segmento (não só por empresa).
-2. **Marca própria da elevação de verba em `raise_forecast_budget`.** Hoje a elevação grava uma linha no `forecast_audit_log` com observação livre e não se distingue de uma edição anotada manual. Para a curva de evolução mostrar um marco `budget_raise`, a função deve deixar uma marca própria (por exemplo prefixo na observação ou campo adicional). Segue em issue nova P2.
+1. **Marcar as duas linhas de hotel do Deive com a conta de circuito depois de pagas** (926,98 Vila Galé e 525,94 Meliã) e lançar a posição na conta "Acerto Turnê · Deive Leonardo Europa". Enquanto estiverem `approved` e não pagas, o espelho não nasce.
+2. **Registar o pagamento das passagens quando acontecer** — 5 quotas de 4.165,00 (circuito 20.825,00), com a quota da MP na linha 2.2.01 Voos do Master.
+3. **Fatura Meta 252466632 — 1.174,57 € por atribuir a evento** (mãe 9.995,23 € vs 5 filhas 8.820,66 €). É trabalho do chat `audience-meta`, não desta frente; aqui fica só o ponteiro e a invariante que a apanha.
+4. **Verbas por segmento de patrocínio nos eventos futuros** — o primeiro é Ghanem 2027. Hoje os patrocínios aparecem agregados; quando houver targets por segmento, o BP de receita deve mostrar 1.2.01 por segmento (não só por empresa).
+5. **Marca própria da elevação de verba em `raise_forecast_budget`.** Hoje a elevação grava uma linha no `forecast_audit_log` com observação livre e não se distingue de uma edição anotada manual. Para a curva de evolução mostrar um marco `budget_raise`, a função deve deixar uma marca própria (por exemplo prefixo na observação ou campo adicional). Segue em issue nova P2.
 
 ## Bloqueios
 Nenhum.
