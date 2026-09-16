@@ -2216,3 +2216,26 @@ Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a 
 **Onde se aplica** (oito sítios corrigidos) e onde NÃO se aplica: ver `.lovable/memory/features/rateio-mae-filhas-agregacao.md`.
 
 **Estado:** vigente.
+
+---
+
+## D-ERP71 — O documento pertence à fatura; a ingestão por API é a confirmação humana do agrupamento (16/09/2026)
+
+**Contexto:** Faturas de fornecedores externas (Meta Ireland, hospedagens, etc.) chegam frequentemente como um PDF que cobre várias rubricas de BP — e portanto várias transações. Até 14/09/2026 a regra de agrupamento automático só juntava linhas que **já partilhassem o documento anexo**, o que quase nunca acontecia: o documento costumava estar anexado a uma única transação, e as irmãs nasciam sem ele. O resultado era N uploads do mesmo PDF ou, pior, grupos de fatura que não fechavam com o documento real. A alternativa de partilhar por `supplier_id` + `invoice_ref` sem confirmação humana já tinha dado problema (caso das portagens: vários lançamentos de ida e volta com valores iguais e números parecidos, mas despesas diferentes).
+
+**Decisão:**
+
+1. **O documento pertence ao grupo de fatura (`invoice_group_id`), não a uma transação individual.** Quando várias transações partilham a mesma fatura, o ficheiro anexa-se ao grupo e replica-se para todas as irmãs pelo mesmo `file_url`.
+2. **Sem grupo formal, o agrupamento só acontece por ação explícita.** A edge function `ingest-transaction-document` (autenticada exclusivamente por `SUPABASE_SERVICE_ROLE_KEY`) aceita `supplier_id` + `invoice_ref` sem `invoice_group_id` e cria o grupo — a chamada é a confirmação humana de que aquelas linhas são a mesma fatura. Inclui proformas; a igualdade de `invoice_ref` continua **exata**.
+3. **Um ficheiro no storage, N registos em `transaction_documents`.** O objecto é único no bucket `transaction-documents`; cada transação do grupo leva um registo com o mesmo `file_url`. Repetições da mesma chamada são idempotentes por nome + tamanho (`created 0, reused N`).
+4. **A origem pode ser URL pública do Drive ou `conteudo_base64`.** Drive não é corredor: links privados devolvem página de login, e o upload de ficheiros passa pelo contexto do agente (MCP), não por um canal directo. A função valida magic bytes (PDF/JPEG/PNG) e recusa tamanho acima de 20 MB.
+5. **O alvo é transação, grupo de fatura ou fornecedor+referência.** A função resolve o alvo e, em caso de falha após criar o objecto, limpa os órfãos.
+
+**Alternativas rejeitadas:**
+
+- Partilhar documento por `supplier_id` + `invoice_ref` sem confirmação humana — agruparia às escondidas e repetiria o incidente das portagens.
+- Usar o Google Drive como corredor de ficheiros — links privados exigem partilha manual; o upload real passa pelo contexto do agente, não por um endpoint público do sistema.
+
+**Consequência:** A allowlist de rede da organização passou a incluir o domínio `sfohvvlqccmmebvjgibx.supabase.co` para que o contentor das sessões interativas do Claude possa chamar edge functions directamente por HTTPS. Tarefas agendadas continuam a usar `net.http_post` até se confirmar que o contentor de execução agendada também alcança o mesmo domínio.
+
+**Estado:** vigente.

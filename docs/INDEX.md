@@ -110,6 +110,7 @@ Se o tema toca num fluxo já implementado, procurar primeiro em `.lovable/memory
 - Supabase Live `sfohvvlqccmmebvjgibx` · Repo `pedrompropicio/mundopropicio`
 - Company MP `7c858982-6ccd-47ca-bd65-e0dd3eebf01c`
 - Edge function de Issues: `github-issues` — parâmetro é **`number`**, não `issue_number`. PAT expira **24/set/2026**.
+- Desde 16/09/2026 o contentor das sessões interativas do Claude alcança `sfohvvlqccmmebvjgibx.supabase.co` diretamente por HTTPS (allowlist de rede da organização); o caminho por `net.http_post` continua válido e é o de referência para tarefas agendadas até se confirmar que também o alcançam.
 
 ## Regra de base de dados que nunca se salta
 
