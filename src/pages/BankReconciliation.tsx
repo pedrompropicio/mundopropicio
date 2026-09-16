@@ -632,23 +632,24 @@ export default function BankReconciliation() {
     const opening = parsed.openingBalance;
     if (opening === null || opening === undefined) return null;
 
-    // 2. Existe extrato anterior: a abertura encaixa no fecho dele.
-    if (prevStatement) {
-      const expected = Number(prevStatement.closing_balance ?? 0);
+    // 2. Há linhas importadas antes do início do ficheiro: a abertura tem de
+    // encaixar no saldo após o último movimento importado.
+    if (prevDayLines === undefined) return null; // ainda a carregar
+    if (lastPrevLine) {
+      const expected = lastPrevLine.balanceAfter;
       if (tol(opening, expected)) return null;
-      const prevTo = String(prevStatement.period_to).slice(0, 10);
       return {
         kind: "prev_statement" as const,
         reference: opening,
         expected,
         diff: round(opening - expected),
-        prevPeriodTo: prevTo,
+        prevBookingDate: lastPrevLine.bookingDate,
         periodFrom: parsedPeriodFrom as string,
-        businessDays: businessDaysBetween(prevTo, parsedPeriodFrom as string),
+        businessDays: businessDaysBetween(lastPrevLine.bookingDate, parsedPeriodFrom as string),
       };
     }
 
-    // 3. Sem extrato anterior: saldo do sistema à véspera de `period_from`.
+    // 3. Sem nenhuma linha anterior: saldo do sistema à véspera de `period_from`.
     if (!eveSystemBalances || !accountId) return null;
     const system = eveSystemBalances.get(accountId) ?? null;
     if (system === null) return null; // sem permissão para ver o saldo → sem aviso
@@ -665,7 +666,8 @@ export default function BankReconciliation() {
     account,
     cutoff,
     hasCutoffLines,
-    prevStatement,
+    prevDayLines,
+    lastPrevLine,
     parsedPeriodFrom,
     eveSystemBalances,
     eveOfPeriodFrom,
