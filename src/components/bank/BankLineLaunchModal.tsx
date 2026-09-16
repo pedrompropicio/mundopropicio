@@ -790,6 +790,45 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
                   {forecastId ? "Trocar linha" : "Escolher linha…"}
                 </Button>
               </div>
+              {feePlan && forecastId && (
+                <div className="mt-2 rounded-md bg-muted/40 p-2 text-xs">
+                  {proposedAutomatically ? (
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Linha proposta (rubrica {motherCategoryLabel} da transferência)
+                    </p>
+                  ) : (
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {feePlan.forecastId === forecastId ? "Linha herdada da transferência" : "Linha escolhida"}
+                    </p>
+                  )}
+                  <p className="mt-1">
+                    Previsto {formatCurrency(lineBudget)} · Utilizado {formatCurrency(Number(lineUsed ?? 0))} ·{" "}
+                    <span className={lineAvailable < 0 ? "text-destructive" : ""}>
+                      Disponível {formatCurrency(lineAvailable)}
+                    </span>
+                  </p>
+                  <p className={`mt-1 ${feeExcess > 0 ? "text-amber-500" : "text-muted-foreground"}`}>
+                    {feeExcess > 0
+                      ? `A taxa de ${formatCurrency(feeBase)} excede a linha em ${formatCurrency(feeExcess)} — entra como custo fora do BP; a verba aumenta-se no ecrã do BP.`
+                      : `A taxa de ${formatCurrency(feeBase)} cabe.`}
+                  </p>
+                </div>
+              )}
+              {feePlan && !forecastId && !loadingCandidates && !!feePlan.motherCategoryId && !proposedLineId && (
+                <p className="mt-2 text-xs text-amber-500">
+                  O BP deste evento não tem linha {motherCategoryLabel}. Escolhe outra ou cria a linha.
+                </p>
+              )}
+              {motherNeedsLink && (
+                <label className="mt-2 flex items-start gap-2">
+                  <Checkbox checked={linkMother} onCheckedChange={(v) => setLinkMother(!!v)} />
+                  <span className="text-xs">
+                    Ligar também a transferência-mãe ({feePlan?.motherDescription}
+                    {feePlan?.motherAmount != null && ` · ${formatCurrency(Number(feePlan.motherAmount))}`}) a esta
+                    linha
+                  </span>
+                </label>
+              )}
               <p className="mt-1 text-[10px] text-muted-foreground">
                 Este evento é gerido com BP: a despesa precisa de uma linha do Business Plan.
                 {!categoryId && " Escolhe primeiro a rubrica."}
