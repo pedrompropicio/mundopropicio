@@ -627,8 +627,9 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
               </div>
             )}
           </div>
+          )}
 
-          {!isTransfer && (
+          {!isTransfer && !feePlan && (
             <div className="grid gap-3 md:grid-cols-3">
               <div>
                 <Label>Fornecedor</Label>
