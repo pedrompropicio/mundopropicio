@@ -1,6 +1,6 @@
 # ESTADO — BP, Verbas & Rateio
 
-Atualizado: 2026-09-16 (2.ª revisão do dia) · **D-ERP72 R2 em produção: escolher um Master já não o rebenta nas cidades** — despesa única no Master, ligada à linha de BP do Master, com desdobramento de custo partilhado disponível (cai o limite nº 1) · custo partilhado com terceiros (D-ERP69) com base de dados **e** UI em produção, incluindo **desdobramento da fatura no formulário** (parte de terceiros em % ou €, multi-IVA em %) e a **quinta excepção** da trava de linha de BP · agregação mãe/filhas do rateio multi-evento corrigida nos oito relatórios de empresa (D-ERP70) · portal do sócio alinhado ao filtro canónico do Fecho · curva de evolução (#104, D4) em produção desde 07/09 · mesa de desenho `bp-x-resultado` encerrada
+Atualizado: 2026-09-16 (3.ª revisão do dia) · **D-ERP73 fase 2 construída e verificada em Live: cada perna de rateio leva a linha de BP do seu evento** — selector de linha por perna, mãe sem linha, verba medida por linha, a guarda "categoria bloqueada para rateio" passa a aviso e o diálogo do sub-evento passa a oferecer lançar no Master · **D-ERP72 R2 em produção: escolher um Master já não o rebenta nas cidades** — despesa única no Master, ligada à linha de BP do Master, com desdobramento de custo partilhado disponível (cai o limite nº 1) · custo partilhado com terceiros (D-ERP69) com base de dados **e** UI em produção, incluindo **desdobramento da fatura no formulário** (parte de terceiros em % ou €, multi-IVA em %) e a **quinta excepção** da trava de linha de BP · agregação mãe/filhas do rateio multi-evento corrigida nos oito relatórios de empresa (D-ERP70) · portal do sócio alinhado ao filtro canónico do Fecho · curva de evolução (#104, D4) em produção desde 07/09 · mesa de desenho `bp-x-resultado` encerrada
 
 ## Em que pé está
 O BP de receita está construído e o rateio deixou de ser convenção manual: o **custo partilhado com terceiros** (D-ERP69) tem base de dados e UI em produção, e a duplicação mãe/filhas do rateio multi-evento nas agregações de empresa está fechada com predicado único (D-ERP70). O portal do sócio passou a ler o realizado pelo mesmo filtro canónico do Fecho.
@@ -23,12 +23,22 @@ Receitas manuais continuam como `event_forecasts` com `type='income'`. Totais e 
 - "alterações anotadas" de `forecast_audit_log` (observação preenchida);
 - componente só leitura: `src/components/bp/BPEvolution.tsx` com área empilhada, toggles L1/L2/L3, período 30/90/origem, linha tracejada do previsto original e tabela dos maiores movimentos.
 
+## O que mudou hoje — fase 2 do rateio (D-ERP73)
+
+O painel de rateio passou a ter **selector "Linha do BP" por perna**, com as linhas **daquele evento** na rubrica escolhida e o previsto/disponível de cada uma. O `forecast_id` da filha vem da **perna**, não da comparação com a linha selecionada no topo. A **mãe deixou de levar linha de BP** — é agregado e não consome verba. A verba passa a ser medida **por linha** quando a perna tem linha escolhida (o mesmo critério da trava numa transação simples) e por rubrica quando não tem.
+
+A guarda _"Categoria bloqueada para rateio — já existe no BP do Master"_ passou a **aviso**: a mesma rubrica pode legitimamente ter linha no Master e nas cidades — no Deive a **2.2.02** tem cinco linhas em três eventos (Master "Rateio dayoffs" 2.000,00; Braga 1.040,09 + 24,00; Lisboa 406,89 + 60,00), todas certas. Caiu a isenção `splitAutoConfigured`, que era **a resposta à pergunta aberta do D-ERP72**: a guarda existe desde 11/04/2026 mas o rateio automático do Master ficava isento — foi por aí que entrou a fatura 113-XP a 04/08.
+
+O **diálogo de desambiguação a partir de um sub-evento** mantém a pergunta e mudou a resposta: passa a oferecer **"Custo da tour — lançar no Master"** (transação única no Master, na linha do Master, repartição virtual pelas cidades no relatório) em vez de rebentar em rateio pelas cidades.
+
+Verificado em Live e limpo no fim (pernas sem linha de volta a **74**, nem mais uma): rateio por dois eventos simples com linha em cada perna e mãe sem linha; rateio com o Master como destino sem nenhuma filha em Braga ou Lisboa; rateio na 2.2.02 por Master + Braga + Lisboa com cada selector a oferecer as linhas do seu evento; e o diálogo a mover para o Master sem rateio activo.
+
 ## A trabalhar agora
 Nada em execução.
 
 ## Próximo passo concreto
-1. **Fase 2 do D-ERP72 — linha de BP por perna no painel de rateio.** Hoje o painel escolhe eventos e percentagens mas não tem onde escolher a linha de BP de cada perna. Sem isso a R1 não fica completa e a R3 não pode entrar.
-2. **Fase 3 do D-ERP72 — estreitar a isenção da trava** para valer só em parcelas (`installment_group_id IS NOT NULL`), nas quatro camadas. Depende da fase 2.
+1. **Fase 3 do D-ERP72/D-ERP73 — estreitar a isenção da trava** para valer só em parcelas (`installment_group_id IS NOT NULL`), nas quatro camadas. **Depende de tratar primeiro as 74 pernas antigas**: aplicá-la antes rebenta dados existentes.
+2. **Tratar as 74 pernas de rateio sem linha de BP (126.232,99 €)** — trabalho de dados, à parte. Vêm **todas do painel/diálogo de rateio**; nenhuma do `ads-invoice-apply`. 16 nasceram desde 01/08; com a fase 2 em produção a torneira fecha-se.
 3. **Corrigir os dados do Deive (fatura 113-XP, 6.888,00 €).** Vincular os 6.888,00 € à **linha 3.2.01 do Master**, o que obriga a **elevar a verba de 6.880,00 para 6.888,00** ou a deixar a linha **em excedido** (decisão do Pedro), e **decidir o destino das duas filhas de 3.444,00** (Braga e Lisboa).
 4. **Marcar as duas linhas de hotel do Deive com a conta de circuito depois de pagas** (926,98 Vila Galé e 525,94 Meliã) e lançar a posição na conta "Acerto Turnê · Deive Leonardo Europa". Enquanto estiverem `approved` e não pagas, o espelho não nasce.
 5. **Registar o pagamento das passagens quando acontecer** — 5 quotas de 4.165,00 (circuito 20.825,00), com a quota da MP na linha 2.2.01 Voos do Master.
