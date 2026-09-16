@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Users, Database, ShieldAlert, ShieldCheck, Trash2, History, Activity, ClipboardCheck, Sparkles, Building2, Bell, Cloud, Link2, Banknote } from "lucide-react";
+import { Users, Database, ShieldAlert, ShieldCheck, Trash2, History, Activity, ClipboardCheck, Sparkles, Building2, Bell, Cloud, Link2, Banknote, BookOpen } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -96,6 +96,12 @@ const adminCards = [
     icon: ShieldCheck,
     title: "Verificador de Invariantes",
     description: "Dezoito contagens contra valor de referência (fronteira entre empresas + regras de negócio), amostra das linhas, execução diária, histórico e aceitação de nova referência",
+  },
+  {
+    to: "/admin/sincronizar-manual",
+    icon: BookOpen,
+    title: "Sincronizar manual",
+    description: "Lê os artigos-fonte do Manual de Orientação e grava-os na base (secções e pedaços para pesquisa)",
   },
   {
     to: "/admin/audit-downloads",

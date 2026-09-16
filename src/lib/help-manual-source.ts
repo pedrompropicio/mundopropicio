@@ -1,6 +1,11 @@
 // Origem do conteúdo do Manual de Orientação: os próprios ficheiros
 // docs/manual/*.md, carregados em bruto pelo Vite e passados pelo parser.
-import { parseHelpArticle, type ParsedArticle } from "./help-manual-parser";
+import {
+  parseHelpArticle,
+  chunkArticle,
+  type ParsedArticle,
+  type HelpChunk,
+} from "./help-manual-parser";
 
 const files = import.meta.glob("/docs/manual/*.md", {
   query: "?raw",
@@ -16,4 +21,13 @@ export function loadManualArticles(): ParsedArticle[] {
 
 export function manualFileCount(): number {
   return Object.keys(files).length;
+}
+
+export interface ManualSyncArticle extends ParsedArticle {
+  chunks: HelpChunk[];
+}
+
+/** Artigos prontos para a edge function manual-sync (artigo + pedaços). */
+export function loadManualSyncPayload(): ManualSyncArticle[] {
+  return loadManualArticles().map((a) => ({ ...a, chunks: chunkArticle(a) }));
 }
