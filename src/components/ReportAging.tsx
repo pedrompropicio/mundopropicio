@@ -35,7 +35,8 @@ export default function ReportAging() {
   const agingData = useMemo(() => {
     const buckets = BUCKETS.map((b) => ({ ...b, total: 0, count: 0, items: [] as typeof transactions }));
 
-    for (const tx of transactions) {
+    // Agregação de EMPRESA: conta a mãe do rateio, exclui as filhas (D-ERP70).
+    for (const tx of excludeRateioChildren(transactions as any[])) {
       const dueDate = tx.due_date ?? tx.date;
       const daysOverdue = differenceInDays(today, new Date(dueDate));
       const openAmount = Number(tx.amount) - Number(tx.paid_amount ?? 0);

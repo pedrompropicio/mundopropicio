@@ -37,7 +37,8 @@ export default function ReportMonthlyEvolution() {
       margin: 0,
     }));
 
-    for (const tx of transactions) {
+    // Agregação de EMPRESA: conta a mãe do rateio, exclui as filhas (D-ERP70).
+    for (const tx of excludeRateioChildren(transactions as any[])) {
       if (tx.is_transitory || tx.exclude_from_result) continue;
       const m = new Date(tx.date).getMonth();
       const amt = Number(tx.amount);

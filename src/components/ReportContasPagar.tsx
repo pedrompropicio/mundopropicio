@@ -99,7 +99,11 @@ export default function ReportContasPagar() {
     }
 
     if (appliedEventIds.size > 0) {
+      // Nível EVENTO: contam as filhas do rateio; a mãe (sem evento) cai fora sozinha.
       result = result.filter((t: any) => appliedEventIds.has(t.event_id));
+    } else {
+      // Nível EMPRESA (default "Todos os eventos"): conta a mãe, exclui as filhas (D-ERP70).
+      result = excludeRateioChildren(result as any[]);
     }
 
     if (appliedDateFrom) {

@@ -25,7 +25,8 @@ export default function ReportSupplierConcentration() {
 
   const supplierData = useMemo(() => {
     const map = new Map<string, { name: string; total: number; count: number }>();
-    for (const tx of transactions) {
+    // Agregação de EMPRESA: conta a mãe do rateio, exclui as filhas (D-ERP70).
+    for (const tx of excludeRateioChildren(transactions as any[])) {
       if (!tx.supplier_id) continue;
       const name = (tx.suppliers as any)?.name ?? "Desconhecido";
       const existing = map.get(tx.supplier_id) ?? { name, total: 0, count: 0 };
