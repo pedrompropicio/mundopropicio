@@ -1625,7 +1625,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               type: data.type,
               amount: sharedCostThirdNum,
               iva_rate: data.iva_rate,
-              event_id: sharedCostThirdEventId,
+              // Etiqueta da origem: a perna de terceiros fica no MESMO evento da
+              // perna da MP. Não é custo desse evento (está fora do resultado) —
+              // o Master é para custos DA MP que se espalham pelas cidades da MP.
+              event_id: data.event_id || null,
               category_id: data.category_id || null,
               supplier_id: data.supplier_id || null,
               account_id: accountId,
