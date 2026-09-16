@@ -4361,7 +4361,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   <X className="h-4 w-4" />
                 </button>
               )}
-              <button type="submit" disabled={createMutation.isPending}
+              <button type="submit" disabled={createMutation.isPending || !!servicePaymentError}
+                title={servicePaymentError ?? undefined}
                 className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50">
                 {createMutation.isPending ? "A guardar…" : "Criar Transação"}
               </button>
