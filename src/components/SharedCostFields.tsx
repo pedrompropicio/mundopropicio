@@ -261,24 +261,28 @@ export function SharedCostFields({
                         <div className="flex justify-between gap-3">
                           <span>Parte da MP (custo, com linha de BP)</span>
                           <span className="font-mono">
-                            {mpNet.toFixed(2)} € s/IVA · {(mpNet * mult).toFixed(2)} € c/IVA
+                            {mpNet.toFixed(2)} € s/IVA
+                            {!isMultiIva && ` · ${(mpNet * mult).toFixed(2)} € c/IVA`}
                           </span>
                         </div>
                         <div className="flex justify-between gap-3">
                           <span>Parte de terceiros (adiantamento)</span>
                           <span className="font-mono">
-                            {thirdNet.toFixed(2)} € s/IVA · {(thirdNet * mult).toFixed(2)} € c/IVA
+                            {thirdNet.toFixed(2)} € s/IVA
+                            {!isMultiIva && ` · ${(thirdNet * mult).toFixed(2)} € c/IVA`}
                           </span>
                         </div>
                         <div className="flex justify-between gap-3 border-t border-border/60 pt-0.5 font-medium">
                           <span>Total da fatura</span>
                           <span className="font-mono">
-                            {totalNet.toFixed(2)} € s/IVA · {(totalNet * mult).toFixed(2)} € c/IVA
+                            {totalNet.toFixed(2)} € s/IVA
+                            {!isMultiIva && ` · ${(totalNet * mult).toFixed(2)} € c/IVA`}
                           </span>
                         </div>
                         <div className="border-t border-border/60 pt-1 text-muted-foreground">
-                          Duas linhas no mesmo grupo de fatura — uma só transferência na Lista de
-                          Pagamento. Só a perna de terceiros fica fora do resultado.
+                          {isMultiIva
+                            ? "As pernas de todas as linhas de IVA ficam no mesmo grupo de fatura — uma só transferência na Lista de Pagamento. Só as pernas de terceiros ficam fora do resultado."
+                            : "Duas linhas no mesmo grupo de fatura — uma só transferência na Lista de Pagamento. Só a perna de terceiros fica fora do resultado."}
                         </div>
                       </div>
                     </>
