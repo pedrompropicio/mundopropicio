@@ -96,3 +96,25 @@ export function buildDescription(rule: BankLineRule | null, fallback: string): s
   const t = (rule?.description_template ?? "").trim();
   return t || fallback;
 }
+
+/**
+ * O que a regra PROPÕE, em português legível, para se ver na própria linha do
+ * extrato antes de abrir o formulário (issue #187, peça A). Só texto — não
+ * lança nada.
+ */
+export function describeRuleAction(
+  rule: BankLineRule,
+  names: {
+    category?: string | null;
+    event?: string | null;
+    account?: string | null;
+  } = {},
+): string {
+  if (rule.action === "create_transfer") {
+    return `transferência p/ ${names.account ?? "conta a escolher"}`;
+  }
+  const kind = rule.action === "create_income" ? "receita" : "despesa";
+  const parts = [names.category ?? "rubrica a escolher"];
+  if (names.event) parts.push(names.event);
+  return `${kind} ${parts.join(" · ")}`;
+}

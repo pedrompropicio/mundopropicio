@@ -39,8 +39,11 @@ import {
   type BankLineRule,
   type BankRuleAction,
 } from "@/lib/bank-statement/rules";
+import type { FeeLeg } from "@/lib/bank-statement/transfer-fees";
 
 const TRANSFER_CATEGORY_CODE = "10.3";
+/** Taxas bancárias (D-ERP30) — também as taxas de transferência (D-ERP74). */
+const FEE_CATEGORY_CODE = "10.6.01";
 const IVA_RATES = [0, 6, 13, 23];
 
 export interface LaunchableLine {
@@ -51,16 +54,79 @@ export interface LaunchableLine {
   value_date: string | null;
 }
 
+/**
+ * Modo "taxas de transferência" (D-ERP74): DOIS lançamentos pela soma, um por
+ * taxa de IVA, ligados às respectivas linhas, com evento e linha de BP
+ * herdados da transação-mãe. Só confirmação — nada se edita.
+ */
+export interface FeeLaunchPlan {
+  ref: string;
+  motherDescription: string;
+  eventId: string | null;
+  forecastId: string | null;
+  legs: FeeLeg[];
+}
+
 interface Props {
   lines: LaunchableLine[];
   accountId: string;
   accountName: string;
   rules: BankLineRule[];
+  feePlan?: FeeLaunchPlan | null;
   onClose: () => void;
   onDone: () => void;
 }
 
-export function BankLineLaunchModal({ lines, accountId, accountName, rules, onClose, onDone }: Props) {
+/**
+ * #154 — inserir e ligar é UM só passo lógico: se a ligação das linhas falhar,
+ * a transação criada é apagada. Nunca fica transação órfã a mexer no saldo.
+ */
+async function insertAndLinkLines(
+  payload: Record<string, unknown>,
+  lineIds: string[],
+  matchedBy: string,
+  note: string | null,
+): Promise<string> {
+  const { data: tx, error } = await supabase
+    .from("transactions")
+    .insert(payload as any)
+    .select("id")
+    .single();
+  if (error) throw error;
+  const { error: eLines } = await supabase
+    .from("bank_statement_lines")
+    .update({
+      status: "matched",
+      created_transaction_id: tx.id,
+      matched_transaction_id: tx.id,
+      matched_by: matchedBy,
+      matched_at: new Date().toISOString(),
+      note,
+    })
+    .in("id", lineIds);
+  if (eLines) {
+    await supabase.from("transactions").delete().eq("id", tx.id);
+    throw eLines;
+  }
+  return tx.id as string;
+}
+
+/** Desfaz uma perna já gravada (usado quando a perna seguinte falha). */
+async function revertLeg(txId: string, lineIds: string[]) {
+  await supabase
+    .from("bank_statement_lines")
+    .update({
+      status: "unmatched",
+      created_transaction_id: null,
+      matched_transaction_id: null,
+      matched_by: null,
+      matched_at: null,
+    })
+    .in("id", lineIds);
+  await supabase.from("transactions").delete().eq("id", txId);
+}
+
+export function BankLineLaunchModal({ lines, accountId, accountName, rules, feePlan = null, onClose, onDone }: Props) {
   const { user, hasPermission } = useAuth();
   const canSeeConfidential = hasPermission("view_confidential");
   const queryClient = useQueryClient();
@@ -205,6 +271,23 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
       .map((c) => ({ value: c.id, label: `${c.code} · ${c.name}` }));
   }, [categories]);
 
+  /**
+   * Modo taxas de transferência: tudo vem do banco e da transação-mãe. Só a
+   * linha de BP pode faltar — e nesse caso é pedida antes de gravar (D1+D8).
+   */
+  useEffect(() => {
+    if (!feePlan) return;
+    const cat = (categories as any[]).find((c) => c.code === FEE_CATEGORY_CODE);
+    setAction("create_expense");
+    setEventId(feePlan.eventId ?? "");
+    setForecastId(feePlan.forecastId ?? "");
+    setCategoryId(cat?.id ?? "");
+    setIvaRate(0);
+    setIsTransitory(false);
+    setSaveRule(false);
+    setDescription(`Taxas transferência ${feePlan.ref} — ${feePlan.motherDescription}`);
+  }, [feePlan, categories]);
+
   const isTransfer = action === "create_transfer";
   const base = Math.round((gross / (1 + ivaRate / 100)) * 100) / 100;
   /** A transitória dispensa rubrica e nunca gera regra (a tabela não guarda o flag). */
@@ -242,7 +325,60 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
     },
   });
 
+  /**
+   * Taxas de transferência (D-ERP74): dois lançamentos, cada um ligado às suas
+   * linhas, pelo mesmo caminho de inserir-e-ligar (#154). Se a segunda perna
+   * falhar, a primeira é desfeita — o grupo é um só acontecimento.
+   */
+  async function confirmFees() {
+    const plan = feePlan!;
+    if (plan.legs.length === 0) return toast.error("Nada a lançar neste grupo de taxas.");
+    if (!categoryId) return toast.error("Rubrica 10.6.01 (taxas bancárias) não encontrada.");
+    if (needsBpLine && !forecastId) return toast.error("Escolhe a linha de BP deste evento.");
+
+    setSaving(true);
+    const done: { txId: string; lineIds: string[] }[] = [];
+    try {
+      for (const leg of plan.legs) {
+        const txId = await insertAndLinkLines(
+          {
+            description: description.trim(),
+            type: "expense",
+            amount: leg.amount,
+            iva_rate: leg.ivaRate,
+            category_id: categoryId,
+            is_transitory: false,
+            supplier_id: supplierId || null,
+            event_id: plan.eventId || null,
+            forecast_id: needsBpLine ? forecastId : (plan.forecastId || null),
+            account_id: accountId,
+            date: paymentDate,
+            status: "paid",
+            paid_amount: leg.paidAmount,
+            payment_date: paymentDate,
+            payment_method: "transfer",
+            specification: note.trim() || null,
+            is_confidential: isConfidential || statementRestricted,
+          },
+          leg.lineIds,
+          `created:${user?.email ?? "sistema"}`,
+          note.trim() || null,
+        );
+        done.push({ txId, lineIds: leg.lineIds });
+      }
+      toast.success(`Taxas da transferência ${plan.ref} lançadas em ${done.length} transação(ões).`);
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      onDone();
+    } catch (err: any) {
+      for (const d of done) await revertLeg(d.txId, d.lineIds);
+      toast.error("Erro ao lançar as taxas (nada ficou criado): " + (err?.message ?? "desconhecido"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function confirm() {
+    if (feePlan) return confirmFees();
     if (!description.trim()) return toast.error("A descrição é obrigatória.");
     if (!isTransfer && !transitory && !categoryId) return toast.error("Escolhe a rubrica.");
     if (isTransfer && !targetAccountId) return toast.error("Escolhe a conta de destino.");
@@ -402,7 +538,9 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            Lançar {lines.length === 1 ? "movimento do banco" : `${lines.length} movimentos pela soma`}
+            {feePlan
+              ? `Lançar taxas da transferência ${feePlan.ref}`
+              : `Lançar ${lines.length === 1 ? "movimento do banco" : `${lines.length} movimentos pela soma`}`}
           </DialogTitle>
         </DialogHeader>
 
@@ -428,6 +566,30 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
             </ul>
           </div>
 
+          {feePlan && (
+            <div className="rounded-lg border border-primary/40 bg-primary/5 p-3">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                Taxas da transferência {feePlan.ref}
+              </p>
+              <p className="mt-1 text-xs">
+                Custo do evento da transferência-mãe · rubrica 10.6.01 · {feePlan.motherDescription}
+              </p>
+              <ul className="mt-2 space-y-1 text-xs">
+                {feePlan.legs.map((leg) => (
+                  <li key={leg.key}>
+                    <strong>{leg.label}</strong> — base {formatCurrency(leg.amount)} · IVA {leg.ivaRate}% ·
+                    pago {formatCurrency(leg.paidAmount)} ({leg.lineIds.length} linha(s))
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[10px] text-muted-foreground">
+                Cria {feePlan.legs.length} transação(ões), cada uma ligada às suas linhas. Nada se edita
+                aqui — só a linha de BP, se o evento a exigir.
+              </p>
+            </div>
+          )}
+
+          {!feePlan && (
           <div className="grid gap-3 md:grid-cols-2">
             <div>
               <Label>O que é</Label>
@@ -467,8 +629,9 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
               </div>
             )}
           </div>
+          )}
 
-          {!isTransfer && (
+          {!isTransfer && !feePlan && (
             <div className="grid gap-3 md:grid-cols-3">
               <div>
                 <Label>Fornecedor</Label>
@@ -549,7 +712,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
             <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
           </div>
 
-          {!isTransfer && (
+          {!isTransfer && !feePlan && (
             <div className="rounded-lg border border-border p-3">
               <label className="flex items-start gap-2">
                 <Checkbox
@@ -589,7 +752,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
             </div>
           )}
 
-          {!transitory && (
+          {!transitory && !feePlan && (
           <div className="rounded-lg border border-border p-3">
             <label className="flex items-start gap-2">
               <Checkbox checked={saveRule} onCheckedChange={(v) => setSaveRule(!!v)} />
@@ -625,7 +788,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, onCl
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
           <Button onClick={confirm} disabled={saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirmar lançamento
+            {feePlan ? `Confirmar ${feePlan.legs.length} lançamento(s)` : "Confirmar lançamento"}
           </Button>
         </DialogFooter>
 

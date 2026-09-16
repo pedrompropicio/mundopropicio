@@ -32,7 +32,17 @@ import BankLineDocumentsDialog from "@/components/bank/BankLineDocumentsDialog";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { BankLineLaunchModal, type LaunchableLine } from "@/components/bank/BankLineLaunchModal";
 
-import type { BankLineRule } from "@/lib/bank-statement/rules";
+import type { FeeLaunchPlan } from "@/components/bank/BankLineLaunchModal";
+import {
+  describeRuleAction,
+  findMatchingRule,
+  type BankLineRule,
+} from "@/lib/bank-statement/rules";
+import {
+  buildFeeGroups,
+  buildFeeLegs,
+  extractMotherRef,
+} from "@/lib/bank-statement/transfer-fees";
 import {
   parseSantanderStatement,
   computeLineHash,
@@ -109,6 +119,8 @@ export default function BankReconciliation() {
   /** Linhas selecionadas para dar UMA transação pela soma (TPA, comissões). */
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [launchLines, setLaunchLines] = useState<LaunchableLine[] | null>(null);
+  /** Modo taxas de transferência (D-ERP74): proposta pronta, só a confirmar. */
+  const [feePlan, setFeePlan] = useState<FeeLaunchPlan | null>(null);
 
   // Regras de lançamento: propõem o preenchimento, nunca criam nada.
   const { data: rules = [] } = useQuery({
@@ -374,6 +386,177 @@ export default function BankReconciliation() {
   // Anteriores ao corte: ficam à parte, só para o histórico.
   const preCutoffLines = (savedLines as any[]).filter((l) => l.status === "pre_cutoff");
   const preCutoffTotal = preCutoffLines.reduce((acc, l) => acc + Number(l.amount ?? 0), 0);
+
+  // ---- Peça A (#187): a regra que casa vê-se ANTES de abrir o Lançar -------
+  // Só texto. O motor é o mesmo do modal (`findMatchingRule`) — nada é criado.
+  const ruleRefIds = useMemo(() => {
+    const cats = new Set<string>();
+    const evs = new Set<string>();
+    const accs = new Set<string>();
+    (rules as BankLineRule[]).forEach((r) => {
+      if (r.category_id) cats.add(r.category_id);
+      if (r.event_id) evs.add(r.event_id);
+      if (r.target_account_id) accs.add(r.target_account_id);
+    });
+    return { cats: [...cats], evs: [...evs], accs: [...accs] };
+  }, [rules]);
+
+  const { data: ruleNames } = useQuery({
+    queryKey: ["bank-rule-names", ruleRefIds.cats.length, ruleRefIds.evs.length, ruleRefIds.accs.length],
+    enabled: allowed && (rules as BankLineRule[]).length > 0,
+    queryFn: async () => {
+      const cats = new Map<string, string>();
+      const evs = new Map<string, string>();
+      const accs = new Map<string, string>();
+      if (ruleRefIds.cats.length) {
+        const { data } = await supabase
+          .from("account_categories")
+          .select("id, code, name")
+          .in("id", ruleRefIds.cats);
+        (data ?? []).forEach((c: any) => cats.set(c.id, `${c.code} · ${c.name}`));
+      }
+      if (ruleRefIds.evs.length) {
+        const { data } = await supabase.from("events").select("id, name").in("id", ruleRefIds.evs);
+        (data ?? []).forEach((e: any) => evs.set(e.id, e.name));
+      }
+      if (ruleRefIds.accs.length) {
+        const { data } = await supabase
+          .from("financial_accounts")
+          .select("id, name")
+          .in("id", ruleRefIds.accs);
+        (data ?? []).forEach((a: any) => accs.set(a.id, a.name));
+      }
+      return { cats, evs, accs };
+    },
+  });
+
+  /** line_id → proposta legível da regra que casa. */
+  const rulePropByLine = useMemo(() => {
+    const m = new Map<string, { name: string; label: string }>();
+    (savedLines as any[])
+      .filter((l) => l.status === "unmatched")
+      .forEach((l) => {
+        const r = findMatchingRule(rules as BankLineRule[], {
+          description: l.description ?? "",
+          amount: Number(l.amount ?? 0),
+        });
+        if (!r) return;
+        m.set(l.id, {
+          name: r.name,
+          label: describeRuleAction(r, {
+            category: r.category_id ? ruleNames?.cats.get(r.category_id) ?? null : null,
+            event: r.event_id ? ruleNames?.evs.get(r.event_id) ?? null : null,
+            account: r.target_account_id ? ruleNames?.accs.get(r.target_account_id) ?? null : null,
+          }),
+        });
+      });
+    return m;
+  }, [savedLines, rules, ruleNames]);
+
+  // ---- Peça B (#187): taxas de transferência agrupadas pela referência -----
+  const feeGroups = useMemo(
+    () =>
+      buildFeeGroups(
+        (savedLines as any[])
+          .filter((l) => l.status === "unmatched")
+          .map((l) => ({
+            id: l.id,
+            description: l.description ?? "",
+            amount: Number(l.amount ?? 0),
+            booking_date: l.booking_date,
+            value_date: l.value_date ?? null,
+          })),
+      ),
+    [savedLines],
+  );
+
+  /** ref → linha-mãe `TRF.CRÉD.N.SEPA+EMITIDA <ref>` já conciliada nesta conta. */
+  const motherLineByRef = useMemo(() => {
+    const m = new Map<string, any>();
+    (savedLines as any[]).forEach((l) => {
+      if (l.status !== "matched") return;
+      const ref = extractMotherRef(l.description ?? "");
+      if (!ref) return;
+      if (l.matched_transaction_id || l.created_transaction_id) m.set(ref, l);
+    });
+    return m;
+  }, [savedLines]);
+
+  const motherTxIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          feeGroups
+            .map((g) => motherLineByRef.get(g.ref))
+            .filter(Boolean)
+            .map((l: any) => l.matched_transaction_id ?? l.created_transaction_id),
+        ),
+      ),
+    [feeGroups, motherLineByRef],
+  );
+
+  /** Transação-mãe: é dela que a taxa herda evento e linha de BP. */
+  const { data: motherTxs = [] } = useQuery({
+    queryKey: ["bank-recon-mother-txs", motherTxIds.join(",")],
+    enabled: motherTxIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, description, event_id, forecast_id")
+        .in("id", motherTxIds as string[]);
+      if (error) throw error;
+      const eventIds = Array.from(new Set((data ?? []).map((t: any) => t.event_id).filter(Boolean)));
+      const names = new Map<string, string>();
+      if (eventIds.length) {
+        const { data: evs } = await supabase.from("events").select("id, name").in("id", eventIds);
+        (evs ?? []).forEach((e: any) => names.set(e.id, e.name));
+      }
+      return (data ?? []).map((t: any) => ({ ...t, event_name: t.event_id ? names.get(t.event_id) ?? null : null }));
+    },
+  });
+
+  const motherTxById = useMemo(
+    () => new Map((motherTxs as any[]).map((t) => [t.id, t])),
+    [motherTxs],
+  );
+
+  /** line_id → grupo de taxas a que pertence (+ a mãe, quando existe). */
+  const feeInfoByLine = useMemo(() => {
+    const m = new Map<
+      string,
+      { ref: string; isFirst: boolean; count: number; mother: any | null; group: (typeof feeGroups)[number] }
+    >();
+    feeGroups.forEach((g) => {
+      const line = motherLineByRef.get(g.ref);
+      const txId = line ? (line.matched_transaction_id ?? line.created_transaction_id) : null;
+      const mother = txId ? motherTxById.get(txId) ?? null : null;
+      g.members.forEach((mem, i) => {
+        m.set(mem.line.id, { ref: g.ref, isFirst: i === 0, count: g.members.length, mother, group: g });
+      });
+    });
+    return m;
+  }, [feeGroups, motherLineByRef, motherTxById]);
+
+  /** Abre o Lançar em modo taxas: valores do banco, evento e BP da mãe. */
+  function openFeeLaunch(info: NonNullable<ReturnType<typeof feeInfoByLine.get>>) {
+    const g = info.group;
+    setLaunchLines(
+      g.members.map((m) => ({
+        id: m.line.id,
+        description: m.line.description,
+        amount: m.line.amount,
+        booking_date: m.line.booking_date,
+        value_date: m.line.value_date ?? null,
+      })) as LaunchableLine[],
+    );
+    setFeePlan({
+      ref: g.ref,
+      motherDescription: info.mother?.description ?? "transferência",
+      eventId: info.mother?.event_id ?? null,
+      forecastId: info.mother?.forecast_id ?? null,
+      legs: buildFeeLegs(g),
+    });
+  }
 
   /**
    * Por linha de lote SEPA conciliada: quantas exportações teve (dupla geração)
@@ -1404,12 +1587,36 @@ export default function BankReconciliation() {
                       />
                     </TableCell>
                     <TableCell className="whitespace-nowrap">{formatDatePT(l.booking_date)}</TableCell>
-                    <TableCell className="max-w-[420px] truncate">
-                      {l.description}
-                      {l.bank_ref && refGroups.get(l.bank_ref)! > 1 && (
-                        <Badge variant="secondary" className="ml-2 align-middle text-[10px]">
-                          ref. {l.bank_ref} · {refGroups.get(l.bank_ref)} linhas
-                        </Badge>
+                    <TableCell className="max-w-[420px]">
+                      <div className="truncate">
+                        {l.description}
+                        {l.bank_ref && refGroups.get(l.bank_ref)! > 1 && (
+                          <Badge variant="secondary" className="ml-2 align-middle text-[10px]">
+                            ref. {l.bank_ref} · {refGroups.get(l.bank_ref)} linhas
+                          </Badge>
+                        )}
+                      </div>
+                      {/* Peça A (#187): a regra que casa vê-se antes do clique. */}
+                      {rulePropByLine.get(l.id) && (
+                        <p className="truncate text-[11px] text-primary">
+                          Regra: {rulePropByLine.get(l.id)!.name} → {rulePropByLine.get(l.id)!.label}
+                        </p>
+                      )}
+                      {/* Peça B (#187): taxa de transferência identificada pela referência. */}
+                      {feeInfoByLine.get(l.id) && (
+                        feeInfoByLine.get(l.id)!.mother ? (
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            Taxa da transferência {feeInfoByLine.get(l.id)!.ref} →{" "}
+                            {feeInfoByLine.get(l.id)!.mother.description}
+                            {feeInfoByLine.get(l.id)!.mother.event_name
+                              ? ` · ${feeInfoByLine.get(l.id)!.mother.event_name}`
+                              : ""}
+                          </p>
+                        ) : (
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            Taxa de transferência sem mãe conciliada
+                          </p>
+                        )
                       )}
                     </TableCell>
                     <TableCell className={`whitespace-nowrap text-right ${Number(l.amount) < 0 ? "text-destructive" : "text-success"}`}>{formatCurrency(Number(l.amount))}</TableCell>
@@ -1420,6 +1627,15 @@ export default function BankReconciliation() {
                       <Button size="sm" variant="outline" className="ml-1" onClick={() => setLaunchLines([toLaunchable(l)])}>
                         <PlusCircle className="mr-1 h-3.5 w-3.5" /> Lançar
                       </Button>
+                      {feeInfoByLine.get(l.id)?.isFirst && feeInfoByLine.get(l.id)!.mother && (
+                        <Button
+                          size="sm"
+                          className="ml-1"
+                          onClick={() => openFeeLaunch(feeInfoByLine.get(l.id)!)}
+                        >
+                          <PlusCircle className="mr-1 h-3.5 w-3.5" /> Lançar taxas ({feeInfoByLine.get(l.id)!.count} linhas)
+                        </Button>
+                      )}
                       <Button size="sm" variant="ghost" className="ml-1" onClick={() => { setIgnoreLine(l); setIgnoreNote(""); }}>
                         <EyeOff className="mr-1 h-3.5 w-3.5" /> Ignorar
                       </Button>
@@ -1564,9 +1780,11 @@ export default function BankReconciliation() {
           accountId={account.id}
           accountName={account.name}
           rules={rules as BankLineRule[]}
-          onClose={() => setLaunchLines(null)}
+          feePlan={feePlan}
+          onClose={() => { setLaunchLines(null); setFeePlan(null); }}
           onDone={() => {
             setLaunchLines(null);
+            setFeePlan(null);
             setSelectedIds([]);
             queryClient.invalidateQueries({ queryKey: ["bank-recon-lines"] });
             queryClient.invalidateQueries({ queryKey: ["bank-recon-txns"] });
