@@ -1,6 +1,6 @@
 # ESTADO — BP, Verbas & Rateio
 
-Atualizado: 2026-09-16 · custo partilhado com terceiros (D-ERP69) com base de dados **e** UI em produção · agregação mãe/filhas do rateio multi-evento corrigida nos oito relatórios de empresa (D-ERP70) · portal do sócio alinhado ao filtro canónico do Fecho · curva de evolução (#104, D4) em produção desde 07/09 · mesa de desenho `bp-x-resultado` encerrada
+Atualizado: 2026-09-16 · custo partilhado com terceiros (D-ERP69) com base de dados **e** UI em produção, incluindo **desdobramento da fatura no formulário** (parte de terceiros em % ou €, multi-IVA em %) e a **quinta excepção** da trava de linha de BP · agregação mãe/filhas do rateio multi-evento corrigida nos oito relatórios de empresa (D-ERP70) · portal do sócio alinhado ao filtro canónico do Fecho · curva de evolução (#104, D4) em produção desde 07/09 · mesa de desenho `bp-x-resultado` encerrada
 
 ## Em que pé está
 O BP de receita está construído e o rateio deixou de ser convenção manual: o **custo partilhado com terceiros** (D-ERP69) tem base de dados e UI em produção, e a duplicação mãe/filhas do rateio multi-evento nas agregações de empresa está fechada com predicado único (D-ERP70). O portal do sócio passou a ler o realizado pelo mesmo filtro canónico do Fecho.
