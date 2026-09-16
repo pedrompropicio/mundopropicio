@@ -1,5 +1,6 @@
 import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
 import React, { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -4364,7 +4365,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         </form>
 
         {/* Split disambiguation dialog */}
-        {showSplitDisambiguation && disambiguationForecast && (
+        {showSplitDisambiguation && disambiguationForecast && createPortal(
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={() => setShowSplitDisambiguation(false)}>
             <div className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl space-y-4" onClick={e => e.stopPropagation()}>
               <div className="space-y-1">
@@ -4442,7 +4443,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 Cancelar
               </button>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
 
