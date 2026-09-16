@@ -22,3 +22,12 @@ export function loadManualArticles(): ParsedArticle[] {
 export function manualFileCount(): number {
   return Object.keys(files).length;
 }
+
+export interface ManualSyncArticle extends ParsedArticle {
+  chunks: HelpChunk[];
+}
+
+/** Artigos prontos para a edge function manual-sync (artigo + pedaços). */
+export function loadManualSyncPayload(): ManualSyncArticle[] {
+  return loadManualArticles().map((a) => ({ ...a, chunks: chunkArticle(a) }));
+}
