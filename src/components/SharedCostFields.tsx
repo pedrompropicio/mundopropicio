@@ -91,6 +91,7 @@ export function SharedCostFields({
   const splitActive = splitFilled && !splitInvalid && !split?.unavailableReason;
   const mpNet = splitActive ? Number((totalNet - thirdNet).toFixed(2)) : totalNet;
   const mult = 1 + (Number(split?.ivaRate) || 0) / 100;
+  const isMultiIva = (split?.multiIvaLineCount ?? 0) >= 2;
 
   return (
     <div className="rounded-lg border border-border bg-secondary/20">
