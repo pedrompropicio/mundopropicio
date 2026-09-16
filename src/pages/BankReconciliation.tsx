@@ -527,12 +527,15 @@ export default function BankReconciliation() {
    * 1. O extrato COBRE a data de corte → o saldo implantado é o saldo ao FECHO
    *    desse dia: compara-se com o `balance_after` da última linha até ao corte,
    *    nunca com a abertura do ficheiro (que é o saldo ANTES dos movimentos).
-   * 2. O extrato começa DEPOIS do corte e já existe extrato anterior da mesma
-   *    conta → a abertura tem de encaixar no `closing_balance` desse extrato.
-   *    É isto que denuncia linhas em falta ou um extrato saltado. Comparar com
-   *    o implantado dava sempre a variação do saldo desde o corte (aviso falso).
-   * 3. Sem extrato anterior → compara-se a abertura com o saldo do SISTEMA à
-   *    véspera de `period_from`. Sem permissão para ver o saldo, não há aviso.
+   * 2. O extrato começa DEPOIS do corte e já há linhas importadas da mesma
+   *    conta antes de `period_from` → a abertura tem de encaixar no
+   *    `balance_after` da última linha importada. É isto que denuncia linhas
+   *    em falta. Comparar com o `closing_balance` do extrato anterior falhava
+   *    quando os períodos se sobrepunham (fecho já incluía movimentos do dia
+   *    de abertura do ficheiro novo).
+   * 3. Sem nenhuma linha anterior → compara-se a abertura com o saldo do
+   *    SISTEMA à véspera de `period_from`. Sem permissão para ver o saldo,
+   *    não há aviso.
    */
   const parsedPeriodFrom = parsed ? String(parsed.periodFrom).slice(0, 10) : null;
 
