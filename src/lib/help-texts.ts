@@ -168,13 +168,6 @@ const helpTexts: Record<string, string> = {
     "Despesa real que não compõe o resultado financeiro do evento (DRE/PL). Fica registada para histórico e rastreabilidade mas não afeta lucro/prejuízo.",
   excludeFromResultTransaction:
     "Transação excluída do resultado — registada apenas para efeito de histórico, sem impacto no DRE/PL.",
-  splitTransaction:
-    "Permite dividir uma única fatura/despesa por vários eventos com percentuais iguais ou personalizados.\n\n" +
-    "• Funciona com sub-eventos de uma turnê E com eventos totalmente independentes (ex: pacote de mídia para vários shows).\n" +
-    "• Ao ativar, selecione os eventos desejados e defina as percentagens.\n" +
-    "• O sistema cria uma transação 'Master' (consolidada) e transações 'Split' individuais por evento.\n" +
-    "• Alterações e pagamentos na transação Master propagam-se automaticamente para as filhas.\n" +
-    "• O BP de cada evento é validado individualmente.",
   splitEqual:
     "Divide o valor igualmente entre todos os eventos selecionados. As percentagens são recalculadas automaticamente ao adicionar ou remover eventos.",
   splitCustom:
