@@ -1570,7 +1570,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           : parseDueDateForDb(data.due_date);
 
         // Sufixo curto que distingue as duas pernas na lista de transações.
-        const mpLegSuffix = sharedCostSplitActive ? " — parte MP" : "";
+        const mpLegSuffix = lineSplitActive ? " — parte MP" : "";
         const { data: insertedTx, error } = await supabase.from("transactions").insert({
           description: data.description + totalSuffix + mpLegSuffix,
           type: data.type,
@@ -1597,9 +1597,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           is_transitory: principalIsTransitory,
           // Com desdobramento esta é a PERNA DA MP: despesa normal, dentro do resultado,
           // a consumir verba do BP. A conta de circuito vive só na perna de terceiros.
-          exclude_from_result: sharedCostSplitActive ? isExcludeFromResult : (isExcludeFromResult || !!sharedCostAccountId),
-          shared_cost_account_id: sharedCostSplitActive ? null : (sharedCostAccountId || null),
-          shared_cost_counterparty_id: sharedCostSplitActive ? null : (sharedCostAccountId ? (sharedCostCounterpartyId || null) : null),
+          exclude_from_result: lineSplitActive ? isExcludeFromResult : (isExcludeFromResult || !!sharedCostAccountId),
+          shared_cost_account_id: lineSplitActive ? null : (sharedCostAccountId || null),
+          shared_cost_counterparty_id: lineSplitActive ? null : (sharedCostAccountId ? (sharedCostCounterpartyId || null) : null),
           is_confidential: isConfidential,
           invoice_ref: data.invoice_ref.trim() || null,
           invoice_group_id: sharedInvoiceGroupId,
@@ -1624,7 +1624,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // isso não exige linha de BP nem consome verba. Herda status da perna da MP:
         // as duas partilham o invoice_group_id e a aprovação de um grupo é atómica —
         // estados diferentes deixariam o grupo permanentemente parcial.
-        if (sharedCostSplitActive && insertedTx?.id) {
+        if (lineSplitActive && insertedTx?.id) {
           const thirdGross = Number((sharedCostThirdNum * ivaMultiplier).toFixed(2));
           const { data: thirdLeg, error: thirdErr } = await supabase
             .from("transactions")
