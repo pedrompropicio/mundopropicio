@@ -72,12 +72,44 @@ logo à entrada se a transação que a dispara existir em `shared_cost_mirror` c
 Independente de `sync_partner_aporte_mirror()`, que fica **exactamente** como está. Uma
 conta com as duas naturezas é erro de configuração, não caso suportado.
 
+## Desdobramento da fatura no formulário (16/09/2026, testado em Live)
+
+`SharedCostFields` tem, depois da conta e do terceiro, o campo **"Parte de terceiros (sobre a
+base s/IVA)"** com o mesmo toggle `%` / `€` do rateio multi-evento. Vazio = a linha inteira é de
+terceiros (comportamento anterior). Preenchido, `TransactionFormModal` grava **duas pernas**:
+
+- **parte da MP** — custo normal: rubrica, linha de BP obrigatória, dentro do resultado, sem
+  `shared_cost_account_id`. A verba do BP é comparada só com esta perna.
+- **parte de terceiros** — com `shared_cost_account_id` (e `shared_cost_counterparty_id` se
+  houver); `exclude_from_result` vem do trigger, não do JavaScript.
+
+Ambas herdam fornecedor, datas, IVA, descrição (com sufixo "— parte MP" / "— parte de
+terceiros"), método, referência e **status** (a perna de terceiros herda o da MP, incluindo já
+paga), e partilham **um único `invoice_group_id`** — uma só transferência na Lista de Pagamento.
+
+- **Evento:** a perna de terceiros fica **no mesmo evento da MP**. Não é custo desse evento (está
+  fora do resultado) — é a etiqueta da fatura de onde nasceu, e é assim que o fecho encontra o
+  circuito na cidade, nas irmãs e no Master. Não há selector de evento. Despesa sem evento é
+  recusada.
+- **Base sem IVA:** a percentagem/valor aplica-se à base; a mesma taxa de IVA fica nas duas
+  pernas; o cêntimo de arredondamento vai para a MP.
+- **Multi-IVA ("Dividir por IVA"):** a percentagem aplica-se **linha a linha** (duas pernas por
+  linha), modo absoluto `€` é recusado, e todas as pernas partilham um `invoice_group_id`.
+- **Recusas:** 0 ou o total inteiro (a zero é despesa normal; pelo total basta marcar a linha),
+  parcelas, rateio multi-evento e Extra do Sócio.
+- **Limite conhecido:** escolher um Master `multi_day` liga o rateio multi-evento, logo o
+  desdobramento fica indisponível nesse caminho — a fatura lança-se na cidade que a consumiu.
+
 ## Relação com `exclude_from_result` e com a trava de linha de BP
 
 `exclude_from_result = true` é uma das quatro isenções da trava D1+D8 (ver
-`bp-linha-obrigatoria.md`), iguais nas três camadas — trigger, `src/lib/bp-line-required.ts`
-e `approve-transaction`. Logo: a linha de adiantamento por conta de terceiros **não** exige
-linha de BP e **não** consome verba, por construção, sem excepção nova nenhuma. É também um
+`bp-linha-obrigatoria.md`), iguais nas camadas todas — trigger, `src/lib/bp-line-required.ts`,
+`approve-transaction` e `countsAsBudgetCommitment`. A partir de 16/09/2026 existe uma **quinta**
+isenção, `shared_cost_account_id IS NOT NULL`, nas quatro camadas: era necessária porque no INSERT
+o trigger da trava corre **antes** de `trg_force_exclude_result_shared_cost`, e via a linha de
+circuito ainda sem `exclude_from_result` — uma despesa desdobrada nascida `approved` era recusada.
+Logo: a linha de adiantamento por conta de terceiros **não** exige linha de BP e **não** consome
+verba, por construção. É também um
 dos flags de `hasResultBlockingFlags` (`fecho-filter-parity.md`), pelo que sai do resultado
 em Fecho, DRE, Acerto e cards.
 

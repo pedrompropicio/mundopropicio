@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
 
     const { data: transactions, error: fetchError } = await adminClient
       .from("transactions")
-      .select("id, status, type, event_id, amount, iva_rate, company_id, forecast_id, parent_transaction_id, is_transitory, exclude_from_result, reversed_at, is_hidden")
+      .select("id, status, type, event_id, amount, iva_rate, company_id, forecast_id, parent_transaction_id, is_transitory, exclude_from_result, reversed_at, is_hidden, shared_cost_account_id")
       .in("id", expandedIds);
 
     if (fetchError) {
@@ -168,13 +168,15 @@ Deno.serve(async (req) => {
     // public.enforce_transaction_approval_permission() e de
     // src/lib/bp-line-required.ts: não consomem verba do BP as transações com
     // is_transitory, exclude_from_result, reversed_at preenchido ou is_hidden
-    // (null = false). É também o predicado do bloco D2 mais abaixo.
+    // (null = false). Quinta isenção (16/09/2026, D-ERP69):
+    // shared_cost_account_id preenchido — custo partilhado com terceiros.
+    // É também o predicado do bloco D2 mais abaixo.
     if (approvableTx.length > 0) {
       const candidates = approvableTx.filter(
         (t: any) =>
           t.type === "expense" && !!t.event_id && !t.parent_transaction_id && !t.forecast_id &&
           t.is_transitory !== true && t.exclude_from_result !== true &&
-          t.reversed_at == null && t.is_hidden !== true,
+          t.reversed_at == null && t.is_hidden !== true && t.shared_cost_account_id == null,
       );
       if (candidates.length > 0) {
         const eventIds = [...new Set(candidates.map((t: any) => t.event_id as string))];
@@ -233,7 +235,7 @@ Deno.serve(async (req) => {
 
         const { data: realizedRows, error: realizedErr } = await adminClient
           .from("transactions")
-          .select("id, forecast_id, amount, is_transitory, exclude_from_result, reversed_at, is_hidden")
+          .select("id, forecast_id, amount, is_transitory, exclude_from_result, reversed_at, is_hidden, shared_cost_account_id")
           .in("forecast_id", forecastIds)
           .in("status", ["approved", "paid"]);
         if (realizedErr) {
@@ -248,7 +250,7 @@ Deno.serve(async (req) => {
         const realizedByLine = new Map<string, number>();
         for (const r of (realizedRows ?? []) as any[]) {
           if (batchIds.has(r.id)) continue;
-          if (r.is_transitory === true || r.exclude_from_result === true || r.reversed_at != null || r.is_hidden === true) continue;
+          if (r.is_transitory === true || r.exclude_from_result === true || r.reversed_at != null || r.is_hidden === true || r.shared_cost_account_id != null) continue;
           realizedByLine.set(r.forecast_id, (realizedByLine.get(r.forecast_id) ?? 0) + Number(r.amount ?? 0));
         }
         const toApproveByLine = new Map<string, number>();

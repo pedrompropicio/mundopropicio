@@ -25,6 +25,17 @@ Dentro do total, cada linha declara de quem é o custo:
 
 Se se souber o terceiro concreto, indica-se (`shared_cost_counterparty_id`) — serve para abrir a posição por contraparte. É opcional.
 
+### Fatura repartida entre a MP e terceiros (desdobramento automático)
+
+Quando a mesma fatura tem parte da MP e parte de terceiros, não se lançam duas despesas à mão: no bloco "Custo partilhado com terceiros" indica-se a **parte de terceiros** em percentagem ou valor (sobre a base sem IVA) e o sistema cria as duas pernas de uma só vez:
+
+- parte da MP — custo normal, com linha de BP, dentro do resultado;
+- parte de terceiros — adiantamento, fora do resultado, na conta de circuito.
+
+As duas ficam no **mesmo grupo de fatura** (uma só transferência na Lista de Pagamento), herdam fornecedor, datas, IVA, descrição, método, referência e estado — incluindo lançar já pagas. Ficam **no mesmo evento**: a perna de terceiros não é custo desse evento, é a etiqueta da cidade que consumiu a fatura.
+
+Não é possível desdobrar: com valor a zero ou pelo total inteiro (a zero é despesa normal; pelo total basta marcar a linha com a conta de circuito), em parcelas, com rateio multi-evento ou com Extra do Sócio. Em "Dividir por IVA" a repartição faz-se linha a linha e só em percentagem. Se a despesa for lançada num Master de turnê o rateio multi-evento assume o comando e o desdobramento não está disponível — lança-se na cidade.
+
 ## Passo 3 — Os três casos da quota da MP
 
 Lança-se o que se sabe, nunca se espera pela verdade para lançar:
