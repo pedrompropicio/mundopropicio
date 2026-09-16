@@ -38,12 +38,8 @@ interface Props {
     mode: ThirdPartyShareMode;
     /** Texto cru do campo (percentagem ou euros). */
     value: string;
-    /** Evento da perna de terceiros (obrigatório quando desdobra). */
-    eventId: string;
-    events: Array<{ id: string; name: string }>;
     onModeChange: (mode: ThirdPartyShareMode) => void;
     onValueChange: (value: string) => void;
-    onEventChange: (eventId: string) => void;
     /** Quando presente, o desdobramento está indisponível e explica-se porquê. */
     unavailableReason?: string | null;
     /**
