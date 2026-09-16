@@ -2372,10 +2372,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         });
         return;
       }
-      if (!sharedCostThirdEventId) {
+      // A perna de terceiros herda SEMPRE o evento da perna da MP (é a etiqueta da
+      // fatura de onde nasceu, não custo desse evento). Sem evento nenhum, a posição
+      // do circuito deixaria de ser verificável no fecho — recusa-se o desdobramento.
+      if (!form.event_id) {
         toast({
-          title: "A perna de terceiros exige um evento",
-          description: "O blocker de fecho procura as contas de circuito pelas transações com evento. Sem evento, o circuito passa o fecho sem aviso e a posição nunca é conferida.",
+          title: "Uma despesa sem evento não pode ser desdobrada",
+          description: "O fecho procura as contas de circuito pelas transações com evento. Sem evento, a posição do circuito deixaria de ser verificável. Escolhe o evento de onde veio a fatura.",
           variant: "destructive",
         });
         return;
