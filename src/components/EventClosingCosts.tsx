@@ -280,7 +280,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-            Rateios de Overhead <HelpTooltip text={helpTexts.eventClosingTab} size={13} />
+            Rateios de Overhead <HelpTooltip anchor="rateios.overhead" size={13} />
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             Custos fixos da empresa (assessoria, jurídico, escritório) rateados ao evento. Aparecem inline no BP com badge <em>Overhead</em>, <strong>não impactam o resultado da empresa</strong> e contribuem proporcionalmente no acerto com sócios.

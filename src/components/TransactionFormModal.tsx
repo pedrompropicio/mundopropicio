@@ -2739,7 +2739,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               <Split className="h-3.5 w-3.5" />
               {isSplit ? "Rateio Ativo" : "💡 Dividir por vários eventos"}
             </button>
-            <HelpTooltip text={helpTexts.splitTransaction} size={14} />
+            <HelpTooltip anchor="rateios.varios-eventos" size={14} />
           </div>
 
           {/* Event selector (single) — hidden when split */}
@@ -2840,7 +2840,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     <p className="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1">
                       <Split className="h-3.5 w-3.5" />
                       Rateio Multi-Evento ({splitEntries.length} cidades)
-                      <HelpTooltip text={helpTexts.splitTransaction} size={13} />
+                      <HelpTooltip anchor="rateios.varios-eventos" size={13} />
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
@@ -4398,6 +4398,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
                   <Split className="h-4 w-4 text-primary" />
                   Custo da tour ou desta cidade?
+                  <HelpTooltip anchor="rateios.master" size={13} />
                 </h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   Esta rubrica existe no BP do evento Master. Este custo serve a tour inteira ou é só desta cidade?

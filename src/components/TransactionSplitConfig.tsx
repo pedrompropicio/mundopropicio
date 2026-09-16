@@ -171,7 +171,7 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1">
             Rateio Multi-Evento
-            <HelpTooltip text={helpTexts.splitTransaction} size={13} />
+            <HelpTooltip anchor="rateios.varios-eventos" size={13} />
           </p>
           <p className="text-[10px] text-muted-foreground mt-0.5">
             Selecione os eventos e defina como dividir o valor da fatura

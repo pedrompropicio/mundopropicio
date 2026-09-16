@@ -17,6 +17,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight, Handshake, AlertTriangle } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import { useCircuitAccounts } from "@/lib/circuit-account";
+import HelpTooltip from "@/components/HelpTooltip";
 
 export type ThirdPartyShareMode = "percentage" | "absolute";
 
@@ -99,6 +100,7 @@ export function SharedCostFields({
         {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         <Handshake className="h-4 w-4 text-primary" />
         <span>Custo partilhado com terceiros</span>
+        <HelpTooltip anchor="rateios.terceiros" size={13} />
         {accountId && (
           <span className="ml-auto rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
             {splitActive ? "Fatura desdobrada" : "Parte de terceiros"}

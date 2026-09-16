@@ -1,20 +1,43 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HelpCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useHasHelpPanel, useHelpPanel } from "@/contexts/HelpPanelContext";
+import { useHelpAnchor } from "@/hooks/useHelpManual";
 
 interface HelpTooltipProps {
-  text: string;
+  /** Texto fixo (comportamento original). Com `anchor`, serve de reserva. */
+  text?: string;
+  /**
+   * Âncora do Manual de Orientação (ex.: "rateios.master"). O texto passa a vir
+   * de `help_sections.tooltip` e aparece a ligação "Saber mais".
+   */
+  anchor?: string;
   className?: string;
   side?: "top" | "right" | "bottom" | "left";
   size?: number;
 }
 
-export default function HelpTooltip({ text, className, side = "top", size = 15 }: HelpTooltipProps) {
+export default function HelpTooltip({ text, anchor, className, side = "top", size = 15 }: HelpTooltipProps) {
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
+  const { openHelp } = useHelpPanel();
+  const hasPanel = useHasHelpPanel();
+
+  // Só consulta a base depois de o utilizador mostrar interesse.
+  const anchorQ = useHelpAnchor(anchor && open ? anchor : null);
+  const missing = !!anchor && anchorQ.isSuccess && (!anchorQ.data || !anchorQ.data.tooltip);
+
+  useEffect(() => {
+    if (missing) {
+      console.warn(`[HelpTooltip] âncora sem texto no manual: ${anchor}`);
+    }
+  }, [missing, anchor]);
+
+  const body = anchor ? anchorQ.data?.tooltip ?? text ?? "" : text ?? "";
+  const showSaberMais = !!anchor && hasPanel && !missing;
 
   const iconButton = (
     <button
@@ -36,6 +59,28 @@ export default function HelpTooltip({ text, className, side = "top", size = 15 }
     </button>
   );
 
+  const saberMais = showSaberMais ? (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+        openHelp({ anchor });
+      }}
+      className="mt-2 block text-[11px] font-semibold text-primary underline underline-offset-2 hover:no-underline"
+    >
+      Saber mais
+    </button>
+  ) : null;
+
+  const content = (
+    <>
+      {body || (anchorQ.isLoading ? "A carregar…" : "")}
+      {saberMais}
+    </>
+  );
+
   if (isMobile) {
     return (
       <Popover open={open} onOpenChange={setOpen}>
@@ -46,7 +91,7 @@ export default function HelpTooltip({ text, className, side = "top", size = 15 }
           side={side}
           className="max-w-[260px] p-3 text-xs leading-relaxed whitespace-normal break-words"
         >
-          {text}
+          {content}
         </PopoverContent>
       </Popover>
     );
@@ -62,7 +107,7 @@ export default function HelpTooltip({ text, className, side = "top", size = 15 }
           side={side}
           className="max-w-[280px] text-xs leading-relaxed whitespace-normal break-words"
         >
-          {text}
+          {content}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

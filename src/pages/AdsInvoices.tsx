@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/hooks/useCompany";
 import { AdsInvoiceImportDialog } from "@/components/ads/AdsInvoiceImportDialog";
+import HelpTooltip from "@/components/HelpTooltip";
 
 interface AdsInvoiceRow {
   id: string;
@@ -802,7 +803,10 @@ export default function AdsInvoices() {
     <div className="space-y-6 p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Faturas Ads</h1>
+          <h1 className="text-2xl font-semibold flex items-center gap-1.5">
+            Faturas Ads
+            <HelpTooltip anchor="rateios.faturas-ads" size={14} />
+          </h1>
           <p className="text-sm text-muted-foreground">
             Propostas de rateio das faturas de tráfego pago (Meta e Google).
           </p>

@@ -18,6 +18,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
 import { CompanyBrandingProvider } from "@/contexts/CompanyBrandingContext";
+import { HelpPanelProvider } from "@/contexts/HelpPanelContext";
+import HelpSidePanel from "@/components/help/HelpSidePanel";
+import HelpFloatingButton from "@/components/help/HelpFloatingButton";
 import { ConfirmMetaActionProvider } from "@/components/crm/ConfirmMetaActionDialog";
 import { useCompany } from "@/hooks/useCompany";
 import { BrandedLogo } from "@/components/BrandedLogo";
@@ -446,6 +449,7 @@ function ProtectedLayout() {
   }
 
   return (
+    <HelpPanelProvider>
     <div className="flex min-h-screen flex-col">
       <ApprovedPaymentListReminder />
       <header
@@ -599,7 +603,10 @@ function ProtectedLayout() {
           </div>
         </main>
       </div>
+      <HelpFloatingButton />
+      <HelpSidePanel />
     </div>
+    </HelpPanelProvider>
   );
 }
 
