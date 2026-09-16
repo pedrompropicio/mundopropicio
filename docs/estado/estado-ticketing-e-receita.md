@@ -1,6 +1,6 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-09-13 · Issues: #73, #78, #128, #129, #130, #132 (fechada), #145, #155
+Atualizado: 2026-09-16 · Issues: #73, #78, #128, #129, #130, #145, #155, #184 (aberta só pelo ponto c) · #132 fechada
 
 ## Em que pé está
 
@@ -21,11 +21,11 @@ Atualizado: 2026-09-13 · Issues: #73, #78, #128, #129, #130, #132 (fechada), #1
 
 - **Estudo de preços da Simone Mendes (08/09).** Lisboa 3 107 bilhetes vendidos e 140 555 €, preço médio 45,24 €; Porto 3 878 e 183 950 €, preço médio 47,43 €. Cinco dos nove setores esgotaram: em Lisboa as Galerias e a mobilidade condicionada, no Porto os dois balcões e a mobilidade reduzida — em ambos os casos o que sobra nesses setores são lugares de visibilidade condicionada, que o sistema conta como disponíveis mas nunca chegam à venda. Por isso a ocupação mede-se sobre a capacidade vendável (6 056 em Lisboa, 7 018 no Porto) e não sobre a nominal. Restam quatro zonas à venda, o mesmo par nas duas cidades: uma a 45 € e uma a 65 €. Proposta entregue: subir as quatro para 50 € e 70 €, os valores do Lote 3 que estava planeado e nunca foi aberto.
 
-- **Sync das cinco cidades do Ghanem reposto (09/09).** RG Lisboa, Santarém, Almada, Estoril e Albufeira tinham `enabled = false` desde 28/08 17:36 — as cinco no mesmo segundo, alteração em bloco. Reativadas com autorização do Pedro. Nada se perdeu: a captura horária continuou a correr e as vendas estavam em `ticketline_daily_sales`.
+- **Captura horária da Ticketline corrigida (16/09, issue #184, v2.41).** As cinco cidades migradas do Ghanem (RG Lisboa, Almada, Estoril, Albufeira, Santarém) ficaram sem vendas novas no sistema de 14/09 21:05 UTC a 16/09 12:26 UTC: o XLSX por evento voltou a devolver HTML em todas as corridas horárias (~37 seguidas) e a rede de segurança `capture_day` tinha parado a 09/09 10:15 UTC porque só tratava configs com `daily_fallback_active = true` — flag que o próprio caminho XLSX, ao passar uns dias, tinha posto a `false`. Reposição: flag reposta a `true` nas cinco, `capture_day` disparado para 10/09–16/09 (7 corridas `success`), espelho conferido contra `ticket_sales` (bate em quatro cidades; Albufeira 23 vs 21 porque 2 bilhetes entraram depois do último import — o espelho está certo), 26 bilhetes de 15+16/09 repostos. Correção definitiva em Live: `capture_day` cobre todos os configs `enabled` da company (13 a 16/09), o sucesso do XLSX já não desce a flag, e sem alvos fica corrida `skipped` registada. Verificado às 12:55 UTC com `version = v2.41_capture_day_all_enabled`.
 
 ## A trabalhar agora
 
-Nada em execução. A confirmar no próximo ciclo horário: se o import das cinco cidades do Ghanem repôs em `ticket_sales` as três semanas em falta (17/08 a 09/09) e se os totais batem com o que a captura horária já tinha registado.
+Nada em execução. A confirmar no próximo ciclo: que o cron `ticketline-capture-day-hourly` (15 * * * *) continua a escrever o espelho para os 13 configs enabled e que as cinco cidades migradas voltam a ter `success` no XLSX quando a Ticketline recuperar. A confirmação pendente de 09/09 está feita: o import repôs em `ticket_sales` as três semanas de 17/08–09/09 (Albufeira 456, Almada 222, Estoril 115, Lisboa 251, Santarém 122 bilhetes nesse intervalo).
 
 ## Próximo passo concreto
 
@@ -37,6 +37,7 @@ Em paralelo, no H&K Madrid: aguardar a resposta da GTS sobre API antes de desenh
 
 - **#78** — o import da Ticketline não limpa a série antiga quando o formato muda.
 - **#73** — corte por tipo de bilhete.
+- **#184 (c) / #145** — 37 corridas `html_response` seguidas na mesma config sem nenhum alerta. Enquanto isto não existir, a única forma de saber que o XLSX parou é olhar para `ticketline_sync_runs`.
 
 ## Factos que não se reinvestigam
 
@@ -138,9 +139,9 @@ As 19 sessões à venda, verificadas na página pública do El Corte Inglés a 0
 
 **FRAGILIDADE CONHECIDA, por decidir — o limiar dos −25%.** A comparação de 7 contra 7 dias cai dentro do ruído do sinal diário. A 08/09 o Ghanem dava −29% e abria o ecrã como "A cair"; a 09/09 dava −19% e passou a "Estável", sem nada ter mudado no negócio além de a janela ter deslizado um dia. **Comparar 14 contra 14 não resolve** — engana ao contrário, porque apanha o pico do lançamento. **Correção proposta: exigir persistência** — entrar em "A cair" só ao fim de 3 dias seguidos abaixo de −25%, e sair só acima de −10%.
 
-**Uma configuração de sync desativada não desliga a captura horária.** O `enabled = false` em `ticketline_sync_config` impede o import para `ticket_sales`, mas o cron `ticketline-capture-day-hourly` (`15 * * * *`, com selagem às 00:25) continua a correr sobre essa mesma configuração, com sucesso, e a escrever em `ticketline_daily_sales`. Resultado: as vendas continuam a ser capturadas, mas os ecrãs mostram o evento parado na data do último import. Foi o que aconteceu com cinco cidades do Ghanem durante três semanas.
+**Captura e leitura da Ticketline são independentes (v2.41, 16/09/2026).** O `capture_day` escreve `ticketline_daily_sales` para TODOS os configs `enabled = true` da company, independentemente de `daily_fallback_active`. A flag decide só a precedência de leitura (`get_daily_sales_series`, `get_sales_position*`, `vw_event_daily_sales`) e só desce por decisão humana — o sucesso do XLSX já não a toca. Duas armadilhas que continuam verdadeiras: `enabled = false` impede o import para `ticket_sales` mas a captura horária ignora essa config (foi o que deixou cinco cidades do Ghanem paradas nos ecrãs durante três semanas em agosto); e enquanto o XLSX de um evento migrado devolver HTML, o `ticket_sales` desse evento congela na data do último import, logo o saldo da bilheteira (`get_ticket_office_sales`) fica por baixo — o BI não é afetado porque lê o espelho.
 
-**A Ticketline devolve HTML em vez do XLSX de vez em quando.** Estado `html_response`, mensagem `XLSX sale_summary: HTML em vez de XLSX — title="Ticketline Manager"`. A 08/09 aconteceu sete vezes seguidas na SM - Lisboa, das 16h às 22h, e recuperou sozinho às 23h. Não se perde nada porque o import é full-replace e corre de hora a hora. O que falta é o aviso: nenhuma destas falhas gera alerta (issue #145). Estado dos crons a 09/09, últimas 48h: BOL 192 de 192 com sucesso; Ticketline 377 com sucesso e 7 falhas; captura horária 50 de 50.
+**A Ticketline devolve HTML em vez do XLSX de vez em quando.** Estado `html_response`, mensagem `XLSX sale_summary: HTML em vez de XLSX — title="Ticketline Manager"`. A 08/09 aconteceu sete vezes seguidas na SM - Lisboa, das 16h às 22h, e recuperou sozinho às 23h. Não se perde nada porque o import é full-replace e corre de hora a hora. O que falta é o aviso: nenhuma destas falhas gera alerta (issue #145). Estado dos crons a 09/09, últimas 48h: BOL 192 de 192 com sucesso; Ticketline 377 com sucesso e 7 falhas; captura horária 50 de 50. A 14–16/09 já não foi "de vez em quando": as cinco cidades migradas do Ghanem falharam ~37 horas seguidas. Ver #184.
 
 ## Onde ler mais
 
