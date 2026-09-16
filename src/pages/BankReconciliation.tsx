@@ -598,7 +598,9 @@ export default function BankReconciliation() {
     return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
   }, [parsedPeriodFrom]);
 
-  const needsSystemEve = !!parsed && !hasCutoffLines && !prevStatement && !!eveOfPeriodFrom;
+  // Ramo 3 só quando já se sabe que não há nenhuma linha anterior importada.
+  const needsSystemEve =
+    !!parsed && !hasCutoffLines && !!eveOfPeriodFrom && prevDayLines !== undefined && !lastPrevLine;
 
   const { data: eveSystemBalances } = useQuery({
     queryKey: ["bank-recon-eve-balance", accountId, eveOfPeriodFrom],
