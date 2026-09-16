@@ -33,6 +33,8 @@ export interface HelpChunk {
 
 export const CHUNK_TARGET_CHARS = 800;
 
+const MARKDOWN_IMAGE_LINE = /^\s*!\[[^\]]*\]\([^\n)]+\)\s*$/gm;
+
 function stripQuotes(v: string): string {
   const t = v.trim();
   if (
@@ -155,7 +157,8 @@ export function chunkArticle(article: ParsedArticle): HelpChunk[] {
   const chunks: HelpChunk[] = [];
   for (const section of article.sections) {
     const prefix = `${article.title} › ${section.heading}`;
-    const paragraphs = section.body_md
+    const searchableBody = section.body_md.replace(MARKDOWN_IMAGE_LINE, "").trim();
+    const paragraphs = searchableBody
       .split(/\n{2,}/)
       .map((p) => p.trim())
       .filter(Boolean);

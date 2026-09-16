@@ -1,6 +1,44 @@
+import { useEffect } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
+
+const manualDiagrams = import.meta.glob("/docs/manual/img/*.svg", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+
+function ManualDiagram({ src, alt }: { src?: string; alt?: string }) {
+  const fileName = src?.startsWith("img/") ? src.slice("img/".length) : "";
+  const svg = fileName ? manualDiagrams[`/docs/manual/img/${fileName}`] : undefined;
+
+  useEffect(() => {
+    if (src && (!fileName || !svg)) {
+      console.warn(`[HelpMarkdown] imagem do manual ignorada ou indisponível: ${src}`);
+    }
+  }, [fileName, src, svg]);
+
+  if (!fileName || !svg) {
+    return fileName ? (
+      <span className="block text-center text-xs text-muted-foreground">
+        Diagrama indisponível: {fileName}
+      </span>
+    ) : null;
+  }
+
+  return (
+    <figure className="my-5 flex flex-col items-center gap-2">
+      <div
+        role="img"
+        aria-label={alt || fileName}
+        className="w-full max-w-[720px] text-foreground [&_svg]:h-auto [&_svg]:w-full"
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
+      {alt ? <figcaption className="text-center text-xs text-muted-foreground">{alt}</figcaption> : null}
+    </figure>
+  );
+}
 
 /**
  * Renderizador único do Manual de Orientação.
@@ -55,6 +93,7 @@ export default function HelpMarkdown({ children, className }: { children: string
               {children}
             </a>
           ),
+          img: ({ src, alt }) => <ManualDiagram src={src} alt={alt} />,
           code: ({ children }) => (
             <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground">
               {children}
