@@ -3738,6 +3738,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                       setPartnerExtraPartialAmount("");
                       setIsTransitory(false);
                       setIsExcludeFromResult(false);
+                      setSharedCostAccountId("");
+                      setSharedCostCounterpartyId("");
                       setCautionShortcut(false);
                       setCautionPayer("");
                       setShowNewReimbursementNote(false);
