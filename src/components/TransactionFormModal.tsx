@@ -50,7 +50,12 @@ import InvoiceGroupSuggestDialog, { type InvoiceGroupSuggestion } from "@/compon
 
 
 
-import { paymentMethodOptions, type PaymentMethod } from "@/lib/payment-methods";
+import {
+  paymentMethodOptions,
+  validateServicePaymentFields,
+  friendlyPaymentError,
+  type PaymentMethod,
+} from "@/lib/payment-methods";
 import SharedCostFields, { computeThirdPartyNet, type ThirdPartyShareMode } from "@/components/SharedCostFields";
 import { calcWithIva } from "@/lib/utils";
 

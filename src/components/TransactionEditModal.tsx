@@ -51,7 +51,12 @@ import {
   useCanRenegotiateInstallments,
 } from "@/components/TransactionRenegotiateInstallmentsModal";
 
-import { paymentMethodOptions, type PaymentMethod } from "@/lib/payment-methods";
+import {
+  paymentMethodOptions,
+  validateServicePaymentFields,
+  friendlyPaymentError,
+  type PaymentMethod,
+} from "@/lib/payment-methods";
 import { OperationKeySelector } from "@/components/OperationKeySelector";
 
 interface Props {
