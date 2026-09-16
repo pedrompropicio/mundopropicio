@@ -1627,6 +1627,15 @@ export default function BankReconciliation() {
                       <Button size="sm" variant="outline" className="ml-1" onClick={() => setLaunchLines([toLaunchable(l)])}>
                         <PlusCircle className="mr-1 h-3.5 w-3.5" /> Lançar
                       </Button>
+                      {feeInfoByLine.get(l.id)?.isFirst && feeInfoByLine.get(l.id)!.mother && (
+                        <Button
+                          size="sm"
+                          className="ml-1"
+                          onClick={() => openFeeLaunch(feeInfoByLine.get(l.id)!)}
+                        >
+                          <PlusCircle className="mr-1 h-3.5 w-3.5" /> Lançar taxas ({feeInfoByLine.get(l.id)!.count} linhas)
+                        </Button>
+                      )}
                       <Button size="sm" variant="ghost" className="ml-1" onClick={() => { setIgnoreLine(l); setIgnoreNote(""); }}>
                         <EyeOff className="mr-1 h-3.5 w-3.5" /> Ignorar
                       </Button>
