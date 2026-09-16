@@ -1,6 +1,6 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado: 2026-09-15 · Issues: #86 · a-seguir #83, #96, #61
+Atualizado: 2026-09-16 · Issues: #86, #186 · a-seguir #83, #96, #61
 
 ## Em que pé está
 Lovable Cloud + Supabase **Live único** (decisão fechada, D2 — não reabrir). DDL do agente aplica direto em Live; `query_database` só ataca Live. Publish propaga código, edge functions e frontend — **não** objetos SQL, DML nem crons.
@@ -16,6 +16,8 @@ Ainda a 12/09 fechou-se a conciliação bancária de **uma linha contra N transa
 **E fechou-se hoje, 12/09, a consolidação do Extrato da Conta** (`/relatorios/extrato`) — ver a secção seguinte.
 
 A 14/09 o dia foi de reparação: o ecrã de Transações esteve vazio para toda a gente por causa de um embed ambíguo do PostgREST, a fusão de fornecedores de 12/09 revelou-se ter atravessado fronteiras de empresa e foi revertida, o ciclo de vida do fornecedor ganhou regras, e o verificador de invariantes foi consolidado num só motor com referências aceites por escrito. As três secções seguintes contam cada um dos casos.
+
+A 16/09 fecharam-se duas correções de UI no ecrã de Transações, publicadas no mesmo Publish: (1) a tabela de previsões do BP dentro do modal Nova Transação passou a `table-fixed` com colunas numéricas de largura fixa — as descrições longas truncam com reticências (texto completo no hover) e as colunas Previsto / Utilizado / Disponível ficam sempre visíveis sem scroll horizontal (commit 4e9be4d); (2) a busca livre e o filtro de Fornecedor passaram a procurar também em `suppliers.trade_name` (commit 6bd47b4) — ver o facto novo abaixo.
 
 ## Incidente — o ecrã de Transações ficou vazio para toda a gente (14/09/2026)
 
@@ -105,6 +107,8 @@ A fonte do banco ganha sempre. **Uma transação pertence no máximo a um grupo.
 O saldo mostrado com a consolidação ligada é recalculado sobre a ordem que se vê — ver **D-ERP55**.
 
 ## A trabalhar agora
+- **#186** — diálogo 'Rateio ou Exclusivo?' do modal Nova Transação é um `div fixed` renderizado dentro do modal, não em portal; durante a animação de abertura (transform) fica cortado e com fundo parcial. Correção: `createPortal` para o body ou `Dialog` do shadcn. Ficheiro único, sem lógica. Por executar.
+
 - **#86** — `set_company_id_on_insert` aborta inserts sem contexto de utilizador, em 88 tabelas. **Progresso a 01/09:** `update-transaction` e `approve-transaction` (4 inserts em `transaction_audit_log`) e as whitelists de restore de `ticket_sales` em `selective-restore` e `surgical-restore` estão corrigidos e provados em Live. **A 14/09:** inventário completo gerado por análise estática de 191 edge functions — 1 RISCO REAL (`check-login-rate` → `system_audit_log`, sem company_id), riscos condicionais nos 4 restauros (só falham com backups pré-multi-tenant), todas as outras funções OK ou sem INSERTs nas 88 tabelas. Ficheiro: `docs/estado/inventario-86-service-role-inserts.md`. **Próximo: corrigir o `check-login-rate`** — opção A: `company_id` do perfil do email alvo; opção B: tornar coluna opcional para eventos de segurança (decisão pendente do Pedro).
 
 - **Performance RLS (Fix C concluído a 14/09; A e B deferidos):** **Fix C** — `auth.uid()` → `(SELECT auth.uid())` em 567 políticas do schema `public`. Migration `20260914223900_rls_wrap_auth_uid_in_select.sql`, Publish feito, verificado em Live (`rls_estaveis = 567`). Elimina 177M+ seq_scans por sessão em `user_roles`. **Fix A** — deferido: `v_artist_growth_summary` como matview sem RLS criaria fuga multi-tenant (authenticated veria dados de todas as empresas); a view não é usada no código da app (custo vem de queries externas). **Fix B** — deferido: os embeds em `Transactions.tsx` já são explícitos (`!transactions_supplier_id_fkey`); o custo real é o `fetchAllPaged` sem filtro de evento/estado — reabrir quando houver janela.
@@ -151,6 +155,8 @@ Trava nova, criada em Live a 12/09: três índices únicos parciais `suppliers_c
 ⚠️ A PRÓXIMA IMPORTAÇÃO EM MASSA DE FORNECEDORES VAI REBENTAR contra estes índices em vez de criar gémeos. É intencional. A solução é reconciliar pelo IBAN normalizado antes de inserir, nunca desativar o índice.
 
 Cada fornecedor desativado tem nota auditável: `[2026-09-12] Duplicado por IBAN — fundido em <id>. …`
+
+**Nome fantasia vive em `suppliers.trade_name`; a busca tem de o incluir (16/09).** Desde a reconstrução da base de fornecedores (12-14/09) o nome fiscal está em `name` e o nome fantasia em `trade_name` — em Live a 16/09, 82 fornecedores ativos com `trade_name`, 28 deles alterados a 14/09 (ex.: CASINO ESTORIL → ESTORIL SOL III…, IPRINT → FORMATO MAGENTO…). A busca de Transações nunca leu `trade_name` — antes 'encontrava' porque o nome fantasia estava em `name`. Corrigido em `Transactions.tsx` (embed `suppliers!transactions_supplier_id_fkey(name, trade_name)`, haystack e chips) e em `TransactionFiltersPanel.tsx` (filtro e rótulo 'Nome fiscal (Nome fantasia)'). ⚠️ Qualquer outro ecrã que pesquise ou liste fornecedores só por `name` tem o mesmo defeito latente.
 
 **Normalização de IBAN: uma só função em toda a app** — `normalizeIban` de `src/lib/iban.ts` (remove `[\s.\-_/]`, upper). A função local `normalizeIbanStr` do SupplierFormModal foi eliminada. Existem DOIS motores de validação e é deliberado: `lib/iban.ts` serve o aviso visual a cada tecla (puro, sem import dinâmico); `ibantools` decide a gravação no submit. Depois da unificação só podem discordar na tabela de países — daí o fallback no texto do toast.
 
