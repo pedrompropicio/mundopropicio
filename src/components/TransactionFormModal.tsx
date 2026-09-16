@@ -201,7 +201,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   // Preenchido → nascem DUAS pernas no mesmo invoice_group_id (MP + terceiros).
   const [sharedCostThirdMode, setSharedCostThirdMode] = useState<ThirdPartyShareMode>("percentage");
   const [sharedCostThirdValue, setSharedCostThirdValue] = useState("");
-  const [sharedCostThirdEventId, setSharedCostThirdEventId] = useState("");
+
   // Confidencial: só visível a quem tem a permissão de ver confidenciais.
   const [isConfidential, setIsConfidential] = useState(false);
   // Shortcut "Caução / Transitória": ativa is_transitory + abre selector "Pago por".
@@ -862,16 +862,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   useEffect(() => {
     if (sharedCostSplitUnavailableReason || !sharedCostAccountId) {
       setSharedCostThirdValue("");
-      setSharedCostThirdEventId("");
     }
   }, [sharedCostSplitUnavailableReason, sharedCostAccountId]);
-
-  // Evento da perna de terceiros: por omissão o mesmo da perna da MP, editável.
-  useEffect(() => {
-    if (sharedCostSplitActive && !sharedCostThirdEventId && form.event_id) {
-      setSharedCostThirdEventId(form.event_id);
-    }
-  }, [sharedCostSplitActive, sharedCostThirdEventId, form.event_id]);
 
   // Com desdobramento, a perna principal é a da MP: volta a estar DENTRO do resultado.
   // (O "Fora do Resultado" tinha sido ligado à força ao escolher a conta de circuito.)
@@ -1633,7 +1625,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               type: data.type,
               amount: sharedCostThirdNum,
               iva_rate: data.iva_rate,
-              event_id: sharedCostThirdEventId,
+              // Etiqueta da origem: a perna de terceiros fica no MESMO evento da
+              // perna da MP. Não é custo desse evento (está fora do resultado) —
+              // o Master é para custos DA MP que se espalham pelas cidades da MP.
+              event_id: data.event_id || null,
               category_id: data.category_id || null,
               supplier_id: data.supplier_id || null,
               account_id: accountId,
@@ -2372,10 +2367,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         });
         return;
       }
-      if (!sharedCostThirdEventId) {
+      // A perna de terceiros herda SEMPRE o evento da perna da MP (é a etiqueta da
+      // fatura de onde nasceu, não custo desse evento). Sem evento nenhum, a posição
+      // do circuito deixaria de ser verificável no fecho — recusa-se o desdobramento.
+      if (!form.event_id) {
         toast({
-          title: "A perna de terceiros exige um evento",
-          description: "O blocker de fecho procura as contas de circuito pelas transações com evento. Sem evento, o circuito passa o fecho sem aviso e a posição nunca é conferida.",
+          title: "Uma despesa sem evento não pode ser desdobrada",
+          description: "O fecho procura as contas de circuito pelas transações com evento. Sem evento, a posição do circuito deixaria de ser verificável. Escolhe o evento de onde veio a fatura.",
           variant: "destructive",
         });
         return;
@@ -3828,11 +3826,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 ivaRate: Number(form.iva_rate) || 0,
                 mode: sharedCostThirdMode,
                 value: sharedCostThirdValue,
-                eventId: sharedCostThirdEventId,
-                events: (events as any[]).map((ev) => ({ id: ev.id, name: ev.name })),
                 onModeChange: (m) => { setSharedCostThirdMode(m); setSharedCostThirdValue(""); },
                 onValueChange: setSharedCostThirdValue,
-                onEventChange: setSharedCostThirdEventId,
                 unavailableReason: sharedCostSplitUnavailableReason,
                 multiIvaLineCount: pendingIvaSplit?.length ?? 0,
               }}
