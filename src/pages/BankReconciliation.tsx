@@ -1587,12 +1587,36 @@ export default function BankReconciliation() {
                       />
                     </TableCell>
                     <TableCell className="whitespace-nowrap">{formatDatePT(l.booking_date)}</TableCell>
-                    <TableCell className="max-w-[420px] truncate">
-                      {l.description}
-                      {l.bank_ref && refGroups.get(l.bank_ref)! > 1 && (
-                        <Badge variant="secondary" className="ml-2 align-middle text-[10px]">
-                          ref. {l.bank_ref} · {refGroups.get(l.bank_ref)} linhas
-                        </Badge>
+                    <TableCell className="max-w-[420px]">
+                      <div className="truncate">
+                        {l.description}
+                        {l.bank_ref && refGroups.get(l.bank_ref)! > 1 && (
+                          <Badge variant="secondary" className="ml-2 align-middle text-[10px]">
+                            ref. {l.bank_ref} · {refGroups.get(l.bank_ref)} linhas
+                          </Badge>
+                        )}
+                      </div>
+                      {/* Peça A (#187): a regra que casa vê-se antes do clique. */}
+                      {rulePropByLine.get(l.id) && (
+                        <p className="truncate text-[11px] text-primary">
+                          Regra: {rulePropByLine.get(l.id)!.name} → {rulePropByLine.get(l.id)!.label}
+                        </p>
+                      )}
+                      {/* Peça B (#187): taxa de transferência identificada pela referência. */}
+                      {feeInfoByLine.get(l.id) && (
+                        feeInfoByLine.get(l.id)!.mother ? (
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            Taxa da transferência {feeInfoByLine.get(l.id)!.ref} →{" "}
+                            {feeInfoByLine.get(l.id)!.mother.description}
+                            {feeInfoByLine.get(l.id)!.mother.event_name
+                              ? ` · ${feeInfoByLine.get(l.id)!.mother.event_name}`
+                              : ""}
+                          </p>
+                        ) : (
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            Taxa de transferência sem mãe conciliada
+                          </p>
+                        )
                       )}
                     </TableCell>
                     <TableCell className={`whitespace-nowrap text-right ${Number(l.amount) < 0 ? "text-destructive" : "text-success"}`}>{formatCurrency(Number(l.amount))}</TableCell>
