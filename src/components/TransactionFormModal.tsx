@@ -3062,7 +3062,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 </button>
 <p className="text-[10px] md:text-[12px] text-muted-foreground">Clique numa linha de previsão para preencher automaticamente os dados da transação</p>
 <div
-                  className="max-h-64 md:max-h-[480px] overflow-y-auto overflow-x-auto overscroll-contain border border-border/30 rounded"
+                  className="max-h-64 md:max-h-[480px] overflow-y-auto overflow-x-hidden overscroll-contain border border-border/30 rounded"
                   style={{ WebkitOverflowScrolling: 'touch' }}
                   onWheel={(e) => {
                     const el = e.currentTarget;
@@ -3073,7 +3073,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     }
                   }}
                 >
-                  <table className="w-full text-[11px] md:text-[13px]">
+                  <table className="w-full table-fixed text-[11px] md:text-[13px]">
+                    <colgroup>
+                      <col />
+                      <col className="w-[84px] md:w-[104px]" />
+                      <col className="w-[84px] md:w-[104px]" />
+                      <col className="w-[84px] md:w-[104px]" />
+                    </colgroup>
                     <thead>
                       <tr className="text-muted-foreground border-b border-border/30">
                         <th className="text-left pb-1 font-medium">Conta / Previsão</th>
