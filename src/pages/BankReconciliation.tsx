@@ -502,7 +502,7 @@ export default function BankReconciliation() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, description, event_id, forecast_id")
+        .select("id, description, event_id, forecast_id, category_id, amount, paid_amount")
         .in("id", motherTxIds as string[]);
       if (error) throw error;
       const eventIds = Array.from(new Set((data ?? []).map((t: any) => t.event_id).filter(Boolean)));
@@ -551,7 +551,15 @@ export default function BankReconciliation() {
     );
     setFeePlan({
       ref: g.ref,
+      motherId: info.mother?.id ?? null,
       motherDescription: info.mother?.description ?? "transferência",
+      motherCategoryId: info.mother?.category_id ?? null,
+      motherAmount:
+        info.mother?.paid_amount != null
+          ? Math.abs(Number(info.mother.paid_amount))
+          : info.mother?.amount != null
+            ? Math.abs(Number(info.mother.amount))
+            : null,
       eventId: info.mother?.event_id ?? null,
       forecastId: info.mother?.forecast_id ?? null,
       legs: buildFeeLegs(g),

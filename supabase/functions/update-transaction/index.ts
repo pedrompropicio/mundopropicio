@@ -274,7 +274,7 @@ Deno.serve(async (req) => {
     // ESPELHO do `fieldLabels` de `src/components/TransactionEditModal.tsx`: o que
     // o formulário envia e não estiver aqui é descartado em silêncio.
     const allowedFields = [
-      "description", "amount", "iva_rate", "event_id", "category_id",
+      "description", "amount", "iva_rate", "event_id", "category_id", "forecast_id",
       "supplier_id", "account_id", "specification", "date", "due_date",
       "payment_date", "is_transitory", "exclude_from_result", "split_mode",
       "invoice_ref", "payment_method", "payment_entity", "payment_reference",
