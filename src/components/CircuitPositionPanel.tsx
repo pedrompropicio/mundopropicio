@@ -6,7 +6,7 @@
  * todas as linhas, incluindo "Sem contraparte atribuída", tem de dar exactamente
  * a posição da conta. Se não der, aparece como erro.
  */
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import { formatDatePT } from "@/lib/utils";
@@ -64,9 +64,8 @@ export function CircuitPositionPanel({ lines, openingBalance, position }: Props)
             </TableRow>
           )}
           {rows.map((r) => (
-            <>
+            <Fragment key={r.key}>
               <TableRow
-                key={r.key}
                 className="cursor-pointer"
                 onClick={() => setExpanded(expanded === r.key ? null : r.key)}
               >
@@ -108,7 +107,7 @@ export function CircuitPositionPanel({ lines, openingBalance, position }: Props)
                     <TableCell />
                   </TableRow>
                 ))}
-            </>
+            </Fragment>
           ))}
           {openingBalance !== 0 && (
             <TableRow>
