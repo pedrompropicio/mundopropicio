@@ -308,7 +308,60 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
     },
   });
 
+  /**
+   * Taxas de transferência (D-ERP74): dois lançamentos, cada um ligado às suas
+   * linhas, pelo mesmo caminho de inserir-e-ligar (#154). Se a segunda perna
+   * falhar, a primeira é desfeita — o grupo é um só acontecimento.
+   */
+  async function confirmFees() {
+    const plan = feePlan!;
+    if (plan.legs.length === 0) return toast.error("Nada a lançar neste grupo de taxas.");
+    if (!categoryId) return toast.error("Rubrica 10.6.01 (taxas bancárias) não encontrada.");
+    if (needsBpLine && !forecastId) return toast.error("Escolhe a linha de BP deste evento.");
+
+    setSaving(true);
+    const done: { txId: string; lineIds: string[] }[] = [];
+    try {
+      for (const leg of plan.legs) {
+        const txId = await insertAndLinkLines(
+          {
+            description: description.trim(),
+            type: "expense",
+            amount: leg.amount,
+            iva_rate: leg.ivaRate,
+            category_id: categoryId,
+            is_transitory: false,
+            supplier_id: supplierId || null,
+            event_id: plan.eventId || null,
+            forecast_id: needsBpLine ? forecastId : (plan.forecastId || null),
+            account_id: accountId,
+            date: paymentDate,
+            status: "paid",
+            paid_amount: leg.paidAmount,
+            payment_date: paymentDate,
+            payment_method: "transfer",
+            specification: note.trim() || null,
+            is_confidential: isConfidential || statementRestricted,
+          },
+          leg.lineIds,
+          `created:${user?.email ?? "sistema"}`,
+          note.trim() || null,
+        );
+        done.push({ txId, lineIds: leg.lineIds });
+      }
+      toast.success(`Taxas da transferência ${plan.ref} lançadas em ${done.length} transação(ões).`);
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      onDone();
+    } catch (err: any) {
+      for (const d of done) await revertLeg(d.txId, d.lineIds);
+      toast.error("Erro ao lançar as taxas (nada ficou criado): " + (err?.message ?? "desconhecido"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function confirm() {
+    if (feePlan) return confirmFees();
     if (!description.trim()) return toast.error("A descrição é obrigatória.");
     if (!isTransfer && !transitory && !categoryId) return toast.error("Escolhe a rubrica.");
     if (isTransfer && !targetAccountId) return toast.error("Escolhe a conta de destino.");
