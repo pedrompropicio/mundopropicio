@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Line, ComposedChart, Cell } from "recharts";
 import { Badge } from "@/components/ui/badge";
+import { excludeRateioChildren, RATEIO_FILTER_COLUMNS } from "@/lib/rateio-children";
 
 export default function ReportSupplierConcentration() {
   const { data: transactions = [], isLoading } = useQuery({

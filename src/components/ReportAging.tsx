@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from "recharts";
 import { differenceInDays } from "date-fns";
+import { excludeRateioChildren, RATEIO_FILTER_COLUMNS } from "@/lib/rateio-children";
 
 const BUCKETS = [
   { label: "A vencer", min: -Infinity, max: -1, color: "hsl(var(--success))" },

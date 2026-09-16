@@ -8,6 +8,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ReferenceLine } from "rec
 import { addDays, format, startOfDay, addMonths } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchAccountTrueBalancesAsOf } from "@/lib/account-balance-rpc";
+import { excludeRateioChildren, RATEIO_FILTER_COLUMNS } from "@/lib/rateio-children";
 
 export default function ReportTreasuryProjection() {
   const [horizon, setHorizon] = useState("3");

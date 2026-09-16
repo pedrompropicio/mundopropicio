@@ -15,6 +15,7 @@ import {
   Legend,
 } from "recharts";
 import { formatCurrency } from "@/lib/mock-data";
+import { excludeRateioChildren, RATEIO_FILTER_COLUMNS } from "@/lib/rateio-children";
 
 const COLORS = [
   "hsl(170 70% 45%)",
