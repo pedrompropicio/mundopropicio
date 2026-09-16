@@ -2313,3 +2313,22 @@ Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a 
 **Ficheiros:** `src/lib/bank-statement/transfer-fees.ts` (novo: `classifyFeeLine`, `extractMotherRef`, `buildFeeGroups`, `buildFeeLegs`), `src/lib/bank-statement/rules.ts` (`describeRuleAction`), `src/components/bank/BankLineLaunchModal.tsx` (`feePlan`, `insertAndLinkLines`, `revertLeg`, `confirmFees`), `src/pages/BankReconciliation.tsx` (proposta da regra por linha, grupos de taxa, botão "Lançar taxas").
 
 **Estado:** vigente. Não corrido em Live — sem dados criados.
+
+## D-ERP75 — `system_audit_log` é a única tabela sem obrigação de `company_id` (16/09/2026)
+
+**Contexto:** O trigger `set_company_id_on_insert` (`trg_set_company_id`, presente em 88 tabelas) resolve `company_id` a partir de `auth.uid()`. Sob `service_role` o `auth.uid()` é NULL, pelo que o trigger aborta o insert. A `check-login-rate` grava eventos de segurança (`entity_type='security'`: tentativas de login, alertas por IP) e corre sob `service_role`, num momento em que **não existe contexto de empresa** — o email pode nem pertencer a nenhum utilizador. Resultado medido a 16/09/2026: **0 linhas de segurança em 7.864** na `system_audit_log`. Inventário: `docs/estado/inventario-86-service-role-inserts.md` (#86).
+
+**Decisão (opção B):**
+
+1. `public.system_audit_log.company_id` passa a **nullable**. O `DEFAULT current_company_id()` mantém-se — utilizadores autenticados continuam a preencher a coluna normalmente.
+2. `trg_set_company_id` é **removido desta tabela**. É a única das 88 sem o trigger, **por desenho**.
+3. Linhas com `company_id IS NULL` só são visíveis a **platform_admin**: a política de leitura passa a `(admin OR manager) AND (company_id IS NOT NULL OR is_platform_admin())`.
+4. Exceção **restrita a esta tabela**. As outras 87 tabelas com `trg_set_company_id` não mudam.
+
+**Alternativa rejeitada (opção A):** resolver o `company_id` pelo perfil do email alvo. Perdia exatamente os casos que interessam — tentativas com emails desconhecidos ou de utilizadores de várias empresas, que é onde vive o ataque.
+
+**Consequência:** a regra "insert sob `service_role` leva `company_id` explícito no payload" continua válida para todas as tabelas, com esta **única exceção documentada**. `supabase/functions/check-login-rate/index.ts` não precisa de alteração.
+
+**Migração:** `20260916_system_audit_log_company_id_nullable.sql`, aplicada e verificada em Live (`is_nullable=YES`, 0 triggers `trg_set_company_id`, política nova ativa).
+
+**Estado:** vigente.
