@@ -195,7 +195,7 @@ export default function BankReconciliation() {
       };
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, description, paid_amount, payment_date, date, account_id, financial_accounts(name)")
+        .select("id, description, paid_amount, payment_date, date, account_id, financial_accounts:financial_accounts!transactions_account_id_fkey(name)")
         .neq("account_id", accountId)
         .not("account_id", "is", null)
         .gte("paid_amount", target - 0.01)
