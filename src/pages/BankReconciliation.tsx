@@ -1085,13 +1085,13 @@ export default function BankReconciliation() {
                 )}
                 {cutoffMismatch.kind === "prev_statement" && (
                   <>
-                    <p className="font-medium">Extrato não encaixa no anterior.</p>
+                    <p className="font-medium">Extrato não encaixa no último movimento importado.</p>
                     <p className="text-muted-foreground">
-                      A abertura do extrato ({formatCurrency(cutoffMismatch.reference)}) não encaixa no fecho do extrato
-                      anterior de {formatDatePT(cutoffMismatch.prevPeriodTo)} ({formatCurrency(cutoffMismatch.expected)})
-                      — diferença {formatCurrency(cutoffMismatch.diff)}. Faltam linhas entre{" "}
-                      {formatDatePT(cutoffMismatch.prevPeriodTo)} e {formatDatePT(cutoffMismatch.periodFrom)}, ou um
-                      extrato foi saltado.
+                      A abertura do extrato ({formatCurrency(cutoffMismatch.reference)}) não encaixa no saldo após o
+                      último movimento importado, de {formatDatePT(cutoffMismatch.prevBookingDate)} (
+                      {formatCurrency(cutoffMismatch.expected)}) — diferença {formatCurrency(cutoffMismatch.diff)}.
+                      Faltam linhas entre {formatDatePT(cutoffMismatch.prevBookingDate)} e{" "}
+                      {formatDatePT(cutoffMismatch.periodFrom)}.
                     </p>
                     <p className="text-[11px] text-muted-foreground">
                       {cutoffMismatch.businessDays} dia(s) útil(eis) entre as duas datas.
