@@ -3150,12 +3150,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                                           : "border-l-transparent hover:bg-muted/20 hover:border-l-primary/30"
                                       }`}
                                     >
-                                      <td className="py-1 pr-2 pl-8 text-[10px] md:text-[12px]">
-<div className="flex items-center gap-1.5 min-w-0">
+                                      <td className="py-1 pr-2 pl-8 min-w-0 overflow-hidden text-[10px] md:text-[12px]">
+<div className="flex items-center gap-1.5 min-w-0 overflow-hidden" title={[line.description, line.specification].filter(Boolean).join(" · ")}>
                                           <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${line.status === "approved" ? "bg-success" : "bg-warning"}`} />
                                           <span className="truncate min-w-0">{line.description}</span>
                                           {line.specification && (
-                                            <span className="text-muted-foreground truncate min-w-0">· {line.specification}</span>
+                                            <span className="text-muted-foreground truncate min-w-0 shrink">· {line.specification}</span>
                                           )}
                                         </div>
                                       </td>
