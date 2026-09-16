@@ -872,6 +872,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       setSharedCostThirdEventId(form.event_id);
     }
   }, [sharedCostSplitActive, sharedCostThirdEventId, form.event_id]);
+
+  // Com desdobramento, a perna principal é a da MP: volta a estar DENTRO do resultado.
+  // (O "Fora do Resultado" tinha sido ligado à força ao escolher a conta de circuito.)
+  useEffect(() => {
+    if (sharedCostSplitActive) setIsExcludeFromResult(false);
+  }, [sharedCostSplitActive]);
   const selectedForecastL2Id = useMemo(
     () => (selectedForecast ? getL2Id(selectedForecast.category_id, categories as any[]) : null),
     [selectedForecast, categories],
@@ -3873,9 +3879,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 {(authIsAdmin || authIsManager) && !isTransitory && !isPartnerExtra && (
                 <button
                   type="button"
-                  disabled={!!sharedCostAccountId}
-                  title={sharedCostAccountId ? "Imposto pelo custo partilhado com terceiros. Limpe a conta de circuito para poder desligar." : undefined}
-                  onClick={() => { if (!sharedCostAccountId) setIsExcludeFromResult(!isExcludeFromResult); }}
+                  disabled={!!sharedCostAccountId && !sharedCostSplitActive}
+                  title={sharedCostAccountId && !sharedCostSplitActive ? "Imposto pelo custo partilhado com terceiros. Limpe a conta de circuito para poder desligar." : undefined}
+                  onClick={() => { if (!sharedCostAccountId || sharedCostSplitActive) setIsExcludeFromResult(!isExcludeFromResult); }}
                   className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                     isExcludeFromResult
                       ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 ring-1 ring-sky-500/30"
