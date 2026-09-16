@@ -9017,6 +9017,7 @@ export type Database = {
           initial_balance_date: string | null
           is_accounting: boolean
           is_active: boolean
+          is_circuit_account: boolean
           is_hidden: boolean
           is_restricted: boolean
           mirror_partner_aporte: boolean
@@ -9043,6 +9044,7 @@ export type Database = {
           initial_balance_date?: string | null
           is_accounting?: boolean
           is_active?: boolean
+          is_circuit_account?: boolean
           is_hidden?: boolean
           is_restricted?: boolean
           mirror_partner_aporte?: boolean
@@ -9069,6 +9071,7 @@ export type Database = {
           initial_balance_date?: string | null
           is_accounting?: boolean
           is_active?: boolean
+          is_circuit_account?: boolean
           is_hidden?: boolean
           is_restricted?: boolean
           mirror_partner_aporte?: boolean
@@ -11962,6 +11965,58 @@ export type Database = {
         }
         Relationships: []
       }
+      shared_cost_mirror: {
+        Row: {
+          account_id: string
+          company_id: string
+          created_at: string
+          id: string
+          mirror_transaction_id: string
+          source_transaction_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          company_id: string
+          created_at?: string
+          id?: string
+          mirror_transaction_id: string
+          source_transaction_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          mirror_transaction_id?: string
+          source_transaction_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_cost_mirror_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_cost_mirror_mirror_transaction_id_fkey"
+            columns: ["mirror_transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_cost_mirror_source_transaction_id_fkey"
+            columns: ["source_transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sponsorship_pipeline: {
         Row: {
           auto_sync_bp: boolean
@@ -13694,6 +13749,8 @@ export type Database = {
           reversed_at: string | null
           reversed_by: string | null
           settlement_id: string | null
+          shared_cost_account_id: string | null
+          shared_cost_counterparty_id: string | null
           specification: string | null
           split_amount: number | null
           split_mode: string | null
@@ -13753,6 +13810,8 @@ export type Database = {
           reversed_at?: string | null
           reversed_by?: string | null
           settlement_id?: string | null
+          shared_cost_account_id?: string | null
+          shared_cost_counterparty_id?: string | null
           specification?: string | null
           split_amount?: number | null
           split_mode?: string | null
@@ -13812,6 +13871,8 @@ export type Database = {
           reversed_at?: string | null
           reversed_by?: string | null
           settlement_id?: string | null
+          shared_cost_account_id?: string | null
+          shared_cost_counterparty_id?: string | null
           specification?: string | null
           split_amount?: number | null
           split_mode?: string | null
@@ -13905,6 +13966,20 @@ export type Database = {
             columns: ["settlement_id"]
             isOneToOne: false
             referencedRelation: "ticket_office_settlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_shared_cost_account_id_fkey"
+            columns: ["shared_cost_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_shared_cost_counterparty_id_fkey"
+            columns: ["shared_cost_counterparty_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
           {

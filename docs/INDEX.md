@@ -43,7 +43,7 @@
 | Fecho de evento | `procedimentos/PROC-fecho-evento.md` |
 | Revisão semanal | `procedimentos/PROC-revisao-semanal.md` |
 | Captação de vendas Onebox (H&K Madrid) | `procedimentos/PROC-vendas-onebox-madrid.md` |
-| Rateio de day-offs de turnê | `procedimentos/PROC-rateio-dayoffs-turne.md` |
+| Custo partilhado com terceiros (rateio) | `procedimentos/PROC-rateio-dayoffs-turne.md` |
 | Arranque de chat (moldes de mensagem inicial + regra de fecho) | `procedimentos/PROC-arranque-chat.md` |
 
 ## Módulo Carreira Artística (empresa Social Artists)

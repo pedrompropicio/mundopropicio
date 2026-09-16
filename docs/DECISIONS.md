@@ -766,6 +766,8 @@ Nota de infraestrutura: o `InvoiceService.ListInvoices` da Google Ads API v24 n�
 
 ## D-ERP32 — Rateio de day-offs de turnê: encontro de contas gerencial (10/09/2026)
 
+> **Parcialmente substituído pelo D-ERP69 (16/09/2026):** os pontos 2, 3 e 4 (despesa inteira com `exclude_from_result` contra conta de acerto, e passagem às rubricas só no acerto final) deixaram de valer. Mantêm-se os pontos 1 e 5.
+
 **Rateio de day-offs de turnê — encontro de contas gerencial**
 
 Contexto: numa turnê europeia, os custos de dias sem show (hotel e outros) são partilhados com as cidades de outros promotores. A parte da MP só se conhece no acerto final. Algumas faturas estão em nome da MP, outras em nome de terceiros. A questão fiscal resolve-se fora do circuito: no momento do movimento financeiro emite-se ou recebe-se fatura.
@@ -2170,3 +2172,26 @@ contém o título-base da música normalizado (sem acentos, ≥ 8 caracteres); e
 resolvem-se pelo título-base mais longo e depois pela música mais antiga.
 
 Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a zero.
+
+---
+
+## D-ERP69 — Custo partilhado com terceiros: a conta corrente do circuito é a única porta entre o circuito e o resultado (16/09/2026)
+
+**Contexto:** A MP paga com frequência uma fatura em que só parte do custo é dela; o resto é de terceiros — outras cidades ou promotores de uma turnê, coprodutores — que depois devolvem a sua parte. Até aqui a despesa inteira lançava-se contra uma "conta de acerto" com `exclude_from_result` (D-ERP32, pontos 2 a 4). Essa convenção estava errada por duas razões medidas: a despesa e o recebimento empurravam o saldo da conta **no mesmo sentido**, pelo que o saldo não era posição nenhuma; e a despesa total do circuito aparecia como custo da MP quando só a quota da MP o é — obrigando a adiar o reconhecimento do custo até ao acerto final.
+
+**Decisão — seis regras:**
+
+1. **A fatura entra uma só vez, pelo total.** Grupo de fatura, lista de pagamento e ficheiro SEPA mantêm-se intactos. O rateio com terceiros nunca se resolve no fluxo de pagamento.
+2. **Cada linha declara de quem é o custo.** A parte da MP é custo da MP: entra no resultado, consome verba do BP, na rubrica dela. A parte de terceiros não é custo: é **adiantamento por conta de terceiros**.
+3. **A parte de terceiros gera automaticamente uma contrapartida na conta corrente do circuito.** Pagámos por eles, logo devem-nos: o saldo sobe.
+4. **Quando o terceiro devolve**, o dinheiro entra no banco contra essa conta corrente e o saldo desce (par de transferência 10.3, como já se faz hoje).
+5. **O saldo da conta corrente é a posição líquida com o circuito:** positivo, terceiros devem-nos; negativo, temos dinheiro deles por aplicar. No fim é zero.
+6. **A quota da MP pode ser desconhecida no momento do pagamento.** Lança-se o que se sabe: quota conhecida → parte a custo e resto a adiantamento; quota estimada → lança-se a estimativa e ajusta-se no acerto; quota desconhecida → custo da MP é zero e o pagamento inteiro fica como adiantamento. Quando a verdade chega, faz-se um lançamento por rubrica **pago pela conta corrente do circuito**, agora dentro do resultado, que baixa o saldo e sobe o custo ao mesmo tempo.
+
+**Regra que dá solidez ao conjunto:** a conta corrente do circuito é a **única** porta entre o circuito e o resultado.
+
+**Como está montado:** `financial_accounts.is_circuit_account`; `transactions.shared_cost_account_id` (+ `shared_cost_counterparty_id` opcional); rubricas 10.12 "Rateio com Terceiros" / 10.12.01 "Adiantamento por Conta de Terceiros" (deliberadamente **fora** da família 10.1.*, onde `force_transitory_for_capital_branch` forçaria `is_transitory`); ponte 1:1 `shared_cost_mirror`; triggers `force_exclude_from_result_for_shared_cost()` e `sync_shared_cost_mirror()`. Detalhe técnico em `.lovable/memory/features/custo-partilhado-terceiros.md`.
+
+**Substitui os pontos 2, 3 e 4 do D-ERP32.** A previsão em linha de BP (ponto 1) e o histórico previsto×realizado (ponto 5) do D-ERP32 continuam vigentes.
+
+**Estado:** vigente. Base de dados feita a 16/09/2026; UI ainda por fazer.

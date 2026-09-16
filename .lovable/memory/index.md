@@ -19,3 +19,4 @@
 - [Contas de tráfego por artista](mem://features/artist-ads-connections) — Ligações Meta/Google/TikTok Ads das contas do próprio artista (connection_scope='artist', D-ERP57)
 - [Ciclo de vida de fornecedores](mem://features/supplier-lifecycle) — Desativar é a ação normal; eliminar passa pelo Lixo e é recusado se houver movimento; filtro Ativos/Inativos/Todos
 - [Verificador de Invariantes](mem://features/invariant-monitor) — 18 verificações (âmbito empresa/global) com referência, amostra, histórico, alerta por desvio; ecrã único /admin/invariantes
+- [Custo partilhado com terceiros](mem://features/custo-partilhado-terceiros) — Conta de circuito (is_circuit_account) + shared_cost_account_id: parte de terceiros é adiantamento, espelho automático em 10.12.01 via shared_cost_mirror; D-ERP69

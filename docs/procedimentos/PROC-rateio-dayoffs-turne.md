@@ -1,44 +1,58 @@
-# PROCEDIMENTO — Rateio de day-offs de turnê
+# PROCEDIMENTO — Custo partilhado com terceiros (rateio)
 
-Aplica-se a custos de dias sem show numa turnê, partilhados com outras cidades ou promotores, cuja parte da MP só se conhece no acerto final. O encontro de contas é **gerencial**. A parte fiscal resolve-se fora: no movimento financeiro emite-se ou recebe-se fatura.
+Aplica-se a **qualquer fatura em que parte do custo é de terceiros** — outras cidades ou promotores de uma turnê (incluindo day-offs), coprodutores, parceiros de uma operação. A MP paga o total; o resto devolve-se. Regra-mãe: **D-ERP69** — a conta corrente do circuito é a única porta entre o circuito e o resultado.
 
-## Passo 1 — Onde nasce a linha de BP
+A parte fiscal resolve-se fora: no movimento financeiro emite-se ou recebe-se fatura.
 
-- **Turnê com Master:** linha "Rateio day-offs" no Master; espelha-se proporcionalmente nas cidades.
-- **Data única:** linha no próprio evento.
+## Passo 1 — Criar a conta de circuito
 
-O valor é estimativa da nossa parte. É previsão, não compromisso.
+Uma conta por circuito, em Contas:
 
-## Passo 2 — Conta de acerto
+- `is_circuit_account = true` — é conta corrente de circuito de terceiros;
+- `is_accounting = false` — não é conta contabilística;
+- `skip_balance_check = false` — o saldo **é** a posição e tem de ser visível e verificável.
 
-Uma conta por circuito, criada em Contas com `is_accounting = false` (não é conta contabilística) e `skip_balance_check = true` (permite liquidar sem saldo). O saldo dela é a posição do encontro de contas, não caixa.
+O saldo dessa conta é a posição líquida com o circuito: positivo, terceiros devem-nos; negativo, temos dinheiro deles por aplicar.
 
-Precedente: conta corrente Google Ads. **Não** é o padrão do Acerto de Madrid.
+## Passo 2 — Lançar a fatura
 
-## Passo 3 — Lançar as transações do circuito
+A fatura entra **uma só vez, pelo total**. Grupo de fatura, lista de pagamento e ficheiro SEPA seguem intactos — o rateio nunca se resolve no fluxo de pagamento.
 
-Toda a despesa que vai a encontro de contas — paga por nós ou a receber de terceiros — lança-se com **Excluir do Resultado** ligado e liquida-se pela conta do Passo 2.
+Dentro do total, cada linha declara de quem é o custo:
 
-Move a conta, não entra no resultado nem consome verba do BP. A trava de linha de BP não se aplica: `exclude_from_result` é uma das quatro excepções da trava.
+- **Parte da MP** — despesa normal: na rubrica dela, dentro do resultado, ligada à linha de BP, a consumir verba.
+- **Parte de terceiros** — linha marcada com a conta de circuito (`shared_cost_account_id`). Não é custo: fica automaticamente fora do resultado, não consome verba do BP e, quando é paga, gera sozinha a contrapartida na conta corrente do circuito, em 10.12.01 "Adiantamento por Conta de Terceiros". O saldo sobe: pagámos por eles, devem-nos.
 
-## Passo 4 — Onde as encontrar
+Se se souber o terceiro concreto, indica-se (`shared_cost_counterparty_id`) — serve para abrir a posição por contraparte. É opcional.
 
-- Capa do evento: card **"Fora do resultado"**, com contagem e soma.
-- Transações: chip **"Fora do Resultado"**, ou o deep-link `?event=<id>&excluded=1`.
+## Passo 3 — Os três casos da quota da MP
+
+Lança-se o que se sabe, nunca se espera pela verdade para lançar:
+
+1. **Quota conhecida** — parte a custo da MP, resto a adiantamento por conta de terceiros.
+2. **Quota estimada** — lança-se a estimativa como custo da MP, o resto a adiantamento, e ajusta-se no acerto.
+3. **Quota desconhecida** — custo da MP a zero: o pagamento inteiro fica como adiantamento.
+
+Quando a verdade chega, faz-se um lançamento por rubrica **pago pela conta corrente do circuito**, agora dentro do resultado e ligado à linha de BP. Baixa o saldo e sobe o custo no mesmo acto. É esta a única porta entre o circuito e o resultado.
+
+## Passo 4 — A devolução do terceiro
+
+O dinheiro entra no banco contra a conta corrente do circuito: par de transferência 10.3, como já se faz hoje. O saldo desce.
 
 ## Passo 5 — Acerto final
 
-Conhecida a nossa parte por rubrica:
+1. Passar às rubricas respectivas tudo o que já se sabe ser custo da MP, pago pela conta de circuito.
+2. Ajustar as linhas de BP ao valor real.
+3. Conferir a conta de circuito: **fica a zero**.
 
-1. Lançar as transações definitivas por rubrica, agora **dentro** do resultado, ligadas às linhas de BP respectivas.
-2. Ajustar cada linha de BP ao valor real.
-3. Baixar a linha "Rateio day-offs" ao que sobrar dela — ou a zero, se tudo passou às rubricas.
-4. Guardar o mapa do acerto (cidades, totais, a nossa quota) em **Documentos** do evento.
+⚠️ **Saldo diferente de zero no fecho é erro** — falta um lançamento de custo por rubrica, falta uma devolução, ou a quota da MP nunca foi apurada. Nada no sistema obriga este passo: `event_close_blockers` não o testa e `raise_forecast_budget` só sobe linhas. O painel avisa; a decisão é de gestão.
 
 ## Passo 6 — Conferir
 
-- Painel **"Verba por usar"** no Fecho: a linha de rateio não deve lá aparecer.
-- Conta de acerto a zero, ou com a diferença explicada e a receber/pagar.
+- Painel **"Verba por usar"** no Fecho: as linhas do circuito não consomem verba, logo não aparecem lá.
+- Conta de circuito a zero, ou com a diferença explicada e a receber/pagar.
 - Marcar "Verbas revistas" no painel.
 
-⚠️ Nada no sistema obriga o Passo 5. `event_close_blockers` não testa verba por usar e `raise_forecast_budget` só sobe linhas. O painel avisa; a decisão é de gestão.
+## Histórico
+
+Até 15/09/2026 lançava-se a despesa **inteira** contra uma conta de acerto com `exclude_from_result` (D-ERP32, pontos 2 a 4) e o custo da MP só aparecia no acerto final. Essa convenção foi substituída: despesa e recebimento empurravam o saldo no mesmo sentido, e o custo total do circuito aparecia como custo da MP.
