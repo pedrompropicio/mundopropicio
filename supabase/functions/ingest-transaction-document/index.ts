@@ -224,45 +224,87 @@ Deno.serve(async (req) => {
   const transactionIds = rows.map((r) => r.id)
   const invoiceGroupId = groupIdToAssign ?? rows.find((r) => r.invoice_group_id)?.invoice_group_id ?? null
 
-  // ---- descarregar o ficheiro -------------------------------------------
-  let res: Response
-  try {
-    res = await fetch(sourceUrl, {
-      redirect: 'follow',
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MP-ingest-transaction-document/1.0)' },
-    })
-  } catch (e) {
-    return json({ error: `Falha ao descarregar a origem: ${String(e)}` }, 502)
-  }
-  if (!res.ok) return json({ error: `A origem devolveu HTTP ${res.status}.` }, 502)
+  // ---- obter o ficheiro (URL do Drive ou base64 no pedido) ---------------
+  let bytes: Uint8Array
+  let contentType: string
+  let ext: string
 
-  const contentType = (res.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
-  if (contentType.startsWith('text/html')) {
-    return json(
-      {
-        error:
-          'A origem devolveu HTML em vez do ficheiro — é a página de aviso do Google Drive (ficheiro grande ou aviso de vírus). Usar um link de download directo.',
-      },
-      422,
-    )
-  }
-  const ext = EXT_BY_TYPE[contentType]
-  if (!ext) {
-    return json(
-      {
-        error: `Tipo de ficheiro não suportado: ${contentType || 'desconhecido'} — aceites: application/pdf, image/jpeg, image/png.`,
-      },
-      415,
-    )
-  }
-  const declared = Number(res.headers.get('content-length') ?? '0')
-  if (Number.isFinite(declared) && declared > MAX_BYTES) {
-    return json({ error: `Ficheiro demasiado grande (${declared} bytes) — máximo 20 MB.` }, 413)
-  }
-  const bytes = new Uint8Array(await res.arrayBuffer())
-  if (bytes.byteLength === 0) return json({ error: 'Ficheiro vazio.' }, 422)
-  if (bytes.byteLength > MAX_BYTES) {
-    return json({ error: `Ficheiro demasiado grande (${bytes.byteLength} bytes) — máximo 20 MB.` }, 413)
+  if (conteudoBase64) {
+    try {
+      const clean = conteudoBase64.replace(/^data:[^;]+;base64,/, '').replace(/\s+/g, '')
+      const bin = atob(clean)
+      const buf = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i)
+      bytes = buf
+    } catch {
+      return json({ error: 'conteudo_base64 não é base64 válido.' }, 400)
+    }
+    if (bytes.byteLength === 0) return json({ error: 'Ficheiro vazio.' }, 422)
+    if (bytes.byteLength > MAX_BYTES) {
+      return json({ error: `Ficheiro demasiado grande (${bytes.byteLength} bytes) — máximo 20 MB.` }, 413)
+    }
+    // Tipo detectado pelos magic bytes: %PDF-, JPEG (FF D8 FF), PNG (89 50 4E 47).
+    const b = bytes
+    const detected =
+      b.byteLength >= 5 && b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46 && b[4] === 0x2d
+        ? 'application/pdf'
+        : b.byteLength >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff
+          ? 'image/jpeg'
+          : b.byteLength >= 4 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47
+            ? 'image/png'
+            : ''
+    if (!detected) {
+      return json(
+        {
+          error:
+            'Tipo de ficheiro não suportado em conteudo_base64 — aceites: application/pdf, image/jpeg, image/png.',
+        },
+        415,
+      )
+    }
+    contentType = detected
+    ext = EXT_BY_TYPE[detected]
+  } else {
+    let res: Response
+    try {
+      res = await fetch(sourceUrl, {
+        redirect: 'follow',
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MP-ingest-transaction-document/1.0)' },
+      })
+    } catch (e) {
+      return json({ error: `Falha ao descarregar a origem: ${String(e)}` }, 502)
+    }
+    if (!res.ok) return json({ error: `A origem devolveu HTTP ${res.status}.` }, 502)
+
+    contentType = (res.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
+    if (contentType.startsWith('text/html')) {
+      return json(
+        {
+          error:
+            'A origem devolveu HTML em vez do ficheiro — é a página de aviso do Google Drive (ficheiro grande ou aviso de vírus). Usar um link de download directo.',
+        },
+        422,
+      )
+    }
+    const maybeExt = EXT_BY_TYPE[contentType]
+    if (!maybeExt) {
+      return json(
+        {
+          error: `Tipo de ficheiro não suportado: ${contentType || 'desconhecido'} — aceites: application/pdf, image/jpeg, image/png.`,
+        },
+        415,
+      )
+    }
+    ext = maybeExt
+    const declared = Number(res.headers.get('content-length') ?? '0')
+    if (Number.isFinite(declared) && declared > MAX_BYTES) {
+      return json({ error: `Ficheiro demasiado grande (${declared} bytes) — máximo 20 MB.` }, 413)
+    }
+    bytes = new Uint8Array(await res.arrayBuffer())
+    if (bytes.byteLength === 0) return json({ error: 'Ficheiro vazio.' }, 422)
+    if (bytes.byteLength > MAX_BYTES) {
+      return json({ error: `Ficheiro demasiado grande (${bytes.byteLength} bytes) — máximo 20 MB.` }, 413)
+    }
   }
 
   // ---- idempotência ------------------------------------------------------
