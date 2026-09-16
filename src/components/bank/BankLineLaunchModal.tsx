@@ -449,6 +449,18 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
         );
         done.push({ txId, lineIds: leg.lineIds });
       }
+
+      // Peça C — ligar também a MÃE à mesma linha, pela edge function (nunca
+      // UPDATE directo do cliente). Faz parte da mesma sequência: se falhar,
+      // as pernas das taxas são desfeitas.
+      if (motherNeedsLink && linkMother && forecastId && plan.motherId) {
+        const { data: res, error: eMother } = await supabase.functions.invoke("update-transaction", {
+          body: { transaction_id: plan.motherId, updates: { forecast_id: forecastId } },
+        });
+        const msg = (res as any)?.error ?? eMother?.message;
+        if (eMother || msg) throw new Error(`ligação da transferência-mãe à linha de BP falhou: ${msg ?? "erro desconhecido"}`);
+      }
+
       toast.success(`Taxas da transferência ${plan.ref} lançadas em ${done.length} transação(ões).`);
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       onDone();
