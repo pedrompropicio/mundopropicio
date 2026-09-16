@@ -862,16 +862,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   useEffect(() => {
     if (sharedCostSplitUnavailableReason || !sharedCostAccountId) {
       setSharedCostThirdValue("");
-      setSharedCostThirdEventId("");
     }
   }, [sharedCostSplitUnavailableReason, sharedCostAccountId]);
-
-  // Evento da perna de terceiros: por omissão o mesmo da perna da MP, editável.
-  useEffect(() => {
-    if (sharedCostSplitActive && !sharedCostThirdEventId && form.event_id) {
-      setSharedCostThirdEventId(form.event_id);
-    }
-  }, [sharedCostSplitActive, sharedCostThirdEventId, form.event_id]);
 
   // Com desdobramento, a perna principal é a da MP: volta a estar DENTRO do resultado.
   // (O "Fora do Resultado" tinha sido ligado à força ao escolher a conta de circuito.)
