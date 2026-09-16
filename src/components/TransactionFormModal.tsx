@@ -2372,7 +2372,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       const budgetKey = `${form.type}_${form.category_id}`;
       const forecast = forecastBudgetByCategory[budgetKey] || 0;
       const used = usedBudgetByCategory[budgetKey] || 0;
-      const newAmount = parseFloat(form.amount) || 0;
+      // Com desdobramento, quem consome verba é a PERNA DA MP — o aviso fala dela.
+      const newAmount = mpLegNetAmount;
       const remaining = forecast - used;
       if (forecast > 0 && newAmount > remaining) {
         toast({
@@ -3537,7 +3538,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             const basisLabel = selectedForecast ? "Verba da linha" : "Verba da rubrica (L3)";
             const remaining = forecast - used;
             const pct = forecast > 0 ? (used / forecast) * 100 : 0;
-            const newAmount = parseFloat(form.amount) || 0;
+            // Com desdobramento é a perna da MP que consome verba, não o total da fatura.
+            const newAmount = mpLegNetAmount;
             const exceedsForcast = forecast > 0 && newAmount > remaining;
             return (
               <div className={`rounded-lg border p-3 space-y-1.5 ${exceedsForcast ? "border-warning bg-warning/10" : "border-border/50 bg-secondary/30"}`}>
