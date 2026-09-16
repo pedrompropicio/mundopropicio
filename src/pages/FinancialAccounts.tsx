@@ -243,6 +243,11 @@ export default function FinancialAccounts() {
     saveMutation.mutate();
   };
 
+  // Espelho de aporte de sócio: incompatível com conta de circuito (D-ERP69).
+  const mirrorAporteAccount = editingId
+    ? !!(accounts.find((a: any) => a.id === editingId) as any)?.mirror_partner_aporte
+    : false;
+
   const activeAccounts = accounts.filter((a: any) => a.is_active);
   const inactiveAccounts = accounts.filter((a: any) => !a.is_active);
 
