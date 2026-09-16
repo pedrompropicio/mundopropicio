@@ -33,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
 import LinkBpLineDialog from "@/components/LinkBpLineDialog";
+import { friendlyPaymentError } from "@/lib/payment-methods";
 import {
   findMatchingRule,
   suggestPattern,
@@ -466,7 +467,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
       onDone();
     } catch (err: any) {
       for (const d of done) await revertLeg(d.txId, d.lineIds);
-      toast.error("Erro ao lançar as taxas (nada ficou criado): " + (err?.message ?? "desconhecido"));
+      toast.error("Erro ao lançar as taxas (nada ficou criado): " + friendlyPaymentError(err));
     } finally {
       setSaving(false);
     }
@@ -618,7 +619,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
       queryClient.invalidateQueries({ queryKey: ["bank-line-rules"] });
       onDone();
     } catch (err: any) {
-      toast.error("Erro ao lançar: " + (err?.message ?? "desconhecido"));
+      toast.error("Erro ao lançar: " + friendlyPaymentError(err));
     } finally {
       setSaving(false);
     }

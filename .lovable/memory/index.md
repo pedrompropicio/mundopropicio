@@ -20,3 +20,4 @@
 - [Ciclo de vida de fornecedores](mem://features/supplier-lifecycle) — Desativar é a ação normal; eliminar passa pelo Lixo e é recusado se houver movimento; filtro Ativos/Inativos/Todos
 - [Verificador de Invariantes](mem://features/invariant-monitor) — 18 verificações (âmbito empresa/global) com referência, amostra, histórico, alerta por desvio; ecrã único /admin/invariantes
 - [Custo partilhado com terceiros](mem://features/custo-partilhado-terceiros) — Conta de circuito (is_circuit_account) + shared_cost_account_id: parte de terceiros é adiantamento, espelho automático em 10.12.01 via shared_cost_mirror; D-ERP69
+- [Domínio de payment_method e referência MB](mem://features/payment-methods-domain) — D-ERP44 (5 valores em 3 camadas) + service_payment exige Entidade 5 dígitos e Referência 9 (CHECK transactions_service_payment_requires_mb NOT VALID, #190)

@@ -51,7 +51,12 @@ import {
   useCanRenegotiateInstallments,
 } from "@/components/TransactionRenegotiateInstallmentsModal";
 
-import { paymentMethodOptions, type PaymentMethod } from "@/lib/payment-methods";
+import {
+  paymentMethodOptions,
+  validateServicePaymentFields,
+  friendlyPaymentError,
+  type PaymentMethod,
+} from "@/lib/payment-methods";
 import { OperationKeySelector } from "@/components/OperationKeySelector";
 
 interface Props {
@@ -264,6 +269,16 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     },
   });
   const isPaidByPartner = !!partnerPaidLink;
+  /**
+   * Pagamento de Serviços (referência MB): Entidade 5 dígitos, Referência 9.
+   * Fonte única em `src/lib/payment-methods.ts`, espelhada no CHECK
+   * `transactions_service_payment_requires_mb`. Bloqueia o botão de guardar.
+   */
+  const servicePaymentError = validateServicePaymentFields({
+    payment_method: form.payment_method,
+    payment_entity: form.payment_entity,
+    payment_reference: form.payment_reference,
+  });
   const partnerPaidPending = (partnerPaidLink as any)?.status === "pending_approval";
   // Só vínculos aprovados liquidam a transação via sócio.
   const partnerPaidSettled = isPaidByPartner && !partnerPaidPending;
@@ -876,7 +891,8 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
       toast({ title: "Transação atualizada com sucesso!" });
     },
     onError: (err: any) => {
-      toast({ title: "Erro ao atualizar", description: err.message, variant: "destructive" });
+      // CHECK transactions_service_payment_requires_mb → mensagem do domínio.
+      toast({ title: "Erro ao atualizar", description: friendlyPaymentError(err), variant: "destructive" });
     },
   });
 
@@ -2269,19 +2285,28 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           {!isPaidByPartner && form.payment_method === "service_payment" && (
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Entidade</label>
-                <input type="text" value={form.payment_entity}
-                  onChange={(e) => setForm({ ...form, payment_entity: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Entidade *</label>
+                <input type="text" inputMode="numeric" maxLength={5} value={form.payment_entity}
+                  onChange={(e) => setForm({ ...form, payment_entity: e.target.value.replace(/\D/g, "").slice(0, 5) })}
+                  className={cn(
+                    "w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50",
+                    form.payment_entity.length === 5 ? "border-border" : "border-destructive",
+                  )}
                   placeholder="Ex: 10611" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Referência</label>
-                <input type="text" value={form.payment_reference}
-                  onChange={(e) => setForm({ ...form, payment_reference: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Referência *</label>
+                <input type="text" inputMode="numeric" maxLength={9} value={form.payment_reference}
+                  onChange={(e) => setForm({ ...form, payment_reference: e.target.value.replace(/\D/g, "").slice(0, 9) })}
+                  className={cn(
+                    "w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50",
+                    form.payment_reference.length === 9 ? "border-border" : "border-destructive",
+                  )}
                   placeholder="Referência MB" />
               </div>
+              {servicePaymentError && (
+                <p className="col-span-2 text-xs text-destructive">{servicePaymentError}</p>
+              )}
             </div>
           )}
 
@@ -2485,8 +2510,8 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           </div>
           )}
 
-          <button type="submit" disabled={editMutation.isPending || eventCompleted}
-            title={eventCompleted ? "Evento concluído. Reabre o evento para editar." : undefined}
+          <button type="submit" disabled={editMutation.isPending || eventCompleted || !!servicePaymentError}
+            title={eventCompleted ? "Evento concluído. Reabre o evento para editar." : (servicePaymentError ?? undefined)}
             className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
             {eventCompleted ? "Evento concluído — edição bloqueada" : editMutation.isPending ? "A guardar…" : "Guardar Alterações"}
           </button>
