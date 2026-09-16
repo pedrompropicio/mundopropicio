@@ -1030,12 +1030,42 @@ export default function BankReconciliation() {
             <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
               <AlertTriangle className="mt-0.5 h-4 w-4 text-warning" />
               <div>
-                <p className="font-medium">Saldo do extrato não bate com o implantado.</p>
-                <p className="text-muted-foreground">
-                  No {cutoffMismatch.label} o extrato declara {formatCurrency(cutoffMismatch.reference)} e o sistema tem{" "}
-                  {formatCurrency(cutoffMismatch.implanted)} implantados (diferença {formatCurrency(cutoffMismatch.diff)}).
-                  Importa-se de qualquer forma, mas a data de corte ou o saldo implantado estão errados.
-                </p>
+                {cutoffMismatch.kind === "implanted" && (
+                  <>
+                    <p className="font-medium">Saldo do extrato não bate com o implantado.</p>
+                    <p className="text-muted-foreground">
+                      No {cutoffMismatch.label} o extrato declara {formatCurrency(cutoffMismatch.reference)} e o sistema
+                      tem {formatCurrency(cutoffMismatch.expected)} implantados (diferença{" "}
+                      {formatCurrency(cutoffMismatch.diff)}). Importa-se de qualquer forma, mas a data de corte ou o
+                      saldo implantado estão errados.
+                    </p>
+                  </>
+                )}
+                {cutoffMismatch.kind === "prev_statement" && (
+                  <>
+                    <p className="font-medium">Extrato não encaixa no anterior.</p>
+                    <p className="text-muted-foreground">
+                      A abertura do extrato ({formatCurrency(cutoffMismatch.reference)}) não encaixa no fecho do extrato
+                      anterior de {formatDatePT(cutoffMismatch.prevPeriodTo)} ({formatCurrency(cutoffMismatch.expected)})
+                      — diferença {formatCurrency(cutoffMismatch.diff)}. Faltam linhas entre{" "}
+                      {formatDatePT(cutoffMismatch.prevPeriodTo)} e {formatDatePT(cutoffMismatch.periodFrom)}, ou um
+                      extrato foi saltado.
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {cutoffMismatch.businessDays} dia(s) útil(eis) entre as duas datas.
+                    </p>
+                  </>
+                )}
+                {cutoffMismatch.kind === "system" && (
+                  <>
+                    <p className="font-medium">Abertura do extrato não bate com o sistema.</p>
+                    <p className="text-muted-foreground">
+                      A abertura do extrato ({formatCurrency(cutoffMismatch.reference)}) não bate com o saldo do sistema
+                      a {formatDatePT(cutoffMismatch.eve)} ({formatCurrency(cutoffMismatch.expected)}) — diferença{" "}
+                      {formatCurrency(cutoffMismatch.diff)}.
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           )}
