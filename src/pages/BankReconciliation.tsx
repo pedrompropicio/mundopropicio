@@ -537,6 +537,27 @@ export default function BankReconciliation() {
     return m;
   }, [feeGroups, motherLineByRef, motherTxById]);
 
+  /** Abre o Lançar em modo taxas: valores do banco, evento e BP da mãe. */
+  function openFeeLaunch(info: NonNullable<ReturnType<typeof feeInfoByLine.get>>) {
+    const g = info.group;
+    setLaunchLines(
+      g.members.map((m) => ({
+        id: m.line.id,
+        description: m.line.description,
+        amount: m.line.amount,
+        booking_date: m.line.booking_date,
+        value_date: m.line.value_date ?? null,
+      })) as LaunchableLine[],
+    );
+    setFeePlan({
+      ref: g.ref,
+      motherDescription: info.mother?.description ?? "transferência",
+      eventId: info.mother?.event_id ?? null,
+      forecastId: info.mother?.forecast_id ?? null,
+      legs: buildFeeLegs(g),
+    });
+  }
+
   /**
    * Por linha de lote SEPA conciliada: quantas exportações teve (dupla geração)
    * e a retenção na fonte (bruto do sistema − líquido do banco).
