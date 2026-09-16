@@ -1,7 +1,8 @@
-// ingest-transaction-document — anexa UM documento (descarregado de um URL do
-// Google Drive) a UMA OU VÁRIAS transações, sem browser. Issue #180.
+// ingest-transaction-document — anexa UM documento a UMA OU VÁRIAS transações,
+// sem browser. Issue #180. A origem pode ser um URL do Google Drive OU o
+// conteúdo do ficheiro em base64 no próprio pedido.
 //
-// POST { origem, nome, doc_type?, is_accounting?, partner_visible?, alvo }
+// POST { origem | conteudo_base64, nome, doc_type?, is_accounting?, partner_visible?, alvo }
 //   alvo: { transaction_id } | { invoice_group_id } | { supplier_id, invoice_ref }
 //
 // Autorização: só service_role. `verify_jwt = true` no config.toml valida a
