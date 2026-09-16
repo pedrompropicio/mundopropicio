@@ -527,12 +527,15 @@ export default function BankReconciliation() {
    * 1. O extrato COBRE a data de corte → o saldo implantado é o saldo ao FECHO
    *    desse dia: compara-se com o `balance_after` da última linha até ao corte,
    *    nunca com a abertura do ficheiro (que é o saldo ANTES dos movimentos).
-   * 2. O extrato começa DEPOIS do corte e já existe extrato anterior da mesma
-   *    conta → a abertura tem de encaixar no `closing_balance` desse extrato.
-   *    É isto que denuncia linhas em falta ou um extrato saltado. Comparar com
-   *    o implantado dava sempre a variação do saldo desde o corte (aviso falso).
-   * 3. Sem extrato anterior → compara-se a abertura com o saldo do SISTEMA à
-   *    véspera de `period_from`. Sem permissão para ver o saldo, não há aviso.
+   * 2. O extrato começa DEPOIS do corte e já há linhas importadas da mesma
+   *    conta antes de `period_from` → a abertura tem de encaixar no
+   *    `balance_after` da última linha importada. É isto que denuncia linhas
+   *    em falta. Comparar com o `closing_balance` do extrato anterior falhava
+   *    quando os períodos se sobrepunham (fecho já incluía movimentos do dia
+   *    de abertura do ficheiro novo).
+   * 3. Sem nenhuma linha anterior → compara-se a abertura com o saldo do
+   *    SISTEMA à véspera de `period_from`. Sem permissão para ver o saldo,
+   *    não há aviso.
    */
   const parsedPeriodFrom = parsed ? String(parsed.periodFrom).slice(0, 10) : null;
 
@@ -541,14 +544,52 @@ export default function BankReconciliation() {
     [parsed, cutoff],
   );
 
-  /** Último extrato da conta que fecha ANTES do início do ficheiro. */
-  const prevStatement = useMemo(() => {
-    if (!parsedPeriodFrom) return null;
-    const before = (statements as any[])
-      .filter((s) => s.period_to && String(s.period_to).slice(0, 10) < parsedPeriodFrom)
-      .sort((a, b) => String(a.period_to).localeCompare(String(b.period_to)));
-    return before.length > 0 ? before[before.length - 1] : null;
-  }, [statements, parsedPeriodFrom]);
+  /**
+   * Ramo 2 da cascata: a ÚLTIMA LINHA importada da conta com
+   * `booking_date < period_from` do ficheiro. Comparar com o
+   * `closing_balance` do extrato anterior falhava quando os períodos se
+   * sobrepunham (extrato 14→16 já importado, ficheiro 16→17 a entrar: o
+   * fecho do 14→16 já inclui os movimentos de 16 e a comparação era falsa).
+   * A referência certa é o saldo após o último movimento realmente
+   * importado antes do início do ficheiro.
+   */
+  const needsPrevLine = !!parsed && !hasCutoffLines && !!parsedPeriodFrom;
+  const { data: prevDayLines } = useQuery({
+    queryKey: ["bank-recon-prev-lines", accountId, parsedPeriodFrom],
+    enabled: !!accountId && needsPrevLine,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bank_statement_lines")
+        .select("booking_date, amount, balance_after")
+        .eq("financial_account_id", accountId)
+        .lt("booking_date", parsedPeriodFrom as string)
+        .order("booking_date", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return (data ?? []) as { booking_date: string; amount: number; balance_after: number | null }[];
+    },
+  });
+
+  /**
+   * Do lote de linhas anteriores fica a última do dia mais recente. Como não
+   * há coluna de ordem dentro do dia, reconstrói-se a cadeia: a última linha
+   * do dia é a única cujo `balance_after` não é preciso por nenhuma irmã
+   * (`balance_after[j] - amount[j]` = saldo anterior de j). Movimentos são
+   * únicos por conta (line_hash), por isso a cadeia é fechada.
+   */
+  const lastPrevLine = useMemo(() => {
+    if (!prevDayLines || prevDayLines.length === 0) return null;
+    const maxDate = prevDayLines[0].booking_date; // vem ordenado desc
+    const dayLines = prevDayLines.filter((l) => l.booking_date === maxDate);
+    const cents = (v: number) => Math.round(v * 100);
+    const needs = new Set(
+      dayLines.map((l) => cents(Number(l.balance_after ?? 0)) - cents(Number(l.amount ?? 0))),
+    );
+    const last =
+      dayLines.find((l) => !needs.has(cents(Number(l.balance_after ?? 0)))) ??
+      dayLines[dayLines.length - 1];
+    return { bookingDate: maxDate, balanceAfter: Number(last.balance_after ?? 0) };
+  }, [prevDayLines]);
 
   /** Véspera de `period_from` — só usada no 3.º ramo da cascata. */
   const eveOfPeriodFrom = useMemo(() => {
@@ -560,7 +601,9 @@ export default function BankReconciliation() {
     return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
   }, [parsedPeriodFrom]);
 
-  const needsSystemEve = !!parsed && !hasCutoffLines && !prevStatement && !!eveOfPeriodFrom;
+  // Ramo 3 só quando já se sabe que não há nenhuma linha anterior importada.
+  const needsSystemEve =
+    !!parsed && !hasCutoffLines && !!eveOfPeriodFrom && prevDayLines !== undefined && !lastPrevLine;
 
   const { data: eveSystemBalances } = useQuery({
     queryKey: ["bank-recon-eve-balance", accountId, eveOfPeriodFrom],
@@ -592,23 +635,24 @@ export default function BankReconciliation() {
     const opening = parsed.openingBalance;
     if (opening === null || opening === undefined) return null;
 
-    // 2. Existe extrato anterior: a abertura encaixa no fecho dele.
-    if (prevStatement) {
-      const expected = Number(prevStatement.closing_balance ?? 0);
+    // 2. Há linhas importadas antes do início do ficheiro: a abertura tem de
+    // encaixar no saldo após o último movimento importado.
+    if (prevDayLines === undefined) return null; // ainda a carregar
+    if (lastPrevLine) {
+      const expected = lastPrevLine.balanceAfter;
       if (tol(opening, expected)) return null;
-      const prevTo = String(prevStatement.period_to).slice(0, 10);
       return {
         kind: "prev_statement" as const,
         reference: opening,
         expected,
         diff: round(opening - expected),
-        prevPeriodTo: prevTo,
+        prevBookingDate: lastPrevLine.bookingDate,
         periodFrom: parsedPeriodFrom as string,
-        businessDays: businessDaysBetween(prevTo, parsedPeriodFrom as string),
+        businessDays: businessDaysBetween(lastPrevLine.bookingDate, parsedPeriodFrom as string),
       };
     }
 
-    // 3. Sem extrato anterior: saldo do sistema à véspera de `period_from`.
+    // 3. Sem nenhuma linha anterior: saldo do sistema à véspera de `period_from`.
     if (!eveSystemBalances || !accountId) return null;
     const system = eveSystemBalances.get(accountId) ?? null;
     if (system === null) return null; // sem permissão para ver o saldo → sem aviso
@@ -625,7 +669,8 @@ export default function BankReconciliation() {
     account,
     cutoff,
     hasCutoffLines,
-    prevStatement,
+    prevDayLines,
+    lastPrevLine,
     parsedPeriodFrom,
     eveSystemBalances,
     eveOfPeriodFrom,
@@ -1043,13 +1088,13 @@ export default function BankReconciliation() {
                 )}
                 {cutoffMismatch.kind === "prev_statement" && (
                   <>
-                    <p className="font-medium">Extrato não encaixa no anterior.</p>
+                    <p className="font-medium">Extrato não encaixa no último movimento importado.</p>
                     <p className="text-muted-foreground">
-                      A abertura do extrato ({formatCurrency(cutoffMismatch.reference)}) não encaixa no fecho do extrato
-                      anterior de {formatDatePT(cutoffMismatch.prevPeriodTo)} ({formatCurrency(cutoffMismatch.expected)})
-                      — diferença {formatCurrency(cutoffMismatch.diff)}. Faltam linhas entre{" "}
-                      {formatDatePT(cutoffMismatch.prevPeriodTo)} e {formatDatePT(cutoffMismatch.periodFrom)}, ou um
-                      extrato foi saltado.
+                      A abertura do extrato ({formatCurrency(cutoffMismatch.reference)}) não encaixa no saldo após o
+                      último movimento importado, de {formatDatePT(cutoffMismatch.prevBookingDate)} (
+                      {formatCurrency(cutoffMismatch.expected)}) — diferença {formatCurrency(cutoffMismatch.diff)}.
+                      Faltam linhas entre {formatDatePT(cutoffMismatch.prevBookingDate)} e{" "}
+                      {formatDatePT(cutoffMismatch.periodFrom)}.
                     </p>
                     <p className="text-[11px] text-muted-foreground">
                       {cutoffMismatch.businessDays} dia(s) útil(eis) entre as duas datas.

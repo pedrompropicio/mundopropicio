@@ -52,17 +52,23 @@ upsert com `ignoreDuplicates` → reimportar o mesmo ficheiro não cria linhas.
      o `balance_after` da última linha até ao corte, comparada com
      `initial_balance` (D-ERP25) — o implantado é o saldo ao FECHO desse dia, por
      isso não se usa a abertura do ficheiro. Rótulo "fecho da data de corte".
-  2. **Começa depois do corte e há extrato anterior** da mesma conta com
-     `period_to < period_from`: a referência é `parsed.openingBalance` e o
-     esperado é o `closing_balance` do extrato anterior mais recente. Diz
-     "não encaixa no fecho do extrato anterior de <data>" e quantos dias úteis
-     separam as duas datas — denuncia linhas em falta ou extrato saltado.
-     Comparar com o implantado aqui dava sempre a variação do saldo desde o
-     corte, ou seja, um aviso FALSO a partir do 2.º extrato.
-  3. **Sem extrato anterior:** abertura contra o saldo do sistema à véspera de
-     `period_from` (`account_true_balances_asof`). Se vier NULL (sem permissão
-     para ver o saldo), não se mostra aviso nenhum.
-  A lista de extratos é a mesma dos chips "Extratos:" — não há query nova.
+  2. **Começa depois do corte e há linhas importadas** da mesma conta com
+     `booking_date < period_from`: a referência é `parsed.openingBalance` e o
+     esperado é o `balance_after` da **última linha importada** antes do
+     início do ficheiro (query a `bank_statement_lines`, `booking_date` desc,
+     e dentro do dia reconstrói-se a cadeia — a última linha do dia é a única
+     cujo `balance_after` não é "preciso" por nenhuma irmã, porque não há
+     coluna de ordem). Diz "não encaixa no saldo após o último movimento
+     importado, de <booking_date>" e quantos dias úteis separam as datas.
+     Comparar com o `closing_balance` do extrato anterior falhava com
+     períodos sobrepostos (extrato 14→16 já importado, ficheiro 16→17:
+     o fecho do 14→16 já incluía os movimentos de 16 → aviso FALSO).
+  3. **Sem nenhuma linha anterior:** abertura contra o saldo do sistema à
+     véspera de `period_from` (`account_true_balances_asof`). Se vier NULL
+     (sem permissão para ver o saldo), não se mostra aviso nenhum.
+  O ramo 2 usa query própria a `bank_statement_lines` (a lista de extratos
+  dos chips já não chega — períodos sobrepostos); o ramo 3 mantém a query
+  ao saldo do sistema, só quando não há linhas anteriores.
 
 ## Conciliação — três PASSAGENS sobre todas as linhas, por esta ordem
 
