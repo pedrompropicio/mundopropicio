@@ -882,11 +882,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   /**
    * Só conta para a verba o que é compromisso real (D2): transitórias, excluídas
-   * do resultado, revertidas e escondidas não consomem BP. As `pending` contam —
-   * uma despesa lançada e por aprovar já é compromisso da linha.
+   * do resultado, revertidas, escondidas e as linhas de custo partilhado com
+   * terceiros (`shared_cost_account_id`, D-ERP69) não consomem BP. As `pending`
+   * contam — uma despesa lançada e por aprovar já é compromisso da linha.
    */
   const countsAsBudgetCommitment = (t: any): boolean =>
-    !t?.is_transitory && !t?.exclude_from_result && !t?.reversed_at && !t?.is_hidden;
+    !t?.is_transitory && !t?.exclude_from_result && !t?.reversed_at && !t?.is_hidden &&
+    !t?.shared_cost_account_id;
 
   /** Utilizado por LINHA de BP (vínculo canónico transactions.forecast_id). */
   const usedByForecastId = useMemo(() => {

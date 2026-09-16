@@ -11,7 +11,9 @@
  *  - `parent_transaction_id IS NOT NULL` — filha de rateio ou parcela: a
  *    obrigação é do pai (e o master de rateio não tem event_id);
  *  - transações que não consomem verba do BP: `is_transitory`,
- *    `exclude_from_result`, `reversed_at` preenchido, `is_hidden`.
+ *    `exclude_from_result`, `reversed_at` preenchido, `is_hidden` e
+ *    `shared_cost_account_id` preenchido (custo partilhado com terceiros —
+ *    dinheiro de terceiros, nunca consome verba; D-ERP69, 16/09/2026).
  */
 import { supabase } from "@/integrations/supabase/client";
 
@@ -25,6 +27,7 @@ export type BpLineCandidate = {
   exclude_from_result?: boolean | null;
   reversed_at?: string | null;
   is_hidden?: boolean | null;
+  shared_cost_account_id?: string | null;
 };
 
 /** Verificação estrutural (sem ir à BD): candidata a precisar de linha de BP. */
@@ -37,7 +40,8 @@ export function structurallyNeedsBpLine(tx: BpLineCandidate): boolean {
     !tx.is_transitory &&
     !tx.exclude_from_result &&
     !tx.reversed_at &&
-    !tx.is_hidden
+    !tx.is_hidden &&
+    !tx.shared_cost_account_id
   );
 }
 
