@@ -45,10 +45,24 @@ upsert com `ignoreDuplicates` → reimportar o mesmo ficheiro não cria linhas.
 
 - **Interna (bloqueia):** saldo[i] = saldo[i−1] + movimento[i], tolerância
   0,005 €. Se partir, a importação é recusada e a mensagem diz a linha.
-- **Contra o sistema (avisa, não bloqueia):** com `initial_balance_date`
-  preenchida (D-ERP25), o saldo de abertura do extrato (saldo da 1.ª linha
-  menos o seu movimento) tem de igualar o `initial_balance`. Se não, importa
-  e mostra aviso em destaque — o erro está no corte ou no saldo implantado.
+- **Contra o sistema (avisa, não bloqueia) — cascata de 3 ramos** (issue #185,
+  `useMemo cutoffMismatch` em `BankReconciliation.tsx`). Tolerância 0,01 € em
+  todos, nunca bloqueia a importação:
+  1. **O ficheiro cobre a data de corte** (`bookingDate <= cutoff`): referência é
+     o `balance_after` da última linha até ao corte, comparada com
+     `initial_balance` (D-ERP25) — o implantado é o saldo ao FECHO desse dia, por
+     isso não se usa a abertura do ficheiro. Rótulo "fecho da data de corte".
+  2. **Começa depois do corte e há extrato anterior** da mesma conta com
+     `period_to < period_from`: a referência é `parsed.openingBalance` e o
+     esperado é o `closing_balance` do extrato anterior mais recente. Diz
+     "não encaixa no fecho do extrato anterior de <data>" e quantos dias úteis
+     separam as duas datas — denuncia linhas em falta ou extrato saltado.
+     Comparar com o implantado aqui dava sempre a variação do saldo desde o
+     corte, ou seja, um aviso FALSO a partir do 2.º extrato.
+  3. **Sem extrato anterior:** abertura contra o saldo do sistema à véspera de
+     `period_from` (`account_true_balances_asof`). Se vier NULL (sem permissão
+     para ver o saldo), não se mostra aviso nenhum.
+  A lista de extratos é a mesma dos chips "Extratos:" — não há query nova.
 
 ## Conciliação — três PASSAGENS sobre todas as linhas, por esta ordem
 
