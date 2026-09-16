@@ -9151,6 +9151,174 @@ export type Database = {
           },
         ]
       }
+      help_articles: {
+        Row: {
+          content_hash: string
+          content_md: string
+          id: string
+          module: string
+          profiles: string[]
+          routes: string[]
+          slug: string
+          sources: string[]
+          synced_at: string
+          title: string
+          updated_on: string
+        }
+        Insert: {
+          content_hash: string
+          content_md: string
+          id?: string
+          module: string
+          profiles?: string[]
+          routes?: string[]
+          slug: string
+          sources?: string[]
+          synced_at?: string
+          title: string
+          updated_on: string
+        }
+        Update: {
+          content_hash?: string
+          content_md?: string
+          id?: string
+          module?: string
+          profiles?: string[]
+          routes?: string[]
+          slug?: string
+          sources?: string[]
+          synced_at?: string
+          title?: string
+          updated_on?: string
+        }
+        Relationships: []
+      }
+      help_chunks: {
+        Row: {
+          content: string
+          embedding: string | null
+          id: string
+          position: number
+          search_text: unknown
+          section_id: string
+        }
+        Insert: {
+          content: string
+          embedding?: string | null
+          id?: string
+          position: number
+          search_text?: unknown
+          section_id: string
+        }
+        Update: {
+          content?: string
+          embedding?: string | null
+          id?: string
+          position?: number
+          search_text?: unknown
+          section_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "help_chunks_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "help_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      help_questions: {
+        Row: {
+          answered: boolean
+          cited_anchor_ids: string[]
+          company_id: string
+          confidence: string | null
+          created_at: string
+          id: string
+          question: string
+          route: string | null
+          user_id: string
+        }
+        Insert: {
+          answered?: boolean
+          cited_anchor_ids?: string[]
+          company_id?: string
+          confidence?: string | null
+          created_at?: string
+          id?: string
+          question: string
+          route?: string | null
+          user_id?: string
+        }
+        Update: {
+          answered?: boolean
+          cited_anchor_ids?: string[]
+          company_id?: string
+          confidence?: string | null
+          created_at?: string
+          id?: string
+          question?: string
+          route?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "help_questions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      help_sections: {
+        Row: {
+          anchor_id: string
+          article_id: string
+          body_md: string
+          heading: string
+          id: string
+          position: number
+          profiles: string[]
+          screens: string[]
+          sources: string[]
+          tooltip: string | null
+        }
+        Insert: {
+          anchor_id: string
+          article_id: string
+          body_md: string
+          heading: string
+          id?: string
+          position: number
+          profiles?: string[]
+          screens?: string[]
+          sources?: string[]
+          tooltip?: string | null
+        }
+        Update: {
+          anchor_id?: string
+          article_id?: string
+          body_md?: string
+          heading?: string
+          id?: string
+          position?: number
+          profiles?: string[]
+          screens?: string[]
+          sources?: string[]
+          tooltip?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "help_sections_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "help_articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       home_videos: {
         Row: {
           company_id: string
@@ -16918,6 +17086,7 @@ export type Database = {
         Returns: boolean
       }
       has_staff_role: { Args: { _user_id: string }; Returns: boolean }
+      help_sync_article: { Args: { _payload: Json }; Returns: Json }
       is_platform_admin: { Args: { _user_id?: string }; Returns: boolean }
       is_public_portal_company: {
         Args: { _company_id: string }
