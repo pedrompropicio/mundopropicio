@@ -1540,8 +1540,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           ? installmentRows[0]?.scheduled_date || parseDueDateForDb(data.due_date)
           : parseDueDateForDb(data.due_date);
 
+        // Sufixo curto que distingue as duas pernas na lista de transações.
+        const mpLegSuffix = sharedCostSplitActive ? " — parte MP" : "";
         const { data: insertedTx, error } = await supabase.from("transactions").insert({
-          description: data.description + totalSuffix,
+          description: data.description + totalSuffix + mpLegSuffix,
           type: data.type,
           amount: firstParcelNet,
           iva_rate: data.iva_rate,
@@ -1564,9 +1566,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           is_reimbursement: data.is_reimbursement,
           reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
           is_transitory: principalIsTransitory,
-          exclude_from_result: isExcludeFromResult || !!sharedCostAccountId,
-          shared_cost_account_id: sharedCostAccountId || null,
-          shared_cost_counterparty_id: sharedCostAccountId ? (sharedCostCounterpartyId || null) : null,
+          // Com desdobramento esta é a PERNA DA MP: despesa normal, dentro do resultado,
+          // a consumir verba do BP. A conta de circuito vive só na perna de terceiros.
+          exclude_from_result: sharedCostSplitActive ? isExcludeFromResult : (isExcludeFromResult || !!sharedCostAccountId),
+          shared_cost_account_id: sharedCostSplitActive ? null : (sharedCostAccountId || null),
+          shared_cost_counterparty_id: sharedCostSplitActive ? null : (sharedCostAccountId ? (sharedCostCounterpartyId || null) : null),
           is_confidential: isConfidential,
           invoice_ref: data.invoice_ref.trim() || null,
           invoice_group_id: sharedInvoiceGroupId,
