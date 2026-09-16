@@ -33,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
 import LinkBpLineDialog from "@/components/LinkBpLineDialog";
+import { friendlyPaymentError } from "@/lib/payment-methods";
 import {
   findMatchingRule,
   suggestPattern,
