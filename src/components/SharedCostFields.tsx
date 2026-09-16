@@ -46,6 +46,12 @@ interface Props {
     onEventChange: (eventId: string) => void;
     /** Quando presente, o desdobramento está indisponível e explica-se porquê. */
     unavailableReason?: string | null;
+    /**
+     * Nº de linhas do "Dividir por IVA" (≥2 = fatura multi-IVA). Nesse caso a parte
+     * aplica-se a CADA linha pela mesma percentagem e o modo € é recusado, por ser
+     * ambíguo entre taxas.
+     */
+    multiIvaLineCount?: number;
   };
 }
 
