@@ -44,3 +44,12 @@ sistema não decreta essa mudança cultural.
 Migration aplicada. **Campo inerte**: nenhum evento existente foi alterado
 (todos NULL → `with_bp`), não há UI e nenhum comportamento mudou. A UI de criação
 de evento e o ecrã da empresa vêm num passo seguinte.
+
+## Estado (2026-09-16)
+- `events.budget_mode` continua a **NULL nos 56 eventos** e **não tem UI** — issue **#100**.
+- Com o COALESCE, todo o evento cai no **default da empresa**: a MP tem
+  `default_budget_mode='with_bp'`, logo todo o evento da MP nasce `with_bp` sem ninguém decidir.
+- A **Tour M&M — Verão Europa 2026** e os **4 sub-eventos** foram marcados a **`without_bp`** à
+  mão a 16/09: são `partner_managed`/Workshow, shows vendidos a terceiros, com **zero linhas de
+  BP** — exigir linha de BP ali era ruído. Ficam **6 eventos `partner_managed`** no mesmo engano,
+  listados na #100.
