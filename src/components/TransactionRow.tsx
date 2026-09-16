@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { LocalReinforcementBadge } from "@/components/LocalReinforcementBadge";
 import { ReimbursementNoteRefBadge } from "@/components/ReimbursementNoteRefBadge";
+import { SharedCostBadge } from "@/components/SharedCostBadge";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import InvoiceGroupAction from "@/components/InvoiceGroupAction";
 import { AccountantReviewRowBadge } from "@/components/AccountantReviewBadge";
@@ -184,7 +185,7 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, events(name, status, parent_event_id, event_type), account_categories(code, name), suppliers:suppliers!transactions_supplier_id_fkey(name), financial_accounts(name)")
+        .select("*, events(name, status, parent_event_id, event_type), account_categories(code, name), suppliers:suppliers!transactions_supplier_id_fkey(name), financial_accounts:financial_accounts!transactions_account_id_fkey(name)")
         .eq("parent_transaction_id", t.id)
         .order("created_at");
       if (error) throw error;
@@ -492,6 +493,9 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                       <p>Despesa registada para histórico — não impacta o resultado financeiro (DRE/PL).</p>
                     </TooltipContent>
                   </Tooltip>
+                )}
+                {(t as any).shared_cost_account_id && (
+                  <SharedCostBadge transactionId={t.id} />
                 )}
                 {invoiceRef && invoiceGroupCount > 1 && (
                   <Tooltip>

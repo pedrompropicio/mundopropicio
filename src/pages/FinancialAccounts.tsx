@@ -53,6 +53,7 @@ interface AccountForm {
   is_hidden: boolean;
   is_accounting: boolean;
   is_restricted: boolean;
+  is_circuit_account: boolean;
 }
 
 const emptyForm: AccountForm = {
@@ -69,6 +70,7 @@ const emptyForm: AccountForm = {
   is_hidden: false,
   is_accounting: true,
   is_restricted: false,
+  is_circuit_account: false,
 };
 
 export default function FinancialAccounts() {
@@ -165,6 +167,7 @@ export default function FinancialAccounts() {
         is_hidden: form.is_hidden,
         is_accounting: form.is_accounting,
         is_restricted: form.is_restricted,
+        is_circuit_account: form.is_circuit_account,
       };
 
       if (editingId) {
@@ -216,6 +219,7 @@ export default function FinancialAccounts() {
       is_hidden: account.is_hidden ?? false,
       is_accounting: account.is_accounting ?? true,
       is_restricted: account.is_restricted ?? false,
+      is_circuit_account: account.is_circuit_account ?? false,
     });
     setEditingId(account.id);
     setShowForm(true);
@@ -238,6 +242,11 @@ export default function FinancialAccounts() {
     }
     saveMutation.mutate();
   };
+
+  // Espelho de aporte de sócio: incompatível com conta de circuito (D-ERP69).
+  const mirrorAporteAccount = editingId
+    ? !!(accounts.find((a: any) => a.id === editingId) as any)?.mirror_partner_aporte
+    : false;
 
   const activeAccounts = accounts.filter((a: any) => a.is_active);
   const inactiveAccounts = accounts.filter((a: any) => !a.is_active);
@@ -585,6 +594,53 @@ export default function FinancialAccounts() {
                   checked={form.is_accounting}
                   onCheckedChange={(v) => setForm({ ...form, is_accounting: v })}
                 />
+              </div>
+
+              {/* Conta corrente de circuito de terceiros (D-ERP69). A conta é
+                  espelho de aporte de sócio OU conta de circuito, nunca as duas. */}
+              <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label className="text-sm font-medium">Conta corrente de circuito de terceiros</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Para faturas em que parte do custo é de terceiros (outras cidades de uma turnê,
+                      coprodutores). O que se paga por conta deles entra aqui como adiantamento e sai
+                      quando devolvem. O saldo é a posição do circuito: positivo, devem-nos; negativo,
+                      temos dinheiro deles por aplicar. No fim é zero.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={form.is_circuit_account}
+                    onCheckedChange={(v) => {
+                      if (v && mirrorAporteAccount) {
+                        toast({
+                          title: "Combinação não permitida",
+                          description:
+                            "Esta conta é espelho de aporte de sócio. Uma conta é espelho de aporte de sócio ou conta corrente de circuito de terceiros, nunca as duas.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      setForm({ ...form, is_circuit_account: v });
+                    }}
+                  />
+                </div>
+                {form.is_circuit_account && (form.is_accounting || form.skip_balance_check) && (
+                  <div className="flex items-start justify-between gap-3 rounded-lg border border-warning/30 bg-warning/10 p-2.5">
+                    <p className="text-xs text-warning">
+                      Recomendado nesta conta: <strong>não contábil</strong> (o circuito é gerencial,
+                      não vai às exportações para a contabilidade) e <strong>com controlo de saldo</strong>
+                      {" "}(a posição tem de ser verificável — uma conta de circuito existe para mostrar posição).
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, is_accounting: false, skip_balance_check: false })}
+                      className="shrink-0 rounded-lg bg-warning px-2.5 py-1.5 text-xs font-medium text-warning-foreground"
+                    >
+                      Aplicar
+                    </button>
+                  </div>
+                )}
               </div>
 
               <button

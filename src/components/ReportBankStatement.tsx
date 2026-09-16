@@ -22,6 +22,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import BankLineDocumentsDialog from "@/components/bank/BankLineDocumentsDialog";
 import { countsAfterCutoff, effectivePaymentDate, buildAccountCutoffs, fetchAccountCashAdjustments } from "@/lib/account-balance";
+import CircuitPositionPanel from "@/components/CircuitPositionPanel";
 
 export default function ReportBankStatement() {
   const { isAdmin } = useAuth();
@@ -76,6 +77,9 @@ export default function ReportBankStatement() {
   const selectedAccount = accounts.find((a: any) => a.id === selectedAccountId);
   const canSeeBalance = selectedAccount && (isAdmin || selectedAccount.balance_visible_to_all);
   const isUncontrolledBalance = selectedAccount?.skip_balance_check ?? false;
+  // Conta corrente de circuito de terceiros (D-ERP69): o saldo não é saldo, é
+  // posição — e o ecrã tem de o dizer.
+  const isCircuitAccount = (selectedAccount as any)?.is_circuit_account === true;
   const balanceCutoff = (selectedAccount as any)?.initial_balance_date ?? null;
 
   function handleGenerate() {
@@ -401,7 +405,9 @@ export default function ReportBankStatement() {
               <p className="mt-1 text-lg font-bold text-warning">{formatCurrency(totalExpense)}</p>
             </div>
             <div className="glass rounded-xl p-4">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Saldo Final</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {isCircuitAccount ? "Posição do circuito" : "Saldo Final"}
+              </p>
               {isUncontrolledBalance ? (
                 <p className="mt-1 text-sm italic text-muted-foreground">Saldo não controlado</p>
               ) : (
@@ -409,8 +415,31 @@ export default function ReportBankStatement() {
                   {formatCurrency(closingBalance)}
                 </p>
               )}
+              {isCircuitAccount && (
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Positivo, terceiros devem-nos. Negativo, temos dinheiro deles por aplicar.
+                  No fim do circuito é zero.
+                </p>
+              )}
             </div>
           </div>
+
+          {/* Conta de circuito: decomposição da posição por contraparte (D-ERP69) */}
+          {isCircuitAccount && (
+            isUncontrolledBalance ? (
+              <div className="glass rounded-xl border border-warning/40 p-4 text-xs text-warning">
+                Esta conta está com "Ignorar controlo de saldo" ligado, por isso a posição do circuito
+                não pode ser calculada. Desligue a opção nas Contas de Movimentação — uma conta de
+                circuito existe para mostrar posição.
+              </div>
+            ) : (
+              <CircuitPositionPanel
+                lines={lines}
+                openingBalance={openingBalance}
+                position={closingBalance}
+              />
+            )
+          )}
 
           {/* Statement table */}
           {lines.length === 0 ? (

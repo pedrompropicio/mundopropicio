@@ -122,7 +122,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
       if (targetCategoryIds.length === 0) return [];
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, parent_transaction_id, description, amount, iva_rate, status, category_id, invoice_ref, account_id, account_categories(code, name), financial_accounts(name)")
+        .select("id, event_id, parent_transaction_id, description, amount, iva_rate, status, category_id, invoice_ref, account_id, account_categories(code, name), financial_accounts:financial_accounts!transactions_account_id_fkey(name)")
         .in("event_id", childEventIds)
         .in("category_id", targetCategoryIds)
         .eq("type", "expense")

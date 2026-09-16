@@ -249,7 +249,7 @@ export default function Transactions() {
       return await fetchAllPaged<any>((from, to) =>
         supabase
           .from("transactions")
-          .select("*, events(name, status, parent_event_id, event_type), account_categories(code, name), suppliers:suppliers!transactions_supplier_id_fkey(name), financial_accounts(name)")
+          .select("*, events(name, status, parent_event_id, event_type), account_categories(code, name), suppliers:suppliers!transactions_supplier_id_fkey(name), financial_accounts:financial_accounts!transactions_account_id_fkey(name)")
           .order("due_date", { ascending: true, nullsFirst: false })
           .order("id", { ascending: true })
           .range(from, to)

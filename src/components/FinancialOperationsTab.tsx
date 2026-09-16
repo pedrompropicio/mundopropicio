@@ -128,7 +128,7 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
       if (group10Ids.length === 0) return [];
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, financial_accounts(name), account_categories(name, code), suppliers:suppliers!transactions_supplier_id_fkey(name)")
+        .select("*, financial_accounts:financial_accounts!transactions_account_id_fkey(name), account_categories(name, code), suppliers:suppliers!transactions_supplier_id_fkey(name)")
         .in("category_id", group10Ids)
         .order("date", { ascending: false })
         .limit(50);

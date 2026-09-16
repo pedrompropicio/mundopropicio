@@ -90,7 +90,64 @@ Ambas as funções são SECURITY DEFINER com `search_path = public` e
 `REVOKE ... FROM PUBLIC, anon, authenticated` + `GRANT ... TO service_role`. Verificado por
 `has_function_privilege` (anon/authenticated false, service_role true).
 
-## Ainda por fazer
+## Interface (16/09/2026)
 
-UI: marcar a conta como circuito no ecrã de Contas, marcar a linha no modal de transação, e
-painel da posição do circuito (por conta e por contraparte).
+Nenhuma regra é replicada em JavaScript: a UI reflecte o que os triggers impõem.
+
+**Marcar a linha** — `src/components/SharedCostFields.tsx`, bloco "Custo partilhado com
+terceiros" recolhido por omissão, usado por `TransactionFormModal` (criação, incluindo as 4
+vias de gravação: filhas de rateio, mãe, principal e parcelas) e `TransactionEditModal`
+(edição, incluindo transações já liquidadas). **Só em despesas.** Dentro: selector da conta de
+circuito (`is_circuit_account = true` + `is_active` + `is_hidden = false`, mais a opção "Não é
+custo partilhado"), selector opcional "Terceiro (opcional)" sobre `suppliers`, e o texto com o
+valor bruto concreto ("… vai gerar automaticamente <bruto> na conta <nome>…"). Com conta
+escolhida, o toggle "Fora do Resultado" mostra-se ligado e **bloqueado**, com a razão — para o
+desligar, limpa-se primeiro a conta de circuito. Permissões: as que já existem para editar
+transações; nenhuma permissão nova.
+
+**Lista de transações** — `src/components/SharedCostBadge.tsx`, badge "🤝 Parte de terceiros"
+em `TransactionRow`, no mesmo registo visual de "Fora do Resultado" e "Transitória". Se a
+ponte `shared_cost_mirror` já tem espelho, o badge acrescenta "· posição lançada".
+
+**Ecrã da conta** — é o extrato, `/relatorios/extrato?conta=<id>`
+(`src/components/ReportBankStatement.tsx`). Não há ecrã próprio para contas de circuito: o
+ecrã que já existe passa a dizer a verdade sobre ela. Com `is_circuit_account = true`:
+- o card "Saldo Final" passa a "Posição do circuito", com a legenda fixa "Positivo, terceiros
+  devem-nos. Negativo, temos dinheiro deles por aplicar. No fim do circuito é zero.";
+- painel "Posição por contraparte" (`src/components/CircuitPositionPanel.tsx`): por
+  `supplier_id`, quanto foi adiantado (entradas pagas), quanto já devolveu (saídas pagas) e a
+  diferença; cada linha abre as transações que a compõem;
+- `skip_balance_check = true` substitui o painel por um aviso: nesse estado a posição não pode
+  ser calculada e a flag deve ser desligada.
+
+**A decomposição não filtra por rubrica** (decisão de 16/09/2026). Nem as entradas à 10.12.01
+nem as saídas à 10.3: o painel é uma decomposição do saldo, não um filtro, e uma devolução
+lançada noutra rubrica não pode desaparecer. A soma de todas as linhas — incluindo "Sem
+contraparte atribuída" e o saldo inicial do período — tem de dar **exactamente** a posição da
+conta; quando não dá, o painel mostra o desvio como erro.
+
+**A posição por contraparte depende de `supplier_id`.** As transações da conta sem terceiro
+atribuído caem na linha final "Sem contraparte atribuída", com o aviso de que atribuir o
+terceiro é o que torna a posição legível. O `shared_cost_counterparty_id` da linha de origem é
+o que o espelho copia para `supplier_id`.
+
+**Formulário de conta financeira** — `src/pages/FinancialAccounts.tsx`, interruptor "Conta
+corrente de circuito de terceiros". Ao ligar, propõe no mesmo ecrã `is_accounting = false` e
+`skip_balance_check = false` (botão "Aplicar", o utilizador confirma). Conta com
+`mirror_partner_aporte = true`: a combinação é recusada com mensagem — uma conta é espelho de
+aporte de sócio **ou** conta de circuito de terceiros, nunca as duas.
+
+### Embeds ambíguos (regressão corrigida a 16/09/2026)
+
+Com `transactions.shared_cost_account_id` passaram a existir DUAS FK de `transactions`
+para `financial_accounts`. Qualquer `select` com o embed simples `financial_accounts(name)`
+sobre `transactions` passa a devolver PGRST201 ("more than one relationship was found").
+A lista de Transações deixou de carregar até se desambiguar.
+
+Regra: em queries à tabela `transactions`, o embed da conta escreve-se sempre
+`financial_accounts:financial_accounts!transactions_account_id_fkey(name)`.
+Corrigido em: Transactions.tsx, TransactionRow.tsx, OrphanTransactionsModal.tsx,
+FinancialOperationsTab.tsx, ReportMovementReconciliation.tsx, AdoptForecastsModal.tsx,
+BankReconciliation.tsx. O mesmo vale para `suppliers` por causa de
+`shared_cost_counterparty_id` — os embeds de fornecedor já usavam
+`suppliers!transactions_supplier_id_fkey`.
