@@ -224,6 +224,36 @@ Deno.serve(async (req) => {
       }
     }
 
+    /**
+     * Pagamento de Serviços exige referência MB completa. ESPELHO de
+     * `validateServicePaymentFields` em `src/lib/payment-methods.ts` e do CHECK
+     * `transactions_service_payment_requires_mb` (NOT VALID em Live: o CHECK não
+     * apanha as linhas antigas, por isso a recusa tem de estar aqui também).
+     * Só valida quando o pedido toca em algum dos três campos — não se recusa uma
+     * edição de descrição por causa de dados antigos incompletos.
+     */
+    const touchesPaymentMb =
+      "payment_method" in updates || "payment_entity" in updates || "payment_reference" in updates;
+    if (touchesPaymentMb) {
+      const effMethod = "payment_method" in updates ? updates.payment_method : transaction.payment_method;
+      if (effMethod === "service_payment") {
+        const effEntity = String(
+          ("payment_entity" in updates ? updates.payment_entity : transaction.payment_entity) ?? "",
+        ).trim();
+        const effRef = String(
+          ("payment_reference" in updates ? updates.payment_reference : transaction.payment_reference) ?? "",
+        ).trim();
+        if (!/^\d{5}$/.test(effEntity) || !/^\d{9}$/.test(effRef)) {
+          return new Response(
+            JSON.stringify({
+              error: "Pagamento de Serviços exige Entidade (5 dígitos) e Referência (9 dígitos)",
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      }
+    }
+
     // Chave de operação (D-ERP45): ESPELHO de `src/lib/operation-key.ts`
     // (OPERATION_KEY_PATTERN) e do CHECK `transactions_operation_key_check`.
     // Recusa-se em vez de avisar: uma variante silenciosa cria um grupo de uma
