@@ -891,7 +891,8 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
       toast({ title: "Transação atualizada com sucesso!" });
     },
     onError: (err: any) => {
-      toast({ title: "Erro ao atualizar", description: err.message, variant: "destructive" });
+      // CHECK transactions_service_payment_requires_mb → mensagem do domínio.
+      toast({ title: "Erro ao atualizar", description: friendlyPaymentError(err), variant: "destructive" });
     },
   });
 
@@ -2509,8 +2510,8 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           </div>
           )}
 
-          <button type="submit" disabled={editMutation.isPending || eventCompleted}
-            title={eventCompleted ? "Evento concluído. Reabre o evento para editar." : undefined}
+          <button type="submit" disabled={editMutation.isPending || eventCompleted || !!servicePaymentError}
+            title={eventCompleted ? "Evento concluído. Reabre o evento para editar." : (servicePaymentError ?? undefined)}
             className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
             {eventCompleted ? "Evento concluído — edição bloqueada" : editMutation.isPending ? "A guardar…" : "Guardar Alterações"}
           </button>
