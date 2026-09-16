@@ -91,13 +91,19 @@ Deno.serve(async (req) => {
   }
 
   const origem = typeof body.origem === 'string' ? body.origem.trim() : ''
+  const conteudoBase64 = typeof body.conteudo_base64 === 'string' ? body.conteudo_base64.trim() : ''
   const nome = typeof body.nome === 'string' ? body.nome.trim() : ''
   const docType = typeof body.doc_type === 'string' && body.doc_type.trim() ? body.doc_type.trim() : 'pdf'
   const isAccounting = body.is_accounting === undefined ? true : body.is_accounting === true
   const partnerVisible = body.partner_visible === undefined ? true : body.partner_visible === true
   const alvo = (body.alvo ?? {}) as Record<string, unknown>
 
-  if (!origem) return json({ error: 'origem é obrigatório.' }, 400)
+  if (!origem && !conteudoBase64) {
+    return json({ error: 'origem ou conteudo_base64 é obrigatório.' }, 400)
+  }
+  if (origem && conteudoBase64) {
+    return json({ error: 'usar origem OU conteudo_base64, nunca os dois.' }, 400)
+  }
   if (!nome) return json({ error: 'nome é obrigatório.' }, 400)
 
   const targetTransactionId = typeof alvo.transaction_id === 'string' ? alvo.transaction_id.trim() : ''
