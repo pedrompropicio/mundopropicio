@@ -16,7 +16,7 @@ import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 import { unescapeSjr, extractTables, parseNumberLabel } from "../_shared/ticketline-sjr-parser.ts";
 import { parseTicketTypesGrid, type Grid } from "../_shared/ticketline-ticket-types-parser.ts";
 
-const VERSION = "v2.40_occupation_in_daily_cycle";
+const VERSION = "v2.41_capture_day_all_enabled";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -3064,7 +3064,9 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
       error_message: warnMsg,
       import_audit: { ...audit, debug, silentEmpty, source_mode: sourceMode },
     });
-    await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: finalStatus, daily_fallback_active: false });
+    // v2.41 (issue #184): o sucesso do XLSX NÃO desce daily_fallback_active.
+    // A flag só desce por decisão humana (UI ou SQL).
+    await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: finalStatus });
     return { ok: !silentEmpty, runId, audit, status: finalStatus, warning: warnMsg };
 
   } catch (e: any) {
