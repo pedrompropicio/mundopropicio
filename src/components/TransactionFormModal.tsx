@@ -2714,31 +2714,15 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 options={eventOptions}
                 value={form.event_id}
                 onValueChange={(v) => {
+                  // R2 (D-ERP72): escolher um Master NUNCA o rebenta nas suas cidades.
+                  // O Master é um evento como qualquer outro — a verba vive na linha de BP
+                  // dele e a repartição pelas cidades é VIRTUAL (leitura). O rateio
+                  // multi-evento continua a existir, mas só quando é ligado de propósito
+                  // no painel.
                   setForm({ ...form, event_id: v, category_id: "", pl_override_note: "" });
                   setPlExpanded(true);
                   setShowProrationConfirm(false);
                   setPlOverride(false);
-                  // Auto-enable split when selecting a parent (multi_day) event with children
-                  const ev = events.find((e: any) => e.id === v);
-                  const children = subEventsByParent[v] || [];
-                  if (ev?.event_type === "multi_day" && children.length > 0) {
-                    setIsSplit(true);
-                    setSplitAutoConfigured(true);
-                    setSplitMasterEventId(v);
-                    setSplitExpanded(false);
-                    setForm(prev => ({ ...prev, event_id: "" }));
-                    const pct = +(100 / children.length).toFixed(2);
-                    const entries: SplitEntry[] = children.map((child: any, idx: number) => {
-                      const parentName = ev.name;
-                      const name = `${parentName} — ${child.name}`;
-                      const percentage = idx === children.length - 1
-                        ? +(100 - pct * (children.length - 1)).toFixed(2)
-                        : pct;
-                      return { event_id: child.id, event_name: name, percentage };
-                    });
-                    setSplitEntries(entries);
-                    setSplitMethod("equal");
-                  }
                 }}
                 placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
                 searchPlaceholder="Pesquisar evento…"
