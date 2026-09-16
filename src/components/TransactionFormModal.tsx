@@ -50,7 +50,7 @@ import InvoiceGroupSuggestDialog, { type InvoiceGroupSuggestion } from "@/compon
 
 
 import { paymentMethodOptions, type PaymentMethod } from "@/lib/payment-methods";
-import SharedCostFields from "@/components/SharedCostFields";
+import SharedCostFields, { computeThirdPartyNet, type ThirdPartyShareMode } from "@/components/SharedCostFields";
 import { calcWithIva } from "@/lib/utils";
 
 interface TransactionForm {
@@ -197,6 +197,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   // é do trigger `force_exclude_from_result_for_shared_cost` — aqui só se reflecte.
   const [sharedCostAccountId, setSharedCostAccountId] = useState("");
   const [sharedCostCounterpartyId, setSharedCostCounterpartyId] = useState("");
+  // Desdobramento da fatura (D-ERP69): parte de terceiros em % ou € sobre a BASE s/IVA.
+  // Preenchido → nascem DUAS pernas no mesmo invoice_group_id (MP + terceiros).
+  const [sharedCostThirdMode, setSharedCostThirdMode] = useState<ThirdPartyShareMode>("percentage");
+  const [sharedCostThirdValue, setSharedCostThirdValue] = useState("");
+  const [sharedCostThirdEventId, setSharedCostThirdEventId] = useState("");
   // Confidencial: só visível a quem tem a permissão de ver confidenciais.
   const [isConfidential, setIsConfidential] = useState(false);
   // Shortcut "Caução / Transitória": ativa is_transitory + abre selector "Pago por".
@@ -815,6 +820,64 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   useEffect(() => {
     if (partnerExtraIsPartialUi) setPlExpanded(true);
   }, [partnerExtraIsPartialUi]);
+
+  // ===== Desdobramento do custo partilhado com terceiros (D-ERP69) =====
+  // Não se combina com rateio multi-evento nem com Extra do Sócio: o Extra já
+  // recusa o rateio pelas cinco razões documentadas em partner-advance-expenses.md
+  // e o mesmo vale aqui — repartir duas vezes a mesma fatura por eixos diferentes
+  // faz a mãe divergir da soma das partes sem que nada o verifique.
+  const sharedCostSplitUnavailableReason = useMemo<string | null>(() => {
+    if (isSplit) {
+      return "Não se combina com o rateio multi-evento. Reparte primeiro pelos eventos e lança a parte de terceiros como transação própria, com o mesmo nº de fatura.";
+    }
+    if (isPartnerExtra) {
+      return "Não se combina com o Extra do Sócio. Lança a parte de terceiros como transação própria, com o mesmo nº de fatura.";
+    }
+    return null;
+  }, [isSplit, isPartnerExtra]);
+
+  /** Parte de terceiros em base s/IVA (0 quando não há desdobramento). */
+  const sharedCostThirdNet = useMemo(() => {
+    if (!sharedCostAccountId || sharedCostSplitUnavailableReason) return 0;
+    if (sharedCostThirdValue.trim() === "") return 0;
+    return computeThirdPartyNet(parseFloat(form.amount) || 0, sharedCostThirdMode, sharedCostThirdValue);
+  }, [sharedCostAccountId, sharedCostSplitUnavailableReason, sharedCostThirdValue, sharedCostThirdMode, form.amount]);
+
+  const sharedCostSplitActive = useMemo(() => {
+    const total = parseFloat(form.amount) || 0;
+    return sharedCostThirdNet > 0 && sharedCostThirdNet < total;
+  }, [sharedCostThirdNet, form.amount]);
+
+  /**
+   * Valor da PERNA DA MP — é este que consome verba do BP e é este que os avisos
+   * de verba têm de mostrar: quem excede a verba é a nossa parte, não a do terceiro.
+   * O resto do arredondamento fica sempre aqui.
+   */
+  const mpLegNetAmount = useMemo(() => {
+    const total = parseFloat(form.amount) || 0;
+    return sharedCostSplitActive ? Number((total - sharedCostThirdNet).toFixed(2)) : total;
+  }, [sharedCostSplitActive, sharedCostThirdNet, form.amount]);
+
+  // O desdobramento fica indisponível → limpa o campo para não gravar meio estado.
+  useEffect(() => {
+    if (sharedCostSplitUnavailableReason || !sharedCostAccountId) {
+      setSharedCostThirdValue("");
+      setSharedCostThirdEventId("");
+    }
+  }, [sharedCostSplitUnavailableReason, sharedCostAccountId]);
+
+  // Evento da perna de terceiros: por omissão o mesmo da perna da MP, editável.
+  useEffect(() => {
+    if (sharedCostSplitActive && !sharedCostThirdEventId && form.event_id) {
+      setSharedCostThirdEventId(form.event_id);
+    }
+  }, [sharedCostSplitActive, sharedCostThirdEventId, form.event_id]);
+
+  // Com desdobramento, a perna principal é a da MP: volta a estar DENTRO do resultado.
+  // (O "Fora do Resultado" tinha sido ligado à força ao escolher a conta de circuito.)
+  useEffect(() => {
+    if (sharedCostSplitActive) setIsExcludeFromResult(false);
+  }, [sharedCostSplitActive]);
   const selectedForecastL2Id = useMemo(
     () => (selectedForecast ? getL2Id(selectedForecast.category_id, categories as any[]) : null),
     [selectedForecast, categories],
@@ -1413,7 +1476,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           ? usedByForecastId[lineForecast.id] || 0
           : usedBudgetByCategory[budgetKey] || 0;
         const remaining = forecastTotal - usedTotal;
-        const newAmount = parseFloat(data.amount) || 0;
+        // Com desdobramento de custo partilhado, quem consome verba é a PERNA DA MP.
+        const newAmount = mpLegNetAmount;
         const fitsWithinBudget = forecastTotal > 0 && newAmount <= remaining + 0.005;
         const autoApproved = hasForecastMatch && hasApprovedBPLine && fitsWithinBudget;
 
@@ -1437,15 +1501,23 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const totalAmtNum = parseFloat(data.amount) || 0;
         const partnerExtraPartialNum = parseFloat(partnerExtraPartialAmount) || 0;
         const isPartnerExtraPartial = isPartnerExtra && partnerExtraPartialNum > 0 && partnerExtraPartialNum < totalAmtNum;
-        // Base da principal já líquida da parte do sócio.
+        // Desdobramento do custo partilhado com terceiros (D-ERP69): exactamente a mesma
+        // aritmética — a fatura reparte-se em perna da MP (total − X) e perna de terceiros
+        // (X), no MESMO invoice_group_id. O resto do arredondamento fica na perna da MP:
+        // a de terceiros é dinheiro de outrem. Não se combina com rateio, Extra do Sócio
+        // nem parcelas (recusado em handleSubmit).
+        const sharedCostThirdNum = sharedCostSplitActive ? sharedCostThirdNet : 0;
+        // Base da principal já líquida da parte do sócio / da parte de terceiros.
         const principalNetAmount = isPartnerExtraPartial
           ? Number((totalAmtNum - partnerExtraPartialNum).toFixed(2))
-          : totalAmtNum;
+          : sharedCostSplitActive
+            ? Number((totalAmtNum - sharedCostThirdNum).toFixed(2))
+            : totalAmtNum;
         const partnerPaidAmount = useInstallments ? 0 : (partnerPaidSettles ? principalNetAmount : (effectiveAutoMarkPaid ? principalNetAmount : 0));
         const principalIsTransitory = isTransitory || (isPartnerExtra && !isPartnerExtraPartial);
         // Garante invoice_group_id partilhado para amarrar as duas linhas (se já não vier um, gera um).
         let sharedInvoiceGroupId: string | null = data.invoice_group_id ?? null;
-        if (isPartnerExtraPartial && !sharedInvoiceGroupId) {
+        if ((isPartnerExtraPartial || sharedCostSplitActive) && !sharedInvoiceGroupId) {
           sharedInvoiceGroupId = (typeof crypto !== "undefined" && (crypto as any).randomUUID)
             ? (crypto as any).randomUUID()
             : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -1474,8 +1546,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           ? installmentRows[0]?.scheduled_date || parseDueDateForDb(data.due_date)
           : parseDueDateForDb(data.due_date);
 
+        // Sufixo curto que distingue as duas pernas na lista de transações.
+        const mpLegSuffix = sharedCostSplitActive ? " — parte MP" : "";
         const { data: insertedTx, error } = await supabase.from("transactions").insert({
-          description: data.description + totalSuffix,
+          description: data.description + totalSuffix + mpLegSuffix,
           type: data.type,
           amount: firstParcelNet,
           iva_rate: data.iva_rate,
@@ -1498,9 +1572,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           is_reimbursement: data.is_reimbursement,
           reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
           is_transitory: principalIsTransitory,
-          exclude_from_result: isExcludeFromResult || !!sharedCostAccountId,
-          shared_cost_account_id: sharedCostAccountId || null,
-          shared_cost_counterparty_id: sharedCostAccountId ? (sharedCostCounterpartyId || null) : null,
+          // Com desdobramento esta é a PERNA DA MP: despesa normal, dentro do resultado,
+          // a consumir verba do BP. A conta de circuito vive só na perna de terceiros.
+          exclude_from_result: sharedCostSplitActive ? isExcludeFromResult : (isExcludeFromResult || !!sharedCostAccountId),
+          shared_cost_account_id: sharedCostSplitActive ? null : (sharedCostAccountId || null),
+          shared_cost_counterparty_id: sharedCostSplitActive ? null : (sharedCostAccountId ? (sharedCostCounterpartyId || null) : null),
           is_confidential: isConfidential,
           invoice_ref: data.invoice_ref.trim() || null,
           invoice_group_id: sharedInvoiceGroupId,
@@ -1518,6 +1594,68 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         } as any).select("id").single();
         if (error) throw error;
         createdTxId = insertedTx?.id ?? null;
+
+        // ===== Perna de terceiros do custo partilhado (D-ERP69) =====
+        // Nasce com a conta de circuito; `exclude_from_result` é IMPOSTO pelo trigger
+        // force_exclude_from_result_for_shared_cost (não se escreve aqui à mão) e por
+        // isso não exige linha de BP nem consome verba. Herda status da perna da MP:
+        // as duas partilham o invoice_group_id e a aprovação de um grupo é atómica —
+        // estados diferentes deixariam o grupo permanentemente parcial.
+        if (sharedCostSplitActive && insertedTx?.id) {
+          const thirdGross = Number((sharedCostThirdNum * ivaMultiplier).toFixed(2));
+          const { data: thirdLeg, error: thirdErr } = await supabase
+            .from("transactions")
+            .insert({
+              description: `${data.description} — parte de terceiros`,
+              type: data.type,
+              amount: sharedCostThirdNum,
+              iva_rate: data.iva_rate,
+              event_id: sharedCostThirdEventId,
+              category_id: data.category_id || null,
+              supplier_id: data.supplier_id || null,
+              account_id: accountId,
+              date: data.date,
+              due_date: parseDueDateForDb(data.due_date),
+              status: partnerStatus,
+              // `paid_amount` é o dinheiro que saiu — BRUTO, é dele que o espelho vive.
+              paid_amount: partnerPaidAmount > 0 ? thirdGross : 0,
+              payment_date: partnerPaidAmount > 0 ? (partnerPaymentDate ?? data.date) : null,
+              shared_cost_account_id: sharedCostAccountId,
+              shared_cost_counterparty_id: sharedCostCounterpartyId || null,
+              is_confidential: isConfidential,
+              invoice_ref: data.invoice_ref.trim() || null,
+              invoice_group_id: sharedInvoiceGroupId,
+              payment_method: data.payment_method || "transfer",
+              payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
+              payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
+              currency,
+              original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
+              fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
+              fx_rate_source: currency === "EUR" ? null : fxRateSource,
+            } as any)
+            .select("id")
+            .single();
+          if (thirdErr) throw thirdErr;
+          const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+          await supabase.from("transaction_audit_log").insert([
+            {
+              transaction_id: thirdLeg.id,
+              changed_by: callerName,
+              field_name: "Criação (parte de terceiros)",
+              old_value: null,
+              new_value: `${data.description} — parte de terceiros — ${sharedCostThirdNum.toFixed(2)} € s/IVA`,
+            },
+            {
+              transaction_id: insertedTx.id,
+              changed_by: callerName,
+              field_name: "Custo partilhado com terceiros",
+              old_value: null,
+              new_value: `Fatura desdobrada: parte MP ${principalNetAmount.toFixed(2)} € + parte de terceiros ${sharedCostThirdNum.toFixed(2)} € (s/IVA), mesmo grupo de fatura`,
+            },
+          ] as any);
+        }
+
+
 
         // 🔑 Escreve FK event_forecasts.transaction_id ↔ TX criada.
         // Defesa universal: o trigger trg_enforce_tx_category_l2_match valida que a L3 escolhida
@@ -2181,6 +2319,37 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       }
     }
 
+    // ===== Desdobramento do custo partilhado com terceiros (D-ERP69) =====
+    if (sharedCostAccountId && sharedCostThirdValue.trim() !== "" && !sharedCostSplitUnavailableReason) {
+      const totalAmt = parseFloat(form.amount) || 0;
+      if (sharedCostThirdNet <= 0 || sharedCostThirdNet >= totalAmt) {
+        toast({
+          title: "Parte de terceiros inválida",
+          description: `Tem de ser maior que 0 e menor que o total (${totalAmt.toFixed(2)} € s/IVA). A zero é uma despesa normal; pelo total inteiro basta marcar a linha com a conta de circuito, sem desdobrar.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      if (useInstallments) {
+        toast({
+          title: "Não é possível combinar parcelas com parte de terceiros",
+          description: "Lança a fatura em parcelas primeiro e marca depois a parte de terceiros na transação em causa.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!sharedCostThirdEventId) {
+        toast({
+          title: "A perna de terceiros exige um evento",
+          description: "O blocker de fecho procura as contas de circuito pelas transações com evento. Sem evento, o circuito passa o fecho sem aviso e a posição nunca é conferida.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+
+
     // ===== Ramo 10.1 · Capital (AEP) — sócio OBRIGATÓRIO =====
     // Um movimento de capital tem sempre um sócio associado (associado da
     // Associação em Participação). Sem sócio, o dado fica incompleto.
@@ -2284,7 +2453,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       const budgetKey = `${form.type}_${form.category_id}`;
       const forecast = forecastBudgetByCategory[budgetKey] || 0;
       const used = usedBudgetByCategory[budgetKey] || 0;
-      const newAmount = parseFloat(form.amount) || 0;
+      // Com desdobramento, quem consome verba é a PERNA DA MP — o aviso fala dela.
+      const newAmount = mpLegNetAmount;
       const remaining = forecast - used;
       if (forecast > 0 && newAmount > remaining) {
         toast({
@@ -3449,7 +3619,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             const basisLabel = selectedForecast ? "Verba da linha" : "Verba da rubrica (L3)";
             const remaining = forecast - used;
             const pct = forecast > 0 ? (used / forecast) * 100 : 0;
-            const newAmount = parseFloat(form.amount) || 0;
+            // Com desdobramento é a perna da MP que consome verba, não o total da fatura.
+            const newAmount = mpLegNetAmount;
             const exceedsForcast = forecast > 0 && newAmount > remaining;
             return (
               <div className={`rounded-lg border p-3 space-y-1.5 ${exceedsForcast ? "border-warning bg-warning/10" : "border-border/50 bg-secondary/30"}`}>
@@ -3468,6 +3639,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   <span>Utilizado: {used.toFixed(2)}€</span>
                   <span className={remaining < 0 ? "text-destructive" : "text-success"}>Disponível: {remaining.toFixed(2)}€</span>
                 </div>
+                {sharedCostSplitActive && (
+                  <p className="text-[10px] text-muted-foreground">
+                    A verba é comparada com a <strong>parte da MP</strong> ({newAmount.toFixed(2)} € s/IVA);
+                    a parte de terceiros não consome verba.
+                  </p>
+                )}
                 {exceedsForcast && (
                   <p className="flex items-center gap-1.5 text-xs text-warning font-medium pt-1">
                     <AlertTriangle className="h-3.5 w-3.5" />
@@ -3612,6 +3789,18 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               }}
               grossAmount={calcWithIva(parseFloat(form.amount) || 0, form.iva_rate as any)}
               suppliers={suppliers as any}
+              split={{
+                totalNet: parseFloat(form.amount) || 0,
+                ivaRate: Number(form.iva_rate) || 0,
+                mode: sharedCostThirdMode,
+                value: sharedCostThirdValue,
+                eventId: sharedCostThirdEventId,
+                events: (events as any[]).map((ev) => ({ id: ev.id, name: ev.name })),
+                onModeChange: (m) => { setSharedCostThirdMode(m); setSharedCostThirdValue(""); },
+                onValueChange: setSharedCostThirdValue,
+                onEventChange: setSharedCostThirdEventId,
+                unavailableReason: sharedCostSplitUnavailableReason,
+              }}
             />
           )}
 
@@ -3690,9 +3879,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 {(authIsAdmin || authIsManager) && !isTransitory && !isPartnerExtra && (
                 <button
                   type="button"
-                  disabled={!!sharedCostAccountId}
-                  title={sharedCostAccountId ? "Imposto pelo custo partilhado com terceiros. Limpe a conta de circuito para poder desligar." : undefined}
-                  onClick={() => { if (!sharedCostAccountId) setIsExcludeFromResult(!isExcludeFromResult); }}
+                  disabled={!!sharedCostAccountId && !sharedCostSplitActive}
+                  title={sharedCostAccountId && !sharedCostSplitActive ? "Imposto pelo custo partilhado com terceiros. Limpe a conta de circuito para poder desligar." : undefined}
+                  onClick={() => { if (!sharedCostAccountId || sharedCostSplitActive) setIsExcludeFromResult(!isExcludeFromResult); }}
                   className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                     isExcludeFromResult
                       ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 ring-1 ring-sky-500/30"
