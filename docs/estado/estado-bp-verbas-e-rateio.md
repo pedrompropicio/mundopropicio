@@ -1,6 +1,6 @@
 # ESTADO — BP, Verbas & Rateio
 
-Atualizado: 2026-09-16 · custo partilhado com terceiros (D-ERP69) com base de dados **e** UI em produção, incluindo **desdobramento da fatura no formulário** (parte de terceiros em % ou €, multi-IVA em %) e a **quinta excepção** da trava de linha de BP · agregação mãe/filhas do rateio multi-evento corrigida nos oito relatórios de empresa (D-ERP70) · portal do sócio alinhado ao filtro canónico do Fecho · curva de evolução (#104, D4) em produção desde 07/09 · mesa de desenho `bp-x-resultado` encerrada
+Atualizado: 2026-09-16 (2.ª revisão do dia) · **D-ERP72 R2 em produção: escolher um Master já não o rebenta nas cidades** — despesa única no Master, ligada à linha de BP do Master, com desdobramento de custo partilhado disponível (cai o limite nº 1) · custo partilhado com terceiros (D-ERP69) com base de dados **e** UI em produção, incluindo **desdobramento da fatura no formulário** (parte de terceiros em % ou €, multi-IVA em %) e a **quinta excepção** da trava de linha de BP · agregação mãe/filhas do rateio multi-evento corrigida nos oito relatórios de empresa (D-ERP70) · portal do sócio alinhado ao filtro canónico do Fecho · curva de evolução (#104, D4) em produção desde 07/09 · mesa de desenho `bp-x-resultado` encerrada
 
 ## Em que pé está
 O BP de receita está construído e o rateio deixou de ser convenção manual: o **custo partilhado com terceiros** (D-ERP69) tem base de dados e UI em produção, e a duplicação mãe/filhas do rateio multi-evento nas agregações de empresa está fechada com predicado único (D-ERP70). O portal do sócio passou a ler o realizado pelo mesmo filtro canónico do Fecho.
@@ -34,7 +34,7 @@ Nada em execução.
 5. **Registar o pagamento das passagens quando acontecer** — 5 quotas de 4.165,00 (circuito 20.825,00), com a quota da MP na linha 2.2.01 Voos do Master.
 6. **Fatura Meta 252466632 — 1.174,57 € por atribuir a evento** (mãe 9.995,23 € vs 5 filhas 8.820,66 €). É trabalho do chat `audience-meta`, não desta frente; aqui fica só o ponteiro e a invariante que a apanha.
 7. **Verbas por segmento de patrocínio nos eventos futuros** — o primeiro é Ghanem 2027. Hoje os patrocínios aparecem agregados; quando houver targets por segmento, o BP de receita deve mostrar 1.2.01 por segmento (não só por empresa).
-5. **Marca própria da elevação de verba em `raise_forecast_budget`.** Hoje a elevação grava uma linha no `forecast_audit_log` com observação livre e não se distingue de uma edição anotada manual. Para a curva de evolução mostrar um marco `budget_raise`, a função deve deixar uma marca própria (por exemplo prefixo na observação ou campo adicional). Segue em issue nova P2.
+8. **Marca própria da elevação de verba em `raise_forecast_budget`.** Hoje a elevação grava uma linha no `forecast_audit_log` com observação livre e não se distingue de uma edição anotada manual. Para a curva de evolução mostrar um marco `budget_raise`, a função deve deixar uma marca própria (por exemplo prefixo na observação ou campo adicional). Segue em issue nova P2.
 
 ## Bloqueios
 Nenhum.
