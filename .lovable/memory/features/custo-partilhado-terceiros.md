@@ -136,3 +136,18 @@ corrente de circuito de terceiros". Ao ligar, propõe no mesmo ecrã `is_account
 `skip_balance_check = false` (botão "Aplicar", o utilizador confirma). Conta com
 `mirror_partner_aporte = true`: a combinação é recusada com mensagem — uma conta é espelho de
 aporte de sócio **ou** conta de circuito de terceiros, nunca as duas.
+
+### Embeds ambíguos (regressão corrigida a 16/09/2026)
+
+Com `transactions.shared_cost_account_id` passaram a existir DUAS FK de `transactions`
+para `financial_accounts`. Qualquer `select` com o embed simples `financial_accounts(name)`
+sobre `transactions` passa a devolver PGRST201 ("more than one relationship was found").
+A lista de Transações deixou de carregar até se desambiguar.
+
+Regra: em queries à tabela `transactions`, o embed da conta escreve-se sempre
+`financial_accounts:financial_accounts!transactions_account_id_fkey(name)`.
+Corrigido em: Transactions.tsx, TransactionRow.tsx, OrphanTransactionsModal.tsx,
+FinancialOperationsTab.tsx, ReportMovementReconciliation.tsx, AdoptForecastsModal.tsx,
+BankReconciliation.tsx. O mesmo vale para `suppliers` por causa de
+`shared_cost_counterparty_id` — os embeds de fornecedor já usavam
+`suppliers!transactions_supplier_id_fkey`.
