@@ -17,6 +17,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight, Handshake, AlertTriangle } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import { useCircuitAccounts } from "@/lib/circuit-account";
+import HelpTooltip from "@/components/HelpTooltip";
 
 export type ThirdPartyShareMode = "percentage" | "absolute";
 

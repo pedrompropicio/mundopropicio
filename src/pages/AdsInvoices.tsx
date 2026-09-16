@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/hooks/useCompany";
 import { AdsInvoiceImportDialog } from "@/components/ads/AdsInvoiceImportDialog";
+import HelpTooltip from "@/components/HelpTooltip";
 
 interface AdsInvoiceRow {
   id: string;
