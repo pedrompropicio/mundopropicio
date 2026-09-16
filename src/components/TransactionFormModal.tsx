@@ -1589,6 +1589,68 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         if (error) throw error;
         createdTxId = insertedTx?.id ?? null;
 
+        // ===== Perna de terceiros do custo partilhado (D-ERP69) =====
+        // Nasce com a conta de circuito; `exclude_from_result` é IMPOSTO pelo trigger
+        // force_exclude_from_result_for_shared_cost (não se escreve aqui à mão) e por
+        // isso não exige linha de BP nem consome verba. Herda status da perna da MP:
+        // as duas partilham o invoice_group_id e a aprovação de um grupo é atómica —
+        // estados diferentes deixariam o grupo permanentemente parcial.
+        if (sharedCostSplitActive && insertedTx?.id) {
+          const thirdGross = Number((sharedCostThirdNum * ivaMultiplier).toFixed(2));
+          const { data: thirdLeg, error: thirdErr } = await supabase
+            .from("transactions")
+            .insert({
+              description: `${data.description} — parte de terceiros`,
+              type: data.type,
+              amount: sharedCostThirdNum,
+              iva_rate: data.iva_rate,
+              event_id: sharedCostThirdEventId,
+              category_id: data.category_id || null,
+              supplier_id: data.supplier_id || null,
+              account_id: accountId,
+              date: data.date,
+              due_date: parseDueDateForDb(data.due_date),
+              status: partnerStatus,
+              // `paid_amount` é o dinheiro que saiu — BRUTO, é dele que o espelho vive.
+              paid_amount: partnerPaidAmount > 0 ? thirdGross : 0,
+              payment_date: partnerPaidAmount > 0 ? (partnerPaymentDate ?? data.date) : null,
+              shared_cost_account_id: sharedCostAccountId,
+              shared_cost_counterparty_id: sharedCostCounterpartyId || null,
+              is_confidential: isConfidential,
+              invoice_ref: data.invoice_ref.trim() || null,
+              invoice_group_id: sharedInvoiceGroupId,
+              payment_method: data.payment_method || "transfer",
+              payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
+              payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
+              currency,
+              original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
+              fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
+              fx_rate_source: currency === "EUR" ? null : fxRateSource,
+            } as any)
+            .select("id")
+            .single();
+          if (thirdErr) throw thirdErr;
+          const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+          await supabase.from("transaction_audit_log").insert([
+            {
+              transaction_id: thirdLeg.id,
+              changed_by: callerName,
+              field_name: "Criação (parte de terceiros)",
+              old_value: null,
+              new_value: `${data.description} — parte de terceiros — ${sharedCostThirdNum.toFixed(2)} € s/IVA`,
+            },
+            {
+              transaction_id: insertedTx.id,
+              changed_by: callerName,
+              field_name: "Custo partilhado com terceiros",
+              old_value: null,
+              new_value: `Fatura desdobrada: parte MP ${principalNetAmount.toFixed(2)} € + parte de terceiros ${sharedCostThirdNum.toFixed(2)} € (s/IVA), mesmo grupo de fatura`,
+            },
+          ] as any);
+        }
+
+
+
         // 🔑 Escreve FK event_forecasts.transaction_id ↔ TX criada.
         // Defesa universal: o trigger trg_enforce_tx_category_l2_match valida que a L3 escolhida
         // pertence ao mesmo L2 do BP. Sem FK, a TX fica "órfã" (qualquer L3 aceite).
