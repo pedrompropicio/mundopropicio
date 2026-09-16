@@ -61,10 +61,22 @@ export interface LaunchableLine {
  */
 export interface FeeLaunchPlan {
   ref: string;
+  /** Transação-mãe: id e rubrica servem para propor a linha e para a ligar (Peça C). */
+  motherId?: string | null;
   motherDescription: string;
+  motherCategoryId?: string | null;
+  motherAmount?: number | null;
   eventId: string | null;
   forecastId: string | null;
   legs: FeeLeg[];
+}
+
+/** D2 — só conta para a verba o que é compromisso real (espelho do TransactionFormModal). */
+function countsAsBudgetCommitment(t: any): boolean {
+  return (
+    !t?.is_transitory && !t?.exclude_from_result && !t?.reversed_at && !t?.is_hidden &&
+    !t?.shared_cost_account_id
+  );
 }
 
 interface Props {
