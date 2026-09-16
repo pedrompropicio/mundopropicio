@@ -2062,7 +2062,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
     },
     onError: (err: any) => {
-      toast({ title: "Erro ao criar transação", description: err.message, variant: "destructive" });
+      // CHECK transactions_service_payment_requires_mb → mensagem do domínio.
+      toast({ title: "Erro ao criar transação", description: friendlyPaymentError(err), variant: "destructive" });
     },
   });
 
