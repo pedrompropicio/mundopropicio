@@ -201,7 +201,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   // Preenchido → nascem DUAS pernas no mesmo invoice_group_id (MP + terceiros).
   const [sharedCostThirdMode, setSharedCostThirdMode] = useState<ThirdPartyShareMode>("percentage");
   const [sharedCostThirdValue, setSharedCostThirdValue] = useState("");
-  const [sharedCostThirdEventId, setSharedCostThirdEventId] = useState("");
+
   // Confidencial: só visível a quem tem a permissão de ver confidenciais.
   const [isConfidential, setIsConfidential] = useState(false);
   // Shortcut "Caução / Transitória": ativa is_transitory + abre selector "Pago por".
