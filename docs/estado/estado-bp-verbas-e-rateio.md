@@ -1,6 +1,6 @@
 # ESTADO — BP, Verbas & Rateio
 
-Atualizado: 2026-09-07 · curva de evolução (#104, D4) em produção (Publish do Pedro 07/09) · mesa de desenho `bp-x-resultado` encerrada
+Atualizado: 2026-09-16 · custo partilhado com terceiros (D-ERP69) com base de dados **e** UI em produção · agregação mãe/filhas do rateio multi-evento corrigida nos oito relatórios de empresa (D-ERP70) · portal do sócio alinhado ao filtro canónico do Fecho · curva de evolução (#104, D4) em produção desde 07/09 · mesa de desenho `bp-x-resultado` encerrada
 
 ## Em que pé está
 O BP de receita está construído. A aba Business Plan tem sub-separadores Despesas | Receitas e as receitas com módulo aparecem como linhas sintéticas não persistidas — 1.1.01 (bilheteira), 1.1.03 (A&B) e 1.2.01 (patrocínios, D22) — com três colunas s/IVA: previsto original, previsto corrente e real.
