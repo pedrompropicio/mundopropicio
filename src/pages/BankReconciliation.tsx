@@ -375,6 +375,156 @@ export default function BankReconciliation() {
   const preCutoffLines = (savedLines as any[]).filter((l) => l.status === "pre_cutoff");
   const preCutoffTotal = preCutoffLines.reduce((acc, l) => acc + Number(l.amount ?? 0), 0);
 
+  // ---- Peça A (#187): a regra que casa vê-se ANTES de abrir o Lançar -------
+  // Só texto. O motor é o mesmo do modal (`findMatchingRule`) — nada é criado.
+  const ruleRefIds = useMemo(() => {
+    const cats = new Set<string>();
+    const evs = new Set<string>();
+    const accs = new Set<string>();
+    (rules as BankLineRule[]).forEach((r) => {
+      if (r.category_id) cats.add(r.category_id);
+      if (r.event_id) evs.add(r.event_id);
+      if (r.target_account_id) accs.add(r.target_account_id);
+    });
+    return { cats: [...cats], evs: [...evs], accs: [...accs] };
+  }, [rules]);
+
+  const { data: ruleNames } = useQuery({
+    queryKey: ["bank-rule-names", ruleRefIds.cats.length, ruleRefIds.evs.length, ruleRefIds.accs.length],
+    enabled: allowed && (rules as BankLineRule[]).length > 0,
+    queryFn: async () => {
+      const cats = new Map<string, string>();
+      const evs = new Map<string, string>();
+      const accs = new Map<string, string>();
+      if (ruleRefIds.cats.length) {
+        const { data } = await supabase
+          .from("account_categories")
+          .select("id, code, name")
+          .in("id", ruleRefIds.cats);
+        (data ?? []).forEach((c: any) => cats.set(c.id, `${c.code} · ${c.name}`));
+      }
+      if (ruleRefIds.evs.length) {
+        const { data } = await supabase.from("events").select("id, name").in("id", ruleRefIds.evs);
+        (data ?? []).forEach((e: any) => evs.set(e.id, e.name));
+      }
+      if (ruleRefIds.accs.length) {
+        const { data } = await supabase
+          .from("financial_accounts")
+          .select("id, name")
+          .in("id", ruleRefIds.accs);
+        (data ?? []).forEach((a: any) => accs.set(a.id, a.name));
+      }
+      return { cats, evs, accs };
+    },
+  });
+
+  /** line_id → proposta legível da regra que casa. */
+  const rulePropByLine = useMemo(() => {
+    const m = new Map<string, { name: string; label: string }>();
+    (savedLines as any[])
+      .filter((l) => l.status === "unmatched")
+      .forEach((l) => {
+        const r = findMatchingRule(rules as BankLineRule[], {
+          description: l.description ?? "",
+          amount: Number(l.amount ?? 0),
+        });
+        if (!r) return;
+        m.set(l.id, {
+          name: r.name,
+          label: describeRuleAction(r, {
+            category: r.category_id ? ruleNames?.cats.get(r.category_id) ?? null : null,
+            event: r.event_id ? ruleNames?.evs.get(r.event_id) ?? null : null,
+            account: r.target_account_id ? ruleNames?.accs.get(r.target_account_id) ?? null : null,
+          }),
+        });
+      });
+    return m;
+  }, [savedLines, rules, ruleNames]);
+
+  // ---- Peça B (#187): taxas de transferência agrupadas pela referência -----
+  const feeGroups = useMemo(
+    () =>
+      buildFeeGroups(
+        (savedLines as any[])
+          .filter((l) => l.status === "unmatched")
+          .map((l) => ({
+            id: l.id,
+            description: l.description ?? "",
+            amount: Number(l.amount ?? 0),
+            booking_date: l.booking_date,
+            value_date: l.value_date ?? null,
+          })),
+      ),
+    [savedLines],
+  );
+
+  /** ref → linha-mãe `TRF.CRÉD.N.SEPA+EMITIDA <ref>` já conciliada nesta conta. */
+  const motherLineByRef = useMemo(() => {
+    const m = new Map<string, any>();
+    (savedLines as any[]).forEach((l) => {
+      if (l.status !== "matched") return;
+      const ref = extractMotherRef(l.description ?? "");
+      if (!ref) return;
+      if (l.matched_transaction_id || l.created_transaction_id) m.set(ref, l);
+    });
+    return m;
+  }, [savedLines]);
+
+  const motherTxIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          feeGroups
+            .map((g) => motherLineByRef.get(g.ref))
+            .filter(Boolean)
+            .map((l: any) => l.matched_transaction_id ?? l.created_transaction_id),
+        ),
+      ),
+    [feeGroups, motherLineByRef],
+  );
+
+  /** Transação-mãe: é dela que a taxa herda evento e linha de BP. */
+  const { data: motherTxs = [] } = useQuery({
+    queryKey: ["bank-recon-mother-txs", motherTxIds.join(",")],
+    enabled: motherTxIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, description, event_id, forecast_id")
+        .in("id", motherTxIds as string[]);
+      if (error) throw error;
+      const eventIds = Array.from(new Set((data ?? []).map((t: any) => t.event_id).filter(Boolean)));
+      const names = new Map<string, string>();
+      if (eventIds.length) {
+        const { data: evs } = await supabase.from("events").select("id, name").in("id", eventIds);
+        (evs ?? []).forEach((e: any) => names.set(e.id, e.name));
+      }
+      return (data ?? []).map((t: any) => ({ ...t, event_name: t.event_id ? names.get(t.event_id) ?? null : null }));
+    },
+  });
+
+  const motherTxById = useMemo(
+    () => new Map((motherTxs as any[]).map((t) => [t.id, t])),
+    [motherTxs],
+  );
+
+  /** line_id → grupo de taxas a que pertence (+ a mãe, quando existe). */
+  const feeInfoByLine = useMemo(() => {
+    const m = new Map<
+      string,
+      { ref: string; isFirst: boolean; count: number; mother: any | null; group: (typeof feeGroups)[number] }
+    >();
+    feeGroups.forEach((g) => {
+      const line = motherLineByRef.get(g.ref);
+      const txId = line ? (line.matched_transaction_id ?? line.created_transaction_id) : null;
+      const mother = txId ? motherTxById.get(txId) ?? null : null;
+      g.members.forEach((mem, i) => {
+        m.set(mem.line.id, { ref: g.ref, isFirst: i === 0, count: g.members.length, mother, group: g });
+      });
+    });
+    return m;
+  }, [feeGroups, motherLineByRef, motherTxById]);
+
   /**
    * Por linha de lote SEPA conciliada: quantas exportações teve (dupla geração)
    * e a retenção na fonte (bruto do sistema − líquido do banco).
