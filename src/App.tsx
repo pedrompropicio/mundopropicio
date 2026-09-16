@@ -600,7 +600,10 @@ function ProtectedLayout() {
           </div>
         </main>
       </div>
+      <HelpFloatingButton />
+      <HelpSidePanel />
     </div>
+    </HelpPanelProvider>
   );
 }
 
