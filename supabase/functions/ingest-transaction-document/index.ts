@@ -126,18 +126,21 @@ Deno.serve(async (req) => {
   }
 
   // ---- origem ------------------------------------------------------------
-  const sourceUrl = normalizeDriveUrl(origem)
-  let parsed: URL
-  try {
-    parsed = new URL(sourceUrl)
-  } catch {
-    return json({ error: 'origem não é um URL válido.' }, 400)
-  }
-  if (parsed.protocol !== 'https:' || !isAllowedHost(parsed.hostname)) {
-    return json(
-      { error: 'origem só aceita URLs https de drive.google.com ou *.googleusercontent.com.' },
-      400,
-    )
+  let sourceUrl = ''
+  if (origem) {
+    sourceUrl = normalizeDriveUrl(origem)
+    let parsed: URL
+    try {
+      parsed = new URL(sourceUrl)
+    } catch {
+      return json({ error: 'origem não é um URL válido.' }, 400)
+    }
+    if (parsed.protocol !== 'https:' || !isAllowedHost(parsed.hostname)) {
+      return json(
+        { error: 'origem só aceita URLs https de drive.google.com ou *.googleusercontent.com.' },
+        400,
+      )
+    }
   }
 
   const admin = createClient(supabaseUrl, serviceKey)
