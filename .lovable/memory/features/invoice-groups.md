@@ -134,11 +134,16 @@ resto do arredondamento na última linha para somar exactamente o declarado.
 
 ## Anexar por API e partilha do documento pelo grupo (2026-09-15, #180)
 Edge function `ingest-transaction-document` (`verify_jwt = true`, **só service_role**,
-molde do `portal-media-import`) — porta de entrada sem browser para anexar um documento
-descarregado de um URL do Google Drive (`drive.google.com` / `*.googleusercontent.com`;
-links `/file/d/<id>/view` e `?id=<id>` são normalizados para `uc?export=download`).
+molde do `portal-media-import`) — porta de entrada sem browser para anexar um documento.
+A origem pode ser **um URL do Google Drive** (`drive.google.com` / `*.googleusercontent.com`;
+links `/file/d/<id>/view` e `?id=<id>` são normalizados para `uc?export=download`) **ou o
+conteúdo do ficheiro em base64 no próprio pedido** (`conteudo_base64`, com ou sem prefixo
+`data:`). Exactamente um dos dois: nenhum ou ambos → **400**. Em `conteudo_base64` o tipo é
+detectado pelos **magic bytes** (`%PDF-`, JPEG `FF D8 FF`, PNG `89 50 4E 47`) e qualquer outro
+dá **415**; vazio → 422, >20 MB → 413. Daí para a frente o fluxo é o mesmo (idempotência,
+upload, inserts, agrupamento).
 
-Body: `{ origem, nome, doc_type='pdf', is_accounting=true, partner_visible=true, alvo }`.
+Body: `{ origem | conteudo_base64, nome, doc_type='pdf', is_accounting=true, partner_visible=true, alvo }`.
 `alvo` é **exactamente uma** de três formas:
 - `{ transaction_id }` → essa linha; se tiver `invoice_group_id`, **todas as irmãs**.
 - `{ invoice_group_id }` → todas as linhas do grupo.

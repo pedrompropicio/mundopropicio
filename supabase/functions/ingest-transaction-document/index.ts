@@ -1,7 +1,8 @@
-// ingest-transaction-document — anexa UM documento (descarregado de um URL do
-// Google Drive) a UMA OU VÁRIAS transações, sem browser. Issue #180.
+// ingest-transaction-document — anexa UM documento a UMA OU VÁRIAS transações,
+// sem browser. Issue #180. A origem pode ser um URL do Google Drive OU o
+// conteúdo do ficheiro em base64 no próprio pedido.
 //
-// POST { origem, nome, doc_type?, is_accounting?, partner_visible?, alvo }
+// POST { origem | conteudo_base64, nome, doc_type?, is_accounting?, partner_visible?, alvo }
 //   alvo: { transaction_id } | { invoice_group_id } | { supplier_id, invoice_ref }
 //
 // Autorização: só service_role. `verify_jwt = true` no config.toml valida a
@@ -90,13 +91,19 @@ Deno.serve(async (req) => {
   }
 
   const origem = typeof body.origem === 'string' ? body.origem.trim() : ''
+  const conteudoBase64 = typeof body.conteudo_base64 === 'string' ? body.conteudo_base64.trim() : ''
   const nome = typeof body.nome === 'string' ? body.nome.trim() : ''
   const docType = typeof body.doc_type === 'string' && body.doc_type.trim() ? body.doc_type.trim() : 'pdf'
   const isAccounting = body.is_accounting === undefined ? true : body.is_accounting === true
   const partnerVisible = body.partner_visible === undefined ? true : body.partner_visible === true
   const alvo = (body.alvo ?? {}) as Record<string, unknown>
 
-  if (!origem) return json({ error: 'origem é obrigatório.' }, 400)
+  if (!origem && !conteudoBase64) {
+    return json({ error: 'origem ou conteudo_base64 é obrigatório.' }, 400)
+  }
+  if (origem && conteudoBase64) {
+    return json({ error: 'usar origem OU conteudo_base64, nunca os dois.' }, 400)
+  }
   if (!nome) return json({ error: 'nome é obrigatório.' }, 400)
 
   const targetTransactionId = typeof alvo.transaction_id === 'string' ? alvo.transaction_id.trim() : ''
@@ -119,18 +126,21 @@ Deno.serve(async (req) => {
   }
 
   // ---- origem ------------------------------------------------------------
-  const sourceUrl = normalizeDriveUrl(origem)
-  let parsed: URL
-  try {
-    parsed = new URL(sourceUrl)
-  } catch {
-    return json({ error: 'origem não é um URL válido.' }, 400)
-  }
-  if (parsed.protocol !== 'https:' || !isAllowedHost(parsed.hostname)) {
-    return json(
-      { error: 'origem só aceita URLs https de drive.google.com ou *.googleusercontent.com.' },
-      400,
-    )
+  let sourceUrl = ''
+  if (origem) {
+    sourceUrl = normalizeDriveUrl(origem)
+    let parsed: URL
+    try {
+      parsed = new URL(sourceUrl)
+    } catch {
+      return json({ error: 'origem não é um URL válido.' }, 400)
+    }
+    if (parsed.protocol !== 'https:' || !isAllowedHost(parsed.hostname)) {
+      return json(
+        { error: 'origem só aceita URLs https de drive.google.com ou *.googleusercontent.com.' },
+        400,
+      )
+    }
   }
 
   const admin = createClient(supabaseUrl, serviceKey)
@@ -214,45 +224,87 @@ Deno.serve(async (req) => {
   const transactionIds = rows.map((r) => r.id)
   const invoiceGroupId = groupIdToAssign ?? rows.find((r) => r.invoice_group_id)?.invoice_group_id ?? null
 
-  // ---- descarregar o ficheiro -------------------------------------------
-  let res: Response
-  try {
-    res = await fetch(sourceUrl, {
-      redirect: 'follow',
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MP-ingest-transaction-document/1.0)' },
-    })
-  } catch (e) {
-    return json({ error: `Falha ao descarregar a origem: ${String(e)}` }, 502)
-  }
-  if (!res.ok) return json({ error: `A origem devolveu HTTP ${res.status}.` }, 502)
+  // ---- obter o ficheiro (URL do Drive ou base64 no pedido) ---------------
+  let bytes: Uint8Array
+  let contentType: string
+  let ext: string
 
-  const contentType = (res.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
-  if (contentType.startsWith('text/html')) {
-    return json(
-      {
-        error:
-          'A origem devolveu HTML em vez do ficheiro — é a página de aviso do Google Drive (ficheiro grande ou aviso de vírus). Usar um link de download directo.',
-      },
-      422,
-    )
-  }
-  const ext = EXT_BY_TYPE[contentType]
-  if (!ext) {
-    return json(
-      {
-        error: `Tipo de ficheiro não suportado: ${contentType || 'desconhecido'} — aceites: application/pdf, image/jpeg, image/png.`,
-      },
-      415,
-    )
-  }
-  const declared = Number(res.headers.get('content-length') ?? '0')
-  if (Number.isFinite(declared) && declared > MAX_BYTES) {
-    return json({ error: `Ficheiro demasiado grande (${declared} bytes) — máximo 20 MB.` }, 413)
-  }
-  const bytes = new Uint8Array(await res.arrayBuffer())
-  if (bytes.byteLength === 0) return json({ error: 'Ficheiro vazio.' }, 422)
-  if (bytes.byteLength > MAX_BYTES) {
-    return json({ error: `Ficheiro demasiado grande (${bytes.byteLength} bytes) — máximo 20 MB.` }, 413)
+  if (conteudoBase64) {
+    try {
+      const clean = conteudoBase64.replace(/^data:[^;]+;base64,/, '').replace(/\s+/g, '')
+      const bin = atob(clean)
+      const buf = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i)
+      bytes = buf
+    } catch {
+      return json({ error: 'conteudo_base64 não é base64 válido.' }, 400)
+    }
+    if (bytes.byteLength === 0) return json({ error: 'Ficheiro vazio.' }, 422)
+    if (bytes.byteLength > MAX_BYTES) {
+      return json({ error: `Ficheiro demasiado grande (${bytes.byteLength} bytes) — máximo 20 MB.` }, 413)
+    }
+    // Tipo detectado pelos magic bytes: %PDF-, JPEG (FF D8 FF), PNG (89 50 4E 47).
+    const b = bytes
+    const detected =
+      b.byteLength >= 5 && b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46 && b[4] === 0x2d
+        ? 'application/pdf'
+        : b.byteLength >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff
+          ? 'image/jpeg'
+          : b.byteLength >= 4 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47
+            ? 'image/png'
+            : ''
+    if (!detected) {
+      return json(
+        {
+          error:
+            'Tipo de ficheiro não suportado em conteudo_base64 — aceites: application/pdf, image/jpeg, image/png.',
+        },
+        415,
+      )
+    }
+    contentType = detected
+    ext = EXT_BY_TYPE[detected]
+  } else {
+    let res: Response
+    try {
+      res = await fetch(sourceUrl, {
+        redirect: 'follow',
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MP-ingest-transaction-document/1.0)' },
+      })
+    } catch (e) {
+      return json({ error: `Falha ao descarregar a origem: ${String(e)}` }, 502)
+    }
+    if (!res.ok) return json({ error: `A origem devolveu HTTP ${res.status}.` }, 502)
+
+    contentType = (res.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
+    if (contentType.startsWith('text/html')) {
+      return json(
+        {
+          error:
+            'A origem devolveu HTML em vez do ficheiro — é a página de aviso do Google Drive (ficheiro grande ou aviso de vírus). Usar um link de download directo.',
+        },
+        422,
+      )
+    }
+    const maybeExt = EXT_BY_TYPE[contentType]
+    if (!maybeExt) {
+      return json(
+        {
+          error: `Tipo de ficheiro não suportado: ${contentType || 'desconhecido'} — aceites: application/pdf, image/jpeg, image/png.`,
+        },
+        415,
+      )
+    }
+    ext = maybeExt
+    const declared = Number(res.headers.get('content-length') ?? '0')
+    if (Number.isFinite(declared) && declared > MAX_BYTES) {
+      return json({ error: `Ficheiro demasiado grande (${declared} bytes) — máximo 20 MB.` }, 413)
+    }
+    bytes = new Uint8Array(await res.arrayBuffer())
+    if (bytes.byteLength === 0) return json({ error: 'Ficheiro vazio.' }, 422)
+    if (bytes.byteLength > MAX_BYTES) {
+      return json({ error: `Ficheiro demasiado grande (${bytes.byteLength} bytes) — máximo 20 MB.` }, 413)
+    }
   }
 
   // ---- idempotência ------------------------------------------------------
