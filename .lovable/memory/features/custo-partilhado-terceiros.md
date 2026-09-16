@@ -151,3 +151,16 @@ FinancialOperationsTab.tsx, ReportMovementReconciliation.tsx, AdoptForecastsModa
 BankReconciliation.tsx. O mesmo vale para `suppliers` por causa de
 `shared_cost_counterparty_id` — os embeds de fornecedor já usavam
 `suppliers!transactions_supplier_id_fkey`.
+
+### Blocker de fecho `circuit_accounts` — limite conhecido
+
+`public.event_close_blockers` passou a devolver em `hard` a chave `circuit_accounts`: contas com
+`is_circuit_account = true` e posição ≠ 0 (tolerância 0,01 €) no âmbito do evento, do Master e
+dos sub-eventos do Master. `skip_balance_check = true` aparece assinalado, porque nesse estado a
+posição não é calculável.
+
+**Limite:** as contas são procuradas pelas **transações COM evento** (`transactions.event_id`).
+Uma linha marcada com conta de circuito e `event_id` nulo **não é apanhada** — inclusive os
+espelhos automáticos, que nascem sempre com `event_id NULL` por desenho. O blocker vê o
+circuito pelo lado da origem, não pelo lado do espelho. Um circuito cuja única movimentação
+esteja sem evento passa o fecho sem aviso.
