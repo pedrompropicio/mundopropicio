@@ -446,6 +446,7 @@ function ProtectedLayout() {
   }
 
   return (
+    <HelpPanelProvider>
     <div className="flex min-h-screen flex-col">
       <ApprovedPaymentListReminder />
       <header
