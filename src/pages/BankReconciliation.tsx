@@ -32,7 +32,17 @@ import BankLineDocumentsDialog from "@/components/bank/BankLineDocumentsDialog";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { BankLineLaunchModal, type LaunchableLine } from "@/components/bank/BankLineLaunchModal";
 
-import type { BankLineRule } from "@/lib/bank-statement/rules";
+import type { FeeLaunchPlan } from "@/components/bank/BankLineLaunchModal";
+import {
+  describeRuleAction,
+  findMatchingRule,
+  type BankLineRule,
+} from "@/lib/bank-statement/rules";
+import {
+  buildFeeGroups,
+  buildFeeLegs,
+  extractMotherRef,
+} from "@/lib/bank-statement/transfer-fees";
 import {
   parseSantanderStatement,
   computeLineHash,
