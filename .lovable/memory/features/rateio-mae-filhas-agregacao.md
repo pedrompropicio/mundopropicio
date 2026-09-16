@@ -16,6 +16,30 @@ O rateio multi-evento (`TransactionSplitConfig`) cria:
 
 A mãe é a **fatura inteira**. As filhas são a **decomposição dela por evento**.
 
+## Dois modelos de rateio (D-ERP76)
+
+| | Modelo A — rateio multi-evento | Modelo B — Master/sub-evento |
+| --- | --- | --- |
+| Mãe | **SEM evento** (`event_id` NULL) | **NO evento Master**, com a **linha de BP do Master** |
+| Filhas | **reais**, uma por evento, cada uma com a **linha de BP do SEU evento** | **nenhuma** filha real |
+| Como o sub-evento vê o custo | pela sua própria filha | por **proração virtual ÷N** |
+| Quando se usa | despesa repartida por **eventos diferentes**, ou por sub-eventos do mesmo Master em partes **DESIGUAIS** | rateio entre **sub-eventos do mesmo Master** e em partes **IGUAIS** |
+
+**O critério que os separa:** eventos diferentes ou partes desiguais → A. Sub-eventos do mesmo
+Master em partes iguais → B.
+
+**Converter A → B é lossless quando a repartição já é ÷N:** apagam-se as filhas e move-se a mãe
+para o Master. Verificado a 16/09/2026 — soma Master + cidades ao cêntimo (SM 94.370,54 →
+94.370,53; o cêntimo era um erro real: duas filhas de 583,50 contra uma mãe de 1.166,99;
+Deive 11.403,64 inalterado) e o custo por cidade após proração idêntico.
+
+⚠️ **A mãe do modelo A não tem `event_id` — nunca.** Confirmado em Live a 16/09: as 14 pernas de
+SM e Deive tinham todas mãe sem evento, **mesmo as que já apontavam a linha de BP de um Master**.
+Mãe com evento = modelo B, e nesse caso não há filhas.
+
+Nota: a trava de linha de BP isenta as filhas do modelo A por `parent_transaction_id IS NOT NULL`
+— foi essa isenção que deixou entrar pernas sem linha (fase 3 do D-ERP72/D-ERP73).
+
 ## O defeito (medido em Live, 16/09/2026)
 
 59 mães somam **199.971,29 €**; 157 filhas somam **198.796,70 €** — todas de 2026.

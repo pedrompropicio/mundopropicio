@@ -2332,3 +2332,28 @@ Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a 
 **Migração:** `20260916_system_audit_log_company_id_nullable.sql`, aplicada e verificada em Live (`is_nullable=YES`, 0 triggers `trg_set_company_id`, política nova ativa).
 
 **Estado:** vigente.
+
+## D-ERP76 — Há dois modelos de rateio, e o critério que os separa (16/09/2026)
+
+**Contexto:** existiam dois padrões a coexistir sem nome, o que gerou correcções contraditórias — o que era certo num modelo parecia erro no outro.
+
+**Decisão — os dois modelos têm nome e critério:**
+
+- **Modelo A — rateio multi-evento.** Mãe **SEM evento**, **filhas reais** uma por evento, cada filha com a **linha de BP do SEU evento**. Usa-se quando a despesa é repartida por **eventos diferentes**, ou por sub-eventos do mesmo Master em partes **DESIGUAIS**.
+- **Modelo B — Master/sub-evento.** Mãe **NO evento Master**, com a **linha de BP do Master**, **SEM filhas reais**; os sub-eventos vêem a despesa por **proração virtual ÷N**. Usa-se quando o rateio é entre **sub-eventos do mesmo Master** e em partes **IGUAIS**.
+
+**Conversão A → B é lossless quando a repartição já é ÷N:** apagam-se as filhas e move-se a mãe para o Master. Verificado a 16/09: a soma Master + cidades manteve-se ao cêntimo (SM 94.370,54 → 94.370,53 — o cêntimo de diferença era um erro real: duas filhas de 583,50 contra uma mãe de 1.166,99; Deive 11.403,64 inalterado) e o custo visto por cada cidade após a proração ficou idêntico.
+
+**Consequência:** a trava isenta as filhas do modelo A por `parent_transaction_id IS NOT NULL`. É essa isenção que deixou entrar pernas sem linha de BP.
+
+**Estado:** vigente.
+
+## D-ERP77 — Parcelas herdam a linha de BP da primeira prestação (16/09/2026)
+
+**Contexto:** numa fatura parcelada só a 1.ª prestação leva `forecast_id`; as seguintes penduram-se nela por `parent_transaction_id` e a trava isenta-as. O resultado do evento está certo (todas têm `event_id`), mas a **linha de BP fica truncada** e mostra folga que não existe.
+
+**Decisão:** toda a parcela **herda o `forecast_id` da mãe**.
+
+**Medição (Ivete):** 8 parcelas, **61.428,59 €**; ao vincular, **sete linhas fecharam com folga 0,00** — o previsto tinha sido orçamentado pelo total da fatura. Duas excepções: **Palácio do Estoril** precisou de elevação de **188,00 €** (7.260,00 → 7.448,00) e **Hotel Londres** ficou com folga de **1.040,40**, que era exactamente uma despesa solta da **PATRIHOTEL** — ao vincular, a linha fechou a zero.
+
+**Estado:** vigente.
