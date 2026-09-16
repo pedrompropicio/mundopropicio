@@ -61,10 +61,22 @@ export interface LaunchableLine {
  */
 export interface FeeLaunchPlan {
   ref: string;
+  /** Transação-mãe: id e rubrica servem para propor a linha e para a ligar (Peça C). */
+  motherId?: string | null;
   motherDescription: string;
+  motherCategoryId?: string | null;
+  motherAmount?: number | null;
   eventId: string | null;
   forecastId: string | null;
   legs: FeeLeg[];
+}
+
+/** D2 — só conta para a verba o que é compromisso real (espelho do TransactionFormModal). */
+function countsAsBudgetCommitment(t: any): boolean {
+  return (
+    !t?.is_transitory && !t?.exclude_from_result && !t?.reversed_at && !t?.is_hidden &&
+    !t?.shared_cost_account_id
+  );
 }
 
 interface Props {
@@ -168,6 +180,8 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
   /** D1+D8 — linha de BP escolhida (nunca guardada em regra: pertence ao evento). */
   const [forecastId, setForecastId] = useState("");
   const [pickingBpLine, setPickingBpLine] = useState(false);
+  /** Peça C — ligar também a transferência-mãe à linha escolhida (por defeito, sim). */
+  const [linkMother, setLinkMother] = useState(true);
 
   // Aprender a regra: só se propõe quando NENHUMA regra casou.
   const [saveRule, setSaveRule] = useState(false);
@@ -325,6 +339,75 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
     },
   });
 
+  // ---- Peça C: propor a linha do BP na rubrica da transação-mãe -------------
+  const motherCategory = useMemo(
+    () => (categories as any[]).find((c) => c.id === feePlan?.motherCategoryId) ?? null,
+    [categories, feePlan?.motherCategoryId],
+  );
+  const motherCategoryLabel = motherCategory
+    ? `${motherCategory.code} · ${motherCategory.name}`
+    : "da transferência";
+
+  /** Linhas aprovadas do evento na rubrica da mãe (a de maior verba é a proposta). */
+  const { data: feeCandidates = [], isLoading: loadingCandidates } = useQuery({
+    queryKey: ["bank-launch-fee-bp-candidates", feePlan?.eventId, feePlan?.motherCategoryId],
+    enabled: !!feePlan && !feePlan.forecastId && !!feePlan.eventId && !!feePlan.motherCategoryId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("id, description, amount")
+        .eq("event_id", feePlan!.eventId as string)
+        .eq("category_id", feePlan!.motherCategoryId as string)
+        .eq("type", "expense")
+        .is("version_id", null)
+        .not("approved_at", "is", null)
+        .order("amount", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  /** Proposta automática: a linha de maior verba. Nunca escolhe sozinha se já há uma. */
+  const proposedLineId = (feeCandidates as any[])[0]?.id ?? null;
+  const proposedAutomatically = !!feePlan && !feePlan.forecastId && forecastId === proposedLineId && !!proposedLineId;
+  useEffect(() => {
+    if (!feePlan || feePlan.forecastId || !needsBpLine) return;
+    if (forecastId || !proposedLineId) return;
+    setForecastId(proposedLineId);
+  }, [feePlan, needsBpLine, forecastId, proposedLineId]);
+
+  /** Utilizado da linha escolhida (mesmo cálculo do modal Nova Transação: D2 por linha). */
+  const { data: lineUsed = 0 } = useQuery({
+    queryKey: ["bank-launch-bp-line-used", forecastId],
+    enabled: !!forecastId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("amount, is_transitory, exclude_from_result, reversed_at, is_hidden, shared_cost_account_id")
+        .eq("forecast_id", forecastId);
+      if (error) throw error;
+      return (
+        Math.round(
+          (data ?? [])
+            .filter((t: any) => countsAsBudgetCommitment(t))
+            .reduce((s: number, t: any) => s + Number(t.amount || 0), 0) * 100,
+        ) / 100
+      );
+    },
+  });
+
+  /** Base total das taxas a lançar (é isso que consome verba da linha). */
+  const feeBase = useMemo(
+    () =>
+      feePlan
+        ? Math.round(feePlan.legs.reduce((a, l) => a + Number(l.amount ?? 0), 0) * 100) / 100
+        : 0,
+    [feePlan],
+  );
+  const lineBudget = Number((pickedLine as any)?.amount ?? 0);
+  const lineAvailable = Math.round((lineBudget - Number(lineUsed ?? 0)) * 100) / 100;
+  const feeExcess = Math.round((feeBase - lineAvailable) * 100) / 100;
+  const motherNeedsLink = !!feePlan && !feePlan.forecastId && !!feePlan.motherId;
+
   /**
    * Taxas de transferência (D-ERP74): dois lançamentos, cada um ligado às suas
    * linhas, pelo mesmo caminho de inserir-e-ligar (#154). Se a segunda perna
@@ -366,6 +449,18 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
         );
         done.push({ txId, lineIds: leg.lineIds });
       }
+
+      // Peça C — ligar também a MÃE à mesma linha, pela edge function (nunca
+      // UPDATE directo do cliente). Faz parte da mesma sequência: se falhar,
+      // as pernas das taxas são desfeitas.
+      if (motherNeedsLink && linkMother && forecastId && plan.motherId) {
+        const { data: res, error: eMother } = await supabase.functions.invoke("update-transaction", {
+          body: { transaction_id: plan.motherId, updates: { forecast_id: forecastId } },
+        });
+        const msg = (res as any)?.error ?? eMother?.message;
+        if (eMother || msg) throw new Error(`ligação da transferência-mãe à linha de BP falhou: ${msg ?? "erro desconhecido"}`);
+      }
+
       toast.success(`Taxas da transferência ${plan.ref} lançadas em ${done.length} transação(ões).`);
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       onDone();
@@ -695,6 +790,45 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
                   {forecastId ? "Trocar linha" : "Escolher linha…"}
                 </Button>
               </div>
+              {feePlan && forecastId && (
+                <div className="mt-2 rounded-md bg-muted/40 p-2 text-xs">
+                  {proposedAutomatically ? (
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Linha proposta (rubrica {motherCategoryLabel} da transferência)
+                    </p>
+                  ) : (
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {feePlan.forecastId === forecastId ? "Linha herdada da transferência" : "Linha escolhida"}
+                    </p>
+                  )}
+                  <p className="mt-1">
+                    Previsto {formatCurrency(lineBudget)} · Utilizado {formatCurrency(Number(lineUsed ?? 0))} ·{" "}
+                    <span className={lineAvailable < 0 ? "text-destructive" : ""}>
+                      Disponível {formatCurrency(lineAvailable)}
+                    </span>
+                  </p>
+                  <p className={`mt-1 ${feeExcess > 0 ? "text-amber-500" : "text-muted-foreground"}`}>
+                    {feeExcess > 0
+                      ? `A taxa de ${formatCurrency(feeBase)} excede a linha em ${formatCurrency(feeExcess)} — entra como custo fora do BP; a verba aumenta-se no ecrã do BP.`
+                      : `A taxa de ${formatCurrency(feeBase)} cabe.`}
+                  </p>
+                </div>
+              )}
+              {feePlan && !forecastId && !loadingCandidates && !!feePlan.motherCategoryId && !proposedLineId && (
+                <p className="mt-2 text-xs text-amber-500">
+                  O BP deste evento não tem linha {motherCategoryLabel}. Escolhe outra ou cria a linha.
+                </p>
+              )}
+              {motherNeedsLink && (
+                <label className="mt-2 flex items-start gap-2">
+                  <Checkbox checked={linkMother} onCheckedChange={(v) => setLinkMother(!!v)} />
+                  <span className="text-xs">
+                    Ligar também a transferência-mãe ({feePlan?.motherDescription}
+                    {feePlan?.motherAmount != null && ` · ${formatCurrency(Number(feePlan.motherAmount))}`}) a esta
+                    linha
+                  </span>
+                </label>
+              )}
               <p className="mt-1 text-[10px] text-muted-foreground">
                 Este evento é gerido com BP: a despesa precisa de uma linha do Business Plan.
                 {!categoryId && " Escolhe primeiro a rubrica."}
