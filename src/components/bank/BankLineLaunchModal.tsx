@@ -271,6 +271,23 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
       .map((c) => ({ value: c.id, label: `${c.code} · ${c.name}` }));
   }, [categories]);
 
+  /**
+   * Modo taxas de transferência: tudo vem do banco e da transação-mãe. Só a
+   * linha de BP pode faltar — e nesse caso é pedida antes de gravar (D1+D8).
+   */
+  useEffect(() => {
+    if (!feePlan) return;
+    const cat = (categories as any[]).find((c) => c.code === FEE_CATEGORY_CODE);
+    setAction("create_expense");
+    setEventId(feePlan.eventId ?? "");
+    setForecastId(feePlan.forecastId ?? "");
+    setCategoryId(cat?.id ?? "");
+    setIvaRate(0);
+    setIsTransitory(false);
+    setSaveRule(false);
+    setDescription(`Taxas transferência ${feePlan.ref} — ${feePlan.motherDescription}`);
+  }, [feePlan, categories]);
+
   const isTransfer = action === "create_transfer";
   const base = Math.round((gross / (1 + ivaRate / 100)) * 100) / 100;
   /** A transitória dispensa rubrica e nunca gera regra (a tabela não guarda o flag). */
