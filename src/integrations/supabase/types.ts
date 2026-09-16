@@ -12743,7 +12743,7 @@ export type Database = {
         Row: {
           action: string
           changed_by: string
-          company_id: string
+          company_id: string | null
           created_at: string
           entity_id: string
           entity_type: string
@@ -12755,7 +12755,7 @@ export type Database = {
         Insert: {
           action: string
           changed_by?: string
-          company_id?: string
+          company_id?: string | null
           created_at?: string
           entity_id: string
           entity_type: string
@@ -12767,7 +12767,7 @@ export type Database = {
         Update: {
           action?: string
           changed_by?: string
-          company_id?: string
+          company_id?: string | null
           created_at?: string
           entity_id?: string
           entity_type?: string

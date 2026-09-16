@@ -10,7 +10,7 @@ auditada ou de um parâmetro do pedido (nunca de `auth.uid()` nem `current_compa
 ## Resumo
 - Edge functions analisadas: 191
 - Escritas encontradas nas 88 tabelas: 78 (em 29 funções)
-- RISCO real: 1 (`check-login-rate` → `system_audit_log`)
+- RISCO real: 1 (`check-login-rate` → `system_audit_log`) — **resolvido a 16/09/2026, opção B (D-ERP75)**
 - RISCO condicional: 2 (`selective-restore`, `database-restore-v2` — INSERT genérico `insertRows`)
 - OK (company_id explícito no payload literal): 44
 - OK após inspecção manual (payload em variável, company_id construído antes): 30
@@ -18,12 +18,13 @@ auditada ou de um parâmetro do pedido (nunca de `auth.uid()` nem `current_compa
 
 ## RISCO — necessitam correção
 
-### check-login-rate
+### check-login-rate — RESOLVIDO a 16/09/2026 (opção B)
 - Tabela: `system_audit_log`
 - Linha aprox.: 281
 - Snippet: `.from("system_audit_log").insert({ entity_type: "security", entity_id: ip, action: "security_alert_sent", changed_by: "system", metadata: { target_email, ... } })`
 - Motivo: `company_id` não passado — o ficheiro inteiro não tem uma única referência a `company_id`. O fluxo é de login (IP + email), corre sob `service_role` e não recebe empresa no pedido.
-- Decisão pendente: (a) resolver `company_id` pelo perfil do email alvo (pode ser NULL em email inexistente/multi-empresa), ou (b) aceitar eventos de segurança sem empresa (coluna opcional para `entity_type='security'`). Nenhuma das duas é código puro — envolve DDL ou regra nova.
+- **RESOLVIDO a 16/09/2026 — opção B (D-ERP75).** `system_audit_log.company_id` passou a nullable, `trg_set_company_id` removido desta tabela (única das 88, por desenho) e linhas com NULL só visíveis a `platform_admin`. Migração `20260916_system_audit_log_company_id_nullable.sql`. O ficheiro da edge function não foi alterado.
+- Opção A rejeitada: resolver o `company_id` pelo perfil do email alvo perdia as tentativas com emails desconhecidos, que são as que interessam.
 
 ## RISCO CONDICIONAL — restauros com INSERT genérico
 
