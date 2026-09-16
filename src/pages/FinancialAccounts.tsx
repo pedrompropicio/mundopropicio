@@ -53,6 +53,7 @@ interface AccountForm {
   is_hidden: boolean;
   is_accounting: boolean;
   is_restricted: boolean;
+  is_circuit_account: boolean;
 }
 
 const emptyForm: AccountForm = {
@@ -69,6 +70,7 @@ const emptyForm: AccountForm = {
   is_hidden: false,
   is_accounting: true,
   is_restricted: false,
+  is_circuit_account: false,
 };
 
 export default function FinancialAccounts() {
@@ -165,6 +167,7 @@ export default function FinancialAccounts() {
         is_hidden: form.is_hidden,
         is_accounting: form.is_accounting,
         is_restricted: form.is_restricted,
+        is_circuit_account: form.is_circuit_account,
       };
 
       if (editingId) {
@@ -216,6 +219,7 @@ export default function FinancialAccounts() {
       is_hidden: account.is_hidden ?? false,
       is_accounting: account.is_accounting ?? true,
       is_restricted: account.is_restricted ?? false,
+      is_circuit_account: account.is_circuit_account ?? false,
     });
     setEditingId(account.id);
     setShowForm(true);
