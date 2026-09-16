@@ -15,6 +15,7 @@ import {
   Legend,
 } from "recharts";
 import { formatCurrency } from "@/lib/mock-data";
+import { excludeRateioChildren } from "@/lib/rateio-children";
 
 const COLORS = [
   "hsl(170 70% 45%)",
@@ -79,7 +80,11 @@ export function DashboardCharts({ transactions, events, categories, ticketSales 
     const catLookup = new Map(categories.map((c: any) => [c.id, c]));
     const catTotals: Record<string, { name: string; value: number }> = {};
 
-    transactions
+    // Agregação de EMPRESA: conta a mãe do rateio, exclui as filhas (D-ERP70).
+    // (o gráfico de margem por evento acima é agregação de EVENTO — conta as filhas)
+    const companyTx = excludeRateioChildren(transactions as any[]);
+
+    companyTx
       .filter((t: any) => t.type === "expense" && t.category_id)
       .forEach((t: any) => {
         let cat = catLookup.get(t.category_id);
@@ -107,7 +112,7 @@ export function DashboardCharts({ transactions, events, categories, ticketSales 
       despesas: 0,
     }));
 
-    transactions.forEach((t: any) => {
+    companyTx.forEach((t: any) => {
       const d = new Date(t.date);
       if (d.getFullYear() === currentYear) {
         const m = d.getMonth();

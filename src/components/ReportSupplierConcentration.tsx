@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Line, ComposedChart, Cell } from "recharts";
 import { Badge } from "@/components/ui/badge";
+import { excludeRateioChildren, RATEIO_FILTER_COLUMNS } from "@/lib/rateio-children";
 
 export default function ReportSupplierConcentration() {
   const { data: transactions = [], isLoading } = useQuery({
@@ -13,7 +14,7 @@ export default function ReportSupplierConcentration() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("supplier_id, amount, type, status, suppliers:suppliers!transactions_supplier_id_fkey(name)")
+        .select(`supplier_id, amount, type, status, ${RATEIO_FILTER_COLUMNS}, suppliers:suppliers!transactions_supplier_id_fkey(name)`)
         .eq("type", "expense")
         .in("status", ["approved", "paid"])
         .not("supplier_id", "is", null);
@@ -24,7 +25,8 @@ export default function ReportSupplierConcentration() {
 
   const supplierData = useMemo(() => {
     const map = new Map<string, { name: string; total: number; count: number }>();
-    for (const tx of transactions) {
+    // Agregação de EMPRESA: conta a mãe do rateio, exclui as filhas (D-ERP70).
+    for (const tx of excludeRateioChildren(transactions as any[])) {
       if (!tx.supplier_id) continue;
       const name = (tx.suppliers as any)?.name ?? "Desconhecido";
       const existing = map.get(tx.supplier_id) ?? { name, total: 0, count: 0 };

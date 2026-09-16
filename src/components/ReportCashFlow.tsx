@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { excludeRateioChildren } from "@/lib/rateio-children";
 
 interface CashFlowRow {
   period: string;
@@ -110,12 +111,15 @@ export default function ReportCashFlow() {
   const { consolidatedRows, eventBreakdown } = useMemo(() => {
     if (!generated || transactions.length === 0) return { consolidatedRows: [], eventBreakdown: [] };
 
+    // Agregação de EMPRESA: conta a mãe do rateio, exclui as filhas (D-ERP70).
+    const rows = excludeRateioChildren(transactions as any[]);
+
     // Consolidated
     const periodMap: Record<string, { income: number; expense: number }> = {};
     // Per event
     const eventMap: Record<string, { name: string; periods: Record<string, { income: number; expense: number }> }> = {};
 
-    transactions.forEach((t: any) => {
+    rows.forEach((t: any) => {
       const key = getPeriodKey(t.date);
       if (!periodMap[key]) periodMap[key] = { income: 0, expense: 0 };
       // Fluxo de caixa = valor BRUTO (com IVA): movimento real de dinheiro.

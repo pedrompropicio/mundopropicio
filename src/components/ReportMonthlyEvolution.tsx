@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { excludeRateioChildren, RATEIO_FILTER_COLUMNS } from "@/lib/rateio-children";
 
 const MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -19,7 +20,7 @@ export default function ReportMonthlyEvolution() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("type, amount, paid_amount, status, date, is_transitory, exclude_from_result")
+        .select(`type, amount, paid_amount, status, date, is_transitory, exclude_from_result, ${RATEIO_FILTER_COLUMNS}`)
         .in("status", ["approved", "paid"])
         .gte("date", `${year}-01-01`)
         .lte("date", `${year}-12-31`);
@@ -36,7 +37,8 @@ export default function ReportMonthlyEvolution() {
       margin: 0,
     }));
 
-    for (const tx of transactions) {
+    // Agregação de EMPRESA: conta a mãe do rateio, exclui as filhas (D-ERP70).
+    for (const tx of excludeRateioChildren(transactions as any[])) {
       if (tx.is_transitory || tx.exclude_from_result) continue;
       const m = new Date(tx.date).getMonth();
       const amt = Number(tx.amount);

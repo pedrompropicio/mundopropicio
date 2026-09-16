@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from "recharts";
 import { differenceInDays } from "date-fns";
+import { excludeRateioChildren, RATEIO_FILTER_COLUMNS } from "@/lib/rateio-children";
 
 const BUCKETS = [
   { label: "A vencer", min: -Infinity, max: -1, color: "hsl(var(--success))" },
@@ -21,7 +22,7 @@ export default function ReportAging() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, description, amount, paid_amount, date, due_date, status, type, supplier_id, suppliers:suppliers!transactions_supplier_id_fkey(name)")
+        .select(`id, description, amount, paid_amount, date, due_date, status, type, supplier_id, ${RATEIO_FILTER_COLUMNS}, suppliers:suppliers!transactions_supplier_id_fkey(name)`)
         .eq("type", "expense")
         .in("status", ["pending", "approved"]);
       if (error) throw error;
@@ -34,7 +35,8 @@ export default function ReportAging() {
   const agingData = useMemo(() => {
     const buckets = BUCKETS.map((b) => ({ ...b, total: 0, count: 0, items: [] as typeof transactions }));
 
-    for (const tx of transactions) {
+    // Agregação de EMPRESA: conta a mãe do rateio, exclui as filhas (D-ERP70).
+    for (const tx of excludeRateioChildren(transactions as any[])) {
       const dueDate = tx.due_date ?? tx.date;
       const daysOverdue = differenceInDays(today, new Date(dueDate));
       const openAmount = Number(tx.amount) - Number(tx.paid_amount ?? 0);

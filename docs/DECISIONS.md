@@ -2195,3 +2195,24 @@ Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a 
 **Substitui os pontos 2, 3 e 4 do D-ERP32.** A previsão em linha de BP (ponto 1) e o histórico previsto×realizado (ponto 5) do D-ERP32 continuam vigentes.
 
 **Estado:** vigente. Base de dados feita a 16/09/2026; UI ainda por fazer.
+
+## D-ERP70 — Agregação de empresa conta a MÃE do rateio; agregação de evento conta as FILHAS (16/09/2026)
+
+**Contexto:** O rateio multi-evento cria uma transação-**mãe** (`event_id` NULL, tem `account_id`, é ela que move o saldo) e N transações-**filhas** (`event_id` preenchido, `account_id` NULL, `parent_transaction_id` a apontar para a mãe). A mãe é a fatura inteira; as filhas são a decomposição dela por evento. Medido em Live a 16/09/2026: 59 mães somam 199.971,29 € e 157 filhas somam 198.796,70 €.
+
+**O defeito:** nenhum código do sistema filtrava `parent_transaction_id`. A protecção era sempre acidental — ou o relatório filtrava por `event_id` (e a mãe, sem evento, caía fora) ou filtrava por conta (e as filhas, sem conta, caíam fora). Onde não havia nem uma nem outra, mãe **e** filhas somavam as duas e a despesa aparecia ao dobro: ~200 mil euros, todos de 2026.
+
+**Decisão — uma regra só:**
+
+1. Agregação ao nível da **EMPRESA** conta a **mãe** e exclui as **filhas**.
+2. Agregação ao nível do **EVENTO** conta as **filhas**; a mãe cai fora sozinha porque a query filtra por `event_id`. Nada a mudar nesses sítios.
+3. Filha de rateio identifica-se **pela própria linha**: `parent_transaction_id IS NOT NULL` **E** `installment_group_id IS NULL`.
+4. O predicado vive **uma vez**, em `src/lib/rateio-children.ts` (`isRateioChild` / `excludeRateioChildren`). Não se escreve à mão em componente nenhum — se viver em oito sítios, volta a divergir.
+
+**Porque é que `installment_group_id` entra no predicado:** distingue filha de rateio de **parcela de pagamento**. Nas parcelas a "mãe" é a 1.ª prestação e não carrega o total (medido em Live, 11 grupos: mãe + parcelas = total da obrigação). Somam-se todas — excluir parcelas apagaria dinheiro verdadeiro.
+
+**Detecção:** invariante `rateio_filhas_nao_somam_a_mae` (soma das filhas = valor da mãe, tolerância 0,05 €, severidade `error`, referência 0).
+
+**Onde se aplica** (oito sítios corrigidos) e onde NÃO se aplica: ver `.lovable/memory/features/rateio-mae-filhas-agregacao.md`.
+
+**Estado:** vigente.
