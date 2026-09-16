@@ -161,7 +161,16 @@ export function SharedCostFields({
                     <button
                       key={m}
                       type="button"
-                      disabled={disabled || !!split.unavailableReason}
+                      disabled={
+                        disabled ||
+                        !!split.unavailableReason ||
+                        (isMultiIva && m === "absolute")
+                      }
+                      title={
+                        isMultiIva && m === "absolute"
+                          ? "Numa fatura com várias taxas de IVA a parte de terceiros indica-se em percentagem: um valor em € é ambíguo entre as linhas."
+                          : undefined
+                      }
                       onClick={() => split.onModeChange(m)}
                       className={`px-2 py-0.5 text-[11px] font-medium transition-colors disabled:opacity-50 ${
                         split.mode === m
@@ -174,6 +183,15 @@ export function SharedCostFields({
                   ))}
                 </div>
               </div>
+
+              {isMultiIva && !split.unavailableReason && (
+                <p className="rounded-md border border-primary/30 bg-primary/10 px-2 py-1.5 text-[10px] text-primary">
+                  Fatura com {split.multiIvaLineCount} taxas de IVA: a percentagem aplica-se a{" "}
+                  <strong>cada linha</strong>, com a taxa dessa linha. Nascem duas pernas por
+                  linha ({(split.multiIvaLineCount ?? 0) * 2} no total), todas no mesmo grupo de
+                  fatura. Só o modo % é aceite.
+                </p>
+              )}
 
               {split.unavailableReason ? (
                 <p className="flex items-start gap-1.5 rounded-md border border-warning/40 bg-warning/10 px-2 py-1.5 text-[11px] text-warning">
