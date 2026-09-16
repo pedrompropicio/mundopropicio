@@ -2353,6 +2353,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         });
         return;
       }
+      // Multi-IVA: a parte de terceiros aplica-se a CADA linha, pela mesma percentagem.
+      // Um valor absoluto é ambíguo entre linhas — não há forma não-arbitrária de dizer
+      // quanto dele entra em cada taxa.
+      if (pendingIvaSplit && pendingIvaSplit.length >= 2 && sharedCostThirdMode === "absolute") {
+        toast({
+          title: "Numa fatura com várias taxas, indica a parte de terceiros em percentagem",
+          description: "Com \"Dividir por IVA\" a parte de terceiros aplica-se a cada linha pela mesma percentagem. Um valor em € é ambíguo entre as taxas. Troca o modo para %.",
+          variant: "destructive",
+        });
+        return;
+      }
       if (useInstallments) {
         toast({
           title: "Não é possível combinar parcelas com parte de terceiros",
