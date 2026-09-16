@@ -2265,3 +2265,32 @@ Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a 
 **Consequência imediata:** cai o limite conhecido nº 1 do desdobramento de custo partilhado (D-ERP69) — no Master já se desdobra uma fatura em perna MP + perna de terceiros. Verificado em Live a 16/09: 100,00 € base a 23 % com 40 % de terceiros → **60,00 + 40,00** no mesmo `invoice_group_id`, ambas com `event_id` do Master, a da MP com o `forecast_id` da linha 3.2.01 e a de terceiros com `shared_cost_account_id` + `exclude_from_result = true`. O rateio ligado à mão continua a nascer como antes (mãe sem evento + filhas por evento).
 
 **Estado:** R2 vigente; R1 e R3 faseadas.
+
+---
+
+## D-ERP73 — Cada perna de rateio leva a linha de BP do seu evento; a G1 passa a aviso (16/09/2026)
+
+**Contexto:** A R1 do D-ERP72 exige que cada perna de um rateio multi-evento leve a **linha de BP do seu próprio evento**. Até 16/09/2026 o painel de rateio só escolhia eventos e percentagens: a linha de BP era **uma só** para a transação inteira e descia à filha apenas quando por acaso pertencia ao evento dela. Por essa fenda entraram **74 pernas sem linha de BP (126.232,99 €)**, 16 delas desde 01/08/2026 — a dívida estava a crescer.
+
+**Decisão:**
+
+1. **A linha de BP escolhe-se por perna.** Cada linha do painel de rateio tem um selector "Linha do BP" com as linhas **daquele evento** na rubrica escolhida, mostrando verba e disponível de cada uma. Sem candidata, fica em branco com o aviso _"sem linha nesta rubrica — resolve-se na aprovação"_.
+2. **A perna sem linha nasce `pending`; a linha cria-se na aprovação, não no lançamento (D1).** O painel de rateio **não** cria linhas de BP; quem aprova resolve no diálogo "Criar, vincular e aprovar" que já existe. Pode-se lançar sem linha; não se pode aprovar sem linha.
+3. **A mãe do rateio nunca leva linha de BP.** É agregado: não consome verba. A verba é consumida pelas filhas, cada uma na sua linha. Antes a mãe levava a linha selecionada, o que fazia a mesma verba parecer consumida duas vezes.
+4. **A medição de verba passa a ser por LINHA quando a perna tem linha escolhida** — o mesmo critério da trava numa transação simples. Sem linha escolhida, mantém-se a medição por rubrica (L3).
+5. **A guarda G1 deixa de bloquear e passa a aviso.** Dizia _"Categoria bloqueada para rateio — já existe no BP do Master"_. Está errada como bloqueio: confunde **"a rubrica existe no BP do Master"** com **"esta despesa é do Master"**, que são coisas diferentes. **Prova em Live, no próprio Deive:** a rubrica **2.2.02 Hospedagem** tem **cinco linhas em três eventos** — Master "Rateio dayoffs" 2.000,00; Braga "Hotel - Artista e Equipe (alojamento)" 1.040,09 e "Hotel - taxa municipal turística" 24,00; Lisboa "Hospedagem - Deive Leonardo e Equipe (alojamento)" 406,89 e "Hospedagem - taxa turística" 60,00. Todas em uso e todas certas: o que é do circuito vive no Master, o que cada cidade dormiu vive na cidade. A 2.2.03 repete o padrão. Agora o formulário **informa** que existe linha no Master na mesma rubrica e **deixa seguir**.
+6. **Cai a isenção `splitAutoConfigured`.** Era ela que deixava passar por cima da G1 — e é a resposta à pergunta que o D-ERP72 deixou aberta: a guarda existe desde **11/04/2026**, mas o **rateio automático do Master** marcava a configuração como automática e ficava isento. Foi por aí que entrou a fatura **113-XP** a 04/08/2026. A pergunta está **fechada**.
+7. **O diálogo de desambiguação a partir de um sub-evento mantém-se, mas muda de resposta.** A pergunta é útil ("esta rubrica só existe no BP do Master — isto é um custo da tour?"); o que estava errado era rebentar em rateio pelas cidades. Passa a oferecer **"Custo da tour — lançar no Master"**: transação única no Master, na linha do Master, com a repartição pelas cidades **virtual** no relatório. A opção "Exclusivo deste evento" mantém-se.
+
+**O que NÃO entra nesta decisão:** a **R3** (fechar a isenção da trava para as filhas de rateio) continua por fazer — a trava ainda isenta por `parent_transaction_id`. Só depois de as **74 pernas antigas** estarem tratadas, senão rebenta dados existentes. As 74 pernas são trabalho de dados à parte; medido: vêm **todas do painel/diálogo de rateio**, nenhuma do `ads-invoice-apply` (que já escolhe linha por evento).
+
+**Verificado em Live a 16/09/2026** (tudo apagado no fim, pelos ids anotados; pernas sem linha de volta a 74 exactamente):
+
+- **Rateio por dois eventos simples**, rubrica 2.2.03, 100,00 € — mãe sem `event_id` e **sem `forecast_id`**; filhas de 50,00 cada uma com o `forecast_id` da **sua** linha (Ivete "Verba - Extras" BP 1.000; Plenitude "Transfers Equipe Plenitude" BP 500), ambas `approved`.
+- **Rateio com o Master como destino** (Master "Deive Leonardo" + Ivete), rubrica 3.2.01 — perna do Master com `event_id` do Master e `forecast_id` da linha "Trafego Pago"; **nenhuma filha em Braga ou Lisboa**.
+- **Rateio na 2.2.02 por Master + Braga + Lisboa** — G1 **não bloqueia** (só avisa) e cada selector ofereceu as linhas do seu evento: Master → "Rateio dayoffs"; Braga → as duas de Braga; Lisboa → as duas de Lisboa. As pernas de Braga e Lisboa nasceram `pending` porque essas linhas estão esgotadas (disponível 0,00) — coerente com a medição por linha.
+- **Diálogo a partir de Braga** — oferece "Custo da tour — lançar no Master (Deive Leonardo)" e, ao aceitar, o evento passa a ser o Master **sem rateio activo**.
+
+**Ficheiros:** `src/components/TransactionSplitConfig.tsx` (campo `forecast_id` em `SplitEntry`, selector por perna, verba/disponível por linha), `src/components/TransactionFormModal.tsx` (query das linhas por evento, `splitBPInfoByEvent.lines`, `splitEntryBudget`, `forecast_id` da filha vindo da perna, mãe sem `forecast_id`, `splitCategoryMasterNotice`, `confirmMasterFromDisambiguation`).
+
+**Estado:** vigente. R3 por fazer.
