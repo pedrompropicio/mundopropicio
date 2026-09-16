@@ -41,7 +41,7 @@ O dinheiro entra no banco contra a conta corrente do circuito: par de transferê
 
 ## Passo 5 — Acerto final
 
-1. Passar à rubricas respectivas tudo o que já se sabe ser custo da MP, pago pela conta de circuito.
+1. Passar às rubricas respectivas tudo o que já se sabe ser custo da MP, pago pela conta de circuito.
 2. Ajustar as linhas de BP ao valor real.
 3. Conferir a conta de circuito: **fica a zero**.
 
