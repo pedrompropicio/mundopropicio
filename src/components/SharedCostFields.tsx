@@ -226,31 +226,13 @@ export function SharedCostFields({
 
                   {splitActive && (
                     <>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                          Evento da perna de terceiros *
-                        </label>
-                        <select
-                          value={split.eventId}
-                          disabled={disabled}
-                          onChange={(e) => split.onEventChange(e.target.value)}
-                          className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${
-                            split.eventId
-                              ? "border-border bg-background focus:ring-primary/50"
-                              : "border-destructive bg-destructive/5 focus:ring-destructive/40"
-                          }`}
-                        >
-                          <option value="">Selecionar evento…</option>
-                          {split.events.map((ev) => (
-                            <option key={ev.id} value={ev.id}>{ev.name}</option>
-                          ))}
-                        </select>
-                        <p className="mt-1 text-[10px] text-muted-foreground">
-                          Num circuito de turnê o natural é o evento Master. Nunca pode ficar
-                          sem evento: o blocker de fecho procura as contas de circuito pelas
-                          transações com evento, e sem evento o circuito passa o fecho sem aviso.
-                        </p>
-                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        A perna de terceiros fica no <strong>mesmo evento</strong> da despesa — é
+                        a etiqueta da fatura de onde nasceu, não custo desse evento (a linha está
+                        fora do resultado). É assim que o fecho encontra o circuito, na cidade, nas
+                        irmãs e no Master.
+                      </p>
+
 
                       <div className="space-y-0.5 rounded-md border border-border/60 bg-background/60 p-2 text-[10px]">
                         <div className="font-medium text-muted-foreground">Como fica a repartição</div>
