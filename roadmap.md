@@ -49,3 +49,8 @@ Nota: nenhum Publish feito.
 - [ ] Cabeçalho da aba Sócios: "(NN% atribuído)" por fechamento (ou só raiz), nunca soma cruzada
 - [ ] Confirmar que o aviso "Fechamento X sem percentagem sobre o pai" desaparece (motor lê parent_share_pct: 0 válido, NULL só na raiz)
 - [ ] Remover coluna "Base IVA" e "(herda)" da tabela de participantes; mostrar a base junto ao nome do fechamento
+
+## Issue #200 — listagem de listas em blocos
+- [ ] Trocar a tabela principal por blocos com barra de cinco fases por lista.
+- [ ] Validar por lista: fases = Lançadas + Não aprovadas.
+- [ ] Corrigir a memória de “Marcar como Pago” versus “Liquidar (N)”.
