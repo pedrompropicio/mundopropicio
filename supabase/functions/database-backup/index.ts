@@ -357,6 +357,7 @@ Deno.serve(async (req) => {
     const tables: Record<string, number> = { ...(cont?.progress?.tables ?? {}) };
     const schemas: Record<string, string> = { ...(cont?.progress?.schemas ?? {}) };
     const errors: string[] = [...(cont?.progress?.errors ?? [])];
+    const partsMap: Record<string, number> = { ...(cont?.progress?.parts ?? {}) };
     let rowsTotal = Number(cont?.progress?.rows_total ?? 0);
     let bytes = Number(cont?.progress?.bytes ?? 0);
 
