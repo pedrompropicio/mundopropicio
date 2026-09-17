@@ -13965,6 +13965,7 @@ export type Database = {
           status: string
           supplier_credit_id: string | null
           supplier_id: string | null
+          transitory_reason: string | null
           type: string
           updated_at: string
         }
@@ -14026,6 +14027,7 @@ export type Database = {
           status?: string
           supplier_credit_id?: string | null
           supplier_id?: string | null
+          transitory_reason?: string | null
           type: string
           updated_at?: string
         }
@@ -14087,6 +14089,7 @@ export type Database = {
           status?: string
           supplier_credit_id?: string | null
           supplier_id?: string | null
+          transitory_reason?: string | null
           type?: string
           updated_at?: string
         }
