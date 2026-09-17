@@ -16,7 +16,7 @@ const ANSWER_MODEL = "google/gemini-2.5-flash";
 const MIN_COSINE_SIMILARITY = 0.64;
 const BodySchema = z.object({ question: z.string().trim().min(5).max(1000), route: z.string().trim().max(500).nullable().optional() });
 
-type Chunk = { chunk_id: string; section_anchor: string; section_heading: string; article_slug: string; article_title: string; content: string; section_terms: string[] | null; score: number };
+type Chunk = { chunk_id: string; section_anchor: string; section_heading: string; article_slug: string; article_title: string; content: string; section_terms: string[] | null; score: number; lexical_rank: number | null; cosine: number };
 type Citation = { n: number; anchor_id: string; article_slug: string; heading: string };
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
