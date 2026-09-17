@@ -281,10 +281,6 @@ total 69.711,26 € — são caixa da empresa e ficam fora da conta corrente
 do sócio. Não reabrir.
 
 
-
-
-
-
 ## Página de Contas: três dinheiros, três cartões (09/09/2026, D-ERP27)
 
 **SALDO TOTAL é caixa, e só caixa.** Soma apenas `bank`, `cash` e `prepaid_card` com controlo de saldo. Debaixo do valor nomeiam-se as contas de caixa que ficaram fora por `skip_balance_check` — hoje a Conta Pagamento Brasil e a Eventos Históricos. Antes somava tudo e dava −1.994.414,66 €.
