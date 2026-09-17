@@ -15,6 +15,7 @@ Peças:
 - `public.check_system_invariants()` — mantida como **camada fina** sobre o motor (assinatura antiga code/severity/title/offenders/sample/checked_at), devolve só a família 'empresa'; portão admin/manager/platform_admin.
 - `public.run_invariant_checks_and_log()` — grava em `invariant_runs` (só contagens, sem amostra) e, SÓ quando há desvio, faz upsert do lembrete `system_reminders` key `invariant_drift` (cron diário → edge `send-system-reminders` → WhatsApp/Twilio). Sem desvio, fecha o lembrete.
 - `public.accept_invariant_reference(name, new_reference, note)` — aceita a contagem atual como nova referência; nota obrigatória.
+- `carga_sem_credito` (error, global, referência 0, 17/09/2026, issue #201) — `card_session_loads` com `in_transaction_id IS NULL` e a saída marcada como paga (`payment_list_items.manually_marked_paid`, item não removido). O trigger `card_load_on_out_paid` só cria a entrada com `status='paid'`, logo a marca visual deixaria o cartão sem crédito; a UI deixou de oferecer "Marcar como Pago" nas cargas.
 - Cron `invariant-checks-daily` (`10 7 * * *`, jobid 131 em Live) a chamar `run_invariant_checks_and_log()`.
 - Ecrã ÚNICO `/admin/invariantes` (`src/pages/admin/InvariantMonitor.tsx`), admin/platform_admin, com as duas famílias separadas, amostra expansível, histórico, "Correr agora", "Aceitar N como referência" e o smoke test de consultas (`check_rpc_smoke`). `/admin/invariantes-diarias` redireciona para lá. `SystemInvariants.tsx` foi removido.
 
