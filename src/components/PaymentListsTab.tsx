@@ -1366,6 +1366,39 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     await refreshBadgeFromDB();
   };
 
+  /**
+   * Download do ficheiro SEPA marca como pago o que o ficheiro leva (issue #200).
+   * Usa a MESMA via do "Marcar como Pago" manual — `manually_marked_paid` no item
+   * da lista — porque a fase "pago" (o dinheiro saiu do banco) é distinta da fase
+   * "liquidado" (o sistema sabe de que conta saiu, `transaction_payments`).
+   * Idempotente: só toca nos itens que ainda não estão marcados.
+   */
+  const markSepaBatchPaid = async (transactionIds: string[]) => {
+    const ids = [...new Set(transactionIds.filter(Boolean))];
+    if (ids.length === 0) return;
+    const { error } = await supabase
+      .from("payment_list_items")
+      .update({ manually_marked_paid: true } as any)
+      .eq("payment_list_id", listId)
+      .in("transaction_id", ids)
+      .or("manually_marked_paid.is.null,manually_marked_paid.eq.false");
+    if (error) {
+      toast({
+        title: "Ficheiro gerado, marcação como pago falhou",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+    queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+    queryClient.invalidateQueries({ queryKey: ["payment_list_sepa_exports", listId] });
+    queryClient.invalidateQueries({ queryKey: ["approved-payment-list-reminder"] });
+    await refreshBadgeFromDB();
+  };
+
+
+
 
   const removeItemFromList = async (itemId: string, description: string) => {
     const reason = window.prompt(
