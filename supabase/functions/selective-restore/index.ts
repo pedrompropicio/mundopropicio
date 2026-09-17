@@ -196,10 +196,17 @@ async function openBackup(admin: any, target: string) {
       meta: manifest,
       getTable: async (t: string) => {
         if (!counts[t]) return [] as any[];
-        const { data: tf, error: e } = await admin.storage
-          .from("database-backups").download(`${folder}/${t}.json`);
-        if (e || !tf) return [] as any[];
-        return JSON.parse(await tf.text()) as any[];
+        // Tabelas grandes ficam em pedaços: <t>.json + <t>.part2.json + ...
+        const nParts: number = manifest.parts?.[t] ?? 1;
+        const out: any[] = [];
+        for (let p = 1; p <= nParts; p++) {
+          const name = p === 1 ? `${t}.json` : `${t}.part${p}.json`;
+          const { data: tf, error: e } = await admin.storage
+            .from("database-backups").download(`${folder}/${name}`);
+          if (e || !tf) continue;
+          out.push(...(JSON.parse(await tf.text()) as any[]));
+        }
+        return out;
       },
     };
   }
