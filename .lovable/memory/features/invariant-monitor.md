@@ -25,3 +25,5 @@ Referências de 14/09/2026 (19 verificações: 13 global + 6 empresa):
 
 
 Candidatas REJEITADAS por darem falsos positivos — não voltar a propor: "filha de rateio com conta" sem excluir parcelas (as parcelas têm conta legitimamente); "grupo de fatura com documentos diferentes" a comparar `file_url` (cada irmã recebe a sua cópia; quem responde é a auditoria por OCR já existente); `BP_LINHAS_DUPLICADAS` (removida em 28/08/2026: parcelamentos e mensalidades repetem-se legitimamente).
+
+- `backup_empresa_em_falta` (error, global, referência 0, 17/09/2026) — empresas com `status='active'` (mais o global) sem linha em `public.backup_runs` com `status='ok'` e `finished_at > now() - interval '30 hours'`. Conta-se por `backup_runs`, nunca pelo storage. Vive em `_run_invariant_checks_extra()`, unida às 22 do motor por `_run_invariant_checks_all()`.

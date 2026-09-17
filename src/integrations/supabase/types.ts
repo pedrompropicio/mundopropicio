@@ -2024,6 +2024,62 @@ export type Database = {
         }
         Relationships: []
       }
+      backup_runs: {
+        Row: {
+          bytes: number | null
+          company_id: string | null
+          error_text: string | null
+          file_name: string | null
+          finished_at: string | null
+          id: string
+          rows_total: number | null
+          run_date: string
+          scope: string
+          slug: string | null
+          started_at: string
+          status: string
+          tables_count: number | null
+        }
+        Insert: {
+          bytes?: number | null
+          company_id?: string | null
+          error_text?: string | null
+          file_name?: string | null
+          finished_at?: string | null
+          id?: string
+          rows_total?: number | null
+          run_date?: string
+          scope: string
+          slug?: string | null
+          started_at?: string
+          status: string
+          tables_count?: number | null
+        }
+        Update: {
+          bytes?: number | null
+          company_id?: string | null
+          error_text?: string | null
+          file_name?: string | null
+          finished_at?: string | null
+          id?: string
+          rows_total?: number | null
+          run_date?: string
+          scope?: string
+          slug?: string | null
+          started_at?: string
+          status?: string
+          tables_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backup_runs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_line_documents: {
         Row: {
           company_id: string
@@ -16180,6 +16236,34 @@ export type Database = {
           _target_version_id: string
         }
         Returns: undefined
+      }
+      _run_invariant_checks_all: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
+      _run_invariant_checks_extra: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
       }
       _run_invariant_checks_raw: {
         Args: never
