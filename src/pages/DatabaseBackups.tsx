@@ -81,7 +81,10 @@ export default function DatabaseBackups() {
             .list(`${slug}/${run.name}`, { limit: 1000 });
           const list = files ?? [];
           const size = list.reduce((a, f) => a + Number(f.metadata?.size ?? 0), 0);
-          const tables = list.filter((f) => f.name !== "manifest.json").length;
+          // pedaços (<t>.partN.json) pertencem à mesma tabela — não contam duas vezes
+          const tables = list.filter(
+            (f) => f.name !== "manifest.json" && !/\.part\d+\.json$/.test(f.name),
+          ).length;
           entries.push({
             kind: "folder",
             path: `${slug}/${run.name}/manifest.json`,
