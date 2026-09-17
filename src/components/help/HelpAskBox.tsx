@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import QueryErrorState from "@/components/QueryErrorState";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface HelpCitation {
   n: number;
@@ -37,18 +38,26 @@ export default function HelpAskBox({ route, onOpenCitation, compact = false, sho
   compact?: boolean;
   showLegacyNote?: boolean;
 }) {
+  const { isAdmin } = useAuth();
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [unavailable, setUnavailable] = useState<string | null>(null);
   const [result, setResult] = useState<HelpAnswer | null>(null);
 
   const submit = async () => {
     if (question.trim().length < 5) return;
-    setLoading(true); setError(null); setResult(null);
+    setLoading(true); setError(null); setUnavailable(null); setResult(null);
     try {
       const { data, error: invokeError } = await supabase.functions.invoke("help-search", { body: { question: question.trim(), route } });
       if (invokeError) throw invokeError;
-      if (data?.error) throw new Error(data.error);
+      // A função devolve 200 com error='search_unavailable' quando a pesquisa
+      // ou o gateway AI falham: mostramos aviso e o detalhe só a admin.
+      if (data?.error === "search_unavailable") {
+        setUnavailable(typeof data.detail === "string" ? data.detail : "sem detalhe");
+        return;
+      }
+      if (data?.error) throw new Error(typeof data.error === "string" ? data.error : JSON.stringify(data.error));
       setResult(data as HelpAnswer);
     } catch (caught) {
       setError(caught);
@@ -64,6 +73,14 @@ export default function HelpAskBox({ route, onOpenCitation, compact = false, sho
       <Textarea value={question} onChange={(event) => setQuestion(event.target.value)} rows={compact ? 2 : 3} className="resize-none" placeholder="Descreva a sua dúvida…" onKeyDown={(event) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void submit(); } }} />
       <div className="flex justify-end"><Button size="sm" disabled={loading || question.trim().length < 5} onClick={() => void submit()}>{loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />A pesquisar…</> : "Perguntar"}</Button></div>
       {error && <QueryErrorState title="Não foi possível pesquisar o manual" error={error} onRetry={() => void submit()} context="Manual — pergunta" />}
+      {unavailable && (
+        <div className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+          <p className="font-medium">A pesquisa está indisponível</p>
+          <p className="text-xs text-muted-foreground">Tente novamente dentro de alguns minutos. O manual continua disponível no índice.</p>
+          {isAdmin && <p className="break-words font-mono text-[11px] text-muted-foreground">{unavailable}</p>}
+          <Button size="sm" variant="outline" onClick={() => void submit()}>Tentar de novo</Button>
+        </div>
+      )}
       {result && !result.answered && <div className="rounded-lg border border-border bg-card p-3 text-sm">Não encontrei isto no manual. A pergunta ficou registada para o manual ser completado.</div>}
       {result?.answered && (
         <div className="space-y-3 border-t border-primary/20 pt-3">

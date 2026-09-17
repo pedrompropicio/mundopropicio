@@ -23,10 +23,25 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   status, headers: { ...corsHeaders, "Content-Type": "application/json" },
 });
 
-function gatewayError(status: number) {
-  if (status === 429) return json({ error: "Demasiados pedidos. Tente novamente em instantes." }, 429);
-  if (status === 402) return json({ error: "Créditos AI esgotados. Contacte o administrador." }, 402);
-  return json({ error: "Erro ao consultar a AI." }, status >= 500 ? status : 500);
+/**
+ * Falhas de infra (RPC ou gateway AI) nunca devolvem 500 opaco: devolvem 200
+ * com { error: 'search_unavailable', detail } para a UI mostrar "A pesquisa
+ * está indisponível" (o detalhe só é visível a admin) e registam a mensagem
+ * real no console da função.
+ */
+function unavailable(where: string, detail: string) {
+  console.error(`[help-search] ${where}: ${detail}`);
+  return json({ error: "search_unavailable", detail: `${where}: ${detail}` });
+}
+
+async function gatewayError(where: string, response: Response) {
+  const body = await response.text().catch(() => "");
+  const hint = response.status === 429
+    ? "Demasiados pedidos. Tente novamente em instantes."
+    : response.status === 402
+      ? "Créditos AI esgotados. Contacte o administrador."
+      : "Erro ao consultar a AI.";
+  return unavailable(where, `${hint} (HTTP ${response.status}) ${body.slice(0, 500)}`.trim());
 }
 
 Deno.serve(async (req) => {
@@ -55,19 +70,26 @@ Deno.serve(async (req) => {
   const priority = ["platform_admin", "admin", "manager", "accountant", "marketing_manager", "content_manager", "editor", "producer", "field_producer", "partner", "viewer", "user"];
   const role = priority.find((candidate) => (roles ?? []).some((row) => row.role === candidate)) ?? "user";
 
-  const embeddingResponse = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-    method: "POST", headers: { Authorization: `Bearer ${aiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: EMBED_MODEL, input: question }),
-  });
-  if (!embeddingResponse.ok) return gatewayError(embeddingResponse.status);
-  const embeddingData = await embeddingResponse.json();
+  let embeddingResponse: Response;
+  try {
+    embeddingResponse = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+      method: "POST", headers: { Authorization: `Bearer ${aiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: EMBED_MODEL, input: question }),
+    });
+  } catch (caught) {
+    return unavailable("embeddings", caught instanceof Error ? caught.message : String(caught));
+  }
+  if (!embeddingResponse.ok) return await gatewayError("embeddings", embeddingResponse);
+  const embeddingData = await embeddingResponse.json().catch(() => null);
   const embedding = embeddingData?.data?.[0]?.embedding;
-  if (!Array.isArray(embedding) || embedding.length !== 3072) return json({ error: "Embedding inválido." }, 500);
+  if (!Array.isArray(embedding) || embedding.length !== 3072) {
+    return unavailable("embeddings", `embedding inválido (dimensão ${Array.isArray(embedding) ? embedding.length : "n/a"})`);
+  }
 
   const { data: found, error: searchError } = await client.rpc("help_search_chunks", {
     query_embedding: JSON.stringify(embedding), query_text: question, match_count: 8, user_profile: role,
   });
-  if (searchError) return json({ error: searchError.message }, 500);
+  if (searchError) return unavailable("help_search_chunks", `${searchError.message}${searchError.hint ? ` — ${searchError.hint}` : ""}`);
   const chunks = (found ?? []) as Chunk[];
   const bestSimilarity = Math.max(0, ...chunks.map((chunk) => Number(chunk.score) || 0));
 
@@ -92,7 +114,9 @@ Deno.serve(async (req) => {
       return `[${index + 1}] ${chunk.article_title} › ${chunk.section_heading}${vocab}\n${chunk.content}`;
     })
     .join("\n\n");
-  const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  let aiResponse: Response;
+  try {
+    aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST", headers: { Authorization: `Bearer ${aiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: ANSWER_MODEL,
@@ -103,12 +127,20 @@ Deno.serve(async (req) => {
       tools: [{ type: "function", function: { name: "answer_help", description: "Resposta fundamentada no manual.", parameters: { type: "object", properties: { answered: { type: "boolean" }, answer: { type: "string" }, citation_numbers: { type: "array", items: { type: "integer", minimum: 1, maximum: chunks.length } }, confidence: { type: "string", enum: ["alta", "media", "baixa"] } }, required: ["answered", "answer", "citation_numbers", "confidence"], additionalProperties: false } } }],
       tool_choice: { type: "function", function: { name: "answer_help" } },
     }),
-  });
-  if (!aiResponse.ok) return gatewayError(aiResponse.status);
-  const aiData = await aiResponse.json();
+    });
+  } catch (caught) {
+    return unavailable("chat/completions", caught instanceof Error ? caught.message : String(caught));
+  }
+  if (!aiResponse.ok) return await gatewayError("chat/completions", aiResponse);
+  const aiData = await aiResponse.json().catch(() => null);
   const args = aiData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-  if (!args) return json({ error: "Resposta AI inválida." }, 500);
-  const answer = JSON.parse(args) as { answered?: boolean; answer?: string; citation_numbers?: number[]; confidence?: "alta" | "media" | "baixa" };
+  if (!args) return unavailable("chat/completions", "resposta AI sem tool_call answer_help");
+  let answer: { answered?: boolean; answer?: string; citation_numbers?: number[]; confidence?: "alta" | "media" | "baixa" };
+  try {
+    answer = JSON.parse(args);
+  } catch (caught) {
+    return unavailable("chat/completions", `argumentos AI ilegíveis: ${caught instanceof Error ? caught.message : String(caught)}`);
+  }
   const citationNumbers = [...new Set((answer.citation_numbers ?? []).filter((n) => Number.isInteger(n) && n >= 1 && n <= chunks.length))];
   const citations = citationNumbers.map((n) => ({ n, anchor_id: chunks[n - 1].section_anchor, article_slug: chunks[n - 1].article_slug, heading: chunks[n - 1].section_heading }));
   const answered = answer.answered === true && Boolean(answer.answer?.trim()) && citations.length > 0;

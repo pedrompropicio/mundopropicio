@@ -3,8 +3,6 @@
 -- e para o prompt do help-search interpretar o calão da equipa.
 --
 -- ORDEM: aplicar DEPOIS de 20260917010000_help_search_hybrid.sql.
--- Mover para supabase/migrations/20260917020000_help_terms.sql via Claude Code
--- (o agente Lovable não pode escrever nessa pasta) e depois Publish.
 
 ALTER TABLE public.help_sections
   ADD COLUMN IF NOT EXISTS terms text[] NOT NULL DEFAULT '{}';
@@ -172,9 +170,3 @@ REVOKE EXECUTE ON FUNCTION public.help_search_chunks(extensions.vector, text, in
 GRANT EXECUTE ON FUNCTION public.help_search_chunks(extensions.vector, text, int, text) TO authenticated, service_role;
 COMMENT ON FUNCTION public.help_search_chunks(extensions.vector, text, int, text)
 IS 'Pesquisa híbrida: top 20 semântico + top 20 lexical, RRF k=60; score é a similaridade de cosseno. Devolve os termos da secção para o prompt.';
-
--- Pós-Publish (confirmação, só leitura):
--- SELECT anchor_id, cardinality(terms) AS n_termos, terms
---   FROM public.help_sections s
---   JOIN public.help_articles a ON a.id = s.article_id
---  WHERE a.slug = 'rateios' ORDER BY s.position;

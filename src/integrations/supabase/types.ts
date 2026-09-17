@@ -9237,7 +9237,11 @@ export type Database = {
           created_at: string
           id: string
           question: string
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_note: string | null
           route: string | null
+          status: string
           user_id: string
         }
         Insert: {
@@ -9248,7 +9252,11 @@ export type Database = {
           created_at?: string
           id?: string
           question: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
           route?: string | null
+          status?: string
           user_id?: string
         }
         Update: {
@@ -9259,7 +9267,11 @@ export type Database = {
           created_at?: string
           id?: string
           question?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
           route?: string | null
+          status?: string
           user_id?: string
         }
         Relationships: [
@@ -9283,6 +9295,7 @@ export type Database = {
           profiles: string[]
           screens: string[]
           sources: string[]
+          terms: string[]
           tooltip: string | null
         }
         Insert: {
@@ -9295,6 +9308,7 @@ export type Database = {
           profiles?: string[]
           screens?: string[]
           sources?: string[]
+          terms?: string[]
           tooltip?: string | null
         }
         Update: {
@@ -9307,6 +9321,7 @@ export type Database = {
           profiles?: string[]
           screens?: string[]
           sources?: string[]
+          terms?: string[]
           tooltip?: string | null
         }
         Relationships: [
@@ -17104,6 +17119,24 @@ export type Database = {
         Returns: boolean
       }
       has_staff_role: { Args: { _user_id: string }; Returns: boolean }
+      help_search_chunks: {
+        Args: {
+          match_count?: number
+          query_embedding: string
+          query_text: string
+          user_profile?: string
+        }
+        Returns: {
+          article_slug: string
+          article_title: string
+          chunk_id: string
+          content: string
+          score: number
+          section_anchor: string
+          section_heading: string
+          section_terms: string[]
+        }[]
+      }
       help_sync_article: { Args: { _payload: Json }; Returns: Json }
       is_platform_admin: { Args: { _user_id?: string }; Returns: boolean }
       is_public_portal_company: {
