@@ -42,6 +42,7 @@ describe("parseHelpArticle", () => {
     expect(master.profiles).toEqual(["editor", "manager", "admin"]);
     expect(master.sources).toContain("D-ERP76");
     expect(master.body_md.length).toBeGreaterThan(50);
+    expect(master.body_md).toContain("![Rateio igual de um custo lançado no Master](img/rateios-master.svg)");
   });
 
   it("recusa ficheiro sem frontmatter", () => {
@@ -80,5 +81,14 @@ describe("chunkArticle", () => {
     // sem parágrafos cortados: nenhum pedaço acaba a meio de uma frase por corte
     const oversize = chunks.filter((c) => c.content.length > CHUNK_TARGET_CHARS * 3);
     expect(oversize).toEqual([]);
+  });
+
+  it("mantém imagens no body_md mas exclui-as e o texto alternativo da pesquisa", () => {
+    const a = parseHelpArticle(rateios, "rateios.md");
+    expect(a.sections.some((section) => section.body_md.includes("!["))).toBe(true);
+
+    const content = chunkArticle(a).map((chunk) => chunk.content).join("\n");
+    expect(content).not.toContain("img/rateios-");
+    expect(content).not.toContain("Rateio igual de um custo lançado no Master");
   });
 });

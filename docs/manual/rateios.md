@@ -24,6 +24,8 @@ perfis: [editor, manager, admin]
 fontes: [D-ERP76, D-ERP69]
 ```
 
+![Escolha do tipo de rateio](img/rateios-escolher.svg)
+
 Responda a três perguntas, por esta ordem:
 
 1. **Parte do custo é de outra entidade** (outro promotor, coprodutor, cidade que não é nossa)?
@@ -55,6 +57,8 @@ ecras: [nova-transacao.evento-master, nova-transacao.confirmar-rateio-master, no
 perfis: [editor, manager, admin]
 fontes: [D-ERP76, D-ERP72, D-ERP73, master-split-rateio-source-of-truth]
 ```
+
+![Rateio igual de um custo lançado no Master](img/rateios-master.svg)
 
 **Quando:** a despesa serve a turnê inteira e reparte-se **em partes iguais** pelas cidades (ex.: voos da equipa, tráfego pago da turnê, rateio de day-offs previsto no Master).
 
@@ -89,6 +93,8 @@ ecras: [nova-transacao.dividir-varios-eventos, nova-transacao.split-linha-bp, no
 perfis: [editor, manager, admin]
 fontes: [D-ERP72, D-ERP73, D-ERP76, D-ERP70, D-ERP26]
 ```
+
+![Divisão de uma fatura por vários eventos](img/rateios-varios-eventos.svg)
 
 **Quando:** a mesma fatura cobre **eventos diferentes** (ex.: uma campanha que divulgou três espetáculos), ou cidades do mesmo Master em **partes desiguais**.
 
@@ -129,6 +135,8 @@ ecras: [nova-transacao.custo-partilhado, contas.conta-circuito, extrato.posicao-
 perfis: [editor, manager, admin]
 fontes: [D-ERP69, PROC-rateio-dayoffs-turne, custo-partilhado-terceiros, D-ERP32]
 ```
+
+![Separação do custo da MP e da parte de terceiros](img/rateios-terceiros.svg)
 
 **Quando:** a MP paga uma fatura em que **parte do custo é de terceiros**, que depois devolvem. O caso típico são os day-offs de turnê partilhados com os promotores de outras cidades, mas vale também para coprodutores e parceiros.
 
@@ -188,6 +196,8 @@ perfis: [manager, admin, accountant]
 fontes: [ads-invoices, D-ERP73]
 ```
 
+![Fluxo de importação e rateio das Faturas Ads](img/rateios-faturas-ads.svg)
+
 **Quando:** qualquer fatura de publicidade Meta ou Google que cubra campanhas de vários eventos.
 
 **A regra:** o **PDF é a fatura**. Os números da API servem para acompanhar campanhas, nunca para lançar custo, porque não incluem os créditos promocionais.
@@ -221,6 +231,8 @@ ecras: [evento.rateios-overhead]
 perfis: [manager, admin]
 fontes: [overhead-allocations]
 ```
+
+![Rateio de custos de estrutura pelo Master](img/rateios-overhead.svg)
 
 **Quando:** a empresa quer imputar a um evento com sócios uma parte de custos que **já pagou noutro momento** (assessoria de imprensa, jurídico, equipa de escritório).
 
