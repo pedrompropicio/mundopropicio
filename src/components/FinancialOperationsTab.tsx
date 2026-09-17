@@ -15,6 +15,7 @@ import helpTexts from "@/lib/help-texts";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { cn, formatDatePT } from "@/lib/utils";
+import { isInsideHelpPanel } from "@/lib/help-panel-dom";
 
 
 interface FinancialOperationsTabProps {

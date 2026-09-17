@@ -21,6 +21,7 @@ import {
   type IbanRejectReason,
 } from "@/lib/sepa/pain001";
 import { normalizeIban, formatIban } from "@/lib/iban";
+import { isInsideHelpPanel } from "@/lib/help-panel-dom";
 
 export interface SepaCandidate {
   transactionId: string;

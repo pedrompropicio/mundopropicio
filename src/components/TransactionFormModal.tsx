@@ -1,6 +1,7 @@
 import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
 import React, { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { isInsideHelpPanel } from "@/lib/help-panel-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
