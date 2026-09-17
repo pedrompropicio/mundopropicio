@@ -18,6 +18,11 @@
 // crm-meta-creative-analyze, refresh full periódico, template_data/AAA.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import {
+  classifyMetaFailure,
+  reportMetaSyncFailure,
+  reportMetaSyncSuccess,
+} from "../_shared/meta-connection-health.ts";
 import { REHOST_BUCKET, rehostCreative } from "../_shared/rehost-creative.ts";
 
 const GRAPH_API_VERSION = "v18.0";
@@ -260,7 +265,14 @@ function parseCreativeFields(creative: any): ParsedCreative {
 
 // Batch fetch Graph API: até 50 ids por request via ?ids=cid1,cid2,...
 // Em caso de erro num batch, regista warning e continua (não aborta tudo).
-async function batchFetchCreatives(ids: string[], accessToken: string): Promise<Map<string, any>> {
+// Issue #36: `batchErrors` recolhe erros ao nível do batch (token expirado, rate
+// limit, 5xx) para o chamador os poder propagar à saúde da ligação. Erros de
+// asset individual continuam a ser só log.
+async function batchFetchCreatives(
+  ids: string[],
+  accessToken: string,
+  batchErrors?: { metaError?: any; httpStatus?: number | null; thrown?: unknown }[],
+): Promise<Map<string, any>> {
   const out = new Map<string, any>();
   const CHUNK = 50;
   for (let i = 0; i < ids.length; i += CHUNK) {
@@ -274,6 +286,7 @@ async function batchFetchCreatives(ids: string[], accessToken: string): Promise<
       const j = await r.json();
       if (!r.ok || j.error) {
         console.warn(`[meta-sync-creatives] batch ${i / CHUNK + 1} fetch error:`, j.error?.message ?? r.status);
+        batchErrors?.push({ metaError: j.error ?? null, httpStatus: r.status });
         continue;
       }
       // Graph retorna { "cid1": {...}, "cid2": {...}, ... }. Um criativo individual
@@ -293,6 +306,7 @@ async function batchFetchCreatives(ids: string[], accessToken: string): Promise<
       }
     } catch (e) {
       console.warn(`[meta-sync-creatives] batch ${i / CHUNK + 1} threw:`, (e as Error).message);
+      batchErrors?.push({ thrown: e });
     }
   }
   return out;
@@ -654,6 +668,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       last_error: null, last_error_at: null,
       ...(mode === "full" ? { last_full_sync_at: nowIso } : {}),
     }, { onConflict: "company_id,connection_id,ad_account_id,level" });
+    await reportMetaSyncSuccess(connectionId, "creatives");
     return json({
       synced_count: 0, skipped_count: 0, ad_account_id: adAccountId, mode,
       remaining_to_sync: remainingToSync, triggered_by: triggeredBy,
@@ -664,8 +679,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // ── 2) Batch fetch Graph API ──────────────────────────────────────────
-  const fetched = await batchFetchCreatives(idsToFetch, accessToken);
+  const batchErrors: { metaError?: any; httpStatus?: number | null; thrown?: unknown }[] = [];
+  const fetched = await batchFetchCreatives(idsToFetch, accessToken, batchErrors);
   console.log(`[meta-sync-creatives] fetched ${fetched.size}/${idsToFetch.length} from Graph`);
+
+  // Issue #36: se a Graph recusou por autenticação, a ligação está expirada —
+  // marca-a e pára (continuar só produziria um "sucesso" falso).
+  const authError = batchErrors.find((b) => classifyMetaFailure(b) === "auth");
+  if (authError) {
+    await reportMetaSyncFailure(connectionId, "creatives", authError);
+    return json({ error: "graph_api_auth_error", message: "Token Meta inválido ou expirado" }, 502);
+  }
 
   // ── 3) Parse + construct rows (+ v2 stats tracking) ──────────────────
   const nowIso = new Date().toISOString();
@@ -885,6 +909,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           company_id: companyId, connection_id: connectionId, ad_account_id: adAccountId, level: "creatives",
           last_error: upErr.message, last_error_at: new Date().toISOString(),
         }, { onConflict: "company_id,connection_id,ad_account_id,level" });
+        await reportMetaSyncFailure(connectionId, "creatives", { thrown: upErr.message });
         return json({ error: "persist_failed", detail: upErr.message, chunk: idx, total_chunks: chunks }, 500);
       }
       insertedCount += (inserted?.length ?? 0);
@@ -903,6 +928,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   await (supabase as any).schema("crm").from("meta_sync_state").upsert(stateUpd, {
     onConflict: "company_id,connection_id,ad_account_id,level",
   });
+  await reportMetaSyncSuccess(connectionId, "creatives");
 
   console.log(`[meta-sync-creatives] done: inserted=${insertedCount} skipped=${skipped} remaining=${remainingToSync}`);
   console.log("[meta-sync-creatives][v2] parse_stats", {

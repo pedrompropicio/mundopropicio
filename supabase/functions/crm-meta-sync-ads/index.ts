@@ -4,6 +4,10 @@
 // Sync ads from Meta Graph into crm.meta_ad_snapshot.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import {
+  reportMetaSyncFailure,
+  reportMetaSyncSuccess,
+} from "../_shared/meta-connection-health.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -150,6 +154,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       company_id: companyId, connection_id: connectionId, ad_account_id: adAccountId, level: "ads",
       last_error: String(e), last_error_at: new Date().toISOString(),
     }, { onConflict: "company_id,connection_id,ad_account_id,level" });
+    await reportMetaSyncFailure(connectionId, "ads", { thrown: e });
     return json({ error: "graph_api_error", message: String(e) }, 502);
   }
 
@@ -192,6 +197,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           company_id: companyId, connection_id: connectionId, ad_account_id: adAccountId, level: "ads",
           last_error: upErr.message, last_error_at: new Date().toISOString(),
         }, { onConflict: "company_id,connection_id,ad_account_id,level" });
+        await reportMetaSyncFailure(connectionId, "ads", { thrown: upErr.message });
         return json({ error: "persist_failed", detail: upErr.message, chunk: idx, total_chunks: chunks }, 500);
       }
       console.log(`[crm-meta-sync-ads] chunk ${idx}/${chunks}: ${slice.length} rows upserted`);
@@ -208,6 +214,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   await supabase.schema("crm").from("meta_sync_state").upsert(stateUpd, {
     onConflict: "company_id,connection_id,ad_account_id,level",
   });
+  await reportMetaSyncSuccess(connectionId, "ads");
 
   return json({ synced_count: rows.length, ad_account_id: adAccountId, mode, incremental_cursor: lastSyncAt });
 });

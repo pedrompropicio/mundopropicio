@@ -36,6 +36,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/hooks/useCompany";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
 import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
+import {
+  useMetaConnectionHealth,
+  daysUntilExpiry,
+  CONNECTION_STATUS_LABEL,
+  EXPIRY_WARNING_DAYS,
+} from "@/hooks/useMetaConnectionHealth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -644,6 +650,27 @@ export default function CrmCampaigns() {
     const set = new Set((campaigns ?? []).map((c) => c.ad_account_id));
     return set.size;
   }, [campaigns]);
+
+  // ---------- Issue #36: saúde da ligação Meta ----------
+  const { data: health } = useMetaConnectionHealth(connectionId);
+  const metaFreshness = freshness[0];
+  const canSeeError = role === "admin" || role === ("platform_admin" as any);
+
+  const metaLastSuccess = useMemo(() => {
+    const latest = (metaInsights ?? [])
+      .map((i) => i.last_synced_at)
+      .filter(Boolean)
+      .sort()
+      .pop() ?? health?.last_validated_at ?? null;
+    return latest ? parseISO(latest) : null;
+  }, [metaInsights, health?.last_validated_at]);
+
+  const connectionOk = !health || health.status === "active";
+  const isLive = connectionOk && !metaFreshness.stale && metaFreshness.label !== "sem dados";
+  const showConnectionBanner = !!health && (health.status !== "active" || !!health.last_error);
+  const expiryDays = daysUntilExpiry(health?.expires_at);
+  const showExpiryWarning =
+    connectionOk && expiryDays != null && expiryDays >= 0 && expiryDays <= EXPIRY_WARNING_DAYS;
 
   // ---------- Sync ----------
   const handleSync = async (mode: "incremental" | "full" = "incremental") => {
