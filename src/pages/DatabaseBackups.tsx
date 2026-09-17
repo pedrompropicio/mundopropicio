@@ -25,6 +25,19 @@ import helpTexts from "@/lib/help-texts";
 import SelectiveRestoreModal from "@/components/SelectiveRestoreModal";
 import { useCompany } from "@/hooks/useCompany";
 
+type BackupEntry = {
+  /** "folder" = corrida no formato novo (pasta com um ficheiro por tabela); "file" = formato antigo */
+  kind: "folder" | "file";
+  /** alvo passado às funções de restauro (manifest.json na pasta, ou o ficheiro solto) */
+  path: string;
+  folder?: string;
+  label: string;
+  created_at: string;
+  size: number;
+  tables?: number;
+  files?: string[];
+};
+
 export default function DatabaseBackups() {
   const AUTO_REFRESH_INTERVAL_MS = 60_000;
   const { isAdmin } = useAuth();
@@ -41,7 +54,7 @@ export default function DatabaseBackups() {
 
   const companySlug = company?.slug ?? null;
 
-  const { data: backups = [], isLoading, refetch: refetchBackups, isFetching } = useQuery({
+  const { data: backups = [], isLoading, refetch: refetchBackups, isFetching } = useQuery<BackupEntry[]>({
     queryKey: ["database-backups", companySlug, isPlatformAdmin],
     enabled: !!companySlug,
     queryFn: async () => {
@@ -49,21 +62,58 @@ export default function DatabaseBackups() {
         .from("database-backups")
         .list("", { limit: 1000, sortBy: { column: "created_at", order: "desc" } });
       if (error) throw error;
-      const all = (data ?? []).filter((f) => f.name.endsWith(".json"));
-      // Filtra por empresa: só ficheiros do tipo `backup-<slug>-...json`.
-      // Ficheiros legacy sem slug (`backup-YYYY-...json`) ou globais (`backup-global-...`)
-      // só são visíveis ao platform_admin.
-      return all.filter((f) => {
-        const name = f.name;
-        if (companySlug && name.startsWith(`backup-${companySlug}-`)) return true;
-        if (isPlatformAdmin) {
-          // Mostra também legacy/global ao super-admin para gestão histórica
-          if (name.startsWith("backup-global-")) return true;
-          // Legacy: backup-YYYY-... (sem slug)
-          if (/^backup-\d{4}-\d{2}-\d{2}T/.test(name)) return true;
+      const root = data ?? [];
+      const entries: BackupEntry[] = [];
+
+      // --- Formato novo: uma pasta por corrida (<slug>/<timestamp>/) ---
+      const slugFolders = root
+        .filter((e) => e.id === null)
+        .map((e) => e.name)
+        .filter((slug) => slug === companySlug || isPlatformAdmin);
+
+      for (const slug of slugFolders) {
+        const { data: runs } = await supabase.storage
+          .from("database-backups")
+          .list(slug, { limit: 1000, sortBy: { column: "name", order: "desc" } });
+        for (const run of (runs ?? []).filter((r) => r.id === null)) {
+          const { data: files } = await supabase.storage
+            .from("database-backups")
+            .list(`${slug}/${run.name}`, { limit: 1000 });
+          const list = files ?? [];
+          const size = list.reduce((a, f) => a + Number(f.metadata?.size ?? 0), 0);
+          const tables = list.filter((f) => f.name !== "manifest.json").length;
+          entries.push({
+            kind: "folder",
+            path: `${slug}/${run.name}/manifest.json`,
+            folder: `${slug}/${run.name}`,
+            label: `${slug} · ${run.name}`,
+            created_at: list[0]?.created_at ?? run.name.replace("T", " "),
+            size,
+            tables,
+            files: list.map((f) => `${slug}/${run.name}/${f.name}`),
+          });
         }
-        return false;
-      });
+      }
+
+      // --- Formato antigo: ficheiros soltos backup-*.json ---
+      for (const f of root.filter((x) => x.name.endsWith(".json"))) {
+        const name = f.name;
+        const visible =
+          (companySlug && name.startsWith(`backup-${companySlug}-`)) ||
+          (isPlatformAdmin &&
+            (name.startsWith("backup-global-") || /^backup-\d{4}-\d{2}-\d{2}T/.test(name)));
+        if (!visible) continue;
+        entries.push({
+          kind: "file",
+          path: name,
+          label: name,
+          created_at: f.created_at,
+          size: Number(f.metadata?.size ?? 0),
+        });
+      }
+
+      entries.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+      return entries;
     },
     staleTime: 0,
     gcTime: 0,
@@ -71,6 +121,18 @@ export default function DatabaseBackups() {
     refetchOnWindowFocus: true,
     refetchInterval: AUTO_REFRESH_INTERVAL_MS,
     refetchIntervalInBackground: false,
+  });
+
+  // Manifesto da corrida mais recente (para o cartão de informação)
+  const latestFolder = backups.find((b) => b.kind === "folder")?.path ?? null;
+  const { data: latestManifest } = useQuery<any>({
+    queryKey: ["database-backup-manifest", latestFolder],
+    enabled: !!latestFolder,
+    queryFn: async () => {
+      const { data, error } = await supabase.storage.from("database-backups").download(latestFolder!);
+      if (error) return null;
+      return JSON.parse(await data.text());
+    },
   });
 
   useEffect(() => {
@@ -103,7 +165,17 @@ export default function DatabaseBackups() {
       return data;
     },
     onSuccess: (data) => {
-      toast({ title: "Backup criado", description: `Ficheiro: ${data.file}` });
+      if (data?.skipped) {
+        toast({
+          title: "Backup já feito hoje",
+          description: data.folder ?? data.file ?? "Nada a fazer.",
+        });
+      } else {
+        toast({
+          title: "Backup criado",
+          description: `${data?.tables_count ?? 0} tabelas · ${(data?.rows_total ?? 0).toLocaleString("pt-PT")} registos${data?.folder ? ` · ${data.folder}` : ""}`,
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ["database-backups"] });
       setCreating(false);
     },
@@ -114,8 +186,9 @@ export default function DatabaseBackups() {
   });
 
   const deleteBackupMutation = useMutation({
-    mutationFn: async (fileName: string) => {
-      const { error } = await supabase.storage.from("database-backups").remove([fileName]);
+    mutationFn: async (entry: BackupEntry) => {
+      const paths = entry.kind === "folder" ? (entry.files ?? [entry.path]) : [entry.path];
+      const { error } = await supabase.storage.from("database-backups").remove(paths);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -136,7 +209,7 @@ export default function DatabaseBackups() {
     const url = URL.createObjectURL(data);
     const a = document.createElement("a");
     a.href = url;
-    a.download = fileName;
+    a.download = fileName.replace(/\//g, "_");
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -257,28 +330,38 @@ export default function DatabaseBackups() {
           <div className="space-y-1.5">
             {backups.map((file) => (
               <div
-                key={file.name}
+                key={file.path}
                 className="flex items-center gap-3 rounded-lg p-3 hover:bg-secondary/30 transition-colors"
               >
-                <Database className="h-5 w-5 text-primary shrink-0" />
+                {file.kind === "folder" ? (
+                  <FolderArchive className="h-5 w-5 text-primary shrink-0" />
+                ) : (
+                  <Database className="h-5 w-5 text-primary shrink-0" />
+                )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{file.name}</p>
+                  <p className="text-sm font-medium truncate">{file.label}</p>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       {formatDate(file.created_at)}
                     </span>
-                    {file.metadata?.size && (
+                    {file.tables !== undefined && (
+                      <span className="flex items-center gap-1">
+                        <Database className="h-3 w-3" />
+                        {file.tables} tabelas
+                      </span>
+                    )}
+                    {file.size > 0 && (
                       <span className="flex items-center gap-1">
                         <HardDrive className="h-3 w-3" />
-                        {formatFileSize(file.metadata.size as number)}
+                        {formatFileSize(file.size)}
                       </span>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
-                    onClick={() => setSelectiveTarget(file.name)}
+                    onClick={() => setSelectiveTarget(file.path)}
                     className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors"
                     title="Restaurar tabelas ou eventos específicos"
                   >
@@ -286,7 +369,7 @@ export default function DatabaseBackups() {
                     <span className="hidden sm:inline">Seletivo</span>
                   </button>
                   <button
-                    onClick={() => handlePreview(file.name)}
+                    onClick={() => handlePreview(file.path)}
                     className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                     title="Restaurar este backup completo"
                   >
@@ -294,7 +377,7 @@ export default function DatabaseBackups() {
                     <span className="hidden sm:inline">Completo</span>
                   </button>
                   <button
-                    onClick={() => handleDownload(file.name)}
+                    onClick={() => handleDownload(file.path)}
                     className="rounded-lg p-2 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                     title="Descarregar ficheiro"
                   >
@@ -302,7 +385,7 @@ export default function DatabaseBackups() {
                   </button>
                   <button
                     onClick={() => {
-                      if (confirm("Eliminar este backup?")) deleteBackupMutation.mutate(file.name);
+                      if (confirm("Eliminar este backup?")) deleteBackupMutation.mutate(file);
                     }}
                     className="rounded-lg p-2 text-destructive hover:bg-destructive/15 transition-colors"
                     title="Eliminar"
@@ -422,13 +505,20 @@ export default function DatabaseBackups() {
                 {/* Table counts */}
                 <div>
                   <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
-                    <Database className="h-3.5 w-3.5" /> Tabelas
+                    <Database className="h-3.5 w-3.5" /> Tabelas a restaurar
+                    {restorePreview.total_tables_in_backup && (
+                      <span className="font-normal text-muted-foreground">
+                        (o backup guardou {restorePreview.total_tables_in_backup})
+                      </span>
+                    )}
                   </h3>
                   <div className="space-y-0.5 max-h-40 overflow-y-auto">
                     {Object.entries(restorePreview.tables || {}).map(([table, info]: [string, any]) => (
                       <div key={table} className="flex items-center justify-between text-xs py-0.5">
                         <span className="font-mono text-muted-foreground">{table}</span>
-                        <span className="font-medium">{info.backup_rows} registos</span>
+                        <span className="font-medium">
+                          {(typeof info === "number" ? info : (info?.backup_rows ?? 0)).toLocaleString("pt-PT")} registos
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -504,9 +594,15 @@ export default function DatabaseBackups() {
           São mantidos os últimos 30 backups. Backups antigos são eliminados automaticamente.
         </p>
         <p className="text-xs text-muted-foreground mt-2">
-          <strong>Inclui:</strong> Todas as tabelas da base de dados + manifesto de ficheiros de storage
-          (transaction-documents, supplier-documents, partner-extra-documents, cache-extra-documents,
-          closing-cost-documents, import-reports).
+          <strong>Inclui:</strong>{" "}
+          {latestManifest
+            ? `${Object.keys(latestManifest.tables ?? {}).length} tabelas salvaguardadas na última cópia (${(latestManifest.rows_total ?? 0).toLocaleString("pt-PT")} registos)`
+            : "as tabelas salvaguardadas em cada corrida (ver o manifesto da cópia)"}
+          {" "}+ manifesto de ficheiros de storage (transaction-documents, supplier-documents,
+          partner-extra-documents, cache-extra-documents, closing-cost-documents, import-reports).
+        </p>
+        <p className="text-xs text-muted-foreground mt-2">
+          ℹ️ Os ficheiros de storage <strong>não são restaurados</strong> — são apenas listados no manifesto.
         </p>
       </div>
 

@@ -166,6 +166,55 @@ function collectEventScopedIds(
   return scoped;
 }
 
+/** Tabelas lidas por collectEventScopedIds (usadas no âmbito "eventos"). */
+const EVENT_SCOPE_SOURCE_TABLES = [
+  "events", "event_dates", "event_sessions", "event_ticket_zones", "event_ticket_lots",
+  "event_cache_configs", "event_cache_deductions", "event_cache_tiers", "event_cache_extras",
+  "event_cache_city_settlements", "event_cache_payments", "event_closing_costs",
+  "event_forecasts", "event_forecast_partners", "forecast_audit_log",
+  "event_partners", "event_partner_extras",
+  "event_ticket_office_assignments", "event_ticket_office_advances",
+  "ticket_sales", "ticket_import_logs",
+  "transactions", "transaction_documents", "transaction_audit_log", "transaction_payments",
+  "payment_list_items", "partner_paid_expenses", "partner_event_access",
+  "quotations", "bp_orphan_attachments", "event_implementations",
+];
+
+/**
+ * Abre um backup no formato NOVO (v4: pasta + manifest.json + um ficheiro por
+ * tabela) ou no formato ANTIGO (ficheiro backup-*.json solto, v3/v2).
+ */
+async function openBackup(admin: any, target: string) {
+  if (target.endsWith("/manifest.json")) {
+    const { data: f, error } = await admin.storage.from("database-backups").download(target);
+    if (error || !f) throw new Error(`Manifesto: ${error?.message}`);
+    const manifest = JSON.parse(await f.text());
+    const folder = target.replace(/\/manifest\.json$/, "");
+    const counts: Record<string, number> = manifest.tables ?? {};
+    return {
+      version: 4 as const,
+      meta: manifest,
+      getTable: async (t: string) => {
+        if (!counts[t]) return [] as any[];
+        const { data: tf, error: e } = await admin.storage
+          .from("database-backups").download(`${folder}/${t}.json`);
+        if (e || !tf) return [] as any[];
+        return JSON.parse(await tf.text()) as any[];
+      },
+    };
+  }
+  const { data: fileData, error: dlErr } = await admin.storage
+    .from("database-backups").download(target);
+  if (dlErr || !fileData) throw new Error(`Download: ${dlErr?.message}`);
+  const backup = JSON.parse(await fileData.text());
+  const all: Record<string, any[]> = backup.tables || {};
+  return {
+    version: (backup.version ?? 2) as number,
+    meta: backup,
+    getTable: async (t: string) => (all[t] ?? []) as any[],
+  };
+}
+
 function cleanRow(table: string, row: any): any {
   const whitelist = COLUMN_WHITELIST[table];
   if (!whitelist) return row;
@@ -282,16 +331,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Download backup
-    const { data: fileData, error: dlErr } = await adminClient.storage
-      .from("database-backups").download(backup_file);
-    if (dlErr || !fileData) {
-      return new Response(JSON.stringify({ error: `Download: ${dlErr?.message}` }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const backup = JSON.parse(await fileData.text());
-    const allTables: Record<string, any[]> = backup.tables || {};
+    // Abre o backup (formato novo v4 em pasta, ou ficheiro antigo v2/v3)
+    const opened = await openBackup(adminClient, backup_file);
+    const backup = opened.meta;
+
 
     // ---- MULTI-TENANT GUARD ----
     const backupScope: "company" | "global" | "legacy" =
@@ -325,13 +368,16 @@ Deno.serve(async (req) => {
 
     if (scope === "tables") {
       for (const t of tablesFilter!) {
-        if (allTables[t]) {
-          effective[t] = tenantFilter
-            ? allTables[t].filter((r: any) => r.company_id === tenantFilter)
-            : allTables[t];
-        }
+        const rows = await opened.getTable(t);
+        if (rows.length === 0) continue;
+        effective[t] = tenantFilter
+          ? rows.filter((r: any) => r.company_id === tenantFilter)
+          : rows;
       }
     } else {
+      // Só carrega as tabelas que o mapeamento por evento precisa de ler.
+      const allTables: Record<string, any[]> = {};
+      for (const t of EVENT_SCOPE_SOURCE_TABLES) allTables[t] = await opened.getTable(t);
       const scoped = collectEventScopedIds(allTables, event_ids!);
       for (const [t, idSet] of Object.entries(scoped)) {
         if (!allTables[t]) continue;

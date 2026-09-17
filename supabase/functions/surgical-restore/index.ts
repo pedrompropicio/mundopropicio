@@ -6,6 +6,36 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * Abre um backup no formato NOVO (v4: pasta + manifest.json + um ficheiro por
+ * tabela) ou no formato ANTIGO (ficheiro backup-*.json solto, v3/v2).
+ */
+async function openBackup(admin: any, target: string) {
+  if (target.endsWith("/manifest.json")) {
+    const { data: f, error } = await admin.storage.from("database-backups").download(target);
+    if (error || !f) throw new Error(`Manifesto: ${error?.message}`);
+    const manifest = JSON.parse(await f.text());
+    const folder = target.replace(/\/manifest\.json$/, "");
+    const counts: Record<string, number> = manifest.tables ?? {};
+    return {
+      meta: manifest,
+      getTable: async (t: string) => {
+        if (!counts[t]) return [] as any[];
+        const { data: tf, error: e } = await admin.storage
+          .from("database-backups").download(`${folder}/${t}.json`);
+        if (e || !tf) return [] as any[];
+        return JSON.parse(await tf.text()) as any[];
+      },
+    };
+  }
+  const { data: fileData, error: dlErr } = await admin.storage
+    .from("database-backups").download(target);
+  if (dlErr || !fileData) throw new Error(`Download: ${dlErr?.message}`);
+  const backup = JSON.parse(await fileData.text());
+  const all: Record<string, any[]> = backup.tables || {};
+  return { meta: backup, getTable: async (t: string) => (all[t] ?? []) as any[] };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -57,20 +87,10 @@ Deno.serve(async (req) => {
     const { backup_file, event_ids } = body;
     console.log("Downloading:", backup_file, "Events:", event_ids);
 
-    // List files first to verify
-    const { data: listData } = await adminClient.storage.from("database-backups").list();
+    // Abre o backup (formato novo v4 em pasta, ou ficheiro antigo v2/v3)
+    const opened = await openBackup(adminClient, backup_file);
+    const backup = opened.meta;
 
-    // Download backup
-    const { data: fileData, error: downloadErr } = await adminClient.storage
-      .from("database-backups")
-      .download(backup_file);
-    if (downloadErr || !fileData) {
-      return new Response(JSON.stringify({ error: `Download: ${downloadErr?.message}`, files: listData?.map((f: any) => f.name) }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const backup = JSON.parse(await fileData.text());
 
     // ---- MULTI-TENANT GUARD ----
     const backupScope: "company" | "global" | "legacy" =
@@ -109,7 +129,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    const tables = backup.tables;
+    const tables: Record<string, any[]> = {
+      event_ticket_zones: await opened.getTable("event_ticket_zones"),
+      event_ticket_lots: await opened.getTable("event_ticket_lots"),
+      ticket_sales: await opened.getTable("ticket_sales"),
+      ticket_import_logs: await opened.getTable("ticket_import_logs"),
+    };
     const results: Record<string, { found: number; inserted: number; error?: string }> = {};
 
     // 1. Get zone IDs for these events from backup

@@ -1,15 +1,18 @@
-// Backup multi-tenant: UM ALVO POR INVOCAÇÃO.
-//   { "target": "global" }        -> backup global (+ rotação dos 30 por grupo)
-//   { "company_id": "<uuid>" }    -> backup de uma empresa
-//   sem corpo                      -> comportamento antigo do botão da UI (admin -> a sua empresa)
+// Backup multi-tenant v4: UMA PASTA POR CORRIDA, UM FICHEIRO POR TABELA.
+//   { "target": "global" }        -> backup global (tabelas sem company_id) + rotação
+//   { "company_id": "<uuid>" }    -> backup de uma empresa (tabelas com company_id)
+//   sem corpo                      -> botão da UI (admin -> a sua empresa)
 // Qualquer um aceita { "force": true } (só com JWT service_role) para ignorar a janela horária.
 //
-// Porque mudou: fazia global + loop por TODAS as empresas na mesma execução e
-// excedia o tempo. A guarda de idempotência olhava para o storage e o global era
-// escrito primeiro, logo a segunda tentativa do dia saía sem fazer nada. O cron
-// nunca lia a resposta. Resultado a 17/09/2026: dias só com backup-global e
-// empresas sem backup há uma semana. Agora cada invocação registra-se em
-// public.backup_runs e a invariante `backup_empresa_em_falta` vigia.
+// Caminho no bucket database-backups:
+//   <slug>/<YYYY-MM-DDTHH-mm-ss>/<tabela>.json          (tabelas do schema public)
+//   <slug>/<YYYY-MM-DDTHH-mm-ss>/crm.<tabela>.json      (tabelas do schema crm)
+//   <slug>/<YYYY-MM-DDTHH-mm-ss>/manifest.json
+//
+// Porque mudou (17/09/2026): a lista de tabelas era escrita à mão (75 de 269) e
+// o ficheiro único juntava tudo em memória. Agora a lista é DERIVADA por SQL
+// (public.backup_table_inventory) e cada tabela é subida assim que termina,
+// libertando a memória antes da seguinte.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -18,50 +21,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Tabelas tenant-scoped (têm company_id) — backup filtrado por empresa
-const TENANT_TABLES = [
-  "account_categories",
-  "profiles", "user_roles", "user_permissions",
-  "partner_event_access", "push_subscriptions",
-  "financial_accounts", "financial_account_access",
-  "suppliers", "supplier_documents",
-  "supplier_credits", "supplier_credit_usages",
-  "venues", "venue_reservations",
-  "events", "event_dates", "event_sessions",
-  "event_implementations",
-  "event_ticket_zones", "event_ticket_lots",
-  "event_ticket_office_assignments", "event_ticket_office_advances",
-  "ticket_office_settlements",
-  "event_partners", "event_partner_extras",
-  "event_cache_configs", "event_cache_deductions", "event_cache_extras",
-  "event_cache_tiers", "event_cache_city_settlements", "event_cache_payments",
-  "event_closing_costs",
-  "event_forecasts", "event_forecast_partners",
-  "event_forecast_formalidade_log",
-  "bp_orphan_attachments", "bp_versions", "bp_version_audit_log",
-  "ticket_sales", "ticket_import_logs",
-  "transactions", "transaction_documents", "transaction_audit_log",
-  "transaction_payments",
-  "partner_paid_expenses", "partner_advance_expenses",
-  "payment_lists", "payment_list_items",
-  "quotations", "recurring_transactions",
-  "reimbursement_notes", "reimbursement_note_items",
-  "camarim_sessions", "camarim_session_events", "camarim_items",
-  "camarim_item_documents", "camarim_item_reviews",
-  "camarim_integrations", "camarim_fund_moves",
-  "accounting_exports",
-  "system_audit_log", "forecast_audit_log", "user_activity_log",
-  "trash", "undo_actions",
-  "company_invitations",
-  "email_send_log", "email_send_state",
-  "email_unsubscribe_tokens", "suppressed_emails",
-];
-
-// Tabelas globais — backup separado, partilhado por todas as companies
-const GLOBAL_TABLES = [
-  "cities", "companies", "role_permissions",
-  "login_attempts", "mfa_recovery_codes", "mfa_trusted_devices",
-];
+const BACKUP_VERSION = 4;
 
 const STORAGE_BUCKETS = [
   "database-backups",
@@ -69,6 +29,8 @@ const STORAGE_BUCKETS = [
   "partner-extra-documents", "cache-extra-documents",
   "closing-cost-documents", "import-reports",
 ];
+
+interface InventoryRow { schema_name: string; tbl_name: string; has_company_id: boolean }
 
 async function listAllFiles(adminClient: any, bucket: string): Promise<any[]> {
   const allFiles: any[] = [];
@@ -86,42 +48,28 @@ async function listAllFiles(adminClient: any, bucket: string): Promise<any[]> {
   return allFiles;
 }
 
-async function fetchAllRows(adminClient: any, table: string, filter?: { col: string; val: string }) {
-  const rows: any[] = [];
-  let from = 0;
-  const pageSize = 1000;
-  while (true) {
-    let q = adminClient.from(table).select("*").range(from, from + pageSize - 1);
-    if (filter) q = q.eq(filter.col, filter.val);
-    const { data, error } = await q;
-    if (error) throw new Error(`${table}: ${error.message}`);
-    if (!data || data.length === 0) break;
-    rows.push(...data);
-    from += data.length;
-    if (data.length < pageSize) break;
-  }
-  return rows;
-}
-
 /**
- * Serializa uma tabela DIRECTO para pedaços de texto, página a página.
- * Nunca guarda a tabela inteira em memória: era isso que rebentava o limite de
- * memória na empresa maior (mundo-propicio) e deixava o backup a meio, sem aviso.
+ * Serializa uma tabela DIRECTO para pedaços de texto, página a página, e sobe-a.
+ * Nunca guarda a tabela inteira nem o conjunto todo em memória.
  */
-async function streamTable(
-  adminClient: any, parts: string[], table: string, filter?: { col: string; val: string },
-): Promise<number> {
-  parts.push("[");
+async function dumpTable(
+  client: any,
+  admin: any,
+  folder: string,
+  fileKey: string,
+  table: string,
+  filter?: { col: string; val: string },
+): Promise<{ rows: number; bytes: number }> {
+  const parts: string[] = ["["];
   let from = 0;
   let count = 0;
   const pageSize = 1000;
   while (true) {
-    let q = adminClient.from(table).select("*").range(from, from + pageSize - 1);
+    let q = client.from(table).select("*").range(from, from + pageSize - 1);
     if (filter) q = q.eq(filter.col, filter.val);
     const { data, error } = await q;
     if (error) throw new Error(`${table}: ${error.message}`);
     if (!data || data.length === 0) break;
-    // Uma serialização por página (não por linha): menos CPU e menos memória.
     if (count > 0) parts.push(",");
     parts.push(JSON.stringify(data).slice(1, -1));
     count += data.length;
@@ -129,151 +77,88 @@ async function streamTable(
     if (data.length < pageSize) break;
   }
   parts.push("]");
-  return count;
-}
 
+  if (count === 0) return { rows: 0, bytes: 0 }; // tabelas vazias não geram ficheiro
 
-
-interface BuiltBackup {
-  parts: string[];
-  tableCounts: Record<string, number>;
-  rowsTotal: number;
-  errors: string[];
-  storageCounts?: Record<string, number>;
-}
-
-async function buildCompanyBackup(adminClient: any, companyId: string, companySlug: string): Promise<BuiltBackup> {
-  const parts: string[] = [];
-  const tableCounts: Record<string, number> = {};
-  const errors: string[] = [];
-  let rowsTotal = 0;
-
-  parts.push(JSON.stringify({
-    version: 3, scope: "company", company_id: companyId,
-    company_slug: companySlug, created_at: new Date().toISOString(),
-  }).slice(0, -1)); // abre o objeto sem a "}" final
-  parts.push(',"tables":{');
-
-  let first = true;
-  for (const t of TENANT_TABLES) {
-    if (!first) parts.push(",");
-    first = false;
-    parts.push(`${JSON.stringify(t)}:`);
-    const mark = parts.length;
-    try {
-      const n = await streamTable(adminClient, parts, t, { col: "company_id", val: companyId });
-      tableCounts[t] = n;
-      rowsTotal += n;
-    } catch (e) {
-      errors.push(e instanceof Error ? e.message : String(e));
-      parts.length = mark;   // descarta o que ficou meio escrito
-      parts.push("[]");
-      tableCounts[t] = 0;
-    }
-  }
-  parts.push("}");
-  parts.push(`,"table_counts":${JSON.stringify(tableCounts)}`);
-  if (errors.length) parts.push(`,"errors":${JSON.stringify(errors)}`);
-  parts.push("}");
-
-  return { parts, tableCounts, rowsTotal, errors };
-}
-
-async function buildGlobalBackup(adminClient: any): Promise<BuiltBackup> {
-  const tables: Record<string, any[]> = {};
-  const errors: string[] = [];
-  for (const t of GLOBAL_TABLES) {
-    try {
-      tables[t] = await fetchAllRows(adminClient, t);
-    } catch (e) {
-      errors.push(e instanceof Error ? e.message : String(e));
-      tables[t] = [];
-    }
-  }
-  // Storage manifest fica no global (é cross-tenant por natureza)
-  const storageManifest: Record<string, any[]> = {};
-  for (const bucket of STORAGE_BUCKETS) {
-    try {
-      const files = await listAllFiles(adminClient, bucket);
-      storageManifest[bucket] = files.map((f) => ({
-        name: f.name,
-        size: f.metadata?.size ?? null,
-        mimetype: f.metadata?.mimetype ?? null,
-        created_at: f.created_at,
-        updated_at: f.updated_at,
-      }));
-    } catch (e) {
-      errors.push(`storage/${bucket}: ${e instanceof Error ? e.message : "?"}`);
-      storageManifest[bucket] = [];
-    }
-  }
-
-  const tableCounts = Object.fromEntries(Object.entries(tables).map(([k, v]) => [k, v.length]));
-  const storageCounts = Object.fromEntries(Object.entries(storageManifest).map(([k, v]) => [k, v.length]));
-
-  const doc = {
-    version: 3,
-    scope: "global",
-    created_at: new Date().toISOString(),
-    tables,
-    storage_manifest: storageManifest,
-    table_counts: tableCounts,
-    storage_counts: storageCounts,
-    errors: errors.length ? errors : undefined,
-  };
-
-  return {
-    parts: [JSON.stringify(doc)],
-    tableCounts,
-    rowsTotal: Object.values(tableCounts).reduce((a, b) => a + Number(b), 0),
-    errors,
-    storageCounts,
-  };
-}
-
-/** Sobe o ficheiro e devolve o tamanho em bytes do JSON. */
-async function uploadBackup(adminClient: any, fileName: string, parts: string[]): Promise<number> {
   const blob = new Blob(parts, { type: "application/json" });
-  const { error } = await adminClient.storage
+  parts.length = 0;
+  const path = `${folder}/${fileKey}.json`;
+  const { error: upErr } = await admin.storage
     .from("database-backups")
-    .upload(fileName, blob, { contentType: "application/json", upsert: false });
-  if (error) throw new Error(`upload ${fileName}: ${error.message}`);
+    .upload(path, blob, { contentType: "application/json", upsert: true });
+  if (upErr) throw new Error(`upload ${path}: ${upErr.message}`);
+  return { rows: count, bytes: blob.size };
+}
+
+async function uploadJson(admin: any, path: string, doc: unknown): Promise<number> {
+  const blob = new Blob([JSON.stringify(doc)], { type: "application/json" });
+  const { error } = await admin.storage
+    .from("database-backups")
+    .upload(path, blob, { contentType: "application/json", upsert: true });
+  if (error) throw new Error(`upload ${path}: ${error.message}`);
   return blob.size;
 }
 
+/** Lista as pastas de corrida de um slug. */
+async function listRunFolders(admin: any, slug: string): Promise<string[]> {
+  const { data } = await admin.storage.from("database-backups").list(slug, { limit: 1000 });
+  return (data ?? []).filter((e: any) => e.id === null).map((e: any) => e.name);
+}
+
+async function removeFolder(admin: any, folder: string) {
+  const { data } = await admin.storage.from("database-backups").list(folder, { limit: 1000 });
+  const paths = (data ?? []).map((f: any) => `${folder}/${f.name}`);
+  if (paths.length) await admin.storage.from("database-backups").remove(paths);
+}
 
 /**
- * Mantém os últimos 30 backups POR EMPRESA (e 30 globais).
- * Corre SÓ na invocação do global, para não haver cinco rotações concorrentes.
+ * Mantém as últimas 30 CORRIDAS por slug. Ficheiros soltos do formato antigo
+ * (backup-<slug>-*.json) contam para o mesmo grupo do slug respectivo.
+ * Corre SÓ na invocação do global, para não haver rotações concorrentes.
  */
-async function rotateOldBackups(adminClient: any) {
-  const { data: files } = await adminClient.storage
+async function rotateOldBackups(admin: any) {
+  const { data: root } = await admin.storage
     .from("database-backups")
     .list("", { limit: 1000, sortBy: { column: "created_at", order: "desc" } });
-  if (!files) return;
+  if (!root) return;
 
-  const groups = new Map<string, any[]>();
-  for (const f of files) {
-    const name: string = f.name;
+  type Item = { key: string; sort: string; folder?: string; file?: string };
+  const items: Item[] = [];
+
+  for (const e of root) {
+    const name: string = e.name;
+    if (e.id === null) {
+      // pasta de slug -> cada subpasta é uma corrida
+      const runs = await listRunFolders(admin, name);
+      for (const run of runs) items.push({ key: name, sort: run, folder: `${name}/${run}` });
+      continue;
+    }
+    if (!name.endsWith(".json")) continue;
     let key = "_legacy";
     if (name.startsWith("backup-global-")) key = "global";
     else {
-      // backup-<slug>-<timestamp>.json — slug pode conter "-"
       const m = name.match(/^backup-(.+)-\d{4}-\d{2}-\d{2}T/);
       if (m) key = m[1];
     }
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(f);
+    const sort = String(e.created_at ?? "").replace(/[:.]/g, "-").slice(0, 19);
+    items.push({ key, sort, file: name });
   }
 
-  const toDelete: string[] = [];
+  const groups = new Map<string, Item[]>();
+  for (const it of items) {
+    if (!groups.has(it.key)) groups.set(it.key, []);
+    groups.get(it.key)!.push(it);
+  }
+
+  const filesToDelete: string[] = [];
   for (const [, list] of groups) {
-    list.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
-    if (list.length > 30) toDelete.push(...list.slice(30).map((f) => f.name));
+    list.sort((a, b) => b.sort.localeCompare(a.sort));
+    for (const extra of list.slice(30)) {
+      if (extra.folder) await removeFolder(admin, extra.folder);
+      else if (extra.file) filesToDelete.push(extra.file);
+    }
   }
-  if (toDelete.length) {
-    await adminClient.storage.from("database-backups").remove(toDelete);
-  }
+  if (filesToDelete.length) await admin.storage.from("database-backups").remove(filesToDelete);
 }
 
 const json = (body: unknown, status = 200) =>
@@ -288,6 +173,10 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const adminClient = createClient(supabaseUrl, serviceRoleKey);
+  const crmClient = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    db: { schema: "crm" as never },
+  });
 
   // Linha em backup_runs desta invocação — o catch de topo TEM de a fechar.
   let runId: string | null = null;
@@ -318,7 +207,6 @@ Deno.serve(async (req) => {
       typeof body?.company_id === "string" && body.company_id ? body.company_id : null;
 
     // Janela 02:00-05:00 Europe/Lisbon para chamadas de máquina.
-    // force=true só vale com service_role (nunca anon).
     if (isMachine && !force) {
       const lisbonHour = Number(
         new Intl.DateTimeFormat("en-GB", {
@@ -335,13 +223,8 @@ Deno.serve(async (req) => {
     let companyId: string | null = null;
 
     if (isMachine) {
-      if (wantedCompanyId) {
-        scope = "company";
-        companyId = wantedCompanyId;
-      } else {
-        // target='global' ou chamada sem alvo -> global.
-        scope = "global";
-      }
+      if (wantedCompanyId) { scope = "company"; companyId = wantedCompanyId; }
+      else scope = "global";
     } else {
       if (!userId) return json({ error: "Não autorizado" }, 401);
 
@@ -359,7 +242,6 @@ Deno.serve(async (req) => {
         : (profile?.company_id ?? null);
 
       if (wantsGlobal) {
-        // O global é cross-tenant: só platform_admin (ou o sistema) o pede.
         if (!isPlatformAdmin) return json({ error: "Apenas platform_admin pode pedir o backup global" }, 403);
         scope = "global";
       } else if (wantedCompanyId) {
@@ -369,13 +251,11 @@ Deno.serve(async (req) => {
         scope = "company";
         companyId = wantedCompanyId;
       } else {
-        // Botão "Criar Backup" da UI: admin -> a sua própria empresa.
         if (!callerCompanyId) return json({ error: "Sem empresa associada" }, 403);
         scope = "company";
         companyId = callerCompanyId;
       }
     }
-
 
     let slug: string | null = scope === "global" ? "global" : null;
     if (scope === "company" && companyId) {
@@ -386,11 +266,24 @@ Deno.serve(async (req) => {
 
     const runDate = new Date().toISOString().slice(0, 10);
 
-    // ---- Guarda de idempotência: por backup_runs, não pelo storage ----
-    {
+    // ---- Continuação de uma corrida já aberta (fatiamento por CPU) ----
+    const cont = body?.run_id && body?.folder && role === "service_role"
+      ? {
+          runId: String(body.run_id),
+          folder: String(body.folder),
+          startIndex: Number(body.start_index ?? 0),
+          progress: body.progress ?? {},
+        }
+      : null;
+
+    // ---- Guarda de idempotência: por backup_runs ----
+    // force=true (só service_role) refaz a corrida mesmo que já haja uma ok hoje.
+    if (cont) {
+      // nada a validar: a corrida já foi aberta pela primeira fatia
+    } else if (!force) {
       let q = adminClient
         .from("backup_runs")
-        .select("id, file_name")
+        .select("id, file_name, folder_path")
         .eq("run_date", runDate)
         .eq("scope", scope)
         .eq("status", "ok");
@@ -398,72 +291,182 @@ Deno.serve(async (req) => {
       const { data: already, error: alreadyErr } = await q.maybeSingle();
       if (alreadyErr && alreadyErr.code !== "PGRST116") throw new Error(`backup_runs: ${alreadyErr.message}`);
       if (already) {
-        return json({ skipped: true, reason: "already ok today", scope, slug, date: runDate, file: already.file_name });
+        return json({
+          skipped: true, reason: "already ok today", scope, slug, date: runDate,
+          file: already.file_name, folder: already.folder_path,
+        });
       }
+    } else {
+      // Corrida forçada: a anterior 'ok' do mesmo dia/alvo passa a 'superseded'
+      // (o índice único só admite uma linha 'ok' por dia e por alvo).
+      let u = adminClient
+        .from("backup_runs")
+        .update({ status: "superseded" })
+        .eq("run_date", runDate)
+        .eq("scope", scope)
+        .eq("status", "ok");
+      u = companyId ? u.eq("company_id", companyId) : u.is("company_id", null);
+      const { error: supErr } = await u;
+      if (supErr) throw new Error(`backup_runs supersede: ${supErr.message}`);
     }
 
-    // ---- Abrir a linha 'running' ----
-    {
+    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const folder = cont ? cont.folder : `${slug}/${ts}`;
+
+    // ---- Abrir a linha 'running' (só na primeira fatia) ----
+    if (cont) {
+      runId = cont.runId;
+    } else {
       const { data: runRow, error: runErr } = await adminClient
         .from("backup_runs")
-        .insert({ run_date: runDate, scope, company_id: companyId, slug, status: "running" })
+        .insert({ run_date: runDate, scope, company_id: companyId, slug, status: "running", folder_path: folder })
         .select("id")
         .single();
       if (runErr) throw new Error(`backup_runs insert: ${runErr.message}`);
       runId = runRow.id;
     }
 
-    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    // ---- Lista de tabelas DERIVADA por SQL ----
+    const { data: inventory, error: invErr } = await adminClient.rpc("backup_table_inventory");
+    if (invErr) throw new Error(`backup_table_inventory: ${invErr.message}`);
+    const rowsInv = (inventory ?? []) as InventoryRow[];
+    const targets = rowsInv.filter((r) =>
+      scope === "company" ? r.has_company_id : !r.has_company_id,
+    );
 
-    if (scope === "global") {
-      const built = await buildGlobalBackup(adminClient);
-      const fileName = `backup-global-${ts}.json`;
-      const bytes = await uploadBackup(adminClient, fileName, built.parts);
+    const tables: Record<string, number> = { ...(cont?.progress?.tables ?? {}) };
+    const schemas: Record<string, string> = { ...(cont?.progress?.schemas ?? {}) };
+    const errors: string[] = [...(cont?.progress?.errors ?? [])];
+    let rowsTotal = Number(cont?.progress?.rows_total ?? 0);
+    let bytes = Number(cont?.progress?.bytes ?? 0);
 
-      // Rotação só aqui, para não haver rotações concorrentes.
-      let rotationError: string | null = null;
-      try { await rotateOldBackups(adminClient); }
-      catch (e) { rotationError = e instanceof Error ? e.message : "?"; }
+    // Orçamento de CPU por invocação: ao esgotar, continua noutra invocação.
+    const SLICE_BUDGET_MS = 12_000;
+    const sliceStart = Date.now();
+    let nextIndex = cont?.startIndex ?? 0;
 
-      await closeRun({
-        status: "ok",
-        file_name: fileName,
-        tables_count: Object.keys(built.tableCounts).length,
-        rows_total: built.rowsTotal,
-        bytes,
-        error_text: rotationError ? `rotation: ${rotationError}` : null,
-      });
-
-      return json({
-        success: true, scope: "global", file: fileName, bytes,
-        table_counts: built.tableCounts, storage_counts: built.storageCounts,
-        rotation_error: rotationError ?? undefined,
-      });
+    for (let i = nextIndex; i < targets.length; i++) {
+      const t = targets[i];
+      const key = t.schema_name === "crm" ? `crm.${t.tbl_name}` : t.tbl_name;
+      schemas[key] = t.schema_name;
+      const client = t.schema_name === "crm" ? crmClient : adminClient;
+      try {
+        const res = await dumpTable(
+          client, adminClient, folder, key, t.tbl_name,
+          scope === "company" ? { col: "company_id", val: companyId! } : undefined,
+        );
+        tables[key] = res.rows;
+        rowsTotal += res.rows;
+        bytes += res.bytes;
+      } catch (e) {
+        tables[key] = 0;
+        errors.push(`${key}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      nextIndex = i + 1;
+      if (nextIndex < targets.length && Date.now() - sliceStart > SLICE_BUDGET_MS) {
+        // Passa a bola à fatia seguinte (a linha em backup_runs fica 'running').
+        // Disparo desacoplado pela base de dados (pg_net): a fatia seguinte
+        // não depende desta invocação continuar viva. Esperar pela resposta
+        // mantinha a cadeia toda a arder e batia no limite de tempo; abortar
+        // o fetch cancelava a fatia seguinte.
+        const { error: enqErr } = await adminClient.rpc("backup_enqueue_slice", {
+          p_body: {
+            company_id: companyId,
+            ...(scope === "global" ? { target: "global" } : {}),
+            force: true, run_id: runId, folder,
+            start_index: nextIndex,
+            progress: { tables, schemas, errors, rows_total: rowsTotal, bytes },
+          },
+        });
+        if (enqErr) throw new Error(`backup_enqueue_slice: ${enqErr.message}`);
+        return json({
+          continued: true, folder, next_index: nextIndex, total_targets: targets.length,
+        });
+      }
     }
 
-    const built = await buildCompanyBackup(adminClient, companyId!, slug!);
-    const fileName = `backup-${slug}-${ts}.json`;
-    const bytes = await uploadBackup(adminClient, fileName, built.parts);
+
+    // Manifesto de storage: cross-tenant por natureza, fica no global.
+    let storageManifest: Record<string, any[]> | undefined;
+    let storageCounts: Record<string, number> | undefined;
+    if (scope === "global") {
+      storageManifest = {};
+      for (const bucket of STORAGE_BUCKETS) {
+        try {
+          const files = await listAllFiles(adminClient, bucket);
+          storageManifest[bucket] = files.map((f) => ({
+            name: f.name,
+            size: f.metadata?.size ?? null,
+            mimetype: f.metadata?.mimetype ?? null,
+            created_at: f.created_at,
+            updated_at: f.updated_at,
+          }));
+        } catch (e) {
+          errors.push(`storage/${bucket}: ${e instanceof Error ? e.message : "?"}`);
+          storageManifest[bucket] = [];
+        }
+      }
+      storageCounts = Object.fromEntries(
+        Object.entries(storageManifest).map(([k, v]) => [k, v.length]),
+      );
+    }
+
+    const manifestPath = `${folder}/manifest.json`;
+    bytes += await uploadJson(adminClient, manifestPath, {
+      version: BACKUP_VERSION,
+      scope,
+      company_id: companyId,
+      company_slug: slug,
+      created_at: new Date().toISOString(),
+      tables,
+      rows_total: rowsTotal,
+      schemas,
+      ...(storageManifest ? { storage_manifest: storageManifest, storage_counts: storageCounts } : {}),
+      ...(errors.length ? { errors } : {}),
+    });
+
+    // Rotação só na invocação do global.
+    let rotationError: string | null = null;
+    if (scope === "global") {
+      try { await rotateOldBackups(adminClient); }
+      catch (e) { rotationError = e instanceof Error ? e.message : "?"; }
+    }
+
+    const errorText = [
+      ...errors,
+      ...(rotationError ? [`rotation: ${rotationError}`] : []),
+    ].join(" | ").slice(0, 4000);
 
     await closeRun({
       status: "ok",
-      file_name: fileName,
-      tables_count: Object.keys(built.tableCounts).length,
-      rows_total: built.rowsTotal,
+      file_name: manifestPath,
+      folder_path: folder,
+      tables_count: Object.keys(tables).length,
+      rows_total: rowsTotal,
       bytes,
-      error_text: built.errors.length ? built.errors.join(" | ").slice(0, 4000) : null,
+      error_text: errorText || null,
     });
 
     return json({
-      success: true, scope: "company", company_id: companyId, slug,
-      file: fileName, bytes, table_counts: built.tableCounts,
-      errors: built.errors.length ? built.errors : undefined,
+      success: true,
+      version: BACKUP_VERSION,
+      scope,
+      company_id: companyId,
+      slug,
+      folder,
+      manifest: manifestPath,
+      tables_count: Object.keys(tables).length,
+      tables_with_rows: Object.values(tables).filter((n) => n > 0).length,
+      rows_total: rowsTotal,
+      bytes,
+      table_counts: tables,
+      storage_counts: storageCounts,
+      errors: errors.length ? errors : undefined,
+      rotation_error: rotationError ?? undefined,
     });
-
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erro desconhecido";
     console.error("Backup error:", err);
-    // Nunca deixar 'running' pendurado.
     try { await closeRun({ status: "error", error_text: msg.slice(0, 4000) }); } catch { /* ignore */ }
     return json({ error: msg }, 500);
   }

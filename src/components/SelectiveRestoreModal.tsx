@@ -59,10 +59,16 @@ export default function SelectiveRestoreModal({ fileName, onClose }: Props) {
   const { data: backupEvents = [], isLoading: loadingBackup } = useQuery({
     queryKey: ["backup-events", fileName],
     queryFn: async () => {
-      const { data, error } = await supabase.storage.from("database-backups").download(fileName);
-      if (error) throw error;
+      // Formato novo (pasta por corrida): os eventos estão no ficheiro events.json.
+      const path = fileName.endsWith("/manifest.json")
+        ? fileName.replace(/manifest\.json$/, "events.json")
+        : fileName;
+      const { data, error } = await supabase.storage.from("database-backups").download(path);
+      if (error) return [] as { id: string; name: string; date: string }[];
       const json = JSON.parse(await data.text());
-      const evts: { id: string; name: string; date: string }[] = json.tables?.events ?? [];
+      const evts: { id: string; name: string; date: string }[] = Array.isArray(json)
+        ? json
+        : (json.tables?.events ?? []);
       return evts.map((e) => ({ id: e.id, name: e.name, date: e.date }));
     },
   });

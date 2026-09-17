@@ -55,6 +55,43 @@ const RESTORE_ORDER_GLOBAL = [
   "login_attempts", "mfa_recovery_codes", "mfa_trusted_devices",
 ];
 
+/**
+ * Abre um backup no formato NOVO (v4: pasta + manifest.json + um ficheiro por
+ * tabela) ou no formato ANTIGO (ficheiro backup-*.json solto, v3/v2). No v4 as
+ * tabelas são lidas uma a uma, só as que fazem falta.
+ */
+async function openBackup(admin: any, target: string) {
+  if (target.endsWith("/manifest.json")) {
+    const { data: f, error } = await admin.storage.from("database-backups").download(target);
+    if (error || !f) throw new Error(`Erro ao descarregar manifesto: ${error?.message}`);
+    const manifest = JSON.parse(await f.text());
+    const folder = target.replace(/\/manifest\.json$/, "");
+    const counts: Record<string, number> = manifest.tables ?? {};
+    return {
+      version: 4 as const,
+      meta: manifest,
+      count: (t: string) => counts[t] ?? 0,
+      getTable: async (t: string) => {
+        if (!counts[t]) return [];
+        const { data: tf, error: e } = await admin.storage
+          .from("database-backups").download(`${folder}/${t}.json`);
+        if (e || !tf) return [];
+        return JSON.parse(await tf.text()) as any[];
+      },
+    };
+  }
+  const { data: file, error: dlErr } = await admin.storage.from("database-backups").download(target);
+  if (dlErr || !file) throw new Error(`Erro ao descarregar backup: ${dlErr?.message}`);
+  const backupJson = JSON.parse(await file.text());
+  if (!backupJson.tables) throw new Error("Backup inválido: campo 'tables' ausente");
+  return {
+    version: (backupJson.version ?? 2) as number,
+    meta: backupJson,
+    count: (t: string) => (backupJson.tables[t]?.length ?? 0),
+    getTable: async (t: string) => (backupJson.tables[t] ?? []) as any[],
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -97,13 +134,8 @@ Deno.serve(async (req) => {
     const { backup_file, mode } = await req.json();
     if (!backup_file) return jsonErr("backup_file é obrigatório", 400);
 
-    const { data: file, error: dlErr } = await admin.storage
-      .from("database-backups").download(backup_file);
-    if (dlErr || !file) return jsonErr(`Erro ao descarregar backup: ${dlErr?.message}`, 400);
-
-    const backupJson = JSON.parse(await file.text());
-    const tables = backupJson.tables;
-    if (!tables) return jsonErr("Backup inválido: campo 'tables' ausente", 400);
+    const backup = await openBackup(admin, backup_file);
+    const backupJson = backup.meta;
 
     // ---- MULTI-TENANT GUARD ----
     const backupScope: "company" | "global" | "legacy" =
@@ -141,7 +173,13 @@ Deno.serve(async (req) => {
         : (backupScope === "legacy" && callerCompanyId) ? callerCompanyId : null;
 
       for (const t of RESTORE_ORDER) {
-        const rows = tables[t] ?? [];
+        if (backup.version >= 4) {
+          // v4: cada ficheiro já vem filtrado pelo alvo da corrida.
+          const n = backup.count(t);
+          if (n) preview[t] = n;
+          continue;
+        }
+        const rows = await backup.getTable(t);
         const filtered = targetCompany
           ? rows.filter((r: any) => r.company_id === targetCompany)
           : rows;
@@ -149,11 +187,16 @@ Deno.serve(async (req) => {
       }
       return jsonOk({
         mode: "preview",
+        version: backup.version,
         scope: backupScope,
         backup_company_id: backupCompanyId,
         caller_company_id: callerCompanyId,
         backup_date: backupJson.created_at,
         tables: preview,
+        total_tables_in_backup: backupJson.tables && backup.version >= 4
+          ? Object.keys(backupJson.tables).length
+          : undefined,
+        storage_manifest: backupJson.storage_counts ?? undefined,
       });
     }
 
@@ -184,7 +227,7 @@ Deno.serve(async (req) => {
 
     // DELETE — só apaga linhas com company_id do caller (quando aplicável)
     for (const t of DELETE_ORDER) {
-      if (!tables[t]) continue;
+      if (!backup.count(t)) continue;
       try {
         let error: any = null;
         if (filterCompany) {
@@ -212,7 +255,7 @@ Deno.serve(async (req) => {
 
     // INSERT — só insere linhas com company_id correto
     for (const t of RESTORE_ORDER) {
-      const rowsRaw = tables[t];
+      const rowsRaw = await backup.getTable(t);
       if (!rowsRaw || rowsRaw.length === 0) {
         if (!results[t]) results[t] = { deleted: "n/a", inserted: 0 };
         continue;
