@@ -147,6 +147,8 @@ As 19 sessões à venda, verificadas na página pública do El Corte Inglés a 0
 
 **A Ticketline devolve HTML em vez do XLSX de vez em quando.** Estado `html_response`, mensagem `XLSX sale_summary: HTML em vez de XLSX — title="Ticketline Manager"`. A 08/09 aconteceu sete vezes seguidas na SM - Lisboa, das 16h às 22h, e recuperou sozinho às 23h. Não se perde nada porque o import é full-replace e corre de hora a hora. O que falta é o aviso: nenhuma destas falhas gera alerta (issue #145). Estado dos crons a 09/09, últimas 48h: BOL 192 de 192 com sucesso; Ticketline 377 com sucesso e 7 falhas; captura horária 50 de 50. A 14–16/09 já não foi "de vez em quando": as cinco cidades migradas do Ghanem falharam ~37 horas seguidas. Ver #184.
 
+**RG Coimbra e RG Santa Maria da Feira são BOL**, não Ticketline: `ticket_sales.source = 'bol'`, `bol_sync_config` ativo, série em `bol_daily_sales`. As vendas em `ticket_sales` aparecem todas num só dia porque o M2 é cumulativo e o import é full-replace com `sale_date` = data do relatório — é o desenho, não um defeito. Não estão no portal Ticketline nem podiam estar.
+
 ## Onde ler mais
 
 - `.lovable/memory/features/bilheteira-sync.md`, `bol-sync.md`, `venue-retained-door-sales.md`, `ticketline-dashboard-daily-fallback.md`
