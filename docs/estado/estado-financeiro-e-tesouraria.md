@@ -142,7 +142,6 @@ O Santander está implantado (122.363,05 € com corte a 31/08/2026) e o extrato
     o relatório da #193 mostra uma folga que não é real.
 
 
-
 Já feito e sem pendência: a **FT 11.1/101** está anexada ao movimento do banco de **135.986,96 €** e replicada nas duas transações ligadas.
 
 Depois:
