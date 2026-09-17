@@ -29,8 +29,9 @@ Atualizado: 2026-09-17 (fecho). Issues abertas da frente: #91, #125, #127, #134,
 - **Conta corrente do sócio alimentada com a folha de vencimentos (17/09).**
   A Conta Corrente · Pedro Neto (`29115958-27b0-4a5d-9888-4a983ce4d11d`,
   `is_accounting = false`, restrita) tem agora os dois lados:
-  `income` 3 · **16.000,00 €** (adiantamentos de setembro) e
+  `income` 42 · **211.300,00 €** (retiradas de 07/01 a 09/09) e
   `expense` 8 · **54.238,78 €** (vencimento líquido de jan a ago),
+  saldo **157.061,22 €**,
   rubrica `10.3 Transferências Internas`, `is_confidential = true`, IVA 0.
   Usou-se a 10.3 e não a 10.4.01 Ordenados de propósito: o custo real do
   pessoal é lançado pela contabilidade no circuito dela, e pôr 10.4.01
