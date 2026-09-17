@@ -2,7 +2,6 @@ import * as React from "react";
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 
 import { cn } from "@/lib/utils";
-import { guardHelpPanelOutside } from "@/lib/help-panel-dom";
 import { buttonVariants } from "@/components/ui/button";
 
 const AlertDialog = AlertDialogPrimitive.Root;
@@ -39,10 +38,8 @@ const AlertDialogContent = React.forwardRef<
         className,
       )}
       {...props}
-      // Interações vindas do painel do Manual nunca fecham o alerta.
-      onPointerDownOutside={guardHelpPanelOutside(props.onPointerDownOutside)}
-      onInteractOutside={guardHelpPanelOutside(props.onInteractOutside)}
-      onFocusOutside={guardHelpPanelOutside(props.onFocusOutside)}
+      // O AlertDialog do Radix não expõe eventos "outside" (só fecha por ação
+      // explícita), pelo que não precisa de guarda para o painel do Manual.
     />
   </AlertDialogPortal>
 ));
