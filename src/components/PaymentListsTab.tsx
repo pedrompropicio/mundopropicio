@@ -2457,13 +2457,14 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         />
       )}
 
+      {/* Issue #200: a data sugerida ao liquidar é HOJE (dia em que se registra a
+          saída), não a `payment_date` da lista — por isso não se passa
+          `initialPaymentDate`. Continua editável no modal. Efeito aceite: a
+          conciliação bancária deixa de casar por data exacta e passa a depender
+          da camada de valor a ±5 dias. */}
       {showBatchPayment && batchPaymentTransactions.length > 0 && (
         <BatchPaymentModal
           transactions={batchPaymentTransactions}
-          {/* Issue #200: a data sugerida é HOJE (dia em que se registra a saída),
-              não a `payment_date` da lista. Editável no modal. Efeito aceite: a
-              conciliação bancária deixa de casar por data exacta e passa a
-              depender da camada de valor a ±5 dias. */}
           bankAccountsOnly
           onClose={handleBatchPaymentClose}
         />
