@@ -33,7 +33,8 @@ NUNCA cria/toca `transactions`, `event_forecasts`, `payment_lists`,
     status <> 'new'). Bucket: DELETE para admin/platform_admin/manager/editor.
     Fatura processada NUNCA se apaga — reverter para 'new' primeiro.
 - Regras de UI: "Marcar processada / Reabrir" só admin + contabilista;
-  editar metadados (fornecedor/NIF/data/total/IVA/nota) só admin ou quem capturou;
+  editar metadados (fornecedor/NIF/número/data/moeda/câmbio/pagador/total/IVA/nota)
+  só admin ou quem capturou;
   "Apagar" só aparece em faturas 'new' para admin ou quem capturou (confirm simples,
   apaga linha + ficheiro via removeFromCompanyBucket).
 
@@ -78,7 +79,8 @@ sem data → grupo próprio no topo), seletor de mês com consulta própria e
 abertura no mês mais recente com faturas, badge nova/processada, "Marcar
 processada" reversível, abrir documento via signed URL 1h e "Exportar mês"
 (refaz a consulta por intervalo do período inteiro; ZIP das imagens + XLSX
-resumo: nº, data, fornecedor, NIF, total, IVA, nota, estado, ficheiro).
+ resumo: nº, data, fornecedor, NIF, nº de fatura, moeda, valor original, câmbio,
+ fonte do câmbio, total EUR, IVA, pagador, nota, estado e ficheiro).
 
 ## Ações na captura (pré-gravação)
 Upload para o bucket só acontece no "Guardar fatura" — não existem ficheiros

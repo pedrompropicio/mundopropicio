@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Loader2, Download, FileArchive, Undo2, CheckCircle2, FileText, Pencil, Trash2, AlertTriangle } from "lucide-react";
 import { signedCompanyUrl, downloadFromCompanyBucket, removeFromCompanyBucket } from "@/lib/storage";
-import { calculateStandaloneEur, isStandaloneInvoiceDuplicateError, parseStandaloneAmount, STANDALONE_INVOICE_CURRENCIES, type StandaloneInvoiceCurrency } from "@/lib/standalone-invoices";
+import { calculateStandaloneEur, isStandaloneInvoiceDuplicateError, parseStandaloneAmount, STANDALONE_INVOICE_CURRENCIES, validateStandaloneMonetaryFields, type StandaloneInvoiceCurrency } from "@/lib/standalone-invoices";
 
 interface Row {
   id: string;
@@ -97,6 +97,8 @@ export function AccountantStandaloneInvoicesTab() {
   const saveEdit = useMutation({
     mutationFn: async () => {
       if (!editing) return;
+      const monetaryError = validateStandaloneMonetaryFields(form.currency, form.original_amount, form.fx_rate, form.total_amount);
+      if (monetaryError) throw Object.assign(new Error(monetaryError), { code: "INVALID_MONETARY_FIELDS" });
       if (form.supplier_nif.trim() && form.invoice_number.trim()) {
         const { data: duplicate, error: duplicateError } = await (supabase as any).from("standalone_invoices")
           .select("id").eq("company_id", companyId).eq("supplier_nif", form.supplier_nif.trim())

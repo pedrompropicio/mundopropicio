@@ -33,9 +33,9 @@
 - [x] Comentário e checkboxes (a)–(e) na épica #146 (issuecomment-5649753808).
 
 ## Faturas avulsas — issues #191–#193
-- [ ] Criar `ingest-standalone-invoice` sem tocar nos fluxos financeiros proibidos.
-- [ ] Acrescentar número, moeda original, câmbio e pagador ao Scanner, Conferência e XLSX.
-- [ ] Atualizar OCR e documentação; validar sem escritas em Live.
+- [x] Criar `ingest-standalone-invoice` sem tocar nos fluxos financeiros proibidos.
+- [x] Acrescentar número, moeda original, câmbio e pagador ao Scanner, Conferência e XLSX.
+- [x] Atualizar OCR e documentação; validar sem escritas em Live.
 
 ## Manual de Orientação — Fase 4
 - [ ] Migração rastreada de pesquisa híbrida e gestão de lacunas.
