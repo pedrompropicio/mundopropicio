@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FinancialOperationsTab from "@/components/FinancialOperationsTab";
+import PartnerCurrentAccountTab from "@/components/PartnerCurrentAccountTab";
 import { SupplierCreditsSummaryCard } from "@/components/supplier-credits/SupplierCreditsSummaryCard";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -292,6 +293,8 @@ export default function FinancialAccounts() {
         <TabsList>
           <TabsTrigger value="accounts">Contas</TabsTrigger>
           <TabsTrigger value="operations">Operações Financeiras</TabsTrigger>
+          {/* #193 — só quem vê confidenciais: sem a permissão a aba não existe (D-ERP36). */}
+          {canSeeConfidential && <TabsTrigger value="partner">Conta Corrente do Sócio</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="accounts" className="space-y-6">
@@ -838,6 +841,12 @@ export default function FinancialAccounts() {
         <TabsContent value="operations">
           <FinancialOperationsTab accounts={accounts} isAdmin={isAdmin} />
         </TabsContent>
+
+        {canSeeConfidential && (
+          <TabsContent value="partner">
+            <PartnerCurrentAccountTab />
+          </TabsContent>
+        )}
       </Tabs>
 
       {accessModalAccount && (
