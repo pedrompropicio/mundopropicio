@@ -73,6 +73,14 @@ export default function HelpAskBox({ route, onOpenCitation, compact = false, sho
       <Textarea value={question} onChange={(event) => setQuestion(event.target.value)} rows={compact ? 2 : 3} className="resize-none" placeholder="Descreva a sua dúvida…" onKeyDown={(event) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void submit(); } }} />
       <div className="flex justify-end"><Button size="sm" disabled={loading || question.trim().length < 5} onClick={() => void submit()}>{loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />A pesquisar…</> : "Perguntar"}</Button></div>
       {error && <QueryErrorState title="Não foi possível pesquisar o manual" error={error} onRetry={() => void submit()} context="Manual — pergunta" />}
+      {unavailable && (
+        <div className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+          <p className="font-medium">A pesquisa está indisponível</p>
+          <p className="text-xs text-muted-foreground">Tente novamente dentro de alguns minutos. O manual continua disponível no índice.</p>
+          {isAdmin && <p className="break-words font-mono text-[11px] text-muted-foreground">{unavailable}</p>}
+          <Button size="sm" variant="outline" onClick={() => void submit()}>Tentar de novo</Button>
+        </div>
+      )}
       {result && !result.answered && <div className="rounded-lg border border-border bg-card p-3 text-sm">Não encontrei isto no manual. A pergunta ficou registada para o manual ser completado.</div>}
       {result?.answered && (
         <div className="space-y-3 border-t border-primary/20 pt-3">
