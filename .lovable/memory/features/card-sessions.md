@@ -14,14 +14,46 @@ Camada nova (schema 2026-07-09):
 - `card_session_items` — fila de aprovação (submitted|approved|rejected) para submissões do produtor (Fase 2). transaction_id UNIQUE quando aprovado.
 - `transactions.card_session_id` — carimbo auditável em toda despesa criada dentro da sessão.
 
-## Recarga (par transitório)
+## Recarga (par de duas pernas)
 
-Modal "Recarga" (ou carga inicial na abertura) chama `performCardLoad()` em `src/components/cards/cardLoadHelpers.ts` que cria PAR de transações:
-- expense em `source_account_id`, `is_transitory=true`, `exclude_from_result=true`, `status='paid'`, categoria 10.3, sem event_id.
-- income em `card_account_id`, mesmos flags.
-- Grava ambos IDs em `card_session_loads`.
+Modal "Recarga" (ou carga inicial na abertura) chama `performCardLoad()` em
+`src/components/cards/cardLoadHelpers.ts`, que chama a RPC
+`create_card_session_load(p_session_id, p_amount, p_load_date, p_source_account_id, p_notes)`.
 
-Efeito: move saldo entre contas SEM entrar no DRE/BP (padrão transitório).
+A RPC faz tudo numa só transação de base de dados (atómico — falha em qualquer passo
+deixa zero linhas escritas, issue #201):
+- resolve a rubrica 10.3 (erro explícito se não existir);
+- cria **só a perna de saída**: `expense` na `source_account_id`, `status='pending'`
+  (aguarda aprovação), `is_transitory=true`, `transitory_reason='carga_cartao'`,
+  `exclude_from_result=true`, `iva_rate=0`, sem `event_id` e sem fornecedor (o
+  beneficiário é o próprio cartão, que é uma conta financeira);
+- insere a linha em `card_session_loads` com `in_transaction_id = NULL`.
+
+A **perna de entrada** no cartão NÃO nasce aqui: nasce do trigger
+`card_load_on_out_paid` quando a saída passa a `status='paid'`, que insere o `income`
+transitório na conta do cartão e preenche `in_transaction_id`. **Até lá o cartão não vê
+o dinheiro.** Se a saída for eliminada, `card_load_on_out_delete` limpa a entrada (se
+existir) e a linha da carga.
+
+Efeito das duas pernas juntas: move saldo entre contas SEM entrar no DRE/BP (padrão
+transitório).
+
+### Numa carga liquida-se, nunca se marca como pago (#201)
+
+"Marcar como Pago" nas listas de pagamento é **estritamente visual** (#200): grava
+`payment_list_items.manually_marked_paid` e não toca no `status` da transação. Logo o
+trigger nunca corre e a carga ficaria com dinheiro real no cartão e zero crédito no
+sistema. Por isso o item de uma carga na lista de pagamento **não oferece "Marcar como
+Pago"** — só o caminho de liquidação, que exige a conta de onde saiu o dinheiro. Uma
+carga é uma transferência entre duas contas próprias: tem sempre de saber a origem.
+
+⚠️ Rejeitada a alternativa de o trigger disparar com a marca visual: a entrada nasceria
+`paid` com a saída ainda por pagar e o caixa total do sistema subiria do nada a cada
+carga.
+
+Vigilância: invariante `carga_sem_credito` (error, âmbito global, referência 0) —
+`card_session_loads` com `in_transaction_id IS NULL` e a saída marcada como paga numa
+lista. A UI avisa nos dois lados: no item da lista e na aba Recargas da sessão.
 
 ## Despesa direta (manager)
 
