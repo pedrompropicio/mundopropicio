@@ -377,6 +377,7 @@ Deno.serve(async (req) => {
           scope === "company" ? { col: "company_id", val: companyId! } : undefined,
         );
         tables[key] = res.rows;
+        if (res.parts > 1) partsMap[key] = res.parts;
         rowsTotal += res.rows;
         bytes += res.bytes;
       } catch (e) {
