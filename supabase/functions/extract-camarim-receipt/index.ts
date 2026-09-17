@@ -12,6 +12,7 @@ const SYSTEM_PROMPT = `Analisa esta foto de talão / recibo / fatura de uma comp
   "supplier_name": "Nome do estabelecimento (ex: Pingo Doce, Continente, Café Central)",
   "supplier_nif": "NIF/contribuinte do fornecedor emitente (só dígitos, se visível)",
   "document_number": "Nº do talão/fatura/recibo (se visível)",
+  "invoice_number": "Nº da fatura (se o documento for uma fatura; caso contrário null)",
   "document_type": "invoice" | "receipt" | "simplified_invoice" | "other",
   "document_date": "YYYY-MM-DD (data da compra)",
   "total_amount": 12.45,
@@ -29,6 +30,7 @@ REGRAS:
 - Se não conseguires ler um campo, devolve null nesse campo.
 - "confidence" reflecte a qualidade da extracção (high se talão nítido com totais claros).
 - "supplier_nif" é o NIF DO EMITENTE (fornecedor), nunca o NIF do cliente/adquirente. Se só existir o NIF do cliente, devolve null.
+- "invoice_number" repete o número da fatura quando aplicável; mantém "document_number" para compatibilidade com os restantes fluxos.
 - Não inventes valores. Se incerto, devolve null e usa "low" em confidence.
 - "analytic_tag" classifica o talão para análise interna (NÃO afeta a categoria contabilística):
   · "bebidas": águas, refrigerantes, sumos, álcool, café/chá engarrafado.

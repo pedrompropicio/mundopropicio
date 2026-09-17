@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Loader2, Download, FileArchive, Undo2, CheckCircle2, FileText, Pencil, Trash2, AlertTriangle } from "lucide-react";
 import { signedCompanyUrl, downloadFromCompanyBucket, removeFromCompanyBucket } from "@/lib/storage";
+import { calculateStandaloneEur, isStandaloneInvoiceDuplicateError, parseStandaloneAmount, STANDALONE_INVOICE_CURRENCIES, type StandaloneInvoiceCurrency } from "@/lib/standalone-invoices";
 
 interface Row {
   id: string;
@@ -20,7 +21,13 @@ interface Row {
   file_name: string;
   supplier_name: string | null;
   supplier_nif: string | null;
+  invoice_number: string | null;
   invoice_date: string | null;
+  currency: StandaloneInvoiceCurrency;
+  original_amount: number | null;
+  fx_rate: number | null;
+  fx_rate_source: string | null;
+  paid_by_partner_id: string | null;
   total_amount: number | null;
   iva_amount: number | null;
   notes: string | null;
@@ -62,7 +69,7 @@ export function AccountantStandaloneInvoicesTab() {
   const qc = useQueryClient();
   const [exporting, setExporting] = useState<string | null>(null);
   const [editing, setEditing] = useState<Row | null>(null);
-  const [form, setForm] = useState({ supplier_name: "", supplier_nif: "", invoice_date: "", total_amount: "", iva_amount: "", notes: "" });
+  const [form, setForm] = useState({ supplier_name: "", supplier_nif: "", invoice_number: "", invoice_date: "", currency: "EUR" as StandaloneInvoiceCurrency, original_amount: "", fx_rate: "", fx_rate_source: "", paid_by_partner_id: "none", total_amount: "", iva_amount: "", notes: "" });
 
   const canProcess = isAdmin || isAccountant;
   const canEdit = (r: Row) => isAdmin || r.created_by === user?.id;
@@ -74,7 +81,13 @@ export function AccountantStandaloneInvoicesTab() {
     setForm({
       supplier_name: r.supplier_name ?? "",
       supplier_nif: r.supplier_nif ?? "",
+      invoice_number: r.invoice_number ?? "",
       invoice_date: r.invoice_date ?? "",
+      currency: r.currency ?? "EUR",
+      original_amount: r.original_amount == null ? "" : String(r.original_amount),
+      fx_rate: r.fx_rate == null ? "" : String(r.fx_rate),
+      fx_rate_source: r.fx_rate_source ?? "",
+      paid_by_partner_id: r.paid_by_partner_id ?? "none",
       total_amount: r.total_amount == null ? "" : String(r.total_amount),
       iva_amount: r.iva_amount == null ? "" : String(r.iva_amount),
       notes: r.notes ?? "",
@@ -84,18 +97,27 @@ export function AccountantStandaloneInvoicesTab() {
   const saveEdit = useMutation({
     mutationFn: async () => {
       if (!editing) return;
-      const num = (v: string) => {
-        const n = Number(v.replace(",", "."));
-        return v.trim() === "" || Number.isNaN(n) ? null : n;
-      };
+      if (form.supplier_nif.trim() && form.invoice_number.trim()) {
+        const { data: duplicate, error: duplicateError } = await (supabase as any).from("standalone_invoices")
+          .select("id").eq("company_id", companyId).eq("supplier_nif", form.supplier_nif.trim())
+          .eq("invoice_number", form.invoice_number.trim()).neq("id", editing.id).maybeSingle();
+        if (duplicateError) throw duplicateError;
+        if (duplicate) throw Object.assign(new Error("Já existe uma fatura deste fornecedor com este número."), { code: "DUPLICATE_INVOICE" });
+      }
       const { error } = await (supabase as any)
         .from("standalone_invoices")
         .update({
           supplier_name: form.supplier_name.trim() || null,
           supplier_nif: form.supplier_nif.trim() || null,
+          invoice_number: form.invoice_number.trim() || null,
           invoice_date: form.invoice_date || null,
-          total_amount: num(form.total_amount),
-          iva_amount: num(form.iva_amount),
+          currency: form.currency,
+          original_amount: form.currency === "EUR" ? null : parseStandaloneAmount(form.original_amount),
+          fx_rate: form.currency === "EUR" ? null : parseStandaloneAmount(form.fx_rate),
+          fx_rate_source: form.currency === "EUR" ? null : form.fx_rate_source.trim() || null,
+          paid_by_partner_id: form.paid_by_partner_id === "none" ? null : form.paid_by_partner_id,
+          total_amount: parseStandaloneAmount(form.total_amount),
+          iva_amount: parseStandaloneAmount(form.iva_amount),
           notes: form.notes.trim() || null,
         })
         .eq("id", editing.id);
@@ -107,7 +129,7 @@ export function AccountantStandaloneInvoicesTab() {
       qc.invalidateQueries({ queryKey: ["standalone-invoice-months"] });
       toast({ title: "Fatura atualizada" });
     },
-    onError: (e: any) => toast({ title: "Falhou", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast({ title: e?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(e) ? "Fatura duplicada" : "Falhou", description: e?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(e) ? "Já existe uma fatura deste fornecedor com este número." : e.message, variant: "destructive" }),
   });
 
   /**
@@ -165,14 +187,19 @@ export function AccountantStandaloneInvoicesTab() {
   const hitLimit = selected === ALL && (data?.length ?? 0) >= ALL_LIMIT;
 
 
-  const { data: profiles } = useQuery({
+  const { data: profilesData } = useQuery({
     queryKey: ["standalone-invoice-profiles", companyId],
     enabled: !!companyId,
     queryFn: async () => {
-      const { data } = await (supabase as any).from("profiles").select("id, full_name, email");
+      const { data: roles, error: roleError } = await supabase.from("user_roles").select("user_id").eq("company_id", companyId ?? "");
+      if (roleError) throw roleError;
+      const ids = [...new Set((roles ?? []).map((row) => row.user_id))];
+      if (ids.length === 0) return { map: {} as Record<string, string>, users: [] as Array<{ id: string; full_name: string | null; email: string | null }> };
+      const { data, error } = await supabase.from("profiles").select("id, full_name, email").in("id", ids);
+      if (error) throw error;
       const map: Record<string, string> = {};
       (data ?? []).forEach((p: any) => (map[p.id] = p.full_name || p.email || "—"));
-      return map;
+      return { map, users: data ?? [] };
     },
   });
 
@@ -275,8 +302,14 @@ export function AccountantStandaloneInvoicesTab() {
           Data: effectiveDate(r),
           Fornecedor: r.supplier_name ?? "",
           NIF: r.supplier_nif ?? "",
-          Total: r.total_amount ?? "",
+          "Nº fatura": r.invoice_number ?? "",
+          Moeda: r.currency ?? "EUR",
+          "Valor original": r.original_amount ?? "",
+          Câmbio: r.fx_rate ?? "",
+          "Fonte do câmbio": r.fx_rate_source ?? "",
+          "Total (EUR)": r.total_amount ?? "",
           IVA: r.iva_amount ?? "",
+          "Pago por": profilesData?.map[r.paid_by_partner_id ?? ""] ?? "",
           Nota: r.notes ?? "",
           Estado: r.status === "processed" ? "Processada" : "Nova",
           Ficheiro: name,
@@ -381,10 +414,11 @@ export function AccountantStandaloneInvoicesTab() {
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {effectiveDate(r)} · NIF {r.supplier_nif ?? "—"} · {fmtEUR(r.total_amount)}
+                       {effectiveDate(r)} · NIF {r.supplier_nif ?? "—"} · Fatura {r.invoice_number ?? "—"} · {fmtEUR(r.total_amount)}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
-                      Capturado por {profiles?.[r.created_by ?? ""] ?? "—"}
+                       {r.currency !== "EUR" && r.original_amount != null ? `${r.currency} ${r.original_amount.toFixed(2)} · ` : ""}
+                       Pago por {profilesData?.map[r.paid_by_partner_id ?? ""] ?? "—"} · Capturado por {profilesData?.map[r.created_by ?? ""] ?? "—"}
                       {r.notes ? ` · ${r.notes}` : ""}
                     </p>
                     <div className="flex flex-wrap items-start gap-1.5 pt-1">
@@ -456,8 +490,19 @@ export function AccountantStandaloneInvoicesTab() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1"><Label htmlFor="ed-number">Nº fatura</Label><Input id="ed-number" value={form.invoice_number} onChange={(e) => setForm({ ...form, invoice_number: e.target.value })} /></div>
+              <div className="space-y-1"><Label>Moeda</Label><Select value={form.currency} onValueChange={(value) => setForm({ ...form, currency: value as StandaloneInvoiceCurrency, ...(value === "EUR" ? { original_amount: "", fx_rate: "", fx_rate_source: "" } : {}) })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{STANDALONE_INVOICE_CURRENCIES.map((code) => <SelectItem key={code} value={code}>{code}</SelectItem>)}</SelectContent></Select></div>
+            </div>
+            {form.currency !== "EUR" && <div className="space-y-3 rounded-md border p-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1"><Label htmlFor="ed-original">Valor original</Label><Input id="ed-original" inputMode="decimal" value={form.original_amount} onChange={(e) => setForm({ ...form, original_amount: e.target.value, total_amount: calculateStandaloneEur(e.target.value, form.fx_rate) })} /></div>
+                <div className="space-y-1"><Label htmlFor="ed-fx">Câmbio para EUR</Label><Input id="ed-fx" inputMode="decimal" value={form.fx_rate} onChange={(e) => setForm({ ...form, fx_rate: e.target.value, total_amount: calculateStandaloneEur(form.original_amount, e.target.value) })} /></div>
+              </div>
+              <div className="space-y-1"><Label htmlFor="ed-fx-source">Fonte do câmbio</Label><Input id="ed-fx-source" value={form.fx_rate_source} onChange={(e) => setForm({ ...form, fx_rate_source: e.target.value })} /></div>
+            </div>}
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label htmlFor="ed-total">Total (€)</Label>
+                <Label htmlFor="ed-total">Total (EUR)</Label>
                 <Input id="ed-total" inputMode="decimal" value={form.total_amount} onChange={(e) => setForm({ ...form, total_amount: e.target.value })} />
               </div>
               <div className="space-y-1">
@@ -465,6 +510,7 @@ export function AccountantStandaloneInvoicesTab() {
                 <Input id="ed-iva" inputMode="decimal" value={form.iva_amount} onChange={(e) => setForm({ ...form, iva_amount: e.target.value })} />
               </div>
             </div>
+            <div className="space-y-1"><Label>Pago por</Label><Select value={form.paid_by_partner_id} onValueChange={(value) => setForm({ ...form, paid_by_partner_id: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Sem indicação</SelectItem>{profilesData?.users.map((profile) => <SelectItem key={profile.id} value={profile.id}>{profile.full_name || profile.email || "Utilizador"}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-1">
               <Label htmlFor="ed-notes">Nota</Label>
               <Input id="ed-notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />

@@ -8,6 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { cn } from "@/lib/utils";
 import QueryErrorState from "@/components/QueryErrorState";
 import HelpMarkdown from "@/components/help/HelpMarkdown";
+import HelpAskBox from "@/components/help/HelpAskBox";
 import { useHelpPanel } from "@/contexts/HelpPanelContext";
 import {
   helpModuleLabel,
@@ -81,6 +82,12 @@ export default function HelpSidePanel() {
         </SheetHeader>
 
         <div className="space-y-3 px-5 py-4">
+          <HelpAskBox
+            compact
+            route={location.pathname}
+            onOpenCitation={(citation) => openHelp({ slug: citation.article_slug, anchor: citation.anchor_id })}
+          />
+
           {articlesQ.isError && (
             <QueryErrorState
               error={articlesQ.error}

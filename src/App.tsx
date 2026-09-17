@@ -142,6 +142,7 @@ import Companies from "./pages/admin/Companies";
 import Reminders from "./pages/admin/Reminders";
 import RlsLegacyAudit from "./pages/admin/RlsLegacyAudit";
 import ManualSync from "./pages/admin/ManualSync";
+import ManualGaps from "./pages/admin/ManualGaps";
 import InvoiceGroupAudit from "./pages/admin/InvoiceGroupAudit";
 import InvariantMonitor from "./pages/admin/InvariantMonitor";
 import UploadCoalaFotos from "./pages/admin/UploadCoalaFotos";
@@ -583,6 +584,7 @@ function ProtectedLayout() {
               
               <Route path="/admin/auditoria-rls" element={<RlsLegacyAudit />} />
               <Route path="/admin/sincronizar-manual" element={<ManualSync />} />
+              <Route path="/admin/lacunas-manual" element={<ManualGaps />} />
               <Route path="/admin/auditoria-grupos-fatura" element={<InvoiceGroupAudit />} />
               <Route path="/admin/invariantes" element={<InvariantMonitor />} />
               <Route path="/admin/invariantes-diarias" element={<Navigate to="/admin/invariantes" replace />} />

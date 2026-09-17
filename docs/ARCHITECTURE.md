@@ -52,6 +52,7 @@ A plataforma divide-se em quatro módulos de produto + uma camada transversal. O
 
 ### Entrada de documentos por API
 - `ingest-transaction-document` (`verify_jwt = true`, só service_role, molde do `portal-media-import`): anexa um documento vindo de um URL do Google Drive a 1..N transações (alvo por `transaction_id`, `invoice_group_id` ou `supplier_id`+`invoice_ref` com igualdade exacta). Um único objeto em `transaction-documents/<company_id>/<tx>/<ts>.<ext>` partilhado por N linhas de `transaction_documents` (`uploaded_by='ingest-api'`); idempotente por nome+tamanho; agrupa a fatura quando nenhuma linha tem grupo. Ver `mem://features/invoice-groups`.
+- `ingest-standalone-invoice` (`verify_jwt = true`, só service_role): recebe ficheiro Drive/Googleusercontent ou base64, valida PDF/JPEG/PNG (20 MB), confirma empresa e campos monetários e grava exclusivamente no bucket/tabela `standalone-invoices`/`standalone_invoices`. É idempotente por empresa+NIF+número, com rollback do objeto em falha. `total_amount`/`iva_amount` são sempre EUR; a origem fica em `currency`/`original_amount`/`fx_rate`. Nunca toca em transações, BP, listas, contas ou reembolsos.
 
 ### MCP send_message (Lovable)
 - Resposta falha com frequência (transport error) mas a mensagem TIPICAMENTE chega. Verificar via list_messages/get_message antes de reenviar. NUNCA reenviar cegamente (pode duplicar). query_database só ataca Live.

@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +17,16 @@ import { uploadToCompanyBucket } from "@/lib/storage";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AccountantStandaloneInvoicesTab } from "@/pages/contabilidade/AccountantStandaloneInvoicesTab";
 import { DocumentScanStep } from "@/components/DocumentScanStep";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { removeFromCompanyBucket } from "@/lib/storage";
+import {
+  calculateStandaloneEur,
+  isStandaloneInvoiceDuplicateError,
+  parseStandaloneAmount,
+  STANDALONE_INVOICE_CURRENCIES,
+  type StandaloneInvoiceCurrency,
+} from "@/lib/standalone-invoices";
 
 const ACCEPT = `image/*,application/pdf,${HEIC_ACCEPT}`;
 
@@ -38,13 +49,37 @@ export default function StandaloneInvoiceScanner() {
 
   const [supplierName, setSupplierName] = useState("");
   const [supplierNif, setSupplierNif] = useState("");
+  const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState("");
+  const [currency, setCurrency] = useState<StandaloneInvoiceCurrency>("EUR");
+  const [originalAmount, setOriginalAmount] = useState("");
+  const [fxRate, setFxRate] = useState("");
+  const [fxRateSource, setFxRateSource] = useState("");
+  const [paidBy, setPaidBy] = useState(user?.id ?? "none");
   const [total, setTotal] = useState("");
   const [iva, setIva] = useState("");
   const [notes, setNotes] = useState("");
 
   const hasAnyField = () =>
-    [supplierName, supplierNif, invoiceDate, total, iva, notes].some((v) => v.trim() !== "");
+    [supplierName, supplierNif, invoiceNumber, invoiceDate, originalAmount, fxRate, fxRateSource, total, iva, notes].some((v) => v.trim() !== "");
+
+  const { data: companyUsers = [] } = useQuery({
+    queryKey: ["standalone-invoice-company-users", companyId],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data: roles, error: rolesError } = await supabase.from("user_roles").select("user_id").eq("company_id", companyId ?? "");
+      if (rolesError) throw rolesError;
+      const ids = [...new Set((roles ?? []).map((row) => row.user_id))];
+      if (ids.length === 0) return [];
+      const { data: profiles, error } = await supabase.from("profiles").select("id, full_name, email").in("id", ids);
+      if (error) throw error;
+      return profiles ?? [];
+    },
+  });
+
+  useEffect(() => {
+    if (user?.id && paidBy === "none") setPaidBy(user.id);
+  }, [paidBy, user?.id]);
 
   const clearCapture = () => {
     setFile(null);
@@ -59,7 +94,13 @@ export default function StandaloneInvoiceScanner() {
     clearCapture();
     setSupplierName("");
     setSupplierNif("");
+    setInvoiceNumber("");
     setInvoiceDate("");
+    setCurrency("EUR");
+    setOriginalAmount("");
+    setFxRate("");
+    setFxRateSource("");
+    setPaidBy(user?.id ?? "none");
     setTotal("");
     setIva("");
     setNotes("");
@@ -112,6 +153,7 @@ export default function StandaloneInvoiceScanner() {
       if (data?.error) throw new Error(data.error);
       if (data.supplier_name) put(setSupplierName, String(data.supplier_name));
       if (data.supplier_nif) put(setSupplierNif, String(data.supplier_nif));
+      if (data.invoice_number || data.document_number) put(setInvoiceNumber, String(data.invoice_number ?? data.document_number));
       if (data.document_date) put(setInvoiceDate, String(data.document_date));
       if (data.total_amount != null) put(setTotal, String(data.total_amount));
       if (data.iva_amount != null) put(setIva, String(data.iva_amount));
@@ -160,8 +202,20 @@ export default function StandaloneInvoiceScanner() {
 
   const save = async () => {
     if (!file || !companyId) return;
+    if (currency !== "EUR" && (!parseStandaloneAmount(originalAmount) || !parseStandaloneAmount(fxRate))) {
+      toast({ title: "Preenche o valor original e o câmbio", variant: "destructive" });
+      return;
+    }
     setBusy("save");
+    let uploadedPath: string | null = null;
     try {
+      if (supplierNif.trim() && invoiceNumber.trim()) {
+        const { data: duplicate, error: duplicateError } = await (supabase as any).from("standalone_invoices")
+          .select("id").eq("company_id", companyId).eq("supplier_nif", supplierNif.trim())
+          .eq("invoice_number", invoiceNumber.trim()).maybeSingle();
+        if (duplicateError) throw duplicateError;
+        if (duplicate) throw Object.assign(new Error("Já existe uma fatura deste fornecedor com este número."), { code: "DUPLICATE_INVOICE" });
+      }
       const ext = (file.name.match(/\.[^.]+$/)?.[0] ?? ".jpg").toLowerCase();
       const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
       const up = await uploadToCompanyBucket("standalone-invoices", path, file, {
@@ -169,11 +223,7 @@ export default function StandaloneInvoiceScanner() {
         upsert: false,
       });
       if (up.error) throw up.error;
-
-      const num = (v: string) => {
-        const n = Number(v.replace(",", "."));
-        return v.trim() === "" || Number.isNaN(n) ? null : n;
-      };
+      uploadedPath = up.path;
 
       const { error } = await (supabase as any).from("standalone_invoices").insert({
         company_id: companyId,
@@ -181,9 +231,15 @@ export default function StandaloneInvoiceScanner() {
         file_name: file.name,
         supplier_name: supplierName.trim() || null,
         supplier_nif: supplierNif.trim() || null,
+        invoice_number: invoiceNumber.trim() || null,
         invoice_date: invoiceDate || null,
-        total_amount: num(total),
-        iva_amount: num(iva),
+        currency,
+        original_amount: currency === "EUR" ? null : parseStandaloneAmount(originalAmount),
+        fx_rate: currency === "EUR" ? null : parseStandaloneAmount(fxRate),
+        fx_rate_source: currency === "EUR" ? null : fxRateSource.trim() || null,
+        total_amount: parseStandaloneAmount(total),
+        iva_amount: parseStandaloneAmount(iva),
+        paid_by_partner_id: paidBy === "none" ? null : paidBy,
         notes: notes.trim() || null,
         status: "new",
         created_by: user?.id ?? null,
@@ -193,7 +249,9 @@ export default function StandaloneInvoiceScanner() {
       setSaved(true);
       toast({ title: "Fatura guardada", description: "Disponível no portal da contabilidade." });
     } catch (err: any) {
-      toast({ title: "Não foi possível guardar", description: err.message, variant: "destructive" });
+      if (uploadedPath) await removeFromCompanyBucket("standalone-invoices", [uploadedPath]);
+      const duplicate = err?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(err);
+      toast({ title: duplicate ? "Fatura duplicada" : "Não foi possível guardar", description: duplicate ? "Já existe uma fatura deste fornecedor com este número." : err.message, variant: "destructive" });
     } finally {
       setBusy(null);
     }
@@ -330,7 +388,30 @@ export default function StandaloneInvoiceScanner() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label htmlFor="si-total">Total (€)</Label>
+                      <Label htmlFor="si-number">Nº fatura</Label>
+                      <Input id="si-number" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Moeda</Label>
+                      <Select value={currency} onValueChange={(value) => {
+                        const next = value as StandaloneInvoiceCurrency;
+                        setCurrency(next);
+                        if (next === "EUR") { setOriginalAmount(""); setFxRate(""); setFxRateSource(""); }
+                      }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
+                        {STANDALONE_INVOICE_CURRENCIES.map((code) => <SelectItem key={code} value={code}>{code}</SelectItem>)}
+                      </SelectContent></Select>
+                    </div>
+                  </div>
+                  {currency !== "EUR" && <div className="space-y-3 rounded-md border p-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1"><Label htmlFor="si-original">Valor original</Label><Input id="si-original" inputMode="decimal" value={originalAmount} onChange={(e) => { setOriginalAmount(e.target.value); setTotal(calculateStandaloneEur(e.target.value, fxRate)); }} /></div>
+                      <div className="space-y-1"><Label htmlFor="si-fx">Câmbio para EUR</Label><Input id="si-fx" inputMode="decimal" value={fxRate} onChange={(e) => { setFxRate(e.target.value); setTotal(calculateStandaloneEur(originalAmount, e.target.value)); }} /></div>
+                    </div>
+                    <div className="space-y-1"><Label htmlFor="si-fx-source">Fonte do câmbio</Label><Input id="si-fx-source" value={fxRateSource} onChange={(e) => setFxRateSource(e.target.value)} /></div>
+                  </div>}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="si-total">Total (EUR)</Label>
                       <Input id="si-total" inputMode="decimal" value={total} onChange={(e) => setTotal(e.target.value)} />
                     </div>
                     <div className="space-y-1">
@@ -338,6 +419,14 @@ export default function StandaloneInvoiceScanner() {
                       <Input id="si-iva" inputMode="decimal" value={iva} onChange={(e) => setIva(e.target.value)} />
                     </div>
                   </div>
+                  <div className="space-y-1">
+                    <Label>Pago por</Label>
+                    <Select value={paidBy} onValueChange={setPaidBy}><SelectTrigger><SelectValue placeholder="Sem indicação" /></SelectTrigger><SelectContent>
+                      <SelectItem value="none">Sem indicação</SelectItem>
+                      {companyUsers.map((profile) => <SelectItem key={profile.id} value={profile.id}>{profile.full_name || profile.email || "Utilizador"}</SelectItem>)}
+                    </SelectContent></Select>
+                  </div>
+                  {supplierNif.trim() && invoiceNumber.trim() && <Alert><AlertDescription>O sistema confirma NIF + nº de fatura antes de guardar.</AlertDescription></Alert>}
                   <div className="space-y-1">
                     <Label htmlFor="si-notes">Nota (opcional)</Label>
                     <Input id="si-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />

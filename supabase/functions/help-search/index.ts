@@ -1,157 +1,108 @@
-// Pesquisa inteligente no Manual de Orientação.
-// Recebe a dúvida do utilizador + lista compacta de tópicos do manual,
-// e devolve uma resposta orientativa + ids dos tópicos mais relevantes.
-
+import { createClient } from "npm:@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+import { z } from "npm:zod@3.23.8";
 
-interface TopicRef {
-  id: string; // sectionId::topicIndex
-  section: string;
-  title: string;
-  excerpt: string;
+const EMBED_MODEL = "google/gemini-embedding-2";
+const ANSWER_MODEL = "google/gemini-2.5-flash";
+// Calibrado em Live, só por leitura: rateio de hotel 0,7322; rateio de turnê
+// 0,7110; SAF-T 0,6110. Revalidar após sincronizar novos capítulos.
+const MIN_COSINE_SIMILARITY = 0.65;
+const BodySchema = z.object({ question: z.string().trim().min(5).max(1000), route: z.string().trim().max(500).nullable().optional() });
+
+type Chunk = { chunk_id: string; section_anchor: string; section_heading: string; article_slug: string; article_title: string; content: string; score: number };
+type Citation = { n: number; anchor_id: string; article_slug: string; heading: string };
+
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+  status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+});
+
+function gatewayError(status: number) {
+  if (status === 429) return json({ error: "Demasiados pedidos. Tente novamente em instantes." }, 429);
+  if (status === 402) return json({ error: "Créditos AI esgotados. Contacte o administrador." }, 402);
+  return json({ error: "Erro ao consultar a AI." }, status >= 500 ? status : 500);
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "Método não suportado." }, 405);
 
-  try {
-    const { question, topics } = (await req.json()) as {
-      question: string;
-      topics: TopicRef[];
-    };
+  const url = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const aiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!url || !anonKey || !aiKey) return json({ error: "Configuração do servidor incompleta." }, 500);
 
-    if (!question || typeof question !== "string" || question.trim().length < 3) {
-      return new Response(
-        JSON.stringify({ error: "Pergunta demasiado curta." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+  const authHeader = req.headers.get("Authorization") ?? "";
+  if (!authHeader.startsWith("Bearer ")) return json({ error: "Não autenticado." }, 401);
+  const client = createClient(url, anonKey, { global: { headers: { Authorization: authHeader } } });
+  const token = authHeader.replace(/^Bearer\s+/i, "");
+  const { data: claimsData, error: claimsError } = await client.auth.getClaims(token);
+  const userId = typeof claimsData?.claims?.sub === "string" ? claimsData.claims.sub : null;
+  if (claimsError || !userId) return json({ error: "Token inválido." }, 401);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "AI key não configurada." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+  const parsed = BodySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return json({ error: parsed.error.flatten() }, 400);
+  const { question, route } = parsed.data;
 
-    // Construir índice compacto para o modelo
-    const indexText = topics
-      .map((t) => `[${t.id}] (${t.section}) ${t.title} — ${t.excerpt}`)
-      .join("\n");
+  const { data: roles, error: rolesError } = await client.from("user_roles").select("role").eq("user_id", userId);
+  if (rolesError) return json({ error: "Não foi possível determinar o perfil." }, 500);
+  const priority = ["platform_admin", "admin", "manager", "accountant", "marketing_manager", "content_manager", "editor", "producer", "field_producer", "partner", "viewer", "user"];
+  const role = priority.find((candidate) => (roles ?? []).some((row) => row.role === candidate)) ?? "user";
 
-    const systemPrompt = `És um assistente do Manual de Orientação da aplicação MP Gestão Eventos.
-O utilizador descreve um problema ou dúvida em linguagem natural (português europeu).
-A tua tarefa:
-1) Identificar os tópicos mais relevantes do manual (até 5).
-2) Escrever uma orientação curta, prática e amigável (máx. 6 frases) explicando o que fazer, citando os títulos dos tópicos relevantes.
-3) Se a dúvida não tiver correspondência no manual, dizê-lo honestamente e sugerir contactar suporte.
+  const embeddingResponse = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+    method: "POST", headers: { Authorization: `Bearer ${aiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: EMBED_MODEL, input: question }),
+  });
+  if (!embeddingResponse.ok) return gatewayError(embeddingResponse.status);
+  const embeddingData = await embeddingResponse.json();
+  const embedding = embeddingData?.data?.[0]?.embedding;
+  if (!Array.isArray(embedding) || embedding.length !== 3072) return json({ error: "Embedding inválido." }, 500);
 
-Devolve SEMPRE através da função "answer_help".`;
+  const { data: found, error: searchError } = await client.rpc("help_search_chunks", {
+    query_embedding: JSON.stringify(embedding), query_text: question, match_count: 8, user_profile: role,
+  });
+  if (searchError) return json({ error: searchError.message }, 500);
+  const chunks = (found ?? []) as Chunk[];
+  const bestSimilarity = Math.max(0, ...chunks.map((chunk) => Number(chunk.score) || 0));
 
-    const userPrompt = `Dúvida do utilizador:
-"""
-${question.trim()}
-"""
-
-Tópicos disponíveis no manual (id, secção, título, excerto):
-${indexText}`;
-
-    const aiResponse = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          tools: [
-            {
-              type: "function",
-              function: {
-                name: "answer_help",
-                description: "Responde à dúvida com orientação e tópicos relevantes do manual.",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    answer: {
-                      type: "string",
-                      description: "Orientação curta em português europeu (máx. 6 frases).",
-                    },
-                    relevantTopicIds: {
-                      type: "array",
-                      items: { type: "string" },
-                      description: "Lista de até 5 ids de tópicos relevantes, no formato sectionId::topicIndex.",
-                    },
-                    confidence: {
-                      type: "string",
-                      enum: ["alta", "media", "baixa"],
-                      description: "Quão segura é a resposta face ao manual.",
-                    },
-                  },
-                  required: ["answer", "relevantTopicIds", "confidence"],
-                  additionalProperties: false,
-                },
-              },
-            },
-          ],
-          tool_choice: { type: "function", function: { name: "answer_help" } },
-        }),
-      },
-    );
-
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Demasiados pedidos. Tente novamente em instantes." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Créditos AI esgotados. Contacte o administrador." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-      const errText = await aiResponse.text();
-      console.error("AI gateway error:", aiResponse.status, errText);
-      return new Response(
-        JSON.stringify({ error: "Erro ao consultar a AI." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    const aiData = await aiResponse.json();
-    const toolCall = aiData?.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall?.function?.arguments) {
-      return new Response(
-        JSON.stringify({ error: "Resposta AI inválida." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    const parsed = JSON.parse(toolCall.function.arguments);
-
-    return new Response(JSON.stringify(parsed), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+  const record = async (result: { answered: boolean; confidence: "alta" | "media" | "baixa"; citations: Citation[] }) => {
+    const { error } = await client.from("help_questions").insert({
+      question, route: route ?? null, answered: result.answered, confidence: result.confidence,
+      cited_anchor_ids: result.citations.map((citation) => citation.anchor_id), user_id: userId,
     });
-  } catch (e) {
-    console.error("help-search error:", e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    if (error) console.error("[help-search] question log", error);
+  };
+
+  if (chunks.length === 0 || bestSimilarity < MIN_COSINE_SIMILARITY) {
+    const result = { answered: false, answer: "", citations: [] as Citation[], confidence: "baixa" as const };
+    await record(result);
+    return json(result);
   }
+
+  const context = chunks.map((chunk, index) => `[${index + 1}] ${chunk.article_title} › ${chunk.section_heading}\n${chunk.content}`).join("\n\n");
+  const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST", headers: { Authorization: `Bearer ${aiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: ANSWER_MODEL,
+      messages: [
+        { role: "system", content: "Responde em português europeu e apenas com base nos pedaços fornecidos. Sê curto e usa passos quando for um procedimento. Cada frase factual termina com [n], apontando para o pedaço usado. Nunca inventes ecrãs ou botões. Nunca dês números, valores ou montantes: indica onde se consultam no sistema. Se os pedaços não responderem à pergunta, devolve answered=false. Usa sempre a função answer_help." },
+        { role: "user", content: `Pergunta: ${question}\n\nPedaços do manual:\n${context}` },
+      ],
+      tools: [{ type: "function", function: { name: "answer_help", description: "Resposta fundamentada no manual.", parameters: { type: "object", properties: { answered: { type: "boolean" }, answer: { type: "string" }, citation_numbers: { type: "array", items: { type: "integer", minimum: 1, maximum: chunks.length } }, confidence: { type: "string", enum: ["alta", "media", "baixa"] } }, required: ["answered", "answer", "citation_numbers", "confidence"], additionalProperties: false } } }],
+      tool_choice: { type: "function", function: { name: "answer_help" } },
+    }),
+  });
+  if (!aiResponse.ok) return gatewayError(aiResponse.status);
+  const aiData = await aiResponse.json();
+  const args = aiData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+  if (!args) return json({ error: "Resposta AI inválida." }, 500);
+  const answer = JSON.parse(args) as { answered?: boolean; answer?: string; citation_numbers?: number[]; confidence?: "alta" | "media" | "baixa" };
+  const citationNumbers = [...new Set((answer.citation_numbers ?? []).filter((n) => Number.isInteger(n) && n >= 1 && n <= chunks.length))];
+  const citations = citationNumbers.map((n) => ({ n, anchor_id: chunks[n - 1].section_anchor, article_slug: chunks[n - 1].article_slug, heading: chunks[n - 1].section_heading }));
+  const answered = answer.answered === true && Boolean(answer.answer?.trim()) && citations.length > 0;
+  const result = { answered, answer: answered ? answer.answer?.trim() ?? "" : "", citations: answered ? citations : [], confidence: answered ? answer.confidence ?? "media" : "baixa" as const };
+  await record(result);
+  return json(result);
 });
