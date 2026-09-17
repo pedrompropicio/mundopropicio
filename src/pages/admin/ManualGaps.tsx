@@ -15,7 +15,7 @@ import QueryErrorState from "@/components/QueryErrorState";
 import { toast } from "sonner";
 
 type Status = "aberta" | "coberta" | "ignorada";
-type Question = { id: string; question: string; route: string | null; created_at: string; status: Status; confidence: string | null };
+type Question = { id: string; question: string; route: string | null; created_at: string; status: Status; confidence: string | null; max_cosine: number | null; lexical_hits: number | null };
 
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
 
