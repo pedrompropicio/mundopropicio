@@ -1,8 +1,12 @@
 // ingest-standalone-invoice — ingestão externa de faturas avulsas (#191–#193).
 // Regra absoluta: esta função escreve apenas em standalone_invoices e no bucket homónimo.
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { z } from 'npm:zod@3.23.8'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
 const BUCKET = 'standalone-invoices'
 const MAX_BYTES = 20 * 1024 * 1024
