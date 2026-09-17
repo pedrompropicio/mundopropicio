@@ -12407,11 +12407,17 @@ export type Database = {
           company_id: string
           created_at: string
           created_by: string | null
+          currency: string
           file_name: string
+          fx_rate: number | null
+          fx_rate_source: string | null
           id: string
           invoice_date: string | null
+          invoice_number: string | null
           iva_amount: number | null
           notes: string | null
+          original_amount: number | null
+          paid_by_partner_id: string | null
           processed_at: string | null
           processed_by: string | null
           status: string
@@ -12425,11 +12431,17 @@ export type Database = {
           company_id?: string
           created_at?: string
           created_by?: string | null
+          currency?: string
           file_name: string
+          fx_rate?: number | null
+          fx_rate_source?: string | null
           id?: string
           invoice_date?: string | null
+          invoice_number?: string | null
           iva_amount?: number | null
           notes?: string | null
+          original_amount?: number | null
+          paid_by_partner_id?: string | null
           processed_at?: string | null
           processed_by?: string | null
           status?: string
@@ -12443,11 +12455,17 @@ export type Database = {
           company_id?: string
           created_at?: string
           created_by?: string | null
+          currency?: string
           file_name?: string
+          fx_rate?: number | null
+          fx_rate_source?: string | null
           id?: string
           invoice_date?: string | null
+          invoice_number?: string | null
           iva_amount?: number | null
           notes?: string | null
+          original_amount?: number | null
+          paid_by_partner_id?: string | null
           processed_at?: string | null
           processed_by?: string | null
           status?: string
