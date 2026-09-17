@@ -111,7 +111,15 @@ Atualizado: 2026-09-17 (fecho). Issues abertas da frente: #91, #125, #127, #134,
 
 ## A trabalhar agora
 
-Nada em execução.
+**Conta corrente do sócio — encontro de contas contabilístico (#193).**
+Não é um acerto financeiro: é o medidor do que, a 31/12, fica exposto a
+enquadramento como distribuição de lucros. A cobertura tem três vias —
+vencimento, ajuda de custo por km e faturas no NIF da empresa. Estado:
+cobertura 80.830,05 € (54.238,78 de folha jan–ago + 26.591,27 de 63
+faturas avulsas) contra retiradas identificadas de 62.010,00 €
+(16.000 lançados + 38.000 do extrato jun–ago + 8.010 de levantamento a
+28/08). **Faltam as retiradas de janeiro a maio** — o Pedro vai buscar
+os extratos. Até lá a folga é provisória e só pode encolher.
 
 ## Próximo passo concreto
 
