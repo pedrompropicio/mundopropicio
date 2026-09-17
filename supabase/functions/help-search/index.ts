@@ -68,7 +68,11 @@ Deno.serve(async (req) => {
   const { data: roles, error: rolesError } = await client.from("user_roles").select("role").eq("user_id", userId);
   if (rolesError) return json({ error: "Não foi possível determinar o perfil." }, 500);
   const priority = ["platform_admin", "admin", "manager", "accountant", "marketing_manager", "content_manager", "editor", "producer", "field_producer", "partner", "viewer", "user"];
-  const role = priority.find((candidate) => (roles ?? []).some((row) => row.role === candidate)) ?? "user";
+  const topRole = priority.find((candidate) => (roles ?? []).some((row) => row.role === candidate)) ?? "user";
+  // As secções do manual são marcadas com perfis do tipo "admin|manager|editor":
+  // platform_admin não consta dessas listas, pelo que tem de ser lido como
+  // admin — de outro modo a pesquisa devolvia zero pedaços a quem tem tudo.
+  const role = topRole === "platform_admin" ? "admin" : topRole;
 
   let embeddingResponse: Response;
   try {
