@@ -292,6 +292,8 @@ export default function FinancialAccounts() {
         <TabsList>
           <TabsTrigger value="accounts">Contas</TabsTrigger>
           <TabsTrigger value="operations">Operações Financeiras</TabsTrigger>
+          {/* #193 — só quem vê confidenciais: sem a permissão a aba não existe (D-ERP36). */}
+          {canSeeConfidential && <TabsTrigger value="partner">Conta Corrente do Sócio</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="accounts" className="space-y-6">
