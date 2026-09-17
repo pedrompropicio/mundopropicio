@@ -37,18 +37,26 @@ export default function HelpAskBox({ route, onOpenCitation, compact = false, sho
   compact?: boolean;
   showLegacyNote?: boolean;
 }) {
+  const { isAdmin } = useAuth();
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [unavailable, setUnavailable] = useState<string | null>(null);
   const [result, setResult] = useState<HelpAnswer | null>(null);
 
   const submit = async () => {
     if (question.trim().length < 5) return;
-    setLoading(true); setError(null); setResult(null);
+    setLoading(true); setError(null); setUnavailable(null); setResult(null);
     try {
       const { data, error: invokeError } = await supabase.functions.invoke("help-search", { body: { question: question.trim(), route } });
       if (invokeError) throw invokeError;
-      if (data?.error) throw new Error(data.error);
+      // A função devolve 200 com error='search_unavailable' quando a pesquisa
+      // ou o gateway AI falham: mostramos aviso e o detalhe só a admin.
+      if (data?.error === "search_unavailable") {
+        setUnavailable(typeof data.detail === "string" ? data.detail : "sem detalhe");
+        return;
+      }
+      if (data?.error) throw new Error(typeof data.error === "string" ? data.error : JSON.stringify(data.error));
       setResult(data as HelpAnswer);
     } catch (caught) {
       setError(caught);
