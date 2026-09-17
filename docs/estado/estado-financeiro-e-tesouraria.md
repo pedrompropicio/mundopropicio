@@ -214,6 +214,16 @@ Não corrigir sem decisão explícita.
 
 **Os seis lançamentos de hotel do Deive Leonardo (Vila Galé FT 132026/33986 e Meliã PROFORMA 194/2026) têm grupo de fatura e documento anexo desde 16/09 — não voltar a anexar.**
 
+**Os mapas de vencimento da Expert Numbers chegam à conta
+pedroneto@socialmusic.com.br, não à mundopropicio.com.** Cinco anexos por
+mês (FF, MV, RET, RV, SS); o **MV é acumulado do ano** e é o único que
+é preciso abrir. Há meses com retificação — vale sempre o último envio.
+
+**A ajuda de custo por quilómetros é a rubrica "Quilómetros" na folha e
+representa 85% do que o sócio recebe** (46.670,48 € contra 7.360,00 € de
+vencimento, jan–ago 2026). É o valor que sustenta quase toda a
+justificação da conta corrente e o mais exposto numa inspeção.
+
 ## Página de Contas: três dinheiros, três cartões (09/09/2026, D-ERP27)
 
 **SALDO TOTAL é caixa, e só caixa.** Soma apenas `bank`, `cash` e `prepaid_card` com controlo de saldo. Debaixo do valor nomeiam-se as contas de caixa que ficaram fora por `skip_balance_check` — hoje a Conta Pagamento Brasil e a Eventos Históricos. Antes somava tudo e dava −1.994.414,66 €.
