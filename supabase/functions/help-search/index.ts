@@ -114,7 +114,9 @@ Deno.serve(async (req) => {
       return `[${index + 1}] ${chunk.article_title} › ${chunk.section_heading}${vocab}\n${chunk.content}`;
     })
     .join("\n\n");
-  const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  let aiResponse: Response;
+  try {
+    aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST", headers: { Authorization: `Bearer ${aiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: ANSWER_MODEL,
