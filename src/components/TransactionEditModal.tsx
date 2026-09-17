@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { MANUAL_TRANSITORY_REASON_OPTIONS, type TransitoryReason } from "@/lib/transitory-reason";
 import { useEventHouseLabel } from "@/hooks/useEventHouseLabel";
 import type { IvaRate } from "@/lib/mock-data";
 import IvaRateSelect from "@/components/IvaRateSelect";
@@ -88,6 +89,8 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     payment_date: transaction.payment_date ?? "",
     specification: transaction.specification ?? "",
     is_transitory: transaction.is_transitory ?? false,
+    // D-ERP80: a transitória diz porquê.
+    transitory_reason: (((transaction as any).transitory_reason ?? "") as TransitoryReason | ""),
     is_confidential: (transaction as any).is_confidential ?? false,
     exclude_from_result: transaction.exclude_from_result ?? false,
     // Custo partilhado com terceiros (D-ERP69)
@@ -511,6 +514,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         event_id: "Evento", category_id: "Categoria", supplier_id: "Fornecedor",
         account_id: "Conta", specification: "Especificação", date: "Data", due_date: "Data Vencimento", payment_date: "Data Pagamento",
         is_transitory: "Transitória",
+        transitory_reason: "Motivo da transitória",
         exclude_from_result: "Fora do Resultado",
         shared_cost_account_id: "Conta de circuito (custo partilhado)",
         shared_cost_counterparty_id: "Terceiro do custo partilhado",
@@ -587,10 +591,16 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
 
 
 
+      // D-ERP80: transitória sem motivo não se grava.
+      if (form.is_transitory && !form.transitory_reason) {
+        throw new Error("Escolhe o motivo da transitória.");
+      }
+
       const updates = paidLocked ? {
         supplier_id: form.supplier_id || null,
         specification: form.specification || null,
         is_transitory: form.is_transitory,
+        transitory_reason: form.is_transitory ? form.transitory_reason : null,
         is_confidential: form.is_confidential,
         exclude_from_result: form.exclude_from_result || !!form.shared_cost_account_id,
         shared_cost_account_id: form.shared_cost_account_id || null,
@@ -622,6 +632,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           ? { payment_date: partnerPaidDate || form.date }
           : (canApprove && isPaid ? { payment_date: form.payment_date || null } : {})),
         is_transitory: form.is_transitory,
+        transitory_reason: form.is_transitory ? form.transitory_reason : null,
         is_confidential: form.is_confidential,
         exclude_from_result: form.exclude_from_result || !!form.shared_cost_account_id,
         shared_cost_account_id: form.shared_cost_account_id || null,
@@ -2135,6 +2146,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                             paid_amount: fullyPaid ? siblingGross : 0,
                             payment_date: fullyPaid ? (transaction.payment_date ?? transaction.date) : null,
                             is_transitory: true,
+                            transitory_reason: "partner_advance",
                             exclude_from_result: false,
                             currency: transaction.currency ?? "EUR",
                           } as any)
@@ -2186,7 +2198,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                         // O extra é custo do sócio: nunca consome verba do BP → limpa o vínculo.
                         await supabase
                           .from("transactions")
-                          .update({ is_transitory: true, exclude_from_result: false, forecast_id: null })
+                          .update({ is_transitory: true, transitory_reason: "partner_advance", exclude_from_result: false, forecast_id: null })
                           .eq("id", transaction.id);
                         toast({ title: "Convertido em Extra do Sócio" });
                         if (orphanLine) {
@@ -2441,7 +2453,12 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           <div className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 p-3">
             <Switch
               checked={form.is_transitory}
-              onCheckedChange={(v) => setForm({ ...form, is_transitory: v, ...(v ? { exclude_from_result: false } : {}) })}
+              onCheckedChange={(v) => setForm({
+                ...form,
+                is_transitory: v,
+                transitory_reason: v ? form.transitory_reason : "",
+                ...(v ? { exclude_from_result: false } : {}),
+              })}
             />
             <div className="flex items-center gap-1.5">
               <span className="text-sm font-medium">🔄 Transitória</span>
@@ -2449,6 +2466,29 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
             </div>
             <span className="ml-auto text-xs text-muted-foreground">Sem impacto no resultado</span>
           </div>
+          )}
+
+          {/* D-ERP80 — motivo obrigatório da transitória */}
+          {(canApprove || isManager) && form.is_transitory && (
+            <div className="rounded-lg border border-border bg-secondary/30 p-3">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Motivo da transitória *</label>
+              <select
+                value={form.transitory_reason}
+                onChange={(e) => setForm({ ...form, transitory_reason: e.target.value as TransitoryReason | "" })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="">Escolher motivo…</option>
+                {MANUAL_TRANSITORY_REASON_OPTIONS.map((op) => (
+                  <option key={op.value} value={op.value}>{op.label}</option>
+                ))}
+                {form.transitory_reason === "partner_advance" && (
+                  <option value="partner_advance">Extra do Sócio</option>
+                )}
+              </select>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Sem motivo não se grava. O Extra do Sócio só nasce pelo bloco de conversão próprio.
+              </p>
+            </div>
           )}
 
           {/* Confidencial — só a quem tem a permissão de ver confidenciais.
