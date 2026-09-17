@@ -56,6 +56,12 @@ Cada bloco ```ajuda pode ter `termos: [...]` — vocabulário da equipa (sinóni
 
 As fontes internas (D-ERP…, PROC-…, ficheiros de memória) só aparecem a admin / platform_admin, num bloco "Fontes" recolhido no fim do artigo e de cada secção. O painel lateral abre por cima de qualquer modal (camada única em `src/lib/help-panel-dom.ts`) e um clique dentro dele nunca fecha o modal por baixo.
 
+**Regra (17/09/2026): uma tarefa com migração só está feita quando a migração está aplicada e verificada em Live — ficheiro no repositório não basta.** As migrações do manual (`20260917010000_help_search_hybrid.sql` e a dos termos, `help_sections.terms`) ficaram no repositório sem serem aplicadas e a pesquisa devolvia erro não-2xx no `/ajuda`. Verificar sempre em Live a existência da função/coluna e os `has_function_privilege` de anon/authenticated/service_role.
+
+Se a pesquisa ou o gateway AI falharem, `help-search` devolve 200 com `{ error: 'search_unavailable', detail }` e registra a mensagem real no console da função; a UI mostra "A pesquisa está indisponível" e o detalhe só a admin — nunca um 500 opaco.
+
+Diagramas de decisão: árvore em escada (perguntas com contorno primário à esquerda, resultado final à direita, rótulo Sim/Não junto à seta) e **nenhuma seta sai de um resultado final**.
+
 ## Módulo Carreira Artística (empresa Social Artists)
 
 Não é uma frente com `estado-*.md` próprio: vive em `plataforma-e-infra`. Antes de mexer,
