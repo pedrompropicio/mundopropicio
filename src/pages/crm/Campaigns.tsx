@@ -837,6 +837,43 @@ export default function CrmCampaigns() {
     <BudgetModeContext.Provider value={budgetModeByCampaign}>
     <DashboardTableContext.Provider value={tableCtx}>
     <div className="space-y-5">
+      {/* Issue #36 — ligação Meta em falha: banner persistente, não dispensável */}
+      {showConnectionBanner && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="text-sm">
+              <p className="font-medium text-destructive">
+                Ligação Meta {CONNECTION_STATUS_LABEL[health!.status] ?? health!.status} — dados parados
+                {metaLastSuccess
+                  ? ` desde ${format(metaLastSuccess, "dd/MM/yyyy HH:mm")}`
+                  : " (sem sincronização com sucesso registada)"}
+                .
+              </p>
+              {canSeeError && health!.last_error && (
+                <p className="mt-1 text-xs text-muted-foreground break-words">{health!.last_error}</p>
+              )}
+            </div>
+            <Button variant="destructive" size="sm" onClick={() => navigate("/audience/connections")}>
+              Reconectar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Issue #36 — token a expirar dentro de 7 dias */}
+      {showExpiryWarning && (
+        <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning-foreground">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <p>
+              O token da Meta expira a {format(parseISO(health!.expires_at!), "dd/MM/yyyy")} — reconectar antes disso.
+            </p>
+            <Button variant="outline" size="sm" onClick={() => navigate("/audience/connections")}>
+              Reconectar
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Sticky header */}
       <div className="sticky top-16 z-30 -mx-6 px-6 py-4 bg-background/95 backdrop-blur border-b border-border">
         <div className="flex items-start justify-between gap-4 flex-wrap">
