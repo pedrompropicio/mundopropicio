@@ -230,7 +230,7 @@ export default function SepaExportModal({
 
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/60 p-2 sm:p-4 overflow-y-auto" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/60 p-2 sm:p-4 overflow-y-auto" onClick={(e) => { if (isInsideHelpPanel(e.target)) return; onClose(); }}>
       <div className="glass w-full sm:max-w-5xl rounded-xl p-4 sm:p-6 my-4" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">

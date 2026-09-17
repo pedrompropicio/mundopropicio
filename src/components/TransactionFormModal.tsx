@@ -4392,7 +4392,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
         {/* Split disambiguation dialog */}
         {showSplitDisambiguation && disambiguationForecast && createPortal(
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={() => setShowSplitDisambiguation(false)}>
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={(e) => { if (isInsideHelpPanel(e.target)) return; setShowSplitDisambiguation(false); }}>
             <div className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl space-y-4" onClick={e => e.stopPropagation()}>
               <div className="space-y-1">
                 <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
