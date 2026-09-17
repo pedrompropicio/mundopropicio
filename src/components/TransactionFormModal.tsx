@@ -5,6 +5,7 @@ import { isInsideHelpPanel } from "@/lib/help-panel-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { MANUAL_TRANSITORY_REASON_OPTIONS, type TransitoryReason } from "@/lib/transitory-reason";
 import { useEventHouseLabel } from "@/hooks/useEventHouseLabel";
 import type { IvaRate } from "@/lib/mock-data";
 import IvaRateSelect from "@/components/IvaRateSelect";
@@ -209,6 +210,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   // ligadas pelo mesmo invoice_group_id. A irmã vincula-se a partner_advance_expenses.
   const [partnerExtraPartialAmount, setPartnerExtraPartialAmount] = useState("");
   const [isTransitory, setIsTransitory] = useState(false);
+  // D-ERP80: a transitória diz porquê. Obrigatório quando marcada à mão.
+  const [transitoryReason, setTransitoryReason] = useState<TransitoryReason | "">("");
   const [isExcludeFromResult, setIsExcludeFromResult] = useState(false);
   // Custo partilhado com terceiros (D-ERP69). A imposição de exclude_from_result
   // é do trigger `force_exclude_from_result_for_shared_cost` — aqui só se reflecte.
@@ -1347,6 +1350,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       if (effectiveAutoMarkPaid && !data.account_id) {
         throw new Error("Uma transação criada como paga exige conta financeira associada.");
       }
+      // D-ERP80: transitória sem motivo não se grava.
+      if (isTransitory && !transitoryReason) {
+        throw new Error("Escolhe o motivo da transitória.");
+      }
+      const transitoryReasonValue: string | null = isTransitory
+        ? transitoryReason
+        : (isPartnerExtra ? "partner_advance" : null);
       let createdTxId: string | null = null;
 
       // Cauções/Transitórias NUNCA são rateadas entre sub-eventos: ficam sempre
@@ -1408,6 +1418,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             split_amount: isAbsoluteMode ? childAmount : null,
             parent_transaction_id: "", // placeholder, set after parent insert
             is_transitory: isTransitory || isPartnerExtra,
+            transitory_reason: transitoryReasonValue,
             exclude_from_result: isExcludeFromResult || !!sharedCostAccountId,
             shared_cost_account_id: sharedCostAccountId || null,
             shared_cost_counterparty_id: sharedCostAccountId ? (sharedCostCounterpartyId || null) : null,
@@ -1453,6 +1464,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
            parent_transaction_id: null,
            split_mode: isAbsoluteMode ? "absolute" : "percentage",
            is_transitory: isTransitory || isPartnerExtra,
+          transitory_reason: transitoryReasonValue,
           exclude_from_result: isExcludeFromResult || !!sharedCostAccountId,
           shared_cost_account_id: sharedCostAccountId || null,
           shared_cost_counterparty_id: sharedCostAccountId ? (sharedCostCounterpartyId || null) : null,
@@ -1631,6 +1643,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           is_reimbursement: data.is_reimbursement,
           reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
           is_transitory: principalIsTransitory,
+          transitory_reason: principalIsTransitory
+            ? (isTransitory ? transitoryReason : "partner_advance")
+            : null,
           // Com desdobramento esta é a PERNA DA MP: despesa normal, dentro do resultado,
           // a consumir verba do BP. A conta de circuito vive só na perna de terceiros.
           exclude_from_result: lineSplitActive ? isExcludeFromResult : (isExcludeFromResult || !!sharedCostAccountId),
@@ -1851,6 +1866,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               payment_date: null,
               is_reimbursement: false,
               is_transitory: principalIsTransitory,
+              transitory_reason: principalIsTransitory
+                ? (isTransitory ? transitoryReason : "partner_advance")
+                : null,
               exclude_from_result: isExcludeFromResult || !!sharedCostAccountId,
               shared_cost_account_id: sharedCostAccountId || null,
               shared_cost_counterparty_id: sharedCostAccountId ? (sharedCostCounterpartyId || null) : null,
@@ -1949,6 +1967,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 paid_amount: partnerPaidAmount > 0 ? partnerExtraPartialNum : 0,
                 payment_date: partnerPaidAmount > 0 ? (partnerPaymentDate ?? data.date) : null,
                 is_transitory: true,
+                transitory_reason: "partner_advance",
                 exclude_from_result: false,
                 invoice_ref: data.invoice_ref.trim() || null,
                 invoice_group_id: sharedInvoiceGroupId,
@@ -3910,6 +3929,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     setCautionShortcut(next);
                     if (next) {
                       setIsTransitory(true);
+                      setTransitoryReason("caucao");
                       setIsExcludeFromResult(false);
                       setCautionPayer("__mp__");
                       // limpa estado de "Pago por Sócio" — será reativado se selecionar sócio
@@ -3917,6 +3937,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
                     } else {
                       setIsTransitory(false);
+                      setTransitoryReason("");
                       setCautionPayer("");
 
 
@@ -3989,6 +4010,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                       setPartnerExtraId("");
                       setPartnerExtraPartialAmount("");
                       setIsTransitory(false);
+                      setTransitoryReason("");
                       setIsExcludeFromResult(false);
                       setSharedCostAccountId("");
                       setSharedCostCounterpartyId("");
@@ -4017,6 +4039,22 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     Credita automaticamente Mundo Propício no acerto societário. Se a caução foi desembolsada por
                     um sócio, liquide a despesa no modal de pagamento escolhendo “Pago pelo Sócio”.
                   </p>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Motivo *</label>
+                    <select
+                      value={transitoryReason}
+                      onChange={(e) => setTransitoryReason(e.target.value as TransitoryReason | "")}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      <option value="">Escolher motivo…</option>
+                      {MANUAL_TRANSITORY_REASON_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      Sem motivo a transitória não se grava. O Extra do Sócio tem o seu próprio botão.
+                    </p>
+                  </div>
                 </div>
               )}
               {form.is_reimbursement && (

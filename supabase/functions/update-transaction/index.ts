@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
 
       if (!canApproveTx) {
         const paidAllowedFields = [
-          "specification", "supplier_id", "is_transitory", "is_confidential",
+          "specification", "supplier_id", "is_transitory", "transitory_reason", "is_confidential",
           "exclude_from_result", "invoice_ref", "payment_method", "payment_entity",
           "payment_reference", "operation_key", "ordering_partner_id", "paying_partner_id",
           "event_settlement_id", "held_by_supplier_id", "category_id",
@@ -306,7 +306,7 @@ Deno.serve(async (req) => {
     const allowedFields = [
       "description", "amount", "iva_rate", "event_id", "category_id", "forecast_id",
       "supplier_id", "account_id", "specification", "date", "due_date",
-      "payment_date", "is_transitory", "exclude_from_result", "split_mode",
+      "payment_date", "is_transitory", "transitory_reason", "exclude_from_result", "split_mode",
       "invoice_ref", "payment_method", "payment_entity", "payment_reference",
       "operation_key",
       "declared_withholding_rate", "declared_withholding_amount",
@@ -357,7 +357,8 @@ Deno.serve(async (req) => {
       "Evento": "event_id", "Categoria": "category_id", "Fornecedor": "supplier_id",
       "Conta": "account_id", "Especificação": "specification", "Data": "date",
       "Data Vencimento": "due_date", "Data Pagamento": "payment_date",
-      "Transitória": "is_transitory", "Fora do Resultado": "exclude_from_result",
+      "Transitória": "is_transitory", "Motivo da transitória": "transitory_reason",
+      "Fora do Resultado": "exclude_from_result",
       "Nº Fatura": "invoice_ref", "Método Pagamento": "payment_method",
       "Entidade Pagamento": "payment_entity", "Referência Pagamento": "payment_reference",
       "Chave de operação": "operation_key",
@@ -447,7 +448,7 @@ Deno.serve(async (req) => {
       const installmentSharedFields = [
         "category_id", "supplier_id", "event_id", "specification",
         "invoice_ref", "payment_method", "payment_entity", "payment_reference",
-        "is_transitory", "exclude_from_result",
+        "is_transitory", "transitory_reason", "exclude_from_result",
       ];
 
       // If explicit child adjustments were sent (from edit modal), use those

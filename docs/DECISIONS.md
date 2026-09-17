@@ -2378,6 +2378,19 @@ Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a 
 
 **Primeiro capítulo:** `docs/manual/rateios.md` — 7 secções, 6 diagramas, testado em Live a 17/09 com "rateio dayoff", "rateio day off", "hotel da folga com o promotor de outra cidade" (citam `rateios.terceiros`), "tráfego pago de uma turnê igual pelas cidades" (cita `rateios.master`) e "como exporto o SAF-T?" (não encontrado).
 
+## D-ERP80 — A transitória diz porquê (17/09/2026)
+
+**Contexto:** `transactions.is_transitory` era um booleano sem motivo. O motivo é conhecido no momento em que se marca e era deitado fora: a invariante do Extra do Sócio tinha de adivinhar pela descrição, e a rubrica não serve (diz que despesa é, não porque é transitória).
+
+**Decisão:** `transactions.transitory_reason` com lista fechada de sete motivos — `partner_advance`, `repasse`, `caucao`, `emprestimo_socio`, `carga_cartao`, `aporte_socio`, `entrada_a_repassar`. Toda a transitória tem de ter motivo (`transactions_transitory_reason_required`, validada em Live). Os caminhos automáticos gravam-no sozinhos (ramo do capital 10.1.*, par da carga de cartão 10.3, lançamento a partir do banco, conversão em Extra do Sócio); o interruptor manual dos modais mostra um selector obrigatório sem "Extra do Sócio", que só nasce pela conversão própria. Quando deixa de ser transitória, o motivo limpa-se.
+
+**Alternativas rejeitadas:** inferir pela rubrica (a rubrica é a natureza da despesa, não o motivo da transitoriedade); manter a adivinhação pela descrição (frágil e silenciosa); campo de texto livre (não se agrupa nem se vigia).
+
+**Consequência:** a invariante `transitoria_partner_advance_sem_linha` (error, referência 0) passa a ser exacta. Backfill de 17/09: 41 transitórias, 286.443,12 €, zero sem motivo.
+
+**Detalhe:** `.lovable/memory/features/transitory-reason.md`.
+
+
 **Estado:** vigente.
 
 ### D2 — Base única Live (jun/2026)
