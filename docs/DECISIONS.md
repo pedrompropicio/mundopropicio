@@ -2388,6 +2388,8 @@ Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a 
 
 **Consequência:** a invariante `transitoria_partner_advance_sem_linha` (error, referência 0) passa a ser exacta. Backfill de 17/09: 41 transitórias, 286.443,12 €, zero sem motivo.
 
+**Testado em Live a 17/09/2026** com dados isolados `[TESTE-TRANSITORIA]`, apagados no fim (base de volta a 41 transitórias e 286.443,12 €): interruptor manual recusa gravar sem motivo e limpa-o ao desligar; lançamento a partir do banco grava `entrada_a_repassar`/`repasse`; conversão em Extra do Sócio (total e parcial) grava `partner_advance` com linha em `partner_advance_expenses`; a invariante acusou 1 com o defeito forçado e voltou a 0; carga de cartão (duas pernas), 10.1.01 e 10.1.04 recebem o motivo sozinhos. Nenhuma correção de código foi necessária.
+
 **Detalhe:** `.lovable/memory/features/transitory-reason.md`.
 
 
