@@ -1306,6 +1306,39 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   }, []);
 
   /**
+   * Lotes SEPA já exportados nesta lista (issue #200). O dado já existe:
+   * `payment_list_sepa_exports.transaction_ids[]` guarda os ids EXATOS que
+   * entraram em cada ficheiro. Serve para (a) o selo "No ficheiro SEPA de DD/MM"
+   * e (b) esconder "Marcar como Pago" no que já saiu no ficheiro.
+   */
+  const { data: sepaExports = [] } = useQuery({
+    queryKey: ["payment_list_sepa_exports", listId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payment_list_sepa_exports")
+        .select("*")
+        .eq("payment_list_id", listId);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  /** txId → exportação mais recente que o levou. */
+  const sepaExportByTxId = useMemo(() => {
+    const map: Record<string, { exported_at: string; msg_id: string | null; file_name: string | null }> = {};
+    const sorted = [...(sepaExports as any[])].sort(
+      (a, b) => new Date(a.exported_at ?? 0).getTime() - new Date(b.exported_at ?? 0).getTime(),
+    );
+    for (const exp of sorted) {
+      for (const txId of (exp.transaction_ids ?? []) as string[]) {
+        map[String(txId)] = { exported_at: exp.exported_at, msg_id: exp.msg_id ?? null, file_name: exp.file_name ?? null };
+      }
+    }
+    return map;
+  }, [sepaExports]);
+
+
+  /**
    * "Marcar como pago" manual de um item da lista — ESTRITAMENTE VISUAL.
    *
    * Grava apenas `payment_list_items.manually_marked_paid` (toggle). NÃO toca na
