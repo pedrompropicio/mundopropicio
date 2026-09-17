@@ -6,6 +6,10 @@
 // matching crm.meta_{level}_insights_daily table.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import {
+  reportMetaSyncFailure,
+  reportMetaSyncSuccess,
+} from "../_shared/meta-connection-health.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -262,6 +266,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const perLevel: Record<string, { fetched: number; persisted: number; error?: string }> = {};
   let totalRows = 0;
+  // Issue #36: saúde da ligação. Só marcamos sucesso se nenhum nível falhou.
+  let levelErrors = 0;
+  let levelsOk = 0;
 
   for (const level of levels) {
     try {
@@ -291,6 +298,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
             level: `insights_${level}`,
             last_error: upErr.message, last_error_at: new Date().toISOString(),
           }, { onConflict: "company_id,connection_id,ad_account_id,level" });
+          levelErrors++;
+          await reportMetaSyncFailure(connectionId, `insights_${level}`, { thrown: upErr.message });
           continue;
         }
         persisted = rows.length;
@@ -311,6 +320,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       await supabase.schema("crm").from("meta_sync_state").upsert(stateUpd, {
         onConflict: "company_id,connection_id,ad_account_id,level",
       });
+      levelsOk++;
     } catch (e) {
       console.error(`[crm-meta-sync-insights] level=${level} threw:`, e);
       perLevel[level] = { fetched: 0, persisted: 0, error: String(e) };
@@ -319,7 +329,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
         level: `insights_${level}`,
         last_error: String(e), last_error_at: new Date().toISOString(),
       }, { onConflict: "company_id,connection_id,ad_account_id,level" });
+      levelErrors++;
+      await reportMetaSyncFailure(connectionId, `insights_${level}`, { thrown: e });
     }
+  }
+
+  if (levelErrors === 0 && levelsOk > 0) {
+    await reportMetaSyncSuccess(connectionId, "insights");
   }
 
   return json({

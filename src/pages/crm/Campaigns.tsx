@@ -36,6 +36,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/hooks/useCompany";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
 import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
+import {
+  useMetaConnectionHealth,
+  daysUntilExpiry,
+  CONNECTION_STATUS_LABEL,
+  EXPIRY_WARNING_DAYS,
+} from "@/hooks/useMetaConnectionHealth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -645,6 +651,27 @@ export default function CrmCampaigns() {
     return set.size;
   }, [campaigns]);
 
+  // ---------- Issue #36: saúde da ligação Meta ----------
+  const { data: health } = useMetaConnectionHealth(connectionId);
+  const metaFreshness = freshness[0];
+  const canSeeError = role === "admin" || role === ("platform_admin" as any);
+
+  const metaLastSuccess = useMemo(() => {
+    const latest = (metaInsights ?? [])
+      .map((i) => i.last_synced_at)
+      .filter(Boolean)
+      .sort()
+      .pop() ?? health?.last_validated_at ?? null;
+    return latest ? parseISO(latest) : null;
+  }, [metaInsights, health?.last_validated_at]);
+
+  const connectionOk = !health || health.status === "active";
+  const isLive = connectionOk && !metaFreshness.stale && metaFreshness.label !== "sem dados";
+  const showConnectionBanner = !!health && (health.status !== "active" || !!health.last_error);
+  const expiryDays = daysUntilExpiry(health?.expires_at);
+  const showExpiryWarning =
+    connectionOk && expiryDays != null && expiryDays >= 0 && expiryDays <= EXPIRY_WARNING_DAYS;
+
   // ---------- Sync ----------
   const handleSync = async (mode: "incremental" | "full" = "incremental") => {
     if (!connectionId || !adAccountId) {
@@ -810,19 +837,64 @@ export default function CrmCampaigns() {
     <BudgetModeContext.Provider value={budgetModeByCampaign}>
     <DashboardTableContext.Provider value={tableCtx}>
     <div className="space-y-5">
+      {/* Issue #36 — ligação Meta em falha: banner persistente, não dispensável */}
+      {showConnectionBanner && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="text-sm">
+              <p className="font-medium text-destructive">
+                Ligação Meta {CONNECTION_STATUS_LABEL[health!.status] ?? health!.status} — dados parados
+                {metaLastSuccess
+                  ? ` desde ${format(metaLastSuccess, "dd/MM/yyyy HH:mm")}`
+                  : " (sem sincronização com sucesso registada)"}
+                .
+              </p>
+              {canSeeError && health!.last_error && (
+                <p className="mt-1 text-xs text-muted-foreground break-words">{health!.last_error}</p>
+              )}
+            </div>
+            <Button variant="destructive" size="sm" onClick={() => navigate("/audience/connections")}>
+              Reconectar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Issue #36 — token a expirar dentro de 7 dias */}
+      {showExpiryWarning && (
+        <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <p>
+              O token da Meta expira a {format(parseISO(health!.expires_at!), "dd/MM/yyyy")} — reconectar antes disso.
+            </p>
+            <Button variant="outline" size="sm" onClick={() => navigate("/audience/connections")}>
+              Reconectar
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Sticky header */}
       <div className="sticky top-16 z-30 -mx-6 px-6 py-4 bg-background/95 backdrop-blur border-b border-border">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold tracking-tight">Tráfego Pago</h1>
-              <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-500">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              {/* Issue #36: "Live" só com ligação activa e insights com menos de 48h */}
+              {isLive ? (
+                <span className="flex items-center gap-1.5 text-xs font-medium text-success">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+                  </span>
+                  Live
                 </span>
-                Live
-              </span>
+              ) : (
+                <span className="flex items-center gap-1.5 text-xs font-medium text-warning">
+                  <span aria-hidden className="inline-flex h-2 w-2 rounded-full bg-warning" />
+                  {connectionOk ? "Dados parados" : "Ligação com problema"}
+                </span>
+              )}
               <span className="text-xs text-muted-foreground tabular-nums">
                 Atualizado há {secondsAgo}s
               </span>
