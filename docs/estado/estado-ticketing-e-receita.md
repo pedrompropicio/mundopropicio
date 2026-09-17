@@ -27,7 +27,7 @@ Atualizado: 2026-09-17 · Issues: #73, #78, #128, #129, #130, #145, #155, #184 (
 
 ## A trabalhar agora
 
-Nada em execução. A confirmar no próximo ciclo: que o cron `ticketline-capture-day-hourly` (15 * * * *) continua a escrever o espelho para os 13 configs enabled e que as cinco cidades migradas voltam a ter `success` no XLSX quando a Ticketline recuperar. A confirmação pendente de 09/09 está feita: o import repôs em `ticket_sales` as três semanas de 17/08–09/09 (Albufeira 456, Almada 222, Estoril 115, Lisboa 251, Santarém 122 bilhetes nesse intervalo).
+Nada em execução. A confirmar no próximo ciclo: que o cron `ticketline-capture-day-hourly` (15 * * * *) continua a escrever o espelho para os 13 configs enabled e que as cinco cidades migradas voltem a ter `success` no XLSX quando a Ticketline recuperar. As cinco cidades migradas voltaram a ter XLSX com `success` desde 16/09 18:05 UTC e a flag `daily_fallback_active` manteve-se `true` — a v2.41 fez o que devia. A confirmação pendente de 09/09 está feita: o import repôs em `ticket_sales` as três semanas de 17/08–09/09 (Albufeira 456, Almada 222, Estoril 115, Lisboa 251, Santarém 122 bilhetes nesse intervalo).
 
 ## Próximo passo concreto
 
