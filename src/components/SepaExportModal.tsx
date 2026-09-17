@@ -65,6 +65,7 @@ export default function SepaExportModal({
   paymentDate,
   candidates,
   companyName,
+  onExported,
   onClose,
 }: {
   listId: string;
@@ -73,6 +74,12 @@ export default function SepaExportModal({
   paymentDate: string | null;
   candidates: SepaCandidate[];
   companyName: string;
+  /**
+   * Chamado depois do download com os ids das transações que o ficheiro leva
+   * (issue #200): quem gera o ficheiro está a mandar o dinheiro para o banco, logo
+   * essas transações passam a "pagas" (a liquidação continua a ser um passo à parte).
+   */
+  onExported?: (transactionIds: string[]) => void | Promise<void>;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
