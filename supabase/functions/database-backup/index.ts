@@ -443,6 +443,7 @@ Deno.serve(async (req) => {
       tables,
       rows_total: rowsTotal,
       schemas,
+      ...(Object.keys(partsMap).length ? { parts: partsMap } : {}),
       ...(storageManifest ? { storage_manifest: storageManifest, storage_counts: storageCounts } : {}),
       ...(errors.length ? { errors } : {}),
     });
