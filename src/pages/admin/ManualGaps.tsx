@@ -32,7 +32,7 @@ export default function ManualGaps() {
   const query = useQuery({
     queryKey: ["manual-gaps", status, from, to], enabled: authorized,
     queryFn: async () => {
-      let request = (supabase as any).from("help_questions").select("id,question,route,created_at,status,confidence").or("answered.eq.false,confidence.eq.baixa").order("created_at", { ascending: false });
+      let request = (supabase as any).from("help_questions").select("id,question,route,created_at,status,confidence,max_cosine,lexical_hits").or("answered.eq.false,confidence.eq.baixa").order("created_at", { ascending: false });
       if (status !== "todas") request = request.eq("status", status);
       if (from) request = request.gte("created_at", `${from}T00:00:00`);
       if (to) request = request.lte("created_at", `${to}T23:59:59.999`);
