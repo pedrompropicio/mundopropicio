@@ -39,6 +39,10 @@ const AlertDialogContent = React.forwardRef<
         className,
       )}
       {...props}
+      // Interações vindas do painel do Manual nunca fecham o alerta.
+      onPointerDownOutside={guardHelpPanelOutside(props.onPointerDownOutside)}
+      onInteractOutside={guardHelpPanelOutside(props.onInteractOutside)}
+      onFocusOutside={guardHelpPanelOutside(props.onFocusOutside)}
     />
   </AlertDialogPortal>
 ));
