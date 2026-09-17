@@ -42,6 +42,7 @@
 |---|---|
 | Fecho de evento | `procedimentos/PROC-fecho-evento.md` |
 | Revisão semanal | `procedimentos/PROC-revisao-semanal.md` |
+| Relatório semanal de tráfego pago × vendas | `procedimentos/PROC-relatorio-trafego-semanal.md` |
 | Captação de vendas Onebox (H&K Madrid) | `procedimentos/PROC-vendas-onebox-madrid.md` |
 | Custo partilhado com terceiros (rateio) | `procedimentos/PROC-rateio-dayoffs-turne.md` |
 | Arranque de chat (moldes de mensagem inicial + regra de fecho) | `procedimentos/PROC-arranque-chat.md` |
