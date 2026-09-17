@@ -90,10 +90,24 @@ Deno.serve(async (req) => {
   if (!supabaseUrl || !serviceKey) return json({ error: 'Server configuration error' }, 500)
 
   const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
-  // Não confiar em claims descodificadas localmente: só a chave service_role
-  // configurada no runtime pode entrar nesta função.
-  if (bearer !== serviceKey) {
-    return json({ error: 'Não autorizado — esta função só aceita service_role.' }, 401)
+  // verify_jwt = true no config.toml valida a assinatura; aqui aceitamos a env
+  // key byte-a-byte ou um JWT cujo claim `role` seja 'service_role' (a key do
+  // Vault é um service_role JWT que não é byte-igual à env key).
+  const isServiceRole = ((): boolean => {
+    if (serviceKey && bearer === serviceKey) return true
+    const parts = bearer.split('.')
+    if (parts.length !== 3) return false
+    try {
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))) as {
+        role?: unknown
+      }
+      return payload.role === 'service_role'
+    } catch {
+      return false
+    }
+  })()
+  if (!isServiceRole) {
+    return json({ error: 'Não autorizado — esta função só aceita a service_role key.' }, 401)
   }
 
   let raw: unknown
