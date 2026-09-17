@@ -114,7 +114,7 @@ A fonte do banco ganha sempre. **Uma transação pertence no máximo a um grupo.
 ```
 549.667,89 € = Saldo Final da tabela = extrato do Santander.
 
-O saldo mostrado com a consolidação ligado é recalculado sobre a ordem que se vê — ver **D-ERP55**.
+O saldo mostrado com a consolidação ligada é recalculado sobre a ordem que se vê — ver **D-ERP55**.
 
 ## Performance RLS (Fix C concluído a 14/09; A e B deferidos)
 **Fix C** — `auth.uid()` → `(SELECT auth.uid())` em 567 políticas do schema `public`. Migration `20260914223900_rls_wrap_auth_uid_in_select.sql`, Publish feito, verificado em Live (`rls_estaveis = 567`). Elimina 177M+ seq_scans por sessão em `user_roles`.
@@ -181,5 +181,6 @@ Cada fornecedor desativado tem nota auditável: `[2026-09-12] Duplicado por IBAN
 ## Onde ler mais
 - `docs/DECISIONS.md` — D-ERP75, D-ERP79, D-ERP80
 - `docs/manual/rateios.md` — primeiro capítulo do Manual de Orientação
+- `claude/auditoria-company-id-service-role-2026-09-01.md` (incidente da auditoria, 01/09)
 - `.lovable/memory/constraints/lovable-cloud-ddl-workflow.md` (reescrita a 30/08 — o mundo com Test acabou), `edge-fn-esm-sh-supabase-js.md`
 - Issues #86, #83, #96, #61, #57
