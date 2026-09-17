@@ -12,6 +12,7 @@ import HelpMarkdown from "@/components/help/HelpMarkdown";
 import QueryErrorState from "@/components/QueryErrorState";
 import { helpModuleLabel, useHelpArticle, useHelpArticles } from "@/hooks/useHelpManual";
 import HelpAskBox from "@/components/help/HelpAskBox";
+import HelpSources from "@/components/help/HelpSources";
 
 import imgEventLifecycle from "@/assets/help/event-lifecycle.jpg";
 import imgTransactionLifecycle from "@/assets/help/transaction-lifecycle.jpg";
@@ -264,11 +265,6 @@ export default function HelpCenter() {
                   <Badge variant="outline" className="text-[10px]">
                     {helpModuleLabel(article.module)}
                   </Badge>
-                  {article.sources.map((s) => (
-                    <Badge key={s} variant="outline" className="text-[10px] font-normal text-muted-foreground">
-                      {s}
-                    </Badge>
-                  ))}
                 </div>
               </header>
 
@@ -286,14 +282,12 @@ export default function HelpCenter() {
                   >
                     <h3 className="text-base font-semibold text-foreground">{s.heading}</h3>
                     <HelpMarkdown>{s.body_md}</HelpMarkdown>
-                    {s.sources.length > 0 && (
-                      <p className="border-t border-border pt-2 text-[11px] text-muted-foreground">
-                        Fontes: {s.sources.join(", ")}
-                      </p>
-                    )}
+                    <HelpSources sources={s.sources} label="Fontes da secção" />
                   </div>
                 ))
               )}
+
+              <HelpSources sources={article.sources} label="Fontes do capítulo" />
             </article>
           )}
 
