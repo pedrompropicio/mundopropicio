@@ -70,19 +70,26 @@ Deno.serve(async (req) => {
   const priority = ["platform_admin", "admin", "manager", "accountant", "marketing_manager", "content_manager", "editor", "producer", "field_producer", "partner", "viewer", "user"];
   const role = priority.find((candidate) => (roles ?? []).some((row) => row.role === candidate)) ?? "user";
 
-  const embeddingResponse = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-    method: "POST", headers: { Authorization: `Bearer ${aiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: EMBED_MODEL, input: question }),
-  });
-  if (!embeddingResponse.ok) return gatewayError(embeddingResponse.status);
-  const embeddingData = await embeddingResponse.json();
+  let embeddingResponse: Response;
+  try {
+    embeddingResponse = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+      method: "POST", headers: { Authorization: `Bearer ${aiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: EMBED_MODEL, input: question }),
+    });
+  } catch (caught) {
+    return unavailable("embeddings", caught instanceof Error ? caught.message : String(caught));
+  }
+  if (!embeddingResponse.ok) return await gatewayError("embeddings", embeddingResponse);
+  const embeddingData = await embeddingResponse.json().catch(() => null);
   const embedding = embeddingData?.data?.[0]?.embedding;
-  if (!Array.isArray(embedding) || embedding.length !== 3072) return json({ error: "Embedding inválido." }, 500);
+  if (!Array.isArray(embedding) || embedding.length !== 3072) {
+    return unavailable("embeddings", `embedding inválido (dimensão ${Array.isArray(embedding) ? embedding.length : "n/a"})`);
+  }
 
   const { data: found, error: searchError } = await client.rpc("help_search_chunks", {
     query_embedding: JSON.stringify(embedding), query_text: question, match_count: 8, user_profile: role,
   });
-  if (searchError) return json({ error: searchError.message }, 500);
+  if (searchError) return unavailable("help_search_chunks", `${searchError.message}${searchError.hint ? ` — ${searchError.hint}` : ""}`);
   const chunks = (found ?? []) as Chunk[];
   const bestSimilarity = Math.max(0, ...chunks.map((chunk) => Number(chunk.score) || 0));
 
