@@ -1,6 +1,6 @@
 # ESTADO — MP Audience · Meta
 
-Atualizado: 2026-09-17 · Issues desta frente: #36, #94, #12, #183 · dependência externa: #197 (ticketing-e-receita)
+Atualizado: 2026-09-17 · Issues desta frente: #36, #12, #183 · dependência externa: #197 (ticketing-e-receita)
 
 ## Em que pé está
 - **Sync Meta a funcionar** na conta `act_5094207367314169` (EUR). Insights ao nível de campanha de hora a hora (cron `crm-meta-insights-hourly`, :40). Verificado em Live a 17/09/2026.
