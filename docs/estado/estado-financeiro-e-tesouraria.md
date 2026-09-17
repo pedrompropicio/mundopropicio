@@ -32,8 +32,8 @@ Fechadas em 17/09: #191, #192, #193.
   A Conta Corrente · Pedro Neto (`29115958-27b0-4a5d-9888-4a983ce4d11d`,
   `is_accounting = false`, restrita) tem agora os dois lados:
   `income` 42 · **211.300,00 €** (retiradas de 07/01 a 09/09) e
-  `expense` 8 · **54.238,78 €** (vencimento líquido de jan a ago),
-  saldo **157.061,22 €**,
+  `expense` 8 · **55.048,38 €** (vencimento BRUTO de jan a ago),
+  saldo **156.251,62 €**,
   rubrica `10.3 Transferências Internas`, `is_confidential = true`, IVA 0.
   Usou-se a 10.3 e não a 10.4.01 Ordenados de propósito: o custo real do
   pessoal é lançado pela contabilidade no circuito dela, e pôr 10.4.01
@@ -49,8 +49,10 @@ Fechadas em 17/09: #191, #192, #193.
   retificado de 6.065,60 para 6.068,90).
   Linha 2 — Pedro Coelho de Araujo Neto, jan–ago 2026: Vencimento
   7.360,00 · Sub. Refeição 1.017,90 · **Quilómetros 46.670,48** ·
-  Total 55.048,38 · Seg. Social −809,60 · **Líquido 54.238,78**.
-
+  **Total bruto 55.048,38** · Seg. Social −809,60 · Líquido 54.238,78.
+  **A conta corrente regista o BRUTO** (regra do Pedro, 17/09): o crédito
+  do sócio é o vencimento bruto, e a Segurança Social retida é movimento
+  separado.
   **Retiradas — extratos Santander 85 a 92 lidos (01/01 a 31/08),
   contínuos e sem lacunas.** 42 transferências nominais
   (`TRF CRED INTRABANC P/ PEDRO COELHO DE ARA` e
@@ -62,12 +64,8 @@ Fechadas em 17/09: #191, #192, #193.
   38.000 € entre 18/06 e 31/08; o total real de jun–ago é **43.000 €** —
   faltava a transferência de 5.000 de 01/06, fora da janela que aquele
   trabalho olhou.
-  **Fora da conta, por decidir:** cinco levantamentos de numerário,
-  **69.711,26 €** — 7.000,00 (04/02), 9.050,00 (23/02), 24.436,26 (31/03),
-  21.215,00 (20/05), 8.010,00 (28/08). Um levantamento ao balcão não traz
-  destinatário: tanto pode ser retirada do sócio como caixa da empresa
-  para pagamentos em numerário. Não se lançam sem o Pedro dizer quais
-  são quais.
+
+
 
 
 - **Anexar documentos por API (16/09, #180 fechada, D-ERP71).** Edge function `ingest-transaction-document` (só `service_role`): origem por URL do Drive ou `conteudo_base64`; alvo `transaction_id`, `invoice_group_id` ou `supplier_id` + `invoice_ref` (igualdade exata); um objeto no bucket `transaction-documents` e N registos em `transaction_documents` com o mesmo `file_url`; idempotente por nome+tamanho; `supplier_id`+`invoice_ref` sem grupo cria o grupo (a chamada é a confirmação humana, proformas incluídas). Transporte: o contentor do Claude chama a função diretamente — o domínio `sfohvvlqccmmebvjgibx.supabase.co` entrou na allowlist de rede da organização a 16/09. O Drive NÃO é corredor (privado devolve login; upload via MCP passa o ficheiro pelo contexto). Testado em Live com FT 132026/33986 (Vila Galé, grupo `3d2fff0d`) e PROFORMA 194/2026 (Meliã, grupo `10e18e9a`): 3 transações, 1 ficheiro, 1 objeto cada; repetição devolve `created 0, reused 3`. Peça do ecrã em #181.
