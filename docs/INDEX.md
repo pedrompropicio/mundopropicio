@@ -52,6 +52,10 @@ Artigos-fonte em `docs/manual/*.md`, um por capítulo. Cada secção leva um blo
 
 Diagramas em `docs/manual/img/*.svg`, referenciados no artigo com `![alt](img/x.svg)`; cores só por variáveis de tema; sem números.
 
+Cada bloco ```ajuda pode ter `termos: [...]` — vocabulário da equipa (sinónimos, calão, escrita errada), indexado para a pesquisa e invisível no artigo. Quando a pesquisa falhar, as Lacunas (`/admin/lacunas-manual`) mostram as palavras a acrescentar.
+
+As fontes internas (D-ERP…, PROC-…, ficheiros de memória) só aparecem a admin / platform_admin, num bloco "Fontes" recolhido no fim do artigo e de cada secção. O painel lateral abre por cima de qualquer modal (camada única em `src/lib/help-panel-dom.ts`) e um clique dentro dele nunca fecha o modal por baixo.
+
 ## Módulo Carreira Artística (empresa Social Artists)
 
 Não é uma frente com `estado-*.md` próprio: vive em `plataforma-e-infra`. Antes de mexer,

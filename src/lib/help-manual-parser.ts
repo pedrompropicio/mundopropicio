@@ -10,6 +10,8 @@ export interface ParsedSection {
   screens: string[];
   profiles: string[];
   sources: string[];
+  /** Vocabulário da equipa (campo `termos`): indexado na pesquisa, invisível no artigo. */
+  terms: string[];
   body_md: string;
 }
 
@@ -29,6 +31,8 @@ export interface HelpChunk {
   anchor_id: string;
   position: number;
   content: string;
+  /** Termos da secção a que o pedaço pertence (indexação e prompt). */
+  terms: string[];
 }
 
 export const CHUNK_TARGET_CHARS = 800;
@@ -135,6 +139,7 @@ export function parseHelpArticle(raw: string, fileLabel = "artigo"): ParsedArtic
       screens: parseList(a.ecras ?? ""),
       profiles: parseList(a.perfis ?? ""),
       sources: parseList(a.fontes ?? ""),
+      terms: parseList(a.termos ?? ""),
       body_md,
     });
   });
@@ -181,6 +186,7 @@ export function chunkArticle(article: ParsedArticle): HelpChunk[] {
         anchor_id: section.anchor_id,
         position: i + 1,
         content: `${prefix}\n\n${b}`.trim(),
+        terms: section.terms,
       });
     });
   }

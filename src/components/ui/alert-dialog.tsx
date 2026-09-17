@@ -38,6 +38,8 @@ const AlertDialogContent = React.forwardRef<
         className,
       )}
       {...props}
+      // O AlertDialog do Radix não expõe eventos "outside" (só fecha por ação
+      // explícita), pelo que não precisa de guarda para o painel do Manual.
     />
   </AlertDialogPortal>
 ));

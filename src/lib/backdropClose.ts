@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { isInsideHelpPanel } from "@/lib/help-panel-dom";
 
 /**
  * Handlers para fechar um modal por clique no backdrop, evitando fecho
@@ -20,10 +21,10 @@ export function useBackdropClose(onClose: () => void) {
 
   return {
     onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
-      downOnBackdrop.current = e.target === e.currentTarget;
+      downOnBackdrop.current = e.target === e.currentTarget && !isInsideHelpPanel(e.target);
     },
     onClick: (e: React.MouseEvent<HTMLDivElement>) => {
-      if (downOnBackdrop.current && e.target === e.currentTarget) {
+      if (downOnBackdrop.current && e.target === e.currentTarget && !isInsideHelpPanel(e.target)) {
         onClose();
       }
       downOnBackdrop.current = false;

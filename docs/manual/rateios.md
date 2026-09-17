@@ -22,6 +22,7 @@ tooltip: "Só da MP e entre cidades do mesmo Master em partes iguais → lance n
 ecras: [nova-transacao]
 perfis: [editor, manager, admin]
 fontes: [D-ERP76, D-ERP69]
+termos: [rateio, ratear, dividir despesa, dividir custo, dividir fatura, repartir custo, que rateio uso, como dividir]
 ```
 
 ![Escolha do tipo de rateio](img/rateios-escolher.svg)
@@ -56,6 +57,7 @@ tooltip: "Custo da tour inteira, dividido por igual pelas cidades: lance uma vez
 ecras: [nova-transacao.evento-master, nova-transacao.confirmar-rateio-master, nova-transacao.dialogo-tour-ou-cidade]
 perfis: [editor, manager, admin]
 fontes: [D-ERP76, D-ERP72, D-ERP73, master-split-rateio-source-of-truth]
+termos: [turnê, tour, tourné, master, cidades, dividir pelas cidades, custo da tour, rateio master, dividir igual pelas datas, voo da equipa, tráfego da turnê, custo da tour ou desta cidade]
 ```
 
 ![Rateio igual de um custo lançado no Master](img/rateios-master.svg)
@@ -92,6 +94,7 @@ tooltip: "Reparte uma fatura por eventos diferentes (ou cidades em partes desigu
 ecras: [nova-transacao.dividir-varios-eventos, nova-transacao.split-linha-bp, nova-transacao.split-aviso-master]
 perfis: [editor, manager, admin]
 fontes: [D-ERP72, D-ERP73, D-ERP76, D-ERP70, D-ERP26]
+termos: [vários eventos, varios eventos, multi-evento, split, dividir por eventos, campanha de vários shows, fatura de vários eventos, rateio personalizado, percentagem por evento, transação mãe, partes do rateio]
 ```
 
 ![Divisão de uma fatura por vários eventos](img/rateios-varios-eventos.svg)
@@ -134,6 +137,7 @@ tooltip: "A MP paga a fatura toda, mas parte é de outro promotor. Marque a cont
 ecras: [nova-transacao.custo-partilhado, contas.conta-circuito, extrato.posicao-circuito, fecho.bloqueio-circuito]
 perfis: [editor, manager, admin]
 fontes: [D-ERP69, PROC-rateio-dayoffs-turne, custo-partilhado-terceiros, D-ERP32]
+termos: [day off, dayoff, day-off, day offs, dayoffs, folga, folga da turnê, dias sem show, hotel da folga, rateio day off, rateio com outros promotores, outro promotor, promotor de outra cidade, promotor de madrid, coprodutor, coprodução, parceiro, acerto com promotores, custo dividido com terceiros, conta de circuito, conta corrente do circuito, adiantamento por conta de terceiros, devolução do promotor]
 ```
 
 ![Separação do custo da MP e da parte de terceiros](img/rateios-terceiros.svg)
@@ -194,6 +198,7 @@ tooltip: "Faturas Meta e Google entram pelo PDF em Faturas Ads. O sistema repart
 ecras: [faturas-ads.importar, faturas-ads.gerar]
 perfis: [manager, admin, accountant]
 fontes: [ads-invoices, D-ERP73]
+termos: [meta, facebook, instagram, google ads, fatura meta, fatura google, tráfego pago, anúncios, ads, rateio de tráfego, campanha, pdf da fatura, gerar lançamentos]
 ```
 
 ![Fluxo de importação e rateio das Faturas Ads](img/rateios-faturas-ads.svg)
@@ -230,6 +235,7 @@ tooltip: "Custos da estrutura da empresa (assessoria, jurídico, escritório) at
 ecras: [evento.rateios-overhead]
 perfis: [manager, admin]
 fontes: [overhead-allocations]
+termos: [overhead, custos de estrutura, assessoria, jurídico, advogado, escritório, equipa de escritório, rateio de estrutura, custo fixo, custos de fecho, rateio de equipa]
 ```
 
 ![Rateio de custos de estrutura pelo Master](img/rateios-overhead.svg)
@@ -268,6 +274,7 @@ tooltip: "Os erros mais frequentes: dividir pelas cidades o que é da tour, lan�
 ecras: [nova-transacao]
 perfis: [editor, manager, admin]
 fontes: [D-ERP73, D-ERP69, D-ERP76]
+termos: [erro no rateio, rateio errado, corrigir rateio, lancei errado, dúvida rateio]
 ```
 
 | Erro | Consequência | Correto |

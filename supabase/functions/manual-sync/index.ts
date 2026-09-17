@@ -30,6 +30,7 @@ interface InSection {
   screens: string[];
   profiles: string[];
   sources: string[];
+  terms: string[];
   body_md: string;
 }
 
@@ -37,6 +38,8 @@ interface InChunk {
   anchor_id: string;
   position: number;
   content: string;
+  /** Vocabulário da equipa da secção: entra no texto enviado para embedding. */
+  terms: string[];
 }
 
 interface InArticle {
@@ -165,7 +168,15 @@ Deno.serve(async (req) => {
         const vectors: number[][] = [];
         for (let i = 0; i < chunks.length; i += EMBED_BATCH) {
           const slice = chunks.slice(i, i + EMBED_BATCH);
-          const batch = await embedBatch(slice.map((c) => c.content));
+          // O vocabulário da equipa vai como prefixo do texto do embedding,
+          // para que perguntas em calão ("rateio day off") cheguem à secção.
+          const batch = await embedBatch(
+            slice.map((c) =>
+              (c.terms ?? []).length > 0
+                ? `Termos: ${(c.terms ?? []).join(", ")}\n\n${c.content}`
+                : c.content,
+            ),
+          );
           vectors.push(...batch);
         }
 
@@ -187,6 +198,7 @@ Deno.serve(async (req) => {
             screens: s.screens ?? [],
             profiles: s.profiles ?? [],
             sources: s.sources ?? [],
+            terms: s.terms ?? [],
             body_md: s.body_md,
             chunks: chunks
               .map((c, idx) => ({ c, idx }))
