@@ -23,10 +23,25 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   status, headers: { ...corsHeaders, "Content-Type": "application/json" },
 });
 
-function gatewayError(status: number) {
-  if (status === 429) return json({ error: "Demasiados pedidos. Tente novamente em instantes." }, 429);
-  if (status === 402) return json({ error: "Créditos AI esgotados. Contacte o administrador." }, 402);
-  return json({ error: "Erro ao consultar a AI." }, status >= 500 ? status : 500);
+/**
+ * Falhas de infra (RPC ou gateway AI) nunca devolvem 500 opaco: devolvem 200
+ * com { error: 'search_unavailable', detail } para a UI mostrar "A pesquisa
+ * está indisponível" (o detalhe só é visível a admin) e registam a mensagem
+ * real no console da função.
+ */
+function unavailable(where: string, detail: string) {
+  console.error(`[help-search] ${where}: ${detail}`);
+  return json({ error: "search_unavailable", detail: `${where}: ${detail}` });
+}
+
+async function gatewayError(where: string, response: Response) {
+  const body = await response.text().catch(() => "");
+  const hint = response.status === 429
+    ? "Demasiados pedidos. Tente novamente em instantes."
+    : response.status === 402
+      ? "Créditos AI esgotados. Contacte o administrador."
+      : "Erro ao consultar a AI.";
+  return unavailable(where, `${hint} (HTTP ${response.status}) ${body.slice(0, 500)}`.trim());
 }
 
 Deno.serve(async (req) => {
