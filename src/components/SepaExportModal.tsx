@@ -65,6 +65,7 @@ export default function SepaExportModal({
   paymentDate,
   candidates,
   companyName,
+  onExported,
   onClose,
 }: {
   listId: string;
@@ -73,6 +74,12 @@ export default function SepaExportModal({
   paymentDate: string | null;
   candidates: SepaCandidate[];
   companyName: string;
+  /**
+   * Chamado depois do download com os ids das transações que o ficheiro leva
+   * (issue #200): quem gera o ficheiro está a mandar o dinheiro para o banco, logo
+   * essas transações passam a "pagas" (a liquidação continua a ser um passo à parte).
+   */
+  onExported?: (transactionIds: string[]) => void | Promise<void>;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -196,6 +203,11 @@ export default function SepaExportModal({
 
     // Histórico de exportações — guarda os ids EXATOS que entraram no XML, para
     // que o comprovativo do lote seja replicado só nessas transações.
+    // Faturas agrupadas: uma linha do ficheiro cobre N transações — o histórico
+    // guarda todos os ids para o comprovativo ser replicado a todas.
+    const exportedTxIds = valid.flatMap((r) =>
+      r.groupTransactionIds?.length ? r.groupTransactionIds : [r.transactionId],
+    );
     try {
       const { data: userData } = await supabase.auth.getUser();
       const { error } = await supabase.from("payment_list_sepa_exports").insert({
@@ -205,12 +217,7 @@ export default function SepaExportModal({
         msg_id: out.msgId,
         total_amount: Number(out.controlSum),
         n_transactions: out.numberOfTxs,
-        // Faturas agrupadas: uma linha do ficheiro cobre N transações — o
-        // histórico guarda todos os ids para o comprovativo ser replicado a todas.
-        transaction_ids: valid.flatMap((r) =>
-          r.groupTransactionIds?.length ? r.groupTransactionIds : [r.transactionId],
-        ),
-
+        transaction_ids: exportedTxIds,
       } as any);
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ["payment_list_sepa_exports", listId] });
@@ -221,6 +228,11 @@ export default function SepaExportModal({
         variant: "destructive",
       });
     }
+
+    // O ficheiro seguiu para o banco: marcar como pago o que ele leva (issue #200).
+    // Corre mesmo que o histórico tenha falhado — o dinheiro sai de qualquer forma.
+    await onExported?.(exportedTxIds);
+
 
     toast({
       title: "Ficheiro gerado",

@@ -97,6 +97,25 @@ type ListStatus = "draft" | "pending_approval" | "approved" | "rejected" | "revi
 /** Prefixo de `removed_reason` usado quando o aprovador não aprova o item. */
 const NOT_APPROVED_REASON_PREFIX = "Não aprovado na aprovação";
 
+/**
+ * Fases do percurso de um item de lista (issue #200). Disjuntas por construção:
+ * `settled` (linha em `transaction_payments`) ganha sobre `markedPaid`, e
+ * `legacy` só recolhe o que está `paid` sem nenhuma das duas marcas.
+ * `launched` = soma de unpaid + markedPaid + settled + legacy.
+ * `notApproved` são itens cortados pela aprovação, logo FORA de `launched`.
+ */
+type PhaseKey = "launched" | "notApproved" | "unpaid" | "markedPaid" | "settled" | "legacy";
+
+const PHASE_META: { key: PhaseKey; label: string; hint: string; tone: string }[] = [
+  { key: "launched", label: "Lançadas", hint: "Itens ativos em listas de pagamento", tone: "text-foreground" },
+  { key: "notApproved", label: "Não aprovadas", hint: "Cortadas pelo aprovador (fora das Lançadas)", tone: "text-destructive" },
+  { key: "unpaid", label: "Por pagar", hint: "Nem marcadas como pagas nem liquidadas", tone: "text-muted-foreground" },
+  { key: "markedPaid", label: "Pagas por liquidar", hint: "Saíram do banco mas o sistema não sabe de que conta", tone: "text-warning" },
+  { key: "settled", label: "Liquidadas", hint: "Com linha em transaction_payments (conta conhecida)", tone: "text-success" },
+  { key: "legacy", label: "Legado", hint: "Transação paga sem marca de pagamento nem liquidação", tone: "text-muted-foreground" },
+];
+
+
 const buildHiddenSplitChildChecker = (transactions: any[]) => {
   const byId = new Map<string, any>();
   transactions.forEach((tx: any) => {
@@ -277,26 +296,73 @@ export default function PaymentListsTab() {
   });
 
   // Uma única query agregada com os itens de todas as listas para preencher a
-  // coluna "Valor" da listagem (c/IVA). Itens removidos manualmente na composição
-  // ficam de fora; os cortados PELA APROVAÇÃO contam (composição original submetida).
-  const { data: listTotalsMap = {} } = useQuery({
+  // coluna "Valor" da listagem (c/IVA) E os contadores por fase. Itens removidos
+  // manualmente na composição ficam de fora da coluna Valor; os cortados PELA
+  // APROVAÇÃO contam (composição original submetida).
+  //
+  // FASES (issue #200): "Marcar como Pago" e "Liquidar" não são categorias, são
+  // fases. Liquidada = tem linha em `transaction_payments` (o sistema sabe de que
+  // conta saiu) e GANHA sobre "paga". Os quatro estados dos itens ativos são
+  // disjuntos e somam sempre às Lançadas; "Não aprovadas" são itens removidos
+  // pela aprovação, logo ficam FORA das Lançadas.
+  const { data: listAggregates } = useQuery({
     queryKey: ["payment-lists", "totals"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("payment_list_items")
-        .select("payment_list_id, removed_at, removed_reason, transactions(amount, iva_rate)");
-      if (error) throw error;
+      const [itemsRes, paymentsRes] = await Promise.all([
+        supabase
+          .from("payment_list_items")
+          .select(
+            "payment_list_id, removed_at, removed_reason, manually_marked_paid, transactions(id, amount, iva_rate, status)",
+          ),
+        supabase.from("transaction_payments").select("transaction_id"),
+      ]);
+      if (itemsRes.error) throw itemsRes.error;
+      if (paymentsRes.error) throw paymentsRes.error;
+
+      const settledTxIds = new Set<string>(
+        ((paymentsRes.data ?? []) as any[]).map((r) => String(r.transaction_id)),
+      );
+
       const map: Record<string, number> = {};
-      for (const row of (data ?? []) as any[]) {
-        if (row.removed_at && !String(row.removed_reason ?? "").startsWith(NOT_APPROVED_REASON_PREFIX)) continue;
+      const phases: Record<PhaseKey, { count: number; amount: number }> = {
+        launched: { count: 0, amount: 0 },
+        notApproved: { count: 0, amount: 0 },
+        unpaid: { count: 0, amount: 0 },
+        markedPaid: { count: 0, amount: 0 },
+        settled: { count: 0, amount: 0 },
+        legacy: { count: 0, amount: 0 },
+      };
+      const add = (key: PhaseKey, value: number) => {
+        phases[key].count += 1;
+        phases[key].amount += value;
+      };
+
+      for (const row of (itemsRes.data ?? []) as any[]) {
         const tx = row.transactions;
         if (!tx) continue;
-        map[row.payment_list_id] =
-          (map[row.payment_list_id] ?? 0) + calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
+        const withIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
+        const cutByApproval = String(row.removed_reason ?? "").startsWith(NOT_APPROVED_REASON_PREFIX);
+
+        if (row.removed_at) {
+          if (!cutByApproval) continue; // removido na composição: fora de tudo
+          add("notApproved", withIva);
+          map[row.payment_list_id] = (map[row.payment_list_id] ?? 0) + withIva;
+          continue;
+        }
+
+        map[row.payment_list_id] = (map[row.payment_list_id] ?? 0) + withIva;
+        add("launched", withIva);
+
+        if (settledTxIds.has(String(tx.id))) add("settled", withIva);
+        else if (row.manually_marked_paid) add("markedPaid", withIva);
+        else if (tx.status === "paid") add("legacy", withIva);
+        else add("unpaid", withIva);
       }
-      return map;
+      return { totals: map, phases };
     },
   });
+  const listTotalsMap = listAggregates?.totals ?? {};
+  const listPhases = listAggregates?.phases;
 
 
 
@@ -429,6 +495,29 @@ export default function PaymentListsTab() {
             queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
           }}
         />
+      )}
+
+      {listPhases && (
+        <div className="glass rounded-xl p-4">
+          <p className="mb-3 text-xs uppercase tracking-wider text-muted-foreground">
+            Fases dos pagamentos em listas — Lançadas = Por pagar + Pagas por liquidar + Liquidadas + Legado
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {PHASE_META.map((p) => (
+              <div
+                key={p.key}
+                className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2"
+                title={p.hint}
+              >
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{p.label}</p>
+                <p className={`text-lg font-bold ${p.tone}`}>{listPhases[p.key].count}</p>
+                <p className="font-mono text-xs text-muted-foreground">
+                  {formatCurrency(listPhases[p.key].amount)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       <div className="glass rounded-xl p-5">
@@ -1217,6 +1306,39 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   }, []);
 
   /**
+   * Lotes SEPA já exportados nesta lista (issue #200). O dado já existe:
+   * `payment_list_sepa_exports.transaction_ids[]` guarda os ids EXATOS que
+   * entraram em cada ficheiro. Serve para (a) o selo "No ficheiro SEPA de DD/MM"
+   * e (b) esconder "Marcar como Pago" no que já saiu no ficheiro.
+   */
+  const { data: sepaExports = [] } = useQuery({
+    queryKey: ["payment_list_sepa_exports", listId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payment_list_sepa_exports")
+        .select("*")
+        .eq("payment_list_id", listId);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  /** txId → exportação mais recente que o levou. */
+  const sepaExportByTxId = useMemo(() => {
+    const map: Record<string, { exported_at: string; msg_id: string | null; file_name: string | null }> = {};
+    const sorted = [...(sepaExports as any[])].sort(
+      (a, b) => new Date(a.exported_at ?? 0).getTime() - new Date(b.exported_at ?? 0).getTime(),
+    );
+    for (const exp of sorted) {
+      for (const txId of (exp.transaction_ids ?? []) as string[]) {
+        map[String(txId)] = { exported_at: exp.exported_at, msg_id: exp.msg_id ?? null, file_name: exp.file_name ?? null };
+      }
+    }
+    return map;
+  }, [sepaExports]);
+
+
+  /**
    * "Marcar como pago" manual de um item da lista — ESTRITAMENTE VISUAL.
    *
    * Grava apenas `payment_list_items.manually_marked_paid` (toggle). NÃO toca na
@@ -1243,6 +1365,39 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     queryClient.invalidateQueries({ queryKey: ["approved-payment-list-reminder"] });
     await refreshBadgeFromDB();
   };
+
+  /**
+   * Download do ficheiro SEPA marca como pago o que o ficheiro leva (issue #200).
+   * Usa a MESMA via do "Marcar como Pago" manual — `manually_marked_paid` no item
+   * da lista — porque a fase "pago" (o dinheiro saiu do banco) é distinta da fase
+   * "liquidado" (o sistema sabe de que conta saiu, `transaction_payments`).
+   * Idempotente: só toca nos itens que ainda não estão marcados.
+   */
+  const markSepaBatchPaid = async (transactionIds: string[]) => {
+    const ids = [...new Set(transactionIds.filter(Boolean))];
+    if (ids.length === 0) return;
+    const { error } = await supabase
+      .from("payment_list_items")
+      .update({ manually_marked_paid: true } as any)
+      .eq("payment_list_id", listId)
+      .in("transaction_id", ids)
+      .or("manually_marked_paid.is.null,manually_marked_paid.eq.false");
+    if (error) {
+      toast({
+        title: "Ficheiro gerado, marcação como pago falhou",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+    queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+    queryClient.invalidateQueries({ queryKey: ["payment_list_sepa_exports", listId] });
+    queryClient.invalidateQueries({ queryKey: ["approved-payment-list-reminder"] });
+    await refreshBadgeFromDB();
+  };
+
+
 
 
   const removeItemFromList = async (itemId: string, description: string) => {
@@ -1937,6 +2092,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             paymentDate={list.payment_date ?? null}
             candidates={sepaCandidates}
             companyName={company?.legal_name ?? company?.display_name ?? "Empresa"}
+            onExported={markSepaBatchPaid}
             onClose={() => setShowSepa(false)}
           />
         )}
@@ -2071,6 +2227,8 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             const isSelectable = isApproved && !isPaid && tx;
             const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, amount);
             const manuallyMarked = !!item.manually_marked_paid;
+            /* Saiu num ficheiro SEPA? Então não precisa de "Marcar como Pago". */
+            const sepaMark = tx?.id ? sepaExportByTxId[String(tx.id)] : undefined;
             const isRemoved = !!item.removed_at;
             const np = itemNetPayable({
               amount,
@@ -2181,7 +2339,20 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           onClick={() => setDocsTx({ id: tx.id, description: tx.description ?? "Transação" })}
                         />
                       )}
-                      {!isPaid && !isRemoved && (
+                      {sepaMark && (
+                        <Badge
+                          variant="outline"
+                          className="border-primary/40 text-primary text-[10px]"
+                          title={`${sepaMark.msg_id ?? "sem referência"}${sepaMark.file_name ? ` — ${sepaMark.file_name}` : ""}`}
+                        >
+                          <Landmark className="mr-1 h-3 w-3" />
+                          No ficheiro SEPA de {formatDate(sepaMark.exported_at)}
+                        </Badge>
+                      )}
+                      {/* O que saiu no ficheiro SEPA já foi marcado como pago no
+                          download — o botão só aparece nos restantes (inclui os
+                          excluídos do ficheiro, ex.: sem IBAN). */}
+                      {!isPaid && !isRemoved && !sepaMark && (
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleManualMark(item.id, manuallyMarked); }}
                           className={`flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border transition-colors ${
@@ -2194,6 +2365,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           <Banknote className="h-3.5 w-3.5" />
                           {manuallyMarked ? "Pago ✓" : "Marcar como Pago"}
                         </button>
+                      )}
+                      {sepaMark && manuallyMarked && !isPaid && (
+                        <Badge variant="default" className="bg-warning/15 text-warning border-0">Pago por liquidar</Badge>
                       )}
                       {/* Editar a transação em si é exclusivo de admin: transações
                           aprovadas têm campos bloqueados para o editor e o atalho
@@ -2368,10 +2542,14 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         />
       )}
 
+      {/* Issue #200: a data sugerida ao liquidar é HOJE (dia em que se registra a
+          saída), não a `payment_date` da lista — por isso não se passa
+          `initialPaymentDate`. Continua editável no modal. Efeito aceite: a
+          conciliação bancária deixa de casar por data exacta e passa a depender
+          da camada de valor a ±5 dias. */}
       {showBatchPayment && batchPaymentTransactions.length > 0 && (
         <BatchPaymentModal
           transactions={batchPaymentTransactions}
-          initialPaymentDate={list?.payment_date ?? null}
           bankAccountsOnly
           onClose={handleBatchPaymentClose}
         />

@@ -942,22 +942,27 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             )}
           </div>
 
-          {/* Campos condicionais: Entidade + Referência */}
+          {/* Campos condicionais: Entidade + Referência.
+              Issue #200: aqui — e SÓ em Pag. Serviços — filtram-se os dígitos na
+              digitação e na colagem, porque a referência MB é copiada da fatura
+              com pontos ("120.331.478"). Noutros métodos `payment_reference` é
+              também onde vivem as chaves de agrupamento
+              (ACERTO-FOOD-IVETE-2026, CAMARIM-<id>): filtrar aí destruía-as. */}
           {paymentMethod === "service_payment" && (
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Entidade *</label>
-                <input type="text" value={paymentEntity}
-                  onChange={(e) => setPaymentEntity(e.target.value)}
+                <input type="text" inputMode="numeric" maxLength={5} value={paymentEntity}
+                  onChange={(e) => setPaymentEntity(e.target.value.replace(/\D/g, "").slice(0, 5))}
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                   placeholder="Ex: 10611" />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Referência *</label>
-                <input type="text" value={paymentReference}
-                  onChange={(e) => setPaymentReference(e.target.value)}
+                <input type="text" inputMode="numeric" maxLength={9} value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value.replace(/\D/g, "").slice(0, 9))}
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  placeholder="Referência MB" />
+                  placeholder="Referência MB (9 dígitos)" />
               </div>
             </div>
           )}
