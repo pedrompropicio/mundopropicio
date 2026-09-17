@@ -136,6 +136,13 @@ O Santander está implantado (122.363,05 € com corte a 31/08/2026) e o extrato
 9. **Ticketline 112.000 € de 16/09 (TRF.IMED. R06117979) por lançar como transferência Ticketline → Santander (regra a guardar); atribuição ao apuramento em ticketing-e-receita.**
 10. **#189: "transações sem movimento no banco" falso quando a linha vive noutro extrato — verificação por conta.**
 
+11. **Completar as retiradas do sócio de janeiro a maio** na Conta
+    Corrente · Pedro Neto, a partir dos extratos do Santander que faltam,
+    e varrer a Drive por faturas avulsas ainda não carregadas. Sem isso
+    o relatório da #193 mostra uma folga que não é real.
+
+
+
 Já feito e sem pendência: a **FT 11.1/101** está anexada ao movimento do banco de **135.986,96 €** e replicada nas duas transações ligadas.
 
 Depois:
