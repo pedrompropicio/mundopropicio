@@ -59,35 +59,55 @@ async function dumpTable(
   fileKey: string,
   table: string,
   filter?: { col: string; val: string },
-): Promise<{ rows: number; bytes: number }> {
-  const parts: string[] = ["["];
-  let from = 0;
+): Promise<{ rows: number; bytes: number; parts: number }> {
+  // Tabelas grandes (ex.: ticketline_sync_runs, 89 MB) não cabem em memória
+  // num só ficheiro: passam a ser gravadas em pedaços
+  //   <key>.json, <key>.part2.json, <key>.part3.json, ...
+  // e o manifesto guarda quantos pedaços tem cada tabela.
+  const PART_LIMIT_BYTES = 8_000_000;
+  let parts: string[] = [];
+  let partBytes = 0;
+  let partIndex = 1;
   let count = 0;
+  let bytes = 0;
+  let from = 0;
   const pageSize = 1000;
+
+  const flush = async () => {
+    if (parts.length === 0) return;
+    const blob = new Blob(["[", ...parts, "]"], { type: "application/json" });
+    parts = [];
+    partBytes = 0;
+    const path = partIndex === 1
+      ? `${folder}/${fileKey}.json`
+      : `${folder}/${fileKey}.part${partIndex}.json`;
+    const { error: upErr } = await admin.storage
+      .from("database-backups")
+      .upload(path, blob, { contentType: "application/json", upsert: true });
+    if (upErr) throw new Error(`upload ${path}: ${upErr.message}`);
+    bytes += blob.size;
+    partIndex += 1;
+  };
+
   while (true) {
     let q = client.from(table).select("*").range(from, from + pageSize - 1);
     if (filter) q = q.eq(filter.col, filter.val);
     const { data, error } = await q;
     if (error) throw new Error(`${table}: ${error.message}`);
     if (!data || data.length === 0) break;
-    if (count > 0) parts.push(",");
-    parts.push(JSON.stringify(data).slice(1, -1));
+    const chunk = JSON.stringify(data).slice(1, -1);
+    if (parts.length > 0) parts.push(",");
+    parts.push(chunk);
+    partBytes += chunk.length;
     count += data.length;
     from += data.length;
+    if (partBytes >= PART_LIMIT_BYTES) await flush();
     if (data.length < pageSize) break;
   }
-  parts.push("]");
+  await flush();
 
-  if (count === 0) return { rows: 0, bytes: 0 }; // tabelas vazias não geram ficheiro
-
-  const blob = new Blob(parts, { type: "application/json" });
-  parts.length = 0;
-  const path = `${folder}/${fileKey}.json`;
-  const { error: upErr } = await admin.storage
-    .from("database-backups")
-    .upload(path, blob, { contentType: "application/json", upsert: true });
-  if (upErr) throw new Error(`upload ${path}: ${upErr.message}`);
-  return { rows: count, bytes: blob.size };
+  if (count === 0) return { rows: 0, bytes: 0, parts: 0 }; // tabelas vazias não geram ficheiro
+  return { rows: count, bytes, parts: partIndex - 1 };
 }
 
 async function uploadJson(admin: any, path: string, doc: unknown): Promise<number> {
