@@ -121,17 +121,17 @@ async function streamTable(
     const { data, error } = await q;
     if (error) throw new Error(`${table}: ${error.message}`);
     if (!data || data.length === 0) break;
-    for (const row of data) {
-      if (count > 0) parts.push(",");
-      parts.push(JSON.stringify(row));
-      count++;
-    }
+    // Uma serialização por página (não por linha): menos CPU e menos memória.
+    if (count > 0) parts.push(",");
+    parts.push(JSON.stringify(data).slice(1, -1));
+    count += data.length;
     from += data.length;
     if (data.length < pageSize) break;
   }
   parts.push("]");
   return count;
 }
+
 
 
 interface BuiltBackup {
