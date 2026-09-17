@@ -51,6 +51,6 @@ Nota: nenhum Publish feito.
 - [ ] Remover coluna "Base IVA" e "(herda)" da tabela de participantes; mostrar a base junto ao nome do fechamento
 
 ## Issue #200 — listagem de listas em blocos
-- [ ] Trocar a tabela principal por blocos com barra de cinco fases por lista.
-- [ ] Validar por lista: fases = Lançadas + Não aprovadas.
-- [ ] Corrigir a memória de “Marcar como Pago” versus “Liquidar (N)”.
+- [x] Trocar a tabela principal por blocos com barra de cinco fases por lista.
+- [x] Validar por lista: fases = Lançadas + Não aprovadas.
+- [x] Corrigir a memória de “Marcar como Pago” versus “Liquidar (N)”.

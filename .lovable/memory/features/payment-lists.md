@@ -164,7 +164,8 @@ evento — a carga não tem evento).
   badge **neutro** (cinza, `NoIbanBadge variant="neutral"`) "Transferência interna — sem
   IBAN, liquidar no banco"; no `SepaExportModal` fica nos **excluídos** com o motivo
   `SEPA_INTERNAL_NO_IBAN_REASON` = "Carga sem IBAN de destino — executar no homebanking"
-  (nunca silencioso). "Marcar como Pago" liquida a tx e cria o crédito no cartão como sempre.
+  (nunca silencioso). Depois de a executar no banco, "Marcar como Pago" apenas grava a
+  sinalização visual; a liquidação real e o crédito no cartão exigem "Liquidar (N)".
 O trigger `enforce_payment_list_item_bankable` replica a regra: LEFT JOIN a
 `card_session_loads` e basta `out_transaction_id IS NOT NULL` para passar.
 
