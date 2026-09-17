@@ -47,27 +47,26 @@ O detalhe da lista mostra `revision_notes` num painel âmbar (multi-linha) para 
 ver que a lista mudou desde o envio. Em `rejected`/`revision` o detalhe tem também
 "Reenviar para aprovação" (preserva o histórico de notas).
 
-## Liquidação: lista → transação (2026-08, bug corrigido)
-Existem **dois** caminhos de liquidação numa lista aprovada, e AMBOS têm de liquidar
-a transação. Sem exceções por tipo (reembolsos incluídos):
+## Pagamento e liquidação: duas fases distintas (corrigido em 2026-09-17)
+**Pago** significa que o dinheiro saiu do banco. **Liquidado** significa que o sistema
+sabe de que conta financeira saiu. Uma transação marcada como paga, mas ainda não
+liquidada, não entra no saldo de nenhuma conta no sistema. Em 17/09/2026 existiam
+196 itens nesta fase, no valor de 484.084,08 €.
 
-1. **Em massa ("Liquidar (N)")** — `handleBulkPayment`: `transactions.paid_amount` = total
-   c/IVA, `status='paid'`, `payment_date = payment_lists.payment_date` (fallback hoje).
-   Propaga a filhos de rateio real (`!event_id && split_mode`), nunca a parcelas.
-2. **Manual por item ("marcar como pago")** — `toggleManualMark`: gravava SÓ
-   `payment_list_items.manually_marked_paid` e **não tocava na transação** → bug real
-   (R-015/R-016 na lista "Pagamentos 29/07/2026": item marcado, tx ficou `approved`
-   com `payment_date` NULL, notas presas em "Aguarda Pagamento"). Agora aplica a mesma
-   regra do caminho em massa + entrada em `transaction_audit_log`.
-   Idempotente: tx já `paid` não é reescrita; **desmarcar o flag NÃO regride** a tx.
+1. **"Marcar como Pago" por item** — `toggleManualMark` é ESTRITAMENTE VISUAL. Grava
+   apenas `payment_list_items.manually_marked_paid`. NÃO escreve `paid_amount`, `status`
+   nem `payment_date` na transação. Serve para sinalizar que o pagamento foi executado
+   manualmente no banco e impedir que seja pago duas vezes.
+2. **"Liquidar (N)"** — é a liquidação real. Exige conta financeira, cria linhas em
+   `transaction_payments` e faz o sistema reconhecer de que conta saiu o dinheiro.
+3. **Download SEPA (issue #200)** — marca pela mesma via visual como pagos todos os itens
+   incluídos no ficheiro, gravando `manually_marked_paid`; não os liquida.
 
-Ambos invalidam: `payment-list-items`, `payment-lists`, `transactions`,
-`reimbursement-notes`, `approved-payment-list-reminder` + `refreshBadgeFromDB()`.
+“Marcar como Pago” e “Liquidar” são fases sucessivas, não categorias concorrentes.
 
 ### Ciclo completo do reembolso
-nota aprovada → tx de pagamento entra na lista → lista aprovada → Liquidar **ou**
-marcar pago no item → `transactions.status='paid'` + `payment_date` → **trigger na BD**
-propaga e a nota passa a **Paga**. A propagação tx→nota é da BD — não replicar no cliente.
+nota aprovada → tx de pagamento entra na lista → lista aprovada → marcar como pago
+(sinalização visual) → Liquidar → movimento associado a uma conta financeira.
 
 
 ## RLS (sem migração necessária)
