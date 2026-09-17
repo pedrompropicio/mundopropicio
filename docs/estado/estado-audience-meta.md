@@ -1,24 +1,23 @@
 # ESTADO — MP Audience · Meta
 
-Atualizado: 2026-09-17 · Issues desta frente: #36, #94, #12, #183 · dependência externa: #197 (ticketing-e-receita)
+Atualizado: 2026-09-17 · Issues desta frente: #36, #12, #183 · dependência externa: #197 (ticketing-e-receita)
 
 ## Em que pé está
-- **Sync Meta a funcionar** na conta `act_5094207367314169` (EUR). Insights ao nível de campanha de hora a hora (cron `crm-meta-insights-hourly`, :40). Verificado em Live a 17/09/2026.
+- **Sync Meta a funcionar** na conta `act_5094207367314169` (EUR). O cron `crm-meta-insights-hourly` (:40) sincroniza `campaign` e `adset` desde 17/09/2026 18:40 UTC (#94 fechada): gasto por conjunto = gasto por campanha em 14, 15 e 16/09, verificado em Live. O nível `ad` continua só por sync manual.
 - **Ligações Meta (17/09/2026):** Mundo Propício `active`, token até 08/10/2026 · Litto Lins `active` (conta do artista, `connection_scope = 'artist'`, `act_323668247351618`), token até 13/11/2026 · Fortal e Siriguella marcadas `expired` a 17/09/2026 por decisão do Pedro: não estão à venda, o token expirou a 22/08 e continuavam `active`, com o cron a falhar de hora a hora. Reconectar por OAuth quando voltarem à venda.
 - **Regra de ROAS fechada — D-ERP81.** Eventos sem compra alimentada pelo pixel (Ticketline, BOL): bruto é o oficial, marginal decide a verba, incremental só em estudo ou teste por cidades, atribuído fica dentro do MP Audience. Evento com pixel e Purchase com `fbc`: o atribuído passa a ser o ROAS oficial desse evento.
 - **Relatório de tráfego pago × vendas refeito sobre as fontes certas** (PROC-relatorio-trafego-semanal.md reescrito a 17/09/2026). Primeiro relatório no modelo novo entregue ao gestor de tráfego: Simone Mendes e Raphael Ghanem, 10–16 set, 6 páginas.
 - **Diagnóstico P0 em produção** (`crm.campaign_diagnosis_360`, edge function `crm-campaign-diagnosis`, "Diagnóstico & Decisão" no CampaignView), mas **sem uso recente: o último diagnóstico gravado é de 07/07/2026** (65 linhas no total, verificado a 17/09).
-- **#36 fechada (17/09/2026) — a ligação Meta já não morre em silêncio.** Helper partilhado `_shared/meta-connection-health.ts` usado pelas cinco edge functions de sync: erro de autenticação (190/OAuthException) marca a ligação `expired` à primeira, erro transitório só conta falhas e marca `error` à 6.ª seguida, sucesso zera o contador e grava `last_validated_at`. No dashboard, o "Live" verde só aparece com ligação `active` e insights com menos de 48h; há banner persistente de ligação em falha e aviso âmbar a 7 dias da expiração do token. Sem DDL, sem mexer em crons. Regra completa em `.lovable/memory/features/mp-audience-connection-health.md`.
+- **Saúde da ligação (#36) em produção no backend desde 17/09/2026 18:06 UTC:** as 5 edge functions de sync Meta escrevem em `crm.ad_platform_connections` (erro de autenticação → `expired` imediato; 6 falhas transitórias seguidas → `error`; sucesso repõe `consecutive_failures` e `last_validated_at`). Caminho de sucesso provado na corrida das 18:40 (Mundo Propício e Litto Lins com `last_validated_at` de 17/09). A parte de ecrã (Live condicionado, banner, aviso de token a 7 dias) está à espera de Publish. Ver `.lovable/memory/features/mp-audience-connection-health.md`.
 
 ## A trabalhar agora
 Nada em execução.
 
 ## Próximo passo concreto
-Decidir com o Pedro, por esta ordem: (1) #94 — pôr o cron horário a sincronizar também `adset` (DDL/cron em Live, carece de autorização); (2) #36 — propagar o erro de sync para `ad_platform_connections` e para a UI, antes de o token da Mundo Propício expirar a 08/10/2026; (3) desenhar o teste por cidades do Raphael Ghanem para medir o ROAS incremental (D-ERP81).
+(1) Publish do Pedro para a UI da #36 e conferência no dashboard; (2) desenhar o teste por cidades do Raphael Ghanem para medir o ROAS incremental (D-ERP81); (3) observar o caminho de erro da #36 em Live (primeira falha real ou teste controlado) e fechar a issue.
 
 ## Bloqueios
-- **#94 (P1)** — o cron só pede `level = campaign`. A 17/09/2026 os insights de conjunto e de anúncio estavam parados desde 16/09 15:06 UTC (último sync manual), com os de campanha às 16:40 UTC do próprio dia.
-- **#36 (P1)** — erros de sync só se escrevem em `crm.meta_sync_state`; `ad_platform_connections` fica `active`. Foi o que aconteceu com Fortal e Siriguella. A #76 está fechada, mas nada marca sozinho uma ligação expirada: a correção de 17/09 foi manual.
+- **#36 (P1)** — backend em produção, UI por publicar, caminho de erro ainda não observado em Live. O token da Mundo Propício expira a 08/10/2026.
 - **Elo 4 partido** — o pixel da Ticketline não propaga `fbc` no Purchase. Medido a 17/09: Simone Mendes, 10–16 set, 2.962 inícios de checkout para 77 compras atribuídas. Elos 1–3 provados. Depende da Ticketline (Luísa Rodrigues).
 - **#197 (ticketing-e-receita)** — `vw_event_daily_sales` perdeu o histórico de 8 eventos desde a v2.41. Enquanto estiver aberta, esta frente lê vendas só por `get_daily_sales_series`.
 
