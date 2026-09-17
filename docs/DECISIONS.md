@@ -2395,6 +2395,26 @@ Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a 
 
 **Estado:** vigente.
 
+## D-ERP81 — Regra de ROAS para eventos sem compra alimentada pelo pixel (17/09/2026)
+
+**Âmbito:** eventos em que a compra NÃO chega à plataforma de anúncios pelo pixel. Hoje é tudo o que vende na Ticketline (o pixel não devolve o `fbc` no Purchase — Elo 4 partido) e tudo o que vende na BOL (onde o pixel não existe). Em eventos onde o pixel alimenta a compra, o ROAS atribuído continua válido e esta regra não se aplica.
+
+**ROAS bruto = receita real de bilheteira ÷ investimento (Meta + Google) no mesmo período.** É o ROAS oficial e o único que entra nos relatórios de tráfego pago × vendas — KPIs, tabela diária, tabela por cidade. Cidade sem investimento leva traço. Mede eficiência global, inclui venda orgânica e **não é prova de causa**.
+
+**ROAS marginal = variação da receita ÷ variação do investimento** entre dois períodos iguais e consecutivos da mesma cidade/evento. É o cálculo para decidir mexer na verba. Só se lê quando o investimento variou pelo menos 30% e com duas semanas de leitura — uma semana contra outra tem ruído. Exemplo medido a 17/09/2026 (10–16 set vs 03–09 set, Raphael Ghanem): Porto +891,68 € de verba para +305 € de receita = 0,34×; Sta M. Feira +347,44 € para +620 € = 1,78×.
+
+**ROAS incremental = (receita do período − base orgânica) ÷ investimento.** Só em estudo pontual ou teste por cidades (desligar a verba em uma ou duas cidades em rotação e comparar com as restantes). Leva sempre escritos a janela e a base de comparação. **Nunca entra no relatório semanal.**
+
+**ROAS atribuído da plataforma:** nestes eventos fica só dentro do MP Audience, para comparar campanhas, conjuntos e criativos entre si e alimentar o diagnóstico. Nunca se apresenta como retorno. Se aparecer num relatório, vai em tabela à parte, rotulado "atribuído, subestimado".
+
+**Nunca dois ROAS diferentes na mesma tabela nem no mesmo gráfico.**
+
+**Motivo:** no relatório anterior coexistiam 1,88× (atribuído), 4,3× (bruto) e 7,80× (incremental) para o mesmo artista no mesmo documento.
+
+**Estado:** vigente.
+
+
+
 ### D2 — Base única Live (jun/2026)
 **Decisão:** Eliminado o ambiente Test; passa a existir só a base Live (sfohvvlqccmmebvjgibx).
 **Porquê:** Simplificar operação. DDL do agente passa a aplicar direto em Live; menos drift entre ambientes.
