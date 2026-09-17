@@ -91,17 +91,24 @@ Deno.serve(async (req) => {
   });
   if (searchError) return unavailable("help_search_chunks", `${searchError.message}${searchError.hint ? ` — ${searchError.hint}` : ""}`);
   const chunks = (found ?? []) as Chunk[];
-  const bestSimilarity = Math.max(0, ...chunks.map((chunk) => Number(chunk.score) || 0));
+  const bestCosine = Math.max(0, ...chunks.map((chunk) => Number(chunk.cosine) || 0));
+  const lexicalHits = chunks.filter((chunk) => chunk.lexical_rank !== null && chunk.lexical_rank !== undefined).length;
 
   const record = async (result: { answered: boolean; confidence: "alta" | "media" | "baixa"; citations: Citation[] }) => {
     const { error } = await client.from("help_questions").insert({
       question, route: route ?? null, answered: result.answered, confidence: result.confidence,
       cited_anchor_ids: result.citations.map((citation) => citation.anchor_id), user_id: userId,
+      max_cosine: Number(bestCosine.toFixed(4)), lexical_hits: lexicalHits,
     });
     if (error) console.error("[help-search] question log", error);
   };
 
-  if (chunks.length === 0 || bestSimilarity < MIN_COSINE_SIMILARITY) {
+  // Porta de "não sei": só desiste sem chamar o LLM quando NÃO houve acerto
+  // lexical em nenhum pedaço E o cosseno máximo fica abaixo do limiar.
+  // Perguntas curtas em calão ("rateio dayoff") têm sempre cosseno baixo mas
+  // acertam no full-text — nesses casos os pedaços seguem para o LLM, que
+  // decide answered/confidence.
+  if (chunks.length === 0 || (lexicalHits === 0 && bestCosine < MIN_COSINE_SIMILARITY)) {
     const result = { answered: false, answer: "", citations: [] as Citation[], confidence: "baixa" as const };
     await record(result);
     return json(result);
