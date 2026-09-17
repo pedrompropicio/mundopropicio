@@ -43,12 +43,18 @@ export default function ManualGaps() {
   });
 
   const groups = useMemo(() => {
-    const map = new Map<string, { question: string; ids: string[]; routes: Set<string>; last: string; status: Status }>();
+    // maxCosine / lexicalHits são o diagnóstico da ocorrência mais recente:
+    // explicam porque é que a pesquisa falhou (sem acerto de palavras e
+    // semelhança baixa vs. acerto de palavras mas o LLM não respondeu).
+    const map = new Map<string, { question: string; ids: string[]; routes: Set<string>; last: string; status: Status; maxCosine: number | null; lexicalHits: number | null }>();
     for (const row of query.data ?? []) {
       const key = normalize(row.question);
-      const current = map.get(key) ?? { question: row.question, ids: [], routes: new Set<string>(), last: row.created_at, status: row.status };
+      const current = map.get(key) ?? { question: row.question, ids: [], routes: new Set<string>(), last: row.created_at, status: row.status, maxCosine: row.max_cosine, lexicalHits: row.lexical_hits };
       current.ids.push(row.id); if (row.route) current.routes.add(row.route);
-      if (row.created_at > current.last) { current.last = row.created_at; current.status = row.status; current.question = row.question; }
+      if (row.created_at > current.last) {
+        current.last = row.created_at; current.status = row.status; current.question = row.question;
+        current.maxCosine = row.max_cosine; current.lexicalHits = row.lexical_hits;
+      }
       map.set(key, current);
     }
     return [...map.values()];
