@@ -2397,7 +2397,7 @@ Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a 
 
 ## D-ERP81 — Regra de ROAS para eventos sem compra alimentada pelo pixel (17/09/2026)
 
-**Âmbito:** eventos em que a compra NÃO chega à plataforma de anúncios pelo pixel. Hoje é tudo o que vende na Ticketline (o pixel não devolve o `fbc` no Purchase — Elo 4 partido) e tudo o que vende na BOL (onde o pixel não existe). Em eventos onde o pixel alimenta a compra, o ROAS atribuído continua válido e esta regra não se aplica.
+**Âmbito:** eventos em que a compra NÃO chega à plataforma de anúncios pelo pixel. Hoje é tudo o que vende na Ticketline (o pixel não devolve o `fbc` no Purchase — Elo 4 partido) e tudo o que vende na BOL (onde o pixel não existe). **Quando o evento tem ligação com pixel e o Purchase chega com `fbc` (ou equivalente da plataforma), o ROAS atribuído passa a ser o ROAS oficial desse evento** — é ele que entra nos KPIs e nos relatórios, e o bruto/marginal deixam de ser a regra para esse evento. A D-ERP81 é a regra de recurso só para os eventos em que isso não acontece. A passagem faz-se por evento, no momento em que se prove que o Purchase chega com o identificador do clique (Elo 4 fechado para essa bilheteira).
 
 **ROAS bruto = receita real de bilheteira ÷ investimento (Meta + Google) no mesmo período.** É o ROAS oficial e o único que entra nos relatórios de tráfego pago × vendas — KPIs, tabela diária, tabela por cidade. Cidade sem investimento leva traço. Mede eficiência global, inclui venda orgânica e **não é prova de causa**.
 

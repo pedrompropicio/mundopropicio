@@ -13,6 +13,7 @@ Vale a **D-ERP81** — ler antes de escrever qualquer número de retorno. Resumo
 - **ROAS incremental** só em estudo pontual ou teste por cidades; **nunca** neste relatório.
 - **ROAS atribuído da plataforma** fica dentro do MP Audience. Se aparecer, vai em tabela à parte, rotulado "atribuído, subestimado".
 - **Nunca dois ROAS diferentes na mesma tabela nem no mesmo gráfico.**
+- **Quando o evento tem ligação com pixel e o Purchase chega com `fbc` (ou equivalente da plataforma), o ROAS atribuído passa a ser o ROAS oficial desse evento** — é ele que entra nos KPIs e nos relatórios; o bruto/marginal deixam de ser a regra para esse evento. A passagem faz-se por evento, no momento em que se prove que o Purchase chega com o identificador do clique (Elo 4 fechado para essa bilheteira).
 
 ## Estrutura — 2 páginas por artista
 
