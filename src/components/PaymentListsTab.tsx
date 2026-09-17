@@ -97,6 +97,25 @@ type ListStatus = "draft" | "pending_approval" | "approved" | "rejected" | "revi
 /** Prefixo de `removed_reason` usado quando o aprovador não aprova o item. */
 const NOT_APPROVED_REASON_PREFIX = "Não aprovado na aprovação";
 
+/**
+ * Fases do percurso de um item de lista (issue #200). Disjuntas por construção:
+ * `settled` (linha em `transaction_payments`) ganha sobre `markedPaid`, e
+ * `legacy` só recolhe o que está `paid` sem nenhuma das duas marcas.
+ * `launched` = soma de unpaid + markedPaid + settled + legacy.
+ * `notApproved` são itens cortados pela aprovação, logo FORA de `launched`.
+ */
+type PhaseKey = "launched" | "notApproved" | "unpaid" | "markedPaid" | "settled" | "legacy";
+
+const PHASE_META: { key: PhaseKey; label: string; hint: string; tone: string }[] = [
+  { key: "launched", label: "Lançadas", hint: "Itens ativos em listas de pagamento", tone: "text-foreground" },
+  { key: "notApproved", label: "Não aprovadas", hint: "Cortadas pelo aprovador (fora das Lançadas)", tone: "text-destructive" },
+  { key: "unpaid", label: "Por pagar", hint: "Nem marcadas como pagas nem liquidadas", tone: "text-muted-foreground" },
+  { key: "markedPaid", label: "Pagas por liquidar", hint: "Saíram do banco mas o sistema não sabe de que conta", tone: "text-warning" },
+  { key: "settled", label: "Liquidadas", hint: "Com linha em transaction_payments (conta conhecida)", tone: "text-success" },
+  { key: "legacy", label: "Legado", hint: "Transação paga sem marca de pagamento nem liquidação", tone: "text-muted-foreground" },
+];
+
+
 const buildHiddenSplitChildChecker = (transactions: any[]) => {
   const byId = new Map<string, any>();
   transactions.forEach((tx: any) => {
