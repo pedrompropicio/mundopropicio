@@ -90,12 +90,9 @@ Deno.serve(async (req) => {
   if (!supabaseUrl || !serviceKey) return json({ error: 'Server configuration error' }, 500)
 
   const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
-  let role = ''
-  try {
-    const encoded = bearer.split('.')[1]
-    if (encoded) role = JSON.parse(atob(encoded.replace(/-/g, '+').replace(/_/g, '/')))?.role ?? ''
-  } catch { role = '' }
-  if (bearer !== serviceKey && role !== 'service_role') {
+  // Não confiar em claims descodificadas localmente: só a chave service_role
+  // configurada no runtime pode entrar nesta função.
+  if (bearer !== serviceKey) {
     return json({ error: 'Não autorizado — esta função só aceita service_role.' }, 401)
   }
 

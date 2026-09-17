@@ -25,6 +25,7 @@ import {
   isStandaloneInvoiceDuplicateError,
   parseStandaloneAmount,
   STANDALONE_INVOICE_CURRENCIES,
+  validateStandaloneMonetaryFields,
   type StandaloneInvoiceCurrency,
 } from "@/lib/standalone-invoices";
 
@@ -202,8 +203,9 @@ export default function StandaloneInvoiceScanner() {
 
   const save = async () => {
     if (!file || !companyId) return;
-    if (currency !== "EUR" && (!parseStandaloneAmount(originalAmount) || !parseStandaloneAmount(fxRate))) {
-      toast({ title: "Preenche o valor original e o câmbio", variant: "destructive" });
+    const monetaryError = validateStandaloneMonetaryFields(currency, originalAmount, fxRate, total);
+    if (monetaryError) {
+      toast({ title: "Confirma os valores", description: monetaryError, variant: "destructive" });
       return;
     }
     setBusy("save");
