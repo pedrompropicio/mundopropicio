@@ -64,14 +64,15 @@ async function dumpTable(
   // num só ficheiro: passam a ser gravadas em pedaços
   //   <key>.json, <key>.part2.json, <key>.part3.json, ...
   // e o manifesto guarda quantos pedaços tem cada tabela.
-  const PART_LIMIT_BYTES = 8_000_000;
+  const PART_LIMIT_BYTES = 4_000_000;
   let parts: string[] = [];
   let partBytes = 0;
   let partIndex = 1;
   let count = 0;
   let bytes = 0;
   let from = 0;
-  const pageSize = 1000;
+  // páginas pequenas: linhas de 11 kB (ticketline_sync_runs) rebentavam a memória
+  const pageSize = 250;
 
   const flush = async () => {
     if (parts.length === 0) return;
