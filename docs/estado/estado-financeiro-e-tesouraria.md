@@ -1,8 +1,52 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 2026-09-16 (fecho). Issues abertas da frente: #91, #125, #127, #134, #135, #147, #149, #154, #181, #189, #190. Fechadas hoje: #180, #185, #187.
+Atualizado: 2026-09-17 (fecho). Issues abertas da frente: #91, #125, #127, #134, #135, #147, #149, #154, #181, #189, #190, #193, #195. Fechadas em 17/09: #191, #192.
 
 ## Em que pé está
+
+- **Faturas avulsas da Lovable carregadas (17/09, #191 e #192 fechadas).**
+  34 faturas em `standalone_invoices`, 2026-03-18 a 2026-09-16,
+  US$ 12.230,79 → **EUR 10.512,55**, IVA 0,00, todas com
+  `supplier_nif = EU372090612` (EU OSS VAT da Lovable Labs — **não**
+  PT515274291, que é o NIF da própria MP impresso no rodapé da fatura),
+  `currency = USD` e `paid_by_partner_id` = Pedro Neto. Série D38TWLH0,
+  0001 a 0040 sem falhas: ficam de fora 0001 e 0002 (nome pessoal, IVA 23%,
+  anteriores ao NIF da empresa na conta) e 0005/0016/0026/0034 (valor zero).
+  Câmbio USD→EUR do BCE na data de emissão ou no último dia útil anterior,
+  com a origem em `fx_rate_source` de cada registo.
+  **Caminho para obter os PDFs, provado e repetível:** os links
+  `pay.stripe.com/.../pdf?s=em` dos emails expiram; os links do portal
+  (`invoice.stripe.com/i/<acct>/<key>`) são permanentes, e o PDF serve-se
+  em `https://pay.stripe.com/invoice/<acct>/<key>/pdf?s=ap` — o sufixo
+  `?s=ap` é o que importa, porque `invoice.stripe.com/.../pdf` devolve a
+  SPA em HTML. Allowlist necessária: `pay.stripe.com`,
+  `invoice.stripe.com`, `files.stripe.com`.
+  **Autoliquidação:** 18 faturas trazem a menção impressa; as outras 16
+  (top-ups de $20/$50/$100) não têm coluna de imposto nenhuma e foram
+  gravadas a IVA 0 com a assunção declarada na `notes` (decisão do Pedro,
+  17/09). O câmbio automático fica na **#195**.
+
+- **Conta corrente do sócio alimentada com a folha de vencimentos (17/09).**
+  A Conta Corrente · Pedro Neto (`29115958-27b0-4a5d-9888-4a983ce4d11d`,
+  `is_accounting = false`, restrita) tem agora os dois lados:
+  `income` 3 · **16.000,00 €** (adiantamentos de setembro) e
+  `expense` 8 · **54.238,78 €** (vencimento líquido de jan a ago),
+  rubrica `10.3 Transferências Internas`, `is_confidential = true`, IVA 0.
+  Usou-se a 10.3 e não a 10.4.01 Ordenados de propósito: o custo real do
+  pessoal é lançado pela contabilidade no circuito dela, e pôr 10.4.01
+  aqui duplicaria custo no ERP. Esta conta é um controlo, não uma peça
+  de resultado.
+  **Origem dos valores:** anexo **MV** (`Extracto de Vencimentos por
+  Empregado`, CentralGest) dos emails mensais `Mundo Propício, Unip. Lda.
+  - Vencimentos 2026/MM` do João Coelho (Expert RH), na conta
+  **pedroneto@socialmusic.com.br** — não na conta mundopropicio.com.
+  **O MV é acumulado do ano:** o do mês mais recente traz todos os meses
+  anteriores, não é preciso abrir as threads antigas. Nas threads com
+  retificação vale a segunda leva de anexos, não a primeira (março foi
+  retificado de 6.065,60 para 6.068,90).
+  Linha 2 — Pedro Coelho de Araujo Neto, jan–ago 2026: Vencimento
+  7.360,00 · Sub. Refeição 1.017,90 · **Quilómetros 46.670,48** ·
+  Total 55.048,38 · Seg. Social −809,60 · **Líquido 54.238,78**.
 
 - **Anexar documentos por API (16/09, #180 fechada, D-ERP71).** Edge function `ingest-transaction-document` (só `service_role`): origem por URL do Drive ou `conteudo_base64`; alvo `transaction_id`, `invoice_group_id` ou `supplier_id` + `invoice_ref` (igualdade exata); um objeto no bucket `transaction-documents` e N registos em `transaction_documents` com o mesmo `file_url`; idempotente por nome+tamanho; `supplier_id`+`invoice_ref` sem grupo cria o grupo (a chamada é a confirmação humana, proformas incluídas). Transporte: o contentor do Claude chama a função diretamente — o domínio `sfohvvlqccmmebvjgibx.supabase.co` entrou na allowlist de rede da organização a 16/09. O Drive NÃO é corredor (privado devolve login; upload via MCP passa o ficheiro pelo contexto). Testado em Live com FT 132026/33986 (Vila Galé, grupo `3d2fff0d`) e PROFORMA 194/2026 (Meliã, grupo `10e18e9a`): 3 transações, 1 ficheiro, 1 objeto cada; repetição devolve `created 0, reused 3`. Peça do ecrã em #181.
 - **Aviso de abertura do extrato corrigido (#185, 16/09):** cascata — cobre o corte → como antes; começa depois do corte → abertura vs balance_after da última linha importada da conta antes de period_from (cadeia reconstruída dentro do dia); sem linhas → saldo do sistema à véspera. Períodos sobrepostos deixam de dar aviso falso.
@@ -67,7 +111,15 @@ Atualizado: 2026-09-16 (fecho). Issues abertas da frente: #91, #125, #127, #134,
 
 ## A trabalhar agora
 
-Nada em execução.
+**Conta corrente do sócio — encontro de contas contabilístico (#193).**
+Não é um acerto financeiro: é o medidor do que, a 31/12, fica exposto a
+enquadramento como distribuição de lucros. A cobertura tem três vias —
+vencimento, ajuda de custo por km e faturas no NIF da empresa. Estado:
+cobertura 80.830,05 € (54.238,78 de folha jan–ago + 26.591,27 de 63
+faturas avulsas) contra retiradas identificadas de 62.010,00 €
+(16.000 lançados + 38.000 do extrato jun–ago + 8.010 de levantamento a
+28/08). **Faltam as retiradas de janeiro a maio** — o Pedro vai buscar
+os extratos. Até lá a folga é provisória e só pode encolher.
 
 ## Próximo passo concreto
 
@@ -83,6 +135,12 @@ O Santander está implantado (122.363,05 € com corte a 31/08/2026) e o extrato
 8. **Falta decidir o modelo de fornecedor partilhado entre empresas** (MP e Coala Festival Portugal): hoje é um registo por empresa. Decisão em aberto.
 9. **Ticketline 112.000 € de 16/09 (TRF.IMED. R06117979) por lançar como transferência Ticketline → Santander (regra a guardar); atribuição ao apuramento em ticketing-e-receita.**
 10. **#189: "transações sem movimento no banco" falso quando a linha vive noutro extrato — verificação por conta.**
+
+11. **Completar as retiradas do sócio de janeiro a maio** na Conta
+    Corrente · Pedro Neto, a partir dos extratos do Santander que faltam,
+    e varrer a Drive por faturas avulsas ainda não carregadas. Sem isso
+    o relatório da #193 mostra uma folga que não é real.
+
 
 Já feito e sem pendência: a **FT 11.1/101** está anexada ao movimento do banco de **135.986,96 €** e replicada nas duas transações ligadas.
 
@@ -161,6 +219,16 @@ Não corrigir sem decisão explícita.
 **Cartão de fatura agrupada no picker de Listas de Pagamento.** `buildPickerRows` colapsa as transações com o mesmo `invoice_group_id` numa linha única identificada só por fornecedor + `invoice_ref`; as descrições dos itens não são renderizadas com o grupo fechado. Uma transação elegível parece não existir, e a pesquisa por descrição não lhe acerta — o que leva o utilizador a lançá-la outra vez. Caso real a 08/09: `FT 11.1/66` da KARINUR, duas transações de 345,00 € do Tour M&M. Corrigido a 08/09: grupos de 3 itens ou menos abrem por omissão, e a pesquisa passa a ler as descrições dentro dos grupos e a expandir o grupo com match. A selecção continua atómica por fatura.
 
 **Os seis lançamentos de hotel do Deive Leonardo (Vila Galé FT 132026/33986 e Meliã PROFORMA 194/2026) têm grupo de fatura e documento anexo desde 16/09 — não voltar a anexar.**
+
+**Os mapas de vencimento da Expert Numbers chegam à conta
+pedroneto@socialmusic.com.br, não à mundopropicio.com.** Cinco anexos por
+mês (FF, MV, RET, RV, SS); o **MV é acumulado do ano** e é o único que
+é preciso abrir. Há meses com retificação — vale sempre o último envio.
+
+**A ajuda de custo por quilómetros é a rubrica "Quilómetros" na folha e
+representa 85% do que o sócio recebe** (46.670,48 € contra 7.360,00 € de
+vencimento, jan–ago 2026). É o valor que sustenta quase toda a
+justificação da conta corrente e o mais exposto numa inspeção.
 
 ## Página de Contas: três dinheiros, três cartões (09/09/2026, D-ERP27)
 
