@@ -95,6 +95,35 @@ export default function CardSessionDetail() {
     },
   });
 
+  /**
+   * Cargas marcadas como pagas numa lista de pagamento mas ainda sem crédito
+   * (#201): a marca é visual e não muda o status da saída, logo o trigger
+   * `card_load_on_out_paid` não corre e o cartão fica sem crédito.
+   */
+  const pendingOutTxIds = (loads as any[])
+    .filter((l) => !l.in_transaction_id && l.out_transaction_id)
+    .map((l) => String(l.out_transaction_id));
+
+  const { data: markedPaidTxIds = new Set<string>() } = useQuery({
+    queryKey: ["card-session-loads-marked-paid", id, pendingOutTxIds.join(",")],
+    enabled: pendingOutTxIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payment_list_items")
+        .select("transaction_id, manually_marked_paid, removed_at")
+        .in("transaction_id", pendingOutTxIds)
+        .is("removed_at", null);
+      if (error) throw error;
+      return new Set(
+        (data ?? [])
+          .filter((r: any) => r.manually_marked_paid && r.transaction_id)
+          .map((r: any) => String(r.transaction_id)),
+      );
+    },
+  });
+
+
+
   const { data: expenses = [] } = useQuery({
     queryKey: ["card-session-expenses", id],
     enabled: !!id,
@@ -804,6 +833,15 @@ export default function CardSessionDetail() {
                         ? <span className="text-emerald-500">liquidada</span>
                         : <span className="text-amber-500">aguarda pagamento</span>}
                     </div>
+                    {!l.in_transaction_id && l.out_transaction_id && markedPaidTxIds.has(String(l.out_transaction_id)) && (
+                      <Badge
+                        variant="outline"
+                        className="mt-1 border-warning/40 bg-warning/10 text-[10px] text-warning"
+                        title="A marca de pago é visual: o crédito no cartão só nasce quando a saída é liquidada."
+                      >
+                        Marcada como paga — o crédito no cartão só entra ao liquidar
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="font-semibold text-emerald-500">+{formatCurrency(Number(l.amount))}</div>

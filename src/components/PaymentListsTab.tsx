@@ -1381,6 +1381,47 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     return map;
   }, [sepaExports]);
 
+  /**
+   * Cargas de cartão pré-pago (#201). Uma carga é uma transferência entre duas
+   * contas próprias: tem sempre de saber de que conta saiu, logo LIQUIDA-SE e
+   * nunca se marca como paga. A perna de entrada no cartão só nasce quando a
+   * saída fica `status='paid'` (trigger `card_load_on_out_paid`) — a marca visual
+   * deixaria dinheiro real no cartão e zero crédito no sistema.
+   */
+  const { data: cardLoadTxIds = new Set<string>() } = useQuery({
+    queryKey: ["card-load-out-transaction-ids"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("card_session_loads")
+        .select("out_transaction_id, in_transaction_id");
+      if (error) throw error;
+      return new Set(
+        (data ?? [])
+          .filter((r: any) => r.out_transaction_id)
+          .map((r: any) => String(r.out_transaction_id)),
+      );
+    },
+  });
+
+  /** Cargas ainda sem crédito no cartão (in_transaction_id IS NULL). */
+  const { data: cardLoadNoCreditTxIds = new Set<string>() } = useQuery({
+    queryKey: ["card-load-no-credit-transaction-ids"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("card_session_loads")
+        .select("out_transaction_id, in_transaction_id")
+        .is("in_transaction_id", null);
+      if (error) throw error;
+      return new Set(
+        (data ?? [])
+          .filter((r: any) => r.out_transaction_id)
+          .map((r: any) => String(r.out_transaction_id)),
+      );
+    },
+  });
+
+
+
 
   /**
    * "Marcar como pago" manual de um item da lista — ESTRITAMENTE VISUAL.
@@ -2273,6 +2314,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             const manuallyMarked = !!item.manually_marked_paid;
             /* Saiu num ficheiro SEPA? Então não precisa de "Marcar como Pago". */
             const sepaMark = tx?.id ? sepaExportByTxId[String(tx.id)] : undefined;
+            /* Carga de cartão (#201): só o caminho de liquidação faz sentido. */
+            const isCardLoad = tx?.id ? cardLoadTxIds.has(String(tx.id)) : false;
+            const cardLoadNoCredit = tx?.id ? cardLoadNoCreditTxIds.has(String(tx.id)) : false;
             const isRemoved = !!item.removed_at;
             const np = itemNetPayable({
               amount,
@@ -2395,8 +2439,11 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       )}
                       {/* O que saiu no ficheiro SEPA já foi marcado como pago no
                           download — o botão só aparece nos restantes (inclui os
-                          excluídos do ficheiro, ex.: sem IBAN). */}
-                      {!isPaid && !isRemoved && !sepaMark && (
+                          excluídos do ficheiro, ex.: sem IBAN).
+                          Nas cargas de cartão (#201) o botão nunca aparece: uma
+                          transferência entre contas próprias tem de saber de que
+                          conta saiu, logo liquida-se. */}
+                      {!isPaid && !isRemoved && !sepaMark && !isCardLoad && (
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleManualMark(item.id, manuallyMarked); }}
                           className={`flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border transition-colors ${
@@ -2409,6 +2456,20 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           <Banknote className="h-3.5 w-3.5" />
                           {manuallyMarked ? "Pago ✓" : "Marcar como Pago"}
                         </button>
+                      )}
+                      {isCardLoad && !isPaid && !isRemoved && (
+                        <Badge
+                          variant="outline"
+                          className="border-primary/40 text-primary text-[10px]"
+                          title="Transferência entre contas próprias: só a liquidação registra de que conta saiu o dinheiro."
+                        >
+                          Carga de cartão — liquidar, não marcar como pago
+                        </Badge>
+                      )}
+                      {isCardLoad && cardLoadNoCredit && manuallyMarked && !isPaid && (
+                        <Badge variant="default" className="bg-warning/15 text-warning border-0">
+                          O crédito no cartão só entra ao liquidar
+                        </Badge>
                       )}
                       {sepaMark && manuallyMarked && !isPaid && (
                         <Badge variant="default" className="bg-warning/15 text-warning border-0">Pago por liquidar</Badge>
