@@ -16674,6 +16674,16 @@ export type Database = {
         }
         Returns: string
       }
+      create_card_session_load: {
+        Args: {
+          p_amount: number
+          p_load_date: string
+          p_notes?: string
+          p_session_id: string
+          p_source_account_id: string
+        }
+        Returns: string
+      }
       create_registro_with_media: {
         Args: { p_media?: Json; p_registro: Json }
         Returns: string
