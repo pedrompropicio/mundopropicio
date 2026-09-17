@@ -2350,6 +2350,36 @@ Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a 
 
 **Estado:** vigente.
 
+## D-ERP79 — O Manual de Orientação vive em `docs/manual` e responde só com o que lá está (17/09/2026)
+
+**Contexto:** o manual era um array escrito à mão em `src/lib/help-manual.ts`, só mudava com Publish, cobria o ERP clássico e já descrevia ecrãs inexistentes (`/aprovacoes-pendentes`, "Custo Isolado / Vincular ao Master"); a pesquisa com IA mandava o índice inteiro no prompt, sem embeddings nem citação.
+
+**Decisão:**
+
+(a) **Fonte = artigos em `docs/manual/*.md`**, um por capítulo, com um bloco ````ajuda` por secção (`id`, `tooltip`, `ecras`, `perfis`, `fontes`, `termos`) e diagramas SVG em `docs/manual/img/` referenciados no artigo.
+
+(b) **O conteúdo vai para a base** (`help_articles`, `help_sections`, `help_chunks`) pelo botão Administração → **Sincronizar manual** (edge function `manual-sync`; conteúdo global, sem `company_id`, por desenho).
+
+(c) **Pesquisa híbrida** (`pgvector` com `google/gemini-embedding-2` + full-text português com `unaccent` + trigram, RRF) em `help_search_chunks`; o LLM só responde com base nos pedaços, cita a secção e nunca dá números; sem acerto lexical e com cosseno abaixo do limiar não chama o LLM e responde "não encontrei".
+
+(d) **Todas as perguntas ficam em `help_questions`** (com `max_cosine` e `lexical_hits`) e as não respondidas / baixa confiança formam a fila Administração → **Lacunas do manual**.
+
+(e) **Tooltips com anchor** mostram o texto do bloco ````ajuda` e "Saber mais" abre o painel lateral na secção; o painel abre por cima de qualquer modal.
+
+(f) **O campo `termos`** guarda o vocabulário da equipa (ex.: "dayoff") e é indexado mas invisível no artigo.
+
+(g) **Fontes internas** (D-ERP…, PROC-…, ficheiros de memória) só visíveis a admin / `platform_admin`.
+
+(h) **O manual só descreve o que o ecrã faz hoje** — o decidido mas por implementar fica fora ou em aviso ⚠️.
+
+**Alternativas rejeitadas:** manter o manual em código (desatualiza sem aviso); copiar conteúdo para a base à mão; ler o repositório pelo GitHub (PAT expira); capturas de ecrã em vez de diagramas (desatualizam a cada layout).
+
+**Consequência:** capítulos ainda só no manual antigo não são pesquisáveis pela IA até serem migrados; uma alteração a `docs/manual` só chega aos utilizadores com **Publish + Sincronizar manual**.
+
+**Primeiro capítulo:** `docs/manual/rateios.md` — 7 secções, 6 diagramas, testado em Live a 17/09 com "rateio dayoff", "rateio day off", "hotel da folga com o promotor de outra cidade" (citam `rateios.terceiros`), "tráfego pago de uma turnê igual pelas cidades" (cita `rateios.master`) e "como exporto o SAF-T?" (não encontrado).
+
+**Estado:** vigente.
+
 ### D2 — Base única Live (jun/2026)
 **Decisão:** Eliminado o ambiente Test; passa a existir só a base Live (sfohvvlqccmmebvjgibx).
 **Porquê:** Simplificar operação. DDL do agente passa a aplicar direto em Live; menos drift entre ambientes.

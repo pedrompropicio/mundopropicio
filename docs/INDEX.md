@@ -50,6 +50,8 @@
 
 Artigos-fonte em `docs/manual/*.md`, um por capítulo. Cada secção leva um bloco ```ajuda (id, tooltip, ecras, perfis, fontes) que o importador lê para a base e que alimenta o `/ajuda`, o painel lateral e os tooltips. Primeiro capítulo: `docs/manual/rateios.md` (16/09/2026). Regra: o manual só descreve o que o ecrã faz hoje; o que está decidido mas por implementar fica fora ou em aviso ⚠️.
 
+**Decisão: D-ERP79. Publicar conteúdo = editar `docs/manual` → Publish → Administração › Sincronizar manual.**
+
 Diagramas em `docs/manual/img/*.svg`, referenciados no artigo com `![alt](img/x.svg)`; cores só por variáveis de tema; sem números.
 
 Cada bloco ```ajuda pode ter `termos: [...]` — vocabulário da equipa (sinónimos, calão, escrita errada), indexado para a pesquisa e invisível no artigo. Quando a pesquisa falhar, as Lacunas (`/admin/lacunas-manual`) mostram as palavras a acrescentar.
