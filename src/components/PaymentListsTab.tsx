@@ -2460,7 +2460,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       {showBatchPayment && batchPaymentTransactions.length > 0 && (
         <BatchPaymentModal
           transactions={batchPaymentTransactions}
-          initialPaymentDate={list?.payment_date ?? null}
+          {/* Issue #200: a data sugerida é HOJE (dia em que se registra a saída),
+              não a `payment_date` da lista. Editável no modal. Efeito aceite: a
+              conciliação bancária deixa de casar por data exacta e passa a
+              depender da camada de valor a ±5 dias. */}
           bankAccountsOnly
           onClose={handleBatchPaymentClose}
         />
