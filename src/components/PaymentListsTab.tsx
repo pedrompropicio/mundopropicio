@@ -277,26 +277,73 @@ export default function PaymentListsTab() {
   });
 
   // Uma única query agregada com os itens de todas as listas para preencher a
-  // coluna "Valor" da listagem (c/IVA). Itens removidos manualmente na composição
-  // ficam de fora; os cortados PELA APROVAÇÃO contam (composição original submetida).
-  const { data: listTotalsMap = {} } = useQuery({
+  // coluna "Valor" da listagem (c/IVA) E os contadores por fase. Itens removidos
+  // manualmente na composição ficam de fora da coluna Valor; os cortados PELA
+  // APROVAÇÃO contam (composição original submetida).
+  //
+  // FASES (issue #200): "Marcar como Pago" e "Liquidar" não são categorias, são
+  // fases. Liquidada = tem linha em `transaction_payments` (o sistema sabe de que
+  // conta saiu) e GANHA sobre "paga". Os quatro estados dos itens ativos são
+  // disjuntos e somam sempre às Lançadas; "Não aprovadas" são itens removidos
+  // pela aprovação, logo ficam FORA das Lançadas.
+  const { data: listAggregates } = useQuery({
     queryKey: ["payment-lists", "totals"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("payment_list_items")
-        .select("payment_list_id, removed_at, removed_reason, transactions(amount, iva_rate)");
-      if (error) throw error;
+      const [itemsRes, paymentsRes] = await Promise.all([
+        supabase
+          .from("payment_list_items")
+          .select(
+            "payment_list_id, removed_at, removed_reason, manually_marked_paid, transactions(id, amount, iva_rate, status)",
+          ),
+        supabase.from("transaction_payments").select("transaction_id"),
+      ]);
+      if (itemsRes.error) throw itemsRes.error;
+      if (paymentsRes.error) throw paymentsRes.error;
+
+      const settledTxIds = new Set<string>(
+        ((paymentsRes.data ?? []) as any[]).map((r) => String(r.transaction_id)),
+      );
+
       const map: Record<string, number> = {};
-      for (const row of (data ?? []) as any[]) {
-        if (row.removed_at && !String(row.removed_reason ?? "").startsWith(NOT_APPROVED_REASON_PREFIX)) continue;
+      const phases: Record<PhaseKey, { count: number; amount: number }> = {
+        launched: { count: 0, amount: 0 },
+        notApproved: { count: 0, amount: 0 },
+        unpaid: { count: 0, amount: 0 },
+        markedPaid: { count: 0, amount: 0 },
+        settled: { count: 0, amount: 0 },
+        legacy: { count: 0, amount: 0 },
+      };
+      const add = (key: PhaseKey, value: number) => {
+        phases[key].count += 1;
+        phases[key].amount += value;
+      };
+
+      for (const row of (itemsRes.data ?? []) as any[]) {
         const tx = row.transactions;
         if (!tx) continue;
-        map[row.payment_list_id] =
-          (map[row.payment_list_id] ?? 0) + calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
+        const withIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
+        const cutByApproval = String(row.removed_reason ?? "").startsWith(NOT_APPROVED_REASON_PREFIX);
+
+        if (row.removed_at) {
+          if (!cutByApproval) continue; // removido na composição: fora de tudo
+          add("notApproved", withIva);
+          map[row.payment_list_id] = (map[row.payment_list_id] ?? 0) + withIva;
+          continue;
+        }
+
+        map[row.payment_list_id] = (map[row.payment_list_id] ?? 0) + withIva;
+        add("launched", withIva);
+
+        if (settledTxIds.has(String(tx.id))) add("settled", withIva);
+        else if (row.manually_marked_paid) add("markedPaid", withIva);
+        else if (tx.status === "paid") add("legacy", withIva);
+        else add("unpaid", withIva);
       }
-      return map;
+      return { totals: map, phases };
     },
   });
+  const listTotalsMap = listAggregates?.totals ?? {};
+  const listPhases = listAggregates?.phases;
 
 
 
