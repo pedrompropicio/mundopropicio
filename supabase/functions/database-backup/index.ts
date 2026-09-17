@@ -397,7 +397,7 @@ Deno.serve(async (req) => {
             ...(scope === "global" ? { target: "global" } : {}),
             force: true, run_id: runId, folder,
             start_index: nextIndex,
-            progress: { tables, schemas, errors, rows_total: rowsTotal, bytes },
+            progress: { tables, schemas, errors, parts: partsMap, rows_total: rowsTotal, bytes },
           },
         });
         if (enqErr) throw new Error(`backup_enqueue_slice: ${enqErr.message}`);
