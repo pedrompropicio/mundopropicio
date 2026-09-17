@@ -862,7 +862,7 @@ export default function CrmCampaigns() {
 
       {/* Issue #36 — token a expirar dentro de 7 dias */}
       {showExpiryWarning && (
-        <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning-foreground">
+        <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <p>
               O token da Meta expira a {format(parseISO(health!.expires_at!), "dd/MM/yyyy")} — reconectar antes disso.
