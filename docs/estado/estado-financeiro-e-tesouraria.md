@@ -1,6 +1,8 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 2026-09-17 (fecho). Issues abertas da frente: #91, #125, #127, #134, #135, #147, #149, #154, #181, #189, #190, #193, #195. Fechadas em 17/09: #191, #192.
+Atualizado: 2026-09-17 (fecho). Issues abertas da frente: #91, #125, #127,
+#134, #135, #147, #149, #154, #181, #189, #190, #195.
+Fechadas em 17/09: #191, #192, #193.
 
 ## Em que pé está
 
@@ -30,8 +32,8 @@ Atualizado: 2026-09-17 (fecho). Issues abertas da frente: #91, #125, #127, #134,
   A Conta Corrente · Pedro Neto (`29115958-27b0-4a5d-9888-4a983ce4d11d`,
   `is_accounting = false`, restrita) tem agora os dois lados:
   `income` 42 · **211.300,00 €** (retiradas de 07/01 a 09/09) e
-  `expense` 8 · **54.238,78 €** (vencimento líquido de jan a ago),
-  saldo **157.061,22 €**,
+  `expense` 8 · **55.048,38 €** (vencimento BRUTO de jan a ago),
+  saldo **156.251,62 €**,
   rubrica `10.3 Transferências Internas`, `is_confidential = true`, IVA 0.
   Usou-se a 10.3 e não a 10.4.01 Ordenados de propósito: o custo real do
   pessoal é lançado pela contabilidade no circuito dela, e pôr 10.4.01
@@ -47,8 +49,10 @@ Atualizado: 2026-09-17 (fecho). Issues abertas da frente: #91, #125, #127, #134,
   retificado de 6.065,60 para 6.068,90).
   Linha 2 — Pedro Coelho de Araujo Neto, jan–ago 2026: Vencimento
   7.360,00 · Sub. Refeição 1.017,90 · **Quilómetros 46.670,48** ·
-  Total 55.048,38 · Seg. Social −809,60 · **Líquido 54.238,78**.
-
+  **Total bruto 55.048,38** · Seg. Social −809,60 · Líquido 54.238,78.
+  **A conta corrente regista o BRUTO** (regra do Pedro, 17/09): o crédito
+  do sócio é o vencimento bruto, e a Segurança Social retida é movimento
+  separado.
   **Retiradas — extratos Santander 85 a 92 lidos (01/01 a 31/08),
   contínuos e sem lacunas.** 42 transferências nominais
   (`TRF CRED INTRABANC P/ PEDRO COELHO DE ARA` e
@@ -60,12 +64,24 @@ Atualizado: 2026-09-17 (fecho). Issues abertas da frente: #91, #125, #127, #134,
   38.000 € entre 18/06 e 31/08; o total real de jun–ago é **43.000 €** —
   faltava a transferência de 5.000 de 01/06, fora da janela que aquele
   trabalho olhou.
-  **Fora da conta, por decidir:** cinco levantamentos de numerário,
-  **69.711,26 €** — 7.000,00 (04/02), 9.050,00 (23/02), 24.436,26 (31/03),
-  21.215,00 (20/05), 8.010,00 (28/08). Um levantamento ao balcão não traz
-  destinatário: tanto pode ser retirada do sócio como caixa da empresa
-  para pagamentos em numerário. Não se lançam sem o Pedro dizer quais
-  são quais.
+- **Relatório "Conta Corrente do Sócio" construído e publicado (17/09,
+  #193 fechada).** Aba nova na página de Contas, **só de leitura**, visível
+  apenas com `view_confidential` — sem a permissão a aba não existe
+  (D-ERP36). Mostra o **Por justificar** = retiradas − folha − faturas,
+  com as três parcelas, seletor de ano, listas expansíveis e export Excel
+  de quatro folhas (Resumo, Retiradas, Folha, Faturas). Dois avisos
+  deliberados no ecrã: que o saldo da página de Contas **não é** este
+  número (fica sempre acima pelo valor das faturas avulsas, que por
+  desenho nunca tocam contas financeiras), e até que data há retiradas e
+  folha lançadas. ⚠️ **O ecrã de Extrato da conta não mostra as faturas —
+  é suposto:** o Extrato é o extrato da conta e as faturas não a movem.
+  Quem quiser o retrato completo usa a aba, não o Extrato.
+  Ficheiros: `src/lib/partner-current-account.ts` e
+  `src/components/PartnerCurrentAccountTab.tsx` (novos),
+  `src/pages/FinancialAccounts.tsx` e `src/lib/utils.ts` (alterados).
+  **Dívida assumida:** `PARTNER_ACCOUNT_ID` e `PARTNER_PROFILE_ID` estão
+  fixos no código — com outro sócio ou outra empresa o ecrã erraria em
+  silêncio em vez de falhar. Verificado no ecrã pelo Pedro a 17/09.
 
 
 - **Anexar documentos por API (16/09, #180 fechada, D-ERP71).** Edge function `ingest-transaction-document` (só `service_role`): origem por URL do Drive ou `conteudo_base64`; alvo `transaction_id`, `invoice_group_id` ou `supplier_id` + `invoice_ref` (igualdade exata); um objeto no bucket `transaction-documents` e N registos em `transaction_documents` com o mesmo `file_url`; idempotente por nome+tamanho; `supplier_id`+`invoice_ref` sem grupo cria o grupo (a chamada é a confirmação humana, proformas incluídas). Transporte: o contentor do Claude chama a função diretamente — o domínio `sfohvvlqccmmebvjgibx.supabase.co` entrou na allowlist de rede da organização a 16/09. O Drive NÃO é corredor (privado devolve login; upload via MCP passa o ficheiro pelo contexto). Testado em Live com FT 132026/33986 (Vila Galé, grupo `3d2fff0d`) e PROFORMA 194/2026 (Meliã, grupo `10e18e9a`): 3 transações, 1 ficheiro, 1 objeto cada; repetição devolve `created 0, reused 3`. Peça do ecrã em #181.
@@ -131,25 +147,23 @@ Atualizado: 2026-09-17 (fecho). Issues abertas da frente: #91, #125, #127, #134,
 
 ## A trabalhar agora
 
-**Conta corrente do sócio — encontro de contas contabilístico (#193).**
-Não é um acerto financeiro: é o medidor do que, a 31/12, fica exposto a
-enquadramento como distribuição de lucros. A cobertura tem três vias —
-vencimento, ajuda de custo por km e faturas no NIF da empresa.
-Estado a 17/09, com o ano de extratos completo:
+Nada em execução.
+
+A conta corrente do sócio ficou fechada a 17/09 (#193). Estado a essa data,
+com o ano de extratos completo:
 
 | | |
 |---|---:|
-| Folha de vencimentos jan–ago | 54.238,78 |
+| Folha de vencimentos jan–ago (bruto) | 55.048,38 |
 | Faturas avulsas (63) | 26.591,27 |
-| **Coberto** | **80.830,05** |
+| **Coberto** | **81.639,65** |
 | Retiradas nominais jan–set | −211.300,00 |
-| **Por justificar** | **−130.469,95** |
+| **Por justificar** | **−129.660,35** |
 
-Ainda por decidir: 69.711,26 € de levantamentos de numerário, fora desta
-conta. Por entrar do lado da cobertura: folha de set a dez (~28.000) e as
-faturas ainda por carregar da Drive. **O ano fecha com pelo menos 100 mil
-por justificar.** Matéria para a contabilista (Margarida Martins, Expert
-Numbers), não para o sistema — e enquanto há ano para agir.
+Por entrar do lado da cobertura: folha de set a dez (~28.000) e as faturas
+ainda por carregar da Drive. **O ano fecha com pelo menos 100 mil por
+justificar** — matéria para a contabilista (Margarida Martins, Expert
+Numbers), não para o sistema, e enquanto há ano para agir.
 
 ## Próximo passo concreto
 
@@ -166,10 +180,9 @@ O Santander está implantado (122.363,05 € com corte a 31/08/2026) e o extrato
 9. **Ticketline 112.000 € de 16/09 (TRF.IMED. R06117979) por lançar como transferência Ticketline → Santander (regra a guardar); atribuição ao apuramento em ticketing-e-receita.**
 10. **#189: "transações sem movimento no banco" falso quando a linha vive noutro extrato — verificação por conta.**
 
-11. **Levar os números da conta corrente à contabilista.** As retiradas
-    de 2026 estão todas lançadas (211.300,00 € de 07/01 a 09/09) e a
-    cobertura conhecida é 80.830,05 €. Falta decidir os 69.711,26 €
-    de levantamentos de numerário, carregar as faturas que restam na Drive,
+11. **Levar os números da conta corrente à contabilista.** As retiradas de
+    2026 estão todas lançadas (211.300,00 € de 07/01 a 09/09) e a cobertura
+    conhecida é 81.639,65 €. Falta carregar as faturas que restam na Drive
     e lançar a folha de set a dez à medida que chega.
 
 
@@ -260,6 +273,13 @@ mês (FF, MV, RET, RV, SS); o **MV é acumulado do ano** e é o único que
 representa 85% do que o sócio recebe** (46.670,48 € contra 7.360,00 € de
 vencimento, jan–ago 2026). É o valor que sustenta quase toda a
 justificação da conta corrente e o mais exposto numa inspeção.
+
+**Não existe levantamento de numerário na MP para uso pessoal** (decisão
+do Pedro, 17/09). Os cinco levantamentos de 2026 — 7.000,00 (04/02),
+9.050,00 (23/02), 24.436,26 (31/03), 21.215,00 (20/05), 8.010,00 (28/08),
+total 69.711,26 € — são caixa da empresa e ficam fora da conta corrente
+do sócio. Não reabrir.
+
 
 ## Página de Contas: três dinheiros, três cartões (09/09/2026, D-ERP27)
 
