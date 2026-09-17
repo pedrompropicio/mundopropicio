@@ -1,6 +1,6 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-09-16 · Issues: #73, #78, #128, #129, #130, #145, #155, #184 (aberta só pelo ponto c) · #132 fechada
+Atualizado: 2026-09-17 · Issues: #73, #78, #128, #129, #130, #145, #155, #184 (aberta só pelo ponto c) · #132 e #198 fechadas
 
 ## Em que pé está
 
