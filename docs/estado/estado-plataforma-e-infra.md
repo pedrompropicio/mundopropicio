@@ -1,28 +1,40 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado: 2026-09-16 · Issues: #186 · a-seguir #83, #96, #61
+Atualizado: 2026-09-17 · Issues: #186 · a-seguir #83, #96, #61
 
 ## Em que pé está
-Lovable Cloud + Supabase **Live único** (decisão fechada, D2 — não reabrir). DDL do agente aplica direto em Live; `query_database` só ataca Live. Publish propaga código, edge functions e frontend — **não** objetos SQL, DML nem crons.
+A 16–17/09 fizeram-se correções de UI no ecrã de Transações (tabela do BP sem scroll horizontal; busca por nome fantasia) e fechou-se a **#86** (ver D-ERP75).
 
-A 30/08 fez-se limpeza estrutural: 42 tabelas tinham dois triggers idênticos de `company_id` e ficaram com um; duas funções de validação L2 sem trigger nenhum foram removidas; e a `entity_documents` nasceu já com política RESTRICTIVE — a primeira tabela a nascer do lado certo da #83.
+A maior entrega dos dois dias foi o **Manual de Orientação construído de ponta a ponta** — ver secção própria abaixo e D-ERP79.
 
-A 01/09 atacou-se a #86 pelo lado dos produtores: varreram-se as edge functions à procura de inserts sob `service_role` sem `company_id` explícito, e corrigiram-se os dois casos com dano medido. Publicado e verificado em Live.
+## Manual de Orientação (17/09/2026)
+O que existe:
 
-A 11-12/09 reconstruiu-se a base de fornecedores: fusão dos duplicados por IBAN, três índices únicos parciais em Live como trava nova, e unificação da normalização de IBAN numa só função da app.
+- Artigos-fonte em `docs/manual/*.md`, um por capítulo. Cada secção leva um bloco ````ajuda` (`id`, `tooltip`, `ecras`, `perfis`, `fontes`, `termos`) e diagramas SVG em `docs/manual/img/`.
+- Importador para a base: botão **Administração → Sincronizar manual** (edge function `manual-sync`). Conteúdo global, sem `company_id`, por desenho.
+- Tabelas `help_articles`, `help_sections`, `help_chunks`, `help_questions` e função `help_search_chunks`.
+- Pesquisa híbrida: `pgvector` (`google/gemini-embedding-2`) + full-text português com `unaccent` + trigram, RRF.
+- Tooltips com anchor nos cinco pontos de rateio já mapeados.
+- Painel lateral (`HelpSidePanel`) que abre por cima de qualquer modal.
+- Ecrã **Administração → Lacunas do manual** para perguntas não respondidas / baixa confiança, com diagnóstico `max_cosine` / `lexical_hits` visível a admin.
 
-Ainda a 12/09 fechou-se a conciliação bancária de **uma linha contra N transações** (tabela-ponte `bank_line_transactions`) e os documentos da linha do banco (`bank_line_documents` + réplicas `bank://`), com a coluna nova `transaction_documents.partner_visible` a impedir que a fatura de um crédito partilhado chegue ao sócio do evento.
+Como se publica conteúdo:
 
-**E fechou-se hoje, 12/09, a consolidação do Extrato da Conta** (`/relatorios/extrato`) — ver a secção seguinte.
+1. Editar ou criar `docs/manual/<capitulo>.md`.
+2. Fazer Publish.
+3. Clicar **Administração → Sincronizar manual**.
 
-A 14/09 o dia foi de reparação: o ecrã de Transações esteve vazio para toda a gente por causa de um embed ambíguo do PostgREST, a fusão de fornecedores de 12/09 revelou-se ter atravessado fronteiras de empresa e foi revertida, o ciclo de vida do fornecedor ganhou regras, e o verificador de invariantes foi consolidado num só motor com referências aceites por escrito. As três secções seguintes contam cada um dos casos.
+Regras que ficaram:
 
-A 16/09 fecharam-se duas correções de UI no ecrã de Transações, publicadas no mesmo Publish: (1) a tabela de previsões do BP dentro do modal Nova Transação passou a `table-fixed` com colunas numéricas de largura fixa — as descrições longas truncam com reticências (texto completo no hover) e as colunas Previsto / Utilizado / Disponível ficam sempre visíveis sem scroll horizontal (commit 4e9be4d); (2) a busca livre e o filtro de Fornecedor passaram a procurar também em `suppliers.trade_name` (commit 6bd47b4) — ver o facto novo abaixo.
+- **Uma tarefa com migração só está feita quando a migração está aplicada e verificada em Live** — ficheiro no repositório não basta. As migrações `20260917010000_help_search_hybrid.sql` e `20260917020000_help_terms.sql` foram aplicadas e verificadas em Live a 17/09.
+- **A pesquisa só desiste sem LLM quando não há acerto lexical nem cosseno acima do limiar.** A pergunta "como exporto o SAF-T?" continua a falhar porque não há conteúdo sobre SAF-T no manual; perguntas com acerto lexical ("rateio dayoff", "hotel da folga") seguem para o LLM e respondem corretamente.
+- **Imagens de `docs/manual/img/` são a única exceção a "nunca HTML cru"** — os diagramas são SVG inline, referenciados no markdown como `![alt](img/x.svg)`.
 
-Ainda a 16/09 **fechou-se a #86**: RESOLVIDA a 16/09 — opção B aplicada por migração `20260916_system_audit_log_company_id_nullable.sql`; ver D-ERP75. Riscos condicionais dos restauros continuam na #96.
+## A trabalhar agora
+- **#186** — diálogo 'Rateio ou Exclusivo?' do modal Nova Transação. Correção em portal publicada a 16/09 — falta confirmação visual do Pedro no diálogo "Custo da tour ou desta cidade?".
+- **Manual — próximos capítulos** (Fecho do evento, BP…), um de cada vez, no mesmo formato de `rateios.md`.
 
 ## Incidente — o ecrã de Transações ficou vazio para toda a gente (14/09/2026)
-
 Uma chave estrangeira nova entre `transactions` e `suppliers` deixou **duas** FKs entre o mesmo par de tabelas. O embed escrito como `suppliers(name)` passou a ser ambíguo e o PostgREST responde **HTTP 300 / PGRST201** — **recusa o pedido inteiro**, não devolve resultado parcial. O ecrã não mostrava erro nenhum: a query era desestruturada sem ler `{ error }` e a linha "Sem transações registadas." servia tanto para lista vazia como para query falhada.
 
 Correção: o embed passou a nomear a FK explicitamente — `suppliers:suppliers!transactions_supplier_id_fkey(name)` — com o alias preservado, para o código a jusante ficar intocado.
@@ -32,7 +44,6 @@ Correção: o embed passou a nomear a FK explicitamente — `suppliers:suppliers
 Resolvido a 14/09 (#174 fechada): `QueryErrorState.tsx` criado com estado de falha distinto; `Transactions.tsx` com três ramos (a carregar / falhou / vazio); 243 queries em 98 ficheiros passaram a ler `{ error }`; 6 embeds ambíguos adicionais corrigidos.
 
 ## Incidente — a fusão de fornecedores de 12/09 atravessou fronteiras de empresa, revertida a 14/09
-
 As 86 fusões de duplicados por IBAN de 12/09 foram feitas por SQL sob `service_role`, onde `current_company_id()` devolve NULL e as políticas RESTRICTIVE não se aplicam. Resultado: fornecedores de empresas diferentes foram fundidos e **48 transações** ficaram apontadas a um fornecedor de outra empresa, num total de **78.922,17 €**.
 
 Reversão a 14/09: **85 dos 86** fornecedores reativados (um era duplicado genuíno e ficou inativo), as 48 transações reapontadas ao fornecedor da própria empresa e **30 mapeamentos de rubrica** do Coala repostos.
@@ -44,20 +55,16 @@ Tropeção no caminho, que fica registado: a primeira tentativa de reativação 
 **Correção a um facto antes registado:** a RPC `check_supplier_iban_duplicate` **não** atravessa fronteiras de empresa — filtra por `current_company_id()`. O defeito real era outro: não excluía fornecedores **inativos**, e por isso acusava duplicado contra um registo desativado que já não devia contar. Corrigido.
 
 ## Ciclo de vida do fornecedor (14/09/2026)
-
 Nada na aplicação desativa um fornecedor: `is_active` só era mexido por SQL. E o botão de apagar em `Suppliers.tsx` fazia `.delete()` direto, sem passar pelo Lixo, apesar de `src/lib/trash.ts` já declarar `supplier: "Fornecedor"`. Passou a apagar para o Lixo, recuperável. **Desativado** passa a significar uma coisa só: registo fundido ou substituído, mantido para o histórico e com nota auditável.
 
 ## Tratamento de erros e detetor de embeds ambíguos (14/09/2026)
-
 **#174 — Ecrãs engoliam erros de query PostgREST.** `src/components/QueryErrorState.tsx` criado com estado de falha visual distinto (código+mensagem+hint do PostgREST, botão "Tentar de novo", `console.error`). `src/pages/Transactions.tsx` e mais 97 ficheiros passaram a ler `{ error }` — 243 pontos de leitura. Estado vazio e estado de erro são agora inequívocos em toda a app.
 
 **#169 — Detetor de embeds PostgREST ambíguos.** `src/lib/postgrest-ambiguous-pairs.json` com os 35 pares de FK duplicada apurados em Live a 14/09. `src/lib/__tests__/postgrest-embeds.test.ts` faz scan de `src/**/*.ts(x)` e `supabase/functions/**/*.ts` — falha com guidance (ficheiro, linha, como qualificar) se encontrar embed sem `!<fk_name>`. Passou: 2/2, 91ms. 6 embeds adicionais corrigidos com FK nomeada.
 
 ⚠️ **Regra que fica:** qualquer embed entre pares do JSON tem de usar o formato `alias:tabela!fk(col)`. O teste é a guarda permanente.
 
-
 ## Verificador de invariantes (consolidado a 14/09/2026)
-
 Já existia um `check_system_invariants()` com ecrã próprio — não se reinventou, consolidou-se.
 
 Estrutura: tabela `system_invariants` (`name`, `description`, `severity`, `reference_count`, `notes`, `reference_updated_by`, `reference_updated_at`), tabela `invariant_runs` com o histórico, função `run_invariant_checks()` que corre e devolve, `run_invariant_checks_and_log()` que corre e grava a corrida, e `accept_invariant_reference(name, value, note)` que aceita a contagem de hoje como referência.
@@ -75,7 +82,6 @@ Cron em Live: `invariant-checks-daily`, jobid **131**, `10 7 * * *`. ⚠️ O Pu
 Duas verificações candidatas foram **eliminadas antes de entrar**, por serem falsos positivos provados: "filha de rateio com conta" sem excluir parcelas (as 4 linhas encontradas eram parcelas, que têm conta legitimamente) e "grupo de fatura com documentos diferentes" comparando `file_url` (difere por desenho — 24 de 24).
 
 ## Extrato da Conta — consolidação de movimentos do banco (fechado a 12/09/2026)
-
 O extrato passou a mostrar o que o **banco** agrupou: um movimento único que cobre N transações aparece como **UMA linha expansível**, em vez de N linhas consecutivas. Interruptor **"Consolidar movimentos do banco"**, guardado como preferência por utilizador.
 
 **Ficheiros:**
@@ -108,24 +114,18 @@ A fonte do banco ganha sempre. **Uma transação pertence no máximo a um grupo.
 
 O saldo mostrado com a consolidação ligada é recalculado sobre a ordem que se vê — ver **D-ERP55**.
 
-## A trabalhar agora
-- **#186** — diálogo 'Rateio ou Exclusivo?' do modal Nova Transação é um `div fixed` renderizado dentro do modal, não em portal; durante a animação de abertura (transform) fica cortado e com fundo parcial. Correção: `createPortal` para o body ou `Dialog` do shadcn. Ficheiro único, sem lógica. Por executar.
+## Performance RLS (Fix C concluído a 14/09; A e B deferidos)
+**Fix C** — `auth.uid()` → `(SELECT auth.uid())` em 567 políticas do schema `public`. Migration `20260914223900_rls_wrap_auth_uid_in_select.sql`, Publish feito, verificado em Live (`rls_estaveis = 567`). Elimina 177M+ seq_scans por sessão em `user_roles`.
 
-- **Performance RLS (Fix C concluído a 14/09; A e B deferidos):** **Fix C** — `auth.uid()` → `(SELECT auth.uid())` em 567 políticas do schema `public`. Migration `20260914223900_rls_wrap_auth_uid_in_select.sql`, Publish feito, verificado em Live (`rls_estaveis = 567`). Elimina 177M+ seq_scans por sessão em `user_roles`. **Fix A** — deferido: `v_artist_growth_summary` como matview sem RLS criaria fuga multi-tenant (authenticated veria dados de todas as empresas); a view não é usada no código da app (custo vem de queries externas). **Fix B** — deferido: os embeds em `Transactions.tsx` já são explícitos (`!transactions_supplier_id_fkey`); o custo real é o `fetchAllPaged` sem filtro de evento/estado — reabrir quando houver janela.
+**Fix A** — deferido: `v_artist_growth_summary` como matview sem RLS criaria fuga multi-tenant (authenticated veria dados de todas as empresas); a view não é usada no código da app (custo vem de queries externas).
 
-- **#87** — FECHADA a 14/09. `generate-historical-transactions` não responde em produção (função não existe no deploy atual), ficheiro removido do repo, sem referências órfãs. Critérios todos cumpridos.
-
-**Fechado hoje (12/09):** a consolidação do extrato da conta saiu desta secção — está entregue, testada e verificada em Live.
-
-**Entregue a 13/09 (D-ERP57):** contas de tráfego do próprio artista. `crm.ad_platform_connections` com `connection_scope = 'artist'` + `artist_id`; funções `artist-ads-meta-oauth-start|callback|select-account|disconnect` deployed; RPC `artist_ads_register_external` para Google/TikTok sem OAuth; `crm-google-sync-campaigns` promove `pending_link` → `active`; ecrã de Conexões etiqueta "Artista: <nome>". Registado o Google do Litto Lins (`8841388615`). **Concluído a 15/09:** Meta ligado desde 14/09 (Negócio: Mundo Propicio · CA 1 - Litto Lins · act_323668247351618) e Google Ads ligado desde 13/09 (Customer ID: 884-138-8615). D-ERP57 fechado.
-
+**Fix B** — deferido: os embeds em `Transactions.tsx` já são explícitos (`!transactions_supplier_id_fkey`); o custo real é o `fetchAllPaged` sem filtro de evento/estado — reabrir quando houver janela.
 
 ## Prazos e renovações
-- **PAT do GitHub expira 24/set/2026** (#15) — 12 dias.
+- **PAT do GitHub expira 24/set/2026** (#15) — 7 dias.
 - Token Meta da conta da Ivete expira 08/10/2026. Fortal e Siriguella expirados desde 22/08 (#36).
 
 ## Factos que não se reinvestigam
-
 **Empresas: quatro.** Mundo Propício (PT), Coala Festival Portugal (PT), Fortal (BR), Siriguella (BR). A Social Music seria a **5.ª**, e os eventos `SM - Lisboa` e `SM - Porto` estão hoje sob o `company_id` da MP — se ela passar a empresa própria, esses eventos migram, e isso é trabalho de dados.
 
 **Isolamento: 106 de 144 com RESTRICTIVE, 38 sem.** As 15 nomeadas na #83 como fuga real estão **todas corrigidas**. Sobram quatro tabelas de sistema: `notification_templates`, `system_reminders`, `system_reminder_settings`, `operacao_chamado_sla`. As outras 34 têm RLS ligada e nenhuma tem leitura aberta — é dívida, não é porta aberta.
@@ -145,6 +145,10 @@ O saldo mostrado com a consolidação ligada é recalculado sobre a ordem que se
 **A edge function `github-issues` não é alcançável por HTTPS direto do container das tarefas agendadas** (403). O caminho que funciona é `net.http_post` a partir de `query_database`, com a service role key do vault (secret `email_queue_service_role_key`). Parâmetro é `number`, não `issue_number`. Acções: `list`, `create`, `comment`, `close`, `update` — atenção que `update` com `labels` **substitui** o conjunto todo, não acrescenta.
 
 **Um trigger de `company_id` por tabela, com o nome `trg_set_company_id`.** Três tabelas mantêm nomes legados (`event_courtesies`, `event_ticket_types`, `event_ticket_type_zones`) — cada uma com um só trigger. Não criar um segundo com outro nome.
+
+**Medido em Live a 16/09/2026: 90 triggers com `set_company_id_on_insert`**, não 88. A `system_audit_log` deixou de ter o seu por D-ERP75.
+
+**Três perguntas registadas às 01:26 UTC de 17/09 com `max_cosine` 0 foram uma corrida de teste falhada**, não lacunas reais — o utilizador de teste não tinha papel admin e, por isso, não via nenhum pedaço do manual.
 
 **Base de fornecedores reconstruída a 11-12/09.** Estado final na altura: 455 ativos, 86 desativados por duplicação, ZERO grupos duplicados por IBAN, 1.443 transações (inalterado). Antes: 541 fornecedores, 330 com IBAN mas só 244 IBANs distintos, 48 IBANs gravados com separadores. ⚠️ **A fusão foi revertida a 14/09 por ter atravessado fronteiras de empresa** — o estado final correto é o descrito na secção "Incidente — a fusão de fornecedores de 12/09 atravessou fronteiras de empresa": 85 dos 86 reativados, 48 transações reapontadas, 30 mapeamentos de rubrica repostos.
 
@@ -171,7 +175,8 @@ Cada fornecedor desativado tem nota auditável: `[2026-09-12] Duplicado por IBAN
 **O extrato consolidado não mexe nos números.** `closingBalance`, `totalIncome`, `totalExpense` e as **duas exportações** continuam a ler o `lines` plano. A consolidação decide só o que se DESENHA. Ver **D-ERP55**.
 
 ## Onde ler mais
+- `docs/DECISIONS.md` — D-ERP75, D-ERP79
+- `docs/manual/rateios.md` — primeiro capítulo do Manual de Orientação
 - `claude/auditoria-company-id-service-role-2026-09-01.md` (incidente da auditoria, 01/09)
 - `.lovable/memory/constraints/lovable-cloud-ddl-workflow.md` (reescrita a 30/08 — o mundo com Test acabou), `edge-fn-esm-sh-supabase-js.md`
-- `docs/DECISIONS.md` — D-ERP40 (identidade de fornecedor é o IBAN normalizado), D-ERP41 (o anexo do movimento do banco pertence ao movimento e nunca é visível ao sócio), D-ERP55 (o saldo do extrato calcula-se sobre a ordem que se vê)
 - Issues #86, #83, #96, #61, #57
