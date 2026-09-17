@@ -1,36 +1,57 @@
-<svg viewBox="0 0 640 520" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" style="font-family: inherit; color: hsl(var(--foreground));">
+<svg viewBox="0 0 660 480" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" style="font-family: inherit; color: hsl(var(--foreground));">
   <title id="title">Escolha do tipo de rateio</title>
-  <desc id="desc">Árvore de decisão entre custo com terceiros, Faturas Ads, Master e vários eventos.</desc>
+  <desc id="desc">Árvore em escada: três perguntas encadeadas. Parte é de terceiros? Sim leva a Custo com terceiros. Não leva a Fatura Meta ou Google? Sim leva a Faturas Ads. Não leva a Cidades do mesmo Master com partes iguais? Sim leva a Master de várias cidades, não leva a Vários eventos. Nenhuma seta sai de um resultado final.</desc>
   <defs>
     <marker id="arrow-escolher" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--primary))"/></marker>
   </defs>
-  <g fill="none" stroke="hsl(var(--border))" stroke-width="2">
-    <rect x="170" y="20" width="300" height="58" rx="10" fill="hsl(var(--primary) / .08)" stroke="hsl(var(--primary))"/>
-    <rect x="40" y="128" width="250" height="58" rx="10"/>
-    <rect x="350" y="128" width="250" height="58" rx="10" fill="hsl(var(--primary) / .08)" stroke="hsl(var(--primary))"/>
-    <rect x="40" y="236" width="250" height="58" rx="10"/>
-    <rect x="350" y="236" width="250" height="58" rx="10" fill="hsl(var(--primary) / .08)" stroke="hsl(var(--primary))"/>
-    <rect x="40" y="344" width="250" height="68" rx="10" fill="hsl(var(--primary) / .08)" stroke="hsl(var(--primary))"/>
-    <rect x="350" y="344" width="250" height="68" rx="10" fill="hsl(var(--primary) / .08)" stroke="hsl(var(--primary))"/>
-    <rect x="115" y="456" width="410" height="44" rx="10" stroke-dasharray="6 5"/>
+
+  <!-- perguntas: contorno a cor primária -->
+  <g fill="hsl(var(--card))" stroke="hsl(var(--primary))" stroke-width="2">
+    <rect x="30" y="20" width="300" height="58" rx="10"/>
+    <rect x="30" y="120" width="300" height="58" rx="10"/>
+    <rect x="30" y="220" width="300" height="68" rx="10"/>
   </g>
+
+  <!-- resultados finais: fundo realçado -->
+  <g fill="hsl(var(--primary) / .12)" stroke="hsl(var(--primary) / .45)" stroke-width="2">
+    <rect x="400" y="20" width="230" height="58" rx="10"/>
+    <rect x="400" y="120" width="230" height="58" rx="10"/>
+    <rect x="400" y="220" width="230" height="68" rx="10"/>
+    <rect x="30" y="330" width="300" height="58" rx="10"/>
+  </g>
+
+  <!-- setas: horizontais = Sim (resultado), verticais = Não (pergunta seguinte) -->
   <g fill="none" stroke="hsl(var(--primary))" stroke-width="2" marker-end="url(#arrow-escolher)">
-    <path d="M320 78 V104 H165 V128"/><path d="M320 104 H475 V128"/>
-    <path d="M165 186 V236"/><path d="M475 186 V236"/>
-    <path d="M165 294 V344"/><path d="M475 294 V344"/>
+    <path d="M330 49 H400"/>
+    <path d="M330 149 H400"/>
+    <path d="M330 254 H400"/>
+    <path d="M180 78 V120"/>
+    <path d="M180 178 V220"/>
+    <path d="M180 288 V330"/>
   </g>
+
   <g fill="currentColor" font-size="16" text-anchor="middle">
-    <text x="320" y="55">Parte é de terceiros?</text>
-    <text x="165" y="163">Custo com terceiros</text><text x="475" y="163">Fatura Meta/Google?</text>
-    <text x="165" y="270">Faturas Ads</text>
-    <text x="475" y="258"><tspan x="475">Cidades do mesmo Master,</tspan><tspan x="475" dy="21">partes iguais?</tspan></text>
-    <text x="165" y="372"><tspan x="165">Master de várias</tspan><tspan x="165" dy="21">cidades</tspan></text>
-    <text x="475" y="385">Vários eventos</text>
-    <text x="320" y="484" font-size="14" fill="hsl(var(--muted-foreground))">Custos de estrutura já pagos → Rateios de Overhead</text>
+    <text x="180" y="55">Parte é de terceiros?</text>
+    <text x="180" y="155">Fatura Meta/Google?</text>
+    <text x="180" y="245"><tspan x="180">Cidades do mesmo Master,</tspan><tspan x="180" dy="21">partes iguais?</tspan></text>
+    <text x="515" y="55" font-weight="600">Custo com terceiros</text>
+    <text x="515" y="155" font-weight="600">Faturas Ads</text>
+    <text x="515" y="248" font-weight="600"><tspan x="515">Master de várias</tspan><tspan x="515" dy="21">cidades</tspan></text>
+    <text x="180" y="365" font-weight="600">Vários eventos</text>
   </g>
-  <g fill="hsl(var(--muted-foreground))" font-size="13" font-weight="600">
-    <text x="220" y="100">Sim</text><text x="413" y="100">Não</text>
-    <text x="108" y="210">Sim</text><text x="420" y="210">Não</text>
-    <text x="108" y="318">Sim</text><text x="420" y="318">Não</text>
+
+  <g fill="hsl(var(--muted-foreground))" font-size="13" font-weight="600" text-anchor="middle">
+    <text x="365" y="41">Sim</text>
+    <text x="365" y="141">Sim</text>
+    <text x="365" y="246">Sim</text>
+    <text x="199" y="104" text-anchor="start">Não</text>
+    <text x="199" y="204" text-anchor="start">Não</text>
+    <text x="199" y="314" text-anchor="start">Não</text>
   </g>
+
+  <!-- nota à parte, sem seta -->
+  <g fill="none" stroke="hsl(var(--border))" stroke-width="2" stroke-dasharray="6 5">
+    <rect x="30" y="412" width="600" height="44" rx="10"/>
+  </g>
+  <text x="330" y="440" font-size="14" text-anchor="middle" fill="hsl(var(--muted-foreground))">Custos de estrutura já pagos → Rateios de Overhead</text>
 </svg>
