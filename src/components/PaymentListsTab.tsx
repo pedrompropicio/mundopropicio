@@ -1381,6 +1381,47 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     return map;
   }, [sepaExports]);
 
+  /**
+   * Cargas de cartão pré-pago (#201). Uma carga é uma transferência entre duas
+   * contas próprias: tem sempre de saber de que conta saiu, logo LIQUIDA-SE e
+   * nunca se marca como paga. A perna de entrada no cartão só nasce quando a
+   * saída fica `status='paid'` (trigger `card_load_on_out_paid`) — a marca visual
+   * deixaria dinheiro real no cartão e zero crédito no sistema.
+   */
+  const { data: cardLoadTxIds = new Set<string>() } = useQuery({
+    queryKey: ["card-load-out-transaction-ids"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("card_session_loads")
+        .select("out_transaction_id, in_transaction_id");
+      if (error) throw error;
+      return new Set(
+        (data ?? [])
+          .filter((r: any) => r.out_transaction_id)
+          .map((r: any) => String(r.out_transaction_id)),
+      );
+    },
+  });
+
+  /** Cargas ainda sem crédito no cartão (in_transaction_id IS NULL). */
+  const { data: cardLoadNoCreditTxIds = new Set<string>() } = useQuery({
+    queryKey: ["card-load-no-credit-transaction-ids"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("card_session_loads")
+        .select("out_transaction_id, in_transaction_id")
+        .is("in_transaction_id", null);
+      if (error) throw error;
+      return new Set(
+        (data ?? [])
+          .filter((r: any) => r.out_transaction_id)
+          .map((r: any) => String(r.out_transaction_id)),
+      );
+    },
+  });
+
+
+
 
   /**
    * "Marcar como pago" manual de um item da lista — ESTRITAMENTE VISUAL.
