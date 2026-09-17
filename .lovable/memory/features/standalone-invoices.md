@@ -14,8 +14,13 @@ NUNCA cria/toca `transactions`, `event_forecasts`, `payment_lists`,
 
 ## Modelo
 - Tabela `public.standalone_invoices`: storage_path, file_name, supplier_name,
-  supplier_nif, invoice_date, total_amount, iva_amount, notes, status
+  supplier_nif, invoice_number, invoice_date, currency, original_amount, fx_rate,
+  fx_rate_source, total_amount, iva_amount, paid_by_partner_id, notes, status
   ('new'|'processed'), created_by, processed_at/by, company_id.
+- `total_amount` e `iva_amount` são sempre o contravalor em EUR. A moeda de origem
+  fica em `currency`/`original_amount`/`fx_rate`; moedas suportadas: EUR, USD, BRL e GBP.
+- O índice parcial `uq_standalone_invoice_supplier_number` impede repetição de
+  `(company_id, supplier_nif, invoice_number)` quando NIF e número estão presentes.
 - Bucket privado `standalone-invoices`, isolado por empresa (prefixo
   `${companyId}/` via `src/lib/storage.ts` → ISOLATED_BUCKETS).
 - RLS (2026-08-13), sempre com isolamento de empresa:
@@ -47,6 +52,16 @@ NUNCA cria/toca `transactions`, `event_forecasts`, `payment_lists`,
 - OCR via edge fn `extract-camarim-receipt` (prompt inclui `supplier_nif` =
   NIF do EMITENTE). Todos os campos são OPCIONAIS: grava-se com o que o OCR
   apanhou; vazio → null. Depois de gravar: "Escanear outra".
+- O utilizador ligado é o pagador predefinido; o seletor lê apenas membros da empresa.
+  Em moeda não EUR, valor original × câmbio propõe o total EUR, que continua editável.
+
+## Ingestão por API
+- `ingest-standalone-invoice` (`verify_jwt=true`) aceita exclusivamente service_role,
+  um URL Drive/Googleusercontent ou base64, valida PDF/JPEG/PNG e máximo 20 MB.
+- Confirma a empresa, moeda e coerência do contravalor antes do upload. A idempotência
+  por empresa+NIF+número acontece antes do download e também após corrida concorrente.
+- Grava apenas no bucket e em `standalone_invoices`; qualquer falha após upload remove
+  o objeto. Nunca toca nas tabelas financeiras proibidas pela regra absoluta.
 
 ## Visão de conferência (reutilizada)
 Componente único `AccountantStandaloneInvoicesTab.tsx`, usado em dois sítios:

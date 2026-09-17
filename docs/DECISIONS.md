@@ -13,22 +13,6 @@
 **Reavaliar só se:** 500+ promotores ativos ou $5M+ ARR.
 **Estado:** vigente.
 
-### D2 — Base única Live (jun/2026)
-**Decisão:** Eliminado o ambiente Test; passa a existir só a base Live (sfohvvlqccmmebvjgibx).
-**Porquê:** Simplificar operação. DDL do agente passa a aplicar direto em Live; menos drift entre ambientes.
-**Consequência:** "Faz Publish" serve para código/edge functions/front; não para objetos SQL de migração.
-**Estado:** vigente.
-
-### D3 — Pendências vivem em GitHub Issues (jun/2026)
-**Decisão:** A fonte de verdade das pendências é GitHub Issues (repo pedrompropicio/mundopropicio), geridas pela edge function github-issues. Handoffs passam a ser só diário/histórico.
-**Porquê:** Os handoffs datados são snapshots que se perdem entre chats/versões. Issues são uma fonte única, viva, rastreável e visível no telemóvel. Ritual: ler no início da sessão, atualizar no fim.
-**Estado:** vigente.
-
-### D4 — Documentação viva ARCHITECTURE + DECISIONS (jun/2026)
-**Decisão:** O "como funciona" e o "porquê" migram para docs vivos no repo, mantidos no lugar. A memória do Claude vira índice que aponta para eles.
-**Porquê:** A memória é resumida e tem limite; os handoffs dispersam-se. Um doc vivo dá durabilidade ao contexto.
-**Estado:** vigente (em construção, por partes).
-
 ## MP Audience — Arquitetura do motor de diagnóstico (P0)
 
 ### D5 — O LLM só escreve/classifica linguagem (P0 principle)
@@ -2357,3 +2341,27 @@ Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a 
 **Medição (Ivete):** 8 parcelas, **61.428,59 €**; ao vincular, **sete linhas fecharam com folga 0,00** — o previsto tinha sido orçamentado pelo total da fatura. Duas excepções: **Palácio do Estoril** precisou de elevação de **188,00 €** (7.260,00 → 7.448,00) e **Hotel Londres** ficou com folga de **1.040,40**, que era exactamente uma despesa solta da **PATRIHOTEL** — ao vincular, a linha fechou a zero.
 
 **Estado:** vigente.
+
+## D-ERP78 — Faturas avulsas preservam a moeda de origem sem criar movimento financeiro (17/09/2026)
+
+**Contexto:** as faturas avulsas são documentos contabilísticos pagos com recursos próprios e podem chegar por scanner ou API, incluindo moedas estrangeiras.
+
+**Decisão:** `total_amount` e `iva_amount` guardam sempre o contravalor em EUR; `currency`, `original_amount`, `fx_rate` e `fx_rate_source` preservam a origem. A API é idempotente por empresa+NIF+número e segue a mesma regra absoluta do ecrã: nunca toca em `transactions`, `event_forecasts`, `payment_lists`, `financial_accounts` nem reembolsos. `paid_by_partner_id` identifica quem pagou; a posição do sócio pedida em #193 é apenas relatório de leitura.
+
+**Estado:** vigente.
+
+### D2 — Base única Live (jun/2026)
+**Decisão:** Eliminado o ambiente Test; passa a existir só a base Live (sfohvvlqccmmebvjgibx).
+**Porquê:** Simplificar operação. DDL do agente passa a aplicar direto em Live; menos drift entre ambientes.
+**Consequência:** "Faz Publish" serve para código/edge functions/front; não para objetos SQL de migração.
+**Estado:** vigente.
+
+### D3 — Pendências vivem em GitHub Issues (jun/2026)
+**Decisão:** A fonte de verdade das pendências é GitHub Issues (repo pedrompropicio/mundopropicio), geridas pela edge function github-issues. Handoffs passam a ser só diário/histórico.
+**Porquê:** Os handoffs datados são snapshots que se perdem entre chats/versões. Issues são uma fonte única, viva, rastreável e visível no telemóvel. Ritual: ler no início da sessão, atualizar no fim.
+**Estado:** vigente.
+
+### D4 — Documentação viva ARCHITECTURE + DECISIONS (jun/2026)
+**Decisão:** O "como funciona" e o "porquê" migram para docs vivos no repo, mantidos no lugar. A memória do Claude vira índice que aponta para eles.
+**Porquê:** A memória é resumida e tem limite; os handoffs dispersam-se. Um doc vivo dá durabilidade ao contexto.
+**Estado:** vigente (em construção, por partes).

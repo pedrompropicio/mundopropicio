@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Users, Database, ShieldAlert, ShieldCheck, Trash2, History, Activity, ClipboardCheck, Sparkles, Building2, Bell, Cloud, Link2, Banknote, BookOpen } from "lucide-react";
+import { Users, Database, ShieldAlert, ShieldCheck, Trash2, History, Activity, ClipboardCheck, Sparkles, Building2, Bell, Cloud, Link2, Banknote, BookOpen, MessageCircleQuestion } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -102,6 +102,12 @@ const adminCards = [
     icon: BookOpen,
     title: "Sincronizar manual",
     description: "Lê os artigos-fonte do Manual de Orientação e grava-os na base (secções e pedaços para pesquisa)",
+  },
+  {
+    to: "/admin/lacunas-manual",
+    icon: MessageCircleQuestion,
+    title: "Lacunas do manual",
+    description: "Rever perguntas sem resposta ou com baixa confiança e acompanhar a cobertura do manual",
   },
   {
     to: "/admin/audit-downloads",
