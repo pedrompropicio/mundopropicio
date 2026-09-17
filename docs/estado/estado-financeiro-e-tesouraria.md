@@ -64,6 +64,25 @@ Fechadas em 17/09: #191, #192, #193.
   38.000 € entre 18/06 e 31/08; o total real de jun–ago é **43.000 €** —
   faltava a transferência de 5.000 de 01/06, fora da janela que aquele
   trabalho olhou.
+- **Relatório "Conta Corrente do Sócio" construído e publicado (17/09,
+  #193 fechada).** Aba nova na página de Contas, **só de leitura**, visível
+  apenas com `view_confidential` — sem a permissão a aba não existe
+  (D-ERP36). Mostra o **Por justificar** = retiradas − folha − faturas,
+  com as três parcelas, seletor de ano, listas expansíveis e export Excel
+  de quatro folhas (Resumo, Retiradas, Folha, Faturas). Dois avisos
+  deliberados no ecrã: que o saldo da página de Contas **não é** este
+  número (fica sempre acima pelo valor das faturas avulsas, que por
+  desenho nunca tocam contas financeiras), e até que data há retiradas e
+  folha lançadas. ⚠️ **O ecrã de Extrato da conta não mostra as faturas —
+  é suposto:** o Extrato é o extrato da conta e as faturas não a movem.
+  Quem quiser o retrato completo usa a aba, não o Extrato.
+  Ficheiros: `src/lib/partner-current-account.ts` e
+  `src/components/PartnerCurrentAccountTab.tsx` (novos),
+  `src/pages/FinancialAccounts.tsx` e `src/lib/utils.ts` (alterados).
+  **Dívida assumida:** `PARTNER_ACCOUNT_ID` e `PARTNER_PROFILE_ID` estão
+  fixos no código — com outro sócio ou outra empresa o ecrã erraria em
+  silêncio em vez de falhar. Verificado no ecrã pelo Pedro a 17/09.
+
 
 
 
