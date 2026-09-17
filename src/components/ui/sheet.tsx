@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { guardHelpPanelOutside } from "@/lib/help-panel-dom";
 
 const Sheet = SheetPrimitive.Root;
 
@@ -55,7 +56,15 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
   ({ side = "right", className, children, ...props }, ref) => (
     <SheetPortal>
       <SheetOverlay />
-      <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
+      <SheetPrimitive.Content
+        ref={ref}
+        className={cn(sheetVariants({ side }), className)}
+        {...props}
+        // Interações vindas do painel do Manual nunca fecham o sheet.
+        onPointerDownOutside={guardHelpPanelOutside(props.onPointerDownOutside)}
+        onInteractOutside={guardHelpPanelOutside(props.onInteractOutside)}
+        onFocusOutside={guardHelpPanelOutside(props.onFocusOutside)}
+      >
         {children}
         <SheetPrimitive.Close className="absolute right-4 top-[max(1rem,calc(env(safe-area-inset-top)+0.5rem))] rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none z-10">
           <X className="h-4 w-4" />
