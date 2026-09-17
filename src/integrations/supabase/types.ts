@@ -9236,6 +9236,8 @@ export type Database = {
           confidence: string | null
           created_at: string
           id: string
+          lexical_hits: number | null
+          max_cosine: number | null
           question: string
           resolved_at: string | null
           resolved_by: string | null
@@ -9251,6 +9253,8 @@ export type Database = {
           confidence?: string | null
           created_at?: string
           id?: string
+          lexical_hits?: number | null
+          max_cosine?: number | null
           question: string
           resolved_at?: string | null
           resolved_by?: string | null
@@ -9266,6 +9270,8 @@ export type Database = {
           confidence?: string | null
           created_at?: string
           id?: string
+          lexical_hits?: number | null
+          max_cosine?: number | null
           question?: string
           resolved_at?: string | null
           resolved_by?: string | null
@@ -17131,6 +17137,8 @@ export type Database = {
           article_title: string
           chunk_id: string
           content: string
+          cosine: number
+          lexical_rank: number
           score: number
           section_anchor: string
           section_heading: string

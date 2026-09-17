@@ -16,7 +16,7 @@ const ANSWER_MODEL = "google/gemini-2.5-flash";
 const MIN_COSINE_SIMILARITY = 0.64;
 const BodySchema = z.object({ question: z.string().trim().min(5).max(1000), route: z.string().trim().max(500).nullable().optional() });
 
-type Chunk = { chunk_id: string; section_anchor: string; section_heading: string; article_slug: string; article_title: string; content: string; section_terms: string[] | null; score: number };
+type Chunk = { chunk_id: string; section_anchor: string; section_heading: string; article_slug: string; article_title: string; content: string; section_terms: string[] | null; score: number; lexical_rank: number | null; cosine: number };
 type Citation = { n: number; anchor_id: string; article_slug: string; heading: string };
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -68,7 +68,11 @@ Deno.serve(async (req) => {
   const { data: roles, error: rolesError } = await client.from("user_roles").select("role").eq("user_id", userId);
   if (rolesError) return json({ error: "Não foi possível determinar o perfil." }, 500);
   const priority = ["platform_admin", "admin", "manager", "accountant", "marketing_manager", "content_manager", "editor", "producer", "field_producer", "partner", "viewer", "user"];
-  const role = priority.find((candidate) => (roles ?? []).some((row) => row.role === candidate)) ?? "user";
+  const topRole = priority.find((candidate) => (roles ?? []).some((row) => row.role === candidate)) ?? "user";
+  // As secções do manual são marcadas com perfis do tipo "admin|manager|editor":
+  // platform_admin não consta dessas listas, pelo que tem de ser lido como
+  // admin — de outro modo a pesquisa devolvia zero pedaços a quem tem tudo.
+  const role = topRole === "platform_admin" ? "admin" : topRole;
 
   let embeddingResponse: Response;
   try {
@@ -91,17 +95,24 @@ Deno.serve(async (req) => {
   });
   if (searchError) return unavailable("help_search_chunks", `${searchError.message}${searchError.hint ? ` — ${searchError.hint}` : ""}`);
   const chunks = (found ?? []) as Chunk[];
-  const bestSimilarity = Math.max(0, ...chunks.map((chunk) => Number(chunk.score) || 0));
+  const bestCosine = Math.max(0, ...chunks.map((chunk) => Number(chunk.cosine) || 0));
+  const lexicalHits = chunks.filter((chunk) => chunk.lexical_rank !== null && chunk.lexical_rank !== undefined).length;
 
   const record = async (result: { answered: boolean; confidence: "alta" | "media" | "baixa"; citations: Citation[] }) => {
     const { error } = await client.from("help_questions").insert({
       question, route: route ?? null, answered: result.answered, confidence: result.confidence,
       cited_anchor_ids: result.citations.map((citation) => citation.anchor_id), user_id: userId,
+      max_cosine: Number(bestCosine.toFixed(4)), lexical_hits: lexicalHits,
     });
     if (error) console.error("[help-search] question log", error);
   };
 
-  if (chunks.length === 0 || bestSimilarity < MIN_COSINE_SIMILARITY) {
+  // Porta de "não sei": só desiste sem chamar o LLM quando NÃO houve acerto
+  // lexical em nenhum pedaço E o cosseno máximo fica abaixo do limiar.
+  // Perguntas curtas em calão ("rateio dayoff") têm sempre cosseno baixo mas
+  // acertam no full-text — nesses casos os pedaços seguem para o LLM, que
+  // decide answered/confidence.
+  if (chunks.length === 0 || (lexicalHits === 0 && bestCosine < MIN_COSINE_SIMILARITY)) {
     const result = { answered: false, answer: "", citations: [] as Citation[], confidence: "baixa" as const };
     await record(result);
     return json(result);

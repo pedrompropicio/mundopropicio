@@ -15,7 +15,7 @@ import QueryErrorState from "@/components/QueryErrorState";
 import { toast } from "sonner";
 
 type Status = "aberta" | "coberta" | "ignorada";
-type Question = { id: string; question: string; route: string | null; created_at: string; status: Status; confidence: string | null };
+type Question = { id: string; question: string; route: string | null; created_at: string; status: Status; confidence: string | null; max_cosine: number | null; lexical_hits: number | null };
 
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
 
@@ -32,7 +32,7 @@ export default function ManualGaps() {
   const query = useQuery({
     queryKey: ["manual-gaps", status, from, to], enabled: authorized,
     queryFn: async () => {
-      let request = (supabase as any).from("help_questions").select("id,question,route,created_at,status,confidence").or("answered.eq.false,confidence.eq.baixa").order("created_at", { ascending: false });
+      let request = (supabase as any).from("help_questions").select("id,question,route,created_at,status,confidence,max_cosine,lexical_hits").or("answered.eq.false,confidence.eq.baixa").order("created_at", { ascending: false });
       if (status !== "todas") request = request.eq("status", status);
       if (from) request = request.gte("created_at", `${from}T00:00:00`);
       if (to) request = request.lte("created_at", `${to}T23:59:59.999`);
@@ -43,12 +43,18 @@ export default function ManualGaps() {
   });
 
   const groups = useMemo(() => {
-    const map = new Map<string, { question: string; ids: string[]; routes: Set<string>; last: string; status: Status }>();
+    // maxCosine / lexicalHits são o diagnóstico da ocorrência mais recente:
+    // explicam porque é que a pesquisa falhou (sem acerto de palavras e
+    // semelhança baixa vs. acerto de palavras mas o LLM não respondeu).
+    const map = new Map<string, { question: string; ids: string[]; routes: Set<string>; last: string; status: Status; maxCosine: number | null; lexicalHits: number | null }>();
     for (const row of query.data ?? []) {
       const key = normalize(row.question);
-      const current = map.get(key) ?? { question: row.question, ids: [], routes: new Set<string>(), last: row.created_at, status: row.status };
+      const current = map.get(key) ?? { question: row.question, ids: [], routes: new Set<string>(), last: row.created_at, status: row.status, maxCosine: row.max_cosine, lexicalHits: row.lexical_hits };
       current.ids.push(row.id); if (row.route) current.routes.add(row.route);
-      if (row.created_at > current.last) { current.last = row.created_at; current.status = row.status; current.question = row.question; }
+      if (row.created_at > current.last) {
+        current.last = row.created_at; current.status = row.status; current.question = row.question;
+        current.maxCosine = row.max_cosine; current.lexicalHits = row.lexical_hits;
+      }
       map.set(key, current);
     }
     return [...map.values()];
@@ -67,7 +73,7 @@ export default function ManualGaps() {
     <Card><CardContent className="grid gap-3 pt-6 sm:grid-cols-3"><div><Label>Estado</Label><Select value={status} onValueChange={(value) => setStatus(value as Status | "todas")}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todas">Todos</SelectItem><SelectItem value="aberta">Aberta</SelectItem><SelectItem value="coberta">Coberta</SelectItem><SelectItem value="ignorada">Ignorada</SelectItem></SelectContent></Select></div><div><Label htmlFor="gap-from">Desde</Label><Input id="gap-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div><div><Label htmlFor="gap-to">Até</Label><Input id="gap-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div></CardContent></Card>
     {query.isError && <QueryErrorState error={query.error} context="Lacunas do manual" onRetry={() => query.refetch()} />}
     {!query.isLoading && !query.isError && groups.length === 0 && <p className="text-sm text-muted-foreground">Sem lacunas para os filtros escolhidos.</p>}
-    <div className="space-y-3">{groups.map((group) => <Card key={`${normalize(group.question)}-${group.status}`}><CardHeader><div className="flex flex-wrap items-start justify-between gap-2"><CardTitle className="text-base">{group.question}</CardTitle><Badge variant="outline">{group.status}</Badge></div></CardHeader><CardContent className="space-y-3"><div className="flex flex-wrap gap-3 text-xs text-muted-foreground"><span>{group.ids.length} vez(es)</span><span>Rotas: {[...group.routes].join(", ") || "—"}</span><span>Última: {new Date(group.last).toLocaleString("pt-PT")}</span></div><div className="flex gap-2"><Button size="sm" onClick={() => setCoverIds(group.ids)}>Marcar coberta</Button><Button size="sm" variant="outline" onClick={() => void update(group.ids, "ignorada")}>Ignorar</Button></div></CardContent></Card>)}</div>
+    <div className="space-y-3">{groups.map((group) => <Card key={`${normalize(group.question)}-${group.status}`}><CardHeader><div className="flex flex-wrap items-start justify-between gap-2"><CardTitle className="text-base">{group.question}</CardTitle><Badge variant="outline">{group.status}</Badge></div></CardHeader><CardContent className="space-y-3"><div className="flex flex-wrap gap-3 text-xs text-muted-foreground"><span>{group.ids.length} vez(es)</span><span>Rotas: {[...group.routes].join(", ") || "—"}</span><span>Última: {new Date(group.last).toLocaleString("pt-PT")}</span>{authorized && <span title="Maior semelhança de significado entre a pergunta e os pedaços do manual">Semelhança máx.: {group.maxCosine === null || group.maxCosine === undefined ? "—" : Number(group.maxCosine).toFixed(3)}</span>}{authorized && <span title="Pedaços do manual com acerto na pesquisa por palavras">Acertos por palavras: {group.lexicalHits ?? "—"}</span>}</div><div className="flex gap-2"><Button size="sm" onClick={() => setCoverIds(group.ids)}>Marcar coberta</Button><Button size="sm" variant="outline" onClick={() => void update(group.ids, "ignorada")}>Ignorar</Button></div></CardContent></Card>)}</div>
     <Dialog open={coverIds.length > 0} onOpenChange={(open) => { if (!open) { setCoverIds([]); setNote(""); } }}><DialogContent><DialogHeader><DialogTitle>Marcar pergunta como coberta</DialogTitle><DialogDescription>Indique como a lacuna foi resolvida no manual.</DialogDescription></DialogHeader><div><Label htmlFor="resolution-note">Nota</Label><Input id="resolution-note" value={note} onChange={(e) => setNote(e.target.value)} /></div><DialogFooter><Button variant="outline" onClick={() => setCoverIds([])}>Cancelar</Button><Button disabled={!note.trim()} onClick={() => void update(coverIds, "coberta", note.trim())}>Confirmar</Button></DialogFooter></DialogContent></Dialog>
   </div>;
 }
