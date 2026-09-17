@@ -8,11 +8,14 @@ import { z } from "npm:zod@3.23.8";
 const EMBED_MODEL = "google/gemini-embedding-2";
 const ANSWER_MODEL = "google/gemini-2.5-flash";
 // Calibrado em Live, só por leitura: rateio de hotel 0,7322; rateio de turnê
-// 0,7110; SAF-T 0,6110. Revalidar após sincronizar novos capítulos.
-const MIN_COSINE_SIMILARITY = 0.65;
+// 0,7110; "rateio day off" 0,6488; "hotel da folga com o promotor de outra
+// cidade" 0,6702; SAF-T 0,6110 (tem de continuar a falhar).
+// 0,64 fica acima do SAF-T e abaixo das perguntas em calão da equipa.
+// Revalidar após sincronizar novos capítulos.
+const MIN_COSINE_SIMILARITY = 0.64;
 const BodySchema = z.object({ question: z.string().trim().min(5).max(1000), route: z.string().trim().max(500).nullable().optional() });
 
-type Chunk = { chunk_id: string; section_anchor: string; section_heading: string; article_slug: string; article_title: string; content: string; score: number };
+type Chunk = { chunk_id: string; section_anchor: string; section_heading: string; article_slug: string; article_title: string; content: string; section_terms: string[] | null; score: number };
 type Citation = { n: number; anchor_id: string; article_slug: string; heading: string };
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -81,13 +84,19 @@ Deno.serve(async (req) => {
     return json(result);
   }
 
-  const context = chunks.map((chunk, index) => `[${index + 1}] ${chunk.article_title} › ${chunk.section_heading}\n${chunk.content}`).join("\n\n");
+  const context = chunks
+    .map((chunk, index) => {
+      const terms = (chunk.section_terms ?? []).filter(Boolean);
+      const vocab = terms.length > 0 ? `\nVocabulário da equipa: ${terms.join(", ")}` : "";
+      return `[${index + 1}] ${chunk.article_title} › ${chunk.section_heading}${vocab}\n${chunk.content}`;
+    })
+    .join("\n\n");
   const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST", headers: { Authorization: `Bearer ${aiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: ANSWER_MODEL,
       messages: [
-        { role: "system", content: "Responde em português europeu e apenas com base nos pedaços fornecidos. Sê curto e usa passos quando for um procedimento. Cada frase factual termina com [n], apontando para o pedaço usado. Nunca inventes ecrãs ou botões. Nunca dês números, valores ou montantes: indica onde se consultam no sistema. Se os pedaços não responderem à pergunta, devolve answered=false. Usa sempre a função answer_help." },
+        { role: "system", content: "Responde em português europeu e apenas com base nos pedaços fornecidos. Sê curto e usa passos quando for um procedimento. Cada frase factual termina com [n], apontando para o pedaço usado. Interpreta a pergunta pelo vocabulário da equipa indicado em cada pedaço (por exemplo, \"day off\" é o custo de dias sem show partilhado com promotores de outras cidades). Nunca inventes ecrãs ou botões. Nunca dês números, valores ou montantes: indica onde se consultam no sistema. Se os pedaços não responderem à pergunta, devolve answered=false. Usa sempre a função answer_help." },
         { role: "user", content: `Pergunta: ${question}\n\nPedaços do manual:\n${context}` },
       ],
       tools: [{ type: "function", function: { name: "answer_help", description: "Resposta fundamentada no manual.", parameters: { type: "object", properties: { answered: { type: "boolean" }, answer: { type: "string" }, citation_numbers: { type: "array", items: { type: "integer", minimum: 1, maximum: chunks.length } }, confidence: { type: "string", enum: ["alta", "media", "baixa"] } }, required: ["answered", "answer", "citation_numbers", "confidence"], additionalProperties: false } } }],
