@@ -42,6 +42,7 @@ export async function performCardLoad(p: CardLoadParams) {
       date: p.loadDate,
       status: "pending",
       is_transitory: true,
+      transitory_reason: "carga_cartao",
       exclude_from_result: true,
       category_id: cat?.id ?? null,
       description: `Carga cartão — ${p.cardName} (${p.sourceAccountName} → ${p.cardName})`,

@@ -549,6 +549,10 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
             iva_rate: ivaRate,
             category_id: transitory ? (categoryId || null) : categoryId,
             is_transitory: transitory,
+            // D-ERP80: entrada a repassar (dinheiro que chega e vai sair) ou repasse.
+            transitory_reason: transitory
+              ? (action === "create_income" ? "entrada_a_repassar" : "repasse")
+              : null,
             supplier_id: supplierId || null,
             event_id: eventId || null,
             forecast_id: needsBpLine ? forecastId : null,

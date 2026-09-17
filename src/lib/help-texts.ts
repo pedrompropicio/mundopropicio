@@ -163,7 +163,7 @@ const helpTexts: Record<string, string> = {
   reimbursementToggle:
     "Despesa paga do bolso de um funcionário. Não movimenta contas bancárias até à liquidação via Nota de Reembolso. Indique o nome do funcionário a reembolsar.",
   transitoryToggle:
-    "Transação transitória (cauções, depósitos, garantias). Não impacta o resultado financeiro do evento (DRE/PL) mas aparece no fecho de sócios para encontro de contas.",
+    "Transação transitória (dinheiro que passa pela empresa e não é receita nem custo dela). Não impacta o resultado financeiro do evento (DRE/PL) mas aparece no fecho de sócios para encontro de contas. Ao ligar é obrigatório dizer o motivo: Caução/garantia, Repasse a terceiro, Entrada a repassar, Empréstimo ao sócio, Aporte do sócio ou Carga de cartão (o Extra do Sócio só nasce pela conversão própria).",
   excludeFromResultToggle:
     "Despesa real que não compõe o resultado financeiro do evento (DRE/PL). Fica registada para histórico e rastreabilidade mas não afeta lucro/prejuízo.",
   excludeFromResultTransaction:
