@@ -13,61 +13,35 @@ interface CardLoadParams {
 }
 
 /**
- * Fluxo aprovado (Pedro):
+ * Fluxo aprovado (Pedro) — a carga é um PAR de duas pernas que se anulam no caixa:
  *   1. Cria APENAS a transação de saída da conta origem com status='pending'
- *      (Aguardando Aprovação), categoria transferência (10.3), transitória e
- *      excluída do resultado. Fornecedor não se aplica (o "credor" é o cartão,
- *      que é uma conta financeira, não um supplier).
+ *      (Aguardando Aprovação), rubrica de transferência (10.3), transitória
+ *      (`transitory_reason='carga_cartao'`) e excluída do resultado. Fornecedor
+ *      não se aplica: o beneficiário é o próprio cartão, uma conta financeira.
  *   2. Regista o load em card_session_loads com in_transaction_id=NULL.
- *   3. Só quando a transação for LIQUIDADA (via lista de pagamento) é que um
- *      trigger em BD cria a transação de entrada no cartão (income transitório
- *      já pago) e preenche in_transaction_id. Até lá o cartão NÃO vê o dinheiro.
+ *   3. Só quando a saída fica LIQUIDADA (status='paid') é que o trigger
+ *      `card_load_on_out_paid` cria a perna de entrada no cartão e preenche
+ *      in_transaction_id. Até lá o cartão NÃO vê o dinheiro — por isso numa
+ *      carga LIQUIDA-SE, nunca se marca como pago (issue #201).
  *   4. Se a transação for eliminada (rejeição/cancelamento), um trigger apaga
  *      também a entrada (se existir) e a linha de card_session_loads.
+ *
+ * As duas escritas passaram a ser ATÓMICAS: a RPC `create_card_session_load`
+ * resolve a rubrica, cria a saída e insere a linha da carga na mesma transação
+ * de base de dados. Falha em qualquer passo ⇒ nada fica escrito (issue #201).
  */
 export async function performCardLoad(p: CardLoadParams) {
   if (!(p.amount > 0)) throw new Error("Valor inválido.");
+  if (!p.sourceAccountId) throw new Error("Conta de origem obrigatória.");
 
-  const { data: cat } = await supabase
-    .from("account_categories")
-    .select("id")
-    .eq("code", "10.3")
-    .maybeSingle();
-
-  const { data: outTx, error: outErr } = await supabase
-    .from("transactions")
-    .insert({
-      amount: p.amount,
-      iva_rate: 0,
-      date: p.loadDate,
-      status: "pending",
-      is_transitory: true,
-      transitory_reason: "carga_cartao",
-      exclude_from_result: true,
-      category_id: cat?.id ?? null,
-      description: `Carga cartão — ${p.cardName} (${p.sourceAccountName} → ${p.cardName})`,
-      type: "expense",
-      account_id: p.sourceAccountId,
-    })
-    .select("id")
-    .single();
-  if (outErr) throw outErr;
-
-  const { error: loadErr } = await supabase.from("card_session_loads").insert({
-    session_id: p.sessionId,
-    amount: p.amount,
-    load_date: p.loadDate,
-    source_account_id: p.sourceAccountId,
-    out_transaction_id: outTx.id,
-    in_transaction_id: null,
-    notes: p.notes ?? null,
-    created_by: p.userId,
+  const { data, error } = await supabase.rpc("create_card_session_load", {
+    p_session_id: p.sessionId,
+    p_amount: p.amount,
+    p_load_date: p.loadDate,
+    p_source_account_id: p.sourceAccountId,
+    p_notes: p.notes ?? null,
   });
-  if (loadErr) {
-    // rollback da OUT tx se o load falhar
-    await supabase.from("transactions").delete().eq("id", outTx.id);
-    throw loadErr;
-  }
+  if (error) throw error;
 
-  return { outTxId: outTx.id, inTxId: null };
+  return { outTxId: (data as string) ?? null, inTxId: null };
 }
