@@ -7,11 +7,12 @@ import { z } from "npm:zod@3.23.8";
 
 const EMBED_MODEL = "google/gemini-embedding-2";
 const ANSWER_MODEL = "google/gemini-2.5-flash";
-// Calibrado em Live, só por leitura: rateio de hotel 0,7322; rateio de turnê
-// 0,7110; "rateio day off" 0,6488; "hotel da folga com o promotor de outra
-// cidade" 0,6702; SAF-T 0,6110 (tem de continuar a falhar).
-// 0,64 fica acima do SAF-T e abaixo das perguntas em calão da equipa.
-// Revalidar após sincronizar novos capítulos.
+// Calibração medida em Live, só por leitura, antes dos termos: rateio de hotel
+// 0,7322; rateio de turnê 0,7110; SAF-T 0,6110 (tem de continuar a falhar).
+// Baixado 0,65 -> 0,64 para dar margem às perguntas curtas em calão
+// ("rateio day off"), mantendo folga sobre o SAF-T. Voltar a medir depois do
+// primeiro sync com termos e ajustar se alguma das 5 perguntas de aceitação
+// falhar.
 const MIN_COSINE_SIMILARITY = 0.64;
 const BodySchema = z.object({ question: z.string().trim().min(5).max(1000), route: z.string().trim().max(500).nullable().optional() });
 

@@ -92,3 +92,34 @@ describe("chunkArticle", () => {
     expect(content).not.toContain("Rateio igual de um custo lançado no Master");
   });
 });
+
+describe("termos (vocabulário da equipa)", () => {
+  it("lê os termos de cada secção e nunca os mete no body_md", () => {
+    const a = parseHelpArticle(rateios, "rateios.md");
+    for (const section of a.sections) {
+      expect(section.terms.length).toBeGreaterThan(0);
+      expect(section.body_md).not.toContain("termos:");
+    }
+    const terceiros = a.sections.find((s) => s.anchor_id === "rateios.terceiros")!;
+    expect(terceiros.terms).toContain("day off");
+    expect(terceiros.terms).toContain("hotel da folga");
+    expect(terceiros.terms).toContain("promotor de outra cidade");
+  });
+
+  it("propaga os termos da secção para cada pedaço", () => {
+    const a = parseHelpArticle(rateios, "rateios.md");
+    for (const chunk of chunkArticle(a)) {
+      const section = a.sections.find((s) => s.anchor_id === chunk.anchor_id)!;
+      expect(chunk.terms).toEqual(section.terms);
+      expect(chunk.content).not.toContain("termos:");
+    }
+  });
+
+  it("secção sem termos fica com lista vazia", () => {
+    const raw = [
+      "---", "capitulo: t", "titulo: T", "modulo: erp", "atualizado: 2026-09-16", "---", "",
+      "## A", "", "```ajuda", "id: t.a", "```", "", "texto",
+    ].join("\n");
+    expect(parseHelpArticle(raw, "t.md").sections[0].terms).toEqual([]);
+  });
+});
