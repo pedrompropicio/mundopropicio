@@ -2092,6 +2092,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             paymentDate={list.payment_date ?? null}
             candidates={sepaCandidates}
             companyName={company?.legal_name ?? company?.display_name ?? "Empresa"}
+            onExported={markSepaBatchPaid}
             onClose={() => setShowSepa(false)}
           />
         )}
@@ -2226,6 +2227,8 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             const isSelectable = isApproved && !isPaid && tx;
             const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, amount);
             const manuallyMarked = !!item.manually_marked_paid;
+            /* Saiu num ficheiro SEPA? Então não precisa de "Marcar como Pago". */
+            const sepaMark = tx?.id ? sepaExportByTxId[String(tx.id)] : undefined;
             const isRemoved = !!item.removed_at;
             const np = itemNetPayable({
               amount,
@@ -2336,7 +2339,20 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           onClick={() => setDocsTx({ id: tx.id, description: tx.description ?? "Transação" })}
                         />
                       )}
-                      {!isPaid && !isRemoved && (
+                      {sepaMark && (
+                        <Badge
+                          variant="outline"
+                          className="border-primary/40 text-primary text-[10px]"
+                          title={`${sepaMark.msg_id ?? "sem referência"}${sepaMark.file_name ? ` — ${sepaMark.file_name}` : ""}`}
+                        >
+                          <Landmark className="mr-1 h-3 w-3" />
+                          No ficheiro SEPA de {formatDate(sepaMark.exported_at)}
+                        </Badge>
+                      )}
+                      {/* O que saiu no ficheiro SEPA já foi marcado como pago no
+                          download — o botão só aparece nos restantes (inclui os
+                          excluídos do ficheiro, ex.: sem IBAN). */}
+                      {!isPaid && !isRemoved && !sepaMark && (
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleManualMark(item.id, manuallyMarked); }}
                           className={`flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border transition-colors ${
@@ -2349,6 +2365,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           <Banknote className="h-3.5 w-3.5" />
                           {manuallyMarked ? "Pago ✓" : "Marcar como Pago"}
                         </button>
+                      )}
+                      {sepaMark && manuallyMarked && !isPaid && (
+                        <Badge variant="default" className="bg-warning/15 text-warning border-0">Pago por liquidar</Badge>
                       )}
                       {/* Editar a transação em si é exclusivo de admin: transações
                           aprovadas têm campos bloqueados para o editor e o atalho
