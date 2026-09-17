@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import QueryErrorState from "@/components/QueryErrorState";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface HelpCitation {
   n: number;
