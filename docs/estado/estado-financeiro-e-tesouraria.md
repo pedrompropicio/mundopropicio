@@ -150,25 +150,23 @@ Fechadas em 17/09: #191, #192, #193.
 
 ## A trabalhar agora
 
-**Conta corrente do sócio — encontro de contas contabilístico (#193).**
-Não é um acerto financeiro: é o medidor do que, a 31/12, fica exposto a
-enquadramento como distribuição de lucros. A cobertura tem três vias —
-vencimento, ajuda de custo por km e faturas no NIF da empresa.
-Estado a 17/09, com o ano de extratos completo:
+Nada em execução.
+
+A conta corrente do sócio ficou fechada a 17/09 (#193). Estado a essa data,
+com o ano de extratos completo:
 
 | | |
 |---|---:|
-| Folha de vencimentos jan–ago | 54.238,78 |
+| Folha de vencimentos jan–ago (bruto) | 55.048,38 |
 | Faturas avulsas (63) | 26.591,27 |
-| **Coberto** | **80.830,05** |
+| **Coberto** | **81.639,65** |
 | Retiradas nominais jan–set | −211.300,00 |
-| **Por justificar** | **−130.469,95** |
+| **Por justificar** | **−129.660,35** |
 
-Ainda por decidir: 69.711,26 € de levantamentos de numerário, fora desta
-conta. Por entrar do lado da cobertura: folha de set a dez (~28.000) e as
-faturas ainda por carregar da Drive. **O ano fecha com pelo menos 100 mil
-por justificar.** Matéria para a contabilista (Margarida Martins, Expert
-Numbers), não para o sistema — e enquanto há ano para agir.
+Por entrar do lado da cobertura: folha de set a dez (~28.000) e as faturas
+ainda por carregar da Drive. **O ano fecha com pelo menos 100 mil por
+justificar** — matéria para a contabilista (Margarida Martins, Expert
+Numbers), não para o sistema, e enquanto há ano para agir.
 
 ## Próximo passo concreto
 
