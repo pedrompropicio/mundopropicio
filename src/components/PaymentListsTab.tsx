@@ -497,6 +497,29 @@ export default function PaymentListsTab() {
         />
       )}
 
+      {listPhases && (
+        <div className="glass rounded-xl p-4">
+          <p className="mb-3 text-xs uppercase tracking-wider text-muted-foreground">
+            Fases dos pagamentos em listas — Lançadas = Por pagar + Pagas por liquidar + Liquidadas + Legado
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {PHASE_META.map((p) => (
+              <div
+                key={p.key}
+                className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2"
+                title={p.hint}
+              >
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{p.label}</p>
+                <p className={`text-lg font-bold ${p.tone}`}>{listPhases[p.key].count}</p>
+                <p className="font-mono text-xs text-muted-foreground">
+                  {formatCurrency(listPhases[p.key].amount)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="glass rounded-xl p-5">
         {listsLoading ? (
           <p className="py-8 text-center text-muted-foreground">A carregar…</p>
