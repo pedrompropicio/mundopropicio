@@ -9295,6 +9295,7 @@ export type Database = {
           profiles: string[]
           screens: string[]
           sources: string[]
+          terms: string[]
           tooltip: string | null
         }
         Insert: {
@@ -9307,6 +9308,7 @@ export type Database = {
           profiles?: string[]
           screens?: string[]
           sources?: string[]
+          terms?: string[]
           tooltip?: string | null
         }
         Update: {
@@ -9319,6 +9321,7 @@ export type Database = {
           profiles?: string[]
           screens?: string[]
           sources?: string[]
+          terms?: string[]
           tooltip?: string | null
         }
         Relationships: [
@@ -17131,6 +17134,7 @@ export type Database = {
           score: number
           section_anchor: string
           section_heading: string
+          section_terms: string[]
         }[]
       }
       help_sync_article: { Args: { _payload: Json }; Returns: Json }
