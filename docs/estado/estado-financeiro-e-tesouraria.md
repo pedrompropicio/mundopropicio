@@ -183,10 +183,9 @@ O Santander está implantado (122.363,05 € com corte a 31/08/2026) e o extrato
 9. **Ticketline 112.000 € de 16/09 (TRF.IMED. R06117979) por lançar como transferência Ticketline → Santander (regra a guardar); atribuição ao apuramento em ticketing-e-receita.**
 10. **#189: "transações sem movimento no banco" falso quando a linha vive noutro extrato — verificação por conta.**
 
-11. **Levar os números da conta corrente à contabilista.** As retiradas
-    de 2026 estão todas lançadas (211.300,00 € de 07/01 a 09/09) e a
-    cobertura conhecida é 80.830,05 €. Falta decidir os 69.711,26 €
-    de levantamentos de numerário, carregar as faturas que restam na Drive,
+11. **Levar os números da conta corrente à contabilista.** As retiradas de
+    2026 estão todas lançadas (211.300,00 € de 07/01 a 09/09) e a cobertura
+    conhecida é 81.639,65 €. Falta carregar as faturas que restam na Drive
     e lançar a folha de set a dez à medida que chega.
 
 
