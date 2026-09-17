@@ -105,6 +105,16 @@ const NOT_APPROVED_REASON_PREFIX = "Não aprovado na aprovação";
  * `notApproved` são itens cortados pela aprovação, logo FORA de `launched`.
  */
 type PhaseKey = "launched" | "notApproved" | "unpaid" | "markedPaid" | "settled" | "legacy";
+type PhaseTotals = Record<PhaseKey, { count: number; amount: number }>;
+
+const emptyPhaseTotals = (): PhaseTotals => ({
+  launched: { count: 0, amount: 0 },
+  notApproved: { count: 0, amount: 0 },
+  unpaid: { count: 0, amount: 0 },
+  markedPaid: { count: 0, amount: 0 },
+  settled: { count: 0, amount: 0 },
+  legacy: { count: 0, amount: 0 },
+});
 
 const PHASE_META: { key: PhaseKey; label: string; hint: string; tone: string }[] = [
   { key: "launched", label: "Lançadas", hint: "Itens ativos em listas de pagamento", tone: "text-foreground" },
@@ -113,6 +123,14 @@ const PHASE_META: { key: PhaseKey; label: string; hint: string; tone: string }[]
   { key: "markedPaid", label: "Pagas por liquidar", hint: "Saíram do banco mas o sistema não sabe de que conta", tone: "text-warning" },
   { key: "settled", label: "Liquidadas", hint: "Com linha em transaction_payments (conta conhecida)", tone: "text-success" },
   { key: "legacy", label: "Legado", hint: "Transação paga sem marca de pagamento nem liquidação", tone: "text-muted-foreground" },
+];
+
+const BAR_PHASES: { key: Exclude<PhaseKey, "launched">; label: string; shortLabel: string; segmentClass: string }[] = [
+  { key: "unpaid", label: "Por pagar", shortLabel: "por pagar", segmentClass: "bg-muted-foreground/45" },
+  { key: "markedPaid", label: "Pagas por liquidar", shortLabel: "por liquidar", segmentClass: "bg-warning" },
+  { key: "settled", label: "Liquidadas", shortLabel: "liquidadas", segmentClass: "bg-success" },
+  { key: "legacy", label: "Legado", shortLabel: "legado", segmentClass: "bg-destructive" },
+  { key: "notApproved", label: "Não aprovadas", shortLabel: "não aprovadas", segmentClass: "payment-phase-not-approved" },
 ];
 
 
@@ -324,17 +342,14 @@ export default function PaymentListsTab() {
       );
 
       const map: Record<string, number> = {};
-      const phases: Record<PhaseKey, { count: number; amount: number }> = {
-        launched: { count: 0, amount: 0 },
-        notApproved: { count: 0, amount: 0 },
-        unpaid: { count: 0, amount: 0 },
-        markedPaid: { count: 0, amount: 0 },
-        settled: { count: 0, amount: 0 },
-        legacy: { count: 0, amount: 0 },
-      };
-      const add = (key: PhaseKey, value: number) => {
+      const phases = emptyPhaseTotals();
+      const phasesByList: Record<string, PhaseTotals> = {};
+      const add = (listId: string, key: PhaseKey, value: number) => {
         phases[key].count += 1;
         phases[key].amount += value;
+        const listPhase = phasesByList[listId] ?? (phasesByList[listId] = emptyPhaseTotals());
+        listPhase[key].count += 1;
+        listPhase[key].amount += value;
       };
 
       for (const row of (itemsRes.data ?? []) as any[]) {
@@ -345,24 +360,25 @@ export default function PaymentListsTab() {
 
         if (row.removed_at) {
           if (!cutByApproval) continue; // removido na composição: fora de tudo
-          add("notApproved", withIva);
+          add(row.payment_list_id, "notApproved", withIva);
           map[row.payment_list_id] = (map[row.payment_list_id] ?? 0) + withIva;
           continue;
         }
 
         map[row.payment_list_id] = (map[row.payment_list_id] ?? 0) + withIva;
-        add("launched", withIva);
+        add(row.payment_list_id, "launched", withIva);
 
-        if (settledTxIds.has(String(tx.id))) add("settled", withIva);
-        else if (row.manually_marked_paid) add("markedPaid", withIva);
-        else if (tx.status === "paid") add("legacy", withIva);
-        else add("unpaid", withIva);
+        if (settledTxIds.has(String(tx.id))) add(row.payment_list_id, "settled", withIva);
+        else if (row.manually_marked_paid) add(row.payment_list_id, "markedPaid", withIva);
+        else if (tx.status === "paid") add(row.payment_list_id, "legacy", withIva);
+        else add(row.payment_list_id, "unpaid", withIva);
       }
-      return { totals: map, phases };
+      return { totals: map, phases, phasesByList };
     },
   });
   const listTotalsMap = listAggregates?.totals ?? {};
   const listPhases = listAggregates?.phases;
+  const phasesByList = listAggregates?.phasesByList ?? {};
 
 
 
@@ -500,7 +516,7 @@ export default function PaymentListsTab() {
       {listPhases && (
         <div className="glass rounded-xl p-4">
           <p className="mb-3 text-xs uppercase tracking-wider text-muted-foreground">
-            Fases dos pagamentos em listas — Lançadas = Por pagar + Pagas por liquidar + Liquidadas + Legado
+            Lançadas + Não aprovadas = Por pagar + Pagas por liquidar + Liquidadas + Legado + Não aprovadas
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {PHASE_META.map((p) => (
@@ -520,44 +536,43 @@ export default function PaymentListsTab() {
         </div>
       )}
 
-      <div className="glass rounded-xl p-5">
+      <div className="space-y-3">
         {listsLoading ? (
-          <p className="py-8 text-center text-muted-foreground">A carregar…</p>
+          <div className="glass rounded-xl p-5"><p className="py-8 text-center text-muted-foreground">A carregar…</p></div>
         ) : lists.length === 0 ? (
-          <p className="py-8 text-center text-muted-foreground">Nenhuma lista criada. Clique em "Nova Lista" para começar.</p>
+          <div className="glass rounded-xl p-5"><p className="py-8 text-center text-muted-foreground">Nenhuma lista criada. Clique em "Nova Lista" para começar.</p></div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
-                  <th className="pb-3 text-left font-medium">Título</th>
-                  <th className="pb-3 text-left font-medium">Data Pagamento</th>
-                  <th className="pb-3 text-left font-medium">Estado</th>
-                  <th className="pb-3 text-right font-medium">Valor</th>
-                  <th className="pb-3 text-left font-medium hidden sm:table-cell">Criado por</th>
-                  <th className="pb-3 text-center font-medium">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/30">
-                {lists.map((list: any) => {
-                  const st = statusMap[list.status as ListStatus] ?? statusMap.draft;
-                  return (
-                    <tr key={list.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="py-3">
-                        <span className="font-medium">{list.title}</span>
-                        {list.status === "revision" && list.revision_notes && (
-                          <div className="mt-1 flex items-start gap-1.5 rounded-md bg-accent/50 px-2 py-1.5 text-xs text-muted-foreground">
-                            <MessageSquare className="h-3 w-3 mt-0.5 shrink-0" />
-                            <span>{list.revision_notes}</span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3">{formatDate(list.payment_date)}</td>
-                      <td className="py-3"><Badge variant={st.variant}>{st.label}</Badge></td>
-                      <td className="py-3 text-right font-mono font-medium">{formatCurrency((listTotalsMap as Record<string, number>)[list.id] ?? 0)}</td>
-                      <td className="py-3 text-muted-foreground hidden sm:table-cell">{list.created_by}</td>
-                      <td className="py-3">
-                        <div className="flex items-center justify-center gap-1">
+          lists.map((list: any) => {
+            const st = statusMap[list.status as ListStatus] ?? statusMap.draft;
+            const listPhase = (phasesByList as Record<string, PhaseTotals>)[list.id] ?? emptyPhaseTotals();
+            const denominator = listPhase.launched.count + listPhase.notApproved.count;
+            const segmentedCount = BAR_PHASES.reduce((sum, phase) => sum + listPhase[phase.key].count, 0);
+            const phasesClose = denominator === segmentedCount;
+            const allSettled = denominator > 0 && listPhase.settled.count === denominator;
+            const nonZeroPhases = BAR_PHASES.filter((phase) => listPhase[phase.key].count > 0);
+            return (
+              <article key={list.id} className="glass rounded-lg p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button onClick={() => setViewListId(list.id)} className="truncate text-left font-semibold hover:text-primary">
+                        {list.title}
+                      </button>
+                      <Badge variant={st.variant}>{st.label}</Badge>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      <span>{formatDate(list.payment_date)}</span>
+                      <span className="truncate">Criado por {list.created_by}</span>
+                    </div>
+                    {list.status === "revision" && list.revision_notes && (
+                      <div className="mt-2 flex items-start gap-1.5 rounded-md bg-accent/50 px-2 py-1.5 text-xs text-muted-foreground">
+                        <MessageSquare className="mt-0.5 h-3 w-3 shrink-0" />
+                        <span>{list.revision_notes}</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="shrink-0 font-mono text-base font-semibold">{formatCurrency((listTotalsMap as Record<string, number>)[list.id] ?? 0)}</p>
+                  <div className="flex shrink-0 items-center gap-1">
                           <button onClick={() => setViewListId(list.id)} className="rounded p-1.5 hover:bg-muted" title="Ver detalhes">
                             <Eye className="h-4 w-4" />
                           </button>
@@ -612,14 +627,43 @@ export default function PaymentListsTab() {
                               <Trash2 className="h-4 w-4" />
                             </button>
                           )}
+                  </div>
+                </div>
+
+                <div className="mt-4 border-t border-border/50 pt-3">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div
+                          className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted"
+                          aria-label={`Progresso: ${segmentedCount} de ${denominator} itens classificados`}
+                        >
+                          {phasesClose && denominator > 0 && BAR_PHASES.map((phase) => {
+                            const value = listPhase[phase.key].count;
+                            if (value === 0) return null;
+                            return <span key={phase.key} className={phase.segmentClass} style={{ width: `${(value / denominator) * 100}%` }} />;
+                          })}
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </TooltipTrigger>
+                      <TooltipContent className="space-y-1">
+                        {BAR_PHASES.map((phase) => (
+                          <p key={phase.key} className="flex justify-between gap-6 text-xs">
+                            <span>{phase.label}</span>
+                            <span className="font-mono">{listPhase[phase.key].count} · {formatCurrency(listPhase[phase.key].amount)}</span>
+                          </p>
+                        ))}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {allSettled
+                      ? "tudo liquidado"
+                      : nonZeroPhases.map((phase) => `${listPhase[phase.key].count} ${phase.shortLabel}`).join(" · ")}
+                  </p>
+                </div>
+              </article>
+            );
+          })
         )}
       </div>
     </div>
