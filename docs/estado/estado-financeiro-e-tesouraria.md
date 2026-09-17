@@ -49,6 +49,25 @@ Atualizado: 2026-09-17 (fecho). Issues abertas da frente: #91, #125, #127, #134,
   7.360,00 · Sub. Refeição 1.017,90 · **Quilómetros 46.670,48** ·
   Total 55.048,38 · Seg. Social −809,60 · **Líquido 54.238,78**.
 
+  **Retiradas — extratos Santander 85 a 92 lidos (01/01 a 31/08),
+  contínuos e sem lacunas.** 42 transferências nominais
+  (`TRF CRED INTRABANC P/ PEDRO COELHO DE ARA` e
+  `TRF.IMED. P/ PEDRO COELHO DE ARAUJO NETO`), cada uma com a referência
+  do movimento no descritivo da transação, para bater linha a linha na
+  conciliação: jan 30.300 · fev 35.000 · mar 27.000 · abr 45.000 ·
+  mai 15.000 · jun 8.000 · jul 21.000 · ago 14.000 · set 16.000.
+  **Correção a um número anterior:** a reconciliação de 01/09 apurou
+  38.000 € entre 18/06 e 31/08; o total real de jun–ago é **43.000 €** —
+  faltava a transferência de 5.000 de 01/06, fora da janela que aquele
+  trabalho olhou.
+  **Fora da conta, por decidir:** cinco levantamentos de numerário,
+  **69.711,26 €** — 7.000,00 (04/02), 9.050,00 (23/02), 24.436,26 (31/03),
+  21.215,00 (20/05), 8.010,00 (28/08). Um levantamento ao balcão não traz
+  destinatário: tanto pode ser retirada do sócio como caixa da empresa
+  para pagamentos em numerário. Não se lançam sem o Pedro dizer quais
+  são quais.
+
+
 - **Anexar documentos por API (16/09, #180 fechada, D-ERP71).** Edge function `ingest-transaction-document` (só `service_role`): origem por URL do Drive ou `conteudo_base64`; alvo `transaction_id`, `invoice_group_id` ou `supplier_id` + `invoice_ref` (igualdade exata); um objeto no bucket `transaction-documents` e N registos em `transaction_documents` com o mesmo `file_url`; idempotente por nome+tamanho; `supplier_id`+`invoice_ref` sem grupo cria o grupo (a chamada é a confirmação humana, proformas incluídas). Transporte: o contentor do Claude chama a função diretamente — o domínio `sfohvvlqccmmebvjgibx.supabase.co` entrou na allowlist de rede da organização a 16/09. O Drive NÃO é corredor (privado devolve login; upload via MCP passa o ficheiro pelo contexto). Testado em Live com FT 132026/33986 (Vila Galé, grupo `3d2fff0d`) e PROFORMA 194/2026 (Meliã, grupo `10e18e9a`): 3 transações, 1 ficheiro, 1 objeto cada; repetição devolve `created 0, reused 3`. Peça do ecrã em #181.
 - **Aviso de abertura do extrato corrigido (#185, 16/09):** cascata — cobre o corte → como antes; começa depois do corte → abertura vs balance_after da última linha importada da conta antes de period_from (cadeia reconstruída dentro do dia); sem linhas → saldo do sistema à véspera. Períodos sobrepostos deixam de dar aviso falso.
 - **Lançar a partir do banco ganhou orientação e taxas (#187, D-ERP74, 16/09):** regra que casa visível na linha antes do clique; taxas de transferência internacional agrupadas pela referência (DESP.SHA, SWIFT, IVA, selo) e lançadas em duas pernas (SWIFT+IVA a 23%, DESP.SHA+selo a 0%) na 10.6.01 com evento e linha de BP herdados da transferência-mãe; sem linha na mãe, propõe-se a linha da rubrica da mãe com previsto/utilizado/disponível e a caixa 'ligar também a mãe' grava o forecast_id na mãe. Caso real: refs 001803486960041656/57 (Anitta EDA), mãe Per diems 1.806,25 € ficou com linha de BP.
