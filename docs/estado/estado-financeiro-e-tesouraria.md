@@ -272,13 +272,15 @@ mês (FF, MV, RET, RV, SS); o **MV é acumulado do ano** e é o único que
 **A ajuda de custo por quilómetros é a rubrica "Quilómetros" na folha e
 representa 85% do que o sócio recebe** (46.670,48 € contra 7.360,00 € de
 vencimento, jan–ago 2026). É o valor que sustenta quase toda a
-  justificação da conta corrente e o mais exposto numa inspeção.
+justificação da conta corrente e o mais exposto numa inspeção.
 
 **Não existe levantamento de numerário na MP para uso pessoal** (decisão
-  do Pedro, 17/09). Os cinco levantamentos de 2026 — 7.000,00 (04/02),
-  9.050,00 (23/02), 24.436,26 (31/03), 21.215,00 (20/05), 8.010,00 (28/08),
-  total 69.711,26 € — são caixa da empresa e ficam fora da conta corrente
-  do sócio. Não reabrir.
+do Pedro, 17/09). Os cinco levantamentos de 2026 — 7.000,00 (04/02),
+9.050,00 (23/02), 24.436,26 (31/03), 21.215,00 (20/05), 8.010,00 (28/08),
+total 69.711,26 € — são caixa da empresa e ficam fora da conta corrente
+do sócio. Não reabrir.
+
+
 
 
 
