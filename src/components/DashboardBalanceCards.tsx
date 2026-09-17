@@ -10,9 +10,9 @@
  * - onde não há permissão não se mostra zero: o cartão desaparece;
  * - "não controlado" (`skip_balance_check`) continua distinto de "sem permissão".
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Wallet, Ticket } from "lucide-react";
+import { Wallet, Ticket, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/useCompany";
 import { formatCurrency } from "@/lib/mock-data";
@@ -22,9 +22,27 @@ import {
 } from "@/hooks/useAccountBalanceCards";
 import { BalanceCompositionModal } from "@/components/BalanceCompositionModal";
 
+const HIDE_AMOUNTS_KEY = "mp:dashboard:hide-amounts";
+const MASKED_VALUE = "••••••••";
+
 export function DashboardBalanceCards() {
   const { companyId } = useCompany();
   const [openCard, setOpenCard] = useState<null | "cash" | "office">(null);
+  const [hideAmounts, setHideAmounts] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(HIDE_AMOUNTS_KEY);
+    setHideAmounts(stored === "true");
+  }, []);
+
+  const toggleHideAmounts = () => {
+    const next = !hideAmounts;
+    setHideAmounts(next);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(HIDE_AMOUNTS_KEY, String(next));
+    }
+  };
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["dashboard_balance_accounts", companyId],
@@ -70,88 +88,112 @@ export function DashboardBalanceCards() {
   });
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {showCash && (
-        <div
-          {...clickable("cash")}
-          className="glass rounded-xl p-4 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={toggleHideAmounts}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          aria-label={hideAmounts ? "Mostrar valores" : "Esconder valores"}
+          title={hideAmounts ? "Mostrar valores" : "Esconder valores"}
         >
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Saldo em Caixa
-            </p>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <p
-            className={`mt-1 text-2xl font-bold ${
-              cash.total >= 0 ? "text-success" : "text-destructive"
-            }`}
+          {hideAmounts ? (
+            <>
+              <EyeOff className="h-4 w-4" />
+              <span className="hidden sm:inline">Mostrar valores</span>
+            </>
+          ) : (
+            <>
+              <Eye className="h-4 w-4" />
+              <span className="hidden sm:inline">Esconder valores</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {showCash && (
+          <div
+            {...clickable("cash")}
+            className="glass rounded-xl p-4 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
           >
-            {formatCurrency(cash.total)}
-          </p>
-          <p className="text-[10px] text-muted-foreground">
-            Contas bancárias, caixa e cartões pré-pagos
-          </p>
-          {cash.uncontrolledNames.length > 0 && (
-            <p className="mt-1 text-[10px] text-muted-foreground">
-              Excluídas por não terem controlo: {cash.uncontrolledNames.join(", ")}
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Saldo em Caixa
+              </p>
+              <Wallet className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <p
+              className={`mt-1 text-2xl font-bold ${
+                cash.total >= 0 ? "text-success" : "text-destructive"
+              }`}
+            >
+              {hideAmounts ? MASKED_VALUE : formatCurrency(cash.total)}
             </p>
-          )}
-          {cash.hiddenNames.length > 0 && (
-            <p className="mt-1 text-[10px] text-muted-foreground">
-              Fora do total, sem permissão: {cash.hiddenNames.join(", ")}
+            <p className="text-[10px] text-muted-foreground">
+              Contas bancárias, caixa e cartões pré-pagos
             </p>
-          )}
-        </div>
-      )}
-
-      {showOffice && (
-        <div
-          {...clickable("office")}
-          className="glass rounded-xl p-4 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Retido em Bilheteiras
-            </p>
-            <Ticket className="h-4 w-4 text-muted-foreground" />
+            {cash.uncontrolledNames.length > 0 && (
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Excluídas por não terem controlo: {cash.uncontrolledNames.join(", ")}
+              </p>
+            )}
+            {cash.hiddenNames.length > 0 && (
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Fora do total, sem permissão: {cash.hiddenNames.join(", ")}
+              </p>
+            )}
           </div>
-          <p className="mt-1 text-2xl font-bold text-warning">
-            {formatCurrency(office.total)}
-          </p>
-          <p className="text-[10px] text-muted-foreground">
-            Dinheiro que existe mas ainda não está no banco — não é caixa
-          </p>
-          {office.hiddenNames.length > 0 && (
-            <p className="mt-1 text-[10px] text-muted-foreground">
-              Fora do total, sem permissão: {office.hiddenNames.join(", ")}
-            </p>
-          )}
-        </div>
-      )}
+        )}
 
-      {openCard === "cash" && (
-        <BalanceCompositionModal
-          open
-          onClose={() => setOpenCard(null)}
-          title="Saldo em Caixa"
-          description="Contas bancárias, caixa e cartões pré-pagos"
-          total={cash.total}
-          accounts={cashAccounts}
-          balances={cards.balances}
-        />
-      )}
-      {openCard === "office" && (
-        <BalanceCompositionModal
-          open
-          onClose={() => setOpenCard(null)}
-          title="Retido em Bilheteiras"
-          description="Dinheiro que existe mas ainda não está no banco — não é caixa"
-          total={office.total}
-          accounts={officeAccounts}
-          balances={cards.balances}
-        />
-      )}
+        {showOffice && (
+          <div
+            {...clickable("office")}
+            className="glass rounded-xl p-4 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Retido em Bilheteiras
+              </p>
+              <Ticket className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <p className="mt-1 text-2xl font-bold text-warning">
+              {hideAmounts ? MASKED_VALUE : formatCurrency(office.total)}
+            </p>
+            <p className="text-[10px] text-muted-foreground">
+              Dinheiro que existe mas ainda não está no banco — não é caixa
+            </p>
+            {office.hiddenNames.length > 0 && (
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Fora do total, sem permissão: {office.hiddenNames.join(", ")}
+              </p>
+            )}
+          </div>
+        )}
+
+        {openCard === "cash" && (
+          <BalanceCompositionModal
+            open
+            onClose={() => setOpenCard(null)}
+            title="Saldo em Caixa"
+            description="Contas bancárias, caixa e cartões pré-pagos"
+            total={cash.total}
+            accounts={cashAccounts}
+            balances={cards.balances}
+          />
+        )}
+        {openCard === "office" && (
+          <BalanceCompositionModal
+            open
+            onClose={() => setOpenCard(null)}
+            title="Retido em Bilheteiras"
+            description="Dinheiro que existe mas ainda não está no banco — não é caixa"
+            total={office.total}
+            accounts={officeAccounts}
+            balances={cards.balances}
+          />
+        )}
+      </div>
     </div>
   );
 }
