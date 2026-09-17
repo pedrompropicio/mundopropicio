@@ -7,6 +7,8 @@ A 16–17/09 fizeram-se correções de UI no ecrã de Transações (tabela do BP
 
 A maior entrega dos dois dias foi o **Manual de Orientação construído de ponta a ponta** — ver secção própria abaixo e D-ERP79.
 
+A 17/09 as transitórias passaram a dizer porquê (D-ERP80) — backfill das 41, CHECKs validados, caminhos automáticos a gravar o motivo, selector só no interruptor manual, invariante `transitoria_partner_advance_sem_linha` a 0, testado ponta a ponta em Live com dados isolados.
+
 ## Manual de Orientação (17/09/2026)
 O que existe:
 
@@ -64,16 +66,16 @@ Nada na aplicação desativa um fornecedor: `is_active` só era mexido por SQL. 
 
 ⚠️ **Regra que fica:** qualquer embed entre pares do JSON tem de usar o formato `alias:tabela!fk(col)`. O teste é a guarda permanente.
 
-## Verificador de invariantes (consolidado a 14/09/2026)
+## Verificador de invariantes (consolidado a 14/09/2026; atualizado a 17/09/2026)
 Já existia um `check_system_invariants()` com ecrã próprio — não se reinventou, consolidou-se.
 
 Estrutura: tabela `system_invariants` (`name`, `description`, `severity`, `reference_count`, `notes`, `reference_updated_by`, `reference_updated_at`), tabela `invariant_runs` com o histórico, função `run_invariant_checks()` que corre e devolve, `run_invariant_checks_and_log()` que corre e grava a corrida, e `accept_invariant_reference(name, value, note)` que aceita a contagem de hoje como referência.
 
 **Princípio central: o alerta é por desvio face à referência, nunca por número diferente de zero.** Dívida herdada com contagem conhecida não faz barulho todos os dias; o que faz barulho é a contagem **mexer**.
 
-19 verificações a 14/09, todas conformes. Referências em Live a 14/09/2026:
+**21 verificações a 17/09/2026**, todas conformes. Referências em Live a 17/09/2026:
 
-- severidade `error`, referência **0**: `BP_DESPESA_EM_L2`, `coala_map_outra_empresa`, `fecho_confirmado_liquido_retido`, `filha_rateio_com_conta`, `FORECAST_ID_ORFAO`, `fornecedor_iban_duplicado_ativo`, `grupo_fatura_veredicto_desagrupar_por_aplicar`, `tipo_invalido`, `tx_conta_outra_empresa`, `tx_evento_outra_empresa`, `tx_fornecedor_outra_empresa`, `tx_rubrica_outra_empresa`, `VINCULO_CROSS_EVENTO`
+- severidade `error`, referência **0**: `BP_DESPESA_EM_L2`, `coala_map_outra_empresa`, `fecho_confirmado_liquido_retido`, `filha_rateio_com_conta`, `FORECAST_ID_ORFAO`, `fornecedor_iban_duplicado_ativo`, `grupo_fatura_veredicto_desagrupar_por_aplicar`, `tipo_invalido`, `transitoria_partner_advance_sem_linha`, `tx_conta_outra_empresa`, `tx_evento_outra_empresa`, `tx_fornecedor_outra_empresa`, `tx_rubrica_outra_empresa`, `VINCULO_CROSS_EVENTO`
 - severidade `error`, referência **0**: `VINCULO_DESSINCRONIZADO` — 7 vínculos reparados em Live a 14/09 (forecast_id reposto nas 7 transações do Coala Festival Portugal 2026 onde o âncora existia mas o link inverso era NULL). Issue #173 fechada.
 - severidade `warn`, dívida herdada: `paid_amount_acima_do_bruto` 9, `pares_fk_duplicada` 35, `TRIGGER_DOCUMENTADO_SEM_LIGACAO` 4, `TX_EVENTO_SEM_RUBRICA` 13, `tx_paga_sem_linha_de_pagamento` 1026
 
@@ -112,7 +114,7 @@ A fonte do banco ganha sempre. **Uma transação pertence no máximo a um grupo.
 ```
 549.667,89 € = Saldo Final da tabela = extrato do Santander.
 
-O saldo mostrado com a consolidação ligada é recalculado sobre a ordem que se vê — ver **D-ERP55**.
+O saldo mostrado com a consolidação ligado é recalculado sobre a ordem que se vê — ver **D-ERP55**.
 
 ## Performance RLS (Fix C concluído a 14/09; A e B deferidos)
 **Fix C** — `auth.uid()` → `(SELECT auth.uid())` em 567 políticas do schema `public`. Migration `20260914223900_rls_wrap_auth_uid_in_select.sql`, Publish feito, verificado em Live (`rls_estaveis = 567`). Elimina 177M+ seq_scans por sessão em `user_roles`.
@@ -174,9 +176,10 @@ Cada fornecedor desativado tem nota auditável: `[2026-09-12] Duplicado por IBAN
 
 **O extrato consolidado não mexe nos números.** `closingBalance`, `totalIncome`, `totalExpense` e as **duas exportações** continuam a ler o `lines` plano. A consolidação decide só o que se DESENHA. Ver **D-ERP55**.
 
+**Transitórias têm motivo obrigatório (transactions.transitory_reason, 7 valores).** Caminhos da base que o gravam: `force_transitory_for_capital_branch` (10.1.04 → `emprestimo_socio`; restantes 10.1.* → `aporte_socio`) e `card_load_on_out_paid` (`carga_cartao`). As funções de cenários/versões copiam `event_forecasts`, não transações — não são afetadas. `renegotiate_transaction_installments` recusa transitórias. Regra de teste em Live: dados com prefixo, ids anotados, apagados no fim, e prova de que a base voltou à linha de base.
+
 ## Onde ler mais
-- `docs/DECISIONS.md` — D-ERP75, D-ERP79
+- `docs/DECISIONS.md` — D-ERP75, D-ERP79, D-ERP80
 - `docs/manual/rateios.md` — primeiro capítulo do Manual de Orientação
-- `claude/auditoria-company-id-service-role-2026-09-01.md` (incidente da auditoria, 01/09)
 - `.lovable/memory/constraints/lovable-cloud-ddl-workflow.md` (reescrita a 30/08 — o mundo com Test acabou), `edge-fn-esm-sh-supabase-js.md`
 - Issues #86, #83, #96, #61, #57
