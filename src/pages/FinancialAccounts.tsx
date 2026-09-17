@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FinancialOperationsTab from "@/components/FinancialOperationsTab";
+import PartnerCurrentAccountTab from "@/components/PartnerCurrentAccountTab";
 import { SupplierCreditsSummaryCard } from "@/components/supplier-credits/SupplierCreditsSummaryCard";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -840,6 +841,12 @@ export default function FinancialAccounts() {
         <TabsContent value="operations">
           <FinancialOperationsTab accounts={accounts} isAdmin={isAdmin} />
         </TabsContent>
+
+        {canSeeConfidential && (
+          <TabsContent value="partner">
+            <PartnerCurrentAccountTab />
+          </TabsContent>
+        )}
       </Tabs>
 
       {accessModalAccount && (
