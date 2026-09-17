@@ -1,6 +1,8 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 2026-09-17 (fecho). Issues abertas da frente: #91, #125, #127, #134, #135, #147, #149, #154, #181, #189, #190, #193, #195. Fechadas em 17/09: #191, #192.
+Atualizado: 2026-09-17 (fecho). Issues abertas da frente: #91, #125, #127,
+#134, #135, #147, #149, #154, #181, #189, #190, #195.
+Fechadas em 17/09: #191, #192, #193.
 
 ## Em que pé está
 
