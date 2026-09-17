@@ -2031,6 +2031,7 @@ export type Database = {
           error_text: string | null
           file_name: string | null
           finished_at: string | null
+          folder_path: string | null
           id: string
           rows_total: number | null
           run_date: string
@@ -2046,6 +2047,7 @@ export type Database = {
           error_text?: string | null
           file_name?: string | null
           finished_at?: string | null
+          folder_path?: string | null
           id?: string
           rows_total?: number | null
           run_date?: string
@@ -2061,6 +2063,7 @@ export type Database = {
           error_text?: string | null
           file_name?: string | null
           finished_at?: string | null
+          folder_path?: string | null
           id?: string
           rows_total?: number | null
           run_date?: string
@@ -16603,6 +16606,15 @@ export type Database = {
         Returns: {
           metric: string
           value: number
+        }[]
+      }
+      backup_enqueue_slice: { Args: { p_body: Json }; Returns: number }
+      backup_table_inventory: {
+        Args: never
+        Returns: {
+          has_company_id: boolean
+          schema_name: string
+          tbl_name: string
         }[]
       }
       batch_insert_event_forecasts: {
