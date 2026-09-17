@@ -833,6 +833,15 @@ export default function CardSessionDetail() {
                         ? <span className="text-emerald-500">liquidada</span>
                         : <span className="text-amber-500">aguarda pagamento</span>}
                     </div>
+                    {!l.in_transaction_id && l.out_transaction_id && markedPaidTxIds.has(String(l.out_transaction_id)) && (
+                      <Badge
+                        variant="outline"
+                        className="mt-1 border-warning/40 bg-warning/10 text-[10px] text-warning"
+                        title="A marca de pago é visual: o crédito no cartão só nasce quando a saída é liquidada."
+                      >
+                        Marcada como paga — o crédito no cartão só entra ao liquidar
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="font-semibold text-emerald-500">+{formatCurrency(Number(l.amount))}</div>
