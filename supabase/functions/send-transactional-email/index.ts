@@ -141,11 +141,14 @@ Deno.serve(async (req) => {
   // Create Supabase client with service role (bypasses RLS)
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-  // 2. Check suppression list (fail-closed: if we can't verify, don't send)
+  // 2. Check suppression list (fail-closed: if we can't verify, don't send).
+  // A supressão é POR EMPRESA (#211): o mesmo endereço pode estar descadastrado
+  // de uma empresa e continuar a receber de outra.
   const { data: suppressed, error: suppressionError } = await supabase
     .from('suppressed_emails')
     .select('id')
     .eq('email', effectiveRecipient.toLowerCase())
+    .eq('company_id', companyId)
     .maybeSingle()
 
   if (suppressionError) {
@@ -168,6 +171,7 @@ Deno.serve(async (req) => {
       message_id: messageId,
       template_name: templateName,
       recipient_email: effectiveRecipient,
+      company_id: companyId,
       status: 'suppressed',
     })
 
@@ -181,15 +185,18 @@ Deno.serve(async (req) => {
     )
   }
 
-  // 3. Get or create unsubscribe token (one token per email address)
+  // 3. Get or create unsubscribe token (um token por endereço E EMPRESA — #211).
+  // O índice único é (email, company_id) NULLS NOT DISTINCT: com o filtro pela
+  // empresa nunca há mais do que uma linha. O .maybeSingle() fica de propósito —
+  // se houver duas, é para rebentar e sabermos.
   const normalizedEmail = effectiveRecipient.toLowerCase()
   let unsubscribeToken: string
 
-  // Check for existing token for this email
   const { data: existingToken, error: tokenLookupError } = await supabase
     .from('email_unsubscribe_tokens')
     .select('token, used_at')
     .eq('email', normalizedEmail)
+    .eq('company_id', companyId)
     .maybeSingle()
 
   if (tokenLookupError) {
@@ -201,6 +208,7 @@ Deno.serve(async (req) => {
       message_id: messageId,
       template_name: templateName,
       recipient_email: effectiveRecipient,
+      company_id: companyId,
       status: 'failed',
       error_message: 'Failed to look up unsubscribe token',
     })
@@ -222,8 +230,8 @@ Deno.serve(async (req) => {
     const { error: tokenError } = await supabase
       .from('email_unsubscribe_tokens')
       .upsert(
-        { token: unsubscribeToken, email: normalizedEmail },
-        { onConflict: 'email', ignoreDuplicates: true }
+        { token: unsubscribeToken, email: normalizedEmail, company_id: companyId },
+        { onConflict: 'email,company_id', ignoreDuplicates: true }
       )
 
     if (tokenError) {
@@ -252,6 +260,7 @@ Deno.serve(async (req) => {
       .from('email_unsubscribe_tokens')
       .select('token')
       .eq('email', normalizedEmail)
+      .eq('company_id', companyId)
       .maybeSingle()
 
     if (reReadError || !storedToken) {
@@ -285,6 +294,7 @@ Deno.serve(async (req) => {
       message_id: messageId,
       template_name: templateName,
       recipient_email: effectiveRecipient,
+      company_id: companyId,
       status: 'suppressed',
       error_message:
         'Unsubscribe token used but email missing from suppressed list',
@@ -337,6 +347,7 @@ Deno.serve(async (req) => {
     message_id: messageId,
     template_name: templateName,
     recipient_email: effectiveRecipient,
+    company_id: companyId,
     status: 'pending',
   })
 
@@ -369,6 +380,7 @@ Deno.serve(async (req) => {
       message_id: messageId,
       template_name: templateName,
       recipient_email: effectiveRecipient,
+      company_id: companyId,
       status: 'failed',
       error_message: 'Failed to enqueue email',
     })
