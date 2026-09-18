@@ -240,9 +240,10 @@ Deno.serve(async (req) => {
     const idempotencyKey = `resend-reset-${messageId}`;
     const unsubscribeToken = crypto.randomUUID();
 
+    // (#211) token por empresa: onConflict tem de casar com o índice único (email, company_id)
     const { error: unsubscribeError } = await adminClient.from("email_unsubscribe_tokens").upsert(
       { email, token: unsubscribeToken, company_id: profile.company_id },
-      { onConflict: "email" }
+      { onConflict: "email,company_id" }
     );
 
     if (unsubscribeError) {
