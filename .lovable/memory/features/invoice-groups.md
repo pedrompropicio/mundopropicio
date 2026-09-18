@@ -109,7 +109,7 @@ parcial / verde completo nos pickers e no detalhe da lista.
 `iban_mismatch`. `SepaCandidate.groupTransactionIds` garante que o comprovativo é
 replicado a todas as transações do grupo.
 
-## Liquidação de um grupo (2026-09-18, #147)
+## Liquidação de um grupo (2026-09-18, #147, D-ERP87)
 - O modal individual (`TransactionPaymentModal`) **já não propaga a liquidação às irmãs**.
   A propagação às **filhas de rateio** (`settleChildrenOf`) mantém-se intacta.
 - Quando a linha tem `invoice_group_id`, o modal mostra no topo "Fatura agrupada <ref> —

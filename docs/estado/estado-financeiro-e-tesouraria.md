@@ -1,11 +1,40 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 2026-09-18 (fecho). Issues abertas da frente: #91, #125, #127,
-#134, #135, #147, #149, #154, #181, #189, #190, #195, #196.
-Fechadas em 17–18/09: #191, #192, #193, #200, #201.
+Atualizado: 2026-09-18 (fecho 2). Issues abertas da frente: #125, #127,
+#134, #135, #181, #189, #190, #195; #196 é transversal (plataforma-e-infra)
+e recebe os resíduos de escrita sem verificação de erro.
+Fechadas a 18/09: #91, #147, #149, #154, #192 (de manhã: #191, #193, #200, #201).
 
 ## Em que pé está
 
+- **paid_amount derivado no servidor (18/09, #91 fechada, D-ERP86).** Backfill
+  de 625 linhas em `transaction_payments` (8.150.949,58 €,
+  `created_by='backfill'`), 2 duplicadas apagadas, 1 corrigida.
+  `sync_paid_amount_from_payments()` age sempre; cliente já não escreve
+  `paid_amount`/`status`/`payment_date`. Isentas por regra, nunca com linha:
+  filhas de rateio, linhas de nota de reembolso, pagas pelo sócio. Invariante
+  `paid_amount_sem_linhas` — referência 1 (Aluguel espaço `31497cab`). Moeda
+  estrangeira fecha por `closes_transaction`.
+- **Lançar do banco é RPC atómica (18/09, #154 fechada, D-ERP85).**
+  `launch_from_bank_lines(jsonb)`, sem SECURITY DEFINER: transações e linhas
+  no mesmo commit, linha já conciliada recusa (duplo clique). O modal não
+  insere em `transactions`. A prova em Live apanhou `min(uuid)` na primeira
+  versão — corrigido antes de fechar.
+- **Estorno fechado em todos os caminhos (18/09, #149 fechada, D-ERP84).**
+  Todo o caminho que repõe `paid` numa transação existente limpa
+  `reversed_at`/`reversal_kind` e audita: `PartnerPaidExpensesPanel` (que
+  também passou a recusar já pagas e a gravar `paid_amount`),
+  `TicketOfficeSettlementModal` (3 sítios), `TicketOfficeSettlementsPanel`.
+  Fluxo de Caixa passou à fonte única `computeAccountBalance` (opção A do
+  Pedro): Santander abertura 31/07 = 122.363,05 €, acumulado = 509.842,87 €,
+  iguais ao módulo de Contas. Caso Braga 800 € (estornada e repaga 09/07 por
+  caminho antigo): carimbo limpo à mão com o extrato à vista. Zero pagas com
+  carimbo na base.
+- **Fatura agrupada liquida-se em lote (18/09, #147 fechada, D-ERP87).** Modal
+  individual já não propaga a irmãs; mostra a fatura e oferece "Liquidar a
+  fatura completa" → `BatchPaymentModal` com todas as linhas em aberto; o lote
+  avisa quando a seleção não cobre a fatura. Prova de ecrã pendente (hoje não
+  há grupo com ≥2 linhas aprovadas em aberto).
 - **Listas de Pagamento — marca do lote SEPA, blocos e contadores por fase
   (18/09, #200 fechada).** O selo "No ficheiro SEPA de DD/MM" no item, o botão
   "Marcar como Pago" só nas que ficaram fora do ficheiro, e o download do XML
@@ -224,7 +253,6 @@ O Santander está implantado (122.363,05 € com corte a 31/08/2026) e o extrato
 7. **A linha `c924c418` da nota R-030/2026 continua sem documento anexo.**
 8. **Falta decidir o modelo de fornecedor partilhado entre empresas** (MP e Coala Festival Portugal): hoje é um registo por empresa. Decisão em aberto.
 9. **Ticketline 112.000 € de 16/09 (TRF.IMED. R06117979) por lançar como transferência Ticketline → Santander (regra a guardar); atribuição ao apuramento em ticketing-e-receita.**
-10. **#189: "transações sem movimento no banco" falso quando a linha vive noutro extrato — verificação por conta.**
 
 11. **Levar os números da conta corrente à contabilista.** As retiradas de
     2026 estão todas lançadas (211.300,00 € de 07/01 a 09/09) e a cobertura
@@ -235,6 +263,19 @@ O Santander está implantado (122.363,05 € com corte a 31/08/2026) e o extrato
     na #201 prova que o trigger `card_load_on_out_paid` cria a entrada — isso
     exige liquidar uma carga com conta financeira, no ecrã, uma vez. A partir daí
     a invariante `carga_sem_credito` vigia sozinha.
+
+13. **8 transações `paid` com `paid_amount = 0` e sem linhas, para ver no
+    ecrã:** "Anúncios instagram/facebook" 36.872,85 € (20/04); "Passagens
+    Equipe IESSI 50% Rateio Porto" 25.361,04 € (14/08); pagamentos de
+    reembolso R-015 e R-016 (28/07); 4 "Trafego Pago" filhas de "Trafego
+    Pago - META" (26/06, sem `split_percentage`). Ou estão pagas e falta o
+    valor, ou o estado mente.
+14. **3 grupos de fatura meio-pagos** (uma linha paga, outra em aberto), dados
+    e não código: Cornucopilândia FA 1A2602/615, Evil Force FAC EFA/41,
+    Rafael Cavalcante FT…6053.
+15. **Meta 251847116 (2 linhas, 608,26 + 495,81 €) `pending` e fora do BP** —
+    só entram depois da importação dos eventos do início do ano; é o único
+    grupo com duas linhas em aberto e serve para provar o bloco da #147.
 
 
 Já feito e sem pendência: a **FT 11.1/101** está anexada ao movimento do banco de **135.986,96 €** e replicada nas duas transações ligadas.
@@ -252,19 +293,23 @@ Percorrer no painel de Admin as 22 linhas por rever da auditoria de grupos de fa
 
 ## Dados legados deixados intactos por decisão do Pedro
 
-- 3 transações com o pagamento registado duas vezes em `transaction_payments`.
-- Transação "Aluguel espaço": `paid_amount` 11.842 sobre bruto de 10.086.
-- 526 transações liquidadas sem conta e sem registo de pagamento (1.247.597 EUR).
+As 3 linhas duplicadas em `transaction_payments` foram tratadas a 18/09
+(2 apagadas, 1 corrigida — a terceira era valor errado, não duplicado); as
+526 liquidadas sem conta receberam linha de pagamento no backfill (conta
+nula, são anteriores ao corte de 31/08). Fica só:
+
+- Transação "Aluguel espaço" `31497cab`: `paid_amount` 11.842 sobre bruto
+  8.200 (com IVA), linha de 1.756 — referência 1 no invariante.
 
 Não corrigir sem decisão explícita.
 
-## Diagnóstico aberto (números apurados em Live a 30/08/2026)
+## Diagnóstico (30/08/2026, com o que mudou desde)
 
-- 624 de 706 transações liquidadas não têm linha em `transaction_payments` (issue #91).
-- 526 liquidadas sem `account_id`, das quais 395 (75%) vêm da Lista de Contas a Pagar; 218 itens marcados com "Marcar como Pago" ficaram todos `paid`.
+- 624 de 706 transações liquidadas não têm linha em `transaction_payments` (issue #91) — **resolvido a 18/09 (#91): backfill e derivação no servidor**.
+- 526 liquidadas sem `account_id`, das quais 395 (75%) vêm da Lista de Contas a Pagar; 218 itens marcados com "Marcar como Pago" ficaram todos `paid` — **resolvido a 18/09: receberam linha no backfill; a origem (Lista de Contas a Pagar com "Marcar como Pago" a pôr `paid`) foi fechada na #200 — marcar como pago é só sinalização**.
 - Saldo do Santander apurado por SQL a 07/09/2026: **-218.115,20 EUR** (-217.655,20 com os ajustes de retenção). O extrato bancário a 01/09 dizia **+107.257,71 EUR**. A conta tem `initial_balance = 0` e apenas 2 entradas contra 113 saídas — a diferença é receita por carregar, não erro de cálculo. O `skip_balance_check` foi ligado nesta conta para desbloquear pagamentos, não por desenho. As contas de bilheteira (Blueticket, BOL, Ticketline, Fever) não têm uma única entrada registada — a receita de bilhetes não está modelada como entrada de conta.
-- `skip_balance_check` passou a ser respeitado em todos os sítios do saldo de conta, incluindo export do Extrato, Projeção de Tesouraria e `get_event_cash_position` (#90 fechada). O Fluxo de Caixa mostra aviso de que o acumulado do período não é saldo, mas continua a somar movimentos localmente — é relatório de movimentos, não de saldo. `CardSessions.tsx` calculava o saldo à mão — e era o saldo CONTABILÍSTICO da conta do cartão, não o da sessão; passou a usar `computeAccountBalance` com data de corte e a mostrar "Não controlado" quando a conta não tem controlo de saldo.
-- Tornar a tesouraria utilizável exige agora duas peças: implantar os saldos do banco com data de corte (D-ERP25, à espera dos valores do Pedro) e modelação da receita de bilheteira. O backfill de `transaction_payments` (#91) mantém-se em aberto mas não bloqueia o saldo, que corre por `paid_amount`.
+- `skip_balance_check` passou a ser respeitado em todos os sítios do saldo de conta, incluindo export do Extrato, Projeção de Tesouraria e `get_event_cash_position` (#90 fechada). O Fluxo de Caixa passou à fonte única a 18/09 (#149) — é relatório de saldo. `CardSessions.tsx` calculava o saldo à mão — e era o saldo CONTABILÍSTICO da conta do cartão, não o da sessão; passou a usar `computeAccountBalance` com data de corte e a mostrar "Não controlado" quando a conta não tem controlo de saldo.
+- Tornar a tesouraria utilizável exige agora duas peças: implantar os saldos do banco com data de corte (D-ERP25, à espera dos valores do Pedro) e modelação da receita de bilheteira.
 - Menor, sem issue: o OCR das faturas avulsas usa a edge function `extract-camarim-receipt` e o prompt de talões de camarim (bebidas, snacks, IVA 6%), o que pode degradar a extração em faturas de outra natureza.
 
 ## Factos que não se reinvestigam
@@ -347,6 +392,12 @@ total 69.711,26 € — são caixa da empresa e ficam fora da conta corrente
 do sócio. Não reabrir.
 
 
+**Três grupos nunca têm linha em `transaction_payments` e o servidor não deriva o pago deles:** filhas de rateio (o dinheiro sai na mãe), linhas de nota de reembolso (pagas pela nota), despesas pagas pelo sócio (sem caixa da empresa). Qualquer backfill ou invariante que os apanhe está errado.
+
+**Toda a prova em Live corre em `BEGIN … ROLLBACK` com `set_config('request.jwt.claims', '{"sub":"<uid do Pedro>","role":"authenticated"}', true)`** — sem isso `current_company_id()` é nulo e as RPCs recusam. Foi assim que a #154 apanhou `min(uuid)` e a #201 o `company_id` nulo: uma migração aplicada não é uma migração testada.
+
+**Compensação no cliente (apagar se falhar) não é atomicidade.** Quando duas escritas têm de viver ou morrer juntas, é RPC plpgsql sem SECURITY DEFINER (RLS continua a valer): `create_card_session_load`, `launch_from_bank_lines`.
+
 ## Página de Contas: três dinheiros, três cartões (09/09/2026, D-ERP27)
 
 **SALDO TOTAL é caixa, e só caixa.** Soma apenas `bank`, `cash` e `prepaid_card` com controlo de saldo. Debaixo do valor nomeiam-se as contas de caixa que ficaram fora por `skip_balance_check` — hoje a Conta Pagamento Brasil e a Eventos Históricos. Antes somava tudo e dava −1.994.414,66 €.
@@ -368,6 +419,8 @@ O modal ganhou a caixa **"Transitória (a repassar)"**: com ela ligada a transa�
 Os débitos por limiar do Google Ads não são despesa: a regra gera o par de transferência (rubrica 10.3) para a conta "Google Ads — conta corrente", cujo saldo passa a ser o crédito por consumir. **Pendente do utilizador:** criar essa conta financeira (tipo `other`) — não foi criada por este trabalho, que não lançou nem criou dados.
 
 As taxas bancárias (comissão de gestão, imposto de selo, comissões e selos dos lotes SEPA) vão para 10.6.01, sem evento. As taxas de meios de pagamento (TPA/ZigPay) vão para `2.9.04`, com evento e linha de BP.
+
+Desde 18/09 (D-ERP85) o lançamento é a RPC `launch_from_bank_lines` — ver `.lovable/memory/features/` da conciliação.
 
 ## Onde ler mais
 

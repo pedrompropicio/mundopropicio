@@ -588,7 +588,7 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
       }
 
 
-      // (#147) NÃO há propagação às irmãs do grupo de fatura. Ver D-ERP81.
+      // (#147) NÃO há propagação às irmãs do grupo de fatura. Ver D-ERP87.
 
       const skippedPropagation = !propagates && hasChildren;
       return { undoSnapshot, isFullPayment: newPaid >= amount - 0.05, skippedPropagation };
