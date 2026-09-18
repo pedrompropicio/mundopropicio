@@ -232,6 +232,91 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     },
   });
 
+  /**
+   * UM upload, N registos com o MESMO `file_url` — espelha o que a edge function
+   * `ingest-transaction-document` já faz (#180/#181). Se o insert falhar, apaga o
+   * que criou e o objeto quando ninguém mais o referencia.
+   */
+  const uploadAndLink = async (
+    file: File,
+    targetIds: string[],
+    groupAfter?: { supplierId: string; invoiceRef: string },
+  ) => {
+    const ext = file.name.split(".").pop();
+    const { error: uploadError, path: filePath } = await uploadToCompanyBucket(
+      "transaction-documents",
+      `${transactionId}/${Date.now()}.${ext}`,
+      file,
+    );
+    if (uploadError) throw uploadError;
+
+    const rows = targetIds.map((id) => ({
+      transaction_id: id,
+      name: file.name,
+      file_url: filePath,
+      doc_type: getDocType(file.name),
+      uploaded_by: user?.email ?? "sistema",
+      is_accounting: isAccounting,
+    }));
+
+    const { data: inserted, error: dbError } = await supabase
+      .from("transaction_documents")
+      .insert(rows as any)
+      .select("id");
+    if (dbError) {
+      const ids = (inserted ?? []).map((d: any) => d.id);
+      if (ids.length) await supabase.from("transaction_documents").delete().in("id", ids);
+      const { data: rest } = await supabase
+        .from("transaction_documents")
+        .select("id")
+        .eq("file_url", filePath)
+        .limit(1);
+      if ((rest ?? []).length === 0) {
+        await supabase.storage.from("transaction-documents").remove([filePath]).catch(() => {});
+      }
+      throw new Error(
+        `${dbError.message} — nada ficou anexado${ids.length ? " (as linhas criadas foram desfeitas)" : ""}.`,
+      );
+    }
+
+    // O agrupamento é o último passo: assim a revalidação já vê as N linhas com
+    // o mesmo ficheiro e o veredicto é "shared", sem chamar a auditoria por OCR.
+    if (groupAfter) {
+      try {
+        const res = await ensureInvoiceGroup(groupAfter.supplierId, groupAfter.invoiceRef, { force: true });
+        if (!res.groupId) {
+          toast({
+            title: "Documento anexado, fatura não agrupada",
+            description: "Estas transações já pertencem a grupos diferentes — verifica manualmente.",
+            variant: "destructive",
+          });
+        }
+      } catch (err: any) {
+        toast({
+          title: "Documento anexado, mas falhou o agrupamento",
+          description: err?.message,
+          variant: "destructive",
+        });
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["transaction_documents", transactionId] });
+    queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary", transactionId] });
+    queryClient.invalidateQueries({ queryKey: ["transaction_documents_shared"] });
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    toast({
+      title:
+        targetIds.length > 1
+          ? `Documento anexado às ${targetIds.length} linhas da fatura`
+          : "Documento anexado com sucesso!",
+    });
+
+    // Papel novo obriga a revalidar o grupo de fatura: se as irmãs têm
+    // documentos diferentes, avisa e oferece desagrupar (2026-09-14).
+    const check = await revalidateInvoiceGroupAfterDocument(transactionId);
+    if (check?.kind === "conflict") setRevalidation(check);
+  };
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const original = e.target.files?.[0];
     if (!original) return;
@@ -254,34 +339,30 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
 
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop();
+      const groupId: string | null = invoiceCtx?.invoice_group_id ?? null;
+      const supplierId: string | null = invoiceCtx?.supplier_id ?? null;
+      const invoiceRef: string | null = invoiceCtx?.invoice_ref ?? null;
 
-      const { error: uploadError, path: filePath } = await uploadToCompanyBucket(
-        "transaction-documents",
-        `${transactionId}/${Date.now()}.${ext}`,
-        file,
-      );
-      if (uploadError) throw uploadError;
+      if (groupId) {
+        const { data: siblings, error } = await fetchAllPagedQuery(
+          supabase.from("transactions").select("id").eq("invoice_group_id", groupId),
+        );
+        if (error) throw error;
+        const ids = [...new Set([transactionId, ...((siblings ?? []) as any[]).map((s) => s.id as string)])];
+        await uploadAndLink(file, ids);
+        return;
+      }
 
-      // Store just the path — signed URLs are generated on demand
-      const { error: dbError } = await supabase.from("transaction_documents").insert({
-        transaction_id: transactionId,
-        name: file.name,
-        file_url: filePath,
-        doc_type: getDocType(file.name),
-        uploaded_by: user?.email ?? "sistema",
-        is_accounting: isAccounting,
-      } as any);
-      if (dbError) throw dbError;
+      if (supplierId && invoiceRef) {
+        // Igualdade EXACTA do nº de fatura, sem normalização tolerante.
+        const candidates = await fetchInvoiceSiblings(supplierId, invoiceRef);
+        if (candidates.length > 1) {
+          setProposal({ file, siblings: candidates, supplierId, invoiceRef });
+          return; // espera confirmação humana antes de propagar ou agrupar
+        }
+      }
 
-      queryClient.invalidateQueries({ queryKey: ["transaction_documents", transactionId] });
-      queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary", transactionId] });
-      toast({ title: "Documento anexado com sucesso!" });
-
-      // Papel novo obriga a revalidar o grupo de fatura: se as irmãs têm
-      // documentos diferentes, avisa e oferece desagrupar (2026-09-14).
-      const check = await revalidateInvoiceGroupAfterDocument(transactionId);
-      if (check?.kind === "conflict") setRevalidation(check);
+      await uploadAndLink(file, [transactionId]);
     } catch (err: any) {
       toast({ title: "Erro ao enviar ficheiro", description: err.message, variant: "destructive" });
     } finally {
@@ -289,6 +370,30 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
       e.target.value = "";
     }
   };
+
+  /** Resposta à proposta do ponto 2: propagar+agrupar, ou ficar só nesta linha. */
+  const resolveProposal = async (applyToAll: boolean) => {
+    if (!proposal) return;
+    const { file, siblings, supplierId, invoiceRef } = proposal;
+    setProposal(null);
+    setUploading(true);
+    try {
+      if (applyToAll) {
+        await uploadAndLink(
+          file,
+          [...new Set([transactionId, ...siblings.map((s) => s.id)])],
+          { supplierId, invoiceRef },
+        );
+      } else {
+        await uploadAndLink(file, [transactionId]);
+      }
+    } catch (err: any) {
+      toast({ title: "Erro ao enviar ficheiro", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
 
   const handleOpenDocument = async (doc: any) => {
     const fileUrl = doc.file_url as string;
