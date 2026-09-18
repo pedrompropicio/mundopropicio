@@ -359,6 +359,17 @@ export default function ReportCashFlow() {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {periodAdjustments !== 0 && (
+                    <TableRow className="bg-muted/20">
+                      <TableCell className="italic" colSpan={3}>
+                        Ajustes de caixa (retenção na fonte + crédito de fornecedor)
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-success">
+                        {formatCurrency(periodAdjustments)}
+                      </TableCell>
+                      <TableCell />
+                    </TableRow>
+                  )}
                   {/* Totals */}
                   <TableRow className="border-t-2 border-border font-bold bg-muted/30">
                     <TableCell>TOTAL</TableCell>
@@ -367,7 +378,9 @@ export default function ReportCashFlow() {
                     <TableCell className={`text-right ${totalNet >= 0 ? "text-success" : "text-destructive"}`}>
                       {formatCurrency(totalNet)}
                     </TableCell>
-                    <TableCell />
+                    <TableCell className={`text-right font-mono ${closingBalance >= 0 ? "text-success" : "text-destructive"}`}>
+                      {formatCurrency(closingBalance)}
+                    </TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
