@@ -515,10 +515,10 @@ const descRef = useRef<HTMLInputElement>(null);
       const masterForecastIds = forecasts.map((f) => f.id);
       if (masterForecastIds.length === 0) return [] as any[];
       // master_forecast_id is a new column not yet in types, use filter
-      const { data, error } = await (fetchAllPagedQuery(supabase
+      const { data, error } = await fetchAllPagedQuery((supabase
         .from("event_forecasts")
-        .select("*, account_categories(code, name)") as any))
-        .in("master_forecast_id", masterForecastIds);
+        .select("*, account_categories(code, name)") as any)
+        .in("master_forecast_id", masterForecastIds));
       if (error) throw error;
       return (data ?? []) as any[];
     },

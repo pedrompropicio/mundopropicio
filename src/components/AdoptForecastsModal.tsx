@@ -96,13 +96,13 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
   const { data: subForecasts = [], isLoading: loadingForecasts } = useQuery({
     queryKey: ["sub_event_forecasts_for_adopt", childEventIds],
     queryFn: async () => {
-      const { data, error } = await (fetchAllPagedQuery(supabase
+      const { data, error } = await fetchAllPagedQuery((supabase
         .from("event_forecasts")
-        .select("*, account_categories(code, name)") as any))
+        .select("*, account_categories(code, name)") as any)
         .in("event_id", childEventIds)
         .is("master_forecast_id", null)
         .eq("type", "expense")
-        .is("version_id", null);
+        .is("version_id", null));
       if (error) throw error;
       return (data ?? []) as any[];
     },
@@ -334,12 +334,12 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
       if (selectedTxs.length > 0) {
         // Buscar splits existentes (linhas no sub-evento já vinculadas ao master, sem tx ainda)
         const subEventIds = [...new Set(selectedTxs.map((t) => t.event_id))];
-        const { data: existingSplits, error: splitErr } = await (fetchAllPagedQuery(supabase
+        const { data: existingSplits, error: splitErr } = await fetchAllPagedQuery((supabase
           .from("event_forecasts")
-          .select("id, event_id, transaction_id") as any))
+          .select("id, event_id, transaction_id") as any)
           .eq("master_forecast_id", masterForecastId)
           .in("event_id", subEventIds)
-          .is("version_id", null);
+          .is("version_id", null));
         if (splitErr) throw splitErr;
 
         // Mapa de splits livres (sem transaction_id) por sub-evento
