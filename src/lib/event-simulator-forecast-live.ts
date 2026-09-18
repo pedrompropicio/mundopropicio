@@ -89,7 +89,7 @@ export async function computeLiveTicketForecast(eventId: string): Promise<LiveTi
   }
 
   if (!cfgRow && currentLoadMap.size === 0) {
-    return { net: null, totalQty: 0, currentLoad, currentLoadOn };
+    return { net: null, gross: null, totalQty: 0, currentLoad, currentLoadOn };
   }
 
   const zoneRows = (zones ?? []) as any[];
@@ -239,7 +239,7 @@ export async function computeLiveTicketForecast(eventId: string): Promise<LiveTi
     });
   }
 
-  if (sessions.length === 0) return { net: null, totalQty: 0, currentLoad, currentLoadOn };
+  if (sessions.length === 0) return { net: null, gross: null, totalQty: 0, currentLoad, currentLoadOn };
 
   // Data do evento = última sessão (mesmo critério da página do Simulador).
   const dateList = ((dates ?? []) as any[]).map((d) => d.date).filter(Boolean);
