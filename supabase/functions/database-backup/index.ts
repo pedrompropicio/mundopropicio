@@ -383,9 +383,22 @@ Deno.serve(async (req) => {
     const { data: inventory, error: invErr } = await adminClient.rpc("backup_table_inventory");
     if (invErr) throw new Error(`backup_table_inventory: ${invErr.message}`);
     const rowsInv = (inventory ?? []) as InventoryRow[];
-    const targets = rowsInv.filter((r) =>
-      scope === "company" ? r.has_company_id : !r.has_company_id,
-    );
+
+    // ---- Exclusões deliberadas (rastreadas em public.backup_excluded_tables) ----
+    const { data: exclRows, error: exclErr } = await adminClient
+      .from("backup_excluded_tables")
+      .select("schema_name, table_name, reason");
+    if (exclErr) throw new Error(`backup_excluded_tables: ${exclErr.message}`);
+    const excluded = (exclRows ?? []).map((r: any) => ({
+      schema: r.schema_name as string,
+      table: r.table_name as string,
+      reason: r.reason as string,
+    }));
+    const excludedKeys = new Set(excluded.map((e) => `${e.schema}.${e.table}`));
+
+    const targets = rowsInv
+      .filter((r) => (scope === "company" ? r.has_company_id : !r.has_company_id))
+      .filter((r) => !excludedKeys.has(`${r.schema_name}.${r.tbl_name}`));
 
     const tables: Record<string, number> = { ...(cont?.progress?.tables ?? {}) };
     const schemas: Record<string, string> = { ...(cont?.progress?.schemas ?? {}) };
@@ -475,6 +488,7 @@ Deno.serve(async (req) => {
       tables,
       rows_total: rowsTotal,
       schemas,
+      excluded,
       ...(Object.keys(partsMap).length ? { parts: partsMap } : {}),
       ...(storageManifest ? { storage_manifest: storageManifest, storage_counts: storageCounts } : {}),
       ...(errors.length ? { errors } : {}),
@@ -515,6 +529,7 @@ Deno.serve(async (req) => {
       rows_total: rowsTotal,
       bytes,
       table_counts: tables,
+      excluded,
       storage_counts: storageCounts,
       errors: errors.length ? errors : undefined,
       rotation_error: rotationError ?? undefined,
