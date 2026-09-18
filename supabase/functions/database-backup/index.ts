@@ -529,6 +529,7 @@ Deno.serve(async (req) => {
       rows_total: rowsTotal,
       bytes,
       table_counts: tables,
+      excluded,
       storage_counts: storageCounts,
       errors: errors.length ? errors : undefined,
       rotation_error: rotationError ?? undefined,
