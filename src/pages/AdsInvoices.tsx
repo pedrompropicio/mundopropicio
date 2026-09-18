@@ -312,14 +312,15 @@ export default function AdsInvoices() {
     queryKey: ["ads-invoice-detail", openId],
     enabled: !!openId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("ads_invoice_line")
         .select(
           "id, line_no, raw_description, placement, campaign_name, event_id, match_source, match_note, matched_by, matched_at, amount, is_adjustment",
         )
         .eq("invoice_id", openId!)
-        .order("line_no");
+        .order("line_no"));
       if (error) throw error;
+
       return (data ?? []) as AdsInvoiceLineRow[];
     },
   });
