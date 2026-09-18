@@ -1431,7 +1431,38 @@ export default function BankReconciliation() {
       {parsed && preview && (
         <div className="glass space-y-3 rounded-xl p-4">
           <h2 className="font-semibold">Resumo antes de gravar</h2>
+          {wrongAccountType && (
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
+              <AlertTriangle className="mt-0.5 h-4 w-4 text-destructive" />
+              <div>
+                <p className="font-medium text-destructive">Só contas bancárias recebem extrato.</p>
+                <p className="text-muted-foreground">
+                  A conta escolhida ({account?.name}) não é uma conta bancária.
+                </p>
+              </div>
+            </div>
+          )}
+          {openingRefuseMessage && (
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
+              <AlertTriangle className="mt-0.5 h-4 w-4 text-destructive" />
+              <div>
+                <p className="font-medium text-destructive">Importação recusada — este ficheiro não é desta conta.</p>
+                <p className="text-muted-foreground">{openingRefuseMessage}</p>
+              </div>
+            </div>
+          )}
+          {/* A referência da abertura mostra-se SEMPRE, mesmo quando não recusa. */}
+          {openingCheck && (
+            <p className="text-xs text-muted-foreground">
+              Abertura do ficheiro: {formatCurrency(Number(parsed.openingBalance ?? 0))} ·{" "}
+              {openingCheck.reference === null
+                ? `referência: ${openingCheck.origin}`
+                : `último saldo conhecido: ${formatCurrency(openingCheck.reference)} (${openingCheck.origin})` +
+                  (openingCheck.diff === null ? "" : ` · diferença ${formatCurrency(openingCheck.diff)}`)}
+            </p>
+          )}
           {!parsed.coherent && (
+
             <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
               <AlertTriangle className="mt-0.5 h-4 w-4 text-destructive" />
               <div>
