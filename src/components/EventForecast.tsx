@@ -666,9 +666,15 @@ const descRef = useRef<HTMLInputElement>(null);
     queryFn: async () => {
       const lotIds = ticketLots.map((l) => l.id);
       if (lotIds.length === 0) return [];
-      const { data, error } = await supabase.from("ticket_sales").select("*").in("lot_id", lotIds);
-      if (error) throw error;
-      return data;
+      // #205: paginado.
+      return await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("*")
+          .in("lot_id", lotIds)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
     },
     enabled: ticketLots.length > 0,
   });

@@ -115,11 +115,15 @@ export function useEventSettlementEngine(eventId: string) {
         .in("zone_id", zones.map((z: any) => z.id));
       if (qErr2) throw qErr2;
       if (!lots?.length) return [];
-      const { data: sales, error: qErr3 } = await supabase
-        .from("ticket_sales")
-        .select("lot_id, quantity, unit_price, total_value")
-        .in("lot_id", lots.map((l: any) => l.id));
-      if (qErr3) throw qErr3;
+      // #205: paginado — nunca somar ticket_sales sem .range().
+      const sales = await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("lot_id, quantity, unit_price, total_value")
+          .in("lot_id", lots.map((l: any) => l.id))
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       return (sales ?? []).map((s: any) => {
         const lot = lots.find((l: any) => l.id === s.lot_id);
         const rate = Number(lot?.iva_rate || 0);

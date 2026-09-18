@@ -190,11 +190,15 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
     queryFn: async () => {
       const zoneIds = (allZones as any[]).map((z) => z.id);
       if (zoneIds.length === 0) return {} as Record<string, { tickets: number; revenue: number }>;
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("zone_id, quantity, unit_price, total_value")
-        .in("zone_id", zoneIds);
-      if (error) throw error;
+      // #205: paginado.
+      const data = await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("zone_id, quantity, unit_price, total_value")
+          .in("zone_id", zoneIds)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       const acc: Record<string, { tickets: number; revenue: number }> = {};
       for (const s of (data ?? []) as any[]) {
         if (!s.zone_id) continue;

@@ -411,7 +411,15 @@ export default function PartnerEventDetail() {
           // `total_value` é o valor exacto preservado na importação; `unit_price` é
           // derivado dele por divisão arredondada, logo multiplicar de volta perde
           // cêntimos linha a linha. A receita soma sempre `total_value`.
-          ? supabase.from("ticket_sales").select("zone_id, quantity, unit_price, total_value, lot_id, financial_account_id").in("zone_id", zoneIds)
+          // #205: paginado — o PostgREST corta aos 1.000 registos em silêncio.
+          ? fetchAllPaged<any>((from, to) =>
+              supabase
+                .from("ticket_sales")
+                .select("zone_id, quantity, unit_price, total_value, lot_id, financial_account_id")
+                .in("zone_id", zoneIds)
+                .order("id", { ascending: true })
+                .range(from, to),
+            ).then((data) => ({ data, error: null }))
           : Promise.resolve({ data: [], error: null }),
       ]);
 

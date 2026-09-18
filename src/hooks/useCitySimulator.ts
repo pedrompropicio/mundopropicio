@@ -127,10 +127,17 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
         .select("id, zone_id, lot_number, price, quantity").in("zone_id", zoneIds);
       if (qErr8) throw qErr8;
       const lotIds = (lots ?? []).map((l: any) => l.id);
-      const { data: sales } = lotIds.length
-        ? await supabase.from("ticket_sales")
-            .select("lot_id, zone_id, sale_date, quantity, financial_account_id, source, import_batch_id, created_at").in("lot_id", lotIds)
-        : { data: [] as any[] };
+      // #205: paginado.
+      const sales = lotIds.length
+        ? await fetchAllPaged<any>((from, to) =>
+            supabase
+              .from("ticket_sales")
+              .select("lot_id, zone_id, sale_date, quantity, financial_account_id, source, import_batch_id, created_at")
+              .in("lot_id", lotIds)
+              .order("id", { ascending: true })
+              .range(from, to),
+          )
+        : ([] as any[]);
       const soldByLot = new Map<string, number>();
       const firstSaleByZone = new Map<string, string>();
       for (const s of keepLatestFeverImportRows(((sales ?? []) as any[]))) {

@@ -139,12 +139,15 @@ async function fetchEventTicketingBundle(eventId: string, versionId: string | nu
       // Vendas reais não têm versão — só as carregamos no modo Ativo.
       // Em cenários sandbox, mostramos previsões/configurações sem o realizado.
       if (!versionId) {
-        const salesRes = await supabase
-          .from("ticket_sales")
-          .select("lot_id, quantity, unit_price")
-          .in("lot_id", lotIds);
-        if (salesRes.error) throw salesRes.error;
-        sales = (salesRes.data ?? []) as SaleRow[];
+        // #205: paginado.
+        sales = (await fetchAllPaged<any>((from, to) =>
+          supabase
+            .from("ticket_sales")
+            .select("lot_id, quantity, unit_price")
+            .in("lot_id", lotIds)
+            .order("id", { ascending: true })
+            .range(from, to),
+        )) as SaleRow[];
       }
     }
   }

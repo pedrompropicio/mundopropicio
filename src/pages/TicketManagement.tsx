@@ -136,14 +136,16 @@ export default function TicketManagement() {
     queryFn: async () => {
       const zoneIds = zones.map((z) => z.id);
       if (zoneIds.length === 0) return [];
-      // Fetch all sales for these zones in a single query
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("*")
-        .in("zone_id", zoneIds)
-        .order("sale_date", { ascending: false });
-      if (error) throw error;
-      return data || [];
+      // #205: lista completa paginada (PostgREST corta aos 1.000).
+      return await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("*")
+          .in("zone_id", zoneIds)
+          .order("sale_date", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
     },
     enabled: zones.length > 0,
     staleTime: 30_000,

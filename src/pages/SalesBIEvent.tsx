@@ -135,11 +135,15 @@ export default function SalesBIEvent() {
     enabled: !!eventId && capsQ.isSuccess && !hasSnaps && (zonesQ.data?.length ?? 0) > 0,
     queryFn: async () => {
       const zoneIds = (zonesQ.data ?? []).map((z) => z.id);
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("zone_id, quantity, total_value, notes")
-        .in("zone_id", zoneIds);
-      if (error) throw error;
+      // #205: paginado.
+      const data = await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("zone_id, quantity, total_value, notes")
+          .in("zone_id", zoneIds)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       return (data ?? []) as unknown as SaleRow[];
     },
   });
