@@ -405,7 +405,7 @@ async function fetchLiveColumns(admin: any, tableNames: string[]) {
   const out: Record<string, Set<string>> = {};
   for (const t of tableNames) {
     try {
-      const { data, error } = await admin.from(t).select("*").limit(1);
+      const { data, error } = await tableRef(admin, t).select("*").limit(1);
       if (!error && data) {
         const cols = new Set<string>();
         if (data.length > 0) Object.keys(data[0]).forEach((k) => cols.add(k));
