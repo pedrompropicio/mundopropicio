@@ -166,6 +166,8 @@ export async function computeSponsorshipSynthetic(
     baselineNet,
     currentNet: realNet + remainingTotal,
     realNet,
+    currentGross: realGross + remainingTotal * (1 + defaultRate / 100),
+    realGross,
     segments,
     excludedForecastIds,
   };
