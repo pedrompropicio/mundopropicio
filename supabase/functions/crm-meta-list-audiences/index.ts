@@ -8,7 +8,7 @@
 // não chama getUser(); opera via service_role com checagem explícita de company_id.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
-import { fetchAllPagedQuery } from "../../_shared/paging.ts";
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
 const BUILD_VERSION = "list-audiences-v2 2026-08-27 (delivery_estimate)";
 const GRAPH_API_VERSION = "v21.0";

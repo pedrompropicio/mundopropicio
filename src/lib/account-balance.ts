@@ -16,6 +16,7 @@
  *   const realBalance = grossBalance + (adj.get(accountId) ?? 0);
  */
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export type AccountCashAdjustments = Map<string, number>;
 
@@ -82,7 +83,7 @@ export async function fetchAccountCashAdjustments(
     query = query.in("account_id", accountIds);
   }
 
-  const { data, error } = await query;
+  const { data, error } = await fetchAllPagedQuery(query);
   if (error) {
     console.error("[account-balance] fetchAccountCashAdjustments error", error);
     return new Map();

@@ -2,7 +2,7 @@
 // IA classificadora Gemini para TX em "0.0.99 A Classificar" (Coala apenas).
 // POST { tx_ids?: string[], filter?: { onlyUnclassified, limit }, mode: "preview"|"apply" }
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { fetchAllPagedQuery } from "../../_shared/paging.ts";
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

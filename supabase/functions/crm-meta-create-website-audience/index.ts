@@ -9,6 +9,7 @@
 // persistência em public.meta_custom_audiences com regra dentro de filters jsonb).
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
 const BUILD_VERSION = "create-website-audience-v1 2026-06-25";
 const GRAPH_API_VERSION = "v21.0";
@@ -105,11 +106,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const linkId = linkRow.id as string;
 
     // 3) IDEMPOTÊNCIA: já existe WEBSITE com este nome?
-    const { data: existRows, error: existErr } = await admin
+    const { data: existRows, error: existErr } = await fetchAllPagedQuery(admin
       .from("meta_custom_audiences")
       .select("audience_id_meta, name, filters")
       .eq("company_id", companyId)
-      .eq("name", finalName);
+      .eq("name", finalName));
     if (existErr) return bizErr({ error: "idempotency_check_failed", detail: existErr.message });
     const existing = (existRows ?? []).find(
       (r: any) => (r?.filters?.subtype ?? "").toString().toUpperCase() === "WEBSITE"

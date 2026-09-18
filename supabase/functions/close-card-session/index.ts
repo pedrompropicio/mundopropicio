@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { fetchAllPagedQuery } from "../../_shared/paging.ts";
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -201,10 +201,10 @@ Deno.serve(async (req) => {
     // à linha do par (evento × rubrica) — a mesma que os itens novos desse par
     // usam (D18). Sem evento ficam como estão. A sessão fecha mesmo que só tenha
     // transações antigas e ZERO itens novos (consolida zero grupos).
-    const { data: legacyTxsRaw } = await adminClient
+    const { data: legacyTxsRaw } = await fetchAllPagedQuery(adminClient
       .from("transactions")
       .select("id, description, amount, paid_amount, iva_rate, event_id, category_id, forecast_id, date, payment_date, type")
-      .eq("card_session_id", body.session_id);
+      .eq("card_session_id", body.session_id));
     const legacyTxs = ((legacyTxsRaw ?? []) as any[]).filter(
       (t) => !((items ?? []) as any[]).some((it) => it.transaction_id === t.id),
     );
@@ -425,11 +425,11 @@ Deno.serve(async (req) => {
         .eq("id", fid)
         .maybeSingle();
 
-      const { data: realizedRows } = await adminClient
+      const { data: realizedRows } = await fetchAllPagedQuery(adminClient
         .from("transactions")
         .select("amount, is_transitory, exclude_from_result, reversed_at, is_hidden")
         .eq("forecast_id", fid)
-        .in("status", ["approved", "paid"]);
+        .in("status", ["approved", "paid"]));
       const realized = round2(
         ((realizedRows ?? []) as any[])
           .filter((r) =>

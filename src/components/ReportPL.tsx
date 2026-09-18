@@ -581,6 +581,7 @@ export default function ReportPL() {
     queryKey: ["all-forecasts"],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase.from("event_forecasts").select("*").is("version_id", null).order("created_at", { ascending: false }));
+      if (error) throw error;
       return data;
     },
   });

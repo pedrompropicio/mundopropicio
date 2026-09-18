@@ -7,17 +7,18 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Line, ComposedChart, Cell } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { excludeRateioChildren, RATEIO_FILTER_COLUMNS } from "@/lib/rateio-children";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function ReportSupplierConcentration() {
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ["concentration-txs"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select(`supplier_id, amount, type, status, ${RATEIO_FILTER_COLUMNS}, suppliers:suppliers!transactions_supplier_id_fkey(name)`)
         .eq("type", "expense")
         .in("status", ["approved", "paid"])
-        .not("supplier_id", "is", null);
+        .not("supplier_id", "is", null));
       if (error) throw error;
       return data;
     },

@@ -118,10 +118,10 @@ export default function ReportBankStatement() {
     queryKey: ["tx-doc-counts-bs", txIdsForDocs],
     queryFn: async () => {
       if (txIdsForDocs.length === 0) return {};
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transaction_documents")
         .select("transaction_id")
-        .in("transaction_id", txIdsForDocs);
+        .in("transaction_id", txIdsForDocs));
       if (error) throw error;
       const counts: Record<string, number> = {};
       data.forEach((d: any) => { counts[d.transaction_id] = (counts[d.transaction_id] || 0) + 1; });

@@ -132,9 +132,9 @@ export function ResultsAnalysis() {
   const { data: forecastsAll = [] } = useQuery({
     queryKey: ["ra_forecasts_v2"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, type, amount, category_id, event_settlement_id").is("version_id", null);
+        .select("id, event_id, type, amount, category_id, event_settlement_id").is("version_id", null));
       if (error) throw error;
       return data;
     },

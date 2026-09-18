@@ -51,6 +51,31 @@ interface Offence {
   table: string;
 }
 
+/**
+ * Devolve o encadeamento a partir de `start` (o `.from(`) até ao FIM DO
+ * STATEMENT: o `;` ao nível de topo, uma vírgula ao nível de topo, um fecho de
+ * parêntesis/chaveta que já não é nosso, ou um novo `.from(`.
+ */
+function forwardChain(src: string, start: number): { text: string; end: number } {
+  let depth = 0;
+  for (let i = start; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === "(" || ch === "[" || ch === "{") depth++;
+    else if (ch === ")" || ch === "]" || ch === "}") {
+      if (depth === 0) {
+        // `)` seguido de `.` é só um embrulho — p.ex. `(supabase.from(x) as any).insert(`.
+        // O encadeamento continua; só paramos quando não continua.
+        const nxt = src.slice(i + 1).match(/^\s*(\.|\bas\b)/);
+        if (ch === ")" && nxt) continue;
+        return { text: src.slice(start, i), end: i };
+      }
+      depth--;
+    } else if (depth === 0 && (ch === ";" || ch === ",")) return { text: src.slice(start, i), end: i };
+    else if (i > start && depth === 0 && src.startsWith(".from(", i)) return { text: src.slice(start, i), end: i };
+  }
+  return { text: src.slice(start), end: src.length };
+}
+
 function scanFile(file: string): Offence[] {
   const src = readFileSync(file, "utf8");
   const offences: Offence[] = [];
@@ -60,9 +85,9 @@ function scanFile(file: string): Offence[] {
     const table = m[2].replace(/^(public|crm)\./, "");
     if (!WATCHED.has(table)) continue;
 
-    // Encadeamento = daqui até ao próximo `.from(` (ou 4000 caracteres).
-    // A janela inclui o que vem ANTES do `.from(` até ao limite do statement,
-    // para reconhecer o embrulho `fetchAllPagedQuery(supabase.from(...))`.
+    // Encadeamento = SÓ o desta query.
+    // Para trás, até ao limite do statement, para reconhecer o embrulho
+    // `fetchAllPagedQuery(supabase.from(...))`.
     const head = src.slice(0, m.index);
     const begin = Math.max(
       head.lastIndexOf(";"),
@@ -70,9 +95,23 @@ function scanFile(file: string): Offence[] {
       head.lastIndexOf("{"),
       head.lastIndexOf("}"),
     );
-    const rest = src.slice(m.index, m.index + 4000);
-    const nextFrom = rest.indexOf(".from(", 1);
-    const chain = src.slice(begin + 1, m.index) + (nextFrom > 0 ? rest.slice(0, nextFrom) : rest);
+    // Para a frente, até ao FIM DO STATEMENT — nunca até ao próximo `.from(`,
+    // senão um `.limit(`/`.range(`/`fetchAllPaged` de outra query mais abaixo
+    // no mesmo ficheiro dava escape por engano (#206, ResultsAnalysis.tsx).
+    const fwd = forwardChain(src, m.index);
+    const stmt = src.slice(begin + 1, m.index) + fwd.text;
+    let chain = stmt;
+
+    // Builder guardado em variável (`let q = supabase.from(...)` e mais abaixo
+    // `await fetchAllPagedQuery(q)`): junta ao encadeamento só as ocorrências
+    // dessa variável, no bloco imediatamente seguinte.
+    const assign = stmt.match(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]*)?=\s*[^=]*$/m);
+    if (assign) {
+      const varName = assign[1];
+      const after = src.slice(fwd.end, fwd.end + 2500);
+      const re = new RegExp(`^.*\\b${varName}\\b.*$`, "gm");
+      chain += "\n" + (after.match(re) ?? []).join("\n");
+    }
 
     if (WRITES.some((w) => chain.includes(w))) continue;
     if (ESCAPES.some((e) => chain.includes(e))) continue;

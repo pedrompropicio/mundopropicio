@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { fetchAllPagedQuery } from "../../_shared/paging.ts";
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
 /**
  * ESPELHO de `src/lib/payment-methods.ts` (PAYMENT_METHODS). O `src/` não é

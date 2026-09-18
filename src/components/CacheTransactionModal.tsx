@@ -144,7 +144,7 @@ export function CacheTransactionModal({
         query = query.eq("supplier_id", configSupplierId);
       }
 
-      const { data } = await query.order("date", { ascending: true });
+      const { data } = await fetchAllPagedQuery(query.order("date", { ascending: true }));
       return (data ?? []) as any[];
     },
   });

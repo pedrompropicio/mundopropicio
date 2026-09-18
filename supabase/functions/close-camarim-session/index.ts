@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -306,11 +307,11 @@ Deno.serve(async (req) => {
         .eq("id", sessionForecastId)
         .maybeSingle();
 
-      const { data: realizedRows } = await adminClient
+      const { data: realizedRows } = await fetchAllPagedQuery(adminClient
         .from("transactions")
         .select("amount, is_transitory, exclude_from_result, reversed_at, is_hidden")
         .eq("forecast_id", sessionForecastId)
-        .in("status", ["approved", "paid"]);
+        .in("status", ["approved", "paid"]));
       const realized = round2(
         ((realizedRows ?? []) as any[])
           .filter((r) =>

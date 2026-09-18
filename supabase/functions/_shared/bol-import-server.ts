@@ -15,7 +15,7 @@
 // Validação: a soma das zonas tem de bater com a linha TOTAL do relatório; se
 // não bater, o import falha (nunca importa dados errados).
 import type { BolParseResult } from "./bol-report-parser.ts";
-import { fetchAllPagedQuery } from "../../_shared/paging.ts";
+import { fetchAllPagedQuery } from "./paging.ts";
 
 const SOURCE = "bol";
 const IVA_RATE = 6;

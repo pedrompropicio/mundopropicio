@@ -16,7 +16,7 @@ import {
   buildValidationReport,
   type ParsedRow,
 } from "../_shared/coalaParser.ts";
-import { fetchAllPagedQuery } from "../../_shared/paging.ts";
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

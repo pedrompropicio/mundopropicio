@@ -10,7 +10,7 @@
 // Auth: header Authorization obrigatório (verify_jwt=true), sem getUser().
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
-import { fetchAllPagedQuery } from "../../_shared/paging.ts";
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
 const BUILD_VERSION = "create-purchase-audience-v1 2026-06-28";
 const GRAPH_API_VERSION = "v21.0";

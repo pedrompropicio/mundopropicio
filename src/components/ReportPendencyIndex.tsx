@@ -33,10 +33,10 @@ export default function ReportPendencyIndex() {
   const { data: forecasts = [] } = useQuery({
     queryKey: ["pendency-forecasts"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, status, event_id, description, events(name)")
-        .eq("status", "pending").is("version_id", null);
+        .eq("status", "pending").is("version_id", null));
       if (error) throw error;
       return data;
     },

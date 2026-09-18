@@ -54,11 +54,11 @@ export default function ReportAccountingExport() {
     queryKey: ["accounting-export-docs", txIds],
     queryFn: async () => {
       if (txIds.length === 0) return {};
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transaction_documents")
         .select("transaction_id, is_accounting, file_url, name")
         .in("transaction_id", txIds)
-        .eq("is_accounting", true);
+        .eq("is_accounting", true));
       if (error) throw error;
       const map: Record<string, { count: number; files: { url: string; name: string }[] }> = {};
       data.forEach((d: any) => {

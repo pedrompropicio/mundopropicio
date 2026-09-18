@@ -31,7 +31,7 @@ import {
   type TicketLotItem,
 } from "../_shared/bilheteira-parsers.ts";
 import { tolerantFetch } from "../_shared/tolerant-fetch.ts";
-import { fetchAllPagedQuery } from "../../_shared/paging.ts";
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

@@ -7,6 +7,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from "recharts";
 import { differenceInDays } from "date-fns";
 import { excludeRateioChildren, RATEIO_FILTER_COLUMNS } from "@/lib/rateio-children";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 const BUCKETS = [
   { label: "A vencer", min: -Infinity, max: -1, color: "hsl(var(--success))" },
@@ -20,11 +21,11 @@ export default function ReportAging() {
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ["aging-transactions"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select(`id, description, amount, paid_amount, date, due_date, status, type, supplier_id, ${RATEIO_FILTER_COLUMNS}, suppliers:suppliers!transactions_supplier_id_fkey(name)`)
         .eq("type", "expense")
-        .in("status", ["pending", "approved"]);
+        .in("status", ["pending", "approved"]));
       if (error) throw error;
       return data;
     },

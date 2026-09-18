@@ -44,10 +44,10 @@ function PaymentDocsButton({ transactionId, onClick }: { transactionId: string; 
   const { data: docs = [] } = useQuery({
     queryKey: ["transaction_documents_summary", transactionId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transaction_documents")
         .select("id, file_url")
-        .eq("transaction_id", transactionId);
+        .eq("transaction_id", transactionId));
       if (error) throw error;
       return data;
     },
@@ -155,12 +155,12 @@ function useForecastLookup(eventIds: string[]) {
     queryKey: ["bp-forecasts-for-payment", uniqueEventIds],
     queryFn: async () => {
       if (uniqueEventIds.length === 0) return [];
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("event_id, category_id, amount, description")
         .in("event_id", uniqueEventIds)
         .eq("type", "expense")
-        .in("status", ["approved", "draft"]).is("version_id", null);
+        .in("status", ["approved", "draft"]).is("version_id", null));
       if (error) throw error;
       return data;
     },
@@ -1668,10 +1668,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     queryKey: ["invoice-group-counts", [...invoiceGroupIds].sort().join(",")],
     enabled: invoiceGroupIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("invoice_group_id")
-        .in("invoice_group_id", invoiceGroupIds);
+        .in("invoice_group_id", invoiceGroupIds));
       if (error) throw error;
       const counts: Record<string, number> = {};
       for (const row of data ?? []) {
@@ -2771,11 +2771,11 @@ function ApproveModal({
         .map((item: any) => item.transactions.id);
 
       if (masterIds.length > 0) {
-        const { data: children, error: qErr3 } = await supabase
+        const { data: children, error: qErr3 } = await fetchAllPagedQuery(supabase
           .from("transactions")
           .select("parent_transaction_id, events(name)")
           .in("parent_transaction_id", masterIds)
-          .not("event_id", "is", null);
+          .not("event_id", "is", null));
         if (qErr3) throw qErr3;
         if (children) {
           const childEventMap: Record<string, string> = {};

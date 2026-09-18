@@ -10,7 +10,7 @@
 // Import de supabase-js SEMPRE npm: (nunca esm.sh).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildPdf, type PdfOp } from "../_shared/simple-pdf.ts";
-import { fetchAllPagedQuery } from "../../_shared/paging.ts";
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
 const VERSION = "v2.4_platform_dup_guard_and_terms";
 
