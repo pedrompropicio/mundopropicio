@@ -199,7 +199,7 @@ A conta corrente do sócio ficou fechada a 17/09 (#193). Estado a essa data,
 com o ano de extratos completo:
 
 | | |
-|---|---:|
+|---|---:| 
 | Folha de vencimentos jan–ago (bruto) | 55.048,38 |
 | Faturas avulsas (63) | 26.591,27 |
 | **Coberto** | **81.639,65** |
@@ -309,6 +309,43 @@ prompt errado ao agente:
   (D-ERP80), com um domínio de seis valores quando o real tem sete.
 **Regra prática: ler o código antes de acreditar na memória da feature, e a
 memória antes de propor o que quer que seja.**
+
+**O saldo de conta nunca filtra `reversed_at`.** A RPC `reverse_transaction` tem dois tipos de estorno: `cash_refund` põe `paid_amount = 0` (o dinheiro voltou), `supplier_credit` mantém o `paid_amount` (o dinheiro saiu mesmo e nasce um crédito no fornecedor). `paid_amount` já é a resposta certa nos dois casos; filtrar `reversed_at` no saldo inflacionaria os estornos por crédito de fornecedor.
+
+**Existem três overloads de `reverse_transaction` em Live.** A de 5 argumentos (`p_tx_id`, `p_kind`, `p_reason`, `p_valid_until`, `p_release_for_repayment`) é a correta e é a única chamada pelo frontend, em `PaymentTimeline.tsx`. A legada de 3 argumentos (`p_transaction_id`, `p_reversal_kind`, `p_reason`) continua viva sem consumidor e não toca em `transaction_payments` nem liberta a transação das listas. Estornar por SQL direto, sem a RPC, deixa `reversal_kind` a NULL e o `paid_amount` intacto — foi o que corrompeu o saldo do Santander em 3.177,96 € entre 01/09 e 07/09.
+
+**A despesa do fecho de um evento é a soma das linhas de BP, não a soma das transações.** Lançar uma transação contra uma linha de BP que já contém o valor não altera o resultado do evento nem o apuramento por sócio — só converte previsão em realizado. Só há impacto no resultado se o total ligado à linha exceder o BP, e aí entra como custo fora do BP.
+
+**Reverter uma fatura Ads aplicada apaga a transação-mãe, e as filhas caem por CASCADE.** Sete guardas correm antes e nenhuma é opcional: pago ou com `paid_amount` > 0, `settlement_id`, `card_session_id`, linha em `transaction_payments`, presença em `payment_list_items`, `reimbursement_note_items` ou `reimbursement_notes`, conferência em `accountant_transaction_reviews`, e data dentro de um período já em `accounting_exports`. A ordem das operações é fixa: soltar `event_forecasts.transaction_id` (FK NO ACTION, é a que bloqueia), apagar a mãe, e só depois apagar os ficheiros do storage.
+
+**A rubrica de destino de uma fatura de tráfego não é garantida.** A fatura Meta de abril (252466632) esteve quatro meses lançada em 10.8.07 Outros em vez de 3.2.01 Digital, e por isso não aparecia em nenhuma leitura do Digital. Ao conferir tráfego pago, procurar por `invoice_ref` e por fornecedor, nunca só por categoria.
+
+**O espelho segue a transação, nunca a linha de BP nem a linha de pagamento.** Uma transação pode cobrir várias linhas de BP e continua a ser uma só saída de dinheiro. E `transaction_payments` não é âncora fiável: na conta de Madrid havia uma transação com o pagamento gravado duas vezes e outra com o valor em reais. O `paid_amount` da transação é a verdade. Filhas de rateio nunca recebem `account_id`, portanto nunca geram aporte duplicado.
+
+**`transaction_payments` não tem campo de moeda.** O pagamento do consórcio tem 68.770,80 numa transação de 11.385,52 — é o valor em reais (câmbio 6,04), não um erro. Quem somar essa tabela mistura moedas sem aviso.
+
+**O ramo 10.1 não alimenta o mapa de sugestão de rubricas.** Guarda acrescentada a `coala_capture_category_change` em 07/09: sem ela, cada aporte espelhado escrevia uma linha em `coala_supplier_category_map`.
+
+**Cartão de fatura agrupada no picker de Listas de Pagamento.** `buildPickerRows` colapsa as transações com o mesmo `invoice_group_id` numa linha única identificada só por fornecedor + `invoice_ref`; as descrições dos itens não são renderizadas com o grupo fechado. Uma transação elegível parece não existir, e a pesquisa por descrição não lhe acerta — o que leva o utilizador a lançá-la outra vez. Caso real a 08/09: `FT 11.1/66` da KARINUR, duas transações de 345,00 € do Tour M&M. Corrigido a 08/09: grupos de 3 itens ou menos abrem por omissão, e a pesquisa passa a ler as descrições dentro dos grupos e a expandir o grupo com match. A selecção continua atómica por fatura.
+
+**Os seis lançamentos de hotel do Deive Leonardo (Vila Galé FT 132026/33986 e Meliã PROFORMA 194/2026) têm grupo de fatura e documento anexo desde 16/09 — não voltar a anexar.**
+
+**Os mapas de vencimento da Expert Numbers chegam à conta
+pedroneto@socialmusic.com.br, não à mundopropicio.com.** Cinco anexos por
+mês (FF, MV, RET, RV, SS); o **MV é acumulado do ano** e é o único que
+é preciso abrir. Há meses com retificação — vale sempre o último envio.
+
+**A ajuda de custo por quilómetros é a rubrica "Quilómetros" na folha e
+representa 85% do que o sócio recebe** (46.670,48 € contra 7.360,00 € de
+vencimento, jan–ago 2026). É o valor que sustenta quase toda a
+justificação da conta corrente e o mais exposto numa inspeção.
+
+**Não existe levantamento de numerário na MP para uso pessoal** (decisão
+do Pedro, 17/09). Os cinco levantamentos de 2026 — 7.000,00 (04/02),
+9.050,00 (23/02), 24.436,26 (31/03), 21.215,00 (20/05), 8.010,00 (28/08),
+total 69.711,26 € — são caixa da empresa e ficam fora da conta corrente
+do sócio. Não reabrir.
+
 
 ## Página de Contas: três dinheiros, três cartões (09/09/2026, D-ERP27)
 
