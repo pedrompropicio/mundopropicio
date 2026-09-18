@@ -1,6 +1,6 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado 2026-09-18 · Issues #186, #202, #203, #204 · a-seguir #83, #96, #61
+Atualizado 2026-09-18 · Issues #186, #202, #203, #204, #206, #211 · a-seguir #140, #83, #96, #61
 
 ## Em que pé está
 A 16–17/09 fizeram-se correções de UI no ecrã de Transações (tabela do BP sem scroll horizontal; busca por nome fantasia) e fechou-se a **#86** (ver D-ERP75).
