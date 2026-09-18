@@ -31,6 +31,12 @@ export interface SponsorshipSyntheticResult {
   baselineNet: number | null;
   currentNet: number | null;
   realNet: number;
+  /**
+   * Os MESMOS valores em bruto (#207), pelo `iva_rate` das linhas de origem
+   * (1.2.*). Mesmo critério do líquido — só acrescentam o imposto.
+   */
+  currentGross: number | null;
+  realGross: number;
   segments: SponsorshipSegmentBreakdown[];
   /** ids das linhas 1.2.01 persistidas que a sintética passa a representar */
   excludedForecastIds: string[];
