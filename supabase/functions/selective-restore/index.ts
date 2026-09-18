@@ -246,17 +246,17 @@ async function deleteByIds(adminClient: any, table: string, ids: string[]): Prom
   const batchSize = 200;
   for (let i = 0; i < ids.length; i += batchSize) {
     const batch = ids.slice(i, i + batchSize);
-    const { error } = await adminClient.from(table).delete().in("id", batch);
+    const { error } = await tableRef(adminClient, table).delete().in("id", batch);
     if (error) return error.message;
   }
   return null;
 }
 
 async function deleteAllInTable(adminClient: any, table: string): Promise<string | null> {
-  const { error } = await adminClient.from(table).delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  const { error } = await tableRef(adminClient, table).delete().neq("id", "00000000-0000-0000-0000-000000000000");
   if (error) {
     // Fallback for tables without `id` PK
-    const { error: e2 } = await adminClient.from(table).delete().gte("created_at", "1900-01-01");
+    const { error: e2 } = await tableRef(adminClient, table).delete().gte("created_at", "1900-01-01");
     if (e2) return e2.message;
   }
   return null;
@@ -272,7 +272,7 @@ async function insertRows(
   let inserted = 0;
   for (let i = 0; i < rows.length; i += batchSize) {
     const batch = rows.slice(i, i + batchSize).map((r) => cleanRow(table, r));
-    const { error } = await adminClient.from(table).upsert(batch, { onConflict: "id" });
+    const { error } = await tableRef(adminClient, table).upsert(batch, { onConflict: "id" });
     if (error) return { inserted, error: error.message };
     inserted += batch.length;
   }
@@ -428,7 +428,7 @@ Deno.serve(async (req) => {
       try {
         if (scope === "tables") {
           if (tenantFilter) {
-            const { error } = await adminClient.from(table).delete().eq("company_id", tenantFilter);
+            const { error } = await tableRef(adminClient, table).delete().eq("company_id", tenantFilter);
             results[table] = { deleted: "all", inserted: 0, ...(error ? { error: `delete: ${error.message}` } : {}) };
           } else {
             const err = await deleteAllInTable(adminClient, table);
