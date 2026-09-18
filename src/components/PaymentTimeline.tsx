@@ -85,7 +85,7 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
       ] = await Promise.all([
         fetchAllPagedQuery(supabase
           .from("transaction_payments" as any)
-          .select("id, amount, payment_date, scheduled_date, status, payment_method, account_id, invoice_ref, reversal_kind, credit_amount, financial_accounts:account_id(name)")
+          .select("id, amount, payment_date, scheduled_date, status, payment_method, account_id, invoice_ref, reversal_kind, credit_amount, currency, original_amount, fx_rate, financial_accounts:account_id(name)")
           .eq("transaction_id", txId)
           .order("scheduled_date", { ascending: true, nullsFirst: false })
           .order("payment_date", { ascending: true })),
@@ -601,6 +601,8 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-mono font-semibold">{formatCurrency(Number(p.amount))}</span>
+                  {/* (#127) moeda de origem da parcela, quando não é EUR */}
+                  <CurrencyBadge currency={p.currency} originalAmount={p.original_amount} fxRate={p.fx_rate} />
                   {canApprove && !p.reversal_kind && (
                     <button
                       type="button"
