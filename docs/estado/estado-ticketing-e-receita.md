@@ -1,6 +1,6 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-09-18 · Issues: #73, #78, #128, #129, #130, #145, #155, #184 (aberta só pelo ponto c), #206 (transversal, plataforma-e-infra), #208 · Fechadas: #132, #198, #205, #207, #210
+Atualizado: 2026-09-18 · Issues: #73, #78, #128, #129, #130, #155, #206 (transversal, plataforma-e-infra), #208, #211 (transversal, plataforma-e-infra) · Fechadas: #132, #145, #184, #198, #205, #207, #210
 
 ## Em que pé está
 
@@ -31,6 +31,8 @@ Atualizado: 2026-09-18 · Issues: #73, #78, #128, #129, #130, #145, #155, #184 (
 
 - **Parser da BOL corrigido — valores acima de 100.000 € (18/09, issue #210, v1.10).** A Conferência de Mulheres Plenitude esteve 42 corridas seguidas em `import_failed` desde 16/09 17:25 UTC: quando o total passou de 100.000 €, o `resolveValues()` de `_shared/bol-report-parser.ts` absorvia obrigatoriamente todos os tokens de 3 dígitos à esquerda do valor monetário e, em "744 100 197,00 €", engolia o "100" **e** o "744", que é a Total Vendas Qt. A validação bloqueante chumbava e nada era gravado — `ticket_sales` e `bol_daily_sales` ficaram congelados em 16/09. Agora cada grupo monetário enumera quantos grupos de milhar absorve e se leva o líder, escolhendo pela pontuação estrutural; em empate ganha a leitura que absorve menos tokens. Testes 9/9. Verificado em Live a 13:11 UTC, fan-out sobre as quatro configs BOL: 4/4 `success`, zero warnings — Plenitude 818 bilhetes / 108.019,00 €, Deive 622 / 26.840,00 €, Coimbra 414 / 13.735,00 €, SMF 349 / 11.620,00 €, todas com `sale_date` máximo a 18/09. Nada se perdeu: o M2 é cumulativo e o import é full-replace.
 
+- **Alerta de falhas de sync construído e provado (18/09, issues #145 e #184 fechadas).** Em duas semanas a bilheteira parou três vezes sem que ninguém fosse avisado: Ticketline 37 corridas `html_response` (#184), BOL 42 corridas `import_failed` (#210) e, antes disso, cinco configs desligadas em bloco a 28/08 que só se notaram a 09/09. Agora existe `public.check_ticketing_sync_health()` (cron `ticketing-sync-health`, `45 * * * *`, jobid 217), no molde do `check_leads_capi_health()`. Quatro condições por config de Ticketline e BOL, só para eventos por realizar: **(a)** as 3 corridas mais recentes todas fora de `('success','warning','skipped')`; **(b)** config `enabled` sem corrida `success`/`warning` há mais de 6 horas; **(c)** config `enabled = false`, só no banner e nunca por email; **(d)** sem corrida `capture_day:%` com `success` há mais de 3 horas. Saída em dois canais, registo primeiro e email depois: linha em `system_reminders` (chave `ticketing_sync_stalled`, que se apaga sozinha ao recuperar) e email `ticketing-sync-alert` via `send-transactional-email`, com anti-spam de 12h por config em `sync_notifications_sent`. **Testado ponta a ponta a 15:07 UTC** com corridas sintéticas depois apagadas: email `sent` aos três destinatários, anti-spam registado, banner a apagar-se sozinho.
+
 ## A trabalhar agora
 
 Nada em execução. A confirmar no próximo ciclo: que o cron `ticketline-capture-day-hourly` (15 * * * *) continua a escrever o espelho para os 13 configs enabled e que as cinco cidades migradas voltem a ter `success` no XLSX quando a Ticketline recuperar. As cinco cidades migradas voltaram a ter XLSX com `success` desde 16/09 18:05 UTC e a flag `daily_fallback_active` manteve-se `true` — a v2.41 fez o que devia. A confirmação pendente de 09/09 está feita: o import repôs em `ticket_sales` as três semanas de 17/08–09/09 (Albufeira 456, Almada 222, Estoril 115, Lisboa 251, Santarém 122 bilhetes nesse intervalo).
@@ -45,7 +47,7 @@ Em paralelo, no H&K Madrid: aguardar a resposta da GTS sobre API antes de desenh
 
 - **#78** — o import da Ticketline não limpa a série antiga quando o formato muda.
 - **#73** — corte por tipo de bilhete.
-- **#184 (c) / #145** — 37 corridas `html_response` seguidas na mesma config sem nenhum alerta. Enquanto isto não existir, a única forma de saber que o XLSX parou é olhar para `ticketline_sync_runs`. O mesmo vale para a BOL: as 42 corridas falhadas da Plenitude (#210) também passaram em silêncio.
+- **#211 (plataforma-e-infra)** — o `notify_sync_action_needed()` aponta em Live para o projeto de TEST antigo (`ukpuhoynrqobqtzdbysp`) e nunca funcionou: os alertas de Coala e Fever nunca chegaram a ninguém, e o trigger dele sobre `ticketline_sync_runs` é um no-op. A bilheteira já não depende dele, mas o Coala e o Fever continuam sem aviso nenhum.
 
 ## Factos que não se reinvestigam
 
