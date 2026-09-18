@@ -12234,6 +12234,33 @@ export type Database = {
         }
         Relationships: []
       }
+      secret_expirations: {
+        Row: {
+          expires_at: string | null
+          lives_in: string
+          name: string
+          notes: string | null
+          owner: string | null
+          updated_at: string
+        }
+        Insert: {
+          expires_at?: string | null
+          lives_in: string
+          name: string
+          notes?: string | null
+          owner?: string | null
+          updated_at?: string
+        }
+        Update: {
+          expires_at?: string | null
+          lives_in?: string
+          name?: string
+          notes?: string | null
+          owner?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       shared_cost_mirror: {
         Row: {
           account_id: string
@@ -16305,6 +16332,20 @@ export type Database = {
         }[]
       }
       _run_invariant_checks_raw: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
+      _run_invariant_checks_secrets: {
         Args: never
         Returns: {
           conforme: boolean
