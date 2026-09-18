@@ -1,6 +1,6 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado 2026-09-18 · Issues #186, #202, #203, #204 · a-seguir #83, #96, #61
+Atualizado 2026-09-18 · Issues #186, #202, #203, #204, #206, #211 · a-seguir #140, #83, #96, #61
 
 ## Em que pé está
 A 16–17/09 fizeram-se correções de UI no ecrã de Transações (tabela do BP sem scroll horizontal; busca por nome fantasia) e fechou-se a **#86** (ver D-ERP75).
@@ -10,6 +10,32 @@ A maior entrega dos dois dias foi o **Manual de Orientação construído de pont
 A 17/09 as transitórias passaram a dizer porquê (D-ERP80) — backfill das 41, CHECKs validados, caminhos automáticos a gravar o motivo, selector só no interruptor manual, invariante `transitoria_partner_advance_sem_linha` a 0, testado ponta a ponta em Live com dados isolados.
 
 A 18/09 fechou-se a abrangência e a observabilidade do backup diário: uma corrida por alvo, formato v4 por pasta, inventário derivado e restauro compatível com `crm` e ficheiros divididos. Ver D-ERP82 e a secção própria abaixo.
+
+A 18/09 à tarde limparam-se os alertas mortos (#211, parte 1) e fechou-se a fase 1 da barreira dos 1.000 registos (#206) — o DRE da Mundo Propício passou de 4.122.661,93 € para 6.600.832,36 € de despesas approved|paid, que é o valor certo.
+
+## Barreira dos 1.000 registos — fase 1 (18/09/2026)
+O PostgREST devolve no máximo 1.000 linhas por pedido; qualquer select do cliente sem `.range()` numa tabela acima disso fica truncado em silêncio. A Mundo Propício tem 1.197 transações approved|paid; o DRE, P&L, Resultados, Rentabilidade, Tesouraria, Acerto com Sócios, Pendências e Lista de Eventos liam 1.000. Diferença medida no DRE: 2.478.170,43 €.
+
+319 leituras passaram por `fetchAllPaged` / `fetchAllPagedQuery` de `src/lib/supabase-paging.ts`. Nenhuma agregação foi alterada.
+
+Guarda: `src/lib/postgrest-large-tables.json` (20 tabelas) + `src/lib/__tests__/postgrest-row-limit.test.ts`, que falha o build com ficheiro e linha. A primeira versão do teste deixava passar leituras porque a janela de análise ia até ao `.from(` seguinte e apanhava escapes de outra query — corrigido para analisar só o encadeamento da própria query, e provado a falhar antes de corrigir os ficheiros.
+
+Invariante `tabelas_acima_de_1000` (warn), referência 28. O JSON tem 20; as 8 em falta (`redirect_log`, `consent_log`, `crm.google_click`, `artist_metrics_daily`, `tickets_v2_sync_log`, `crm.meta_ad_insights_daily`, `crm.meta_ad_snapshot`, `crm.meta_adset_snapshot`) entram na fase 2.
+
+Fase 2 por fazer, na #206: somas e contagens na base (RPCs) em vez do cliente, com ADR próprio.
+
+⚠️ Regra que fica: depois de o agente dizer que acabou, verificar por leitura do código. Nesta tarefa isso apanhou 25 leituras que a guarda deixava passar e 20 imports errados de `paging.ts` nas edge functions que teriam partido o deploy.
+
+## Alertas mortos e vigilância do email — #211 parte 1 (18/09/2026)
+`notify_sync_action_needed()` apontava para o projeto de TEST antigo e falhava em silêncio desde sempre. Não se corrigiu: apagou-se, com os três triggers, porque o Coala (última corrida 28/08) e o Fever (16/08) estão parados por decisão de negócio e o que está vivo — ticketline e bol — já é coberto pelo `check_ticketing_sync_health()`. `run_operacao_sla_escalator()` com o URL corrigido. Zero referências a `ukpuhoynrqobqtzdbysp` em funções e crons.
+
+`check_ticketing_sync_health()` passou a cobrir `coala_sync_config` e `fever_sync_config`, para novembro (abertura das vendas do Coala 2027) não chegar sem vigilância.
+
+`email_send_log` tinha 279 falhas que ninguém viu: 255 da campanha vip-coupon (218 destinatários, 19/08–04/09, evento já passado, sem reenvio), 14 do `bilheteira-sync-digest` para o Pedro, 10 de endereço inválido. Invariantes novos: `emails_falhados_24h` (error, ref 0) e `emails_presos_pending` (warn, ref 214).
+
+Parte 2 ABERTA, à espera de decisão do Pedro: o índice único de `email_unsubscribe_tokens` é `(email, company_id)` mas a `send-transactional-email` procura só por email com `.maybeSingle()` e grava com `onConflict` em email — ao segundo token do mesmo endereço (outra empresa) o envio morre. A decisão é se o cancelamento de subscrição é por endereço ou por empresa. Não trocar `.maybeSingle()` por `limit(1)`: esconde em vez de resolver.
+
+Fora desta frente, registado: `coala_signup_confirm` com 10 na fila morta (403 `no_matching_sender`, domínio de envio não verificado) → coala-portal, antes de novembro; `fever_sync_config` com `enabled=true` num evento de maio que não corre desde agosto → ticketing-e-receita.
 
 ## Backup e restauro (18/09/2026)
 
@@ -84,6 +110,9 @@ Regras que ficaram:
 - **Imagens de `docs/manual/img/` são a única exceção a "nunca HTML cru"** — os diagramas são SVG inline, referenciados no markdown como `![alt](img/x.svg)`.
 
 ## A trabalhar agora
+- **#206 fase 2** — somas e contagens de tabelas grandes na base (RPCs), com ADR próprio. Não subir `db-max-rows`.
+- **#211 parte 2** — decisão pendente: `email_unsubscribe_tokens` é por endereço ou por empresa? Enquanto não decidir, o digest das 08:00 pode falhar de novo.
+- **#140** — cron de Madrid (Onebox H&K) antes da mudança de hora de 25/10.
 - **#186** — diálogo 'Rateio ou Exclusivo?' do modal Nova Transação. Correção em portal publicada a 16/09 — falta confirmação visual do Pedro no diálogo "Custo da tour ou desta cidade?".
 - **Manual — próximos capítulos** (Fecho do evento, BP…), um de cada vez, no mesmo formato de `rateios.md`.
 
@@ -124,12 +153,12 @@ Estrutura: tabela `system_invariants` (`name`, `description`, `severity`, `refer
 
 **Princípio central: o alerta é por desvio face à referência, nunca por número diferente de zero.** Dívida herdada com contagem conhecida não faz barulho todos os dias; o que faz barulho é a contagem **mexer**.
 
-**24 verificações a 18/09/2026.** Referências em Live:
+**27 verificações a 18/09/2026.** Não conformes hoje: `rateio_filhas_nao_somam_a_mae` **1/0** (Meta 252466632, #183), `emails_falhados_24h` **1/0** (o digest das 08:00, parte 2 da #211), `pares_fk_duplicada` **37/35** e `tx_paga_sem_linha_de_pagamento` **1.213/1.026** (deriva alheia a esta frente). Referências em Live:
 
-- severidade `error`, referência **0**: `BP_DESPESA_EM_L2`, `backup_empresa_em_falta`, `carga_sem_credito`, `coala_map_outra_empresa`, `fecho_confirmado_liquido_retido`, `filha_rateio_com_conta`, `FORECAST_ID_ORFAO`, `fornecedor_iban_duplicado_ativo`, `grupo_fatura_veredicto_desagrupar_por_aplicar`, `tipo_invalido`, `transitoria_partner_advance_sem_linha`, `tx_conta_outra_empresa`, `tx_evento_outra_empresa`, `tx_fornecedor_outra_empresa`, `tx_rubrica_outra_empresa`, `VINCULO_CROSS_EVENTO`
+- severidade `error`, referência **0**: `BP_DESPESA_EM_L2`, `backup_empresa_em_falta`, `carga_sem_credito`, `coala_map_outra_empresa`, `emails_falhados_24h`, `fecho_confirmado_liquido_retido`, `filha_rateio_com_conta`, `FORECAST_ID_ORFAO`, `fornecedor_iban_duplicado_ativo`, `grupo_fatura_veredicto_desagrupar_por_aplicar`, `tipo_invalido`, `transitoria_partner_advance_sem_linha`, `tx_conta_outra_empresa`, `tx_evento_outra_empresa`, `tx_fornecedor_outra_empresa`, `tx_rubrica_outra_empresa`, `VINCULO_CROSS_EVENTO`
 - severidade `error`, referência **0**: `VINCULO_DESSINCRONIZADO` — 7 vínculos reparados em Live a 14/09 (forecast_id reposto nas 7 transações do Coala Festival Portugal 2026 onde o âncora existia mas o link inverso era NULL). Issue #173 fechada.
-- severidade `warn`: `backup_tabelas_excluidas` **1** (referência 1); dívida herdada: `paid_amount_acima_do_bruto` 9, `TRIGGER_DOCUMENTADO_SEM_LIGACAO` 4, `TX_EVENTO_SEM_RUBRICA` 13.
-- **Deriva a investigar, não causada pelo trabalho do backup:** `pares_fk_duplicada` está em **37** contra referência **35**; `tx_paga_sem_linha_de_pagamento` está em **1.209** contra referência **1.026**.
+- severidade `warn`: `backup_tabelas_excluidas` **1** (referência 1), `emails_presos_pending` **214** (referência 214), `tabelas_acima_de_1000` **28** (referência 28); dívida herdada: `paid_amount_acima_do_bruto` 9, `TRIGGER_DOCUMENTADO_SEM_LIGACAO` 4, `TX_EVENTO_SEM_RUBRICA` 13.
+- **Deriva a investigar, não causada pelo trabalho do backup:** `pares_fk_duplicada` está em **37** contra referência **35**; `tx_paga_sem_linha_de_pagamento` está em **1.213** contra referência **1.026**.
 
 Cron em Live: `invariant-checks-daily`, jobid **131**, `10 7 * * *`. ⚠️ O Publish **não** propaga crons — este objeto vive só em Live e não está no repositório.
 
@@ -176,7 +205,7 @@ O saldo mostrado com a consolidação ligada é recalculado sobre a ordem que se
 **Fix B** — deferido: os embeds em `Transactions.tsx` já são explícitos (`!transactions_supplier_id_fkey`); o custo real é o `fetchAllPaged` sem filtro de evento/estado — reabrir quando houver janela.
 
 ## Prazos e renovações
-- **PAT do GitHub expira 24/set/2026** (#15) — 7 dias.
+- **PAT do GitHub expira 24/set/2026** (#15) — 6 dias.
 - Token Meta da conta da Ivete expira 08/10/2026. Fortal e Siriguella expirados desde 22/08 (#36).
 
 ## Factos que não se reinvestigam
@@ -236,4 +265,4 @@ Cada fornecedor desativado tem nota auditável: `[2026-09-12] Duplicado por IBAN
 - `claude/auditoria-company-id-service-role-2026-09-01.md` (incidente da auditoria, 01/09)
 - `docs/procedimentos/PROC-recuperacao-plataforma.md`
 - `.lovable/memory/constraints/lovable-cloud-ddl-workflow.md` (reescrita a 30/08 — o mundo com Test acabou), `edge-fn-esm-sh-supabase-js.md`
-- Issues #86, #202, #203, #204, #83, #96, #61, #57
+- Issues #186, #202, #203, #204, #206, #211, #140, #83, #96, #61, #57
