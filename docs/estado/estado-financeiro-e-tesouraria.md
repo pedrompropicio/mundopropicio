@@ -199,7 +199,7 @@ A conta corrente do sócio ficou fechada a 17/09 (#193). Estado a essa data,
 com o ano de extratos completo:
 
 | | |
-|---|---:| 
+|---|---:|
 | Folha de vencimentos jan–ago (bruto) | 55.048,38 |
 | Faturas avulsas (63) | 26.591,27 |
 | **Coberto** | **81.639,65** |
