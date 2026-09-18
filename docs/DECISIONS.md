@@ -2460,7 +2460,7 @@ A 18/09 o backup global passou a incluir `infra.json` e `identities.json`. A est
 **Porquê:** A memória é resumida e tem limite; os handoffs dispersam-se. Um doc vivo dá durabilidade ao contexto.
 **Estado:** vigente (em construção, por partes).
 
-## D-ERP81 — Fatura agrupada liquida-se em lote, nunca por propagação implícita (18/09/2026)
+## D-ERP87 — Fatura agrupada liquida-se em lote, nunca por propagação implícita (18/09/2026)
 
 **Decisão:** Uma fatura agrupada liquida-se pelo `BatchPaymentModal` com todas as linhas em aberto, nunca por propagação implícita a partir de uma linha. O modal individual mostra as irmãs em aberto e oferece "Liquidar a fatura completa"; o lote avisa quando a seleção não cobre a fatura. A propagação às filhas de rateio mantém-se.
 
@@ -2474,7 +2474,7 @@ A 18/09 o backup global passou a incluir `infra.json` e `identities.json`. A est
 
 **Porquê:** o acumulado do relatório não era saldo de nada (somava aprovadas por `amount`/`date`, ignorava corte e estornos) e havia caminhos de liquidação — despesas pagas pelo sócio e fecho de bilheteira — que punham `paid` sem apagar o carimbo, tirando o custo do BP e dos agregados do sócio. Issue #149.
 
-**Estado:** vigente. Nota: os números D-ERP81 e D-ERP82 estão duplicados no ficheiro (backup v4 e fatura agrupada); esta entrada segue como D-ERP84.
+**Estado:** vigente. Nota: o número D-ERP81 estava duplicado no ficheiro (ROAS e fatura agrupada); resolvido a 18/09 — a fatura agrupada passou a D-ERP87.
 
 ---
 
@@ -2486,7 +2486,7 @@ A 18/09 o backup global passou a incluir `infra.json` e `identities.json`. A est
 
 **Fora da RPC, de propósito:** a ligação da transferência-mãe à linha de BP (`update-transaction`, Peça C do D-ERP74), guardar a regra e incrementar `hits`. Se falharem, o que já está lançado fica — e o aviso diz o que resta fazer à mão.
 
-**Estado:** vigente. Nota de numeração: os números D-ERP81 e D-ERP82 estão duplicados no ficheiro (ver nota do D-ERP84); D-ERP85 estava livre.
+**Estado:** vigente. Nota de numeração: o D-ERP81 duplicado foi resolvido a 18/09 (ver nota do D-ERP84); D-ERP85 estava livre.
 
 ---
 
