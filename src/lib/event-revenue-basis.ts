@@ -60,15 +60,18 @@ export interface RevenueRealBasis {
 }
 
 export interface RevenueForecastBasis {
-  total: number | null;
-  buckets: Record<RevenueBucket, number | null>;
+  total: MoneyPair | null;
+  buckets: Record<RevenueBucket, MoneyPair | null>;
 }
 
 export interface EventRevenueBasis {
   real: RevenueRealBasis;
   currentForecast: RevenueForecastBasis;
-  /** Previsto + excedido (D24): por componente max(real, previsto corrente ?? real) */
-  committed: { total: number; buckets: Record<RevenueBucket, number> };
+  /**
+   * Previsto + excedido (D24): por componente e por base de IVA,
+   * max(real, previsto corrente ?? real). O IVA é vista, não critério (#207).
+   */
+  committed: { total: MoneyPair; buckets: Record<RevenueBucket, MoneyPair> };
   sponsorship: SponsorshipSyntheticResult;
   ticketForecast: LiveTicketForecast | null;
 }
