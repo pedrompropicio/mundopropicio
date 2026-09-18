@@ -109,7 +109,9 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
     enabled: allTreeIds.length > 0,
   });
 
-  // Available transactions: Master + every sub-event
+  // Available transactions: Master + every sub-event.
+  // Já liquidadas ou estornadas não entram — quem paga aqui é o sócio e a linha
+  // passa a paid; repetir sobre uma linha paid só criaria ruído (#149).
   const { data: availableTransactions = [] } = useQuery({
     queryKey: ["partner-paid-available-tx-tree", eventId, subEventIds.join(",")],
     queryFn: async () => {
@@ -122,15 +124,69 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
 
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, description, amount, date, event_id, account_categories(name)")
+        .select("id, description, amount, iva_rate, date, event_id, status, account_categories(name)")
         .in("event_id", allTreeIds)
         .eq("type", "expense")
+        .not("status", "in", "(paid,reversed)")
         .order("date", { ascending: false });
       if (error) throw error;
       return (data || []).filter((t: any) => !linkedIds.has(t.id));
     },
     enabled: showForm && allTreeIds.length > 0,
   });
+
+  /**
+   * Passa uma transação EXISTENTE a paid pelo sócio (#149, D-ERP82):
+   * grava paid_amount com o total c/IVA, limpa o carimbo de estorno quando
+   * existe (mantendo reversal_reason) e deixa rasto na auditoria.
+   * Não cria linha em transaction_payments — não há saída de caixa da empresa.
+   */
+  async function settleExistingByPartner(transactionId: string, when: string, auditField: string) {
+    const { data: tx, error: readErr } = await supabase
+      .from("transactions")
+      .select("id, status, paid_amount, amount, iva_rate, reversed_at")
+      .eq("id", transactionId)
+      .maybeSingle();
+    if (readErr) throw readErr;
+    if (!tx) throw new Error("Despesa não encontrada.");
+    if (tx.status === "paid") {
+      throw new Error("Esta despesa já está liquidada — não pode ser marcada como paga pelo sócio.");
+    }
+
+    const changedBy = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+    const auditEntries: any[] = [
+      {
+        transaction_id: transactionId,
+        changed_by: changedBy,
+        field_name: auditField,
+        old_value: String(tx.status ?? ""),
+        new_value: `paid @ ${when}`,
+      },
+    ];
+
+    const patch: any = {
+      status: "paid",
+      payment_date: when,
+      paid_amount: calcTotalWithIva(Number(tx.amount || 0), Number(tx.iva_rate || 0)),
+    };
+    if (tx.reversed_at) {
+      patch.reversed_at = null;
+      patch.reversal_kind = null;
+      auditEntries.push({
+        transaction_id: transactionId,
+        changed_by: changedBy,
+        field_name: "Estorno",
+        old_value: `Estornada em ${String(tx.reversed_at).slice(0, 10)}`,
+        new_value: "Carimbo de estorno limpo — transação voltou a ser paga",
+      });
+    }
+
+    const { error: txErr } = await supabase.from("transactions").update(patch).eq("id", transactionId);
+    if (txErr) throw txErr;
+
+    const { error: auditErr } = await supabase.from("transaction_audit_log").insert(auditEntries as any);
+    if (auditErr) throw auditErr;
+  }
 
   const addMutation = useMutation({
     mutationFn: async () => {
@@ -158,11 +214,7 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
 
       // 2) Só o fluxo aprovado toca na transação
       if (!proposeOnly) {
-        const { error: txErr } = await supabase
-          .from("transactions")
-          .update({ status: "paid", payment_date: paidDate })
-          .eq("id", selectedTransactionId);
-        if (txErr) throw txErr;
+        await settleExistingByPartner(selectedTransactionId, paidDate, "Liquidação (despesa paga por sócio)");
       }
       return { proposeOnly };
     },
@@ -202,22 +254,11 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
         .eq("id", pe.id);
       if (error) throw error;
 
-      const tx = pe.transactions;
-      if (tx && tx.status !== "paid") {
-        await supabase.from("transaction_audit_log").insert({
-          transaction_id: pe.transaction_id,
-          changed_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
-          field_name: "Liquidação (aprovação de despesa paga por sócio)",
-          old_value: String(tx.status ?? ""),
-          new_value: `paid @ ${pe.paid_date}`,
-        } as any);
-      }
-
-      const { error: txErr } = await supabase
-        .from("transactions")
-        .update({ status: "paid", payment_date: pe.paid_date })
-        .eq("id", pe.transaction_id);
-      if (txErr) throw txErr;
+      await settleExistingByPartner(
+        pe.transaction_id,
+        pe.paid_date,
+        "Liquidação (aprovação de despesa paga por sócio)",
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-tree", eventId] });

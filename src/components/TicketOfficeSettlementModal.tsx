@@ -574,18 +574,49 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         }
         // For 'paid' update we need each txn's amount as paid_amount
         if (confirm) {
+          // Estorno que volta a ser pago (#149, D-ERP82): limpar o carimbo.
+          const { data: stamped, error: stampErr } = await (supabase as any)
+            .from("transactions")
+            .select("id, status, reversed_at")
+            .in("id", ids);
+          if (stampErr) throw stampErr;
+          const stampMap = new Map<string, any>((stamped || []).map((s: any) => [s.id, s]));
+          const changedBy = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+          const stampAudit: any[] = [];
+
           for (const t of eligibleTxns) {
             if (!selectedTxnIds.has(t.id)) continue;
-            await (supabase as any)
+            const patch: any = {
+              settlement_id: settlementId,
+              status: "paid",
+              payment_date: settlementDate,
+              account_id: officeId,
+              paid_amount: txnGross(t),
+            };
+            const prev = stampMap.get(t.id);
+            if (prev?.reversed_at) {
+              patch.reversed_at = null;
+              patch.reversal_kind = null;
+              stampAudit.push({
+                transaction_id: t.id,
+                changed_by: changedBy,
+                field_name: "Estorno",
+                old_value: `Estornada em ${String(prev.reversed_at).slice(0, 10)}`,
+                new_value: "Carimbo de estorno limpo — transação voltou a ser paga",
+              });
+            }
+            const { error: payErr } = await (supabase as any)
               .from("transactions")
-              .update({
-                settlement_id: settlementId,
-                status: "paid",
-                payment_date: settlementDate,
-                account_id: officeId,
-                paid_amount: txnGross(t),
-              })
+              .update(patch)
               .eq("id", t.id);
+            if (payErr) throw payErr;
+          }
+
+          if (stampAudit.length > 0) {
+            const { error: auditErr } = await (supabase as any)
+              .from("transaction_audit_log")
+              .insert(stampAudit);
+            if (auditErr) throw auditErr;
           }
         } else {
           await (supabase as any)
@@ -647,7 +678,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       ) {
         const { data: invTxn } = await (supabase as any)
           .from("transactions")
-          .select("amount, iva_rate, paid_amount")
+          .select("amount, iva_rate, paid_amount, reversed_at")
           .eq("id", venueRetainedInvoiceId)
           .single();
         const { data: pay, error: payErr } = await (supabase as any)
@@ -667,14 +698,31 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         if (invTxn) {
           const newPaid = Number(invTxn.paid_amount || 0) + venueRetainedNum;
           const total = Number(invTxn.amount || 0) * (1 + Number(invTxn.iva_rate || 0) / 100);
-          await (supabase as any)
+          const becomesPaid = newPaid >= total - 0.005;
+          const patch: any = {
+            paid_amount: newPaid,
+            status: becomesPaid ? "paid" : "approved",
+            payment_date: becomesPaid ? settlementDate : null,
+          };
+          if (becomesPaid && invTxn.reversed_at) {
+            patch.reversed_at = null;
+            patch.reversal_kind = null;
+          }
+          const { error: invErr } = await (supabase as any)
             .from("transactions")
-            .update({
-              paid_amount: newPaid,
-              status: newPaid >= total - 0.005 ? "paid" : "approved",
-              payment_date: newPaid >= total - 0.005 ? settlementDate : null,
-            })
+            .update(patch)
             .eq("id", venueRetainedInvoiceId);
+          if (invErr) throw invErr;
+          if (becomesPaid && invTxn.reversed_at) {
+            const { error: stampErr1 } = await (supabase as any).from("transaction_audit_log").insert({
+              transaction_id: venueRetainedInvoiceId,
+              changed_by: getAuditUser(user),
+              field_name: "Estorno",
+              old_value: `Estornada em ${String(invTxn.reversed_at).slice(0, 10)}`,
+              new_value: "Carimbo de estorno limpo — transação voltou a ser paga",
+            });
+            if (stampErr1) throw stampErr1;
+          }
         }
         await (supabase as any)
           .from("ticket_office_settlements")
@@ -731,7 +779,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       ) {
         const { data: invTxn } = await (supabase as any)
           .from("transactions")
-          .select("amount, iva_rate, paid_amount")
+          .select("amount, iva_rate, paid_amount, reversed_at")
           .eq("id", venueRetainedInvoiceId)
           .single();
         const { data: pay, error: payErr } = await (supabase as any)
@@ -751,14 +799,31 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         if (invTxn) {
           const newPaid = Number(invTxn.paid_amount || 0) + invoiceRemainder;
           const total = Number(invTxn.amount || 0) * (1 + Number(invTxn.iva_rate || 0) / 100);
-          await (supabase as any)
+          const becomesPaid = newPaid >= total - 0.005;
+          const patch: any = {
+            paid_amount: newPaid,
+            status: becomesPaid ? "paid" : "approved",
+            payment_date: becomesPaid ? settlementDate : null,
+          };
+          if (becomesPaid && invTxn.reversed_at) {
+            patch.reversed_at = null;
+            patch.reversal_kind = null;
+          }
+          const { error: invErr } = await (supabase as any)
             .from("transactions")
-            .update({
-              paid_amount: newPaid,
-              status: newPaid >= total - 0.005 ? "paid" : "approved",
-              payment_date: newPaid >= total - 0.005 ? settlementDate : null,
-            })
+            .update(patch)
             .eq("id", venueRetainedInvoiceId);
+          if (invErr) throw invErr;
+          if (becomesPaid && invTxn.reversed_at) {
+            const { error: stampErr2 } = await (supabase as any).from("transaction_audit_log").insert({
+              transaction_id: venueRetainedInvoiceId,
+              changed_by: getAuditUser(user),
+              field_name: "Estorno",
+              old_value: `Estornada em ${String(invTxn.reversed_at).slice(0, 10)}`,
+              new_value: "Carimbo de estorno limpo — transação voltou a ser paga",
+            });
+            if (stampErr2) throw stampErr2;
+          }
         }
         await (supabase as any)
           .from("ticket_office_settlements")

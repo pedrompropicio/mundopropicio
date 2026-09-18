@@ -57,3 +57,44 @@ Ao liquidar de novo uma transação com `reversed_at`, a liquidação limpa
 caminhos: modal individual, pagamento em lote e `MarkInstallmentPaidModal`
 (este só escreve em `transactions` para isto — o resto é `transaction_payments`). Sem isso o custo sai do banco mas desaparece do
 BP e dos agregados do sócio, que filtram `reversed_at IS NULL`.
+
+## Repor `paid` limpa sempre o carimbo (#149, D-ERP84, 18/09/2026)
+
+Regra única: **qualquer** caminho que faça UPDATE de uma transação EXISTENTE para
+`status='paid'` tem de limpar `reversed_at = null` e `reversal_kind = null` quando
+`reversed_at` está preenchido (mantendo `reversal_reason`), gravar em
+`transaction_audit_log` a entrada `field_name='Estorno'` →
+"Carimbo de estorno limpo — transação voltou a ser paga", e verificar `error` em
+todas as escritas. Sem isto o custo sai do banco mas desaparece do BP e dos
+agregados do sócio, que filtram `reversed_at IS NULL`.
+
+Caminhos que só CRIAM transações novas já `paid` (adiantamentos, par de
+transferência, geração histórica) NÃO estão abrangidos.
+
+Auditoria 18/09/2026:
+
+- `TransactionPaymentModal`, `BatchPaymentModal`, `MarkInstallmentPaidModal` — já conformes (molde).
+- `PartnerPaidExpensesPanel` — TOCA (`addMutation` fluxo aprovado + `approveMutation`): corrigido via
+  `settleExistingByPartner()`, que lê a transação, recusa se já `paid`, grava
+  `paid_amount = calcTotalWithIva(amount, iva_rate)`, limpa o carimbo e audita.
+  A lista de despesas disponíveis exclui `status in ('paid','reversed')`.
+  NÃO cria linha em `transaction_payments` — quem paga é o sócio, não há saída de caixa da empresa.
+- `TicketOfficeSettlementModal` — TOCA (confirmação do fecho põe as despesas selecionadas a `paid`;
+  e os dois pagamentos parciais da fatura da sala: "venda à porta retida" e "saldo restante"):
+  corrigido nos três. Os dois ramos de REVERSÃO desses pagamentos parciais podem reescrever `paid`
+  ao recalcular `paid_amount`, mas nunca liquidam de novo — ficaram como estavam.
+- `TicketOfficeSettlementsPanel` — TOCA ("Confirmar crédito" liquida o par da transferência): corrigido.
+- `TicketOfficeAdvancesPanel` — só cria (INSERT do par de adiantamento), não abrangido.
+- `TransferFormModal` — só cria (dois INSERT do par 10.3), não abrangido.
+- `ImplBPTab` — não escreve em `transactions` (nenhuma referência), não abrangido.
+
+## Fluxo de Caixa (`src/components/ReportCashFlow.tsx`)
+
+Desde 18/09/2026 usa a fonte única: `computeAccountBalance` + `buildAccountCutoffs`
++ `countsAfterCutoff` + `effectivePaymentDate` + `fetchAccountCashAdjustments`.
+Lê só `status='paid'` com `reversed_at IS NULL` e sem limite inferior de data (o
+histórico anterior faz o Saldo de abertura), pagina com `fetchAllPaged`, exclui as
+filhas de rateio (D-ERP70) e deixa as contas `skip_balance_check` fora do saldo,
+listadas em nota. Mostra "Saldo de abertura", "Ajustes de caixa (retenção na fonte
++ crédito de fornecedor)" em linha própria e "Saldo acumulado". O aviso de que "o
+acumulado não é saldo" desapareceu. O relatório não tem export.

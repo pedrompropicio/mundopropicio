@@ -2467,3 +2467,11 @@ A 18/09 o backup global passou a incluir `infra.json` e `identities.json`. A est
 **Porquê:** a propagação escondia a saída total da trava de saldo e do utilizador, forçava retenção e crédito a zero nas irmãs e não verificava erros de escrita. Issue #147.
 
 **Estado:** vigente.
+
+## D-ERP84 — Fluxo de Caixa lê a fonte única de saldo (18/09/2026)
+
+**Decisão:** O Fluxo de Caixa deixa de ser relatório de movimentos com aviso e passa a ler a fonte única de saldo (`computeAccountBalance` + `buildAccountCutoffs`, D-ERP12/D-ERP25): só transações liquidadas, por `paid_amount`, data efetiva `COALESCE(payment_date, date)`, estornadas (`reversed_at IS NOT NULL`) fora, saldo inicial com a data de corte respeitada e contas `skip_balance_check` fora do saldo (nunca zero nem negativo). Mostra Saldo de abertura, os ajustes de caixa do período em linha própria e o Saldo acumulado real. Em paralelo, todo o caminho que repõe `paid` numa transação existente limpa o carimbo de estorno (`reversed_at`, `reversal_kind`), mantém `reversal_reason` e deixa a entrada "Estorno" na auditoria.
+
+**Porquê:** o acumulado do relatório não era saldo de nada (somava aprovadas por `amount`/`date`, ignorava corte e estornos) e havia caminhos de liquidação — despesas pagas pelo sócio e fecho de bilheteira — que punham `paid` sem apagar o carimbo, tirando o custo do BP e dos agregados do sócio. Issue #149.
+
+**Estado:** vigente. Nota: os números D-ERP81 e D-ERP82 estão duplicados no ficheiro (backup v4 e fatura agrupada); esta entrada segue como D-ERP84.

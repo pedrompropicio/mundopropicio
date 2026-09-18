@@ -2,9 +2,8 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
-import { roundCents } from "@/lib/iva";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Filter, CalendarIcon } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
@@ -14,6 +13,14 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { excludeRateioChildren } from "@/lib/rateio-children";
+import { fetchAllPaged } from "@/lib/supabase-paging";
+import {
+  buildAccountCutoffs,
+  computeAccountBalance,
+  countsAfterCutoff,
+  effectivePaymentDate,
+  fetchAccountCashAdjustments,
+} from "@/lib/account-balance";
 
 interface CashFlowRow {
   period: string;
@@ -69,7 +76,7 @@ export default function ReportCashFlow() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("financial_accounts")
-        .select("id, name, skip_balance_check, initial_balance_date")
+        .select("id, name, initial_balance, initial_balance_date, skip_balance_check")
         .eq("is_active", true)
         .order("name");
       if (error) throw error;
@@ -77,28 +84,62 @@ export default function ReportCashFlow() {
     },
   });
 
-  // Conta "Sem controlo de saldo": o acumulado não é saldo da conta (issue #90).
-  const selectedAccount = (accounts as any[]).find((a) => a.id === selectedAccountId);
-  const isUncontrolledBalance = selectedAccount?.skip_balance_check ?? false;
   const dateFromStr = dateFrom ? format(dateFrom, "yyyy-MM-dd") : "";
   const dateToStr = dateTo ? format(dateTo, "yyyy-MM-dd") : "";
 
+  // Contas em âmbito. As contas "Sem controlo de saldo" (skip_balance_check)
+  // ficam FORA do saldo — nunca somam zero nem negativo (D-ERP25).
+  const scopedAccounts = useMemo(
+    () => (selectedAccountId ? (accounts as any[]).filter((a) => a.id === selectedAccountId) : (accounts as any[])),
+    [accounts, selectedAccountId],
+  );
+  const balanceAccounts = useMemo(() => scopedAccounts.filter((a) => !a.skip_balance_check), [scopedAccounts]);
+  const uncontrolledAccounts = useMemo(() => scopedAccounts.filter((a) => a.skip_balance_check), [scopedAccounts]);
+  const balanceAccountIds = useMemo(() => balanceAccounts.map((a) => a.id), [balanceAccounts]);
+
+  /**
+   * FONTE ÚNICA DE SALDO (D-ERP12/D-ERP25, #149): o Fluxo de Caixa lê os mesmos
+   * movimentos que `computeAccountBalance` — só transações liquidadas, por
+   * `paid_amount`, data efetiva COALESCE(payment_date, date), estornadas fora e
+   * saldo inicial com a data de corte respeitada. Sem limite de data na leitura:
+   * é o saldo de abertura do período que precisa do histórico anterior.
+   */
   const { data: transactions = [], isLoading } = useQuery({
-    queryKey: ["cf-transactions", dateFromStr, dateToStr, selectedAccountId],
+    queryKey: ["cf-transactions", balanceAccountIds.join(","), selectedAccountId],
     queryFn: async () => {
-      let q = supabase
-        .from("transactions")
-        .select("*, events(name)")
-        .in("status", ["approved", "paid"])
-        .order("date", { ascending: true });
-      if (dateFromStr) q = q.gte("date", dateFromStr);
-      if (dateToStr) q = q.lte("date", dateToStr);
-      if (selectedAccountId) q = q.eq("account_id", selectedAccountId);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data;
+      if (balanceAccountIds.length === 0) return [];
+      return await fetchAllPaged<any>((from, to) => {
+        let q = supabase
+          .from("transactions")
+          .select("id, type, amount, iva_rate, paid_amount, date, payment_date, account_id, event_id, parent_transaction_id, installment_group_id, events(name)")
+          .eq("status", "paid")
+          .is("reversed_at", null)
+          .in("account_id", balanceAccountIds)
+          .order("id", { ascending: true })
+          .range(from, to);
+        return q;
+      });
     },
-    enabled: generated,
+    enabled: generated && balanceAccountIds.length > 0,
+  });
+
+  // Ajustes não-monetários (retenção na fonte + crédito de fornecedor): antes do
+  // período entram na abertura; dentro do período aparecem em linha própria.
+  const { data: adjustments } = useQuery({
+    queryKey: ["cf-adjustments", balanceAccountIds.join(","), dateFromStr, dateToStr],
+    queryFn: async () => {
+      const cutoffs = buildAccountCutoffs(balanceAccounts as any[]);
+      const opening = dateFromStr
+        ? await fetchAccountCashAdjustments(balanceAccountIds, cutoffs, { lt: dateFromStr })
+        : new Map<string, number>();
+      const period = await fetchAccountCashAdjustments(balanceAccountIds, cutoffs, {
+        gte: dateFromStr || undefined,
+        lte: dateToStr || undefined,
+      });
+      const sum = (m: Map<string, number>) => Array.from(m.values()).reduce((s, v) => s + v, 0);
+      return { openingMap: opening, openingTotal: sum(opening), periodTotal: sum(period) };
+    },
+    enabled: generated && balanceAccountIds.length > 0,
   });
 
   function handleGenerate() {
@@ -108,32 +149,41 @@ export default function ReportCashFlow() {
   const getPeriodKey = granularity === "monthly" ? getMonthKey : getWeekKey;
 
   // Build aggregated data
-  const { consolidatedRows, eventBreakdown } = useMemo(() => {
-    if (!generated || transactions.length === 0) return { consolidatedRows: [], eventBreakdown: [] };
+  const { consolidatedRows, eventBreakdown, openingBalance } = useMemo(() => {
+    if (!generated || transactions.length === 0)
+      return { consolidatedRows: [], eventBreakdown: [], openingBalance: 0 };
 
     // Agregação de EMPRESA: conta a mãe do rateio, exclui as filhas (D-ERP70).
-    const rows = excludeRateioChildren(transactions as any[]);
+    const all = excludeRateioChildren(transactions as any[]);
+    const cutoffs = buildAccountCutoffs(balanceAccounts as any[]);
+    // Data de corte do saldo inicial: o que é anterior já está no initial_balance.
+    const scoped = all.filter((t: any) => countsAfterCutoff(t, cutoffs.get(t.account_id)));
 
-    // Consolidated
+    const before = dateFromStr ? scoped.filter((t: any) => effectivePaymentDate(t) < dateFromStr) : [];
+    const inPeriod = scoped.filter((t: any) => {
+      const eff = effectivePaymentDate(t);
+      if (dateFromStr && eff < dateFromStr) return false;
+      if (dateToStr && eff > dateToStr) return false;
+      return true;
+    });
+
+    // Saldo de abertura pela fonte única, conta a conta.
+    const openingBalance = balanceAccounts.reduce((sum, acc: any) => {
+      const b = computeAccountBalance(acc, before as any, adjustments?.openingMap);
+      return sum + (b ?? 0);
+    }, 0);
+
     const periodMap: Record<string, { income: number; expense: number }> = {};
-    // Per event
     const eventMap: Record<string, { name: string; periods: Record<string, { income: number; expense: number }> }> = {};
 
-    rows.forEach((t: any) => {
-      const key = getPeriodKey(t.date);
+    inPeriod.forEach((t: any) => {
+      const key = getPeriodKey(effectivePaymentDate(t));
       if (!periodMap[key]) periodMap[key] = { income: 0, expense: 0 };
-      // Fluxo de caixa = valor BRUTO (com IVA): movimento real de dinheiro.
-      // Se já foi pago, usa paid_amount; caso contrário, base + IVA calculado.
-      const base = Number(t.amount) || 0;
-      const rate = Number(t.iva_rate) || 0;
-      const gross = t.status === "paid" && Number(t.paid_amount)
-        ? Number(t.paid_amount)
-        : roundCents(base + base * (rate / 100));
-      const amount = gross;
+      // Movimento real de dinheiro = paid_amount (bruto), como no módulo Contas.
+      const amount = Number(t.paid_amount) || 0;
       if (t.type === "income") periodMap[key].income += amount;
       else periodMap[key].expense += amount;
 
-      // Event breakdown
       const eid = t.event_id || "__sem_evento__";
       const ename = (t as any).events?.name || "Sem evento";
       if (!eventMap[eid]) eventMap[eid] = { name: ename, periods: {} };
@@ -144,7 +194,7 @@ export default function ReportCashFlow() {
 
     const sortedKeys = Object.keys(periodMap).sort();
 
-    let cumulative = 0;
+    let cumulative = openingBalance;
     const consolidatedRows: CashFlowRow[] = sortedKeys.map((key) => {
       const { income, expense } = periodMap[key];
       const net = income - expense;
@@ -172,12 +222,14 @@ export default function ReportCashFlow() {
         return { eventId, eventName: name, rows, totalIncome, totalExpense, totalNet: totalIncome - totalExpense };
       });
 
-    return { consolidatedRows, eventBreakdown };
-  }, [transactions, generated, granularity]);
+    return { consolidatedRows, eventBreakdown, openingBalance };
+  }, [transactions, generated, granularity, balanceAccounts, adjustments, dateFromStr, dateToStr]);
 
   const totalIncome = consolidatedRows.reduce((s, r) => s + r.income, 0);
   const totalExpense = consolidatedRows.reduce((s, r) => s + r.expense, 0);
-  const totalNet = totalIncome - totalExpense;
+  const periodAdjustments = adjustments?.periodTotal ?? 0;
+  const totalNet = totalIncome - totalExpense + periodAdjustments;
+  const closingBalance = openingBalance + totalNet;
 
   return (
     <div className="space-y-5">
@@ -249,9 +301,10 @@ export default function ReportCashFlow() {
         </div>
       </div>
 
-      {isUncontrolledBalance && (
+      {uncontrolledAccounts.length > 0 && (
         <p className="text-xs italic text-muted-foreground">
-          {selectedAccount?.name}: conta sem controlo de saldo — o acumulado é apenas o movimento do período, não o saldo da conta (saldo não controlado).
+          Saldo não controlado (fora deste relatório):{" "}
+          {uncontrolledAccounts.map((a: any) => a.name).join(", ")}.
         </p>
       )}
 
@@ -280,10 +333,19 @@ export default function ReportCashFlow() {
                     <TableHead className="text-right">Receitas</TableHead>
                     <TableHead className="text-right">Despesas</TableHead>
                     <TableHead className="text-right">Saldo</TableHead>
-                    <TableHead className="text-right">Acumulado</TableHead>
+                    <TableHead className="text-right">Saldo acumulado</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  <TableRow className="bg-muted/20">
+                    <TableCell className="font-medium italic">Saldo de abertura</TableCell>
+                    <TableCell />
+                    <TableCell />
+                    <TableCell />
+                    <TableCell className={`text-right font-mono ${openingBalance >= 0 ? "text-success" : "text-destructive"}`}>
+                      {formatCurrency(openingBalance)}
+                    </TableCell>
+                  </TableRow>
                   {consolidatedRows.map((row) => (
                     <TableRow key={row.period}>
                       <TableCell className="font-medium">{formatPeriodLabel(row.period, granularity)}</TableCell>
@@ -297,6 +359,17 @@ export default function ReportCashFlow() {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {periodAdjustments !== 0 && (
+                    <TableRow className="bg-muted/20">
+                      <TableCell className="italic" colSpan={3}>
+                        Ajustes de caixa (retenção na fonte + crédito de fornecedor)
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-success">
+                        {formatCurrency(periodAdjustments)}
+                      </TableCell>
+                      <TableCell />
+                    </TableRow>
+                  )}
                   {/* Totals */}
                   <TableRow className="border-t-2 border-border font-bold bg-muted/30">
                     <TableCell>TOTAL</TableCell>
@@ -305,7 +378,9 @@ export default function ReportCashFlow() {
                     <TableCell className={`text-right ${totalNet >= 0 ? "text-success" : "text-destructive"}`}>
                       {formatCurrency(totalNet)}
                     </TableCell>
-                    <TableCell />
+                    <TableCell className={`text-right font-mono ${closingBalance >= 0 ? "text-success" : "text-destructive"}`}>
+                      {formatCurrency(closingBalance)}
+                    </TableCell>
                   </TableRow>
                 </TableBody>
               </Table>

@@ -55,22 +55,39 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
 
   const confirmCreditMutation = useMutation({
     mutationFn: async ({ transferId, date }: { transferId: string; date: string }) => {
-      const { data: tt } = await (supabase as any)
+      const { data: tt, error: readErr } = await (supabase as any)
         .from("transactions")
-        .select("amount, operation_key")
+        .select("amount, operation_key, reversed_at")
         .eq("id", transferId)
         .single();
-      const patch = {
+      if (readErr) throw readErr;
+      const patch: any = {
         status: "paid",
         payment_date: date,
         paid_amount: Number(tt?.amount || 0),
       };
+      // Estorno que volta a ser pago (#149, D-ERP82): limpar o carimbo,
+      // mantendo o motivo (reversal_reason) e a auditoria.
+      if (tt?.reversed_at) {
+        patch.reversed_at = null;
+        patch.reversal_kind = null;
+      }
       // As duas pernas do par liquidam em conjunto.
       const q = (supabase as any).from("transactions").update(patch);
       const { error } = tt?.operation_key
         ? await q.eq("operation_key", tt.operation_key)
         : await q.eq("id", transferId);
       if (error) throw error;
+      if (tt?.reversed_at) {
+        const { error: stampAuditErr } = await (supabase as any).from("transaction_audit_log").insert({
+          transaction_id: transferId,
+          changed_by: getAuditUser(user),
+          field_name: "Estorno",
+          old_value: `Estornada em ${String(tt.reversed_at).slice(0, 10)}`,
+          new_value: "Carimbo de estorno limpo — transação voltou a ser paga",
+        });
+        if (stampAuditErr) throw stampAuditErr;
+      }
       await logAudit({
         entity_type: "transaction",
         entity_id: transferId,
