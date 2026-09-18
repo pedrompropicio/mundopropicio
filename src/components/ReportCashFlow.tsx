@@ -301,9 +301,10 @@ export default function ReportCashFlow() {
         </div>
       </div>
 
-      {isUncontrolledBalance && (
+      {uncontrolledAccounts.length > 0 && (
         <p className="text-xs italic text-muted-foreground">
-          {selectedAccount?.name}: conta sem controlo de saldo — o acumulado é apenas o movimento do período, não o saldo da conta (saldo não controlado).
+          Saldo não controlado (fora deste relatório):{" "}
+          {uncontrolledAccounts.map((a: any) => a.name).join(", ")}.
         </p>
       )}
 
