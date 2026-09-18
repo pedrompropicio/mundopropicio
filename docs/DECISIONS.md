@@ -2475,3 +2475,15 @@ A 18/09 o backup global passou a incluir `infra.json` e `identities.json`. A est
 **Porquê:** o acumulado do relatório não era saldo de nada (somava aprovadas por `amount`/`date`, ignorava corte e estornos) e havia caminhos de liquidação — despesas pagas pelo sócio e fecho de bilheteira — que punham `paid` sem apagar o carimbo, tirando o custo do BP e dos agregados do sócio. Issue #149.
 
 **Estado:** vigente. Nota: os números D-ERP81 e D-ERP82 estão duplicados no ficheiro (backup v4 e fatura agrupada); esta entrada segue como D-ERP84.
+
+---
+
+## D-ERP85 — Lançar a partir do banco é uma RPC transacional, sem SECURITY DEFINER (18/09/2026)
+
+**Decisão:** O lançamento a partir de linhas do extrato passa a ser uma só operação de base de dados — `public.launch_from_bank_lines(p_items jsonb) RETURNS uuid[]`, plpgsql, **sem `SECURITY DEFINER`** (corre com as permissões de quem chama, a RLS continua a valer, e o `company_id` vem sempre das linhas do extrato, nunca do pedido). Transações e linhas do banco nascem no mesmo commit: qualquer erro reverte tudo. Uma linha que já esteja conciliada (`status <> 'unmatched'` ou com `matched_transaction_id`/`created_transaction_id`) é recusada com o id — guarda contra o duplo clique. O `BankLineLaunchModal` deixa de inserir em `transactions`: foram removidos o `insertAndLinkLines` e o `revertLeg`.
+
+**Porquê:** o caminho principal inseria primeiro (uma transação, duas no par de transferência) e só depois ligava as linhas, sem retrocesso — falha na ligação ou na segunda perna deixava transação(ões) órfã(s), **pagas, a mexer no saldo**; foi o que aconteceu ao TPA ZigPay de 10/09/2026 (27.241,87 €). E **compensação no cliente (apagar se falhar) não substitui atomicidade**: se o `delete` também falhar, a órfã fica. Quem via o toast de erro assumia que nada tinha sido criado e voltava a clicar. Issue #154.
+
+**Fora da RPC, de propósito:** a ligação da transferência-mãe à linha de BP (`update-transaction`, Peça C do D-ERP74), guardar a regra e incrementar `hits`. Se falharem, o que já está lançado fica — e o aviso diz o que resta fazer à mão.
+
+**Estado:** vigente. Nota de numeração: os números D-ERP81 e D-ERP82 estão duplicados no ficheiro (ver nota do D-ERP84); D-ERP85 estava livre.
