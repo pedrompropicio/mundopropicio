@@ -85,14 +85,16 @@ export function EventFinancialCard(props: Props) {
   // Modo efetivo: só "Forecast" é preferência de utilizador; o resto vem da BD.
   const mode: CardMode = storedMode === "forecast" ? "forecast" : shared.expenseSource;
   const [scenario, setScenario] = useState<RevenueScenario>("forecast");
-  const [incomeWithVat, setIncomeWithVat] = useState<boolean>(() => readStoredWithVat(userId, eventId, kind));
   const [incomeOverhead, setIncomeOverhead] = useState<boolean>(
     () => readStoredCostToggle(userId, eventId, kind, "overhead"),
   );
 
-  const withVat = isExpense ? shared.withVat : incomeWithVat;
+  // IVA é VISTA da página (#207) — os dois cards recebem a mesma.
+  const withVat = props.viewWithVat;
+  const setWithVat = props.onViewWithVatChange;
+  /** vista ≠ critério contratual do evento (o que o Fecho usa). */
+  const viewDiffersFromContract = !shared.isLoading && withVat !== shared.withVat;
   const includeOverhead = isExpense ? shared.includeOverhead : incomeOverhead;
-  const setWithVat = isExpense ? shared.setWithVat : setIncomeWithVat;
   const setIncludeOverhead = isExpense ? shared.setIncludeOverhead : setIncomeOverhead;
 
   // Modo <-> critério do evento: mexer no card grava na BD e reflete-se no Fecho
