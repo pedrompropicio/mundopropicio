@@ -53,11 +53,18 @@ Deno.serve(async (req) => {
   let recipientEmail: string
   let idempotencyKey: string
   let messageId: string
+  // Empresa em nome de quem se envia (#211). O cancelamento de subscrição é POR
+  // EMPRESA: quem se descadastra de uma empresa continua a receber das outras.
+  // Tem de vir SEMPRE do chamador — não há default. A coluna `company_id` das
+  // tabelas de email tem default `current_company_id()`, que devolve NULL nesta
+  // função (corre com service_role, sem auth.uid()), pelo que não serve de origem.
+  let companyId: string | null
   let templateData: Record<string, any> = {}
   try {
     const body = await req.json()
     templateName = body.templateName || body.template_name
     recipientEmail = body.recipientEmail || body.recipient_email
+    companyId = body.companyId || body.company_id || null
     messageId = crypto.randomUUID()
     idempotencyKey = body.idempotencyKey || body.idempotency_key || messageId
     if (body.templateData && typeof body.templateData === 'object') {
@@ -72,6 +79,21 @@ Deno.serve(async (req) => {
       }
     )
   }
+
+  if (!companyId) {
+    console.error('companyId is required', { templateName })
+    return new Response(
+      JSON.stringify({
+        error:
+          'companyId is required — o token de cancelamento de subscrição e a lista de supressão são por empresa (#211)',
+      }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    )
+  }
+
 
   if (!templateName) {
     return new Response(
