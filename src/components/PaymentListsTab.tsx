@@ -216,7 +216,9 @@ const statusMap: Record<ListStatus, { label: string; variant: "default" | "secon
 
 export default function PaymentListsTab() {
   const { isAdmin, isManager, user } = useAuth();
+  const { company } = useCompany();
   const queryClient = useQueryClient();
+
   const [showCreate, setShowCreate] = useState(false);
   const [viewListId, setViewListId] = useState<string | null>(null);
   const [revisionListId, setRevisionListId] = useState<string | null>(null);
