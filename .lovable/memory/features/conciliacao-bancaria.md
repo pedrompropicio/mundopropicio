@@ -260,3 +260,49 @@ depois de as três camadas falharem.
 
 As camadas de conciliação, a liquidação, as listas de pagamento e os
 Recorrentes ficaram intocados.
+
+## Lançamento atómico (2026-09-18, #154)
+
+`public.launch_from_bank_lines(p_items jsonb) RETURNS uuid[]` — plpgsql, **SEM
+`SECURITY DEFINER`** (corre com as permissões de quem chama; a RLS do módulo
+financeiro continua a valer), `search_path = public`. Grants: `anon` false,
+`authenticated` e `service_role` true.
+
+`p_items` é um array de `{ "transaction": { …colunas de transactions… },
+"line_ids": [uuid…], "matched_by": text, "note": text }`. Um item pode ter
+`line_ids` vazio — é o caso da **segunda perna do par de transferência**, que não
+liga linhas do banco. As colunas do JSON são validadas contra o catálogo e
+inseridas por `jsonb_populate_record` + lista explícita (colunas ausentes ficam
+com o default da tabela). `company_id` é **sempre** o resolvido das linhas,
+nunca o que vier no JSON; `id`, `created_at` e `updated_at` são ignorados.
+
+Três validações, antes de qualquer insert:
+
+1. **Empresa** — todas as linhas referidas têm de existir, pertencer à mesma
+   `company_id` e essa empresa tem de ser a de `current_company_id()`. Array sem
+   nenhuma linha → recusa (um lançamento do banco fica sempre ligado ao extrato).
+2. **Linha livre** — todas com `status = 'unmatched'`, `matched_transaction_id`
+   e `created_transaction_id` a NULL; senão `Linha do banco já está conciliada:
+   <id>`. É a **guarda contra o duplo clique**: quem vê um toast de erro volta a
+   clicar, e antes disto criava segunda transação.
+3. **Ligação completa** — o `UPDATE` das linhas confere `ROW_COUNT` contra o
+   número de ids; se faltar uma, rebenta e nada fica.
+
+Devolve os ids pela ordem dos itens. Qualquer erro → a transação de base de
+dados inteira reverte.
+
+**Regra:** o `BankLineLaunchModal` **nunca** insere em `transactions`. Tudo passa
+pela RPC. Foram removidos o `insertAndLinkLines` (apagar-se-falhar) e o
+`revertLeg` — compensação no cliente não é atomicidade: se o `delete` também
+falhasse, a órfã paga ficava a mexer no saldo (caso real: TPA ZigPay
+27.241,87 €, 10/09/2026).
+
+Fora da RPC, e por isso já sem desfazer nada: a ligação da **transferência-mãe**
+à linha de BP (edge function `update-transaction`, Peça C do D-ERP74) — se
+falhar, as taxas já estão lançadas e o aviso diz "liga-a manualmente na
+transação <descrição>". Guardar a regra e incrementar `hits` continuam depois do
+commit.
+
+Prova: `supabase/tests/launch_from_bank_lines.sql` (BEGIN … ROLLBACK) — caminho
+feliz com duas linhas pela soma, duplo clique recusado sem criar nada, linha
+inexistente recusada.

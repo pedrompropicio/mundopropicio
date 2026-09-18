@@ -17294,6 +17294,7 @@ export type Database = {
         Returns: boolean
       }
       is_settlement_staff: { Args: { _user: string }; Returns: boolean }
+      launch_from_bank_lines: { Args: { p_items: Json }; Returns: string[] }
       list_bp_versions: {
         Args: { _event_id: string }
         Returns: {

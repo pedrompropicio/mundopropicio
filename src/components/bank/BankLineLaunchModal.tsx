@@ -91,52 +91,23 @@ interface Props {
 }
 
 /**
- * #154 — inserir e ligar é UM só passo lógico: se a ligação das linhas falhar,
- * a transação criada é apagada. Nunca fica transação órfã a mexer no saldo.
+ * #154 — o modal NUNCA insere em `transactions`. Tudo passa pela RPC
+ * `launch_from_bank_lines`: transações e linhas nascem no mesmo commit, e uma
+ * linha já conciliada é recusada (guarda contra o duplo clique).
  */
-async function insertAndLinkLines(
-  payload: Record<string, unknown>,
-  lineIds: string[],
-  matchedBy: string,
-  note: string | null,
-): Promise<string> {
-  const { data: tx, error } = await supabase
-    .from("transactions")
-    .insert(payload as any)
-    .select("id")
-    .single();
-  if (error) throw error;
-  const { error: eLines } = await supabase
-    .from("bank_statement_lines")
-    .update({
-      status: "matched",
-      created_transaction_id: tx.id,
-      matched_transaction_id: tx.id,
-      matched_by: matchedBy,
-      matched_at: new Date().toISOString(),
-      note,
-    })
-    .in("id", lineIds);
-  if (eLines) {
-    await supabase.from("transactions").delete().eq("id", tx.id);
-    throw eLines;
-  }
-  return tx.id as string;
+interface LaunchItem {
+  transaction: Record<string, unknown>;
+  line_ids: string[];
+  matched_by?: string;
+  note?: string | null;
 }
 
-/** Desfaz uma perna já gravada (usado quando a perna seguinte falha). */
-async function revertLeg(txId: string, lineIds: string[]) {
-  await supabase
-    .from("bank_statement_lines")
-    .update({
-      status: "unmatched",
-      created_transaction_id: null,
-      matched_transaction_id: null,
-      matched_by: null,
-      matched_at: null,
-    })
-    .in("id", lineIds);
-  await supabase.from("transactions").delete().eq("id", txId);
+async function launchAtomic(items: LaunchItem[]): Promise<string[]> {
+  const { data, error } = await supabase.rpc("launch_from_bank_lines" as any, {
+    p_items: items as any,
+  } as any);
+  if (error) throw error;
+  return (data as string[]) ?? [];
 }
 
 export function BankLineLaunchModal({ lines, accountId, accountName, rules, feePlan = null, onClose, onDone }: Props) {
@@ -410,9 +381,11 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
   const motherNeedsLink = !!feePlan && !feePlan.forecastId && !!feePlan.motherId;
 
   /**
-   * Taxas de transferência (D-ERP74): dois lançamentos, cada um ligado às suas
-   * linhas, pelo mesmo caminho de inserir-e-ligar (#154). Se a segunda perna
-   * falhar, a primeira é desfeita — o grupo é um só acontecimento.
+   * Taxas de transferência (D-ERP74): um item por perna, cada um com as suas
+   * linhas, numa só chamada à RPC (#154) — as duas pernas nascem no mesmo
+   * commit ou nenhuma nasce. A ligação da transferência-mãe à linha de BP fica
+   * DEPOIS e fora da RPC: se falhar, as taxas já estão lançadas e o aviso diz
+   * para ligar à mão. Já não se desfaz nada.
    */
   async function confirmFees() {
     const plan = feePlan!;
@@ -421,52 +394,53 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
     if (needsBpLine && !forecastId) return toast.error("Escolhe a linha de BP deste evento.");
 
     setSaving(true);
-    const done: { txId: string; lineIds: string[] }[] = [];
     try {
-      for (const leg of plan.legs) {
-        const txId = await insertAndLinkLines(
-          {
-            description: description.trim(),
-            type: "expense",
-            amount: leg.amount,
-            iva_rate: leg.ivaRate,
-            category_id: categoryId,
-            is_transitory: false,
-            supplier_id: supplierId || null,
-            event_id: plan.eventId || null,
-            forecast_id: needsBpLine ? forecastId : (plan.forecastId || null),
-            account_id: accountId,
-            date: paymentDate,
-            status: "paid",
-            paid_amount: leg.paidAmount,
-            payment_date: paymentDate,
-            payment_method: "transfer",
-            specification: note.trim() || null,
-            is_confidential: isConfidential || statementRestricted,
-          },
-          leg.lineIds,
-          `created:${user?.email ?? "sistema"}`,
-          note.trim() || null,
-        );
-        done.push({ txId, lineIds: leg.lineIds });
-      }
+      const matchedBy = `created:${user?.email ?? "sistema"}`;
+      const items: LaunchItem[] = plan.legs.map((leg) => ({
+        transaction: {
+          description: description.trim(),
+          type: "expense",
+          amount: leg.amount,
+          iva_rate: leg.ivaRate,
+          category_id: categoryId,
+          is_transitory: false,
+          supplier_id: supplierId || null,
+          event_id: plan.eventId || null,
+          forecast_id: needsBpLine ? forecastId : (plan.forecastId || null),
+          account_id: accountId,
+          date: paymentDate,
+          status: "paid",
+          paid_amount: leg.paidAmount,
+          payment_date: paymentDate,
+          payment_method: "transfer",
+          specification: note.trim() || null,
+          is_confidential: isConfidential || statementRestricted,
+        },
+        line_ids: leg.lineIds,
+        matched_by: matchedBy,
+        note: note.trim() || null,
+      }));
+
+      const ids = await launchAtomic(items);
+      toast.success(`Taxas da transferência ${plan.ref} lançadas em ${ids.length} transação(ões).`);
 
       // Peça C — ligar também a MÃE à mesma linha, pela edge function (nunca
-      // UPDATE directo do cliente). Faz parte da mesma sequência: se falhar,
-      // as pernas das taxas são desfeitas.
+      // UPDATE directo do cliente). Fora da RPC: as taxas já estão gravadas.
       if (motherNeedsLink && linkMother && forecastId && plan.motherId) {
         const { data: res, error: eMother } = await supabase.functions.invoke("update-transaction", {
           body: { transaction_id: plan.motherId, updates: { forecast_id: forecastId } },
         });
         const msg = (res as any)?.error ?? eMother?.message;
-        if (eMother || msg) throw new Error(`ligação da transferência-mãe à linha de BP falhou: ${msg ?? "erro desconhecido"}`);
+        if (eMother || msg) {
+          toast.warning(
+            `Taxas lançadas; a ligação da transferência-mãe à linha de BP falhou — liga-a manualmente na transação ${plan.motherDescription}.`,
+          );
+        }
       }
 
-      toast.success(`Taxas da transferência ${plan.ref} lançadas em ${done.length} transação(ões).`);
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       onDone();
     } catch (err: any) {
-      for (const d of done) await revertLeg(d.txId, d.lineIds);
       toast.error("Erro ao lançar as taxas (nada ficou criado): " + friendlyPaymentError(err));
     } finally {
       setSaving(false);
@@ -479,13 +453,15 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
     if (!isTransfer && !transitory && !categoryId) return toast.error("Escolhe a rubrica.");
     if (isTransfer && !targetAccountId) return toast.error("Escolhe a conta de destino.");
     if (gross <= 0) return toast.error("O movimento do banco não tem valor.");
-    // Antes de qualquer insert: sem linha de BP não se cria nada.
+    // Antes de qualquer lançamento: sem linha de BP não se cria nada.
     if (needsBpLine && !forecastId) return toast.error("Escolhe a linha de BP deste evento.");
 
 
     setSaving(true);
     try {
-      let primaryTxId: string;
+      const matchedBy = `created:${user?.email ?? "sistema"}`;
+      const lineIds = lines.map((l) => l.id);
+      const items: LaunchItem[] = [];
 
       if (isTransfer) {
         // Par de transferência, como no TransferFormModal: rubrica 10.3, IVA 0.
@@ -514,34 +490,31 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
           specification: note.trim() || null,
           is_confidential: isConfidential || statementRestricted || targetRestricted,
         };
-        // A transação da conta do extrato é sempre a primária (é a linha do banco).
-        const { data: onStatement, error: e1 } = await supabase
-          .from("transactions")
-          .insert({
+        // A transação da conta do extrato é sempre a primária (é a linha do banco);
+        // a segunda perna não liga linhas.
+        items.push({
+          transaction: {
             ...common,
             description: label,
             type: transferIncoming ? "income" : "expense",
             account_id: accountId,
-          } as any)
-          .select("id")
-          .single();
-        if (e1) throw e1;
-        const { error: e2 } = await supabase
-          .from("transactions")
-          .insert({
+          },
+          line_ids: lineIds,
+          matched_by: matchedBy,
+          note: note.trim() || null,
+        });
+        items.push({
+          transaction: {
             ...common,
             description: label,
             type: transferIncoming ? "expense" : "income",
             account_id: targetAccountId,
-          } as any)
-          .select("id")
-          .single();
-        if (e2) throw e2;
-        primaryTxId = onStatement.id;
+          },
+          line_ids: [],
+        });
       } else {
-        const { data: tx, error } = await supabase
-          .from("transactions")
-          .insert({
+        items.push({
+          transaction: {
             description: description.trim(),
             type: action === "create_income" ? "income" : "expense",
             // `amount` é sempre o valor LÍQUIDO (Core rule); o banco moveu o bruto.
@@ -563,27 +536,17 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
             payment_date: paymentDate,
             specification: note.trim() || null,
             is_confidential: isConfidential || statementRestricted,
-          } as any)
-          .select("id")
-          .single();
-        if (error) throw error;
-        primaryTxId = tx.id;
+          },
+          line_ids: lineIds,
+          matched_by: matchedBy,
+          note: note.trim() || null,
+        });
       }
 
-      // As linhas do banco ficam ligadas à transação criada e conciliadas.
+      // Transações e linhas no mesmo commit (#154): ou fica tudo, ou nada.
+      await launchAtomic(items);
       const now = new Date().toISOString();
-      const { error: eLines } = await supabase
-        .from("bank_statement_lines")
-        .update({
-          status: "matched",
-          created_transaction_id: primaryTxId,
-          matched_transaction_id: primaryTxId,
-          matched_by: `created:${user?.email ?? "sistema"}`,
-          matched_at: now,
-          note: note.trim() || null,
-        })
-        .in("id", lines.map((l) => l.id));
-      if (eLines) throw eLines;
+
 
       // Aprender: guardar a regra para a próxima vez. Nunca em transitórias —
       // `bank_line_rules` não tem coluna para o flag e perdê-lo em silêncio
