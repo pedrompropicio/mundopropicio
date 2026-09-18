@@ -168,6 +168,40 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
   const invoiceRefApplies = !!singleSupplier;
   const effectiveInvoiceRef = invoiceRefApplies ? invoiceRef.trim() : "";
 
+  /**
+   * (#147) Grupos de fatura com linhas em aberto FORA desta seleção: avisa,
+   * não bloqueia — mesmo critério da faixa âmbar da PaymentListsTab.
+   */
+  const invoiceGroupIds = useMemo(
+    () => [...new Set(transactions.map((t: any) => t.invoice_group_id).filter(Boolean))] as string[],
+    [transactions]
+  );
+  const { data: partialInvoiceGroups = [] } = useQuery({
+    queryKey: ["batch-invoice-group-coverage", [...invoiceGroupIds].sort().join(","), transactions.map((t: any) => t.id).sort().join(",")],
+    enabled: invoiceGroupIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, invoice_group_id, invoice_ref, status, amount, iva_rate, paid_amount, description")
+        .in("invoice_group_id", invoiceGroupIds);
+      if (error) throw error;
+      const selected = new Set(transactions.map((t: any) => t.id));
+      const byGroup = new Map<string, { ref: string; open: number; inBatch: number }>();
+      for (const row of (data ?? []) as any[]) {
+        const total = calcWithIva(Number(row.amount), Number(row.iva_rate ?? 23));
+        const settled = row.status === "paid" || Number(row.paid_amount ?? 0) >= total - 0.05;
+        if (settled) continue;
+        const gid = row.invoice_group_id as string;
+        const g = byGroup.get(gid) ?? { ref: (row.invoice_ref ?? "").trim() || "—", open: 0, inBatch: 0 };
+        g.open += 1;
+        if (selected.has(row.id)) g.inBatch += 1;
+        if (g.ref === "—" && (row.invoice_ref ?? "").trim()) g.ref = String(row.invoice_ref).trim();
+        byGroup.set(gid, g);
+      }
+      return [...byGroup.values()].filter((g) => g.open > g.inBatch);
+    },
+  });
+
   // Saldo só para EXIBIÇÃO: null = sem autorização para ver. A decisão da trava
   // é do servidor (D-ERP34).
   const selectedBalance = useAccountTrueBalance(accountId) ?? null;
@@ -452,6 +486,17 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {partialInvoiceGroups.length > 0 && (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-1">
+            {partialInvoiceGroups.map((g, idx) => (
+              <p key={idx} className="text-xs text-amber-500">
+                ⚠️ Fatura {g.ref} tem {g.open} linhas em aberto; só {g.inBatch} nesta liquidação. A fatura fica parcialmente paga.
+              </p>
+            ))}
+          </div>
+        )}
+
 
         <div className="rounded-lg bg-secondary/50 p-3 space-y-2">
           <p className="text-sm font-medium">

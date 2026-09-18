@@ -33,9 +33,15 @@ import {
 interface Props {
   transaction: any;
   onClose: () => void;
+  /**
+   * Liquidar a FATURA COMPLETA (#147): o pai abre o `BatchPaymentModal` com
+   * todas as linhas em aberto do grupo de fatura. Este modal já NÃO propaga
+   * nada às irmãs — a saída total tem de passar pela trava de saldo do lote.
+   */
+  onSettleGroup?: (transactions: any[], opts?: { invoiceRef?: string; paymentDate?: string }) => void;
 }
 
-export function TransactionPaymentModal({ transaction, onClose }: Props) {
+export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }: Props) {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState<Date>(() => {
     if (transaction.payment_date) {
@@ -161,6 +167,32 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   });
 
   const hasChildren = childTransactions.length > 0;
+
+  // ===== Grupo de fatura (#147) =====
+  // As irmãs em aberto são MOSTRADAS, nunca liquidadas por arrasto: a fatura
+  // completa liquida-se no BatchPaymentModal, onde a trava de saldo vê a saída
+  // total e cada linha leva a sua própria retenção e crédito.
+  const invoiceGroupId: string | null = (transaction as any).invoice_group_id ?? null;
+  const { data: openSiblings = [] } = useQuery({
+    queryKey: ["invoice-group-open-siblings", invoiceGroupId, transaction.id],
+    enabled: !!invoiceGroupId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("invoice_group_id", invoiceGroupId as string)
+        .neq("id", transaction.id)
+        .neq("status", "paid");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const siblingRemaining = (t: any) => {
+    const tot = calcWithIva(Number(t.amount), Number(t.iva_rate ?? 0));
+    const r = Math.round((tot - Number(t.paid_amount ?? 0)) * 100) / 100;
+    return Math.abs(r) <= 0.05 ? 0 : Math.max(0, r);
+  };
+  const openSiblingsRemaining = (openSiblings as any[]).reduce((s, t) => s + siblingRemaining(t), 0);
 
   const isExpense = transaction.type === "expense";
   const { data: availableCredits = [] } = useQuery({
@@ -551,81 +583,9 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       }
 
 
-      // Propagate to invoice-group siblings (fatura com várias taxas de IVA).
-      // Cada irmã é liquidada PELO SEU PRÓPRIO total (base + IVA), na mesma data e conta.
-      // Cria também o registo individual em transaction_payments para a irmã.
-      if (propagates && (transaction as any).invoice_group_id) {
-        const { data: siblings } = await (supabase as any)
-          .from("transactions")
-          .select("*")
-          .eq("invoice_group_id", (transaction as any).invoice_group_id)
-          .neq("id", transaction.id);
-        const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
-        for (const sib of siblings ?? []) {
-          if (sib.status === "paid") continue;
-          const sibTotal = calcWithIva(Number(sib.amount), Number(sib.iva_rate ?? 0));
-          const sibCurrentPaid = Number(sib.paid_amount ?? 0);
-          const sibRemaining = Math.max(0, +(sibTotal - sibCurrentPaid).toFixed(2));
-          if (sibRemaining <= 0) continue;
-          const sibNewPaid = Math.round((sibCurrentPaid + sibRemaining) * 100) / 100;
-          const sibStatus = isFullyPaid(sibNewPaid, Number(sib.amount), Number(sib.iva_rate ?? 0))
-            ? "paid"
-            : "approved";
-          await (supabase as any)
-            .from("transactions")
-            .update({
-              paid_amount: sibNewPaid,
-              status: sibStatus,
-              payment_date: format(paymentDate, "yyyy-MM-dd"),
-              account_id: isCompensation ? null : accountId || sib.account_id || null,
-              payment_method: paymentMethod,
-              payment_entity:
-                paymentMethod === "service_payment" ? paymentEntity.trim() || null : null,
-              payment_reference:
-                paymentMethod !== "transfer" && !isCompensation ? paymentReference.trim() || null : null,
-            })
-            .eq("id", sib.id);
+      // (#147) NÃO há propagação às irmãs do grupo de fatura. Ver D-ERP81.
 
-          // Individual payment record on the sibling
-          const { error: sibPaymentError } = await (supabase as any).from("transaction_payments").insert({
-            transaction_id: sib.id,
-            amount: sibRemaining,
-            payment_date: format(paymentDate, "yyyy-MM-dd"),
-            account_id: isCompensation ? null : accountId || sib.account_id || null,
-            payment_method: paymentMethod,
-            payment_entity:
-              paymentMethod === "service_payment" ? paymentEntity.trim() || null : null,
-            payment_reference:
-              paymentMethod !== "transfer" && !isCompensation ? paymentReference.trim() || null : null,
-            invoice_ref: invoiceRef.trim() || sib.invoice_ref || null,
-            withholding_amount: 0,
-            credit_amount: 0,
-            notes: `Liquidado em conjunto com transação ${transaction.id} (grupo fatura)`,
-            created_by: callerName,
-          });
-          if (sibPaymentError) throw sibPaymentError;
-
-          // Audit on sibling
-          await supabase.from("transaction_audit_log").insert({
-            transaction_id: sib.id,
-            changed_by: callerName,
-            field_name: "Liquidação grupo-fatura",
-            old_value: `${sibCurrentPaid.toFixed(2)} €`,
-            new_value: `${sibNewPaid.toFixed(2)} € — em conjunto com transação ${transaction.id}`,
-          });
-
-          // A irmã pode ser uma MÃE de rateio: a liquidação tem de descer às filhas dela,
-          // senão os eventos ficam com a despesa em aberto e a mãe diz que está paga.
-          await settleChildrenOf(
-            sib.id,
-            `Liquidado com a transação-mãe ${sib.id} (rateio, via grupo de fatura)`,
-          );
-        }
-      }
-
-
-      const skippedPropagation =
-        !propagates && (hasChildren || !!(transaction as any).invoice_group_id);
+      const skippedPropagation = !propagates && hasChildren;
       return { undoSnapshot, isFullPayment: newPaid >= amount - 0.05, skippedPropagation };
 
     },
@@ -649,7 +609,13 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         toast({
           title: "Pagamento parcial — não propagado",
           description:
-            "A liquidação das filhas do rateio e das restantes transações da fatura só acontece quando esta transação fica totalmente liquidada.",
+            "A liquidação das filhas do rateio só acontece quando esta transação fica totalmente liquidada.",
+        });
+      }
+      // Fatura agrupada liquidada só nesta linha: dizer quantas linhas faltam.
+      if (invoiceGroupId && (openSiblings as any[]).length > 0) {
+        toast({
+          title: `Fatura ${transaction.invoice_ref || "agrupada"} parcialmente liquidada — faltam ${(openSiblings as any[]).length} linha(s)`,
         });
       }
       onClose();
@@ -696,6 +662,45 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             <h2 className="text-lg font-bold">{modalTitle}</h2>
             <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
           </div>
+
+          {invoiceGroupId && (openSiblings as any[]).length > 0 && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
+              <p className="text-xs font-semibold text-amber-500">
+                Fatura agrupada {transaction.invoice_ref || "—"} — {(openSiblings as any[]).length + 1} linhas
+              </p>
+              <div className="max-h-32 space-y-1 overflow-y-auto">
+                {(openSiblings as any[]).map((s) => (
+                  <div key={s.id} className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="truncate">{s.description ?? "—"}</span>
+                    <span className="whitespace-nowrap font-mono">{formatCurrency(siblingRemaining(s))}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between border-t border-amber-500/30 pt-2 text-xs font-semibold">
+                <span>Total em aberto da fatura</span>
+                <span className="font-mono">{formatCurrency(Math.round((balance + openSiblingsRemaining) * 100) / 100)}</span>
+              </div>
+              {onSettleGroup && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const all = [transaction, ...(openSiblings as any[])];
+                    const ref = (transaction.invoice_ref ?? "").trim();
+                    const dateStr = format(paymentDate, "yyyy-MM-dd");
+                    onClose();
+                    onSettleGroup(all, { invoiceRef: ref, paymentDate: dateStr });
+                  }}
+                  className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  Liquidar a fatura completa
+                </button>
+              )}
+              <p className="text-[11px] text-muted-foreground">
+                Ou liquide só esta linha — a fatura fica parcialmente paga.
+              </p>
+            </div>
+          )}
+
 
           <div className="space-y-2 text-sm">
             <p className="text-muted-foreground">{transaction.description}</p>
