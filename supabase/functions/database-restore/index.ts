@@ -56,6 +56,37 @@ const RESTORE_ORDER_GLOBAL = [
 ];
 
 /**
+ * Escrita/leitura de uma chave do backup. Chaves com prefixo "crm." vivem no
+ * schema crm; as restantes em public.
+ */
+function tableRef(admin: any, key: string) {
+  if (key.startsWith("crm.")) return admin.schema("crm").from(key.slice(4));
+  return admin.from(key);
+}
+
+/**
+ * Lê todas as partes de uma tabela v4 e valida a contagem contra o manifesto.
+ * Uma parte em falta ou uma contagem diferente é ERRO — nunca silêncio.
+ */
+async function readV4Table(admin: any, folder: string, manifest: any, t: string) {
+  const expected: number = manifest.tables?.[t] ?? 0;
+  if (!expected) return [] as any[];
+  const nParts: number = manifest.parts?.[t] ?? 1;
+  const out: any[] = [];
+  for (let p = 1; p <= nParts; p++) {
+    const name = p === 1 ? `${t}.json` : `${t}.part${p}.json`;
+    const path = `${folder}/${name}`;
+    const { data: tf, error: e } = await admin.storage.from("database-backups").download(path);
+    if (e || !tf) throw new Error(`Parte do backup em falta ou ilegível: ${path}${e?.message ? ` (${e.message})` : ""}`);
+    out.push(...(JSON.parse(await tf.text()) as any[]));
+  }
+  if (out.length !== expected) {
+    throw new Error(`Contagem inconsistente em ${t}: lidas ${out.length} linhas, manifesto diz ${expected}`);
+  }
+  return out;
+}
+
+/**
  * Abre um backup no formato NOVO (v4: pasta + manifest.json + um ficheiro por
  * tabela) ou no formato ANTIGO (ficheiro backup-*.json solto, v3/v2). No v4 as
  * tabelas são lidas uma a uma, só as que fazem falta.
@@ -71,20 +102,7 @@ async function openBackup(admin: any, target: string) {
       version: 4 as const,
       meta: manifest,
       count: (t: string) => counts[t] ?? 0,
-      getTable: async (t: string) => {
-        if (!counts[t]) return [];
-        // Tabelas grandes ficam em pedaços: <t>.json + <t>.part2.json + ...
-        const nParts: number = manifest.parts?.[t] ?? 1;
-        const out: any[] = [];
-        for (let p = 1; p <= nParts; p++) {
-          const name = p === 1 ? `${t}.json` : `${t}.part${p}.json`;
-          const { data: tf, error: e } = await admin.storage
-            .from("database-backups").download(`${folder}/${name}`);
-          if (e || !tf) continue;
-          out.push(...(JSON.parse(await tf.text()) as any[]));
-        }
-        return out;
-      },
+      getTable: (t: string) => readV4Table(admin, folder, manifest, t),
     };
   }
   const { data: file, error: dlErr } = await admin.storage.from("database-backups").download(target);
@@ -169,9 +187,23 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Lista de tabelas a restaurar
-    const RESTORE_ORDER = backupScope === "global" ? RESTORE_ORDER_GLOBAL : RESTORE_ORDER_TENANT;
+    // Lista de tabelas a restaurar.
+    // v4: derivada do manifesto — as conhecidas mantêm a ordem de dependências
+    // já existente e as restantes vão no fim, por ordem alfabética.
+    const KNOWN_ORDER = backupScope === "global" ? RESTORE_ORDER_GLOBAL : RESTORE_ORDER_TENANT;
+    const manifestTables: string[] = backup.version >= 4 ? Object.keys(backupJson.tables ?? {}) : [];
+    const RESTORE_ORDER = backup.version >= 4
+      ? [
+          ...KNOWN_ORDER.filter((t) => manifestTables.includes(t)),
+          ...manifestTables.filter((t) => !KNOWN_ORDER.includes(t)).sort(),
+        ]
+      : KNOWN_ORDER;
     const DELETE_ORDER = [...RESTORE_ORDER].reverse();
+    // Nada do manifesto pode ficar de fora em silêncio.
+    const notRestored: Record<string, string> = {};
+    for (const t of manifestTables) {
+      if (!RESTORE_ORDER.includes(t)) notRestored[t] = "não incluída na ordem de restauro";
+    }
 
     // ---- PREVIEW ----
     if (mode === "preview") {
@@ -179,18 +211,37 @@ Deno.serve(async (req) => {
       const targetCompany = backupScope === "company" ? backupCompanyId
         : (backupScope === "legacy" && callerCompanyId) ? callerCompanyId : null;
 
-      for (const t of RESTORE_ORDER) {
-        if (backup.version >= 4) {
-          // v4: cada ficheiro já vem filtrado pelo alvo da corrida.
-          const n = backup.count(t);
-          if (n) preview[t] = n;
-          continue;
+      const missingParts: string[] = [];
+      if (backup.version >= 4) {
+        const folder = backup_file.replace(/\/manifest\.json$/, "");
+        const present = new Set<string>();
+        for (let off = 0; ; off += 1000) {
+          const { data: objs } = await admin.storage.from("database-backups")
+            .list(folder, { limit: 1000, offset: off });
+          (objs ?? []).forEach((o: any) => present.add(o.name));
+          if (!objs || objs.length < 1000) break;
         }
-        const rows = await backup.getTable(t);
-        const filtered = targetCompany
-          ? rows.filter((r: any) => r.company_id === targetCompany)
-          : rows;
-        if (filtered.length) preview[t] = filtered.length;
+        for (const t of RESTORE_ORDER) {
+          const n = backup.count(t);
+          if (!n) continue;
+          preview[t] = n;
+          const nParts: number = backupJson.parts?.[t] ?? 1;
+          for (let p = 1; p <= nParts; p++) {
+            const name = p === 1 ? `${t}.json` : `${t}.part${p}.json`;
+            if (!present.has(name)) missingParts.push(`${folder}/${name}`);
+          }
+        }
+        if (missingParts.length) {
+          return jsonErr(`Partes do backup em falta: ${missingParts.join(", ")}`, 422);
+        }
+      } else {
+        for (const t of RESTORE_ORDER) {
+          const rows = await backup.getTable(t);
+          const filtered = targetCompany
+            ? rows.filter((r: any) => r.company_id === targetCompany)
+            : rows;
+          if (filtered.length) preview[t] = filtered.length;
+        }
       }
       return jsonOk({
         mode: "preview",
@@ -200,6 +251,9 @@ Deno.serve(async (req) => {
         caller_company_id: callerCompanyId,
         backup_date: backupJson.created_at,
         tables: preview,
+        manifest_rows: backup.version >= 4 ? (backupJson.tables ?? {}) : undefined,
+        manifest_parts: backup.version >= 4 ? (backupJson.parts ?? {}) : undefined,
+        tables_not_restored: Object.keys(notRestored).length ? notRestored : undefined,
         total_tables_in_backup: backupJson.tables && backup.version >= 4
           ? Object.keys(backupJson.tables).length
           : undefined,
@@ -222,8 +276,8 @@ Deno.serve(async (req) => {
     if (backupScope !== "global") {
       for (const t of ORPHAN_CHILD_TABLES_TO_CLEAR) {
         try {
-          let q = admin.from(t).delete().gte("created_at", "1900-01-01");
-          if (filterCompany) q = admin.from(t).delete().eq("company_id", filterCompany);
+          let q = tableRef(admin, t).delete().gte("created_at", "1900-01-01");
+          if (filterCompany) q = tableRef(admin, t).delete().eq("company_id", filterCompany);
           const { error } = await q;
           results[`__orphan_${t}`] = { deleted: error ? "fail" : (filterCompany ? "company" : "all"), inserted: 0, error: error?.message };
         } catch (e) {
@@ -239,16 +293,16 @@ Deno.serve(async (req) => {
         let error: any = null;
         if (filterCompany) {
           // Apaga só linhas dessa empresa
-          const { error: e } = await admin.from(t).delete().eq("company_id", filterCompany);
+          const { error: e } = await tableRef(admin, t).delete().eq("company_id", filterCompany);
           error = e;
         } else if (SINGLETON_INT_PK.has(t)) {
-          const { error: e } = await admin.from(t).delete().gte("id", -2147483648);
+          const { error: e } = await tableRef(admin, t).delete().gte("id", -2147483648);
           error = e;
         } else {
-          const { error: e } = await admin.from(t).delete().neq("id", "00000000-0000-0000-0000-000000000000");
+          const { error: e } = await tableRef(admin, t).delete().neq("id", "00000000-0000-0000-0000-000000000000");
           error = e;
           if (error) {
-            const { error: e2 } = await admin.from(t).delete().gte("created_at", "1900-01-01");
+            const { error: e2 } = await tableRef(admin, t).delete().gte("created_at", "1900-01-01");
             error = e2;
           }
         }
@@ -300,7 +354,7 @@ Deno.serve(async (req) => {
       let lastErr: string | undefined;
       for (let i = 0; i < cleanRows.length; i += batchSize) {
         const batch = cleanRows.slice(i, i + batchSize);
-        const { error } = await admin.from(t).upsert(batch, { onConflict: "id", ignoreDuplicates: false });
+        const { error } = await tableRef(admin, t).upsert(batch, { onConflict: "id", ignoreDuplicates: false });
         if (error) {
           lastErr = `batch ${Math.floor(i / batchSize)}: ${error.message}`;
           break;
@@ -328,6 +382,7 @@ Deno.serve(async (req) => {
       backup_date: backupJson.created_at,
       total_tables: Object.keys(results).length,
       tables_with_errors: errors.length,
+      tables_not_restored: Object.keys(notRestored).length ? notRestored : undefined,
       results,
     });
   } catch (err) {
@@ -350,7 +405,7 @@ async function fetchLiveColumns(admin: any, tableNames: string[]) {
   const out: Record<string, Set<string>> = {};
   for (const t of tableNames) {
     try {
-      const { data, error } = await admin.from(t).select("*").limit(1);
+      const { data, error } = await tableRef(admin, t).select("*").limit(1);
       if (!error && data) {
         const cols = new Set<string>();
         if (data.length > 0) Object.keys(data[0]).forEach((k) => cols.add(k));

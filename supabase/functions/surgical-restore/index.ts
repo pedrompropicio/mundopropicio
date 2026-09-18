@@ -6,6 +6,31 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+/** Chaves com prefixo "crm." vivem no schema crm; as restantes em public. */
+function tableRef(admin: any, key: string) {
+  if (key.startsWith("crm.")) return admin.schema("crm").from(key.slice(4));
+  return admin.from(key);
+}
+
+/** Lê todas as partes de uma tabela v4 e valida a contagem contra o manifesto. */
+async function readV4Table(admin: any, folder: string, manifest: any, t: string) {
+  const expected: number = manifest.tables?.[t] ?? 0;
+  if (!expected) return [] as any[];
+  const nParts: number = manifest.parts?.[t] ?? 1;
+  const out: any[] = [];
+  for (let p = 1; p <= nParts; p++) {
+    const name = p === 1 ? `${t}.json` : `${t}.part${p}.json`;
+    const path = `${folder}/${name}`;
+    const { data: tf, error: e } = await admin.storage.from("database-backups").download(path);
+    if (e || !tf) throw new Error(`Parte do backup em falta ou ilegível: ${path}${e?.message ? ` (${e.message})` : ""}`);
+    out.push(...(JSON.parse(await tf.text()) as any[]));
+  }
+  if (out.length !== expected) {
+    throw new Error(`Contagem inconsistente em ${t}: lidas ${out.length} linhas, manifesto diz ${expected}`);
+  }
+  return out;
+}
+
 /**
  * Abre um backup no formato NOVO (v4: pasta + manifest.json + um ficheiro por
  * tabela) ou no formato ANTIGO (ficheiro backup-*.json solto, v3/v2).
@@ -16,23 +41,9 @@ async function openBackup(admin: any, target: string) {
     if (error || !f) throw new Error(`Manifesto: ${error?.message}`);
     const manifest = JSON.parse(await f.text());
     const folder = target.replace(/\/manifest\.json$/, "");
-    const counts: Record<string, number> = manifest.tables ?? {};
     return {
       meta: manifest,
-      getTable: async (t: string) => {
-        if (!counts[t]) return [] as any[];
-        // Tabelas grandes ficam em pedaços: <t>.json + <t>.part2.json + ...
-        const nParts: number = manifest.parts?.[t] ?? 1;
-        const out: any[] = [];
-        for (let p = 1; p <= nParts; p++) {
-          const name = p === 1 ? `${t}.json` : `${t}.part${p}.json`;
-          const { data: tf, error: e } = await admin.storage
-            .from("database-backups").download(`${folder}/${name}`);
-          if (e || !tf) continue;
-          out.push(...(JSON.parse(await tf.text()) as any[]));
-        }
-        return out;
-      },
+      getTable: (t: string) => readV4Table(admin, folder, manifest, t),
     };
   }
   const { data: fileData, error: dlErr } = await admin.storage
@@ -182,11 +193,11 @@ Deno.serve(async (req) => {
 
     // Delete existing sales for these zones first
     for (const zoneId of zoneIds) {
-      await adminClient.from("ticket_sales").delete().eq("zone_id", zoneId);
+      await tableRef(adminClient, "ticket_sales").delete().eq("zone_id", zoneId);
     }
     // Delete existing lots for these zones
     for (const zoneId of zoneIds) {
-      await adminClient.from("event_ticket_lots").delete().eq("zone_id", zoneId);
+      await tableRef(adminClient, "event_ticket_lots").delete().eq("zone_id", zoneId);
     }
 
     // Insert lots
@@ -195,7 +206,7 @@ Deno.serve(async (req) => {
       let inserted = 0;
       for (let i = 0; i < backupLots.length; i += batchSize) {
         const batch = backupLots.slice(i, i + batchSize);
-        const { error } = await adminClient.from("event_ticket_lots").upsert(batch, { onConflict: "id" });
+        const { error } = await tableRef(adminClient, "event_ticket_lots").upsert(batch, { onConflict: "id" });
         if (error) {
           results.event_ticket_lots.error = error.message;
           break;
@@ -219,7 +230,7 @@ Deno.serve(async (req) => {
       let inserted = 0;
       for (let i = 0; i < cleanSales.length; i += batchSize) {
         const batch = cleanSales.slice(i, i + batchSize);
-        const { error } = await adminClient.from("ticket_sales").upsert(batch, { onConflict: "id" });
+        const { error } = await tableRef(adminClient, "ticket_sales").upsert(batch, { onConflict: "id" });
         if (error) {
           results.ticket_sales.error = error.message;
           break;
@@ -231,7 +242,7 @@ Deno.serve(async (req) => {
 
     // Insert import logs
     if (backupImportLogs.length > 0) {
-      const { error } = await adminClient.from("ticket_import_logs").upsert(backupImportLogs, { onConflict: "id" });
+      const { error } = await tableRef(adminClient, "ticket_import_logs").upsert(backupImportLogs, { onConflict: "id" });
       results.ticket_import_logs.inserted = error ? 0 : backupImportLogs.length;
       if (error) results.ticket_import_logs.error = error.message;
     }

@@ -180,6 +180,31 @@ const EVENT_SCOPE_SOURCE_TABLES = [
   "quotations", "bp_orphan_attachments", "event_implementations",
 ];
 
+/** Chaves com prefixo "crm." vivem no schema crm; as restantes em public. */
+function tableRef(admin: any, key: string) {
+  if (key.startsWith("crm.")) return admin.schema("crm").from(key.slice(4));
+  return admin.from(key);
+}
+
+/** Lê todas as partes de uma tabela v4 e valida a contagem contra o manifesto. */
+async function readV4Table(admin: any, folder: string, manifest: any, t: string) {
+  const expected: number = manifest.tables?.[t] ?? 0;
+  if (!expected) return [] as any[];
+  const nParts: number = manifest.parts?.[t] ?? 1;
+  const out: any[] = [];
+  for (let p = 1; p <= nParts; p++) {
+    const name = p === 1 ? `${t}.json` : `${t}.part${p}.json`;
+    const path = `${folder}/${name}`;
+    const { data: tf, error: e } = await admin.storage.from("database-backups").download(path);
+    if (e || !tf) throw new Error(`Parte do backup em falta ou ilegível: ${path}${e?.message ? ` (${e.message})` : ""}`);
+    out.push(...(JSON.parse(await tf.text()) as any[]));
+  }
+  if (out.length !== expected) {
+    throw new Error(`Contagem inconsistente em ${t}: lidas ${out.length} linhas, manifesto diz ${expected}`);
+  }
+  return out;
+}
+
 /**
  * Abre um backup no formato NOVO (v4: pasta + manifest.json + um ficheiro por
  * tabela) ou no formato ANTIGO (ficheiro backup-*.json solto, v3/v2).
@@ -190,24 +215,10 @@ async function openBackup(admin: any, target: string) {
     if (error || !f) throw new Error(`Manifesto: ${error?.message}`);
     const manifest = JSON.parse(await f.text());
     const folder = target.replace(/\/manifest\.json$/, "");
-    const counts: Record<string, number> = manifest.tables ?? {};
     return {
       version: 4 as const,
       meta: manifest,
-      getTable: async (t: string) => {
-        if (!counts[t]) return [] as any[];
-        // Tabelas grandes ficam em pedaços: <t>.json + <t>.part2.json + ...
-        const nParts: number = manifest.parts?.[t] ?? 1;
-        const out: any[] = [];
-        for (let p = 1; p <= nParts; p++) {
-          const name = p === 1 ? `${t}.json` : `${t}.part${p}.json`;
-          const { data: tf, error: e } = await admin.storage
-            .from("database-backups").download(`${folder}/${name}`);
-          if (e || !tf) continue;
-          out.push(...(JSON.parse(await tf.text()) as any[]));
-        }
-        return out;
-      },
+      getTable: (t: string) => readV4Table(admin, folder, manifest, t),
     };
   }
   const { data: fileData, error: dlErr } = await admin.storage
@@ -220,6 +231,15 @@ async function openBackup(admin: any, target: string) {
     meta: backup,
     getTable: async (t: string) => (all[t] ?? []) as any[],
   };
+}
+
+/** Ordem de restauro: as conhecidas primeiro (dependências), as restantes no fim. */
+function orderedKeys(effective: Record<string, any[]>): string[] {
+  const keys = Object.keys(effective);
+  return [
+    ...TABLE_ORDER.filter((t) => keys.includes(t)),
+    ...keys.filter((t) => !TABLE_ORDER.includes(t)).sort(),
+  ];
 }
 
 function cleanRow(table: string, row: any): any {
@@ -235,17 +255,17 @@ async function deleteByIds(adminClient: any, table: string, ids: string[]): Prom
   const batchSize = 200;
   for (let i = 0; i < ids.length; i += batchSize) {
     const batch = ids.slice(i, i + batchSize);
-    const { error } = await adminClient.from(table).delete().in("id", batch);
+    const { error } = await tableRef(adminClient, table).delete().in("id", batch);
     if (error) return error.message;
   }
   return null;
 }
 
 async function deleteAllInTable(adminClient: any, table: string): Promise<string | null> {
-  const { error } = await adminClient.from(table).delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  const { error } = await tableRef(adminClient, table).delete().neq("id", "00000000-0000-0000-0000-000000000000");
   if (error) {
     // Fallback for tables without `id` PK
-    const { error: e2 } = await adminClient.from(table).delete().gte("created_at", "1900-01-01");
+    const { error: e2 } = await tableRef(adminClient, table).delete().gte("created_at", "1900-01-01");
     if (e2) return e2.message;
   }
   return null;
@@ -261,7 +281,7 @@ async function insertRows(
   let inserted = 0;
   for (let i = 0; i < rows.length; i += batchSize) {
     const batch = rows.slice(i, i + batchSize).map((r) => cleanRow(table, r));
-    const { error } = await adminClient.from(table).upsert(batch, { onConflict: "id" });
+    const { error } = await tableRef(adminClient, table).upsert(batch, { onConflict: "id" });
     if (error) return { inserted, error: error.message };
     inserted += batch.length;
   }
@@ -398,7 +418,7 @@ Deno.serve(async (req) => {
     // Preview mode → just counts
     if (mode === "preview") {
       const preview: Record<string, number> = {};
-      for (const t of TABLE_ORDER) if (effective[t]) preview[t] = effective[t].length;
+      for (const t of orderedKeys(effective)) if (effective[t]) preview[t] = effective[t].length;
       return new Response(JSON.stringify({
         success: true, mode: "preview", scope,
         backup_date: backup.created_at,
@@ -409,7 +429,7 @@ Deno.serve(async (req) => {
 
     // === RESTORE ===
     const results: Record<string, { deleted: number | "all"; inserted: number; error?: string }> = {};
-    const orderedTables = TABLE_ORDER.filter((t) => effective[t] && effective[t].length > 0);
+    const orderedTables = orderedKeys(effective).filter((t) => effective[t].length > 0);
 
     // Step 1: delete (children first → reverse)
     // Quando há tenantFilter, NUNCA apaga _all_ — apaga só linhas dessa company.
@@ -417,7 +437,7 @@ Deno.serve(async (req) => {
       try {
         if (scope === "tables") {
           if (tenantFilter) {
-            const { error } = await adminClient.from(table).delete().eq("company_id", tenantFilter);
+            const { error } = await tableRef(adminClient, table).delete().eq("company_id", tenantFilter);
             results[table] = { deleted: "all", inserted: 0, ...(error ? { error: `delete: ${error.message}` } : {}) };
           } else {
             const err = await deleteAllInTable(adminClient, table);
