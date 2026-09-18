@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { resolvePercentageFromTiers, getCacheEffectiveAmount, type CacheTier, type CityCacheSettlement } from "@/lib/cache-pl-helper";
 
