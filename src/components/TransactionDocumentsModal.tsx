@@ -660,6 +660,48 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
           queryClient.invalidateQueries({ queryKey: ["transactions"] });
         }}
       />
+
+      {proposal && (
+        <div
+          className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 p-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="glass w-full max-w-md space-y-3 rounded-xl p-4">
+            <h3 className="text-sm font-bold">
+              Aplicar às {proposal.siblings.length} linhas com o mesmo fornecedor e nº de fatura?
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              A fatura <span className="font-mono">{proposal.invoiceRef}</span> aparece em{" "}
+              {proposal.siblings.length} transações. Ao confirmar, estas linhas passam a formar um grupo de
+              fatura e o documento fica anexado a todas (um ficheiro, {proposal.siblings.length} registos).
+            </p>
+            <div className="space-y-0.5 rounded-md border p-2 text-xs">
+              {proposal.siblings.map((s) => (
+                <div key={s.id} className="flex justify-between gap-3">
+                  <span className="truncate">{s.description ?? "—"}</span>
+                  <span className="shrink-0 font-mono">{formatCurrency(Number(s.amount || 0))}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-border px-3 py-1.5 text-xs"
+                onClick={() => void resolveProposal(false)}
+              >
+                Não, só nesta linha
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+                onClick={() => void resolveProposal(true)}
+              >
+                Sim, aplicar às {proposal.siblings.length}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   );
