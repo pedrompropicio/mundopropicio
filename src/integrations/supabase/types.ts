@@ -17633,6 +17633,10 @@ export type Database = {
         Args: { p_event_ids: string[]; p_roots?: string[] }
         Returns: Json
       }
+      restore_event_snapshot: {
+        Args: { p_event_ids: string[]; p_roots?: string[] }
+        Returns: Json
+      }
       restore_scope_links: { Args: { p_tables: string[] }; Returns: Json }
       restore_shadow_cleanup: { Args: { p_tables: string[] }; Returns: number }
       restore_shadow_load: {
