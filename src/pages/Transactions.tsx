@@ -1522,6 +1522,20 @@ export default function Transactions() {
         <TransactionPaymentModal
           transaction={paymentTransaction}
           onClose={() => setShowPaymentId(null)}
+          onSettleGroup={(txs, opts) => {
+            setShowPaymentId(null);
+            setGroupBatch({ txs, ref: opts?.invoiceRef ?? "", date: opts?.paymentDate });
+          }}
+        />
+      )}
+
+      {groupBatch && (
+        <BatchPaymentModal
+          transactions={groupBatch.txs}
+          initialInvoiceRef={groupBatch.ref}
+          initialPaymentDate={groupBatch.date}
+          bankAccountsOnly={false}
+          onClose={() => setGroupBatch(null)}
         />
       )}
 
