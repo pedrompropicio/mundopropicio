@@ -17602,20 +17602,15 @@ export type Database = {
           note: string
         }[]
       }
-      restore_apply_from_shadow:
-        | {
-            Args: { p_company_id: string; p_scope: string; p_tables: string[] }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_company_id: string
-              p_extra_deletes?: Json
-              p_scope: string
-              p_tables: string[]
-            }
-            Returns: Json
-          }
+      restore_apply_from_shadow: {
+        Args: {
+          p_company_id: string
+          p_extra_deletes?: Json
+          p_scope: string
+          p_tables: string[]
+        }
+        Returns: Json
+      }
       restore_bp_versions_from_trash: {
         Args: { _trash_id: string }
         Returns: Json
