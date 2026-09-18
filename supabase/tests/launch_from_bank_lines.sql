@@ -3,24 +3,28 @@
 -- mesmo commit. Três casos: caminho feliz, duplo clique, linha inexistente.
 -- Corre em Live: tudo dentro de BEGIN … ROLLBACK, não deixa dados.
 --
--- Nota: a RPC NÃO é SECURITY DEFINER e usa public.current_company_id(); num
--- SQL direto sem utilizador autenticado a empresa activa pode vir NULL. Nesse
--- caso o script avisa e salta (a prova faz-se com sessão de admin).
+-- As duas linhas do extrato usadas na prova são criadas AQUI (clonadas de uma
+-- linha real da empresa, status 'unmatched', line_hash aleatório) — a base
+-- pode não ter linhas por conciliar no momento em que se corre.
+--
+-- A RPC NÃO é SECURITY DEFINER e usa public.current_company_id(); num SQL
+-- direto sem utilizador autenticado a empresa activa vem NULL. Em psql/SQL
+-- editor, fixar o utilizador antes do bloco:
+--   select set_config('request.jwt.claims','{"sub":"<user_id>","role":"authenticated"}',true);
 
 BEGIN;
 
 DO $$
 DECLARE
   v_company uuid;
-  v_account uuid;
-  v_l1 uuid;
-  v_l2 uuid;
+  v_src public.bank_statement_lines;
+  v_l1 uuid := gen_random_uuid();
+  v_l2 uuid := gen_random_uuid();
   v_ids uuid[];
   v_before bigint;
   v_after bigint;
   v_matched int;
   v_cat uuid;
-  v_total numeric;
   v_items jsonb;
   v_err text;
 BEGIN
@@ -30,32 +34,27 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Duas linhas unmatched reais da empresa, da mesma conta.
-  SELECT l.financial_account_id,
-         min(l.id) FILTER (WHERE l.rn = 1),
-         min(l.id) FILTER (WHERE l.rn = 2),
-         sum(abs(l.amount))
-    INTO v_account, v_l1, v_l2, v_total
-    FROM (
-      SELECT b.*, row_number() OVER (PARTITION BY b.financial_account_id ORDER BY b.booking_date DESC) AS rn
-        FROM public.bank_statement_lines b
-       WHERE b.company_id = v_company
-         AND b.status = 'unmatched'
-         AND b.matched_transaction_id IS NULL
-         AND b.created_transaction_id IS NULL
-    ) l
-   WHERE l.rn <= 2
-   GROUP BY l.financial_account_id
-  HAVING count(*) = 2
-   LIMIT 1;
+  -- Linha real da empresa, só para herdar extrato e conta.
+  SELECT * INTO v_src FROM public.bank_statement_lines
+   WHERE company_id = v_company
+   ORDER BY booking_date DESC LIMIT 1;
 
-  IF v_l2 IS NULL THEN
-    RAISE NOTICE 'SKIP: não há duas linhas unmatched na mesma conta — nada a provar.';
+  IF v_src.id IS NULL THEN
+    RAISE NOTICE 'SKIP: a empresa não tem nenhuma linha de extrato para clonar.';
     RETURN;
   END IF;
 
+  INSERT INTO public.bank_statement_lines
+    (id, company_id, statement_id, financial_account_id, booking_date, value_date,
+     description, amount, status, line_hash)
+  VALUES
+    (v_l1, v_company, v_src.statement_id, v_src.financial_account_id, CURRENT_DATE, CURRENT_DATE,
+     'PROVA 154 A', -10.00, 'unmatched', 'prova154-' || gen_random_uuid()::text),
+    (v_l2, v_company, v_src.statement_id, v_src.financial_account_id, CURRENT_DATE, CURRENT_DATE,
+     'PROVA 154 B', -15.00, 'unmatched', 'prova154-' || gen_random_uuid()::text);
+
   SELECT id INTO v_cat FROM public.account_categories
-   WHERE code = '10.6.01' AND company_id = v_company LIMIT 1;
+   WHERE company_id = v_company AND code = '10.6.01' LIMIT 1;
 
   SELECT count(*) INTO v_before FROM public.transactions WHERE company_id = v_company;
 
@@ -63,13 +62,13 @@ BEGIN
     'transaction', jsonb_build_object(
       'description', 'PROVA #154 — lançamento atómico',
       'type', 'expense',
-      'amount', v_total,
+      'amount', 25.00,
       'iva_rate', 0,
       'category_id', v_cat,
-      'account_id', v_account,
+      'account_id', v_src.financial_account_id,
       'date', CURRENT_DATE,
       'status', 'paid',
-      'paid_amount', v_total,
+      'paid_amount', 25.00,
       'payment_date', CURRENT_DATE
     ),
     'line_ids', jsonb_build_array(v_l1::text, v_l2::text),
@@ -99,7 +98,7 @@ BEGIN
     RAISE EXCEPTION 'FALHOU (i): só % de 2 linhas ficaram matched na transação criada.', v_matched;
   END IF;
 
-  RAISE NOTICE 'OK (i): 1 transação (%) pela soma de % e as 2 linhas ficaram matched.', v_ids[1], v_total;
+  RAISE NOTICE 'OK (i): 1 transação (%) pela soma de 25,00 € e as 2 linhas ficaram matched.', v_ids[1];
 
   -- (ii) duplo clique: as mesmas linhas já estão conciliadas ----------------
   v_before := v_after;
