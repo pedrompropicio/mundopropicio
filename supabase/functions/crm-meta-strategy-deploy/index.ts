@@ -321,12 +321,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
       if (!audienceLinkId) {
         addLog("warn", `purchase_audience: no primary ad-account link for connection ${strategy.connection_id} — catalog empty`);
       } else {
-        const { data: catRows } = await (supabase as any)
+        const { data: catRows } = await fetchAllPagedQuery((supabase as any)
           .schema("public").from("meta_custom_audiences")
           .select("audience_id_meta, name, event_id, is_primary_purchase, total_records_meta")
           .eq("company_id", companyId)
           .eq("connection_id", audienceLinkId)
-          .eq("enabled", true);
+          .eq("enabled", true));
         audienceCatalog = ((catRows ?? []) as any[])
           .filter((r) => r?.audience_id_meta && r?.name)
           .map((r) => ({
