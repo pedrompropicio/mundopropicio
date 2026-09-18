@@ -10,6 +10,7 @@
  * Sources foram aprovadas pelo utilizador (msg de 2026-04-30).
  */
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { ticketSaleRevenue } from "./ticket-sales-revenue";
 import { keepLatestFeverImportRows } from "./ticket-sales-batch-filter";
 

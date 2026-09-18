@@ -8,6 +8,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { calcTotalWithIva } from "@/lib/iva";
 import { isValidFechoTransaction } from "@/lib/fecho-filters";
 import { normalizePartnerCalcBasis } from "@/lib/partner-calc-basis";

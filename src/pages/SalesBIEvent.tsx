@@ -11,6 +11,7 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { lisbonToday } from "@/lib/date-lisbon";

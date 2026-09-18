@@ -5,6 +5,7 @@ import helpTexts from "@/lib/help-texts";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { formatCurrency } from "@/lib/mock-data";
 import { Plus, Trash2, Check, X, Ticket, Layers, ChevronDown, ChevronRight, Store, CheckCircle2, Lock, Upload, FileText } from "lucide-react";
 import { exportEventTicketingToPDF } from "@/lib/export-event-ticketing-pdf";
