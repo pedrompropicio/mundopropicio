@@ -50,7 +50,7 @@ import {
   type DocLocale,
   type PartnerStatementDocInput,
 } from "./partner-statement-doc.ts";
-import { fetchAllPagedQuery } from "../../../_shared/paging.ts";
+import { fetchAllPagedQuery } from "../paging.ts";
 
 const TRANSFER_IVA_RATE = 23;
 
