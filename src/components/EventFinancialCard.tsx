@@ -40,6 +40,12 @@ interface Props {
   onValueChange?: (value: number) => void;
   /** `events.partner_calc_basis` — semente do critério de IVA (partilhado com o Fecho). */
   partnerCalcBasis?: string | null;
+  /**
+   * VISTA de IVA da página (#207) — uma só para Receitas, Custos e Lucro.
+   * Não é critério: o contratual continua a mandar no Fecho.
+   */
+  viewWithVat: boolean;
+  onViewWithVatChange: (v: boolean) => void;
 }
 
 const MODE_LABEL: Record<CardMode, string> = {
