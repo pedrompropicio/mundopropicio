@@ -478,6 +478,25 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ---- Infraestrutura e identidades: só no global, e obrigatórias ----
+    // Crons, buckets, políticas de storage, extensões, migrações e o
+    // INVENTÁRIO dos segredos do vault (nomes, nunca valores) + contas de
+    // utilizador sem hashes nem tokens. Se qualquer das duas recolhas falhar,
+    // a corrida global fica 'error' (o throw cai no catch de topo).
+    let infraCounts: Record<string, number> | undefined;
+    let identityCounts: Record<string, number> | undefined;
+    if (scope === "global") {
+      const { data: infra, error: infraErr } = await adminClient.rpc("backup_infra_snapshot");
+      if (infraErr) throw new Error(`backup_infra_snapshot: ${infraErr.message}`);
+      bytes += await uploadJson(adminClient, `${folder}/infra.json`, infra);
+      infraCounts = (infra as any)?.contagens ?? undefined;
+
+      const { data: ident, error: identErr } = await adminClient.rpc("backup_identities_snapshot");
+      if (identErr) throw new Error(`backup_identities_snapshot: ${identErr.message}`);
+      bytes += await uploadJson(adminClient, `${folder}/identities.json`, ident);
+      identityCounts = (ident as any)?.contagens ?? undefined;
+    }
+
     const manifestPath = `${folder}/manifest.json`;
     bytes += await uploadJson(adminClient, manifestPath, {
       version: BACKUP_VERSION,
@@ -491,6 +510,21 @@ Deno.serve(async (req) => {
       excluded,
       ...(Object.keys(partsMap).length ? { parts: partsMap } : {}),
       ...(storageManifest ? { storage_manifest: storageManifest, storage_counts: storageCounts } : {}),
+      ...(infraCounts || identityCounts
+        ? {
+            infra: "infra.json",
+            identities: "identities.json",
+            infra_counts: {
+              crons: infraCounts?.crons ?? 0,
+              buckets: infraCounts?.buckets ?? 0,
+              politicas_storage: infraCounts?.politicas_storage ?? 0,
+              migracoes: infraCounts?.migracoes ?? 0,
+              segredos_vault: infraCounts?.segredos_vault ?? 0,
+              utilizadores: identityCounts?.utilizadores ?? 0,
+              identidades: identityCounts?.identidades ?? 0,
+            },
+          }
+        : {}),
       ...(errors.length ? { errors } : {}),
     });
 
