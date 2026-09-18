@@ -61,9 +61,18 @@ function scanFile(file: string): Offence[] {
     if (!WATCHED.has(table)) continue;
 
     // Encadeamento = daqui até ao próximo `.from(` (ou 4000 caracteres).
+    // A janela inclui o que vem ANTES do `.from(` até ao limite do statement,
+    // para reconhecer o embrulho `fetchAllPagedQuery(supabase.from(...))`.
+    const head = src.slice(0, m.index);
+    const begin = Math.max(
+      head.lastIndexOf(";"),
+      head.lastIndexOf(".from("),
+      head.lastIndexOf("{"),
+      head.lastIndexOf("}"),
+    );
     const rest = src.slice(m.index, m.index + 4000);
     const nextFrom = rest.indexOf(".from(", 1);
-    const chain = nextFrom > 0 ? rest.slice(0, nextFrom) : rest;
+    const chain = src.slice(begin + 1, m.index) + (nextFrom > 0 ? rest.slice(0, nextFrom) : rest);
 
     if (WRITES.some((w) => chain.includes(w))) continue;
     if (ESCAPES.some((e) => chain.includes(e))) continue;
