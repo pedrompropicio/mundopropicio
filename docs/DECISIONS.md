@@ -2430,6 +2430,11 @@ Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a 
 
 **Estado:** vigente.
 
+A 18/09 o backup global passou a incluir `infra.json` e `identities.json`. A estrutura da base continua a vir das migrações do repositório; segredos e hashes de palavra-passe nunca entram num ficheiro de backup, por decisão.
+
+
+
+
 
 
 ### D2 — Base única Live (jun/2026)
