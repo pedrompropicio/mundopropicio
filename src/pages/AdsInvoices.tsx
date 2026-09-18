@@ -138,7 +138,7 @@ export default function AdsInvoices() {
     queryClient.invalidateQueries({ queryKey: ["ads-invoices"] });
     queryClient.invalidateQueries({ queryKey: ["ads-invoice-detail"] });
     queryClient.invalidateQueries({ queryKey: ["ads-invoice-transactions"] });
-    queryClient.invalidateQueries({ queryKey: ["ads-invoice-lines-counts"] });
+    queryClient.invalidateQueries({ queryKey: ["ads-invoice-pending-counts"] });
   };
 
   const callApply = async (action: "confirm" | "generate" | "reopen" | "revert", invoiceId: string) => {
