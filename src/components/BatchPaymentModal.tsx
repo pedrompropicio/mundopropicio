@@ -487,6 +487,17 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
           </button>
         </div>
 
+        {partialInvoiceGroups.length > 0 && (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-1">
+            {partialInvoiceGroups.map((g, idx) => (
+              <p key={idx} className="text-xs text-amber-500">
+                ⚠️ Fatura {g.ref} tem {g.open} linhas em aberto; só {g.inBatch} nesta liquidação. A fatura fica parcialmente paga.
+              </p>
+            ))}
+          </div>
+        )}
+
+
         <div className="rounded-lg bg-secondary/50 p-3 space-y-2">
           <p className="text-sm font-medium">
             {computed.length} transação(ões) selecionada(s)
