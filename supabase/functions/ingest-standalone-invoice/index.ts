@@ -208,8 +208,8 @@ Deno.serve(async (req) => {
     supplier_name: body.supplier_name || null, supplier_nif: body.supplier_nif || null,
     invoice_number: body.invoice_number || null, invoice_date: body.invoice_date || null,
     currency: body.currency, original_amount: body.original_amount ?? null,
-    fx_rate: body.fx_rate ?? null, fx_rate_source: body.fx_rate_source || null,
-    total_amount: body.total_amount, iva_amount: body.iva_amount ?? null,
+    fx_rate: fxRate, fx_rate_source: fxRateSource,
+    total_amount: totalAmount, iva_amount: body.iva_amount ?? null,
     notes: body.notes || null, paid_by_partner_id: body.paid_by_partner_id ?? null,
     created_by: body.created_by ?? null, status: 'new',
   }).select('id, storage_path').single()
