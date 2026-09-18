@@ -221,8 +221,12 @@ Deno.serve(async (req) => {
       });
       if (linkErr) throw new Error(`restore_scope_links: ${linkErr.message}`);
       const links = ((linkData as any) ?? []) as Link[];
-      const allowed = descendants(links, roots?.length ? roots : ["events"]);
-      if (!roots?.length) allowed.add("events");
+      const reachable = descendants(links, roots?.length ? roots : ["events"]);
+      if (!roots?.length) reachable.add("events");
+      // Mesmo universo do âmbito em produção: backup_table_inventory menos
+      // backup_excluded_tables, só tabelas com `id` uuid.
+      const allowedUniverse = new Set<string>(((scopeData as any)?.allowed ?? []) as string[]);
+      const allowed = new Set([...reachable].filter((t) => allowedUniverse.has(t)));
 
       const backupIds: Record<string, Set<string>> = {};
       const rowsOf = new Map<string, any[]>();
