@@ -1,6 +1,6 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado 2026-09-18 · Issues #186, #202, #203, #204, #206, #211 · a-seguir #83, #96, #61
+Atualizado 2026-09-18 · Issues #186, #202, #203, #204, #206 · a-seguir #83, #96, #61
 
 ## Em que pé está
 A 16–17/09 fizeram-se correções de UI no ecrã de Transações (tabela do BP sem scroll horizontal; busca por nome fantasia) e fechou-se a **#86** (ver D-ERP75).
@@ -26,14 +26,14 @@ Fase 2 por fazer, na #206: somas e contagens na base (RPCs) em vez do cliente, c
 
 ⚠️ Regra que fica: depois de o agente dizer que acabou, verificar por leitura do código. Nesta tarefa isso apanhou 25 leituras que a guarda deixava passar e 20 imports errados de `paging.ts` nas edge functions que teriam partido o deploy.
 
-## Alertas mortos e vigilância do email — #211 parte 1 (18/09/2026)
+## Alertas mortos e vigilância do email — #211 (fechada 18/09/2026)
 `notify_sync_action_needed()` apontava para o projeto de TEST antigo e falhava em silêncio desde sempre. Não se corrigiu: apagou-se, com os três triggers, porque o Coala (última corrida 28/08) e o Fever (16/08) estão parados por decisão de negócio e o que está vivo — ticketline e bol — já é coberto pelo `check_ticketing_sync_health()`. `run_operacao_sla_escalator()` com o URL corrigido. Zero referências a `ukpuhoynrqobqtzdbysp` em funções e crons.
 
 `check_ticketing_sync_health()` passou a cobrir `coala_sync_config` e `fever_sync_config`, para novembro (abertura das vendas do Coala 2027) não chegar sem vigilância.
 
 `email_send_log` tinha 279 falhas que ninguém viu: 255 da campanha vip-coupon (218 destinatários, 19/08–04/09, evento já passado, sem reenvio), 14 do `bilheteira-sync-digest` para o Pedro, 10 de endereço inválido. Invariantes novos: `emails_falhados_24h` (error, ref 0) e `emails_presos_pending` (warn, ref 214).
 
-Parte 2 ABERTA, à espera de decisão do Pedro: o índice único de `email_unsubscribe_tokens` é `(email, company_id)` mas a `send-transactional-email` procura só por email com `.maybeSingle()` e grava com `onConflict` em email — ao segundo token do mesmo endereço (outra empresa) o envio morre. A decisão é se o cancelamento de subscrição é por endereço ou por empresa. Não trocar `.maybeSingle()` por `limit(1)`: esconde em vez de resolver.
+Parte 2 fechada: o cancelamento de subscrição é POR EMPRESA (decisão do Pedro). `send-transactional-email` exige `companyId` no body, procura e grava o token por `(email, company_id)`, e a supressão é por empresa; `email_unsubscribe_tokens.company_id` é NOT NULL. Provado com dois envios do digest ao Pedro em `sent`. A verificação apanhou dois chamadores que o agente deixou por actualizar e que teriam partido em silêncio: `check_ticketing_sync_health()` (o alerta de bilheteira — cada envio daria 400 assíncrono contado como sucesso) e `request-password-reset` (token sem `company_id` contra NOT NULL). Ambos corrigidos. ⚠️ Regra que fica: quando uma edge function passa a exigir um campo, varrer TODOS os chamadores — incluindo funções SQL com `net.http_post`, que não aparecem numa busca ao código TypeScript.
 
 Fora desta frente, registado: `coala_signup_confirm` com 10 na fila morta (403 `no_matching_sender`, domínio de envio não verificado) → coala-portal, antes de novembro; `fever_sync_config` com `enabled=true` num evento de maio que não corre desde agosto → ticketing-e-receita.
 
@@ -111,7 +111,6 @@ Regras que ficaram:
 
 ## A trabalhar agora
 - **#206 fase 2** — somas e contagens de tabelas grandes na base (RPCs), com ADR próprio. Não subir `db-max-rows`.
-- **#211 parte 2** — decisão pendente: `email_unsubscribe_tokens` é por endereço ou por empresa? Enquanto não decidir, o digest das 08:00 pode falhar de novo.
 - **#186** — diálogo 'Rateio ou Exclusivo?' do modal Nova Transação. Correção em portal publicada a 16/09 — falta confirmação visual do Pedro no diálogo "Custo da tour ou desta cidade?".
 - **Manual — próximos capítulos** (Fecho do evento, BP…), um de cada vez, no mesmo formato de `rateios.md`.
 
@@ -152,7 +151,7 @@ Estrutura: tabela `system_invariants` (`name`, `description`, `severity`, `refer
 
 **Princípio central: o alerta é por desvio face à referência, nunca por número diferente de zero.** Dívida herdada com contagem conhecida não faz barulho todos os dias; o que faz barulho é a contagem **mexer**.
 
-**27 verificações a 18/09/2026.** Não conformes hoje: `rateio_filhas_nao_somam_a_mae` **1/0** (Meta 252466632, #183), `emails_falhados_24h` **1/0** (o digest das 08:00, parte 2 da #211), `pares_fk_duplicada` **37/35** e `tx_paga_sem_linha_de_pagamento` **1.213/1.026** (deriva alheia a esta frente). Referências em Live:
+**27 verificações a 18/09/2026.** Não conformes hoje: `rateio_filhas_nao_somam_a_mae` **1/0** (Meta 252466632, #183), `emails_falhados_24h` **1/0** (a falha das 08:00 de 18/09, corrigida — desce a 0 quando as 24 h passarem), `pares_fk_duplicada` **37/35** e `tx_paga_sem_linha_de_pagamento` **1.213/1.026** (deriva alheia a esta frente). Referências em Live:
 
 - severidade `error`, referência **0**: `BP_DESPESA_EM_L2`, `backup_empresa_em_falta`, `carga_sem_credito`, `coala_map_outra_empresa`, `emails_falhados_24h`, `fecho_confirmado_liquido_retido`, `filha_rateio_com_conta`, `FORECAST_ID_ORFAO`, `fornecedor_iban_duplicado_ativo`, `grupo_fatura_veredicto_desagrupar_por_aplicar`, `tipo_invalido`, `transitoria_partner_advance_sem_linha`, `tx_conta_outra_empresa`, `tx_evento_outra_empresa`, `tx_fornecedor_outra_empresa`, `tx_rubrica_outra_empresa`, `VINCULO_CROSS_EVENTO`
 - severidade `error`, referência **0**: `VINCULO_DESSINCRONIZADO` — 7 vínculos reparados em Live a 14/09 (forecast_id reposto nas 7 transações do Coala Festival Portugal 2026 onde o âncora existia mas o link inverso era NULL). Issue #173 fechada.
