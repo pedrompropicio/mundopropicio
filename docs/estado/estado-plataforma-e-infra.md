@@ -13,6 +13,30 @@ A 18/09 fechou-se a abrangência e a observabilidade do backup diário: uma corr
 
 A 18/09 à tarde limparam-se os alertas mortos (#211, parte 1) e fechou-se a fase 1 da barreira dos 1.000 registos (#206) — o DRE da Mundo Propício passou de 4.122.661,93 € para 6.600.832,36 € de despesas approved|paid, que é o valor certo.
 
+## Barreira dos 1.000 registos — fase 1 (18/09/2026)
+O PostgREST devolve no máximo 1.000 linhas por pedido; qualquer select do cliente sem `.range()` numa tabela acima disso fica truncado em silêncio. A Mundo Propício tem 1.197 transações approved|paid; o DRE, P&L, Resultados, Rentabilidade, Tesouraria, Acerto com Sócios, Pendências e Lista de Eventos liam 1.000. Diferença medida no DRE: 2.478.170,43 €.
+
+319 leituras passaram por `fetchAllPaged` / `fetchAllPagedQuery` de `src/lib/supabase-paging.ts`. Nenhuma agregação foi alterada.
+
+Guarda: `src/lib/postgrest-large-tables.json` (20 tabelas) + `src/lib/__tests__/postgrest-row-limit.test.ts`, que falha o build com ficheiro e linha. A primeira versão do teste deixava passar leituras porque a janela de análise ia até ao `.from(` seguinte e apanhava escapes de outra query — corrigido para analisar só o encadeamento da própria query, e provado a falhar antes de corrigir os ficheiros.
+
+Invariante `tabelas_acima_de_1000` (warn), referência 28. O JSON tem 20; as 8 em falta (`redirect_log`, `consent_log`, `crm.google_click`, `artist_metrics_daily`, `tickets_v2_sync_log`, `crm.meta_ad_insights_daily`, `crm.meta_ad_snapshot`, `crm.meta_adset_snapshot`) entram na fase 2.
+
+Fase 2 por fazer, na #206: somas e contagens na base (RPCs) em vez do cliente, com ADR próprio.
+
+⚠️ Regra que fica: depois de o agente dizer que acabou, verificar por leitura do código. Nesta tarefa isso apanhou 25 leituras que a guarda deixava passar e 20 imports errados de `paging.ts` nas edge functions que teriam partido o deploy.
+
+## Alertas mortos e vigilância do email — #211 parte 1 (18/09/2026)
+`notify_sync_action_needed()` apontava para o projeto de TEST antigo e falhava em silêncio desde sempre. Não se corrigiu: apagou-se, com os três triggers, porque o Coala (última corrida 28/08) e o Fever (16/08) estão parados por decisão de negócio e o que está vivo — ticketline e bol — já é coberto pelo `check_ticketing_sync_health()`. `run_operacao_sla_escalator()` com o URL corrigido. Zero referências a `ukpuhoynrqobqtzdbysp` em funções e crons.
+
+`check_ticketing_sync_health()` passou a cobrir `coala_sync_config` e `fever_sync_config`, para novembro (abertura das vendas do Coala 2027) não chegar sem vigilância.
+
+`email_send_log` tinha 279 falhas que ninguém viu: 255 da campanha vip-coupon (218 destinatários, 19/08–04/09, evento já passado, sem reenvio), 14 do `bilheteira-sync-digest` para o Pedro, 10 de endereço inválido. Invariantes novos: `emails_falhados_24h` (error, ref 0) e `emails_presos_pending` (warn, ref 214).
+
+Parte 2 ABERTA, à espera de decisão do Pedro: o índice único de `email_unsubscribe_tokens` é `(email, company_id)` mas a `send-transactional-email` procura só por email com `.maybeSingle()` e grava com `onConflict` em email — ao segundo token do mesmo endereço (outra empresa) o envio morre. A decisão é se o cancelamento de subscrição é por endereço ou por empresa. Não trocar `.maybeSingle()` por `limit(1)`: esconde em vez de resolver.
+
+Fora desta frente, registado: `coala_signup_confirm` com 10 na fila morta (403 `no_matching_sender`, domínio de envio não verificado) → coala-portal, antes de novembro; `fever_sync_config` com `enabled=true` num evento de maio que não corre desde agosto → ticketing-e-receita.
+
 ## Backup e restauro (18/09/2026)
 
 **Estado verificado em Live — seis corridas com `status='ok'`:**
