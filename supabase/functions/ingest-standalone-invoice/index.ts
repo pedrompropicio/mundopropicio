@@ -29,7 +29,9 @@ const BodySchema = z.object({
   original_amount: z.number().finite().nonnegative().nullish(),
   fx_rate: z.number().finite().positive().nullish(),
   fx_rate_source: z.string().trim().max(100).nullish(),
-  total_amount: z.number().finite().nonnegative(),
+  // (#195) Em moeda estrangeira sem `fx_rate`, o servidor resolve o câmbio pela
+  // data da fatura e CALCULA o total — daí `total_amount` deixar de ser obrigatório.
+  total_amount: z.number().finite().nonnegative().nullish(),
   iva_amount: z.number().finite().nonnegative().nullish(),
   notes: z.string().trim().max(2000).nullish(),
   paid_by_partner_id: z.string().uuid().nullish(),
@@ -38,14 +40,26 @@ const BodySchema = z.object({
   if (Boolean(value.origem) === Boolean(value.conteudo_base64)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Indique exatamente uma origem: origem ou conteudo_base64.' })
   }
-  if (value.currency !== 'EUR') {
-    if (value.original_amount == null) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['original_amount'], message: 'Obrigatório para moeda não EUR.' })
-    if (value.fx_rate == null) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['fx_rate'], message: 'Obrigatório para moeda não EUR.' })
-    if (value.original_amount != null && value.fx_rate != null) {
-      const expected = Math.round(value.original_amount * value.fx_rate * 100) / 100
-      if (Math.abs(expected - value.total_amount) > 0.01) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['total_amount'], message: 'O total EUR não corresponde ao valor original × câmbio.' })
-      }
+  if (value.currency === 'EUR') {
+    if (value.total_amount == null) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['total_amount'], message: 'Obrigatório.' })
+    return
+  }
+  if (value.original_amount == null) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['original_amount'], message: 'Obrigatório para moeda não EUR.' })
+  if (value.fx_rate == null) {
+    // (#195) Resolução automática pelo BCE: exige a data da fatura.
+    if (!value.invoice_date) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['invoice_date'], message: 'Obrigatória em moeda não EUR quando não envia fx_rate — o câmbio é o do BCE da data da fatura.' })
+    }
+    return
+  }
+  if (value.total_amount == null) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['total_amount'], message: 'Obrigatório quando envia fx_rate.' })
+    return
+  }
+  if (value.original_amount != null) {
+    const expected = Math.round(value.original_amount * value.fx_rate * 100) / 100
+    if (Math.abs(expected - value.total_amount) > 0.01) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['total_amount'], message: 'O total EUR não corresponde ao valor original × câmbio.' })
     }
   }
 })
