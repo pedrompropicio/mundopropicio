@@ -565,6 +565,8 @@ Deno.serve(async (req) => {
       table_counts: tables,
       excluded,
       storage_counts: storageCounts,
+      infra_counts: infraCounts,
+      identity_counts: identityCounts,
       errors: errors.length ? errors : undefined,
       rotation_error: rotationError ?? undefined,
     });
