@@ -165,28 +165,34 @@ Deno.serve(async (req) => {
     if (error) return json({ error: `Erro ao ler a transação: ${error.message}` }, 500)
     if (!tx) return json({ error: 'Transação não encontrada.' }, 404)
     if (tx.invoice_group_id) {
-      const { data: siblings, error: se } = await fetchAllPagedQuery(admin
-        .from('transactions')
-        .select(TX_COLS)
-        .eq('invoice_group_id', tx.invoice_group_id)
+      const { data: siblings, error: se } = await fetchAllPagedQuery(
+        admin
+          .from('transactions')
+          .select(TX_COLS)
+          .eq('invoice_group_id', tx.invoice_group_id),
+      )
       if (se) return json({ error: `Erro ao ler o grupo de fatura: ${se.message}` }, 500)
       rows = siblings ?? [tx]
-    )} else {
+    } else {
       rows = [tx]
     }
   } else if (targetGroupId) {
-    const { data, error } = await fetchAllPagedQuery(admin.from('transactions').select(TX_COLS).eq('invoice_group_id', targetGroupId)
+    const { data, error } = await fetchAllPagedQuery(
+      admin.from('transactions').select(TX_COLS).eq('invoice_group_id', targetGroupId),
+    )
     if (error) return json({ error: `Erro ao ler o grupo de fatura: ${error.message}` }, 500)
     rows = data ?? []
     if (rows.length === 0) return json({ error: 'Nenhuma transação neste grupo de fatura.' }, 404)
-  )} else {
+  } else {
     // supplier_id + invoice_ref — igualdade EXACTA, sem normalização tolerante
     // (regra fixa da feature invoice-groups).
-    const { data, error } = await fetchAllPagedQuery(admin
-      .from('transactions')
-      .select(TX_COLS)
-      .eq('supplier_id', targetSupplierId)
-      .eq('invoice_ref', targetInvoiceRef)
+    const { data, error } = await fetchAllPagedQuery(
+      admin
+        .from('transactions')
+        .select(TX_COLS)
+        .eq('supplier_id', targetSupplierId)
+        .eq('invoice_ref', targetInvoiceRef),
+    )
     if (error) return json({ error: `Erro ao procurar as transações: ${error.message}` }, 500)
     rows = data ?? []
     if (rows.length === 0) {
