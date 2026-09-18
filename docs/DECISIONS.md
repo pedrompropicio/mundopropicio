@@ -2508,6 +2508,8 @@ A 18/09 o backup global passou a incluir `infra.json` e `identities.json`. A est
 
 **Estado:** vigente.
 
+**Adenda (18/09/2026, #127) — moeda nas linhas de pagamento:** `transaction_payments.amount` é **sempre EUR**; a moeda de origem passa a ficar na própria linha, com a MESMA convenção de `transactions` e `standalone_invoices` — `currency` (default `'EUR'`, NOT NULL), `original_amount`, `fx_rate`, `fx_rate_source`. CHECK `transaction_payments_fx_required`: `currency = 'EUR' OR (original_amount IS NOT NULL AND fx_rate IS NOT NULL)`. Os modais de pagamento (individual e em lote) gravam o valor liquidado na moeda de origem e o câmbio usado (`dia (manual)` quando o utilizador introduz a taxa do dia, senão `original da transação`); a auditoria "Câmbio do dia" mantém-se. Backfill das 3 linhas legadas em BRL com o câmbio original da transação. Verificação: invariante `pagamento_moeda_sem_cambio` (erro, global, referência 0).
+
 ## D-ERP88 — O câmbio da fatura resolve-se no servidor, pela data da fatura (adenda D-ERP78) (18/09/2026)
 
 **Decisão:** o câmbio de uma fatura avulsa em moeda estrangeira resolve-se **no servidor pela data da fatura** (câmbio de referência do BCE via Frankfurter; se nessa data não houver fixing, o último dia útil anterior). O chamador só envia `fx_rate` quando quer **impor** um valor — e nesse caso ganha o valor explícito, com `total_amount` obrigatório e a validação de ±0,01 €.
