@@ -656,12 +656,12 @@ export default function BankReconciliation() {
     if (!currentStatement) return [] as ReconcileTransaction[];
     return findTransactionsWithoutBankLine(
       txns as ReconcileTransaction[],
-      savedExplainedIds,
+      accountExplainedIds,
       currentStatement.period_from,
       currentStatement.period_to,
       cutoff,
     );
-  }, [txns, savedExplainedIds, currentStatement, cutoff]);
+  }, [txns, accountExplainedIds, currentStatement, cutoff]);
 
 
   // ---- Confronto sistema × banco ------------------------------------------
@@ -1884,7 +1884,7 @@ export default function BankReconciliation() {
                   placeholder="Procurar e adicionar transação"
                   options={[
                     ...(txns as any[])
-                      .filter((t) => !savedExplainedIds.has(t.id) && !manualTxIds.includes(t.id))
+                      .filter((t) => !accountExplainedIds.has(t.id) && !manualTxIds.includes(t.id))
                       .map((t) => ({
                         value: t.id,
                         label: `${formatDatePT(t.payment_date ?? t.date)} · ${formatCurrency(Number(t.paid_amount ?? 0))} · ${t.description}`,
@@ -1892,7 +1892,7 @@ export default function BankReconciliation() {
                       })),
                     // Candidatas de OUTRAS contas: sempre depois e sempre com aviso.
                     ...(crossAccountTxns as any[])
-                      .filter((t) => !savedExplainedIds.has(t.id) && !manualTxIds.includes(t.id))
+                      .filter((t) => !accountExplainedIds.has(t.id) && !manualTxIds.includes(t.id))
                       .map((t) => ({
                         value: t.id,
                         label: `${formatDatePT(t.payment_date ?? t.date)} · ${formatCurrency(Number(t.paid_amount ?? 0))} · ${t.description}`,
