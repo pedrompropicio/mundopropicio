@@ -316,13 +316,17 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       // continuam a vir directamente do motor do Simulador.
       if (scenario === "forecast") {
         const f = revenue?.currentForecast;
+        const pickF = (k: "bilheteira" | "patrocinio" | "ab" | "outros") => {
+          const p = f?.buckets[k];
+          return p ? (withVat ? p.gross : p.net) : null;
+        };
         return {
-          displayValue: f?.total ?? 0,
+          displayValue: f?.total ? (withVat ? f.total.gross : f.total.net) : 0,
           subtotals: [
-            { label: "Bilheteira", value: f?.buckets.bilheteira ?? null },
-            { label: "Patrocínio", value: f?.buckets.patrocinio ?? null },
-            { label: "A&B", value: f?.buckets.ab ?? null },
-            { label: "Outros", value: f?.buckets.outros ?? null },
+            { label: "Bilheteira", value: pickF("bilheteira") },
+            { label: "Patrocínio", value: pickF("patrocinio") },
+            { label: "A&B", value: pickF("ab") },
+            { label: "Outros", value: pickF("outros") },
           ],
           realValue, formalidadeBreakdown: null, phase, modeUsed,
           unavailable: !f || f.total == null,
