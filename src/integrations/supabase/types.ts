@@ -16725,6 +16725,7 @@ export type Database = {
           title: string
         }[]
       }
+      check_ticketing_sync_health: { Args: never; Returns: Json }
       cleanup_old_backups: {
         Args: never
         Returns: {
