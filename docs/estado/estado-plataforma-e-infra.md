@@ -265,4 +265,4 @@ Cada fornecedor desativado tem nota auditável: `[2026-09-12] Duplicado por IBAN
 - `claude/auditoria-company-id-service-role-2026-09-01.md` (incidente da auditoria, 01/09)
 - `docs/procedimentos/PROC-recuperacao-plataforma.md`
 - `.lovable/memory/constraints/lovable-cloud-ddl-workflow.md` (reescrita a 30/08 — o mundo com Test acabou), `edge-fn-esm-sh-supabase-js.md`
-- Issues #86, #202, #203, #204, #83, #96, #61, #57
+- Issues #186, #202, #203, #204, #206, #211, #140, #83, #96, #61, #57
