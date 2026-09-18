@@ -205,7 +205,15 @@ async function syncTourCacheForecasts(
   const [lotsRes, salesRes] = zoneIds.length > 0
     ? await Promise.all([
         supabase.from("event_ticket_lots").select("*").in("zone_id", zoneIds),
-        supabase.from("ticket_sales").select("zone_id, lot_id, quantity, unit_price").in("zone_id", zoneIds),
+        // #205: paginado — o PostgREST corta aos 1.000 registos em silêncio.
+        fetchAllPaged<any>((from, to) =>
+          supabase
+            .from("ticket_sales")
+            .select("zone_id, lot_id, quantity, unit_price")
+            .in("zone_id", zoneIds)
+            .order("id", { ascending: true })
+            .range(from, to),
+        ).then((data) => ({ data })),
       ])
     : [{ data: [] }, { data: [] }];
   const lots = lotsRes.data ?? [];
