@@ -150,3 +150,5 @@ O schema `public` é exposto pelo PostgREST: sem isto a função é chamável po
 **Duas armadilhas.** (1) `REVOKE ... FROM anon, authenticated` **não fecha nada** enquanto existir o grant de `PUBLIC` — eles herdam dele. (2) Neste projeto acontece o inverso: os grants são nominais a `anon`/`authenticated` e o `REVOKE ... FROM PUBLIC` é no-op. Por isso fazem-se **os dois** e confirma-se sempre com `has_function_privilege('anon', …)` e `has_function_privilege('authenticated', …)` — ambos `false`, `service_role` `true`. Nunca pela ACL em bruto.
 
 **Excepção:** funções usadas dentro de políticas de RLS não se revogam (ver D-ERP37).
+
+**Nenhuma função de alerta pode ter `EXCEPTION WHEN OTHERS` mudo.** Se o aviso falha, tem de deixar rasto — linha em tabela, invariante, ou `RAISE` que não seja engolido. Um alerta que falha em silêncio é pior do que não ter alerta, porque dá a sensação de estar coberto. Foi exactamente isto que aconteceu ao `notify_sync_action_needed()`: corpo todo dentro de `EXCEPTION WHEN OTHERS THEN RAISE WARNING`, URL a apontar para o projeto de Test antigo, e ninguém soube durante meses (#211, eliminado a 18/09/2026).
