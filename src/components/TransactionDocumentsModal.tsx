@@ -14,9 +14,16 @@ import { logAudit, getAuditUser } from "@/lib/audit";
 import { formatDatePT } from "@/lib/utils";
 import ExternalLinkAttachment from "@/components/ExternalLinkAttachment";
 import { useBackdropClose } from "@/lib/backdropClose";
-import { revalidateInvoiceGroupAfterDocument, type InvoiceGroupRevalidation } from "@/lib/invoice-group";
+import {
+  revalidateInvoiceGroupAfterDocument,
+  ensureInvoiceGroup,
+  fetchInvoiceSiblings,
+  type InvoiceGroupRevalidation,
+  type InvoiceSibling,
+} from "@/lib/invoice-group";
 import InvoiceGroupRevalidateDialog from "@/components/InvoiceGroupRevalidateDialog";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { formatCurrency } from "@/lib/mock-data";
 
 /** Detect if a ref:// entry actually contains an http(s) URL (clickable external link). */
 function isExternalLinkRef(fileUrl: string): boolean {
@@ -93,6 +100,51 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
       return data;
     },
   });
+
+  /** Contexto de fatura desta transação — decide se o anexo se partilha (#181). */
+  const { data: invoiceCtx } = useQuery({
+    queryKey: ["transaction-invoice-ctx", transactionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("supplier_id, invoice_ref, invoice_group_id")
+        .eq("id", transactionId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+  });
+
+  // Quantas linhas de transaction_documents apontam ao MESMO ficheiro: é isso
+  // que torna um documento "partilhado pela fatura".
+  const docUrls = [
+    ...new Set(
+      (documents ?? [])
+        .map((d: any) => d.file_url as string)
+        .filter((u) => !!u && !u.startsWith("ref://")),
+    ),
+  ];
+  const { data: sharedCounts = {} } = useQuery({
+    queryKey: ["transaction_documents_shared", transactionId, docUrls.slice().sort().join("|")],
+    enabled: docUrls.length > 0,
+    queryFn: async () => {
+      const { data, error } = await fetchAllPagedQuery(
+        supabase.from("transaction_documents").select("file_url, transaction_id").in("file_url", docUrls),
+      );
+      if (error) throw error;
+      const out: Record<string, number> = {};
+      for (const r of (data ?? []) as any[]) out[r.file_url] = (out[r.file_url] ?? 0) + 1;
+      return out;
+    },
+  });
+
+  /** Proposta de propagação para linhas com o mesmo fornecedor + nº de fatura. */
+  const [proposal, setProposal] = useState<{
+    file: File;
+    siblings: InvoiceSibling[];
+    supplierId: string;
+    invoiceRef: string;
+  } | null>(null);
 
   const deleteMutation = useMutation({
     mutationFn: async (doc: { id: string; file_url: string; name: string }) => {
