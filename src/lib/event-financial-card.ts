@@ -108,22 +108,30 @@ export function writeStoredMode(userId: string, eventId: string, kind: "income" 
   try { localStorage.setItem(modeStorageKey(userId, eventId, kind), mode); } catch {/* noop */}
 }
 
-/** localStorage key para preferência de IVA no card (c/IVA vs s/IVA). */
-export function vatStorageKey(userId: string, eventId: string, kind: "income" | "expense"): string {
-  return `ef-card-vat-${userId}-${eventId}-${kind}`;
+/**
+ * localStorage key da VISTA de IVA (c/IVA vs s/IVA).
+ * Desde #207 o âmbito é a PÁGINA (`"page"`) — uma vista para os três cards.
+ */
+export type VatScope = "income" | "expense" | "page";
+
+export function vatStorageKey(userId: string, eventId: string, scope: VatScope): string {
+  return `ef-card-vat-${userId}-${eventId}-${scope}`;
 }
 
-export function readStoredWithVat(userId: string, eventId: string, kind: "income" | "expense"): boolean {
+/** `fallback` = default quando o utilizador ainda não escolheu (critério contratual). */
+export function readStoredWithVat(
+  userId: string, eventId: string, scope: VatScope, fallback = false,
+): boolean {
   try {
-    const v = localStorage.getItem(vatStorageKey(userId, eventId, kind));
+    const v = localStorage.getItem(vatStorageKey(userId, eventId, scope));
     if (v === "1") return true;
     if (v === "0") return false;
   } catch {/* noop */}
-  return false; // default s/IVA (base líquida, comportamento atual)
+  return fallback;
 }
 
-export function writeStoredWithVat(userId: string, eventId: string, kind: "income" | "expense", withVat: boolean) {
-  try { localStorage.setItem(vatStorageKey(userId, eventId, kind), withVat ? "1" : "0"); } catch {/* noop */}
+export function writeStoredWithVat(userId: string, eventId: string, scope: VatScope, withVat: boolean) {
+  try { localStorage.setItem(vatStorageKey(userId, eventId, scope), withVat ? "1" : "0"); } catch {/* noop */}
 }
 
 /** Toggles de composição do custo — default OFF. */
