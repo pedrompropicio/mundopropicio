@@ -144,13 +144,17 @@ async function checkReady(inv: any, lines: any[]): Promise<string | null> {
   if (error) throw new Error(error.message);
   const pending = Number((data ?? [])[0]?.pending_lines ?? 0);
   if (pending > 0) {
+    // `ads_invoice_line_is_pending` é campo calculado do PostgREST (a função recebe a
+    // linha): o critério continua a ser avaliado na base, não aqui.
     const { data: rows } = await admin
       .from("ads_invoice_line")
-      .select("line_no")
+      .select("line_no, ads_invoice_line_is_pending")
       .eq("invoice_id", inv.id)
-      .filter("ads_invoice_line_is_pending", "is", true)
       .order("line_no");
-    const nums = (rows ?? []).map((l: any) => l.line_no).join(", ");
+    const nums = (rows ?? [])
+      .filter((l: any) => l.ads_invoice_line_is_pending)
+      .map((l: any) => l.line_no)
+      .join(", ");
     return `${pending} linha(s) sem evento resolvido${nums ? ` (linhas ${nums})` : ""}`;
   }
   return null;
