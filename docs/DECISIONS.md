@@ -2513,3 +2513,23 @@ A 18/09 o backup global passou a incluir `infra.json` e `identities.json`. A est
 **Consequências:** em moeda ≠ EUR sem `fx_rate`, `invoice_date` é obrigatória; `fx_rate_source` leva a data efectivamente usada (`BCE (frankfurter.app) AAAA-MM-DD`); `total_amount` é calculado (um valor enviado é ignorado). A resolução corre antes de qualquer download/upload — falha do BCE devolve 502 sem gravar linha nem objeto. Helper único: `supabase/functions/_shared/fx-rate.ts` (`getEcbRate`), usado também pelo `fetch-fx-rate`, que passa a aceitar `date` e a devolver `date_used`. GBP suportado. Issue #195.
 
 **Estado:** vigente.
+
+## D-ERP89 — O restauro completo carrega para uma área de sombra, valida, e troca numa única transação (18/09/2026)
+
+**Contexto (#203, apurado em Live a 17-18/09/2026):** a `database-restore` apagava tudo e só depois inseria, em lotes de 500 com `break` no primeiro erro, sem transação e sem retrocesso — um restauro falhado destruía mais do que repunha. Pior: inseria `transactions` antes de `event_forecasts`, e como 637 transações têm `forecast_id` e 262 linhas de BP têm `transaction_id`, o restauro completo **falhava garantidamente**. Nunca tinha sido executado. A protecção de colunas (`fetchLiveColumns`) corria **depois** dos DELETEs, e numa tabela já vazia não aprendia coluna nenhuma. Os triggers ficavam ligados, sob `service_role`.
+
+**Decisão:**
+
+1. **Área de carga `restore_shadow`.** Uma sombra por tabela, criada com `LIKE ... INCLUDING DEFAULTS` (colunas de HOJE, sem constraints, sem triggers, sem índices). As colunas que já não existem são removidas **ali**, contra `information_schema` da sombra — nunca por amostra de linha — e são devolvidas no resultado.
+2. **Validação antes de tocar em produção, toda por SQL** (`restore_shadow_validate`): contagem de cada sombra igual ao manifesto; todos os valores não nulos de cada FK com pai existente (na sombra do pai, ou na tabela de produção quando o pai está fora do backup); e `company_id` diferente do da empresa restaurada é **erro**, nunca filtro silencioso. Falha = relatório, sombras deixadas de pé para inspecção, produção intacta.
+3. **A troca é uma função que É a transação** (`restore_apply_from_shadow`, SECURITY DEFINER, só `service_role`): `SET CONSTRAINTS ALL DEFERRED` → ordem topológica derivada de `pg_constraint` (nunca uma lista à mão) → `DISABLE TRIGGER USER` → `DELETE` por ordem inversa (por `company_id`, nunca `TRUNCATE`) → `INSERT` por ordem topológica com lista de colunas explícita → `SET CONSTRAINTS ALL IMMEDIATE` → `ENABLE TRIGGER USER`.
+4. **As cinco chaves dos dois ciclos são `DEFERRABLE INITIALLY IMMEDIATE`** (`transactions`↔`event_forecasts` e `transactions`↔`ticket_office_settlements`): o comportamento normal não muda, só permitem o adiamento dentro da transação de restauro.
+5. **Toda a corrida de restauro deixa linha em `backup_runs`**, com `scope` `restore` ou `restore_test`.
+
+**Factos de plataforma que a implementação teve de respeitar (não se reinvestigam):** o papel `postgres` não é superuser — `set_config('session_replication_role','replica')` dá permission denied; o que funciona é `ALTER TABLE ... DISABLE/ENABLE TRIGGER USER`. O `pg_safeupdate` está activo, e por isso **todo** `DELETE` dentro destas funções leva `WHERE` (mesmo o da tabela temporária). E o Postgres **não deixa** religar triggers com eventos de trigger adiados pendentes (`55006`): a verificação das FKs vem obrigatoriamente **antes** do `ENABLE TRIGGER USER` — foi o ensaio de retrocesso que o apanhou.
+
+**Ensaio (parte da decisão, não opcional):** backup fresco da siriguella (226 tabelas, 2.736 linhas), fotografia por tabela (contagem + `md5` das linhas), restauro por cima dela própria, segunda fotografia: **zero diferenças** em 227 tabelas / 2.736 linhas. Retrocesso provado com uma sombra corrompida (transação com `forecast_id` inexistente): erro `23503` em `SET CONSTRAINTS ALL IMMEDIATE`, produção idêntica e os 24 triggers de `transactions` religados.
+
+**Não resolve:** `selective-restore` e `surgical-restore` continuam no caminho antigo e passam pela mesma área de carga numa tarefa seguinte; os ficheiros de storage continuam a não ser copiados (#202).
+
+**Estado:** vigente.
