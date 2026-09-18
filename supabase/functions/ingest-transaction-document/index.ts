@@ -414,4 +414,4 @@ Deno.serve(async (req) => {
   })
 })
 
-import { fetchAllPagedQuery } from "../../_shared/paging.ts";
+import { fetchAllPagedQuery } from "../_shared/paging.ts";

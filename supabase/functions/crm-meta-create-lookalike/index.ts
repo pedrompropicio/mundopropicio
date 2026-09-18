@@ -6,7 +6,7 @@
 // Espelha o padrão de crm-meta-upload-creative-v2 / crm-meta-list-audiences.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
-import { fetchAllPagedQuery } from "./paging.ts";
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
 const BUILD_VERSION = "create-lookalike-v1 2026-06-24";
 const GRAPH_API_VERSION = "v21.0";

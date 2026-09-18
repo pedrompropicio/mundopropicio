@@ -4,7 +4,7 @@
 // Limits: 500 transactions OR 200MB output. Sync (no background).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import JSZip from "npm:jszip@3.10.1";
-import { fetchAllPagedQuery } from "../../_shared/paging.ts";
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

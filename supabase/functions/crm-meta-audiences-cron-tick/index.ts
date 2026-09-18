@@ -1,6 +1,6 @@
 // crm-meta-audiences-cron-tick: itera audiences enabled e chama crm-meta-audience-sync para cada
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
-import { fetchAllPagedQuery } from "../../_shared/paging.ts";
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

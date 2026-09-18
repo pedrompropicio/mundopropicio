@@ -9,7 +9,7 @@
 // Dry-run: monta payloads e devolve-os sem chamar a Meta Graph API.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
-import { fetchAllPagedQuery } from "./paging.ts";
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
