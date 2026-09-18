@@ -80,14 +80,44 @@ Corrida global de referência a 18/09: pasta `global/2026-09-18T01-41-20`, 40 ta
 **Continua por fazer, sem mitigação atual:**
 
 - Os ficheiros de storage **nunca são copiados, só listados**, e o manifesto cobre apenas **7 dos 29 buckets** (#202).
-- O restauro completo **não é atómico**: apaga antes de inserir, não tem transação nem retrocesso, e `fetchLiveColumns` corre depois dos `DELETE`s (#203).
 - Os backups vivem dentro do próprio projeto que protegem, têm retenção de 30 dias e podem ser apagados por admin.
 - O PITR da Supabase está por confirmar no dashboard.
+- `selective-restore` e `surgical-restore` continuam no caminho antigo (sem área de carga); passam pelo caminho novo numa tarefa seguinte.
 
 **Resíduos conhecidos — não redescobrir:**
 
 - `tables_not_restored` no resultado do restauro é decorativo: a condição nunca dispara porque a ordem é construída a partir do próprio manifesto.
 - O preview v4 da `database-restore` confirma que todas as partes existem, mas deliberadamente não lhes conta as linhas, para não descarregar 171,61 MB só para pré-visualizar. Os previews das outras duas funções contam e validam as linhas.
+
+### Restauro completo atómico (18/09/2026, #203, D-ERP89)
+
+O `mode: "restore"` da `database-restore` passou a: carregar o backup em sombras
+(`restore_shadow.<schema>__<tabela>`, colunas de hoje, sem constraints/triggers/índices) →
+validar por SQL (contagem de cada sombra = manifesto; todas as FKs, contra a sombra do pai
+ou contra produção quando o pai está fora do backup; `company_id` diferente = **erro**) →
+trocar em produção com `restore_apply_from_shadow`, que É a transação → limpar as sombras e
+deixar linha em `backup_runs` (`scope` `restore` ou `restore_test`). Falha na validação ou
+na troca: produção intacta e sombras deixadas de pé para inspecção.
+
+As cinco chaves dos dois ciclos (`transactions`↔`event_forecasts` e
+`transactions`↔`ticket_office_settlements`) são `DEFERRABLE INITIALLY IMMEDIATE` — são as
+únicas cinco adiáveis em `public` e `crm`; o comportamento normal não muda.
+
+**Ensaio de 18/09 na siriguella:** backup fresco (`siriguella/2026-09-18T19-51-05`, 226
+tabelas, 2.736 linhas), restauro por cima dela própria, fotografia antes/depois por tabela
+(contagem + `md5`): **zero diferenças** em 227 tabelas / 2.736 linhas. Retrocesso provado
+com uma sombra corrompida: `23503` em `SET CONSTRAINTS ALL IMMEDIATE`, siriguella idêntica,
+1.570 transações intactas, 24 triggers de `transactions` religados. `backup_runs` tem as
+três linhas do ensaio (duas `restore_test` `error` das duas falhas reais do caminho, uma
+`restore_test` `ok`).
+
+**Três coisas que a tarefa apanhou e não se reinvestigam:** `postgres` não é superuser
+(`session_replication_role` fora de questão — usa-se `DISABLE/ENABLE TRIGGER USER`);
+`pg_safeupdate` obriga a `WHERE` em todo o `DELETE` destas funções; e o Postgres recusa
+religar triggers com eventos adiados pendentes (`55006`), pelo que a verificação das FKs vem
+**antes** do `ENABLE TRIGGER USER`. Detalhe em
+`.lovable/memory/features/restauro-atomico.md`.
+
 
 ## Manual de Orientação (17/09/2026)
 O que existe:
