@@ -291,14 +291,10 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
           item.remainingFx > 0 &&
           // settling the entire outstanding foreign balance
           Math.abs(item.remainingFx * item.dayRate - settleEur) < 0.02;
-        const newStatus =
-          closesForeign || isFullyPaid(newPaid, baseAmount, ivaRate)
-            ? "paid"
-            : "approved";
-        const finalPaid =
-          newStatus === "paid" && !item.isForeign
-            ? Math.max(newPaid, totalEur)
-            : newPaid;
+        // (#91) paid_amount / status / payment_date são derivados no servidor a
+        // partir de transaction_payments. Aqui só se grava a linha (com
+        // closes_transaction em moeda estrangeira) e os campos não derivados.
+
 
         // Audit entries
         const auditEntries: any[] = [
@@ -348,11 +344,8 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
             new_value: `${formatCurrency(withholding)} (pago ao fornecedor: ${formatCurrency(settleEur - withholding)})`,
           });
         }
-        // Update transaction
+        // Campos NÃO derivados da transação
         const updateData: any = {
-          paid_amount: finalPaid,
-          status: newStatus,
-          payment_date: paymentDate,
           account_id: accountId,
         };
         if (effectiveInvoiceRef) updateData.invoice_ref = effectiveInvoiceRef;
@@ -372,13 +365,10 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
 
         await supabase.from("transaction_audit_log").insert(auditEntries);
 
-        const { error } = await supabase
-          .from("transactions")
-          .update(updateData)
-          .eq("id", item.id);
-        if (error) throw error;
-
-        // Registo individual em transaction_payments (para timeline + ajuste de saldo)
+        // (#91) Linha de pagamento PRIMEIRO: o servidor deriva daqui
+        // paid_amount, status e payment_date. Em moeda estrangeira,
+        // closes_transaction diz que esta linha fecha a dívida mesmo que a soma
+        // em EUR não atinja o bruto original (variação cambial).
         const { error: batchPaymentError } = await (supabase as any).from("transaction_payments").insert({
           transaction_id: item.id,
           amount: settleEur,
@@ -389,8 +379,16 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
           credit_amount: 0,
           notes: notes.trim() || null,
           created_by: userName,
+          closes_transaction: closesForeign,
         });
         if (batchPaymentError) throw batchPaymentError;
+
+        const { error } = await supabase
+          .from("transactions")
+          .update(updateData)
+          .eq("id", item.id);
+        if (error) throw error;
+
 
 
         // Propagate to child splits if parent — proportional to the EUR settled

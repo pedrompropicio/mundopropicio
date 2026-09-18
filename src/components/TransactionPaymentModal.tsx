@@ -408,16 +408,17 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
       // senão essas entradas nunca são gravadas.
 
 
-      const newStatus = isFullyPaid(newPaid, baseAmount, ivaRate) ? "paid" : "approved";
-      const finalPaid = newStatus === "paid" ? Math.max(newPaid, amount) : newPaid;
+      // (#91) paid_amount / status / payment_date são DERIVADOS no servidor a
+      // partir de transaction_payments (trigger sync_paid_amount_from_payments).
+      // Este ecrã grava a LINHA de pagamento; aqui só escreve o que não é derivado.
+      // (o estado é decidido pelo servidor; aqui não se calcula)
       const updateData: any = {
-        paid_amount: finalPaid, status: newStatus,
-        payment_date: format(paymentDate, "yyyy-MM-dd"),
         account_id: isCompensation ? null : accountId || null,
         payment_method: paymentMethod,
         payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() : null,
         payment_reference: paymentMethod !== "transfer" && !isCompensation ? paymentReference.trim() : null,
       };
+
       // Estorno que volta a ser pago: limpar o carimbo de estorno. Enquanto
       // reversed_at ficar preenchido, o BP e os agregados do sócio deixam de
       // contar o custo (filtram reversed_at IS NULL). O motivo do estorno
@@ -467,14 +468,8 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
       }
       await supabase.from("transaction_audit_log").insert(auditEntries);
 
-      const { error } = await supabase
-
-        .from("transactions")
-        .update(updateData)
-        .eq("id", transaction.id);
-      if (error) throw error;
-
-      // Insert individual payment record
+      // (#91) A LINHA de pagamento vem PRIMEIRO: é dela que o servidor deriva
+      // paid_amount, status e payment_date.
       const paymentRecord: any = {
         transaction_id: transaction.id,
         amount: addAmount,
@@ -493,6 +488,15 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
         .from("transaction_payments")
         .insert(paymentRecord);
       if (paymentInsertError) throw paymentInsertError;
+
+      // Campos NÃO derivados da transação (conta, método, entidade, referência,
+      // nº fatura e limpeza do carimbo de estorno).
+      const { error } = await supabase
+        .from("transactions")
+        .update(updateData)
+        .eq("id", transaction.id);
+      if (error) throw error;
+
 
       // Record credit usages
       const userName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
