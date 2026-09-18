@@ -325,3 +325,41 @@ lista "Transações sem movimento no banco", a parcela `contribSystem` da
 decomposição do triângulo e as candidatas da conciliação manual — lista e total
 não podem sair de contas diferentes. Uma leitura das linhas da conta + uma da
 ponte, nunca N por transação.
+
+## Importar: duas travas (2026-09-18)
+
+Incidente: às 19:48 de 18/09 o ficheiro do Santander de 16/09 (abertura
+482.158,14 €) foi importado com a conta **"Cartão Santander Pre-Pago - 0663"**
+(`prepaid_card`, saldo 1.386,68 €) escolhida. O ecrã gravou sem um pio: extrato
++ 3 linhas novas na conta errada (apagadas à mão).
+
+- **Trava 1 — só contas bancárias.** O seletor do importador lista apenas
+  `financial_accounts` com `type = 'bank'`, `is_active` e não ocultas. A
+  gravação (`saveImport`) confirma o tipo **outra vez** contra a lista: um
+  seletor não é uma trava. Mensagem: "Só contas bancárias recebem extrato."
+- **Trava 2 — abertura do ficheiro contra o último saldo conhecido da conta**
+  (`openingCheck` / `openingRefuseMessage`). Referência, em cascata:
+  (a) `closing_balance` do extrato mais recente da conta (maior `period_to`; em
+  empate, `imported_at` mais recente); (b) sem extratos, saldo do sistema à
+  véspera de `period_from` (`account_true_balances_asof`); (c) se o ficheiro
+  cobre a data de corte, a #185 já compara com o implantado — não se duplica.
+  **RECUSA** a gravação (botão desativado, sem forçar) quando
+  `|abertura − referência| > 1.000 €` **E** `> 10% de max(|ref|, |abertura|, 1)`:
+  "A abertura do ficheiro (X €) está a Y € do último saldo conhecido desta conta
+  (Z €, <origem>). Este ficheiro não parece ser desta conta." Abaixo disso nada
+  muda — o aviso da #185 continua informativo.
+  A **referência e a origem mostram-se SEMPRE** no resumo antes de gravar, mesmo
+  quando não recusa.
+
+## Invariante `linha_conciliada_sem_transacao` (2026-09-18)
+
+`bank_statement_lines` com `status = 'matched'` e **nenhuma** ligação —
+`matched_transaction_id`, `created_transaction_id`, `matched_sepa_export_id` e
+`matched_payment_list_id` todos NULL e sem linha em `bank_line_transactions`.
+Severidade `error`, referência **0**, âmbito global; vive em
+`_run_invariant_checks_extra()`. Semeada com 0 casos em Live.
+
+Veio do mesmo dia: a linha `PAG SERVICOS … AUDIOGEST` de 16/09 estava `matched`
+com tudo a NULL — a transação criada pelo "Lançar" de 17/09 desapareceu (modo de
+falha da #154, fechado pela RPC atómica) e ninguém deu por ela. Ligada à mão à
+transação real.

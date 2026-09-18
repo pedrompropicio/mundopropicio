@@ -712,6 +712,8 @@ Decisão — **várias linhas podem dar UM lançamento pela soma.** As dezasseis
 
 Decisão — **a regra aprende-se depois do primeiro lançamento à mão.** O padrão vem pré-preenchido a partir da descrição normalizada, sem a parte variável (o número ou o código de referência no fim), e a pessoa ajusta antes de gravar. As taxas bancárias — comissão de gestão 15,80 €, imposto de selo 0,63 €, e as comissões e impostos de selo dos lotes SEPA — vão para 10.6.01 Taxas e Encargos Bancários, sem evento: é o caso mais simples e o melhor para validar as regras.
 
+**Adenda (18/09/2026):** o importador **recusa** ficheiro que não é da conta: só contas `type = 'bank'` recebem extrato (no seletor e na gravação), e uma abertura do ficheiro a mais de **1.000 €** e **10%** do último saldo conhecido da conta recusa a gravação, sem botão de forçar. A referência e a sua origem mostram-se sempre no resumo antes de gravar. Complementa a invariante `linha_conciliada_sem_transacao`.
+
 Nada foi reimplementado: a transferência usa o mesmo mecanismo do par do `TransferFormModal` (rubrica 10.3, saída e entrada) e as camadas de conciliação ficaram intocadas. Liquidação, listas de pagamento e Recorrentes não são tocados.
 
 **Estado:** vigente.
