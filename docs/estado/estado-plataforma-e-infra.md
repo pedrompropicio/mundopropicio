@@ -36,6 +36,18 @@ Invariantes:
 - `backup_empresa_em_falta` — `error`, referência **0**; empresas ativas e global sem backup `ok` nas últimas 30 horas.
 - `backup_tabelas_excluidas` — `warn`, referência **1**; qualquer alteração no número de exclusões exige revisão.
 
+### Infraestrutura e identidades (complemento, 18/09/2026)
+A corrida global passou a escrever mais dois ficheiros na sua pasta, e ambos são obrigatórios: se qualquer uma das recolhas falhar, a corrida global fica com `status='error'`.
+
+- `infra.json` — 38 crons com o comando completo, 29 buckets com configuração, 156 políticas de storage com a expressão de cada uma, 11 extensões, 603 migrações aplicadas e o inventário dos 14 segredos do vault. Dos segredos guarda-se APENAS nome, descrição e data. Nunca o valor. Os segredos das edge functions nem aparecem, porque não são legíveis por SQL — têm de ser capturados à mão do dashboard.
+- `identities.json` — 42 utilizadores e 42 identidades. Sem `encrypted_password`, sem tokens de confirmação ou recuperação, sem `identity_data`. A recuperação de acesso faz-se por reposição de palavra-passe forçada, e isso é decisão fechada, não limitação.
+
+Funções: `backup_infra_snapshot()` e `backup_identities_snapshot()`, SECURITY DEFINER, com `anon` e `authenticated` a false e `service_role` a true, verificado em Live.
+
+Corrida global de referência a 18/09: pasta `global/2026-09-18T01-41-20`, 40 tabelas, 33.356 linhas, 39,00 MB.
+
+**Regra que fica:** a estrutura da base NÃO se salvaguarda no backup — vive nas migrações do repositório. O backup guarda o que as migrações não conseguem repor: dados, crons, configuração de buckets, identidades e o inventário de segredos.
+
 **Continua por fazer, sem mitigação atual:**
 
 - Os ficheiros de storage **nunca são copiados, só listados**, e o manifesto cobre apenas **7 dos 29 buckets** (#202).
@@ -222,5 +234,6 @@ Cada fornecedor desativado tem nota auditável: `[2026-09-12] Duplicado por IBAN
 - `docs/DECISIONS.md` — D-ERP75, D-ERP79, D-ERP80, D-ERP82
 - `docs/manual/rateios.md` — primeiro capítulo do Manual de Orientação
 - `claude/auditoria-company-id-service-role-2026-09-01.md` (incidente da auditoria, 01/09)
+- `docs/procedimentos/PROC-recuperacao-plataforma.md`
 - `.lovable/memory/constraints/lovable-cloud-ddl-workflow.md` (reescrita a 30/08 — o mundo com Test acabou), `edge-fn-esm-sh-supabase-js.md`
 - Issues #86, #202, #203, #204, #83, #96, #61, #57
