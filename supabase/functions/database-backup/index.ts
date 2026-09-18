@@ -53,7 +53,7 @@ async function listAllFiles(adminClient: any, bucket: string): Promise<any[]> {
  * Nunca guarda a tabela inteira nem o conjunto todo em memória.
  */
 async function dumpTable(
-  client: any,
+  schema: string,
   admin: any,
   folder: string,
   fileKey: string,
@@ -71,8 +71,10 @@ async function dumpTable(
   let count = 0;
   let bytes = 0;
   let from = 0;
-  // páginas pequenas: linhas de 11 kB (ticketline_sync_runs) rebentavam a memória
-  const pageSize = 250;
+  // Página adaptativa: há tabelas (ticketline_sync_runs) cujas linhas dão
+  // ~140 kB de JSON cada — 250 linhas eram 35 MB numa só página e rebentavam
+  // a memória. Se a página sair grande, encolhe-se a página seguinte.
+  let pageSize = 250;
 
   const flush = async () => {
     if (parts.length === 0) return;
@@ -90,20 +92,54 @@ async function dumpTable(
     partIndex += 1;
   };
 
+  // Leitura CRUA (texto) pela API REST: nunca converte a página em objectos
+  // JavaScript — era isso que rebentava a memória em tabelas com linhas
+  // grandes (ticketline_sync_runs, ~11 kB por linha).
+  const restUrl = Deno.env.get("SUPABASE_URL")!;
+  const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  let ordered = true; // ordenação estável por id, quando a tabela tem id
   while (true) {
-    let q = client.from(table).select("*").range(from, from + pageSize - 1);
-    if (filter) q = q.eq(filter.col, filter.val);
-    const { data, error } = await q;
-    if (error) throw new Error(`${table}: ${error.message}`);
-    if (!data || data.length === 0) break;
-    const chunk = JSON.stringify(data).slice(1, -1);
+    const qs = new URLSearchParams({ select: "*" });
+    if (filter) qs.set(filter.col, `eq.${filter.val}`);
+    qs.set("limit", String(pageSize));
+    qs.set("offset", String(from));
+    if (ordered) qs.set("order", "id.asc");
+    const res = await fetch(`${restUrl}/rest/v1/${table}?${qs.toString()}`, {
+      headers: {
+        apikey: svcKey,
+        Authorization: `Bearer ${svcKey}`,
+        "Accept-Profile": schema,
+        Prefer: "count=none",
+      },
+    });
+    if (res.status === 400 && ordered) {
+      await res.text();
+      ordered = false; // tabela sem coluna id
+      continue;
+    }
+    const text = await res.text();
+    if (!res.ok) throw new Error(`${table}: ${res.status} ${text.slice(0, 200)}`);
+    const range = res.headers.get("content-range") ?? "";
+    const span = range.split("/")[0];
+    let pageRows = 0;
+    if (span && span.includes("-")) {
+      const [a, b] = span.split("-").map(Number);
+      if (Number.isFinite(a) && Number.isFinite(b)) pageRows = b - a + 1;
+    }
+    if (text === "[]" || text === "") break;
+    if (pageRows === 0) pageRows = pageSize; // sem content-range: assume página cheia
+    const chunk = text.slice(1, -1);
     if (parts.length > 0) parts.push(",");
     parts.push(chunk);
     partBytes += chunk.length;
-    count += data.length;
-    from += data.length;
+    count += pageRows;
+    from += pageRows;
+    const wasFull = pageRows >= pageSize;
+    if (chunk.length > PART_LIMIT_BYTES && pageSize > 20) {
+      pageSize = Math.max(20, Math.floor(pageSize / 5));
+    }
     if (partBytes >= PART_LIMIT_BYTES) await flush();
-    if (data.length < pageSize) break;
+    if (!wasFull) break;
   }
   await flush();
 
@@ -194,10 +230,6 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const adminClient = createClient(supabaseUrl, serviceRoleKey);
-  const crmClient = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    db: { schema: "crm" as never },
-  });
 
   // Linha em backup_runs desta invocação — o catch de topo TEM de a fechar.
   let runId: string | null = null;
@@ -371,10 +403,9 @@ Deno.serve(async (req) => {
       const t = targets[i];
       const key = t.schema_name === "crm" ? `crm.${t.tbl_name}` : t.tbl_name;
       schemas[key] = t.schema_name;
-      const client = t.schema_name === "crm" ? crmClient : adminClient;
       try {
         const res = await dumpTable(
-          client, adminClient, folder, key, t.tbl_name,
+          t.schema_name, adminClient, folder, key, t.tbl_name,
           scope === "company" ? { col: "company_id", val: companyId! } : undefined,
         );
         tables[key] = res.rows;
