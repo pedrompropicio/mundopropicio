@@ -276,8 +276,8 @@ Deno.serve(async (req) => {
     if (backupScope !== "global") {
       for (const t of ORPHAN_CHILD_TABLES_TO_CLEAR) {
         try {
-          let q = admin.from(t).delete().gte("created_at", "1900-01-01");
-          if (filterCompany) q = admin.from(t).delete().eq("company_id", filterCompany);
+          let q = tableRef(admin, t).delete().gte("created_at", "1900-01-01");
+          if (filterCompany) q = tableRef(admin, t).delete().eq("company_id", filterCompany);
           const { error } = await q;
           results[`__orphan_${t}`] = { deleted: error ? "fail" : (filterCompany ? "company" : "all"), inserted: 0, error: error?.message };
         } catch (e) {
