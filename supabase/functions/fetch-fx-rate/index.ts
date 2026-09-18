@@ -27,6 +27,13 @@ Deno.serve(async (req) => {
       return json({ error: "Unsupported currency. Use BRL, USD, GBP or EUR." }, 400);
     }
 
+    if (date !== undefined) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: "Data inválida — use AAAA-MM-DD." }, 400);
+      if (date > new Date().toISOString().slice(0, 10)) {
+        return json({ error: "Data no futuro — não existe câmbio de referência." }, 400);
+      }
+    }
+
     let result;
     try {
       result = await getEcbRate(from as FxCurrency, date);
