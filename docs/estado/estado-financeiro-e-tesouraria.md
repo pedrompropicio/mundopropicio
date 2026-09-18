@@ -1,12 +1,15 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 2026-09-18 (fecho 2). Issues abertas da frente: #125, #127,
-#134, #135, #181, #189, #190, #195; #196 é transversal (plataforma-e-infra)
-e recebe os resíduos de escrita sem verificação de erro.
-Fechadas a 18/09: #91, #147, #149, #154, #192 (de manhã: #191, #193, #200, #201).
+Atualizado: 2026-09-18 (fecho 3). Issues abertas da frente: #212 (scanner com câmbio da data da fatura, pequena) e as duas de revisão de dados com o Pedro, #134 e #135; #196 é transversal (plataforma-e-infra). Fechadas a 18/09: #91, #125, #127, #147, #149, #154, #181, #189, #190, #192, #195 (de manhã: #191, #193, #200, #201). Nenhuma P1 na frente.
 
 ## Em que pé está
 
+- **Faturas Ads: um critério de "sem evento", contagem na base (18/09, #125, adenda D-ERP31).** `ads_invoice_line_is_pending()` + RPC `ads_invoice_pending_counts(uuid[])`; lista, detalhe e `ads-invoice-apply → checkReady` consomem a mesma função; a leitura de `ads_invoice_line` inteira desapareceu (barreira dos 1.000). Live: 8 faturas, 130 linhas, 0 pendentes.
+- **Documento pertence à fatura, no ecrã como na API (18/09, #181, adenda D-ERP24).** `TransactionDocumentsModal`: um upload, N linhas com o mesmo `file_url`; remoção partilhada; proposta de agrupar quando não há grupo; revalidação já vê as irmãs. Achado colateral corrigido: `ingest-transaction-document` estava com sintaxe partida por uma edição de paginação (#206) — reposta e deployada.
+- **Moeda nas linhas de pagamento (18/09, #127, adenda D-ERP86).** `transaction_payments.amount` é sempre EUR; `currency`/`original_amount`/`fx_rate`/`fx_rate_source` com CHECK `transaction_payments_fx_required`; backfill das 3 linhas BRL; invariante `pagamento_moeda_sem_cambio` a 0; modais gravam, timeline mostra o `CurrencyBadge`.
+- **Pagamento de Serviços exige entidade 5 / referência 9 (#190 fechada — já estava construída nas três camadas: CHECK NOT VALID, `update-transaction`, formulários).** 1 legada tolerada (15,60 €, 23/04).
+- **Conciliação: explicada por conta, não por extrato (18/09, #189) + duas travas no importador + invariante.** `accountExplainedIds` alimenta lista, triângulo e candidatas manuais. Incidente: o extrato Santander de 16/09 foi importado na conta do cartão 0663 sem aviso — apagado à mão; **trava 1** só contas `type='bank'`; **trava 2** abertura do ficheiro contra o último saldo conhecido (>1.000 € e >10% recusa, sem forçar), referência e origem sempre no resumo (adenda D-ERP29). Linha AUDIOGEST −230,16 € de 16/09 estava `matched` sem transação (modo de falha da #154) — ligada à Passmusica; invariante `linha_conciliada_sem_transacao` a 0.
+- **Câmbio da fatura resolvido no servidor (18/09, #195, D-ERP88).** `_shared/fx-rate.ts` (`getEcbRate(from, date?)`, Frankfurter/BCE, GBP); `fetch-fx-rate` aceita `date`; `ingest-standalone-invoice` resolve pela `invoice_date` antes de qualquer upload quando `fx_rate` não vem. Prova: 13/09 (sábado) → fixing de 11/09 (o BCE não teve 12/09), 0,86266. Deploy feito pelo agente.
 - **paid_amount derivado no servidor (18/09, #91 fechada, D-ERP86).** Backfill
   de 625 linhas em `transaction_payments` (8.150.949,58 €,
   `created_by='backfill'`), 2 duplicadas apagadas, 1 corrigida.
@@ -185,7 +188,7 @@ Fechadas a 18/09: #91, #147, #149, #154, #192 (de manhã: #191, #193, #200, #201
   **Porque NÃO se criou conta de trânsito para o food**, apesar de considerado: nos acertos existentes (Acerto EIN, Pgto Mágicos Madrid) os movimentos **não passam pelo banco**; aqui passam — os seis repasses saem mesmo do Santander por SEPA e aparecem no extrato. Numa conta de trânsito a conciliação cairia no aviso **"conta divergente"** da D-ERP35 em cada uma delas. A referência dá o agrupamento sem esse atrito. A estrutura definitiva é o **"perímetro por linha"** de uma issue fechada — remedir antes de manter esta pendência.
   O **revenue share da Ticketline não levou referência de agrupamento**: ali a ponte `bank_line_transactions` já liga as duas transações ao crédito de 135.986,96 € — a estrutura já garante o que a referência daria.
 - **Compensação nunca mexe em saldo — trava na base (12/09, D-ERP43).** Trigger `trg_force_no_account_on_compensation`, `BEFORE INSERT OR UPDATE` em `transactions`: com `payment_method = 'compensation'`, `account_id` é forçado a **NULL**. Não rejeita, **corrige** — compensação com conta nunca é intenção legítima. Motivo: a fórmula do saldo soma por `t.account_id`, logo uma compensação com conta **inflaciona a conta com dinheiro que nunca lá entrou**. **Caso real encontrado e corrigido:** quatro transações do Coala Festival (A&B Bebidas 95.195,75 · Superbock 3.252,03 · Cortesias Marco Caldeira 2.520,00 · Adega Almeirim 2.500,00, total **103.467,78 €**) estavam apontadas ao Banco Santander Totta; só não corromperam o saldo porque têm data de pagamento **07/07/2026**, anterior ao corte de 31/08. Foram limpas. Depois da limpeza o saldo do Santander a 09/09 continua **439.403,92 €** e **não existe nenhuma transação de compensação com conta** na base.
-- **Domínio de `payment_method` fechado (12/09, D-ERP44).** Era **texto livre sem CHECK** nas duas tabelas, com a lista de opções repetida em **quatro ficheiros** (um deles divergente, sem `state_payment`) e "Compensação" a não ser oferecida em lado nenhum da interface — as 20 compensações existentes tinham entrado **por SQL**. Agora: fonte única em `src/lib/payment-methods.ts` (valores, rótulos em pt-PT, ícones, `isPaymentMethod`, `paymentMethodLabel`, `paymentMethodOptions` com `includeStatePayment`/`includeCompensation`); **espelho no servidor** em `update-transaction`; e **CHECK** em `transactions.payment_method` e `transaction_payments.payment_method` a aceitar apenas NULL ou um de `transfer`, `service_payment`, `direct_debit`, `state_payment`, `compensation`. No modal de pagamento "Compensação" passou a ser escolhível e, ao escolhê-la, o bloco da conta desaparece e aparece a nota "Encontro de contas: não há movimento de dinheiro e não altera o saldo de nenhuma conta". Verificado no ecrã a 12/09. Importa porquê: **o trigger compara a string exactamente**, e sem CHECK uma grafia errada desarmava-o em silêncio.
+- **Domínio de `payment_method` fechado (12/09, D-ERP44).** Era **texto livre sem CHECK** nas duas tabelas, com a lista de opções repetida em **quatro ficheiros** (um deles divergente, sem `state_payment`) e "Compensação" a não ser oferecida em lado nenhum da interface — as 20 compensações existentes tinham entrado **por SQL**. Agora: fonte única em `src/lib/payment-methods.ts` (valores, rótulos em pt-PT, ícones, `isPaymentMethod`, `paymentMethodLabel`, `paymentMethodOptions` com `includeStatePayment`/`includeCompensation`); **espelho no servidor** em `update-transaction`; e **CHECK** em `transactions.payment_method` e `transaction_payments.payment_method` a aceitar apenas NULL ou um de `transfer`, `service_payment`, `direct_debit`, `state_payment`, `compensation`. No modal de pagamento "Compensação" passou a ser escolhível e, ao escolhê-la, o bloco da conta desaparece e aparece a nota "Encontro de contas: não há movimento de dinheiro e não altera o saldo de nenhuma conta". Verificado no ecrã a 12/09. Importa porquê: **o trigger compara a string exactamente**, e sem CHECK uma grafia errada desarmaria-o em silêncio.
 - **Rubricas novas no plano de contas:** `10.8.08 Ofertas e Representação` e `2.9.04 Taxas de Meios de Pagamento`.
 - **Conciliação N:1 — tabela-ponte `bank_line_transactions` (12/09, D-ERP41).** Uma linha do banco passa a poder ligar-se a **N transações** nas conciliações manuais. Caso que a originou: o crédito único da Ticketline de **135.986,96 €** (FT 11.1/101) a cobrir duas transações — Revenue Share 4% (88.446,80 + IVA 23% = **108.789,56**, no evento Anitta EDA 2026) e a parcela de 1% (22.111,70 + IVA = **27.197,40**, sem evento). Os lançamentos (`created_transaction_id`) **não** entram na ponte: são a cardinalidade inversa (N linhas → 1 transação, caso das 16 linhas de TPA). Validação: a soma dos `paid_amount` das N tem de bater com `abs(line.amount)` a **±0,01**; **não existe conciliação parcial**.
 - **Documentos no movimento do banco — `bank_line_documents` (12/09, D-ERP41).** Uma fatura que cobre transações de eventos diferentes não pode ser anexada a nenhuma delas: vive na linha do banco e replica-se para `transaction_documents` com `file_url` prefixado **`bank://`**, sem duplicar o ficheiro no storage.
@@ -228,7 +231,7 @@ A conta corrente do sócio ficou fechada a 17/09 (#193). Estado a essa data,
 com o ano de extratos completo:
 
 | | |
-|---|---:|
+|---|---|---:|
 | Folha de vencimentos jan–ago (bruto) | 55.048,38 |
 | Faturas avulsas (63) | 26.591,27 |
 | **Coberto** | **81.639,65** |
@@ -276,7 +279,9 @@ O Santander está implantado (122.363,05 € com corte a 31/08/2026) e o extrato
 15. **Meta 251847116 (2 linhas, 608,26 + 495,81 €) `pending` e fora do BP** —
     só entram depois da importação dos eventos do início do ano; é o único
     grupo com duas linhas em aberto e serve para provar o bloco da #147.
-
+16. **Bombeiros 1.435,36 € (`65ac490d`)** — paga no sistema a 16/09, sem débito no banco até 16/09; é a diferença toda do extrato 16→16/09. Confirmar no extrato seguinte.
+17. **#212** — scanner de faturas avulsas a pedir o câmbio da data da fatura (`fetchSuggestedFxRate` com `date`, GBP em `SUPPORTED_CURRENCIES`); hoje o ecrã e a API dão números diferentes para a mesma fatura.
+18. **Provar `ingest-transaction-document` na primeira ingestão real** do `entrada-dados-erp` (a prova (b)/(c) foi interrompida por tarefa de outro chat).
 
 Já feito e sem pendência: a **FT 11.1/101** está anexada ao movimento do banco de **135.986,96 €** e replicada nas duas transações ligadas.
 
@@ -313,6 +318,10 @@ Não corrigir sem decisão explícita.
 - Menor, sem issue: o OCR das faturas avulsas usa a edge function `extract-camarim-receipt` e o prompt de talões de camarim (bebidas, snacks, IVA 6%), o que pode degradar a extração em faturas de outra natureza.
 
 ## Factos que não se reinvestigam
+
+**O importador de extratos só aceita contas `bank` e recusa ficheiro cuja abertura esteja longe do último saldo conhecido da conta.** Foi preciso importar o Santander no cartão 0663 sem um pio para a trava existir. Sem botão de forçar.
+
+**Os três chats (`financeiro-e-tesouraria`, `plataforma-e-infra`, `entrada-dados-erp`) partilham o mesmo agente Lovable.** Uma `send_message` nova atropela a tarefa em curso do outro chat — foi assim que a prova (b)/(c) da `ingest-transaction-document` ficou a meio. Confirmar `agentFinished` e, se houver commit recente de outro chat, esperar.
 
 **A lista de reembolso é um veículo de pagamento, não uma unidade contabilística.** `reimbursement_note_items` tem quatro colunas úteis — o item **é** uma transação que já existe. Qualquer regra aplica-se por transação, nunca por lista. Das 24 notas, 9 misturam despesas de evento com despesas só da empresa, e uma mistura dois eventos diferentes.
 
