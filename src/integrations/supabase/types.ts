@@ -16630,6 +16630,8 @@ export type Database = {
         }[]
       }
       backup_enqueue_slice: { Args: { p_body: Json }; Returns: number }
+      backup_identities_snapshot: { Args: never; Returns: Json }
+      backup_infra_snapshot: { Args: never; Returns: Json }
       backup_table_inventory: {
         Args: never
         Returns: {
