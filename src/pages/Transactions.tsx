@@ -93,6 +93,8 @@ export default function Transactions() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showTransfer, setShowTransfer] = useState(false);
   const [showBatchPayment, setShowBatchPayment] = useState(false);
+  /** (#147) Liquidação de uma FATURA AGRUPADA completa, vinda do modal individual. */
+  const [groupBatch, setGroupBatch] = useState<{ txs: any[]; ref: string; date?: string } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteWarnings, setDeleteWarnings] = useState<string[]>([]);
   const [deleteChecked, setDeleteChecked] = useState(false);
