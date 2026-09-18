@@ -15,6 +15,7 @@
 // Validação: a soma das zonas tem de bater com a linha TOTAL do relatório; se
 // não bater, o import falha (nunca importa dados errados).
 import type { BolParseResult } from "./bol-report-parser.ts";
+import { fetchAllPagedQuery } from "../../_shared/paging.ts";
 
 const SOURCE = "bol";
 const IVA_RATE = 6;
@@ -158,8 +159,8 @@ export async function runBolImport(input: BolImportInput): Promise<BolImportAudi
 
   // 3. Substituição completa: apagar source='bol' deste evento + conta
   if (allZoneIds.length > 0) {
-    const { data: prior } = await supabase.from("ticket_sales").select("id")
-      .in("zone_id", allZoneIds).eq("financial_account_id", bolAccountId).eq("source", SOURCE);
+    const { data: prior } = await fetchAllPagedQuery(supabase.from("ticket_sales").select("id")
+      .in("zone_id", allZoneIds).eq("financial_account_id", bolAccountId).eq("source", SOURCE));
     audit.prevSalesDeleted = prior?.length || 0;
     const { error: delErr } = await supabase.from("ticket_sales").delete()
       .in("zone_id", allZoneIds).eq("financial_account_id", bolAccountId).eq("source", SOURCE);

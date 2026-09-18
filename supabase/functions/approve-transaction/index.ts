@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { fetchAllPagedQuery } from "../../_shared/paging.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,10 +59,10 @@ Deno.serve(async (req) => {
     // Expand to invoice-group siblings (faturas com várias taxas de IVA)
     let expandedIds = [...uniqueIds];
     {
-      const { data: groupRows } = await adminClient
+      const { data: groupRows } = await fetchAllPagedQuery(adminClient
         .from("transactions")
         .select("id, invoice_group_id")
-        .in("id", uniqueIds);
+        .in("id", uniqueIds));
       const groupKeys = [
         ...new Set(
           (groupRows ?? [])
@@ -70,20 +71,20 @@ Deno.serve(async (req) => {
         ),
       ];
       if (groupKeys.length > 0) {
-        const { data: siblings } = await adminClient
+        const { data: siblings } = await fetchAllPagedQuery(adminClient
           .from("transactions")
           .select("id")
-          .in("invoice_group_id", groupKeys);
+          .in("invoice_group_id", groupKeys));
         const set = new Set<string>(expandedIds);
         for (const s of siblings ?? []) set.add(s.id);
         expandedIds = [...set];
       }
     }
 
-    const { data: transactions, error: fetchError } = await adminClient
+    const { data: transactions, error: fetchError } = await fetchAllPagedQuery(adminClient
       .from("transactions")
       .select("id, status, type, event_id, amount, iva_rate, company_id, forecast_id, parent_transaction_id, is_transitory, exclude_from_result, reversed_at, is_hidden, shared_cost_account_id")
-      .in("id", expandedIds);
+      .in("id", expandedIds));
 
     if (fetchError) {
       return new Response(JSON.stringify({ error: fetchError.message }), {
@@ -222,10 +223,10 @@ Deno.serve(async (req) => {
       const forecastIds = [...new Set(entries.map((t: any) => t.forecast_id as string))];
 
       if (forecastIds.length > 0) {
-        const { data: lines, error: linesErr } = await adminClient
+        const { data: lines, error: linesErr } = await fetchAllPagedQuery(adminClient
           .from("event_forecasts")
           .select("id, description, specification, amount, baseline_amount, company_id")
-          .in("id", forecastIds);
+          .in("id", forecastIds));
         if (linesErr) {
           return new Response(JSON.stringify({ error: linesErr.message }), {
             status: 500,
@@ -434,10 +435,10 @@ Deno.serve(async (req) => {
 
       // Propagate approval to child split transactions
       for (const parentId of approvedIds) {
-        const { data: children } = await adminClient
+        const { data: children } = await fetchAllPagedQuery(adminClient
           .from("transactions")
           .select("id, status, company_id")
-          .eq("parent_transaction_id", parentId);
+          .eq("parent_transaction_id", parentId));
 
         if (children && children.length > 0) {
           const pendingChildren = children.filter((c) => c.status === "pending" || c.status === "overdue");

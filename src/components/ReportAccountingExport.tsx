@@ -15,6 +15,7 @@ import { pt } from "date-fns/locale";
 import { cn, formatDatePT } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function ReportAccountingExport() {
   const queryClient = useQueryClient();
@@ -33,13 +34,13 @@ export default function ReportAccountingExport() {
     queryKey: ["accounting-export-tx", dateFromStr, dateToStr],
     queryFn: async () => {
       if (!dateFromStr || !dateToStr) return [];
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, date, description, amount, type, status, account_id, event_id, supplier_id, category_id, is_transitory, exclude_from_result, events(name), suppliers:suppliers!transactions_supplier_id_fkey(name), account_categories:category_id(code, name), financial_accounts:account_id(name)")
         .gte("date", dateFromStr)
         .lte("date", dateToStr)
         .not("account_id", "is", null)
-        .order("date", { ascending: true });
+        .order("date", { ascending: true }));
       if (error) throw error;
       return data;
     },
@@ -77,11 +78,11 @@ export default function ReportAccountingExport() {
     queryKey: ["accounting-export-receipts", txIds],
     queryFn: async () => {
       if (txIds.length === 0) return {};
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transaction_documents")
         .select("transaction_id, file_url, name")
         .in("transaction_id", txIds)
-        .like("file_url", "%/payment-lists/%");
+        .like("file_url", "%/payment-lists/%"));
       if (error) throw error;
       const map: Record<string, { url: string; name: string }[]> = {};
       (data ?? []).forEach((d: any) => {

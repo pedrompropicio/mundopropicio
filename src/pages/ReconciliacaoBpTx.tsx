@@ -15,6 +15,7 @@ import { Loader2, RefreshCw, Link2, EyeOff, Plus, ArrowRightLeft, AlertTriangle 
 import { toast } from "sonner";
 import { formatInCurrency } from "@/lib/currency";
 import { getL2Id } from "@/lib/bp-category-constraint";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface CatNode { id: string; code: string; name: string; parent_id: string | null; type: string }
 interface Tx {
@@ -127,11 +128,11 @@ export default function ReconciliacaoBpTx() {
       const all = (data ?? []) as Tx[];
       const txs = all.filter((t) => !t.forecast_id);
       if (txs.length === 0) return txs;
-      const { data: linked, error: e2 } = await supabase
+      const { data: linked, error: e2 } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("transaction_id")
         .in("transaction_id", txs.map((t) => t.id))
-        .is("version_id", null);
+        .is("version_id", null));
       if (e2) throw e2;
       const linkedSet = new Set((linked ?? []).map((r: any) => r.transaction_id));
       return txs.filter((t) => !linkedSet.has(t.id));
@@ -145,12 +146,12 @@ export default function ReconciliacaoBpTx() {
     queryFn: async () => {
       const eventIds = Array.from(new Set((txQuery.data ?? []).map((t) => t.event_id)));
       if (eventIds.length === 0) return [];
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, description, amount, category_id, event_id, type, transaction_id")
         .eq("company_id", companyId!)
         .in("event_id", eventIds)
-        .is("version_id", null);
+        .is("version_id", null));
       if (error) throw error;
       return (data ?? []) as Forecast[];
     },

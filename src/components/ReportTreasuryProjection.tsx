@@ -9,6 +9,7 @@ import { addDays, format, startOfDay, addMonths } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchAccountTrueBalancesAsOf } from "@/lib/account-balance-rpc";
 import { excludeRateioChildren, RATEIO_FILTER_COLUMNS } from "@/lib/rateio-children";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function ReportTreasuryProjection() {
   const [horizon, setHorizon] = useState("3");
@@ -52,10 +53,10 @@ export default function ReportTreasuryProjection() {
   const { data: pendingTxs = [] } = useQuery({
     queryKey: ["treasury-pending"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select(`amount, type, due_date, date, status, ${RATEIO_FILTER_COLUMNS}`)
-        .in("status", ["pending", "approved"]);
+        .in("status", ["pending", "approved"]));
       if (error) throw error;
       return data;
     },

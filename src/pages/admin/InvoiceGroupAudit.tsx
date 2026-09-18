@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, RefreshCw, Unlink } from "lucide-react";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface AuditRow {
   id: string;
@@ -72,10 +73,10 @@ export default function InvoiceGroupAudit() {
       const ids = [...new Set(lastRows.map((r) => r.transaction_id))];
       const out: Record<string, TxInfo> = {};
       for (let i = 0; i < ids.length; i += 200) {
-        const { data, error: qErr1 } = await supabase
+        const { data, error: qErr1 } = await fetchAllPagedQuery(supabase
           .from("transactions")
           .select("id, description, amount, date, due_date, supplier_id, suppliers:suppliers!transactions_supplier_id_fkey(name)")
-          .in("id", ids.slice(i, i + 200));
+          .in("id", ids.slice(i, i + 200)));
         if (qErr1) throw qErr1;
         for (const t of (data ?? []) as any[]) out[t.id] = t as TxInfo;
       }

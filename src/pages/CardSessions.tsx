@@ -16,6 +16,7 @@ import {
 } from "@/lib/card-session-helpers";
 import { OpenCardSessionModal } from "@/components/cards/OpenCardSessionModal";
 import { fetchAccountCashAdjustments, computeAccountBalance, buildAccountCutoffs } from "@/lib/account-balance";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function CardSessions() {
   const navigate = useNavigate();
@@ -53,10 +54,10 @@ export default function CardSessions() {
       const ids = cards.map((c: any) => c.id);
       const cutoffs = buildAccountCutoffs(cards as any);
       const [{ data: txs }, adjustments] = await Promise.all([
-        supabase
+        fetchAllPagedQuery(supabase
           .from("transactions")
           .select("account_id, type, paid_amount, date, payment_date")
-          .in("account_id", ids),
+          .in("account_id", ids)),
         fetchAccountCashAdjustments(ids, cutoffs),
       ]);
       const m = new Map<string, number | null>();

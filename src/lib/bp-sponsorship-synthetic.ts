@@ -15,6 +15,7 @@
  * Não persiste nada e não altera nenhum card, linha de BP ou transação.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export interface SponsorshipSegmentBreakdown {
   segmentId: string | null;
@@ -91,12 +92,12 @@ export async function computeSponsorshipSynthetic(
   // ── Bruto pelo IVA das linhas de origem (#207) ───────────────────
   // Taxa por linha 1.2.* ligada ao card; para o que falta captar usa-se a taxa
   // predominante dessas linhas (na falta de linhas, 23%).
-  const { data: sponsorFcs } = await supabase
+  const { data: sponsorFcs } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
     .select("id, iva_rate, account_categories(code)")
     .in("event_id", ids)
     .is("version_id", null)
-    .eq("type", "income");
+    .eq("type", "income"));
   const rateById = new Map<string, number>();
   const rateFreq = new Map<number, number>();
   for (const f of ((sponsorFcs ?? []) as any[])) {

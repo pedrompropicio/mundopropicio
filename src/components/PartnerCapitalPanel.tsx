@@ -15,6 +15,7 @@ import { isCapitalCategoryCode, capitalKindFromCode, type CapitalKind } from "@/
 import { fetchSettlementParticipants } from "@/lib/settlement-participants";
 import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 type CapitalFlow = "event_cash" | "partner_settlement";
 
@@ -75,11 +76,11 @@ export function PartnerCapitalPanel({ eventId, eventStatus, summaryOnly = false 
   const { data: capitalTxs = [] } = useQuery({
     queryKey: ["partner-capital-txs", eventId, subEventIds.join(",")],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, description, amount, date, type, event_id, category_id, account_categories(code, name)")
         .in("event_id", treeIds)
-        .order("date", { ascending: false });
+        .order("date", { ascending: false }));
       if (error) throw error;
       return (data ?? []).filter((t: any) => isCapitalCategoryCode(t.account_categories?.code));
     },
@@ -112,10 +113,10 @@ export function PartnerCapitalPanel({ eventId, eventStatus, summaryOnly = false 
   const { data: opTxs = [] } = useQuery({
     queryKey: ["partner-capital-op-txs", eventId, subEventIds.join(",")],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, amount, paid_amount, type, status, is_transitory, is_hidden, reversed_at, event_settlement_id, account_categories(code)")
-        .in("event_id", treeIds);
+        .in("event_id", treeIds));
       if (error) throw error;
       return (data ?? []).filter(
         (t: any) =>

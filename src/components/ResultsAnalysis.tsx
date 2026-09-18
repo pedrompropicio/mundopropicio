@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 const PESSIMISTIC_FACTOR = 0.8;
 
@@ -117,12 +118,12 @@ export function ResultsAnalysis() {
   const { data: transactionsAll = [] } = useQuery({
     queryKey: ["ra_transactions_v5_no_transitory"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, event_id, type, amount, status, category_id, iva_rate, is_transitory, event_settlement_id")
         .eq("is_hidden", false)
         .eq("is_transitory", false)
-        .in("status", ["paid", "approved"]);
+        .in("status", ["paid", "approved"]));
       if (error) throw error;
       return data;
     },
@@ -183,10 +184,10 @@ export function ResultsAnalysis() {
   const { data: closingCostsRaw = [] } = useQuery({
     queryKey: ["ra_closing_costs"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, event_id, amount")
-        .eq("is_overhead", true).is("version_id", null);
+        .eq("is_overhead", true).is("version_id", null));
       if (error) throw error;
       return data;
     },

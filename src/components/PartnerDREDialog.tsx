@@ -9,6 +9,7 @@ import { FileText, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import {
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   buildDREForExport,
   exportDREToPDF,
   getEffectiveTransactionsForExport,
@@ -68,11 +69,11 @@ export default function PartnerDREDialog({ open, onOpenChange, eventId, eventNam
           { maxRows: 200000 },
         ).then((data) => ({ data, error: null })),
         supabase.from("event_partners").select("*, suppliers(name)"),
-        supabase
+        fetchAllPagedQuery(supabase
           .from("event_forecasts")
           .select("id, event_id, amount, description, category_id, iva_rate, account_categories(code, name)")
           .eq("is_overhead", true)
-          .is("version_id", null),
+          .is("version_id", null)),
       ]);
       if (aggRes.error) throw aggRes.error;
       if (catsRes.error) throw catsRes.error;

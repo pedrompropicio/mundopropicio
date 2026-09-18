@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { Link2, Upload, Trash2, ExternalLink, FileText, Plus, Loader2, Eye } from "lucide-react";
 import { extractDriveFileId } from "@/lib/import-pl-xlsx";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /**
  * Build a Drive embed URL that works inside an iframe (preview mode).
@@ -70,11 +71,11 @@ export default function BPAttachmentModal({ open, onOpenChange, forecast }: Prop
     queryKey: ["bp_attachments_native", forecast.transaction_id],
     queryFn: async () => {
       if (!forecast.transaction_id) return [];
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transaction_documents")
         .select("id, name, file_url, uploaded_at")
         .eq("transaction_id", forecast.transaction_id)
-        .order("uploaded_at", { ascending: false });
+        .order("uploaded_at", { ascending: false }));
       if (error) throw error;
       return (data ?? []).filter((d: any) => !String(d.file_url ?? "").startsWith("ref://"));
     },

@@ -85,6 +85,7 @@ import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { useBPIncomeSynthetic } from "@/hooks/useBPIncomeSynthetic";
 import { SponsorshipTargetsPanel } from "@/components/SponsorshipTargetsPanel";
 import { useCompany } from "@/hooks/useCompany";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
 /**
@@ -106,10 +107,10 @@ function TransactionAttachmentButton({ transactionId, onClick }: { transactionId
   const { data: docs = [] } = useQuery({
     queryKey: ["transaction_documents_summary", transactionId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transaction_documents")
         .select("id, file_url")
-        .eq("transaction_id", transactionId);
+        .eq("transaction_id", transactionId));
       if (error) throw error;
       return data;
     },
@@ -433,11 +434,11 @@ const descRef = useRef<HTMLInputElement>(null);
         .eq("parent_event_id", parentEventId);
       if (sErr) throw sErr;
       const n = (siblings ?? []).length || 1;
-      const { data: oh, error: ohErr } = await supabase
+      const { data: oh, error: ohErr } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("*, account_categories(code, name, type)")
         .eq("event_id", parentEventId)
-        .eq("is_overhead", true).is("version_id", null);
+        .eq("is_overhead", true).is("version_id", null));
       if (ohErr) throw ohErr;
       return (oh ?? []).map((o: any) => ({
         ...o,
@@ -514,9 +515,9 @@ const descRef = useRef<HTMLInputElement>(null);
       const masterForecastIds = forecasts.map((f) => f.id);
       if (masterForecastIds.length === 0) return [] as any[];
       // master_forecast_id is a new column not yet in types, use filter
-      const { data, error } = await (supabase
+      const { data, error } = await (fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("*, account_categories(code, name)") as any)
+        .select("*, account_categories(code, name)") as any))
         .in("master_forecast_id", masterForecastIds);
       if (error) throw error;
       return (data ?? []) as any[];
@@ -549,10 +550,10 @@ const descRef = useRef<HTMLInputElement>(null);
     queryKey: ["event_transactions_actual", eventId, childEventIds],
     queryFn: async () => {
       // Fetch transactions for the event and child events
-      const { data: directTx, error } = await supabase
+      const { data: directTx, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("*, account_categories(code, name, type)")
-        .in("event_id", allRelevantEventIds);
+        .in("event_id", allRelevantEventIds));
       if (error) throw error;
 
       // For sub-events, also fetch the Master transactions so projected/read-only
@@ -560,10 +561,10 @@ const descRef = useRef<HTMLInputElement>(null);
       // (e.g. paid by partner on the Master). Matching remains scoped later so
       // child-native BP lines do not accidentally bind to Master transactions.
       if (parentEventId) {
-        const { data: masterTx, error: masterError } = await supabase
+        const { data: masterTx, error: masterError } = await fetchAllPagedQuery(supabase
           .from("transactions")
           .select("*, account_categories(code, name, type)")
-          .eq("event_id", parentEventId);
+          .eq("event_id", parentEventId));
         if (masterError) throw masterError;
 
         const existingIds = new Set((directTx ?? []).map((t: any) => t.id));
@@ -583,11 +584,11 @@ const descRef = useRef<HTMLInputElement>(null);
       if (childTxIds.length === 0) return directTx ?? [];
 
       const uniqueParentIds = [...new Set(childTxIds)];
-      const { data: parentTx, error: parentError } = await supabase
+      const { data: parentTx, error: parentError } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("*, account_categories(code, name, type)")
         .in("id", uniqueParentIds)
-        .is("event_id", null);
+        .is("event_id", null));
       if (parentError) throw parentError;
 
       // Merge, avoiding duplicates
@@ -612,10 +613,10 @@ const descRef = useRef<HTMLInputElement>(null);
     queryKey: ["bp_native_doc_counts", eventId, transactionIdsForDocs.sort().join(",")],
     queryFn: async () => {
       if (transactionIdsForDocs.length === 0) return {} as Record<string, number>;
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transaction_documents")
         .select("transaction_id, file_url")
-        .in("transaction_id", transactionIdsForDocs);
+        .in("transaction_id", transactionIdsForDocs));
       if (error) throw error;
       const counts: Record<string, number> = {};
       for (const d of data ?? []) {
@@ -716,7 +717,7 @@ const descRef = useRef<HTMLInputElement>(null);
   const { data: parentForecasts = [] } = useQuery({
     queryKey: ["parent_event_forecasts", parentEventId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("*, account_categories(code, name, type)")
         .eq("event_id", parentEventId!)
@@ -724,7 +725,7 @@ const descRef = useRef<HTMLInputElement>(null);
         .eq("is_overhead", false)
         .is("cache_config_id", null)
         .is("version_id", null)
-        .order("created_at");
+        .order("created_at"));
       if (error) throw error;
       return data;
     },
@@ -3558,10 +3559,10 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
       }
       const txIds = matchingTransactions.map((t: any) => t.id);
       // Pre-load existing ref:// docs to avoid duplicates per transaction
-      const { data: existing } = await supabase
+      const { data: existing } = await fetchAllPagedQuery(supabase
         .from("transaction_documents")
         .select("transaction_id, file_url")
-        .in("transaction_id", txIds);
+        .in("transaction_id", txIds));
       const existingByTx = new Map<string, Set<string>>();
       for (const d of existing ?? []) {
         const tid = (d as any).transaction_id as string;

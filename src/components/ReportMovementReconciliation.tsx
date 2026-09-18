@@ -13,6 +13,7 @@ import { cn, formatDatePT } from "@/lib/utils";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function ReportMovementReconciliation() {
   const { isAdmin } = useAuth();
@@ -85,7 +86,7 @@ export default function ReportMovementReconciliation() {
       const results: any[] = [];
       for (let i = 0; i < txIds.length; i += batchSize) {
         const batch = txIds.slice(i, i + batchSize);
-        const { data, error } = await supabase
+        const { data, error } = await fetchAllPagedQuery(supabase
           .from("transaction_audit_log")
           .select("*")
           .in("transaction_id", batch)
@@ -93,7 +94,7 @@ export default function ReportMovementReconciliation() {
             "Conta de pagamento", "Conta de recebimento",
             "Nota de pagamento", "Nota de recebimento",
           ])
-          .order("changed_at", { ascending: true });
+          .order("changed_at", { ascending: true }));
         if (error) throw error;
         if (data) results.push(...data);
       }
@@ -110,10 +111,10 @@ export default function ReportMovementReconciliation() {
       const counts: Record<string, number> = {};
       for (let i = 0; i < txIds.length; i += batchSize) {
         const batch = txIds.slice(i, i + batchSize);
-        const { data, error } = await supabase
+        const { data, error } = await fetchAllPagedQuery(supabase
           .from("transaction_documents")
           .select("transaction_id")
-          .in("transaction_id", batch);
+          .in("transaction_id", batch));
         if (error) throw error;
         data.forEach((d: any) => { counts[d.transaction_id] = (counts[d.transaction_id] || 0) + 1; });
       }

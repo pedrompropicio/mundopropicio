@@ -47,6 +47,7 @@ import { partitionByBpLineRequirement, needsBpLineBeforeApproval } from "@/lib/b
 import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
 import { computeBudgetExcess, type BudgetExcessLine, type BudgetRaise } from "@/lib/bp-budget-excess";
 import QueryErrorState from "@/components/QueryErrorState";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 const extractRefundCodeFromPaymentDescription = (description?: string | null) => {
   const match = description?.match(/^Reembolso\s+(R-\d+\/\d{4})\b/i);
@@ -600,7 +601,7 @@ export default function Transactions() {
       const total = creditUsages.reduce((s, c) => s + Number(c.amount), 0);
       warnings.push(`Tem ${creditUsages.length} uso(s) de crédito de fornecedor (${total.toFixed(2)} €) — serão revertidos`);
     }
-    const { data: children } = await supabase.from("transactions").select("id").eq("parent_transaction_id", id);
+    const { data: children } = await fetchAllPagedQuery(supabase.from("transactions").select("id").eq("parent_transaction_id", id));
     if (children && children.length > 0) {
       warnings.push(`Tem ${children.length} transação(ões) filha(s) de split — serão eliminadas em conjunto`);
     }

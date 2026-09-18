@@ -10,6 +10,7 @@
 // Import de supabase-js SEMPRE npm: (nunca esm.sh).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildPdf, type PdfOp } from "../_shared/simple-pdf.ts";
+import { fetchAllPagedQuery } from "../../_shared/paging.ts";
 
 const VERSION = "v2.4_platform_dup_guard_and_terms";
 
@@ -279,10 +280,10 @@ async function handleGenerate(body: any, userId?: string) {
   if (body.dry_run !== true && (inv.status === "applied" || inv.parent_transaction_id)) {
     let createdRows: any[] = [];
     if (inv.parent_transaction_id) {
-      const { data: created } = await admin
+      const { data: created } = await fetchAllPagedQuery(admin
         .from("transactions")
         .select("id, event_id, amount, description, specification, parent_transaction_id")
-        .or(`id.eq.${inv.parent_transaction_id},parent_transaction_id.eq.${inv.parent_transaction_id}`);
+        .or(`id.eq.${inv.parent_transaction_id},parent_transaction_id.eq.${inv.parent_transaction_id}`));
       createdRows = created ?? [];
     }
     return json({ ok: true, already: true, status: inv.status, transactions: createdRows, version: VERSION });
@@ -424,12 +425,12 @@ async function handleGenerate(body: any, userId?: string) {
 
   // linhas de BP 3.2.01 dos eventos envolvidos (versão ativa)
   const eventIds = Array.from(byEvent.keys());
-  const { data: forecasts } = await admin
+  const { data: forecasts } = await fetchAllPagedQuery(admin
     .from("event_forecasts")
     .select("id, event_id, description, amount")
     .in("event_id", eventIds)
     .eq("category_id", CATEGORY_DIGITAL)
-    .is("version_id", null);
+    .is("version_id", null));
   const pickForecast = (eventId: string): string | null => {
     const cands = (forecasts ?? []).filter((f) => f.event_id === eventId);
     if (cands.length === 0) return null;
@@ -701,10 +702,10 @@ async function handleRevert(body: any, userId?: string) {
   }
   const parentId = inv.parent_transaction_id as string;
 
-  const { data: txs, error: te } = await admin
+  const { data: txs, error: te } = await fetchAllPagedQuery(admin
     .from("transactions")
     .select("id, date, amount, status, paid_amount, settlement_id, card_session_id, event_id, parent_transaction_id")
-    .or(`id.eq.${parentId},parent_transaction_id.eq.${parentId}`);
+    .or(`id.eq.${parentId},parent_transaction_id.eq.${parentId}`));
   if (te) return json({ error: `guarda transactions falhou: ${te.message}` }, 500);
   const ids = (txs ?? []).map((t: any) => t.id);
   if (ids.length === 0) return json({ error: "não há lançamentos a reverter" }, 400);
@@ -721,8 +722,8 @@ async function handleRevert(body: any, userId?: string) {
     if (t.card_session_id) blockers.push({ kind: "sessao_cartao", transaction_id: t.id, card_session_id: t.card_session_id });
   }
 
-  const { data: pays, error: paysErr } = await admin
-    .from("transaction_payments").select("id, transaction_id").in("transaction_id", ids);
+  const { data: pays, error: paysErr } = await fetchAllPagedQuery(admin
+    .from("transaction_payments").select("id, transaction_id").in("transaction_id", ids));
   if (paysErr) return json({ error: `guarda transaction_payments falhou: ${paysErr.message}` }, 500);
   for (const p of pays ?? []) blockers.push({ kind: "parcela_registada", transaction_id: p.transaction_id, payment_id: p.id });
 

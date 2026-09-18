@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { getCacheEffectiveAmount } from "@/lib/cache-pl-helper";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function ReportArtistCache() {
   const [selectedEventId, setSelectedEventId] = useState<string>("");
@@ -120,10 +121,10 @@ export default function ReportArtistCache() {
   const { data: forecasts = [] } = useQuery({
     queryKey: ["cache-report-forecasts", selectedEventId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("*")
-        .eq("event_id", selectedEventId).is("version_id", null);
+        .eq("event_id", selectedEventId).is("version_id", null));
       if (error) throw error;
       return data;
     },

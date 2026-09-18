@@ -14,6 +14,7 @@ import helpTexts from "@/lib/help-texts";
 import { formatCityLabel } from "@/lib/country";
 import { createSubEventInTour } from "@/lib/create-sub-event";
 import { eventFormatLabel, type EventFormat } from "@/lib/event-format";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 type EventType = "simple" | "festival" | "multi_day" | "tour" | "master" | "split";
 
@@ -167,10 +168,10 @@ export default function Events() {
 
       // Resultado real por evento: só paid + approved (pending excluído) e exclui transitórias
       // / exclude_from_result. Alinhado com Cards do EventDetail, Dashboard e Análise de Resultados.
-      const { data: txns, error: qErr3 } = await supabase
+      const { data: txns, error: qErr3 } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("event_id, type, amount, status, is_transitory, exclude_from_result")
-        .in("status", ["approved", "paid"]);
+        .in("status", ["approved", "paid"]));
       if (qErr3) throw qErr3;
 
       const totals: Record<string, { income: number; expense: number }> = {};

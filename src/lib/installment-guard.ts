@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /**
  * COSMÉTICO. Remove o sufixo "(n/m)" do fim da descrição, apenas para
@@ -71,20 +72,20 @@ export async function findExistingInstallments(params: {
 
   // (1) mesmo grupo — filhas de uma transação-mãe conhecida
   if (params.parentTransactionId) {
-    const { data, error } = await supabase
+    const { data, error } = await fetchAllPagedQuery(supabase
       .from("transactions")
       .select(cols)
-      .eq("parent_transaction_id", params.parentTransactionId);
+      .eq("parent_transaction_id", params.parentTransactionId));
     if (error) throw error;
     (data ?? []).forEach(keep);
   }
 
   // (1b) mesmo installment_group_id, quando conhecido
   if (params.installmentGroupId) {
-    const { data, error } = await supabase
+    const { data, error } = await fetchAllPagedQuery(supabase
       .from("transactions")
       .select(cols)
-      .eq("installment_group_id", params.installmentGroupId);
+      .eq("installment_group_id", params.installmentGroupId));
     if (error) throw error;
     (data ?? []).forEach(keep);
   }

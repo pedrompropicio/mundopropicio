@@ -15,6 +15,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { useBackdropClose } from "@/lib/backdropClose";
 
 import { methodLabels, paymentMethodOptions, type PaymentMethod } from "@/lib/payment-methods";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   transaction: any;
@@ -57,11 +58,11 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
   const { data: payments = [], isLoading } = useQuery({
     queryKey: ["transaction_payments", transaction.id],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await fetchAllPagedQuery((supabase as any)
         .from("transaction_payments")
         .select("*, financial_accounts:account_id(name)")
         .eq("transaction_id", transaction.id)
-        .order("payment_date", { ascending: true });
+        .order("payment_date", { ascending: true }));
       if (error) throw error;
       return data;
     },

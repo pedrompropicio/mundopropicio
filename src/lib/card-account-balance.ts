@@ -12,6 +12,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAccountCashAdjustments, computeAccountBalance, buildAccountCutoffs } from "@/lib/account-balance";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /** Devolve `null` quando a conta tem skip_balance_check (sem controlo de saldo). */
 export async function fetchCardAccountBalance(accountId: string): Promise<number | null> {
@@ -21,10 +22,10 @@ export async function fetchCardAccountBalance(accountId: string): Promise<number
       .select("id, initial_balance, initial_balance_date, skip_balance_check")
       .eq("id", accountId)
       .maybeSingle(),
-    supabase
+    fetchAllPagedQuery(supabase
       .from("transactions")
       .select("account_id, type, paid_amount, date, payment_date")
-      .eq("account_id", accountId),
+      .eq("account_id", accountId)),
   ]);
   if (accErr) throw accErr;
   if (txErr) throw txErr;

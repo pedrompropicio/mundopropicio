@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   transactionId: string;
@@ -12,11 +13,11 @@ export function TransactionAuditModal({ transactionId, onClose }: Props) {
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ["audit_log", transactionId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transaction_audit_log")
         .select("*")
         .eq("transaction_id", transactionId)
-        .order("changed_at", { ascending: false });
+        .order("changed_at", { ascending: false }));
       if (error) throw error;
       return data;
     },

@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export type UndoActionType =
   | "adopt_to_master"
@@ -277,10 +278,10 @@ async function revertBPGridBatchSave(r: UndoActionRecord) {
 
   // 1) Delete inserted rows (best-effort; skip those that already have a paid tx)
   if (insertedIds.length > 0) {
-    const { data: linked } = await (supabase as any)
+    const { data: linked } = await fetchAllPagedQuery((supabase as any)
       .from("event_forecasts")
       .select("id, transaction_id")
-      .in("id", insertedIds);
+      .in("id", insertedIds));
     const safeIds = (linked ?? [])
       .filter((r: any) => !r.transaction_id)
       .map((r: any) => r.id);

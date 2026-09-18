@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from "recharts";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function ReportProfitability() {
   const [view, setView] = useState<"artist" | "venue">("artist");
@@ -46,10 +47,10 @@ export default function ReportProfitability() {
   const { data: transactions = [] } = useQuery({
     queryKey: ["profitability-transactions"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("event_id, type, amount, status, is_transitory, exclude_from_result")
-        .in("status", ["approved", "paid"]);
+        .in("status", ["approved", "paid"]));
       if (error) throw error;
       return data;
     },

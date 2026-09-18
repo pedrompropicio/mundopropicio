@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { stringSimilarity } from "@/lib/string-similarity";
 import {
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   OPERATION_KEY_EXAMPLE,
   isValidOperationKey,
   normalizeOperationKeyInput,
@@ -32,10 +33,10 @@ export function OperationKeySelector({ value, onChange, disabled }: Props) {
   const { data: keys = [] } = useQuery({
     queryKey: ["operation-keys-with-counts"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("operation_key")
-        .not("operation_key", "is", null);
+        .not("operation_key", "is", null));
       if (error) throw error;
       const counts = new Map<string, number>();
       (data ?? []).forEach((r: any) => {

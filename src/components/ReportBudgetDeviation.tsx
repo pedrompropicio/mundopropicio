@@ -8,6 +8,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell, ReferenceLine } from "recharts";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { Badge } from "@/components/ui/badge";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function ReportBudgetDeviation() {
   const [selectedEventId, setSelectedEventId] = useState<string>("");
@@ -38,11 +39,11 @@ export default function ReportBudgetDeviation() {
     queryKey: ["budget-dev-forecasts", selectedEventId],
     queryFn: async () => {
       if (!selectedEventId) return [];
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("category_id, amount, type")
         .eq("event_id", selectedEventId)
-        .eq("type", "expense").is("version_id", null);
+        .eq("type", "expense").is("version_id", null));
       if (error) throw error;
       return data;
     },
@@ -53,12 +54,12 @@ export default function ReportBudgetDeviation() {
     queryKey: ["budget-dev-txs", selectedEventId],
     queryFn: async () => {
       if (!selectedEventId) return [];
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("category_id, amount, type, status, is_transitory, exclude_from_result")
         .eq("event_id", selectedEventId)
         .eq("type", "expense")
-        .in("status", ["approved", "paid"]);
+        .in("status", ["approved", "paid"]));
       if (error) throw error;
       return data;
     },

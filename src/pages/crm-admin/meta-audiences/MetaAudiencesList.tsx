@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface DashboardAudience {
   id: string;
@@ -106,7 +107,7 @@ export default function MetaAudiencesList() {
   const { data: filtersById } = useQuery({
     queryKey: ["meta-audiences-filters"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("meta_custom_audiences" as any).select("id, filters");
+      const { data, error } = await fetchAllPagedQuery(supabase.from("meta_custom_audiences" as any).select("id, filters"));
       if (error) throw error;
       const m: Record<string, any> = {};
       for (const r of (data ?? []) as any[]) m[r.id] = r.filters;

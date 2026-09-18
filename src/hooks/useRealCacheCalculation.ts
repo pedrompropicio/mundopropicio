@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { resolvePercentageFromTiers } from "@/lib/cache-pl-helper";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export interface DeductionDetail {
   categoryId: string;
@@ -63,7 +64,7 @@ export function useRealCacheCalculation(
       if (zoneIds.length === 0) return { zones: zones ?? [], sales: [], lots: [] };
 
       const [salesRes, lotsRes] = await Promise.all([
-        supabase.from("ticket_sales" as any).select("*").in("zone_id", zoneIds),
+        fetchAllPagedQuery(supabase.from("ticket_sales" as any).select("*").in("zone_id", zoneIds)),
         supabase.from("event_ticket_lots").select("*").in("zone_id", zoneIds),
       ]);
 
@@ -82,13 +83,13 @@ export function useRealCacheCalculation(
   const { data: realExpenses = [] } = useQuery({
     queryKey: ["real-expense-transactions-v2", allEventIds.join(",")],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, event_id, type, category_id, amount, iva_rate, status, is_transitory, exclude_from_result, parent_transaction_id, split_percentage")
         .in("event_id", allEventIds)
         .eq("type", "expense")
         .eq("is_hidden", false)
-        .in("status", ["approved", "paid"]);
+        .in("status", ["approved", "paid"]));
       if (error) throw error;
       return (data ?? []).filter(
         (t: any) =>

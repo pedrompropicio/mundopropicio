@@ -14,6 +14,7 @@
 // `revalidateInvoiceGroupAfterDocument`.
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { fetchAllPagedQuery } from "../../_shared/paging.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -165,24 +166,24 @@ Deno.serve(async (req) => {
     if (error) return json({ error: `Erro ao ler a transação: ${error.message}` }, 500)
     if (!tx) return json({ error: 'Transação não encontrada.' }, 404)
     if (tx.invoice_group_id) {
-      const { data: siblings, error: se } = await admin
+      const { data: siblings, error: se } = await fetchAllPagedQuery(admin
         .from('transactions')
         .select(TX_COLS)
         .eq('invoice_group_id', tx.invoice_group_id)
       if (se) return json({ error: `Erro ao ler o grupo de fatura: ${se.message}` }, 500)
       rows = siblings ?? [tx]
-    } else {
+    )} else {
       rows = [tx]
     }
   } else if (targetGroupId) {
-    const { data, error } = await admin.from('transactions').select(TX_COLS).eq('invoice_group_id', targetGroupId)
+    const { data, error } = await fetchAllPagedQuery(admin.from('transactions').select(TX_COLS).eq('invoice_group_id', targetGroupId)
     if (error) return json({ error: `Erro ao ler o grupo de fatura: ${error.message}` }, 500)
     rows = data ?? []
     if (rows.length === 0) return json({ error: 'Nenhuma transação neste grupo de fatura.' }, 404)
-  } else {
+  )} else {
     // supplier_id + invoice_ref — igualdade EXACTA, sem normalização tolerante
     // (regra fixa da feature invoice-groups).
-    const { data, error } = await admin
+    const { data, error } = await fetchAllPagedQuery(admin
       .from('transactions')
       .select(TX_COLS)
       .eq('supplier_id', targetSupplierId)
@@ -210,7 +211,7 @@ Deno.serve(async (req) => {
       // também a proformas, porque aqui há confirmação).
       groupIdToAssign = crypto.randomUUID()
     }
-  }
+  )}
 
   // Mesma empresa, obrigatoriamente.
   const companies = Array.from(new Set(rows.map((r) => r.company_id)))
@@ -311,14 +312,14 @@ Deno.serve(async (req) => {
   // Já existe uma linha com o MESMO nome e o MESMO tamanho de ficheiro em
   // qualquer das N transações? Então reutiliza-se o file_url e criam-se só as
   // linhas em falta, sem subir um segundo objeto.
-  const { data: existingDocs, error: exErr } = await admin
+  const { data: existingDocs, error: exErr } = await fetchAllPagedQuery(admin
     .from('transaction_documents')
     .select('id, transaction_id, name, file_url')
     .in('transaction_id', transactionIds)
     .eq('name', nome)
   if (exErr) return json({ error: `Erro ao verificar documentos existentes: ${exErr.message}` }, 500)
 
-  async function storageSize(path: string): Promise<number | null> {
+  async function storageSize(path: string)): Promise<number | null> {
     if (!path || path.startsWith('ref://') || path.includes('://')) return null
     const idx = path.lastIndexOf('/')
     const folder = idx > 0 ? path.slice(0, idx) : ''

@@ -60,6 +60,7 @@ import {
 } from "@/lib/payment-methods";
 import SharedCostFields, { computeThirdPartyNet, type ThirdPartyShareMode } from "@/components/SharedCostFields";
 import { calcWithIva } from "@/lib/utils";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface TransactionForm {
   description: string;
@@ -696,10 +697,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const { data: eventForecasts = [] } = useQuery({
     queryKey: ["event_forecasts_budget", form.event_id, forecastEventIds],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, event_id, type, category_id, amount, status, description, iva_rate, specification, ordering_partner_id, paying_partner_id")
-        .in("event_id", forecastEventIds).is("version_id", null);
+        .in("event_id", forecastEventIds).is("version_id", null));
       if (error) throw error;
       return data;
     },
@@ -709,10 +710,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const { data: eventTransactions = [] } = useQuery({
     queryKey: ["event_transactions_budget", form.event_id, forecastEventIds],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, type, category_id, amount, event_id, forecast_id, is_transitory, exclude_from_result, reversed_at, is_hidden, shared_cost_account_id")
-        .in("event_id", forecastEventIds);
+        .in("event_id", forecastEventIds));
       if (error) throw error;
       return data;
     },
@@ -727,20 +728,20 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     queryFn: async () => {
       // Fase 2: TXs vinculadas a linhas do Master contam por transactions.forecast_id
       // (N por linha) em UNIÃO com a âncora legada event_forecasts.transaction_id.
-      const { data: fcs, error } = await supabase
+      const { data: fcs, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, transaction_id")
         .eq("event_id", effectiveEventId!)
-        .is("version_id", null);
+        .is("version_id", null));
       if (error) throw error;
       const ids = new Set<string>();
       for (const r of fcs ?? []) if ((r as any).transaction_id) ids.add((r as any).transaction_id);
       const forecastIds = (fcs ?? []).map((r: any) => r.id);
       if (forecastIds.length > 0) {
-        const { data: linkedTx, error: e2 } = await supabase
+        const { data: linkedTx, error: e2 } = await fetchAllPagedQuery(supabase
           .from("transactions")
           .select("id")
-          .in("forecast_id", forecastIds as any);
+          .in("forecast_id", forecastIds as any));
         if (e2) throw e2;
         for (const t of linkedTx ?? []) ids.add((t as any).id);
       }
@@ -1087,10 +1088,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     queryKey: ["split-parent-bp-forecasts", splitParentEventIds],
     queryFn: async () => {
       if (splitParentEventIds.length === 0) return [];
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("event_id, type, category_id, amount")
-        .in("event_id", splitParentEventIds).is("version_id", null);
+        .in("event_id", splitParentEventIds).is("version_id", null));
       if (error) throw error;
       return data;
     },
@@ -1101,10 +1102,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     queryKey: ["split-bp-forecasts", splitEventIds],
     queryFn: async () => {
       if (splitEventIds.length === 0) return [];
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, event_id, type, category_id, amount, description, status")
-        .in("event_id", splitEventIds).is("version_id", null);
+        .in("event_id", splitEventIds).is("version_id", null));
       if (error) throw error;
       return data;
     },
@@ -1115,10 +1116,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     queryKey: ["split-bp-transactions", splitEventIds],
     queryFn: async () => {
       if (splitEventIds.length === 0) return [];
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, event_id, type, category_id, amount, parent_transaction_id, forecast_id, is_transitory, exclude_from_result, reversed_at, is_hidden, shared_cost_account_id")
-        .in("event_id", splitEventIds);
+        .in("event_id", splitEventIds));
       if (error) throw error;
       return data;
     },
@@ -1138,13 +1139,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       if (subErr) throw subErr;
       const subIds = (subEvents ?? []).map((e: any) => e.id);
       if (subIds.length === 0) return 0;
-      const { data: childTxs, error: childErr } = await supabase
+      const { data: childTxs, error: childErr } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("amount, parent_transaction_id")
         .in("event_id", subIds)
         .eq("category_id", form.category_id)
         .eq("type", form.type)
-        .not("parent_transaction_id", "is", null);
+        .not("parent_transaction_id", "is", null));
       if (childErr) throw childErr;
       return (childTxs ?? []).reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
     },
@@ -2310,11 +2311,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       const refRaw = form.invoice_ref.trim();
       if (form.supplier_id && refRaw) {
         const amount = parseFloat(form.amount) || 0;
-        const { data: sameRef } = await supabase
+        const { data: sameRef } = await fetchAllPagedQuery(supabase
           .from("transactions")
           .select("id, description, amount, status, due_date, supplier_id, event_id, specification, invoice_ref")
           .eq("supplier_id", form.supplier_id)
-          .eq("invoice_ref", refRaw);
+          .eq("invoice_ref", refRaw));
         const hits = (sameRef ?? []).filter(
           (m: any) => Math.abs(Number(m.amount ?? 0) - amount) < 0.01,
         );

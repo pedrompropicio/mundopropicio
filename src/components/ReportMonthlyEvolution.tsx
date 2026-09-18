@@ -7,6 +7,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { excludeRateioChildren, RATEIO_FILTER_COLUMNS } from "@/lib/rateio-children";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 const MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -18,12 +19,12 @@ export default function ReportMonthlyEvolution() {
   const { data: transactions = [] } = useQuery({
     queryKey: ["monthly-evolution-txs", year],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select(`type, amount, paid_amount, status, date, is_transitory, exclude_from_result, ${RATEIO_FILTER_COLUMNS}`)
         .in("status", ["approved", "paid"])
         .gte("date", `${year}-01-01`)
-        .lte("date", `${year}-12-31`);
+        .lte("date", `${year}-12-31`));
       if (error) throw error;
       return data;
     },

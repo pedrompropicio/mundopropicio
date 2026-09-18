@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /**
  * Quando há um cenário selecionado num relatório, carrega TODOS os forecasts
@@ -42,10 +43,10 @@ export function useScenarioForecasts(versionId: string | null | undefined) {
       const ids = (family ?? []).map((v: any) => v.id);
       if (ids.length === 0) return [];
 
-      const { data: forecasts, error: fErr } = await supabase
+      const { data: forecasts, error: fErr } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("*")
-        .in("version_id", ids);
+        .in("version_id", ids));
       if (fErr) throw fErr;
 
       return forecasts ?? [];

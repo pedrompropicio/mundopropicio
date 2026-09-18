@@ -24,6 +24,7 @@ import { QuickAdvanceModal } from "@/components/QuickAdvanceModal";
 import { computeSettlement } from "@/lib/ticket-office-settlement-calc";
 import { roundCents } from "@/lib/iva";
 import { PAYMENT_METHOD } from "@/lib/payment-methods";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
 interface Props {
@@ -98,10 +99,10 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setSettlementDate(existingSettlement.settlement_date ?? new Date().toISOString().slice(0, 10));
       // Detect credit status from existing transfer transaction
       (async () => {
-        const { data } = await (supabase as any)
+        const { data } = await fetchAllPagedQuery((supabase as any)
           .from("transactions")
           .select("id")
-          .eq("settlement_id", existingSettlement.id);
+          .eq("settlement_id", existingSettlement.id));
         setSelectedTxnIds(new Set((data || []).map((t: any) => t.id)));
         if (existingSettlement.transfer_transaction_id) {
           const { data: tt } = await (supabase as any)
@@ -228,20 +229,20 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       const cols = "id, description, amount, iva_rate, paid_amount, status, account_id, supplier_id, category_id, event_id, settlement_id, parent_transaction_id, split_amount, split_percentage, suppliers:suppliers!transactions_supplier_id_fkey(name), account_categories(name, code)";
 
       // 1) Direct expenses for this event (Splits also live here with parent_transaction_id set)
-      const { data: direct } = await (supabase as any)
+      const { data: direct } = await fetchAllPagedQuery((supabase as any)
         .from("transactions")
         .select(cols)
         .eq("event_id", eventId)
         .eq("type", "expense")
-        .or(settlementFilter);
+        .or(settlementFilter));
 
       // 2) Master transactions whose Splits reference this event (Master has event_id NULL)
-      const { data: splits } = await (supabase as any)
+      const { data: splits } = await fetchAllPagedQuery((supabase as any)
         .from("transactions")
         .select("id, amount, iva_rate, parent_transaction_id")
         .eq("event_id", eventId)
         .eq("type", "expense")
-        .not("parent_transaction_id", "is", null);
+        .not("parent_transaction_id", "is", null));
       const masterIds = Array.from(new Set((splits || []).map((s: any) => s.parent_transaction_id).filter(Boolean)));
       // Parte deste evento em cada Master de rateio (soma dos filhos deste evento, c/IVA).
       const eventShareByMaster = new Map<string, number>();
@@ -255,12 +256,12 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       });
       let masterTxns: any[] = [];
       if (masterIds.length > 0) {
-        const { data } = await (supabase as any)
+        const { data } = await fetchAllPagedQuery((supabase as any)
           .from("transactions")
           .select(cols)
           .in("id", masterIds)
           .eq("type", "expense")
-          .or(settlementFilter);
+          .or(settlementFilter));
         masterTxns = data || [];
       }
 
@@ -575,10 +576,10 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         // For 'paid' update we need each txn's amount as paid_amount
         if (confirm) {
           // Estorno que volta a ser pago (#149, D-ERP82): limpar o carimbo.
-          const { data: stamped, error: stampErr } = await (supabase as any)
+          const { data: stamped, error: stampErr } = await fetchAllPagedQuery((supabase as any)
             .from("transactions")
             .select("id, status, reversed_at")
-            .in("id", ids);
+            .in("id", ids));
           if (stampErr) throw stampErr;
           const stampMap = new Map<string, any>((stamped || []).map((s: any) => [s.id, s]));
           const changedBy = user?.user_metadata?.full_name ?? user?.email ?? "sistema";

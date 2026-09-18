@@ -24,6 +24,7 @@ import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
 import { computeBudgetExcess, type BudgetExcessLine } from "@/lib/bp-budget-excess";
 import { partitionByBpLineRequirement } from "@/lib/bp-line-required";
 import {
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -101,11 +102,11 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
     queryKey: ["reimbursement-item-docs", transactionIds],
     queryFn: async () => {
       if (transactionIds.length === 0) return [];
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transaction_documents")
         .select("transaction_id, is_accounting")
         .in("transaction_id", transactionIds)
-        .eq("is_accounting", true);
+        .eq("is_accounting", true));
       if (error) throw error;
       return data;
     },

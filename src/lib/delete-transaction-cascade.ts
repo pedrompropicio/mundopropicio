@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { moveToTrash } from "@/lib/trash";
 import { logAudit, getAuditUser } from "@/lib/audit";
 import { expandTransactionIdsByInvoiceGroup } from "@/lib/invoice-group";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface DeleteCascadeParams {
   transactionId: string;
@@ -52,18 +53,18 @@ export async function deleteTransactionCascade({
     : [transactionId];
 
   // 1) Snapshot root transactions
-  const { data: rootTxs } = await supabase
+  const { data: rootTxs } = await fetchAllPagedQuery(supabase
     .from("transactions")
     .select("*")
-    .in("id", rootIds);
+    .in("id", rootIds));
 
   const primaryTx = (rootTxs ?? []).find((t: any) => t.id === transactionId) ?? null;
 
   // 2) Snapshot children (split) of every root
-  const { data: childTxs } = await supabase
+  const { data: childTxs } = await fetchAllPagedQuery(supabase
     .from("transactions")
     .select("*")
-    .in("parent_transaction_id", rootIds);
+    .in("parent_transaction_id", rootIds));
 
   const allIds = [
     ...rootIds,

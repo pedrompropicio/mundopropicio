@@ -2,6 +2,7 @@
 // IA classificadora Gemini para TX em "0.0.99 A Classificar" (Coala apenas).
 // POST { tx_ids?: string[], filter?: { onlyUnclassified, limit }, mode: "preview"|"apply" }
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { fetchAllPagedQuery } from "../../_shared/paging.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -112,10 +113,10 @@ Deno.serve(async (req) => {
       .join("\n\n");
 
     // Load TX details
-    const { data: txs } = await admin
+    const { data: txs } = await fetchAllPagedQuery(admin
       .from("transactions")
       .select("id, description, amount, supplier_id, event_id, category_id, company_id, type")
-      .in("id", txIds);
+      .in("id", txIds));
     const txList = (txs ?? []) as any[];
 
     const supplierIds = Array.from(new Set(txList.map((t) => t.supplier_id).filter(Boolean)));
@@ -131,11 +132,11 @@ Deno.serve(async (req) => {
     const evById = new Map((evRows ?? []).map((e: any) => [e.id, e.name]));
 
     // BP linked (event_forecasts.transaction_id = tx.id)
-    const { data: bpLinks } = await admin
+    const { data: bpLinks } = await fetchAllPagedQuery(admin
       .from("event_forecasts")
       .select("transaction_id, category_id, description")
       .in("transaction_id", txIds)
-      .is("version_id", null);
+      .is("version_id", null));
     const bpByTx = new Map((bpLinks ?? []).map((b: any) => [b.transaction_id, b]));
 
     const results: any[] = [];

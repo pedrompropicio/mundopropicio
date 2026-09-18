@@ -25,6 +25,7 @@ import {
 
 
 import {
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   PAYMENT_METHOD_LABELS,
   paymentMethodOptions,
   type PaymentMethod,
@@ -157,10 +158,10 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
   const { data: childTransactions = [] } = useQuery({
     queryKey: ["child-transactions", transaction.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, split_percentage, split_amount, amount, iva_rate, paid_amount, status")
-        .eq("parent_transaction_id", transaction.id);
+        .eq("parent_transaction_id", transaction.id));
       if (error) throw error;
       return data;
     },
@@ -177,12 +178,12 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
     queryKey: ["invoice-group-open-siblings", invoiceGroupId, transaction.id],
     enabled: !!invoiceGroupId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("*")
         .eq("invoice_group_id", invoiceGroupId as string)
         .neq("id", transaction.id)
-        .neq("status", "paid");
+        .neq("status", "paid"));
       if (error) throw error;
       return data ?? [];
     },
@@ -536,11 +537,11 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
       //    própria data e conta. Liquidar o pai não faz sair o dinheiro das parcelas seguintes,
       //    por isso a propagação NUNCA lhes toca — cada uma liquida-se quando for paga.
       const settleChildrenOf = async (parentId: string, originLabel: string) => {
-        const { data: kids } = await (supabase as any)
+        const { data: kids } = await fetchAllPagedQuery((supabase as any)
           .from("transactions")
           .select("*")
           .eq("parent_transaction_id", parentId)
-          .not("split_percentage", "is", null);
+          .not("split_percentage", "is", null));
 
         const who = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
         for (const child of kids ?? []) {

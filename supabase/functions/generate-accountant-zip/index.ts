@@ -4,6 +4,7 @@
 // Limits: 500 transactions OR 200MB output. Sync (no background).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import JSZip from "npm:jszip@3.10.1";
+import { fetchAllPagedQuery } from "../../_shared/paging.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -148,11 +149,11 @@ Deno.serve(async (req) => {
 
     if (txIds.length) {
       // 1) Anexos diretos (inclui refs camarim://)
-      const { data: dd, error: dErr } = await admin
+      const { data: dd, error: dErr } = await fetchAllPagedQuery(admin
         .from("transaction_documents")
         .select("id, transaction_id, name, file_url")
         .in("transaction_id", txIds)
-        .eq("is_accounting", true);
+        .eq("is_accounting", true));
       if (dErr) throw dErr;
       for (const d of dd ?? []) {
         const { bucket, path } = resolveBucket(d.file_url);
@@ -200,20 +201,20 @@ Deno.serve(async (req) => {
         }
         // Excluir TXs de origem cuja conta é gerencial (is_accounting=false)
         if (childToPayTx.size && nonAccountingIds.length) {
-          const { data: childTxs } = await admin
+          const { data: childTxs } = await fetchAllPagedQuery(admin
             .from("transactions")
             .select("id, account_id")
-            .in("id", Array.from(childToPayTx.keys()));
+            .in("id", Array.from(childToPayTx.keys())));
           for (const t of childTxs ?? []) {
             if (t.account_id && nonAccountingIds.includes(t.account_id)) childToPayTx.delete(t.id);
           }
         }
         if (childToPayTx.size) {
-          const { data: childDocs } = await admin
+          const { data: childDocs } = await fetchAllPagedQuery(admin
             .from("transaction_documents")
             .select("id, transaction_id, name, file_url")
             .in("transaction_id", Array.from(childToPayTx.keys()))
-            .eq("is_accounting", true);
+            .eq("is_accounting", true));
           for (const d of childDocs ?? []) {
             const payTx = childToPayTx.get(d.transaction_id);
             if (!payTx) continue;

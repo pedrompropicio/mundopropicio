@@ -20,6 +20,7 @@ import {
 import { computeNetPayable, getDeclaredWithholding } from "@/lib/withholding";
 import { accountHasBalanceFor, useAccountTrueBalance } from "@/lib/account-balance-rpc";
 import { useInstallmentTxIds } from "@/hooks/useInstallmentTxIds";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   transactions: any[];
@@ -180,10 +181,10 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
     queryKey: ["batch-invoice-group-coverage", [...invoiceGroupIds].sort().join(","), transactions.map((t: any) => t.id).sort().join(",")],
     enabled: invoiceGroupIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, invoice_group_id, invoice_ref, status, amount, iva_rate, paid_amount, description")
-        .in("invoice_group_id", invoiceGroupIds);
+        .in("invoice_group_id", invoiceGroupIds));
       if (error) throw error;
       const selected = new Set(transactions.map((t: any) => t.id));
       const byGroup = new Map<string, { ref: string; open: number; inBatch: number }>();
@@ -393,12 +394,12 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
 
 
         // Propagate to child splits if parent — proportional to the EUR settled
-        const { data: children } = await supabase
+        const { data: children } = await fetchAllPagedQuery(supabase
           .from("transactions")
           .select(
             "id, split_percentage, split_amount, amount, iva_rate, paid_amount, status, currency, fx_rate"
           )
-          .eq("parent_transaction_id", item.id);
+          .eq("parent_transaction_id", item.id));
 
         if (children && children.length > 0) {
           const parentBaseEur = Number(item.amount);

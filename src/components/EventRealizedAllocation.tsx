@@ -11,6 +11,7 @@ import { formatTransactionStatusPT } from "@/lib/transaction-status";
 import { scoreDescriptionMatch } from "@/lib/bp-tx-matching";
 import { linkTransactionToForecast, unlinkTransactionFromForecast } from "@/lib/bp-line-relink";
 import { Loader2, AlertTriangle, Sparkles, Link2, Link2Off, Tag, Wand2, Check, X } from "lucide-react";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   open: boolean;
@@ -112,13 +113,13 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
   const { data: forecasts = [], isLoading: loadingF, refetch: refetchF } = useQuery({
     queryKey: ["ra_forecasts", eventId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, category_id, amount, iva_rate, description, specification, transaction_id, status")
         .eq("event_id", eventId)
         .eq("type", "expense")
         .is("version_id", null)
-        .in("status", ["approved", "draft"]);
+        .in("status", ["approved", "draft"]));
       if (error) throw error;
       return (data ?? []) as Forecast[];
     },
@@ -128,14 +129,14 @@ export function EventRealizedAllocation({ open, onOpenChange, eventId, eventName
   const { data: txs = [], isLoading: loadingT, refetch: refetchT } = useQuery({
     queryKey: ["ra_txs", eventId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, date, description, amount, iva_rate, category_id, status, supplier_id, forecast_id")
         .eq("event_id", eventId)
         .eq("type", "expense")
         .is("reversed_at", null)
         .or("is_hidden.is.null,is_hidden.eq.false")
-        .order("date", { ascending: false });
+        .order("date", { ascending: false }));
       if (error) throw error;
       return (data ?? []) as Tx[];
     },

@@ -37,6 +37,7 @@ import {
 } from "@/lib/bp-sponsorship-synthetic";
 import { fetchRootSettlements } from "@/hooks/useEventRootSettlements";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export type RevenueBucket = "bilheteira" | "ab" | "patrocinio" | "outros";
 
@@ -151,14 +152,14 @@ export async function computeEventRevenueBasis(
   // ── REAL ─────────────────────────────────────────────────────────
   const [ticket, txRes, roots] = await Promise.all([
     fetchTicketSalesRevenue(ids),
-    supabase
+    fetchAllPagedQuery(supabase
       .from("transactions")
       .select(
         "id, event_id, type, status, amount, iva_rate, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, description, event_settlement_id, account_categories(code, name)",
       )
       .in("event_id", ids)
       .eq("type", "income")
-      .in("status", ["approved", "paid"]),
+      .in("status", ["approved", "paid"])),
     fetchRootSettlements(ids),
   ]);
 
@@ -210,12 +211,12 @@ export async function computeEventRevenueBasis(
 
   // Outras receitas: linhas de BP income da versão activa que NÃO são
   // representadas por linhas sintéticas (bilheteira / A&B / patrocínios).
-  const { data: fcs } = await supabase
+  const { data: fcs } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
     .select("id, event_id, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, is_overhead, event_settlement_id, account_categories(code)")
     .in("event_id", ids)
     .is("version_id", null)
-    .eq("type", "income");
+    .eq("type", "income"));
 
   const excludedIds = new Set(sponsorship.excludedForecastIds);
   // Outras receitas: bruto pelo `iva_rate` da própria linha (Art.º 18 CIVA,

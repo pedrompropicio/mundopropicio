@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /**
  * Progresso de liquidação por grupo de fatura (`invoice_group_id`).
@@ -35,10 +36,10 @@ export function useInvoiceGroupProgress(groupIds: string[]) {
     queryKey: ["invoice-group-progress", ids.join(",")],
     enabled: ids.length > 0,
     queryFn: async (): Promise<Record<string, InvoiceGroupProgress>> => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, invoice_group_id, status, paid_amount, amount, iva_rate")
-        .in("invoice_group_id", ids);
+        .in("invoice_group_id", ids));
       if (error) throw error;
       const out: Record<string, InvoiceGroupProgress> = {};
       for (const row of (data ?? []) as any[]) {

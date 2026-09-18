@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import type { RealCacheResult } from "@/hooks/useRealCacheCalculation";
 import { CacheTransactionModal } from "@/components/CacheTransactionModal";
 import { getCacheEffectiveAmount } from "@/lib/cache-pl-helper";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   config: any;
@@ -78,13 +79,13 @@ export function CacheSettlementPanel({
       const cacheCatId = catRow?.[0]?.id;
       if (!cacheCatId) return 0;
 
-      const { data, error: qErr2 } = await supabase
+      const { data, error: qErr2 } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("amount, paid_amount, status")
         .eq("event_id", effectiveEventId)
         .eq("type", "expense")
         .eq("category_id", cacheCatId)
-        .eq("supplier_id", config.supplier_id);
+        .eq("supplier_id", config.supplier_id));
       if (qErr2) throw qErr2;
 
       return (data ?? []).reduce((s: number, t: any) => s + Number(t.paid_amount ?? 0), 0);

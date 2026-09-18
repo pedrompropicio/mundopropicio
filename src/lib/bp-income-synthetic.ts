@@ -8,6 +8,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { computeLiveTicketForecast } from "@/lib/event-simulator-forecast-live";
 import { fetchTicketSalesRevenue } from "@/lib/event-revenue-basis";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export interface TicketSyntheticResult {
   initialLoad: number;
@@ -50,10 +51,10 @@ export async function computeTicketSynthetic(
     lots = l ?? [];
     const lotIds = lots.map((x) => x.id);
     if (lotIds.length > 0) {
-      const { data: s } = await supabase
+      const { data: s } = await fetchAllPagedQuery(supabase
         .from("ticket_sales")
         .select("lot_id, quantity, unit_price, total_value")
-        .in("lot_id", lotIds);
+        .in("lot_id", lotIds));
       sales = s ?? [];
     }
   }

@@ -6,6 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/mock-data";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { useBackdropClose } from "@/lib/backdropClose";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface CopyPLModalProps {
   targetEventId: string;
@@ -51,10 +52,10 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
       if (!selectedEventId) throw new Error("Selecione um evento");
 
       // Fetch source forecasts
-      const { data: sourceForecasts, error: fetchErr } = await supabase
+      const { data: sourceForecasts, error: fetchErr } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("*")
-        .eq("event_id", selectedEventId).is("version_id", null);
+        .eq("event_id", selectedEventId).is("version_id", null));
       if (fetchErr) throw fetchErr;
       if (!sourceForecasts || sourceForecasts.length === 0) {
         throw new Error("O evento selecionado não tem previsões no BP");

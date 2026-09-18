@@ -16,6 +16,7 @@ import InvoiceGroupAction from "@/components/InvoiceGroupAction";
 import { AccountantReviewRowBadge } from "@/components/AccountantReviewBadge";
 
 import { toast } from "@/hooks/use-toast";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /**
  * Regra de negócio (Pedro, 14/09/2026) — evento `completed`:
@@ -71,10 +72,10 @@ function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; on
   const { data: docs = [] } = useQuery({
     queryKey: ["transaction_documents_summary", transactionId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transaction_documents")
         .select("id, file_url")
-        .eq("transaction_id", transactionId);
+        .eq("transaction_id", transactionId));
       if (error) throw error;
       return data;
     },
@@ -149,11 +150,11 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
   const { data: movements = [] } = useQuery({
     queryKey: ["transaction-movements", t.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transaction_audit_log")
         .select("*")
         .eq("transaction_id", t.id)
-        .order("changed_at", { ascending: true });
+        .order("changed_at", { ascending: true }));
       if (error) throw error;
       return data;
     },
@@ -164,10 +165,10 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
   const { data: childEventNames = [] } = useQuery({
     queryKey: ["split-child-events", t.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("event_id, events(name), split_percentage, split_amount")
-        .eq("parent_transaction_id", t.id);
+        .eq("parent_transaction_id", t.id));
       if (error) throw error;
       return (data ?? []).map((c: any) => ({
         name: c.events?.name ?? "—",
@@ -183,11 +184,11 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
   const { data: childTransactions = [] } = useQuery({
     queryKey: ["split-children-full", t.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("*, events(name, status, parent_event_id, event_type), account_categories(code, name), suppliers:suppliers!transactions_supplier_id_fkey(name), financial_accounts:financial_accounts!transactions_account_id_fkey(name)")
         .eq("parent_transaction_id", t.id)
-        .order("created_at");
+        .order("created_at"));
       if (error) throw error;
       return data;
     },
@@ -803,11 +804,11 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                                     } as any);
                                     toast({ title: "Reclassificado como Rateio Master" });
                                   } else {
-                                    const { data: linkedFc } = await supabase
+                                    const { data: linkedFc } = await fetchAllPagedQuery(supabase
                                       .from("event_forecasts")
                                       .select("id")
                                       .eq("transaction_id", t.id)
-                                      .not("master_forecast_id", "is", null).is("version_id", null);
+                                      .not("master_forecast_id", "is", null).is("version_id", null));
                                     if (linkedFc?.length) {
                                       await supabase.from("event_forecasts").delete().in("id", linkedFc.map(f => f.id));
                                     }

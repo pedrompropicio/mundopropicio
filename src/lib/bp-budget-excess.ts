@@ -16,6 +16,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 import { calcWithIva } from "@/lib/utils";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /** Uma despesa a aprovar (ou a inserir) já vinculada a uma linha de BP. */
 export type BudgetExcessEntry = {
@@ -72,17 +73,17 @@ export async function computeBudgetExcess(
 
   const forecastIds = [...new Set(valid.map((e) => e.forecast_id))];
 
-  const { data: forecasts, error: fErr } = await supabase
+  const { data: forecasts, error: fErr } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
     .select("id, description, specification, amount, baseline_amount")
-    .in("id", forecastIds);
+    .in("id", forecastIds));
   if (fErr) throw fErr;
 
-  const { data: txs, error: tErr } = await supabase
+  const { data: txs, error: tErr } = await fetchAllPagedQuery(supabase
     .from("transactions")
     .select("id, forecast_id, amount, status, is_transitory, exclude_from_result, reversed_at, is_hidden")
     .in("forecast_id", forecastIds)
-    .in("status", ["approved", "paid"]);
+    .in("status", ["approved", "paid"]));
   if (tErr) throw tErr;
 
   // Transações que estão no lote a aprovar não devem entrar no realizado

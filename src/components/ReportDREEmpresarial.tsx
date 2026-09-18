@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { FileSpreadsheet } from "lucide-react";
 import { buildAbsorptionMap } from "@/lib/admin-cost-allocation";
 import { partnerUsesGrossExpenses } from "@/lib/partner-calc-basis";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
@@ -54,7 +55,7 @@ export default function ReportDREEmpresarial() {
   const { data: transactions = [] } = useQuery({
     queryKey: ["transactions-approved"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("transactions").select("*").in("status", ["approved", "paid"]);
+      const { data, error } = await fetchAllPagedQuery(supabase.from("transactions").select("*").in("status", ["approved", "paid"]));
       if (error) throw error;
       return data;
     },

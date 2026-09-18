@@ -30,6 +30,7 @@ import { ReportScenarioSelector } from "@/components/reports/ReportScenarioSelec
 import { useScenarioForecasts } from "@/hooks/useScenarioForecasts";
 import { useBPVersions } from "@/hooks/useBPVersions";
 import { buildAbsorptionMap } from "@/lib/admin-cost-allocation";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export type PLMode = "forecast" | "comparison";
 export type PLTypeFilter = "income" | "expense" | "both";
@@ -579,7 +580,7 @@ export default function ReportPL() {
   const { data: activeForecasts = [] } = useQuery({
     queryKey: ["all-forecasts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("event_forecasts").select("*").is("version_id", null).order("created_at", { ascending: false });
+      const { data, error } = await fetchAllPagedQuery(supabase.from("event_forecasts").select("*").is("version_id", null).order("created_at", { ascending: false }));
       return data;
     },
   });
@@ -596,7 +597,7 @@ export default function ReportPL() {
   const { data: transactions = [] } = useQuery({
     queryKey: ["transactions"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("transactions").select("*").order("date", { ascending: false });
+      const { data, error } = await fetchAllPagedQuery(supabase.from("transactions").select("*").order("date", { ascending: false }));
       if (error) throw error;
       return data;
     },

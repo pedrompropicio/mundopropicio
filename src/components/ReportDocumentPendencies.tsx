@@ -15,6 +15,7 @@ import { pt } from "date-fns/locale";
 import { cn, formatDatePT } from "@/lib/utils";
 import { utils, writeFile } from "xlsx";
 import { applyPTNumberFormat } from "@/lib/excel-format";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function ReportDocumentPendencies() {
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
@@ -73,10 +74,10 @@ export default function ReportDocumentPendencies() {
     queryKey: ["doc-pendencies-docs", txIds],
     queryFn: async () => {
       if (txIds.length === 0) return {};
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transaction_documents")
         .select("transaction_id, is_accounting")
-        .in("transaction_id", txIds);
+        .in("transaction_id", txIds));
       if (error) throw error;
       const map: Record<string, { total: number; accounting: number }> = {};
       data.forEach((d: any) => {

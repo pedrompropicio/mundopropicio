@@ -20,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import * as XLSX from "xlsx";
 import { formatDatePT } from "@/lib/utils";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   implementation: any;
@@ -148,12 +149,12 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const { data: forecasts = [], isLoading } = useQuery({
     queryKey: ["impl-forecasts", selectedEventId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("*, account_categories:category_id(id, name, code)")
         .eq("event_id", selectedEventId)
         .is("version_id", null)
-        .order("created_at");
+        .order("created_at"));
       if (error) throw error;
       return data;
     },
@@ -265,10 +266,10 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     queryKey: ["impl-import-batches", ...allEventIds],
     queryFn: async () => {
       // Get all forecast IDs for these events
-      const { data: eventForecasts, error: fErr } = await supabase
+      const { data: eventForecasts, error: fErr } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id")
-        .in("event_id", allEventIds).is("version_id", null);
+        .in("event_id", allEventIds).is("version_id", null));
       if (fErr || !eventForecasts || eventForecasts.length === 0) return [];
 
       const forecastIds = eventForecasts.map(f => f.id);
@@ -482,11 +483,11 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     const masterEvent = allEvents.find(e => !e.parent_event_id);
     let existingMasterForecasts: any[] = [];
     if (masterEvent) {
-      const { data } = await supabase
+      const { data } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("*, account_categories:category_id(id, name, code)")
         .eq("event_id", masterEvent.id)
-        .eq("type", "expense").is("version_id", null);
+        .eq("type", "expense").is("version_id", null));
       existingMasterForecasts = (data || []).filter((f: any) => f.formula_type !== "cache_module");
     }
 
@@ -888,11 +889,11 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           const errors: string[] = [];
 
           // Fetch existing master forecasts for matching
-          const { data: existingMasterForecasts } = await supabase
+          const { data: existingMasterForecasts } = await fetchAllPagedQuery(supabase
             .from("event_forecasts")
             .select("*, account_categories(code, name)")
             .eq("event_id", selectedEventId)
-            .eq("type", "expense").is("version_id", null);
+            .eq("type", "expense").is("version_id", null));
 
           for (const row of masterSheetRows) {
             const suggestion = apportionmentSuggestions.find(s => norm(s.description) === norm(row.description));

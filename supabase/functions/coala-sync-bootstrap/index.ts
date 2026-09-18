@@ -15,6 +15,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { parseCoalaXlsx } from "../_shared/coalaParser.ts";
+import { fetchAllPagedQuery } from "../../_shared/paging.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -163,10 +164,10 @@ Deno.serve(async (req) => {
         const rows = parsed.rows.filter((r) => !r.excluded);
 
         // 2. Forecasts actuais (despesas activas) + mapa de categorias
-        const { data: fcs } = await admin.from("event_forecasts")
+        const { data: fcs } = await fetchAllPagedQuery(admin.from("event_forecasts")
           .select("id, description, amount, type, category_id")
           .eq("event_id", cfg.event_id)
-          .is("version_id", null);
+          .is("version_id", null));
         const expenseFcs = (fcs ?? []).filter((f: any) => f.type === "expense");
 
         const { data: cats } = await admin.from("account_categories")

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { CheckCircle2, ExternalLink, Lock, Receipt, AlertTriangle } from "lucide-react";
 import { formatCurrency } from "@/lib/camarim-helpers";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface IntegrationSummary {
   generated_at?: string;
@@ -69,10 +70,10 @@ export function CamarimIntegrationSummary({
     setShowTxs(true);
     if (txs.length > 0 || transactionIds.length === 0) return;
     setLoadingTxs(true);
-    const { data } = await supabase
+    const { data } = await fetchAllPagedQuery(supabase
       .from("transactions")
       .select("id,description,amount,type,status,date")
-      .in("id", transactionIds);
+      .in("id", transactionIds));
     setTxs(((data ?? []) as TxRow[]).sort((a, b) => a.date.localeCompare(b.date)));
     setLoadingTxs(false);
   };

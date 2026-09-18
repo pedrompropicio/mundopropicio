@@ -13,6 +13,7 @@ import {
 } from "@/lib/bp-tx-matching";
 import { formatDatePT } from "@/lib/utils";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface BPExportInput {
   eventId: string;
@@ -90,22 +91,22 @@ async function fetchEventBundle(eventId: string) {
       .select("id, name, date, status, event_type, location, parent_event_id, cities:city_id(name, country), venues:venue_id(name)")
       .eq("id", eventId)
       .maybeSingle(),
-    supabase
+    fetchAllPagedQuery(supabase
       .from("event_forecasts")
       .select("*, account_categories(code, name)")
       .eq("event_id", eventId)
       .is("version_id", null)
       .order("type")
-      .order("created_at"),
+      .order("created_at")),
     supabase
       .from("event_partners")
       .select("id, percentage, suppliers:supplier_id(name)")
       .eq("event_id", eventId),
-    supabase
+    fetchAllPagedQuery(supabase
       .from("transactions")
       .select("id, description, specification, amount, iva_rate, status, paid_amount, due_date, payment_date, category_id, type, event_id, forecast_id, parent_transaction_id, invoice_ref, is_transitory, exclude_from_result, reversed_at, is_hidden, suppliers:supplier_id(name)")
       // Uma transação sem evento não pertence a nenhum evento (ver bp-tx-matching.ts).
-      .eq("event_id", eventId),
+      .eq("event_id", eventId)),
   ]);
 
   if (evtRes.error) throw evtRes.error;

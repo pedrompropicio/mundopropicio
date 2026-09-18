@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertTriangle, ChevronDown, ChevronRight, Download, Loader2 } from "lucide-react";
 import {
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   PARTNER_ACCOUNT_ID,
   PARTNER_PROFILE_ID,
   computePartnerTotals,
@@ -45,12 +46,12 @@ export default function PartnerCurrentAccountTab() {
     enabled: !!companyId,
     queryFn: async (): Promise<PartnerCurrentAccountData> => {
       const [txRes, invRes] = await Promise.all([
-        supabase
+        fetchAllPagedQuery(supabase
           .from("transactions")
           .select("id, type, date, payment_date, description, paid_amount")
           .eq("account_id", PARTNER_ACCOUNT_ID)
           .is("reversed_at", null)
-          .order("date", { ascending: true }),
+          .order("date", { ascending: true })),
         supabase
           .from("standalone_invoices")
           .select("id, supplier_name, invoice_number, invoice_date, total_amount")

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /**
  * Realocação de uma transação entre linhas do BP.
@@ -27,26 +28,26 @@ export async function fetchBpLinesForCategory(params: {
   categoryId: string;
   type: "expense" | "income";
 }): Promise<BpLine[]> {
-  const { data, error } = await supabase
+  const { data, error } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
     .select("id, category_id, description, amount, transaction_id")
     .eq("event_id", params.eventId)
     .eq("category_id", params.categoryId)
     .eq("type", params.type)
     .is("version_id", null)
-    .in("status", ["approved", "draft"]);
+    .in("status", ["approved", "draft"]));
   if (error) throw error;
   return (data ?? []) as BpLine[];
 }
 
 /** Escolhe determinísticamente a nova âncora de uma linha (mais antiga por date/created_at). */
 async function pickAnchorForForecast(forecastId: string, excludeTxId?: string): Promise<string | null> {
-  const { data, error } = await supabase
+  const { data, error } = await fetchAllPagedQuery(supabase
     .from("transactions")
     .select("id, date, created_at")
     .eq("forecast_id", forecastId as any)
     .order("date", { ascending: true })
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true }));
   if (error) throw error;
   const rows = (data ?? []).filter((r: any) => r.id !== excludeTxId);
   return rows.length > 0 ? (rows[0] as any).id : null;

@@ -16,6 +16,7 @@ import { CacheSettlementPanel } from "@/components/CacheSettlementPanel";
 import { CityCacheSettlementsPanel } from "@/components/CityCacheSettlementsPanel";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 import { useRealCacheCalculation } from "@/hooks/useRealCacheCalculation";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   eventId: string;
@@ -192,10 +193,10 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
   const { data: forecasts = [] } = useQuery({
     queryKey: ["event_forecasts", eventId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("*, account_categories(code, name, type)")
-        .eq("event_id", eventId).is("version_id", null);
+        .eq("event_id", eventId).is("version_id", null));
       if (error) throw error;
       return data;
     },

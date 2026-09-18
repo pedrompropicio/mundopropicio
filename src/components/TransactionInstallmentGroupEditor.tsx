@@ -13,6 +13,7 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { cn } from "@/lib/utils";
 import { distributeEvenly } from "@/components/ScheduleInstallmentsModal";
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 // Helpers locais (copiados de TransactionInstallmentsEditor — não exportados lá).
 // Obrigatórios: `new Date(string)` desloca o dia por causa do fuso.
@@ -81,10 +82,10 @@ export function useInstallmentGroup(transaction: any) {
 
       // Caminho canónico — mesmo installment_group_id.
       if (groupId) {
-        const { data, error } = await supabase
+        const { data, error } = await fetchAllPagedQuery(supabase
           .from("transactions")
           .select(GROUP_COLS)
-          .eq("installment_group_id", groupId);
+          .eq("installment_group_id", groupId));
         if (error) throw error;
         const members = (data ?? []).filter((r: any) => !r.is_transitory);
         if (members.length < 2) return [];
@@ -102,11 +103,11 @@ export function useInstallmentGroup(transaction: any) {
       if (rootErr) throw rootErr;
       if (!root || (root as any).split_percentage !== null || (root as any).is_transitory) return [];
 
-      const { data: children, error: childErr } = await supabase
+      const { data: children, error: childErr } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select(GROUP_COLS)
         .eq("parent_transaction_id", rootId)
-        .is("split_percentage", null);
+        .is("split_percentage", null));
       if (childErr) throw childErr;
       const kids = (children ?? []).filter((c: any) => !c.is_transitory);
       if (kids.length === 0) return [];

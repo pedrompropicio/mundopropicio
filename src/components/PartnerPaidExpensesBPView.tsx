@@ -10,6 +10,7 @@ import { formatInCurrency, isSupportedCurrency, type CurrencyCode } from "@/lib/
 import { useEventHouseLabel } from "@/hooks/useEventHouseLabel";
 import { downloadCsv } from "@/lib/crm/csv-export";
 import HelpTooltip from "@/components/HelpTooltip";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /**
  * Vista SÓ DE LEITURA "Despesas pagas por sócio" (documento de trabalho para a
@@ -61,7 +62,7 @@ export function PartnerPaidExpensesBPView({ eventId, eventName }: Props) {
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["partner-paid-bp-view", eventId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select(
           "id, amount, iva_rate, currency, is_overhead, paying_partner_id, category_id, account_categories(code, name), event_partners:paying_partner_id(id, suppliers(name))",
@@ -69,7 +70,7 @@ export function PartnerPaidExpensesBPView({ eventId, eventName }: Props) {
         .eq("event_id", eventId)
         .eq("status", "approved")
         .is("version_id", null)
-        .eq("type", "expense");
+        .eq("type", "expense"));
       if (error) throw error;
       return data ?? [];
     },

@@ -22,6 +22,7 @@ import {
   type CardSessionStatus,
 } from "@/lib/card-session-helpers";
 import { CardTeamItemModal } from "@/components/cards/CardTeamItemModal";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 const LAST_SESSION_KEY = "card_team_last_session";
 
@@ -126,10 +127,10 @@ export default function CartaoEquipa() {
         .select("session_id, amount, in_transaction_id")
         .in("session_id", ids)
         .not("in_transaction_id", "is", null),
-      supabase
+      fetchAllPagedQuery(supabase
         .from("transactions")
         .select("card_session_id, paid_amount, amount, iva_rate")
-        .in("card_session_id", ids),
+        .in("card_session_id", ids)),
       supabase
         .from("card_session_items")
         .select("session_id, amount, iva_rate, status, submitted_by")

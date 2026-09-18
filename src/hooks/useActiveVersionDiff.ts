@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /**
  * Comparison between the *current* event_forecasts (live, editable) and the
@@ -108,12 +109,12 @@ export function useActiveVersionDiff(eventId: string) {
       const snapshotForecasts: SnapshotRow[] =
         (activeVersion.snapshot_payload as any)?.forecasts ?? [];
 
-      const { data: currentForecasts, error: curErr } = await supabase
+      const { data: currentForecasts, error: curErr } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select(
           "id, type, description, specification, amount, iva_rate, status, category_id, formula_type, formula_value, notes, exclude_from_result, is_overhead, is_transitory, currency, fx_rate, invoice_group_id, cache_config_id, master_forecast_id, formalidade"
         )
-        .eq("event_id", eventId);
+        .eq("event_id", eventId));
       if (curErr) throw curErr;
 
       const snapshotById = new Map(snapshotForecasts.map((r) => [r.id, r]));

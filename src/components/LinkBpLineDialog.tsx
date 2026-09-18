@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, Link2 } from "lucide-react";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 const FORMALIDADE_LABEL: Record<string, string> = {
   estimado: "Estimado",
@@ -66,14 +67,14 @@ export default function LinkBpLineDialog({ transaction, onClose, onLinked, pickO
     queryKey: ["bp-lines-for-link", transaction.event_id, transaction.category_id],
     enabled: !!transaction.event_id && !!transaction.category_id,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, description, specification, amount, iva_rate, formalidade")
         .eq("event_id", transaction.event_id as string)
         .eq("category_id", transaction.category_id as string)
         .eq("type", "expense")
         .is("version_id", null)
-        .order("description");
+        .order("description"));
       if (error) throw error;
       return data ?? [];
     },

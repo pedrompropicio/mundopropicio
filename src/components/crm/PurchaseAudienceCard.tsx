@@ -39,6 +39,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   eventId: string;
@@ -125,12 +126,12 @@ export default function PurchaseAudienceCard({
     queryKey: ["purchase-audiences-linked", eventId],
     enabled: !!eventId,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await fetchAllPagedQuery((supabase as any)
         .from("meta_custom_audiences")
         .select("id, audience_id_meta, name, enabled, event_id, is_primary_purchase, filters")
         .eq("event_id", eventId)
         .eq("enabled", true)
-        .order("is_primary_purchase", { ascending: false });
+        .order("is_primary_purchase", { ascending: false }));
       if (error) throw error;
       return (data ?? []) as AudienceRow[];
     },

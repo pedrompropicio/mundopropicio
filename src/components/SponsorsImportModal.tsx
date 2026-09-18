@@ -12,6 +12,7 @@ import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Loader2, Handshake,
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import {
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   parseSponsorsXlsx,
   SPONSOR_KIND_LABEL,
   type ParsedSponsorRow,
@@ -163,12 +164,12 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
       }
 
       // 2) Procurar forecasts existentes (idempotência por evento + descrição = nome)
-      const { data: existingForecasts, error: fcErr } = await supabase
+      const { data: existingForecasts, error: fcErr } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, description, amount, type, transaction_id, is_transitory")
         .eq("event_id", eventId)
         .eq("category_id", SPONSORS_CATEGORY_ID)
-        .is("version_id", null);
+        .is("version_id", null));
       if (fcErr) throw fcErr;
       const fcByName: Record<string, any> = {};
       for (const f of existingForecasts || []) {
@@ -176,12 +177,12 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
       }
 
       // 3) Procurar transações existentes (mesma empresa, evento, categoria)
-      const { data: existingTx, error: txErr } = await supabase
+      const { data: existingTx, error: txErr } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, description, amount, status, supplier_id")
         .eq("event_id", eventId)
         .eq("category_id", SPONSORS_CATEGORY_ID)
-        .eq("type", "income");
+        .eq("type", "income"));
       if (txErr) throw txErr;
       const txByName: Record<string, any> = {};
       for (const t of existingTx || []) {
@@ -301,19 +302,19 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
 
       // ---- Recovery: TX existem mas sem linha BP vinculada ----
       // Cobre o bug histórico em que a TX foi criada mas o INSERT do forecast falhou silenciosamente.
-      const { data: orphanTx } = await supabase
+      const { data: orphanTx } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, description, amount, iva_rate, company_id")
         .eq("event_id", eventId)
         .eq("category_id", SPONSORS_CATEGORY_ID)
-        .eq("type", "income");
-      const { data: existingFcAfter } = await supabase
+        .eq("type", "income"));
+      const { data: existingFcAfter } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("transaction_id")
         .eq("event_id", eventId)
         .eq("category_id", SPONSORS_CATEGORY_ID)
         .not("transaction_id", "is", null)
-        .is("version_id", null);
+        .is("version_id", null));
       const linkedTxIds = new Set(((existingFcAfter ?? []) as any[]).map((f) => f.transaction_id));
       for (const t of (orphanTx ?? []) as any[]) {
         if (linkedTxIds.has(t.id)) continue;

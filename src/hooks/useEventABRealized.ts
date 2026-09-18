@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /**
  * Realizado (fecho) do módulo A&B lido DAS TRANSAÇÕES do evento — sem dupla
@@ -78,12 +79,12 @@ export function useEventABRealized(eventId: string | undefined) {
     enabled: !!eventId,
     queryFn: async (): Promise<ABRealizedResult> => {
       // (a) transações com referência de acerto de bares no evento
-      const { data: refTx, error: refErr } = await supabase
+      const { data: refTx, error: refErr } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select(SELECT)
         .eq("event_id", eventId!)
         .in("status", REALIZED_STATUSES)
-        .ilike("operation_key", AB_REF_PATTERN);
+        .ilike("operation_key", AB_REF_PATTERN));
       if (refErr) throw refErr;
 
       // rubricas de despesa derivadas do próprio evento
@@ -110,12 +111,12 @@ export function useEventABRealized(eventId: string | undefined) {
       }
 
       // (b) receitas F&B + despesas nas rubricas derivadas
-      const { data: catTx, error: catErr } = await supabase
+      const { data: catTx, error: catErr } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select(SELECT)
         .eq("event_id", eventId!)
         .in("status", REALIZED_STATUSES)
-        .not("category_id", "is", null);
+        .not("category_id", "is", null));
       if (catErr) throw catErr;
 
       const byId = new Map<string, any>();

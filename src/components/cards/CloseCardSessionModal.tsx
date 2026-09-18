@@ -24,6 +24,7 @@ import { fetchWithBpEventIds } from "@/lib/bp-line-required";
 import LinkBpLineDialog from "@/components/LinkBpLineDialog";
 import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
 import type { BudgetExcessLine, BudgetRaise } from "@/lib/bp-budget-excess";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface SessionData {
   id: string;
@@ -91,10 +92,10 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
           .select("id, description, supplier_name, amount, iva_rate, item_date, event_id, category_id, status, transaction_id, approved_without_document")
           .eq("session_id", session.id)
           .in("status", ["submitted", "approved"]),
-        supabase
+        fetchAllPagedQuery(supabase
           .from("transactions")
           .select("id, description, amount, paid_amount, iva_rate, event_id, category_id, forecast_id, date, type")
-          .eq("card_session_id", session.id),
+          .eq("card_session_id", session.id)),
       ]);
       const itemRows = (items ?? []) as any[];
       const itemTxIds = new Set(itemRows.map((i) => i.transaction_id).filter(Boolean));
@@ -210,13 +211,13 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
       for (const p of pairs) {
         const key = `${p.event_id}|${p.category_id}`;
         if (lineByPair[key]) continue;
-        const { data: lines } = await supabase
+        const { data: lines } = await fetchAllPagedQuery(supabase
           .from("event_forecasts")
           .select("id")
           .eq("event_id", p.event_id)
           .eq("category_id", p.category_id)
           .eq("type", "expense")
-          .is("version_id", null);
+          .is("version_id", null));
         if ((lines ?? []).length === 1) next[key] = (lines as any[])[0].id;
       }
       if (Object.keys(next).length > 0) setLineByPair((prev) => ({ ...next, ...prev }));

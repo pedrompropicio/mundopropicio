@@ -23,6 +23,7 @@ import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModa
 import BankLineDocumentsDialog from "@/components/bank/BankLineDocumentsDialog";
 import { countsAfterCutoff, effectivePaymentDate, buildAccountCutoffs, fetchAccountCashAdjustments } from "@/lib/account-balance";
 import CircuitPositionPanel from "@/components/CircuitPositionPanel";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function ReportBankStatement() {
   const { isAdmin } = useAuth();
@@ -64,10 +65,10 @@ export default function ReportBankStatement() {
     queryKey: ["bank-statement-tx", selectedAccountId],
     queryFn: async () => {
       if (!selectedAccountId) return [];
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("*, events(name), suppliers:suppliers!transactions_supplier_id_fkey(name)")
-        .eq("account_id", selectedAccountId);
+        .eq("account_id", selectedAccountId));
       if (error) throw error;
       return data;
     },

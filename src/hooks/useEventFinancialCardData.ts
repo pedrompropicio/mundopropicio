@@ -13,6 +13,7 @@ import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 
 import { computeScenarioRevenue, type CoalaConfig, type CoalaSession } from "@/lib/event-simulator-coala";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
 
@@ -95,10 +96,10 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
   const { data: txsAll = [] } = useQuery({
     queryKey: ["efc-tx", idsKey],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, event_id, type, status, amount, paid_amount, iva_rate, category_id, is_transitory, is_hidden, reversed_at, exclude_from_result, event_settlement_id, account_categories(code)")
-        .in("event_id", ids);
+        .in("event_id", ids));
       if (error) throw error;
       return (data ?? []) as any[];
     },
@@ -116,12 +117,12 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
   const { data: forecastsAll = [] } = useQuery({
     queryKey: ["efc-forecasts", idsKey, kind],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead, event_settlement_id")
         .in("event_id", ids)
         .is("version_id", null)
-        .eq("type", kind);
+        .eq("type", kind));
       if (error) throw error;
       return (data ?? []) as any[];
     },

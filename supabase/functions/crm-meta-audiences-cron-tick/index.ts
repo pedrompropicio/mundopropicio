@@ -1,5 +1,6 @@
 // crm-meta-audiences-cron-tick: itera audiences enabled e chama crm-meta-audience-sync para cada
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { fetchAllPagedQuery } from "../../_shared/paging.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -13,11 +14,11 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data: rows, error } = await admin
+  const { data: rows, error } = await fetchAllPagedQuery(admin
     .from("meta_custom_audiences")
     .select("id, name")
     .eq("enabled", true)
-    .not("audience_id_meta", "is", null);
+    .not("audience_id_meta", "is", null));
   if (error) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }

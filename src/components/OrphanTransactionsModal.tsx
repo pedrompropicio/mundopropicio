@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import { AlertTriangle, Search, Receipt, Layers, Loader2, CheckCircle2, XCircle, Info, ChevronDown, ChevronRight } from "lucide-react";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   open: boolean;
@@ -48,21 +49,21 @@ export function OrphanTransactionsModal({ open, onOpenChange, masterEventId, chi
     queryKey: ["all_orphan_txs", masterEventId, childEventIds],
     queryFn: async () => {
       if (childEventIds.length === 0) return [];
-      const { data: txs, error } = await supabase
+      const { data: txs, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, event_id, description, amount, iva_rate, status, category_id, supplier_id, invoice_ref, account_id, account_categories(code, name), suppliers:suppliers!transactions_supplier_id_fkey(name), financial_accounts:financial_accounts!transactions_account_id_fkey(name)")
         .in("event_id", childEventIds)
         .eq("type", "expense")
         .is("split_percentage", null)
-        .in("status", ["paid", "approved", "pending", "overdue"]);
+        .in("status", ["paid", "approved", "pending", "overdue"]));
       if (error) throw error;
       const list = (txs ?? []) as any[];
       if (list.length === 0) return [];
       const ids = list.map((t) => t.id);
-      const { data: linked, error: lErr } = await supabase
+      const { data: linked, error: lErr } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("transaction_id")
-        .in("transaction_id", ids).is("version_id", null);
+        .in("transaction_id", ids).is("version_id", null));
       if (lErr) throw lErr;
       const linkedSet = new Set((linked ?? []).map((r: any) => r.transaction_id));
       return list.filter((t) => !linkedSet.has(t.id));
@@ -74,11 +75,11 @@ export function OrphanTransactionsModal({ open, onOpenChange, masterEventId, chi
   const { data: masterCategoryIds = new Set<string>() } = useQuery({
     queryKey: ["master_categories_for_orphans", masterEventId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("category_id")
         .eq("event_id", masterEventId)
-        .eq("type", "expense").is("version_id", null);
+        .eq("type", "expense").is("version_id", null));
       if (error) throw error;
       return new Set((data ?? []).map((r: any) => r.category_id).filter(Boolean) as string[]);
     },

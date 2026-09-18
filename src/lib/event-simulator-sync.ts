@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { ticketSaleRevenue } from "./ticket-sales-revenue";
 import { keepLatestFeverImportRows } from "./ticket-sales-batch-filter";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export type SyncReport = {
   sessionsCreated: number;
@@ -44,8 +45,8 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
       .in("zone_id", []) // placeholder substituído logo abaixo
       .limit(1),
     supabase.from("event_simulator_inputs").select("*").eq("event_id", eventId),
-    supabase.from("event_forecasts").select("id, category_id, amount, type, status, transaction_id")
-      .eq("event_id", eventId).eq("status", "approved").eq("type", "expense").is("version_id", null),
+    fetchAllPagedQuery(supabase.from("event_forecasts").select("id, category_id, amount, type, status, transaction_id")
+      .eq("event_id", eventId).eq("status", "approved").eq("type", "expense").is("version_id", null)),
     supabase.from("account_categories").select("id, code, name, company_id").eq("is_active", true),
     supabase.from("event_simulator_cost_lines").select("*").eq("event_id", eventId),
   ]);
@@ -240,11 +241,11 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   }
 
   // 5b) Transações reais por categoria L3 — só approved+paid (alinhado a Cards do BP / Análise de Resultados)
-  const { data: txRaw } = await supabase
+  const { data: txRaw } = await fetchAllPagedQuery(supabase
     .from("transactions")
     .select("id, amount, status, category_id, type")
     .eq("event_id", eventId)
-    .in("status", ["approved", "paid"]);
+    .in("status", ["approved", "paid"]));
   const txs = (txRaw ?? []) as Array<{
     id: string; amount: number; status: string; category_id: string | null; type: string;
   }>;
@@ -335,13 +336,13 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
 
   // 6) Patrocinadores: totaliza receitas de qualquer L3 abaixo de 1.2 e atualiza
   //    event_simulator_config.sponsorship_revenue (mantém compatibilidade com os cálculos atuais).
-  const { data: allFcRevenue } = await supabase
+  const { data: allFcRevenue } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
     .select("amount, category_id")
     .eq("event_id", eventId)
     .eq("type", "income")
     .eq("status", "approved")
-    .is("version_id", null);
+    .is("version_id", null));
   // l3 abaixo de 1.2 (default; o utilizador pode customizar via sponsor_category_l2_id)
   const sponsorL3Ids = new Set(l3.filter((c) => c.code.startsWith("1.2.")).map((c) => c.id));
   const sponsorsTotal = ((allFcRevenue ?? []) as any[])

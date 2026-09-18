@@ -28,6 +28,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/hooks/useCompany";
 import { AdsInvoiceImportDialog } from "@/components/ads/AdsInvoiceImportDialog";
 import HelpTooltip from "@/components/HelpTooltip";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface AdsInvoiceRow {
   id: string;
@@ -400,10 +401,10 @@ export default function AdsInvoices() {
     enabled: !!openInvoice?.parent_transaction_id,
     queryFn: async () => {
       const parentId = openInvoice!.parent_transaction_id!;
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, event_id, amount, parent_transaction_id")
-        .or(`id.eq.${parentId},parent_transaction_id.eq.${parentId}`);
+        .or(`id.eq.${parentId},parent_transaction_id.eq.${parentId}`));
       if (error) throw error;
       return data ?? [];
     },
