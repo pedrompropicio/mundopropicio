@@ -663,6 +663,45 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
             <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
           </div>
 
+          {invoiceGroupId && (openSiblings as any[]).length > 0 && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
+              <p className="text-xs font-semibold text-amber-500">
+                Fatura agrupada {transaction.invoice_ref || "—"} — {(openSiblings as any[]).length + 1} linhas
+              </p>
+              <div className="max-h-32 space-y-1 overflow-y-auto">
+                {(openSiblings as any[]).map((s) => (
+                  <div key={s.id} className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="truncate">{s.description ?? "—"}</span>
+                    <span className="whitespace-nowrap font-mono">{formatCurrency(siblingRemaining(s))}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between border-t border-amber-500/30 pt-2 text-xs font-semibold">
+                <span>Total em aberto da fatura</span>
+                <span className="font-mono">{formatCurrency(Math.round((balance + openSiblingsRemaining) * 100) / 100)}</span>
+              </div>
+              {onSettleGroup && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const all = [transaction, ...(openSiblings as any[])];
+                    const ref = (transaction.invoice_ref ?? "").trim();
+                    const dateStr = format(paymentDate, "yyyy-MM-dd");
+                    onClose();
+                    onSettleGroup(all, { invoiceRef: ref, paymentDate: dateStr });
+                  }}
+                  className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  Liquidar a fatura completa
+                </button>
+              )}
+              <p className="text-[11px] text-muted-foreground">
+                Ou liquide só esta linha — a fatura fica parcialmente paga.
+              </p>
+            </div>
+          )}
+
+
           <div className="space-y-2 text-sm">
             <p className="text-muted-foreground">{transaction.description}</p>
             <div className="flex justify-between">
