@@ -2024,6 +2024,27 @@ export type Database = {
         }
         Relationships: []
       }
+      backup_excluded_tables: {
+        Row: {
+          excluded_at: string
+          reason: string
+          schema_name: string
+          table_name: string
+        }
+        Insert: {
+          excluded_at?: string
+          reason: string
+          schema_name: string
+          table_name: string
+        }
+        Update: {
+          excluded_at?: string
+          reason?: string
+          schema_name?: string
+          table_name?: string
+        }
+        Relationships: []
+      }
       backup_runs: {
         Row: {
           bytes: number | null
