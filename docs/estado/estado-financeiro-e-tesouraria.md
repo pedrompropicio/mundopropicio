@@ -1,11 +1,40 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 2026-09-18 (fecho). Issues abertas da frente: #91, #125, #127,
-#134, #135, #147, #149, #154, #181, #189, #190, #195, #196.
-Fechadas em 17–18/09: #191, #192, #193, #200, #201.
+Atualizado: 2026-09-18 (fecho 2). Issues abertas da frente: #125, #127,
+#134, #135, #181, #189, #190, #195; #196 é transversal (plataforma-e-infra)
+e recebe os resíduos de escrita sem verificação de erro.
+Fechadas a 18/09: #91, #147, #149, #154, #192 (de manhã: #191, #193, #200, #201).
 
 ## Em que pé está
 
+- **paid_amount derivado no servidor (18/09, #91 fechada, D-ERP86).** Backfill
+  de 625 linhas em `transaction_payments` (8.150.949,58 €,
+  `created_by='backfill'`), 2 duplicadas apagadas, 1 corrigida.
+  `sync_paid_amount_from_payments()` age sempre; cliente já não escreve
+  `paid_amount`/`status`/`payment_date`. Isentas por regra, nunca com linha:
+  filhas de rateio, linhas de nota de reembolso, pagas pelo sócio. Invariante
+  `paid_amount_sem_linhas` — referência 1 (Aluguel espaço `31497cab`). Moeda
+  estrangeira fecha por `closes_transaction`.
+- **Lançar do banco é RPC atómica (18/09, #154 fechada, D-ERP85).**
+  `launch_from_bank_lines(jsonb)`, sem SECURITY DEFINER: transações e linhas
+  no mesmo commit, linha já conciliada recusa (duplo clique). O modal não
+  insere em `transactions`. A prova em Live apanhou `min(uuid)` na primeira
+  versão — corrigido antes de fechar.
+- **Estorno fechado em todos os caminhos (18/09, #149 fechada, D-ERP84).**
+  Todo o caminho que repõe `paid` numa transação existente limpa
+  `reversed_at`/`reversal_kind` e audita: `PartnerPaidExpensesPanel` (que
+  também passou a recusar já pagas e a gravar `paid_amount`),
+  `TicketOfficeSettlementModal` (3 sítios), `TicketOfficeSettlementsPanel`.
+  Fluxo de Caixa passou à fonte única `computeAccountBalance` (opção A do
+  Pedro): Santander abertura 31/07 = 122.363,05 €, acumulado = 509.842,87 €,
+  iguais ao módulo de Contas. Caso Braga 800 € (estornada e repaga 09/07 por
+  caminho antigo): carimbo limpo à mão com o extrato à vista. Zero pagas com
+  carimbo na base.
+- **Fatura agrupada liquida-se em lote (18/09, #147 fechada, D-ERP87).** Modal
+  individual já não propaga a irmãs; mostra a fatura e oferece "Liquidar a
+  fatura completa" → `BatchPaymentModal` com todas as linhas em aberto; o lote
+  avisa quando a seleção não cobre a fatura. Prova de ecrã pendente (hoje não
+  há grupo com ≥2 linhas aprovadas em aberto).
 - **Listas de Pagamento — marca do lote SEPA, blocos e contadores por fase
   (18/09, #200 fechada).** O selo "No ficheiro SEPA de DD/MM" no item, o botão
   "Marcar como Pago" só nas que ficaram fora do ficheiro, e o download do XML
@@ -224,7 +253,6 @@ O Santander está implantado (122.363,05 € com corte a 31/08/2026) e o extrato
 7. **A linha `c924c418` da nota R-030/2026 continua sem documento anexo.**
 8. **Falta decidir o modelo de fornecedor partilhado entre empresas** (MP e Coala Festival Portugal): hoje é um registo por empresa. Decisão em aberto.
 9. **Ticketline 112.000 € de 16/09 (TRF.IMED. R06117979) por lançar como transferência Ticketline → Santander (regra a guardar); atribuição ao apuramento em ticketing-e-receita.**
-10. **#189: "transações sem movimento no banco" falso quando a linha vive noutro extrato — verificação por conta.**
 
 11. **Levar os números da conta corrente à contabilista.** As retiradas de
     2026 estão todas lançadas (211.300,00 € de 07/01 a 09/09) e a cobertura
@@ -235,6 +263,19 @@ O Santander está implantado (122.363,05 € com corte a 31/08/2026) e o extrato
     na #201 prova que o trigger `card_load_on_out_paid` cria a entrada — isso
     exige liquidar uma carga com conta financeira, no ecrã, uma vez. A partir daí
     a invariante `carga_sem_credito` vigia sozinha.
+
+13. **8 transações `paid` com `paid_amount = 0` e sem linhas, para ver no
+    ecrã:** "Anúncios instagram/facebook" 36.872,85 € (20/04); "Passagens
+    Equipe IESSI 50% Rateio Porto" 25.361,04 € (14/08); pagamentos de
+    reembolso R-015 e R-016 (28/07); 4 "Trafego Pago" filhas de "Trafego
+    Pago - META" (26/06, sem `split_percentage`). Ou estão pagas e falta o
+    valor, ou o estado mente.
+14. **3 grupos de fatura meio-pagos** (uma linha paga, outra em aberto), dados
+    e não código: Cornucopilândia FA 1A2602/615, Evil Force FAC EFA/41,
+    Rafael Cavalcante FT…6053.
+15. **Meta 251847116 (2 linhas, 608,26 + 495,81 €) `pending` e fora do BP** —
+    só entram depois da importação dos eventos do início do ano; é o único
+    grupo com duas linhas em aberto e serve para provar o bloco da #147.
 
 
 Já feito e sem pendência: a **FT 11.1/101** está anexada ao movimento do banco de **135.986,96 €** e replicada nas duas transações ligadas.
@@ -252,9 +293,13 @@ Percorrer no painel de Admin as 22 linhas por rever da auditoria de grupos de fa
 
 ## Dados legados deixados intactos por decisão do Pedro
 
-- 3 transações com o pagamento registado duas vezes em `transaction_payments`.
-- Transação "Aluguel espaço": `paid_amount` 11.842 sobre bruto de 10.086.
-- 526 transações liquidadas sem conta e sem registo de pagamento (1.247.597 EUR).
+As 3 linhas duplicadas em `transaction_payments` foram tratadas a 18/09
+(2 apagadas, 1 corrigida — a terceira era valor errado, não duplicado); as
+526 liquidadas sem conta receberam linha de pagamento no backfill (conta
+nula, são anteriores ao corte de 31/08). Fica só:
+
+- Transação "Aluguel espaço" `31497cab`: `paid_amount` 11.842 sobre bruto
+  8.200 (com IVA), linha de 1.756 — referência 1 no invariante.
 
 Não corrigir sem decisão explícita.
 
