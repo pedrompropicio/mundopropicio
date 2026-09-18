@@ -187,9 +187,23 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Lista de tabelas a restaurar
-    const RESTORE_ORDER = backupScope === "global" ? RESTORE_ORDER_GLOBAL : RESTORE_ORDER_TENANT;
+    // Lista de tabelas a restaurar.
+    // v4: derivada do manifesto — as conhecidas mantêm a ordem de dependências
+    // já existente e as restantes vão no fim, por ordem alfabética.
+    const KNOWN_ORDER = backupScope === "global" ? RESTORE_ORDER_GLOBAL : RESTORE_ORDER_TENANT;
+    const manifestTables: string[] = backup.version >= 4 ? Object.keys(backupJson.tables ?? {}) : [];
+    const RESTORE_ORDER = backup.version >= 4
+      ? [
+          ...KNOWN_ORDER.filter((t) => manifestTables.includes(t)),
+          ...manifestTables.filter((t) => !KNOWN_ORDER.includes(t)).sort(),
+        ]
+      : KNOWN_ORDER;
     const DELETE_ORDER = [...RESTORE_ORDER].reverse();
+    // Nada do manifesto pode ficar de fora em silêncio.
+    const notRestored: Record<string, string> = {};
+    for (const t of manifestTables) {
+      if (!RESTORE_ORDER.includes(t)) notRestored[t] = "não incluída na ordem de restauro";
+    }
 
     // ---- PREVIEW ----
     if (mode === "preview") {
@@ -197,18 +211,37 @@ Deno.serve(async (req) => {
       const targetCompany = backupScope === "company" ? backupCompanyId
         : (backupScope === "legacy" && callerCompanyId) ? callerCompanyId : null;
 
-      for (const t of RESTORE_ORDER) {
-        if (backup.version >= 4) {
-          // v4: cada ficheiro já vem filtrado pelo alvo da corrida.
-          const n = backup.count(t);
-          if (n) preview[t] = n;
-          continue;
+      const missingParts: string[] = [];
+      if (backup.version >= 4) {
+        const folder = backup_file.replace(/\/manifest\.json$/, "");
+        const present = new Set<string>();
+        for (let off = 0; ; off += 1000) {
+          const { data: objs } = await admin.storage.from("database-backups")
+            .list(folder, { limit: 1000, offset: off });
+          (objs ?? []).forEach((o: any) => present.add(o.name));
+          if (!objs || objs.length < 1000) break;
         }
-        const rows = await backup.getTable(t);
-        const filtered = targetCompany
-          ? rows.filter((r: any) => r.company_id === targetCompany)
-          : rows;
-        if (filtered.length) preview[t] = filtered.length;
+        for (const t of RESTORE_ORDER) {
+          const n = backup.count(t);
+          if (!n) continue;
+          preview[t] = n;
+          const nParts: number = backupJson.parts?.[t] ?? 1;
+          for (let p = 1; p <= nParts; p++) {
+            const name = p === 1 ? `${t}.json` : `${t}.part${p}.json`;
+            if (!present.has(name)) missingParts.push(`${folder}/${name}`);
+          }
+        }
+        if (missingParts.length) {
+          return jsonErr(`Partes do backup em falta: ${missingParts.join(", ")}`, 422);
+        }
+      } else {
+        for (const t of RESTORE_ORDER) {
+          const rows = await backup.getTable(t);
+          const filtered = targetCompany
+            ? rows.filter((r: any) => r.company_id === targetCompany)
+            : rows;
+          if (filtered.length) preview[t] = filtered.length;
+        }
       }
       return jsonOk({
         mode: "preview",
@@ -218,6 +251,9 @@ Deno.serve(async (req) => {
         caller_company_id: callerCompanyId,
         backup_date: backupJson.created_at,
         tables: preview,
+        manifest_rows: backup.version >= 4 ? (backupJson.tables ?? {}) : undefined,
+        manifest_parts: backup.version >= 4 ? (backupJson.parts ?? {}) : undefined,
+        tables_not_restored: Object.keys(notRestored).length ? notRestored : undefined,
         total_tables_in_backup: backupJson.tables && backup.version >= 4
           ? Object.keys(backupJson.tables).length
           : undefined,
