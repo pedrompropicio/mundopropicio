@@ -1,6 +1,6 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-09-18 · Issues: #73, #78, #128, #129, #130, #145, #155, #184 (aberta só pelo ponto c), #206 (transversal, plataforma-e-infra), #208 · Fechadas: #132, #198, #205, #207
+Atualizado: 2026-09-18 · Issues: #73, #78, #128, #129, #130, #145, #155, #184 (aberta só pelo ponto c), #206 (transversal, plataforma-e-infra), #208 · Fechadas: #132, #198, #205, #207, #210
 
 ## Em que pé está
 
@@ -29,6 +29,8 @@ Atualizado: 2026-09-18 · Issues: #73, #78, #128, #129, #130, #145, #155, #184 (
 
 - **IVA dos cards da capa passou a vista (18/09, issue #207, D-ERP83).** Um só seletor c/IVA · s/IVA por página, aplicado a Receitas, Custos e Lucro, guardado por utilizador, default = critério contratual (`events.partner_calc_basis`). O card de Custos voltou a ter o rádio (retirado pela D57 a 13/09), rotulado "Vista", com o critério contratual assinalado; badge "≠ fecho" quando a vista difere. `committed` e previsto corrente existem nas duas bases, bucket a bucket. Fecho, Encontro de Contas, PDFs e Portal do Sócio continuam a ler só o critério contratual. Motivo do Pedro: no mesmo evento há sócios com IVA e sócios sem IVA. Resíduo: previsto de A&B sem bruto próprio (#208).
 
+- **Parser da BOL corrigido — valores acima de 100.000 € (18/09, issue #210, v1.10).** A Conferência de Mulheres Plenitude esteve 42 corridas seguidas em `import_failed` desde 16/09 17:25 UTC: quando o total passou de 100.000 €, o `resolveValues()` de `_shared/bol-report-parser.ts` absorvia obrigatoriamente todos os tokens de 3 dígitos à esquerda do valor monetário e, em "744 100 197,00 €", engolia o "100" **e** o "744", que é a Total Vendas Qt. A validação bloqueante chumbava e nada era gravado — `ticket_sales` e `bol_daily_sales` ficaram congelados em 16/09. Agora cada grupo monetário enumera quantos grupos de milhar absorve e se leva o líder, escolhendo pela pontuação estrutural; em empate ganha a leitura que absorve menos tokens. Testes 9/9. Verificado em Live a 13:11 UTC, fan-out sobre as quatro configs BOL: 4/4 `success`, zero warnings — Plenitude 818 bilhetes / 108.019,00 €, Deive 622 / 26.840,00 €, Coimbra 414 / 13.735,00 €, SMF 349 / 11.620,00 €, todas com `sale_date` máximo a 18/09. Nada se perdeu: o M2 é cumulativo e o import é full-replace.
+
 ## A trabalhar agora
 
 Nada em execução. A confirmar no próximo ciclo: que o cron `ticketline-capture-day-hourly` (15 * * * *) continua a escrever o espelho para os 13 configs enabled e que as cinco cidades migradas voltem a ter `success` no XLSX quando a Ticketline recuperar. As cinco cidades migradas voltaram a ter XLSX com `success` desde 16/09 18:05 UTC e a flag `daily_fallback_active` manteve-se `true` — a v2.41 fez o que devia. A confirmação pendente de 09/09 está feita: o import repôs em `ticket_sales` as três semanas de 17/08–09/09 (Albufeira 456, Almada 222, Estoril 115, Lisboa 251, Santarém 122 bilhetes nesse intervalo).
@@ -43,7 +45,7 @@ Em paralelo, no H&K Madrid: aguardar a resposta da GTS sobre API antes de desenh
 
 - **#78** — o import da Ticketline não limpa a série antiga quando o formato muda.
 - **#73** — corte por tipo de bilhete.
-- **#184 (c) / #145** — 37 corridas `html_response` seguidas na mesma config sem nenhum alerta. Enquanto isto não existir, a única forma de saber que o XLSX parou é olhar para `ticketline_sync_runs`.
+- **#184 (c) / #145** — 37 corridas `html_response` seguidas na mesma config sem nenhum alerta. Enquanto isto não existir, a única forma de saber que o XLSX parou é olhar para `ticketline_sync_runs`. O mesmo vale para a BOL: as 42 corridas falhadas da Plenitude (#210) também passaram em silêncio.
 
 ## Factos que não se reinvestigam
 
@@ -152,6 +154,8 @@ As 19 sessões à venda, verificadas na página pública do El Corte Inglés a 0
 **A Ticketline devolve HTML em vez do XLSX de vez em quando.** Estado `html_response`, mensagem `XLSX sale_summary: HTML em vez de XLSX — title="Ticketline Manager"`. A 08/09 aconteceu sete vezes seguidas na SM - Lisboa, das 16h às 22h, e recuperou sozinho às 23h. Não se perde nada porque o import é full-replace e corre de hora a hora. O que falta é o aviso: nenhuma destas falhas gera alerta (issue #145). Estado dos crons a 09/09, últimas 48h: BOL 192 de 192 com sucesso; Ticketline 377 com sucesso e 7 falhas; captura horária 50 de 50. A 14–16/09 já não foi "de vez em quando": as cinco cidades migradas do Ghanem falharam ~37 horas seguidas. Ver #184.
 
 **RG Coimbra e RG Santa Maria da Feira são BOL**, não Ticketline: `ticket_sales.source = 'bol'`, `bol_sync_config` ativo, série em `bol_daily_sales`. As vendas em `ticket_sales` aparecem todas num só dia porque o M2 é cumulativo e o import é full-replace com `sale_date` = data do relatório — é o desenho, não um defeito. Não estão no portal Ticketline nem podiam estar.
+
+**O import da BOL é bloqueante por desenho e isso é para manter (v1.10, 18/09/2026).** Se a linha TOTAL do M2 não bater com a soma dos setores, a corrida falha e NÃO grava nada — é o que impede meia-verdade em `ticket_sales`. Consequência a conhecer: uma falha de parser congela o evento na data do último import com sucesso, sem alerta nenhum (o mesmo buraco do #145). Quando um evento BOL parar, ver primeiro `bol_sync_runs.error_message`; a soma dos setores costuma estar certa e o defeito estar na leitura da linha TOTAL. O parser vive em `supabase/functions/_shared/bol-report-parser.ts` e é partilhado por todos os eventos BOL — mexer nele mexe em quatro eventos de uma vez, por isso `src/test/bol-m2-parser.test.ts` é obrigatório antes do deploy.
 
 **NENHUM ECRÃ SOMA `ticket_sales` NO CLIENTE (18/09/2026, #205).** Totais por conta: `get_ticket_office_sales`. Totais por evento: `get_event_ticket_sales_totals`. Listas linha a linha só com `.range()` paginado. O PostgREST corta aos 1.000 registos em silêncio e já partiu dois números em produção (#129 a 09/09, #205 a 18/09). Quem vir um total de bilheteira diferente do Dashboard ou do portal deve suspeitar primeiro de uma soma no cliente.
 
