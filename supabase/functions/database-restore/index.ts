@@ -293,16 +293,16 @@ Deno.serve(async (req) => {
         let error: any = null;
         if (filterCompany) {
           // Apaga só linhas dessa empresa
-          const { error: e } = await admin.from(t).delete().eq("company_id", filterCompany);
+          const { error: e } = await tableRef(admin, t).delete().eq("company_id", filterCompany);
           error = e;
         } else if (SINGLETON_INT_PK.has(t)) {
-          const { error: e } = await admin.from(t).delete().gte("id", -2147483648);
+          const { error: e } = await tableRef(admin, t).delete().gte("id", -2147483648);
           error = e;
         } else {
-          const { error: e } = await admin.from(t).delete().neq("id", "00000000-0000-0000-0000-000000000000");
+          const { error: e } = await tableRef(admin, t).delete().neq("id", "00000000-0000-0000-0000-000000000000");
           error = e;
           if (error) {
-            const { error: e2 } = await admin.from(t).delete().gte("created_at", "1900-01-01");
+            const { error: e2 } = await tableRef(admin, t).delete().gte("created_at", "1900-01-01");
             error = e2;
           }
         }
