@@ -1,6 +1,6 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado 2026-09-18 · Issues #186, #202, #204, #206 · a-seguir #83, #96, #61. Fechadas a 18/09: #211, #203.
+Atualizado 2026-09-18 · Issues #186, #202, #204, #206 · a-seguir #83, #96, #61. Fechadas a 18/09: #211, #203, #15.
 
 ## Em que pé está
 A 16–17/09 fizeram-se correções de UI no ecrã de Transações (tabela do BP sem scroll horizontal; busca por nome fantasia) e fechou-se a **#86** (ver D-ERP75).
@@ -278,8 +278,10 @@ O saldo mostrado com a consolidação ligada é recalculado sobre a ordem que se
 **Fix B** — deferido: os embeds em `Transactions.tsx` já são explícitos (`!transactions_supplier_id_fkey`); o custo real é o `fetchAllPaged` sem filtro de evento/estado — reabrir quando houver janela.
 
 ## Prazos e renovações
-- **PAT do GitHub expira 24/set/2026** (#15) — 6 dias.
-- Token Meta da conta da Ivete expira 08/10/2026. Fortal e Siriguella expirados desde 22/08 (#36).
+**Os prazos deixaram de viver aqui.** A fonte é `public.secret_expirations` (nome, onde vive — `edge_function_secret` | `vault` | `external` —, `expires_at`, dono, notas), RLS ligada sem políticas: só `service_role` lhe chega (`anon` e `authenticated` a `false`). O verificador diário tem a verificação `segredos_a_expirar_14d` (warn, referência 0) que conta os segredos a expirar nos próximos 14 dias — aparece em `/admin/invariantes` e dispara o alerta por desvio.
+
+- **PAT do GitHub: sem expiração desde 18/09/2026** (#15 fechada) — PAT fine-grained "mp-github-issues-2026", só este repo, Issues read/write + Metadata read, no secret `GITHUB_TOKEN`.
+- Token Meta da conta da Ivete expira 08/10/2026 (`external`, #36). Fortal e Siriguella expirados desde 22/08 (#36).
 
 ## Factos que não se reinvestigam
 **Empresas: quatro.** Mundo Propício (PT), Coala Festival Portugal (PT), Fortal (BR), Siriguella (BR). A Social Music seria a **5.ª**, e os eventos `SM - Lisboa` e `SM - Porto` estão hoje sob o `company_id` da MP — se ela passar a empresa própria, esses eventos migram, e isso é trabalho de dados.
