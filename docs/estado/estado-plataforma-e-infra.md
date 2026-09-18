@@ -82,7 +82,7 @@ Corrida global de referência a 18/09: pasta `global/2026-09-18T01-41-20`, 40 ta
 - Os ficheiros de storage **nunca são copiados, só listados**, e o manifesto cobre apenas **7 dos 29 buckets** (#202).
 - Os backups vivem dentro do próprio projeto que protegem, têm retenção de 30 dias e podem ser apagados por admin.
 - O PITR da Supabase está por confirmar no dashboard.
-- `selective-restore` e `surgical-restore` continuam no caminho antigo (sem área de carga); passam pelo caminho novo numa tarefa seguinte.
+- O restauro por evento não cobre tabelas ligadas ao evento apenas por referência ambígua (11 ligações classificadas como referência, não pertença) — ficam no estado atual.
 
 **Resíduos conhecidos — não redescobrir:**
 
