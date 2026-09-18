@@ -453,13 +453,15 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
     if (!isTransfer && !transitory && !categoryId) return toast.error("Escolhe a rubrica.");
     if (isTransfer && !targetAccountId) return toast.error("Escolhe a conta de destino.");
     if (gross <= 0) return toast.error("O movimento do banco não tem valor.");
-    // Antes de qualquer insert: sem linha de BP não se cria nada.
+    // Antes de qualquer lançamento: sem linha de BP não se cria nada.
     if (needsBpLine && !forecastId) return toast.error("Escolhe a linha de BP deste evento.");
 
 
     setSaving(true);
     try {
-      let primaryTxId: string;
+      const matchedBy = `created:${user?.email ?? "sistema"}`;
+      const lineIds = lines.map((l) => l.id);
+      const items: LaunchItem[] = [];
 
       if (isTransfer) {
         // Par de transferência, como no TransferFormModal: rubrica 10.3, IVA 0.
@@ -488,34 +490,31 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
           specification: note.trim() || null,
           is_confidential: isConfidential || statementRestricted || targetRestricted,
         };
-        // A transação da conta do extrato é sempre a primária (é a linha do banco).
-        const { data: onStatement, error: e1 } = await supabase
-          .from("transactions")
-          .insert({
+        // A transação da conta do extrato é sempre a primária (é a linha do banco);
+        // a segunda perna não liga linhas.
+        items.push({
+          transaction: {
             ...common,
             description: label,
             type: transferIncoming ? "income" : "expense",
             account_id: accountId,
-          } as any)
-          .select("id")
-          .single();
-        if (e1) throw e1;
-        const { error: e2 } = await supabase
-          .from("transactions")
-          .insert({
+          },
+          line_ids: lineIds,
+          matched_by: matchedBy,
+          note: note.trim() || null,
+        });
+        items.push({
+          transaction: {
             ...common,
             description: label,
             type: transferIncoming ? "expense" : "income",
             account_id: targetAccountId,
-          } as any)
-          .select("id")
-          .single();
-        if (e2) throw e2;
-        primaryTxId = onStatement.id;
+          },
+          line_ids: [],
+        });
       } else {
-        const { data: tx, error } = await supabase
-          .from("transactions")
-          .insert({
+        items.push({
+          transaction: {
             description: description.trim(),
             type: action === "create_income" ? "income" : "expense",
             // `amount` é sempre o valor LÍQUIDO (Core rule); o banco moveu o bruto.
@@ -537,27 +536,17 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
             payment_date: paymentDate,
             specification: note.trim() || null,
             is_confidential: isConfidential || statementRestricted,
-          } as any)
-          .select("id")
-          .single();
-        if (error) throw error;
-        primaryTxId = tx.id;
+          },
+          line_ids: lineIds,
+          matched_by: matchedBy,
+          note: note.trim() || null,
+        });
       }
 
-      // As linhas do banco ficam ligadas à transação criada e conciliadas.
+      // Transações e linhas no mesmo commit (#154): ou fica tudo, ou nada.
+      await launchAtomic(items);
       const now = new Date().toISOString();
-      const { error: eLines } = await supabase
-        .from("bank_statement_lines")
-        .update({
-          status: "matched",
-          created_transaction_id: primaryTxId,
-          matched_transaction_id: primaryTxId,
-          matched_by: `created:${user?.email ?? "sistema"}`,
-          matched_at: now,
-          note: note.trim() || null,
-        })
-        .in("id", lines.map((l) => l.id));
-      if (eLines) throw eLines;
+
 
       // Aprender: guardar a regra para a próxima vez. Nunca em transitórias —
       // `bank_line_rules` não tem coluna para o flag e perdê-lo em silêncio
