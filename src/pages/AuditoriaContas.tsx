@@ -186,7 +186,7 @@ function RowDetailPanel({
         .select("id, description, specification, category_id, event_id, type, amount, iva_rate, status, formalidade, notes, is_overhead, is_transitory, exclude_from_result")
         .in("event_id", eventIds);
       q = versionId ? q.eq("version_id", versionId) : q.is("version_id", null);
-      const { data, error } = await q;
+      const { data, error } = await fetchAllPagedQuery(q);
       if (error) throw error;
       return data || [];
     },
@@ -480,7 +480,7 @@ function AnaliseIATab() {
         .in("event_id", eventIds)
         .eq("type", "expense");
       bpQ = versionId ? bpQ.eq("version_id", versionId) : bpQ.is("version_id", null);
-      const { data: bps, error: bpErr } = await bpQ;
+      const { data: bps, error: bpErr } = await fetchAllPagedQuery(bpQ);
       if (bpErr) throw bpErr;
 
       // Transactions não têm versão — só carregar em modo Ativa

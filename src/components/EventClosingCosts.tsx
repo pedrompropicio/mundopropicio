@@ -15,6 +15,7 @@ import { toast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useEventScenario } from "@/contexts/EventScenarioContext";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   eventId: string;
@@ -56,7 +57,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
       query = selectedVersionId
         ? query.eq("version_id", selectedVersionId)
         : query.is("version_id", null);
-      const { data, error } = await query.order("type").order("created_at");
+      const { data, error } = await fetchAllPagedQuery(query.order("type").order("created_at"));
       if (error) throw error;
       return data;
     },
@@ -95,7 +96,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
         .eq("is_overhead", false)
         .not("category_id", "is", null);
       q = selectedVersionId ? q.eq("version_id", selectedVersionId) : q.is("version_id", null);
-      const { data, error } = await q;
+      const { data, error } = await fetchAllPagedQuery(q);
       if (error) throw error;
       return (data || []).map((r: any) => ({ category_id: r.category_id, scope: r.event_id === eventId ? "local" : "master" }));
     },
@@ -115,7 +116,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
         .in("event_id", ids)
         .eq("is_overhead", true);
       q = selectedVersionId ? q.eq("version_id", selectedVersionId) : q.is("version_id", null);
-      const { data, error } = await q.order("type").order("description");
+      const { data, error } = await fetchAllPagedQuery(q.order("type").order("description"));
       if (error) throw error;
       return (data || []).map((r: any) => ({
         ...r,

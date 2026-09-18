@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
     txsQuery = scopedGroupId
       ? txsQuery.eq('invoice_group_id', scopedGroupId)
       : txsQuery.not('invoice_group_id', 'is', null);
-    const { data: txs } = await txsQuery;
+    const { data: txs } = await fetchAllPagedQuery(txsQuery);
 
     const allGroups = new Map<string, any[]>();
     for (const t of txs ?? []) {

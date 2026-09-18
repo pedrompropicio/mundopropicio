@@ -415,7 +415,7 @@ const descRef = useRef<HTMLInputElement>(null);
       } else {
         query = query.is("version_id", null);
       }
-      const { data, error } = await query.order("type").order("created_at");
+      const { data, error } = await fetchAllPagedQuery(query.order("type").order("created_at"));
       if (error) throw error;
       return data;
     },
@@ -1320,7 +1320,7 @@ const descRef = useRef<HTMLInputElement>(null);
         ? existingQuery.eq("category_id", forecast.category_id)
         : existingQuery.is("category_id", null);
 
-      const { data: existingInstallments, error: existingError } = await existingQuery;
+      const { data: existingInstallments, error: existingError } = await fetchAllPagedQuery(existingQuery);
       if (existingError) throw existingError;
 
       const expectedKeys = new Set(

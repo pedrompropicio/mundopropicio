@@ -69,7 +69,7 @@ export default function ReportMovementReconciliation() {
         if (dateFromStr) q = q.gte("date", dateFromStr);
         if (dateToStr) q = q.lte("date", dateToStr);
       }
-      const { data, error } = await q;
+      const { data, error } = await fetchAllPagedQuery(q);
       if (error) throw error;
       return data;
     },

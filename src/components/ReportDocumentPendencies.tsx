@@ -61,7 +61,7 @@ export default function ReportDocumentPendencies() {
       if (selectedEventId) q = q.eq("event_id", selectedEventId);
       // Only transactions with a bank account (should have docs)
       q = q.not("account_id", "is", null);
-      const { data, error } = await q;
+      const { data, error } = await fetchAllPagedQuery(q);
       if (error) throw error;
       return data;
     },

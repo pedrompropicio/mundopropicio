@@ -111,7 +111,7 @@ async function findExistingTransactions(inv: any, supplierId: string | null) {
           `and(specification.ilike.%${spec}%,supplier_id.is.null)`,
       )
     : q.or(`invoice_ref.eq.${inv.invoice_number},specification.ilike.%${spec}%`);
-  const { data, error } = await q;
+  const { data, error } = await fetchAllPagedQuery(q);
   if (error) throw new Error(error.message);
   return data ?? [];
 }

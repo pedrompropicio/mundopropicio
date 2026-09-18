@@ -35,6 +35,7 @@ import { PartnerNoSupplierNotice, type PartnerNoticeReason } from "@/components/
 import { PartnerSettlementBlock, type PartnerSettlementBlockData } from "@/components/partner/PartnerSettlementBlock";
 import { FormalidadeBadge } from "@/components/bp-versions/FormalidadeBadge";
 import { computeOverrunMap, sumExcess, type OverrunInfo } from "@/lib/event-cost-basis";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
 
@@ -310,8 +311,8 @@ export default function PartnerEventDetail() {
         .eq("event_id", activeEventId!)
         .order("type", { ascending: true });
       const { data, error } = bpActiveVersionId
-        ? await q.eq("version_id", bpActiveVersionId)
-        : await q.is("version_id", null);
+        ? await fetchAllPagedQuery(q.eq("version_id", bpActiveVersionId))
+        : await fetchAllPagedQuery(q.is("version_id", null));
       if (error) throw error;
       return (data ?? []) as any[];
     },

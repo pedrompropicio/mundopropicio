@@ -137,7 +137,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
         .eq("reimbursement_to", note.employee_name)
         .in("status", ["pending", "approved"]);
 
-      const { data, error } = await query.order("date", { ascending: false });
+      const { data, error } = await fetchAllPagedQuery(query.order("date", { ascending: false }));
       if (error) throw error;
       return (data || []).filter((t: any) => !linkedIds.includes(t.id));
     },

@@ -251,7 +251,7 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
         .order("description");
       if (invoiceSupplierId) q = q.eq("supplier_id", invoiceSupplierId);
       else q = q.is("supplier_id", null);
-      const { data, error } = await q;
+      const { data, error } = await fetchAllPagedQuery(q);
       if (error) throw error;
       return data;
     },

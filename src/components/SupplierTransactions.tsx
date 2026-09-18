@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { fetchAccountantTxDocs, fetchAccountantDocCountsBatch } from "@/lib/accountant-tx-docs";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface SupplierTransactionsProps {
   supplierId: string;
@@ -26,7 +27,7 @@ export function SupplierTransactions({ supplierId, isOpen, onToggle, period }: S
         .order("date", { ascending: false });
       if (period?.from) q = q.gte("date", period.from);
       if (period?.to) q = q.lte("date", period.to);
-      const { data, error } = await q;
+      const { data, error } = await fetchAllPagedQuery(q);
       if (error) throw error;
       return data;
     },

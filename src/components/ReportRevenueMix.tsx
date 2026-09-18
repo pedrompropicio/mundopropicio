@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { PieChart, Pie, Cell } from "recharts";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 const COLORS = [
   "hsl(var(--primary))",
@@ -56,7 +57,7 @@ export default function ReportRevenueMix() {
       if (selectedEventId !== "all") {
         query = query.eq("event_id", selectedEventId);
       }
-      const { data, error } = await query;
+      const { data, error } = await fetchAllPagedQuery(query);
       if (error) throw error;
       return data;
     },
