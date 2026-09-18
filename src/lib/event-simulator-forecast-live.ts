@@ -251,5 +251,13 @@ export async function computeLiveTicketForecast(eventId: string): Promise<LiveTi
   const rev = computeScenarioRevenue(sessions, coala, "forecast", solution.qtyByKey, solution.revenueByKey);
   const totalQty = Object.values(solution.qtyByKey || {}).reduce((a, b) => a + Number(b || 0), 0);
 
-  return { net: rev.ticketsRevenue, totalQty, currentLoad, currentLoadOn };
+  // Bruto do MESMO cenário (#207): sessão a sessão, com o IVA da própria sessão.
+  // O líquido devolvido continua a ser exactamente `rev.ticketsRevenue`.
+  let gross = 0;
+  for (const s of sessions) {
+    const one = computeScenarioRevenue([s], coala, "forecast", solution.qtyByKey, solution.revenueByKey);
+    gross += one.ticketsRevenue * (1 + Number(s.iva_pct || 0) / 100);
+  }
+
+  return { net: rev.ticketsRevenue, gross, totalQty, currentLoad, currentLoadOn };
 }
