@@ -153,6 +153,10 @@ As 19 sessões à venda, verificadas na página pública do El Corte Inglés a 0
 
 **RG Coimbra e RG Santa Maria da Feira são BOL**, não Ticketline: `ticket_sales.source = 'bol'`, `bol_sync_config` ativo, série em `bol_daily_sales`. As vendas em `ticket_sales` aparecem todas num só dia porque o M2 é cumulativo e o import é full-replace com `sale_date` = data do relatório — é o desenho, não um defeito. Não estão no portal Ticketline nem podiam estar.
 
+**NENHUM ECRÃ SOMA `ticket_sales` NO CLIENTE (18/09/2026, #205).** Totais por conta: `get_ticket_office_sales`. Totais por evento: `get_event_ticket_sales_totals`. Listas linha a linha só com `.range()` paginado. O PostgREST corta aos 1.000 registos em silêncio e já partiu dois números em produção (#129 a 09/09, #205 a 18/09). Quem vir um total de bilheteira diferente do Dashboard ou do portal deve suspeitar primeiro de uma soma no cliente.
+
+**O IVA da capa é vista; o do fecho é critério (D-ERP83, 18/09/2026).** O seletor c/IVA · s/IVA dos cards da capa não grava nada na BD e não muda o fecho. `events.partner_calc_basis` é o critério contratual e é o único que o Fecho, o Encontro de Contas, os PDFs e o Portal do Sócio leem. Uns eventos abrem em c/IVA e outros em s/IVA porque o default da vista é o critério contratual de cada um (Anitta, Ivete, FestVybbe e Mágicos H&K em `net_result_gross_expenses`; os restantes em `net_result`).
+
 ## Onde ler mais
 
 - `.lovable/memory/features/bilheteira-sync.md`, `bol-sync.md`, `venue-retained-door-sales.md`, `ticketline-dashboard-daily-fallback.md`
