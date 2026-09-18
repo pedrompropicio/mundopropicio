@@ -254,22 +254,11 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
         .eq("id", pe.id);
       if (error) throw error;
 
-      const tx = pe.transactions;
-      if (tx && tx.status !== "paid") {
-        await supabase.from("transaction_audit_log").insert({
-          transaction_id: pe.transaction_id,
-          changed_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
-          field_name: "Liquidação (aprovação de despesa paga por sócio)",
-          old_value: String(tx.status ?? ""),
-          new_value: `paid @ ${pe.paid_date}`,
-        } as any);
-      }
-
-      const { error: txErr } = await supabase
-        .from("transactions")
-        .update({ status: "paid", payment_date: pe.paid_date })
-        .eq("id", pe.transaction_id);
-      if (txErr) throw txErr;
+      await settleExistingByPartner(
+        pe.transaction_id,
+        pe.paid_date,
+        "Liquidação (aprovação de despesa paga por sócio)",
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-tree", eventId] });
