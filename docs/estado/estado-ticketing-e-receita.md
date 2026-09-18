@@ -1,6 +1,6 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-09-17 · Issues: #73, #78, #128, #129, #130, #145, #155, #184 (aberta só pelo ponto c) · #132 e #198 fechadas
+Atualizado: 2026-09-18 · Issues: #73, #78, #128, #129, #130, #145, #155, #184 (aberta só pelo ponto c), #206 (transversal, plataforma-e-infra), #208 · Fechadas: #132, #198, #205, #207
 
 ## Em que pé está
 
@@ -24,6 +24,10 @@ Atualizado: 2026-09-17 · Issues: #73, #78, #128, #129, #130, #145, #155, #184 (
 - **Captura horária da Ticketline corrigida (16/09, issue #184, v2.41).** As cinco cidades migradas do Ghanem (RG Lisboa, Almada, Estoril, Albufeira, Santarém) ficaram sem vendas novas no sistema de 14/09 21:05 UTC a 16/09 12:26 UTC: o XLSX por evento voltou a devolver HTML em todas as corridas horárias (~37 seguidas) e a rede de segurança `capture_day` tinha parado a 09/09 10:15 UTC porque só tratava configs com `daily_fallback_active = true` — flag que o próprio caminho XLSX, ao passar uns dias, tinha posto a `false`. Reposição: flag reposta a `true` nas cinco, `capture_day` disparado para 10/09–16/09 (7 corridas `success`), espelho conferido contra `ticket_sales` (bate em quatro cidades; Albufeira 23 vs 21 porque 2 bilhetes entraram depois do último import — o espelho está certo), 26 bilhetes de 15+16/09 repostos. Correção definitiva em Live: `capture_day` cobre todos os configs `enabled` da company (13 a 16/09), o sucesso do XLSX já não desce a flag, e sem alvos fica corrida `skipped` registada. Verificado às 12:55 UTC com `version = v2.41_capture_day_all_enabled`.
 
 - **Ocupação do BI corrigida (17/09, issue #198, migração `20260917160000`).** `get_event_capacity_quality()` contava rótulos de zona que já não existiam nas observações recentes de `event_zone_capacities` (linha `TOTAL` de 24/08 no RG Albufeira; seis zonas "Balcão N - Lote X" de 23/08 no SM Porto), inflacionando a lotação. A CTE `latest` passa a considerar só os rótulos da observação mais recente de cada evento. Verificado em Live: Simone 8.499/13.120 = 64,78% (portal Ticketline 64,92%), Ghanem 7.735/15.234 = 50,77%. Sem tocar em dados nem em grants.
+
+- **Card de Receitas/Bilhetes do evento corrigido (18/09, issue #205).** `fetchTicketSalesRevenue` e o card Bilhetes somavam `ticket_sales` no cliente e o PostgREST cortava aos 1.000 registos — segunda vez do mesmo defeito (#129). A Simone, com 1.093 linhas, mostrava 6.846 bilhetes / 318.015 € quando a base tem 7.557 / 355.580 €. Correção: RPC `public.get_event_ticket_sales_totals(p_event_ids uuid[])` → `quantity`, `gross`, `net` (líquido linha a linha pelo IVA do lote), SECURITY INVOKER, EXECUTE só a `authenticated`; é agora a única fonte do card, do `useBPIncomeSynthetic` e do Fecho. Na mesma passagem, 35 leituras de `ticket_sales` em `src/` (DREs, P&L, simulador, prestações de contas, `ForecastBoostCalibrator`) passaram a paginação por `.range()`. Regra escrita em `docs/ARCHITECTURE.md`. A varredura das restantes tabelas acima de 1.000 linhas (`transactions` 1.564, `event_forecasts` 1.463, `transaction_documents` 1.520, …) é a Issue #206, frente plataforma-e-infra.
+
+- **IVA dos cards da capa passou a vista (18/09, issue #207, D-ERP83).** Um só seletor c/IVA · s/IVA por página, aplicado a Receitas, Custos e Lucro, guardado por utilizador, default = critério contratual (`events.partner_calc_basis`). O card de Custos voltou a ter o rádio (retirado pela D57 a 13/09), rotulado "Vista", com o critério contratual assinalado; badge "≠ fecho" quando a vista difere. `committed` e previsto corrente existem nas duas bases, bucket a bucket. Fecho, Encontro de Contas, PDFs e Portal do Sócio continuam a ler só o critério contratual. Motivo do Pedro: no mesmo evento há sócios com IVA e sócios sem IVA. Resíduo: previsto de A&B sem bruto próprio (#208).
 
 ## A trabalhar agora
 
@@ -149,9 +153,13 @@ As 19 sessões à venda, verificadas na página pública do El Corte Inglés a 0
 
 **RG Coimbra e RG Santa Maria da Feira são BOL**, não Ticketline: `ticket_sales.source = 'bol'`, `bol_sync_config` ativo, série em `bol_daily_sales`. As vendas em `ticket_sales` aparecem todas num só dia porque o M2 é cumulativo e o import é full-replace com `sale_date` = data do relatório — é o desenho, não um defeito. Não estão no portal Ticketline nem podiam estar.
 
+**NENHUM ECRÃ SOMA `ticket_sales` NO CLIENTE (18/09/2026, #205).** Totais por conta: `get_ticket_office_sales`. Totais por evento: `get_event_ticket_sales_totals`. Listas linha a linha só com `.range()` paginado. O PostgREST corta aos 1.000 registos em silêncio e já partiu dois números em produção (#129 a 09/09, #205 a 18/09). Quem vir um total de bilheteira diferente do Dashboard ou do portal deve suspeitar primeiro de uma soma no cliente.
+
+**O IVA da capa é vista; o do fecho é critério (D-ERP83, 18/09/2026).** O seletor c/IVA · s/IVA dos cards da capa não grava nada na BD e não muda o fecho. `events.partner_calc_basis` é o critério contratual e é o único que o Fecho, o Encontro de Contas, os PDFs e o Portal do Sócio leem. Uns eventos abrem em c/IVA e outros em s/IVA porque o default da vista é o critério contratual de cada um (Anitta, Ivete, FestVybbe e Mágicos H&K em `net_result_gross_expenses`; os restantes em `net_result`).
+
 ## Onde ler mais
 
 - `.lovable/memory/features/bilheteira-sync.md`, `bol-sync.md`, `venue-retained-door-sales.md`, `ticketline-dashboard-daily-fallback.md`
 - `src/lib/ticket-office-balance.ts`, `src/lib/ticket-sales-revenue.ts`, `src/lib/ticket-office-settlement-calc.ts`
-- `docs/DECISIONS.md` — D-ERP15
+- `docs/DECISIONS.md` — D-ERP15, D24, D57, D-ERP83
 - Issues #73, #78, #128, #129, #130, #145
