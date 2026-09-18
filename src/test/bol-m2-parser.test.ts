@@ -88,7 +88,7 @@ const DUMP_100K = `
 Ocupação Sessões M2 - Tipo de Venda
 Sector Lotação Disp. Ocupação Taxa Ocup. Vendas Inteiras Descontos Total Vendas Convites Permutas Reservas Geral Reservas Produção Bloqueados
 Qt Qt Qt % Qt Valor Qt Valor Qt Valor Qt Qt Qt Qt Qt
-Plateia Geral 1200 456 744 62,0 679 93 697,00 € 65 6 500,00 € 744 100 197,00 € 0 0 0 0 0
+Plateia Nobre 1200 456 744 62,0 679 93 697,00 € 65 6 500,00 € 744 100 197,00 € 0 0 0 0 0
 TOTAL 1200 456 744 62,0 679 93 697,00 € 65 6 500,00 € 744 100 197,00 € 0 0 0 0 0
 CONFERÊNCIA DE MULHERES PLENITUDE | 2026
 Altice Forum Braga
@@ -113,7 +113,7 @@ describe("parseBolM2 — grupos de milhar (#210)", () => {
   it("setor com qty de 3 dígitos e valor ≥ 100.000 € bate com o TOTAL", () => {
     expect(res.rows.length).toBe(1);
     const r = res.rows[0];
-    expect(r.sector).toBe("Plateia Geral");
+    expect(r.sector).toBe("Plateia Nobre");
     expect(r.capacity).toBe(1200);
     expect(r.available).toBe(456);
     expect(r.occupied).toBe(744);
