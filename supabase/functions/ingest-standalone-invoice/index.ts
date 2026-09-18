@@ -2,6 +2,7 @@
 // Regra absoluta: esta função escreve apenas em standalone_invoices e no bucket homónimo.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { z } from 'npm:zod@3.23.8'
+import { getEcbRate } from '../_shared/fx-rate.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,7 +30,9 @@ const BodySchema = z.object({
   original_amount: z.number().finite().nonnegative().nullish(),
   fx_rate: z.number().finite().positive().nullish(),
   fx_rate_source: z.string().trim().max(100).nullish(),
-  total_amount: z.number().finite().nonnegative(),
+  // (#195) Em moeda estrangeira sem `fx_rate`, o servidor resolve o câmbio pela
+  // data da fatura e CALCULA o total — daí `total_amount` deixar de ser obrigatório.
+  total_amount: z.number().finite().nonnegative().nullish(),
   iva_amount: z.number().finite().nonnegative().nullish(),
   notes: z.string().trim().max(2000).nullish(),
   paid_by_partner_id: z.string().uuid().nullish(),
@@ -38,14 +41,26 @@ const BodySchema = z.object({
   if (Boolean(value.origem) === Boolean(value.conteudo_base64)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Indique exatamente uma origem: origem ou conteudo_base64.' })
   }
-  if (value.currency !== 'EUR') {
-    if (value.original_amount == null) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['original_amount'], message: 'Obrigatório para moeda não EUR.' })
-    if (value.fx_rate == null) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['fx_rate'], message: 'Obrigatório para moeda não EUR.' })
-    if (value.original_amount != null && value.fx_rate != null) {
-      const expected = Math.round(value.original_amount * value.fx_rate * 100) / 100
-      if (Math.abs(expected - value.total_amount) > 0.01) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['total_amount'], message: 'O total EUR não corresponde ao valor original × câmbio.' })
-      }
+  if (value.currency === 'EUR') {
+    if (value.total_amount == null) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['total_amount'], message: 'Obrigatório.' })
+    return
+  }
+  if (value.original_amount == null) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['original_amount'], message: 'Obrigatório para moeda não EUR.' })
+  if (value.fx_rate == null) {
+    // (#195) Resolução automática pelo BCE: exige a data da fatura.
+    if (!value.invoice_date) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['invoice_date'], message: 'Obrigatória em moeda não EUR quando não envia fx_rate — o câmbio é o do BCE da data da fatura.' })
+    }
+    return
+  }
+  if (value.total_amount == null) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['total_amount'], message: 'Obrigatório quando envia fx_rate.' })
+    return
+  }
+  if (value.original_amount != null) {
+    const expected = Math.round(value.original_amount * value.fx_rate * 100) / 100
+    if (Math.abs(expected - value.total_amount) > 0.01) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['total_amount'], message: 'O total EUR não corresponde ao valor original × câmbio.' })
     }
   }
 })
@@ -141,6 +156,24 @@ Deno.serve(async (req) => {
     return json({ error: `Erro ao verificar duplicado: ${error instanceof Error ? error.message : String(error)}` }, 500)
   }
 
+  // (#195) Câmbio resolvido no servidor ANTES de qualquer download/upload: se o
+  // BCE falhar, nada é gravado e nenhum objeto entra no bucket.
+  let fxRate = body.fx_rate ?? null
+  let fxRateSource = body.fx_rate_source || null
+  let totalAmount = body.total_amount ?? null
+  if (body.currency !== 'EUR' && body.fx_rate == null) {
+    try {
+      const ecb = await getEcbRate(body.currency, body.invoice_date ?? undefined)
+      fxRate = ecb.rate
+      fxRateSource = `BCE (frankfurter.app) ${ecb.date_used}`
+      // Um `total_amount` enviado é IGNORADO neste modo — o contravalor é calculado.
+      totalAmount = Math.round((body.original_amount ?? 0) * ecb.rate * 100) / 100
+    } catch (error) {
+      return json({ error: `Não foi possível obter o câmbio do BCE: ${error instanceof Error ? error.message : String(error)}` }, 502)
+    }
+  }
+  if (totalAmount == null) return json({ error: 'total_amount é obrigatório.' }, 400)
+
   let bytes: Uint8Array
   if (body.conteudo_base64) {
     try {
@@ -175,8 +208,8 @@ Deno.serve(async (req) => {
     supplier_name: body.supplier_name || null, supplier_nif: body.supplier_nif || null,
     invoice_number: body.invoice_number || null, invoice_date: body.invoice_date || null,
     currency: body.currency, original_amount: body.original_amount ?? null,
-    fx_rate: body.fx_rate ?? null, fx_rate_source: body.fx_rate_source || null,
-    total_amount: body.total_amount, iva_amount: body.iva_amount ?? null,
+    fx_rate: fxRate, fx_rate_source: fxRateSource,
+    total_amount: totalAmount, iva_amount: body.iva_amount ?? null,
     notes: body.notes || null, paid_by_partner_id: body.paid_by_partner_id ?? null,
     created_by: body.created_by ?? null, status: 'new',
   }).select('id, storage_path').single()
