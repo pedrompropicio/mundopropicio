@@ -1,10 +1,56 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 2026-09-17 (fecho). Issues abertas da frente: #91, #125, #127,
-#134, #135, #147, #149, #154, #181, #189, #190, #195.
-Fechadas em 17/09: #191, #192, #193.
+Atualizado: 2026-09-18 (fecho). Issues abertas da frente: #91, #125, #127,
+#134, #135, #147, #149, #154, #181, #189, #190, #195, #196.
+Fechadas em 17–18/09: #191, #192, #193, #200, #201.
 
 ## Em que pé está
+
+- **Listas de Pagamento — marca do lote SEPA, blocos e contadores por fase
+  (18/09, #200 fechada).** O selo "No ficheiro SEPA de DD/MM" no item, o botão
+  "Marcar como Pago" só nas que ficaram fora do ficheiro, e o download do XML
+  passa a marcar como pago o que leva (`markSepaBatchPaid`, idempotente). A
+  listagem passou de tabela a **blocos**: cada lista é um cartão com barra
+  segmentada de cinco fases e contadores não-zero. Referência do campo:
+  filtro de dígitos na Referência **só em `service_payment`** — `payment_reference`
+  é também onde vivem as chaves de agrupamento (`ACERTO-FOOD-IVETE-2026`,
+  `CAMARIM-<id>`), um filtro global destruía-as. Data sugerida ao liquidar
+  passou a ser **hoje**, editável.
+  ⚠️ **"Marcar como Pago" e "Liquidar" são duas FASES, não duas categorias:**
+  pago = o dinheiro saiu do banco; liquidado = o sistema sabe de que conta saiu.
+  Uma transação marcada e não liquidada **não entra no saldo de nenhuma conta**.
+  A 17/09: 196 itens, 484.084,08 € nessa situação, mais 140 itens de legado
+  (474.808,36 €) pagos sem passar por nenhum dos dois botões. É a razão de fundo
+  por que o Santander precisou de saldo implantado com data de corte (D-ERP25).
+  Denominador da barra: `Lançadas + Não aprovadas` (as não aprovadas têm
+  `removed_at NOT NULL` e não estão nos ativos). A barra só renderiza se os cinco
+  segmentos fecharem — se não fecharem fica vazia em vez de mentir; barra vazia
+  com itens dentro significa classificação a escapar.
+
+- **Cargas de cartão — crédito por criar, escrita não atómica e erro engolido
+  (18/09, #201 fechada).** O crédito no cartão nasce do trigger
+  `card_load_on_out_paid`, que só dispara quando a saída passa a `paid`. Como
+  "Marcar como Pago" não toca na transação, **o trigger nunca corria** e a carga
+  ficava com dinheiro real no cartão e zero crédito no sistema — e as cargas sem
+  IBAN são exactamente aquelas a quem o ecrã manda usar esse botão.
+  Corrigido: nas cargas o botão é **Liquidar**, nunca "Marcar como Pago"; aviso
+  no ecrã; invariante `carga_sem_credito` (referência 0); e o `performCardLoad`
+  passou a **RPC `create_card_session_load`**, atómica, com `{ error }` lido e
+  lançado (o helper encolheu de 47 para 21 linhas).
+  ⚠️ **Rejeitado** fazer o trigger disparar com a marca visual: a entrada nasceria
+  `paid` com a saída por pagar e **o caixa total subiria do nada a cada carga**.
+  **Defeito encontrado a testar contra a base:** a RPC não passava `company_id` e
+  confiava no default `current_company_id()`. Como não é `SECURITY DEFINER`, a
+  empresa vinha do contexto de quem chama — rebentaria numa edge function, num
+  cron ou num script. Passou a ler `card_sessions.company_id` e a escrevê-lo
+  explicitamente nas duas pernas. **Nenhum teste unitário apanharia isto.**
+  Prova em Live, sem resíduos: 3 cargas · 6 transações `carga_cartao`, antes e
+  depois. Script em `supabase/tests/create_card_session_load.sql`.
+
+- **Dashboard: esconder valores (18/09).** Botão de olho único acima dos cartões
+  SALDO EM CAIXA e RETIDO EM BILHETEIRAS; os dois passam a `••••••••`. Estado em
+  `localStorage`, chave `mp:dashboard:hide-amounts`, começa visível. Só estes dois
+  cartões — a Posição de Vendas fica à vista por decisão do Pedro.
 
 - **Faturas avulsas da Lovable carregadas (17/09, #191 e #192 fechadas).**
   34 faturas em `standalone_invoices`, 2026-03-18 a 2026-09-16,
@@ -110,7 +156,7 @@ Fechadas em 17/09: #191, #192, #193.
   **Porque NÃO se criou conta de trânsito para o food**, apesar de considerado: nos acertos existentes (Acerto EIN, Pgto Mágicos Madrid) os movimentos **não passam pelo banco**; aqui passam — os seis repasses saem mesmo do Santander por SEPA e aparecem no extrato. Numa conta de trânsito a conciliação cairia no aviso **"conta divergente"** da D-ERP35 em cada uma delas. A referência dá o agrupamento sem esse atrito. A estrutura definitiva é o **"perímetro por linha"** de uma issue fechada — remedir antes de manter esta pendência.
   O **revenue share da Ticketline não levou referência de agrupamento**: ali a ponte `bank_line_transactions` já liga as duas transações ao crédito de 135.986,96 € — a estrutura já garante o que a referência daria.
 - **Compensação nunca mexe em saldo — trava na base (12/09, D-ERP43).** Trigger `trg_force_no_account_on_compensation`, `BEFORE INSERT OR UPDATE` em `transactions`: com `payment_method = 'compensation'`, `account_id` é forçado a **NULL**. Não rejeita, **corrige** — compensação com conta nunca é intenção legítima. Motivo: a fórmula do saldo soma por `t.account_id`, logo uma compensação com conta **inflaciona a conta com dinheiro que nunca lá entrou**. **Caso real encontrado e corrigido:** quatro transações do Coala Festival (A&B Bebidas 95.195,75 · Superbock 3.252,03 · Cortesias Marco Caldeira 2.520,00 · Adega Almeirim 2.500,00, total **103.467,78 €**) estavam apontadas ao Banco Santander Totta; só não corromperam o saldo porque têm data de pagamento **07/07/2026**, anterior ao corte de 31/08. Foram limpas. Depois da limpeza o saldo do Santander a 09/09 continua **439.403,92 €** e **não existe nenhuma transação de compensação com conta** na base.
-- **Domínio de `payment_method` fechado (12/09, D-ERP44).** Era **texto livre sem CHECK** nas duas tabelas, com a lista de opções repetida em **quatro ficheiros** (um deles divergente, sem `state_payment`) e "Compensação" a não ser oferecida em lado nenhum da interface — as 20 compensações existentes tinham entrado **por SQL**. Agora: fonte única em `src/lib/payment-methods.ts` (valores, rótulos em pt-PT, ícones, `isPaymentMethod`, `paymentMethodLabel`, `paymentMethodOptions` com `includeStatePayment`/`includeCompensation`); **espelho no servidor** em `update-transaction`; e **CHECK** em `transactions.payment_method` e `transaction_payments.payment_method` a aceitar apenas NULL ou um de `transfer`, `service_payment`, `direct_debit`, `state_payment`, `compensation`. No modal de pagamento "Compensação" passou a ser escolhível e, ao escolhê-la, o bloco da conta desaparece e aparece a nota "Encontro de contas: não há movimento de dinheiro e não altera o saldo de nenhuma conta". Verificado no ecrã a 12/09. Importa porquê: **o trigger compara a string exactamente**, e sem CHECK uma grafia errada desarmava-o em silêncio.
+- **Domínio de `payment_method` fechado (12/09, D-ERP44).** Era **texto livre sem CHECK** nas duas tabelas, com a lista de opções repetida em **quatro ficheiros** (um deles divergente, sem `state_payment`) e "Compensação" a não ser oferecida em lado nenhum da interface — as 20 compensações existentes tinham entrado **por SQL**. Agora: fonte única em `src/lib/payment-methods.ts` (valores, rótulos em pt-PT, ícones, `isPaymentMethod`, `paymentMethodLabel`, `paymentMethodOptions` com `includeStatePayment`/`includeCompensation`); **espelho no servidor** em `update-transaction`; e **CHECK** em `transactions.payment_method` e `transaction_payments.payment_method` a aceitar apenas NULL ou um de `transfer`, `service_payment`, `direct_debit`, `state_payment`, `compensation`. No modal de pagamento "Compensação" passou a ser escolhível e, ao escolhê-la, o bloco da conta desaparece e aparece a nota "Encontro de contas: não há movimento de dinheiro e não altera o saldo de nenhuma conta". Verificado no ecrã a 12/09. Importa porquê: **o trigger compara a string exactamente**, e sem CHECK uma grafia errada desarmaria-o em silêncio.
 - **Rubricas novas no plano de contas:** `10.8.08 Ofertas e Representação` e `2.9.04 Taxas de Meios de Pagamento`.
 - **Conciliação N:1 — tabela-ponte `bank_line_transactions` (12/09, D-ERP41).** Uma linha do banco passa a poder ligar-se a **N transações** nas conciliações manuais. Caso que a originou: o crédito único da Ticketline de **135.986,96 €** (FT 11.1/101) a cobrir duas transações — Revenue Share 4% (88.446,80 + IVA 23% = **108.789,56**, no evento Anitta EDA 2026) e a parcela de 1% (22.111,70 + IVA = **27.197,40**, sem evento). Os lançamentos (`created_transaction_id`) **não** entram na ponte: são a cardinalidade inversa (N linhas → 1 transação, caso das 16 linhas de TPA). Validação: a soma dos `paid_amount` das N tem de bater com `abs(line.amount)` a **±0,01**; **não existe conciliação parcial**.
 - **Documentos no movimento do banco — `bank_line_documents` (12/09, D-ERP41).** Uma fatura que cobre transações de eventos diferentes não pode ser anexada a nenhuma delas: vive na linha do banco e replica-se para `transaction_documents` com `file_url` prefixado **`bank://`**, sem duplicar o ficheiro no storage.
@@ -153,7 +199,7 @@ A conta corrente do sócio ficou fechada a 17/09 (#193). Estado a essa data,
 com o ano de extratos completo:
 
 | | |
-|---|---:|
+|---|---|---:|
 | Folha de vencimentos jan–ago (bruto) | 55.048,38 |
 | Faturas avulsas (63) | 26.591,27 |
 | **Coberto** | **81.639,65** |
@@ -184,6 +230,11 @@ O Santander está implantado (122.363,05 € com corte a 31/08/2026) e o extrato
     2026 estão todas lançadas (211.300,00 € de 07/01 a 09/09) e a cobertura
     conhecida é 81.639,65 €. Falta carregar as faturas que restam na Drive
     e lançar a folha de set a dez à medida que chega.
+
+12. **Provar o crédito do cartão numa liquidação real.** Nada do que foi testado
+    na #201 prova que o trigger `card_load_on_out_paid` cria a entrada — isso
+    exige liquidar uma carga com conta financeira, no ecrã, uma vez. A partir daí
+    a invariante `carga_sem_credito` vigia sozinha.
 
 
 Já feito e sem pendência: a **FT 11.1/101** está anexada ao movimento do banco de **135.986,96 €** e replicada nas duas transações ligadas.
@@ -244,42 +295,20 @@ Não corrigir sem decisão explícita.
 
 **O extrato do Santander bate ao cêntimo com o sistema a 16/09 (481.658,14 €) antes do crédito Ticketline.**
 
-**O saldo de conta nunca filtra `reversed_at`.** A RPC `reverse_transaction` tem dois tipos de estorno: `cash_refund` põe `paid_amount = 0` (o dinheiro voltou), `supplier_credit` mantém o `paid_amount` (o dinheiro saiu mesmo e nasce um crédito no fornecedor). `paid_amount` já é a resposta certa nos dois casos; filtrar `reversed_at` no saldo inflacionaria os estornos por crédito de fornecedor.
-
-**Existem três overloads de `reverse_transaction` em Live.** A de 5 argumentos (`p_tx_id`, `p_kind`, `p_reason`, `p_valid_until`, `p_release_for_repayment`) é a correta e é a única chamada pelo frontend, em `PaymentTimeline.tsx`. A legada de 3 argumentos (`p_transaction_id`, `p_reversal_kind`, `p_reason`) continua viva sem consumidor e não toca em `transaction_payments` nem liberta a transação das listas. Estornar por SQL direto, sem a RPC, deixa `reversal_kind` a NULL e o `paid_amount` intacto — foi o que corrompeu o saldo do Santander em 3.177,96 € entre 01/09 e 07/09.
-
-**A despesa do fecho de um evento é a soma das linhas de BP, não a soma das transações.** Lançar uma transação contra uma linha de BP que já contém o valor não altera o resultado do evento nem o apuramento por sócio — só converte previsão em realizado. Só há impacto no resultado se o total ligado à linha exceder o BP, e aí entra como custo fora do BP.
-
-**Reverter uma fatura Ads aplicada apaga a transação-mãe, e as filhas caem por CASCADE.** Sete guardas correm antes e nenhuma é opcional: pago ou com `paid_amount` > 0, `settlement_id`, `card_session_id`, linha em `transaction_payments`, presença em `payment_list_items`, `reimbursement_note_items` ou `reimbursement_notes`, conferência em `accountant_transaction_reviews`, e data dentro de um período já em `accounting_exports`. A ordem das operações é fixa: soltar `event_forecasts.transaction_id` (FK NO ACTION, é a que bloqueia), apagar a mãe, e só depois apagar os ficheiros do storage.
-
-**A rubrica de destino de uma fatura de tráfego não é garantida.** A fatura Meta de abril (252466632) esteve quatro meses lançada em 10.8.07 Outros em vez de 3.2.01 Digital, e por isso não aparecia em nenhuma leitura do Digital. Ao conferir tráfego pago, procurar por `invoice_ref` e por fornecedor, nunca só por categoria.
-
-**O espelho segue a transação, nunca a linha de BP nem a linha de pagamento.** Uma transação pode cobrir várias linhas de BP e continua a ser uma só saída de dinheiro. E `transaction_payments` não é âncora fiável: na conta de Madrid havia uma transação com o pagamento gravado duas vezes e outra com o valor em reais. O `paid_amount` da transação é a verdade. Filhas de rateio nunca recebem `account_id`, portanto nunca geram aporte duplicado.
-
-**`transaction_payments` não tem campo de moeda.** O pagamento do consórcio tem 68.770,80 numa transação de 11.385,52 — é o valor em reais (câmbio 6,04), não um erro. Quem somar essa tabela mistura moedas sem aviso.
-
-**O ramo 10.1 não alimenta o mapa de sugestão de rubricas.** Guarda acrescentada a `coala_capture_category_change` em 07/09: sem ela, cada aporte espelhado escrevia uma linha em `coala_supplier_category_map`.
-
-**Cartão de fatura agrupada no picker de Listas de Pagamento.** `buildPickerRows` colapsa as transações com o mesmo `invoice_group_id` numa linha única identificada só por fornecedor + `invoice_ref`; as descrições dos itens não são renderizadas com o grupo fechado. Uma transação elegível parece não existir, e a pesquisa por descrição não lhe acerta — o que leva o utilizador a lançá-la outra vez. Caso real a 08/09: `FT 11.1/66` da KARINUR, duas transações de 345,00 € do Tour M&M. Corrigido a 08/09: grupos de 3 itens ou menos abrem por omissão, e a pesquisa passa a ler as descrições dentro dos grupos e a expandir o grupo com match. A selecção continua atómica por fatura.
-
-**Os seis lançamentos de hotel do Deive Leonardo (Vila Galé FT 132026/33986 e Meliã PROFORMA 194/2026) têm grupo de fatura e documento anexo desde 16/09 — não voltar a anexar.**
-
-**Os mapas de vencimento da Expert Numbers chegam à conta
-pedroneto@socialmusic.com.br, não à mundopropicio.com.** Cinco anexos por
-mês (FF, MV, RET, RV, SS); o **MV é acumulado do ano** e é o único que
-é preciso abrir. Há meses com retificação — vale sempre o último envio.
-
-**A ajuda de custo por quilómetros é a rubrica "Quilómetros" na folha e
-representa 85% do que o sócio recebe** (46.670,48 € contra 7.360,00 € de
-vencimento, jan–ago 2026). É o valor que sustenta quase toda a
-justificação da conta corrente e o mais exposto numa inspeção.
-
-**Não existe levantamento de numerário na MP para uso pessoal** (decisão
-do Pedro, 17/09). Os cinco levantamentos de 2026 — 7.000,00 (04/02),
-9.050,00 (23/02), 24.436,26 (31/03), 21.215,00 (20/05), 8.010,00 (28/08),
-total 69.711,26 € — são caixa da empresa e ficam fora da conta corrente
-do sócio. Não reabrir.
-
+**A documentação da feature mentiu quatro vezes em dois dias (17–18/09).** Em todos
+os casos o código estava certo e a memória errada, e numa delas fez escrever um
+prompt errado ao agente:
+- `payment-lists.md` dizia que "Marcar como Pago" liquidava a transação. Não
+  liquida — é estritamente visual.
+- `payment-lists.md`, nas cargas sem IBAN, dizia que "Marcar como Pago" criava o
+  crédito no cartão. Não cria.
+- `card-sessions.md` descrevia a recarga a criar o par completo já `paid`. Cria só
+  a saída, a `pending`; a entrada vem do trigger.
+- `transitory-reason.md` **existia e estava certa**, mas foi ignorada: propôs-se
+  construir de novo o `transitory_reason` que já estava feito nesse mesmo dia
+  (D-ERP80), com um domínio de seis valores quando o real tem sete.
+**Regra prática: ler o código antes de acreditar na memória da feature, e a
+memória antes de propor o que quer que seja.**
 
 ## Página de Contas: três dinheiros, três cartões (09/09/2026, D-ERP27)
 
