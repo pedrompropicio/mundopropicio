@@ -105,9 +105,7 @@ export function EventFinancialCard(props: Props) {
   };
 
   useEffect(() => { writeStoredMode(userId, eventId, kind, storedMode); }, [userId, eventId, kind, storedMode]);
-  useEffect(() => {
-    if (!isExpense) writeStoredWithVat(userId, eventId, kind, incomeWithVat);
-  }, [isExpense, userId, eventId, kind, incomeWithVat]);
+  // A vista de IVA é gravada pela página (chave única por utilizador+evento).
   useEffect(() => {
     if (!isExpense) writeStoredCostToggle(userId, eventId, kind, "overhead", incomeOverhead);
   }, [isExpense, userId, eventId, kind, incomeOverhead]);
