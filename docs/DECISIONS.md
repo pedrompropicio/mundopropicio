@@ -2487,3 +2487,21 @@ A 18/09 o backup global passou a incluir `infra.json` e `identities.json`. A est
 **Fora da RPC, de propósito:** a ligação da transferência-mãe à linha de BP (`update-transaction`, Peça C do D-ERP74), guardar a regra e incrementar `hits`. Se falharem, o que já está lançado fica — e o aviso diz o que resta fazer à mão.
 
 **Estado:** vigente. Nota de numeração: os números D-ERP81 e D-ERP82 estão duplicados no ficheiro (ver nota do D-ERP84); D-ERP85 estava livre.
+
+---
+
+## D-ERP86 — `paid_amount`, estado de pagamento e data de pagamento derivam de `transaction_payments` (18/09/2026)
+
+**Decisão:** `transactions.paid_amount`, o estado de pagamento (`paid`/`approved`) e `payment_date` passam a ser **derivados no servidor** a partir das linhas de `transaction_payments` (trigger `sync_paid_amount_from_payments`, que deixou de exigir cronograma de parcelas). O cliente só escreve **linhas**; na transação continua a escrever apenas o que não é derivado: `account_id`, `payment_method`, `payment_entity`, `payment_reference`, `invoice_ref` e a limpeza de `reversed_at`/`reversal_kind`.
+
+**Regra:** soma das linhas `paid` ≤ 0,01 € → `paid_amount = 0`, estado volta a `approved` (não `pending` — uma transação aprovada que perde o pagamento continua aprovada, que é o estado exigido pelos seletores das listas de pagamento) e `payment_date` a nulo. Soma ≥ bruto − 0,05 € → `paid_amount = soma`, estado `paid`, `payment_date` = data mais recente. Entre os dois → `paid_amount = soma`, estado `approved` (parcial; não existe `partially_paid`). Bruto = `amount * (1 + iva_rate/100)`.
+
+**Moeda estrangeira:** o fecho pode dar-se com soma diferente do bruto em EUR (variação cambial). Nova coluna `transaction_payments.closes_transaction` (boolean, default false): a linha que fecha a dívida marca-a a true e o servidor põe o estado a `paid` mesmo sem atingir o bruto.
+
+**Isentas (o servidor não toca nelas):** filhas de rateio (`parent_transaction_id` + `split_percentage` — o dinheiro sai na mãe), linhas de nota de reembolso (`is_reimbursement`) e despesas pagas pelo sócio (existe linha em `partner_paid_expenses`). Nestas, a escrita directa mantém-se.
+
+**Porquê:** a escrita directa pelo cliente deixou **624 transações pagas sem qualquer linha de pagamento** (medido a 30/08/2026), com o valor pago e a soma das parcelas a divergirem sem ninguém notar. Issue #91.
+
+**Como se verifica:** invariante `paid_amount_sem_linhas` (erro, global, referência 1 — a única divergente legada é `31497cab-8123-4a5b-8ee3-0e13db8508c9`, "Aluguel espaço") e a prova `supabase/tests/paid_amount_derivado.sql`.
+
+**Estado:** vigente.
