@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /**
  * Hard-link agrupador para faturas com múltiplas taxas de IVA.
@@ -16,10 +17,10 @@ export async function expandTransactionIdsByInvoiceGroup(
   if (!ids.length) return ids;
   const unique = [...new Set(ids)];
   // 1) get the invoice_group_id of each input id
-  const { data: rows } = await (supabase as any)
+  const { data: rows } = await fetchAllPagedQuery((supabase as any)
     .from("transactions")
     .select("id, invoice_group_id")
-    .in("id", unique);
+    .in("id", unique));
   const groups = [
     ...new Set(
       (rows ?? [])
@@ -29,10 +30,10 @@ export async function expandTransactionIdsByInvoiceGroup(
   ] as string[];
   if (groups.length === 0) return unique;
   // 2) fetch all siblings sharing those groups
-  const { data: siblings } = await (supabase as any)
+  const { data: siblings } = await fetchAllPagedQuery((supabase as any)
     .from("transactions")
     .select("id")
-    .in("invoice_group_id", groups);
+    .in("invoice_group_id", groups));
   const expanded = new Set<string>(unique);
   for (const s of siblings ?? []) expanded.add(s.id);
   return [...expanded];
@@ -49,11 +50,11 @@ export async function getInvoiceGroupSiblings(
     .single();
   const groupId = tx?.invoice_group_id;
   if (!groupId) return [];
-  const { data: siblings } = await (supabase as any)
+  const { data: siblings } = await fetchAllPagedQuery((supabase as any)
     .from("transactions")
     .select("id")
     .eq("invoice_group_id", groupId)
-    .neq("id", transactionId);
+    .neq("id", transactionId));
   return (siblings ?? []).map((s: any) => s.id);
 }
 
@@ -109,12 +110,12 @@ export async function fetchInvoiceSiblings(
   supplierId: string,
   invoiceRef: string,
 ): Promise<InvoiceSibling[]> {
-  const { data } = await (supabase as any)
+  const { data } = await fetchAllPagedQuery((supabase as any)
     .from("transactions")
     .select("id, description, amount, iva_rate, supplier_id, invoice_ref, invoice_group_id, status")
     .eq("supplier_id", supplierId)
     .eq("invoice_ref", invoiceRef)
-    .order("description");
+    .order("description"));
   return (data ?? []) as InvoiceSibling[];
 }
 
@@ -124,10 +125,10 @@ export async function fetchDocumentUrlsByTransaction(
 ): Promise<Record<string, string[]>> {
   const out: Record<string, string[]> = {};
   if (!transactionIds.length) return out;
-  const { data } = await (supabase as any)
+  const { data } = await fetchAllPagedQuery((supabase as any)
     .from("transaction_documents")
     .select("transaction_id, file_url")
-    .in("transaction_id", transactionIds);
+    .in("transaction_id", transactionIds));
   for (const row of data ?? []) {
     const key = row.transaction_id as string;
     if (!out[key]) out[key] = [];
@@ -313,10 +314,10 @@ export async function clearInvoiceGroupForTransaction(
     .eq("id", transactionId);
   if (error) throw error;
 
-  const { data: rest } = await (supabase as any)
+  const { data: rest } = await fetchAllPagedQuery((supabase as any)
     .from("transactions")
     .select("id")
-    .eq("invoice_group_id", groupId);
+    .eq("invoice_group_id", groupId));
   let alsoCleared = 0;
   if ((rest ?? []).length === 1) {
     const { error: e2 } = await (supabase as any)
@@ -348,11 +349,11 @@ export async function fetchInvoiceGroupSiblingDetails(
     .maybeSingle();
   const groupId = tx?.invoice_group_id;
   if (!groupId) return [];
-  const { data } = await (supabase as any)
+  const { data } = await fetchAllPagedQuery((supabase as any)
     .from("transactions")
     .select("id, description, amount, date, due_date")
     .eq("invoice_group_id", groupId)
-    .neq("id", transactionId);
+    .neq("id", transactionId));
   return (data ?? []) as InvoiceGroupSiblingDetail[];
 }
 
@@ -392,10 +393,10 @@ export async function revalidateInvoiceGroupAfterDocument(
     const groupId: string | null = tx?.invoice_group_id ?? null;
     if (!groupId) return null;
 
-    const { data: rows } = await (supabase as any)
+    const { data: rows } = await fetchAllPagedQuery((supabase as any)
       .from("transactions")
       .select("id")
-      .eq("invoice_group_id", groupId);
+      .eq("invoice_group_id", groupId));
     const siblingIds = (rows ?? []).map((r: any) => r.id as string);
     if (siblingIds.length < 2) return null;
 

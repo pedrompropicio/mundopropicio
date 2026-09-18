@@ -17,6 +17,7 @@ import { calcIvaAmount } from "@/lib/iva";
 import { Switch } from "@/components/ui/switch";
 import { computeTotals as computeABTotals, type ABTotals, type ABZoneInput, type ABFoodConfig } from "@/lib/event-ab-calc";
 import { partnerUsesGrossExpenses } from "@/lib/partner-calc-basis";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
@@ -280,7 +281,7 @@ export default function ReportDRE() {
   const { data: transactionsAll = [] } = useQuery({
     queryKey: ["transactions"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("transactions").select("*").in("status", ["approved", "paid"]).order("date", { ascending: false });
+      const { data, error } = await fetchAllPagedQuery(supabase.from("transactions").select("*").in("status", ["approved", "paid"]).order("date", { ascending: false }));
       if (error) throw error;
       return data;
     },
@@ -353,10 +354,10 @@ export default function ReportDRE() {
   const { data: closingCostsRaw = [] } = useQuery({
     queryKey: ["closing-costs-all"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, event_id, amount, description, category_id, account_categories(code, name)")
-        .eq("is_overhead", true).is("version_id", null);
+        .eq("is_overhead", true).is("version_id", null));
       if (error) throw error;
       return data;
     },

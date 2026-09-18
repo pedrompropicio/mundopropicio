@@ -26,6 +26,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/hooks/use-toast";
 import { Link2, EyeOff, ExternalLink, ChevronLeft, ChevronRight, Sparkles, Search } from "lucide-react";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 // ---- Types ---------------------------------------------------------------
 
@@ -143,10 +144,10 @@ export default function OrphanAttachmentsResolver({
   const { data: forecasts = [] } = useQuery({
     queryKey: ["bp_forecasts_pool", allEventIds.join(",")],
     queryFn: async (): Promise<ForecastRow[]> => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, event_id, description, amount, transaction_id, attachment_refs")
-        .in("event_id", allEventIds).is("version_id", null);
+        .in("event_id", allEventIds).is("version_id", null));
       if (error) throw error;
       return (data ?? []) as any;
     },

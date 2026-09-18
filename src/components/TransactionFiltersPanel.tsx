@@ -9,6 +9,7 @@ import { Search, X, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { OperationKeyManager } from "@/components/OperationKeyManager";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface FilterPanelProps {
   open: boolean;
@@ -197,11 +198,11 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
   const { data: operationKeys = [] } = useQuery({
     queryKey: ["operation-keys-distinct"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("operation_key")
         .not("operation_key", "is", null)
-        .order("operation_key");
+        .order("operation_key"));
       if (error) throw error;
       const seen = new Set<string>();
       (data ?? []).forEach((r: any) => { if (r.operation_key) seen.add(r.operation_key); });

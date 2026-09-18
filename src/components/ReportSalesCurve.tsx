@@ -7,6 +7,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ReferenceLine } from "recharts";
 import { format, parseISO, differenceInDays, startOfDay } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function ReportSalesCurve() {
   const [selectedEventId, setSelectedEventId] = useState<string>("");
@@ -30,13 +31,13 @@ export default function ReportSalesCurve() {
     queryFn: async () => {
       if (!selectedEventId) return [];
       // Use ticket office transactions as a proxy for sales
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("amount, date, type")
         .eq("event_id", selectedEventId)
         .eq("type", "income")
         .in("status", ["approved", "paid"])
-        .order("date");
+        .order("date"));
       if (error) throw error;
       return data;
     },

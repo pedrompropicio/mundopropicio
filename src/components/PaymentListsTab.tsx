@@ -90,6 +90,7 @@ function PaymentDocsButton({ transactionId, onClick }: { transactionId: string; 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useBackdropClose } from "@/lib/backdropClose";
 import { fetchSupplierBankMap, mergeEmbeddedSupplierBank, collectSupplierIds, attachSupplierBankToTxRows, fetchSupplierBankRows } from "@/lib/supplier-bank";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
 type ListStatus = "draft" | "pending_approval" | "approved" | "rejected" | "revision" | "partially_approved";
@@ -332,7 +333,7 @@ export default function PaymentListsTab() {
           .select(
             "payment_list_id, removed_at, removed_reason, manually_marked_paid, transactions(id, amount, iva_rate, status)",
           ),
-        supabase.from("transaction_payments").select("transaction_id"),
+        fetchAllPagedQuery(supabase.from("transaction_payments").select("transaction_id")),
       ]);
       if (itemsRes.error) throw itemsRes.error;
       if (paymentsRes.error) throw paymentsRes.error;
@@ -682,14 +683,14 @@ function useEligibleTransactionsForList() {
   return useQuery({
     queryKey: ["approved-transactions-for-list"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("*, events(name), suppliers:suppliers!transactions_supplier_id_fkey(name, trade_name), account_categories(code, name)")
         .eq("status", "approved")
         .eq("type", "expense")
         // Reembolsos só podem ser liquidados via Nota de Reembolso — nunca em Lista de Pagamento
         .or("is_reimbursement.is.null,is_reimbursement.eq.false")
-        .order("date", { ascending: false });
+        .order("date", { ascending: false }));
       if (error) throw error;
       const rows: any[] = mergeEmbeddedSupplierBank((data ?? []) as any[], await fetchSupplierBankMap(collectSupplierIds((data ?? []) as any[])));
 
@@ -698,10 +699,10 @@ function useEligibleTransactionsForList() {
         .filter((id: string) => !loadedIds.has(id));
       let parentRows: any[] = [];
       if (missingParentIds.length > 0) {
-        const { data: parents, error: parentErr } = await supabase
+        const { data: parents, error: parentErr } = await fetchAllPagedQuery(supabase
           .from("transactions")
           .select("id, event_id, split_mode")
-          .in("id", missingParentIds);
+          .in("id", missingParentIds));
         if (parentErr) throw parentErr;
         parentRows = parents ?? [];
       }
@@ -1561,10 +1562,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         .filter((id: string) => !loadedIds.has(id));
       let parentRows: any[] = [];
       if (missingParentIds.length > 0) {
-        const { data: parents, error: parentErr } = await supabase
+        const { data: parents, error: parentErr } = await fetchAllPagedQuery(supabase
           .from("transactions")
           .select("id, event_id, split_mode")
-          .in("id", missingParentIds);
+          .in("id", missingParentIds));
         if (parentErr) throw parentErr;
         parentRows = parents ?? [];
       }
@@ -1578,11 +1579,11 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
 
       let childEventMap: Record<string, string> = {};
       if (masterIds.length > 0) {
-        const { data: children, error: qErr1 } = await supabase
+        const { data: children, error: qErr1 } = await fetchAllPagedQuery(supabase
           .from("transactions")
           .select("parent_transaction_id, events(name)")
           .in("parent_transaction_id", masterIds)
-          .not("event_id", "is", null);
+          .not("event_id", "is", null));
         if (qErr1) throw qErr1;
         if (children) {
           for (const child of children) {
@@ -2754,10 +2755,10 @@ function ApproveModal({
         .filter((id: string) => !loadedIds.has(id));
       let parentRows: any[] = [];
       if (missingParentIds.length > 0) {
-        const { data: parents, error: parentErr } = await supabase
+        const { data: parents, error: parentErr } = await fetchAllPagedQuery(supabase
           .from("transactions")
           .select("id, event_id, split_mode")
-          .in("id", missingParentIds);
+          .in("id", missingParentIds));
         if (parentErr) throw parentErr;
         parentRows = parents ?? [];
       }

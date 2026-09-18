@@ -23,6 +23,7 @@ import { useCompany } from "@/hooks/useCompany";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { Progress } from "@/components/ui/progress";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface EnrichedEvent {
   id: string;
@@ -320,9 +321,9 @@ export default function Dashboard() {
     queryKey: ["dashboard_forecasts", companyId],
     enabled: !!companyId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("*").is("version_id", null);
+        .select("*").is("version_id", null));
       if (error) throw error;
       return data;
     },

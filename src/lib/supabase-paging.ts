@@ -42,3 +42,53 @@ export async function fetchAllPaged<T>(
 
   return all;
 }
+
+/**
+ * Variante que recebe o *query builder* já montado e o pagina, devolvendo
+ * `{ data, error }` como o PostgREST — para não obrigar a reescrever o
+ * tratamento de erro de cada chamada (#206, fase 1).
+ *
+ * Acrescenta `.order("id", { ascending: true })` como ÚLTIMO critério, para
+ * garantir a ordenação total que a paginação exige, e percorre a query em
+ * blocos de 1000 até esgotar as linhas.
+ *
+ * Nota: o builder do supabase-js é re-executável — cada `await` faz um pedido
+ * novo — e `.range()` sobrepõe-se a cada volta.
+ */
+export async function fetchAllPagedQuery<T = any>(
+  query: any,
+  opts?: { pageSize?: number; maxRows?: number }
+): Promise<{ data: T[] | null; error: any }> {
+  const pageSize = opts?.pageSize ?? 1000;
+  const maxRows = opts?.maxRows ?? 50000;
+
+  let q: any = query;
+  try {
+    q = q.order("id", { ascending: true });
+  } catch {
+    // tabela sem coluna `id` — fica a ordenação que o chamador definiu
+  }
+
+  const all: T[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await q.range(from, from + pageSize - 1);
+    if (error) return { data: null, error };
+
+    const batch = (data ?? []) as T[];
+    all.push(...batch);
+    if (batch.length < pageSize) break;
+
+    from += pageSize;
+    if (all.length >= maxRows) {
+      console.warn(
+        `[fetchAllPagedQuery] Limite de segurança maxRows=${maxRows} atingido (${all.length} linhas). ` +
+          `O resultado está INCOMPLETO — filtra a query no servidor ou usa uma RPC de agregação.`
+      );
+      break;
+    }
+  }
+
+  return { data: all, error: null };
+}

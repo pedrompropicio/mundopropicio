@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { resolvePercentageFromTiers, getCacheEffectiveAmount, type CacheTier, type CityCacheSettlement } from "@/lib/cache-pl-helper";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface CacheConfig {
   id: string;
@@ -263,19 +264,19 @@ async function syncTourCacheForecasts(
 
   // 2. Fetch expense forecasts per child (for deduction calculation)
   const allTargetIds = [...childEventIds, masterEventId];
-  const { data: existingForecasts } = await supabase
+  const { data: existingForecasts } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
     .select("id, event_id, cache_config_id, amount, type, category_id, status, transaction_id")
     .in("event_id", allTargetIds)
-    .not("cache_config_id", "is", null).is("version_id", null);
+    .not("cache_config_id", "is", null).is("version_id", null));
 
   // Also fetch non-cache expense forecasts per child for deduction calc
-  const { data: childExpenseForecasts } = await supabase
+  const { data: childExpenseForecasts } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
     .select("event_id, type, category_id, amount, iva_rate, cache_config_id")
     .in("event_id", childEventIds)
     .eq("type", "expense")
-    .is("cache_config_id", null).is("version_id", null);
+    .is("cache_config_id", null).is("version_id", null));
 
   // Fetch per-city settlements (override priority over master legacy fields)
   const cacheConfigIds = cacheConfigs.map((c) => c.id);
@@ -375,13 +376,13 @@ async function syncTourCacheForecasts(
   }
 
   // 5. Clean up orphan cache forecasts (formula_type='cache_module' but cache_config_id IS NULL)
-  const { data: orphanCacheForecasts } = await supabase
+  const { data: orphanCacheForecasts } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
     .select("id")
     .in("event_id", [...childEventIds, masterEventId])
     .eq("type", "expense")
     .eq("formula_type", "cache_module")
-    .is("cache_config_id", null).is("version_id", null);
+    .is("cache_config_id", null).is("version_id", null));
   for (const orphan of (orphanCacheForecasts ?? [])) {
     await supabase.from("event_forecasts").delete().eq("id", orphan.id);
     changed = true;
@@ -454,11 +455,11 @@ async function syncSimpleCacheForecasts(
     }
   }
 
-  const { data: existingForecasts } = await supabase
+  const { data: existingForecasts } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
     .select("id, cache_config_id, amount")
     .eq("event_id", eventId)
-    .not("cache_config_id", "is", null).is("version_id", null);
+    .not("cache_config_id", "is", null).is("version_id", null));
 
   const existingMap = new Map(
     (existingForecasts ?? []).map((f: any) => [f.cache_config_id, f])
@@ -514,13 +515,13 @@ async function syncSimpleCacheForecasts(
   }
 
   // Clean up orphan cache forecasts (formula_type='cache_module' but cache_config_id IS NULL)
-  const { data: simpleOrphanForecasts } = await supabase
+  const { data: simpleOrphanForecasts } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
     .select("id")
     .eq("event_id", eventId)
     .eq("type", "expense")
     .eq("formula_type", "cache_module")
-    .is("cache_config_id", null).is("version_id", null);
+    .is("cache_config_id", null).is("version_id", null));
   for (const orphan of (simpleOrphanForecasts ?? [])) {
     await supabase.from("event_forecasts").delete().eq("id", orphan.id);
     changed = true;

@@ -14,6 +14,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
 import { logAudit, getAuditUser } from "@/lib/audit";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   officeId: string;
@@ -44,10 +45,10 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
       const list = data || [];
       const transferIds = list.map((s: any) => s.transfer_transaction_id).filter(Boolean);
       if (transferIds.length === 0) return list;
-      const { data: transfers } = await (supabase as any)
+      const { data: transfers } = await fetchAllPagedQuery((supabase as any)
         .from("transactions")
         .select("id, status, payment_date, amount, account_id, operation_key")
-        .in("id", transferIds);
+        .in("id", transferIds));
       const tMap = new Map((transfers || []).map((t: any) => [t.id, t]));
       return list.map((s: any) => ({ ...s, transfer: s.transfer_transaction_id ? tMap.get(s.transfer_transaction_id) : null }));
     },
@@ -109,10 +110,10 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
   const reverseMutation = useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
       // Unlink transactions and revert their status
-      const { data: linked } = await (supabase as any)
+      const { data: linked } = await fetchAllPagedQuery((supabase as any)
         .from("transactions")
         .select("id, type")
-        .eq("settlement_id", id);
+        .eq("settlement_id", id));
       // A transferência é um PAR (expense + income) com a mesma chave de operação:
       // estornar apaga as duas pernas, nunca só a apontada pelo fecho.
       const settlement = settlements.find((s: any) => s.id === id);

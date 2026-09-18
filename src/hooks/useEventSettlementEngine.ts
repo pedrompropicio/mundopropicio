@@ -34,6 +34,7 @@ import { useEventABScenarios, type ABScenarioParticipants } from "@/hooks/useEve
 const EMPTY_AB_PARTICIPANTS: ABScenarioParticipants = { real: {}, breakeven: {}, forecast: {} };
 import { fetchPartnerExtras } from "@/lib/partner-extras";
 import { useFechoBasis } from "@/hooks/useFechoBasis";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export function useEventSettlementEngine(eventId: string) {
   const { data: event } = useQuery({
@@ -72,12 +73,12 @@ export function useEventSettlementEngine(eventId: string) {
   const { data: transactions = [] } = useQuery({
     queryKey: ["event-settlement-engine-tx", idsKey],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select(
           "id, amount, iva_rate, type, status, event_id, event_settlement_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, account_categories(code)",
         )
-        .in("event_id", allEventIds);
+        .in("event_id", allEventIds));
       if (error) throw error;
       return data ?? [];
     },
@@ -87,14 +88,14 @@ export function useEventSettlementEngine(eventId: string) {
   const { data: forecasts = [] } = useQuery({
     queryKey: ["event-settlement-engine-bp", idsKey],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select(
           "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description, vat_non_recoverable",
         )
         .in("event_id", allEventIds)
         .eq("status", "approved")
-        .is("version_id", null);
+        .is("version_id", null));
       if (error) throw error;
       return data ?? [];
     },

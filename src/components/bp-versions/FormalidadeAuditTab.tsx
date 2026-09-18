@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { History, Sparkles, User, Filter } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   eventId: string;
@@ -38,10 +39,10 @@ export function FormalidadeAuditTab({ eventId }: Props) {
     queryKey: ["formalidade_audit_event", eventId],
     queryFn: async () => {
       // Pull forecast IDs scoped to this event, then their log entries.
-      const { data: forecasts, error: fErr } = await supabase
+      const { data: forecasts, error: fErr } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, description")
-        .eq("event_id", eventId);
+        .eq("event_id", eventId));
       if (fErr) throw fErr;
       const ids = (forecasts ?? []).map((f: any) => f.id);
       if (ids.length === 0) return [] as any[];

@@ -39,6 +39,7 @@ import { showUndoToast } from "@/hooks/useUndoToast";
 import { useAuth } from "@/contexts/AuthContext";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 const EUR_FMT = new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -541,10 +542,10 @@ export default function BPGridEditor({
       // Find linked transactions via event_forecasts.transaction_id (forward link).
       // A category-bound BP line can have multiple physical transactions sharing the same
       // category_id+event_id; we only block on the directly back-linked transaction(s).
-      const { data: forecastRows } = (await supabase
+      const { data: forecastRows } = (await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, transaction_id")
-        .in("id", ids)) as { data: Array<{ id: string; transaction_id: string | null }> | null };
+        .in("id", ids))) as { data: Array<{ id: string; transaction_id: string | null }> | null };
 
       const linkedTxIds = (forecastRows ?? [])
         .map((f) => f.transaction_id)
@@ -552,10 +553,10 @@ export default function BPGridEditor({
 
       let blockingCount = 0;
       if (linkedTxIds.length > 0) {
-        const { data: txRows } = (await supabase
+        const { data: txRows } = (await fetchAllPagedQuery(supabase
           .from("transactions")
           .select("id, status")
-          .in("id", linkedTxIds)) as { data: Array<{ id: string; status: string }> | null };
+          .in("id", linkedTxIds))) as { data: Array<{ id: string; status: string }> | null };
         blockingCount = (txRows ?? []).filter((t) => t.status === "paid").length;
         if (blockingCount > 0) {
           throw new Error(

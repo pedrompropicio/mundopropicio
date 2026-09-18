@@ -59,6 +59,7 @@ import {
   type PaymentMethod,
 } from "@/lib/payment-methods";
 import { OperationKeySelector } from "@/components/OperationKeySelector";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   transaction: any;
@@ -148,11 +149,11 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   const { data: childTransactions = [] } = useQuery({
     queryKey: ["child-transactions-full", transaction.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, split_percentage, split_amount, amount, event_id, events(name)")
         .eq("parent_transaction_id", transaction.id)
-        .not("split_percentage", "is", null);
+        .not("split_percentage", "is", null));
       if (error) throw error;
       return (data ?? []).map((c: any) => ({
         id: c.id,
@@ -390,11 +391,11 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     queryKey: ["partner-extra-sibling", transaction.id, invoiceGroupId],
     queryFn: async () => {
       if (!invoiceGroupId) return null;
-      const { data: siblings, error } = await supabase
+      const { data: siblings, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, amount, paid_amount, is_transitory")
         .eq("invoice_group_id", invoiceGroupId)
-        .neq("id", transaction.id);
+        .neq("id", transaction.id));
       if (error) throw error;
       if (!siblings?.length) return null;
       const ids = siblings.map((s: any) => s.id);

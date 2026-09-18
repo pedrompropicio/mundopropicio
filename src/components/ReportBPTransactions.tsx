@@ -15,6 +15,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { exportBPTransactionsToPDF, type BPTransactionsPDFData } from "@/lib/export-bp-transactions";
 import { ReportScenarioSelector } from "@/components/reports/ReportScenarioSelector";
 import { useScenarioForecasts } from "@/hooks/useScenarioForecasts";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface TransactionWithMeta {
   id: string;
@@ -138,7 +139,8 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
   const { data: activeForecasts = [] } = useQuery({
     queryKey: ["all-forecasts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("event_forecasts").select("*").is("version_id", null);
+      const { data, error } = await fetchAllPagedQuery(supabase.from("event_forecasts").select("*").is("version_id", null));
+      if (error) throw error;
       return data;
     },
   });
@@ -158,11 +160,11 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
   const { data: transactions = [] } = useQuery({
     queryKey: ["transactions-with-suppliers"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("*, suppliers:suppliers!transactions_supplier_id_fkey(name)")
         .in("status", ["approved", "paid"])
-        .order("date", { ascending: true });
+        .order("date", { ascending: true }));
       if (error) throw error;
       return data;
     },

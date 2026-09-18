@@ -48,6 +48,7 @@ import {
   INTERNAL_TRANSFER_CATEGORY_ID,
 } from "@/lib/ticket-office-balance";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
 type ViewMode = "synthetic" | "analytical";
@@ -181,12 +182,12 @@ export default function ReportTicketOfficeAudit() {
     queryKey: ["report_to_txns", accountIds.length],
     enabled: accountIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, account_id, type, amount, paid_amount, event_id, description, status, date, reversed_at, is_hidden, supplier_id, category_id, suppliers:suppliers!transactions_supplier_id_fkey(name), events(name)")
         .in("account_id", accountIds)
         .in("status", ["approved", "paid"])
-        .order("date");
+        .order("date"));
       if (error) throw error;
       return data;
     },

@@ -1,5 +1,6 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { fetchAllPagedQuery } from "../../_shared/paging.ts";
 
 /**
  * Auditoria dos grupos de fatura existentes.
@@ -55,10 +56,10 @@ Deno.serve(async (req) => {
         return json({ error: 'Sem permissão' }, 403);
       }
       const myCompanies = new Set(roleRows.map((r) => r.company_id).filter(Boolean));
-      const { data: scopeTxs } = await admin
+      const { data: scopeTxs } = await fetchAllPagedQuery(admin
         .from('transactions')
         .select('company_id')
-        .eq('invoice_group_id', scopedGroupId);
+        .eq('invoice_group_id', scopedGroupId));
       const foreign = (scopeTxs ?? []).some((t: any) => !myCompanies.has(t.company_id));
       if (!scopeTxs?.length || foreign) return json({ error: 'Sem permissão' }, 403);
     }
@@ -112,7 +113,7 @@ Deno.serve(async (req) => {
     txsQuery = scopedGroupId
       ? txsQuery.eq('invoice_group_id', scopedGroupId)
       : txsQuery.not('invoice_group_id', 'is', null);
-    const { data: txs } = await txsQuery;
+    const { data: txs } = await fetchAllPagedQuery(txsQuery);
 
     const allGroups = new Map<string, any[]>();
     for (const t of txs ?? []) {
@@ -139,10 +140,10 @@ Deno.serve(async (req) => {
     const docsByTx = new Map<string, string[]>();
     for (let i = 0; i < txIds.length; i += 200) {
       const chunk = txIds.slice(i, i + 200);
-      const { data: docs } = await admin
+      const { data: docs } = await fetchAllPagedQuery(admin
         .from('transaction_documents')
         .select('transaction_id, file_url')
-        .in('transaction_id', chunk);
+        .in('transaction_id', chunk));
       for (const d of docs ?? []) {
         if (!d.file_url) continue;
         const arr = docsByTx.get(d.transaction_id) ?? [];

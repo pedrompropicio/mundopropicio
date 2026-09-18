@@ -34,6 +34,7 @@ import { calcIvaAmount } from "@/lib/iva";
 import { FECHO_TX_FILTER_COLUMNS, isValidFechoTransaction } from "@/lib/fecho-filters";
 import { EXCESS_EPSILON } from "@/lib/event-cost-basis";
 import { payerIdFromRow } from "@/lib/paying-partner";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /**
  * Fallback do rótulo da empresa (pagador NULL). O nome real vem de
@@ -125,7 +126,7 @@ export async function fetchCommittedBpBundle(
   }
 
   const [fcRes, txRes, catRes, partnerRes] = await Promise.all([
-    supabase
+    fetchAllPagedQuery(supabase
       .from("event_forecasts")
       .select(
         "id, description, specification, amount, iva_rate, category_id, transaction_id, event_id, is_overhead, paying_partner_id, ordering_partner_id, type, status",
@@ -133,14 +134,14 @@ export async function fetchCommittedBpBundle(
       .in("event_id", eventIds)
       .is("version_id", null)
       .eq("type", "expense")
-      .eq("status", "approved"),
-    supabase
+      .eq("status", "approved")),
+    fetchAllPagedQuery(supabase
       .from("transactions")
       .select(
         `id, description, amount, iva_rate, category_id, type, event_id, paying_partner_id, ordering_partner_id, ${FECHO_TX_FILTER_COLUMNS}`,
       )
       .in("event_id", eventIds)
-      .eq("type", "expense"),
+      .eq("type", "expense")),
     supabase.from("account_categories").select("id, code, name, parent_id"),
     supabase.from("event_partners").select("id, suppliers:supplier_id(name)").in("event_id", eventIds),
   ]);
@@ -179,8 +180,8 @@ export async function fetchCommittedBpBundle(
       ? supabase.from("event_forecast_attachments").select("forecast_id").in("forecast_id", fcIds)
       : Promise.resolve({ data: [], error: null } as any),
     txIds.length
-      ? supabase.from("transaction_documents").select("transaction_id").in("transaction_id", txIds)
-      : Promise.resolve({ data: [], error: null } as any),
+      ? fetchAllPagedQuery(supabase.from("transaction_documents").select("transaction_id").in("transaction_id", txIds)
+      ): Promise.resolve({ data: [], error: null } as any),
   ]);
   for (const a of ((faRes as any).data ?? []) as any[]) {
     forecastDocs[a.forecast_id] = (forecastDocs[a.forecast_id] ?? 0) + 1;

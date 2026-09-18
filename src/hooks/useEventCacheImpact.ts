@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealCacheCalculation } from "@/hooks/useRealCacheCalculation";
 import { getCacheEffectiveAmount } from "@/lib/cache-pl-helper";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /**
  * Calcula o impacto do cachê (calculado/efetivo) nos Cards de Despesas do evento.
@@ -212,13 +213,13 @@ export function useEventCacheImpact(params: {
     ],
     queryFn: async () => {
       if (!cacheCategoryId) return 0;
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("amount, status, is_transitory, parent_transaction_id, split_percentage, is_hidden")
         .in("event_id", txEventIds)
         .eq("type", "expense")
         .eq("category_id", cacheCategoryId)
-        .in("status", ["approved", "paid"]);
+        .in("status", ["approved", "paid"]));
       if (error) throw error;
       return (data ?? [])
         .filter(

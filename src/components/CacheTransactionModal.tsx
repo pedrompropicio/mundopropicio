@@ -13,6 +13,7 @@ import LinkBpLineDialog from "@/components/LinkBpLineDialog";
 import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
 import { computeBudgetExcess, type BudgetExcessLine } from "@/lib/bp-budget-excess";
 import { fetchWithBpEventIds } from "@/lib/bp-line-required";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface PaymentPart {
   id: string;
@@ -290,19 +291,19 @@ export function CacheTransactionModal({
       //  2) Free-form BP lines whose description starts with "Cach" (typically
       //     imported from XLSX as formula_type='fixed') that don't yet have a
       //     transaction associated.
-      const { data: moduleForecasts } = await supabase
+      const { data: moduleForecasts } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, transaction_id, attachment_refs, description, formula_type")
         .eq("event_id", eventId)
         .eq("cache_config_id", cacheConfigId)
-        .eq("formula_type", "cache_module").is("version_id", null);
+        .eq("formula_type", "cache_module").is("version_id", null));
 
-      const { data: freeFormCacheForecasts } = await supabase
+      const { data: freeFormCacheForecasts } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, transaction_id, attachment_refs, description, formula_type")
         .eq("event_id", eventId)
         .ilike("description", "Cach%")
-        .is("transaction_id", null).is("version_id", null);
+        .is("transaction_id", null).is("version_id", null));
 
       const allCacheForecasts = [
         ...((moduleForecasts as any[]) || []),

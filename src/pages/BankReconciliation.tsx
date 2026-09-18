@@ -59,6 +59,7 @@ import {
   type ReconcileSepaExport,
   type ReconcileTransaction,
 } from "@/lib/bank-statement/reconcile";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 const PAGE = 1000;
 
@@ -500,10 +501,10 @@ export default function BankReconciliation() {
     queryKey: ["bank-recon-mother-txs", motherTxIds.join(",")],
     enabled: motherTxIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, description, event_id, forecast_id, category_id, amount, paid_amount")
-        .in("id", motherTxIds as string[]);
+        .in("id", motherTxIds as string[]));
       if (error) throw error;
       const eventIds = Array.from(new Set((data ?? []).map((t: any) => t.event_id).filter(Boolean)));
       const names = new Map<string, string>();
@@ -884,11 +885,11 @@ export default function BankReconciliation() {
       // Guarda de reimportação: um extrato da mesma conta, mesmo período, cujas
       // linhas já sejam estas. Sem isto, reimportar criava um extrato fantasma
       // com n_lines preenchido e zero linhas ligadas.
-      const { data: existingLines } = await supabase
+      const { data: existingLines } = await fetchAllPagedQuery(supabase
         .from("bank_statement_lines")
         .select("id, statement_id, line_hash")
         .eq("financial_account_id", accountId)
-        .in("line_hash", hashes.slice(0, 500));
+        .in("line_hash", hashes.slice(0, 500)));
       const already = new Set((existingLines ?? []).map((l: any) => l.line_hash));
       const reusable = (statements as any[]).find(
         (st) =>

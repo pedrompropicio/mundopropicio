@@ -41,6 +41,7 @@ import {
   exportCardSessionToExcel,
   type CardSessionExportData,
 } from "@/lib/export-card-session";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 type Tab = "expenses" | "queue" | "loads";
 
@@ -128,12 +129,12 @@ export default function CardSessionDetail() {
     queryKey: ["card-session-expenses", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data, error: qErr2 } = await supabase
+      const { data, error: qErr2 } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, description, amount, iva_rate, paid_amount, date, payment_date, event_id, category_id, supplier_id, invoice_ref, company_id, events:event_id(name), account_categories:category_id(name, code)")
 
         .eq("card_session_id", id!)
-        .order("date", { ascending: false });
+        .order("date", { ascending: false }));
       if (qErr2) throw qErr2;
       return data ?? [];
     },
@@ -178,10 +179,10 @@ export default function CardSessionDetail() {
     queryKey: ["card-session-expense-doc-counts", id, expenseIds.length],
     enabled: expenseIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transaction_documents")
         .select("transaction_id")
-        .in("transaction_id", expenseIds);
+        .in("transaction_id", expenseIds));
       if (error) throw error;
       const map: Record<string, number> = {};
       for (const d of data ?? []) map[(d as any).transaction_id] = (map[(d as any).transaction_id] ?? 0) + 1;
@@ -353,10 +354,10 @@ export default function CardSessionDetail() {
         throw new Error("Esta despesa está numa lista de pagamento. Remova-a da lista antes de excluir.");
       }
 
-      const { data: docs } = await supabase
+      const { data: docs } = await fetchAllPagedQuery(supabase
         .from("transaction_documents")
         .select("file_url")
-        .eq("transaction_id", e.id);
+        .eq("transaction_id", e.id));
       const paths = (docs ?? [])
         .map((d: any) => d.file_url as string)
         .filter((p) => p && !p.startsWith("ref://") && !p.startsWith("http"));

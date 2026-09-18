@@ -16,6 +16,7 @@ import {
   INTERNAL_TRANSFER_CATEGORY_ID,
 } from "@/lib/ticket-office-balance";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
 interface Props {
@@ -67,10 +68,10 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
   const { data: accountTxns = [] } = useQuery({
     queryKey: ["ticket_office_account_txns", officeId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("account_id, type, amount, paid_amount, status, event_id, description, reversed_at, is_hidden, category_id")
-        .eq("account_id", officeId);
+        .eq("account_id", officeId));
       if (error) throw error;
       return data;
     },

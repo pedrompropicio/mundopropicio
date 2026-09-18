@@ -15,6 +15,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { partnerUsesGrossExpenses } from "@/lib/partner-calc-basis";
 import { calcTotalWithIva } from "@/lib/iva";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   eventId: string;
@@ -122,13 +123,13 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
       if (qErr1) throw qErr1;
       const linkedIds = new Set((linked || []).map((l: any) => l.transaction_id));
 
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, description, amount, iva_rate, date, event_id, status, account_categories(name)")
         .in("event_id", allTreeIds)
         .eq("type", "expense")
         .not("status", "in", "(paid,reversed)")
-        .order("date", { ascending: false });
+        .order("date", { ascending: false }));
       if (error) throw error;
       return (data || []).filter((t: any) => !linkedIds.has(t.id));
     },

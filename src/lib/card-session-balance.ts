@@ -18,6 +18,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAccountCashAdjustments, countsAfterCutoff } from "@/lib/account-balance";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export interface CardAccountTx {
   id: string;
@@ -71,10 +72,10 @@ export async function fetchCardSessionAccountSync(params: {
       .select("id, initial_balance, initial_balance_date")
       .eq("id", accountId)
       .maybeSingle(),
-    supabase
+    fetchAllPagedQuery(supabase
       .from("transactions")
       .select("id, description, type, paid_amount, date, payment_date, card_session_id")
-      .eq("account_id", accountId),
+      .eq("account_id", accountId)),
   ]);
   if (accErr) throw accErr;
   if (txErr) throw txErr;
@@ -136,7 +137,7 @@ export async function fetchAccountBalanceAsOf(accountId: string, beforeDay?: str
       .select("initial_balance, initial_balance_date")
       .eq("id", accountId)
       .maybeSingle(),
-    supabase.from("transactions").select("type, paid_amount, date, payment_date").eq("account_id", accountId),
+    fetchAllPagedQuery(supabase.from("transactions").select("type, paid_amount, date, payment_date").eq("account_id", accountId)),
   ]);
   if (accErr) throw accErr;
   if (txErr) throw txErr;

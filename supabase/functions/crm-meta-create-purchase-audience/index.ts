@@ -10,6 +10,7 @@
 // Auth: header Authorization obrigatório (verify_jwt=true), sem getUser().
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { fetchAllPagedQuery } from "../../_shared/paging.ts";
 
 const BUILD_VERSION = "create-purchase-audience-v1 2026-06-28";
 const GRAPH_API_VERSION = "v21.0";
@@ -118,11 +119,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const linkId = linkRow.id as string;
 
     // 4) IDEMPOTÊNCIA: já existe audiência PURCHASE com este nome para o evento?
-    const { data: existRows, error: existErr } = await admin
+    const { data: existRows, error: existErr } = await fetchAllPagedQuery(admin
       .from("meta_custom_audiences")
       .select("id, audience_id_meta, name, filters, event_id, is_primary_purchase")
       .eq("company_id", companyId)
-      .eq("name", finalName);
+      .eq("name", finalName));
     if (existErr) return bizErr({ error: "idempotency_check_failed", detail: existErr.message });
     const existing = (existRows ?? []).find(
       (r: any) =>

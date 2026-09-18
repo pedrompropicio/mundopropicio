@@ -28,6 +28,7 @@ import {
   buildAccountCutoffs,
 } from "@/lib/account-balance";
 import { invalidateCardSessionQueries } from "@/lib/card-session-helpers";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   account: any;
@@ -53,10 +54,10 @@ export default function AccountBalanceImplantModal({ account, onClose }: Props) 
   const { data: txs = [] } = useQuery({
     queryKey: ["account-implant-txs", account.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("account_id, type, paid_amount, date, payment_date")
-        .eq("account_id", account.id);
+        .eq("account_id", account.id));
       if (error) throw error;
       return data ?? [];
     },

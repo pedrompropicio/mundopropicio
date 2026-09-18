@@ -61,6 +61,7 @@ import {
   matchesPayingPartnerFilter,
 } from "@/lib/paying-partner";
 import { useEventHouseLabel } from "@/hooks/useEventHouseLabel";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
 registerAllModules();
@@ -228,10 +229,10 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
     }
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
+      const { data } = await fetchAllPagedQuery(supabase
         .from("transaction_documents")
         .select("id, name, file_url, transaction_id")
-        .in("transaction_id", ids);
+        .in("transaction_id", ids));
       if (cancelled) return;
       const grouped: Record<string, TxDocLike[]> = {};
       for (const d of (data ?? []) as any[]) {
@@ -304,7 +305,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       const catQuery = supabase.from("account_categories").select("id, name, code, parent_id, type, company_id");
       const partnersSourceId = parentEventId || eventId;
       const [fRes, cRes, pRes, tRes] = await Promise.all([
-        supabase
+        fetchAllPagedQuery(supabase
           .from("event_forecasts")
           .select(
             "id, event_id, type, category_id, description, specification, amount, iva_rate, formalidade, status, transaction_id, ordering_partner_id, paying_partner_id, is_overhead, exclude_from_result, master_forecast_id, is_retroactive_override",
@@ -312,19 +313,19 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
           .eq("event_id", eventId)
           .is("version_id", null)
           .in("status", ["approved", "draft"])
-          .eq("type", "expense"),
+          .eq("type", "expense")),
         eventCompanyId ? catQuery.eq("company_id", eventCompanyId) : catQuery,
         supabase
           .from("event_partners")
           .select("id, percentage, can_order, can_pay, suppliers:supplier_id(name)")
           .eq("event_id", partnersSourceId),
-        supabase
+        fetchAllPagedQuery(supabase
           .from("transactions")
           .select(
             "id, event_id, type, category_id, description, amount, iva_rate, status, due_date, payment_date, forecast_id, ordering_partner_id, paying_partner_id",
           )
           .eq("event_id", eventId)
-          .eq("type", "expense"),
+          .eq("type", "expense")),
       ]);
       if (fRes.error) throw fRes.error;
       if (cRes.error) throw cRes.error;

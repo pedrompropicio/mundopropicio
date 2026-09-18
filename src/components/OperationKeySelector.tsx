@@ -9,6 +9,7 @@ import {
   normalizeOperationKeyInput,
   operationKeyRejectionReason,
 } from "@/lib/operation-key";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /**
  * Chave de operação (D-ERP45) — escolha a partir das chaves que já existem,
@@ -32,10 +33,10 @@ export function OperationKeySelector({ value, onChange, disabled }: Props) {
   const { data: keys = [] } = useQuery({
     queryKey: ["operation-keys-with-counts"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("operation_key")
-        .not("operation_key", "is", null);
+        .not("operation_key", "is", null));
       if (error) throw error;
       const counts = new Map<string, number>();
       (data ?? []).forEach((r: any) => {

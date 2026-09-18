@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export type AccountantDocBucket =
   | "transaction-documents"
@@ -64,10 +65,10 @@ export async function fetchAccountantTxDocs(txId: string): Promise<AccountantDoc
   };
 
   // 1) Anexos diretos da TX
-  const { data: ownDocs } = await (supabase as any)
+  const { data: ownDocs } = await fetchAllPagedQuery((supabase as any)
     .from("transaction_documents")
     .select("id, name, file_url, is_accounting")
-    .eq("transaction_id", txId);
+    .eq("transaction_id", txId));
 
   for (const d of ownDocs ?? []) {
     const { bucket, path } = resolveDocBucket(d.file_url);
@@ -139,10 +140,10 @@ export async function fetchAccountantTxDocs(txId: string): Promise<AccountantDoc
   }
   if (childIds.length === 0) return out;
 
-  const { data: childDocs } = await (supabase as any)
+  const { data: childDocs } = await fetchAllPagedQuery((supabase as any)
     .from("transaction_documents")
     .select("id, name, file_url, transaction_id, is_accounting")
-    .in("transaction_id", childIds);
+    .in("transaction_id", childIds));
 
   for (const d of childDocs ?? []) {
     const { bucket, path } = resolveDocBucket(d.file_url);
@@ -187,10 +188,10 @@ export async function fetchAccountantDocCountsBatch(txIds: string[]): Promise<Re
   };
 
   // Diretos
-  const { data: ownDocs } = await (supabase as any)
+  const { data: ownDocs } = await fetchAllPagedQuery((supabase as any)
     .from("transaction_documents")
     .select("transaction_id, file_url")
-    .in("transaction_id", txIds);
+    .in("transaction_id", txIds));
   for (const d of ownDocs ?? []) {
     const { bucket, path } = resolveDocBucket(d.file_url);
     bump(d.transaction_id, `${bucket}:${path}`);
@@ -242,10 +243,10 @@ export async function fetchAccountantDocCountsBatch(txIds: string[]): Promise<Re
   }
   if (childTxToPayTx.size === 0) return counts;
 
-  const { data: childDocs } = await (supabase as any)
+  const { data: childDocs } = await fetchAllPagedQuery((supabase as any)
     .from("transaction_documents")
     .select("transaction_id, file_url")
-    .in("transaction_id", Array.from(childTxToPayTx.keys()));
+    .in("transaction_id", Array.from(childTxToPayTx.keys())));
 
   for (const d of childDocs ?? []) {
     const payTx = childTxToPayTx.get(d.transaction_id);

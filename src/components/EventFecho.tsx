@@ -26,6 +26,7 @@ import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
 import { fetchPartnerExtras, sumPartnerExtras } from "@/lib/partner-extras";
 import { BpUnusedBudgetPanel } from "@/components/fecho/BpUnusedBudgetPanel";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
 interface Props {
@@ -96,11 +97,11 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const { data: transactionsAll = [] } = useQuery({
     queryKey: ["fecho-transactions", allEventIds],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, type, amount, iva_rate, status, description, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, event_settlement_id, account_categories(name, code)")
         .in("event_id", allEventIds)
-        .in("status", ["approved", "paid"]);
+        .in("status", ["approved", "paid"]));
       if (error) throw error;
       return (data || []).filter((t: any) => isValidFechoTransaction(t));
     },
@@ -110,11 +111,11 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const { data: ownOverheadsAll = [] } = useQuery({
     queryKey: ["fecho-overheads", allEventIds],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, event_id, type, amount, iva_rate, description, event_settlement_id, account_categories(code, name)")
         .in("event_id", allEventIds)
-        .eq("is_overhead", true).is("version_id", null);
+        .eq("is_overhead", true).is("version_id", null));
       if (error) throw error;
       return data || [];
     },
@@ -124,14 +125,14 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const { data: operationalForecastsAll = [] } = useQuery({
     queryKey: ["fecho-operational-forecasts", allEventIds],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, event_id, type, amount, iva_rate, category_id, description, is_transitory, exclude_from_result, event_settlement_id")
         .in("event_id", allEventIds)
         .eq("type", "expense")
         .eq("status", "approved")
         .eq("is_overhead", false)
-        .is("version_id", null);
+        .is("version_id", null));
       if (error) throw error;
       return (data || []).filter((f: any) => !f.is_transitory && !f.exclude_from_result);
     },
@@ -158,11 +159,11 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
         .eq("parent_event_id", parentEventId);
       if (sErr) throw sErr;
       const n = (siblings ?? []).length || 1;
-      const { data: oh, error: ohErr } = await supabase
+      const { data: oh, error: ohErr } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, event_id, type, amount, iva_rate, description, account_categories(code, name)")
         .eq("event_id", parentEventId)
-        .eq("is_overhead", true).is("version_id", null);
+        .eq("is_overhead", true).is("version_id", null));
       if (ohErr) throw ohErr;
       return (oh ?? []).map((o: any) => ({
         ...o,

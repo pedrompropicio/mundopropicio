@@ -27,6 +27,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   transaction: any;
@@ -82,12 +83,12 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
         creditUsagesRes,
         partnerPaidRes,
       ] = await Promise.all([
-        supabase
+        fetchAllPagedQuery(supabase
           .from("transaction_payments" as any)
           .select("id, amount, payment_date, scheduled_date, status, payment_method, account_id, invoice_ref, reversal_kind, credit_amount, financial_accounts:account_id(name)")
           .eq("transaction_id", txId)
           .order("scheduled_date", { ascending: true, nullsFirst: false })
-          .order("payment_date", { ascending: true }),
+          .order("payment_date", { ascending: true })),
         supabase
           .from("payment_list_items")
           .select("id, payment_list_id, manually_marked_paid, payment_lists:payment_list_id(id, title, status, payment_date)")

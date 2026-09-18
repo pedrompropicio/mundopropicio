@@ -9,6 +9,7 @@
  * Nome do patrocinador: vem do supplier da TX se vinculada, senão usa forecast.description.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export type SponsorRow = {
   forecast_id: string;
@@ -44,14 +45,14 @@ export async function loadSponsors(
   if (!l3Ids.length) return [];
 
   // 2) Forecasts de receita aprovados nessas categorias
-  const { data: forecastsRaw } = await supabase
+  const { data: forecastsRaw } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
     .select("id, description, amount, category_id, transaction_id")
     .eq("event_id", eventId)
     .eq("type", "income")
     .eq("status", "approved")
     .in("category_id", l3Ids)
-    .is("version_id", null);
+    .is("version_id", null));
 
   const forecasts = (forecastsRaw ?? []) as Array<{
     id: string; description: string | null; amount: number;
@@ -65,8 +66,8 @@ export async function loadSponsors(
   // 3) Lookups paralelos
   const [{ data: txs }, { data: cats }] = await Promise.all([
     txIds.length
-      ? supabase.from("transactions").select("id, amount, supplier_id").in("id", txIds)
-      : Promise.resolve({ data: [] as any[] }),
+      ? fetchAllPagedQuery(supabase.from("transactions").select("id, amount, supplier_id").in("id", txIds)
+      ): Promise.resolve({ data: [] as any[] }),
     catIds.length
       ? supabase.from("account_categories").select("id, code, name").in("id", catIds)
       : Promise.resolve({ data: [] as any[] }),

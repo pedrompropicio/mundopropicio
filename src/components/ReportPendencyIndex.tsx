@@ -4,15 +4,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { FileWarning, FolderOpen, Clock, AlertTriangle } from "lucide-react";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function ReportPendencyIndex() {
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ["pendency-txs"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, description, amount, type, status, category_id, account_id, event_id, date, events(name)")
-        .in("status", ["pending", "approved", "paid"]);
+        .in("status", ["pending", "approved", "paid"]));
       if (error) throw error;
       return data;
     },
@@ -21,9 +22,9 @@ export default function ReportPendencyIndex() {
   const { data: documents = [] } = useQuery({
     queryKey: ["pendency-docs"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transaction_documents")
-        .select("transaction_id, is_accounting");
+        .select("transaction_id, is_accounting"));
       if (error) throw error;
       return data ?? [];
     },

@@ -22,6 +22,7 @@ import { recordUndo } from "@/lib/undo";
 import { showUndoToast } from "@/hooks/useUndoToast";
 import { getAuditUser } from "@/lib/audit";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   open: boolean;
@@ -79,12 +80,12 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
   const { data: masterCategoryIds = [] } = useQuery({
     queryKey: ["master_expense_category_ids", masterEventId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("category_id")
         .eq("event_id", masterEventId)
         .eq("type", "expense")
-        .not("category_id", "is", null).is("version_id", null);
+        .not("category_id", "is", null).is("version_id", null));
       if (error) throw error;
       return [...new Set((data ?? []).map((r: any) => r.category_id).filter(Boolean))] as string[];
     },
@@ -95,13 +96,13 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
   const { data: subForecasts = [], isLoading: loadingForecasts } = useQuery({
     queryKey: ["sub_event_forecasts_for_adopt", childEventIds],
     queryFn: async () => {
-      const { data, error } = await (supabase
+      const { data, error } = await fetchAllPagedQuery((supabase
         .from("event_forecasts")
         .select("*, account_categories(code, name)") as any)
         .in("event_id", childEventIds)
         .is("master_forecast_id", null)
         .eq("type", "expense")
-        .is("version_id", null);
+        .is("version_id", null));
       if (error) throw error;
       return (data ?? []) as any[];
     },
@@ -120,24 +121,24 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
     queryKey: ["orphan_transactions_for_adopt", childEventIds, targetCategoryIds],
     queryFn: async () => {
       if (targetCategoryIds.length === 0) return [];
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, event_id, parent_transaction_id, description, amount, iva_rate, status, category_id, invoice_ref, account_id, account_categories(code, name), financial_accounts:financial_accounts!transactions_account_id_fkey(name)")
         .in("event_id", childEventIds)
         .in("category_id", targetCategoryIds)
         .eq("type", "expense")
         .is("split_percentage", null)
-        .in("status", ["paid", "approved", "pending", "overdue"]);
+        .in("status", ["paid", "approved", "pending", "overdue"]));
       if (error) throw error;
       const txs = (data ?? []) as any[];
       if (txs.length === 0) return [];
       // Find which already have a forecast link
       const txIds = txs.map((t) => t.id);
-      const { data: linkedFc, error: fcErr } = await supabase
+      const { data: linkedFc, error: fcErr } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("transaction_id")
         .in("transaction_id", txIds)
-        .is("version_id", null);
+        .is("version_id", null));
       if (fcErr) throw fcErr;
       const linkedSet = new Set((linkedFc ?? []).map((f: any) => f.transaction_id));
       return txs.filter((t) => !linkedSet.has(t.id));
@@ -333,12 +334,12 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
       if (selectedTxs.length > 0) {
         // Buscar splits existentes (linhas no sub-evento já vinculadas ao master, sem tx ainda)
         const subEventIds = [...new Set(selectedTxs.map((t) => t.event_id))];
-        const { data: existingSplits, error: splitErr } = await (supabase
+        const { data: existingSplits, error: splitErr } = await fetchAllPagedQuery((supabase
           .from("event_forecasts")
           .select("id, event_id, transaction_id") as any)
           .eq("master_forecast_id", masterForecastId)
           .in("event_id", subEventIds)
-          .is("version_id", null);
+          .is("version_id", null));
         if (splitErr) throw splitErr;
 
         // Mapa de splits livres (sem transaction_id) por sub-evento

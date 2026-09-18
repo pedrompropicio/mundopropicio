@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface MasterForecastInfo {
   id: string;
@@ -28,12 +29,12 @@ export function useMasterCategoryDetection(
   const { data: masterExpenseForecasts = [] } = useQuery({
     queryKey: ["master_expense_forecasts_for_reinforcement", parentEventId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, category_id, description, amount")
         .eq("event_id", parentEventId!)
         .eq("type", "expense")
-        .not("category_id", "is", null).is("version_id", null);
+        .not("category_id", "is", null).is("version_id", null));
       if (error) throw error;
       return (data ?? []) as MasterForecastInfo[];
     },

@@ -17,6 +17,7 @@ import { utils, writeFile } from "xlsx";
 import { applyPTNumberFormat } from "@/lib/excel-format";
 import { format } from "date-fns";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface CategoryLine {
   categoryId: string;
@@ -94,7 +95,7 @@ export default function ReportForecastPayables() {
   const { data: forecasts = [] } = useQuery({
     queryKey: ["all-forecasts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("event_forecasts").select("*").is("version_id", null);
+      const { data, error } = await fetchAllPagedQuery(supabase.from("event_forecasts").select("*").is("version_id", null));
       return data;
     },
   });
@@ -102,12 +103,12 @@ export default function ReportForecastPayables() {
   const { data: transactions = [] } = useQuery({
     queryKey: ["all-transactions-payables"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("*")
         .eq("type", "expense")
         .in("status", ["approved", "paid", "pending"])
-        .order("date", { ascending: true });
+        .order("date", { ascending: true }));
       if (error) throw error;
       return data;
     },

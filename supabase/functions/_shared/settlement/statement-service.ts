@@ -50,6 +50,7 @@ import {
   type DocLocale,
   type PartnerStatementDocInput,
 } from "./partner-statement-doc.ts";
+import { fetchAllPagedQuery } from "../paging.ts";
 
 const TRANSFER_IVA_RATE = 23;
 
@@ -132,22 +133,22 @@ export async function loadStatementBundle(
     suppliers,
   ] = await Promise.all([
     must<any>(
-      client
+      fetchAllPagedQuery(client
         .from("transactions")
         .select(
           "id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, event_settlement_id, held_by_supplier_id, account_id, account_categories(id, name, code, parent_id)",
         )
-        .in("event_id", allEventIds),
+        .in("event_id", allEventIds)),
     ),
     must<any>(
-      client
+      fetchAllPagedQuery(client
         .from("event_forecasts")
         .select(
           "id, event_id, description, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, vat_non_recoverable, account_categories(name, code)",
         )
         .in("event_id", allEventIds)
         .eq("status", "approved")
-        .is("version_id", null),
+        .is("version_id", null)),
     ),
     must<any>(client.from("account_categories").select("id, name, code, parent_id")),
     must<any>(
@@ -219,10 +220,10 @@ export async function loadStatementBundle(
     );
     if (lots.length) {
       const sales = await must<any>(
-        client
+        fetchAllPagedQuery(client
           .from("ticket_sales")
           .select("lot_id, quantity, unit_price, total_value")
-          .in("lot_id", lots.map((l: any) => l.id)),
+          .in("lot_id", lots.map((l: any) => l.id))),
       );
       const lotById = new Map(lots.map((l: any) => [l.id, l]));
       const byLot: Record<string, number> = {};

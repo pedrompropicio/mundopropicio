@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/mock-data";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Alert {
   id: string;
@@ -36,11 +37,11 @@ export function NotificationBell() {
   const { data: transactions = [] } = useQuery({
     queryKey: ["notif-transactions"],
     queryFn: async () => {
-      const { data, error: qErr1 } = await supabase
+      const { data, error: qErr1 } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, description, amount, type, status, due_date, event_id, paid_amount")
         .in("status", ["pending", "approved", "overdue"])
-        .order("due_date", { ascending: true });
+        .order("due_date", { ascending: true }));
       if (qErr1) throw qErr1;
       return data ?? [];
     },
@@ -65,10 +66,10 @@ export function NotificationBell() {
   const { data: allTransactions = [] } = useQuery({
     queryKey: ["notif-all-tx"],
     queryFn: async () => {
-      const { data, error: qErr3 } = await supabase
+      const { data, error: qErr3 } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("event_id, amount, type")
-        .in("status", ["approved", "paid"]);
+        .in("status", ["approved", "paid"]));
       if (qErr3) throw qErr3;
       return data ?? [];
     },
@@ -79,10 +80,10 @@ export function NotificationBell() {
   const { data: pendingForecasts = [] } = useQuery({
     queryKey: ["notif-forecasts"],
     queryFn: async () => {
-      const { data, error: qErr4 } = await supabase
+      const { data, error: qErr4 } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, description, event_id, type, status")
-        .eq("status", "draft").is("version_id", null);
+        .eq("status", "draft").is("version_id", null));
       if (qErr4) throw qErr4;
       return data ?? [];
     },

@@ -41,6 +41,7 @@ import {
   type BankRuleAction,
 } from "@/lib/bank-statement/rules";
 import type { FeeLeg } from "@/lib/bank-statement/transfer-fees";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 const TRANSFER_CATEGORY_CODE = "10.3";
 /** Taxas bancárias (D-ERP30) — também as taxas de transferência (D-ERP74). */
@@ -325,7 +326,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
     queryKey: ["bank-launch-fee-bp-candidates", feePlan?.eventId, feePlan?.motherCategoryId],
     enabled: !!feePlan && !feePlan.forecastId && !!feePlan.eventId && !!feePlan.motherCategoryId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, description, amount")
         .eq("event_id", feePlan!.eventId as string)
@@ -333,7 +334,7 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
         .eq("type", "expense")
         .is("version_id", null)
         .not("approved_at", "is", null)
-        .order("amount", { ascending: false });
+        .order("amount", { ascending: false }));
       if (error) throw error;
       return data ?? [];
     },
@@ -352,10 +353,10 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
     queryKey: ["bank-launch-bp-line-used", forecastId],
     enabled: !!forecastId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("amount, is_transitory, exclude_from_result, reversed_at, is_hidden, shared_cost_account_id")
-        .eq("forecast_id", forecastId);
+        .eq("forecast_id", forecastId));
       if (error) throw error;
       return (
         Math.round(

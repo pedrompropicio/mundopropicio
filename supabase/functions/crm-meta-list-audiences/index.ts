@@ -8,6 +8,7 @@
 // não chama getUser(); opera via service_role com checagem explícita de company_id.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { fetchAllPagedQuery } from "../../_shared/paging.ts";
 
 const BUILD_VERSION = "list-audiences-v2 2026-08-27 (delivery_estimate)";
 const GRAPH_API_VERSION = "v21.0";
@@ -163,10 +164,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // 4b) Filters já existentes em BD (para preservar delivery_estimate quando não re-estimamos)
     const prevFilters = new Map<string, any>();
     {
-      const { data: prevRows } = await admin
+      const { data: prevRows } = await fetchAllPagedQuery(admin
         .from("meta_custom_audiences")
         .select("audience_id_meta, filters")
-        .eq("company_id", companyId);
+        .eq("company_id", companyId));
       for (const r of (prevRows ?? []) as any[]) {
         if (r?.audience_id_meta) prevFilters.set(String(r.audience_id_meta), r.filters ?? null);
       }

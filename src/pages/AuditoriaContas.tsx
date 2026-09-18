@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import HelpTooltip from "@/components/HelpTooltip";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Category { id: string; code: string; name: string; type: string; parent_id: string | null; is_active: boolean; }
 interface AuditMatch { index: number; suggested_code: string; confidence: number; reason: string; }
@@ -185,7 +186,7 @@ function RowDetailPanel({
         .select("id, description, specification, category_id, event_id, type, amount, iva_rate, status, formalidade, notes, is_overhead, is_transitory, exclude_from_result")
         .in("event_id", eventIds);
       q = versionId ? q.eq("version_id", versionId) : q.is("version_id", null);
-      const { data, error } = await q;
+      const { data, error } = await fetchAllPagedQuery(q);
       if (error) throw error;
       return data || [];
     },
@@ -479,18 +480,18 @@ function AnaliseIATab() {
         .in("event_id", eventIds)
         .eq("type", "expense");
       bpQ = versionId ? bpQ.eq("version_id", versionId) : bpQ.is("version_id", null);
-      const { data: bps, error: bpErr } = await bpQ;
+      const { data: bps, error: bpErr } = await fetchAllPagedQuery(bpQ);
       if (bpErr) throw bpErr;
 
       // Transactions não têm versão — só carregar em modo Ativa
       let txs: any[] = [];
       const txToBpCatMap = new Map<string, string>(); // tx_id → bp.category_id
       if (!versionId) {
-        const { data: txData, error: txErr } = await supabase
+        const { data: txData, error: txErr } = await fetchAllPagedQuery(supabase
           .from("transactions")
           .select("id, description, category_id, event_id, type, amount, iva_rate, currency, status, payment_date, due_date, is_transitory, exclude_from_result")
           .in("event_id", eventIds)
-          .eq("type", "expense");
+          .eq("type", "expense"));
         if (txErr) throw txErr;
         txs = txData || [];
 
@@ -500,11 +501,11 @@ function AnaliseIATab() {
           const CHUNK = 500;
           for (let i = 0; i < txIds.length; i += CHUNK) {
             const slice = txIds.slice(i, i + CHUNK);
-            const { data: links } = await supabase
+            const { data: links } = await fetchAllPagedQuery(supabase
               .from("event_forecasts")
               .select("transaction_id, category_id")
               .in("transaction_id", slice)
-              .is("version_id", null);
+              .is("version_id", null));
 
             (links || []).forEach((l: any) => {
               if (l.transaction_id && l.category_id) txToBpCatMap.set(l.transaction_id, l.category_id);
@@ -1208,8 +1209,8 @@ function RenumberTab() {
 
   async function fetchImpact(catIds: string[]) {
     const [{ data: bps }, { data: txs }] = await Promise.all([
-      supabase.from("event_forecasts").select("category_id").in("category_id", catIds).is("version_id", null),
-      supabase.from("transactions").select("category_id").in("category_id", catIds),
+      fetchAllPagedQuery(supabase.from("event_forecasts").select("category_id").in("category_id", catIds).is("version_id", null)),
+      fetchAllPagedQuery(supabase.from("transactions").select("category_id").in("category_id", catIds)),
     ]);
     const out: { catId: string; bp: number; tx: number }[] = catIds.map((id) => ({
       catId: id,

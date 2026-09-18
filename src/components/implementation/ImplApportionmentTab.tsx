@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { ArrowUpRight, ArrowDownRight, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   implementation: any;
@@ -66,13 +67,13 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
     queryKey: ["impl-split-forecasts", allSplitIds],
     queryFn: async () => {
       if (allSplitIds.length === 0) return [];
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, description, specification, amount, iva_rate, category_id, event_id, type, account_categories:category_id(code, name)")
         .in("event_id", allSplitIds)
         .eq("type", "expense")
         .is("version_id", null)
-        .order("description");
+        .order("description"));
       if (error) throw error;
       return data.map((f: any) => ({
         ...f,

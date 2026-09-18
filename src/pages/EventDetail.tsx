@@ -75,6 +75,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /** Placeholder estável (evita novo objeto por render nas deps do card). */
 const EMPTY_TICKET_SALES = { net: 0, gross: 0 };
@@ -331,12 +332,12 @@ export default function EventDetail() {
   const { data: orderingForecasts = [] } = useQuery({
     queryKey: ["event-ordering-forecasts", id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, event_id, category_id, type, description, transaction_id, ordering_partner_id, paying_partner_id")
         .eq("event_id", id!)
         .eq("type", "expense")
-        .is("version_id", null);
+        .is("version_id", null));
       if (error) throw error;
       return data ?? [];
     },
@@ -346,10 +347,10 @@ export default function EventDetail() {
   const { data: eventTransactions = [] } = useQuery({
     queryKey: ["event_transactions", id, selectedSubEvent, subEvents.map((s: any) => s.id).join(",")],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("*, account_categories(code, name), suppliers:suppliers!transactions_supplier_id_fkey(name)")
-        .in("event_id", transactionEventIds);
+        .in("event_id", transactionEventIds));
       if (error) throw error;
       let rows = data ?? [];
 
@@ -362,10 +363,10 @@ export default function EventDetail() {
         const childRows = rows.filter((r: any) => r.parent_transaction_id);
         const masterIds = [...new Set(childRows.map((r: any) => r.parent_transaction_id))];
         if (masterIds.length > 0) {
-          const { data: masters, error: qErr1 } = await supabase
+          const { data: masters, error: qErr1 } = await fetchAllPagedQuery(supabase
             .from("transactions")
             .select("*, account_categories(code, name), suppliers:suppliers!transactions_supplier_id_fkey(name)")
-            .in("id", masterIds);
+            .in("id", masterIds));
           if (qErr1) throw qErr1;
           const masterMap = new Map((masters ?? []).map((m: any) => [m.id, m]));
           const kept = rows.filter((r: any) => {
@@ -399,10 +400,10 @@ export default function EventDetail() {
           ),
         ];
         if (parentIds.length > 0) {
-          const { data: parentRows, error: parentError } = await supabase
+          const { data: parentRows, error: parentError } = await fetchAllPagedQuery(supabase
             .from("transactions")
             .select("id, status, payment_date, paid_amount")
-            .in("id", parentIds);
+            .in("id", parentIds));
           if (parentError) throw parentError;
 
           const parentMap = new Map((parentRows ?? []).map((p: any) => [p.id, p]));
@@ -469,12 +470,12 @@ export default function EventDetail() {
       const n = (siblings?.length ?? 0) || 1;
 
       // Despesas do Master: paid + approved, exclui transitórias
-      const { data: masterTxs, error: txErr } = await supabase
+      const { data: masterTxs, error: txErr } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("amount, status, type, is_transitory")
         .eq("event_id", masterIdForShare)
         .eq("type", "expense")
-        .in("status", ["paid", "approved"]);
+        .in("status", ["paid", "approved"]));
       if (txErr) throw txErr;
       const total = (masterTxs ?? [])
         .filter((t: any) => !t.is_transitory)
@@ -498,21 +499,21 @@ export default function EventDetail() {
       if (qErr2) throw qErr2;
       const n = (siblings?.length ?? 0) || 1;
 
-      const { data: overheadFcs, error: qErr3 } = await supabase
+      const { data: overheadFcs, error: qErr3 } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("amount, category_id, status, is_transitory, exclude_from_result, is_overhead")
         .eq("event_id", masterIdForShare)
         .eq("type", "expense")
         .is("version_id", null)
-        .eq("is_overhead", true);
+        .eq("is_overhead", true));
       if (qErr3) throw qErr3;
 
-      const { data: masterTxs, error: qErr4 } = await supabase
+      const { data: masterTxs, error: qErr4 } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("amount, category_id, status, type, is_transitory")
         .eq("event_id", masterIdForShare)
         .eq("type", "expense")
-        .in("status", ["paid", "approved"]);
+        .in("status", ["paid", "approved"]));
       if (qErr4) throw qErr4;
 
       const txCats = new Set<string>();
@@ -615,7 +616,7 @@ export default function EventDetail() {
       // Fetch event data for trash
       const { data: eventData } = await supabase.from("events").select("*").eq("id", id!).single();
       const { data: eventDates } = await supabase.from("event_dates").select("*").eq("event_id", id!);
-      const { data: forecasts } = await supabase.from("event_forecasts").select("*").eq("event_id", id!).is("version_id", null);
+      const { data: forecasts } = await fetchAllPagedQuery(supabase.from("event_forecasts").select("*").eq("event_id", id!).is("version_id", null));
       if (eventData) {
         await moveToTrash({
           entity_type: "event",
@@ -1549,10 +1550,10 @@ export default function EventDetail() {
                   currentId={selectedSubEvent}
                   subEvents={subEvents}
                   onCopy={async (sourceId: string) => {
-                    const { data: sourceForecasts } = await supabase
+                    const { data: sourceForecasts } = await fetchAllPagedQuery(supabase
                       .from("event_forecasts")
                       .select("*")
-                      .eq("event_id", sourceId).is("version_id", null);
+                      .eq("event_id", sourceId).is("version_id", null));
                     if (!sourceForecasts || sourceForecasts.length === 0) {
                       toast({ title: "A data de origem não tem previsões no BP", variant: "destructive" });
                       return;

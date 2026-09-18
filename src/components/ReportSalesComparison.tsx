@@ -6,6 +6,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { format, parseISO, differenceInDays } from "date-fns";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 const COLORS = [
   "hsl(var(--primary))",
@@ -38,13 +39,13 @@ export default function ReportSalesComparison() {
     queryFn: async () => {
       const eventIds = events.map((e) => e.id);
       if (!eventIds.length) return [];
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("event_id, amount, date, type")
         .in("event_id", eventIds)
         .eq("type", "income")
         .in("status", ["approved", "paid"])
-        .order("date");
+        .order("date"));
       if (error) throw error;
       return data;
     },

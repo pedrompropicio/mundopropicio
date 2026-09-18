@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 const eur = (n: number) =>
   new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n);
@@ -39,17 +40,17 @@ export interface BlastRadius {
 export async function computeBlastRadius(eventId: string): Promise<BlastRadius> {
   const [cats, fcs, txs, pipeline] = await Promise.all([
     supabase.from("account_categories").select("id, code"),
-    supabase
+    fetchAllPagedQuery(supabase
       .from("event_forecasts")
       .select("id, category_id, amount, transaction_id")
       .eq("event_id", eventId)
-      .is("version_id", null),
-    supabase
+      .is("version_id", null)),
+    fetchAllPagedQuery(supabase
       .from("transactions")
       .select(
         "id, category_id, amount, forecast_id, status, paid_amount, settlement_id, invoice_group_id, parent_transaction_id",
       )
-      .eq("event_id", eventId),
+      .eq("event_id", eventId)),
     supabase
       .from("sponsorship_pipeline")
       .select("linked_forecast_id, linked_transaction_id")
@@ -98,13 +99,13 @@ export async function computeBlastRadius(eventId: string): Promise<BlastRadius> 
   const candidates = (txs.data ?? []).filter((t: any) => !isAb(t) && !protectedTxIds.has(t.id));
   const docTxIds = new Set<string>();
   for (let i = 0; i < candidates.length; i += 200) {
-    const { data: docs, error: docErr } = await supabase
+    const { data: docs, error: docErr } = await fetchAllPagedQuery(supabase
       .from("transaction_documents")
       .select("transaction_id")
       .in(
         "transaction_id",
         candidates.slice(i, i + 200).map((t: any) => t.id as string),
-      );
+      ));
     if (docErr) throw docErr;
     for (const d of docs ?? []) if (d.transaction_id) docTxIds.add(d.transaction_id as string);
   }

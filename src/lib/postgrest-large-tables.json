@@ -1,0 +1,25 @@
+{
+  "_comment": "Tabelas onde uma leitura sem paginação fica silenciosamente truncada nos 1.000 registos do PostgREST (#206, apurado em Live a 18/09/2026). A lista CRESCE: quando o invariante tabelas_acima_de_1000 do run_invariant_checks() acusar uma tabela nova acima de 500-1.000 linhas em Live, acrescenta-a aqui.",
+  "tables": [
+    "transactions",
+    "ticket_sales",
+    "event_forecasts",
+    "transaction_documents",
+    "event_zone_capacities",
+    "bilheteira_zone_snapshots",
+    "leads",
+    "contacts",
+    "undo_actions",
+    "meta_audience_upload_members",
+    "meta_custom_audiences",
+    "user_activity_log",
+    "system_audit_log",
+    "transaction_audit_log",
+    "ticketline_sync_runs",
+    "bol_sync_runs",
+    "coala_sync_runs",
+    "fever_sync_runs",
+    "transaction_payments",
+    "bank_statement_lines"
+  ]
+}

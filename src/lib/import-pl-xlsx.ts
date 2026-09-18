@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { createExpenseCategoryMatcher, getExpenseLeafCategories, normalizeCategoryCodeKey } from "@/lib/pl-category-matching";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export interface ParsedRow {
   description: string;
@@ -491,10 +492,10 @@ export async function importPLToEvent(
         }
       }
 
-      const { data: existingForecasts } = await supabase
+      const { data: existingForecasts } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("type, category_id, amount")
-        .eq("event_id", eventId).is("version_id", null);
+        .eq("event_id", eventId).is("version_id", null));
 
       const cacheLines = calculateCacheLinesForPL(
         cacheConfigs as unknown as CacheConfig[],
@@ -808,10 +809,10 @@ export async function attachLinksFromXlsx(
   // Load all forecasts for the given events with their transaction_id and iva_rate
   // (iva_rate is needed so we can also try matching by gross value, since the
   // XLSX BP can store either net or gross amounts in column F).
-  const { data: forecasts, error: forecastErr } = await supabase
+  const { data: forecasts, error: forecastErr } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
     .select("id, event_id, description, amount, iva_rate, transaction_id, attachment_refs")
-    .in("event_id", lookupEventIds).is("version_id", null);
+    .in("event_id", lookupEventIds).is("version_id", null));
 
   if (forecastErr) {
     result.errors.push(`Erro ao carregar BP: ${forecastErr.message}`);
@@ -822,10 +823,10 @@ export async function attachLinksFromXlsx(
   const txIds = (forecasts || []).map((f: any) => f.transaction_id).filter(Boolean) as string[];
   const existingByTx = new Map<string, Set<string>>();
   if (txIds.length > 0) {
-    const { data: existingDocs } = await supabase
+    const { data: existingDocs } = await fetchAllPagedQuery(supabase
       .from("transaction_documents")
       .select("transaction_id, file_url")
-      .in("transaction_id", txIds);
+      .in("transaction_id", txIds));
     for (const d of existingDocs || []) {
       const set = existingByTx.get((d as any).transaction_id) ?? new Set<string>();
       set.add((d as any).file_url);
@@ -1027,10 +1028,10 @@ export async function reprocessOrphanAttachments(
   const masterEventId = parentEventId ?? anchorEventId;
   const lookupEventIds = Array.from(new Set([...primaryEventIds, masterEventId]));
 
-  const { data: forecasts, error: fErr } = await supabase
+  const { data: forecasts, error: fErr } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
     .select("id, event_id, description, amount, iva_rate, transaction_id, attachment_refs")
-    .in("event_id", lookupEventIds).is("version_id", null);
+    .in("event_id", lookupEventIds).is("version_id", null));
   if (fErr) {
     out.errors.push(`Erro ao carregar BP: ${fErr.message}`);
     return out;
@@ -1043,10 +1044,10 @@ export async function reprocessOrphanAttachments(
   const txIds = (forecasts ?? []).map((f: any) => f.transaction_id).filter(Boolean) as string[];
   const existingByTx = new Map<string, Set<string>>();
   if (txIds.length > 0) {
-    const { data: existingDocs } = await supabase
+    const { data: existingDocs } = await fetchAllPagedQuery(supabase
       .from("transaction_documents")
       .select("transaction_id, file_url")
-      .in("transaction_id", txIds);
+      .in("transaction_id", txIds));
     for (const d of existingDocs ?? []) {
       const set = existingByTx.get((d as any).transaction_id) ?? new Set<string>();
       set.add((d as any).file_url);

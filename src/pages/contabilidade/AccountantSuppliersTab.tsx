@@ -16,6 +16,7 @@ import { SupplierViewModal, type SupplierRow } from "./SupplierViewModal";
 import { SupplierTransactions } from "@/components/SupplierTransactions";
 import type { Period } from "./PeriodSelector";
 import { fetchSupplierBankMap, mergeSupplierBank } from "@/lib/supplier-bank";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
 interface Props {
@@ -73,13 +74,13 @@ export function AccountantSuppliersTab({ period }: Props) {
     queryKey: ["accountant-suppliers-activity", companyId, period.from, period.to],
     enabled: !!companyId,
     queryFn: async () => {
-      const { data: txs, error } = await (supabase as any)
+      const { data: txs, error } = await fetchAllPagedQuery((supabase as any)
         .from("transactions")
         .select("supplier_id")
         .eq("company_id", companyId)
         .not("supplier_id", "is", null)
         .gte("date", period.from)
-        .lte("date", period.to);
+        .lte("date", period.to));
       if (error) throw error;
       const map: Record<string, number> = {};
       for (const t of txs ?? []) {

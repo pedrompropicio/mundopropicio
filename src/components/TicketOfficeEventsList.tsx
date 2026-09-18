@@ -9,6 +9,7 @@ import { TicketImportModal } from "@/components/TicketUploadModals";
 import { SalesLogPanel } from "@/components/SalesLogPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   officeId?: string; // if provided, filter to this office only
@@ -126,11 +127,11 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     queryKey: ["to_event_txns", eventIds, officeIds],
     enabled: eventIds.length > 0 && officeIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("event_id, type, amount, paid_amount, account_id, iva_rate")
         .in("event_id", eventIds)
-        .in("account_id", officeIds);
+        .in("account_id", officeIds));
       if (error) throw error;
       return data || [];
     },

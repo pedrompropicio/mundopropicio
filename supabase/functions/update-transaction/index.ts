@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { fetchAllPagedQuery } from "../../_shared/paging.ts";
 
 /**
  * ESPELHO de `src/lib/payment-methods.ts` (PAYMENT_METHODS). O `src/` não é
@@ -432,10 +433,10 @@ Deno.serve(async (req) => {
     }
 
     // Propagate changes to child transactions (splits or installments)
-    const { data: children } = await adminClient
+    const { data: children } = await fetchAllPagedQuery(adminClient
       .from("transactions")
       .select("id, split_percentage, split_amount, status")
-      .eq("parent_transaction_id", transaction_id);
+      .eq("parent_transaction_id", transaction_id));
 
     if (children && children.length > 0) {
       const amountChanged = "amount" in sanitizedUpdates && Number(sanitizedUpdates.amount) !== Number(transaction.amount);
@@ -554,11 +555,11 @@ Deno.serve(async (req) => {
         }
       }
       if (Object.keys(siblingUpdates).length > 0) {
-        const { data: siblings } = await adminClient
+        const { data: siblings } = await fetchAllPagedQuery(adminClient
           .from("transactions")
           .select("id")
           .eq("invoice_group_id", transaction.invoice_group_id)
-          .neq("id", transaction_id);
+          .neq("id", transaction_id));
         const siblingIds = (siblings ?? []).map((s: any) => s.id);
         if (siblingIds.length > 0) {
           await adminClient

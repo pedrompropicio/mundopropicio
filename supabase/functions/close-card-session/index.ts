@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { fetchAllPagedQuery } from "../../_shared/paging.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -705,10 +706,10 @@ Deno.serve(async (req) => {
       ((loads ?? []) as any[]).map((l) => l.in_transaction_id).filter(Boolean) as string[],
     );
 
-    const { data: accountTxs } = await adminClient
+    const { data: accountTxs } = await fetchAllPagedQuery(adminClient
       .from("transactions")
       .select("id, description, type, paid_amount, date, payment_date, card_session_id")
-      .eq("account_id", cardAccountId);
+      .eq("account_id", cardAccountId));
 
     const openDay = String((session as any).opened_at ?? "").slice(0, 10);
     const signedOf = (t: any) => (t.type === "income" ? 1 : -1) * Number(t.paid_amount ?? 0);

@@ -15,6 +15,7 @@ import {
   exportPartnerCurrentAccountToExcel,
   type PartnerCurrentAccountData,
 } from "@/lib/partner-current-account";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /**
  * Conta corrente do sócio (#193) — ecrã SÓ DE LEITURA.
@@ -45,12 +46,12 @@ export default function PartnerCurrentAccountTab() {
     enabled: !!companyId,
     queryFn: async (): Promise<PartnerCurrentAccountData> => {
       const [txRes, invRes] = await Promise.all([
-        supabase
+        fetchAllPagedQuery(supabase
           .from("transactions")
           .select("id, type, date, payment_date, description, paid_amount")
           .eq("account_id", PARTNER_ACCOUNT_ID)
           .is("reversed_at", null)
-          .order("date", { ascending: true }),
+          .order("date", { ascending: true })),
         supabase
           .from("standalone_invoices")
           .select("id, supplier_name, invoice_number, invoice_date, total_amount")

@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { buildPartnerSettlementReportData } from "@/lib/partner-settlement-report";
 import { fetchAllSettlementParticipants } from "@/lib/settlement-participants";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function ReportPartnerSettlement() {
   // Partes vindas dos apuramentos (event_settlement_participants), incluindo a casa.
@@ -20,10 +21,10 @@ export default function ReportPartnerSettlement() {
   const { data: transactions = [], isLoading: isLoadingTransactions } = useQuery({
     queryKey: ["settlement-txs"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, event_id, type, amount, status, is_transitory, exclude_from_result")
-        .in("status", ["approved", "paid"]);
+        .in("status", ["approved", "paid"]));
       if (error) throw error;
       return data;
     },
@@ -64,11 +65,11 @@ export default function ReportPartnerSettlement() {
   const { data: forecasts = [], isLoading: isLoadingForecasts } = useQuery({
     queryKey: ["settlement-overheads"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("event_id, amount, status, is_overhead")
         .eq("is_overhead", true)
-        .eq("status", "approved").is("version_id", null);
+        .eq("status", "approved").is("version_id", null));
       if (error) throw error;
       return data;
     },

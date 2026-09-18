@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { exportDREToExcel, exportDREToPDF, buildDREForExport, getEffectiveTransactionsForExport } from "@/lib/export-dre";
 import { buildCategoryLookup, aggregateByHierarchyDRE } from "@/lib/category-hierarchy";
 import { Switch } from "@/components/ui/switch";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
@@ -247,7 +248,7 @@ export default function ReportDREBrasil() {
   const { data: transactions = [] } = useQuery({
     queryKey: ["transactions"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("transactions").select("*").in("status", ["approved", "paid"]).order("date", { ascending: false });
+      const { data, error } = await fetchAllPagedQuery(supabase.from("transactions").select("*").in("status", ["approved", "paid"]).order("date", { ascending: false }));
       if (error) throw error;
       return data;
     },
@@ -304,10 +305,10 @@ export default function ReportDREBrasil() {
   const { data: closingCostsRaw = [] } = useQuery({
     queryKey: ["closing-costs-all"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, event_id, amount, description, category_id, account_categories(code, name)")
-        .eq("is_overhead", true).is("version_id", null);
+        .eq("is_overhead", true).is("version_id", null));
       if (error) throw error;
       return data;
     },

@@ -33,6 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
 interface Props {
@@ -101,11 +102,11 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
     queryKey: ["reimbursement-item-docs", transactionIds],
     queryFn: async () => {
       if (transactionIds.length === 0) return [];
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transaction_documents")
         .select("transaction_id, is_accounting")
         .in("transaction_id", transactionIds)
-        .eq("is_accounting", true);
+        .eq("is_accounting", true));
       if (error) throw error;
       return data;
     },
@@ -136,7 +137,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
         .eq("reimbursement_to", note.employee_name)
         .in("status", ["pending", "approved"]);
 
-      const { data, error } = await query.order("date", { ascending: false });
+      const { data, error } = await fetchAllPagedQuery(query.order("date", { ascending: false }));
       if (error) throw error;
       return (data || []).filter((t: any) => !linkedIds.includes(t.id));
     },

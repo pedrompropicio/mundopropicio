@@ -31,6 +31,7 @@ import {
   type TicketLotItem,
 } from "../_shared/bilheteira-parsers.ts";
 import { tolerantFetch } from "../_shared/tolerant-fetch.ts";
+import { fetchAllPagedQuery } from "../../_shared/paging.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -421,10 +422,10 @@ async function captureZoneAvailability(
   const snapshots: ZoneSnapshot[] = [];
 
   // capacidades cadastradas manualmente (allotments Ticketline)
-  const { data: caps } = await admin
+  const { data: caps } = await fetchAllPagedQuery(admin
     .from("event_zone_capacities")
     .select("zone_label, capacity")
-    .eq("event_id", ev.id);
+    .eq("event_id", ev.id));
   const capByLabel = new Map<string, number>(
     ((caps ?? []) as Array<{ zone_label: string; capacity: number }>).map((c) => [
       normLabel(c.zone_label),

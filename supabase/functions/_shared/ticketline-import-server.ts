@@ -17,6 +17,7 @@
 //     Mantém a mesma zona e permite o utilizador distinguir nas tabelas.
 //   - iva_rate default = 6 (mesmo da Fever Portugal).
 import type { OperationsParseResult } from "./ticketline-operations-parser.ts";
+import { fetchAllPagedQuery } from "../../_shared/paging.ts";
 
 const SOURCE = "ticketline_import";
 const IVA_RATE = 6;
@@ -226,8 +227,8 @@ export async function runTicketlineImport(input: TicketlineImportInput): Promise
 
   // 7. Apagar vendas Ticketline anteriores deste evento+conta
   if (allZoneIds.length > 0) {
-    const { data: prior } = await supabase.from("ticket_sales").select("id")
-      .in("zone_id", allZoneIds).eq("financial_account_id", ticketlineAccountId).eq("source", SOURCE);
+    const { data: prior } = await fetchAllPagedQuery(supabase.from("ticket_sales").select("id")
+      .in("zone_id", allZoneIds).eq("financial_account_id", ticketlineAccountId).eq("source", SOURCE));
     audit.prevSalesDeleted = prior?.length || 0;
     const { error } = await supabase.from("ticket_sales").delete()
       .in("zone_id", allZoneIds).eq("financial_account_id", ticketlineAccountId).eq("source", SOURCE);

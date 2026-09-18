@@ -24,6 +24,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function TicketOffices() {
   const [search, setSearch] = useState("");
@@ -82,10 +83,10 @@ export default function TicketOffices() {
     queryKey: ["ticket_office_balances", officeIds],
     enabled: officeIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("account_id, type, amount, paid_amount, status, event_id, reversed_at, is_hidden, category_id")
-        .in("account_id", officeIds);
+        .in("account_id", officeIds));
       if (error) throw error;
       return data;
     },

@@ -16,6 +16,7 @@ import ExternalLinkAttachment from "@/components/ExternalLinkAttachment";
 import { useBackdropClose } from "@/lib/backdropClose";
 import { revalidateInvoiceGroupAfterDocument, type InvoiceGroupRevalidation } from "@/lib/invoice-group";
 import InvoiceGroupRevalidateDialog from "@/components/InvoiceGroupRevalidateDialog";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /** Detect if a ref:// entry actually contains an http(s) URL (clickable external link). */
 function isExternalLinkRef(fileUrl: string): boolean {
@@ -83,11 +84,11 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
   const { data: documents = [], isLoading } = useQuery({
     queryKey: ["transaction_documents", transactionId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transaction_documents")
         .select("*, transactions(company_id)")
         .eq("transaction_id", transactionId)
-        .order("uploaded_at", { ascending: false });
+        .order("uploaded_at", { ascending: false }));
       if (error) throw error;
       return data;
     },

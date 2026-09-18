@@ -16,6 +16,7 @@ import {
   buildValidationReport,
   type ParsedRow,
 } from "../_shared/coalaParser.ts";
+import { fetchAllPagedQuery } from "../../_shared/paging.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -157,15 +158,15 @@ Deno.serve(async (req) => {
     const moneyKey = (n: number) => Math.round(n * 100); // tolerância 0.005€
 
     // ── Dedupe pre-load (também precisamos para preview)
-    const { data: existingFcs } = await admin
+    const { data: existingFcs } = await fetchAllPagedQuery(admin
       .from("event_forecasts")
       .select("id, category_id, description, amount, transaction_id, type")
       .eq("event_id", eventId)
-      .is("version_id", null);
-    const { data: existingTxs } = await admin
+      .is("version_id", null));
+    const { data: existingTxs } = await fetchAllPagedQuery(admin
       .from("transactions")
       .select("id, category_id, supplier_id, description, amount, payment_date, invoice_ref")
-      .eq("event_id", eventId);
+      .eq("event_id", eventId));
 
     // ── EXCLUSÃO A&B SIMÉTRICA ────────────────────────────────────────────────
     // O parser do XLSX exclui as linhas de A&B (módulo próprio do evento).
@@ -1561,11 +1562,11 @@ Deno.serve(async (req) => {
       //      onde a âncora pode estar a NULL).
       // Calculado ANTES de apagar transações — apagar a TX faria
       // `forecast_id` cair a NULL (ON DELETE SET NULL) e a proteção evaporava.
-      const { data: txFcLinks } = await admin
+      const { data: txFcLinks } = await fetchAllPagedQuery(admin
         .from("transactions")
         .select("forecast_id")
         .eq("event_id", eventId)
-        .not("forecast_id", "is", null);
+        .not("forecast_id", "is", null));
       const txLinkedFcIds = new Set<string>(
         (txFcLinks || []).map((t: any) => t.forecast_id).filter((x: unknown): x is string => typeof x === "string"),
       );
@@ -1579,10 +1580,10 @@ Deno.serve(async (req) => {
       // regra conservadora: protege-se tudo o que tenha vida.
       // LIDO ANTES DE QUALQUER DELETE — o ON DELETE SET NULL de `forecast_id`
       // faria a proteção (1) evaporar-se a meio da limpeza.
-      const { data: txLifeRows } = await admin
+      const { data: txLifeRows } = await fetchAllPagedQuery(admin
         .from("transactions")
         .select("id, amount, status, paid_amount, forecast_id, settlement_id, invoice_group_id, parent_transaction_id")
-        .eq("event_id", eventId);
+        .eq("event_id", eventId));
       const anchorTxIds = new Set<string>(
         ((existingFcs || []) as any[])
           .map((f) => f.transaction_id)
@@ -1599,10 +1600,10 @@ Deno.serve(async (req) => {
         .filter((id) => !protectedTxIds.has(id));
       const docTxIds = new Set<string>();
       for (let i = 0; i < candidateIds.length; i += 200) {
-        const { data: docs } = await admin
+        const { data: docs } = await fetchAllPagedQuery(admin
           .from("transaction_documents")
           .select("transaction_id")
-          .in("transaction_id", candidateIds.slice(i, i + 200));
+          .in("transaction_id", candidateIds.slice(i, i + 200)));
         for (const d of (docs || []) as any[]) {
           if (d.transaction_id) docTxIds.add(d.transaction_id as string);
         }
@@ -1943,11 +1944,11 @@ Deno.serve(async (req) => {
       const expectedImportableLines = Number(parsed.totals.importableLines) || 0;
 
       // Soma real do BP inserido (com category_id para breakdown)
-      const { data: insertedFcs, error: sumFcErr } = await admin
+      const { data: insertedFcs, error: sumFcErr } = await fetchAllPagedQuery(admin
         .from("event_forecasts")
         .select("amount, category_id")
         .eq("event_id", eventId)
-        .is("version_id", null);
+        .is("version_id", null));
       if (sumFcErr) {
         return json({ error: `Reconciliação BP falhou: ${sumFcErr.message}` }, 500);
       }
@@ -1960,10 +1961,10 @@ Deno.serve(async (req) => {
       }
 
       // Soma real das TX (paid_amount = bruto efetivamente pago)
-      const { data: insertedTxs, error: sumTxErr } = await admin
+      const { data: insertedTxs, error: sumTxErr } = await fetchAllPagedQuery(admin
         .from("transactions")
         .select("paid_amount,status,category_id")
-        .eq("event_id", eventId);
+        .eq("event_id", eventId));
       if (sumTxErr) {
         return json({ error: `Reconciliação TX falhou: ${sumTxErr.message}` }, 500);
       }
@@ -2123,11 +2124,11 @@ Deno.serve(async (req) => {
     if (syncMode === "replace") {
       // Mesma proteção dos dois lados do vínculo (ver reset_reimport):
       // âncora legada + `transactions.forecast_id`.
-      const { data: txFcLinksRepl } = await admin
+      const { data: txFcLinksRepl } = await fetchAllPagedQuery(admin
         .from("transactions")
         .select("forecast_id")
         .eq("event_id", eventId)
-        .not("forecast_id", "is", null);
+        .not("forecast_id", "is", null));
       const txLinkedFcIdsRepl = new Set<string>(
         (txFcLinksRepl || []).map((t: any) => t.forecast_id).filter((x: unknown): x is string => typeof x === "string"),
       );

@@ -73,6 +73,7 @@ import {
   type PartnerAdjustment,
   type RevenueHeldRow,
 } from "@/lib/partner-disbursement";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
 
@@ -298,10 +299,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const { data: transactions = [], error: transactionsError } = useQuery({
     queryKey: ["event-transactions-settlement", allEventIdsKey],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, event_settlement_id, account_categories(name, code, parent_id)")
-        .in("event_id", allEventIds);
+        .in("event_id", allEventIds));
       if (error) throw error;
       return data;
     },
@@ -347,12 +348,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           .select("id, name, operator_result, held_by_supplier_id, event_id")
           .in("event_id", allEventIds)
           .not("held_by_supplier_id", "is", null),
-        supabase
+        fetchAllPagedQuery(supabase
           .from("transactions")
           .select("id, description, amount, date, event_id, status, reversed_at, held_by_supplier_id")
           .in("event_id", allEventIds)
           .eq("type", "income")
-          .not("held_by_supplier_id", "is", null),
+          .not("held_by_supplier_id", "is", null)),
       ]);
 
       if (accRes.error) throw accRes.error;
@@ -364,12 +365,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       const rows: RevenueHeldRow[] = [];
 
       if (accounts.length > 0) {
-        const { data: txs, error: txErr } = await supabase
+        const { data: txs, error: txErr } = await fetchAllPagedQuery(supabase
           .from("transactions")
           .select("id, description, amount, date, type, status, account_id, event_id, reversed_at")
           .in("account_id", accounts.map((a: any) => a.id))
           .in("event_id", allEventIds)
-          .eq("type", "income");
+          .eq("type", "income"));
         if (txErr) throw txErr;
         const byAccount = new Map(accounts.map((a: any) => [a.id, a]));
         for (const t of (txs ?? []) as any[]) {
@@ -445,11 +446,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const { data: forecasts = [], error: forecastsError } = useQuery({
     queryKey: ["event-forecasts-settlement", allEventIdsKey],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
           .select("id, event_id, description, type, amount, iva_rate, status, is_overhead, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, account_categories(name, code)")
         .in("event_id", allEventIds)
-        .eq("status", "approved").is("version_id", null);
+        .eq("status", "approved").is("version_id", null));
       if (error) throw error;
       return data;
     },
