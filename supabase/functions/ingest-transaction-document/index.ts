@@ -217,7 +217,7 @@ Deno.serve(async (req) => {
       // também a proformas, porque aqui há confirmação).
       groupIdToAssign = crypto.randomUUID()
     }
-  )}
+  }
 
   // Mesma empresa, obrigatoriamente.
   const companies = Array.from(new Set(rows.map((r) => r.company_id)))
