@@ -56,6 +56,11 @@ export async function fetchCurrentLoadByZoneName(
 export interface LiveTicketForecast {
   /** receita líquida de bilhetes no cenário Forecast; null = sem base */
   net: number | null;
+  /**
+   * O MESMO previsto em bruto (#207): soma sessão a sessão, cada uma com o
+   * `iva_pct` da sua zona/lote. O líquido não muda ao cêntimo.
+   */
+  gross: number | null;
   /** quantidade total prevista (inclui vendas reais), ≤ carga corrente */
   totalQty: number;
   currentLoad: number | null;
