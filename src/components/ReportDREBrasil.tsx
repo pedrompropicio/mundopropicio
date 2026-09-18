@@ -282,9 +282,12 @@ export default function ReportDREBrasil() {
   const { data: ticketSales = [] } = useQuery({
     queryKey: ["ticket-sales-all"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("ticket_sales").select("*");
-      if (error) throw error;
-      return data;
+      // #205: paginado (PostgREST corta aos 1.000 registos em silêncio).
+      return await fetchAllPaged<any>(
+        (from, to) =>
+          supabase.from("ticket_sales").select("*").order("id", { ascending: true }).range(from, to),
+        { maxRows: 200000 },
+      );
     },
   });
 

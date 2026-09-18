@@ -67,12 +67,16 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable, sessionId }:
       const lotIds = lots.map((l) => l.id);
       const lotMap = new Map(lots.map((l) => [l.id, l]));
 
-      const { data: sales, error: qErr2 } = await supabase
-        .from("ticket_sales")
-        .select("sale_date, sale_date_to, quantity, unit_price, total_value, source, lot_id, financial_account_id")
-        .in("lot_id", lotIds)
-        .order("sale_date", { ascending: true });
-      if (qErr2) throw qErr2;
+      // #205: paginado.
+      const sales = await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("sale_date, sale_date_to, quantity, unit_price, total_value, source, lot_id, financial_account_id")
+          .in("lot_id", lotIds)
+          .order("sale_date", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       if (!sales) return [];
 
       // Group by day
@@ -140,11 +144,15 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable, sessionId }:
       if (!zones || zones.length === 0) return [] as Array<{ id: string | null; name: string; quantity: number; revenue: number; sources: Set<string> }>;
       const zoneIds = zones.map((z) => z.id);
 
-      const { data: sales, error: qErr3 } = await supabase
-        .from("ticket_sales")
-        .select("quantity, unit_price, total_value, source, financial_account_id")
-        .in("zone_id", zoneIds);
-      if (qErr3) throw qErr3;
+      // #205: paginado.
+      const sales = await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("quantity, unit_price, total_value, source, financial_account_id")
+          .in("zone_id", zoneIds)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       if (!sales || sales.length === 0) return [];
 
       const accIds = Array.from(

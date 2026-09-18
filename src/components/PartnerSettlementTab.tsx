@@ -514,11 +514,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       if (qErr1) throw qErr1;
       if (!lots || lots.length === 0) return [];
       const lotIds = lots.map((l: any) => l.id);
-      const { data: sales, error: qErr2 } = await supabase
-        .from("ticket_sales")
-        .select("lot_id, quantity, unit_price, total_value")
-        .in("lot_id", lotIds);
-      if (qErr2) throw qErr2;
+      // #205: paginado — nunca somar ticket_sales sem .range().
+      const sales = await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("lot_id, quantity, unit_price, total_value")
+          .in("lot_id", lotIds)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       const byLot: Record<string, { quantity: number; gross: number }> = {};
       (sales || []).forEach((s: any) => {
         const key = s.lot_id;
@@ -578,11 +582,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       if (qErr4) throw qErr4;
       if (!lots || lots.length === 0) return [];
       const lotIds = lots.map(l => l.id);
-      const { data: sales, error: qErr5 } = await supabase
-        .from("ticket_sales")
-        .select("lot_id, quantity, unit_price, total_value")
-        .in("lot_id", lotIds);
-      if (qErr5) throw qErr5;
+      // #205: paginado — nunca somar ticket_sales sem .range().
+      const sales = await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("lot_id, quantity, unit_price, total_value")
+          .in("lot_id", lotIds)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       return (sales || []).map((s: any) => {
         const lot = lots.find((l: any) => l.id === s.lot_id);
         const ivaRate = lot?.iva_rate || 0;

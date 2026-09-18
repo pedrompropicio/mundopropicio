@@ -75,12 +75,15 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     queryKey: ["to_event_sales", zoneIds],
     enabled: zoneIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("zone_id, quantity, unit_price, financial_account_id, sale_date")
-        .in("zone_id", zoneIds);
-      if (error) throw error;
-      return data || [];
+      // #205: paginado.
+      return await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("zone_id, quantity, unit_price, financial_account_id, sale_date")
+          .in("zone_id", zoneIds)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
     },
   });
 

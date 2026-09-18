@@ -769,18 +769,16 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
         const zoneIds = (sessionZones || []).map((zone: any) => zone.id).filter(Boolean);
 
         if (zoneIds.length > 0) {
-          let salesQuery = supabase
-            .from("ticket_sales")
-            .select("id")
-            .in("zone_id", zoneIds)
-            .eq("source", "import");
-
-          if (ticketOfficeId) {
-            salesQuery = salesQuery.eq("financial_account_id", ticketOfficeId);
-          }
-
-          const { data: existingSales, error: salesError } = await salesQuery;
-          if (salesError) throw salesError;
+          // #205: paginado.
+          const existingSales = await fetchAllPaged<any>((from, to) => {
+            let q = supabase
+              .from("ticket_sales")
+              .select("id")
+              .in("zone_id", zoneIds)
+              .eq("source", "import");
+            if (ticketOfficeId) q = q.eq("financial_account_id", ticketOfficeId);
+            return q.order("id", { ascending: true }).range(from, to);
+          });
 
           if (existingSales && existingSales.length > 0) {
             setDuplicateWarnings([

@@ -92,11 +92,15 @@ export default function ReportPartnerSettlement() {
 
       const zoneById = new Map(zones.map((zone) => [zone.id, zone.event_id]));
       const lotById = new Map(lots.map((lot) => [lot.id, lot]));
-      const { data: sales, error: salesError } = await supabase
-        .from("ticket_sales")
-        .select("lot_id, quantity, unit_price, total_value")
-        .in("lot_id", lots.map((lot) => lot.id));
-      if (salesError) throw salesError;
+      // #205: paginado — nunca somar ticket_sales sem .range().
+      const sales = await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("lot_id, quantity, unit_price, total_value")
+          .in("lot_id", lots.map((lot) => lot.id))
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
 
       const aggregates = new Map<string, { eventId: string; gross: number; net: number }>();
       (sales || []).forEach((sale: any) => {

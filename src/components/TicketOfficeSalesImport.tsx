@@ -341,13 +341,16 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
     queryKey: ["existing-sales-check", matchedDates, matchedZoneIds],
     queryFn: async () => {
       if (matchedDates.length === 0 || matchedZoneIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("id, sale_date, zone_id, lot_id, quantity")
-        .in("sale_date", matchedDates)
-        .in("zone_id", matchedZoneIds as string[]);
-      if (error) throw error;
-      return data ?? [];
+      // #205: paginado.
+      return await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("id, sale_date, zone_id, lot_id, quantity")
+          .in("sale_date", matchedDates)
+          .in("zone_id", matchedZoneIds as string[])
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
     },
     enabled: step === "review" && matchedDates.length > 0,
   });
