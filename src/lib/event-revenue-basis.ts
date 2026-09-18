@@ -27,7 +27,6 @@
  * `useBPIncomeSynthetic` (real da bilheteira e dos patrocínios).
  */
 import { supabase } from "@/integrations/supabase/client";
-import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import { isValidFechoTransaction, isBilheteiraCategoryCode } from "@/lib/fecho-filters";
 import { classifyIncomeL1 } from "@/lib/event-financial-card";
 import { calcTotalWithIva } from "@/lib/iva";

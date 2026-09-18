@@ -541,29 +541,10 @@ export default function EventDetail() {
   const ticketSalesRevenue = ticketSales.net;
 
 
-  // Bilhetes vendidos calculados a partir de ticket_sales (events.tickets_sold não é sincronizado).
+  // Bilhetes vendidos: soma feita na base de dados pela mesma RPC da receita (#205).
   const { data: ticketSalesQty = 0 } = useQuery({
     queryKey: ["event_ticket_qty", id, selectedSubEvent, transactionEventIds.join(",")],
-    queryFn: async () => {
-      const { data: zones, error: qErr5 } = await supabase
-        .from("event_ticket_zones")
-        .select("id")
-        .in("event_id", transactionEventIds);
-      if (qErr5) throw qErr5;
-      if (!zones || zones.length === 0) return 0;
-      const { data: lots, error: qErr6 } = await supabase
-        .from("event_ticket_lots")
-        .select("id")
-        .in("zone_id", zones.map((z: any) => z.id));
-      if (qErr6) throw qErr6;
-      if (!lots || lots.length === 0) return 0;
-      const { data: sales, error: qErr7 } = await supabase
-        .from("ticket_sales")
-        .select("quantity")
-        .in("lot_id", lots.map((l: any) => l.id));
-      if (qErr7) throw qErr7;
-      return (sales ?? []).reduce((s: number, r: any) => s + Number(r.quantity || 0), 0);
-    },
+    queryFn: () => fetchTicketSalesQty(transactionEventIds),
     enabled: !!id,
   });
 
