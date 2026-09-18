@@ -1040,7 +1040,19 @@ export default function BankReconciliation() {
       toast.error("Importação recusada: a cadeia de saldos do ficheiro não fecha.");
       return;
     }
+    // TRAVA 1 na gravação: um seletor não é uma trava (incidente de 18/09/2026).
+    const target = (accounts as any[]).find((a) => a.id === accountId);
+    if (!target || target.type !== "bank") {
+      toast.error("Só contas bancárias recebem extrato.");
+      return;
+    }
+    // TRAVA 2 na gravação: ficheiro que não é desta conta. Sem forçar.
+    if (openingRefuseMessage) {
+      toast.error(openingRefuseMessage);
+      return;
+    }
     setSaving(true);
+
     try {
       // Hashes primeiro: são a identidade das linhas e a chave da guarda de
       // reimportação.
