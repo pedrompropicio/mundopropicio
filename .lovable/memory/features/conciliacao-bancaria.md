@@ -306,3 +306,22 @@ commit.
 Prova: `supabase/tests/launch_from_bank_lines.sql` (BEGIN … ROLLBACK) — caminho
 feliz com duas linhas pela soma, duplo clique recusado sem criar nada, linha
 inexistente recusada.
+
+## Explicada por conta, não por extrato (2026-09-18, #189)
+
+A pergunta "esta transação tem movimento no banco?" olha para **todas as linhas
+da CONTA**, seja qual for o `statement_id`: `matched_transaction_id`,
+`created_transaction_id` e a ponte `bank_line_transactions` das linhas dessa
+conta (e, no ramo SEPA, as transações dos exports irmãos). Com **períodos
+sobrepostos** — a prática recomendada nos ficheiros do banco — a linha vive no
+**primeiro extrato que a trouxe**, porque o `line_hash` impede o duplicado no
+ficheiro seguinte; procurar só dentro do extrato aberto marcava como "transação
+sem movimento no banco" dinheiro já conciliado (caso Crédito Google Ads,
+`DÉBITO DIRETO-Google Ireland` de 16/09/2026, 500,00 €, que ficou no extrato
+14→16/09 e não no 16→16/09).
+
+A base é ÚNICA (`accountExplainedIds` em `BankReconciliation.tsx`): alimenta a
+lista "Transações sem movimento no banco", a parcela `contribSystem` da
+decomposição do triângulo e as candidatas da conciliação manual — lista e total
+não podem sair de contas diferentes. Uma leitura das linhas da conta + uma da
+ponte, nunca N por transação.
