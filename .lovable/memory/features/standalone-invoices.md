@@ -63,6 +63,17 @@ NUNCA cria/toca `transactions`, `event_forecasts`, `payment_lists`,
   por empresa+NIF+número acontece antes do download e também após corrida concorrente.
 - Grava apenas no bucket e em `standalone_invoices`; qualquer falha após upload remove
   o objeto. Nunca toca nas tabelas financeiras proibidas pela regra absoluta.
+- **Câmbio resolvido no servidor (#195, 18/09/2026).** Em moeda ≠ EUR sem `fx_rate` no
+  corpo: `invoice_date` passa a ser OBRIGATÓRIA (400 claro se faltar) e o câmbio é o de
+  referência do BCE dessa data — ou do último dia útil anterior — via
+  `supabase/functions/_shared/fx-rate.ts` (`getEcbRate`, Frankfurter). Grava
+  `fx_rate_source = 'BCE (frankfurter.app) <data usada>'` e **calcula**
+  `total_amount = arredondar(original_amount × rate, 2)`; um `total_amount` enviado neste
+  modo é IGNORADO. Com `fx_rate` no corpo tudo fica como antes: o valor explícito ganha,
+  `total_amount` é obrigatório e a validação ±0,01 € mantém-se.
+- A resolução acontece ANTES de qualquer download ou upload: falha do BCE → 502, nada
+  gravado e nenhum objeto no bucket. Moedas: EUR, USD, BRL e GBP (GBP também no
+  `fetch-fx-rate`, que aceita `date` opcional e devolve `date_used`).
 
 ## Visão de conferência (reutilizada)
 Componente único `AccountantStandaloneInvoicesTab.tsx`, usado em dois sítios:
