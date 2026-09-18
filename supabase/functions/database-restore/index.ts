@@ -382,6 +382,7 @@ Deno.serve(async (req) => {
       backup_date: backupJson.created_at,
       total_tables: Object.keys(results).length,
       tables_with_errors: errors.length,
+      tables_not_restored: Object.keys(notRestored).length ? notRestored : undefined,
       results,
     });
   } catch (err) {
