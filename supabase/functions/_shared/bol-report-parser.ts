@@ -79,9 +79,21 @@ const isNumericToken = (t: string) => NUMERIC.test(t.replace(/€$/, "")) || t =
 
 /**
  * Resolve um bloco de tokens numéricos em valores.
+ *
  * Ambiguidade: "60 3 600,00 €" pode ser (60, 3600.00) ou (60, 3, 600.00).
- * Resolve-se juntando grupos de milhar de 3 dígitos ao valor monetário e
- * testando as duas leituras do grupo líder até obter exatamente 15 valores.
+ * A partir da v1.10 (#210) cada grupo monetário enumera DUAS dimensões:
+ *  - quantos grupos de milhar de 3 dígitos absorve (0..midIdxs.length, sempre
+ *    os mais próximos do token monetário);
+ *  - se leva também o líder (só faz sentido depois de absorver todos os mids,
+ *    porque o líder é o token mais à esquerda do grupo).
+ *
+ * Motivo: em "744 100 197,00 €" (TOTAL acima de 100.000 €) a leitura antiga
+ * absorvia obrigatoriamente o "100" e ainda tinha de decidir sobre o "744",
+ * que é a Total Vendas Qt — engolia a quantidade.
+ *
+ * Escolhe-se a combinação pela pontuação estrutural (15 valores; monetários em
+ * 5/7/9; Total = Inteiras + Descontos em qty e valor; Lotação = Disp. + Ocup.).
+ * Em empate, prefere-se a leitura que absorve menos tokens.
  */
 function resolveValues(tokens: string[]): number[] | null {
   // 1. junta o "€" solto ao token anterior
@@ -107,11 +119,23 @@ function resolveValues(tokens: string[]): number[] | null {
     groups.push({ moneyIdx: i, leaderIdx, midIdxs });
   }
 
-  const build = (useLeader: boolean[]): { values: number[]; moneyPos: number[] } => {
+  /** Opção de leitura de um grupo: absorve `take` mids (os mais próximos) e talvez o líder. */
+  type Choice = { take: number; leader: boolean; absorbed: number };
+  const optionsFor = (g: Group): Choice[] => {
+    const opts: Choice[] = [];
+    for (let take = 0; take <= g.midIdxs.length; take++) opts.push({ take, leader: false, absorbed: take });
+    if (g.leaderIdx !== null) {
+      opts.push({ take: g.midIdxs.length, leader: true, absorbed: g.midIdxs.length + 1 });
+    }
+    return opts;
+  };
+
+  const build = (choices: Choice[]): { values: number[]; moneyPos: number[] } => {
     const consumed = new Set<number>();
     groups.forEach((g, gi) => {
-      if (useLeader[gi] && g.leaderIdx !== null) consumed.add(g.leaderIdx);
-      for (const idx of g.midIdxs) consumed.add(idx);
+      const c = choices[gi];
+      if (c.leader && g.leaderIdx !== null) consumed.add(g.leaderIdx);
+      for (const idx of g.midIdxs.slice(g.midIdxs.length - c.take)) consumed.add(idx);
     });
     const values: number[] = [];
     const moneyPos: number[] = [];
@@ -120,9 +144,10 @@ function resolveValues(tokens: string[]): number[] | null {
       if (MONEY_SUFFIX.test(merged[k])) {
         const gi = groups.findIndex((x) => x.moneyIdx === k);
         const g = groups[gi];
+        const c = choices[gi];
         const pieces: string[] = [];
-        if (useLeader[gi] && g.leaderIdx !== null) pieces.push(merged[g.leaderIdx]);
-        pieces.push(...g.midIdxs.map((z) => merged[z]));
+        if (c.leader && g.leaderIdx !== null) pieces.push(merged[g.leaderIdx]);
+        pieces.push(...g.midIdxs.slice(g.midIdxs.length - c.take).map((z) => merged[z]));
         pieces.push(merged[k].replace(/€$/, ""));
         moneyPos.push(values.length);
         values.push(toNumber(pieces.join("")));
@@ -133,11 +158,22 @@ function resolveValues(tokens: string[]): number[] | null {
     return { values, moneyPos };
   };
 
-  const n = groups.length;
-  let best: { values: number[]; score: number } | null = null;
-  for (let mask = 0; mask < (1 << n); mask++) {
-    const useLeader = Array.from({ length: n }, (_, k) => Boolean(mask & (1 << k)));
-    const { values, moneyPos } = build(useLeader);
+  // Produto cartesiano das opções por grupo (no M2 há no máximo 3 monetários
+  // por linha com 2-3 opções cada — combinatória sempre pequena).
+  const perGroup = groups.map(optionsFor);
+  const combos: Choice[][] = [[]];
+  for (const opts of perGroup) {
+    const next: Choice[][] = [];
+    for (const partial of combos) for (const o of opts) next.push([...partial, o]);
+    combos.length = 0;
+    combos.push(...next);
+    if (combos.length > 4096) break; // guarda de segurança
+  }
+
+  let best: { values: number[]; score: number; absorbed: number } | null = null;
+  for (const choices of combos) {
+    if (choices.length !== groups.length) continue;
+    const { values, moneyPos } = build(choices);
     if (values.length !== VALUE_COUNT) continue;
     // Coerência estrutural: monetários em 5/7/9, Total = Inteiras + Descontos.
     let score = 0;
@@ -145,10 +181,12 @@ function resolveValues(tokens: string[]): number[] | null {
     if (values[8] === values[4] + values[6]) score += 5;
     if (Math.abs(values[9] - (values[5] + values[7])) < 0.02) score += 5;
     if (values[0] === values[1] + values[2]) score += 2;
-    if (!best || score > best.score) best = { values, score };
+    const absorbed = choices.reduce((s, c) => s + c.absorbed, 0);
+    if (!best || score > best.score || (score === best.score && absorbed < best.absorbed)) {
+      best = { values, score, absorbed };
+    }
   }
   return best ? best.values : null;
-
 }
 
 function cleanName(buffer: string[]): string {
