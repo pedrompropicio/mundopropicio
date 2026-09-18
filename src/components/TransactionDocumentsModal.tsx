@@ -149,23 +149,49 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
   const deleteMutation = useMutation({
     mutationFn: async (doc: { id: string; file_url: string; name: string }) => {
       const storagePath = extractStoragePath(doc.file_url);
-      // Use .select() so we can detect when RLS silently blocks the delete (0 rows returned)
-      const { data: deleted, error: dbError } = await supabase
-        .from("transaction_documents")
-        .delete()
-        .eq("id", doc.id)
-        .select("id");
-      if (dbError) throw dbError;
-      if (!deleted || deleted.length === 0) {
+      const shared =
+        !!doc.file_url && !doc.file_url.startsWith("ref://") && (sharedCounts as any)[doc.file_url] > 1;
+
+      // Documento partilhado pelo grupo de fatura: um ficheiro, N registos —
+      // remover apaga as N linhas (#181).
+      let deletedIds: string[] = [];
+      if (shared) {
+        const { data: deleted, error: dbError } = await supabase
+          .from("transaction_documents")
+          .delete()
+          .eq("file_url", doc.file_url)
+          .select("id");
+        if (dbError) throw dbError;
+        deletedIds = (deleted ?? []).map((d: any) => d.id);
+      } else {
+        // Use .select() so we can detect when RLS silently blocks the delete (0 rows returned)
+        const { data: deleted, error: dbError } = await supabase
+          .from("transaction_documents")
+          .delete()
+          .eq("id", doc.id)
+          .select("id");
+        if (dbError) throw dbError;
+        deletedIds = (deleted ?? []).map((d: any) => d.id);
+      }
+      if (deletedIds.length === 0) {
         throw new Error("Sem permissão para remover este documento ou documento não encontrado.");
       }
       if (storagePath) {
         // Don't remove the underlying camarim file when deleting a transaction_documents
         // row that points to it — the dossier/receipt is shared with the camarim session.
         if (!doc.file_url?.startsWith("camarim://")) {
-          await supabase.storage.from("transaction-documents").remove([storagePath]).catch((err) => {
-            console.warn("Storage cleanup failed (non-blocking):", err);
-          });
+          // O objeto só sai do bucket quando já não resta nenhuma linha a apontar-lhe.
+          const { data: rest, error: restErr } = await supabase
+            .from("transaction_documents")
+            .select("id")
+            .eq("file_url", doc.file_url)
+            .limit(1);
+          if (restErr) throw restErr;
+          if ((rest ?? []).length === 0) {
+            await supabase.storage.from("transaction-documents").remove([storagePath]).catch((err) => {
+              console.warn("Storage cleanup failed (non-blocking):", err);
+            });
+          }
         }
       }
       await logAudit({
@@ -174,7 +200,11 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
         action: "delete",
         changed_by: getAuditUser(user),
         old_data: { name: doc.name, file_url: doc.file_url },
-        metadata: { transaction_id: transactionId, transaction_description: transactionDescription },
+        metadata: {
+          transaction_id: transactionId,
+          transaction_description: transactionDescription,
+          shared_rows_removed: deletedIds.length,
+        },
       });
     },
     onMutate: async (doc) => {
