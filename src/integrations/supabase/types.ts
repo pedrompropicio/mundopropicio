@@ -17238,6 +17238,14 @@ export type Database = {
         Returns: Database["public"]["Enums"]["app_role"]
       }
       get_vault_secret: { Args: { _name: string }; Returns: string }
+      get_zone_daily_series: {
+        Args: { p_event_ids: string[]; p_from: string; p_to: string }
+        Returns: Json
+      }
+      get_zone_price_dynamics: {
+        Args: { p_event_ids: string[] }
+        Returns: Json
+      }
       has_company_feature: {
         Args: { _company_id: string; _feature_key: string }
         Returns: boolean
