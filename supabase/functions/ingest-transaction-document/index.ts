@@ -317,14 +317,16 @@ Deno.serve(async (req) => {
   // Já existe uma linha com o MESMO nome e o MESMO tamanho de ficheiro em
   // qualquer das N transações? Então reutiliza-se o file_url e criam-se só as
   // linhas em falta, sem subir um segundo objeto.
-  const { data: existingDocs, error: exErr } = await fetchAllPagedQuery(admin
-    .from('transaction_documents')
-    .select('id, transaction_id, name, file_url')
-    .in('transaction_id', transactionIds)
-    .eq('name', nome)
+  const { data: existingDocs, error: exErr } = await fetchAllPagedQuery(
+    admin
+      .from('transaction_documents')
+      .select('id, transaction_id, name, file_url')
+      .in('transaction_id', transactionIds)
+      .eq('name', nome),
+  )
   if (exErr) return json({ error: `Erro ao verificar documentos existentes: ${exErr.message}` }, 500)
 
-  async function storageSize(path: string)): Promise<number | null> {
+  async function storageSize(path: string): Promise<number | null> {
     if (!path || path.startsWith('ref://') || path.includes('://')) return null
     const idx = path.lastIndexOf('/')
     const folder = idx > 0 ? path.slice(0, idx) : ''
