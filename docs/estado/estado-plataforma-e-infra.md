@@ -13,6 +13,9 @@ A 18/09 fechou-se a abrangência e a observabilidade do backup diário: uma corr
 
 A 18/09 à tarde limparam-se os alertas mortos (#211, parte 1) e fechou-se a fase 1 da barreira dos 1.000 registos (#206) — o DRE da Mundo Propício passou de 4.122.661,93 € para 6.600.832,36 € de despesas approved|paid, que é o valor certo. A #140 fechou-se a 18/09 alargando a janela da tarefa agendada de captação de Madrid para `0 8-23 * * *` UTC — cobre as 23h de Lisboa no verão e no inverno sem manutenção.
 
+**O restauro completo passou a ser atómico e foi ensaiado (18/09, #203 fechada, D-ERP89).** Os dados do backup carregam-se primeiro numa área de sombra (`restore_shadow`), validam-se por SQL (contagens do manifesto, todas as FKs, `company_id`) e só então trocam em produção dentro de **uma** transação, com triggers de utilizador desligados e as cinco chaves dos dois ciclos adiadas até ao fim. Antes disto o restauro completo **falhava garantidamente** — inseria `transactions` antes de `event_forecasts` — e nunca tinha sido executado. Ensaio na siriguella: fotografia antes/depois com **zero diferenças** (227 tabelas, 2.736 linhas) e retrocesso provado com uma sombra corrompida (produção intacta, 24 triggers religados). Ver secção própria abaixo.
+
+
 ## Barreira dos 1.000 registos — fase 1 (18/09/2026)
 O PostgREST devolve no máximo 1.000 linhas por pedido; qualquer select do cliente sem `.range()` numa tabela acima disso fica truncado em silêncio. A Mundo Propício tem 1.197 transações approved|paid; o DRE, P&L, Resultados, Rentabilidade, Tesouraria, Acerto com Sócios, Pendências e Lista de Eventos liam 1.000. Diferença medida no DRE: 2.478.170,43 €.
 
