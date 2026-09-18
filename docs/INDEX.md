@@ -139,6 +139,8 @@ Se o tema toca num fluxo já implementado, procurar primeiro em `.lovable/memory
 
 **Nenhuma leitura no cliente de uma tabela de `src/lib/postgrest-large-tables.json` sem paginação ou RPC.** O PostgREST corta nos 1.000 registos e a leitura fica truncada em silêncio — foi assim que o saldo da Ticketline deu −3,2 M€ (#129) e que o DRE da Mundo Propício perdeu 197 transações, 789.161,63 €, a 18/09/2026 (#206). Toda a leitura passa por `fetchAllPaged`/`fetchAllPagedQuery` (`src/lib/supabase-paging.ts`, gémeo `supabase/functions/_shared/paging.ts`) ou por uma RPC. **Somas e contagens fazem-se na base, nunca no cliente.** O teste `src/lib/__tests__/postgrest-row-limit.test.ts` trava o que escapar, e a lista de tabelas vigiadas **cresce** com o invariante `tabelas_acima_de_1000` do `run_invariant_checks()`: quando a contagem subir, a tabela nova entra no JSON e a referência é actualizada.
 
+**Uma tarefa do agente só está feita depois de verificada por leitura do código e consulta a Live — o relatório do agente não é prova.**
+
 **Toda a função `SECURITY DEFINER` nova no schema `public` leva, na mesma migração que a cria:**
 
 ```sql
