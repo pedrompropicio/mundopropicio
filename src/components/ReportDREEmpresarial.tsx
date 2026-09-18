@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -98,9 +99,16 @@ export default function ReportDREEmpresarial() {
   const { data: ticketSales = [] } = useQuery({
     queryKey: ["ticket-sales-all"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("ticket_sales").select("lot_id,sale_date,quantity,unit_price,total_value");
-      if (error) throw error;
-      return data;
+      // #205: paginado (PostgREST corta aos 1.000 registos em silêncio).
+      return await fetchAllPaged<any>(
+        (from, to) =>
+          supabase
+            .from("ticket_sales")
+            .select("lot_id,sale_date,quantity,unit_price,total_value")
+            .order("id", { ascending: true })
+            .range(from, to),
+        { maxRows: 200000 },
+      );
     },
   });
 

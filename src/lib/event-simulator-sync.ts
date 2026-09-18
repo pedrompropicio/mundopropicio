@@ -10,6 +10,7 @@
  * Sources foram aprovadas pelo utilizador (msg de 2026-04-30).
  */
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { ticketSaleRevenue } from "./ticket-sales-revenue";
 import { keepLatestFeverImportRows } from "./ticket-sales-batch-filter";
 
@@ -86,10 +87,15 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   const zoneIds = zones.map((z) => z.id);
   let sales: Row[] = [];
   if (zoneIds.length) {
-    const { data } = await supabase
-      .from("ticket_sales")
-      .select("zone_id, sale_date, quantity, unit_price, total_value, financial_account_id, source, import_batch_id, created_at")
-      .in("zone_id", zoneIds);
+    // #205: paginado.
+    const data = await fetchAllPaged<any>((from, to) =>
+      supabase
+        .from("ticket_sales")
+        .select("zone_id, sale_date, quantity, unit_price, total_value, financial_account_id, source, import_batch_id, created_at")
+        .in("zone_id", zoneIds)
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
     sales = keepLatestFeverImportRows((data ?? []) as Row[]);
   }
 

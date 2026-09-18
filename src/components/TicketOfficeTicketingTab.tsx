@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { formatDatePT } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -127,9 +128,16 @@ export function TicketOfficeTicketingTab({ officeId, officeName }: Props) {
     queryFn: async () => {
       const zoneIds = zones.map((z) => z.id);
       if (zoneIds.length === 0) return [];
-      const { data, error } = await supabase.from("ticket_sales").select("*").in("zone_id", zoneIds).order("sale_date", { ascending: false });
-      if (error) throw error;
-      return data || [];
+      // #205: lista completa paginada (PostgREST corta aos 1.000).
+      return await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("*")
+          .in("zone_id", zoneIds)
+          .order("sale_date", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
     },
     enabled: zones.length > 0,
   });

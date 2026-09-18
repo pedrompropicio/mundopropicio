@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -60,7 +61,12 @@ export default function PartnerDREDialog({ open, onOpenChange, eventId, eventNam
         supabase.from("account_categories").select("*"),
         supabase.from("event_ticket_zones").select("*"),
         supabase.from("event_ticket_lots").select("*"),
-        supabase.from("ticket_sales").select("*"),
+        // #205: paginado (PostgREST corta aos 1.000 registos em silêncio).
+        fetchAllPaged<any>(
+          (from, to) =>
+            supabase.from("ticket_sales").select("*").order("id", { ascending: true }).range(from, to),
+          { maxRows: 200000 },
+        ).then((data) => ({ data, error: null })),
         supabase.from("event_partners").select("*, suppliers(name)"),
         supabase
           .from("event_forecasts")

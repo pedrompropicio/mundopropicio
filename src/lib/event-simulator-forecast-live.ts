@@ -14,6 +14,7 @@
  * Sem config do Simulador E sem retrato de carga corrente → `currentNet = null`.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { keepLatestFeverImportRows } from "@/lib/ticket-sales-batch-filter";
 import {
   computeScenarioRevenue,
@@ -98,12 +99,17 @@ export async function computeLiveTicketForecast(eventId: string): Promise<LiveTi
     lots = l ?? [];
     const lotIds = lots.map((x) => x.id);
     if (lotIds.length > 0) {
-      const { data: s } = await supabase
-        .from("ticket_sales")
-        .select(
-          "lot_id, zone_id, sale_date, quantity, unit_price, total_value, financial_account_id, source, import_batch_id, created_at",
-        )
-        .in("lot_id", lotIds);
+      // #205: paginado.
+      const s = await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select(
+            "lot_id, zone_id, sale_date, quantity, unit_price, total_value, financial_account_id, source, import_batch_id, created_at",
+          )
+          .in("lot_id", lotIds)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       sales = keepLatestFeverImportRows((s ?? []) as any[]);
     }
   }

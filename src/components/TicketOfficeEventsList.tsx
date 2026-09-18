@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar, ChevronRight, Upload } from "lucide-react";
@@ -75,12 +76,15 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     queryKey: ["to_event_sales", zoneIds],
     enabled: zoneIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("zone_id, quantity, unit_price, financial_account_id, sale_date")
-        .in("zone_id", zoneIds);
-      if (error) throw error;
-      return data || [];
+      // #205: paginado.
+      return await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("zone_id, quantity, unit_price, financial_account_id, sale_date")
+          .in("zone_id", zoneIds)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
     },
   });
 

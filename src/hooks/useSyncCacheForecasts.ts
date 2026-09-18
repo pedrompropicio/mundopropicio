@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { resolvePercentageFromTiers, getCacheEffectiveAmount, type CacheTier, type CityCacheSettlement } from "@/lib/cache-pl-helper";
 
@@ -74,12 +75,15 @@ export function useSyncCacheForecasts({
         .from("ticket_sales")
         .select("*", { count: "exact", head: true })
         .in("zone_id", zoneIds);
-      // Also get a rough sum to detect price changes
-      const { data: agg, error: qErr2 } = await supabase
-        .from("ticket_sales")
-        .select("quantity, unit_price")
-        .in("zone_id", zoneIds);
-      if (qErr2) throw qErr2;
+      // Also get a rough sum to detect price changes (paginado — #205)
+      const agg = await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("quantity, unit_price")
+          .in("zone_id", zoneIds)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       const total = (agg ?? []).reduce((s: number, r: any) => s + Number(r.quantity) * Number(r.unit_price), 0);
       return `${count}:${Math.round(total * 100)}`;
     },
@@ -201,7 +205,15 @@ async function syncTourCacheForecasts(
   const [lotsRes, salesRes] = zoneIds.length > 0
     ? await Promise.all([
         supabase.from("event_ticket_lots").select("*").in("zone_id", zoneIds),
-        supabase.from("ticket_sales").select("zone_id, lot_id, quantity, unit_price").in("zone_id", zoneIds),
+        // #205: paginado — o PostgREST corta aos 1.000 registos em silêncio.
+        fetchAllPaged<any>((from, to) =>
+          supabase
+            .from("ticket_sales")
+            .select("zone_id, lot_id, quantity, unit_price")
+            .in("zone_id", zoneIds)
+            .order("id", { ascending: true })
+            .range(from, to),
+        ).then((data) => ({ data })),
       ])
     : [{ data: [] }, { data: [] }];
   const lots = lotsRes.data ?? [];
@@ -408,11 +420,19 @@ async function syncSimpleCacheForecasts(
   let effectiveGross = ticketRevenueGross;
 
   if (zoneIds.length > 0) {
-    const [salesRes, lotsRes] = await Promise.all([
-      supabase.from("ticket_sales").select("lot_id, zone_id, quantity, unit_price").in("zone_id", zoneIds),
+    const [salesPaged, lotsRes] = await Promise.all([
+      // #205: paginado — nunca somar ticket_sales sem .range().
+      fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("lot_id, zone_id, quantity, unit_price")
+          .in("zone_id", zoneIds)
+          .order("id", { ascending: true })
+          .range(from, to),
+      ),
       supabase.from("event_ticket_lots").select("id, iva_rate").in("zone_id", zoneIds),
     ]);
-    const sales = salesRes.data ?? [];
+    const sales = salesPaged;
     const lots = lotsRes.data ?? [];
 
     if (sales.length > 0) {

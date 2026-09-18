@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -169,11 +170,15 @@ export default function EventABTab({ eventId }: Props) {
       const lotById = new Map<string, any>();
       for (const l of (lots ?? []) as any[]) lotById.set(l.id, l);
 
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("zone_id, lot_id, quantity")
-        .in("zone_id", zoneIds);
-      if (error) throw error;
+      // #205: paginado.
+      const data = await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("zone_id, lot_id, quantity")
+          .in("zone_id", zoneIds)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
 
       const map: Record<string, number> = {};
       for (const r of (data ?? []) as any[]) {

@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 
 type CalibrationRow = {
   event_id: string;
@@ -51,12 +52,17 @@ export function ForecastBoostCalibrator({
     queryKey: ["forecast-calibrator-candidates"],
     enabled: open,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("sale_date, lot_id, event_ticket_lots!inner(zone_id, event_ticket_zones!inner(event_id, events!inner(id,name,date)))")
-        .not("sale_date", "is", null)
-        .limit(20000);
-      if (error) throw error;
+      // #205: paginado — o .limit(20000) era cortado aos 1.000 pelo PostgREST.
+      const data = await fetchAllPaged<any>(
+        (from, to) =>
+          supabase
+            .from("ticket_sales")
+            .select("sale_date, lot_id, event_ticket_lots!inner(zone_id, event_ticket_zones!inner(event_id, events!inner(id,name,date)))")
+            .not("sale_date", "is", null)
+            .order("id", { ascending: true })
+            .range(from, to),
+        { maxRows: 20000 },
+      );
       const byEvent = new Map<string, { id: string; name: string; date: string | null; days: Set<string> }>();
       for (const row of (data ?? []) as any[]) {
         const ev = row?.event_ticket_lots?.event_ticket_zones?.events;

@@ -30,6 +30,7 @@ A plataforma divide-se em quatro módulos de produto + uma camada transversal. O
 - Supabase Live: sfohvvlqccmmebvjgibx (BD partilhada ERP + portal).
 - O ambiente Test foi apagado (jun/2026) → base única. DDL do agente aplica DIRETO em Live.
 - Schemas: crm.* (audience), public.* (PostgREST).
+- Nenhum ecrã soma `ticket_sales` no cliente. Totais por conta: `get_ticket_office_sales`. Totais por evento: `get_event_ticket_sales_totals`. Listas linha a linha só com `.range()` paginado. Motivo: PostgREST corta aos 1.000 registos em silêncio (#129, #205).
 
 ## 5. Identidades-chave
 - company_id MP: 7c858982-6ccd-47ca-bd65-e0dd3eebf01c

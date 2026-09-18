@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, Info, Eye } from "lucide-react";
@@ -282,9 +283,12 @@ export default function ReportDREBrasil() {
   const { data: ticketSales = [] } = useQuery({
     queryKey: ["ticket-sales-all"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("ticket_sales").select("*");
-      if (error) throw error;
-      return data;
+      // #205: paginado (PostgREST corta aos 1.000 registos em silêncio).
+      return await fetchAllPaged<any>(
+        (from, to) =>
+          supabase.from("ticket_sales").select("*").order("id", { ascending: true }).range(from, to),
+        { maxRows: 200000 },
+      );
     },
   });
 

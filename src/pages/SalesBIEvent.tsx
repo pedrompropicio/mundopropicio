@@ -11,6 +11,7 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { lisbonToday } from "@/lib/date-lisbon";
@@ -135,11 +136,15 @@ export default function SalesBIEvent() {
     enabled: !!eventId && capsQ.isSuccess && !hasSnaps && (zonesQ.data?.length ?? 0) > 0,
     queryFn: async () => {
       const zoneIds = (zonesQ.data ?? []).map((z) => z.id);
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("zone_id, quantity, total_value, notes")
-        .in("zone_id", zoneIds);
-      if (error) throw error;
+      // #205: paginado.
+      const data = await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("zone_id, quantity, total_value, notes")
+          .in("zone_id", zoneIds)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       return (data ?? []) as unknown as SaleRow[];
     },
   });

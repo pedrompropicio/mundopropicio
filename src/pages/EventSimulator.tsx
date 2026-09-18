@@ -12,6 +12,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -260,11 +261,17 @@ export default function EventSimulator() {
 
       // 4) vendas
       const lotIds = (lots ?? []).map((l: any) => l.id);
-      const { data: sales } = lotIds.length
-        ? await supabase.from("ticket_sales")
-            .select("lot_id, zone_id, sale_date, quantity, unit_price, total_value, financial_account_id, source, import_batch_id, created_at")
-            .in("lot_id", lotIds)
-        : { data: [] as any[] };
+      // #205: paginado.
+      const sales = lotIds.length
+        ? await fetchAllPaged<any>((from, to) =>
+            supabase
+              .from("ticket_sales")
+              .select("lot_id, zone_id, sale_date, quantity, unit_price, total_value, financial_account_id, source, import_batch_id, created_at")
+              .in("lot_id", lotIds)
+              .order("id", { ascending: true })
+              .range(from, to),
+          )
+        : ([] as any[]);
 
       const lotById = new Map((lots ?? []).map((l: any) => [l.id, l]));
       const zoneById = new Map((zones ?? []).map((z: any) => [z.id, z]));
@@ -360,10 +367,17 @@ export default function EventSimulator() {
       if (qErr7) throw qErr7;
 
       const lotIds = (lots ?? []).map((l: any) => l.id);
-      const { data: sales } = lotIds.length
-        ? await supabase.from("ticket_sales")
-            .select("lot_id, zone_id, sale_date, quantity, financial_account_id, source, import_batch_id, created_at").in("lot_id", lotIds)
-        : { data: [] as any[] };
+      // #205: paginado.
+      const sales = lotIds.length
+        ? await fetchAllPaged<any>((from, to) =>
+            supabase
+              .from("ticket_sales")
+              .select("lot_id, zone_id, sale_date, quantity, financial_account_id, source, import_batch_id, created_at")
+              .in("lot_id", lotIds)
+              .order("id", { ascending: true })
+              .range(from, to),
+          )
+        : ([] as any[]);
 
       // Vendas por lote (qty total) + 1ª data de venda por zona
       const soldByLot = new Map<string, number>();

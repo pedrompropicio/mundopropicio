@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { Download, TrendingUp, Target, BarChart3, Users, Ticket, FileText } from "lucide-react";
@@ -144,11 +145,16 @@ export function ResultsAnalysis() {
   const { data: ticketSales = [] } = useQuery({
     queryKey: ["ra_ticket_sales_v2"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("id, quantity, unit_price, total_value, lot_id, event_ticket_zones(event_id)");
-      if (error) throw error;
-      return data;
+      // #205: paginado (PostgREST corta aos 1.000 registos em silêncio).
+      return await fetchAllPaged<any>(
+        (from, to) =>
+          supabase
+            .from("ticket_sales")
+            .select("id, quantity, unit_price, total_value, lot_id, event_ticket_zones(event_id)")
+            .order("id", { ascending: true })
+            .range(from, to),
+        { maxRows: 200000 },
+      );
     },
   });
 

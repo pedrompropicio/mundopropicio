@@ -27,7 +27,6 @@
  * `useBPIncomeSynthetic` (real da bilheteira e dos patrocínios).
  */
 import { supabase } from "@/integrations/supabase/client";
-import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import { isValidFechoTransaction, isBilheteiraCategoryCode } from "@/lib/fecho-filters";
 import { classifyIncomeL1 } from "@/lib/event-financial-card";
 import { calcTotalWithIva } from "@/lib/iva";
@@ -96,35 +95,48 @@ const emptyPairs = (): Record<RevenueBucket, MoneyPair> => ({
   outros: zeroPair(),
 });
 
+export interface TicketSalesTotals {
+  eventId: string;
+  quantity: number;
+  gross: number;
+  net: number;
+}
+
+/**
+ * Totais de bilheteira por evento, somados NA BASE DE DADOS (#205).
+ *
+ * Nunca somar `ticket_sales` no cliente: o PostgREST corta aos 1.000 registos em
+ * silêncio (foi o que deu 6.846 bilhetes em vez de 7.557 na Simone Mendes).
+ * Líquido linha a linha pelo IVA do lote, exactamente como antes (D11).
+ */
+export async function fetchTicketSalesTotals(eventIds: string[]): Promise<TicketSalesTotals[]> {
+  const ids = Array.from(new Set(eventIds.filter(Boolean)));
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase.rpc("get_event_ticket_sales_totals", {
+    p_event_ids: ids,
+  });
+  if (error) throw error;
+  return ((data ?? []) as any[]).map((r) => ({
+    eventId: r.event_id as string,
+    quantity: Number(r.quantity || 0),
+    gross: Number(r.gross || 0),
+    net: Number(r.net || 0),
+  }));
+}
+
+/** Bilhetes vendidos (quantidade) dos eventos pedidos — mesma RPC. */
+export async function fetchTicketSalesQty(eventIds: string[]): Promise<number> {
+  const rows = await fetchTicketSalesTotals(eventIds);
+  return rows.reduce((s, r) => s + r.quantity, 0);
+}
+
 /** Bilheteira realizada a partir de `ticket_sales`, linha a linha (D11). */
 export async function fetchTicketSalesRevenue(eventIds: string[]): Promise<MoneyPair> {
-  const { data: zones } = await supabase
-    .from("event_ticket_zones")
-    .select("id")
-    .in("event_id", eventIds);
-  const zoneIds = (zones ?? []).map((z: any) => z.id);
-  if (zoneIds.length === 0) return zeroPair();
-
-  const { data: lots } = await supabase
-    .from("event_ticket_lots")
-    .select("id, iva_rate")
-    .in("zone_id", zoneIds);
-  const lotIds = (lots ?? []).map((l: any) => l.id);
-  if (lotIds.length === 0) return zeroPair();
-
-  const lotIva = new Map<string, number>((lots ?? []).map((l: any) => [l.id, Number(l.iva_rate || 0)]));
-
-  const { data: sales } = await supabase
-    .from("ticket_sales")
-    .select("lot_id, quantity, unit_price, total_value")
-    .in("lot_id", lotIds);
-
-  return (sales ?? []).reduce<MoneyPair>((acc, s: any) => {
-    const gross = ticketSaleRevenue(s);
-    const rate = lotIva.get(s.lot_id) ?? 0;
-    const net = rate > 0 ? gross / (1 + rate / 100) : gross;
-    return { net: acc.net + net, gross: acc.gross + gross };
-  }, zeroPair());
+  const rows = await fetchTicketSalesTotals(eventIds);
+  return rows.reduce<MoneyPair>(
+    (acc, r) => ({ net: acc.net + r.net, gross: acc.gross + r.gross }),
+    zeroPair(),
+  );
 }
 
 export async function computeEventRevenueBasis(

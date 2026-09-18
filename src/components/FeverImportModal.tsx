@@ -14,6 +14,7 @@
 import { useState, useRef, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -118,13 +119,16 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
       const zones = zonesRes.data || [];
       let currentSales: any[] = [];
       if (zones.length > 0 && feverAccountId) {
-        const { data: salesData, error: qErr1 } = await supabase
-          .from("ticket_sales")
-          .select("id")
-          .in("zone_id", zones.map((z: any) => z.id))
-          .eq("financial_account_id", feverAccountId);
-        if (qErr1) throw qErr1;
-        currentSales = salesData || [];
+        // #205: paginado.
+        currentSales = await fetchAllPaged<any>((from, to) =>
+          supabase
+            .from("ticket_sales")
+            .select("id")
+            .in("zone_id", zones.map((z: any) => z.id))
+            .eq("financial_account_id", feverAccountId)
+            .order("id", { ascending: true })
+            .range(from, to),
+        );
       }
       return { dates, sessions, zones, currentSales };
     },

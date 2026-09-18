@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -341,13 +342,16 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
     queryKey: ["existing-sales-check", matchedDates, matchedZoneIds],
     queryFn: async () => {
       if (matchedDates.length === 0 || matchedZoneIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("id, sale_date, zone_id, lot_id, quantity")
-        .in("sale_date", matchedDates)
-        .in("zone_id", matchedZoneIds as string[]);
-      if (error) throw error;
-      return data ?? [];
+      // #205: paginado.
+      return await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("id, sale_date, zone_id, lot_id, quantity")
+          .in("sale_date", matchedDates)
+          .in("zone_id", matchedZoneIds as string[])
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
     },
     enabled: step === "review" && matchedDates.length > 0,
   });

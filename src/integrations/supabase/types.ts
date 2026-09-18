@@ -17087,6 +17087,15 @@ export type Database = {
           sum_realized: number
         }[]
       }
+      get_event_ticket_sales_totals: {
+        Args: { p_event_ids: string[] }
+        Returns: {
+          event_id: string
+          gross: number
+          net: number
+          quantity: number
+        }[]
+      }
       get_leads_geo_stats: { Args: { p_period?: string }; Returns: Json }
       get_or_create_generic_camarim_supplier: {
         Args: { _company_id: string }

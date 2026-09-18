@@ -5,6 +5,7 @@ import helpTexts from "@/lib/help-texts";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { formatCurrency } from "@/lib/mock-data";
 import { Plus, Trash2, Check, X, Ticket, Layers, ChevronDown, ChevronRight, Store, CheckCircle2, Lock, Upload, FileText } from "lucide-react";
 import { exportEventTicketingToPDF } from "@/lib/export-event-ticketing-pdf";
@@ -190,11 +191,15 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
     queryFn: async () => {
       const zoneIds = (allZones as any[]).map((z) => z.id);
       if (zoneIds.length === 0) return {} as Record<string, { tickets: number; revenue: number }>;
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("zone_id, quantity, unit_price, total_value")
-        .in("zone_id", zoneIds);
-      if (error) throw error;
+      // #205: paginado.
+      const data = await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("zone_id, quantity, unit_price, total_value")
+          .in("zone_id", zoneIds)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       const acc: Record<string, { tickets: number; revenue: number }> = {};
       for (const s of (data ?? []) as any[]) {
         if (!s.zone_id) continue;

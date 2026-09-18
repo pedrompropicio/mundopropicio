@@ -2,6 +2,7 @@ import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload"
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -179,12 +180,16 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       const zoneIds = zones.map((z: any) => z.id);
       // Receita = vendas registadas/importadas DESTA bilheteira para o evento.
       // Eventos com múltiplas bilheteiras geram fechos independentes por bilheteira.
-      const { data: sales, error: qErr2 } = await supabase
-        .from("ticket_sales")
-        .select("quantity, unit_price, total_value")
-        .in("zone_id", zoneIds)
-        .eq("financial_account_id", officeId);
-      if (qErr2) throw qErr2;
+      // #205: paginado — nunca somar ticket_sales sem .range().
+      const sales = await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("quantity, unit_price, total_value")
+          .in("zone_id", zoneIds)
+          .eq("financial_account_id", officeId)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       return sumTicketSalesRevenue(sales || []);
     },
   });
