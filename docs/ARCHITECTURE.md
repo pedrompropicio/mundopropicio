@@ -206,6 +206,28 @@ a chamada vem com JWT `service_role` sem utilizador, senão `manual`. O registo 
 sincronização falhar e `details` nunca leva tokens ou chaves. Leitura agregada em
 `public.v_sync_health` (última execução por função + chamadas do mês). Detalhe em `DATABASE.md` §18.2.
 
+### Saúde do sync de bilheteira (cron `ticketing-sync-health`)
+
+`public.check_ticketing_sync_health()` (plpgsql, SECURITY DEFINER, EXECUTE só a `service_role`)
+corre por SQL direto no cron `ticketing-sync-health` (`45 * * * *`, depois das capturas: Ticketline
+:05 e :15, BOL :25). Avalia as configs de `ticketline_sync_config` e `bol_sync_config` cujo evento
+tem `events.date >= current_date`: **(a)** 3 corridas mais recentes todas fora de
+`('success','warning','skipped')`; **(b)** sem corrida `success`/`warning` nas últimas 6 h;
+**(c)** config `enabled = false` (informativo); **(d)** sem corrida `triggered_by like 'capture_day:%'`
+com `success` nas últimas 3 h. `warning` conta como saudável (BOL: M2 importado, Diário falhado) e
+`skipped` não alarma nem repõe o relógio de (b).
+
+Escreve **primeiro** em `system_reminders` (chave `ticketing_sync_stalled`, `is_active = false`
+quando tudo recupera, no molde de `check_leads_capi_health`) e só depois envia email via
+`net.http_post` a `send-transactional-email` (template `ticketing-sync-alert`) — apenas para (a),
+(b) e (d); (c) fica só no banner. Destinatários: admin/manager/platform_admin via `user_roles` +
+`profiles`, com recurso ao secret `BILHETEIRA_SYNC_NOTIFY_CC`. Anti-spam: 1 email por config a cada
+12 h em `sync_notifications_sent`. Falha de envio → `RAISE WARNING` + linha em `system_audit_log`,
+nunca apaga o aviso. Substitui, para a bilheteira, o `notify_sync_action_needed()` (URL do projeto
+de TEST, trigger no-op sobre `ticketline_sync_runs` — issue #211, outra frente).
+
+
+
 ### Ligação oficial do Instagram dos artistas (Instagram API with Facebook Login)
 
 Quatro edge functions dedicadas ao módulo Carreira Artística. **Não reutilizam nem alteram
