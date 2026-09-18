@@ -2434,9 +2434,6 @@ A 18/09 o backup global passou a incluir `infra.json` e `identities.json`. A est
 
 
 
-
-
-
 ### D2 — Base única Live (jun/2026)
 **Decisão:** Eliminado o ambiente Test; passa a existir só a base Live (sfohvvlqccmmebvjgibx).
 **Porquê:** Simplificar operação. DDL do agente passa a aplicar direto em Live; menos drift entre ambientes.
