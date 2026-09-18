@@ -4,7 +4,6 @@ import { useEventFinancialCardData } from "@/hooks/useEventFinancialCardData";
 import {
   type CardMode, type RevenueScenario,
   readStoredMode, writeStoredMode,
-  readStoredWithVat, writeStoredWithVat,
   readStoredCostToggle, writeStoredCostToggle,
   allowedModes,
 } from "@/lib/event-financial-card";
