@@ -381,9 +381,11 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
   const motherNeedsLink = !!feePlan && !feePlan.forecastId && !!feePlan.motherId;
 
   /**
-   * Taxas de transferência (D-ERP74): dois lançamentos, cada um ligado às suas
-   * linhas, pelo mesmo caminho de inserir-e-ligar (#154). Se a segunda perna
-   * falhar, a primeira é desfeita — o grupo é um só acontecimento.
+   * Taxas de transferência (D-ERP74): um item por perna, cada um com as suas
+   * linhas, numa só chamada à RPC (#154) — as duas pernas nascem no mesmo
+   * commit ou nenhuma nasce. A ligação da transferência-mãe à linha de BP fica
+   * DEPOIS e fora da RPC: se falhar, as taxas já estão lançadas e o aviso diz
+   * para ligar à mão. Já não se desfaz nada.
    */
   async function confirmFees() {
     const plan = feePlan!;
@@ -392,52 +394,53 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
     if (needsBpLine && !forecastId) return toast.error("Escolhe a linha de BP deste evento.");
 
     setSaving(true);
-    const done: { txId: string; lineIds: string[] }[] = [];
     try {
-      for (const leg of plan.legs) {
-        const txId = await insertAndLinkLines(
-          {
-            description: description.trim(),
-            type: "expense",
-            amount: leg.amount,
-            iva_rate: leg.ivaRate,
-            category_id: categoryId,
-            is_transitory: false,
-            supplier_id: supplierId || null,
-            event_id: plan.eventId || null,
-            forecast_id: needsBpLine ? forecastId : (plan.forecastId || null),
-            account_id: accountId,
-            date: paymentDate,
-            status: "paid",
-            paid_amount: leg.paidAmount,
-            payment_date: paymentDate,
-            payment_method: "transfer",
-            specification: note.trim() || null,
-            is_confidential: isConfidential || statementRestricted,
-          },
-          leg.lineIds,
-          `created:${user?.email ?? "sistema"}`,
-          note.trim() || null,
-        );
-        done.push({ txId, lineIds: leg.lineIds });
-      }
+      const matchedBy = `created:${user?.email ?? "sistema"}`;
+      const items: LaunchItem[] = plan.legs.map((leg) => ({
+        transaction: {
+          description: description.trim(),
+          type: "expense",
+          amount: leg.amount,
+          iva_rate: leg.ivaRate,
+          category_id: categoryId,
+          is_transitory: false,
+          supplier_id: supplierId || null,
+          event_id: plan.eventId || null,
+          forecast_id: needsBpLine ? forecastId : (plan.forecastId || null),
+          account_id: accountId,
+          date: paymentDate,
+          status: "paid",
+          paid_amount: leg.paidAmount,
+          payment_date: paymentDate,
+          payment_method: "transfer",
+          specification: note.trim() || null,
+          is_confidential: isConfidential || statementRestricted,
+        },
+        line_ids: leg.lineIds,
+        matched_by: matchedBy,
+        note: note.trim() || null,
+      }));
+
+      const ids = await launchAtomic(items);
+      toast.success(`Taxas da transferência ${plan.ref} lançadas em ${ids.length} transação(ões).`);
 
       // Peça C — ligar também a MÃE à mesma linha, pela edge function (nunca
-      // UPDATE directo do cliente). Faz parte da mesma sequência: se falhar,
-      // as pernas das taxas são desfeitas.
+      // UPDATE directo do cliente). Fora da RPC: as taxas já estão gravadas.
       if (motherNeedsLink && linkMother && forecastId && plan.motherId) {
         const { data: res, error: eMother } = await supabase.functions.invoke("update-transaction", {
           body: { transaction_id: plan.motherId, updates: { forecast_id: forecastId } },
         });
         const msg = (res as any)?.error ?? eMother?.message;
-        if (eMother || msg) throw new Error(`ligação da transferência-mãe à linha de BP falhou: ${msg ?? "erro desconhecido"}`);
+        if (eMother || msg) {
+          toast.warning(
+            `Taxas lançadas; a ligação da transferência-mãe à linha de BP falhou — liga-a manualmente na transação ${plan.motherDescription}.`,
+          );
+        }
       }
 
-      toast.success(`Taxas da transferência ${plan.ref} lançadas em ${done.length} transação(ões).`);
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       onDone();
     } catch (err: any) {
-      for (const d of done) await revertLeg(d.txId, d.lineIds);
       toast.error("Erro ao lançar as taxas (nada ficou criado): " + friendlyPaymentError(err));
     } finally {
       setSaving(false);
