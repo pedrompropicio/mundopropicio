@@ -3,7 +3,7 @@
 > Registo das decisões de arquitetura/produto e o seu PORQUÊ. Formato ADR leve: cada decisão = o que se decidiu + racional + estado (vigente / substituída).
 > Documento vivo, organizado por módulo. Decisões antigas não se apagam — marcam-se "substituída".
 > Como funciona o sistema vive em ARCHITECTURE.md; pendências vivem nas GitHub Issues.
-> Última atualização: 12/set/2026.
+> Última atualização: 18/set/2026.
 
 ## Transversal / Infraestrutura
 
@@ -2410,6 +2410,23 @@ Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a 
 **Nunca dois ROAS diferentes na mesma tabela nem no mesmo gráfico.**
 
 **Motivo:** no relatório anterior coexistiam 1,88× (atribuído), 4,3× (bruto) e 7,80× (incremental) para o mesmo artista no mesmo documento.
+
+**Estado:** vigente.
+
+## D-ERP82 — O backup é uma pasta por corrida, com um ficheiro por tabela, e a lista de tabelas é derivada, nunca escrita à mão (18/09/2026)
+
+**Contexto:** a 17/09/2026 apurou-se em Live que o backup diário estava a falhar em silêncio — dias só com o ficheiro global, a mundo-propicio sem backup desde 15/09 e a coala-portugal desde 11/09. A função fazia o global e depois o ciclo de todas as empresas na mesma execução, excedia memória e tempo, e a guarda de idempotência olhava para o storage e para o ficheiro global, que era escrito primeiro: qualquer segunda tentativa no mesmo dia saía sem fazer nada. O cron chamava por `net.http_post` com timeout de 5 s e a resposta nunca era lida. Ao mesmo tempo, a cobertura era de 75 tabelas escritas à mão, num universo de 220 em `public` e 49 em `crm`.
+
+**Decisão:**
+
+1. **Uma invocação da `database-backup` = um alvo.** O cron dispara N chamadas, uma por empresa ativa e uma global. Cada uma é uma instância própria, com o seu próprio tempo e memória.
+2. **A prova de que uma corrida aconteceu é uma linha em `public.backup_runs`, não um ficheiro no bucket.** É por ela que se faz a idempotência, por empresa e por dia, e é dela que vive o invariante `backup_empresa_em_falta`, severidade `error`, referência 0.
+3. **O formato é uma pasta por corrida:** `<slug>/<timestamp>/<tabela>.json` mais um `manifest.json` com contagens, versão 4. Tabelas grandes ficam em `<tabela>.partN.json` e o manifesto declara o número de partes. Tabelas do schema `crm` ficam como `crm.<tabela>.json` e são restauradas com `admin.schema("crm")`. O leitor exige todas as partes e compara as linhas lidas com o manifesto: parte em falta ou contagem que não bate é erro, nunca aviso.
+4. **A lista de tabelas é derivada de `information_schema` em cada corrida:** tem `company_id`, vai para o backup da empresa; não tem, vai para o global. Uma tabela nova entra no backup no dia em que nasce. O que fica de fora vive em `public.backup_excluded_tables`, com motivo escrito, aparece no manifesto de cada corrida e é vigiado pelo invariante `backup_tabelas_excluidas`, referência 1.
+
+**Consequência medida em Live a 18/09/2026:** por empresa, de 70 tabelas para 226. A mundo-propicio passou de 108.443 para 206.080 linhas, e de 39,57 MB para 171,61 MB.
+
+**Esta decisão não resolve:** os ficheiros de storage continuam a ser apenas listados, nunca copiados (#202); o restauro completo continua a apagar antes de inserir, sem transação nem retrocesso (#203); e os backups continuam a viver dentro do projeto que protegem.
 
 **Estado:** vigente.
 

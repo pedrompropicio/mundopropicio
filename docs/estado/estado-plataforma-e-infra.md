@@ -1,6 +1,6 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado: 2026-09-17 · Issues: #186 · a-seguir #83, #96, #61
+Atualizado 2026-09-18 · Issues #186, #202, #203, #204 · a-seguir #83, #96, #61
 
 ## Em que pé está
 A 16–17/09 fizeram-se correções de UI no ecrã de Transações (tabela do BP sem scroll horizontal; busca por nome fantasia) e fechou-se a **#86** (ver D-ERP75).
@@ -8,6 +8,45 @@ A 16–17/09 fizeram-se correções de UI no ecrã de Transações (tabela do BP
 A maior entrega dos dois dias foi o **Manual de Orientação construído de ponta a ponta** — ver secção própria abaixo e D-ERP79.
 
 A 17/09 as transitórias passaram a dizer porquê (D-ERP80) — backfill das 41, CHECKs validados, caminhos automáticos a gravar o motivo, selector só no interruptor manual, invariante `transitoria_partner_advance_sem_linha` a 0, testado ponta a ponta em Live com dados isolados.
+
+A 18/09 fechou-se a abrangência e a observabilidade do backup diário: uma corrida por alvo, formato v4 por pasta, inventário derivado e restauro compatível com `crm` e ficheiros divididos. Ver D-ERP82 e a secção própria abaixo.
+
+## Backup e restauro (18/09/2026)
+
+**Estado verificado em Live — seis corridas com `status='ok'`:**
+
+- global: **40 tabelas · 33.344 linhas · 38,88 MB**
+- mundo-propicio: **226 tabelas · 206.080 linhas · 171,61 MB**
+- coala-portugal: **226 tabelas · 30.362 linhas · 73,59 MB**
+- fortal: **226 tabelas · 4.636 linhas · 13,75 MB**
+- social-artists: **226 tabelas · 22.889 linhas · 9,67 MB**
+- siriguella: **226 tabelas · 2.736 linhas · 6,59 MB**
+
+O cron Live `daily-database-backup`, jobid **207**, corre em `0 3 * * *` e dispara seis chamadas independentes — uma por empresa ativa e uma global — com a service role key guardada no vault. Uma corrida **só conta** quando existe em `public.backup_runs` uma linha com `status='ok'`; ficheiros presentes no storage não provam que a corrida terminou.
+
+O formato v4 é uma pasta por corrida, com um ficheiro por tabela, partes para tabelas grandes e `manifest.json` com contagens. A lista nasce do inventário dos schemas `public` e `crm`: tabelas com `company_id` vão para a empresa e tabelas sem `company_id` vão para o global. As exclusões deliberadas vivem em `public.backup_excluded_tables`, com motivo, e aparecem no manifesto. O restauro lê `crm.<tabela>` pelo schema `crm`, exige todas as partes e recusa contagens diferentes do manifesto.
+
+Tabelas de controlo:
+
+- `backup_runs` — execução, alvo, estado, contagens, tamanho e caminho da pasta.
+- `backup_excluded_tables` — exclusões explícitas e justificadas; a única linha atual é `public.ticketline_sync_runs` (#204).
+
+Invariantes:
+
+- `backup_empresa_em_falta` — `error`, referência **0**; empresas ativas e global sem backup `ok` nas últimas 30 horas.
+- `backup_tabelas_excluidas` — `warn`, referência **1**; qualquer alteração no número de exclusões exige revisão.
+
+**Continua por fazer, sem mitigação atual:**
+
+- Os ficheiros de storage **nunca são copiados, só listados**, e o manifesto cobre apenas **7 dos 29 buckets** (#202).
+- O restauro completo **não é atómico**: apaga antes de inserir, não tem transação nem retrocesso, e `fetchLiveColumns` corre depois dos `DELETE`s (#203).
+- Os backups vivem dentro do próprio projeto que protegem, têm retenção de 30 dias e podem ser apagados por admin.
+- O PITR da Supabase está por confirmar no dashboard.
+
+**Resíduos conhecidos — não redescobrir:**
+
+- `tables_not_restored` no resultado do restauro é decorativo: a condição nunca dispara porque a ordem é construída a partir do próprio manifesto.
+- O preview v4 da `database-restore` confirma que todas as partes existem, mas deliberadamente não lhes conta as linhas, para não descarregar 171,61 MB só para pré-visualizar. Os previews das outras duas funções contam e validam as linhas.
 
 ## Manual de Orientação (17/09/2026)
 O que existe:
@@ -66,18 +105,19 @@ Nada na aplicação desativa um fornecedor: `is_active` só era mexido por SQL. 
 
 ⚠️ **Regra que fica:** qualquer embed entre pares do JSON tem de usar o formato `alias:tabela!fk(col)`. O teste é a guarda permanente.
 
-## Verificador de invariantes (consolidado a 14/09/2026; atualizado a 17/09/2026)
+## Verificador de invariantes (consolidado a 14/09/2026; atualizado a 18/09/2026)
 Já existia um `check_system_invariants()` com ecrã próprio — não se reinventou, consolidou-se.
 
 Estrutura: tabela `system_invariants` (`name`, `description`, `severity`, `reference_count`, `notes`, `reference_updated_by`, `reference_updated_at`), tabela `invariant_runs` com o histórico, função `run_invariant_checks()` que corre e devolve, `run_invariant_checks_and_log()` que corre e grava a corrida, e `accept_invariant_reference(name, value, note)` que aceita a contagem de hoje como referência.
 
 **Princípio central: o alerta é por desvio face à referência, nunca por número diferente de zero.** Dívida herdada com contagem conhecida não faz barulho todos os dias; o que faz barulho é a contagem **mexer**.
 
-**21 verificações a 17/09/2026**, todas conformes. Referências em Live a 17/09/2026:
+**24 verificações a 18/09/2026.** Referências em Live:
 
-- severidade `error`, referência **0**: `BP_DESPESA_EM_L2`, `coala_map_outra_empresa`, `fecho_confirmado_liquido_retido`, `filha_rateio_com_conta`, `FORECAST_ID_ORFAO`, `fornecedor_iban_duplicado_ativo`, `grupo_fatura_veredicto_desagrupar_por_aplicar`, `tipo_invalido`, `transitoria_partner_advance_sem_linha`, `tx_conta_outra_empresa`, `tx_evento_outra_empresa`, `tx_fornecedor_outra_empresa`, `tx_rubrica_outra_empresa`, `VINCULO_CROSS_EVENTO`
+- severidade `error`, referência **0**: `BP_DESPESA_EM_L2`, `backup_empresa_em_falta`, `carga_sem_credito`, `coala_map_outra_empresa`, `fecho_confirmado_liquido_retido`, `filha_rateio_com_conta`, `FORECAST_ID_ORFAO`, `fornecedor_iban_duplicado_ativo`, `grupo_fatura_veredicto_desagrupar_por_aplicar`, `tipo_invalido`, `transitoria_partner_advance_sem_linha`, `tx_conta_outra_empresa`, `tx_evento_outra_empresa`, `tx_fornecedor_outra_empresa`, `tx_rubrica_outra_empresa`, `VINCULO_CROSS_EVENTO`
 - severidade `error`, referência **0**: `VINCULO_DESSINCRONIZADO` — 7 vínculos reparados em Live a 14/09 (forecast_id reposto nas 7 transações do Coala Festival Portugal 2026 onde o âncora existia mas o link inverso era NULL). Issue #173 fechada.
-- severidade `warn`, dívida herdada: `paid_amount_acima_do_bruto` 9, `pares_fk_duplicada` 35, `TRIGGER_DOCUMENTADO_SEM_LIGACAO` 4, `TX_EVENTO_SEM_RUBRICA` 13, `tx_paga_sem_linha_de_pagamento` 1026
+- severidade `warn`: `backup_tabelas_excluidas` **1** (referência 1); dívida herdada: `paid_amount_acima_do_bruto` 9, `TRIGGER_DOCUMENTADO_SEM_LIGACAO` 4, `TX_EVENTO_SEM_RUBRICA` 13.
+- **Deriva a investigar, não causada pelo trabalho do backup:** `pares_fk_duplicada` está em **37** contra referência **35**; `tx_paga_sem_linha_de_pagamento` está em **1.209** contra referência **1.026**.
 
 Cron em Live: `invariant-checks-daily`, jobid **131**, `10 7 * * *`. ⚠️ O Publish **não** propaga crons — este objeto vive só em Live e não está no repositório.
 
@@ -138,7 +178,7 @@ O saldo mostrado com a consolidação ligada é recalculado sobre a ordem que se
 
 **Auditoria server-side de transações esteve partida de 28/abr a 01/set.** Sob `service_role`, `current_company_id()` devolve NULL, o default de `company_id` não resolve e o insert em `transaction_audit_log` era rejeitado — com o erro engolido. Custou **894 transações editadas** e **1.209 aprovadas** sem rasto do lado do servidor, e o campo `Propagação grupo-fatura` nunca teve uma única linha. Não deu nas vistas porque o frontend escreve as suas próprias linhas com o JWT do utilizador, logo a tabela nunca ficou vazia. **A regra que ficou:** insert sob `service_role` passa `company_id` explícito, tirado da linha auditada — nunca do perfil do utilizador nem de `current_company_id()`. Detalhe completo em `claude/auditoria-company-id-service-role-2026-09-01.md`.
 
-**Restore de `ticket_sales` estava impossível.** As whitelists de colunas em `selective-restore` e `surgical-restore` tinham 13 das 15 colunas da tabela: faltavam `company_id` (NOT NULL, rebentava o upsert) e `total_value` (coluna normal, não gerada — perdia-se o valor). Corrigido a 01/09. **Fica de pé (#96):** backups *legacy* (v2, pré-multi-tenant) não têm `company_id` nas linhas, e como o `cleanRow` só copia o que existe, o restore a partir desses continua a rebentar. Só platform_admin lhes chega.
+**Restore de `ticket_sales` estava impossível.** As whitelists de colunas em `selective-restore` e `surgical-restore` tinham 13 das 15 colunas da tabela: faltavam `company_id` (NOT NULL, rebentava o upsert) e `total_value` (coluna normal, não gerada — perdia-se o valor). Corrigido a 01/09. **Fica de pé (#96):** backups *legacy* (v2, pré-multi-tenant) não têm `company_id` nas linhas, e como o `cleanRow` só copia o que existe, o restore a partir desses continua a rebentar. Só platform_admin lhes chega. **Ver também #204:** `public.ticketline_sync_runs` está deliberadamente excluída do backup porque guarda payloads crus de diagnóstico da Ticketline; a exclusão é explícita em `backup_excluded_tables` e em cada manifesto.
 
 **Transitórias isentas do gate D1+D8 (15/09/2026).** A edge function `approve-transaction` bloqueava transações `is_transitory = true` (repasses ZigPay, intermediação financeira) porque o select não incluía o campo e o filtro de candidatos não testava `!t.is_transitory`. A `structurallyNeedsBpLine` da UI já tinha a isenção — a edge function ficou dessincronizada. Corrigido a 15/09: `is_transitory` adicionado ao select (L85) e ao filtro D1+D8 (L170). Publicado. Memória `bp-linha-obrigatoria.md` atualizada (isenção 4 + subsecção da edge function).
 
@@ -179,8 +219,8 @@ Cada fornecedor desativado tem nota auditável: `[2026-09-12] Duplicado por IBAN
 **Transitórias têm motivo obrigatório (transactions.transitory_reason, 7 valores).** Caminhos da base que o gravam: `force_transitory_for_capital_branch` (10.1.04 → `emprestimo_socio`; restantes 10.1.* → `aporte_socio`) e `card_load_on_out_paid` (`carga_cartao`). As funções de cenários/versões copiam `event_forecasts`, não transações — não são afetadas. `renegotiate_transaction_installments` recusa transitórias. Regra de teste em Live: dados com prefixo, ids anotados, apagados no fim, e prova de que a base voltou à linha de base.
 
 ## Onde ler mais
-- `docs/DECISIONS.md` — D-ERP75, D-ERP79, D-ERP80
+- `docs/DECISIONS.md` — D-ERP75, D-ERP79, D-ERP80, D-ERP82
 - `docs/manual/rateios.md` — primeiro capítulo do Manual de Orientação
 - `claude/auditoria-company-id-service-role-2026-09-01.md` (incidente da auditoria, 01/09)
 - `.lovable/memory/constraints/lovable-cloud-ddl-workflow.md` (reescrita a 30/08 — o mundo com Test acabou), `edge-fn-esm-sh-supabase-js.md`
-- Issues #86, #83, #96, #61, #57
+- Issues #86, #202, #203, #204, #83, #96, #61, #57
