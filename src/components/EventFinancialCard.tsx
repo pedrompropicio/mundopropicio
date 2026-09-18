@@ -184,6 +184,14 @@ export function EventFinancialCard(props: Props) {
           <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             {withVat ? "c/IVA" : "s/IVA"}
           </span>
+          {viewDiffersFromContract && (
+            <span
+              className="rounded-md bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning"
+              title={`Vista diferente do critério contratual do evento (${shared.withVat ? "c/IVA" : "s/IVA"}), que é o usado no Fecho.`}
+            >
+              ≠ fecho
+            </span>
+          )}
           {kind === "expense" && includeOverhead && (
             <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               +OH
