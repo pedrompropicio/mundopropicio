@@ -1,9 +1,14 @@
-// database-restore — restauro COMPLETO multi-tenant.
-// - Aceita backups v3 (scope:"company") OU v2 (legacy, sem company_id no JSON).
-// - Caller resolve a sua company_id; só restaura linhas que tenham essa company_id.
-// - Tabelas globais (cities/companies/role_permissions/login_attempts/mfa_*) NUNCA
-//   são tocadas por restores de empresa. Só platform_admin sem active_company_id
-//   pode restaurar dados globais (via ficheiro backup-global-*).
+// database-restore — restauro COMPLETO multi-tenant, ATÓMICO (#203, 18/09/2026).
+// - Aceita backups v4 (pasta + manifest.json), v3 (scope:"company") e v2 (legacy).
+// - Os dados do backup são carregados primeiro na área de carga restore_shadow
+//   (uma sombra por tabela, colunas de HOJE, sem constraints/triggers/índices),
+//   validados por SQL (contagens do manifesto, FKs, company_id) e só então
+//   trocados em produção por restore_apply_from_shadow — uma única transação,
+//   com triggers de utilizador desligados e as FKs dos dois ciclos adiadas até
+//   ao fim. Qualquer falha desfaz tudo: a produção nunca fica a meio.
+// - Tabelas globais NUNCA são tocadas por restores de empresa. Só platform_admin
+//   sem active_company_id pode restaurar dados globais.
+
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -11,9 +16,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-const ORPHAN_CHILD_TABLES_TO_CLEAR = ["event_cache_payments"];
-const SINGLETON_INT_PK = new Set(["email_send_state"]);
 
 const RESTORE_ORDER_TENANT = [
   "account_categories",
@@ -156,8 +158,14 @@ Deno.serve(async (req) => {
         : (profile?.company_id ?? null);
     }
 
-    const { backup_file, mode } = await req.json();
+    const body = await req.json().catch(() => ({} as any));
+    const { backup_file, mode } = body ?? {};
     if (!backup_file) return jsonErr("backup_file é obrigatório", 400);
+    // Só a máquina pode deixar as sombras de pé (inspecção / ensaio de retrocesso).
+    const keepShadow = body?.keep_shadow === true && isMachine;
+    const logScope: "restore" | "restore_test" =
+      body?.log_scope === "restore_test" ? "restore_test" : "restore";
+
 
     const backup = await openBackup(admin, backup_file);
     const backupJson = backup.meta;
@@ -263,128 +271,129 @@ Deno.serve(async (req) => {
 
     if (mode !== "restore") return jsonErr("mode deve ser 'preview' ou 'restore'", 400);
 
-    // ---- RESTORE ----
-    // Determina que company_id usar para filtragem.
-    // - scope=company → sempre o do JSON
-    // - scope=legacy (platform_admin) → não filtra (restaura tudo do JSON)
-    // - scope=global → não filtra
-    const filterCompany = backupScope === "company" ? backupCompanyId : null;
+    // ---- RESTORE ATÓMICO (#203) ----
+    // Nada toca em produção antes de estar carregado e validado na área de
+    // carga restore_shadow. A troca é uma única transação na base
+    // (restore_apply_from_shadow): ou entra tudo, ou a produção não muda.
+    const applyScope: "company" | "global" = backupScope === "company" ? "company" : "global";
+    const applyCompanyId = backupScope === "company" ? backupCompanyId : null;
 
-    const results: Record<string, any> = {};
+    const tablesToRestore = RESTORE_ORDER.filter((t) => backup.count(t) > 0);
+    if (tablesToRestore.length === 0) return jsonErr("O backup não tem linhas para restaurar", 422);
+    const manifestCounts: Record<string, number> = {};
+    for (const t of tablesToRestore) manifestCounts[t] = backup.count(t);
+    const rowsTotal = Object.values(manifestCounts).reduce((a, b) => a + b, 0);
 
-    // Limpa tabelas órfãs (só relevantes para tenant)
-    if (backupScope !== "global") {
-      for (const t of ORPHAN_CHILD_TABLES_TO_CLEAR) {
-        try {
-          let q = tableRef(admin, t).delete().gte("created_at", "1900-01-01");
-          if (filterCompany) q = tableRef(admin, t).delete().eq("company_id", filterCompany);
-          const { error } = await q;
-          results[`__orphan_${t}`] = { deleted: error ? "fail" : (filterCompany ? "company" : "all"), inserted: 0, error: error?.message };
-        } catch (e) {
-          results[`__orphan_${t}`] = { deleted: "fail", inserted: 0, error: String(e) };
+    // Linha de auditoria desta corrida de restauro.
+    const { data: runRow } = await admin.from("backup_runs").insert({
+      run_date: new Date().toISOString().slice(0, 10),
+      scope: logScope,
+      company_id: applyCompanyId,
+      slug: backupJson.company_slug ?? (applyScope === "global" ? "global" : null),
+      status: "running",
+      folder_path: backup_file.replace(/\/manifest\.json$/, ""),
+      tables_count: tablesToRestore.length,
+      rows_total: rowsTotal,
+    }).select("id").maybeSingle();
+    const restoreRunId: string | null = runRow?.id ?? null;
+    const closeRun = async (fields: Record<string, unknown>) => {
+      if (!restoreRunId) return;
+      await admin.from("backup_runs")
+        .update({ ...fields, finished_at: new Date().toISOString() })
+        .eq("id", restoreRunId);
+    };
+
+    try {
+      // (b) Sombras com as colunas de HOJE, sem constraints/triggers/índices.
+      const { data: prepared, error: prepErr } = await admin
+        .rpc("restore_shadow_prepare", { p_tables: tablesToRestore });
+      if (prepErr) throw new Error(`restore_shadow_prepare: ${prepErr.message}`);
+
+      // (c) Carga em lotes. Colunas desconhecidas são removidas contra as
+      // colunas da sombra (information_schema), nunca por amostra de linha.
+      const loaded: Record<string, { rows: number; unknown_cols?: string[] }> = {};
+      for (const t of tablesToRestore) {
+        const rows = await backup.getTable(t);
+        let n = 0;
+        const unknown = new Set<string>();
+        for (let i = 0; i < rows.length; i += 500) {
+          const batch = rows.slice(i, i + 500);
+          const { data: res, error } = await admin.rpc("restore_shadow_load", {
+            p_table: t, p_rows: batch,
+          });
+          if (error) throw new Error(`carga de ${t} (lote ${Math.floor(i / 500)}): ${error.message}`);
+          n += Number((res as any)?.inserted ?? 0);
+          for (const c of ((res as any)?.unknown_cols ?? [])) unknown.add(c);
         }
+        loaded[t] = { rows: n, ...(unknown.size ? { unknown_cols: Array.from(unknown) } : {}) };
       }
+
+      // (d) Validação por SQL: contagens, FKs e company_id. Produção intacta.
+      const { data: validation, error: valErr } = await admin.rpc("restore_shadow_validate", {
+        p_scope: applyScope, p_company_id: applyCompanyId,
+        p_tables: tablesToRestore, p_counts: manifestCounts,
+      });
+      if (valErr) throw new Error(`restore_shadow_validate: ${valErr.message}`);
+      if (!(validation as any)?.ok) {
+        await closeRun({ status: "error", error_text: JSON.stringify((validation as any)?.errors ?? []).slice(0, 4000) });
+        return jsonOk({
+          success: false, mode: "restore", stage: "validation",
+          scope: backupScope, backup_file, backup_date: backupJson.created_at,
+          shadow_kept: true, loaded, validation,
+          message: "Validação falhou — a produção NÃO foi tocada. As sombras ficam em restore_shadow para inspecção.",
+        });
+      }
+
+      // (e) Troca atómica.
+      const { data: applied, error: applyErr } = await admin.rpc("restore_apply_from_shadow", {
+        p_scope: applyScope, p_company_id: applyCompanyId, p_tables: tablesToRestore,
+      });
+      if (applyErr) {
+        await closeRun({ status: "error", error_text: `restore_apply_from_shadow: ${applyErr.message}`.slice(0, 4000) });
+        return jsonOk({
+          success: false, mode: "restore", stage: "apply",
+          scope: backupScope, backup_file, shadow_kept: true, loaded,
+          error: applyErr.message,
+          message: "A aplicação falhou e desfez-se por inteiro — a produção ficou como estava.",
+        });
+      }
+
+      // (4) Limpeza das sombras + auditoria.
+      let shadowsDropped = 0;
+      if (!keepShadow) {
+        const { data: dropped } = await admin.rpc("restore_shadow_cleanup", { p_tables: tablesToRestore });
+        shadowsDropped = Number(dropped ?? 0);
+      }
+      const insertedTotal = Object.values(((applied as any)?.inserted ?? {}) as Record<string, number>)
+        .reduce((a, b) => a + Number(b), 0);
+      await closeRun({ status: "ok", rows_total: insertedTotal, tables_count: tablesToRestore.length });
+
+      return jsonOk({
+        success: true,
+        mode: "restore",
+        scope: backupScope,
+        log_scope: logScope,
+        backup_company_id: backupCompanyId,
+        applied_company_id: applyCompanyId,
+        backup_file,
+        backup_date: backupJson.created_at,
+        total_tables: tablesToRestore.length,
+        rows_total: insertedTotal,
+        shadow_tables: Object.keys((prepared as any) ?? {}).length,
+        shadows_dropped: shadowsDropped,
+        shadow_kept: keepShadow,
+        validation,
+        loaded,
+        applied,
+        tables_not_restored: Object.keys(notRestored).length ? notRestored : undefined,
+        backup_run_id: restoreRunId,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await closeRun({ status: "error", error_text: msg.slice(0, 4000) });
+      return jsonErr(`${msg} — produção NÃO tocada; sombras deixadas para inspecção`, 500);
     }
 
-    // DELETE — só apaga linhas com company_id do caller (quando aplicável)
-    for (const t of DELETE_ORDER) {
-      if (!backup.count(t)) continue;
-      try {
-        let error: any = null;
-        if (filterCompany) {
-          // Apaga só linhas dessa empresa
-          const { error: e } = await tableRef(admin, t).delete().eq("company_id", filterCompany);
-          error = e;
-        } else if (SINGLETON_INT_PK.has(t)) {
-          const { error: e } = await tableRef(admin, t).delete().gte("id", -2147483648);
-          error = e;
-        } else {
-          const { error: e } = await tableRef(admin, t).delete().neq("id", "00000000-0000-0000-0000-000000000000");
-          error = e;
-          if (error) {
-            const { error: e2 } = await tableRef(admin, t).delete().gte("created_at", "1900-01-01");
-            error = e2;
-          }
-        }
-        results[t] = { deleted: error ? "fail" : (filterCompany ? "company" : "all"), inserted: 0, error: error?.message };
-      } catch (e) {
-        results[t] = { deleted: "fail", inserted: 0, error: String(e) };
-      }
-    }
-
-    const liveCols = await fetchLiveColumns(admin, RESTORE_ORDER);
-
-    // INSERT — só insere linhas com company_id correto
-    for (const t of RESTORE_ORDER) {
-      const rowsRaw = await backup.getTable(t);
-      if (!rowsRaw || rowsRaw.length === 0) {
-        if (!results[t]) results[t] = { deleted: "n/a", inserted: 0 };
-        continue;
-      }
-
-      // Filtro multi-tenant
-      const rows = filterCompany
-        ? rowsRaw.filter((r: any) => r.company_id === filterCompany)
-        : rowsRaw;
-      const droppedByTenant = rowsRaw.length - rows.length;
-
-      const cols = liveCols[t];
-      let { cleanRows, skipped } = cols
-        ? stripUnknownCols(rows, cols)
-        : { cleanRows: rows, skipped: [] as string[] };
-
-      // Dedup ticket_sales
-      let dedupRemoved = 0;
-      if (t === "ticket_sales") {
-        const seen = new Set<string>();
-        const deduped: any[] = [];
-        for (const r of cleanRows) {
-          if (r.source === "import") {
-            const key = [r.zone_id, r.lot_id ?? "00000000-0000-0000-0000-000000000000", r.sale_date, r.unit_price, r.financial_account_id].join("|");
-            if (seen.has(key)) { dedupRemoved++; continue; }
-            seen.add(key);
-          }
-          deduped.push(r);
-        }
-        cleanRows = deduped;
-      }
-
-      let inserted = 0;
-      const batchSize = 500;
-      let lastErr: string | undefined;
-      for (let i = 0; i < cleanRows.length; i += batchSize) {
-        const batch = cleanRows.slice(i, i + batchSize);
-        const { error } = await tableRef(admin, t).upsert(batch, { onConflict: "id", ignoreDuplicates: false });
-        if (error) {
-          lastErr = `batch ${Math.floor(i / batchSize)}: ${error.message}`;
-          break;
-        }
-        inserted += batch.length;
-      }
-      results[t] = {
-        ...(results[t] ?? { deleted: "n/a", inserted: 0 }),
-        inserted,
-        ...(droppedByTenant > 0 ? { dropped_by_tenant_filter: droppedByTenant } : {}),
-        skipped_cols: skipped.length ? skipped : undefined,
-        ...(dedupRemoved > 0 ? { dedup_removed: dedupRemoved } : {}),
-        error: lastErr ?? results[t]?.error,
-      };
-    }
-
-    const errors = Object.entries(results).filter(([, r]) => (r as any).error);
-    return jsonOk({
-      success: errors.length === 0,
-      mode: "restore",
-      scope: backupScope,
-      backup_company_id: backupCompanyId,
-      filtered_company_id: filterCompany,
-      backup_file,
-      backup_date: backupJson.created_at,
-      total_tables: Object.keys(results).length,
-      tables_with_errors: errors.length,
-      tables_not_restored: Object.keys(notRestored).length ? notRestored : undefined,
-      results,
-    });
   } catch (err) {
     console.error("[database-restore] fatal", err);
     return jsonErr(err instanceof Error ? err.message : "Erro desconhecido", 500);
@@ -400,30 +409,4 @@ function jsonErr(error: string, status: number) {
   return new Response(JSON.stringify({ error }), {
     status, headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-async function fetchLiveColumns(admin: any, tableNames: string[]) {
-  const out: Record<string, Set<string>> = {};
-  for (const t of tableNames) {
-    try {
-      const { data, error } = await tableRef(admin, t).select("*").limit(1);
-      if (!error && data) {
-        const cols = new Set<string>();
-        if (data.length > 0) Object.keys(data[0]).forEach((k) => cols.add(k));
-        if (cols.size > 0) out[t] = cols;
-      }
-    } catch {}
-  }
-  return out;
-}
-function stripUnknownCols(rows: any[], allowed: Set<string>) {
-  const skipped = new Set<string>();
-  const cleanRows = rows.map((r) => {
-    const o: any = {};
-    for (const k of Object.keys(r)) {
-      if (allowed.has(k)) o[k] = r[k];
-      else skipped.add(k);
-    }
-    return o;
-  });
-  return { cleanRows, skipped: Array.from(skipped) };
 }

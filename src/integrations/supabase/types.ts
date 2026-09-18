@@ -17582,10 +17582,38 @@ export type Database = {
           note: string
         }[]
       }
+      restore_apply_from_shadow: {
+        Args: { p_company_id: string; p_scope: string; p_tables: string[] }
+        Returns: Json
+      }
       restore_bp_versions_from_trash: {
         Args: { _trash_id: string }
         Returns: Json
       }
+      restore_shadow_cleanup: { Args: { p_tables: string[] }; Returns: number }
+      restore_shadow_load: {
+        Args: { p_rows: Json; p_table: string }
+        Returns: Json
+      }
+      restore_shadow_prepare: { Args: { p_tables: string[] }; Returns: Json }
+      restore_shadow_ref: {
+        Args: { p_key: string }
+        Returns: {
+          sch: string
+          shadow: string
+          tbl: string
+        }[]
+      }
+      restore_shadow_validate: {
+        Args: {
+          p_company_id: string
+          p_counts: Json
+          p_scope: string
+          p_tables: string[]
+        }
+        Returns: Json
+      }
+      restore_topo_order: { Args: { p_tables: string[] }; Returns: string[] }
       reverse_payment: {
         Args: {
           p_amount?: number
