@@ -303,13 +303,13 @@ nula, são anteriores ao corte de 31/08). Fica só:
 
 Não corrigir sem decisão explícita.
 
-## Diagnóstico aberto (números apurados em Live a 30/08/2026)
+## Diagnóstico (30/08/2026, com o que mudou desde)
 
-- 624 de 706 transações liquidadas não têm linha em `transaction_payments` (issue #91).
-- 526 liquidadas sem `account_id`, das quais 395 (75%) vêm da Lista de Contas a Pagar; 218 itens marcados com "Marcar como Pago" ficaram todos `paid`.
+- 624 de 706 transações liquidadas não têm linha em `transaction_payments` (issue #91) — **resolvido a 18/09 (#91): backfill e derivação no servidor**.
+- 526 liquidadas sem `account_id`, das quais 395 (75%) vêm da Lista de Contas a Pagar; 218 itens marcados com "Marcar como Pago" ficaram todos `paid` — **resolvido a 18/09: receberam linha no backfill; a origem (Lista de Contas a Pagar com "Marcar como Pago" a pôr `paid`) foi fechada na #200 — marcar como pago é só sinalização**.
 - Saldo do Santander apurado por SQL a 07/09/2026: **-218.115,20 EUR** (-217.655,20 com os ajustes de retenção). O extrato bancário a 01/09 dizia **+107.257,71 EUR**. A conta tem `initial_balance = 0` e apenas 2 entradas contra 113 saídas — a diferença é receita por carregar, não erro de cálculo. O `skip_balance_check` foi ligado nesta conta para desbloquear pagamentos, não por desenho. As contas de bilheteira (Blueticket, BOL, Ticketline, Fever) não têm uma única entrada registada — a receita de bilhetes não está modelada como entrada de conta.
-- `skip_balance_check` passou a ser respeitado em todos os sítios do saldo de conta, incluindo export do Extrato, Projeção de Tesouraria e `get_event_cash_position` (#90 fechada). O Fluxo de Caixa mostra aviso de que o acumulado do período não é saldo, mas continua a somar movimentos localmente — é relatório de movimentos, não de saldo. `CardSessions.tsx` calculava o saldo à mão — e era o saldo CONTABILÍSTICO da conta do cartão, não o da sessão; passou a usar `computeAccountBalance` com data de corte e a mostrar "Não controlado" quando a conta não tem controlo de saldo.
-- Tornar a tesouraria utilizável exige agora duas peças: implantar os saldos do banco com data de corte (D-ERP25, à espera dos valores do Pedro) e modelação da receita de bilheteira. O backfill de `transaction_payments` (#91) mantém-se em aberto mas não bloqueia o saldo, que corre por `paid_amount`.
+- `skip_balance_check` passou a ser respeitado em todos os sítios do saldo de conta, incluindo export do Extrato, Projeção de Tesouraria e `get_event_cash_position` (#90 fechada). O Fluxo de Caixa passou à fonte única a 18/09 (#149) — é relatório de saldo. `CardSessions.tsx` calculava o saldo à mão — e era o saldo CONTABILÍSTICO da conta do cartão, não o da sessão; passou a usar `computeAccountBalance` com data de corte e a mostrar "Não controlado" quando a conta não tem controlo de saldo.
+- Tornar a tesouraria utilizável exige agora duas peças: implantar os saldos do banco com data de corte (D-ERP25, à espera dos valores do Pedro) e modelação da receita de bilheteira.
 - Menor, sem issue: o OCR das faturas avulsas usa a edge function `extract-camarim-receipt` e o prompt de talões de camarim (bebidas, snacks, IVA 6%), o que pode degradar a extração em faturas de outra natureza.
 
 ## Factos que não se reinvestigam
@@ -392,6 +392,12 @@ total 69.711,26 € — são caixa da empresa e ficam fora da conta corrente
 do sócio. Não reabrir.
 
 
+**Três grupos nunca têm linha em `transaction_payments` e o servidor não deriva o pago deles:** filhas de rateio (o dinheiro sai na mãe), linhas de nota de reembolso (pagas pela nota), despesas pagas pelo sócio (sem caixa da empresa). Qualquer backfill ou invariante que os apanhe está errado.
+
+**Toda a prova em Live corre em `BEGIN … ROLLBACK` com `set_config('request.jwt.claims', '{"sub":"<uid do Pedro>","role":"authenticated"}', true)`** — sem isso `current_company_id()` é nulo e as RPCs recusam. Foi assim que a #154 apanhou `min(uuid)` e a #201 o `company_id` nulo: uma migração aplicada não é uma migração testada.
+
+**Compensação no cliente (apagar se falhar) não é atomicidade.** Quando duas escritas têm de viver ou morrer juntas, é RPC plpgsql sem SECURITY DEFINER (RLS continua a valer): `create_card_session_load`, `launch_from_bank_lines`.
+
 ## Página de Contas: três dinheiros, três cartões (09/09/2026, D-ERP27)
 
 **SALDO TOTAL é caixa, e só caixa.** Soma apenas `bank`, `cash` e `prepaid_card` com controlo de saldo. Debaixo do valor nomeiam-se as contas de caixa que ficaram fora por `skip_balance_check` — hoje a Conta Pagamento Brasil e a Eventos Históricos. Antes somava tudo e dava −1.994.414,66 €.
@@ -413,6 +419,8 @@ O modal ganhou a caixa **"Transitória (a repassar)"**: com ela ligada a transa�
 Os débitos por limiar do Google Ads não são despesa: a regra gera o par de transferência (rubrica 10.3) para a conta "Google Ads — conta corrente", cujo saldo passa a ser o crédito por consumir. **Pendente do utilizador:** criar essa conta financeira (tipo `other`) — não foi criada por este trabalho, que não lançou nem criou dados.
 
 As taxas bancárias (comissão de gestão, imposto de selo, comissões e selos dos lotes SEPA) vão para 10.6.01, sem evento. As taxas de meios de pagamento (TPA/ZigPay) vão para `2.9.04`, com evento e linha de BP.
+
+Desde 18/09 (D-ERP85) o lançamento é a RPC `launch_from_bank_lines` — ver `.lovable/memory/features/` da conciliação.
 
 ## Onde ler mais
 
