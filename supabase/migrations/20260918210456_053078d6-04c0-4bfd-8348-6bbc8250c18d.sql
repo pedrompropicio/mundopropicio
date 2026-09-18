@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.restore_apply_from_shadow(text, uuid, text[]);

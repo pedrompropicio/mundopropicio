@@ -1,260 +1,66 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+// surgical-restore — restauro de BILHETEIRA de um ou mais eventos.
+//
+// Desde 18/09/2026 é um invólucro fino: ZERO lógica própria de restauro. Delega
+// na `selective-restore` com `scope: 'events'` e as raízes de bilheteira; o
+// âmbito real (zonas → lotes → vendas → o que mais o grafo pendurar) sai de
+// `restore_event_scope`, derivado de pg_constraint, e a troca é atómica
+// (restore_shadow + restore_apply_from_shadow, p_scope 'rows'). Ver #203/D-ERP89.
+//
+// Contrato do body mantido: { backup_file, event_ids, mode?: 'preview'|'restore' }.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-/** Chaves com prefixo "crm." vivem no schema crm; as restantes em public. */
-function tableRef(admin: any, key: string) {
-  if (key.startsWith("crm.")) return admin.schema("crm").from(key.slice(4));
-  return admin.from(key);
-}
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 
-/** Lê todas as partes de uma tabela v4 e valida a contagem contra o manifesto. */
-async function readV4Table(admin: any, folder: string, manifest: any, t: string) {
-  const expected: number = manifest.tables?.[t] ?? 0;
-  if (!expected) return [] as any[];
-  const nParts: number = manifest.parts?.[t] ?? 1;
-  const out: any[] = [];
-  for (let p = 1; p <= nParts; p++) {
-    const name = p === 1 ? `${t}.json` : `${t}.part${p}.json`;
-    const path = `${folder}/${name}`;
-    const { data: tf, error: e } = await admin.storage.from("database-backups").download(path);
-    if (e || !tf) throw new Error(`Parte do backup em falta ou ilegível: ${path}${e?.message ? ` (${e.message})` : ""}`);
-    out.push(...(JSON.parse(await tf.text()) as any[]));
-  }
-  if (out.length !== expected) {
-    throw new Error(`Contagem inconsistente em ${t}: lidas ${out.length} linhas, manifesto diz ${expected}`);
-  }
-  return out;
-}
-
-/**
- * Abre um backup no formato NOVO (v4: pasta + manifest.json + um ficheiro por
- * tabela) ou no formato ANTIGO (ficheiro backup-*.json solto, v3/v2).
- */
-async function openBackup(admin: any, target: string) {
-  if (target.endsWith("/manifest.json")) {
-    const { data: f, error } = await admin.storage.from("database-backups").download(target);
-    if (error || !f) throw new Error(`Manifesto: ${error?.message}`);
-    const manifest = JSON.parse(await f.text());
-    const folder = target.replace(/\/manifest\.json$/, "");
-    return {
-      meta: manifest,
-      getTable: (t: string) => readV4Table(admin, folder, manifest, t),
-    };
-  }
-  const { data: fileData, error: dlErr } = await admin.storage
-    .from("database-backups").download(target);
-  if (dlErr || !fileData) throw new Error(`Download: ${dlErr?.message}`);
-  const backup = JSON.parse(await fileData.text());
-  const all: Record<string, any[]> = backup.tables || {};
-  return { meta: backup, getTable: async (t: string) => (all[t] ?? []) as any[] };
-}
+/** Raízes de bilheteira. O resto da árvore vem do grafo, não daqui. */
+const TICKETING_ROOTS = ["event_ticket_zones", "ticket_import_logs"];
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const body = await req.json().catch(() => ({} as any));
+    const backupFile = body?.backup_file;
+    const eventIds = body?.event_ids;
+    const mode = body?.mode === "preview" ? "preview" : "restore";
 
-    // ---- AUTH (admin only) ----
-    const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization") ?? "";
-    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-    let role: string | null = null;
-    let userId: string | null = null;
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1] ?? ""));
-      role = payload?.role ?? null;
-      userId = payload?.sub ?? null;
-    } catch {}
-
-    let isPlatformAdmin = false;
-    let callerCompanyId: string | null = null;
-
-    if (role !== "service_role") {
-      if (!userId) {
-        return new Response(JSON.stringify({ error: "Não autorizado" }), {
-          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const { data: roleRow } = await adminClient
-        .from("user_roles").select("role")
-        .eq("user_id", userId).eq("role", "admin").maybeSingle();
-      if (!roleRow) {
-        return new Response(JSON.stringify({ error: "Apenas administradores podem restaurar" }), {
-          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const { data: isPaRow } = await adminClient.rpc("is_platform_admin", { _user_id: userId });
-      isPlatformAdmin = Boolean(isPaRow);
-      const { data: profile } = await adminClient
-        .from("profiles").select("company_id, active_company_id").eq("id", userId).maybeSingle();
-      callerCompanyId = isPlatformAdmin
-        ? (profile?.active_company_id ?? profile?.company_id ?? null)
-        : (profile?.company_id ?? null);
+    if (!backupFile) return json({ error: "backup_file é obrigatório" }, 400);
+    if (!Array.isArray(eventIds) || eventIds.length === 0) {
+      return json({ error: "event_ids é obrigatório" }, 400);
     }
 
-    const body = await req.json();
-    const { backup_file, event_ids } = body;
-    console.log("Downloading:", backup_file, "Events:", event_ids);
-
-    // Abre o backup (formato novo v4 em pasta, ou ficheiro antigo v2/v3)
-    const opened = await openBackup(adminClient, backup_file);
-    const backup = opened.meta;
-
-
-    // ---- MULTI-TENANT GUARD ----
-    const backupScope: "company" | "global" | "legacy" =
-      backup.scope === "company" ? "company"
-      : backup.scope === "global" ? "global"
-      : "legacy";
-    const backupCompanyId: string | null = backup.company_id ?? null;
-
-    if (backupScope === "global") {
-      return new Response(JSON.stringify({ error: "Backup global não suporta surgical-restore" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (backupScope === "company" && role !== "service_role" && backupCompanyId !== callerCompanyId) {
-      console.warn(`[surgical-restore] Cross-tenant block: caller=${userId} (${callerCompanyId}) tentou restaurar backup de ${backupCompanyId}`);
-      return new Response(JSON.stringify({ error: "Este backup pertence a outra empresa" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (backupScope === "legacy" && role !== "service_role" && !isPlatformAdmin) {
-      return new Response(JSON.stringify({ error: "Backups antigos (v2) só por platform_admin" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Adicionalmente: validar que TODOS os event_ids pedidos pertencem à company do caller
-    if (callerCompanyId && event_ids?.length) {
-      const { data: eventsCheck } = await adminClient
-        .from("events").select("id, company_id").in("id", event_ids);
-      const wrong = (eventsCheck ?? []).filter((e: any) => e.company_id !== callerCompanyId);
-      if (wrong.length > 0) {
-        console.warn(`[surgical-restore] Cross-tenant event ids: ${wrong.map((e: any) => e.id).join(",")}`);
-        return new Response(JSON.stringify({ error: "Alguns eventos não pertencem à sua empresa" }), {
-          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    }
-
-    const tables: Record<string, any[]> = {
-      event_ticket_zones: await opened.getTable("event_ticket_zones"),
-      event_ticket_lots: await opened.getTable("event_ticket_lots"),
-      ticket_sales: await opened.getTable("ticket_sales"),
-      ticket_import_logs: await opened.getTable("ticket_import_logs"),
-    };
-    const results: Record<string, { found: number; inserted: number; error?: string }> = {};
-
-    // 1. Get zone IDs for these events from backup
-    const backupZones = (tables.event_ticket_zones || []).filter(
-      (z: any) => event_ids.includes(z.event_id)
-    );
-    const zoneIds = backupZones.map((z: any) => z.id);
-
-    // 2. Get lot IDs from backup for these zones
-    const backupLots = (tables.event_ticket_lots || []).filter(
-      (l: any) => zoneIds.includes(l.zone_id)
-    );
-
-    // 3. Get ticket_sales from backup for these zones/lots
-    const lotIds = backupLots.map((l: any) => l.id);
-    const backupSales = (tables.ticket_sales || []).filter(
-      (s: any) => zoneIds.includes(s.zone_id) || lotIds.includes(s.lot_id)
-    );
-
-    // 4. Get ticket_import_logs for these events (if any)
-    const backupImportLogs = (tables.ticket_import_logs || []).filter(
-      (l: any) => event_ids.includes(l.event_id)
-    );
-
-    // Report what we found
-    results.event_ticket_zones = { found: backupZones.length, inserted: 0 };
-    results.event_ticket_lots = { found: backupLots.length, inserted: 0 };
-    results.ticket_sales = { found: backupSales.length, inserted: 0 };
-    results.ticket_import_logs = { found: backupImportLogs.length, inserted: 0 };
-
-    if (body.mode === "preview") {
-      return new Response(JSON.stringify({ success: true, mode: "preview", results }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // === RESTORE ===
-
-    // Delete existing sales for these zones first
-    for (const zoneId of zoneIds) {
-      await tableRef(adminClient, "ticket_sales").delete().eq("zone_id", zoneId);
-    }
-    // Delete existing lots for these zones
-    for (const zoneId of zoneIds) {
-      await tableRef(adminClient, "event_ticket_lots").delete().eq("zone_id", zoneId);
-    }
-
-    // Insert lots
-    if (backupLots.length > 0) {
-      const batchSize = 200;
-      let inserted = 0;
-      for (let i = 0; i < backupLots.length; i += batchSize) {
-        const batch = backupLots.slice(i, i + batchSize);
-        const { error } = await tableRef(adminClient, "event_ticket_lots").upsert(batch, { onConflict: "id" });
-        if (error) {
-          results.event_ticket_lots.error = error.message;
-          break;
-        }
-        inserted += batch.length;
-      }
-      results.event_ticket_lots.inserted = inserted;
-    }
-
-    // Insert sales — strip columns that no longer exist
-    const VALID_SALES_COLS = ["id","lot_id","sale_date","quantity","unit_price","notes","created_by","created_at","zone_id","source","sale_date_to","financial_account_id","import_batch_id","total_value","company_id"];
-    if (backupSales.length > 0) {
-      const cleanSales = backupSales.map((s: any) => {
-        const clean: any = {};
-        for (const col of VALID_SALES_COLS) {
-          if (s[col] !== undefined) clean[col] = s[col];
-        }
-        return clean;
-      });
-      const batchSize = 200;
-      let inserted = 0;
-      for (let i = 0; i < cleanSales.length; i += batchSize) {
-        const batch = cleanSales.slice(i, i + batchSize);
-        const { error } = await tableRef(adminClient, "ticket_sales").upsert(batch, { onConflict: "id" });
-        if (error) {
-          results.ticket_sales.error = error.message;
-          break;
-        }
-        inserted += batch.length;
-      }
-      results.ticket_sales.inserted = inserted;
-    }
-
-    // Insert import logs
-    if (backupImportLogs.length > 0) {
-      const { error } = await tableRef(adminClient, "ticket_import_logs").upsert(backupImportLogs, { onConflict: "id" });
-      results.ticket_import_logs.inserted = error ? 0 : backupImportLogs.length;
-      if (error) results.ticket_import_logs.error = error.message;
-    }
-
-    return new Response(JSON.stringify({ success: true, mode: "restore", results }), {
-      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // As guardas (admin/service_role, multi-tenant, eventos da empresa) são as da
+    // selective-restore: passa-se o MESMO Authorization do chamador.
+    const auth = req.headers.get("Authorization") ?? req.headers.get("authorization") ?? "";
+    const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/selective-restore`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+        Authorization: auth,
+      },
+      body: JSON.stringify({
+        backup_file: backupFile,
+        mode,
+        scope: "events",
+        event_ids: eventIds,
+        roots: TICKETING_ROOTS,
+        ...(body?.keep_shadow === true ? { keep_shadow: true } : {}),
+        ...(body?.log_scope ? { log_scope: body.log_scope } : {}),
+      }),
     });
+
+    const out = await res.json().catch(() => ({ error: "Resposta ilegível da selective-restore" }));
+    return json({ ...out, via: "selective-restore", roots: TICKETING_ROOTS }, res.status);
   } catch (err) {
-    console.error("Surgical restore error:", err);
-    return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    console.error("[surgical-restore] fatal", err);
+    return json({ error: err instanceof Error ? err.message : "Erro desconhecido" }, 500);
   }
 });
