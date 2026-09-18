@@ -2,6 +2,7 @@
 // Regra absoluta: esta função escreve apenas em standalone_invoices e no bucket homónimo.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { z } from 'npm:zod@3.23.8'
+import { getEcbRate } from '../_shared/fx-rate.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -154,6 +155,24 @@ Deno.serve(async (req) => {
   } catch (error) {
     return json({ error: `Erro ao verificar duplicado: ${error instanceof Error ? error.message : String(error)}` }, 500)
   }
+
+  // (#195) Câmbio resolvido no servidor ANTES de qualquer download/upload: se o
+  // BCE falhar, nada é gravado e nenhum objeto entra no bucket.
+  let fxRate = body.fx_rate ?? null
+  let fxRateSource = body.fx_rate_source || null
+  let totalAmount = body.total_amount ?? null
+  if (body.currency !== 'EUR' && body.fx_rate == null) {
+    try {
+      const ecb = await getEcbRate(body.currency, body.invoice_date ?? undefined)
+      fxRate = ecb.rate
+      fxRateSource = `BCE (frankfurter.app) ${ecb.date_used}`
+      // Um `total_amount` enviado é IGNORADO neste modo — o contravalor é calculado.
+      totalAmount = Math.round((body.original_amount ?? 0) * ecb.rate * 100) / 100
+    } catch (error) {
+      return json({ error: `Não foi possível obter o câmbio do BCE: ${error instanceof Error ? error.message : String(error)}` }, 502)
+    }
+  }
+  if (totalAmount == null) return json({ error: 'total_amount é obrigatório.' }, 400)
 
   let bytes: Uint8Array
   if (body.conteudo_base64) {
