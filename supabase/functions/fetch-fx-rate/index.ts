@@ -1,82 +1,49 @@
 // Fetch suggested FX rate (foreign currency -> EUR) using free public APIs.
-// No API key required. Phase 1 supports BRL and USD.
+// No API key required. Moedas: BRL, USD, GBP e EUR.
+// Com `date` (AAAA-MM-DD) devolve o câmbio de referência do BCE dessa data ou do
+// último dia útil anterior — ver supabase/functions/_shared/fx-rate.ts (#195).
+import { getEcbRate, isFxCurrency, type FxCurrency } from "../_shared/fx-rate.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type FromCurrency = "BRL" | "USD" | "EUR";
-
-const ALLOWED: FromCurrency[] = ["BRL", "USD", "EUR"];
-
-async function tryFrankfurter(from: FromCurrency): Promise<number | null> {
-  // https://www.frankfurter.app/docs (ECB data, free, no key)
-  try {
-    const res = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=EUR`);
-    if (!res.ok) return null;
-    const json = await res.json();
-    const rate = Number(json?.rates?.EUR);
-    return Number.isFinite(rate) && rate > 0 ? rate : null;
-  } catch {
-    return null;
-  }
-}
-
-async function tryExchangerateHost(from: FromCurrency): Promise<number | null> {
-  // Fallback: exchangerate.host (no key, community)
-  try {
-    const res = await fetch(`https://api.exchangerate.host/latest?base=${from}&symbols=EUR`);
-    if (!res.ok) return null;
-    const json = await res.json();
-    const rate = Number(json?.rates?.EUR);
-    return Number.isFinite(rate) && rate > 0 ? rate : null;
-  } catch {
-    return null;
-  }
-}
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const body = await req.json().catch(() => ({}));
-    const from = String(body?.from ?? "").toUpperCase() as FromCurrency;
+    const from = String(body?.from ?? "").toUpperCase();
+    const date = body?.date == null ? undefined : String(body.date);
 
-    if (!ALLOWED.includes(from)) {
-      return new Response(
-        JSON.stringify({ error: "Unsupported currency. Use BRL, USD or EUR." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    if (!isFxCurrency(from)) {
+      return json({ error: "Unsupported currency. Use BRL, USD, GBP or EUR." }, 400);
     }
 
-    if (from === "EUR") {
-      return new Response(JSON.stringify({ from, to: "EUR", rate: 1, source: "identity", date: new Date().toISOString().slice(0, 10) }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    let result;
+    try {
+      result = await getEcbRate(from as FxCurrency, date);
+    } catch (err) {
+      return json({ error: (err as Error).message }, 502);
     }
 
-    let rate = await tryFrankfurter(from);
-    let source = "frankfurter";
-    if (!rate) {
-      rate = await tryExchangerateHost(from);
-      source = "exchangerate.host";
-    }
-
-    if (!rate) {
-      return new Response(JSON.stringify({ error: "Unable to fetch FX rate from upstream providers." }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(
-      JSON.stringify({ from, to: "EUR", rate, source, date: new Date().toISOString().slice(0, 10) }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
-  } catch (err) {
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // `date` mantém-se no corpo da resposta para os modais existentes não mudarem.
+    return json({
+      from,
+      to: "EUR",
+      rate: result.rate,
+      source: result.source,
+      date: result.date_used,
+      date_used: result.date_used,
     });
+  } catch (err) {
+    return json({ error: (err as Error).message }, 500);
   }
 });
