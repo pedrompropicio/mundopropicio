@@ -2505,3 +2505,11 @@ A 18/09 o backup global passou a incluir `infra.json` e `identities.json`. A est
 **Como se verifica:** invariante `paid_amount_sem_linhas` (erro, global, referência 1 — a única divergente legada é `31497cab-8123-4a5b-8ee3-0e13db8508c9`, "Aluguel espaço") e a prova `supabase/tests/paid_amount_derivado.sql`.
 
 **Estado:** vigente.
+
+## D-ERP88 — O câmbio da fatura resolve-se no servidor, pela data da fatura (adenda D-ERP78) (18/09/2026)
+
+**Decisão:** o câmbio de uma fatura avulsa em moeda estrangeira resolve-se **no servidor pela data da fatura** (câmbio de referência do BCE via Frankfurter; se nessa data não houver fixing, o último dia útil anterior). O chamador só envia `fx_rate` quando quer **impor** um valor — e nesse caso ganha o valor explícito, com `total_amount` obrigatório e a validação de ±0,01 €.
+
+**Consequências:** em moeda ≠ EUR sem `fx_rate`, `invoice_date` é obrigatória; `fx_rate_source` leva a data efectivamente usada (`BCE (frankfurter.app) AAAA-MM-DD`); `total_amount` é calculado (um valor enviado é ignorado). A resolução corre antes de qualquer download/upload — falha do BCE devolve 502 sem gravar linha nem objeto. Helper único: `supabase/functions/_shared/fx-rate.ts` (`getEcbRate`), usado também pelo `fetch-fx-rate`, que passa a aceitar `date` e a devolver `date_used`. GBP suportado. Issue #195.
+
+**Estado:** vigente.
