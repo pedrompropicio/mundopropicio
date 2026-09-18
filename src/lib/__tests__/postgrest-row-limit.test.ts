@@ -56,18 +56,24 @@ interface Offence {
  * STATEMENT: o `;` ao nível de topo, uma vírgula ao nível de topo, um fecho de
  * parêntesis/chaveta que já não é nosso, ou um novo `.from(`.
  */
-function forwardChain(src: string, start: number): string {
+function forwardChain(src: string, start: number): { text: string; end: number } {
   let depth = 0;
   for (let i = start; i < src.length; i++) {
     const ch = src[i];
     if (ch === "(" || ch === "[" || ch === "{") depth++;
     else if (ch === ")" || ch === "]" || ch === "}") {
-      if (depth === 0) return src.slice(start, i);
+      if (depth === 0) {
+        // `)` seguido de `.` é só um embrulho — p.ex. `(supabase.from(x) as any).insert(`.
+        // O encadeamento continua; só paramos quando não continua.
+        const nxt = src.slice(i + 1).match(/^\s*(\.|\bas\b)/);
+        if (ch === ")" && nxt) continue;
+        return { text: src.slice(start, i), end: i };
+      }
       depth--;
-    } else if (depth === 0 && (ch === ";" || ch === ",")) return src.slice(start, i);
-    else if (i > start && depth === 0 && src.startsWith(".from(", i)) return src.slice(start, i);
+    } else if (depth === 0 && (ch === ";" || ch === ",")) return { text: src.slice(start, i), end: i };
+    else if (i > start && depth === 0 && src.startsWith(".from(", i)) return { text: src.slice(start, i), end: i };
   }
-  return src.slice(start);
+  return { text: src.slice(start), end: src.length };
 }
 
 function scanFile(file: string): Offence[] {
@@ -92,7 +98,20 @@ function scanFile(file: string): Offence[] {
     // Para a frente, até ao FIM DO STATEMENT — nunca até ao próximo `.from(`,
     // senão um `.limit(`/`.range(`/`fetchAllPaged` de outra query mais abaixo
     // no mesmo ficheiro dava escape por engano (#206, ResultsAnalysis.tsx).
-    const chain = src.slice(begin + 1, m.index) + forwardChain(src, m.index);
+    const fwd = forwardChain(src, m.index);
+    const stmt = src.slice(begin + 1, m.index) + fwd.text;
+    let chain = stmt;
+
+    // Builder guardado em variável (`let q = supabase.from(...)` e mais abaixo
+    // `await fetchAllPagedQuery(q)`): junta ao encadeamento só as ocorrências
+    // dessa variável, no bloco imediatamente seguinte.
+    const assign = stmt.match(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]*)?=\s*[^=]*$/m);
+    if (assign) {
+      const varName = assign[1];
+      const after = src.slice(fwd.end, fwd.end + 2500);
+      const re = new RegExp(`^.*\\b${varName}\\b.*$`, "gm");
+      chain += "\n" + (after.match(re) ?? []).join("\n");
+    }
 
     if (WRITES.some((w) => chain.includes(w))) continue;
     if (ESCAPES.some((e) => chain.includes(e))) continue;
