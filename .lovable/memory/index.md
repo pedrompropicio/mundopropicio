@@ -21,3 +21,5 @@
 - [Verificador de Invariantes](mem://features/invariant-monitor) — 18 verificações (âmbito empresa/global) com referência, amostra, histórico, alerta por desvio; ecrã único /admin/invariantes
 - [Custo partilhado com terceiros](mem://features/custo-partilhado-terceiros) — Conta de circuito (is_circuit_account) + shared_cost_account_id: parte de terceiros é adiantamento, espelho automático em 10.12.01 via shared_cost_mirror; D-ERP69
 - [Domínio de payment_method e referência MB](mem://features/payment-methods-domain) — D-ERP44 (5 valores em 3 camadas) + service_payment exige Entidade 5 dígitos e Referência 9 (CHECK transactions_service_payment_requires_mb NOT VALID, #190)
+- [Edge function github-issues](mem://features/github-issues) — contrato das 6 ações (parâmetro `number`; `update` com labels substitui o conjunto), GITHUB_TOKEN sem expiração, chamada por net.http_post ou HTTPS directo, labels reais P0-P2 + módulo
+- [Prazos de segredos](mem://features/github-issues) — `secret_expirations` (só service_role) + invariante `segredos_a_expirar_14d` (warn, 14 dias)
