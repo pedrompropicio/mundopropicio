@@ -107,7 +107,22 @@ parcial / verde completo nos pickers e no detalhe da lista.
 (todos os itens entram ou saem). O ficheiro SEPA gera **uma** transferência por fatura
 (soma dos valores em aberto); IBAN divergente entre itens exclui a linha com motivo
 `iban_mismatch`. `SepaCandidate.groupTransactionIds` garante que o comprovativo é
-replicado a todas as transações do grupo. A liquidação continua transação a transação.
+replicado a todas as transações do grupo.
+
+## Liquidação de um grupo (2026-09-18, #147)
+- O modal individual (`TransactionPaymentModal`) **já não propaga a liquidação às irmãs**.
+  A propagação às **filhas de rateio** (`settleChildrenOf`) mantém-se intacta.
+- Quando a linha tem `invoice_group_id`, o modal mostra no topo "Fatura agrupada <ref> —
+  N linhas" com as irmãs em aberto (descrição + remanescente c/IVA) e o total em aberto da
+  fatura, e oferece **"Liquidar a fatura completa"**: fecha-se e abre o `BatchPaymentModal`
+  com TODAS as linhas em aberto do grupo (`initialInvoiceRef` = `invoice_ref`,
+  `initialPaymentDate` = data escolhida, `bankAccountsOnly = false`).
+- Liquidar só esta linha continua possível; o toast diz "Fatura <ref> parcialmente
+  liquidada — faltam N linhas".
+- O `BatchPaymentModal` consulta numa query os grupos da seleção e mostra faixa âmbar
+  "⚠️ Fatura X tem N linhas em aberto; só M nesta liquidação" — avisa, não bloqueia.
+- **Limite conhecido:** créditos de fornecedor existem só no modal individual; quem quiser
+  usar crédito liquida linha a linha.
 
 ## Propagação de campos partilhados (update-transaction) — fechada em TRÊS (2026-09-14)
 `invoiceSharedFields` em `supabase/functions/update-transaction/index.ts` é exactamente:

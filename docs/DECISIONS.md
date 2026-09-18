@@ -2459,3 +2459,11 @@ A 18/09 o backup global passou a incluir `infra.json` e `identities.json`. A est
 **Decisão:** O "como funciona" e o "porquê" migram para docs vivos no repo, mantidos no lugar. A memória do Claude vira índice que aponta para eles.
 **Porquê:** A memória é resumida e tem limite; os handoffs dispersam-se. Um doc vivo dá durabilidade ao contexto.
 **Estado:** vigente (em construção, por partes).
+
+## D-ERP81 — Fatura agrupada liquida-se em lote, nunca por propagação implícita (18/09/2026)
+
+**Decisão:** Uma fatura agrupada liquida-se pelo `BatchPaymentModal` com todas as linhas em aberto, nunca por propagação implícita a partir de uma linha. O modal individual mostra as irmãs em aberto e oferece "Liquidar a fatura completa"; o lote avisa quando a seleção não cobre a fatura. A propagação às filhas de rateio mantém-se.
+
+**Porquê:** a propagação escondia a saída total da trava de saldo e do utilizador, forçava retenção e crédito a zero nas irmãs e não verificava erros de escrita. Issue #147.
+
+**Estado:** vigente.
