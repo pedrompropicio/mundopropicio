@@ -417,9 +417,10 @@ export default function AdsInvoices() {
     const lines = detail ?? [];
     const byEvent = new Map<string, number>();
     let adjustments = 0;
-    let missing = 0;
     let outOfScope = 0;
     let outOfScopeLines = 0;
+    // O contador do cabeçalho vem da RPC (mesmo critério da lista e do checkReady).
+    const missing = missingByInvoice.get(openInvoice.id) ?? 0;
     for (const l of lines) {
       if (l.is_adjustment) { adjustments += Number(l.amount); continue; }
       if (l.match_source === "fora_sistema") {
@@ -427,9 +428,10 @@ export default function AdsInvoices() {
         outOfScopeLines++;
         continue;
       }
-      if (!l.event_id || l.match_source === "none") { missing++; continue; }
+      if (!l.event_id || l.match_source === "none") continue;
       byEvent.set(l.event_id, (byEvent.get(l.event_id) ?? 0) + Number(l.amount));
     }
+
     const allocation = Array.from(byEvent.entries()).sort((a, b) => b[1] - a[1]);
     const sumOk = reconciles(
       Number(openInvoice.total_amount),
