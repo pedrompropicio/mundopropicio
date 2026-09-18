@@ -16,6 +16,7 @@ import { useBackdropClose } from "@/lib/backdropClose";
 
 import { methodLabels, paymentMethodOptions, type PaymentMethod } from "@/lib/payment-methods";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { CurrencyBadge } from "@/components/CurrencyBadge";
 
 interface Props {
   transaction: any;
@@ -574,7 +575,11 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Valor:</span>
-                        <span className="font-semibold">{formatCurrency(Number(p.amount))}</span>
+                        <span className="flex items-center gap-1 font-semibold">
+                          {formatCurrency(Number(p.amount))}
+                          {/* (#127) moeda de origem da parcela, quando não é EUR */}
+                          <CurrencyBadge currency={p.currency} originalAmount={p.original_amount} fxRate={p.fx_rate} />
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Conta:</span>

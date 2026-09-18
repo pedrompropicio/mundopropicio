@@ -13888,9 +13888,13 @@ export type Database = {
           created_at: string
           created_by: string
           credit_amount: number
+          currency: string
+          fx_rate: number | null
+          fx_rate_source: string | null
           id: string
           invoice_ref: string | null
           notes: string | null
+          original_amount: number | null
           payment_date: string
           payment_entity: string | null
           payment_method: string
@@ -13914,9 +13918,13 @@ export type Database = {
           created_at?: string
           created_by?: string
           credit_amount?: number
+          currency?: string
+          fx_rate?: number | null
+          fx_rate_source?: string | null
           id?: string
           invoice_ref?: string | null
           notes?: string | null
+          original_amount?: number | null
           payment_date: string
           payment_entity?: string | null
           payment_method?: string
@@ -13940,9 +13948,13 @@ export type Database = {
           created_at?: string
           created_by?: string
           credit_amount?: number
+          currency?: string
+          fx_rate?: number | null
+          fx_rate_source?: string | null
           id?: string
           invoice_ref?: string | null
           notes?: string | null
+          original_amount?: number | null
           payment_date?: string
           payment_entity?: string | null
           payment_method?: string

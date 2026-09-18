@@ -380,6 +380,16 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
           notes: notes.trim() || null,
           created_by: userName,
           closes_transaction: closesForeign,
+          // (#127) `amount` é sempre EUR; a moeda de origem fica rastreada aqui
+          // com a MESMA convenção de transactions / standalone_invoices.
+          ...(item.isForeign
+            ? {
+                currency: item.currency,
+                original_amount: item.remainingFx,
+                fx_rate: item.dayRate > 0 ? item.dayRate : item.origRate,
+                fx_rate_source: item.dayRate > 0 ? "dia (manual)" : "original da transação",
+              }
+            : {}),
         });
         if (batchPaymentError) throw batchPaymentError;
 

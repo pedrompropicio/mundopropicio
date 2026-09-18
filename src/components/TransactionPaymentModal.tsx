@@ -484,6 +484,19 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
         notes: notes.trim() || null,
         created_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
       };
+      // (#127) `amount` é sempre EUR; em moeda estrangeira guarda-se o valor na
+      // moeda de origem e o câmbio usado (o do dia, se introduzido).
+      if (isForeign) {
+        const dayRate = parseFloat(paymentFxRate) || 0;
+        const txRate = Number(transaction.fx_rate) || 0;
+        const rate = dayRate > 0 ? dayRate : txRate;
+        if (rate > 0) {
+          paymentRecord.currency = txCurrency;
+          paymentRecord.original_amount = eurToOriginal(addAmount, rate);
+          paymentRecord.fx_rate = rate;
+          paymentRecord.fx_rate_source = dayRate > 0 ? "dia (manual)" : "original da transação";
+        }
+      }
       const { error: paymentInsertError } = await (supabase as any)
         .from("transaction_payments")
         .insert(paymentRecord);

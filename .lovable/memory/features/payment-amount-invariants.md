@@ -103,3 +103,26 @@ Verificação: invariante `paid_amount_sem_linhas` (error, global, referência 1
 legada "Aluguel espaço" `31497cab-8123-4a5b-8ee3-0e13db8508c9`), em
 `_run_invariant_checks_extra()`; prova `supabase/tests/paid_amount_derivado.sql`
 (BEGIN…ROLLBACK, 4 casos, todos verdes a 18/09/2026).
+
+## Moeda nas linhas de pagamento (2026-09-18, #127)
+
+`transaction_payments.amount` é **sempre EUR** — é dele que `paid_amount` deriva.
+A moeda de origem vive na própria linha, com a MESMA convenção de `transactions` e
+`standalone_invoices`: `currency` (text NOT NULL default `'EUR'`), `original_amount`,
+`fx_rate`, `fx_rate_source`. CHECK `transaction_payments_fx_required`:
+`currency = 'EUR' OR (original_amount IS NOT NULL AND fx_rate IS NOT NULL)`.
+
+Quem grava: `BatchPaymentModal` (`original_amount = item.remainingFx`, `fx_rate` =
+taxa do dia se > 0 senão a da transação) e `TransactionPaymentModal`
+(`original_amount = eurToOriginal(addAmount, taxa)`). `fx_rate_source` = `dia (manual)`
+ou `original da transação`. A auditoria "Câmbio do dia" mantém-se.
+
+Leitura: `PaymentTimeline` e `TransactionPaymentsListModal` mostram `CurrencyBadge`
+ao lado do valor em euros quando `currency <> 'EUR'`. Nada muda em linhas EUR.
+
+Nenhum agregado soma outra coluna que não `amount` (EUR): `PaymentTimeline`
+(`totalPaid`/`totalPlanned`), `TransactionPaymentsListModal` (`totalPaid`),
+`account-balance.ts` (só `withholding_amount` + `credit_amount`, ajustes de caixa).
+
+Verificação: invariante `pagamento_moeda_sem_cambio` (error, global, referência 0)
+em `_run_invariant_checks_extra()`. Backfill `backfill-127` nas 3 linhas legadas em BRL.
