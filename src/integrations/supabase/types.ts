@@ -16346,6 +16346,7 @@ export type Database = {
         Args: { _account_id: string }
         Returns: number
       }
+      _tmp_rollback_probe: { Args: never; Returns: string }
       accept_invariant_reference: {
         Args: { _name: string; _new_reference: number; _note: string }
         Returns: undefined
@@ -17618,7 +17619,7 @@ export type Database = {
       restore_event_scope: {
         Args: { p_event_ids: string[]; p_roots?: string[] }
         Returns: {
-          row_id: string
+          row_key: Json
           sch: string
           tbl: string
           tbl_key: string
@@ -17667,6 +17668,7 @@ export type Database = {
         }
         Returns: Json
       }
+      restore_table_pk: { Args: { p_key: string }; Returns: string[] }
       restore_topo_order: { Args: { p_tables: string[] }; Returns: string[] }
       reverse_payment: {
         Args: {

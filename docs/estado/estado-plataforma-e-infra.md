@@ -82,7 +82,7 @@ Corrida global de referência a 18/09: pasta `global/2026-09-18T01-41-20`, 40 ta
 - Os ficheiros de storage **nunca são copiados, só listados**, e o manifesto cobre apenas **7 dos 29 buckets** (#202).
 - Os backups vivem dentro do próprio projeto que protegem, têm retenção de 30 dias e podem ser apagados por admin.
 - O PITR da Supabase está por confirmar no dashboard.
-- `selective-restore` e `surgical-restore` continuam no caminho antigo (sem área de carga); passam pelo caminho novo numa tarefa seguinte.
+- O restauro por evento não cobre tabelas ligadas ao evento apenas por referência ambígua (11 ligações classificadas como referência, não pertença) — ficam no estado atual.
 
 **Resíduos conhecidos — não redescobrir:**
 
@@ -117,6 +117,48 @@ três linhas do ensaio (duas `restore_test` `error` das duas falhas reais do cam
 religar triggers com eventos adiados pendentes (`55006`), pelo que a verificação das FKs vem
 **antes** do `ENABLE TRIGGER USER`. Detalhe em
 `.lovable/memory/features/restauro-atomico.md`.
+
+**`selective-restore` e `surgical-restore` no caminho novo (18/09/2026, #203, D-ERP89).**
+Ambas passam pelas sombras, validação e troca atómica. A `surgical-restore` não tem lógica
+própria: são 66 linhas que reencaminham para a `selective-restore` com `scope: 'events'` e as
+raízes de bilheteira. A `selective-restore` tem dois âmbitos:
+
+- `scope: 'tables'` — apaga por `company_id` e repõe (caminho `company` da
+  `restore_apply_from_shadow`).
+- `scope: 'events'` — âmbito derivado do **grafo real** (nada de listas à mão):
+  `restore_event_scope` parte das linhas `events`, desce por FKs e devolve a **chave primária
+  real** de cada linha, lida do catálogo (por isso entram tabelas cuja PK não é `id`, como
+  `event_marketing`, `event_portal_endorsements` e `event_simulator_config`). Só se seguem
+  **ligações de pertença** (coluna `<pai>_id`); ligações de simples referência ficam de fora
+  (ex.: `event_simulator_config.sales_curve_prior_event_id`, que arrastava dados de outros
+  eventos). Aplica-se com `p_scope='rows'`: **actualização no lugar** (`INSERT … ON CONFLICT
+  (pk) DO UPDATE`) e eliminação só do que existe hoje e não vinha no backup.
+
+**Porque não se apaga a linha do evento:** `transactions.event_id` e `events.parent_event_id`
+são `ON DELETE CASCADE`. Apagar a linha `events` de um evento-mãe arrastava os sub-eventos e
+tudo abaixo — foi apanhado em ensaio (`23503` em `payment_list_items_transaction_id_fkey`,
+produção intacta). Daí o UPSERT.
+
+**Ensaio de 18/09 no Deive Leonardo** (`e103ed22`, evento-mãe com 2 sub-eventos):
+âmbito 17 tabelas / 60 linhas; preview hoje = backup (`mundo-propicio/2026-09-18T00-20-19`),
+80 FKs validadas, 0 erros; restauro real `ok` (60 linhas repostas, 0 eliminações);
+fotografia antes = depois (`events` `85be037c…`, `transactions` `1a3f5dfa…`,
+`bank_statement_lines` `c8921265…`, `event_simulator_config` `80ad1f21…`); sub-eventos
+intactos (2 filhos, 7 itens de lista de pagamento deles); 1.570 transações; 24 triggers de
+`transactions` religados; 0 sombras deixadas. **Retrocesso:** com a sombra de `events`
+renomeada e `transactions.currency='XXX'`, a aplicação parou em `23514` e a fotografia ficou
+**igual** à de antes. **`scope: 'tables'`** em `sponsorship_segments` da siriguella: 7 linhas,
+`md5` antes = depois (`c4e74fd6…`).
+
+**Dois defeitos reais corrigidos no ensaio:** a carga rebentava em colunas criadas **depois**
+do backup (`transaction_payments.closes_transaction`, `NOT NULL`) — agora insere só as colunas
+do backup e as novas assumem o default; e a validação exigia que o pai viesse no backup, o que
+é falso num âmbito de um evento (espelhos e linhas do BP do evento-mãe) — em `p_scope='rows'`
+aceita-se pai na sombra **ou** em produção.
+
+**Resíduo:** a unicidade diária de `backup_runs` já não se aplica a `scope='restore_test'`
+(vários ensaios por dia ficavam presos em `running` porque o fecho colidia).
+
 
 
 ## Manual de Orientação (17/09/2026)

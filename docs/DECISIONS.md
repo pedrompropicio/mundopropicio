@@ -2541,6 +2541,9 @@ A 18/09 o backup global passou a incluir `infra.json` e `identities.json`. A est
 
 **Ensaio (parte da decisão, não opcional):** backup fresco da siriguella (226 tabelas, 2.736 linhas), fotografia por tabela (contagem + `md5` das linhas), restauro por cima dela própria, segunda fotografia: **zero diferenças** em 227 tabelas / 2.736 linhas. Retrocesso provado com uma sombra corrompida (transação com `forecast_id` inexistente): erro `23503` em `SET CONSTRAINTS ALL IMMEDIATE`, produção idêntica e os 24 triggers de `transactions` religados.
 
-**Não resolve:** `selective-restore` e `surgical-restore` continuam no caminho antigo e passam pela mesma área de carga numa tarefa seguinte; os ficheiros de storage continuam a não ser copiados (#202).
+**Não resolve:** os ficheiros de storage continuam a não ser copiados (#202).
+
+**Adenda (18/09/2026) — `selective-restore` e `surgical-restore` no mesmo caminho.** A `surgical-restore` passa a ser só invólucro (reencaminha para `selective-restore` com `scope: 'events'`). O âmbito de um evento é **derivado do grafo real**, nunca de listas à mão: parte das linhas `events`, desce por FKs e identifica cada linha pela **chave primária real** lida do catálogo (entram tabelas cuja PK não é `id`, como `event_marketing`, `event_portal_endorsements`, `event_simulator_config`). Distinguem-se **ligações de pertença** (coluna `<pai>_id`, seguem-se) de **ligações de referência** (não se seguem — `event_simulator_config.sales_curve_prior_event_id` arrastava dados de outros eventos). E o restauro por linhas **actualiza no lugar** (`ON CONFLICT (pk) DO UPDATE`) em vez de apagar: `transactions.event_id` e `events.parent_event_id` são `ON DELETE CASCADE`, pelo que apagar a linha `events` de um evento-mãe arrastava sub-eventos e tudo abaixo. Na validação, em `p_scope='rows'` o pai pode estar na sombra **ou** em produção, porque um evento tem referências legítimas para fora dele. Ensaio: Deive Leonardo (evento-mãe, 2 sub-eventos), 17 tabelas / 60 linhas, 80 FKs, fotografia antes = depois, retrocesso `23514` sem alterar nada, e `scope: 'tables'` numa tabela da siriguella com `md5` igual.
 
 **Estado:** vigente.
+

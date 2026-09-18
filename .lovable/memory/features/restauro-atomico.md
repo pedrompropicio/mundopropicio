@@ -67,10 +67,56 @@ linhas). Retrocesso provado com sombra corrompida (transação com `forecast_id`
 `23503` em `SET CONSTRAINTS ALL IMMEDIATE`, siriguella idêntica, 1.570 transações intactas,
 24 triggers de `transactions` em `tgenabled='O'`.
 
-A fotografia faz-se com `restore_shadow.take_snapshot(label, company_id)` e vive em
-`restore_shadow._snapshot`.
+A fotografia de um evento faz-se com `restore_event_snapshot(uuid[])` (contagem + `md5` por
+tabela em âmbito). `restore_shadow._snapshot` já não existe.
+
+## selective-restore e surgical-restore (mesmo caminho, desde 18/09/2026)
+
+`surgical-restore` **não tem lógica própria**: 66 linhas que reencaminham para
+`selective-restore` com `scope: 'events'` e as raízes de bilheteira.
+
+`selective-restore`:
+
+- `scope: 'tables'` → `restore_apply_from_shadow` com `p_scope='company'` (apaga por
+  `company_id` e repõe).
+- `scope: 'events'` → âmbito derivado do **grafo real**, nunca de listas à mão:
+  - `restore_event_scope(event_ids)` devolve `(sch, tbl, tbl_key, row_key jsonb)` com a
+    **chave primária real** lida do catálogo (`restore_table_pk`), por isso entram tabelas cuja
+    PK não é `id` (`event_marketing`, `event_portal_endorsements`, `event_simulator_config`).
+  - Só se desce por **ligações de pertença** (coluna `<pai singular>_id`). Ligação ambígua =
+    `n_fks > 1` E existe coluna de pertença E `child_col <> owning_col` → fica de fora e é
+    devolvida em `ambiguous_links` (11 hoje). Sem coluna de pertença seguem-se todas
+    (`matched_transaction_id`, `created_transaction_id`).
+  - Universo permitido: `backup_table_inventory` menos `backup_excluded_tables`.
+  - Aplica com `p_scope='rows'`.
+
+### Regras do `p_scope='rows'` que não se reinvestigam
+
+- **Não se apaga a linha em âmbito.** `transactions.event_id` e `events.parent_event_id` são
+  `ON DELETE CASCADE`: apagar a linha `events` de um evento-mãe arrasta sub-eventos e tudo
+  abaixo (apanhado em ensaio, `23503` em `payment_list_items_transaction_id_fkey`). Repõe-se
+  com `INSERT … ON CONFLICT (pk) DO UPDATE`. Só se apaga o que existe hoje e não vinha no
+  backup (`p_extra_deletes`, objectos `{"col": valor}`).
+- **Validação:** em `p_scope='rows'` o pai pode estar na sombra **ou** em produção — num
+  âmbito de um evento há referências legítimas para fora (espelhos de custo partilhado,
+  `partner_aporte_mirror`, linhas do BP do evento-mãe). Exigir pai na sombra dava erro falso.
+- **Carga:** `restore_shadow_load` insere só as colunas presentes no backup; colunas criadas
+  depois do backup assumem o default (senão um `NOT NULL` novo — `transaction_payments.
+  closes_transaction` — rebentava a carga).
+- `backup_runs`: a unicidade diária (`backup_runs_ok_unico_por_dia_alvo`) **exclui**
+  `scope='restore_test'`, senão o segundo ensaio do dia fica preso em `running`.
+
+### Ensaio de referência por evento (18/09/2026)
+
+Deive Leonardo `e103ed22-d53c-4eb7-99e8-a6cdbf1d2dfd` (evento-mãe com 2 sub-eventos):
+17 tabelas / 60 linhas em âmbito; preview hoje = backup; 80 FKs validadas, 0 erros; restauro
+`ok` com 60 reposições e 0 eliminações; fotografia antes = depois; sub-eventos intactos;
+1.570 transações; 24 triggers. Retrocesso com sombra corrompida (`currency='XXX'` + nome do
+evento alterado): `23514`, fotografia igual à de antes. `scope: 'tables'` em
+`sponsorship_segments` da siriguella: 7 linhas, `md5` igual.
 
 ## Fora deste caminho
 
-`selective-restore` e `surgical-restore` continuam no caminho antigo (passam pela mesma área
-de carga numa tarefa seguinte). Os ficheiros de storage continuam a não ser copiados (#202).
+Os ficheiros de storage continuam a não ser copiados (#202). O restauro por evento não cobre
+ligações classificadas como referência (as 11 `ambiguous_links`).
+

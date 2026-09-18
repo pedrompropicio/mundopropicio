@@ -194,10 +194,14 @@ Deno.serve(async (req) => {
     // Conjunto efetivo de linhas por tabela
     // ------------------------------------------------------------------ //
     const effective: Record<string, any[]> = {};
-    /** ids que existem HOJE em produção dentro do âmbito (só scope 'events'). */
-    let productionScope: Record<string, string[]> = {};
+    /** Chaves REAIS que existem HOJE em produção no âmbito (só scope 'events'). */
+    let productionScope: Record<string, Record<string, unknown>[]> = {};
+    /** Chave primária real de cada tabela, lida do catálogo (restore_table_pk). */
+    let pkMap: Record<string, string[]> = {};
     let scopeCounts: Record<string, number> = {};
     const scopeWithoutBackup: string[] = [];
+    const keyStr = (t: string, row: any) =>
+      JSON.stringify((pkMap[t] ?? ["id"]).map((c) => row?.[c] ?? null));
 
     if (scope === "tables") {
       for (const t of tablesFilter!) {
@@ -211,7 +215,8 @@ Deno.serve(async (req) => {
         p_event_ids: event_ids, p_roots: roots ?? null,
       });
       if (scopeErr) throw new Error(`restore_event_scope_json: ${scopeErr.message}`);
-      productionScope = ((scopeData as any)?.ids ?? {}) as Record<string, string[]>;
+      productionScope = ((scopeData as any)?.keys ?? {}) as Record<string, Record<string, unknown>[]>;
+      pkMap = ((scopeData as any)?.pk ?? {}) as Record<string, string[]>;
       scopeCounts = ((scopeData as any)?.counts ?? {}) as Record<string, number>;
 
       // (b) O que o BACKUP tem para esses eventos: expande-se pelo mesmo grafo,
@@ -224,11 +229,22 @@ Deno.serve(async (req) => {
       const reachable = descendants(links, roots?.length ? roots : ["events"]);
       if (!roots?.length) reachable.add("events");
       // Mesmo universo do âmbito em produção: backup_table_inventory menos
-      // backup_excluded_tables, só tabelas com `id` uuid.
+      // backup_excluded_tables, só tabelas COM chave primária (qualquer, não só `id`).
       const allowedUniverse = new Set<string>(((scopeData as any)?.allowed ?? []) as string[]);
       const allowed = new Set([...reachable].filter((t) => allowedUniverse.has(t)));
 
-      const backupIds: Record<string, Set<string>> = {};
+      /** Linhas selecionadas do backup, indexadas pela chave real. */
+      const sel: Record<string, Map<string, any>> = {};
+      const add = (t: string, row: any) => {
+        const m = sel[t] ?? (sel[t] = new Map());
+        const k = keyStr(t, row);
+        if (m.has(k)) return false;
+        m.set(k, row);
+        return true;
+      };
+      const parentIdsOf = (t: string) =>
+        new Set([...(sel[t]?.values() ?? [])].map((r: any) => r.id).filter(Boolean));
+
       const rowsOf = new Map<string, any[]>();
       const tableRows = async (t: string) => {
         if (!rowsOf.has(t)) {
@@ -240,44 +256,39 @@ Deno.serve(async (req) => {
 
       const candidates = backup.tableNames.filter((t) => allowed.has(t));
       if (!roots?.length) {
-        backupIds["events"] = new Set(event_ids!);
+        for (const r of await tableRows("events")) {
+          if (event_ids!.includes(r.id)) add("events", r);
+        }
       }
       // Tabelas com event_id entram directamente pelos eventos.
       for (const t of candidates) {
         const rows = await tableRows(t);
         if (!rows.length) continue;
         if (rows[0] && Object.prototype.hasOwnProperty.call(rows[0], "event_id")) {
-          const set = backupIds[t] ?? new Set<string>();
-          for (const r of rows) if (r.event_id && event_ids!.includes(r.event_id)) set.add(r.id);
-          if (set.size) backupIds[t] = set;
+          for (const r of rows) if (r.event_id && event_ids!.includes(r.event_id)) add(t, r);
         }
       }
       // Descida por FK até não crescer mais.
       for (let round = 0; round < 30; round++) {
         let grew = 0;
         for (const l of links) {
-          if (!candidates.includes(l.child) || !backupIds[l.parent]?.size) continue;
+          if (!candidates.includes(l.child) || !sel[l.parent]?.size) continue;
           const rows = await tableRows(l.child);
           if (!rows.length) continue;
-          const parentIds = backupIds[l.parent];
-          const set = backupIds[l.child] ?? new Set<string>();
-          const before = set.size;
+          const parentIds = parentIdsOf(l.parent);
+          if (!parentIds.size) continue;
           for (const r of rows) {
             const v = r[l.child_col];
-            if (v && parentIds.has(v) && !set.has(r.id)) set.add(r.id);
+            if (v && parentIds.has(v) && add(l.child, r)) grew++;
           }
-          if (set.size > before) { backupIds[l.child] = set; grew += set.size - before; }
-          else if (set.size) backupIds[l.child] = set;
         }
         if (grew === 0) break;
       }
 
-      // Linhas efetivas = as do backup com esses ids.
-      const universe = new Set<string>([...Object.keys(backupIds), ...Object.keys(productionScope)]);
+      // Linhas efetivas = as do backup dentro do âmbito.
+      const universe = new Set<string>([...Object.keys(sel), ...Object.keys(productionScope)]);
       for (const t of universe) {
-        const ids = backupIds[t];
-        if (!ids?.size) { if (scopeCounts[t]) scopeWithoutBackup.push(t); continue; }
-        const rows = (await tableRows(t)).filter((r: any) => ids.has(r.id));
+        const rows = [...(sel[t]?.values() ?? [])];
         if (rows.length) effective[t] = rows;
         else if (scopeCounts[t]) scopeWithoutBackup.push(t);
       }
@@ -288,11 +299,12 @@ Deno.serve(async (req) => {
     for (const t of tablesToRestore) counts[t] = effective[t].length;
 
     // Linhas que hoje existem no âmbito mas o backup não tem → são apagadas.
-    const extraDeletes: Record<string, string[]> = {};
+    // Cada elemento é a CHAVE REAL da linha ({coluna: valor}), não um id solto.
+    const extraDeletes: Record<string, Record<string, unknown>[]> = {};
     if (scope === "events") {
-      for (const [t, ids] of Object.entries(productionScope)) {
-        const keep = new Set((effective[t] ?? []).map((r: any) => r.id));
-        const extras = (ids ?? []).filter((id) => !keep.has(id));
+      for (const [t, keys] of Object.entries(productionScope)) {
+        const keep = new Set((effective[t] ?? []).map((r: any) => keyStr(t, r)));
+        const extras = (keys ?? []).filter((k) => !keep.has(keyStr(t, k)));
         if (extras.length) extraDeletes[t] = extras;
       }
     }
@@ -374,8 +386,11 @@ Deno.serve(async (req) => {
       }
 
       const validateScope = tenantFilter ? "company" : "global";
+      // Em scope 'events' valida-se como 'rows': o pai pode estar fora do âmbito
+      // e continuar em produção (espelhos, linhas do BP do evento-mãe).
       const { data: validation, error: valErr } = await admin.rpc("restore_shadow_validate", {
-        p_scope: validateScope, p_company_id: tenantFilter, p_tables: tablesToRestore, p_counts: counts,
+        p_scope: scope === "events" ? "rows" : validateScope,
+        p_company_id: tenantFilter, p_tables: tablesToRestore, p_counts: counts,
       });
       if (valErr) throw new Error(`restore_shadow_validate: ${valErr.message}`);
       if (!(validation as any)?.ok) {
