@@ -242,6 +242,7 @@ Deno.serve(async (req) => {
         message_id: messageId,
         template_name: templateName,
         recipient_email: effectiveRecipient,
+        company_id: companyId,
         status: 'failed',
         error_message: 'Failed to create unsubscribe token',
       })
@@ -272,6 +273,7 @@ Deno.serve(async (req) => {
         message_id: messageId,
         template_name: templateName,
         recipient_email: effectiveRecipient,
+        company_id: companyId,
         status: 'failed',
         error_message: 'Failed to confirm unsubscribe token storage',
       })
