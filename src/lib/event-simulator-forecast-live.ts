@@ -56,6 +56,11 @@ export async function fetchCurrentLoadByZoneName(
 export interface LiveTicketForecast {
   /** receita líquida de bilhetes no cenário Forecast; null = sem base */
   net: number | null;
+  /**
+   * O MESMO previsto em bruto (#207): soma sessão a sessão, cada uma com o
+   * `iva_pct` da sua zona/lote. O líquido não muda ao cêntimo.
+   */
+  gross: number | null;
   /** quantidade total prevista (inclui vendas reais), ≤ carga corrente */
   totalQty: number;
   currentLoad: number | null;
@@ -84,7 +89,7 @@ export async function computeLiveTicketForecast(eventId: string): Promise<LiveTi
   }
 
   if (!cfgRow && currentLoadMap.size === 0) {
-    return { net: null, totalQty: 0, currentLoad, currentLoadOn };
+    return { net: null, gross: null, totalQty: 0, currentLoad, currentLoadOn };
   }
 
   const zoneRows = (zones ?? []) as any[];
@@ -234,7 +239,7 @@ export async function computeLiveTicketForecast(eventId: string): Promise<LiveTi
     });
   }
 
-  if (sessions.length === 0) return { net: null, totalQty: 0, currentLoad, currentLoadOn };
+  if (sessions.length === 0) return { net: null, gross: null, totalQty: 0, currentLoad, currentLoadOn };
 
   // Data do evento = última sessão (mesmo critério da página do Simulador).
   const dateList = ((dates ?? []) as any[]).map((d) => d.date).filter(Boolean);
@@ -246,5 +251,13 @@ export async function computeLiveTicketForecast(eventId: string): Promise<LiveTi
   const rev = computeScenarioRevenue(sessions, coala, "forecast", solution.qtyByKey, solution.revenueByKey);
   const totalQty = Object.values(solution.qtyByKey || {}).reduce((a, b) => a + Number(b || 0), 0);
 
-  return { net: rev.ticketsRevenue, totalQty, currentLoad, currentLoadOn };
+  // Bruto do MESMO cenário (#207): sessão a sessão, com o IVA da própria sessão.
+  // O líquido devolvido continua a ser exactamente `rev.ticketsRevenue`.
+  let gross = 0;
+  for (const s of sessions) {
+    const one = computeScenarioRevenue([s], coala, "forecast", solution.qtyByKey, solution.revenueByKey);
+    gross += one.ticketsRevenue * (1 + Number(s.iva_pct || 0) / 100);
+  }
+
+  return { net: rev.ticketsRevenue, gross, totalQty, currentLoad, currentLoadOn };
 }

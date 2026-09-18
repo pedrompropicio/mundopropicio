@@ -245,16 +245,19 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     // ── COMMITTED ─────────────────────────────────────────────
     if (modeUsed === "committed") {
       // Receita: "Previsto + excedido" (D24) vem do SSoT — por componente
-      // max(real, previsto corrente). Sempre s/IVA.
+      // max(real, previsto corrente), na base de IVA da VISTA (#207).
       if (kind === "income") {
         const c = revenue?.committed;
+        const pickC = (k: "bilheteira" | "patrocinio" | "ab" | "outros") =>
+          c ? (withVat ? c.buckets[k].gross : c.buckets[k].net) : null;
+        const abC = pickC("ab");
         return {
-          displayValue: c?.total ?? 0,
+          displayValue: c ? (withVat ? c.total.gross : c.total.net) : 0,
           subtotals: [
-            { label: "Bilheteira", value: c?.buckets.bilheteira ?? null },
-            { label: "Patrocínio", value: c?.buckets.patrocinio ?? null },
-            ...(c && c.buckets.ab !== 0 ? [{ label: "A&B", value: c.buckets.ab }] : []),
-            { label: "Outros", value: c?.buckets.outros ?? null },
+            { label: "Bilheteira", value: pickC("bilheteira") },
+            { label: "Patrocínio", value: pickC("patrocinio") },
+            ...(abC != null && abC !== 0 ? [{ label: "A&B", value: abC }] : []),
+            { label: "Outros", value: pickC("outros") },
           ],
           realValue, formalidadeBreakdown: null, phase, modeUsed, unavailable: !c,
         };
@@ -313,13 +316,17 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       // continuam a vir directamente do motor do Simulador.
       if (scenario === "forecast") {
         const f = revenue?.currentForecast;
+        const pickF = (k: "bilheteira" | "patrocinio" | "ab" | "outros") => {
+          const p = f?.buckets[k];
+          return p ? (withVat ? p.gross : p.net) : null;
+        };
         return {
-          displayValue: f?.total ?? 0,
+          displayValue: f?.total ? (withVat ? f.total.gross : f.total.net) : 0,
           subtotals: [
-            { label: "Bilheteira", value: f?.buckets.bilheteira ?? null },
-            { label: "Patrocínio", value: f?.buckets.patrocinio ?? null },
-            { label: "A&B", value: f?.buckets.ab ?? null },
-            { label: "Outros", value: f?.buckets.outros ?? null },
+            { label: "Bilheteira", value: pickF("bilheteira") },
+            { label: "Patrocínio", value: pickF("patrocinio") },
+            { label: "A&B", value: pickF("ab") },
+            { label: "Outros", value: pickF("outros") },
           ],
           realValue, formalidadeBreakdown: null, phase, modeUsed,
           unavailable: !f || f.total == null,

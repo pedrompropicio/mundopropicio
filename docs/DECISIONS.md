@@ -2438,6 +2438,16 @@ Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a 
 **Consequência:** "Faz Publish" serve para código/edge functions/front; não para objetos SQL de migração.
 **Estado:** vigente.
 
+## D-ERP83 — IVA dos cards da capa é vista, não critério (adenda D57; substitui D24 no ponto do IVA) (18/09/2026)
+
+**Decisão:** Um só seletor c/IVA · s/IVA por página, aplicado a Receitas, Custos e Lucro, guardado por utilizador. O critério contratual (`events.partner_calc_basis`) continua a mandar no Fecho, Encontro de Contas, Apuramentos, PDFs e Portal do Sócio; a capa assinala quando a vista difere dele. `committed` e previsto corrente existem nas duas bases, bucket a bucket, com `max(real, previsto ?? real)` em cada base; o previsto ganha bruto pelo IVA da própria origem.
+
+**Porquê:** no mesmo evento há sócios com IVA e sócios sem IVA — a capa não pode ficar presa a um formato único; e com c/IVA ligado o card mostrava custos brutos contra receita líquida (Simone Mendes, 17/09/2026: 300.014,15 € nos dois toggles). Issue #207.
+
+**Estado:** vigente.
+
+
+
 ### D3 — Pendências vivem em GitHub Issues (jun/2026)
 **Decisão:** A fonte de verdade das pendências é GitHub Issues (repo pedrompropicio/mundopropicio), geridas pela edge function github-issues. Handoffs passam a ser só diário/histórico.
 **Porquê:** Os handoffs datados são snapshots que se perdem entre chats/versões. Issues são uma fonte única, viva, rastreável e visível no telemóvel. Ritual: ler no início da sessão, atualizar no fim.

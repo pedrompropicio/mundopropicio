@@ -4,7 +4,6 @@ import { useEventFinancialCardData } from "@/hooks/useEventFinancialCardData";
 import {
   type CardMode, type RevenueScenario,
   readStoredMode, writeStoredMode,
-  readStoredWithVat, writeStoredWithVat,
   readStoredCostToggle, writeStoredCostToggle,
   allowedModes,
 } from "@/lib/event-financial-card";
@@ -40,6 +39,12 @@ interface Props {
   onValueChange?: (value: number) => void;
   /** `events.partner_calc_basis` — semente do critério de IVA (partilhado com o Fecho). */
   partnerCalcBasis?: string | null;
+  /**
+   * VISTA de IVA da página (#207) — uma só para Receitas, Custos e Lucro.
+   * Não é critério: o contratual continua a mandar no Fecho.
+   */
+  viewWithVat: boolean;
+  onViewWithVatChange: (v: boolean) => void;
 }
 
 const MODE_LABEL: Record<CardMode, string> = {
@@ -79,14 +84,16 @@ export function EventFinancialCard(props: Props) {
   // Modo efetivo: só "Forecast" é preferência de utilizador; o resto vem da BD.
   const mode: CardMode = storedMode === "forecast" ? "forecast" : shared.expenseSource;
   const [scenario, setScenario] = useState<RevenueScenario>("forecast");
-  const [incomeWithVat, setIncomeWithVat] = useState<boolean>(() => readStoredWithVat(userId, eventId, kind));
   const [incomeOverhead, setIncomeOverhead] = useState<boolean>(
     () => readStoredCostToggle(userId, eventId, kind, "overhead"),
   );
 
-  const withVat = isExpense ? shared.withVat : incomeWithVat;
+  // IVA é VISTA da página (#207) — os dois cards recebem a mesma.
+  const withVat = props.viewWithVat;
+  const setWithVat = props.onViewWithVatChange;
+  /** vista ≠ critério contratual do evento (o que o Fecho usa). */
+  const viewDiffersFromContract = !shared.isLoading && withVat !== shared.withVat;
   const includeOverhead = isExpense ? shared.includeOverhead : incomeOverhead;
-  const setWithVat = isExpense ? shared.setWithVat : setIncomeWithVat;
   const setIncludeOverhead = isExpense ? shared.setIncludeOverhead : setIncomeOverhead;
 
   // Modo <-> critério do evento: mexer no card grava na BD e reflete-se no Fecho
@@ -97,9 +104,7 @@ export function EventFinancialCard(props: Props) {
   };
 
   useEffect(() => { writeStoredMode(userId, eventId, kind, storedMode); }, [userId, eventId, kind, storedMode]);
-  useEffect(() => {
-    if (!isExpense) writeStoredWithVat(userId, eventId, kind, incomeWithVat);
-  }, [isExpense, userId, eventId, kind, incomeWithVat]);
+  // A vista de IVA é gravada pela página (chave única por utilizador+evento).
   useEffect(() => {
     if (!isExpense) writeStoredCostToggle(userId, eventId, kind, "overhead", incomeOverhead);
   }, [isExpense, userId, eventId, kind, incomeOverhead]);
@@ -179,6 +184,14 @@ export function EventFinancialCard(props: Props) {
           <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             {withVat ? "c/IVA" : "s/IVA"}
           </span>
+          {viewDiffersFromContract && (
+            <span
+              className="rounded-md bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning"
+              title={`Vista diferente do critério contratual do evento (${shared.withVat ? "c/IVA" : "s/IVA"}), que é o usado no Fecho.`}
+            >
+              ≠ fecho
+            </span>
+          )}
           {kind === "expense" && includeOverhead && (
             <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               +OH
@@ -216,17 +229,14 @@ export function EventFinancialCard(props: Props) {
               </DropdownMenuRadioGroup>
 
               <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-xs">IVA</DropdownMenuLabel>
-              {isExpense ? (
-                <div className="px-2 pb-1 text-[11px] leading-snug text-muted-foreground">
-                  {withVat ? "Com IVA (bruto)" : "Sem IVA (base líquida)"} — critério contratual do evento.
-                </div>
-              ) : (
-                <DropdownMenuRadioGroup value={withVat ? "com" : "sem"} onValueChange={(v) => setWithVat(v === "com")}>
-                  <DropdownMenuRadioItem value="sem">Sem IVA (base líquida)</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="com">Com IVA (bruto)</DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              )}
+              <DropdownMenuLabel className="text-xs">Vista</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={withVat ? "com" : "sem"} onValueChange={(v) => setWithVat(v === "com")}>
+                <DropdownMenuRadioItem value="sem">Sem IVA (base líquida)</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="com">Com IVA (bruto)</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+              <div className="px-2 pb-1 text-[11px] leading-snug text-muted-foreground">
+                Critério contratual do evento: {shared.withVat ? "c/IVA" : "s/IVA"} — usado no Fecho.
+              </div>
               {kind === "expense" && (
                 <>
                   <DropdownMenuSeparator />

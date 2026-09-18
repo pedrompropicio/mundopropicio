@@ -66,6 +66,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
+import { readStoredWithVat, writeStoredWithVat } from "@/lib/event-financial-card";
+import { normalizePartnerCalcBasis, usesGrossExpenseAmounts } from "@/lib/partner-calc-basis";
 import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
 import { keepRootPerimeter, pickOutsideRootPerimeter, isOutsideRootPerimeter } from "@/lib/settlement-perimeter";
 import { toast } from "@/hooks/use-toast";
@@ -185,6 +187,8 @@ export default function EventDetail() {
   // Valores reportados pelos novos EventFinancialCard (para alimentar o card Lucro)
   const [cardIncomeValue, setCardIncomeValue] = useState<number>(0);
   const [cardExpenseValue, setCardExpenseValue] = useState<number>(0);
+  // Vista de IVA escolhida nesta sessão; null = ainda não escolhida (usa o guardado/critério).
+  const [viewWithVatChoice, setViewWithVatChoice] = useState<boolean | null>(null);
 
   // Reflect tab + sub-event into the URL so they survive navigations.
   useEffect(() => {
@@ -905,6 +909,22 @@ export default function EventDetail() {
 
   const EventTypeIcon = eventType === "festival" ? Layers : isMultiEvent ? Route : Calendar;
 
+  // ── VISTA de IVA da página (#207) ────────────────────────────────
+  // Uma só vista para Receitas, Custos e Lucro, guardada por utilizador+evento.
+  // NÃO é critério: `events.partner_calc_basis` continua a mandar no Fecho.
+  const vatUserId = user?.id ?? "anon";
+  const contractWithVat = usesGrossExpenseAmounts(
+    normalizePartnerCalcBasis((event as any)?.partner_calc_basis),
+  );
+  const viewWithVat = viewWithVatChoice
+    ?? readStoredWithVat(vatUserId, id ?? "", "page", contractWithVat);
+  const setViewWithVat = (v: boolean) => {
+    setViewWithVatChoice(v);
+    writeStoredWithVat(vatUserId, id ?? "", "page", v);
+  };
+  const viewDiffersFromContract = viewWithVat !== contractWithVat;
+
+
   return (
     <div className="min-w-0 space-y-6">
       <div>
@@ -1133,6 +1153,9 @@ export default function EventDetail() {
           primaryEventDate={effectiveEventDate}
           ticketSales={ticketSales}
           onValueChange={setCardIncomeValue}
+          partnerCalcBasis={event.partner_calc_basis}
+          viewWithVat={viewWithVat}
+          onViewWithVatChange={setViewWithVat}
         />
         <EventFinancialCard
           eventId={id!}
@@ -1146,6 +1169,8 @@ export default function EventDetail() {
           masterForecastShare={Number(masterForecastShare || 0)}
           cacheImpact={Number(calculatedCacheImpact || 0)}
           onValueChange={setCardExpenseValue}
+          viewWithVat={viewWithVat}
+          onViewWithVatChange={setViewWithVat}
         />
 
         <StatCard
@@ -1153,8 +1178,12 @@ export default function EventDetail() {
           value={formatCurrency(cardIncomeValue - cardExpenseValue)}
           icon={Wallet}
           variant="primary"
-          subtitle={cardIncomeValue > 0 ? `Margem: ${(((cardIncomeValue - cardExpenseValue) / cardIncomeValue) * 100).toFixed(1)}%` : undefined}
-          tooltip="Receita REAL (perímetro do fechamento raiz) − Custos no critério gravado no evento. É igual ao resultado do fechamento raiz no Encontro de Contas. A vista 'previsto + excedido' do card de Receitas não entra aqui. Margem = Lucro ÷ Receita real."
+          subtitle={
+            cardIncomeValue > 0
+              ? `Margem: ${(((cardIncomeValue - cardExpenseValue) / cardIncomeValue) * 100).toFixed(1)}% · ${viewWithVat ? "c/IVA" : "s/IVA"}${viewDiffersFromContract ? " · ≠ critério do fecho" : ""}`
+              : `${viewWithVat ? "c/IVA" : "s/IVA"}${viewDiffersFromContract ? " · ≠ critério do fecho" : ""}`
+          }
+          tooltip="Receita REAL (perímetro do fechamento raiz) − Custos, ambos na base de IVA da VISTA escolhida nesta página. A vista é só apresentação: o Fecho, o Encontro de Contas e o Portal do Sócio usam sempre o critério contratual gravado no evento. A vista 'previsto + excedido' do card de Receitas não entra aqui. Margem = Lucro ÷ Receita real."
         />
 
         <StatCard

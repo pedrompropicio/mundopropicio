@@ -31,6 +31,12 @@ export interface SponsorshipSyntheticResult {
   baselineNet: number | null;
   currentNet: number | null;
   realNet: number;
+  /**
+   * Os MESMOS valores em bruto (#207), pelo `iva_rate` das linhas de origem
+   * (1.2.*). Mesmo critério do líquido — só acrescentam o imposto.
+   */
+  currentGross: number | null;
+  realGross: number;
   segments: SponsorshipSegmentBreakdown[];
   /** ids das linhas 1.2.01 persistidas que a sintética passa a representar */
   excludedForecastIds: string[];
@@ -42,6 +48,8 @@ const EMPTY: SponsorshipSyntheticResult = {
   baselineNet: null,
   currentNet: null,
   realNet: 0,
+  currentGross: null,
+  realGross: 0,
   segments: [],
   excludedForecastIds: [],
 };
@@ -79,6 +87,31 @@ export async function computeSponsorshipSynthetic(
     closedBySegment.set(key, (closedBySegment.get(key) ?? 0) + Number(c.confirmed_amount || 0));
   }
   const realNet = closedCards.reduce((s, c) => s + Number(c.confirmed_amount || 0), 0);
+
+  // ── Bruto pelo IVA das linhas de origem (#207) ───────────────────
+  // Taxa por linha 1.2.* ligada ao card; para o que falta captar usa-se a taxa
+  // predominante dessas linhas (na falta de linhas, 23%).
+  const { data: sponsorFcs } = await supabase
+    .from("event_forecasts")
+    .select("id, iva_rate, account_categories(code)")
+    .in("event_id", ids)
+    .is("version_id", null)
+    .eq("type", "income");
+  const rateById = new Map<string, number>();
+  const rateFreq = new Map<number, number>();
+  for (const f of ((sponsorFcs ?? []) as any[])) {
+    if (!String(f.account_categories?.code ?? "").startsWith("1.2")) continue;
+    const r = Number(f.iva_rate ?? 0);
+    rateById.set(f.id as string, r);
+    rateFreq.set(r, (rateFreq.get(r) ?? 0) + 1);
+  }
+  let defaultRate = 23;
+  let best = 0;
+  for (const [r, n] of rateFreq) if (n > best) { best = n; defaultRate = r; }
+  const realGross = closedCards.reduce((s, c) => {
+    const r = rateById.get(c.linked_forecast_id as string) ?? defaultRate;
+    return s + Number(c.confirmed_amount || 0) * (1 + r / 100);
+  }, 0);
 
   // Agrega verbas por segmento (um Master + splits pode ter uma verba por evento).
   const targetsBySegment = new Map<string, { target: number; baseline: number; name: string; order: number }>();
@@ -133,6 +166,8 @@ export async function computeSponsorshipSynthetic(
     baselineNet,
     currentNet: realNet + remainingTotal,
     realNet,
+    currentGross: realGross + remainingTotal * (1 + defaultRate / 100),
+    realGross,
     segments,
     excludedForecastIds,
   };

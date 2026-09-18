@@ -60,15 +60,18 @@ export interface RevenueRealBasis {
 }
 
 export interface RevenueForecastBasis {
-  total: number | null;
-  buckets: Record<RevenueBucket, number | null>;
+  total: MoneyPair | null;
+  buckets: Record<RevenueBucket, MoneyPair | null>;
 }
 
 export interface EventRevenueBasis {
   real: RevenueRealBasis;
   currentForecast: RevenueForecastBasis;
-  /** Previsto + excedido (D24): por componente max(real, previsto corrente ?? real) */
-  committed: { total: number; buckets: Record<RevenueBucket, number> };
+  /**
+   * Previsto + excedido (D24): por componente e por base de IVA,
+   * max(real, previsto corrente ?? real). O IVA é vista, não critério (#207).
+   */
+  committed: { total: MoneyPair; buckets: Record<RevenueBucket, MoneyPair> };
   sponsorship: SponsorshipSyntheticResult;
   ticketForecast: LiveTicketForecast | null;
 }
@@ -215,7 +218,9 @@ export async function computeEventRevenueBasis(
     .eq("type", "income");
 
   const excludedIds = new Set(sponsorship.excludedForecastIds);
-  let othersForecast: number | null = null;
+  // Outras receitas: bruto pelo `iva_rate` da própria linha (Art.º 18 CIVA,
+  // linha a linha). O líquido é exactamente o de antes.
+  let othersForecast: MoneyPair | null = null;
   for (const f of keepRootPerimeter((fcs ?? []) as any[], roots.rootIds)) {
     if (f.status !== "approved") continue;
     if (f.is_transitory || f.exclude_from_result || f.is_overhead) continue;
@@ -224,38 +229,66 @@ export async function computeEventRevenueBasis(
     if (cls === "bilheteira" || cls === "ab") continue;
     if (cls === "patrocinio" && sponsorship.hasTargets) continue;
     if (cls === "patrocinio") continue; // representado pelo bucket patrocínio
-    othersForecast = (othersForecast ?? 0) + Number(f.amount || 0);
+    const net = Number(f.amount || 0);
+    const gross = calcTotalWithIva(net, Number(f.iva_rate || 0));
+    othersForecast = {
+      net: (othersForecast?.net ?? 0) + net,
+      gross: (othersForecast?.gross ?? 0) + gross,
+    };
   }
 
-  const sponsorForecast = sponsorship.hasTargets
-    ? sponsorship.currentNet
+  const sponsorForecast: MoneyPair | null = sponsorship.hasTargets
+    ? { net: sponsorship.currentNet ?? 0, gross: sponsorship.currentGross ?? sponsorship.currentNet ?? 0 }
     : sponsorship.realNet > 0
-      ? sponsorship.realNet
+      ? { net: sponsorship.realNet, gross: sponsorship.realGross || sponsorship.realNet }
       : null;
 
-  const forecastBuckets: Record<RevenueBucket, number | null> = {
-    bilheteira: ticketForecast?.net ?? null,
-    ab: abForecastNet ?? null,
+  const ticketForecastPair: MoneyPair | null =
+    ticketForecast?.net != null
+      ? { net: ticketForecast.net, gross: ticketForecast.gross ?? ticketForecast.net }
+      : null;
+
+  // A&B: `abForecastNet` vem LÍQUIDO do módulo A&B e a taxa do módulo não é
+  // acessível aqui (vive nos hooks do A&B) — o bruto fica igual ao líquido.
+  const abForecastPair: MoneyPair | null =
+    abForecastNet != null ? { net: abForecastNet, gross: abForecastNet } : null;
+
+  const forecastBuckets: Record<RevenueBucket, MoneyPair | null> = {
+    bilheteira: ticketForecastPair,
+    ab: abForecastPair,
     patrocinio: sponsorForecast,
     outros: othersForecast,
   };
   const anyForecast = REVENUE_BUCKETS.some((b) => forecastBuckets[b] != null);
   const currentForecast: RevenueForecastBasis = {
     total: anyForecast
-      ? REVENUE_BUCKETS.reduce((s, b) => s + (forecastBuckets[b] ?? 0), 0)
+      ? REVENUE_BUCKETS.reduce<MoneyPair>(
+          (acc, b) => ({
+            net: acc.net + (forecastBuckets[b]?.net ?? 0),
+            gross: acc.gross + (forecastBuckets[b]?.gross ?? 0),
+          }),
+          zeroPair(),
+        )
       : null,
     buckets: forecastBuckets,
   };
 
   // ── PREVISTO + EXCEDIDO (D24) ────────────────────────────────────
-  const committedBuckets = {} as Record<RevenueBucket, number>;
+  // Em CADA base de IVA, bucket a bucket: max(real, previsto ?? real) (#207).
+  const committedBuckets = {} as Record<RevenueBucket, MoneyPair>;
   for (const b of REVENUE_BUCKETS) {
-    const r = buckets[b].net;
+    const r = buckets[b];
     const f = forecastBuckets[b];
-    committedBuckets[b] = Math.max(r, f ?? r);
+    committedBuckets[b] = {
+      net: Math.max(r.net, f?.net ?? r.net),
+      gross: Math.max(r.gross, f?.gross ?? r.gross),
+    };
   }
   const committed = {
-    total: REVENUE_BUCKETS.reduce((s, b) => s + committedBuckets[b], 0),
+    total: REVENUE_BUCKETS.reduce<MoneyPair>(
+      (acc, b) => ({ net: acc.net + committedBuckets[b].net, gross: acc.gross + committedBuckets[b].gross }),
+      zeroPair(),
+    ),
     buckets: committedBuckets,
   };
 
