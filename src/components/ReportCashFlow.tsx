@@ -333,10 +333,19 @@ export default function ReportCashFlow() {
                     <TableHead className="text-right">Receitas</TableHead>
                     <TableHead className="text-right">Despesas</TableHead>
                     <TableHead className="text-right">Saldo</TableHead>
-                    <TableHead className="text-right">Acumulado</TableHead>
+                    <TableHead className="text-right">Saldo acumulado</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  <TableRow className="bg-muted/20">
+                    <TableCell className="font-medium italic">Saldo de abertura</TableCell>
+                    <TableCell />
+                    <TableCell />
+                    <TableCell />
+                    <TableCell className={`text-right font-mono ${openingBalance >= 0 ? "text-success" : "text-destructive"}`}>
+                      {formatCurrency(openingBalance)}
+                    </TableCell>
+                  </TableRow>
                   {consolidatedRows.map((row) => (
                     <TableRow key={row.period}>
                       <TableCell className="font-medium">{formatPeriodLabel(row.period, granularity)}</TableCell>
