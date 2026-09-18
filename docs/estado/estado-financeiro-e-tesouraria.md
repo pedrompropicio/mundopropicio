@@ -1,10 +1,56 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 2026-09-17 (fecho). Issues abertas da frente: #91, #125, #127,
-#134, #135, #147, #149, #154, #181, #189, #190, #195.
-Fechadas em 17/09: #191, #192, #193.
+Atualizado: 2026-09-18 (fecho). Issues abertas da frente: #91, #125, #127,
+#134, #135, #147, #149, #154, #181, #189, #190, #195, #196.
+Fechadas em 17–18/09: #191, #192, #193, #200, #201.
 
 ## Em que pé está
+
+- **Listas de Pagamento — marca do lote SEPA, blocos e contadores por fase
+  (18/09, #200 fechada).** O selo "No ficheiro SEPA de DD/MM" no item, o botão
+  "Marcar como Pago" só nas que ficaram fora do ficheiro, e o download do XML
+  passa a marcar como pago o que leva (`markSepaBatchPaid`, idempotente). A
+  listagem passou de tabela a **blocos**: cada lista é um cartão com barra
+  segmentada de cinco fases e contadores não-zero. Referência do campo:
+  filtro de dígitos na Referência **só em `service_payment`** — `payment_reference`
+  é também onde vivem as chaves de agrupamento (`ACERTO-FOOD-IVETE-2026`,
+  `CAMARIM-<id>`), um filtro global destruía-as. Data sugerida ao liquidar
+  passou a ser **hoje**, editável.
+  ⚠️ **"Marcar como Pago" e "Liquidar" são duas FASES, não duas categorias:**
+  pago = o dinheiro saiu do banco; liquidado = o sistema sabe de que conta saiu.
+  Uma transação marcada e não liquidada **não entra no saldo de nenhuma conta**.
+  A 17/09: 196 itens, 484.084,08 € nessa situação, mais 140 itens de legado
+  (474.808,36 €) pagos sem passar por nenhum dos dois botões. É a razão de fundo
+  por que o Santander precisou de saldo implantado com data de corte (D-ERP25).
+  Denominador da barra: `Lançadas + Não aprovadas` (as não aprovadas têm
+  `removed_at NOT NULL` e não estão nos ativos). A barra só renderiza se os cinco
+  segmentos fecharem — se não fecharem fica vazia em vez de mentir; barra vazia
+  com itens dentro significa classificação a escapar.
+
+- **Cargas de cartão — crédito por criar, escrita não atómica e erro engolido
+  (18/09, #201 fechada).** O crédito no cartão nasce do trigger
+  `card_load_on_out_paid`, que só dispara quando a saída passa a `paid`. Como
+  "Marcar como Pago" não toca na transação, **o trigger nunca corria** e a carga
+  ficava com dinheiro real no cartão e zero crédito no sistema — e as cargas sem
+  IBAN são exactamente aquelas a quem o ecrã manda usar esse botão.
+  Corrigido: nas cargas o botão é **Liquidar**, nunca "Marcar como Pago"; aviso
+  no ecrã; invariante `carga_sem_credito` (referência 0); e o `performCardLoad`
+  passou a **RPC `create_card_session_load`**, atómica, com `{ error }` lido e
+  lançado (o helper encolheu de 47 para 21 linhas).
+  ⚠️ **Rejeitado** fazer o trigger disparar com a marca visual: a entrada nasceria
+  `paid` com a saída por pagar e **o caixa total subiria do nada a cada carga**.
+  **Defeito encontrado a testar contra a base:** a RPC não passava `company_id` e
+  confiava no default `current_company_id()`. Como não é `SECURITY DEFINER`, a
+  empresa vinha do contexto de quem chama — rebentaria numa edge function, num
+  cron ou num script. Passou a ler `card_sessions.company_id` e a escrevê-lo
+  explicitamente nas duas pernas. **Nenhum teste unitário apanharia isto.**
+  Prova em Live, sem resíduos: 3 cargas · 6 transações `carga_cartao`, antes e
+  depois. Script em `supabase/tests/create_card_session_load.sql`.
+
+- **Dashboard: esconder valores (18/09).** Botão de olho único acima dos cartões
+  SALDO EM CAIXA e RETIDO EM BILHETEIRAS; os dois passam a `••••••••`. Estado em
+  `localStorage`, chave `mp:dashboard:hide-amounts`, começa visível. Só estes dois
+  cartões — a Posição de Vendas fica à vista por decisão do Pedro.
 
 - **Faturas avulsas da Lovable carregadas (17/09, #191 e #192 fechadas).**
   34 faturas em `standalone_invoices`, 2026-03-18 a 2026-09-16,
@@ -185,6 +231,11 @@ O Santander está implantado (122.363,05 € com corte a 31/08/2026) e o extrato
     conhecida é 81.639,65 €. Falta carregar as faturas que restam na Drive
     e lançar a folha de set a dez à medida que chega.
 
+12. **Provar o crédito do cartão numa liquidação real.** Nada do que foi testado
+    na #201 prova que o trigger `card_load_on_out_paid` cria a entrada — isso
+    exige liquidar uma carga com conta financeira, no ecrã, uma vez. A partir daí
+    a invariante `carga_sem_credito` vigia sozinha.
+
 
 Já feito e sem pendência: a **FT 11.1/101** está anexada ao movimento do banco de **135.986,96 €** e replicada nas duas transações ligadas.
 
@@ -243,6 +294,21 @@ Não corrigir sem decisão explícita.
 **Google Ads: débito por limiar lança-se pelo par 10.3 para a conta "Google Ads" (regra debito direto-google ireland já existe); o custo por evento vem das Faturas Ads. Via Verde: regra a 23% de IVA desde 16/09.**
 
 **O extrato do Santander bate ao cêntimo com o sistema a 16/09 (481.658,14 €) antes do crédito Ticketline.**
+
+**A documentação da feature mentiu quatro vezes em dois dias (17–18/09).** Em todos
+os casos o código estava certo e a memória errada, e numa delas fez escrever um
+prompt errado ao agente:
+- `payment-lists.md` dizia que "Marcar como Pago" liquidava a transação. Não
+  liquida — é estritamente visual.
+- `payment-lists.md`, nas cargas sem IBAN, dizia que "Marcar como Pago" criava o
+  crédito no cartão. Não cria.
+- `card-sessions.md` descrevia a recarga a criar o par completo já `paid`. Cria só
+  a saída, a `pending`; a entrada vem do trigger.
+- `transitory-reason.md` **existia e estava certa**, mas foi ignorada: propôs-se
+  construir de novo o `transitory_reason` que já estava feito nesse mesmo dia
+  (D-ERP80), com um domínio de seis valores quando o real tem sete.
+**Regra prática: ler o código antes de acreditar na memória da feature, e a
+memória antes de propor o que quer que seja.**
 
 **O saldo de conta nunca filtra `reversed_at`.** A RPC `reverse_transaction` tem dois tipos de estorno: `cash_refund` põe `paid_amount = 0` (o dinheiro voltou), `supplier_credit` mantém o `paid_amount` (o dinheiro saiu mesmo e nasce um crédito no fornecedor). `paid_amount` já é a resposta certa nos dois casos; filtrar `reversed_at` no saldo inflacionaria os estornos por crédito de fornecedor.
 
