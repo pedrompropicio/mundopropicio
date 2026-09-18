@@ -420,11 +420,19 @@ async function syncSimpleCacheForecasts(
   let effectiveGross = ticketRevenueGross;
 
   if (zoneIds.length > 0) {
-    const [salesRes, lotsRes] = await Promise.all([
-      supabase.from("ticket_sales").select("lot_id, zone_id, quantity, unit_price").in("zone_id", zoneIds),
+    const [salesPaged, lotsRes] = await Promise.all([
+      // #205: paginado — nunca somar ticket_sales sem .range().
+      fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("lot_id, zone_id, quantity, unit_price")
+          .in("zone_id", zoneIds)
+          .order("id", { ascending: true })
+          .range(from, to),
+      ),
       supabase.from("event_ticket_lots").select("id, iva_rate").in("zone_id", zoneIds),
     ]);
-    const sales = salesRes.data ?? [];
+    const sales = salesPaged;
     const lots = lotsRes.data ?? [];
 
     if (sales.length > 0) {

@@ -201,12 +201,15 @@ export default function IvaManagement() {
   const { data: ticketSales = [] } = useQuery({
     queryKey: ["iva-ticket-sales"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("sale_date, quantity, unit_price, total_value, lot_id")
-        .order("sale_date", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
+      // #205: tabela inteira, paginada.
+      return await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("sale_date, quantity, unit_price, total_value, lot_id")
+          .order("sale_date", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
     },
   });
 

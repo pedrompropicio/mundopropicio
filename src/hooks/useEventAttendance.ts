@@ -109,11 +109,15 @@ export function useEventAttendance(
     queryKey: ["event_real_sales_attendance", eventId, zoneIds.join(",")],
     queryFn: async () => {
       if (zoneIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("zone_id, lot_id, quantity, financial_account_id, source, import_batch_id, created_at")
-        .in("zone_id", zoneIds);
-      if (error) throw error;
+      // #205: lista completa paginada (PostgREST corta aos 1.000).
+      const data = await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("zone_id, lot_id, quantity, financial_account_id, source, import_batch_id, created_at")
+          .in("zone_id", zoneIds)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       return keepLatestFeverImportRows((data ?? []) as any[]);
     },
     enabled: scenario === "real" && zoneIds.length > 0,
