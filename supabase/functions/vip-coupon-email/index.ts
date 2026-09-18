@@ -33,10 +33,11 @@ interface EventRow {
   vip_coupon_code: string | null
   vip_coupon_discount_label: string | null
   vip_coupon_valid_until: string | null
+  company_id: string | null
 }
 
 const EVENT_COLS =
-  'id, name, slug, ticketing_url, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until'
+  'id, name, slug, ticketing_url, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, company_id'
 
 /** Formata YYYY-MM-DD / ISO em DD/MM/AAAA (sem deslocar timezone). */
 function formatDate(value: string): string {
@@ -136,6 +137,8 @@ Deno.serve(async (req) => {
       body: {
         templateName: 'vip-coupon',
         recipientEmail: email,
+        // Empresa dona do evento (#211): tokens e supressão são por empresa.
+        companyId: event.company_id,
         idempotencyKey: `vip-coupon-${type}-${event.id}-${email}`,
         templateData,
       },

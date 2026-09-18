@@ -220,7 +220,16 @@ async function sendDigest(
     };
   },
   events: DigestEvent[],
+  companyId: string | null,
 ): Promise<{ sent: boolean; reason?: string; recipients?: string[] }> {
+  // #211: o token de cancelamento e a supressão são por empresa, por isso a
+  // send-transactional-email exige companyId. Aqui a empresa é a dos eventos da
+  // varredura; se a corrida abranger mais do que uma, não há resposta única e
+  // não se inventa um default — falha e fica registado.
+  if (!companyId) {
+    console.error("[bilheteira-sync] sem empresa única nos eventos — digest não enviado (#211)");
+    return { sent: false, reason: "no_single_company" };
+  }
   // Secrets aceitam 1 ou N e-mails separados por vírgula (ou ponto-e-vírgula).
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const sanitizeEmail = (raw: string): string | null => {
@@ -278,6 +287,7 @@ async function sendDigest(
         body: {
           templateName: "bilheteira-sync-digest",
           recipientEmail: rcpt,
+          companyId,
           idempotencyKey: `bilheteira-sync-${stamp}-${rcpt}`,
           templateData,
         },
@@ -572,13 +582,13 @@ Deno.serve(async (req) => {
 
   let q = admin
     .from("events")
-    .select("id, name, slug, date, ticketing_url, ticketing_provider, portal_visible")
+    .select("id, name, slug, date, ticketing_url, ticketing_provider, portal_visible, company_id")
     .eq("portal_visible", true)
     .not("ticketing_url", "is", null)
     .gte("date", today);
   if (body.eventId) q = admin
     .from("events")
-    .select("id, name, slug, date, ticketing_url, ticketing_provider, portal_visible")
+    .select("id, name, slug, date, ticketing_url, ticketing_provider, portal_visible, company_id")
     .eq("id", body.eventId);
 
   const { data: events, error: evErr } = await q;
@@ -781,7 +791,8 @@ Deno.serve(async (req) => {
   // ---- Notificação: só quando há mudanças aplicadas OU alerta possible_soldout ----
   let email: { sent: boolean; reason?: string; recipients?: string[] } = { sent: false, reason: "no_changes" };
   if (digest.length > 0 && !dryRun) {
-    email = await sendDigest(admin, digest);
+    const companyIds = [...new Set((events ?? []).map((e: any) => e.company_id).filter(Boolean))];
+    email = await sendDigest(admin, digest, companyIds.length === 1 ? (companyIds[0] as string) : null);
   } else if (dryRun && digest.length > 0) {
     email = { sent: false, reason: "dry_run" };
   }

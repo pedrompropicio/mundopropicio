@@ -246,7 +246,7 @@ async function sendSecurityAlert(
     const adminIds = adminRoles.map((r: any) => r.user_id);
     const { data: adminProfiles } = await supabaseAdmin
       .from("profiles")
-      .select("email")
+      .select("email, company_id")
       .in("id", adminIds);
 
     if (!adminProfiles?.length) return;
@@ -262,6 +262,8 @@ async function sendSecurityAlert(
           body: {
             templateName: "security-alert",
             recipientEmail: admin.email,
+            // Empresa do admin destinatário (#211).
+            companyId: admin.company_id,
             idempotencyKey: idempotencyBase,
             templateData: {
               targetEmail,
