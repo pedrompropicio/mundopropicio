@@ -51,6 +51,25 @@ interface Offence {
   table: string;
 }
 
+/**
+ * Devolve o encadeamento a partir de `start` (o `.from(`) até ao FIM DO
+ * STATEMENT: o `;` ao nível de topo, uma vírgula ao nível de topo, um fecho de
+ * parêntesis/chaveta que já não é nosso, ou um novo `.from(`.
+ */
+function forwardChain(src: string, start: number): string {
+  let depth = 0;
+  for (let i = start; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === "(" || ch === "[" || ch === "{") depth++;
+    else if (ch === ")" || ch === "]" || ch === "}") {
+      if (depth === 0) return src.slice(start, i);
+      depth--;
+    } else if (depth === 0 && (ch === ";" || ch === ",")) return src.slice(start, i);
+    else if (i > start && depth === 0 && src.startsWith(".from(", i)) return src.slice(start, i);
+  }
+  return src.slice(start);
+}
+
 function scanFile(file: string): Offence[] {
   const src = readFileSync(file, "utf8");
   const offences: Offence[] = [];
