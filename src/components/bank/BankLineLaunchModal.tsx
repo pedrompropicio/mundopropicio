@@ -91,52 +91,23 @@ interface Props {
 }
 
 /**
- * #154 — inserir e ligar é UM só passo lógico: se a ligação das linhas falhar,
- * a transação criada é apagada. Nunca fica transação órfã a mexer no saldo.
+ * #154 — o modal NUNCA insere em `transactions`. Tudo passa pela RPC
+ * `launch_from_bank_lines`: transações e linhas nascem no mesmo commit, e uma
+ * linha já conciliada é recusada (guarda contra o duplo clique).
  */
-async function insertAndLinkLines(
-  payload: Record<string, unknown>,
-  lineIds: string[],
-  matchedBy: string,
-  note: string | null,
-): Promise<string> {
-  const { data: tx, error } = await supabase
-    .from("transactions")
-    .insert(payload as any)
-    .select("id")
-    .single();
-  if (error) throw error;
-  const { error: eLines } = await supabase
-    .from("bank_statement_lines")
-    .update({
-      status: "matched",
-      created_transaction_id: tx.id,
-      matched_transaction_id: tx.id,
-      matched_by: matchedBy,
-      matched_at: new Date().toISOString(),
-      note,
-    })
-    .in("id", lineIds);
-  if (eLines) {
-    await supabase.from("transactions").delete().eq("id", tx.id);
-    throw eLines;
-  }
-  return tx.id as string;
+interface LaunchItem {
+  transaction: Record<string, unknown>;
+  line_ids: string[];
+  matched_by?: string;
+  note?: string | null;
 }
 
-/** Desfaz uma perna já gravada (usado quando a perna seguinte falha). */
-async function revertLeg(txId: string, lineIds: string[]) {
-  await supabase
-    .from("bank_statement_lines")
-    .update({
-      status: "unmatched",
-      created_transaction_id: null,
-      matched_transaction_id: null,
-      matched_by: null,
-      matched_at: null,
-    })
-    .in("id", lineIds);
-  await supabase.from("transactions").delete().eq("id", txId);
+async function launchAtomic(items: LaunchItem[]): Promise<string[]> {
+  const { data, error } = await supabase.rpc("launch_from_bank_lines" as any, {
+    p_items: items as any,
+  } as any);
+  if (error) throw error;
+  return (data as string[]) ?? [];
 }
 
 export function BankLineLaunchModal({ lines, accountId, accountName, rules, feePlan = null, onClose, onDone }: Props) {
