@@ -205,7 +205,7 @@ O saldo mostrado com a consolidação ligada é recalculado sobre a ordem que se
 **Fix B** — deferido: os embeds em `Transactions.tsx` já são explícitos (`!transactions_supplier_id_fkey`); o custo real é o `fetchAllPaged` sem filtro de evento/estado — reabrir quando houver janela.
 
 ## Prazos e renovações
-- **PAT do GitHub expira 24/set/2026** (#15) — 7 dias.
+- **PAT do GitHub expira 24/set/2026** (#15) — 6 dias.
 - Token Meta da conta da Ivete expira 08/10/2026. Fortal e Siriguella expirados desde 22/08 (#36).
 
 ## Factos que não se reinvestigam
