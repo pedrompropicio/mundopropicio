@@ -13,10 +13,12 @@ import { template as securityAlert } from './security-alert.tsx'
 import { template as paymentListNotification } from './payment-list-notification.tsx'
 import { template as bilheteiraSyncDigest } from './bilheteira-sync-digest.tsx'
 import { template as vipCoupon } from './vip-coupon.tsx'
+import { template as ticketingSyncAlert } from './ticketing-sync-alert.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'security-alert': securityAlert,
   'payment-list-notification': paymentListNotification,
   'bilheteira-sync-digest': bilheteiraSyncDigest,
   'vip-coupon': vipCoupon,
+  'ticketing-sync-alert': ticketingSyncAlert,
 }
