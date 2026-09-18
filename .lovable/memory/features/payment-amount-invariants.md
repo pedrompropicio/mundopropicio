@@ -63,3 +63,43 @@ Não corrigir sem decisão explícita. `paid_amount` **não** é derivado de
   ser reportado como sucesso.
 - **Editor**: corrige data e apaga pagamentos (evento não fechado). Valor, conta, método,
   entidade, referência, nº fatura, nota e ajuste de pagamento direto ficam admin/manager.
+
+## paid_amount derivado (2026-09-18, #91, D-ERP86)
+
+`transactions.paid_amount`, o estado de pagamento e `payment_date` são DERIVADOS no
+servidor a partir de `transaction_payments` — o trigger
+`sync_paid_amount_from_payments()` deixou de exigir cronograma de parcelas e age em
+TODOS os inserts/updates/deletes de linhas. **O cliente nunca escreve `paid_amount`,
+estado de pagamento ou `payment_date`**; grava/edita/apaga a LINHA e a base deriva.
+
+Regra (só linhas `status='paid'`):
+- soma ≤ 0,01 € → `paid_amount=0`, estado volta a `approved` (NÃO `pending`: é
+  `approved` que os seletores das listas de pagamento exigem), `payment_date=NULL`;
+- soma ≥ bruto − 0,05 € → `paid_amount=soma`, `paid`, `payment_date=max(data)`;
+- entre os dois → `paid_amount=soma`, `approved` (parcial; `partially_paid` não existe).
+Bruto = `amount * (1 + iva_rate/100)`; tolerância 0,05 como o `isFullyPaid` do cliente.
+
+Moeda estrangeira: coluna `transaction_payments.closes_transaction` (bool, default
+false). Em `currency <> 'EUR'` o estado passa a `paid` quando a soma atinge o bruto OU
+quando a linha vem com `closes_transaction=true` (o `BatchPaymentModal` põe-na a true
+quando `closesForeign`) — a variação cambial impede a igualdade em EUR.
+
+Isenções calculadas na própria função (RETURN sem tocar na transação):
+filha de rateio (`parent_transaction_id IS NOT NULL AND split_percentage IS NOT NULL`),
+`is_reimbursement = true`, ou existe linha em `partner_paid_expenses`. Nestas a escrita
+directa mantém-se: `settleChildrenOf` (TransactionPaymentModal), ciclo das filhas no
+`BatchPaymentModal`, `PartnerPaidExpensesPanel` e notas de reembolso.
+
+Ordem obrigatória no cliente: **linha primeiro, update dos campos não derivados depois**
+(`account_id`, `payment_method`, `payment_entity`, `payment_reference`, `invoice_ref`,
+limpeza de `reversed_at`/`reversal_kind`), tudo com `if (error) throw error`.
+
+Único caso em que o cliente ainda escreve `paid_amount`: o ajuste de pagamento direto
+(`PaymentTimeline`, `TransactionPaymentsListModal`), que só aparece quando NÃO há linhas —
+com valor > 0 grava uma linha; com valor 0 não há linha de onde derivar, logo repõe
+`paid_amount=0`, `approved`, `payment_date=NULL` directamente.
+
+Verificação: invariante `paid_amount_sem_linhas` (error, global, referência 1 — só a
+legada "Aluguel espaço" `31497cab-8123-4a5b-8ee3-0e13db8508c9`), em
+`_run_invariant_checks_extra()`; prova `supabase/tests/paid_amount_derivado.sql`
+(BEGIN…ROLLBACK, 4 casos, todos verdes a 18/09/2026).

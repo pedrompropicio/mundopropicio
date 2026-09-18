@@ -154,19 +154,11 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
         throw new Error("Não foi possível atualizar o pagamento (sem permissão ou linha inexistente). A transação não foi alterada.");
       }
 
-
-      // Recalculate transaction paid_amount
-      const newTotalPaid = Math.round((otherPaymentsTotal + newAmount) * 100) / 100;
-      const newStatus = isFullyPaid(newTotalPaid, baseAmount, ivaRate) ? "paid" : "approved";
-      const finalPaid = newStatus === "paid" ? Math.max(newTotalPaid, totalWithIva) : newTotalPaid;
-
-      // Update the latest payment info on the transaction
+      // (#91) paid_amount / status / payment_date da transação são derivados no
+      // servidor a partir das linhas. Aqui só se escrevem os campos não derivados.
       const { error: txError } = await supabase
         .from("transactions")
         .update({
-          paid_amount: finalPaid,
-          status: newStatus,
-          payment_date: format(editForm.payment_date, "yyyy-MM-dd"),
           account_id: effAccountId,
           payment_method: effMethod,
           payment_entity: effMethod === "service_payment" ? (effEntity ?? "").trim() : null,
@@ -174,6 +166,7 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
         } as any)
         .eq("id", transaction.id);
       if (txError) throw txError;
+
 
       // Granular audit log — one entry per changed field
       const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
@@ -249,27 +242,21 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
       }
 
 
-      // Recalculate transaction paid_amount
+      // (#91) O servidor recalcula paid_amount / status / payment_date a partir
+      // das linhas que sobram. Aqui só se acerta a conta (campo não derivado).
       const remainingTotal = payments
         .filter((p: any) => p.id !== paymentId)
         .reduce((s: number, p: any) => s + Number(p.amount), 0);
       const newTotalPaid = Math.round(remainingTotal * 100) / 100;
-      const newStatus = newTotalPaid <= 0 ? "approved" : isFullyPaid(newTotalPaid, baseAmount, ivaRate) ? "paid" : "approved";
-
-      // Find the last remaining payment for date/account
       const remainingPayments = payments.filter((p: any) => p.id !== paymentId);
       const lastPayment = remainingPayments.length > 0 ? remainingPayments[remainingPayments.length - 1] : null;
 
       const { error: txError } = await supabase
         .from("transactions")
-        .update({
-          paid_amount: newTotalPaid,
-          status: newStatus,
-          payment_date: lastPayment?.payment_date ?? null,
-          account_id: lastPayment?.account_id ?? null,
-        } as any)
+        .update({ account_id: lastPayment?.account_id ?? null } as any)
         .eq("id", transaction.id);
       if (txError) throw txError;
+
 
       // Audit log
       const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
@@ -299,19 +286,42 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
       if (newPaid > totalWithIva + 0.05) throw new Error("O valor pago não pode exceder o montante da transação");
 
       const newDate = directForm.payment_date ? format(directForm.payment_date, "yyyy-MM-dd") : null;
+      // Só para o texto da auditoria — o estado e o valor gravados são os do servidor.
       const newStatus = newPaid <= 0 ? "approved" : isFullyPaid(newPaid, baseAmount, ivaRate) ? "paid" : "approved";
-      const finalPaid = newStatus === "paid" ? Math.max(newPaid, totalWithIva) : newPaid;
+      const finalPaid = newPaid;
+
+      // (#91) Este painel só aparece quando NÃO há linhas de pagamento. O ajuste
+      // do admin passa a gravar uma linha e o servidor deriva daí paid_amount,
+      // status e payment_date. Com valor zero não há linha de onde derivar: é o
+      // único caso em que o valor pago se escreve directamente (reposição a zero).
+      if (newPaid > 0) {
+        if (!newDate) throw new Error("Escolha a data do pagamento");
+        const { error: lineError } = await (supabase as any)
+          .from("transaction_payments")
+          .insert({
+            transaction_id: transaction.id,
+            amount: newPaid,
+            payment_date: newDate,
+            account_id: directForm.account_id || null,
+            status: "paid",
+            created_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
+            notes: "Ajuste de pagamento direto",
+          });
+        if (lineError) throw lineError;
+      } else {
+        const { error: resetError } = await supabase
+          .from("transactions")
+          .update({ paid_amount: 0, status: "approved", payment_date: null } as any)
+          .eq("id", transaction.id);
+        if (resetError) throw resetError;
+      }
 
       const { error } = await supabase
         .from("transactions")
-        .update({
-          paid_amount: finalPaid,
-          status: newStatus,
-          payment_date: newPaid > 0 ? newDate : null,
-          account_id: directForm.account_id || null,
-        } as any)
+        .update({ account_id: directForm.account_id || null } as any)
         .eq("id", transaction.id);
       if (error) throw error;
+
 
       const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
       const auditEntries: any[] = [];

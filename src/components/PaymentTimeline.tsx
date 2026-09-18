@@ -143,24 +143,46 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
         throw new Error("O valor pago não pode exceder o total da transação");
       }
       const newDate = directForm.payment_date ? format(directForm.payment_date, "yyyy-MM-dd") : null;
+      // Só para o texto da auditoria — quem decide o estado e o valor é o servidor.
       const newStatus = newPaid <= 0
         ? "approved"
         : isFullyPaid(newPaid, baseAmount, ivaRate)
           ? "paid"
           : "approved";
-      // Se ficar 'paid' garante que o valor armazenado é pelo menos o totalWithIva
-      const finalPaid = newStatus === "paid" ? Math.max(newPaid, totalWithIva) : newPaid;
+      const finalPaid = newPaid;
+
+      // (#91) paid_amount / status / payment_date derivam de transaction_payments
+      // no servidor. Este painel só aparece quando não há linhas: o ajuste grava
+      // uma linha. Com valor zero não há linha de onde derivar — é o único caso
+      // em que o valor pago se escreve directamente (reposição a zero).
+      if (newPaid > 0) {
+        if (!newDate) throw new Error("Escolha a data do pagamento");
+        const { error: lineError } = await (supabase as any)
+          .from("transaction_payments")
+          .insert({
+            transaction_id: txId,
+            amount: newPaid,
+            payment_date: newDate,
+            account_id: directForm.account_id || null,
+            status: "paid",
+            created_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
+            notes: "Ajuste de pagamento direto",
+          });
+        if (lineError) throw lineError;
+      } else {
+        const { error: resetError } = await supabase
+          .from("transactions")
+          .update({ paid_amount: 0, status: "approved", payment_date: null } as any)
+          .eq("id", txId);
+        if (resetError) throw resetError;
+      }
 
       const { error } = await supabase
         .from("transactions")
-        .update({
-          paid_amount: finalPaid,
-          status: newStatus,
-          payment_date: newPaid > 0 ? newDate : null,
-          account_id: directForm.account_id || null,
-        } as any)
+        .update({ account_id: directForm.account_id || null } as any)
         .eq("id", txId);
       if (error) throw error;
+
 
       // Audit log granular
       const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";

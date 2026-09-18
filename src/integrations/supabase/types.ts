@@ -13883,6 +13883,7 @@ export type Database = {
         Row: {
           account_id: string | null
           amount: number
+          closes_transaction: boolean
           company_id: string
           created_at: string
           created_by: string
@@ -13908,6 +13909,7 @@ export type Database = {
         Insert: {
           account_id?: string | null
           amount: number
+          closes_transaction?: boolean
           company_id?: string
           created_at?: string
           created_by?: string
@@ -13933,6 +13935,7 @@ export type Database = {
         Update: {
           account_id?: string | null
           amount?: number
+          closes_transaction?: boolean
           company_id?: string
           created_at?: string
           created_by?: string
