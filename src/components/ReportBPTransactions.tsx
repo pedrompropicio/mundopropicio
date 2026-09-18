@@ -140,6 +140,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     queryKey: ["all-forecasts"],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase.from("event_forecasts").select("*").is("version_id", null));
+      if (error) throw error;
       return data;
     },
   });
