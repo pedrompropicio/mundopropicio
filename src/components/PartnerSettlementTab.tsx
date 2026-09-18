@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 import { toast } from "@/hooks/use-toast";
 import { effectiveBasisShortLabel, effectiveExpenseBasisLabel } from "@/lib/settlement-basis";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
