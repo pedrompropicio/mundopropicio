@@ -354,7 +354,7 @@ Deno.serve(async (req) => {
       let lastErr: string | undefined;
       for (let i = 0; i < cleanRows.length; i += batchSize) {
         const batch = cleanRows.slice(i, i + batchSize);
-        const { error } = await admin.from(t).upsert(batch, { onConflict: "id", ignoreDuplicates: false });
+        const { error } = await tableRef(admin, t).upsert(batch, { onConflict: "id", ignoreDuplicates: false });
         if (error) {
           lastErr = `batch ${Math.floor(i / batchSize)}: ${error.message}`;
           break;
