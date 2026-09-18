@@ -905,6 +905,22 @@ export default function EventDetail() {
 
   const EventTypeIcon = eventType === "festival" ? Layers : isMultiEvent ? Route : Calendar;
 
+  // ── VISTA de IVA da página (#207) ────────────────────────────────
+  // Uma só vista para Receitas, Custos e Lucro, guardada por utilizador+evento.
+  // NÃO é critério: `events.partner_calc_basis` continua a mandar no Fecho.
+  const vatUserId = user?.id ?? "anon";
+  const contractWithVat = usesGrossExpenseAmounts(
+    normalizePartnerCalcBasis((event as any)?.partner_calc_basis),
+  );
+  const viewWithVat = viewWithVatChoice
+    ?? readStoredWithVat(vatUserId, id ?? "", "page", contractWithVat);
+  const setViewWithVat = (v: boolean) => {
+    setViewWithVatChoice(v);
+    writeStoredWithVat(vatUserId, id ?? "", "page", v);
+  };
+  const viewDiffersFromContract = viewWithVat !== contractWithVat;
+
+
   return (
     <div className="min-w-0 space-y-6">
       <div>
