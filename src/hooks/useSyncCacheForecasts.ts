@@ -74,12 +74,15 @@ export function useSyncCacheForecasts({
         .from("ticket_sales")
         .select("*", { count: "exact", head: true })
         .in("zone_id", zoneIds);
-      // Also get a rough sum to detect price changes
-      const { data: agg, error: qErr2 } = await supabase
-        .from("ticket_sales")
-        .select("quantity, unit_price")
-        .in("zone_id", zoneIds);
-      if (qErr2) throw qErr2;
+      // Also get a rough sum to detect price changes (paginado — #205)
+      const agg = await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("quantity, unit_price")
+          .in("zone_id", zoneIds)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
       const total = (agg ?? []).reduce((s: number, r: any) => s + Number(r.quantity) * Number(r.unit_price), 0);
       return `${count}:${Math.round(total * 100)}`;
     },
