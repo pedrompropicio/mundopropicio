@@ -229,17 +229,14 @@ export function EventFinancialCard(props: Props) {
               </DropdownMenuRadioGroup>
 
               <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-xs">IVA</DropdownMenuLabel>
-              {isExpense ? (
-                <div className="px-2 pb-1 text-[11px] leading-snug text-muted-foreground">
-                  {withVat ? "Com IVA (bruto)" : "Sem IVA (base líquida)"} — critério contratual do evento.
-                </div>
-              ) : (
-                <DropdownMenuRadioGroup value={withVat ? "com" : "sem"} onValueChange={(v) => setWithVat(v === "com")}>
-                  <DropdownMenuRadioItem value="sem">Sem IVA (base líquida)</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="com">Com IVA (bruto)</DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              )}
+              <DropdownMenuLabel className="text-xs">Vista</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={withVat ? "com" : "sem"} onValueChange={(v) => setWithVat(v === "com")}>
+                <DropdownMenuRadioItem value="sem">Sem IVA (base líquida)</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="com">Com IVA (bruto)</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+              <div className="px-2 pb-1 text-[11px] leading-snug text-muted-foreground">
+                Critério contratual do evento: {shared.withVat ? "c/IVA" : "s/IVA"} — usado no Fecho.
+              </div>
               {kind === "expense" && (
                 <>
                   <DropdownMenuSeparator />
