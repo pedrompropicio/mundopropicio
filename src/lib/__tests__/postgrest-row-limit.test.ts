@@ -60,9 +60,9 @@ function scanFile(file: string): Offence[] {
     const table = m[2].replace(/^(public|crm)\./, "");
     if (!WATCHED.has(table)) continue;
 
-    // Encadeamento = daqui até ao próximo `.from(` (ou 4000 caracteres).
-    // A janela inclui o que vem ANTES do `.from(` até ao limite do statement,
-    // para reconhecer o embrulho `fetchAllPagedQuery(supabase.from(...))`.
+    // Encadeamento = SÓ o desta query.
+    // Para trás, até ao limite do statement, para reconhecer o embrulho
+    // `fetchAllPagedQuery(supabase.from(...))`.
     const head = src.slice(0, m.index);
     const begin = Math.max(
       head.lastIndexOf(";"),
@@ -70,9 +70,10 @@ function scanFile(file: string): Offence[] {
       head.lastIndexOf("{"),
       head.lastIndexOf("}"),
     );
-    const rest = src.slice(m.index, m.index + 4000);
-    const nextFrom = rest.indexOf(".from(", 1);
-    const chain = src.slice(begin + 1, m.index) + (nextFrom > 0 ? rest.slice(0, nextFrom) : rest);
+    // Para a frente, até ao FIM DO STATEMENT — nunca até ao próximo `.from(`,
+    // senão um `.limit(`/`.range(`/`fetchAllPaged` de outra query mais abaixo
+    // no mesmo ficheiro dava escape por engano (#206, ResultsAnalysis.tsx).
+    const chain = src.slice(begin + 1, m.index) + forwardChain(src, m.index);
 
     if (WRITES.some((w) => chain.includes(w))) continue;
     if (ESCAPES.some((e) => chain.includes(e))) continue;
