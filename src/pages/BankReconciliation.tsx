@@ -145,6 +145,14 @@ export default function BankReconciliation() {
     value_date: l.value_date ?? null,
   });
 
+  /**
+   * TRAVA 1 (18/09/2026): só contas BANCÁRIAS recebem extrato. A 18/09 um
+   * ficheiro do Santander (abertura 482.158,14 €) foi importado com o "Cartão
+   * Santander Pre-Pago - 0663" (`prepaid_card`, saldo 1.386,68 €) escolhido e
+   * o ecrã gravou sem um pio. O seletor deixa de mostrar `cash`, `prepaid_card`
+   * e companhia — e a gravação confirma o tipo outra vez (ver `saveImport`),
+   * porque um seletor não é uma trava.
+   */
   const { data: accounts = [] } = useQuery({
     queryKey: ["bank-recon-accounts"],
     queryFn: async () => {
@@ -152,12 +160,14 @@ export default function BankReconciliation() {
         .from("financial_accounts")
         .select("id, name, type, initial_balance, initial_balance_date, skip_balance_check, is_active")
         .eq("is_active", true)
-        .in("type", ["bank", "cash", "prepaid_card"])
+        .eq("is_hidden", false)
+        .eq("type", "bank")
         .order("name");
       if (error) throw error;
       return data || [];
     },
   });
+
 
   const account = useMemo(() => (accounts as any[]).find((a) => a.id === accountId), [accounts, accountId]);
 
@@ -928,6 +938,101 @@ export default function BankReconciliation() {
     eveOfPeriodFrom,
   ]);
 
+  /**
+   * TRAVA 2 (18/09/2026) — a abertura do ficheiro contra o ÚLTIMO SALDO
+   * CONHECIDO da conta. Distinta do aviso da #185 (`cutoffMismatch`), que é
+   * informativo e mede desencaixes de linhas em falta: esta pergunta se o
+   * ficheiro é sequer DESTA conta, e RECUSA a gravação sem botão de forçar.
+   *
+   * Referência, por esta ordem:
+   *  (a) `closing_balance` do extrato mais recente da conta (maior `period_to`;
+   *      em empate, `imported_at` mais recente);
+   *  (b) sem extratos: saldo do sistema à véspera de `period_from`
+   *      (`account_true_balances_asof`);
+   *  (c) se o ficheiro cobre a data de corte, a #185 já compara com o
+   *      implantado — aqui não se duplica.
+   *
+   * Recusa só quando a diferença é grosseira nas DUAS medidas: mais de 1.000 €
+   * E mais de 10% da maior das grandezas. Um ficheiro de outra conta falha as
+   * duas com folga (482.158,14 € contra 1.386,68 €); um extrato com linhas em
+   * falta não.
+   */
+  const lastStatementRef = useMemo(() => {
+    const sts = (statements as any[]).filter(
+      (s) => s.closing_balance !== null && s.closing_balance !== undefined,
+    );
+    if (sts.length === 0) return null;
+    const sorted = [...sts].sort((a, b) => {
+      const pa = String(a.period_to ?? "");
+      const pb = String(b.period_to ?? "");
+      if (pa !== pb) return pa < pb ? 1 : -1;
+      return String(a.imported_at ?? "") < String(b.imported_at ?? "") ? 1 : -1;
+    });
+    const s = sorted[0];
+    return {
+      balance: Number(s.closing_balance),
+      origin: `fecho do extrato de ${formatDatePT(s.period_from)} → ${formatDatePT(s.period_to)}`,
+    };
+  }, [statements]);
+
+  // Referência (b): só quando a conta ainda não tem extrato nenhum.
+  const needsRefEve = !!parsed && !!eveOfPeriodFrom && !lastStatementRef;
+  const { data: refEveBalances } = useQuery({
+    queryKey: ["bank-recon-ref-eve-balance", accountId, eveOfPeriodFrom],
+    enabled: !!accountId && needsRefEve,
+    queryFn: () => fetchAccountTrueBalancesAsOf([accountId], eveOfPeriodFrom),
+  });
+
+  const openingCheck = useMemo(() => {
+    if (!parsed || !accountId) return null;
+    const opening = parsed.openingBalance;
+    if (opening === null || opening === undefined) return null;
+    // (c) o ficheiro cobre a data de corte: a #185 é a referência.
+    if (hasCutoffLines) {
+      return {
+        reference: null as number | null,
+        origin: "saldo implantado da conta (o ficheiro cobre a data de corte)",
+        diff: null as number | null,
+        refuse: false,
+      };
+    }
+    let reference: number | null = null;
+    let origin = "";
+    if (lastStatementRef) {
+      reference = lastStatementRef.balance;
+      origin = lastStatementRef.origin;
+    } else if (refEveBalances) {
+      const sys = refEveBalances.get(accountId) ?? null;
+      if (sys !== null) {
+        reference = sys;
+        origin = `saldo do sistema a ${formatDatePT(eveOfPeriodFrom as string)}`;
+      } else {
+        origin = "sem saldo visível para esta conta";
+      }
+    } else {
+      origin = "a calcular…";
+    }
+    if (reference === null) {
+      return { reference: null as number | null, origin, diff: null as number | null, refuse: false };
+    }
+    const diff = Math.round((opening - reference) * 100) / 100;
+    const abs = Math.abs(diff);
+    const scale = Math.max(Math.abs(reference), Math.abs(opening), 1);
+    return { reference, origin, diff, refuse: abs > 1000 && abs > 0.1 * scale, opening };
+  }, [parsed, accountId, hasCutoffLines, lastStatementRef, refEveBalances, eveOfPeriodFrom]);
+
+  const wrongAccountType = !!account && account.type !== "bank";
+
+  const openingRefuseMessage = useMemo(() => {
+    if (!openingCheck?.refuse || openingCheck.reference === null || openingCheck.diff === null) return null;
+    return (
+      `A abertura do ficheiro (${formatCurrency(Number(parsed?.openingBalance ?? 0))}) está a ` +
+      `${formatCurrency(Math.abs(openingCheck.diff))} do último saldo conhecido desta conta ` +
+      `(${formatCurrency(openingCheck.reference)}, ${openingCheck.origin}). ` +
+      `Este ficheiro não parece ser desta conta.`
+    );
+  }, [openingCheck, parsed]);
+
 
   async function saveImport() {
     if (!parsed || !preview || !accountId || !fileRef) return;
@@ -935,7 +1040,19 @@ export default function BankReconciliation() {
       toast.error("Importação recusada: a cadeia de saldos do ficheiro não fecha.");
       return;
     }
+    // TRAVA 1 na gravação: um seletor não é uma trava (incidente de 18/09/2026).
+    const target = (accounts as any[]).find((a) => a.id === accountId);
+    if (!target || target.type !== "bank") {
+      toast.error("Só contas bancárias recebem extrato.");
+      return;
+    }
+    // TRAVA 2 na gravação: ficheiro que não é desta conta. Sem forçar.
+    if (openingRefuseMessage) {
+      toast.error(openingRefuseMessage);
+      return;
+    }
     setSaving(true);
+
     try {
       // Hashes primeiro: são a identidade das linhas e a chave da guarda de
       // reimportação.
@@ -1314,7 +1431,38 @@ export default function BankReconciliation() {
       {parsed && preview && (
         <div className="glass space-y-3 rounded-xl p-4">
           <h2 className="font-semibold">Resumo antes de gravar</h2>
+          {wrongAccountType && (
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
+              <AlertTriangle className="mt-0.5 h-4 w-4 text-destructive" />
+              <div>
+                <p className="font-medium text-destructive">Só contas bancárias recebem extrato.</p>
+                <p className="text-muted-foreground">
+                  A conta escolhida ({account?.name}) não é uma conta bancária.
+                </p>
+              </div>
+            </div>
+          )}
+          {openingRefuseMessage && (
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
+              <AlertTriangle className="mt-0.5 h-4 w-4 text-destructive" />
+              <div>
+                <p className="font-medium text-destructive">Importação recusada — este ficheiro não é desta conta.</p>
+                <p className="text-muted-foreground">{openingRefuseMessage}</p>
+              </div>
+            </div>
+          )}
+          {/* A referência da abertura mostra-se SEMPRE, mesmo quando não recusa. */}
+          {openingCheck && (
+            <p className="text-xs text-muted-foreground">
+              Abertura do ficheiro: {formatCurrency(Number(parsed.openingBalance ?? 0))} ·{" "}
+              {openingCheck.reference === null
+                ? `referência: ${openingCheck.origin}`
+                : `último saldo conhecido: ${formatCurrency(openingCheck.reference)} (${openingCheck.origin})` +
+                  (openingCheck.diff === null ? "" : ` · diferença ${formatCurrency(openingCheck.diff)}`)}
+            </p>
+          )}
           {!parsed.coherent && (
+
             <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
               <AlertTriangle className="mt-0.5 h-4 w-4 text-destructive" />
               <div>
@@ -1388,7 +1536,7 @@ export default function BankReconciliation() {
           )}
 
           <div className="flex gap-2">
-            <Button onClick={saveImport} disabled={saving || !parsed.coherent}>
+            <Button onClick={saveImport} disabled={saving || !parsed.coherent || wrongAccountType || !!openingRefuseMessage}>
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
               Gravar importação
             </Button>
