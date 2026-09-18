@@ -17,7 +17,7 @@
 //     Mantém a mesma zona e permite o utilizador distinguir nas tabelas.
 //   - iva_rate default = 6 (mesmo da Fever Portugal).
 import type { OperationsParseResult } from "./ticketline-operations-parser.ts";
-import { fetchAllPagedQuery } from "../../_shared/paging.ts";
+import { fetchAllPagedQuery } from "./paging.ts";
 
 const SOURCE = "ticketline_import";
 const IVA_RATE = 6;
