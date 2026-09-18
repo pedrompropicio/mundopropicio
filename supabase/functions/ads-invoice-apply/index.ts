@@ -169,7 +169,7 @@ async function handleConfirm(body: any, userId?: string) {
   }
   if (inv.status !== "proposed") return json({ error: `estado ${inv.status} não confirmável` }, 400);
 
-  const problem = checkReady(inv, lines);
+  const problem = await checkReady(inv, lines);
   if (problem) return json({ error: problem }, 400);
 
   const { error: ue } = await admin
@@ -306,7 +306,7 @@ async function handleGenerate(body: any, userId?: string) {
   if (!dryRun && inv.status !== "confirmed") return json({ error: "a fatura tem de estar confirmada" }, 400);
 
 
-  const problem = checkReady(inv, lines);
+  const problem = await checkReady(inv, lines);
   if (problem) return json({ error: problem }, 400);
 
   // ---- rateio dos ajustes (D-ERP31)
