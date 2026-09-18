@@ -54,3 +54,35 @@ Billing setup `customers/2200043144/billingSetups/8418160932` está `APPROVED` m
 pagamentos automáticos: `InvoiceService.ListInvoices` (v24) devolve HTTP 400
 `BILLING_SETUP_NOT_ON_MONTHLY_INVOICING`. Não há `pdf_url` a puxar — o PDF entra à mão.
 Não voltar a investigar isto sem mudança de regime de faturação da conta.
+
+## Linha sem evento: um critério (2026-09-18, #125)
+
+`public.ads_invoice_line_is_pending(l ads_invoice_line)` (IMMUTABLE, SECURITY INVOKER):
+
+```
+NOT COALESCE(is_adjustment,false)
+AND COALESCE(match_source,'') <> 'fora_sistema'
+AND (event_id IS NULL OR match_source = 'none')
+```
+
+É a **união** dos dois critérios que existiam: a lista escondia as linhas com evento mas
+`match_source='none'` (resolução falhada que deixou o evento antigo lá); o detalhe e o
+`checkReady` já as contavam. Ganha o critério mais rigoroso. `fora_sistema` é decisão
+humana — a linha não é órfã.
+
+Contagem: `public.ads_invoice_pending_counts(p_invoice_ids uuid[])` → `(invoice_id,
+total_lines, pending_lines)`, `GROUP BY invoice_id`, STABLE, SECURITY INVOKER (a RLS
+decide), `authenticated` + `service_role` (anon revogado). Devolve no máximo uma linha por
+fatura pedida — a barreira dos 1.000 do PostgREST não se aplica.
+
+**Os três consumidores usam-na, nenhum reimplementa o critério:**
+
+1. lista de faturas (`AdsInvoices.tsx`, coluna "Sem evento") — uma chamada por página de
+   faturas; a leitura de `ads_invoice_line` inteira desapareceu;
+2. detalhe da fatura — o contador do cabeçalho é o `pending_lines` da RPC (as linhas
+   continuam a vir da tabela, paginadas);
+3. `ads-invoice-apply → checkReady` — recusa por `pending_lines > 0`; os números de linha
+   da mensagem vêm do campo calculado `ads_invoice_line_is_pending` do PostgREST.
+
+Live 18/09: 8 faturas, 130 linhas, `sum(total_lines)=130`, `sum(pending_lines)=0`, igual à
+contagem direta pela função; 0 linhas com evento e `match_source='none'`.
