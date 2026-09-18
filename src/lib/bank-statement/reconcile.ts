@@ -234,6 +234,10 @@ export function reconcileStatement(
  *
  * `cutoffDate` (a `initial_balance_date` da conta) exclui o que já está dentro
  * do saldo implantado: essas transações não se conciliam, por definição.
+ *
+ * `explainedIds` tem de vir por CONTA e não por extrato (#189): com períodos
+ * sobrepostos a linha fica no primeiro extrato que a trouxe (`line_hash`), e
+ * procurar só no extrato aberto dava por "sem movimento" dinheiro conciliado.
  */
 export function findTransactionsWithoutBankLine(
   transactions: ReconcileTransaction[],

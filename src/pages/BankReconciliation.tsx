@@ -380,6 +380,66 @@ export default function BankReconciliation() {
     return s;
   }, [savedLines, sepaSiblings, bridgeByLine]);
 
+  /**
+   * "Esta transação tem movimento no banco?" olha para TODAS as linhas da CONTA,
+   * não só para as do extrato escolhido (2026-09-18, #189). Com períodos
+   * sobrepostos — a prática recomendada — a linha vive no PRIMEIRO extrato que a
+   * trouxe: o `line_hash` impede o duplicado no ficheiro seguinte. Procurar só
+   * dentro do `statement_id` dava "transação sem movimento no banco" a dinheiro
+   * que está conciliado (caso Crédito Google Ads, 16/09/2026).
+   *
+   * Uma leitura das linhas da conta + uma da ponte, não N por transação.
+   */
+  const { data: accountLinks } = useQuery({
+    queryKey: ["bank-recon-account-links", accountId],
+    enabled: !!accountId,
+    queryFn: async () => {
+      const lines = await fetchAllPages<any>((from, to) =>
+        supabase
+          .from("bank_statement_lines")
+          .select("id, status, matched_transaction_id, created_transaction_id, matched_sepa_export_id")
+          .eq("financial_account_id", accountId)
+          .order("id")
+          .range(from, to) as any,
+      );
+      const usable = (lines as any[]).filter((l) => l.status === "matched");
+      const lineIds = usable.map((l) => l.id);
+      const bridge: string[] = [];
+      for (let i = 0; i < lineIds.length; i += 200) {
+        const { data, error } = await supabase
+          .from("bank_line_transactions")
+          .select("transaction_id")
+          .in("line_id", lineIds.slice(i, i + 200));
+        if (error) throw error;
+        (data ?? []).forEach((r: any) => r.transaction_id && bridge.push(r.transaction_id));
+      }
+      return {
+        direct: usable.flatMap((l) =>
+          [l.matched_transaction_id, l.created_transaction_id].filter(Boolean) as string[],
+        ),
+        sepaExportIds: usable.map((l) => l.matched_sepa_export_id).filter(Boolean) as string[],
+        bridge,
+      };
+    },
+  });
+
+  /**
+   * Base ÚNICA do critério "explicada": ligações do extrato aberto + ligações em
+   * qualquer outro extrato da mesma conta. A lista e o total do triângulo saem
+   * daqui, para não voltarem a divergir.
+   */
+  const accountExplainedIds = useMemo(() => {
+    const s = new Set<string>(savedExplainedIds);
+    (accountLinks?.direct ?? []).forEach((id) => s.add(id));
+    (accountLinks?.bridge ?? []).forEach((id) => s.add(id));
+    (accountLinks?.sepaExportIds ?? []).forEach((exportId) =>
+      (sepaSiblings.get(exportId) ?? []).forEach((e) =>
+        (e.transaction_ids ?? []).forEach((id) => id && s.add(id)),
+      ),
+    );
+    return s;
+  }, [savedExplainedIds, accountLinks, sepaSiblings]);
+
 
   const unmatchedLines = (savedLines as any[]).filter((l) => l.status === "unmatched");
   const matchedLines = (savedLines as any[]).filter((l) => l.status === "matched");
@@ -596,12 +656,12 @@ export default function BankReconciliation() {
     if (!currentStatement) return [] as ReconcileTransaction[];
     return findTransactionsWithoutBankLine(
       txns as ReconcileTransaction[],
-      savedExplainedIds,
+      accountExplainedIds,
       currentStatement.period_from,
       currentStatement.period_to,
       cutoff,
     );
-  }, [txns, savedExplainedIds, currentStatement, cutoff]);
+  }, [txns, accountExplainedIds, currentStatement, cutoff]);
 
 
   // ---- Confronto sistema × banco ------------------------------------------
@@ -1824,7 +1884,7 @@ export default function BankReconciliation() {
                   placeholder="Procurar e adicionar transação"
                   options={[
                     ...(txns as any[])
-                      .filter((t) => !savedExplainedIds.has(t.id) && !manualTxIds.includes(t.id))
+                      .filter((t) => !accountExplainedIds.has(t.id) && !manualTxIds.includes(t.id))
                       .map((t) => ({
                         value: t.id,
                         label: `${formatDatePT(t.payment_date ?? t.date)} · ${formatCurrency(Number(t.paid_amount ?? 0))} · ${t.description}`,
@@ -1832,7 +1892,7 @@ export default function BankReconciliation() {
                       })),
                     // Candidatas de OUTRAS contas: sempre depois e sempre com aviso.
                     ...(crossAccountTxns as any[])
-                      .filter((t) => !savedExplainedIds.has(t.id) && !manualTxIds.includes(t.id))
+                      .filter((t) => !accountExplainedIds.has(t.id) && !manualTxIds.includes(t.id))
                       .map((t) => ({
                         value: t.id,
                         label: `${formatDatePT(t.payment_date ?? t.date)} · ${formatCurrency(Number(t.paid_amount ?? 0))} · ${t.description}`,
