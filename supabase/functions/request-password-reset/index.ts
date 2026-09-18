@@ -230,18 +230,44 @@ Deno.serve(async (req) => {
     // Enqueue via transactional queue
     const messageId = crypto.randomUUID();
     const idempotencyKey = `recovery-${portal}-${messageId}`;
-    const unsubscribeToken = crypto.randomUUID();
 
-    await adminClient.from("email_unsubscribe_tokens").upsert(
-      { email, token: unsubscribeToken },
-      { onConflict: "email" }
-    );
+    // (#211) O token de cancelamento de subscrição é POR EMPRESA:
+    // company_id vem do perfil de quem pede o reset. Sem perfil não se
+    // inventa empresa — fica sem token e diz-se no log.
+    const { data: profileRow } = await adminClient
+      .from("profiles")
+      .select("company_id")
+      .ilike("email", email)
+      .maybeSingle();
+
+    const companyId: string | null = profileRow?.company_id ?? null;
+    let unsubscribeToken: string | null = null;
+
+    if (companyId) {
+      unsubscribeToken = crypto.randomUUID();
+      const { error: unsubscribeError } = await adminClient
+        .from("email_unsubscribe_tokens")
+        .upsert(
+          { email, token: unsubscribeToken, company_id: companyId },
+          { onConflict: "email,company_id" }
+        );
+      if (unsubscribeError) {
+        console.error("Unsubscribe token error:", unsubscribeError);
+        unsubscribeToken = null;
+      }
+    } else {
+      console.log(
+        "[request-password-reset] sem perfil para este email — recovery enviado sem token de cancelamento de subscrição",
+        { email }
+      );
+    }
 
     await adminClient.from("email_send_log").insert({
       message_id: messageId,
       template_name: "recovery",
       recipient_email: email,
       status: "pending",
+      company_id: companyId,
     });
 
     const { error: enqueueError } = await adminClient.rpc("enqueue_email", {
