@@ -5315,7 +5315,7 @@ export type Database = {
       }
       email_unsubscribe_tokens: {
         Row: {
-          company_id: string | null
+          company_id: string
           created_at: string
           email: string
           id: string
@@ -5323,7 +5323,7 @@ export type Database = {
           used_at: string | null
         }
         Insert: {
-          company_id?: string | null
+          company_id?: string
           created_at?: string
           email: string
           id?: string
@@ -5331,7 +5331,7 @@ export type Database = {
           used_at?: string | null
         }
         Update: {
-          company_id?: string | null
+          company_id?: string
           created_at?: string
           email?: string
           id?: string
