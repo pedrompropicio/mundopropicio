@@ -233,6 +233,15 @@ async function openBackup(admin: any, target: string) {
   };
 }
 
+/** Ordem de restauro: as conhecidas primeiro (dependências), as restantes no fim. */
+function orderedKeys(effective: Record<string, any[]>): string[] {
+  const keys = Object.keys(effective);
+  return [
+    ...TABLE_ORDER.filter((t) => keys.includes(t)),
+    ...keys.filter((t) => !TABLE_ORDER.includes(t)).sort(),
+  ];
+}
+
 function cleanRow(table: string, row: any): any {
   const whitelist = COLUMN_WHITELIST[table];
   if (!whitelist) return row;
@@ -409,7 +418,7 @@ Deno.serve(async (req) => {
     // Preview mode → just counts
     if (mode === "preview") {
       const preview: Record<string, number> = {};
-      for (const t of TABLE_ORDER) if (effective[t]) preview[t] = effective[t].length;
+      for (const t of orderedKeys(effective)) if (effective[t]) preview[t] = effective[t].length;
       return new Response(JSON.stringify({
         success: true, mode: "preview", scope,
         backup_date: backup.created_at,
@@ -420,7 +429,7 @@ Deno.serve(async (req) => {
 
     // === RESTORE ===
     const results: Record<string, { deleted: number | "all"; inserted: number; error?: string }> = {};
-    const orderedTables = TABLE_ORDER.filter((t) => effective[t] && effective[t].length > 0);
+    const orderedTables = orderedKeys(effective).filter((t) => effective[t].length > 0);
 
     // Step 1: delete (children first → reverse)
     // Quando há tenantFilter, NUNCA apaga _all_ — apaga só linhas dessa company.
