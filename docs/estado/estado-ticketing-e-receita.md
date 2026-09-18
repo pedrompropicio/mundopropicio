@@ -163,9 +163,11 @@ As 19 sessões à venda, verificadas na página pública do El Corte Inglés a 0
 
 **O IVA da capa é vista; o do fecho é critério (D-ERP83, 18/09/2026).** O seletor c/IVA · s/IVA dos cards da capa não grava nada na BD e não muda o fecho. `events.partner_calc_basis` é o critério contratual e é o único que o Fecho, o Encontro de Contas, os PDFs e o Portal do Sócio leem. Uns eventos abrem em c/IVA e outros em s/IVA porque o default da vista é o critério contratual de cada um (Anitta, Ivete, FestVybbe e Mágicos H&K em `net_result_gross_expenses`; os restantes em `net_result`).
 
+**A BILHETEIRA TEM VIGIA DESDE 18/09/2026 — e é a única da casa que tem.** `public.check_ticketing_sync_health()`, cron `ticketing-sync-health` às `45 * * * *`. O que ele apanha e o que não apanha está em `.lovable/memory/features/ticketing-sync-health.md`. Duas coisas que não se esquecem: o aviso vive em `system_reminders` (banner do `/admin`) **e** em email, por esta ordem, porque um alerta que só existe num canal frágil é o mesmo que não existir; e a função **não** tem `EXCEPTION WHEN OTHERS` mudo, porque foi exatamente isso que escondeu a morte do `notify_sync_action_needed()` durante quatro meses. Quem mexer nela mantém as duas regras. O email transacional chega ao Pedro desde 18/09 — esteve a falhar de 28/08 a 18/09 por um token de unsubscribe duplicado (#211).
+
 ## Onde ler mais
 
-- `.lovable/memory/features/bilheteira-sync.md`, `bol-sync.md`, `venue-retained-door-sales.md`, `ticketline-dashboard-daily-fallback.md`
+- `.lovable/memory/features/bilheteira-sync.md`, `bol-sync.md`, `venue-retained-door-sales.md`, `ticketline-dashboard-daily-fallback.md`, `ticketing-sync-health.md`
 - `src/lib/ticket-office-balance.ts`, `src/lib/ticket-sales-revenue.ts`, `src/lib/ticket-office-settlement-calc.ts`
 - `docs/DECISIONS.md` — D-ERP15, D24, D57, D-ERP83
 - Issues #73, #78, #128, #129, #130, #145
