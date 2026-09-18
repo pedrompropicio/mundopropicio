@@ -81,3 +81,52 @@ describe("parseBolM2", () => {
     expect(res.header.generatedAt).toMatch(/14\|08\|2026 23:12/);
   });
 });
+
+// Plenitude (bol_event_id 178165) — TOTAL acima de 100.000 € com Total Vendas Qt
+// de 3 dígitos: "744 100 197,00 €". Regressão da issue #210.
+const DUMP_100K = `
+Ocupação Sessões M2 - Tipo de Venda
+Sector Lotação Disp. Ocupação Taxa Ocup. Vendas Inteiras Descontos Total Vendas Convites Permutas Reservas Geral Reservas Produção Bloqueados
+Qt Qt Qt % Qt Valor Qt Valor Qt Valor Qt Qt Qt Qt Qt
+Plateia Nobre 1200 456 744 62,0 679 93 697,00 € 65 6 500,00 € 744 100 197,00 € 0 0 0 0 0
+TOTAL 1200 456 744 62,0 679 93 697,00 € 65 6 500,00 € 744 100 197,00 € 0 0 0 0 0
+CONFERÊNCIA DE MULHERES PLENITUDE | 2026
+Altice Forum Braga
+Todas as sessões (Em Venda)
+18|09|2026 10:12 GMT Standard Time
+www.bol.pt
+`;
+
+describe("parseBolM2 — grupos de milhar (#210)", () => {
+  const res = parseBolM2(DUMP_100K);
+
+  it("lê a linha TOTAL com 744 bilhetes e 100.197,00 €", () => {
+    expect(res.totalRow).not.toBeNull();
+    expect(res.totalRow!.totalQty).toBe(744);
+    expect(res.totalRow!.totalValue).toBeCloseTo(100197, 2);
+    expect(res.totalRow!.fullQty).toBe(679);
+    expect(res.totalRow!.fullValue).toBeCloseTo(93697, 2);
+    expect(res.totalRow!.discountQty).toBe(65);
+    expect(res.totalRow!.discountValue).toBeCloseTo(6500, 2);
+  });
+
+  it("setor com qty de 3 dígitos e valor ≥ 100.000 € bate com o TOTAL", () => {
+    expect(res.rows.length).toBe(1);
+    const r = res.rows[0];
+    expect(r.sector).toBe("Plateia Nobre");
+    expect(r.capacity).toBe(1200);
+    expect(r.available).toBe(456);
+    expect(r.occupied).toBe(744);
+    expect(r.totalQty).toBe(744);
+    expect(r.totalValue).toBeCloseTo(100197, 2);
+    expect(res.totals.qty).toBe(744);
+    expect(res.totals.value).toBeCloseTo(100197, 2);
+    expect(res.warnings.filter((w) => /Diverg/i.test(w))).toHaveLength(0);
+  });
+
+  it("não regride nos casos conhecidos de um só grupo", () => {
+    const r = parseBolM2(REAL_DUMP).rows[0];
+    expect([r.fullQty, r.fullValue]).toEqual([60, 3600.0]);
+    expect([r.discountQty, r.discountValue]).toEqual([17, 816.0]);
+  });
+});

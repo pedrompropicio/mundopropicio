@@ -139,3 +139,17 @@ Parser `_shared/bol-report-parser.ts` → `parseBolM2(text)`:
 - Consumidor: RPC `get_sales_position()` + widget "Posição de Vendas" no
   Dashboard (agrega subeventos no evento-mãe; nunca soma ticket_sales com
   bol_daily_sales na mesma métrica).
+
+## v1.10 — grupos de milhar (2026-09-18, #210)
+- `resolveValues()` deixou de absorver obrigatoriamente todos os tokens de 3 dígitos
+  à esquerda de um valor monetário. Cada grupo enumera agora **quantos** grupos de
+  milhar absorve (0..n, sempre os mais próximos do valor) **e** se leva o líder
+  (só depois de absorver todos os mids). A leitura escolhida é a de melhor
+  pontuação estrutural (15 valores; monetários em 5/7/9; Total = Inteiras +
+  Descontos em qty e valor; Lotação = Disp. + Ocup.); em empate ganha a que
+  absorve menos tokens.
+- Motivo: com o TOTAL acima de 100.000 € ("744 100 197,00 €") o parser engolia o
+  "100" e o "744" — que é a Total Vendas Qt — e a validação bloqueante chumbava:
+  42 corridas `import_failed` da Conferência de Mulheres Plenitude desde 16/09.
+- Testes: `src/test/bol-m2-parser.test.ts` (9) inclui TOTAL e setor com qty de 3
+  dígitos e valor ≥ 100.000 €, e a não-regressão de "60 3 600,00 €" / "17 816,00 €".
