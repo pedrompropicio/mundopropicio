@@ -1536,7 +1536,7 @@ export default function BankReconciliation() {
           )}
 
           <div className="flex gap-2">
-            <Button onClick={saveImport} disabled={saving || !parsed.coherent}>
+            <Button onClick={saveImport} disabled={saving || !parsed.coherent || wrongAccountType || !!openingRefuseMessage}>
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
               Gravar importação
             </Button>
