@@ -145,6 +145,14 @@ export default function BankReconciliation() {
     value_date: l.value_date ?? null,
   });
 
+  /**
+   * TRAVA 1 (18/09/2026): só contas BANCÁRIAS recebem extrato. A 18/09 um
+   * ficheiro do Santander (abertura 482.158,14 €) foi importado com o "Cartão
+   * Santander Pre-Pago - 0663" (`prepaid_card`, saldo 1.386,68 €) escolhido e
+   * o ecrã gravou sem um pio. O seletor deixa de mostrar `cash`, `prepaid_card`
+   * e companhia — e a gravação confirma o tipo outra vez (ver `saveImport`),
+   * porque um seletor não é uma trava.
+   */
   const { data: accounts = [] } = useQuery({
     queryKey: ["bank-recon-accounts"],
     queryFn: async () => {
@@ -152,12 +160,14 @@ export default function BankReconciliation() {
         .from("financial_accounts")
         .select("id, name, type, initial_balance, initial_balance_date, skip_balance_check, is_active")
         .eq("is_active", true)
-        .in("type", ["bank", "cash", "prepaid_card"])
+        .eq("is_hidden", false)
+        .eq("type", "bank")
         .order("name");
       if (error) throw error;
       return data || [];
     },
   });
+
 
   const account = useMemo(() => (accounts as any[]).find((a) => a.id === accountId), [accounts, accountId]);
 
