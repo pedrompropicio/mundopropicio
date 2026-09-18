@@ -11,6 +11,8 @@ A 17/09 as transitórias passaram a dizer porquê (D-ERP80) — backfill das 41,
 
 A 18/09 fechou-se a abrangência e a observabilidade do backup diário: uma corrida por alvo, formato v4 por pasta, inventário derivado e restauro compatível com `crm` e ficheiros divididos. Ver D-ERP82 e a secção própria abaixo.
 
+A 18/09 à tarde limparam-se os alertas mortos (#211, parte 1) e fechou-se a fase 1 da barreira dos 1.000 registos (#206) — o DRE da Mundo Propício passou de 4.122.661,93 € para 6.600.832,36 € de despesas approved|paid, que é o valor certo.
+
 ## Backup e restauro (18/09/2026)
 
 **Estado verificado em Live — seis corridas com `status='ok'`:**
