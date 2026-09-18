@@ -1153,6 +1153,9 @@ export default function EventDetail() {
           primaryEventDate={effectiveEventDate}
           ticketSales={ticketSales}
           onValueChange={setCardIncomeValue}
+          partnerCalcBasis={event.partner_calc_basis}
+          viewWithVat={viewWithVat}
+          onViewWithVatChange={setViewWithVat}
         />
         <EventFinancialCard
           eventId={id!}
@@ -1166,6 +1169,8 @@ export default function EventDetail() {
           masterForecastShare={Number(masterForecastShare || 0)}
           cacheImpact={Number(calculatedCacheImpact || 0)}
           onValueChange={setCardExpenseValue}
+          viewWithVat={viewWithVat}
+          onViewWithVatChange={setViewWithVat}
         />
 
         <StatCard
@@ -1173,8 +1178,12 @@ export default function EventDetail() {
           value={formatCurrency(cardIncomeValue - cardExpenseValue)}
           icon={Wallet}
           variant="primary"
-          subtitle={cardIncomeValue > 0 ? `Margem: ${(((cardIncomeValue - cardExpenseValue) / cardIncomeValue) * 100).toFixed(1)}%` : undefined}
-          tooltip="Receita REAL (perímetro do fechamento raiz) − Custos no critério gravado no evento. É igual ao resultado do fechamento raiz no Encontro de Contas. A vista 'previsto + excedido' do card de Receitas não entra aqui. Margem = Lucro ÷ Receita real."
+          subtitle={
+            cardIncomeValue > 0
+              ? `Margem: ${(((cardIncomeValue - cardExpenseValue) / cardIncomeValue) * 100).toFixed(1)}% · ${viewWithVat ? "c/IVA" : "s/IVA"}${viewDiffersFromContract ? " · ≠ critério do fecho" : ""}`
+              : `${viewWithVat ? "c/IVA" : "s/IVA"}${viewDiffersFromContract ? " · ≠ critério do fecho" : ""}`
+          }
+          tooltip="Receita REAL (perímetro do fechamento raiz) − Custos, ambos na base de IVA da VISTA escolhida nesta página. A vista é só apresentação: o Fecho, o Encontro de Contas e o Portal do Sócio usam sempre o critério contratual gravado no evento. A vista 'previsto + excedido' do card de Receitas não entra aqui. Margem = Lucro ÷ Receita real."
         />
 
         <StatCard
