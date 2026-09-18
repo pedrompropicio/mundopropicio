@@ -133,6 +133,9 @@ Se o tema toca num fluxo já implementado, procurar primeiro em `.lovable/memory
 
 ## Regra de base de dados que nunca se salta
 
+- **O backup é v4, pasta por corrida, e a lista de tabelas é derivada. Nunca acrescentar tabelas à mão a listas de backup.**
+- **O que ficar de fora do backup vive em `backup_excluded_tables`, com motivo; nunca fica escondido no código.**
+
 **Toda a função `SECURITY DEFINER` nova no schema `public` leva, na mesma migração que a cria:**
 
 ```sql
