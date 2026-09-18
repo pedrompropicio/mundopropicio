@@ -1,6 +1,6 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado 2026-09-18 · Issues #186, #202, #203, #204, #206, #211 · a-seguir #140, #83, #96, #61
+Atualizado 2026-09-18 · Issues #186, #202, #203, #204, #206, #211 · a-seguir #83, #96, #61
 
 ## Em que pé está
 A 16–17/09 fizeram-se correções de UI no ecrã de Transações (tabela do BP sem scroll horizontal; busca por nome fantasia) e fechou-se a **#86** (ver D-ERP75).
@@ -11,7 +11,7 @@ A 17/09 as transitórias passaram a dizer porquê (D-ERP80) — backfill das 41,
 
 A 18/09 fechou-se a abrangência e a observabilidade do backup diário: uma corrida por alvo, formato v4 por pasta, inventário derivado e restauro compatível com `crm` e ficheiros divididos. Ver D-ERP82 e a secção própria abaixo.
 
-A 18/09 à tarde limparam-se os alertas mortos (#211, parte 1) e fechou-se a fase 1 da barreira dos 1.000 registos (#206) — o DRE da Mundo Propício passou de 4.122.661,93 € para 6.600.832,36 € de despesas approved|paid, que é o valor certo.
+A 18/09 à tarde limparam-se os alertas mortos (#211, parte 1) e fechou-se a fase 1 da barreira dos 1.000 registos (#206) — o DRE da Mundo Propício passou de 4.122.661,93 € para 6.600.832,36 € de despesas approved|paid, que é o valor certo. A #140 fechou-se a 18/09 alargando a janela da tarefa agendada de captação de Madrid para `0 8-23 * * *` UTC — cobre as 23h de Lisboa no verão e no inverno sem manutenção.
 
 ## Barreira dos 1.000 registos — fase 1 (18/09/2026)
 O PostgREST devolve no máximo 1.000 linhas por pedido; qualquer select do cliente sem `.range()` numa tabela acima disso fica truncado em silêncio. A Mundo Propício tem 1.197 transações approved|paid; o DRE, P&L, Resultados, Rentabilidade, Tesouraria, Acerto com Sócios, Pendências e Lista de Eventos liam 1.000. Diferença medida no DRE: 2.478.170,43 €.
@@ -112,7 +112,6 @@ Regras que ficaram:
 ## A trabalhar agora
 - **#206 fase 2** — somas e contagens de tabelas grandes na base (RPCs), com ADR próprio. Não subir `db-max-rows`.
 - **#211 parte 2** — decisão pendente: `email_unsubscribe_tokens` é por endereço ou por empresa? Enquanto não decidir, o digest das 08:00 pode falhar de novo.
-- **#140** — cron de Madrid (Onebox H&K) antes da mudança de hora de 25/10.
 - **#186** — diálogo 'Rateio ou Exclusivo?' do modal Nova Transação. Correção em portal publicada a 16/09 — falta confirmação visual do Pedro no diálogo "Custo da tour ou desta cidade?".
 - **Manual — próximos capítulos** (Fecho do evento, BP…), um de cada vez, no mesmo formato de `rateios.md`.
 

@@ -124,7 +124,8 @@ Escrever sempre em `onebox_sync_runs`, com sucesso ou sem ele: `status`, `mode` 
 
 ## Cadência
 
-De hora a hora entre as **9h e as 23h**, mais a diária. Só corre com o computador do Pedro ligado e o Chrome aberto — quando não estiver, a corrida falha, regista e não estraga nada. Como a série diária passou a vir da data de compra, **falhar horas já não corrompe o histórico**: a corrida seguinte reconstrói tudo.
+De hora a hora, na tarefa agendada do Claude com `0 8-23 * * *` em UTC — no verão (UTC+1) corre das 9h às 00h de Lisboa, no inverno (UTC+0) das 8h às 23h. A janela é deliberadamente uma hora mais larga do que o necessário para que **a corrida das 23h, que fecha o dia de vendas, fique coberta em qualquer regime horário sem se tocar no cron duas vezes por ano** (#140, 18/09/2026). Mais a diária. Só corre com o computador do Pedro ligado e o Chrome aberto — quando não estiver, a corrida falha, regista e não estraga nada. Como a série diária passou a vir da data de compra, **falhar horas já não corrompe o histórico**: a corrida seguinte reconstrói tudo.
+
 
 ## Quando a GTS destravar
 
