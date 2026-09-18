@@ -46,6 +46,7 @@
 | Captação de vendas Onebox (H&K Madrid) | `procedimentos/PROC-vendas-onebox-madrid.md` |
 | Custo partilhado com terceiros (rateio) | `procedimentos/PROC-rateio-dayoffs-turne.md` |
 | Arranque de chat (moldes de mensagem inicial + regra de fecho) | `procedimentos/PROC-arranque-chat.md` |
+| Recuperação da plataforma num projeto Supabase novo | `procedimentos/PROC-recuperacao-plataforma.md` |
 
 ## Manual de Orientação (em construção)
 
