@@ -280,6 +280,7 @@ export default function PaymentListsTab() {
           body: {
             templateName: "payment-list-notification",
             recipientEmail: profile.email,
+            companyId: company?.id,
             idempotencyKey: `payment-list-${list.id}-${profile.id}-${sendAttemptId}`,
             templateData: {
               listTitle: list.title,
