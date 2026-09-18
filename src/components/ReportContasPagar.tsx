@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { fetchSupplierBankMap, mergeEmbeddedSupplierBank, collectSupplierIds } from "@/lib/supplier-bank";
 import { excludeRateioChildren } from "@/lib/rateio-children";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
 export default function ReportContasPagar() {
@@ -57,12 +58,12 @@ export default function ReportContasPagar() {
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ["contas-pagar-report"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("*, events(name), suppliers:suppliers!transactions_supplier_id_fkey(name), account_categories(code, name)")
         .eq("type", "expense")
         .in("status", ["approved", "pending"])
-        .order("date", { ascending: false });
+        .order("date", { ascending: false }));
       if (error) throw error;
       const rows = (data ?? []) as any[];
       return mergeEmbeddedSupplierBank(rows, await fetchSupplierBankMap(collectSupplierIds(rows)));

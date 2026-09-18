@@ -9,6 +9,7 @@
 // Dry-run: monta payloads e devolve-os sem chamar a Meta Graph API.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { fetchAllPagedQuery } from "./paging.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -338,10 +339,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   const missingNames = Array.from(idsForNameLookup).filter((id) => !nameByMetaId.has(id));
   if (missingNames.length > 0) {
-    const { data: audRows } = await (admin as any)
+    const { data: audRows } = await fetchAllPagedQuery((admin as any)
       .schema("crm").from("meta_custom_audiences")
       .select("audience_id_meta, nome")
-      .in("audience_id_meta", missingNames);
+      .in("audience_id_meta", missingNames));
     for (const r of (audRows ?? [])) {
       if (r?.audience_id_meta) nameByMetaId.set(String(r.audience_id_meta), String(r.nome ?? ""));
     }

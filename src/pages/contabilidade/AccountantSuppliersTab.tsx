@@ -96,14 +96,14 @@ export function AccountantSuppliersTab({ period }: Props) {
     queryKey: ["accountant-suppliers-paid", companyId, period.from, period.to],
     enabled: !!companyId,
     queryFn: async () => {
-      const { data: txs, error } = await (supabase as any)
+      const { data: txs, error } = await fetchAllPagedQuery((supabase as any)
         .from("transactions")
         .select("supplier_id")
         .eq("company_id", companyId)
         .eq("status", "paid")
         .not("supplier_id", "is", null)
         .gte("payment_date", period.from)
-        .lte("payment_date", period.to);
+        .lte("payment_date", period.to));
       if (error) throw error;
       const map: Record<string, number> = {};
       for (const t of txs ?? []) {

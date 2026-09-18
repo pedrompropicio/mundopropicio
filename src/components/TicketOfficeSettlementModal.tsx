@@ -368,13 +368,13 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     queryKey: ["settlement_venue_invoice_candidates", eventId],
     enabled: !!eventId,
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      const { data } = await fetchAllPagedQuery((supabase as any)
         .from("transactions")
         .select("id, description, amount, iva_rate, paid_amount, status, suppliers:suppliers!transactions_supplier_id_fkey(name), account_categories(name, code)")
         .eq("event_id", eventId)
         .eq("type", "expense")
         .in("status", ["pending", "approved", "paid"])
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false }));
       const list = (data || []).map((t: any) => {
         const total = Number(t.amount || 0) * (1 + Number(t.iva_rate || 0) / 100);
         const paid = Number(t.paid_amount || 0);

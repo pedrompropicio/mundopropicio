@@ -88,13 +88,13 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
   const { data: masterForecasts = [] } = useQuery({
     queryKey: ["impl-master-forecasts", masterEvent.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, description, specification, amount, iva_rate, category_id, account_categories:category_id(code, name)")
         .eq("event_id", masterEvent.id)
         .eq("type", "expense")
         .is("version_id", null)
-        .order("description");
+        .order("description"));
       if (error) throw error;
       return data.map((f: any) => ({
         ...f,

@@ -24,6 +24,7 @@ import helpTexts from "@/lib/help-texts";
 import { useAccountBalanceCards, CASH_ACCOUNT_TYPES } from "@/hooks/useAccountBalanceCards";
 import { BalanceCompositionModal } from "@/components/BalanceCompositionModal";
 import { formatDatePT } from "@/lib/utils";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
 const ACCOUNT_TYPES = [
@@ -136,10 +137,10 @@ export default function FinancialAccounts() {
   const { data: txSummary = [] } = useQuery({
     queryKey: ["financial-accounts-tx-summary"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("account_id, type, amount, paid_amount, status, date, payment_date")
-        .not("account_id", "is", null);
+        .not("account_id", "is", null));
       if (error) throw error;
       return data;
     },

@@ -20,6 +20,7 @@ import {
   normalizeOperationKeyInput,
   operationKeyRejectionReason,
 } from "@/lib/operation-key";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /**
  * Gestão ao nível da CHAVE de operação (D-ERP45) — renomear/fundir e apagar
@@ -52,10 +53,10 @@ export function OperationKeyManager({ isAdmin }: { isAdmin: boolean }) {
   const { data: keys = [] } = useQuery({
     queryKey: ["operation-keys-with-counts"],
     queryFn: async (): Promise<KeyRow[]> => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("operation_key")
-        .not("operation_key", "is", null);
+        .not("operation_key", "is", null));
       if (error) throw error;
       const counts = new Map<string, number>();
       (data ?? []).forEach((r: any) => {

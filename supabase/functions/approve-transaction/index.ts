@@ -234,11 +234,11 @@ Deno.serve(async (req) => {
           });
         }
 
-        const { data: realizedRows, error: realizedErr } = await adminClient
+        const { data: realizedRows, error: realizedErr } = await fetchAllPagedQuery(adminClient
           .from("transactions")
           .select("id, forecast_id, amount, is_transitory, exclude_from_result, reversed_at, is_hidden, shared_cost_account_id")
           .in("forecast_id", forecastIds)
-          .in("status", ["approved", "paid"]);
+          .in("status", ["approved", "paid"]));
         if (realizedErr) {
           return new Response(JSON.stringify({ error: realizedErr.message }), {
             status: 500,
