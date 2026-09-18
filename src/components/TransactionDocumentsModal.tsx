@@ -616,6 +616,12 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
                   <p className="text-[10px] text-muted-foreground">
                     {doc.uploaded_by} · {formatDatePT(doc.uploaded_at)}
                   </p>
+                  {(sharedCounts as any)[doc.file_url] > 1 && (
+                    <p className="text-[10px] font-medium text-primary">
+                      Documento partilhado pelas {(sharedCounts as any)[doc.file_url]} linhas da fatura
+                      {invoiceCtx?.invoice_ref ? ` ${invoiceCtx.invoice_ref}` : ""}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   <button
