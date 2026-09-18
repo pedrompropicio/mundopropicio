@@ -17602,14 +17602,38 @@ export type Database = {
           note: string
         }[]
       }
-      restore_apply_from_shadow: {
-        Args: { p_company_id: string; p_scope: string; p_tables: string[] }
-        Returns: Json
-      }
+      restore_apply_from_shadow:
+        | {
+            Args: { p_company_id: string; p_scope: string; p_tables: string[] }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_company_id: string
+              p_extra_deletes?: Json
+              p_scope: string
+              p_tables: string[]
+            }
+            Returns: Json
+          }
       restore_bp_versions_from_trash: {
         Args: { _trash_id: string }
         Returns: Json
       }
+      restore_event_scope: {
+        Args: { p_event_ids: string[]; p_roots?: string[] }
+        Returns: {
+          row_id: string
+          sch: string
+          tbl: string
+          tbl_key: string
+        }[]
+      }
+      restore_event_scope_json: {
+        Args: { p_event_ids: string[]; p_roots?: string[] }
+        Returns: Json
+      }
+      restore_scope_links: { Args: { p_tables: string[] }; Returns: Json }
       restore_shadow_cleanup: { Args: { p_tables: string[] }; Returns: number }
       restore_shadow_load: {
         Args: { p_rows: Json; p_table: string }
