@@ -609,7 +609,13 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
         toast({
           title: "Pagamento parcial — não propagado",
           description:
-            "A liquidação das filhas do rateio e das restantes transações da fatura só acontece quando esta transação fica totalmente liquidada.",
+            "A liquidação das filhas do rateio só acontece quando esta transação fica totalmente liquidada.",
+        });
+      }
+      // Fatura agrupada liquidada só nesta linha: dizer quantas linhas faltam.
+      if (invoiceGroupId && (openSiblings as any[]).length > 0) {
+        toast({
+          title: `Fatura ${transaction.invoice_ref || "agrupada"} parcialmente liquidada — faltam ${(openSiblings as any[]).length} linha(s)`,
         });
       }
       onClose();
