@@ -24,7 +24,6 @@ import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
 import { computeBudgetExcess, type BudgetExcessLine } from "@/lib/bp-budget-excess";
 import { partitionByBpLineRequirement } from "@/lib/bp-line-required";
 import {
-import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -34,6 +33,7 @@ import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
 interface Props {

@@ -52,7 +52,6 @@ import {
 import { fetchAccountTrueBalancesAsOf } from "@/lib/account-balance-rpc";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import {
-import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   reconcileStatement,
   findTransactionsWithoutBankLine,
   AMOUNT_WINDOW_DAYS,
@@ -60,6 +59,7 @@ import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   type ReconcileSepaExport,
   type ReconcileTransaction,
 } from "@/lib/bank-statement/reconcile";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 const PAGE = 1000;
 

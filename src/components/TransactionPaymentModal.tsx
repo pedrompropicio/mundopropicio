@@ -25,11 +25,11 @@ import {
 
 
 import {
-import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   PAYMENT_METHOD_LABELS,
   paymentMethodOptions,
   type PaymentMethod,
 } from "@/lib/payment-methods";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   transaction: any;

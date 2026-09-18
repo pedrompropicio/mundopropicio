@@ -37,11 +37,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   exportCardSessionToPdf,
   exportCardSessionToExcel,
   type CardSessionExportData,
 } from "@/lib/export-card-session";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 type Tab = "expenses" | "queue" | "loads";
 

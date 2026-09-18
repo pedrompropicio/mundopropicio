@@ -61,7 +61,6 @@ import { statementTerms, TRANSFER_IVA_RATE, type DocLocale, type PartnerStatemen
 import { fetchExportBranding } from "@/lib/export-header";
 import { exportDisbursementExcel } from "@/lib/export-partner-disbursement";
 import {
-import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   collectBpPaidLines,
   collectDisbursementAdjustments,
   collectRevenuesHeld,
@@ -74,6 +73,7 @@ import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   type PartnerAdjustment,
   type RevenueHeldRow,
 } from "@/lib/partner-disbursement";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
 

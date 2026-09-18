@@ -12,13 +12,13 @@ import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Loader2, Handshake,
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import {
-import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   parseSponsorsXlsx,
   SPONSOR_KIND_LABEL,
   type ParsedSponsorRow,
   type SponsorImportKind,
   type SponsorsParseResult,
 } from "@/lib/parse-sponsors-xlsx";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
   open: boolean;

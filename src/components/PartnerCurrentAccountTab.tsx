@@ -9,13 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertTriangle, ChevronDown, ChevronRight, Download, Loader2 } from "lucide-react";
 import {
-import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   PARTNER_ACCOUNT_ID,
   PARTNER_PROFILE_ID,
   computePartnerTotals,
   exportPartnerCurrentAccountToExcel,
   type PartnerCurrentAccountData,
 } from "@/lib/partner-current-account";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /**
  * Conta corrente do sócio (#193) — ecrã SÓ DE LEITURA.

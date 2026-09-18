@@ -14,7 +14,6 @@
 // `revalidateInvoiceGroupAfterDocument`.
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { fetchAllPagedQuery } from "../../_shared/paging.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -414,3 +413,5 @@ Deno.serve(async (req) => {
     reused_file: reusedFile,
   })
 })
+
+import { fetchAllPagedQuery } from "../../_shared/paging.ts";

@@ -9,11 +9,11 @@ import { FileText, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import {
-import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   buildDREForExport,
   exportDREToPDF,
   getEffectiveTransactionsForExport,
 } from "@/lib/export-dre";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface PartnerDREDialogProps {
   open: boolean;

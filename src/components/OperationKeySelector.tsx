@@ -4,12 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { stringSimilarity } from "@/lib/string-similarity";
 import {
-import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   OPERATION_KEY_EXAMPLE,
   isValidOperationKey,
   normalizeOperationKeyInput,
   operationKeyRejectionReason,
 } from "@/lib/operation-key";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /**
  * Chave de operação (D-ERP45) — escolha a partir das chaves que já existem,

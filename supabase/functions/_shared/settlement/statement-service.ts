@@ -45,12 +45,12 @@ import {
   type RevenueHeldRow,
 } from "./partner-disbursement.ts";
 import {
-import { fetchAllPagedQuery } from "../../../_shared/paging.ts";
   buildPartnerStatementDoc,
   statementTerms,
   type DocLocale,
   type PartnerStatementDocInput,
 } from "./partner-statement-doc.ts";
+import { fetchAllPagedQuery } from "../../../_shared/paging.ts";
 
 const TRANSFER_IVA_RATE = 23;
 

@@ -72,10 +72,10 @@ import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
 import { keepRootPerimeter, pickOutsideRootPerimeter, isOutsideRootPerimeter } from "@/lib/settlement-perimeter";
 import { toast } from "@/hooks/use-toast";
 import {
-import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /** Placeholder estável (evita novo objeto por render nas deps do card). */
 const EMPTY_TICKET_SALES = { net: 0, gross: 0 };

@@ -21,10 +21,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TicketOfficeTicketingTab } from "@/components/TicketOfficeTicketingTab";
 import { TicketOfficeSettlementsPanel } from "@/components/TicketOfficeSettlementsPanel";
 import {
-import { fetchAllPagedQuery } from "@/lib/supabase-paging";
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export default function TicketOffices() {
   const [search, setSearch] = useState("");

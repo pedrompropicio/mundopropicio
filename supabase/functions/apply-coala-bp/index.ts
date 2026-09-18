@@ -12,11 +12,11 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
-import { fetchAllPagedQuery } from "../../_shared/paging.ts";
   parseCoalaXlsx,
   buildValidationReport,
   type ParsedRow,
 } from "../_shared/coalaParser.ts";
+import { fetchAllPagedQuery } from "../../_shared/paging.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
