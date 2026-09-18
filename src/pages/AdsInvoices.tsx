@@ -288,22 +288,25 @@ export default function AdsInvoices() {
     },
   });
 
-  const { data: allLines = [] } = useQuery({
-    queryKey: ["ads-invoice-lines-counts"],
+  // #125 — a contagem de linhas pendentes vem agregada do servidor, por página de
+  // faturas (uma chamada, nunca uma por fatura). O critério é `ads_invoice_line_is_pending`
+  // na base; ninguém o reimplementa aqui.
+  const invoiceIds = invoices.map((i) => i.id);
+  const { data: pendingCounts = [] } = useQuery({
+    queryKey: ["ads-invoice-pending-counts", invoiceIds.join(",")],
+    enabled: invoiceIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ads_invoice_line")
-        .select("invoice_id, event_id, is_adjustment, match_source");
+      const { data, error } = await supabase.rpc("ads_invoice_pending_counts", {
+        p_invoice_ids: invoiceIds,
+      });
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as { invoice_id: string; total_lines: number; pending_lines: number }[];
     },
   });
 
   const missingByInvoice = new Map<string, number>();
-  for (const l of allLines as any[]) {
-    if (l.is_adjustment || l.event_id || l.match_source === "fora_sistema") continue;
-    missingByInvoice.set(l.invoice_id, (missingByInvoice.get(l.invoice_id) ?? 0) + 1);
-  }
+  for (const c of pendingCounts) missingByInvoice.set(c.invoice_id, Number(c.pending_lines));
+
 
   const { data: detail } = useQuery({
     queryKey: ["ads-invoice-detail", openId],
