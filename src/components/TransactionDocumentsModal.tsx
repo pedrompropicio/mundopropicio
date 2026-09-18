@@ -14,9 +14,16 @@ import { logAudit, getAuditUser } from "@/lib/audit";
 import { formatDatePT } from "@/lib/utils";
 import ExternalLinkAttachment from "@/components/ExternalLinkAttachment";
 import { useBackdropClose } from "@/lib/backdropClose";
-import { revalidateInvoiceGroupAfterDocument, type InvoiceGroupRevalidation } from "@/lib/invoice-group";
+import {
+  revalidateInvoiceGroupAfterDocument,
+  ensureInvoiceGroup,
+  fetchInvoiceSiblings,
+  type InvoiceGroupRevalidation,
+  type InvoiceSibling,
+} from "@/lib/invoice-group";
 import InvoiceGroupRevalidateDialog from "@/components/InvoiceGroupRevalidateDialog";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { formatCurrency } from "@/lib/mock-data";
 
 /** Detect if a ref:// entry actually contains an http(s) URL (clickable external link). */
 function isExternalLinkRef(fileUrl: string): boolean {
@@ -94,26 +101,97 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     },
   });
 
+  /** Contexto de fatura desta transação — decide se o anexo se partilha (#181). */
+  const { data: invoiceCtx } = useQuery({
+    queryKey: ["transaction-invoice-ctx", transactionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("supplier_id, invoice_ref, invoice_group_id")
+        .eq("id", transactionId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+  });
+
+  // Quantas linhas de transaction_documents apontam ao MESMO ficheiro: é isso
+  // que torna um documento "partilhado pela fatura".
+  const docUrls = [
+    ...new Set(
+      (documents ?? [])
+        .map((d: any) => d.file_url as string)
+        .filter((u) => !!u && !u.startsWith("ref://")),
+    ),
+  ];
+  const { data: sharedCounts = {} } = useQuery({
+    queryKey: ["transaction_documents_shared", transactionId, docUrls.slice().sort().join("|")],
+    enabled: docUrls.length > 0,
+    queryFn: async () => {
+      const { data, error } = await fetchAllPagedQuery(
+        supabase.from("transaction_documents").select("file_url, transaction_id").in("file_url", docUrls),
+      );
+      if (error) throw error;
+      const out: Record<string, number> = {};
+      for (const r of (data ?? []) as any[]) out[r.file_url] = (out[r.file_url] ?? 0) + 1;
+      return out;
+    },
+  });
+
+  /** Proposta de propagação para linhas com o mesmo fornecedor + nº de fatura. */
+  const [proposal, setProposal] = useState<{
+    file: File;
+    siblings: InvoiceSibling[];
+    supplierId: string;
+    invoiceRef: string;
+  } | null>(null);
+
   const deleteMutation = useMutation({
     mutationFn: async (doc: { id: string; file_url: string; name: string }) => {
       const storagePath = extractStoragePath(doc.file_url);
-      // Use .select() so we can detect when RLS silently blocks the delete (0 rows returned)
-      const { data: deleted, error: dbError } = await supabase
-        .from("transaction_documents")
-        .delete()
-        .eq("id", doc.id)
-        .select("id");
-      if (dbError) throw dbError;
-      if (!deleted || deleted.length === 0) {
+      const shared =
+        !!doc.file_url && !doc.file_url.startsWith("ref://") && (sharedCounts as any)[doc.file_url] > 1;
+
+      // Documento partilhado pelo grupo de fatura: um ficheiro, N registos —
+      // remover apaga as N linhas (#181).
+      let deletedIds: string[] = [];
+      if (shared) {
+        const { data: deleted, error: dbError } = await supabase
+          .from("transaction_documents")
+          .delete()
+          .eq("file_url", doc.file_url)
+          .select("id");
+        if (dbError) throw dbError;
+        deletedIds = (deleted ?? []).map((d: any) => d.id);
+      } else {
+        // Use .select() so we can detect when RLS silently blocks the delete (0 rows returned)
+        const { data: deleted, error: dbError } = await supabase
+          .from("transaction_documents")
+          .delete()
+          .eq("id", doc.id)
+          .select("id");
+        if (dbError) throw dbError;
+        deletedIds = (deleted ?? []).map((d: any) => d.id);
+      }
+      if (deletedIds.length === 0) {
         throw new Error("Sem permissão para remover este documento ou documento não encontrado.");
       }
       if (storagePath) {
         // Don't remove the underlying camarim file when deleting a transaction_documents
         // row that points to it — the dossier/receipt is shared with the camarim session.
         if (!doc.file_url?.startsWith("camarim://")) {
-          await supabase.storage.from("transaction-documents").remove([storagePath]).catch((err) => {
-            console.warn("Storage cleanup failed (non-blocking):", err);
-          });
+          // O objeto só sai do bucket quando já não resta nenhuma linha a apontar-lhe.
+          const { data: rest, error: restErr } = await supabase
+            .from("transaction_documents")
+            .select("id")
+            .eq("file_url", doc.file_url)
+            .limit(1);
+          if (restErr) throw restErr;
+          if ((rest ?? []).length === 0) {
+            await supabase.storage.from("transaction-documents").remove([storagePath]).catch((err) => {
+              console.warn("Storage cleanup failed (non-blocking):", err);
+            });
+          }
         }
       }
       await logAudit({
@@ -122,7 +200,11 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
         action: "delete",
         changed_by: getAuditUser(user),
         old_data: { name: doc.name, file_url: doc.file_url },
-        metadata: { transaction_id: transactionId, transaction_description: transactionDescription },
+        metadata: {
+          transaction_id: transactionId,
+          transaction_description: transactionDescription,
+          shared_rows_removed: deletedIds.length,
+        },
       });
     },
     onMutate: async (doc) => {
@@ -150,6 +232,91 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     },
   });
 
+  /**
+   * UM upload, N registos com o MESMO `file_url` — espelha o que a edge function
+   * `ingest-transaction-document` já faz (#180/#181). Se o insert falhar, apaga o
+   * que criou e o objeto quando ninguém mais o referencia.
+   */
+  const uploadAndLink = async (
+    file: File,
+    targetIds: string[],
+    groupAfter?: { supplierId: string; invoiceRef: string },
+  ) => {
+    const ext = file.name.split(".").pop();
+    const { error: uploadError, path: filePath } = await uploadToCompanyBucket(
+      "transaction-documents",
+      `${transactionId}/${Date.now()}.${ext}`,
+      file,
+    );
+    if (uploadError) throw uploadError;
+
+    const rows = targetIds.map((id) => ({
+      transaction_id: id,
+      name: file.name,
+      file_url: filePath,
+      doc_type: getDocType(file.name),
+      uploaded_by: user?.email ?? "sistema",
+      is_accounting: isAccounting,
+    }));
+
+    const { data: inserted, error: dbError } = await supabase
+      .from("transaction_documents")
+      .insert(rows as any)
+      .select("id");
+    if (dbError) {
+      const ids = (inserted ?? []).map((d: any) => d.id);
+      if (ids.length) await supabase.from("transaction_documents").delete().in("id", ids);
+      const { data: rest } = await supabase
+        .from("transaction_documents")
+        .select("id")
+        .eq("file_url", filePath)
+        .limit(1);
+      if ((rest ?? []).length === 0) {
+        await supabase.storage.from("transaction-documents").remove([filePath]).catch(() => {});
+      }
+      throw new Error(
+        `${dbError.message} — nada ficou anexado${ids.length ? " (as linhas criadas foram desfeitas)" : ""}.`,
+      );
+    }
+
+    // O agrupamento é o último passo: assim a revalidação já vê as N linhas com
+    // o mesmo ficheiro e o veredicto é "shared", sem chamar a auditoria por OCR.
+    if (groupAfter) {
+      try {
+        const res = await ensureInvoiceGroup(groupAfter.supplierId, groupAfter.invoiceRef, { force: true });
+        if (!res.groupId) {
+          toast({
+            title: "Documento anexado, fatura não agrupada",
+            description: "Estas transações já pertencem a grupos diferentes — verifica manualmente.",
+            variant: "destructive",
+          });
+        }
+      } catch (err: any) {
+        toast({
+          title: "Documento anexado, mas falhou o agrupamento",
+          description: err?.message,
+          variant: "destructive",
+        });
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["transaction_documents", transactionId] });
+    queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary", transactionId] });
+    queryClient.invalidateQueries({ queryKey: ["transaction_documents_shared"] });
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    toast({
+      title:
+        targetIds.length > 1
+          ? `Documento anexado às ${targetIds.length} linhas da fatura`
+          : "Documento anexado com sucesso!",
+    });
+
+    // Papel novo obriga a revalidar o grupo de fatura: se as irmãs têm
+    // documentos diferentes, avisa e oferece desagrupar (2026-09-14).
+    const check = await revalidateInvoiceGroupAfterDocument(transactionId);
+    if (check?.kind === "conflict") setRevalidation(check);
+  };
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const original = e.target.files?.[0];
     if (!original) return;
@@ -172,34 +339,30 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
 
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop();
+      const groupId: string | null = invoiceCtx?.invoice_group_id ?? null;
+      const supplierId: string | null = invoiceCtx?.supplier_id ?? null;
+      const invoiceRef: string | null = invoiceCtx?.invoice_ref ?? null;
 
-      const { error: uploadError, path: filePath } = await uploadToCompanyBucket(
-        "transaction-documents",
-        `${transactionId}/${Date.now()}.${ext}`,
-        file,
-      );
-      if (uploadError) throw uploadError;
+      if (groupId) {
+        const { data: siblings, error } = await fetchAllPagedQuery(
+          supabase.from("transactions").select("id").eq("invoice_group_id", groupId),
+        );
+        if (error) throw error;
+        const ids = [...new Set([transactionId, ...((siblings ?? []) as any[]).map((s) => s.id as string)])];
+        await uploadAndLink(file, ids);
+        return;
+      }
 
-      // Store just the path — signed URLs are generated on demand
-      const { error: dbError } = await supabase.from("transaction_documents").insert({
-        transaction_id: transactionId,
-        name: file.name,
-        file_url: filePath,
-        doc_type: getDocType(file.name),
-        uploaded_by: user?.email ?? "sistema",
-        is_accounting: isAccounting,
-      } as any);
-      if (dbError) throw dbError;
+      if (supplierId && invoiceRef) {
+        // Igualdade EXACTA do nº de fatura, sem normalização tolerante.
+        const candidates = await fetchInvoiceSiblings(supplierId, invoiceRef);
+        if (candidates.length > 1) {
+          setProposal({ file, siblings: candidates, supplierId, invoiceRef });
+          return; // espera confirmação humana antes de propagar ou agrupar
+        }
+      }
 
-      queryClient.invalidateQueries({ queryKey: ["transaction_documents", transactionId] });
-      queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary", transactionId] });
-      toast({ title: "Documento anexado com sucesso!" });
-
-      // Papel novo obriga a revalidar o grupo de fatura: se as irmãs têm
-      // documentos diferentes, avisa e oferece desagrupar (2026-09-14).
-      const check = await revalidateInvoiceGroupAfterDocument(transactionId);
-      if (check?.kind === "conflict") setRevalidation(check);
+      await uploadAndLink(file, [transactionId]);
     } catch (err: any) {
       toast({ title: "Erro ao enviar ficheiro", description: err.message, variant: "destructive" });
     } finally {
@@ -207,6 +370,30 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
       e.target.value = "";
     }
   };
+
+  /** Resposta à proposta do ponto 2: propagar+agrupar, ou ficar só nesta linha. */
+  const resolveProposal = async (applyToAll: boolean) => {
+    if (!proposal) return;
+    const { file, siblings, supplierId, invoiceRef } = proposal;
+    setProposal(null);
+    setUploading(true);
+    try {
+      if (applyToAll) {
+        await uploadAndLink(
+          file,
+          [...new Set([transactionId, ...siblings.map((s) => s.id)])],
+          { supplierId, invoiceRef },
+        );
+      } else {
+        await uploadAndLink(file, [transactionId]);
+      }
+    } catch (err: any) {
+      toast({ title: "Erro ao enviar ficheiro", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
 
   const handleOpenDocument = async (doc: any) => {
     const fileUrl = doc.file_url as string;
@@ -429,6 +616,12 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
                   <p className="text-[10px] text-muted-foreground">
                     {doc.uploaded_by} · {formatDatePT(doc.uploaded_at)}
                   </p>
+                  {(sharedCounts as any)[doc.file_url] > 1 && (
+                    <p className="text-[10px] font-medium text-primary">
+                      Documento partilhado pelas {(sharedCounts as any)[doc.file_url]} linhas da fatura
+                      {invoiceCtx?.invoice_ref ? ` ${invoiceCtx.invoice_ref}` : ""}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   <button
@@ -467,6 +660,48 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
           queryClient.invalidateQueries({ queryKey: ["transactions"] });
         }}
       />
+
+      {proposal && (
+        <div
+          className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 p-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="glass w-full max-w-md space-y-3 rounded-xl p-4">
+            <h3 className="text-sm font-bold">
+              Aplicar às {proposal.siblings.length} linhas com o mesmo fornecedor e nº de fatura?
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              A fatura <span className="font-mono">{proposal.invoiceRef}</span> aparece em{" "}
+              {proposal.siblings.length} transações. Ao confirmar, estas linhas passam a formar um grupo de
+              fatura e o documento fica anexado a todas (um ficheiro, {proposal.siblings.length} registos).
+            </p>
+            <div className="space-y-0.5 rounded-md border p-2 text-xs">
+              {proposal.siblings.map((s) => (
+                <div key={s.id} className="flex justify-between gap-3">
+                  <span className="truncate">{s.description ?? "—"}</span>
+                  <span className="shrink-0 font-mono">{formatCurrency(Number(s.amount || 0))}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-border px-3 py-1.5 text-xs"
+                onClick={() => void resolveProposal(false)}
+              >
+                Não, só nesta linha
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+                onClick={() => void resolveProposal(true)}
+              >
+                Sim, aplicar às {proposal.siblings.length}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   );
