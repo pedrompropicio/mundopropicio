@@ -110,6 +110,9 @@ Regras que ficaram:
 - **Imagens de `docs/manual/img/` são a única exceção a "nunca HTML cru"** — os diagramas são SVG inline, referenciados no markdown como `![alt](img/x.svg)`.
 
 ## A trabalhar agora
+- **#206 fase 2** — somas e contagens de tabelas grandes na base (RPCs), com ADR próprio. Não subir `db-max-rows`.
+- **#211 parte 2** — decisão pendente: `email_unsubscribe_tokens` é por endereço ou por empresa? Enquanto não decidir, o digest das 08:00 pode falhar de novo.
+- **#140** — cron de Madrid (Onebox H&K) antes da mudança de hora de 25/10.
 - **#186** — diálogo 'Rateio ou Exclusivo?' do modal Nova Transação. Correção em portal publicada a 16/09 — falta confirmação visual do Pedro no diálogo "Custo da tour ou desta cidade?".
 - **Manual — próximos capítulos** (Fecho do evento, BP…), um de cada vez, no mesmo formato de `rateios.md`.
 
