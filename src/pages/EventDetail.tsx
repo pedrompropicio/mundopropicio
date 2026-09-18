@@ -66,6 +66,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
+import { readStoredWithVat, writeStoredWithVat } from "@/lib/event-financial-card";
+import { normalizePartnerCalcBasis, usesGrossExpenseAmounts } from "@/lib/partner-calc-basis";
 import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
 import { keepRootPerimeter, pickOutsideRootPerimeter, isOutsideRootPerimeter } from "@/lib/settlement-perimeter";
 import { toast } from "@/hooks/use-toast";
@@ -185,6 +187,8 @@ export default function EventDetail() {
   // Valores reportados pelos novos EventFinancialCard (para alimentar o card Lucro)
   const [cardIncomeValue, setCardIncomeValue] = useState<number>(0);
   const [cardExpenseValue, setCardExpenseValue] = useState<number>(0);
+  // Vista de IVA escolhida nesta sessão; null = ainda não escolhida (usa o guardado/critério).
+  const [viewWithVatChoice, setViewWithVatChoice] = useState<boolean | null>(null);
 
   // Reflect tab + sub-event into the URL so they survive navigations.
   useEffect(() => {
