@@ -16,6 +16,7 @@ import { useBackdropClose } from "@/lib/backdropClose";
 
 import { methodLabels, paymentMethodOptions, type PaymentMethod } from "@/lib/payment-methods";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { CurrencyBadge } from "@/components/CurrencyBadge";
 
 interface Props {
   transaction: any;

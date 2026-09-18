@@ -28,6 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { CurrencyBadge } from "@/components/CurrencyBadge";
 
 interface Props {
   transaction: any;
