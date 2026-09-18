@@ -129,19 +129,33 @@ async function loadInvoice(invoiceId: string) {
   return { inv, lines: lines ?? [] };
 }
 
-/** Guardas comuns: soma bate ao total e nenhuma linha não-ajuste sem evento. */
-function checkReady(inv: any, lines: any[]): string | null {
+/**
+ * Guardas comuns: soma bate ao total e nenhuma linha pendente de evento.
+ * #125 — o critério de "pendente" NÃO vive aqui: vem de
+ * `public.ads_invoice_pending_counts` / `ads_invoice_line_is_pending()` na base.
+ * A lista de números de linha na mensagem de recusa é só apresentação.
+ */
+async function checkReady(inv: any, lines: any[]): Promise<string | null> {
   const sum = round2(lines.reduce((a, l) => a + Number(l.amount), 0));
   if (Math.abs(sum - Number(inv.total_amount)) >= 0.005) {
     return `soma das linhas (${sum}) difere do total da fatura (${inv.total_amount})`;
   }
-  // 'fora_sistema' é uma decisão humana: a linha não pertence a nenhum evento
-  // do sistema e por isso não é órfã nem gera filha.
-  const orphan = lines.filter(
-    (l) => !l.is_adjustment && l.match_source !== "fora_sistema" && (!l.event_id || l.match_source === "none"),
-  );
-  if (orphan.length > 0) {
-    return `${orphan.length} linha(s) sem evento resolvido (linhas ${orphan.map((l) => l.line_no).join(", ")})`;
+  const { data, error } = await admin.rpc("ads_invoice_pending_counts", { p_invoice_ids: [inv.id] });
+  if (error) throw new Error(error.message);
+  const pending = Number((data ?? [])[0]?.pending_lines ?? 0);
+  if (pending > 0) {
+    // `ads_invoice_line_is_pending` é campo calculado do PostgREST (a função recebe a
+    // linha): o critério continua a ser avaliado na base, não aqui.
+    const { data: rows } = await admin
+      .from("ads_invoice_line")
+      .select("line_no, ads_invoice_line_is_pending")
+      .eq("invoice_id", inv.id)
+      .order("line_no");
+    const nums = (rows ?? [])
+      .filter((l: any) => l.ads_invoice_line_is_pending)
+      .map((l: any) => l.line_no)
+      .join(", ");
+    return `${pending} linha(s) sem evento resolvido${nums ? ` (linhas ${nums})` : ""}`;
   }
   return null;
 }
@@ -155,7 +169,7 @@ async function handleConfirm(body: any, userId?: string) {
   }
   if (inv.status !== "proposed") return json({ error: `estado ${inv.status} não confirmável` }, 400);
 
-  const problem = checkReady(inv, lines);
+  const problem = await checkReady(inv, lines);
   if (problem) return json({ error: problem }, 400);
 
   const { error: ue } = await admin
@@ -292,7 +306,7 @@ async function handleGenerate(body: any, userId?: string) {
   if (!dryRun && inv.status !== "confirmed") return json({ error: "a fatura tem de estar confirmada" }, 400);
 
 
-  const problem = checkReady(inv, lines);
+  const problem = await checkReady(inv, lines);
   if (problem) return json({ error: problem }, 400);
 
   // ---- rateio dos ajustes (D-ERP31)

@@ -753,6 +753,8 @@ Decisão 3 — **importar uma fatura tem três fases, sempre.** Escolher platafo
 
 Nota de infraestrutura: o `InvoiceService.ListInvoices` da Google Ads API v24 não é via para esta conta — o billing setup `8418160932` está aprovado mas em pagamentos automáticos, e a API devolve `BILLING_SETUP_NOT_ON_MONTHLY_INVOICING`. Não há `pdf_url` a puxar; o PDF entra à mão.
 
+**Adenda (18/09/2026, #125) — "linha sem evento" é um critério só, e vive na base.** A definição é `public.ads_invoice_line_is_pending(ads_invoice_line)`: não é ajuste, não está marcada como fora do sistema, e não tem evento **ou** tem `match_source='none'` (união dos dois critérios que coexistiam — a lista escondia as linhas com evento e resolução falhada, que o detalhe e o `checkReady` já contavam). As contagens de linhas de fatura Ads vêm da RPC `public.ads_invoice_pending_counts(uuid[])`, agregada no servidor por fatura pedida — o ecrã nunca descarrega `ads_invoice_line` inteira e a barreira dos 1.000 do PostgREST deixa de existir aqui. **Ninguém reimplementa o critério no cliente nem em TypeScript:** lista, detalhe e `ads-invoice-apply → checkReady` consomem a mesma função.
+
 **Estado:** vigente.
 
 ---

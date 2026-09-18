@@ -16372,6 +16372,18 @@ export type Database = {
           win_start: string
         }[]
       }
+      ads_invoice_line_is_pending: {
+        Args: { l: Database["public"]["Tables"]["ads_invoice_line"]["Row"] }
+        Returns: boolean
+      }
+      ads_invoice_pending_counts: {
+        Args: { p_invoice_ids: string[] }
+        Returns: {
+          invoice_id: string
+          pending_lines: number
+          total_lines: number
+        }[]
+      }
       ads_norm_text: { Args: { p_text: string }; Returns: string }
       analyze_formalidade_bulk: {
         Args: { _event_ids?: string[] }

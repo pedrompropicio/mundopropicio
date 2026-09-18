@@ -138,7 +138,7 @@ export default function AdsInvoices() {
     queryClient.invalidateQueries({ queryKey: ["ads-invoices"] });
     queryClient.invalidateQueries({ queryKey: ["ads-invoice-detail"] });
     queryClient.invalidateQueries({ queryKey: ["ads-invoice-transactions"] });
-    queryClient.invalidateQueries({ queryKey: ["ads-invoice-lines-counts"] });
+    queryClient.invalidateQueries({ queryKey: ["ads-invoice-pending-counts"] });
   };
 
   const callApply = async (action: "confirm" | "generate" | "reopen" | "revert", invoiceId: string) => {
@@ -288,35 +288,39 @@ export default function AdsInvoices() {
     },
   });
 
-  const { data: allLines = [] } = useQuery({
-    queryKey: ["ads-invoice-lines-counts"],
+  // #125 — a contagem de linhas pendentes vem agregada do servidor, por página de
+  // faturas (uma chamada, nunca uma por fatura). O critério é `ads_invoice_line_is_pending`
+  // na base; ninguém o reimplementa aqui.
+  const invoiceIds = invoices.map((i) => i.id);
+  const { data: pendingCounts = [] } = useQuery({
+    queryKey: ["ads-invoice-pending-counts", invoiceIds.join(",")],
+    enabled: invoiceIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ads_invoice_line")
-        .select("invoice_id, event_id, is_adjustment, match_source");
+      const { data, error } = await supabase.rpc("ads_invoice_pending_counts", {
+        p_invoice_ids: invoiceIds,
+      });
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as { invoice_id: string; total_lines: number; pending_lines: number }[];
     },
   });
 
   const missingByInvoice = new Map<string, number>();
-  for (const l of allLines as any[]) {
-    if (l.is_adjustment || l.event_id || l.match_source === "fora_sistema") continue;
-    missingByInvoice.set(l.invoice_id, (missingByInvoice.get(l.invoice_id) ?? 0) + 1);
-  }
+  for (const c of pendingCounts) missingByInvoice.set(c.invoice_id, Number(c.pending_lines));
+
 
   const { data: detail } = useQuery({
     queryKey: ["ads-invoice-detail", openId],
     enabled: !!openId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("ads_invoice_line")
         .select(
           "id, line_no, raw_description, placement, campaign_name, event_id, match_source, match_note, matched_by, matched_at, amount, is_adjustment",
         )
         .eq("invoice_id", openId!)
-        .order("line_no");
+        .order("line_no"));
       if (error) throw error;
+
       return (data ?? []) as AdsInvoiceLineRow[];
     },
   });
@@ -414,9 +418,10 @@ export default function AdsInvoices() {
     const lines = detail ?? [];
     const byEvent = new Map<string, number>();
     let adjustments = 0;
-    let missing = 0;
     let outOfScope = 0;
     let outOfScopeLines = 0;
+    // O contador do cabeçalho vem da RPC (mesmo critério da lista e do checkReady).
+    const missing = missingByInvoice.get(openInvoice.id) ?? 0;
     for (const l of lines) {
       if (l.is_adjustment) { adjustments += Number(l.amount); continue; }
       if (l.match_source === "fora_sistema") {
@@ -424,9 +429,10 @@ export default function AdsInvoices() {
         outOfScopeLines++;
         continue;
       }
-      if (!l.event_id || l.match_source === "none") { missing++; continue; }
+      if (!l.event_id || l.match_source === "none") continue;
       byEvent.set(l.event_id, (byEvent.get(l.event_id) ?? 0) + Number(l.amount));
     }
+
     const allocation = Array.from(byEvent.entries()).sort((a, b) => b[1] - a[1]);
     const sumOk = reconciles(
       Number(openInvoice.total_amount),
