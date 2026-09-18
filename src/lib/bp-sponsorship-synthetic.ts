@@ -48,6 +48,8 @@ const EMPTY: SponsorshipSyntheticResult = {
   baselineNet: null,
   currentNet: null,
   realNet: 0,
+  currentGross: null,
+  realGross: 0,
   segments: [],
   excludedForecastIds: [],
 };
