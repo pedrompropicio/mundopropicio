@@ -632,6 +632,13 @@ Reverter é dizer "afinal o custo é do evento", logo aplica-se o D1. Mas só se
 
 `partner_advance_expenses` (a empresa pagou algo que é custo do sócio) e `event_partner_extras` (o sócio deve algo sem desembolso da empresa) são ambas legítimas e ambas abatem ao acerto; nenhuma é custo do evento. Passam por uma fonte única, `src/lib/partner-extras.ts`, lida pelo painel da aba Sócios, pelo Fecho do Evento e pelo Encontro de Contas — antes cada ecrã lia só metade e o saldo do mesmo sócio divergia entre os dois ecrãs de fecho. Os valores mostram-se na base do sócio (`event_partners.expense_includes_iva`, a null herda de `events.partner_calc_basis`): origem transação segue c/IVA quando aplicável; o extra manual não tem taxa nem documento — é um valor, não uma fatura — e entra sempre pelo valor escrito.
 
+**Adenda (18/09/2026, #181):** um documento pertence à **fatura**, não à linha: anexar
+propaga a todas as linhas do grupo, no ecrã e na API — um objeto no bucket, N linhas em
+`transaction_documents` com o mesmo `file_url`. Remover um documento partilhado remove as N
+linhas e o objeto só quando ninguém mais lhe aponta. Sem grupo, o ecrã propõe agrupar as
+linhas do mesmo fornecedor com nº de fatura exactamente igual e só propaga depois de
+confirmação humana. Desagrupar não apaga documentos.
+
 ## D-ERP24 — A fatura reparte-se, não se duplica (09/09/2026)
 
 Quando só parte de uma fatura é Extra do Sócio, a principal passa a valer `total − X` e a irmã transitória vale X, com o mesmo `invoice_group_id`. Antes a principal ficava pelo total e os mesmos euros contavam duas vezes: no custo do evento e no débito ao sócio. `amount` e `paid_amount` são eixos independentes — o primeiro manda no custo e no BP, o segundo no saldo da conta, e `paid_amount` não é derivado de `transaction_payments`. A liquidação de grupo já reparte sozinha, por propagação às irmãs. Recusa-se a repartição quando há linhas em `transaction_payments` ou pagamento parcial, por não haver forma não-arbitrária de dividir o que já foi pago.

@@ -189,3 +189,25 @@ Não altera o upload do ecrã, o `update-transaction` nem o
 `group_veredicto`: `ok` | `desagrupar` | `rever`) e apply limitado a esse grupo. A auditoria
 global continua a exigir admin/platform_admin; o âmbito de um grupo abre a manager/editor,
 validando que todas as linhas do grupo são de uma empresa do próprio utilizador.
+
+## Anexar no ecrã (2026-09-18, #181)
+`TransactionDocumentsModal.tsx` espelha a API (#180): **um ficheiro, N registos**.
+1. **Com `invoice_group_id`**: um upload e uma linha em `transaction_documents` por cada
+   transação do grupo, todas com o MESMO `file_url`, `name`, `doc_type`, `is_accounting`
+   e `uploaded_by` = utilizador. Remover um documento partilhado apaga as N linhas e só
+   apaga o objeto no bucket quando já não resta nenhuma linha com esse `file_url`. A modal
+   mostra "Documento partilhado pelas N linhas da fatura <ref>".
+2. **Sem grupo, com `supplier_id` + `invoice_ref`**: `fetchInvoiceSiblings` (igualdade
+   **exacta**, sem normalização tolerante); com ≥2 candidatas o ficheiro fica em espera e
+   pergunta-se "Aplicar às N linhas com o mesmo fornecedor e nº de fatura?" com as linhas
+   listadas (descrição + valor). Confirmação → propaga e agrupa com
+   `ensureInvoiceGroup({ force: true })` (proformas incluídas: a confirmação humana é o
+   critério, igual à API). Recusa → fica só nesta linha, sem agrupar.
+3. **Ordem**: os N inserts vêm ANTES do agrupamento e da revalidação, por isso
+   `revalidateInvoiceGroupAfterDocument` vê todas as irmãs com o mesmo `file_url`, devolve
+   `shared`/`ok` e não chama a auditoria por OCR.
+4. **Desagrupar** (`clearInvoiceGroupForTransaction`) não toca em documentos: a linha da
+   transação desagrupada mantém o seu registo (passa a fatura própria), as irmãs mantêm os
+   seus e nada se apaga no bucket.
+5. Falha no insert das N linhas → apaga as linhas criadas e o objeto se ninguém mais o
+   referenciar, e o toast diz que nada ficou anexado. Atomicidade real fica para a #196.
