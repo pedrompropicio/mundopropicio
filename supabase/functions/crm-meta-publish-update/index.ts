@@ -410,9 +410,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const paises = alteracoes.geografia.geo
           .filter((x: any) => typeof x === "string" && x.trim())
           .map((x: string) => x.trim().toUpperCase());
-        targetingNovo.geo_locations = { ...(targetingNovo.geo_locations ?? {}), countries: paises };
+        const geoLoc: any = { ...(targetingNovo.geo_locations ?? {}), countries: paises };
+        // Estados/regiões: chaves de região já resolvidas (plano ou pedido).
+        // countries mantém-se sempre; regiões são substituídas em bloco.
+        const regs = Array.isArray(alteracoes.geografia.geo_regions)
+          ? alteracoes.geografia.geo_regions
+            .map((r: any) => (typeof r === "string" ? r : r?.key))
+            .filter((k: any) => typeof k === "string" && k.trim())
+            .map((k: string) => ({ key: String(k) }))
+          : null;
+        if (regs && regs.length > 0) geoLoc.regions = regs;
+        else if (regs) delete geoLoc.regions;
+        targetingNovo.geo_locations = geoLoc;
         antes.geo = (m?.targeting?.geo_locations?.countries ?? null);
+        antes.geo_regions = (m?.targeting?.geo_locations?.regions ?? null);
         depois.geo = paises;
+        if (regs) depois.geo_regions = regs;
       }
       if (pedeIdades) {
         targetingNovo.age_min = alteracoes.idades.idade_min;
