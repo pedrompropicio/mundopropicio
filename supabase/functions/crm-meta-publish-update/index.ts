@@ -570,7 +570,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   for (const ap of adsetPlanos) {
     if (!adsetsAplicados.has(ap.idx)) continue;
     const a = adsetsPlano[ap.idx];
-    if (ap.params.name) a.trigger_nome = a.trigger_nome; // nome do plano é semântico: não se reescreve
+    // `trigger_nome` é o nome semântico do plano — não se reescreve com o nome Meta.
     if (ap.depois.daily_budget_cents !== undefined) a.orcamento_cents = ap.depois.daily_budget_cents;
     if (ap.depois.lifetime_budget_cents !== undefined) a.orcamento_cents = ap.depois.lifetime_budget_cents;
     a.publico_sugerido = a.publico_sugerido ?? {};
