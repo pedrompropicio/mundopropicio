@@ -715,6 +715,26 @@ async function runGoogleBreakdowns(
       continue;
     }
 
+    // Moeda: uma só consulta por ligação (customer.currency_code não sai dos
+    // recursos de breakdown). Falha não trava: usa a moeda guardada.
+    let accountCurrency = (conn.selected_ad_account_currency as string | null) ?? null;
+    try {
+      apiCalls++;
+      const cur = await fetchCustomerCurrency(
+        accessToken,
+        GOOGLE_ADS_DEVELOPER_TOKEN!,
+        loginCustomerId,
+        customerId,
+      );
+      if (cur) accountCurrency = cur;
+    } catch (e) {
+      notes.push(
+        `ligação ${conn.id}: moeda não lida (${
+          describeGoogleAdsError(e instanceof Error ? e.message : String(e))
+        })`,
+      );
+    }
+
     for (const group of GOOGLE_BREAKDOWN_GROUPS) {
       try {
         apiCalls++;
