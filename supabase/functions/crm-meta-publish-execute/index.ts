@@ -476,16 +476,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   function buildAdsetPayload(a: any, campaignIdParaPayload: string, adsetIdx: number): { payload: Record<string, unknown>; goal_used: string; sem_pixel?: boolean; budget_mode: "lifetime" | "daily"; abaixo_minimo?: { minimo_cents: number; orcamento_cents: number } } {
     const pub = a.publico_sugerido ?? {};
-    const countries = normalizeCountries(
-      Array.isArray(pub.geo) && pub.geo.length > 0 ? pub.geo : ["PT"],
-      (codigo, detalhe) => avisos.push({ codigo, adset: a.trigger_nome, detalhe }),
-    );
-    const targeting: Record<string, unknown> = {
-      geo_locations: { countries },
-      age_min: Number.isFinite(pub.idade_min) ? pub.idade_min : 18,
-      age_max: Number.isFinite(pub.idade_max) ? pub.idade_max : 65,
-      targeting_automation: { advantage_audience: 0 },
-    };
+    // Alvo música (D-ERP95 F2b correcção): NUNCA há geografia por omissão —
+    // sem publico_sugerido.geo o payload sai sem geo_locations (e a publicação
+    // real / preflight já recusaram antes com 'sem_geografia').
+    const semGeo = isSong && !temGeo(a);
+    const targeting: Record<string, unknown> = {};
+    if (!semGeo) {
+      targeting.geo_locations = {
+        countries: normalizeCountries(
+          Array.isArray(pub.geo) && pub.geo.length > 0 ? pub.geo : ["PT"],
+          (codigo, detalhe) => avisos.push({ codigo, adset: a.trigger_nome, detalhe }),
+        ),
+      };
+    }
+    targeting.age_min = Number.isFinite(pub.idade_min) ? pub.idade_min : 18;
+    targeting.age_max = Number.isFinite(pub.idade_max) ? pub.idade_max : 65;
+    targeting.targeting_automation = { advantage_audience: 0 };
     // Públicos MP (inclusões/exclusões) são do alvo evento: uma campanha de
     // música não herda nem exclui os públicos de compradores da empresa.
     const incl = isSong ? [] : (inclusionsByIdx[adsetIdx] ?? []);
