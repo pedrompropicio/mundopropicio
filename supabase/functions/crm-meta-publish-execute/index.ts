@@ -1,5 +1,5 @@
 // crm-meta-publish-execute (FASE 2)
-// POST { company_id, plan_id, dry_run?: boolean }
+// POST { company_id, plan_id, dry_run?: boolean, preflight?: boolean }
 //
 // Cria no Meta: 1 campanha + N adsets + M anúncios — TUDO status=PAUSED.
 // ABO: orçamento nos adsets, campanha sem budget.
@@ -11,10 +11,21 @@
 // só escreve no Meta com dry_run:false explícito. D-ERP95 F2a: o dry-run é
 // permitido em QUALQUER estado do plano (incluindo 'publicado'), e a construção
 // dos payloads é a MESMA do caminho real (buildAdsetPayload/buildAdPayloads).
-// Planos de alvo música (song_id) devolvem { ok:false, error:'alvo_musica_f2b' }.
+//
+// D-ERP95 F2b — MOTOR ÚNICO, DOIS ALVOS:
+//   • evento — inalterado byte a byte (mesmas validações, mesma resolução de
+//     conta/pixel, mesmo naming, mesma ordem de escrita, mesmas respostas).
+//   • artista+música (song_id) — conta/token/Página/Instagram da ligação do
+//     artista, sem pixel, objectivos AWARENESS|TRAFFIC|ENGAGEMENT, teto de
+//     orçamento obrigatório, naming "[MP] …", UTMs geradas pelo motor, posts
+//     existentes, lock anti-corrida, espelho da campanha com a música trancada
+//     e registo das criações em crm.meta_entity_actions_log.
+// Modo preflight: só GETs à Graph API, devolve { ok, preflight, checks[] }.
+// O alvo é resolvido por _shared/campaign-target.ts (resolvedor único).
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
+import { resolveTarget, utmSlug } from "../_shared/campaign-target.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -109,6 +120,49 @@ async function graphPOST(path: string, body: Record<string, unknown>, accessToke
   return { ok: true, data: j };
 }
 
+async function graphGET(path: string, params: Record<string, string>, accessToken: string): Promise<{ ok: boolean; data: any; status: number }> {
+  const qs = new URLSearchParams({ ...params, access_token: accessToken });
+  const r = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}${path}?${qs.toString()}`);
+  const j = await r.json().catch(() => ({}));
+  return { ok: r.ok && !j?.error, data: j, status: r.status };
+}
+
+// Papel declarado no JWT do pedido (sem validar assinatura — serve apenas para
+// distinguir service_role de sessão de utilizador; a autoridade é o getUser()).
+function jwtRole(authHeader: string): string | null {
+  try {
+    const tok = authHeader.replace(/^Bearer\s+/i, "");
+    const p = tok.split(".")[1];
+    if (!p) return null;
+    const pad = p.replace(/-/g, "+").replace(/_/g, "/");
+    const claims = JSON.parse(atob(pad + "=".repeat((4 - pad.length % 4) % 4)));
+    return typeof claims?.role === "string" ? claims.role : null;
+  } catch { return null; }
+}
+
+// ALVO MÚSICA (D-ERP95 F2b) — objectivos ODAX sem pixel.
+// Fonte: Meta Marketing API, Ad Set "destination_type" + combinações objectivo ×
+// optimization_goal (developers.facebook.com/docs/marketing-api/adset/destination_type/).
+//   AWARENESS   → OUTCOME_AWARENESS  + REACH            (sem destination_type)
+//   TRAFFIC     → OUTCOME_TRAFFIC    + LINK_CLICKS      + destination_type WEBSITE
+//   ENGAGEMENT  → OUTCOME_ENGAGEMENT + THRUPLAY         + destination_type ON_VIDEO
+// ON_VIDEO aceita THRUPLAY / TWO_SECOND_CONTINUOUS_VIDEO_VIEWS e, ao contrário
+// de ON_POST, não exige promoted_object. Nunca há promoted_object de pixel.
+function mapSongObjective(objetivo: string): { objective: string; optimization_goal: string; billing_event: string; destination_type?: string } | null {
+  switch (String(objetivo).toUpperCase()) {
+    case "AWARENESS":
+      return { objective: "OUTCOME_AWARENESS", optimization_goal: "REACH", billing_event: "IMPRESSIONS" };
+    case "TRAFFIC":
+      return { objective: "OUTCOME_TRAFFIC", optimization_goal: "LINK_CLICKS", billing_event: "IMPRESSIONS", destination_type: "WEBSITE" };
+    case "ENGAGEMENT":
+      return { objective: "OUTCOME_ENGAGEMENT", optimization_goal: "THRUPLAY", billing_event: "IMPRESSIONS", destination_type: "ON_VIDEO" };
+    default:
+      return null;
+  }
+}
+
+
+
 Deno.serve(async (req: Request): Promise<Response> => {
   console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v15-fix-thumbnail");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -117,13 +171,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { company_id?: string; plan_id?: string; dry_run?: boolean };
+  let body: { company_id?: string; plan_id?: string; dry_run?: boolean; preflight?: boolean };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
 
   const companyIdIn = body.company_id;
   const planId = body.plan_id;
   // SALVAGUARDA P0: dry_run default = TRUE. Só escreve no Meta se vier explicitamente false.
   const dryRun = body.dry_run !== false;
+  // Preflight (D-ERP95 F2b): só GETs à Graph API; não escreve na Meta nem no plano.
+  const preflight = body.preflight === true;
   if (!companyIdIn || !planId) {
     return json({ error: "missing_params", required: ["company_id", "plan_id"] }, 400);
   }
@@ -146,14 +202,37 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!planRow) return json({ error: "plan_not_found" }, 404);
   if (planRow.company_id !== companyIdIn) return json({ error: "company_mismatch" }, 403);
 
-  // D-ERP95 F2a: alvo música ainda não é publicável por esta função (entra na F2b).
-  if ((planRow as any).song_id) {
-    return json({ ok: false, error: "alvo_musica_f2b" }, 200);
+  const isSong = !!(planRow as any).song_id;
+
+  // 2a) Autorização do alvo música (D-ERP95 F2b). Nada disto corre para eventos.
+  //     dry_run/preflight: sessão de utilizador OU service_role.
+  //     Publicação real: SESSÃO + papel de tráfego (public.artist_ads_assert_write).
+  let callerUserId: string | null = null;
+  if (isSong) {
+    const { data: userInfo } = await supabase.auth.getUser();
+    callerUserId = userInfo?.user?.id ?? null;
+    const isServiceRole = !callerUserId && jwtRole(authHeader) === "service_role";
+    if (!callerUserId && !isServiceRole) {
+      return json({ ok: false, error: "sessao_invalida", message: "Sessão inválida." }, 401);
+    }
+    if (!dryRun && !preflight) {
+      if (!callerUserId) {
+        return json({
+          ok: false, error: "service_role_nao_publica_musica",
+          message: "A publicação de campanhas de música exige sessão de utilizador com papel de tráfego.",
+        }, 403);
+      }
+      const { error: permErr } = await supabase.rpc("artist_ads_assert_write", { p_company_id: planRow.company_id });
+      if (permErr) {
+        return json({ ok: false, error: "sem_permissao", detail: permErr.message }, 403);
+      }
+    }
   }
 
-  // Guardas de estado: só no caminho de escrita. O dry-run é leitura pura e é
-  // permitido em QUALQUER estado (incluindo 'publicado') — serve de prova por hash.
-  if (!dryRun) {
+  // Guardas de estado: só no caminho de escrita. O dry-run e o preflight são
+  // leitura pura e são permitidos em QUALQUER estado (incluindo 'publicado')
+  // — servem de prova por hash e de verificação prévia.
+  if (!dryRun && !preflight) {
     if (planRow.estado === "publicado") {
       return json({ error: "ja_publicado", meta_campaign_id: planRow.meta_campaign_id }, 409);
     }
@@ -183,84 +262,56 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const MIN_DAILY_CENTS = 100;
   const MIN_LIFETIME_CENTS = MIN_DAILY_CENTS * diasJanela;
 
-
-  // 2) Conexão Meta ativa para este company → connection_id + ad_account_id.
-  //    Pegamos o link primário enabled (mesma origem que MetaPublishPanel/Setup usa).
-  const { data: linkRow, error: linkErr } = await (supabase as any)
-    .schema("crm").from("ad_platform_account_links")
-    .select("connection_id, ad_account_id, is_primary, enabled")
-    .eq("enabled", true)
-    .order("is_primary", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (linkErr) return json({ error: "ad_account_query_failed", detail: linkErr.message }, 500);
-  if (!linkRow) return json({ error: "no_active_meta_connection" }, 412);
-
-  const connectionId = linkRow.connection_id as string;
-  const adAccountId = normalizeAdAccountId(linkRow.ad_account_id as string);
-  const adAccountNumeric = adAccountId.replace(/^act_/, "");
-
-  // 2b) Página de Facebook e (opcional) Instagram associados à conexão.
-  //     Sem page_id NÃO conseguimos criar criativo novo (object_story_spec exige page_id).
-  //     Falhamos cedo, ANTES de qualquer escrita no Meta.
-  const { data: connRow, error: connErr } = await (admin as any)
-    .schema("crm").from("ad_platform_connections")
-    .select("selected_page_id, selected_instagram_id")
-    .eq("id", connectionId)
-    .maybeSingle();
-  if (connErr) return json({ error: "connection_query_failed", detail: connErr.message }, 500);
-  const selectedPageId: string | null = (connRow as any)?.selected_page_id ?? null;
-  const selectedInstagramId: string | null = (connRow as any)?.selected_instagram_id ?? null;
-  if (!selectedPageId) {
-    return json({ error: "sem_pagina_facebook", message: "A conexão Meta não tem página de Facebook selecionada." }, 412);
-  }
-
-  // 2c) Link de destino do plano. Se faltar e nenhum adset tiver override, falha cedo.
+  // 2) RESOLVEDOR ÚNICO DE ALVO (_shared/campaign-target.ts, D-ERP95 F2b).
+  //    Alvo evento: extracção literal dos antigos passos 2 / 2b / 3 / 4 —
+  //    mesmas queries, mesma ordem, mesmos erros, mesmos valores. O antigo
+  //    passo 2c (sem_link_destino) corria entre a Página e o token, e continua
+  //    a correr exactamente aí, através de onAccountResolved.
   const planoLinkDestino: string | null = typeof planRow.link_destino === "string" && planRow.link_destino.length > 0
     ? planRow.link_destino
     : null;
   const adsetsPreview: any[] = Array.isArray(planRow.adsets) ? planRow.adsets : [];
   const algumLink = adsetsPreview.some((a) => typeof a?.link_destino === "string" && a.link_destino.length > 0);
-  if (!planoLinkDestino && !algumLink) {
-    return json({ error: "sem_link_destino", message: "Define o link de destino no painel (https://...) antes de publicar." }, 412);
-  }
+  const usaBiblioteca = adsetsPreview.some((a) => (a?.anuncios ?? []).some((an: any) => Array.isArray(an?.creative_ids) && an.creative_ids.length > 0));
 
-  // 3) Decifra access_token (idêntico ao crm-meta-sync-creatives).
-  const { data: tokenRows, error: tokenErr } = await supabase.rpc(
-    "crm_get_meta_decrypted_token",
-    { p_connection_id: connectionId, p_master_key: ENCRYPTION_MASTER_KEY },
-  );
-  if (tokenErr || !Array.isArray(tokenRows) || tokenRows.length === 0) {
-    return json({ error: "decrypt_failed", detail: tokenErr?.message ?? null }, 403);
-  }
-  const accessToken = (tokenRows[0] as { access_token: string }).access_token;
+  const resolved = await resolveTarget(admin as any, planRow as any, {
+    user: supabase as any,
+    masterKey: ENCRYPTION_MASTER_KEY,
+    graphVersion: GRAPH_API_VERSION,
+    // Resolver e gravar Página/Instagram na ligação nunca acontece em dry_run.
+    allowWrites: preflight || !dryRun,
+    onAccountResolved: () => {
+      // 2c) Link de destino do plano. Se faltar e nenhum adset tiver override, falha cedo.
+      if (!planoLinkDestino && !algumLink) {
+        return json({ error: "sem_link_destino", message: "Define o link de destino no painel (https://...) antes de publicar." }, 412);
+      }
+      return null;
+    },
+  });
+  if (!resolved.ok) return resolved.response;
+  const target = resolved.target;
+  const connectionId = target.connection_id;
+  const adAccountId = target.ad_account_id;
+  const adAccountNumeric = target.ad_account_numeric;
+  const selectedPageId: string | null = target.page_id;
+  const selectedInstagramId: string | null = target.instagram_user_id;
+  const accessToken = target.access_token;
+  const eventPixelId: string | null = target.pixel_id;
 
-  // 4) Dados do evento (para nome da campanha + pixel para conversões).
-  const { data: eventRow, error: eventErr } = await admin
-    .from("events").select("name, date, meta_pixel_id").eq("id", planRow.event_id).maybeSingle();
-  console.log("[publish-execute] EVENT_DEBUG", JSON.stringify({
-    event_id_usado: planRow.event_id,
-    eventRow_raw: eventRow,
-    eventErr: eventErr ?? "no_error",
-    admin_schema_note: "admin createClient sem db.schema => default public",
-  }));
-  // Fallback explícito a public caso por algum motivo venha vazio sem erro
-  let eventRowFinal: any = eventRow;
-  if (!eventRow && !eventErr) {
-    const { data: eventRowPub, error: eventErrPub } = await (admin as any)
-      .schema("public").from("events")
-      .select("name, date, meta_pixel_id").eq("id", planRow.event_id).maybeSingle();
-    console.log("[publish-execute] EVENT_DEBUG_PUBLIC_FALLBACK", JSON.stringify({
-      eventRowPub, eventErrPub: eventErrPub ?? "no_error",
-    }));
-    eventRowFinal = eventRowPub;
+  // 2c-bis) Alvo música: o link só é obrigatório em Tráfego ou quando algum
+  //         anúncio usa a biblioteca de criativos (o criativo exige link).
+  if (isSong) {
+    const precisaLink = String(planRow.objetivo ?? "").toUpperCase() === "TRAFFIC" || usaBiblioteca;
+    if (precisaLink && !planoLinkDestino && !algumLink) {
+      return json({ ok: false, error: "sem_link_destino", message: "Define o link de destino do plano (ou o smart link da música) antes de publicar." }, 412);
+    }
+    if (usaBiblioteca && !selectedPageId) {
+      return json({ ok: false, error: "sem_pagina_facebook", message: "Não foi possível determinar a Página de Facebook da ligação do artista." }, 412);
+    }
   }
-  const nomeEvento = (eventRowFinal as any)?.name ?? "Evento";
-  const dataEvento = (eventRowFinal as any)?.date ?? "";
-  const eventPixelId: string | null = (eventRowFinal as any)?.meta_pixel_id ?? null;
 
   const adsets: any[] = Array.isArray(planRow.adsets) ? planRow.adsets : [];
-  const avisos: Array<{ codigo: string; detalhe?: string; adset?: string; ad_idx?: number }> = [];
+  const avisos: Array<{ codigo: string; detalhe?: string; adset?: string; ad_idx?: number; group_idx?: number }> = [];
 
   // 5) Resolução creative_id (uuid interno) → meta_creative_id.
   //    Recolher TODOS os ids únicos para uma query só.
@@ -299,11 +350,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // 6) Monta payloads.
   const objetivo = planRow.objetivo ?? "OUTCOME_TRAFFIC";
+  const objetivoUpper = String(objetivo).toUpperCase();
   let { optimization_goal, billing_event } = mapObjective(objetivo);
 
+  // Alvo música: objectivos sem pixel (D-ERP95 F2b). Conversões não são aceites.
+  const songGoal = isSong ? mapSongObjective(objetivo) : null;
+  if (isSong && !songGoal) {
+    return json({
+      ok: false, error: "objetivo_invalido", objetivo,
+      message: "Campanhas de música só aceitam AWARENESS (Alcance), TRAFFIC (Tráfego) ou ENGAGEMENT (Visualizações).",
+    }, 422);
+  }
+  if (songGoal) {
+    optimization_goal = songGoal.optimization_goal;
+    billing_event = songGoal.billing_event;
+  }
+
   const campaignPayload = {
-    name: `[MP Audience] ${nomeEvento}${dataEvento ? ` - ${dataEvento}` : ""}`,
-    objective: objetivo,
+    name: target.naming.campaign,
+    objective: songGoal ? songGoal.objective : objetivo,
     status: "PAUSED",
     special_ad_categories: [],
     is_adset_budget_sharing_enabled: false,
@@ -421,18 +486,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
       age_max: Number.isFinite(pub.idade_max) ? pub.idade_max : 65,
       targeting_automation: { advantage_audience: 0 },
     };
-    const incl = inclusionsByIdx[adsetIdx] ?? [];
+    // Públicos MP (inclusões/exclusões) são do alvo evento: uma campanha de
+    // música não herda nem exclui os públicos de compradores da empresa.
+    const incl = isSong ? [] : (inclusionsByIdx[adsetIdx] ?? []);
     if (incl.length > 0) {
       targeting.custom_audiences = incl.map((id) => ({ id: String(id) }));
     }
-    const excl = exclusionsByIdx[adsetIdx];
+    const excl = isSong ? undefined : exclusionsByIdx[adsetIdx];
     if (excl && excl.size > 0) {
       targeting.excluded_custom_audiences = Array.from(excl).map((id) => ({ id: String(id) }));
     }
     let goal = optimization_goal;
     const orcCents = Math.max(0, Number(a.orcamento_cents ?? 0));
     const payload: Record<string, unknown> = {
-      name: a.trigger_nome || "Adset",
+      name: target.naming.prefix + (a.trigger_nome || "Adset"),
       campaign_id: campaignIdParaPayload,
       billing_event,
       optimization_goal: goal,
@@ -440,6 +507,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       status: "PAUSED",
       targeting,
     };
+    // Alvo música: destino do objectivo (ODAX). Chave acrescentada no fim,
+    // depois de todas as do caminho de evento — esse payload fica intacto.
+    if (songGoal?.destination_type) payload.destination_type = songGoal.destination_type;
     let abaixo_minimo: { minimo_cents: number; orcamento_cents: number } | undefined;
     if (usaLifetime) {
       payload.lifetime_budget = orcCents;
@@ -639,16 +709,63 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   type AdBuild = { payload: Record<string, unknown> | null; aviso?: { codigo: string; detalhe?: string }; avisos_extra?: Array<{ codigo: string; detalhe?: string }> };
 
+  // Publicações promovíveis validadas para o alvo música (preenchido mais abaixo).
+  const postRefOk = new Set<string>();
+  const postRefBad: string[] = [];
+
+  // url_tags do criativo (só alvo música): UTMs geradas pelo motor.
+  function urlTagsFor(nomeAd: string): string | null {
+    if (!target.utm) return null;
+    return `${target.utm}&utm_content=${utmSlug(nomeAd)}`;
+  }
+
   // Devolve UM ARRAY de payloads (1 por grupo). Mantém a semântica anterior em estruturas
   // single (sem regressão nos quentes G=1).
-  function buildAdPayloads(adsetIdParaPayload: string, anuncio: any, link: string): AdBuild[] {
-    const cids: string[] = Array.isArray(anuncio.creative_ids) ? anuncio.creative_ids.filter((x: any) => typeof x === "string" && x) : [];
-    if (cids.length === 0) return [{ payload: null, aviso: { codigo: "creative_sem_id" } }];
-
+  function buildAdPayloads(adsetIdParaPayload: string, anuncio: any, link: string | null): AdBuild[] {
     const cta = normalizeCta(anuncio.cta || "LEARN_MORE");
     const msg = String(anuncio.corpo ?? "").slice(0, 2000);
     const title = String(anuncio.headline ?? "").slice(0, 200);
     const baseNome = String(anuncio.headline ?? "Anúncio");
+
+    // ── Alvo música: post existente (D-ERP95 F2b). Nunca corre para eventos.
+    const ep = isSong ? anuncio?.existing_post : null;
+    if (ep && typeof ep.post_ref === "string" && ep.post_ref) {
+      const postRef: string = ep.post_ref;
+      const kind = ep.kind === "instagram_media" ? "instagram_media" : "object_story";
+      if (!postRefOk.has(postRef)) {
+        return [{ payload: null, aviso: { codigo: "post_nao_promovivel", detalhe: postRef } }];
+      }
+      const nomeAdEp = target.naming.prefix + baseNome.slice(0, 200);
+      const avisosEp: Array<{ codigo: string; detalhe?: string }> = [];
+      let creative: Record<string, unknown>;
+      if (kind === "instagram_media") {
+        if (!selectedInstagramId) {
+          return [{ payload: null, aviso: { codigo: "sem_conta_instagram", detalhe: postRef } }];
+        }
+        creative = { source_instagram_media_id: postRef, instagram_user_id: selectedInstagramId };
+        // CTA com link só faz sentido (e só é aceite) em Tráfego com link.
+        if (objetivoUpper === "TRAFFIC" && link) {
+          (creative as any).call_to_action = { type: cta, value: { link } };
+        }
+      } else {
+        creative = { object_story_id: postRef };
+        if (objetivoUpper === "TRAFFIC") {
+          avisosEp.push({ codigo: "cta_nao_aplicada_em_post_existente", detalhe: "publicação de Página é promovida como está — o botão do post original é o que fica" });
+        }
+      }
+      const tags = urlTagsFor(nomeAdEp);
+      if (tags) (creative as any).url_tags = tags;
+      return [{
+        payload: { name: nomeAdEp, adset_id: adsetIdParaPayload, status: "PAUSED", creative },
+        aviso: { codigo: "post_existente", detalhe: `${kind}:${postRef}` },
+        avisos_extra: avisosEp.length > 0 ? avisosEp : undefined,
+      }];
+    }
+
+    const cids: string[] = Array.isArray(anuncio.creative_ids) ? anuncio.creative_ids.filter((x: any) => typeof x === "string" && x) : [];
+    if (cids.length === 0) return [{ payload: null, aviso: { codigo: "creative_sem_id" } }];
+    if (!link) return [{ payload: null, aviso: { codigo: "sem_link_destino" } }];
+
 
     const usable: Usable[] = [];
     for (const cid of cids) {
@@ -681,14 +798,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const g = effectiveGroups[gi];
       const sufixo = G > 1 ? ` · g${gi + 1}` : "";
       // headline limitado a 180 quando há sufixo para caber "· gN".
-      const nomeAd = (G > 1 ? baseNome.slice(0, 180) : baseNome.slice(0, 200)) + sufixo;
+      const nomeAd = target.naming.prefix + (G > 1 ? baseNome.slice(0, 180) : baseNome.slice(0, 200)) + sufixo;
       const avisosExtra: Array<{ codigo: string; detalhe?: string }> = [];
       if (truncated && gi === G - 1) {
         avisosExtra.push({ codigo: "ads_truncados_limite_meta", detalhe: `gerados ${multiCount} grupos; truncado a ${META_MAX_ADS_PER_ADSET}` });
       }
+      // Alvo música: UTMs geradas pelo motor (no evento fica null e nada é acrescentado).
+      const tags = urlTagsFor(nomeAd);
 
       if (g.kind === "multi") {
         const creative = buildMultiPlacementCreative(g.feed.info, g.vert.info, g.mediaType, cta, msg, title, link);
+        if (tags) (creative as any).url_tags = tags;
         out.push({
           payload: { name: nomeAd, adset_id: adsetIdParaPayload, status: "PAUSED", creative },
           aviso: { codigo: "multiformato_asset_feed_spec", detalhe: `media=${g.mediaType}; feed=${g.feed.cid}; vertical=${g.vert.cid}` },
@@ -701,6 +821,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           out.push({ payload: null, aviso: aviso ?? { codigo: "creative_sem_meta_id", detalhe: g.pick.cid }, avisos_extra: avisosExtra.length > 0 ? avisosExtra : undefined });
           continue;
         }
+        if (tags) (creative as any).url_tags = tags;
         out.push({
           payload: { name: nomeAd, adset_id: adsetIdParaPayload, status: "PAUSED", creative },
           aviso,
@@ -711,6 +832,154 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return out;
   }
 
+  // ─── ALVO MÚSICA: teto, posts promovíveis, registo, espelho, preflight ──
+  // (D-ERP95 F2b). Nada aqui corre para planos de evento.
+  type TetoInfo = { ok: boolean; error?: string; teto?: number; pedido?: number; ja_comprometido?: number; moeda?: string };
+
+  function dailyFromAdsets(list: any[], lifetime: boolean, dias: number): number {
+    const cents = (list ?? []).reduce((s: number, a: any) => s + Math.max(0, Number(a?.orcamento_cents ?? 0)), 0);
+    return (lifetime ? cents / Math.max(1, dias) : cents) / 100;
+  }
+
+  // Teto fechado por omissão: sem linha em crm.artist_ads_budget_caps não se publica.
+  async function checkTeto(): Promise<TetoInfo> {
+    const { data: cap } = await (admin as any).schema("crm").from("artist_ads_budget_caps")
+      .select("daily_cap, currency").eq("connection_id", connectionId).maybeSingle();
+    if (!cap) return { ok: false, error: "sem_teto" };
+    const capMoeda = String((cap as any).currency ?? "").toUpperCase();
+    const moedaPlano = String(planRow.moeda ?? "").toUpperCase();
+    if (moedaPlano && capMoeda !== moedaPlano) {
+      return { ok: false, error: "moeda_diferente_do_teto", teto: Number((cap as any).daily_cap), moeda: capMoeda };
+    }
+    const pedido = dailyFromAdsets(adsets, usaLifetime, diasJanela);
+    const { data: outros } = await (admin as any).schema("crm").from("meta_publish_plan")
+      .select("id, adsets, start_time, end_time")
+      .eq("connection_id", connectionId)
+      .in("estado", ["publicado", "ativo"])
+      .neq("id", planId);
+    let comprometido = 0;
+    for (const p of (outros ?? [])) {
+      const lt = !!(p as any).end_time;
+      const dias = (lt && (p as any).start_time)
+        ? Math.max(1, Math.ceil((new Date((p as any).end_time).getTime() - new Date((p as any).start_time).getTime()) / 86400000))
+        : 1;
+      comprometido += dailyFromAdsets(Array.isArray((p as any).adsets) ? (p as any).adsets : [], lt, dias);
+    }
+    const teto = Number((cap as any).daily_cap);
+    if (pedido + comprometido > teto + 1e-9) {
+      return { ok: false, error: "acima_do_teto", teto, pedido, ja_comprometido: comprometido, moeda: capMoeda };
+    }
+    return { ok: true, teto, pedido, ja_comprometido: comprometido, moeda: capMoeda };
+  }
+
+  async function logCreate(entity: "campaign" | "adset" | "ad", externalId: string, nome: string): Promise<void> {
+    const { error } = await (admin as any).schema("crm").from("meta_entity_actions_log").insert({
+      company_id: planRow.company_id,
+      connection_id: connectionId,
+      ad_account_id: adAccountId,
+      entity_type: entity,
+      external_id: externalId,
+      entity_name: nome || null,
+      action: "create",
+      new_status: "PAUSED",
+      updates_jsonb: { plan_id: planId, alvo: "song", song_id: (planRow as any).song_id, artist_id: (planRow as any).artist_id },
+      success: true,
+      performed_by: callerUserId,
+    });
+    if (error) avisos.push({ codigo: "registo_acao_falhou", detalhe: error.message });
+  }
+
+  async function upsertSongSnapshot(campaignId: string): Promise<void> {
+    const { error } = await (admin as any).schema("crm").from("meta_campaign_snapshot").upsert({
+      connection_id: connectionId,
+      company_id: planRow.company_id,
+      ad_account_id: adAccountId,
+      external_campaign_id: campaignId,
+      name: campaignPayload.name,
+      status: "PAUSED",
+      effective_status: "PAUSED",
+      objective: campaignPayload.objective,
+      currency: target.currency ?? "EUR",
+      start_time: planStartTime,
+      stop_time: planEndTime,
+      raw: { created_by: "crm-meta-publish-execute", plan_id: planId },
+      last_synced_at: new Date().toISOString(),
+      linked_song_id: (planRow as any).song_id,
+      linked_song_locked: true,
+    }, { onConflict: "connection_id,external_campaign_id" });
+    if (error) avisos.push({ codigo: "espelho_campanha_falhou", detalhe: error.message });
+  }
+
+  // Posts existentes referidos no plano × o que é promovível para este artista.
+  let tetoInfo: TetoInfo | null = null;
+  const postRefsPlano: string[] = [];
+  if (isSong) {
+    for (const a of adsets) {
+      for (const an of (a?.anuncios ?? [])) {
+        const pr = an?.existing_post?.post_ref;
+        if (typeof pr === "string" && pr && !postRefsPlano.includes(pr)) postRefsPlano.push(pr);
+      }
+    }
+    if (postRefsPlano.length > 0) {
+      const { data: promo, error: promoErr } = await admin.rpc("artist_ads_promotable_posts", { p_artist_id: (planRow as any).artist_id });
+      if (promoErr) return json({ ok: false, error: "posts_promoviveis_falhou", detail: promoErr.message }, 500);
+      for (const row of ((promo ?? []) as any[])) {
+        if (row?.post_ref && row?.meta_ready === true) postRefOk.add(String(row.post_ref));
+      }
+      for (const pr of postRefsPlano) if (!postRefOk.has(pr)) postRefBad.push(pr);
+      if (postRefBad.length > 0 && !dryRun && !preflight) {
+        return json({
+          ok: false, error: "post_nao_promovivel", posts: postRefBad,
+          message: "Há publicações no plano que não constam das publicações promovíveis do artista (ou cujo identificador não é utilizável pela Marketing API).",
+        }, 422);
+      }
+      if (postRefBad.length > 0) avisos.push({ codigo: "post_nao_promovivel", detalhe: postRefBad.join(", ") });
+    }
+
+    tetoInfo = await checkTeto();
+    if (!tetoInfo.ok) {
+      if (!dryRun && !preflight) {
+        return json({ ok: false, error: tetoInfo.error, teto: tetoInfo.teto, pedido: tetoInfo.pedido, ja_comprometido: tetoInfo.ja_comprometido, moeda: tetoInfo.moeda }, 422);
+      }
+      avisos.push({ codigo: tetoInfo.error!, detalhe: JSON.stringify(tetoInfo) });
+    }
+  }
+
+  // ─── PREFLIGHT (só GETs; não escreve na Meta nem no plano) ───────────
+  if (preflight) {
+    const checks: Array<{ check: string; ok: boolean; detail?: string }> = [];
+    const me = await graphGET("/me", { fields: "id,name" }, accessToken);
+    checks.push({ check: "token_valido", ok: me.ok, detail: me.ok ? String(me.data?.name ?? me.data?.id ?? "") : JSON.stringify(me.data?.error ?? me.data) });
+    const perms = await graphGET("/me/permissions", {}, accessToken);
+    const granted = new Set<string>(((perms.data?.data ?? []) as any[]).filter((p) => p?.status === "granted").map((p) => String(p.permission)));
+    checks.push({ check: "scope_ads_management", ok: granted.has("ads_management"), detail: granted.size > 0 ? Array.from(granted).join(",") : "sem lista de permissões" });
+    const acc = await graphGET(`/${adAccountId}`, { fields: "account_status,currency,name" }, accessToken);
+    checks.push({ check: "conta_activa", ok: acc.ok && Number(acc.data?.account_status) === 1, detail: acc.ok ? `status=${acc.data?.account_status} ${acc.data?.name ?? ""}` : JSON.stringify(acc.data?.error ?? acc.data) });
+    const moedaPlano = String(planRow.moeda ?? "").toUpperCase();
+    checks.push({ check: "moeda_da_conta", ok: acc.ok && String(acc.data?.currency ?? "").toUpperCase() === moedaPlano, detail: `conta=${acc.data?.currency ?? "?"} plano=${moedaPlano || "?"}` });
+    if (selectedPageId) {
+      const pg = await graphGET(`/${selectedPageId}`, { fields: "id,name" }, accessToken);
+      checks.push({ check: "pagina_acessivel", ok: pg.ok, detail: pg.ok ? `${selectedPageId} ${pg.data?.name ?? ""}` : JSON.stringify(pg.data?.error ?? pg.data) });
+    } else {
+      checks.push({ check: "pagina_acessivel", ok: false, detail: "sem Página de Facebook determinada" });
+    }
+    checks.push({ check: "instagram_resolvido", ok: !!selectedInstagramId, detail: selectedInstagramId ?? "não resolvido" });
+    if (isSong) {
+      for (const pr of postRefsPlano) {
+        let okPost = postRefOk.has(pr);
+        let detalhe = okPost ? "promovível" : "não consta das publicações promovíveis do artista ou o identificador não é utilizável pela Marketing API";
+        if (okPost) {
+          const g = await graphGET(`/${pr}`, { fields: "id" }, accessToken);
+          okPost = g.ok;
+          if (!g.ok) detalhe = JSON.stringify(g.data?.error ?? g.data);
+        }
+        checks.push({ check: `post_${pr}`, ok: okPost, detail: detalhe });
+      }
+      checks.push({ check: "teto", ok: !!tetoInfo?.ok, detail: JSON.stringify(tetoInfo) });
+    }
+    const tudoOk = checks.every((c) => c.ok);
+    return json({ ok: tudoOk, preflight: true, alvo: target.kind, ad_account_id: adAccountId, checks }, tudoOk ? 200 : 422);
+  }
 
 
   // ─── DRY-RUN ─────────────────────────────────────────────────────────
@@ -726,7 +995,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       dryAdsets.push({ trigger_nome: a.trigger_nome, optimization_goal_used: goal_used, budget_mode, link_destino_efetivo: linkEf, payload: adsetPayload });
       for (let k = 0; k < (a.anuncios ?? []).length; k++) {
         const an = a.anuncios[k];
-        if (!linkEf) {
+        if (!linkEf && !(isSong && an?.existing_post)) {
           avisos.push({ codigo: "sem_link_destino", adset: a.trigger_nome, ad_idx: k });
           continue;
         }
@@ -752,6 +1021,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       },
       resolved_creative_ids: Object.fromEntries(resolvedCreatives),
       avisos,
+      // Campos extra só no alvo música: a resposta de evento fica intacta.
+      ...(isSong ? { alvo: "song", teto: tetoInfo, naming: target.naming, utm: target.utm } : {}),
     });
   }
 
@@ -786,8 +1057,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
 
   // Estado: a_publicar
-  await (admin as any).schema("crm").from("meta_publish_plan")
-    .update({ estado: "a_publicar", publish_error: null, publish_started_at: new Date().toISOString() }).eq("id", planId);
+  if (isSong) {
+    // Lock anti-corrida (só alvo música nesta fase — padrão do crm-google-publish-execute).
+    const lockCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data: locked, error: lockErr } = await (admin as any)
+      .schema("crm").from("meta_publish_plan")
+      .update({ estado: "a_publicar", publish_error: null, publish_started_at: new Date().toISOString() })
+      .eq("id", planId)
+      .or(`estado.neq.a_publicar,publish_started_at.lt.${lockCutoff}`)
+      .select("id");
+    if (lockErr) return json({ ok: false, error: "lock_falhou", detail: lockErr.message }, 500);
+    if (!locked || locked.length === 0) {
+      return json({ error: "ja_em_publicacao", message: "Publicação já em curso — espera que termine antes de tentar de novo." }, 409);
+    }
+  } else {
+    await (admin as any).schema("crm").from("meta_publish_plan")
+      .update({ estado: "a_publicar", publish_error: null, publish_started_at: new Date().toISOString() }).eq("id", planId);
+  }
 
   async function failAndStop(passo: string, err: any, extra?: Record<string, unknown>): Promise<Response> {
     const payload = { passo, error: err, ...(extra ?? {}) };
@@ -805,6 +1091,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const { error: upErr } = await (admin as any).schema("crm").from("meta_publish_plan")
       .update({ meta_campaign_id: metaCampaignId }).eq("id", planId);
     if (upErr) return await failAndStop("persist_campaign_id", { message: upErr.message });
+    // Alvo música: espelho + trinco da ligação à música, sem esperar pelo cron.
+    if (isSong) {
+      await upsertSongSnapshot(metaCampaignId);
+      await logCreate("campaign", metaCampaignId, campaignPayload.name);
+    }
   }
 
   // 7b) Adsets + Ads (idempotente — escreve back ao adsets jsonb após cada sucesso)
@@ -835,12 +1126,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
       a.meta_adset_id = metaAdsetId;
       await (admin as any).schema("crm").from("meta_publish_plan")
         .update({ adsets: adsetsOut }).eq("id", planId);
+      if (isSong) await logCreate("adset", metaAdsetId, String((payload as any)?.name ?? ""));
     }
 
     // Ads
     const adsIds: string[] = [];
     const linkEf = resolveLink(a);
-    if (!linkEf) {
+    // Alvo música: adsets cujos anúncios são posts existentes não precisam de link.
+    const temPostExistente = isSong && (a.anuncios ?? []).some((x: any) => x?.existing_post);
+    if (!linkEf && !temPostExistente) {
       avisos.push({ codigo: "sem_link_destino", adset: a.trigger_nome });
       respAdsets.push({ trigger_nome: a.trigger_nome, meta_adset_id: metaAdsetId!, ads: adsIds });
       continue;
@@ -878,6 +1172,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         if (gi === 0) an.meta_ad_id = novoId; // back-compat
         await (admin as any).schema("crm").from("meta_publish_plan")
           .update({ adsets: adsetsOut }).eq("id", planId);
+        if (isSong) await logCreate("ad", novoId, String((payload as any)?.name ?? ""));
       }
     }
 

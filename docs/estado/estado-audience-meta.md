@@ -51,3 +51,16 @@ Nada em execução.
 - Migração `20260919105937` em Live: `artist_songs.smart_link_url`, `design_id` do plano Meta só obrigatório no alvo evento, e 9 RPCs `artist_ads_*` (tetos de orçamento, lista/detalhe de planos de música, posts promovíveis, smart link, criar/editar plano). Escrita exige sessão + papel admin/manager/marketing_manager; nenhuma acessível a anon.
 - `crm-meta-publish-execute` deployada: `dry_run` (default TRUE, inalterado) passa a ser permitido em qualquer estado do plano e devolve `ok:true`; plano de música devolve `alvo_musica_f2b`. O caminho real de publicação não mudou.
 - Por fazer (F2b): publicação do alvo música, post existente, naming, UTMs, lock, activação.
+
+## Actualização 19/09/2026 — F2b do motor único (D-ERP95)
+
+O motor passa a publicar campanhas de música na Meta, com o mesmo código que publica
+eventos: um resolvedor único decide se o alvo é um evento ou um artista+música e
+devolve a conta de anúncios, a página, o Instagram e os nomes a usar. Para música não
+há pixel nem conversões — só notoriedade, tráfego ou visualizações. Publicar exige
+sessão com papel de tráfego e um teto de orçamento definido para a conta: sem teto, o
+motor recusa. As campanhas nascem sempre em pausa e ficam desde logo ligadas à música
+(e trancadas), sem esperar pela varredura diária. Há um novo modo de verificação prévia
+que só lê da Meta e devolve uma lista de confirmações (token, conta, moeda, página,
+Instagram, publicações promovíveis, teto). A activação de campanhas de música fica para
+a fase seguinte. O caminho dos eventos não mudou.
