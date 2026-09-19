@@ -449,7 +449,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const faltasPago = [
     "alcance (reach) e CPM não existem nas RPCs de tráfego — não constam do snapshot",
     "ThruPlays, visualizações de 3s, CTR e custo por ThruPlay só existem em janela de 7 e 30 dias (por anúncio); na janela de 90 dias só há gasto, impressões, cliques e video_views",
-    "não há breakdown pago por região, idade ou género: os dados pagos são agregados por anúncio e por dia",
+    "por campanha/anúncio não há corte por região, idade ou género — esse corte existe só no bloco historico_pago.breakdowns (RPC artist_ads_breakdowns), agregado por dimensão e não por campanha",
   ];
   for (const f of faltasPago) avisos.push(`dado em falta: ${f}`);
 
@@ -897,6 +897,29 @@ Deno.serve(async (req: Request): Promise<Response> => {
       fonte: "RPC public.artist_ads_budget_cap_get — teto e disponível da ligação",
       periodo: "actual",
       ultima_atualizacao: cap.set_at ?? null,
+    },
+    {
+      fonte: `RPC public.artist_ads_breakdowns (${DIAS_JANELA} dias, meta) — desempenho pago por região, idade, género, plataforma e país`,
+      periodo: `últimos ${DIAS_JANELA} dias`,
+      linhas: breakdownLinhas,
+      ultima_atualizacao: ultimoSync,
+      vazia: breakdownLinhas === 0,
+    },
+    {
+      fonte: "public.v_artist_audience_by_state — audiência orgânica de Instagram por estado/região",
+      periodo: estadoDataMax ? `snapshot de ${estadoDataMax}` : "sem dados",
+      ultima_atualizacao: estadoDataMax,
+      tipos: Object.keys(porEstado),
+      vazia: estadoRows.length === 0,
+    },
+    {
+      fonte: "public.artist_audience_demographics por tipo de audiência (followers/engaged/reached) — idade e género",
+      periodo: Object.keys(porTipo).length
+        ? Object.entries(porTipo).map(([t, v]: Any) => `${t}: ${v.snapshot_date}`).join("; ")
+        : "sem dados",
+      ultima_atualizacao: Object.values(porTipo)
+        .map((v: Any) => v.snapshot_date).filter(Boolean).sort().pop() ?? null,
+      vazia: Object.keys(porTipo).length === 0,
     },
     {
       fonte: "public.artist_audience_demographics (Instagram orgânico) — FONTE SECUNDÁRIA",
