@@ -1,5 +1,5 @@
 // crm-meta-publish-execute (FASE 2)
-// POST { company_id, plan_id, dry_run?: boolean }
+// POST { company_id, plan_id, dry_run?: boolean, preflight?: boolean }
 //
 // Cria no Meta: 1 campanha + N adsets + M anúncios — TUDO status=PAUSED.
 // ABO: orçamento nos adsets, campanha sem budget.
@@ -11,10 +11,21 @@
 // só escreve no Meta com dry_run:false explícito. D-ERP95 F2a: o dry-run é
 // permitido em QUALQUER estado do plano (incluindo 'publicado'), e a construção
 // dos payloads é a MESMA do caminho real (buildAdsetPayload/buildAdPayloads).
-// Planos de alvo música (song_id) devolvem { ok:false, error:'alvo_musica_f2b' }.
+//
+// D-ERP95 F2b — MOTOR ÚNICO, DOIS ALVOS:
+//   • evento — inalterado byte a byte (mesmas validações, mesma resolução de
+//     conta/pixel, mesmo naming, mesma ordem de escrita, mesmas respostas).
+//   • artista+música (song_id) — conta/token/Página/Instagram da ligação do
+//     artista, sem pixel, objectivos AWARENESS|TRAFFIC|ENGAGEMENT, teto de
+//     orçamento obrigatório, naming "[MP] …", UTMs geradas pelo motor, posts
+//     existentes, lock anti-corrida, espelho da campanha com a música trancada
+//     e registo das criações em crm.meta_entity_actions_log.
+// Modo preflight: só GETs à Graph API, devolve { ok, preflight, checks[] }.
+// O alvo é resolvido por _shared/campaign-target.ts (resolvedor único).
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
+import { resolveTarget, utmSlug } from "../_shared/campaign-target.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
