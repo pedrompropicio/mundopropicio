@@ -363,11 +363,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }, accessToken!);
     const info = (adv.ok ? (adv.data as any)?.list?.[0] : null) ?? null;
     checks.push({ check: "token_e_conta", ok: adv.ok, detail: adv.ok ? String(info?.name ?? advertiserId) : (adv as any).message });
-    const moedaConta = String(info?.currency ?? moedaConta ?? "").toUpperCase();
+    const moedaContaApi = String(info?.currency ?? moedaConta ?? "").toUpperCase();
     checks.push({
       check: "moeda_da_conta",
-      ok: !!moedaConta && moedaConta === String(planRow.moeda ?? "").toUpperCase(),
-      detail: `conta=${moedaConta || "?"} plano=${String(planRow.moeda ?? "?").toUpperCase()}`,
+      ok: !!moedaContaApi && moedaContaApi === String(planRow.moeda ?? "").toUpperCase(),
+      detail: `conta=${moedaContaApi || "?"} plano=${String(planRow.moeda ?? "?").toUpperCase()}`,
     });
     checks.push({ check: "teto", ok: !!teto.ok, detail: JSON.stringify(teto) });
     checks.push({ check: "geografia", ok: semGeo.length === 0 && geoPorAdset.every((g) => g.length > 0), detail: JSON.stringify(geoPorAdset) });
