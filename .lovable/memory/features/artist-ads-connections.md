@@ -198,3 +198,31 @@ F2a só acrescentou, fora do caminho de escrita: leitura de `artist_id/song_id/c
 `{ ok:false, error:'alvo_musica_f2b' }` para planos de música, guardas de estado só quando
 `dry_run` é false (dry-run permitido em qualquer estado, incluindo `publicado`) e
 `ok:true` + `estado_plano` na resposta. Construção de payloads continua partilhada.
+
+## Motor único de campanhas — F2b (D-ERP95, 19/09/2026)
+
+Publicação do alvo música na Meta. Resolvedor único `_shared/campaign-target.ts`
+(`resolveTarget`): evento = extracção literal (mesmas queries/ordem/erros, hook
+`onAccountResolved` mantém o `sem_link_destino` no ponto exacto); música = conta,
+token, Página e Instagram da ligação do plano, sem pixel, com derivação de
+`selected_page_id` (prefixo de `effective_object_story_id` mais frequente em
+`crm.meta_ad_snapshot`) e de `selected_instagram_id` (Graph API) gravadas na ligação
+— nunca em dry_run.
+
+Regras do alvo música: publicar exige sessão + `artist_ads_assert_write` (service_role
+nunca publica; dry_run/preflight aceitam service_role); teto obrigatório em
+`crm.artist_ads_budget_caps` (`sem_teto`, `acima_do_teto`, `moeda_do_teto_diferente`),
+contando o diário já comprometido pelos outros planos publicados/activos da ligação;
+objectivos AWARENESS/TRAFFIC/ENGAGEMENT → OUTCOME_AWARENESS+REACH /
+OUTCOME_TRAFFIC+LINK_CLICKS+WEBSITE / OUTCOME_ENGAGEMENT+THRUPLAY+ON_VIDEO, nunca
+`promoted_object` de pixel; naming `[MP] [TÍTULO] [Alcance|Tráfego|Visualizações] data`
+e prefixo `[MP] ` em conjuntos/anúncios; `url_tags` geradas pelo motor; `existing_post`
+validado contra `artist_ads_promotable_posts` (`meta_ready=true`); tudo PAUSED; lock
+anti-corrida `ja_em_publicacao`; upsert no espelho `crm.meta_campaign_snapshot` com
+`linked_song_id` + `linked_song_locked=true` na criação; criações registadas em
+`crm.meta_entity_actions_log` com `action='create'` (CHECK estendido na migração
+20260919160000). Modo `preflight:true` só faz GETs e devolve `checks[]`.
+`crm-meta-publish-activate` responde `alvo_musica_f3` a planos de música.
+
+Invariante de eventos: o dry_run do plano `93529702-76c7-491f-95dd-040ed7fcee25` tem
+de continuar a devolver md5 `0e2801d625781a22a1e4bb33fb0a0f6d`.

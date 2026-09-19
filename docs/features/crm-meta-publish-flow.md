@@ -134,3 +134,41 @@ objectivo é `TRAFFIC`. A coerência música↔artista↔connection é garantida
 tocar na Graph API nem em nenhuma tabela, em QUALQUER estado do plano (incluindo
 `publicado`). Default de `dry_run` é **TRUE**: só publica com `dry_run:false` explícito.
 Plano com `song_id` devolve `200 { ok:false, error:'alvo_musica_f2b' }`.
+
+## Ramo MÚSICA na publicação (D-ERP95 F2b, 19/09/2026)
+
+`crm-meta-publish-execute` aceita agora `{ company_id, plan_id, dry_run?, preflight? }`
+e serve dois alvos. O alvo é resolvido por `_shared/campaign-target.ts`
+(`resolveTarget`) — para `event_id` é uma extracção literal do caminho antigo, com as
+mesmas queries, ordem e erros. Alvo música (`song_id`):
+
+- **Conta/token/Página/Instagram** da ligação do plano (`connection_scope='artist'`,
+  `status='active'`, `selected_ad_account_id` obrigatório). Sem pixel. `page_id` em
+  falta é derivado do prefixo de `effective_object_story_id` mais frequente em
+  `crm.meta_ad_snapshot`; `instagram_user_id` em falta é resolvido pela Graph API.
+  Ambos são gravados na ligação — nunca em `dry_run`.
+- **Autorização:** dry_run/preflight aceitam sessão ou service_role; publicar exige
+  sessão + `artist_ads_assert_write` (service_role não publica música).
+- **Teto obrigatório** em `crm.artist_ads_budget_caps` (erros `sem_teto`,
+  `acima_do_teto`, `moeda_do_teto_diferente`).
+- **Objectivos:** `AWARENESS`→`OUTCOME_AWARENESS`/`REACH`; `TRAFFIC`→`OUTCOME_TRAFFIC`/`LINK_CLICKS`/`destination_type=WEBSITE`;
+  `ENGAGEMENT`→`OUTCOME_ENGAGEMENT`/`THRUPLAY`/`destination_type=ON_VIDEO`. Outro → `objetivo_invalido`.
+- **Naming:** campanha `[MP] [TÍTULO-BASE] [Alcance|Tráfego|Visualizações] AAAA-MM-DD`;
+  conjuntos e anúncios com prefixo `[MP] `.
+- **UTMs:** `url_tags` gerado pelo motor (`utm_source=meta&utm_medium=paid&utm_campaign=…&utm_content=…`).
+- **Post existente:** `existing_post { post_ref, kind:'object_story'|'instagram_media' }`
+  → `object_story_id` ou `source_instagram_media_id` + `instagram_user_id`; recusado
+  com `post_nao_promovivel` se não vier de `artist_ads_promotable_posts` com `meta_ready=true`.
+- **Estado:** tudo nasce `PAUSED`. **Lock:** `ja_em_publicacao` (409) com
+  `estado='a_publicar'` e `publish_started_at` < 5 min.
+- **Espelho:** upsert em `crm.meta_campaign_snapshot` com `linked_song_id` +
+  `linked_song_locked=true` logo após criar a campanha.
+- **Log:** criações em `crm.meta_entity_actions_log` com `action='create'`.
+- **Activação:** `crm-meta-publish-activate` devolve `alvo_musica_f3`.
+
+**Modo `preflight:true`** (ambos os alvos): só GETs, devolve
+`{ ok, preflight:true, checks:[{check, ok, detail}] }` — token/`ads_management`, conta
+activa e moeda, Página, Instagram, posts promovíveis, teto.
+
+**Lacunas do alvo evento (registadas, não alteradas):** publicar não verifica papel,
+não há lock anti-corrida e não são geradas UTMs.
