@@ -183,81 +183,53 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const MIN_DAILY_CENTS = 100;
   const MIN_LIFETIME_CENTS = MIN_DAILY_CENTS * diasJanela;
 
-
-  // 2) Conexão Meta ativa para este company → connection_id + ad_account_id.
-  //    Pegamos o link primário enabled (mesma origem que MetaPublishPanel/Setup usa).
-  const { data: linkRow, error: linkErr } = await (supabase as any)
-    .schema("crm").from("ad_platform_account_links")
-    .select("connection_id, ad_account_id, is_primary, enabled")
-    .eq("enabled", true)
-    .order("is_primary", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (linkErr) return json({ error: "ad_account_query_failed", detail: linkErr.message }, 500);
-  if (!linkRow) return json({ error: "no_active_meta_connection" }, 412);
-
-  const connectionId = linkRow.connection_id as string;
-  const adAccountId = normalizeAdAccountId(linkRow.ad_account_id as string);
-  const adAccountNumeric = adAccountId.replace(/^act_/, "");
-
-  // 2b) Página de Facebook e (opcional) Instagram associados à conexão.
-  //     Sem page_id NÃO conseguimos criar criativo novo (object_story_spec exige page_id).
-  //     Falhamos cedo, ANTES de qualquer escrita no Meta.
-  const { data: connRow, error: connErr } = await (admin as any)
-    .schema("crm").from("ad_platform_connections")
-    .select("selected_page_id, selected_instagram_id")
-    .eq("id", connectionId)
-    .maybeSingle();
-  if (connErr) return json({ error: "connection_query_failed", detail: connErr.message }, 500);
-  const selectedPageId: string | null = (connRow as any)?.selected_page_id ?? null;
-  const selectedInstagramId: string | null = (connRow as any)?.selected_instagram_id ?? null;
-  if (!selectedPageId) {
-    return json({ error: "sem_pagina_facebook", message: "A conexão Meta não tem página de Facebook selecionada." }, 412);
-  }
-
-  // 2c) Link de destino do plano. Se faltar e nenhum adset tiver override, falha cedo.
+  // 2) RESOLVEDOR ÚNICO DE ALVO (_shared/campaign-target.ts, D-ERP95 F2b).
+  //    Alvo evento: extracção literal dos antigos passos 2 / 2b / 3 / 4 —
+  //    mesmas queries, mesma ordem, mesmos erros, mesmos valores. O antigo
+  //    passo 2c (sem_link_destino) corria entre a Página e o token, e continua
+  //    a correr exactamente aí, através de onAccountResolved.
   const planoLinkDestino: string | null = typeof planRow.link_destino === "string" && planRow.link_destino.length > 0
     ? planRow.link_destino
     : null;
   const adsetsPreview: any[] = Array.isArray(planRow.adsets) ? planRow.adsets : [];
   const algumLink = adsetsPreview.some((a) => typeof a?.link_destino === "string" && a.link_destino.length > 0);
-  if (!planoLinkDestino && !algumLink) {
-    return json({ error: "sem_link_destino", message: "Define o link de destino no painel (https://...) antes de publicar." }, 412);
-  }
+  const usaBiblioteca = adsetsPreview.some((a) => (a?.anuncios ?? []).some((an: any) => Array.isArray(an?.creative_ids) && an.creative_ids.length > 0));
 
-  // 3) Decifra access_token (idêntico ao crm-meta-sync-creatives).
-  const { data: tokenRows, error: tokenErr } = await supabase.rpc(
-    "crm_get_meta_decrypted_token",
-    { p_connection_id: connectionId, p_master_key: ENCRYPTION_MASTER_KEY },
-  );
-  if (tokenErr || !Array.isArray(tokenRows) || tokenRows.length === 0) {
-    return json({ error: "decrypt_failed", detail: tokenErr?.message ?? null }, 403);
-  }
-  const accessToken = (tokenRows[0] as { access_token: string }).access_token;
+  const resolved = await resolveTarget(admin as any, planRow as any, {
+    user: supabase as any,
+    masterKey: ENCRYPTION_MASTER_KEY,
+    graphVersion: GRAPH_API_VERSION,
+    // Resolver e gravar Página/Instagram na ligação nunca acontece em dry_run.
+    allowWrites: preflight || !dryRun,
+    onAccountResolved: () => {
+      // 2c) Link de destino do plano. Se faltar e nenhum adset tiver override, falha cedo.
+      if (!planoLinkDestino && !algumLink) {
+        return json({ error: "sem_link_destino", message: "Define o link de destino no painel (https://...) antes de publicar." }, 412);
+      }
+      return null;
+    },
+  });
+  if (!resolved.ok) return resolved.response;
+  const target = resolved.target;
+  const connectionId = target.connection_id;
+  const adAccountId = target.ad_account_id;
+  const adAccountNumeric = target.ad_account_numeric;
+  const selectedPageId: string | null = target.page_id;
+  const selectedInstagramId: string | null = target.instagram_user_id;
+  const accessToken = target.access_token;
+  const eventPixelId: string | null = target.pixel_id;
 
-  // 4) Dados do evento (para nome da campanha + pixel para conversões).
-  const { data: eventRow, error: eventErr } = await admin
-    .from("events").select("name, date, meta_pixel_id").eq("id", planRow.event_id).maybeSingle();
-  console.log("[publish-execute] EVENT_DEBUG", JSON.stringify({
-    event_id_usado: planRow.event_id,
-    eventRow_raw: eventRow,
-    eventErr: eventErr ?? "no_error",
-    admin_schema_note: "admin createClient sem db.schema => default public",
-  }));
-  // Fallback explícito a public caso por algum motivo venha vazio sem erro
-  let eventRowFinal: any = eventRow;
-  if (!eventRow && !eventErr) {
-    const { data: eventRowPub, error: eventErrPub } = await (admin as any)
-      .schema("public").from("events")
-      .select("name, date, meta_pixel_id").eq("id", planRow.event_id).maybeSingle();
-    console.log("[publish-execute] EVENT_DEBUG_PUBLIC_FALLBACK", JSON.stringify({
-      eventRowPub, eventErrPub: eventErrPub ?? "no_error",
-    }));
-    eventRowFinal = eventRowPub;
+  // 2c-bis) Alvo música: o link só é obrigatório em Tráfego ou quando algum
+  //         anúncio usa a biblioteca de criativos (o criativo exige link).
+  if (isSong) {
+    const precisaLink = String(planRow.objetivo ?? "").toUpperCase() === "TRAFFIC" || usaBiblioteca;
+    if (precisaLink && !planoLinkDestino && !algumLink) {
+      return json({ ok: false, error: "sem_link_destino", message: "Define o link de destino do plano (ou o smart link da música) antes de publicar." }, 412);
+    }
+    if (usaBiblioteca && !selectedPageId) {
+      return json({ ok: false, error: "sem_pagina_facebook", message: "Não foi possível determinar a Página de Facebook da ligação do artista." }, 412);
+    }
   }
-  const nomeEvento = (eventRowFinal as any)?.name ?? "Evento";
-  const dataEvento = (eventRowFinal as any)?.date ?? "";
-  const eventPixelId: string | null = (eventRowFinal as any)?.meta_pixel_id ?? null;
 
   const adsets: any[] = Array.isArray(planRow.adsets) ? planRow.adsets : [];
   const avisos: Array<{ codigo: string; detalhe?: string; adset?: string; ad_idx?: number }> = [];
