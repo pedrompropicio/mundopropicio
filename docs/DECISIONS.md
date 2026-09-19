@@ -2803,3 +2803,36 @@ Live.
 **Fora de âmbito:** crons, câmbio, front, Publish.
 
 **Estado:** vigente.
+
+---
+
+## D-ERP94 — Privilégio é a protecção das RPCs de tráfego por artista (19/09/2026)
+
+**Causa.** `public.artist_ads_assert_access` devolve a empresa quando `auth.uid() IS NULL`,
+**de propósito** — é o que permite aos crons (service_role, sem sessão) chamar as leituras e
+o auto-link. Como toda a função nova em `public` nasce com `EXECUTE` para `PUBLIC`/`anon`,
+qualquer visitante com a chave pública e o uuid de um artista conseguia ler
+`artist_ads_campaigns`/`_daily`/`_ads`/`_alerts`, chamar `artist_ads_autolink_songs`, e
+`link_song`/`unlink_song` saltavam a verificação de papéis sem sessão. As migrações do
+D-ERP92 e D-ERP93 tinham ainda `GRANT EXECUTE ... TO anon` explícito.
+
+**Decisão.** A protecção destas funções é o **privilégio, não o corpo**:
+`REVOKE EXECUTE ... FROM PUBLIC, anon` + `GRANT EXECUTE TO authenticated, service_role`
+nas oito funções `artist_ads_*` (`assert_access`, `campaigns`, `daily`, `ads`, `alerts`,
+`autolink_songs`, `link_song`, `unlink_song`). Nenhum corpo foi alterado.
+
+**Regra que fica:** toda a função `artist_*` SECURITY DEFINER leva `REVOKE` de PUBLIC e
+`anon` **na mesma migração que a cria ou recria**; ao fazer DROP+CREATE nunca se repõe
+grant a `anon`.
+
+**Migração:** `20260919042614_a1d9fa51-30bd-42e3-b228-a3cb85e2c84a.sql`, idempotente
+(repete os REVOKE já feitos à mão em Live a 19/09), aplicada e verificada em Live:
+anon false / authenticated true / service_role true nas oito.
+
+**Levantamento das restantes SECURITY DEFINER `artist_*`/`song_*`/`soundcharts_*` com
+EXECUTE para anon:** só `artist_song_playlist_streams_set` — escreve, exige sessão no corpo
+(`auth.uid() IS NULL` → 42501) e papel, e não aparece em nenhuma policy de RLS. Ficou por
+decidir, a cruzar com o front "Gestão Artística" (páginas públicas `/kit/:slug` podem
+depender dela).
+
+**Estado:** vigente.

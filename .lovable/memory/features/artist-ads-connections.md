@@ -125,3 +125,17 @@ Funções SQL (a regra de correspondência vive uma vez):
   artist_id)` ao desligar. `crm.artist_ads_autolink_songs_core` só toca em linhas com
   `linked_song_id IS NULL AND NOT linked_song_locked`.
 - Os upserts dos syncs nunca escrevem `linked_song_id` nem `linked_song_locked`.
+
+## Segurança das RPCs (D-ERP94, 19/09/2026)
+
+- `artist_ads_assert_access` deixa passar **sem sessão de propósito** (cron/service_role) —
+  por isso a protecção destas RPCs é o **privilégio, não o corpo**: as oito funções
+  `artist_ads_*` têm `REVOKE EXECUTE FROM PUBLIC, anon` e `GRANT` só a
+  `authenticated` + `service_role` (verificado em Live).
+- **Regra permanente:** toda a função `artist_*` SECURITY DEFINER leva `REVOKE` de PUBLIC
+  e `anon` na mesma migração que a cria ou recria; ao fazer DROP+CREATE nunca repor grant
+  a `anon`.
+- Pendente de decisão (cruzar com o front Gestão Artística, páginas públicas `/kit/:slug`):
+  `artist_song_playlist_streams_set` é a única SECURITY DEFINER `artist_*`/`song_*`/
+  `soundcharts_*` ainda executável por `anon`; escreve, mas exige sessão e papel no corpo
+  e não aparece em nenhuma policy de RLS.
