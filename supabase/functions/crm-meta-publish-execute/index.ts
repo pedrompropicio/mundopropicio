@@ -767,7 +767,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           avisosEp.push({ codigo: "cta_nao_aplicada_em_post_existente", detalhe: "publicação de Página é promovida como está — o botão do post original é o que fica" });
         }
       }
-      const tags = urlTagsFor(nomeAdEp);
+      const tags = urlTagsFor(nomeAdEp, link);
       if (tags) (creative as any).url_tags = tags;
       return [{
         payload: { name: nomeAdEp, adset_id: adsetIdParaPayload, status: "PAUSED", creative },
@@ -818,7 +818,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         avisosExtra.push({ codigo: "ads_truncados_limite_meta", detalhe: `gerados ${multiCount} grupos; truncado a ${META_MAX_ADS_PER_ADSET}` });
       }
       // Alvo música: UTMs geradas pelo motor (no evento fica null e nada é acrescentado).
-      const tags = urlTagsFor(nomeAd);
+      const tags = urlTagsFor(nomeAd, link);
 
       if (g.kind === "multi") {
         const creative = buildMultiPlacementCreative(g.feed.info, g.vert.info, g.mediaType, cta, msg, title, link);
