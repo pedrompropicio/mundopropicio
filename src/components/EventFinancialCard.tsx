@@ -158,12 +158,9 @@ export function EventFinancialCard(props: Props) {
   const extras: Array<{ label: string; value: number }> = [];
   if (kind === "expense") {
     const cache = Number(props.cacheImpact || 0);
-    const masterTx = Number(props.masterExpenseShare || 0);
-    const masterFc = Number(props.masterForecastShare || 0);
     if (cache > 0) extras.push({ label: "Cachê", value: cache });
-    // Em realized não somamos masterForecastShare ao displayValue, logo não o mostramos.
-    const includeMasterFc = data.modeUsed !== "realized" && masterFc > 0;
-    const rateio = masterTx + (includeMasterFc ? masterFc : 0);
+    // Rateio da turnê: quota do custo do Master no MESMO critério (#217).
+    const rateio = Number((data.meta as any)?.masterQuota || 0);
     if (rateio > 0) extras.push({ label: "Rateio turnê", value: rateio });
     // Overhead incluído no total do modo committed (visualização, não altera cálculo).
     const oh = Number((data.meta as any)?.overhead || 0);
