@@ -88,3 +88,45 @@ export async function getEcbRate(from: FxCurrency, date?: string): Promise<EcbRa
 
   throw new Error(`Não foi possível obter o câmbio ${currency}→EUR.`);
 }
+
+/**
+ * Série temporal do BCE (Frankfurter) para não fazer um pedido por dia.
+ * Devolve só os DIAS DE FIXING existentes no intervalo: { 'AAAA-MM-DD': taxa }.
+ * A regra "com data não há fallback" mantém-se — não há fonte alternativa aqui;
+ * quem chama é que decide o dia de fixing a usar para cada dia de calendário.
+ * @throws Error quando o upstream não responde ou devolve algo inválido.
+ */
+export async function getEcbSeries(
+  from: FxCurrency,
+  start: string,
+  end: string,
+): Promise<Record<string, number>> {
+  const currency = from.toUpperCase() as FxCurrency;
+  if (!FX_CURRENCIES.includes(currency)) {
+    throw new Error(`Moeda não suportada: ${from}. Use BRL, USD, GBP ou EUR.`);
+  }
+  if (currency === "EUR") return {};
+  for (const d of [start, end]) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new Error("Data inválida — use o formato AAAA-MM-DD.");
+  }
+
+  const url = `https://api.frankfurter.app/${start}..${end}?from=${currency}&to=EUR`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+  if (!res.ok) {
+    throw new Error(`BCE (frankfurter.app) devolveu ${res.status} para ${currency} ${start}..${end}.`);
+  }
+  const json = await res.json().catch(() => null);
+  const rates = json?.rates;
+  if (!rates || typeof rates !== "object") {
+    throw new Error(`Resposta sem taxas do BCE para ${currency} ${start}..${end}.`);
+  }
+  const out: Record<string, number> = {};
+  for (const [day, obj] of Object.entries(rates as Record<string, { EUR?: unknown }>)) {
+    const rate = Number(obj?.EUR);
+    if (Number.isFinite(rate) && rate > 0) out[day] = rate;
+  }
+  if (Object.keys(out).length === 0) {
+    throw new Error(`Sem nenhum fixing do BCE para ${currency} entre ${start} e ${end}.`);
+  }
+  return out;
+}
