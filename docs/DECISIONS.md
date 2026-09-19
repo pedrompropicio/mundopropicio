@@ -3418,6 +3418,39 @@ estreitar idades obriga a citar a distribuição etária real com a data do dado
 **Sem DDL.** `artist_ads_plan_validate` ignora chaves extra em
 `publico_sugerido` — `geo_regions` passa sem alteração à RPC.
 
+### Adenda D-ERP101 (v3) — três fontes novas no snapshot da estratégia (19/09/2026)
+
+**Ficheiro.** Só `supabase/functions/artist-ads-strategy-generate/index.ts`.
+Zero DDL: a RPC e a vista já existem em Live.
+
+**Fontes novas.**
+1. `historico_pago.breakdowns` — RPC `public.artist_ads_breakdowns(p_days=90,
+   p_platform='meta', p_breakdown=…)` para `region`, `age`, `gender`,
+   `publisher_platform` e `country`. Por linha, o motor deriva CTR
+   (cliques/impressões), CPC (gasto/cliques) e CPM (gasto/impressões×1000) e
+   guarda o top 10 por impressões de cada dimensão mais a **mediana** da
+   dimensão (CTR/CPC/CPM), usada como limiar de evidência.
+2. `audiencia.por_estado` — vista `public.v_artist_audience_by_state`, último
+   `snapshot_date` por `audience_type` de Instagram: top 10 estados com
+   `quota_pct` e soma de quota por `regiao`.
+3. `audiencia.por_tipo` — `public.artist_audience_demographics` por
+   `audience_type` (`followers`, `engaged`, `reached` quando existirem), com
+   `age` e `gender` e quota calculada por dimensão.
+
+**Prompt.** Regras 17–20 novas (as 1–16 mantêm-se): geografia decide-se
+PRIMEIRO pelo pago por região e só depois pela concentração orgânica, citando
+sempre as duas com números e datas; um estado só entra com quota orgânica ≥ 5 %
+OU desempenho pago melhor que a mediana da dimensão `region`, dizendo qual das
+duas; idades usam a audiência ENVOLVIDA quando existir (senão `reached`, senão
+seguidores), com percentagens citadas; divergência pago vs orgânico vai a
+`resumo.avisos`. A regra 10 deixou de dizer que não há corte pago por
+região/idade/género — passou a apontar para `historico_pago.breakdowns`.
+
+**Transparência.** `resumo.fontes` lista as três fontes com linhas, período e a
+data do dado mais recente, e marca `vazia: true` quando não vêm linhas;
+`resumo.avisos` recebe uma linha por fonte vazia e por tipo de audiência em
+falta.
+
 ## D-ERP102 — F5 TikTok em SANDBOX (motor único, plataforma `tiktok`)
 
 **Ficheiros.** `supabase/functions/_shared/tiktok-ads.ts` (camada TikTok
