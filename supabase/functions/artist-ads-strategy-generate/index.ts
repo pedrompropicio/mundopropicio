@@ -829,14 +829,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // ── 10) Validar (IMMUTABLE, não grava) e só depois gravar em 'rascunho'
   //
-  // public.artist_ads_plan_validate exige objetivo em AWARENESS/TRAFFIC/ENGAGEMENT
-  // (ver D-ERP107). Não exige headline nem existing_post — só o objetivo bate mal
-  // com REACH/VIDEO_VIEWS. A RPC NÃO foi alterada: no alvo TikTok, quando o
-  // objetivo não é TRAFFIC, corre-se a validação determinística local (que é a
-  // mesma lista de invariantes: ≥1 conjunto, orçamento > 0, ≥1 anúncio, geo) e
-  // registamos o desvio em avisos.
-  const validaNaRpc = !eTiktok || objetivo === "TRAFFIC";
-  if (validaNaRpc) {
+  // public.artist_ads_plan_validate aceita AWARENESS/TRAFFIC/ENGAGEMENT (Meta) e
+  // REACH/VIDEO_VIEWS/TRAFFIC (TikTok e Google — D-ERP107/108). A RPC não é
+  // alterada por esta função.
+  {
     const { error: valErr } = await user.rpc("artist_ads_plan_validate", {
       p_plan: plano,
       p_smart_link: smartLink,
@@ -844,22 +840,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (valErr) {
       return json({ error: "plano_invalido", mensagem: valErr.message, plano }, 422);
     }
-  } else {
-    for (let i = 0; i < adsets.length; i++) {
-      const a = adsets[i];
-      const g = a?.publico_sugerido?.geo;
-      if (!(Number(a?.orcamento_cents) > 0) || !(a?.anuncios ?? []).length ||
-        !Array.isArray(g) || g.length === 0) {
-        return json({
-          error: "plano_invalido",
-          mensagem: `conjunto ${i + 1}: precisa de orçamento > 0, um anúncio e país em publico_sugerido.geo`,
-          plano,
-        }, 422);
-      }
-    }
-    plano.resumo.avisos.push(
-      `validação local: public.artist_ads_plan_validate só aceita objetivo AWARENESS/TRAFFIC/ENGAGEMENT e o plano é ${objetivo} (TikTok) — RPC não alterada`,
-    );
   }
 
   const { data: planId, error: createErr } = await user.rpc("artist_ads_plan_create", {
