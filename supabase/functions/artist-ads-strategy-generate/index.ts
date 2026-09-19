@@ -16,6 +16,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildArtistDataSnapshot } from "../_shared/artist-data-snapshot.ts";
+import { analisarVideosTiktok } from "../_shared/tiktok-video-analysis.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -53,6 +54,30 @@ const OBJETIVOS_TIKTOK = ["REACH", "VIDEO_VIEWS", "TRAFFIC"];
 const MIN_DAILY_CENTS_TIKTOK = 2000;
 // Máximo de vídeos enviados ao LLM (a conta do artista pode ter milhares).
 const MAX_VIDEOS_TIKTOK = 40;
+
+/** Nome de estado sem acentos, minúsculas, sem "(state)" nem "state/estado of". */
+function chaveEstado(v: unknown): string {
+  return String(v ?? "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\(state\)/g, "")
+    .replace(/\b(state|estado)\s+(of|de|do|da)\b/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Devolve o nome oficial do estado em public.br_estados (ou null). */
+function estadoOficial(
+  nome: string,
+  tabela: { nome: string; uf: string }[],
+): string | null {
+  const k = chaveEstado(nome);
+  if (!k) return null;
+  const porNome = tabela.find((e) => chaveEstado(e.nome) === k);
+  if (porNome) return porNome.nome;
+  const porUf = tabela.find((e) => e.uf.toLowerCase() === k);
+  return porUf ? porUf.nome : null;
+}
 
 // ── Geografia por ESTADO (região Meta) ──────────────────────────────────────
 // O LLM só propõe NOMES de estado; a chave de região é resolvida aqui, na
@@ -203,6 +228,12 @@ REGRAS ABSOLUTAS:
 20. Pago vs orgânico divergentes: o pago manda e a divergência vai a resumo.avisos.
 21. geografia_por_uf é a tabela única por estado (UF) com pago (Meta+Google) e quota orgânica já normalizados; use-a para a concentração regional.
 22. Português do Brasil, linguagem de quem compra mídia: objetiva e com dado na mão.
+23. MANDATO: proponha a estratégia MAIS OUSADA QUE OS DADOS SUSTENTAM. Plano morno (tudo igual, verba repartida sem razão, público largo por medo) é resposta errada. Ousadia é sempre ancorada em número com data — nunca em opinião.
+24. ANÁLISE DOS VÍDEOS: analise_videos_tiktok traz top 15 por views, top 10 por taxa de interação, top 10 por crescimento de 7 dias, os vídeos ligados à música e padrões (duração média do top vs resto, sons e palavras/hooks mais frequentes no top). Escolha os criativos DAÍ, por evidência: taxa de interação, partilhas/views, crescimento recente e ligação à música. Em cada anúncio, o campo "porque" cita o número exacto e a data (ex.: "18,4 % de interação e 2,1 % de partilhas em 45.300 views, 19/09/2026").
+25. Spark Ads: o anúncio é o VÍDEO ORGÂNICO que já existe na conta — não se produz criativo novo, aproveita-se a prova social acumulada. Diga-o na justificação do criativo.
+26. HIPÓTESES OUSADAS E MENSURÁVEIS — cada conjunto é uma aposta explícita e as apostas têm de ser DIFERENTES entre si. Exemplos do tipo de aposta a fazer: vídeo mais partilhado contra vídeo ligado à música; público estreito no estado de maior concentração contra Nordeste inteiro; concentrar quase toda a verba num só vencedor contra dividir por três. Se a evidência aponta claramente um vencedor, CONCENTRE a verba nele e diga-o.
+27. GATILHO DE 72 HORAS — para CADA conjunto, resumo.hipoteses tem de trazer o que tem de acontecer em 72 h para manter ou pausar, em número verificável (ex.: "manter se CPM ≤ mediana de 14,20 do histórico pago de 19/09/2026; pausar se ThruPlay acima disso"). Sem gatilho numérico, a hipótese não serve.
+28. Sem breakdowns de TikTok, escreva em resumo.avisos exactamente: "sem histórico pago TikTok; hipótese sustentada em orgânico TikTok + pago Meta/Google".
 
 FORMATO DE RESPOSTA — responde APENAS com JSON puro (sem markdown fences):
 {
@@ -212,6 +243,7 @@ FORMATO DE RESPOSTA — responde APENAS com JSON puro (sem markdown fences):
     {
       "trigger_nome": "nome curto do conjunto",
       "funil": "topo|meio|fundo",
+      "aposta": "a hipótese ousada que este conjunto testa",
       "orcamento_cents": <inteiro, por dia>,
       "publico_sugerido": {
         "geo": ["BR"],
@@ -220,12 +252,12 @@ FORMATO DE RESPOSTA — responde APENAS com JSON puro (sem markdown fences):
         "idade_max": 65,
         "descricao": "quem é este público e porque"
       },
-      "anuncios": [{ "tiktok_video_id": "<post_ref da lista videos_promoviveis>" }]
+      "anuncios": [{ "tiktok_video_id": "<post_ref da lista videos_promoviveis>", "porque": "número exacto + data que sustentam este vídeo" }]
     }
   ],
   "resumo": {
     "justificacao": [{ "campo": "objetivo|publico|geografia|orcamento|criativo", "escolha": "…", "porque": "fonte + número + data" }],
-    "hipoteses": [{ "o_que_testar": "…", "como_ler": "…" }],
+    "hipoteses": [{ "conjunto": "trigger_nome", "o_que_testar": "…", "como_ler": "…", "gatilho_72h": "manter se … ; pausar se …" }],
     "avisos": ["…"]
   }
 }`;
@@ -392,6 +424,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   const postRefsOk = new Set(posts.map((p: Any) => String(p.post_ref)));
 
+  // ── 1c) ANÁLISE DOS VÍDEOS TIKTOK (D-ERP107) — bloco novo, só neste alvo.
+  const analiseVideos = eTiktok
+    ? await analisarVideosTiktok(user, { artistId, songId, dias: 180 })
+    : null;
+  if (analiseVideos) avisos.push(...analiseVideos.avisos);
+
+  // Estados brasileiros para validar os nomes de geo_regions no alvo TikTok.
+  let estadosBr: { nome: string; uf: string }[] = [];
+  if (eTiktok) {
+    const { data: ests, error: estErr } = await user.from("br_estados").select("nome, uf");
+    if (estErr) avisos.push(`br_estados indisponível (${estErr.message}) — nomes de estado não validados`);
+    estadosBr = (ests ?? []) as { nome: string; uf: string }[];
+  }
+
   // Teto da ligação pedida
   const cap: Any = dados.blocos.teto?.ligacao ?? null;
   if (!cap || cap.has_cap !== true || cap.available_daily == null) {
@@ -459,6 +505,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
     snapshot: snapshotMusica,
     relatorio_de_lancamento: relatorio,
     ...(eTiktok ? { videos_promoviveis: listaPosts } : { publicacoes_promoviveis: listaPosts }),
+    ...(analiseVideos
+      ? {
+        analise_videos_tiktok: {
+          _fonte: analiseVideos.fonte.fonte,
+          periodo: analiseVideos.fonte.periodo,
+          data_mais_recente: analiseVideos.fonte.data_mais_recente,
+          series_diarias: analiseVideos.fonte.series_diarias,
+          totais: analiseVideos.totais,
+          top_15_views: analiseVideos.top_15_views,
+          top_10_interacao: analiseVideos.top_10_interacao,
+          top_10_crescimento_7d: analiseVideos.top_10_crescimento_7d,
+          videos_da_musica: analiseVideos.videos_da_musica,
+          padroes: analiseVideos.padroes,
+        },
+      }
+      : {}),
     desempenho_pago: {
       _fonte: "primária — RPCs public.artist_ads_daily(90) + artist_ads_campaigns + artist_ads_ads",
       periodo: { de: periodoMin, a: periodoMax, dias_pedidos: DIAS_JANELA },
@@ -490,7 +552,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   };
 
   // ── 7) LLM (prompt de sistema próprio no alvo TikTok)
-  if (eTiktok) avisos.push("sem histórico pago TikTok — histórico usado é o de Meta e Google do artista");
+  if (eTiktok) {
+    avisos.push("sem histórico pago TikTok; hipótese sustentada em orgânico TikTok + pago Meta/Google");
+  }
   const llm = await callLlm(
     `Dados (única fonte de números permitida):\n\n${JSON.stringify(entradas)}`,
     eTiktok ? SYSTEM_PROMPT_TIKTOK : SYSTEM_PROMPT,
@@ -573,9 +637,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
     delete pub.geo_regions;
     if (nomes.length > 0) {
       if (eTiktok) {
+        // Nomes validados contra public.br_estados (comparação sem acentos); a
+        // crm-tiktok-publish-execute resolve os location_ids a partir do nome.
         const unicos: string[] = [];
-        for (const n of nomes) if (!unicos.includes(n)) unicos.push(n);
-        pub.geo_regions = unicos;
+        for (const nome of nomes) {
+          const oficial = estadosBr.length === 0 ? nome : estadoOficial(nome, estadosBr);
+          if (!oficial) {
+            avisos.push(
+              `geo_regiao_nao_resolvida: conjunto "${a.trigger_nome ?? "?"}" pedia o estado "${nome}" — não existe em br_estados e ficou fora`,
+            );
+            continue;
+          }
+          if (!unicos.includes(oficial)) unicos.push(oficial);
+        }
+        if (unicos.length > 0) pub.geo_regions = unicos;
       } else {
         const token = metaAppToken();
         if (!token) {
@@ -617,7 +692,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
           );
           continue;
         }
-        validos.push({ tiktok_video_id: vid });
+        const porque = typeof an?.porque === "string" ? an.porque : null;
+        validos.push({ tiktok_video_id: vid, ...(porque ? { porque } : {}) });
       } else {
         const ref = an?.existing_post?.post_ref;
         if (typeof ref !== "string" || !postRefsOk.has(ref)) {
@@ -707,7 +783,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
 
   // FONTES: cada bloco do snapshot único com fonte, período e data mais recente.
-  const fontes = dados.fontes;
+  const fontes = analiseVideos
+    ? [...dados.fontes, { bloco: "analise_videos_tiktok", ...analiseVideos.fonte }]
+    : dados.fontes;
 
   plano.resumo = {
     origem: "llm",
@@ -722,6 +800,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       videos_promoviveis: eTiktok
         ? { total: posts.length, ligados_a_musica: videosLigadosMusica }
         : null,
+      videos_analisados: analiseVideos?.totais.videos_analisados ?? null,
+      videos_ligados_a_musica: analiseVideos?.totais.videos_ligados_a_musica ?? videosLigadosMusica,
+      series_diarias_tiktok: analiseVideos?.fonte.series_diarias ?? null,
       campanhas_com_gasto_90d: campanhasPagas.length,
       anuncios_com_gasto: anuncios.length,
       dias_de_diario_90d: campanhasPagas.reduce((s: number, c: Any) => s + Number(c.dias_com_gasto ?? 0), 0),

@@ -3695,3 +3695,38 @@ caminho Meta byte a byte.
   objetivo `TRAFFIC` gravam hoje sem qualquer alteração de base.
 - `resumo.entradas_usadas` ganha `plataforma` e `videos_promoviveis`
   (`{total, ligados_a_musica}`); `resumo.fontes` inalterado.
+
+### D-ERP107 (adenda) — análise dos vídeos TikTok e estratégias ousadas
+
+Bloco novo `analise_videos_tiktok` em
+`supabase/functions/_shared/tiktok-video-analysis.ts` (`analisarVideosTiktok`),
+usado SÓ quando a plataforma do plano é `tiktok`. Lê apenas
+`public.artist_content` (platform='tiktok', content_type='video', 180 dias) e
+`public.artist_content_metrics_daily` (views/likes/comments/shares), com a
+sessão do chamador.
+
+Por vídeo: id TikTok, permalink, data, duração, legenda, som
+(`sound_name`/`sound_external_id`), `song_id` + `ligado_a_musica`, métricas do
+último snapshot, crescimento 7d e 30d (diferença entre snapshots), taxa de
+interação, partilhas/views, views/dia e dias desde a publicação. Devolve top 15
+por views, top 10 por interação, top 10 por crescimento 7d, os vídeos da música
+piloto e padrões (duração média do top vs resto, sons e palavras/hooks mais
+frequentes no top), com fonte, período e data.
+
+`artist_content` **não guarda métricas correntes** — sem séries em
+`artist_content_metrics_daily` o bloco sai vazio e deixa aviso explícito; nunca
+se estima.
+
+Prompt TikTok ganhou as regras 23–28: mandato de ousadia ancorada em número com
+data, escolha do criativo pela análise dos vídeos, Spark Ads (vídeo orgânico
+existente), apostas obrigatoriamente diferentes entre conjuntos (incluindo
+concentrar a verba num vencedor) e **gatilho de 72 h numérico por conjunto**.
+Formato: `anuncios: [{ tiktok_video_id, porque }]`, `adsets[].aposta`,
+`resumo.hipoteses[].gatilho_72h`.
+
+Normalização: `geo_regions` validada contra `public.br_estados` com comparação
+sem acentos (devolve o nome oficial; estado inexistente sai com
+`geo_regiao_nao_resolvida`; `br_estados` indisponível → nomes passam como vêm,
+com aviso). `resumo.entradas_usadas` ganha `videos_analisados`,
+`videos_ligados_a_musica` e `series_diarias_tiktok`; `resumo.fontes` ganha o
+bloco `analise_videos_tiktok`.
