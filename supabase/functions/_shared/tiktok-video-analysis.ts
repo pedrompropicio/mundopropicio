@@ -240,7 +240,8 @@ export async function analisarVideosTiktok(
 
     videos.push({
       content_id: String((c as Any).id),
-      tiktok_video_id: (c as Any).external_id ?? null,
+      tiktok_video_id: plataforma === "tiktok" ? ((c as Any).external_id ?? null) : null,
+      ...(plataforma === "youtube" ? { youtube_video_id: (c as Any).external_id ?? null } : {}),
       permalink: (c as Any).permalink ?? null,
       published_at: (c as Any).published_at ?? null,
       duracao_seg: (c as Any).duration_seconds ?? null,
