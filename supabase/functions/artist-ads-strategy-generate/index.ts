@@ -334,6 +334,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // ── 2) SNAPSHOT ÚNICO DO ARTISTA (D-ERP105) — um só coletor para música,
   //      conteúdo, audiência orgânica, histórico pago (meta + google),
   //      comparáveis, relatório, teto, publicações, criativos e geografia por UF.
+  // ── 1b) PLATAFORMA DA LIGAÇÃO PEDIDA (D-ERP107)
+  const { data: conns, error: connErr } = await user.rpc("artist_ads_connections", {
+    p_artist_id: artistId,
+  });
+  if (connErr) return json({ error: "sem_permissao", mensagem: connErr.message }, 403);
+  const ligacao: Any = (conns ?? []).find((c: Any) => c?.id === connectionId) ?? null;
+  if (!ligacao) {
+    return json({
+      error: "ligacao_nao_encontrada",
+      mensagem: "A ligação de anúncios não pertence a este artista.",
+    }, 422);
+  }
+  const plataforma = String(ligacao.platform ?? "").toLowerCase();
+  if (plataforma !== "meta" && plataforma !== "tiktok") {
+    return json({
+      error: "plataforma_nao_suportada",
+      mensagem: `Estratégia por IA só está disponível para Meta e TikTok (ligação é ${plataforma || "?"}).`,
+    }, 422);
+  }
+  const eTiktok = plataforma === "tiktok";
+
   const dados = await buildArtistDataSnapshot({
     userClient: user,
     artistId,
@@ -341,7 +362,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     connectionId,
     dias: 30,
     plataformas: ["meta", "google"],
-    plataformaCriativos: "meta",
+    plataformaCriativos: plataforma,
   });
   avisos.push(...dados.avisos);
 
@@ -351,13 +372,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const audiencia: Any = dados.blocos.audiencia_organica ?? {};
   const geografiaPorUf: Any = dados.geografia;
 
-  // Publicações anunciáveis (só meta_ready)
-  const posts = (dados.blocos.publicacoes ?? []).filter((p: Any) => p?.meta_ready === true && p?.post_ref);
+  // Publicações/vídeos anunciáveis (só prontos). No TikTok são vídeos do
+  // artista (post_kind 'tiktok_video'); preferem-se os ligados à música.
+  let posts = (dados.blocos.publicacoes ?? []).filter((p: Any) => p?.meta_ready === true && p?.post_ref);
   if (posts.length === 0) {
     return json({
       error: "sem_publicacoes_promoviveis",
-      mensagem: "Não há publicações do artista prontas para anunciar no Meta.",
+      mensagem: eTiktok
+        ? "Não há vídeos do artista no TikTok prontos para anunciar."
+        : "Não há publicações do artista prontas para anunciar no Meta.",
     }, 422);
+  }
+  let videosLigadosMusica = 0;
+  if (eTiktok) {
+    const ligados = posts.filter((p: Any) => p?.song_id === songId);
+    const outros = posts.filter((p: Any) => p?.song_id !== songId);
+    videosLigadosMusica = ligados.length;
+    posts = [...ligados, ...outros].slice(0, MAX_VIDEOS_TIKTOK);
   }
   const postRefsOk = new Set(posts.map((p: Any) => String(p.post_ref)));
 
