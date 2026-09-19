@@ -711,6 +711,154 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return out;
   }
 
+  // ─── ALVO MÚSICA: teto, posts promovíveis, registo, espelho, preflight ──
+  // (D-ERP95 F2b). Nada aqui corre para planos de evento.
+  type TetoInfo = { ok: boolean; error?: string; teto?: number; pedido?: number; ja_comprometido?: number; moeda?: string };
+
+  function dailyFromAdsets(list: any[], lifetime: boolean, dias: number): number {
+    const cents = (list ?? []).reduce((s: number, a: any) => s + Math.max(0, Number(a?.orcamento_cents ?? 0)), 0);
+    return (lifetime ? cents / Math.max(1, dias) : cents) / 100;
+  }
+
+  // Teto fechado por omissão: sem linha em crm.artist_ads_budget_caps não se publica.
+  async function checkTeto(): Promise<TetoInfo> {
+    const { data: cap } = await (admin as any).schema("crm").from("artist_ads_budget_caps")
+      .select("daily_cap, currency").eq("connection_id", connectionId).maybeSingle();
+    if (!cap) return { ok: false, error: "sem_teto" };
+    const capMoeda = String((cap as any).currency ?? "").toUpperCase();
+    const moedaPlano = String(planRow.moeda ?? "").toUpperCase();
+    if (moedaPlano && capMoeda !== moedaPlano) {
+      return { ok: false, error: "moeda_diferente_do_teto", teto: Number((cap as any).daily_cap), moeda: capMoeda };
+    }
+    const pedido = dailyFromAdsets(adsets, usaLifetime, diasJanela);
+    const { data: outros } = await (admin as any).schema("crm").from("meta_publish_plan")
+      .select("id, adsets, start_time, end_time")
+      .eq("connection_id", connectionId)
+      .in("estado", ["publicado", "ativo"])
+      .neq("id", planId);
+    let comprometido = 0;
+    for (const p of (outros ?? [])) {
+      const lt = !!(p as any).end_time;
+      const dias = (lt && (p as any).start_time)
+        ? Math.max(1, Math.ceil((new Date((p as any).end_time).getTime() - new Date((p as any).start_time).getTime()) / 86400000))
+        : 1;
+      comprometido += dailyFromAdsets(Array.isArray((p as any).adsets) ? (p as any).adsets : [], lt, dias);
+    }
+    const teto = Number((cap as any).daily_cap);
+    if (pedido + comprometido > teto + 1e-9) {
+      return { ok: false, error: "acima_do_teto", teto, pedido, ja_comprometido: comprometido, moeda: capMoeda };
+    }
+    return { ok: true, teto, pedido, ja_comprometido: comprometido, moeda: capMoeda };
+  }
+
+  async function logCreate(entity: "campaign" | "adset" | "ad", externalId: string, nome: string): Promise<void> {
+    const { error } = await (admin as any).schema("crm").from("meta_entity_actions_log").insert({
+      company_id: planRow.company_id,
+      connection_id: connectionId,
+      ad_account_id: adAccountId,
+      entity_type: entity,
+      external_id: externalId,
+      entity_name: nome || null,
+      action: "create",
+      new_status: "PAUSED",
+      updates_jsonb: { plan_id: planId, alvo: "song", song_id: (planRow as any).song_id, artist_id: (planRow as any).artist_id },
+      success: true,
+      performed_by: callerUserId,
+    });
+    if (error) avisos.push({ codigo: "registo_acao_falhou", detalhe: error.message });
+  }
+
+  async function upsertSongSnapshot(campaignId: string): Promise<void> {
+    const { error } = await (admin as any).schema("crm").from("meta_campaign_snapshot").upsert({
+      connection_id: connectionId,
+      company_id: planRow.company_id,
+      ad_account_id: adAccountId,
+      external_campaign_id: campaignId,
+      name: campaignPayload.name,
+      status: "PAUSED",
+      effective_status: "PAUSED",
+      objective: campaignPayload.objective,
+      currency: target.currency ?? "EUR",
+      start_time: planStartTime,
+      stop_time: planEndTime,
+      raw: { created_by: "crm-meta-publish-execute", plan_id: planId },
+      last_synced_at: new Date().toISOString(),
+      linked_song_id: (planRow as any).song_id,
+      linked_song_locked: true,
+    }, { onConflict: "connection_id,external_campaign_id" });
+    if (error) avisos.push({ codigo: "espelho_campanha_falhou", detalhe: error.message });
+  }
+
+  // Posts existentes referidos no plano × o que é promovível para este artista.
+  let tetoInfo: TetoInfo | null = null;
+  const postRefsPlano: string[] = [];
+  if (isSong) {
+    for (const a of adsets) {
+      for (const an of (a?.anuncios ?? [])) {
+        const pr = an?.existing_post?.post_ref;
+        if (typeof pr === "string" && pr && !postRefsPlano.includes(pr)) postRefsPlano.push(pr);
+      }
+    }
+    if (postRefsPlano.length > 0) {
+      const { data: promo, error: promoErr } = await admin.rpc("artist_ads_promotable_posts", { p_artist_id: (planRow as any).artist_id });
+      if (promoErr) return json({ ok: false, error: "posts_promoviveis_falhou", detail: promoErr.message }, 500);
+      for (const row of ((promo ?? []) as any[])) {
+        if (row?.post_ref && row?.meta_ready === true) postRefOk.add(String(row.post_ref));
+      }
+      for (const pr of postRefsPlano) if (!postRefOk.has(pr)) postRefBad.push(pr);
+      if (postRefBad.length > 0 && !dryRun && !preflight) {
+        return json({
+          ok: false, error: "post_nao_promovivel", posts: postRefBad,
+          message: "Há publicações no plano que não constam das publicações promovíveis do artista (ou cujo identificador não é utilizável pela Marketing API).",
+        }, 422);
+      }
+      if (postRefBad.length > 0) avisos.push({ codigo: "post_nao_promovivel", detalhe: postRefBad.join(", ") });
+    }
+
+    tetoInfo = await checkTeto();
+    if (!tetoInfo.ok) {
+      if (!dryRun && !preflight) {
+        return json({ ok: false, error: tetoInfo.error, teto: tetoInfo.teto, pedido: tetoInfo.pedido, ja_comprometido: tetoInfo.ja_comprometido, moeda: tetoInfo.moeda }, 422);
+      }
+      avisos.push({ codigo: tetoInfo.error!, detalhe: JSON.stringify(tetoInfo) });
+    }
+  }
+
+  // ─── PREFLIGHT (só GETs; não escreve na Meta nem no plano) ───────────
+  if (preflight) {
+    const checks: Array<{ check: string; ok: boolean; detail?: string }> = [];
+    const me = await graphGET("/me", { fields: "id,name" }, accessToken);
+    checks.push({ check: "token_valido", ok: me.ok, detail: me.ok ? String(me.data?.name ?? me.data?.id ?? "") : JSON.stringify(me.data?.error ?? me.data) });
+    const perms = await graphGET("/me/permissions", {}, accessToken);
+    const granted = new Set<string>(((perms.data?.data ?? []) as any[]).filter((p) => p?.status === "granted").map((p) => String(p.permission)));
+    checks.push({ check: "scope_ads_management", ok: granted.has("ads_management"), detail: granted.size > 0 ? Array.from(granted).join(",") : "sem lista de permissões" });
+    const acc = await graphGET(`/${adAccountId}`, { fields: "account_status,currency,name" }, accessToken);
+    checks.push({ check: "conta_activa", ok: acc.ok && Number(acc.data?.account_status) === 1, detail: acc.ok ? `status=${acc.data?.account_status} ${acc.data?.name ?? ""}` : JSON.stringify(acc.data?.error ?? acc.data) });
+    const moedaPlano = String(planRow.moeda ?? "").toUpperCase();
+    checks.push({ check: "moeda_da_conta", ok: acc.ok && String(acc.data?.currency ?? "").toUpperCase() === moedaPlano, detail: `conta=${acc.data?.currency ?? "?"} plano=${moedaPlano || "?"}` });
+    if (selectedPageId) {
+      const pg = await graphGET(`/${selectedPageId}`, { fields: "id,name" }, accessToken);
+      checks.push({ check: "pagina_acessivel", ok: pg.ok, detail: pg.ok ? `${selectedPageId} ${pg.data?.name ?? ""}` : JSON.stringify(pg.data?.error ?? pg.data) });
+    } else {
+      checks.push({ check: "pagina_acessivel", ok: false, detail: "sem Página de Facebook determinada" });
+    }
+    checks.push({ check: "instagram_resolvido", ok: !!selectedInstagramId, detail: selectedInstagramId ?? "não resolvido" });
+    if (isSong) {
+      for (const pr of postRefsPlano) {
+        let okPost = postRefOk.has(pr);
+        let detalhe = okPost ? "promovível" : "não consta das publicações promovíveis do artista ou o identificador não é utilizável pela Marketing API";
+        if (okPost) {
+          const g = await graphGET(`/${pr}`, { fields: "id" }, accessToken);
+          okPost = g.ok;
+          if (!g.ok) detalhe = JSON.stringify(g.data?.error ?? g.data);
+        }
+        checks.push({ check: `post_${pr}`, ok: okPost, detail: detalhe });
+      }
+      checks.push({ check: "teto", ok: !!tetoInfo?.ok, detail: JSON.stringify(tetoInfo) });
+    }
+    const tudoOk = checks.every((c) => c.ok);
+    return json({ ok: tudoOk, preflight: true, alvo: target.kind, ad_account_id: adAccountId, checks }, tudoOk ? 200 : 422);
+  }
 
 
   // ─── DRY-RUN ─────────────────────────────────────────────────────────
@@ -726,7 +874,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       dryAdsets.push({ trigger_nome: a.trigger_nome, optimization_goal_used: goal_used, budget_mode, link_destino_efetivo: linkEf, payload: adsetPayload });
       for (let k = 0; k < (a.anuncios ?? []).length; k++) {
         const an = a.anuncios[k];
-        if (!linkEf) {
+        if (!linkEf && !(isSong && an?.existing_post)) {
           avisos.push({ codigo: "sem_link_destino", adset: a.trigger_nome, ad_idx: k });
           continue;
         }
@@ -752,6 +900,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       },
       resolved_creative_ids: Object.fromEntries(resolvedCreatives),
       avisos,
+      // Campos extra só no alvo música: a resposta de evento fica intacta.
+      ...(isSong ? { alvo: "song", teto: tetoInfo, naming: target.naming, utm: target.utm } : {}),
     });
   }
 
