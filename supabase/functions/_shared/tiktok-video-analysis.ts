@@ -190,7 +190,7 @@ export async function analisarVideosTiktok(
   const temSeries = series.size > 0;
   if (!temSeries) {
     avisos.push(
-      "analise_videos_tiktok: sem séries em artist_content_metrics_daily para TikTok — não há métricas correntes em artist_content, por isso views/likes/comments/shares e crescimento ficam indisponíveis",
+      `${rotulo}: sem séries em artist_content_metrics_daily para ${rotuloFonte} — não há métricas correntes em artist_content, por isso views/likes/comments/shares e crescimento ficam indisponíveis`,
     );
   }
 
