@@ -474,6 +474,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }));
   }
 
+  // Geografia explícita do conjunto (contrato do plano: publico_sugerido.geo,
+  // lista de países ISO-2 ou nomes normalizáveis).
+  function temGeo(a: any): boolean {
+    const g = a?.publico_sugerido?.geo;
+    return Array.isArray(g) && g.some((x: any) => typeof x === "string" && x.trim().length > 0);
+  }
+
   function buildAdsetPayload(a: any, campaignIdParaPayload: string, adsetIdx: number): { payload: Record<string, unknown>; goal_used: string; sem_pixel?: boolean; budget_mode: "lifetime" | "daily"; abaixo_minimo?: { minimo_cents: number; orcamento_cents: number } } {
     const pub = a.publico_sugerido ?? {};
     // Alvo música (D-ERP95 F2b correcção): NUNCA há geografia por omissão —
