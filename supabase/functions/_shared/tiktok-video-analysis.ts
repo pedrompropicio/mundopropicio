@@ -297,7 +297,7 @@ export async function analisarVideosTiktok(
 
   return {
     fonte: {
-      fonte: "public.artist_content + public.artist_content_metrics_daily (TikTok)",
+      fonte: `public.artist_content + public.artist_content_metrics_daily (${rotuloFonte})`,
       periodo: { de: dataMin, a: dataMax },
       data_mais_recente: dataMax,
       videos: videos.length,
