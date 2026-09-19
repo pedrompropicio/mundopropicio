@@ -60,6 +60,7 @@ Deno.serve(async (req) => {
     dry_run?: boolean;
     max_videos?: number;
     since?: string;
+    cursor?: number;
   } = {};
   try {
     body = await req.json();
@@ -77,6 +78,20 @@ Deno.serve(async (req) => {
   const sinceSec = Number.isFinite(sinceMs) ? Math.floor(sinceMs / 1000) : null;
   if (body.since && sinceSec === null) {
     return json({ error: `since inválido: ${body.since}` }, 400);
+  }
+
+  // cursor: retoma a paginação video/list a partir deste cursor (sync inicial
+  // de perfis grandes em várias corridas). Só é aceite com UMA ligação por
+  // corrida — exige artist_id ou connection_id.
+  const rawCursor = Number(body.cursor);
+  const inputCursor = Number.isFinite(rawCursor) && rawCursor > 0
+    ? Math.floor(rawCursor)
+    : null;
+  if (body.cursor !== undefined && body.cursor !== null && inputCursor === null) {
+    return json({ error: `cursor inválido: ${body.cursor}` }, 400);
+  }
+  if (inputCursor !== null && !body.artist_id && !body.connection_id) {
+    return json({ error: "cursor exige artist_id ou connection_id (uma ligação por corrida)" }, 400);
   }
 
 
@@ -112,6 +127,11 @@ Deno.serve(async (req) => {
     await finishSyncRun(admin, runId, startedMs, { status: "no_data", details: emptyBody });
     return json(emptyBody);
   }
+  if (inputCursor !== null && connections.length > 1) {
+    const msg = "cursor só é aceite com uma única ligação (filtra por artist_id ou connection_id)";
+    await finishSyncRun(admin, runId, startedMs, { status: "error", error_text: msg });
+    return json({ error: msg }, 400);
+  }
 
   const today = ymd(new Date());
   let apiCalls = 0;
@@ -141,6 +161,8 @@ Deno.serve(async (req) => {
         account_metrics: {} as Record<string, number>,
         content: 0,
         content_metrics: 0,
+        next_cursor: null as number | null,
+        has_more: false,
         notes: [] as string[],
       };
       const notes = per.notes as string[];
@@ -235,19 +257,52 @@ Deno.serve(async (req) => {
         }
 
         // ------------------------------------------------------- vídeos
+        // Orçamento de tempo da invocação: retries de rate limit e pausas
+        // entre páginas nunca podem empurrar a corrida para além de ~110 s.
+        const INVOKE_BUDGET_MS = 110_000;
+        const isRateLimited = (b: any) =>
+          String(b?.error?.code ?? "") === "rate_limit_exceeded";
+        const slowMode = maxVideos > 200 || inputCursor !== null;
         const videos: any[] = [];
-        let cursor: number | null = null;
+        let cursor: number | null = inputCursor;
         let guard = 0;
         const maxPages = Math.ceil(maxVideos / 20) + 2;
         while (videos.length < maxVideos && guard < maxPages) {
           guard++;
-          const page = await ttVideoPage(token, cursor);
+          let page = await ttVideoPage(token, cursor);
           apiCalls++;
+          // rate_limit_exceeded: esperar e repetir a MESMA página até 2 vezes
+          // (20 s, depois 40 s), sem rebentar o orçamento da invocação.
+          for (let attempt = 0; !page.ok && isRateLimited(page.body) && attempt < 2; attempt++) {
+            const waitMs = attempt === 0 ? 20_000 : 40_000;
+            if (Date.now() - startedMs + waitMs > INVOKE_BUDGET_MS) break;
+            notes.push(
+              `rate_limit_exceeded — a aguardar ${waitMs / 1000}s e repetir a mesma página (tentativa ${attempt + 1}/2)`,
+            );
+            await new Promise((r) => setTimeout(r, waitMs));
+            page = await ttVideoPage(token, cursor);
+            apiCalls++;
+          }
           if (!page.ok) {
             const msg = ttErrorText(page.body, page.status);
             if (ttTokenInvalid(page.body, page.status)) {
               await markExpired(conn, msg);
               throw new Error(`token inválido ao ler vídeos (${msg})`);
+            }
+            if (isRateLimited(page.body)) {
+              // Paragem por rate limit: grava o parcial, devolve o cursor
+              // para retomar e marca o erro → sync_run fecha como partial
+              // (nunca success). A ligação continua 'active'.
+              per.next_cursor = cursor;
+              per.has_more = true;
+              notes.push(
+                `paragem por rate_limit_exceeded após ${videos.length} vídeos lidos — retomar com cursor=${cursor}`,
+              );
+              errors.push({
+                connection_id: conn.id,
+                error: `rate_limit_exceeded após ${videos.length} vídeos — parcial gravado; retomar com cursor=${cursor}`,
+              });
+              break;
             }
             notes.push(`vídeos indisponíveis: ${msg}`);
             break;
@@ -266,8 +321,13 @@ Deno.serve(async (req) => {
           } else {
             videos.push(...pageVideos);
           }
+          per.next_cursor = page.hasMore && page.cursor ? Number(page.cursor) : null;
+          per.has_more = per.next_cursor !== null;
           if (!page.hasMore || !page.cursor) break;
           cursor = Number(page.cursor);
+          // corridas grandes (max_videos > 200 ou cursor): pausa de 400 ms
+          // entre páginas para não bater no rate limit do TikTok.
+          if (slowMode) await new Promise((r) => setTimeout(r, 400));
         }
         const list = videos.slice(0, maxVideos);
         per.oldest_published_at = list.reduce((acc: string | null, v: any) => {
@@ -427,7 +487,7 @@ Deno.serve(async (req) => {
     const resBody = {
       ok: errors.length === 0,
       dry_run: dryRun,
-      params: { max_videos: maxVideos, since: body.since ?? null },
+      params: { max_videos: maxVideos, since: body.since ?? null, cursor: inputCursor },
       connections: connections.length,
       api_calls: apiCalls,
       rows_written: dryRun ? 0 : rowsWritten,

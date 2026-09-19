@@ -25,3 +25,4 @@
 - [Prazos de segredos](mem://features/github-issues) — `secret_expirations` (só service_role) + invariante `segredos_a_expirar_14d` (warn, 14 dias)
 - [Relatório de lançamento de música](mem://features/artist-song-report) — Guarda de 1 geração automática por música por dia de calendário UTC; skip loga id/generated_at do relatório que causou o skip
 
+- [artist-tiktok-sync](mem://features/artist-tiktok-sync) — Sync oficial TikTok: fonte primária vídeos do artista; cursor de retoma (só 1 ligação), rate limit → retry 20s/40s → partial (nunca success, ligação fica active), pausa 400ms em corridas grandes; cron diário inalterado
