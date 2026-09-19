@@ -192,6 +192,23 @@ no repositório), `timeout_milliseconds := 180000`, body `{"dry_run":false}`.
 Sem `artist_id` no body: percorre todos os artistas com canal `sua_musica` / `aggregator`.
 Lembrete: crons não propagam Test→Live via Publish.
 
+### Crons de campanhas de anúncios (Meta e Google) — D-ERP90
+
+Criados em 2026-09-18, mesmo padrão do job 93 (vault `email_queue_service_role_key` +
+`net.http_post`). Antes disto as campanhas só eram gravadas quando alguém abria o MP Audience.
+
+| job | jobname | schedule (UTC) | edge function / corpo |
+| --- | --- | --- | --- |
+| 241 | `crm-meta-campaigns-hourly` | `25 * * * *` | `crm-meta-sync-campaigns`, uma chamada por connection meta `active` com `selected_ad_account_id`, `mode: incremental` |
+| 242 | `crm-google-sync-campaigns-3h` | `10 */3 * * *` | `crm-google-sync-campaigns`, sem `connection_id`, `mode: incremental`, `days_back: 7` |
+
+Minuto 25 na Meta para os metadados estarem gravados antes dos insights do job 93 (minuto 40).
+Google de 3 em 3 horas: duas consultas GAQL por conta e métricas que consolidam com atraso.
+
+No fim do sync o auto-link depende do `connection_scope`: `company` liga a eventos
+(`crm_auto_link_*_campaigns_to_events`); `artist` liga a MÚSICAS
+(`public.artist_ads_autolink_songs_internal(artist_id)`, só `service_role`) e **nunca** a eventos.
+
 ### Registo de execuções das sincronizações
 
 `soundcharts-sync`, `suamusica-sync` e `artist-instagram-sync` abrem uma linha em
