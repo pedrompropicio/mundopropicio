@@ -430,6 +430,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     : null;
   if (analiseVideos) avisos.push(...analiseVideos.avisos);
 
+  // Estados brasileiros para validar os nomes de geo_regions no alvo TikTok.
+  let estadosBr: { nome: string; uf: string }[] = [];
+  if (eTiktok) {
+    const { data: ests, error: estErr } = await user.from("br_estados").select("nome, uf");
+    if (estErr) avisos.push(`br_estados indisponível (${estErr.message}) — nomes de estado não validados`);
+    estadosBr = (ests ?? []) as { nome: string; uf: string }[];
+  }
+
   // Teto da ligação pedida
   const cap: Any = dados.blocos.teto?.ligacao ?? null;
   if (!cap || cap.has_cap !== true || cap.available_daily == null) {
