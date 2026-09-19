@@ -601,16 +601,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
       // --- 1b) Auto-link campanhas → eventos (respeita linked_event_locked).
       // Corre DEPOIS dos metadados e ANTES dos insights: uma campanha nova deve
       // poder ligar-se ao evento antes de ter gasto um cêntimo.
+      // D-ERP90: connection de artista liga a MÚSICAS, nunca a eventos.
       let autoLink: unknown = null;
-      const { data: linkData, error: linkErr } = await (supabase as any).rpc(
-        "crm_auto_link_google_campaigns_to_events",
-        { p_company_id: conn.company_id },
-      );
-      if (linkErr) {
-        console.error("[auto-link] failed:", linkErr.message);
-        autoLink = { error: linkErr.message };
+      let songsLinked: number | null = null;
+      if (conn.connection_scope === "artist" && conn.artist_id) {
+        const { data: songData, error: songErr } = await (supabase as any).rpc(
+          "artist_ads_autolink_songs_internal",
+          { p_artist_id: conn.artist_id },
+        );
+        if (songErr) {
+          console.error("[song-auto-link] failed:", songErr.message);
+          songsLinked = null;
+        } else if (typeof songData === "number") {
+          songsLinked = songData;
+        }
       } else {
-        autoLink = Array.isArray(linkData) ? linkData[0] : linkData;
+        const { data: linkData, error: linkErr } = await (supabase as any).rpc(
+          "crm_auto_link_google_campaigns_to_events",
+          { p_company_id: conn.company_id },
+        );
+        if (linkErr) {
+          console.error("[auto-link] failed:", linkErr.message);
+          autoLink = { error: linkErr.message };
+        } else {
+          autoLink = Array.isArray(linkData) ? linkData[0] : linkData;
+        }
       }
 
 
@@ -681,6 +696,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         upserted,
         daily_rows_upserted: dailyUpserted,
         auto_link: autoLink,
+        songs_linked: songsLinked,
       });
 
     } catch (e) {

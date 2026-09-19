@@ -2549,3 +2549,34 @@ A 18/09 o backup global passou a incluir `infra.json` e `identities.json`. A est
 
 **Estado:** vigente.
 
+
+---
+
+## D-ERP90 — Campanhas sincronizam por cron; connection de artista liga a MÚSICAS, nunca a eventos (adenda D-ERP57/D-ERP68) (19/09/2026)
+
+**Causa (verificada em Live a 18/09/2026):** `crm.meta_campaign_snapshot` e `crm.google_campaign` só eram gravadas quando alguém abria o MP Audience — nem `crm-meta-sync-campaigns` nem `crm-google-sync-campaigns` tinham tarefa agendada. A connection de tráfego do Litto (`e5d12c36-cd0f-412a-a1c0-22ddbb2a336e`, `connection_scope='artist'`) tinha **0 linhas** de campanhas. Um painel que só tem dados quando é visitado não é um painel.
+
+**Decisão 1 — os dois syncs de campanhas correm por cron**, no padrão do job 93 (`net.http_post` com `Authorization: Bearer <vault 'email_queue_service_role_key'>`). Ambas as funções aceitam a chave de serviço (provado: Meta 200 com `synced_count` 126; Google 200 `invoked_by: service_role`, 42 campanhas).
+
+| job | jobname | schedule (UTC) | corpo |
+| --- | --- | --- | --- |
+| 241 | `crm-meta-campaigns-hourly` | `25 * * * *` | uma chamada por connection meta `active` com `selected_ad_account_id`, `mode: incremental` |
+| 242 | `crm-google-sync-campaigns-3h` | `10 */3 * * *` | uma chamada sem `connection_id`, `mode: incremental`, `days_back: 7` |
+
+**Porquê estes horários:** a Meta corre ao **minuto 25** para os metadados das campanhas estarem gravados antes dos insights do job 93 (minuto 40) — uma campanha nova deve poder ligar-se ao evento/música antes de ter gasto um cêntimo. O Google corre **de 3 em 3 horas** porque cada conta custa **duas** consultas GAQL (metadados + insights diários) e as métricas do Google Ads consolidam com atraso: sincronizar de hora a hora gastaria quota para reler os mesmos números.
+
+**Decisão 2 — uma connection de artista liga campanhas a MÚSICAS, nunca a eventos.** No fim do sync, as duas funções chamavam o auto-link a eventos (`crm_auto_link_meta_campaigns_to_events` / `crm_auto_link_google_campaigns_to_events`) com o `company_id` da connection, mesmo quando a connection era de artista — o que é errado por construção: as campanhas são do artista e o seu vínculo é `linked_song_id`. Passa a haver um desvio explícito por `connection_scope`:
+
+- `connection_scope='company'` → comportamento inalterado (auto-link a eventos, `auto_linked_count`).
+- `connection_scope='artist'` → **não** se chama o auto-link a eventos; chama-se `public.artist_ads_autolink_songs_internal(artist_id)` e devolve-se `songs_linked_count` (Meta) / `songs_linked` (Google).
+
+**Decisão 3 — a regra de correspondência vive uma vez.** O corpo de `public.artist_ads_autolink_songs` foi extraído para `crm.artist_ads_autolink_songs_core(p_artist_id, p_company_id)` (SECURITY INVOKER, sem verificação de acesso, `EXECUTE` revogado a PUBLIC), com a regra **exactamente** como estava: título-base normalizado com ≥ 8 caracteres contido no nome normalizado da campanha, só linhas com `linked_song_id IS NULL`, desempate pelo título mais longo e depois pela música mais antiga, só connections `connection_scope='artist'` desse artista.
+
+- `public.artist_ads_autolink_songs(p_artist_id)` — assinatura e retorno inalterados (a app Gestão Artística usa-a): `artist_ads_assert_access` e depois o núcleo.
+- `public.artist_ads_autolink_songs_internal(p_artist_id)` — SECURITY DEFINER, `search_path` fixo, resolve o `company_id` pelo artista e chama o núcleo. Não tem `auth.uid()` porque o chamador é um cron. Privilégios: `anon` false, `authenticated` false, `service_role` **true**.
+
+**Regras que se mantêm:** as funções `crm-*` nunca leem `artist_channel_connections` e as `artist-*` nunca leem `ad_platform_connections` (aqui lê-se `ad_platform_connections` dentro de `crm-*`, o que é permitido); nenhuma chamada interna reencaminha o `Authorization` do caller — a Meta cria um cliente `service_role` próprio para a RPC interna; nenhum `EXCEPTION WHEN OTHERS` mudo (o auto-link é best-effort mas registra no console).
+
+**Migração:** `20260919014632_722936fc-62f6-417e-841f-b846fa3e7017.sql`, aplicada e verificada em Live.
+
+**Estado:** vigente.

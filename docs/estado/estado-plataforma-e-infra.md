@@ -1,8 +1,10 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado 2026-09-18 · Issues #186, #202, #204, #206 · a-seguir #83, #96, #61. Fechadas a 18/09: #211, #203, #15.
+Atualizado 2026-09-19 · Issues #186, #202, #204, #206 · a-seguir #83, #96, #61. Fechadas a 18/09: #211, #203, #15.
 
 ## Em que pé está
+**As campanhas de anúncios já entram sozinhas, e uma conta de artista liga-se a músicas (18–19/09, D-ERP90).** `crm.meta_campaign_snapshot` e `crm.google_campaign` só eram gravadas quando alguém abria o MP Audience — a conta de tráfego do Litto tinha **0 linhas**. Passaram a ter tarefa agendada, no padrão do job 93: job 241 `crm-meta-campaigns-hourly` (`25 * * * *`, uma chamada por connection meta activa com conta escolhida, incremental) e job 242 `crm-google-sync-campaigns-3h` (`10 */3 * * *`, incremental, 7 dias). Minuto 25 na Meta para os metadados chegarem antes dos insights do job 93 (minuto 40); Google de 3 em 3 horas porque são duas consultas GAQL por conta e as métricas consolidam com atraso. Provado com a chave de serviço: Meta 200 / 126 campanhas, Google 200 / 42 campanhas. No fim do sync corrigiu-se um erro de construção: as duas funções chamavam o auto-link a **eventos** mesmo em connections de artista. Agora `connection_scope='artist'` salta esse passo e chama `artist_ads_autolink_songs_internal(artist_id)` (SECURITY DEFINER, só `service_role`; `anon`/`authenticated` sem execução), devolvendo `songs_linked_count`; a regra de correspondência título↔campanha passou a viver uma única vez em `crm.artist_ads_autolink_songs_core` e a função do utilizador ficou com assinatura inalterada. Para `connection_scope='company'` nada mudou.
+
 A 16–17/09 fizeram-se correções de UI no ecrã de Transações (tabela do BP sem scroll horizontal; busca por nome fantasia) e fechou-se a **#86** (ver D-ERP75).
 
 A maior entrega dos dois dias foi o **Manual de Orientação construído de ponta a ponta** — ver secção própria abaixo e D-ERP79.
