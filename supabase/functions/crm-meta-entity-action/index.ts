@@ -172,6 +172,87 @@ Deno.serve(async (req: Request): Promise<Response> => {
     bid_strategy: (snapRow as any).bid_strategy ?? null,
   } : null;
 
+  // ── D-ERP95 F3: PORTA LATERAL das contas de ARTISTA ──────────────────────
+  // Só corre quando a connection é connection_scope='artist'. Para connections
+  // de empresa ('company') nada disto se aplica — comportamento byte a byte.
+  {
+    const { data: conn } = await (supabase as any)
+      .schema("crm").from("ad_platform_connections")
+      .select("id, company_id, connection_scope, selected_ad_account_currency")
+      .eq("id", connection_id)
+      .maybeSingle();
+    if (conn && (conn as any).connection_scope === "artist") {
+      const novoDaily = typeof updates?.daily_budget_cents === "number" ? updates.daily_budget_cents : null;
+      const novoLifetime = typeof updates?.lifetime_budget_cents === "number" ? updates.lifetime_budget_cents : null;
+      const antigoDaily = (snapRow as any)?.daily_budget_cents ?? null;
+      const antigoLifetime = (snapRow as any)?.lifetime_budget_cents ?? null;
+      const aumentaOrcamento =
+        (novoDaily !== null && (antigoDaily === null || novoDaily > antigoDaily)) ||
+        (novoLifetime !== null && (antigoLifetime === null || novoLifetime > antigoLifetime));
+      const eActivacao = action === "activate";
+      const precisaAdmin = eActivacao || aumentaOrcamento;
+
+      // Papel: activar/aumentar → admin|platform_admin; pausar/reduzir → + manager|marketing_manager.
+      const guard = precisaAdmin ? "artist_ads_assert_cap_admin" : "artist_ads_assert_write";
+      const { error: roleErr } = await supabase.rpc(guard, { p_company_id: (conn as any).company_id });
+      if (roleErr) {
+        return json({
+          error: "sem_permissao",
+          message: precisaAdmin
+            ? "Só um administrador pode activar ou aumentar orçamento nesta conta de artista."
+            : "Sem permissão para agir nesta conta de artista.",
+        }, 403);
+      }
+
+      // Teto: só campanhas DO MOTOR (plano de música). As do gestor externo não
+      // contam para o teto nem são bloqueadas por ele — só a regra de papel.
+      if (precisaAdmin) {
+        const campanhaExterna = entity_type === "campaign"
+          ? external_id
+          : ((snapRow as any)?.external_campaign_id ?? null);
+        if (campanhaExterna) {
+          const { data: plano } = await (supabase as any)
+            .schema("crm").from("meta_publish_plan")
+            .select("id, song_id, adsets, start_time, end_time, moeda")
+            .eq("meta_campaign_id", campanhaExterna)
+            .not("song_id", "is", null)
+            .maybeSingle();
+          if (plano) {
+            const lt = !!(plano as any).end_time;
+            const dias = (lt && (plano as any).start_time)
+              ? Math.max(1, Math.ceil((new Date((plano as any).end_time).getTime() - new Date((plano as any).start_time).getTime()) / 86400000))
+              : 1;
+            let pedido = dailyFromAdsets(
+              Array.isArray((plano as any).adsets) ? (plano as any).adsets : [], lt, dias,
+            );
+            if (aumentaOrcamento) {
+              if (novoDaily !== null) pedido += (novoDaily - (antigoDaily ?? 0)) / 100;
+              if (novoLifetime !== null) pedido += ((novoLifetime - (antigoLifetime ?? 0)) / Math.max(1, dias)) / 100;
+            }
+            const teto = await checkTetoDaily(supabase as any, {
+              connectionId: connection_id,
+              moeda: (plano as any).moeda,
+              pedido,
+              excludePlanId: (plano as any).id,
+            });
+            if (!teto.ok) {
+              return json({
+                error: teto.error,
+                message: teto.error === "sem_teto"
+                  ? "Esta conta de artista não tem teto de orçamento definido."
+                  : teto.error === "moeda_diferente_do_teto"
+                  ? "A moeda do plano não é a do teto desta conta."
+                  : `Acima do teto diário (${teto.teto} ${teto.moeda ?? ""}): pedido ${teto.pedido}, já comprometido ${teto.ja_comprometido}.`,
+                teto: teto.teto, pedido: teto.pedido, ja_comprometido: teto.ja_comprometido, moeda: teto.moeda,
+              }, 422);
+            }
+          }
+        }
+      }
+      approvedBy = precisaAdmin ? userId : null;
+    }
+  }
+
   // Construir payload Meta + nome semântico da action
   let metaParams: Record<string, string> = {};
   let actionLogged: string;
