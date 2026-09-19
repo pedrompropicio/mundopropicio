@@ -493,7 +493,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .schema("crm")
     .from("ad_platform_connections")
     .select(
-      "id, company_id, selected_ad_account_id, external_business_id, login_customer_id, status, connection_scope, artist_id",
+      "id, company_id, selected_ad_account_id, selected_ad_account_currency, external_business_id, login_customer_id, status, connection_scope, artist_id",
     )
     .eq("platform", "google")
     .in("status", ["active", "pending_link"]);
