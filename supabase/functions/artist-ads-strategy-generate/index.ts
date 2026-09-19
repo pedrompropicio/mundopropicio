@@ -14,7 +14,7 @@
 // artist_ads_plan_create usa auth.uid() em created_by e passa por
 // artist_ads_assert_write. Com service_role o plano nascia sem autor.
 
-import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildSnapshot } from "../_shared/artist-song-snapshot.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
