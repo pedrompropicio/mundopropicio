@@ -134,18 +134,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 1) Lê o plano (RLS user — valida pertença ao company)
   const { data: planRow, error: planErr } = await (supabase as any)
     .schema("crm").from("meta_publish_plan")
-    .select("id, company_id, event_id, design_id, objetivo, orcamento_total_cents, moeda, link_destino, adsets, estado, meta_campaign_id, start_time, end_time")
+    .select("id, company_id, event_id, design_id, objetivo, orcamento_total_cents, moeda, link_destino, adsets, estado, meta_campaign_id, start_time, end_time, artist_id, song_id, connection_id")
     .eq("id", planId)
     .maybeSingle();
   if (planErr) return json({ error: "plan_query_failed", detail: planErr.message }, 500);
   if (!planRow) return json({ error: "plan_not_found" }, 404);
   if (planRow.company_id !== companyIdIn) return json({ error: "company_mismatch" }, 403);
 
-  if (planRow.estado === "publicado") {
-    return json({ error: "ja_publicado", meta_campaign_id: planRow.meta_campaign_id }, 409);
+  // D-ERP95 F2a: alvo música ainda não é publicável por esta função (entra na F2b).
+  if ((planRow as any).song_id) {
+    return json({ ok: false, error: "alvo_musica_f2b" }, 200);
   }
-  if (!["rascunho", "pronto_a_publicar", "a_publicar", "falhado"].includes(planRow.estado)) {
-    return json({ error: "estado_invalido", estado: planRow.estado }, 409);
+
+  // Guardas de estado: só no caminho de escrita. O dry-run é leitura pura e é
+  // permitido em QUALQUER estado (incluindo 'publicado') — serve de prova por hash.
+  if (!dryRun) {
+    if (planRow.estado === "publicado") {
+      return json({ error: "ja_publicado", meta_campaign_id: planRow.meta_campaign_id }, 409);
+    }
+    if (!["rascunho", "pronto_a_publicar", "a_publicar", "falhado"].includes(planRow.estado)) {
+      return json({ error: "estado_invalido", estado: planRow.estado }, 409);
+    }
   }
 
   // 1b) Janela de datas e regra orçamento: com end_time → lifetime_budget; sem → daily_budget.
