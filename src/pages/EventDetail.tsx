@@ -1103,8 +1103,11 @@ export default function EventDetail() {
           eventStatus={event.status}
           primaryEventDate={effectiveEventDate}
           partnerCalcBasis={event.partner_calc_basis}
-          masterExpenseShare={Number(masterExpenseShare || 0)}
-          masterForecastShare={Number(masterForecastShare || 0)}
+          masterQuota={
+            masterIdForShare
+              ? { masterEventId: masterIdForShare, siblingCount: Number(masterSiblingCount || 0) }
+              : undefined
+          }
           cacheImpact={Number(calculatedCacheImpact || 0)}
           onValueChange={setCardExpenseValue}
           viewWithVat={viewWithVat}
