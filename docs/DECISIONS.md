@@ -2888,3 +2888,60 @@ repositório reflectir Live.
 Live sem nenhum ajuste ao SQL aprovado.
 
 **Estado:** vigente (F1 concluída; F2/F3 por fazer).
+
+### Adenda F2a — alvo música: schema de suporte, RPCs e dry-run de prova (19/09/2026)
+
+Migração `20260919105937_495e2856-8019-46a4-b5f7-00d44d419ccf.sql`, aplicada em Live.
+
+**Schema.** `public.artist_songs.smart_link_url text NULL` com CHECK `^https://`.
+`crm.meta_publish_plan.design_id` deixa de ser NOT NULL, com CHECK
+`meta_publish_plan_event_needs_design (event_id IS NULL OR design_id IS NOT NULL)`:
+o plano de EVENTO continua a exigir desenho criativo, só o de música pode não ter.
+
+**RPCs novas em `public`** (todas SECURITY DEFINER, `search_path` fixo, começam por
+`public.artist_ads_assert_access(p_artist_id)` e só tocam connections
+`connection_scope='artist'` desse artista na empresa devolvida pelo guard).
+Leitura: `artist_ads_budget_cap_get`, `artist_ads_plan_list`, `artist_ads_plan_get`,
+`artist_ads_promotable_posts`. Escrita (além do guard exigem SESSÃO — `auth.uid() IS NULL`
+→ 42501 — e papel `admin|platform_admin|manager|marketing_manager` na empresa do artista,
+via novo `public.artist_ads_assert_write(company_id)`; o `service_role` não escreve por
+estas RPCs porque não tem `auth.uid()`): `artist_ads_song_set_smart_link`,
+`artist_ads_plan_create`, `artist_ads_plan_update` (só `rascunho`/`falhado`).
+Auxiliar de validação partilhada: `artist_ads_plan_validate(jsonb, text)`.
+Regra D-ERP94 aplicada na mesma migração: `REVOKE EXECUTE FROM PUBLIC, anon` +
+`GRANT` a `authenticated, service_role` nas nove funções (verificado em Live:
+anon false / authenticated true / service_role true).
+
+**Objectivo do plano de música** ∈ `AWARENESS | TRAFFIC | ENGAGEMENT`. Conversões NÃO
+são aceites para alvo música (não há compra de bilhete nem pixel de evento).
+`link_destino` = o do plano ou, em falta, `artist_songs.smart_link_url`; com objectivo
+`TRAFFIC` é obrigatório e tem de ser `https://`. Moeda = moeda da conta da connection.
+
+**Posts promovíveis.** `artist_ads_promotable_posts` junta duas fontes sem duplicados
+(preferindo `ad_history`): (1) `crm.meta_ad_snapshot.raw->'creative'` das connections de
+artista — `effective_object_story_id` (kind `object_story`) ou
+`effective_instagram_media_id` (kind `instagram_media`), com permalink, miniatura, nome do
+último anúncio que o usou e gasto 30 d de `crm.meta_ad_insights_daily`; (2)
+`public.artist_content` do artista em `instagram`. **`artist_content.external_id`:** com
+`source='platform_api'` guarda o **media id numérico do Instagram Graph** (17-18 dígitos,
+ex. `17880197463687409`) — utilizável pela Marketing API; com `source='aggregator'` guarda
+o **shortcode** (ex. `DZyDpTNxxvs`), que NÃO é utilizável. Daí `meta_ready = (source =
+'platform_api' AND external_id ~ '^[0-9]{10,}$')`. Em Live: 29 linhas `platform_api`,
+331 `aggregator`.
+
+**Dry-run em `crm-meta-publish-execute`.** O parâmetro `dry_run` já existia com
+**default TRUE** (salvaguarda P0 anterior) e default TRUE foi MANTIDO — mudá-lo para
+FALSE alteraria o comportamento actual, o que esta fase proíbe. O dry-run continua a não
+chamar a Graph API, a não escrever em nenhuma tabela e a não mudar estado, e usa as
+MESMAS funções de construção do caminho real (`buildAdsetPayload`, `buildAdPayloads`,
+`buildSingleAssetCreative`, `buildMultiPlacementCreative`) — não há lógica duplicada.
+Alterações desta fase, todas fora do caminho de escrita: (a) o plano passa a ser lido
+também com `artist_id, song_id, connection_id`; (b) plano com `song_id` devolve 200
+`{ ok:false, error:'alvo_musica_f2b' }` sem fazer nada; (c) as guardas de estado
+(`ja_publicado`, `estado_invalido`) passam a correr só quando `dry_run` é false — o
+dry-run é permitido em QUALQUER estado, incluindo `publicado`, por ser leitura pura e
+servir de prova por hash; (d) a resposta do dry-run ganha `ok:true` e `estado_plano`.
+Nenhuma linha do caminho de publicação real mudou. Função deployada.
+
+**Fora de âmbito da F2a:** resolvedor de alvo, naming, UTMs, publicação de post existente,
+lock anti-corrida, activação, Google, TikTok, front.
