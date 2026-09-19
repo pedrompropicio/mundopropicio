@@ -16560,6 +16560,10 @@ export type Database = {
         Args: { p_artist_id: string }
         Returns: string
       }
+      artist_ads_assert_cap_admin: {
+        Args: { p_company_id: string }
+        Returns: undefined
+      }
       artist_ads_assert_write: {
         Args: { p_company_id: string }
         Returns: undefined
@@ -16578,7 +16582,9 @@ export type Database = {
           account_currency: string
           account_id: string
           account_name: string
+          available_daily: number
           cap_currency: string
+          committed_daily: number
           connection_id: string
           daily_cap: number
           has_cap: boolean
@@ -16586,6 +16592,14 @@ export type Database = {
           set_at: string
           status: string
         }[]
+      }
+      artist_ads_budget_cap_remove: {
+        Args: { p_connection_id: string }
+        Returns: undefined
+      }
+      artist_ads_budget_cap_set: {
+        Args: { p_connection_id: string; p_daily_cap: number; p_notes?: string }
+        Returns: string
       }
       artist_ads_campaigns: {
         Args: { p_artist_id: string; p_include_removed?: boolean }
