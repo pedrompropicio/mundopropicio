@@ -2836,3 +2836,55 @@ decidir, a cruzar com o front "Gestão Artística" (páginas públicas `/kit/:sl
 depender dela).
 
 **Estado:** vigente.
+
+## D-ERP95 — O motor de construção e publicação de campanhas é ÚNICO, com dois alvos: evento OU artista+música — F1 fundações (19/09/2026)
+
+**Decisão (aprovada pelo Pedro a 19/09/2026).** O motor de campanhas, hoje ancorado em
+eventos, passa a ser ÚNICO e a aceitar dois alvos: **evento** (como hoje, comportamento
+inalterado byte a byte) e **artista+música** (`crm.ad_platform_connections` com
+`connection_scope='artist'`, `artist_id`; música em `public.artist_songs`).
+
+**Modelo.** Colunas explícitas `artist_id` + `song_id` anuláveis, `event_id` anulável,
+FKs verdadeiras. CHECK "exactamente um alvo" em `crm.meta_publish_plan` e
+`crm.google_publish_plan`; CHECK "no máximo um alvo" em `crm.meta_campaign_strategies`
+(existem 9 estratégias antigas sem evento). `meta_publish_plan.event_id` ganhou pela
+primeira vez FK verdadeira para `public.events` (CASCADE) — antes era NOT NULL solto.
+`meta_publish_plan` tem ainda `connection_id` (RESTRICT). O alvo música só aceita
+connection `connection_scope='artist'` do mesmo artista e da mesma empresa, garantido
+pela função `crm.assert_song_target_coherent()` + trigger nas três tabelas.
+
+**Regras do motor (fases seguintes).** Campanhas nascem SEMPRE PAUSED (confirmado por
+leitura: `crm-meta-strategy-deploy` L612-623/L780/L925/L1015, `crm-meta-publish-execute`,
+`crm-google-publish-execute`) e a activação é passo separado: para alvo música, publicar
+exige papel de tráfego/admin da Social Artists e activar só admin/platform_admin (F2/F3).
+Visibilidade no MP Audience: sem excepção à fronteira por `company_id` — quem precisa de
+ver recebe papel na Social Artists. Tetos de orçamento por conta na moeda da conta:
+nova `crm.artist_ads_budget_caps` (nasce vazia) e **SEM TETO O MOTOR RECUSA
+publicar/activar** (fechado por omissão). Resolvedor único `_shared/campaign-target.ts`
+na F2, com prova por hash do payload dry_run de planos de evento antes/depois. Smart link
+por música + UTMs gerados pelo motor entram na F2 (só alvo música). LLM fora das fases
+iniciais do alvo música. Google: prioridade a Demand Gen com vídeo do canal YouTube;
+Pesquisa só se sair de graça. Lock anti-corrida da Meta é só código
+(`meta_publish_plan.publish_started_at` já existe) — F2.
+
+**Log de acções Google/TikTok.** Nova `crm.ads_entity_actions_log` (mesma forma de
+`crm.meta_entity_actions_log`, com `platform` CHECK google/tiktok e `approved_by`) e
+vista unificada `crm.v_ads_entity_actions_log` (security_invoker) = Meta ∪ nova tabela.
+Até aqui o Google não tinha log de acções.
+
+**Lacunas registadas, NÃO alteradas nesta frente (eventos):** funções de publicação sem
+verificação de papel; `crm-meta-deployment-toggle` activa campanha+adsets+ads só com
+sessão, sem papel nem teto; o motor não gera UTMs para evento; Google sem log de acções
+até esta F1.
+
+**Pendência fechada (D-ERP94):** na mesma migração, `REVOKE EXECUTE FROM PUBLIC, anon` +
+`GRANT` a `authenticated`/`service_role` em `public.artist_song_playlist_streams_set`
+— já feito à mão em Live com autorização do Pedro; repetido de forma idempotente para o
+repositório reflectir Live.
+
+**F1 é só schema.** Nenhuma edge function, nenhum ecrã, nenhum comportamento alterado.
+
+**Migração:** `20260919045342_122ab0b2-4020-4ec4-be11-8a23234f7dff.sql`, aplicada em
+Live sem nenhum ajuste ao SQL aprovado.
+
+**Estado:** vigente (F1 concluída; F2/F3 por fazer).

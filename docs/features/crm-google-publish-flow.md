@@ -2,6 +2,12 @@
 
 > Memória técnica — criado a 22/ago/2026 com o publicador. Antes de reinvestigar,
 > ler este ficheiro. Espelho do `docs/features/crm-meta-publish-flow.md`.
+>
+> **Alvo: evento OU artista+música (D-ERP95, 19/09/2026).** `crm.google_publish_plan`
+> aceita `event_id` XOR (`artist_id`+`song_id`); CHECK `google_publish_plan_one_target`
+> + trigger `trg_song_target_coherent`. A F1 é só schema — o comportamento para evento
+> está inalterado byte a byte; o alvo música entra nas fases F2/F3 (prioridade a
+> Demand Gen com vídeo do canal YouTube; Pesquisa só se sair de graça).
 
 ## TL;DR
 
