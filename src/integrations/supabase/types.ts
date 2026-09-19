@@ -16673,6 +16673,24 @@ export type Database = {
         Args: { p_artist_id: string }
         Returns: number
       }
+      artist_ads_breakdowns: {
+        Args: {
+          p_artist_id: string
+          p_breakdown?: string
+          p_days?: number
+          p_platform?: string
+        }
+        Returns: {
+          breakdown: string
+          breakdown_value: string
+          clicks: number
+          currency: string
+          impressions: number
+          platform: string
+          quota: number
+          spend: number
+        }[]
+      }
       artist_ads_budget_cap_get: {
         Args: { p_artist_id: string }
         Returns: {
