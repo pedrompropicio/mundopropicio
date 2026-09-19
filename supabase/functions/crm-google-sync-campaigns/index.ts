@@ -403,6 +403,369 @@ function buildDailyRows(rows: GAdsCampaignRow[]): DailyInsightRow[] {
 }
 
 
+// ---------------------------------------------------------------------------
+// MODO BREAKDOWNS (D-ERP104) — opt-in por {"breakdowns": true}
+// Espelho do D-ERP103 (Meta) para Google Ads: escreve em
+// crm.ads_insights_breakdown_daily (platform='google', level='campaign').
+// Bloco ISOLADO: o caminho normal (sem `breakdowns`) não passa por aqui.
+// ---------------------------------------------------------------------------
+
+const BREAKDOWN_METRICS = `
+    metrics.impressions,
+    metrics.clicks,
+    metrics.cost_micros,
+    metrics.video_views,
+    metrics.conversions`;
+
+/** Um grupo = uma consulta GAQL. `recurso` é o FROM; `campo` a dimensão. */
+const GOOGLE_BREAKDOWN_GROUPS: Array<{
+  key: string;
+  from: string;
+  dimension: string;
+  extraWhere?: string;
+}> = [
+  {
+    key: "region",
+    from: "geographic_view",
+    dimension: "segments.geo_target_region",
+    extraWhere: "geographic_view.location_type = 'LOCATION_OF_PRESENCE'",
+  },
+  {
+    key: "country",
+    from: "geographic_view",
+    dimension: "segments.geo_target_country",
+    extraWhere: "geographic_view.location_type = 'LOCATION_OF_PRESENCE'",
+  },
+  { key: "age", from: "age_range_view", dimension: "ad_group_criterion.age_range.type" },
+  { key: "gender", from: "gender_view", dimension: "ad_group_criterion.gender.type" },
+  { key: "device", from: "campaign", dimension: "segments.device" },
+];
+
+function buildBreakdownGaql(
+  group: { from: string; dimension: string; extraWhere?: string },
+  since: string,
+  until: string,
+): string {
+  const where = [`segments.date BETWEEN '${since}' AND '${until}'`];
+  if (group.extraWhere) where.push(group.extraWhere);
+  return `
+  SELECT
+    campaign.id,
+    campaign.name,
+    customer.currency_code,
+    segments.date,
+    ${group.dimension},${BREAKDOWN_METRICS}
+  FROM ${group.from}
+  WHERE ${where.join(" AND ")}
+`;
+}
+
+interface BreakdownRow {
+  company_id: string;
+  connection_id: string;
+  platform: string;
+  level: string;
+  external_campaign_id: string;
+  external_adset_id: string;
+  external_ad_id: string;
+  campaign_name: string | null;
+  date_start: string;
+  breakdown: string;
+  breakdown_value: string;
+  impressions: number;
+  clicks: number;
+  spend_cents: number;
+  video_thruplays: number;
+  conversions: number;
+  currency: string;
+  source: string;
+  raw: unknown;
+  last_synced_at: string;
+}
+
+const BREAKDOWN_CONFLICT =
+  "connection_id,platform,level,external_campaign_id,external_adset_id,external_ad_id,date_start,breakdown,breakdown_value";
+
+/** "geoTargetConstants/20106" | 20106 → "20106" */
+function geoConstantId(v: unknown): string | null {
+  if (v == null) return null;
+  const m = String(v).match(/(\d+)\s*$/);
+  return m ? m[1] : null;
+}
+
+/**
+ * Resolve IDs de geo_target_constant a nome legível ("São Paulo", "Brazil").
+ * Falha na resolução NUNCA trava o breakdown: fica o ID como valor.
+ */
+async function resolveGeoNames(
+  ids: string[],
+  accessToken: string,
+  developerToken: string,
+  loginCustomerId: string,
+  customerId: string,
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const unique = Array.from(new Set(ids.filter(Boolean)));
+  for (let i = 0; i < unique.length; i += 200) {
+    const chunk = unique.slice(i, i + 200);
+    const q = `
+  SELECT geo_target_constant.id, geo_target_constant.name, geo_target_constant.canonical_name
+  FROM geo_target_constant
+  WHERE geo_target_constant.id IN (${chunk.join(",")})
+`;
+    const rows = await searchStreamCampaigns(
+      accessToken,
+      developerToken,
+      loginCustomerId,
+      customerId,
+      q,
+    );
+    for (const r of rows as Array<Record<string, any>>) {
+      const g = r.geoTargetConstant ?? {};
+      const id = g.id != null ? String(g.id) : null;
+      if (!id) continue;
+      out.set(id, String(g.name ?? g.canonicalName ?? id));
+    }
+  }
+  return out;
+}
+
+function breakdownValueFor(
+  groupKey: string,
+  row: Record<string, any>,
+  geoNames: Map<string, string>,
+): string {
+  const s = (row.segments ?? {}) as Record<string, unknown>;
+  if (groupKey === "region" || groupKey === "country") {
+    const raw = groupKey === "region" ? s.geoTargetRegion : s.geoTargetCountry;
+    const id = geoConstantId(raw);
+    if (!id) return "unknown";
+    return geoNames.get(id) ?? id;
+  }
+  if (groupKey === "device") return String(s.device ?? "unknown");
+  const crit = (row.adGroupCriterion ?? {}) as Record<string, any>;
+  if (groupKey === "age") return String(crit.ageRange?.type ?? "unknown");
+  return String(crit.gender?.type ?? "unknown");
+}
+
+/** Agrega por campanha × dia × valor (várias linhas de ad group somam). */
+function buildBreakdownRows(
+  rows: GAdsCampaignRow[],
+  groupKey: string,
+  ctx: { companyId: string; connectionId: string; currency: string },
+  geoNames: Map<string, string>,
+  nowIso: string,
+): BreakdownRow[] {
+  const byKey = new Map<string, BreakdownRow>();
+  for (const r of rows as Array<Record<string, any>>) {
+    const c = (r.campaign ?? {}) as Record<string, unknown>;
+    const m = (r.metrics ?? {}) as Record<string, unknown>;
+    const s = (r.segments ?? {}) as Record<string, unknown>;
+    const cust = (r.customer ?? {}) as Record<string, unknown>;
+    const id = c.id != null ? String(c.id) : null;
+    const date = truncToDate(s.date);
+    if (!id || !date) continue;
+    const value = breakdownValueFor(groupKey, r, geoNames);
+    const key = `${id}|${date}|${value}`;
+    const acc = byKey.get(key) ?? {
+      company_id: ctx.companyId,
+      connection_id: ctx.connectionId,
+      platform: "google",
+      level: "campaign",
+      external_campaign_id: id,
+      external_adset_id: "",
+      external_ad_id: "",
+      campaign_name: (c.name as string) ?? null,
+      date_start: date,
+      breakdown: groupKey,
+      breakdown_value: value,
+      impressions: 0,
+      clicks: 0,
+      spend_cents: 0,
+      video_thruplays: 0,
+      conversions: 0,
+      currency: (cust.currencyCode as string) || ctx.currency || "EUR",
+      source: "platform_api",
+      raw: r,
+      last_synced_at: nowIso,
+    };
+    acc.impressions += m.impressions != null ? Number(m.impressions) : 0;
+    acc.clicks += m.clicks != null ? Number(m.clicks) : 0;
+    acc.spend_cents += microsToCents(m.costMicros);
+    acc.video_thruplays += m.videoViews != null ? Number(m.videoViews) : 0;
+    acc.conversions += m.conversions != null ? Math.round(Number(m.conversions)) : 0;
+    byKey.set(key, acc);
+  }
+  return Array.from(byKey.values());
+}
+
+async function runGoogleBreakdowns(
+  supabase: any,
+  accessToken: string,
+  opts: { days: number; connectionId?: string; companyId?: string },
+): Promise<Response> {
+  const notes: string[] = [];
+  const nowIso = new Date().toISOString();
+  const { since, until } = buildDateRange(Math.min(90, Math.max(1, opts.days)));
+
+  let q = (supabase as any)
+    .schema("crm")
+    .from("ad_platform_connections")
+    .select(
+      "id, company_id, artist_id, selected_ad_account_id, selected_ad_account_currency, external_business_id, login_customer_id",
+    )
+    .eq("platform", "google")
+    .eq("connection_scope", "artist")
+    .eq("status", "active");
+  if (opts.connectionId) q = q.eq("id", opts.connectionId);
+  if (opts.companyId) q = q.eq("company_id", opts.companyId);
+
+  const { data: conns, error: connErr } = await q;
+  if (connErr) {
+    return json({ error: "connections_query_failed", detail: connErr.message }, 500);
+  }
+
+  const startedMs = Date.now();
+  const runId = await startSyncRun(supabase, {
+    function_name: "crm-google-sync-campaigns:breakdowns",
+    trigger_source: "api",
+    dry_run: false,
+    company_id: (conns ?? [])[0]?.company_id ?? null,
+    artist_id: (conns ?? [])[0]?.artist_id ?? null,
+  });
+
+  let rowsWritten = 0;
+  let apiCalls = 0;
+  let errorCount = 0;
+  const perConnection: Record<string, Record<string, number | string>> = {};
+
+  for (const conn of conns ?? []) {
+    const perGroup: Record<string, number | string> = {};
+    const customerId = String(
+      conn.selected_ad_account_id || conn.external_business_id || "",
+    ).replace(/-/g, "");
+    const loginCustomerId = String(
+      (conn.login_customer_id as string | null) ||
+        GOOGLE_ADS_LOGIN_CUSTOMER_ID_FALLBACK ||
+        "",
+    ).replace(/-/g, "");
+    if (!customerId || !loginCustomerId) {
+      errorCount++;
+      notes.push(`ligação ${conn.id}: missing_customer_or_login_id`);
+      perConnection[conn.id] = { error: "missing_customer_or_login_id" };
+      continue;
+    }
+
+    for (const group of GOOGLE_BREAKDOWN_GROUPS) {
+      try {
+        apiCalls++;
+        const gaql = buildBreakdownGaql(group, since, until);
+        const rowsApi = await searchStreamCampaigns(
+          accessToken,
+          GOOGLE_ADS_DEVELOPER_TOKEN!,
+          loginCustomerId,
+          customerId,
+          gaql,
+        );
+
+        let geoNames = new Map<string, string>();
+        if (group.key === "region" || group.key === "country") {
+          const ids: string[] = [];
+          for (const r of rowsApi as Array<Record<string, any>>) {
+            const s = (r.segments ?? {}) as Record<string, unknown>;
+            const id = geoConstantId(
+              group.key === "region" ? s.geoTargetRegion : s.geoTargetCountry,
+            );
+            if (id) ids.push(id);
+          }
+          try {
+            apiCalls++;
+            geoNames = await resolveGeoNames(
+              ids,
+              accessToken,
+              GOOGLE_ADS_DEVELOPER_TOKEN!,
+              loginCustomerId,
+              customerId,
+            );
+          } catch (e) {
+            notes.push(
+              `ligação ${conn.id}: nomes de ${group.key} não resolvidos (${
+                (e as Error).message
+              }) — fica o ID`,
+            );
+          }
+        }
+
+        const rows = buildBreakdownRows(
+          rowsApi,
+          group.key,
+          {
+            companyId: conn.company_id,
+            connectionId: conn.id,
+            currency: (conn.selected_ad_account_currency as string) ?? "EUR",
+          },
+          geoNames,
+          nowIso,
+        );
+
+        if (rows.length === 0) {
+          notes.push(`ligação ${conn.id}: breakdown ${group.key} sem resultados`);
+          perGroup[group.key] = 0;
+          continue;
+        }
+        const { error: upErr } = await (supabase as any)
+          .schema("crm")
+          .from("ads_insights_breakdown_daily")
+          .upsert(rows, { onConflict: BREAKDOWN_CONFLICT });
+        if (upErr) {
+          errorCount++;
+          notes.push(`ligação ${conn.id}: upsert ${group.key} falhou (${upErr.message})`);
+          perGroup[group.key] = `erro: ${upErr.message}`;
+          continue;
+        }
+        rowsWritten += rows.length;
+        perGroup[group.key] = rows.length;
+      } catch (e) {
+        // Recurso/campo não aceite pela versão da API, rate limit, etc.:
+        // fica em notes e os restantes grupos continuam.
+        errorCount++;
+        const msg = e instanceof Error ? e.message : String(e);
+        notes.push(`ligação ${conn.id}: breakdown ${group.key} recusado (${msg})`);
+        perGroup[group.key] = `erro: ${msg.slice(0, 300)}`;
+      }
+    }
+    perConnection[conn.id] = perGroup;
+  }
+
+  await finishSyncRun(supabase, runId, startedMs, {
+    status: resolveStatus(rowsWritten, errorCount),
+    api_calls: apiCalls,
+    rows_written: rowsWritten,
+    details: {
+      params: {
+        breakdowns: true,
+        days: opts.days,
+        connection_id: opts.connectionId ?? null,
+      },
+      per_connection: perConnection,
+      notes,
+    },
+  });
+
+  return json({
+    mode: "breakdowns",
+    api_version: GOOGLE_ADS_API_VERSION,
+    days: opts.days,
+    since,
+    until,
+    connections: (conns ?? []).length,
+    rows_written: rowsWritten,
+    api_calls: apiCalls,
+    per_connection: perConnection,
+    notes,
+  });
+}
+
 // ---------------- Auth da edge function ----------------
 
 interface AuthInfo {
