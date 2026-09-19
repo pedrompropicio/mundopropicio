@@ -650,7 +650,8 @@ function buildBreakdownRows(
     acc.impressions += m.impressions != null ? Number(m.impressions) : 0;
     acc.clicks += m.clicks != null ? Number(m.clicks) : 0;
     acc.spend_cents += microsToCents(m.costMicros);
-    acc.video_thruplays += m.videoViews != null ? Number(m.videoViews) : 0;
+    // v24 não expõe métrica de views de vídeo nestes recursos → fica 0.
+    acc.video_thruplays += 0;
     acc.conversions += m.conversions != null ? Math.round(Number(m.conversions)) : 0;
     byKey.set(key, acc);
   }
