@@ -434,7 +434,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
     );
   }
 
+  const listaPosts = posts.map((p: Any) => ({
+    post_ref: p.post_ref,
+    kind: p.post_kind,
+    origem: p.source,
+    permalink: p.permalink,
+    legenda: p.caption_excerpt,
+    publicado_em: p.published_at,
+    ultimo_anuncio: p.last_ad_name,
+    gasto_30d_cents: p.spend_30d_cents,
+    ...(eTiktok ? { song_id: p.song_id ?? null, ligado_a_musica: p.song_id === songId } : {}),
+  }));
+
   const entradas = {
+    plataforma,
     musica: {
       id: song.id,
       titulo: song.title,
@@ -445,16 +458,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     },
     snapshot: snapshotMusica,
     relatorio_de_lancamento: relatorio,
-    publicacoes_promoviveis: posts.map((p: Any) => ({
-      post_ref: p.post_ref,
-      kind: p.post_kind,
-      origem: p.source,
-      permalink: p.permalink,
-      legenda: p.caption_excerpt,
-      publicado_em: p.published_at,
-      ultimo_anuncio: p.last_ad_name,
-      gasto_30d_cents: p.spend_30d_cents,
-    })),
+    ...(eTiktok ? { videos_promoviveis: listaPosts } : { publicacoes_promoviveis: listaPosts }),
     desempenho_pago: {
       _fonte: "primária — RPCs public.artist_ads_daily(90) + artist_ads_campaigns + artist_ads_ads",
       periodo: { de: periodoMin, a: periodoMax, dias_pedidos: DIAS_JANELA },
