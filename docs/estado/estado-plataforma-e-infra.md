@@ -3,6 +3,9 @@
 Atualizado 2026-09-19 · Issues #186, #202, #204, #206 · a-seguir #83, #96, #61. Fechadas a 18/09: #211, #203, #15.
 
 ## Em que pé está
+**O relatório de lançamento passou a escrever números certos e a avisar quando os dados estão velhos (19/09, D-ERP54/D-ERP59).** Contagens e ritmos por dia deixam de aparecer com casas decimais, os números seguem o formato brasileiro (ponto a separar milhares, vírgula só em percentuais) e nada é abreviado. O ritmo diário de publicações no TikTok estava a ser dividido pela idade de hoje e não pela idade na data do registo, o que o fazia cair sozinho em cada dia sem recolha nova — a música do Litto aparecia com 430,59 por dia quando o certo é 457,50. Corrigido, e os comparáveis deixam de aparecer subestimados. O relatório passa a citar a data de cada número recolhido à mão e a avisar quando o registo está atrasado, em vez de ler tendências de dados velhos. Por fim, quando entra um registo manual novo ou diferente a música fica marcada e o relatório é refeito em poucos minutos, com um limite de 6 tentativas por dia para uma falha repetida não gerar custo sem fim.
+
+## Em que pé está (F3 do motor de campanhas)
 **O motor único já activa campanhas de música, com aprovação registada e teto (19/09, D-ERP95, F3).** Ligar uma campanha de música é uma aprovação: só um administrador o pode fazer, pode deixar uma nota, e fica registado quem aprovou e o resultado (mesmo quando falha a meio). Pausar continua ao alcance de quem gere tráfego. Antes de ligar, o sistema confirma o teto diário da conta — sem teto não liga, e não liga se o pedido somado ao que já gasta passar do teto. Os tetos só podem ser definidos ou retirados por administradores e ficam com histórico. Fechou-se a porta lateral: ligar ou aumentar orçamento directamente numa campanha de artista exige administrador e passa pelo mesmo teto quando a campanha é do sistema. O caminho dos eventos e das contas da empresa não mudou.
 
 ## Em que pé está (F2b)

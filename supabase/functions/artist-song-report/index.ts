@@ -11,6 +11,12 @@
 //                   (histórico: regenerar nunca substitui) e devolve o relatório.
 //
 // Limite: no máximo 1 geração automática (trigger 'cron') por música por dia de calendário UTC.
+//
+// Regeneração por ALTERAÇÃO DE DADOS (D-ERP54 adenda 19/09/2026):
+// body { trigger_source: 'data_change', stale_at } — só aceite de service_role.
+// Não tem a guarda do cron; tem teto próprio de 6 TENTATIVAS por música por dia UTC
+// (conta ok e erro). No fim de uma geração 'ok' limpa artist_songs.report_stale_at
+// apenas se ninguém mexeu na marca entretanto.
 
 
 import {
@@ -45,6 +51,11 @@ function daysBetween(from: string, to: string): number {
 }
 const num = (v: unknown): number => (v == null ? 0 : Number(v));
 const round2 = (v: number) => Math.round(v * 100) / 100;
+/** Contagens e ritmos por dia saem do snapshot já como INTEIROS (D-ERP54 adenda 19/09/2026). */
+const int0 = (v: number) => Math.round(v);
+const intOrNull = (v: unknown): number | null => (v == null ? null : Math.round(Number(v)));
+/** Percentuais e índices: 1 casa decimal. */
+const pct1 = (v: unknown): number | null => (v == null ? null : Math.round(Number(v) * 10) / 10);
 
 /** Soma de valores por dia; nunca inventa dias que não existem. */
 function seriesFrom(rows: Row[]): { date: string; cumulative: number; daily_gain: number | null }[] {
@@ -54,14 +65,14 @@ function seriesFrom(rows: Row[]): { date: string; cumulative: number; daily_gain
   return dates.map((d, i) => ({
     date: d,
     cumulative: byDate.get(d)!,
-    daily_gain: i === 0 ? null : round2(byDate.get(d)! - byDate.get(dates[i - 1])!),
+    daily_gain: i === 0 ? null : int0(byDate.get(d)! - byDate.get(dates[i - 1])!),
   }));
 }
 
 function avgGain(serie: { daily_gain: number | null }[], from: number, to: number): number | null {
   const slice = serie.slice(serie.length - from, serie.length - to).filter((p) => p.daily_gain != null);
   if (slice.length === 0) return null;
-  return round2(slice.reduce((s, p) => s + (p.daily_gain ?? 0), 0) / slice.length);
+  return int0(slice.reduce((s, p) => s + (p.daily_gain ?? 0), 0) / slice.length);
 }
 
 // ---------------------------------------------------------------- snapshot
@@ -131,7 +142,7 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
       serie_diaria: serie,
       total_acumulado: serie.length ? serie[serie.length - 1].cumulative : null,
       ganho_no_periodo: serie.length > 1
-        ? round2(serie[serie.length - 1].cumulative - serie[0].cumulative)
+        ? int0(serie[serie.length - 1].cumulative - serie[0].cumulative)
         : null,
       media_diaria_ultimos_7: avgGain(serie, 7, 0),
       media_diaria_7_anteriores: avgGain(serie, 14, 7),
@@ -305,7 +316,7 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
       delta_views_7d: (() => {
         const m = metricsByContent.get(c.id);
         if (!m || m.views == null || m.views_7d_ago == null) return null;
-        return round2(m.views - m.views_7d_ago);
+        return int0(m.views - m.views_7d_ago);
       })(),
     }));
     const baseline = otherViews.get(plat) ?? [];
@@ -316,13 +327,13 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
       videos_sem_metricas: withMetrics.filter((v) => v.views == null).length,
       top_5: [...withMetrics].sort((a, b) => (b.views ?? 0) - (a.views ?? 0)).slice(0, 5),
       media_views_videos_da_musica: withMetrics.filter((v) => v.views != null).length
-        ? round2(
+        ? int0(
           withMetrics.reduce((s, v) => s + (v.views ?? 0), 0) /
             withMetrics.filter((v) => v.views != null).length,
         )
         : null,
       media_views_videos_sem_esta_musica_60d: baseline.length
-        ? round2(baseline.reduce((s, v) => s + v, 0) / baseline.length)
+        ? int0(baseline.reduce((s, v) => s + v, 0) / baseline.length)
         : null,
       videos_na_comparacao: baseline.length,
     });
@@ -363,8 +374,8 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
       data_actual: rows[rows.length - 1].metric_date,
       fonte: rows[rows.length - 1].source,
       valor_no_lancamento: atLaunch,
-      delta_desde_lancamento: atLaunch != null ? round2(actual - atLaunch) : null,
-      delta_30d_antes_do_lancamento: atLaunch != null && pre != null ? round2(atLaunch - pre) : null,
+      delta_desde_lancamento: atLaunch != null ? int0(actual - atLaunch) : null,
+      delta_30d_antes_do_lancamento: atLaunch != null && pre != null ? int0(atLaunch - pre) : null,
     });
   }
   if (artistaPorPlataforma.length === 0) lacunas.push("sem métricas de audiência do artista no período");
@@ -437,18 +448,18 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
       metrica: m.metric,
       valor: num(m.latest_value),
       data: m.latest_date,
-      delta_7d_pct: m.d7_pct,
-      delta_30d_pct: m.d30_pct,
-      indice: m.momentum_index,
+      delta_7d_pct: pct1(m.d7_pct),
+      delta_30d_pct: pct1(m.d30_pct),
+      indice: pct1(m.momentum_index),
     })),
   }));
   const momentumDoArtista = momentum.filter((m) => m.artist_id === song.artist_id).map((m) => ({
     plataforma: m.platform,
     metrica: m.metric,
     valor: num(m.latest_value),
-    delta_7d_pct: m.d7_pct,
-    delta_30d_pct: m.d30_pct,
-    indice: m.momentum_index,
+    delta_7d_pct: pct1(m.d7_pct),
+    delta_30d_pct: pct1(m.d30_pct),
+    indice: pct1(m.momentum_index),
   }));
   if (comparaveis.length === 0) lacunas.push("sem artistas comparáveis definidos");
 
@@ -467,14 +478,14 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
     nota_da_musica: r.song_notes ?? null,
     spotify_streams_a_esta_idade: r.spotify_streams_dia_n,
     spotify_streams_a_esta_idade_data: r.spotify_streams_dia_n_date,
-    spotify_streams_por_dia_a_esta_idade: r.spotify_streams_por_dia_n,
+    spotify_streams_por_dia_a_esta_idade: intOrNull(r.spotify_streams_por_dia_n),
     spotify_streams_hoje: r.spotify_streams_hoje,
     spotify_posicao_a_esta_idade: r.rank_spotify_dia_n,
     spotify_total_com_dados: r.total_spotify_dia_n,
     tiktok_ugc_publicacoes: r.tiktok_ugc_latest,
     tiktok_ugc_data: r.tiktok_ugc_date,
     tiktok_ugc_fonte: r.tiktok_ugc_source,
-    tiktok_ugc_por_dia: r.tiktok_ugc_por_dia,
+    tiktok_ugc_por_dia: intOrNull(r.tiktok_ugc_por_dia),
     tiktok_ugc_posicao_por_dia: r.rank_tiktok_ugc_por_dia,
     tiktok_ugc_total_com_dados: r.total_tiktok_ugc_por_dia,
     instagram_reels: r.instagram_reels_latest,
@@ -485,6 +496,27 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
     lacunas.push("sem músicas de referência dos comparáveis para comparar à mesma idade");
   }
 
+  // ---- frescura dos dados manuais (D-ERP54 adenda 19/09/2026)
+  const atraso = (d: unknown): number | null =>
+    d == null ? null : daysBetween(String(d).slice(0, 10), periodEnd);
+  const selfRow = (benchRows ?? []).find((r: Row) => r.is_self) ?? null;
+  const ugcData = selfRow?.tiktok_ugc_date ?? null;
+  const s4aSnap = spotifyForArtists?.snapshot ?? null;
+  const compUgcDates = (benchRows ?? [])
+    .filter((r: Row) => !r.is_self && r.tiktok_ugc_latest != null && r.tiktok_ugc_date != null)
+    .map((r: Row) => String(r.tiktok_ugc_date).slice(0, 10))
+    .sort();
+  const benchUgcMaisAntiga = compUgcDates.length ? compUgcDates[0] : null;
+  const frescura = {
+    gerado_em: new Date().toISOString(),
+    ugc_tiktok_data: ugcData ?? null,
+    ugc_dias_de_atraso: atraso(ugcData),
+    s4a_snapshot: s4aSnap ?? null,
+    s4a_dias_de_atraso: atraso(s4aSnap),
+    benchmark_ugc_data_mais_antiga: benchUgcMaisAntiga,
+    benchmark_ugc_dias_de_atraso: atraso(benchUgcMaisAntiga),
+  };
+
   return {
     notFound: false as const,
     song,
@@ -492,6 +524,7 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
     periodEnd,
     snapshot: {
       periodo: { inicio: periodStart, fim: periodEnd, dias: days },
+      frescura,
       musica,
       streams: streamsPorPlataforma,
       playlists,
@@ -519,7 +552,7 @@ const SYSTEM_PROMPT =
 Seu leitor é empresarial (produtoras e casas de evento) e olha número: fale com dado na mão, sem enfeite.
 
 REGRAS ABSOLUTAS:
-1. Você só pode citar números que estão no JSON do snapshot. É PROIBIDO estimar, arredondar para valores "bonitos", inferir números ausentes ou trazer benchmarks de fora.
+1. Você só pode citar números que estão no JSON do snapshot. É PROIBIDO estimar, inferir números ausentes ou trazer benchmarks de fora. O único arredondamento permitido é o da regra 13.
 2. Toda recomendação precisa citar em "porque" o número exato do snapshot que a justifica.
 3. Se o dado não existe no snapshot, escreva "sem dados" e liste isso em lacunas_de_dados. Nunca preencha com suposição.
 4. Recomendações práticas e mensuráveis: ação concreta, plataforma, esforço, métrica de sucesso e prazo.
@@ -532,7 +565,17 @@ REGRAS DE AVALIAÇÃO RELATIVA (obrigatórias):
 9. Se não houver comparável com dados para uma métrica (posição ou total ausentes/1), escreva "sem referência" e NÃO avalie essa métrica.
 10. Preencha "benchmark" e "avaliacao_relativa" só com números do snapshot.
 11. "spotify_for_artists" (S4A) é a FONTE OFICIAL de streams da música e das playlists. A Soundcharts é contagem pública desfasada. Quando as duas existirem, avalie pelo S4A e mencione explicitamente a diferença entre as duas. Se "spotify_for_artists" for null, escreva "sem dados do Spotify for Artists".
-12. Só as músicas do elenco têm S4A; as de referência no benchmark não têm. É PROIBIDO comparar streams do S4A com streams da Soundcharts de comparáveis.`;
+12. Só as músicas do elenco têm S4A; as de referência no benchmark não têm. É PROIBIDO comparar streams do S4A com streams da Soundcharts de comparáveis.
+
+REGRAS DE FORMATO DE NÚMEROS (valem para todos os campos de texto, incluindo numeros_citados):
+13. Contagens (streams, publicações, views, seguidores, ouvintes, playlists, saves) e ritmos por dia são SEMPRE inteiros. Se o snapshot trouxer casas decimais, arredonde ao inteiro mais próximo (231.25 → 231; 17429.57 → 17.430). É PROIBIDO escrever casas decimais em contagens.
+14. Formato pt-BR: ponto só como separador de milhar (66.122; 1.329.029); vírgula só como separador decimal, permitida apenas em percentuais, com no máximo 1 casa (12,5%). Nunca use ponto como decimal. Nunca abrevie ("66 mil", "1,3 mi"): escreva o número inteiro.
+15. Nos campos numéricos da ferramenta (valor, posicao, total, idade_dias, prazo_dias) devolva número puro, inteiro, sem separadores.
+
+REGRAS DE FRESCURA:
+16. Todo número de registro manual (tiktok_ugc_publicacoes, métricas s4a_*, streams por playlist) é citado com a data do dado: "7.320 publicações (registro de 18/09)". Use tiktok_ugc_data, spotify_for_artists.snapshot e metricas_da_musica[].data.
+17. Ritmo por dia: use só o campo de ritmo que vem no snapshot. É PROIBIDO recalcular dividindo por outra idade e é PROIBIDO chamar um total acumulado de "por dia".
+18. Se frescura.ugc_dias_de_atraso for maior que 2, inclua em sinais_de_alerta "UGC TikTok desatualizado: último registro em DD/MM" e não descreva tendência de UGC. O mesmo para frescura.s4a_dias_de_atraso maior que 8. Se frescura.benchmark_ugc_dias_de_atraso for maior que 2, diga na comparação de UGC que os comparáveis têm registro de DD/MM e não conclua ultrapassagens por margens pequenas.`;
 
 
 const REPORT_TOOL = {
@@ -709,7 +752,7 @@ Deno.serve(async (req) => {
 
   const admin = adminClient();
   const startedMs = Date.now();
-  const triggerSource = deduceTriggerSource(req);
+  let triggerSource = deduceTriggerSource(req);
   let runId: string | null = null;
 
   try {
@@ -717,7 +760,13 @@ Deno.serve(async (req) => {
     if (!caller.allowed) return json({ error: "Forbidden" }, 403);
     const generatedBy = caller.isServiceRole ? "service_role" : (caller.userId ?? "desconhecido");
 
-    let p: { song_id?: string; days?: number; dry_run?: boolean } = {};
+    let p: {
+      song_id?: string;
+      days?: number;
+      dry_run?: boolean;
+      trigger_source?: string;
+      stale_at?: string;
+    } = {};
     try {
       p = await req.json();
     } catch {
@@ -727,6 +776,11 @@ Deno.serve(async (req) => {
     if (!songId) return json({ error: "song_id obrigatório" }, 400);
     const days = Number.isFinite(p.days) ? Math.max(7, Math.min(180, Number(p.days))) : 30;
     const dryRun = p.dry_run === true;
+
+    // 'data_change' só vale vindo de service_role; de utilizador é ignorado.
+    const isDataChange = p.trigger_source === "data_change" && caller.isServiceRole;
+    if (isDataChange) triggerSource = "data_change";
+    const staleAt = isDataChange && typeof p.stale_at === "string" ? p.stale_at : null;
 
     const built = await buildSnapshot(admin, songId, days);
     if (built.notFound) return json({ error: "música não encontrada" }, 404);
@@ -743,12 +797,30 @@ Deno.serve(async (req) => {
       return json({ ok: true, dry_run: true, song_id: songId, snapshot });
     }
 
+    const utcMidnight = () => {
+      const t = new Date();
+      return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate())).toISOString();
+    };
+
+    // Teto próprio do 'data_change': 6 TENTATIVAS por música por dia UTC (ok + erro).
+    if (isDataChange) {
+      const { count } = await admin
+        .from("artist_song_reports")
+        .select("id", { count: "exact", head: true })
+        .eq("song_id", songId)
+        .eq("trigger_source", "data_change")
+        .gte("generated_at", utcMidnight());
+      if ((count ?? 0) >= 6) {
+        console.log(
+          `[${FUNCTION_NAME}] skip ${songId}: data_change_daily_cap (${count} tentativas hoje)`,
+        );
+        return json({ skipped: true, reason: "data_change_daily_cap", song_id: songId });
+      }
+    }
+
     // 1 geração automática por música por dia de calendário UTC (o pedido manual não é travado)
     if (triggerSource === "cron") {
-      const today = new Date();
-      const since = new Date(
-        Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
-      ).toISOString();
+      const since = utcMidnight();
       const { data: existing } = await admin
         .from("artist_song_reports")
         .select("id, generated_at")
@@ -788,6 +860,7 @@ Deno.serve(async (req) => {
       model: MODEL,
       input_snapshot: snapshot,
       generated_by: generatedBy,
+      trigger_source: triggerSource,
     };
 
     if ("fail" in llm && llm.fail) {
@@ -817,6 +890,17 @@ Deno.serve(async (req) => {
       .select("id, generated_at")
       .single();
     if (iErr) throw new Error(`artist_song_reports: ${iErr.message}`);
+
+    // Limpa a marca só se ninguém a mexeu durante a geração; se entrou dado novo,
+    // a marca fica e o cron volta a pegar nela.
+    if (isDataChange && staleAt) {
+      const { error: clrErr } = await admin
+        .from("artist_songs")
+        .update({ report_stale_at: null })
+        .eq("id", songId)
+        .eq("report_stale_at", staleAt);
+      if (clrErr) console.warn(`[${FUNCTION_NAME}] limpar report_stale_at falhou: ${clrErr.message}`);
+    }
 
     await finishSyncRun(admin, runId, startedMs, {
       status: "success",
