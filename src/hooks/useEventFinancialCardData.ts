@@ -6,7 +6,11 @@ import {
   type FormalidadeBreakdown,
   emptyBreakdown, addToBreakdown, detectPhase, resolveMode, classifyIncomeL1,
 } from "@/lib/event-financial-card";
-import { lineValue, computeOutsideBpExcess } from "@/lib/event-cost-basis";
+import {
+  lineValue, computeOutsideBpExcess,
+  computeEventCostOnBasis, computeMasterQuota,
+} from "@/lib/event-cost-basis";
+import { isValidFechoTransaction } from "@/lib/fecho-filters";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
 import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
@@ -28,10 +32,12 @@ export interface UseEventFinancialCardDataArgs {
   primaryEventDate?: string | null;
   /** Receita de ticket_sales em par {net, gross} (vem do EventDetail). */
   ticketSales?: { net: number; gross: number };
-  /** TX do Master rateadas (÷ N siblings). */
-  masterExpenseShare?: number;
-  /** Forecasts overhead do Master rateados (÷ N siblings). Só aplicado em committed/forecast. */
-  masterForecastShare?: number;
+  /**
+   * Vista de CIDADE numa turnê (issue #217): quota igualitária do custo do Master.
+   * O custo do Master é calculado com o MESMO critério da cidade e da turnê
+   * (`computeEventCostOnBasis`) e dividido por `siblingCount`.
+   */
+  masterQuota?: { masterEventId: string; siblingCount: number };
   /** Cachê calculado efetivo. */
   cacheImpact?: number;
   /** Se true, aplica IVA (bruto). Default false = base líquida. */
@@ -131,6 +137,50 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
   });
   const forecasts = useMemo(() => keepRootPerimeter(forecastsAll, rootIds), [forecastsAll, rootIds]);
 
+  // ── Master de uma turnê (issue #217): mesmas colunas e filtros dos `ids`.
+  // O custo do Master é calculado com o MESMO critério e depois dividido pelas cidades.
+  const masterId = kind === "expense" ? (args.masterQuota?.masterEventId ?? null) : null;
+  const masterIdsArr = masterId ? [masterId] : [];
+
+  const { data: masterTxsAll = [] } = useQuery({
+    queryKey: ["efc-master-tx", masterId],
+    queryFn: async () => {
+      const { data, error } = await fetchAllPagedQuery(supabase
+        .from("transactions")
+        .select("id, event_id, type, status, amount, paid_amount, iva_rate, category_id, is_transitory, is_hidden, reversed_at, exclude_from_result, event_settlement_id, account_categories(code)")
+        .in("event_id", masterIdsArr));
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: !!masterId,
+  });
+
+  const { data: masterForecastsAll = [] } = useQuery({
+    queryKey: ["efc-master-forecasts", masterId, kind],
+    queryFn: async () => {
+      const { data, error } = await fetchAllPagedQuery(supabase
+        .from("event_forecasts")
+        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead, event_settlement_id")
+        .in("event_id", masterIdsArr)
+        .is("version_id", null)
+        .eq("type", kind));
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: !!masterId,
+  });
+
+  const { data: masterRootInfo } = useEventRootSettlements(masterIdsArr);
+  const masterRootIds = masterRootInfo?.rootIds;
+  const masterTxs = useMemo(
+    () => keepRootPerimeter(masterTxsAll, masterRootIds),
+    [masterTxsAll, masterRootIds],
+  );
+  const masterForecasts = useMemo(
+    () => keepRootPerimeter(masterForecastsAll, masterRootIds),
+    [masterForecastsAll, masterRootIds],
+  );
+
   // ── Simulator (apenas em forecast+income) ──
   const simEnabled = mode === "forecast" && kind === "income";
   const { data: simCfg } = useQuery({
@@ -184,6 +234,52 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       ? (revenue ? (withVat ? revenue.real.total.gross : revenue.real.total.net) : 0)
       : undefined;
 
+    /**
+     * CUSTO POR EVENTO, nunca pooled (issue #217).
+     *
+     * Um único critério (`computeEventCostOnBasis`) para a cidade, para a quota
+     * do Master e para a turnê. Somar evento a evento é o que torna
+     * `Σ custo(cidades) = custo(turnê)` verdadeiro por construção e impede que
+     * o excesso por rubrica de uma cidade seja absorvido pela folga de outra.
+     */
+    const costForMode = (m: "realized" | "committed") => {
+      const byEvent = new Map<string, { f: any[]; t: any[] }>();
+      const bucket = (evId: string) => {
+        let b = byEvent.get(evId);
+        if (!b) { b = { f: [], t: [] }; byEvent.set(evId, b); }
+        return b;
+      };
+      for (const f of forecasts as any[]) bucket(f.event_id ?? eventId).f.push(f);
+      for (const t of txs as any[]) {
+        if (t.type !== "expense") continue;
+        bucket(t.event_id ?? eventId).t.push(t);
+      }
+
+      let total = 0, overhead = 0, excess = 0, approvedCount = 0;
+      for (const b of byEvent.values()) {
+        const r = computeEventCostOnBasis({
+          forecasts: b.f, transactions: b.t, mode: m, withVat, includeOverhead,
+        });
+        total += r.total;
+        overhead += r.overhead;
+        excess += r.excess;
+        approvedCount += r.approvedCount;
+      }
+
+      // Quota do Master: MESMO critério, dividido pelo nº de cidades.
+      let quota = 0;
+      if (args.masterQuota) {
+        const masterCost = computeEventCostOnBasis({
+          forecasts: masterForecasts as any[],
+          transactions: (masterTxs as any[]).filter((t) => t.type === "expense"),
+          mode: m, withVat, includeOverhead,
+        }).total;
+        quota = computeMasterQuota(masterCost, args.masterQuota.siblingCount);
+      }
+
+      return { total, overhead, excess, approvedCount, quota };
+    };
+
 
     // ── REALIZED ──────────────────────────────────────────────
     if (modeUsed === "realized") {
@@ -209,35 +305,29 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         };
 
       } else {
-        // Expense
-        const expTx = realizedTx.filter((t: any) => t.type === "expense");
+        // Expense — universo canónico do Fecho (`isValidFechoTransaction`),
+        // somado evento a evento pelo critério único (#217).
+        const c = costForMode("realized");
+        const expTx = (txs as any[]).filter(
+          (t) => t.type === "expense" && isValidFechoTransaction(t),
+        );
         let paid = 0;
         let approved = 0;
         for (const t of expTx) {
           const gross = eff(t.amount, t.iva_rate);
-          if (t.status === "paid") { paid += gross; continue; }
-          if (t.status === "partially_paid") {
-            // paid_amount é bruto; separa recebido/pago do que falta liquidar.
-            const already = Math.min(Math.max(Number(t.paid_amount || 0), 0), gross);
-            paid += already;
-            approved += gross - already;
-            continue;
-          }
-          approved += gross;
+          if (t.status === "paid") paid += gross;
+          else approved += gross;
         }
-        const own = paid + approved;
 
-        const masterTx = Number(args.masterExpenseShare || 0);
         const cache = Number(args.cacheImpact || 0);
-        // Realized NÃO inclui forecasts do Master (só TX).
-        const extra = masterTx + cache;
         return {
-          displayValue: own + extra,
+          displayValue: c.total + c.quota + cache,
           subtotals: [
             { label: "Pago", value: paid },
             { label: "Comprometido (próprio)", value: approved },
           ],
           formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
+          meta: { masterQuota: c.quota },
         };
       }
     }
@@ -263,49 +353,28 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
           realValue, formalidadeBreakdown: null, phase, modeUsed, unavailable: !c,
         };
       }
-      // Operacionais: linhas aprovadas que entram no resultado.
-      // Overhead: linhas is_overhead (têm exclude_from_result=true) — só com o toggle ON.
-      const operational = forecasts.filter((f: any) =>
-        f.status === "approved" && !f.is_transitory && !f.is_overhead && !f.exclude_from_result
+      // Custo "Previsto + excedido" pelo critério único, EVENTO A EVENTO (#217):
+      // linhas operacionais aprovadas + excesso por rubrica (só approved/paid,
+      // nunca `pending`) + overhead quando o toggle está ligado.
+      const c2 = costForMode("committed");
+
+      // Mini-barra de formalidade — apresentação das linhas aprovadas do BP.
+      const approvedLines = (forecasts as any[]).filter((f) =>
+        f.status === "approved" && !f.is_transitory &&
+        (f.is_overhead ? includeOverhead : !f.exclude_from_result)
       );
-      const overheadLines = forecasts.filter((f: any) =>
-        f.status === "approved" && !f.is_transitory && f.is_overhead
-      );
-      const approved = includeOverhead ? [...operational, ...overheadLines] : operational;
-      const total = approved.reduce((s: number, f: any) => s + eff(f.amount, f.iva_rate), 0);
-      const bd = approved.reduce<FormalidadeBreakdown>(
+      const bd = approvedLines.reduce<FormalidadeBreakdown>(
         (acc, f) => addToBreakdown(acc, f.formalidade, eff(f.amount, f.iva_rate)),
         emptyBreakdown(),
       );
 
-      // Soma das linhas de overhead incluídas no total — só para exibição no card.
-      const overheadSum = includeOverhead
-        ? overheadLines.reduce((s: number, f: any) => s + eff(f.amount, f.iva_rate), 0)
-        : 0;
-
-      // Excesso por rubrica sobre as linhas OPERACIONAIS do BP
-      // (Σ max(realizado − previsto, 0)) — entra SEMPRE na base "Previsto + excedido".
-      // Não é opcional: um total dependente de um clique produz erro de fecho.
-      const outsideBp = kind === "expense"
-        ? computeOutsideBpExcess(
-            operational,
-            txs.filter((t: any) =>
-              t.type === "expense" && !hasResultBlockingFlags(t)
-            ),
-            withVat,
-          )
-        : 0;
-
-
-      const extra = kind === "expense"
-        ? Number(args.masterExpenseShare || 0) + Number(args.masterForecastShare || 0) + Number(args.cacheImpact || 0)
-        : 0;
+      const cache = Number(args.cacheImpact || 0);
       return {
-        displayValue: total + extra + outsideBp,
+        displayValue: c2.total + c2.quota + cache,
         subtotals: [], // mini-barra é render direto da breakdown
         formalidadeBreakdown: bd,
-        phase, modeUsed, unavailable: approved.length === 0,
-        meta: kind === "expense" ? { overhead: overheadSum } : undefined,
+        phase, modeUsed, unavailable: c2.approvedCount === 0,
+        meta: { overhead: c2.overhead, excess: c2.excess, masterQuota: c2.quota },
       };
     }
 
@@ -458,10 +527,10 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         orphanSum += txAmount.get(t.id) ?? 0;
       }
 
-      const extra =
-        Number(args.masterExpenseShare || 0) +
-        Number(args.masterForecastShare || 0) +
-        Number(args.cacheImpact || 0);
+      // Rateio da turnê no modo exploratório Forecast: mesma quota da base
+      // "Previsto + excedido" (o Forecast não tem base própria no Master).
+      const quota = costForMode("committed").quota;
+      const extra = quota + Number(args.cacheImpact || 0);
       const total = bpSum + txLinkedSum + orphanSum + extra;
       return {
         displayValue: total,
@@ -472,11 +541,12 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
           { label: "Forecast total", value: total },
         ],
         formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
+        meta: { masterQuota: quota },
       };
     }
 
   }, [txs, forecasts, revenue, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate, withVat,
-      includeOverhead,
-      args.ticketSales, args.masterExpenseShare, args.masterForecastShare, args.cacheImpact]);
+      includeOverhead, eventId, masterForecasts, masterTxs,
+      args.ticketSales, args.masterQuota, args.cacheImpact]);
 
 }

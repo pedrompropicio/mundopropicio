@@ -29,10 +29,11 @@ interface Props {
   primaryEventDate?: string | null;
   /** Receita de bilheteira em par: líquido e bruto. O seletor c/IVA escolhe qual entra. */
   ticketSales?: { net: number; gross: number };
-  /** TX do Master rateadas (÷ N siblings). */
-  masterExpenseShare?: number;
-  /** Forecasts overhead do Master rateados (÷ N siblings, anti-dup vs masterExpenseShare). */
-  masterForecastShare?: number;
+  /**
+   * Vista de CIDADE numa turnê (#217): o custo do Master é calculado com o MESMO
+   * critério da cidade e da turnê e dividido por `siblingCount`.
+   */
+  masterQuota?: { masterEventId: string; siblingCount: number };
   /** Cachê calculado efetivo. */
   cacheImpact?: number;
   /** Callback com o displayValue actual — usado pelo card Lucro. */
@@ -119,8 +120,7 @@ export function EventFinancialCard(props: Props) {
     eventStatus: props.eventStatus,
     primaryEventDate: props.primaryEventDate,
     ticketSales: props.ticketSales,
-    masterExpenseShare: props.masterExpenseShare,
-    masterForecastShare: props.masterForecastShare,
+    masterQuota: props.masterQuota,
     cacheImpact: props.cacheImpact,
     withVat,
     includeOverhead,
@@ -158,12 +158,9 @@ export function EventFinancialCard(props: Props) {
   const extras: Array<{ label: string; value: number }> = [];
   if (kind === "expense") {
     const cache = Number(props.cacheImpact || 0);
-    const masterTx = Number(props.masterExpenseShare || 0);
-    const masterFc = Number(props.masterForecastShare || 0);
     if (cache > 0) extras.push({ label: "Cachê", value: cache });
-    // Em realized não somamos masterForecastShare ao displayValue, logo não o mostramos.
-    const includeMasterFc = data.modeUsed !== "realized" && masterFc > 0;
-    const rateio = masterTx + (includeMasterFc ? masterFc : 0);
+    // Rateio da turnê: quota do custo do Master no MESMO critério (#217).
+    const rateio = Number((data.meta as any)?.masterQuota || 0);
     if (rateio > 0) extras.push({ label: "Rateio turnê", value: rateio });
     // Overhead incluído no total do modo committed (visualização, não altera cálculo).
     const oh = Number((data.meta as any)?.overhead || 0);

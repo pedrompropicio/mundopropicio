@@ -16,6 +16,7 @@
  */
 
 import { calcTotalWithIva } from "./iva.ts";
+import { isValidFechoTransaction } from "./fecho-filters.ts";
 
 /** Tolerância do "ultrapassou o previsto" (meio cêntimo). */
 export const EXCESS_EPSILON = 0.005;
@@ -170,4 +171,98 @@ export function sumExcess(map: Record<string, OverrunInfo>): number {
 /** Rótulo curto do critério de IVA — usado em ecrã e nos PDFs. */
 export function vatLabel(withVat: boolean): string {
   return withVat ? "c/IVA" : "s/IVA";
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * CUSTO DE UM EVENTO NUMA BASE — critério ÚNICO (issue #217)
+ *
+ * A cidade, a quota do Master e a turnê passam a usar EXACTAMENTE esta função,
+ * um evento de cada vez. Assim `Σ custo(cidades) = custo(turnê)` é verdadeiro
+ * por construção: o que a turnê conta como custo-mãe é o mesmo que se reparte.
+ *
+ * Nunca usar um "pool" de vários eventos: o excesso por rubrica de uma cidade
+ * seria absorvido pela folga de outra na mesma rubrica.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+export type EventCostMode = "realized" | "committed";
+
+export interface EventCostOnBasisArgs {
+  /** `event_forecasts` do evento (type='expense', `version_id IS NULL`). */
+  forecasts: any[];
+  /** `transactions` do evento (type='expense'), sem pré-filtro de estado. */
+  transactions: any[];
+  mode: EventCostMode;
+  withVat: boolean;
+  includeOverhead: boolean;
+}
+
+export interface EventCostOnBasisResult {
+  total: number;
+  /** Σ das linhas de overhead incluídas no total (0 se includeOverhead=false). */
+  overhead: number;
+  /** Excesso por rubrica (só em `committed`). */
+  excess: number;
+  /** Σ das linhas aprovadas do BP incluídas no total (só em `committed`). */
+  bp: number;
+  /** Nº de linhas de BP contadas (o card usa para "sem linhas aprovadas"). */
+  approvedCount: number;
+}
+
+/** Linha de BP operacional aprovada (entra no resultado e consome verba). */
+export function isApprovedOperationalForecast(f: any): boolean {
+  return (
+    f?.status === "approved" &&
+    !f?.is_transitory &&
+    !f?.is_overhead &&
+    !f?.exclude_from_result &&
+    (f?.version_id == null)
+  );
+}
+
+/** Linha de BP de overhead aprovada (tem `exclude_from_result = true` por desenho). */
+export function isApprovedOverheadForecast(f: any): boolean {
+  return (
+    f?.status === "approved" &&
+    !f?.is_transitory &&
+    f?.is_overhead === true &&
+    (f?.version_id == null)
+  );
+}
+
+export function computeEventCostOnBasis(args: EventCostOnBasisArgs): EventCostOnBasisResult {
+  const { forecasts, transactions, mode, withVat, includeOverhead } = args;
+
+  const validTx = (transactions ?? []).filter((t) => isValidFechoTransaction(t));
+
+  if (mode === "realized") {
+    return {
+      total: sumLines(validTx, withVat),
+      overhead: 0,
+      excess: 0,
+      bp: 0,
+      approvedCount: 0,
+    };
+  }
+
+  const operational = (forecasts ?? []).filter(isApprovedOperationalForecast);
+  const overheadLines = (forecasts ?? []).filter(isApprovedOverheadForecast);
+
+  const operationalSum = sumLines(operational, withVat);
+  const overheadSum = includeOverhead ? sumLines(overheadLines, withVat) : 0;
+  // O excesso compara SÓ rubricas operacionais — nunca o baseline do overhead.
+  const excess = computeOutsideBpExcess(operational, validTx, withVat);
+
+  return {
+    total: operationalSum + overheadSum + excess,
+    overhead: overheadSum,
+    excess,
+    bp: operationalSum + overheadSum,
+    approvedCount: operational.length + (includeOverhead ? overheadLines.length : 0),
+  };
+}
+
+/** Quota igualitária do custo do Master para cada sub-evento (mínimo 1 divisor). */
+export function computeMasterQuota(masterCost: number, n: number): number {
+  const divisor = Math.max(1, Math.trunc(Number(n) || 0));
+  return Number(masterCost || 0) / divisor;
 }

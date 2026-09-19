@@ -447,89 +447,27 @@ export default function EventDetail() {
     enabled: !!id,
   });
 
-  // ── Quota-parte das despesas do Master para vista de sub-evento ──
+  // ── Quota-parte do custo do Master para vista de sub-evento (issue #217) ──
   // Aplicável em DOIS cenários:
   //   1) Navegar direto a um sub: event.parent_event_id presente, sem selectedSubEvent
-  //   2) Estar na turnê (Master) e ter um sub selecionado nas pills: usar id do Master (= event.id)
-  // Em qualquer caso, o card "Despesas Realizadas" passa a incluir a sua quota das despesas
-  // lançadas no Master (rateios da turnê: voos, hotel, equipa, etc.) dividida pelo número de subs.
-  // Alinha o card com a Análise de Resultados (Dashboard).
+  //   2) Estar na turnê (Master) e ter um sub selecionado nas pills: usar id do Master
+  // O custo do Master é calculado pelo MESMO critério da cidade e da turnê
+  // (`computeEventCostOnBasis`, dentro do hook do card) e dividido pelo nº de cidades.
+  // Assim `Σ custo(cidades) = custo(turnê)` é verdadeiro por construção.
   const masterIdForShare = selectedSubEvent
     ? (event?.event_type === "multi_day" ? id! : null)
     : (event?.parent_event_id ?? null);
-  const { data: masterExpenseShare = 0 } = useQuery({
-    queryKey: ["event_master_expense_share", masterIdForShare, selectedSubEvent],
+
+  const { data: masterSiblingCount = 0 } = useQuery({
+    queryKey: ["event_master_sibling_count", masterIdForShare],
     queryFn: async () => {
       if (!masterIdForShare) return 0;
-      // Conta subs (irmãos) — divisor da quota
-      const { data: siblings, error: sibErr } = await supabase
+      const { data, error } = await supabase
         .from("events")
         .select("id")
         .eq("parent_event_id", masterIdForShare);
-      if (sibErr) throw sibErr;
-      const n = (siblings?.length ?? 0) || 1;
-
-      // Despesas do Master: paid + approved, exclui transitórias
-      const { data: masterTxs, error: txErr } = await fetchAllPagedQuery(supabase
-        .from("transactions")
-        .select("amount, status, type, is_transitory")
-        .eq("event_id", masterIdForShare)
-        .eq("type", "expense")
-        .in("status", ["paid", "approved"]));
-      if (txErr) throw txErr;
-      const total = (masterTxs ?? [])
-        .filter((t: any) => !t.is_transitory)
-        .reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
-      return total / n;
-    },
-    enabled: !!masterIdForShare,
-  });
-
-  // Quota-parte de FORECASTS do Master rateados ao filho (overheads ÷ N siblings).
-  // Anti-duplicação: se a categoria do overhead já tem TX no Master (paid+approved),
-  // a TX já está em masterExpenseShare → o forecast é ignorado.
-  const { data: masterForecastShare = 0 } = useQuery({
-    queryKey: ["event_master_forecast_share", masterIdForShare, selectedSubEvent],
-    queryFn: async () => {
-      if (!masterIdForShare) return 0;
-      const { data: siblings, error: qErr2 } = await supabase
-        .from("events")
-        .select("id")
-        .eq("parent_event_id", masterIdForShare);
-      if (qErr2) throw qErr2;
-      const n = (siblings?.length ?? 0) || 1;
-
-      const { data: overheadFcs, error: qErr3 } = await fetchAllPagedQuery(supabase
-        .from("event_forecasts")
-        .select("amount, category_id, status, is_transitory, exclude_from_result, is_overhead")
-        .eq("event_id", masterIdForShare)
-        .eq("type", "expense")
-        .is("version_id", null)
-        .eq("is_overhead", true));
-      if (qErr3) throw qErr3;
-
-      const { data: masterTxs, error: qErr4 } = await fetchAllPagedQuery(supabase
-        .from("transactions")
-        .select("amount, category_id, status, type, is_transitory")
-        .eq("event_id", masterIdForShare)
-        .eq("type", "expense")
-        .in("status", ["paid", "approved"]));
-      if (qErr4) throw qErr4;
-
-      const txCats = new Set<string>();
-      (masterTxs ?? [])
-        .filter((t: any) => !t.is_transitory && t.category_id)
-        .forEach((t: any) => txCats.add(t.category_id));
-
-      const approved = (overheadFcs ?? []).filter((f: any) =>
-        f.status === "approved" && !f.is_transitory && !f.exclude_from_result
-      );
-      let total = 0;
-      for (const f of approved as any[]) {
-        if (f.category_id && txCats.has(f.category_id)) continue;
-        total += Number(f.amount || 0) / n;
-      }
-      return total;
+      if (error) throw error;
+      return data?.length ?? 0;
     },
     enabled: !!masterIdForShare,
   });
@@ -723,12 +661,11 @@ export default function EventDetail() {
   // If ticket sales exist, they replace only ticket-office transactions; other income (e.g. sponsors) still counts.
   const hasTicketSales = ticketSalesRevenue > 0;
   const totalIncome = hasTicketSales ? ticketSalesRevenue + nonTicketTransactionIncome : transactionIncome;
-  // Despesas reais do próprio evento + quota-parte do Master (apenas para vista de sub-evento isolado).
-  const ownExpenses = operationalExpenseTransactions.reduce((s, t) => s + Number(t.amount), 0);
-  const totalExpenses =
-    ownExpenses + Number(masterExpenseShare || 0) + Number(masterForecastShare || 0) + Number(calculatedCacheImpact || 0);
+  // (#217) A conta legada `totalExpenses`/`profit` foi removida: não alimentava
+  // nada no ecrã (os cards usam `cardExpenseValue`/`cardIncomeValue`) e mantinha
+  // um segundo critério de custo a competir com o do card.
 
-  const profit = totalIncome - totalExpenses;
+
 
   const copyTicketingFromSubEvent = async (sourceId: string) => {
     if (!selectedSubEvent) return;
@@ -1166,8 +1103,11 @@ export default function EventDetail() {
           eventStatus={event.status}
           primaryEventDate={effectiveEventDate}
           partnerCalcBasis={event.partner_calc_basis}
-          masterExpenseShare={Number(masterExpenseShare || 0)}
-          masterForecastShare={Number(masterForecastShare || 0)}
+          masterQuota={
+            masterIdForShare
+              ? { masterEventId: masterIdForShare, siblingCount: Number(masterSiblingCount || 0) }
+              : undefined
+          }
           cacheImpact={Number(calculatedCacheImpact || 0)}
           onValueChange={setCardExpenseValue}
           viewWithVat={viewWithVat}
