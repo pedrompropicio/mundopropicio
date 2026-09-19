@@ -84,3 +84,53 @@ Placements vivem no **ADSET**, não no ad. O `publish-execute` **não toca em pl
 ## Onde isto foi investigado
 
 Levantado a **29/jun/2026** no contexto da construção de `crm-meta-create-reels-ad` e do `ReelsCreativePickerDialog`, depois de confusão repetida sobre porque é que certos vídeos da biblioteca não publicavam. Doc criado para servir de memória persistente — antes de reinvestigar, ler este ficheiro.
+
+## Contrato do plano de alvo MÚSICA (D-ERP95 F2a, 19/09/2026)
+
+Planos de música criam-se por RPC (`public.artist_ads_plan_create(p_artist_id, p_song_id,
+p_connection_id, p_plan jsonb)`) e editam-se por `public.artist_ads_plan_update(p_plan_id,
+p_plan jsonb)` — só em `rascunho` ou `falhado`. `design_id` fica NULL (o CHECK
+`meta_publish_plan_event_needs_design` só exige desenho quando há `event_id`).
+
+O jsonb segue o MESMO contrato de `adsets` que o `crm-meta-publish-execute` já consome:
+
+```json
+{
+  "objetivo": "TRAFFIC",              // AWARENESS | TRAFFIC | ENGAGEMENT (conversões NÃO)
+  "orcamento_total_cents": 30000,
+  "link_destino": "https://...",      // em falta, usa artist_songs.smart_link_url
+  "start_time": "2026-09-25T10:00:00Z",
+  "end_time": null,                    // com end_time o motor usa lifetime_budget
+  "resumo": { },
+  "adsets": [
+    {
+      "trigger_nome": "frio-br",
+      "orcamento_cents": 10000,        // > 0, obrigatório
+      "link_destino": "https://...",  // opcional, override do adset
+      "anuncios": [
+        { "headline": "…", "corpo": "…", "cta": "LISTEN_NOW",
+          "creative_ids": ["<uuid crm.meta_creatives>"] },
+        { "headline": "…", "corpo": "…", "cta": "LISTEN_NOW",
+          "existing_post": { "post_ref": "…", "kind": "object_story" } }
+      ]
+    }
+  ]
+}
+```
+
+Cada anúncio indica **`creative_ids` (biblioteca) OU `existing_post`**
+(`kind: 'object_story' | 'instagram_media'`). Na F2a o `existing_post` é apenas
+**guardado** — a publicação de post existente é F2b. Candidatos a `post_ref` vêm de
+`public.artist_ads_promotable_posts(p_artist_id)`, que só marca `meta_ready=true` quando o
+identificador é utilizável pela Marketing API.
+
+Validações da RPC (erros legíveis, ERRCODE 22023): objectivo válido, ≥1 adset, cada adset
+com orçamento diário > 0 e ≥1 anúncio, e `link_destino` `https://` obrigatório quando o
+objectivo é `TRAFFIC`. A coerência música↔artista↔connection é garantida pelo trigger
+`crm.assert_song_target_coherent` (F1). A moeda do plano é a da conta da connection.
+
+**Dry-run.** `POST { company_id, plan_id, dry_run: true }` devolve
+`{ ok:true, dry_run:true, estado_plano, payloads:{campaign, adsets, ads}, avisos }` sem
+tocar na Graph API nem em nenhuma tabela, em QUALQUER estado do plano (incluindo
+`publicado`). Default de `dry_run` é **TRUE**: só publica com `dry_run:false` explícito.
+Plano com `song_id` devolve `200 { ok:false, error:'alvo_musica_f2b' }`.

@@ -1739,6 +1739,7 @@ export type Database = {
           launch_started_at: string | null
           notes: string | null
           release_date: string | null
+          smart_link_url: string | null
           soundcharts_uuid: string | null
           title: string
           tracking_status: string
@@ -1757,6 +1758,7 @@ export type Database = {
           launch_started_at?: string | null
           notes?: string | null
           release_date?: string | null
+          smart_link_url?: string | null
           soundcharts_uuid?: string | null
           title: string
           tracking_status?: string
@@ -1775,6 +1777,7 @@ export type Database = {
           launch_started_at?: string | null
           notes?: string | null
           release_date?: string | null
+          smart_link_url?: string | null
           soundcharts_uuid?: string | null
           title?: string
           tracking_status?: string
@@ -16557,6 +16560,10 @@ export type Database = {
         Args: { p_artist_id: string }
         Returns: string
       }
+      artist_ads_assert_write: {
+        Args: { p_company_id: string }
+        Returns: undefined
+      }
       artist_ads_autolink_songs: {
         Args: { p_artist_id: string }
         Returns: number
@@ -16564,6 +16571,21 @@ export type Database = {
       artist_ads_autolink_songs_internal: {
         Args: { p_artist_id: string }
         Returns: number
+      }
+      artist_ads_budget_cap_get: {
+        Args: { p_artist_id: string }
+        Returns: {
+          account_currency: string
+          account_id: string
+          account_name: string
+          cap_currency: string
+          connection_id: string
+          daily_cap: number
+          has_cap: boolean
+          platform: string
+          set_at: string
+          status: string
+        }[]
       }
       artist_ads_campaigns: {
         Args: { p_artist_id: string; p_include_removed?: boolean }
@@ -16638,6 +16660,58 @@ export type Database = {
         Returns: number
       }
       artist_ads_norm: { Args: { p_text: string }; Returns: string }
+      artist_ads_plan_create: {
+        Args: {
+          p_artist_id: string
+          p_connection_id: string
+          p_plan: Json
+          p_song_id: string
+        }
+        Returns: string
+      }
+      artist_ads_plan_get: { Args: { p_plan_id: string }; Returns: Json }
+      artist_ads_plan_list: {
+        Args: { p_artist_id: string }
+        Returns: {
+          created_at: string
+          end_time: string
+          estado: string
+          external_campaign_id: string
+          id: string
+          moeda: string
+          objetivo: string
+          orcamento_total_cents: number
+          platform: string
+          song_id: string
+          song_title: string
+          start_time: string
+        }[]
+      }
+      artist_ads_plan_update: {
+        Args: { p_plan: Json; p_plan_id: string }
+        Returns: string
+      }
+      artist_ads_plan_validate: {
+        Args: { p_plan: Json; p_smart_link: string }
+        Returns: Json
+      }
+      artist_ads_promotable_posts: {
+        Args: { p_artist_id: string }
+        Returns: {
+          caption_excerpt: string
+          last_ad_name: string
+          meta_ready: boolean
+          permalink: string
+          platform: string
+          post_kind: string
+          post_ref: string
+          published_at: string
+          song_id: string
+          source: string
+          spend_30d_cents: number
+          thumbnail_url: string
+        }[]
+      }
       artist_ads_register_external: {
         Args: {
           p_artist_id: string
@@ -16646,6 +16720,10 @@ export type Database = {
           p_platform: string
         }
         Returns: string
+      }
+      artist_ads_song_set_smart_link: {
+        Args: { p_song_id: string; p_url: string }
+        Returns: undefined
       }
       artist_ads_unlink_song: {
         Args: { p_artist_id: string; p_campaign_id: string; p_platform: string }
