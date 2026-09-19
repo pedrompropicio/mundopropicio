@@ -101,12 +101,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 1) Lê o plano (RLS valida pertença ao company)
   const { data: planRow, error: planErr } = await (supabase as any)
     .schema("crm").from("meta_publish_plan")
-    .select("id, company_id, estado, meta_campaign_id, adsets")
+    .select("id, company_id, estado, meta_campaign_id, adsets, song_id")
     .eq("id", planId)
     .maybeSingle();
   if (planErr) return json({ ok: false, error_user_msg: `Falha a ler o plano: ${planErr.message}` }, 200);
   if (!planRow) return json({ ok: false, error_user_msg: "Plano não encontrado." }, 404);
   if (planRow.company_id !== companyIdIn) return json({ ok: false, error_user_msg: "Plano não pertence a esta empresa." }, 403);
+
+  // D-ERP95 F2b: a activação do alvo música (aprovação + teto) é a F3.
+  if ((planRow as any).song_id) {
+    return json({
+      ok: false, error: "alvo_musica_f3",
+      error_user_msg: "A activação de campanhas de música entra na fase seguinte (F3).",
+    }, 200);
+  }
 
   const estado: string = planRow.estado ?? "";
   if (acao === "ativar" && !(estado === "publicado" || estado === "pausado")) {
