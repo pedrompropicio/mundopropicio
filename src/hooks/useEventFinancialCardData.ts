@@ -353,49 +353,28 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
           realValue, formalidadeBreakdown: null, phase, modeUsed, unavailable: !c,
         };
       }
-      // Operacionais: linhas aprovadas que entram no resultado.
-      // Overhead: linhas is_overhead (têm exclude_from_result=true) — só com o toggle ON.
-      const operational = forecasts.filter((f: any) =>
-        f.status === "approved" && !f.is_transitory && !f.is_overhead && !f.exclude_from_result
+      // Custo "Previsto + excedido" pelo critério único, EVENTO A EVENTO (#217):
+      // linhas operacionais aprovadas + excesso por rubrica (só approved/paid,
+      // nunca `pending`) + overhead quando o toggle está ligado.
+      const c2 = costForMode("committed");
+
+      // Mini-barra de formalidade — apresentação das linhas aprovadas do BP.
+      const approvedLines = (forecasts as any[]).filter((f) =>
+        f.status === "approved" && !f.is_transitory &&
+        (f.is_overhead ? includeOverhead : !f.exclude_from_result)
       );
-      const overheadLines = forecasts.filter((f: any) =>
-        f.status === "approved" && !f.is_transitory && f.is_overhead
-      );
-      const approved = includeOverhead ? [...operational, ...overheadLines] : operational;
-      const total = approved.reduce((s: number, f: any) => s + eff(f.amount, f.iva_rate), 0);
-      const bd = approved.reduce<FormalidadeBreakdown>(
+      const bd = approvedLines.reduce<FormalidadeBreakdown>(
         (acc, f) => addToBreakdown(acc, f.formalidade, eff(f.amount, f.iva_rate)),
         emptyBreakdown(),
       );
 
-      // Soma das linhas de overhead incluídas no total — só para exibição no card.
-      const overheadSum = includeOverhead
-        ? overheadLines.reduce((s: number, f: any) => s + eff(f.amount, f.iva_rate), 0)
-        : 0;
-
-      // Excesso por rubrica sobre as linhas OPERACIONAIS do BP
-      // (Σ max(realizado − previsto, 0)) — entra SEMPRE na base "Previsto + excedido".
-      // Não é opcional: um total dependente de um clique produz erro de fecho.
-      const outsideBp = kind === "expense"
-        ? computeOutsideBpExcess(
-            operational,
-            txs.filter((t: any) =>
-              t.type === "expense" && !hasResultBlockingFlags(t)
-            ),
-            withVat,
-          )
-        : 0;
-
-
-      const extra = kind === "expense"
-        ? Number(args.masterExpenseShare || 0) + Number(args.masterForecastShare || 0) + Number(args.cacheImpact || 0)
-        : 0;
+      const cache = Number(args.cacheImpact || 0);
       return {
-        displayValue: total + extra + outsideBp,
+        displayValue: c2.total + c2.quota + cache,
         subtotals: [], // mini-barra é render direto da breakdown
         formalidadeBreakdown: bd,
-        phase, modeUsed, unavailable: approved.length === 0,
-        meta: kind === "expense" ? { overhead: overheadSum } : undefined,
+        phase, modeUsed, unavailable: c2.approvedCount === 0,
+        meta: { overhead: c2.overhead, excess: c2.excess, masterQuota: c2.quota },
       };
     }
 
