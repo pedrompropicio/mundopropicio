@@ -783,7 +783,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
 
   // FONTES: cada bloco do snapshot único com fonte, período e data mais recente.
-  const fontes = dados.fontes;
+  const fontes = analiseVideos
+    ? [...dados.fontes, { bloco: "analise_videos_tiktok", ...analiseVideos.fonte }]
+    : dados.fontes;
 
   plano.resumo = {
     origem: "llm",
@@ -798,6 +800,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       videos_promoviveis: eTiktok
         ? { total: posts.length, ligados_a_musica: videosLigadosMusica }
         : null,
+      videos_analisados: analiseVideos?.totais.videos_analisados ?? null,
+      videos_ligados_a_musica: analiseVideos?.totais.videos_ligados_a_musica ?? videosLigadosMusica,
+      series_diarias_tiktok: analiseVideos?.fonte.series_diarias ?? null,
       campanhas_com_gasto_90d: campanhasPagas.length,
       anuncios_com_gasto: anuncios.length,
       dias_de_diario_90d: campanhasPagas.reduce((s: number, c: Any) => s + Number(c.dias_com_gasto ?? 0), 0),
