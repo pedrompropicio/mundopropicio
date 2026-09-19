@@ -684,16 +684,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const lista = Array.isArray(a.anuncios) ? a.anuncios : [];
     const validos: Any[] = [];
     for (const an of lista) {
-      if (eTiktok) {
-        const vid = an?.tiktok_video_id ?? an?.video_id ?? an?.post_ref;
+      if (eVideo) {
+        const campoId = eGoogle ? "youtube_video_id" : "tiktok_video_id";
+        const vid = an?.[campoId] ?? an?.tiktok_video_id ?? an?.youtube_video_id ?? an?.video_id ?? an?.post_ref;
         if (typeof vid !== "string" || !postRefsOk.has(vid)) {
           avisos.push(
-            `conjunto "${a.trigger_nome ?? "?"}": vídeo ${vid ?? "(sem tiktok_video_id)"} não está na lista de vídeos promovíveis — anúncio descartado`,
+            `conjunto "${a.trigger_nome ?? "?"}": vídeo ${vid ?? `(sem ${campoId})`} não está na lista de vídeos promovíveis — anúncio descartado`,
           );
           continue;
         }
         const porque = typeof an?.porque === "string" ? an.porque : null;
-        validos.push({ tiktok_video_id: vid, ...(porque ? { porque } : {}) });
+        validos.push({ [campoId]: vid, ...(porque ? { porque } : {}) });
       } else {
         const ref = an?.existing_post?.post_ref;
         if (typeof ref !== "string" || !postRefsOk.has(ref)) {
