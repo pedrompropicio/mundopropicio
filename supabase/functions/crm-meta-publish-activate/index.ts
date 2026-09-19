@@ -76,11 +76,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ ok: false, error_user_msg: "Sessão inválida." }, 401);
 
-  let body: { company_id?: string; plan_id?: string; acao?: string };
+  let body: { company_id?: string; plan_id?: string; acao?: string; approval_note?: string };
   try { body = await req.json(); } catch { return json({ ok: false, error_user_msg: "JSON inválido." }, 400); }
   const companyIdIn = body.company_id;
   const planId = body.plan_id;
   const acao = body.acao;
+  const approvalNote = typeof body.approval_note === "string" ? body.approval_note.slice(0, 2000) : null;
   if (!companyIdIn || !planId || (acao !== "ativar" && acao !== "pausar")) {
     return json({ ok: false, error_user_msg: "Parâmetros em falta (company_id, plan_id, acao=ativar|pausar)." }, 400);
   }
