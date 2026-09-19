@@ -790,6 +790,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
   if (createErr) {
     const msg = createErr.message ?? "";
+    // artist_ads_plan_create chama artist_ads_plan_validate por dentro; essa RPC
+    // só aceita AWARENESS/TRAFFIC/ENGAGEMENT. Erro identificável em vez de
+    // mascarar (a RPC não é alterada por esta função — ver D-ERP107).
+    if (eTiktok && /objetivo inv[áa]lido/i.test(msg)) {
+      return json({
+        error: "rpc_objetivo_tiktok_nao_aceite",
+        mensagem:
+          `public.artist_ads_plan_validate (chamada dentro de artist_ads_plan_create) recusa o objetivo ${objetivo}: só aceita AWARENESS, TRAFFIC ou ENGAGEMENT. Falta autorizar DDL que aceite REACH e VIDEO_VIEWS quando a plataforma é TikTok.`,
+        plano,
+      }, 422);
+    }
     const status = /permiss|42501|papel|autoriza/i.test(msg) ? 403 : 422;
     return json({ error: status === 403 ? "sem_permissao" : "plano_invalido", mensagem: msg, plano }, status);
   }
