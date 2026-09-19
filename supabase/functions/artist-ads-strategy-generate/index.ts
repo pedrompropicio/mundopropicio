@@ -665,6 +665,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       dados_em_falta: faltasPago,
     },
     demografia_organica_instagram: demografiaOrganica,
+    historico_pago: historicoPago,
+    audiencia,
+
 
     limites: {
       connection_id: connectionId,
