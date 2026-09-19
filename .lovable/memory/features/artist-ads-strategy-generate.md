@@ -34,4 +34,19 @@ Regras que não se podem quebrar:
 - **O plano nasce em `rascunho`.** A função nunca publica nem activa nada na Meta.
 - Fase 1 sem Graph API: sem token decifrado, sem `/search` de interesses, sem audiences.
 
-Ver D-ERP98 e D-ERP95 (F1/F2a/F2b/F3).
+v2 (D-ERP100):
+
+- **Fonte primária = desempenho pago real** (`desempenho_pago` no snapshot): 90 dias de
+  `artist_ads_daily` agregados por campanha (filtrados à ligação via `artist_ads_campaigns`) +
+  anúncios com gasto via `artist_ads_ads` (ThruPlays, 3s, CTR, custo por ThruPlay, criativo),
+  período coberto e último sync. Só somas — nunca recalcular ritmos. Falta na base (registada em
+  avisos): alcance, CPM, e qualquer breakdown por região/idade/género.
+- `artist_audience_demographics` (Instagram orgânico) é **fonte secundária** e tem de ser
+  identificada como tal. Não existe outra fonte de geografia.
+- Justificação cita fonte + número + data; sem histórico pago diz-se "sem histórico pago nesta
+  região". A normalização **reescreve** a justificação do orçamento com os valores finais.
+- `publico_sugerido.geo` só aceita ISO-2; cidade/estado é descartado com `geo_cidade_descartada`
+  (a publicação escreve geo em `geo_locations.countries`).
+- `resumo.fontes` = `[{fonte, periodo, ultima_atualizacao}]` para o ecrã.
+
+Ver D-ERP100, D-ERP98 e D-ERP95 (F1/F2a/F2b/F3).

@@ -58,11 +58,15 @@ REGRAS ABSOLUTAS:
 1. Só pode citar números que estão no JSON do snapshot. É PROIBIDO estimar, inventar ou recalcular ritmos por dia (use o campo de ritmo que vem no snapshot). Cada número citado traz a data do dado.
 2. Objetivo só pode ser AWARENESS, TRAFFIC ou ENGAGEMENT. Campanhas de conversão/vendas são recusadas neste módulo — nunca as proponha.
 3. TRAFFIC só é permitido se a música tiver smart link https no snapshot (limites.smart_link_url). Sem smart link, proponha AWARENESS ou ENGAGEMENT e registe a falta em avisos.
-4. Geografia é obrigatória em cada conjunto (publico_sugerido.geo). Por omissão ["BR"]. Só refine (cidades/estados) com dados de demografia que existam no snapshot.
+4. Geografia: publico_sugerido.geo só aceita códigos ISO de país com 2 letras (ex.: ["BR"]). É PROIBIDO escrever cidades ou estados (ex.: "Natal, Rio Grande do Norte") — o motor de publicação trata cada entrada como país e a Meta recusa. Por omissão ["BR"].
 5. No máximo 3 conjuntos de anúncios. Cada conjunto tem UM público e UM anúncio, e esse anúncio promove uma publicação existente (existing_post) da lista publicacoes_promoviveis. NUNCA invente post_ref: use exactamente um post_ref dessa lista.
 6. Por omissão não use end_time (orçamento diário). Se propuser end_time, tem de vir start_time e end_time > start_time.
 7. A soma dos orcamento_cents dos conjuntos por dia não pode passar o disponível em limites.available_daily (na moeda da conta). Cada conjunto tem pelo menos 100 cents por dia.
 8. Português do Brasil, linguagem de quem compra mídia: objetiva e com dado na mão.
+9. FONTE PRIMÁRIA = desempenho_pago (histórico pago real: gasto, impressões, cliques, ThruPlays, custo por ThruPlay, por campanha e por anúncio). Toda a escolha de público, geografia, orçamento e criativo tem de citar, no campo "porque": a FONTE (que RPC/tabela do snapshot), o NÚMERO exacto e a DATA (ou período) do dado.
+10. Não existe histórico pago por região, idade ou género: os dados pagos são agregados por anúncio e por dia. Quando não houver histórico pago para uma região ou um público, escreva isso literalmente ("sem histórico pago nesta região" / "sem histórico pago para este público") em vez de inferir a partir da demografia orgânica.
+11. demografia_organica_instagram é FONTE SECUNDÁRIA e só de Instagram orgânico. Se a usar, identifique-a como tal no texto ("fonte secundária: demografia orgânica do Instagram, snapshot de <data>"). Nunca a apresente como desempenho pago.
+12. Criativo: justifique a publicação escolhida com o desempenho pago do anúncio/criativo correspondente quando existir em desempenho_pago.anuncios; se não existir, diga "publicação sem histórico pago".
 
 FORMATO DE RESPOSTA — responde APENAS com JSON puro (sem markdown fences):
 {
@@ -90,7 +94,7 @@ FORMATO DE RESPOSTA — responde APENAS com JSON puro (sem markdown fences):
     }
   ],
   "resumo": {
-    "justificacao": [{ "campo": "objetivo", "escolha": "AWARENESS", "porque": "número do snapshot + data" }],
+    "justificacao": [{ "campo": "objetivo|publico|geografia|orcamento|criativo", "escolha": "…", "porque": "fonte + número + data" }],
     "hipoteses": [{ "o_que_testar": "…", "como_ler": "…" }],
     "avisos": ["…"]
   }
@@ -256,16 +260,155 @@ Deno.serve(async (req: Request): Promise<Response> => {
     p_artist_id: artistId,
     p_include_removed: false,
   });
-  const { data: diario } = await user.rpc("artist_ads_daily", { p_artist_id: artistId, p_days: 30 });
-  const comGasto = (campanhas ?? []).filter((c: Any) => Number(c?.spend_30d ?? 0) > 0).slice(0, 5);
+  // Desempenho PAGO REAL, 90 dias (defeito 1 da v2). O diário é a única fonte
+  // com janela de 90 dias; as RPCs de campanha/anúncio só trazem 7d/30d.
+  const DIAS_JANELA = 90;
+  const { data: diario } = await user.rpc("artist_ads_daily", {
+    p_artist_id: artistId,
+    p_days: DIAS_JANELA,
+  });
+  const diarioRows: Any[] = diario ?? [];
+
+  // Campanhas desta ligação (a RPC do diário não traz connection_id).
+  const campanhasDaLigacao = (campanhas ?? []).filter((c: Any) => c?.connection_id === connectionId);
+  const idsDaLigacao = new Set(campanhasDaLigacao.map((c: Any) => String(c.campaign_id)));
+  const diarioDaLigacao = diarioRows.filter((d: Any) => idsDaLigacao.has(String(d.campaign_id)));
+  if (diarioRows.length > 0 && diarioDaLigacao.length === 0) {
+    avisos.push("nenhum dia de gasto nos últimos 90 dias nas campanhas desta ligação");
+  }
+
+  // Agregação por campanha (só somas do que a RPC devolve — nada recalculado).
+  const agg = new Map<string, Any>();
+  let periodoMin: string | null = null;
+  let periodoMax: string | null = null;
+  for (const d of diarioDaLigacao) {
+    const key = String(d.campaign_id);
+    const cur = agg.get(key) ?? {
+      campaign_id: key,
+      campaign_name: d.campaign_name ?? null,
+      dias_com_gasto: 0,
+      gasto: 0,
+      impressoes: 0,
+      cliques: 0,
+      video_views: 0,
+      resultados: 0,
+      primeiro_dia: null as string | null,
+      ultimo_dia: null as string | null,
+    };
+    cur.dias_com_gasto += 1;
+    cur.gasto += Number(d.spend ?? 0);
+    cur.impressoes += Number(d.impressions ?? 0);
+    cur.cliques += Number(d.clicks ?? 0);
+    cur.video_views += Number(d.video_views ?? 0);
+    cur.resultados += Number(d.results ?? 0);
+    const day = d.day ? String(d.day) : null;
+    if (day) {
+      if (!cur.primeiro_dia || day < cur.primeiro_dia) cur.primeiro_dia = day;
+      if (!cur.ultimo_dia || day > cur.ultimo_dia) cur.ultimo_dia = day;
+      if (!periodoMin || day < periodoMin) periodoMin = day;
+      if (!periodoMax || day > periodoMax) periodoMax = day;
+    }
+    agg.set(key, cur);
+  }
+
+  const campanhasPagas = [...agg.values()]
+    .sort((a, b) => b.gasto - a.gasto)
+    .map((a) => {
+      const c = campanhasDaLigacao.find((x: Any) => String(x.campaign_id) === a.campaign_id) ?? {};
+      return {
+        ...a,
+        gasto: Math.round(a.gasto * 100) / 100,
+        objetivo: c.objective ?? null,
+        status: c.status ?? null,
+        moeda: c.currency ?? null,
+        orcamento_diario_atual: c.budget_daily ?? null,
+        // janela de 30 dias, tal como a RPC devolve (não recalculado)
+        metricas_30d_da_rpc: {
+          gasto_30d: c.spend_30d ?? null,
+          impressoes_30d: c.impressions_30d ?? null,
+          cliques_30d: c.clicks_30d ?? null,
+          video_views_30d: c.video_views_30d ?? null,
+          cpc_30d: c.cpc_30d ?? null,
+          cpv_30d: c.cpv_30d ?? null,
+        },
+        ultimo_sync: c.last_synced_at ?? null,
+      };
+    });
+
+  const comGasto = campanhasPagas.slice(0, 10);
   const anuncios: Any[] = [];
   for (const c of comGasto) {
     const { data: ads } = await user.rpc("artist_ads_ads", {
       p_artist_id: artistId,
       p_campaign_id: c.campaign_id,
     });
-    for (const a of (ads ?? [])) anuncios.push(a);
+    for (const a of (ads ?? [])) {
+      if (Number(a?.spend_30d ?? 0) <= 0 && Number(a?.spend_7d ?? 0) <= 0) continue;
+      anuncios.push({
+        campanha: a.campaign_name,
+        adset: a.adset_name,
+        ad_id: a.ad_id,
+        nome: a.ad_name,
+        status: a.status,
+        moeda: a.currency,
+        criativo_id: a.creative_id ?? null,
+        publicacao_permalink: a.permalink ?? null,
+        thumbnail: a.thumbnail_url ?? null,
+        gasto_30d: a.spend_30d,
+        impressoes_30d: a.impressions_30d,
+        cliques_30d: a.clicks_30d,
+        ctr_30d: a.ctr_30d,
+        cpc_30d: a.cpc_30d,
+        video_3s_views_30d: a.video_3s_views_30d,
+        thruplays_30d: a.thruplays_30d,
+        custo_por_thruplay_30d: a.cost_per_thruplay_30d,
+        gasto_7d: a.spend_7d,
+        thruplays_7d: a.thruplays_7d,
+        custo_por_thruplay_7d: a.cost_per_thruplay_7d,
+        ultimo_sync: a.last_synced_at ?? null,
+      });
+    }
   }
+
+  const ultimoSync = [...campanhasDaLigacao.map((c: Any) => c.last_synced_at), ...anuncios.map((a) => a.ultimo_sync)]
+    .filter(Boolean)
+    .sort()
+    .pop() ?? null;
+
+  const totais90d = campanhasPagas.reduce(
+    (t, c) => ({
+      gasto: Math.round((t.gasto + c.gasto) * 100) / 100,
+      impressoes: t.impressoes + c.impressoes,
+      cliques: t.cliques + c.cliques,
+      video_views: t.video_views + c.video_views,
+    }),
+    { gasto: 0, impressoes: 0, cliques: 0, video_views: 0 },
+  );
+
+  // O que a base NÃO tem — registado, nunca inventado.
+  const faltasPago = [
+    "alcance (reach) e CPM não existem nas RPCs de tráfego — não constam do snapshot",
+    "ThruPlays, visualizações de 3s, CTR e custo por ThruPlay só existem em janela de 7 e 30 dias (por anúncio); na janela de 90 dias só há gasto, impressões, cliques e video_views",
+    "não há breakdown pago por região, idade ou género: os dados pagos são agregados por anúncio e por dia",
+  ];
+  for (const f of faltasPago) avisos.push(`dado em falta: ${f}`);
+
+  // Demografia orgânica do Instagram — FONTE SECUNDÁRIA, identificada como tal.
+  const { data: demoRaw } = await user
+    .from("artist_audience_demographics")
+    .select("platform, audience_type, dimension, dim_key, value, timeframe, snapshot_date, source")
+    .eq("artist_id", artistId)
+    .order("snapshot_date", { ascending: false })
+    .limit(300);
+  const demoRows: Any[] = demoRaw ?? [];
+  const demoDatas = demoRows.map((d: Any) => String(d.snapshot_date)).sort();
+  const demografiaOrganica = {
+    _fonte: "secundária — demografia ORGÂNICA do Instagram (public.artist_audience_demographics). NÃO é desempenho pago.",
+    periodo: demoRows.length ? { de: demoDatas[0], a: demoDatas[demoDatas.length - 1] } : null,
+    linhas: demoRows,
+  };
+  if (demoRows.length === 0) avisos.push("sem demografia orgânica de Instagram para este artista");
+
 
   const alvoDiario = orcamentoPedido != null && orcamentoPedido > 0
     ? Math.min(orcamentoPedido, disponivel)
@@ -297,11 +440,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
       ultimo_anuncio: p.last_ad_name,
       gasto_30d_cents: p.spend_30d_cents,
     })),
-    historico_trafego: {
-      campanhas: campanhas ?? [],
-      diario_30d: diario ?? [],
-      anuncios_das_campanhas_com_gasto: anuncios,
+    desempenho_pago: {
+      _fonte: "primária — RPCs public.artist_ads_daily(90) + artist_ads_campaigns + artist_ads_ads",
+      periodo: { de: periodoMin, a: periodoMax, dias_pedidos: DIAS_JANELA },
+      ultima_atualizacao: ultimoSync,
+      totais_90d: totais90d,
+      campanhas: campanhasPagas,
+      anuncios: anuncios,
+      dados_em_falta: faltasPago,
     },
+    demografia_organica_instagram: demografiaOrganica,
+
     limites: {
       connection_id: connectionId,
       moeda: cap.account_currency ?? cap.cap_currency ?? null,
@@ -357,15 +506,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   for (const a of adsets) {
     const pub = (a.publico_sugerido = a.publico_sugerido ?? {});
-    const geo = Array.isArray(pub.geo)
-      ? pub.geo.filter((g: Any) => typeof g === "string" && g.trim().length > 0)
-      : [];
+    // Defeito 4: geo só aceita código ISO de país com 2 letras. Cidade/estado em
+    // texto livre viraria país em targeting.geo_locations.countries e a Meta recusa.
+    const bruto: Any[] = Array.isArray(pub.geo) ? pub.geo : [];
+    const geo: string[] = [];
+    for (const g of bruto) {
+      const s = typeof g === "string" ? g.trim() : "";
+      if (/^[A-Za-z]{2}$/.test(s)) {
+        const iso = s.toUpperCase();
+        if (!geo.includes(iso)) geo.push(iso);
+      } else if (s.length > 0) {
+        avisos.push(
+          `geo_cidade_descartada: conjunto "${a.trigger_nome ?? "?"}" pedia "${s}" — só são aceites códigos ISO de país com 2 letras`,
+        );
+      }
+    }
     if (geo.length === 0) {
-      avisos.push(`conjunto "${a.trigger_nome ?? "?"}" sem geografia — usado ["BR"]`);
+      avisos.push(`conjunto "${a.trigger_nome ?? "?"}" sem geografia válida — usado ["BR"]`);
       pub.geo = ["BR"];
     } else {
       pub.geo = geo;
     }
+
     if (!Number.isFinite(pub.idade_min)) pub.idade_min = 18;
     if (!Number.isFinite(pub.idade_max)) pub.idade_max = 65;
 
@@ -428,6 +590,75 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // ── 9) Justificação vai DENTRO do plano (sem DDL, sem tabela de log)
   const resumoLlm = plano.resumo && typeof plano.resumo === "object" ? plano.resumo : {};
+  const moeda = cap.account_currency ?? cap.cap_currency ?? "";
+  const totalFinal = plano.orcamento_total_cents / 100;
+  const porConjunto = adsets
+    .map((a) => `"${a.trigger_nome ?? "?"}" ${(a.orcamento_cents / 100).toFixed(2)}`)
+    .join(" + ");
+  const textoOrcamento =
+    `Orçamento final depois da normalização: ${totalFinal.toFixed(2)} ${moeda} por dia ` +
+    `(${porConjunto}). Fonte: RPC public.artist_ads_budget_cap_get — teto ${Number(cap.daily_cap).toFixed(2)}, ` +
+    `comprometido ${Number(cap.committed_daily ?? 0).toFixed(2)}, disponível ${disponivel.toFixed(2)} ${moeda} ` +
+    `(leitura de ${new Date().toISOString().slice(0, 10)}).`;
+
+  // Defeito 3: a justificação do orçamento é REESCRITA com os valores finais.
+  // Nenhuma entrada de orçamento sobrevive com números anteriores ao corte.
+  const ORC_RE = /or[çc]amento|budget|verba|di[áa]ri/i;
+  const justificacao: Any[] = (Array.isArray(resumoLlm.justificacao) ? resumoLlm.justificacao : [])
+    .filter((j: Any) => {
+      const campo = String(j?.campo ?? "");
+      const porque = String(j?.porque ?? "");
+      const escolha = String(j?.escolha ?? "");
+      const falaDeOrcamento = ORC_RE.test(campo) || ORC_RE.test(porque) || ORC_RE.test(escolha);
+      const temNumero = /\d/.test(porque) || /\d/.test(escolha);
+      return !(falaDeOrcamento && temNumero);
+    });
+  justificacao.push({
+    campo: "orcamento",
+    escolha: `${totalFinal.toFixed(2)} ${moeda}/dia`,
+    porque: textoOrcamento,
+  });
+
+  const fontes = [
+    {
+      fonte: "RPC public.artist_ads_daily (90 dias) — desempenho pago por campanha e dia",
+      periodo: periodoMin && periodoMax ? `${periodoMin} a ${periodoMax}` : "sem dias com gasto",
+      ultima_atualizacao: ultimoSync,
+    },
+    {
+      fonte: "RPC public.artist_ads_campaigns — campanhas da ligação (janelas 7d/30d)",
+      periodo: "últimos 30 dias",
+      ultima_atualizacao: ultimoSync,
+    },
+    {
+      fonte: "RPC public.artist_ads_ads — anúncios com gasto (ThruPlays, 3s, CTR, custo por ThruPlay; 7d/30d)",
+      periodo: "últimos 30 dias",
+      ultima_atualizacao: ultimoSync,
+    },
+    {
+      fonte: "RPC public.artist_ads_promotable_posts — publicações prontas para anunciar",
+      periodo: "actual",
+      ultima_atualizacao: null,
+    },
+    {
+      fonte: "RPC public.artist_ads_budget_cap_get — teto e disponível da ligação",
+      periodo: "actual",
+      ultima_atualizacao: cap.set_at ?? null,
+    },
+    {
+      fonte: "public.artist_audience_demographics (Instagram orgânico) — FONTE SECUNDÁRIA",
+      periodo: demografiaOrganica.periodo
+        ? `${demografiaOrganica.periodo.de} a ${demografiaOrganica.periodo.a}`
+        : "sem dados",
+      ultima_atualizacao: demografiaOrganica.periodo?.a ?? null,
+    },
+    {
+      fonte: "public.artist_song_metrics_daily + RPC song_benchmark_aligned — snapshot da música",
+      periodo: "últimos 30 dias",
+      ultima_atualizacao: relatorio?.gerado_em ?? null,
+    },
+  ];
+
   plano.resumo = {
     origem: "llm",
     modelo: MODEL,
@@ -438,9 +669,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
       relatorio_de_lancamento: relatorio?.gerado_em ?? null,
       publicacoes_promoviveis: posts.length,
       campanhas_no_historico: (campanhas ?? []).length,
-      campanhas_com_gasto: comGasto.length,
-      anuncios_no_historico: anuncios.length,
-      dias_de_diario: (diario ?? []).length,
+      campanhas_da_ligacao: campanhasDaLigacao.length,
+      campanhas_com_gasto_90d: campanhasPagas.length,
+      anuncios_com_gasto: anuncios.length,
+      dias_de_diario_90d: diarioDaLigacao.length,
+      periodo_pago: { de: periodoMin, a: periodoMax },
+      totais_pagos_90d: totais90d,
+      ultimo_sync: ultimoSync,
+      demografia_organica_instagram: demografiaOrganica.periodo,
       teto: {
         daily_cap: Number(cap.daily_cap),
         committed_daily: Number(cap.committed_daily ?? 0),
@@ -449,10 +685,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
         moeda: cap.account_currency ?? cap.cap_currency ?? null,
       },
     },
-    justificacao: Array.isArray(resumoLlm.justificacao) ? resumoLlm.justificacao : [],
+    fontes,
+    justificacao,
     hipoteses: Array.isArray(resumoLlm.hipoteses) ? resumoLlm.hipoteses : [],
     avisos: [...(Array.isArray(resumoLlm.avisos) ? resumoLlm.avisos : []), ...avisos],
   };
+
 
   // ── 10) Validar (IMMUTABLE, não grava) e só depois gravar em 'rascunho'
   const { error: valErr } = await user.rpc("artist_ads_plan_validate", {
