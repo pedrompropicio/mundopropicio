@@ -551,20 +551,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
     pedido: { objetivo: objetivoPedido, orcamento_diario: orcamentoPedido, notas },
   };
 
-  // ── 7) LLM (prompt de sistema próprio no alvo TikTok)
+  // ── 7) LLM (prompt de sistema próprio nos alvos TikTok e YouTube)
   if (eTiktok) {
     avisos.push("sem histórico pago TikTok; hipótese sustentada em orgânico TikTok + pago Meta/Google");
   }
   const llm = await callLlm(
     `Dados (única fonte de números permitida):\n\n${JSON.stringify(entradas)}`,
-    eTiktok ? SYSTEM_PROMPT_TIKTOK : SYSTEM_PROMPT,
+    eGoogle ? SYSTEM_PROMPT_GOOGLE : eTiktok ? SYSTEM_PROMPT_TIKTOK : SYSTEM_PROMPT,
   );
   if ("fail" in llm && llm.fail) return llm.fail;
   const plano: Any = llm.plano ?? {};
 
   // ── 8) Normalização determinística (não confiar na saída do modelo)
-  const objetivosOk = eTiktok ? OBJETIVOS_TIKTOK : OBJETIVOS;
-  const objetivoOmissao = eTiktok ? "VIDEO_VIEWS" : "AWARENESS";
+  const objetivosOk = eGoogle ? OBJETIVOS_GOOGLE : eTiktok ? OBJETIVOS_TIKTOK : OBJETIVOS;
+  const objetivoOmissao = eVideo ? "VIDEO_VIEWS" : "AWARENESS";
   let objetivo = String(plano.objetivo ?? "").toUpperCase();
   if (!objetivosOk.includes(objetivo)) {
     avisos.push(
