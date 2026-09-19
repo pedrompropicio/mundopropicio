@@ -715,9 +715,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
     gerado_em: new Date().toISOString(),
     tokens: llm.tokens ?? null,
     entradas_usadas: {
+      plataforma,
       snapshot_da_musica: snapshotMusica != null,
       relatorio_de_lancamento: relatorio?.gerado_em ?? null,
       publicacoes_promoviveis: posts.length,
+      videos_promoviveis: eTiktok
+        ? { total: posts.length, ligados_a_musica: videosLigadosMusica }
+        : null,
       campanhas_com_gasto_90d: campanhasPagas.length,
       anuncios_com_gasto: anuncios.length,
       dias_de_diario_90d: campanhasPagas.reduce((s: number, c: Any) => s + Number(c.dias_com_gasto ?? 0), 0),
