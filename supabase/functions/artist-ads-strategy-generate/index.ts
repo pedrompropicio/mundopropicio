@@ -797,12 +797,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
       snapshot_da_musica: snapshotMusica != null,
       relatorio_de_lancamento: relatorio?.gerado_em ?? null,
       publicacoes_promoviveis: posts.length,
-      videos_promoviveis: eTiktok
+      videos_promoviveis: eVideo
         ? { total: posts.length, ligados_a_musica: videosLigadosMusica }
         : null,
       videos_analisados: analiseVideos?.totais.videos_analisados ?? null,
       videos_ligados_a_musica: analiseVideos?.totais.videos_ligados_a_musica ?? videosLigadosMusica,
-      series_diarias_tiktok: analiseVideos?.fonte.series_diarias ?? null,
+      series_diarias: analiseVideos?.fonte.series_diarias ?? null,
+      series_diarias_tiktok: eTiktok ? (analiseVideos?.fonte.series_diarias ?? null) : null,
       campanhas_com_gasto_90d: campanhasPagas.length,
       anuncios_com_gasto: anuncios.length,
       dias_de_diario_90d: campanhasPagas.reduce((s: number, c: Any) => s + Number(c.dias_com_gasto ?? 0), 0),
