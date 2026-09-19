@@ -16679,6 +16679,7 @@ export type Database = {
           external_business_name: string
           id: string
           last_error: string
+          last_synced_at: string
           platform: string
           selected_ad_account_currency: string
           selected_ad_account_id: string
@@ -16686,12 +16687,35 @@ export type Database = {
           status: string
         }[]
       }
+      artist_ads_creatives: {
+        Args: { p_artist_id: string; p_connection_id?: string }
+        Returns: {
+          anuncio_nome: string
+          campanha_nome: string
+          cliques_30d: number
+          connection_id: string
+          creative_id: string
+          estado: string
+          formato: string
+          gasto_30d_cents: number
+          importado: boolean
+          impressoes_30d: number
+          nome: string
+          permalink: string
+          thruplays_30d: number
+          thumbnail_url: string
+          ultimo_uso: string
+        }[]
+      }
       artist_ads_daily: {
         Args: { p_artist_id: string; p_days?: number }
         Returns: {
+          account_id: string
           campaign_id: string
           campaign_name: string
           clicks: number
+          connection_id: string
+          currency: string
           day: string
           fx_missing_days: number
           impressions: number
@@ -16713,13 +16737,14 @@ export type Database = {
           p_artist_id: string
           p_connection_id: string
           p_plan: Json
+          p_platform?: string
           p_song_id: string
         }
         Returns: string
       }
       artist_ads_plan_get: { Args: { p_plan_id: string }; Returns: Json }
       artist_ads_plan_list: {
-        Args: { p_artist_id: string }
+        Args: { p_artist_id: string; p_platform?: string }
         Returns: {
           created_at: string
           end_time: string
