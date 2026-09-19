@@ -590,6 +590,75 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // ── 9) Justificação vai DENTRO do plano (sem DDL, sem tabela de log)
   const resumoLlm = plano.resumo && typeof plano.resumo === "object" ? plano.resumo : {};
+  const moeda = cap.account_currency ?? cap.cap_currency ?? "";
+  const totalFinal = plano.orcamento_total_cents / 100;
+  const porConjunto = adsets
+    .map((a) => `"${a.trigger_nome ?? "?"}" ${(a.orcamento_cents / 100).toFixed(2)}`)
+    .join(" + ");
+  const textoOrcamento =
+    `Orçamento final depois da normalização: ${totalFinal.toFixed(2)} ${moeda} por dia ` +
+    `(${porConjunto}). Fonte: RPC public.artist_ads_budget_cap_get — teto ${Number(cap.daily_cap).toFixed(2)}, ` +
+    `comprometido ${Number(cap.committed_daily ?? 0).toFixed(2)}, disponível ${disponivel.toFixed(2)} ${moeda} ` +
+    `(leitura de ${new Date().toISOString().slice(0, 10)}).`;
+
+  // Defeito 3: a justificação do orçamento é REESCRITA com os valores finais.
+  // Nenhuma entrada de orçamento sobrevive com números anteriores ao corte.
+  const ORC_RE = /or[çc]amento|budget|verba|di[áa]ri/i;
+  const justificacao: Any[] = (Array.isArray(resumoLlm.justificacao) ? resumoLlm.justificacao : [])
+    .filter((j: Any) => {
+      const campo = String(j?.campo ?? "");
+      const porque = String(j?.porque ?? "");
+      const escolha = String(j?.escolha ?? "");
+      const falaDeOrcamento = ORC_RE.test(campo) || ORC_RE.test(porque) || ORC_RE.test(escolha);
+      const temNumero = /\d/.test(porque) || /\d/.test(escolha);
+      return !(falaDeOrcamento && temNumero);
+    });
+  justificacao.push({
+    campo: "orcamento",
+    escolha: `${totalFinal.toFixed(2)} ${moeda}/dia`,
+    porque: textoOrcamento,
+  });
+
+  const fontes = [
+    {
+      fonte: "RPC public.artist_ads_daily (90 dias) — desempenho pago por campanha e dia",
+      periodo: periodoMin && periodoMax ? `${periodoMin} a ${periodoMax}` : "sem dias com gasto",
+      ultima_atualizacao: ultimoSync,
+    },
+    {
+      fonte: "RPC public.artist_ads_campaigns — campanhas da ligação (janelas 7d/30d)",
+      periodo: "últimos 30 dias",
+      ultima_atualizacao: ultimoSync,
+    },
+    {
+      fonte: "RPC public.artist_ads_ads — anúncios com gasto (ThruPlays, 3s, CTR, custo por ThruPlay; 7d/30d)",
+      periodo: "últimos 30 dias",
+      ultima_atualizacao: ultimoSync,
+    },
+    {
+      fonte: "RPC public.artist_ads_promotable_posts — publicações prontas para anunciar",
+      periodo: "actual",
+      ultima_atualizacao: null,
+    },
+    {
+      fonte: "RPC public.artist_ads_budget_cap_get — teto e disponível da ligação",
+      periodo: "actual",
+      ultima_atualizacao: cap.set_at ?? null,
+    },
+    {
+      fonte: "public.artist_audience_demographics (Instagram orgânico) — FONTE SECUNDÁRIA",
+      periodo: demografiaOrganica.periodo
+        ? `${demografiaOrganica.periodo.de} a ${demografiaOrganica.periodo.a}`
+        : "sem dados",
+      ultima_atualizacao: demografiaOrganica.periodo?.a ?? null,
+    },
+    {
+      fonte: "public.artist_song_metrics_daily + RPC song_benchmark_aligned — snapshot da música",
+      periodo: "últimos 30 dias",
+      ultima_atualizacao: relatorio?.gerado_em ?? null,
+    },
+  ];
+
   plano.resumo = {
     origem: "llm",
     modelo: MODEL,
@@ -600,9 +669,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
       relatorio_de_lancamento: relatorio?.gerado_em ?? null,
       publicacoes_promoviveis: posts.length,
       campanhas_no_historico: (campanhas ?? []).length,
-      campanhas_com_gasto: comGasto.length,
-      anuncios_no_historico: anuncios.length,
-      dias_de_diario: (diario ?? []).length,
+      campanhas_da_ligacao: campanhasDaLigacao.length,
+      campanhas_com_gasto_90d: campanhasPagas.length,
+      anuncios_com_gasto: anuncios.length,
+      dias_de_diario_90d: diarioDaLigacao.length,
+      periodo_pago: { de: periodoMin, a: periodoMax },
+      totais_pagos_90d: totais90d,
+      ultimo_sync: ultimoSync,
+      demografia_organica_instagram: demografiaOrganica.periodo,
       teto: {
         daily_cap: Number(cap.daily_cap),
         committed_daily: Number(cap.committed_daily ?? 0),
@@ -611,10 +685,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
         moeda: cap.account_currency ?? cap.cap_currency ?? null,
       },
     },
-    justificacao: Array.isArray(resumoLlm.justificacao) ? resumoLlm.justificacao : [],
+    fontes,
+    justificacao,
     hipoteses: Array.isArray(resumoLlm.hipoteses) ? resumoLlm.hipoteses : [],
     avisos: [...(Array.isArray(resumoLlm.avisos) ? resumoLlm.avisos : []), ...avisos],
   };
+
 
   // ── 10) Validar (IMMUTABLE, não grava) e só depois gravar em 'rascunho'
   const { error: valErr } = await user.rpc("artist_ads_plan_validate", {
