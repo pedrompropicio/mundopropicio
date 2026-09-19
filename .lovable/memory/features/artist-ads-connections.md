@@ -105,3 +105,23 @@ Funções SQL (a regra de correspondência vive uma vez):
 - Quem enche a tabela é a edge function `fx-rates-sync` (só `service_role`, série
   temporal do Frankfurter, um pedido por moeda; upstream em baixo → sync_run `error`
   + 502). Cron previsto `fx-rates-daily`, `10 0,16 * * *`, corpo `{}`.
+
+## Nível anúncio e trinco das ligações (D-ERP93, 19/09/2026)
+
+- **Estados herdados:** um anúncio/conjunto cujo PAI foi pausado não fica `PAUSED`,
+  fica `CAMPAIGN_PAUSED` ou `ADSET_PAUSED` (este só ao nível anúncio). `crm-meta-sync-ads`
+  filtra ACTIVE/PAUSED/CAMPAIGN_PAUSED/ADSET_PAUSED e `crm-meta-sync-adsets`
+  ACTIVE/PAUSED/CAMPAIGN_PAUSED. Nunca alargar a DELETED/ARCHIVED.
+- **`artist_ads_ads` parte da UNIÃO** insights de 30 d + snapshot. Sem ficha no
+  snapshot: nomes de anúncio/conjunto/campanha vêm dos insights (valor mais recente) e
+  `status`/`creative_id`/`thumbnail_url`/`permalink` ficam NULL. DELETED/ARCHIVED só se
+  excluem se NÃO tiveram gasto na janela.
+- **Invariante:** por campanha, `sum(spend_30d)` de `artist_ads_ads` =
+  `spend_30d` da campanha em `artist_ads_campaigns`. Verificado em Live (4 campanhas do
+  Litto, diff 0,00; 3.421,67 em 17 anúncios).
+- **Trinco `linked_song_locked`** em `crm.meta_campaign_snapshot` e `crm.google_campaign`
+  (a par de `linked_event_locked`): qualquer decisão humana fecha o trinco —
+  `artist_ads_link_song` ao ligar e a nova `artist_ads_unlink_song(platform, campaign_id,
+  artist_id)` ao desligar. `crm.artist_ads_autolink_songs_core` só toca em linhas com
+  `linked_song_id IS NULL AND NOT linked_song_locked`.
+- Os upserts dos syncs nunca escrevem `linked_song_id` nem `linked_song_locked`.
