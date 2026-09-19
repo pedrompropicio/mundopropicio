@@ -977,6 +977,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
         }
         checks.push({ check: `post_${pr}`, ok: okPost, detail: detalhe });
       }
+      // Geografia: o preflight tem de ser fiel à publicação real (F3).
+      const semGeoPre = (adsets as any[]).filter((a) => !temGeo(a)).map((a) => a?.trigger_nome ?? "?");
+      checks.push({
+        check: "geografia",
+        ok: semGeoPre.length === 0,
+        detail: semGeoPre.length === 0
+          ? "todos os conjuntos têm país em publico_sugerido.geo"
+          : `sem país: ${semGeoPre.join(", ")}`,
+      });
       checks.push({ check: "teto", ok: !!tetoInfo?.ok, detail: JSON.stringify(tetoInfo) });
     }
     const tudoOk = checks.every((c) => c.ok);
