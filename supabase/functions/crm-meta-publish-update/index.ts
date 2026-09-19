@@ -359,7 +359,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // Conjuntos
-  type AdsetPlano = { idx: number; id: string; params: Record<string, string>; antes: any; depois: any; campos: string[]; targeting?: any; geo?: string[]; idades?: { min: number; max: number } };
+  type AdsetPlano = { idx: number; id: string; params: Record<string, string>; antes: any; depois: any; campos: string[]; targeting?: any; geo?: string[]; geo_regions?: any; idades?: { min: number; max: number } };
   const adsetPlanos: AdsetPlano[] = [];
   const agora = Date.now();
   for (let i = 0; i < adsetsPlano.length; i++) {
