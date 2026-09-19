@@ -187,3 +187,44 @@ activa e moeda, Página, Instagram, posts promovíveis, teto.
 
 **Lacunas do alvo evento (registadas, não alteradas):** publicar não verifica papel,
 não há lock anti-corrida e não são geradas UTMs.
+
+## Activação do alvo MÚSICA (D-ERP95 F3, 19/09/2026)
+
+`crm-meta-publish-activate` — `POST { company_id, plan_id, acao: 'ativar'|'pausar', approval_note? }`.
+Plano com `song_id`:
+
+- **Sessão obrigatória**; o service_role nunca activa nem pausa música.
+- **Papéis**: `ativar` → admin | platform_admin (`public.artist_ads_assert_cap_admin`);
+  `pausar` → admin | platform_admin | manager | marketing_manager
+  (`public.artist_ads_assert_write`). Sem papel → `403 { error:'sem_permissao' }`.
+- **Activar = aprovar**: `activated_by` + linha em `crm.meta_entity_actions_log`
+  (`action` `activate`/`pause`, prev/new status, `performed_by` = `approved_by`,
+  `approval_note` em `updates_jsonb`). Falha parcial fica com `success=false`.
+- **Ligação e token** vêm de `plan.connection_id` (`connection_scope='artist'`,
+  `status='active'`), nunca de `ad_platform_account_links`.
+- **Teto** antes de qualquer flip em `ativar` (`pausar` não verifica):
+  `422 sem_teto` / `422 acima_do_teto { teto, pedido, ja_comprometido, moeda }` /
+  `422 moeda_diferente_do_teto`. Regra partilhada em `_shared/artist-ads-teto.ts`.
+- **Flips, idempotência e erros**: iguais ao caminho de evento (bottom-up a activar,
+  top-down a pausar; nunca marca `ativo` sem a campanha ACTIVE na Meta).
+- **No fim** actualiza `status`/`effective_status` em `crm.meta_campaign_snapshot`
+  sem tocar em `linked_song_id` nem `linked_song_locked`.
+
+**Tetos.** `public.artist_ads_budget_cap_set(p_connection_id, p_daily_cap, p_notes)` e
+`public.artist_ads_budget_cap_remove(p_connection_id)` — só admin/platform_admin
+(manager e marketing_manager NÃO definem tetos); moeda = `selected_ad_account_currency`;
+histórico em `crm.artist_ads_budget_caps_history` (`set|update|remove`).
+`public.artist_ads_budget_cap_get` devolve também `committed_daily` e `available_daily`.
+Baixar um teto abaixo do comprometido é permitido: não pausa nada, só impede novas activações.
+
+**Porta lateral (`crm-meta-entity-action`), só `connection_scope='artist'`:** `activate`
+ou aumento de orçamento exige admin/platform_admin e, quando a campanha pertence a um
+plano de música do motor, passa pelo mesmo teto (`sem_teto` / `acima_do_teto`); pausar e
+reduzir aceitam manager/marketing_manager. Campanhas externas (gestor de tráfego) não
+contam para o teto nem são bloqueadas por ele. `approved_by` no log nas acções de
+activação/aumento. Connections de empresa ficam inalteradas.
+
+**Preflight** ganhou o check `geografia` (cada adset com `publico_sugerido.geo` não vazio).
+
+**Lacunas de eventos (registadas, não alteradas):** activação e `entity-action` de
+eventos/empresa sem verificação de papel nem teto; sem UTMs; sem lock anti-corrida.
