@@ -1643,6 +1643,7 @@ export type Database = {
           status: string
           tokens_in: number | null
           tokens_out: number | null
+          trigger_source: string | null
         }
         Insert: {
           artist_id: string
@@ -1661,6 +1662,7 @@ export type Database = {
           status?: string
           tokens_in?: number | null
           tokens_out?: number | null
+          trigger_source?: string | null
         }
         Update: {
           artist_id?: string
@@ -1679,6 +1681,7 @@ export type Database = {
           status?: string
           tokens_in?: number | null
           tokens_out?: number | null
+          trigger_source?: string | null
         }
         Relationships: [
           {
@@ -1739,6 +1742,7 @@ export type Database = {
           launch_started_at: string | null
           notes: string | null
           release_date: string | null
+          report_stale_at: string | null
           smart_link_url: string | null
           soundcharts_uuid: string | null
           title: string
@@ -1758,6 +1762,7 @@ export type Database = {
           launch_started_at?: string | null
           notes?: string | null
           release_date?: string | null
+          report_stale_at?: string | null
           smart_link_url?: string | null
           soundcharts_uuid?: string | null
           title: string
@@ -1777,6 +1782,7 @@ export type Database = {
           launch_started_at?: string | null
           notes?: string | null
           release_date?: string | null
+          report_stale_at?: string | null
           smart_link_url?: string | null
           soundcharts_uuid?: string | null
           title?: string
@@ -16827,6 +16833,10 @@ export type Database = {
         }[]
       }
       artist_song_base_title: { Args: { _title: string }; Returns: string }
+      artist_song_mark_report_stale: {
+        Args: { p_song_id: string }
+        Returns: undefined
+      }
       artist_song_metric_set_manual: {
         Args: {
           p_metric: string
