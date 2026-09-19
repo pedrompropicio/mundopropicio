@@ -490,6 +490,27 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
     lacunas.push("sem músicas de referência dos comparáveis para comparar à mesma idade");
   }
 
+  // ---- frescura dos dados manuais (D-ERP54 adenda 19/09/2026)
+  const atraso = (d: unknown): number | null =>
+    d == null ? null : daysBetween(String(d).slice(0, 10), periodEnd);
+  const selfRow = (benchRows ?? []).find((r: Row) => r.is_self) ?? null;
+  const ugcData = selfRow?.tiktok_ugc_date ?? null;
+  const s4aSnap = spotifyForArtists?.snapshot ?? null;
+  const compUgcDates = (benchRows ?? [])
+    .filter((r: Row) => !r.is_self && r.tiktok_ugc_latest != null && r.tiktok_ugc_date != null)
+    .map((r: Row) => String(r.tiktok_ugc_date).slice(0, 10))
+    .sort();
+  const benchUgcMaisAntiga = compUgcDates.length ? compUgcDates[0] : null;
+  const frescura = {
+    gerado_em: new Date().toISOString(),
+    ugc_tiktok_data: ugcData ?? null,
+    ugc_dias_de_atraso: atraso(ugcData),
+    s4a_snapshot: s4aSnap ?? null,
+    s4a_dias_de_atraso: atraso(s4aSnap),
+    benchmark_ugc_data_mais_antiga: benchUgcMaisAntiga,
+    benchmark_ugc_dias_de_atraso: atraso(benchUgcMaisAntiga),
+  };
+
   return {
     notFound: false as const,
     song,
@@ -497,6 +518,7 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
     periodEnd,
     snapshot: {
       periodo: { inicio: periodStart, fim: periodEnd, dias: days },
+      frescura,
       musica,
       streams: streamsPorPlataforma,
       playlists,
@@ -524,7 +546,7 @@ const SYSTEM_PROMPT =
 Seu leitor é empresarial (produtoras e casas de evento) e olha número: fale com dado na mão, sem enfeite.
 
 REGRAS ABSOLUTAS:
-1. Você só pode citar números que estão no JSON do snapshot. É PROIBIDO estimar, arredondar para valores "bonitos", inferir números ausentes ou trazer benchmarks de fora.
+1. Você só pode citar números que estão no JSON do snapshot. É PROIBIDO estimar, inferir números ausentes ou trazer benchmarks de fora. O único arredondamento permitido é o da regra 13.
 2. Toda recomendação precisa citar em "porque" o número exato do snapshot que a justifica.
 3. Se o dado não existe no snapshot, escreva "sem dados" e liste isso em lacunas_de_dados. Nunca preencha com suposição.
 4. Recomendações práticas e mensuráveis: ação concreta, plataforma, esforço, métrica de sucesso e prazo.
@@ -537,7 +559,17 @@ REGRAS DE AVALIAÇÃO RELATIVA (obrigatórias):
 9. Se não houver comparável com dados para uma métrica (posição ou total ausentes/1), escreva "sem referência" e NÃO avalie essa métrica.
 10. Preencha "benchmark" e "avaliacao_relativa" só com números do snapshot.
 11. "spotify_for_artists" (S4A) é a FONTE OFICIAL de streams da música e das playlists. A Soundcharts é contagem pública desfasada. Quando as duas existirem, avalie pelo S4A e mencione explicitamente a diferença entre as duas. Se "spotify_for_artists" for null, escreva "sem dados do Spotify for Artists".
-12. Só as músicas do elenco têm S4A; as de referência no benchmark não têm. É PROIBIDO comparar streams do S4A com streams da Soundcharts de comparáveis.`;
+12. Só as músicas do elenco têm S4A; as de referência no benchmark não têm. É PROIBIDO comparar streams do S4A com streams da Soundcharts de comparáveis.
+
+REGRAS DE FORMATO DE NÚMEROS (valem para todos os campos de texto, incluindo numeros_citados):
+13. Contagens (streams, publicações, views, seguidores, ouvintes, playlists, saves) e ritmos por dia são SEMPRE inteiros. Se o snapshot trouxer casas decimais, arredonde ao inteiro mais próximo (231.25 → 231; 17429.57 → 17.430). É PROIBIDO escrever casas decimais em contagens.
+14. Formato pt-BR: ponto só como separador de milhar (66.122; 1.329.029); vírgula só como separador decimal, permitida apenas em percentuais, com no máximo 1 casa (12,5%). Nunca use ponto como decimal. Nunca abrevie ("66 mil", "1,3 mi"): escreva o número inteiro.
+15. Nos campos numéricos da ferramenta (valor, posicao, total, idade_dias, prazo_dias) devolva número puro, inteiro, sem separadores.
+
+REGRAS DE FRESCURA:
+16. Todo número de registro manual (tiktok_ugc_publicacoes, métricas s4a_*, streams por playlist) é citado com a data do dado: "7.320 publicações (registro de 18/09)". Use tiktok_ugc_data, spotify_for_artists.snapshot e metricas_da_musica[].data.
+17. Ritmo por dia: use só o campo de ritmo que vem no snapshot. É PROIBIDO recalcular dividindo por outra idade e é PROIBIDO chamar um total acumulado de "por dia".
+18. Se frescura.ugc_dias_de_atraso for maior que 2, inclua em sinais_de_alerta "UGC TikTok desatualizado: último registro em DD/MM" e não descreva tendência de UGC. O mesmo para frescura.s4a_dias_de_atraso maior que 8. Se frescura.benchmark_ugc_dias_de_atraso for maior que 2, diga na comparação de UGC que os comparáveis têm registro de DD/MM e não conclua ultrapassagens por margens pequenas.`;
 
 
 const REPORT_TOOL = {
