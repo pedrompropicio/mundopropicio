@@ -24,3 +24,38 @@ pertence sempre à empresa gestora (`company_id` é a fronteira de acesso das po
   (`artist_id IS NULL` vs `(company_id, artist_id, platform)`). Qualquer `ON CONFLICT`
   nesta tabela tem de indicar o predicado.
 - Primeiro caso real: Litto Lins, Google Ads `8841388615`, empresa Social Artists.
+
+## Sync das campanhas e auto-ligação (D-ERP90, 19/09/2026)
+
+As campanhas entram por cron, não por visita ao ecrã (antes só gravavam quando
+alguém abria o MP Audience e a connection do Litto tinha 0 linhas):
+
+- job 241 `crm-meta-campaigns-hourly`, `25 * * * *` — uma chamada de
+  `crm-meta-sync-campaigns` por connection meta `active` com
+  `selected_ad_account_id`, `mode: incremental`. Minuto 25 para correr antes dos
+  insights do job 93 (minuto 40).
+- job 242 `crm-google-sync-campaigns-3h`, `10 */3 * * *` — uma chamada de
+  `crm-google-sync-campaigns` sem `connection_id`, `mode: incremental`,
+  `days_back: 7`. De 3 em 3 horas: 2 consultas GAQL por conta e métricas que
+  consolidam com atraso.
+
+Ambos no padrão do job 93 (vault `email_queue_service_role_key` + `net.http_post`).
+Crons não propagam Test→Live via Publish.
+
+**Regra: connection de artista liga campanhas a MÚSICAS, nunca a eventos.**
+No fim do sync, `connection_scope='company'` chama
+`crm_auto_link_*_campaigns_to_events` (inalterado); `connection_scope='artist'`
+salta esse auto-link e chama `public.artist_ads_autolink_songs_internal(artist_id)`
+(best-effort; devolve `songs_linked_count` na Meta e `songs_linked` no Google).
+
+Funções SQL (a regra de correspondência vive uma vez):
+- `crm.artist_ads_autolink_songs_core(artist, company)` — o núcleo: título-base
+  normalizado com ≥ 8 caracteres contido no nome normalizado da campanha, só
+  `linked_song_id IS NULL`, desempate por título mais longo e depois música mais
+  antiga, só connections `connection_scope='artist'` desse artista. EXECUTE
+  revogado a PUBLIC.
+- `public.artist_ads_autolink_songs(artist)` — para o utilizador, assinatura
+  inalterada: `artist_ads_assert_access` + núcleo.
+- `public.artist_ads_autolink_songs_internal(artist)` — SECURITY DEFINER para
+  cron: resolve a empresa pelo artista e chama o núcleo. anon false,
+  authenticated false, service_role true.
