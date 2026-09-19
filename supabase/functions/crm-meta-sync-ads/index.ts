@@ -150,8 +150,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
     url.searchParams.set("fields", AD_FIELDS);
     url.searchParams.set("limit", "100");
     // Nota: `ad.updated_time` é filtrável no endpoint /act_X/ads (operator GREATER_THAN, value=unix-ts em segundos).
+    // D-ERP93: um anúncio cujo PAI foi pausado não fica PAUSED — fica com o estado
+    // herdado CAMPAIGN_PAUSED (campanha pausada) ou ADSET_PAUSED (conjunto pausado).
+    // Sem estes dois valores, anúncios COM GASTO ficavam fora do snapshot e o total
+    // por anúncio não batia com o total por campanha. Não se alarga a
+    // DELETED/ARCHIVED (fichas de anúncios eliminados/arquivados não interessam).
     const filtering: any[] = [
-      { field: "ad.effective_status", operator: "IN", value: ["ACTIVE", "PAUSED"] },
+      {
+        field: "ad.effective_status",
+        operator: "IN",
+        value: ["ACTIVE", "PAUSED", "CAMPAIGN_PAUSED", "ADSET_PAUSED"],
+      },
       { field: "campaign.effective_status", operator: "IN", value: ["ACTIVE", "PAUSED"] },
     ];
     if (campaignFilter) {

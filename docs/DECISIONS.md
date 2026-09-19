@@ -2733,3 +2733,73 @@ na mesma moeda → identidade, sem depender de taxas).
 **Fora de âmbito:** faturas (o D-ERP88 fica como está), front, Publish.
 
 **Estado:** vigente.
+
+---
+
+## D-ERP93 — Estados herdados do pai no sync, nível anúncio a partir dos insights, trinco nas ligações campanha→música (adenda D-ERP90/D-ERP91) (19/09/2026)
+
+**Causa 1 (Live, 19/09/2026):** na connection Meta do Litto, `crm.meta_ad_insights_daily`
+somava **R$ 3.421,67 em 17 anúncios** nos últimos 30 dias e `public.artist_ads_ads` devolvia
+**R$ 945,06 em 7**. Faltavam 10 anúncios / R$ 2.476,61 das campanhas `120245189593110358` e
+`120245208782130358`, ambas PAUSED: tinham insights mas **não estavam em
+`crm.meta_ad_snapshot`**. `crm-meta-sync-ads` e `crm-meta-sync-adsets` filtravam
+`effective_status IN ('ACTIVE','PAUSED')` — e um anúncio/conjunto cujo **pai** foi pausado não
+fica PAUSED, fica com o estado **herdado**: `CAMPAIGN_PAUSED` (campanha pausada) ou
+`ADSET_PAUSED` (conjunto pausado, só existe ao nível anúncio). Afectava também as connections
+de empresa.
+
+**Decisão 1 — o filtro de estado inclui os estados herdados.** `crm-meta-sync-ads`:
+`ACTIVE, PAUSED, CAMPAIGN_PAUSED, ADSET_PAUSED`. `crm-meta-sync-adsets`:
+`ACTIVE, PAUSED, CAMPAIGN_PAUSED`. **Não** se alarga a `DELETED`/`ARCHIVED`. O filtro
+`campaign.effective_status IN ('ACTIVE','PAUSED')` que as duas funções já aplicavam fica como
+está (uma campanha pausada tem `effective_status = PAUSED`, logo entra). Resto do
+comportamento inalterado.
+
+**Causa 2 — a leitura por anúncio dependia do snapshot.** Mesmo com o filtro corrigido,
+`artist_ads_ads` partia de `crm.meta_ad_snapshot`: qualquer anúncio com gasto cuja ficha ainda
+não chegou ficava invisível e o total por anúncio deixava de bater com o total por campanha.
+
+**Decisão 2 — `public.artist_ads_ads` passa a partir da UNIÃO** de todos os anúncios com
+insights na janela de 30 d (connections de artista) **com** os anúncios do snapshot. Sem ficha,
+`ad_name`/`adset_name`/`campaign_name` vêm dos insights (o valor mais recente) e
+`status`/`creative_id`/`thumbnail_url`/`permalink` ficam **NULL** — é o sinal de "ficha ainda não
+sincronizada", não um erro. `DELETED`/`ARCHIVED` só se excluem quando **não** têm gasto na
+janela: um anúncio arquivado que gastou dinheiro continua a ser um custo real. Assinatura, ordem
+e nomes das colunas inalterados (incluindo `ref_currency`, `spend_*_ref` e `fx_missing_days` do
+D-ERP92); privilégios confirmados iguais antes e depois (`anon`, `authenticated`,
+`service_role` = true).
+
+**Invariante:** para cada campanha, `sum(spend_30d)` de `artist_ads_ads` = `spend_30d` dessa
+campanha em `artist_ads_campaigns`. Verificado em Live nas 4 campanhas com gasto do Litto:
+2.270,48 / 693,85 / 251,21 / 206,13, **diferença 0,00** em todas; total 3.421,67 em 17 anúncios,
+8 deles ainda sem ficha (aparecem, com estado NULL).
+
+**Causa 3 — ligações a músicas não se podiam desfazer.** `public.artist_ads_link_song` exigia
+`p_song_id`, logo não havia como **desligar** (a 19/09 uma campanha teve de ser desligada por
+UPDATE directo). E não havia trinco: `crm.meta_campaign_snapshot` e `crm.google_campaign` só
+tinham `linked_event_locked`, para eventos. Quem desligasse à mão uma campanha cujo nome contém
+o título da música via `crm.artist_ads_autolink_songs_core` ligá-la outra vez na corrida
+seguinte do cron.
+
+**Decisão 3 — trinco `linked_song_locked` (boolean NOT NULL DEFAULT false)** nas duas tabelas,
+a par do que já existia para eventos. **Qualquer decisão humana fecha o trinco**: `link_song`
+passa a pôr `linked_song_locked = true`, e a nova
+`public.artist_ads_unlink_song(p_platform, p_campaign_id, p_artist_id)` põe
+`linked_song_id = NULL` **e** o trinco a true. A `unlink` tem as mesmas regras de papel da
+`link` (platform_admin, admin, manager, marketing_manager), passa pelo
+`artist_ads_assert_access`, só toca em campanhas de connections `connection_scope='artist'`
+desse artista e da empresa dele, devolve o número de linhas e tem os mesmos grants.
+`artist_ads_autolink_songs_core` passa a exigir `linked_song_id IS NULL AND NOT
+linked_song_locked`; a regra de correspondência título↔campanha fica inalterada. Os upserts dos
+syncs (Meta e Google) **não escrevem** `linked_song_id` nem `linked_song_locked` — confirmado nas
+listas de colunas.
+
+**Dados:** a campanha Meta `120245670746070358` da connection `e5d12c36…` ficou com o trinco
+fechado (foi a desligada à mão a 19/09). Nenhuma outra ligação foi tocada.
+
+**Migração:** `20260919041600_b9ff5a67-814d-41cc-b032-bdccfe6709bc.sql`, aplicada e verificada em
+Live.
+
+**Fora de âmbito:** crons, câmbio, front, Publish.
+
+**Estado:** vigente.
