@@ -236,3 +236,24 @@ devolvem `422 error:'sem_geografia'`; `dry_run` devolve o payload sem `geo_locat
 aviso `sem_geografia`. `public.artist_ads_plan_validate` recusa adset sem país. `url_tags`
 (UTMs) só vai no criativo quando há destino efectivo. O default `["PT"]` do alvo evento
 mantém-se — nada no caminho de evento mudou.
+
+## F3 — activação com aprovação e teto (D-ERP95, 19/09/2026)
+
+Alvo música: **activar = aprovar**. `crm-meta-publish-activate` exige sessão (service_role
+nunca activa/pausa música); activar só admin/platform_admin, pausar também
+manager/marketing_manager; `approval_note` opcional; registo em
+`crm.meta_entity_actions_log` com `approved_by` (falhas com `success=false`) e espelho do
+`status` em `meta_campaign_snapshot` sem tocar em `linked_song_id/linked_song_locked`.
+Ligação e token vêm de `plan.connection_id`, nunca de `ad_platform_account_links`.
+
+Teto partilhado em `_shared/artist-ads-teto.ts` (publicação + activação + entity-action);
+fechado por omissão (`sem_teto`), `acima_do_teto` com teto/pedido/ja_comprometido/moeda;
+pausar não verifica teto. Tetos definem-se por `artist_ads_budget_cap_set` /
+`..._remove` (**só admin/platform_admin**), com histórico em
+`crm.artist_ads_budget_caps_history`. `artist_ads_budget_cap_get` devolve
+`committed_daily` e `available_daily`.
+
+Porta lateral: em `crm-meta-entity-action`, connections `connection_scope='artist'` →
+activar/aumentar orçamento exige admin/platform_admin e passa pelo teto quando a campanha
+é de um plano de música do motor; campanhas externas só têm a regra de papel. Connections
+de empresa ficam inalteradas.

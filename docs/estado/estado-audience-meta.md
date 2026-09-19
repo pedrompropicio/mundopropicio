@@ -64,3 +64,18 @@ motor recusa. As campanhas nascem sempre em pausa e ficam desde logo ligadas à 
 que só lê da Meta e devolve uma lista de confirmações (token, conta, moeda, página,
 Instagram, publicações promovíveis, teto). A activação de campanhas de música fica para
 a fase seguinte. O caminho dos eventos não mudou.
+
+## Actualização 19/09/2026 — F3 do motor único (D-ERP95)
+
+Já é possível ligar (e desligar) campanhas de música pelo sistema, e ligar passou a ser
+uma aprovação registada: só um administrador pode ligar, pode deixar uma nota, e fica
+guardado quem aprovou, quando e o resultado — inclusive quando corre mal a meio. Pausar
+continua ao alcance de quem gere tráfego, porque pausar é sempre seguro. Antes de ligar,
+o sistema confirma o teto de gasto diário da conta: sem teto definido não liga, e se o
+pedido somado ao que já está a gastar passar do teto também não liga. O teto só pode ser
+definido ou retirado por um administrador e todas as mudanças ficam num histórico.
+Fechou-se também a porta lateral: mexer directamente numa campanha de artista para a ligar
+ou aumentar o orçamento exige administrador e passa pelo mesmo teto quando a campanha foi
+criada pelo sistema. As campanhas do gestor de tráfego externo continuam a poder ser
+geridas como antes. A verificação prévia passou a avisar quando falta o país.
+O caminho dos eventos e das contas da empresa não mudou.

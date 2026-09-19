@@ -14,6 +14,7 @@
 // ACTIVE no Meta.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { checkTetoPlano } from "../_shared/artist-ads-teto.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -76,11 +77,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ ok: false, error_user_msg: "Sessão inválida." }, 401);
 
-  let body: { company_id?: string; plan_id?: string; acao?: string };
+  let body: { company_id?: string; plan_id?: string; acao?: string; approval_note?: string };
   try { body = await req.json(); } catch { return json({ ok: false, error_user_msg: "JSON inválido." }, 400); }
   const companyIdIn = body.company_id;
   const planId = body.plan_id;
   const acao = body.acao;
+  const approvalNote = typeof body.approval_note === "string" ? body.approval_note.slice(0, 2000) : null;
   if (!companyIdIn || !planId || (acao !== "ativar" && acao !== "pausar")) {
     return json({ ok: false, error_user_msg: "Parâmetros em falta (company_id, plan_id, acao=ativar|pausar)." }, 400);
   }
@@ -101,20 +103,34 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 1) Lê o plano (RLS valida pertença ao company)
   const { data: planRow, error: planErr } = await (supabase as any)
     .schema("crm").from("meta_publish_plan")
-    .select("id, company_id, estado, meta_campaign_id, adsets, song_id")
+    .select("id, company_id, estado, meta_campaign_id, adsets, song_id, artist_id, connection_id, moeda, start_time, end_time")
     .eq("id", planId)
     .maybeSingle();
   if (planErr) return json({ ok: false, error_user_msg: `Falha a ler o plano: ${planErr.message}` }, 200);
   if (!planRow) return json({ ok: false, error_user_msg: "Plano não encontrado." }, 404);
   if (planRow.company_id !== companyIdIn) return json({ ok: false, error_user_msg: "Plano não pertence a esta empresa." }, 403);
 
-  // D-ERP95 F2b: a activação do alvo música (aprovação + teto) é a F3.
-  if ((planRow as any).song_id) {
-    return json({
-      ok: false, error: "alvo_musica_f3",
-      error_user_msg: "A activação de campanhas de música entra na fase seguinte (F3).",
-    }, 200);
+  // D-ERP95 F3 — ALVO MÚSICA. Tudo o que segue é condicionado a song_id: os
+  // planos de evento continuam byte a byte como antes.
+  const isSong = !!(planRow as any).song_id;
+  if (isSong) {
+    // a) Sessão de utilizador obrigatória — o service_role nunca activa nem pausa música.
+    if (!userId) {
+      return json({ ok: false, error: "sem_sessao", error_user_msg: "É necessária sessão de utilizador." }, 401);
+    }
+    // b) Papéis: activar só admin/platform_admin; pausar também manager/marketing_manager.
+    const guard = acao === "ativar" ? "artist_ads_assert_cap_admin" : "artist_ads_assert_write";
+    const { error: roleErr } = await supabase.rpc(guard, { p_company_id: planRow.company_id });
+    if (roleErr) {
+      return json({
+        ok: false, error: "sem_permissao",
+        error_user_msg: acao === "ativar"
+          ? "Só um administrador pode activar campanhas de música."
+          : "Sem permissão para pausar campanhas desta empresa.",
+      }, 403);
+    }
   }
+
 
   const estado: string = planRow.estado ?? "";
   if (acao === "ativar" && !(estado === "publicado" || estado === "pausado")) {
@@ -146,17 +162,62 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // 2) Conexão Meta ativa
-  const { data: linkRow, error: linkErr } = await (supabase as any)
-    .schema("crm").from("ad_platform_account_links")
-    .select("connection_id, is_primary, enabled")
-    .eq("enabled", true)
-    .eq("company_id", planRow.company_id)
-    .order("is_primary", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (linkErr) return json({ ok: false, error_user_msg: `Falha a ler conexão Meta: ${linkErr.message}` }, 200);
-  if (!linkRow) return json({ ok: false, error_user_msg: "Sem conexão Meta ativa para esta empresa." }, 200);
-  const connectionId = linkRow.connection_id as string;
+  // Alvo música (d): a ligação vem SEMPRE do plano — nunca de ad_platform_account_links.
+  let connectionId: string;
+  let adAccountId = "";
+  if (isSong) {
+    const { data: conn, error: connErr } = await (admin as any)
+      .schema("crm").from("ad_platform_connections")
+      .select("id, status, connection_scope, selected_ad_account_id")
+      .eq("id", (planRow as any).connection_id)
+      .eq("connection_scope", "artist")
+      .maybeSingle();
+    if (connErr) return json({ ok: false, error_user_msg: `Falha a ler a ligação do artista: ${connErr.message}` }, 200);
+    if (!conn) return json({ ok: false, error: "sem_ligacao_artista", error_user_msg: "O plano não tem ligação de anúncios do artista." }, 200);
+    if ((conn as any).status !== "active") {
+      return json({ ok: false, error: "ligacao_inactiva", error_user_msg: "A ligação de anúncios do artista não está activa." }, 200);
+    }
+    connectionId = (conn as any).id as string;
+    adAccountId = (conn as any).selected_ad_account_id ?? "";
+  } else {
+    const { data: linkRow, error: linkErr } = await (supabase as any)
+      .schema("crm").from("ad_platform_account_links")
+      .select("connection_id, is_primary, enabled")
+      .eq("enabled", true)
+      .eq("company_id", planRow.company_id)
+      .order("is_primary", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (linkErr) return json({ ok: false, error_user_msg: `Falha a ler conexão Meta: ${linkErr.message}` }, 200);
+    if (!linkRow) return json({ ok: false, error_user_msg: "Sem conexão Meta ativa para esta empresa." }, 200);
+    connectionId = linkRow.connection_id as string;
+  }
+
+  // e) TETO (só música, só ao activar) — mesma regra partilhada da publicação.
+  if (isSong && acao === "ativar") {
+    const teto = await checkTetoPlano(admin as any, {
+      connectionId,
+      moeda: (planRow as any).moeda,
+      adsets,
+      usaLifetime: !!(planRow as any).end_time,
+      diasJanela: (planRow as any).end_time && (planRow as any).start_time
+        ? Math.max(1, Math.ceil((new Date((planRow as any).end_time).getTime() - new Date((planRow as any).start_time).getTime()) / 86400000))
+        : 1,
+      planId: planId!,
+    });
+    if (!teto.ok) {
+      return json({
+        ok: false, error: teto.error, teto: teto.teto, pedido: teto.pedido,
+        ja_comprometido: teto.ja_comprometido, moeda: teto.moeda,
+        error_user_msg: teto.error === "sem_teto"
+          ? "Esta conta de anúncios não tem teto de orçamento definido — define o teto antes de activar."
+          : teto.error === "moeda_diferente_do_teto"
+          ? "A moeda do plano não é a do teto desta conta."
+          : `Acima do teto diário (${teto.teto} ${teto.moeda ?? ""}): pedido ${teto.pedido}, já comprometido ${teto.ja_comprometido}.`,
+      }, 422);
+    }
+  }
+
 
   // 3) Decifra access_token
   const { data: tokenRows, error: tokenErr } = await supabase.rpc(
@@ -192,6 +253,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
       || "O Meta rejeitou a operação.";
   }
 
+  // ── Alvo música (g): registo da aprovação + espelho da campanha. ──────
+  // Nunca corre para planos de evento (lacuna de eventos registada em D-ERP95).
+  async function logAprovacao(success: boolean, errMsg?: string | null): Promise<void> {
+    if (!isSong) return;
+    const { error } = await (admin as any).schema("crm").from("meta_entity_actions_log").insert({
+      company_id: planRow.company_id,
+      connection_id: connectionId,
+      ad_account_id: adAccountId,
+      entity_type: "campaign",
+      external_id: metaCampaignId,
+      entity_name: null,
+      action: acao === "ativar" ? "activate" : "pause",
+      prev_status: estado === "ativo" ? "ACTIVE" : "PAUSED",
+      new_status: success ? targetStatus : null,
+      updates_jsonb: {
+        plan_id: planId, alvo: "song", song_id: (planRow as any).song_id,
+        artist_id: (planRow as any).artist_id, approval_note: approvalNote,
+      },
+      success,
+      error_message: success ? null : (errMsg ?? null),
+      performed_by: userId,
+      approved_by: userId,
+    });
+    if (error) console.warn("[meta-publish-activate] log falhou:", error.message);
+  }
+
+  async function espelhaStatus(): Promise<void> {
+    if (!isSong || !metaCampaignId) return;
+    // NÃO toca em linked_song_id / linked_song_locked.
+    const { error } = await (admin as any).schema("crm").from("meta_campaign_snapshot")
+      .update({ status: targetStatus, effective_status: targetStatus, last_synced_at: new Date().toISOString() })
+      .eq("connection_id", connectionId)
+      .eq("external_campaign_id", metaCampaignId);
+    if (error) console.warn("[meta-publish-activate] espelho falhou:", error.message);
+  }
+
   async function failPartial(err: any, raw: any): Promise<Response> {
     await (admin as any).schema("crm").from("meta_publish_plan")
       .update({
@@ -199,6 +296,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         activation_error: { acao, error: err ?? null, raw: raw ?? null, at: new Date().toISOString() },
       })
       .eq("id", planId);
+    await logAprovacao(false, metaUserMsg(err, raw));
     return json({
       ok: false,
       error: raw ?? err ?? null,
@@ -250,7 +348,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
       })
       .eq("id", planId);
 
-    return json({ ok: true, resultado, estado: "ativo" });
+    await espelhaStatus();
+    await logAprovacao(true);
+
+    return json({ ok: true, resultado, estado: "ativo", ...(isSong ? { approved_by: userId, approval_note: approvalNote } : {}) });
   }
 
   // pausar — TOP-DOWN: campanha → adsets → ads
@@ -293,5 +394,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     })
     .eq("id", planId);
 
-  return json({ ok: true, resultado, estado: "pausado" });
+  await espelhaStatus();
+  await logAprovacao(true);
+
+  return json({ ok: true, resultado, estado: "pausado", ...(isSong ? { approved_by: userId, approval_note: approvalNote } : {}) });
 });

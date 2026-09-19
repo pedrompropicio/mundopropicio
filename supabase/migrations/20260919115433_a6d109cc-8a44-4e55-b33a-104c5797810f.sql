@@ -1,0 +1,1 @@
+ALTER FUNCTION crm.artist_ads_plan_daily(jsonb, timestamptz, timestamptz) SET search_path TO 'crm','public';
