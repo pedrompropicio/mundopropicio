@@ -577,7 +577,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         if (!geo.includes(iso)) geo.push(iso);
       } else if (s.length > 0) {
         avisos.push(
-          `geo_cidade_descartada: conjunto "${a.trigger_nome ?? "?"}" pedia "${s}" — só são aceites códigos ISO de país com 2 letras`,
+          `geo_cidade_descartada: conjunto "${a.trigger_nome ?? "?"}" pedia "${s}" em geo — em geo só entram códigos ISO de país com 2 letras (estados vão em publico_sugerido.estados)`,
         );
       }
     }
