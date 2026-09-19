@@ -14,6 +14,7 @@
 // ACTIVE no Meta.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { checkTetoPlano } from "../_shared/artist-ads-teto.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
