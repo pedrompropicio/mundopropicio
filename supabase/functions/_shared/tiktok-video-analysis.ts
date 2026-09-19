@@ -138,8 +138,8 @@ export async function analisarVideosTiktok(
       "id, external_id, permalink, published_at, duration_seconds, caption_excerpt, title, sound_name, sound_external_id, song_id",
     )
     .eq("artist_id", opts.artistId)
-    .eq("platform", "tiktok")
-    .eq("content_type", "video")
+    .eq("platform", plataforma)
+    .in("content_type", tipos)
     .gte("published_at", desde)
     .order("published_at", { ascending: false })
     .limit(2000);
