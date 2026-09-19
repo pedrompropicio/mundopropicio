@@ -489,24 +489,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
     pedido: { objetivo: objetivoPedido, orcamento_diario: orcamentoPedido, notas },
   };
 
-  // ── 7) LLM
+  // ── 7) LLM (prompt de sistema próprio no alvo TikTok)
+  if (eTiktok) avisos.push("sem histórico pago TikTok — histórico usado é o de Meta e Google do artista");
   const llm = await callLlm(
     `Dados (única fonte de números permitida):\n\n${JSON.stringify(entradas)}`,
+    eTiktok ? SYSTEM_PROMPT_TIKTOK : SYSTEM_PROMPT,
   );
   if ("fail" in llm && llm.fail) return llm.fail;
   const plano: Any = llm.plano ?? {};
 
   // ── 8) Normalização determinística (não confiar na saída do modelo)
+  const objetivosOk = eTiktok ? OBJETIVOS_TIKTOK : OBJETIVOS;
+  const objetivoOmissao = eTiktok ? "VIDEO_VIEWS" : "AWARENESS";
   let objetivo = String(plano.objetivo ?? "").toUpperCase();
-  if (!OBJETIVOS.includes(objetivo)) {
-    avisos.push(`objetivo "${plano.objetivo ?? ""}" fora de AWARENESS/TRAFFIC/ENGAGEMENT — usado AWARENESS`);
-    objetivo = "AWARENESS";
+  if (!objetivosOk.includes(objetivo)) {
+    avisos.push(
+      `objetivo "${plano.objetivo ?? ""}" fora de ${objetivosOk.join("/")} — usado ${objetivoOmissao}`,
+    );
+    objetivo = objetivoOmissao;
   }
   if (objetivo === "TRAFFIC" && !smartLink && !String(plano.link_destino ?? "").startsWith("https://")) {
-    avisos.push("Tráfego sem link https disponível — objetivo trocado para AWARENESS");
-    objetivo = "AWARENESS";
+    avisos.push(`Tráfego sem link https disponível — objetivo trocado para ${objetivoOmissao}`);
+    objetivo = objetivoOmissao;
   }
   plano.objetivo = objetivo;
+  plano.plataforma = plataforma;
   plano.link_destino = objetivo === "TRAFFIC"
     ? (String(plano.link_destino ?? "").startsWith("https://") ? plano.link_destino : smartLink)
     : null;
