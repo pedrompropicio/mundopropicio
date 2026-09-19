@@ -440,11 +440,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
       ultimo_anuncio: p.last_ad_name,
       gasto_30d_cents: p.spend_30d_cents,
     })),
-    historico_trafego: {
-      campanhas: campanhas ?? [],
-      diario_30d: diario ?? [],
-      anuncios_das_campanhas_com_gasto: anuncios,
+    desempenho_pago: {
+      _fonte: "primária — RPCs public.artist_ads_daily(90) + artist_ads_campaigns + artist_ads_ads",
+      periodo: { de: periodoMin, a: periodoMax, dias_pedidos: DIAS_JANELA },
+      ultima_atualizacao: ultimoSync,
+      totais_90d: totais90d,
+      campanhas: campanhasPagas,
+      anuncios: anuncios,
+      dados_em_falta: faltasPago,
     },
+    demografia_organica_instagram: demografiaOrganica,
+
     limites: {
       connection_id: connectionId,
       moeda: cap.account_currency ?? cap.cap_currency ?? null,
