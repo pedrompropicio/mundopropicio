@@ -2661,3 +2661,75 @@ NULL enquanto não corre um sync já com o criativo expandido.
 **Fora de âmbito:** câmbio/conversão de moeda, front, Publish.
 
 **Estado:** vigente.
+
+---
+
+## D-ERP92 — O câmbio para a moeda de referência do artista resolve-se AO DIA, a partir de uma tabela diária do BCE (adenda D-ERP88/D-ERP91) (19/09/2026)
+
+**Causa (Live, 19/09/2026):** o Litto tem contas de anúncios em **BRL** (Meta e Google) e em **EUR**
+(TikTok Ads, ainda sem dados). As RPCs `artist_ads_*` devolvem o gasto na moeda da conta — correcto,
+mas impossível de somar. Não havia onde ir buscar o câmbio dentro do SQL: o câmbio do D-ERP88 é
+resolvido por HTTP dentro da edge function e **uma função SQL não pode chamar HTTP**.
+
+**Decisão 1 — uma só fonte de câmbio no ERP: o BCE.** A mesma do D-ERP88 (`getEcbRate`, Frankfurter,
+em `supabase/functions/_shared/fx-rate.ts`). Com data **não há fallback**; sem taxa não se converte
+(NULL). Nunca se inventa um câmbio.
+
+**Decisão 2 — tabela `public.fx_rates_daily` com uma linha por DIA DE CALENDÁRIO e moeda**
+(`rate_date`, `currency`, `rate_to_eur`, `source`, `date_used`, `fetched_at`; PK `(rate_date, currency)`).
+Nos dias sem fixing (fins de semana, feriados) grava-se a taxa do último dia de fixing anterior e
+`date_used` diz qual foi — é isso que permite que o join por data nas RPCs seja uma **igualdade**, sem
+`lateral` nem `order by ... limit 1` em cada linha. EUR não se grava: a taxa 1 é implícita em
+`fx_convert`. RLS ligada; leitura para `authenticated`, escrita só `service_role`, `anon` **sem
+qualquer privilégio** (os privilégios por omissão do schema `public` dão tudo a `anon`/`authenticated`
+em cada tabela nova — tiveram de ser revogados explicitamente).
+
+**Decisão 3 — `public.fx_convert(p_amount, p_from, p_to, p_date)`**, STABLE, SECURITY INVOKER:
+`p_from = p_to` → devolve o valor; EUR tem taxa 1; senão
+`p_amount * rate_to_eur(p_from, dia) / rate_to_eur(p_to, dia)`. Falta qualquer das taxas nesse dia →
+**NULL**. Não arredonda lá dentro (quem apresenta é que arredonda).
+
+**Decisão 4 — conversão AO DIA, nunca um total a uma taxa única.** Cada linha diária de gasto
+converte-se à taxa do seu dia e só depois se soma. Um total convertido a uma taxa única é um número
+errado que parece certo.
+
+**Decisão 5 — moeda de referência efectiva = `coalesce(artists.reporting_currency, companies.currency)`.**
+`artists.reporting_currency` é novo, opcional, com CHECK nas moedas suportadas pelo helper
+(`BRL`, `USD`, `GBP`, `EUR`). A coluna da moeda da empresa é `public.companies.currency` (existia;
+MP = `EUR`, empresa do Litto = `BRL`).
+
+**Decisão 6 — as RPCs continuam a devolver o valor na moeda da conta E passam a devolver o
+equivalente na moeda de referência.** Colunas acrescentadas **no fim** (nada removido nem reordenado,
+a app Gestão Artística já consome as existentes):
+
+| RPC | colunas novas |
+| --- | --- |
+| `artist_ads_campaigns` | `ref_currency`, `spend_7d_ref`, `spend_30d_ref`, `fx_missing_days` |
+| `artist_ads_ads` | `ref_currency`, `spend_7d_ref`, `spend_30d_ref`, `fx_missing_days` |
+| `artist_ads_daily` | `ref_currency`, `spend_ref`, `fx_missing_days` |
+
+`fx_missing_days` = dias com gasto > 0 **sem taxa** (janela de 30 d nas duas primeiras; na série diária
+é 0/1 por linha). Existe porque `sum()` ignora NULLs: sem este contador um total incompleto apareceria
+como se fosse completo. Mudar o tipo de retorno obrigou a `DROP` + `CREATE` das três funções; os
+privilégios foram repostos e confirmados iguais aos de antes (`anon`, `authenticated`, `service_role`
+todos `true`).
+
+**Decisão 7 — quem enche a tabela é a edge function `fx-rates-sync`** (só `service_role`, via
+`authorize` partilhada): corpo `{ since?, until?, currencies? }`, por omissão os últimos 7 dias até
+hoje e `BRL`, `USD`, `GBP`. Usa `getEcbSeries` (nova em `_shared/fx-rate.ts`, série temporal do
+Frankfurter) — **um** pedido por moeda em vez de um por dia, recuando 10 dias na consulta para haver
+sempre um fixing anterior a `since`. Registo em `sync_runs`. Falha do upstream → `sync_run` `error` e
+resposta **502**, nunca linhas inventadas.
+
+**Cron (criado em Live, fora desta migração):** `fx-rates-daily`, `10 0,16 * * *`, corpo `{}` (últimos
+7 dias — a repetição corrige revisões de fixing sem custo). Os crons não propagam Test→Live via Publish.
+
+**Migração:** `20260919041318` (+ a revogação de privilégios logo a seguir), aplicada e verificada em
+Live: `fx_convert(100,'BRL','BRL',hoje) = 100`, `fx_convert(100,'BRL','EUR',hoje) = NULL` (tabela ainda
+vazia — o backfill desde 2026-08-01 corre à parte), e `artist_ads_ads` do Litto com 111 linhas,
+`ref_currency = BRL`, `spend_30d = spend_30d_ref = 945,06`, `fx_missing_days = 0` (conta e referência
+na mesma moeda → identidade, sem depender de taxas).
+
+**Fora de âmbito:** faturas (o D-ERP88 fica como está), front, Publish.
+
+**Estado:** vigente.

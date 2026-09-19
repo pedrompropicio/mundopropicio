@@ -83,3 +83,25 @@ Funções SQL (a regra de correspondência vive uma vez):
   `effective_object_story_id`. Exclui `DELETED`/`ARCHIVED`. Mesmo modelo de segurança
   e privilégios de `artist_ads_campaigns`. O Google não tem nível anúncio na base —
   a coluna `platform` fica pronta para o futuro.
+
+## Moeda de referência do artista (D-ERP92, 19/09/2026)
+
+- Fonte única de câmbio no ERP: **BCE** (Frankfurter, `_shared/fx-rate.ts`). Com data
+  não há fallback; sem taxa não se converte (NULL), nunca se inventa.
+- `public.fx_rates_daily` (PK `rate_date, currency`): uma linha por **dia de
+  calendário**, com `date_used` = dia do fixing usado, para o join por data ser
+  igualdade. EUR não se grava (taxa 1 implícita). Leitura `authenticated`, escrita só
+  `service_role`, `anon` sem privilégios.
+- `public.fx_convert(amount, from, to, date)` — STABLE, SECURITY INVOKER, não
+  arredonda; falta a taxa do dia → NULL.
+- **Conversão AO DIA:** cada linha diária converte-se à taxa do seu dia; nunca um
+  total a uma taxa única.
+- Moeda de referência efectiva = `coalesce(artists.reporting_currency,
+  companies.currency)` (CHECK: BRL, USD, GBP, EUR).
+- `artist_ads_campaigns`/`artist_ads_ads` ganharam no fim `ref_currency`,
+  `spend_7d_ref`, `spend_30d_ref`, `fx_missing_days`; `artist_ads_daily` ganhou
+  `ref_currency`, `spend_ref`, `fx_missing_days`. `fx_missing_days` existe porque
+  `sum()` ignora NULLs — sem ele um total incompleto passava por completo.
+- Quem enche a tabela é a edge function `fx-rates-sync` (só `service_role`, série
+  temporal do Frankfurter, um pedido por moeda; upstream em baixo → sync_run `error`
+  + 502). Cron previsto `fx-rates-daily`, `10 0,16 * * *`, corpo `{}`.
