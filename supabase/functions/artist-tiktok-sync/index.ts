@@ -161,6 +161,8 @@ Deno.serve(async (req) => {
         account_metrics: {} as Record<string, number>,
         content: 0,
         content_metrics: 0,
+        next_cursor: null as number | null,
+        has_more: false,
         notes: [] as string[],
       };
       const notes = per.notes as string[];
