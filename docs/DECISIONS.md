@@ -3039,3 +3039,28 @@ verifica papel; não há lock anti-corrida; o motor não gera UTMs para evento.
 `md5(payloads::jsonb::text) = 0e2801d625781a22a1e4bb33fb0a0f6d`.
 
 **Fora de âmbito da F2b:** activação (F3), Google, TikTok, front, crons.
+
+### Adenda F2b — correcção: geografia obrigatória no alvo música e UTMs só com destino (19/09/2026)
+
+**Problema (Live, 19/09/2026).** Um `dry_run` de um plano de música sem segmentação saiu com
+o targeting por omissão do alvo evento: `geo_locations.countries = ["PT"]`, 18–65. Num alvo
+música isso gastaria no país errado em silêncio (o piloto é um artista brasileiro com conta
+em BRL). Segundo: o criativo levava `url_tags` com UTMs mesmo sem `link_destino`.
+
+**Regra.** O alvo música **não tem geografia por omissão**: sem país o motor recusa.
+Campos do contrato: `publico_sugerido.geo` (países), `publico_sugerido.idade_min`,
+`publico_sugerido.idade_max`. Idade em falta continua 18–65 (não era o problema).
+
+- `crm-meta-publish-execute`, `kind:'song'`: publicação real e `preflight` →
+  `422 { ok:false, error:'sem_geografia', adset:[…] }`; `dry_run` devolve o payload **sem**
+  `geo_locations` (não inventa país) e acrescenta o aviso `sem_geografia`.
+- `public.artist_ads_plan_validate`: exige `publico_sugerido.geo` não vazio em cada adset —
+  "conjunto N: indica pelo menos um país em publico_sugerido.geo (ex.: [\"BR\"])".
+  Assinatura inalterada; `REVOKE PUBLIC/anon` + `GRANT authenticated, service_role` (D-ERP94)
+  repostos na mesma migração. Verificado em Live: anon false / authenticated true /
+  service_role true.
+- `url_tags` só é enviado quando há destino efectivo (`urlTagsFor(nome, link)`).
+
+**Caminho de evento intocado:** o default `["PT"]` e a ordem das chaves do targeting mantêm-se;
+o `semGeo` só pode ser verdadeiro quando `isSong`. Prova por hash do `dry_run` do plano
+`93529702-76c7-491f-95dd-040ed7fcee25` (`0e2801d625781a22a1e4bb33fb0a0f6d`) feita pelo Pedro.

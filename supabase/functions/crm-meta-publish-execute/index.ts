@@ -474,18 +474,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }));
   }
 
+  // Geografia explícita do conjunto (contrato do plano: publico_sugerido.geo,
+  // lista de países ISO-2 ou nomes normalizáveis).
+  function temGeo(a: any): boolean {
+    const g = a?.publico_sugerido?.geo;
+    return Array.isArray(g) && g.some((x: any) => typeof x === "string" && x.trim().length > 0);
+  }
+
   function buildAdsetPayload(a: any, campaignIdParaPayload: string, adsetIdx: number): { payload: Record<string, unknown>; goal_used: string; sem_pixel?: boolean; budget_mode: "lifetime" | "daily"; abaixo_minimo?: { minimo_cents: number; orcamento_cents: number } } {
     const pub = a.publico_sugerido ?? {};
-    const countries = normalizeCountries(
-      Array.isArray(pub.geo) && pub.geo.length > 0 ? pub.geo : ["PT"],
-      (codigo, detalhe) => avisos.push({ codigo, adset: a.trigger_nome, detalhe }),
-    );
-    const targeting: Record<string, unknown> = {
-      geo_locations: { countries },
-      age_min: Number.isFinite(pub.idade_min) ? pub.idade_min : 18,
-      age_max: Number.isFinite(pub.idade_max) ? pub.idade_max : 65,
-      targeting_automation: { advantage_audience: 0 },
-    };
+    // Alvo música (D-ERP95 F2b correcção): NUNCA há geografia por omissão —
+    // sem publico_sugerido.geo o payload sai sem geo_locations (e a publicação
+    // real / preflight já recusaram antes com 'sem_geografia').
+    const semGeo = isSong && !temGeo(a);
+    const targeting: Record<string, unknown> = {};
+    if (!semGeo) {
+      targeting.geo_locations = {
+        countries: normalizeCountries(
+          Array.isArray(pub.geo) && pub.geo.length > 0 ? pub.geo : ["PT"],
+          (codigo, detalhe) => avisos.push({ codigo, adset: a.trigger_nome, detalhe }),
+        ),
+      };
+    }
+    targeting.age_min = Number.isFinite(pub.idade_min) ? pub.idade_min : 18;
+    targeting.age_max = Number.isFinite(pub.idade_max) ? pub.idade_max : 65;
+    targeting.targeting_automation = { advantage_audience: 0 };
     // Públicos MP (inclusões/exclusões) são do alvo evento: uma campanha de
     // música não herda nem exclui os públicos de compradores da empresa.
     const incl = isSong ? [] : (inclusionsByIdx[adsetIdx] ?? []);
@@ -714,8 +727,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const postRefBad: string[] = [];
 
   // url_tags do criativo (só alvo música): UTMs geradas pelo motor.
-  function urlTagsFor(nomeAd: string): string | null {
-    if (!target.utm) return null;
+  // Só há UTMs quando há destino efectivo: sem link, url_tags não vai no payload.
+  function urlTagsFor(nomeAd: string, link: string | null): string | null {
+    if (!target.utm || !link) return null;
     return `${target.utm}&utm_content=${utmSlug(nomeAd)}`;
   }
 
@@ -753,7 +767,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           avisosEp.push({ codigo: "cta_nao_aplicada_em_post_existente", detalhe: "publicação de Página é promovida como está — o botão do post original é o que fica" });
         }
       }
-      const tags = urlTagsFor(nomeAdEp);
+      const tags = urlTagsFor(nomeAdEp, link);
       if (tags) (creative as any).url_tags = tags;
       return [{
         payload: { name: nomeAdEp, adset_id: adsetIdParaPayload, status: "PAUSED", creative },
@@ -804,7 +818,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         avisosExtra.push({ codigo: "ads_truncados_limite_meta", detalhe: `gerados ${multiCount} grupos; truncado a ${META_MAX_ADS_PER_ADSET}` });
       }
       // Alvo música: UTMs geradas pelo motor (no evento fica null e nada é acrescentado).
-      const tags = urlTagsFor(nomeAd);
+      const tags = urlTagsFor(nomeAd, link);
 
       if (g.kind === "multi") {
         const creative = buildMultiPlacementCreative(g.feed.info, g.vert.info, g.mediaType, cta, msg, title, link);
@@ -934,6 +948,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
         }, 422);
       }
       if (postRefBad.length > 0) avisos.push({ codigo: "post_nao_promovivel", detalhe: postRefBad.join(", ") });
+    }
+
+    // Geografia obrigatória no alvo música: sem país, o motor recusa.
+    const semGeoAdsets = (adsets as any[]).filter((a) => !temGeo(a)).map((a) => a?.trigger_nome ?? null);
+    if (semGeoAdsets.length > 0) {
+      if (!dryRun) {
+        return json({
+          ok: false, error: "sem_geografia", adset: semGeoAdsets,
+          message: "Cada conjunto de uma campanha de música tem de indicar pelo menos um país em publico_sugerido.geo (ex.: [\"BR\"]).",
+        }, 422);
+      }
+      for (const nome of semGeoAdsets) avisos.push({ codigo: "sem_geografia", adset: nome });
     }
 
     tetoInfo = await checkTeto();

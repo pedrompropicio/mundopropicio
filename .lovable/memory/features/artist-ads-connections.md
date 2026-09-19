@@ -226,3 +226,13 @@ anti-corrida `ja_em_publicacao`; upsert no espelho `crm.meta_campaign_snapshot` 
 
 Invariante de eventos: o dry_run do plano `93529702-76c7-491f-95dd-040ed7fcee25` tem
 de continuar a devolver md5 `0e2801d625781a22a1e4bb33fb0a0f6d`.
+
+## F2b — correcção: geografia obrigatória (D-ERP95, 19/09/2026)
+
+**Alvo música não tem geografia por omissão; sem país o motor recusa.** Campos do contrato do
+plano: `publico_sugerido.geo` (países ISO-2 ou nome normalizável), `idade_min`, `idade_max`
+(default 18–65). Em `crm-meta-publish-execute` (`kind:'song'`): publicação real e `preflight`
+devolvem `422 error:'sem_geografia'`; `dry_run` devolve o payload sem `geo_locations` e com o
+aviso `sem_geografia`. `public.artist_ads_plan_validate` recusa adset sem país. `url_tags`
+(UTMs) só vai no criativo quando há destino efectivo. O default `["PT"]` do alvo evento
+mantém-se — nada no caminho de evento mudou.
