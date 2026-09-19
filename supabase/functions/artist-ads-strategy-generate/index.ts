@@ -55,6 +55,13 @@ const MIN_DAILY_CENTS_TIKTOK = 2000;
 // Máximo de vídeos enviados ao LLM (a conta do artista pode ter milhares).
 const MAX_VIDEOS_TIKTOK = 40;
 
+// ── Google / YouTube (D-ERP108) ─────────────────────────────────────────────
+// Campanhas de VÍDEO no YouTube: TRAFFIC não é suportado (ver
+// crm-google-video-publish-execute → objetivo_nao_suportado_google).
+const OBJETIVOS_GOOGLE = ["REACH", "VIDEO_VIEWS"];
+const MIN_DAILY_CENTS_GOOGLE = 500;
+const MAX_VIDEOS_GOOGLE = 40;
+
 /** Nome de estado sem acentos, minúsculas, sem "(state)" nem "state/estado of". */
 function chaveEstado(v: unknown): string {
   return String(v ?? "")
