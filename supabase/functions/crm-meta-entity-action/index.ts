@@ -5,6 +5,7 @@
 // Audita em crm.meta_entity_actions_log e atualiza snapshot local.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { checkTetoDaily, dailyFromAdsets } from "../_shared/artist-ads-teto.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
