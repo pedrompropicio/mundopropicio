@@ -16,6 +16,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildArtistDataSnapshot } from "../_shared/artist-data-snapshot.ts";
+import { analisarVideosTiktok } from "../_shared/tiktok-video-analysis.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -391,6 +392,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     posts = [...ligados, ...outros].slice(0, MAX_VIDEOS_TIKTOK);
   }
   const postRefsOk = new Set(posts.map((p: Any) => String(p.post_ref)));
+
+  // ── 1c) ANÁLISE DOS VÍDEOS TIKTOK (D-ERP107) — bloco novo, só neste alvo.
+  const analiseVideos = eTiktok
+    ? await analisarVideosTiktok(user, { artistId, songId, dias: 180 })
+    : null;
+  if (analiseVideos) avisos.push(...analiseVideos.avisos);
 
   // Teto da ligação pedida
   const cap: Any = dados.blocos.teto?.ligacao ?? null;
