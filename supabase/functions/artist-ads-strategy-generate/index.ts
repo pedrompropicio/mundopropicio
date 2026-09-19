@@ -641,7 +641,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         // crm-tiktok-publish-execute resolve os location_ids a partir do nome.
         const unicos: string[] = [];
         for (const nome of nomes) {
-          const oficial = estadoOficial(nome, estadosBr);
+          const oficial = estadosBr.length === 0 ? nome : estadoOficial(nome, estadosBr);
           if (!oficial) {
             avisos.push(
               `geo_regiao_nao_resolvida: conjunto "${a.trigger_nome ?? "?"}" pedia o estado "${nome}" — não existe em br_estados e ficou fora`,
