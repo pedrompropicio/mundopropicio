@@ -3219,3 +3219,35 @@ pg_cron varre-a inteira a cada arranque, esgotando a instância Small.
 
 `net._http_response` (121 MB / 397 linhas, 0 tuplos mortos) fica como está — são corpos de
 resposta grandes e o pg_net limpa-os ao fim de 6 h.
+
+## D-ERP97 — Funções `SECURITY DEFINER` fechadas a `anon` por omissão em `public` e `crm` (19/09/2026)
+
+**Contexto.** 114 funções `SECURITY DEFINER` em `public` e 6 em `crm` tinham `EXECUTE`
+para `anon`. O inventário completo das chamadas (ERP: 317 `.rpc`, 137 nomes distintos;
+portais MP e Coala: zero RPCs) provou que nenhuma é chamada sem sessão. As únicas que
+têm de continuar executáveis por `anon` são os helpers usados dentro de políticas de RLS.
+
+**Decisão.**
+1. **Revogação dinâmica, sem listas à mão:** a migração percorre as `SECURITY DEFINER` de
+   `public` e `crm` cujo nome não aparece em nenhuma política (`pg_policies.qual` /
+   `with_check`) e faz `REVOKE EXECUTE ... FROM PUBLIC` e `FROM anon`. `authenticated` e
+   `service_role` não são tocados. 105 funções revogadas.
+2. **Privilégios por omissão:** `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA
+   public|crm REVOKE EXECUTE ON FUNCTIONS FROM anon, PUBLIC`. Função nova nasce fechada a
+   anónimos; quem precisar de `anon` — só helpers de RLS — faz `GRANT` explícito na própria
+   migração (extensão da D-ERP37).
+3. **Guarda na própria migração:** conta as `SECURITY DEFINER` de `public`+`crm`
+   executáveis por `anon` e `RAISE EXCEPTION` se passar de 15.
+4. **Vigiado por invariante:** `secdef_abertas_a_anon` (warn, global, referência 15), com
+   as 15 nomeadas nas notas. Alerta por desvio.
+
+**Prova (19/09/2026).** Antes: 114 em `public` (15 de RLS) + 6 em `crm`. Depois: 15, todas
+de RLS (`can_manage_cards`, `can_manage_event_operacao_full`, `can_manage_operacao_etapa`,
+`can_see_confidential`, `can_view_event_operacao`, `current_company_id`, `has_permission`,
+`has_permission_in`, `has_role`, `is_platform_admin`, `is_public_portal_company`,
+`row_belongs_to_current_company`, `storage_path_belongs_to_current_company`,
+`user_has_event_access`, `user_supplier_id`); `crm` a zero. Invariante 15/15, conforme.
+Teste de fumo com a chave pública: `events_public`, `portal_settings_public` e
+`blog_posts_public` 200; inserção em `lead_capture` 201 (linha de teste apagada). O linter
+desceu de 319 para 220 avisos.
+

@@ -1,6 +1,6 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado 2026-09-19 · Issues #186, #202, #204, #206 · a-seguir #83, #96, #61. Fechadas a 18/09: #211, #203, #15.
+Atualizado 2026-09-19 · Issues #186, #202, #204, #206, #83, #57 · a-seguir #96, #61. Fechadas a 18/09: #211, #203, #15.
 
 ## Em que pé está
 **O relatório de lançamento passou a escrever números certos e a avisar quando os dados estão velhos (19/09, D-ERP54/D-ERP59).** Contagens e ritmos por dia deixam de aparecer com casas decimais, os números seguem o formato brasileiro (ponto a separar milhares, vírgula só em percentuais) e nada é abreviado. O ritmo diário de publicações no TikTok estava a ser dividido pela idade de hoje e não pela idade na data do registo, o que o fazia cair sozinho em cada dia sem recolha nova — a música do Litto aparecia com 430,59 por dia quando o certo é 457,50. Corrigido, e os comparáveis deixam de aparecer subestimados. O relatório passa a citar a data de cada número recolhido à mão e a avisar quando o registo está atrasado, em vez de ler tendências de dados velhos. Por fim, quando entra um registo manual novo ou diferente a música fica marcada e o relatório é refeito em poucos minutos, com um limite de 6 tentativas por dia para uma falha repetida não gerar custo sem fim.
@@ -260,7 +260,7 @@ Estrutura: tabela `system_invariants` (`name`, `description`, `severity`, `refer
 
 **Princípio central: o alerta é por desvio face à referência, nunca por número diferente de zero.** Dívida herdada com contagem conhecida não faz barulho todos os dias; o que faz barulho é a contagem **mexer**.
 
-**28 verificações a 19/09/2026** (a nova é `cron_run_details_sem_purga`). Não conformes a 18/09: `rateio_filhas_nao_somam_a_mae` **1/0** (Meta 252466632, #183), `emails_falhados_24h` **1/0** (a falha das 08:00 de 18/09, corrigida — desce a 0 quando as 24 h passarem), `pares_fk_duplicada` **37/35** e `tx_paga_sem_linha_de_pagamento` **1.213/1.026** (deriva alheia a esta frente). Referências em Live:
+**29 verificações a 19/09/2026** (as novas são `cron_run_details_sem_purga` e `secdef_abertas_a_anon`, warn/global, referência 15 — as funções de RLS abertas a `anon` por desenho). Não conformes a 18/09: `rateio_filhas_nao_somam_a_mae` **1/0** (Meta 252466632, #183), `emails_falhados_24h` **1/0** (a falha das 08:00 de 18/09, corrigida — desce a 0 quando as 24 h passarem), `pares_fk_duplicada` **37/35** e `tx_paga_sem_linha_de_pagamento` **1.213/1.026** (deriva alheia a esta frente). Referências em Live:
 
 - severidade `error`, referência **0**: `BP_DESPESA_EM_L2`, `backup_empresa_em_falta`, `carga_sem_credito`, `coala_map_outra_empresa`, `emails_falhados_24h`, `fecho_confirmado_liquido_retido`, `filha_rateio_com_conta`, `FORECAST_ID_ORFAO`, `fornecedor_iban_duplicado_ativo`, `grupo_fatura_veredicto_desagrupar_por_aplicar`, `tipo_invalido`, `transitoria_partner_advance_sem_linha`, `tx_conta_outra_empresa`, `tx_evento_outra_empresa`, `tx_fornecedor_outra_empresa`, `tx_rubrica_outra_empresa`, `VINCULO_CROSS_EVENTO`
 - severidade `error`, referência **0**: `VINCULO_DESSINCRONIZADO` — 7 vínculos reparados em Live a 14/09 (forecast_id reposto nas 7 transações do Coala Festival Portugal 2026 onde o âncora existia mas o link inverso era NULL). Issue #173 fechada.
@@ -321,6 +321,8 @@ O saldo mostrado com a consolidação ligada é recalculado sobre a ordem que se
 
 ## Factos que não se reinvestigam
 **Empresas: quatro.** Mundo Propício (PT), Coala Festival Portugal (PT), Fortal (BR), Siriguella (BR). A Social Music seria a **5.ª**, e os eventos `SM - Lisboa` e `SM - Porto` estão hoje sob o `company_id` da MP — se ela passar a empresa própria, esses eventos migram, e isso é trabalho de dados.
+
+**Funções internas fechadas a visitantes anónimos (19/09/2026, D-ERP97, #83/#57).** Estavam 114 funções `SECURITY DEFINER` em `public` e 6 em `crm` executáveis com a chave pública; o inventário (317 chamadas no ERP, 137 nomes; portais MP e Coala sem nenhuma) provou que **nenhuma** é chamada sem sessão. Uma migração dinâmica revogou `PUBLIC` e `anon` a todas as que não aparecem em políticas de RLS (105 funções) e os privilégios por omissão de `public` e `crm` deixaram de dar `EXECUTE` a `anon`/`PUBLIC` — função nova nasce fechada. Ficam 15 abertas por desenho, todas helpers de RLS. Vigiado pelo invariante `secdef_abertas_a_anon`. Teste de fumo com a chave pública: leituras do portal 200, formulário de contacto 201.
 
 **Isolamento: 106 de 144 com RESTRICTIVE, 38 sem.** As 15 nomeadas na #83 como fuga real estão **todas corrigidas**. Sobram quatro tabelas de sistema: `notification_templates`, `system_reminders`, `system_reminder_settings`, `operacao_chamado_sla`. As outras 34 têm RLS ligada e nenhuma tem leitura aberta — é dívida, não é porta aberta.
 
