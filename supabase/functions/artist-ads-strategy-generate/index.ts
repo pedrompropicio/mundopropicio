@@ -637,13 +637,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (adsets.length === 0) {
     return json({
       error: "plano_invalido",
-      mensagem: "O plano gerado ficou sem conjuntos com publicação promovível.",
+      mensagem: eTiktok
+        ? "O plano gerado ficou sem conjuntos com vídeo promovível."
+        : "O plano gerado ficou sem conjuntos com publicação promovível.",
       avisos,
     }, 422);
   }
 
   // orçamento: mínimo por conjunto e corte proporcional ao alvo/disponível
-  const minCents = MIN_DAILY_CENTS * (end ? dias : 1);
+  const minCents = (eTiktok ? MIN_DAILY_CENTS_TIKTOK : MIN_DAILY_CENTS) * (end ? dias : 1);
   const tetoCents = Math.floor(alvoDiario * 100) * (end ? dias : 1);
   let soma = adsets.reduce((s, a) => s + a.orcamento_cents, 0);
   if (soma <= 0) {
