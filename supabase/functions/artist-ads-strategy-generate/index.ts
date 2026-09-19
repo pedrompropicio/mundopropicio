@@ -605,9 +605,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
     delete pub.geo_regions;
     if (nomes.length > 0) {
       if (eTiktok) {
+        // Nomes validados contra public.br_estados (comparação sem acentos); a
+        // crm-tiktok-publish-execute resolve os location_ids a partir do nome.
         const unicos: string[] = [];
-        for (const n of nomes) if (!unicos.includes(n)) unicos.push(n);
-        pub.geo_regions = unicos;
+        for (const nome of nomes) {
+          const oficial = estadoOficial(nome, estadosBr);
+          if (!oficial) {
+            avisos.push(
+              `geo_regiao_nao_resolvida: conjunto "${a.trigger_nome ?? "?"}" pedia o estado "${nome}" — não existe em br_estados e ficou fora`,
+            );
+            continue;
+          }
+          if (!unicos.includes(oficial)) unicos.push(oficial);
+        }
+        if (unicos.length > 0) pub.geo_regions = unicos;
       } else {
         const token = metaAppToken();
         if (!token) {
@@ -649,7 +660,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
           );
           continue;
         }
-        validos.push({ tiktok_video_id: vid });
+        const porque = typeof an?.porque === "string" ? an.porque : null;
+        validos.push({ tiktok_video_id: vid, ...(porque ? { porque } : {}) });
       } else {
         const ref = an?.existing_post?.post_ref;
         if (typeof ref !== "string" || !postRefsOk.has(ref)) {
