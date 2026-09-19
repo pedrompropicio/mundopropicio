@@ -727,8 +727,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const postRefBad: string[] = [];
 
   // url_tags do criativo (só alvo música): UTMs geradas pelo motor.
-  function urlTagsFor(nomeAd: string): string | null {
-    if (!target.utm) return null;
+  // Só há UTMs quando há destino efectivo: sem link, url_tags não vai no payload.
+  function urlTagsFor(nomeAd: string, link: string | null): string | null {
+    if (!target.utm || !link) return null;
     return `${target.utm}&utm_content=${utmSlug(nomeAd)}`;
   }
 
