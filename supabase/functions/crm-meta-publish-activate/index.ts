@@ -394,5 +394,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     })
     .eq("id", planId);
 
-  return json({ ok: true, resultado, estado: "pausado" });
+  await espelhaStatus();
+  await logAprovacao(true);
+
+  return json({ ok: true, resultado, estado: "pausado", ...(isSong ? { approved_by: userId, approval_note: approvalNote } : {}) });
 });
