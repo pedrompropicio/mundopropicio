@@ -3532,3 +3532,47 @@ original, `last_synced_at=now()`, upsert pela chave única da tabela.
 `{"breakdowns":true,"days":3}`, padrão dos restantes crons carreira-* (vault
 `email_queue_service_role_key`). Aplicado manualmente em Live — crons não
 propagam via Publish.
+
+---
+
+## D-ERP104 — Breakdowns de tráfego pago Google para artistas (2026-09-19)
+
+**Decisão.** `crm-google-sync-campaigns` (a função que alimenta
+`crm.google_campaign_insights_daily`) ganha um modo **opt-in**
+`{"breakdowns": true, "days": 30, "connection_id"?: uuid}` que escreve em
+`crm.ads_insights_breakdown_daily` com `platform='google'`, `level='campaign'`
+— mesma tabela e chave única do D-ERP103 (Meta).
+
+**Âmbito.** Só ligações `crm.ad_platform_connections` com `platform='google'`,
+`connection_scope='artist'` e `status='active'` (hoje só a do Litto). O caminho
+normal (sem `breakdowns` no corpo) fica **byte a byte** igual: o ramo sai antes
+de qualquer lógica existente, logo depois do parse do corpo.
+
+**Consultas.** Uma GAQL por grupo, sempre segmentada por `segments.date`
+(versão da API: a já usada na função, `v24`):
+- `region` — `FROM geographic_view`, `segments.geo_target_region`, com
+  `geographic_view.location_type = 'LOCATION_OF_PRESENCE'`
+- `country` — `FROM geographic_view`, `segments.geo_target_country`
+- `age` — `FROM age_range_view`, `ad_group_criterion.age_range.type`
+- `gender` — `FROM gender_view`, `ad_group_criterion.gender.type`
+- `device` — `FROM campaign`, `segments.device`
+
+Métricas: `impressions`, `clicks`, `cost_micros` (→ `spend_cents`, micros/10.000),
+`video_views` (→ `video_thruplays`), `conversions`. As linhas vêm ao nível de ad
+group nos recursos de demografia — somam-se por campanha × dia × valor.
+
+**Nomes de geografia.** `segments.geo_target_region/country` devolvem
+`geoTargetConstants/<id>`; resolvem-se a nome com uma consulta
+`FROM geo_target_constant WHERE id IN (...)` em lotes de 200. Se a resolução
+falhar, fica o ID como `breakdown_value` e a falha vai para `notes` — nunca
+trava o breakdown.
+
+**Resiliência.** Recurso/campo não aceite pela versão da API, rate limit ou
+upsert falhado ficam em `notes` e os restantes grupos continuam.
+
+**Registo.** `public.sync_runs` via `_shared/sync-run.ts`,
+`function_name='crm-google-sync-campaigns:breakdowns'`.
+
+**Cron.** `carreira-google-breakdowns-diario` às 10:25 UTC com
+`{"breakdowns":true,"days":3}`, padrão carreira-* (vault
+`email_queue_service_role_key`). Aplicado manualmente em Live.
