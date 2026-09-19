@@ -119,13 +119,17 @@ REGRAS ABSOLUTAS:
 7. A soma dos orcamento_cents dos conjuntos por dia não pode passar o disponível em limites.available_daily (na moeda da conta). Cada conjunto tem pelo menos 100 cents por dia.
 8. Português do Brasil, linguagem de quem compra mídia: objetiva e com dado na mão.
 9. FONTE PRIMÁRIA = desempenho_pago (histórico pago real: gasto, impressões, cliques, ThruPlays, custo por ThruPlay, por campanha e por anúncio). Toda a escolha de público, geografia, orçamento e criativo tem de citar, no campo "porque": a FONTE (que RPC/tabela do snapshot), o NÚMERO exacto e a DATA (ou período) do dado.
-10. Não existe histórico pago por região, idade ou género: os dados pagos são agregados por anúncio e por dia. Quando não houver histórico pago para uma região ou um público, escreva isso literalmente ("sem histórico pago nesta região" / "sem histórico pago para este público") em vez de inferir a partir da demografia orgânica.
+10. EXISTE histórico pago por dimensão em historico_pago.breakdowns (RPC public.artist_ads_breakdowns, 90 dias): region, age, gender, publisher_platform e country, cada um com top 10 por impressões, gasto, CTR, CPC, CPM, quota de impressões e a mediana da dimensão. Os dados por CAMPANHA/ANÚNCIO continuam sem este corte. Quando uma dimensão vier vazia, escreva literalmente "sem histórico pago nesta região" / "sem histórico pago para este público" em vez de inferir a partir do orgânico.
 11. demografia_organica_instagram é FONTE SECUNDÁRIA e só de Instagram orgânico. Se a usar, identifique-a como tal no texto ("fonte secundária: demografia orgânica do Instagram, snapshot de <data>"). Nunca a apresente como desempenho pago.
 12. Criativo: justifique a publicação escolhida com o desempenho pago do anúncio/criativo correspondente quando existir em desempenho_pago.anuncios; se não existir, diga "publicação sem histórico pago".
 13. ARTISTA REGIONAL: ordene a geografia por CONCENTRAÇÃO (quota da base do artista nesse estado/região), NUNCA por valor absoluto de uma cidade. Exemplo real do erro a evitar: São Paulo entrou num plano só por ser a 2.ª cidade em seguidores (7.596), contra Natal (19.557) e ~35,4 mil apenas nas cidades do Rio Grande do Norte no top 30 (artist_audience_demographics, instagram/followers, snapshot de 19/09/2026).
 14. Metrópoles fora da região-base (ex.: São Paulo, Rio de Janeiro) só entram com evidência de desempenho PAGO ou de streaming no snapshot, e NUNCA na 1.ª campanha.
 15. Quando os dados mostrarem base concentrada numa região, escreva explicitamente na justificação "artista regional: base RN/Nordeste" (ou a região que os dados mostrarem).
 16. Sempre que estreitar idades (qualquer coisa diferente de 18–65), cite a distribuição etária real da base com a data do dado. Exemplo do dado do Litto a 19/09/2026: 25–34 = 42,9 %, 35–44 = 24,5 %, 18–24 = 18,5 % — foi por não citar que saiu um conjunto 18–34 contra uma base 25–44. Sem esse dado citado, mantenha 18–65.
+17. GEOGRAFIA — ordem obrigatória das fontes: PRIMEIRO historico_pago.breakdowns.region (CTR, CPC, CPM e gasto dos últimos 90 dias) e SÓ DEPOIS a concentração orgânica em audiencia.por_estado (quota_pct e quota por região). A justificação de geografia cita SEMPRE as duas, com números e datas.
+18. Um estado só entra num conjunto com EVIDÊNCIA: quota orgânica ≥ 5 % em audiencia.por_estado OU desempenho pago melhor que a mediana da dimensão region (CTR acima da mediana ou CPC abaixo da mediana, em historico_pago.breakdowns.region.medianas). A justificação diz explicitamente qual das duas evidências sustentou o estado. Sem nenhuma das duas, o estado fica fora.
+19. IDADES — use a distribuição da audiência ENVOLVIDA (audiencia.por_tipo.engaged) quando existir; se não existir, a de reached; se não existir, a de followers. Cite as percentagens e a data, e diga qual o tipo de audiência usado.
+20. Cruzamento pago vs orgânico: quando o pago e o orgânico apontarem para estados diferentes, o pago manda e a divergência tem de ser escrita em resumo.avisos.
 
 FORMATO DE RESPOSTA — responde APENAS com JSON puro (sem markdown fences):
 {
@@ -449,7 +453,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const faltasPago = [
     "alcance (reach) e CPM não existem nas RPCs de tráfego — não constam do snapshot",
     "ThruPlays, visualizações de 3s, CTR e custo por ThruPlay só existem em janela de 7 e 30 dias (por anúncio); na janela de 90 dias só há gasto, impressões, cliques e video_views",
-    "não há breakdown pago por região, idade ou género: os dados pagos são agregados por anúncio e por dia",
+    "por campanha/anúncio não há corte por região, idade ou género — esse corte existe só no bloco historico_pago.breakdowns (RPC artist_ads_breakdowns), agregado por dimensão e não por campanha",
   ];
   for (const f of faltasPago) avisos.push(`dado em falta: ${f}`);
 
@@ -468,6 +472,161 @@ Deno.serve(async (req: Request): Promise<Response> => {
     linhas: demoRows,
   };
   if (demoRows.length === 0) avisos.push("sem demografia orgânica de Instagram para este artista");
+
+  // ── 6b) HISTÓRICO PAGO POR DIMENSÃO — RPC public.artist_ads_breakdowns(90d)
+  // Fonte primária de geografia/idade/género PAGOS. CTR/CPC/CPM são derivados
+  // aqui a partir dos totais que a RPC devolve (impressões, cliques, gasto).
+  const BREAKDOWN_DIMS = ["region", "age", "gender", "publisher_platform", "country"];
+  const mediana = (xs: number[]): number | null => {
+    const v = xs.filter((x) => Number.isFinite(x)).sort((a, b) => a - b);
+    if (v.length === 0) return null;
+    const m = Math.floor(v.length / 2);
+    const r = v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+    return Math.round(r * 10000) / 10000;
+  };
+  const breakdowns: Record<string, Any> = {};
+  let breakdownLinhas = 0;
+  let breakdownMoeda: string | null = null;
+  for (const dim of BREAKDOWN_DIMS) {
+    const { data: bdRaw, error: bdErr } = await user.rpc("artist_ads_breakdowns", {
+      p_artist_id: artistId,
+      p_days: DIAS_JANELA,
+      p_platform: "meta",
+      p_breakdown: dim,
+    });
+    if (bdErr) {
+      avisos.push(`breakdown pago "${dim}" indisponível: ${bdErr.message}`);
+      breakdowns[dim] = { linhas: 0, top_10: [], medianas: null, erro: bdErr.message };
+      continue;
+    }
+    const rows: Any[] = bdRaw ?? [];
+    breakdownLinhas += rows.length;
+    if (rows.length === 0) {
+      avisos.push(`sem histórico pago por "${dim}" nos últimos ${DIAS_JANELA} dias`);
+      breakdowns[dim] = { linhas: 0, top_10: [], medianas: null };
+      continue;
+    }
+    const calc = rows.map((r: Any) => {
+      const imp = Number(r.impressions ?? 0);
+      const clk = Number(r.clicks ?? 0);
+      const gasto = Number(r.spend ?? 0);
+      if (!breakdownMoeda && r.currency) breakdownMoeda = String(r.currency);
+      return {
+        valor: r.breakdown_value,
+        impressoes: imp,
+        cliques: clk,
+        gasto: Math.round(gasto * 100) / 100,
+        moeda: r.currency ?? null,
+        quota_impressoes_pct: r.quota == null ? null : Number(r.quota),
+        ctr_pct: imp > 0 ? Math.round((clk / imp) * 100 * 10000) / 10000 : null,
+        cpc: clk > 0 ? Math.round((gasto / clk) * 10000) / 10000 : null,
+        cpm: imp > 0 ? Math.round((gasto / imp) * 1000 * 100) / 100 : null,
+      };
+    });
+    breakdowns[dim] = {
+      linhas: calc.length,
+      medianas: {
+        ctr_pct: mediana(calc.map((c) => c.ctr_pct as number)),
+        cpc: mediana(calc.map((c) => c.cpc as number)),
+        cpm: mediana(calc.map((c) => c.cpm as number)),
+      },
+      top_10: calc.sort((a, b) => b.impressoes - a.impressoes).slice(0, 10),
+    };
+  }
+  if (breakdownLinhas === 0) {
+    avisos.push(`fonte vazia: public.artist_ads_breakdowns (${DIAS_JANELA} dias) não devolveu linhas`);
+  }
+
+  // ── 6c) AUDIÊNCIA ORGÂNICA POR ESTADO — vista public.v_artist_audience_by_state
+  const { data: estadoRaw, error: estadoErr } = await user
+    .from("v_artist_audience_by_state")
+    .select("platform, audience_type, timeframe, snapshot_date, uf, regiao, estado_nome, valor, quota_pct")
+    .eq("artist_id", artistId)
+    .eq("platform", "instagram")
+    .order("snapshot_date", { ascending: false })
+    .limit(2000);
+  if (estadoErr) avisos.push(`audiência por estado indisponível: ${estadoErr.message}`);
+  const estadoRows: Any[] = estadoRaw ?? [];
+  const porEstado: Record<string, Any> = {};
+  let estadoDataMax: string | null = null;
+  for (const t of [...new Set(estadoRows.map((r: Any) => String(r.audience_type)))]) {
+    const doTipo = estadoRows.filter((r: Any) => String(r.audience_type) === t);
+    const ultima = doTipo.map((r: Any) => String(r.snapshot_date)).sort().pop() ?? null;
+    if (ultima && (!estadoDataMax || ultima > estadoDataMax)) estadoDataMax = ultima;
+    const linhas = doTipo.filter((r: Any) => String(r.snapshot_date) === ultima);
+    const regioes = new Map<string, number>();
+    for (const l of linhas) {
+      const k = l.regiao ? String(l.regiao) : "(sem região)";
+      regioes.set(k, Math.round(((regioes.get(k) ?? 0) + Number(l.quota_pct ?? 0)) * 10) / 10);
+    }
+    porEstado[t] = {
+      snapshot_date: ultima,
+      timeframe: linhas[0]?.timeframe ?? null,
+      top_10_estados: linhas
+        .map((l: Any) => ({
+          uf: String(l.uf ?? "").trim(),
+          estado: l.estado_nome,
+          regiao: l.regiao,
+          valor: Number(l.valor ?? 0),
+          quota_pct: l.quota_pct == null ? null : Number(l.quota_pct),
+        }))
+        .sort((a, b) => b.valor - a.valor)
+        .slice(0, 10),
+      quota_por_regiao_pct: [...regioes.entries()]
+        .map(([regiao, quota_pct]) => ({ regiao, quota_pct }))
+        .sort((a, b) => b.quota_pct - a.quota_pct),
+    };
+  }
+  if (estadoRows.length === 0) {
+    avisos.push("fonte vazia: public.v_artist_audience_by_state sem linhas de Instagram para este artista");
+  }
+
+  // ── 6d) AUDIÊNCIA POR TIPO (followers / engaged / reached) — age e gender
+  const porTipo: Record<string, Any> = {};
+  for (const t of [...new Set(demoRows.map((d: Any) => String(d.audience_type)))]) {
+    const doTipo = demoRows.filter((d: Any) =>
+      String(d.audience_type) === t && String(d.platform) === "instagram"
+    );
+    if (doTipo.length === 0) continue;
+    const ultima = doTipo.map((d: Any) => String(d.snapshot_date)).sort().pop() ?? null;
+    const linhas = doTipo.filter((d: Any) => String(d.snapshot_date) === ultima);
+    const porDim = (dim: string) => {
+      const ls = linhas.filter((l: Any) => String(l.dimension) === dim);
+      const total = ls.reduce((s: number, l: Any) => s + Number(l.value ?? 0), 0);
+      return ls
+        .map((l: Any) => ({
+          chave: l.dim_key,
+          valor: Number(l.value ?? 0),
+          quota_pct: total > 0 ? Math.round((Number(l.value ?? 0) / total) * 1000) / 10 : null,
+        }))
+        .sort((a, b) => b.valor - a.valor);
+    };
+    porTipo[t] = {
+      snapshot_date: ultima,
+      timeframe: linhas[0]?.timeframe ?? null,
+      age: porDim("age"),
+      gender: porDim("gender"),
+    };
+  }
+  for (const t of ["engaged", "reached"]) {
+    if (!porTipo[t]) avisos.push(`sem audiência "${t}" no Instagram — usada a de seguidores`);
+  }
+
+  const audiencia = {
+    _fonte:
+      "orgânica — public.v_artist_audience_by_state (estados/regiões) + public.artist_audience_demographics (idade/género por tipo de audiência). Secundária face ao pago.",
+    por_estado: porEstado,
+    por_tipo: porTipo,
+  };
+
+  const historicoPago = {
+    _fonte: "primária — RPC public.artist_ads_breakdowns(p_days=90, p_platform='meta')",
+    janela_dias: DIAS_JANELA,
+    moeda: breakdownMoeda,
+    nota: "CTR (cliques/impressões), CPC (gasto/cliques) e CPM (gasto/impressões×1000) calculados pelo motor a partir dos totais da RPC. Top 10 por impressões em cada dimensão, com a mediana da dimensão para comparação.",
+    breakdowns,
+  };
+
 
 
   const alvoDiario = orcamentoPedido != null && orcamentoPedido > 0
@@ -510,6 +669,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       dados_em_falta: faltasPago,
     },
     demografia_organica_instagram: demografiaOrganica,
+    historico_pago: historicoPago,
+    audiencia,
+
 
     limites: {
       connection_id: connectionId,
@@ -739,6 +901,29 @@ Deno.serve(async (req: Request): Promise<Response> => {
       fonte: "RPC public.artist_ads_budget_cap_get — teto e disponível da ligação",
       periodo: "actual",
       ultima_atualizacao: cap.set_at ?? null,
+    },
+    {
+      fonte: `RPC public.artist_ads_breakdowns (${DIAS_JANELA} dias, meta) — desempenho pago por região, idade, género, plataforma e país`,
+      periodo: `últimos ${DIAS_JANELA} dias`,
+      linhas: breakdownLinhas,
+      ultima_atualizacao: ultimoSync,
+      vazia: breakdownLinhas === 0,
+    },
+    {
+      fonte: "public.v_artist_audience_by_state — audiência orgânica de Instagram por estado/região",
+      periodo: estadoDataMax ? `snapshot de ${estadoDataMax}` : "sem dados",
+      ultima_atualizacao: estadoDataMax,
+      tipos: Object.keys(porEstado),
+      vazia: estadoRows.length === 0,
+    },
+    {
+      fonte: "public.artist_audience_demographics por tipo de audiência (followers/engaged/reached) — idade e género",
+      periodo: Object.keys(porTipo).length
+        ? Object.entries(porTipo).map(([t, v]: Any) => `${t}: ${v.snapshot_date}`).join("; ")
+        : "sem dados",
+      ultima_atualizacao: Object.values(porTipo)
+        .map((v: Any) => v.snapshot_date).filter(Boolean).sort().pop() ?? null,
+      vazia: Object.keys(porTipo).length === 0,
     },
     {
       fonte: "public.artist_audience_demographics (Instagram orgânico) — FONTE SECUNDÁRIA",
