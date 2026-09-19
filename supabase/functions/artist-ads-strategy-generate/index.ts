@@ -721,7 +721,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // orçamento: mínimo por conjunto e corte proporcional ao alvo/disponível
-  const minCents = (eTiktok ? MIN_DAILY_CENTS_TIKTOK : MIN_DAILY_CENTS) * (end ? dias : 1);
+  const minDiario = eTiktok ? MIN_DAILY_CENTS_TIKTOK : eGoogle ? MIN_DAILY_CENTS_GOOGLE : MIN_DAILY_CENTS;
+  const minCents = minDiario * (end ? dias : 1);
   const tetoCents = Math.floor(alvoDiario * 100) * (end ? dias : 1);
   let soma = adsets.reduce((s, a) => s + a.orcamento_cents, 0);
   if (soma <= 0) {
