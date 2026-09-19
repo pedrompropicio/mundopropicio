@@ -446,6 +446,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         campos,
         targeting: targetingNovo,
         geo: pedeGeo ? (depois.geo as string[]) : undefined,
+        geo_regions: pedeGeo && depois.geo_regions !== undefined ? alteracoes.geografia.geo_regions : undefined,
         idades: pedeIdades ? { min: alteracoes.idades.idade_min, max: alteracoes.idades.idade_max } : undefined,
       });
       resultado.push({ nivel: "conjunto", external_id: String(a.meta_adset_id), campos, antes, depois, ok: dryRun });
