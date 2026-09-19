@@ -16491,6 +16491,10 @@ export type Database = {
         Args: { p_artist_id: string }
         Returns: number
       }
+      artist_ads_autolink_songs_internal: {
+        Args: { p_artist_id: string }
+        Returns: number
+      }
       artist_ads_campaigns: {
         Args: { p_artist_id: string; p_include_removed?: boolean }
         Returns: {
