@@ -144,7 +144,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({
       ok: false, error: "sem_tiktok_api_host",
       message: `Falta a variável de ambiente TIKTOK_API_HOST (sandbox: ${TIKTOK_SANDBOX_HOST}).`,
-    }, 500);
+    }, 422);
   }
 
   // 5) Ligação TikTok + token/advertiser_id. Sem token, o dry-run continua
