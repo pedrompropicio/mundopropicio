@@ -8,6 +8,7 @@
 // Regra absoluta: números só daqui. Contagens e ritmos por dia saem inteiros;
 // percentuais com 1 casa. Comparáveis SÓ pela RPC song_benchmark_aligned.
 
+// deno-lint-ignore no-explicit-any
 export type Admin = any;
 // deno-lint-ignore no-explicit-any
 export type Row = Record<string, any>;
