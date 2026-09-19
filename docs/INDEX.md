@@ -158,4 +158,6 @@ O schema `public` é exposto pelo PostgREST: sem isto a função é chamável po
 
 **Excepção:** funções usadas dentro de políticas de RLS não se revogam (ver D-ERP37).
 
+**Desde 19/09/2026 (D-ERP97) os privilégios por omissão em `public` e `crm` já não dão `EXECUTE` a `anon` nem a `PUBLIC`** (`ALTER DEFAULT PRIVILEGES FOR ROLE postgres`), pelo que uma função nova nasce fechada a visitantes anónimos. Quem precisar de `anon` — só helpers usados dentro de políticas de RLS — faz `GRANT` explícito na própria migração. O invariante `secdef_abertas_a_anon` (warn, global, referência 15) vigia: conta as `SECURITY DEFINER` de `public`+`crm` executáveis por `anon` e dispara por desvio face à referência.
+
 **Nenhuma função de alerta pode ter `EXCEPTION WHEN OTHERS` mudo.** Se o aviso falha, tem de deixar rasto — linha em tabela, invariante, ou `RAISE` que não seja engolido. Um alerta que falha em silêncio é pior do que não ter alerta, porque dá a sensação de estar coberto. Foi exactamente isto que aconteceu ao `notify_sync_action_needed()`: corpo todo dentro de `EXCEPTION WHEN OTHERS THEN RAISE WARNING`, URL a apontar para o projeto de Test antigo, e ninguém soube durante meses (#211, eliminado a 18/09/2026).
