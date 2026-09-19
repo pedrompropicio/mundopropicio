@@ -297,12 +297,14 @@ Deno.serve(async (req) => {
             );
             continue;
           }
+          let rowsForPair = 0;
           for (const entry of dem.body?.data ?? []) {
             const results = entry?.total_value?.breakdowns?.[0]?.results ?? [];
             for (const r of results) {
               const v = toCount(r?.value);
               const key = (r?.dimension_values ?? []).join(" / ");
               if (v === null || !key) continue;
+              rowsForPair++;
               demoRows.push({
                 company_id: conn.company_id,
                 artist_id: conn.artist_id,
@@ -316,6 +318,11 @@ Deno.serve(async (req) => {
                 source: SOURCE,
               });
             }
+          }
+          if (rowsForPair === 0) {
+            notes.push(
+              `demografia ${dm.metric}/${breakdown} sem resultados (timeframe ${dm.timeframe})`,
+            );
           }
         }
       }
