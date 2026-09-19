@@ -72,7 +72,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const artistId = typeof body.artist_id === "string" ? body.artist_id : "";
   const connectionId = typeof body.connection_id === "string" ? body.connection_id : "";
   const creativeIds: string[] = Array.isArray(body.creative_ids)
-    ? [...new Set(body.creative_ids.filter((x: Any) => typeof x === "string" && x.trim()).map((x: string) => x.trim()))]
+    ? [...new Set((body.creative_ids as Any[]).filter((x: Any) => typeof x === "string" && x.trim()).map((x: Any) => String(x).trim()))] as string[]
     : [];
   if (!artistId || !connectionId || creativeIds.length === 0) {
     return json({
