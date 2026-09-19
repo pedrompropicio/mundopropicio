@@ -3031,6 +3031,24 @@ export type Database = {
           },
         ]
       }
+      br_estados: {
+        Row: {
+          nome: string
+          regiao: string
+          uf: string
+        }
+        Insert: {
+          nome: string
+          regiao: string
+          uf: string
+        }
+        Update: {
+          nome?: string
+          regiao?: string
+          uf?: string
+        }
+        Relationships: []
+      }
       camarim_fund_moves: {
         Row: {
           amount: number
@@ -15154,6 +15172,51 @@ export type Database = {
           },
         ]
       }
+      v_artist_audience_by_state: {
+        Row: {
+          artist_id: string | null
+          audience_type: string | null
+          company_id: string | null
+          estado_nome: string | null
+          platform: string | null
+          quota_pct: number | null
+          regiao: string | null
+          snapshot_date: string | null
+          timeframe: string | null
+          uf: string | null
+          valor: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_audience_demographics_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_audience_demographics_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_benchmark_aligned"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_audience_demographics_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_audience_demographics_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_artist_comparables: {
         Row: {
           artist_id: string | null
@@ -16804,6 +16867,19 @@ export type Database = {
       }
       artist_ads_unlink_song: {
         Args: { p_artist_id: string; p_campaign_id: string; p_platform: string }
+        Returns: number
+      }
+      artist_audience_set_manual: {
+        Args: {
+          p_artist_id: string
+          p_audience_type: string
+          p_dimension: string
+          p_note?: string
+          p_platform: string
+          p_rows: Json
+          p_snapshot_date: string
+          p_timeframe?: string
+        }
         Returns: number
       }
       artist_consume_oauth_state: {
