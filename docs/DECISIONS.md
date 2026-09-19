@@ -3345,3 +3345,46 @@ sempre do JWT, `triggered_by` do corpo com omissão `user_manual`, inserção be
 **Âmbito técnico.** Sem DDL, sem migração, sem Publish/deploy. `crm-meta-publish-execute`,
 `crm-meta-publish-activate` e `crm-meta-entity-action` ficaram intactos; o único código
 partilhado reaproveitado é `_shared/artist-ads-teto.ts` (`committedDaily`).
+
+## D-ERP100 — Plano de tráfego da música cita desempenho pago real e geografia só por país (19/09/2026)
+
+Auditoria do plano `36c65cb9-c1e5-4f38-8e1b-f2d73d56b945` (gerado pela v1 de
+`artist-ads-strategy-generate`, commit aaa7173) mostrou quatro defeitos. A v2 corrige-os na
+própria edge function, **sem DDL e sem migração**.
+
+**1. Desempenho pago é a fonte primária.** O snapshot passa a levar `desempenho_pago`:
+agregação por campanha dos 90 dias de `public.artist_ads_daily(artist, 90)` (gasto,
+impressões, cliques, video_views, dias com gasto, primeiro/último dia), filtrada às campanhas
+da ligação pedida por `artist_ads_campaigns` (a RPC do diário não traz `connection_id`), mais
+os anúncios com gasto por `artist_ads_ads` (ThruPlays, visualizações de 3s, CTR, CPC, custo por
+ThruPlay em 7d/30d, `creative_id` e permalink da publicação de origem), o período coberto
+(min/max dia) e o `last_synced_at` mais recente. Só somas do que as RPCs devolvem — nada
+recalculado. O que a base não tem fica em `dados_em_falta` e em `avisos`: alcance e CPM não
+existem nas RPCs; ThruPlays/3s/CTR/custo por ThruPlay só existem em 7d/30d; `crm.meta_ad_insights_daily`
+não tem breakdown por região, idade ou género. Continua válida a fronteira do módulo: nenhuma
+leitura directa de `crm.*`.
+
+**2. Cada escolha cita fonte, número e data.** Regras 9–12 do prompt do sistema. Sem histórico
+pago para uma região ou público, o texto tem de dizer "sem histórico pago nesta região" em vez
+de inferir. `public.artist_audience_demographics` (só Instagram orgânico) passa a **fonte
+secundária**, identificada como tal no snapshot e no texto. Não existe segunda fonte de
+geografia (não há ouvintes por cidade/país do Spotify).
+
+**3. Justificação coerente com o orçamento final.** A normalização determinística, depois do
+corte proporcional, apaga qualquer entrada de justificação que fale de orçamento com números e
+escreve uma entrada nova com a soma final dos conjuntos, o valor por conjunto, o teto, o
+comprometido e o disponível.
+
+**4. Geografia só ISO-2.** `publico_sugerido.geo` só aceita códigos de país com duas letras
+(omissão `["BR"]`). Cidade ou estado em texto livre é descartado com aviso
+`geo_cidade_descartada`; conjunto sem geografia válida cai para `["BR"]`. Motivo: a publicação
+e `crm-meta-publish-update` tratam cada entrada como país (`upper()` →
+`targeting.geo_locations.countries`), pelo que "Natal, Rio Grande do Norte" viraria um país
+inválido. Caminho definitivo até o motor resolver cidade→chave de localização pelo `/search` da
+Graph API.
+
+**Saída.** `p_plan.resumo` ganha `fontes` — lista de `{fonte, periodo, ultima_atualizacao}` —
+mantendo `origem`, `modelo`, `gerado_em`, `tokens`, `entradas_usadas`, `justificacao`,
+`hipoteses` e `avisos`. Contrato inalterado; o plano continua a nascer em `rascunho` e a função
+nunca publica nem activa. `crm-meta-publish-execute`, `crm-meta-publish-activate`,
+`crm-meta-entity-action`, `crm-meta-publish-update` e o caminho de eventos ficaram intactos.
