@@ -421,18 +421,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
       age_max: Number.isFinite(pub.idade_max) ? pub.idade_max : 65,
       targeting_automation: { advantage_audience: 0 },
     };
-    const incl = inclusionsByIdx[adsetIdx] ?? [];
+    // Públicos MP (inclusões/exclusões) são do alvo evento: uma campanha de
+    // música não herda nem exclui os públicos de compradores da empresa.
+    const incl = isSong ? [] : (inclusionsByIdx[adsetIdx] ?? []);
     if (incl.length > 0) {
       targeting.custom_audiences = incl.map((id) => ({ id: String(id) }));
     }
-    const excl = exclusionsByIdx[adsetIdx];
+    const excl = isSong ? undefined : exclusionsByIdx[adsetIdx];
     if (excl && excl.size > 0) {
       targeting.excluded_custom_audiences = Array.from(excl).map((id) => ({ id: String(id) }));
     }
     let goal = optimization_goal;
     const orcCents = Math.max(0, Number(a.orcamento_cents ?? 0));
     const payload: Record<string, unknown> = {
-      name: a.trigger_nome || "Adset",
+      name: target.naming.prefix + (a.trigger_nome || "Adset"),
       campaign_id: campaignIdParaPayload,
       billing_event,
       optimization_goal: goal,
@@ -440,6 +442,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       status: "PAUSED",
       targeting,
     };
+    // Alvo música: destino do objectivo (ODAX). Chave acrescentada no fim,
+    // depois de todas as do caminho de evento — esse payload fica intacto.
+    if (songGoal?.destination_type) payload.destination_type = songGoal.destination_type;
     let abaixo_minimo: { minimo_cents: number; orcamento_cents: number } | undefined;
     if (usaLifetime) {
       payload.lifetime_budget = orcCents;
