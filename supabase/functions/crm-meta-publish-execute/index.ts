@@ -117,13 +117,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { company_id?: string; plan_id?: string; dry_run?: boolean };
+  let body: { company_id?: string; plan_id?: string; dry_run?: boolean; preflight?: boolean };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
 
   const companyIdIn = body.company_id;
   const planId = body.plan_id;
   // SALVAGUARDA P0: dry_run default = TRUE. Só escreve no Meta se vier explicitamente false.
   const dryRun = body.dry_run !== false;
+  // Preflight (D-ERP95 F2b): só GETs à Graph API; não escreve na Meta nem no plano.
+  const preflight = body.preflight === true;
   if (!companyIdIn || !planId) {
     return json({ error: "missing_params", required: ["company_id", "plan_id"] }, 400);
   }
@@ -146,14 +148,37 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!planRow) return json({ error: "plan_not_found" }, 404);
   if (planRow.company_id !== companyIdIn) return json({ error: "company_mismatch" }, 403);
 
-  // D-ERP95 F2a: alvo música ainda não é publicável por esta função (entra na F2b).
-  if ((planRow as any).song_id) {
-    return json({ ok: false, error: "alvo_musica_f2b" }, 200);
+  const isSong = !!(planRow as any).song_id;
+
+  // 2a) Autorização do alvo música (D-ERP95 F2b). Nada disto corre para eventos.
+  //     dry_run/preflight: sessão de utilizador OU service_role.
+  //     Publicação real: SESSÃO + papel de tráfego (public.artist_ads_assert_write).
+  let callerUserId: string | null = null;
+  if (isSong) {
+    const { data: userInfo } = await supabase.auth.getUser();
+    callerUserId = userInfo?.user?.id ?? null;
+    const isServiceRole = !callerUserId && jwtRole(authHeader) === "service_role";
+    if (!callerUserId && !isServiceRole) {
+      return json({ ok: false, error: "sessao_invalida", message: "Sessão inválida." }, 401);
+    }
+    if (!dryRun && !preflight) {
+      if (!callerUserId) {
+        return json({
+          ok: false, error: "service_role_nao_publica_musica",
+          message: "A publicação de campanhas de música exige sessão de utilizador com papel de tráfego.",
+        }, 403);
+      }
+      const { error: permErr } = await supabase.rpc("artist_ads_assert_write", { p_company_id: planRow.company_id });
+      if (permErr) {
+        return json({ ok: false, error: "sem_permissao", detail: permErr.message }, 403);
+      }
+    }
   }
 
-  // Guardas de estado: só no caminho de escrita. O dry-run é leitura pura e é
-  // permitido em QUALQUER estado (incluindo 'publicado') — serve de prova por hash.
-  if (!dryRun) {
+  // Guardas de estado: só no caminho de escrita. O dry-run e o preflight são
+  // leitura pura e são permitidos em QUALQUER estado (incluindo 'publicado')
+  // — servem de prova por hash e de verificação prévia.
+  if (!dryRun && !preflight) {
     if (planRow.estado === "publicado") {
       return json({ error: "ja_publicado", meta_campaign_id: planRow.meta_campaign_id }, 409);
     }
