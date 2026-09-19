@@ -786,8 +786,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
 
   // Estado: a_publicar
-  await (admin as any).schema("crm").from("meta_publish_plan")
-    .update({ estado: "a_publicar", publish_error: null, publish_started_at: new Date().toISOString() }).eq("id", planId);
+  if (isSong) {
+    // Lock anti-corrida (só alvo música nesta fase — padrão do crm-google-publish-execute).
+    const lockCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data: locked, error: lockErr } = await (admin as any)
+      .schema("crm").from("meta_publish_plan")
+      .update({ estado: "a_publicar", publish_error: null, publish_started_at: new Date().toISOString() })
+      .eq("id", planId)
+      .or(`estado.neq.a_publicar,publish_started_at.lt.${lockCutoff}`)
+      .select("id");
+    if (lockErr) return json({ ok: false, error: "lock_falhou", detail: lockErr.message }, 500);
+    if (!locked || locked.length === 0) {
+      return json({ error: "ja_em_publicacao", message: "Publicação já em curso — espera que termine antes de tentar de novo." }, 409);
+    }
+  } else {
+    await (admin as any).schema("crm").from("meta_publish_plan")
+      .update({ estado: "a_publicar", publish_error: null, publish_started_at: new Date().toISOString() }).eq("id", planId);
+  }
 
   async function failAndStop(passo: string, err: any, extra?: Record<string, unknown>): Promise<Response> {
     const payload = { passo, error: err, ...(extra ?? {}) };
@@ -805,6 +820,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const { error: upErr } = await (admin as any).schema("crm").from("meta_publish_plan")
       .update({ meta_campaign_id: metaCampaignId }).eq("id", planId);
     if (upErr) return await failAndStop("persist_campaign_id", { message: upErr.message });
+    // Alvo música: espelho + trinco da ligação à música, sem esperar pelo cron.
+    if (isSong) {
+      await upsertSongSnapshot(metaCampaignId);
+      await logCreate("campaign", metaCampaignId, campaignPayload.name);
+    }
   }
 
   // 7b) Adsets + Ads (idempotente — escreve back ao adsets jsonb após cada sucesso)
@@ -835,12 +855,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
       a.meta_adset_id = metaAdsetId;
       await (admin as any).schema("crm").from("meta_publish_plan")
         .update({ adsets: adsetsOut }).eq("id", planId);
+      if (isSong) await logCreate("adset", metaAdsetId, String((payload as any)?.name ?? ""));
     }
 
     // Ads
     const adsIds: string[] = [];
     const linkEf = resolveLink(a);
-    if (!linkEf) {
+    // Alvo música: adsets cujos anúncios são posts existentes não precisam de link.
+    const temPostExistente = isSong && (a.anuncios ?? []).some((x: any) => x?.existing_post);
+    if (!linkEf && !temPostExistente) {
       avisos.push({ codigo: "sem_link_destino", adset: a.trigger_nome });
       respAdsets.push({ trigger_nome: a.trigger_nome, meta_adset_id: metaAdsetId!, ads: adsIds });
       continue;
@@ -878,6 +901,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         if (gi === 0) an.meta_ad_id = novoId; // back-compat
         await (admin as any).schema("crm").from("meta_publish_plan")
           .update({ adsets: adsetsOut }).eq("id", planId);
+        if (isSong) await logCreate("ad", novoId, String((payload as any)?.name ?? ""));
       }
     }
 
