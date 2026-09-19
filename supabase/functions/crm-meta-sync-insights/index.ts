@@ -475,12 +475,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { connection_id?: string; ad_account_id?: string; days_back?: number; levels?: Level[]; mode?: "incremental" | "full" };
+  let body: { connection_id?: string; ad_account_id?: string; days_back?: number; levels?: Level[]; mode?: "incremental" | "full"; breakdowns?: boolean; days?: number };
   try {
     body = await req.json();
   } catch {
     return json({ error: "invalid_json" }, 400);
   }
+
+  // D-ERP103: modo breakdowns (opt-in). Não toca no caminho normal abaixo.
+  if (body.breakdowns === true) {
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const days = Math.min(Math.max(Math.floor(body.days ?? 30), 1), 90);
+    return await runBreakdowns(sb, { days, connectionId: body.connection_id });
+  }
+
   const connectionId = body.connection_id;
   const rawAcct = body.ad_account_id;
   const mode: "incremental" | "full" = body?.mode === "full" ? "full" : "incremental";
