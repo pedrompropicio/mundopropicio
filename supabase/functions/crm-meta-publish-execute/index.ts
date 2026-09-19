@@ -26,6 +26,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
 import { resolveTarget, utmSlug } from "../_shared/campaign-target.ts";
+import { checkTetoPlano, type TetoInfo } from "../_shared/artist-ads-teto.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
