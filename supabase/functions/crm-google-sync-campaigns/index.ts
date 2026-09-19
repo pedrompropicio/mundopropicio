@@ -830,6 +830,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     connection_id?: string;
     days_back?: number;
     mode?: "incremental" | "full";
+    breakdowns?: boolean;
+    days?: number;
   } = {};
   try {
     if (req.headers.get("content-type")?.includes("application/json")) {
@@ -838,6 +840,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
   } catch (_e) {
     // ignore
   }
+
+  // D-ERP104: modo breakdowns (opt-in). Sai aqui; o caminho normal fica intacto.
+  if (bodyJson.breakdowns === true) {
+    const sbBd = createClient(SUPABASE_URL, SERVICE_ROLE, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    let tokenBd: string;
+    try {
+      tokenBd = await getGoogleAccessToken();
+    } catch (e) {
+      return json({ error: "google_oauth_failed", detail: (e as Error).message }, 500);
+    }
+    return await runGoogleBreakdowns(sbBd, tokenBd, {
+      days: Math.min(90, Math.max(1, Math.floor(Number(bodyJson.days ?? 30)))),
+      connectionId: bodyJson.connection_id,
+      companyId: bodyJson.company_id,
+    });
+  }
+
 
   const mode = bodyJson.mode === "full" ? "full" : "incremental";
   const daysBack = Math.min(
