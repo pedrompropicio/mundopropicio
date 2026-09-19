@@ -489,8 +489,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
     publicado_em: p.published_at,
     ultimo_anuncio: p.last_ad_name,
     gasto_30d_cents: p.spend_30d_cents,
-    ...(eTiktok ? { song_id: p.song_id ?? null, ligado_a_musica: p.song_id === songId } : {}),
+    ...(eVideo ? { song_id: p.song_id ?? null, ligado_a_musica: p.song_id === songId } : {}),
   }));
+
+  const blocoAnalise = analiseVideos
+    ? {
+      _fonte: analiseVideos.fonte.fonte,
+      periodo: analiseVideos.fonte.periodo,
+      data_mais_recente: analiseVideos.fonte.data_mais_recente,
+      series_diarias: analiseVideos.fonte.series_diarias,
+      totais: analiseVideos.totais,
+      top_15_views: analiseVideos.top_15_views,
+      top_10_interacao: analiseVideos.top_10_interacao,
+      top_10_crescimento_7d: analiseVideos.top_10_crescimento_7d,
+      videos_da_musica: analiseVideos.videos_da_musica,
+      padroes: analiseVideos.padroes,
+    }
+    : null;
 
   const entradas = {
     plataforma,
@@ -504,22 +519,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     },
     snapshot: snapshotMusica,
     relatorio_de_lancamento: relatorio,
-    ...(eTiktok ? { videos_promoviveis: listaPosts } : { publicacoes_promoviveis: listaPosts }),
-    ...(analiseVideos
-      ? {
-        analise_videos_tiktok: {
-          _fonte: analiseVideos.fonte.fonte,
-          periodo: analiseVideos.fonte.periodo,
-          data_mais_recente: analiseVideos.fonte.data_mais_recente,
-          series_diarias: analiseVideos.fonte.series_diarias,
-          totais: analiseVideos.totais,
-          top_15_views: analiseVideos.top_15_views,
-          top_10_interacao: analiseVideos.top_10_interacao,
-          top_10_crescimento_7d: analiseVideos.top_10_crescimento_7d,
-          videos_da_musica: analiseVideos.videos_da_musica,
-          padroes: analiseVideos.padroes,
-        },
-      }
+    ...(eVideo ? { videos_promoviveis: listaPosts } : { publicacoes_promoviveis: listaPosts }),
+    ...(blocoAnalise
+      ? (eGoogle ? { analise_videos_youtube: blocoAnalise } : { analise_videos_tiktok: blocoAnalise })
       : {}),
     desempenho_pago: {
       _fonte: "primária — RPCs public.artist_ads_daily(90) + artist_ads_campaigns + artist_ads_ads",
