@@ -47,6 +47,13 @@ function stripJsonFences(text: string): string {
 const OBJETIVOS = ["AWARENESS", "TRAFFIC", "ENGAGEMENT"];
 const MIN_DAILY_CENTS = 100;
 
+// ── TikTok (D-ERP107) ───────────────────────────────────────────────────────
+// Objetivos e mínimo de orçamento do alvo TikTok. O caminho Meta fica igual.
+const OBJETIVOS_TIKTOK = ["REACH", "VIDEO_VIEWS", "TRAFFIC"];
+const MIN_DAILY_CENTS_TIKTOK = 2000;
+// Máximo de vídeos enviados ao LLM (a conta do artista pode ter milhares).
+const MAX_VIDEOS_TIKTOK = 40;
+
 // ── Geografia por ESTADO (região Meta) ──────────────────────────────────────
 // O LLM só propõe NOMES de estado; a chave de região é resolvida aqui, na
 // função, por GET /search?type=adgeolocation&location_types=['region'].
