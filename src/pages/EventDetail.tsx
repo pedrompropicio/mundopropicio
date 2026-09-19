@@ -661,12 +661,11 @@ export default function EventDetail() {
   // If ticket sales exist, they replace only ticket-office transactions; other income (e.g. sponsors) still counts.
   const hasTicketSales = ticketSalesRevenue > 0;
   const totalIncome = hasTicketSales ? ticketSalesRevenue + nonTicketTransactionIncome : transactionIncome;
-  // Despesas reais do próprio evento + quota-parte do Master (apenas para vista de sub-evento isolado).
-  const ownExpenses = operationalExpenseTransactions.reduce((s, t) => s + Number(t.amount), 0);
-  const totalExpenses =
-    ownExpenses + Number(masterExpenseShare || 0) + Number(masterForecastShare || 0) + Number(calculatedCacheImpact || 0);
+  // (#217) A conta legada `totalExpenses`/`profit` foi removida: não alimentava
+  // nada no ecrã (os cards usam `cardExpenseValue`/`cardIncomeValue`) e mantinha
+  // um segundo critério de custo a competir com o do card.
 
-  const profit = totalIncome - totalExpenses;
+
 
   const copyTicketingFromSubEvent = async (sourceId: string) => {
     if (!selectedSubEvent) return;
