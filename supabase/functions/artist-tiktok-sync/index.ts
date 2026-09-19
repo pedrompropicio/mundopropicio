@@ -487,7 +487,7 @@ Deno.serve(async (req) => {
     const resBody = {
       ok: errors.length === 0,
       dry_run: dryRun,
-      params: { max_videos: maxVideos, since: body.since ?? null },
+      params: { max_videos: maxVideos, since: body.since ?? null, cursor: inputCursor },
       connections: connections.length,
       api_calls: apiCalls,
       rows_written: dryRun ? 0 : rowsWritten,
