@@ -625,8 +625,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     // Estados. No Meta → geo_regions [{nome, key}] com a chave resolvida na Meta.
-    // No TikTok → geo_regions é LISTA DE NOMES; os location_ids são resolvidos
-    // pela crm-tiktok-publish-execute.
+    // No TikTok/Google → geo_regions é LISTA DE NOMES; os location_ids (TikTok) e
+    // os geoTargetConstants (Google) são resolvidos no motor de publicação.
     const estadosBrutos: Any[] = Array.isArray(pub.estados)
       ? pub.estados
       : (Array.isArray(pub.geo_regions) ? pub.geo_regions.map((r: Any) => r?.nome ?? r) : []);
@@ -636,9 +636,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     delete pub.estados;
     delete pub.geo_regions;
     if (nomes.length > 0) {
-      if (eTiktok) {
-        // Nomes validados contra public.br_estados (comparação sem acentos); a
-        // crm-tiktok-publish-execute resolve os location_ids a partir do nome.
+      if (eVideo) {
+        // Nomes validados contra public.br_estados (comparação sem acentos); o
+        // motor de publicação resolve as chaves da plataforma a partir do nome.
         const unicos: string[] = [];
         for (const nome of nomes) {
           const oficial = estadosBr.length === 0 ? nome : estadoOficial(nome, estadosBr);
