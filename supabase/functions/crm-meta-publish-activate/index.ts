@@ -161,17 +161,62 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // 2) Conexão Meta ativa
-  const { data: linkRow, error: linkErr } = await (supabase as any)
-    .schema("crm").from("ad_platform_account_links")
-    .select("connection_id, is_primary, enabled")
-    .eq("enabled", true)
-    .eq("company_id", planRow.company_id)
-    .order("is_primary", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (linkErr) return json({ ok: false, error_user_msg: `Falha a ler conexão Meta: ${linkErr.message}` }, 200);
-  if (!linkRow) return json({ ok: false, error_user_msg: "Sem conexão Meta ativa para esta empresa." }, 200);
-  const connectionId = linkRow.connection_id as string;
+  // Alvo música (d): a ligação vem SEMPRE do plano — nunca de ad_platform_account_links.
+  let connectionId: string;
+  let adAccountId = "";
+  if (isSong) {
+    const { data: conn, error: connErr } = await (admin as any)
+      .schema("crm").from("ad_platform_connections")
+      .select("id, status, connection_scope, selected_ad_account_id")
+      .eq("id", (planRow as any).connection_id)
+      .eq("connection_scope", "artist")
+      .maybeSingle();
+    if (connErr) return json({ ok: false, error_user_msg: `Falha a ler a ligação do artista: ${connErr.message}` }, 200);
+    if (!conn) return json({ ok: false, error: "sem_ligacao_artista", error_user_msg: "O plano não tem ligação de anúncios do artista." }, 200);
+    if ((conn as any).status !== "active") {
+      return json({ ok: false, error: "ligacao_inactiva", error_user_msg: "A ligação de anúncios do artista não está activa." }, 200);
+    }
+    connectionId = (conn as any).id as string;
+    adAccountId = (conn as any).selected_ad_account_id ?? "";
+  } else {
+    const { data: linkRow, error: linkErr } = await (supabase as any)
+      .schema("crm").from("ad_platform_account_links")
+      .select("connection_id, is_primary, enabled")
+      .eq("enabled", true)
+      .eq("company_id", planRow.company_id)
+      .order("is_primary", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (linkErr) return json({ ok: false, error_user_msg: `Falha a ler conexão Meta: ${linkErr.message}` }, 200);
+    if (!linkRow) return json({ ok: false, error_user_msg: "Sem conexão Meta ativa para esta empresa." }, 200);
+    connectionId = linkRow.connection_id as string;
+  }
+
+  // e) TETO (só música, só ao activar) — mesma regra partilhada da publicação.
+  if (isSong && acao === "ativar") {
+    const teto = await checkTetoPlano(admin as any, {
+      connectionId,
+      moeda: (planRow as any).moeda,
+      adsets,
+      usaLifetime: !!(planRow as any).end_time,
+      diasJanela: (planRow as any).end_time && (planRow as any).start_time
+        ? Math.max(1, Math.ceil((new Date((planRow as any).end_time).getTime() - new Date((planRow as any).start_time).getTime()) / 86400000))
+        : 1,
+      planId: planId!,
+    });
+    if (!teto.ok) {
+      return json({
+        ok: false, error: teto.error, teto: teto.teto, pedido: teto.pedido,
+        ja_comprometido: teto.ja_comprometido, moeda: teto.moeda,
+        error_user_msg: teto.error === "sem_teto"
+          ? "Esta conta de anúncios não tem teto de orçamento definido — define o teto antes de activar."
+          : teto.error === "moeda_diferente_do_teto"
+          ? "A moeda do plano não é a do teto desta conta."
+          : `Acima do teto diário (${teto.teto} ${teto.moeda ?? ""}): pedido ${teto.pedido}, já comprometido ${teto.ja_comprometido}.`,
+      }, 422);
+    }
+  }
+
 
   // 3) Decifra access_token
   const { data: tokenRows, error: tokenErr } = await supabase.rpc(
