@@ -279,7 +279,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       }
       await persist();
     }
-    await persist({ estado: "pausado", paused_at: new Date().toISOString(), activation_error: null });
+    await persist({ estado: "pausado", activation_error: null });
   }
 
   await espelhaStatus();
