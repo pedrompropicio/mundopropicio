@@ -130,9 +130,19 @@ Cada anúncio indica **`creative_ids` (biblioteca) OU `existing_post`**
 identificador é utilizável pela Marketing API.
 
 Validações da RPC (erros legíveis, ERRCODE 22023): objectivo válido, ≥1 adset, cada adset
-com orçamento diário > 0 e ≥1 anúncio, e `link_destino` `https://` obrigatório quando o
-objectivo é `TRAFFIC`. A coerência música↔artista↔connection é garantida pelo trigger
-`crm.assert_song_target_coherent` (F1). A moeda do plano é a da conta da connection.
+com orçamento diário > 0, ≥1 anúncio e **pelo menos um país em `publico_sugerido.geo`**
+("conjunto N: indica pelo menos um país em publico_sugerido.geo (ex.: [\"BR\"])"), e
+`link_destino` `https://` obrigatório quando o objectivo é `TRAFFIC`. A coerência
+música↔artista↔connection é garantida pelo trigger `crm.assert_song_target_coherent` (F1).
+A moeda do plano é a da conta da connection.
+
+**Geografia (F2b — correcção, 19/09/2026).** O alvo música **nunca** tem geografia por
+omissão. Campos do contrato: `publico_sugerido.geo` (países, ISO-2 ou nome normalizável),
+`publico_sugerido.idade_min` e `publico_sugerido.idade_max`. Sem país: publicação real e
+`preflight` respondem `422 { ok:false, error:'sem_geografia', adset:[…] }`; o `dry_run`
+devolve o payload **sem** `geo_locations` e acrescenta o aviso `sem_geografia`. Idade em
+falta continua 18–65. O default `["PT"]` do alvo **evento** fica inalterado. `url_tags`
+(UTMs) só vai no criativo quando existe destino efectivo — sem link, não é enviado.
 
 **Dry-run.** `POST { company_id, plan_id, dry_run: true }` devolve
 `{ ok:true, dry_run:true, estado_plano, payloads:{campaign, adsets, ads}, avisos }` sem
