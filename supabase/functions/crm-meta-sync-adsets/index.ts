@@ -159,8 +159,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${adAccountId}/adsets`);
     url.searchParams.set("fields", ADSET_FIELDS);
     url.searchParams.set("limit", "100");
+    // D-ERP93: um conjunto cuja campanha foi pausada fica com o estado herdado
+    // CAMPAIGN_PAUSED, não PAUSED — sem este valor os conjuntos (e os anúncios que
+    // lhes pertencem) desapareciam do snapshot. Não se alarga a DELETED/ARCHIVED.
     const filtering: any[] = [
-      { field: "adset.effective_status", operator: "IN", value: ["ACTIVE", "PAUSED"] },
+      {
+        field: "adset.effective_status",
+        operator: "IN",
+        value: ["ACTIVE", "PAUSED", "CAMPAIGN_PAUSED"],
+      },
       { field: "campaign.effective_status", operator: "IN", value: ["ACTIVE", "PAUSED"] },
     ];
     if (campaignFilter) {
