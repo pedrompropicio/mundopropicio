@@ -102,20 +102,34 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 1) Lê o plano (RLS valida pertença ao company)
   const { data: planRow, error: planErr } = await (supabase as any)
     .schema("crm").from("meta_publish_plan")
-    .select("id, company_id, estado, meta_campaign_id, adsets, song_id")
+    .select("id, company_id, estado, meta_campaign_id, adsets, song_id, artist_id, connection_id, moeda, start_time, end_time")
     .eq("id", planId)
     .maybeSingle();
   if (planErr) return json({ ok: false, error_user_msg: `Falha a ler o plano: ${planErr.message}` }, 200);
   if (!planRow) return json({ ok: false, error_user_msg: "Plano não encontrado." }, 404);
   if (planRow.company_id !== companyIdIn) return json({ ok: false, error_user_msg: "Plano não pertence a esta empresa." }, 403);
 
-  // D-ERP95 F2b: a activação do alvo música (aprovação + teto) é a F3.
-  if ((planRow as any).song_id) {
-    return json({
-      ok: false, error: "alvo_musica_f3",
-      error_user_msg: "A activação de campanhas de música entra na fase seguinte (F3).",
-    }, 200);
+  // D-ERP95 F3 — ALVO MÚSICA. Tudo o que segue é condicionado a song_id: os
+  // planos de evento continuam byte a byte como antes.
+  const isSong = !!(planRow as any).song_id;
+  if (isSong) {
+    // a) Sessão de utilizador obrigatória — o service_role nunca activa nem pausa música.
+    if (!userId) {
+      return json({ ok: false, error: "sem_sessao", error_user_msg: "É necessária sessão de utilizador." }, 401);
+    }
+    // b) Papéis: activar só admin/platform_admin; pausar também manager/marketing_manager.
+    const guard = acao === "ativar" ? "artist_ads_assert_cap_admin" : "artist_ads_assert_write";
+    const { error: roleErr } = await supabase.rpc(guard, { p_company_id: planRow.company_id });
+    if (roleErr) {
+      return json({
+        ok: false, error: "sem_permissao",
+        error_user_msg: acao === "ativar"
+          ? "Só um administrador pode activar campanhas de música."
+          : "Sem permissão para pausar campanhas desta empresa.",
+      }, 403);
+    }
   }
+
 
   const estado: string = planRow.estado ?? "";
   if (acao === "ativar" && !(estado === "publicado" || estado === "pausado")) {
