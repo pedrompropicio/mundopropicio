@@ -35,6 +35,7 @@ const FUNCTION_NAME = "artist-instagram-sync";
 const PLATFORM = "instagram";
 const SOURCE = "platform_api";
 const MEDIA_LIMIT = 25;
+const INVOKE_BUDGET_MS = 110_000;
 
 /** Métricas de conta pedidas uma a uma (tolerante a métricas indisponíveis). */
 const ACCOUNT_INSIGHTS = [
@@ -78,11 +79,14 @@ Deno.serve(async (req) => {
   const masterKey = Deno.env.get("ENCRYPTION_MASTER_KEY");
   if (!masterKey) return json({ error: "ENCRYPTION_MASTER_KEY não configurada" }, 500);
 
-  let body: { artist_id?: string; connection_id?: string; dry_run?: boolean } = {};
+  let body: { artist_id?: string; connection_id?: string; dry_run?: boolean; max_media?: number } = {};
   try {
     body = await req.json();
   } catch (_e) { /* body opcional */ }
   const dryRun = body.dry_run !== false;
+  const maxMedia = Number.isFinite(body.max_media) && (body.max_media ?? 0) > 0
+    ? Math.min(Math.floor(body.max_media as number), 200)
+    : MEDIA_LIMIT;
 
   // Duas origens: 'instagram' = ligação directa (Instagram Login, token do
   // utilizador em graph.instagram.com); 'meta' = Facebook Login (token de Página).
@@ -332,7 +336,7 @@ Deno.serve(async (req) => {
         `${node}/media`,
         {
           fields: "id,caption,media_type,media_product_type,permalink,thumbnail_url,media_url,timestamp",
-          limit: String(MEDIA_LIMIT),
+          limit: String(maxMedia),
         },
         token,
         base,
@@ -409,9 +413,17 @@ Deno.serve(async (req) => {
           );
 
           const cmRows: Array<Record<string, unknown>> = [];
+          let mediaProcessed = 0;
           for (const m of mediaList) {
+            if (Date.now() - startedMs > INVOKE_BUDGET_MS) {
+              notes.push(
+                `paragem por orçamento de tempo após ${mediaProcessed} publicações — repetir com max_media`,
+              );
+              break;
+            }
             const contentId = byExternal.get(String(m.id));
             if (!contentId) continue;
+            mediaProcessed++;
             const ins = await graphGet(
               `${m.id}/insights`,
               { metric: MEDIA_INSIGHTS.join(",") },
@@ -505,6 +517,7 @@ Deno.serve(async (req) => {
   const resBody = {
     ok: errors.length === 0,
     dry_run: dryRun,
+    params: { max_media: maxMedia },
     graph_version: "v25.0",
     connections: connections.length,
     graph_calls: graphCalls,
