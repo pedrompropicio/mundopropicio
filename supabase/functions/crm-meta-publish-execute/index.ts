@@ -490,12 +490,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const semGeo = isSong && !temGeo(a);
     const targeting: Record<string, unknown> = {};
     if (!semGeo) {
-      targeting.geo_locations = {
+      const geoLocations: Record<string, unknown> = {
         countries: normalizeCountries(
           Array.isArray(pub.geo) && pub.geo.length > 0 ? pub.geo : ["PT"],
           (codigo, detalhe) => avisos.push({ codigo, adset: a.trigger_nome, detalhe }),
         ),
       };
+      // Estados/regiões: chaves de região da Meta já resolvidas na geração do
+      // plano (publico_sugerido.geo_regions = [{nome, key}]). countries mantém-se.
+      const regs = Array.isArray(pub.geo_regions)
+        ? pub.geo_regions
+          .map((r: any) => (typeof r === "string" ? r : r?.key))
+          .filter((k: any) => typeof k === "string" && k.trim().length > 0)
+          .map((k: string) => ({ key: String(k) }))
+        : [];
+      if (regs.length > 0) geoLocations.regions = regs;
+      targeting.geo_locations = geoLocations;
     }
     targeting.age_min = Number.isFinite(pub.idade_min) ? pub.idade_min : 18;
     targeting.age_max = Number.isFinite(pub.idade_max) ? pub.idade_max : 65;

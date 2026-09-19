@@ -47,6 +47,61 @@ function stripJsonFences(text: string): string {
 const OBJETIVOS = ["AWARENESS", "TRAFFIC", "ENGAGEMENT"];
 const MIN_DAILY_CENTS = 100;
 
+// ── Geografia por ESTADO (região Meta) ──────────────────────────────────────
+// O LLM só propõe NOMES de estado; a chave de região é resolvida aqui, na
+// função, por GET /search?type=adgeolocation&location_types=['region'].
+// Fronteira do módulo: não há leitura de crm.* nem token de ligação — usa-se o
+// token de aplicação (META_APP_ID|META_APP_SECRET), que basta para /search.
+const META_GRAPH_VERSION = "v18.0";
+const META_APP_ID = Deno.env.get("META_APP_ID");
+const META_APP_SECRET = Deno.env.get("META_APP_SECRET");
+
+function metaAppToken(): string | null {
+  return META_APP_ID && META_APP_SECRET ? `${META_APP_ID}|${META_APP_SECRET}` : null;
+}
+
+const regionCache = new Map<string, string | null>();
+
+async function resolveRegionKey(
+  nome: string,
+  countryCode: string,
+  token: string,
+): Promise<string | null> {
+  const chave = `${countryCode}:${nome.toLowerCase()}`;
+  if (regionCache.has(chave)) return regionCache.get(chave) ?? null;
+  let key: string | null = null;
+  try {
+    const u = new URL(`https://graph.facebook.com/${META_GRAPH_VERSION}/search`);
+    u.searchParams.set("type", "adgeolocation");
+    u.searchParams.set("location_types", '["region"]');
+    u.searchParams.set("q", nome);
+    u.searchParams.set("country_code", countryCode);
+    u.searchParams.set("limit", "10");
+    u.searchParams.set("locale", "pt_BR");
+    u.searchParams.set("access_token", token);
+    const r = await fetch(u.toString());
+    // deno-lint-ignore no-explicit-any
+    const j: any = await r.json();
+    if (r.ok && !j?.error && Array.isArray(j?.data)) {
+      // deno-lint-ignore no-explicit-any
+      const mesmoPais = j.data.filter((d: any) =>
+        String(d?.country_code ?? countryCode).toUpperCase() === countryCode
+      );
+      const alvo = nome.trim().toLowerCase();
+      // deno-lint-ignore no-explicit-any
+      const exacto = mesmoPais.find((d: any) => String(d?.name ?? "").trim().toLowerCase() === alvo);
+      const escolhido = exacto ?? mesmoPais[0];
+      if (escolhido?.key) key = String(escolhido.key);
+    } else {
+      console.warn(`[${FUNCTION_NAME}] /search region falhou`, j?.error?.message ?? r.status);
+    }
+  } catch (e) {
+    console.warn(`[${FUNCTION_NAME}] /search region exception`, String(e));
+  }
+  regionCache.set(chave, key);
+  return key;
+}
+
 // deno-lint-ignore no-explicit-any
 type Any = any;
 
@@ -58,7 +113,7 @@ REGRAS ABSOLUTAS:
 1. Só pode citar números que estão no JSON do snapshot. É PROIBIDO estimar, inventar ou recalcular ritmos por dia (use o campo de ritmo que vem no snapshot). Cada número citado traz a data do dado.
 2. Objetivo só pode ser AWARENESS, TRAFFIC ou ENGAGEMENT. Campanhas de conversão/vendas são recusadas neste módulo — nunca as proponha.
 3. TRAFFIC só é permitido se a música tiver smart link https no snapshot (limites.smart_link_url). Sem smart link, proponha AWARENESS ou ENGAGEMENT e registe a falta em avisos.
-4. Geografia: publico_sugerido.geo só aceita códigos ISO de país com 2 letras (ex.: ["BR"]). É PROIBIDO escrever cidades ou estados (ex.: "Natal, Rio Grande do Norte") — o motor de publicação trata cada entrada como país e a Meta recusa. Por omissão ["BR"].
+4. Geografia: publico_sugerido.geo só aceita códigos ISO de país com 2 letras (ex.: ["BR"]) e é SEMPRE obrigatória. Para estreitar dentro do país, use publico_sugerido.estados: nomes de estados brasileiros escritos por extenso (ex.: ["Rio Grande do Norte","Paraíba","Ceará"]). É PROIBIDO escrever cidades (ex.: "Natal") ou siglas (ex.: "RN") — cidades ficam fora desta versão. A chave Meta de cada estado é resolvida pelo motor, não por você.
 5. No máximo 3 conjuntos de anúncios. Cada conjunto tem UM público e UM anúncio, e esse anúncio promove uma publicação existente (existing_post) da lista publicacoes_promoviveis. NUNCA invente post_ref: use exactamente um post_ref dessa lista.
 6. Por omissão não use end_time (orçamento diário). Se propuser end_time, tem de vir start_time e end_time > start_time.
 7. A soma dos orcamento_cents dos conjuntos por dia não pode passar o disponível em limites.available_daily (na moeda da conta). Cada conjunto tem pelo menos 100 cents por dia.
@@ -67,6 +122,10 @@ REGRAS ABSOLUTAS:
 10. Não existe histórico pago por região, idade ou género: os dados pagos são agregados por anúncio e por dia. Quando não houver histórico pago para uma região ou um público, escreva isso literalmente ("sem histórico pago nesta região" / "sem histórico pago para este público") em vez de inferir a partir da demografia orgânica.
 11. demografia_organica_instagram é FONTE SECUNDÁRIA e só de Instagram orgânico. Se a usar, identifique-a como tal no texto ("fonte secundária: demografia orgânica do Instagram, snapshot de <data>"). Nunca a apresente como desempenho pago.
 12. Criativo: justifique a publicação escolhida com o desempenho pago do anúncio/criativo correspondente quando existir em desempenho_pago.anuncios; se não existir, diga "publicação sem histórico pago".
+13. ARTISTA REGIONAL: ordene a geografia por CONCENTRAÇÃO (quota da base do artista nesse estado/região), NUNCA por valor absoluto de uma cidade. Exemplo real do erro a evitar: São Paulo entrou num plano só por ser a 2.ª cidade em seguidores (7.596), contra Natal (19.557) e ~35,4 mil apenas nas cidades do Rio Grande do Norte no top 30 (artist_audience_demographics, instagram/followers, snapshot de 19/09/2026).
+14. Metrópoles fora da região-base (ex.: São Paulo, Rio de Janeiro) só entram com evidência de desempenho PAGO ou de streaming no snapshot, e NUNCA na 1.ª campanha.
+15. Quando os dados mostrarem base concentrada numa região, escreva explicitamente na justificação "artista regional: base RN/Nordeste" (ou a região que os dados mostrarem).
+16. Sempre que estreitar idades (qualquer coisa diferente de 18–65), cite a distribuição etária real da base com a data do dado. Exemplo do dado do Litto a 19/09/2026: 25–34 = 42,9 %, 35–44 = 24,5 %, 18–24 = 18,5 % — foi por não citar que saiu um conjunto 18–34 contra uma base 25–44. Sem esse dado citado, mantenha 18–65.
 
 FORMATO DE RESPOSTA — responde APENAS com JSON puro (sem markdown fences):
 {
@@ -79,6 +138,7 @@ FORMATO DE RESPOSTA — responde APENAS com JSON puro (sem markdown fences):
       "orcamento_cents": <inteiro, por dia>,
       "publico_sugerido": {
         "geo": ["BR"],
+        "estados": ["Rio Grande do Norte"],
         "idade_min": 18,
         "idade_max": 65,
         "descricao": "quem é este público e porque"
@@ -517,7 +577,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         if (!geo.includes(iso)) geo.push(iso);
       } else if (s.length > 0) {
         avisos.push(
-          `geo_cidade_descartada: conjunto "${a.trigger_nome ?? "?"}" pedia "${s}" — só são aceites códigos ISO de país com 2 letras`,
+          `geo_cidade_descartada: conjunto "${a.trigger_nome ?? "?"}" pedia "${s}" em geo — em geo só entram códigos ISO de país com 2 letras (estados vão em publico_sugerido.estados)`,
         );
       }
     }
@@ -527,6 +587,41 @@ Deno.serve(async (req: Request): Promise<Response> => {
     } else {
       pub.geo = geo;
     }
+
+    // Estados → geo_regions [{nome, key}]. A chave vem sempre da Meta; um estado
+    // que não resolva NÃO entra e deixa aviso com o nome tentado.
+    const estadosBrutos: Any[] = Array.isArray(pub.estados)
+      ? pub.estados
+      : (Array.isArray(pub.geo_regions) ? pub.geo_regions.map((r: Any) => r?.nome ?? r) : []);
+    const nomes = estadosBrutos
+      .map((e) => (typeof e === "string" ? e.trim() : ""))
+      .filter((e) => e.length > 2);
+    delete pub.estados;
+    delete pub.geo_regions;
+    if (nomes.length > 0) {
+      const token = metaAppToken();
+      if (!token) {
+        avisos.push(
+          `geo_regions_nao_resolvidas: sem credenciais de aplicação Meta — estados pedidos ficaram fora (${nomes.join(", ")})`,
+        );
+      } else {
+        const pais = pub.geo[0] ?? "BR";
+        const regioes: Any[] = [];
+        for (const nome of nomes) {
+          const key = await resolveRegionKey(nome, pais, token);
+          if (key) {
+            if (!regioes.some((r) => r.key === key)) regioes.push({ nome, key });
+          } else {
+            avisos.push(
+              `geo_regiao_nao_resolvida: conjunto "${a.trigger_nome ?? "?"}" pedia o estado "${nome}" — não foi encontrado na Meta e ficou fora`,
+            );
+          }
+        }
+        if (regioes.length > 0) pub.geo_regions = regioes;
+      }
+    }
+
+
 
     if (!Number.isFinite(pub.idade_min)) pub.idade_min = 18;
     if (!Number.isFinite(pub.idade_max)) pub.idade_max = 65;

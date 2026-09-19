@@ -359,7 +359,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // Conjuntos
-  type AdsetPlano = { idx: number; id: string; params: Record<string, string>; antes: any; depois: any; campos: string[]; targeting?: any; geo?: string[]; idades?: { min: number; max: number } };
+  type AdsetPlano = { idx: number; id: string; params: Record<string, string>; antes: any; depois: any; campos: string[]; targeting?: any; geo?: string[]; geo_regions?: any; idades?: { min: number; max: number } };
   const adsetPlanos: AdsetPlano[] = [];
   const agora = Date.now();
   for (let i = 0; i < adsetsPlano.length; i++) {
@@ -410,9 +410,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const paises = alteracoes.geografia.geo
           .filter((x: any) => typeof x === "string" && x.trim())
           .map((x: string) => x.trim().toUpperCase());
-        targetingNovo.geo_locations = { ...(targetingNovo.geo_locations ?? {}), countries: paises };
+        const geoLoc: any = { ...(targetingNovo.geo_locations ?? {}), countries: paises };
+        // Estados/regiões: chaves de região já resolvidas (plano ou pedido).
+        // countries mantém-se sempre; regiões são substituídas em bloco.
+        const regs = Array.isArray(alteracoes.geografia.geo_regions)
+          ? alteracoes.geografia.geo_regions
+            .map((r: any) => (typeof r === "string" ? r : r?.key))
+            .filter((k: any) => typeof k === "string" && k.trim())
+            .map((k: string) => ({ key: String(k) }))
+          : null;
+        if (regs && regs.length > 0) geoLoc.regions = regs;
+        else if (regs) delete geoLoc.regions;
+        targetingNovo.geo_locations = geoLoc;
         antes.geo = (m?.targeting?.geo_locations?.countries ?? null);
+        antes.geo_regions = (m?.targeting?.geo_locations?.regions ?? null);
         depois.geo = paises;
+        if (regs) depois.geo_regions = regs;
       }
       if (pedeIdades) {
         targetingNovo.age_min = alteracoes.idades.idade_min;
@@ -433,6 +446,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         campos,
         targeting: targetingNovo,
         geo: pedeGeo ? (depois.geo as string[]) : undefined,
+        geo_regions: pedeGeo && depois.geo_regions !== undefined ? alteracoes.geografia.geo_regions : undefined,
         idades: pedeIdades ? { min: alteracoes.idades.idade_min, max: alteracoes.idades.idade_max } : undefined,
       });
       resultado.push({ nivel: "conjunto", external_id: String(a.meta_adset_id), campos, antes, depois, ok: dryRun });
@@ -575,6 +589,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (ap.depois.lifetime_budget_cents !== undefined) a.orcamento_cents = ap.depois.lifetime_budget_cents;
     a.publico_sugerido = a.publico_sugerido ?? {};
     if (ap.geo) a.publico_sugerido.geo = ap.geo;
+    if (ap.geo_regions) a.publico_sugerido.geo_regions = ap.geo_regions;
     if (ap.idades) {
       a.publico_sugerido.idade_min = ap.idades.min;
       a.publico_sugerido.idade_max = ap.idades.max;

@@ -50,3 +50,18 @@ v2 (D-ERP100):
 - `resumo.fontes` = `[{fonte, periodo, ultima_atualizacao}]` para o ecrã.
 
 Ver D-ERP100, D-ERP98 e D-ERP95 (F1/F2a/F2b/F3).
+
+v3 (D-ERP101) — geografia por estado:
+
+- `publico_sugerido.geo` (países ISO-2) continua obrigatório; `publico_sugerido.geo_regions`
+  = `[{nome, key}]` é opcional e estreita por estado. Cidades continuam fora.
+- O LLM só propõe NOMES em `publico_sugerido.estados`; a chave de região é resolvida pela
+  FUNÇÃO via `GET /search?type=adgeolocation&location_types=['region']` com o token de
+  aplicação (`META_APP_ID|META_APP_SECRET`) — nunca com token de ligação, nunca lendo `crm.*`.
+  Estado não resolvido fica fora + aviso `geo_regiao_nao_resolvida`.
+- `crm-meta-publish-execute` e `crm-meta-publish-update` enviam
+  `targeting.geo_locations.regions=[{key}]` mantendo `countries`.
+- Prompt: geografia por CONCENTRAÇÃO (nunca cidade em absoluto), metrópoles fora da
+  região-base só com prova paga/streaming e nunca na 1.ª campanha, dizer "artista regional:
+  base RN/Nordeste", e citar a distribuição etária com data antes de estreitar idades.
+- `artist_ads_plan_validate` não precisou de alteração (ignora chaves extra).
