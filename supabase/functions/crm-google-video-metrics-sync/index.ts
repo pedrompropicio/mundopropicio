@@ -1,0 +1,721 @@
+// crm-google-video-metrics-sync  (PASSO 1 da captação de métricas de vídeo)
+//
+// Só LEITURA na Google Ads API + escrita nas tabelas-espelho que já existem:
+//   crm.google_campaign_insights_daily (raw->'metrics' + raw.video_views)
+//   crm.google_campaign               (raw.config + metrics.reach_*)
+//   crm.google_ad_group               (campanhas VIDEO)
+//
+// Âmbito: ligações google com connection_scope='artist' (hoje só a do Litto).
+// NÃO altera o crm-google-sync-campaigns (caminho de eventos intacto), nem
+// nenhuma RPC. Nomes de métricas são CONFIRMADOS em runtime pelo
+// GoogleAdsFieldService antes de serem pedidos (nada é adivinhado).
+//
+// Versão da API: v24 (a mesma do sync).
+
+import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { getGoogleAdsAccessToken } from "../_shared/google-ads.ts";
+import { finishSyncRun, resolveStatus, startSyncRun } from "../_shared/sync-run.ts";
+
+const API_VERSION = "v24";
+const BASE = `https://googleads.googleapis.com/${API_VERSION}`;
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const DEV_TOKEN = Deno.env.get("GOOGLE_ADS_DEVELOPER_TOKEN");
+const LOGIN_CID_FALLBACK = Deno.env.get("GOOGLE_ADS_LOGIN_CUSTOMER_ID");
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+type Row = Record<string, any>;
+
+interface Ctx {
+  accessToken: string;
+  loginCustomerId: string;
+  customerId: string;
+}
+
+async function gaql(ctx: Ctx, query: string): Promise<Row[]> {
+  const resp = await fetch(`${BASE}/customers/${ctx.customerId}/googleAds:searchStream`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${ctx.accessToken}`,
+      "developer-token": DEV_TOKEN!,
+      "login-customer-id": ctx.loginCustomerId,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query }),
+  });
+  const text = await resp.text();
+  if (!resp.ok) {
+    console.error(`[gaql] ${resp.status} customer=${ctx.customerId} body=${text.slice(0, 2000)}`);
+    throw new Error(`google_ads_api ${resp.status}: ${text.slice(0, 2000)}`);
+  }
+  const parsed = JSON.parse(text);
+  const chunks = Array.isArray(parsed) ? parsed : [parsed];
+  const out: Row[] = [];
+  for (const c of chunks) if (Array.isArray(c?.results)) out.push(...c.results);
+  return out;
+}
+
+/** GoogleAdsFieldService — confirma nomes e `selectable` antes de pedir. */
+async function searchFields(ctx: Ctx, like: string): Promise<Row[]> {
+  const resp = await fetch(`${BASE}/googleAdsFields:search`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${ctx.accessToken}`,
+      "developer-token": DEV_TOKEN!,
+      "login-customer-id": ctx.loginCustomerId,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query:
+        `SELECT name, selectable, filterable, data_type, metrics, segments FROM google_ads_field WHERE name LIKE '${like}'`,
+    }),
+  });
+  const text = await resp.text();
+  if (!resp.ok) throw new Error(`google_ads_fields ${resp.status}: ${text.slice(0, 2000)}`);
+  const parsed = JSON.parse(text);
+  return Array.isArray(parsed?.results) ? parsed.results : [];
+}
+
+const PROBE_LIKES = [
+  "%video%",
+  "%average_cpv%",
+  "%engagements%",
+  "%unique_users%",
+  "%average_impression_frequency_per_user%",
+  "campaign.%",
+  "ad_group.%",
+];
+
+/** Nomes selecionáveis existentes na versão atual da API. */
+async function probeSelectable(ctx: Ctx): Promise<{ selectable: Set<string>; found: string[] }> {
+  const selectable = new Set<string>();
+  const found: string[] = [];
+  for (const like of PROBE_LIKES) {
+    const rows = await searchFields(ctx, like);
+    for (const r of rows) {
+      const name = String(r.name ?? "");
+      if (!name) continue;
+      if (r.selectable === true) {
+        selectable.add(name);
+        if (!like.endsWith(".%")) found.push(name);
+      }
+    }
+  }
+  console.log(
+    `[probe] selectable=${selectable.size} campos de interesse: ${
+      found.sort().join(", ")
+    }`,
+  );
+  return { selectable, found: found.sort() };
+}
+
+/** Métricas de vídeo desejadas → só as que a API confirma. */
+const VIDEO_METRIC_CANDIDATES = [
+  "metrics.video_views",
+  "metrics.video_trueview_views",
+  "metrics.video_view_rate",
+  "metrics.video_quartile_p25_rate",
+  "metrics.video_quartile_p50_rate",
+  "metrics.video_quartile_p75_rate",
+  "metrics.video_quartile_p100_rate",
+  "metrics.average_cpv",
+  "metrics.trueview_average_cpv",
+  "metrics.engagements",
+];
+
+const REACH_METRIC_CANDIDATES = [
+  "metrics.unique_users",
+  "metrics.average_impression_frequency_per_user",
+];
+
+const CAMPAIGN_CONFIG_CANDIDATES = [
+  "campaign.advertising_channel_type",
+  "campaign.advertising_channel_sub_type",
+  "campaign.status",
+  "campaign.frequency_caps",
+  "campaign.video_brand_safety_suitability",
+  "campaign.start_date_time",
+  "campaign.end_date_time",
+  "campaign.bidding_strategy_type",
+  "campaign.target_cpm.target_frequency_goal",
+  "campaign.video_campaign_settings.video_ad_inventory_control.allow_in_stream",
+  "campaign.video_campaign_settings.video_ad_inventory_control.allow_in_feed",
+  "campaign.video_campaign_settings.video_ad_inventory_control.allow_shorts",
+];
+
+const CRITERION_CANDIDATES = [
+  "campaign_criterion.criterion_id",
+  "campaign_criterion.type",
+  "campaign_criterion.negative",
+  "campaign_criterion.location.geo_target_constant",
+  "campaign_criterion.language.language_constant",
+  "campaign_criterion.age_range.type",
+  "campaign_criterion.gender.type",
+  "campaign_criterion.device.type",
+  "campaign_criterion.bid_modifier",
+];
+
+function keep(list: string[], selectable: Set<string>): string[] {
+  return list.filter((n) => selectable.has(n));
+}
+
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+function range(days: number): { since: string; until: string } {
+  const until = new Date();
+  const since = new Date(until.getTime() - days * 86400000);
+  return { since: isoDate(since), until: isoDate(until) };
+}
+function microsToCents(v: unknown): number {
+  if (v == null) return 0;
+  return Math.round(Number(v) / 10000);
+}
+function num(v: unknown): number {
+  return v == null ? 0 : Number(v);
+}
+/** "metrics.video_quartile_p25_rate" → "videoQuartileP25Rate" (chave do JSON). */
+function apiKeyToJson(field: string): string {
+  const leaf = field.split(".").slice(1).join("_");
+  return leaf.replace(/_([a-z0-9])/g, (_m, c) => String(c).toUpperCase());
+}
+function geoId(v: unknown): string | null {
+  const m = v == null ? null : String(v).match(/(\d+)\s*$/);
+  return m ? m[1] : null;
+}
+
+// ---------------------------------------------------------------------------
+
+Deno.serve(async (req: Request): Promise<Response> => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+
+  // auth: service_role (cron) ou JWT de utilizador autenticado
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return json({ error: "unauthorized" }, 401);
+  let isServiceRole = token === SERVICE_ROLE;
+  if (!isServiceRole) {
+    try {
+      const parts = token.split(".");
+      if (parts.length >= 2) {
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+        if (payload?.role === "service_role") isServiceRole = true;
+      }
+    } catch (_e) { /* tenta como user token */ }
+  }
+  if (!isServiceRole) {
+    const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data, error } = await supa.auth.getClaims(token);
+    if (error || !data?.claims?.sub) return json({ error: "unauthorized" }, 401);
+  }
+
+  if (!DEV_TOKEN) return json({ error: "missing_secret_GOOGLE_ADS_DEVELOPER_TOKEN" }, 500);
+
+  let body: {
+    connection_id?: string;
+    company_id?: string;
+    days?: number;
+    probe_only?: boolean;
+  } = {};
+  try {
+    if (req.headers.get("content-type")?.includes("application/json")) body = await req.json();
+  } catch (_e) { /* body opcional */ }
+
+  const days = Math.min(90, Math.max(1, Math.floor(Number(body.days ?? 30))));
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  let accessToken: string;
+  try {
+    accessToken = await getGoogleAdsAccessToken();
+  } catch (e) {
+    return json({ error: "google_oauth_failed", detail: (e as Error).message }, 500);
+  }
+
+  let q = (supabase as any)
+    .schema("crm")
+    .from("ad_platform_connections")
+    .select(
+      "id, company_id, artist_id, selected_ad_account_id, selected_ad_account_currency, external_business_id, login_customer_id",
+    )
+    .eq("platform", "google")
+    .eq("connection_scope", "artist")
+    .in("status", ["active", "pending_link"]);
+  if (body.connection_id) q = q.eq("id", body.connection_id);
+  if (body.company_id) q = q.eq("company_id", body.company_id);
+  const { data: conns, error: connErr } = await q;
+  if (connErr) return json({ error: "connections_query_failed", detail: connErr.message }, 500);
+  if (!conns || conns.length === 0) return json({ error: "no_artist_google_connection" }, 404);
+
+  const startedMs = Date.now();
+  const runId = await startSyncRun(supabase, {
+    function_name: "crm-google-video-metrics-sync",
+    trigger_source: "api",
+    dry_run: body.probe_only === true,
+    company_id: conns[0]?.company_id ?? null,
+    artist_id: conns[0]?.artist_id ?? null,
+  });
+
+  const notes: string[] = [];
+  let rowsWritten = 0;
+  let apiCalls = 0;
+  let errorCount = 0;
+  const perConnection: Record<string, Record<string, unknown>> = {};
+  let confirmed: Record<string, string[]> = {};
+
+  const { since, until } = range(days);
+  const nowIso = new Date().toISOString();
+
+  for (const conn of conns) {
+    const customerId = String(conn.selected_ad_account_id || conn.external_business_id || "")
+      .replace(/-/g, "");
+    const loginCustomerId = String(conn.login_customer_id || LOGIN_CID_FALLBACK || "")
+      .replace(/-/g, "");
+    if (!customerId || !loginCustomerId) {
+      errorCount++;
+      notes.push(`ligação ${conn.id}: missing_customer_or_login_id`);
+      continue;
+    }
+    const ctx: Ctx = { accessToken, loginCustomerId, customerId };
+    const per: Record<string, unknown> = {};
+
+    // ---- 1) Confirmação de nomes (GoogleAdsFieldService) --------------------
+    let selectable = new Set<string>();
+    try {
+      apiCalls += PROBE_LIKES.length;
+      const probe = await probeSelectable(ctx);
+      selectable = probe.selectable;
+      per.campos_confirmados = probe.found;
+    } catch (e) {
+      errorCount++;
+      notes.push(`ligação ${conn.id}: probe de campos falhou (${(e as Error).message})`);
+      perConnection[conn.id] = per;
+      continue;
+    }
+
+    const videoFields = keep(VIDEO_METRIC_CANDIDATES, selectable);
+    const reachFields = keep(REACH_METRIC_CANDIDATES, selectable);
+    const configFields = keep(CAMPAIGN_CONFIG_CANDIDATES, selectable);
+    const critFields = keep(CRITERION_CANDIDATES, selectable);
+    confirmed = {
+      video: videoFields,
+      alcance: reachFields,
+      configuracao: configFields,
+      criterios: critFields,
+    };
+    per.metricas_video = videoFields;
+    per.metricas_alcance = reachFields;
+    console.log(`[confirmado] video=${videoFields.join(",")} alcance=${reachFields.join(",")}`);
+
+    // nome da métrica de visualizações nesta versão (pode ter mudado)
+    const viewsField = videoFields.find((f) =>
+      f === "metrics.video_views" || f === "metrics.video_trueview_views"
+    ) ?? null;
+    per.campo_visualizacoes = viewsField;
+
+    if (body.probe_only === true) {
+      perConnection[conn.id] = per;
+      continue;
+    }
+
+    // ---- 2+3) Diário por campanha com métricas de vídeo (backfill `days`) ---
+    try {
+      apiCalls++;
+      const selectVideo = videoFields.length ? `,\n    ${videoFields.join(",\n    ")}` : "";
+      const rows = await gaql(
+        ctx,
+        `
+  SELECT
+    campaign.id,
+    campaign.name,
+    customer.currency_code,
+    segments.date,
+    metrics.impressions,
+    metrics.clicks,
+    metrics.cost_micros,
+    metrics.conversions,
+    metrics.conversions_value${selectVideo}
+  FROM campaign
+  WHERE segments.date BETWEEN '${since}' AND '${until}'
+`,
+      );
+
+      const byKey = new Map<string, Row>();
+      for (const r of rows) {
+        const id = r.campaign?.id != null ? String(r.campaign.id) : null;
+        const date = r.segments?.date ? String(r.segments.date).slice(0, 10) : null;
+        if (!id || !date) continue;
+        const m = r.metrics ?? {};
+        const views = viewsField ? Math.round(num(m[apiKeyToJson(viewsField)])) : 0;
+        const key = `${id}|${date}`;
+        const prev = byKey.get(key);
+        const impressions = num(m.impressions);
+        const clicks = num(m.clicks);
+        const spend = microsToCents(m.costMicros);
+        if (prev) {
+          prev.impressions += impressions;
+          prev.clicks += clicks;
+          prev.spend_cents += spend;
+          prev.conversions += num(m.conversions);
+          prev.conversions_value_cents += microsToCents(num(m.conversionsValue) * 1_000_000);
+          prev.raw.video_views += views;
+          continue;
+        }
+        byKey.set(key, {
+          connection_id: conn.id,
+          company_id: conn.company_id,
+          customer_id: customerId,
+          external_campaign_id: id,
+          campaign_name: r.campaign?.name ?? null,
+          date_start: date,
+          date_stop: date,
+          impressions,
+          clicks,
+          spend_cents: spend,
+          conversions: num(m.conversions),
+          conversions_value_cents: microsToCents(num(m.conversionsValue) * 1_000_000),
+          cpc_cents: null,
+          cpm_cents: null,
+          ctr: null,
+          currency: r.customer?.currencyCode ?? conn.selected_ad_account_currency ?? null,
+          // raw: linha completa da API (raw.metrics tem os nomes da API) +
+          // chave de topo `video_views` normalizada, que a RPC artist_ads_daily lê.
+          raw: { ...r, video_views: views, video_views_field: viewsField },
+          last_synced_at: nowIso,
+          updated_at: nowIso,
+        });
+      }
+      const daily = Array.from(byKey.values());
+      for (const row of daily) {
+        row.cpc_cents = row.clicks > 0 ? row.spend_cents / row.clicks : null;
+        row.cpm_cents = row.impressions > 0 ? (row.spend_cents / row.impressions) * 1000 : null;
+        row.ctr = row.impressions > 0 ? row.clicks / row.impressions : null;
+      }
+      for (let i = 0; i < daily.length; i += 500) {
+        const chunk = daily.slice(i, i + 500);
+        const { error } = await (supabase as any)
+          .schema("crm")
+          .from("google_campaign_insights_daily")
+          .upsert(chunk, { onConflict: "connection_id,external_campaign_id,date_start" });
+        if (error) throw new Error("daily_upsert_failed: " + error.message);
+        rowsWritten += chunk.length;
+      }
+      per.dias_upsert = daily.length;
+    } catch (e) {
+      errorCount++;
+      notes.push(`ligação ${conn.id}: diário de vídeo falhou (${(e as Error).message})`);
+    }
+
+    // ---- 4) Configuração da campanha + critérios → google_campaign.raw -----
+    const configByCampaign = new Map<string, Row>();
+    try {
+      apiCalls++;
+      const rows = await gaql(
+        ctx,
+        `
+  SELECT
+    campaign.id,
+    ${configFields.join(",\n    ")}
+  FROM campaign
+`,
+      );
+      for (const r of rows) {
+        const id = r.campaign?.id != null ? String(r.campaign.id) : null;
+        if (id) configByCampaign.set(id, { campanha: r.campaign ?? {}, criterios: [] });
+      }
+    } catch (e) {
+      errorCount++;
+      notes.push(`ligação ${conn.id}: configuração da campanha falhou (${(e as Error).message})`);
+    }
+
+    try {
+      apiCalls++;
+      const rows = await gaql(
+        ctx,
+        `
+  SELECT
+    campaign.id,
+    ${critFields.join(",\n    ")}
+  FROM campaign_criterion
+`,
+      );
+      // nomes canónicos das localizações
+      const geoIds = new Set<string>();
+      for (const r of rows) {
+        const g = geoId(r.campaignCriterion?.location?.geoTargetConstant);
+        if (g) geoIds.add(g);
+      }
+      const geoNames = new Map<string, { name: string; canonical: string }>();
+      const idsArr = Array.from(geoIds);
+      for (let i = 0; i < idsArr.length; i += 200) {
+        apiCalls++;
+        const chunk = idsArr.slice(i, i + 200);
+        try {
+          const gr = await gaql(
+            ctx,
+            `SELECT geo_target_constant.id, geo_target_constant.name, geo_target_constant.canonical_name FROM geo_target_constant WHERE geo_target_constant.id IN (${
+              chunk.join(",")
+            })`,
+          );
+          for (const r of gr) {
+            const g = r.geoTargetConstant ?? {};
+            if (g.id != null) {
+              geoNames.set(String(g.id), {
+                name: String(g.name ?? ""),
+                canonical: String(g.canonicalName ?? ""),
+              });
+            }
+          }
+        } catch (e) {
+          notes.push(`ligação ${conn.id}: nomes de geografia não resolvidos (${(e as Error).message})`);
+        }
+      }
+
+      for (const r of rows) {
+        const id = r.campaign?.id != null ? String(r.campaign.id) : null;
+        if (!id) continue;
+        const entry = configByCampaign.get(id) ?? { campanha: {}, criterios: [] };
+        const cc = r.campaignCriterion ?? {};
+        const gid = geoId(cc.location?.geoTargetConstant);
+        entry.criterios.push({
+          criterion_id: cc.criterionId ?? null,
+          tipo: cc.type ?? null,
+          negativo: cc.negative === true,
+          bid_modifier: cc.bidModifier ?? null,
+          localizacao: gid
+            ? {
+              geo_target_constant_id: gid,
+              nome: geoNames.get(gid)?.name ?? null,
+              nome_canonico: geoNames.get(gid)?.canonical ?? null,
+            }
+            : null,
+          lingua: cc.language?.languageConstant ?? null,
+          faixa_etaria: cc.ageRange?.type ?? null,
+          genero: cc.gender?.type ?? null,
+          dispositivo: cc.device?.type ?? null,
+        });
+        configByCampaign.set(id, entry);
+      }
+      per.campanhas_com_config = configByCampaign.size;
+    } catch (e) {
+      errorCount++;
+      notes.push(`ligação ${conn.id}: critérios da campanha falharam (${(e as Error).message})`);
+    }
+
+    // ---- 5) Alcance e frequência por período fechado (7d e 30d) ------------
+    const reachByCampaign = new Map<string, Row>();
+    if (reachFields.length) {
+      for (const p of [7, 30]) {
+        const r7 = range(p);
+        try {
+          apiCalls++;
+          const rows = await gaql(
+            ctx,
+            `
+  SELECT
+    campaign.id,
+    ${reachFields.join(",\n    ")}
+  FROM campaign
+  WHERE segments.date BETWEEN '${r7.since}' AND '${r7.until}'
+`,
+          );
+          for (const r of rows) {
+            const id = r.campaign?.id != null ? String(r.campaign.id) : null;
+            if (!id) continue;
+            const acc = reachByCampaign.get(id) ?? {};
+            acc[`ultimos_${p}_dias`] = {
+              periodo: `${r7.since}..${r7.until}`,
+              recolhido_em: nowIso,
+              unique_users: r.metrics?.uniqueUsers != null ? Number(r.metrics.uniqueUsers) : null,
+              average_impression_frequency_per_user:
+                r.metrics?.averageImpressionFrequencyPerUser != null
+                  ? Number(r.metrics.averageImpressionFrequencyPerUser)
+                  : null,
+            };
+            reachByCampaign.set(id, acc);
+          }
+        } catch (e) {
+          errorCount++;
+          notes.push(
+            `ligação ${conn.id}: alcance ${p}d recusado (${(e as Error).message.slice(0, 500)})`,
+          );
+        }
+      }
+    } else {
+      notes.push(`ligação ${conn.id}: métricas de alcance não selecionáveis nesta versão`);
+    }
+
+    // escreve config + alcance em crm.google_campaign (raw/metrics já existem)
+    const idsToUpdate = new Set<string>([
+      ...configByCampaign.keys(),
+      ...reachByCampaign.keys(),
+    ]);
+    if (idsToUpdate.size > 0) {
+      const { data: existing, error: exErr } = await (supabase as any)
+        .schema("crm")
+        .from("google_campaign")
+        .select("external_campaign_id, raw, metrics")
+        .eq("connection_id", conn.id)
+        .in("external_campaign_id", Array.from(idsToUpdate));
+      if (exErr) {
+        errorCount++;
+        notes.push(`ligação ${conn.id}: leitura de google_campaign falhou (${exErr.message})`);
+      } else {
+        let updated = 0;
+        for (const row of existing ?? []) {
+          const id = String(row.external_campaign_id);
+          const cfg = configByCampaign.get(id);
+          const reach = reachByCampaign.get(id);
+          const newRaw = { ...(row.raw ?? {}) } as Row;
+          if (cfg) {
+            newRaw.config = {
+              recolhido_em: nowIso,
+              api_version: API_VERSION,
+              campanha: cfg.campanha,
+              criterios: cfg.criterios,
+            };
+          }
+          const newMetrics = { ...(row.metrics ?? {}) } as Row;
+          if (reach) newMetrics.alcance = reach;
+          const { error: uErr } = await (supabase as any)
+            .schema("crm")
+            .from("google_campaign")
+            .update({ raw: newRaw, metrics: newMetrics, last_synced_at: nowIso })
+            .eq("connection_id", conn.id)
+            .eq("external_campaign_id", id);
+          if (uErr) {
+            errorCount++;
+            notes.push(`ligação ${conn.id}: update campanha ${id} falhou (${uErr.message})`);
+          } else {
+            updated++;
+            rowsWritten++;
+          }
+        }
+        per.campanhas_atualizadas = updated;
+      }
+    }
+
+    // ---- 6) Ad groups das campanhas VIDEO ---------------------------------
+    try {
+      apiCalls++;
+      const rows = await gaql(
+        ctx,
+        `
+  SELECT
+    campaign.id,
+    ad_group.id,
+    ad_group.name,
+    ad_group.status,
+    ad_group.type,
+    metrics.impressions,
+    metrics.clicks,
+    metrics.cost_micros,
+    metrics.conversions,
+    metrics.conversions_value
+  FROM ad_group
+  WHERE campaign.advertising_channel_type = 'VIDEO'
+    AND segments.date BETWEEN '${since}' AND '${until}'
+`,
+      );
+      const byId = new Map<string, Row>();
+      for (const r of rows) {
+        const ag = r.adGroup ?? {};
+        const id = ag.id != null ? String(ag.id) : null;
+        if (!id) continue;
+        const m = r.metrics ?? {};
+        const prev = byId.get(id);
+        if (prev) {
+          prev.impressions += num(m.impressions);
+          prev.clicks += num(m.clicks);
+          prev.cost_micros += num(m.costMicros);
+          prev.conversions += num(m.conversions);
+          prev.conversions_value += num(m.conversionsValue);
+          continue;
+        }
+        byId.set(id, {
+          connection_id: conn.id,
+          company_id: conn.company_id,
+          customer_id: customerId,
+          external_campaign_id: r.campaign?.id != null ? String(r.campaign.id) : null,
+          external_ad_group_id: id,
+          resource_name: ag.resourceName ?? null,
+          name: ag.name ?? "(sem nome)",
+          status: ag.status ?? null,
+          // `type` é o que diz o formato do vídeo (bumper, in-stream, etc.)
+          type: ag.type ?? null,
+          impressions: num(m.impressions),
+          clicks: num(m.clicks),
+          cost_micros: num(m.costMicros),
+          conversions: num(m.conversions),
+          conversions_value: num(m.conversionsValue),
+          metrics: { periodo: `${since}..${until}` },
+          raw: r,
+          last_synced_at: nowIso,
+        });
+      }
+      const agRows = Array.from(byId.values());
+      for (const row of agRows) {
+        row.metrics = {
+          periodo: `${since}..${until}`,
+          impressions: row.impressions,
+          clicks: row.clicks,
+          cost_micros: row.cost_micros,
+          conversions: row.conversions,
+          conversions_value: row.conversions_value,
+        };
+      }
+      if (agRows.length > 0) {
+        const { error } = await (supabase as any)
+          .schema("crm")
+          .from("google_ad_group")
+          .upsert(agRows, { onConflict: "connection_id,external_ad_group_id" });
+        if (error) throw new Error("ad_group_upsert_failed: " + error.message);
+        rowsWritten += agRows.length;
+      } else {
+        notes.push(`ligação ${conn.id}: sem ad groups VIDEO no período`);
+      }
+      per.ad_groups = agRows.length;
+    } catch (e) {
+      errorCount++;
+      notes.push(`ligação ${conn.id}: ad groups falharam (${(e as Error).message.slice(0, 800)})`);
+    }
+
+    perConnection[conn.id] = per;
+  }
+
+  await finishSyncRun(supabase, runId, startedMs, {
+    status: resolveStatus(rowsWritten, errorCount),
+    api_calls: apiCalls,
+    rows_written: rowsWritten,
+    details: { params: { days, probe_only: body.probe_only === true }, per_connection: perConnection, notes },
+  });
+
+  return json({
+    ok: true,
+    api_version: API_VERSION,
+    days,
+    since,
+    until,
+    campos_confirmados: confirmed,
+    connections: conns.length,
+    rows_written: rowsWritten,
+    api_calls: apiCalls,
+    per_connection: perConnection,
+    notes,
+  });
+});
