@@ -16398,6 +16398,18 @@ export type Database = {
           severity: string
         }[]
       }
+      _run_invariant_checks_secdef: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          name: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _run_invariant_checks_secrets: {
         Args: never
         Returns: {
