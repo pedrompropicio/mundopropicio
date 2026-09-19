@@ -3388,3 +3388,32 @@ mantendo `origem`, `modelo`, `gerado_em`, `tokens`, `entradas_usadas`, `justific
 `hipoteses` e `avisos`. Contrato inalterado; o plano continua a nascer em `rascunho` e a função
 nunca publica nem activa. `crm-meta-publish-execute`, `crm-meta-publish-activate`,
 `crm-meta-entity-action`, `crm-meta-publish-update` e o caminho de eventos ficaram intactos.
+
+## D-ERP101 — Geografia por ESTADO (região Meta) no plano de tráfego da música (19/09/2026)
+
+**Decisão.** O plano de música passa a poder estreitar a geografia por estado:
+`publico_sugerido.geo_regions = [{nome, key}]`, além de `publico_sugerido.geo`
+(países ISO-2), que continua a ser o mínimo obrigatório. Cidades ficam fora
+desta versão.
+
+**Quem resolve a chave.** Só a própria `artist-ads-strategy-generate`. O LLM
+propõe apenas NOMES de estado em `publico_sugerido.estados`; a função resolve
+cada nome por `GET /search?type=adgeolocation&location_types=['region']&q=<nome>&country_code=<país>`
+com o token de aplicação (`META_APP_ID|META_APP_SECRET`) — a fronteira do módulo
+mantém-se: nenhuma leitura de `crm.ad_platform_connections`. Estado que não
+resolva NÃO entra e deixa `geo_regia o_nao_resolvida: … "<nome>"` em
+`resumo.avisos`. Sem credenciais de aplicação: nenhum estado entra e fica
+`geo_regions_nao_resolvidas`.
+
+**Publicação.** `crm-meta-publish-execute` e `crm-meta-publish-update` enviam
+`targeting.geo_locations.regions = [{key}]` mantendo sempre
+`geo_locations.countries`. Na edição, as regiões são substituídas em bloco.
+
+**Prompt (artista regional).** Geografia ordenada por CONCENTRAÇÃO (quota da base
+por estado), nunca por valor absoluto de cidade; metrópoles fora da região-base
+só com evidência de desempenho pago ou de streaming e nunca na 1.ª campanha; o
+plano diz "artista regional: base RN/Nordeste" quando os dados o mostrarem;
+estreitar idades obriga a citar a distribuição etária real com a data do dado.
+
+**Sem DDL.** `artist_ads_plan_validate` ignora chaves extra em
+`publico_sugerido` — `geo_regions` passa sem alteração à RPC.
