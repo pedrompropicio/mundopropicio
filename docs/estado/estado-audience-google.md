@@ -1,9 +1,11 @@
 # ESTADO — MP Audience · Google Ads
 
-Atualizado: 2026-08-29 (herdado — confirmar) · Issues: `a-seguir` #62, #69, #70
+Atualizado: 2026-09-19 · Issues: `a-seguir` #62, #69, #70
 
 ## Em que pé está
 Dashboard funcional com campanha real "[NEW] Ivete Clareou - Cascais 2026" (DEMAND_GEN, ENABLED). Sync **manual por botão** — cron rejeitado por decisão do Pedro. Arquitetura: **tudo Ads → MP Audience; tudo Lead/CRM → MP CRM**.
+
+**Motor único de campanhas — F1 fundações (19/09, D-ERP95):** `crm.google_publish_plan` aceita evento XOR artista+música; nasceu `crm.ads_entity_actions_log` (log de acções Google/TikTok, que não existia) com vista unificada `crm.v_ads_entity_actions_log`. Só schema — comportamento inalterado; alvo música na F2/F3, com prioridade a Demand Gen com vídeo do canal YouTube.
 
 ## A trabalhar agora
 Nada em execução.

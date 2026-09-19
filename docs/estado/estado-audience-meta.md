@@ -1,8 +1,10 @@
 # ESTADO — MP Audience · Meta
 
-Atualizado: 2026-09-17 · Issues desta frente: #36, #12, #183 · dependência externa: #197 (ticketing-e-receita)
+Atualizado: 2026-09-19 · Issues desta frente: #36, #12, #183 · dependência externa: #197 (ticketing-e-receita)
 
 ## Em que pé está
+- **Motor único de campanhas — F1 fundações fechada (19/09, D-ERP95).** `crm.meta_publish_plan` aceita agora evento XOR artista+música (`artist_id`, `song_id`, `connection_id`; `event_id` anulável e pela primeira vez com FK verdadeira). Trigger garante que alvo música só usa connection de artista do mesmo artista/empresa. Só schema — comportamento para evento inalterado; o alvo música entra na F2/F3.
+- **Sync Meta a funcionar** na conta `act_5094207367314169` (EUR). O cron `crm-meta-insights-hourly` (:40) sincroniza `campaign` e `adset` desde 17/09/2026 18:40 UTC (#94 fechada): gasto por conjunto = gasto por campanha em 14, 15 e 16/09, verificado em Live. O nível `ad` continua só por sync manual.
 - **Sync Meta a funcionar** na conta `act_5094207367314169` (EUR). O cron `crm-meta-insights-hourly` (:40) sincroniza `campaign` e `adset` desde 17/09/2026 18:40 UTC (#94 fechada): gasto por conjunto = gasto por campanha em 14, 15 e 16/09, verificado em Live. O nível `ad` continua só por sync manual.
 - **Ligações Meta (17/09/2026):** Mundo Propício `active`, token até 08/10/2026 · Litto Lins `active` (conta do artista, `connection_scope = 'artist'`, `act_323668247351618`), token até 13/11/2026 · Fortal e Siriguella marcadas `expired` a 17/09/2026 por decisão do Pedro: não estão à venda, o token expirou a 22/08 e continuavam `active`, com o cron a falhar de hora a hora. Reconectar por OAuth quando voltarem à venda.
 - **Regra de ROAS fechada — D-ERP81.** Eventos sem compra alimentada pelo pixel (Ticketline, BOL): bruto é o oficial, marginal decide a verba, incremental só em estudo ou teste por cidades, atribuído fica dentro do MP Audience. Evento com pixel e Purchase com `fbc`: o atribuído passa a ser o ROAS oficial desse evento.

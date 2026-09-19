@@ -138,4 +138,31 @@ Funções SQL (a regra de correspondência vive uma vez):
 - Pendente de decisão (cruzar com o front Gestão Artística, páginas públicas `/kit/:slug`):
   `artist_song_playlist_streams_set` é a única SECURITY DEFINER `artist_*`/`song_*`/
   `soundcharts_*` ainda executável por `anon`; escreve, mas exige sessão e papel no corpo
-  e não aparece em nenhuma policy de RLS.
+e não aparece em nenhuma policy de RLS.
+  **Fechado a 19/09 (D-ERP95):** o acesso anónimo foi revogado à mão em Live com
+  autorização do Pedro e repetido de forma idempotente na migração F1 —
+  `anon` sem EXECUTE, `authenticated` + `service_role` com EXECUTE.
+
+## Motor único de campanhas — F1 fundações (D-ERP95, 19/09/2026)
+
+- O motor de construção/publicação de campanhas é ÚNICO com dois alvos: evento
+  (inalterado byte a byte) OU artista+música. `crm.meta_publish_plan`,
+  `crm.google_publish_plan` e `crm.meta_campaign_strategies` ganharam `artist_id` +
+  `song_id` anuláveis com FKs verdadeiras (RESTRICT); `event_id` passou a anulável nos
+  dois planos e `meta_publish_plan.event_id` ganhou pela primeira vez FK para
+  `public.events` (CASCADE). `meta_publish_plan` tem ainda `connection_id`.
+- CHECKs: planos exigem **exactamente um alvo**; estratégias aceitam **no máximo um**
+  (há 9 antigas sem evento). Trigger `crm.assert_song_target_coherent()` nas três
+  tabelas: alvo música só aceita connection `connection_scope='artist'` do mesmo
+  artista e empresa.
+- **`crm.artist_ads_budget_caps`**: teto de orçamento diário por connection, na moeda
+  da conta; nasce vazia e SEM TETO O MOTOR RECUSA publicar/activar (fechado por
+  omissão). Leitura: autenticado da própria empresa; escrita: só service_role.
+- **`crm.ads_entity_actions_log`**: log de acções Google/TikTok (forma da
+  `meta_entity_actions_log` + `platform` + `approved_by`); vista unificada
+  `crm.v_ads_entity_actions_log` (security_invoker) = Meta ∪ Google/TikTok.
+- F1 é só schema. F2: resolvedor `_shared/campaign-target.ts`, smart link + UTMs (só
+  alvo música), lock anti-corrida Meta; F3: activação (publicar alvo música exige
+  papel de tráfego/admin da Social Artists; activar só admin/platform_admin).
+  Campanhas nascem SEMPRE PAUSED. Visibilidade: sem excepção à fronteira por
+  `company_id` — quem precisa de ver recebe papel na Social Artists.

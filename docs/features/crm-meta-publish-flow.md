@@ -2,6 +2,12 @@
 
 > Memória técnica — levantado a 29/jun/2026 a partir do código real.
 > Objectivo: nunca mais reinvestigar este fluxo do zero.
+>
+> **Alvo: evento OU artista+música (D-ERP95, 19/09/2026).** `crm.meta_publish_plan`
+> aceita `event_id` XOR (`artist_id`+`song_id`+`connection_id`); CHECK
+> `meta_publish_plan_one_target` + trigger `trg_song_target_coherent`. A F1 é só
+> schema — o comportamento para evento está inalterado byte a byte; o alvo música
+> entra nas fases F2/F3.
 
 ## TL;DR (a regra que nos morde sempre)
 - Um criativo de **vídeo** só é publicável pelo caminho oficial se tiver **`meta_video_id`** preenchido em `crm.meta_creatives`.
