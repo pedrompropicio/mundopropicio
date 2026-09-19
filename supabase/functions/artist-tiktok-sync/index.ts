@@ -127,6 +127,11 @@ Deno.serve(async (req) => {
     await finishSyncRun(admin, runId, startedMs, { status: "no_data", details: emptyBody });
     return json(emptyBody);
   }
+  if (inputCursor !== null && connections.length > 1) {
+    const msg = "cursor só é aceite com uma única ligação (filtra por artist_id ou connection_id)";
+    await finishSyncRun(admin, runId, startedMs, { status: "error", error_text: msg });
+    return json({ error: msg }, 400);
+  }
 
   const today = ymd(new Date());
   let apiCalls = 0;
