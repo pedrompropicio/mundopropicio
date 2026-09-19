@@ -6,7 +6,12 @@
 // Idempotência: se já existir meta_campaign_id / meta_adset_id / meta_ad_id
 // guardados no plano, NÃO recria — retoma. Re-correr após falha parcial
 // retoma de onde parou e NUNCA duplica.
-// Dry-run: monta payloads e devolve-os sem chamar a Meta Graph API.
+// Dry-run: monta payloads e devolve-os sem chamar a Meta Graph API, sem escrever
+// em nenhuma tabela e sem mudar estado. Default = TRUE (salvaguarda P0 herdada):
+// só escreve no Meta com dry_run:false explícito. D-ERP95 F2a: o dry-run é
+// permitido em QUALQUER estado do plano (incluindo 'publicado'), e a construção
+// dos payloads é a MESMA do caminho real (buildAdsetPayload/buildAdPayloads).
+// Planos de alvo música (song_id) devolvem { ok:false, error:'alvo_musica_f2b' }.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
