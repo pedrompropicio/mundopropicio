@@ -199,11 +199,15 @@ Criados em 2026-09-18, mesmo padrão do job 93 (vault `email_queue_service_role_
 
 | job | jobname | schedule (UTC) | edge function / corpo |
 | --- | --- | --- | --- |
-| 241 | `crm-meta-campaigns-hourly` | `25 * * * *` | `crm-meta-sync-campaigns`, uma chamada por connection meta `active` com `selected_ad_account_id`, `mode: incremental` |
+| 241 | `crm-meta-campaigns-hourly` | `25 * * * *` | `crm-meta-sync-campaigns` + `crm-meta-sync-adsets` + `crm-meta-sync-ads`, uma chamada de cada por connection meta `active` com `selected_ad_account_id`, `mode: incremental` (scope `company` e `artist`) |
 | 242 | `crm-google-sync-campaigns-3h` | `10 */3 * * *` | `crm-google-sync-campaigns`, sem `connection_id`, `mode: incremental`, `days_back: 7` |
 
 Minuto 25 na Meta para os metadados estarem gravados antes dos insights do job 93 (minuto 40).
 Google de 3 em 3 horas: duas consultas GAQL por conta e métricas que consolidam com atraso.
+
+Alargamento de 19/09 (D-ERP91): o job 241 passou a sincronizar também **conjuntos e anúncios**
+e o job 93 (`crm-meta-insights-hourly`, `40 * * * *`) pede os três níveis — `campaign`, `adset`
+e `ad`. O Google não tem nível anúncio na base.
 
 No fim do sync o auto-link depende do `connection_scope`: `company` liga a eventos
 (`crm_auto_link_*_campaigns_to_events`); `artist` liga a MÚSICAS
