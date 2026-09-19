@@ -713,7 +713,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (adsets.length === 0) {
     return json({
       error: "plano_invalido",
-      mensagem: eTiktok
+      mensagem: eVideo
         ? "O plano gerado ficou sem conjuntos com vídeo promovível."
         : "O plano gerado ficou sem conjuntos com publicação promovível.",
       avisos,
