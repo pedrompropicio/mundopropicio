@@ -10,7 +10,8 @@
 // dry_run = false → chama o LLM, grava uma linha nova em artist_song_reports
 //                   (histórico: regenerar nunca substitui) e devolve o relatório.
 //
-// Limite: no máximo 1 geração automática (trigger 'cron') por música por dia.
+// Limite: no máximo 1 geração automática (trigger 'cron') por música por dia de calendário UTC.
+
 
 import {
   adminClient,
@@ -742,18 +743,29 @@ Deno.serve(async (req) => {
       return json({ ok: true, dry_run: true, song_id: songId, snapshot });
     }
 
-    // 1 geração automática por música por dia (o pedido manual não é travado)
+    // 1 geração automática por música por dia de calendário UTC (o pedido manual não é travado)
     if (triggerSource === "cron") {
-      const since = new Date(Date.now() - 86_400_000).toISOString();
-      const { count } = await admin
+      const today = new Date();
+      const since = new Date(
+        Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
+      ).toISOString();
+      const { data: existing } = await admin
         .from("artist_song_reports")
-        .select("id", { count: "exact", head: true })
+        .select("id, generated_at")
         .eq("song_id", songId)
-        .gte("generated_at", since);
-      if ((count ?? 0) > 0) {
+        .eq("status", "ok")
+        .gte("generated_at", since)
+        .order("generated_at", { ascending: false })
+        .limit(1);
+      if (existing && existing.length > 0) {
+        const r = existing[0];
+        console.log(
+          `[${FUNCTION_NAME}] skip ${songId}: already generated today (${r.id} at ${r.generated_at})`,
+        );
         return json({ ok: true, skipped: "limite de 1 geração automática por dia", song_id: songId });
       }
     }
+
 
     if (!LOVABLE_API_KEY) return json({ error: "lovable_ai_not_configured" }, 500);
 

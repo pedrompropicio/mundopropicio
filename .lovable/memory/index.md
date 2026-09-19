@@ -23,3 +23,5 @@
 - [Domínio de payment_method e referência MB](mem://features/payment-methods-domain) — D-ERP44 (5 valores em 3 camadas) + service_payment exige Entidade 5 dígitos e Referência 9 (CHECK transactions_service_payment_requires_mb NOT VALID, #190)
 - [Edge function github-issues](mem://features/github-issues) — contrato das 6 ações (parâmetro `number`; `update` com labels substitui o conjunto), GITHUB_TOKEN sem expiração, chamada por net.http_post ou HTTPS directo, labels reais P0-P2 + módulo
 - [Prazos de segredos](mem://features/github-issues) — `secret_expirations` (só service_role) + invariante `segredos_a_expirar_14d` (warn, 14 dias)
+- [Relatório de lançamento de música](mem://features/artist-song-report) — Guarda de 1 geração automática por música por dia de calendário UTC; skip loga id/generated_at do relatório que causou o skip
+
