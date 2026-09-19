@@ -305,35 +305,29 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         };
 
       } else {
-        // Expense
-        const expTx = realizedTx.filter((t: any) => t.type === "expense");
+        // Expense — universo canónico do Fecho (`isValidFechoTransaction`),
+        // somado evento a evento pelo critério único (#217).
+        const c = costForMode("realized");
+        const expTx = (txs as any[]).filter(
+          (t) => t.type === "expense" && isValidFechoTransaction(t),
+        );
         let paid = 0;
         let approved = 0;
         for (const t of expTx) {
           const gross = eff(t.amount, t.iva_rate);
-          if (t.status === "paid") { paid += gross; continue; }
-          if (t.status === "partially_paid") {
-            // paid_amount é bruto; separa recebido/pago do que falta liquidar.
-            const already = Math.min(Math.max(Number(t.paid_amount || 0), 0), gross);
-            paid += already;
-            approved += gross - already;
-            continue;
-          }
-          approved += gross;
+          if (t.status === "paid") paid += gross;
+          else approved += gross;
         }
-        const own = paid + approved;
 
-        const masterTx = Number(args.masterExpenseShare || 0);
         const cache = Number(args.cacheImpact || 0);
-        // Realized NÃO inclui forecasts do Master (só TX).
-        const extra = masterTx + cache;
         return {
-          displayValue: own + extra,
+          displayValue: c.total + c.quota + cache,
           subtotals: [
             { label: "Pago", value: paid },
             { label: "Comprometido (próprio)", value: approved },
           ],
           formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
+          meta: { masterQuota: c.quota },
         };
       }
     }
