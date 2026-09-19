@@ -527,10 +527,10 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         orphanSum += txAmount.get(t.id) ?? 0;
       }
 
-      const extra =
-        Number(args.masterExpenseShare || 0) +
-        Number(args.masterForecastShare || 0) +
-        Number(args.cacheImpact || 0);
+      // Rateio da turnê no modo exploratório Forecast: mesma quota da base
+      // "Previsto + excedido" (o Forecast não tem base própria no Master).
+      const quota = costForMode("committed").quota;
+      const extra = quota + Number(args.cacheImpact || 0);
       const total = bpSum + txLinkedSum + orphanSum + extra;
       return {
         displayValue: total,
@@ -541,11 +541,12 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
           { label: "Forecast total", value: total },
         ],
         formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
+        meta: { masterQuota: quota },
       };
     }
 
   }, [txs, forecasts, revenue, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate, withVat,
-      includeOverhead,
-      args.ticketSales, args.masterExpenseShare, args.masterForecastShare, args.cacheImpact]);
+      includeOverhead, eventId, masterForecasts, masterTxs,
+      args.ticketSales, args.masterQuota, args.cacheImpact]);
 
 }
