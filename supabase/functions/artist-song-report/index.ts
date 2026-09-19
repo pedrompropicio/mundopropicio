@@ -45,6 +45,11 @@ function daysBetween(from: string, to: string): number {
 }
 const num = (v: unknown): number => (v == null ? 0 : Number(v));
 const round2 = (v: number) => Math.round(v * 100) / 100;
+/** Contagens e ritmos por dia saem do snapshot já como INTEIROS (D-ERP54 adenda 19/09/2026). */
+const int0 = (v: number) => Math.round(v);
+const intOrNull = (v: unknown): number | null => (v == null ? null : Math.round(Number(v)));
+/** Percentuais e índices: 1 casa decimal. */
+const pct1 = (v: unknown): number | null => (v == null ? null : Math.round(Number(v) * 10) / 10);
 
 /** Soma de valores por dia; nunca inventa dias que não existem. */
 function seriesFrom(rows: Row[]): { date: string; cumulative: number; daily_gain: number | null }[] {
@@ -54,14 +59,14 @@ function seriesFrom(rows: Row[]): { date: string; cumulative: number; daily_gain
   return dates.map((d, i) => ({
     date: d,
     cumulative: byDate.get(d)!,
-    daily_gain: i === 0 ? null : round2(byDate.get(d)! - byDate.get(dates[i - 1])!),
+    daily_gain: i === 0 ? null : int0(byDate.get(d)! - byDate.get(dates[i - 1])!),
   }));
 }
 
 function avgGain(serie: { daily_gain: number | null }[], from: number, to: number): number | null {
   const slice = serie.slice(serie.length - from, serie.length - to).filter((p) => p.daily_gain != null);
   if (slice.length === 0) return null;
-  return round2(slice.reduce((s, p) => s + (p.daily_gain ?? 0), 0) / slice.length);
+  return int0(slice.reduce((s, p) => s + (p.daily_gain ?? 0), 0) / slice.length);
 }
 
 // ---------------------------------------------------------------- snapshot
@@ -131,7 +136,7 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
       serie_diaria: serie,
       total_acumulado: serie.length ? serie[serie.length - 1].cumulative : null,
       ganho_no_periodo: serie.length > 1
-        ? round2(serie[serie.length - 1].cumulative - serie[0].cumulative)
+        ? int0(serie[serie.length - 1].cumulative - serie[0].cumulative)
         : null,
       media_diaria_ultimos_7: avgGain(serie, 7, 0),
       media_diaria_7_anteriores: avgGain(serie, 14, 7),
@@ -305,7 +310,7 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
       delta_views_7d: (() => {
         const m = metricsByContent.get(c.id);
         if (!m || m.views == null || m.views_7d_ago == null) return null;
-        return round2(m.views - m.views_7d_ago);
+        return int0(m.views - m.views_7d_ago);
       })(),
     }));
     const baseline = otherViews.get(plat) ?? [];
@@ -316,13 +321,13 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
       videos_sem_metricas: withMetrics.filter((v) => v.views == null).length,
       top_5: [...withMetrics].sort((a, b) => (b.views ?? 0) - (a.views ?? 0)).slice(0, 5),
       media_views_videos_da_musica: withMetrics.filter((v) => v.views != null).length
-        ? round2(
+        ? int0(
           withMetrics.reduce((s, v) => s + (v.views ?? 0), 0) /
             withMetrics.filter((v) => v.views != null).length,
         )
         : null,
       media_views_videos_sem_esta_musica_60d: baseline.length
-        ? round2(baseline.reduce((s, v) => s + v, 0) / baseline.length)
+        ? int0(baseline.reduce((s, v) => s + v, 0) / baseline.length)
         : null,
       videos_na_comparacao: baseline.length,
     });
@@ -363,8 +368,8 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
       data_actual: rows[rows.length - 1].metric_date,
       fonte: rows[rows.length - 1].source,
       valor_no_lancamento: atLaunch,
-      delta_desde_lancamento: atLaunch != null ? round2(actual - atLaunch) : null,
-      delta_30d_antes_do_lancamento: atLaunch != null && pre != null ? round2(atLaunch - pre) : null,
+      delta_desde_lancamento: atLaunch != null ? int0(actual - atLaunch) : null,
+      delta_30d_antes_do_lancamento: atLaunch != null && pre != null ? int0(atLaunch - pre) : null,
     });
   }
   if (artistaPorPlataforma.length === 0) lacunas.push("sem métricas de audiência do artista no período");
@@ -437,18 +442,18 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
       metrica: m.metric,
       valor: num(m.latest_value),
       data: m.latest_date,
-      delta_7d_pct: m.d7_pct,
-      delta_30d_pct: m.d30_pct,
-      indice: m.momentum_index,
+      delta_7d_pct: pct1(m.d7_pct),
+      delta_30d_pct: pct1(m.d30_pct),
+      indice: pct1(m.momentum_index),
     })),
   }));
   const momentumDoArtista = momentum.filter((m) => m.artist_id === song.artist_id).map((m) => ({
     plataforma: m.platform,
     metrica: m.metric,
     valor: num(m.latest_value),
-    delta_7d_pct: m.d7_pct,
-    delta_30d_pct: m.d30_pct,
-    indice: m.momentum_index,
+    delta_7d_pct: pct1(m.d7_pct),
+    delta_30d_pct: pct1(m.d30_pct),
+    indice: pct1(m.momentum_index),
   }));
   if (comparaveis.length === 0) lacunas.push("sem artistas comparáveis definidos");
 
@@ -467,14 +472,14 @@ async function buildSnapshot(admin: Admin, songId: string, days: number) {
     nota_da_musica: r.song_notes ?? null,
     spotify_streams_a_esta_idade: r.spotify_streams_dia_n,
     spotify_streams_a_esta_idade_data: r.spotify_streams_dia_n_date,
-    spotify_streams_por_dia_a_esta_idade: r.spotify_streams_por_dia_n,
+    spotify_streams_por_dia_a_esta_idade: intOrNull(r.spotify_streams_por_dia_n),
     spotify_streams_hoje: r.spotify_streams_hoje,
     spotify_posicao_a_esta_idade: r.rank_spotify_dia_n,
     spotify_total_com_dados: r.total_spotify_dia_n,
     tiktok_ugc_publicacoes: r.tiktok_ugc_latest,
     tiktok_ugc_data: r.tiktok_ugc_date,
     tiktok_ugc_fonte: r.tiktok_ugc_source,
-    tiktok_ugc_por_dia: r.tiktok_ugc_por_dia,
+    tiktok_ugc_por_dia: intOrNull(r.tiktok_ugc_por_dia),
     tiktok_ugc_posicao_por_dia: r.rank_tiktok_ugc_por_dia,
     tiktok_ugc_total_com_dados: r.total_tiktok_ugc_por_dia,
     instagram_reels: r.instagram_reels_latest,
