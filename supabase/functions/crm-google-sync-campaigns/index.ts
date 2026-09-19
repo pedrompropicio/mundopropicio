@@ -16,6 +16,11 @@
 // v24 mantém o endpoint googleAds:searchStream e suporta DEMAND_GEN.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import {
+  finishSyncRun,
+  resolveStatus,
+  startSyncRun,
+} from "../_shared/sync-run.ts";
 
 const GOOGLE_ADS_API_VERSION = "v24";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
