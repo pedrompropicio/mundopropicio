@@ -192,17 +192,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const campaigns = graphJson.data ?? [];
 
-  // 2.5) Read currency from connection (default EUR)
+  // 2.5) Read currency + scope from connection (default EUR)
   let currency = "EUR";
   const { data: connRow } = await supabase
     .schema("crm")
     .from("ad_platform_connections")
-    .select("selected_ad_account_currency")
+    .select("selected_ad_account_currency, connection_scope, artist_id")
     .eq("id", connectionId)
     .maybeSingle();
   if (connRow?.selected_ad_account_currency) {
     currency = connRow.selected_ad_account_currency;
   }
+  const isArtistScope = connRow?.connection_scope === "artist" &&
+    Boolean(connRow?.artist_id);
 
   // 3) UPSERT em batch
   const rows = campaigns.map((c) => ({
