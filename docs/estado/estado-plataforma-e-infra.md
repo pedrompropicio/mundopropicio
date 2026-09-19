@@ -242,18 +242,31 @@ Nada na aplicação desativa um fornecedor: `is_active` só era mexido por SQL. 
 
 ⚠️ **Regra que fica:** qualquer embed entre pares do JSON tem de usar o formato `alias:tabela!fk(col)`. O teste é a guarda permanente.
 
-## Verificador de invariantes (consolidado a 14/09/2026; atualizado a 18/09/2026)
+## Incidente — base indisponível por `cron.job_run_details` (19/09/2026)
+Às **13:44 UTC** a base ficou indisponível: HTTP **522**, sem nenhum FATAL no PostgreSQL — a instância **Small** estava esgotada.
+
+**Causa:** `cron.job_run_details` tinha **3.549 MB / ~3,06 M linhas** e nunca fora purgada. O pg_cron varre a tabela inteira a cada arranque, e com aquele tamanho o arranque consumia a instância.
+
+**O que se fez:** a instância subiu a **Medium** (reinício às 14:27 UTC). Às **14:34 UTC** a tabela foi truncada mantendo `runid >= 3056000` (**8.888 linhas**, desde 16/09 06:46 UTC): passou a **2.264 kB** e a base total de **4.097 MB → 551 MB**. Criado em Live o job **`cron-purge-run-details`** (jobid **262**, `15 3 * * *`, `DELETE ... WHERE end_time < now() - interval '7 days'`).
+
+`net._http_response` tem **121 MB / 397 linhas** com 0 tuplos mortos — são corpos de resposta grandes e o pg_net limpa-os ao fim de 6 h. **Não é problema.**
+
+⚠️ **Regra que fica:** **nunca consultar `cron.job_run_details` sem intervalo de `runid`** (a PK) — qualquer outro filtro faz seq scan e lê a tabela inteira. A retenção é de **7 dias**, feita pelo job 262, e é vigiada pelo invariante `cron_run_details_sem_purga`. A tabela e o job não estão no repositório: o pg_cron vive só em Live e o job entra no `infra.json` do backup global. Detalhe em `.lovable/memory/constraints/cron-job-run-details.md`.
+
+## Verificador de invariantes (consolidado a 14/09/2026; atualizado a 19/09/2026)
 Já existia um `check_system_invariants()` com ecrã próprio — não se reinventou, consolidou-se.
 
 Estrutura: tabela `system_invariants` (`name`, `description`, `severity`, `reference_count`, `notes`, `reference_updated_by`, `reference_updated_at`), tabela `invariant_runs` com o histórico, função `run_invariant_checks()` que corre e devolve, `run_invariant_checks_and_log()` que corre e grava a corrida, e `accept_invariant_reference(name, value, note)` que aceita a contagem de hoje como referência.
 
 **Princípio central: o alerta é por desvio face à referência, nunca por número diferente de zero.** Dívida herdada com contagem conhecida não faz barulho todos os dias; o que faz barulho é a contagem **mexer**.
 
-**27 verificações a 18/09/2026.** Não conformes hoje: `rateio_filhas_nao_somam_a_mae` **1/0** (Meta 252466632, #183), `emails_falhados_24h` **1/0** (a falha das 08:00 de 18/09, corrigida — desce a 0 quando as 24 h passarem), `pares_fk_duplicada` **37/35** e `tx_paga_sem_linha_de_pagamento` **1.213/1.026** (deriva alheia a esta frente). Referências em Live:
+**28 verificações a 19/09/2026** (a nova é `cron_run_details_sem_purga`). Não conformes a 18/09: `rateio_filhas_nao_somam_a_mae` **1/0** (Meta 252466632, #183), `emails_falhados_24h` **1/0** (a falha das 08:00 de 18/09, corrigida — desce a 0 quando as 24 h passarem), `pares_fk_duplicada` **37/35** e `tx_paga_sem_linha_de_pagamento` **1.213/1.026** (deriva alheia a esta frente). Referências em Live:
 
 - severidade `error`, referência **0**: `BP_DESPESA_EM_L2`, `backup_empresa_em_falta`, `carga_sem_credito`, `coala_map_outra_empresa`, `emails_falhados_24h`, `fecho_confirmado_liquido_retido`, `filha_rateio_com_conta`, `FORECAST_ID_ORFAO`, `fornecedor_iban_duplicado_ativo`, `grupo_fatura_veredicto_desagrupar_por_aplicar`, `tipo_invalido`, `transitoria_partner_advance_sem_linha`, `tx_conta_outra_empresa`, `tx_evento_outra_empresa`, `tx_fornecedor_outra_empresa`, `tx_rubrica_outra_empresa`, `VINCULO_CROSS_EVENTO`
 - severidade `error`, referência **0**: `VINCULO_DESSINCRONIZADO` — 7 vínculos reparados em Live a 14/09 (forecast_id reposto nas 7 transações do Coala Festival Portugal 2026 onde o âncora existia mas o link inverso era NULL). Issue #173 fechada.
+- severidade `warn`, referência **0**: `cron_run_details_sem_purga` (19/09/2026) — execuções em `cron.job_run_details` com `end_time` há mais de **8 dias**, quando a purga retém 7. Motor em `_run_invariant_checks_infra()`, unido às restantes por `_run_invariant_checks_all()`. Verificado a 19/09: **0/0, conforme**. Se subir, o job 262 morreu.
 - severidade `warn`: `backup_tabelas_excluidas` **1** (referência 1), `emails_presos_pending` **214** (referência 214), `tabelas_acima_de_1000` **28** (referência 28); dívida herdada: `paid_amount_acima_do_bruto` 9, `TRIGGER_DOCUMENTADO_SEM_LIGACAO` 4, `TX_EVENTO_SEM_RUBRICA` 13.
+
 - **Deriva a investigar, não causada pelo trabalho do backup:** `pares_fk_duplicada` está em **37** contra referência **35**; `tx_paga_sem_linha_de_pagamento` está em **1.213** contra referência **1.026**.
 
 Cron em Live: `invariant-checks-daily`, jobid **131**, `10 7 * * *`. ⚠️ O Publish **não** propaga crons — este objeto vive só em Live e não está no repositório.
