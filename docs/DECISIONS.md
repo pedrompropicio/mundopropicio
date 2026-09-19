@@ -3195,3 +3195,27 @@ comprometido é permitido: não pausa nada, só impede novas activações.
 verificação de papel e sem teto; `crm-meta-entity-action` em connections de empresa sem
 papel nem teto (só o cap por utilizador em EUR); o motor não gera UTMs para evento;
 publicação de evento sem lock anti-corrida.
+
+## D-ERP96 — `cron.job_run_details` tem retenção de 7 dias, purgada por cron em Live e vigiada por invariante (19/09/2026)
+
+**Contexto.** A 19/09/2026 às 13:44 UTC a base ficou indisponível (HTTP 522, sem FATAL no
+PostgreSQL): `cron.job_run_details` tinha 3.549 MB / ~3,06 M linhas nunca purgadas e o
+pg_cron varre-a inteira a cada arranque, esgotando a instância Small.
+
+**Decisão.**
+1. **Retenção de 7 dias** em `cron.job_run_details`, feita pelo cron
+   `cron-purge-run-details` em Live (jobid 262, `15 3 * * *`). Crons não vão para o
+   repositório: o objecto vive só em Live e entra no `infra.json` do backup global.
+2. **Vigiada por invariante:** `cron_run_details_sem_purga` (warn, global, referência 0)
+   conta as execuções com `end_time` há mais de 8 dias. Se a purga morrer, a contagem sobe
+   e o alerta por desvio dispara.
+3. **Consulta:** nunca consultar `cron.job_run_details` sem intervalo de `runid` (a PK) —
+   qualquer outro filtro faz seq scan sobre a tabela inteira
+   (`.lovable/memory/constraints/cron-job-run-details.md`).
+4. **Instância Medium mantida.** Large só com métricas de CPU a justificar, não por
+   precaução.
+5. **Base única mantida.** Não se separa a base por módulo: o incidente foi uma tabela de
+   sistema sem purga, não falta de isolamento.
+
+`net._http_response` (121 MB / 397 linhas, 0 tuplos mortos) fica como está — são corpos de
+resposta grandes e o pg_net limpa-os ao fim de 6 h.
