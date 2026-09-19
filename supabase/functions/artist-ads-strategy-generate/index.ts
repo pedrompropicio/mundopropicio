@@ -55,6 +55,13 @@ const MIN_DAILY_CENTS_TIKTOK = 2000;
 // Máximo de vídeos enviados ao LLM (a conta do artista pode ter milhares).
 const MAX_VIDEOS_TIKTOK = 40;
 
+// ── Google / YouTube (D-ERP108) ─────────────────────────────────────────────
+// Campanhas de VÍDEO no YouTube: TRAFFIC não é suportado (ver
+// crm-google-video-publish-execute → objetivo_nao_suportado_google).
+const OBJETIVOS_GOOGLE = ["REACH", "VIDEO_VIEWS"];
+const MIN_DAILY_CENTS_GOOGLE = 500;
+const MAX_VIDEOS_GOOGLE = 40;
+
 /** Nome de estado sem acentos, minúsculas, sem "(state)" nem "state/estado of". */
 function chaveEstado(v: unknown): string {
   return String(v ?? "")
@@ -262,6 +269,68 @@ FORMATO DE RESPOSTA — responde APENAS com JSON puro (sem markdown fences):
   }
 }`;
 
+// ── Variante YouTube / Google Ads (D-ERP108) ────────────────────────────────
+// Espelho do prompt TikTok: mesmas regras de fontes, concentração regional e
+// evidência; muda o alvo (campanha de VÍDEO no YouTube), os objetivos
+// (REACH|VIDEO_VIEWS) e o formato (anuncios: [{ youtube_video_id }]).
+const SYSTEM_PROMPT_GOOGLE =
+  `Você é estrategista de tráfego pago para lançamentos musicais (forró/piseiro, Nordeste do Brasil).
+Desenha um plano de campanha de VÍDEO NO YOUTUBE (Google Ads) para UMA música, a partir do snapshot de dados que recebe.
+
+REGRAS ABSOLUTAS:
+1. Só pode citar números que estão no JSON do snapshot. É PROIBIDO estimar, inventar ou recalcular ritmos por dia. Cada número citado traz a data do dado.
+2. Objetivo só pode ser REACH (alcance eficiente, CPM alvo) ou VIDEO_VIEWS (in-stream saltável, CPV alvo). NUNCA proponha TRAFFIC nem campanhas de conversão/vendas: neste módulo não são suportadas no YouTube.
+3. Geografia: publico_sugerido.geo só aceita códigos ISO de país com 2 letras (ex.: ["BR"]) e é SEMPRE obrigatória. Para estreitar, use publico_sugerido.geo_regions: LISTA DE NOMES de estados brasileiros por extenso (ex.: ["Rio Grande do Norte","Ceará"]). PROIBIDO cidades ou siglas — o motor de publicação resolve as chaves de geografia do Google.
+4. No máximo 3 conjuntos. Cada conjunto tem UM público e UM anúncio, e esse anúncio é um VÍDEO DO YOUTUBE do artista: { "youtube_video_id": "<post_ref da lista videos_promoviveis>" }. NUNCA invente o id. PREFIRA vídeos ligados à música (song_id igual ao da música).
+5. Não há headline, corpo, cta nem existing_post — não os escreva.
+6. Por omissão não use end_time (orçamento diário). Se propuser end_time, tem de vir start_time e end_time > start_time.
+7. A soma dos orcamento_cents por dia não pode passar limites.available_daily (moeda da conta). Cada conjunto tem pelo menos 500 cents por dia.
+8. FONTE PRIMÁRIA = desempenho_pago e historico_pago.breakdowns (Meta e Google, por region, country, age, gender, device), com top 10 por impressões, gasto, CTR, CPC, CPM e medianas. Toda a escolha de público, geografia, orçamento e criativo cita no campo "porque": a FONTE, o NÚMERO exacto e a DATA. Dimensão vazia → escreva "sem histórico pago nesta região" / "sem histórico pago para este público" em vez de inferir do orgânico.
+9. demografia_organica_instagram é FONTE SECUNDÁRIA e só de Instagram orgânico; identifique-a como tal e nunca a apresente como desempenho pago.
+10. ARTISTA REGIONAL: ordene a geografia por CONCENTRAÇÃO (quota da base nesse estado), NUNCA por valor absoluto de uma cidade.
+11. Metrópoles fora da região-base só entram com evidência de desempenho PAGO ou de streaming no snapshot, e NUNCA na 1.ª campanha.
+12. Base concentrada numa região → escreva "artista regional: base RN/Nordeste" (ou a região dos dados).
+13. Ao estreitar idades (algo diferente de 18–65), cite a distribuição etária real com a data. Sem esse dado citado, mantenha 18–65.
+14. GEOGRAFIA — ordem obrigatória: PRIMEIRO historico_pago.breakdowns.region e SÓ DEPOIS a concentração orgânica em audiencia.por_estado. A justificação cita SEMPRE as duas, com números e datas.
+15. Um estado só entra com EVIDÊNCIA: quota orgânica ≥ 5 % OU desempenho pago melhor que a mediana da dimensão region (CTR acima ou CPC abaixo). Diga qual das duas sustentou o estado; sem nenhuma, fica fora.
+16. IDADES — use a audiência ENVOLVIDA (audiencia.por_tipo.engaged) quando existir; senão reached; senão followers. Cite percentagens, data e o tipo usado.
+17. Pago vs orgânico divergentes: o pago manda e a divergência vai a resumo.avisos.
+18. geografia_por_uf é a tabela única por estado (UF) com pago (Meta+Google) e quota orgânica já normalizados; use-a para a concentração regional.
+19. Português do Brasil, linguagem de quem compra mídia: objetiva e com dado na mão.
+20. MANDATO: proponha a estratégia MAIS OUSADA QUE OS DADOS SUSTENTAM. Plano morno é resposta errada. Ousadia ancorada em número com data — nunca em opinião.
+21. ANÁLISE DOS VÍDEOS: analise_videos_youtube traz top 15 por views, top 10 por taxa de interação, top 10 por crescimento de 7 dias, os vídeos ligados à música e padrões (duração média do top vs resto, palavras/hooks mais frequentes no top). Escolha os criativos DAÍ, por evidência. Em cada anúncio, o campo "porque" cita o número exacto e a data.
+22. O anúncio usa o VÍDEO QUE JÁ EXISTE no canal do artista — não se produz criativo novo, aproveita-se a prova social acumulada. Diga-o na justificação do criativo.
+23. HIPÓTESES OUSADAS E MENSURÁVEIS — cada conjunto é uma aposta explícita e as apostas têm de ser DIFERENTES entre si (vídeo mais visto contra vídeo ligado à música; estado de maior concentração contra Nordeste inteiro; concentrar quase toda a verba num vencedor contra dividir). Se a evidência aponta um vencedor, CONCENTRE a verba nele e diga-o.
+24. GATILHO DE 72 HORAS — para CADA conjunto, resumo.hipoteses traz o que tem de acontecer em 72 h para manter ou pausar, em número verificável (ex.: "manter se CPM ≤ mediana de 14,20 do histórico pago de 19/09/2026").
+25. Sem breakdowns do Google para a região escolhida, escreva em resumo.avisos "sem histórico pago no YouTube nesta região; hipótese sustentada em orgânico YouTube + pago Meta/Google".
+
+FORMATO DE RESPOSTA — responde APENAS com JSON puro (sem markdown fences):
+{
+  "objetivo": "REACH|VIDEO_VIEWS",
+  "link_destino": "<https://… ou null>",
+  "adsets": [
+    {
+      "trigger_nome": "nome curto do conjunto",
+      "funil": "topo|meio|fundo",
+      "aposta": "a hipótese ousada que este conjunto testa",
+      "orcamento_cents": <inteiro, por dia>,
+      "publico_sugerido": {
+        "geo": ["BR"],
+        "geo_regions": ["Rio Grande do Norte"],
+        "idade_min": 18,
+        "idade_max": 65,
+        "descricao": "quem é este público e porque"
+      },
+      "anuncios": [{ "youtube_video_id": "<post_ref da lista videos_promoviveis>", "porque": "número exacto + data que sustentam este vídeo" }]
+    }
+  ],
+  "resumo": {
+    "justificacao": [{ "campo": "objetivo|publico|geografia|orcamento|criativo", "escolha": "…", "porque": "fonte + número + data" }],
+    "hipoteses": [{ "conjunto": "trigger_nome", "o_que_testar": "…", "como_ler": "…", "gatilho_72h": "manter se … ; pausar se …" }],
+    "avisos": ["…"]
+  }
+}`;
+
 async function callLlm(prompt: string, systemPrompt: string = SYSTEM_PROMPT) {
   const call = () =>
     fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -379,13 +448,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }, 422);
   }
   const plataforma = String(ligacao.platform ?? "").toLowerCase();
-  if (plataforma !== "meta" && plataforma !== "tiktok") {
+  if (!["meta", "tiktok", "google"].includes(plataforma)) {
     return json({
       error: "plataforma_nao_suportada",
-      mensagem: `Estratégia por IA só está disponível para Meta e TikTok (ligação é ${plataforma || "?"}).`,
+      mensagem: `Estratégia por IA só está disponível para Meta, TikTok e Google/YouTube (ligação é ${plataforma || "?"}).`,
     }, 422);
   }
   const eTiktok = plataforma === "tiktok";
+  const eGoogle = plataforma === "google";
+  /** Alvos cujo criativo é um vídeo orgânico existente (TikTok e YouTube). */
+  const eVideo = eTiktok || eGoogle;
 
   const dados = await buildArtistDataSnapshot({
     userClient: user,
@@ -404,35 +476,44 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const audiencia: Any = dados.blocos.audiencia_organica ?? {};
   const geografiaPorUf: Any = dados.geografia;
 
-  // Publicações/vídeos anunciáveis (só prontos). No TikTok são vídeos do
-  // artista (post_kind 'tiktok_video'); preferem-se os ligados à música.
+  // Publicações/vídeos anunciáveis (só prontos). No TikTok são vídeos do artista
+  // (post_kind 'tiktok_video'), no Google vídeos do YouTube (post_kind
+  // 'youtube_video'); preferem-se os ligados à música.
   let posts = (dados.blocos.publicacoes ?? []).filter((p: Any) => p?.meta_ready === true && p?.post_ref);
   if (posts.length === 0) {
     return json({
       error: "sem_publicacoes_promoviveis",
       mensagem: eTiktok
         ? "Não há vídeos do artista no TikTok prontos para anunciar."
+        : eGoogle
+        ? "Não há vídeos do artista no YouTube prontos para anunciar."
         : "Não há publicações do artista prontas para anunciar no Meta.",
     }, 422);
   }
   let videosLigadosMusica = 0;
-  if (eTiktok) {
+  if (eVideo) {
     const ligados = posts.filter((p: Any) => p?.song_id === songId);
     const outros = posts.filter((p: Any) => p?.song_id !== songId);
     videosLigadosMusica = ligados.length;
-    posts = [...ligados, ...outros].slice(0, MAX_VIDEOS_TIKTOK);
+    const limite = eGoogle ? MAX_VIDEOS_GOOGLE : MAX_VIDEOS_TIKTOK;
+    posts = [...ligados, ...outros].slice(0, limite);
   }
   const postRefsOk = new Set(posts.map((p: Any) => String(p.post_ref)));
 
-  // ── 1c) ANÁLISE DOS VÍDEOS TIKTOK (D-ERP107) — bloco novo, só neste alvo.
-  const analiseVideos = eTiktok
-    ? await analisarVideosTiktok(user, { artistId, songId, dias: 180 })
+  // ── 1c) ANÁLISE DOS VÍDEOS ORGÂNICOS (D-ERP107 TikTok / D-ERP108 YouTube).
+  const analiseVideos = eVideo
+    ? await analisarVideosTiktok(user, {
+      artistId,
+      songId,
+      dias: 180,
+      platform: eGoogle ? "youtube" : "tiktok",
+    })
     : null;
   if (analiseVideos) avisos.push(...analiseVideos.avisos);
 
-  // Estados brasileiros para validar os nomes de geo_regions no alvo TikTok.
+  // Estados brasileiros para validar os nomes de geo_regions (TikTok e Google).
   let estadosBr: { nome: string; uf: string }[] = [];
-  if (eTiktok) {
+  if (eVideo) {
     const { data: ests, error: estErr } = await user.from("br_estados").select("nome, uf");
     if (estErr) avisos.push(`br_estados indisponível (${estErr.message}) — nomes de estado não validados`);
     estadosBr = (ests ?? []) as { nome: string; uf: string }[];
@@ -489,8 +570,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
     publicado_em: p.published_at,
     ultimo_anuncio: p.last_ad_name,
     gasto_30d_cents: p.spend_30d_cents,
-    ...(eTiktok ? { song_id: p.song_id ?? null, ligado_a_musica: p.song_id === songId } : {}),
+    ...(eVideo ? { song_id: p.song_id ?? null, ligado_a_musica: p.song_id === songId } : {}),
   }));
+
+  const blocoAnalise = analiseVideos
+    ? {
+      _fonte: analiseVideos.fonte.fonte,
+      periodo: analiseVideos.fonte.periodo,
+      data_mais_recente: analiseVideos.fonte.data_mais_recente,
+      series_diarias: analiseVideos.fonte.series_diarias,
+      totais: analiseVideos.totais,
+      top_15_views: analiseVideos.top_15_views,
+      top_10_interacao: analiseVideos.top_10_interacao,
+      top_10_crescimento_7d: analiseVideos.top_10_crescimento_7d,
+      videos_da_musica: analiseVideos.videos_da_musica,
+      padroes: analiseVideos.padroes,
+    }
+    : null;
 
   const entradas = {
     plataforma,
@@ -504,22 +600,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     },
     snapshot: snapshotMusica,
     relatorio_de_lancamento: relatorio,
-    ...(eTiktok ? { videos_promoviveis: listaPosts } : { publicacoes_promoviveis: listaPosts }),
-    ...(analiseVideos
-      ? {
-        analise_videos_tiktok: {
-          _fonte: analiseVideos.fonte.fonte,
-          periodo: analiseVideos.fonte.periodo,
-          data_mais_recente: analiseVideos.fonte.data_mais_recente,
-          series_diarias: analiseVideos.fonte.series_diarias,
-          totais: analiseVideos.totais,
-          top_15_views: analiseVideos.top_15_views,
-          top_10_interacao: analiseVideos.top_10_interacao,
-          top_10_crescimento_7d: analiseVideos.top_10_crescimento_7d,
-          videos_da_musica: analiseVideos.videos_da_musica,
-          padroes: analiseVideos.padroes,
-        },
-      }
+    ...(eVideo ? { videos_promoviveis: listaPosts } : { publicacoes_promoviveis: listaPosts }),
+    ...(blocoAnalise
+      ? (eGoogle ? { analise_videos_youtube: blocoAnalise } : { analise_videos_tiktok: blocoAnalise })
       : {}),
     desempenho_pago: {
       _fonte: "primária — RPCs public.artist_ads_daily(90) + artist_ads_campaigns + artist_ads_ads",
@@ -551,20 +634,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
     pedido: { objetivo: objetivoPedido, orcamento_diario: orcamentoPedido, notas },
   };
 
-  // ── 7) LLM (prompt de sistema próprio no alvo TikTok)
+  // ── 7) LLM (prompt de sistema próprio nos alvos TikTok e YouTube)
   if (eTiktok) {
     avisos.push("sem histórico pago TikTok; hipótese sustentada em orgânico TikTok + pago Meta/Google");
   }
   const llm = await callLlm(
     `Dados (única fonte de números permitida):\n\n${JSON.stringify(entradas)}`,
-    eTiktok ? SYSTEM_PROMPT_TIKTOK : SYSTEM_PROMPT,
+    eGoogle ? SYSTEM_PROMPT_GOOGLE : eTiktok ? SYSTEM_PROMPT_TIKTOK : SYSTEM_PROMPT,
   );
   if ("fail" in llm && llm.fail) return llm.fail;
   const plano: Any = llm.plano ?? {};
 
   // ── 8) Normalização determinística (não confiar na saída do modelo)
-  const objetivosOk = eTiktok ? OBJETIVOS_TIKTOK : OBJETIVOS;
-  const objetivoOmissao = eTiktok ? "VIDEO_VIEWS" : "AWARENESS";
+  const objetivosOk = eGoogle ? OBJETIVOS_GOOGLE : eTiktok ? OBJETIVOS_TIKTOK : OBJETIVOS;
+  const objetivoOmissao = eVideo ? "VIDEO_VIEWS" : "AWARENESS";
   let objetivo = String(plano.objetivo ?? "").toUpperCase();
   if (!objetivosOk.includes(objetivo)) {
     avisos.push(
@@ -625,8 +708,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     // Estados. No Meta → geo_regions [{nome, key}] com a chave resolvida na Meta.
-    // No TikTok → geo_regions é LISTA DE NOMES; os location_ids são resolvidos
-    // pela crm-tiktok-publish-execute.
+    // No TikTok/Google → geo_regions é LISTA DE NOMES; os location_ids (TikTok) e
+    // os geoTargetConstants (Google) são resolvidos no motor de publicação.
     const estadosBrutos: Any[] = Array.isArray(pub.estados)
       ? pub.estados
       : (Array.isArray(pub.geo_regions) ? pub.geo_regions.map((r: Any) => r?.nome ?? r) : []);
@@ -636,9 +719,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     delete pub.estados;
     delete pub.geo_regions;
     if (nomes.length > 0) {
-      if (eTiktok) {
-        // Nomes validados contra public.br_estados (comparação sem acentos); a
-        // crm-tiktok-publish-execute resolve os location_ids a partir do nome.
+      if (eVideo) {
+        // Nomes validados contra public.br_estados (comparação sem acentos); o
+        // motor de publicação resolve as chaves da plataforma a partir do nome.
         const unicos: string[] = [];
         for (const nome of nomes) {
           const oficial = estadosBr.length === 0 ? nome : estadoOficial(nome, estadosBr);
@@ -684,16 +767,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const lista = Array.isArray(a.anuncios) ? a.anuncios : [];
     const validos: Any[] = [];
     for (const an of lista) {
-      if (eTiktok) {
-        const vid = an?.tiktok_video_id ?? an?.video_id ?? an?.post_ref;
+      if (eVideo) {
+        const campoId = eGoogle ? "youtube_video_id" : "tiktok_video_id";
+        const vid = an?.[campoId] ?? an?.tiktok_video_id ?? an?.youtube_video_id ?? an?.video_id ?? an?.post_ref;
         if (typeof vid !== "string" || !postRefsOk.has(vid)) {
           avisos.push(
-            `conjunto "${a.trigger_nome ?? "?"}": vídeo ${vid ?? "(sem tiktok_video_id)"} não está na lista de vídeos promovíveis — anúncio descartado`,
+            `conjunto "${a.trigger_nome ?? "?"}": vídeo ${vid ?? `(sem ${campoId})`} não está na lista de vídeos promovíveis — anúncio descartado`,
           );
           continue;
         }
         const porque = typeof an?.porque === "string" ? an.porque : null;
-        validos.push({ tiktok_video_id: vid, ...(porque ? { porque } : {}) });
+        validos.push({ [campoId]: vid, ...(porque ? { porque } : {}) });
       } else {
         const ref = an?.existing_post?.post_ref;
         if (typeof ref !== "string" || !postRefsOk.has(ref)) {
@@ -713,7 +797,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (adsets.length === 0) {
     return json({
       error: "plano_invalido",
-      mensagem: eTiktok
+      mensagem: eVideo
         ? "O plano gerado ficou sem conjuntos com vídeo promovível."
         : "O plano gerado ficou sem conjuntos com publicação promovível.",
       avisos,
@@ -721,7 +805,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // orçamento: mínimo por conjunto e corte proporcional ao alvo/disponível
-  const minCents = (eTiktok ? MIN_DAILY_CENTS_TIKTOK : MIN_DAILY_CENTS) * (end ? dias : 1);
+  const minDiario = eTiktok ? MIN_DAILY_CENTS_TIKTOK : eGoogle ? MIN_DAILY_CENTS_GOOGLE : MIN_DAILY_CENTS;
+  const minCents = minDiario * (end ? dias : 1);
   const tetoCents = Math.floor(alvoDiario * 100) * (end ? dias : 1);
   let soma = adsets.reduce((s, a) => s + a.orcamento_cents, 0);
   if (soma <= 0) {
@@ -784,7 +869,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // FONTES: cada bloco do snapshot único com fonte, período e data mais recente.
   const fontes = analiseVideos
-    ? [...dados.fontes, { bloco: "analise_videos_tiktok", ...analiseVideos.fonte }]
+    ? [...dados.fontes, { bloco: eGoogle ? "analise_videos_youtube" : "analise_videos_tiktok", ...analiseVideos.fonte }]
     : dados.fontes;
 
   plano.resumo = {
@@ -797,12 +882,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
       snapshot_da_musica: snapshotMusica != null,
       relatorio_de_lancamento: relatorio?.gerado_em ?? null,
       publicacoes_promoviveis: posts.length,
-      videos_promoviveis: eTiktok
+      videos_promoviveis: eVideo
         ? { total: posts.length, ligados_a_musica: videosLigadosMusica }
         : null,
       videos_analisados: analiseVideos?.totais.videos_analisados ?? null,
       videos_ligados_a_musica: analiseVideos?.totais.videos_ligados_a_musica ?? videosLigadosMusica,
-      series_diarias_tiktok: analiseVideos?.fonte.series_diarias ?? null,
+      series_diarias: analiseVideos?.fonte.series_diarias ?? null,
+      series_diarias_tiktok: eTiktok ? (analiseVideos?.fonte.series_diarias ?? null) : null,
       campanhas_com_gasto_90d: campanhasPagas.length,
       anuncios_com_gasto: anuncios.length,
       dias_de_diario_90d: campanhasPagas.reduce((s: number, c: Any) => s + Number(c.dias_com_gasto ?? 0), 0),
@@ -829,14 +915,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // ── 10) Validar (IMMUTABLE, não grava) e só depois gravar em 'rascunho'
   //
-  // public.artist_ads_plan_validate exige objetivo em AWARENESS/TRAFFIC/ENGAGEMENT
-  // (ver D-ERP107). Não exige headline nem existing_post — só o objetivo bate mal
-  // com REACH/VIDEO_VIEWS. A RPC NÃO foi alterada: no alvo TikTok, quando o
-  // objetivo não é TRAFFIC, corre-se a validação determinística local (que é a
-  // mesma lista de invariantes: ≥1 conjunto, orçamento > 0, ≥1 anúncio, geo) e
-  // registamos o desvio em avisos.
-  const validaNaRpc = !eTiktok || objetivo === "TRAFFIC";
-  if (validaNaRpc) {
+  // public.artist_ads_plan_validate aceita AWARENESS/TRAFFIC/ENGAGEMENT (Meta) e
+  // REACH/VIDEO_VIEWS/TRAFFIC (TikTok e Google — D-ERP107/108). A RPC não é
+  // alterada por esta função.
+  {
     const { error: valErr } = await user.rpc("artist_ads_plan_validate", {
       p_plan: plano,
       p_smart_link: smartLink,
@@ -844,22 +926,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (valErr) {
       return json({ error: "plano_invalido", mensagem: valErr.message, plano }, 422);
     }
-  } else {
-    for (let i = 0; i < adsets.length; i++) {
-      const a = adsets[i];
-      const g = a?.publico_sugerido?.geo;
-      if (!(Number(a?.orcamento_cents) > 0) || !(a?.anuncios ?? []).length ||
-        !Array.isArray(g) || g.length === 0) {
-        return json({
-          error: "plano_invalido",
-          mensagem: `conjunto ${i + 1}: precisa de orçamento > 0, um anúncio e país em publico_sugerido.geo`,
-          plano,
-        }, 422);
-      }
-    }
-    plano.resumo.avisos.push(
-      `validação local: public.artist_ads_plan_validate só aceita objetivo AWARENESS/TRAFFIC/ENGAGEMENT e o plano é ${objetivo} (TikTok) — RPC não alterada`,
-    );
   }
 
   const { data: planId, error: createErr } = await user.rpc("artist_ads_plan_create", {
@@ -871,14 +937,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
   if (createErr) {
     const msg = createErr.message ?? "";
-    // artist_ads_plan_create chama artist_ads_plan_validate por dentro; essa RPC
-    // só aceita AWARENESS/TRAFFIC/ENGAGEMENT. Erro identificável em vez de
-    // mascarar (a RPC não é alterada por esta função — ver D-ERP107).
-    if (eTiktok && /objetivo inv[áa]lido/i.test(msg)) {
+    // artist_ads_plan_create chama artist_ads_plan_validate por dentro. Desde a
+    // DDL de D-ERP107/108 essa RPC aceita REACH e VIDEO_VIEWS; se ainda recusar,
+    // o erro é identificável em vez de mascarado (a RPC não é alterada aqui).
+    if ((eTiktok || eGoogle) && /objetivo inv[áa]lido/i.test(msg)) {
       return json({
-        error: "rpc_objetivo_tiktok_nao_aceite",
+        error: eTiktok ? "rpc_objetivo_tiktok_nao_aceite" : "rpc_objetivo_google_nao_aceite",
         mensagem:
-          `public.artist_ads_plan_validate (chamada dentro de artist_ads_plan_create) recusa o objetivo ${objetivo}: só aceita AWARENESS, TRAFFIC ou ENGAGEMENT. Falta autorizar DDL que aceite REACH e VIDEO_VIEWS quando a plataforma é TikTok.`,
+          `public.artist_ads_plan_validate (chamada dentro de artist_ads_plan_create) recusa o objetivo ${objetivo}. Falta a DDL que aceite REACH e VIDEO_VIEWS.`,
         plano,
       }, 422);
     }

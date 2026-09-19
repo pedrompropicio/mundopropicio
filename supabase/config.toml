@@ -209,3 +209,9 @@ verify_jwt = true
 
 [functions.crm-tiktok-publish-activate]
 verify_jwt = true
+
+[functions.crm-google-video-publish-execute]
+verify_jwt = true
+
+[functions.crm-google-video-publish-activate]
+verify_jwt = true

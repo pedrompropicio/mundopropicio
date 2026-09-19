@@ -15,6 +15,8 @@ type Any = any;
 export type VideoTiktok = {
   content_id: string;
   tiktok_video_id: string | null;
+  /** Só quando platform='youtube' (D-ERP108). */
+  youtube_video_id?: string | null;
   permalink: string | null;
   published_at: string | null;
   duracao_seg: number | null;
@@ -84,18 +86,31 @@ function media(vals: number[]): number | null {
 }
 
 /**
- * Monta a análise dos vídeos TikTok do artista nos últimos `dias` dias.
- * Nunca lança: qualquer falha vira aviso e bloco vazio.
+ * Monta a análise dos vídeos do artista nos últimos `dias` dias.
+ *
+ * Generalizada por plataforma em D-ERP108: 'tiktok' (omissão, comportamento
+ * inalterado) ou 'youtube' (campanhas de vídeo do Google Ads). Nunca lança:
+ * qualquer falha vira aviso e bloco vazio.
  */
 export async function analisarVideosTiktok(
   userClient: SupabaseClient,
-  opts: { artistId: string; songId?: string | null; dias?: number },
+  opts: {
+    artistId: string;
+    songId?: string | null;
+    dias?: number;
+    platform?: "tiktok" | "youtube";
+    contentTypes?: string[];
+  },
 ): Promise<AnaliseVideosTiktok> {
   const dias = opts.dias ?? 180;
+  const plataforma = opts.platform ?? "tiktok";
+  const tipos = opts.contentTypes ?? (plataforma === "youtube" ? ["video", "short"] : ["video"]);
+  const rotulo = plataforma === "youtube" ? "analise_videos_youtube" : "analise_videos_tiktok";
+  const rotuloFonte = plataforma === "youtube" ? "YouTube" : "TikTok";
   const avisos: string[] = [];
   const vazio: AnaliseVideosTiktok = {
     fonte: {
-      fonte: "public.artist_content + public.artist_content_metrics_daily (TikTok)",
+      fonte: `public.artist_content + public.artist_content_metrics_daily (${rotuloFonte})`,
       periodo: { de: null, a: null },
       data_mais_recente: null,
       videos: 0,
@@ -125,19 +140,19 @@ export async function analisarVideosTiktok(
       "id, external_id, permalink, published_at, duration_seconds, caption_excerpt, title, sound_name, sound_external_id, song_id",
     )
     .eq("artist_id", opts.artistId)
-    .eq("platform", "tiktok")
-    .eq("content_type", "video")
+    .eq("platform", plataforma)
+    .in("content_type", tipos)
     .gte("published_at", desde)
     .order("published_at", { ascending: false })
     .limit(2000);
 
   if (errC) {
-    avisos.push(`analise_videos_tiktok: falha ao ler artist_content (${errC.message})`);
+    avisos.push(`${rotulo}: falha ao ler artist_content (${errC.message})`);
     return vazio;
   }
   const linhas = conteudos ?? [];
   if (!linhas.length) {
-    avisos.push(`analise_videos_tiktok: sem vídeos TikTok publicados nos últimos ${dias} dias`);
+    avisos.push(`${rotulo}: sem vídeos ${rotuloFonte} publicados nos últimos ${dias} dias`);
     return vazio;
   }
 
@@ -152,13 +167,13 @@ export async function analisarVideosTiktok(
     const { data: mets, error: errM } = await userClient
       .from("artist_content_metrics_daily")
       .select("content_id, metric, metric_date, value")
-      .eq("platform", "tiktok")
+      .eq("platform", plataforma)
       .in("content_id", lote)
       .in("metric", METRICAS as unknown as string[])
       .order("metric_date", { ascending: true })
       .limit(50000);
     if (errM) {
-      avisos.push(`analise_videos_tiktok: falha ao ler artist_content_metrics_daily (${errM.message})`);
+      avisos.push(`${rotulo}: falha ao ler artist_content_metrics_daily (${errM.message})`);
       break;
     }
     for (const m of (mets ?? [])) {
@@ -177,7 +192,7 @@ export async function analisarVideosTiktok(
   const temSeries = series.size > 0;
   if (!temSeries) {
     avisos.push(
-      "analise_videos_tiktok: sem séries em artist_content_metrics_daily para TikTok — não há métricas correntes em artist_content, por isso views/likes/comments/shares e crescimento ficam indisponíveis",
+      `${rotulo}: sem séries em artist_content_metrics_daily para ${rotuloFonte} — não há métricas correntes em artist_content, por isso views/likes/comments/shares e crescimento ficam indisponíveis`,
     );
   }
 
@@ -227,7 +242,8 @@ export async function analisarVideosTiktok(
 
     videos.push({
       content_id: String((c as Any).id),
-      tiktok_video_id: (c as Any).external_id ?? null,
+      tiktok_video_id: plataforma === "tiktok" ? ((c as Any).external_id ?? null) : null,
+      ...(plataforma === "youtube" ? { youtube_video_id: (c as Any).external_id ?? null } : {}),
       permalink: (c as Any).permalink ?? null,
       published_at: (c as Any).published_at ?? null,
       duracao_seg: (c as Any).duration_seconds ?? null,
@@ -283,7 +299,7 @@ export async function analisarVideosTiktok(
 
   return {
     fonte: {
-      fonte: "public.artist_content + public.artist_content_metrics_daily (TikTok)",
+      fonte: `public.artist_content + public.artist_content_metrics_daily (${rotuloFonte})`,
       periodo: { de: dataMin, a: dataMax },
       data_mais_recente: dataMax,
       videos: videos.length,

@@ -3730,3 +3730,41 @@ sem acentos (devolve o nome oficial; estado inexistente sai com
 com aviso). `resumo.entradas_usadas` ganha `videos_analisados`,
 `videos_ligados_a_musica` e `series_diarias_tiktok`; `resumo.fontes` ganha o
 bloco `analise_videos_tiktok`.
+
+## D-ERP108 — Publicação de campanhas de VÍDEO no YouTube (Google Ads API)
+
+Fase F4 do motor único de campanhas. Espelho exacto do TikTok (D-ERP107) para o Google.
+
+**Nomes novos, não reutilizados.** `crm-google-publish-execute` / `crm-google-publish-activate`
+JÁ EXISTEM e publicam campanhas de PESQUISA (SEARCH_STANDARD, keywords, adGroupCriteria).
+Reutilizar esses nomes destruía o publisher de Search → criadas
+`crm-google-video-publish-execute` e `crm-google-video-publish-activate`.
+
+- API: `v24` (`_shared/google-ads.ts`, `GOOGLE_ADS_API_VERSION`). Auth igual ao sync
+  (service account `GOOGLE_SA_KEY_JSON`, developer token, `login-customer-id` do MCC).
+- Campanha `advertising_channel_type=VIDEO`, criada sempre em `PAUSED`; activação só na
+  `-activate` (bottom-up a activar, top-down a pausar), com `artist_ads_assert_cap_admin`.
+- Tipo de grupo: `VIDEO_RESPONSIVE` + `videoResponsiveAd` nos dois objectivos —
+  `VIDEO_VIEWS` com `targetCpv`, `REACH` com `targetCpm`.
+- `TRAFFIC` NÃO é suportado em VIDEO neste módulo → 422 `objetivo_nao_suportado_google`.
+- Orçamento: `campaign_budget.amount_micros = orcamento_cents * 10000`, mínimo 500 cents/dia
+  por conjunto, moeda da conta. Teto re-verificado em `artist_ads_budget_cap_get`.
+- Vídeo: `youtubeVideoAsset.youtubeVideoId` = `anuncios[].youtube_video_id` (post_ref da
+  galeria). Vídeo privado/não elegível → `video_nao_elegivel`.
+- Público: país por `COUNTRY_GEO_TARGETS`, estados resolvidos por nome com
+  `GeoTargetConstantService.suggest` (locale pt, targetType State), idades por `ageRange`,
+  língua pt.
+- Resource names em `crm.meta_publish_plan.external_campaign_id` + `resumo.publicacao_google`
+  (`budget_resource`, `campaign_resource`, `customer_id`, `api`); log em
+  `crm.ads_entity_actions_log` (platform='google'); dry-run devolve payloads + `payloads_sha256`.
+- Erros novos: `developer_token_sem_acesso_basico`, `video_nao_elegivel`,
+  `conta_google_invalida`, `sem_token_google`, `objetivo_nao_suportado_google`,
+  `ligacao_nao_google`, `google_rejeitou`.
+- `artist-ads-strategy-generate` ganhou ramo YouTube: análise dos vídeos via
+  `_shared/tiktok-video-analysis.ts` generalizado (`platform: 'youtube'`, content_type
+  video|short), `SYSTEM_PROMPT_GOOGLE` (REACH|VIDEO_VIEWS, `anuncios[].youtube_video_id`,
+  `geo_regions` por nome de estado validado em `br_estados`), mínimo 500 cents/dia,
+  `entradas_usadas.plataforma` e bloco `analise_videos_youtube` em `resumo.fontes`.
+  A validação passa outra vez SEMPRE por `artist_ads_plan_validate` (a DDL já aceita
+  REACH|VIDEO_VIEWS); o desvio local do TikTok foi removido.
+- Fronteira mantida: `crm-*` lê `crm.ad_platform_connections`, `artist-*` nunca.
