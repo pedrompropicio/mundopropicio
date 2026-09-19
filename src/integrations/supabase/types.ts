@@ -16647,6 +16647,10 @@ export type Database = {
         }
         Returns: string
       }
+      artist_ads_unlink_song: {
+        Args: { p_artist_id: string; p_campaign_id: string; p_platform: string }
+        Returns: number
+      }
       artist_consume_oauth_state: {
         Args: { p_state_id: string }
         Returns: {
