@@ -47,6 +47,61 @@ function stripJsonFences(text: string): string {
 const OBJETIVOS = ["AWARENESS", "TRAFFIC", "ENGAGEMENT"];
 const MIN_DAILY_CENTS = 100;
 
+// ── Geografia por ESTADO (região Meta) ──────────────────────────────────────
+// O LLM só propõe NOMES de estado; a chave de região é resolvida aqui, na
+// função, por GET /search?type=adgeolocation&location_types=['region'].
+// Fronteira do módulo: não há leitura de crm.* nem token de ligação — usa-se o
+// token de aplicação (META_APP_ID|META_APP_SECRET), que basta para /search.
+const META_GRAPH_VERSION = "v18.0";
+const META_APP_ID = Deno.env.get("META_APP_ID");
+const META_APP_SECRET = Deno.env.get("META_APP_SECRET");
+
+function metaAppToken(): string | null {
+  return META_APP_ID && META_APP_SECRET ? `${META_APP_ID}|${META_APP_SECRET}` : null;
+}
+
+const regionCache = new Map<string, string | null>();
+
+async function resolveRegionKey(
+  nome: string,
+  countryCode: string,
+  token: string,
+): Promise<string | null> {
+  const chave = `${countryCode}:${nome.toLowerCase()}`;
+  if (regionCache.has(chave)) return regionCache.get(chave) ?? null;
+  let key: string | null = null;
+  try {
+    const u = new URL(`https://graph.facebook.com/${META_GRAPH_VERSION}/search`);
+    u.searchParams.set("type", "adgeolocation");
+    u.searchParams.set("location_types", '["region"]');
+    u.searchParams.set("q", nome);
+    u.searchParams.set("country_code", countryCode);
+    u.searchParams.set("limit", "10");
+    u.searchParams.set("locale", "pt_BR");
+    u.searchParams.set("access_token", token);
+    const r = await fetch(u.toString());
+    // deno-lint-ignore no-explicit-any
+    const j: any = await r.json();
+    if (r.ok && !j?.error && Array.isArray(j?.data)) {
+      // deno-lint-ignore no-explicit-any
+      const mesmoPais = j.data.filter((d: any) =>
+        String(d?.country_code ?? countryCode).toUpperCase() === countryCode
+      );
+      const alvo = nome.trim().toLowerCase();
+      // deno-lint-ignore no-explicit-any
+      const exacto = mesmoPais.find((d: any) => String(d?.name ?? "").trim().toLowerCase() === alvo);
+      const escolhido = exacto ?? mesmoPais[0];
+      if (escolhido?.key) key = String(escolhido.key);
+    } else {
+      console.warn(`[${FUNCTION_NAME}] /search region falhou`, j?.error?.message ?? r.status);
+    }
+  } catch (e) {
+    console.warn(`[${FUNCTION_NAME}] /search region exception`, String(e));
+  }
+  regionCache.set(chave, key);
+  return key;
+}
+
 // deno-lint-ignore no-explicit-any
 type Any = any;
 
