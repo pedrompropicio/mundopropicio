@@ -35,6 +35,10 @@ export interface StartArgs {
   artist_id?: string | null;
 }
 
+// dry_run nunca conta rows_written nem fecha como 'success'.
+// startSyncRun guarda o dry_run por runId; finishSyncRun impõe a regra no fim.
+const dryRunRegistry = new Map<string, boolean>();
+
 /** Cria a linha 'running'. Devolve o id ou null se o registo falhar. */
 export async function startSyncRun(
   admin: Admin,
@@ -54,7 +58,9 @@ export async function startSyncRun(
       .select("id")
       .single();
     if (error) throw error;
-    return (data?.id as string) ?? null;
+    const id = (data?.id as string) ?? null;
+    if (id) dryRunRegistry.set(id, args.dry_run === true);
+    return id;
   } catch (e) {
     console.error("[sync_runs] insert falhou:", (e as Error)?.message ?? e);
     return null;
