@@ -410,14 +410,19 @@ function buildDailyRows(rows: GAdsCampaignRow[]): DailyInsightRow[] {
 // Bloco ISOLADO: o caminho normal (sem `breakdowns`) não passa por aqui.
 // ---------------------------------------------------------------------------
 
+// v24 (validado contra a conta real em set/2026):
+//  - metrics.video_views NÃO existe (UNRECOGNIZED_FIELD) → video_thruplays fica 0
+//  - customer.currency_code NÃO é selecionável a partir de geographic_view/
+//    age_range_view/gender_view → a moeda é lida numa consulta própria
+//  - segments.geo_target_country é incompatível com geographic_view →
+//    o país vem de geographic_view.country_criterion_id
 const BREAKDOWN_METRICS = `
     metrics.impressions,
     metrics.clicks,
     metrics.cost_micros,
-    metrics.video_views,
     metrics.conversions`;
 
-/** Um grupo = uma consulta GAQL. `recurso` é o FROM; `campo` a dimensão. */
+/** Um grupo = uma consulta GAQL. `from` é o recurso; `dimension` a dimensão. */
 const GOOGLE_BREAKDOWN_GROUPS: Array<{
   key: string;
   from: string;
@@ -433,7 +438,7 @@ const GOOGLE_BREAKDOWN_GROUPS: Array<{
   {
     key: "country",
     from: "geographic_view",
-    dimension: "segments.geo_target_country",
+    dimension: "geographic_view.country_criterion_id",
     extraWhere: "geographic_view.location_type = 'LOCATION_OF_PRESENCE'",
   },
   { key: "age", from: "age_range_view", dimension: "ad_group_criterion.age_range.type" },
@@ -452,12 +457,64 @@ function buildBreakdownGaql(
   SELECT
     campaign.id,
     campaign.name,
-    customer.currency_code,
     segments.date,
     ${group.dimension},${BREAKDOWN_METRICS}
   FROM ${group.from}
   WHERE ${where.join(" AND ")}
 `;
+}
+
+/** Moeda da conta: consulta própria (customer.currency_code só sai de `customer`). */
+async function fetchCustomerCurrency(
+  accessToken: string,
+  developerToken: string,
+  loginCustomerId: string,
+  customerId: string,
+): Promise<string | null> {
+  const rows = await searchStreamCampaigns(
+    accessToken,
+    developerToken,
+    loginCustomerId,
+    customerId,
+    "SELECT customer.id, customer.currency_code FROM customer",
+  );
+  for (const r of rows as Array<Record<string, any>>) {
+    const c = r.customer ?? {};
+    if (c.currencyCode) return String(c.currencyCode);
+  }
+  return null;
+}
+
+/** Extrai errorCode/trigger/location do corpo GoogleAdsFailure para as notes. */
+function describeGoogleAdsError(msg: string): string {
+  const start = msg.indexOf("[");
+  const jsonPart = start >= 0 ? msg.slice(start) : msg;
+  try {
+    const parsed = JSON.parse(jsonPart);
+    const arr = Array.isArray(parsed) ? parsed : [parsed];
+    const details = arr[0]?.error?.details ?? [];
+    const err = details[0]?.errors?.[0];
+    if (err) {
+      const code = JSON.stringify(err.errorCode ?? {});
+      const trigger = err.trigger != null ? JSON.stringify(err.trigger) : "";
+      const path = Array.isArray(err.location?.fieldPathElements)
+        ? err.location.fieldPathElements
+          .map((f: any) => f.fieldName ?? "")
+          .filter(Boolean)
+          .join(".")
+        : "";
+      return [
+        msg.slice(0, start >= 0 ? start : msg.length).trim(),
+        `errorCode=${code}`,
+        trigger ? `trigger=${trigger}` : "",
+        path ? `location=${path}` : "",
+        `message=${err.message ?? ""}`,
+      ].filter(Boolean).join(" | ").slice(0, 2000);
+    }
+  } catch (_e) {
+    // corpo não-JSON: devolve o texto cru truncado
+  }
+  return msg.slice(0, 2000);
 }
 
 interface BreakdownRow {
