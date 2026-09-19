@@ -3064,3 +3064,65 @@ Campos do contrato: `publico_sugerido.geo` (países), `publico_sugerido.idade_mi
 **Caminho de evento intocado:** o default `["PT"]` e a ordem das chaves do targeting mantêm-se;
 o `semGeo` só pode ser verdadeiro quando `isSong`. Prova por hash do `dry_run` do plano
 `93529702-76c7-491f-95dd-040ed7fcee25` (`0e2801d625781a22a1e4bb33fb0a0f6d`) feita pelo Pedro.
+
+### Adenda F3 — activação do alvo música: aprovação registada, tetos e porta lateral (19/09/2026)
+
+**Activação = aprovação.** Em `crm-meta-publish-activate`, plano com `song_id`:
+exige SESSÃO de utilizador (o service_role nunca activa nem pausa música);
+`acao='ativar'` só admin/platform_admin (`public.artist_ads_assert_cap_admin`),
+`acao='pausar'` também manager/marketing_manager (`public.artist_ads_assert_write`);
+sem papel → `403 { error:'sem_permissao' }`. Aceita `approval_note` (texto opcional).
+Quem activa fica registado como aprovador: `activated_by` + uma linha em
+`crm.meta_entity_actions_log` (action `activate`/`pause`, prev/new status,
+`performed_by` = `approved_by` = utilizador, `approval_note` em `updates_jsonb`).
+Falha parcial também vai ao log com `success=false`. No fim actualiza o `status` e
+`effective_status` em `crm.meta_campaign_snapshot` **sem tocar** em `linked_song_id`
+nem `linked_song_locked`. Ligação e token vêm de `plan.connection_id`
+(`connection_scope='artist'`, `status='active'`) — nunca de `ad_platform_account_links`.
+Sequência de flips, idempotência por `meta_status` e tratamento de erro: inalterados.
+
+**Teto partilhado.** `supabase/functions/_shared/artist-ads-teto.ts`
+(`dailyFromAdsets`, `committedDaily`, `checkTetoDaily`, `checkTetoPlano`) é a fonte
+única usada pela publicação, pela activação (só em `ativar`; `pausar` não verifica) e
+pelo `crm-meta-entity-action`. Fechado por omissão: sem linha em
+`crm.artist_ads_budget_caps` → `422 sem_teto`; diário do plano + diário dos outros
+planos de música publicado/ativo da mesma connection > `daily_cap` → `422 acima_do_teto`
+com `{ teto, pedido, ja_comprometido, moeda }`.
+
+**Porta lateral fechada (só `connection_scope='artist'`).** Em `crm-meta-entity-action`:
+`activate` ou aumento de orçamento (diário ou vitalício) exige admin/platform_admin;
+pausar e reduzir aceitam também manager/marketing_manager. Se a entidade pertencer a
+uma campanha de um plano de música do motor (`crm.meta_publish_plan.meta_campaign_id`
+com `song_id`), activar ou aumentar passa pelo MESMO teto. Campanhas que não são do
+motor (gestor de tráfego externo) não contam para o teto nem são bloqueadas por ele —
+só a regra de papel. `approved_by` gravado no log nas acções de activação/aumento.
+Para `connection_scope='company'` nada muda.
+
+**Preflight fiel.** `crm-meta-publish-execute` ganhou o check `geografia` (cada adset
+com `publico_sugerido.geo` não vazio) na lista de checks do alvo música — antes um
+preflight de plano sem país não o assinalava porque a recusa está atrás de `!dryRun`
+e o `preflight` herda `dry_run=TRUE`.
+
+**Migração (Live).** `crm.meta_entity_actions_log.approved_by`;
+`crm.v_ads_entity_actions_log` recriada com `security_invoker=true` a expor
+`approved_by` da Meta (REVOKE PUBLIC/anon, GRANT SELECT authenticated/service_role);
+`crm.artist_ads_budget_caps_history` + trigger `crm.log_artist_ads_budget_cap`
+(`set|update|remove`, RLS: SELECT authenticated por `current_company_id()`, escrita só
+service_role/trigger); `crm.artist_ads_plan_daily(jsonb,timestamptz,timestamptz)`;
+RPCs `public.artist_ads_budget_cap_set(uuid,numeric,text)` e
+`public.artist_ads_budget_cap_remove(uuid)` (só admin/platform_admin — manager e
+marketing_manager NÃO definem tetos; moeda = `selected_ad_account_currency`, erro legível
+se NULL; `daily_cap > 0`; upsert por `connection_id`); `public.artist_ads_budget_cap_get`
+passa a devolver `committed_daily` e `available_daily` no fim. Todas com REVOKE
+PUBLIC/anon + GRANT authenticated, service_role (D-ERP94). Baixar um teto abaixo do
+comprometido é permitido: não pausa nada, só impede novas activações.
+
+**CHECK de `action`** em `crm.meta_entity_actions_log` (valores actuais, não alterado):
+`create`, `pause`, `activate`, `update_budget`, `update_name`, `update_end_time` —
+`activate` e `pause` já existiam. LACUNA PRÉ-EXISTENTE REGISTADA, não alterada: o
+`crm-meta-entity-action` grava `update_roas_floor`, que o CHECK não aceita.
+
+**LACUNAS DE EVENTOS (registadas, não alteradas):** activação de planos de evento sem
+verificação de papel e sem teto; `crm-meta-entity-action` em connections de empresa sem
+papel nem teto (só o cap por utilizador em EUR); o motor não gera UTMs para evento;
+publicação de evento sem lock anti-corrida.
