@@ -10,6 +10,11 @@ import {
   reportMetaSyncFailure,
   reportMetaSyncSuccess,
 } from "../_shared/meta-connection-health.ts";
+import {
+  finishSyncRun,
+  resolveStatus,
+  startSyncRun,
+} from "../_shared/sync-run.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -212,6 +217,255 @@ function rowFromItem(it: any, level: Level, ctx: { companyId: string; connection
     base.updated_at = new Date().toISOString();
   }
   return base;
+}
+
+// ---------------------------------------------------------------------------
+// MODO BREAKDOWNS (D-ERP103) — só corre quando o corpo traz {"breakdowns":true}.
+// Alimenta crm.ads_insights_breakdown_daily para ligações de ARTISTA Meta.
+// O caminho normal (sem `breakdowns`) não passa por aqui.
+// ---------------------------------------------------------------------------
+
+/** Grupos de breakdown aceites pela Graph API em chamadas separadas. */
+const BREAKDOWN_GROUPS: Array<{ key: string; params: string[] }> = [
+  { key: "region", params: ["region"] },
+  { key: "age_gender", params: ["age", "gender"] },
+  { key: "publisher_platform", params: ["publisher_platform"] },
+  { key: "country", params: ["country"] },
+];
+
+const BREAKDOWN_FIELDS =
+  "campaign_id,campaign_name,impressions,reach,clicks,spend,actions,account_currency," +
+  "video_thruplay_watched_actions";
+
+interface BreakdownRow {
+  company_id: string;
+  connection_id: string;
+  platform: string;
+  level: string;
+  external_campaign_id: string;
+  external_adset_id: string;
+  external_ad_id: string;
+  campaign_name: string | null;
+  date_start: string;
+  breakdown: string;
+  breakdown_value: string;
+  impressions: number;
+  reach: number;
+  clicks: number;
+  spend_cents: number;
+  video_thruplays: number | null;
+  conversions: number;
+  currency: string;
+  source: string;
+  raw: unknown;
+  last_synced_at: string;
+}
+
+const BREAKDOWN_CONFLICT =
+  "connection_id,platform,level,external_campaign_id,external_adset_id,external_ad_id,date_start,breakdown,breakdown_value";
+
+function num(v: unknown): number {
+  const n = parseInt(String(v ?? "0"), 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Constrói as linhas de um grupo de breakdown (inclui derivadas age/gender). */
+function breakdownRowsFromItems(
+  items: any[],
+  groupKey: string,
+  ctx: { companyId: string; connectionId: string },
+  nowIso: string,
+): BreakdownRow[] {
+  const out: BreakdownRow[] = [];
+  // Para age_gender somamos também 'age' e 'gender' isolados.
+  const derived = new Map<string, BreakdownRow>();
+
+  for (const it of items) {
+    let breakdown = groupKey;
+    let value: string;
+    if (groupKey === "age_gender") {
+      value = `${it.age ?? "unknown"}|${it.gender ?? "unknown"}`;
+    } else if (groupKey === "region") {
+      value = String(it.region ?? "unknown");
+    } else if (groupKey === "country") {
+      value = String(it.country ?? "unknown");
+    } else {
+      value = String(it.publisher_platform ?? "unknown");
+    }
+
+    const row: BreakdownRow = {
+      company_id: ctx.companyId,
+      connection_id: ctx.connectionId,
+      platform: "meta",
+      level: "campaign",
+      external_campaign_id: String(it.campaign_id ?? ""),
+      external_adset_id: "",
+      external_ad_id: "",
+      campaign_name: it.campaign_name ?? null,
+      date_start: it.date_start,
+      breakdown,
+      breakdown_value: value,
+      impressions: num(it.impressions),
+      reach: num(it.reach),
+      clicks: num(it.clicks),
+      spend_cents: Math.round((parseFloat(it.spend) || 0) * 100),
+      video_thruplays: videoNum(it.video_thruplay_watched_actions),
+      conversions: sumPurchaseActions(it.actions),
+      currency: it.account_currency || "EUR",
+      source: "platform_api",
+      raw: it,
+      last_synced_at: nowIso,
+    };
+    out.push(row);
+
+    if (groupKey === "age_gender") {
+      for (const [dim, dimValue] of [
+        ["age", String(it.age ?? "unknown")],
+        ["gender", String(it.gender ?? "unknown")],
+      ] as const) {
+        const k = `${dim}|${dimValue}|${row.external_campaign_id}|${row.date_start}`;
+        const prev = derived.get(k);
+        if (prev) {
+          prev.impressions += row.impressions;
+          prev.reach += row.reach;
+          prev.clicks += row.clicks;
+          prev.spend_cents += row.spend_cents;
+          prev.conversions += row.conversions;
+          if (row.video_thruplays !== null) {
+            prev.video_thruplays = (prev.video_thruplays ?? 0) + row.video_thruplays;
+          }
+        } else {
+          derived.set(k, {
+            ...row,
+            breakdown: dim,
+            breakdown_value: dimValue,
+            raw: { derived_from: "age_gender", dimension: dim, value: dimValue },
+          });
+        }
+      }
+    }
+  }
+  return [...out, ...derived.values()];
+}
+
+async function runBreakdowns(
+  supabase: any,
+  opts: { days: number; connectionId?: string },
+): Promise<Response> {
+  const notes: string[] = [];
+  const nowIso = new Date().toISOString();
+  const today = new Date();
+  const since = new Date(today);
+  since.setUTCDate(since.getUTCDate() - opts.days);
+  const timeRange = JSON.stringify({ since: ymd(since), until: ymd(today) });
+
+  let q = supabase
+    .schema("crm")
+    .from("ad_platform_connections")
+    .select("id, company_id, artist_id, selected_ad_account_id")
+    .eq("platform", "meta")
+    .eq("connection_scope", "artist")
+    .eq("status", "active")
+    .not("selected_ad_account_id", "is", null);
+  if (opts.connectionId) q = q.eq("id", opts.connectionId);
+
+  const { data: conns, error: connErr } = await q;
+  if (connErr) return json({ error: "connections_query_failed", detail: connErr.message }, 500);
+
+  const startedMs = Date.now();
+  const runId = await startSyncRun(supabase, {
+    function_name: "crm-meta-sync-insights:breakdowns",
+    trigger_source: "api",
+    dry_run: false,
+    company_id: (conns ?? [])[0]?.company_id ?? null,
+    artist_id: (conns ?? [])[0]?.artist_id ?? null,
+  });
+
+  let rowsWritten = 0;
+  let apiCalls = 0;
+  let errorCount = 0;
+  const perConnection: Record<string, Record<string, number | string>> = {};
+
+  for (const c of conns ?? []) {
+    const perGroup: Record<string, number | string> = {};
+    const { data: tokenRows, error: tokenErr } = await supabase.rpc(
+      "crm_get_meta_decrypted_token",
+      { p_connection_id: c.id, p_master_key: ENCRYPTION_MASTER_KEY },
+    );
+    if (tokenErr || !Array.isArray(tokenRows) || tokenRows.length === 0) {
+      errorCount++;
+      notes.push(`ligação ${c.id}: token indecifrável (${tokenErr?.message ?? "sem linhas"})`);
+      perConnection[c.id] = { error: "token" };
+      continue;
+    }
+    const accessToken = (tokenRows[0] as { access_token: string }).access_token;
+    const adAccountId = normalizeAdAccountId(String(c.selected_ad_account_id));
+
+    for (const group of BREAKDOWN_GROUPS) {
+      try {
+        const url = new URL(
+          `https://graph.facebook.com/${GRAPH_API_VERSION}/${adAccountId}/insights`,
+        );
+        url.searchParams.set("level", "campaign");
+        url.searchParams.set("fields", BREAKDOWN_FIELDS);
+        url.searchParams.set("breakdowns", group.params.join(","));
+        url.searchParams.set("time_range", timeRange);
+        url.searchParams.set("time_increment", "1");
+        url.searchParams.set("limit", "500");
+        url.searchParams.set("access_token", accessToken);
+
+        apiCalls++;
+        const items = await fetchAllInsightsPages(url);
+        const rows = breakdownRowsFromItems(items, group.key, {
+          companyId: c.company_id,
+          connectionId: c.id,
+        }, nowIso);
+
+        if (rows.length === 0) {
+          notes.push(`ligação ${c.id}: breakdown ${group.key} sem resultados`);
+          perGroup[group.key] = 0;
+          continue;
+        }
+        const { error: upErr } = await supabase
+          .schema("crm")
+          .from("ads_insights_breakdown_daily")
+          .upsert(rows, { onConflict: BREAKDOWN_CONFLICT });
+        if (upErr) {
+          errorCount++;
+          notes.push(`ligação ${c.id}: upsert ${group.key} falhou (${upErr.message})`);
+          perGroup[group.key] = `erro: ${upErr.message}`;
+          continue;
+        }
+        rowsWritten += rows.length;
+        perGroup[group.key] = rows.length;
+      } catch (e) {
+        // Breakdown recusado pela API (combinação inválida, rate limit, etc.):
+        // fica em notes e os restantes grupos continuam.
+        errorCount++;
+        const msg = e instanceof Error ? e.message : String(e);
+        notes.push(`ligação ${c.id}: breakdown ${group.key} recusado (${msg})`);
+        perGroup[group.key] = `erro: ${msg}`;
+      }
+    }
+    perConnection[c.id] = perGroup;
+  }
+
+  await finishSyncRun(supabase, runId, startedMs, {
+    status: resolveStatus(rowsWritten, errorCount),
+    api_calls: apiCalls,
+    rows_written: rowsWritten,
+    details: { params: { breakdowns: true, days: opts.days, connection_id: opts.connectionId ?? null }, per_connection: perConnection, notes },
+  });
+
+  return json({
+    mode: "breakdowns",
+    days: opts.days,
+    connections: (conns ?? []).length,
+    rows_written: rowsWritten,
+    api_calls: apiCalls,
+    per_connection: perConnection,
+    notes,
+  });
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
