@@ -311,7 +311,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   const adsets: any[] = Array.isArray(planRow.adsets) ? planRow.adsets : [];
-  const avisos: Array<{ codigo: string; detalhe?: string; adset?: string; ad_idx?: number }> = [];
+  const avisos: Array<{ codigo: string; detalhe?: string; adset?: string; ad_idx?: number; group_idx?: number }> = [];
 
   // 5) Resolução creative_id (uuid interno) → meta_creative_id.
   //    Recolher TODOS os ids únicos para uma query só.
