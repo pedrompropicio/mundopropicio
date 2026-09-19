@@ -594,7 +594,8 @@ function breakdownValueFor(
 ): string {
   const s = (row.segments ?? {}) as Record<string, unknown>;
   if (groupKey === "region" || groupKey === "country") {
-    const raw = groupKey === "region" ? s.geoTargetRegion : s.geoTargetCountry;
+    const gv = (row.geographicView ?? {}) as Record<string, unknown>;
+    const raw = groupKey === "region" ? s.geoTargetRegion : gv.countryCriterionId;
     const id = geoConstantId(raw);
     if (!id) return "unknown";
     return geoNames.get(id) ?? id;
