@@ -2577,6 +2577,6 @@ A 18/09 o backup global passou a incluir `infra.json` e `identities.json`. A est
 
 **Regras que se mantêm:** as funções `crm-*` nunca leem `artist_channel_connections` e as `artist-*` nunca leem `ad_platform_connections` (aqui lê-se `ad_platform_connections` dentro de `crm-*`, o que é permitido); nenhuma chamada interna reencaminha o `Authorization` do caller — a Meta cria um cliente `service_role` próprio para a RPC interna; nenhum `EXCEPTION WHEN OTHERS` mudo (o auto-link é best-effort mas registra no console).
 
-**Migração:** `20260919014500_artist_ads_autolink_songs_internal.sql`, aplicada e verificada em Live.
+**Migração:** `20260919014632_722936fc-62f6-417e-841f-b846fa3e7017.sql`, aplicada e verificada em Live.
 
 **Estado:** vigente.
