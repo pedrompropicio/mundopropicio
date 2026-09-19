@@ -3576,3 +3576,23 @@ upsert falhado ficam em `notes` e os restantes grupos continuam.
 **Cron.** `carreira-google-breakdowns-diario` às 10:25 UTC com
 `{"breakdowns":true,"days":3}`, padrão carreira-* (vault
 `email_queue_service_role_key`). Aplicado manualmente em Live.
+
+### Adenda D-ERP104 (2026-09-19) — GAQL corrigidas contra v24 (testadas na conta real)
+
+Primeira corrida real deu 400 INVALID_ARGUMENT nos 5 grupos. Testado grupo a
+grupo contra o customer 8841388615 (MCC 974-322-1780), v24:
+
+- `metrics.video_views` NÃO existe em v24 (`UNRECOGNIZED_FIELD`) — era a causa
+  comum das 5 falhas. Removida; `video_thruplays` fica 0 nos breakdowns Google.
+- `customer.currency_code` não é selecionável a partir de `geographic_view`/
+  `age_range_view`/`gender_view` — moeda passa a vir de uma consulta própria
+  (`SELECT customer.currency_code FROM customer`), uma por ligação.
+- `segments.geo_target_country` é incompatível com `geographic_view` — país vem
+  de `geographic_view.country_criterion_id`.
+- `campaign.name`, `metrics.conversions` e `segments.device` (FROM campaign) são
+  aceites; `geographic_view.location_type = 'LOCATION_OF_PRESENCE'` mantido.
+- Notes passam de 300 para 2000 caracteres e incluem `errorCode`, `trigger` e
+  `location` (fieldPathElements) via `describeGoogleAdsError`.
+
+Corrida validada (days=90, ligação 9256e4eb): rows_written=1688 —
+region 951, country 50, age 350, gender 150, device 187; notes vazias.
