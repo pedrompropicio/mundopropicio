@@ -118,6 +118,13 @@ verify_jwt = true
 [functions.artist-ads-strategy-generate]
 verify_jwt = true
 
+# Importação de criativos do gestor externo (D-ERP106). Sessão do utilizador
+# obrigatória: o papel de tráfego é decidido por artist_ads_assert_write, que
+# usa auth.uid() — service_role é recusado.
+[functions.artist-ads-creative-import]
+verify_jwt = true
+
+
 
 # Ligação OFICIAL do TikTok (Display API + Login Kit), app própria
 # "Social Music Carreira" (TIKTOK_CLIENT_KEY/SECRET). Mesmo padrão do Instagram:
