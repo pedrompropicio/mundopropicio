@@ -732,8 +732,9 @@ async function runGoogleBreakdowns(
           const ids: string[] = [];
           for (const r of rowsApi as Array<Record<string, any>>) {
             const s = (r.segments ?? {}) as Record<string, unknown>;
+            const gv = (r.geographicView ?? {}) as Record<string, unknown>;
             const id = geoConstantId(
-              group.key === "region" ? s.geoTargetRegion : s.geoTargetCountry,
+              group.key === "region" ? s.geoTargetRegion : gv.countryCriterionId,
             );
             if (id) ids.push(id);
           }
