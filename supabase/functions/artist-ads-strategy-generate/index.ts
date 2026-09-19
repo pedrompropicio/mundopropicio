@@ -560,8 +560,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       pub.geo = geo;
     }
 
-    // Estados → geo_regions [{nome, key}]. A chave vem sempre da Meta; um estado
-    // que não resolva NÃO entra e deixa aviso com o nome tentado.
+    // Estados. No Meta → geo_regions [{nome, key}] com a chave resolvida na Meta.
+    // No TikTok → geo_regions é LISTA DE NOMES; os location_ids são resolvidos
+    // pela crm-tiktok-publish-execute.
     const estadosBrutos: Any[] = Array.isArray(pub.estados)
       ? pub.estados
       : (Array.isArray(pub.geo_regions) ? pub.geo_regions.map((r: Any) => r?.nome ?? r) : []);
@@ -571,25 +572,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
     delete pub.estados;
     delete pub.geo_regions;
     if (nomes.length > 0) {
-      const token = metaAppToken();
-      if (!token) {
-        avisos.push(
-          `geo_regions_nao_resolvidas: sem credenciais de aplicação Meta — estados pedidos ficaram fora (${nomes.join(", ")})`,
-        );
+      if (eTiktok) {
+        const unicos: string[] = [];
+        for (const n of nomes) if (!unicos.includes(n)) unicos.push(n);
+        pub.geo_regions = unicos;
       } else {
-        const pais = pub.geo[0] ?? "BR";
-        const regioes: Any[] = [];
-        for (const nome of nomes) {
-          const key = await resolveRegionKey(nome, pais, token);
-          if (key) {
-            if (!regioes.some((r) => r.key === key)) regioes.push({ nome, key });
-          } else {
-            avisos.push(
-              `geo_regiao_nao_resolvida: conjunto "${a.trigger_nome ?? "?"}" pedia o estado "${nome}" — não foi encontrado na Meta e ficou fora`,
-            );
+        const token = metaAppToken();
+        if (!token) {
+          avisos.push(
+            `geo_regions_nao_resolvidas: sem credenciais de aplicação Meta — estados pedidos ficaram fora (${nomes.join(", ")})`,
+          );
+        } else {
+          const pais = pub.geo[0] ?? "BR";
+          const regioes: Any[] = [];
+          for (const nome of nomes) {
+            const key = await resolveRegionKey(nome, pais, token);
+            if (key) {
+              if (!regioes.some((r) => r.key === key)) regioes.push({ nome, key });
+            } else {
+              avisos.push(
+                `geo_regiao_nao_resolvida: conjunto "${a.trigger_nome ?? "?"}" pedia o estado "${nome}" — não foi encontrado na Meta e ficou fora`,
+              );
+            }
           }
+          if (regioes.length > 0) pub.geo_regions = regioes;
         }
-        if (regioes.length > 0) pub.geo_regions = regioes;
       }
     }
 
@@ -598,17 +605,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (!Number.isFinite(pub.idade_min)) pub.idade_min = 18;
     if (!Number.isFinite(pub.idade_max)) pub.idade_max = 65;
 
-    // anúncios: só publicações realmente promovíveis; nunca inventar post_ref
+    // anúncios: só publicações/vídeos realmente promovíveis; nunca inventar ref
     const lista = Array.isArray(a.anuncios) ? a.anuncios : [];
     const validos: Any[] = [];
     for (const an of lista) {
-      const ref = an?.existing_post?.post_ref;
-      if (typeof ref !== "string" || !postRefsOk.has(ref)) {
-        avisos.push(`conjunto "${a.trigger_nome ?? "?"}": publicação ${ref ?? "(sem post_ref)"} não é promovível — anúncio descartado`);
-        continue;
+      if (eTiktok) {
+        const vid = an?.tiktok_video_id ?? an?.video_id ?? an?.post_ref;
+        if (typeof vid !== "string" || !postRefsOk.has(vid)) {
+          avisos.push(
+            `conjunto "${a.trigger_nome ?? "?"}": vídeo ${vid ?? "(sem tiktok_video_id)"} não está na lista de vídeos promovíveis — anúncio descartado`,
+          );
+          continue;
+        }
+        validos.push({ tiktok_video_id: vid });
+      } else {
+        const ref = an?.existing_post?.post_ref;
+        if (typeof ref !== "string" || !postRefsOk.has(ref)) {
+          avisos.push(`conjunto "${a.trigger_nome ?? "?"}": publicação ${ref ?? "(sem post_ref)"} não é promovível — anúncio descartado`);
+          continue;
+        }
+        const kind = an.existing_post.kind === "instagram_media" ? "instagram_media" : "object_story";
+        validos.push({ ...an, existing_post: { post_ref: ref, kind } });
       }
-      const kind = an.existing_post.kind === "instagram_media" ? "instagram_media" : "object_story";
-      validos.push({ ...an, existing_post: { post_ref: ref, kind } });
       if (validos.length >= 1) break; // um anúncio por conjunto
     }
     a.anuncios = validos;
