@@ -15,6 +15,8 @@ type Any = any;
 export type VideoTiktok = {
   content_id: string;
   tiktok_video_id: string | null;
+  /** Só quando platform='youtube' (D-ERP108). */
+  youtube_video_id?: string | null;
   permalink: string | null;
   published_at: string | null;
   duracao_seg: number | null;
