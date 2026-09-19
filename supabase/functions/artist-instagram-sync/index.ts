@@ -55,9 +55,11 @@ const MEDIA_INSIGHTS = [
   "total_interactions",
 ];
 
-const DEMOGRAPHIC_METRICS: Array<{ metric: string; audience_type: string }> = [
-  { metric: "follower_demographics", audience_type: "followers" },
-  { metric: "engaged_audience_demographics", audience_type: "engaged" },
+// Timeframe é por métrica: reached_audience_demographics não aceita "this_month".
+const DEMOGRAPHIC_METRICS: Array<{ metric: string; audience_type: string; timeframe: string }> = [
+  { metric: "follower_demographics", audience_type: "followers", timeframe: "this_month" },
+  { metric: "engaged_audience_demographics", audience_type: "engaged", timeframe: "this_month" },
+  { metric: "reached_audience_demographics", audience_type: "reached", timeframe: "last_30_days" },
 ];
 const BREAKDOWNS = ["city", "country", "age", "gender"] as const;
 
