@@ -166,3 +166,35 @@ e não aparece em nenhuma policy de RLS.
   papel de tráfego/admin da Social Artists; activar só admin/platform_admin).
   Campanhas nascem SEMPRE PAUSED. Visibilidade: sem excepção à fronteira por
   `company_id` — quem precisa de ver recebe papel na Social Artists.
+
+## Motor único de campanhas — F2a (D-ERP95, 19/09/2026)
+
+Migração `20260919105937_...`. `public.artist_songs.smart_link_url` (CHECK `^https://`);
+`crm.meta_publish_plan.design_id` já não é NOT NULL (CHECK
+`meta_publish_plan_event_needs_design`: só o plano de EVENTO exige desenho).
+
+RPCs novas em `public`, todas com guard `artist_ads_assert_access` e só sobre connections
+`connection_scope='artist'`:
+- leitura — `artist_ads_budget_cap_get` (uma linha por connection, com `has_cap`/`daily_cap`
+  para a app mostrar "sem teto definido — publicação bloqueada"), `artist_ads_plan_list`,
+  `artist_ads_plan_get` (jsonb completo), `artist_ads_promotable_posts`.
+- escrita — `artist_ads_song_set_smart_link`, `artist_ads_plan_create`,
+  `artist_ads_plan_update` (só `rascunho`/`falhado`). Exigem SESSÃO + papel
+  `admin|platform_admin|manager|marketing_manager` via novo `artist_ads_assert_write`;
+  o `service_role` não escreve por aqui (não tem `auth.uid()`).
+- auxiliar — `artist_ads_plan_validate(jsonb, text)`.
+Todas com `REVOKE EXECUTE FROM PUBLIC, anon` na mesma migração (regra D-ERP94).
+
+Objectivo do plano de música: `AWARENESS|TRAFFIC|ENGAGEMENT` — conversões nunca.
+`link_destino` cai para `artist_songs.smart_link_url` quando não vem no plano.
+
+`artist_content.external_id`: com `source='platform_api'` é o **media id numérico do
+Instagram Graph** (utilizável na Marketing API); com `source='aggregator'` é o
+**shortcode** (não utilizável) → `meta_ready=false`. `artist_ads_promotable_posts`
+prefere a fonte `ad_history` (`crm.meta_ad_snapshot.raw->'creative'`) e não duplica.
+
+`crm-meta-publish-execute`: `dry_run` já existia com default **TRUE** e assim fica.
+F2a só acrescentou, fora do caminho de escrita: leitura de `artist_id/song_id/connection_id`,
+`{ ok:false, error:'alvo_musica_f2b' }` para planos de música, guardas de estado só quando
+`dry_run` é false (dry-run permitido em qualquer estado, incluindo `publicado`) e
+`ok:true` + `estado_plano` na resposta. Construção de payloads continua partilhada.

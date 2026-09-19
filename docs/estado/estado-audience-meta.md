@@ -46,3 +46,8 @@ Nada em execução.
 - `docs/procedimentos/PROC-relatorio-trafego-semanal.md`
 - `.lovable/memory/features/audience-unified-paid-dashboard.md`, `elo-publicacao-fase3-ativacao.md`, `mp-audience-*.md`
 - `docs/features/crm-meta-publish-flow.md`
+
+## Actualização 19/09/2026 — F2a do motor único (D-ERP95)
+- Migração `20260919105937` em Live: `artist_songs.smart_link_url`, `design_id` do plano Meta só obrigatório no alvo evento, e 9 RPCs `artist_ads_*` (tetos de orçamento, lista/detalhe de planos de música, posts promovíveis, smart link, criar/editar plano). Escrita exige sessão + papel admin/manager/marketing_manager; nenhuma acessível a anon.
+- `crm-meta-publish-execute` deployada: `dry_run` (default TRUE, inalterado) passa a ser permitido em qualquer estado do plano e devolve `ok:true`; plano de música devolve `alvo_musica_f2b`. O caminho real de publicação não mudou.
+- Por fazer (F2b): publicação do alvo música, post existente, naming, UTMs, lock, activação.
