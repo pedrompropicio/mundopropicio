@@ -84,18 +84,31 @@ function media(vals: number[]): number | null {
 }
 
 /**
- * Monta a análise dos vídeos TikTok do artista nos últimos `dias` dias.
- * Nunca lança: qualquer falha vira aviso e bloco vazio.
+ * Monta a análise dos vídeos do artista nos últimos `dias` dias.
+ *
+ * Generalizada por plataforma em D-ERP108: 'tiktok' (omissão, comportamento
+ * inalterado) ou 'youtube' (campanhas de vídeo do Google Ads). Nunca lança:
+ * qualquer falha vira aviso e bloco vazio.
  */
 export async function analisarVideosTiktok(
   userClient: SupabaseClient,
-  opts: { artistId: string; songId?: string | null; dias?: number },
+  opts: {
+    artistId: string;
+    songId?: string | null;
+    dias?: number;
+    platform?: "tiktok" | "youtube";
+    contentTypes?: string[];
+  },
 ): Promise<AnaliseVideosTiktok> {
   const dias = opts.dias ?? 180;
+  const plataforma = opts.platform ?? "tiktok";
+  const tipos = opts.contentTypes ?? (plataforma === "youtube" ? ["video", "short"] : ["video"]);
+  const rotulo = plataforma === "youtube" ? "analise_videos_youtube" : "analise_videos_tiktok";
+  const rotuloFonte = plataforma === "youtube" ? "YouTube" : "TikTok";
   const avisos: string[] = [];
   const vazio: AnaliseVideosTiktok = {
     fonte: {
-      fonte: "public.artist_content + public.artist_content_metrics_daily (TikTok)",
+      fonte: `public.artist_content + public.artist_content_metrics_daily (${rotuloFonte})`,
       periodo: { de: null, a: null },
       data_mais_recente: null,
       videos: 0,
