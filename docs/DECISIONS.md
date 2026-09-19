@@ -3596,3 +3596,67 @@ grupo contra o customer 8841388615 (MCC 974-322-1780), v24:
 
 Corrida validada (days=90, ligação 9256e4eb): rows_written=1688 —
 region 951, country 50, age 350, gender 150, device 187; notes vazias.
+
+## D-ERP105 — Snapshot único de dados do artista (2026-09-19)
+
+Novo coletor `supabase/functions/_shared/artist-data-snapshot.ts` com
+`buildArtistDataSnapshot({ userClient, artistId, songId?, connectionId?, dias })`.
+Junta num só sítio, com fonte e data por bloco: música (artist_songs +
+artist_song_metrics_daily + playlists, via o coletor `artist-song-snapshot.ts`),
+canais e conteúdo (artist_content + artist_content_metrics_daily), audiência
+orgânica (v_artist_audience_by_state por tipo + artist_audience_demographics
+age/gender por tipo), histórico pago (artist_ads_campaigns/daily/ads +
+artist_ads_breakdowns para **meta E google**, 90 dias, com CTR/CPC/CPM e
+medianas por dimensão), comparáveis (song_benchmark_aligned), último relatório
+(v_song_report_latest), teto (artist_ads_budget_cap_get) e publicações/criativos
+anunciáveis (artist_ads_promotable_posts / artist_ads_creatives, por plataforma).
+Fronteira mantida: só `public.*`.
+
+Normalização de geografia obrigatória: nomes de região chegam diferentes por
+fonte — Google "State of Pernambuco"/"Ceara", Meta "Pernambuco"/"São Paulo
+(state)", Instagram "Cidade, Estado". Todos são resolvidos a UF por
+`public.br_estados` (comparação sem acentos, sem prefixo "State of", sem sufixo
+"(state)", com fallback à última parte antes da vírgula e à sigla), guardando
+`uf`, `nome_original` e `fonte`. `geografia.por_uf` é a tabela única com
+pago por plataforma (impressões/cliques/gasto + CTR/CPC/CPM) e quota orgânica —
+base da regra de concentração regional. O que não resolve fica em
+`geografia.nao_resolvidos` e em avisos.
+
+`artist-ads-strategy-generate` deixa de ter coletor próprio (blocos 2 a 6d
+substituídos) e passa a ler do snapshot único; nenhum bloco anterior se perdeu e
+entram três novos no prompt: `geografia_por_uf`, `canais` e
+`criativos_anunciaveis` (regra 21). `resumo.fontes` passa a ser `dados.fontes`
+(bloco, fonte, período, data mais recente, linhas, vazia). A justificação de
+orçamento continua a ser reescrita depois da normalização.
+
+`artist-song-report` usa `buildSongSnapshotComFontes`, que devolve exactamente o
+mesmo snapshot de sempre + `fontes`. Formato do relatório inalterado.
+
+## D-ERP106 — Importação de criativos do gestor externo (2026-09-19)
+
+Nova edge function `artist-ads-creative-import`
+`{ artist_id, connection_id, creative_ids: text[] }` (`verify_jwt = true`), sem
+DDL. Os `creative_ids` são `meta_creative_id` da Meta — os que
+`artist_ads_creatives` devolve com `importado=false`. Papel de tráfego decidido
+por `artist_ads_assert_write(company_id)` na sessão do chamador (service_role é
+recusado por não ter `auth.uid()`).
+
+Para cada id lê `crm.meta_ad_snapshot.raw->'creative'` (name, thumbnail_url,
+object_type, effective_object_story_id, instagram_permalink_url) do anúncio mais
+recente e cria, se não existir, uma linha em `crm.meta_creatives` com
+`meta_creative_id` preenchido e **sem** `meta_image_hash`/`meta_video_id` — é
+esse o caso em que `crm-meta-publish-execute` reutiliza o criativo inteiro
+(`object_story_spec` não é remontado; devolve o aviso
+`copy_e_link_nao_aplicados`). `company_id` é o do artista, `type` é mapeado para
+o CHECK da tabela e `analysis_jsonb` guarda
+`{origin:'meta_ad_snapshot', connection_id, external_ad_id, external_ref,
+imported_at, imported_by, …}`. Idempotente pela UNIQUE
+`(company_id, meta_creative_id)`; devolve
+`[{creative_id, meta_creatives_id, ja_existia}]`.
+
+Auditado em `crm-meta-publish-execute`: a Página/Instagram do criativo
+reutilizado **não era validada**. Acrescentado ao preflight o check
+`criativo_owner_<uuid>`, que lê
+`object_story_spec{page_id,instagram_actor_id}` do criativo e o compara com
+`selected_page_id`/`selected_instagram_id` da ligação — falha quando a
+identidade difere, avisa (ok) quando o criativo não a expõe ou não é legível.

@@ -976,6 +976,38 @@ Deno.serve(async (req: Request): Promise<Response> => {
       checks.push({ check: "pagina_acessivel", ok: false, detail: "sem Página de Facebook determinada" });
     }
     checks.push({ check: "instagram_resolvido", ok: !!selectedInstagramId, detail: selectedInstagramId ?? "não resolvido" });
+    // Criativos reutilizados (D-ERP106): o criativo do gestor externo traz a
+    // Página/Instagram do dono. Se não for a da ligação, a publicação sai com
+    // outra identidade — o preflight compara e avisa antes de publicar.
+    for (const [uuid, info] of resolvedCreatives) {
+      if (!info.meta_creative_id || info.meta_image_hash || info.meta_video_id) continue;
+      const cr = await graphGET(
+        `/${info.meta_creative_id}`,
+        { fields: "id,object_story_spec{page_id,instagram_actor_id,instagram_user_id},effective_object_story_id" },
+        accessToken,
+      );
+      if (!cr.ok) {
+        checks.push({
+          check: `criativo_owner_${uuid}`,
+          ok: true,
+          detail: `aviso: não foi possível ler o criativo ${info.meta_creative_id} — ${JSON.stringify(cr.data?.error ?? cr.data).slice(0, 300)}`,
+        });
+        continue;
+      }
+      const spec = (cr.data?.object_story_spec ?? {}) as any;
+      const pageDoCriativo = spec.page_id ? String(spec.page_id) : null;
+      const igDoCriativo = spec.instagram_actor_id
+        ? String(spec.instagram_actor_id)
+        : (spec.instagram_user_id ? String(spec.instagram_user_id) : null);
+      const pageDifere = !!pageDoCriativo && !!selectedPageId && pageDoCriativo !== String(selectedPageId);
+      const igDifere = !!igDoCriativo && !!selectedInstagramId && igDoCriativo !== String(selectedInstagramId);
+      const detalhe = `criativo=${info.meta_creative_id} pagina=${pageDoCriativo ?? "?"} instagram=${igDoCriativo ?? "?"}` +
+        ` | ligacao pagina=${selectedPageId ?? "?"} instagram=${selectedInstagramId ?? "?"}` +
+        (pageDifere ? " — PÁGINA DIFERENTE da ligação" : "") +
+        (igDifere ? " — INSTAGRAM DIFERENTE da ligação" : "") +
+        (!pageDoCriativo && !igDoCriativo ? " — sem identidade no criativo (aviso)" : "");
+      checks.push({ check: `criativo_owner_${uuid}`, ok: !(pageDifere || igDifere), detail: detalhe });
+    }
     if (isSong) {
       for (const pr of postRefsPlano) {
         let okPost = postRefOk.has(pr);

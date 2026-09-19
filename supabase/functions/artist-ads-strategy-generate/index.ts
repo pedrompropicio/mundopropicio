@@ -15,7 +15,7 @@
 // artist_ads_assert_write. Com service_role o plano nascia sem autor.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { buildSnapshot } from "../_shared/artist-song-snapshot.ts";
+import { buildArtistDataSnapshot } from "../_shared/artist-data-snapshot.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -130,6 +130,7 @@ REGRAS ABSOLUTAS:
 18. Um estado só entra num conjunto com EVIDÊNCIA: quota orgânica ≥ 5 % em audiencia.por_estado OU desempenho pago melhor que a mediana da dimensão region (CTR acima da mediana ou CPC abaixo da mediana, em historico_pago.breakdowns.region.medianas). A justificação diz explicitamente qual das duas evidências sustentou o estado. Sem nenhuma das duas, o estado fica fora.
 19. IDADES — use a distribuição da audiência ENVOLVIDA (audiencia.por_tipo.engaged) quando existir; se não existir, a de reached; se não existir, a de followers. Cite as percentagens e a data, e diga qual o tipo de audiência usado.
 20. Cruzamento pago vs orgânico: quando o pago e o orgânico apontarem para estados diferentes, o pago manda e a divergência tem de ser escrita em resumo.avisos.
+21. geografia_por_uf é a TABELA ÚNICA por estado (UF): junta o pago de Meta e de Google (impressões, cliques, gasto, CTR, CPC, CPM) com a quota orgânica, já com os nomes de cada fonte normalizados a UF (campo nomes_originais diz o nome cru e a fonte). Use-a para a regra de concentração regional; historico_pago.breakdowns.region e audiencia.por_estado continuam a ser as fontes citadas nos números.
 
 FORMATO DE RESPOSTA — responde APENAS com JSON puro (sem markdown fences):
 {
@@ -265,32 +266,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
     : null;
   if (!smartLink) avisos.push("música sem smart link https — objetivo Tráfego indisponível");
 
-  // ── 2) Snapshot da música (coletor partilhado com artist-song-report)
-  let snapshotMusica: Any = null;
-  try {
-    const built = await buildSnapshot(user, songId, 30);
-    if (!built.notFound) snapshotMusica = built.snapshot;
-  } catch (e) {
-    avisos.push(`snapshot da música incompleto: ${(e as Error).message}`);
-  }
-
-  // ── 3) Último relatório de lançamento
-  const { data: rep } = await user
-    .from("v_song_report_latest")
-    .select("generated_at, status, report")
-    .eq("song_id", songId)
-    .maybeSingle();
-  const relatorio = rep && rep.status === "ok"
-    ? { gerado_em: rep.generated_at, relatorio: rep.report }
-    : null;
-  if (!relatorio) avisos.push("sem relatório de lançamento desta música");
-
-  // ── 4) Publicações anunciáveis (só meta_ready)
-  const { data: postsRaw, error: postsErr } = await user.rpc("artist_ads_promotable_posts", {
-    p_artist_id: artistId,
+  // ── 2) SNAPSHOT ÚNICO DO ARTISTA (D-ERP105) — um só coletor para música,
+  //      conteúdo, audiência orgânica, histórico pago (meta + google),
+  //      comparáveis, relatório, teto, publicações, criativos e geografia por UF.
+  const dados = await buildArtistDataSnapshot({
+    userClient: user,
+    artistId,
+    songId,
+    connectionId,
+    dias: 30,
+    plataformas: ["meta", "google"],
+    plataformaCriativos: "meta",
   });
-  if (postsErr) return json({ error: "sem_permissao", mensagem: postsErr.message }, 403);
-  const posts = (postsRaw ?? []).filter((p: Any) => p?.meta_ready === true && p?.post_ref);
+  avisos.push(...dados.avisos);
+
+  const snapshotMusica: Any = dados.blocos.musica;
+  const relatorio: Any = dados.blocos.relatorio;
+  const historicoPago: Any = dados.blocos.historico_pago ?? {};
+  const audiencia: Any = dados.blocos.audiencia_organica ?? {};
+  const geografiaPorUf: Any = dados.geografia;
+
+  // Publicações anunciáveis (só meta_ready)
+  const posts = (dados.blocos.publicacoes ?? []).filter((p: Any) => p?.meta_ready === true && p?.post_ref);
   if (posts.length === 0) {
     return json({
       error: "sem_publicacoes_promoviveis",
@@ -299,12 +296,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   const postRefsOk = new Set(posts.map((p: Any) => String(p.post_ref)));
 
-  // ── 5) Limites da ligação pedida
-  const { data: capsRaw, error: capsErr } = await user.rpc("artist_ads_budget_cap_get", {
-    p_artist_id: artistId,
-  });
-  if (capsErr) return json({ error: "sem_permissao", mensagem: capsErr.message }, 403);
-  const cap = (capsRaw ?? []).find((c: Any) => c?.connection_id === connectionId) ?? null;
+  // Teto da ligação pedida
+  const cap: Any = dados.blocos.teto?.ligacao ?? null;
   if (!cap || cap.has_cap !== true || cap.available_daily == null) {
     return json({
       error: "sem_teto",
@@ -319,315 +312,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }, 422);
   }
 
-  // ── 6) Histórico de tráfego (30 dias)
-  const { data: campanhas } = await user.rpc("artist_ads_campaigns", {
-    p_artist_id: artistId,
-    p_include_removed: false,
-  });
-  // Desempenho PAGO REAL, 90 dias (defeito 1 da v2). O diário é a única fonte
-  // com janela de 90 dias; as RPCs de campanha/anúncio só trazem 7d/30d.
-  const DIAS_JANELA = 90;
-  const { data: diario } = await user.rpc("artist_ads_daily", {
-    p_artist_id: artistId,
-    p_days: DIAS_JANELA,
-  });
-  const diarioRows: Any[] = diario ?? [];
-
-  // Campanhas desta ligação (a RPC do diário não traz connection_id).
-  const campanhasDaLigacao = (campanhas ?? []).filter((c: Any) => c?.connection_id === connectionId);
-  const idsDaLigacao = new Set(campanhasDaLigacao.map((c: Any) => String(c.campaign_id)));
-  const diarioDaLigacao = diarioRows.filter((d: Any) => idsDaLigacao.has(String(d.campaign_id)));
-  if (diarioRows.length > 0 && diarioDaLigacao.length === 0) {
-    avisos.push("nenhum dia de gasto nos últimos 90 dias nas campanhas desta ligação");
-  }
-
-  // Agregação por campanha (só somas do que a RPC devolve — nada recalculado).
-  const agg = new Map<string, Any>();
-  let periodoMin: string | null = null;
-  let periodoMax: string | null = null;
-  for (const d of diarioDaLigacao) {
-    const key = String(d.campaign_id);
-    const cur = agg.get(key) ?? {
-      campaign_id: key,
-      campaign_name: d.campaign_name ?? null,
-      dias_com_gasto: 0,
-      gasto: 0,
-      impressoes: 0,
-      cliques: 0,
-      video_views: 0,
-      resultados: 0,
-      primeiro_dia: null as string | null,
-      ultimo_dia: null as string | null,
-    };
-    cur.dias_com_gasto += 1;
-    cur.gasto += Number(d.spend ?? 0);
-    cur.impressoes += Number(d.impressions ?? 0);
-    cur.cliques += Number(d.clicks ?? 0);
-    cur.video_views += Number(d.video_views ?? 0);
-    cur.resultados += Number(d.results ?? 0);
-    const day = d.day ? String(d.day) : null;
-    if (day) {
-      if (!cur.primeiro_dia || day < cur.primeiro_dia) cur.primeiro_dia = day;
-      if (!cur.ultimo_dia || day > cur.ultimo_dia) cur.ultimo_dia = day;
-      if (!periodoMin || day < periodoMin) periodoMin = day;
-      if (!periodoMax || day > periodoMax) periodoMax = day;
-    }
-    agg.set(key, cur);
-  }
-
-  const campanhasPagas = [...agg.values()]
-    .sort((a, b) => b.gasto - a.gasto)
-    .map((a) => {
-      const c = campanhasDaLigacao.find((x: Any) => String(x.campaign_id) === a.campaign_id) ?? {};
-      return {
-        ...a,
-        gasto: Math.round(a.gasto * 100) / 100,
-        objetivo: c.objective ?? null,
-        status: c.status ?? null,
-        moeda: c.currency ?? null,
-        orcamento_diario_atual: c.budget_daily ?? null,
-        // janela de 30 dias, tal como a RPC devolve (não recalculado)
-        metricas_30d_da_rpc: {
-          gasto_30d: c.spend_30d ?? null,
-          impressoes_30d: c.impressions_30d ?? null,
-          cliques_30d: c.clicks_30d ?? null,
-          video_views_30d: c.video_views_30d ?? null,
-          cpc_30d: c.cpc_30d ?? null,
-          cpv_30d: c.cpv_30d ?? null,
-        },
-        ultimo_sync: c.last_synced_at ?? null,
-      };
-    });
-
-  const comGasto = campanhasPagas.slice(0, 10);
-  const anuncios: Any[] = [];
-  for (const c of comGasto) {
-    const { data: ads } = await user.rpc("artist_ads_ads", {
-      p_artist_id: artistId,
-      p_campaign_id: c.campaign_id,
-    });
-    for (const a of (ads ?? [])) {
-      if (Number(a?.spend_30d ?? 0) <= 0 && Number(a?.spend_7d ?? 0) <= 0) continue;
-      anuncios.push({
-        campanha: a.campaign_name,
-        adset: a.adset_name,
-        ad_id: a.ad_id,
-        nome: a.ad_name,
-        status: a.status,
-        moeda: a.currency,
-        criativo_id: a.creative_id ?? null,
-        publicacao_permalink: a.permalink ?? null,
-        thumbnail: a.thumbnail_url ?? null,
-        gasto_30d: a.spend_30d,
-        impressoes_30d: a.impressions_30d,
-        cliques_30d: a.clicks_30d,
-        ctr_30d: a.ctr_30d,
-        cpc_30d: a.cpc_30d,
-        video_3s_views_30d: a.video_3s_views_30d,
-        thruplays_30d: a.thruplays_30d,
-        custo_por_thruplay_30d: a.cost_per_thruplay_30d,
-        gasto_7d: a.spend_7d,
-        thruplays_7d: a.thruplays_7d,
-        custo_por_thruplay_7d: a.cost_per_thruplay_7d,
-        ultimo_sync: a.last_synced_at ?? null,
-      });
-    }
-  }
-
-  const ultimoSync = [...campanhasDaLigacao.map((c: Any) => c.last_synced_at), ...anuncios.map((a) => a.ultimo_sync)]
-    .filter(Boolean)
-    .sort()
-    .pop() ?? null;
-
-  const totais90d = campanhasPagas.reduce(
-    (t, c) => ({
-      gasto: Math.round((t.gasto + c.gasto) * 100) / 100,
-      impressoes: t.impressoes + c.impressoes,
-      cliques: t.cliques + c.cliques,
-      video_views: t.video_views + c.video_views,
-    }),
-    { gasto: 0, impressoes: 0, cliques: 0, video_views: 0 },
-  );
-
-  // O que a base NÃO tem — registado, nunca inventado.
-  const faltasPago = [
-    "alcance (reach) e CPM não existem nas RPCs de tráfego — não constam do snapshot",
-    "ThruPlays, visualizações de 3s, CTR e custo por ThruPlay só existem em janela de 7 e 30 dias (por anúncio); na janela de 90 dias só há gasto, impressões, cliques e video_views",
-    "por campanha/anúncio não há corte por região, idade ou género — esse corte existe só no bloco historico_pago.breakdowns (RPC artist_ads_breakdowns), agregado por dimensão e não por campanha",
-  ];
-  for (const f of faltasPago) avisos.push(`dado em falta: ${f}`);
-
-  // Demografia orgânica do Instagram — FONTE SECUNDÁRIA, identificada como tal.
-  const { data: demoRaw } = await user
-    .from("artist_audience_demographics")
-    .select("platform, audience_type, dimension, dim_key, value, timeframe, snapshot_date, source")
-    .eq("artist_id", artistId)
-    .order("snapshot_date", { ascending: false })
-    .limit(300);
-  const demoRows: Any[] = demoRaw ?? [];
-  const demoDatas = demoRows.map((d: Any) => String(d.snapshot_date)).sort();
+  const DIAS_JANELA: number = historicoPago.janela_dias ?? 90;
+  const periodoMin: string | null = historicoPago.periodo?.de ?? null;
+  const periodoMax: string | null = historicoPago.periodo?.a ?? null;
+  const ultimoSync: string | null = historicoPago.ultima_atualizacao ?? null;
+  const campanhasPagas: Any[] = historicoPago.campanhas ?? [];
+  const anuncios: Any[] = historicoPago.anuncios ?? [];
+  const totais90d: Any = historicoPago.totais_90d ?? { gasto: 0, impressoes: 0, cliques: 0, video_views: 0 };
+  const porEstado: Any = audiencia.por_estado ?? {};
+  const porTipo: Any = audiencia.por_tipo ?? {};
   const demografiaOrganica = {
-    _fonte: "secundária — demografia ORGÂNICA do Instagram (public.artist_audience_demographics). NÃO é desempenho pago.",
-    periodo: demoRows.length ? { de: demoDatas[0], a: demoDatas[demoDatas.length - 1] } : null,
-    linhas: demoRows,
-  };
-  if (demoRows.length === 0) avisos.push("sem demografia orgânica de Instagram para este artista");
-
-  // ── 6b) HISTÓRICO PAGO POR DIMENSÃO — RPC public.artist_ads_breakdowns(90d)
-  // Fonte primária de geografia/idade/género PAGOS. CTR/CPC/CPM são derivados
-  // aqui a partir dos totais que a RPC devolve (impressões, cliques, gasto).
-  const BREAKDOWN_DIMS = ["region", "age", "gender", "publisher_platform", "country"];
-  const mediana = (xs: number[]): number | null => {
-    const v = xs.filter((x) => Number.isFinite(x)).sort((a, b) => a - b);
-    if (v.length === 0) return null;
-    const m = Math.floor(v.length / 2);
-    const r = v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
-    return Math.round(r * 10000) / 10000;
-  };
-  const breakdowns: Record<string, Any> = {};
-  let breakdownLinhas = 0;
-  let breakdownMoeda: string | null = null;
-  for (const dim of BREAKDOWN_DIMS) {
-    const { data: bdRaw, error: bdErr } = await user.rpc("artist_ads_breakdowns", {
-      p_artist_id: artistId,
-      p_days: DIAS_JANELA,
-      p_platform: "meta",
-      p_breakdown: dim,
-    });
-    if (bdErr) {
-      avisos.push(`breakdown pago "${dim}" indisponível: ${bdErr.message}`);
-      breakdowns[dim] = { linhas: 0, top_10: [], medianas: null, erro: bdErr.message };
-      continue;
-    }
-    const rows: Any[] = bdRaw ?? [];
-    breakdownLinhas += rows.length;
-    if (rows.length === 0) {
-      avisos.push(`sem histórico pago por "${dim}" nos últimos ${DIAS_JANELA} dias`);
-      breakdowns[dim] = { linhas: 0, top_10: [], medianas: null };
-      continue;
-    }
-    const calc = rows.map((r: Any) => {
-      const imp = Number(r.impressions ?? 0);
-      const clk = Number(r.clicks ?? 0);
-      const gasto = Number(r.spend ?? 0);
-      if (!breakdownMoeda && r.currency) breakdownMoeda = String(r.currency);
-      return {
-        valor: r.breakdown_value,
-        impressoes: imp,
-        cliques: clk,
-        gasto: Math.round(gasto * 100) / 100,
-        moeda: r.currency ?? null,
-        quota_impressoes_pct: r.quota == null ? null : Number(r.quota),
-        ctr_pct: imp > 0 ? Math.round((clk / imp) * 100 * 10000) / 10000 : null,
-        cpc: clk > 0 ? Math.round((gasto / clk) * 10000) / 10000 : null,
-        cpm: imp > 0 ? Math.round((gasto / imp) * 1000 * 100) / 100 : null,
-      };
-    });
-    breakdowns[dim] = {
-      linhas: calc.length,
-      medianas: {
-        ctr_pct: mediana(calc.map((c) => c.ctr_pct as number)),
-        cpc: mediana(calc.map((c) => c.cpc as number)),
-        cpm: mediana(calc.map((c) => c.cpm as number)),
-      },
-      top_10: calc.sort((a, b) => b.impressoes - a.impressoes).slice(0, 10),
-    };
-  }
-  if (breakdownLinhas === 0) {
-    avisos.push(`fonte vazia: public.artist_ads_breakdowns (${DIAS_JANELA} dias) não devolveu linhas`);
-  }
-
-  // ── 6c) AUDIÊNCIA ORGÂNICA POR ESTADO — vista public.v_artist_audience_by_state
-  const { data: estadoRaw, error: estadoErr } = await user
-    .from("v_artist_audience_by_state")
-    .select("platform, audience_type, timeframe, snapshot_date, uf, regiao, estado_nome, valor, quota_pct")
-    .eq("artist_id", artistId)
-    .eq("platform", "instagram")
-    .order("snapshot_date", { ascending: false })
-    .limit(2000);
-  if (estadoErr) avisos.push(`audiência por estado indisponível: ${estadoErr.message}`);
-  const estadoRows: Any[] = estadoRaw ?? [];
-  const porEstado: Record<string, Any> = {};
-  let estadoDataMax: string | null = null;
-  for (const t of [...new Set(estadoRows.map((r: Any) => String(r.audience_type)))]) {
-    const doTipo = estadoRows.filter((r: Any) => String(r.audience_type) === t);
-    const ultima = doTipo.map((r: Any) => String(r.snapshot_date)).sort().pop() ?? null;
-    if (ultima && (!estadoDataMax || ultima > estadoDataMax)) estadoDataMax = ultima;
-    const linhas = doTipo.filter((r: Any) => String(r.snapshot_date) === ultima);
-    const regioes = new Map<string, number>();
-    for (const l of linhas) {
-      const k = l.regiao ? String(l.regiao) : "(sem região)";
-      regioes.set(k, Math.round(((regioes.get(k) ?? 0) + Number(l.quota_pct ?? 0)) * 10) / 10);
-    }
-    porEstado[t] = {
-      snapshot_date: ultima,
-      timeframe: linhas[0]?.timeframe ?? null,
-      top_10_estados: linhas
-        .map((l: Any) => ({
-          uf: String(l.uf ?? "").trim(),
-          estado: l.estado_nome,
-          regiao: l.regiao,
-          valor: Number(l.valor ?? 0),
-          quota_pct: l.quota_pct == null ? null : Number(l.quota_pct),
-        }))
-        .sort((a, b) => b.valor - a.valor)
-        .slice(0, 10),
-      quota_por_regiao_pct: [...regioes.entries()]
-        .map(([regiao, quota_pct]) => ({ regiao, quota_pct }))
-        .sort((a, b) => b.quota_pct - a.quota_pct),
-    };
-  }
-  if (estadoRows.length === 0) {
-    avisos.push("fonte vazia: public.v_artist_audience_by_state sem linhas de Instagram para este artista");
-  }
-
-  // ── 6d) AUDIÊNCIA POR TIPO (followers / engaged / reached) — age e gender
-  const porTipo: Record<string, Any> = {};
-  for (const t of [...new Set(demoRows.map((d: Any) => String(d.audience_type)))]) {
-    const doTipo = demoRows.filter((d: Any) =>
-      String(d.audience_type) === t && String(d.platform) === "instagram"
-    );
-    if (doTipo.length === 0) continue;
-    const ultima = doTipo.map((d: Any) => String(d.snapshot_date)).sort().pop() ?? null;
-    const linhas = doTipo.filter((d: Any) => String(d.snapshot_date) === ultima);
-    const porDim = (dim: string) => {
-      const ls = linhas.filter((l: Any) => String(l.dimension) === dim);
-      const total = ls.reduce((s: number, l: Any) => s + Number(l.value ?? 0), 0);
-      return ls
-        .map((l: Any) => ({
-          chave: l.dim_key,
-          valor: Number(l.value ?? 0),
-          quota_pct: total > 0 ? Math.round((Number(l.value ?? 0) / total) * 1000) / 10 : null,
-        }))
-        .sort((a, b) => b.valor - a.valor);
-    };
-    porTipo[t] = {
-      snapshot_date: ultima,
-      timeframe: linhas[0]?.timeframe ?? null,
-      age: porDim("age"),
-      gender: porDim("gender"),
-    };
-  }
-  for (const t of ["engaged", "reached"]) {
-    if (!porTipo[t]) avisos.push(`sem audiência "${t}" no Instagram — usada a de seguidores`);
-  }
-
-  const audiencia = {
     _fonte:
-      "orgânica — public.v_artist_audience_by_state (estados/regiões) + public.artist_audience_demographics (idade/género por tipo de audiência). Secundária face ao pago.",
-    por_estado: porEstado,
-    por_tipo: porTipo,
+      "secundária — demografia ORGÂNICA do Instagram (public.artist_audience_demographics). NÃO é desempenho pago.",
+    periodo: audiencia.periodo_demografia ?? null,
+    linhas: audiencia.linhas_demografia ?? [],
   };
-
-  const historicoPago = {
-    _fonte: "primária — RPC public.artist_ads_breakdowns(p_days=90, p_platform='meta')",
-    janela_dias: DIAS_JANELA,
-    moeda: breakdownMoeda,
-    nota: "CTR (cliques/impressões), CPC (gasto/cliques) e CPM (gasto/impressões×1000) calculados pelo motor a partir dos totais da RPC. Top 10 por impressões em cada dimensão, com a mediana da dimensão para comparação.",
-    breakdowns,
-  };
-
-
+  for (const f of (historicoPago.dados_em_falta ?? [])) avisos.push(`dado em falta: ${f}`);
 
   const alvoDiario = orcamentoPedido != null && orcamentoPedido > 0
     ? Math.min(orcamentoPedido, disponivel)
@@ -666,11 +366,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
       totais_90d: totais90d,
       campanhas: campanhasPagas,
       anuncios: anuncios,
-      dados_em_falta: faltasPago,
+      dados_em_falta: historicoPago.dados_em_falta ?? [],
     },
     demografia_organica_instagram: demografiaOrganica,
     historico_pago: historicoPago,
     audiencia,
+    geografia_por_uf: geografiaPorUf,
+    canais: dados.blocos.canais,
+    criativos_anunciaveis: dados.blocos.criativos,
 
 
     limites: {
@@ -876,68 +579,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     porque: textoOrcamento,
   });
 
-  const fontes = [
-    {
-      fonte: "RPC public.artist_ads_daily (90 dias) — desempenho pago por campanha e dia",
-      periodo: periodoMin && periodoMax ? `${periodoMin} a ${periodoMax}` : "sem dias com gasto",
-      ultima_atualizacao: ultimoSync,
-    },
-    {
-      fonte: "RPC public.artist_ads_campaigns — campanhas da ligação (janelas 7d/30d)",
-      periodo: "últimos 30 dias",
-      ultima_atualizacao: ultimoSync,
-    },
-    {
-      fonte: "RPC public.artist_ads_ads — anúncios com gasto (ThruPlays, 3s, CTR, custo por ThruPlay; 7d/30d)",
-      periodo: "últimos 30 dias",
-      ultima_atualizacao: ultimoSync,
-    },
-    {
-      fonte: "RPC public.artist_ads_promotable_posts — publicações prontas para anunciar",
-      periodo: "actual",
-      ultima_atualizacao: null,
-    },
-    {
-      fonte: "RPC public.artist_ads_budget_cap_get — teto e disponível da ligação",
-      periodo: "actual",
-      ultima_atualizacao: cap.set_at ?? null,
-    },
-    {
-      fonte: `RPC public.artist_ads_breakdowns (${DIAS_JANELA} dias, meta) — desempenho pago por região, idade, género, plataforma e país`,
-      periodo: `últimos ${DIAS_JANELA} dias`,
-      linhas: breakdownLinhas,
-      ultima_atualizacao: ultimoSync,
-      vazia: breakdownLinhas === 0,
-    },
-    {
-      fonte: "public.v_artist_audience_by_state — audiência orgânica de Instagram por estado/região",
-      periodo: estadoDataMax ? `snapshot de ${estadoDataMax}` : "sem dados",
-      ultima_atualizacao: estadoDataMax,
-      tipos: Object.keys(porEstado),
-      vazia: estadoRows.length === 0,
-    },
-    {
-      fonte: "public.artist_audience_demographics por tipo de audiência (followers/engaged/reached) — idade e género",
-      periodo: Object.keys(porTipo).length
-        ? Object.entries(porTipo).map(([t, v]: Any) => `${t}: ${v.snapshot_date}`).join("; ")
-        : "sem dados",
-      ultima_atualizacao: Object.values(porTipo)
-        .map((v: Any) => v.snapshot_date).filter(Boolean).sort().pop() ?? null,
-      vazia: Object.keys(porTipo).length === 0,
-    },
-    {
-      fonte: "public.artist_audience_demographics (Instagram orgânico) — FONTE SECUNDÁRIA",
-      periodo: demografiaOrganica.periodo
-        ? `${demografiaOrganica.periodo.de} a ${demografiaOrganica.periodo.a}`
-        : "sem dados",
-      ultima_atualizacao: demografiaOrganica.periodo?.a ?? null,
-    },
-    {
-      fonte: "public.artist_song_metrics_daily + RPC song_benchmark_aligned — snapshot da música",
-      periodo: "últimos 30 dias",
-      ultima_atualizacao: relatorio?.gerado_em ?? null,
-    },
-  ];
+  // FONTES: cada bloco do snapshot único com fonte, período e data mais recente.
+  const fontes = dados.fontes;
 
   plano.resumo = {
     origem: "llm",
@@ -948,11 +591,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
       snapshot_da_musica: snapshotMusica != null,
       relatorio_de_lancamento: relatorio?.gerado_em ?? null,
       publicacoes_promoviveis: posts.length,
-      campanhas_no_historico: (campanhas ?? []).length,
-      campanhas_da_ligacao: campanhasDaLigacao.length,
       campanhas_com_gasto_90d: campanhasPagas.length,
       anuncios_com_gasto: anuncios.length,
-      dias_de_diario_90d: diarioDaLigacao.length,
+      dias_de_diario_90d: campanhasPagas.reduce((s: number, c: Any) => s + Number(c.dias_com_gasto ?? 0), 0),
+      estados_na_geografia_unificada: (geografiaPorUf?.por_uf ?? []).length,
+      criativos_anunciaveis: (dados.blocos.criativos ?? []).length,
       periodo_pago: { de: periodoMin, a: periodoMax },
       totais_pagos_90d: totais90d,
       ultimo_sync: ultimoSync,

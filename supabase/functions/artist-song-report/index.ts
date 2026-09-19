@@ -33,9 +33,9 @@ const ROLES = ["admin", "platform_admin", "manager", "editor"];
 const MODEL = "google/gemini-2.5-flash";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-import {
-  buildSnapshot,
-} from "../_shared/artist-song-snapshot.ts";
+// Coletor único de dados do artista (D-ERP105). Os blocos do relatório são os
+// mesmos; o snapshot ganha apenas a lista `fontes` (bloco, fonte, período, data).
+import { buildSongSnapshotComFontes } from "../_shared/artist-data-snapshot.ts";
 
 
 // ---------------------------------------------------------------- LLM
@@ -274,7 +274,7 @@ Deno.serve(async (req) => {
     if (isDataChange) triggerSource = "data_change";
     const staleAt = isDataChange && typeof p.stale_at === "string" ? p.stale_at : null;
 
-    const built = await buildSnapshot(admin, songId, days);
+    const built = await buildSongSnapshotComFontes(admin, songId, days);
     if (built.notFound) return json({ error: "música não encontrada" }, 404);
     const { song, snapshot, periodStart, periodEnd } = built;
 
