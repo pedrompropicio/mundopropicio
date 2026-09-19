@@ -253,6 +253,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
       || "O Meta rejeitou a operação.";
   }
 
+  // ── Alvo música (g): registo da aprovação + espelho da campanha. ──────
+  // Nunca corre para planos de evento (lacuna de eventos registada em D-ERP95).
+  async function logAprovacao(success: boolean, errMsg?: string | null): Promise<void> {
+    if (!isSong) return;
+    const { error } = await (admin as any).schema("crm").from("meta_entity_actions_log").insert({
+      company_id: planRow.company_id,
+      connection_id: connectionId,
+      ad_account_id: adAccountId,
+      entity_type: "campaign",
+      external_id: metaCampaignId,
+      entity_name: null,
+      action: acao === "ativar" ? "activate" : "pause",
+      prev_status: estado === "ativo" ? "ACTIVE" : "PAUSED",
+      new_status: success ? targetStatus : null,
+      updates_jsonb: {
+        plan_id: planId, alvo: "song", song_id: (planRow as any).song_id,
+        artist_id: (planRow as any).artist_id, approval_note: approvalNote,
+      },
+      success,
+      error_message: success ? null : (errMsg ?? null),
+      performed_by: userId,
+      approved_by: userId,
+    });
+    if (error) console.warn("[meta-publish-activate] log falhou:", error.message);
+  }
+
+  async function espelhaStatus(): Promise<void> {
+    if (!isSong || !metaCampaignId) return;
+    // NÃO toca em linked_song_id / linked_song_locked.
+    const { error } = await (admin as any).schema("crm").from("meta_campaign_snapshot")
+      .update({ status: targetStatus, effective_status: targetStatus, last_synced_at: new Date().toISOString() })
+      .eq("connection_id", connectionId)
+      .eq("external_campaign_id", metaCampaignId);
+    if (error) console.warn("[meta-publish-activate] espelho falhou:", error.message);
+  }
+
   async function failPartial(err: any, raw: any): Promise<Response> {
     await (admin as any).schema("crm").from("meta_publish_plan")
       .update({
@@ -260,6 +296,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         activation_error: { acao, error: err ?? null, raw: raw ?? null, at: new Date().toISOString() },
       })
       .eq("id", planId);
+    await logAprovacao(false, metaUserMsg(err, raw));
     return json({
       ok: false,
       error: raw ?? err ?? null,
