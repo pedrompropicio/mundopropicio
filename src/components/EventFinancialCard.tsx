@@ -29,10 +29,11 @@ interface Props {
   primaryEventDate?: string | null;
   /** Receita de bilheteira em par: líquido e bruto. O seletor c/IVA escolhe qual entra. */
   ticketSales?: { net: number; gross: number };
-  /** TX do Master rateadas (÷ N siblings). */
-  masterExpenseShare?: number;
-  /** Forecasts overhead do Master rateados (÷ N siblings, anti-dup vs masterExpenseShare). */
-  masterForecastShare?: number;
+  /**
+   * Vista de CIDADE numa turnê (#217): o custo do Master é calculado com o MESMO
+   * critério da cidade e da turnê e dividido por `siblingCount`.
+   */
+  masterQuota?: { masterEventId: string; siblingCount: number };
   /** Cachê calculado efetivo. */
   cacheImpact?: number;
   /** Callback com o displayValue actual — usado pelo card Lucro. */
@@ -119,8 +120,7 @@ export function EventFinancialCard(props: Props) {
     eventStatus: props.eventStatus,
     primaryEventDate: props.primaryEventDate,
     ticketSales: props.ticketSales,
-    masterExpenseShare: props.masterExpenseShare,
-    masterForecastShare: props.masterForecastShare,
+    masterQuota: props.masterQuota,
     cacheImpact: props.cacheImpact,
     withVat,
     includeOverhead,
