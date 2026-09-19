@@ -588,6 +588,41 @@ Deno.serve(async (req: Request): Promise<Response> => {
       pub.geo = geo;
     }
 
+    // Estados → geo_regions [{nome, key}]. A chave vem sempre da Meta; um estado
+    // que não resolva NÃO entra e deixa aviso com o nome tentado.
+    const estadosBrutos: Any[] = Array.isArray(pub.estados)
+      ? pub.estados
+      : (Array.isArray(pub.geo_regions) ? pub.geo_regions.map((r: Any) => r?.nome ?? r) : []);
+    const nomes = estadosBrutos
+      .map((e) => (typeof e === "string" ? e.trim() : ""))
+      .filter((e) => e.length > 2);
+    delete pub.estados;
+    delete pub.geo_regions;
+    if (nomes.length > 0) {
+      const token = metaAppToken();
+      if (!token) {
+        avisos.push(
+          `geo_regions_nao_resolvidas: sem credenciais de aplicação Meta — estados pedidos ficaram fora (${nomes.join(", ")})`,
+        );
+      } else {
+        const pais = pub.geo[0] ?? "BR";
+        const regioes: Any[] = [];
+        for (const nome of nomes) {
+          const key = await resolveRegionKey(nome, pais, token);
+          if (key) {
+            if (!regioes.some((r) => r.key === key)) regioes.push({ nome, key });
+          } else {
+            avisos.push(
+              `geo_regiao_nao_resolvida: conjunto "${a.trigger_nome ?? "?"}" pedia o estado "${nome}" — não foi encontrado na Meta e ficou fora`,
+            );
+          }
+        }
+        if (regioes.length > 0) pub.geo_regions = regioes;
+      }
+    }
+
+
+
     if (!Number.isFinite(pub.idade_min)) pub.idade_min = 18;
     if (!Number.isFinite(pub.idade_max)) pub.idade_max = 65;
 
