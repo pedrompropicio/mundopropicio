@@ -366,7 +366,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       totais_90d: totais90d,
       campanhas: campanhasPagas,
       anuncios: anuncios,
-      dados_em_falta: faltasPago,
+      dados_em_falta: historicoPago.dados_em_falta ?? [],
     },
     demografia_organica_instagram: demografiaOrganica,
     historico_pago: historicoPago,
