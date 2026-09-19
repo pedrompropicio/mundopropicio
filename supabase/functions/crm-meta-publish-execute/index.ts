@@ -639,16 +639,63 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   type AdBuild = { payload: Record<string, unknown> | null; aviso?: { codigo: string; detalhe?: string }; avisos_extra?: Array<{ codigo: string; detalhe?: string }> };
 
+  // Publicações promovíveis validadas para o alvo música (preenchido mais abaixo).
+  const postRefOk = new Set<string>();
+  const postRefBad: string[] = [];
+
+  // url_tags do criativo (só alvo música): UTMs geradas pelo motor.
+  function urlTagsFor(nomeAd: string): string | null {
+    if (!target.utm) return null;
+    return `${target.utm}&utm_content=${utmSlug(nomeAd)}`;
+  }
+
   // Devolve UM ARRAY de payloads (1 por grupo). Mantém a semântica anterior em estruturas
   // single (sem regressão nos quentes G=1).
-  function buildAdPayloads(adsetIdParaPayload: string, anuncio: any, link: string): AdBuild[] {
-    const cids: string[] = Array.isArray(anuncio.creative_ids) ? anuncio.creative_ids.filter((x: any) => typeof x === "string" && x) : [];
-    if (cids.length === 0) return [{ payload: null, aviso: { codigo: "creative_sem_id" } }];
-
+  function buildAdPayloads(adsetIdParaPayload: string, anuncio: any, link: string | null): AdBuild[] {
     const cta = normalizeCta(anuncio.cta || "LEARN_MORE");
     const msg = String(anuncio.corpo ?? "").slice(0, 2000);
     const title = String(anuncio.headline ?? "").slice(0, 200);
     const baseNome = String(anuncio.headline ?? "Anúncio");
+
+    // ── Alvo música: post existente (D-ERP95 F2b). Nunca corre para eventos.
+    const ep = isSong ? anuncio?.existing_post : null;
+    if (ep && typeof ep.post_ref === "string" && ep.post_ref) {
+      const postRef: string = ep.post_ref;
+      const kind = ep.kind === "instagram_media" ? "instagram_media" : "object_story";
+      if (!postRefOk.has(postRef)) {
+        return [{ payload: null, aviso: { codigo: "post_nao_promovivel", detalhe: postRef } }];
+      }
+      const nomeAdEp = target.naming.prefix + baseNome.slice(0, 200);
+      const avisosEp: Array<{ codigo: string; detalhe?: string }> = [];
+      let creative: Record<string, unknown>;
+      if (kind === "instagram_media") {
+        if (!selectedInstagramId) {
+          return [{ payload: null, aviso: { codigo: "sem_conta_instagram", detalhe: postRef } }];
+        }
+        creative = { source_instagram_media_id: postRef, instagram_user_id: selectedInstagramId };
+        // CTA com link só faz sentido (e só é aceite) em Tráfego com link.
+        if (objetivoUpper === "TRAFFIC" && link) {
+          (creative as any).call_to_action = { type: cta, value: { link } };
+        }
+      } else {
+        creative = { object_story_id: postRef };
+        if (objetivoUpper === "TRAFFIC") {
+          avisosEp.push({ codigo: "cta_nao_aplicada_em_post_existente", detalhe: "publicação de Página é promovida como está — o botão do post original é o que fica" });
+        }
+      }
+      const tags = urlTagsFor(nomeAdEp);
+      if (tags) (creative as any).url_tags = tags;
+      return [{
+        payload: { name: nomeAdEp, adset_id: adsetIdParaPayload, status: "PAUSED", creative },
+        aviso: { codigo: "post_existente", detalhe: `${kind}:${postRef}` },
+        avisos_extra: avisosEp.length > 0 ? avisosEp : undefined,
+      }];
+    }
+
+    const cids: string[] = Array.isArray(anuncio.creative_ids) ? anuncio.creative_ids.filter((x: any) => typeof x === "string" && x) : [];
+    if (cids.length === 0) return [{ payload: null, aviso: { codigo: "creative_sem_id" } }];
+    if (!link) return [{ payload: null, aviso: { codigo: "sem_link_destino" } }];
+
 
     const usable: Usable[] = [];
     for (const cid of cids) {
