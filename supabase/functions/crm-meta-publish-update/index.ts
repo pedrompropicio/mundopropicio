@@ -589,6 +589,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (ap.depois.lifetime_budget_cents !== undefined) a.orcamento_cents = ap.depois.lifetime_budget_cents;
     a.publico_sugerido = a.publico_sugerido ?? {};
     if (ap.geo) a.publico_sugerido.geo = ap.geo;
+    if (ap.geo_regions) a.publico_sugerified = undefined, a.publico_sugerido.geo_regions = ap.geo_regions;
     if (ap.idades) {
       a.publico_sugerido.idade_min = ap.idades.min;
       a.publico_sugerido.idade_max = ap.idades.max;
