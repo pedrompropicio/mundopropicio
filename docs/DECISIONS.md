@@ -1338,6 +1338,59 @@ ligação vídeo→música; esta decisão ficou em D-ERP54.
 A guarda "1 geração automática por música por dia" usava uma janela deslizante de 24h (`Date.now() - 86_400_000`). Como o relatório é gravado ~20 s depois de o cron disparar (10:00:00 UTC), no dia seguinte o cron chegava ~23h59m40s depois do anterior, ainda dentro da janela, e devolvia `skipped`. O cron disparou a 14, 15, 16, 17 e 18/09 mas só gravou relatório a 16 e 18/09.
 **Regra nova:** a guarda usa o dia de calendário UTC (desde `today 00:00:00Z`) e conta só relatórios com `status = 'ok'`. Relatórios em erro não bloqueiam nova tentativa no mesmo dia. O skip passou a logar o `id` e `generated_at` do relatório que o causou.
 
+**Adenda 2026-09-19 (formato de números, frescura e regeneração por alteração de dados).**
+
+*Snapshot.* Contagens e ritmos por dia saem do snapshot já como INTEIROS
+(`daily_gain`, `ganho_no_periodo`, `media_diaria_ultimos_7`,
+`media_diaria_7_anteriores`, `melhor_dia.ganho`, `media_views_*`,
+`delta_views_7d`, `delta_desde_lancamento`, `delta_30d_antes_do_lancamento` e, no
+`benchmark_alinhado`, `spotify_streams_por_dia_a_esta_idade` e
+`tiktok_ugc_por_dia`). Só percentuais e índices (`delta_7d_pct`, `delta_30d_pct`,
+`indice`) mantêm 1 casa decimal. Novo bloco `snapshot.frescura` =
+`{ gerado_em, ugc_tiktok_data, ugc_dias_de_atraso, s4a_snapshot,
+s4a_dias_de_atraso, benchmark_ugc_data_mais_antiga, benchmark_ugc_dias_de_atraso }`
+— as quatro primeiras da própria música (linha `is_self` do benchmark e
+`spotify_for_artists.snapshot`), as duas últimas da data de UGC mais antiga entre os
+comparáveis com UGC; `atraso = periodo.fim − data` em dias inteiros, `null` sem dado.
+
+*Prompt.* A regra 1 passa a permitir um único arredondamento, o da regra 13. Novas
+regras de FORMATO (13 contagens e ritmos sempre inteiros; 14 formato pt-BR — ponto só
+como milhar, vírgula só em percentuais com 1 casa, proibido abreviar; 15 campos
+numéricos da ferramenta em número puro inteiro) e de FRESCURA (16 todo número de
+registo manual é citado com a data do dado; 17 o ritmo por dia é o do snapshot, é
+proibido recalcular ou chamar acumulado de "por dia"; 18 atrasos — UGC > 2 dias e
+S4A > 8 dias entram em `sinais_de_alerta` e travam leitura de tendência; UGC dos
+comparáveis > 2 dias obriga a dizer a data e a não concluir ultrapassagens por margens
+pequenas).
+
+*Regeneração por alteração de dados.* `public.artist_songs.report_stale_at` marca o
+relatório como desactualizado; `public.artist_song_reports.trigger_source`
+(`cron|manual|data_change`) guarda a origem. `artist_song_metric_set_manual` e
+`artist_song_playlist_streams_set` põem a marca **só** com valor novo ou diferente
+(regravações idênticas não marcam), via `public.artist_song_mark_report_stale`: na
+própria música se `is_launch`, e — quando a música é `is_reference` — em todos os
+lançamentos cujo benchmark a inclui (`artist_comparables` do artista do lançamento →
+artista da música de referência). Assinaturas, retornos e privilégios das duas RPCs
+inalterados (D-ERP94: anon sem EXECUTE).
+
+`artist-song-report` aceita `trigger_source:'data_change'` + `stale_at` **só** de
+service_role (de utilizador é ignorado e fica `manual`). Para `data_change`: não se
+aplica a guarda de 1/dia do cron; teto próprio de **6 TENTATIVAS por música por dia
+UTC** (conta `ok` e `error`, para uma falha repetida do LLM não gerar custo sem fim),
+ao 7.º pedido devolve `200 { skipped:true, reason:'data_change_daily_cap' }` com
+`console.log`; no fim de uma geração `ok` limpa a marca só se ninguém a mexeu
+entretanto (`WHERE id = song_id AND report_stale_at = stale_at`) — se entrou dado novo
+durante a geração a marca fica. Regenerar nunca substitui: grava linha nova.
+O cron `carreira-song-report-diario` (10:00 UTC, job 101) e a sua guarda por dia de
+calendário ficam como estão.
+
+*Cron novo (criado em Live pelo Pedro, não por migração):* `carreira-song-report-stale`,
+`*/15 * * * *`, para cada música `is_launch` e `tracking_status='ativo'` com
+`report_stale_at < now() - interval '10 minutes'` (debounce: a recolha de segunda grava
+~100 linhas seguidas) e `report_stale_at >` `generated_at` do último relatório `ok` (ou
+sem relatório), chama `artist-song-report` com
+`{ song_id, trigger_source:'data_change', stale_at }`.
+
 ## D-ERP55 — O saldo do extrato é calculado sobre a ordem que se vê, não sobre a ordem plana (12/09/2026)
 
 
@@ -2041,6 +2094,22 @@ videos_artista, playlists) com posição, total e frase curta.
 
 **Prova.** Relatório da "Roupa de Solteira" regenerado: spotify 4.º de 11,
 tiktok_ugc 1.º de 6, videos_artista e playlists "sem referência".
+
+**Adenda 2026-09-19 (`tiktok_ugc_por_dia` pela idade NA DATA DO DADO).**
+Defeito confirmado em Live: `v_song_benchmark_aligned` calculava
+`tiktok_ugc_por_dia = tiktok_ugc_latest / (CURRENT_DATE - release_date)`, ou seja pela
+idade de HOJE. Como o UGC é registo manual, o ritmo caía sozinho em cada dia sem
+registo novo — Litto Lins com 7.320 (registo de 18/09) dava 430,59 em vez de 457,50, e
+comparáveis com registo de 13/09 apareciam subestimados entre 5 % e 17 %.
+**Regra nova:** `tiktok_ugc_por_dia = tiktok_ugc_latest / GREATEST(tiktok_ugc_date -
+release_date, 1)`, `NULL` sem dado. Nunca pela idade de hoje. A vista foi substituída
+por `CREATE OR REPLACE VIEW` (mesmas colunas, nomes e ordem, grants intactos);
+`song_benchmark_aligned(uuid)` já lê a coluna da vista, pelo que o rank
+`rank_tiktok_ugc_por_dia` fica coerente sem alteração.
+**Prova (19/09, música `74c40d7b-357b-4311-acbe-eb9bfa7ba7c7`):** `tiktok_ugc_latest`
+7.320, `tiktok_ugc_date` 18/09, `release_date` 02/09, idade na data 16 dias,
+`tiktok_ugc_por_dia` 457,50 = 7.320 ÷ 16. Ranking por dia: Litto 457,50 · Henry Freitas
+169,44 · Léo Foguete 6,58 · Jonas Esticado 4,28 · Eric Land 2,42 · Nuzio Medeiros 1,17.
 
 ### D25 — adenda g16 (2026-09-13): a ligação utilizador ↔ sócio é de UI
 
