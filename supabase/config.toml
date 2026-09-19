@@ -112,6 +112,12 @@ verify_jwt = true
 [functions.artist-ads-disconnect]
 verify_jwt = true
 
+# Geração do plano de tráfego (alvo música) por LLM. Corre SEMPRE com a sessão
+# do utilizador: artist_ads_plan_create usa auth.uid() em created_by e valida o
+# papel por artist_ads_assert_write. O plano nasce em 'rascunho'; nunca publica.
+[functions.artist-ads-strategy-generate]
+verify_jwt = true
+
 
 # Ligação OFICIAL do TikTok (Display API + Login Kit), app própria
 # "Social Music Carreira" (TIKTOK_CLIENT_KEY/SECRET). Mesmo padrão do Instagram:
