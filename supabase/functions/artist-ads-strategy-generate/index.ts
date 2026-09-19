@@ -58,7 +58,7 @@ REGRAS ABSOLUTAS:
 1. Só pode citar números que estão no JSON do snapshot. É PROIBIDO estimar, inventar ou recalcular ritmos por dia (use o campo de ritmo que vem no snapshot). Cada número citado traz a data do dado.
 2. Objetivo só pode ser AWARENESS, TRAFFIC ou ENGAGEMENT. Campanhas de conversão/vendas são recusadas neste módulo — nunca as proponha.
 3. TRAFFIC só é permitido se a música tiver smart link https no snapshot (limites.smart_link_url). Sem smart link, proponha AWARENESS ou ENGAGEMENT e registe a falta em avisos.
-4. Geografia: publico_sugerido.geo só aceita códigos ISO de país com 2 letras (ex.: ["BR"]). É PROIBIDO escrever cidades ou estados (ex.: "Natal, Rio Grande do Norte") — o motor de publicação trata cada entrada como país e a Meta recusa. Por omissão ["BR"].
+4. Geografia: publico_sugerido.geo só aceita códigos ISO de país com 2 letras (ex.: ["BR"]) e é SEMPRE obrigatória. Para estreitar dentro do país, use publico_sugerido.estados: nomes de estados brasileiros escritos por extenso (ex.: ["Rio Grande do Norte","Paraíba","Ceará"]). É PROIBIDO escrever cidades (ex.: "Natal") ou siglas (ex.: "RN") — cidades ficam fora desta versão. A chave Meta de cada estado é resolvida pelo motor, não por você.
 5. No máximo 3 conjuntos de anúncios. Cada conjunto tem UM público e UM anúncio, e esse anúncio promove uma publicação existente (existing_post) da lista publicacoes_promoviveis. NUNCA invente post_ref: use exactamente um post_ref dessa lista.
 6. Por omissão não use end_time (orçamento diário). Se propuser end_time, tem de vir start_time e end_time > start_time.
 7. A soma dos orcamento_cents dos conjuntos por dia não pode passar o disponível em limites.available_daily (na moeda da conta). Cada conjunto tem pelo menos 100 cents por dia.
@@ -67,6 +67,10 @@ REGRAS ABSOLUTAS:
 10. Não existe histórico pago por região, idade ou género: os dados pagos são agregados por anúncio e por dia. Quando não houver histórico pago para uma região ou um público, escreva isso literalmente ("sem histórico pago nesta região" / "sem histórico pago para este público") em vez de inferir a partir da demografia orgânica.
 11. demografia_organica_instagram é FONTE SECUNDÁRIA e só de Instagram orgânico. Se a usar, identifique-a como tal no texto ("fonte secundária: demografia orgânica do Instagram, snapshot de <data>"). Nunca a apresente como desempenho pago.
 12. Criativo: justifique a publicação escolhida com o desempenho pago do anúncio/criativo correspondente quando existir em desempenho_pago.anuncios; se não existir, diga "publicação sem histórico pago".
+13. ARTISTA REGIONAL: ordene a geografia por CONCENTRAÇÃO (quota da base do artista nesse estado/região), NUNCA por valor absoluto de uma cidade. Exemplo real do erro a evitar: São Paulo entrou num plano só por ser a 2.ª cidade em seguidores (7.596), contra Natal (19.557) e ~35,4 mil apenas nas cidades do Rio Grande do Norte no top 30 (artist_audience_demographics, instagram/followers, snapshot de 19/09/2026).
+14. Metrópoles fora da região-base (ex.: São Paulo, Rio de Janeiro) só entram com evidência de desempenho PAGO ou de streaming no snapshot, e NUNCA na 1.ª campanha.
+15. Quando os dados mostrarem base concentrada numa região, escreva explicitamente na justificação "artista regional: base RN/Nordeste" (ou a região que os dados mostrarem).
+16. Sempre que estreitar idades (qualquer coisa diferente de 18–65), cite a distribuição etária real da base com a data do dado. Exemplo do dado do Litto a 19/09/2026: 25–34 = 42,9 %, 35–44 = 24,5 %, 18–24 = 18,5 % — foi por não citar que saiu um conjunto 18–34 contra uma base 25–44. Sem esse dado citado, mantenha 18–65.
 
 FORMATO DE RESPOSTA — responde APENAS com JSON puro (sem markdown fences):
 {
@@ -79,6 +83,7 @@ FORMATO DE RESPOSTA — responde APENAS com JSON puro (sem markdown fences):
       "orcamento_cents": <inteiro, por dia>,
       "publico_sugerido": {
         "geo": ["BR"],
+        "estados": ["Rio Grande do Norte"],
         "idade_min": 18,
         "idade_max": 65,
         "descricao": "quem é este público e porque"
