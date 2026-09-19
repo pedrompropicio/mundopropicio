@@ -16,6 +16,7 @@
  */
 
 import { calcTotalWithIva } from "./iva.ts";
+import { isValidFechoTransaction } from "./fecho-filters.ts";
 
 /** Tolerância do "ultrapassou o previsto" (meio cêntimo). */
 export const EXCESS_EPSILON = 0.005;
