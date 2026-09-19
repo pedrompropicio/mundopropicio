@@ -133,7 +133,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({
       ok: false, error: "sem_tiktok_api_host",
       error_user_msg: `Falta a variável de ambiente TIKTOK_API_HOST (sandbox: ${TIKTOK_SANDBOX_HOST}).`,
-    }, 500);
+    }, 422);
   }
 
   // 5) Ligação + token/advertiser_id (erros identificáveis, nunca excepção).
