@@ -35,6 +35,10 @@ export interface StartArgs {
   artist_id?: string | null;
 }
 
+// dry_run nunca conta rows_written nem fecha como 'success'.
+// startSyncRun guarda o dry_run por runId; finishSyncRun impõe a regra no fim.
+const dryRunRegistry = new Map<string, boolean>();
+
 /** Cria a linha 'running'. Devolve o id ou null se o registo falhar. */
 export async function startSyncRun(
   admin: Admin,
@@ -54,7 +58,9 @@ export async function startSyncRun(
       .select("id")
       .single();
     if (error) throw error;
-    return (data?.id as string) ?? null;
+    const id = (data?.id as string) ?? null;
+    if (id) dryRunRegistry.set(id, args.dry_run === true);
+    return id;
   } catch (e) {
     console.error("[sync_runs] insert falhou:", (e as Error)?.message ?? e);
     return null;
@@ -89,6 +95,19 @@ export async function finishSyncRun(
   args: FinishArgs,
 ): Promise<void> {
   if (!runId) return;
+  // dry_run nunca conta rows_written nem fecha como 'success'/'partial'.
+  const wasDryRun = dryRunRegistry.get(runId) === true;
+  dryRunRegistry.delete(runId);
+  let status = args.status;
+  let rowsWritten = args.rows_written ?? 0;
+  if (wasDryRun) {
+    rowsWritten = 0;
+    if (status === "success") {
+      status = "no_data";
+    } else if (status === "partial") {
+      status = args.error_text ? "error" : "no_data";
+    }
+  }
   try {
     const finished = new Date();
     const { error } = await admin
@@ -96,9 +115,9 @@ export async function finishSyncRun(
       .update({
         finished_at: finished.toISOString(),
         duration_ms: Math.max(0, Math.round(Date.now() - startedMs)),
-        status: args.status,
+        status,
         api_calls: args.api_calls ?? 0,
-        rows_written: args.rows_written ?? 0,
+        rows_written: rowsWritten,
         details: args.details ?? null,
         error_text: args.error_text ?? null,
       })
