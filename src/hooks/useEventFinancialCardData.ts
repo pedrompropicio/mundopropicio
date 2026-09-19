@@ -6,7 +6,11 @@ import {
   type FormalidadeBreakdown,
   emptyBreakdown, addToBreakdown, detectPhase, resolveMode, classifyIncomeL1,
 } from "@/lib/event-financial-card";
-import { lineValue, computeOutsideBpExcess } from "@/lib/event-cost-basis";
+import {
+  lineValue, computeOutsideBpExcess,
+  computeEventCostOnBasis, computeMasterQuota,
+} from "@/lib/event-cost-basis";
+import { isValidFechoTransaction } from "@/lib/fecho-filters";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
 import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
@@ -28,10 +32,12 @@ export interface UseEventFinancialCardDataArgs {
   primaryEventDate?: string | null;
   /** Receita de ticket_sales em par {net, gross} (vem do EventDetail). */
   ticketSales?: { net: number; gross: number };
-  /** TX do Master rateadas (÷ N siblings). */
-  masterExpenseShare?: number;
-  /** Forecasts overhead do Master rateados (÷ N siblings). Só aplicado em committed/forecast. */
-  masterForecastShare?: number;
+  /**
+   * Vista de CIDADE numa turnê (issue #217): quota igualitária do custo do Master.
+   * O custo do Master é calculado com o MESMO critério da cidade e da turnê
+   * (`computeEventCostOnBasis`) e dividido por `siblingCount`.
+   */
+  masterQuota?: { masterEventId: string; siblingCount: number };
   /** Cachê calculado efetivo. */
   cacheImpact?: number;
   /** Se true, aplica IVA (bruto). Default false = base líquida. */
