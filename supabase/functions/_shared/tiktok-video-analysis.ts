@@ -171,7 +171,7 @@ export async function analisarVideosTiktok(
       .order("metric_date", { ascending: true })
       .limit(50000);
     if (errM) {
-      avisos.push(`analise_videos_tiktok: falha ao ler artist_content_metrics_daily (${errM.message})`);
+      avisos.push(`${rotulo}: falha ao ler artist_content_metrics_daily (${errM.message})`);
       break;
     }
     for (const m of (mets ?? [])) {
