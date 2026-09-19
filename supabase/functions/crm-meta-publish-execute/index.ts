@@ -848,42 +848,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // ─── ALVO MÚSICA: teto, posts promovíveis, registo, espelho, preflight ──
   // (D-ERP95 F2b). Nada aqui corre para planos de evento.
-  type TetoInfo = { ok: boolean; error?: string; teto?: number; pedido?: number; ja_comprometido?: number; moeda?: string };
-
-  function dailyFromAdsets(list: any[], lifetime: boolean, dias: number): number {
-    const cents = (list ?? []).reduce((s: number, a: any) => s + Math.max(0, Number(a?.orcamento_cents ?? 0)), 0);
-    return (lifetime ? cents / Math.max(1, dias) : cents) / 100;
-  }
-
-  // Teto fechado por omissão: sem linha em crm.artist_ads_budget_caps não se publica.
+  // O teto vive em _shared/artist-ads-teto.ts (D-ERP95 F3): a MESMA regra é
+  // usada pela publicação, pela activação e pelo entity-action.
   async function checkTeto(): Promise<TetoInfo> {
-    const { data: cap } = await (admin as any).schema("crm").from("artist_ads_budget_caps")
-      .select("daily_cap, currency").eq("connection_id", connectionId).maybeSingle();
-    if (!cap) return { ok: false, error: "sem_teto" };
-    const capMoeda = String((cap as any).currency ?? "").toUpperCase();
-    const moedaPlano = String(planRow.moeda ?? "").toUpperCase();
-    if (moedaPlano && capMoeda !== moedaPlano) {
-      return { ok: false, error: "moeda_diferente_do_teto", teto: Number((cap as any).daily_cap), moeda: capMoeda };
-    }
-    const pedido = dailyFromAdsets(adsets, usaLifetime, diasJanela);
-    const { data: outros } = await (admin as any).schema("crm").from("meta_publish_plan")
-      .select("id, adsets, start_time, end_time")
-      .eq("connection_id", connectionId)
-      .in("estado", ["publicado", "ativo"])
-      .neq("id", planId);
-    let comprometido = 0;
-    for (const p of (outros ?? [])) {
-      const lt = !!(p as any).end_time;
-      const dias = (lt && (p as any).start_time)
-        ? Math.max(1, Math.ceil((new Date((p as any).end_time).getTime() - new Date((p as any).start_time).getTime()) / 86400000))
-        : 1;
-      comprometido += dailyFromAdsets(Array.isArray((p as any).adsets) ? (p as any).adsets : [], lt, dias);
-    }
-    const teto = Number((cap as any).daily_cap);
-    if (pedido + comprometido > teto + 1e-9) {
-      return { ok: false, error: "acima_do_teto", teto, pedido, ja_comprometido: comprometido, moeda: capMoeda };
-    }
-    return { ok: true, teto, pedido, ja_comprometido: comprometido, moeda: capMoeda };
+    return await checkTetoPlano(admin as any, {
+      connectionId: connectionId!,
+      moeda: planRow.moeda,
+      adsets,
+      usaLifetime,
+      diasJanela,
+      planId,
+    });
   }
 
   async function logCreate(entity: "campaign" | "adset" | "ad", externalId: string, nome: string): Promise<void> {
