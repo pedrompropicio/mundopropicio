@@ -137,6 +137,50 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
   });
   const forecasts = useMemo(() => keepRootPerimeter(forecastsAll, rootIds), [forecastsAll, rootIds]);
 
+  // ── Master de uma turnê (issue #217): mesmas colunas e filtros dos `ids`.
+  // O custo do Master é calculado com o MESMO critério e depois dividido pelas cidades.
+  const masterId = kind === "expense" ? (args.masterQuota?.masterEventId ?? null) : null;
+  const masterIdsArr = masterId ? [masterId] : [];
+
+  const { data: masterTxsAll = [] } = useQuery({
+    queryKey: ["efc-master-tx", masterId],
+    queryFn: async () => {
+      const { data, error } = await fetchAllPagedQuery(supabase
+        .from("transactions")
+        .select("id, event_id, type, status, amount, paid_amount, iva_rate, category_id, is_transitory, is_hidden, reversed_at, exclude_from_result, event_settlement_id, account_categories(code)")
+        .in("event_id", masterIdsArr));
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: !!masterId,
+  });
+
+  const { data: masterForecastsAll = [] } = useQuery({
+    queryKey: ["efc-master-forecasts", masterId, kind],
+    queryFn: async () => {
+      const { data, error } = await fetchAllPagedQuery(supabase
+        .from("event_forecasts")
+        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead, event_settlement_id")
+        .in("event_id", masterIdsArr)
+        .is("version_id", null)
+        .eq("type", kind));
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: !!masterId,
+  });
+
+  const { data: masterRootInfo } = useEventRootSettlements(masterIdsArr);
+  const masterRootIds = masterRootInfo?.rootIds;
+  const masterTxs = useMemo(
+    () => keepRootPerimeter(masterTxsAll, masterRootIds),
+    [masterTxsAll, masterRootIds],
+  );
+  const masterForecasts = useMemo(
+    () => keepRootPerimeter(masterForecastsAll, masterRootIds),
+    [masterForecastsAll, masterRootIds],
+  );
+
   // ── Simulator (apenas em forecast+income) ──
   const simEnabled = mode === "forecast" && kind === "income";
   const { data: simCfg } = useQuery({
