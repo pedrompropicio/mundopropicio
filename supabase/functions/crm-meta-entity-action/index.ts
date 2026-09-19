@@ -407,6 +407,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       success: true,
       meta_response_jsonb: metaResponse,
       performed_by: userId,
+      approved_by: approvedBy,
     });
 
     // Audit trail rico em meta_campaign_changes (paralelo, falha aqui não rolla back).
@@ -488,6 +489,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       error_message: errMsg,
       meta_response_jsonb: e?.metaResponse ?? null,
       performed_by: userId,
+      approved_by: approvedBy,
     });
     return json({ ok: false, error: "meta_action_failed", detail: errMsg }, 502);
   }
