@@ -311,7 +311,7 @@ Deno.serve(async (req) => {
                 dimension: breakdown,
                 dim_key: key,
                 value: v,
-                timeframe: "this_month",
+                timeframe: dm.timeframe,
                 snapshot_date: today,
                 source: SOURCE,
               });
