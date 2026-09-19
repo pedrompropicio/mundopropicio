@@ -2654,7 +2654,7 @@ não houver, deriva-se de `effective_object_story_id` (`<pagina>_<post>` →
 campanhas (`current_date - 6` / `- 29`). Por omissão exclui anúncios `DELETED`/`ARCHIVED`. O Google
 **não tem nível anúncio** na base: a RPC devolve só Meta, com a coluna `platform` pronta para o futuro.
 
-**Migração:** `20260919035900_d_erp91_artist_ads_ads.sql` (nome atribuído pelo Lovable), aplicada e
+**Migração:** `20260919035335_397ec815-41a2-4613-b450-6084a2b3b9d7.sql`, aplicada e
 verificada em Live: 111 anúncios para o artista do Litto, moeda BRL; `thumbnail_url` e `permalink` a
 NULL enquanto não corre um sync já com o criativo expandido.
 
