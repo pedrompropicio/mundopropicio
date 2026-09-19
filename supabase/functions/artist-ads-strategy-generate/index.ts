@@ -407,35 +407,44 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const audiencia: Any = dados.blocos.audiencia_organica ?? {};
   const geografiaPorUf: Any = dados.geografia;
 
-  // Publicações/vídeos anunciáveis (só prontos). No TikTok são vídeos do
-  // artista (post_kind 'tiktok_video'); preferem-se os ligados à música.
+  // Publicações/vídeos anunciáveis (só prontos). No TikTok são vídeos do artista
+  // (post_kind 'tiktok_video'), no Google vídeos do YouTube (post_kind
+  // 'youtube_video'); preferem-se os ligados à música.
   let posts = (dados.blocos.publicacoes ?? []).filter((p: Any) => p?.meta_ready === true && p?.post_ref);
   if (posts.length === 0) {
     return json({
       error: "sem_publicacoes_promoviveis",
       mensagem: eTiktok
         ? "Não há vídeos do artista no TikTok prontos para anunciar."
+        : eGoogle
+        ? "Não há vídeos do artista no YouTube prontos para anunciar."
         : "Não há publicações do artista prontas para anunciar no Meta.",
     }, 422);
   }
   let videosLigadosMusica = 0;
-  if (eTiktok) {
+  if (eVideo) {
     const ligados = posts.filter((p: Any) => p?.song_id === songId);
     const outros = posts.filter((p: Any) => p?.song_id !== songId);
     videosLigadosMusica = ligados.length;
-    posts = [...ligados, ...outros].slice(0, MAX_VIDEOS_TIKTOK);
+    const limite = eGoogle ? MAX_VIDEOS_GOOGLE : MAX_VIDEOS_TIKTOK;
+    posts = [...ligados, ...outros].slice(0, limite);
   }
   const postRefsOk = new Set(posts.map((p: Any) => String(p.post_ref)));
 
-  // ── 1c) ANÁLISE DOS VÍDEOS TIKTOK (D-ERP107) — bloco novo, só neste alvo.
-  const analiseVideos = eTiktok
-    ? await analisarVideosTiktok(user, { artistId, songId, dias: 180 })
+  // ── 1c) ANÁLISE DOS VÍDEOS ORGÂNICOS (D-ERP107 TikTok / D-ERP108 YouTube).
+  const analiseVideos = eVideo
+    ? await analisarVideosTiktok(user, {
+      artistId,
+      songId,
+      dias: 180,
+      platform: eGoogle ? "youtube" : "tiktok",
+    })
     : null;
   if (analiseVideos) avisos.push(...analiseVideos.avisos);
 
-  // Estados brasileiros para validar os nomes de geo_regions no alvo TikTok.
+  // Estados brasileiros para validar os nomes de geo_regions (TikTok e Google).
   let estadosBr: { nome: string; uf: string }[] = [];
-  if (eTiktok) {
+  if (eVideo) {
     const { data: ests, error: estErr } = await user.from("br_estados").select("nome, uf");
     if (estErr) avisos.push(`br_estados indisponível (${estErr.message}) — nomes de estado não validados`);
     estadosBr = (ests ?? []) as { nome: string; uf: string }[];
