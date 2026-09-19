@@ -32,9 +32,19 @@ function normalizeAdAccountId(raw: string): string {
   return c.startsWith("act_") ? c : `act_${c}`;
 }
 
+// Criativo expandido (D-ERP91): o nível anúncio do painel de tráfego por artista
+// precisa de miniatura e permalink, e crm.meta_creatives (biblioteca do MP
+// Audience) não serve para isto. Guarda-se tudo em `raw.creative` — sem colunas
+// novas. NOTA: `thumbnail_url` da Meta EXPIRA; é refrescado a cada sync.
+const CREATIVE_SUBFIELDS = [
+  "id", "name", "thumbnail_url", "image_url", "video_id",
+  "effective_object_story_id", "effective_instagram_media_id",
+  "instagram_permalink_url", "object_type",
+].join(",");
+
 const AD_FIELDS = [
   "id", "name", "adset_id", "campaign_id", "status", "effective_status",
-  "creative", "tracking_specs", "conversion_specs",
+  `creative{${CREATIVE_SUBFIELDS}}`, "tracking_specs", "conversion_specs",
   "recommendations", "issues_info", "created_time", "updated_time",
 ].join(",");
 
@@ -45,7 +55,17 @@ interface GraphAd {
   campaign_id?: string;
   status?: string;
   effective_status?: string;
-  creative?: { id?: string };
+  creative?: {
+    id?: string;
+    name?: string;
+    thumbnail_url?: string;
+    image_url?: string;
+    video_id?: string;
+    effective_object_story_id?: string;
+    effective_instagram_media_id?: string;
+    instagram_permalink_url?: string;
+    object_type?: string;
+  };
   tracking_specs?: any;
   conversion_specs?: any;
   recommendations?: any;

@@ -16473,6 +16473,42 @@ export type Database = {
         }
         Returns: undefined
       }
+      artist_ads_ads: {
+        Args: { p_artist_id: string; p_campaign_id?: string }
+        Returns: {
+          ad_id: string
+          ad_name: string
+          adset_id: string
+          adset_name: string
+          campaign_id: string
+          campaign_name: string
+          clicks_30d: number
+          clicks_7d: number
+          connection_id: string
+          cost_per_thruplay_30d: number
+          cost_per_thruplay_7d: number
+          cpc_30d: number
+          cpc_7d: number
+          creative_id: string
+          ctr_30d: number
+          ctr_7d: number
+          currency: string
+          impressions_30d: number
+          impressions_7d: number
+          last_synced_at: string
+          linked_song_id: string
+          permalink: string
+          platform: string
+          spend_30d: number
+          spend_7d: number
+          status: string
+          thruplays_30d: number
+          thruplays_7d: number
+          thumbnail_url: string
+          video_3s_views_30d: number
+          video_3s_views_7d: number
+        }[]
+      }
       artist_ads_alerts: {
         Args: { p_artist_id: string }
         Returns: {

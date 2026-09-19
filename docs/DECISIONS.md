@@ -2607,3 +2607,57 @@ A 18/09 o backup global passou a incluir `infra.json` e `identities.json`. A est
 **Migração:** `20260919014632_722936fc-62f6-417e-841f-b846fa3e7017.sql`, aplicada e verificada em Live.
 
 **Estado:** vigente.
+
+---
+
+## D-ERP91 — Tráfego por artista chega ao nível ANÚNCIO; a moeda é a da conta, nunca assumida (adenda D-ERP68/D-ERP90) (19/09/2026)
+
+**Causa (verificada em Live a 19/09/2026):** o painel de tráfego por artista parava na campanha. Os
+espelhos de conjuntos e anúncios existiam (`crm.meta_adset_snapshot`, `crm.meta_ad_snapshot`) mas só
+se enchiam por chamada à mão — e `crm-meta-sync-ads` guardava do criativo apenas `raw.creative.id`,
+pelo que não havia miniatura nem link para ver o anúncio. Em paralelo, `public.artist_ads_campaigns`
+devolvia `currency` NULL nas campanhas Google: lia `ad_platform_connections.selected_ad_account_currency`,
+que fica vazia nas contas registadas por ID (`artist_ads_register_external`), ainda que
+`crm.google_campaign_insights_daily.currency` já viesse preenchida.
+
+**Decisão 1 — os crons cobrem os três níveis.** O job 241 `crm-meta-campaigns-hourly` (`25 * * * *`)
+passou a chamar, por connection meta `active` com conta escolhida, `crm-meta-sync-campaigns` +
+`crm-meta-sync-adsets` + `crm-meta-sync-ads` em `mode: incremental`; o job 93
+`crm-meta-insights-hourly` (`40 * * * *`) passou a pedir `levels` `campaign`, `adset` e `ad`. Ambos
+cobrem `connection_scope` `company` e `artist`. Provado em Live: 34 conjuntos, 111 anúncios (7 activos
+nas 2 campanhas activas) e insights dos três níveis desde 2026-08-20 a somar o mesmo gasto.
+
+**Decisão 2 — criativo expandido em `raw`, sem colunas novas.** `crm-meta-sync-ads` pede
+`creative{id,name,thumbnail_url,image_url,video_id,effective_object_story_id,effective_instagram_media_id,instagram_permalink_url,object_type}`
+e guarda tudo em `raw.creative`. `crm.meta_creatives` é a biblioteca de criativos do MP Audience e
+**não** serve para isto. `thumbnail_url` da Meta **expira** — é refrescado a cada sync, nunca se
+guarda como se fosse estável. Para `connection_scope='company'` nada muda além de um `raw` mais rico.
+
+**Decisão 3 — a moeda é a da conta e nunca se assume.** `crm-google-sync-campaigns` lê
+`customer.currency_code` (já vinha nas duas consultas GAQL) e grava-a em
+`crm.ad_platform_connections.selected_ad_account_currency` quando está NULL ou diferente. Se a API não
+disser a moeda, não se escreve nada — proibido assumir BRL ou EUR. E no ramo Google de
+`artist_ads_campaigns` a moeda passou a ser `coalesce(selected_ad_account_currency, moeda mais recente
+de google_campaign_insights_daily dessa campanha/connection)`; assinatura e colunas inalteradas.
+
+**Decisão 4 — nova RPC `public.artist_ads_ads(p_artist_id uuid, p_campaign_id text default null)`**,
+no mesmo modelo de segurança de `artist_ads_campaigns` (`artist_ads_assert_access`, só connections
+`connection_scope='artist'` desse artista e da empresa do guard, SECURITY DEFINER com
+`search_path = public, crm`, os mesmos privilégios: `anon` true, `authenticated` true, `service_role`
+true — iguais aos de `artist_ads_campaigns`). Uma linha por anúncio Meta: `platform`, `connection_id`,
+`currency`, `campaign_id`, `campaign_name`, `adset_id`, `adset_name`, `ad_id`, `ad_name`, `status`
+(`effective_status`), `creative_id`, `thumbnail_url`, `permalink`, e para 7 d e 30 d `spend`,
+`impressions`, `clicks`, `ctr`, `cpc`, `video_3s_views`, `thruplays`, `cost_per_thruplay`; mais
+`linked_song_id` herdado da campanha e `last_synced_at`. `permalink` = `instagram_permalink_url`; se
+não houver, deriva-se de `effective_object_story_id` (`<pagina>_<post>` →
+`facebook.com/<pagina>/posts/<post>`); senão NULL. Divisões por zero → NULL. Janela igual à das
+campanhas (`current_date - 6` / `- 29`). Por omissão exclui anúncios `DELETED`/`ARCHIVED`. O Google
+**não tem nível anúncio** na base: a RPC devolve só Meta, com a coluna `platform` pronta para o futuro.
+
+**Migração:** `20260919035335_397ec815-41a2-4613-b450-6084a2b3b9d7.sql`, aplicada e
+verificada em Live: 111 anúncios para o artista do Litto, moeda BRL; `thumbnail_url` e `permalink` a
+NULL enquanto não corre um sync já com o criativo expandido.
+
+**Fora de âmbito:** câmbio/conversão de moeda, front, Publish.
+
+**Estado:** vigente.

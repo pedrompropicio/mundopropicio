@@ -59,3 +59,27 @@ Funções SQL (a regra de correspondência vive uma vez):
 - `public.artist_ads_autolink_songs_internal(artist)` — SECURITY DEFINER para
   cron: resolve a empresa pelo artista e chama o núcleo. anon false,
   authenticated false, service_role true.
+
+## Nível anúncio e moeda da conta (D-ERP91, 19/09/2026)
+
+- Cron job 241 (`25 * * * *`) sincroniza, por connection meta `active` com conta escolhida,
+  campanhas + conjuntos + anúncios (`crm-meta-sync-campaigns`, `-adsets`, `-ads`,
+  `mode: incremental`); job 93 (`40 * * * *`) pede insights nos níveis `campaign`,
+  `adset` e `ad`. Cobrem scope `company` e `artist`.
+- `crm-meta-sync-ads` guarda o criativo expandido em `raw.creative`
+  (`id,name,thumbnail_url,image_url,video_id,effective_object_story_id,
+  effective_instagram_media_id,instagram_permalink_url,object_type`) — sem colunas
+  novas. `thumbnail_url` da Meta EXPIRA; é refrescado a cada sync.
+  `crm.meta_creatives` é a biblioteca do MP Audience e não serve para isto.
+- Moeda: `crm-google-sync-campaigns` grava `customer.currency_code` em
+  `selected_ad_account_currency` quando está NULL ou diferente; nunca se assume
+  BRL/EUR. `artist_ads_campaigns` (ramo Google) usa
+  `coalesce(selected_ad_account_currency, moeda mais recente de
+  google_campaign_insights_daily)`.
+- `public.artist_ads_ads(p_artist_id, p_campaign_id default null)` — uma linha por
+  anúncio **Meta**, métricas a 7 d e 30 d (spend, impressions, clicks, ctr, cpc,
+  video_3s_views, thruplays, cost_per_thruplay; divisão por zero → NULL),
+  `linked_song_id` herdado da campanha, `permalink` do Instagram ou derivado de
+  `effective_object_story_id`. Exclui `DELETED`/`ARCHIVED`. Mesmo modelo de segurança
+  e privilégios de `artist_ads_campaigns`. O Google não tem nível anúncio na base —
+  a coluna `platform` fica pronta para o futuro.

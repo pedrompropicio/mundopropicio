@@ -493,7 +493,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .schema("crm")
     .from("ad_platform_connections")
     .select(
-      "id, company_id, selected_ad_account_id, external_business_id, login_customer_id, status, connection_scope, artist_id",
+      "id, company_id, selected_ad_account_id, selected_ad_account_currency, external_business_id, login_customer_id, status, connection_scope, artist_id",
     )
     .eq("platform", "google")
     .in("status", ["active", "pending_link"]);
@@ -553,6 +553,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const agg = aggregate(metaRows);
       mergeMetricsFromInsights(agg, insightRows);
       const daily = buildDailyRows(insightRows);
+
+      // D-ERP91: moeda REAL da conta (customer.currency_code). Contas registadas
+      // por ID (artist_ads_register_external) ficam sem moeda e o painel mostrava
+      // NULL. Nunca se assume BRL/EUR — se a API não disser, não se escreve.
+      const accountCurrency = (() => {
+        for (const r of [...metaRows, ...insightRows]) {
+          const cc = (r.customer as Record<string, unknown> | undefined)?.currencyCode;
+          if (typeof cc === "string" && cc.trim()) return cc.trim().toUpperCase();
+        }
+        return null;
+      })();
+      if (accountCurrency && accountCurrency !== conn.selected_ad_account_currency) {
+        const { error: curErr } = await (supabase as any)
+          .schema("crm")
+          .from("ad_platform_connections")
+          .update({ selected_ad_account_currency: accountCurrency })
+          .eq("id", conn.id);
+        if (curErr) console.error("[currency] update failed:", curErr.message);
+      }
 
 
       // --- 1) Metadados da campanha (equivalente ao meta_campaign_snapshot) ---
