@@ -283,7 +283,7 @@ Deno.serve(async (req) => {
             {
               metric: dm.metric,
               period: "lifetime",
-              timeframe: "this_month",
+              timeframe: dm.timeframe,
               metric_type: "total_value",
               breakdown,
             },
