@@ -158,6 +158,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if ((!dryRun || preflight) && conn.status !== "active") {
     return json({ ok: false, error: "ligacao_inactiva", message: `A ligação TikTok não está activa (status=${conn.status}).` }, 422);
   }
+  // Valores já estreitados (usados em closures).
+  const advertiserId = conn.advertiserId;
+  const connectionId = conn.connectionId;
+  const accessToken = conn.accessToken;
+  const moedaConta = conn.moedaConta;
   if (!conn.accessToken) avisos.push({ codigo: "sem_token_tiktok", detalhe: "dry-run sem chamada à API: a ligação ainda não tem token." });
 
   // 6) Objectivo.
@@ -168,6 +173,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       message: "O objectivo do plano tem de ser AWARENESS, TRAFFIC ou ENGAGEMENT.",
     }, 422);
   }
+
+  const g = goal;
 
   // 7) Janela e orçamentos.
   const planStartTime: string | null = (planRow as any).start_time ?? null;
@@ -241,8 +248,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const pedidoDiario = dailyFromAdsetsTikTok(adsets, usaLifetime, diasJanela);
   const teto = await checkTetoTikTok(supabase as any, {
     artistId: String((planRow as any).artist_id),
-    connectionId: conn.connectionId,
-    moeda: planRow.moeda ?? conn.moedaConta,
+    connectionId: connectionId,
+    moeda: planRow.moeda ?? moedaConta,
     pedidoDiario,
   });
   if (!teto.ok) {
@@ -275,12 +282,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   for (const a of adsets) {
     const pais = (a?.publico_sugerido?.geo ?? []).filter((x: any) => typeof x === "string" && x.trim());
     const regs = Array.isArray(a?.publico_sugerido?.geo_regions) ? a.publico_sugerido.geo_regions : [];
-    if (!conn.accessToken) {
+    if (!accessToken) {
       geoPorAdset.push([]);
       avisos.push({ codigo: "geo_nao_resolvida", adset: a?.trigger_nome ?? null, detalhe: "sem token: location_ids não resolvidos" });
       continue;
     }
-    const r = await resolveLocationIds(host, conn.accessToken, conn.advertiserId, goal.objective_type, pais, regs);
+    const r = await resolveLocationIds(host, accessToken, advertiserId, g.objective_type, pais, regs);
     for (const av of r.avisos) avisos.push({ ...av, adset: a?.trigger_nome ?? null });
     if (r.location_ids.length === 0 && !dryRun) {
       return json({
@@ -294,9 +301,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 13) Payloads.
   const linkPlano: string | null = typeof planRow.link_destino === "string" && planRow.link_destino ? planRow.link_destino : null;
   const campaignPayload: Record<string, unknown> = {
-    advertiser_id: conn.advertiserId,
+    advertiser_id: advertiserId,
     campaign_name: campaignName,
-    objective_type: goal.objective_type,
+    objective_type: g.objective_type,
     budget_mode: "BUDGET_MODE_INFINITE", // orçamento por adgroup (equivalente ao ABO do Meta)
     operation_status: "DISABLE",
   };
@@ -304,15 +311,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
   function adgroupPayload(a: any, idx: number, campaignId: string): Record<string, unknown> {
     const orc = Math.max(0, Number(a?.orcamento_cents ?? 0)) / 100;
     const p: Record<string, unknown> = {
-      advertiser_id: conn.advertiserId,
+      advertiser_id: advertiserId,
       campaign_id: campaignId,
       adgroup_name: `${prefixo}${a?.trigger_nome ?? `Conjunto ${idx + 1}`}`,
-      promotion_type: goal.promotion_type,
+      promotion_type: g.promotion_type,
       placement_type: "PLACEMENT_TYPE_NORMAL",
       placements: ["PLACEMENT_TIKTOK"],
       location_ids: geoPorAdset[idx] ?? [],
-      optimization_goal: goal.optimization_goal,
-      billing_event: goal.billing_event,
+      optimization_goal: g.optimization_goal,
+      billing_event: g.billing_event,
       bid_type: "BID_TYPE_NO_BID",
       budget_mode: usaLifetime ? "BUDGET_MODE_TOTAL" : "BUDGET_MODE_DAY",
       budget: orc,
@@ -331,7 +338,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   function adPayload(a: any, an: any, adgroupId: string, idx: number, k: number): Record<string, unknown> {
     const link = (typeof an?.link_destino === "string" && an.link_destino) || (typeof a?.link_destino === "string" && a.link_destino) || linkPlano;
     return {
-      advertiser_id: conn.advertiserId,
+      advertiser_id: advertiserId,
       adgroup_id: adgroupId,
       creatives: [{
         ad_name: `${prefixo}${a?.trigger_nome ?? `Conjunto ${idx + 1}`} — ${k + 1}`,
@@ -341,7 +348,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         video_id: an?.tiktok_video_id ?? null,
         identity_type: "CUSTOMIZED_USER",
         ad_text: String(an?.texto ?? an?.copy ?? tituloBase).slice(0, 100),
-        call_to_action: goal.objective_type === "TRAFFIC" ? "LISTEN_NOW" : "WATCH_NOW",
+        call_to_action: g.objective_type === "TRAFFIC" ? "LISTEN_NOW" : "WATCH_NOW",
         landing_page_url: link,
         operation_status: "DISABLE",
       }],
@@ -352,11 +359,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (preflight) {
     const checks: Array<{ check: string; ok: boolean; detail?: string }> = [];
     const adv = await tiktokGET(host, "advertiser/info/", {
-      advertiser_ids: JSON.stringify([conn.advertiserId]),
-    }, conn.accessToken!);
+      advertiser_ids: JSON.stringify([advertiserId]),
+    }, accessToken!);
     const info = (adv.ok ? (adv.data as any)?.list?.[0] : null) ?? null;
-    checks.push({ check: "token_e_conta", ok: adv.ok, detail: adv.ok ? String(info?.name ?? conn.advertiserId) : (adv as any).message });
-    const moedaConta = String(info?.currency ?? conn.moedaConta ?? "").toUpperCase();
+    checks.push({ check: "token_e_conta", ok: adv.ok, detail: adv.ok ? String(info?.name ?? advertiserId) : (adv as any).message });
+    const moedaConta = String(info?.currency ?? moedaConta ?? "").toUpperCase();
     checks.push({
       check: "moeda_da_conta",
       ok: !!moedaConta && moedaConta === String(planRow.moeda ?? "").toUpperCase(),
@@ -366,7 +373,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     checks.push({ check: "geografia", ok: semGeo.length === 0 && geoPorAdset.every((g) => g.length > 0), detail: JSON.stringify(geoPorAdset) });
     checks.push({ check: "video_do_artista", ok: semVideo.length === 0, detail: semVideo.length === 0 ? "todos os anúncios têm tiktok_video_id" : JSON.stringify(semVideo) });
     const tudoOk = checks.every((c) => c.ok);
-    return json({ ok: tudoOk, preflight: true, plataforma: "tiktok", advertiser_id: conn.advertiserId, checks, avisos }, tudoOk ? 200 : 422);
+    return json({ ok: tudoOk, preflight: true, plataforma: "tiktok", advertiser_id: advertiserId, checks, avisos }, tudoOk ? 200 : 422);
   }
 
   // ── DRY-RUN: payloads + diff + prova por hash. Não toca na API nem na BD. ──
@@ -399,7 +406,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       plataforma: "tiktok",
       host,
       estado_plano: planRow.estado,
-      advertiser_id: conn.advertiserId,
+      advertiser_id: advertiserId,
       naming: { campaign: campaignName, prefix: prefixo },
       janela: { start_time: planStartTime, end_time: planEndTime, dias: diasJanela, budget_mode: usaLifetime ? "total" : "daily" },
       teto,
@@ -434,7 +441,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   async function falha(etapa: string, err: { message: string; code: number | null; raw?: any }, externalId = "-"): Promise<Response> {
     await persist({ estado: "falhado", publish_error: { etapa, error: err.message, code: err.code, at: new Date().toISOString() } });
     const logErr = await logAdsAction(admin as any, {
-      company_id: planRow.company_id, connection_id: conn.connectionId, ad_account_id: conn.advertiserId,
+      company_id: planRow.company_id, connection_id: connectionId, ad_account_id: advertiserId,
       plan_id: planId!, artist_id: (planRow as any).artist_id, song_id: (planRow as any).song_id,
       entity_type: etapa === "campaign" ? "campaign" : etapa === "adgroup" ? "adgroup" : "ad",
       external_id: externalId, action: "create", success: false, error_message: err.message,
@@ -447,13 +454,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Campanha (idempotente: retoma se já existir).
   let campaignId: string | null = (planRow as any).external_campaign_id ?? null;
   if (!campaignId) {
-    const r = await tiktokPOST<{ campaign_id: string }>(host, "campaign/create/", campaignPayload, conn.accessToken!);
+    const r = await tiktokPOST<{ campaign_id: string }>(host, "campaign/create/", campaignPayload, accessToken!);
     if (!r.ok) return await falha("campaign", r);
     campaignId = String((r.data as any)?.campaign_id ?? "");
     if (!campaignId) return await falha("campaign", { message: "resposta sem campaign_id", code: null, raw: r.data });
     await persist({ external_campaign_id: campaignId });
     const logErr = await logAdsAction(admin as any, {
-      company_id: planRow.company_id, connection_id: conn.connectionId, ad_account_id: conn.advertiserId,
+      company_id: planRow.company_id, connection_id: connectionId, ad_account_id: advertiserId,
       plan_id: planId!, artist_id: (planRow as any).artist_id, song_id: (planRow as any).song_id,
       entity_type: "campaign", external_id: campaignId, entity_name: campaignName, action: "create",
       new_status: "DISABLE", updates_jsonb: { alvo: "song", objetivo: planRow.objetivo }, success: true,
@@ -465,15 +472,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Espelho da campanha com a MÚSICA TRANCADA (nunca se desliga aqui).
   {
     const { error } = await (admin as any).schema("crm").from("meta_campaign_snapshot").upsert({
-      connection_id: conn.connectionId,
+      connection_id: connectionId,
       company_id: planRow.company_id,
-      ad_account_id: conn.advertiserId,
+      ad_account_id: advertiserId,
       external_campaign_id: campaignId,
       name: campaignName,
       status: "DISABLE",
       effective_status: "DISABLE",
-      objective: goal.objective_type,
-      currency: conn.moedaConta ?? planRow.moeda ?? null,
+      objective: g.objective_type,
+      currency: moedaConta ?? planRow.moeda ?? null,
       start_time: planStartTime,
       stop_time: planEndTime,
       raw: { created_by: "crm-tiktok-publish-execute", plan_id: planId, platform: "tiktok" },
@@ -488,14 +495,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   for (let i = 0; i < adsetsOut.length; i++) {
     const a = adsetsOut[i];
     if (!a.external_adgroup_id) {
-      const r = await tiktokPOST<{ adgroup_id: string }>(host, "adgroup/create/", adgroupPayload(a, i, campaignId!), conn.accessToken!);
+      const r = await tiktokPOST<{ adgroup_id: string }>(host, "adgroup/create/", adgroupPayload(a, i, campaignId!), accessToken!);
       if (!r.ok) return await falha("adgroup", r, campaignId!);
       a.external_adgroup_id = String((r.data as any)?.adgroup_id ?? "");
       if (!a.external_adgroup_id) return await falha("adgroup", { message: "resposta sem adgroup_id", code: null, raw: r.data }, campaignId!);
       a.tiktok_status = "DISABLE";
       await persist();
       const logErr = await logAdsAction(admin as any, {
-        company_id: planRow.company_id, connection_id: conn.connectionId, ad_account_id: conn.advertiserId,
+        company_id: planRow.company_id, connection_id: connectionId, ad_account_id: advertiserId,
         plan_id: planId!, artist_id: (planRow as any).artist_id, song_id: (planRow as any).song_id,
         entity_type: "adgroup", external_id: a.external_adgroup_id, entity_name: `${prefixo}${a?.trigger_nome ?? ""}`,
         action: "create", new_status: "DISABLE", success: true, performed_by: callerUserId,
@@ -507,7 +514,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     for (let k = 0; k < ans.length; k++) {
       const an = ans[k];
       if (an.external_ad_id) continue;
-      const r = await tiktokPOST<{ ad_ids: string[] }>(host, "ad/create/", adPayload(a, an, a.external_adgroup_id, i, k), conn.accessToken!);
+      const r = await tiktokPOST<{ ad_ids: string[] }>(host, "ad/create/", adPayload(a, an, a.external_adgroup_id, i, k), accessToken!);
       if (!r.ok) return await falha("ad", r, a.external_adgroup_id);
       const novo = String(((r.data as any)?.ad_ids ?? [])[0] ?? "");
       if (!novo) return await falha("ad", { message: "resposta sem ad_ids", code: null, raw: r.data }, a.external_adgroup_id);
@@ -515,7 +522,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       an.tiktok_status = "DISABLE";
       await persist();
       const logErr = await logAdsAction(admin as any, {
-        company_id: planRow.company_id, connection_id: conn.connectionId, ad_account_id: conn.advertiserId,
+        company_id: planRow.company_id, connection_id: connectionId, ad_account_id: advertiserId,
         plan_id: planId!, artist_id: (planRow as any).artist_id, song_id: (planRow as any).song_id,
         entity_type: "ad", external_id: novo, action: "create", new_status: "DISABLE", success: true,
         performed_by: callerUserId,
