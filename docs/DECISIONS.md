@@ -3401,7 +3401,7 @@ propõe apenas NOMES de estado em `publico_sugerido.estados`; a função resolve
 cada nome por `GET /search?type=adgeolocation&location_types=['region']&q=<nome>&country_code=<país>`
 com o token de aplicação (`META_APP_ID|META_APP_SECRET`) — a fronteira do módulo
 mantém-se: nenhuma leitura de `crm.ad_platform_connections`. Estado que não
-resolva NÃO entra e deixa `geo_regia o_nao_resolvida: … "<nome>"` em
+resolva NÃO entra e deixa `geo_regiao_nao_resolvida: … "<nome>"` em
 `resumo.avisos`. Sem credenciais de aplicação: nenhum estado entra e fica
 `geo_regions_nao_resolvidas`.
 
