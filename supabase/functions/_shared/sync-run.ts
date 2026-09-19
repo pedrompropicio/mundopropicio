@@ -95,6 +95,19 @@ export async function finishSyncRun(
   args: FinishArgs,
 ): Promise<void> {
   if (!runId) return;
+  // dry_run nunca conta rows_written nem fecha como 'success'/'partial'.
+  const wasDryRun = dryRunRegistry.get(runId) === true;
+  dryRunRegistry.delete(runId);
+  let status = args.status;
+  let rowsWritten = args.rows_written ?? 0;
+  if (wasDryRun) {
+    rowsWritten = 0;
+    if (status === "success") {
+      status = "no_data";
+    } else if (status === "partial") {
+      status = args.error_text ? "error" : "no_data";
+    }
+  }
   try {
     const finished = new Date();
     const { error } = await admin
@@ -102,9 +115,9 @@ export async function finishSyncRun(
       .update({
         finished_at: finished.toISOString(),
         duration_ms: Math.max(0, Math.round(Date.now() - startedMs)),
-        status: args.status,
+        status,
         api_calls: args.api_calls ?? 0,
-        rows_written: args.rows_written ?? 0,
+        rows_written: rowsWritten,
         details: args.details ?? null,
         error_text: args.error_text ?? null,
       })
