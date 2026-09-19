@@ -950,6 +950,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
       if (postRefBad.length > 0) avisos.push({ codigo: "post_nao_promovivel", detalhe: postRefBad.join(", ") });
     }
 
+    // Geografia obrigatória no alvo música: sem país, o motor recusa.
+    const semGeoAdsets = (adsets as any[]).filter((a) => !temGeo(a)).map((a) => a?.trigger_nome ?? null);
+    if (semGeoAdsets.length > 0) {
+      if (!dryRun) {
+        return json({
+          ok: false, error: "sem_geografia", adset: semGeoAdsets,
+          message: "Cada conjunto de uma campanha de música tem de indicar pelo menos um país em publico_sugerido.geo (ex.: [\"BR\"]).",
+        }, 422);
+      }
+      for (const nome of semGeoAdsets) avisos.push({ codigo: "sem_geografia", adset: nome });
+    }
+
     tetoInfo = await checkTeto();
     if (!tetoInfo.ok) {
       if (!dryRun && !preflight) {
