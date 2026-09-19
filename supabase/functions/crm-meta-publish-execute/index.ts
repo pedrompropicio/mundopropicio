@@ -735,7 +735,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       }
     }
     return json({
+      ok: true,
       dry_run: true,
+      estado_plano: planRow.estado,
       ad_account_id: adAccountId,
       janela: { start_time: planStartTime, end_time: planEndTime, dias: diasJanela, budget_mode: usaLifetime ? "lifetime" : "daily" },
       payloads: {
