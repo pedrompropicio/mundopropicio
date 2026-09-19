@@ -55,6 +55,30 @@ const MIN_DAILY_CENTS_TIKTOK = 2000;
 // Máximo de vídeos enviados ao LLM (a conta do artista pode ter milhares).
 const MAX_VIDEOS_TIKTOK = 40;
 
+/** Nome de estado sem acentos, minúsculas, sem "(state)" nem "state/estado of". */
+function chaveEstado(v: unknown): string {
+  return String(v ?? "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\(state\)/g, "")
+    .replace(/\b(state|estado)\s+(of|de|do|da)\b/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Devolve o nome oficial do estado em public.br_estados (ou null). */
+function estadoOficial(
+  nome: string,
+  tabela: { nome: string; uf: string }[],
+): string | null {
+  const k = chaveEstado(nome);
+  if (!k) return null;
+  const porNome = tabela.find((e) => chaveEstado(e.nome) === k);
+  if (porNome) return porNome.nome;
+  const porUf = tabela.find((e) => e.uf.toLowerCase() === k);
+  return porUf ? porUf.nome : null;
+}
+
 // ── Geografia por ESTADO (região Meta) ──────────────────────────────────────
 // O LLM só propõe NOMES de estado; a chave de região é resolvida aqui, na
 // função, por GET /search?type=adgeolocation&location_types=['region'].
