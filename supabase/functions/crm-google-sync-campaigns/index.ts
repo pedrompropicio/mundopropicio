@@ -782,7 +782,7 @@ async function runGoogleBreakdowns(
           {
             companyId: conn.company_id,
             connectionId: conn.id,
-            currency: (conn.selected_ad_account_currency as string) ?? "EUR",
+            currency: accountCurrency ?? "EUR",
           },
           geoNames,
           nowIso,
