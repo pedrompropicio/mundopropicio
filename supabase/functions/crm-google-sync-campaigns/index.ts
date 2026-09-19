@@ -809,9 +809,11 @@ async function runGoogleBreakdowns(
         // Recurso/campo não aceite pela versão da API, rate limit, etc.:
         // fica em notes e os restantes grupos continuam.
         errorCount++;
-        const msg = e instanceof Error ? e.message : String(e);
+        const msg = describeGoogleAdsError(
+          e instanceof Error ? e.message : String(e),
+        );
         notes.push(`ligação ${conn.id}: breakdown ${group.key} recusado (${msg})`);
-        perGroup[group.key] = `erro: ${msg.slice(0, 300)}`;
+        perGroup[group.key] = `erro: ${msg.slice(0, 2000)}`;
       }
     }
     perConnection[conn.id] = perGroup;
