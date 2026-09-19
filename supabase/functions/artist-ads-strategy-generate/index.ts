@@ -506,15 +506,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   for (const a of adsets) {
     const pub = (a.publico_sugerido = a.publico_sugerido ?? {});
-    const geo = Array.isArray(pub.geo)
-      ? pub.geo.filter((g: Any) => typeof g === "string" && g.trim().length > 0)
-      : [];
+    // Defeito 4: geo só aceita código ISO de país com 2 letras. Cidade/estado em
+    // texto livre viraria país em targeting.geo_locations.countries e a Meta recusa.
+    const bruto: Any[] = Array.isArray(pub.geo) ? pub.geo : [];
+    const geo: string[] = [];
+    for (const g of bruto) {
+      const s = typeof g === "string" ? g.trim() : "";
+      if (/^[A-Za-z]{2}$/.test(s)) {
+        const iso = s.toUpperCase();
+        if (!geo.includes(iso)) geo.push(iso);
+      } else if (s.length > 0) {
+        avisos.push(
+          `geo_cidade_descartada: conjunto "${a.trigger_nome ?? "?"}" pedia "${s}" — só são aceites códigos ISO de país com 2 letras`,
+        );
+      }
+    }
     if (geo.length === 0) {
-      avisos.push(`conjunto "${a.trigger_nome ?? "?"}" sem geografia — usado ["BR"]`);
+      avisos.push(`conjunto "${a.trigger_nome ?? "?"}" sem geografia válida — usado ["BR"]`);
       pub.geo = ["BR"];
     } else {
       pub.geo = geo;
     }
+
     if (!Number.isFinite(pub.idade_min)) pub.idade_min = 18;
     if (!Number.isFinite(pub.idade_max)) pub.idade_max = 65;
 
