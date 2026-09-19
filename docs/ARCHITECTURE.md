@@ -220,7 +220,8 @@ Helper partilhado: `supabase/functions/_shared/sync-run.ts` (`startSyncRun`, `fi
 Regras: `success` = gravou algo sem erros; `partial` = gravou com erros; `no_data` = sem erro e
 nada gravado (não é sucesso); `error` = falhou antes de gravar. `trigger_source` é `cron` quando
 a chamada vem com JWT `service_role` sem utilizador, senão `manual`. O registo **nunca** faz a
-sincronização falhar e `details` nunca leva tokens ou chaves. Leitura agregada em
+sincronização falhar e `details` nunca leva tokens ou chaves. dry_run nunca conta rows_written nem
+fecha como success — imposto em `_shared/sync-run.ts`. Leitura agregada em
 `public.v_sync_health` (última execução por função + chamadas do mês). Detalhe em `DATABASE.md` §18.2.
 
 ### Saúde do sync de bilheteira (cron `ticketing-sync-health`)
