@@ -47,6 +47,13 @@ function stripJsonFences(text: string): string {
 const OBJETIVOS = ["AWARENESS", "TRAFFIC", "ENGAGEMENT"];
 const MIN_DAILY_CENTS = 100;
 
+// ── TikTok (D-ERP107) ───────────────────────────────────────────────────────
+// Objetivos e mínimo de orçamento do alvo TikTok. O caminho Meta fica igual.
+const OBJETIVOS_TIKTOK = ["REACH", "VIDEO_VIEWS", "TRAFFIC"];
+const MIN_DAILY_CENTS_TIKTOK = 2000;
+// Máximo de vídeos enviados ao LLM (a conta do artista pode ter milhares).
+const MAX_VIDEOS_TIKTOK = 40;
+
 // ── Geografia por ESTADO (região Meta) ──────────────────────────────────────
 // O LLM só propõe NOMES de estado; a chave de região é resolvida aqui, na
 // função, por GET /search?type=adgeolocation&location_types=['region'].
@@ -165,7 +172,65 @@ FORMATO DE RESPOSTA — responde APENAS com JSON puro (sem markdown fences):
   }
 }`;
 
-async function callLlm(prompt: string) {
+// ── Variante TikTok (D-ERP107) ──────────────────────────────────────────────
+// Mesmas regras de fontes, concentração regional e evidência pago/orgânico; só
+// muda o alvo (objetivos, criativo em vídeo, geografia por NOME de estado) e o
+// formato de resposta (anuncios: [{ tiktok_video_id }]).
+const SYSTEM_PROMPT_TIKTOK =
+  `Você é estrategista de tráfego pago para lançamentos musicais (forró/piseiro, Nordeste do Brasil).
+Desenha um plano de campanha TIKTOK para UMA música, a partir do snapshot de dados que recebe.
+
+REGRAS ABSOLUTAS:
+1. Só pode citar números que estão no JSON do snapshot. É PROIBIDO estimar, inventar ou recalcular ritmos por dia (use o campo de ritmo que vem no snapshot). Cada número citado traz a data do dado.
+2. Objetivo só pode ser REACH, VIDEO_VIEWS ou TRAFFIC. Campanhas de conversão/vendas são recusadas neste módulo — nunca as proponha.
+3. TRAFFIC só é permitido se houver link https (limites.smart_link_url). Sem link, proponha REACH ou VIDEO_VIEWS e registe a falta em avisos.
+4. Geografia: publico_sugerido.geo só aceita códigos ISO de país com 2 letras (ex.: ["BR"]) e é SEMPRE obrigatória. Para estreitar dentro do país, use publico_sugerido.geo_regions: LISTA DE NOMES de estados brasileiros por extenso (ex.: ["Rio Grande do Norte","Ceará"]). É PROIBIDO escrever cidades ou siglas. O motor de publicação resolve os location_ids do TikTok.
+5. No máximo 3 conjuntos. Cada conjunto tem UM público e UM anúncio, e esse anúncio é um VÍDEO do artista: { "tiktok_video_id": "<post_ref da lista videos_promoviveis>" }. NUNCA invente o id. PREFIRA vídeos ligados à música (song_id igual ao da música) e, se o snapshot tiver views/likes/shares desse vídeo em canais/conteúdo, cite-os na justificação do criativo.
+6. Não há headline, corpo, cta nem existing_post no TikTok — não os escreva.
+7. Por omissão não use end_time (orçamento diário). Se propuser end_time, tem de vir start_time e end_time > start_time.
+8. A soma dos orcamento_cents por dia não pode passar limites.available_daily (moeda da conta). Cada conjunto tem pelo menos 2000 cents por dia.
+9. FONTE PRIMÁRIA = desempenho_pago (histórico pago real do artista, que é de Meta e Google — não existe histórico pago de TikTok). Toda a escolha de público, geografia, orçamento e criativo cita no campo "porque": a FONTE, o NÚMERO exacto e a DATA. Quando não houver breakdowns de TikTok, escreva em resumo.avisos "sem histórico pago TikTok".
+10. EXISTE histórico pago por dimensão em historico_pago.breakdowns (region, age, gender, publisher_platform, country), com top 10 por impressões, gasto, CTR, CPC, CPM e medianas. Dimensão vazia → escreva "sem histórico pago nesta região" / "sem histórico pago para este público" em vez de inferir do orgânico.
+11. demografia_organica_instagram é FONTE SECUNDÁRIA e só de Instagram orgânico; identifique-a como tal e nunca a apresente como desempenho pago.
+12. Criativo: justifique o vídeo com o desempenho que existir no snapshot; se não existir, diga "vídeo sem histórico pago".
+13. ARTISTA REGIONAL: ordene a geografia por CONCENTRAÇÃO (quota da base nesse estado), NUNCA por valor absoluto de uma cidade.
+14. Metrópoles fora da região-base só entram com evidência de desempenho PAGO ou de streaming no snapshot, e NUNCA na 1.ª campanha.
+15. Base concentrada numa região → escreva "artista regional: base RN/Nordeste" (ou a região dos dados).
+16. Ao estreitar idades (algo diferente de 18–65), cite a distribuição etária real com a data. Sem esse dado citado, mantenha 18–65.
+17. GEOGRAFIA — ordem obrigatória: PRIMEIRO historico_pago.breakdowns.region e SÓ DEPOIS a concentração orgânica em audiencia.por_estado. A justificação cita SEMPRE as duas, com números e datas.
+18. Um estado só entra com EVIDÊNCIA: quota orgânica ≥ 5 % OU desempenho pago melhor que a mediana da dimensão region (CTR acima ou CPC abaixo). Diga qual das duas sustentou o estado; sem nenhuma, fica fora.
+19. IDADES — use a audiência ENVOLVIDA (audiencia.por_tipo.engaged) quando existir; senão reached; senão followers. Cite percentagens, data e o tipo usado.
+20. Pago vs orgânico divergentes: o pago manda e a divergência vai a resumo.avisos.
+21. geografia_por_uf é a tabela única por estado (UF) com pago (Meta+Google) e quota orgânica já normalizados; use-a para a concentração regional.
+22. Português do Brasil, linguagem de quem compra mídia: objetiva e com dado na mão.
+
+FORMATO DE RESPOSTA — responde APENAS com JSON puro (sem markdown fences):
+{
+  "objetivo": "REACH|VIDEO_VIEWS|TRAFFIC",
+  "link_destino": "<https://… ou null>",
+  "adsets": [
+    {
+      "trigger_nome": "nome curto do conjunto",
+      "funil": "topo|meio|fundo",
+      "orcamento_cents": <inteiro, por dia>,
+      "publico_sugerido": {
+        "geo": ["BR"],
+        "geo_regions": ["Rio Grande do Norte"],
+        "idade_min": 18,
+        "idade_max": 65,
+        "descricao": "quem é este público e porque"
+      },
+      "anuncios": [{ "tiktok_video_id": "<post_ref da lista videos_promoviveis>" }]
+    }
+  ],
+  "resumo": {
+    "justificacao": [{ "campo": "objetivo|publico|geografia|orcamento|criativo", "escolha": "…", "porque": "fonte + número + data" }],
+    "hipoteses": [{ "o_que_testar": "…", "como_ler": "…" }],
+    "avisos": ["…"]
+  }
+}`;
+
+async function callLlm(prompt: string, systemPrompt: string = SYSTEM_PROMPT) {
   const call = () =>
     fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -177,7 +242,7 @@ async function callLlm(prompt: string) {
         model: MODEL,
         temperature: 0.3,
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           { role: "user", content: prompt },
         ],
       }),
@@ -269,6 +334,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // ── 2) SNAPSHOT ÚNICO DO ARTISTA (D-ERP105) — um só coletor para música,
   //      conteúdo, audiência orgânica, histórico pago (meta + google),
   //      comparáveis, relatório, teto, publicações, criativos e geografia por UF.
+  // ── 1b) PLATAFORMA DA LIGAÇÃO PEDIDA (D-ERP107)
+  const { data: conns, error: connErr } = await user.rpc("artist_ads_connections", {
+    p_artist_id: artistId,
+  });
+  if (connErr) return json({ error: "sem_permissao", mensagem: connErr.message }, 403);
+  const ligacao: Any = (conns ?? []).find((c: Any) => c?.id === connectionId) ?? null;
+  if (!ligacao) {
+    return json({
+      error: "ligacao_nao_encontrada",
+      mensagem: "A ligação de anúncios não pertence a este artista.",
+    }, 422);
+  }
+  const plataforma = String(ligacao.platform ?? "").toLowerCase();
+  if (plataforma !== "meta" && plataforma !== "tiktok") {
+    return json({
+      error: "plataforma_nao_suportada",
+      mensagem: `Estratégia por IA só está disponível para Meta e TikTok (ligação é ${plataforma || "?"}).`,
+    }, 422);
+  }
+  const eTiktok = plataforma === "tiktok";
+
   const dados = await buildArtistDataSnapshot({
     userClient: user,
     artistId,
@@ -276,7 +362,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     connectionId,
     dias: 30,
     plataformas: ["meta", "google"],
-    plataformaCriativos: "meta",
+    plataformaCriativos: plataforma,
   });
   avisos.push(...dados.avisos);
 
@@ -286,13 +372,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const audiencia: Any = dados.blocos.audiencia_organica ?? {};
   const geografiaPorUf: Any = dados.geografia;
 
-  // Publicações anunciáveis (só meta_ready)
-  const posts = (dados.blocos.publicacoes ?? []).filter((p: Any) => p?.meta_ready === true && p?.post_ref);
+  // Publicações/vídeos anunciáveis (só prontos). No TikTok são vídeos do
+  // artista (post_kind 'tiktok_video'); preferem-se os ligados à música.
+  let posts = (dados.blocos.publicacoes ?? []).filter((p: Any) => p?.meta_ready === true && p?.post_ref);
   if (posts.length === 0) {
     return json({
       error: "sem_publicacoes_promoviveis",
-      mensagem: "Não há publicações do artista prontas para anunciar no Meta.",
+      mensagem: eTiktok
+        ? "Não há vídeos do artista no TikTok prontos para anunciar."
+        : "Não há publicações do artista prontas para anunciar no Meta.",
     }, 422);
+  }
+  let videosLigadosMusica = 0;
+  if (eTiktok) {
+    const ligados = posts.filter((p: Any) => p?.song_id === songId);
+    const outros = posts.filter((p: Any) => p?.song_id !== songId);
+    videosLigadosMusica = ligados.length;
+    posts = [...ligados, ...outros].slice(0, MAX_VIDEOS_TIKTOK);
   }
   const postRefsOk = new Set(posts.map((p: Any) => String(p.post_ref)));
 
@@ -338,7 +434,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
     );
   }
 
+  const listaPosts = posts.map((p: Any) => ({
+    post_ref: p.post_ref,
+    kind: p.post_kind,
+    origem: p.source,
+    permalink: p.permalink,
+    legenda: p.caption_excerpt,
+    publicado_em: p.published_at,
+    ultimo_anuncio: p.last_ad_name,
+    gasto_30d_cents: p.spend_30d_cents,
+    ...(eTiktok ? { song_id: p.song_id ?? null, ligado_a_musica: p.song_id === songId } : {}),
+  }));
+
   const entradas = {
+    plataforma,
     musica: {
       id: song.id,
       titulo: song.title,
@@ -349,16 +458,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     },
     snapshot: snapshotMusica,
     relatorio_de_lancamento: relatorio,
-    publicacoes_promoviveis: posts.map((p: Any) => ({
-      post_ref: p.post_ref,
-      kind: p.post_kind,
-      origem: p.source,
-      permalink: p.permalink,
-      legenda: p.caption_excerpt,
-      publicado_em: p.published_at,
-      ultimo_anuncio: p.last_ad_name,
-      gasto_30d_cents: p.spend_30d_cents,
-    })),
+    ...(eTiktok ? { videos_promoviveis: listaPosts } : { publicacoes_promoviveis: listaPosts }),
     desempenho_pago: {
       _fonte: "primária — RPCs public.artist_ads_daily(90) + artist_ads_campaigns + artist_ads_ads",
       periodo: { de: periodoMin, a: periodoMax, dias_pedidos: DIAS_JANELA },
@@ -389,24 +489,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
     pedido: { objetivo: objetivoPedido, orcamento_diario: orcamentoPedido, notas },
   };
 
-  // ── 7) LLM
+  // ── 7) LLM (prompt de sistema próprio no alvo TikTok)
+  if (eTiktok) avisos.push("sem histórico pago TikTok — histórico usado é o de Meta e Google do artista");
   const llm = await callLlm(
     `Dados (única fonte de números permitida):\n\n${JSON.stringify(entradas)}`,
+    eTiktok ? SYSTEM_PROMPT_TIKTOK : SYSTEM_PROMPT,
   );
   if ("fail" in llm && llm.fail) return llm.fail;
   const plano: Any = llm.plano ?? {};
 
   // ── 8) Normalização determinística (não confiar na saída do modelo)
+  const objetivosOk = eTiktok ? OBJETIVOS_TIKTOK : OBJETIVOS;
+  const objetivoOmissao = eTiktok ? "VIDEO_VIEWS" : "AWARENESS";
   let objetivo = String(plano.objetivo ?? "").toUpperCase();
-  if (!OBJETIVOS.includes(objetivo)) {
-    avisos.push(`objetivo "${plano.objetivo ?? ""}" fora de AWARENESS/TRAFFIC/ENGAGEMENT — usado AWARENESS`);
-    objetivo = "AWARENESS";
+  if (!objetivosOk.includes(objetivo)) {
+    avisos.push(
+      `objetivo "${plano.objetivo ?? ""}" fora de ${objetivosOk.join("/")} — usado ${objetivoOmissao}`,
+    );
+    objetivo = objetivoOmissao;
   }
   if (objetivo === "TRAFFIC" && !smartLink && !String(plano.link_destino ?? "").startsWith("https://")) {
-    avisos.push("Tráfego sem link https disponível — objetivo trocado para AWARENESS");
-    objetivo = "AWARENESS";
+    avisos.push(`Tráfego sem link https disponível — objetivo trocado para ${objetivoOmissao}`);
+    objetivo = objetivoOmissao;
   }
   plano.objetivo = objetivo;
+  plano.plataforma = plataforma;
   plano.link_destino = objetivo === "TRAFFIC"
     ? (String(plano.link_destino ?? "").startsWith("https://") ? plano.link_destino : smartLink)
     : null;
@@ -453,8 +560,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       pub.geo = geo;
     }
 
-    // Estados → geo_regions [{nome, key}]. A chave vem sempre da Meta; um estado
-    // que não resolva NÃO entra e deixa aviso com o nome tentado.
+    // Estados. No Meta → geo_regions [{nome, key}] com a chave resolvida na Meta.
+    // No TikTok → geo_regions é LISTA DE NOMES; os location_ids são resolvidos
+    // pela crm-tiktok-publish-execute.
     const estadosBrutos: Any[] = Array.isArray(pub.estados)
       ? pub.estados
       : (Array.isArray(pub.geo_regions) ? pub.geo_regions.map((r: Any) => r?.nome ?? r) : []);
@@ -464,25 +572,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
     delete pub.estados;
     delete pub.geo_regions;
     if (nomes.length > 0) {
-      const token = metaAppToken();
-      if (!token) {
-        avisos.push(
-          `geo_regions_nao_resolvidas: sem credenciais de aplicação Meta — estados pedidos ficaram fora (${nomes.join(", ")})`,
-        );
+      if (eTiktok) {
+        const unicos: string[] = [];
+        for (const n of nomes) if (!unicos.includes(n)) unicos.push(n);
+        pub.geo_regions = unicos;
       } else {
-        const pais = pub.geo[0] ?? "BR";
-        const regioes: Any[] = [];
-        for (const nome of nomes) {
-          const key = await resolveRegionKey(nome, pais, token);
-          if (key) {
-            if (!regioes.some((r) => r.key === key)) regioes.push({ nome, key });
-          } else {
-            avisos.push(
-              `geo_regiao_nao_resolvida: conjunto "${a.trigger_nome ?? "?"}" pedia o estado "${nome}" — não foi encontrado na Meta e ficou fora`,
-            );
+        const token = metaAppToken();
+        if (!token) {
+          avisos.push(
+            `geo_regions_nao_resolvidas: sem credenciais de aplicação Meta — estados pedidos ficaram fora (${nomes.join(", ")})`,
+          );
+        } else {
+          const pais = pub.geo[0] ?? "BR";
+          const regioes: Any[] = [];
+          for (const nome of nomes) {
+            const key = await resolveRegionKey(nome, pais, token);
+            if (key) {
+              if (!regioes.some((r) => r.key === key)) regioes.push({ nome, key });
+            } else {
+              avisos.push(
+                `geo_regiao_nao_resolvida: conjunto "${a.trigger_nome ?? "?"}" pedia o estado "${nome}" — não foi encontrado na Meta e ficou fora`,
+              );
+            }
           }
+          if (regioes.length > 0) pub.geo_regions = regioes;
         }
-        if (regioes.length > 0) pub.geo_regions = regioes;
       }
     }
 
@@ -491,17 +605,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (!Number.isFinite(pub.idade_min)) pub.idade_min = 18;
     if (!Number.isFinite(pub.idade_max)) pub.idade_max = 65;
 
-    // anúncios: só publicações realmente promovíveis; nunca inventar post_ref
+    // anúncios: só publicações/vídeos realmente promovíveis; nunca inventar ref
     const lista = Array.isArray(a.anuncios) ? a.anuncios : [];
     const validos: Any[] = [];
     for (const an of lista) {
-      const ref = an?.existing_post?.post_ref;
-      if (typeof ref !== "string" || !postRefsOk.has(ref)) {
-        avisos.push(`conjunto "${a.trigger_nome ?? "?"}": publicação ${ref ?? "(sem post_ref)"} não é promovível — anúncio descartado`);
-        continue;
+      if (eTiktok) {
+        const vid = an?.tiktok_video_id ?? an?.video_id ?? an?.post_ref;
+        if (typeof vid !== "string" || !postRefsOk.has(vid)) {
+          avisos.push(
+            `conjunto "${a.trigger_nome ?? "?"}": vídeo ${vid ?? "(sem tiktok_video_id)"} não está na lista de vídeos promovíveis — anúncio descartado`,
+          );
+          continue;
+        }
+        validos.push({ tiktok_video_id: vid });
+      } else {
+        const ref = an?.existing_post?.post_ref;
+        if (typeof ref !== "string" || !postRefsOk.has(ref)) {
+          avisos.push(`conjunto "${a.trigger_nome ?? "?"}": publicação ${ref ?? "(sem post_ref)"} não é promovível — anúncio descartado`);
+          continue;
+        }
+        const kind = an.existing_post.kind === "instagram_media" ? "instagram_media" : "object_story";
+        validos.push({ ...an, existing_post: { post_ref: ref, kind } });
       }
-      const kind = an.existing_post.kind === "instagram_media" ? "instagram_media" : "object_story";
-      validos.push({ ...an, existing_post: { post_ref: ref, kind } });
       if (validos.length >= 1) break; // um anúncio por conjunto
     }
     a.anuncios = validos;
@@ -512,13 +637,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (adsets.length === 0) {
     return json({
       error: "plano_invalido",
-      mensagem: "O plano gerado ficou sem conjuntos com publicação promovível.",
+      mensagem: eTiktok
+        ? "O plano gerado ficou sem conjuntos com vídeo promovível."
+        : "O plano gerado ficou sem conjuntos com publicação promovível.",
       avisos,
     }, 422);
   }
 
   // orçamento: mínimo por conjunto e corte proporcional ao alvo/disponível
-  const minCents = MIN_DAILY_CENTS * (end ? dias : 1);
+  const minCents = (eTiktok ? MIN_DAILY_CENTS_TIKTOK : MIN_DAILY_CENTS) * (end ? dias : 1);
   const tetoCents = Math.floor(alvoDiario * 100) * (end ? dias : 1);
   let soma = adsets.reduce((s, a) => s + a.orcamento_cents, 0);
   if (soma <= 0) {
@@ -588,9 +715,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
     gerado_em: new Date().toISOString(),
     tokens: llm.tokens ?? null,
     entradas_usadas: {
+      plataforma,
       snapshot_da_musica: snapshotMusica != null,
       relatorio_de_lancamento: relatorio?.gerado_em ?? null,
       publicacoes_promoviveis: posts.length,
+      videos_promoviveis: eTiktok
+        ? { total: posts.length, ligados_a_musica: videosLigadosMusica }
+        : null,
       campanhas_com_gasto_90d: campanhasPagas.length,
       anuncios_com_gasto: anuncios.length,
       dias_de_diario_90d: campanhasPagas.reduce((s: number, c: Any) => s + Number(c.dias_com_gasto ?? 0), 0),
@@ -616,12 +747,38 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
 
   // ── 10) Validar (IMMUTABLE, não grava) e só depois gravar em 'rascunho'
-  const { error: valErr } = await user.rpc("artist_ads_plan_validate", {
-    p_plan: plano,
-    p_smart_link: smartLink,
-  });
-  if (valErr) {
-    return json({ error: "plano_invalido", mensagem: valErr.message, plano }, 422);
+  //
+  // public.artist_ads_plan_validate exige objetivo em AWARENESS/TRAFFIC/ENGAGEMENT
+  // (ver D-ERP107). Não exige headline nem existing_post — só o objetivo bate mal
+  // com REACH/VIDEO_VIEWS. A RPC NÃO foi alterada: no alvo TikTok, quando o
+  // objetivo não é TRAFFIC, corre-se a validação determinística local (que é a
+  // mesma lista de invariantes: ≥1 conjunto, orçamento > 0, ≥1 anúncio, geo) e
+  // registamos o desvio em avisos.
+  const validaNaRpc = !eTiktok || objetivo === "TRAFFIC";
+  if (validaNaRpc) {
+    const { error: valErr } = await user.rpc("artist_ads_plan_validate", {
+      p_plan: plano,
+      p_smart_link: smartLink,
+    });
+    if (valErr) {
+      return json({ error: "plano_invalido", mensagem: valErr.message, plano }, 422);
+    }
+  } else {
+    for (let i = 0; i < adsets.length; i++) {
+      const a = adsets[i];
+      const g = a?.publico_sugerido?.geo;
+      if (!(Number(a?.orcamento_cents) > 0) || !(a?.anuncios ?? []).length ||
+        !Array.isArray(g) || g.length === 0) {
+        return json({
+          error: "plano_invalido",
+          mensagem: `conjunto ${i + 1}: precisa de orçamento > 0, um anúncio e país em publico_sugerido.geo`,
+          plano,
+        }, 422);
+      }
+    }
+    plano.resumo.avisos.push(
+      `validação local: public.artist_ads_plan_validate só aceita objetivo AWARENESS/TRAFFIC/ENGAGEMENT e o plano é ${objetivo} (TikTok) — RPC não alterada`,
+    );
   }
 
   const { data: planId, error: createErr } = await user.rpc("artist_ads_plan_create", {
@@ -629,9 +786,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
     p_song_id: songId,
     p_connection_id: connectionId,
     p_plan: plano,
+    p_platform: plataforma,
   });
   if (createErr) {
     const msg = createErr.message ?? "";
+    // artist_ads_plan_create chama artist_ads_plan_validate por dentro; essa RPC
+    // só aceita AWARENESS/TRAFFIC/ENGAGEMENT. Erro identificável em vez de
+    // mascarar (a RPC não é alterada por esta função — ver D-ERP107).
+    if (eTiktok && /objetivo inv[áa]lido/i.test(msg)) {
+      return json({
+        error: "rpc_objetivo_tiktok_nao_aceite",
+        mensagem:
+          `public.artist_ads_plan_validate (chamada dentro de artist_ads_plan_create) recusa o objetivo ${objetivo}: só aceita AWARENESS, TRAFFIC ou ENGAGEMENT. Falta autorizar DDL que aceite REACH e VIDEO_VIEWS quando a plataforma é TikTok.`,
+        plano,
+      }, 422);
+    }
     const status = /permiss|42501|papel|autoriza/i.test(msg) ? 403 : 422;
     return json({ error: status === 403 ? "sem_permissao" : "plano_invalido", mensagem: msg, plano }, status);
   }

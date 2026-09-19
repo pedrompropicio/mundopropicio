@@ -3660,3 +3660,38 @@ reutilizado **não era validada**. Acrescentado ao preflight o check
 `object_story_spec{page_id,instagram_actor_id}` do criativo e o compara com
 `selected_page_id`/`selected_instagram_id` da ligação — falha quando a
 identidade difere, avisa (ok) quando o criativo não a expõe ou não é legível.
+
+## D-ERP107 — Estratégia LLM para TikTok em `artist-ads-strategy-generate`
+
+O gerador de planos de tráfego do alvo MÚSICA passa a servir TikTok, mantendo o
+caminho Meta byte a byte.
+
+- **Plataforma detectada pela ligação** (`artist_ads_connections(p_artist_id)` →
+  `platform`). `google` → 422 `plataforma_nao_suportada`; ligação inexistente →
+  422 `ligacao_nao_encontrada`.
+- **Snapshot** (`buildArtistDataSnapshot`) continua a ler histórico pago de
+  **Meta + Google** (é o único que existe); `plataformaCriativos = plataforma`.
+  No ramo TikTok entra o aviso `sem histórico pago TikTok`.
+- **Publicações**: `artist_ads_promotable_posts(p_artist_id, plataforma)`. Para
+  TikTok são vídeos (`post_kind='tiktok_video'`, `post_ref` = id do vídeo,
+  `meta_ready = external_id IS NOT NULL`); ordenados com os ligados à música
+  primeiro e cortados a `MAX_VIDEOS_TIKTOK = 40`.
+- **Prompt**: `SYSTEM_PROMPT_TIKTOK` próprio (objetivos `REACH|VIDEO_VIEWS|TRAFFIC`,
+  sem headline/corpo/cta/existing_post, `anuncios: [{ tiktok_video_id }]`). As
+  regras 9–21 (fontes, concentração regional, evidência pago/orgânico, idades)
+  mantêm-se.
+- **Normalização**: objetivo de omissão `VIDEO_VIEWS`; mínimo **2000 cents/dia**
+  por conjunto (× dias com janela); `geo` ISO-2 obrigatória; `geo_regions` fica
+  **lista de nomes de estado** (os `location_ids` são resolvidos por
+  `crm-tiktok-publish-execute`, sem tocar na Meta); um anúncio por conjunto, com
+  `tiktok_video_id` só da lista de promovíveis (nunca inventado).
+- **Gravação**: `artist_ads_plan_create(..., p_platform: plataforma)`.
+- **LIMITAÇÃO CONHECIDA (DDL POR AUTORIZAR)**:
+  `public.artist_ads_plan_validate` é IMMUTABLE e só aceita objetivo
+  `AWARENESS|TRAFFIC|ENGAGEMENT`; `artist_ads_plan_create` **chama-a por dentro**.
+  Logo, um plano TikTok com `REACH`/`VIDEO_VIEWS` é recusado na gravação. A RPC
+  **não foi alterada**: a função devolve 422
+  `rpc_objetivo_tiktok_nao_aceite` com a mensagem explícita. Planos TikTok com
+  objetivo `TRAFFIC` gravam hoje sem qualquer alteração de base.
+- `resumo.entradas_usadas` ganha `plataforma` e `videos_promoviveis`
+  (`{total, ligados_a_musica}`); `resumo.fontes` inalterado.
