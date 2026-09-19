@@ -11,6 +11,12 @@
 //                   (histórico: regenerar nunca substitui) e devolve o relatório.
 //
 // Limite: no máximo 1 geração automática (trigger 'cron') por música por dia de calendário UTC.
+//
+// Regeneração por ALTERAÇÃO DE DADOS (D-ERP54 adenda 19/09/2026):
+// body { trigger_source: 'data_change', stale_at } — só aceite de service_role.
+// Não tem a guarda do cron; tem teto próprio de 6 TENTATIVAS por música por dia UTC
+// (conta ok e erro). No fim de uma geração 'ok' limpa artist_songs.report_stale_at
+// apenas se ninguém mexeu na marca entretanto.
 
 
 import {
@@ -746,7 +752,7 @@ Deno.serve(async (req) => {
 
   const admin = adminClient();
   const startedMs = Date.now();
-  const triggerSource = deduceTriggerSource(req);
+  let triggerSource = deduceTriggerSource(req);
   let runId: string | null = null;
 
   try {
@@ -754,7 +760,13 @@ Deno.serve(async (req) => {
     if (!caller.allowed) return json({ error: "Forbidden" }, 403);
     const generatedBy = caller.isServiceRole ? "service_role" : (caller.userId ?? "desconhecido");
 
-    let p: { song_id?: string; days?: number; dry_run?: boolean } = {};
+    let p: {
+      song_id?: string;
+      days?: number;
+      dry_run?: boolean;
+      trigger_source?: string;
+      stale_at?: string;
+    } = {};
     try {
       p = await req.json();
     } catch {
@@ -764,6 +776,11 @@ Deno.serve(async (req) => {
     if (!songId) return json({ error: "song_id obrigatório" }, 400);
     const days = Number.isFinite(p.days) ? Math.max(7, Math.min(180, Number(p.days))) : 30;
     const dryRun = p.dry_run === true;
+
+    // 'data_change' só vale vindo de service_role; de utilizador é ignorado.
+    const isDataChange = p.trigger_source === "data_change" && caller.isServiceRole;
+    if (isDataChange) triggerSource = "data_change";
+    const staleAt = isDataChange && typeof p.stale_at === "string" ? p.stale_at : null;
 
     const built = await buildSnapshot(admin, songId, days);
     if (built.notFound) return json({ error: "música não encontrada" }, 404);
@@ -780,12 +797,30 @@ Deno.serve(async (req) => {
       return json({ ok: true, dry_run: true, song_id: songId, snapshot });
     }
 
+    const utcMidnight = () => {
+      const t = new Date();
+      return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate())).toISOString();
+    };
+
+    // Teto próprio do 'data_change': 6 TENTATIVAS por música por dia UTC (ok + erro).
+    if (isDataChange) {
+      const { count } = await admin
+        .from("artist_song_reports")
+        .select("id", { count: "exact", head: true })
+        .eq("song_id", songId)
+        .eq("trigger_source", "data_change")
+        .gte("generated_at", utcMidnight());
+      if ((count ?? 0) >= 6) {
+        console.log(
+          `[${FUNCTION_NAME}] skip ${songId}: data_change_daily_cap (${count} tentativas hoje)`,
+        );
+        return json({ skipped: true, reason: "data_change_daily_cap", song_id: songId });
+      }
+    }
+
     // 1 geração automática por música por dia de calendário UTC (o pedido manual não é travado)
     if (triggerSource === "cron") {
-      const today = new Date();
-      const since = new Date(
-        Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
-      ).toISOString();
+      const since = utcMidnight();
       const { data: existing } = await admin
         .from("artist_song_reports")
         .select("id, generated_at")
@@ -825,6 +860,7 @@ Deno.serve(async (req) => {
       model: MODEL,
       input_snapshot: snapshot,
       generated_by: generatedBy,
+      trigger_source: triggerSource,
     };
 
     if ("fail" in llm && llm.fail) {
@@ -854,6 +890,17 @@ Deno.serve(async (req) => {
       .select("id, generated_at")
       .single();
     if (iErr) throw new Error(`artist_song_reports: ${iErr.message}`);
+
+    // Limpa a marca só se ninguém a mexeu durante a geração; se entrou dado novo,
+    // a marca fica e o cron volta a pegar nela.
+    if (isDataChange && staleAt) {
+      const { error: clrErr } = await admin
+        .from("artist_songs")
+        .update({ report_stale_at: null })
+        .eq("id", songId)
+        .eq("report_stale_at", staleAt);
+      if (clrErr) console.warn(`[${FUNCTION_NAME}] limpar report_stale_at falhou: ${clrErr.message}`);
+    }
 
     await finishSyncRun(admin, runId, startedMs, {
       status: "success",
