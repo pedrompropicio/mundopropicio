@@ -10,7 +10,8 @@
 // dry_run = false → chama o LLM, grava uma linha nova em artist_song_reports
 //                   (histórico: regenerar nunca substitui) e devolve o relatório.
 //
-// Limite: no máximo 1 geração automática (trigger 'cron') por música por dia.
+// Limite: no máximo 1 geração automática (trigger 'cron') por música por dia de calendário UTC.
+
 
 import {
   adminClient,
