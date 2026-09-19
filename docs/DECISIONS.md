@@ -2945,3 +2945,97 @@ Nenhuma linha do caminho de publicação real mudou. Função deployada.
 
 **Fora de âmbito da F2a:** resolvedor de alvo, naming, UTMs, publicação de post existente,
 lock anti-corrida, activação, Google, TikTok, front.
+
+### Adenda F2b — publicação do alvo música na Meta (19/09/2026)
+
+**Resolvedor único.** `supabase/functions/_shared/campaign-target.ts` — `resolveTarget(admin, planRow, extra)`
+devolve `{ ok, target }` ou a resposta de erro. `kind:'event'` é uma EXTRACÇÃO literal
+dos antigos passos 2 / 2b / 3 / 4 do `crm-meta-publish-execute` (mesmas queries a
+`crm.ad_platform_account_links`, `crm.ad_platform_connections`, `crm_get_meta_decrypted_token`
+e `public.events`, mesma ordem, mesmos erros: `ad_account_query_failed`,
+`no_active_meta_connection`, `connection_query_failed`, `sem_pagina_facebook`,
+`decrypt_failed`, incluindo o fallback explícito a `public.events` e os logs
+`EVENT_DEBUG`). O antigo passo 2c (`sem_link_destino`) continua a correr no MESMO
+ponto, via hook `onAccountResolved`. `kind:'song'`: conta/token/Página/Instagram vêm
+de `planRow.connection_id` (`connection_scope='artist'`, `status='active'`,
+`selected_ad_account_id` obrigatório); sem pixel; `page_id` da ligação ou derivado do
+prefixo de `effective_object_story_id` mais frequente em `crm.meta_ad_snapshot` e
+gravado na ligação; `instagram_user_id` da ligação ou resolvido pela Graph API
+(`instagram_business_account` da Página → `instagram_accounts` da conta) e gravado —
+escritas na ligação só em preflight ou publicação real, NUNCA em dry_run.
+
+**Autorização (só música).** dry_run e preflight: sessão de utilizador OU service_role.
+Publicação real: SESSÃO obrigatória + `public.artist_ads_assert_write(company_id)`
+chamada com o cliente do utilizador (admin | platform_admin | manager | marketing_manager).
+`service_role` NUNCA publica alvo música (`service_role_nao_publica_musica`, 403).
+
+**Teto fechado por omissão.** `crm.artist_ads_budget_caps` pela ligação. Sem linha →
+422 `sem_teto`. Moeda diferente → 422 `moeda_do_teto_diferente`. Diário do plano =
+soma dos adsets (lifetime ÷ dias da janela) + diário já comprometido pelos outros
+planos de música publicados/activos da mesma ligação. Acima → 422 `acima_do_teto`
+com `{ teto, pedido, ja_comprometido, moeda }`. Em dry_run o resultado vai em
+`avisos`/`teto` sem bloquear; em preflight e publicação real bloqueia.
+
+**Objectivos sem pixel** (Graph API v18.0, ODAX; Ad Set `destination_type`):
+`AWARENESS` → `OUTCOME_AWARENESS` + `REACH` + `IMPRESSIONS` (sem destination_type);
+`TRAFFIC` → `OUTCOME_TRAFFIC` + `LINK_CLICKS` + `IMPRESSIONS` + `destination_type=WEBSITE`;
+`ENGAGEMENT` → `OUTCOME_ENGAGEMENT` + `THRUPLAY` + `IMPRESSIONS` + `destination_type=ON_VIDEO`
+(ON_VIDEO aceita ThruPlay e, ao contrário de ON_POST, não exige `promoted_object`).
+Nunca há `promoted_object` de pixel. Qualquer outro objectivo em plano de música →
+422 `objetivo_invalido`.
+
+**Naming (só música).** Campanha `[MP] [<TÍTULO-BASE EM MAIÚSCULAS>] [<Alcance|Tráfego|Visualizações>] AAAA-MM-DD`
+(título-base por `public.artist_song_base_title`). Conjuntos e anúncios: prefixo
+`[MP] ` + o nome que a função já gerava. O naming de evento fica literal.
+
+**UTMs (só música, só com link).** `url_tags` do criativo =
+`utm_source=meta&utm_medium=paid&utm_campaign=<slug da campanha>&utm_content=<slug do anúncio>`.
+O `link_destino` não é reescrito.
+
+**Post existente.** Anúncio com `existing_post { post_ref, kind }`. `object_story` →
+`creative { object_story_id }`; `instagram_media` → `creative { source_instagram_media_id, instagram_user_id }`
+(CTA com link só em TRAFFIC; caso contrário aviso `cta_nao_aplicada_em_post_existente`).
+`post_ref` que não conste de `public.artist_ads_promotable_posts` do artista com
+`meta_ready=true` → 422 `post_nao_promovivel`. Anúncios com `creative_ids` continuam
+a usar a biblioteca (exigem `page_id`).
+
+**Estado.** Tudo continua a nascer `PAUSED`, nos dois alvos.
+
+**Lock anti-corrida (só música).** Padrão do `crm-google-publish-execute`: estado
+`a_publicar` com `publish_started_at` há menos de 5 min → 409 `ja_em_publicacao`;
+antes da 1.ª escrita marca `a_publicar` + `publish_started_at`. Retoma por ids
+persistidos, como hoje.
+
+**Ligação à música na criação.** Logo após criar a campanha, upsert em
+`crm.meta_campaign_snapshot` com a chave de conflito do sync
+(`connection_id,external_campaign_id`) gravando `linked_song_id = plan.song_id` e
+`linked_song_locked = true` — a campanha aparece em `public.artist_ads_campaigns`
+ligada e trancada sem esperar pelo cron (o sync nunca escreve estas colunas).
+
+**Log.** Criação de campanha, conjuntos e anúncios do alvo música registada em
+`crm.meta_entity_actions_log` (`action='create'`, `new_status='PAUSED'`, `performed_by`).
+A migração desta fase acrescentou `'create'` ao CHECK de `action`.
+
+**Preflight (`preflight:true`).** Só GETs à Graph API, nada escrito na Meta nem no
+plano; devolve `{ ok, preflight:true, checks:[{check, ok, detail}] }`: token válido
+com `ads_management`, conta activa e com a moeda do plano, Página acessível, conta de
+Instagram resolvida, cada `existing_post` existente e promovível, teto. Disponível
+para música e para evento.
+
+**Activação.** `crm-meta-publish-activate` com plano de música → 200
+`{ ok:false, error:'alvo_musica_f3' }` sem fazer nada. Evento inalterado.
+
+**Migração (20260919160000):** janela de gasto de `artist_ads_promotable_posts`
+alinhada em `date_start >= current_date - 29` (com REVOKE PUBLIC/anon + GRANT
+authenticated/service_role, regra D-ERP94); `'create'` no CHECK de
+`crm.meta_entity_actions_log.action`; `selected_page_id='385669081539715'` na ligação
+`e5d12c36-cd0f-412a-a1c0-22ddbb2a336e` (só se NULL).
+
+**LACUNAS DE EVENTOS registadas, deliberadamente não alteradas:** publicar não
+verifica papel; não há lock anti-corrida; o motor não gera UTMs para evento.
+
+**Critério de aceitação:** o dry_run do plano de evento
+`93529702-76c7-491f-95dd-040ed7fcee25` tem de continuar a devolver
+`md5(payloads::jsonb::text) = 0e2801d625781a22a1e4bb33fb0a0f6d`.
+
+**Fora de âmbito da F2b:** activação (F3), Google, TikTok, front, crons.
