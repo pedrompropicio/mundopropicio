@@ -784,7 +784,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // FONTES: cada bloco do snapshot único com fonte, período e data mais recente.
   const fontes = analiseVideos
-    ? [...dados.fontes, { bloco: "analise_videos_tiktok", ...analiseVideos.fonte }]
+    ? [...dados.fontes, { bloco: eGoogle ? "analise_videos_youtube" : "analise_videos_tiktok", ...analiseVideos.fonte }]
     : dados.fontes;
 
   plano.resumo = {
