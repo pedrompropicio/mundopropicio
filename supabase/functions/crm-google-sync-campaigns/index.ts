@@ -696,6 +696,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         upserted,
         daily_rows_upserted: dailyUpserted,
         auto_link: autoLink,
+        songs_linked: songsLinked,
       });
 
     } catch (e) {
