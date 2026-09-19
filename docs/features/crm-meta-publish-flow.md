@@ -107,6 +107,11 @@ O jsonb segue o MESMO contrato de `adsets` que o `crm-meta-publish-execute` já 
       "trigger_nome": "frio-br",
       "orcamento_cents": 10000,        // > 0, obrigatório
       "link_destino": "https://...",  // opcional, override do adset
+      "publico_sugerido": {            // segmentação do conjunto
+        "geo": ["BR"],                 // OBRIGATÓRIO no alvo música (ISO-2 ou nome do país)
+        "idade_min": 18,               // opcional (default 18)
+        "idade_max": 65                // opcional (default 65)
+      },
       "anuncios": [
         { "headline": "…", "corpo": "…", "cta": "LISTEN_NOW",
           "creative_ids": ["<uuid crm.meta_creatives>"] },
