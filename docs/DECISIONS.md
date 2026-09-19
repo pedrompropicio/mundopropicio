@@ -1404,6 +1404,28 @@ histórica do Litto Lins (`since=2026-01-01`, `max_videos=2000`): 14 chamadas à
 Nota de numeração: o pedido pedia D-ERP55, número já ocupado pela decisão do saldo
 do extrato; esta decisão ficou em D-ERP56.
 
+**Adenda (19/09/2026) — cursor de retoma e rate limit não silencioso.** Ensaio em
+dry_run em Live (perfil com 1.315 vídeos): com `max_videos=2000` a corrida leu 959
+vídeos e parou com `rate_limit_exceeded` do TikTok; como a paginação recomeçava
+sempre no topo e o rate limit era uma nota silenciosa (sync_run fechava `success`),
+o catálogo completo nunca fechava. Novas regras em `artist-tiktok-sync`:
+
+- Novo parâmetro opcional `cursor` (número, cursor da Display API video/list): a
+  paginação começa aí em vez do topo. Só é aceite com `artist_id` ou
+  `connection_id` (uma ligação por corrida); com cursor e mais de uma ligação → 400.
+- Cada artista na resposta devolve sempre `next_cursor` (último cursor válido, ou
+  null no fim) e `has_more`; `params` passa a incluir `cursor`.
+- `rate_limit_exceeded` deixa de ser silencioso: repete a MESMA página até 2 vezes
+  (espera 20 s, depois 40 s), sem ultrapassar 110 s de invocação; persistindo, pára,
+  grava o parcial, devolve `next_cursor`/`has_more=true` e regista o erro em
+  `errors` → sync_run fecha `partial` (nunca `success`). A ligação NÃO passa a
+  `error` por rate limit — fica `active`.
+- Corridas grandes (`max_videos > 200` ou `cursor` presente) fazem pausa de 400 ms
+  entre páginas. O cron diário (200 vídeos, sem cursor) fica byte a byte igual.
+- Sync inicial de um perfil grande em várias corridas: chamar com
+  `max_videos=2000`; se a resposta vier com `has_more=true`, chamar de novo com
+  `cursor=<next_cursor>` até `has_more=false`.
+
 
 
 **Adenda a DR-2026-09-09-D25 — (b) construída em 2026-09-12:** `event_settlement_id`
