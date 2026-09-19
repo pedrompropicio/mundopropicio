@@ -3466,3 +3466,36 @@ recusa. Criativo = vídeo do próprio artista (`ad_format: SINGLE_VIDEO`,
 `anuncio.tiktok_video_id`), sem imagem estática. SPARK ADS fica identificado no
 código como o caminho a usar quando a ligação tiver identity `BC_AUTH_TT`
 (`identity_type: BC_AUTH_TT` + `tiktok_item_id`) — nesta versão não é exercitado.
+
+## D-ERP103 — Breakdowns de tráfego pago para artistas (19/09/2026)
+
+**Decisão.** `crm-meta-sync-insights` passa a ter um modo opt-in
+`{"breakdowns": true, "days": 30, "connection_id"?: uuid}` que alimenta
+`crm.ads_insights_breakdown_daily` (já existente em Live) para as ligações de
+ARTISTA Meta (`connection_scope='artist'`, `platform='meta'`, `status='active'`,
+com `selected_ad_account_id`).
+
+**Porque no mesmo ficheiro.** Reaproveita token (`crm_get_meta_decrypted_token`),
+versão da Graph (`v18.0`), paginação e tratamento de erro já provados. Sem
+`breakdowns` no corpo, o caminho é byte a byte o de hoje: o desvio é a primeira
+instrução após o parse do corpo e devolve antes de qualquer lógica existente.
+
+**Chamadas.** Nível `campaign`, `time_increment=1`, uma chamada por grupo:
+(a) `region`, (b) `age,gender`, (c) `publisher_platform`, (d) `country`. A Graph
+não aceita juntar grupos geográficos com demográficos na mesma chamada, por isso
+são pedidos separados. De `age,gender` grava-se `breakdown='age_gender'` com
+`breakdown_value='faixa|genero'` e derivam-se, por soma, as linhas `age` e
+`gender` (`raw.derived_from='age_gender'`, para não parecerem resposta da API).
+
+**Resiliência.** Um grupo recusado (combinação inválida, rate limit, upsert
+falhado) fica em `notes` e os restantes continuam; nunca aborta a corrida.
+
+**Registo.** Cada corrida em `public.sync_runs` via `_shared/sync-run.ts` com
+`function_name='crm-meta-sync-insights:breakdowns'`, `api_calls`, `rows_written`
+e `details.notes`. `spend` em cêntimos, `currency` da conta, `raw` com a linha
+original, `last_synced_at=now()`, upsert pela chave única da tabela.
+
+**Cron.** `carreira-meta-breakdowns-diario` às 10:20 UTC com
+`{"breakdowns":true,"days":3}`, padrão dos restantes crons carreira-* (vault
+`email_queue_service_role_key`). Aplicado manualmente em Live — crons não
+propagam via Publish.
