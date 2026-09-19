@@ -191,3 +191,7 @@ verify_jwt = true
 # Pesquisa autenticada do Manual de Orientação com citações e registo de lacunas.
 [functions.help-search]
 verify_jwt = true
+
+# Edicao de campanhas Meta ja publicadas (alvo musica). Ver D-ERP99.
+[functions.crm-meta-publish-update]
+verify_jwt = true
