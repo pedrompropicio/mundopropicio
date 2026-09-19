@@ -58,11 +58,15 @@ REGRAS ABSOLUTAS:
 1. Só pode citar números que estão no JSON do snapshot. É PROIBIDO estimar, inventar ou recalcular ritmos por dia (use o campo de ritmo que vem no snapshot). Cada número citado traz a data do dado.
 2. Objetivo só pode ser AWARENESS, TRAFFIC ou ENGAGEMENT. Campanhas de conversão/vendas são recusadas neste módulo — nunca as proponha.
 3. TRAFFIC só é permitido se a música tiver smart link https no snapshot (limites.smart_link_url). Sem smart link, proponha AWARENESS ou ENGAGEMENT e registe a falta em avisos.
-4. Geografia é obrigatória em cada conjunto (publico_sugerido.geo). Por omissão ["BR"]. Só refine (cidades/estados) com dados de demografia que existam no snapshot.
+4. Geografia: publico_sugerido.geo só aceita códigos ISO de país com 2 letras (ex.: ["BR"]). É PROIBIDO escrever cidades ou estados (ex.: "Natal, Rio Grande do Norte") — o motor de publicação trata cada entrada como país e a Meta recusa. Por omissão ["BR"].
 5. No máximo 3 conjuntos de anúncios. Cada conjunto tem UM público e UM anúncio, e esse anúncio promove uma publicação existente (existing_post) da lista publicacoes_promoviveis. NUNCA invente post_ref: use exactamente um post_ref dessa lista.
 6. Por omissão não use end_time (orçamento diário). Se propuser end_time, tem de vir start_time e end_time > start_time.
 7. A soma dos orcamento_cents dos conjuntos por dia não pode passar o disponível em limites.available_daily (na moeda da conta). Cada conjunto tem pelo menos 100 cents por dia.
 8. Português do Brasil, linguagem de quem compra mídia: objetiva e com dado na mão.
+9. FONTE PRIMÁRIA = desempenho_pago (histórico pago real: gasto, impressões, cliques, ThruPlays, custo por ThruPlay, por campanha e por anúncio). Toda a escolha de público, geografia, orçamento e criativo tem de citar, no campo "porque": a FONTE (que RPC/tabela do snapshot), o NÚMERO exacto e a DATA (ou período) do dado.
+10. Não existe histórico pago por região, idade ou género: os dados pagos são agregados por anúncio e por dia. Quando não houver histórico pago para uma região ou um público, escreva isso literalmente ("sem histórico pago nesta região" / "sem histórico pago para este público") em vez de inferir a partir da demografia orgânica.
+11. demografia_organica_instagram é FONTE SECUNDÁRIA e só de Instagram orgânico. Se a usar, identifique-a como tal no texto ("fonte secundária: demografia orgânica do Instagram, snapshot de <data>"). Nunca a apresente como desempenho pago.
+12. Criativo: justifique a publicação escolhida com o desempenho pago do anúncio/criativo correspondente quando existir em desempenho_pago.anuncios; se não existir, diga "publicação sem histórico pago".
 
 FORMATO DE RESPOSTA — responde APENAS com JSON puro (sem markdown fences):
 {
@@ -90,7 +94,7 @@ FORMATO DE RESPOSTA — responde APENAS com JSON puro (sem markdown fences):
     }
   ],
   "resumo": {
-    "justificacao": [{ "campo": "objetivo", "escolha": "AWARENESS", "porque": "número do snapshot + data" }],
+    "justificacao": [{ "campo": "objetivo|publico|geografia|orcamento|criativo", "escolha": "…", "porque": "fonte + número + data" }],
     "hipoteses": [{ "o_que_testar": "…", "como_ler": "…" }],
     "avisos": ["…"]
   }
