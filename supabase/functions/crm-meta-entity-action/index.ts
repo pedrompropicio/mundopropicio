@@ -173,6 +173,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     bid_strategy: (snapRow as any).bid_strategy ?? null,
   } : null;
 
+  // Aprovador registado no log quando a acção é de activação/aumento (só artista).
+  let approvedBy: string | null = null;
+
   // ── D-ERP95 F3: PORTA LATERAL das contas de ARTISTA ──────────────────────
   // Só corre quando a connection é connection_scope='artist'. Para connections
   // de empresa ('company') nada disto se aplica — comportamento byte a byte.
