@@ -728,14 +728,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const g = effectiveGroups[gi];
       const sufixo = G > 1 ? ` · g${gi + 1}` : "";
       // headline limitado a 180 quando há sufixo para caber "· gN".
-      const nomeAd = (G > 1 ? baseNome.slice(0, 180) : baseNome.slice(0, 200)) + sufixo;
+      const nomeAd = target.naming.prefix + (G > 1 ? baseNome.slice(0, 180) : baseNome.slice(0, 200)) + sufixo;
       const avisosExtra: Array<{ codigo: string; detalhe?: string }> = [];
       if (truncated && gi === G - 1) {
         avisosExtra.push({ codigo: "ads_truncados_limite_meta", detalhe: `gerados ${multiCount} grupos; truncado a ${META_MAX_ADS_PER_ADSET}` });
       }
+      // Alvo música: UTMs geradas pelo motor (no evento fica null e nada é acrescentado).
+      const tags = urlTagsFor(nomeAd);
 
       if (g.kind === "multi") {
         const creative = buildMultiPlacementCreative(g.feed.info, g.vert.info, g.mediaType, cta, msg, title, link);
+        if (tags) (creative as any).url_tags = tags;
         out.push({
           payload: { name: nomeAd, adset_id: adsetIdParaPayload, status: "PAUSED", creative },
           aviso: { codigo: "multiformato_asset_feed_spec", detalhe: `media=${g.mediaType}; feed=${g.feed.cid}; vertical=${g.vert.cid}` },
@@ -748,6 +751,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           out.push({ payload: null, aviso: aviso ?? { codigo: "creative_sem_meta_id", detalhe: g.pick.cid }, avisos_extra: avisosExtra.length > 0 ? avisosExtra : undefined });
           continue;
         }
+        if (tags) (creative as any).url_tags = tags;
         out.push({
           payload: { name: nomeAd, adset_id: adsetIdParaPayload, status: "PAUSED", creative },
           aviso,
