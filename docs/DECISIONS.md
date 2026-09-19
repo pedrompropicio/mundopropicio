@@ -3251,3 +3251,46 @@ Teste de fumo com a chave pública: `events_public`, `portal_settings_public` e
 `blog_posts_public` 200; inserção em `lead_capture` 201 (linha de teste apagada). O linter
 desceu de 319 para 220 avisos.
 
+
+## D-ERP98 — Geração do plano de tráfego por LLM no alvo MÚSICA (`artist-ads-strategy-generate`)
+Data: 19/09/2026 · Frente: audience-meta (módulo Carreira Artística) · Estado: aplicado
+
+**Contexto.** Com a F1/F2/F3 do motor único (D-ERP95) o alvo música já valida, publica e
+activa. Faltava a peça de cima: propor o plano. A camada de tráfego do artista é fronteira
+fechada — funções `artist-*` não leem `crm.*`.
+
+**Decisão.**
+1. Função nova `artist-ads-strategy-generate` (fase 1, sem Graph API). Contrato
+   `POST { artist_id, song_id, connection_id, orcamento_diario?, objetivo?, notas? }` →
+   `{ plan_id, plano, resumo }`. O plano nasce sempre em `rascunho`; a função nunca publica
+   nem activa.
+2. **Sessão do chamador, nunca service_role:** cliente com a chave pública + o
+   `Authorization` do pedido, porque `artist_ads_plan_create` usa `auth.uid()` em
+   `created_by` e valida o papel por `artist_ads_assert_write`. Sem header → 401.
+3. **Fronteira:** zero leituras directas a `crm.*`. Tráfego só por RPCs `artist_ads_*`
+   (`promotable_posts`, `budget_cap_get`, `campaigns`, `daily`, `ads`, `plan_validate`,
+   `plan_create`); comparáveis só pela RPC `song_benchmark_aligned` (nunca a vista).
+4. **Coletor partilhado:** o `buildSnapshot` do `artist-song-report` saiu para
+   `supabase/functions/_shared/artist-song-snapshot.ts` e as duas funções importam-no.
+   Comportamento do relatório inalterado.
+5. **LLM:** Lovable AI (`google/gemini-2.5-flash`, temperature 0.3), 429 com um retry,
+   402 → `credits_exhausted`, JSON inválido → 502 `ai_invalid_json`.
+6. **Normalização determinística depois do LLM** (a saída do modelo não é de confiança):
+   objectivo dentro de AWARENESS/TRAFFIC/ENGAGEMENT (fora → AWARENESS + aviso); TRAFFIC só
+   com smart link https; `publico_sugerido.geo` nunca vazia (→ `["BR"]`); máximo 3 conjuntos,
+   um anúncio por conjunto; `post_ref` obrigatoriamente de `artist_ads_promotable_posts` com
+   `meta_ready=true` (nunca inventado); soma dos orçamentos ≤ `available_daily` com corte
+   proporcional; mínimo 100 cents/dia por conjunto; `end_time` obriga `start_time` e
+   `end_time > start_time`.
+7. **Sem DDL:** a justificação vive dentro do próprio plano, em `plano.resumo`
+   (`origem`, `modelo`, `gerado_em`, `tokens`, `entradas_usadas`, `justificacao`,
+   `hipoteses`, `avisos`), que `artist_ads_plan_create` grava em
+   `crm.meta_publish_plan.resumo`. Não se criou tabela de log.
+
+**Erros.** 401 `sessao_invalida` · 403 `sem_permissao` · 422 `sem_teto` /
+`sem_publicacoes_promoviveis` / `plano_invalido` · 429 `rate_limited` ·
+402 `credits_exhausted` · 502 `ai_invalid_json`.
+
+**Âmbito.** Sem migração, sem alteração de RPCs, sem front, sem Publish. Funções deployadas:
+`artist-ads-strategy-generate` (nova, `verify_jwt = true`) e `artist-song-report` (só o
+import do coletor).

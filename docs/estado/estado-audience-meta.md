@@ -3,6 +3,7 @@
 Atualizado: 2026-09-19 · Issues desta frente: #36, #12, #183 · dependência externa: #197 (ticketing-e-receita)
 
 ## Em que pé está
+- **Proposta de plano por LLM no alvo música (19/09, D-ERP98).** `artist-ads-strategy-generate` propõe campanha/conjuntos/anúncios para uma música a partir do snapshot da música, do último relatório de lançamento, das publicações promovíveis e do histórico de tráfego de 30 dias. Corre com a sessão do utilizador, valida por `artist_ads_plan_validate` e grava por `artist_ads_plan_create` — o plano nasce em `rascunho` e nada vai para a Meta. Sem DDL: a justificação fica em `plano.resumo`.
 - **Motor único de campanhas — F1 fundações fechada (19/09, D-ERP95).** `crm.meta_publish_plan` aceita agora evento XOR artista+música (`artist_id`, `song_id`, `connection_id`; `event_id` anulável e pela primeira vez com FK verdadeira). Trigger garante que alvo música só usa connection de artista do mesmo artista/empresa. Só schema — comportamento para evento inalterado; o alvo música entra na F2/F3.
 - **Sync Meta a funcionar** na conta `act_5094207367314169` (EUR). O cron `crm-meta-insights-hourly` (:40) sincroniza `campaign` e `adset` desde 17/09/2026 18:40 UTC (#94 fechada): gasto por conjunto = gasto por campanha em 14, 15 e 16/09, verificado em Live. O nível `ad` continua só por sync manual.
 - **Sync Meta a funcionar** na conta `act_5094207367314169` (EUR). O cron `crm-meta-insights-hourly` (:40) sincroniza `campaign` e `adset` desde 17/09/2026 18:40 UTC (#94 fechada): gasto por conjunto = gasto por campanha em 14, 15 e 16/09, verificado em Live. O nível `ad` continua só por sync manual.
@@ -79,3 +80,25 @@ ou aumentar o orçamento exige administrador e passa pelo mesmo teto quando a ca
 criada pelo sistema. As campanhas do gestor de tráfego externo continuam a poder ser
 geridas como antes. A verificação prévia passou a avisar quando falta o país.
 O caminho dos eventos e das contas da empresa não mudou.
+
+## Actualização 19/09/2026 — proposta de plano por LLM (D-ERP98)
+
+Função nova `artist-ads-strategy-generate` (`verify_jwt = true`). Entrada
+`{ artist_id, song_id, connection_id, orcamento_diario?, objetivo?, notas? }`,
+saída `{ plan_id, plano, resumo }`.
+
+- Cliente com a chave pública + `Authorization` do chamador. Sem sessão → 401
+  `sessao_invalida`. Nunca service_role: `artist_ads_plan_create` usa `auth.uid()`.
+- Não toca em `crm.*`. Tráfego só por RPCs `artist_ads_*`; comparáveis só pela RPC
+  `song_benchmark_aligned`.
+- Coletor do snapshot extraído para `_shared/artist-song-snapshot.ts`, partilhado com
+  `artist-song-report` (comportamento do relatório inalterado).
+- Fase 1 sem Graph API: sem decifrar token, sem `/search` de interesses, sem custom
+  audiences. O histórico que já está na base chega.
+- Normalização determinística depois do LLM: objectivo, geografia, número de conjuntos,
+  `post_ref` promovível, orçamento contra `available_daily` e datas.
+- Erros: 401 `sessao_invalida` · 403 `sem_permissao` · 422 `sem_teto` /
+  `sem_publicacoes_promoviveis` / `plano_invalido` · 429 `rate_limited` ·
+  402 `credits_exhausted` · 502 `ai_invalid_json`.
+- Sem migração, sem alteração de RPCs, sem front, sem Publish. Não foi gerado nenhum plano
+  real (o piloto Litto Lins tem `smart_link_url` a null → TRAFFIC indisponível por desenho).
