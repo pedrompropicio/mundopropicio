@@ -469,6 +469,161 @@ Deno.serve(async (req: Request): Promise<Response> => {
   };
   if (demoRows.length === 0) avisos.push("sem demografia orgânica de Instagram para este artista");
 
+  // ── 6b) HISTÓRICO PAGO POR DIMENSÃO — RPC public.artist_ads_breakdowns(90d)
+  // Fonte primária de geografia/idade/género PAGOS. CTR/CPC/CPM são derivados
+  // aqui a partir dos totais que a RPC devolve (impressões, cliques, gasto).
+  const BREAKDOWN_DIMS = ["region", "age", "gender", "publisher_platform", "country"];
+  const mediana = (xs: number[]): number | null => {
+    const v = xs.filter((x) => Number.isFinite(x)).sort((a, b) => a - b);
+    if (v.length === 0) return null;
+    const m = Math.floor(v.length / 2);
+    const r = v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+    return Math.round(r * 10000) / 10000;
+  };
+  const breakdowns: Record<string, Any> = {};
+  let breakdownLinhas = 0;
+  let breakdownMoeda: string | null = null;
+  for (const dim of BREAKDOWN_DIMS) {
+    const { data: bdRaw, error: bdErr } = await user.rpc("artist_ads_breakdowns", {
+      p_artist_id: artistId,
+      p_days: DIAS_JANELA,
+      p_platform: "meta",
+      p_breakdown: dim,
+    });
+    if (bdErr) {
+      avisos.push(`breakdown pago "${dim}" indisponível: ${bdErr.message}`);
+      breakdowns[dim] = { linhas: 0, top_10: [], medianas: null, erro: bdErr.message };
+      continue;
+    }
+    const rows: Any[] = bdRaw ?? [];
+    breakdownLinhas += rows.length;
+    if (rows.length === 0) {
+      avisos.push(`sem histórico pago por "${dim}" nos últimos ${DIAS_JANELA} dias`);
+      breakdowns[dim] = { linhas: 0, top_10: [], medianas: null };
+      continue;
+    }
+    const calc = rows.map((r: Any) => {
+      const imp = Number(r.impressions ?? 0);
+      const clk = Number(r.clicks ?? 0);
+      const gasto = Number(r.spend ?? 0);
+      if (!breakdownMoeda && r.currency) breakdownMoeda = String(r.currency);
+      return {
+        valor: r.breakdown_value,
+        impressoes: imp,
+        cliques: clk,
+        gasto: Math.round(gasto * 100) / 100,
+        moeda: r.currency ?? null,
+        quota_impressoes_pct: r.quota == null ? null : Number(r.quota),
+        ctr_pct: imp > 0 ? Math.round((clk / imp) * 100 * 10000) / 10000 : null,
+        cpc: clk > 0 ? Math.round((gasto / clk) * 10000) / 10000 : null,
+        cpm: imp > 0 ? Math.round((gasto / imp) * 1000 * 100) / 100 : null,
+      };
+    });
+    breakdowns[dim] = {
+      linhas: calc.length,
+      medianas: {
+        ctr_pct: mediana(calc.map((c) => c.ctr_pct as number)),
+        cpc: mediana(calc.map((c) => c.cpc as number)),
+        cpm: mediana(calc.map((c) => c.cpm as number)),
+      },
+      top_10: calc.sort((a, b) => b.impressoes - a.impressoes).slice(0, 10),
+    };
+  }
+  if (breakdownLinhas === 0) {
+    avisos.push(`fonte vazia: public.artist_ads_breakdowns (${DIAS_JANELA} dias) não devolveu linhas`);
+  }
+
+  // ── 6c) AUDIÊNCIA ORGÂNICA POR ESTADO — vista public.v_artist_audience_by_state
+  const { data: estadoRaw, error: estadoErr } = await user
+    .from("v_artist_audience_by_state")
+    .select("platform, audience_type, timeframe, snapshot_date, uf, regiao, estado_nome, valor, quota_pct")
+    .eq("artist_id", artistId)
+    .eq("platform", "instagram")
+    .order("snapshot_date", { ascending: false })
+    .limit(2000);
+  if (estadoErr) avisos.push(`audiência por estado indisponível: ${estadoErr.message}`);
+  const estadoRows: Any[] = estadoRaw ?? [];
+  const porEstado: Record<string, Any> = {};
+  let estadoDataMax: string | null = null;
+  for (const t of [...new Set(estadoRows.map((r: Any) => String(r.audience_type)))]) {
+    const doTipo = estadoRows.filter((r: Any) => String(r.audience_type) === t);
+    const ultima = doTipo.map((r: Any) => String(r.snapshot_date)).sort().pop() ?? null;
+    if (ultima && (!estadoDataMax || ultima > estadoDataMax)) estadoDataMax = ultima;
+    const linhas = doTipo.filter((r: Any) => String(r.snapshot_date) === ultima);
+    const regioes = new Map<string, number>();
+    for (const l of linhas) {
+      const k = l.regiao ? String(l.regiao) : "(sem região)";
+      regioes.set(k, Math.round(((regioes.get(k) ?? 0) + Number(l.quota_pct ?? 0)) * 10) / 10);
+    }
+    porEstado[t] = {
+      snapshot_date: ultima,
+      timeframe: linhas[0]?.timeframe ?? null,
+      top_10_estados: linhas
+        .map((l: Any) => ({
+          uf: String(l.uf ?? "").trim(),
+          estado: l.estado_nome,
+          regiao: l.regiao,
+          valor: Number(l.valor ?? 0),
+          quota_pct: l.quota_pct == null ? null : Number(l.quota_pct),
+        }))
+        .sort((a, b) => b.valor - a.valor)
+        .slice(0, 10),
+      quota_por_regiao_pct: [...regioes.entries()]
+        .map(([regiao, quota_pct]) => ({ regiao, quota_pct }))
+        .sort((a, b) => b.quota_pct - a.quota_pct),
+    };
+  }
+  if (estadoRows.length === 0) {
+    avisos.push("fonte vazia: public.v_artist_audience_by_state sem linhas de Instagram para este artista");
+  }
+
+  // ── 6d) AUDIÊNCIA POR TIPO (followers / engaged / reached) — age e gender
+  const porTipo: Record<string, Any> = {};
+  for (const t of [...new Set(demoRows.map((d: Any) => String(d.audience_type)))]) {
+    const doTipo = demoRows.filter((d: Any) =>
+      String(d.audience_type) === t && String(d.platform) === "instagram"
+    );
+    if (doTipo.length === 0) continue;
+    const ultima = doTipo.map((d: Any) => String(d.snapshot_date)).sort().pop() ?? null;
+    const linhas = doTipo.filter((d: Any) => String(d.snapshot_date) === ultima);
+    const porDim = (dim: string) => {
+      const ls = linhas.filter((l: Any) => String(l.dimension) === dim);
+      const total = ls.reduce((s: number, l: Any) => s + Number(l.value ?? 0), 0);
+      return ls
+        .map((l: Any) => ({
+          chave: l.dim_key,
+          valor: Number(l.value ?? 0),
+          quota_pct: total > 0 ? Math.round((Number(l.value ?? 0) / total) * 1000) / 10 : null,
+        }))
+        .sort((a, b) => b.valor - a.valor);
+    };
+    porTipo[t] = {
+      snapshot_date: ultima,
+      timeframe: linhas[0]?.timeframe ?? null,
+      age: porDim("age"),
+      gender: porDim("gender"),
+    };
+  }
+  for (const t of ["engaged", "reached"]) {
+    if (!porTipo[t]) avisos.push(`sem audiência "${t}" no Instagram — usada a de seguidores`);
+  }
+
+  const audiencia = {
+    _fonte:
+      "orgânica — public.v_artist_audience_by_state (estados/regiões) + public.artist_audience_demographics (idade/género por tipo de audiência). Secundária face ao pago.",
+    por_estado: porEstado,
+    por_tipo: porTipo,
+  };
+
+  const historicoPago = {
+    _fonte: "primária — RPC public.artist_ads_breakdowns(p_days=90, p_platform='meta')",
+    janela_dias: DIAS_JANELA,
+    moeda: breakdownMoeda,
+    nota: "CTR (cliques/impressões), CPC (gasto/cliques) e CPM (gasto/impressões×1000) calculados pelo motor a partir dos totais da RPC. Top 10 por impressões em cada dimensão, com a mediana da dimensão para comparação.",
+    breakdowns,
+  };
+
+
 
   const alvoDiario = orcamentoPedido != null && orcamentoPedido > 0
     ? Math.min(orcamentoPedido, disponivel)
