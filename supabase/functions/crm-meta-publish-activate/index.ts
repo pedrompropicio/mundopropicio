@@ -348,7 +348,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
       })
       .eq("id", planId);
 
-    return json({ ok: true, resultado, estado: "ativo" });
+    await espelhaStatus();
+    await logAprovacao(true);
+
+    return json({ ok: true, resultado, estado: "ativo", ...(isSong ? { approved_by: userId, approval_note: approvalNote } : {}) });
   }
 
   // pausar — TOP-DOWN: campanha → adsets → ads
