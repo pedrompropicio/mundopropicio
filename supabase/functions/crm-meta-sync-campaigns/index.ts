@@ -268,20 +268,43 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
   await reportMetaSyncSuccess(connectionId, "campaigns");
 
-  // 4) Auto-link campaigns to active events (best-effort, do not block)
+  // 4) Auto-link (best-effort, do not block).
+  // D-ERP90: connection de artista liga campanhas a MÚSICAS, nunca a eventos.
   let autoLinkedCount = 0;
-  try {
-    const { data: linkData, error: linkErr } = await supabase.rpc(
-      "crm_auto_link_meta_campaigns_to_events",
-      { p_company_id: companyId },
-    );
-    if (linkErr) {
-      console.error("[crm-meta-sync-campaigns] auto-link failed:", linkErr);
-    } else if (Array.isArray(linkData) && linkData.length > 0) {
-      autoLinkedCount = (linkData[0] as any).updated_count ?? 0;
+  let songsLinkedCount = 0;
+  if (isArtistScope) {
+    try {
+      const admin = createClient(
+        SUPABASE_URL,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        { auth: { persistSession: false, autoRefreshToken: false } },
+      );
+      const { data: songData, error: songErr } = await admin.rpc(
+        "artist_ads_autolink_songs_internal",
+        { p_artist_id: connRow!.artist_id },
+      );
+      if (songErr) {
+        console.error("[crm-meta-sync-campaigns] song auto-link failed:", songErr);
+      } else if (typeof songData === "number") {
+        songsLinkedCount = songData;
+      }
+    } catch (e) {
+      console.error("[crm-meta-sync-campaigns] song auto-link threw:", e);
     }
-  } catch (e) {
-    console.error("[crm-meta-sync-campaigns] auto-link threw:", e);
+  } else {
+    try {
+      const { data: linkData, error: linkErr } = await supabase.rpc(
+        "crm_auto_link_meta_campaigns_to_events",
+        { p_company_id: companyId },
+      );
+      if (linkErr) {
+        console.error("[crm-meta-sync-campaigns] auto-link failed:", linkErr);
+      } else if (Array.isArray(linkData) && linkData.length > 0) {
+        autoLinkedCount = (linkData[0] as any).updated_count ?? 0;
+      }
+    } catch (e) {
+      console.error("[crm-meta-sync-campaigns] auto-link threw:", e);
+    }
   }
 
   return json({
@@ -290,5 +313,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     mode,
     incremental_cursor: lastSyncAt,
     auto_linked_count: autoLinkedCount,
+    songs_linked_count: songsLinkedCount,
   });
 });
