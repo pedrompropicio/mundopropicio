@@ -165,7 +165,7 @@ export async function analisarVideosTiktok(
     const { data: mets, error: errM } = await userClient
       .from("artist_content_metrics_daily")
       .select("content_id, metric, metric_date, value")
-      .eq("platform", "tiktok")
+      .eq("platform", plataforma)
       .in("content_id", lote)
       .in("metric", METRICAS as unknown as string[])
       .order("metric_date", { ascending: true })
