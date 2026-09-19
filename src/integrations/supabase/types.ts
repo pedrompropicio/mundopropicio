@@ -1827,6 +1827,7 @@ export type Database = {
           name: string
           notes: string | null
           photo_url: string | null
+          reporting_currency: string | null
           roster_type: string
           slug: string
           status: string
@@ -1849,6 +1850,7 @@ export type Database = {
           name: string
           notes?: string | null
           photo_url?: string | null
+          reporting_currency?: string | null
           roster_type?: string
           slug: string
           status?: string
@@ -1871,6 +1873,7 @@ export type Database = {
           name?: string
           notes?: string | null
           photo_url?: string | null
+          reporting_currency?: string | null
           roster_type?: string
           slug?: string
           status?: string
@@ -9231,6 +9234,33 @@ export type Database = {
           },
         ]
       }
+      fx_rates_daily: {
+        Row: {
+          currency: string
+          date_used: string
+          fetched_at: string
+          rate_date: string
+          rate_to_eur: number
+          source: string
+        }
+        Insert: {
+          currency: string
+          date_used: string
+          fetched_at?: string
+          rate_date: string
+          rate_to_eur: number
+          source: string
+        }
+        Update: {
+          currency?: string
+          date_used?: string
+          fetched_at?: string
+          rate_date?: string
+          rate_to_eur?: number
+          source?: string
+        }
+        Relationships: []
+      }
       help_articles: {
         Row: {
           content_hash: string
@@ -16493,14 +16523,18 @@ export type Database = {
           ctr_30d: number
           ctr_7d: number
           currency: string
+          fx_missing_days: number
           impressions_30d: number
           impressions_7d: number
           last_synced_at: string
           linked_song_id: string
           permalink: string
           platform: string
+          ref_currency: string
           spend_30d: number
+          spend_30d_ref: number
           spend_7d: number
+          spend_7d_ref: number
           status: string
           thruplays_30d: number
           thruplays_7d: number
@@ -16546,15 +16580,19 @@ export type Database = {
           cpv_30d: number
           currency: string
           end_date: string
+          fx_missing_days: number
           impressions_30d: number
           last_synced_at: string
           linked_event_id: string
           linked_song_id: string
           objective: string
           platform: string
+          ref_currency: string
           results_30d: number
           spend_30d: number
+          spend_30d_ref: number
           spend_7d: number
+          spend_7d_ref: number
           start_date: string
           status: string
           video_views_30d: number
@@ -16585,10 +16623,13 @@ export type Database = {
           campaign_name: string
           clicks: number
           day: string
+          fx_missing_days: number
           impressions: number
           platform: string
+          ref_currency: string
           results: number
           spend: number
+          spend_ref: number
           video_views: number
         }[]
       }
@@ -17106,6 +17147,10 @@ export type Database = {
           with_direct_tx: number
           without_any_match: number
         }[]
+      }
+      fx_convert: {
+        Args: { p_amount: number; p_date: string; p_from: string; p_to: string }
+        Returns: number
       }
       get_app_secret: { Args: { _name: string }; Returns: string }
       get_bp_l3_attachments: {
