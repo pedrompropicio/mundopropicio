@@ -195,3 +195,10 @@ verify_jwt = true
 # Edicao de campanhas Meta ja publicadas (alvo musica). Ver D-ERP99.
 [functions.crm-meta-publish-update]
 verify_jwt = true
+
+# F5 TikTok (SANDBOX) — motor unico. Host SEMPRE por TIKTOK_API_HOST. Ver D-ERP102.
+[functions.crm-tiktok-publish-execute]
+verify_jwt = true
+
+[functions.crm-tiktok-publish-activate]
+verify_jwt = true

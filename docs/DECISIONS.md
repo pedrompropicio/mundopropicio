@@ -3417,3 +3417,52 @@ estreitar idades obriga a citar a distribuição etária real com a data do dado
 
 **Sem DDL.** `artist_ads_plan_validate` ignora chaves extra em
 `publico_sugerido` — `geo_regions` passa sem alteração à RPC.
+
+## D-ERP102 — F5 TikTok em SANDBOX (motor único, plataforma `tiktok`)
+
+**Ficheiros.** `supabase/functions/_shared/tiktok-ads.ts` (camada TikTok
+partilhada), `supabase/functions/crm-tiktok-publish-execute/index.ts` e
+`supabase/functions/crm-tiktok-publish-activate/index.ts`, ambas com
+`verify_jwt = true` em `supabase/config.toml`. Zero DDL, zero migração, zero
+`CREATE OR REPLACE`. Nada nas funções `artist-*` foi tocado — a fronteira
+mantém-se: só as `crm-*` leem `crm.ad_platform_connections`.
+
+**Host.** Sempre `TIKTOK_API_HOST` (sandbox:
+`https://sandbox-ads.tiktok.com/open_api/v1.3/`). Nunca há escolha de host por
+condicional no código; sem a variável definida as funções recusam com
+`sem_tiktok_api_host`.
+
+**Autenticação.** Token (`access_token_encrypted` decifrado por
+`crm_get_meta_decrypted_token`) + `advertiser_id` (`selected_ad_account_id`),
+sem OAuth. Em falta → `sem_advertiser_id` / `sem_token_tiktok` /
+`token_tiktok_indecifravel`, nunca excepção genérica. Na ligação piloto
+(`947ee0c7…`, `pending_link`) faltam ambos: o dry-run continua e devolve
+payloads + hash; a publicação real recusa.
+
+**Regras herdadas do Meta.** Sessão obrigatória para publicar/activar
+(`service_role` recusado); `artist_ads_assert_write` para escrever e pausar,
+`artist_ads_assert_cap_admin` para activar; teto re-verificado em
+`public.artist_ads_budget_cap_get` na linha `platform='tiktok'` da ligação, na
+moeda da conta, fechado por omissão (`sem_teto`); naming
+`[MP] [MÚSICA] [Objectivo] AAAA-MM-DD` e prefixo `[MP] ` nos conjuntos/anúncios;
+ligação campanha→música trancada no espelho (`linked_song_locked = true`, nunca
+desligada); plano nasce em `rascunho` e só passa a `publicado` depois de o
+TikTok confirmar; lock anti-corrida `a_publicar`; registo em
+`crm.ads_entity_actions_log` com `platform='tiktok'`.
+
+**Prova por hash.** O Meta nunca implementou hash de payloads. Aqui o dry-run
+devolve `payloads_sha256` (SHA-256 do JSON de campanha+adgroups+ads) para se
+comparar o que foi revisto com o que é publicado.
+
+**Criação sempre em pausa.** `operation_status: "DISABLE"` na campanha, nos
+adgroups e nos anúncios. Activar/pausar é acto separado: ativar bottom-up
+(ads → adgroups → campanha), pausar top-down, via
+`{campaign,adgroup,ad}/status/update/` com `ENABLE`/`DISABLE`.
+
+**Geografia e criativo.** Geografia obrigatória na mesma forma do plano
+(`publico_sugerido.geo` ISO-2 e, quando existir, `publico_sugerido.geo_regions`),
+resolvida em `location_ids` por `GET tool/region/`; sem resolução a publicação
+recusa. Criativo = vídeo do próprio artista (`ad_format: SINGLE_VIDEO`,
+`anuncio.tiktok_video_id`), sem imagem estática. SPARK ADS fica identificado no
+código como o caminho a usar quando a ligação tiver identity `BC_AUTH_TT`
+(`identity_type: BC_AUTH_TT` + `tiktok_item_id`) — nesta versão não é exercitado.
