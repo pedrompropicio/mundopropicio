@@ -145,12 +145,12 @@ export async function analisarVideosTiktok(
     .limit(2000);
 
   if (errC) {
-    avisos.push(`analise_videos_tiktok: falha ao ler artist_content (${errC.message})`);
+    avisos.push(`${rotulo}: falha ao ler artist_content (${errC.message})`);
     return vazio;
   }
   const linhas = conteudos ?? [];
   if (!linhas.length) {
-    avisos.push(`analise_videos_tiktok: sem vídeos TikTok publicados nos últimos ${dias} dias`);
+    avisos.push(`${rotulo}: sem vídeos ${rotuloFonte} publicados nos últimos ${dias} dias`);
     return vazio;
   }
 
