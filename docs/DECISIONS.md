@@ -1334,7 +1334,12 @@ UTC, percorre `artist_songs` com `is_launch = true` e
 Nota de numeração: o pedido pedia D-ERP53, número já ocupado pela decisão da
 ligação vídeo→música; esta decisão ficou em D-ERP54.
 
+**Adenda 2026-09-19 (correção da guarda de frequência).**
+A guarda "1 geração automática por música por dia" usava uma janela deslizante de 24h (`Date.now() - 86_400_000`). Como o relatório é gravado ~20 s depois de o cron disparar (10:00:00 UTC), no dia seguinte o cron chegava ~23h59m40s depois do anterior, ainda dentro da janela, e devolvia `skipped`. O cron disparou a 14, 15, 16, 17 e 18/09 mas só gravou relatório a 16 e 18/09.
+**Regra nova:** a guarda usa o dia de calendário UTC (desde `today 00:00:00Z`) e conta só relatórios com `status = 'ok'`. Relatórios em erro não bloqueiam nova tentativa no mesmo dia. O skip passou a logar o `id` e `generated_at` do relatório que o causou.
+
 ## D-ERP55 — O saldo do extrato é calculado sobre a ordem que se vê, não sobre a ordem plana (12/09/2026)
+
 
 **Contexto.** O extrato tem de ser conferível linha a linha contra o extrato do
 banco. Ao consolidar, as filhas de um grupo são puxadas para junto do cabeçalho e
