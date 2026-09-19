@@ -299,11 +299,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // 6) Monta payloads.
   const objetivo = planRow.objetivo ?? "OUTCOME_TRAFFIC";
+  const objetivoUpper = String(objetivo).toUpperCase();
   let { optimization_goal, billing_event } = mapObjective(objetivo);
 
+  // Alvo música: objectivos sem pixel (D-ERP95 F2b). Conversões não são aceites.
+  const songGoal = isSong ? mapSongObjective(objetivo) : null;
+  if (isSong && !songGoal) {
+    return json({
+      ok: false, error: "objetivo_invalido", objetivo,
+      message: "Campanhas de música só aceitam AWARENESS (Alcance), TRAFFIC (Tráfego) ou ENGAGEMENT (Visualizações).",
+    }, 422);
+  }
+  if (songGoal) {
+    optimization_goal = songGoal.optimization_goal;
+    billing_event = songGoal.billing_event;
+  }
+
   const campaignPayload = {
-    name: `[MP Audience] ${nomeEvento}${dataEvento ? ` - ${dataEvento}` : ""}`,
-    objective: objetivo,
+    name: target.naming.campaign,
+    objective: songGoal ? songGoal.objective : objetivo,
     status: "PAUSED",
     special_ad_categories: [],
     is_adset_budget_sharing_enabled: false,
