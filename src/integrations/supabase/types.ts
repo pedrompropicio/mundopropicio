@@ -16688,7 +16688,11 @@ export type Database = {
         }[]
       }
       artist_ads_creatives: {
-        Args: { p_artist_id: string; p_connection_id?: string }
+        Args: {
+          p_artist_id: string
+          p_connection_id?: string
+          p_platform?: string
+        }
         Returns: {
           anuncio_nome: string
           campanha_nome: string
@@ -16769,7 +16773,7 @@ export type Database = {
         Returns: Json
       }
       artist_ads_promotable_posts: {
-        Args: { p_artist_id: string }
+        Args: { p_artist_id: string; p_platform?: string }
         Returns: {
           caption_excerpt: string
           last_ad_name: string
