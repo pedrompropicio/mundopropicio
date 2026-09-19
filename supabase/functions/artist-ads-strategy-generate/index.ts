@@ -379,13 +379,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }, 422);
   }
   const plataforma = String(ligacao.platform ?? "").toLowerCase();
-  if (plataforma !== "meta" && plataforma !== "tiktok") {
+  if (!["meta", "tiktok", "google"].includes(plataforma)) {
     return json({
       error: "plataforma_nao_suportada",
-      mensagem: `Estratégia por IA só está disponível para Meta e TikTok (ligação é ${plataforma || "?"}).`,
+      mensagem: `Estratégia por IA só está disponível para Meta, TikTok e Google/YouTube (ligação é ${plataforma || "?"}).`,
     }, 422);
   }
   const eTiktok = plataforma === "tiktok";
+  const eGoogle = plataforma === "google";
+  /** Alvos cujo criativo é um vídeo orgânico existente (TikTok e YouTube). */
+  const eVideo = eTiktok || eGoogle;
 
   const dados = await buildArtistDataSnapshot({
     userClient: user,
