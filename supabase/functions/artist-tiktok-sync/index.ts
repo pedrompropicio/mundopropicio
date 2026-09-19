@@ -60,6 +60,7 @@ Deno.serve(async (req) => {
     dry_run?: boolean;
     max_videos?: number;
     since?: string;
+    cursor?: number;
   } = {};
   try {
     body = await req.json();
@@ -77,6 +78,20 @@ Deno.serve(async (req) => {
   const sinceSec = Number.isFinite(sinceMs) ? Math.floor(sinceMs / 1000) : null;
   if (body.since && sinceSec === null) {
     return json({ error: `since inválido: ${body.since}` }, 400);
+  }
+
+  // cursor: retoma a paginação video/list a partir deste cursor (sync inicial
+  // de perfis grandes em várias corridas). Só é aceite com UMA ligação por
+  // corrida — exige artist_id ou connection_id.
+  const rawCursor = Number(body.cursor);
+  const inputCursor = Number.isFinite(rawCursor) && rawCursor > 0
+    ? Math.floor(rawCursor)
+    : null;
+  if (body.cursor !== undefined && body.cursor !== null && inputCursor === null) {
+    return json({ error: `cursor inválido: ${body.cursor}` }, 400);
+  }
+  if (inputCursor !== null && !body.artist_id && !body.connection_id) {
+    return json({ error: "cursor exige artist_id ou connection_id (uma ligação por corrida)" }, 400);
   }
 
 
