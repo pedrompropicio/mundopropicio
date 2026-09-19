@@ -520,7 +520,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   };
 
   // ── 7) LLM (prompt de sistema próprio no alvo TikTok)
-  if (eTiktok) avisos.push("sem histórico pago TikTok — histórico usado é o de Meta e Google do artista");
+  if (eTiktok) {
+    avisos.push("sem histórico pago TikTok; hipótese sustentada em orgânico TikTok + pago Meta/Google");
+  }
   const llm = await callLlm(
     `Dados (única fonte de números permitida):\n\n${JSON.stringify(entradas)}`,
     eTiktok ? SYSTEM_PROMPT_TIKTOK : SYSTEM_PROMPT,
