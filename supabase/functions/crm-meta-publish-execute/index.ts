@@ -120,6 +120,49 @@ async function graphPOST(path: string, body: Record<string, unknown>, accessToke
   return { ok: true, data: j };
 }
 
+async function graphGET(path: string, params: Record<string, string>, accessToken: string): Promise<{ ok: boolean; data: any; status: number }> {
+  const qs = new URLSearchParams({ ...params, access_token: accessToken });
+  const r = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}${path}?${qs.toString()}`);
+  const j = await r.json().catch(() => ({}));
+  return { ok: r.ok && !j?.error, data: j, status: r.status };
+}
+
+// Papel declarado no JWT do pedido (sem validar assinatura — serve apenas para
+// distinguir service_role de sessão de utilizador; a autoridade é o getUser()).
+function jwtRole(authHeader: string): string | null {
+  try {
+    const tok = authHeader.replace(/^Bearer\s+/i, "");
+    const p = tok.split(".")[1];
+    if (!p) return null;
+    const pad = p.replace(/-/g, "+").replace(/_/g, "/");
+    const claims = JSON.parse(atob(pad + "=".repeat((4 - pad.length % 4) % 4)));
+    return typeof claims?.role === "string" ? claims.role : null;
+  } catch { return null; }
+}
+
+// ALVO MÚSICA (D-ERP95 F2b) — objectivos ODAX sem pixel.
+// Fonte: Meta Marketing API, Ad Set "destination_type" + combinações objectivo ×
+// optimization_goal (developers.facebook.com/docs/marketing-api/adset/destination_type/).
+//   AWARENESS   → OUTCOME_AWARENESS  + REACH            (sem destination_type)
+//   TRAFFIC     → OUTCOME_TRAFFIC    + LINK_CLICKS      + destination_type WEBSITE
+//   ENGAGEMENT  → OUTCOME_ENGAGEMENT + THRUPLAY         + destination_type ON_VIDEO
+// ON_VIDEO aceita THRUPLAY / TWO_SECOND_CONTINUOUS_VIDEO_VIEWS e, ao contrário
+// de ON_POST, não exige promoted_object. Nunca há promoted_object de pixel.
+function mapSongObjective(objetivo: string): { objective: string; optimization_goal: string; billing_event: string; destination_type?: string } | null {
+  switch (String(objetivo).toUpperCase()) {
+    case "AWARENESS":
+      return { objective: "OUTCOME_AWARENESS", optimization_goal: "REACH", billing_event: "IMPRESSIONS" };
+    case "TRAFFIC":
+      return { objective: "OUTCOME_TRAFFIC", optimization_goal: "LINK_CLICKS", billing_event: "IMPRESSIONS", destination_type: "WEBSITE" };
+    case "ENGAGEMENT":
+      return { objective: "OUTCOME_ENGAGEMENT", optimization_goal: "THRUPLAY", billing_event: "IMPRESSIONS", destination_type: "ON_VIDEO" };
+    default:
+      return null;
+  }
+}
+
+
+
 Deno.serve(async (req: Request): Promise<Response> => {
   console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v15-fix-thumbnail");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
