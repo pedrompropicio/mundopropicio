@@ -3294,3 +3294,54 @@ fechada — funções `artist-*` não leem `crm.*`.
 **Âmbito.** Sem migração, sem alteração de RPCs, sem front, sem Publish. Funções deployadas:
 `artist-ads-strategy-generate` (nova, `verify_jwt = true`) e `artist-song-report` (só o
 import do coletor).
+
+## D-ERP99 — A edição de campanhas Meta já publicadas (alvo MÚSICA) vive numa função própria de PLANO (19/09/2026)
+
+**Decisão.** A edição ao nível do plano fica em `crm-meta-publish-update`, função nova, e
+**não** numa extensão de `crm-meta-entity-action`.
+
+**Motivo.** `crm-meta-entity-action` é a acção de baixo nível por objecto (id externo) e não
+conhece o plano: não resolve `crm.meta_publish_plan`, não calcula diff, não redistribui
+orçamento pelos conjuntos nem mantém o plano em sincronia. A edição precisa exactamente
+disso — resolver o plano, calcular o diff por objecto, re-verificar o teto da ligação de
+artista e reescrever o plano com o que a Meta aceitou. Prefixo `crm-*` porque fala com a
+Graph API e com `crm.ad_platform_connections`, como as outras duas funções de publicação.
+
+**Âmbito.** Só planos com alvo música (`artist_id` + `song_id`) e `estado` em
+`publicado|ativo|pausado`. Plano de evento → 422 `alvo_nao_suportado`: **o caminho de eventos
+fica absolutamente inalterado**. Graph API v18.0, a mesma de `crm-meta-publish-execute:31` e
+`crm-meta-publish-activate:19`. `dry_run` por omissão TRUE — o diff antes/depois por objecto
+sai sem um único pedido de escrita à Meta.
+
+**Altera.** Campanha: `name`, e `daily_budget`/`lifetime_budget` só com orçamento ao nível da
+campanha (CBO). Conjunto: `name`, `daily_budget`/`lifetime_budget`, `end_time`, `start_time`
+só enquanto não arrancou (se arrancou → aviso `start_time_ignorado`) e `targeting` (geo e
+idades), sempre partindo do targeting actual lido por GET e mudando só as chaves pedidas.
+Anúncio: só `name`.
+
+**Fora de âmbito (422 legível, sem tentar).** `objetivo`/`buying_type` → `exige_campanha_nova`;
+trocar diário↔vitalício num conjunto já a entregar → `exige_campanha_nova`; trocar
+publicação/criativo → `nao_suportado_ainda` (fase 2, depende da importação dos criativos do
+gestor externo para `crm.meta_creatives`); activar/pausar → `usar_publish_activate`. Esta
+função **nunca** muda estado de entrega.
+
+**Papéis.** Cliente anon com o JWT do chamador; `service_role` recusado (403
+`service_role_nao_edita`). Orçamento, troca de modo ou alongar a janela de um vitalício →
+`artist_ads_assert_cap_admin`; nome, datas, geografia e idades → `artist_ads_assert_write`.
+
+**Teto.** Re-verificado a cada alteração de gasto: linha de `artist_ads_budget_cap_get` da
+ligação do plano; pedido diário novo (vitalício ÷ dias da janela) + comprometido dos **outros**
+planos da mesma ligação (`committedDaily`, excluindo este) ≤ `daily_cap`. Senão 422
+`acima_do_teto` com pedido, comprometido e disponível.
+
+**Plano em sincronia.** Depois do aceite da Meta grava `adsets` (jsonb), `start_time`,
+`end_time`, `orcamento_total_cents` e `updated_at`; o `estado` mantém-se. Falha parcial →
+grava só o que passou e devolve o resto em `resultado[]`.
+
+**Log — sem DDL.** Uma linha por objecto alterado em `crm.meta_campaign_changes` (tabela já
+existente), `change_type` em `name|budget|targeting|schedule|other`, `applied_by_user_id`
+sempre do JWT, `triggered_by` do corpo com omissão `user_manual`, inserção best-effort.
+
+**Âmbito técnico.** Sem DDL, sem migração, sem Publish/deploy. `crm-meta-publish-execute`,
+`crm-meta-publish-activate` e `crm-meta-entity-action` ficaram intactos; o único código
+partilhado reaproveitado é `_shared/artist-ads-teto.ts` (`committedDaily`).
