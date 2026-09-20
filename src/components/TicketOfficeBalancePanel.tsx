@@ -242,9 +242,19 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
     );
   }
 
+  // #155 — os quatro tiles ignoram receitas lançadas como transação e movimentos
+  // sem evento; este resto é o que falta para o retido fechar ao cêntimo.
+  const otherMovements = ticketOfficeOtherMovements(summary.globalBalance, {
+    sales: summary.totalSales,
+    expenses: summary.totalDirectExpenses,
+    transfers: summary.totalTransfersOut,
+    advances: summary.totalAdvancesPending,
+  });
+  const hasOtherMovements = Math.abs(otherMovements) >= 0.01;
+
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className={`grid grid-cols-2 gap-2 ${hasOtherMovements ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
         <div className="rounded-lg bg-secondary/40 p-2 text-center">
           <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><TrendingUp className="h-3 w-3" /> Vendas</p>
           <p className="text-sm font-mono font-semibold text-emerald-500">{formatCurrency(summary.totalSales)}</p>
