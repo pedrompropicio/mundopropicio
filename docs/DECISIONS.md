@@ -3768,3 +3768,27 @@ Reutilizar esses nomes destruía o publisher de Search → criadas
   A validação passa outra vez SEMPRE por `artist_ads_plan_validate` (a DDL já aceita
   REACH|VIDEO_VIEWS); o desvio local do TikTok foi removido.
 - Fronteira mantida: `crm-*` lê `crm.ad_platform_connections`, `artist-*` nunca.
+
+### D-ERP109 — Métricas de vídeo do Google Ads nas contas de ARTISTA (set/2026)
+**Decisão:** função nova `crm-google-video-metrics-sync`, isolada do `crm-google-sync-campaigns`
+(caminho de eventos intacto) e sem qualquer DDL — só escreve em colunas `jsonb` já existentes.
+- **Nomes CONFIRMADOS em runtime** pelo `GoogleAdsFieldService` (sem cláusula `FROM`, que essa
+  service não aceita) antes de qualquer pedido. Em **v24**:
+  `metrics.video_views` **NÃO existe** → chama-se `metrics.video_trueview_views`;
+  `metrics.average_cpv` → `metrics.trueview_average_cpv`;
+  `metrics.video_view_rate` → `metrics.video_trueview_view_rate`;
+  existem `metrics.video_quartile_p25/p50/p75/p100_rate`, `metrics.engagements`,
+  `metrics.unique_users`, `metrics.average_impression_frequency_per_user`.
+- **Normalização nossa:** `raw->'metrics'` guarda os nomes da API, e `raw.video_views`
+  (chave de topo, inteiro) é sempre escrita — é essa que `public.artist_ads_daily` lê.
+  `raw.video_views_field` diz de que métrica veio.
+- Configuração da campanha em `crm.google_campaign.raw.config` (canal/sub-canal, frequency caps,
+  video ad inventory control, start/end, critérios LOCATION +/- com nome canónico resolvido pelo
+  `geo_target_constant`, LANGUAGE, idades, géneros, dispositivos com bid modifier).
+- Alcance/frequência em `crm.google_campaign.metrics.alcance`, dois blocos (`ultimos_7_dias`,
+  `ultimos_30_dias`) com período e `recolhido_em` — estas métricas não segmentam por dia.
+- `crm.google_ad_group` sincronizado para campanhas `advertising_channel_type='VIDEO'`
+  (o `type` do grupo é o que diz o formato: bumper, in-stream não ignorável, etc.).
+- Âmbito: ligações `platform='google'` com `connection_scope='artist'`. Corrida registada em
+  `sync_runs` (`crm-google-video-metrics-sync`); `{"probe_only":true}` só confirma nomes.
+**Estado:** vigente.

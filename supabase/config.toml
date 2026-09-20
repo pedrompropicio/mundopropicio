@@ -215,3 +215,6 @@ verify_jwt = true
 
 [functions.crm-google-video-publish-activate]
 verify_jwt = true
+
+[functions.crm-google-video-metrics-sync]
+verify_jwt = false
