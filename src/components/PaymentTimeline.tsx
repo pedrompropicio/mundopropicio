@@ -291,13 +291,13 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
   // Admin: estornar transação (com opção de libertar para nova liquidação)
   const reverseTxMutation = useMutation({
     mutationFn: async ({ release, reason }: { release: boolean; reason: string }) => {
-      const { data, error } = await supabase.rpc("reverse_transaction" as any, {
+      const { data, error } = await supabase.rpc("reverse_transaction", {
         p_tx_id: txId,
         p_kind: "cash_refund",
         p_reason: reason || (release ? "Estorno + libertar para nova liquidação" : "Estorno"),
         p_valid_until: null,
         p_release_for_repayment: release,
-      } as any);
+      });
       if (error) throw error;
       return data;
     },
