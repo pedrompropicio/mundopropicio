@@ -114,6 +114,9 @@ export async function syncSponsorToBP(row: SponsorshipPipelineRow): Promise<Sync
   }
 
   // Caso 2: criar do zero → 1) TX approved, 2) BP vinculada, 3) update do card.
+  // A transação de receita nasce SEM `account_id` (nunca houve conta por
+  // defeito): a conta é escolhida no momento da liquidação, no fluxo normal
+  // de pagamentos.
   const { data: tx, error: txErr } = await supabase
     .from("transactions")
     .insert({
