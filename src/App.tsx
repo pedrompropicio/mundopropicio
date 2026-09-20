@@ -455,7 +455,7 @@ function ProtectedLayout() {
     <div className="flex min-h-screen flex-col">
       <ApprovedPaymentListReminder />
       <header
-        className="fixed top-0 left-0 right-0 z-50 flex w-full items-center justify-between gap-2 overflow-hidden border-b border-border bg-sidebar shadow-sm px-4 lg:px-6"
+        className="fixed top-0 left-0 right-0 z-50 flex w-full items-center justify-between gap-1 md:gap-2 overflow-hidden border-b border-border bg-sidebar shadow-sm px-2 md:px-4 lg:px-6"
         style={{
           paddingTop: "env(safe-area-inset-top)",
           height: "calc(3.5rem + env(safe-area-inset-top))",
@@ -463,14 +463,14 @@ function ProtectedLayout() {
       >
         <div className="flex shrink-0 items-center gap-1">
           <MobileNavSheet />
-          {/* Em < md o logótipo é limitado em largura para caberem Módulos e sino */}
-          <BrandedLogo className="h-9 max-w-[124px] object-contain object-left md:max-w-none" />
+          {/* Em < md o logótipo sai do cabeçalho; a marca fica no menu lateral */}
+          <BrandedLogo className="hidden md:block h-9 object-contain object-left" />
         </div>
-        {/* Em < md o seletor de empresa fica entre os dois grupos e é ele que cede espaço (nome truncado) */}
-        <div className="flex min-w-0 flex-1 items-center justify-center md:hidden">
-          <CompanySwitcher />
+        {/* Em < md o seletor de empresa cresce e mantém o nome legível */}
+        <div className="flex flex-1 min-w-[150px] items-center md:hidden">
+          <CompanySwitcher className="w-full min-w-0 max-w-none" />
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1 md:gap-2">
           <div className="hidden md:block">
             <ModuleSwitcherButton />
           </div>
