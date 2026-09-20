@@ -232,7 +232,7 @@ function MobileNavSheet() {
         <button
           type="button"
           aria-label="Abrir menu de navegação"
-          className="md:hidden -ml-1 inline-flex h-11 w-11 items-center justify-center rounded-lg text-foreground hover:bg-sidebar-accent md:h-9 md:w-9"
+          className="md:hidden shrink-0 inline-flex h-11 w-11 items-center justify-center rounded-lg text-foreground hover:bg-sidebar-accent md:h-9 md:w-9"
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -455,27 +455,36 @@ function ProtectedLayout() {
     <div className="flex min-h-screen flex-col">
       <ApprovedPaymentListReminder />
       <header
-        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between border-b border-border bg-sidebar shadow-sm px-4 lg:px-6"
+        className="fixed top-0 left-0 right-0 z-50 flex w-full items-center justify-between gap-2 overflow-hidden border-b border-border bg-sidebar shadow-sm px-4 lg:px-6"
         style={{
           paddingTop: "env(safe-area-inset-top)",
           height: "calc(3.5rem + env(safe-area-inset-top))",
         }}
       >
-        <div className="flex min-w-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <MobileNavSheet />
           <BrandedLogo />
         </div>
-        <div className="flex items-center gap-2">
+        {/* Em < md o seletor de empresa fica entre os dois grupos e é ele que cede espaço (nome truncado) */}
+        <div className="flex min-w-0 flex-1 items-center justify-center md:hidden">
+          <CompanySwitcher />
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
           <div className="hidden md:block">
             <ModuleSwitcherButton />
           </div>
-          <CompanySwitcher />
+          <div className="hidden md:block">
+            <CompanySwitcher />
+          </div>
           <GlobalSearch />
           <div className="md:hidden">
             <ModuleSwitcherButton />
           </div>
           <NotificationBell />
-          <ThemeToggle />
+          {/* Em < sm o tema sai do cabeçalho; fica no menu lateral, junto a Preferências */}
+          <div className="hidden sm:block">
+            <ThemeToggle />
+          </div>
         </div>
       </header>
       <div className="flex" style={{ paddingTop: "calc(3.5rem + env(safe-area-inset-top))" }}>
