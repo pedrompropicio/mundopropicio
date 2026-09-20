@@ -416,6 +416,10 @@ function SponsorCard({
               className="h-6 px-2 text-destructive hover:text-destructive"
               onClick={(e) => {
                 e.stopPropagation();
+                // #120: cards com BP/TX ligados nunca são apagados por confirm()
+                // simples — o board abre um diálogo com o que fica órfão.
+                const hasLinks = !!(row.linked_forecast_id || row.linked_transaction_id);
+                if (hasLinks) { onDelete(); return; }
                 if (confirm(`Remover ${row.supplier_name} do pipeline?`)) onDelete();
               }}
             >
