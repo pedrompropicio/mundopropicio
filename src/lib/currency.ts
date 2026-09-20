@@ -2,12 +2,13 @@
 // The canonical "amount" stored in DB is always in EUR.
 // `original_amount` + `fx_rate` are kept for traceability when currency != EUR.
 
-export type CurrencyCode = "EUR" | "BRL" | "USD";
+export type CurrencyCode = "EUR" | "BRL" | "USD" | "GBP";
 
 export const SUPPORTED_CURRENCIES: { code: CurrencyCode; label: string; symbol: string; locale: string }[] = [
   { code: "EUR", label: "Euro (€)", symbol: "€", locale: "pt-PT" },
   { code: "BRL", label: "Real (R$)", symbol: "R$", locale: "pt-BR" },
   { code: "USD", label: "Dólar ($)", symbol: "$", locale: "en-US" },
+  { code: "GBP", label: "Libra (£)", symbol: "£", locale: "en-GB" },
 ];
 
 const CCY_MAP = Object.fromEntries(SUPPORTED_CURRENCIES.map((c) => [c.code, c])) as Record<CurrencyCode, typeof SUPPORTED_CURRENCIES[number]>;
