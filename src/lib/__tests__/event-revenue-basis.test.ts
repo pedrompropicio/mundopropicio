@@ -136,3 +136,51 @@ describe("computeRevenueBasisFromRows — eventRealized (#227)", () => {
     expect(computeRevenueBasisFromRows({ ...base, eventRealized: true }).committed.buckets.patrocinio.net).toBe(50000);
   });
 });
+
+describe("bucket A&B — bruto próprio (#208)", () => {
+  const abBpLine = {
+    id: "f-ab", amount: 50000, iva_rate: 13, status: "approved",
+    is_transitory: false, exclude_from_result: false, is_overhead: false,
+    account_categories: { code: "1.1.03" },
+  };
+
+  it("taxa injectada: bruto = líquido × (1 + taxa)", () => {
+    const r = computeRevenueBasisFromRows({
+      ticket: { net: 0, gross: 0 }, incomeTx: [], incomeForecasts: [],
+      sponsorship: EMPTY_SPONSORSHIP, abForecastNet: 67698.75, abForecastIvaRate: 13,
+    });
+    expect(r.currentForecast.buckets.ab!.net).toBeCloseTo(67698.75, 2);
+    expect(r.currentForecast.buckets.ab!.gross).toBeCloseTo(67698.75 * 1.13, 2);
+  });
+
+  it("sem taxa injectada: usa a taxa das linhas de BP de A&B", () => {
+    const r = computeRevenueBasisFromRows({
+      ticket: { net: 0, gross: 0 }, incomeTx: [], incomeForecasts: [abBpLine] as any[],
+      sponsorship: EMPTY_SPONSORSHIP, abForecastNet: 1000,
+    });
+    // a sintética substitui a linha de BP, mas herda a taxa dela
+    expect(r.currentForecast.buckets.ab!.net).toBe(1000);
+    expect(r.currentForecast.buckets.ab!.gross).toBeCloseTo(1130, 2);
+  });
+
+  it("s/IVA não muda e eventos sem A&B ficam iguais", () => {
+    const semAb = computeRevenueBasisFromRows({
+      ticket: { net: 0, gross: 0 }, incomeTx: [], incomeForecasts: [bpLineSponsor] as any[],
+      sponsorship: EMPTY_SPONSORSHIP, abForecastNet: null,
+    });
+    expect(semAb.currentForecast.buckets.ab).toBeNull();
+    const comAb = computeRevenueBasisFromRows({
+      ticket: { net: 0, gross: 0 }, incomeTx: [], incomeForecasts: [abBpLine] as any[],
+      sponsorship: EMPTY_SPONSORSHIP, abForecastNet: 2000,
+    });
+    expect(comAb.currentForecast.buckets.ab!.net).toBe(2000);
+  });
+
+  it("sem fonte de taxa: bruto = líquido (comportamento anterior)", () => {
+    const r = computeRevenueBasisFromRows({
+      ticket: { net: 0, gross: 0 }, incomeTx: [], incomeForecasts: [],
+      sponsorship: EMPTY_SPONSORSHIP, abForecastNet: 500,
+    });
+    expect(r.currentForecast.buckets.ab!.gross).toBe(500);
+  });
+});
