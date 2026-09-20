@@ -348,14 +348,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const reachFields = keep(REACH_METRIC_CANDIDATES, selectable);
     const configFields = keep(CAMPAIGN_CONFIG_CANDIDATES, selectable);
     const critFields = keep(CRITERION_CANDIDATES, selectable);
+    const adFields = keep(AD_CANDIDATES, selectable);
+    const adAssetFields = keep(AD_ASSET_CANDIDATES, selectable);
     confirmed = {
       video: videoFields,
       alcance: reachFields,
       configuracao: configFields,
       criterios: critFields,
+      anuncio: adFields,
+      anuncio_asset: adAssetFields,
     };
     per.metricas_video = videoFields;
     per.metricas_alcance = reachFields;
+    per.campos_anuncio = adFields;
+    per.campos_anuncio_asset = adAssetFields;
     console.log(`[confirmado] video=${videoFields.join(",")} alcance=${reachFields.join(",")}`);
 
     // nome da métrica de visualizações nesta versão (pode ter mudado)
