@@ -356,21 +356,20 @@ export default function ReportTicketOfficeAudit() {
 
     offices.forEach((office: any) => {
       const lines: AnalyticalLine[] = [];
-      const officeAssignments = assignments.filter((a: any) => a.financial_account_id === office.id);
-      const assignedEventIds = officeAssignments.filter((a: any) => a.events).map((a: any) => a.event_id);
-      const assigned = new Set<string>(assignedEventIds);
-
-      // Sales lines — mesma base da vista sintética (igualdade estrita + ticketSaleRevenue)
+      // Sales lines — mesma base da vista sintética (igualdade estrita + ticketSaleRevenue).
+      // #128: entram TODAS as vendas da bilheteira (como no saldo da fonte única);
+      // as de eventos não atribuídos caem no grupo "Sem evento associado".
       salesWithEvent
-        .filter((s: any) => s.financial_account_id === office.id && s.event_id && assigned.has(s.event_id))
+        .filter((s: any) => s.financial_account_id === office.id)
         .forEach((s: any) => {
           const zoneName = zoneNameMap[s.zone_id] || "";
           lines.push({
             date: s.sale_date,
             type: "sale",
+            kind: "sale",
             description: `Venda ${s.quantity}x ${formatCurrency(Number(s.unit_price))} — ${zoneName}`,
-            eventName: eventNameMap[s.event_id] || "",
-            eventId: s.event_id,
+            eventName: s.event_id ? eventNameMap[s.event_id] || "" : "—",
+            eventId: s.event_id || undefined,
             amount: ticketSaleRevenue(s),
           });
         });
