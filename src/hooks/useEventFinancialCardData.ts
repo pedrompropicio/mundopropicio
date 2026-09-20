@@ -308,6 +308,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
             { label: "Outros", value: pick("outros") },
           ],
           realValue, formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
+          perimeter: revenue ? { net: revenue.real.total.net, gross: revenue.real.total.gross } : null,
         };
 
       } else {
@@ -326,6 +327,9 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         }
 
         const cache = Number(args.cacheImpact || 0);
+        // Perímetro nas duas bases de IVA — o Lucro escolhe a base pelo contrato.
+        const cNet = withVat ? { total: 0, quota: 0, ...costForMode("realized", false) } : { total: c.total, quota: c.quota };
+        const cGross = withVat ? { total: c.total, quota: c.quota } : costForMode("realized", true);
         return {
           displayValue: c.total + c.quota + cache,
           subtotals: [
@@ -334,6 +338,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
           ],
           formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
           meta: { masterQuota: c.quota },
+          perimeter: { net: cNet.total + cNet.quota + cache, gross: cGross.total + cGross.quota + cache },
         };
       }
     }
