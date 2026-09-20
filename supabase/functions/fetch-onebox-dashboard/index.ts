@@ -405,9 +405,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const gridFac = gridRows.reduce((a, r) => a + num(r[FAC]), 0);
     const dailyQty = dailyRows.reduce((a, r) => a + num(r[QTY]), 0);
     const dailyFac = dailyRows.reduce((a, r) => a + num(r[FAC]), 0);
-    const sumQty = num(sumRow[QTY]);
-    const sumFac = num(sumRow[FAC]);
+    const sumQty = pick(sumRow, /entradas_vendidas|^sum_ventas$|ventas/i);
+    const sumFac = pick(sumRow, /factur/i);
 
+    audit.charts_usados = {
+      ...(audit.charts_usados as Record<string, unknown>),
+      resumo: { slice_id: resumoSlice, nome: resumo?.slice_name ?? null },
+      metricas: { entradas: QTY, facturacion: FAC },
+    };
     audit.conferencia = {
       grelha: { entradas: gridQty, facturacion: round2(gridFac), linhas: gridRows.length },
       serie_diaria: { entradas: dailyQty, facturacion: round2(dailyFac), dias: dailyRows.length },
