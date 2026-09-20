@@ -182,6 +182,68 @@ function firstResourceName(resp: any): string | null {
   return typeof rn === "string" ? rn : null;
 }
 
+/**
+ * Issue #152 — grava o vínculo campanha→evento em crm.google_campaign com
+ * `linked_event_locked = true`, usando o `event_id` que o plano já conhece.
+ *
+ * Porquê: `crm.auto_link_google_campaigns_to_events` liga por nome e exige
+ * score >= 2 tokens longos; eventos com um só token longo ("SM - Lisboa",
+ * "SM - Porto") nunca ligam. Quando a campanha nasce no ERP não há dúvida —
+ * escrevemos o vínculo e trancamo-lo. O auto-link por nome continua a servir
+ * campanhas criadas fora do ERP (respeita `linked_event_locked`).
+ *
+ * A linha de espelho pode ainda não existir (só o sync a cria): nesse caso
+ * inserimos o mínimo (NOT NULL: connection_id, company_id, customer_id,
+ * external_campaign_id, name) e o sync preenche métricas depois.
+ * Falha aqui nunca quebra a publicação — só log.
+ */
+async function linkCampaignToEvent(
+  admin: any,
+  plan: Plan,
+  campaignId: string | null,
+  campaignResource: string | null,
+): Promise<void> {
+  try {
+    if (!campaignId || !plan.event_id) return;
+    if (!plan.connection_id) {
+      console.warn(`[google-publish] plano ${plan.id} sem connection_id — vínculo evento não gravado`);
+      return;
+    }
+    const { data: updated, error: updErr } = await admin
+      .schema("crm")
+      .from("google_campaign")
+      .update({ linked_event_id: plan.event_id, linked_event_locked: true })
+      .eq("connection_id", plan.connection_id)
+      .eq("external_campaign_id", String(campaignId))
+      .select("id");
+    if (updErr) {
+      console.error(`[google-publish] link update falhou: ${updErr.message}`);
+      return;
+    }
+    if (updated && updated.length > 0) return;
+
+    const { error: insErr } = await admin
+      .schema("crm")
+      .from("google_campaign")
+      .insert({
+        connection_id: plan.connection_id,
+        company_id: plan.company_id,
+        customer_id: String(plan.customer_id),
+        external_campaign_id: String(campaignId),
+        resource_name: campaignResource,
+        name: plan.nome_campanha ?? `campanha ${campaignId}`,
+        status: "PAUSED",
+        linked_event_id: plan.event_id,
+        linked_event_locked: true,
+      });
+    if (insErr) console.error(`[google-publish] link insert falhou: ${insErr.message}`);
+  } catch (e) {
+    console.error("[google-publish] link evento falhou:", (e as Error).message);
+  }
+}
+
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   console.log("[google-publish-execute] BUILD_VERSION=google-publish-execute-v2-datetime");
@@ -375,6 +437,12 @@ Deno.serve(async (req) => {
       campaignResource = firstResourceName(r);
       campaignId = campaignResource ? campaignResource.split("/").pop()! : null;
       await persist();
+      // Issue #152 — vínculo campanha→evento pela certeza do plano.
+      // O auto-link por nome (crm.auto_link_google_campaigns_to_events) exige
+      // 2 tokens longos e nunca liga eventos como "SM - Lisboa". Aqui sabemos o
+      // evento sem ambiguidade: gravamos linked_event_id + linked_event_locked,
+      // e o match por nome fica só para campanhas criadas fora do ERP.
+      await linkCampaignToEvent(admin, plan, campaignId, campaignResource);
     }
     resultado.push({ nivel: "campanha", resource_name: campaignResource, id: campaignId, status: "PAUSED" });
 

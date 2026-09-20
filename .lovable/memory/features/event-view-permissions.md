@@ -55,3 +55,7 @@ Mantém-se a policy RESTRICTIVE `company_isolation_*` como rede.
 
 ## Histórico
 - 2026-05-18: criadas as 4 permissões; legacy `auth.uid() IS NOT NULL` removida de `event_forecasts`, `event_ticket_lots`, `event_ticket_office_advances`.
+
+## Rotas de impressão do Audience (2026-09-20, Issue #216)
+
+`/audience/strategies/:id/print` e `/audience/print/:type` vivem FORA do `AudienceLayout` (a impressão não tolera header fixo + sidebar), mas dentro de `AudiencePrintGuard` (`src/components/layout/AudiencePrintGuard.tsx`) — mesma verificação de sessão e de role (admin / platform_admin / marketing_manager), sem chrome. Sem sessão redirige para `/login`.
