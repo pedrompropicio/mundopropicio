@@ -362,6 +362,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
 `,
       );
 
+      // Constrói o objecto `video_metrics` (coluna PRÓPRIA desta função) só com
+      // as métricas que a API confirmou. Ausentes ficam de fora — nunca a zero.
+      const vmFrom = (m: Row, views: number): Row => {
+        const vm: Row = {
+          api_version: API_VERSION,
+          recolhido_em: nowIso,
+          video_views: views,
+        };
+        if (viewsField) vm.campo_visualizacoes = viewsField;
+        const put = (field: string, alvo: string, transform?: (v: number) => number) => {
+          if (!videoFields.includes(field)) return;
+          const v = m[apiKeyToJson(field)];
+          if (v == null) return;
+          vm[alvo] = transform ? transform(Number(v)) : Number(v);
+        };
+        put("metrics.video_view_rate", "view_rate");
+        put("metrics.video_trueview_view_rate", "view_rate");
+        put("metrics.video_quartile_p25_rate", "quartil_p25");
+        put("metrics.video_quartile_p50_rate", "quartil_p50");
+        put("metrics.video_quartile_p75_rate", "quartil_p75");
+        put("metrics.video_quartile_p100_rate", "quartil_p100");
+        put("metrics.average_cpv", "cpv_medio_micros");
+        put("metrics.trueview_average_cpv", "cpv_medio_micros");
+        put("metrics.engagements", "engagements");
+        return vm;
+      };
+
       const byKey = new Map<string, Row>();
       for (const r of rows) {
         const id = r.campaign?.id != null ? String(r.campaign.id) : null;
@@ -380,7 +407,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
           prev.spend_cents += spend;
           prev.conversions += num(m.conversions);
           prev.conversions_value_cents += microsToCents(num(m.conversionsValue) * 1_000_000);
-          prev.raw.video_views += views;
+          prev.video_metrics.video_views += views;
+          if (prev.video_metrics.engagements != null && m[apiKeyToJson("metrics.engagements")] != null) {
+            prev.video_metrics.engagements += num(m[apiKeyToJson("metrics.engagements")]);
+          }
           continue;
         }
         byKey.set(key, {
@@ -400,9 +430,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
           cpm_cents: null,
           ctr: null,
           currency: r.customer?.currencyCode ?? conn.selected_ad_account_currency ?? null,
-          // raw: linha completa da API (raw.metrics tem os nomes da API) +
-          // chave de topo `video_views` normalizada, que a RPC artist_ads_daily lê.
-          raw: { ...r, video_views: views, video_views_field: viewsField },
+          raw: r,
+          video_metrics: vmFrom(m, views),
           last_synced_at: nowIso,
           updated_at: nowIso,
         });
@@ -413,16 +442,35 @@ Deno.serve(async (req: Request): Promise<Response> => {
         row.cpm_cents = row.impressions > 0 ? (row.spend_cents / row.impressions) * 1000 : null;
         row.ctr = row.impressions > 0 ? row.clicks / row.impressions : null;
       }
-      for (let i = 0; i < daily.length; i += 500) {
-        const chunk = daily.slice(i, i + 500);
-        const { error } = await (supabase as any)
+      // Linha existente: UPDATE só de `video_metrics` (as restantes colunas são
+      // do crm-google-sync-campaigns). Linha inexistente: insere completa.
+      let atualizadas = 0;
+      let inseridas = 0;
+      for (const row of daily) {
+        const { data: upd, error: uErr } = await (supabase as any)
           .schema("crm")
           .from("google_campaign_insights_daily")
-          .upsert(chunk, { onConflict: "connection_id,external_campaign_id,date_start" });
-        if (error) throw new Error("daily_upsert_failed: " + error.message);
-        rowsWritten += chunk.length;
+          .update({ video_metrics: row.video_metrics })
+          .eq("connection_id", conn.id)
+          .eq("external_campaign_id", row.external_campaign_id)
+          .eq("date_start", row.date_start)
+          .select("external_campaign_id");
+        if (uErr) throw new Error("daily_update_failed: " + uErr.message);
+        if ((upd ?? []).length > 0) {
+          atualizadas++;
+          rowsWritten++;
+          continue;
+        }
+        const { error: iErr } = await (supabase as any)
+          .schema("crm")
+          .from("google_campaign_insights_daily")
+          .upsert([row], { onConflict: "connection_id,external_campaign_id,date_start" });
+        if (iErr) throw new Error("daily_insert_failed: " + iErr.message);
+        inseridas++;
+        rowsWritten++;
       }
-      per.dias_upsert = daily.length;
+      per.dias_atualizados = atualizadas;
+      per.dias_inseridos = inseridas;
     } catch (e) {
       errorCount++;
       notes.push(`ligação ${conn.id}: diário de vídeo falhou (${(e as Error).message})`);
