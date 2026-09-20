@@ -375,6 +375,12 @@ Deno.serve(async (req) => {
       campaignResource = firstResourceName(r);
       campaignId = campaignResource ? campaignResource.split("/").pop()! : null;
       await persist();
+      // Issue #152 — vínculo campanha→evento pela certeza do plano.
+      // O auto-link por nome (crm.auto_link_google_campaigns_to_events) exige
+      // 2 tokens longos e nunca liga eventos como "SM - Lisboa". Aqui sabemos o
+      // evento sem ambiguidade: gravamos linked_event_id + linked_event_locked,
+      // e o match por nome fica só para campanhas criadas fora do ERP.
+      await linkCampaignToEvent(admin, plan, campaignId, campaignResource);
     }
     resultado.push({ nivel: "campanha", resource_name: campaignResource, id: campaignId, status: "PAUSED" });
 
