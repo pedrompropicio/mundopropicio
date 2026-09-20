@@ -254,7 +254,7 @@ export function BPEvolution({ eventId }: { eventId: string }) {
             {budgetRaiseMarkers.slice(0, 8).map((m, i) => (
               <span
                 key={`b-${m.at}-${i}`}
-                className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-400"
+                className="inline-flex items-center gap-1 rounded-md border border-[hsl(var(--warning))]/40 bg-[hsl(var(--warning))]/10 px-2 py-0.5 text-[11px] text-[hsl(var(--warning))]"
                 title={m.label ?? undefined}
               >
                 <TrendingUp className="h-3 w-3" />
