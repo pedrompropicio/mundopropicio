@@ -328,8 +328,8 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
 
         const cache = Number(args.cacheImpact || 0);
         // Perímetro nas duas bases de IVA — o Lucro escolhe a base pelo contrato.
-        const cNet = withVat ? { total: 0, quota: 0, ...costForMode("realized", false) } : { total: c.total, quota: c.quota };
-        const cGross = withVat ? { total: c.total, quota: c.quota } : costForMode("realized", true);
+        const cNet = withVat ? costForMode("realized", false) : c;
+        const cGross = withVat ? c : costForMode("realized", true);
         return {
           displayValue: c.total + c.quota + cache,
           subtotals: [

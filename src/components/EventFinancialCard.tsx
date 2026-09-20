@@ -150,7 +150,6 @@ export function EventFinancialCard(props: Props) {
     && Math.abs(data.displayValue - data.realValue) > 0.005
     ? data.realValue
     : null;
-  // (texto do hint na linha do valor — "real: …")
 
 
   const Icon = kind === "income" ? TrendingUp : TrendingDown;
@@ -289,7 +288,7 @@ export function EventFinancialCard(props: Props) {
         {!shared.isLoading && realHint != null && (
           <p
             className="mt-1 text-[10px] text-muted-foreground"
-            title="O Lucro e a margem usam sempre a receita real (o fecho não usa receita prevista)."
+            title="Receita real atual (bilheteira + transações realizadas)."
           >
             real: {formatCurrency(realHint)}
           </p>
