@@ -466,9 +466,14 @@ function ProtectedLayout() {
           <BrandedLogo />
         </div>
         <div className="flex items-center gap-2">
-          <ModuleSwitcherButton />
+          <div className="hidden md:block">
+            <ModuleSwitcherButton />
+          </div>
           <CompanySwitcher />
           <GlobalSearch />
+          <div className="md:hidden">
+            <ModuleSwitcherButton />
+          </div>
           <NotificationBell />
           <ThemeToggle />
         </div>
