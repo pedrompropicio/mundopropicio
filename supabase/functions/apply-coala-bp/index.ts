@@ -1090,8 +1090,25 @@ Deno.serve(async (req) => {
               .from("coala_sync_row_state")
               .select("row_key, forecast_id")
               .eq("config_id", configId);
-            for (const a of (rows || [])) {
-              if (a.forecast_id) _anchorFcByKey.set(a.row_key as string, a.forecast_id as string);
+            const anchoredIds = new Set<string>(
+              (rows || [])
+                .map((a: any) => a.forecast_id)
+                .filter((x: any): x is string => typeof x === "string"),
+            );
+            if (anchoredIds.size > 0) {
+              const { data: liveAnchored } = await admin
+                .from("event_forecasts")
+                .select("id")
+                .in("id", Array.from(anchoredIds))
+                .is("version_id", null);
+              const liveAnchoredSet = new Set<string>(
+                (liveAnchored || []).map((f: any) => f.id as string),
+              );
+              for (const a of (rows || [])) {
+                if (a.forecast_id && liveAnchoredSet.has(a.forecast_id as string)) {
+                  _anchorFcByKey.set(a.row_key as string, a.forecast_id as string);
+                }
+              }
             }
           }
           const hit = _anchorFcByKey.get(_rowKey(r));
@@ -1106,6 +1123,7 @@ Deno.serve(async (req) => {
               .select("id, description, amount")
               .eq("event_id", eventId)
               .eq("type", "expense")
+              .is("version_id", null)
               .range(from, from + PAGE - 1);
             if (error) break;
             for (const f of (rows || [])) {
