@@ -379,3 +379,10 @@ Cada fornecedor desativado tem nota auditável: `[2026-09-12] Duplicado por IBAN
 - `docs/procedimentos/PROC-recuperacao-plataforma.md`
 - `.lovable/memory/constraints/lovable-cloud-ddl-workflow.md` (reescrita a 30/08 — o mundo com Test acabou), `edge-fn-esm-sh-supabase-js.md`
 - Issues #186, #202, #203, #204, #206, #211, #140, #83, #96, #61, #57
+
+## Regra de escrita entre syncs (20/09/2026)
+Cada escritor é dono das suas colunas; **nunca dois syncs a escrever o mesmo `jsonb`**.
+O upsert do supabase-js só escreve as colunas do payload, logo colunas próprias ficam
+protegidas por construção. Caso que originou a regra: o cron `crm-google-sync-campaigns-3h`
+apagava as métricas de vídeo que `crm-google-video-metrics-sync` punha em `raw`/`metrics`
+(ver adenda de D-ERP109).

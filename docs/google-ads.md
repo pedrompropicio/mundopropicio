@@ -115,3 +115,21 @@ A área admin `/crm/google-ads` mostra estas dependências como pendentes.
 - `src/App.tsx` — rota `/crm/google-ads`.
 - `src/components/CrmSidebar.tsx` — entrada de navegação.
 - `DATABASE.md`, `SCREENS.md` — documentação.
+
+---
+
+## 7. Métricas de vídeo, configuração e alcance (contas de ARTISTA)
+
+`crm-google-video-metrics-sync` (ver D-ERP109 em `docs/DECISIONS.md`) escreve **apenas em
+colunas próprias**, porque o cron `crm-google-sync-campaigns-3h` reescreve `raw` e `metrics`
+por inteiro de 3 em 3 horas:
+
+| Tabela | Coluna desta função | Dono das restantes colunas |
+|---|---|---|
+| `crm.google_campaign_insights_daily` | `video_metrics` | `crm-google-sync-campaigns` |
+| `crm.google_campaign` | `settings`, `reach` | `crm-google-sync-campaigns` |
+| `crm.google_ad_group` | tabela exclusiva | — |
+
+Regra: **cada escritor é dono das suas colunas; nunca dois syncs a escrever o mesmo jsonb.**
+Linha diária já existente → UPDATE só de `video_metrics`; só se não existir é que a linha
+completa é inserida. Cron: `crm-google-video-metrics-3h`, `'20 */3 * * *'`, `{"days":7}`.

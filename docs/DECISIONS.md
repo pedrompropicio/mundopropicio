@@ -3791,6 +3791,28 @@ Reutilizar esses nomes destruía o publisher de Search → criadas
   (o `type` do grupo é o que diz o formato: bumper, in-stream não ignorável, etc.).
 - Âmbito: ligações `platform='google'` com `connection_scope='artist'`. Corrida registada em
   `sync_runs` (`crm-google-video-metrics-sync`); `{"probe_only":true}` só confirma nomes.
+**Adenda (2026-09-20) — colunas próprias, o cron de 3h já não apaga nada.**
+Causa: o cron 242 (`crm-google-sync-campaigns-3h`, `10 */3 * * *`) faz upsert das mesmas
+linhas de `crm.google_campaign_insights_daily` e substitui `raw` e `metrics` por inteiro,
+por cima do que esta função escrevia. Só `crm.google_ad_group` sobrevivia (tabela à parte).
+Regra passa a ser: **cada escritor é dono das suas colunas; nunca dois syncs a escrever o
+mesmo jsonb** (o upsert do supabase-js só escreve as colunas do payload, logo colunas
+novas ficam protegidas por construção).
+Colunas novas: `crm.google_campaign_insights_daily.video_metrics`,
+`crm.google_campaign.settings` (antigo `raw.config`) e `crm.google_campaign.reach`
+(antigo `metrics.alcance`).
+`video_metrics` = `{ video_views, campo_visualizacoes, view_rate, quartil_p25/p50/p75/p100,
+cpv_medio_micros, engagements, api_version, recolhido_em }` — só as métricas confirmadas
+pelo `GoogleAdsFieldService`; ausentes ficam de fora, nunca a zero inventado.
+Em linhas que já existem só se escreve `video_metrics` (UPDATE por
+`connection_id + external_campaign_id + date_start`); a linha completa só é inserida quando
+não existir. `crm-google-sync-campaigns` **não foi alterada** (serve também os eventos) e não
+inclui `video_metrics`, `settings` nem `reach` em nenhum payload.
+`public.artist_ads_daily` e `public.artist_ads_campaigns` passaram a ler
+`coalesce(i.video_metrics->>'video_views', i.raw->>'video_views')`.
+Cron desta função (criado em Live pelo Pedro): `crm-google-video-metrics-3h`,
+`'20 */3 * * *'`, corpo `{"days":7}` — dez minutos depois do job 242.
+
 **Estado:** vigente.
 
 ## D-ERP110 — Demografia envolvida/alcançada do Instagram (timeframes e notas)

@@ -1,9 +1,13 @@
 // crm-google-video-metrics-sync  (PASSO 1 da captação de métricas de vídeo)
 //
-// Só LEITURA na Google Ads API + escrita nas tabelas-espelho que já existem:
-//   crm.google_campaign_insights_daily (raw->'metrics' + raw.video_views)
-//   crm.google_campaign               (raw.config + metrics.reach_*)
-//   crm.google_ad_group               (campanhas VIDEO)
+// Só LEITURA na Google Ads API + escrita em COLUNAS PRÓPRIAS (cada escritor é
+// dono das suas colunas; nunca dois syncs a escrever o mesmo jsonb):
+//   crm.google_campaign_insights_daily.video_metrics
+//   crm.google_campaign.settings + crm.google_campaign.reach
+//   crm.google_ad_group               (campanhas VIDEO; tabela exclusiva)
+// raw/metrics/impressions/clicks/spend_cents/currency/last_synced_at são do
+// crm-google-sync-campaigns (cron 3h) e NUNCA são escritas aqui em linhas que
+// já existem — era isso que apagava as métricas de vídeo de 3 em 3 horas.
 //
 // Âmbito: ligações google com connection_scope='artist' (hoje só a do Litto).
 // NÃO altera o crm-google-sync-campaigns (caminho de eventos intacto), nem
@@ -362,6 +366,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
 `,
       );
 
+      // Constrói o objecto `video_metrics` (coluna PRÓPRIA desta função) só com
+      // as métricas que a API confirmou. Ausentes ficam de fora — nunca a zero.
+      const vmFrom = (m: Row, views: number): Row => {
+        const vm: Row = {
+          api_version: API_VERSION,
+          recolhido_em: nowIso,
+          video_views: views,
+        };
+        if (viewsField) vm.campo_visualizacoes = viewsField;
+        const put = (field: string, alvo: string, transform?: (v: number) => number) => {
+          if (!videoFields.includes(field)) return;
+          const v = m[apiKeyToJson(field)];
+          if (v == null) return;
+          vm[alvo] = transform ? transform(Number(v)) : Number(v);
+        };
+        put("metrics.video_view_rate", "view_rate");
+        put("metrics.video_trueview_view_rate", "view_rate");
+        put("metrics.video_quartile_p25_rate", "quartil_p25");
+        put("metrics.video_quartile_p50_rate", "quartil_p50");
+        put("metrics.video_quartile_p75_rate", "quartil_p75");
+        put("metrics.video_quartile_p100_rate", "quartil_p100");
+        put("metrics.average_cpv", "cpv_medio_micros");
+        put("metrics.trueview_average_cpv", "cpv_medio_micros");
+        put("metrics.engagements", "engagements");
+        return vm;
+      };
+
       const byKey = new Map<string, Row>();
       for (const r of rows) {
         const id = r.campaign?.id != null ? String(r.campaign.id) : null;
@@ -380,7 +411,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
           prev.spend_cents += spend;
           prev.conversions += num(m.conversions);
           prev.conversions_value_cents += microsToCents(num(m.conversionsValue) * 1_000_000);
-          prev.raw.video_views += views;
+          prev.video_metrics.video_views += views;
+          if (prev.video_metrics.engagements != null && m[apiKeyToJson("metrics.engagements")] != null) {
+            prev.video_metrics.engagements += num(m[apiKeyToJson("metrics.engagements")]);
+          }
           continue;
         }
         byKey.set(key, {
@@ -400,9 +434,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
           cpm_cents: null,
           ctr: null,
           currency: r.customer?.currencyCode ?? conn.selected_ad_account_currency ?? null,
-          // raw: linha completa da API (raw.metrics tem os nomes da API) +
-          // chave de topo `video_views` normalizada, que a RPC artist_ads_daily lê.
-          raw: { ...r, video_views: views, video_views_field: viewsField },
+          raw: r,
+          video_metrics: vmFrom(m, views),
           last_synced_at: nowIso,
           updated_at: nowIso,
         });
@@ -413,16 +446,35 @@ Deno.serve(async (req: Request): Promise<Response> => {
         row.cpm_cents = row.impressions > 0 ? (row.spend_cents / row.impressions) * 1000 : null;
         row.ctr = row.impressions > 0 ? row.clicks / row.impressions : null;
       }
-      for (let i = 0; i < daily.length; i += 500) {
-        const chunk = daily.slice(i, i + 500);
-        const { error } = await (supabase as any)
+      // Linha existente: UPDATE só de `video_metrics` (as restantes colunas são
+      // do crm-google-sync-campaigns). Linha inexistente: insere completa.
+      let atualizadas = 0;
+      let inseridas = 0;
+      for (const row of daily) {
+        const { data: upd, error: uErr } = await (supabase as any)
           .schema("crm")
           .from("google_campaign_insights_daily")
-          .upsert(chunk, { onConflict: "connection_id,external_campaign_id,date_start" });
-        if (error) throw new Error("daily_upsert_failed: " + error.message);
-        rowsWritten += chunk.length;
+          .update({ video_metrics: row.video_metrics })
+          .eq("connection_id", conn.id)
+          .eq("external_campaign_id", row.external_campaign_id)
+          .eq("date_start", row.date_start)
+          .select("external_campaign_id");
+        if (uErr) throw new Error("daily_update_failed: " + uErr.message);
+        if ((upd ?? []).length > 0) {
+          atualizadas++;
+          rowsWritten++;
+          continue;
+        }
+        const { error: iErr } = await (supabase as any)
+          .schema("crm")
+          .from("google_campaign_insights_daily")
+          .upsert([row], { onConflict: "connection_id,external_campaign_id,date_start" });
+        if (iErr) throw new Error("daily_insert_failed: " + iErr.message);
+        inseridas++;
+        rowsWritten++;
       }
-      per.dias_upsert = daily.length;
+      per.dias_atualizados = atualizadas;
+      per.dias_inseridos = inseridas;
     } catch (e) {
       errorCount++;
       notes.push(`ligação ${conn.id}: diário de vídeo falhou (${(e as Error).message})`);
@@ -567,54 +619,45 @@ Deno.serve(async (req: Request): Promise<Response> => {
       notes.push(`ligação ${conn.id}: métricas de alcance não selecionáveis nesta versão`);
     }
 
-    // escreve config + alcance em crm.google_campaign (raw/metrics já existem)
+    // escreve configuração e alcance em COLUNAS PRÓPRIAS de crm.google_campaign
+    // (`settings` e `reach`). Nunca toca em raw, metrics nem last_synced_at —
+    // essas são do crm-google-sync-campaigns.
     const idsToUpdate = new Set<string>([
       ...configByCampaign.keys(),
       ...reachByCampaign.keys(),
     ]);
     if (idsToUpdate.size > 0) {
-      const { data: existing, error: exErr } = await (supabase as any)
-        .schema("crm")
-        .from("google_campaign")
-        .select("external_campaign_id, raw, metrics")
-        .eq("connection_id", conn.id)
-        .in("external_campaign_id", Array.from(idsToUpdate));
-      if (exErr) {
-        errorCount++;
-        notes.push(`ligação ${conn.id}: leitura de google_campaign falhou (${exErr.message})`);
-      } else {
-        let updated = 0;
-        for (const row of existing ?? []) {
-          const id = String(row.external_campaign_id);
-          const cfg = configByCampaign.get(id);
-          const reach = reachByCampaign.get(id);
-          const newRaw = { ...(row.raw ?? {}) } as Row;
-          if (cfg) {
-            newRaw.config = {
-              recolhido_em: nowIso,
-              api_version: API_VERSION,
-              campanha: cfg.campanha,
-              criterios: cfg.criterios,
-            };
-          }
-          const newMetrics = { ...(row.metrics ?? {}) } as Row;
-          if (reach) newMetrics.alcance = reach;
-          const { error: uErr } = await (supabase as any)
-            .schema("crm")
-            .from("google_campaign")
-            .update({ raw: newRaw, metrics: newMetrics, last_synced_at: nowIso })
-            .eq("connection_id", conn.id)
-            .eq("external_campaign_id", id);
-          if (uErr) {
-            errorCount++;
-            notes.push(`ligação ${conn.id}: update campanha ${id} falhou (${uErr.message})`);
-          } else {
-            updated++;
-            rowsWritten++;
-          }
+      let updated = 0;
+      for (const id of idsToUpdate) {
+        const cfg = configByCampaign.get(id);
+        const reach = reachByCampaign.get(id);
+        const patch: Row = {};
+        if (cfg) {
+          patch.settings = {
+            recolhido_em: nowIso,
+            api_version: API_VERSION,
+            campanha: cfg.campanha,
+            criterios: cfg.criterios,
+          };
         }
-        per.campanhas_atualizadas = updated;
+        if (reach) patch.reach = reach;
+        if (Object.keys(patch).length === 0) continue;
+        const { data: upd, error: uErr } = await (supabase as any)
+          .schema("crm")
+          .from("google_campaign")
+          .update(patch)
+          .eq("connection_id", conn.id)
+          .eq("external_campaign_id", id)
+          .select("external_campaign_id");
+        if (uErr) {
+          errorCount++;
+          notes.push(`ligação ${conn.id}: update campanha ${id} falhou (${uErr.message})`);
+        } else if ((upd ?? []).length > 0) {
+          updated++;
+          rowsWritten++;
+        }
       }
+      per.campanhas_atualizadas = updated;
     }
 
     // ---- 6) Ad groups das campanhas VIDEO ---------------------------------
