@@ -395,6 +395,7 @@ export function NewCardExpenseModal({
           type: "expense",
           event_id: eventId || null,
           forecast_id: forecastId,
+          category_id: categoryId || null,
           parent_transaction_id: expense.parent_transaction_id ?? null,
           is_transitory: expense.is_transitory ?? null,
           exclude_from_result: expense.exclude_from_result ?? null,

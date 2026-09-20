@@ -1100,7 +1100,9 @@ Deno.serve(async (req) => {
                 .from("event_forecasts")
                 .select("id")
                 .in("id", Array.from(anchoredIds))
-                .is("version_id", null);
+                .is("version_id", null)
+                // Leitura por lista explícita de ids: o limite é o nº de âncoras.
+                .limit(anchoredIds.size);
               const liveAnchoredSet = new Set<string>(
                 (liveAnchored || []).map((f: any) => f.id as string),
               );

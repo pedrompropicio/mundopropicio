@@ -13,7 +13,10 @@
  *  - transações que não consomem verba do BP: `is_transitory`,
  *    `exclude_from_result`, `reversed_at` preenchido, `is_hidden` e
  *    `shared_cost_account_id` preenchido (custo partilhado com terceiros —
- *    dinheiro de terceiros, nunca consome verba; D-ERP69, 16/09/2026).
+ *    dinheiro de terceiros, nunca consome verba; D-ERP69, 16/09/2026);
+ *  - rubrica 10.3 "Transferências Internas" (ou descendente) — movimento de
+ *    tesouraria/bilheteira, o BP nunca tem linha para ele, com ou sem evento
+ *    (#111, 20/09/2026).
  */
 import { supabase } from "@/integrations/supabase/client";
 
@@ -28,10 +31,19 @@ export type BpLineCandidate = {
   reversed_at?: string | null;
   is_hidden?: boolean | null;
   shared_cost_account_id?: string | null;
+  category_id?: string | null;
+  /** Código da rubrica, quando já é conhecido (evita a ida à BD). */
+  category_code?: string | null;
 };
+
+/** #111 — 10.3 "Transferências Internas" (e descendentes) nunca exige linha de BP. */
+export function isInternalTransferCategoryCode(code?: string | null): boolean {
+  return !!code && code.trim().startsWith("10.3");
+}
 
 /** Verificação estrutural (sem ir à BD): candidata a precisar de linha de BP. */
 export function structurallyNeedsBpLine(tx: BpLineCandidate): boolean {
+  if (isInternalTransferCategoryCode(tx.category_code)) return false;
   return (
     tx.type === "expense" &&
     !!tx.event_id &&
@@ -43,6 +55,24 @@ export function structurallyNeedsBpLine(tx: BpLineCandidate): boolean {
     !tx.is_hidden &&
     !tx.shared_cost_account_id
   );
+}
+
+/** Ids de rubricas 10.3* de entre as pedidas (uma leitura, sem paginação necessária). */
+export async function fetchInternalTransferCategoryIds(
+  categoryIds: (string | null | undefined)[],
+): Promise<Set<string>> {
+  const unique = [...new Set(categoryIds.filter(Boolean) as string[])];
+  if (unique.length === 0) return new Set();
+  const { data, error } = await supabase
+    .from("account_categories")
+    .select("id, code")
+    .in("id", unique);
+  if (error) throw error;
+  const out = new Set<string>();
+  for (const c of (data ?? []) as any[]) {
+    if (isInternalTransferCategoryCode(c.code)) out.add(c.id);
+  }
+  return out;
 }
 
 /** Conjunto dos eventos (de entre os pedidos) que são geridos `with_bp`. */
@@ -81,7 +111,17 @@ export async function fetchWithBpEventIds(eventIds: string[]): Promise<Set<strin
 export async function partitionByBpLineRequirement<T extends BpLineCandidate>(
   txs: T[],
 ): Promise<{ approvable: T[]; blocked: T[] }> {
-  const candidates = txs.filter(structurallyNeedsBpLine);
+  let candidates = txs.filter(structurallyNeedsBpLine);
+  if (candidates.length === 0) return { approvable: [...txs], blocked: [] };
+
+  // #111: 10.3* (Transferências Internas) nunca exige linha de BP.
+  const unknownCodes = candidates.filter((t) => !t.category_code && t.category_id);
+  if (unknownCodes.length > 0) {
+    const internal = await fetchInternalTransferCategoryIds(unknownCodes.map((t) => t.category_id));
+    if (internal.size > 0) {
+      candidates = candidates.filter((t) => !(t.category_id && internal.has(t.category_id)));
+    }
+  }
   if (candidates.length === 0) return { approvable: [...txs], blocked: [] };
 
   const withBp = await fetchWithBpEventIds(candidates.map((t) => t.event_id as string));
@@ -98,6 +138,11 @@ export async function partitionByBpLineRequirement<T extends BpLineCandidate>(
 /** Uma transação isolada precisa de linha de BP antes de ser aprovada? */
 export async function needsBpLineBeforeApproval(tx: BpLineCandidate): Promise<boolean> {
   if (!structurallyNeedsBpLine(tx)) return false;
+  // #111: sem `category_code` conhecido, resolve o código da rubrica antes de decidir.
+  if (!tx.category_code && tx.category_id) {
+    const internal = await fetchInternalTransferCategoryIds([tx.category_id]);
+    if (internal.has(tx.category_id)) return false;
+  }
   const withBp = await fetchWithBpEventIds([tx.event_id as string]);
   return withBp.has(tx.event_id as string);
 }

@@ -38,6 +38,20 @@ Bloqueia quando **tudo** é verdade:
      `trg_force_exclude_result_shared_cost`, logo `exclude_from_result` ainda é
      false quando a trava olha — uma fatura desdobrada nascida `approved` era
      recusada.
+5. **Rubrica 10.3 "Transferências Internas" (ou descendente, `code LIKE '10.3%'`)
+   — nunca exige linha de BP (20/09/2026, #111), com ou sem evento.** São
+   movimentos de tesouraria/bilheteira; o BP nunca tem linha para eles. Em Live
+   havia 17 transações aprovadas/pagas em 10.3 com evento (Anitta 13, H&K Lisboa
+   1, H&K Porto 1, Maiara Lisboa 1, Maiara Porto 1) que ficavam "sem linha" por
+   definição. Implementada nas três camadas: trigger
+   (`enforce_transaction_approval_permission`, migração 20/09/2026), helper
+   `src/lib/bp-line-required.ts` (`isInternalTransferCategoryCode` +
+   `fetchInternalTransferCategoryIds`, com `category_code` opcional em
+   `BpLineCandidate`) e edge fn `approve-transaction` (deploy pendente).
+   Nota: não existe invariante nem métrica que conte "transações sem linha",
+   logo nada houve a excluir de contagens.
+
+
 
 ## Edge function (approve-transaction) — isenções D1+D8
 
