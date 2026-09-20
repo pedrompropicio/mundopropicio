@@ -38,13 +38,16 @@ const SOURCE = "platform_api";
 const MEDIA_LIMIT = 25;
 const INVOKE_BUDGET_MS = 110_000;
 
-/** Métricas de conta pedidas uma a uma (tolerante a métricas indisponíveis). */
-const ACCOUNT_INSIGHTS = [
-  "reach",
-  "views",
-  "accounts_engaged",
-  "total_interactions",
-  "profile_links_taps",
+/** Métricas de conta pedidas uma a uma (tolerante a métricas indisponíveis).
+ * `reach` funciona como série diária (period=day, sem metric_type) — não se mexe,
+ * para não alterar a série já existente. As restantes exigem
+ * metric_type=total_value na v25.0 (respondiam 200 com `data` vazia sem ele). */
+const ACCOUNT_INSIGHTS: Array<{ metric: string; metric_type?: string }> = [
+  { metric: "reach" },
+  { metric: "views", metric_type: "total_value" },
+  { metric: "accounts_engaged", metric_type: "total_value" },
+  { metric: "total_interactions", metric_type: "total_value" },
+  { metric: "profile_links_taps", metric_type: "total_value" },
 ];
 
 const MEDIA_INSIGHTS = [
@@ -59,9 +62,12 @@ const MEDIA_INSIGHTS = [
 
 // Timeframes: last_14_days / last_30_days / last_90_days / prev_month deixaram de
 // ser suportados na v20.0 — só se enviam this_week e this_month.
-// `engaged_audience_demographics` só vem se houver >= 100 interações no período,
-// por isso tenta-se this_week e, se vier vazio, this_month uma vez.
-// `reached_audience_demographics` já não consta da referência: pede-se UMA vez e,
+// `engaged_audience_demographics`: a Meta documenta a hipótese de a métrica só vir
+// com >= 100 interações no período (hipótese, NÃO confirmada por nós) — tenta-se
+// this_week e, se vier vazio, this_month uma vez; a nota junta o valor real de
+// total_interactions da janela equivalente, sem tirar conclusões.
+// `reached_audience_demographics` É aceite na v25.0 (a API devolve título, descrição
+// e id); apenas não consta da página de referência consultada. Pede-se UMA vez e,
 // se a API a recusar, não se repete por breakdown.
 const DEMOGRAPHIC_METRICS: Array<
   { metric: string; audience_type: string; timeframes: string[] }
@@ -255,19 +261,34 @@ Deno.serve(async (req) => {
       }
 
       // ------------------------------------------------- insights diários
-      for (const metric of ACCOUNT_INSIGHTS) {
-        const ins = await graphGet(
-          `${node}/insights`,
-          { metric, period: "day", since: yesterday, until: today },
-          token,
-          base,
-        );
+      for (const spec of ACCOUNT_INSIGHTS) {
+        const metric = spec.metric;
+        const params: Record<string, string> = {
+          metric,
+          period: "day",
+          since: yesterday,
+          until: today,
+        };
+        if (spec.metric_type) params.metric_type = spec.metric_type;
+        const ins = await graphGet(`${node}/insights`, params, token, base);
         graphCalls++;
         if (!ins.ok) {
           notes.push(`insight ${metric} indisponível: ${ins.body?.error?.message ?? ins.status}`);
           continue;
         }
-        for (const entry of ins.body?.data ?? []) {
+        const entries = ins.body?.data ?? [];
+        const comValores = entries.some((e: any) =>
+          (e?.values?.length ?? 0) > 0 || e?.total_value !== undefined
+        );
+        if (!comValores) {
+          notes.push(
+            `insight ${metric} sem valores na resposta (pedido: period=day, metric_type=${
+              spec.metric_type ?? "—"
+            })`,
+          );
+          continue;
+        }
+        for (const entry of entries) {
           const name = entry?.name ?? metric;
           const values = entry?.values ?? [];
           if (!values.length && entry?.total_value) {
@@ -312,6 +333,44 @@ Deno.serve(async (req) => {
       // se distinguir "total_value vazio" de "resposta sem dados".
       const demoRaw: Record<string, { timeframe: string; breakdown: string; body: string }> = {};
 
+      // Evidência, não hipótese: por cada timeframe de demografia que veio vazio,
+      // UMA chamada a total_interactions na janela equivalente (máx. 1 por
+      // timeframe por ligação). A função não tira conclusões — só registra.
+      const janelaDias: Record<string, number> = { this_week: 7, this_month: 30 };
+      const evidenciaCache = new Map<string, string>();
+      const evidenciaInteracoes = async (timeframe: string): Promise<string> => {
+        const cached = evidenciaCache.get(timeframe);
+        if (cached) return cached;
+        const dias = janelaDias[timeframe] ?? 7;
+        const since = ymd(new Date(Date.now() - dias * 86_400_000));
+        let texto: string;
+        const r = await graphGet(
+          `${node}/insights`,
+          {
+            metric: "total_interactions",
+            period: "day",
+            metric_type: "total_value",
+            since,
+            until: today,
+          },
+          token,
+          base,
+        );
+        graphCalls++;
+        if (!r.ok) {
+          texto = `total_interactions da janela não obtido (${
+            String(r.body?.error?.message ?? r.status).slice(0, 200)
+          })`;
+        } else {
+          const v = toCount(r.body?.data?.[0]?.total_value?.value);
+          texto = v === null
+            ? "total_interactions da janela não obtido (resposta sem valores)"
+            : `total_interactions na janela de ${dias} dias: ${v}`;
+        }
+        evidenciaCache.set(timeframe, texto);
+        return texto;
+      };
+
       for (const dm of DEMOGRAPHIC_METRICS) {
         let unsupported = false;
 
@@ -319,9 +378,11 @@ Deno.serve(async (req) => {
           if (unsupported) break;
           let rowsForPair = 0;
           let lastTimeframe = dm.timeframes[0];
+          const tentados: string[] = [];
 
           for (const timeframe of dm.timeframes) {
             lastTimeframe = timeframe;
+            tentados.push(timeframe);
             const dem = await graphGet(
               `${node}/insights`,
               {
@@ -383,10 +444,12 @@ Deno.serve(async (req) => {
           }
 
           if (!unsupported && rowsForPair === 0) {
+            const provas: string[] = [];
+            for (const tf of tentados) provas.push(await evidenciaInteracoes(tf));
             notes.push(
-              `demografia ${dm.metric}/${breakdown} sem dados (abaixo do mínimo de 100 interações no período; timeframes tentados: ${
-                dm.timeframes.join(", ")
-              }, último ${lastTimeframe})`,
+              `demografia ${dm.metric}/${breakdown} sem dados (breakdown sem results; causa por confirmar; timeframes tentados: ${
+                tentados.join(", ")
+              }, último ${lastTimeframe})${provas.length ? " — " + provas.join("; ") : ""}`,
             );
           }
         }
