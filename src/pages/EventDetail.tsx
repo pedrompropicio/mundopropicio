@@ -621,7 +621,7 @@ export default function EventDetail() {
     id ?? "",
     event?.partner_calc_basis,
     cardIncomePerimeter,
-    cardExpensePerimeter?.mode ?? null,
+    cardExpensePerimeter,
     Number(calculatedCacheImpact || 0),
   );
 

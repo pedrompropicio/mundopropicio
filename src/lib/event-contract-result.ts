@@ -98,5 +98,9 @@ export function computeEventContractResult(
     result: revenueBase - expenseBase,
     label,
     perimeterMismatch,
+    settlementResult: settlementResult ?? null,
+    differsFromSettlement:
+      settlementResult != null &&
+      Math.abs(revenueBase - expenseBase - settlementResult) > 0.005,
   };
 }
