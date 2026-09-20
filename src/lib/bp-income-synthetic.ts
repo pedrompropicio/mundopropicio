@@ -26,6 +26,8 @@ export interface TicketSyntheticResult {
   currentQty: number;
   /** real (s/IVA), critério linha a linha (D11) */
   realNet: number;
+  /** #227 — evento já realizado: o previsto corrente é o real. */
+  eventRealized: boolean;
 }
 
 export async function computeTicketSynthetic(
