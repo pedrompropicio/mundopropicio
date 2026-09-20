@@ -1,0 +1,21 @@
+<svg viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" style="font-family: inherit; color: hsl(var(--foreground));">
+  <title id="title">Cascata de fechamentos</title><desc id="desc">O fechamento raiz do evento tem filhos em escada; cada filho recebe uma quota do resultado do pai e reparte-a pelos seus participantes.</desc>
+  <defs><marker id="arrow-cascata" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10z" fill="hsl(var(--primary))"/></marker></defs>
+  <rect x="20" y="20" width="300" height="62" rx="10" fill="hsl(var(--primary) / .08)" stroke="hsl(var(--primary))" stroke-width="2"/>
+  <rect x="100" y="130" width="300" height="62" rx="10" fill="hsl(var(--primary) / .05)" stroke="hsl(var(--border))" stroke-width="2"/>
+  <rect x="180" y="240" width="300" height="62" rx="10" fill="hsl(var(--primary) / .03)" stroke="hsl(var(--border))" stroke-width="2"/>
+  <g fill="none" stroke="hsl(var(--primary))" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#arrow-cascata)">
+    <path d="M60 82 V130"/><path d="M140 192 V240"/>
+  </g>
+  <g fill="currentColor" font-size="16">
+    <text x="36" y="46">Fechamento do evento (raiz)</text>
+    <text x="36" y="68" font-size="13" fill="hsl(var(--muted-foreground))">tudo o que não está marcado noutro fechamento</text>
+    <text x="116" y="156">Fechamento filho</text>
+    <text x="116" y="178" font-size="13" fill="hsl(var(--muted-foreground))">quota = % × resultado do pai + linhas próprias</text>
+    <text x="196" y="266">Fechamento neto</text>
+    <text x="196" y="288" font-size="13" fill="hsl(var(--muted-foreground))">quota = % × resultado do pai + linhas próprias</text>
+  </g>
+  <g fill="hsl(var(--muted-foreground))" font-size="13">
+    <text x="330" y="336">Cada nó reparte o seu resultado pelos participantes (casa + sócios).</text>
+  </g>
+</svg>
