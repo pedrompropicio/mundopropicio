@@ -1242,6 +1242,7 @@ Deno.serve(async (req) => {
           ? COALA_BR_SUPPLIER_ID
           : (r.supplier ? supByName.get(r.supplier) ?? null : null);
         const accountId = isPagoBR ? null : defaultAccountId;
+        const linkedForecastId = await resolveForecastIdForRow(r);
 
         const { data: t, error } = await admin.from("transactions").insert({
           company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
@@ -1250,10 +1251,23 @@ Deno.serve(async (req) => {
           paid_amount: r.grossAmount, payment_date: payDate,
           due_date: r.dueDate, invoice_ref: r.invoiceRef,
           account_id: accountId,
+          // #113: vínculo canónico BP↔TX (D-ERP1)
+          forecast_id: linkedForecastId,
         }).select("id").single();
         if (error || !t) {
           audit.errors.push({ kind: isPagoBR ? "txMissing-BR" : "txMissing", error: error?.message ?? "no id", ref: it.rowNumber });
           continue;
+        }
+        // Back-link legado (event_forecasts.transaction_id) — só se estiver vazio.
+        if (linkedForecastId) {
+          const { data: fcSnap } = await admin
+            .from("event_forecasts")
+            .select("transaction_id")
+            .eq("id", linkedForecastId)
+            .maybeSingle();
+          if (fcSnap && !(fcSnap as any).transaction_id) {
+            await admin.from("event_forecasts").update({ transaction_id: t.id }).eq("id", linkedForecastId);
+          }
         }
         if (isPagoBR) {
           // schema partner_paid_expenses: id, event_id, partner_id, transaction_id, notes, paid_date, company_id
