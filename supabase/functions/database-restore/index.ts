@@ -392,6 +392,8 @@ Deno.serve(async (req) => {
         log_scope: logScope,
         backup_company_id: backupCompanyId,
         applied_company_id: applyCompanyId,
+        legacy_company_stamped: Object.keys(stampedLegacy).length ? stampedLegacy : undefined,
+        target_company_id: backupScope === "legacy" ? targetCompanyId : undefined,
         backup_file,
         backup_date: backupJson.created_at,
         total_tables: tablesToRestore.length,
