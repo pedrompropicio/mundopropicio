@@ -88,246 +88,43 @@ export function useRealCacheCalculation(
     return map;
   }, [categories]);
 
-  // Calculate real revenue and occupancy
+  // Receita real e ocupação — núcleo puro partilhado com a grelha de eventos.
   const { realRevenue, occupancyPct } = useMemo(() => {
     if (!salesData) return { realRevenue: { gross: 0, net: 0 }, occupancyPct: 0 };
-    const { sales, lots, zones } = salesData;
-
-    // Total capacity from zones
-    const totalCapacity = (zones as any[]).reduce((s: number, z: any) => s + Number(z.total_capacity || 0), 0);
-
-    const lotIvaMap = new Map<string, number>();
-    for (const lot of lots) {
-      lotIvaMap.set(lot.id, Number(lot.iva_rate ?? 6));
-    }
-
-    let gross = 0;
-    let net = 0;
-    let totalSold = 0;
-    for (const sale of sales) {
-      const qty = Number(sale.quantity);
-      const price = Number(sale.unit_price);
-      const ivaRate = lotIvaMap.get(sale.lot_id) ?? 6;
-      gross += qty * price;
-      net += qty * (price / (1 + ivaRate / 100));
-      totalSold += qty;
-    }
-    const occ = totalCapacity > 0 ? (totalSold / totalCapacity) * 100 : 100;
-    return { realRevenue: { gross, net }, occupancyPct: occ };
+    const r = computeTicketRevenueAndOccupancy(salesData.sales, salesData.lots, salesData.zones);
+    return { realRevenue: r.revenue, occupancyPct: r.occupancyPct };
   }, [salesData]);
 
-  // Calculate per-config results with detailed breakdowns
-  const results: RealCacheResult[] = useMemo(() => {
-    return cacheConfigs.map((config: any) => {
-      if (config.cache_type === "fixed") {
-        return {
-          configId: config.id,
-          artistName: config.artist_name,
-          cacheType: "fixed",
-          realRevenueGross: realRevenue.gross,
-          realRevenueNet: realRevenue.net,
-          revenueBasis: 0,
-          revenueBasisLabel: "",
-          deductionDetails: [],
-          realDeductionAmount: 0,
-          fixedPctDeduction: 0,
-          fixedPctRate: 0,
-          totalDeduction: 0,
-          baseForCalc: 0,
-          percentage: 0,
-          calculatedAmount: Number(config.fixed_amount),
-          minimumGuaranteed: 0,
-          finalAmount: Number(config.fixed_amount),
-          isUsingMinimum: false,
-          missingDeductionCategories: [],
-        };
-      }
+  // Resultados por config (regra em `src/lib/real-cache-calc.ts`).
+  const results: RealCacheResult[] = useMemo(
+    () =>
+      computeRealCacheResults({
+        configs: cacheConfigs,
+        deductions,
+        categoryMap,
+        expenses: realExpenses,
+        revenue: realRevenue,
+        occupancyPct,
+      }),
+    [cacheConfigs, deductions, categoryMap, realExpenses, realRevenue, occupancyPct],
+  );
 
-      const basisIsGross = config.cache_revenue_basis === "gross";
-      const basis = basisIsGross ? realRevenue.gross : realRevenue.net;
-      const basisLabel = basisIsGross ? "Bruta (c/ IVA)" : "Líquida (s/ IVA)";
-
-      const configDeductions = deductions.filter(
-        (d: any) => d.cache_config_id === config.id
-      );
-      const deductionCategoryIds = configDeductions.map((d: any) => d.category_id);
-      const deductionBasisGross = (config.cache_deduction_basis || "net") === "gross";
-
-      // Build per-category deduction details
-      const deductionDetails: DeductionDetail[] = deductionCategoryIds.map((catId: string) => {
-        const catInfo = categoryMap.get(catId);
-        const matchingExpenses = realExpenses.filter(
-          (t: any) => t.category_id === catId
-        );
-        const amount = matchingExpenses.reduce((s: number, t: any) => {
-          const base = Number(t.amount);
-          if (deductionBasisGross) {
-            const rate = Number(t.iva_rate ?? 0);
-            return s + base * (1 + rate / 100);
-          }
-          return s + base;
-        }, 0);
-
-        return {
-          categoryId: catId,
-          categoryCode: catInfo?.code ?? "",
-          categoryName: catInfo?.name ?? "Categoria desconhecida",
-          amount,
-          hasTransaction: matchingExpenses.length > 0,
-        };
-      });
-
-      const realDeductionAmount = deductionDetails.reduce((s, d) => s + d.amount, 0);
-      const fixedPctRate = Number(config.fixed_deduction_percentage) || 0;
-      const fixedPctDeduction = basis * (fixedPctRate / 100);
-      const totalDeduction = realDeductionAmount + fixedPctDeduction;
-      const baseForCalc = basis - totalDeduction;
-      const pct = resolvePercentageFromTiers(config, occupancyPct);
-      const calculated = Math.max(0, baseForCalc * (pct / 100));
-      const minGuaranteed = Number(config.minimum_guaranteed) || 0;
-      const finalAmount = Math.round(Math.max(minGuaranteed, calculated) * 100) / 100;
-
-      const missingDeductionCategories = deductionDetails.filter((d) => !d.hasTransaction);
-
-      return {
-        configId: config.id,
-        artistName: config.artist_name,
-        cacheType: "variable",
-        realRevenueGross: realRevenue.gross,
-        realRevenueNet: realRevenue.net,
-        revenueBasis: basis,
-        revenueBasisLabel: basisLabel,
-        deductionDetails,
-        realDeductionAmount,
-        fixedPctDeduction,
-        fixedPctRate,
-        totalDeduction,
-        baseForCalc,
-        percentage: pct,
-        calculatedAmount: calculated,
-        minimumGuaranteed: minGuaranteed,
-        finalAmount,
-        isUsingMinimum: minGuaranteed > 0 && finalAmount === Math.round(minGuaranteed * 100) / 100,
-        missingDeductionCategories,
-      };
-    });
-  }, [cacheConfigs, deductions, realRevenue, occupancyPct, realExpenses, categoryMap]);
-
-  // Per-city results (for tour events) — calculate real values per child event id
+  // Por cidade (turnês): mesma regra, receita/ocupação/despesas da cidade.
   const resultsByCity = useMemo(() => {
     const map: Record<string, RealCacheResult[]> = {};
     if (!salesData || childEventIds.length === 0) return map;
-
-    const { sales, lots, zones } = salesData;
-    const lotIvaMap = new Map<string, number>();
-    for (const lot of lots) lotIvaMap.set(lot.id, Number(lot.iva_rate ?? 6));
-    const zoneToEvent = new Map<string, string>();
-    const capacityByEvent = new Map<string, number>();
-    for (const z of zones as any[]) {
-      zoneToEvent.set(z.id, z.event_id);
-      capacityByEvent.set(z.event_id, (capacityByEvent.get(z.event_id) ?? 0) + Number(z.total_capacity ?? 0));
-    }
-
     for (const childId of childEventIds) {
-      let gross = 0;
-      let net = 0;
-      let sold = 0;
-      for (const sale of sales) {
-        const eid = zoneToEvent.get(sale.zone_id);
-        if (eid !== childId) continue;
-        const qty = Number(sale.quantity);
-        const price = Number(sale.unit_price);
-        const ivaRate = lotIvaMap.get(sale.lot_id) ?? 6;
-        gross += qty * price;
-        net += qty * (price / (1 + ivaRate / 100));
-        sold += qty;
-      }
-      const cap = capacityByEvent.get(childId) ?? 0;
-      const occ = cap > 0 ? (sold / cap) * 100 : 100;
-      const childExpenses = realExpenses.filter((t: any) => t.event_id === childId);
-
-      const cityResults: RealCacheResult[] = cacheConfigs.map((config: any) => {
-        if (config.cache_type === "fixed") {
-          return {
-            configId: config.id,
-            artistName: config.artist_name,
-            cacheType: "fixed",
-            realRevenueGross: gross,
-            realRevenueNet: net,
-            revenueBasis: 0,
-            revenueBasisLabel: "",
-            deductionDetails: [],
-            realDeductionAmount: 0,
-            fixedPctDeduction: 0,
-            fixedPctRate: 0,
-            totalDeduction: 0,
-            baseForCalc: 0,
-            percentage: 0,
-            calculatedAmount: Number(config.fixed_amount),
-            minimumGuaranteed: 0,
-            finalAmount: Number(config.fixed_amount),
-            isUsingMinimum: false,
-            missingDeductionCategories: [],
-          };
-        }
-        const basisIsGross = config.cache_revenue_basis === "gross";
-        const basis = basisIsGross ? gross : net;
-        const basisLabel = basisIsGross ? "Bruta (c/ IVA)" : "Líquida (s/ IVA)";
-        const configDeductions = deductions.filter((d: any) => d.cache_config_id === config.id);
-        const deductionCategoryIds = configDeductions.map((d: any) => d.category_id);
-        const deductionBasisGross = (config.cache_deduction_basis || "net") === "gross";
-        const deductionDetails: DeductionDetail[] = deductionCategoryIds.map((catId: string) => {
-          const catInfo = categoryMap.get(catId);
-          const matching = childExpenses.filter((t: any) => t.category_id === catId);
-          const amount = matching.reduce((s: number, t: any) => {
-            const base = Number(t.amount);
-            if (deductionBasisGross) {
-              const rate = Number(t.iva_rate ?? 0);
-              return s + base * (1 + rate / 100);
-            }
-            return s + base;
-          }, 0);
-          return {
-            categoryId: catId,
-            categoryCode: catInfo?.code ?? "",
-            categoryName: catInfo?.name ?? "Categoria desconhecida",
-            amount,
-            hasTransaction: matching.length > 0,
-          };
-        });
-        const realDeductionAmount = deductionDetails.reduce((s, d) => s + d.amount, 0);
-        const fixedPctRate = Number(config.fixed_deduction_percentage) || 0;
-        const fixedPctDeduction = basis * (fixedPctRate / 100);
-        const totalDeduction = realDeductionAmount + fixedPctDeduction;
-        const baseForCalc = basis - totalDeduction;
-        const pct = resolvePercentageFromTiers(config, occ);
-        const calculated = Math.max(0, baseForCalc * (pct / 100));
-        const minGuaranteed = Number(config.minimum_guaranteed) || 0;
-        const finalAmount = Math.round(Math.max(minGuaranteed, calculated) * 100) / 100;
-        return {
-          configId: config.id,
-          artistName: config.artist_name,
-          cacheType: "variable",
-          realRevenueGross: gross,
-          realRevenueNet: net,
-          revenueBasis: basis,
-          revenueBasisLabel: basisLabel,
-          deductionDetails,
-          realDeductionAmount,
-          fixedPctDeduction,
-          fixedPctRate,
-          totalDeduction,
-          baseForCalc,
-          percentage: pct,
-          calculatedAmount: calculated,
-          minimumGuaranteed: minGuaranteed,
-          finalAmount,
-          isUsingMinimum: minGuaranteed > 0 && finalAmount === Math.round(minGuaranteed * 100) / 100,
-          missingDeductionCategories: deductionDetails.filter((d) => !d.hasTransaction),
-        };
+      const r = computeTicketRevenueAndOccupancy(
+        salesData.sales, salesData.lots, salesData.zones, childId,
+      );
+      map[childId] = computeRealCacheResults({
+        configs: cacheConfigs,
+        deductions,
+        categoryMap,
+        expenses: realExpenses.filter((t: any) => t.event_id === childId),
+        revenue: r.revenue,
+        occupancyPct: r.occupancyPct,
       });
-
-      map[childId] = cityResults;
     }
     return map;
   }, [cacheConfigs, deductions, salesData, realExpenses, categoryMap, childEventIds]);
