@@ -22,7 +22,11 @@
  *                         outras receitas = linhas de BP `type='income'` da
  *                         versão activa não representadas por sintéticas.
  *                         `null` por componente quando não há base.
- *   • `committed`       — "Previsto + excedido": por componente
+   *                         #227: DEPOIS da data do evento (ou `completed`), as
+   *                         sintéticas de bilheteira e A&B são o REAL — o
+   *                         simulador e o cenário A&B só valem até à data do
+   *                         evento. Patrocínios não mudam (D22).
+   *   • `committed`       — "Previsto + excedido": por componente
  *                         `max(real, currentForecast ?? real)`. Espelha a regra
  *                         do custo: o previsto nunca fica abaixo do realizado.
  *
@@ -41,6 +45,7 @@ import {
 import { fetchRootSettlements } from "@/hooks/useEventRootSettlements";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { isEventRealized } from "@/lib/event-realized";
 
 export type RevenueBucket = "bilheteira" | "ab" | "patrocinio" | "outros";
 
@@ -92,6 +97,26 @@ export interface EventRevenueBasisArgs {
   abForecastNet?: number | null;
   /** Saltar o cálculo do previsto corrente (mais barato). Default false. */
   skipForecast?: boolean;
+  /**
+   * Evento já realizado (#227). Quando `undefined`, é calculado aqui a partir de
+   * `events.status` e das datas (própria + sub-eventos), via `isEventRealized`.
+   */
+  eventRealized?: boolean;
+}
+
+/** Lê `events` e decide se o evento (ou a turnê) já aconteceu — #227. */
+export async function fetchEventRealized(eventId: string, eventIds: string[] = []): Promise<boolean> {
+  const ids = Array.from(new Set([eventId, ...eventIds])).filter(Boolean);
+  const [{ data: rows }, { data: children }] = await Promise.all([
+    supabase.from("events").select("id, status, date").in("id", ids),
+    supabase.from("events").select("id, date").in("parent_event_id", ids),
+  ]);
+  const self = (rows ?? []).find((r: any) => r.id === eventId) as any;
+  const childDates = [
+    ...((rows ?? []) as any[]).filter((r) => r.id !== eventId).map((r) => r.date),
+    ...((children ?? []) as any[]).map((r) => r.date),
+  ];
+  return isEventRealized({ status: self?.status ?? null, date: self?.date ?? null, childDates });
 }
 
 const zeroPair = (): MoneyPair => ({ net: 0, gross: 0 });
@@ -162,6 +187,12 @@ export interface RevenueBasisRows {
   sponsorship: SponsorshipSyntheticResult;
   ticketForecast?: LiveTicketForecast | null;
   abForecastNet?: number | null;
+  /**
+   * Evento já realizado (#227): as sintéticas de bilheteira e A&B passam a ser o
+   * REAL — o previsto do simulador e do cenário A&B só vale até à data do evento.
+   * Patrocínios não mudam (D22 já tem `sponsorship_closed_at`).
+   */
+  eventRealized?: boolean;
 }
 
 export async function computeEventRevenueBasis(
@@ -192,7 +223,12 @@ export async function computeEventRevenueBasis(
   );
 
   const sponsorship = await computeSponsorshipSynthetic(eventId, ids);
-  const ticketForecast = skipForecast ? null : await computeLiveTicketForecast(eventId);
+  // #227: evento já realizado → as sintéticas de bilheteira/A&B são o real e o
+  // simulador nem corre (poupa leituras).
+  const eventRealized =
+    args.eventRealized ?? (await fetchEventRealized(eventId, ids));
+  const ticketForecast =
+    skipForecast || eventRealized ? null : await computeLiveTicketForecast(eventId);
 
   const { data: fcs } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
@@ -208,11 +244,18 @@ export async function computeEventRevenueBasis(
     sponsorship,
     ticketForecast,
     abForecastNet,
+    eventRealized,
   });
 }
 
 export function computeRevenueBasisFromRows(rows: RevenueBasisRows): EventRevenueBasis {
-  const { ticket, sponsorship, ticketForecast = null, abForecastNet = null } = rows;
+  const { ticket, sponsorship, eventRealized = false } = rows;
+  // #227: depois do evento, a sintética de bilheteira e a de A&B são o real.
+  // Anular as previsões AQUI mantém tudo o resto intacto: com `ticket_sales`
+  // `hasTicketSynthetic` continua verdadeiro (committed = max(real, real)) e sem
+  // `ticket_sales` as linhas de BP alimentam o bucket como hoje (#220/#225).
+  const ticketForecast = eventRealized ? null : (rows.ticketForecast ?? null);
+  const abForecastNet = eventRealized ? null : (rows.abForecastNet ?? null);
   const allIncomeTx = rows.incomeTx;
   const hasTicketSales = ticket.gross !== 0 || ticket.net !== 0;
 

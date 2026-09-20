@@ -69,3 +69,70 @@ describe("computeRevenueBasisFromRows — bucket patrocínio (#225)", () => {
     expect(r.committed.buckets.patrocinio.net).toBe(31000);
   });
 });
+
+/**
+ * #227 — depois do evento, as sintéticas de bilheteira e A&B são o real.
+ */
+describe("computeRevenueBasisFromRows — eventRealized (#227)", () => {
+  const ticketFc = { net: 150, gross: 150, currentLoad: null, currentLoadOn: null, totalQty: 0 } as any;
+
+  it("(a) antes do evento: real 100 + previsto 150 → committed bilheteira 150", () => {
+    const r = computeRevenueBasisFromRows({
+      ticket: { net: 100, gross: 100 },
+      incomeTx: [],
+      incomeForecasts: [],
+      sponsorship: EMPTY_SPONSORSHIP,
+      ticketForecast: ticketFc,
+      eventRealized: false,
+    });
+    expect(r.committed.buckets.bilheteira.net).toBe(150);
+  });
+
+  it("(b) depois do evento: mesmos dados → 100", () => {
+    const r = computeRevenueBasisFromRows({
+      ticket: { net: 100, gross: 100 },
+      incomeTx: [],
+      incomeForecasts: [],
+      sponsorship: EMPTY_SPONSORSHIP,
+      ticketForecast: ticketFc,
+      eventRealized: true,
+    });
+    expect(r.committed.buckets.bilheteira.net).toBe(100);
+    expect(r.currentForecast.buckets.bilheteira).toBeNull();
+  });
+
+  it("(c) realizado sem ticket_sales: BP 1.1.01 alimenta, simulador ignorado", () => {
+    const r = computeRevenueBasisFromRows({
+      ticket: { net: 0, gross: 0 },
+      incomeTx: [],
+      incomeForecasts: [
+        { ...bpLineSponsor, id: "f-t", amount: 318102.83, account_categories: { code: "1.1.01" } },
+      ] as any[],
+      sponsorship: EMPTY_SPONSORSHIP,
+      ticketForecast: ticketFc,
+      eventRealized: true,
+    });
+    expect(r.committed.buckets.bilheteira.net).toBe(318102.83);
+  });
+
+  it("(d) realizado: A&B real 10 e cenário 67.698,75 → 10", () => {
+    const r = computeRevenueBasisFromRows({
+      ticket: { net: 0, gross: 0 },
+      incomeTx: [
+        { amount: 10, iva_rate: 0, status: "paid", type: "income", account_categories: { code: "1.1.03" } },
+      ] as any[],
+      incomeForecasts: [],
+      sponsorship: EMPTY_SPONSORSHIP,
+      abForecastNet: 67698.75,
+      eventRealized: true,
+    });
+    expect(r.committed.buckets.ab.net).toBe(10);
+  });
+
+  it("(e) patrocínio com verbas não muda com a flag", () => {
+    const sp = { ...EMPTY_SPONSORSHIP, hasTargets: true, currentNet: 50000, currentGross: 50000 };
+    const base = { ticket: { net: 0, gross: 0 }, incomeTx: [] as any[], incomeForecasts: [] as any[], sponsorship: sp };
+    expect(computeRevenueBasisFromRows({ ...base, eventRealized: false }).committed.buckets.patrocinio.net).toBe(50000);
+    expect(computeRevenueBasisFromRows({ ...base, eventRealized: true }).committed.buckets.patrocinio.net).toBe(50000);
+  });
+});

@@ -140,16 +140,19 @@ export function useBPIncomeSynthetic(eventId: string, extraEventIds: string[] = 
     }
 
     // ── A&B (1.1.03) ─────────────────────────────────────────────────
-    const abCurrent = abScenarios.totals ? abScenarios.totals.forecast.receitaTotal : null;
+    // #227: depois da data do evento, o previsto corrente de A&B é o real.
+    const abScenarioCurrent = abScenarios.totals ? abScenarios.totals.forecast.receitaTotal : null;
     const abStored = eventRow?.ab_baseline_net != null ? Number(eventRow.ab_baseline_net) : null;
-    if (abStored == null && abCurrent != null && abCurrent > 0 && eventRow) {
+    // O previsto ORIGINAL continua a ser fixado pelo cenário (não muda com #227).
+    if (abStored == null && abScenarioCurrent != null && abScenarioCurrent > 0 && eventRow) {
       void supabase
         .from("events")
-        .update({ ab_baseline_net: abCurrent, ab_baseline_at: new Date().toISOString() } as never)
+        .update({ ab_baseline_net: abScenarioCurrent, ab_baseline_at: new Date().toISOString() } as never)
         .eq("id", eventId)
         .then(() => queryClient.invalidateQueries({ queryKey: ["bp_income_baselines", eventId] }));
     }
     const abReal = Number(abRealized?.receita || 0);
+    const abCurrent = ticket?.eventRealized ? abReal : abScenarioCurrent;
     if (abScenarios.hasConfig || abReal > 0) {
       lines.push({
         key: "ab",
@@ -157,7 +160,7 @@ export function useBPIncomeSynthetic(eventId: string, extraEventIds: string[] = 
         source: "Módulo A&B (não editável)",
         categoryLabel: "1.1.03 A&B",
         ivaPct: null,
-        baselineNet: abStored ?? abCurrent,
+        baselineNet: abStored ?? abScenarioCurrent,
         currentNet: abCurrent,
         currentIva: 0,
         realNet: abReal,

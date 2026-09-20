@@ -15,6 +15,10 @@
  * DIFERENÇA DELIBERADA face à capa: aqui não se corre o simulador de bilheteira
  * (`computeLiveTicketForecast`) nem os cenários do módulo A&B — são dezenas de
  * leituras por evento. É o mesmo que `computeEventRevenueBasis({ skipForecast: true })`.
+ * Por isso a grelha NÃO precisa de passar `eventRealized` (#227): sem sintética de
+ * simulador nem cenário A&B, anulá-las não muda nada — com `ticket_sales` a
+ * bilheteira já está no real e sem elas o BP alimenta (#220/#225). É exactamente
+ * por isto que a capa passou a bater com a grelha nos eventos já realizados.
  *
  * LEITURAS: número FIXO de consultas para toda a lista (nunca N por evento) e
  * todas paginadas — o PostgREST corta aos 1.000 registos em silêncio (#206).
