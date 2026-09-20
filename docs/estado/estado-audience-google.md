@@ -25,3 +25,10 @@ Nada em execução.
 
 ## Onde ler mais
 - `docs/handoffs/` — estado-google-ads-2026-08-28, google-data-manager-api-migracao-2026-08-29
+
+## Métricas de vídeo (20/09/2026)
+`crm-google-video-metrics-sync` escreve em colunas próprias —
+`google_campaign_insights_daily.video_metrics`, `google_campaign.settings` e `.reach`.
+Antes escrevia em `raw`/`metrics` e o cron 242 (3h) apagava tudo. `artist_ads_daily` e
+`artist_ads_campaigns` lêem `coalesce(video_metrics->>'video_views', raw->>'video_views')`.
+Cron por criar em Live: `crm-google-video-metrics-3h`, `'20 */3 * * *'`, `{"days":7}`.
