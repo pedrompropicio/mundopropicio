@@ -1073,6 +1073,53 @@ Deno.serve(async (req) => {
         }
       };
 
+      // ── #113: vínculo canónico `transactions.forecast_id` (D-ERP1, N:1).
+      // Resolve a linha de BP da row do XLSX por: (1) âncora
+      // coala_sync_row_state.forecast_id; (2) match exacto descrição
+      // normalizada + cêntimos nas linhas de despesa do BP do evento.
+      // Ambíguo (>1 candidato) → null, nunca adivinha.
+      // A âncora legada `event_forecasts.transaction_id` continua a ser escrita
+      // porque há ~19 consumidores que ainda a leem.
+      let _anchorFcByKey: Map<string, string> | null = null;
+      let _bpByDescCents: Map<string, string[]> | null = null;
+      const resolveForecastIdForRow = async (r: ParsedRow): Promise<string | null> => {
+        if (configId) {
+          if (!_anchorFcByKey) {
+            _anchorFcByKey = new Map();
+            const { data: rows } = await admin
+              .from("coala_sync_row_state")
+              .select("row_key, forecast_id")
+              .eq("config_id", configId);
+            for (const a of (rows || [])) {
+              if (a.forecast_id) _anchorFcByKey.set(a.row_key as string, a.forecast_id as string);
+            }
+          }
+          const hit = _anchorFcByKey.get(_rowKey(r));
+          if (hit) return hit;
+        }
+        if (!_bpByDescCents) {
+          _bpByDescCents = new Map();
+          const PAGE = 1000;
+          for (let from = 0; ; from += PAGE) {
+            const { data: rows, error } = await admin
+              .from("event_forecasts")
+              .select("id, description, amount")
+              .eq("event_id", eventId)
+              .eq("type", "expense")
+              .range(from, from + PAGE - 1);
+            if (error) break;
+            for (const f of (rows || [])) {
+              const k = `${_norm((f as any).description)}|${moneyKey(Number((f as any).amount) || 0)}`;
+              const arr = _bpByDescCents.get(k) ?? [];
+              arr.push((f as any).id as string);
+              _bpByDescCents.set(k, arr);
+            }
+            if (!rows || rows.length < PAGE) break;
+          }
+        }
+        const cands = _bpByDescCents.get(`${_norm(r.description)}|${moneyKey(r.netAmount)}`) ?? [];
+        return cands.length === 1 ? cands[0] : null;
+      };
 
 
       // 1) missingInBp (auto) → INSERT forecast + ancorar no row_state
@@ -1195,6 +1242,7 @@ Deno.serve(async (req) => {
           ? COALA_BR_SUPPLIER_ID
           : (r.supplier ? supByName.get(r.supplier) ?? null : null);
         const accountId = isPagoBR ? null : defaultAccountId;
+        const linkedForecastId = await resolveForecastIdForRow(r);
 
         const { data: t, error } = await admin.from("transactions").insert({
           company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
@@ -1203,10 +1251,23 @@ Deno.serve(async (req) => {
           paid_amount: r.grossAmount, payment_date: payDate,
           due_date: r.dueDate, invoice_ref: r.invoiceRef,
           account_id: accountId,
+          // #113: vínculo canónico BP↔TX (D-ERP1)
+          forecast_id: linkedForecastId,
         }).select("id").single();
         if (error || !t) {
           audit.errors.push({ kind: isPagoBR ? "txMissing-BR" : "txMissing", error: error?.message ?? "no id", ref: it.rowNumber });
           continue;
+        }
+        // Back-link legado (event_forecasts.transaction_id) — só se estiver vazio.
+        if (linkedForecastId) {
+          const { data: fcSnap } = await admin
+            .from("event_forecasts")
+            .select("transaction_id")
+            .eq("id", linkedForecastId)
+            .maybeSingle();
+          if (fcSnap && !(fcSnap as any).transaction_id) {
+            await admin.from("event_forecasts").update({ transaction_id: t.id }).eq("id", linkedForecastId);
+          }
         }
         if (isPagoBR) {
           // schema partner_paid_expenses: id, event_id, partner_id, transaction_id, notes, paid_date, company_id

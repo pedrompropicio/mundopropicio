@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Plus, Calendar, User, AlertCircle, Trash2, ExternalLink, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,6 +62,8 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
     row: SponsorshipPipelineRow;
     amount: number;
   } | null>(null);
+  // #120: card com BP/TX ligados — apagar exige escolha explícita.
+  const [deleteTarget, setDeleteTarget] = useState<SponsorshipPipelineRow | null>(null);
 
   const grouped = useMemo(() => {
     const map = Object.fromEntries(STAGE_ORDER.map((s) => [s, [] as SponsorshipPipelineRow[]]));
@@ -192,7 +196,10 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
                   row={row}
                   canEdit={canEdit}
                   onClick={() => setSelectedId(row.id)}
-                  onDelete={() => remove.mutate(row.id)}
+                  onDelete={() => {
+                    if (row.linked_forecast_id || row.linked_transaction_id) setDeleteTarget(row);
+                    else remove.mutate(row.id);
+                  }}
                   draggable={canEdit}
                   onDragStart={() => setDraggingId(row.id)}
                   onDragEnd={() => setDraggingId(null)}
@@ -229,6 +236,20 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
           companyId={companyId}
         />
       )}
+
+      {deleteTarget && (
+        <SponsorDeleteDialog
+          row={deleteTarget}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => {
+            const id = deleteTarget.id;
+            setDeleteTarget(null);
+            remove.mutate(id);
+          }}
+        />
+      )}
+
+
 
       <Dialog open={!!closingPrompt} onOpenChange={(o) => !o && setClosingPrompt(null)}>
         <DialogContent>
@@ -416,6 +437,10 @@ function SponsorCard({
               className="h-6 px-2 text-destructive hover:text-destructive"
               onClick={(e) => {
                 e.stopPropagation();
+                // #120: cards com BP/TX ligados nunca são apagados por confirm()
+                // simples — o board abre um diálogo com o que fica órfão.
+                const hasLinks = !!(row.linked_forecast_id || row.linked_transaction_id);
+                if (hasLinks) { onDelete(); return; }
                 if (confirm(`Remover ${row.supplier_name} do pipeline?`)) onDelete();
               }}
             >
@@ -425,5 +450,99 @@ function SponsorCard({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * #120 — Apagar card com BP/TX ligados.
+ * Mostra exactamente o que fica no sistema (linha de BP e/ou transação, com
+ * valor e estado) e obriga a uma escolha explícita. NUNCA apaga BP nem TX:
+ * o card sai do pipeline, o resto fica intacto.
+ */
+function SponsorDeleteDialog({
+  row,
+  onCancel,
+  onConfirm,
+}: {
+  row: SponsorshipPipelineRow;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["sponsor-delete-links", row.id, row.linked_forecast_id, row.linked_transaction_id],
+    queryFn: async () => {
+      let forecast: { amount: number; description: string | null; status: string | null } | null = null;
+      let transaction: { amount: number; description: string | null; status: string | null } | null = null;
+      if (row.linked_forecast_id) {
+        const { data: f } = await supabase
+          .from("event_forecasts")
+          .select("amount, description, status")
+          .eq("id", row.linked_forecast_id)
+          .maybeSingle();
+        if (f) forecast = { amount: Number((f as any).amount) || 0, description: (f as any).description, status: (f as any).status };
+      }
+      if (row.linked_transaction_id) {
+        const { data: t } = await supabase
+          .from("transactions")
+          .select("amount, description, status")
+          .eq("id", row.linked_transaction_id)
+          .maybeSingle();
+        if (t) transaction = { amount: Number((t as any).amount) || 0, description: (t as any).description, status: (t as any).status };
+      }
+      return { forecast, transaction };
+    },
+  });
+
+  const STATUS_PT: Record<string, string> = {
+    draft: "rascunho", approved: "aprovada", pending: "pendente", paid: "paga", partial: "parcial",
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onCancel()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Remover {row.supplier_name} do pipeline?</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
+          <p className="text-muted-foreground">
+            Este patrocinador tem registos financeiros ligados. Ao remover o card, esses registos
+            <strong> mantêm-se</strong> no sistema (não são apagados).
+          </p>
+          {isLoading ? (
+            <p className="text-muted-foreground">A carregar registos ligados…</p>
+          ) : (
+            <ul className="space-y-1">
+              {data?.forecast && (
+                <li className="rounded-md border border-border/60 px-3 py-2">
+                  <span className="font-medium">Linha de Business Plan</span> —{" "}
+                  {fmtMoney(data.forecast.amount, row.currency)}
+                  {data.forecast.status ? ` · ${STATUS_PT[data.forecast.status] ?? data.forecast.status}` : ""}
+                  {data.forecast.description ? <span className="block text-xs text-muted-foreground">{data.forecast.description}</span> : null}
+                </li>
+              )}
+              {data?.transaction && (
+                <li className="rounded-md border border-border/60 px-3 py-2">
+                  <span className="font-medium">Transação</span> —{" "}
+                  {fmtMoney(data.transaction.amount, row.currency)}
+                  {data.transaction.status ? ` · ${STATUS_PT[data.transaction.status] ?? data.transaction.status}` : ""}
+                  {data.transaction.description ? <span className="block text-xs text-muted-foreground">{data.transaction.description}</span> : null}
+                </li>
+              )}
+              {!data?.forecast && !data?.transaction && (
+                <li className="text-muted-foreground">
+                  Os vínculos do card já não existem no sistema — remover é seguro.
+                </li>
+              )}
+            </ul>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>Cancelar</Button>
+          <Button variant="destructive" onClick={onConfirm}>
+            Apagar card e manter BP/TX
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

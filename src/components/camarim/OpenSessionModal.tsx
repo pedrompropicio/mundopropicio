@@ -92,6 +92,26 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
     setFundHolder({ type: "employee", supplierId: null, userId: null });
   };
 
+  /**
+   * #115 — motivo que impede criar a sessão (botão desactivado + mensagem).
+   * Toda a sessão nasce com pelo menos um evento ligado (ou o Master na turnê).
+   */
+  const blockedReason: string | null = !title.trim()
+    ? "Dá um título à sessão."
+    : mode === "single_event" && !selectedEventId
+      ? "Seleciona o evento desta sessão."
+      : (mode === "tour_consolidated" || mode === "city_session") && !selectedMasterId
+        ? "Seleciona a turnê (Master)."
+        : mode === "tour_consolidated" && selectedSplitIds.length === 0
+          ? "Seleciona pelo menos uma cidade."
+          : mode === "city_session" && selectedSplitIds.length === 0
+            ? "Seleciona as cidades (uma sessão por cidade)."
+            : fundHolder.type === "employee" && !fundHolder.userId
+              ? "Seleciona o colaborador responsável pelo caixa."
+              : fundHolder.type === "supplier" && !fundHolder.supplierId
+                ? "Seleciona o prestador responsável pelo caixa."
+                : null;
+
   const handleSubmit = async () => {
     if (!title.trim()) {
       toast({ variant: "destructive", title: "Título obrigatório" });
@@ -151,11 +171,17 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
             .single();
           if (error) throw error;
           const sid = (session as any).id as string;
-          await supabase.from("camarim_session_events" as any).insert({
+          // #115 — uma sessão SEM evento ligado fica invisível à guarda de fecho
+          // (D19). Se o vínculo falhar, a sessão não pode ficar criada.
+          const { error: linkErr } = await supabase.from("camarim_session_events" as any).insert({
             session_id: sid,
             event_id: splitId,
             is_primary: true,
           } as any);
+          if (linkErr) {
+            await supabase.from("camarim_sessions" as any).delete().eq("id", sid);
+            throw new Error(`Não foi possível ligar a sessão ao evento: ${linkErr.message}`);
+          }
           created.push(sid);
         }
         toast({ title: `${created.length} sessões criadas` });
@@ -193,8 +219,18 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
             links.push({ session_id: sid, event_id: eid, is_primary: idx === 0 }),
           );
         }
-        if (links.length > 0) {
-          await supabase.from("camarim_session_events" as any).insert(links as any);
+        // #115 — exige pelo menos um evento ligado; sem vínculo a sessão é
+        // invisível à guarda de fecho (D19), por isso desfaz-se a criação.
+        if (links.length === 0) {
+          await supabase.from("camarim_sessions" as any).delete().eq("id", sid);
+          throw new Error("A sessão tem de ter pelo menos um evento ligado.");
+        }
+        const { error: linkErr } = await supabase
+          .from("camarim_session_events" as any)
+          .insert(links as any);
+        if (linkErr) {
+          await supabase.from("camarim_sessions" as any).delete().eq("id", sid);
+          throw new Error(`Não foi possível ligar a sessão ao evento: ${linkErr.message}`);
         }
         toast({ title: "Sessão criada" });
         onCreated?.(sid);
@@ -385,11 +421,14 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
           </div>
         </div>
 
+        {blockedReason && (
+          <p className="px-1 text-xs text-muted-foreground">{blockedReason}</p>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={saving}>
+          <Button onClick={handleSubmit} disabled={saving || !!blockedReason} title={blockedReason ?? undefined}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Criar sessão
           </Button>

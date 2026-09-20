@@ -55,3 +55,12 @@ dada e, quando realizado, nem corre `computeLiveTicketForecast`.
 `computeTicketSynthetic` e a linha A&B de `useBPIncomeSynthetic` seguem a mesma
 regra no previsto CORRENTE; o previsto ORIGINAL não muda. A grelha
 `events-list-financials.ts` não precisa da flag (nunca corre simulador/cenários).
+
+## #208 — Bruto próprio do bucket A&B (2026-09-20)
+
+O módulo A&B **não guarda taxa de IVA** (não há coluna em `event_ab_config`
+nem em `event_ab_zones`). Por isso o previsto de A&B ganha bruto próprio com a
+taxa resolvida por `resolveAbIvaRate(rows)` em `src/lib/event-revenue-basis.ts`:
+1) `abForecastIvaRate` injectada; 2) taxa ponderada das linhas de BP 1.1.03
+aprovadas do evento; 3) taxa ponderada das TX reais de A&B; 4) 0 → bruto =
+líquido (comportamento anterior). s/IVA nunca muda; eventos sem A&B não mudam.

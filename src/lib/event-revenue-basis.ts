@@ -95,6 +95,8 @@ export interface EventRevenueBasisArgs {
    * `null`/`undefined` = sem base.
    */
   abForecastNet?: number | null;
+  /** #208 — Taxa de IVA (%) do previsto de A&B; resolvida do evento se omitida. */
+  abForecastIvaRate?: number | null;
   /** Saltar o cálculo do previsto corrente (mais barato). Default false. */
   skipForecast?: boolean;
   /**
@@ -188,11 +190,50 @@ export interface RevenueBasisRows {
   ticketForecast?: LiveTicketForecast | null;
   abForecastNet?: number | null;
   /**
+   * #208 — Taxa de IVA (%) a aplicar ao previsto de A&B. Opcional: quando não
+   * é dada, é resolvida das linhas de A&B do próprio evento.
+   */
+  abForecastIvaRate?: number | null;
+  /**
    * Evento já realizado (#227): as sintéticas de bilheteira e A&B passam a ser o
    * REAL — o previsto do simulador e do cenário A&B só vale até à data do evento.
    * Patrocínios não mudam (D22 já tem `sponsorship_closed_at`).
    */
   eventRealized?: boolean;
+}
+
+/** Taxa de IVA ponderada pelo valor líquido. `null` se não houver base. */
+function weightedIvaRate(rows: Array<{ amount?: any; iva_rate?: any }>): number | null {
+  let base = 0;
+  let iva = 0;
+  for (const r of rows) {
+    const net = Number(r.amount || 0);
+    if (!net) continue;
+    base += net;
+    iva += (net * Number(r.iva_rate || 0)) / 100;
+  }
+  if (base === 0) return null;
+  return (iva / base) * 100;
+}
+
+/**
+ * #208 — Taxa de IVA do bucket A&B. Ordem: taxa injectada → linhas de BP de
+ * A&B (1.1.03) → TX reais de A&B → 0 (bruto = líquido, como antes).
+ */
+export function resolveAbIvaRate(rows: RevenueBasisRows): number {
+  if (rows.abForecastIvaRate != null) return Number(rows.abForecastIvaRate);
+  const bpAb = (rows.incomeForecasts ?? []).filter(
+    (f: any) =>
+      classifyIncomeL1(f.account_categories?.code) === "ab" &&
+      f.status === "approved" &&
+      !f.is_transitory && !f.exclude_from_result && !f.is_overhead,
+  );
+  const fromBp = weightedIvaRate(bpAb);
+  if (fromBp != null) return fromBp;
+  const txAb = (rows.incomeTx ?? []).filter(
+    (t: any) => classifyIncomeL1(t.account_categories?.code) === "ab",
+  );
+  return weightedIvaRate(txAb) ?? 0;
 }
 
 export async function computeEventRevenueBasis(
@@ -244,6 +285,7 @@ export async function computeEventRevenueBasis(
     sponsorship,
     ticketForecast,
     abForecastNet,
+    abForecastIvaRate: args.abForecastIvaRate ?? null,
     eventRealized,
   });
 }
@@ -303,10 +345,17 @@ export function computeRevenueBasisFromRows(rows: RevenueBasisRows): EventRevenu
       ? { net: ticketForecast.net, gross: ticketForecast.gross ?? ticketForecast.net }
       : null;
 
-  // A&B: `abForecastNet` vem LÍQUIDO do módulo A&B e a taxa do módulo não é
-  // acessível aqui (vive nos hooks do A&B) — o bruto fica igual ao líquido.
+  // #208 — A&B: `abForecastNet` vem LÍQUIDO do módulo A&B. O módulo A&B não
+  // guarda taxa de IVA (não há coluna em `event_ab_config`/`event_ab_zones`),
+  // por isso a taxa é a do PRÓPRIO evento, resolvida por
+  // `resolveAbIvaRate`: (1) taxa injectada, (2) taxa ponderada das linhas de BP
+  // de A&B (1.1.03), (3) taxa ponderada das TX reais de A&B. Sem nenhuma fonte
+  // → bruto = líquido (comportamento anterior, zero regressão).
+  const abIvaRate = resolveAbIvaRate(rows);
   const abForecastPair: MoneyPair | null =
-    abForecastNet != null ? { net: abForecastNet, gross: abForecastNet } : null;
+    abForecastNet != null
+      ? { net: abForecastNet, gross: calcTotalWithIva(abForecastNet, abIvaRate) }
+      : null;
 
   // Há sintética para o componente? Se não, o BP alimenta-o — vale para os
   // TRÊS buckets com módulo (#220 bilheteira/A&B, #225 patrocínios).

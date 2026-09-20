@@ -41,3 +41,10 @@ Regra de ouro: qualquer importador/reset que apague em massa `transactions`/`eve
 - BP › Receitas mostra 1 linha sintética **1.2.01** (não persistida) com original / corrente / real e sub-linhas por segmento. Corrente = fechados + verba por captar enquanto `events.sponsorship_closed_at IS NULL`; depois do encerramento = só fechados.
 - **Sem verbas definidas o comportamento é exactamente o anterior** (sem sintética, linhas 1.2.01 persistidas contam normalmente). Com verbas, as linhas 1.2.01 de cards fechados são excluídas das listas/totais (a sintética representa-as) — nunca apagadas.
 - `syncSponsorToBP`: só `stage='closed'`; card meio-vinculado devolve `half_linked` (nunca cria de novo); forecast nova nasce `formalidade='fechado'`.
+
+## #120 — Apagar card com BP/TX ligados (2026-09-20)
+
+`SponsorshipPipelineBoard` mostra diálogo com o que está ligado (linha de BP e
+transação, valores e estado) e duas escolhas: "Apagar card e manter BP/TX" ou
+cancelar. Nunca apaga BP nem TX. `getDefaultIncomeAccountId` foi removido
+(código morto): a transação de receita nasce SEM `account_id`.

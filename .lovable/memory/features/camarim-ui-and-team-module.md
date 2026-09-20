@@ -47,3 +47,11 @@ type: feature
   marca `(sem doc.)` em itens `approved_without_document`/`has_document=false` + nota de rodapé,
   rodapé "Gerado em … por [email]" + pág. X/Y.
 - Ficheiro: `camarim-[evento]-[YYYY-MM-DD].pdf`.
+
+## #115 — Sessão nasce sempre com evento ligado (2026-09-20)
+
+`OpenSessionModal`: botão "Criar sessão" desactivado com mensagem (`blockedReason`)
+até haver evento (ou Master + cidades na turnê); se o INSERT em
+`camarim_session_events` falhar, a sessão criada é apagada (sem órfãs). Motivo:
+a guarda de fecho D19 (`event_close_blockers`) só vê sessões por
+`master_event_id` ou `camarim_session_events` — a guarda NÃO foi alargada.

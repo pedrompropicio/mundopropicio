@@ -21,6 +21,9 @@ import CardAmountFields from "@/components/cards/CardAmountFields";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import CardItemDocumentsField from "@/components/cards/CardItemDocumentsField";
 import { fetchCardItemDocuments, uploadCardItemDocument } from "@/lib/card-item-documents";
+import { needsBpLineBeforeApproval } from "@/lib/bp-line-required";
+import LinkBpLineDialog from "@/components/LinkBpLineDialog";
+import { supabase as sb } from "@/integrations/supabase/client";
 
 /**
  * D17 — as despesas do cartão são ITENS da sessão (`card_session_items`) e só
@@ -45,6 +48,14 @@ export interface CardExpenseRow {
   supplier_id?: string | null;
   invoice_ref?: string | null;
   company_id?: string | null;
+  /** #112 — o gate da linha de BP tem de reavaliar na EDIÇÃO, não só na criação. */
+  forecast_id?: string | null;
+  parent_transaction_id?: string | null;
+  is_transitory?: boolean | null;
+  exclude_from_result?: boolean | null;
+  reversed_at?: string | null;
+  is_hidden?: boolean | null;
+  shared_cost_account_id?: string | null;
 }
 
 /** Item da sessão, em modo edição. */
@@ -116,6 +127,13 @@ export function NewCardExpenseModal({
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrPayload, setOcrPayload] = useState<any>(null);
   const [existingDocCount, setExistingDocCount] = useState(0);
+  /**
+   * #112 — gate da linha de BP na EDIÇÃO de uma despesa directa antiga: mudar de
+   * evento ou de rubrica invalida o vínculo anterior e volta a exigir linha
+   * (mesma regra de `bp-line-required.ts`, mesmo diálogo em `pickOnly`).
+   */
+  const [bpGate, setBpGate] = useState<{ eventId: string; categoryId: string } | null>(null);
+  const [pickedForecastId, setPickedForecastId] = useState<string | null>(null);
 
   // Pré-preenche em modo edição (e limpa ao voltar a modo criação).
   useEffect(() => {
@@ -318,6 +336,8 @@ export function NewCardExpenseModal({
     setPendingDocs([]);
     setPreviewUrl(null);
     setOcrPayload(null);
+    setPickedForecastId(null);
+    setBpGate(null);
   };
 
   /** Anexo de transação (só no caminho legado). */
@@ -356,8 +376,40 @@ export function NewCardExpenseModal({
         if (completedEventBlocked) {
           throw new Error("Evento concluído. Reabre o evento para editar.");
         }
+        // #112 — o vínculo ao BP só continua válido se a linha pertencer ao
+        // MESMO evento e à MESMA rubrica depois da edição; senão, é preciso
+        // escolher (ou criar) linha antes de gravar.
+        let forecastId: string | null = pickedForecastId ?? expense.forecast_id ?? null;
+        if (forecastId && !pickedForecastId) {
+          const { data: fc } = await sb
+            .from("event_forecasts")
+            .select("id, event_id, category_id")
+            .eq("id", forecastId)
+            .maybeSingle();
+          const stillValid =
+            !!fc && (fc as any).event_id === (eventId || null) && (fc as any).category_id === categoryId;
+          if (!stillValid) forecastId = null;
+        }
+        const gateNeeded = await needsBpLineBeforeApproval({
+          id: expense.id,
+          type: "expense",
+          event_id: eventId || null,
+          forecast_id: forecastId,
+          parent_transaction_id: expense.parent_transaction_id ?? null,
+          is_transitory: expense.is_transitory ?? null,
+          exclude_from_result: expense.exclude_from_result ?? null,
+          reversed_at: expense.reversed_at ?? null,
+          is_hidden: expense.is_hidden ?? null,
+          shared_cost_account_id: expense.shared_cost_account_id ?? null,
+        });
+        if (gateNeeded) {
+          setBpGate({ eventId: eventId as string, categoryId });
+          throw new Error("__BP_GATE__");
+        }
+
         const patch = {
           description: description.trim(),
+          forecast_id: forecastId,
           amount: base,
           iva_rate: rate,
           category_id: categoryId,
@@ -383,6 +435,7 @@ export function NewCardExpenseModal({
           date: expense.date,
           paid_amount: Number(expense.paid_amount ?? 0),
           payment_date: expense.date,
+          forecast_id: expense.forecast_id ?? null,
         };
         const rows = Object.entries(patch)
           .filter(([k, v]) => String(before[k] ?? "") !== String(v ?? ""))
@@ -456,7 +509,11 @@ export function NewCardExpenseModal({
       onOpenChange(false);
       reset();
     },
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+    onError: (e: any) => {
+      // O gate abre o diálogo em vez de mostrar erro (#112).
+      if (e?.message === "__BP_GATE__") return;
+      toast({ title: "Erro", description: e.message, variant: "destructive" });
+    },
   });
 
   if (!open) return null;
@@ -659,6 +716,28 @@ export function NewCardExpenseModal({
           </div>
         </form>
       </div>
+
+      {/* #112 — gate da linha de BP na edição da despesa directa antiga. */}
+      {bpGate && expense && (
+        <LinkBpLineDialog
+          pickOnly
+          transaction={{
+            id: expense.id,
+            description: description.trim(),
+            amount: cardBaseFromTotal(parseFloat(total) || 0, Number(ivaRate) || 0),
+            iva_rate: Number(ivaRate) || 0,
+            event_id: bpGate.eventId,
+            category_id: bpGate.categoryId,
+          }}
+          onClose={() => setBpGate(null)}
+          onLinked={() => setBpGate(null)}
+          onPicked={(forecastId) => {
+            setPickedForecastId(forecastId);
+            setBpGate(null);
+            mut.mutate();
+          }}
+        />
+      )}
     </div>
   );
 }

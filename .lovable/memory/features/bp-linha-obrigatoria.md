@@ -102,3 +102,13 @@ se o evento é `with_bp` e o campo não vier. As duas pernas do acerto de
 adiantamento (10.3, sem `event_id`) não levam linha. A autorização da função
 passou de `user_roles` para `is_platform_admin` OU
 `has_permission_in(caller,'approve_transactions', company_id da sessão)`.
+
+## #112 — Gate também na EDIÇÃO de despesa de cartão (2026-09-20)
+
+`NewCardExpenseModal` (modo `expense`, edição da transação directa antiga
+pré-D17) reavalia o gate antes do UPDATE: se a linha vinculada já não pertence
+ao evento **e** rubrica escolhidos, o `forecast_id` é limpo e
+`needsBpLineBeforeApproval` volta a decidir; quando exige, abre
+`LinkBpLineDialog` em `pickOnly` e só grava depois de escolher/criar a linha.
+Os itens de sessão (`card_session_items`) não passam aqui — só viram transação
+no fecho, onde o gate já vive (`CloseCardSessionModal`, passo 2).
