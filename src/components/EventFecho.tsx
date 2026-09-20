@@ -24,7 +24,7 @@ import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
 import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
-import { fetchPartnerExtras, sumPartnerExtras } from "@/lib/partner-extras";
+import { fetchPartnerExtras, splitPartnerExtrasByKind } from "@/lib/partner-extras";
 import { BpUnusedBudgetPanel } from "@/components/fecho/BpUnusedBudgetPanel";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
@@ -296,13 +296,12 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     // Extras analíticos — na base do sócio. Origem 'transacao' segue c/IVA quando
     // aplicável; origem 'manual' não tem taxa nem documento e entra sempre pelo
     // valor escrito (ver `partnerExtraValue`).
-    const extras = sumPartnerExtras(
-      partnerExtras.filter((e) => e.partner_id === p.id),
-      usesGrossExpenses,
-    );
+    // (#224) `kind` separado: só `extra` abate; `disbursement_adjustment` entra do
+    // lado do desembolso, com o próprio sinal e sem IVA (manual, D-ERP23).
+    const { extras, adjustments } = splitPartnerExtrasByKind(partnerExtras, p.id, usesGrossExpenses);
 
     // Saldo final: empresa paga sócio se positivo
-    const balance = roundCents(partnerShare + paid - extras);
+    const balance = roundCents(partnerShare + paid + adjustments - extras);
 
     return {
       id: p.id,
@@ -315,6 +314,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
       partnerShare,
       paid: roundCents(paid),
       extras: roundCents(extras),
+      adjustments,
       balance,
     };
   });
