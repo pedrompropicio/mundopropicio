@@ -1092,8 +1092,6 @@ export default function EventDetail() {
           ticketSales={ticketSales}
           onValueChange={setCardIncomeValue}
           partnerCalcBasis={event.partner_calc_basis}
-          viewWithVat={viewWithVat}
-          onViewWithVatChange={setViewWithVat}
         />
         <EventFinancialCard
           eventId={id!}
@@ -1110,21 +1108,23 @@ export default function EventDetail() {
           }
           cacheImpact={Number(calculatedCacheImpact || 0)}
           onValueChange={setCardExpenseValue}
-          viewWithVat={viewWithVat}
-          onViewWithVatChange={setViewWithVat}
         />
 
         <StatCard
           title="Lucro"
-          value={formatCurrency(cardIncomeValue - cardExpenseValue)}
+          value={contractLoading || !contract ? "—" : formatCurrency(contract.result)}
           icon={Wallet}
           variant="primary"
           subtitle={
-            cardIncomeValue > 0
-              ? `Margem: ${(((cardIncomeValue - cardExpenseValue) / cardIncomeValue) * 100).toFixed(1)}% · ${viewWithVat ? "c/IVA" : "s/IVA"}${viewDiffersFromContract ? " · ≠ critério do fecho" : ""}`
-              : `${viewWithVat ? "c/IVA" : "s/IVA"}${viewDiffersFromContract ? " · ≠ critério do fecho" : ""}`
+            contract
+              ? `${contract.label}${
+                  contract.revenueBase > 0
+                    ? ` · margem ${((contract.result / contract.revenueBase) * 100).toFixed(1)}%`
+                    : ""
+                }`
+              : undefined
           }
-          tooltip="Receita REAL (perímetro do fechamento raiz) − Custos, ambos na base de IVA da VISTA escolhida nesta página. A vista é só apresentação: o Fecho, o Encontro de Contas e o Portal do Sócio usam sempre o critério contratual gravado no evento. A vista 'previsto + excedido' do card de Receitas não entra aqui. Margem = Lucro ÷ Receita real."
+          tooltip="Resultado do evento na BASE CONTRATUAL gravada no evento (o mesmo motor e o mesmo número do Encontro de Contas). Não depende da vista de IVA escolhida nos cards de Receitas e Custos."
         />
 
         <StatCard
