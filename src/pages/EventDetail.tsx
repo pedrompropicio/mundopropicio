@@ -66,8 +66,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
-import { readStoredWithVat, writeStoredWithVat } from "@/lib/event-financial-card";
-import { normalizePartnerCalcBasis, usesGrossExpenseAmounts } from "@/lib/partner-calc-basis";
+import { useEventContractResult } from "@/hooks/useEventContractResult";
 import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
 import { keepRootPerimeter, pickOutsideRootPerimeter, isOutsideRootPerimeter } from "@/lib/settlement-perimeter";
 import { toast } from "@/hooks/use-toast";
@@ -188,8 +187,11 @@ export default function EventDetail() {
   // Valores reportados pelos novos EventFinancialCard (para alimentar o card Lucro)
   const [cardIncomeValue, setCardIncomeValue] = useState<number>(0);
   const [cardExpenseValue, setCardExpenseValue] = useState<number>(0);
-  // Vista de IVA escolhida nesta sessão; null = ainda não escolhida (usa o guardado/critério).
-  const [viewWithVatChoice, setViewWithVatChoice] = useState<boolean | null>(null);
+  // Vistas de IVA reportadas por cada card (#223) — independentes entre si.
+  const [incomeViewVat, setIncomeViewVat] = useState<boolean | null>(null);
+  const [expenseViewVat, setExpenseViewVat] = useState<boolean | null>(null);
+  // Lucro = resultado na base contratual, mesmo motor do Encontro de Contas (#223).
+  const { contract, isLoading: contractLoading } = useEventContractResult(id ?? "");
 
   // Reflect tab + sub-event into the URL so they survive navigations.
   useEffect(() => {
@@ -847,20 +849,14 @@ export default function EventDetail() {
 
   const EventTypeIcon = eventType === "festival" ? Layers : isMultiEvent ? Route : Calendar;
 
-  // ── VISTA de IVA da página (#207) ────────────────────────────────
-  // Uma só vista para Receitas, Custos e Lucro, guardada por utilizador+evento.
-  // NÃO é critério: `events.partner_calc_basis` continua a mandar no Fecho.
-  const vatUserId = user?.id ?? "anon";
-  const contractWithVat = usesGrossExpenseAmounts(
-    normalizePartnerCalcBasis((event as any)?.partner_calc_basis),
-  );
-  const viewWithVat = viewWithVatChoice
-    ?? readStoredWithVat(vatUserId, id ?? "", "page", contractWithVat);
-  const setViewWithVat = (v: boolean) => {
-    setViewWithVatChoice(v);
-    writeStoredWithVat(vatUserId, id ?? "", "page", v);
-  };
-  const viewDiffersFromContract = viewWithVat !== contractWithVat;
+  // ── Vistas de IVA dos cards (#223) ───────────────────────────────
+  // Cada card guarda a sua vista; o Lucro nunca depende delas — usa o critério
+  // contratual do evento, igual ao Encontro de Contas.
+  const contractWithVat = contract?.withVat ?? false;
+  const viewDiffersFromContract =
+    !!contract &&
+    ((incomeViewVat != null && incomeViewVat !== contractWithVat) ||
+      (expenseViewVat != null && expenseViewVat !== contractWithVat));
 
 
   return (
@@ -1092,8 +1088,7 @@ export default function EventDetail() {
           ticketSales={ticketSales}
           onValueChange={setCardIncomeValue}
           partnerCalcBasis={event.partner_calc_basis}
-          viewWithVat={viewWithVat}
-          onViewWithVatChange={setViewWithVat}
+          onVatViewChange={setIncomeViewVat}
         />
         <EventFinancialCard
           eventId={id!}
@@ -1110,21 +1105,24 @@ export default function EventDetail() {
           }
           cacheImpact={Number(calculatedCacheImpact || 0)}
           onValueChange={setCardExpenseValue}
-          viewWithVat={viewWithVat}
-          onViewWithVatChange={setViewWithVat}
+          onVatViewChange={setExpenseViewVat}
         />
 
         <StatCard
           title="Lucro"
-          value={formatCurrency(cardIncomeValue - cardExpenseValue)}
+          value={contractLoading || !contract ? "—" : formatCurrency(contract.result)}
           icon={Wallet}
           variant="primary"
           subtitle={
-            cardIncomeValue > 0
-              ? `Margem: ${(((cardIncomeValue - cardExpenseValue) / cardIncomeValue) * 100).toFixed(1)}% · ${viewWithVat ? "c/IVA" : "s/IVA"}${viewDiffersFromContract ? " · ≠ critério do fecho" : ""}`
-              : `${viewWithVat ? "c/IVA" : "s/IVA"}${viewDiffersFromContract ? " · ≠ critério do fecho" : ""}`
+            contract
+              ? `${contract.label}${
+                  contract.revenueBase > 0
+                    ? ` · margem ${((contract.result / contract.revenueBase) * 100).toFixed(1)}%`
+                    : ""
+                }${viewDiffersFromContract ? " · vista dos cards noutra base" : ""}`
+              : undefined
           }
-          tooltip="Receita REAL (perímetro do fechamento raiz) − Custos, ambos na base de IVA da VISTA escolhida nesta página. A vista é só apresentação: o Fecho, o Encontro de Contas e o Portal do Sócio usam sempre o critério contratual gravado no evento. A vista 'previsto + excedido' do card de Receitas não entra aqui. Margem = Lucro ÷ Receita real."
+          tooltip="Resultado do evento na BASE CONTRATUAL gravada no evento (o mesmo motor e o mesmo número do Encontro de Contas). Não depende da vista de IVA escolhida nos cards de Receitas e Custos."
         />
 
         <StatCard

@@ -5,6 +5,7 @@ import {
   type CardMode, type RevenueScenario,
   readStoredMode, writeStoredMode,
   readStoredCostToggle, writeStoredCostToggle,
+  readStoredWithVat, writeStoredWithVat,
   allowedModes,
 } from "@/lib/event-financial-card";
 
@@ -40,12 +41,8 @@ interface Props {
   onValueChange?: (value: number) => void;
   /** `events.partner_calc_basis` — semente do critério de IVA (partilhado com o Fecho). */
   partnerCalcBasis?: string | null;
-  /**
-   * VISTA de IVA da página (#207) — uma só para Receitas, Custos e Lucro.
-   * Não é critério: o contratual continua a mandar no Fecho.
-   */
-  viewWithVat: boolean;
-  onViewWithVatChange: (v: boolean) => void;
+  /** Reporta a vista de IVA deste card (só para o aviso do card de Lucro). */
+  onVatViewChange?: (v: boolean) => void;
 }
 
 const MODE_LABEL: Record<CardMode, string> = {
@@ -89,9 +86,14 @@ export function EventFinancialCard(props: Props) {
     () => readStoredCostToggle(userId, eventId, kind, "overhead"),
   );
 
-  // IVA é VISTA da página (#207) — os dois cards recebem a mesma.
-  const withVat = props.viewWithVat;
-  const setWithVat = props.onViewWithVatChange;
+  // VISTA de IVA PRÓPRIA de cada card (#223): Receitas e Custos são independentes.
+  // Persistida por utilizador + evento + card; semente = critério contratual.
+  const [vatChoice, setVatChoice] = useState<boolean | null>(null);
+  const withVat = vatChoice ?? readStoredWithVat(userId, eventId, kind, shared.withVat);
+  const setWithVat = (v: boolean) => {
+    setVatChoice(v);
+    writeStoredWithVat(userId, eventId, kind, v);
+  };
   /** vista ≠ critério contratual do evento (o que o Fecho usa). */
   const viewDiffersFromContract = !shared.isLoading && withVat !== shared.withVat;
   const includeOverhead = isExpense ? shared.includeOverhead : incomeOverhead;
@@ -105,7 +107,11 @@ export function EventFinancialCard(props: Props) {
   };
 
   useEffect(() => { writeStoredMode(userId, eventId, kind, storedMode); }, [userId, eventId, kind, storedMode]);
-  // A vista de IVA é gravada pela página (chave única por utilizador+evento).
+  // Reporta a vista à página (o card de Lucro só a usa para o aviso discreto).
+  useEffect(() => {
+    if (!shared.isLoading) props.onVatViewChange?.(withVat);
+  }, [shared.isLoading, withVat]);
+
   useEffect(() => {
     if (!isExpense) writeStoredCostToggle(userId, eventId, kind, "overhead", incomeOverhead);
   }, [isExpense, userId, eventId, kind, incomeOverhead]);
@@ -187,11 +193,6 @@ export function EventFinancialCard(props: Props) {
               title={`Vista diferente do critério contratual do evento (${shared.withVat ? "c/IVA" : "s/IVA"}), que é o usado no Fecho.`}
             >
               ≠ fecho
-            </span>
-          )}
-          {kind === "expense" && includeOverhead && (
-            <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-              +OH
             </span>
           )}
 
