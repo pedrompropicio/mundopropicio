@@ -190,6 +190,8 @@ export default function EventDetail() {
   // Vistas de IVA reportadas por cada card (#223) — independentes entre si.
   const [incomeViewVat, setIncomeViewVat] = useState<boolean | null>(null);
   const [expenseViewVat, setExpenseViewVat] = useState<boolean | null>(null);
+  // Lucro = resultado na base contratual, mesmo motor do Encontro de Contas (#223).
+  const { contract, isLoading: contractLoading } = useEventContractResult(id ?? "");
 
   // Reflect tab + sub-event into the URL so they survive navigations.
   useEffect(() => {
