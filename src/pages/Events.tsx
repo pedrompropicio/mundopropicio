@@ -212,6 +212,8 @@ export default function Events() {
           event_type: eventType,
           totalIncome: f?.income ?? 0,
           totalExpenses: f?.expense ?? 0,
+          // Bilhetes da MESMA fonte do card de Bilhetes (RPC agregada, #205).
+          ticketsSold: f?.ticketsSold ?? 0,
           subEvents: (subEventsMap[e.id] || []).sort((a: any, b: any) => a.date.localeCompare(b.date)),
         };
       });
