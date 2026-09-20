@@ -6,6 +6,7 @@ import {
   AlertTriangle, CheckCircle2, Loader2, RotateCcw, Search, Table as TableIcon, Calendar, X,
 } from "lucide-react";
 import { useBackdropClose } from "@/lib/backdropClose";
+import { useCompany } from "@/hooks/useCompany";
 
 interface Props {
   fileName: string;
@@ -35,6 +36,8 @@ const TABLES = [
 ];
 
 export default function SelectiveRestoreModal({ fileName, onClose }: Props) {
+  // #96: empresa alvo — backups legacy (v2) não trazem company_id nas linhas.
+  const { company } = useCompany();
   const [mode, setMode] = useState<Mode>("events");
   const [search, setSearch] = useState("");
   const [selectedTables, setSelectedTables] = useState<Set<string>>(new Set());
@@ -112,6 +115,7 @@ export default function SelectiveRestoreModal({ fileName, onClose }: Props) {
       const { data, error } = await supabase.functions.invoke("selective-restore", {
         body: {
           backup_file: fileName, mode: "preview", scope: mode,
+          ...(company?.id ? { target_company_id: company.id } : {}),
           ...(mode === "tables" ? { tables: Array.from(selectedTables) } : { event_ids: Array.from(selectedEvents) }),
         },
       });
@@ -133,6 +137,7 @@ export default function SelectiveRestoreModal({ fileName, onClose }: Props) {
       const { data, error } = await supabase.functions.invoke("selective-restore", {
         body: {
           backup_file: fileName, mode: "restore", scope: mode,
+          ...(company?.id ? { target_company_id: company.id } : {}),
           ...(mode === "tables" ? { tables: Array.from(selectedTables) } : { event_ids: Array.from(selectedEvents) }),
         },
       });
