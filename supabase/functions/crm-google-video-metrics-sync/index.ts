@@ -362,6 +362,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     per.metricas_alcance = reachFields;
     per.campos_anuncio = adFields;
     per.campos_anuncio_asset = adAssetFields;
+    // campos de vídeo do próprio anúncio existentes nesta versão (diagnóstico
+    // e fonte da via alternativa ao ad_group_ad_asset_view)
+    const adVideoFields = Array.from(selectable)
+      .filter((n) => /^ad_group_ad\.ad\.(video_responsive_ad|video_ad)\./.test(n))
+      .sort();
+    per.campos_video_do_anuncio = adVideoFields;
     console.log(`[confirmado] video=${videoFields.join(",")} alcance=${reachFields.join(",")}`);
 
     // nome da métrica de visualizações nesta versão (pode ter mudado)
