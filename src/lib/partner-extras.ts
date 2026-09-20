@@ -63,6 +63,34 @@ export function sumPartnerExtras(extras: PartnerExtraItem[], usesGrossExpenses: 
   return extras.reduce((s, e) => s + partnerExtraValue(e, usesGrossExpenses), 0);
 }
 
+function roundCents(v: number): number {
+  return Math.round(v * 100) / 100;
+}
+
+/**
+ * SEPARAÇÃO OBRIGATÓRIA POR `kind` (#224).
+ *
+ * Quem soma extras filtra SEMPRE o `kind` primeiro — nunca somar a união em bruto:
+ *  • `kind = 'extra'` → abate ao acerto do sócio (valor na base do sócio).
+ *  • `kind = 'disbursement_adjustment'` → entra do lado do DESEMBOLSO, com o
+ *    próprio sinal e SEM IVA (é manual, D-ERP23), nunca como extra a abater.
+ *
+ * `partnerId` opcional: quando dado, filtra também pelo sócio.
+ */
+export function splitPartnerExtrasByKind(
+  extras: PartnerExtraItem[],
+  partnerId: string | null | undefined,
+  usesGrossExpenses: boolean,
+): { extras: number; adjustments: number } {
+  const mine = partnerId ? extras.filter((e) => e.partner_id === partnerId) : extras;
+  const plain = mine.filter((e) => e.kind !== "disbursement_adjustment");
+  const adj = mine.filter((e) => e.kind === "disbursement_adjustment");
+  return {
+    extras: roundCents(sumPartnerExtras(plain, usesGrossExpenses)),
+    adjustments: roundCents(adj.reduce((s, e) => s + Number(e.amount || 0), 0)),
+  };
+}
+
 
 export async function fetchPartnerExtras(eventIds: string[]): Promise<PartnerExtraItem[]> {
   const ids = eventIds.filter(Boolean);
