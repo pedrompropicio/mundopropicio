@@ -81,13 +81,21 @@ Overhead OFF → 1.604.418,45 s/IVA · 1.856.754,97 c/IVA
 Overhead ON  → 1.636.918,45 s/IVA · 1.896.729,97 c/IVA
 ```
 
-## RECEITA — resolvida em DR-2026-09-06-D24 (ver `event-revenue-basis.md`)
+## RECEITA — DR-2026-09-06-D24, revista pela #220 (ver `event-revenue-basis.md`)
 A receita tem SSoT próprio: `src/lib/event-revenue-basis.ts`. A base
-"Previsto + excedido" da receita é `max(real, previsto corrente ?? real)` **por
-componente** (Bilheteira / A&B / Patrocínio / Outros), não por linha de BP — a
-previsão de bilheteira vive no Simulador/`ticket_sales`, a de A&B no módulo A&B e
-a de patrocínios nas verbas por segmento (D22), não em `event_forecasts`. Assim o
-card comprometido de receita nunca fica a zero por falta de BP de receita.
+"Previsto + excedido" continua a ser `max(real, previsto corrente ?? real)` **por
+componente** (Bilheteira / A&B / Patrocínio / Outros).
+
+**A #220 revoga a assimetria receita/custo que aqui estava descrita como
+deliberada.** Já NÃO é verdade que as linhas de BP de receita das classes com
+módulo sejam descartadas sempre. A regra é:
+- a linha sintética do módulo **substitui** a linha de BP — nunca soma;
+- quando **não há** sintética para um componente (bilheteira sem Simulador e sem
+  `ticket_sales`; A&B sem cenário forecast), as **linhas de BP de receita dessa
+  classe alimentam o componente**, com os mesmos filtros do loop (approved, sem
+  transitórias/excluídas/overhead, fora de `excludedForecastIds`, dentro do
+  perímetro da raiz) e IVA linha a linha pelo `iva_rate` da própria linha;
+- patrocínios mantêm-se como estavam (condicionais a verbas/realizado).
 
 ## CRITÉRIO ÚNICO POR EVENTO (2026-08-20)
 Card da capa e Fecho (Encontro de Contas + Geral) partilham **um só** critério

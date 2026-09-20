@@ -209,40 +209,16 @@ export async function computeEventRevenueBasis(
   const sponsorship = await computeSponsorshipSynthetic(eventId, ids);
   const ticketForecast = skipForecast ? null : await computeLiveTicketForecast(eventId);
 
-  // Outras receitas: linhas de BP income da versão activa que NÃO são
-  // representadas por linhas sintéticas (bilheteira / A&B / patrocínios).
+  // Linhas de BP income da versão activa. As classes com módulo próprio
+  // (bilheteira / A&B / patrocínios) só são descartadas se EXISTIR sintética
+  // para esse componente — a sintética SUBSTITUI a linha de BP, nunca soma
+  // (#220). Sem sintética, as linhas de BP alimentam o bucket.
   const { data: fcs } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
     .select("id, event_id, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, is_overhead, event_settlement_id, account_categories(code)")
     .in("event_id", ids)
     .is("version_id", null)
     .eq("type", "income"));
-
-  const excludedIds = new Set(sponsorship.excludedForecastIds);
-  // Outras receitas: bruto pelo `iva_rate` da própria linha (Art.º 18 CIVA,
-  // linha a linha). O líquido é exactamente o de antes.
-  let othersForecast: MoneyPair | null = null;
-  for (const f of keepRootPerimeter((fcs ?? []) as any[], roots.rootIds)) {
-    if (f.status !== "approved") continue;
-    if (f.is_transitory || f.exclude_from_result || f.is_overhead) continue;
-    if (excludedIds.has(f.id)) continue;
-    const cls = classifyIncomeL1(f.account_categories?.code);
-    if (cls === "bilheteira" || cls === "ab") continue;
-    if (cls === "patrocinio" && sponsorship.hasTargets) continue;
-    if (cls === "patrocinio") continue; // representado pelo bucket patrocínio
-    const net = Number(f.amount || 0);
-    const gross = calcTotalWithIva(net, Number(f.iva_rate || 0));
-    othersForecast = {
-      net: (othersForecast?.net ?? 0) + net,
-      gross: (othersForecast?.gross ?? 0) + gross,
-    };
-  }
-
-  const sponsorForecast: MoneyPair | null = sponsorship.hasTargets
-    ? { net: sponsorship.currentNet ?? 0, gross: sponsorship.currentGross ?? sponsorship.currentNet ?? 0 }
-    : sponsorship.realNet > 0
-      ? { net: sponsorship.realNet, gross: sponsorship.realGross || sponsorship.realNet }
-      : null;
 
   const ticketForecastPair: MoneyPair | null =
     ticketForecast?.net != null
@@ -254,9 +230,43 @@ export async function computeEventRevenueBasis(
   const abForecastPair: MoneyPair | null =
     abForecastNet != null ? { net: abForecastNet, gross: abForecastNet } : null;
 
+  // Há sintética para o componente? Se não, o BP alimenta-o.
+  const hasTicketSynthetic = ticketForecastPair != null || hasTicketSales;
+  const hasAbSynthetic = abForecastPair != null;
+
+  const excludedIds = new Set(sponsorship.excludedForecastIds);
+  // Bruto pelo `iva_rate` da própria linha (Art.º 18 CIVA, linha a linha).
+  let othersForecast: MoneyPair | null = null;
+  let bpBilheteira: MoneyPair | null = null;
+  let bpAb: MoneyPair | null = null;
+  const addTo = (acc: MoneyPair | null, net: number, gross: number): MoneyPair => ({
+    net: (acc?.net ?? 0) + net,
+    gross: (acc?.gross ?? 0) + gross,
+  });
+  for (const f of keepRootPerimeter((fcs ?? []) as any[], roots.rootIds)) {
+    if (f.status !== "approved") continue;
+    if (f.is_transitory || f.exclude_from_result || f.is_overhead) continue;
+    if (excludedIds.has(f.id)) continue;
+    const cls = classifyIncomeL1(f.account_categories?.code);
+    if (cls === "bilheteira" && hasTicketSynthetic) continue;
+    if (cls === "ab" && hasAbSynthetic) continue;
+    if (cls === "patrocinio") continue; // representado pelo bucket patrocínio
+    const net = Number(f.amount || 0);
+    const gross = calcTotalWithIva(net, Number(f.iva_rate || 0));
+    if (cls === "bilheteira") bpBilheteira = addTo(bpBilheteira, net, gross);
+    else if (cls === "ab") bpAb = addTo(bpAb, net, gross);
+    else othersForecast = addTo(othersForecast, net, gross);
+  }
+
+  const sponsorForecast: MoneyPair | null = sponsorship.hasTargets
+    ? { net: sponsorship.currentNet ?? 0, gross: sponsorship.currentGross ?? sponsorship.currentNet ?? 0 }
+    : sponsorship.realNet > 0
+      ? { net: sponsorship.realNet, gross: sponsorship.realGross || sponsorship.realNet }
+      : null;
+
   const forecastBuckets: Record<RevenueBucket, MoneyPair | null> = {
-    bilheteira: ticketForecastPair,
-    ab: abForecastPair,
+    bilheteira: ticketForecastPair ?? bpBilheteira,
+    ab: abForecastPair ?? bpAb,
     patrocinio: sponsorForecast,
     outros: othersForecast,
   };

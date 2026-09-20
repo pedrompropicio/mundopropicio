@@ -14,6 +14,10 @@ fonte da receita de um evento ou Master+Splits — DR-2026-09-06-D24.
   forecast (injectado pelo hook), patrocínios `computeSponsorshipSynthetic` (D22),
   outras receitas = BP income da versão activa não coberto por sintéticas.
   `null` por componente sem base.
+  **#220:** o descarte das classes com módulo é CONDICIONAL — a sintética
+  substitui a linha de BP e nunca soma; sem sintética (bilheteira sem forecast do
+  Simulador e sem `ticket_sales`; A&B sem cenário), as linhas de BP dessa classe
+  alimentam o componente, com os mesmos filtros do loop e IVA linha a linha.
 - `committed` — por componente `max(real, currentForecast ?? real)` (espelha o custo).
 
 Realizado devolve `{net, gross}` por bucket (Bilheteira / A&B / Patrocínio / Outros);
