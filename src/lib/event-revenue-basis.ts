@@ -248,20 +248,10 @@ export function computeRevenueBasisFromRows(rows: RevenueBasisRows): EventRevenu
   };
 
   // ── PREVISTO CORRENTE ────────────────────────────────────────────
-  const sponsorship = await computeSponsorshipSynthetic(eventId, ids);
-  const ticketForecast = skipForecast ? null : await computeLiveTicketForecast(eventId);
-
   // Linhas de BP income da versão activa. As classes com módulo próprio
   // (bilheteira / A&B / patrocínios) só são descartadas se EXISTIR sintética
   // para esse componente — a sintética SUBSTITUI a linha de BP, nunca soma
   // (#220). Sem sintética, as linhas de BP alimentam o bucket.
-  const { data: fcs } = await fetchAllPagedQuery(supabase
-    .from("event_forecasts")
-    .select("id, event_id, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, is_overhead, event_settlement_id, account_categories(code)")
-    .in("event_id", ids)
-    .is("version_id", null)
-    .eq("type", "income"));
-
   const ticketForecastPair: MoneyPair | null =
     ticketForecast?.net != null
       ? { net: ticketForecast.net, gross: ticketForecast.gross ?? ticketForecast.net }
