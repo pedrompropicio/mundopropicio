@@ -71,7 +71,7 @@ const FORM_COLORS = {
 };
 
 export function EventFinancialCard(props: Props) {
-  const { eventId, kind, isMasterView, onValueChange } = props;
+  const { eventId, kind, isMasterView } = props;
   const { user } = useAuth();
   const userId = user?.id ?? "anon";
   const isExpense = kind === "expense";
@@ -137,13 +137,13 @@ export function EventFinancialCard(props: Props) {
   });
 
   // Nunca propagar números antes de o critério da BD chegar (evita Lucro com critério errado).
-  // Receita: o Lucro usa SEMPRE a receita REAL (D24 + adenda g3 da D25) — o toggle
-  // "previsto + excedido" é vista do card de Receitas e não alimenta Lucro nem margem.
-  const profitValue = kind === "income" ? (data.realValue ?? data.displayValue) : data.displayValue;
+  // O Lucro usa o PERÍMETRO em vigor neste card (totais s/IVA e c/IVA + modo) —
+  // a base de IVA do Lucro é a do contrato, nunca a vista deste card (#223 correção).
   useEffect(() => {
     if (shared.isLoading) return;
-    onValueChange?.(profitValue);
-  }, [shared.isLoading, profitValue, onValueChange]);
+    const p = data.perimeter;
+    props.onPerimeterChange?.(p ? { net: p.net, gross: p.gross, mode: data.modeUsed } : null);
+  }, [shared.isLoading, data.perimeter, data.modeUsed, props.onPerimeterChange]);
 
   // Nota discreta quando a vista escolhida difere da receita real.
   const realHint = kind === "income" && data.realValue != null
