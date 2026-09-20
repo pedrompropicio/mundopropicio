@@ -381,6 +381,14 @@ Deno.serve(async (req) => {
       const { error: prepErr } = await admin.rpc("restore_shadow_prepare", { p_tables: tablesToRestore });
       if (prepErr) throw new Error(`restore_shadow_prepare: ${prepErr.message}`);
 
+      // #96: em legacy, cada linha sem company_id recebe o alvo explícito.
+      let stampedLegacy: Record<string, number> | undefined;
+      if (backupScope === "legacy" && targetCompanyId) {
+        const subset: Record<string, any[]> = {};
+        for (const t of tablesToRestore) subset[t] = effective[t] ?? [];
+        stampedLegacy = await stampLegacyCompanyId(admin, subset, targetCompanyId);
+      }
+
       const loaded: Record<string, { rows: number; unknown_cols?: string[] }> = {};
       for (const t of tablesToRestore) {
         const rows = effective[t];
