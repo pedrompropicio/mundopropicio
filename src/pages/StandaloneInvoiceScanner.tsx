@@ -445,6 +445,16 @@ export default function StandaloneInvoiceScanner() {
                       <div className="space-y-1"><Label htmlFor="si-original">Valor original</Label><Input id="si-original" inputMode="decimal" value={originalAmount} onChange={(e) => { setOriginalAmount(e.target.value); setTotal(calculateStandaloneEur(e.target.value, fxRate)); }} /></div>
                       <div className="space-y-1"><Label htmlFor="si-fx">Câmbio para EUR</Label><Input id="si-fx" inputMode="decimal" value={fxRate} onChange={(e) => { setFxRate(e.target.value); setTotal(calculateStandaloneEur(originalAmount, e.target.value)); }} /></div>
                     </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        {fxDateUsed
+                          ? `Câmbio do BCE de ${fxDateUsed}${invoiceDate && fxDateUsed !== invoiceDate ? " (último dia útil antes da data da fatura)" : ""}`
+                          : "Preenche a data da fatura para usar o câmbio do BCE desse dia."}
+                      </p>
+                      <Button type="button" variant="outline" size="sm" disabled={fxBusy} onClick={() => void loadFxRate(currency, invoiceDate)}>
+                        {fxBusy ? "A obter…" : "Obter câmbio do BCE"}
+                      </Button>
+                    </div>
                     <div className="space-y-1"><Label htmlFor="si-fx-source">Fonte do câmbio</Label><Input id="si-fx-source" value={fxRateSource} onChange={(e) => setFxRateSource(e.target.value)} /></div>
                   </div>}
                   <div className="grid grid-cols-2 gap-3">
