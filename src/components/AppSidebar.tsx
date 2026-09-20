@@ -31,9 +31,12 @@ import {
   ListChecks,
   Bell,
   Phone,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import { PushNotificationToggle } from "@/components/PushNotificationToggle";
 import { useCoalaSyncBadge } from "@/hooks/useCoalaSyncBadge";
@@ -228,6 +231,8 @@ export function AppSidebar({
           <Bell className="h-5 w-5 shrink-0" />
           <span className={labelCls}>Preferências</span>
         </RouterNavLink>
+        {/* Em < sm o botão de tema sai do cabeçalho; fica aqui, junto a Preferências */}
+        {isPanel && <SidebarThemeButton />}
         <button
           onClick={() => setShowChangePassword(true)}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
