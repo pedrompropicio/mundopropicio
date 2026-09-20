@@ -865,14 +865,6 @@ export default function EventDetail() {
 
   const EventTypeIcon = eventType === "festival" ? Layers : isMultiEvent ? Route : Calendar;
 
-  // ── Vistas de IVA dos cards (#223) ───────────────────────────────
-  // Cada card guarda a sua vista; o Lucro nunca depende delas — usa o critério
-  // contratual do evento, igual ao Encontro de Contas.
-  const contractWithVat = contract?.withVat ?? false;
-  const viewDiffersFromContract =
-    !!contract &&
-    ((incomeViewVat != null && incomeViewVat !== contractWithVat) ||
-      (expenseViewVat != null && expenseViewVat !== contractWithVat));
 
 
   return (
@@ -1135,12 +1127,11 @@ export default function EventDetail() {
                   contract.revenueBase > 0
                     ? ` · margem ${((contract.result / contract.revenueBase) * 100).toFixed(1)}%`
                     : ""
-}${viewDiffersFromContract ? " · vista dos cards noutra base" : ""}${
-                  contract.perimeterMismatch ? " · perímetros diferentes nos cards" : ""
+}${contract.perimeterMismatch ? " · perímetros diferentes nos cards" : ""
                 }${contract.differsFromSettlement ? " · ≠ fecho" : ""}`
               : undefined
           }
-          tooltip="Resultado no PERÍMETRO escolhido nos cards (Realizado / Previsto + excedido / Forecast — o mesmo perímetro nos dois lados), com a base de IVA do contrato do evento: a receita entra s/IVA e a despesa c/IVA ou s/IVA conforme o critério gravado. Se os cards estiverem em modos diferentes, o Lucro usa esse par tal como está e assinala-o."
+          tooltip="Subtração direta dos valores exibidos nos cards de Receitas e Custos: Lucro = Receitas exibidas − Custos exibidos, com os seletores de perímetro (Realizado / Previsto + excedido / Forecast) e de IVA (c/IVA · s/IVA) que cada card tiver ativos. Mudar um botão muda o Lucro. O badge '≠ fecho' indica que este valor difere do Resultado do Encontro de Contas (a base contratual do fecho com o sócio) — respondem a perguntas diferentes."
         />
 
         <StatCard
