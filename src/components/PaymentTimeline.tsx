@@ -295,9 +295,9 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
         p_tx_id: txId,
         p_kind: "cash_refund",
         p_reason: reason || (release ? "Estorno + libertar para nova liquidação" : "Estorno"),
-        p_valid_until: undefined,
+        p_valid_until: null,
         p_release_for_repayment: release,
-      });
+      } as Database["public"]["Functions"]["reverse_transaction"]["Args"]);
       if (error) throw error;
       return data;
     },
