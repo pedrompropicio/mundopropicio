@@ -1,38 +1,16 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { resolvePercentageFromTiers } from "@/lib/cache-pl-helper";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import {
+  computeRealCacheResults,
+  computeTicketRevenueAndOccupancy,
+  filterRealCacheExpenses,
+  type DeductionDetail,
+  type RealCacheResult,
+} from "@/lib/real-cache-calc";
 
-export interface DeductionDetail {
-  categoryId: string;
-  categoryCode: string;
-  categoryName: string;
-  amount: number;
-  hasTransaction: boolean;
-}
-
-export interface RealCacheResult {
-  configId: string;
-  artistName: string;
-  cacheType: string;
-  realRevenueGross: number;
-  realRevenueNet: number;
-  revenueBasis: number;
-  revenueBasisLabel: string;
-  deductionDetails: DeductionDetail[];
-  realDeductionAmount: number;
-  fixedPctDeduction: number;
-  fixedPctRate: number;
-  totalDeduction: number;
-  baseForCalc: number;
-  percentage: number;
-  calculatedAmount: number;
-  minimumGuaranteed: number;
-  finalAmount: number;
-  isUsingMinimum: boolean;
-  missingDeductionCategories: DeductionDetail[];
-}
+export type { DeductionDetail, RealCacheResult };
 
 /**
  * Calculates cache values based on REAL (actual) revenue from ticket_sales
