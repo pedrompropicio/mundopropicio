@@ -140,7 +140,8 @@ export function useBPIncomeSynthetic(eventId: string, extraEventIds: string[] = 
     }
 
     // ── A&B (1.1.03) ─────────────────────────────────────────────────
-    const abCurrent = abScenarios.totals ? abScenarios.totals.forecast.receitaTotal : null;
+    // #227: depois da data do evento, o previsto corrente de A&B é o real.
+    const abScenarioCurrent = abScenarios.totals ? abScenarios.totals.forecast.receitaTotal : null;
     const abStored = eventRow?.ab_baseline_net != null ? Number(eventRow.ab_baseline_net) : null;
     if (abStored == null && abCurrent != null && abCurrent > 0 && eventRow) {
       void supabase
