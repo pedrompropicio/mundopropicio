@@ -41,6 +41,7 @@ import {
 import { fetchRootSettlements } from "@/hooks/useEventRootSettlements";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { isEventRealized } from "@/lib/event-realized";
 
 export type RevenueBucket = "bilheteira" | "ab" | "patrocinio" | "outros";
 
@@ -92,6 +93,26 @@ export interface EventRevenueBasisArgs {
   abForecastNet?: number | null;
   /** Saltar o cálculo do previsto corrente (mais barato). Default false. */
   skipForecast?: boolean;
+  /**
+   * Evento já realizado (#227). Quando `undefined`, é calculado aqui a partir de
+   * `events.status` e das datas (própria + sub-eventos), via `isEventRealized`.
+   */
+  eventRealized?: boolean;
+}
+
+/** Lê `events` e decide se o evento (ou a turnê) já aconteceu — #227. */
+export async function fetchEventRealized(eventId: string, eventIds: string[] = []): Promise<boolean> {
+  const ids = Array.from(new Set([eventId, ...eventIds])).filter(Boolean);
+  const [{ data: rows }, { data: children }] = await Promise.all([
+    supabase.from("events").select("id, status, date").in("id", ids),
+    supabase.from("events").select("id, date").in("parent_event_id", ids),
+  ]);
+  const self = (rows ?? []).find((r: any) => r.id === eventId) as any;
+  const childDates = [
+    ...((rows ?? []) as any[]).filter((r) => r.id !== eventId).map((r) => r.date),
+    ...((children ?? []) as any[]).map((r) => r.date),
+  ];
+  return isEventRealized({ status: self?.status ?? null, date: self?.date ?? null, childDates });
 }
 
 const zeroPair = (): MoneyPair => ({ net: 0, gross: 0 });
