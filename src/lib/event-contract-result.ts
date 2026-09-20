@@ -54,12 +54,20 @@ export interface ContractResult {
   label: string;
   /** true ⇒ os cards de Receitas e Custos estão em perímetros diferentes. */
   perimeterMismatch: boolean;
+  /**
+   * Resultado do Encontro de Contas na base contratual (critério gravado no
+   * evento) — só para o badge "≠ fecho". `null` enquanto não está calculado.
+   */
+  settlementResult: number | null;
+  /** true ⇒ o Lucro (perímetro dos cards) difere do Resultado do Encontro. */
+  differsFromSettlement: boolean;
 }
 
 export function computeEventContractResult(
   totals: ContractResultTotals,
   basis?: string | null,
   perimeters?: ContractPerimeterModes,
+  settlementResult?: number | null,
 ): ContractResult {
   const calcBasis = normalizePartnerCalcBasis(basis);
   const withVat = usesGrossExpenseAmounts(calcBasis);
