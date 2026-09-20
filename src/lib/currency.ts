@@ -14,7 +14,7 @@ export const SUPPORTED_CURRENCIES: { code: CurrencyCode; label: string; symbol: 
 const CCY_MAP = Object.fromEntries(SUPPORTED_CURRENCIES.map((c) => [c.code, c])) as Record<CurrencyCode, typeof SUPPORTED_CURRENCIES[number]>;
 
 export function isSupportedCurrency(code: string | null | undefined): code is CurrencyCode {
-  return code === "EUR" || code === "BRL" || code === "USD";
+  return code === "EUR" || code === "BRL" || code === "USD" || code === "GBP";
 }
 
 export function getCurrencyMeta(code: CurrencyCode) {
