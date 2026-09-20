@@ -52,6 +52,8 @@ Deno.serve(async (req) => {
         scope: "events",
         event_ids: eventIds,
         roots: TICKETING_ROOTS,
+        // #96: alvo explícito para backups legacy (sem company_id nas linhas).
+        ...(body?.target_company_id ? { target_company_id: body.target_company_id } : {}),
         ...(body?.keep_shadow === true ? { keep_shadow: true } : {}),
         ...(body?.log_scope ? { log_scope: body.log_scope } : {}),
       }),
