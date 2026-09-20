@@ -15,6 +15,7 @@ import { formatCityLabel } from "@/lib/country";
 import { createSubEventInTour } from "@/lib/create-sub-event";
 import { eventFormatLabel, type EventFormat } from "@/lib/event-format";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { fetchEventsListFinancials, type EventsListFinancialSpec } from "@/lib/events-list-financials";
 
 type EventType = "simple" | "festival" | "multi_day" | "tour" | "master" | "split";
 
