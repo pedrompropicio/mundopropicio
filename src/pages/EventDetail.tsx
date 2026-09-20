@@ -66,7 +66,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEventContractResult } from "@/hooks/useEventContractResult";
+import { useEventContractResult, type ContractPerimeterInput } from "@/hooks/useEventContractResult";
 import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
 import { keepRootPerimeter, pickOutsideRootPerimeter, isOutsideRootPerimeter } from "@/lib/settlement-perimeter";
 import { toast } from "@/hooks/use-toast";
@@ -184,14 +184,13 @@ export default function EventDetail() {
   const [editSubNameValue, setEditSubNameValue] = useState("");
   const [editingSubEvent, setEditingSubEvent] = useState<any | null>(null);
   const [showAddSubEvent, setShowAddSubEvent] = useState(false);
-  // Valores reportados pelos novos EventFinancialCard (para alimentar o card Lucro)
-  const [cardIncomeValue, setCardIncomeValue] = useState<number>(0);
-  const [cardExpenseValue, setCardExpenseValue] = useState<number>(0);
+  // Perímetros reportados pelos EventFinancialCard (#223 correção) — o Lucro usa
+  // exatamente estes totais (mesmo perímetro nos dois lados da subtração).
+  const [cardIncomePerimeter, setCardIncomePerimeter] = useState<ContractPerimeterInput | null>(null);
+  const [cardExpensePerimeter, setCardExpensePerimeter] = useState<ContractPerimeterInput | null>(null);
   // Vistas de IVA reportadas por cada card (#223) — independentes entre si.
   const [incomeViewVat, setIncomeViewVat] = useState<boolean | null>(null);
   const [expenseViewVat, setExpenseViewVat] = useState<boolean | null>(null);
-  // Lucro = resultado na base contratual, mesmo motor do Encontro de Contas (#223).
-  const { contract, isLoading: contractLoading } = useEventContractResult(id ?? "");
 
   // Reflect tab + sub-event into the URL so they survive navigations.
   useEffect(() => {
@@ -227,6 +226,8 @@ export default function EventDetail() {
     },
     enabled: !!id,
   });
+
+  // (o hook do Lucro/contract fica depois do useEventCacheImpact, que lhe dá o cachê efetivo)
 
   const eventType = event?.event_type || "simple";
   const isMultiEvent = eventType === "multi_day" || eventType === "master";
@@ -612,6 +613,17 @@ export default function EventDetail() {
     selectedSubEventId: cacheSelectedSubId,
     eventStatus: event?.status,
   });
+
+  // Lucro = resultado na base contratual, no PERÍMETRO escolhido nos cards (#223
+  // correção): receita do card de Receitas, despesa do motor do Encontro no modo
+  // do card de Custos (+ cachê efetivo); o contrato só decide c/IVA vs s/IVA.
+  const { contract } = useEventContractResult(
+    id ?? "",
+    event?.partner_calc_basis,
+    cardIncomePerimeter,
+    cardExpensePerimeter?.mode ?? null,
+    Number(calculatedCacheImpact || 0),
+  );
 
   if (loadingEvent) {
     return <p className="py-20 text-center text-muted-foreground">A carregar evento…</p>;
@@ -1086,7 +1098,7 @@ export default function EventDetail() {
           eventStatus={event.status}
           primaryEventDate={effectiveEventDate}
           ticketSales={ticketSales}
-          onValueChange={setCardIncomeValue}
+          onPerimeterChange={setCardIncomePerimeter}
           partnerCalcBasis={event.partner_calc_basis}
           onVatViewChange={setIncomeViewVat}
         />
@@ -1104,13 +1116,13 @@ export default function EventDetail() {
               : undefined
           }
           cacheImpact={Number(calculatedCacheImpact || 0)}
-          onValueChange={setCardExpenseValue}
+          onPerimeterChange={setCardExpensePerimeter}
           onVatViewChange={setExpenseViewVat}
         />
 
         <StatCard
           title="Lucro"
-          value={contractLoading || !contract ? "—" : formatCurrency(contract.result)}
+          value={!contract ? "—" : formatCurrency(contract.result)}
           icon={Wallet}
           variant="primary"
           subtitle={
@@ -1119,10 +1131,12 @@ export default function EventDetail() {
                   contract.revenueBase > 0
                     ? ` · margem ${((contract.result / contract.revenueBase) * 100).toFixed(1)}%`
                     : ""
-                }${viewDiffersFromContract ? " · vista dos cards noutra base" : ""}`
+                }${viewDiffersFromContract ? " · vista dos cards noutra base" : ""}${
+                  contract.perimeterMismatch ? " · perímetros diferentes nos cards" : ""
+                }`
               : undefined
           }
-          tooltip="Resultado do evento na BASE CONTRATUAL gravada no evento (o mesmo motor e o mesmo número do Encontro de Contas). Não depende da vista de IVA escolhida nos cards de Receitas e Custos."
+          tooltip="Resultado no PERÍMETRO escolhido nos cards (Realizado / Previsto + excedido / Forecast — o mesmo perímetro nos dois lados), com a base de IVA do contrato do evento: a receita entra s/IVA e a despesa c/IVA ou s/IVA conforme o critério gravado. Se os cards estiverem em modos diferentes, o Lucro usa esse par tal como está e assinala-o."
         />
 
         <StatCard

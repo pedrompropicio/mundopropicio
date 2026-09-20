@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown, Settings2 } from "lucide-react";
 import { useEventFinancialCardData } from "@/hooks/useEventFinancialCardData";
 import {
-  type CardMode, type RevenueScenario,
+  type CardMode, type ModeUsed, type RevenueScenario,
   readStoredMode, writeStoredMode,
   readStoredCostToggle, writeStoredCostToggle,
   readStoredWithVat, writeStoredWithVat,
@@ -37,8 +37,12 @@ interface Props {
   masterQuota?: { masterEventId: string; siblingCount: number };
   /** Cachê calculado efetivo. */
   cacheImpact?: number;
-  /** Callback com o displayValue actual — usado pelo card Lucro. */
-  onValueChange?: (value: number) => void;
+  /**
+   * Reporta o PERÍMETRO em vigor (totais nas duas bases de IVA + modo) — é isto
+   * que alimenta o card de Lucro (#223 correção): o contrato escolhe a base de
+   * IVA, o perímetro vem daqui. `null` quando o perímetro está indisponível.
+   */
+  onPerimeterChange?: (p: { net: number; gross: number; mode: ModeUsed } | null) => void;
   /** `events.partner_calc_basis` — semente do critério de IVA (partilhado com o Fecho). */
   partnerCalcBasis?: string | null;
   /** Reporta a vista de IVA deste card (só para o aviso do card de Lucro). */
@@ -67,7 +71,7 @@ const FORM_COLORS = {
 };
 
 export function EventFinancialCard(props: Props) {
-  const { eventId, kind, isMasterView, onValueChange } = props;
+  const { eventId, kind, isMasterView } = props;
   const { user } = useAuth();
   const userId = user?.id ?? "anon";
   const isExpense = kind === "expense";
@@ -133,13 +137,13 @@ export function EventFinancialCard(props: Props) {
   });
 
   // Nunca propagar números antes de o critério da BD chegar (evita Lucro com critério errado).
-  // Receita: o Lucro usa SEMPRE a receita REAL (D24 + adenda g3 da D25) — o toggle
-  // "previsto + excedido" é vista do card de Receitas e não alimenta Lucro nem margem.
-  const profitValue = kind === "income" ? (data.realValue ?? data.displayValue) : data.displayValue;
+  // O Lucro usa o PERÍMETRO em vigor neste card (totais s/IVA e c/IVA + modo) —
+  // a base de IVA do Lucro é a do contrato, nunca a vista deste card (#223 correção).
   useEffect(() => {
     if (shared.isLoading) return;
-    onValueChange?.(profitValue);
-  }, [shared.isLoading, profitValue, onValueChange]);
+    const p = data.perimeter;
+    props.onPerimeterChange?.(p ? { net: p.net, gross: p.gross, mode: data.modeUsed } : null);
+  }, [shared.isLoading, data.perimeter, data.modeUsed, props.onPerimeterChange]);
 
   // Nota discreta quando a vista escolhida difere da receita real.
   const realHint = kind === "income" && data.realValue != null
@@ -284,7 +288,7 @@ export function EventFinancialCard(props: Props) {
         {!shared.isLoading && realHint != null && (
           <p
             className="mt-1 text-[10px] text-muted-foreground"
-            title="O Lucro e a margem usam sempre a receita real (o fecho não usa receita prevista)."
+            title="Receita real atual (bilheteira + transações realizadas)."
           >
             real: {formatCurrency(realHint)}
           </p>

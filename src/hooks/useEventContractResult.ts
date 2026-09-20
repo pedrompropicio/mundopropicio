@@ -1,11 +1,25 @@
 /**
- * Resultado do evento na base contratual (#223) — mesmo motor do Encontro de
- * Contas, visão "Geral do evento".
+ * Resultado do evento na base contratual (#223), NO PERÍMETRO DOS CARDS.
  *
- * Só leitura. Usa EXACTAMENTE as mesmas queries (mesmas `queryKey`, logo o
- * react-query partilha a cache com `useEventSettlementEngine`) e os mesmos
- * totais (`computeEventSettlementTotals`) com o critério gravado no evento
- * (`useFechoBasis`). O cálculo final vive em `computeEventContractResult`.
+ * Regra (#223 correção): o critério do contrato (`events.partner_calc_basis`)
+ * decide APENAS se a despesa entra c/IVA ou s/IVA. O perímetro — Realizado vs
+ * Previsto + excedido vs Forecast — vem do modo escolhido nos cards de
+ * Receitas e de Custos, e o Lucro usa esse perímetro nos DOIS lados:
+ *
+ *   • RECEITA  — o valor do card de Receitas (perímetro real, previsto+excedido
+ *     ou forecast), que já inclui a lógica D24/#219 (linhas de BP quando não
+ *     há realizado) e o cachê efetivo faturado;
+ *   • DESPESA  — os totais do motor do Encontro (`computeEventSettlementTotals`)
+ *     com `expenseSource` = perímetro do card de Custos, MAIS o impacto de
+ *     cachê efetivo (o mesmo ajuste que o Encontro aplica dos dois lados).
+ *
+ * Porquê a despesa do motor e não a soma cidade a cidade do card (#217): o
+ * Encontro apura o excedente fora do BP globalmente; o card apura rubrica a
+ * rubrica por cidade. Os dois divergem quando uma cidade estoura e outra tem
+ * folga — e é o número do Encontro que o Lucro tem de reproduzir.
+ *
+ * Se os dois cards estiverem em modos diferentes, o Lucro usa esse par tal
+ * como está e o resultado assinala `perimeterMismatch`.
  */
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -15,13 +29,25 @@ import { computeEventSettlementTotals } from "@/lib/event-settlement-inputs";
 import { computeEventContractResult, type ContractResult } from "@/lib/event-contract-result";
 import { useFechoBasis } from "@/hooks/useFechoBasis";
 
+export interface ContractPerimeterInput {
+  /** Receita do card, sempre s/IVA. */
+  net: number;
+  mode: "realized" | "committed" | "forecast";
+}
+
 export interface EventContractResultState {
   contract: ContractResult | null;
   isLoading: boolean;
 }
 
-export function useEventContractResult(eventId: string): EventContractResultState {
-  const { data: event, isPending: eventPending } = useQuery({
+export function useEventContractResult(
+  eventId: string,
+  partnerCalcBasis: string | null | undefined,
+  income: ContractPerimeterInput | null,
+  expenseMode: "realized" | "committed" | "forecast" | null,
+  cacheImpact: number,
+): EventContractResultState {
+  const { data: event } = useQuery({
     queryKey: ["event-settlement-engine-event", eventId],
     enabled: !!eventId,
     queryFn: async () => {
@@ -35,7 +61,7 @@ export function useEventContractResult(eventId: string): EventContractResultStat
     },
   });
 
-  const basis = useFechoBasis(eventId, (event as any)?.partner_calc_basis);
+  const basis = useFechoBasis(eventId, (event as any)?.partner_calc_basis ?? partnerCalcBasis);
 
   const { data: events = [], isPending: eventsPending } = useQuery({
     queryKey: ["event-settlement-engine-events", eventId],
@@ -121,29 +147,41 @@ export function useEventContractResult(eventId: string): EventContractResultStat
     },
   });
 
-  const isLoading =
-    !eventId || eventPending || eventsPending || txPending || bpPending || tsPending || basis.isLoading;
+  const isLoading = !eventId || eventsPending || txPending || bpPending || tsPending || basis.isLoading;
 
   const contract = useMemo(() => {
-    if (isLoading) return null;
+    if (isLoading || !income || !expenseMode) return null;
+    // Forecast não tem equivalente no motor: usa a base "previsto + excedido".
+    const expenseSource = expenseMode === "realized" ? "realized" : "committed";
     const totals = computeEventSettlementTotals({
       events: events.length ? events : [{ id: eventId, parent_event_id: null }],
       transactions,
       forecasts,
       ticketSales,
-      basis: { includeOverhead: basis.includeOverhead, expenseSource: basis.expenseSource },
+      basis: { includeOverhead: basis.includeOverhead, expenseSource },
     });
-    return computeEventContractResult(totals, (event as any)?.partner_calc_basis);
+    return computeEventContractResult(
+      {
+        revenueNet: income.net,
+        expensesNet: totals.expensesNet + cacheImpact,
+        expensesGross: totals.expensesGross + cacheImpact,
+      },
+      (event as any)?.partner_calc_basis ?? partnerCalcBasis,
+      { revenue: income.mode, expense: expenseMode },
+    );
   }, [
     isLoading,
+    income,
+    expenseMode,
+    cacheImpact,
     events,
     eventId,
     transactions,
     forecasts,
     ticketSales,
     basis.includeOverhead,
-    basis.expenseSource,
     event,
+    partnerCalcBasis,
   ]);
 
   return { contract, isLoading };
