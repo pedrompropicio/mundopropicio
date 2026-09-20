@@ -7,7 +7,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { computeLiveTicketForecast } from "@/lib/event-simulator-forecast-live";
-import { fetchTicketSalesRevenue } from "@/lib/event-revenue-basis";
+import { fetchTicketSalesRevenue, fetchEventRealized } from "@/lib/event-revenue-basis";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export interface TicketSyntheticResult {
@@ -89,7 +89,12 @@ export async function computeTicketSynthetic(
 
   // Previsto corrente = cenário Forecast do Simulador calculado AO VIVO
   // (DR-2026-09-03-D21, adenda 2). Nunca o fallback estático.
-  const live = await computeLiveTicketForecast(eventId);
+  // #227: depois da data do evento o previsto corrente é o REAL — o simulador
+  // deixa de mandar. O previsto ORIGINAL (baseline) não muda.
+  const [live, eventRealized] = await Promise.all([
+    computeLiveTicketForecast(eventId),
+    fetchEventRealized(eventId, ids),
+  ]);
 
   return {
     initialLoad,
@@ -97,8 +102,9 @@ export async function computeTicketSynthetic(
     currentLoadOn: live.currentLoadOn,
     soldQty, ivaPct,
     baselineNet, computedBaselineNet,
-    currentNet: live.net,
-    currentQty: live.totalQty,
+    currentNet: eventRealized ? realNet : live.net,
+    currentQty: eventRealized ? soldQty : live.totalQty,
     realNet,
+    eventRealized,
   };
 }
