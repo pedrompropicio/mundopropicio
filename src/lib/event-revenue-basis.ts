@@ -275,7 +275,7 @@ export function computeRevenueBasisFromRows(rows: RevenueBasisRows): EventRevenu
     net: (acc?.net ?? 0) + net,
     gross: (acc?.gross ?? 0) + gross,
   });
-  for (const f of keepRootPerimeter((fcs ?? []) as any[], roots.rootIds)) {
+  for (const f of rows.incomeForecasts) {
     if (f.status !== "approved") continue;
     if (f.is_transitory || f.exclude_from_result || f.is_overhead) continue;
     if (excludedIds.has(f.id)) continue;
