@@ -158,7 +158,9 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit, c
     }
   }
 
-  const totalExtras = sumPartnerExtras(extras, usesGross);
+  // (#224) o total do cabeçalho conta só `kind = 'extra'`; os ajustes ao
+  // desembolso aparecem à parte, com o próprio sinal.
+  const { extras: totalExtras, adjustments: totalAdjustments } = splitPartnerExtrasByKind(extras, null, usesGross);
 
   return (
     <div className="mt-2 space-y-2">
@@ -167,6 +169,9 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit, c
           Despesas Extras — {partnerName} <HelpTooltip text={helpTexts.partnerExtras} size={12} />
           {totalExtras > 0 && (
             <span className="ml-2 text-warning font-mono">({formatCurrency(totalExtras)})</span>
+          )}
+          {totalAdjustments !== 0 && (
+            <span className="ml-2 font-mono text-destructive">ajustes: {formatCurrency(totalAdjustments)}</span>
           )}
           <span className="ml-1 text-[10px] font-normal text-muted-foreground">
             valores {usesGross ? "c/IVA" : "s/IVA"}
