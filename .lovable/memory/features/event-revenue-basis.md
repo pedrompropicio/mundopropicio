@@ -18,6 +18,9 @@ fonte da receita de um evento ou Master+Splits — DR-2026-09-06-D24.
   substitui a linha de BP e nunca soma; sem sintética (bilheteira sem forecast do
   Simulador e sem `ticket_sales`; A&B sem cenário), as linhas de BP dessa classe
   alimentam o componente, com os mesmos filtros do loop e IVA linha a linha.
+  **#225:** a mesma regra fechada para o terceiro bucket — patrocínios sem
+  verbas nem cards (`sponsorship` EMPTY) alimentam o bucket via linhas 1.2.x
+  aprovadas (`bpPatrocinio`); a sintética substitui, nunca soma.
 - `committed` — por componente `max(real, currentForecast ?? real)` (espelha o custo).
 
 Realizado devolve `{net, gross}` por bucket (Bilheteira / A&B / Patrocínio / Outros);
