@@ -227,6 +227,15 @@ export default function EventDetail() {
     enabled: !!id,
   });
 
+  // Lucro = resultado na base contratual, no PERÍMETRO escolhido nos cards (#223
+  // correção): os dois lados da subtração vêm do mesmo perímetro; o contrato só
+  // decide se a despesa entra c/IVA ou s/IVA.
+  const { contract } = useEventContractResult(
+    event?.partner_calc_basis,
+    cardIncomePerimeter,
+    cardExpensePerimeter,
+  );
+
   const eventType = event?.event_type || "simple";
   const isMultiEvent = eventType === "multi_day" || eventType === "master";
 
