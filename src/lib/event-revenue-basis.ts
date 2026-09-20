@@ -162,6 +162,12 @@ export interface RevenueBasisRows {
   sponsorship: SponsorshipSyntheticResult;
   ticketForecast?: LiveTicketForecast | null;
   abForecastNet?: number | null;
+  /**
+   * Evento já realizado (#227): as sintéticas de bilheteira e A&B passam a ser o
+   * REAL — o previsto do simulador e do cenário A&B só vale até à data do evento.
+   * Patrocínios não mudam (D22 já tem `sponsorship_closed_at`).
+   */
+  eventRealized?: boolean;
 }
 
 export async function computeEventRevenueBasis(
@@ -212,7 +218,13 @@ export async function computeEventRevenueBasis(
 }
 
 export function computeRevenueBasisFromRows(rows: RevenueBasisRows): EventRevenueBasis {
-  const { ticket, sponsorship, ticketForecast = null, abForecastNet = null } = rows;
+  const { ticket, sponsorship, eventRealized = false } = rows;
+  // #227: depois do evento, a sintética de bilheteira e a de A&B são o real.
+  // Anular as previsões AQUI mantém tudo o resto intacto: com `ticket_sales`
+  // `hasTicketSynthetic` continua verdadeiro (committed = max(real, real)) e sem
+  // `ticket_sales` as linhas de BP alimentam o bucket como hoje (#220/#225).
+  const ticketForecast = eventRealized ? null : (rows.ticketForecast ?? null);
+  const abForecastNet = eventRealized ? null : (rows.abForecastNet ?? null);
   const allIncomeTx = rows.incomeTx;
   const hasTicketSales = ticket.gross !== 0 || ticket.net !== 0;
 
