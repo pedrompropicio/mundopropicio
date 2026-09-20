@@ -301,12 +301,15 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
         title="Ver composição transação a transação"
         className={`rounded-lg p-3 text-center cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all ${summary.hasInconsistency ? "bg-destructive/10 border border-destructive/30" : "bg-secondary/40"}`}
       >
-        <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">Retido na Bilheteira <HelpTooltip text={helpTexts.ticketOfficeBalance} size={12} /></p>
+        <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+          Retido na Bilheteira <HelpTooltip text={helpTexts.ticketOfficeBalance} size={12} />
+          <HelpTooltip size={12} text="Âmbito deste painel (#129): só os eventos atribuídos a esta bilheteira." />
+        </p>
         <p className={`text-lg font-mono font-bold ${summary.globalBalance >= 0 ? "text-emerald-500" : "text-red-400"}`}>
           {formatCurrency(summary.globalBalance)}
         </p>
         <p className="text-[10px] text-muted-foreground mt-0.5">
-          Vendas − despesas − transferências − adiantamentos em aberto
+          Vendas − despesas − transferências − adiantamentos em aberto ± outros movimentos = retido
         </p>
         {summary.retentionPct != null && (
           <div className="mt-2 grid grid-cols-2 gap-2 border-t border-border/40 pt-2">
