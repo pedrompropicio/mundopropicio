@@ -61,7 +61,10 @@ type AnalyticalGroupBy = "event" | "type";
 
 interface AnalyticalLine {
   date: string;
+  /** Mantido como estava: a exportação (Excel/PDF) agrupa por `type`. */
   type: "sale" | "expense" | "transfer" | "income";
+  /** #128 — classe real do movimento; distingue adiantamento de transferência. */
+  kind?: "sale" | "income" | "expense" | "transfer" | "advance";
   description: string;
   eventName: string;
   eventId?: string;
