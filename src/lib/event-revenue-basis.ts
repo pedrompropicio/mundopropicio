@@ -15,10 +15,13 @@
  *                         A&B via cenário forecast do módulo A&B (injectado pelo
  *                         hook, porque vive em hooks); patrocínios via
  *                         `computeSponsorshipSynthetic` (previsto corrente com
- *                         verbas, fechados sem verbas); outras receitas = linhas
- *                         de BP `type='income'` da versão activa não
- *                         representadas por sintéticas. `null` por componente
- *                         quando não há base.
+ *                         verbas, fechados sem verbas); para os TRÊS buckets com
+ *                         módulo (bilheteira / A&B / patrocínios) a sintética
+ *                         SUBSTITUI a linha de BP, nunca soma — sem sintética, as
+ *                         linhas de BP aprovadas alimentam o bucket (#220, #225);
+ *                         outras receitas = linhas de BP `type='income'` da
+ *                         versão activa não representadas por sintéticas.
+ *                         `null` por componente quando não há base.
  *   • `committed`       — "Previsto + excedido": por componente
  *                         `max(real, currentForecast ?? real)`. Espelha a regra
  *                         do custo: o previsto nunca fica abaixo do realizado.
