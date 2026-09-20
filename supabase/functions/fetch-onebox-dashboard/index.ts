@@ -373,7 +373,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         queries: [{
           filters: [
             ...nativeFilters,
-            ...(rFd.adhoc_filters ?? []).filter((f: any) => f?.expressionType === "SIMPLE"),
+            ...adhocToQuery(rFd.adhoc_filters),
           ],
           extras: { having: "", where: "" },
           applied_time_extras: {},
