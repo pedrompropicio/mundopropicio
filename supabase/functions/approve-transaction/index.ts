@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
 
     const { data: transactions, error: fetchError } = await fetchAllPagedQuery(adminClient
       .from("transactions")
-      .select("id, status, type, event_id, amount, iva_rate, company_id, forecast_id, parent_transaction_id, is_transitory, exclude_from_result, reversed_at, is_hidden, shared_cost_account_id")
+      .select("id, status, type, event_id, amount, iva_rate, company_id, category_id, forecast_id, parent_transaction_id, is_transitory, exclude_from_result, reversed_at, is_hidden, shared_cost_account_id")
       .in("id", expandedIds));
 
     if (fetchError) {
@@ -172,13 +172,37 @@ Deno.serve(async (req) => {
     // (null = false). Quinta isenção (16/09/2026, D-ERP69):
     // shared_cost_account_id preenchido — custo partilhado com terceiros.
     // É também o predicado do bloco D2 mais abaixo.
+    // Sexta isenção (20/09/2026, #111): rubrica 10.3 "Transferências Internas"
+    // (ou descendente) — movimento de tesouraria/bilheteira, o BP nunca tem
+    // linha para ele, com ou sem evento.
     if (approvableTx.length > 0) {
-      const candidates = approvableTx.filter(
+      let candidates = approvableTx.filter(
         (t: any) =>
           t.type === "expense" && !!t.event_id && !t.parent_transaction_id && !t.forecast_id &&
           t.is_transitory !== true && t.exclude_from_result !== true &&
           t.reversed_at == null && t.is_hidden !== true && t.shared_cost_account_id == null,
       );
+      if (candidates.length > 0) {
+        const catIds = [...new Set(candidates.map((t: any) => t.category_id).filter(Boolean))];
+        if (catIds.length > 0) {
+          const { data: cats, error: catsError } = await adminClient
+            .from("account_categories")
+            .select("id, code")
+            .in("id", catIds as string[]);
+          if (catsError) {
+            return new Response(JSON.stringify({ error: catsError.message }), {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          const internal = new Set(
+            (cats ?? []).filter((c: any) => String(c.code ?? "").startsWith("10.3")).map((c: any) => c.id),
+          );
+          if (internal.size > 0) {
+            candidates = candidates.filter((t: any) => !internal.has(t.category_id));
+          }
+        }
+      }
       if (candidates.length > 0) {
         const eventIds = [...new Set(candidates.map((t: any) => t.event_id as string))];
         const withBp = new Set<string>();
