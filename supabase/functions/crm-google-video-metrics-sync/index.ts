@@ -307,7 +307,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       apiCalls += PROBE_LIKES.length;
       const probe = await probeSelectable(ctx);
       selectable = probe.selectable;
-      per.campos_confirmados = probe.found;
+      per.metricas_disponiveis = probe.metricas;
     } catch (e) {
       errorCount++;
       notes.push(`ligação ${conn.id}: probe de campos falhou (${(e as Error).message})`);
