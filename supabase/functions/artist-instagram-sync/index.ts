@@ -56,13 +56,40 @@ const MEDIA_INSIGHTS = [
   "total_interactions",
 ];
 
-// Timeframe é por métrica: reached_audience_demographics não aceita "this_month".
-const DEMOGRAPHIC_METRICS: Array<{ metric: string; audience_type: string; timeframe: string }> = [
-  { metric: "follower_demographics", audience_type: "followers", timeframe: "this_month" },
-  { metric: "engaged_audience_demographics", audience_type: "engaged", timeframe: "this_month" },
-  { metric: "reached_audience_demographics", audience_type: "reached", timeframe: "last_30_days" },
+// Timeframes: last_14_days / last_30_days / last_90_days / prev_month deixaram de
+// ser suportados na v20.0 — só se enviam this_week e this_month.
+// `engaged_audience_demographics` só vem se houver >= 100 interações no período,
+// por isso tenta-se this_week e, se vier vazio, this_month uma vez.
+// `reached_audience_demographics` já não consta da referência: pede-se UMA vez e,
+// se a API a recusar, não se repete por breakdown.
+const DEMOGRAPHIC_METRICS: Array<
+  { metric: string; audience_type: string; timeframes: string[] }
+> = [
+  { metric: "follower_demographics", audience_type: "followers", timeframes: ["this_month"] },
+  {
+    metric: "engaged_audience_demographics",
+    audience_type: "engaged",
+    timeframes: ["this_week", "this_month"],
+  },
+  { metric: "reached_audience_demographics", audience_type: "reached", timeframes: ["this_week"] },
 ];
 const BREAKDOWNS = ["city", "country", "age", "gender"] as const;
+
+/** Corpo cru da resposta, truncado e sem qualquer token (o token só vai no URL). */
+function rawSample(body: unknown): string {
+  try {
+    return JSON.stringify(body ?? null).slice(0, 1000);
+  } catch (_e) {
+    return "(corpo não serializável)";
+  }
+}
+
+/** A API recusa a métrica em si (não é falta de dados)? */
+function metricUnsupported(body: any): boolean {
+  const msg = String(body?.error?.message ?? "").toLowerCase();
+  return /metric|metrics\[/.test(msg) &&
+    /(not supported|unsupported|does not exist|invalid|no longer)/.test(msg);
+}
 
 function ymd(d: Date): string {
   return d.toISOString().slice(0, 10);
