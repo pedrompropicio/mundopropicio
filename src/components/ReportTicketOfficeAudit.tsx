@@ -398,6 +398,7 @@ export default function ReportTicketOfficeAudit() {
             lines.push({
               date: t.date,
               type: "income",
+              kind: "income",
               description: `${t.description}${supplierName}`,
               eventName: t.event_id ? evName : "—",
               eventId: t.event_id || undefined,
