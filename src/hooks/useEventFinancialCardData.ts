@@ -475,6 +475,8 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
           { label: "Outros", value: rev.souvenirRevenue + rev.otherCredits },
         ],
         realValue, formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
+        // Cenários do Simulador (today/breakeven) não têm par líquido/bruto.
+        perimeter: { net: rev.totalRevenue, gross: rev.totalRevenue },
       };
     } else {
       // Forecast custos: formalidade-aware.
