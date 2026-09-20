@@ -467,6 +467,8 @@ Deno.serve(async (req) => {
           : undefined,
         scope_tables_missing_from_backup: scopeWithoutBackup.length ? scopeWithoutBackup : undefined,
         shadows_dropped: shadowsDropped,
+        legacy_company_stamped: stampedLegacy && Object.keys(stampedLegacy).length ? stampedLegacy : undefined,
+        target_company_id: backupScope === "legacy" ? targetCompanyId : undefined,
         shadow_kept: keepShadow,
         backup_run_id: runId,
       });
