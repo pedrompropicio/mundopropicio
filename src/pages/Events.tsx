@@ -128,7 +128,7 @@ export default function Events() {
   });
 
   const { data: events = [], isLoading } = useQuery({
-    queryKey: ["events_full"],
+    queryKey: ["events_full", userId],
     queryFn: async () => {
       const { data: evts, error } = await (supabase
         .from("events")
