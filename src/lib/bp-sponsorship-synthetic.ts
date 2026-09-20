@@ -74,8 +74,34 @@ export async function computeSponsorshipSynthetic(
     supabase.from("events").select("sponsorship_closed_at").eq("id", eventId).maybeSingle(),
   ]);
 
-  const targetRows = (targets ?? []) as any[];
   const closedAt = ((evt as any)?.sponsorship_closed_at as string | null) ?? null;
+
+  const { data: sponsorFcsRows } = await fetchAllPagedQuery(supabase
+    .from("event_forecasts")
+    .select("id, iva_rate, account_categories(code)")
+    .in("event_id", ids)
+    .is("version_id", null)
+    .eq("type", "income"));
+
+  return computeSponsorshipSyntheticFromRows({
+    targets: (targets ?? []) as any[],
+    cards: (cards ?? []) as any[],
+    closedAt,
+    incomeForecasts: (sponsorFcsRows ?? []) as any[],
+  });
+}
+
+/** NÚCLEO PURO (sem queries) — partilhado com a grelha de eventos. */
+export function computeSponsorshipSyntheticFromRows(rows: {
+  targets: any[];
+  cards: any[];
+  closedAt: string | null;
+  /** BP income da versão activa (para a taxa de IVA das linhas 1.2.*). */
+  incomeForecasts: any[];
+}): SponsorshipSyntheticResult {
+  const targetRows = rows.targets;
+  const cards = rows.cards;
+  const closedAt = rows.closedAt;
 
   if (targetRows.length === 0) return { ...EMPTY, closedAt };
 
