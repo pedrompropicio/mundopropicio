@@ -224,7 +224,7 @@ export default function DatabaseBackups() {
     setRestoreResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("database-restore", {
-        body: { backup_file: fileName, mode: "preview" },
+        body: { backup_file: fileName, mode: "preview", ...(company?.id ? { target_company_id: company.id } : {}) },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -243,7 +243,7 @@ export default function DatabaseBackups() {
     setRestoreResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("database-restore", {
-        body: { backup_file: restoreTarget, mode: "restore" },
+        body: { backup_file: restoreTarget, mode: "restore", ...(company?.id ? { target_company_id: company.id } : {}) },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);

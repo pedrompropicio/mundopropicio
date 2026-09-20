@@ -10,6 +10,11 @@
 //   sem active_company_id pode restaurar dados globais.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  LEGACY_TARGET_COMPANY_ERROR,
+  isUuid,
+  stampLegacyCompanyId,
+} from "../_shared/restore-legacy-company.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -195,6 +200,12 @@ Deno.serve(async (req) => {
       }
     }
 
+    // #96: backups legacy não trazem company_id nas linhas — alvo explícito obrigatório.
+    const targetCompanyId: string | null = isUuid(body?.target_company_id) ? body.target_company_id : null;
+    if (backupScope === "legacy" && !targetCompanyId) {
+      return jsonErr(LEGACY_TARGET_COMPANY_ERROR, 400);
+    }
+
     // Lista de tabelas a restaurar.
     // v4: derivada do manifesto — as conhecidas mantêm a ordem de dependências
     // já existente e as restantes vão no fim, por ordem alfabética.
@@ -312,8 +323,14 @@ Deno.serve(async (req) => {
       // (c) Carga em lotes. Colunas desconhecidas são removidas contra as
       // colunas da sombra (information_schema), nunca por amostra de linha.
       const loaded: Record<string, { rows: number; unknown_cols?: string[] }> = {};
+      const stampedLegacy: Record<string, number> = {};
       for (const t of tablesToRestore) {
         const rows = await backup.getTable(t);
+        // #96: linhas de backup legacy sem company_id recebem o alvo explícito.
+        if (backupScope === "legacy" && targetCompanyId && rows.length) {
+          const s = await stampLegacyCompanyId(admin, { [t]: rows }, targetCompanyId);
+          if (s[t]) stampedLegacy[t] = s[t];
+        }
         let n = 0;
         const unknown = new Set<string>();
         for (let i = 0; i < rows.length; i += 500) {
@@ -375,6 +392,8 @@ Deno.serve(async (req) => {
         log_scope: logScope,
         backup_company_id: backupCompanyId,
         applied_company_id: applyCompanyId,
+        legacy_company_stamped: Object.keys(stampedLegacy).length ? stampedLegacy : undefined,
+        target_company_id: backupScope === "legacy" ? targetCompanyId : undefined,
         backup_file,
         backup_date: backupJson.created_at,
         total_tables: tablesToRestore.length,

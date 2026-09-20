@@ -13,9 +13,15 @@
 //
 // Body: { backup_file, mode: 'preview'|'restore', scope: 'tables'|'events',
 //         tables?: string[], event_ids?: string[], roots?: string[],
+//         target_company_id?: uuid (obrigatório em backups legacy — #96),
 //         keep_shadow?: true, log_scope?: 'restore_test' }   (os dois últimos só service_role)
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  LEGACY_TARGET_COMPANY_ERROR,
+  isUuid,
+  stampLegacyCompanyId,
+} from "../_shared/restore-legacy-company.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -177,6 +183,11 @@ Deno.serve(async (req) => {
     }
     if (backupScope === "legacy" && !isMachine && !isPlatformAdmin) {
       return json({ error: "Backups antigos (v2) só por platform_admin" }, 403);
+    }
+    // #96: legacy não traz company_id nas linhas — exige alvo explícito.
+    const targetCompanyId: string | null = isUuid(body?.target_company_id) ? body.target_company_id : null;
+    if (backupScope === "legacy" && !targetCompanyId) {
+      return json({ error: LEGACY_TARGET_COMPANY_ERROR }, 400);
     }
     if (scope === "events" && callerCompanyId && event_ids?.length) {
       const { data: evCheck } = await admin.from("events").select("id, company_id").in("id", event_ids);
@@ -370,6 +381,14 @@ Deno.serve(async (req) => {
       const { error: prepErr } = await admin.rpc("restore_shadow_prepare", { p_tables: tablesToRestore });
       if (prepErr) throw new Error(`restore_shadow_prepare: ${prepErr.message}`);
 
+      // #96: em legacy, cada linha sem company_id recebe o alvo explícito.
+      let stampedLegacy: Record<string, number> | undefined;
+      if (backupScope === "legacy" && targetCompanyId) {
+        const subset: Record<string, any[]> = {};
+        for (const t of tablesToRestore) subset[t] = effective[t] ?? [];
+        stampedLegacy = await stampLegacyCompanyId(admin, subset, targetCompanyId);
+      }
+
       const loaded: Record<string, { rows: number; unknown_cols?: string[] }> = {};
       for (const t of tablesToRestore) {
         const rows = effective[t];
@@ -448,6 +467,8 @@ Deno.serve(async (req) => {
           : undefined,
         scope_tables_missing_from_backup: scopeWithoutBackup.length ? scopeWithoutBackup : undefined,
         shadows_dropped: shadowsDropped,
+        legacy_company_stamped: stampedLegacy && Object.keys(stampedLegacy).length ? stampedLegacy : undefined,
+        target_company_id: backupScope === "legacy" ? targetCompanyId : undefined,
         shadow_kept: keepShadow,
         backup_run_id: runId,
       });
