@@ -3923,3 +3923,26 @@ bucket sem real entra nas `markedLines` como `kind: "bp", type: "income"` — s�
 
 Regressão que motivou: FestVybbe 2026 (evento histórico só com BP) mostrava receita 0,00 € e
 resultado −359.011,85 €, quando o correcto é receita s/IVA 318.102,83 € e −40.909,02 €.
+
+## D-ERP114 — Depois do evento, as sintéticas de bilheteira e A&B são o real (#227) (20/09/2026)
+
+Adenda ao D21 e ao D24. O previsto corrente de bilheteira (`computeLiveTicketForecast`)
+e o de A&B (cenário forecast do módulo A&B) só valem ATÉ à data do evento. Depois dela,
+o "Previsto + excedido" colapsa para o realizado nesses dois buckets: um previsto acima
+das vendas reais num evento já realizado não é "excedido", é uma previsão que não se
+cumpriu, e não pode figurar como receita na capa nem no Lucro.
+
+"Realizado" = `events.status = 'completed'` OU a última data do evento já passou
+(a própria `events.date`; num Master, a maior data entre o Master e os sub-eventos;
+comparação por dia, em data local). Helper puro `isEventRealized` em
+`src/lib/event-realized.ts`; flag `eventRealized` em `computeRevenueBasisFromRows`
+(anula `ticketForecast` e `abForecastNet` antes de decidir as sintéticas) e em
+`computeEventRevenueBasis` (que a calcula quando não lhe é dada, e nesse caso nem corre
+o simulador). As sintéticas do separador Business Plan (1.1.01 e 1.1.03) seguem a mesma
+regra no previsto CORRENTE; o previsto ORIGINAL (`ticketing_baseline_net`,
+`ab_baseline_net`) não muda.
+
+Patrocínios ficam fora (D22 já trata o encerramento por `sponsorship_closed_at`) e os
+eventos importados só com BP não mudam: sem sintética, as linhas de BP continuam a
+alimentar o bucket (#220/#225). A grelha `/eventos` não precisa da flag (já não corre o
+simulador) — é por isso que a capa passou a bater com a grelha nos eventos realizados.

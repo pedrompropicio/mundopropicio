@@ -41,3 +41,17 @@ mantêm essas linhas.**
 `EventFinancialCard` propaga esse valor ao card Lucro/margem, mesmo em "Previsto +
 excedido"; nota discreta "real: X" quando divergem. Garante Lucro do evento =
 resultado do fechamento raiz no Encontro de Contas.
+
+## Depois do evento, as sintéticas são o real (#227, D-ERP114)
+
+`RevenueBasisRows.eventRealized` (helper puro `isEventRealized` em
+`src/lib/event-realized.ts`: `status='completed'` OU última data — própria ou do
+sub-evento mais tardio — já passada, por dia e em data local) anula
+`ticketForecast` e `abForecastNet` ANTES de decidir as sintéticas. Efeito: com
+`ticket_sales`, bilheteira fica no real (`committed = max(real, real)`); sem
+`ticket_sales`, o BP alimenta como em #220/#225. Patrocínios não mudam (D22).
+`computeEventRevenueBasis` calcula a flag (`fetchEventRealized`) quando não lhe é
+dada e, quando realizado, nem corre `computeLiveTicketForecast`.
+`computeTicketSynthetic` e a linha A&B de `useBPIncomeSynthetic` seguem a mesma
+regra no previsto CORRENTE; o previsto ORIGINAL não muda. A grelha
+`events-list-financials.ts` não precisa da flag (nunca corre simulador/cenários).
