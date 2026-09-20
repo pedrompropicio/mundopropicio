@@ -243,18 +243,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
     } catch { /* filtros ilegíveis → seguem vazios */ }
 
     if (inspect) {
+      const alvo = slices.find((s) => /Ventas por Sesion/i.test(s.slice_name ?? ""));
+      const fd = alvo?.form_data ?? {};
       return json({
-        charts: slices.map((s) => ({
-          slice_name: s.slice_name,
-          slice_id: s.form_data?.slice_id,
-          viz: s.viz_type ?? s.form_data?.viz_type,
-          datasource: s.form_data?.datasource,
-          groupby: s.form_data?.groupby ?? s.form_data?.all_columns,
-          metrics: s.form_data?.metrics,
-          adhoc_filters: s.form_data?.adhoc_filters,
-        })),
+        nomes: slices.map((s) => `${s.form_data?.slice_id}: ${s.slice_name}`),
+        alvo_chaves_form_data: Object.keys(fd),
+        alvo_colunas: {
+          groupby: fd.groupby,
+          groupbyRows: fd.groupbyRows,
+          groupbyColumns: fd.groupbyColumns,
+          all_columns: fd.all_columns,
+        },
         native_filters: nativeFilters,
-        filter_state_raw: filterState,
       });
     }
 
