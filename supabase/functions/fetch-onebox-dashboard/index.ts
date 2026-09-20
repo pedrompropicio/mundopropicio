@@ -356,13 +356,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // ── leitura 3: resumo do painel (chart próprio, "Resumen Periodo") ──
     // Métricas do resumo vêm formatadas com separador de milhares (to_char),
     // por isso os valores são normalizados antes de comparar.
-    const resumo = byName("Resumen Periodo");
-    let sumRow: any = {};
-    let resumoSlice: number | null = null;
-    if (resumo) {
-      resumoSlice = resumo.form_data?.slice_id ?? null;
-      const rFd = resumo.form_data;
-      const rPayload = {
+    const readSummary = async (needle: string) => {
+      const sl = byName(needle);
+      if (!sl) return { slice_id: null as number | null, nome: null as string | null, row: {} as any };
+      const rFd = sl.form_data;
+      const rRes = await chartData(jar, csrf, {
         datasource: {
           id: Number(String(rFd.datasource).split("__")[0]),
           type: String(rFd.datasource).split("__")[1] ?? "table",
@@ -371,10 +369,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         result_format: "json",
         result_type: "full",
         queries: [{
-          filters: [
-            ...nativeFilters,
-            ...adhocToQuery(rFd.adhoc_filters),
-          ],
+          filters: [...nativeFilters, ...adhocToQuery(rFd.adhoc_filters)],
           extras: { having: "", where: "" },
           applied_time_extras: {},
           columns: rFd.groupbyRows ?? rFd.groupby ?? [],
@@ -387,11 +382,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
           post_processing: [],
         }],
         form_data: { ...rFd, dashboardId: DASHBOARD_ID },
+      });
+      return {
+        slice_id: rFd?.slice_id ?? null,
+        nome: sl.slice_name ?? null,
+        row: rRes?.result?.[0]?.data?.[0] ?? {},
       };
-      const rRes = await chartData(jar, csrf, rPayload);
-      sumRow = rRes?.result?.[0]?.data?.[0] ?? {};
-      audit.resumo_bruto = sumRow;
-    }
+    };
+
+    // Entradas vêm do "Resumen Periodo"; a facturación vem do
+    // "Resumen Economico" (o primeiro não traz valores monetários).
+    const resPeriodo = await readSummary("Resumen Periodo");
+    const resEconomico = await readSummary("Resumen Economico");
+    const sumRow = { ...resPeriodo.row, ...resEconomico.row };
+    const resumo = { slice_name: `${resPeriodo.nome} + ${resEconomico.nome}` } as any;
+    const resumoSlice = resPeriodo.slice_id;
+    audit.resumo_bruto = { periodo: resPeriodo.row, economico: resEconomico.row };
 
     // "1.234" / "1 234,50" → número
     const num = (v: unknown) => {
