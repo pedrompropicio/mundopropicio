@@ -444,10 +444,12 @@ Deno.serve(async (req) => {
           }
 
           if (!unsupported && rowsForPair === 0) {
+            const provas: string[] = [];
+            for (const tf of tentados) provas.push(await evidenciaInteracoes(tf));
             notes.push(
-              `demografia ${dm.metric}/${breakdown} sem dados (abaixo do mínimo de 100 interações no período; timeframes tentados: ${
-                dm.timeframes.join(", ")
-              }, último ${lastTimeframe})`,
+              `demografia ${dm.metric}/${breakdown} sem dados (breakdown sem results; causa por confirmar; timeframes tentados: ${
+                tentados.join(", ")
+              }, último ${lastTimeframe})${provas.length ? " — " + provas.join("; ") : ""}`,
             );
           }
         }
