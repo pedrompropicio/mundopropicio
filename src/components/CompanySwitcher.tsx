@@ -94,7 +94,7 @@ export function CompanySwitcher() {
           size="sm"
           role="combobox"
           aria-expanded={open}
-          className="h-8 gap-2 max-w-[220px]"
+          className="h-8 gap-2 min-w-0 max-w-[220px]"
           disabled={setActive.isPending}
         >
           {setActive.isPending ? (
