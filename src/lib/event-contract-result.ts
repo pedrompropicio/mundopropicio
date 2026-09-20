@@ -1,20 +1,22 @@
 /**
- * RESULTADO DO EVENTO NA BASE CONTRATUAL — card de Lucro (#223).
+ * CARD DE LUCRO NA CAPA (#223, regra final do dono do negócio).
  *
- * O card de Lucro consome os totais que os cards de Receitas e Custos já
- * reportam (mesmo âmbito e perímetro); `events.partner_calc_basis` decide
- * APENAS se a despesa entra c/IVA ou s/IVA. O Resultado do Encontro de Contas
- * é calculado pelo seu próprio motor — aqui entra só como termo de comparação
- * (`settlementResult`) para o badge "≠ fecho".
+ * NA CAPA MANDAM OS BOTÕES DOS CARDS, NÃO O CONTRATO.
  *
- * A regra é a do contrato, nunca a vista de IVA escolhida nos cards:
+ * O card de Lucro é, sempre e sem exceção:
  *
- *   • `net_result`                → Receita s/IVA − Despesa s/IVA
- *   • `net_result_gross_expenses` → Receita s/IVA − Despesa c/IVA
- *   • `gross_revenue`            → Receita s/IVA (despesas operacionais ignoradas)
+ *   Lucro = (valor exibido no card de Receitas) − (valor exibido no card de Custos)
  *
- * Função pura: recebe os totais já calculados por `computeEventSettlementTotals`
- * (o mesmo bloco aritmético do Encontro de Contas) e não faz queries.
+ * Cada card exibe o valor segundo os SEUS próprios seletores — perímetro
+ * (Realizado / Previsto + excedido / Forecast) e IVA (c/IVA · s/IVA),
+ * independentes entre cards. O Lucro segue cegamente os dois números no ecrã,
+ * no âmbito em vigor (Visão Global ou cidade). Se o utilizador muda um botão,
+ * o Lucro muda com ele.
+ *
+ * `events.partner_calc_basis` NÃO decide nada na capa: é a regra do FECHO do
+ * evento com o sócio e vive no Encontro de Contas. Aqui só serve para calcular
+ * o `settlementResult` (via `computeContractBasisResult`) que acende o badge
+ * discreto "≠ fecho" quando a capa e o fecho diferem — são perguntas diferentes.
  */
 import {
   getPartnerRevenueBase,
@@ -26,19 +28,24 @@ import {
 
 export interface ContractResultTotals {
   revenueNet: number;
+  revenueGross: number;
   expensesNet: number;
   expensesGross: number;
 }
 
 /**
- * PERÍMETRO em vigor nos cards (#223 correção): o critério do contrato decide
- * APENAS a base de IVA da despesa; o perímetro (Realizado / Previsto + excedido /
- * Forecast) vem do modo escolhido nos cards de Receitas e de Custos — nunca um
- * lado previsto com o outro real.
+ * PERÍMETRO em vigor nos cards (#223 correção): Realizado /
+ * Previsto + excedido / Forecast — o modo escolhido em cada card.
  */
 export interface ContractPerimeterModes {
   revenue?: string | null;
   expense?: string | null;
+}
+
+/** Vista de IVA ativa em cada card (independente entre cards). */
+export interface ContractVatViews {
+  revenue: boolean;
+  expense: boolean;
 }
 
 const PERIMETER_LABEL: Record<string, string> = {
@@ -49,12 +56,12 @@ const PERIMETER_LABEL: Record<string, string> = {
 
 export interface ContractResult {
   calcBasis: PartnerCalcBasis;
-  /** true ⇒ a despesa entra c/IVA (base do contrato). */
+  /** true ⇒ a despesa entra c/IVA (vista de IVA ATIVA no card de Custos). */
   withVat: boolean;
   revenueBase: number;
   expenseBase: number;
   result: number;
-  /** Rótulo discreto para o card (perímetro + base de IVA). */
+  /** Rótulo discreto para o card (perímetro + vistas de IVA escolhidas). */
   label: string;
   /** true ⇒ os cards de Receitas e Custos estão em perímetros diferentes. */
   perimeterMismatch: boolean;
@@ -63,40 +70,59 @@ export interface ContractResult {
    * evento) — só para o badge "≠ fecho". `null` enquanto não está calculado.
    */
   settlementResult: number | null;
-  /** true ⇒ o Lucro (perímetro dos cards) difere do Resultado do Encontro. */
+  /** true ⇒ o Lucro (capa) difere do Resultado do Encontro. */
   differsFromSettlement: boolean;
 }
 
+/**
+ * Resultado do Encontro de Contas NA BASE CONTRATUAL — usado apenas como termo
+ * de comparação para o badge "≠ fecho". É aqui que `partner_calc_basis` manda.
+ */
+export function computeContractBasisResult(
+  totals: { revenueNet: number; expensesNet: number; expensesGross: number },
+  basis?: string | null,
+): number {
+  const calcBasis = normalizePartnerCalcBasis(basis);
+  const revenueBase = getPartnerRevenueBase(totals.revenueNet);
+  const expenseBase = ignoresOperationalExpenses(calcBasis)
+    ? 0
+    : usesGrossExpenseAmounts(calcBasis)
+      ? totals.expensesGross
+      : totals.expensesNet;
+  return revenueBase - expenseBase;
+}
+
+/**
+ * LUCRO DA CAPA: subtração cega dos valores exibidos nos cards de Receitas e
+ * Custos, nas vistas de IVA ativas em cada um. O contrato não participa.
+ */
 export function computeEventContractResult(
   totals: ContractResultTotals,
-  basis?: string | null,
+  vatViews: ContractVatViews,
   perimeters?: ContractPerimeterModes,
   settlementResult?: number | null,
+  basis?: string | null,
 ): ContractResult {
   const calcBasis = normalizePartnerCalcBasis(basis);
-  const withVat = usesGrossExpenseAmounts(calcBasis);
-  const ignoresExpenses = ignoresOperationalExpenses(calcBasis);
-  const revenueBase = getPartnerRevenueBase(totals.revenueNet);
-  const expenseBase = ignoresExpenses
-    ? 0
-    : (withVat ? totals.expensesGross : totals.expensesNet);
+  const revenueBase = vatViews.revenue ? totals.revenueGross : totals.revenueNet;
+  const expenseBase = vatViews.expense ? totals.expensesGross : totals.expensesNet;
 
   const revMode = perimeters?.revenue ? (PERIMETER_LABEL[perimeters.revenue] ?? perimeters.revenue) : null;
   const expMode = perimeters?.expense ? (PERIMETER_LABEL[perimeters.expense] ?? perimeters.expense) : null;
   const perimeterMismatch = !!revMode && !!expMode && revMode !== expMode;
 
+  const revVatLabel = vatViews.revenue ? "c/IVA" : "s/IVA";
+  const expVatLabel = vatViews.expense ? "c/IVA" : "s/IVA";
   let label: string;
-  if (ignoresExpenses) {
-    label = revMode ? `${revMode} · Receita s/IVA (despesas ignoradas)` : "Receita s/IVA (despesas ignoradas)";
-  } else if (perimeterMismatch) {
-    label = `Receita (${revMode}) s/IVA − Despesa (${expMode}) ${withVat ? "c/IVA" : "s/IVA"}`;
+  if (perimeterMismatch) {
+    label = `Receita (${revMode}) ${revVatLabel} − Despesa (${expMode}) ${expVatLabel}`;
   } else {
-    label = `${revMode ? `${revMode} · ` : ""}Receita s/IVA − Despesa ${withVat ? "c/IVA" : "s/IVA"}`;
+    label = `${revMode ? `${revMode} · ` : ""}Receita ${revVatLabel} − Despesa ${expVatLabel}`;
   }
 
   return {
     calcBasis,
-    withVat,
+    withVat: vatViews.expense,
     revenueBase,
     expenseBase,
     result: revenueBase - expenseBase,
