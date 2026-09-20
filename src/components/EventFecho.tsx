@@ -441,7 +441,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
       y += 4;
       autoTable(doc, {
         startY: y,
-        head: [["Sócio", "Base", "%", "Quota", "Pago p/ sócio", "Extras", "Saldo"]],
+        head: [["Sócio", "Base", "%", "Quota", "Pago p/ sócio", "Ajustes", "Extras", "Saldo"]],
         body: settlements.map(s => [
           s.name,
           s.usesGrossExpenses ? "c/IVA" : "s/IVA",
@@ -450,13 +450,14 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
             : `${s.percentage}%`,
           formatCurrency(s.partnerShare),
           formatCurrency(s.paid),
+          formatCurrency(s.adjustments),
           formatCurrency(s.extras),
           formatCurrency(s.balance),
         ]),
         margin: { left: margin, right: margin },
         styles: { fontSize: 9 },
         headStyles: { fillColor: [60, 60, 60] },
-        columnStyles: { 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right", fontStyle: "bold" } },
+        columnStyles: { 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" }, 6: { halign: "right" }, 7: { halign: "right", fontStyle: "bold" } },
       });
       y = (doc as any).lastAutoTable.finalY + 4;
 
@@ -636,6 +637,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
                 <TableHead className="text-right">%</TableHead>
                 <TableHead className="text-right">Quota</TableHead>
                 <TableHead className="text-right">Pago p/ sócio</TableHead>
+                {hasAdjustments && <TableHead className="text-right">Ajustes</TableHead>}
                 <TableHead className="text-right">Extras</TableHead>
                 <TableHead className="text-right">Saldo final</TableHead>
               </TableRow>
