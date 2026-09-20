@@ -192,7 +192,10 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
                   row={row}
                   canEdit={canEdit}
                   onClick={() => setSelectedId(row.id)}
-                  onDelete={() => remove.mutate(row.id)}
+                  onDelete={() => {
+                    if (row.linked_forecast_id || row.linked_transaction_id) setDeleteTarget(row);
+                    else remove.mutate(row.id);
+                  }}
                   draggable={canEdit}
                   onDragStart={() => setDraggingId(row.id)}
                   onDragEnd={() => setDraggingId(null)}
