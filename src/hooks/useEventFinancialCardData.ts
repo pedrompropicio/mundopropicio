@@ -482,86 +482,98 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       // Forecast custos: formalidade-aware.
       // Regra: cada transação é consumida NO MÁXIMO UMA VEZ (vínculo 1:1 via
       // event_forecasts.transaction_id; fallback por categoria só para linhas sem vínculo).
-      const approved = forecasts.filter((f: any) =>
-        f.status === "approved" && !f.is_transitory &&
-        (f.is_overhead ? includeOverhead : !f.exclude_from_result)
+      // Calculado por base de IVA (`vat`) para alimentar o perímetro do Lucro
+      // nas duas bases sem misturar perímetros (#223 correção).
+      const forecastExpenseFor = (vat: boolean) => {
+        const effV = (amount: number | null | undefined, ivaRate: number | null | undefined) =>
+          lineValue(amount, ivaRate, vat);
+        const approved = forecasts.filter((f: any) =>
+          f.status === "approved" && !f.is_transitory &&
+          (f.is_overhead ? includeOverhead : !f.exclude_from_result)
 
-      );
-      const txEligible = txs.filter((t: any) =>
-        t.type === "expense" && !hasResultBlockingFlags(t) &&
-        (t.status === "paid" || t.status === "approved" || t.status === "partially_paid" || t.status === "pending")
-      );
+        );
+        const txEligible = txs.filter((t: any) =>
+          t.type === "expense" && !hasResultBlockingFlags(t) &&
+          (t.status === "paid" || t.status === "approved" || t.status === "partially_paid" || t.status === "pending")
+        );
 
-      const txAmount = new Map<string, number>();
-      const txIdsByCat = new Map<string, string[]>();
-      for (const t of txEligible) {
-        txAmount.set(t.id, eff(t.amount, t.iva_rate));
-        if (!t.category_id) continue;
-        const arr = txIdsByCat.get(t.category_id) ?? [];
-        arr.push(t.id);
-        txIdsByCat.set(t.category_id, arr);
-      }
-      const bpCats = new Set<string>(approved.map((f: any) => f.category_id).filter(Boolean));
-      const usedTxIds = new Set<string>();
-      const isBlinded = (f: any) =>
-        f.formalidade === "fechado" || f.formalidade === "pago_parcial" || f.formalidade === "pago_total";
-
-      let bpSum = 0;
-      let txLinkedSum = 0;
-      const pending: any[] = [];
-
-      // Passo 1 — vínculo directo 1:1.
-      for (const f of approved as any[]) {
-        if (isBlinded(f) && f.transaction_id && txAmount.has(f.transaction_id) && !usedTxIds.has(f.transaction_id)) {
-          usedTxIds.add(f.transaction_id);
-          txLinkedSum += txAmount.get(f.transaction_id) ?? 0;
-          continue;
+        const txAmount = new Map<string, number>();
+        const txIdsByCat = new Map<string, string[]>();
+        for (const t of txEligible) {
+          txAmount.set(t.id, effV(t.amount, t.iva_rate));
+          if (!t.category_id) continue;
+          const arr = txIdsByCat.get(t.category_id) ?? [];
+          arr.push(t.id);
+          txIdsByCat.set(t.category_id, arr);
         }
-        pending.push(f);
-      }
+        const bpCats = new Set<string>(approved.map((f: any) => f.category_id).filter(Boolean));
+        const usedTxIds = new Set<string>();
+        const isBlinded = (f: any) =>
+          f.formalidade === "fechado" || f.formalidade === "pago_parcial" || f.formalidade === "pago_total";
 
-      // Passo 2 — fallback por categoria (consome cada TX uma única vez).
-      for (const f of pending) {
-        if (isBlinded(f) && f.category_id) {
-          const ids = (txIdsByCat.get(f.category_id) ?? []).filter((id) => !usedTxIds.has(id));
-          const sum = ids.reduce((s, id) => s + (txAmount.get(id) ?? 0), 0);
-          if (ids.length > 0) {
-            ids.forEach((id) => usedTxIds.add(id));
-            // A TX substitui a linha do BP (intenção do modo), mesmo quando soma 0.
-            txLinkedSum += sum;
+        let bpSum = 0;
+        let txLinkedSum = 0;
+        const pending: any[] = [];
+
+        // Passo 1 — vínculo directo 1:1.
+        for (const f of approved as any[]) {
+          if (isBlinded(f) && f.transaction_id && txAmount.has(f.transaction_id) && !usedTxIds.has(f.transaction_id)) {
+            usedTxIds.add(f.transaction_id);
+            txLinkedSum += txAmount.get(f.transaction_id) ?? 0;
             continue;
           }
-          if (usedTxIds.size > 0 && (txIdsByCat.get(f.category_id) ?? []).length > 0) {
-            // Categoria já totalmente consumida por outra linha → não somar de novo nem duplicar BP.
-            continue;
-          }
+          pending.push(f);
         }
-        bpSum += eff(f.amount, f.iva_rate);
-      }
 
-      // TX sem BP: categorias fora do BP (ou sem categoria) nunca consumidas.
-      let orphanSum = 0;
-      for (const t of txEligible) {
-        if (usedTxIds.has(t.id)) continue;
-        if (t.category_id && bpCats.has(t.category_id)) continue;
-        orphanSum += txAmount.get(t.id) ?? 0;
-      }
+        // Passo 2 — fallback por categoria (consome cada TX uma única vez).
+        for (const f of pending) {
+          if (isBlinded(f) && f.category_id) {
+            const ids = (txIdsByCat.get(f.category_id) ?? []).filter((id) => !usedTxIds.has(id));
+            const sum = ids.reduce((s, id) => s + (txAmount.get(id) ?? 0), 0);
+            if (ids.length > 0) {
+              ids.forEach((id) => usedTxIds.add(id));
+              // A TX substitui a linha do BP (intenção do modo), mesmo quando soma 0.
+              txLinkedSum += sum;
+              continue;
+            }
+            if (usedTxIds.size > 0 && (txIdsByCat.get(f.category_id) ?? []).length > 0) {
+              // Categoria já totalmente consumida por outra linha → não somar de novo nem duplicar BP.
+              continue;
+            }
+          }
+          bpSum += effV(f.amount, f.iva_rate);
+        }
 
-      // Rateio da turnê no modo exploratório Forecast: mesma quota da base
-      // "Previsto + excedido" (o Forecast não tem base própria no Master).
-      const quota = costForMode("committed").quota;
-      const extra = quota + Number(args.cacheImpact || 0);
-      const total = bpSum + txLinkedSum + orphanSum + extra;
+        // TX sem BP: categorias fora do BP (ou sem categoria) nunca consumidas.
+        let orphanSum = 0;
+        for (const t of txEligible) {
+          if (usedTxIds.has(t.id)) continue;
+          if (t.category_id && bpCats.has(t.category_id)) continue;
+          orphanSum += txAmount.get(t.id) ?? 0;
+        }
+
+        // Rateio da turnê no modo exploratório Forecast: mesma quota da base
+        // "Previsto + excedido" (o Forecast não tem base própria no Master).
+        const quota = costForMode("committed", vat).quota;
+        const extra = quota + Number(args.cacheImpact || 0);
+        const total = bpSum + txLinkedSum + orphanSum + extra;
+        return { bpSum, txLinkedSum, orphanSum, quota, total };
+      };
+
+      const fxNet = forecastExpenseFor(false);
+      const fxGross = forecastExpenseFor(true);
+      const fx = withVat ? fxGross : fxNet;
       return {
-        displayValue: total,
+        displayValue: fx.total,
         subtotals: [
-          { label: "BP próprio", value: bpSum },
-          { label: "TX que substituem BP", value: txLinkedSum },
-          { label: "TX sem BP", value: orphanSum },
-          { label: "Forecast total", value: total },
+          { label: "BP próprio", value: fx.bpSum },
+          { label: "TX que substituem BP", value: fx.txLinkedSum },
+          { label: "TX sem BP", value: fx.orphanSum },
+          { label: "Forecast total", value: fx.total },
         ],
         formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
-        meta: { masterQuota: quota },
+        meta: { masterQuota: fx.quota },
+        perimeter: { net: fxNet.total, gross: fxGross.total },
       };
     }
 
