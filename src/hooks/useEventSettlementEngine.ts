@@ -91,7 +91,9 @@ export function useEventSettlementEngine(eventId: string) {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select(
-          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description, vat_non_recoverable",
+          // (#226) `account_categories(code)` é obrigatório: a receita do fecho
+          // classifica as linhas de BP por rubrica.
+          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description, vat_non_recoverable, account_categories(code, name)",
         )
         .in("event_id", allEventIds)
         .eq("status", "approved")
@@ -263,6 +265,9 @@ export function useEventSettlementEngine(eventId: string) {
     // As linhas marcadas saem do perímetro da raiz. A fonte da despesa segue o
     // critério do Fecho: realizado → transações; previsto+excedido → BP.
     const expenseKind = basis.expenseSource === "committed" ? "bp" : "tx";
+    // (#226) Linha de BP de receita que alimentou um bucket sem real pertence ao
+    // fechamento marcado como uma transação de receita (D25 g3).
+    const revenueBpIds = new Set((totals.revenueBpLinesUsed ?? []).map((f: any) => f.id));
     const markedLines: EngineMarkedLine[] = [
       ...(transactions as any[])
         .filter((t) => t.event_settlement_id && isValidFechoTransaction(t))
@@ -276,11 +281,11 @@ export function useEventSettlementEngine(eventId: string) {
         })),
       ...(forecasts as any[])
         .filter((f) => f.event_settlement_id && !f.is_overhead && !f.exclude_from_result && !f.is_transitory)
-        .filter((f) => f.type === "expense" && expenseKind === "bp")
+        .filter((f) => (f.type === "expense" && expenseKind === "bp") || (f.type === "income" && revenueBpIds.has(f.id)))
         .map((f) => ({
           event_settlement_id: f.event_settlement_id,
           kind: "bp" as const,
-          type: "expense" as const,
+          type: f.type as "income" | "expense",
           amount: f.amount,
           iva_rate: f.iva_rate,
         })),

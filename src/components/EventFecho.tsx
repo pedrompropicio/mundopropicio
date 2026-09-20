@@ -23,6 +23,7 @@ import { useFechoBasis, describeFechoBasis } from "@/hooks/useFechoBasis";
 import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
 import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
+import { computeSettlementRevenue } from "@/lib/settlement-revenue";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
 import { fetchPartnerExtras, splitPartnerExtrasByKind } from "@/lib/partner-extras";
 import { BpUnusedBudgetPanel } from "@/components/fecho/BpUnusedBudgetPanel";
@@ -138,6 +139,23 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     },
   });
 
+  // ---- Linhas de BP de RECEITA aprovadas (#226): alimentam os buckets sem real.
+  const { data: incomeForecastsAll = [] } = useQuery({
+    queryKey: ["fecho-income-forecasts", allEventIds],
+    queryFn: async () => {
+      const { data, error } = await fetchAllPagedQuery(supabase
+        .from("event_forecasts")
+        .select("id, event_id, type, amount, iva_rate, category_id, description, is_transitory, exclude_from_result, event_settlement_id, account_categories(code, name)")
+        .in("event_id", allEventIds)
+        .eq("type", "income")
+        .eq("status", "approved")
+        .eq("is_overhead", false)
+        .is("version_id", null));
+      if (error) throw error;
+      return (data || []).filter((f: any) => !f.is_transitory && !f.exclude_from_result);
+    },
+  });
+
   // ---- Perímetro da raiz (D25 g3): linhas marcadas com um fechamento filho
   // são exclusivas desse fechamento e não entram no resultado do evento.
   const { data: rootInfo } = useEventRootSettlements(allEventIds);
@@ -145,6 +163,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const transactions = keepRootPerimeter(transactionsAll as any[], rootIds);
   const ownOverheads = keepRootPerimeter(ownOverheadsAll as any[], rootIds);
   const operationalForecasts = keepRootPerimeter(operationalForecastsAll as any[], rootIds);
+  const incomeForecasts = keepRootPerimeter(incomeForecastsAll as any[], rootIds);
 
 
 
@@ -210,11 +229,20 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const useGrossExpenses = basis.withVat;
 
 
-  // Receita — vem toda do SSoT (D24). Zero cálculo local de bilheteira ou de TX income.
+  // Receita — núcleo único do fechamento (#226): bilheteira e TX income vêm do
+  // SSoT (D24) e, nos buckets SEM real, as linhas de BP de receita aprovadas
+  // alimentam. Zero cálculo local.
   const expenseTx = transactions.filter((t: any) => t.type === "expense");
 
-  const revenueNet = revenueBasis?.real.total.net ?? 0;
-  const revenueGross = revenueBasis?.real.total.gross ?? 0;
+  const fechoRevenue = computeSettlementRevenue({
+    ticketSales: revenueBasis?.real.hasTicketSales
+      ? [{ gross: revenueBasis.real.ticket.gross, net: revenueBasis.real.ticket.net }]
+      : [],
+    incomeTransactions: revenueBasis?.real.incomeTx ?? [],
+    incomeForecasts,
+  });
+  const revenueNet = fechoRevenue.revenueNet;
+  const revenueGross = fechoRevenue.revenueGross;
 
   // Base da despesa conforme seletor: realizado (transações) ou previsto + excedido.
   const expenseSourceLines = basis.expenseSource === "committed"

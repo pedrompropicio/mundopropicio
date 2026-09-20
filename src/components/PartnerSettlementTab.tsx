@@ -21,6 +21,7 @@ import { calcTotalWithIva, calcIvaAmount, roundCents } from "@/lib/iva";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { expandMasterAdoptedExpensesToSplits } from "@/lib/master-adopted-expense-proration";
 import { isValidFechoTransaction, isTicketingRevenueTx } from "@/lib/fecho-filters";
+import { computeSettlementRevenue } from "@/lib/settlement-revenue";
 import { isCapitalCategoryCode } from "@/lib/capital-branch";
 import {
   getPartnerRevenueBase,
@@ -448,6 +449,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
+          // Nota (#226): `is_transitory`/`exclude_from_result` continuam FORA do
+          // select de propósito — acrescentá-los mudaria o universo de despesa
+          // deste ecrã (o filtro `operationalForecasts` passaria a excluí-las),
+          // e o critério de despesa não é objecto desta mudança.
           .select("id, event_id, description, type, amount, iva_rate, status, is_overhead, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, account_categories(name, code)")
         .in("event_id", allEventIds)
         .eq("status", "approved").is("version_id", null));
@@ -635,8 +640,6 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
   // Calculate financials
   const hasTicketSales = ticketSales.length > 0;
-  const ticketRevenueGross = ticketSales.reduce((s: number, t: any) => s + t.gross, 0);
-  const ticketRevenueNet = ticketSales.reduce((s: number, t: any) => s + t.net, 0);
 
   const validTx = transactions.filter((t: any) => isValidFechoTransaction(t));
   const incomeTransactions = validTx.filter((t: any) => t.type === "income");
@@ -648,16 +651,17 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     ...adoptedMasterExpenseSlices,
   ];
 
-  // Receita = bilheteira (ticket_sales) + receitas em transações.
-  // Se houver ticket_sales, as transações da rubrica 1.1.01 são o mesmo dinheiro → excluídas.
-  const revenueTxForTotals = hasTicketSales
-    ? incomeTransactions.filter((t: any) => !isTicketingRevenueTx(t))
-    : incomeTransactions;
-
-  const eventRevenueNet = (hasTicketSales ? ticketRevenueNet : 0)
-    + revenueTxForTotals.reduce((s: number, t: any) => s + Number(t.amount), 0);
-  const eventRevenueGross = (hasTicketSales ? ticketRevenueGross : 0)
-    + revenueTxForTotals.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+  // (#226) Receita pelo núcleo único `computeSettlementRevenue`: por bucket, o
+  // real substitui o BP; sem real nesse bucket, as linhas de BP de receita
+  // aprovadas alimentam-no. A anti-duplicação 1.1.01 vive lá dentro.
+  const eventRevenue = computeSettlementRevenue({
+    ticketSales: ticketSales as any[],
+    incomeTransactions,
+    incomeForecasts: forecasts as any[],
+  });
+  const revenueTxForTotals = eventRevenue.incomeTxUsed;
+  const eventRevenueNet = eventRevenue.revenueNet;
+  const eventRevenueGross = eventRevenue.revenueGross;
 
 
   // ---- Despesa segundo o critério selecionado no seletor ----------------
