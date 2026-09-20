@@ -80,7 +80,8 @@ async function searchFields(ctx: Ctx, like: string): Promise<Row[]> {
     },
     body: JSON.stringify({
       query:
-        `SELECT name, selectable, filterable, data_type, metrics, segments FROM google_ads_field WHERE name LIKE '${like}'`,
+        // GoogleAdsFieldService NÃO aceita cláusula FROM (só o GoogleAdsService).
+        `SELECT name, selectable, filterable, data_type, metrics, segments WHERE name LIKE '${like}'`,
     }),
   });
   const text = await resp.text();
