@@ -29,6 +29,8 @@ import {
   type StandaloneInvoiceCurrency,
 } from "@/lib/standalone-invoices";
 
+import { fetchSuggestedFxRateDetails, type CurrencyCode } from "@/lib/currency";
+
 const ACCEPT = `image/*,application/pdf,${HEIC_ACCEPT}`;
 
 export default function StandaloneInvoiceScanner() {
