@@ -1,21 +1,19 @@
 /**
- * Resultado do evento na base contratual (#223), NO PERÍMETRO E ÂMBITO DOS CARDS.
+ * Card de Lucro na capa do evento (#223, regra final do dono do negócio).
  *
- * Regra (#223, reversão): o Lucro é a receita do card de Receitas menos a
- * despesa do card de Custos, SEMPRE no mesmo âmbito (cidade vs turné) e no
- * mesmo perímetro (Realizado / Previsto + excedido / Forecast) que esses dois
- * cards estão a mostrar. Não vai buscar totais a outro motor:
+ * NA CAPA MANDAM OS BOTÕES DOS CARDS, NÃO O CONTRATO:
  *
- *   • RECEITA  — o total que o card de Receitas reporta (`perimeter.net`);
- *   • DESPESA  — o total que o card de Custos reporta (`perimeter.net` ou
- *     `perimeter.gross`, conforme a base de IVA do contrato).
+ *   Lucro = (valor exibido no card de Receitas) − (valor exibido no card de Custos)
  *
- * `events.partner_calc_basis` decide UMA coisa só: se a despesa entra c/IVA ou
- * s/IVA. Perímetro e âmbito vêm dos cards.
+ * Cada card exibe segundo os SEUS seletores (perímetro + IVA, independentes
+ * entre cards); o Lucro segue cegamente os dois números no ecrã, no âmbito em
+ * vigor (Visão Global ou cidade). `events.partner_calc_basis` NÃO decide nada
+ * na capa — é a regra do FECHO com o sócio e vive no Encontro de Contas.
  *
  * O motor do Encontro (`computeEventSettlementTotals`) continua a ser calculado
  * aqui APENAS para o badge discreto "≠ fecho": compara o Lucro com o Resultado
- * do Encontro na base contratual. Não alimenta o número do Lucro.
+ * do Encontro na base contratual (`computeContractBasisResult`). Não alimenta
+ * o número do Lucro.
  *
  * Se os dois cards estiverem em modos diferentes, o Lucro usa esse par tal
  * como está e o resultado assinala `perimeterMismatch`.
@@ -25,7 +23,12 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged, fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { computeEventSettlementTotals } from "@/lib/event-settlement-inputs";
-import { computeEventContractResult, type ContractResult } from "@/lib/event-contract-result";
+import {
+  computeContractBasisResult,
+  computeEventContractResult,
+  type ContractResult,
+  type ContractVatViews,
+} from "@/lib/event-contract-result";
 import { useFechoBasis } from "@/hooks/useFechoBasis";
 
 export interface ContractPerimeterInput {
@@ -47,6 +50,7 @@ export function useEventContractResult(
   income: ContractPerimeterInput | null,
   expense: ContractPerimeterInput | null,
   cacheImpact: number,
+  vatViews?: ContractVatViews | null,
 ): EventContractResultState {
   const { data: event } = useQuery({
     queryKey: ["event-settlement-engine-event", eventId],
@@ -161,14 +165,14 @@ export function useEventContractResult(
       ticketSales,
       basis: { includeOverhead: basis.includeOverhead, expenseSource: basis.expenseSource },
     });
-    return computeEventContractResult(
+    return computeContractBasisResult(
       {
         revenueNet: totals.revenueNet,
         expensesNet: totals.expensesNet + cacheImpact,
         expensesGross: totals.expensesGross + cacheImpact,
       },
       (event as any)?.partner_calc_basis ?? partnerCalcBasis,
-    ).result;
+    );
   }, [
     isLoading,
     events,
@@ -184,14 +188,20 @@ export function useEventContractResult(
   ]);
 
   const contract = useMemo(() => {
-    if (!income || !expense) return null;
+    if (!income || !expense || !vatViews) return null;
     return computeEventContractResult(
-      { revenueNet: income.net, expensesNet: expense.net, expensesGross: expense.gross },
-      (event as any)?.partner_calc_basis ?? partnerCalcBasis,
+      {
+        revenueNet: income.net,
+        revenueGross: income.gross,
+        expensesNet: expense.net,
+        expensesGross: expense.gross,
+      },
+      vatViews,
       { revenue: income.mode, expense: expense.mode },
       settlementResult,
+      (event as any)?.partner_calc_basis ?? partnerCalcBasis,
     );
-  }, [income, expense, event, partnerCalcBasis, settlementResult]);
+  }, [income, expense, vatViews, settlementResult, event, partnerCalcBasis]);
 
   return { contract, isLoading };
 }
