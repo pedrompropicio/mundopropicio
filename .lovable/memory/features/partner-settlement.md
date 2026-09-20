@@ -475,3 +475,25 @@ Consumidores:
 - `PartnerSettlementTab.tsx` e `_shared/settlement/partner-disbursement.ts` (`collectDisbursementAdjustments`) são a **referência** e já estavam certos.
 
 Regressão histórica: um ajuste de −34.304,72 € (Anitta - EDA 2026) somava como extra no Fecho do Evento e invertia o sinal (68.609,44 € de diferença contra o Encontro de Contas).
+
+## (#226) Receita do fechamento — por bucket, o real substitui o BP; sem real, o BP alimenta
+
+Regra única em `supabase/functions/_shared/settlement/settlement-revenue.ts`
+(`computeSettlementRevenue`), reexportada em `src/lib/settlement-revenue.ts`. Nunca
+`max(real, previsto)`, nunca soma — ao contrário de `committed` em `event-revenue-basis.ts`,
+que é exactamente o que NÃO se quer no fechamento.
+
+- Buckets pelo código da rubrica: `1.1.01` bilheteira · `1.1.03` A&B · `1.2*` patrocínio · resto outros.
+- Real de bilheteira = `ticket_sales` (anti-duplicação 1.1.01 nas transações); restantes = transações income válidas (`isValidFechoTransaction`).
+- BP elegível: `type='income'`, `status='approved'`, `version_id IS NULL`, sem `is_transitory`, `exclude_from_result`, `is_overhead`.
+- Perímetro D25 g3: linha de BP income marcada entra nas `markedLines` (`kind: "bp"`) só quando alimentou o bucket.
+
+Os quatro consumidores (nenhum recalcula receita):
+1. `_shared/settlement/event-settlement-inputs.ts` → `computeEventSettlementTotals` (`revenueNet`, `revenueGross`, `revenueBpLinesUsed`).
+2. `_shared/settlement/statement-service.ts` → `eventRevenueNet` e a lista `revenues` do documento/PDF do sócio.
+3. `src/components/PartnerSettlementTab.tsx` → bloco "Calculate financials" (o bloco "O seu fechamento" mantém o cálculo do nó activo).
+4. `src/components/EventFecho.tsx` → `revenueNet`/`revenueGross` (BP income carregado por `fetchAllPagedQuery`).
+
+Aceitação: FestVybbe 2026 → receita s/IVA 318.102,83 € · resultado c/IVA −40.909,02 € ·
+VYBBE 60 % −24.545,41 € · MP 40 % −16.363,61 €. Ivete Clareou 2026 e Anitta - EDA 2026 não
+mudam: os buckets com linhas de BP já têm real (patrocínio/outros).

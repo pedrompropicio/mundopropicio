@@ -14,7 +14,8 @@ import { calcTotalWithIva } from "./iva.ts";
 import { computeOutsideBpExcess, computeOutsideBpExcessLines, sumLines } from "./event-cost-basis.ts";
 import { expandOverheadToSplits } from "./overhead-proration.ts";
 import { expandMasterAdoptedExpensesToSplits } from "./master-adopted-expense-proration.ts";
-import { isValidFechoTransaction, isTicketingRevenueTx } from "./fecho-filters.ts";
+import { isValidFechoTransaction } from "./fecho-filters.ts";
+import { computeSettlementRevenue } from "./settlement-revenue.ts";
 
 export interface SettlementTotalsBasis {
   includeOverhead: boolean;
@@ -34,9 +35,12 @@ export interface SettlementTotalsInput {
 
 export interface SettlementTotals {
   revenueNet: number;
+  revenueGross: number;
   expensesNet: number;
   expensesGross: number;
   hasTicketSales: boolean;
+  /** (#226) Linhas de BP de receita que alimentaram buckets sem real. */
+  revenueBpLinesUsed: any[];
 }
 
 export function computeEventSettlementTotals(input: SettlementTotalsInput): SettlementTotals {
@@ -52,9 +56,6 @@ export function computeEventSettlementTotals(input: SettlementTotalsInput): Sett
     transactions: (transactions as any[]).filter((t: any) => t.type === "expense"),
   });
 
-  const hasTicketSales = ticketSales.length > 0;
-  const ticketRevenueNet = ticketSales.reduce((s, t) => s + t.net, 0);
-
   const validTx = transactions.filter((t: any) => isValidFechoTransaction(t));
   const incomeTransactions = validTx.filter((t: any) => t.type === "income");
   const adoptedMasterSourceIds = new Set(
@@ -65,13 +66,15 @@ export function computeEventSettlementTotals(input: SettlementTotalsInput): Sett
     ...adoptedMasterExpenseSlices,
   ];
 
-  const revenueTxForTotals = hasTicketSales
-    ? incomeTransactions.filter((t: any) => !isTicketingRevenueTx(t))
-    : incomeTransactions;
-
-  const revenueNet =
-    (hasTicketSales ? ticketRevenueNet : 0) +
-    revenueTxForTotals.reduce((s: number, t: any) => s + Number(t.amount), 0);
+  // (#226) Receita pelo núcleo único: por bucket, o real substitui o BP; sem
+  // real, as linhas de BP de receita aprovadas alimentam o bucket.
+  const revenue = computeSettlementRevenue({
+    ticketSales,
+    incomeTransactions,
+    incomeForecasts: forecasts as any[],
+  });
+  const hasTicketSales = revenue.hasTicketSales;
+  const revenueNet = revenue.revenueNet;
 
   const operationalForecasts = (forecasts as any[]).filter(
     (f: any) =>
@@ -102,9 +105,11 @@ export function computeEventSettlementTotals(input: SettlementTotalsInput): Sett
 
   return {
     revenueNet,
+    revenueGross: revenue.revenueGross,
     expensesNet: sumLines(expenseSourceLines, false) + overheadNet + outsideBpNet,
     expensesGross: sumLines(expenseSourceLines, true) + overheadGross + outsideBpGross,
     hasTicketSales,
+    revenueBpLinesUsed: revenue.bpLinesUsed,
   };
 }
 

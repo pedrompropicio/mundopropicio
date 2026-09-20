@@ -21,7 +21,7 @@
  */
 import { calcIvaAmount, calcTotalWithIva, roundCents } from "./iva.ts";
 import { HOUSE_PARTNER_NAME } from "./house.ts";
-import { isTicketingRevenueTx, isValidFechoTransaction } from "./fecho-filters.ts";
+import { isValidFechoTransaction } from "./fecho-filters.ts";
 import {
   getPartnerRevenueBase,
   ignoresOperationalExpenses,
@@ -32,6 +32,7 @@ import { computeOutsideBpExcess, sumLines } from "./event-cost-basis.ts";
 import { expandOverheadToSplits } from "./overhead-proration.ts";
 import { expandMasterAdoptedExpensesToSplits } from "./master-adopted-expense-proration.ts";
 import { computeEventSettlementTotals, collectSettlementExpenseDocLines } from "./event-settlement-inputs.ts";
+import { computeSettlementRevenue } from "./settlement-revenue.ts";
 import { computeSettlementEngine, type EngineParticipant, type EngineResult } from "./event-settlement-engine.ts";
 import { keepRootPerimeter } from "./settlement-perimeter.ts";
 import {
@@ -445,6 +446,9 @@ export function buildPartnerStatement(
   });
 
   const expenseKind = basis.expenseSource === "committed" ? "bp" : "tx";
+  // (#226) As linhas de BP de receita que alimentaram buckets sem real entram no
+  // perímetro como uma transação de receita (D25 g3).
+  const revenueBpIds = new Set((totals.revenueBpLinesUsed ?? []).map((f: any) => f.id));
   const markedLines = [
     ...transactions
       .filter((t: any) => t.event_settlement_id && isValidFechoTransaction(t))
@@ -458,11 +462,13 @@ export function buildPartnerStatement(
       })),
     ...forecasts
       .filter((f: any) => f.event_settlement_id && !f.is_overhead && !f.exclude_from_result && !f.is_transitory)
-      .filter((f: any) => f.type === "expense" && expenseKind === "bp")
+      .filter((f: any) =>
+        (f.type === "expense" && expenseKind === "bp") || (f.type === "income" && revenueBpIds.has(f.id)),
+      )
       .map((f: any) => ({
         event_settlement_id: f.event_settlement_id,
         kind: "bp" as const,
-        type: "expense" as const,
+        type: f.type as "income" | "expense",
         amount: f.amount,
         iva_rate: f.iva_rate,
       })),
@@ -560,7 +566,6 @@ export function buildPartnerStatement(
   if (!activeNode) return null;
 
   // ── Totais do fecho no nó do sócio (paridade com o Encontro de Contas) ──
-  const hasTicketSales = ticketSales.length > 0;
   const validTx = transactions.filter((t: any) => isValidFechoTransaction(t));
   const incomeTransactions = validTx.filter((t: any) => t.type === "income");
   const adoptedSlices = expandMasterAdoptedExpensesToSplits({
@@ -573,12 +578,16 @@ export function buildPartnerStatement(
     ...validTx.filter((t: any) => t.type === "expense" && !adoptedIds.has(t.id)),
     ...adoptedSlices,
   ];
-  const revenueTxForTotals = hasTicketSales
-    ? incomeTransactions.filter((t: any) => !isTicketingRevenueTx(t))
-    : incomeTransactions;
-  const eventRevenueNet =
-    (hasTicketSales ? ticketSales.reduce((s, t) => s + t.net, 0) : 0) +
-    revenueTxForTotals.reduce((s: number, t: any) => s + Number(t.amount), 0);
+  // (#226) Receita pelo núcleo único — por bucket o real substitui o BP; sem
+  // real, as linhas de BP de receita alimentam. Zero cálculo local.
+  const revenue = computeSettlementRevenue({
+    ticketSales,
+    ticketBreakdown: bundle.ticketBreakdown,
+    incomeTransactions,
+    incomeForecasts: forecasts as any[],
+  });
+  const revenueTxForTotals = revenue.incomeTxUsed;
+  const eventRevenueNet = revenue.revenueNet;
 
   const overheads = expandOverheadToSplits(
     forecasts.filter((f: any) => f.is_overhead) as any,
@@ -724,14 +733,13 @@ export function buildPartnerStatement(
     ivaRate: l.ivaRate,
   }));
 
-  const revenues = [
-    ...bundle.ticketBreakdown.map((r) => ({ origin: t.ticketing, description: r.label, net: r.net })),
-    ...keepRootPerimeter(revenueTxForTotals as any, rootSettlementIds).map((tx: any) => ({
-      origin: tx.account_categories?.name || "Outras receitas",
-      description: tx.description || "—",
-      net: Number(tx.amount) || 0,
-    })),
-  ];
+  // (#226) As mesmas linhas que compõem a receita do fecho (bilheteira por lote,
+  // transações, ou linhas de BP nos buckets sem real).
+  const revenues = keepRootPerimeter(revenue.lines as any, rootSettlementIds).map((l: any) => ({
+    origin: l.kind === "ticket" ? t.ticketing : l.origin || "Outras receitas",
+    description: l.description,
+    net: l.net,
+  }));
 
   const chain: typeof nodes = [];
   for (let cur = activeNode; cur?.parentId; cur = nodes.find((n) => n.id === cur!.parentId) ?? null) {
