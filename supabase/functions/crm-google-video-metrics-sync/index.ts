@@ -103,6 +103,9 @@ const PROBE_LIKES = [
   "campaign.%",
   "campaign_criterion.%",
   "ad_group.%",
+  "ad_group_ad.%",
+  "ad_group_ad_asset_view.%",
+  "asset.%",
 ];
 
 /** Nomes selecionáveis existentes na versão atual da API. */
@@ -178,6 +181,28 @@ const CRITERION_CANDIDATES = [
   "campaign_criterion.device.type",
   "campaign_criterion.bid_modifier",
 ];
+
+/** Nível ANÚNCIO (D-ERP111). Só os nomes que o GoogleAdsFieldService confirmar. */
+const AD_CANDIDATES = [
+  "ad_group_ad.ad.id",
+  "ad_group_ad.ad.name",
+  "ad_group_ad.ad.type",
+  "ad_group_ad.ad.resource_name",
+  "ad_group_ad.ad.final_urls",
+  "ad_group_ad.status",
+  "ad_group_ad.resource_name",
+];
+
+/** Vídeo do YouTube de cada anúncio, via ad_group_ad_asset_view + asset. */
+const AD_ASSET_CANDIDATES = [
+  "ad_group_ad_asset_view.field_type",
+  "ad_group_ad_asset_view.ad_group_ad",
+  "asset.id",
+  "asset.youtube_video_asset.youtube_video_id",
+  "asset.youtube_video_asset.youtube_video_title",
+];
+
+
 
 function keep(list: string[], selectable: Set<string>): string[] {
   return list.filter((n) => selectable.has(n));
