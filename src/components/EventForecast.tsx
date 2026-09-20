@@ -1177,6 +1177,9 @@ const descRef = useRef<HTMLInputElement>(null);
 
         const { data: insertedTx, error } = await supabase.from("transactions").insert({
           event_id: eventId,
+          // D-ERP1: vínculo canónico N:1 BP↔TX. A âncora legada
+          // event_forecasts.transaction_id continua a ser escrita abaixo.
+          forecast_id: f.id,
           type: f.type,
           description: f.description,
           specification: f.specification || null,
@@ -1340,6 +1343,8 @@ const descRef = useRef<HTMLInputElement>(null);
         const inst = preparedInstallments[i];
         const { data: insertedTx, error } = await supabase.from("transactions").insert({
           event_id: eventId,
+          // D-ERP1: vínculo canónico N:1 — cada parcela aponta para a linha do BP.
+          forecast_id: forecast.id,
           type: forecast.type,
           description: inst.description,
           specification: forecast.specification || null,
