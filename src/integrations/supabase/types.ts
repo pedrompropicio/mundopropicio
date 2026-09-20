@@ -18235,6 +18235,14 @@ export type Database = {
           balance: number
         }[]
       }
+      ticketline_sync_runs_compact_audit: {
+        Args: { _days?: number }
+        Returns: {
+          after_bytes: number
+          before_bytes: number
+          compacted_rows: number
+        }[]
+      }
       tickets_v2_run_all_tests: {
         Args: never
         Returns: {
