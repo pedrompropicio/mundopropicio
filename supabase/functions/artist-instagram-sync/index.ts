@@ -261,19 +261,34 @@ Deno.serve(async (req) => {
       }
 
       // ------------------------------------------------- insights diários
-      for (const metric of ACCOUNT_INSIGHTS) {
-        const ins = await graphGet(
-          `${node}/insights`,
-          { metric, period: "day", since: yesterday, until: today },
-          token,
-          base,
-        );
+      for (const spec of ACCOUNT_INSIGHTS) {
+        const metric = spec.metric;
+        const params: Record<string, string> = {
+          metric,
+          period: "day",
+          since: yesterday,
+          until: today,
+        };
+        if (spec.metric_type) params.metric_type = spec.metric_type;
+        const ins = await graphGet(`${node}/insights`, params, token, base);
         graphCalls++;
         if (!ins.ok) {
           notes.push(`insight ${metric} indisponível: ${ins.body?.error?.message ?? ins.status}`);
           continue;
         }
-        for (const entry of ins.body?.data ?? []) {
+        const entries = ins.body?.data ?? [];
+        const comValores = entries.some((e: any) =>
+          (e?.values?.length ?? 0) > 0 || e?.total_value !== undefined
+        );
+        if (!comValores) {
+          notes.push(
+            `insight ${metric} sem valores na resposta (pedido: period=day, metric_type=${
+              spec.metric_type ?? "—"
+            })`,
+          );
+          continue;
+        }
+        for (const entry of entries) {
           const name = entry?.name ?? metric;
           const values = entry?.values ?? [];
           if (!values.length && entry?.total_value) {
