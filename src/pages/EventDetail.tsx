@@ -66,7 +66,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEventContractResult } from "@/hooks/useEventContractResult";
+import { useEventContractResult, type ContractPerimeterInput } from "@/hooks/useEventContractResult";
 import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
 import { keepRootPerimeter, pickOutsideRootPerimeter, isOutsideRootPerimeter } from "@/lib/settlement-perimeter";
 import { toast } from "@/hooks/use-toast";
