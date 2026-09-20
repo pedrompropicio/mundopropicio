@@ -264,7 +264,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       let total = 0, overhead = 0, excess = 0, approvedCount = 0;
       for (const b of byEvent.values()) {
         const r = computeEventCostOnBasis({
-          forecasts: b.f, transactions: b.t, mode: m, withVat, includeOverhead,
+          forecasts: b.f, transactions: b.t, mode: m, withVat: vat, includeOverhead,
         });
         total += r.total;
         overhead += r.overhead;
@@ -278,7 +278,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         const masterCost = computeEventCostOnBasis({
           forecasts: masterForecasts as any[],
           transactions: (masterTxs as any[]).filter((t) => t.type === "expense"),
-          mode: m, withVat, includeOverhead,
+          mode: m, withVat: vat, includeOverhead,
         }).total;
         quota = computeMasterQuota(masterCost, args.masterQuota.siblingCount);
       }
