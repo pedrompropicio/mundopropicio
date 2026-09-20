@@ -1,22 +1,21 @@
 /**
- * Resultado do evento na base contratual (#223), NO PERÍMETRO DOS CARDS.
+ * Resultado do evento na base contratual (#223), NO PERÍMETRO E ÂMBITO DOS CARDS.
  *
- * Regra (#223 correção): o critério do contrato (`events.partner_calc_basis`)
- * decide APENAS se a despesa entra c/IVA ou s/IVA. O perímetro — Realizado vs
- * Previsto + excedido vs Forecast — vem do modo escolhido nos cards de
- * Receitas e de Custos, e o Lucro usa esse perímetro nos DOIS lados:
+ * Regra (#223, reversão): o Lucro é a receita do card de Receitas menos a
+ * despesa do card de Custos, SEMPRE no mesmo âmbito (cidade vs turné) e no
+ * mesmo perímetro (Realizado / Previsto + excedido / Forecast) que esses dois
+ * cards estão a mostrar. Não vai buscar totais a outro motor:
  *
- *   • RECEITA  — o valor do card de Receitas (perímetro real, previsto+excedido
- *     ou forecast), que já inclui a lógica D24/#219 (linhas de BP quando não
- *     há realizado) e o cachê efetivo faturado;
- *   • DESPESA  — os totais do motor do Encontro (`computeEventSettlementTotals`)
- *     com `expenseSource` = perímetro do card de Custos, MAIS o impacto de
- *     cachê efetivo (o mesmo ajuste que o Encontro aplica dos dois lados).
+ *   • RECEITA  — o total que o card de Receitas reporta (`perimeter.net`);
+ *   • DESPESA  — o total que o card de Custos reporta (`perimeter.net` ou
+ *     `perimeter.gross`, conforme a base de IVA do contrato).
  *
- * Porquê a despesa do motor e não a soma cidade a cidade do card (#217): o
- * Encontro apura o excedente fora do BP globalmente; o card apura rubrica a
- * rubrica por cidade. Os dois divergem quando uma cidade estoura e outra tem
- * folga — e é o número do Encontro que o Lucro tem de reproduzir.
+ * `events.partner_calc_basis` decide UMA coisa só: se a despesa entra c/IVA ou
+ * s/IVA. Perímetro e âmbito vêm dos cards.
+ *
+ * O motor do Encontro (`computeEventSettlementTotals`) continua a ser calculado
+ * aqui APENAS para o badge discreto "≠ fecho": compara o Lucro com o Resultado
+ * do Encontro na base contratual. Não alimenta o número do Lucro.
  *
  * Se os dois cards estiverem em modos diferentes, o Lucro usa esse par tal
  * como está e o resultado assinala `perimeterMismatch`.
@@ -30,8 +29,10 @@ import { computeEventContractResult, type ContractResult } from "@/lib/event-con
 import { useFechoBasis } from "@/hooks/useFechoBasis";
 
 export interface ContractPerimeterInput {
-  /** Receita do card, sempre s/IVA. */
+  /** Total do card, s/IVA. */
   net: number;
+  /** Total do card, c/IVA. */
+  gross: number;
   mode: "realized" | "committed" | "forecast";
 }
 
@@ -44,7 +45,7 @@ export function useEventContractResult(
   eventId: string,
   partnerCalcBasis: string | null | undefined,
   income: ContractPerimeterInput | null,
-  expenseMode: "realized" | "committed" | "forecast" | null,
+  expense: ContractPerimeterInput | null,
   cacheImpact: number,
 ): EventContractResultState {
   const { data: event } = useQuery({
@@ -149,40 +150,48 @@ export function useEventContractResult(
 
   const isLoading = !eventId || eventsPending || txPending || bpPending || tsPending || basis.isLoading;
 
-  const contract = useMemo(() => {
-    if (isLoading || !income || !expenseMode) return null;
-    // Forecast não tem equivalente no motor: usa a base "previsto + excedido".
-    const expenseSource = expenseMode === "realized" ? "realized" : "committed";
+  // Resultado do Encontro de Contas (base contratual, critério gravado) — só
+  // para o badge "≠ fecho". NÃO alimenta o Lucro.
+  const settlementResult = useMemo(() => {
+    if (isLoading) return null;
     const totals = computeEventSettlementTotals({
       events: events.length ? events : [{ id: eventId, parent_event_id: null }],
       transactions,
       forecasts,
       ticketSales,
-      basis: { includeOverhead: basis.includeOverhead, expenseSource },
+      basis: { includeOverhead: basis.includeOverhead, expenseSource: basis.expenseSource },
     });
     return computeEventContractResult(
       {
-        revenueNet: income.net,
+        revenueNet: totals.revenueNet,
         expensesNet: totals.expensesNet + cacheImpact,
         expensesGross: totals.expensesGross + cacheImpact,
       },
       (event as any)?.partner_calc_basis ?? partnerCalcBasis,
-      { revenue: income.mode, expense: expenseMode },
-    );
+    ).result;
   }, [
     isLoading,
-    income,
-    expenseMode,
-    cacheImpact,
     events,
     eventId,
     transactions,
     forecasts,
     ticketSales,
     basis.includeOverhead,
+    basis.expenseSource,
+    cacheImpact,
     event,
     partnerCalcBasis,
   ]);
+
+  const contract = useMemo(() => {
+    if (!income || !expense) return null;
+    return computeEventContractResult(
+      { revenueNet: income.net, expensesNet: expense.net, expensesGross: expense.gross },
+      (event as any)?.partner_calc_basis ?? partnerCalcBasis,
+      { revenue: income.mode, expense: expense.mode },
+      settlementResult,
+    );
+  }, [income, expense, event, partnerCalcBasis, settlementResult]);
 
   return { contract, isLoading };
 }

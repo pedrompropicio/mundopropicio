@@ -1,9 +1,13 @@
 /**
- * RESULTADO DO EVENTO NA BASE CONTRATUAL — fonte ÚNICA (#223).
+ * RESULTADO DO EVENTO NA BASE CONTRATUAL — card de Lucro (#223).
  *
- * O card de Lucro da capa e o "Resultado" do Encontro de Contas passam a ler
- * daqui. A regra é a do contrato (`events.partner_calc_basis`), nunca a vista
- * de IVA escolhida nos cards de Receitas/Custos:
+ * O card de Lucro consome os totais que os cards de Receitas e Custos já
+ * reportam (mesmo âmbito e perímetro); `events.partner_calc_basis` decide
+ * APENAS se a despesa entra c/IVA ou s/IVA. O Resultado do Encontro de Contas
+ * é calculado pelo seu próprio motor — aqui entra só como termo de comparação
+ * (`settlementResult`) para o badge "≠ fecho".
+ *
+ * A regra é a do contrato, nunca a vista de IVA escolhida nos cards:
  *
  *   • `net_result`                → Receita s/IVA − Despesa s/IVA
  *   • `net_result_gross_expenses` → Receita s/IVA − Despesa c/IVA
@@ -54,12 +58,20 @@ export interface ContractResult {
   label: string;
   /** true ⇒ os cards de Receitas e Custos estão em perímetros diferentes. */
   perimeterMismatch: boolean;
+  /**
+   * Resultado do Encontro de Contas na base contratual (critério gravado no
+   * evento) — só para o badge "≠ fecho". `null` enquanto não está calculado.
+   */
+  settlementResult: number | null;
+  /** true ⇒ o Lucro (perímetro dos cards) difere do Resultado do Encontro. */
+  differsFromSettlement: boolean;
 }
 
 export function computeEventContractResult(
   totals: ContractResultTotals,
   basis?: string | null,
   perimeters?: ContractPerimeterModes,
+  settlementResult?: number | null,
 ): ContractResult {
   const calcBasis = normalizePartnerCalcBasis(basis);
   const withVat = usesGrossExpenseAmounts(calcBasis);
@@ -90,5 +102,9 @@ export function computeEventContractResult(
     result: revenueBase - expenseBase,
     label,
     perimeterMismatch,
+    settlementResult: settlementResult ?? null,
+    differsFromSettlement:
+      settlementResult != null &&
+      Math.abs(revenueBase - expenseBase - settlementResult) > 0.005,
   };
 }

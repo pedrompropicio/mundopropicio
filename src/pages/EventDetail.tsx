@@ -621,7 +621,7 @@ export default function EventDetail() {
     id ?? "",
     event?.partner_calc_basis,
     cardIncomePerimeter,
-    cardExpensePerimeter?.mode ?? null,
+    cardExpensePerimeter,
     Number(calculatedCacheImpact || 0),
   );
 
@@ -1131,9 +1131,9 @@ export default function EventDetail() {
                   contract.revenueBase > 0
                     ? ` · margem ${((contract.result / contract.revenueBase) * 100).toFixed(1)}%`
                     : ""
-                }${viewDiffersFromContract ? " · vista dos cards noutra base" : ""}${
+}${viewDiffersFromContract ? " · vista dos cards noutra base" : ""}${
                   contract.perimeterMismatch ? " · perímetros diferentes nos cards" : ""
-                }`
+                }${contract.differsFromSettlement ? " · ≠ fecho" : ""}`
               : undefined
           }
           tooltip="Resultado no PERÍMETRO escolhido nos cards (Realizado / Previsto + excedido / Forecast — o mesmo perímetro nos dois lados), com a base de IVA do contrato do evento: a receita entra s/IVA e a despesa c/IVA ou s/IVA conforme o critério gravado. Se os cards estiverem em modos diferentes, o Lucro usa esse par tal como está e assinala-o."
