@@ -17944,16 +17944,6 @@ export type Database = {
         Args: { _company_id?: string }
         Returns: number
       }
-      reconcile_bp_overrides_for_event: {
-        Args: {
-          _event_id: string
-          _performed_by?: string
-          _performed_by_label?: string
-          _trigger_version_id: string
-          _trigger_version_number: number
-        }
-        Returns: undefined
-      }
       record_document_download: {
         Args: {
           p_bucket?: string
