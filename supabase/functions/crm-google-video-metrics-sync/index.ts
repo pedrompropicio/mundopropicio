@@ -615,54 +615,45 @@ Deno.serve(async (req: Request): Promise<Response> => {
       notes.push(`ligação ${conn.id}: métricas de alcance não selecionáveis nesta versão`);
     }
 
-    // escreve config + alcance em crm.google_campaign (raw/metrics já existem)
+    // escreve configuração e alcance em COLUNAS PRÓPRIAS de crm.google_campaign
+    // (`settings` e `reach`). Nunca toca em raw, metrics nem last_synced_at —
+    // essas são do crm-google-sync-campaigns.
     const idsToUpdate = new Set<string>([
       ...configByCampaign.keys(),
       ...reachByCampaign.keys(),
     ]);
     if (idsToUpdate.size > 0) {
-      const { data: existing, error: exErr } = await (supabase as any)
-        .schema("crm")
-        .from("google_campaign")
-        .select("external_campaign_id, raw, metrics")
-        .eq("connection_id", conn.id)
-        .in("external_campaign_id", Array.from(idsToUpdate));
-      if (exErr) {
-        errorCount++;
-        notes.push(`ligação ${conn.id}: leitura de google_campaign falhou (${exErr.message})`);
-      } else {
-        let updated = 0;
-        for (const row of existing ?? []) {
-          const id = String(row.external_campaign_id);
-          const cfg = configByCampaign.get(id);
-          const reach = reachByCampaign.get(id);
-          const newRaw = { ...(row.raw ?? {}) } as Row;
-          if (cfg) {
-            newRaw.config = {
-              recolhido_em: nowIso,
-              api_version: API_VERSION,
-              campanha: cfg.campanha,
-              criterios: cfg.criterios,
-            };
-          }
-          const newMetrics = { ...(row.metrics ?? {}) } as Row;
-          if (reach) newMetrics.alcance = reach;
-          const { error: uErr } = await (supabase as any)
-            .schema("crm")
-            .from("google_campaign")
-            .update({ raw: newRaw, metrics: newMetrics, last_synced_at: nowIso })
-            .eq("connection_id", conn.id)
-            .eq("external_campaign_id", id);
-          if (uErr) {
-            errorCount++;
-            notes.push(`ligação ${conn.id}: update campanha ${id} falhou (${uErr.message})`);
-          } else {
-            updated++;
-            rowsWritten++;
-          }
+      let updated = 0;
+      for (const id of idsToUpdate) {
+        const cfg = configByCampaign.get(id);
+        const reach = reachByCampaign.get(id);
+        const patch: Row = {};
+        if (cfg) {
+          patch.settings = {
+            recolhido_em: nowIso,
+            api_version: API_VERSION,
+            campanha: cfg.campanha,
+            criterios: cfg.criterios,
+          };
         }
-        per.campanhas_atualizadas = updated;
+        if (reach) patch.reach = reach;
+        if (Object.keys(patch).length === 0) continue;
+        const { data: upd, error: uErr } = await (supabase as any)
+          .schema("crm")
+          .from("google_campaign")
+          .update(patch)
+          .eq("connection_id", conn.id)
+          .eq("external_campaign_id", id)
+          .select("external_campaign_id");
+        if (uErr) {
+          errorCount++;
+          notes.push(`ligação ${conn.id}: update campanha ${id} falhou (${uErr.message})`);
+        } else if ((upd ?? []).length > 0) {
+          updated++;
+          rowsWritten++;
+        }
       }
+      per.campanhas_atualizadas = updated;
     }
 
     // ---- 6) Ad groups das campanhas VIDEO ---------------------------------
