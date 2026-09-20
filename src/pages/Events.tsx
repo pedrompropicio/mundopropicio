@@ -166,40 +166,37 @@ export default function Events() {
         });
       }
 
-      // Resultado real por evento: só paid + approved (pending excluído) e exclui transitórias
-      // / exclude_from_result. Alinhado com Cards do EventDetail, Dashboard e Análise de Resultados.
-      const { data: txns, error: qErr3 } = await fetchAllPagedQuery(supabase
-        .from("transactions")
-        .select("event_id, type, amount, status, is_transitory, exclude_from_result")
-        .in("status", ["approved", "paid"]));
-      if (qErr3) throw qErr3;
-
-      const totals: Record<string, { income: number; expense: number }> = {};
-      (txns ?? []).forEach((t: any) => {
-        if (!t.event_id) return;
-        if (t.is_transitory || t.exclude_from_result) return;
-        if (!totals[t.event_id]) totals[t.event_id] = { income: 0, expense: 0 };
-        if (t.type === "income") totals[t.event_id].income += Number(t.amount);
-        else totals[t.event_id].expense += Number(t.amount);
+      // Receitas / Despesas / Lucro na MESMA base dos cards da capa do evento
+      // (issue #221): despesa por `computeEventCostOnBasis` no critério gravado
+      // em `events.cost_expense_source`, receita por "previsto + excedido" (D24)
+      // com as linhas de BP a alimentarem os buckets sem sintética (#220).
+      // Leitura AGREGADA: nº fixo de consultas para toda a lista, paginadas (#206).
+      const specs: EventsListFinancialSpec[] = (evts ?? []).map((e: any) => {
+        const eventType = e.event_type || "simple";
+        const subIds =
+          (eventType === "multi_day" || eventType === "master")
+            ? (subEventsMap[e.id] ?? []).map((s: any) => s.id)
+            : [];
+        return {
+          id: e.id,
+          ids: [e.id, ...subIds],
+          costMode: (e.cost_expense_source === "realized" ? "realized" : "committed") as "realized" | "committed",
+          includeOverhead: e.cost_include_overhead !== false,
+          sponsorshipClosedAt: e.sponsorship_closed_at ?? null,
+        };
       });
+
+      const financials = await fetchEventsListFinancials(specs);
 
       return (evts ?? []).map((e: any) => {
         const eventType = e.event_type || "simple";
-        let totalIncome = totals[e.id]?.income ?? 0;
-        let totalExpenses = totals[e.id]?.expense ?? 0;
-
-        if ((eventType === "multi_day" || eventType === "master") && subEventsMap[e.id]) {
-          subEventsMap[e.id].forEach(sub => {
-            totalIncome += totals[sub.id]?.income ?? 0;
-            totalExpenses += totals[sub.id]?.expense ?? 0;
-          });
-        }
+        const f = financials[e.id];
 
         return {
           ...e,
           event_type: eventType,
-          totalIncome,
-          totalExpenses,
+          totalIncome: f?.income ?? 0,
+          totalExpenses: f?.expense ?? 0,
           subEvents: (subEventsMap[e.id] || []).sort((a: any, b: any) => a.date.localeCompare(b.date)),
         };
       });
