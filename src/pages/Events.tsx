@@ -989,7 +989,7 @@ export default function Events() {
                 <div className="mt-3 flex items-center justify-between border-t border-border/30 pt-3">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Ticket className="h-3 w-3" />
-                    {event.tickets_sold.toLocaleString()} / {event.tickets_total.toLocaleString()} bilhetes
+                    {Number(event.ticketsSold ?? event.tickets_sold ?? 0).toLocaleString()} / {Number(event.tickets_total || 0).toLocaleString()} bilhetes
                   </div>
                   <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 </div>
