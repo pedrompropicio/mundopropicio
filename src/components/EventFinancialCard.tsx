@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown, Settings2 } from "lucide-react";
 import { useEventFinancialCardData } from "@/hooks/useEventFinancialCardData";
 import {
-  type CardMode, type RevenueScenario,
+  type CardMode, type ModeUsed, type RevenueScenario,
   readStoredMode, writeStoredMode,
   readStoredCostToggle, writeStoredCostToggle,
   readStoredWithVat, writeStoredWithVat,
@@ -37,8 +37,12 @@ interface Props {
   masterQuota?: { masterEventId: string; siblingCount: number };
   /** Cachê calculado efetivo. */
   cacheImpact?: number;
-  /** Callback com o displayValue actual — usado pelo card Lucro. */
-  onValueChange?: (value: number) => void;
+  /**
+   * Reporta o PERÍMETRO em vigor (totais nas duas bases de IVA + modo) — é isto
+   * que alimenta o card de Lucro (#223 correção): o contrato escolhe a base de
+   * IVA, o perímetro vem daqui. `null` quando o perímetro está indisponível.
+   */
+  onPerimeterChange?: (p: { net: number; gross: number; mode: ModeUsed } | null) => void;
   /** `events.partner_calc_basis` — semente do critério de IVA (partilhado com o Fecho). */
   partnerCalcBasis?: string | null;
   /** Reporta a vista de IVA deste card (só para o aviso do card de Lucro). */
