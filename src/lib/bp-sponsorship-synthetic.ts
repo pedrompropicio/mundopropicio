@@ -118,15 +118,9 @@ export function computeSponsorshipSyntheticFromRows(rows: {
   // ── Bruto pelo IVA das linhas de origem (#207) ───────────────────
   // Taxa por linha 1.2.* ligada ao card; para o que falta captar usa-se a taxa
   // predominante dessas linhas (na falta de linhas, 23%).
-  const { data: sponsorFcs } = await fetchAllPagedQuery(supabase
-    .from("event_forecasts")
-    .select("id, iva_rate, account_categories(code)")
-    .in("event_id", ids)
-    .is("version_id", null)
-    .eq("type", "income"));
   const rateById = new Map<string, number>();
   const rateFreq = new Map<number, number>();
-  for (const f of ((sponsorFcs ?? []) as any[])) {
+  for (const f of rows.incomeForecasts) {
     if (!String(f.account_categories?.code ?? "").startsWith("1.2")) continue;
     const r = Number(f.iva_rate ?? 0);
     rateById.set(f.id as string, r);
