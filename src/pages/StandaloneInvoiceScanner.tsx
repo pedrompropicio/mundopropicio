@@ -85,6 +85,36 @@ export default function StandaloneInvoiceScanner() {
     if (user?.id && paidBy === "none") setPaidBy(user.id);
   }, [paidBy, user?.id]);
 
+  /**
+   * #212 — pede o câmbio de referência do BCE da DATA DA FATURA, a mesma regra da
+   * API `ingest-standalone-invoice` (D-ERP88). Sem data preenchida usa a de hoje.
+   */
+  const loadFxRate = async (ccy: StandaloneInvoiceCurrency, date: string) => {
+    if (ccy === "EUR") return;
+    setFxBusy(true);
+    try {
+      const result = await fetchSuggestedFxRateDetails(ccy as CurrencyCode, supabase, date || undefined);
+      if (!result) {
+        toast({ title: "Câmbio não obtido", description: "Preenche a taxa à mão.", variant: "destructive" });
+        return;
+      }
+      const rate = String(result.rate);
+      setFxRate(rate);
+      setFxDateUsed(result.dateUsed);
+      setFxRateSource(`BCE (frankfurter.app) ${result.dateUsed ?? date}`);
+      setTotal(calculateStandaloneEur(originalAmount, rate));
+    } finally {
+      setFxBusy(false);
+    }
+  };
+
+  // Volta a pedir a taxa quando a moeda ou a data da fatura mudam.
+  useEffect(() => {
+    if (currency === "EUR") return;
+    void loadFxRate(currency, invoiceDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currency, invoiceDate]);
+
   const clearCapture = () => {
     setFile(null);
     setScanCandidate(null);
