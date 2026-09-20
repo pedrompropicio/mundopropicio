@@ -184,6 +184,7 @@ import CrmFunnelTest from "./pages/crm/FunnelTest";
 import ModuleSelector from "./pages/ModuleSelector";
 import PostLoginRedirect from "./components/PostLoginRedirect";
 import { AudienceLayout } from "./components/layout/AudienceLayout";
+import { AudiencePrintGuard } from "./components/layout/AudiencePrintGuard";
 import { CrmLayout } from "./components/layout/CrmLayout";
 import { PartnerLayout } from "./components/PartnerLayout";
 import CrmDashboard from "./pages/crm-admin/CrmDashboard";
@@ -679,8 +680,12 @@ function App() {
                     <Route path="audit/:contextType/:contextId" element={<CrmAudit />} />
                     <Route path="audit/:contextType" element={<CrmAudit />} />
                   </Route>
-                  <Route path="/audience/strategies/:id/print" element={<CrmStrategyPrint />} />
-                  <Route path="/audience/print/:type" element={<AudiencePrint />} />
+                  {/* #216: fora do AudienceLayout (a impressão não tolera o chrome),
+                      mas com a MESMA guarda de sessão/role via AudiencePrintGuard. */}
+                  <Route element={<AudiencePrintGuard />}>
+                    <Route path="/audience/strategies/:id/print" element={<CrmStrategyPrint />} />
+                    <Route path="/audience/print/:type" element={<AudiencePrint />} />
+                  </Route>
                   <Route path="/crm" element={<CrmLayout />}>
                     <Route index element={<CrmDashboard />} />
                     <Route path="eventos" element={<EventosList />} />
