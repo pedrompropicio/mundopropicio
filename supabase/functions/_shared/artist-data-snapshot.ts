@@ -202,12 +202,17 @@ function agregarGeoPorUf(linhas: LinhaGeo[], resolver: GeoResolver) {
         : null,
       cpc: pagoTotal.cliques > 0 ? Math.round((pagoTotal.gasto / pagoTotal.cliques) * 10000) / 10000 : null,
       cpm: pagoTotal.impressoes > 0 ? round2((pagoTotal.gasto / pagoTotal.impressoes) * 1000) : null,
-      quota_organica_pct: u.organico?.quota_pct ?? null,
+      // Fãs = Instagram; ouvintes = Spotify. `quota_organica_pct` mantém-se igual ao
+      // Instagram por compatibilidade com quem já a lê.
+      quota_fas_pct: u.organico?.instagram?.quota_pct ?? null,
+      quota_ouvintes_pct: u.organico?.spotify?.quota_pct ?? null,
+      quota_organica_pct: u.organico?.instagram?.quota_pct ?? null,
     };
   });
   tabela.sort((a, b) =>
     (b.pago_total.impressoes - a.pago_total.impressoes) ||
-    ((b.quota_organica_pct ?? 0) - (a.quota_organica_pct ?? 0))
+    ((b.quota_fas_pct ?? 0) - (a.quota_fas_pct ?? 0)) ||
+    ((b.quota_ouvintes_pct ?? 0) - (a.quota_ouvintes_pct ?? 0))
   );
   return { tabela, nao_resolvidos: naoResolvidos };
 }
