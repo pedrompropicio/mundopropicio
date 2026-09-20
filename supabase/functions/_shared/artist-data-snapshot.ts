@@ -452,38 +452,49 @@ export async function buildArtistDataSnapshot(p: ArtistDataSnapshotParams) {
           }))
           .sort((a, b) => b.valor - a.valor);
       };
-      porTipo[t] = {
+      porTipo[g] = {
+        platform: plat,
+        audience_type: tipo,
         snapshot_date: ultima,
         timeframe: linhas[0]?.timeframe ?? null,
         age: porDim("age"),
         gender: porDim("gender"),
       };
     }
+    // Aviso SÓ do Instagram — não se inventam avisos para o Spotify.
     for (const t of ["engaged", "reached"]) {
-      if (!porTipo[t]) avisos.push(`sem audiência "${t}" no Instagram — usada a de seguidores`);
+      if (!porTipo[`instagram.${t}`]) {
+        avisos.push(`sem audiência "${t}" no Instagram — usada a de seguidores`);
+      }
     }
     const demoDatas = demoRows.map((d: Any) => String(d.snapshot_date)).sort();
     audiencia = {
       _fonte:
-        "orgânica — public.v_artist_audience_by_state (estados/regiões) + public.artist_audience_demographics (idade/género por tipo de audiência). Secundária face ao pago.",
+        "orgânica — public.v_artist_audience_by_state (estados/regiões, Instagram=fãs e Spotify=ouvintes) + public.artist_audience_demographics (idade/género por plataforma e tipo de audiência). Secundária face ao pago.",
       por_estado: porEstado,
+      // Atalhos explícitos: fãs (Instagram) vs ouvintes (Spotify). null quando não existe.
+      fas: porEstado["instagram.followers"] ?? null,
+      ouvintes: porEstado["spotify.listeners"] ?? null,
       por_tipo: porTipo,
       linhas_demografia: demoRows,
       periodo_demografia: demoRows.length
         ? { de: demoDatas[0], a: demoDatas[demoDatas.length - 1] }
         : null,
     };
-    addFonte({
-      bloco: "audiencia_organica.por_tipo",
-      fonte:
-        "public.artist_audience_demographics por tipo de audiência (followers/engaged/reached) — idade e género",
-      periodo: Object.keys(porTipo).length
-        ? Object.entries(porTipo).map(([t, v]: Any) => `${t}: ${v.snapshot_date}`).join("; ")
-        : "sem dados",
-      data_mais_recente: Object.values(porTipo).map((v: Any) => v.snapshot_date).filter(Boolean).sort()
-        .pop() ?? null,
-      linhas: Object.keys(porTipo).length,
-    });
+    for (const plat of ["instagram", "spotify"]) {
+      const grupos = Object.entries(porTipo).filter(([, v]: Any) => v.platform === plat);
+      addFonte({
+        bloco: `audiencia_organica.por_tipo.${plat}`,
+        fonte: plat === "instagram"
+          ? "public.artist_audience_demographics (platform=instagram) — idade e género da base de FÃS (followers/engaged/reached)"
+          : "public.artist_audience_demographics (platform=spotify) — idade e género da audiência de ESCUTA (listeners)",
+        periodo: grupos.length
+          ? grupos.map(([g, v]: Any) => `${g}: ${v.snapshot_date}`).join("; ")
+          : "sem dados",
+        data_mais_recente: grupos.map(([, v]: Any) => v.snapshot_date).filter(Boolean).sort().pop() ?? null,
+        linhas: grupos.length,
+      });
+    }
   }
 
   // ── 4) HISTÓRICO PAGO (campanhas, diário, anúncios, breakdowns meta + google)
