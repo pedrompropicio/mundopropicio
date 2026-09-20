@@ -677,6 +677,10 @@ export default function ReportTicketOfficeAudit() {
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
               <Wallet className="h-3.5 w-3.5" />
               Saldo Previsto
+              <HelpTooltip
+                size={12}
+                text="Âmbito deste ecrã (#129): soma todas as zonas de todos os eventos com vendas nesta bilheteira, mesmo os que não estão atribuídos."
+              />
             </div>
             <p className={cn(
               "text-lg font-mono font-bold",
