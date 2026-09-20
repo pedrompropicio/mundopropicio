@@ -235,6 +235,20 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
         />
       )}
 
+      {deleteTarget && (
+        <SponsorDeleteDialog
+          row={deleteTarget}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => {
+            const id = deleteTarget.id;
+            setDeleteTarget(null);
+            remove.mutate(id);
+          }}
+        />
+      )}
+
+
+
       <Dialog open={!!closingPrompt} onOpenChange={(o) => !o && setClosingPrompt(null)}>
         <DialogContent>
           <DialogHeader>
