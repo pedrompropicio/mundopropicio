@@ -112,3 +112,7 @@ ao evento **e** rubrica escolhidos, o `forecast_id` é limpo e
 `LinkBpLineDialog` em `pickOnly` e só grava depois de escolher/criar a linha.
 Os itens de sessão (`card_session_items`) não passam aqui — só viram transação
 no fecho, onde o gate já vive (`CloseCardSessionModal`, passo 2).
+
+## Vínculo canónico nas gerações a partir do BP (2026-09-20, Issue #113)
+
+`src/components/EventForecast.tsx` — criação em lote ("A Pagar" a partir de linhas aprovadas) e programação de parcelas — passa a escrever `transactions.forecast_id` (vínculo canónico N:1, D-ERP1) na transação criada, mantendo a âncora legada `event_forecasts.transaction_id` (escrita só se estiver vazia / na 1ª parcela). Os ~19 consumidores que ainda leem a âncora continuam a funcionar.
