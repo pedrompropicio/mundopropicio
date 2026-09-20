@@ -24,6 +24,7 @@ import {
   authorize,
   corsHeaders,
   GRAPH,
+  GRAPH_VERSION,
   graphGet,
   IG_GRAPH,
   json,
@@ -56,13 +57,40 @@ const MEDIA_INSIGHTS = [
   "total_interactions",
 ];
 
-// Timeframe é por métrica: reached_audience_demographics não aceita "this_month".
-const DEMOGRAPHIC_METRICS: Array<{ metric: string; audience_type: string; timeframe: string }> = [
-  { metric: "follower_demographics", audience_type: "followers", timeframe: "this_month" },
-  { metric: "engaged_audience_demographics", audience_type: "engaged", timeframe: "this_month" },
-  { metric: "reached_audience_demographics", audience_type: "reached", timeframe: "last_30_days" },
+// Timeframes: last_14_days / last_30_days / last_90_days / prev_month deixaram de
+// ser suportados na v20.0 — só se enviam this_week e this_month.
+// `engaged_audience_demographics` só vem se houver >= 100 interações no período,
+// por isso tenta-se this_week e, se vier vazio, this_month uma vez.
+// `reached_audience_demographics` já não consta da referência: pede-se UMA vez e,
+// se a API a recusar, não se repete por breakdown.
+const DEMOGRAPHIC_METRICS: Array<
+  { metric: string; audience_type: string; timeframes: string[] }
+> = [
+  { metric: "follower_demographics", audience_type: "followers", timeframes: ["this_month"] },
+  {
+    metric: "engaged_audience_demographics",
+    audience_type: "engaged",
+    timeframes: ["this_week", "this_month"],
+  },
+  { metric: "reached_audience_demographics", audience_type: "reached", timeframes: ["this_week"] },
 ];
 const BREAKDOWNS = ["city", "country", "age", "gender"] as const;
+
+/** Corpo cru da resposta, truncado e sem qualquer token (o token só vai no URL). */
+function rawSample(body: unknown): string {
+  try {
+    return JSON.stringify(body ?? null).slice(0, 1000);
+  } catch (_e) {
+    return "(corpo não serializável)";
+  }
+}
+
+/** A API recusa a métrica em si (não é falta de dados)? */
+function metricUnsupported(body: any): boolean {
+  const msg = String(body?.error?.message ?? "").toLowerCase();
+  return /metric|metrics\[/.test(msg) &&
+    /(not supported|unsupported|does not exist|invalid|no longer)/.test(msg);
+}
 
 function ymd(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -280,56 +308,90 @@ Deno.serve(async (req) => {
       }
 
       // ---------------------------------------------------- demografia
+      // Um corpo cru por métrica (truncado a 1000 caracteres, sem token) para
+      // se distinguir "total_value vazio" de "resposta sem dados".
+      const demoRaw: Record<string, { timeframe: string; breakdown: string; body: string }> = {};
+
       for (const dm of DEMOGRAPHIC_METRICS) {
+        let unsupported = false;
+
         for (const breakdown of BREAKDOWNS) {
-          const dem = await graphGet(
-            `${node}/insights`,
-            {
-              metric: dm.metric,
-              period: "lifetime",
-              timeframe: dm.timeframe,
-              metric_type: "total_value",
-              breakdown,
-            },
-            token,
-            base,
-          );
-          graphCalls++;
-          if (!dem.ok) {
-            notes.push(
-              `demografia ${dm.metric}/${breakdown} indisponível: ${dem.body?.error?.message ?? dem.status}`,
-            );
-            continue;
-          }
+          if (unsupported) break;
           let rowsForPair = 0;
-          for (const entry of dem.body?.data ?? []) {
-            const results = entry?.total_value?.breakdowns?.[0]?.results ?? [];
-            for (const r of results) {
-              const v = toCount(r?.value);
-              const key = (r?.dimension_values ?? []).join(" / ");
-              if (v === null || !key) continue;
-              rowsForPair++;
-              demoRows.push({
-                company_id: conn.company_id,
-                artist_id: conn.artist_id,
-                platform: PLATFORM,
-                audience_type: dm.audience_type,
-                dimension: breakdown,
-                dim_key: key,
-                value: v,
-                timeframe: dm.timeframe,
-                snapshot_date: today,
-                source: SOURCE,
-              });
+          let lastTimeframe = dm.timeframes[0];
+
+          for (const timeframe of dm.timeframes) {
+            lastTimeframe = timeframe;
+            const dem = await graphGet(
+              `${node}/insights`,
+              {
+                metric: dm.metric,
+                period: "lifetime",
+                timeframe,
+                metric_type: "total_value",
+                breakdown,
+              },
+              token,
+              base,
+            );
+            graphCalls++;
+            if (!demoRaw[dm.metric]) {
+              demoRaw[dm.metric] = { timeframe, breakdown, body: rawSample(dem.body) };
             }
+
+            if (!dem.ok) {
+              if (metricUnsupported(dem.body)) {
+                // nota única: não se repete a chamada pelos outros breakdowns
+                unsupported = true;
+                notes.push(
+                  `demografia ${dm.metric}: métrica não suportada nesta versão da API (${GRAPH_VERSION}) — ${
+                    String(dem.body?.error?.message ?? dem.status).slice(0, 300)
+                  }`,
+                );
+              } else {
+                notes.push(
+                  `demografia ${dm.metric}/${breakdown} erro: ${
+                    String(dem.body?.error?.message ?? dem.status).slice(0, 300)
+                  }`,
+                );
+              }
+              break;
+            }
+
+            for (const entry of dem.body?.data ?? []) {
+              const results = entry?.total_value?.breakdowns?.[0]?.results ?? [];
+              for (const r of results) {
+                const v = toCount(r?.value);
+                const key = (r?.dimension_values ?? []).join(" / ");
+                if (v === null || !key) continue;
+                rowsForPair++;
+                demoRows.push({
+                  company_id: conn.company_id,
+                  artist_id: conn.artist_id,
+                  platform: PLATFORM,
+                  audience_type: dm.audience_type,
+                  dimension: breakdown,
+                  dim_key: key,
+                  value: v,
+                  timeframe,
+                  snapshot_date: today,
+                  source: SOURCE,
+                });
+              }
+            }
+            if (rowsForPair > 0) break; // não tenta o timeframe seguinte
           }
-          if (rowsForPair === 0) {
+
+          if (!unsupported && rowsForPair === 0) {
             notes.push(
-              `demografia ${dm.metric}/${breakdown} sem resultados (timeframe ${dm.timeframe})`,
+              `demografia ${dm.metric}/${breakdown} sem dados (abaixo do mínimo de 100 interações no período; timeframes tentados: ${
+                dm.timeframes.join(", ")
+              }, último ${lastTimeframe})`,
             );
           }
         }
       }
+      per.demographics_raw = demoRaw;
 
       // ------------------------------------------------------ conteúdos
       const media = await graphGet(
