@@ -262,15 +262,26 @@ export function computeRevenueBasisFromRows(rows: RevenueBasisRows): EventRevenu
   const abForecastPair: MoneyPair | null =
     abForecastNet != null ? { net: abForecastNet, gross: abForecastNet } : null;
 
-  // Há sintética para o componente? Se não, o BP alimenta-o.
+  // Há sintética para o componente? Se não, o BP alimenta-o — vale para os
+  // TRÊS buckets com módulo (#220 bilheteira/A&B, #225 patrocínios).
   const hasTicketSynthetic = ticketForecastPair != null || hasTicketSales;
   const hasAbSynthetic = abForecastPair != null;
+
+  // Patrocínios: a sintética só existe com verbas (ou fechados reais). Sem ela,
+  // as linhas de BP 1.2.x aprovadas alimentam o bucket (#225) — antes eram
+  // descartadas SEMPRE e a receita prevista ficava a zero (Newgang: −31.000).
+  const sponsorForecast: MoneyPair | null = sponsorship.hasTargets
+    ? { net: sponsorship.currentNet ?? 0, gross: sponsorship.currentGross ?? sponsorship.currentNet ?? 0 }
+    : sponsorship.realNet > 0
+      ? { net: sponsorship.realNet, gross: sponsorship.realGross || sponsorship.realNet }
+      : null;
 
   const excludedIds = new Set(sponsorship.excludedForecastIds);
   // Bruto pelo `iva_rate` da própria linha (Art.º 18 CIVA, linha a linha).
   let othersForecast: MoneyPair | null = null;
   let bpBilheteira: MoneyPair | null = null;
   let bpAb: MoneyPair | null = null;
+  let bpPatrocinio: MoneyPair | null = null;
   const addTo = (acc: MoneyPair | null, net: number, gross: number): MoneyPair => ({
     net: (acc?.net ?? 0) + net,
     gross: (acc?.gross ?? 0) + gross,
@@ -282,24 +293,19 @@ export function computeRevenueBasisFromRows(rows: RevenueBasisRows): EventRevenu
     const cls = classifyIncomeL1(f.account_categories?.code);
     if (cls === "bilheteira" && hasTicketSynthetic) continue;
     if (cls === "ab" && hasAbSynthetic) continue;
-    if (cls === "patrocinio") continue; // representado pelo bucket patrocínio
+    if (cls === "patrocinio" && sponsorForecast != null) continue; // sintética substitui (#225)
     const net = Number(f.amount || 0);
     const gross = calcTotalWithIva(net, Number(f.iva_rate || 0));
     if (cls === "bilheteira") bpBilheteira = addTo(bpBilheteira, net, gross);
     else if (cls === "ab") bpAb = addTo(bpAb, net, gross);
+    else if (cls === "patrocinio") bpPatrocinio = addTo(bpPatrocinio, net, gross);
     else othersForecast = addTo(othersForecast, net, gross);
   }
-
-  const sponsorForecast: MoneyPair | null = sponsorship.hasTargets
-    ? { net: sponsorship.currentNet ?? 0, gross: sponsorship.currentGross ?? sponsorship.currentNet ?? 0 }
-    : sponsorship.realNet > 0
-      ? { net: sponsorship.realNet, gross: sponsorship.realGross || sponsorship.realNet }
-      : null;
 
   const forecastBuckets: Record<RevenueBucket, MoneyPair | null> = {
     bilheteira: ticketForecastPair ?? bpBilheteira,
     ab: abForecastPair ?? bpAb,
-    patrocinio: sponsorForecast,
+    patrocinio: sponsorForecast ?? bpPatrocinio,
     outros: othersForecast,
   };
   const anyForecast = REVENUE_BUCKETS.some((b) => forecastBuckets[b] != null);
