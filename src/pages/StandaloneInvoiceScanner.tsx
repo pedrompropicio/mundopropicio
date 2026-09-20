@@ -56,6 +56,9 @@ export default function StandaloneInvoiceScanner() {
   const [originalAmount, setOriginalAmount] = useState("");
   const [fxRate, setFxRate] = useState("");
   const [fxRateSource, setFxRateSource] = useState("");
+  /** Dia de fixing do BCE usado na taxa sugerida (#212). */
+  const [fxDateUsed, setFxDateUsed] = useState<string | null>(null);
+  const [fxBusy, setFxBusy] = useState(false);
   const [paidBy, setPaidBy] = useState(user?.id ?? "none");
   const [total, setTotal] = useState("");
   const [iva, setIva] = useState("");
