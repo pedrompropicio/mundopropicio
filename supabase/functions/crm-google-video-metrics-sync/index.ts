@@ -821,7 +821,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
               title: yt.youtubeVideoTitle != null ? String(yt.youtubeVideoTitle) : null,
             });
           }
-          per.anuncios_com_video = videoByAdRes.size;
+          per.anuncios_com_video_asset_view = videoByAdRes.size;
+          if (videoByAdRes.size === 0) {
+            notes.push(
+              `ligação ${conn.id}: ad_group_ad_asset_view sem linhas YOUTUBE_VIDEO (usa-se o recurso do próprio anúncio)`,
+            );
+          }
         } catch (e) {
           notes.push(
             `ligação ${conn.id}: vídeo do anúncio não obtido (${(e as Error).message.slice(0, 600)})`,
@@ -830,6 +835,72 @@ Deno.serve(async (req: Request): Promise<Response> => {
       } else {
         notes.push(`ligação ${conn.id}: ad_group_ad_asset_view sem campos confirmados nesta versão`);
       }
+
+      // Recurso alternativo: os `asset` referidos pelo próprio anúncio.
+      const assetRefsByAd = new Map<string, string[]>();
+      const colherAssets = (v: unknown, out: Set<string>) => {
+        if (v == null) return;
+        if (typeof v === "string") {
+          if (/\/assets\/\d+$/.test(v)) out.add(v);
+          return;
+        }
+        if (Array.isArray(v)) {
+          for (const x of v) colherAssets(x, out);
+          return;
+        }
+        if (typeof v === "object") for (const x of Object.values(v as Row)) colherAssets(x, out);
+      };
+      const todosRefs = new Set<string>();
+      for (const r of adRowsApi) {
+        const adRes = r.adGroupAd?.resourceName ?? r.adGroupAd?.ad?.resourceName ?? null;
+        if (!adRes) continue;
+        const refs = new Set<string>();
+        colherAssets(r.adGroupAd?.ad, refs);
+        if (refs.size === 0) continue;
+        assetRefsByAd.set(String(adRes), Array.from(refs));
+        for (const x of refs) todosRefs.add(x);
+      }
+      const videoByAssetRes = new Map<string, { id: string | null; title: string | null }>();
+      if (todosRefs.size > 0 && adAssetFields.includes("asset.youtube_video_asset.youtube_video_id")) {
+        try {
+          apiCalls++;
+          const rows = await gaql(
+            ctx,
+            `
+  SELECT
+    asset.resource_name,
+    asset.youtube_video_asset.youtube_video_id,
+    asset.youtube_video_asset.youtube_video_title
+  FROM asset
+  WHERE asset.type = 'YOUTUBE_VIDEO'
+`,
+          );
+          for (const r of rows) {
+            const res = r.asset?.resourceName ?? null;
+            const yt = r.asset?.youtubeVideoAsset ?? {};
+            if (!res || !yt?.youtubeVideoId) continue;
+            videoByAssetRes.set(String(res), {
+              id: String(yt.youtubeVideoId),
+              title: yt.youtubeVideoTitle != null ? String(yt.youtubeVideoTitle) : null,
+            });
+          }
+          per.assets_youtube = videoByAssetRes.size;
+        } catch (e) {
+          notes.push(
+            `ligação ${conn.id}: assets YouTube não obtidos (${(e as Error).message.slice(0, 600)})`,
+          );
+        }
+      }
+      const videoDoAnuncio = (adRes: string | null) => {
+        if (!adRes) return undefined;
+        const direto = videoByAdRes.get(adRes);
+        if (direto) return direto;
+        for (const ref of assetRefsByAd.get(adRes) ?? []) {
+          const v = videoByAssetRes.get(ref);
+          if (v) return v;
+        }
+        return undefined;
+      };
 
       const adsById = new Map<string, Row>();
       for (const r of adRowsApi) {
