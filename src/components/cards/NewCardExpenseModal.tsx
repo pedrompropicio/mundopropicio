@@ -716,6 +716,28 @@ export function NewCardExpenseModal({
           </div>
         </form>
       </div>
+
+      {/* #112 — gate da linha de BP na edição da despesa directa antiga. */}
+      {bpGate && expense && (
+        <LinkBpLineDialog
+          pickOnly
+          transaction={{
+            id: expense.id,
+            description: description.trim(),
+            amount: cardBaseFromTotal(parseFloat(total) || 0, Number(ivaRate) || 0),
+            iva_rate: Number(ivaRate) || 0,
+            event_id: bpGate.eventId,
+            category_id: bpGate.categoryId,
+          }}
+          onClose={() => setBpGate(null)}
+          onLinked={() => setBpGate(null)}
+          onPicked={(forecastId) => {
+            setPickedForecastId(forecastId);
+            setBpGate(null);
+            mut.mutate();
+          }}
+        />
+      )}
     </div>
   );
 }
