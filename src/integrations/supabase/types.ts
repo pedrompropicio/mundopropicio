@@ -16589,6 +16589,13 @@ export type Database = {
           suggested_formalidade: Database["public"]["Enums"]["bp_formalidade"]
         }[]
       }
+      anonymize_traffic_events: {
+        Args: { _days?: number }
+        Returns: {
+          gclicks_anonymized: number
+          leads_anonymized: number
+        }[]
+      }
       apply_formalidade_suggestions: {
         Args: {
           _forecast_ids: string[]
