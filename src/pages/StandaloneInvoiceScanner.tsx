@@ -136,6 +136,7 @@ export default function StandaloneInvoiceScanner() {
     setOriginalAmount("");
     setFxRate("");
     setFxRateSource("");
+    setFxDateUsed(null);
     setPaidBy(user?.id ?? "none");
     setTotal("");
     setIva("");
