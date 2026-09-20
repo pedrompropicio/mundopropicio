@@ -228,12 +228,14 @@ export default function EventDetail() {
   });
 
   // Lucro = resultado na base contratual, no PERÍMETRO escolhido nos cards (#223
-  // correção): os dois lados da subtração vêm do mesmo perímetro; o contrato só
-  // decide se a despesa entra c/IVA ou s/IVA.
+  // correção): receita do card de Receitas, despesa do motor do Encontro no modo
+  // do card de Custos (+ cachê efetivo); o contrato só decide c/IVA vs s/IVA.
   const { contract } = useEventContractResult(
+    id ?? "",
     event?.partner_calc_basis,
     cardIncomePerimeter,
-    cardExpensePerimeter,
+    cardExpensePerimeter?.mode ?? null,
+    Number(calculatedCacheImpact || 0),
   );
 
   const eventType = event?.event_type || "simple";
