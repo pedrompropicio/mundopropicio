@@ -3825,10 +3825,29 @@ Data: 2026-09-20. Sem DDL, sem OAuth, sem mudança de host.
   nota única e não se repete por breakdown (helper `metricUnsupported`).
 - `sync_runs.details.artists[].demographics_raw`: um corpo cru por métrica, truncado a
   1000 caracteres, sem token (`rawSample`).
-- Notas distinguem: "sem dados (abaixo do mínimo de 100 interações no período)",
+- Notas distinguem: "sem dados (breakdown sem results; causa por confirmar)",
   "métrica não suportada nesta versão da API" e "erro".
 - `follower_demographics` intocada.
 
 Prova (corrida real 2026-09-20 00:11 UTC, 304 linhas): as duas métricas respondem 200 —
-`total_value.breakdowns[0]` vem com `dimension_keys` mas SEM `results`, i.e. a conta está
-abaixo do mínimo de 100 interações no período; não é erro nem métrica inexistente.
+`total_value.breakdowns[0]` vem com `dimension_keys` mas SEM `results`. O corpo cru prova
+o breakdown vazio, NÃO prova a causa; o mínimo de 100 interações é hipótese documentada
+pela Meta, a confirmar com a evidência recolhida (ver adenda).
+
+### Adenda (2026-09-20) — insights de conta e evidência da demografia
+- Achado A: `views`, `accounts_engaged`, `total_interactions` e `profile_links_taps` NUNCA
+  foram gravadas — pedidas com `period=day` sem `metric_type`, a v25.0 responde 200 com
+  `data` vazia. Passam a ser pedidas com `metric_type=total_value` (`reach` fica intocada,
+  para não alterar a série existente).
+- Fim do silêncio: resposta ok sem `values` nem `total_value` gera a nota
+  "insight &lt;métrica&gt; sem valores na resposta (pedido: period=day, metric_type=…)".
+  Métrica sem valor continua a não ser gravada.
+- Demografia: por cada timeframe tentado que veio vazio, UMA chamada a
+  `total_interactions` (`metric_type=total_value`) na janela equivalente (this_week → 7
+  dias, this_month → 30 dias), máx. 1 por timeframe por ligação; o valor entra na nota
+  ("total_interactions na janela de N dias: X" ou "…não obtido (motivo)"). A função não
+  tira a conclusão.
+- `reached_audience_demographics` É aceite na v25.0; apenas não consta da página de
+  referência consultada. Comentário no código corrigido.
+- `artist_metrics_daily` não tem CHECK sobre o nome da métrica (só sobre `platform`), logo
+  as quatro métricas novas gravam sem DDL.
