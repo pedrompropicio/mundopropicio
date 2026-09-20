@@ -60,6 +60,8 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
     row: SponsorshipPipelineRow;
     amount: number;
   } | null>(null);
+  // #120: card com BP/TX ligados — apagar exige escolha explícita.
+  const [deleteTarget, setDeleteTarget] = useState<SponsorshipPipelineRow | null>(null);
 
   const grouped = useMemo(() => {
     const map = Object.fromEntries(STAGE_ORDER.map((s) => [s, [] as SponsorshipPipelineRow[]]));
