@@ -5,6 +5,7 @@ import {
   type CardMode, type RevenueScenario,
   readStoredMode, writeStoredMode,
   readStoredCostToggle, writeStoredCostToggle,
+  readStoredWithVat, writeStoredWithVat,
   allowedModes,
 } from "@/lib/event-financial-card";
 
@@ -40,12 +41,6 @@ interface Props {
   onValueChange?: (value: number) => void;
   /** `events.partner_calc_basis` — semente do critério de IVA (partilhado com o Fecho). */
   partnerCalcBasis?: string | null;
-  /**
-   * VISTA de IVA da página (#207) — uma só para Receitas, Custos e Lucro.
-   * Não é critério: o contratual continua a mandar no Fecho.
-   */
-  viewWithVat: boolean;
-  onViewWithVatChange: (v: boolean) => void;
 }
 
 const MODE_LABEL: Record<CardMode, string> = {
@@ -89,9 +84,14 @@ export function EventFinancialCard(props: Props) {
     () => readStoredCostToggle(userId, eventId, kind, "overhead"),
   );
 
-  // IVA é VISTA da página (#207) — os dois cards recebem a mesma.
-  const withVat = props.viewWithVat;
-  const setWithVat = props.onViewWithVatChange;
+  // VISTA de IVA PRÓPRIA de cada card (#223): Receitas e Custos são independentes.
+  // Persistida por utilizador + evento + card; semente = critério contratual.
+  const [vatChoice, setVatChoice] = useState<boolean | null>(null);
+  const withVat = vatChoice ?? readStoredWithVat(userId, eventId, kind, shared.withVat);
+  const setWithVat = (v: boolean) => {
+    setVatChoice(v);
+    writeStoredWithVat(userId, eventId, kind, v);
+  };
   /** vista ≠ critério contratual do evento (o que o Fecho usa). */
   const viewDiffersFromContract = !shared.isLoading && withVat !== shared.withVat;
   const includeOverhead = isExpense ? shared.includeOverhead : incomeOverhead;
