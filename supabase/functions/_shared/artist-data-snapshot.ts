@@ -161,18 +161,20 @@ function agregarGeoPorUf(linhas: LinhaGeo[], resolver: GeoResolver) {
       estado: r.nome,
       regiao: r.regiao,
       pago: {} as Record<string, Any>,
-      organico: null as Any,
+      // Orgânico POR FONTE: { instagram: {...}, spotify: {...} }. Nunca um balde único.
+      organico: {} as Record<string, Any>,
       nomes_originais: [] as Any[],
     };
     if (!cur.regiao && r.regiao) cur.regiao = r.regiao;
     if (!cur.nomes_originais.some((n: Any) => n.fonte === l.fonte && n.nome === l.nome_original)) {
       cur.nomes_originais.push({ fonte: l.fonte, nome: l.nome_original });
     }
-    if (l.fonte === "instagram") {
+    if (FONTES_ORGANICAS.has(l.fonte)) {
       const q = l.quota_pct ?? null;
-      cur.organico = {
-        valor: (cur.organico?.valor ?? 0) + (l.valor ?? 0),
-        quota_pct: q == null ? (cur.organico?.quota_pct ?? null) : round2((cur.organico?.quota_pct ?? 0) + q),
+      const o = cur.organico[l.fonte] ?? { valor: 0, quota_pct: null };
+      cur.organico[l.fonte] = {
+        valor: (o.valor ?? 0) + (l.valor ?? 0),
+        quota_pct: q == null ? o.quota_pct : round2((o.quota_pct ?? 0) + q),
       };
     } else {
       const p = cur.pago[l.fonte] ?? { impressoes: 0, cliques: 0, gasto: 0 };
