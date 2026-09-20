@@ -339,28 +339,41 @@ export async function buildArtistDataSnapshot(p: ArtistDataSnapshotParams) {
   let audiencia: Any = null;
   const geoOrganica: LinhaGeo[] = [];
   if (quer("audiencia_organica")) {
+    // DUAS fontes orgânicas: fãs (Instagram) e ouvintes (Spotify). A chave de
+    // `por_estado` é "<platform>.<audience_type>" — nunca só o tipo.
     const { data: estadoRaw, error: estadoErr } = await user
       .from("v_artist_audience_by_state")
       .select("platform, audience_type, timeframe, snapshot_date, uf, regiao, estado_nome, valor, quota_pct")
       .eq("artist_id", artistId)
-      .eq("platform", "instagram")
+      .in("platform", ["instagram", "spotify"])
       .order("snapshot_date", { ascending: false })
       .limit(2000);
     if (estadoErr) avisos.push(`audiência por estado indisponível: ${estadoErr.message}`);
     const estadoRows: Any[] = estadoRaw ?? [];
     const porEstado: Record<string, Any> = {};
     let estadoDataMax: string | null = null;
-    for (const t of [...new Set(estadoRows.map((r: Any) => String(r.audience_type)))]) {
-      const doTipo = estadoRows.filter((r: Any) => String(r.audience_type) === t);
-      const ultima = doTipo.map((r: Any) => String(r.snapshot_date)).sort().pop() ?? null;
+    const datasPorPlataforma = new Map<string, string>();
+    const linhasPorPlataforma = new Map<string, number>();
+    for (const g of [...new Set(estadoRows.map((r: Any) => `${String(r.platform)}.${String(r.audience_type)}`))]) {
+      const [plat, tipo] = g.split(".");
+      const doGrupo = estadoRows.filter((r: Any) =>
+        String(r.platform) === plat && String(r.audience_type) === tipo
+      );
+      linhasPorPlataforma.set(plat, (linhasPorPlataforma.get(plat) ?? 0) + doGrupo.length);
+      const ultima = doGrupo.map((r: Any) => String(r.snapshot_date)).sort().pop() ?? null;
       if (ultima && (!estadoDataMax || ultima > estadoDataMax)) estadoDataMax = ultima;
-      const linhas = doTipo.filter((r: Any) => String(r.snapshot_date) === ultima);
+      if (ultima && (!datasPorPlataforma.get(plat) || ultima > datasPorPlataforma.get(plat)!)) {
+        datasPorPlataforma.set(plat, ultima);
+      }
+      const linhas = doGrupo.filter((r: Any) => String(r.snapshot_date) === ultima);
       const regioes = new Map<string, number>();
       for (const l of linhas) {
         const k = l.regiao ? String(l.regiao) : "(sem região)";
         regioes.set(k, Math.round(((regioes.get(k) ?? 0) + Number(l.quota_pct ?? 0)) * 10) / 10);
       }
-      porEstado[t] = {
+      porEstado[g] = {
+        platform: plat,
+        audience_type: tipo,
         snapshot_date: ultima,
         timeframe: linhas[0]?.timeframe ?? null,
         top_10_estados: linhas
@@ -377,10 +390,11 @@ export async function buildArtistDataSnapshot(p: ArtistDataSnapshotParams) {
           .map(([regiao, quota_pct]) => ({ regiao, quota_pct }))
           .sort((a, b) => b.quota_pct - a.quota_pct),
       };
-      // Só o tipo mais informativo entra na tabela única (envolvida > alcançada > seguidores).
+      // Na tabela única por UF a fonte é a PLATAFORMA REAL — nunca "instagram" fixo,
+      // senão os ouvintes de Spotify caíam na coluna de gasto.
       for (const l of linhas) {
         geoOrganica.push({
-          fonte: "instagram",
+          fonte: plat,
           nome_original: String(l.estado_nome ?? l.uf ?? ""),
           uf: l.uf ? String(l.uf).trim().toUpperCase() : null,
           valor: Number(l.valor ?? 0),
@@ -388,16 +402,23 @@ export async function buildArtistDataSnapshot(p: ArtistDataSnapshotParams) {
         });
       }
     }
-    if (estadoRows.length === 0) {
-      avisos.push("fonte vazia: public.v_artist_audience_by_state sem linhas de Instagram para este artista");
+    if (!linhasPorPlataforma.get("instagram")) {
+      avisos.push("fonte vazia: public.v_artist_audience_by_state sem linhas de Instagram (base de fãs) para este artista");
     }
-    addFonte({
-      bloco: "audiencia_organica.por_estado",
-      fonte: "public.v_artist_audience_by_state — audiência orgânica de Instagram por estado/região",
-      periodo: estadoDataMax ? `snapshot de ${estadoDataMax}` : "sem dados",
-      data_mais_recente: estadoDataMax,
-      linhas: estadoRows.length,
-    });
+    if (!linhasPorPlataforma.get("spotify")) {
+      avisos.push("fonte vazia: public.v_artist_audience_by_state sem linhas de Spotify (audiência de escuta) para este artista");
+    }
+    for (const plat of ["instagram", "spotify"]) {
+      addFonte({
+        bloco: `audiencia_organica.por_estado.${plat}`,
+        fonte: plat === "instagram"
+          ? "public.v_artist_audience_by_state (platform=instagram) — base de FÃS por estado/região"
+          : "public.v_artist_audience_by_state (platform=spotify) — audiência de ESCUTA (ouvintes) por estado/região",
+        periodo: datasPorPlataforma.get(plat) ? `snapshot de ${datasPorPlataforma.get(plat)}` : "sem dados",
+        data_mais_recente: datasPorPlataforma.get(plat) ?? null,
+        linhas: linhasPorPlataforma.get(plat) ?? 0,
+      });
+    }
 
     const { data: demoRaw, error: demoErr } = await user
       .from("artist_audience_demographics")
