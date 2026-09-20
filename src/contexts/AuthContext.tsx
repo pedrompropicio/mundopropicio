@@ -162,34 +162,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userRole = (roles[0] as AppRole) ?? "user";
     setRole(userRole);
 
-    if (roles.includes("platform_admin") || roles.includes("admin")) {
-      setPermissions(ALL_PERMISSIONS.map((p) => p.key));
-      return;
-    }
-
+    // #105: admin/platform_admin partem de ALL_PERMISSIONS, mas os overrides de
+    // user_permissions aplicam-se por cima — mesma semântica de has_permission_in
+    // (o override decide; sem override vale o papel). A autoridade fica no servidor.
     const { data: rolePerms } = await supabase
       .from("role_permissions")
       .select("permission")
       .in("role", roles.length ? roles : [userRole]);
-
-    const rolePermSet = new Set(rolePerms?.map((p) => p.permission) ?? []);
 
     const { data: userPerms } = await supabase
       .from("user_permissions")
       .select("permission, granted")
       .eq("user_id", userId);
 
-    if (userPerms) {
-      for (const up of userPerms) {
-        if (up.granted) {
-          rolePermSet.add(up.permission);
-        } else {
-          rolePermSet.delete(up.permission);
-        }
-      }
-    }
-
-    setPermissions(Array.from(rolePermSet));
+    setPermissions(
+      resolveEffectivePermissions({
+        roles: roles.length ? roles : [userRole],
+        rolePermissions: (rolePerms ?? []).map((p: any) => p.permission),
+        overrides: (userPerms ?? []).map((p: any) => ({ permission: p.permission, granted: !!p.granted })),
+        allPermissions: ALL_PERMISSIONS.map((p) => p.key),
+      }),
+    );
   }, []);
 
   useEffect(() => {
