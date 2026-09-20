@@ -178,12 +178,24 @@ export default function Events() {
           (eventType === "multi_day" || eventType === "master")
             ? (subEventsMap[e.id] ?? []).map((s: any) => s.id)
             : [];
+        // MESMAS vistas dos cards da capa (#223): modo = "Forecast" só se o
+        // utilizador o fixou; o resto é o critério da BD. IVA = escolha própria
+        // de cada card, com semente no critério contratual do evento.
+        const dbMode: "realized" | "committed" =
+          e.cost_expense_source === "realized" ? "realized" : "committed";
+        const vatSeed = usesGrossExpenseAmounts(normalizePartnerCalcBasis(e.partner_calc_basis));
+        const modeFor = (kind: "income" | "expense") =>
+          readStoredMode(userId, e.id, kind) === "forecast" ? "forecast" : dbMode;
         return {
           id: e.id,
           ids: [e.id, ...subIds],
-          costMode: (e.cost_expense_source === "realized" ? "realized" : "committed") as "realized" | "committed",
+          costMode: (modeFor("expense") === "forecast" ? dbMode : dbMode),
+          incomeMode: modeFor("income"),
           includeOverhead: e.cost_include_overhead !== false,
           sponsorshipClosedAt: e.sponsorship_closed_at ?? null,
+          incomeWithVat: readStoredWithVat(userId, e.id, "income", vatSeed),
+          expenseWithVat: readStoredWithVat(userId, e.id, "expense", vatSeed),
+          status: e.status ?? null,
         };
       });
 
