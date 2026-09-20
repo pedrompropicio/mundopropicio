@@ -48,6 +48,7 @@ import {
   INTERNAL_TRANSFER_CATEGORY_ID,
 } from "@/lib/ticket-office-balance";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
+import HelpTooltip from "@/components/HelpTooltip";
 import {
   decomposeTicketOfficeAnalytical,
   roundCents,
