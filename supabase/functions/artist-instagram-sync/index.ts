@@ -333,6 +333,44 @@ Deno.serve(async (req) => {
       // se distinguir "total_value vazio" de "resposta sem dados".
       const demoRaw: Record<string, { timeframe: string; breakdown: string; body: string }> = {};
 
+      // Evidência, não hipótese: por cada timeframe de demografia que veio vazio,
+      // UMA chamada a total_interactions na janela equivalente (máx. 1 por
+      // timeframe por ligação). A função não tira conclusões — só registra.
+      const janelaDias: Record<string, number> = { this_week: 7, this_month: 30 };
+      const evidenciaCache = new Map<string, string>();
+      const evidenciaInteracoes = async (timeframe: string): Promise<string> => {
+        const cached = evidenciaCache.get(timeframe);
+        if (cached) return cached;
+        const dias = janelaDias[timeframe] ?? 7;
+        const since = ymd(new Date(Date.now() - dias * 86_400_000));
+        let texto: string;
+        const r = await graphGet(
+          `${node}/insights`,
+          {
+            metric: "total_interactions",
+            period: "day",
+            metric_type: "total_value",
+            since,
+            until: today,
+          },
+          token,
+          base,
+        );
+        graphCalls++;
+        if (!r.ok) {
+          texto = `total_interactions da janela não obtido (${
+            String(r.body?.error?.message ?? r.status).slice(0, 200)
+          })`;
+        } else {
+          const v = toCount(r.body?.data?.[0]?.total_value?.value);
+          texto = v === null
+            ? "total_interactions da janela não obtido (resposta sem valores)"
+            : `total_interactions na janela de ${dias} dias: ${v}`;
+        }
+        evidenciaCache.set(timeframe, texto);
+        return texto;
+      };
+
       for (const dm of DEMOGRAPHIC_METRICS) {
         let unsupported = false;
 
