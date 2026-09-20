@@ -40,20 +40,6 @@ function todayLocalISO(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-async function getDefaultIncomeAccountId(companyId: string): Promise<string | null> {
-  // Heurística: primeira conta bancária ativa, não oculta, da empresa.
-  const { data } = await supabase
-    .from("financial_accounts")
-    .select("id")
-    .eq("company_id", companyId)
-    .eq("is_active", true)
-    .eq("is_hidden", false)
-    .in("type", ["bank", "cash"])
-    .order("created_at", { ascending: true })
-    .limit(1);
-  return (data?.[0] as { id: string } | undefined)?.id ?? null;
-}
-
 /**
  * Sincroniza um card de Pipeline com o BP + Transação.
  * - Cria 1 linha em event_forecasts (income, approved) + 1 transação (income, approved).
