@@ -321,6 +321,8 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
 
   // Sócios com bases diferentes: não existe resultado único (informativo).
   const hasMixedExpenseBases = new Set(settlements.map((s) => s.usesGrossExpenses)).size > 1;
+  // (#224) coluna "Ajustes" só aparece quando algum sócio tem ajuste ao desembolso.
+  const hasAdjustments = settlements.some((s) => s.adjustments !== 0);
   const mixedBasesNote =
     "Sócios com bases de cálculo diferentes: a quota de cada um segue a base do respetivo contrato, pelo que não existe um resultado único e a soma das quotas não fecha contra um único total.";
 
@@ -661,6 +663,11 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
                     {formatCurrency(s.partnerShare)}
                   </TableCell>
                   <TableCell className="text-right font-mono">{formatCurrency(s.paid)}</TableCell>
+                  {hasAdjustments && (
+                    <TableCell className={`text-right font-mono ${s.adjustments < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                      {formatCurrency(s.adjustments)}
+                    </TableCell>
+                  )}
                   <TableCell className="text-right font-mono text-muted-foreground">{formatCurrency(s.extras)}</TableCell>
                   <TableCell className={`text-right font-mono font-bold text-base ${s.balance >= 0 ? "text-success" : "text-destructive"}`}>
                     {formatCurrency(s.balance)}
