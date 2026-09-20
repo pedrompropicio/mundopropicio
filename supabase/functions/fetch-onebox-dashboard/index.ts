@@ -126,8 +126,15 @@ async function login(jar: Jar): Promise<string> {
   });
   jar.absorb(r4);
   const html4 = await r4.text();
-  const csrf = extractCsrf(html4);
-  if (!csrf) throw new OneboxError("csrf_token do dashboard não encontrado");
+  let csrf = extractCsrf(html4);
+  if (!csrf) {
+    // fallback: o csrf do formulário de login serve as chamadas de dados
+    // desde que a sessão seja a mesma.
+    csrf = csrfLogin;
+    console.log(
+      `[csrf] dashboard HTTP ${r4.status} loc=${r4.headers.get("location")} len=${html4.length} — fallback ao csrf do login`,
+    );
+  }
   void meBody;
   return csrf;
 }
