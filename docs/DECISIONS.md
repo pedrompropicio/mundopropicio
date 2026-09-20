@@ -3885,3 +3885,21 @@ Prova (ligação 9256e4eb, customer 884-138-8615, `days=30`): 69 anúncios / 67 
 corrida anterior do sync dono dessa coluna e não é reescrita aqui);
 `ads_insights_breakdown_daily` passou de 1688 google/campaign + 3570 meta/campaign para
 os mesmos valores + 6 linhas google/ad.
+
+## D-ERP112 — FÃS (Instagram) ≠ OUVINTES (Spotify) na geografia orgânica (20/09/2026)
+
+`public.artist_audience_demographics` passou a ter duas audiências orgânicas por estado:
+`platform='instagram'` (fãs: followers/engaged/reached) e `platform='spotify'`
+(`audience_type='listeners'`). O snapshot `_shared/artist-data-snapshot.ts` deixa de
+filtrar a Instagram: `audiencia.por_estado` e `audiencia.por_tipo` passam a ter chave
+`"<platform>.<audience_type>"`, com atalhos `audiencia.fas` e `audiencia.ouvintes`
+(null quando a fonte não existe), e `fontes[]` separa as entradas por plataforma com a
+data de cada uma.
+
+`agregarGeoPorUf` classifica o orgânico por um conjunto de fontes (`FONTES_ORGANICAS =
+instagram, spotify`) e guarda-o POR FONTE — antes tudo o que não era "instagram" caía na
+coluna de gasto. A tabela por UF expõe `quota_fas_pct` (Instagram) e `quota_ouvintes_pct`
+(Spotify); `quota_organica_pct` mantém o valor do Instagram por compatibilidade. Em
+`artist-ads-strategy-generate`, o OBJETIVO decide o peso: streams/plays → ouvintes;
+comunidade/alcance local/shows → fãs; a justificação cita qual usou, com número e data, e
+assinala a discordância (Litto: RN 46,4 % dos seguidores contra 2,6 % dos ouvintes).
