@@ -261,3 +261,17 @@ export function AppSidebar({
     </Container>
   );
 }
+
+function SidebarThemeButton() {
+  const { theme, toggleTheme } = useTheme();
+  return (
+    <button
+      onClick={toggleTheme}
+      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+      title={theme === "dark" ? "Modo claro" : "Modo escuro"}
+    >
+      {theme === "dark" ? <Sun className="h-5 w-5 shrink-0" /> : <Moon className="h-5 w-5 shrink-0" />}
+      <span className="block">{theme === "dark" ? "Modo claro" : "Modo escuro"}</span>
+    </button>
+  );
+}
