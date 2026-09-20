@@ -16,7 +16,11 @@ const EMPTY_PARTICIPANTS: ABScenarioParticipants = { real: {}, breakeven: {}, fo
 export function useEventRevenueBasis(
   eventId: string | undefined,
   eventIds: string[] = [],
-  opts: { skipForecast?: boolean } = {},
+  /**
+   * `eventRealized` (#227): quando o evento já está carregado no consumidor,
+   * passa-o para evitar a leitura extra; sem ele, o fetcher calcula.
+   */
+  opts: { skipForecast?: boolean; eventRealized?: boolean } = {},
 ): { data: EventRevenueBasis | undefined; isLoading: boolean } {
   const ids = Array.from(new Set([eventId, ...eventIds].filter(Boolean))) as string[];
   const idsKey = ids.slice().sort().join(",");
@@ -25,13 +29,20 @@ export function useEventRevenueBasis(
   const abForecastNet = ab.totals ? ab.totals.forecast.receitaTotal : null;
 
   const { data, isLoading } = useQuery({
-    queryKey: ["event-revenue-basis", idsKey, opts.skipForecast ?? false, abForecastNet],
+    queryKey: [
+      "event-revenue-basis",
+      idsKey,
+      opts.skipForecast ?? false,
+      opts.eventRealized ?? null,
+      abForecastNet,
+    ],
     queryFn: () =>
       computeEventRevenueBasis({
         eventId: eventId!,
         eventIds: ids,
         abForecastNet,
         skipForecast: opts.skipForecast,
+        eventRealized: opts.eventRealized,
       }),
     enabled: !!eventId,
   });
