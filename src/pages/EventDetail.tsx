@@ -614,15 +614,19 @@ export default function EventDetail() {
     eventStatus: event?.status,
   });
 
-  // Lucro = resultado na base contratual, no PERÍMETRO escolhido nos cards (#223
-  // correção): receita do card de Receitas, despesa do motor do Encontro no modo
-  // do card de Custos (+ cachê efetivo); o contrato só decide c/IVA vs s/IVA.
+  // Lucro = subtração cega dos valores exibidos nos cards de Receitas e Custos
+  // (#223, regra final): mesmos seletores de perímetro e IVA que estão no ecrã.
+  // O contrato (partner_calc_basis) não decide nada aqui — só alimenta o badge
+  // "≠ fecho" via settlementResult.
   const { contract } = useEventContractResult(
     id ?? "",
     event?.partner_calc_basis,
     cardIncomePerimeter,
     cardExpensePerimeter,
     Number(calculatedCacheImpact || 0),
+    incomeViewVat != null && expenseViewVat != null
+      ? { revenue: incomeViewVat, expense: expenseViewVat }
+      : null,
   );
 
   if (loadingEvent) {
