@@ -347,11 +347,60 @@ Deno.serve(async (req: Request): Promise<Response> => {
     );
     const dailyRows: any[] = dailyRes?.result?.[0]?.data ?? [];
 
-    // ── leitura 3: resumo do painel ─────────────────────────────────────
-    const sumRes = await chartData(jar, csrf, mkPayload([], [qtyMetric, facMetric]));
-    const sumRow = sumRes?.result?.[0]?.data?.[0] ?? {};
+    // ── leitura 3: resumo do painel (chart próprio, "Resumen Periodo") ──
+    // Métricas do resumo vêm formatadas com separador de milhares (to_char),
+    // por isso os valores são normalizados antes de comparar.
+    const resumo = byName("Resumen Periodo");
+    let sumRow: any = {};
+    let resumoSlice: number | null = null;
+    if (resumo) {
+      resumoSlice = resumo.form_data?.slice_id ?? null;
+      const rFd = resumo.form_data;
+      const rPayload = {
+        datasource: {
+          id: Number(String(rFd.datasource).split("__")[0]),
+          type: String(rFd.datasource).split("__")[1] ?? "table",
+        },
+        force: false,
+        result_format: "json",
+        result_type: "full",
+        queries: [{
+          filters: [
+            ...nativeFilters,
+            ...(rFd.adhoc_filters ?? []).filter((f: any) => f?.expressionType === "SIMPLE"),
+          ],
+          extras: { having: "", where: "" },
+          applied_time_extras: {},
+          columns: rFd.groupbyRows ?? rFd.groupby ?? [],
+          metrics: rFd.metrics ?? [],
+          annotation_layers: [],
+          row_limit: 1000,
+          series_limit: 0,
+          order_desc: true,
+          orderby: [],
+          post_processing: [],
+        }],
+        form_data: { ...rFd, dashboardId: DASHBOARD_ID },
+      };
+      const rRes = await chartData(jar, csrf, rPayload);
+      sumRow = rRes?.result?.[0]?.data?.[0] ?? {};
+      audit.resumo_bruto = sumRow;
+    }
 
-    const num = (v: unknown) => Number(v ?? 0) || 0;
+    // "1.234" / "1 234,50" → número
+    const num = (v: unknown) => {
+      if (typeof v === "number") return v;
+      if (typeof v !== "string") return 0;
+      const s = v.trim().replace(/\s|\u00a0/g, "");
+      const norm = /,\d{1,2}$/.test(s)
+        ? s.replace(/\./g, "").replace(",", ".")
+        : s.replace(/\.(?=\d{3}\b)/g, "").replace(",", ".");
+      return Number(norm) || 0;
+    };
+    const pick = (row: any, re: RegExp) => {
+      const k = Object.keys(row).find((k) => re.test(k));
+      return k ? num(row[k]) : NaN;
+    };
     const gridQty = gridRows.reduce((a, r) => a + num(r[QTY]), 0);
     const gridFac = gridRows.reduce((a, r) => a + num(r[FAC]), 0);
     const dailyQty = dailyRows.reduce((a, r) => a + num(r[QTY]), 0);
