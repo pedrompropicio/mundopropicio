@@ -150,6 +150,7 @@ export function EventFinancialCard(props: Props) {
     && Math.abs(data.displayValue - data.realValue) > 0.005
     ? data.realValue
     : null;
+  // (texto do hint na linha do valor — "real: …")
 
 
   const Icon = kind === "income" ? TrendingUp : TrendingDown;
