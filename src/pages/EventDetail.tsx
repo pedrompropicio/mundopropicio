@@ -184,14 +184,13 @@ export default function EventDetail() {
   const [editSubNameValue, setEditSubNameValue] = useState("");
   const [editingSubEvent, setEditingSubEvent] = useState<any | null>(null);
   const [showAddSubEvent, setShowAddSubEvent] = useState(false);
-  // Valores reportados pelos novos EventFinancialCard (para alimentar o card Lucro)
-  const [cardIncomeValue, setCardIncomeValue] = useState<number>(0);
-  const [cardExpenseValue, setCardExpenseValue] = useState<number>(0);
+  // Perímetros reportados pelos EventFinancialCard (#223 correção) — o Lucro usa
+  // exatamente estes totais (mesmo perímetro nos dois lados da subtração).
+  const [cardIncomePerimeter, setCardIncomePerimeter] = useState<ContractPerimeterInput | null>(null);
+  const [cardExpensePerimeter, setCardExpensePerimeter] = useState<ContractPerimeterInput | null>(null);
   // Vistas de IVA reportadas por cada card (#223) — independentes entre si.
   const [incomeViewVat, setIncomeViewVat] = useState<boolean | null>(null);
   const [expenseViewVat, setExpenseViewVat] = useState<boolean | null>(null);
-  // Lucro = resultado na base contratual, mesmo motor do Encontro de Contas (#223).
-  const { contract, isLoading: contractLoading } = useEventContractResult(id ?? "");
 
   // Reflect tab + sub-event into the URL so they survive navigations.
   useEffect(() => {
