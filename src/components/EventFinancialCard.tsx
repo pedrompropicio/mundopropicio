@@ -107,7 +107,11 @@ export function EventFinancialCard(props: Props) {
   };
 
   useEffect(() => { writeStoredMode(userId, eventId, kind, storedMode); }, [userId, eventId, kind, storedMode]);
-  // A vista de IVA é gravada pela página (chave única por utilizador+evento).
+  // Reporta a vista à página (o card de Lucro só a usa para o aviso discreto).
+  useEffect(() => {
+    if (!shared.isLoading) props.onVatViewChange?.(withVat);
+  }, [shared.isLoading, withVat]);
+
   useEffect(() => {
     if (!isExpense) writeStoredCostToggle(userId, eventId, kind, "overhead", incomeOverhead);
   }, [isExpense, userId, eventId, kind, incomeOverhead]);
@@ -189,11 +193,6 @@ export function EventFinancialCard(props: Props) {
               title={`Vista diferente do critério contratual do evento (${shared.withVat ? "c/IVA" : "s/IVA"}), que é o usado no Fecho.`}
             >
               ≠ fecho
-            </span>
-          )}
-          {kind === "expense" && includeOverhead && (
-            <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-              +OH
             </span>
           )}
 
