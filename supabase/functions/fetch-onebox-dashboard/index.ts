@@ -269,10 +269,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
       grelha: { slice_id: gridFd.slice_id, nome: grid.slice_name, datasource },
     };
 
-    const baseFilters = [
-      ...nativeFilters,
-      ...(gridFd.adhoc_filters ?? []).filter((f: any) => f?.expressionType === "SIMPLE"),
-    ];
+    // adhoc_filters do chart → formato de query ({col, op, val}). O
+    // TEMPORAL_RANGE "No filter" não se traduz e fica de fora.
+    const adhocToQuery = (list: any[]) =>
+      (list ?? [])
+        .filter((f: any) =>
+          f?.expressionType === "SIMPLE" && f?.operator !== "TEMPORAL_RANGE" && f?.subject
+        )
+        .map((f: any) => ({ col: f.subject, op: f.operator, val: f.comparator }));
+
+    const baseFilters = [...nativeFilters, ...adhocToQuery(gridFd.adhoc_filters)];
 
     const mkPayload = (columns: any[], metrics: any[]) => ({
       datasource: {
