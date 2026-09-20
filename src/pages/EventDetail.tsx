@@ -848,20 +848,14 @@ export default function EventDetail() {
 
   const EventTypeIcon = eventType === "festival" ? Layers : isMultiEvent ? Route : Calendar;
 
-  // ── VISTA de IVA da página (#207) ────────────────────────────────
-  // Uma só vista para Receitas, Custos e Lucro, guardada por utilizador+evento.
-  // NÃO é critério: `events.partner_calc_basis` continua a mandar no Fecho.
-  const vatUserId = user?.id ?? "anon";
-  const contractWithVat = usesGrossExpenseAmounts(
-    normalizePartnerCalcBasis((event as any)?.partner_calc_basis),
-  );
-  const viewWithVat = viewWithVatChoice
-    ?? readStoredWithVat(vatUserId, id ?? "", "page", contractWithVat);
-  const setViewWithVat = (v: boolean) => {
-    setViewWithVatChoice(v);
-    writeStoredWithVat(vatUserId, id ?? "", "page", v);
-  };
-  const viewDiffersFromContract = viewWithVat !== contractWithVat;
+  // ── Vistas de IVA dos cards (#223) ───────────────────────────────
+  // Cada card guarda a sua vista; o Lucro nunca depende delas — usa o critério
+  // contratual do evento, igual ao Encontro de Contas.
+  const contractWithVat = contract?.withVat ?? false;
+  const viewDiffersFromContract =
+    !!contract &&
+    ((incomeViewVat != null && incomeViewVat !== contractWithVat) ||
+      (expenseViewVat != null && expenseViewVat !== contractWithVat));
 
 
   return (
