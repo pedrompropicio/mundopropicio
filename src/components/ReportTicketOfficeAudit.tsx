@@ -413,7 +413,9 @@ export default function ReportTicketOfficeAudit() {
         .forEach((a: any) => {
           lines.push({
             date: a.advance_date || "",
+            // `type` fica "transfer" (a exportação depende dele); `kind` separa-o.
             type: "transfer",
+            kind: "advance",
             description: "Adiantamento à empresa",
             eventName: eventNameMap[a.event_id] || "—",
             eventId: a.event_id || undefined,
