@@ -845,19 +845,12 @@ export default function ReportTicketOfficeAudit() {
 
                   {lines.length === 0 ? (
                     <div className="text-center py-6 text-sm text-muted-foreground">Sem movimentações</div>
-                  ) : analyticalGroupBy === "type" ? (
-                    /* ── GROUP BY TYPE (Categoria) ── */
-                    <AnalyticalByType
-                      officeId={office.officeId}
-                      lines={lines}
-                      expandedCategories={expandedCategories}
-                      toggleKey={toggleKey}
-                    />
                   ) : (
-                    /* ── GROUP BY EVENT ── */
-                    <AnalyticalByEvent
+                    <AnalyticalGroups
                       officeId={office.officeId}
                       lines={lines}
+                      groupBy={analyticalGroupBy}
+                      expectedBalance={office.expectedBalance}
                       expandedCategories={expandedCategories}
                       toggleKey={toggleKey}
                     />
