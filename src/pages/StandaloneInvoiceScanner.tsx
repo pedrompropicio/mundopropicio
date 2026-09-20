@@ -434,7 +434,7 @@ export default function StandaloneInvoiceScanner() {
                       <Select value={currency} onValueChange={(value) => {
                         const next = value as StandaloneInvoiceCurrency;
                         setCurrency(next);
-                        if (next === "EUR") { setOriginalAmount(""); setFxRate(""); setFxRateSource(""); }
+                        if (next === "EUR") { setOriginalAmount(""); setFxRate(""); setFxRateSource(""); setFxDateUsed(null); }
                       }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
                         {STANDALONE_INVOICE_CURRENCIES.map((code) => <SelectItem key={code} value={code}>{code}</SelectItem>)}
                       </SelectContent></Select>
