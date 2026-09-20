@@ -13,9 +13,15 @@
 //
 // Body: { backup_file, mode: 'preview'|'restore', scope: 'tables'|'events',
 //         tables?: string[], event_ids?: string[], roots?: string[],
+//         target_company_id?: uuid (obrigatório em backups legacy — #96),
 //         keep_shadow?: true, log_scope?: 'restore_test' }   (os dois últimos só service_role)
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  LEGACY_TARGET_COMPANY_ERROR,
+  isUuid,
+  stampLegacyCompanyId,
+} from "../_shared/restore-legacy-company.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
