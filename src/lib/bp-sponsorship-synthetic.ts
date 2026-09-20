@@ -74,8 +74,34 @@ export async function computeSponsorshipSynthetic(
     supabase.from("events").select("sponsorship_closed_at").eq("id", eventId).maybeSingle(),
   ]);
 
-  const targetRows = (targets ?? []) as any[];
   const closedAt = ((evt as any)?.sponsorship_closed_at as string | null) ?? null;
+
+  const { data: sponsorFcsRows } = await fetchAllPagedQuery(supabase
+    .from("event_forecasts")
+    .select("id, iva_rate, account_categories(code)")
+    .in("event_id", ids)
+    .is("version_id", null)
+    .eq("type", "income"));
+
+  return computeSponsorshipSyntheticFromRows({
+    targets: (targets ?? []) as any[],
+    cards: (cards ?? []) as any[],
+    closedAt,
+    incomeForecasts: (sponsorFcsRows ?? []) as any[],
+  });
+}
+
+/** NÚCLEO PURO (sem queries) — partilhado com a grelha de eventos. */
+export function computeSponsorshipSyntheticFromRows(rows: {
+  targets: any[];
+  cards: any[];
+  closedAt: string | null;
+  /** BP income da versão activa (para a taxa de IVA das linhas 1.2.*). */
+  incomeForecasts: any[];
+}): SponsorshipSyntheticResult {
+  const targetRows = rows.targets;
+  const cards = rows.cards;
+  const closedAt = rows.closedAt;
 
   if (targetRows.length === 0) return { ...EMPTY, closedAt };
 
@@ -92,15 +118,9 @@ export async function computeSponsorshipSynthetic(
   // ── Bruto pelo IVA das linhas de origem (#207) ───────────────────
   // Taxa por linha 1.2.* ligada ao card; para o que falta captar usa-se a taxa
   // predominante dessas linhas (na falta de linhas, 23%).
-  const { data: sponsorFcs } = await fetchAllPagedQuery(supabase
-    .from("event_forecasts")
-    .select("id, iva_rate, account_categories(code)")
-    .in("event_id", ids)
-    .is("version_id", null)
-    .eq("type", "income"));
   const rateById = new Map<string, number>();
   const rateFreq = new Map<number, number>();
-  for (const f of ((sponsorFcs ?? []) as any[])) {
+  for (const f of rows.incomeForecasts) {
     if (!String(f.account_categories?.code ?? "").startsWith("1.2")) continue;
     const r = Number(f.iva_rate ?? 0);
     rateById.set(f.id as string, r);

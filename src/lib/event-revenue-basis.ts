@@ -143,6 +143,24 @@ export async function fetchTicketSalesRevenue(eventIds: string[]): Promise<Money
   );
 }
 
+/**
+ * NÚCLEO PURO da receita (sem queries) — partilhado com a grelha de eventos.
+ *
+ * Recebe as linhas JÁ filtradas (status canónico do Fecho + perímetro da raiz)
+ * e devolve as três bases. É aqui que vive a regra; `computeEventRevenueBasis`
+ * é só o fetcher de um evento e a grelha lê em lote e chama esta função.
+ */
+export interface RevenueBasisRows {
+  ticket: MoneyPair;
+  /** `type='income'`, approved/paid, perímetro da raiz, com `account_categories(code)`. */
+  incomeTx: any[];
+  /** BP income da versão activa, perímetro da raiz, com `account_categories(code)`. */
+  incomeForecasts: any[];
+  sponsorship: SponsorshipSyntheticResult;
+  ticketForecast?: LiveTicketForecast | null;
+  abForecastNet?: number | null;
+}
+
 export async function computeEventRevenueBasis(
   args: EventRevenueBasisArgs,
 ): Promise<EventRevenueBasis> {
@@ -165,10 +183,34 @@ export async function computeEventRevenueBasis(
 
   // Perímetro da raiz (D25 g3): linhas marcadas com um fechamento filho são
   // exclusivas desse fechamento e não entram no resultado do evento.
-  const allIncomeTx = keepRootPerimeter(
+  const allIncomeTxRows = keepRootPerimeter(
     ((txRes.data ?? []) as any[]).filter((t) => isValidFechoTransaction(t)),
     roots.rootIds,
   );
+
+  const sponsorship = await computeSponsorshipSynthetic(eventId, ids);
+  const ticketForecast = skipForecast ? null : await computeLiveTicketForecast(eventId);
+
+  const { data: fcs } = await fetchAllPagedQuery(supabase
+    .from("event_forecasts")
+    .select("id, event_id, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, is_overhead, event_settlement_id, account_categories(code)")
+    .in("event_id", ids)
+    .is("version_id", null)
+    .eq("type", "income"));
+
+  return computeRevenueBasisFromRows({
+    ticket,
+    incomeTx: allIncomeTxRows,
+    incomeForecasts: keepRootPerimeter((fcs ?? []) as any[], roots.rootIds),
+    sponsorship,
+    ticketForecast,
+    abForecastNet,
+  });
+}
+
+export function computeRevenueBasisFromRows(rows: RevenueBasisRows): EventRevenueBasis {
+  const { ticket, sponsorship, ticketForecast = null, abForecastNet = null } = rows;
+  const allIncomeTx = rows.incomeTx;
   const hasTicketSales = ticket.gross !== 0 || ticket.net !== 0;
 
   // Anti-duplicação: com ticket_sales, as TX da rubrica 1.1.01 (e descendentes)
@@ -206,20 +248,10 @@ export async function computeEventRevenueBasis(
   };
 
   // ── PREVISTO CORRENTE ────────────────────────────────────────────
-  const sponsorship = await computeSponsorshipSynthetic(eventId, ids);
-  const ticketForecast = skipForecast ? null : await computeLiveTicketForecast(eventId);
-
   // Linhas de BP income da versão activa. As classes com módulo próprio
   // (bilheteira / A&B / patrocínios) só são descartadas se EXISTIR sintética
   // para esse componente — a sintética SUBSTITUI a linha de BP, nunca soma
   // (#220). Sem sintética, as linhas de BP alimentam o bucket.
-  const { data: fcs } = await fetchAllPagedQuery(supabase
-    .from("event_forecasts")
-    .select("id, event_id, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, is_overhead, event_settlement_id, account_categories(code)")
-    .in("event_id", ids)
-    .is("version_id", null)
-    .eq("type", "income"));
-
   const ticketForecastPair: MoneyPair | null =
     ticketForecast?.net != null
       ? { net: ticketForecast.net, gross: ticketForecast.gross ?? ticketForecast.net }
@@ -243,7 +275,7 @@ export async function computeEventRevenueBasis(
     net: (acc?.net ?? 0) + net,
     gross: (acc?.gross ?? 0) + gross,
   });
-  for (const f of keepRootPerimeter((fcs ?? []) as any[], roots.rootIds)) {
+  for (const f of rows.incomeForecasts) {
     if (f.status !== "approved") continue;
     if (f.is_transitory || f.exclude_from_result || f.is_overhead) continue;
     if (excludedIds.has(f.id)) continue;

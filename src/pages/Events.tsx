@@ -15,6 +15,8 @@ import { formatCityLabel } from "@/lib/country";
 import { createSubEventInTour } from "@/lib/create-sub-event";
 import { eventFormatLabel, type EventFormat } from "@/lib/event-format";
 import { fetchEventsListFinancials, type EventsListFinancialSpec } from "@/lib/events-list-financials";
+import { readStoredMode, readStoredWithVat } from "@/lib/event-financial-card";
+import { normalizePartnerCalcBasis, usesGrossExpenseAmounts } from "@/lib/partner-calc-basis";
 
 type EventType = "simple" | "festival" | "multi_day" | "tour" | "master" | "split";
 
@@ -101,7 +103,8 @@ export default function Events() {
   const [sortField, setSortField] = useState<"date" | "location" | "status" | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const queryClient = useQueryClient();
-  const { isAdmin, isManager } = useAuth();
+  const { isAdmin, isManager, user } = useAuth();
+  const userId = user?.id ?? "anon";
 
   // Fetch cities and venues for display on cards
   const { data: citiesMap = {} } = useQuery({
@@ -127,7 +130,7 @@ export default function Events() {
   });
 
   const { data: events = [], isLoading } = useQuery({
-    queryKey: ["events_full"],
+    queryKey: ["events_full", userId],
     queryFn: async () => {
       const { data: evts, error } = await (supabase
         .from("events")
@@ -177,12 +180,24 @@ export default function Events() {
           (eventType === "multi_day" || eventType === "master")
             ? (subEventsMap[e.id] ?? []).map((s: any) => s.id)
             : [];
+        // MESMAS vistas dos cards da capa (#223): modo = "Forecast" só se o
+        // utilizador o fixou; o resto é o critério da BD. IVA = escolha própria
+        // de cada card, com semente no critério contratual do evento.
+        const dbMode: "realized" | "committed" =
+          e.cost_expense_source === "realized" ? "realized" : "committed";
+        const vatSeed = usesGrossExpenseAmounts(normalizePartnerCalcBasis(e.partner_calc_basis));
+        const modeFor = (kind: "income" | "expense") =>
+          readStoredMode(userId, e.id, kind) === "forecast" ? "forecast" : dbMode;
         return {
           id: e.id,
           ids: [e.id, ...subIds],
-          costMode: (e.cost_expense_source === "realized" ? "realized" : "committed") as "realized" | "committed",
+          costMode: dbMode,
+          incomeMode: modeFor("income"),
           includeOverhead: e.cost_include_overhead !== false,
           sponsorshipClosedAt: e.sponsorship_closed_at ?? null,
+          incomeWithVat: readStoredWithVat(userId, e.id, "income", vatSeed),
+          expenseWithVat: readStoredWithVat(userId, e.id, "expense", vatSeed),
+          status: e.status ?? null,
         };
       });
 
@@ -197,6 +212,8 @@ export default function Events() {
           event_type: eventType,
           totalIncome: f?.income ?? 0,
           totalExpenses: f?.expense ?? 0,
+          // Bilhetes da MESMA fonte do card de Bilhetes (RPC agregada, #205).
+          ticketsSold: f?.ticketsSold ?? 0,
           subEvents: (subEventsMap[e.id] || []).sort((a: any, b: any) => a.date.localeCompare(b.date)),
         };
       });
@@ -972,7 +989,7 @@ export default function Events() {
                 <div className="mt-3 flex items-center justify-between border-t border-border/30 pt-3">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Ticket className="h-3 w-3" />
-                    {event.tickets_sold.toLocaleString()} / {event.tickets_total.toLocaleString()} bilhetes
+                    {Number(event.ticketsSold ?? event.tickets_sold ?? 0).toLocaleString()} / {Number(event.tickets_total || 0).toLocaleString()} bilhetes
                   </div>
                   <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 </div>
