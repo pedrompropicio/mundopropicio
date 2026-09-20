@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef, ty
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
+import { resolveEffectivePermissions } from "@/lib/permissions";
 
 export type AppRole = "admin" | "manager" | "producer" | "field_producer" | "editor" | "viewer" | "user" | "partner" | "platform_admin" | "marketing_manager" | "content_manager" | "accountant";
 
