@@ -126,8 +126,17 @@ export async function carregarGeoResolver(client: Any): Promise<{ resolver: GeoR
   return { resolver, erro: error?.message ?? null };
 }
 
+/**
+ * FONTES ORGÂNICAS (D-ERP, 20/09/2026): a geografia orgânica tem DUAS fontes.
+ *  • instagram → base de FÃS (seguidores/engaged/reached)
+ *  • spotify   → audiência de ESCUTA (listeners)
+ * Tudo o que não estiver aqui é tratado como PAGO (meta, google). Uma fonte nova
+ * orgânica tem de ser acrescentada aqui, senão os seus números entram como gasto.
+ */
+const FONTES_ORGANICAS = new Set(["instagram", "spotify"]);
+
 interface LinhaGeo {
-  fonte: string; // 'meta' | 'google' | 'instagram'
+  fonte: string; // 'meta' | 'google' | 'instagram' | 'spotify'
   nome_original: string;
   uf: string | null;
   impressoes?: number;
