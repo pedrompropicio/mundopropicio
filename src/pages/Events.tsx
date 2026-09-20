@@ -191,7 +191,7 @@ export default function Events() {
         return {
           id: e.id,
           ids: [e.id, ...subIds],
-          costMode: (modeFor("expense") === "forecast" ? dbMode : dbMode),
+          costMode: dbMode,
           incomeMode: modeFor("income"),
           includeOverhead: e.cost_include_overhead !== false,
           sponsorshipClosedAt: e.sponsorship_closed_at ?? null,
