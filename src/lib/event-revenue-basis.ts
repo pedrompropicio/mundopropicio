@@ -95,6 +95,8 @@ export interface EventRevenueBasisArgs {
    * `null`/`undefined` = sem base.
    */
   abForecastNet?: number | null;
+  /** #208 — Taxa de IVA (%) do previsto de A&B; resolvida do evento se omitida. */
+  abForecastIvaRate?: number | null;
   /** Saltar o cálculo do previsto corrente (mais barato). Default false. */
   skipForecast?: boolean;
   /**
@@ -283,6 +285,7 @@ export async function computeEventRevenueBasis(
     sponsorship,
     ticketForecast,
     abForecastNet,
+    abForecastIvaRate: args.abForecastIvaRate ?? null,
     eventRealized,
   });
 }
