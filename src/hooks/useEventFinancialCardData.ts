@@ -416,6 +416,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
           ],
           realValue, formalidadeBreakdown: null, phase, modeUsed,
           unavailable: !f || f.total == null,
+          perimeter: f?.total ? { net: f.total.net, gross: f.total.gross } : null,
         };
       }
       if (!simCfg || simInputs.length === 0) {
@@ -428,6 +429,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
             { label: "Outros", value: null },
           ],
           realValue, formalidadeBreakdown: null, phase, modeUsed, unavailable: true,
+          perimeter: null,
         };
       }
       const cfg: CoalaConfig = {
