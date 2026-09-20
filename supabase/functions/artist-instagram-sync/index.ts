@@ -378,9 +378,11 @@ Deno.serve(async (req) => {
           if (unsupported) break;
           let rowsForPair = 0;
           let lastTimeframe = dm.timeframes[0];
+          const tentados: string[] = [];
 
           for (const timeframe of dm.timeframes) {
             lastTimeframe = timeframe;
+            tentados.push(timeframe);
             const dem = await graphGet(
               `${node}/insights`,
               {
