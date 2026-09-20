@@ -10,13 +10,16 @@
 
 import type { FlowPreset } from "./types.ts";
 import { TICKETLINE_PRESET } from "./ticketline.ts";
+import { PORTAL_PRESET } from "./portal.ts";
 
-export { TICKETLINE_PRESET };
+export { TICKETLINE_PRESET, PORTAL_PRESET };
 export type { FlowPreset, FlowStep } from "./types.ts";
 
 /** Registry — adicionar novas bilheteiras aqui. */
 const PRESETS: FlowPreset[] = [
   TICKETLINE_PRESET,
+  // Issue #12: o portal não é bilheteira — landing do evento, sem checkout.
+  PORTAL_PRESET,
 ];
 
 /** hostname → preset lookup, populado a import-time. */
@@ -64,6 +67,8 @@ export const SUPPORTED_PROVIDERS: string[] = PRESETS.map((p) => p.name);
  */
 export const PROVIDERS_KNOWN = [
   "ticketline",
+  // Portal próprio (mundopropicio.com) — landing do evento, sem checkout.
+  "portal",
   "blueticket",
   "bol",
   "see_tickets",
