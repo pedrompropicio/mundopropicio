@@ -428,10 +428,15 @@ export async function buildArtistDataSnapshot(p: ArtistDataSnapshotParams) {
       .limit(600);
     if (demoErr) avisos.push(`demografia orgânica indisponível: ${demoErr.message}`);
     const demoRows: Any[] = demoRaw ?? [];
+    // Agrupado por plataforma + tipo de audiência: "instagram.followers",
+    // "spotify.listeners", … O Spotify já não é descartado.
     const porTipo: Record<string, Any> = {};
-    for (const t of [...new Set(demoRows.map((d: Any) => String(d.audience_type)))]) {
+    for (
+      const g of [...new Set(demoRows.map((d: Any) => `${String(d.platform)}.${String(d.audience_type)}`))]
+    ) {
+      const [plat, tipo] = g.split(".");
       const doTipo = demoRows.filter((d: Any) =>
-        String(d.audience_type) === t && String(d.platform) === "instagram"
+        String(d.platform) === plat && String(d.audience_type) === tipo
       );
       if (doTipo.length === 0) continue;
       const ultima = doTipo.map((d: Any) => String(d.snapshot_date)).sort().pop() ?? null;
