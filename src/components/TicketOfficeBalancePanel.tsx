@@ -272,6 +272,20 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
           <p className="text-[10px] text-muted-foreground">Transferências</p>
           <p className="text-sm font-mono font-semibold">{formatCurrency(summary.totalTransfersOut)}</p>
         </div>
+        {hasOtherMovements && (
+          <div className="rounded-lg bg-secondary/40 p-2 text-center">
+            <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
+              Outros movimentos
+              <HelpTooltip
+                size={12}
+                text="Receitas lançadas como transação nesta bilheteira e movimentos sem evento associado. É o que falta para os quatro valores acima fecharem no retido (#155)."
+              />
+            </p>
+            <p className={`text-sm font-mono font-semibold ${otherMovements >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+              {formatCurrency(otherMovements)}
+            </p>
+          </div>
+        )}
       </div>
 
       <div
