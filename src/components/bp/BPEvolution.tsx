@@ -7,7 +7,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ReferenceLine } from "recharts";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Info } from "lucide-react";
+import { Info, TrendingUp } from "lucide-react";
 
 type SeriesPoint = {
   day: string;
@@ -155,6 +155,8 @@ export function BPEvolution({ eventId }: { eventId: string }) {
 
   const versionMarkers = (data?.markers ?? []).filter((m) => m.kind === "version");
   const annotatedMarkers = (data?.markers ?? []).filter((m) => m.kind === "annotated_change");
+  // #122: elevações de verba (field_name = 'Elevação de verba') vêm com kind = 'budget_raise'
+  const budgetRaiseMarkers = (data?.markers ?? []).filter((m) => m.kind === "budget_raise");
   const isEmpty = !isLoading && chartData.length === 0;
 
   return (
@@ -247,8 +249,18 @@ export function BPEvolution({ eventId }: { eventId: string }) {
           </ChartContainer>
         )}
 
-        {(versionMarkers.length > 0 || annotatedMarkers.length > 0) && (
+        {(versionMarkers.length > 0 || annotatedMarkers.length > 0 || budgetRaiseMarkers.length > 0) && (
           <div className="mt-3 flex flex-wrap gap-1.5">
+            {budgetRaiseMarkers.slice(0, 8).map((m, i) => (
+              <span
+                key={`b-${m.at}-${i}`}
+                className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-400"
+                title={m.label ?? undefined}
+              >
+                <TrendingUp className="h-3 w-3" />
+                Elevação de verba · {formatLisbonDateTime(m.at)} · {(m.label ?? "").slice(0, 40)}
+              </span>
+            ))}
             {versionMarkers.map((m) => (
               <span
                 key={`v-${m.at}`}
