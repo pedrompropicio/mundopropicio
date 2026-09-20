@@ -3851,3 +3851,37 @@ pela Meta, a confirmar com a evidência recolhida (ver adenda).
   referência consultada. Comentário no código corrigido.
 - `artist_metrics_daily` não tem CHECK sobre o nome da métrica (só sobre `platform`), logo
   as quatro métricas novas gravam sem DDL.
+
+## D-ERP111 — Nível ANÚNCIO das campanhas de vídeo do Google Ads (set/2026)
+
+Âmbito: só `supabase/functions/crm-google-video-metrics-sync`. Sem DDL (o schema de
+`crm.google_ad` e o CHECK de `breakdown='none'`/`level='ad'` foram aplicados em Live
+pelo Pedro). Nada de Meta, eventos, `crm-google-sync-campaigns` ou publicadores.
+
+Nomes CONFIRMADOS em runtime pelo GoogleAdsFieldService (v24), nada assumido da
+documentação: `ad_group_ad.ad.{id,name,type,resource_name,final_urls}`,
+`ad_group_ad.{status,resource_name}`, `ad_group_ad.ad.video_ad.video.asset`,
+`ad_group_ad.ad.video_responsive_ad.videos`, `asset.youtube_video_asset.{youtube_video_id,
+youtube_video_title}`, `ad_group_ad_asset_view.{field_type,ad_group_ad}`.
+
+Vídeo do YouTube: `ad_group_ad_asset_view` com `field_type='YOUTUBE_VIDEO'` devolve
+ZERO linhas nesta conta (fica nota explícita). A via que funciona é o recurso de asset
+referido pelo próprio anúncio (`video_ad.video.asset` / `video_responsive_ad.videos`)
+resolvido contra `FROM asset WHERE asset.type='YOUTUBE_VIDEO'`. 67 de 69 anúncios
+ficaram com `youtube_video_id` + `youtube_video_title`.
+
+Propriedade de colunas (regra de 20/09: cada escritor é dono das suas colunas):
+- `crm.google_ad` — tabela exclusiva desta função, upsert por
+  `(connection_id, external_ad_id)`.
+- `crm.ads_insights_breakdown_daily` com `platform='google'`, `level='ad'`,
+  `breakdown='none'`, `breakdown_value='none'` — linhas exclusivas desta função;
+  `level='campaign'` e `platform='meta'` nunca são tocadas.
+  `spend_cents` = `costMicros/10000`; métricas de vídeo (visualizações, quartis, CPV,
+  engagements) dentro de `raw.video_metrics`; `video_thruplays` = visualizações.
+
+Prova (ligação 9256e4eb, customer 884-138-8615, `days=30`): 69 anúncios / 67 com vídeo;
+6 dias com entrega; `spend_cents` do nível anúncio igual ao da campanha em 5 dos 6 dias
+(19/09 difere 4.796 cêntimos porque a linha de campanha desse dia foi escrita numa
+corrida anterior do sync dono dessa coluna e não é reescrita aqui);
+`ads_insights_breakdown_daily` passou de 1688 google/campaign + 3570 meta/campaign para
+os mesmos valores + 6 linhas google/ad.
