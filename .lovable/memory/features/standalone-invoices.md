@@ -128,3 +128,18 @@ só se houver algo preenchido).
   próprio "Sem data da fatura", sempre no topo — nunca misturadas com um mês real.
 - "Exportar mês" refaz a consulta por intervalo (ou is null) e exporta o período
   inteiro, não apenas as linhas em memória. Formato do ZIP/XLSX inalterado.
+
+## Câmbio pela data da fatura (#212, 20/09/2026)
+
+O ecrã `/scanner-faturas` e a API `ingest-standalone-invoice` usam agora a MESMA
+regra de câmbio (D-ERP88 / #195): câmbio de referência do BCE da **data da
+fatura** (ou último dia útil anterior). Antes o ecrã pedia a taxa de hoje, logo a
+mesma fatura dava `total_amount` diferente pelos dois caminhos.
+
+- `src/lib/currency.ts`: `fetchSuggestedFxRateDetails(ccy, supabase, date?)`
+  devolve `{rate, dateUsed, source}` e passa `date` a `fetch-fx-rate`;
+  `fetchSuggestedFxRate` aceita `date` e continua a devolver só a taxa. GBP entrou
+  em `SUPPORTED_CURRENCIES`/`isSupportedCurrency`.
+- Scanner: pede a taxa quando a moeda ou a data da fatura mudam (+ botão "Obter
+  câmbio do BCE"), mostra o dia de fixing usado e grava
+  `fx_rate_source = 'BCE (frankfurter.app) <date_used>'`, igual à API.

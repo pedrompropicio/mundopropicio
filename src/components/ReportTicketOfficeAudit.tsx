@@ -48,6 +48,12 @@ import {
   INTERNAL_TRANSFER_CATEGORY_ID,
 } from "@/lib/ticket-office-balance";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
+import HelpTooltip from "@/components/HelpTooltip";
+import {
+  decomposeTicketOfficeAnalytical,
+  roundCents,
+  type TicketOfficeLineKind,
+} from "@/lib/ticket-office-reconciliation";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
@@ -56,7 +62,10 @@ type AnalyticalGroupBy = "event" | "type";
 
 interface AnalyticalLine {
   date: string;
+  /** Mantido como estava: a exportação (Excel/PDF) agrupa por `type`. */
   type: "sale" | "expense" | "transfer" | "income";
+  /** #128 — classe real do movimento; distingue adiantamento de transferência. */
+  kind?: "sale" | "income" | "expense" | "transfer" | "advance";
   description: string;
   eventName: string;
   eventId?: string;
@@ -348,21 +357,20 @@ export default function ReportTicketOfficeAudit() {
 
     offices.forEach((office: any) => {
       const lines: AnalyticalLine[] = [];
-      const officeAssignments = assignments.filter((a: any) => a.financial_account_id === office.id);
-      const assignedEventIds = officeAssignments.filter((a: any) => a.events).map((a: any) => a.event_id);
-      const assigned = new Set<string>(assignedEventIds);
-
-      // Sales lines — mesma base da vista sintética (igualdade estrita + ticketSaleRevenue)
+      // Sales lines — mesma base da vista sintética (igualdade estrita + ticketSaleRevenue).
+      // #128: entram TODAS as vendas da bilheteira (como no saldo da fonte única);
+      // as de eventos não atribuídos caem no grupo "Sem evento associado".
       salesWithEvent
-        .filter((s: any) => s.financial_account_id === office.id && s.event_id && assigned.has(s.event_id))
+        .filter((s: any) => s.financial_account_id === office.id)
         .forEach((s: any) => {
           const zoneName = zoneNameMap[s.zone_id] || "";
           lines.push({
             date: s.sale_date,
             type: "sale",
+            kind: "sale",
             description: `Venda ${s.quantity}x ${formatCurrency(Number(s.unit_price))} — ${zoneName}`,
-            eventName: eventNameMap[s.event_id] || "",
-            eventId: s.event_id,
+            eventName: s.event_id ? eventNameMap[s.event_id] || "" : "—",
+            eventId: s.event_id || undefined,
             amount: ticketSaleRevenue(s),
           });
         });
@@ -381,6 +389,7 @@ export default function ReportTicketOfficeAudit() {
             lines.push({
               date: t.date,
               type: isTransfer ? "transfer" : "expense",
+              kind: isTransfer ? "transfer" : "expense",
               description: `${t.description}${supplierName}`,
               eventName: t.event_id ? evName : "—",
               eventId: t.event_id || undefined,
@@ -390,6 +399,7 @@ export default function ReportTicketOfficeAudit() {
             lines.push({
               date: t.date,
               type: "income",
+              kind: "income",
               description: `${t.description}${supplierName}`,
               eventName: t.event_id ? evName : "—",
               eventId: t.event_id || undefined,
@@ -404,7 +414,9 @@ export default function ReportTicketOfficeAudit() {
         .forEach((a: any) => {
           lines.push({
             date: a.advance_date || "",
+            // `type` fica "transfer" (a exportação depende dele); `kind` separa-o.
             type: "transfer",
+            kind: "advance",
             description: "Adiantamento à empresa",
             eventName: eventNameMap[a.event_id] || "—",
             eventId: a.event_id || undefined,
@@ -666,6 +678,10 @@ export default function ReportTicketOfficeAudit() {
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
               <Wallet className="h-3.5 w-3.5" />
               Saldo Previsto
+              <HelpTooltip
+                size={12}
+                text="Âmbito deste ecrã (#129): soma todas as zonas de todos os eventos com vendas nesta bilheteira, mesmo os que não estão atribuídos."
+              />
             </div>
             <p className={cn(
               "text-lg font-mono font-bold",
@@ -837,19 +853,12 @@ export default function ReportTicketOfficeAudit() {
 
                   {lines.length === 0 ? (
                     <div className="text-center py-6 text-sm text-muted-foreground">Sem movimentações</div>
-                  ) : analyticalGroupBy === "type" ? (
-                    /* ── GROUP BY TYPE (Categoria) ── */
-                    <AnalyticalByType
-                      officeId={office.officeId}
-                      lines={lines}
-                      expandedCategories={expandedCategories}
-                      toggleKey={toggleKey}
-                    />
                   ) : (
-                    /* ── GROUP BY EVENT ── */
-                    <AnalyticalByEvent
+                    <AnalyticalGroups
                       officeId={office.officeId}
                       lines={lines}
+                      groupBy={analyticalGroupBy}
+                      expectedBalance={office.expectedBalance}
                       expandedCategories={expandedCategories}
                       toggleKey={toggleKey}
                     />
@@ -890,299 +899,207 @@ export default function ReportTicketOfficeAudit() {
   );
 }
 
-// ─── Analytical sub-components ───
+// ─── Analytical sub-components (#128) ───
+//
+// A analítica fecha por evento com a MESMA decomposição da sintética:
+// (vendas + receitas) − despesas − transferências − adiantamentos = saldo.
+// Agrupamento puro em src/lib/ticket-office-reconciliation.ts.
 
-function AnalyticalByType({ officeId, lines, expandedCategories, toggleKey }: {
-  officeId: string;
-  lines: AnalyticalLine[];
-  expandedCategories: Set<string>;
-  toggleKey: (key: string) => void;
-}) {
-  // Group by event for sales + expenses; transfers stay generic
-  const transferLines = lines.filter((l) => l.type === "transfer");
-  const eventLines = lines.filter((l) => l.type !== "transfer");
+const KIND_META: { kind: TicketOfficeLineKind; label: string; color: string; sign: 1 | -1 }[] = [
+  { kind: "sale", label: "Bilhetes Vendidos", color: "text-emerald-500", sign: 1 },
+  { kind: "income", label: "Receitas", color: "text-emerald-500", sign: 1 },
+  { kind: "expense", label: "Despesas e Custos", color: "text-amber-500", sign: -1 },
+  { kind: "transfer", label: "Transferências", color: "text-muted-foreground", sign: -1 },
+  { kind: "advance", label: "Adiantamentos", color: "text-muted-foreground", sign: -1 },
+];
 
-  const byEvent: Record<string, { sales: AnalyticalLine[]; expenses: AnalyticalLine[] }> = {};
-  eventLines.forEach((l) => {
-    const evKey = l.eventName || "Sem evento";
-    if (!byEvent[evKey]) byEvent[evKey] = { sales: [], expenses: [] };
-    if (l.type === "sale" || l.type === "income") byEvent[evKey].sales.push(l);
-    else if (l.type === "expense") byEvent[evKey].expenses.push(l);
-  });
-
-  const subCategories = [
-    { key: "sales", label: "Bilhetes Vendidos", color: "text-emerald-500", icon: <TrendingUp className="h-3.5 w-3.5" /> },
-    { key: "expenses", label: "Despesas e Custos", color: "text-amber-500", icon: <TrendingDown className="h-3.5 w-3.5" /> },
-  ];
-
-  function renderLineTable(tableLines: AnalyticalLine[], colorClass: string) {
-    return (
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-muted/10">
-            <TableHead className="w-24 text-xs">Data</TableHead>
-            <TableHead className="text-xs">Descrição</TableHead>
-            <TableHead className="text-right w-28 text-xs">Valor</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {tableLines.map((line, idx) => (
-            <TableRow key={idx} className="bg-muted/5">
-              <TableCell className="text-xs font-mono">
-                {format(new Date(line.date + "T00:00:00"), "dd/MM/yyyy")}
-              </TableCell>
-              <TableCell className="text-sm max-w-[300px] truncate" title={line.description}>
-                {line.description}
-              </TableCell>
-              <TableCell className={cn("text-right font-mono text-sm", colorClass)}>
-                {formatCurrency(Math.abs(line.amount))}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    );
-  }
-
+function LineTable({ tableLines, colorClass }: { tableLines: AnalyticalLine[]; colorClass: string }) {
   return (
-    <div>
-      {/* Per-event grouping with sales + expenses inside */}
-      {Object.entries(byEvent).map(([evName, data]) => {
-        const evSalesTotal = data.sales.reduce((s, l) => s + Math.abs(l.amount), 0);
-        const evExpTotal = data.expenses.reduce((s, l) => s + Math.abs(l.amount), 0);
-        const evBalance = evSalesTotal - evExpTotal;
-        const evLineCount = data.sales.length + data.expenses.length;
-        const isOpen = expandedCategories.has(`${officeId}-ev-${evName}`);
+    <Table>
+      <TableHeader>
+        <TableRow className="bg-muted/10">
+          <TableHead className="w-24 text-xs">Data</TableHead>
+          <TableHead className="text-xs">Descrição</TableHead>
+          <TableHead className="text-right w-28 text-xs">Valor</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {tableLines.map((line, idx) => (
+          <TableRow key={idx} className="bg-muted/5">
+            <TableCell className="text-xs font-mono">
+              {line.date ? format(new Date(line.date + "T00:00:00"), "dd/MM/yyyy") : "—"}
+            </TableCell>
+            <TableCell className="text-sm max-w-[300px] truncate" title={line.description}>
+              {line.description}
+            </TableCell>
+            <TableCell className={cn("text-right font-mono text-sm", colorClass)}>
+              {formatCurrency(Math.abs(line.amount))}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
 
-        return (
-          <div key={evName}>
-            <div
-              className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors border-b"
-              onClick={() => toggleKey(`ev-${evName}`)}
-            >
-              <div className="flex items-center gap-2">
-                {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                <span className="font-medium text-sm">{evName}</span>
-                <Badge variant="secondary" className="text-[10px] ml-1">{evLineCount}</Badge>
-              </div>
-              <div className="flex items-center gap-4 text-sm font-mono">
-                <span className="text-emerald-500">{formatCurrency(evSalesTotal)}</span>
-                <span className="text-amber-500">{formatCurrency(evExpTotal)}</span>
-                <span className={cn("font-semibold", evBalance >= 0 ? "text-emerald-500" : "text-red-400")}>{formatCurrency(evBalance)}</span>
-              </div>
-            </div>
-
-            {isOpen && (
-              <div>
-                {subCategories.map((sc) => {
-                  const scLines = sc.key === "sales" ? data.sales : data.expenses;
-                  if (scLines.length === 0) return null;
-                  const scTotal = scLines.reduce((s, l) => s + Math.abs(l.amount), 0);
-                  const subKey = `ev-${evName}-${sc.key}`;
-                  const isSubOpen = expandedCategories.has(`${officeId}-${subKey}`);
-
-                  return (
-                    <div key={sc.key}>
-                      <div
-                        className="flex items-center justify-between px-6 py-2 cursor-pointer hover:bg-muted/20 transition-colors border-b bg-muted/5"
-                        onClick={() => toggleKey(subKey)}
-                      >
-                        <div className="flex items-center gap-2">
-                          {isSubOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                          <span className={cn("", sc.color)}>{sc.icon}</span>
-                          <span className={cn("text-sm", sc.color)}>{sc.label}</span>
-                          <Badge variant="outline" className="text-[10px]">{scLines.length}</Badge>
-                        </div>
-                        <span className={cn("font-mono text-sm", sc.color)}>{formatCurrency(scTotal)}</span>
-                      </div>
-                      {isSubOpen && renderLineTable(scLines, sc.color)}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      {/* Transfers: flat generic list */}
-      {transferLines.length > 0 && (() => {
-        const isOpen = expandedCategories.has(`${officeId}-transfers`);
-        const total = transferLines.reduce((s, l) => s + Math.abs(l.amount), 0);
-        return (
-          <div>
-            <div
-              className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors border-b"
-              onClick={() => toggleKey("transfers")}
-            >
-              <div className="flex items-center gap-2">
-                {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium text-sm text-muted-foreground">Adiantamentos / Transferências</span>
-                <Badge variant="secondary" className="text-[10px] ml-1">{transferLines.length}</Badge>
-              </div>
-              <span className="font-mono font-semibold text-sm text-muted-foreground">{formatCurrency(total)}</span>
-            </div>
-            {isOpen && renderLineTable(transferLines, "text-muted-foreground")}
-          </div>
-        );
-      })()}
+function GroupHeader({ open, label, count, group, indent }: {
+  open: boolean;
+  label: string;
+  count: number;
+  group: { sales: number; income: number; expenses: number; transfers: number; advances: number; balance: number };
+  indent?: boolean;
+}) {
+  const inflow = group.sales + group.income;
+  const outflow = group.expenses + group.transfers + group.advances;
+  return (
+    <div className={cn("flex items-center justify-between py-2.5", indent ? "px-6 bg-muted/5" : "px-4")}>
+      <div className="flex items-center gap-2">
+        {open ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+        <span className="font-medium text-sm">{label}</span>
+        <Badge variant="secondary" className="text-[10px] ml-1">{count}</Badge>
+      </div>
+      <div className="flex items-center gap-4 text-sm font-mono">
+        <span className="text-emerald-500">{formatCurrency(inflow)}</span>
+        <span className="text-amber-500">{formatCurrency(outflow)}</span>
+        <span className={cn("font-semibold", group.balance >= 0 ? "text-emerald-500" : "text-red-400")}>
+          {formatCurrency(group.balance)}
+        </span>
+      </div>
     </div>
   );
 }
 
-function AnalyticalByEvent({ officeId, lines, expandedCategories, toggleKey }: {
+function AnalyticalGroups({ officeId, lines, groupBy, expectedBalance, expandedCategories, toggleKey }: {
   officeId: string;
   lines: AnalyticalLine[];
+  groupBy: AnalyticalGroupBy;
+  expectedBalance: number;
   expandedCategories: Set<string>;
   toggleKey: (key: string) => void;
 }) {
-  const byEvent: Record<string, { lines: AnalyticalLine[]; sales: number; expenses: number; transfers: number }> = {};
-  const noEventLines: AnalyticalLine[] = [];
+  const { groups, noEvent, total } = useMemo(
+    () => decomposeTicketOfficeAnalytical(lines, "Sem evento associado"),
+    [lines],
+  );
+  const allGroups = noEvent ? [...groups, noEvent] : groups;
+  const diff = roundCents(total - roundCents(expectedBalance));
 
-  lines.forEach((l) => {
-    if (l.type === "transfer") {
-      noEventLines.push(l);
-      return;
-    }
-    const evKey = l.eventName || "Sem evento";
-    if (!byEvent[evKey]) byEvent[evKey] = { lines: [], sales: 0, expenses: 0, transfers: 0 };
-    byEvent[evKey].lines.push(l);
-    if (l.type === "sale" || l.type === "income") byEvent[evKey].sales += l.amount;
-    else if (l.type === "expense") byEvent[evKey].expenses += Math.abs(l.amount);
-  });
-
-  const typeCategories = [
-    { key: "sales", label: "Bilhetes Vendidos", types: ["sale", "income"], color: "text-emerald-500" },
-    { key: "expenses", label: "Despesas e Custos", types: ["expense"], color: "text-amber-500" },
-  ];
-
-  return (
+  const renderKinds = (groupLines: AnalyticalLine[], keyPrefix: string) => (
     <div>
-      {Object.entries(byEvent).map(([evName, data]) => {
-        const evBalance = data.sales - data.expenses;
-        const isOpen = expandedCategories.has(`${officeId}-ev-${evName}`);
-
+      {KIND_META.map((meta) => {
+        const kindLines = groupLines.filter((l) => (l.kind ?? l.type) === meta.kind);
+        if (kindLines.length === 0) return null;
+        const subKey = `${keyPrefix}-${meta.kind}`;
+        const isSubOpen = expandedCategories.has(`${officeId}-${subKey}`);
+        const subtotal = kindLines.reduce((s, l) => s + Math.abs(l.amount), 0);
         return (
-          <div key={evName}>
+          <div key={meta.kind}>
             <div
-              className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors border-b"
-              onClick={() => toggleKey(`ev-${evName}`)}
+              className="flex items-center justify-between px-8 py-2 cursor-pointer hover:bg-muted/20 transition-colors border-b bg-muted/5"
+              onClick={() => toggleKey(subKey)}
             >
               <div className="flex items-center gap-2">
-                {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                <span className="font-medium text-sm">{evName}</span>
-                <Badge variant="secondary" className="text-[10px] ml-1">{data.lines.length}</Badge>
+                {isSubOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                <span className={cn("text-sm", meta.color)}>{meta.label}</span>
+                <Badge variant="outline" className="text-[10px]">{kindLines.length}</Badge>
               </div>
-              <div className="flex items-center gap-4 text-sm font-mono">
-                <span className="text-emerald-500">{formatCurrency(data.sales)}</span>
-                <span className="text-amber-500">{formatCurrency(data.expenses)}</span>
-                <span className={cn("font-semibold", evBalance >= 0 ? "text-emerald-500" : "text-red-400")}>{formatCurrency(evBalance)}</span>
-              </div>
+              <span className={cn("font-mono text-sm", meta.color)}>
+                {meta.sign < 0 ? "− " : ""}{formatCurrency(subtotal)}
+              </span>
             </div>
-
-            {isOpen && (
-              <div>
-                {typeCategories.map((tc) => {
-                  const tcLines = data.lines.filter((l) => tc.types.includes(l.type));
-                  if (tcLines.length === 0) return null;
-                  const tcTotal = tcLines.reduce((s, l) => s + Math.abs(l.amount), 0);
-                  const subKey = `ev-${evName}-${tc.key}`;
-                  const isSubOpen = expandedCategories.has(`${officeId}-${subKey}`);
-
-                  return (
-                    <div key={tc.key}>
-                      <div
-                        className="flex items-center justify-between px-6 py-2 cursor-pointer hover:bg-muted/20 transition-colors border-b bg-muted/5"
-                        onClick={() => toggleKey(subKey)}
-                      >
-                        <div className="flex items-center gap-2">
-                          {isSubOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                          <span className={cn("text-sm", tc.color)}>{tc.label}</span>
-                          <Badge variant="outline" className="text-[10px]">{tcLines.length}</Badge>
-                        </div>
-                        <span className={cn("font-mono text-sm", tc.color)}>{formatCurrency(tcTotal)}</span>
-                      </div>
-                      {isSubOpen && (
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="bg-muted/10">
-                              <TableHead className="w-24 text-xs">Data</TableHead>
-                              <TableHead className="text-xs">Descrição</TableHead>
-                              <TableHead className="text-right w-28 text-xs">Valor</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {tcLines.map((line, idx) => (
-                              <TableRow key={idx} className="bg-muted/5">
-                                <TableCell className="text-xs font-mono">
-                                  {format(new Date(line.date + "T00:00:00"), "dd/MM/yyyy")}
-                                </TableCell>
-                                <TableCell className="text-sm max-w-[300px] truncate" title={line.description}>
-                                  {line.description}
-                                </TableCell>
-                                <TableCell className={cn("text-right font-mono text-sm", tc.color)}>
-                                  {formatCurrency(Math.abs(line.amount))}
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            {isSubOpen && <LineTable tableLines={kindLines} colorClass={meta.color} />}
           </div>
         );
       })}
+    </div>
+  );
 
-      {noEventLines.length > 0 && (() => {
-        const isOpen = expandedCategories.has(`${officeId}-ev-no-event`);
-        const total = noEventLines.reduce((s, l) => s + Math.abs(l.amount), 0);
-        return (
-          <div>
-            <div
-              className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors border-b"
-              onClick={() => toggleKey("ev-no-event")}
-            >
-              <div className="flex items-center gap-2">
-                {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                <span className="font-medium text-sm text-muted-foreground">Adiantamentos / Transferências (sem evento)</span>
-                <Badge variant="secondary" className="text-[10px] ml-1">{noEventLines.length}</Badge>
+  return (
+    <div>
+      {groupBy === "event"
+        ? allGroups.map((g) => {
+            const key = `ev-${g.eventId ?? "no-event"}`;
+            const isOpen = expandedCategories.has(`${officeId}-${key}`);
+            return (
+              <div key={key} className="border-b">
+                <div className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => toggleKey(key)}>
+                  <GroupHeader open={isOpen} label={g.eventName} count={g.lines.length} group={g} />
+                </div>
+                {isOpen && renderKinds(g.lines, key)}
               </div>
-              <span className="font-mono font-semibold text-sm text-muted-foreground">{formatCurrency(total)}</span>
-            </div>
-            {isOpen && (
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/10">
-                    <TableHead className="w-24 text-xs">Data</TableHead>
-                    <TableHead className="text-xs">Descrição</TableHead>
-                    <TableHead className="text-right w-28 text-xs">Valor</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {noEventLines.map((line, idx) => (
-                    <TableRow key={idx} className="bg-muted/5">
-                      <TableCell className="text-xs font-mono">
-                        {format(new Date(line.date + "T00:00:00"), "dd/MM/yyyy")}
-                      </TableCell>
-                      <TableCell className="text-sm max-w-[300px] truncate" title={line.description}>
-                        {line.description}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm text-muted-foreground">
-                        {formatCurrency(Math.abs(line.amount))}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </div>
-        );
-      })()}
+            );
+          })
+        : KIND_META.map((meta) => {
+            const kindLines = lines.filter((l) => (l.kind ?? l.type) === meta.kind);
+            if (kindLines.length === 0) return null;
+            const key = `kind-${meta.kind}`;
+            const isOpen = expandedCategories.has(`${officeId}-${key}`);
+            const subtotal = roundCents(kindLines.reduce((s, l) => s + Math.abs(l.amount), 0));
+            return (
+              <div key={key} className="border-b">
+                <div
+                  className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors"
+                  onClick={() => toggleKey(key)}
+                >
+                  <div className="flex items-center gap-2">
+                    {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                    <span className={cn("font-medium text-sm", meta.color)}>{meta.label}</span>
+                    <Badge variant="secondary" className="text-[10px] ml-1">{kindLines.length}</Badge>
+                  </div>
+                  <span className={cn("font-mono font-semibold text-sm", meta.color)}>
+                    {meta.sign < 0 ? "− " : ""}{formatCurrency(subtotal)}
+                  </span>
+                </div>
+                {isOpen && (
+                  <div>
+                    {allGroups
+                      .map((g) => ({ g, gl: g.lines.filter((l) => (l.kind ?? l.type) === meta.kind) }))
+                      .filter(({ gl }) => gl.length > 0)
+                      .map(({ g, gl }) => {
+                        const subKey = `${key}-${g.eventId ?? "no-event"}`;
+                        const isSubOpen = expandedCategories.has(`${officeId}-${subKey}`);
+                        const gTotal = gl.reduce((s, l) => s + Math.abs(l.amount), 0);
+                        return (
+                          <div key={subKey}>
+                            <div
+                              className="flex items-center justify-between px-8 py-2 cursor-pointer hover:bg-muted/20 transition-colors border-b bg-muted/5"
+                              onClick={() => toggleKey(subKey)}
+                            >
+                              <div className="flex items-center gap-2">
+                                {isSubOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                                <span className="text-sm">{g.eventName}</span>
+                                <Badge variant="outline" className="text-[10px]">{gl.length}</Badge>
+                              </div>
+                              <span className={cn("font-mono text-sm", meta.color)}>{formatCurrency(gTotal)}</span>
+                            </div>
+                            {isSubOpen && <LineTable tableLines={gl} colorClass={meta.color} />}
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+      {/* Prova da reconciliação: Σ das linhas de evento + sem evento = saldo previsto */}
+      <div className="px-4 py-3 space-y-1 bg-muted/10 border-t text-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Σ saldos por evento{noEvent ? " + sem evento" : ""}</span>
+          <span className="font-mono">{formatCurrency(total)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Saldo previsto da bilheteira</span>
+          <span className="font-mono">{formatCurrency(roundCents(expectedBalance))}</span>
+        </div>
+        <div className={cn("flex items-center justify-between font-medium", Math.abs(diff) < 0.01 ? "text-emerald-500" : "text-red-400")}>
+          <span className="flex items-center gap-1">
+            {Math.abs(diff) < 0.01 ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
+            Diferença
+          </span>
+          <span className="font-mono">{formatCurrency(diff)}</span>
+        </div>
+      </div>
     </div>
   );
 }

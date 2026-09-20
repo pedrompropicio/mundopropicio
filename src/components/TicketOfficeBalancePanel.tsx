@@ -16,6 +16,7 @@ import {
   INTERNAL_TRANSFER_CATEGORY_ID,
 } from "@/lib/ticket-office-balance";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
+import { ticketOfficeOtherMovements } from "@/lib/ticket-office-reconciliation";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
@@ -242,9 +243,19 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
     );
   }
 
+  // #155 — os quatro tiles ignoram receitas lançadas como transação e movimentos
+  // sem evento; este resto é o que falta para o retido fechar ao cêntimo.
+  const otherMovements = ticketOfficeOtherMovements(summary.globalBalance, {
+    sales: summary.totalSales,
+    expenses: summary.totalDirectExpenses,
+    transfers: summary.totalTransfersOut,
+    advances: summary.totalAdvancesPending,
+  });
+  const hasOtherMovements = Math.abs(otherMovements) >= 0.01;
+
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className={`grid grid-cols-2 gap-2 ${hasOtherMovements ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
         <div className="rounded-lg bg-secondary/40 p-2 text-center">
           <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><TrendingUp className="h-3 w-3" /> Vendas</p>
           <p className="text-sm font-mono font-semibold text-emerald-500">{formatCurrency(summary.totalSales)}</p>
@@ -261,6 +272,20 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
           <p className="text-[10px] text-muted-foreground">Transferências</p>
           <p className="text-sm font-mono font-semibold">{formatCurrency(summary.totalTransfersOut)}</p>
         </div>
+        {hasOtherMovements && (
+          <div className="rounded-lg bg-secondary/40 p-2 text-center">
+            <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
+              Outros movimentos
+              <HelpTooltip
+                size={12}
+                text="Receitas lançadas como transação nesta bilheteira e movimentos sem evento associado. É o que falta para os quatro valores acima fecharem no retido (#155)."
+              />
+            </p>
+            <p className={`text-sm font-mono font-semibold ${otherMovements >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+              {formatCurrency(otherMovements)}
+            </p>
+          </div>
+        )}
       </div>
 
       <div
@@ -276,12 +301,15 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
         title="Ver composição transação a transação"
         className={`rounded-lg p-3 text-center cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all ${summary.hasInconsistency ? "bg-destructive/10 border border-destructive/30" : "bg-secondary/40"}`}
       >
-        <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">Retido na Bilheteira <HelpTooltip text={helpTexts.ticketOfficeBalance} size={12} /></p>
+        <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+          Retido na Bilheteira <HelpTooltip text={helpTexts.ticketOfficeBalance} size={12} />
+          <HelpTooltip size={12} text="Âmbito deste painel (#129): só os eventos atribuídos a esta bilheteira." />
+        </p>
         <p className={`text-lg font-mono font-bold ${summary.globalBalance >= 0 ? "text-emerald-500" : "text-red-400"}`}>
           {formatCurrency(summary.globalBalance)}
         </p>
         <p className="text-[10px] text-muted-foreground mt-0.5">
-          Vendas − despesas − transferências − adiantamentos em aberto
+          Vendas − despesas − transferências − adiantamentos em aberto ± outros movimentos = retido
         </p>
         {summary.retentionPct != null && (
           <div className="mt-2 grid grid-cols-2 gap-2 border-t border-border/40 pt-2">

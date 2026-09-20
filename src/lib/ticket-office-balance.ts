@@ -18,6 +18,16 @@
  *   no byEvent.
  * - byEvent: só transações com esse `event_id`. Movimentos sem evento (ou de
  *   evento não atribuído) entram no total e não no byEvent.
+ *
+ * Âmbito de cada consumidor (#129) — a fórmula é a mesma, o universo de vendas
+ * que lhe é dado não é. Por isso os três ecrãs podem mostrar totais diferentes,
+ * e cada um diz o seu âmbito junto ao total:
+ * - `src/components/ReportTicketOfficeAudit.tsx` — todas as zonas de todos os
+ *   eventos (RPC por bilheteira, sem filtro de atribuição).
+ * - `src/pages/TicketOffices.tsx` — só os eventos atribuídos a alguma bilheteira.
+ * - `src/components/TicketOfficeBalancePanel.tsx` — só os eventos daquela
+ *   bilheteira.
+ * Qualquer soma de vendas começa em `get_ticket_office_sales` (nunca no cliente).
  */
 import { ticketSaleRevenue, type TicketSaleLike } from "@/lib/ticket-sales-revenue";
 

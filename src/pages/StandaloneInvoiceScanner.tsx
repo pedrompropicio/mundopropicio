@@ -29,6 +29,8 @@ import {
   type StandaloneInvoiceCurrency,
 } from "@/lib/standalone-invoices";
 
+import { fetchSuggestedFxRateDetails, type CurrencyCode } from "@/lib/currency";
+
 const ACCEPT = `image/*,application/pdf,${HEIC_ACCEPT}`;
 
 export default function StandaloneInvoiceScanner() {
@@ -56,6 +58,9 @@ export default function StandaloneInvoiceScanner() {
   const [originalAmount, setOriginalAmount] = useState("");
   const [fxRate, setFxRate] = useState("");
   const [fxRateSource, setFxRateSource] = useState("");
+  /** Dia de fixing do BCE usado na taxa sugerida (#212). */
+  const [fxDateUsed, setFxDateUsed] = useState<string | null>(null);
+  const [fxBusy, setFxBusy] = useState(false);
   const [paidBy, setPaidBy] = useState(user?.id ?? "none");
   const [total, setTotal] = useState("");
   const [iva, setIva] = useState("");
@@ -82,6 +87,36 @@ export default function StandaloneInvoiceScanner() {
     if (user?.id && paidBy === "none") setPaidBy(user.id);
   }, [paidBy, user?.id]);
 
+  /**
+   * #212 — pede o câmbio de referência do BCE da DATA DA FATURA, a mesma regra da
+   * API `ingest-standalone-invoice` (D-ERP88). Sem data preenchida usa a de hoje.
+   */
+  const loadFxRate = async (ccy: StandaloneInvoiceCurrency, date: string) => {
+    if (ccy === "EUR") return;
+    setFxBusy(true);
+    try {
+      const result = await fetchSuggestedFxRateDetails(ccy as CurrencyCode, supabase, date || undefined);
+      if (!result) {
+        toast({ title: "Câmbio não obtido", description: "Preenche a taxa à mão.", variant: "destructive" });
+        return;
+      }
+      const rate = String(result.rate);
+      setFxRate(rate);
+      setFxDateUsed(result.dateUsed);
+      setFxRateSource(`BCE (frankfurter.app) ${result.dateUsed ?? date}`);
+      setTotal(calculateStandaloneEur(originalAmount, rate));
+    } finally {
+      setFxBusy(false);
+    }
+  };
+
+  // Volta a pedir a taxa quando a moeda ou a data da fatura mudam.
+  useEffect(() => {
+    if (currency === "EUR") return;
+    void loadFxRate(currency, invoiceDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currency, invoiceDate]);
+
   const clearCapture = () => {
     setFile(null);
     setScanCandidate(null);
@@ -101,6 +136,7 @@ export default function StandaloneInvoiceScanner() {
     setOriginalAmount("");
     setFxRate("");
     setFxRateSource("");
+    setFxDateUsed(null);
     setPaidBy(user?.id ?? "none");
     setTotal("");
     setIva("");
@@ -398,7 +434,7 @@ export default function StandaloneInvoiceScanner() {
                       <Select value={currency} onValueChange={(value) => {
                         const next = value as StandaloneInvoiceCurrency;
                         setCurrency(next);
-                        if (next === "EUR") { setOriginalAmount(""); setFxRate(""); setFxRateSource(""); }
+                        if (next === "EUR") { setOriginalAmount(""); setFxRate(""); setFxRateSource(""); setFxDateUsed(null); }
                       }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
                         {STANDALONE_INVOICE_CURRENCIES.map((code) => <SelectItem key={code} value={code}>{code}</SelectItem>)}
                       </SelectContent></Select>
@@ -408,6 +444,16 @@ export default function StandaloneInvoiceScanner() {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1"><Label htmlFor="si-original">Valor original</Label><Input id="si-original" inputMode="decimal" value={originalAmount} onChange={(e) => { setOriginalAmount(e.target.value); setTotal(calculateStandaloneEur(e.target.value, fxRate)); }} /></div>
                       <div className="space-y-1"><Label htmlFor="si-fx">Câmbio para EUR</Label><Input id="si-fx" inputMode="decimal" value={fxRate} onChange={(e) => { setFxRate(e.target.value); setTotal(calculateStandaloneEur(originalAmount, e.target.value)); }} /></div>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        {fxDateUsed
+                          ? `Câmbio do BCE de ${fxDateUsed}${invoiceDate && fxDateUsed !== invoiceDate ? " (último dia útil antes da data da fatura)" : ""}`
+                          : "Preenche a data da fatura para usar o câmbio do BCE desse dia."}
+                      </p>
+                      <Button type="button" variant="outline" size="sm" disabled={fxBusy} onClick={() => void loadFxRate(currency, invoiceDate)}>
+                        {fxBusy ? "A obter…" : "Obter câmbio do BCE"}
+                      </Button>
                     </div>
                     <div className="space-y-1"><Label htmlFor="si-fx-source">Fonte do câmbio</Label><Input id="si-fx-source" value={fxRateSource} onChange={(e) => setFxRateSource(e.target.value)} /></div>
                   </div>}
