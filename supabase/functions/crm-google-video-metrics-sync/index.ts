@@ -1,9 +1,13 @@
 // crm-google-video-metrics-sync  (PASSO 1 da captação de métricas de vídeo)
 //
-// Só LEITURA na Google Ads API + escrita nas tabelas-espelho que já existem:
-//   crm.google_campaign_insights_daily (raw->'metrics' + raw.video_views)
-//   crm.google_campaign               (raw.config + metrics.reach_*)
-//   crm.google_ad_group               (campanhas VIDEO)
+// Só LEITURA na Google Ads API + escrita em COLUNAS PRÓPRIAS (cada escritor é
+// dono das suas colunas; nunca dois syncs a escrever o mesmo jsonb):
+//   crm.google_campaign_insights_daily.video_metrics
+//   crm.google_campaign.settings + crm.google_campaign.reach
+//   crm.google_ad_group               (campanhas VIDEO; tabela exclusiva)
+// raw/metrics/impressions/clicks/spend_cents/currency/last_synced_at são do
+// crm-google-sync-campaigns (cron 3h) e NUNCA são escritas aqui em linhas que
+// já existem — era isso que apagava as métricas de vídeo de 3 em 3 horas.
 //
 // Âmbito: ligações google com connection_scope='artist' (hoje só a do Litto).
 // NÃO altera o crm-google-sync-campaigns (caminho de eventos intacto), nem
