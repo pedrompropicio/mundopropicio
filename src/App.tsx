@@ -232,7 +232,7 @@ function MobileNavSheet() {
         <button
           type="button"
           aria-label="Abrir menu de navegação"
-          className="md:hidden -ml-1 inline-flex h-9 w-9 items-center justify-center rounded-lg text-foreground hover:bg-sidebar-accent"
+          className="md:hidden -ml-1 inline-flex h-11 w-11 items-center justify-center rounded-lg text-foreground hover:bg-sidebar-accent md:h-9 md:w-9"
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -466,9 +466,14 @@ function ProtectedLayout() {
           <BrandedLogo />
         </div>
         <div className="flex items-center gap-2">
-          <ModuleSwitcherButton />
+          <div className="hidden md:block">
+            <ModuleSwitcherButton />
+          </div>
           <CompanySwitcher />
           <GlobalSearch />
+          <div className="md:hidden">
+            <ModuleSwitcherButton />
+          </div>
           <NotificationBell />
           <ThemeToggle />
         </div>
