@@ -3946,3 +3946,16 @@ Patrocínios ficam fora (D22 já trata o encerramento por `sponsorship_closed_at
 eventos importados só com BP não mudam: sem sintética, as linhas de BP continuam a
 alimentar o bucket (#220/#225). A grelha `/eventos` não precisa da flag (já não corre o
 simulador) — é por isso que a capa passou a bater com a grelha nos eventos realizados.
+
+## D-ERP115 — Retenção de identificadores de tráfego: 180 dias, anonimizar (nunca apagar) — #75 (20/09/2026)
+
+Eventos de tráfego pago com mais de 180 dias perdem os identificadores técnicos, sem
+perder a linha: `public.leads` com `kind = 'redirect_click'` → `ip_inet`, `user_agent`,
+`fbc`, `fbp`, `mp_click_id` a NULL; `crm.google_click` → `gclid`, `gbraid`, `wbraid`,
+`user_agent` a NULL (a tabela não tem `ip_inet`). Datas, evento, UTMs, país e região
+ficam intactos — a analítica histórica não muda.
+
+Motor: `public.anonymize_traffic_events(_days integer default 180)` (SECURITY DEFINER,
+só `service_role`, sem `EXCEPTION WHEN OTHERS`, devolve as duas contagens) + cron diário
+`traffic-events-anonymize` às 03:40 UTC. Primeira execução real deu (0, 0) — nenhuma
+linha tinha ainda 180 dias.

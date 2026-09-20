@@ -28,3 +28,13 @@ type: feature
 
 - Ivete Clareou 2026: último ponto da série = 707.684,40 € = previsto actual; origem (Σ baseline) = 716.852,25 €; 0 versões congeladas.
 - Anitta - EDA 2026: último ponto = 1.667.709,64 € = previsto actual; origem = 1.476.705,02 €; Versão 1 (17/06 18:25) snapshot 1.429.244,39 € vs série do dia 1.419.595,39 € — diferença de 9.649,00 € por alterações no mesmo dia depois do congelamento (audit arranca 18:33 do mesmo dia).
+
+## #122 (20/09/2026) — elevação de verba distinta no histórico
+
+`raise_forecast_budget` grava `forecast_audit_log.field_name = 'Elevação de verba'`
+(antes 'Valor (EUR)', indistinguível de edição anotada) e aceita `service_role`
+(auth.uid() NULL + claims.role='service_role' → `changed_by = 'service_role'`); para
+utilizadores nada muda (permissão `raise_budget`, observação obrigatória, valor superior,
+`baseline_amount` intacto). `event_bp_evolution` devolve esses marcos com
+`kind = 'budget_raise'`; 'Valor (EUR)' continua `annotated_change`. `BPEvolution.tsx`
+mostra-os em badge próprio (cor warning + ícone). Registos antigos não foram reescritos.

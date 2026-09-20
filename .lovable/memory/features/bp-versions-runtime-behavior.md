@@ -79,3 +79,11 @@ Além do circuito `create_bp_snapshot` / `promote_scenario_to_active`, existe na
 - **`create_scenario_draft(_event_id, _scenario_label, _scenario_assumptions, _description)`** — exige admin/manager/editor, sobe ao Master se lhe passarem um Split, cria a versão `working_draft` e **clona as linhas Ativas** para o cenário; cascade automático para cada Split via `cascaded_from_version_id`. Devolve o id da versão.
 - **`discard_scenario_draft(_version_id)`** — só aceita `working_draft`; apaga as versões cascateadas dos Splits e a do Master (as linhas caem por FK), deixando registo em `bp_version_audit_log`.
 - **`promote_scenario_draft_to_active(_scenario_version_id, _new_active_label, _new_active_description)`** — só admin/manager. Não cria versão nova: passa a Ativa atual a `superseded`, promove o próprio `working_draft` a `active`, apaga as linhas Ativas e faz `version_id = NULL` nas do cenário — logo **as linhas ficam com ids novos** e a reposição de vínculos dá-se quase toda por `(category_id, description)`. Cascade a cada Split.
+
+## #172 (20/09/2026) — reconcile_bp_overrides_for_event removida
+
+`create_bp_snapshot` já não chama `reconcile_bp_overrides_for_event` (a função foi
+DROPada). Escrevia em `transactions.pl_mode`/`notes` (colunas inexistentes) dentro de
+`BEGIN … EXCEPTION WHEN OTHERS THEN RAISE WARNING`, logo falhava sempre em silêncio e
+revertia tudo o que fazia (0 linhas `action='reconciled'` em `bp_version_audit_log`).
+Remoção sem mudança de comportamento observável.

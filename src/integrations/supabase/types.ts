@@ -16589,6 +16589,13 @@ export type Database = {
           suggested_formalidade: Database["public"]["Enums"]["bp_formalidade"]
         }[]
       }
+      anonymize_traffic_events: {
+        Args: { _days?: number }
+        Returns: {
+          gclicks_anonymized: number
+          leads_anonymized: number
+        }[]
+      }
       apply_formalidade_suggestions: {
         Args: {
           _forecast_ids: string[]
@@ -17944,16 +17951,6 @@ export type Database = {
         Args: { _company_id?: string }
         Returns: number
       }
-      reconcile_bp_overrides_for_event: {
-        Args: {
-          _event_id: string
-          _performed_by?: string
-          _performed_by_label?: string
-          _trigger_version_id: string
-          _trigger_version_number: number
-        }
-        Returns: undefined
-      }
       record_document_download: {
         Args: {
           p_bucket?: string
@@ -18243,6 +18240,14 @@ export type Database = {
         Returns: {
           account_id: string
           balance: number
+        }[]
+      }
+      ticketline_sync_runs_compact_audit: {
+        Args: { _days?: number }
+        Returns: {
+          after_bytes: number
+          before_bytes: number
+          compacted_rows: number
         }[]
       }
       tickets_v2_run_all_tests: {
