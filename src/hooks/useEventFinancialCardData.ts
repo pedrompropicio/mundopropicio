@@ -362,6 +362,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
             { label: "Outros", value: pickC("outros") },
           ],
           realValue, formalidadeBreakdown: null, phase, modeUsed, unavailable: !c,
+          perimeter: c ? { net: c.total.net, gross: c.total.gross } : null,
         };
       }
       // Custo "Previsto + excedido" pelo critério único, EVENTO A EVENTO (#217):
@@ -380,12 +381,16 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       );
 
       const cache = Number(args.cacheImpact || 0);
+      // Perímetro nas duas bases de IVA — o Lucro escolhe a base pelo contrato.
+      const c2Net = withVat ? costForMode("committed", false) : { total: c2.total, quota: c2.quota };
+      const c2Gross = withVat ? { total: c2.total, quota: c2.quota } : costForMode("committed", true);
       return {
         displayValue: c2.total + c2.quota + cache,
         subtotals: [], // mini-barra é render direto da breakdown
         formalidadeBreakdown: bd,
         phase, modeUsed, unavailable: c2.approvedCount === 0,
         meta: { overhead: c2.overhead, excess: c2.excess, masterQuota: c2.quota },
+        perimeter: { net: c2Net.total + c2Net.quota + cache, gross: c2Gross.total + c2Gross.quota + cache },
       };
     }
 
