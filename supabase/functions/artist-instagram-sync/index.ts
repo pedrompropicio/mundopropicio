@@ -38,13 +38,16 @@ const SOURCE = "platform_api";
 const MEDIA_LIMIT = 25;
 const INVOKE_BUDGET_MS = 110_000;
 
-/** Métricas de conta pedidas uma a uma (tolerante a métricas indisponíveis). */
-const ACCOUNT_INSIGHTS = [
-  "reach",
-  "views",
-  "accounts_engaged",
-  "total_interactions",
-  "profile_links_taps",
+/** Métricas de conta pedidas uma a uma (tolerante a métricas indisponíveis).
+ * `reach` funciona como série diária (period=day, sem metric_type) — não se mexe,
+ * para não alterar a série já existente. As restantes exigem
+ * metric_type=total_value na v25.0 (respondiam 200 com `data` vazia sem ele). */
+const ACCOUNT_INSIGHTS: Array<{ metric: string; metric_type?: string }> = [
+  { metric: "reach" },
+  { metric: "views", metric_type: "total_value" },
+  { metric: "accounts_engaged", metric_type: "total_value" },
+  { metric: "total_interactions", metric_type: "total_value" },
+  { metric: "profile_links_taps", metric_type: "total_value" },
 ];
 
 const MEDIA_INSIGHTS = [
