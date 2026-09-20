@@ -246,7 +246,7 @@ export function NotificationBell() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground">
+        <button className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg p-0 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground md:h-auto md:w-auto md:p-2">
           <Bell className="h-5 w-5" />
           {totalCount > 0 && (
             <span

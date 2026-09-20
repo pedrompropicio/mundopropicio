@@ -25,13 +25,18 @@ import {
   useCompaniesList,
 } from "@/hooks/useCompany";
 
+interface Props {
+  // Allow the parent to override sizing/flex on the trigger button.
+  className?: string;
+}
+
 /**
  * Empresa ativa selector.
  * - Visible only to platform_admin (returns null for everyone else).
  * - Switching the company invalidates every query because data scope changes
  *   completely between tenants.
  */
-export function CompanySwitcher() {
+export function CompanySwitcher({ className }: Props = {}) {
   const { company, companyId, isPlatformAdmin } = useCompany();
   const { data: memberships, isLoading: loadingMemberships } = useUserMemberships(!isPlatformAdmin);
   const { data: allCompanies, isLoading: loadingAll } = useCompaniesList(isPlatformAdmin);
@@ -94,7 +99,7 @@ export function CompanySwitcher() {
           size="sm"
           role="combobox"
           aria-expanded={open}
-          className="h-8 gap-2 min-w-0 max-w-[220px]"
+          className={cn("h-8 gap-2 min-w-0 max-w-[220px]", className)}
           disabled={setActive.isPending}
         >
           {setActive.isPending ? (

@@ -25,7 +25,7 @@ export function ModuleSwitcherButton() {
     <button
       onClick={() => navigate("/modulos")}
       title="Trocar módulo"
-      className="flex min-h-11 min-w-11 items-center gap-2 rounded-lg px-3 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:min-h-9 md:min-w-9 md:px-2.5"
+      className="flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-lg px-0 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:h-9 md:w-9 md:px-2.5 lg:w-auto"
     >
       <Grid3x3 className="h-4.5 w-4.5" />
       <span className="hidden lg:inline-block text-sm font-medium">Módulos</span>
