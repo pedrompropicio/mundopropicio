@@ -811,7 +811,7 @@ export async function buildArtistDataSnapshot(p: ArtistDataSnapshotParams) {
   }
   const geografia = {
     _fonte:
-      "public.br_estados (nome→UF, comparação sem acentos, sem prefixo 'State of' e sem sufixo '(state)') sobre historico_pago.breakdowns.region (meta/google) + v_artist_audience_by_state (Instagram)",
+      "public.br_estados (nome→UF, comparação sem acentos, sem prefixo 'State of' e sem sufixo '(state)') sobre historico_pago.breakdowns.region (meta/google) + v_artist_audience_by_state (Instagram = fãs em quota_fas_pct; Spotify = ouvintes em quota_ouvintes_pct; quota_organica_pct mantém o valor do Instagram)",
     estados_conhecidos: resolver.estados,
     por_uf: geo.tabela,
     nao_resolvidos: geo.nao_resolvidos,
