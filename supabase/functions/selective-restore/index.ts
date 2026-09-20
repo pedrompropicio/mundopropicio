@@ -184,6 +184,11 @@ Deno.serve(async (req) => {
     if (backupScope === "legacy" && !isMachine && !isPlatformAdmin) {
       return json({ error: "Backups antigos (v2) só por platform_admin" }, 403);
     }
+    // #96: legacy não traz company_id nas linhas — exige alvo explícito.
+    const targetCompanyId: string | null = isUuid(body?.target_company_id) ? body.target_company_id : null;
+    if (backupScope === "legacy" && !targetCompanyId) {
+      return json({ error: LEGACY_TARGET_COMPANY_ERROR }, 400);
+    }
     if (scope === "events" && callerCompanyId && event_ids?.length) {
       const { data: evCheck } = await admin.from("events").select("id, company_id").in("id", event_ids);
       const wrong = (evCheck ?? []).filter((e: any) => e.company_id !== callerCompanyId);
