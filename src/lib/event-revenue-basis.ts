@@ -219,7 +219,12 @@ export async function computeEventRevenueBasis(
   );
 
   const sponsorship = await computeSponsorshipSynthetic(eventId, ids);
-  const ticketForecast = skipForecast ? null : await computeLiveTicketForecast(eventId);
+  // #227: evento já realizado → as sintéticas de bilheteira/A&B são o real e o
+  // simulador nem corre (poupa leituras).
+  const eventRealized =
+    args.eventRealized ?? (await fetchEventRealized(eventId, ids));
+  const ticketForecast =
+    skipForecast || eventRealized ? null : await computeLiveTicketForecast(eventId);
 
   const { data: fcs } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
@@ -235,6 +240,7 @@ export async function computeEventRevenueBasis(
     sponsorship,
     ticketForecast,
     abForecastNet,
+    eventRealized,
   });
 }
 
