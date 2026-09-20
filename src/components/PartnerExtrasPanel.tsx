@@ -17,7 +17,7 @@ import { Trash2, Plus, Pencil, Check, X, Paperclip, FileText, ExternalLink } fro
 import { toast } from "@/hooks/use-toast";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
-import { fetchPartnerExtras, invalidatePartnerExtras, ORIGIN_LABEL, partnerExtraValue, sumPartnerExtras, type PartnerExtraItem } from "@/lib/partner-extras";
+import { fetchPartnerExtras, invalidatePartnerExtras, ORIGIN_LABEL, partnerExtraValue, splitPartnerExtrasByKind, type PartnerExtraItem } from "@/lib/partner-extras";
 import { partnerUsesGrossExpenses } from "@/lib/partner-calc-basis";
 import { TransactionFormModal } from "@/components/TransactionFormModal";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
