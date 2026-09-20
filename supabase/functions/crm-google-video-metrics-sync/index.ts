@@ -97,11 +97,14 @@ const PROBE_LIKES = [
   "%unique_users%",
   "%average_impression_frequency_per_user%",
   "campaign.%",
+  "campaign_criterion.%",
   "ad_group.%",
 ];
 
 /** Nomes selecionáveis existentes na versão atual da API. */
-async function probeSelectable(ctx: Ctx): Promise<{ selectable: Set<string>; found: string[] }> {
+async function probeSelectable(
+  ctx: Ctx,
+): Promise<{ selectable: Set<string>; found: string[]; metricas: string[] }> {
   const selectable = new Set<string>();
   const found: string[] = [];
   for (const like of PROBE_LIKES) {
@@ -115,12 +118,14 @@ async function probeSelectable(ctx: Ctx): Promise<{ selectable: Set<string>; fou
       }
     }
   }
-  console.log(
-    `[probe] selectable=${selectable.size} campos de interesse: ${
-      found.sort().join(", ")
-    }`,
-  );
-  return { selectable, found: found.sort() };
+  // métricas de interesse realmente existentes nesta versão (para diagnóstico)
+  const metricas = Array.from(selectable)
+    .filter((n) =>
+      /^metrics\.(video|.*cpv|engagements|unique_users|average_impression_frequency)/.test(n)
+    )
+    .sort();
+  console.log(`[probe] selectable=${selectable.size} métricas: ${metricas.join(", ")}`);
+  return { selectable, found: found.sort(), metricas };
 }
 
 /** Métricas de vídeo desejadas → só as que a API confirma. */
@@ -128,6 +133,7 @@ const VIDEO_METRIC_CANDIDATES = [
   "metrics.video_views",
   "metrics.video_trueview_views",
   "metrics.video_view_rate",
+  "metrics.video_trueview_view_rate",
   "metrics.video_quartile_p25_rate",
   "metrics.video_quartile_p50_rate",
   "metrics.video_quartile_p75_rate",
