@@ -62,9 +62,12 @@ const MEDIA_INSIGHTS = [
 
 // Timeframes: last_14_days / last_30_days / last_90_days / prev_month deixaram de
 // ser suportados na v20.0 — só se enviam this_week e this_month.
-// `engaged_audience_demographics` só vem se houver >= 100 interações no período,
-// por isso tenta-se this_week e, se vier vazio, this_month uma vez.
-// `reached_audience_demographics` já não consta da referência: pede-se UMA vez e,
+// `engaged_audience_demographics`: a Meta documenta a hipótese de a métrica só vir
+// com >= 100 interações no período (hipótese, NÃO confirmada por nós) — tenta-se
+// this_week e, se vier vazio, this_month uma vez; a nota junta o valor real de
+// total_interactions da janela equivalente, sem tirar conclusões.
+// `reached_audience_demographics` É aceite na v25.0 (a API devolve título, descrição
+// e id); apenas não consta da página de referência consultada. Pede-se UMA vez e,
 // se a API a recusar, não se repete por breakdown.
 const DEMOGRAPHIC_METRICS: Array<
   { metric: string; audience_type: string; timeframes: string[] }
