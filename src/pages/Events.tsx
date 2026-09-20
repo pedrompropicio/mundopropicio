@@ -101,7 +101,8 @@ export default function Events() {
   const [sortField, setSortField] = useState<"date" | "location" | "status" | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const queryClient = useQueryClient();
-  const { isAdmin, isManager } = useAuth();
+  const { isAdmin, isManager, user } = useAuth();
+  const userId = user?.id ?? "anon";
 
   // Fetch cities and venues for display on cards
   const { data: citiesMap = {} } = useQuery({
