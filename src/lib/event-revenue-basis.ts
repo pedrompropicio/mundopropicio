@@ -22,7 +22,11 @@
  *                         outras receitas = linhas de BP `type='income'` da
  *                         versão activa não representadas por sintéticas.
  *                         `null` por componente quando não há base.
- *   • `committed`       — "Previsto + excedido": por componente
+   *                         #227: DEPOIS da data do evento (ou `completed`), as
+   *                         sintéticas de bilheteira e A&B são o REAL — o
+   *                         simulador e o cenário A&B só valem até à data do
+   *                         evento. Patrocínios não mudam (D22).
+   *   • `committed`       — "Previsto + excedido": por componente
  *                         `max(real, currentForecast ?? real)`. Espelha a regra
  *                         do custo: o previsto nunca fica abaixo do realizado.
  *
