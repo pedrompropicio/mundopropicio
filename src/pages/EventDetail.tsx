@@ -1094,7 +1094,7 @@ export default function EventDetail() {
           eventStatus={event.status}
           primaryEventDate={effectiveEventDate}
           ticketSales={ticketSales}
-          onValueChange={setCardIncomeValue}
+          onPerimeterChange={setCardIncomePerimeter}
           partnerCalcBasis={event.partner_calc_basis}
           onVatViewChange={setIncomeViewVat}
         />
@@ -1112,7 +1112,7 @@ export default function EventDetail() {
               : undefined
           }
           cacheImpact={Number(calculatedCacheImpact || 0)}
-          onValueChange={setCardExpenseValue}
+          onPerimeterChange={setCardExpensePerimeter}
           onVatViewChange={setExpenseViewVat}
         />
 
