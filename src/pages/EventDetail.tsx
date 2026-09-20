@@ -1088,6 +1088,7 @@ export default function EventDetail() {
           ticketSales={ticketSales}
           onValueChange={setCardIncomeValue}
           partnerCalcBasis={event.partner_calc_basis}
+          onVatViewChange={setIncomeViewVat}
         />
         <EventFinancialCard
           eventId={id!}
@@ -1104,6 +1105,7 @@ export default function EventDetail() {
           }
           cacheImpact={Number(calculatedCacheImpact || 0)}
           onValueChange={setCardExpenseValue}
+          onVatViewChange={setExpenseViewVat}
         />
 
         <StatCard
@@ -1117,7 +1119,7 @@ export default function EventDetail() {
                   contract.revenueBase > 0
                     ? ` · margem ${((contract.result / contract.revenueBase) * 100).toFixed(1)}%`
                     : ""
-                }`
+                }${viewDiffersFromContract ? " · vista dos cards noutra base" : ""}`
               : undefined
           }
           tooltip="Resultado do evento na BASE CONTRATUAL gravada no evento (o mesmo motor e o mesmo número do Encontro de Contas). Não depende da vista de IVA escolhida nos cards de Receitas e Custos."
