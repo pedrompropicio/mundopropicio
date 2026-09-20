@@ -2068,7 +2068,9 @@ const descRef = useRef<HTMLInputElement>(null);
     syntheticIncome.totals.baselineNet;
   const incomeCurrentTotal = totalForecastIncomeBase + syntheticIncome.totals.currentNet;
   const incomeCurrentIvaTotal = totalForecastIncomeIva + syntheticIncome.totals.currentIva;
-  const totalForecastIncome = incomeCurrentTotal + incomeCurrentIvaTotal;
+  // #219: os três valores dos cards do BP na MESMA base — SEM IVA, como o
+  // helpText promete. A receita prevista não soma `incomeCurrentIvaTotal`.
+  const totalForecastIncome = incomeCurrentTotal;
   const forecastProfit = totalForecastIncome - totalForecastExpense;
 
   const totalActualIncomeStrict = comparisonTransactions
