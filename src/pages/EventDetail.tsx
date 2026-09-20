@@ -188,8 +188,9 @@ export default function EventDetail() {
   // Valores reportados pelos novos EventFinancialCard (para alimentar o card Lucro)
   const [cardIncomeValue, setCardIncomeValue] = useState<number>(0);
   const [cardExpenseValue, setCardExpenseValue] = useState<number>(0);
-  // Vista de IVA escolhida nesta sessão; null = ainda não escolhida (usa o guardado/critério).
-  const [viewWithVatChoice, setViewWithVatChoice] = useState<boolean | null>(null);
+  // Vistas de IVA reportadas por cada card (#223) — independentes entre si.
+  const [incomeViewVat, setIncomeViewVat] = useState<boolean | null>(null);
+  const [expenseViewVat, setExpenseViewVat] = useState<boolean | null>(null);
 
   // Reflect tab + sub-event into the URL so they survive navigations.
   useEffect(() => {
