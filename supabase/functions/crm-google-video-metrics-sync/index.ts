@@ -776,6 +776,192 @@ Deno.serve(async (req: Request): Promise<Response> => {
       notes.push(`ligação ${conn.id}: ad groups falharam (${(e as Error).message.slice(0, 800)})`);
     }
 
+    // ---- 7) NÍVEL ANÚNCIO: crm.google_ad + insights diários (D-ERP111) -----
+    // Esta função é dona de crm.google_ad e das linhas level='ad' de
+    // crm.ads_insights_breakdown_daily. Não toca em level='campaign' nem em
+    // platform='meta'.
+    try {
+      const adSel = adFields.length ? `,\n    ${adFields.join(",\n    ")}` : "";
+      apiCalls++;
+      const adRowsApi = await gaql(
+        ctx,
+        `
+  SELECT
+    campaign.id,
+    ad_group.id,
+    ad_group.name${adSel}
+  FROM ad_group_ad
+  WHERE campaign.advertising_channel_type = 'VIDEO'
+`,
+      );
+
+      // vídeo do YouTube por anúncio (asset view)
+      const videoByAdRes = new Map<string, { id: string | null; title: string | null }>();
+      const temAssetView = adAssetFields.includes("asset.youtube_video_asset.youtube_video_id") &&
+        adAssetFields.includes("ad_group_ad_asset_view.ad_group_ad");
+      if (temAssetView) {
+        try {
+          apiCalls++;
+          const assetRows = await gaql(
+            ctx,
+            `
+  SELECT
+    ${adAssetFields.join(",\n    ")}
+  FROM ad_group_ad_asset_view
+  WHERE campaign.advertising_channel_type = 'VIDEO'
+    AND ad_group_ad_asset_view.field_type = 'YOUTUBE_VIDEO'
+`,
+          );
+          for (const r of assetRows) {
+            const adRes = r.adGroupAdAssetView?.adGroupAd ?? null;
+            const yt = r.asset?.youtubeVideoAsset ?? {};
+            if (!adRes || !yt?.youtubeVideoId) continue;
+            videoByAdRes.set(String(adRes), {
+              id: String(yt.youtubeVideoId),
+              title: yt.youtubeVideoTitle != null ? String(yt.youtubeVideoTitle) : null,
+            });
+          }
+          per.anuncios_com_video = videoByAdRes.size;
+        } catch (e) {
+          notes.push(
+            `ligação ${conn.id}: vídeo do anúncio não obtido (${(e as Error).message.slice(0, 600)})`,
+          );
+        }
+      } else {
+        notes.push(`ligação ${conn.id}: ad_group_ad_asset_view sem campos confirmados nesta versão`);
+      }
+
+      const adsById = new Map<string, Row>();
+      for (const r of adRowsApi) {
+        const ad = r.adGroupAd?.ad ?? {};
+        const id = ad.id != null ? String(ad.id) : null;
+        if (!id) continue;
+        const adRes = r.adGroupAd?.resourceName ?? ad.resourceName ?? null;
+        const vid = adRes ? videoByAdRes.get(String(adRes)) : undefined;
+        adsById.set(id, {
+          connection_id: conn.id,
+          company_id: conn.company_id,
+          customer_id: customerId,
+          external_campaign_id: r.campaign?.id != null ? String(r.campaign.id) : null,
+          external_ad_group_id: r.adGroup?.id != null ? String(r.adGroup.id) : null,
+          external_ad_id: id,
+          resource_name: adRes,
+          name: ad.name ?? r.adGroup?.name ?? "(sem nome)",
+          status: r.adGroupAd?.status ?? null,
+          type: ad.type ?? null,
+          youtube_video_id: vid?.id ?? null,
+          youtube_video_title: vid?.title ?? null,
+          final_urls: ad.finalUrls ?? null,
+          raw: r,
+          last_synced_at: nowIso,
+        });
+      }
+      const adRows = Array.from(adsById.values());
+      if (adRows.length > 0) {
+        const { error } = await (supabase as any)
+          .schema("crm")
+          .from("google_ad")
+          .upsert(adRows, { onConflict: "connection_id,external_ad_id" });
+        if (error) throw new Error("google_ad_upsert_failed: " + error.message);
+        rowsWritten += adRows.length;
+      } else {
+        notes.push(`ligação ${conn.id}: sem anúncios de vídeo`);
+      }
+      per.anuncios = adRows.length;
+
+      // insights diários por anúncio
+      apiCalls++;
+      const selVideo = videoFields.length ? `,\n    ${videoFields.join(",\n    ")}` : "";
+      const insRows = await gaql(
+        ctx,
+        `
+  SELECT
+    campaign.id,
+    campaign.name,
+    ad_group.id,
+    ad_group_ad.ad.id,
+    customer.currency_code,
+    segments.date,
+    metrics.impressions,
+    metrics.clicks,
+    metrics.cost_micros,
+    metrics.conversions${selVideo}
+  FROM ad_group_ad
+  WHERE campaign.advertising_channel_type = 'VIDEO'
+    AND segments.date BETWEEN '${since}' AND '${until}'
+`,
+      );
+
+      const byKey = new Map<string, Row>();
+      for (const r of insRows) {
+        const adId = r.adGroupAd?.ad?.id != null ? String(r.adGroupAd.ad.id) : null;
+        const date = r.segments?.date ? String(r.segments.date).slice(0, 10) : null;
+        const campId = r.campaign?.id != null ? String(r.campaign.id) : null;
+        if (!adId || !date || !campId) continue;
+        const m = r.metrics ?? {};
+        const views = viewsField ? Math.round(num(m[apiKeyToJson(viewsField)])) : 0;
+        const vm: Row = { api_version: API_VERSION, recolhido_em: nowIso, video_views: views };
+        for (const f of videoFields) {
+          const v = m[apiKeyToJson(f)];
+          if (v != null) vm[f.replace("metrics.", "")] = Number(v);
+        }
+        const key = `${adId}|${date}`;
+        const prev = byKey.get(key);
+        if (prev) {
+          prev.impressions += num(m.impressions);
+          prev.clicks += num(m.clicks);
+          prev.spend_cents += microsToCents(m.costMicros);
+          prev.conversions = num(prev.conversions) + num(m.conversions);
+          prev.video_thruplays = num(prev.video_thruplays) + views;
+          continue;
+        }
+        byKey.set(key, {
+          company_id: conn.company_id,
+          connection_id: conn.id,
+          platform: "google",
+          level: "ad",
+          external_campaign_id: campId,
+          external_adset_id: r.adGroup?.id != null ? String(r.adGroup.id) : "",
+          external_ad_id: adId,
+          campaign_name: r.campaign?.name ?? null,
+          date_start: date,
+          breakdown: "none",
+          breakdown_value: "none",
+          impressions: num(m.impressions),
+          clicks: num(m.clicks),
+          spend_cents: microsToCents(m.costMicros),
+          video_thruplays: views,
+          conversions: num(m.conversions),
+          currency: r.customer?.currencyCode ?? conn.selected_ad_account_currency ?? null,
+          source: "platform_api",
+          raw: { linha: r, video_metrics: vm },
+          last_synced_at: nowIso,
+          updated_at: nowIso,
+        });
+      }
+      const insOut = Array.from(byKey.values());
+      if (insOut.length > 0) {
+        for (let i = 0; i < insOut.length; i += 500) {
+          const { error } = await (supabase as any)
+            .schema("crm")
+            .from("ads_insights_breakdown_daily")
+            .upsert(insOut.slice(i, i + 500), {
+              onConflict:
+                "connection_id,platform,level,external_campaign_id,external_adset_id,external_ad_id,date_start,breakdown,breakdown_value",
+            });
+          if (error) throw new Error("ad_insights_upsert_failed: " + error.message);
+        }
+        rowsWritten += insOut.length;
+      } else {
+        notes.push(`ligação ${conn.id}: sem insights por anúncio no período`);
+      }
+      per.insights_anuncio = insOut.length;
+    } catch (e) {
+      errorCount++;
+      notes.push(`ligação ${conn.id}: nível anúncio falhou (${(e as Error).message.slice(0, 1200)})`);
+    }
+
+
     perConnection[conn.id] = per;
   }
 
