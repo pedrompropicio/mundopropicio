@@ -27,3 +27,4 @@
 
 - [artist-tiktok-sync](mem://features/artist-tiktok-sync) — Sync oficial TikTok: fonte primária vídeos do artista; cursor de retoma (só 1 ligação), rate limit → retry 20s/40s → partial (nunca success, ligação fica active), pausa 400ms em corridas grandes; cron diário inalterado
 - [artist-ads-strategy-generate](mem://features/artist-ads-strategy-generate) — Plano de tráfego Meta por LLM no alvo MÚSICA: sessão do chamador, sem leituras crm.*, normalização determinística, plano em rascunho
+- [reverse_transaction](mem://features/reverse-transaction) — Overloads de 4 e 5 args desde 2026-09-20; overload legada de 3 args removida e registada como migration; chamada frontend tipada em PaymentTimeline.tsx
