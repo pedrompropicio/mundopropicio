@@ -463,7 +463,8 @@ function ProtectedLayout() {
       >
         <div className="flex shrink-0 items-center gap-1">
           <MobileNavSheet />
-          <BrandedLogo />
+          {/* Em < md o logótipo é limitado em largura para caberem Módulos e sino */}
+          <BrandedLogo className="h-9 max-w-[124px] object-contain object-left md:max-w-none" />
         </div>
         {/* Em < md o seletor de empresa fica entre os dois grupos e é ele que cede espaço (nome truncado) */}
         <div className="flex min-w-0 flex-1 items-center justify-center md:hidden">
