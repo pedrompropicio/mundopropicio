@@ -3792,3 +3792,21 @@ Reutilizar esses nomes destruía o publisher de Search → criadas
 - Âmbito: ligações `platform='google'` com `connection_scope='artist'`. Corrida registada em
   `sync_runs` (`crm-google-video-metrics-sync`); `{"probe_only":true}` só confirma nomes.
 **Estado:** vigente.
+
+## D-ERP110 — Demografia envolvida/alcançada do Instagram (timeframes e notas)
+Data: 2026-09-20. Sem DDL, sem OAuth, sem mudança de host.
+
+`artist-instagram-sync` (Graph v25.0, graph.instagram.com, nó `me`):
+- `engaged_audience_demographics`: timeframe `this_week` e, se vier vazio, `this_month` uma vez.
+  Nunca mais `last_14_days/last_30_days/last_90_days/prev_month` (retirados na v20.0).
+- `reached_audience_demographics`: pedida com `this_week`; se a API recusar a métrica,
+  nota única e não se repete por breakdown (helper `metricUnsupported`).
+- `sync_runs.details.artists[].demographics_raw`: um corpo cru por métrica, truncado a
+  1000 caracteres, sem token (`rawSample`).
+- Notas distinguem: "sem dados (abaixo do mínimo de 100 interações no período)",
+  "métrica não suportada nesta versão da API" e "erro".
+- `follower_demographics` intocada.
+
+Prova (corrida real 2026-09-20 00:11 UTC, 304 linhas): as duas métricas respondem 200 —
+`total_value.breakdowns[0]` vem com `dimension_keys` mas SEM `results`, i.e. a conta está
+abaixo do mínimo de 100 interações no período; não é erro nem métrica inexistente.
