@@ -18078,14 +18078,6 @@ export type Database = {
       reverse_transaction:
         | {
             Args: {
-              p_reason: string
-              p_reversal_kind: string
-              p_transaction_id: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
               p_kind: string
               p_reason: string
               p_tx_id: string
