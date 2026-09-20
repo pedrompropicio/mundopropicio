@@ -259,7 +259,10 @@ export default function TicketOffices() {
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Resumo Financeiro</h3>
                   <div className="grid grid-cols-3 gap-3">
                     <div className="rounded-lg bg-secondary/40 px-3 py-2 text-center">
-                      <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-0.5"><Landmark className="h-3 w-3" /> Retido</p>
+                      <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-0.5">
+                        <Landmark className="h-3 w-3" /> Retido
+                        <HelpTooltip size={11} text="Âmbito desta página (#129): só os eventos atribuídos a alguma bilheteira." />
+                      </p>
                       <p className={`text-sm font-mono font-semibold ${(bal?.retained ?? 0) >= 0 ? "text-emerald-500" : "text-red-400"}`}>
                         {formatCurrency(bal?.retained ?? 0)}
                       </p>
