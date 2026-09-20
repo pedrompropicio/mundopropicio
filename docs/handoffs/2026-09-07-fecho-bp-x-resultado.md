@@ -26,7 +26,7 @@ A mesa `bp-x-resultado` (02/09 → 07/09) desenhou e construiu o BP de receita, 
 ## Issues abertas que herdam o trabalho
 - **#104** — D4: curva de evolução do previsto por L1/L2/L3 sobre `forecast_audit_log` + `system_audit_log` (próximo passo concreto da frente).
 - **#114** — D2 e D1 no trigger como última linha de defesa (herdada pela frente `vinculo-bp-transacoes`).
-- **#120** — `useDeleteSponsor` apaga card sem desvincular BP/TX; `getDefaultIncomeAccountId` nunca é chamado.
+- **#120** — RESOLVIDO: apagar card com BP/TX ligados passa por diálogo explícito ("Apagar card e manter BP/TX" / "Cancelar"); `getDefaultIncomeAccountId` (código morto) removido — a TX de receita nasce sem `account_id`.
 - **#108** — Anitta EDA 2026: 7 linhas com taxa de IVA divergente (decisão do Pedro).
 - **#102** — AMBEV / Ivete: 10.976,95 € fechados sem BP nem transação.
 - **#106** — `working_draft`: decidido (D23, fica) — fechar quando confirmado.
