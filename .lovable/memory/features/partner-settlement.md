@@ -459,3 +459,19 @@ EVERYTHINGISNEW parte 273.953,34 e base a transferir 230.990,35 (cascata
 Pendentes menores: `suppliers.doc_locale` da ANITTA → `pt-BR` (DML);
 ANITTA duplicada na empresa Coala (`d24f8f88…`) sem uso; descrições de linhas de
 BP com "· EIN" visíveis ao sócio.
+
+## (#224) Extras do sócio — filtrar SEMPRE o `kind` antes de somar
+
+`event_partner_extras.kind` tem duas naturezas e NUNCA se soma a união em bruto:
+
+- `kind = 'extra'` → **abate** ao acerto do sócio (base c/IVA ou s/IVA conforme `partnerExtraValue`).
+- `kind = 'disbursement_adjustment'` → entra do lado do **desembolso**, com o **próprio sinal** e **sem IVA** (é manual, D-ERP23). Um valor negativo REDUZ o saldo do sócio.
+
+`sumPartnerExtras` / `partnerExtraValue` são cegos ao `kind` **por desenho**: o filtro é responsabilidade de quem chama. Para isso existe a função pura `splitPartnerExtrasByKind(extras, partnerId | null, usesGrossExpenses)` em `src/lib/partner-extras.ts`, que devolve `{ extras, adjustments }` já arredondados.
+
+Consumidores:
+- `EventFecho.tsx` → `balance = roundCents(partnerShare + paid + adjustments − extras)`; coluna "Ajustes" no ecrã e no PDF (visível quando ≠ 0).
+- `PartnerExtrasPanel.tsx` → total do cabeçalho só conta `extra`; ajustes mostrados à parte com sinal.
+- `PartnerSettlementTab.tsx` e `_shared/settlement/partner-disbursement.ts` (`collectDisbursementAdjustments`) são a **referência** e já estavam certos.
+
+Regressão histórica: um ajuste de −34.304,72 € (Anitta - EDA 2026) somava como extra no Fecho do Evento e invertia o sinal (68.609,44 € de diferença contra o Encontro de Contas).

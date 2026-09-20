@@ -24,7 +24,7 @@ import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
 import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
-import { fetchPartnerExtras, sumPartnerExtras } from "@/lib/partner-extras";
+import { fetchPartnerExtras, splitPartnerExtrasByKind } from "@/lib/partner-extras";
 import { BpUnusedBudgetPanel } from "@/components/fecho/BpUnusedBudgetPanel";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
@@ -296,13 +296,12 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     // Extras analíticos — na base do sócio. Origem 'transacao' segue c/IVA quando
     // aplicável; origem 'manual' não tem taxa nem documento e entra sempre pelo
     // valor escrito (ver `partnerExtraValue`).
-    const extras = sumPartnerExtras(
-      partnerExtras.filter((e) => e.partner_id === p.id),
-      usesGrossExpenses,
-    );
+    // (#224) `kind` separado: só `extra` abate; `disbursement_adjustment` entra do
+    // lado do desembolso, com o próprio sinal e sem IVA (manual, D-ERP23).
+    const { extras, adjustments } = splitPartnerExtrasByKind(partnerExtras, p.id, usesGrossExpenses);
 
     // Saldo final: empresa paga sócio se positivo
-    const balance = roundCents(partnerShare + paid - extras);
+    const balance = roundCents(partnerShare + paid + adjustments - extras);
 
     return {
       id: p.id,
@@ -315,12 +314,15 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
       partnerShare,
       paid: roundCents(paid),
       extras: roundCents(extras),
+      adjustments,
       balance,
     };
   });
 
   // Sócios com bases diferentes: não existe resultado único (informativo).
   const hasMixedExpenseBases = new Set(settlements.map((s) => s.usesGrossExpenses)).size > 1;
+  // (#224) coluna "Ajustes" só aparece quando algum sócio tem ajuste ao desembolso.
+  const hasAdjustments = settlements.some((s) => s.adjustments !== 0);
   const mixedBasesNote =
     "Sócios com bases de cálculo diferentes: a quota de cada um segue a base do respetivo contrato, pelo que não existe um resultado único e a soma das quotas não fecha contra um único total.";
 
@@ -441,7 +443,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
       y += 4;
       autoTable(doc, {
         startY: y,
-        head: [["Sócio", "Base", "%", "Quota", "Pago p/ sócio", "Extras", "Saldo"]],
+        head: [["Sócio", "Base", "%", "Quota", "Pago p/ sócio", "Ajustes", "Extras", "Saldo"]],
         body: settlements.map(s => [
           s.name,
           s.usesGrossExpenses ? "c/IVA" : "s/IVA",
@@ -450,13 +452,14 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
             : `${s.percentage}%`,
           formatCurrency(s.partnerShare),
           formatCurrency(s.paid),
+          formatCurrency(s.adjustments),
           formatCurrency(s.extras),
           formatCurrency(s.balance),
         ]),
         margin: { left: margin, right: margin },
         styles: { fontSize: 9 },
         headStyles: { fillColor: [60, 60, 60] },
-        columnStyles: { 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right", fontStyle: "bold" } },
+        columnStyles: { 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" }, 6: { halign: "right" }, 7: { halign: "right", fontStyle: "bold" } },
       });
       y = (doc as any).lastAutoTable.finalY + 4;
 
@@ -636,6 +639,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
                 <TableHead className="text-right">%</TableHead>
                 <TableHead className="text-right">Quota</TableHead>
                 <TableHead className="text-right">Pago p/ sócio</TableHead>
+                {hasAdjustments && <TableHead className="text-right">Ajustes</TableHead>}
                 <TableHead className="text-right">Extras</TableHead>
                 <TableHead className="text-right">Saldo final</TableHead>
               </TableRow>
@@ -659,6 +663,11 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
                     {formatCurrency(s.partnerShare)}
                   </TableCell>
                   <TableCell className="text-right font-mono">{formatCurrency(s.paid)}</TableCell>
+                  {hasAdjustments && (
+                    <TableCell className={`text-right font-mono ${s.adjustments < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                      {formatCurrency(s.adjustments)}
+                    </TableCell>
+                  )}
                   <TableCell className="text-right font-mono text-muted-foreground">{formatCurrency(s.extras)}</TableCell>
                   <TableCell className={`text-right font-mono font-bold text-base ${s.balance >= 0 ? "text-success" : "text-destructive"}`}>
                     {formatCurrency(s.balance)}
