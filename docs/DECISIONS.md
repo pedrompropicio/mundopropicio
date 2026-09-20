@@ -3903,3 +3903,23 @@ coluna de gasto. A tabela por UF expõe `quota_fas_pct` (Instagram) e `quota_ouv
 `artist-ads-strategy-generate`, o OBJETIVO decide o peso: streams/plays → ouvintes;
 comunidade/alcance local/shows → fãs; a justificação cita qual usou, com número e data, e
 assinala a discordância (Litto: RN 46,4 % dos seguidores contra 2,6 % dos ouvintes).
+
+## D-ERP113 — Receita do fechamento: por bucket, o real substitui o BP; sem real, o BP alimenta (#226)
+
+Por bucket de receita (bilheteira / A&B / patrocínio / outros, pelo código da rubrica), o
+REAL substitui o BP; sem real nesse bucket, as linhas de BP de receita aprovadas
+(`type='income'`, `status='approved'`, `version_id IS NULL`, sem `is_transitory`,
+`exclude_from_result`, `is_overhead`) alimentam-no. Nunca `max(real, previsto)`, nunca soma.
+Real de bilheteira = `ticket_sales` (com a anti-duplicação 1.1.01 já existente); real dos
+outros buckets = transações income válidas (`isValidFechoTransaction`).
+
+Substitui a leitura absoluta do D24 ("o fecho nunca usa receita prevista") — o BP só entra
+onde não há real, nunca por cima dele. Núcleo único:
+`supabase/functions/_shared/settlement/settlement-revenue.ts` (`computeSettlementRevenue`),
+reexportado em `src/lib/settlement-revenue.ts`.
+
+Perímetro (D25 g3): a linha de BP de receita com `event_settlement_id` que alimentou um
+bucket sem real entra nas `markedLines` como `kind: "bp", type: "income"` — só nesse caso.
+
+Regressão que motivou: FestVybbe 2026 (evento histórico só com BP) mostrava receita 0,00 € e
+resultado −359.011,85 €, quando o correcto é receita s/IVA 318.102,83 € e −40.909,02 €.
