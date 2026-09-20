@@ -1118,7 +1118,7 @@ export default function EventDetail() {
 
         <StatCard
           title="Lucro"
-          value={contractLoading || !contract ? "—" : formatCurrency(contract.result)}
+          value={!contract ? "—" : formatCurrency(contract.result)}
           icon={Wallet}
           variant="primary"
           subtitle={
@@ -1127,10 +1127,12 @@ export default function EventDetail() {
                   contract.revenueBase > 0
                     ? ` · margem ${((contract.result / contract.revenueBase) * 100).toFixed(1)}%`
                     : ""
-                }${viewDiffersFromContract ? " · vista dos cards noutra base" : ""}`
+                }${viewDiffersFromContract ? " · vista dos cards noutra base" : ""}${
+                  contract.perimeterMismatch ? " · perímetros diferentes nos cards" : ""
+                }`
               : undefined
           }
-          tooltip="Resultado do evento na BASE CONTRATUAL gravada no evento (o mesmo motor e o mesmo número do Encontro de Contas). Não depende da vista de IVA escolhida nos cards de Receitas e Custos."
+          tooltip="Resultado no PERÍMETRO escolhido nos cards (Realizado / Previsto + excedido / Forecast — o mesmo perímetro nos dois lados), com a base de IVA do contrato do evento: a receita entra s/IVA e a despesa c/IVA ou s/IVA conforme o critério gravado. Se os cards estiverem em modos diferentes, o Lucro usa esse par tal como está e assinala-o."
         />
 
         <StatCard
