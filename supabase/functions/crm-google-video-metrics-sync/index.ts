@@ -191,6 +191,9 @@ const AD_CANDIDATES = [
   "ad_group_ad.ad.final_urls",
   "ad_group_ad.status",
   "ad_group_ad.resource_name",
+  // recursos do vídeo usado (confirmados em runtime na v24)
+  "ad_group_ad.ad.video_ad.video.asset",
+  "ad_group_ad.ad.video_responsive_ad.videos",
 ];
 
 /** Vídeo do YouTube de cada anúncio, via ad_group_ad_asset_view + asset. */
