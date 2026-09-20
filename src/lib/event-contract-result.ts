@@ -26,6 +26,23 @@ export interface ContractResultTotals {
   expensesGross: number;
 }
 
+/**
+ * PERÍMETRO em vigor nos cards (#223 correção): o critério do contrato decide
+ * APENAS a base de IVA da despesa; o perímetro (Realizado / Previsto + excedido /
+ * Forecast) vem do modo escolhido nos cards de Receitas e de Custos — nunca um
+ * lado previsto com o outro real.
+ */
+export interface ContractPerimeterModes {
+  revenue?: string | null;
+  expense?: string | null;
+}
+
+const PERIMETER_LABEL: Record<string, string> = {
+  realized: "Realizado",
+  committed: "Previsto + excedido",
+  forecast: "Forecast",
+};
+
 export interface ContractResult {
   calcBasis: PartnerCalcBasis;
   /** true ⇒ a despesa entra c/IVA (base do contrato). */
@@ -33,28 +50,45 @@ export interface ContractResult {
   revenueBase: number;
   expenseBase: number;
   result: number;
-  /** Rótulo discreto para o card ("Receita s/IVA − Despesa c/IVA"). */
+  /** Rótulo discreto para o card (perímetro + base de IVA). */
   label: string;
+  /** true ⇒ os cards de Receitas e Custos estão em perímetros diferentes. */
+  perimeterMismatch: boolean;
 }
 
 export function computeEventContractResult(
   totals: ContractResultTotals,
   basis?: string | null,
+  perimeters?: ContractPerimeterModes,
 ): ContractResult {
   const calcBasis = normalizePartnerCalcBasis(basis);
   const withVat = usesGrossExpenseAmounts(calcBasis);
+  const ignoresExpenses = ignoresOperationalExpenses(calcBasis);
   const revenueBase = getPartnerRevenueBase(totals.revenueNet);
-  const expenseBase = ignoresOperationalExpenses(calcBasis)
+  const expenseBase = ignoresExpenses
     ? 0
     : (withVat ? totals.expensesGross : totals.expensesNet);
+
+  const revMode = perimeters?.revenue ? (PERIMETER_LABEL[perimeters.revenue] ?? perimeters.revenue) : null;
+  const expMode = perimeters?.expense ? (PERIMETER_LABEL[perimeters.expense] ?? perimeters.expense) : null;
+  const perimeterMismatch = !!revMode && !!expMode && revMode !== expMode;
+
+  let label: string;
+  if (ignoresExpenses) {
+    label = revMode ? `${revMode} · Receita s/IVA (despesas ignoradas)` : "Receita s/IVA (despesas ignoradas)";
+  } else if (perimeterMismatch) {
+    label = `Receita (${revMode}) s/IVA − Despesa (${expMode}) ${withVat ? "c/IVA" : "s/IVA"}`;
+  } else {
+    label = `${revMode ? `${revMode} · ` : ""}Receita s/IVA − Despesa ${withVat ? "c/IVA" : "s/IVA"}`;
+  }
+
   return {
     calcBasis,
     withVat,
     revenueBase,
     expenseBase,
     result: revenueBase - expenseBase,
-    label: ignoresOperationalExpenses(calcBasis)
-      ? "Receita s/IVA (despesas ignoradas)"
-      : `Receita s/IVA − Despesa ${withVat ? "c/IVA" : "s/IVA"}`,
+    label,
+    perimeterMismatch,
   };
 }
