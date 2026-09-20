@@ -1,52 +1,64 @@
 /**
- * Receitas / Despesas / Lucro da GRELHA de eventos (/eventos) — issue #221.
+ * Receitas / Despesas / Lucro da GRELHA de eventos (/eventos) — issues #221/#223.
  *
- * A grelha lia só `transactions` approved/paid, com aritmética local: dava
- * 0,00 € de receita em todos os eventos e ignorava por completo o BP.
- * Passa a usar EXACTAMENTE a mesma base dos cards da capa do evento:
- *   - Despesa: `computeEventCostOnBasis` (D57 / #217), um evento de cada vez,
- *     no critério gravado em `events.cost_expense_source` e com o overhead
- *     conforme `events.cost_include_overhead`.
- *   - Receita: mesma definição de `event-revenue-basis.ts` (D24) —
- *     "previsto + excedido" por componente, max(real, previsto ?? real), com
- *     a correcção #220 (sem sintética, as linhas de BP alimentam o bucket).
- *   - Lucro = Receita − Despesa na mesma base.
+ * REGRA (ditada pelo dono do negócio): o card de cada evento na grelha mostra
+ * EXACTAMENTE os mesmos números que os cards dentro desse evento, no âmbito da
+ * Visão Global (turnê inteira). Receita e despesa nas vistas guardadas por
+ * utilizador+evento+card (perímetro e IVA); por omissão s/IVA. Lucro = receita
+ * exibida − despesa exibida (subtração cega, igual ao card de Lucro).
+ *
+ * NÃO há segunda implementação: a receita passa pelo núcleo puro do SSoT
+ * (`computeRevenueBasisFromRows` + `computeSponsorshipSyntheticFromRows`), a
+ * despesa por `computeEventCostOnBasis` (D57/#217) e o cachê efectivo por
+ * `fetchEventsListCacheImpact`, que corre a mesma regra do card de Custos.
  *
  * DIFERENÇA DELIBERADA face à capa: aqui não se corre o simulador de bilheteira
  * (`computeLiveTicketForecast`) nem os cenários do módulo A&B — são dezenas de
- * leituras por evento. É o mesmo que `computeEventRevenueBasis({ skipForecast: true })`:
- * sem sintética de bilheteira/A&B, o previsto desses componentes vem do BP.
+ * leituras por evento. É o mesmo que `computeEventRevenueBasis({ skipForecast: true })`.
  *
  * LEITURAS: número FIXO de consultas para toda a lista (nunca N por evento) e
  * todas paginadas — o PostgREST corta aos 1.000 registos em silêncio (#206).
- *
- * Este ficheiro é CONSUMIDOR: não altera `event-revenue-basis.ts`,
- * `event-cost-basis.ts` nem `useEventFinancialCardData.ts`.
  */
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { computeEventCostOnBasis, type EventCostMode } from "@/lib/event-cost-basis";
-import { isValidFechoTransaction, isBilheteiraCategoryCode } from "@/lib/fecho-filters";
+import { isValidFechoTransaction } from "@/lib/fecho-filters";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { fetchRootSettlements } from "@/hooks/useEventRootSettlements";
-import { fetchTicketSalesTotals, REVENUE_BUCKETS, type RevenueBucket } from "@/lib/event-revenue-basis";
-import { classifyIncomeL1 } from "@/lib/event-financial-card";
+import {
+  computeRevenueBasisFromRows,
+  fetchTicketSalesTotals,
+  type MoneyPair,
+} from "@/lib/event-revenue-basis";
+import { computeSponsorshipSyntheticFromRows } from "@/lib/bp-sponsorship-synthetic";
+import { fetchEventsListCacheImpact } from "@/lib/events-list-cache-impact";
 
 export interface EventsListFinancialSpec {
   /** Evento raiz (linha da grelha). */
   id: string;
   /** Raiz + sub-eventos agregados nessa linha (inclui sempre `id`). */
   ids: string[];
+  /** Modo do card de Custos (vista guardada). */
   costMode: EventCostMode;
+  /** Modo do card de Receitas (vista guardada). */
+  incomeMode?: "realized" | "committed" | "forecast";
   includeOverhead: boolean;
   /** `events.sponsorship_closed_at` da raiz. */
   sponsorshipClosedAt: string | null;
+  /** Vista de IVA do card de Receitas (default s/IVA). */
+  incomeWithVat?: boolean;
+  /** Vista de IVA do card de Custos (default s/IVA). */
+  expenseWithVat?: boolean;
+  /** `events.status` — o cachê efectivo só conta em active/completed. */
+  status?: string | null;
 }
 
 export interface EventsListFinancialTotals {
   income: number;
   expense: number;
   profit: number;
+  /** Bilhetes vendidos (mesma fonte do card de Bilhetes). */
+  ticketsSold: number;
   /** Houve alguma base prevista (BP/bilheteira/patrocínios)? */
   hasBasis: boolean;
 }
@@ -54,6 +66,8 @@ export interface EventsListFinancialTotals {
 export type EventsListFinancials = Record<string, EventsListFinancialTotals>;
 
 const num = (v: any) => Number(v || 0);
+const pick = (p: MoneyPair | null | undefined, withVat: boolean) =>
+  p ? (withVat ? p.gross : p.net) : 0;
 
 export async function fetchEventsListFinancials(
   specs: EventsListFinancialSpec[],
@@ -66,7 +80,7 @@ export async function fetchEventsListFinancials(
     fetchAllPagedQuery(supabase
       .from("transactions")
       .select(
-        "id, event_id, type, status, amount, iva_rate, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, event_settlement_id, account_categories(code)",
+        "id, event_id, type, status, amount, iva_rate, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, parent_transaction_id, split_percentage, event_settlement_id, account_categories(code, name)",
       )
       .in("event_id", allIds)),
     fetchAllPagedQuery(supabase
@@ -80,7 +94,7 @@ export async function fetchEventsListFinancials(
     fetchTicketSalesTotals(allIds),
     fetchAllPagedQuery(supabase
       .from("event_sponsorship_targets" as never)
-      .select("id, event_id, segment_id, amount")
+      .select("id, event_id, segment_id, amount, baseline_amount, sponsorship_segments(name, sort_order)")
       .in("event_id", allIds)),
     fetchAllPagedQuery(supabase
       .from("sponsorship_pipeline" as never)
@@ -93,8 +107,19 @@ export async function fetchEventsListFinancials(
 
   // Perímetro da raiz (D25 g3): linhas de um fechamento filho não entram no
   // resultado do evento.
-  const txs = keepRootPerimeter((txRes.data ?? []) as any[], roots.rootIds);
+  const txsAll = (txRes.data ?? []) as any[];
+  const txs = keepRootPerimeter(txsAll, roots.rootIds);
   const fcs = keepRootPerimeter((fcRes.data ?? []) as any[], roots.rootIds);
+
+  // Cachê efectivo — mesma regra do card de Custos, em lote.
+  const cacheImpact = await fetchEventsListCacheImpact(
+    specs.map((s) => ({
+      id: s.id,
+      childIds: s.ids.filter((x) => x && x !== s.id),
+      status: s.status,
+    })),
+    txsAll,
+  );
 
   const byEvent = <T extends { event_id?: string | null }>(rows: T[]) => {
     const m = new Map<string, T[]>();
@@ -116,6 +141,8 @@ export async function fetchEventsListFinancials(
 
   for (const spec of specs) {
     const ids = Array.from(new Set(spec.ids.filter(Boolean)));
+    const incomeWithVat = spec.incomeWithVat === true;
+    const expenseWithVat = spec.expenseWithVat === true;
 
     // ── DESPESA: um evento de cada vez, nunca um pool (#217) ──────────
     let expense = 0;
@@ -127,107 +154,64 @@ export async function fetchEventsListFinancials(
         forecasts: evFc,
         transactions: evTx,
         mode: spec.costMode,
-        withVat: false,
+        withVat: expenseWithVat,
         includeOverhead: spec.includeOverhead,
       });
       expense += r.total;
       if (r.approvedCount > 0) expenseHasBp = true;
     }
+    // Cachê ainda não lançado em transações (igual ao card de Custos).
+    expense += num(cacheImpact[spec.id]);
 
-    // ── RECEITA REAL ─────────────────────────────────────────────────
-    const ticket = ids.reduce(
+    // ── RECEITA: núcleo puro do SSoT (D24) ───────────────────────────
+    const ticket = ids.reduce<MoneyPair>(
       (acc, id) => {
         const t = ticketByEvent.get(id);
         return { net: acc.net + num(t?.net), gross: acc.gross + num(t?.gross) };
       },
       { net: 0, gross: 0 },
     );
-    const hasTicketSales = ticket.net !== 0 || ticket.gross !== 0;
+    const ticketsSold = ids.reduce((s, id) => s + num(ticketByEvent.get(id)?.quantity), 0);
 
-    const incomeTxAll = ids
+    const incomeTx = ids
       .flatMap((id) => txByEvent.get(id) ?? [])
       .filter((t: any) => t.type === "income" && isValidFechoTransaction(t));
-    // Anti-duplicação: com `ticket_sales`, as TX de 1.1.01 são o MESMO dinheiro.
-    const incomeTx = hasTicketSales
-      ? incomeTxAll.filter((t: any) => !isBilheteiraCategoryCode(t.account_categories?.code))
-      : incomeTxAll;
+    const incomeForecasts = ids
+      .flatMap((id) => fcByEvent.get(id) ?? [])
+      .filter((f: any) => f.type === "income");
 
-    const real: Record<RevenueBucket, number> = { bilheteira: 0, ab: 0, patrocinio: 0, outros: 0 };
-    if (hasTicketSales) real.bilheteira = ticket.net;
-    for (const t of incomeTx) {
-      real[classifyIncomeL1((t as any).account_categories?.code)] += num((t as any).amount);
-    }
+    const sponsorship = computeSponsorshipSyntheticFromRows({
+      targets: ids.flatMap((id) => targetsByEvent.get(id) ?? []),
+      cards: ids.flatMap((id) => cardsByEvent.get(id) ?? []),
+      closedAt: spec.sponsorshipClosedAt,
+      incomeForecasts,
+    });
 
-    // ── PATROCÍNIOS: sintética (líquido) agregada para os ids da linha ─
-    const targets = ids.flatMap((id) => targetsByEvent.get(id) ?? []);
-    const closedCards = ids
-      .flatMap((id) => cardsByEvent.get(id) ?? [])
-      .filter((c: any) => c.stage === "closed" && !c.is_barter);
-    const sponsorRealNet = closedCards.reduce((s, c: any) => s + num(c.confirmed_amount), 0);
-    const closedBySegment = new Map<string, number>();
-    for (const c of closedCards as any[]) {
-      const k = (c.segment_id as string | null) ?? "__none__";
-      closedBySegment.set(k, (closedBySegment.get(k) ?? 0) + num(c.confirmed_amount));
-    }
-    const targetBySegment = new Map<string, number>();
-    for (const t of targets as any[]) {
-      const k = t.segment_id as string;
-      targetBySegment.set(k, (targetBySegment.get(k) ?? 0) + num(t.amount));
-    }
-    const sponsorshipClosed = !!spec.sponsorshipClosedAt;
-    let remaining = 0;
-    for (const [seg, target] of targetBySegment) {
-      remaining += sponsorshipClosed ? 0 : Math.max(0, target - (closedBySegment.get(seg) ?? 0));
-    }
-    const hasTargets = targetBySegment.size > 0;
-    const sponsorForecast: number | null = hasTargets
-      ? sponsorRealNet + remaining
-      : sponsorRealNet > 0
-        ? sponsorRealNet
-        : null;
-    const excludedForecastIds = new Set(
-      closedCards.map((c: any) => c.linked_forecast_id as string | null).filter(Boolean) as string[],
-    );
+    const revenue = computeRevenueBasisFromRows({
+      ticket,
+      incomeTx,
+      incomeForecasts,
+      sponsorship,
+      ticketForecast: null,
+      abForecastNet: null,
+    });
 
-    // ── PREVISTO CORRENTE a partir do BP (#220) ──────────────────────
-    let bpBilheteira: number | null = null;
-    let bpAb: number | null = null;
-    let bpOutros: number | null = null;
-    for (const id of ids) {
-      for (const f of (fcByEvent.get(id) ?? []) as any[]) {
-        if (f.type !== "income") continue;
-        if (f.status !== "approved") continue;
-        if (f.is_transitory || f.exclude_from_result || f.is_overhead) continue;
-        if (excludedForecastIds.has(f.id)) continue;
-        const cls = classifyIncomeL1(f.account_categories?.code);
-        if (cls === "patrocinio") continue; // representado pelo bucket patrocínio
-        if (cls === "bilheteira" && hasTicketSales) continue; // sintética substitui
-        const net = num(f.amount);
-        if (cls === "bilheteira") bpBilheteira = (bpBilheteira ?? 0) + net;
-        else if (cls === "ab") bpAb = (bpAb ?? 0) + net;
-        else bpOutros = (bpOutros ?? 0) + net;
-      }
-    }
-
-    const forecast: Record<RevenueBucket, number | null> = {
-      bilheteira: bpBilheteira,
-      ab: bpAb,
-      patrocinio: sponsorForecast,
-      outros: bpOutros,
-    };
-
-    // ── PREVISTO + EXCEDIDO (D24): max(real, previsto ?? real) ───────
-    let income = 0;
-    for (const b of REVENUE_BUCKETS) income += Math.max(real[b], forecast[b] ?? real[b]);
+    const incomeMode = spec.incomeMode ?? "committed";
+    const income =
+      incomeMode === "realized"
+        ? pick(revenue.real.total, incomeWithVat)
+        : incomeMode === "forecast"
+          ? pick(revenue.currentForecast.total ?? revenue.committed.total, incomeWithVat)
+          : pick(revenue.committed.total, incomeWithVat);
 
     const hasBasis =
       expenseHasBp ||
-      hasTicketSales ||
-      REVENUE_BUCKETS.some((b) => forecast[b] != null) ||
+      revenue.real.hasTicketSales ||
+      revenue.currentForecast.total != null ||
       income !== 0 ||
       expense !== 0;
 
-    out[spec.id] = { income, expense, profit: income - expense, hasBasis };
+    out[spec.id] = { income, expense, profit: income - expense, ticketsSold, hasBasis };
   }
 
   return out;
