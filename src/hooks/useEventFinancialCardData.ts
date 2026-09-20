@@ -55,6 +55,12 @@ export interface Subtotal {
 export interface UseEventFinancialCardDataResult {
   displayValue: number;
   /**
+   * Totais do perímetro em vigor nas DUAS bases de IVA (#223 correção).
+   * Alimenta o card de Lucro: o contrato escolhe a base de IVA, o perímetro
+   * (modo do card) escolhe os valores — nunca se misturam perímetros.
+   */
+  perimeter?: { net: number; gross: number } | null;
+  /**
    * Receita REAL do perímetro da raiz na base de IVA do card (D24 + D25 g3).
    * Só definido em kind='income'. É este o valor que alimenta o Lucro/margem,
    * porque o fecho nunca usa receita prevista — o toggle "previsto + excedido"
@@ -242,7 +248,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
      * `Σ custo(cidades) = custo(turnê)` verdadeiro por construção e impede que
      * o excesso por rubrica de uma cidade seja absorvido pela folga de outra.
      */
-    const costForMode = (m: "realized" | "committed") => {
+    const costForMode = (m: "realized" | "committed", vat: boolean = withVat) => {
       const byEvent = new Map<string, { f: any[]; t: any[] }>();
       const bucket = (evId: string) => {
         let b = byEvent.get(evId);
