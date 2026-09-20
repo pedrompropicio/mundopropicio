@@ -303,10 +303,17 @@ export function computeRevenueBasisFromRows(rows: RevenueBasisRows): EventRevenu
       ? { net: ticketForecast.net, gross: ticketForecast.gross ?? ticketForecast.net }
       : null;
 
-  // A&B: `abForecastNet` vem LÍQUIDO do módulo A&B e a taxa do módulo não é
-  // acessível aqui (vive nos hooks do A&B) — o bruto fica igual ao líquido.
+  // #208 — A&B: `abForecastNet` vem LÍQUIDO do módulo A&B. O módulo A&B não
+  // guarda taxa de IVA (não há coluna em `event_ab_config`/`event_ab_zones`),
+  // por isso a taxa é a do PRÓPRIO evento, resolvida por
+  // `resolveAbIvaRate`: (1) taxa injectada, (2) taxa ponderada das linhas de BP
+  // de A&B (1.1.03), (3) taxa ponderada das TX reais de A&B. Sem nenhuma fonte
+  // → bruto = líquido (comportamento anterior, zero regressão).
+  const abIvaRate = resolveAbIvaRate(rows);
   const abForecastPair: MoneyPair | null =
-    abForecastNet != null ? { net: abForecastNet, gross: abForecastNet } : null;
+    abForecastNet != null
+      ? { net: abForecastNet, gross: calcTotalWithIva(abForecastNet, abIvaRate) }
+      : null;
 
   // Há sintética para o componente? Se não, o BP alimenta-o — vale para os
   // TRÊS buckets com módulo (#220 bilheteira/A&B, #225 patrocínios).
