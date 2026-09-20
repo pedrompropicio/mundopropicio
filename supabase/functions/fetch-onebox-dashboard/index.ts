@@ -311,16 +311,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const FAC = metricLabel(facMetric);
 
     // ── leitura 1: grelha sessão × canal ────────────────────────────────
-    const sessionCol = (gridFd.groupby ?? []).find((c: any) =>
-      /sesion/i.test(typeof c === "string" ? c : c?.label ?? c?.sqlExpression ?? "")
-    ) ?? {
-      label: "sesion",
+    // As colunas vêm do próprio chart (pivot_table_v2 → groupbyRows).
+    const cols: any[] = gridFd.groupbyRows ?? gridFd.groupby ?? [];
+    const colText = (c: any) => (typeof c === "string" ? c : `${c?.label ?? ""} ${c?.sqlExpression ?? ""}`);
+    const sessionCol = cols.find((c) => /nombresesion/i.test(colText(c))) ?? {
+      label: "SESIÓN",
       expressionType: "SQL",
       sqlExpression: "nombresesion || ' ' || horariosesion_mi",
     };
-    const channelCol = (gridFd.groupby ?? []).find((c: any) =>
-      /canal/i.test(typeof c === "string" ? c : c?.label ?? c?.sqlExpression ?? "")
-    ) ?? "nombrecanal";
+    const channelCol = cols.find((c) => /nombrecanal/i.test(colText(c))) ?? {
+      label: "CANAL",
+      expressionType: "SQL",
+      sqlExpression: "nombrecanal",
+    };
 
     const gridRes = await chartData(
       jar,
