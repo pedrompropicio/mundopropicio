@@ -98,7 +98,7 @@ describe("computeRevenueBasisFromRows — eventRealized (#227)", () => {
       eventRealized: true,
     });
     expect(r.committed.buckets.bilheteira.net).toBe(100);
-    expect(r.currentForecast.buckets.bilheteira!.net).toBe(0);
+    expect(r.currentForecast.buckets.bilheteira).toBeNull();
   });
 
   it("(c) realizado sem ticket_sales: BP 1.1.01 alimenta, simulador ignorado", () => {
