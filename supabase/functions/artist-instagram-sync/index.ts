@@ -24,6 +24,7 @@ import {
   authorize,
   corsHeaders,
   GRAPH,
+  GRAPH_VERSION,
   graphGet,
   IG_GRAPH,
   json,
