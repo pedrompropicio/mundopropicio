@@ -908,7 +908,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const id = ad.id != null ? String(ad.id) : null;
         if (!id) continue;
         const adRes = r.adGroupAd?.resourceName ?? ad.resourceName ?? null;
-        const vid = adRes ? videoByAdRes.get(String(adRes)) : undefined;
+        const vid = videoDoAnuncio(adRes ? String(adRes) : null);
         adsById.set(id, {
           connection_id: conn.id,
           company_id: conn.company_id,
@@ -939,6 +939,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         notes.push(`ligação ${conn.id}: sem anúncios de vídeo`);
       }
       per.anuncios = adRows.length;
+      per.anuncios_com_video = adRows.filter((a) => a.youtube_video_id != null).length;
 
       // insights diários por anúncio
       apiCalls++;
