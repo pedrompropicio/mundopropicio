@@ -254,7 +254,7 @@ export function computeRevenueBasisFromRows(rows: RevenueBasisRows): EventRevenu
   // Linhas de BP income da versão activa. As classes com módulo próprio
   // (bilheteira / A&B / patrocínios) só são descartadas se EXISTIR sintética
   // para esse componente — a sintética SUBSTITUI a linha de BP, nunca soma
-  // (#220). Sem sintética, as linhas de BP alimentam o bucket.
+  // (#220, #225). Sem sintética, as linhas de BP alimentam o bucket.
   const ticketForecastPair: MoneyPair | null =
     ticketForecast?.net != null
       ? { net: ticketForecast.net, gross: ticketForecast.gross ?? ticketForecast.net }
