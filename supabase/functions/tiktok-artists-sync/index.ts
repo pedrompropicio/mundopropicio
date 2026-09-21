@@ -211,14 +211,14 @@ Deno.serve(async (req) => {
   // Mapa group_id → música (depois da leitura da API, para que a resposta possa
   // relatar os campos devolvidos mesmo antes da tabela existir em Live).
   const { data: sounds, error: soundsError } = await admin
-    .from("artist_song_tiktok_sounds")
+    .from("artist_song_tiktok_groups")
     .select("group_id, song_id, artist_id, company_id");
   if (soundsError) {
     await finishSyncRun(admin, runId, startedMs, {
       status: "error",
       api_calls: apiCalls,
       rows_written: 0,
-      error_text: `artist_song_tiktok_sounds: ${soundsError.message}`,
+      error_text: `artist_song_tiktok_groups: ${soundsError.message}`,
     });
     return json({
       ok: false,
