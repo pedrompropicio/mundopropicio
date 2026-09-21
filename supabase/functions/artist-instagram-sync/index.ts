@@ -113,7 +113,13 @@ Deno.serve(async (req) => {
   const masterKey = Deno.env.get("ENCRYPTION_MASTER_KEY");
   if (!masterKey) return json({ error: "ENCRYPTION_MASTER_KEY não configurada" }, 500);
 
-  let body: { artist_id?: string; connection_id?: string; dry_run?: boolean; max_media?: number } = {};
+  let body: {
+    artist_id?: string;
+    connection_id?: string;
+    dry_run?: boolean;
+    max_media?: number;
+    dias_metricas?: number;
+  } = {};
   try {
     body = await req.json();
   } catch (_e) { /* body opcional */ }
@@ -121,6 +127,10 @@ Deno.serve(async (req) => {
   const maxMedia = Number.isFinite(body.max_media) && (body.max_media ?? 0) > 0
     ? Math.min(Math.floor(body.max_media as number), 200)
     : MEDIA_LIMIT;
+  // Dias JÁ FECHADOS a recolher para as métricas de conta com total_value.
+  const diasMetricas = Number.isFinite(body.dias_metricas)
+    ? Math.min(Math.max(Math.floor(body.dias_metricas as number), 1), 30)
+    : DEFAULT_DIAS_METRICAS;
 
   // Duas origens: 'instagram' = ligação directa (Instagram Login, token do
   // utilizador em graph.instagram.com); 'meta' = Facebook Login (token de Página).
