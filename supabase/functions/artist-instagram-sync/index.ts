@@ -37,6 +37,8 @@ const PLATFORM = "instagram";
 const SOURCE = "platform_api";
 const MEDIA_LIMIT = 25;
 const INVOKE_BUDGET_MS = 110_000;
+/** Dias já fechados recolhidos por omissão nas métricas de conta (total_value). */
+const DEFAULT_DIAS_METRICAS = 3;
 
 /** Métricas de conta pedidas uma a uma (tolerante a métricas indisponíveis).
  * `reach` funciona como série diária (period=day, sem metric_type) — não se mexe,
