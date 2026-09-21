@@ -4017,3 +4017,22 @@ O snapshot do relatório de lançamento (`artist-song-snapshot.ts`) também pass
 `public.v_artist_audience_by_state` não foi tocada (só usa `dimension='city'`, sempre
 contagens). Sem DDL, sem migrações, sem alterações em `crm.*` nem em vistas; só campos
 novos — nenhum formato existente mudou.
+
+## D-ERP118 — Sonda de leitura ao «Get local streaming audience» da Soundcharts (21/09/2026)
+
+A edge function `soundcharts-sync` ganhou um modo de diagnóstico activado por
+`sonda: true` no corpo do pedido (exige `artist_id`). Faz UMA chamada GET a
+`/api/v2/artist/{uuid}/streaming/spotify` (o uuid vem de `artist_channels`
+platform='aggregator', como no fluxo normal) e devolve apenas: URL pedido (sem
+credenciais), código HTTP, mensagem de erro se houver e, em 200, a contagem de
+itens e as primeiras chaves do primeiro item.
+
+É um caminho à parte que sai ANTES de `startSyncRun`: nunca grava em
+`artist_audience_demographics`, `artist_metrics_daily` nem `sync_runs`, e o
+comportamento normal da função fica intacto.
+
+Serve para saber se o plano Soundcharts actual inclui o endpoint «Get local
+streaming audience» (a referência documenta 403 "This endpoint is not included
+in your current plan") — a geografia de ouvintes do Spotify (top 50 cidades,
+«Where people listen») depende dele, e a decisão de upgrade (uma compra) depende
+deste código de resposta.
