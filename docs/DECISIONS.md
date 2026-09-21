@@ -3986,3 +3986,34 @@ Nada se apaga: os valores gravados antes de hoje com a janela de 2 dias ficam
 corrigidos à medida que os dias forem recolhidos outra vez (o upsert tem chave
 `artist_id,platform,metric,metric_date,source`), e por omissão cada corrida recolhe
 os 3 últimos dias fechados.
+
+## D-ERP117 — Demografia de audiência: a coluna `unit` manda, contagens e percentagens nunca se somam (21/09/2026)
+
+`public.artist_audience_demographics` passou a ter `unit text not null default 'count'`
+com CHECK (`count`|`pct`). O TikTok entrega quotas já em percentagem (18 linhas com
+`unit='pct'` no snapshot de 2026-09-20, `followers` e `reached`, dimensões
+gender/age/country) ao lado das contagens do Instagram e do Spotify. Somar 54 (pct) com
+25.000 (count) dá um número sem sentido.
+
+Snapshot (`supabase/functions/_shared/artist-data-snapshot.ts`, bloco «3) AUDIÊNCIA
+ORGÂNICA»): o `select` e cada linha de `linhas_demografia` trazem `unit`; em `porDim` o
+total é calculado SÓ sobre as linhas `unit='count'` (quota = valor / total das
+contagens), e as linhas `unit='pct'` são a própria quota (`quota_pct = valor`,
+`valor: null`); cada entrada leva o seu `unit`. Valores de `unit` diferentes nunca se
+somam — nem dentro da dimensão, nem entre dimensões. Cada grupo de `por_tipo`
+(`"<platform>.<audience_type>"`) traz `unidades` com os `unit` presentes e, quando traz
+os dois, entra um aviso em `avisos` com plataforma, tipo e dimensões. O `_fonte` do
+bloco `audiencia` diz que a demografia traz contagens e percentagens lado a lado,
+distinguidas por `unit`, e que não se somam.
+
+Prompts (`artist-ads-strategy-generate`, nos três blocos de regras, e
+`artist-song-report`) ganharam a MESMA regra, com as mesmas palavras: os números de
+audiência vêm com `unit`; `pct` é já uma quota da plataforma e nunca se soma nem se
+compara com `count`; ao citar um número de audiência tem de se dizer a plataforma, o
+tipo de audiência, a data do snapshot e, quando for percentagem, que é percentagem.
+O snapshot do relatório de lançamento (`artist-song-snapshot.ts`) também passa `unit`
+(e a plataforma) em cada entrada da demografia.
+
+`public.v_artist_audience_by_state` não foi tocada (só usa `dimension='city'`, sempre
+contagens). Sem DDL, sem migrações, sem alterações em `crm.*` nem em vistas; só campos
+novos — nenhum formato existente mudou.
