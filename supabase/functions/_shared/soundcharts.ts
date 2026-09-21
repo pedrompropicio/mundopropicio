@@ -40,11 +40,36 @@ export async function getSoundchartsToken(): Promise<string> {
     },
     body: "grant_type=client_credentials",
   });
-  if (!res.ok) throw new Error(`Soundcharts auth failed (HTTP ${res.status})`);
+  if (!res.ok) {
+    let detail = "";
+    try {
+      detail = (await res.text()).slice(0, 400);
+    } catch (_e) {
+      detail = "";
+    }
+    throw new SoundchartsHttpError(res.status, detail);
+  }
   const body = await res.json();
   const token = body?.access_token ?? body?.token;
   if (!token) throw new Error("Soundcharts auth failed (no access_token)");
   return token as string;
+}
+
+/** Erro HTTP canónico da Soundcharts, com a resposta truncada e sem segredos. */
+export class SoundchartsHttpError extends Error {
+  constructor(public status: number, public detail: string) {
+    super(`HTTP ${status}${detail ? ` — ${detail}` : ""}`);
+    this.name = "SoundchartsHttpError";
+  }
+}
+
+export function isSoundchartsQuotaError(error: unknown): boolean {
+  return error instanceof SoundchartsHttpError && error.status === 429;
+}
+
+export function soundchartsQuotaMessage(error: unknown, pendingItems: number): string {
+  const detail = error instanceof Error ? error.message : String(error);
+  return `quota Soundcharts esgotada (429) — ${detail}; ${pendingItems} item(ns) por tratar`;
 }
 
 /** Contador de chamadas à API, para a quota (sync_runs.api_calls). */
@@ -71,11 +96,7 @@ export class ScClient {
       } catch (_e) {
         detail = "";
       }
-      const err = new Error(
-        `HTTP ${res.status}${detail ? ` — ${detail}` : ""}`,
-      ) as Error & { status: number };
-      err.status = res.status;
-      throw err;
+      throw new SoundchartsHttpError(res.status, detail);
     }
     return await res.json();
   }

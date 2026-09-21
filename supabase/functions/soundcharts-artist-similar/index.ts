@@ -116,6 +116,6 @@ Deno.serve(async (req) => {
       api_calls: calls,
       error_text: msg,
     });
-    return json({ error: msg }, 500);
+    return json({ error: msg, notes: [msg] }, 500);
   }
 });

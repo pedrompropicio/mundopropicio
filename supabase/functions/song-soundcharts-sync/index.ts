@@ -18,8 +18,10 @@ import {
   adminClient,
   authorize,
   corsHeaders,
+  isSoundchartsQuotaError,
   json,
   ScClient,
+  soundchartsQuotaMessage,
 } from "../_shared/soundcharts.ts";
 import {
   deduceTriggerSource,
@@ -174,8 +176,10 @@ Deno.serve(async (req) => {
     const perSong: Array<Record<string, unknown>> = [];
     let totalRows = 0;
     let totalPlaylists = 0;
+    let quotaError: string | null = null;
 
-    for (const song of songs) {
+    for (let songIndex = 0; songIndex < songs.length; songIndex++) {
+      const song = songs[songIndex];
       const scUuid = song.soundcharts_uuid as string;
       const metricsBySong: Record<string, number> = {};
       const rows: Array<Record<string, unknown>> = [];
@@ -212,16 +216,24 @@ Deno.serve(async (req) => {
           }
           metricsBySong[platform] = seen.size;
         } catch (e) {
+          if (isSoundchartsQuotaError(e)) {
+            quotaError = soundchartsQuotaMessage(e, songs.length - songIndex);
+            errors.push({ song_id: song.id as string, platform, error: quotaError });
+            notes.push(quotaError);
+            break;
+          }
           const status = (e as { status?: number })?.status;
           if (status === 403 || status === 404) {
             notes.push(`${song.title}: ${platform} sem acesso/sem dados (HTTP ${status})`);
             metricsBySong[platform] = 0;
           } else {
+            const message = (e as Error)?.message ?? String(e);
             errors.push({
               song_id: song.id as string,
               platform,
-              error: (e as Error)?.message ?? String(e),
+              error: message,
             });
+            notes.push(`${song.title}: ${platform} — ${message}`);
           }
         }
       }
@@ -243,7 +255,7 @@ Deno.serve(async (req) => {
 
       // ---------------- playlists atuais
       let playlistCount = 0;
-      for (const platform of PLAYLIST_PLATFORMS) {
+      for (const platform of quotaError ? [] : PLAYLIST_PLATFORMS) {
         try {
           const body = await client.get(
             `/api/v2.20/song/${scUuid}/playlist/current/${platform}?currentOnly=0&limit=100&sortBy=position&sortOrder=asc`,
@@ -290,15 +302,23 @@ Deno.serve(async (req) => {
             }
           }
         } catch (e) {
+          if (isSoundchartsQuotaError(e)) {
+            quotaError = soundchartsQuotaMessage(e, songs.length - songIndex);
+            errors.push({ song_id: song.id as string, platform: `playlist:${platform}`, error: quotaError });
+            notes.push(quotaError);
+            break;
+          }
           const status = (e as { status?: number })?.status;
           if (status === 403 || status === 404) {
             notes.push(`${song.title}: playlists ${platform} sem acesso/sem dados (HTTP ${status})`);
           } else {
+            const message = (e as Error)?.message ?? String(e);
             errors.push({
               song_id: song.id as string,
               platform: `playlist:${platform}`,
-              error: (e as Error)?.message ?? String(e),
+              error: message,
             });
+            notes.push(`${song.title}: playlists ${platform} — ${message}`);
           }
         }
       }
@@ -312,6 +332,7 @@ Deno.serve(async (req) => {
         metric_rows: rows.length,
         playlists: playlistCount,
       });
+      if (quotaError) break;
     }
 
     calls = client.calls;
@@ -334,9 +355,10 @@ Deno.serve(async (req) => {
       api_calls: calls,
       rows_written: totalRows + totalPlaylists,
       details: summary,
+      error_text: quotaError ?? (errors.length ? errors[0].error : null),
     });
 
-    return json(summary);
+    return json(summary, quotaError ? 429 : 200);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[${FUNCTION_NAME}]`, msg);

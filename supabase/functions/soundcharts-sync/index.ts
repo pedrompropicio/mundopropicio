@@ -24,7 +24,12 @@ import {
   resolveStatus,
   startSyncRun,
 } from "../_shared/sync-run.ts";
-import { authorize as sharedAuthorize } from "../_shared/soundcharts.ts";
+import {
+  authorize as sharedAuthorize,
+  isSoundchartsQuotaError,
+  ScClient,
+  soundchartsQuotaMessage,
+} from "../_shared/soundcharts.ts";
 
 const FUNCTION_NAME = "soundcharts-sync";
 
@@ -374,25 +379,12 @@ Deno.serve(async (req) => {
       if (!channelByKey.has(k) || c.is_primary) channelByKey.set(k, c.id);
     }
 
-    const token = await getSoundchartsToken();
-    let calls = 0;
+    const client = await ScClient.create();
     const errors: Array<{ artist_id: string; platform: string; status?: number; error: string }> = [];
     const rows: MetricRow[] = [];
     const lastCrawl: Record<string, string | null> = {};
     const platformStatus: Record<string, "ok" | "no_data" | "error"> = {};
-
-    const fetchSc = async (path: string) => {
-      calls++;
-      const res = await fetch(`${SC_BASE}${path}`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-      });
-      if (!res.ok) {
-        const err = new Error(`HTTP ${res.status}`) as Error & { status: number };
-        err.status = res.status;
-        throw err;
-      }
-      return await res.json();
-    };
+    let quotaError: string | null = null;
 
     /** Percorre todos os blocos e devolve os itens crus, sem duplicar datas. */
     const fetchSeries = async (basePath: string) => {
@@ -406,7 +398,7 @@ Deno.serve(async (req) => {
           sort: "asc",
         });
         if (w.start) qs.set("startDate", w.start);
-        const body = await fetchSc(`${basePath}?${qs.toString()}`);
+        const body = await client.get(`${basePath}?${qs.toString()}`);
         crawl = body?.related?.lastCrawlDate ?? crawl;
         for (const it of body?.items ?? []) {
           const d = it?.date ? String(it.date).slice(0, 10) : null;
@@ -418,7 +410,9 @@ Deno.serve(async (req) => {
       return { items, crawl };
     };
 
-    for (const ch of targets) {
+    targetsLoop:
+    for (let targetIndex = 0; targetIndex < targets.length; targetIndex++) {
+      const ch = targets[targetIndex];
       const companyId = companyById.get(ch.artist_id);
       if (!companyId) {
         errors.push({ artist_id: ch.artist_id, platform: "-", error: "artista sem company_id" });
@@ -457,6 +451,11 @@ Deno.serve(async (req) => {
         } catch (e) {
           const status = (e as { status?: number }).status;
           platformStatus[platform] = "error";
+          if (isSoundchartsQuotaError(e)) {
+            quotaError = soundchartsQuotaMessage(e, targets.length - targetIndex);
+            errors.push({ artist_id: ch.artist_id, platform, status, error: quotaError });
+            break targetsLoop;
+          }
           errors.push({
             artist_id: ch.artist_id,
             platform,
@@ -496,6 +495,11 @@ Deno.serve(async (req) => {
         } catch (e) {
           const status = (e as { status?: number }).status;
           platformStatus["spotify"] = "error";
+          if (isSoundchartsQuotaError(e)) {
+            quotaError = soundchartsQuotaMessage(e, targets.length - targetIndex);
+            errors.push({ artist_id: ch.artist_id, platform: "spotify", status, error: quotaError });
+            break targetsLoop;
+          }
           errors.push({
             artist_id: ch.artist_id,
             platform: "spotify",
@@ -579,13 +583,14 @@ Deno.serve(async (req) => {
       window: { start_date: startDate, end_date: endDate, blocks: windows.length },
       platforms,
       artists_processed: artistIds.length,
-      soundcharts_calls: calls,
+      soundcharts_calls: client.calls,
       rows_prepared: unique.length,
       rows_written: dryRun ? 0 : written,
       rows_by_platform_metric: summary,
       series_by_artist: seriesSummary,
       platform_status: platformStatus,
       last_crawl_date: lastCrawl,
+      notes: errors.map((error) => `${error.platform}: ${error.error}`),
       errors,
     };
 
@@ -593,20 +598,21 @@ Deno.serve(async (req) => {
     const effectiveRows = dryRun ? unique.length : written;
     await finishSyncRun(admin, runId, startedMs, {
       status: resolveStatus(effectiveRows, errors.length),
-      api_calls: calls,
+      api_calls: client.calls,
       rows_written: dryRun ? 0 : written,
       details: body,
+      error_text: quotaError ?? (errors.length ? errors[0].error : null),
     });
 
-    return json(body);
+    return json(body, quotaError ? 429 : 200);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[soundcharts-sync]", msg);
     await finishSyncRun(admin, runId, startedMs, {
       status: "error",
       error_text: msg,
-      details: { dry_run: runDryRun },
+      details: { dry_run: runDryRun, notes: [msg] },
     });
-    return json({ error: e instanceof Error ? e.message : "Internal error" }, 500);
+    return json({ error: msg, notes: [msg] }, 500);
   }
 });
