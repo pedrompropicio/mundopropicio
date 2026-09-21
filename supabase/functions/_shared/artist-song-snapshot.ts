@@ -382,17 +382,24 @@ export async function buildSnapshot(admin: Admin, songId: string, days: number) 
   // demografia
   const { data: demoRows } = await admin
     .from("artist_audience_demographics")
-    .select("platform, dimension, dim_key, value, snapshot_date")
+    .select("platform, dimension, dim_key, value, unit, snapshot_date")
     .eq("artist_id", song.artist_id)
     .order("snapshot_date", { ascending: false })
     .limit(500);
   const lastSnap = demoRows?.[0]?.snapshot_date ?? null;
   const demoLatest = (demoRows ?? []).filter((r: Row) => r.snapshot_date === lastSnap);
+  // `unit` acompanha sempre o número: 'count' é contagem, 'pct' é quota já em
+  // percentagem da plataforma. Valores de `unit` diferentes não se somam.
   const topDim = (dim: string) =>
     demoLatest.filter((r: Row) => r.dimension === dim)
       .sort((a: Row, b: Row) => num(b.value) - num(a.value))
       .slice(0, 5)
-      .map((r: Row) => ({ chave: r.dim_key, valor: num(r.value) }));
+      .map((r: Row) => ({
+        chave: r.dim_key,
+        valor: num(r.value),
+        unit: String(r.unit ?? "count"),
+        platform: r.platform ?? null,
+      }));
   const demografia = lastSnap
     ? { snapshot: lastSnap, top_cidades: topDim("city"), top_faixas_etarias: topDim("age") }
     : null;
