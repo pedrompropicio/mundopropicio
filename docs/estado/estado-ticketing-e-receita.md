@@ -172,5 +172,5 @@ As 19 sessões à venda, verificadas na página pública do El Corte Inglés a 0
 - `.lovable/memory/features/bilheteira-sync.md`, `bol-sync.md`, `onebox-sync.md`, `venue-retained-door-sales.md`, `ticketline-dashboard-daily-fallback.md`, `ticketing-sync-health.md`
 - `docs/procedimentos/PROC-vendas-onebox-madrid.md` — captação do Madrid no servidor; `dry_run: false` obrigatório
 - `src/lib/ticket-office-balance.ts`, `src/lib/ticket-sales-revenue.ts`, `src/lib/ticket-office-settlement-calc.ts`
-- `docs/DECISIONS.md` — D-ERP15, D24, D57, D-ERP83
+- `docs/DECISIONS.md` — D-ERP15, D24, D57, D-ERP83, D-ERP121
 - Issues #73, #78, #128, #129, #130, #145
