@@ -490,7 +490,7 @@ export async function buildArtistDataSnapshot(p: ArtistDataSnapshotParams) {
     const demoDatas = demoRows.map((d: Any) => String(d.snapshot_date)).sort();
     audiencia = {
       _fonte:
-        "orgânica — public.v_artist_audience_by_state (estados/regiões, Instagram=fãs e Spotify=ouvintes) + public.artist_audience_demographics (idade/género por plataforma e tipo de audiência). Secundária face ao pago.",
+        "orgânica — public.v_artist_audience_by_state (estados/regiões, Instagram=fãs e Spotify=ouvintes) + public.artist_audience_demographics (idade/género por plataforma e tipo de audiência). A demografia traz CONTAGENS e PERCENTAGENS lado a lado, distinguidas pela coluna `unit` ('count' = contagem; 'pct' = quota já em percentagem da plataforma): valores de `unit` diferentes NÃO se somam nem se comparam. Secundária face ao pago.",
       por_estado: porEstado,
       // Atalhos explícitos: fãs (Instagram) vs ouvintes (Spotify). null quando não existe.
       fas: porEstado["instagram.followers"] ?? null,
