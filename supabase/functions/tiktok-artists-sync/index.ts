@@ -208,6 +208,38 @@ Deno.serve(async (req) => {
     from += PAGE_SIZE;
   }
 
+  // Mapa group_id → música (depois da leitura da API, para que a resposta possa
+  // relatar os campos devolvidos mesmo antes da tabela existir em Live).
+  const { data: sounds, error: soundsError } = await admin
+    .from("artist_song_tiktok_sounds")
+    .select("group_id, song_id, artist_id, company_id");
+  if (soundsError) {
+    await finishSyncRun(admin, runId, startedMs, {
+      status: "error",
+      api_calls: apiCalls,
+      rows_written: 0,
+      error_text: `artist_song_tiktok_sounds: ${soundsError.message}`,
+    });
+    return json({
+      ok: false,
+      motivo: "tabela_mapa_indisponivel",
+      detalhe: soundsError.message,
+      musicas_api: songs.length,
+      campos_item: songs.length > 0 ? Object.keys(songs[0]) : [],
+      campos_envelope: Object.keys(envelope),
+    }, 424);
+  }
+  const mapa = new Map<string, { song_id: string; artist_id: string; company_id: string }>();
+  for (const s of (sounds ?? []) as Json[]) {
+    mapa.set(String(s.group_id), {
+      song_id: String(s.song_id),
+      artist_id: String(s.artist_id),
+      company_id: String(s.company_id),
+    });
+  }
+
+
+
   const notes: string[] = [];
   const semCorrespondencia: Array<{ group_id: string; song_name: string | null }> = [];
   const linhas: Json[] = [];
