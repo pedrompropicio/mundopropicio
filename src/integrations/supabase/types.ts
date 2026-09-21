@@ -447,6 +447,7 @@ export type Database = {
           snapshot_date: string
           source: string
           timeframe: string | null
+          unit: string
           value: number
         }
         Insert: {
@@ -461,6 +462,7 @@ export type Database = {
           snapshot_date: string
           source?: string
           timeframe?: string | null
+          unit?: string
           value: number
         }
         Update: {
@@ -475,6 +477,7 @@ export type Database = {
           snapshot_date?: string
           source?: string
           timeframe?: string | null
+          unit?: string
           value?: number
         }
         Relationships: [
@@ -16903,6 +16906,18 @@ export type Database = {
       artist_ads_song_set_smart_link: {
         Args: { p_song_id: string; p_url: string }
         Returns: undefined
+      }
+      artist_ads_sync_status: {
+        Args: { p_artist_id: string }
+        Returns: {
+          atrasado: boolean
+          cadencia: string
+          cadencia_minutos: number
+          escopo: string
+          last_error: string
+          last_sync_at: string
+          platform: string
+        }[]
       }
       artist_ads_unlink_song: {
         Args: { p_artist_id: string; p_campaign_id: string; p_platform: string }
