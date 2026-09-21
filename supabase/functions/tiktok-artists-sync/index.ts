@@ -241,6 +241,7 @@ Deno.serve(async (req) => {
 
 
   const notes: string[] = [];
+  notes.push(...clipNotes);
   const semCorrespondencia: Array<{ group_id: string; song_name: string | null }> = [];
   const linhas: Json[] = [];
   let dateFieldUsado: string | null = null;
