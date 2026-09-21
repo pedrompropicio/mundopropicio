@@ -7,6 +7,54 @@ const DEFAULT_SEND_DELAY_MS = 200
 const DEFAULT_AUTH_TTL_MINUTES = 15
 const DEFAULT_TRANSACTIONAL_TTL_MINUTES = 60
 
+// Domínios cujo envio sai pela API do Resend em vez do Lovable Email.
+const RESEND_DOMAINS: Record<string, string> = {
+  'notify.coalafestival.pt': 'RESEND_API_KEY_COALA',
+}
+
+class ResendAPIError extends Error {
+  status: number
+  retryAfterSeconds: number | null
+  constructor(status: number, message: string, retryAfterSeconds: number | null = null) {
+    super(message); this.name = 'ResendAPIError'
+    this.status = status; this.retryAfterSeconds = retryAfterSeconds
+  }
+}
+
+async function sendViaResend(payload: Record<string, any>, apiKey: string): Promise<void> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  }
+  if (payload.idempotency_key) headers['Idempotency-Key'] = String(payload.idempotency_key)
+
+  const body: Record<string, unknown> = {
+    from: payload.from, to: [payload.to], subject: payload.subject,
+  }
+  if (payload.html) body.html = payload.html
+  if (payload.text) body.text = payload.text
+  if (payload.reply_to) body.reply_to = payload.reply_to
+
+  const unsubOneClick = payload.unsubscribe_http_url || payload.unsubscribe_url
+  if (unsubOneClick) {
+    body.headers = {
+      'List-Unsubscribe': `<${unsubOneClick}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    }
+  }
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST', headers, body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const detail = await res.text()
+    const retryAfter = res.headers.get('retry-after')
+    throw new ResendAPIError(res.status,
+      `Resend API ${res.status}: ${detail.slice(0, 500)}`,
+      retryAfter ? Number(retryAfter) : null)
+  }
+}
+
 // Check if an error is a rate-limit (429) response.
 // Uses EmailAPIError.status when available (email-js >=0.x with structured errors),
 // falls back to parsing the error message for older versions.
@@ -60,13 +108,17 @@ async function moveToDlq(
   reason: string
 ): Promise<void> {
   const payload = msg.message
-  await supabase.from('email_send_log').insert({
+  const { error: dlqLogError } = await supabase.from('email_send_log').insert({
     message_id: payload.message_id,
     template_name: (payload.label || queue) as string,
     recipient_email: payload.to,
     status: 'dlq',
     error_message: reason,
+    company_id: payload.company_id ?? null,
   })
+  if (dlqLogError) {
+    console.error('Failed to log DLQ send', { queue, msg_id: msg.msg_id, code: dlqLogError.code, message: dlqLogError.message })
+  }
   const { error } = await supabase.rpc('move_to_dlq', {
     source_queue: queue,
     dlq_name: `${queue}_dlq`,
@@ -249,35 +301,79 @@ Deno.serve(async (req) => {
         }
       }
 
-      try {
-        await sendLovableEmail(
-          {
-            run_id: payload.run_id,
-            to: payload.to,
-            from: payload.from,
-            sender_domain: payload.sender_domain,
-            subject: payload.subject,
-            html: payload.html,
-            text: payload.text,
-            purpose: payload.purpose,
-            label: payload.label,
-            idempotency_key: payload.idempotency_key,
-            unsubscribe_token: payload.unsubscribe_token,
+      // A supressão vale para comunicação comercial e transaccional de produto.
+      // NUNCA para emails de autenticação: quem deu bounce ou cancelou marketing
+      // continua a precisar de recuperar a conta.
+      const isAuthEmail = queue === 'auth_emails' || payload.purpose === 'auth'
+      if (payload.to && !isAuthEmail) {
+        const recipient = String(payload.to).toLowerCase().trim()
+        let q = supabase.from('suppressed_emails').select('reason').eq('email', recipient)
+        if (payload.company_id) q = q.eq('company_id', payload.company_id)
+        const { data: suppressed, error: suppressionError } = await q.maybeSingle()
+
+        if (suppressionError) {
+          console.error('Suppression check failed', { queue, msg_id: msg.msg_id, code: suppressionError.code, message: suppressionError.message })
+          continue
+        }
+        if (suppressed) {
+          console.warn('Skipping suppressed recipient', { queue, msg_id: msg.msg_id, reason: suppressed.reason })
+          const { error: logError } = await supabase.from('email_send_log').insert({
             message_id: payload.message_id,
-          },
-          // sendUrl is optional — when LOVABLE_SEND_URL is not set, the library
-          // falls back to the default Lovable API endpoint (https://api.lovable.dev).
-          // Set LOVABLE_SEND_URL as a Supabase secret to override (e.g. for local dev).
-          { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') }
-        )
+            template_name: payload.label || queue,
+            recipient_email: payload.to,
+            status: 'suppressed',
+            error_message: `Recipient is suppressed (${suppressed.reason})`,
+            company_id: payload.company_id ?? null,
+          })
+          if (logError) console.error('Failed to log suppressed send', { code: logError.code, message: logError.message })
+          const { error: delError } = await supabase.rpc('delete_email', { queue_name: queue, message_id: msg.msg_id })
+          if (delError) console.error('Failed to delete suppressed message', { queue, msg_id: msg.msg_id, code: delError.code, message: delError.message })
+          continue
+        }
+      }
+
+      const senderDomain = typeof payload.sender_domain === 'string' ? payload.sender_domain : ''
+      const resendEnvVar = RESEND_DOMAINS[senderDomain]
+
+      try {
+        if (resendEnvVar) {
+          const resendKey = Deno.env.get(resendEnvVar)
+          if (!resendKey) throw new Error(`Missing ${resendEnvVar} for sender_domain ${senderDomain}`)
+          await sendViaResend(payload, resendKey)
+        } else {
+          await sendLovableEmail(
+            {
+              run_id: payload.run_id,
+              to: payload.to,
+              from: payload.from,
+              sender_domain: payload.sender_domain,
+              subject: payload.subject,
+              html: payload.html,
+              text: payload.text,
+              purpose: payload.purpose,
+              label: payload.label,
+              idempotency_key: payload.idempotency_key,
+              unsubscribe_token: payload.unsubscribe_token,
+              message_id: payload.message_id,
+            },
+            // sendUrl is optional — when LOVABLE_SEND_URL is not set, the library
+            // falls back to the default Lovable API endpoint (https://api.lovable.dev).
+            // Set LOVABLE_SEND_URL as a Supabase secret to override (e.g. for local dev).
+            { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') }
+          )
+        }
 
         // Log success
-        await supabase.from('email_send_log').insert({
+        const { error: sentLogError } = await supabase.from('email_send_log').insert({
           message_id: payload.message_id,
           template_name: payload.label || queue,
           recipient_email: payload.to,
           status: 'sent',
+          company_id: payload.company_id ?? null,
         })
+        if (sentLogError) {
+          console.error('Failed to log sent email', { queue, msg_id: msg.msg_id, code: sentLogError.code, message: sentLogError.message })
+        }
 
         // Delete from queue
         const { error: delError } = await supabase.rpc('delete_email', {
@@ -299,13 +395,17 @@ Deno.serve(async (req) => {
         })
 
         if (isRateLimited(error)) {
-          await supabase.from('email_send_log').insert({
+          const { error: rlLogError } = await supabase.from('email_send_log').insert({
             message_id: payload.message_id,
             template_name: payload.label || queue,
             recipient_email: payload.to,
             status: 'rate_limited',
             error_message: errorMsg.slice(0, 1000),
+            company_id: payload.company_id ?? null,
           })
+          if (rlLogError) {
+            console.error('Failed to log rate-limited send', { queue, msg_id: msg.msg_id, code: rlLogError.code, message: rlLogError.message })
+          }
 
           const retryAfterSecs = getRetryAfterSeconds(error)
           await supabase
@@ -336,13 +436,17 @@ Deno.serve(async (req) => {
         }
 
         // Log non-429 failures to track real retry attempts.
-        await supabase.from('email_send_log').insert({
+        const { error: failedLogError } = await supabase.from('email_send_log').insert({
           message_id: payload.message_id,
           template_name: payload.label || queue,
           recipient_email: payload.to,
           status: 'failed',
           error_message: errorMsg.slice(0, 1000),
+          company_id: payload.company_id ?? null,
         })
+        if (failedLogError) {
+          console.error('Failed to log failed send', { queue, msg_id: msg.msg_id, code: failedLogError.code, message: failedLogError.message })
+        }
         if (payload?.message_id && typeof payload.message_id === 'string') {
           failedAttemptsByMessageId.set(payload.message_id, failedAttempts + 1)
         }
