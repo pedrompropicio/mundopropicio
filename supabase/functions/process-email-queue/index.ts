@@ -301,35 +301,79 @@ Deno.serve(async (req) => {
         }
       }
 
-      try {
-        await sendLovableEmail(
-          {
-            run_id: payload.run_id,
-            to: payload.to,
-            from: payload.from,
-            sender_domain: payload.sender_domain,
-            subject: payload.subject,
-            html: payload.html,
-            text: payload.text,
-            purpose: payload.purpose,
-            label: payload.label,
-            idempotency_key: payload.idempotency_key,
-            unsubscribe_token: payload.unsubscribe_token,
+      // A supressão vale para comunicação comercial e transaccional de produto.
+      // NUNCA para emails de autenticação: quem deu bounce ou cancelou marketing
+      // continua a precisar de recuperar a conta.
+      const isAuthEmail = queue === 'auth_emails' || payload.purpose === 'auth'
+      if (payload.to && !isAuthEmail) {
+        const recipient = String(payload.to).toLowerCase().trim()
+        let q = supabase.from('suppressed_emails').select('reason').eq('email', recipient)
+        if (payload.company_id) q = q.eq('company_id', payload.company_id)
+        const { data: suppressed, error: suppressionError } = await q.maybeSingle()
+
+        if (suppressionError) {
+          console.error('Suppression check failed', { queue, msg_id: msg.msg_id, code: suppressionError.code, message: suppressionError.message })
+          continue
+        }
+        if (suppressed) {
+          console.warn('Skipping suppressed recipient', { queue, msg_id: msg.msg_id, reason: suppressed.reason })
+          const { error: logError } = await supabase.from('email_send_log').insert({
             message_id: payload.message_id,
-          },
-          // sendUrl is optional — when LOVABLE_SEND_URL is not set, the library
-          // falls back to the default Lovable API endpoint (https://api.lovable.dev).
-          // Set LOVABLE_SEND_URL as a Supabase secret to override (e.g. for local dev).
-          { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') }
-        )
+            template_name: payload.label || queue,
+            recipient_email: payload.to,
+            status: 'suppressed',
+            error_message: `Recipient is suppressed (${suppressed.reason})`,
+            company_id: payload.company_id ?? null,
+          })
+          if (logError) console.error('Failed to log suppressed send', { code: logError.code, message: logError.message })
+          const { error: delError } = await supabase.rpc('delete_email', { queue_name: queue, message_id: msg.msg_id })
+          if (delError) console.error('Failed to delete suppressed message', { queue, msg_id: msg.msg_id, code: delError.code, message: delError.message })
+          continue
+        }
+      }
+
+      const senderDomain = typeof payload.sender_domain === 'string' ? payload.sender_domain : ''
+      const resendEnvVar = RESEND_DOMAINS[senderDomain]
+
+      try {
+        if (resendEnvVar) {
+          const resendKey = Deno.env.get(resendEnvVar)
+          if (!resendKey) throw new Error(`Missing ${resendEnvVar} for sender_domain ${senderDomain}`)
+          await sendViaResend(payload, resendKey)
+        } else {
+          await sendLovableEmail(
+            {
+              run_id: payload.run_id,
+              to: payload.to,
+              from: payload.from,
+              sender_domain: payload.sender_domain,
+              subject: payload.subject,
+              html: payload.html,
+              text: payload.text,
+              purpose: payload.purpose,
+              label: payload.label,
+              idempotency_key: payload.idempotency_key,
+              unsubscribe_token: payload.unsubscribe_token,
+              message_id: payload.message_id,
+            },
+            // sendUrl is optional — when LOVABLE_SEND_URL is not set, the library
+            // falls back to the default Lovable API endpoint (https://api.lovable.dev).
+            // Set LOVABLE_SEND_URL as a Supabase secret to override (e.g. for local dev).
+            { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') }
+          )
+        }
 
         // Log success
-        await supabase.from('email_send_log').insert({
+        const { error: sentLogError } = await supabase.from('email_send_log').insert({
           message_id: payload.message_id,
           template_name: payload.label || queue,
           recipient_email: payload.to,
           status: 'sent',
+          company_id: payload.company_id ?? null,
         })
+        if (sentLogError) {
+          console.error('Failed to log sent email', { queue, msg_id: msg.msg_id, code: sentLogError.code, message: sentLogError.message })
+        }
 
         // Delete from queue
         const { error: delError } = await supabase.rpc('delete_email', {
