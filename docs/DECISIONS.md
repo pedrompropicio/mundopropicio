@@ -4114,3 +4114,8 @@ sem gravar nada. O corpo do pedido TEM de levar `"dry_run": false` explícito.
 
 `public.artist_ads_ads` passou a aceitar `p_platform` (omissão `'meta'`); com `'google'` lê `crm.google_ad` e as linhas `level='ad'` de `crm.ads_insights_breakdown_daily`.
 `public.artist_ads_campaign_settings(p_artist_id, p_campaign_id, p_platform)` é nova e devolve `jsonb` com a mesma forma nas duas plataformas.
+
+## D-ERP123 — `crm.decrypt_token` qualifica `extensions.pgp_sym_decrypt` (21/09/2026)
+
+A função `crm.decrypt_token(text, text)` estava partida porque chamava `pgp_sym_decrypt` sem qualificar; o `search_path` da função era `'crm','public'`, por isso qualquer chamada dava erro 42883 (`function pgp_sym_decrypt(bytea, text) does not exist`). Foi corrigida para `extensions.pgp_sym_decrypt`. Mantém a mesma assinatura, o mesmo `search_path`, a mesma ACL (`service_role` e `postgres`, sem `PUBLIC`) e continua fora de qualquer caminho vivo — o TikTok usa `public.crm_get_meta_decrypted_token`.
+
