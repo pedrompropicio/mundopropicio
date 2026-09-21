@@ -8,8 +8,18 @@ const DEFAULT_AUTH_TTL_MINUTES = 15
 const DEFAULT_TRANSACTIONAL_TTL_MINUTES = 60
 
 // Domínios cujo envio sai pela API do Resend em vez do Lovable Email.
+//
+// ⚠️ NÃO REMOVER EM REESCRITAS DESTE FICHEIRO.
+// Este encaminhamento foi apagado por uma reescrita entre 13 e 21/09/2026 e
+// 81 emails de confirmação do Coala falharam em silêncio até ser reposto.
+// Quem reescrever esta função preserva obrigatoriamente:
+//   (1) este mapa e o ramo `sendViaResend` no ciclo de envio;
+//   (2) a verificação de supressão antes de enviar, com a excepção dos emails
+//       de autenticação;
+//   (3) o `company_id` em TODOS os inserts em `email_send_log`.
 const RESEND_DOMAINS: Record<string, string> = {
   'notify.coalafestival.pt': 'RESEND_API_KEY_COALA',
+  'news.coalafestival.pt': 'RESEND_API_KEY_COALA',
 }
 
 class ResendAPIError extends Error {
