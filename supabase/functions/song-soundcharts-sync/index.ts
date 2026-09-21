@@ -354,7 +354,7 @@ Deno.serve(async (req) => {
       error_text: quotaError ?? (errors.length ? errors[0].error : null),
     });
 
-    return json(summary);
+    return json(summary, quotaError ? 429 : 200);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[${FUNCTION_NAME}]`, msg);
