@@ -1,6 +1,6 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-09-21 · Issues: #73, #78, #128, #129, #130, #155, #206 (transversal, plataforma-e-infra), #208, #211 (transversal, plataforma-e-infra) · Fechadas: #132, #145, #184, #198, #205, #207, #210
+Atualizado: 2026-09-21 · Issues: #73, #78, #128, #129, #130, #155, #206 (transversal, plataforma-e-infra), #208, #211, #228 (transversal, plataforma-e-infra) · Fechadas: #132, #145, #184, #198, #205, #207, #210
 
 ## Em que pé está
 
@@ -173,4 +173,4 @@ As 19 sessões à venda, verificadas na página pública do El Corte Inglés a 0
 - `docs/procedimentos/PROC-vendas-onebox-madrid.md` — captação do Madrid no servidor; `dry_run: false` obrigatório
 - `src/lib/ticket-office-balance.ts`, `src/lib/ticket-sales-revenue.ts`, `src/lib/ticket-office-settlement-calc.ts`
 - `docs/DECISIONS.md` — D-ERP15, D24, D57, D-ERP83, D-ERP121
-- Issues #73, #78, #128, #129, #130, #145
+- Issues #73, #78, #128, #129, #130, #145, #228
