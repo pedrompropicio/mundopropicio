@@ -238,6 +238,52 @@ Deno.serve(async (req) => {
     });
   }
 
+  // ------------------------------------------------------------------------
+  // D-ERP125 (A3-bis) — descoberta automática dos SONS de cada música mapeada.
+  // Para cada group_id conhecido pedimos a lista de clips do painel e fazemos
+  // upsert em public.artist_song_tiktok_sounds (discovered_via='panel',
+  // status='validated'). Nunca apaga nada.
+  // ------------------------------------------------------------------------
+  const clipNotes: string[] = [];
+  let clipsUpserted = 0;
+  for (const [groupId, alvo] of mapa) {
+    const clips = await fetchClips(cookie, groupId);
+    apiCalls++;
+    if (!clips.ok) {
+      clipNotes.push(`clips de ${groupId}: ${clips.motivo}`);
+      if (clips.motivo === "sessao_invalida") break;
+      continue;
+    }
+    if (clips.items.length === 0) continue;
+    const rows = clips.items.map((c) => ({
+      company_id: alvo.company_id,
+      artist_id: alvo.artist_id,
+      song_id: alvo.song_id,
+      music_id: c.music_id,
+      title: c.clip_name,
+      is_official: c.is_pgc,
+      is_original_sound: !c.is_pgc,
+      status: "validated",
+      discovered_via: "panel",
+      validated_at: new Date().toISOString(),
+    }));
+    if (dryRun) {
+      clipNotes.push(`${rows.length} som(ns) do painel em ${groupId} (dry-run, não gravado)`);
+      continue;
+    }
+    const { error } = await admin
+      .from("artist_song_tiktok_sounds")
+      .upsert(rows, { onConflict: "song_id,music_id", ignoreDuplicates: false });
+    if (error) {
+      clipNotes.push(`upsert de sons do painel (${groupId}) falhou: ${error.message}`);
+    } else {
+      clipsUpserted += rows.length;
+    }
+  }
+  if (clipsUpserted > 0) clipNotes.push(`${clipsUpserted} som(ns) do painel gravados`);
+
+
+
 
 
   const notes: string[] = [];
