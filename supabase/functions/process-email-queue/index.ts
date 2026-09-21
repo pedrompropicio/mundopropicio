@@ -108,13 +108,17 @@ async function moveToDlq(
   reason: string
 ): Promise<void> {
   const payload = msg.message
-  await supabase.from('email_send_log').insert({
+  const { error: dlqLogError } = await supabase.from('email_send_log').insert({
     message_id: payload.message_id,
     template_name: (payload.label || queue) as string,
     recipient_email: payload.to,
     status: 'dlq',
     error_message: reason,
+    company_id: payload.company_id ?? null,
   })
+  if (dlqLogError) {
+    console.error('Failed to log DLQ send', { queue, msg_id: msg.msg_id, code: dlqLogError.code, message: dlqLogError.message })
+  }
   const { error } = await supabase.rpc('move_to_dlq', {
     source_queue: queue,
     dlq_name: `${queue}_dlq`,
