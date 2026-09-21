@@ -175,27 +175,6 @@ Deno.serve(async (req) => {
     dry_run: dryRun,
   });
 
-  // Mapa group_id → música
-  const { data: sounds, error: soundsError } = await admin
-    .from("artist_song_tiktok_sounds")
-    .select("group_id, song_id, artist_id, company_id");
-  if (soundsError) {
-    await finishSyncRun(admin, runId, startedMs, {
-      status: "error",
-      api_calls: 0,
-      rows_written: 0,
-      error_text: `artist_song_tiktok_sounds: ${soundsError.message}`,
-    });
-    return json({ ok: false, motivo: "tabela_mapa_indisponivel", detalhe: soundsError.message }, 424);
-  }
-  const mapa = new Map<string, { song_id: string; artist_id: string; company_id: string }>();
-  for (const s of (sounds ?? []) as Json[]) {
-    mapa.set(String(s.group_id), {
-      song_id: String(s.song_id),
-      artist_id: String(s.artist_id),
-      company_id: String(s.company_id),
-    });
-  }
 
   let apiCalls = 0;
   const songs: Json[] = [];
