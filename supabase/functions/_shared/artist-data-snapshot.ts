@@ -441,22 +441,42 @@ export async function buildArtistDataSnapshot(p: ArtistDataSnapshotParams) {
       if (doTipo.length === 0) continue;
       const ultima = doTipo.map((d: Any) => String(d.snapshot_date)).sort().pop() ?? null;
       const linhas = doTipo.filter((d: Any) => String(d.snapshot_date) === ultima);
+      // `unit` manda: 'count' são contagens (a quota calcula-se sobre o total das
+      // contagens) e 'pct' JÁ É a quota da plataforma (nunca é contagem). Valores de
+      // `unit` diferentes NUNCA se somam — nem dentro da dimensão, nem entre dimensões.
       const porDim = (dim: string) => {
         const ls = linhas.filter((l: Any) => String(l.dimension) === dim);
-        const total = ls.reduce((s: number, l: Any) => s + Number(l.value ?? 0), 0);
+        const totalCount = ls
+          .filter((l: Any) => String(l.unit ?? "count") === "count")
+          .reduce((s: number, l: Any) => s + Number(l.value ?? 0), 0);
         return ls
-          .map((l: Any) => ({
-            chave: l.dim_key,
-            valor: Number(l.value ?? 0),
-            quota_pct: total > 0 ? Math.round((Number(l.value ?? 0) / total) * 1000) / 10 : null,
-          }))
-          .sort((a, b) => b.valor - a.valor);
+          .map((l: Any) => {
+            const unit = String(l.unit ?? "count");
+            const v = Number(l.value ?? 0);
+            return unit === "pct"
+              ? { chave: l.dim_key, unit, valor: null as number | null, quota_pct: v }
+              : {
+                chave: l.dim_key,
+                unit,
+                valor: v as number | null,
+                quota_pct: totalCount > 0 ? Math.round((v / totalCount) * 1000) / 10 : null,
+              };
+          })
+          .sort((a, b) => Number(b.quota_pct ?? 0) - Number(a.quota_pct ?? 0));
       };
+      const unidades = [...new Set(linhas.map((l: Any) => String(l.unit ?? "count")))].sort();
+      if (unidades.length > 1) {
+        const dims = [...new Set(linhas.map((l: Any) => String(l.dimension)))].sort().join(", ");
+        avisos.push(
+          `demografia com unidades misturadas em ${plat} / ${tipo} (dimensões: ${dims}) — contagens (count) e percentagens (pct) lado a lado: não somar`,
+        );
+      }
       porTipo[g] = {
         platform: plat,
         audience_type: tipo,
         snapshot_date: ultima,
         timeframe: linhas[0]?.timeframe ?? null,
+        unidades,
         age: porDim("age"),
         gender: porDim("gender"),
       };
