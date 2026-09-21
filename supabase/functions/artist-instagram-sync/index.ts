@@ -701,7 +701,7 @@ Deno.serve(async (req) => {
   const resBody = {
     ok: errors.length === 0,
     dry_run: dryRun,
-    params: { max_media: maxMedia },
+    params: { max_media: maxMedia, dias_metricas: diasMetricas },
     graph_version: "v25.0",
     connections: connections.length,
     graph_calls: graphCalls,
