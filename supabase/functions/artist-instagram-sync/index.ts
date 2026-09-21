@@ -193,6 +193,7 @@ Deno.serve(async (req) => {
       instagram_username: conn.external_account_username,
       account_metrics: {} as Record<string, number>,
       insights: {} as Record<string, number>,
+      insights_por_dia: [] as Array<Record<string, unknown>>,
       demographics: 0,
       content: 0,
       content_metrics: 0,
