@@ -1,6 +1,6 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-09-21 · Issues: #73, #78, #128, #129, #130, #155, #206 (transversal, plataforma-e-infra), #208, #211, #228 (transversal, plataforma-e-infra) · Fechadas: #132, #145, #184, #198, #205, #207, #210
+Atualizado: 2026-09-21 · Issues: #73, #78, #128, #129, #130, #155, #206 (transversal, plataforma-e-infra), #208, #211 (transversal, plataforma-e-infra), #228 · Fechadas: #132, #145, #184, #198, #205, #207, #210
 
 ## Em que pé está
 
