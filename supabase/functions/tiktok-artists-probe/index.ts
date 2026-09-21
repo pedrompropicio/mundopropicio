@@ -1,7 +1,12 @@
 // Sonda de leitura para o TikTok Artists (artists.tiktok.com).
 // NÃO escreve em nenhuma tabela, não cria sync_runs nem crons.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 const API_URL = "https://artists.tiktok.com/tiktok/artist_api/ttfa/song_data/list/v1";
 const DEFAULT_ARTIST_USER_ID = "6812764850029970437";
@@ -52,15 +57,12 @@ async function authorize(req: Request): Promise<{ ok: true; userId: string } | {
   return { ok: true, userId };
 }
 
-function isLoginRedirect(status: number, headers: Headers, bodyText: string): boolean {
+function isLoginRedirect(status: number, headers: Headers): boolean {
   if (status >= 300 && status < 400) {
-    const location = headers.get("Location") || "";
-    if (location.toLowerCase().includes("login") || location.toLowerCase().includes("signin")) {
-      return true;
-    }
+    const location = (headers.get("Location") || "").toLowerCase();
+    return location.includes("login") || location.includes("signin");
   }
-  const lower = bodyText.toLowerCase();
-  return lower.includes("login") || lower.includes("sign in") || lower.includes("session expired");
+  return false;
 }
 
 function pickSample(songs: any[]) {
@@ -111,6 +113,7 @@ Deno.serve(async (req) => {
         Cookie: cookie,
       },
       body: JSON.stringify(payload),
+      redirect: "manual",
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
@@ -118,19 +121,11 @@ Deno.serve(async (req) => {
     const bytes = new TextEncoder().encode(text).length;
     const excerto = text.slice(0, 300);
 
-    if (res.status === 401 || res.status === 403 || isLoginRedirect(res.status, res.headers, text)) {
+    if (res.status === 401 || res.status === 403 || isLoginRedirect(res.status, res.headers)) {
       return jsonResponse(200, {
         ok: false,
         http_status: res.status,
         motivo: "sessao_invalida",
-        excerto,
-      });
-    }
-
-    if (!res.ok) {
-      return jsonResponse(200, {
-        ok: false,
-        http_status: res.status,
         excerto,
       });
     }
@@ -143,6 +138,14 @@ Deno.serve(async (req) => {
         ok: false,
         http_status: res.status,
         motivo: "sessao_invalida",
+        excerto,
+      });
+    }
+
+    if (!res.ok) {
+      return jsonResponse(200, {
+        ok: false,
+        http_status: res.status,
         excerto,
       });
     }
