@@ -40,7 +40,15 @@ export async function getSoundchartsToken(): Promise<string> {
     },
     body: "grant_type=client_credentials",
   });
-  if (!res.ok) throw new Error(`Soundcharts auth failed (HTTP ${res.status})`);
+  if (!res.ok) {
+    let detail = "";
+    try {
+      detail = (await res.text()).slice(0, 400);
+    } catch (_e) {
+      detail = "";
+    }
+    throw new SoundchartsHttpError(res.status, detail);
+  }
   const body = await res.json();
   const token = body?.access_token ?? body?.token;
   if (!token) throw new Error("Soundcharts auth failed (no access_token)");

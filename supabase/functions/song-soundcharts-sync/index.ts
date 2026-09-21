@@ -178,7 +178,6 @@ Deno.serve(async (req) => {
     let totalPlaylists = 0;
     let quotaError: string | null = null;
 
-    songsLoop:
     for (let songIndex = 0; songIndex < songs.length; songIndex++) {
       const song = songs[songIndex];
       const scUuid = song.soundcharts_uuid as string;
@@ -221,7 +220,7 @@ Deno.serve(async (req) => {
             quotaError = soundchartsQuotaMessage(e, songs.length - songIndex);
             errors.push({ song_id: song.id as string, platform, error: quotaError });
             notes.push(quotaError);
-            break songsLoop;
+            break;
           }
           const status = (e as { status?: number })?.status;
           if (status === 403 || status === 404) {
@@ -254,7 +253,7 @@ Deno.serve(async (req) => {
 
       // ---------------- playlists atuais
       let playlistCount = 0;
-      for (const platform of PLAYLIST_PLATFORMS) {
+      for (const platform of quotaError ? [] : PLAYLIST_PLATFORMS) {
         try {
           const body = await client.get(
             `/api/v2.20/song/${scUuid}/playlist/current/${platform}?currentOnly=0&limit=100&sortBy=position&sortOrder=asc`,
@@ -305,7 +304,7 @@ Deno.serve(async (req) => {
             quotaError = soundchartsQuotaMessage(e, songs.length - songIndex);
             errors.push({ song_id: song.id as string, platform: `playlist:${platform}`, error: quotaError });
             notes.push(quotaError);
-            break songsLoop;
+            break;
           }
           const status = (e as { status?: number })?.status;
           if (status === 403 || status === 404) {
@@ -329,6 +328,7 @@ Deno.serve(async (req) => {
         metric_rows: rows.length,
         playlists: playlistCount,
       });
+      if (quotaError) break;
     }
 
     calls = client.calls;
