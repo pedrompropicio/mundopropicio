@@ -151,6 +151,72 @@ async function fetchPage(cookie: string, artistUserId: string, from: number): Pr
   return { ok: true, envelope: data, songs, total };
 }
 
+type PanelClip = { music_id: string; clip_name: string | null; is_pgc: boolean };
+
+type ClipResult =
+  | { ok: true; items: PanelClip[] }
+  | { ok: false; motivo: "sessao_invalida" | "rede" | "http" };
+
+/**
+ * Sons (clips) de uma música do painel. A resposta traz listas cujos nomes
+ * começam por 'pgc' (som oficial) ou 'ugc' (som do utilizador); aceitamos
+ * ambas as formas (listas separadas ou lista única com o tipo no item).
+ */
+async function fetchClips(cookie: string, groupId: string): Promise<ClipResult> {
+  let res: Response;
+  try {
+    res = await fetch(CLIP_API_URL, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Cookie: cookie,
+      },
+      body: JSON.stringify({ group_id: groupId }),
+      redirect: "manual",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch (_e) {
+    return { ok: false, motivo: "rede" };
+  }
+  const text = await res.text();
+  if (res.status === 401 || res.status === 403 || isLoginRedirect(res.status, res.headers)) {
+    return { ok: false, motivo: "sessao_invalida" };
+  }
+  let data: Json;
+  try {
+    data = JSON.parse(text) as Json;
+  } catch (_e) {
+    return { ok: false, motivo: "sessao_invalida" };
+  }
+  if (!res.ok) return { ok: false, motivo: "http" };
+
+  const items: PanelClip[] = [];
+  const push = (raw: Json, pgcHint: boolean | null) => {
+    const id = raw.music_id ?? raw.clip_id ?? raw.id;
+    if (id == null) return;
+    const tipo = String(raw.clip_type ?? raw.type ?? "").toLowerCase();
+    const isPgc = pgcHint ?? (tipo.startsWith("pgc") || raw.is_official === true);
+    items.push({
+      music_id: String(id),
+      clip_name: typeof raw.clip_name === "string" ? raw.clip_name : null,
+      is_pgc: isPgc,
+    });
+  };
+  for (const [key, value] of Object.entries(data)) {
+    const k = key.toLowerCase();
+    if (!Array.isArray(value)) continue;
+    if (k.startsWith("pgc")) {
+      for (const v of value) push(v as Json, true);
+    } else if (k.startsWith("ugc")) {
+      for (const v of value) push(v as Json, false);
+    } else if (k.includes("clip")) {
+      for (const v of value) push(v as Json, null);
+    }
+  }
+  return { ok: true, items };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
