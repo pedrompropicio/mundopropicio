@@ -4049,3 +4049,35 @@ página seguinte. O que já foi apurado pode ser gravado, a execução termina c
 `quota Soundcharts esgotada (429)`, a mensagem da API e a quantidade de itens que
 ficou por tratar. O travão reduz desperdício depois de esgotar a quota mensal; não
 altera crons nem a cadência, que continuam a depender de decisão operacional.
+
+## D-ERP120 — Top 5 da demografia por plataforma × unit, ordenado por quota (21/09/2026)
+
+O bloco `demografia` do snapshot do relatório de lançamento
+(`_shared/artist-song-snapshot.ts`) deixou de misturar plataformas e unidades na
+mesma lista. O corte nos 5 primeiros faz-se AGORA por grupo plataforma × `unit`,
+ordenado por quota e nunca pelo valor bruto:
+
+- linhas `unit='count'`: `quota_pct = valor / total das contagens do grupo`;
+- linhas `unit='pct'`: a quota é o próprio valor e `valor` sai `null`.
+
+Nada se soma nem se compara entre plataformas nem entre unidades.
+
+Forma do bloco depois da alteração (chaves antigas mantidas; novas acrescentadas):
+
+```text
+demografia: {
+  snapshot: string,                        // snapshot_date mais recente
+  top_cidades: DemoEntrada[],              // top 5 da plataforma com mais linhas
+  top_cidades_plataforma: string | null,   // qual é essa plataforma
+  top_faixas_etarias: DemoEntrada[],       // idem
+  top_faixas_etarias_plataforma: string | null,
+  top_cidades_por_plataforma: [{ platform, unit, entradas: DemoEntrada[] }],
+  top_faixas_etarias_por_plataforma: [{ platform, unit, entradas: DemoEntrada[] }],
+}
+DemoEntrada: { chave, platform, unit, valor: number|null, quota_pct: number }
+```
+
+Sem DDL, sem migrações, sem tocar em `crm.*`. Motivo: desde 20/09/2026 há linhas
+`unit='pct'` do TikTok (age/gender/country) ao lado das contagens do Instagram e
+do Spotify; o corte por valor bruto deitava fora as percentagens e misturava
+plataformas na mesma lista.

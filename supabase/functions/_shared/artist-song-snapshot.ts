@@ -389,19 +389,59 @@ export async function buildSnapshot(admin: Admin, songId: string, days: number) 
   const lastSnap = demoRows?.[0]?.snapshot_date ?? null;
   const demoLatest = (demoRows ?? []).filter((r: Row) => r.snapshot_date === lastSnap);
   // `unit` acompanha sempre o número: 'count' é contagem, 'pct' é quota já em
-  // percentagem da plataforma. Valores de `unit` diferentes não se somam.
-  const topDim = (dim: string) =>
-    demoLatest.filter((r: Row) => r.dimension === dim)
-      .sort((a: Row, b: Row) => num(b.value) - num(a.value))
-      .slice(0, 5)
-      .map((r: Row) => ({
-        chave: r.dim_key,
-        valor: num(r.value),
-        unit: String(r.unit ?? "count"),
-        platform: r.platform ?? null,
-      }));
+  // percentagem da plataforma. Valores de `unit` diferentes não se somam nem
+  // se comparam em bruto — o top 5 faz-se por plataforma × unit, ordenado por
+  // quota (count: valor / total das contagens do grupo; pct: o próprio valor).
+  interface DemoEntrada {
+    chave: string;
+    platform: string | null;
+    unit: string;
+    valor: number | null;
+    quota_pct: number;
+  }
+  const round2 = (v: number) => Math.round(v * 100) / 100;
+  const topDimPorPlataforma = (dim: string) => {
+    const rows = demoLatest.filter((r: Row) => r.dimension === dim);
+    const grupos = new Map<string, Row[]>(); // chave: platform|unit
+    for (const r of rows) {
+      const k = `${r.platform ?? ""}|${String(r.unit ?? "count")}`;
+      if (!grupos.has(k)) grupos.set(k, []);
+      grupos.get(k)!.push(r);
+    }
+    return [...grupos.entries()].map(([k, list]) => {
+      const [platform, unit] = k.split("|");
+      const totalCount = unit === "count"
+        ? list.reduce((s: number, r: Row) => s + num(r.value), 0)
+        : 0;
+      const entradas: DemoEntrada[] = list
+        .map((r: Row): DemoEntrada => ({
+          chave: String(r.dim_key),
+          platform: platform || null,
+          unit,
+          valor: unit === "pct" ? null : num(r.value),
+          quota_pct: unit === "pct"
+            ? round2(num(r.value))
+            : (totalCount > 0 ? round2((num(r.value) / totalCount) * 100) : 0),
+        }))
+        .sort((a, b) => b.quota_pct - a.quota_pct)
+        .slice(0, 5);
+      return { platform: platform || null, unit, linhas: list.length, entradas };
+    }).sort((a, b) => b.linhas - a.linhas);
+  };
+  // Chaves legadas apontam para a plataforma com mais linhas (sem misturar
+  // plataformas); as novas trazem o top 5 por plataforma × unit.
+  const cidadesGrupos = topDimPorPlataforma("city");
+  const idadesGrupos = topDimPorPlataforma("age");
   const demografia = lastSnap
-    ? { snapshot: lastSnap, top_cidades: topDim("city"), top_faixas_etarias: topDim("age") }
+    ? {
+      snapshot: lastSnap,
+      top_cidades: cidadesGrupos[0]?.entradas ?? [],
+      top_cidades_plataforma: cidadesGrupos[0]?.platform ?? null,
+      top_faixas_etarias: idadesGrupos[0]?.entradas ?? [],
+      top_faixas_etarias_plataforma: idadesGrupos[0]?.platform ?? null,
+      top_cidades_por_plataforma: cidadesGrupos.map(({ platform, unit, entradas }) => ({ platform, unit, entradas })),
+      top_faixas_etarias_por_plataforma: idadesGrupos.map(({ platform, unit, entradas }) => ({ platform, unit, entradas })),
+    }
     : null;
   if (!demografia) lacunas.push("sem demografia de audiência do artista");
 
