@@ -215,6 +215,62 @@ Deno.serve(async (req) => {
     const dryRun = payload.dry_run === true;
     const onlyArtist = payload.artist_id ?? null;
 
+    // MODO SONDA (D-ERP118, 21/set/2026): diagnóstico de leitura ao endpoint
+    // «Get local streaming audience» (GET /api/v2/artist/{uuid}/streaming/spotify).
+    // UMA chamada, sem gravar nada — sai ANTES de startSyncRun, logo nem
+    // sync_runs é registado. Serve para saber se o plano inclui o endpoint
+    // (403 "not included in your current plan") antes de decidir upgrade.
+    if ((payload as { sonda?: boolean }).sonda === true) {
+      if (!onlyArtist) return json({ error: "sonda exige artist_id" }, 400);
+
+      const { data: agg, error: aggErr } = await admin
+        .from("artist_channels")
+        .select("external_id")
+        .eq("platform", "aggregator")
+        .eq("artist_id", onlyArtist)
+        .maybeSingle();
+      if (aggErr) return json({ error: `artist_channels: ${aggErr.message}` }, 500);
+      if (!agg?.external_id) {
+        return json({ error: "artista sem canal 'aggregator' (uuid Soundcharts)" }, 404);
+      }
+
+      const path = `/api/v2/artist/${agg.external_id}/streaming/spotify`;
+      const token = await getSoundchartsToken();
+      let httpStatus = 0;
+      let errorMessage: string | null = null;
+      let itemsCount: number | null = null;
+      let firstItemKeys: string[] = [];
+      try {
+        const res = await fetch(`${SC_BASE}${path}`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+          signal: AbortSignal.timeout(25_000),
+        });
+        httpStatus = res.status;
+        const text = await res.text();
+        if (res.ok) {
+          const body = JSON.parse(text);
+          const items = Array.isArray(body?.items) ? body.items : [];
+          itemsCount = items.length;
+          if (items.length && typeof items[0] === "object" && items[0] !== null) {
+            firstItemKeys = Object.keys(items[0]).slice(0, 3);
+          }
+        } else {
+          errorMessage = text.slice(0, 400);
+        }
+      } catch (e) {
+        errorMessage = e instanceof Error ? e.message : String(e);
+      }
+      return json({
+        sonda: true,
+        artist_id: onlyArtist,
+        url: `${SC_BASE}${path}`,
+        http_status: httpStatus,
+        error_message: errorMessage,
+        items_count: itemsCount,
+        first_item_keys: firstItemKeys,
+      });
+    }
+
     // roster_type: 'elenco' | 'referencia' | omitido (todos)
     let rosterType: string | null = null;
     if (payload.roster_type != null) {
