@@ -3959,3 +3959,30 @@ Motor: `public.anonymize_traffic_events(_days integer default 180)` (SECURITY DE
 só `service_role`, sem `EXCEPTION WHEN OTHERS`, devolve as duas contagens) + cron diário
 `traffic-events-anonymize` às 03:40 UTC. Primeira execução real deu (0, 0) — nenhuma
 linha tinha ainda 180 dias.
+
+## D-ERP116 — Métricas de conta do Instagram: um valor por DIA FECHADO (21/09/2026)
+
+As quatro métricas de conta pedidas com `metric_type=total_value` — `views`,
+`accounts_engaged`, `total_interactions`, `profile_links_taps` — eram pedidas com a
+janela `since=ontem, until=hoje`. A Graph API inclui os dois extremos, por isso cada
+`metric_date` guardava o total de ~2 dias e crescia durante o dia seguinte (prova:
+`views` de 2026-09-19 tinha 78.515 às 00:45 UTC de 20/09 e 99.562 depois do cron das
+09:20 UTC do mesmo dia). Os valores não eram somáveis nem comparáveis entre dias.
+
+Passam a ser pedidas UMA VEZ POR MÉTRICA E POR DIA, com a janela do próprio dia
+(`since = until = dia`), e gravadas com `metric_date = dia`. Só dias já fechados
+(`hoje - 1`, `hoje - 2`, …), número configurável no corpo (`dias_metricas`, omissão 3,
+mínimo 1, máximo 30). Nunca se grava um valor cuja janela inclua hoje, e nunca se
+regressa à janela de 2 dias como recurso: erro ou resposta sem valores → nada gravado
+e nota em `notes` com o dia, a janela e a mensagem da API. Cada valor gravado aparece
+em `insights_por_dia` do resumo por ligação, com `{ metrica, dia, since, until, valor }`.
+O laço novo conta para `INVOKE_BUDGET_MS`; esgotado o tempo, para e deixa nota com os
+dias em falta.
+
+`reach` fica como estava (`period=day`, sem `metric_type`, série diária real com
+`end_time`), para não alterar a série existente.
+
+Nada se apaga: os valores gravados antes de hoje com a janela de 2 dias ficam
+corrigidos à medida que os dias forem recolhidos outra vez (o upsert tem chave
+`artist_id,platform,metric,metric_date,source`), e por omissão cada corrida recolhe
+os 3 últimos dias fechados.
