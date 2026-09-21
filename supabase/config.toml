@@ -223,3 +223,8 @@ verify_jwt = false
 # Só leitura: não escreve em tabelas nem cria sync_runs/crons.
 [functions.tiktok-artists-probe]
 verify_jwt = true
+
+# Fase 2 do leitor do TikTok for Artists (D-ERP124). Sonda e sync partilham o
+# cookie TIKTOK_ARTISTS_COOKIE; aceita tambem chamada interna por service role.
+[functions.tiktok-artists-sync]
+verify_jwt = true
