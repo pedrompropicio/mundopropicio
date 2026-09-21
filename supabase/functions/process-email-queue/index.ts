@@ -7,6 +7,54 @@ const DEFAULT_SEND_DELAY_MS = 200
 const DEFAULT_AUTH_TTL_MINUTES = 15
 const DEFAULT_TRANSACTIONAL_TTL_MINUTES = 60
 
+// Domínios cujo envio sai pela API do Resend em vez do Lovable Email.
+const RESEND_DOMAINS: Record<string, string> = {
+  'notify.coalafestival.pt': 'RESEND_API_KEY_COALA',
+}
+
+class ResendAPIError extends Error {
+  status: number
+  retryAfterSeconds: number | null
+  constructor(status: number, message: string, retryAfterSeconds: number | null = null) {
+    super(message); this.name = 'ResendAPIError'
+    this.status = status; this.retryAfterSeconds = retryAfterSeconds
+  }
+}
+
+async function sendViaResend(payload: Record<string, any>, apiKey: string): Promise<void> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  }
+  if (payload.idempotency_key) headers['Idempotency-Key'] = String(payload.idempotency_key)
+
+  const body: Record<string, unknown> = {
+    from: payload.from, to: [payload.to], subject: payload.subject,
+  }
+  if (payload.html) body.html = payload.html
+  if (payload.text) body.text = payload.text
+  if (payload.reply_to) body.reply_to = payload.reply_to
+
+  const unsubOneClick = payload.unsubscribe_http_url || payload.unsubscribe_url
+  if (unsubOneClick) {
+    body.headers = {
+      'List-Unsubscribe': `<${unsubOneClick}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    }
+  }
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST', headers, body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const detail = await res.text()
+    const retryAfter = res.headers.get('retry-after')
+    throw new ResendAPIError(res.status,
+      `Resend API ${res.status}: ${detail.slice(0, 500)}`,
+      retryAfter ? Number(retryAfter) : null)
+  }
+}
+
 // Check if an error is a rate-limit (429) response.
 // Uses EmailAPIError.status when available (email-js >=0.x with structured errors),
 // falls back to parsing the error message for older versions.
