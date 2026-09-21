@@ -422,7 +422,7 @@ export async function buildArtistDataSnapshot(p: ArtistDataSnapshotParams) {
 
     const { data: demoRaw, error: demoErr } = await user
       .from("artist_audience_demographics")
-      .select("platform, audience_type, dimension, dim_key, value, timeframe, snapshot_date, source")
+      .select("platform, audience_type, dimension, dim_key, value, unit, timeframe, snapshot_date, source")
       .eq("artist_id", artistId)
       .order("snapshot_date", { ascending: false })
       .limit(600);
