@@ -454,11 +454,13 @@ Deno.serve(async (req) => {
             notes.push(`${artist.name}: ${platform} indisponível neste endpoint (HTTP ${status ?? "?"})`);
             seenByPlatform[platform] = 0;
           } else {
+            const message = (e as Error)?.message ?? String(e);
             errors.push({
               artist_id: artist.id,
               platform,
-              error: (e as Error)?.message ?? String(e),
+              error: message,
             });
+            notes.push(`${artist.name}: ${platform} — ${message}`);
           }
         }
       }

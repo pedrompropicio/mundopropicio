@@ -590,6 +590,7 @@ Deno.serve(async (req) => {
       series_by_artist: seriesSummary,
       platform_status: platformStatus,
       last_crawl_date: lastCrawl,
+      notes: errors.map((error) => `${error.platform}: ${error.error}`),
       errors,
     };
 
@@ -612,6 +613,6 @@ Deno.serve(async (req) => {
       error_text: msg,
       details: { dry_run: runDryRun, notes: [msg] },
     });
-    return json({ error: e instanceof Error ? e.message : "Internal error" }, 500);
+    return json({ error: msg, notes: [msg] }, 500);
   }
 });

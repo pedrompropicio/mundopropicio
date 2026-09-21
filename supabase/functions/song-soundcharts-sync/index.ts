@@ -227,11 +227,13 @@ Deno.serve(async (req) => {
             notes.push(`${song.title}: ${platform} sem acesso/sem dados (HTTP ${status})`);
             metricsBySong[platform] = 0;
           } else {
+            const message = (e as Error)?.message ?? String(e);
             errors.push({
               song_id: song.id as string,
               platform,
-              error: (e as Error)?.message ?? String(e),
+              error: message,
             });
+            notes.push(`${song.title}: ${platform} — ${message}`);
           }
         }
       }
@@ -310,11 +312,13 @@ Deno.serve(async (req) => {
           if (status === 403 || status === 404) {
             notes.push(`${song.title}: playlists ${platform} sem acesso/sem dados (HTTP ${status})`);
           } else {
+            const message = (e as Error)?.message ?? String(e);
             errors.push({
               song_id: song.id as string,
               platform: `playlist:${platform}`,
-              error: (e as Error)?.message ?? String(e),
+              error: message,
             });
+            notes.push(`${song.title}: playlists ${platform} — ${message}`);
           }
         }
       }

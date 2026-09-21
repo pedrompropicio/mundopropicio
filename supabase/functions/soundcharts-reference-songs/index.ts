@@ -139,7 +139,9 @@ Deno.serve(async (req) => {
           notes.push(quotaError);
           break artistsLoop;
         }
-        errors.push({ artist_id: artist.id as string, error: (e as Error)?.message ?? String(e) });
+        const message = (e as Error)?.message ?? String(e);
+        errors.push({ artist_id: artist.id as string, error: message });
+        notes.push(`${artist.name}: ${message}`);
         continue;
       }
 
@@ -238,6 +240,7 @@ Deno.serve(async (req) => {
         if (!call.ok) {
           const callError = `sync ${t.title}: ${call.error ?? "erro"}`;
           errors.push({ artist_id: "-", error: callError });
+          notes.push(callError);
           if (call.status === 429 || /quota Soundcharts esgotada|HTTP 429/i.test(callError)) {
             quotaError = `quota Soundcharts esgotada (429) — ${callError}; ${syncTargets.length - targetIndex} item(ns) por tratar`;
             notes.push(quotaError);
