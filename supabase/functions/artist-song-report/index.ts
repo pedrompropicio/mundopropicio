@@ -68,7 +68,7 @@ REGRAS DE FRESCURA:
 16. Todo número de registro manual (tiktok_ugc_publicacoes, métricas s4a_*, streams por playlist) é citado com a data do dado: "7.320 publicações (registro de 18/09)". Use tiktok_ugc_data, spotify_for_artists.snapshot e metricas_da_musica[].data.
 17. Ritmo por dia: use só o campo de ritmo que vem no snapshot. É PROIBIDO recalcular dividindo por outra idade e é PROIBIDO chamar um total acumulado de "por dia".
 18. Se frescura.ugc_dias_de_atraso for maior que 2, inclua em sinais_de_alerta "UGC TikTok desatualizado: último registro em DD/MM" e não descreva tendência de UGC. O mesmo para frescura.s4a_dias_de_atraso maior que 8. Se frescura.benchmark_ugc_dias_de_atraso for maior que 2, diga na comparação de UGC que os comparáveis têm registro de DD/MM e não conclua ultrapassagens por margens pequenas.
-19. UNIDADES DA AUDIÊNCIA — os números de audiência vêm com `unit`: 'count' é contagem e 'pct' é já uma quota da plataforma, em percentagem. É PROIBIDO somar ou comparar valores de `unit` diferentes (nem dentro da mesma dimensão, nem entre dimensões). Ao citar um número de audiência diga sempre a plataforma, o tipo de audiência, a data do snapshot e, quando for percentagem, diga que é percentagem.`;
+19. UNIDADES DA AUDIÊNCIA — os números de audiência vêm com "unit": 'count' é contagem e 'pct' é já uma quota da plataforma, em percentagem. É PROIBIDO somar ou comparar valores de "unit" diferentes (nem dentro da mesma dimensão, nem entre dimensões). Ao citar um número de audiência diga sempre a plataforma, o tipo de audiência, a data do snapshot e, quando for percentagem, diga que é percentagem.`;
 
 
 const REPORT_TOOL = {
