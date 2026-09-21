@@ -4081,3 +4081,31 @@ Sem DDL, sem migrações, sem tocar em `crm.*`. Motivo: desde 20/09/2026 há lin
 `unit='pct'` do TikTok (age/gender/country) ao lado das contagens do Instagram e
 do Spotify; o corte por valor bruto deitava fora as percentagens e misturava
 plataformas na mesma lista.
+
+## D-ERP121 — A captação do Madrid corre no servidor; o Chrome fica como recurso morto (21/09/2026)
+
+As vendas do **H&K Madrid** (`bf9ce2d8-754e-4485-8427-e2d486c39919`) passam a ser captadas
+pela edge function **`fetch-onebox-dashboard`**, com login próprio no painel Superset da
+Onebox (secrets `ONEBOX_DASH_USER` / `ONEBOX_DASH_PASSWORD`), cron **`onebox-sync-hourly`**
+(jobid 349, `35 * * * *`, 24 horas por dia). O modelo anterior — duas tarefas agendadas a
+ler o painel com a sessão do Chrome do Pedro, uma para captar e outra só para manter a
+sessão viva — fica documentado como **recurso morto, não como fonte**.
+
+Motivo: a sessão do browser expira sozinha em poucas horas e prende os dados ao portátil
+do Pedro. Na manhã de 21/09 falhou cinco vezes (01:09, 10:09, 11:08, 12:09, 13:09), todas
+com "sessão da Superset expirada, 401 em `/api/v1/me/`", deixando os números parados desde
+a meia-noite. Provou-se que uma edge function se autentica sozinha: `GET /login/` com
+`csrf_token`, `POST /login/` → 302, `/api/v1/me/` → 200, `/api/v1/dashboard/43` → 200, sem
+bloqueio por IP — ao contrário de `tickets.oneboxtds.com` (403 a servidores) e da Fever
+(401 a servidores). Deixa de ser preciso esperar por acesso de API da GTS.
+
+Desenho: descoberta dinâmica dos gráficos do dashboard 43 (slice 180 "Ventas por Sesion"
+para grelha e série; slices 186 e 1723 para o resumo), **conferência tripla obrigatória**
+(grelha = série = resumo, ao cêntimo) como trava de escrita, e escrita em `ticket_sales`,
+`onebox_daily_sales` e `onebox_sync_runs`. Primeira corrida real com o cron criado, às
+14:07 de Madrid: 1.271 bilhetes e 65.581,75 €, contra 1.257 e 64.366,75 € do último
+registo deixado pelo Chrome.
+
+**Armadilha que faz parte da decisão: a função assume `dry_run` quando o parâmetro NÃO é
+enviado.** O primeiro cron foi criado sem ele e teria corrido de hora a hora a dar sucesso
+sem gravar nada. O corpo do pedido TEM de levar `"dry_run": false` explícito.
