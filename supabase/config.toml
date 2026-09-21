@@ -218,3 +218,8 @@ verify_jwt = true
 
 [functions.crm-google-video-metrics-sync]
 verify_jwt = false
+
+# Sonda de diagnóstico para o TikTok Artists (artists.tiktok.com).
+# Só leitura: não escreve em tabelas nem cria sync_runs/crons.
+[functions.tiktok-artists-probe]
+verify_jwt = true
