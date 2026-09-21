@@ -4109,3 +4109,8 @@ registo deixado pelo Chrome.
 **Armadilha que faz parte da decisão: a função assume `dry_run` quando o parâmetro NÃO é
 enviado.** O primeiro cron foi criado sem ele e teria corrido de hora a hora a dar sucesso
 sem gravar nada. O corpo do pedido TEM de levar `"dry_run": false` explícito.
+
+## D-ERP122 — `artist_ads_ads` com plataforma e `artist_ads_campaign_settings` (21/09/2026)
+
+`public.artist_ads_ads` passou a aceitar `p_platform` (omissão `'meta'`); com `'google'` lê `crm.google_ad` e as linhas `level='ad'` de `crm.ads_insights_breakdown_daily`.
+`public.artist_ads_campaign_settings(p_artist_id, p_campaign_id, p_platform)` é nova e devolve `jsonb` com a mesma forma nas duas plataformas.
