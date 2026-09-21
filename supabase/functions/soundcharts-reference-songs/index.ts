@@ -14,8 +14,10 @@ import {
   adminClient,
   authorize,
   corsHeaders,
+  isSoundchartsQuotaError,
   json,
   ScClient,
+  soundchartsQuotaMessage,
 } from "../_shared/soundcharts.ts";
 import { invokeInternal } from "../_shared/internal-call.ts";
 import {
@@ -113,8 +115,11 @@ Deno.serve(async (req) => {
     const perArtist: Array<Record<string, unknown>> = [];
     const syncTargets: Array<{ song_id: string; title: string; start_date: string | null }> = [];
     let songsUpserted = 0;
+    let quotaError: string | null = null;
 
-    for (const artist of artists) {
+    artistsLoop:
+    for (let artistIndex = 0; artistIndex < artists.length; artistIndex++) {
+      const artist = artists[artistIndex];
       const uuid = uuidByArtist.get(artist.id as string);
       if (!uuid) {
         notes.push(`${artist.name}: sem UUID Soundcharts (artist_channels aggregator).`);
@@ -128,6 +133,12 @@ Deno.serve(async (req) => {
         );
         items = Array.isArray(body?.items) ? body.items : [];
       } catch (e) {
+        if (isSoundchartsQuotaError(e)) {
+          quotaError = soundchartsQuotaMessage(e, artists.length - artistIndex);
+          errors.push({ artist_id: artist.id as string, error: quotaError });
+          notes.push(quotaError);
+          break artistsLoop;
+        }
         errors.push({ artist_id: artist.id as string, error: (e as Error)?.message ?? String(e) });
         continue;
       }
@@ -215,7 +226,8 @@ Deno.serve(async (req) => {
     // um utilizador sem permissão na função interna).
     const syncResults: Array<Record<string, unknown>> = [];
     if (!dryRun && syncTargets.length) {
-      for (const t of syncTargets) {
+      for (let targetIndex = 0; targetIndex < syncTargets.length; targetIndex++) {
+        const t = syncTargets[targetIndex];
         const call = await invokeInternal(
           "song-soundcharts-sync",
           { song_id: t.song_id, start_date: t.start_date ?? undefined, dry_run: false },
@@ -224,7 +236,13 @@ Deno.serve(async (req) => {
         const body = (call.body ?? {}) as Record<string, unknown>;
         calls += Number(body?.soundcharts_calls ?? 0);
         if (!call.ok) {
-          errors.push({ artist_id: "-", error: `sync ${t.title}: ${call.error ?? "erro"}` });
+          const callError = `sync ${t.title}: ${call.error ?? "erro"}`;
+          errors.push({ artist_id: "-", error: callError });
+          if (call.status === 429 || /quota Soundcharts esgotada|HTTP 429/i.test(callError)) {
+            quotaError = `quota Soundcharts esgotada (429) — ${callError}; ${syncTargets.length - targetIndex} item(ns) por tratar`;
+            notes.push(quotaError);
+            break;
+          }
         }
         syncResults.push({
           song_id: t.song_id,
@@ -257,6 +275,7 @@ Deno.serve(async (req) => {
       api_calls: calls,
       rows_written: songsUpserted,
       details: summary,
+      error_text: quotaError ?? (errors.length ? errors[0].error : null),
     });
 
     return json(summary);

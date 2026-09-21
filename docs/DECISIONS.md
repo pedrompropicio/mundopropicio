@@ -4036,3 +4036,16 @@ streaming audience» (a referência documenta 403 "This endpoint is not included
 in your current plan") — a geografia de ouvintes do Spotify (top 50 cidades,
 «Where people listen») depende dele, e a decisão de upgrade (uma compra) depende
 deste código de resposta.
+
+## D-ERP119 — Falhas Soundcharts deixam rasto e o HTTP 429 trava a corrida (21/09/2026)
+
+Todas as chamadas passam a conservar no erro o código HTTP e o início da mensagem
+da Soundcharts. Uma corrida que termine com erro grava sempre esse conteúdo em
+`sync_runs.error_text` e nas notas/detalhes da resposta; deixa de existir falha
+Soundcharts sem causa legível.
+
+O HTTP 429 é terminal para a corrida: não se pede o artista, música, plataforma ou
+página seguinte. O que já foi apurado pode ser gravado, a execução termina com
+`quota Soundcharts esgotada (429)`, a mensagem da API e a quantidade de itens que
+ficou por tratar. O travão reduz desperdício depois de esgotar a quota mensal; não
+altera crons nem a cadência, que continuam a depender de decisão operacional.

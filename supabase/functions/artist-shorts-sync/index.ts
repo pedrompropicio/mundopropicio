@@ -23,8 +23,10 @@ import {
   adminClient,
   authorize,
   corsHeaders,
+  isSoundchartsQuotaError,
   json,
   ScClient,
+  soundchartsQuotaMessage,
 } from "../_shared/soundcharts.ts";
 import {
   deduceTriggerSource,
@@ -213,8 +215,11 @@ Deno.serve(async (req) => {
     const rawSamples: Record<string, unknown> = {};
     const perArtist: Array<Record<string, unknown>> = [];
     let totalRows = 0;
+    let quotaError: string | null = null;
 
-    for (const artist of artists) {
+    artistsLoop:
+    for (let artistIndex = 0; artistIndex < artists.length; artistIndex++) {
+      const artist = artists[artistIndex];
       const scUuid = uuidByArtist.get(artist.id)!;
 
       // uuid Soundcharts da música → id interno, para ligar o vídeo à obra.
@@ -434,6 +439,12 @@ Deno.serve(async (req) => {
               song_ligada: v.song_uuid ? songByUuid.get(v.song_uuid)?.title ?? null : null,
             }));
         } catch (e) {
+          if (isSoundchartsQuotaError(e)) {
+            quotaError = soundchartsQuotaMessage(e, artists.length - artistIndex);
+            errors.push({ artist_id: artist.id, platform, error: quotaError });
+            notes.push(quotaError);
+            break artistsLoop;
+          }
           const status = (e as { status?: number })?.status;
           const msg = (e as Error)?.message ?? String(e);
           // "not a valid platform code for this endpoint" é o caso do TikTok:
@@ -503,6 +514,7 @@ Deno.serve(async (req) => {
       api_calls: calls,
       rows_written: totalRows,
       details: summary,
+      error_text: quotaError ?? (errors.length ? errors[0].error : null),
     });
 
     return json(summary);
