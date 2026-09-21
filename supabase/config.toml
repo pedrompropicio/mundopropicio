@@ -228,3 +228,8 @@ verify_jwt = true
 # cookie TIKTOK_ARTISTS_COOKIE; aceita tambem chamada interna por service role.
 [functions.tiktok-artists-sync]
 verify_jwt = true
+
+# D-ERP125 — UGC do TikTok por som (music_id) via Apify. Secret APIFY_TOKEN.
+# Autorização por papel dentro da função (aceita service role para o cron).
+[functions.tiktok-sound-count-sync]
+verify_jwt = true
