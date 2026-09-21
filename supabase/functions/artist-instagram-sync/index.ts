@@ -261,54 +261,28 @@ Deno.serve(async (req) => {
       }
 
       // ------------------------------------------------- insights diários
-      for (const spec of ACCOUNT_INSIGHTS) {
+      // `reach`: série diária real (period=day, sem metric_type) — inalterada.
+      for (const spec of ACCOUNT_INSIGHTS.filter((s) => !s.metric_type)) {
         const metric = spec.metric;
-        const params: Record<string, string> = {
-          metric,
-          period: "day",
-          since: yesterday,
-          until: today,
-        };
-        if (spec.metric_type) params.metric_type = spec.metric_type;
-        const ins = await graphGet(`${node}/insights`, params, token, base);
+        const ins = await graphGet(
+          `${node}/insights`,
+          { metric, period: "day", since: yesterday, until: today },
+          token,
+          base,
+        );
         graphCalls++;
         if (!ins.ok) {
           notes.push(`insight ${metric} indisponível: ${ins.body?.error?.message ?? ins.status}`);
           continue;
         }
         const entries = ins.body?.data ?? [];
-        const comValores = entries.some((e: any) =>
-          (e?.values?.length ?? 0) > 0 || e?.total_value !== undefined
-        );
-        if (!comValores) {
-          notes.push(
-            `insight ${metric} sem valores na resposta (pedido: period=day, metric_type=${
-              spec.metric_type ?? "—"
-            })`,
-          );
+        if (!entries.some((e: any) => (e?.values?.length ?? 0) > 0)) {
+          notes.push(`insight ${metric} sem valores na resposta (pedido: period=day)`);
           continue;
         }
         for (const entry of entries) {
           const name = entry?.name ?? metric;
-          const values = entry?.values ?? [];
-          if (!values.length && entry?.total_value) {
-            const v = toCount(entry.total_value.value);
-            if (v === null) continue;
-            (per.insights as Record<string, number>)[name] = v;
-            metricRows.push({
-              company_id: conn.company_id,
-              artist_id: conn.artist_id,
-              channel_id: conn.artist_channel_id,
-              platform: PLATFORM,
-              metric: name,
-              metric_date: yesterday,
-              value: v,
-              source: SOURCE,
-              source_ref: igId,
-            });
-            continue;
-          }
-          for (const point of values) {
+          for (const point of entry?.values ?? []) {
             const v = toCount(point?.value);
             const day = point?.end_time ? String(point.end_time).slice(0, 10) : yesterday;
             if (v === null) continue;
@@ -327,6 +301,78 @@ Deno.serve(async (req) => {
           }
         }
       }
+
+      // Métricas de total_value: UMA chamada por métrica e por DIA JÁ FECHADO,
+      // com a janela do próprio dia (since = until = dia). Nunca se pede uma
+      // janela que inclua hoje, porque hoje ainda não fechou; nunca se volta à
+      // janela de 2 dias como recurso (D-ERP116).
+      const dias: string[] = [];
+      for (let i = 1; i <= diasMetricas; i++) {
+        dias.push(ymd(new Date(Date.now() - i * 86_400_000)));
+      }
+      const insightsPorDia = per.insights_por_dia as Array<Record<string, unknown>>;
+      let orcamentoEsgotado = false;
+      for (const spec of ACCOUNT_INSIGHTS.filter((s) => s.metric_type === "total_value")) {
+        const metric = spec.metric;
+        const faltaram: string[] = [];
+        for (const dia of dias) {
+          if (Date.now() - startedMs > INVOKE_BUDGET_MS) {
+            orcamentoEsgotado = true;
+            faltaram.push(dia);
+            continue;
+          }
+          const ins = await graphGet(
+            `${node}/insights`,
+            { metric, period: "day", metric_type: "total_value", since: dia, until: dia },
+            token,
+            base,
+          );
+          graphCalls++;
+          if (!ins.ok) {
+            notes.push(
+              `insight ${metric} ${dia} (janela ${dia}→${dia}) não gravado: ${
+                String(ins.body?.error?.message ?? ins.status).slice(0, 300)
+              }`,
+            );
+            continue;
+          }
+          const entries = ins.body?.data ?? [];
+          let gravou = false;
+          for (const entry of entries) {
+            const name = entry?.name ?? metric;
+            const v = toCount(entry?.total_value?.value);
+            if (v === null) continue;
+            gravou = true;
+            (per.insights as Record<string, number>)[name] = v;
+            insightsPorDia.push({ metrica: name, dia, since: dia, until: dia, valor: v });
+            metricRows.push({
+              company_id: conn.company_id,
+              artist_id: conn.artist_id,
+              channel_id: conn.artist_channel_id,
+              platform: PLATFORM,
+              metric: name,
+              metric_date: dia,
+              value: v,
+              source: SOURCE,
+              source_ref: igId,
+            });
+          }
+          if (!gravou) {
+            notes.push(
+              `insight ${metric} ${dia} (janela ${dia}→${dia}) sem valores na resposta — nada gravado`,
+            );
+          }
+        }
+        if (faltaram.length) {
+          notes.push(
+            `insight ${metric}: paragem por orçamento de tempo — dias em falta: ${faltaram.join(", ")}`,
+          );
+        }
+      }
+      if (orcamentoEsgotado) {
+        notes.push("orçamento de tempo esgotado nas métricas de conta — repetir com dias_metricas menor");
+      }
+
 
       // ---------------------------------------------------- demografia
       // Um corpo cru por métrica (truncado a 1000 caracteres, sem token) para
