@@ -16628,7 +16628,11 @@ export type Database = {
         Returns: undefined
       }
       artist_ads_ads: {
-        Args: { p_artist_id: string; p_campaign_id?: string }
+        Args: {
+          p_artist_id: string
+          p_campaign_id?: string
+          p_platform?: string
+        }
         Returns: {
           ad_id: string
           ad_name: string
@@ -16739,6 +16743,14 @@ export type Database = {
       artist_ads_budget_cap_set: {
         Args: { p_connection_id: string; p_daily_cap: number; p_notes?: string }
         Returns: string
+      }
+      artist_ads_campaign_settings: {
+        Args: {
+          p_artist_id: string
+          p_campaign_id: string
+          p_platform?: string
+        }
+        Returns: Json
       }
       artist_ads_campaigns: {
         Args: { p_artist_id: string; p_include_removed?: boolean }
