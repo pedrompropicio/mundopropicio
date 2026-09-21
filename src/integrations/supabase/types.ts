@@ -1731,6 +1731,92 @@ export type Database = {
           },
         ]
       }
+      artist_song_tiktok_groups: {
+        Row: {
+          artist_id: string
+          company_id: string
+          created_at: string
+          group_id: string
+          id: string
+          is_primary: boolean
+          song_id: string
+          song_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          artist_id: string
+          company_id?: string
+          created_at?: string
+          group_id: string
+          id?: string
+          is_primary?: boolean
+          song_id: string
+          song_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          artist_id?: string
+          company_id?: string
+          created_at?: string
+          group_id?: string
+          id?: string
+          is_primary?: boolean
+          song_id?: string
+          song_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_song_tiktok_sounds_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_tiktok_sounds_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_benchmark_aligned"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_song_tiktok_sounds_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_song_tiktok_sounds_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_tiktok_sounds_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "artist_songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_tiktok_sounds_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "artist_song_tiktok_sounds_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["song_id"]
+          },
+        ]
+      }
       artist_songs: {
         Row: {
           artist_id: string

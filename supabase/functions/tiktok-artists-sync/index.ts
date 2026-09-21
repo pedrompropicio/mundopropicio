@@ -28,6 +28,8 @@ import {
 const FUNCTION_NAME = "tiktok-artists-sync";
 const ROLES = ["admin", "platform_admin", "manager", "editor"];
 const API_URL = "https://artists.tiktok.com/tiktok/artist_api/ttfa/song_data/list/v1";
+// D-ERP125 (A3-bis) — lista de clips (sons) de cada música do painel.
+const CLIP_API_URL = "https://artists.tiktok.com/tiktok/artist_api/ttfa/song_data/clip_data_list/v1";
 const DEFAULT_ARTIST_USER_ID = "6812764850029970437";
 const PAGE_SIZE = 60;
 const MAX_PAGES = 10;
@@ -149,6 +151,72 @@ async function fetchPage(cookie: string, artistUserId: string, from: number): Pr
   return { ok: true, envelope: data, songs, total };
 }
 
+type PanelClip = { music_id: string; clip_name: string | null; is_pgc: boolean };
+
+type ClipResult =
+  | { ok: true; items: PanelClip[] }
+  | { ok: false; motivo: "sessao_invalida" | "rede" | "http" };
+
+/**
+ * Sons (clips) de uma música do painel. A resposta traz listas cujos nomes
+ * começam por 'pgc' (som oficial) ou 'ugc' (som do utilizador); aceitamos
+ * ambas as formas (listas separadas ou lista única com o tipo no item).
+ */
+async function fetchClips(cookie: string, groupId: string): Promise<ClipResult> {
+  let res: Response;
+  try {
+    res = await fetch(CLIP_API_URL, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Cookie: cookie,
+      },
+      body: JSON.stringify({ group_id: groupId }),
+      redirect: "manual",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch (_e) {
+    return { ok: false, motivo: "rede" };
+  }
+  const text = await res.text();
+  if (res.status === 401 || res.status === 403 || isLoginRedirect(res.status, res.headers)) {
+    return { ok: false, motivo: "sessao_invalida" };
+  }
+  let data: Json;
+  try {
+    data = JSON.parse(text) as Json;
+  } catch (_e) {
+    return { ok: false, motivo: "sessao_invalida" };
+  }
+  if (!res.ok) return { ok: false, motivo: "http" };
+
+  const items: PanelClip[] = [];
+  const push = (raw: Json, pgcHint: boolean | null) => {
+    const id = raw.music_id ?? raw.clip_id ?? raw.id;
+    if (id == null) return;
+    const tipo = String(raw.clip_type ?? raw.type ?? "").toLowerCase();
+    const isPgc = pgcHint ?? (tipo.startsWith("pgc") || raw.is_official === true);
+    items.push({
+      music_id: String(id),
+      clip_name: typeof raw.clip_name === "string" ? raw.clip_name : null,
+      is_pgc: isPgc,
+    });
+  };
+  for (const [key, value] of Object.entries(data)) {
+    const k = key.toLowerCase();
+    if (!Array.isArray(value)) continue;
+    if (k.startsWith("pgc")) {
+      for (const v of value) push(v as Json, true);
+    } else if (k.startsWith("ugc")) {
+      for (const v of value) push(v as Json, false);
+    } else if (k.includes("clip")) {
+      for (const v of value) push(v as Json, null);
+    }
+  }
+  return { ok: true, items };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
@@ -211,14 +279,14 @@ Deno.serve(async (req) => {
   // Mapa group_id → música (depois da leitura da API, para que a resposta possa
   // relatar os campos devolvidos mesmo antes da tabela existir em Live).
   const { data: sounds, error: soundsError } = await admin
-    .from("artist_song_tiktok_sounds")
+    .from("artist_song_tiktok_groups")
     .select("group_id, song_id, artist_id, company_id");
   if (soundsError) {
     await finishSyncRun(admin, runId, startedMs, {
       status: "error",
       api_calls: apiCalls,
       rows_written: 0,
-      error_text: `artist_song_tiktok_sounds: ${soundsError.message}`,
+      error_text: `artist_song_tiktok_groups: ${soundsError.message}`,
     });
     return json({
       ok: false,
@@ -238,9 +306,56 @@ Deno.serve(async (req) => {
     });
   }
 
+  // ------------------------------------------------------------------------
+  // D-ERP125 (A3-bis) — descoberta automática dos SONS de cada música mapeada.
+  // Para cada group_id conhecido pedimos a lista de clips do painel e fazemos
+  // upsert em public.artist_song_tiktok_sounds (discovered_via='panel',
+  // status='validated'). Nunca apaga nada.
+  // ------------------------------------------------------------------------
+  const clipNotes: string[] = [];
+  let clipsUpserted = 0;
+  for (const [groupId, alvo] of mapa) {
+    const clips = await fetchClips(cookie, groupId);
+    apiCalls++;
+    if (!clips.ok) {
+      clipNotes.push(`clips de ${groupId}: ${clips.motivo}`);
+      if (clips.motivo === "sessao_invalida") break;
+      continue;
+    }
+    if (clips.items.length === 0) continue;
+    const rows = clips.items.map((c) => ({
+      company_id: alvo.company_id,
+      artist_id: alvo.artist_id,
+      song_id: alvo.song_id,
+      music_id: c.music_id,
+      title: c.clip_name,
+      is_official: c.is_pgc,
+      is_original_sound: !c.is_pgc,
+      status: "validated",
+      discovered_via: "panel",
+      validated_at: new Date().toISOString(),
+    }));
+    if (dryRun) {
+      clipNotes.push(`${rows.length} som(ns) do painel em ${groupId} (dry-run, não gravado)`);
+      continue;
+    }
+    const { error } = await admin
+      .from("artist_song_tiktok_sounds")
+      .upsert(rows, { onConflict: "song_id,music_id", ignoreDuplicates: false });
+    if (error) {
+      clipNotes.push(`upsert de sons do painel (${groupId}) falhou: ${error.message}`);
+    } else {
+      clipsUpserted += rows.length;
+    }
+  }
+  if (clipsUpserted > 0) clipNotes.push(`${clipsUpserted} som(ns) do painel gravados`);
+
+
+
 
 
   const notes: string[] = [];
+  notes.push(...clipNotes);
   const semCorrespondencia: Array<{ group_id: string; song_name: string | null }> = [];
   const linhas: Json[] = [];
   let dateFieldUsado: string | null = null;
