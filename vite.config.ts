@@ -4,17 +4,43 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 import fs from "fs";
+import { execSync } from "child_process";
 
-const BUILD_ID = String(Date.now());
+const BUILD_AT = new Date();
+const BUILD_ID = String(BUILD_AT.getTime());
+
+// Commit publicado: serve para confirmar, depois de um Publish, que o que está
+// em produção é de facto o HEAD publicado. Nunca pode fazer o build falhar.
+function resolveCommit(): string | null {
+  try {
+    const sha = execSync("git rev-parse HEAD", { stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim();
+    if (sha) return sha;
+  } catch {
+    // sem git disponível — segue para as variáveis de ambiente
+  }
+  return (
+    process.env.VITE_COMMIT_SHA || process.env.COMMIT_REF || process.env.GIT_COMMIT || null
+  );
+}
 
 // Escreve dist/version.json com o mesmo buildId injetado no bundle, para
 // permitir deteção de nova versão sem depender do service worker.
+// `buildId` é o campo que src/lib/versionCheck.ts compara — não mudar o nome.
 const buildVersionPlugin = () => ({
   name: "build-version-json",
   apply: "build" as const,
   closeBundle() {
     fs.mkdirSync("dist", { recursive: true });
-    fs.writeFileSync("dist/version.json", JSON.stringify({ buildId: BUILD_ID }));
+    fs.writeFileSync(
+      "dist/version.json",
+      JSON.stringify({
+        buildId: BUILD_ID,
+        builtAt: BUILD_AT.toISOString(),
+        commit: resolveCommit(),
+      }),
+    );
   },
 });
 
@@ -28,6 +54,28 @@ export default defineConfig(({ mode }) => ({
   },
   define: {
     __BUILD_ID__: JSON.stringify(BUILD_ID),
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Só pacotes que existem no package.json. React NÃO é partido em dois
+        // chunks (ver alias/dedupe abaixo).
+        manualChunks(id: string) {
+          if (!id.includes("node_modules")) return;
+          if (/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler|@tanstack)\//.test(id)) {
+            return "vendor-react";
+          }
+          if (/node_modules\/(@radix-ui|lucide-react)\//.test(id)) return "vendor-ui";
+          if (/node_modules\/(handsontable|@handsontable|hyperformula)\//.test(id)) {
+            return "vendor-handsontable";
+          }
+          if (/node_modules\/(jspdf|jspdf-autotable)\//.test(id)) return "vendor-pdf";
+          if (/node_modules\/(xlsx|exceljs)\//.test(id)) return "vendor-xlsx";
+          if (/node_modules\/(recharts|d3-|internmap|victory-vendor)/.test(id)) return "vendor-charts";
+          if (/node_modules\/@supabase\//.test(id)) return "vendor-supabase";
+        },
+      },
+    },
   },
   plugins: [
     react(),
@@ -60,10 +108,10 @@ export default defineConfig(({ mode }) => ({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
-        // O chunk principal já passou os 10 MiB (2026-09-22) e o workbox
-        // rebentava o build na geração do service worker. Limite subido para
-        // 24 MiB para dar folga ao bundle actual.
-        maximumFileSizeToCacheInBytes: 24 * 1024 * 1024,
+        // Depois do code-splitting por rota (#231) o maior ficheiro é o
+        // heic-to (~2,9 MiB). 6 MiB dá mais do que o dobro de folga e volta a
+        // servir de alarme se algum chunk crescer sem controlo.
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         // `navigateFallback: ""` desliga o default do vite-plugin-pwa
         // ("index.html"). Com ele, o workbox registava uma NavigationRoute
         // servida pelo precache (cache-first) ANTES das runtimeCaching, e todas
