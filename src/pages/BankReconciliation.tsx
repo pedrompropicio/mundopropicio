@@ -1497,7 +1497,7 @@ export default function BankReconciliation() {
               Abertura do ficheiro: {formatCurrency(Number(parsed.openingBalance ?? 0))} ·{" "}
               {openingCheck.reference === null
                 ? `referência: ${openingCheck.origin}`
-                : `último saldo conhecido: ${formatCurrency(openingCheck.reference)} (${openingCheck.origin})` +
+                : `referência à véspera: ${formatCurrency(openingCheck.reference)} (${openingCheck.origin})` +
                   (openingCheck.diff === null ? "" : ` · diferença ${formatCurrency(openingCheck.diff)}`)}
             </p>
           )}
