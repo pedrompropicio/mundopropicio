@@ -55,6 +55,28 @@ export default defineConfig(({ mode }) => ({
   define: {
     __BUILD_ID__: JSON.stringify(BUILD_ID),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Só pacotes que existem no package.json. React NÃO é partido em dois
+        // chunks (ver alias/dedupe abaixo).
+        manualChunks(id: string) {
+          if (!id.includes("node_modules")) return;
+          if (/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler|@tanstack)\//.test(id)) {
+            return "vendor-react";
+          }
+          if (/node_modules\/(@radix-ui|lucide-react)\//.test(id)) return "vendor-ui";
+          if (/node_modules\/(handsontable|@handsontable|hyperformula)\//.test(id)) {
+            return "vendor-handsontable";
+          }
+          if (/node_modules\/(jspdf|jspdf-autotable)\//.test(id)) return "vendor-pdf";
+          if (/node_modules\/(xlsx|exceljs)\//.test(id)) return "vendor-xlsx";
+          if (/node_modules\/(recharts|d3-|internmap|victory-vendor)/.test(id)) return "vendor-charts";
+          if (/node_modules\/@supabase\//.test(id)) return "vendor-supabase";
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     buildVersionPlugin(),
