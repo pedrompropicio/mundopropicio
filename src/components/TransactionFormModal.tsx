@@ -2408,7 +2408,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       if (sharedCostThirdNet <= 0 || sharedCostThirdNet >= totalAmt) {
         toast({
           title: "Parte de terceiros inválida",
-          description: `Tem de ser maior que 0 e menor que o total (${totalAmt.toFixed(2)} € s/IVA). A zero é uma despesa normal; pelo total inteiro basta marcar a linha com a conta de circuito, sem desdobrar.`,
+          description: `Tem de ser maior que 0 e menor que o total (${totalAmt.toFixed(2)} € s/IVA). A zero é uma despesa normal; pelo total inteiro basta marcar a linha com a conta de rateio, sem desdobrar.`,
           variant: "destructive",
         });
         return;
@@ -2438,7 +2438,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       if (!form.event_id) {
         toast({
           title: "Uma despesa sem evento não pode ser desdobrada",
-          description: "O fecho procura as contas de circuito pelas transações com evento. Sem evento, a posição do circuito deixaria de ser verificável. Escolhe o evento de onde veio a fatura.",
+          description: "O fecho procura as contas de rateio de terceiros pelas transações com evento. Sem evento, a posição do rateio deixaria de ser verificável. Escolhe o evento de onde veio a fatura.",
           variant: "destructive",
         });
         return;
@@ -3965,7 +3965,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 <button
                   type="button"
                   disabled={!!sharedCostAccountId && !sharedCostSplitActive}
-                  title={sharedCostAccountId && !sharedCostSplitActive ? "Imposto pelo custo partilhado com terceiros. Limpe a conta de circuito para poder desligar." : undefined}
+                  title={sharedCostAccountId && !sharedCostSplitActive ? "Imposto pelo custo partilhado com terceiros. Limpe a conta de rateio para poder desligar." : undefined}
                   onClick={() => { if (!sharedCostAccountId || sharedCostSplitActive) setIsExcludeFromResult(!isExcludeFromResult); }}
                   className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                     isExcludeFromResult

@@ -605,11 +605,11 @@ export default function FinancialAccounts() {
               <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <Label className="text-sm font-medium">Conta corrente de circuito de terceiros</Label>
+                    <Label className="text-sm font-medium">Conta de rateio de terceiros</Label>
                     <p className="text-xs text-muted-foreground">
                       Para faturas em que parte do custo é de terceiros (outras cidades de uma turnê,
                       coprodutores). O que se paga por conta deles entra aqui como adiantamento e sai
-                      quando devolvem. O saldo é a posição do circuito: positivo, devem-nos; negativo,
+                      quando devolvem. O saldo é a posição do rateio: positivo, devem-nos; negativo,
                       temos dinheiro deles por aplicar. No fim é zero.
                     </p>
                   </div>
@@ -620,7 +620,7 @@ export default function FinancialAccounts() {
                         toast({
                           title: "Combinação não permitida",
                           description:
-                            "Esta conta é espelho de aporte de sócio. Uma conta é espelho de aporte de sócio ou conta corrente de circuito de terceiros, nunca as duas.",
+                            "Esta conta é espelho de aporte de sócio. Uma conta é espelho de aporte de sócio ou conta de rateio de terceiros, nunca as duas.",
                           variant: "destructive",
                         });
                         return;
@@ -632,9 +632,9 @@ export default function FinancialAccounts() {
                 {form.is_circuit_account && (form.is_accounting || form.skip_balance_check) && (
                   <div className="flex items-start justify-between gap-3 rounded-lg border border-warning/30 bg-warning/10 p-2.5">
                     <p className="text-xs text-warning">
-                      Recomendado nesta conta: <strong>não contábil</strong> (o circuito é gerencial,
+                      Recomendado nesta conta: <strong>não contábil</strong> (o rateio é gerencial,
                       não vai às exportações para a contabilidade) e <strong>com controlo de saldo</strong>
-                      {" "}(a posição tem de ser verificável — uma conta de circuito existe para mostrar posição).
+                      {" "}(a posição tem de ser verificável — uma conta de rateio existe para mostrar posição).
                     </p>
                     <button
                       type="button"

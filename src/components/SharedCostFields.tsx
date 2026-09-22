@@ -76,9 +76,6 @@ export function SharedCostFields({
   const { data: circuitAccounts = [] } = useCircuitAccounts();
   const [open, setOpen] = useState(!!accountId);
 
-  // Sem contas de circuito configuradas o bloco não tem o que oferecer.
-  if (circuitAccounts.length === 0 && !accountId) return null;
-
   const chosen = circuitAccounts.find((a) => a.id === accountId);
 
   const totalNet = split?.totalNet ?? 0;
@@ -110,9 +107,16 @@ export function SharedCostFields({
 
       {open && (
         <div className="space-y-3 border-t border-border px-3 py-3">
+          {circuitAccounts.length === 0 && !accountId ? (
+            <p className="text-xs text-muted-foreground">
+              Sem acesso a contas de rateio de terceiros. Se esta fatura é repartida com outro
+              promotor, pede ao administrador.
+            </p>
+          ) : (
+            <>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              Conta corrente do circuito
+              Conta de rateio de terceiros
             </label>
             <select
               value={accountId}
@@ -143,7 +147,7 @@ export function SharedCostFields({
               ))}
             </select>
             <p className="mt-1 text-[10px] text-muted-foreground">
-              Atribuir o terceiro é o que torna a posição do circuito legível por contraparte.
+              Atribuir o terceiro é o que torna a posição do rateio legível por contraparte.
             </p>
           </div>
 
@@ -222,7 +226,7 @@ export function SharedCostFields({
                     <p className="text-[10px] text-destructive">
                       A parte de terceiros tem de ser maior que 0 e menor que o total
                       ({totalNet.toFixed(2)} € s/IVA). A zero é uma despesa normal; pelo total
-                      inteiro basta marcar a linha com a conta de circuito, sem desdobrar.
+                      inteiro basta marcar a linha com a conta de rateio, sem desdobrar.
                     </p>
                   )}
 
@@ -231,7 +235,7 @@ export function SharedCostFields({
                       <p className="text-[10px] text-muted-foreground">
                         A perna de terceiros fica no <strong>mesmo evento</strong> da despesa — é
                         a etiqueta da fatura de onde nasceu, não custo desse evento (a linha está
-                        fora do resultado). É assim que o fecho encontra o circuito, na cidade, nas
+                         fora do resultado). É assim que o fecho encontra o rateio, na cidade, nas
                         irmãs e no Master.
                       </p>
 
@@ -287,6 +291,8 @@ export function SharedCostFields({
               <strong>{formatCurrency(thirdNet * mult)}</strong> na conta{" "}
               <strong>{chosen.name}</strong>. A perna da MP é despesa normal do evento.
             </p>
+          )}
+            </>
           )}
         </div>
       )}

@@ -2,7 +2,7 @@
 capitulo: fecho-do-evento
 titulo: Fecho do evento
 modulo: erp
-atualizado: 2026-09-20
+atualizado: 2026-09-22
 perfis: [manager, admin, editor, partner]
 rotas: [/eventos/:id, /bilheteiras, /cartoes, /camarim, /contas, /relatorios/extrato]
 fontes: [D-ERP10, D-ERP13, D-ERP14, D-ERP15, D-ERP20, D-ERP22, D-ERP23, D-ERP26, D-ERP69, D-ERP113, D-ERP114, PROC-fecho-evento, event-settlements, partner-settlement, settlement-transfer-pair, fecho-filter-parity, event-cost-basis, event-revenue-basis, ticket-office-reconciliation, card-sessions, camarim-integration-lock, custo-partilhado-terceiros, partner-advance-expenses]
@@ -18,7 +18,7 @@ Fechar um evento é **parar de o alimentar**, conferir o que entrou e o que saiu
 
 ```ajuda
 id: fecho.ordem
-tooltip: "Pela ordem: fechar sessões de camarim e cartões, zerar as contas de circuito, conferir receitas e custos, fazer o Encontro de Contas até C1 e C2 darem 0,00 €, selar o fechamento e só depois concluir o evento."
+tooltip: "Pela ordem: fechar sessões de camarim e cartões, zerar as contas de rateio de terceiros, conferir receitas e custos, fazer o Encontro de Contas até C1 e C2 darem 0,00 €, selar o fechamento e só depois concluir o evento."
 ecras: [evento.fecho, evento.socios, evento.concluir]
 perfis: [manager, admin]
 fontes: [PROC-fecho-evento, event-settlements]
@@ -28,7 +28,7 @@ termos: [fechar evento, fecho do evento, fechamento, concluir evento, como fecho
 ![Sequência do fecho do evento](img/fecho-sequencia.svg)
 
 1. **Fechar as sessões abertas** — camarim por integrar e sessões de cartão.
-2. **Zerar as contas de circuito** — acerto com promotores e coprodutores.
+2. **Zerar as contas de rateio de terceiros** — acerto com promotores e coprodutores.
 3. **Conferir receitas e custos** na aba **Fecho**.
 4. **Encontro de Contas** com os sócios, até as duas conferências darem **0,00 €**.
 5. **Selar o fechamento** e exportar os PDFs **depois** de selar.
@@ -38,15 +38,15 @@ Numa turnê, o fecho faz-se no **Master**: é lá que vivem os sócios, o Encont
 
 ---
 
-## 1. Sessões abertas e circuitos
+## 1. Sessões abertas e rateios com terceiros
 
 ```ajuda
 id: fecho.bloqueios
-tooltip: "Camarim por integrar e sessões de cartão abertas impedem o fecho: é custo que ainda vai cair no evento. Contas de circuito com posição diferente de zero também impedem — falta o acerto com terceiros."
+tooltip: "Camarim por integrar e sessões de cartão abertas impedem o fecho: é custo que ainda vai cair no evento. Contas de rateio de terceiros com posição diferente de zero também impedem — falta o acerto com terceiros."
 ecras: [evento.concluir, camarim.sessao, cartoes.sessao, contas.conta-circuito]
 perfis: [manager, admin]
 fontes: [card-sessions, camarim-integration-lock, custo-partilhado-terceiros, D-ERP69]
-termos: [não consigo fechar, não deixa concluir, bloqueio do fecho, sessão aberta, camarim por integrar, cartão aberto, conta de circuito, posição do circuito, blocker]
+termos: [não consigo fechar, não deixa concluir, bloqueio do fecho, sessão aberta, camarim por integrar, cartão aberto, conta de circuito, posição do circuito, conta de rateio de terceiros, conta de rateio, posição do rateio, rateio com terceiros, blocker]
 ```
 
 Ao carregar em **Concluir evento** abre o diálogo **Concluir evento**, que verifica o estado real antes de gravar:
@@ -54,9 +54,9 @@ Ao carregar em **Concluir evento** abre o diálogo **Concluir evento**, que veri
 - **Sessões de cartão abertas** → não fecha. Feche a sessão em **Cartões** (saldo real conferido e, se houver diferença, acerto de fecho com nota).
 - **Sessões de camarim por integrar** → não fecha. Integre a sessão em **Camarim**: é a integração que cria as transações do evento. Depois de integrada, a sessão fica só de leitura.
 - **Despesas pendentes ou atrasadas** → **não bloqueia**, avisa. Para avançar tem de marcar a caixa "Fechar mesmo assim". A decisão fica registada na planilha do evento.
-- **Contas de circuito com posição diferente de zero** → não fecha. Uma posição aberta significa que o acerto com o terceiro não está feito: ou falta a devolução, ou falta passar a quota da MP às rubricas. A tolerância é de 0,01 €. Numa turnê, o circuito é comum: contam as contas usadas pelo Master e por todas as cidades.
+- **Contas de rateio de terceiros com posição diferente de zero** → não fecha. Uma posição aberta significa que o acerto com o terceiro não está feito: ou falta a devolução, ou falta passar a quota da MP às rubricas. A tolerância é de 0,01 €. Numa turnê, o rateio é comum: contam as contas usadas pelo Master e por todas as cidades.
 
-⚠️ A recusa por **conta de circuito** vem da base de dados, mas o diálogo ainda **não lista** as contas em causa: aparece só a mensagem de recusa. Até isso mudar, confirme a posição em **Contas** (contas de circuito) ou no **Extrato**.
+⚠️ A recusa por **conta de rateio de terceiros** vem da base de dados, mas o diálogo ainda **não lista** as contas em causa: aparece só a mensagem de recusa. Até isso mudar, confirme a posição em **Contas** (contas de rateio de terceiros) ou no **Extrato**.
 
 ---
 
@@ -167,7 +167,7 @@ Antes de concluir, confirme a lista curta:
 - [ ] Sem taxas públicas com IVA no BP (taxas públicas não levam IVA)
 - [ ] Rubricas sem transação explicadas — quem devia pagar, e se pagou
 - [ ] Sessões de camarim integradas e sessões de cartão fechadas
-- [ ] Contas de circuito a zero
+- [ ] Contas de rateio de terceiros a zero
 - [ ] Fecho de bilheteira feito e a transferência do líquido registada
 - [ ] Fechamento **selado** e PDFs exportados depois do selo
 
@@ -213,7 +213,7 @@ termos: [erro no fecho, fecho errado, números não batem, corrigir fecho, dúvi
 | Comparar o **Lucro** do card com o **Resultado** do Encontro de Contas | Respondem a perguntas diferentes; o badge "≠ fecho" avisa | A base contratual do sócio é o Encontro de Contas |
 | Usar o botão c/IVA · s/IVA para "arrumar" o acerto | O botão é vista; a base do sócio é contratual | Corrigir a base de IVA do participante |
 | Contar bilheteira das vendas **e** as transações da rubrica 1.1.01 | Receita duplicada | Com vendas registadas, a rubrica 1.1.01 não soma |
-| Fechar com a conta de circuito diferente de zero | Custo da MP ou devolução por lançar | Fazer o acerto com o terceiro antes |
+| Fechar com a conta de rateio diferente de zero | Custo da MP ou devolução por lançar | Fazer o acerto com o terceiro antes |
 | Somar as cidades e esquecer o Master | O total fica abaixo do resumo | A quebra por cidade tem de incluir a linha "Master / Geral" |
 
 ---

@@ -407,7 +407,7 @@ export default function ReportBankStatement() {
             </div>
             <div className="glass rounded-xl p-4">
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                {isCircuitAccount ? "Posição do circuito" : "Saldo Final"}
+                {isCircuitAccount ? "Posição do rateio" : "Saldo Final"}
               </p>
               {isUncontrolledBalance ? (
                 <p className="mt-1 text-sm italic text-muted-foreground">Saldo não controlado</p>
@@ -419,7 +419,7 @@ export default function ReportBankStatement() {
               {isCircuitAccount && (
                 <p className="mt-1 text-[10px] text-muted-foreground">
                   Positivo, terceiros devem-nos. Negativo, temos dinheiro deles por aplicar.
-                  No fim do circuito é zero.
+                  No fim do rateio é zero.
                 </p>
               )}
             </div>
@@ -429,9 +429,9 @@ export default function ReportBankStatement() {
           {isCircuitAccount && (
             isUncontrolledBalance ? (
               <div className="glass rounded-xl border border-warning/40 p-4 text-xs text-warning">
-                Esta conta está com "Ignorar controlo de saldo" ligado, por isso a posição do circuito
+                Esta conta está com "Ignorar controlo de saldo" ligado, por isso a posição do rateio
                 não pode ser calculada. Desligue a opção nas Contas de Movimentação — uma conta de
-                circuito existe para mostrar posição.
+                rateio de terceiros existe para mostrar posição.
               </div>
             ) : (
               <CircuitPositionPanel
