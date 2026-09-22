@@ -145,6 +145,8 @@ Se o tema toca num fluxo já implementado, procurar primeiro em `.lovable/memory
 
 **Uma tarefa do agente só está feita depois de verificada por leitura do código e consulta a Live — o relatório do agente não é prova.**
 
+**Depois de cada Publish, confirmar `/version.json` em produção: `buildId`/`builtAt` posteriores ao deploy e `commit` igual ao HEAD publicado. Se não mudar, o build morreu e o Publish não chegou a produção.** Regras de code-splitting, chunks e limites do service worker: `.lovable/memory/features/build-code-splitting.md`.
+
 **Toda a função `SECURITY DEFINER` nova no schema `public` leva, na mesma migração que a cria:**
 
 ```sql
