@@ -109,6 +109,12 @@ export default function BankReconciliation() {
    * `bank_line_transactions` e a coluna singular fica nula.
    */
   const [manualTxIds, setManualTxIds] = useState<string[]>([]);
+  /**
+   * Modo de cada transação escolhida: `link` só liga (D-ERP28 intacto) e
+   * `settle` liga E liquida — acção explícita da pessoa, no molde do "Lançar"
+   * (D-ERP29), com o pagamento a nascer em `transaction_payments` (D-ERP86).
+   */
+  const [manualModes, setManualModes] = useState<Record<string, "link" | "settle">>({});
   const [manualSaving, setManualSaving] = useState(false);
 
   /** Confirmação explícita para ligar a uma transação registada NOUTRA conta. */
@@ -218,7 +224,9 @@ export default function BankReconciliation() {
       };
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, description, paid_amount, payment_date, date, account_id, financial_accounts:financial_accounts!transactions_account_id_fkey(name)")
+        .select("id, description, type, paid_amount, payment_date, date, account_id, financial_accounts:financial_accounts!transactions_account_id_fkey(name)")
+        // O SINAL da linha manda no tipo: crédito só casa com receita.
+        .eq("type", Number(manualLine.amount ?? 0) >= 0 ? "income" : "expense")
         .neq("account_id", accountId)
         .not("account_id", "is", null)
         .gte("paid_amount", target - 0.01)
@@ -244,6 +252,52 @@ export default function BankReconciliation() {
     () => (crossAccountTxns as any[]).filter((t) => manualTxIds.includes(t.id)),
     [crossAccountTxns, manualTxIds],
   );
+
+  /** Sinal da linha aberta no modal → tipo aceitável de transação. */
+  const manualSign: "income" | "expense" =
+    Number(manualLine?.amount ?? 0) >= 0 ? "income" : "expense";
+
+  /**
+   * Grupo (b) do modal: transações EM ABERTO da empresa, do mesmo tipo que o
+   * sinal da linha. Ainda não têm conta — por isso não se filtra por conta.
+   * Em aberto = bruto (`amount × (1 + iva_rate/100)`) − `paid_amount`.
+   */
+  const { data: openTxns = [] } = useQuery({
+    queryKey: ["bank-recon-open-txns", manualSign, manualLine?.id],
+    enabled: !!manualLine,
+    queryFn: async () => {
+      const data = await fetchAllPages<any>((from, to) =>
+        supabase
+          .from("transactions")
+          .select(
+            "id, description, type, amount, iva_rate, paid_amount, date, due_date, invoice_ref, account_id, is_hidden, reversed_at, suppliers:suppliers!transactions_supplier_id_fkey(name), events:events!transactions_event_id_fkey(name)",
+          )
+          .eq("type", manualSign)
+          .in("status", ["approved", "partially_paid"])
+          .is("reversed_at", null)
+          .eq("is_hidden", false)
+          .order("id")
+          .range(from, to) as any,
+      );
+      return data
+        .map((t: any) => {
+          const gross = Math.round(Number(t.amount ?? 0) * (1 + Number(t.iva_rate ?? 0) / 100) * 100) / 100;
+          const open = Math.round((gross - Number(t.paid_amount ?? 0)) * 100) / 100;
+          return {
+            ...t,
+            gross,
+            open_amount: open,
+            supplier_name: t.suppliers?.name ?? null,
+            event_name: t.events?.name ?? null,
+          };
+        })
+        .filter((t: any) => t.open_amount > 0.01);
+    },
+  });
+
+  const openTxnIds = useMemo(() => new Set((openTxns as any[]).map((t) => t.id)), [openTxns]);
+
+
 
 
   const { data: sepaExports = [] } = useQuery({
@@ -1229,22 +1283,52 @@ export default function BankReconciliation() {
     const m = new Map<string, any>();
     (txns as any[]).forEach((t) => m.set(t.id, t));
     (crossAccountTxns as any[]).forEach((t) => { if (!m.has(t.id)) m.set(t.id, t); });
+    (openTxns as any[]).forEach((t) => { if (!m.has(t.id)) m.set(t.id, t); });
     return m;
-  }, [txns, crossAccountTxns]);
+  }, [txns, crossAccountTxns, openTxns]);
+
+  const manualTarget = manualLine ? Math.abs(Number(manualLine.amount ?? 0)) : 0;
+
+  /**
+   * Repartição do valor da linha pelas transações escolhidas. As já pagas
+   * entram pelo valor pago (só ligam); as em aberto ficam com o que falta para
+   * a soma bater com a linha, nunca acima do que têm em aberto — o excedente
+   * fica em aberto (pagamento parcial, estado derivado pelo D-ERP86).
+   */
+  const manualItems = useMemo(() => {
+    let remaining = manualTarget;
+    const rows = manualTxIds.map((id) => {
+      const t = manualCandidates.get(id);
+      const mode = manualModes[id] ?? "link";
+      if (mode === "link") {
+        const amount = Math.round(Math.abs(Number(t?.paid_amount ?? 0)) * 100) / 100;
+        remaining = Math.round((remaining - amount) * 100) / 100;
+        return { id, mode: "link" as const, amount, open: 0, leftover: 0, tx: t };
+      }
+      const open = Math.round(Number(t?.open_amount ?? 0) * 100) / 100;
+      const amount = Math.round(Math.max(0, Math.min(open, Math.max(0, remaining))) * 100) / 100;
+      remaining = Math.round((remaining - amount) * 100) / 100;
+      return {
+        id,
+        mode: "settle" as const,
+        amount,
+        open,
+        leftover: Math.round((open - amount) * 100) / 100,
+        tx: t,
+      };
+    });
+    return rows;
+  }, [manualTxIds, manualModes, manualCandidates, manualTarget]);
 
   const manualSelectedTotal = useMemo(
-    () =>
-      Math.round(
-        manualTxIds.reduce((a, id) => a + Math.abs(Number(manualCandidates.get(id)?.paid_amount ?? 0)), 0) * 100,
-      ) / 100,
-    [manualTxIds, manualCandidates],
+    () => Math.round(manualItems.reduce((a, i) => a + i.amount, 0) * 100) / 100,
+    [manualItems],
   );
-  const manualTarget = manualLine ? Math.abs(Number(manualLine.amount ?? 0)) : 0;
   const manualDiff = Math.round((manualSelectedTotal - manualTarget) * 100) / 100;
 
   async function confirmManual() {
-    if (!manualLine || manualTxIds.length === 0) return;
-    // Não existe conciliação parcial: a soma dos pagos tem de bater com a linha.
+    if (!manualLine || manualItems.length === 0) return;
+    // Não existe conciliação parcial da LINHA: a soma tem de bater com ela.
     if (Math.abs(manualDiff) > 0.01) {
       toast.error("A soma não bate com a linha do banco.", {
         description: `Linha ${formatCurrency(manualTarget)} · transações ${formatCurrency(
@@ -1255,47 +1339,48 @@ export default function BankReconciliation() {
     }
     setManualSaving(true);
     try {
-      const single = manualTxIds.length === 1;
-      const { error } = await supabase
-        .from("bank_statement_lines")
-        .update({
-          status: "matched",
-          matched_transaction_id: single ? manualTxIds[0] : null,
-          // Conciliar por cima de uma linha que era lote SEPA deixava os
-          // apontadores lá e duplicava a contagem.
-          matched_payment_list_id: null,
-          matched_sepa_export_id: null,
-          matched_by: `${single ? "manual" : "manual-multi"}:${user?.email ?? "sistema"}`,
-          matched_at: new Date().toISOString(),
-        })
-        .eq("id", manualLine.id);
+      // Tudo numa só passagem no servidor: ligar a linha, e liquidar o que a
+      // pessoa mandou liquidar. Qualquer erro reverte tudo.
+      const { error } = await (supabase as any).rpc("reconcile_bank_line", {
+        p_line_id: manualLine.id,
+        p_items: manualItems.map((i) => ({
+          transaction_id: i.id,
+          mode: i.mode,
+          amount: i.amount,
+        })),
+      });
       if (error) throw error;
 
-      // A ponte só existe para o caso de N.
-      await supabase.from("bank_line_transactions").delete().eq("line_id", manualLine.id);
-      if (!single) {
-        const { error: e2 } = await supabase
-          .from("bank_line_transactions")
-          .insert(manualTxIds.map((id) => ({ line_id: manualLine.id, transaction_id: id })));
-        if (e2) throw e2;
-      }
-
+      const nSettle = manualItems.filter((i) => i.mode === "settle").length;
       if (manualTxIds.some((id) => crossAccountIds.has(id))) {
         toast.warning("Linha conciliada com transação de OUTRA conta — verifique a conta da liquidação.");
+      } else if (nSettle > 0) {
+        toast.success(
+          nSettle === 1
+            ? "Linha conciliada e transação registada nesta conta."
+            : `Linha conciliada e ${nSettle} transações registadas nesta conta.`,
+        );
       } else {
-        toast.success(single ? "Linha conciliada." : `Linha conciliada com ${manualTxIds.length} transações.`);
+        toast.success(
+          manualTxIds.length === 1 ? "Linha conciliada." : `Linha conciliada com ${manualTxIds.length} transações.`,
+        );
       }
       setManualLine(null);
       setManualTxIds([]);
+      setManualModes({});
       setCrossAccountAck(false);
       queryClient.invalidateQueries({ queryKey: ["bank-recon-lines", currentStatement?.id] });
       queryClient.invalidateQueries({ queryKey: ["bank-recon-bridge"] });
+      queryClient.invalidateQueries({ queryKey: ["bank-recon-txns"] });
+      queryClient.invalidateQueries({ queryKey: ["bank-recon-open-txns"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
     } catch (err: any) {
       toast.error("Erro ao conciliar: " + (err?.message ?? "desconhecido"));
     } finally {
       setManualSaving(false);
     }
   }
+
 
   async function confirmIgnore() {
     if (!ignoreLine || !ignoreNote.trim()) return;
@@ -2057,60 +2142,117 @@ export default function BankReconciliation() {
             <div className="space-y-3 text-sm">
               <p className="text-muted-foreground">
                 {formatDatePT(manualLine.booking_date)} · {manualLine.description} · {formatCurrency(Number(manualLine.amount))}
+                <span className="ml-2">
+                  {manualSign === "income" ? "(a crédito — só receitas)" : "(a débito — só despesas)"}
+                </span>
               </p>
               <div className="space-y-2">
                 <Label>Transações</Label>
                 {/* Selecção MÚLTIPLA: uma linha do banco pode ser explicada por
-                    N transações. A soma tem de bater com a linha (±0,01 €). */}
+                    N transações. A soma tem de bater com a linha (±0,01 €).
+                    Dois grupos: primeiro as já pagas nesta conta (só ligar),
+                    depois as em aberto (ligar + liquidar). O SINAL da linha
+                    manda no tipo em ambos. */}
                 <SearchableSelect
                   value=""
                   onValueChange={(v) => {
                     if (!v) return;
                     setManualTxIds((prev) => (prev.includes(v) ? prev : [...prev, v]));
+                    setManualModes((prev) => ({ ...prev, [v]: openTxnIds.has(v) ? "settle" : "link" }));
                     setCrossAccountAck(false);
                   }}
                   placeholder="Procurar e adicionar transação"
                   options={[
                     ...(txns as any[])
-                      .filter((t) => !accountExplainedIds.has(t.id) && !manualTxIds.includes(t.id))
+                      .filter(
+                        (t) =>
+                          t.type === manualSign &&
+                          !accountExplainedIds.has(t.id) &&
+                          !manualTxIds.includes(t.id),
+                      )
+                      .sort(
+                        (a, b) =>
+                          Math.abs(Math.abs(Number(a.paid_amount ?? 0)) - manualTarget) -
+                            Math.abs(Math.abs(Number(b.paid_amount ?? 0)) - manualTarget) ||
+                          dateDistance(a.payment_date ?? a.date, manualLine) -
+                            dateDistance(b.payment_date ?? b.date, manualLine),
+                      )
                       .map((t) => ({
                         value: t.id,
+                        group: "Pagas nesta conta, sem movimento no banco",
                         label: `${formatDatePT(t.payment_date ?? t.date)} · ${formatCurrency(Number(t.paid_amount ?? 0))} · ${t.description}`,
-                        searchText: `${t.description ?? ""} ${t.paid_amount ?? ""}`,
+                        searchText: `${t.description ?? ""} ${t.supplier_name ?? ""} ${t.paid_amount ?? ""}`,
+                      })),
+                    ...(openTxns as any[])
+                      .filter((t) => !manualTxIds.includes(t.id))
+                      .sort(
+                        (a, b) =>
+                          Math.abs(Number(a.open_amount) - manualTarget) -
+                            Math.abs(Number(b.open_amount) - manualTarget) ||
+                          dateDistance(a.date, manualLine) - dateDistance(b.date, manualLine),
+                      )
+                      .map((t) => ({
+                        value: t.id,
+                        group: "Em aberto (por receber / por pagar)",
+                        label: `${formatDatePT(t.date)} · ${formatCurrency(Number(t.open_amount))} · ${t.description}`,
+                        description: [t.event_name, t.supplier_name, t.invoice_ref].filter(Boolean).join(" · ") || undefined,
+                        searchText: `${t.description ?? ""} ${t.supplier_name ?? ""} ${t.event_name ?? ""} ${t.invoice_ref ?? ""} ${t.open_amount}`,
                       })),
                     // Candidatas de OUTRAS contas: sempre depois e sempre com aviso.
                     ...(crossAccountTxns as any[])
                       .filter((t) => !accountExplainedIds.has(t.id) && !manualTxIds.includes(t.id))
                       .map((t) => ({
                         value: t.id,
+                        group: "Pagas noutra conta",
                         label: `${formatDatePT(t.payment_date ?? t.date)} · ${formatCurrency(Number(t.paid_amount ?? 0))} · ${t.description}`,
                         description: `⚠ conta divergente — ${t.account_name}`,
                         searchText: `${t.description ?? ""} ${t.account_name ?? ""}`,
                       })),
                   ]}
                 />
-                {manualTxIds.length > 0 && (
+                {manualItems.length > 0 && (
                   <div className="rounded-lg border px-3 py-2 text-xs">
                     {/* Acima de 5 itens a lista rola; o total fica sempre fora da área de scroll. */}
-                    <div className={`space-y-1 ${manualTxIds.length > 5 ? "max-h-52 overflow-y-auto pr-1" : ""}`}>
-                      {manualTxIds.map((id) => {
-                        const t = manualCandidates.get(id);
+                    <div className={`space-y-1.5 ${manualItems.length > 5 ? "max-h-52 overflow-y-auto pr-1" : ""}`}>
+                      {manualItems.map((item) => {
+                        const t = item.tx;
                         return (
-                          <div key={id} className="flex items-start gap-2">
-                            <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug line-clamp-2">
-                              {t?.description ?? "(transação)"}
-                              {crossAccountIds.has(id) && (
-                                <span className="ml-1 text-destructive">⚠ {t?.account_name}</span>
+                          <div key={item.id} className="flex items-start gap-2">
+                            <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug">
+                              <span className="line-clamp-2">
+                                {t?.description ?? "(transação)"}
+                                {crossAccountIds.has(item.id) && (
+                                  <span className="ml-1 text-destructive">⚠ {t?.account_name}</span>
+                                )}
+                              </span>
+                              {item.mode === "settle" && (
+                                <span className="block text-muted-foreground">
+                                  Vai ser registada como {manualSign === "income" ? "recebida" : "paga"} nesta conta a{" "}
+                                  {formatDatePT(manualLine.value_date ?? manualLine.booking_date)},{" "}
+                                  {formatCurrency(item.amount)}
+                                  {item.leftover > 0.01 && (
+                                    <span className="ml-1 text-warning">
+                                      · parcial: fica em aberto {formatCurrency(item.leftover)}
+                                    </span>
+                                  )}
+                                </span>
                               )}
                             </span>
                             <span className="shrink-0 text-right font-medium tabular-nums">
-                              {formatCurrency(Math.abs(Number(t?.paid_amount ?? 0)))}
+                              {formatCurrency(item.amount)}
                             </span>
                             <Button
                               size="icon"
                               variant="ghost"
                               className="h-6 w-6 shrink-0"
-                              onClick={() => setManualTxIds((prev) => prev.filter((x) => x !== id))}
+                              onClick={() => {
+                                setManualTxIds((prev) => prev.filter((x) => x !== item.id));
+                                setManualModes((prev) => {
+                                  const next = { ...prev };
+                                  delete next[item.id];
+                                  return next;
+                                });
+                              }}
                             >
                               <X className="h-3.5 w-3.5" />
                             </Button>
@@ -2146,8 +2288,12 @@ export default function BankReconciliation() {
                   </label>
                 </div>
               )}
-              <p className="text-xs text-muted-foreground">A ligação não altera a transação: não liquida nem muda valores.</p>
+              <p className="text-xs text-muted-foreground">
+                Escolher uma transação já paga só liga: não liquida nem muda valores. Escolher uma
+                transação em aberto liquida-a nesta conta, com a data-valor da linha.
+              </p>
             </div>
+
           )}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setManualLine(null)}>Cancelar</Button>
@@ -2161,7 +2307,7 @@ export default function BankReconciliation() {
               }
             >
               {manualSaving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
-              Ligar
+              {manualItems.some((i) => i.mode === "settle") ? "Ligar e liquidar" : "Ligar"}
             </Button>
           </DialogFooter>
 
@@ -2193,6 +2339,19 @@ export default function BankReconciliation() {
  * Dias úteis (seg–sex) estritamente entre duas datas YYYY-MM-DD, exclusivos.
  * Serve só para explicar o intervalo entre extratos — não conta feriados.
  */
+/**
+ * Distância em dias entre a data de uma transação e a data-valor da linha do
+ * banco. Serve só para ordenar candidatas (proximidade de data).
+ */
+function dateDistance(txDate: string | null | undefined, line: any): number {
+  const base = line?.value_date ?? line?.booking_date;
+  if (!txDate || !base) return Number.MAX_SAFE_INTEGER;
+  const a = new Date(String(txDate).slice(0, 10) + "T00:00:00").getTime();
+  const b = new Date(String(base).slice(0, 10) + "T00:00:00").getTime();
+  if (Number.isNaN(a) || Number.isNaN(b)) return Number.MAX_SAFE_INTEGER;
+  return Math.abs(a - b) / 86400000;
+}
+
 function businessDaysBetween(fromIso: string, toIso: string): number {
   const [y1, m1, d1] = fromIso.split("-").map(Number);
   const [y2, m2, d2] = toIso.split("-").map(Number);

@@ -385,3 +385,76 @@ Veio do mesmo dia: a linha `PAG SERVICOS … AUDIOGEST` de 16/09 estava `matched
 com tudo a NULL — a transação criada pelo "Lançar" de 17/09 desapareceu (modo de
 falha da #154, fechado pela RPC atómica) e ninguém deu por ela. Ligada à mão à
 transação real.
+
+## Conciliar: ligar ou liquidar (2026-09-22, D-ERP127)
+
+O modal "Conciliar manualmente" deixou de ser só "escolher uma transação paga".
+UMA linha do banco → N transações, cada uma em **um de dois modos**:
+
+- `link` — a transação já está paga nesta conta e só falta o movimento do banco
+  apontar para ela. **Não toca na transação** (D-ERP28 intacto).
+- `settle` — a transação está **em aberto** (por receber / por pagar) e é a
+  própria linha do banco que a liquida. É **decisão explícita da pessoa**, no
+  molde do "Lançar" (D-ERP29).
+
+**O SINAL da linha manda no tipo.** Linha a crédito → só `type = 'income'`;
+a débito → só `type = 'expense'`. Vale para as candidatas da conta, para as em
+aberto e para as de outras contas (D-ERP35). Caso que obrigou a isto: o crédito
+de 7.380,00 € da MATUDIS (17/09/2026) é o patrocínio "Matudis — Patrocínio
+Ensaios da Anitta · Lisboa" (6.000 € + IVA 23 %, `approved`, sem conta) e a
+lista mostrava despesas pagas, nunca ele.
+
+**Dois grupos na lista, por esta ordem:**
+
+1. *Pagas nesta conta, sem movimento no banco* — `paid_amount > 0`,
+   `account_id` = conta do extrato, fora de `accountExplainedIds`.
+2. *Em aberto (por receber / por pagar)* — `status in ('approved',
+   'partially_paid')`, não revertidas, não escondidas, bruto por liquidar > 0
+   (bruto = `amount × (1 + iva_rate/100)`; em aberto = bruto − `paid_amount`).
+   **Sem filtro de conta** — estas ainda não têm conta. Mostram data, valor em
+   aberto, descrição, evento, fornecedor e `invoice_ref`.
+
+Dentro de cada grupo ordena-se por proximidade ao valor da linha e depois por
+proximidade de data. A pesquisa cobre descrição, fornecedor, evento e valor.
+
+**Repartição do valor.** As `link` entram pelo valor pago; as `settle` ficam com
+o que falta para a soma bater com a linha, nunca acima do que têm em aberto. Se
+o em aberto for maior do que o disponível, o pagamento é **parcial** e o modal
+diz "parcial: fica em aberto X €" — o estado da transação é derivado
+(D-ERP86). A soma continua a ter de bater com a linha a ±0,01 €.
+
+### `public.reconcile_bank_line(p_line_id uuid, p_items jsonb) RETURNS void`
+
+plpgsql, **SEM `SECURITY DEFINER`**, `search_path = public`. Grants: `anon`
+false, `authenticated` e `service_role` true. `p_items` =
+`[{ transaction_id, mode: 'link' | 'settle', amount }]`.
+
+Valida, antes de escrever: empresa da linha = `current_company_id()`; linha
+`unmatched`, sem `matched_transaction_id`, sem `created_transaction_id` e sem
+ponte (guarda contra duplo clique); transação existe, é da empresa, não está
+revertida e o tipo bate com o sinal da linha; em `settle`, o valor não passa o
+em aberto; e a soma dos itens = `abs(amount)` da linha ±0,01.
+
+Em `settle` insere em `transaction_payments` (`payment_date` = `value_date` da
+linha, com fallback `booking_date`; `account_id` = conta da linha;
+`payment_method = 'transfer'`; `payment_reference` = descrição do banco;
+`notes = 'Liquidação pela conciliação bancária'`; `created_by` = email de quem
+chama) e, só se a transação não tiver conta, grava `account_id`.
+**`paid_amount`, `status` e `payment_date` da transação nunca são escritos à
+mão** — ficam para `sync_paid_amount_from_payments` (D-ERP86).
+
+No fim liga a linha: `status = 'matched'`, `matched_by = manual:<email>` (ou
+`manual-multi:<email>` com N transações, como já era), `matched_at`, limpa
+`matched_payment_list_id` / `matched_sepa_export_id` e reconstrói a ponte
+`bank_line_transactions` quando há mais de uma transação. Qualquer erro reverte
+tudo. O ecrã **não faz mais UPDATE directo** em `bank_statement_lines` neste
+caminho.
+
+**A camada automática 2 (valor exacto) não mudou:** continua só sobre transações
+já pagas. Liquidar é sempre decisão explícita da pessoa.
+
+Provas em Live (BEGIN … ROLLBACK), linha MATUDIS
+`79ab0886-a382-442a-be32-180089ce0c6f`: soma que não bate recusada; valor acima
+do em aberto recusado; despesa numa linha a crédito recusada; caminho feliz
+deixa a transação `paid` com 7.380,00 €, `payment_date = 2026-09-17` e conta
+Santander; repetir na mesma linha recusa por já estar conciliada.
