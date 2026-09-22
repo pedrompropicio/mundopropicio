@@ -1067,7 +1067,7 @@ export default function BankReconciliation() {
     if (!openingCheck?.refuse || openingCheck.reference === null || openingCheck.diff === null) return null;
     return (
       `A abertura do ficheiro (${formatCurrency(Number(parsed?.openingBalance ?? 0))}) está a ` +
-      `${formatCurrency(Math.abs(openingCheck.diff))} do último saldo conhecido desta conta ` +
+      `${formatCurrency(Math.abs(openingCheck.diff))} do saldo desta conta à véspera ` +
       `(${formatCurrency(openingCheck.reference)}, ${openingCheck.origin}). ` +
       `Este ficheiro não parece ser desta conta.`
     );
