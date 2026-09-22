@@ -42,6 +42,10 @@ UI partilhada via `EventScenarioContext` (provider em `EventDetail`, consumido p
 - Banner sandbox em `EventTicketing` quando `isScenarioMode`.
 - `SalesLogPanel` está bloqueado em modo cenário (vendas reais só vivem na Versão Ativa) — aparece um aviso a pedir para voltar à Ativa.
 - Em modo cenário, eventos `completed` desbloqueiam edição (sandbox isolado da produção).
+- **Issue #31 (22/09/2026):** a vista **Planilha** também consome o mesmo contexto: lê e grava
+  `event_forecasts` com o `version_id` selecionado, recarrega e descarta alterações pendentes ao
+  trocar de cenário, e não mostra anexos/transações nem o bucket "Sem linha específica" no sandbox.
+  A gravação invalida `scenario-forecasts`, para a vista Agrupada refletir de imediato as alterações.
 
 
 ## Nota 08/09/2026 — promoção limpa a etiqueta + renomear versões

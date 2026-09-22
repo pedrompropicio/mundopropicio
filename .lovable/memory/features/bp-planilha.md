@@ -1,6 +1,6 @@
 ---
 name: BP Planilha (Handsontable) — vista oficial
-description: Vista "Planilha" do BP com Handsontable + HyperFormula; oficial desde 06/08/2026, substituiu o Univer (aposentado). Inclui contrato funcional, formatação PT-PT, ecrã inteiro e pendência de licença.
+description: Vista "Planilha" do BP com Handsontable + HyperFormula; suporta o BP ativo e o cenário selecionado, com sandbox sem transações reais.
 type: feature
 ---
 
@@ -21,7 +21,8 @@ Motivo: lib 0.25 instável, exigia ~2.759 linhas de workarounds e ~10MB de bundl
 do componente: **em produção comercial é obrigatória licença Handsontable comprada**.
 
 ## Contrato funcional
-- Carrega `event_forecasts` com `version_id IS NULL`, `status IN ('approved','draft')`, `type='expense'`.
+- Carrega `event_forecasts` da versão selecionada no `EventScenarioContext`: `version_id IS NULL` na Ativa ou `version_id = selectedVersionId` num cenário; mantém `status IN ('approved','draft')` e `type='expense'`.
+- Trocar entre Ativa e cenário recarrega a grelha e limpa diff, linhas temporárias, eliminações pendentes e undo. Se havia alterações por gravar, mostra aviso de que foram descartadas.
 - Grelha hierárquica L1 > L2 > L3 (linhas de grupo read-only, indentadas por nível) + linhas editáveis.
 - Colunas: Categoria (read-only) · Descrição · Especificação · Valor s/IVA · Taxa IVA (dropdown
   com as taxas do país do evento via `useEventIvaCountry`) · Total c/IVA (fórmula HyperFormula
@@ -34,11 +35,14 @@ do componente: **em produção comercial é obrigatória licença Handsontable c
 - Anexos usam o SSoT `src/lib/bp-tx-matching.ts` (`findMatchingTransactionsForForecast` +
   `findCategoryOrphanTransactions`); o bucket "Sem linha específica" aparece como linha sintética
   read-only no fim de cada categoria. Sem edição de vínculos na planilha.
+- Em modo cenário, a Planilha mostra o nome do cenário e não carrega nem casa transações reais: oculta a coluna/painel de Anexos e não cria a linha sintética "Sem linha específica". Transações vivem apenas na Ativa.
 
 - Edição em memória → **Gravar** com diálogo de confirmação (N editadas / inseridas / removidas).
 - Gravação por diff: `batch_update_event_forecasts` (valida `updated === edits.length`),
   `batch_insert_event_forecasts` (novas entram como rascunho) e `DELETE` para removidas. As RPCs
-  cobrem `ordering_partner_id` e `paying_partner_id`, sem escrita paralela direta da Planilha.
+  recebem `_version_id = selectedVersionId` (`null` na Ativa), cobrem `ordering_partner_id` e
+  `paying_partner_id`, sem escrita paralela direta da Planilha. O DELETE só inclui IDs carregados
+  na versão corrente.
 - Input PT: `parseAmountPT` aceita `1.064,42 €` → `1064.42` (também no paste, via `beforeChange`).
 - Poda de no-ops: o diff só inclui campos realmente diferentes do original.
 - Nativo aproveitado: undo/redo (`afterUndo` recalcula o contador), colar do Excel, fill handle, teclado.
