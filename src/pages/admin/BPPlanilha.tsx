@@ -62,6 +62,9 @@ import {
 } from "@/lib/paying-partner";
 import { useEventHouseLabel } from "@/hooks/useEventHouseLabel";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { useEventScenario } from "@/contexts/EventScenarioContext";
+import { useBPVersions } from "@/hooks/useBPVersions";
+import { getBPPlanilhaRpcVersionId, getBPPlanilhaVersionFilter } from "@/lib/bp-planilha-version";
 
 
 registerAllModules();
@@ -184,6 +187,14 @@ interface BPPlanilhaProps {
 export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps) {
   const { role } = useAuth();
   const queryClient = useQueryClient();
+  const { selectedVersionId, isScenarioMode } = useEventScenario();
+  const { data: bpVersions = [] } = useBPVersions(eventId);
+  const selectedScenario = useMemo(
+    () => bpVersions.find((version) => version.id === selectedVersionId) ?? null,
+    [bpVersions, selectedVersionId],
+  );
+  const scenarioLabel = selectedScenario?.scenario_label ??
+    (selectedScenario ? `Cenário v${selectedScenario.version_number}` : "Cenário");
   // Mesma regra da antiga Planilha (Univer): quem pode editar o BP pode usar a Planilha.
   const allowed = canEdit;
 
@@ -219,6 +230,9 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   const [anexosPanel, setAnexosPanel] = useState<{ title: string; txs: any[] } | null>(null);
   /** Anexos de ficheiro por transação do painel (uma query em lote). */
   const [panelDocs, setPanelDocs] = useState<Record<string, TxDocLike[]>>({});
+  const loadedVersionRef = useRef<string | null>(selectedVersionId);
+  const pendingChangeCountRef = useRef(0);
+  pendingChangeCountRef.current = counts.edits + counts.inserts + counts.deletes;
 
   /* Carrega em lote os anexos das transações mostradas no painel. */
   useEffect(() => {
@@ -292,6 +306,12 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   /* ───────────────────────────── carregamento ───────────────────────────── */
 
   const fetchData = useCallback(async () => {
+    const versionChanged = loadedVersionRef.current !== selectedVersionId;
+    if (versionChanged && pendingChangeCountRef.current > 0) {
+      toast.warning("As alterações por gravar foram descartadas ao trocar de cenário.");
+    }
+    loadedVersionRef.current = selectedVersionId;
+    setAnexosPanel(null);
     setLoading(true);
     try {
       const eRes = await supabase
@@ -304,28 +324,35 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       const parentEventId = (eRes.data as any)?.parent_event_id ?? null;
       const catQuery = supabase.from("account_categories").select("id, name, code, parent_id, type, company_id");
       const partnersSourceId = parentEventId || eventId;
-      const [fRes, cRes, pRes, tRes] = await Promise.all([
-        fetchAllPagedQuery(supabase
+      const versionFilter = getBPPlanilhaVersionFilter(selectedVersionId);
+      const forecastBaseQuery = supabase
           .from("event_forecasts")
           .select(
             "id, event_id, type, category_id, description, specification, amount, iva_rate, formalidade, status, transaction_id, ordering_partner_id, paying_partner_id, is_overhead, exclude_from_result, master_forecast_id, is_retroactive_override",
           )
           .eq("event_id", eventId)
-          .is("version_id", null)
           .in("status", ["approved", "draft"])
-          .eq("type", "expense")),
+          .eq("type", "expense");
+      const forecastQuery = versionFilter.method === "is"
+        ? forecastBaseQuery.is(versionFilter.column, versionFilter.value)
+        : forecastBaseQuery.eq(versionFilter.column, versionFilter.value);
+      const transactionsPromise = isScenarioMode
+        ? Promise.resolve({ data: [], error: null })
+        : fetchAllPagedQuery(supabase
+            .from("transactions")
+            .select(
+              "id, event_id, type, category_id, description, amount, iva_rate, status, due_date, payment_date, forecast_id, ordering_partner_id, paying_partner_id",
+            )
+            .eq("event_id", eventId)
+            .eq("type", "expense"));
+      const [fRes, cRes, pRes, tRes] = await Promise.all([
+        fetchAllPagedQuery(forecastQuery),
         eventCompanyId ? catQuery.eq("company_id", eventCompanyId) : catQuery,
         supabase
           .from("event_partners")
           .select("id, percentage, can_order, can_pay, suppliers:supplier_id(name)")
           .eq("event_id", partnersSourceId),
-        fetchAllPagedQuery(supabase
-          .from("transactions")
-          .select(
-            "id, event_id, type, category_id, description, amount, iva_rate, status, due_date, payment_date, forecast_id, ordering_partner_id, paying_partner_id",
-          )
-          .eq("event_id", eventId)
-          .eq("type", "expense")),
+        transactionsPromise,
       ]);
       if (fRes.error) throw fRes.error;
       if (cRes.error) throw cRes.error;
@@ -351,13 +378,14 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       setCounts({ edits: 0, inserts: 0, deletes: 0 });
       undoStackRef.current = [];
       setUndoDepth(0);
+      pendingChangeCountRef.current = 0;
       setDataVersion((v) => v + 1);
     } catch (e: any) {
       setErr(e?.message ?? String(e));
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, isScenarioMode, selectedVersionId]);
 
   useEffect(() => {
     void fetchData();
@@ -504,9 +532,9 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       for (const row of byCat.get(key)!) {
         const label = catLabel(catId);
         if (row.entry) {
-          const txs = filterTxs(
-            findMatchingTransactionsForForecast(row.entry as any, transactions, entries as any[]),
-          );
+          const txs = isScenarioMode
+            ? []
+            : filterTxs(findMatchingTransactionsForForecast(row.entry as any, transactions, entries as any[]));
           pushFormulaRow(
             { kind: "entry", id: row.entry.id, categoryId: catId, categoryLabel: label, locked: isLockedEntry(row.entry) },
             [
@@ -537,7 +565,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       }
 
       // bucket sintético "Sem linha específica": TXs da categoria que nenhuma linha reclama
-      if (catId) {
+      if (catId && !isScenarioMode) {
         const orphans = filterTxs(
           findCategoryOrphanTransactions({
             categoryId: catId,
@@ -575,6 +603,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
     inheritedPayerMap,
     partnerNameById,
     eventId,
+    isScenarioMode,
   ]);
 
   const anexosRef = useRef<(any[] | null)[]>([]);
@@ -592,7 +621,11 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   const buildDiff = useCallback((): DiffResult => {
     const hot = hotRef.current?.hotInstance;
     const meta = metaRef.current;
-    const res: DiffResult = { edits: [], inserts: [], deletes: [...pendingDeletes] };
+    const res: DiffResult = {
+      edits: [],
+      inserts: [],
+      deletes: pendingDeletes.filter((id) => originalsRef.current.has(id)),
+    };
     if (!hot) return res;
 
     meta.forEach((m, r) => {
@@ -840,7 +873,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         const editsArr = diff.edits.map((e) => ({ id: e.id, ...e.fields }));
         const { data, error } = await supabase.rpc("batch_update_event_forecasts" as any, {
           _event_id: eventId,
-          _version_id: null,
+          _version_id: getBPPlanilhaRpcVersionId(selectedVersionId),
           _edits: editsArr as any,
         } as any);
         if (error) throw error;
@@ -852,7 +885,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       if (diff.inserts.length) {
         const { error } = await supabase.rpc("batch_insert_event_forecasts" as any, {
           _event_id: eventId,
-          _version_id: null,
+          _version_id: getBPPlanilhaRpcVersionId(selectedVersionId),
           _inserts: diff.inserts.map((p) => ({ type: "expense", ...p })) as any,
         } as any);
         if (error) throw error;
@@ -981,8 +1014,8 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
     [],
   );
 
-  const columns = useMemo(
-    () => [
+  const columns = useMemo(() => {
+    const baseColumns = [
       { data: COL.CATEGORY, readOnly: true, width: 300, renderer: categoryRenderer as any },
       { data: COL.DESCRIPTION, type: "text", width: 300 },
       { data: COL.SPEC, type: "text", width: 220 },
@@ -1014,9 +1047,19 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
         renderer: ordererRenderer as any,
       },
       { data: COL.ANEXOS, readOnly: true, width: 90, renderer: anexosRenderer as any },
-    ],
-    [ivaSource, moneyRenderer, ivaRenderer, categoryRenderer, ordererLabels, payerLabels, ordererRenderer, anexosRenderer],
-  );
+    ];
+    return isScenarioMode ? baseColumns.slice(0, COL.ANEXOS) : baseColumns;
+  }, [
+    ivaSource,
+    moneyRenderer,
+    ivaRenderer,
+    categoryRenderer,
+    ordererLabels,
+    payerLabels,
+    ordererRenderer,
+    anexosRenderer,
+    isScenarioMode,
+  ]);
 
 
 
@@ -1116,6 +1159,12 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
 
   return (
     <div className="space-y-3">
+      {isScenarioMode && (
+        <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
+          <span className="font-semibold">Cenário: {scenarioLabel}</span>
+          <span className="text-muted-foreground"> — as alterações não tocam o BP vivo</span>
+        </div>
+      )}
       {actionBar}
 
       {err && <p className="text-sm text-destructive">{err}</p>}
@@ -1170,7 +1219,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
               "Formalidade",
               "Ordenador",
               "Pagador",
-              "Anexos",
+              ...(isScenarioMode ? [] : ["Anexos"]),
             ]}
             rowHeaders
             height={fullscreen ? "calc(100vh - 100px)" : 620}
@@ -1184,6 +1233,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
               if (typeof r === "number" && r >= 0) lastRowRef.current = r;
             }}
             afterOnCellMouseDown={(_e: any, coords: any) => {
+              if (isScenarioMode) return;
               if (!coords || coords.col !== COL.ANEXOS || coords.row < 0) return;
               const txs = anexosRef.current[coords.row];
               if (!txs?.length) return;
