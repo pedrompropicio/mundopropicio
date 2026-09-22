@@ -2339,6 +2339,19 @@ export default function BankReconciliation() {
  * Dias úteis (seg–sex) estritamente entre duas datas YYYY-MM-DD, exclusivos.
  * Serve só para explicar o intervalo entre extratos — não conta feriados.
  */
+/**
+ * Distância em dias entre a data de uma transação e a data-valor da linha do
+ * banco. Serve só para ordenar candidatas (proximidade de data).
+ */
+function dateDistance(txDate: string | null | undefined, line: any): number {
+  const base = line?.value_date ?? line?.booking_date;
+  if (!txDate || !base) return Number.MAX_SAFE_INTEGER;
+  const a = new Date(String(txDate).slice(0, 10) + "T00:00:00").getTime();
+  const b = new Date(String(base).slice(0, 10) + "T00:00:00").getTime();
+  if (Number.isNaN(a) || Number.isNaN(b)) return Number.MAX_SAFE_INTEGER;
+  return Math.abs(a - b) / 86400000;
+}
+
 function businessDaysBetween(fromIso: string, toIso: string): number {
   const [y1, m1, d1] = fromIso.split("-").map(Number);
   const [y2, m2, d2] = toIso.split("-").map(Number);
