@@ -2142,60 +2142,117 @@ export default function BankReconciliation() {
             <div className="space-y-3 text-sm">
               <p className="text-muted-foreground">
                 {formatDatePT(manualLine.booking_date)} · {manualLine.description} · {formatCurrency(Number(manualLine.amount))}
+                <span className="ml-2">
+                  {manualSign === "income" ? "(a crédito — só receitas)" : "(a débito — só despesas)"}
+                </span>
               </p>
               <div className="space-y-2">
                 <Label>Transações</Label>
                 {/* Selecção MÚLTIPLA: uma linha do banco pode ser explicada por
-                    N transações. A soma tem de bater com a linha (±0,01 €). */}
+                    N transações. A soma tem de bater com a linha (±0,01 €).
+                    Dois grupos: primeiro as já pagas nesta conta (só ligar),
+                    depois as em aberto (ligar + liquidar). O SINAL da linha
+                    manda no tipo em ambos. */}
                 <SearchableSelect
                   value=""
                   onValueChange={(v) => {
                     if (!v) return;
                     setManualTxIds((prev) => (prev.includes(v) ? prev : [...prev, v]));
+                    setManualModes((prev) => ({ ...prev, [v]: openTxnIds.has(v) ? "settle" : "link" }));
                     setCrossAccountAck(false);
                   }}
                   placeholder="Procurar e adicionar transação"
                   options={[
                     ...(txns as any[])
-                      .filter((t) => !accountExplainedIds.has(t.id) && !manualTxIds.includes(t.id))
+                      .filter(
+                        (t) =>
+                          t.type === manualSign &&
+                          !accountExplainedIds.has(t.id) &&
+                          !manualTxIds.includes(t.id),
+                      )
+                      .sort(
+                        (a, b) =>
+                          Math.abs(Math.abs(Number(a.paid_amount ?? 0)) - manualTarget) -
+                            Math.abs(Math.abs(Number(b.paid_amount ?? 0)) - manualTarget) ||
+                          dateDistance(a.payment_date ?? a.date, manualLine) -
+                            dateDistance(b.payment_date ?? b.date, manualLine),
+                      )
                       .map((t) => ({
                         value: t.id,
+                        group: "Pagas nesta conta, sem movimento no banco",
                         label: `${formatDatePT(t.payment_date ?? t.date)} · ${formatCurrency(Number(t.paid_amount ?? 0))} · ${t.description}`,
-                        searchText: `${t.description ?? ""} ${t.paid_amount ?? ""}`,
+                        searchText: `${t.description ?? ""} ${t.supplier_name ?? ""} ${t.paid_amount ?? ""}`,
+                      })),
+                    ...(openTxns as any[])
+                      .filter((t) => !manualTxIds.includes(t.id))
+                      .sort(
+                        (a, b) =>
+                          Math.abs(Number(a.open_amount) - manualTarget) -
+                            Math.abs(Number(b.open_amount) - manualTarget) ||
+                          dateDistance(a.date, manualLine) - dateDistance(b.date, manualLine),
+                      )
+                      .map((t) => ({
+                        value: t.id,
+                        group: "Em aberto (por receber / por pagar)",
+                        label: `${formatDatePT(t.date)} · ${formatCurrency(Number(t.open_amount))} · ${t.description}`,
+                        description: [t.event_name, t.supplier_name, t.invoice_ref].filter(Boolean).join(" · ") || undefined,
+                        searchText: `${t.description ?? ""} ${t.supplier_name ?? ""} ${t.event_name ?? ""} ${t.invoice_ref ?? ""} ${t.open_amount}`,
                       })),
                     // Candidatas de OUTRAS contas: sempre depois e sempre com aviso.
                     ...(crossAccountTxns as any[])
                       .filter((t) => !accountExplainedIds.has(t.id) && !manualTxIds.includes(t.id))
                       .map((t) => ({
                         value: t.id,
+                        group: "Pagas noutra conta",
                         label: `${formatDatePT(t.payment_date ?? t.date)} · ${formatCurrency(Number(t.paid_amount ?? 0))} · ${t.description}`,
                         description: `⚠ conta divergente — ${t.account_name}`,
                         searchText: `${t.description ?? ""} ${t.account_name ?? ""}`,
                       })),
                   ]}
                 />
-                {manualTxIds.length > 0 && (
+                {manualItems.length > 0 && (
                   <div className="rounded-lg border px-3 py-2 text-xs">
                     {/* Acima de 5 itens a lista rola; o total fica sempre fora da área de scroll. */}
-                    <div className={`space-y-1 ${manualTxIds.length > 5 ? "max-h-52 overflow-y-auto pr-1" : ""}`}>
-                      {manualTxIds.map((id) => {
-                        const t = manualCandidates.get(id);
+                    <div className={`space-y-1.5 ${manualItems.length > 5 ? "max-h-52 overflow-y-auto pr-1" : ""}`}>
+                      {manualItems.map((item) => {
+                        const t = item.tx;
                         return (
-                          <div key={id} className="flex items-start gap-2">
-                            <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug line-clamp-2">
-                              {t?.description ?? "(transação)"}
-                              {crossAccountIds.has(id) && (
-                                <span className="ml-1 text-destructive">⚠ {t?.account_name}</span>
+                          <div key={item.id} className="flex items-start gap-2">
+                            <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug">
+                              <span className="line-clamp-2">
+                                {t?.description ?? "(transação)"}
+                                {crossAccountIds.has(item.id) && (
+                                  <span className="ml-1 text-destructive">⚠ {t?.account_name}</span>
+                                )}
+                              </span>
+                              {item.mode === "settle" && (
+                                <span className="block text-muted-foreground">
+                                  Vai ser registada como {manualSign === "income" ? "recebida" : "paga"} nesta conta a{" "}
+                                  {formatDatePT(manualLine.value_date ?? manualLine.booking_date)},{" "}
+                                  {formatCurrency(item.amount)}
+                                  {item.leftover > 0.01 && (
+                                    <span className="ml-1 text-warning">
+                                      · parcial: fica em aberto {formatCurrency(item.leftover)}
+                                    </span>
+                                  )}
+                                </span>
                               )}
                             </span>
                             <span className="shrink-0 text-right font-medium tabular-nums">
-                              {formatCurrency(Math.abs(Number(t?.paid_amount ?? 0)))}
+                              {formatCurrency(item.amount)}
                             </span>
                             <Button
                               size="icon"
                               variant="ghost"
                               className="h-6 w-6 shrink-0"
-                              onClick={() => setManualTxIds((prev) => prev.filter((x) => x !== id))}
+                              onClick={() => {
+                                setManualTxIds((prev) => prev.filter((x) => x !== item.id));
+                                setManualModes((prev) => {
+                                  const next = { ...prev };
+                                  delete next[item.id];
+                                  return next;
+                                });
+                              }}
                             >
                               <X className="h-3.5 w-3.5" />
                             </Button>
@@ -2231,8 +2288,12 @@ export default function BankReconciliation() {
                   </label>
                 </div>
               )}
-              <p className="text-xs text-muted-foreground">A ligação não altera a transação: não liquida nem muda valores.</p>
+              <p className="text-xs text-muted-foreground">
+                Escolher uma transação já paga só liga: não liquida nem muda valores. Escolher uma
+                transação em aberto liquida-a nesta conta, com a data-valor da linha.
+              </p>
             </div>
+
           )}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setManualLine(null)}>Cancelar</Button>
