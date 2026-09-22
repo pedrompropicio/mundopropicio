@@ -337,19 +337,41 @@ Incidente: às 19:48 de 18/09 o ficheiro do Santander de 16/09 (abertura
   `financial_accounts` com `type = 'bank'`, `is_active` e não ocultas. A
   gravação (`saveImport`) confirma o tipo **outra vez** contra a lista: um
   seletor não é uma trava. Mensagem: "Só contas bancárias recebem extrato."
-- **Trava 2 — abertura do ficheiro contra o último saldo conhecido da conta**
-  (`openingCheck` / `openingRefuseMessage`). Referência, em cascata:
-  (a) `closing_balance` do extrato mais recente da conta (maior `period_to`; em
-  empate, `imported_at` mais recente); (b) sem extratos, saldo do sistema à
-  véspera de `period_from` (`account_true_balances_asof`); (c) se o ficheiro
-  cobre a data de corte, a #185 já compara com o implantado — não se duplica.
+- **Trava 2 — abertura do ficheiro contra o saldo da conta À VÉSPERA de
+  `period_from`** (`openingCheck` / `openingRefuseMessage`). A abertura de um
+  ficheiro é o saldo no INÍCIO do primeiro dia, por isso a referência é o saldo
+  à véspera, **nunca** o fecho do extrato mais recente (corrigido a 22/09/2026 —
+  ver abaixo). Cascata:
+  1. `balance_after` da **última linha** em `bank_statement_lines` da conta com
+     `booking_date < period_from` (`lastPrevLine`: `booking_date` desc e, dentro
+     do dia, a linha cujo `balance_after` não é "preciso" por nenhuma irmã, já
+     que não há coluna de ordem). Origem: "saldo após a última linha de
+     &lt;data&gt;".
+  2. Sem linhas antes dessa data: `closing_balance` do extrato mais recente da
+     conta **com `period_to < period_from`** (empate → `imported_at` mais
+     recente). Origem: "fecho do extrato de X → Y".
+  3. Sem extratos anteriores: `account_true_balances_asof` à véspera de
+     `period_from`. Origem: "saldo apurado à véspera (&lt;data&gt;)".
+  4. Sem nada (ou saldo não visível): `initial_balance` da conta. Origem:
+     "saldo implantado da conta".
+  Exceção: se o ficheiro cobre a data de corte, a #185 já compara com o
+  implantado — não se duplica.
   **RECUSA** a gravação (botão desativado, sem forçar) quando
   `|abertura − referência| > 1.000 €` **E** `> 10% de max(|ref|, |abertura|, 1)`:
-  "A abertura do ficheiro (X €) está a Y € do último saldo conhecido desta conta
+  "A abertura do ficheiro (X €) está a Y € do saldo desta conta à véspera
   (Z €, <origem>). Este ficheiro não parece ser desta conta." Abaixo disso nada
   muda — o aviso da #185 continua informativo.
   A **referência e a origem mostram-se SEMPRE** no resumo antes de gravar, mesmo
   quando não recusa.
+
+  **Falso positivo que obrigou à mudança (22/09/2026):** conta Santander com o
+  extrato 16/09→16/09 já importado (fecho 593.427,98 €); o ficheiro 16/09→18/09
+  (abertura 482.158,14 €) era recusado por 111.269,84 € — exatamente os
+  movimentos de 16/09 (+112.000 −500 −230,16). Com períodos sobrepostos o fecho
+  do extrato anterior já inclui os movimentos do primeiro dia do ficheiro novo.
+  A referência certa é o saldo ao fim de 15/09 = **482.158,14 €**, e o ficheiro
+  passa. O mesmo ficheiro na conta do cartão 0663 (sem linhas nem extratos,
+  implantado 1.271,24 €) continua recusado por 480.886,90 €.
 
 ## Invariante `linha_conciliada_sem_transacao` (2026-09-18)
 
