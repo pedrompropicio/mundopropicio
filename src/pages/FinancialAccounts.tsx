@@ -25,6 +25,7 @@ import { useAccountBalanceCards, CASH_ACCOUNT_TYPES } from "@/hooks/useAccountBa
 import { BalanceCompositionModal } from "@/components/BalanceCompositionModal";
 import { formatDatePT } from "@/lib/utils";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 
 
 const ACCOUNT_TYPES = [
@@ -431,7 +432,7 @@ export default function FinancialAccounts() {
               <button onClick={resetForm} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onKeyDown={blockImplicitSubmitOnEnter} onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Nome *</label>
                 <input

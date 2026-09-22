@@ -39,6 +39,7 @@ import { Badge } from "@/components/ui/badge";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
+import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 
 /** Fallback PT; o conjunto real vem do país da cidade do evento. */
 const IVA_RATES_PT = [0, 6, 13, 23];
@@ -460,7 +461,7 @@ export default function RecurringTransactions() {
           <DialogHeader>
             <DialogTitle>{editId ? "Editar Template" : "Novo Template Recorrente"}</DialogTitle>
           </DialogHeader>
-          <form
+          <form onKeyDown={blockImplicitSubmitOnEnter}
             onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(); }}
             className="space-y-4"
           >

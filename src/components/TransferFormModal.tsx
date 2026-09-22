@@ -6,6 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
+import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 import {
   accountHasBalanceFor,
   useAccountTrueBalance,
@@ -176,7 +177,7 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
           </button>
         </div>
 
-        <form
+        <form onKeyDown={blockImplicitSubmitOnEnter}
           onSubmit={(e) => {
             e.preventDefault();
             transferMutation.mutate();

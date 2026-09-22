@@ -24,6 +24,7 @@ import { fetchCardItemDocuments, uploadCardItemDocument } from "@/lib/card-item-
 import { needsBpLineBeforeApproval } from "@/lib/bp-line-required";
 import LinkBpLineDialog from "@/components/LinkBpLineDialog";
 import { supabase as sb } from "@/integrations/supabase/client";
+import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 
 /**
  * D17 — as despesas do cartão são ITENS da sessão (`card_session_items`) e só
@@ -614,7 +615,7 @@ export function NewCardExpenseModal({
           />
         </div>
 
-        <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-3">
+        <form onKeyDown={blockImplicitSubmitOnEnter} onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
             <input value={description} onChange={(e) => setDescription(e.target.value)} required className={inputCls} />

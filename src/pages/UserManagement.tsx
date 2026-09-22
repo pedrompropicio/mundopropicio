@@ -10,6 +10,7 @@ import { logAudit, getAuditUser } from "@/lib/audit";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useCompany } from "@/hooks/useCompany";
+import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -318,7 +319,7 @@ export default function UserManagement() {
           <p className="text-xs text-muted-foreground">
             Se o email já existir noutra empresa, será apenas anexado a esta — sem novo email de senha.
           </p>
-          <form
+          <form onKeyDown={blockImplicitSubmitOnEnter}
             onSubmit={(e) => {
               e.preventDefault();
               createUserMutation.mutate(undefined);

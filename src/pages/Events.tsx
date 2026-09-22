@@ -17,6 +17,7 @@ import { eventFormatLabel, type EventFormat } from "@/lib/event-format";
 import { fetchEventsListFinancials, type EventsListFinancialSpec } from "@/lib/events-list-financials";
 import { readStoredMode, readStoredWithVat } from "@/lib/event-financial-card";
 import { normalizePartnerCalcBasis, usesGrossExpenseAmounts } from "@/lib/partner-calc-basis";
+import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 
 type EventType = "simple" | "festival" | "multi_day" | "tour" | "master" | "split";
 
@@ -521,7 +522,7 @@ export default function Events() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onKeyDown={blockImplicitSubmitOnEnter} onSubmit={handleSubmit} className="space-y-4">
               {/* Event Type Selection */}
               <div>
                 <label className="mb-2 block text-xs font-medium text-muted-foreground">Tipo de Evento *</label>

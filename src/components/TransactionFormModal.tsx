@@ -61,6 +61,7 @@ import {
 import SharedCostFields, { computeThirdPartyNet, type ThirdPartyShareMode } from "@/components/SharedCostFields";
 import { calcWithIva } from "@/lib/utils";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 
 interface TransactionForm {
   description: string;
@@ -2712,7 +2713,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
 
-        <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
+        <form onKeyDown={blockImplicitSubmitOnEnter} onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
           <div className="flex gap-2">
             {(["income", "expense"] as const).map((t) => (
               <button

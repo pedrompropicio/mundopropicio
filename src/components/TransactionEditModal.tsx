@@ -60,6 +60,7 @@ import {
 } from "@/lib/payment-methods";
 import { OperationKeySelector } from "@/components/OperationKeySelector";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 
 interface Props {
   transaction: any;
@@ -1185,7 +1186,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           )}
 
           <TabsContent value="details" className="pt-3">
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onKeyDown={blockImplicitSubmitOnEnter} onSubmit={handleSubmit} className="space-y-4">
           {eventCompleted && (
             <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-warning-foreground">
               <span className="font-semibold">Evento concluído.</span> Reabre o evento para editar.

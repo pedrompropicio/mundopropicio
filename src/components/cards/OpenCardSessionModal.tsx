@@ -8,6 +8,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { performCardLoad } from "./cardLoadHelpers";
 import { fetchCardAccountBalance } from "@/lib/card-account-balance";
+import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 
 interface Props {
   open: boolean;
@@ -186,7 +187,7 @@ export function OpenCardSessionModal({
           </button>
         </div>
 
-        <form
+        <form onKeyDown={blockImplicitSubmitOnEnter}
           onSubmit={(e) => {
             e.preventDefault();
             createMutation.mutate();

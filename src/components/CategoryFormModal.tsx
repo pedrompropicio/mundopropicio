@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { ChevronRight, ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 
 interface Category {
   id: string;
@@ -216,7 +217,7 @@ export default function CategoryFormModal({
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar Conta" : "Nova Conta"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid gap-4 py-2">
+        <form onKeyDown={blockImplicitSubmitOnEnter} onSubmit={handleSubmit} className="grid gap-4 py-2">
           {/* Parent selector with full hierarchy */}
           <div className="grid gap-2">
             <Label>Conta-Pai</Label>
