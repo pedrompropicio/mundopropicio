@@ -2501,6 +2501,8 @@ Nunca se inventam valores: sem `*_insights_daily` o gasto e as métricas saem a 
 
 **Detalhe:** `.lovable/memory/features/transitory-reason.md`.
 
+**Adenda 22/09/2026 — no ramo 10.1 o motivo é derivado, não aceite do ecrã.** O trigger `force_transitory_for_capital_branch()` só preenchia `transitory_reason` quando vinha NULL, pelo que um ecrã que já mandasse motivo gravava-o errado: o modal "Lançar movimento do banco" manda `entrada_a_repassar`/`repasse` e um aporte de 150.000 € em 10.1.01 nasceu como `entrada_a_repassar` (transação `438c16ea-82a0-4109-846d-212e133de112`, corrigida à mão). Passa a sobrepor-se sempre: `10.1.04` → `emprestimo_socio`, restantes `10.1.*` → `aporte_socio`, em INSERT e sempre que a rubrica mude. Fora do ramo 10.1 nada muda. No cliente, o `BankLineLaunchModal` deixa de enviar motivo quando a rubrica é do ramo 10.1 e mostra a "Transitória" marcada e bloqueada.
+
 
 **Estado:** vigente.
 

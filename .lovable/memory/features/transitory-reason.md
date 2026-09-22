@@ -12,6 +12,7 @@ Domínio fechado (CHECK `transactions_transitory_reason_domain`), sete valores:
 Regra: `transactions_transitory_reason_required` — `NOT is_transitory OR transitory_reason IS NOT NULL`, **validada** em Live a 17/09/2026. Quando `is_transitory` passa a false, o motivo limpa-se sozinho (`force_transitory_for_capital_branch`).
 
 Quem grava o motivo:
+- **Ramo 10.1 (22/09/2026):** o motivo é DERIVADO da rubrica e sobrepõe-se sempre ao que o ecrã enviar (10.1.04 → `emprestimo_socio`, restantes → `aporte_socio`). Antes só preenchia quando vinha NULL e o modal do banco gravava `entrada_a_repassar` num aporte.
 - Base: `force_transitory_for_capital_branch` (10.1.04 → `emprestimo_socio`; restantes 10.1.* → `aporte_socio`); `card_load_on_out_paid` (perna de entrada → `carga_cartao`). `sync_partner_aporte_mirror` herda pelo trigger do capital.
 - Aplicação: `cardLoadHelpers.ts` (perna de saída → `carga_cartao`); `BankLineLaunchModal.tsx` (entrada → `entrada_a_repassar`, saída → `repasse`); `TransactionFormModal.tsx` e `TransactionEditModal.tsx` (interruptor manual com selector obrigatório de `MANUAL_TRANSITORY_REASON_OPTIONS`, sem Extra do Sócio; conversão em Extra do Sócio e irmã do parcial → `partner_advance`).
 - Constantes e etiquetas PT: `src/lib/transitory-reason.ts`. Campo permitido na edge `update-transaction` (rótulo de auditoria "Motivo da transitória"), partilhado entre parcelas.
