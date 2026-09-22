@@ -4179,3 +4179,17 @@ A data de referência é `(now() AT TIME ZONE 'Europe/Lisbon')::date`, para não
 **Consequência:** o lado das receitas por receber passa a ter caminho a partir do extrato, com o pagamento a nascer sempre da mesma tabela que todos os outros. A conciliação continua a não decidir nada sozinha.
 
 **Estado:** vigente.
+
+---
+
+## D-ERP126 — Leitura de ecrã do app TikTok por Atalho iOS (B1 da Máquina de recolha) (22/09/2026)
+
+**Contexto:** o número de publicações (UGC) por som só existe de forma fiável dentro do app TikTok; nem a Display API nem o Soundcharts o devolvem. A alternativa em uso era o Pedro ler o ecrã e escrever o valor à mão, todos os dias.
+
+**Decisão:** um Atalho do iOS abre a página do som no app, tira captura, faz OCR e envia o texto para a edge function `artist-screen-ingest`, que extrai o número (`(\d[\d.,]*)\s*(mil|mi|k|m)?\s*publica`) e grava em `artist_song_metrics_daily` com `source = 'ios_shortcut'`. Autenticação própria por header `Authorization: Bearer <SCREEN_INGEST_TOKEN>` (`verify_jwt = false`), sem JWT de utilizador; `artist_id`/`company_id` resolvidos por service role a partir de `artist_songs`.
+
+**Precisão arredondada é aceite.** O app mostra "6,5 mil" e não o valor exacto. `source_ref` registra a precisão (`exata` para número sem sufixo, `centena` para "x,y mil", `milhar` para "x mil" sem decimal ou "mi") e o trecho do OCR, para que a série seja lida com a granularidade certa.
+
+**Consequência:** substitui a leitura manual diária de `ugc_videos` quando activa. O upsert usa a UNIQUE `(song_id, platform, metric, metric_date, source)`, pelo que reenviar o mesmo dia corrige o valor em vez de duplicar. Não altera tabelas nem outras funções.
+
+**Estado:** vigente.
