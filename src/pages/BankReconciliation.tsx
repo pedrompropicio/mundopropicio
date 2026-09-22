@@ -2307,7 +2307,7 @@ export default function BankReconciliation() {
               }
             >
               {manualSaving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
-              Ligar
+              {manualItems.some((i) => i.mode === "settle") ? "Ligar e liquidar" : "Ligar"}
             </Button>
           </DialogFooter>
 
