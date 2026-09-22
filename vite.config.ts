@@ -4,17 +4,43 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 import fs from "fs";
+import { execSync } from "child_process";
 
-const BUILD_ID = String(Date.now());
+const BUILD_AT = new Date();
+const BUILD_ID = String(BUILD_AT.getTime());
+
+// Commit publicado: serve para confirmar, depois de um Publish, que o que está
+// em produção é de facto o HEAD publicado. Nunca pode fazer o build falhar.
+function resolveCommit(): string | null {
+  try {
+    const sha = execSync("git rev-parse HEAD", { stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim();
+    if (sha) return sha;
+  } catch {
+    // sem git disponível — segue para as variáveis de ambiente
+  }
+  return (
+    process.env.VITE_COMMIT_SHA || process.env.COMMIT_REF || process.env.GIT_COMMIT || null
+  );
+}
 
 // Escreve dist/version.json com o mesmo buildId injetado no bundle, para
 // permitir deteção de nova versão sem depender do service worker.
+// `buildId` é o campo que src/lib/versionCheck.ts compara — não mudar o nome.
 const buildVersionPlugin = () => ({
   name: "build-version-json",
   apply: "build" as const,
   closeBundle() {
     fs.mkdirSync("dist", { recursive: true });
-    fs.writeFileSync("dist/version.json", JSON.stringify({ buildId: BUILD_ID }));
+    fs.writeFileSync(
+      "dist/version.json",
+      JSON.stringify({
+        buildId: BUILD_ID,
+        builtAt: BUILD_AT.toISOString(),
+        commit: resolveCommit(),
+      }),
+    );
   },
 });
 
