@@ -4158,3 +4158,24 @@ A data de referência é `(now() AT TIME ZONE 'Europe/Lisbon')::date`, para não
 
 **Consequência:** a regra vive na base de dados, logo cobre ecrã, API, edge functions e importadores. O caminho correcto para uma saída programada continua a ser `renegotiate_transaction_installments()`, que preenche `due_date` e deixa `payment_date` a `NULL` até o pagamento ser efectuado.
 
+
+## D-ERP127 — Conciliar uma linha do banco é ligar OU liquidar, e o sinal manda no tipo (22/09/2026)
+
+**Contexto:** o modal "Conciliar manualmente" listava todas as transações **pagas** na conta sem movimento no banco, receitas e despesas misturadas, e não listava nada em aberto. O crédito de 7.380,00 € da MATUDIS de 17/09/2026 é o patrocínio "Matudis — Patrocínio Ensaios da Anitta · Lisboa" (6.000 € + IVA 23 %, `approved`, por receber, sem conta): não aparecia em lado nenhum e o utilizador via uma lista de despesas. O dinheiro estava no banco, a receita estava por receber no sistema, e não havia caminho entre os dois.
+
+**Decisão 1 — o sinal da linha manda no tipo.** Linha a crédito só casa com `type = 'income'`; a débito só com `type = 'expense'`. Vale para as candidatas da conta do extrato, para as em aberto e para as de outras contas (D-ERP35).
+
+**Decisão 2 — duas listas, dois significados.** O modal mostra primeiro "Pagas nesta conta, sem movimento no banco" (escolher **só liga** — D-ERP28 intacto) e depois "Em aberto (por receber / por pagar)", com `status in ('approved','partially_paid')` e bruto por liquidar > 0, sem filtro de conta porque estas ainda não têm conta. Ordenação por proximidade de valor e depois de data.
+
+**Decisão 3 — liquidar pela linha do banco é acção explícita, no molde do "Lançar" (D-ERP29).** A conciliação continua a não alterar transações **por si** (D-ERP28): nenhuma camada automática liquida nada, e a camada 2 (valor exacto) continua restrita a transações já pagas. O que muda é que a pessoa pode decidir, linha a linha, que aquele movimento do banco **é** o recebimento/pagamento daquela transação. O pagamento nasce em `transaction_payments` (D-ERP86) com a data-valor da linha e a conta do extrato; `paid_amount`, estado e `payment_date` continuam derivados por `sync_paid_amount_from_payments` e nunca escritos à mão. Uma linha pode liquidar N transações; se o em aberto for maior do que o disponível na linha, o pagamento é parcial e o modal diz quanto fica em aberto. Nunca se paga acima do em aberto.
+
+**Implementação:** nova RPC `public.reconcile_bank_line(p_line_id uuid, p_items jsonb)`, plpgsql **sem `SECURITY DEFINER`**, `search_path = public`, no molde de `launch_from_bank_lines` (D-ERP28/#154): valida empresa, linha livre, tipo compatível com o sinal, valor dentro do em aberto e soma = valor da linha ±0,01, e só depois escreve. Grants: `anon` sem execução, `authenticated` e `service_role` com. O ecrã deixou de fazer `UPDATE` directo em `bank_statement_lines` neste caminho — tudo passa pela RPC, e qualquer erro reverte tudo.
+
+**Alternativas rejeitadas:**
+- Liquidar automaticamente quando a camada do valor exacto casa com uma transação em aberto — esconderia decisões financeiras dentro de um motor de conciliação, exactamente o que o D-ERP28 evita;
+- Mandar a pessoa liquidar no modal de pagamento e voltar para conciliar — duas escritas sem atomicidade, e era o caminho que deixava a linha do banco por explicar quando o segundo passo falhava;
+- Escrever `paid_amount`/`status` directamente na transação — contraria o D-ERP86 e foi a origem das 624 transações pagas sem linhas de pagamento.
+
+**Consequência:** o lado das receitas por receber passa a ter caminho a partir do extrato, com o pagamento a nascer sempre da mesma tabela que todos os outros. A conciliação continua a não decidir nada sozinha.
+
+**Estado:** vigente.
