@@ -42,6 +42,7 @@ import {
 } from "@/lib/bank-statement/rules";
 import type { FeeLeg } from "@/lib/bank-statement/transfer-fees";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { isCapitalCategoryCode } from "@/lib/capital-branch";
 
 const TRANSFER_CATEGORY_CODE = "10.3";
 /** Taxas bancárias (D-ERP30) — também as taxas de transferência (D-ERP74). */
@@ -829,7 +830,8 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
             <div className="rounded-lg border border-border p-3">
               <label className="flex items-start gap-2">
                 <Checkbox
-                  checked={isTransitory}
+                  checked={isCapital ? true : isTransitory}
+                  disabled={isCapital}
                   onCheckedChange={(v) => {
                     const on = !!v;
                     setIsTransitory(on);
@@ -841,8 +843,9 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
                 </span>
               </label>
               <p className="mt-1 text-[10px] text-muted-foreground">
-                Move o saldo da conta, mas não é receita nem custo. Para dinheiro de terceiros que
-                passa pela conta e vai ser repassado.
+                {isCapital
+                  ? "Movimento de capital (ramo 10.1) — transitória por regra"
+                  : "Move o saldo da conta, mas não é receita nem custo. Para dinheiro de terceiros que passa pela conta e vai ser repassado."}
               </p>
             </div>
           )}
