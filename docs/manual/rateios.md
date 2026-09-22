@@ -2,10 +2,10 @@
 capitulo: rateios
 titulo: Rateios
 modulo: erp
-atualizado: 2026-09-16
+atualizado: 2026-09-21
 perfis: [editor, manager, admin, accountant]
 rotas: [/transacoes, /eventos/:id, /faturas-plataformas, /contas, /relatorios/extrato]
-fontes: [D-ERP20, D-ERP26, D-ERP32, D-ERP69, D-ERP70, D-ERP72, D-ERP73, D-ERP76, D-ERP77, PROC-rateio-dayoffs-turne, custo-partilhado-terceiros, master-split-rateio-source-of-truth, rateio-mae-filhas-agregacao, ads-invoices, overhead-allocations, bp-linha-obrigatoria]
+fontes: [D-ERP20, D-ERP26, D-ERP32, D-ERP69, D-ERP70, D-ERP72, D-ERP73, D-ERP76, D-ERP77, PROC-rateio-dayoffs-turne, PROC-fatura-rateada-com-terceiros, custo-partilhado-terceiros, master-split-rateio-source-of-truth, rateio-mae-filhas-agregacao, ads-invoices, overhead-allocations, bp-linha-obrigatoria]
 ---
 
 # Rateios
@@ -134,10 +134,10 @@ termos: [vários eventos, varios eventos, multi-evento, split, dividir por event
 ```ajuda
 id: rateios.terceiros
 tooltip: "A MP paga a fatura toda, mas parte é de outro promotor. Marque a conta de circuito e indique a parte de terceiros: essa parte fica fora do resultado e passa a ser o que o terceiro nos deve."
-ecras: [nova-transacao.custo-partilhado, contas.conta-circuito, extrato.posicao-circuito, fecho.bloqueio-circuito]
+ecras: [nova-transacao.custo-partilhado, editar-transacao.custo-partilhado, contas.conta-circuito, extrato.posicao-circuito, fecho.bloqueio-circuito]
 perfis: [editor, manager, admin]
-fontes: [D-ERP69, PROC-rateio-dayoffs-turne, custo-partilhado-terceiros, D-ERP32]
-termos: [day off, dayoff, day-off, day offs, dayoffs, folga, folga da turnê, dias sem show, hotel da folga, rateio day off, rateio com outros promotores, outro promotor, promotor de outra cidade, promotor de madrid, coprodutor, coprodução, parceiro, acerto com promotores, custo dividido com terceiros, conta de circuito, conta corrente do circuito, adiantamento por conta de terceiros, devolução do promotor]
+fontes: [D-ERP69, PROC-rateio-dayoffs-turne, PROC-fatura-rateada-com-terceiros, custo-partilhado-terceiros, D-ERP32]
+termos: [day off, dayoff, day-off, day offs, dayoffs, folga, folga da turnê, dias sem show, hotel da folga, rateio day off, rateio com outros promotores, outro promotor, promotor de outra cidade, promotor de madrid, coprodutor, coprodução, parceiro, acerto com promotores, custo dividido com terceiros, conta de circuito, conta corrente do circuito, adiantamento por conta de terceiros, devolução do promotor, onde fica o custo partilhado, não encontro o campo, não aparece o campo, campo não aparece, parte de terceiros não aparece, desdobrar fatura, desdobrar depois, editar parte de terceiros, terceiro opcional, contraparte, sem contraparte atribuída, quem deve, fatura desdobrada]
 ```
 
 ![Separação do custo da MP e da parte de terceiros](img/rateios-terceiros.svg)
@@ -150,16 +150,31 @@ termos: [day off, dayoff, day-off, day offs, dayoffs, folga, folga da turnê, di
 
 Uma conta por circuito (ex.: uma turnê). Em **Contas**, crie ou edite a conta e ligue **Conta corrente de circuito de terceiros**. O ecrã propõe desligar "contabilística" e manter o controlo de saldo. Carregue em **Aplicar**. Uma conta de circuito não pode ser, ao mesmo tempo, espelho de aporte de sócio.
 
+⚠️ **Sem nenhuma conta de circuito activa, o bloco do passo 2 não aparece de todo** no formulário. Se não o encontra, comece por aqui.
+
+### Onde fica o bloco
+
+O bloco **🤝 Custo partilhado com terceiros** vive no **formulário da transação** — tanto ao criar como ao editar.
+
+⚠️ **Não existe no ecrã de liquidação.** Ao registar um pagamento, o sistema pergunta apenas conta, data e valor. Quem o procurar aí não o encontra.
+
+Dentro do formulário, três razões para parecer que não está lá:
+
+- **nasce recolhido** — é uma barra clicável, que só abre já expandida se a transação já tiver conta de circuito marcada;
+- **só aparece em despesas** — numa receita não é desenhado;
+- **aberto, mostra só dois selectores** — o campo **Parte de terceiros** só nasce depois de escolher a conta de circuito, e só aceita escrita com o **Valor Base** já preenchido (até lá diz *"Preenche o Valor (€) da fatura primeiro"*).
+
 ### Quem lança
 
-1. Em **Nova Transação** (despesa), escolha o evento. Escolha a linha do BP **clicando na tabela BP — Despesas previstas**.
+1. Em **Nova Transação** (despesa), escolha o evento e preencha o **Valor Base pelo total da fatura**. Escolha a linha do BP **clicando na tabela BP — Despesas previstas**.
 2. Abra o bloco **🤝 Custo partilhado com terceiros**.
-3. Em **Conta corrente do circuito**, escolha a conta do circuito.
-4. Em **Terceiro (opcional)**, indique o promotor ou parceiro, se o souber. É isto que depois permite ver quanto deve cada um.
+3. Em **Conta corrente do circuito**, escolha a conta do circuito. É este passo que faz aparecer o resto do bloco.
+4. Em **Terceiro (opcional)**, decida pela regra da secção seguinte.
 5. Em **Parte de terceiros (sobre a base s/IVA)**, escolha **%** ou **€**:
    - **com valor**: o sistema cria **duas transações no mesmo grupo de fatura**, a parte da MP (custo, com linha do BP) e a parte de terceiros (fora do resultado). O quadro "Como fica a repartição" mostra as duas;
    - **vazio**: a fatura inteira é de terceiros.
-6. Grave. Na lista, a parte de terceiros aparece com o badge **🤝 Parte de terceiros**.
+6. Antes de gravar, confirme o selo no canto do bloco: **"Fatura desdobrada"** quando a fatura ficou repartida, **"Parte de terceiros"** quando vai inteira para o circuito.
+7. Grave. Na lista, a parte de terceiros aparece com o badge **🤝 Parte de terceiros**.
 
 **Não sabe ainda quanto é da MP?** Lance o que sabe:
 
@@ -167,15 +182,45 @@ Uma conta por circuito (ex.: uma turnê). Em **Contas**, crie ou edite a conta e
 - **parte estimada**: lance a estimativa e corrija no acerto;
 - **parte desconhecida**: deixe **Parte de terceiros** vazio. A fatura inteira fica como adiantamento.
 
+⚠️ **Deixar a parte em branco por distracção não é neutro.** Com a conta escolhida e o campo vazio, a fatura **inteira** passa a ser de terceiros e o custo da MP desaparece do evento. O selo do cabeçalho é a verificação.
+
+### Desdobrar só se faz na criação
+
+Ao **editar** uma transação pode marcar a conta de circuito e atribuir o terceiro, mas **o campo Parte de terceiros não existe**: só consegue marcar a **linha inteira** como sendo de terceiros.
+
+⚠️ **Uma fatura repartida tem de ser lançada desdobrada desde o início.** Se foi lançada inteira, não se corrige na edição: apaga-se e lança-se de novo. Se a linha já estiver ligada a uma linha do BP, essa ligação trava a eliminação e desfaz-se primeiro.
+
+Marcar a conta de circuito numa transação **já paga** é permitido, e o adiantamento nasce no momento em que grava.
+
+### O campo "Terceiro (opcional)"
+
+O "Terceiro" é a **contraparte do adiantamento** — quem nos vai devolver aquele dinheiro. Quando a despesa é paga, o adiantamento criado na conta de circuito fica com esse nome na entidade.
+
+O **saldo** do circuito é o mesmo com ou sem terceiro. O que muda é a **leitura**: o painel **Posição por contraparte** agrupa por entidade e mostra, por cada um, quanto foi adiantado, quanto devolveu e quanto falta. Sem terceiro, tudo cai em **"Sem contraparte atribuída"**.
+
+O critério **não é o número de cidades**. É **quantos donos tem a parte de terceiros**:
+
+| Situação | O que fazer |
+|---|---|
+| As outras cidades são **nossas** | Não é este caso. É **Vários eventos** — a conta de circuito não entra. |
+| As outras cidades são de **promotores diferentes** | **Deixar vazio.** O sistema cria só **uma** perna de terceiros, e ela tem vários donos: um nome seria falso para os restantes. |
+| As outras cidades são todas do **mesmo promotor** | **Pôr o nome dele**, ainda que sejam várias cidades. A posição do circuito passa a ser legível. |
+
+⚠️ **A devolução tem de trazer o mesmo terceiro.** Se o adiantamento fica sem contraparte e a devolução vem com o nome do promotor, as duas caem em grupos diferentes: nenhum fica a zero, e o painel mostra um promotor a dever e um grupo anónimo a crédito. Só o total continua certo.
+
+Quando o vazio é inevitável (vários donos), a regra prática é: **cada devolução traz o nome de quem pagou**. Lê-se então quanto foi adiantado sem dono e quanto já voltou de cada um.
+
+É corrigível depois: o terceiro continua editável mesmo com a transação paga, e o adiantamento é reescrito ao gravar.
+
 ⚠️ **Linha do BP:** escolha-a na **tabela de previsões**. Se escolher só a categoria pelo selector, a parte da MP fica sem linha e a aprovação é recusada.
 
-⚠️ **Fatura com várias taxas de IVA ("Dividir por IVA")**: a parte de terceiros só se indica em **%**, e aplica-se a cada linha de IVA.
+⚠️ **Fatura com várias taxas de IVA ("Dividir por IVA")**: a parte de terceiros só se indica em **%**, e aplica-se a cada linha de IVA. O modo **€** fica desactivado, por ser ambíguo entre as linhas.
 
 ⚠️ **Não se combina** com parcelas, com **Dividir por vários eventos** nem com **Extra do Sócio**. O ecrã explica o motivo quando o bloco fica indisponível.
 
 ### Quando o terceiro devolve
 
-O dinheiro entra no banco como **transferência** da conta de circuito para a conta bancária. O saldo do circuito desce.
+O dinheiro entra no banco como **transferência** da conta de circuito para a conta bancária, com o nome do terceiro na entidade. O saldo do circuito desce.
 
 ### Quando se sabe a parte verdadeira da MP
 
