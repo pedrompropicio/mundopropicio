@@ -514,6 +514,7 @@ function ProtectedLayout() {
         <main className="min-w-0 flex-1 pl-0 md:pl-16 lg:pl-56">
           <div className={cn("mx-auto p-4 lg:p-6", FULL_WIDTH_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/")) ? "max-w-none" : "max-w-7xl")}>
             {/* MFA gate temporariamente desativado — reativar envolvendo <Routes> com <MfaRequiredGate> */}
+            <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/erp" element={<Index />} />
@@ -639,6 +640,7 @@ function ProtectedLayout() {
 
               <Route path="/perfil" element={<UserSettings />} />
             </Routes>
+            </Suspense>
           </div>
         </main>
       </div>
@@ -677,6 +679,7 @@ function App() {
               <ConfirmMetaActionProvider>
               <BrowserRouter>
                 <ScrollToTop />
+                <Suspense fallback={<RouteFallback />}>
                 <Routes>
                   <Route path="/login" element={<AuthRoute />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
@@ -749,6 +752,7 @@ function App() {
                   </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
+                </Suspense>
               </BrowserRouter>
               </ConfirmMetaActionProvider>
             </CompanyBrandingProvider>
