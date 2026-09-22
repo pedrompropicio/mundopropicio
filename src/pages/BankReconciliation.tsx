@@ -109,6 +109,12 @@ export default function BankReconciliation() {
    * `bank_line_transactions` e a coluna singular fica nula.
    */
   const [manualTxIds, setManualTxIds] = useState<string[]>([]);
+  /**
+   * Modo de cada transação escolhida: `link` só liga (D-ERP28 intacto) e
+   * `settle` liga E liquida — acção explícita da pessoa, no molde do "Lançar"
+   * (D-ERP29), com o pagamento a nascer em `transaction_payments` (D-ERP86).
+   */
+  const [manualModes, setManualModes] = useState<Record<string, "link" | "settle">>({});
   const [manualSaving, setManualSaving] = useState(false);
 
   /** Confirmação explícita para ligar a uma transação registada NOUTRA conta. */
@@ -218,7 +224,9 @@ export default function BankReconciliation() {
       };
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, description, paid_amount, payment_date, date, account_id, financial_accounts:financial_accounts!transactions_account_id_fkey(name)")
+        .select("id, description, type, paid_amount, payment_date, date, account_id, financial_accounts:financial_accounts!transactions_account_id_fkey(name)")
+        // O SINAL da linha manda no tipo: crédito só casa com receita.
+        .eq("type", Number(manualLine.amount ?? 0) >= 0 ? "income" : "expense")
         .neq("account_id", accountId)
         .not("account_id", "is", null)
         .gte("paid_amount", target - 0.01)
