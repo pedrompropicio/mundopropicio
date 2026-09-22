@@ -233,3 +233,9 @@ verify_jwt = true
 # Autorização por papel dentro da função (aceita service role para o cron).
 [functions.tiktok-sound-count-sync]
 verify_jwt = true
+
+# B1 da Máquina de recolha (D-ERP126) — leituras de ecrã do app TikTok feitas por
+# Atalho do iOS. Sem JWT: autenticação por header Bearer com SCREEN_INGEST_TOKEN,
+# validado dentro da função.
+[functions.artist-screen-ingest]
+verify_jwt = false
