@@ -14,6 +14,7 @@ import { SupplierFormModal } from "@/components/SupplierFormModal";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
+import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 
 export default function Quotations() {
   const [isOpen, setIsOpen] = useState(false);
@@ -153,7 +154,7 @@ export default function Quotations() {
             <DialogHeader>
               <DialogTitle>Nova Cotação</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="grid gap-4 py-2">
+            <form onKeyDown={blockImplicitSubmitOnEnter} onSubmit={handleSubmit} className="grid gap-4 py-2">
               <div className="grid gap-2">
                 <Label>Evento *</Label>
                 <Select name="event_id" required value={selectedEventId} onValueChange={setSelectedEventId}>

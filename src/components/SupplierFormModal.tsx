@@ -15,6 +15,7 @@ import { IbanWarning } from "@/components/IbanWarning";
 import { normalizeIban, validateIban, ibanWarningMessage } from "@/lib/iban";
 import { SupplierPortalUserLink } from "@/components/SupplierPortalUserLink";
 import { reactivateSupplier } from "@/lib/supplier-lifecycle";
+import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 
 const supplierCategories = [
   "Som e Iluminação",
@@ -300,7 +301,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar Fornecedor / Parceiro" : "Novo Fornecedor / Parceiro"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} autoComplete="off" className="grid gap-4 py-2">
+        <form onKeyDown={blockImplicitSubmitOnEnter} onSubmit={handleSubmit} autoComplete="off" className="grid gap-4 py-2">
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="sup-name">Nome da Entidade *</Label>

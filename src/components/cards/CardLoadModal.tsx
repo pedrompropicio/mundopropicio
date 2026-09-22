@@ -8,6 +8,7 @@ import { X, Plus } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { performCardLoad } from "./cardLoadHelpers";
+import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 
 interface Props {
   open: boolean;
@@ -81,7 +82,7 @@ export function CardLoadModal({ open, onOpenChange, sessionId, cardAccountId, ca
           </button>
         </div>
 
-        <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-3">
+        <form onKeyDown={blockImplicitSubmitOnEnter} onSubmit={(e) => { e.preventDefault(); mut.mutate(); }} className="space-y-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor (€)</label>
             <input

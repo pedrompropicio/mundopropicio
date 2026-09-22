@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { cn, formatDatePT } from "@/lib/utils";
 import { isInsideHelpPanel } from "@/lib/help-panel-dom";
+import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 
 
 interface FinancialOperationsTabProps {
@@ -350,7 +351,7 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
               </button>
             </div>
 
-            <form
+            <form onKeyDown={blockImplicitSubmitOnEnter}
               onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(); }}
               className="space-y-4"
             >

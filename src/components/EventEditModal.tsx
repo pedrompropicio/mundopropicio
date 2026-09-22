@@ -10,6 +10,7 @@ import { formatDate } from "@/lib/mock-data";
 import { formatCityLabel } from "@/lib/country";
 import { useBackdropClose } from "@/lib/backdropClose";
 import type { EventFormat } from "@/lib/event-format";
+import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 
 interface EventEditModalProps {
   event: any;
@@ -215,7 +216,7 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onKeyDown={blockImplicitSubmitOnEnter} onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Nome *</label>
             <input
