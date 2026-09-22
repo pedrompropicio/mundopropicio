@@ -1327,8 +1327,8 @@ export default function BankReconciliation() {
   const manualDiff = Math.round((manualSelectedTotal - manualTarget) * 100) / 100;
 
   async function confirmManual() {
-    if (!manualLine || manualTxIds.length === 0) return;
-    // Não existe conciliação parcial: a soma dos pagos tem de bater com a linha.
+    if (!manualLine || manualItems.length === 0) return;
+    // Não existe conciliação parcial da LINHA: a soma tem de bater com ela.
     if (Math.abs(manualDiff) > 0.01) {
       toast.error("A soma não bate com a linha do banco.", {
         description: `Linha ${formatCurrency(manualTarget)} · transações ${formatCurrency(
@@ -1339,47 +1339,48 @@ export default function BankReconciliation() {
     }
     setManualSaving(true);
     try {
-      const single = manualTxIds.length === 1;
-      const { error } = await supabase
-        .from("bank_statement_lines")
-        .update({
-          status: "matched",
-          matched_transaction_id: single ? manualTxIds[0] : null,
-          // Conciliar por cima de uma linha que era lote SEPA deixava os
-          // apontadores lá e duplicava a contagem.
-          matched_payment_list_id: null,
-          matched_sepa_export_id: null,
-          matched_by: `${single ? "manual" : "manual-multi"}:${user?.email ?? "sistema"}`,
-          matched_at: new Date().toISOString(),
-        })
-        .eq("id", manualLine.id);
+      // Tudo numa só passagem no servidor: ligar a linha, e liquidar o que a
+      // pessoa mandou liquidar. Qualquer erro reverte tudo.
+      const { error } = await (supabase as any).rpc("reconcile_bank_line", {
+        p_line_id: manualLine.id,
+        p_items: manualItems.map((i) => ({
+          transaction_id: i.id,
+          mode: i.mode,
+          amount: i.amount,
+        })),
+      });
       if (error) throw error;
 
-      // A ponte só existe para o caso de N.
-      await supabase.from("bank_line_transactions").delete().eq("line_id", manualLine.id);
-      if (!single) {
-        const { error: e2 } = await supabase
-          .from("bank_line_transactions")
-          .insert(manualTxIds.map((id) => ({ line_id: manualLine.id, transaction_id: id })));
-        if (e2) throw e2;
-      }
-
+      const nSettle = manualItems.filter((i) => i.mode === "settle").length;
       if (manualTxIds.some((id) => crossAccountIds.has(id))) {
         toast.warning("Linha conciliada com transação de OUTRA conta — verifique a conta da liquidação.");
+      } else if (nSettle > 0) {
+        toast.success(
+          nSettle === 1
+            ? "Linha conciliada e transação registada nesta conta."
+            : `Linha conciliada e ${nSettle} transações registadas nesta conta.`,
+        );
       } else {
-        toast.success(single ? "Linha conciliada." : `Linha conciliada com ${manualTxIds.length} transações.`);
+        toast.success(
+          manualTxIds.length === 1 ? "Linha conciliada." : `Linha conciliada com ${manualTxIds.length} transações.`,
+        );
       }
       setManualLine(null);
       setManualTxIds([]);
+      setManualModes({});
       setCrossAccountAck(false);
       queryClient.invalidateQueries({ queryKey: ["bank-recon-lines", currentStatement?.id] });
       queryClient.invalidateQueries({ queryKey: ["bank-recon-bridge"] });
+      queryClient.invalidateQueries({ queryKey: ["bank-recon-txns"] });
+      queryClient.invalidateQueries({ queryKey: ["bank-recon-open-txns"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
     } catch (err: any) {
       toast.error("Erro ao conciliar: " + (err?.message ?? "desconhecido"));
     } finally {
       setManualSaving(false);
     }
   }
+
 
   async function confirmIgnore() {
     if (!ignoreLine || !ignoreNote.trim()) return;
