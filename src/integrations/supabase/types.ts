@@ -18242,6 +18242,10 @@ export type Database = {
         Args: { _company_id?: string }
         Returns: number
       }
+      reconcile_bank_line: {
+        Args: { p_items: Json; p_line_id: string }
+        Returns: undefined
+      }
       record_document_download: {
         Args: {
           p_bucket?: string
