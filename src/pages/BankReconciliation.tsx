@@ -253,6 +253,52 @@ export default function BankReconciliation() {
     [crossAccountTxns, manualTxIds],
   );
 
+  /** Sinal da linha aberta no modal → tipo aceitável de transação. */
+  const manualSign: "income" | "expense" =
+    Number(manualLine?.amount ?? 0) >= 0 ? "income" : "expense";
+
+  /**
+   * Grupo (b) do modal: transações EM ABERTO da empresa, do mesmo tipo que o
+   * sinal da linha. Ainda não têm conta — por isso não se filtra por conta.
+   * Em aberto = bruto (`amount × (1 + iva_rate/100)`) − `paid_amount`.
+   */
+  const { data: openTxns = [] } = useQuery({
+    queryKey: ["bank-recon-open-txns", manualSign, manualLine?.id],
+    enabled: !!manualLine,
+    queryFn: async () => {
+      const data = await fetchAllPages<any>((from, to) =>
+        supabase
+          .from("transactions")
+          .select(
+            "id, description, type, amount, iva_rate, paid_amount, date, due_date, invoice_ref, account_id, is_hidden, reversed_at, suppliers:suppliers!transactions_supplier_id_fkey(name), events:events!transactions_event_id_fkey(name)",
+          )
+          .eq("type", manualSign)
+          .in("status", ["approved", "partially_paid"])
+          .is("reversed_at", null)
+          .eq("is_hidden", false)
+          .order("id")
+          .range(from, to) as any,
+      );
+      return data
+        .map((t: any) => {
+          const gross = Math.round(Number(t.amount ?? 0) * (1 + Number(t.iva_rate ?? 0) / 100) * 100) / 100;
+          const open = Math.round((gross - Number(t.paid_amount ?? 0)) * 100) / 100;
+          return {
+            ...t,
+            gross,
+            open_amount: open,
+            supplier_name: t.suppliers?.name ?? null,
+            event_name: t.events?.name ?? null,
+          };
+        })
+        .filter((t: any) => t.open_amount > 0.01);
+    },
+  });
+
+  const openTxnIds = useMemo(() => new Set((openTxns as any[]).map((t) => t.id)), [openTxns]);
+
+
+
 
   const { data: sepaExports = [] } = useQuery({
     queryKey: ["bank-recon-sepa"],
