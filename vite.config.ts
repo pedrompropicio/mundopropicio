@@ -60,7 +60,10 @@ export default defineConfig(({ mode }) => ({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
-        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+        // O chunk principal já passou os 10 MiB (2026-09-22) e o workbox
+        // rebentava o build na geração do service worker. Limite subido para
+        // 24 MiB para dar folga ao bundle actual.
+        maximumFileSizeToCacheInBytes: 24 * 1024 * 1024,
         // `navigateFallback: ""` desliga o default do vite-plugin-pwa
         // ("index.html"). Com ele, o workbox registava uma NavigationRoute
         // servida pelo precache (cache-first) ANTES das runtimeCaching, e todas
