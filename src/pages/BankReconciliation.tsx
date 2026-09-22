@@ -939,27 +939,39 @@ export default function BankReconciliation() {
   ]);
 
   /**
-   * TRAVA 2 (18/09/2026) — a abertura do ficheiro contra o ÚLTIMO SALDO
-   * CONHECIDO da conta. Distinta do aviso da #185 (`cutoffMismatch`), que é
-   * informativo e mede desencaixes de linhas em falta: esta pergunta se o
+   * TRAVA 2 (18/09/2026, referência corrigida a 22/09/2026) — a abertura do
+   * ficheiro contra o saldo da conta À VÉSPERA de `period_from`. Distinta do
+   * aviso da #185 (`cutoffMismatch`), que é informativo: esta pergunta se o
    * ficheiro é sequer DESTA conta, e RECUSA a gravação sem botão de forçar.
    *
-   * Referência, por esta ordem:
-   *  (a) `closing_balance` do extrato mais recente da conta (maior `period_to`;
-   *      em empate, `imported_at` mais recente);
-   *  (b) sem extratos: saldo do sistema à véspera de `period_from`
-   *      (`account_true_balances_asof`);
-   *  (c) se o ficheiro cobre a data de corte, a #185 já compara com o
-   *      implantado — aqui não se duplica.
+   * A referência era o `closing_balance` do extrato mais recente da conta, o
+   * que dava FALSO POSITIVO com períodos sobrepostos: com o extrato
+   * 16/09→16/09 já importado (fecho 593.427,98 €), o ficheiro 16/09→18/09
+   * (abertura 482.158,14 €) era recusado por 111.269,84 € — exatamente os
+   * movimentos de 16/09. A abertura de um ficheiro é o saldo no INÍCIO do
+   * primeiro dia, logo a referência tem de ser o saldo à véspera.
+   *
+   * Cascata:
+   *  1. `balance_after` da última linha da conta com `booking_date <
+   *     period_from` (`lastPrevLine`) — referência principal;
+   *  2. `closing_balance` do extrato mais recente com `period_to < period_from`;
+   *  3. `account_true_balances_asof` à véspera de `period_from`;
+   *  4. saldo implantado da conta.
    *
    * Recusa só quando a diferença é grosseira nas DUAS medidas: mais de 1.000 €
    * E mais de 10% da maior das grandezas. Um ficheiro de outra conta falha as
-   * duas com folga (482.158,14 € contra 1.386,68 €); um extrato com linhas em
-   * falta não.
+   * duas com folga; um extrato com linhas em falta não.
+   *
+   * Exceção: se o ficheiro cobre a data de corte, a #185 já compara com o
+   * implantado — aqui não se duplica.
    */
-  const lastStatementRef = useMemo(() => {
+  const prevStatementRef = useMemo(() => {
+    if (!parsedPeriodFrom) return null;
     const sts = (statements as any[]).filter(
-      (s) => s.closing_balance !== null && s.closing_balance !== undefined,
+      (s) =>
+        s.closing_balance !== null &&
+        s.closing_balance !== undefined &&
+        String(s.period_to ?? "") < parsedPeriodFrom,
     );
     if (sts.length === 0) return null;
     const sorted = [...sts].sort((a, b) => {
@@ -973,10 +985,16 @@ export default function BankReconciliation() {
       balance: Number(s.closing_balance),
       origin: `fecho do extrato de ${formatDatePT(s.period_from)} → ${formatDatePT(s.period_to)}`,
     };
-  }, [statements]);
+  }, [statements, parsedPeriodFrom]);
 
-  // Referência (b): só quando a conta ainda não tem extrato nenhum.
-  const needsRefEve = !!parsed && !!eveOfPeriodFrom && !lastStatementRef;
+  // Referência (3): só quando não há linha anterior nem extrato anterior.
+  const needsRefEve =
+    !!parsed &&
+    !!eveOfPeriodFrom &&
+    !hasCutoffLines &&
+    prevDayLines !== undefined &&
+    !lastPrevLine &&
+    !prevStatementRef;
   const { data: refEveBalances } = useQuery({
     queryKey: ["bank-recon-ref-eve-balance", accountId, eveOfPeriodFrom],
     enabled: !!accountId && needsRefEve,
@@ -987,7 +1005,7 @@ export default function BankReconciliation() {
     if (!parsed || !accountId) return null;
     const opening = parsed.openingBalance;
     if (opening === null || opening === undefined) return null;
-    // (c) o ficheiro cobre a data de corte: a #185 é a referência.
+    // Exceção: o ficheiro cobre a data de corte — a #185 é a referência.
     if (hasCutoffLines) {
       return {
         reference: null as number | null,
@@ -998,14 +1016,26 @@ export default function BankReconciliation() {
     }
     let reference: number | null = null;
     let origin = "";
-    if (lastStatementRef) {
-      reference = lastStatementRef.balance;
-      origin = lastStatementRef.origin;
+    if (prevDayLines === undefined) {
+      // Ainda a carregar as linhas anteriores: não decidir nada.
+      return { reference: null as number | null, origin: "a calcular…", diff: null as number | null, refuse: false };
+    }
+    if (lastPrevLine) {
+      reference = lastPrevLine.balanceAfter;
+      origin = `saldo após a última linha de ${formatDatePT(lastPrevLine.bookingDate)}`;
+    } else if (prevStatementRef) {
+      reference = prevStatementRef.balance;
+      origin = prevStatementRef.origin;
     } else if (refEveBalances) {
       const sys = refEveBalances.get(accountId) ?? null;
       if (sys !== null) {
         reference = sys;
-        origin = `saldo do sistema a ${formatDatePT(eveOfPeriodFrom as string)}`;
+        origin = `saldo apurado à véspera (${formatDatePT(eveOfPeriodFrom as string)})`;
+      } else if (account) {
+        reference = Number(account.initial_balance ?? 0);
+        origin = `saldo implantado da conta${
+          account.initial_balance_date ? ` (${formatDatePT(String(account.initial_balance_date))})` : ""
+        }`;
       } else {
         origin = "sem saldo visível para esta conta";
       }
@@ -1019,7 +1049,17 @@ export default function BankReconciliation() {
     const abs = Math.abs(diff);
     const scale = Math.max(Math.abs(reference), Math.abs(opening), 1);
     return { reference, origin, diff, refuse: abs > 1000 && abs > 0.1 * scale, opening };
-  }, [parsed, accountId, hasCutoffLines, lastStatementRef, refEveBalances, eveOfPeriodFrom]);
+  }, [
+    parsed,
+    accountId,
+    account,
+    hasCutoffLines,
+    prevDayLines,
+    lastPrevLine,
+    prevStatementRef,
+    refEveBalances,
+    eveOfPeriodFrom,
+  ]);
 
   const wrongAccountType = !!account && account.type !== "bank";
 
@@ -1027,7 +1067,7 @@ export default function BankReconciliation() {
     if (!openingCheck?.refuse || openingCheck.reference === null || openingCheck.diff === null) return null;
     return (
       `A abertura do ficheiro (${formatCurrency(Number(parsed?.openingBalance ?? 0))}) está a ` +
-      `${formatCurrency(Math.abs(openingCheck.diff))} do último saldo conhecido desta conta ` +
+      `${formatCurrency(Math.abs(openingCheck.diff))} do saldo desta conta à véspera ` +
       `(${formatCurrency(openingCheck.reference)}, ${openingCheck.origin}). ` +
       `Este ficheiro não parece ser desta conta.`
     );
@@ -1457,7 +1497,7 @@ export default function BankReconciliation() {
               Abertura do ficheiro: {formatCurrency(Number(parsed.openingBalance ?? 0))} ·{" "}
               {openingCheck.reference === null
                 ? `referência: ${openingCheck.origin}`
-                : `último saldo conhecido: ${formatCurrency(openingCheck.reference)} (${openingCheck.origin})` +
+                : `referência à véspera: ${formatCurrency(openingCheck.reference)} (${openingCheck.origin})` +
                   (openingCheck.diff === null ? "" : ` · diferença ${formatCurrency(openingCheck.diff)}`)}
             </p>
           )}

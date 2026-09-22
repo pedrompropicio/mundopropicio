@@ -1817,6 +1817,178 @@ export type Database = {
           },
         ]
       }
+      artist_song_tiktok_sound_daily: {
+        Row: {
+          captured_at: string
+          company_id: string
+          id: string
+          metric_date: string
+          music_id: string
+          song_id: string
+          source: string
+          source_ref: string | null
+          video_count: number | null
+        }
+        Insert: {
+          captured_at?: string
+          company_id?: string
+          id?: string
+          metric_date: string
+          music_id: string
+          song_id: string
+          source?: string
+          source_ref?: string | null
+          video_count?: number | null
+        }
+        Update: {
+          captured_at?: string
+          company_id?: string
+          id?: string
+          metric_date?: string
+          music_id?: string
+          song_id?: string
+          source?: string
+          source_ref?: string | null
+          video_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_song_tiktok_sound_daily_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_tiktok_sound_daily_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "artist_songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_tiktok_sound_daily_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "artist_song_tiktok_sound_daily_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["song_id"]
+          },
+        ]
+      }
+      artist_song_tiktok_sounds: {
+        Row: {
+          artist_id: string
+          author: string | null
+          company_id: string
+          created_at: string
+          discovered_via: string | null
+          first_seen_at: string
+          id: string
+          is_official: boolean
+          is_original_sound: boolean
+          matched_song_id: string | null
+          music_id: string
+          song_id: string
+          status: string
+          title: string | null
+          updated_at: string
+          validated_at: string | null
+        }
+        Insert: {
+          artist_id: string
+          author?: string | null
+          company_id?: string
+          created_at?: string
+          discovered_via?: string | null
+          first_seen_at?: string
+          id?: string
+          is_official?: boolean
+          is_original_sound?: boolean
+          matched_song_id?: string | null
+          music_id: string
+          song_id: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          validated_at?: string | null
+        }
+        Update: {
+          artist_id?: string
+          author?: string | null
+          company_id?: string
+          created_at?: string
+          discovered_via?: string | null
+          first_seen_at?: string
+          id?: string
+          is_official?: boolean
+          is_original_sound?: boolean
+          matched_song_id?: string | null
+          music_id?: string
+          song_id?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          validated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_song_tiktok_sounds_artist_id_fkey1"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_tiktok_sounds_artist_id_fkey1"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_benchmark_aligned"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_song_tiktok_sounds_artist_id_fkey1"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_song_tiktok_sounds_company_id_fkey1"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_tiktok_sounds_song_id_fkey1"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "artist_songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_tiktok_sounds_song_id_fkey1"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "artist_song_tiktok_sounds_song_id_fkey1"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["song_id"]
+          },
+        ]
+      }
       artist_songs: {
         Row: {
           artist_id: string
@@ -1834,6 +2006,8 @@ export type Database = {
           report_stale_at: string | null
           smart_link_url: string | null
           soundcharts_uuid: string | null
+          tiktok_hashtags: string[] | null
+          tiktok_song_id: string | null
           title: string
           tracking_status: string
           updated_at: string
@@ -1854,6 +2028,8 @@ export type Database = {
           report_stale_at?: string | null
           smart_link_url?: string | null
           soundcharts_uuid?: string | null
+          tiktok_hashtags?: string[] | null
+          tiktok_song_id?: string | null
           title: string
           tracking_status?: string
           updated_at?: string
@@ -1874,6 +2050,8 @@ export type Database = {
           report_stale_at?: string | null
           smart_link_url?: string | null
           soundcharts_uuid?: string | null
+          tiktok_hashtags?: string[] | null
+          tiktok_song_id?: string | null
           title?: string
           tracking_status?: string
           updated_at?: string
