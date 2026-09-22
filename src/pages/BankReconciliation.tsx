@@ -1283,17 +1283,47 @@ export default function BankReconciliation() {
     const m = new Map<string, any>();
     (txns as any[]).forEach((t) => m.set(t.id, t));
     (crossAccountTxns as any[]).forEach((t) => { if (!m.has(t.id)) m.set(t.id, t); });
+    (openTxns as any[]).forEach((t) => { if (!m.has(t.id)) m.set(t.id, t); });
     return m;
-  }, [txns, crossAccountTxns]);
+  }, [txns, crossAccountTxns, openTxns]);
+
+  const manualTarget = manualLine ? Math.abs(Number(manualLine.amount ?? 0)) : 0;
+
+  /**
+   * Repartição do valor da linha pelas transações escolhidas. As já pagas
+   * entram pelo valor pago (só ligam); as em aberto ficam com o que falta para
+   * a soma bater com a linha, nunca acima do que têm em aberto — o excedente
+   * fica em aberto (pagamento parcial, estado derivado pelo D-ERP86).
+   */
+  const manualItems = useMemo(() => {
+    let remaining = manualTarget;
+    const rows = manualTxIds.map((id) => {
+      const t = manualCandidates.get(id);
+      const mode = manualModes[id] ?? "link";
+      if (mode === "link") {
+        const amount = Math.round(Math.abs(Number(t?.paid_amount ?? 0)) * 100) / 100;
+        remaining = Math.round((remaining - amount) * 100) / 100;
+        return { id, mode: "link" as const, amount, open: 0, leftover: 0, tx: t };
+      }
+      const open = Math.round(Number(t?.open_amount ?? 0) * 100) / 100;
+      const amount = Math.round(Math.max(0, Math.min(open, Math.max(0, remaining))) * 100) / 100;
+      remaining = Math.round((remaining - amount) * 100) / 100;
+      return {
+        id,
+        mode: "settle" as const,
+        amount,
+        open,
+        leftover: Math.round((open - amount) * 100) / 100,
+        tx: t,
+      };
+    });
+    return rows;
+  }, [manualTxIds, manualModes, manualCandidates, manualTarget]);
 
   const manualSelectedTotal = useMemo(
-    () =>
-      Math.round(
-        manualTxIds.reduce((a, id) => a + Math.abs(Number(manualCandidates.get(id)?.paid_amount ?? 0)), 0) * 100,
-      ) / 100,
-    [manualTxIds, manualCandidates],
+    () => Math.round(manualItems.reduce((a, i) => a + i.amount, 0) * 100) / 100,
+    [manualItems],
   );
-  const manualTarget = manualLine ? Math.abs(Number(manualLine.amount ?? 0)) : 0;
   const manualDiff = Math.round((manualSelectedTotal - manualTarget) * 100) / 100;
 
   async function confirmManual() {
