@@ -311,6 +311,16 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       toast.warning("As alterações por gravar foram descartadas ao trocar de cenário.");
     }
     loadedVersionRef.current = selectedVersionId;
+    if (versionChanged) {
+      setPendingDeletes([]);
+      setTempRows([]);
+      setCounts({ edits: 0, inserts: 0, deletes: 0 });
+      undoStackRef.current = [];
+      setUndoDepth(0);
+      pendingChangeCountRef.current = 0;
+      lastRowRef.current = -1;
+      hotRef.current?.hotInstance?.clearUndo?.();
+    }
     setAnexosPanel(null);
     setLoading(true);
     try {
