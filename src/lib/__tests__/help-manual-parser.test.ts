@@ -10,7 +10,7 @@ describe("parseHelpArticle", () => {
     expect(a.slug).toBe("rateios");
     expect(a.title).toBe("Rateios");
     expect(a.module).toBe("erp");
-    expect(a.updated_on).toBe("2026-09-16");
+    expect(a.updated_on).toBe("2026-09-22");
     expect(a.profiles).toContain("manager");
     expect(a.routes).toContain("/transacoes");
     expect(a.sources).toContain("D-ERP76");

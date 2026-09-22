@@ -33,8 +33,8 @@ export function SharedCostBadge({ transactionId }: { transactionId: string }) {
           Adiantamento por conta de terceiros: não é custo da MP, fica fora do resultado e não
           consome verba do BP.{" "}
           {mirrored
-            ? "A contrapartida já está lançada na conta corrente do circuito."
-            : "A contrapartida na conta do circuito é lançada quando esta linha for paga."}
+            ? "A contrapartida já está lançada na conta de rateio de terceiros."
+            : "A contrapartida na conta de rateio é lançada quando esta linha for paga."}
         </p>
       </TooltipContent>
     </Tooltip>

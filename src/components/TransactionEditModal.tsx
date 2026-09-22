@@ -517,7 +517,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         is_transitory: "Transitória",
         transitory_reason: "Motivo da transitória",
         exclude_from_result: "Fora do Resultado",
-        shared_cost_account_id: "Conta de circuito (custo partilhado)",
+        shared_cost_account_id: "Conta de rateio de terceiros (custo partilhado)",
         shared_cost_counterparty_id: "Terceiro do custo partilhado",
         invoice_ref: "Nº Fatura",
         payment_method: "Método Pagamento",
@@ -2545,7 +2545,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
             </div>
             <span className="ml-auto text-xs text-muted-foreground">
               {form.shared_cost_account_id
-                ? "Imposto pelo custo partilhado com terceiros — limpe a conta de circuito para desligar"
+                ? "Imposto pelo custo partilhado com terceiros — limpe a conta de rateio para desligar"
                 : "Apenas para registo"}
             </span>
           </div>

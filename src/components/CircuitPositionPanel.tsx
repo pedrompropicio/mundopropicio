@@ -41,7 +41,7 @@ export function CircuitPositionPanel({ lines, openingBalance, position }: Props)
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
             A soma das contrapartes ({formatCurrency(sumRows + openingBalance)}) não coincide com a
-            posição do circuito ({formatCurrency(position)}). Há movimentos que o painel não explica.
+            posição do rateio ({formatCurrency(position)}). Há movimentos que o painel não explica.
           </span>
         </div>
       )}
@@ -120,7 +120,7 @@ export function CircuitPositionPanel({ lines, openingBalance, position }: Props)
             </TableRow>
           )}
           <TableRow>
-            <TableCell className="text-sm font-bold uppercase tracking-wider">Posição do circuito</TableCell>
+            <TableCell className="text-sm font-bold uppercase tracking-wider">Posição do rateio</TableCell>
             <TableCell />
             <TableCell />
             <TableCell
