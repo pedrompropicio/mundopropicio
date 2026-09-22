@@ -277,8 +277,15 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
 
   const isTransfer = action === "create_transfer";
   const base = Math.round((gross / (1 + ivaRate / 100)) * 100) / 100;
+  /**
+   * Ramo Capital (10.1.*): é transitória por regra e o motivo é derivado da rubrica
+   * pelo trigger — o ecrã não manda motivo (D-ERP80, adenda 22/09/2026).
+   */
+  const isCapital = isCapitalCategoryCode(
+    (categories as any[]).find((c) => c.id === categoryId)?.code,
+  );
   /** A transitória dispensa rubrica e nunca gera regra (a tabela não guarda o flag). */
-  const transitory = !isTransfer && isTransitory;
+  const transitory = !isTransfer && (isTransitory || isCapital);
   /** Direção do par: numa linha de crédito o dinheiro ENTROU na conta do extrato. */
   const transferIncoming = total > 0;
   /** Conta do extrato e conta de destino: se alguma é restrita, o par nasce confidencial. */
@@ -524,9 +531,12 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
             category_id: transitory ? (categoryId || null) : categoryId,
             is_transitory: transitory,
             // D-ERP80: entrada a repassar (dinheiro que chega e vai sair) ou repasse.
-            transitory_reason: transitory
-              ? (action === "create_income" ? "entrada_a_repassar" : "repasse")
-              : null,
+            // Ramo 10.1: não mandamos motivo — o trigger deriva-o da rubrica.
+            transitory_reason: isCapital
+              ? null
+              : transitory
+                ? (action === "create_income" ? "entrada_a_repassar" : "repasse")
+                : null,
             supplier_id: supplierId || null,
             event_id: eventId || null,
             forecast_id: needsBpLine ? forecastId : null,
