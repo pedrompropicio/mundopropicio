@@ -4137,3 +4137,24 @@ Tabelas novas (SQL em `supabase/manual/20260921205000_artist_song_tiktok_sounds_
 Nova edge function `tiktok-sound-count-sync` (`verify_jwt = true`, aceita service role): lê os sons `validated` das músicas `is_launch OR is_reference`, chama o ator Apify `funny_ground/tiktok-sound-scraper` (`dzN8Pp8yxmp9Jzzyd`) por `run-sync-get-dataset-items` com `soundUrls`/`resultsPerSound`/`maxVideosToScanPerSound` — ator e input em constantes no topo do ficheiro —, exige `APIFY_TOKEN` (428 se faltar) e grava 1 linha por som em `artist_song_tiktok_sound_daily` mais a soma por música em `artist_song_metrics_daily` (`platform='tiktok'`, `metric='ugc_videos_sounds'`, `source='apify'`). Guardas: som validado ausente na resposta → a soma dessa música NÃO é gravada (as linhas por som que vieram ficam) com aviso; queda > 10% face ao último valor → grava com aviso. Marca `artist_songs.report_stale_at`. Suporta `dry_run` e `song_id`. Cron sugerido (não criado): `carreira-tiktok-sounds-daily`, 09:30 UTC.
 
 A3-bis: `tiktok-artists-sync` passa a chamar também `ttfa/song_data/clip_data_list/v1` por cada `group_id` mapeado e faz upsert dos sons `pgc_*`/`ugc_*` em `artist_song_tiktok_sounds` com `discovered_via='panel'`, `status='validated'`, `is_official` = som `pgc` e `title = clip_name`, sem apagar nada — a descoberta dos sons oficiais do nosso artista fica automática.
+
+## D-ERP126 — Pagamento nunca com data futura; saída prevista é data de vencimento (22/09/2026)
+
+**Decisão:** `payment_date` em `public.transactions` e `public.transaction_payments` nunca pode ser posterior ao dia corrente. Uma saída prevista regista-se em `due_date`, não em `payment_date`.
+
+**Contexto:** na madrugada de 22/09/2026 a transação `b0032fc9-8165-460d-97cd-2c6aa1c750f6` ("Criação Video/Campanha Golden Ticket", Coala Festival Portugal 2026, 2.413,50 €) estava com `status = 'paid'` e `payment_date = 2026-11-03`. A data futura falseava o saldo da conta bancária na implantação, porque a linha escapava à data de corte (`initial_balance_date`) e descontava dinheiro que ainda não tinha saído.
+
+**Implementação:** duas funções de trigger em `public`:
+- `validate_paid_requires_payment_date()` — associada a `transactions` pelo trigger `enforce_paid_payment_date` (já existente, BEFORE INSERT OR UPDATE), reforçada com a verificação de data futura;
+- `validate_payment_date_not_future()` — nova, associada a `transaction_payments` pelo trigger `enforce_payment_date_not_future` (BEFORE INSERT OR UPDATE).
+
+A data de referência é `(now() AT TIME ZONE 'Europe/Lisbon')::date`, para não recusar por engano um lançamento feito do Brasil ao fim do dia.
+
+**Por que também em `transaction_payments`:** a liquidação escreve parcelas nessa tabela e `sync_paid_amount_from_payments()` só propaga `payment_date` para a transação quando o pagamento fecha o valor total. Um pagamento parcial futuro passaria sem tocar na transação se a trava estivesse apenas lá.
+
+**Alternativas rejeitadas:**
+- Validação só no ecrã — não cobre chamadas diretas à base, API, importadores nem ações manuais via SQL;
+- Deixar passar e corrigir no fecho do evento — falseia o saldo da conta durante semanas e quebra a conciliação bancária enquanto o erro estiver vivo.
+
+**Consequência:** a regra vive na base de dados, logo cobre ecrã, API, edge functions e importadores. O caminho correcto para uma saída programada continua a ser `renegotiate_transaction_installments()`, que preenche `due_date` e deixa `payment_date` a `NULL` até o pagamento ser efectuado.
+
