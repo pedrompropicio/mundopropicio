@@ -53,7 +53,7 @@ export interface TenantContext {
 
 /**
  * Validates JWT, resolves the caller's *active* company server-side
- * (uses profiles.active_company_id when caller is platform_admin, else profiles.company_id),
+ * (profiles.active_company_id ?? profiles.company_id, para todos os papéis),
  * and returns clients ready for tenant-aware queries.
  *
  * Throws AuthError (401) when not authenticated.
@@ -85,16 +85,17 @@ export async function authenticateAndResolveCompany(req: Request): Promise<Tenan
   const { data: isPaRow } = await adminClient.rpc("is_platform_admin", { _user_id: caller.id });
   const isPlatformAdmin = Boolean(isPaRow);
 
-  // Resolve active company (platform_admin can switch via active_company_id)
+  // Resolve active company — MESMA ordem de `current_company_id()` na base:
+  // active_company_id primeiro, company_id só como fallback. (Issue #241: antes
+  // só platform_admin usava a activa, o que dava 403 a quem é membro de várias
+  // empresas e trabalha fora da empresa por omissão.)
   const { data: profile } = await adminClient
     .from("profiles")
     .select("company_id, active_company_id")
     .eq("id", caller.id)
     .maybeSingle();
 
-  const callerCompanyId = isPlatformAdmin
-    ? (profile?.active_company_id ?? profile?.company_id ?? null)
-    : (profile?.company_id ?? null);
+  const callerCompanyId = profile?.active_company_id ?? profile?.company_id ?? null;
 
   return {
     caller: { id: caller.id, email: caller.email ?? undefined },
@@ -182,4 +183,25 @@ export function stripCompanyId<T extends Record<string, any>>(payload: T): T {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { company_id, ...rest } = payload;
   return rest as T;
+}
+
+/**
+ * (Issue #241) Autorização por PERTENÇA: numa base multi-membership, a empresa
+ * por omissão (`profiles.company_id`) não prova acesso. Usa esta função quando
+ * precisas de saber se um utilizador pode agir sobre dados de uma empresa.
+ */
+export async function userBelongsToCompany(
+  adminClient: SupabaseClient,
+  userId: string,
+  companyId: string | null | undefined,
+): Promise<boolean> {
+  if (!userId || !companyId) return false;
+  const { data } = await adminClient
+    .from("user_roles")
+    .select("company_id")
+    .eq("user_id", userId)
+    .eq("company_id", companyId)
+    .limit(1)
+    .maybeSingle();
+  return Boolean(data);
 }

@@ -982,12 +982,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .from("profiles").select("company_id, active_company_id").eq("id", createdBy).maybeSingle();
     const { data: isPaRow } = await supabase.rpc("is_platform_admin", { _user_id: createdBy });
     const isPlatformAdmin = Boolean(isPaRow);
-    const callerCompanyId = isPlatformAdmin
-      ? (profile?.active_company_id ?? profile?.company_id ?? null)
-      : (profile?.company_id ?? null);
-    // PA sem company ativo pode aceder a qualquer tenant (raro); senão exige match.
-    const bypass = isPlatformAdmin && callerCompanyId == null;
-    if (!bypass && callerCompanyId !== companyId) {
+    // (Issue #241) Empresa activa = active_company_id ?? company_id; autorização
+    // por PERTENÇA em user_roles (multi-membership).
+    const callerCompanyId = profile?.active_company_id ?? profile?.company_id ?? null;
+    let belongs = isPlatformAdmin;
+    if (!belongs && companyId) {
+      const { data: membership } = await supabase
+        .from("user_roles").select("company_id")
+        .eq("user_id", createdBy).eq("company_id", companyId)
+        .limit(1).maybeSingle();
+      belongs = Boolean(membership);
+    }
+    if (!belongs) {
       console.warn(
         `[campaign-diagnosis] 403 cross-tenant — caller company=${callerCompanyId} body=${companyId}`,
       );
