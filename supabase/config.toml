@@ -239,3 +239,8 @@ verify_jwt = true
 # validado dentro da função.
 [functions.artist-screen-ingest]
 verify_jwt = false
+
+# #209 — Retenção de criativos Meta (bucket crm-meta-creatives). Só service_role:
+# a função valida o papel do JWT dentro do código; chamada por cron/manual.
+[functions.crm-meta-creatives-retention]
+verify_jwt = true
