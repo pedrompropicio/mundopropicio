@@ -227,16 +227,6 @@ export function BPEvolution({ eventId }: { eventId: string }) {
                 strokeDasharray="4 4"
                 label={{ value: "Original", fontSize: 10, position: "insideTopRight" }}
               />
-              {budgetReductionMarkers.slice(0, 8).map((m, i) => (
-              <span
-                key={`r-${m.at}-${i}`}
-                className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[11px] text-destructive"
-                title={m.label ?? undefined}
-              >
-                <TrendingDown className="h-3 w-3" />
-                Redução de verba · {formatLisbonDateTime(m.at)} · {(m.label ?? "").slice(0, 40)}
-              </span>
-            ))}
             {versionMarkers.map((m) => (
                 <ReferenceLine
                   key={m.at}
@@ -271,6 +261,16 @@ export function BPEvolution({ eventId }: { eventId: string }) {
               >
                 <TrendingUp className="h-3 w-3" />
                 Elevação de verba · {formatLisbonDateTime(m.at)} · {(m.label ?? "").slice(0, 40)}
+              </span>
+            ))}
+              {budgetReductionMarkers.slice(0, 8).map((m, i) => (
+              <span
+                key={`r-${m.at}-${i}`}
+                className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[11px] text-destructive"
+                title={m.label ?? undefined}
+              >
+                <TrendingDown className="h-3 w-3" />
+                Redução de verba · {formatLisbonDateTime(m.at)} · {(m.label ?? "").slice(0, 40)}
               </span>
             ))}
             {versionMarkers.map((m) => (
