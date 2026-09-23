@@ -4,6 +4,8 @@ Atualizado: 2026-09-18 (fecho 3). Issues abertas da frente: #212 (scanner com c�
 
 ## Em que pé está
 
+- **Scanner de Faturas Avulsas: feedback de leitura OCR melhorado (#236, 23/09).** O toast "Fatura lida com IA" só aparece quando o OCR devolve os campos principais preenchidos. Leitura vazia dá toast destrutivo "Não consegui ler este documento" (com aviso extra para PDFs reimpressos); leitura parcial sem total dá toast "Leitura parcial" listando os campos em falta. Alterado só em `src/pages/StandaloneInvoiceScanner.tsx`; sem Publish.
+
 - **Faturas Ads: um critério de "sem evento", contagem na base (18/09, #125, adenda D-ERP31).** `ads_invoice_line_is_pending()` + RPC `ads_invoice_pending_counts(uuid[])`; lista, detalhe e `ads-invoice-apply → checkReady` consomem a mesma função; a leitura de `ads_invoice_line` inteira desapareceu (barreira dos 1.000). Live: 8 faturas, 130 linhas, 0 pendentes.
 - **Documento pertence à fatura, no ecrã como na API (18/09, #181, adenda D-ERP24).** `TransactionDocumentsModal`: um upload, N linhas com o mesmo `file_url`; remoção partilhada; proposta de agrupar quando não há grupo; revalidação já vê as irmãs. Achado colateral corrigido: `ingest-transaction-document` estava com sintaxe partida por uma edição de paginação (#206) — reposta e deployada.
 - **Moeda nas linhas de pagamento (18/09, #127, adenda D-ERP86).** `transaction_payments.amount` é sempre EUR; `currency`/`original_amount`/`fx_rate`/`fx_rate_source` com CHECK `transaction_payments_fx_required`; backfill das 3 linhas BRL; invariante `pagamento_moeda_sem_cambio` a 0; modais gravam, timeline mostra o `CurrencyBadge`.
