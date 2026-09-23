@@ -389,9 +389,38 @@ async function callLlm(prompt: string, systemPrompt: string = SYSTEM_PROMPT) {
   return { plano, tokens: data?.usage?.total_tokens ?? null };
 }
 
-Deno.serve(async (req: Request): Promise<Response> => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") return json({ error: "method_not_allowed", mensagem: "Usa POST." }, 405);
+// Cliente de serviço — usado SÓ para o registo técnico em public.sync_runs
+// (nunca para ler/escrever dados do plano, que continuam na sessão do chamador).
+function adminClient() {
+  return createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+/** Diagnóstico da geração — vai inteiro para sync_runs.details. */
+type Diag = {
+  run_id: string | null;
+  company_id: string | null;
+  artist_id: string | null;
+  song_id: string | null;
+  connection_id: string | null;
+  plataforma: string | null;
+  modelo: string;
+  posts_promoviveis_total: number | null;
+  posts_enviados_ao_modelo: number | null;
+  ids_permitidos_exemplo: string[];
+  tentativas: number;
+  retry_com_lista_de_ids: boolean;
+  ids_devolvidos_pelo_modelo: string[];
+  ids_nao_casaram: Array<{ id: string; motivo: string; conjunto?: string }>;
+  adsets_do_modelo: number | null;
+  anuncios_do_modelo: number | null;
+  adsets_validos: number | null;
+  plan_id: string | null;
+  erro: string | null;
+};
+
+async function gerar(req: Request, diag: Diag, admin: Any): Promise<Response> {
   if (!LOVABLE_API_KEY) return json({ error: "lovable_ai_not_configured", mensagem: "Falta a chave do Lovable AI." }, 500);
 
   const authHeader = req.headers.get("Authorization");
@@ -426,6 +455,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (userErr || !userData?.user) {
     return json({ error: "sessao_invalida", mensagem: "Sessão inválida ou expirada." }, 401);
   }
+
+  // Registo técnico da geração (sem browser: tudo fica em public.sync_runs).
+  diag.artist_id = artistId;
+  diag.song_id = songId;
+  diag.connection_id = connectionId;
+  try {
+    const { data: art } = await admin.from("artists").select("company_id").eq("id", artistId).maybeSingle();
+    diag.company_id = (art?.company_id as string) ?? null;
+  } catch { /* o registo nunca faz a geração falhar */ }
+  diag.run_id = await startSyncRun(admin, {
+    function_name: FUNCTION_NAME,
+    trigger_source: deduceTriggerSource(req),
+    dry_run: false,
+    company_id: diag.company_id,
+    artist_id: artistId,
+  });
 
   const avisos: string[] = [];
 
