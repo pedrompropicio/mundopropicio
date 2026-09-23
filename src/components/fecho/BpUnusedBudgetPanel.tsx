@@ -268,6 +268,14 @@ export function BpUnusedBudgetPanel(props: Props) {
 
   const [expandedTx, setExpandedTx] = useState<string | null>(null);
   const [expandedCands, setExpandedCands] = useState<string | null>(null);
+  // Cabeçalhos de rubrica colapsáveis (abertos por defeito) — só apresentação.
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const toggleGroup = (key: string) =>
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
   const [dialogRow, setDialogRow] = useState<BpLineReviewRow | null>(null);
   const [dialogDecision, setDialogDecision] = useState<Decision>("pending_invoice");
   const [note, setNote] = useState("");
