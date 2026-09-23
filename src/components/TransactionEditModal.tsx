@@ -619,6 +619,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         paying_partner_id: transaction.type === "expense" ? (form.paying_partner_id || null) : null,
         ...(partnerPaidSettled ? {} : paymentFields),
         ...(partnerPaidSettled ? { account_id: null, payment_date: partnerPaidDate || form.date } : {}),
+        ...operationKeyField,
         ...heldByFields,
       } : {
 
@@ -659,6 +660,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           is_reimbursement: form.is_reimbursement,
           reimbursement_to: form.is_reimbursement ? (form.reimbursement_to.trim() || null) : null,
         } : {}),
+        ...operationKeyField,
         ...heldByFields,
       };
 
