@@ -1128,6 +1128,7 @@ async function gerar(req: Request, diag: Diag, admin: Any): Promise<Response> {
       p_smart_link: smartLink,
     });
     if (valErr) {
+      diag.erro = `artist_ads_plan_validate: ${valErr.message}`;
       return json({ error: "plano_invalido", mensagem: valErr.message, plano }, 422);
     }
   }
@@ -1141,6 +1142,7 @@ async function gerar(req: Request, diag: Diag, admin: Any): Promise<Response> {
   });
   if (createErr) {
     const msg = createErr.message ?? "";
+    diag.erro = `artist_ads_plan_create: ${msg}`;
     // artist_ads_plan_create chama artist_ads_plan_validate por dentro. Desde a
     // DDL de D-ERP107/108 essa RPC aceita REACH e VIDEO_VIEWS; se ainda recusar,
     // o erro é identificável em vez de mascarado (a RPC não é alterada aqui).
@@ -1148,7 +1150,7 @@ async function gerar(req: Request, diag: Diag, admin: Any): Promise<Response> {
       return json({
         error: eTiktok ? "rpc_objetivo_tiktok_nao_aceite" : "rpc_objetivo_google_nao_aceite",
         mensagem:
-          `public.artist_ads_plan_validate (chamada dentro de artist_ads_plan_create) recusa o objetivo ${objetivo}. Falta a DDL que aceite REACH e VIDEO_VIEWS.`,
+          `public.artist_ads_plan_validate (chamada dentro de artist_ads_plan_create) recusa o objetivo ${plano.objetivo}. Falta a DDL que aceite REACH e VIDEO_VIEWS.`,
         plano,
       }, 422);
     }
@@ -1156,6 +1158,59 @@ async function gerar(req: Request, diag: Diag, admin: Any): Promise<Response> {
     return json({ error: status === 403 ? "sem_permissao" : "plano_invalido", mensagem: msg, plano }, status);
   }
 
+  diag.plan_id = (planId as string) ?? null;
   console.log(`[${FUNCTION_NAME}] plano ${planId} criado em rascunho para música ${songId}`);
   return json({ plan_id: planId, plano, resumo: plano.resumo });
+}
+
+// Envelope: trata CORS/método e fecha SEMPRE o registo em public.sync_runs, seja
+// qual for a saída (plano criado, 422, 403 ou excepção). É este registo que
+// permite diagnosticar uma geração sem abrir o browser.
+Deno.serve(async (req: Request): Promise<Response> => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "method_not_allowed", mensagem: "Usa POST." }, 405);
+
+  const admin = adminClient();
+  const t0 = Date.now();
+  const diag: Diag = {
+    run_id: null,
+    company_id: null,
+    artist_id: null,
+    song_id: null,
+    connection_id: null,
+    plataforma: null,
+    modelo: MODEL,
+    posts_promoviveis_total: null,
+    posts_enviados_ao_modelo: null,
+    ids_permitidos_exemplo: [],
+    tentativas: 0,
+    retry_com_lida_de_ids: false,
+    ids_devolvidos_pelo_modelo: [],
+    ids_nao_casaram: [],
+    adsets_do_modelo: null,
+    anuncios_do_modelo: null,
+    adsets_validos: null,
+    plan_id: null,
+    erro: null,
+  } as unknown as Diag;
+
+  let resp: Response;
+  try {
+    resp = await gerar(req, diag, admin);
+  } catch (e) {
+    diag.erro = (e as Error)?.message ?? String(e);
+    console.error(`[${FUNCTION_NAME}] excepção`, diag.erro);
+    resp = json({ error: "erro_interno", mensagem: diag.erro }, 500);
+  }
+
+  const { run_id: runId, ...detalhe } = diag;
+  const ok = diag.plan_id != null;
+  await finishSyncRun(admin, runId, t0, {
+    status: ok ? "success" : diag.erro ? "error" : "no_data",
+    api_calls: diag.tentativas,
+    rows_written: ok ? 1 : 0,
+    details: { ...detalhe, http_status: resp.status },
+    error_text: diag.erro,
+  });
+  return resp;
 });
