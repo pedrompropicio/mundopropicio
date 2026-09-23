@@ -1027,7 +1027,7 @@ Deno.serve(async (req) => {
         anchorsUpserted: 0,
         anchorsErrors: 0,
         skipped: [] as Array<{ kind: string; reason: string; id?: string; rowNumber?: number }>,
-        errors: [] as Array<{ kind: string; error: string; ref?: any }>,
+        errors: [] as Array<{ kind: string; error: string; ref?: any; [k: string]: any }>,
       };
 
       // ── Helper: upsert âncora no coala_sync_row_state após operação OK.
