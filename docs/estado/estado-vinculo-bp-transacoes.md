@@ -1,6 +1,6 @@
 # ESTADO — Vínculo BP ↔ Transações
 
-Atualizado: 2026-09-15 · isenções D1+D8 alinhadas nas três camadas (#179 fechada) · D2 em todos os actos de aprovação · vínculo BP↔TX blindado contra troca de versão do BP
+Atualizado: 2026-09-23 · #240 fechada — vínculo preso ao evento e chão das linhas de BP na base de dados · isenções D1+D8 alinhadas nas três camadas · vínculo BP↔TX blindado contra troca de versão do BP
 
 ## Em que pé está
 O vínculo canónico é `transactions.forecast_id` (N transações : 1 linha). A 02/09 foram escritas **168 FK** em rubricas com uma linha única — onde o matching já era determinístico e a escrita não muda número nenhum.
@@ -10,9 +10,15 @@ O vínculo canónico é `transactions.forecast_id` (N transações : 1 linha). A
 Depois de 02/09 fechou-se a fuga que fazia a cobertura degradar-se sozinha: os caminhos que criavam despesa de evento **já aprovada ou já paga**, sem nunca passar por `pending`, e portanto sem nunca cruzar a trava.
 
 ## A trabalhar agora
-Nada em execução. Próximo na fila: #114 (D2 e D1 no trigger como última linha de defesa).
+Nada em execução. Na fila desta frente: #246 (P1 — linhas overhead/excluídas/adotadas perdem a observação na redução) e #114 (D2 no trigger como última linha de defesa). Por confirmar quando ocorrerem: C2 (próxima sync da Coala grava com '[sync Coala] planilha' ou fica em audit.errors) e C3 (recálculo de cachê abaixo do pago avisa e não grava).
 
 ## Fechado agora (D1 + D2 + D8 + D13–D19)
+
+### 23/09 — duas portas ao excedido fechadas na base de dados (#240)
+Caso de origem: a 'Produtor Liliam' (1.500,00 €) mudou da Ivete para a Anitta com o forecast_id ainda na linha da Ivete, e a linha tinha sido baixada abaixo do realizado sem observação — excedido falso. A correcção desse vínculo foi feita pelo fecho-anitta-2026.
+Porta 1 — trigger trg_enforce_tx_forecast_same_event (BEFORE INSERT/UPDATE OF forecast_id, event_id em transactions), reaproveita bp_tx_link_allowed. A guarda anterior (enforce_forecast_tx_same_event, unlink_forecasts_on_tx_event_change) só protegia a âncora. Escrever linha de outro evento ou de versão é recusado; mudar só o evento limpa a linha, excepto despesa aprovada/paga que consome verba em evento with_bp — essa exige, no mesmo acto, a linha do evento novo (decisão do Pedro, 23/09). UI: TransactionEditModal abre o LinkBpLineDialog e o RaiseBudgetDialog.
+Porta 2 — trigger trg_enforce_forecast_amount_floor (BEFORE UPDATE OF amount em event_forecasts; linha viva, aprovada, de despesa, a descer): nunca abaixo do realizado, sem isenção; observação obrigatória só quando a linha tem realizado (decisão do Pedro, 23/09), lida de mp.bp_change_observation; toda a redução fica no forecast_audit_log como 'Redução de verba'. Toda a escrita de amount passa por batch_update_event_forecasts (chave observation) ou reduce_forecast_budget; sync Coala com '[sync Coala] planilha', módulo de cachê com '[módulo de cachê] recálculo', Desfazer pede observação. D-ERP132.
+Testes de 23/09 (chat 0): A 15/15 em BEGIN…ROLLBACK, B1–B6 no ecrã, C1 (version.json) — todos verdes.
 
 ### 15/09 — isenções D1+D8 alinhadas (#179)
 As isenções da trava vivem em três camadas — trigger `enforce_transaction_approval_permission()`, helper `src/lib/bp-line-required.ts` e edge function `approve-transaction` — e têm de ser o MESMO predicado: `is_transitory`, `exclude_from_result`, `reversed_at` preenchido, `is_hidden` (null = false), além de `auth.uid() IS NULL` e `parent_transaction_id`. É o predicado de `countsAsBudgetCommitment` em `TransactionFormModal.tsx`: a trava aplica-se exactamente ao que consome verba.
@@ -83,6 +89,8 @@ Isenções vigentes no trigger: `auth.uid() IS NULL`, `parent_transaction_id IS 
 Nenhum.
 
 ## Factos que não se reinvestigam
+
+**Vínculo e verba têm guardas na base de dados desde 23/09 (#240).** Uma transação só pode apontar para uma linha viva do seu evento (ou Master↔cidade, ou sem evento); uma linha aprovada nunca desce abaixo do realizado. Invariantes medidas nesse dia: 0 transações fora de bp_tx_link_allowed; 13 linhas aprovadas já abaixo do realizado (5.054,35 € de excedido histórico), que os triggers não tocam — só actuam quando o amount desce.
 
 **Uma isenção da trava D1+D8 muda-se em três sítios ao mesmo tempo** — trigger, `bp-line-required.ts` e `approve-transaction`. A edge function é a barreira real (service_role passa o trigger); se ficar para trás, bloqueia o que o trigger deixaria passar. Regra de verificação depois de qualquer alteração: aprovar em lote uma despesa `exclude_from_result` num evento `with_bp`.
 
