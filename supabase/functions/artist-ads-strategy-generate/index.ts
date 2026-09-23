@@ -17,6 +17,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildArtistDataSnapshot } from "../_shared/artist-data-snapshot.ts";
 import { analisarVideosTiktok } from "../_shared/tiktok-video-analysis.ts";
+import { deduceTriggerSource, finishSyncRun, startSyncRun } from "../_shared/sync-run.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -61,6 +62,12 @@ const MAX_VIDEOS_TIKTOK = 40;
 const OBJETIVOS_GOOGLE = ["REACH", "VIDEO_VIEWS"];
 const MIN_DAILY_CENTS_GOOGLE = 500;
 const MAX_VIDEOS_GOOGLE = 40;
+
+// ── Meta ────────────────────────────────────────────────────────────────────
+// Máximo de publicações enviadas ao modelo. A conta de um artista activo tem
+// centenas de publicações promovíveis (Litto: 499 a 23/09/2026) e a lista
+// inteira no prompt fazia o modelo devolver post_ref truncado ou inventado.
+const MAX_POSTS_META = 40;
 
 /** Nome de estado sem acentos, minúsculas, sem "(state)" nem "state/estado of". */
 function chaveEstado(v: unknown): string {
