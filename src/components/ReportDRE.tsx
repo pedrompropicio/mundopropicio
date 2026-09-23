@@ -279,7 +279,7 @@ export default function ReportDRE() {
   });
 
   const { data: transactionsAll = [] } = useQuery({
-    queryKey: ["transactions"],
+    queryKey: ["transactions", "dre"],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase.from("transactions").select("*").in("status", ["approved", "paid"]).order("date", { ascending: false }));
       if (error) throw error;
@@ -298,7 +298,9 @@ export default function ReportDRE() {
     },
   });
 
-  const transactions = keepRootPerimeter(transactionsAll as any[], rootSettlementIds);
+  // Flags bloqueadores canónicos (reversed_at, is_hidden, ...) antes do perímetro
+  // da raiz — paridade com o filtro de Fecho (fecho-filter-parity.md).
+  const transactions = keepRootPerimeter((transactionsAll as any[]).filter((t) => !hasResultBlockingFlags(t)), rootSettlementIds);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["account-categories"],

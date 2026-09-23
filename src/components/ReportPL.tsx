@@ -595,12 +595,14 @@ export default function ReportPL() {
     return [...filteredActive, ...(scenarioForecasts as any[])];
   }, [activeForecasts, scenarioForecasts, scenarioVersionId]);
 
+  // Universo canónico de Fecho (ver fecho-filter-parity.md): status approved/paid
+  // + flags bloqueadores fora (is_transitory, exclude_from_result, reversed_at, is_hidden).
   const { data: transactions = [] } = useQuery({
-    queryKey: ["transactions"],
+    queryKey: ["transactions", "pl"],
     queryFn: async () => {
-      const { data, error } = await fetchAllPagedQuery(supabase.from("transactions").select("*").order("date", { ascending: false }));
+      const { data, error } = await fetchAllPagedQuery(supabase.from("transactions").select("*").in("status", ["approved", "paid"]).order("date", { ascending: false }));
       if (error) throw error;
-      return data;
+      return (data ?? []).filter((t: any) => !hasResultBlockingFlags(t));
     },
   });
 
