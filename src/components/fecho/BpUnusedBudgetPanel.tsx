@@ -462,6 +462,24 @@ export function BpUnusedBudgetPanel(props: Props) {
         Lista de revisão, não de erro. Faturas de um evento podem chegar depois de ele acontecer — o valor que deve ficar em cada linha é decisão de gestão.
       </p>
 
+      {rowsView.length > 0 && (
+        <div className="px-4 py-2 flex items-center gap-2 border-b border-border/50">
+          <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => setCollapsedGroups(new Set())}>
+            Expandir tudo
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 px-2 text-[10px]"
+            onClick={() => setCollapsedGroups(new Set(groups.map((g) => g.key)))}
+          >
+            Colapsar tudo
+          </Button>
+        </div>
+      )}
+
+
+
       {rowsView.length === 0 ? (
         <p className="px-4 py-6 text-center text-sm text-muted-foreground">
           Nenhuma linha de BP com verba por usar.
