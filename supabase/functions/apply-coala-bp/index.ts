@@ -1213,8 +1213,12 @@ Deno.serve(async (req) => {
           audit.skipped.push({ kind: "valueMismatch", reason: "no-op (old==new)", id: fcId });
           continue;
         }
-        const { error } = await admin.from("event_forecasts").update({ amount: newVal }).eq("id", fcId);
-        if (error) { audit.errors.push({ kind: "valueMismatch", error: error.message, ref: fcId }); continue; }
+        // #240 (Q1): set_config + UPDATE na mesma ligação (RPC). Chão = realizado:
+        // a linha que ficaria abaixo falha, entra em audit.errors e a sync continua.
+        const { error } = await admin.rpc("set_forecast_amount_with_observation", {
+          _forecast_id: fcId, _amount: newVal, _observation: "[sync Coala] planilha",
+        });
+        if (error) { audit.errors.push({ kind: "valueMismatch", error: error.message, ref: fcId, requested: newVal, old: oldVal }); continue; }
         await admin.from("coala_sync_value_changes").insert({
           config_id: configId, run_id: basedOnRunId,
           target_table: "event_forecasts", target_id: fcId,

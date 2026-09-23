@@ -999,9 +999,9 @@ const descRef = useRef<HTMLInputElement>(null);
       if (id) {
         // #240: amount por batch_update_event_forecasts (pede observação se reduz linha com realizado)
         const { amount: newAmt, ...rest } = payload;
+        await writeForecastAmount({ forecastId: id, newAmount: Number(newAmt), interactive: true });
         const { error } = await supabase.from("event_forecasts").update(rest).eq("id", id);
         if (error) throw error;
-        await writeForecastAmount({ forecastId: id, newAmount: Number(newAmt), interactive: true });
       } else {
         const { error } = await supabase.from("event_forecasts").insert(payload);
         if (error) throw error;

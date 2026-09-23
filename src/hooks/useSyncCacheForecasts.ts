@@ -4,6 +4,29 @@ import { fetchAllPaged } from "@/lib/supabase-paging";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { resolvePercentageFromTiers, getCacheEffectiveAmount, type CacheTier, type CityCacheSettlement } from "@/lib/cache-pl-helper";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { writeForecastAmount, ForecastBelowRealizedError } from "@/lib/forecast-amount";
+import { toast } from "@/hooks/use-toast";
+
+/**
+ * #240 (Q2): o amount das linhas cache_module vai por batch_update_event_forecasts
+ * com observação fixa. Se o recálculo ficar abaixo do já pago, não grava e avisa.
+ */
+async function writeCacheAmount(forecastId: string, amount: number, artist: string) {
+  try {
+    await writeForecastAmount({ forecastId, newAmount: amount, observation: "[módulo de cachê] recálculo" });
+  } catch (e) {
+    if (e instanceof ForecastBelowRealizedError) {
+      const eur = (n: number) => new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n);
+      toast({
+        title: `Cachê — ${artist}: linha não actualizada`,
+        description: `O recálculo (${eur(e.requested)}) fica abaixo do já pago (${eur(e.realized)}). A linha do BP mantém-se.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    console.error("[useSyncCacheForecasts] falha a gravar amount do cachê", e);
+  }
+}
 
 interface CacheConfig {
   id: string;
@@ -343,12 +366,13 @@ async function syncTourCacheForecasts(
         const needsStatusUpdate = shouldApprove && existing.status !== "approved";
         if (needsAmountUpdate || needsStatusUpdate) {
           const patch: any = { description: `Cachê — ${config.artist_name}` };
-          if (needsAmountUpdate) patch.amount = amount;
           if (needsStatusUpdate) patch.status = "approved";
+          // status primeiro: a regra do chão (#240) aplica-se à linha já aprovada
           await supabase
             .from("event_forecasts")
             .update(patch)
             .eq("id", existing.id);
+          if (needsAmountUpdate) await writeCacheAmount(existing.id, amount, config.artist_name);
           changed = true;
         }
         existingMap.delete(key);
@@ -487,8 +511,9 @@ async function syncSimpleCacheForecasts(
       if (currentAmount !== newAmount) {
         await supabase
           .from("event_forecasts")
-          .update({ amount, description: `Cachê — ${config.artist_name}` })
+          .update({ description: `Cachê — ${config.artist_name}` })
           .eq("id", existing.id);
+        await writeCacheAmount(existing.id, amount, config.artist_name);
         changed = true;
       }
     } else {
