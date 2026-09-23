@@ -37,6 +37,11 @@ interface Tx {
   doc_count: number;
 }
 
+const resourceTypeForBucket = (bucket: string) =>
+  bucket === "camarim-documents" ? "camarim_document"
+  : bucket === "card-documents" ? "card_document"
+  : "transaction_document";
+
 const fmtEUR = (n: number) =>
   new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n ?? 0);
 
@@ -227,7 +232,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
           .createSignedUrl(d.path, 60 * 60, { download: true });
         if (error || !signed) continue;
         await supabase.rpc("record_document_download" as any, {
-          p_resource_type: d.bucket === "camarim-documents" ? "camarim_document" : "transaction_document",
+          p_resource_type: resourceTypeForBucket(d.bucket),
           p_resource_id: d.source_tx_id,
           p_bucket: d.bucket,
           p_file_path: d.path,
@@ -409,7 +414,7 @@ function AttachmentsPopover({ txId, count }: { txId: string; count: number }) {
         .createSignedUrl(d.path, 60 * 60);
       if (error || !signed) throw error ?? new Error("signed url falhou");
       await supabase.rpc("record_document_download" as any, {
-        p_resource_type: d.bucket === "camarim-documents" ? "camarim_document" : "transaction_document",
+        p_resource_type: resourceTypeForBucket(d.bucket),
         p_resource_id: d.source_tx_id,
         p_bucket: d.bucket,
         p_file_path: d.path,
