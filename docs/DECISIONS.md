@@ -4246,3 +4246,30 @@ literal de ids permitidos. Se falhar também, o 422 devolve `detalhe`
 promovíveis totais e enviados).
 
 **Estado:** vigente.
+
+## D-ERP130 — `public.artist_dashboard` é a única chamada da Visão geral do artista (23/09/2026)
+
+Migração `supabase/migrations/20260923034110_09442ebe-9c8f-46e6-9f9f-ff23af7b65e6.sql`.
+Só funções: `public.artist_dashboard(uuid,date,date) → jsonb` e a auxiliar
+`public.artist_dashboard_platform_label(text)`. Nenhuma tabela/coluna nova.
+
+**Regras.** Redes, canais e música são fotografias: atual = último snapshot
+`<= p_to`, anterior = último `<= p_from`, `delta_pct` NULL quando o anterior é
+0/NULL; nunca se somam snapshots. Só campanhas somam por dia
+(`artist_ads_daily`). Métrica sem leitura dentro da janela devolve `atual` NULL
+com o `as_of` da última leitura e gera linha em `avisos`; nunca zero inventado.
+Fonte preferida `platform_api`, com queda para a outra fonte por
+plataforma+métrica; `source` e `as_of` vão em cada linha.
+
+**Desvios face ao pedido.** `artist_songs` não tem `is_working_single`: a música
+de trabalho é `is_launch = true` (mais recente) e, em falta, a mais recente
+lançada. `artist_ads_daily` não expõe alcance — `alcance` vem NULL e
+`tipo_resultado` deriva de haver resultados ou visualizações.
+
+**Segurança.** SECURITY DEFINER, `search_path = public, crm, pg_catalog`,
+pertença validada por papel em `user_roles` na empresa do artista
+(`platform_admin` passa), `REVOKE EXECUTE` de PUBLIC e `anon`, `GRANT` a
+`authenticated` + `service_role`. Nunca lê `crm.ad_platform_connections`
+directamente — usa as RPCs `artist_ads_*`.
+
+**Estado:** vigente.
