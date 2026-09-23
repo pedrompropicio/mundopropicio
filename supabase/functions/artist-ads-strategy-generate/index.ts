@@ -506,6 +506,7 @@ async function gerar(req: Request, diag: Diag, admin: Any): Promise<Response> {
     }, 422);
   }
   const plataforma = String(ligacao.platform ?? "").toLowerCase();
+  diag.plataforma = plataforma;
   if (!["meta", "tiktok", "google"].includes(plataforma)) {
     return json({
       error: "plataforma_nao_suportada",
