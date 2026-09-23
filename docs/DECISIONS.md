@@ -4345,3 +4345,16 @@ Porquê: o relato existente ia só para a telemetria da Lovable, que não conseg
 Como: RLS ligada, uma única política de INSERT para `anon` e `authenticated`, SELECT revogado explicitamente a ambos (os privilégios por omissão dão SELECT a tabelas novas — não basta o `REVOKE ... FROM PUBLIC`), `service_role` lê. CHECK de comprimento em `message` (2000), `stack` (8000) e `url` (2000), e truncagem no cliente antes do envio. Teto de 3 registos por sessão em `sessionStorage`. O registo nunca lança excepção: um erro a registar erros não pode partir a página.
 
 Custo aceite: o endpoint é escrivível por qualquer visitante anónimo, como já acontece com o `lead_capture`. Mitigações: sem leitura, limites de comprimento, teto por sessão. Retenção e exclusão do backup ficam por decidir na #252.
+
+## D-ERP138 — A empresa activa só muda por `set_active_company` e cada mudança fica auditada (23/09/2026)
+
+Decisão: `profiles.active_company_id` só pode mudar dentro de `set_active_company`. O trigger `trg_profiles_guard_active_company` (BEFORE UPDATE OF active_company_id) recusa com 42501 qualquer UPDATE directo feito com sessão de utilizador ("active_company_id só pode mudar por set_active_company"). O RPC marca a origem com `set_config('app.via_set_active_company','on',true)`.
+
+Porquê: a policy "Users can update own profile" deixava qualquer front fazer UPDATE directo ao próprio perfil, e `profiles` não tinha auditoria — não houve prova de quem mudou a empresa do Pedro a 23/09 03:18–03:22 UTC.
+
+Auditoria: cada mudança grava uma linha em `system_audit_log` (entity_type 'profile', action 'active_company_changed', old_data/new_data com active_company_id, metadata com via, origin, referer, user_agent). Escritas sem sessão (service_role/SQL) passam e ficam registadas com via 'update_directo'.
+
+Consulta útil:
+SELECT created_at, changed_by, old_data, new_data, metadata FROM system_audit_log WHERE action='active_company_changed' ORDER BY created_at DESC;
+
+Nota: `set_active_company` passa a aceitar também não-platform_admin com pertença activa em `user_roles` na empresa alvo.
