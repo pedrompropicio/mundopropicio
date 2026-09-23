@@ -275,10 +275,11 @@ export default function CrmConnections() {
           selected_ad_account_name: acct?.name ?? null,
           selected_ad_account_currency: acct?.currency ?? null,
           // #250 — na ligação de empresa, a conta escolhida define o BM.
-          // Só grava quando a lista já traz o BM (payload novo); conta pessoal → null.
-          ...(acct && "business_id" in acct
+          // Só grava quando a conta tem BM; conta pessoal (business_id ausente)
+          // mantém o BM que já estava (external_business_id é NOT NULL).
+          ...(acct?.business_id
             ? {
-                external_business_id: acct.business_id ?? null,
+                external_business_id: acct.business_id,
                 external_business_name: acct.business_name ?? null,
               }
             : {}),
