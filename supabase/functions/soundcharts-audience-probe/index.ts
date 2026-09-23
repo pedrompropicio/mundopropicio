@@ -59,6 +59,12 @@ Deno.serve(async (req) => {
       .map((p: unknown) => String(p).trim().toLowerCase())
       .filter(Boolean);
 
+    let searchLimit = 3;
+    const rawLimit = Number(payload?.search_limit);
+    if (Number.isInteger(rawLimit) && rawLimit >= 1 && rawLimit <= 20) {
+      searchLimit = rawLimit;
+    }
+
     const client = await ScClient.create();
     const results: any[] = [];
 
