@@ -437,7 +437,7 @@ const descRef = useRef<HTMLInputElement>(null);
     queryFn: async () => {
       let query = supabase
         .from("event_forecasts")
-        .select("*, account_categories(code, name, type), suppliers(name)")
+        .select("*, account_categories(code, name, type)")
         .in("event_id", forecastEventIds);
       if (selectedVersionId) {
         query = query.eq("version_id", selectedVersionId);
