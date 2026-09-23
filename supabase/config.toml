@@ -250,9 +250,3 @@ verify_jwt = true
 
 [functions.artist-youtube-oauth-callback]
 verify_jwt = false
-
-[functions.s4a-token-seed]
-verify_jwt = true
-
-[functions.s4a-probe]
-verify_jwt = true
