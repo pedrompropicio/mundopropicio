@@ -5,9 +5,22 @@ const mockState = vi.hoisted(() => ({
   companyId: "00000000-0000-0000-0000-aaaaaaaaaaaa",
 }));
 
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({ user: { id: "user-123" } }),
+}));
+
 // Mock Supabase client BEFORE importing the SUT
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
+    rpc: vi.fn(async (fn: string, args?: { target_company_id: string }) => {
+      if (fn === "set_active_company" && args) {
+        // O servidor passa a resolver a empresa nova.
+        mockState.companyId = args.target_company_id;
+        return { data: args.target_company_id, error: null };
+      }
+      // current_company_id()
+      return { data: mockState.companyId, error: null };
+    }),
     auth: {
       getUser: vi.fn(async () => ({
         data: { user: { id: "user-123" } },
@@ -163,6 +176,38 @@ describe("multi-tenant storage helpers", () => {
       const blob = new Blob(["hello"]);
       const res = await uploadToCompanyBucket("company-branding", "demo-2/logo.png", blob);
       expect(res.path).toBe("demo-2/logo.png");
+    });
+  });
+
+  // (#237) Teste de COMPORTAMENTO: corre a mutação real useSetActiveCompany.
+  // Falha se useSetActiveCompany deixar de chamar clearCompanyCache.
+  describe("useSetActiveCompany limpa a cache do storage", () => {
+    it("depois da troca, withCompanyPath prefixa com a empresa nova", async () => {
+      const React = await import("react");
+      const { renderHook, act } = await import("@testing-library/react");
+      const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
+      const { useSetActiveCompany } = await import("@/hooks/useCompany");
+      const { clearCompanyCache } = await import("@/lib/storage");
+
+      const A = "00000000-0000-0000-0000-aaaaaaaaaaaa";
+      const B = "00000000-0000-0000-0000-cccccccccccc";
+      clearCompanyCache();
+      mockState.companyId = A;
+      // Aquece a cache com a empresa A.
+      expect(await withCompanyPath("transaction-documents", "x.pdf")).toBe(`${A}/x.pdf`);
+
+      const qc = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+      const wrapper = ({ children }: { children: React.ReactNode }) =>
+        React.createElement(QueryClientProvider, { client: qc }, children);
+      const { result } = renderHook(() => useSetActiveCompany(), { wrapper });
+      await act(async () => {
+        await result.current.mutateAsync(B);
+      });
+
+      // Sem clearCompanyCache na mutação, isto devolveria o prefixo de A.
+      expect(await withCompanyPath("transaction-documents", "x.pdf")).toBe(`${B}/x.pdf`);
+      mockState.companyId = A;
+      clearCompanyCache();
     });
   });
 });
