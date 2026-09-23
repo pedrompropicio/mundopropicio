@@ -146,3 +146,25 @@ export async function needsBpLineBeforeApproval(tx: BpLineCandidate): Promise<bo
   const withBp = await fetchWithBpEventIds([tx.event_id as string]);
   return withBp.has(tx.event_id as string);
 }
+
+/**
+ * #240 Porta 1 — espelho cliente de `public.bp_tx_link_allowed` (mesma empresa
+ * assumida): transação sem evento, mesmo evento, ou Master↔cidade por
+ * `parent_event_id`. O trigger `trg_enforce_tx_forecast_same_event` é a regra.
+ */
+export async function isBpLinkAllowedForEvent(
+  txEventId: string | null | undefined,
+  fcEventId: string | null | undefined,
+): Promise<boolean> {
+  if (!txEventId || !fcEventId || txEventId === fcEventId) return true;
+  const { data, error } = await supabase
+    .from("events")
+    .select("id, parent_event_id")
+    .in("id", [txEventId, fcEventId]);
+  if (error) throw error;
+  return (data ?? []).some(
+    (e: any) =>
+      (e.id === txEventId && e.parent_event_id === fcEventId) ||
+      (e.id === fcEventId && e.parent_event_id === txEventId),
+  );
+}

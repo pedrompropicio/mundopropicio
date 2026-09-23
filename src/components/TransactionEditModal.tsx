@@ -1,3 +1,6 @@
+import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
+import { computeBudgetExcess, type BudgetExcessLine } from "@/lib/bp-budget-excess";
+import { isBpLinkAllowedForEvent, fetchWithBpEventIds } from "@/lib/bp-line-required";
 import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -674,6 +677,44 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         }
       }
 
+      // #240 Porta 1 — mudar o evento de uma transação com linha de BP.
+      // A linha actual só fica se continuar permitida (mesmo evento / Master↔cidade).
+      // Aprovada/paga que consome verba num evento novo com BP → escolher a linha
+      // do evento novo no mesmo acto (event_id + forecast_id no mesmo UPDATE), com
+      // elevação de verba (D2) se a linha escolhida ficar em excesso.
+      const txAny = transaction as any;
+      const eventChanged = !paidLocked && (form.event_id || null) !== (transaction.event_id || null);
+      if (eventChanged && txAny.forecast_id) {
+        const fcEventId = (linkedForecast as any)?.event_id ?? null;
+        const stillAllowed = await isBpLinkAllowedForEvent(form.event_id || null, fcEventId);
+        if (!stillAllowed) {
+          const consumes = transaction.type === "expense" && !form.is_transitory
+            && !(form.exclude_from_result || form.shared_cost_account_id)
+            && !txAny.reversed_at && !txAny.is_hidden;
+          const approvedLike = ["approved", "paid", "partially_paid"].includes(transaction.status);
+          const newWithBp = form.event_id
+            ? (await fetchWithBpEventIds([form.event_id])).has(form.event_id)
+            : false;
+          if (consumes && approvedLike && newWithBp) {
+            const picked = await new Promise<string | null>((resolve) => setEventMovePick({ resolve }));
+            if (!picked) throw new Error("Mudança de evento cancelada: escolhe a linha de BP do evento novo.");
+            const excess = await computeBudgetExcess([{
+              forecast_id: picked,
+              amount: parseFloat(form.amount) || Number(transaction.amount) || 0,
+              iva_rate: Number(form.iva_rate) || 0,
+              transaction_id: transaction.id,
+            }]);
+            if (excess.length > 0) {
+              const ok = await new Promise<boolean>((resolve) => setEventMoveRaise({ lines: excess, resolve }));
+              if (!ok) throw new Error("Mudança de evento cancelada: a linha escolhida fica em excesso sem elevação.");
+            }
+            (updates as any).forecast_id = picked;
+          } else {
+            (updates as any).forecast_id = null;
+          }
+        }
+      }
+
       // Build snapshot of pre-change values for the same fields
       const snapshot: Record<string, any> = {};
       for (const key of Object.keys(updates)) {
@@ -940,6 +981,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   // Permite o utilizador desvincular a TX da linha BP para alterar a categoria.
   // Ao gravar, se unlinkBpRequested=true, limpa event_forecasts.transaction_id.
   const [unlinkBpRequested, setUnlinkBpRequested] = useState(false);
+  // #240 Porta 1 — diálogos da mudança de evento de transação aprovada
+  const [eventMovePick, setEventMovePick] = useState<{ resolve: (id: string | null) => void } | null>(null);
+  const [eventMoveRaise, setEventMoveRaise] = useState<{ lines: BudgetExcessLine[]; resolve: (ok: boolean) => void } | null>(null);
   const isBpLinked = !!linkedForecast && !unlinkBpRequested;
   const bpCategoryId = isBpLinked ? ((linkedForecast as any)?.category_id ?? null) : null;
 
@@ -2568,6 +2612,23 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         />
 
         {/* D1+D8 — reversão total de Extra do Sócio: escolher a linha de BP antes de escrever. */}
+        {eventMovePick && (
+          <LinkBpLineDialog
+            transaction={{ ...(transaction as any), event_id: form.event_id, category_id: form.category_id || transaction.category_id, events: null }}
+            pickOnly
+            onClose={() => { eventMovePick.resolve(null); setEventMovePick(null); }}
+            onLinked={() => {}}
+            onPicked={(fid) => { eventMovePick.resolve(fid); setEventMovePick(null); }}
+          />
+        )}
+        {eventMoveRaise && (
+          <RaiseBudgetDialog
+            lines={eventMoveRaise.lines}
+            applyViaRpc
+            onClose={() => { eventMoveRaise.resolve(false); setEventMoveRaise(null); }}
+            onDone={() => { eventMoveRaise.resolve(true); setEventMoveRaise(null); }}
+          />
+        )}
         {revertNeedsBpLine && (
           <LinkBpLineDialog
             transaction={transaction as any}
