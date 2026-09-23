@@ -90,16 +90,20 @@ Deno.serve(async (req) => {
     }
 
     // MULTI-TENANT GUARD: caller must belong to the session's company.
+    // (Issue #241) Pertença via `user_roles`, não `profiles.company_id`.
     {
-      const { data: callerProfile } = await adminClient
-        .from("profiles").select("company_id, active_company_id").eq("id", caller.id).maybeSingle();
       const { data: isPa } = await adminClient.rpc("is_platform_admin", { _user_id: caller.id });
-      const callerCompanyId = isPa
-        ? (callerProfile?.active_company_id ?? callerProfile?.company_id ?? null)
-        : (callerProfile?.company_id ?? null);
-      const allowCrossTenant = isPa && callerCompanyId == null;
-      if (!allowCrossTenant && (session as any).company_id !== callerCompanyId) {
-        return json({ error: "Cross-tenant access denied" }, 403);
+      if (!isPa) {
+        const sessionCompany = (session as any).company_id as string | null;
+        let belongs = false;
+        if (sessionCompany) {
+          const { data: membership } = await adminClient
+            .from("user_roles").select("company_id")
+            .eq("user_id", caller.id).eq("company_id", sessionCompany)
+            .limit(1).maybeSingle();
+          belongs = Boolean(membership);
+        }
+        if (!belongs) return json({ error: "Cross-tenant access denied" }, 403);
       }
     }
 
