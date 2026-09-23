@@ -902,7 +902,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       adsets,
       usaLifetime,
       diasJanela,
-      planId,
+      planId: planId!,
     });
   }
 
