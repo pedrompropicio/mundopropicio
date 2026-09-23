@@ -920,8 +920,9 @@ async function gerar(req: Request, diag: Diag, admin: Any): Promise<Response> {
             av.push(`conjunto "${a.trigger_nome ?? "?"}": publicação ${refBruto ?? "(sem post_ref)"} ${motivo} — anúncio descartado`);
             continue;
           }
-          const kindPedido = an?.existing_post?.kind;
-          const kind = kindPedido === "instagram_media" || !ref.includes("_") ? (ref.includes("_") ? "object_story" : "instagram_media") : "object_story";
+          // O tipo deriva do próprio post_ref resolvido, não do que o modelo diz:
+          // "<page_id>_<post_id>" é object_story; id simples é instagram_media.
+          const kind = ref.includes("_") ? "object_story" : "instagram_media";
           validos.push({ ...an, existing_post: { post_ref: ref, kind } });
         }
         if (validos.length >= 1) break; // um anúncio por conjunto
