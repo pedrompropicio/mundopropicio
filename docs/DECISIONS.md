@@ -4193,3 +4193,56 @@ A data de referência é `(now() AT TIME ZONE 'Europe/Lisbon')::date`, para não
 **Consequência:** substitui a leitura manual diária de `ugc_videos` quando activa. O upsert usa a UNIQUE `(song_id, platform, metric, metric_date, source)`, pelo que reenviar o mesmo dia corrige o valor em vez de duplicar. Não altera tabelas nem outras funções.
 
 **Estado:** vigente.
+
+## D-ERP128 — Edge function autentica pelo JWT explícito e valida pertença por papel, nunca por empresa activa (23/09/2026)
+
+**Problema (produção, 23/09/2026).** `crm-meta-publish-execute` recusava sessões
+válidas no preflight com 401 `sessao_invalida` e, quando passava, respondia 404
+`plan_not_found` a planos existentes.
+
+**Causa 1 — identidade.** `supabase.auth.getUser()` era chamado SEM o token,
+contando com o header `Authorization` global do cliente. Nessa forma o
+supabase-js procura uma sessão guardada — que não existe com
+`persistSession: false` — e devolve `null`. Regra: **o token vai sempre
+explícito** (`admin.auth.getUser(bearer)`), como em `_shared/artist-meta.ts →
+authorize()`. `service_role` continua aceite sem utilizador.
+
+**Causa 2 — pertença.** O plano era lido por um cliente na sessão do chamador,
+cuja RLS resolve a empresa por `profiles.active_company_id`; com outra empresa
+activa o plano ficava invisível e o erro saía como 404. Regra: o plano é lido
+pelo cliente **admin** e a pertença é validada **por papel** em
+`public.user_roles` contra `planRow.company_id` (mesma regra de
+`public.artist_ads_assert_write`): `platform_admin` passa sempre; os restantes
+precisam de linha para aquela empresa. Sem pertença → 403 `sem_acesso_empresa`.
+
+**Nada mais muda:** `dry_run`, publicação e eventos mantêm o comportamento; a
+verificação de escrita para planos de música continua a passar por
+`artist_ads_assert_write`.
+
+**Estado:** vigente.
+
+## D-ERP129 — Toda a geração de estratégia fica registada em `public.sync_runs` (23/09/2026)
+
+`artist-ads-strategy-generate` devolvia `plano_invalido` (422) sem deixar rasto,
+o que tornava o diagnóstico impossível sem reproduzir no browser.
+
+**Registo.** Cada geração abre e fecha uma linha em `public.sync_runs`
+(`function_name = 'artist-ads-strategy-generate'`, `artist_id`, `company_id`) com
+`details`: publicações promovíveis, quantas foram ao modelo, ids devolvidos,
+quais não casaram e porquê, conjuntos/anúncios propostos, tentativas, modelo,
+`plan_id` e `http_status`. Fecha `success` com plano criado, `error` com erro e
+`no_data` quando o modelo não produziu nada aproveitável.
+
+**Causa corrigida, não validação relaxada.** As publicações Meta enviadas ao
+modelo passam a estar ordenadas e cortadas a 40 (antes ia lista completa e a
+ordem não era determinística) e os ids devolvidos são resolvidos por índice:
+aceita-se o `post_ref` exacto e também o segundo segmento de
+`<page_id>_<post_id>` quando identifica SEM ambiguidade uma publicação da lista.
+O tipo (`object_story` vs `instagram_media`) deriva do próprio `post_ref`.
+
+**Retry único.** Se nenhum anúncio casar, há uma segunda chamada com a lista
+literal de ids permitidos. Se falhar também, o 422 devolve `detalhe`
+(tentativas, conjuntos e anúncios do modelo, ids não casados com motivo,
+promovíveis totais e enviados).
+
+**Estado:** vigente.

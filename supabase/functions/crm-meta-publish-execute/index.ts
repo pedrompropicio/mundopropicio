@@ -193,8 +193,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // 1) Lê o plano (RLS user — valida pertença ao company)
-  const { data: planRow, error: planErr } = await (supabase as any)
+  // 0) IDENTIDADE DO CHAMADOR (D-ERP127).
+  //    Causa do defeito: getUser() era chamado SEM o token, contando com o header
+  //    Authorization global do cliente. Nessa forma o supabase-js procura uma
+  //    sessão guardada (que aqui não existe, persistSession:false) e devolve null
+  //    — daí o 401 sessao_invalida com sessões perfeitamente válidas. O token vai
+  //    agora explícito, validado pelo cliente ADMIN, como em
+  //    _shared/artist-meta.ts → authorize().
+  const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+  const isServiceRole = jwtRole(authHeader) === "service_role";
+  let callerUserId: string | null = null;
+  if (!isServiceRole) {
+    const { data: userInfo, error: userErr } = await admin.auth.getUser(bearer);
+    callerUserId = userInfo?.user?.id ?? null;
+    if (!callerUserId) {
+      return json({ ok: false, error: "sessao_invalida", message: "Sessão inválida ou expirada.", detail: userErr?.message ?? null }, 401);
+    }
+  }
+
+  // 1) Lê o plano com o cliente ADMIN e valida a pertença por PAPEL na empresa
+  //    do plano (nunca por profiles.active_company_id — era o que fazia a mesma
+  //    chamada devolver 404 plan_not_found quando a empresa activa do utilizador
+  //    era outra). Mesma regra de public.artist_ads_assert_write/access:
+  //    platform_admin passa sempre; os restantes precisam de linha em
+  //    public.user_roles para a company_id do plano.
+  const { data: planRow, error: planErr } = await (admin as any)
     .schema("crm").from("meta_publish_plan")
     .select("id, company_id, event_id, design_id, objetivo, orcamento_total_cents, moeda, link_destino, adsets, estado, meta_campaign_id, start_time, end_time, artist_id, song_id, connection_id")
     .eq("id", planId)
@@ -203,19 +226,30 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!planRow) return json({ error: "plan_not_found" }, 404);
   if (planRow.company_id !== companyIdIn) return json({ error: "company_mismatch" }, 403);
 
+  if (callerUserId) {
+    const { data: roleRows, error: roleErr } = await admin
+      .from("user_roles")
+      .select("role, company_id")
+      .eq("user_id", callerUserId);
+    if (roleErr) return json({ error: "role_query_failed", detail: roleErr.message }, 500);
+    const rows = (roleRows ?? []) as Array<{ role: string; company_id: string | null }>;
+    const isPlatformAdmin = rows.some((r) => r.role === "platform_admin");
+    const pertence = isPlatformAdmin || rows.some((r) => r.company_id === planRow.company_id);
+    if (!pertence) {
+      return json({
+        ok: false,
+        error: "sem_acesso_empresa",
+        message: "A tua conta não tem papel na empresa deste plano.",
+      }, 403);
+    }
+  }
+
   const isSong = !!(planRow as any).song_id;
 
   // 2a) Autorização do alvo música (D-ERP95 F2b). Nada disto corre para eventos.
-  //     dry_run/preflight: sessão de utilizador OU service_role.
+  //     dry_run/preflight: sessão de utilizador OU service_role (já garantido).
   //     Publicação real: SESSÃO + papel de tráfego (public.artist_ads_assert_write).
-  let callerUserId: string | null = null;
   if (isSong) {
-    const { data: userInfo } = await supabase.auth.getUser();
-    callerUserId = userInfo?.user?.id ?? null;
-    const isServiceRole = !callerUserId && jwtRole(authHeader) === "service_role";
-    if (!callerUserId && !isServiceRole) {
-      return json({ ok: false, error: "sessao_invalida", message: "Sessão inválida." }, 401);
-    }
     if (!dryRun && !preflight) {
       if (!callerUserId) {
         return json({
@@ -868,7 +902,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       adsets,
       usaLifetime,
       diasJanela,
-      planId,
+      planId: planId!,
     });
   }
 
