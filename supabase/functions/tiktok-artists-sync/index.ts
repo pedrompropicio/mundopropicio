@@ -337,7 +337,7 @@ Deno.serve(async (req) => {
   // upsert em public.artist_song_tiktok_sounds (discovered_via='panel',
   // status='validated'). Nunca apaga nada.
   // ------------------------------------------------------------------------
-  const clipNotes: string[] = [];
+  placeholder-no
   let clipsUpserted = 0;
   for (const [groupId, alvo] of mapa) {
     const clips = await fetchClips(cookie, groupId);
