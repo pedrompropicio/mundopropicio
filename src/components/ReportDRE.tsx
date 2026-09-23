@@ -4,6 +4,7 @@ import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
+import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, Info, Eye } from "lucide-react";

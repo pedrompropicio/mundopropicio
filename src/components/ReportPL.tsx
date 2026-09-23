@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
+import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, BarChart3, AlertTriangle, History } from "lucide-react";
