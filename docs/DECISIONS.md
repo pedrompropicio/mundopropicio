@@ -4324,3 +4324,14 @@ Migração `20260923224609`: provider `spotify` no CHECK de `artist_channel_conn
 - `s4a-probe` (verify_jwt=true; service_role ou admin da empresa do artista): um GET a `s4x-insights-api/v1/meta/latest-date`; não grava dados de negócio.
 - Regras duras: nunca login/authorize; nunca tokens, client_id completo ou cookies em logs/sync_runs/respostas.
 - Por fazer: sync diário.
+
+## D-ERP136 — `song_growth_summary`: Folha de crescimento desde o lançamento emitida pela plataforma (23/09/2026)
+
+RPC `public.song_growth_summary(p_song_id, p_to)` → jsonb (musica, kpis, grupos musica/video_ugc/redes, series, notas). SECURITY DEFINER, STABLE, search_path fixo; pertença por `artist_ads_assert_access` (empresa do artista da música); EXECUTE só authenticated + service_role (D-ERP94).
+
+- Base = último valor ≤ lançamento (`lancamento`); senão 1.ª medição (`primeira_medicao`). Atual = último ≤ p_to. Linha só com 2 datas diferentes. variacao_pct 1 casa (2 se |%|<0,1); null se base 0.
+- Base e atual da mesma source; redes/ouvintes pela série `aggregator` (a `platform_api` só existe desde 12/09).
+- Excepção única: `ugc_videos` (TikTok) por ponto com precedência ios_shortcut > manual; `tiktok_artists` nunca. Devolve source (atual) e base_source. Precisão: `arredondado_app` para ios_shortcut (D-ERP126: o app mostra "6,5 mil"), `leitura_manual` para manual. `ugc_creators`/`ugc_views` = acumulado do painel tiktok_artists.
+- Streams semana atual/anterior só com os pontos exactos de d, d−7, d−14; nunca interpolar.
+- S4A: 1.º registo → mais recente; hoje só 13/09, não entra.
+- Porque não `artist_dashboard`: lê platform_api, não tem histórico no lançamento e devolve anterior=null.
