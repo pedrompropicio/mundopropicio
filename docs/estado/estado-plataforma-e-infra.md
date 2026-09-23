@@ -208,6 +208,7 @@ Regras que ficaram:
 - **Imagens de `docs/manual/img/` são a única exceção a "nunca HTML cru"** — os diagramas são SVG inline, referenciados no markdown como `![alt](img/x.svg)`.
 
 ## A trabalhar agora
+- **#237 (fechada a 23/09)** — a cache de empresa do storage (`cachedCompanyId` em `src/lib/storage.ts`) nunca era limpa: trocar de empresa no cabeçalho deixava `withCompanyPath` a prefixar com a empresa anterior (uploads recusados pela RLS, downloads na pasta errada em silêncio). `clearCompanyCache()` passou a ser chamada em `useSetActiveCompany` (antes do `onSuccess`) e no `AuthContext` (signOut + mudança de utilizador da sessão); comentário de dever de limpeza em `storage.ts` e teste de regressão em `storage-multi-tenant.test.ts`. Decisão pendente do Pedro: substituir a cache de módulo por leitura do queryClient `["current-company"]`.
 - **#206 fase 2** — somas e contagens de tabelas grandes na base (RPCs), com ADR próprio. Não subir `db-max-rows`.
 - **#186** — diálogo 'Rateio ou Exclusivo?' do modal Nova Transação. Correção em portal publicada a 16/09 — falta confirmação visual do Pedro no diálogo "Custo da tour ou desta cidade?".
 - **Manual — próximos capítulos** (Fecho do evento, BP…), um de cada vez, no mesmo formato de `rateios.md`.

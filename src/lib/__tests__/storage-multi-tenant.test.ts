@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
+// Empresa resolvida pelo servidor — mutável para simular a troca de empresa.
+const mockState = vi.hoisted(() => ({
+  companyId: "00000000-0000-0000-0000-aaaaaaaaaaaa",
+}));
+
 // Mock Supabase client BEFORE importing the SUT
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -13,7 +18,7 @@ vi.mock("@/integrations/supabase/client", () => ({
       select: () => ({
         eq: () => ({
           maybeSingle: async () => ({
-            data: { company_id: "00000000-0000-0000-0000-aaaaaaaaaaaa" },
+            data: { company_id: mockState.companyId },
             error: null,
           }),
         }),
@@ -44,6 +49,7 @@ const COMPANY = "00000000-0000-0000-0000-aaaaaaaaaaaa";
 describe("multi-tenant storage helpers", () => {
   beforeEach(() => {
     clearCompanyCache();
+    mockState.companyId = COMPANY;
   });
 
   describe("ISOLATED_BUCKETS / GLOBAL_BUCKETS classification", () => {
@@ -115,6 +121,33 @@ describe("multi-tenant storage helpers", () => {
         const out = await withCompanyPath(bucket, "x/y.txt");
         expect(out).toBe(`${COMPANY}/x/y.txt`);
       }
+    });
+
+    // Regressão #237: depois de trocar de empresa no cabeçalho, a cache de
+    // módulo tinha de ser limpa (clearCompanyCache em useSetActiveCompany /
+    // signOut); sem isso withCompanyPath continuava a prefixar com a empresa
+    // anterior — uploads recusados pela RLS e downloads na pasta errada.
+    it("after a company switch, isolated buckets resolve to the NEW company prefix", async () => {
+      const COMPANY_B = "00000000-0000-0000-0000-bbbbbbbbbbbb";
+
+      // 1) Sessão na empresa A: caminho prefixado com A.
+      expect(await withCompanyPath("transaction-documents", "f.pdf")).toBe(
+        `${COMPANY}/f.pdf`,
+      );
+
+      // 2) O servidor passa a resolver a empresa B (set_active_company correu bem).
+      mockState.companyId = COMPANY_B;
+
+      // 3) Sem limpar a cache, o prefixo fica preso na empresa A (o bug original).
+      expect(await withCompanyPath("transaction-documents", "f.pdf")).toBe(
+        `${COMPANY}/f.pdf`,
+      );
+
+      // 4) A troca real limpa a cache — o prefixo passa a ser o da empresa B.
+      clearCompanyCache();
+      expect(await withCompanyPath("transaction-documents", "f.pdf")).toBe(
+        `${COMPANY_B}/f.pdf`,
+      );
     });
   });
 
