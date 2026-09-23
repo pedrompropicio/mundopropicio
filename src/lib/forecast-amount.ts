@@ -116,3 +116,44 @@ export async function writeForecastAmount({ forecastId, newAmount, observation, 
   });
   if (rpcErr) throw rpcErr;
 }
+
+/**
+ * #240 — para gravações em lote (grelha, Planilha): antes de chamar
+ * batch_update_event_forecasts, valida o chão e pede a observação a cada
+ * redução de linha com realizado, acrescentando `observation` ao edit.
+ */
+export async function prepareBatchEditsForReductions<T extends { id: string; amount?: any }>(
+  edits: T[],
+): Promise<(T & { observation?: string })[]> {
+  const withAmount = edits.filter((e) => e.amount !== undefined && e.amount !== null);
+  if (withAmount.length === 0) return edits;
+  const { data, error } = await (supabase as any)
+    .from("event_forecasts")
+    .select("id, amount, status, type, version_id, description")
+    .in("id", withAmount.map((e) => e.id));
+  if (error) throw error;
+  const byId = new Map<string, any>((data ?? []).map((r: any) => [r.id, r]));
+  const out: (T & { observation?: string })[] = [];
+  for (const e of edits) {
+    const row = byId.get(e.id);
+    const newAmount = Number(e.amount);
+    if (row && e.amount != null && !row.version_id && row.status === "approved" && row.type === "expense"
+        && newAmount < Number(row.amount || 0) - 0.005) {
+      const realized = await fetchForecastRealized(e.id);
+      if (newAmount < realized - 0.005) {
+        const err = new ForecastBelowRealizedError(newAmount, realized);
+        err.message = `${row.description ?? "Linha"}: ${err.message}`;
+        throw err;
+      }
+      if (realized > 0) {
+        if (!prompter) throw new Error("Observação obrigatória para reduzir uma linha de BP com realizado.");
+        const obs = (await prompter({ description: row.description, oldAmount: Number(row.amount || 0), newAmount, realized }))?.trim();
+        if (!obs) throw new ForecastObservationCancelled();
+        out.push({ ...e, observation: obs });
+        continue;
+      }
+    }
+    out.push(e);
+  }
+  return out;
+}
