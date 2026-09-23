@@ -266,7 +266,8 @@ export function BpUnusedBudgetPanel(props: Props) {
   const canManageBp = hasPermission("manage_bp");
   const { forecasts, transactions: txs, reviews, rowsView, rowsNet, summary, hasBp, isLoading, effectiveWithVat } = useBpUnusedBudgetModel(props);
 
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expandedTx, setExpandedTx] = useState<string | null>(null);
+  const [expandedCands, setExpandedCands] = useState<string | null>(null);
   const [dialogRow, setDialogRow] = useState<BpLineReviewRow | null>(null);
   const [dialogDecision, setDialogDecision] = useState<Decision>("pending_invoice");
   const [note, setNote] = useState("");
