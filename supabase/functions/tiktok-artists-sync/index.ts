@@ -92,7 +92,9 @@ function resolveMetricDate(envelope: Json, item: Json): { date: string; field: s
     const d = toDate(item[f]) ?? toDate(envelope[f]);
     if (d) return { date: d, field: f };
   }
-  return { date: dayOffset(-3), field: null };
+  // Os valores do painel são TOTAIS ACUMULADOS sem data na origem (opção (a), 23/09):
+  // carimbar a data da corrida, nunca uma data inventada no passado.
+  return { date: dayOffset(0), field: null };
 }
 
 function isLoginRedirect(status: number, headers: Headers): boolean {
@@ -435,7 +437,7 @@ Deno.serve(async (req) => {
 
   if (semCampoData > 0) {
     notes.push(
-      `${semCampoData} música(s) sem campo de data na resposta — usada current_date - 3`,
+      `${semCampoData} música(s) sem campo de data na resposta — valor acumulado, usada current_date (data da corrida)`,
     );
   }
   if (dateFieldUsado) notes.push(`data de actualização lida do campo '${dateFieldUsado}'`);
@@ -466,6 +468,7 @@ Deno.serve(async (req) => {
       mapeadas: songs.length - semCorrespondencia.length,
       sem_correspondencia: semCorrespondencia.length,
       campo_data: dateFieldUsado,
+      acumulado: true,
       notes,
     },
     error_text: errorCount > 0 ? notes[notes.length - 1] : null,
