@@ -46,6 +46,11 @@ export function CompanySwitcher({ className }: Props = {}) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
+  // (#237) LEITURA da empresa ativa do perfil. Não grava nada: se a empresa do
+  // perfil não estiver na lista acessível neste ERP, o seletor fica vazio e pede
+  // escolha ao utilizador.
+  const { data: profileActiveCompanyId } = useProfileActiveCompanyId();
+
   const isLoading = isPlatformAdmin ? loadingAll : loadingMemberships;
 
   const companies = isPlatformAdmin
