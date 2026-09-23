@@ -154,7 +154,7 @@ async function fetchPage(cookie: string, artistUserId: string, from: number): Pr
 type PanelClip = { music_id: string; clip_name: string | null; is_pgc: boolean };
 
 type ClipResult =
-  | { ok: true; items: PanelClip[] }
+  | { ok: true; items: PanelClip[]; topKeys: string[]; arrayPaths: string[] }
   | { ok: false; motivo: "sessao_invalida" | "rede" | "http" };
 
 /**
