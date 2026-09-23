@@ -194,10 +194,46 @@ export default function StandaloneInvoiceScanner() {
       if (data.document_date) put(setInvoiceDate, String(data.document_date));
       if (data.total_amount != null) put(setTotal, String(data.total_amount));
       if (data.iva_amount != null) put(setIva, String(data.iva_amount));
-      toast({
-        title: "Fatura lida com IA",
-        description: data.confidence === "low" ? "Confiança baixa — confirma os dados." : undefined,
-      });
+
+      const filled = {
+        supplier_name: typeof data.supplier_name === "string" && data.supplier_name.trim() !== "",
+        supplier_nif: typeof data.supplier_nif === "string" && data.supplier_nif.trim() !== "",
+        invoice_number:
+          (typeof data.invoice_number === "string" && data.invoice_number.trim() !== "") ||
+          (typeof data.document_number === "string" && data.document_number.trim() !== ""),
+        document_date: typeof data.document_date === "string" && data.document_date.trim() !== "",
+        total_amount: data.total_amount != null,
+        iva_amount: data.iva_amount != null,
+      };
+      const count = Object.values(filled).filter(Boolean).length;
+      const missingLabels: string[] = [];
+      if (!filled.supplier_name) missingLabels.push("Fornecedor");
+      if (!filled.supplier_nif) missingLabels.push("NIF");
+      if (!filled.invoice_number) missingLabels.push("Nº fatura");
+      if (!filled.document_date) missingLabels.push("Data");
+      if (!filled.total_amount) missingLabels.push("Total (EUR)");
+      if (!filled.iva_amount) missingLabels.push("IVA (€)");
+
+      if (count === 0) {
+        const isPdf = finalFile.type === "application/pdf";
+        toast({
+          title: "Não consegui ler este documento",
+          description: isPdf
+            ? "Preenche os campos à mão, ou tenta com uma fotografia do documento. Se o PDF foi reimpresso ou guardado a partir de outra aplicação, pode ter perdido as fontes e ficado ilegível. Usa o ficheiro original."
+            : "Preenche os campos à mão, ou tenta com uma fotografia do documento.",
+          variant: "destructive",
+        });
+      } else if (!filled.total_amount) {
+        toast({
+          title: "Leitura parcial",
+          description: `Faltam: ${missingLabels.join(", ")}.`,
+        });
+      } else {
+        toast({
+          title: "Fatura lida com IA",
+          description: data.confidence === "low" ? "Confiança baixa — confirma os dados." : undefined,
+        });
+      }
     } catch (err: any) {
       console.error(err);
       toast({
