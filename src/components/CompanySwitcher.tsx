@@ -95,7 +95,15 @@ export function CompanySwitcher({ className }: Props = {}) {
     }
   };
 
-  const label = company?.display_name ?? "Selecionar empresa";
+  const listLoaded = isPlatformAdmin ? !!allCompanies : !!memberships;
+  const profileCompanyUnavailable =
+    !!profileActiveCompanyId &&
+    listLoaded &&
+    !companies.some((c) => c.id === profileActiveCompanyId);
+
+  const label = profileCompanyUnavailable
+    ? "Escolher empresa"
+    : (company?.display_name ?? "Selecionar empresa");
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
