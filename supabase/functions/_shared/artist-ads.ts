@@ -17,9 +17,14 @@ export const ADS_ROLES = [
   "marketing_manager",
 ];
 
-/** Mesmos scopes da ligação Meta do CRM (src/pages/crm/Connections.tsx). */
+/**
+ * Scopes do OAuth de anúncios de ARTISTA (só artist-ads-meta-oauth-start).
+ * Base = scopes da ligação Meta do CRM + instagram_basic (D-ERP133), para
+ * anunciar posts do Instagram do artista. O CRM tem a sua própria lista em
+ * src/pages/crm/Connections.tsx — não partilha esta constante.
+ */
 export const META_ADS_SCOPES =
-  "public_profile,ads_management,ads_read,business_management,pages_show_list,pages_read_engagement";
+  "public_profile,ads_management,ads_read,business_management,pages_show_list,pages_read_engagement,instagram_basic";
 
 export const META_DIALOG_VERSION = "v18.0";
 export const META_GRAPH_VERSION = "v18.0";

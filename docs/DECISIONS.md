@@ -4302,3 +4302,14 @@ Decisões do Pedro (23/09/2026):
 - Q1 (a) apply-coala-bp: amount via `set_forecast_amount_with_observation` com '[sync Coala] planilha'; linha que ficaria abaixo do realizado entra em audit.errors e a sync continua.
 - Q2 (a) useSyncCacheForecasts: amount por batch_update_event_forecasts com '[módulo de cachê] recálculo'; abaixo do pago não grava e avisa.
 - Q3 (a) undo.ts: desfazer que reduz linha com realizado pede observação; abaixo do realizado não deixa desfazer.
+
+
+## D-ERP133 — Anúncios de artista: instagram_basic no OAuth e Instagram da Página gravado no callback (23/09/2026)
+
+`_shared/artist-ads.ts → META_ADS_SCOPES` passa a `public_profile,ads_management,ads_read,business_management,pages_show_list,pages_read_engagement,instagram_basic` (sem `instagram_manage_insights`). A constante só é usada por `artist-ads-meta-oauth-start`; o OAuth Meta de empresa (CRM, `src/pages/crm/Connections.tsx`) tem lista própria e não mudou. No `artist-ads-meta-oauth-callback`, depois de gravar o token, se a ligação tiver `selected_page_id`, faz `GET /{page_id}?fields=instagram_business_account{id,username}` e grava `crm.ad_platform_connections.selected_instagram_id`. Falha ou Página sem Instagram não falha o OAuth: o motivo fica em `metadata.instagram` do auditLog. Nota: numa primeira ligação, `selected_page_id` ainda não existe (o fluxo não escolhe página), por isso o Instagram só é gravado ao reconectar uma ligação que já tenha página.
+
+## D-ERP134 — OAuth YouTube do artista (só ligação, sem sync) (23/09/2026)
+
+`artist-youtube-oauth-start` (verify_jwt=true; admin/platform_admin/manager/marketing_manager) e `artist-youtube-oauth-callback` (verify_jwt=false). Redirect URI exacto `https://<ref>.supabase.co/functions/v1/artist-youtube-oauth-callback`; secrets `GOOGLE_YT_OAUTH_CLIENT_ID` / `GOOGLE_YT_OAUTH_CLIENT_SECRET`; scopes `youtube.readonly` + `yt-analytics.readonly`, `access_type=offline`, `prompt=consent`. State em `crm.oauth_states` (platform 'google', consumido/apagado por `crm.consume_oauth_state`). Sem `refresh_token` → erro. Posse: `channels?mine=true` tem de incluir `artist_channels.external_id`; senão não grava nada. Grava por `artist_upsert_channel_connection` (provider 'google', tokens cifrados com `ENCRYPTION_MASTER_KEY`) e `artist_channels.auth_status='authorized'`. Nenhum leitor existente de `artist_channel_connections` apanha provider 'google' (refresh: instagram/tiktok; syncs: instagram/meta e tiktok; disconnect só revoga tiktok — num canal google apaga a ligação local sem revogar no Google).
+
+Cadeia de token S4A (parte C): **não aplicada** — a migração falhou no BLOCO 3 (`WITH clause containing a data-modifying statement must be at the top level`); nada ficou gravado. Sem entrada D-ERP até haver SQL corrigido aprovado.

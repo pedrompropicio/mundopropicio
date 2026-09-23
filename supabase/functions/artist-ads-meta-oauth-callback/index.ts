@@ -167,6 +167,50 @@ Deno.serve(async (req) => {
     return fail(returnUrl, "save_failed");
   }
 
+  // 5) Instagram da Página (D-ERP133): se a ligação já tem selected_page_id,
+  // grava selected_instagram_id. Falha aqui NÃO falha o OAuth.
+  let igResult: Record<string, unknown> = { skipped: "sem selected_page_id" };
+  try {
+    const { data: conn } = await (admin as any)
+      .schema("crm")
+      .from("ad_platform_connections")
+      .select("id, selected_page_id")
+      .eq("id", connectionId)
+      .maybeSingle();
+    const pageId = conn?.selected_page_id as string | null | undefined;
+    if (pageId) {
+      const u = new URL(`${GRAPH}/${encodeURIComponent(pageId)}`);
+      u.searchParams.set("fields", "instagram_business_account{id,username}");
+      u.searchParams.set("access_token", longToken);
+      const res = await fetch(u, { signal: AbortSignal.timeout(20_000) });
+      const j = await res.json().catch(() => null);
+      const igId = j?.instagram_business_account?.id as string | undefined;
+      if (!res.ok || j?.error) {
+        igResult = {
+          page_id: pageId,
+          error: `graph ${res.status} ${j?.error?.code ?? ""} ${j?.error?.message ?? ""}`.trim(),
+        };
+      } else if (!igId) {
+        igResult = { page_id: pageId, error: "Página sem conta de Instagram ligada" };
+      } else {
+        const { error: igErr } = await (admin as any)
+          .schema("crm")
+          .from("ad_platform_connections")
+          .update({ selected_instagram_id: igId })
+          .eq("id", connectionId);
+        igResult = igErr
+          ? { page_id: pageId, error: `gravação falhou: ${igErr.message}` }
+          : {
+            page_id: pageId,
+            instagram_id: igId,
+            instagram_username: j?.instagram_business_account?.username ?? null,
+          };
+      }
+    }
+  } catch (e) {
+    igResult = { error: `exceção: ${(e as Error)?.message ?? String(e)}` };
+  }
+
   await auditLog(admin, {
     entity_type: "artist",
     entity_id: st.artist_id,
@@ -178,6 +222,7 @@ Deno.serve(async (req) => {
       connection_id: connectionId,
       ad_accounts: accounts.length,
       status: single ? "active" : "pending_selection",
+      instagram: igResult,
     },
   });
 

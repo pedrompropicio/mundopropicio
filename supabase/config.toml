@@ -244,3 +244,9 @@ verify_jwt = false
 # a função valida o papel do JWT dentro do código; chamada por cron/manual.
 [functions.crm-meta-creatives-retention]
 verify_jwt = true
+
+[functions.artist-youtube-oauth-start]
+verify_jwt = true
+
+[functions.artist-youtube-oauth-callback]
+verify_jwt = false
