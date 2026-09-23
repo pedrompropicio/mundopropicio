@@ -81,10 +81,10 @@ Deno.serve(async (req) => {
       if (!uuid && inputName) {
         try {
           const body = await client.get(
-            `/api/v2/artist/search/${encodeURIComponent(inputName)}?offset=0&limit=3`,
+            `/api/v2/artist/search/${encodeURIComponent(inputName)}?offset=0&limit=${searchLimit}`,
           );
           const items = Array.isArray(body?.items) ? body.items : [];
-          candidates = items.slice(0, 3).map((r: any) => ({
+          candidates = items.slice(0, searchLimit).map((r: any) => ({
             uuid: r?.uuid ?? null,
             name: r?.name ?? null,
             countryCode: r?.countryCode ?? r?.country?.code ?? null,
