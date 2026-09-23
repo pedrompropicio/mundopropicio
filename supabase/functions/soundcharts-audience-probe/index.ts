@@ -130,6 +130,16 @@ Deno.serve(async (req) => {
         }
       }
 
+      if (sections.includes("identifiers")) {
+        try {
+          out.identifiers = await client.get(
+            `/api/v2.9/artist/${uuid}/identifiers?offset=0&limit=100`,
+          );
+        } catch (e) {
+          out.identifiers = { error: errPayload(e) };
+        }
+      }
+
       if (sections.includes("spotify_cities")) {
         try {
           out.spotify_cities = await client.get(
