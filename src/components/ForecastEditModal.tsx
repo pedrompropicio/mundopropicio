@@ -1,3 +1,4 @@
+import { writeForecastAmount } from "@/lib/forecast-amount";
 import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -229,11 +230,21 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         addback_reason: newAddbackId ? newAddbackReason : null,
         vat_non_recoverable: newVatNonRecoverable,
       };
+      // #240: amount nunca por .update directo — vai por batch_update_event_forecasts
+      // (trigger: chão = realizado; observação obrigatória se há realizado).
+      const { amount: _amt, ...restPayload } = updatePayload;
+      if (Math.abs(Number(forecast.amount) - newAmount) >= 0.005 && newAmount < Number(forecast.amount)) {
+        // redução primeiro, com a observação do modal (valida chão antes de gravar o resto)
+        await writeForecastAmount({ forecastId: forecast.id, newAmount, observation: observation.trim() });
+      }
       const { error: updateError } = await supabase
         .from("event_forecasts")
-        .update(updatePayload)
+        .update(restPayload)
         .eq("id", forecast.id);
       if (updateError) throw updateError;
+      if (Math.abs(Number(forecast.amount) - newAmount) >= 0.005 && newAmount > Number(forecast.amount)) {
+        await writeForecastAmount({ forecastId: forecast.id, newAmount, observation: observation.trim() });
+      }
 
       // Log each change
       const changedBy = user?.user_metadata?.full_name ?? user?.email ?? "sistema";

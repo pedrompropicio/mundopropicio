@@ -7,7 +7,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ReferenceLine } from "recharts";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Info, TrendingUp } from "lucide-react";
+import { Info, TrendingUp, TrendingDown } from "lucide-react";
 
 type SeriesPoint = {
   day: string;
@@ -157,6 +157,8 @@ export function BPEvolution({ eventId }: { eventId: string }) {
   const annotatedMarkers = (data?.markers ?? []).filter((m) => m.kind === "annotated_change");
   // #122: elevações de verba (field_name = 'Elevação de verba') vêm com kind = 'budget_raise'
   const budgetRaiseMarkers = (data?.markers ?? []).filter((m) => m.kind === "budget_raise");
+  // #240: reduções de verba (field_name = 'Redução de verba') vêm com kind = 'budget_reduction'
+  const budgetReductionMarkers = (data?.markers ?? []).filter((m) => m.kind === "budget_reduction");
   const isEmpty = !isLoading && chartData.length === 0;
 
   return (
@@ -225,7 +227,7 @@ export function BPEvolution({ eventId }: { eventId: string }) {
                 strokeDasharray="4 4"
                 label={{ value: "Original", fontSize: 10, position: "insideTopRight" }}
               />
-              {versionMarkers.map((m) => (
+            {versionMarkers.map((m) => (
                 <ReferenceLine
                   key={m.at}
                   x={String(m.at).slice(0, 10)}
@@ -249,7 +251,7 @@ export function BPEvolution({ eventId }: { eventId: string }) {
           </ChartContainer>
         )}
 
-        {(versionMarkers.length > 0 || annotatedMarkers.length > 0 || budgetRaiseMarkers.length > 0) && (
+        {(versionMarkers.length > 0 || annotatedMarkers.length > 0 || budgetRaiseMarkers.length > 0 || budgetReductionMarkers.length > 0) && (
           <div className="mt-3 flex flex-wrap gap-1.5">
             {budgetRaiseMarkers.slice(0, 8).map((m, i) => (
               <span
@@ -259,6 +261,16 @@ export function BPEvolution({ eventId }: { eventId: string }) {
               >
                 <TrendingUp className="h-3 w-3" />
                 Elevação de verba · {formatLisbonDateTime(m.at)} · {(m.label ?? "").slice(0, 40)}
+              </span>
+            ))}
+              {budgetReductionMarkers.slice(0, 8).map((m, i) => (
+              <span
+                key={`r-${m.at}-${i}`}
+                className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[11px] text-destructive"
+                title={m.label ?? undefined}
+              >
+                <TrendingDown className="h-3 w-3" />
+                Redução de verba · {formatLisbonDateTime(m.at)} · {(m.label ?? "").slice(0, 40)}
               </span>
             ))}
             {versionMarkers.map((m) => (

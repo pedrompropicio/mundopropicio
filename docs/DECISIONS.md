@@ -4287,3 +4287,18 @@ Antes de decidir, **vincular**: as transações da mesma rubrica sem linha de BP
 
 **Estado:** vigente. Tabela `event_bp_line_reviews` (append-only), helper `computeBpLineReview` no pacote partilhado, painel `BpUnusedBudgetPanel`.
 
+
+## D-ERP132 — #240: duas portas ao excedido fechadas na base (23/09/2026)
+
+Migração `20260923165107_2cf8dcd7-7fbd-4e97-ae49-f2785c03fb07.sql`.
+
+Porta 1 — pertença da linha ao evento (`trg_enforce_tx_forecast_company_id` → `enforce_tx_forecast_same_event()`, BEFORE INSERT OR UPDATE OF forecast_id, event_id ON transactions). Linha de versão → recusa. `bp_tx_link_allowed` → passa. forecast_id escrito neste acto e não permitido → erro a nomear os dois eventos. Só mudou o event_id: despesa que consome verba, approved/paid/partially_paid, evento novo with_bp → erro "Esta transação já está aprovada. Ao mudar de evento, escolhe no mesmo acto a linha de BP do evento novo."; restantes → limpa forecast_id + system_audit_log `auto_unlink_tx_forecast_event_change`. Sem isenção por auth.uid() NULL.
+
+Porta 2 — chão e observação (`trg_enforce_forecast_amount_floor` → `enforce_forecast_amount_floor()`, BEFORE UPDATE OF amount ON event_forecasts; linha viva, approved, expense, amount a descer). Nunca abaixo do realizado (predicado de reduce_forecast_budget), sem isenção nem service_role. Realizado > 0 → observação obrigatória via `mp.bp_change_observation`. Toda a redução escreve forecast_audit_log 'Redução de verba'. baseline_amount intocado (D3). As 13 linhas históricas abaixo do realizado ficam como estão (a regra só actua ao descer).
+
+Decisões do Pedro (23/09/2026):
+- Despesa aprovada que muda de evento exige linha nova no mesmo acto.
+- Observação obrigatória só em redução de linha com realizado; chão sempre; todas as reduções no forecast_audit_log.
+- Q1 (a) apply-coala-bp: amount via `set_forecast_amount_with_observation` com '[sync Coala] planilha'; linha que ficaria abaixo do realizado entra em audit.errors e a sync continua.
+- Q2 (a) useSyncCacheForecasts: amount por batch_update_event_forecasts com '[módulo de cachê] recálculo'; abaixo do pago não grava e avisa.
+- Q3 (a) undo.ts: desfazer que reduz linha com realizado pede observação; abaixo do realizado não deixa desfazer.

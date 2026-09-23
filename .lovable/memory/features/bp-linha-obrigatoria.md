@@ -130,3 +130,8 @@ no fecho, onde o gate já vive (`CloseCardSessionModal`, passo 2).
 ## Vínculo canónico nas gerações a partir do BP (2026-09-20, Issue #113)
 
 `src/components/EventForecast.tsx` — criação em lote ("A Pagar" a partir de linhas aprovadas) e programação de parcelas — passa a escrever `transactions.forecast_id` (vínculo canónico N:1, D-ERP1) na transação criada, mantendo a âncora legada `event_forecasts.transaction_id` (escrita só se estiver vazia / na 1ª parcela). Os ~19 consumidores que ainda leem a âncora continuam a funcionar.
+
+## Pertença da linha ao evento — Porta 1 (#240, D-ERP132)
+- Trigger `enforce_tx_forecast_same_event()` em transactions (forecast_id, event_id): só linhas vivas; permitido = `bp_tx_link_allowed` (mesmo evento, Master↔cidade, sem evento; mesma empresa).
+- Mudar só o evento: despesa aprovada/paga que consome verba para evento with_bp → erro; o resto limpa forecast_id e audita `auto_unlink_tx_forecast_event_change`.
+- UI: TransactionEditModal, ao mudar evento com linha não permitida, abre LinkBpLineDialog pickOnly do evento novo e RaiseBudgetDialog applyViaRpc se exceder; grava event_id + forecast_id no mesmo UPDATE. Espelho cliente: `isBpLinkAllowedForEvent` (bp-line-required.ts).

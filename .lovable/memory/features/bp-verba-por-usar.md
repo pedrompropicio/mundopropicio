@@ -98,3 +98,8 @@ todas em rubricas sem saldo). `soft.bp_lines_unreviewed = { count: 42, saldo_net
 ## Fora de âmbito
 Master de turnê revê-se no seu próprio Fecho. O acerto com sócios não muda de fórmula —
 só passa a ler o previsto já revisto.
+
+## Chão e observação — Porta 2 (#240, D-ERP132)
+- Trigger `enforce_forecast_amount_floor()`: linha viva approved expense a descer nunca abaixo do realizado; realizado>0 exige `mp.bp_change_observation`; toda a redução → forecast_audit_log 'Redução de verba' (selo próprio em BPEvolution). reduce_forecast_budget já não insere o audit (prefixo '[ajuste de fecho]').
+- Escrita de amount no cliente: `writeForecastAmount` (linha) e `prepareBatchEditsForReductions` (grelha/Planilha) em src/lib/forecast-amount.ts; diálogo ReductionObservationHost.
+- Q1 apply-coala-bp '[sync Coala] planilha' via set_forecast_amount_with_observation (falha → audit.errors, continua). Q2 cachê '[módulo de cachê] recálculo', abaixo do pago não grava + aviso. Q3 undo pede observação, abaixo do realizado recusa.

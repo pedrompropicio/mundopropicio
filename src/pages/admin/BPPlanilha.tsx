@@ -6,6 +6,7 @@
  * ⚠️ TODO LICENÇA: em produção comercial é obrigatória licença Handsontable —
  * substituir esta key ("non-commercial-and-evaluation") pela key comprada.
  */
+import { prepareBatchEditsForReductions } from "@/lib/forecast-amount";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Handsontable from "handsontable";
 import { HotTable } from "@handsontable/react-wrapper";
@@ -880,7 +881,8 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
     setSaving(true);
     try {
       if (diff.edits.length) {
-        const editsArr = diff.edits.map((e) => ({ id: e.id, ...e.fields }));
+        // #240: chão = realizado; observação pedida a cada redução com realizado
+        const editsArr = await prepareBatchEditsForReductions(diff.edits.map((e) => ({ id: e.id, ...e.fields })) as any[]);
         const { data, error } = await supabase.rpc("batch_update_event_forecasts" as any, {
           _event_id: eventId,
           _version_id: getBPPlanilhaRpcVersionId(selectedVersionId),

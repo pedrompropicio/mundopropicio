@@ -23,6 +23,7 @@
  *
  * Not in scope: editing overhead/master-adopted rows (use the dedicated modal).
  */
+import { prepareBatchEditsForReductions } from "@/lib/forecast-amount";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -474,7 +475,8 @@ export default function BPGridEditor({
 
       let updated = 0;
       if (dirtyCount > 0) {
-        const editsArr = Object.entries(dirty).map(([id, fields]) => ({ id, ...fields }));
+        // #240: chão = realizado; observação pedida a cada redução com realizado
+        const editsArr = await prepareBatchEditsForReductions(Object.entries(dirty).map(([id, fields]) => ({ id, ...(fields as any) })));
         const { data, error } = await supabase.rpc("batch_update_event_forecasts" as any, {
           _event_id: eventId,
           _version_id: selectedVersionId,

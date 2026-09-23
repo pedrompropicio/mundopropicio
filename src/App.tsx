@@ -1,3 +1,4 @@
+import { ReductionObservationHost } from "@/components/bp/ReductionObservationHost";
 import { useEffect, useRef, useState } from "react";
 import { QueryClient, QueryClientProvider, useIsMutating, useQueryClient } from "@tanstack/react-query";
 import { supabase as supabaseClient } from "@/integrations/supabase/client";
@@ -673,6 +674,7 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          <ReductionObservationHost />
           <PWAUpdateManager />
           <AuthProvider>
             <CompanyBrandingProvider>
