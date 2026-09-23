@@ -44,7 +44,7 @@ interface GraphAdAccount {
   account_status?: number;
   currency?: string;
   timezone_name?: string;
-  business?: { id: string; name?: string };
+  business?: { id: string; name?: string } | null;
 }
 
 interface GraphAdAccountsResponse {
@@ -107,51 +107,60 @@ Deno.serve(async (req: Request): Promise<Response> => {
     company_id: string;
   };
 
-  // 2) Chamar Graph API. TODO: paginação real (>100). Por agora limit=100.
-  let graphJson: GraphAdAccountsResponse;
+  // 2) Chamar Graph API com paginação real (segue paging.next).
+  // #250 — não filtra pelo BM guardado: devolve todas as contas do utilizador,
+  // de qualquer Business Manager (ou pessoais). Na ligação de empresa, a conta
+  // escolhida é que define o BM (gravado no Connections.tsx).
+  const all: GraphAdAccount[] = [];
   try {
-    const url = new URL(
+    const first = new URL(
       `https://graph.facebook.com/${GRAPH_API_VERSION}/me/adaccounts`,
     );
-    url.searchParams.set(
+    first.searchParams.set(
       "fields",
-      "id,account_id,name,account_status,currency,timezone_name,business",
+      "id,account_id,name,account_status,currency,timezone_name,business{id,name}",
     );
-    url.searchParams.set("limit", "100");
-    url.searchParams.set("access_token", accessToken);
-
-    const res = await fetch(url);
-    graphJson = (await res.json()) as GraphAdAccountsResponse;
-    if (!res.ok || graphJson.error) {
-      console.error(
-        "[crm-meta-fetch-ad-accounts] graph error:",
-        res.status,
-        graphJson.error,
-      );
-      return json(
-        {
-          error: "graph_api_error",
-          message: graphJson.error?.message ?? `HTTP ${res.status}`,
-        },
-        502,
-      );
+    first.searchParams.set("limit", "100");
+    first.searchParams.set("access_token", accessToken);
+    let next: string | undefined = first.toString();
+    let pages = 0;
+    while (next && pages < 50) {
+      pages++;
+      const res = await fetch(next);
+      const graphJson = (await res.json()) as GraphAdAccountsResponse;
+      if (!res.ok || graphJson.error) {
+        console.error(
+          "[crm-meta-fetch-ad-accounts] graph error:",
+          res.status,
+          graphJson.error,
+        );
+        return json(
+          {
+            error: "graph_api_error",
+            message: graphJson.error?.message ?? `HTTP ${res.status}`,
+          },
+          502,
+        );
+      }
+      all.push(...(graphJson.data ?? []));
+      next = graphJson.paging?.next;
     }
   } catch (e) {
     console.error("[crm-meta-fetch-ad-accounts] fetch threw:", e);
     return json({ error: "graph_api_unreachable" }, 502);
   }
 
-  // 3) Filtrar pelas do BM e mapear
-  const filtered = (graphJson.data ?? [])
-    .filter((a) => a.business?.id === businessId)
-    .map((a) => ({
-      id: a.id,
-      account_id: a.account_id ?? a.id.replace(/^act_/, ""),
-      name: a.name ?? "(sem nome)",
-      account_status: a.account_status ?? null,
-      currency: a.currency ?? null,
-      timezone_name: a.timezone_name ?? null,
-    }));
+  // 3) Mapear (sem filtro por BM), com o BM de cada conta
+  const filtered = all.map((a) => ({
+    id: a.id,
+    account_id: a.account_id ?? a.id.replace(/^act_/, ""),
+    name: a.name ?? "(sem nome)",
+    account_status: a.account_status ?? null,
+    currency: a.currency ?? null,
+    timezone_name: a.timezone_name ?? null,
+    business_id: a.business?.id ?? null,
+    business_name: a.business?.name ?? null,
+  }));
 
   // 4) Persistir (UPDATE via user JWT — RLS aplica-se)
   const { error: updErr } = await supabase
@@ -198,7 +207,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     } else {
       linksSynced = linksToUpsert.length;
 
-      // Garantir 1 primary por connection
+      // Garantir 1 primary por connection. #250 — se a ligação já tem conta
+      // escolhida, só essa pode ser promovida; nunca uma conta de outro BM.
       const { data: existingPrimary } = await supabase
         .schema("crm")
         .from("ad_platform_account_links")
@@ -208,12 +218,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
         .maybeSingle();
 
       if (!existingPrimary) {
-        await supabase
+        const { data: connRow } = await supabase
           .schema("crm")
-          .from("ad_platform_account_links")
-          .update({ is_primary: true })
-          .eq("connection_id", connectionId)
-          .eq("ad_account_id", filtered[0].id);
+          .from("ad_platform_connections")
+          .select("selected_ad_account_id")
+          .eq("id", connectionId)
+          .maybeSingle();
+        const selectedId = (connRow as { selected_ad_account_id?: string | null } | null)
+          ?.selected_ad_account_id ?? null;
+        const candidate = selectedId
+          ? filtered.find((a) => a.id === selectedId || a.account_id === selectedId)
+          : filtered.find((a) => a.business_id === businessId) ?? filtered[0];
+        if (candidate) {
+          await supabase
+            .schema("crm")
+            .from("ad_platform_account_links")
+            .update({ is_primary: true })
+            .eq("connection_id", connectionId)
+            .eq("ad_account_id", candidate.id);
+        }
       }
     }
   }

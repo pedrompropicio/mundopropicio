@@ -58,6 +58,8 @@ interface AdAccountOption {
   currency?: string | null;
   account_status?: number | null;
   timezone_name?: string | null;
+  business_id?: string | null;
+  business_name?: string | null;
 }
 
 interface ConnectionRow {
@@ -272,6 +274,14 @@ export default function CrmConnections() {
           selected_ad_account_id: accountId,
           selected_ad_account_name: acct?.name ?? null,
           selected_ad_account_currency: acct?.currency ?? null,
+          // #250 — na ligação de empresa, a conta escolhida define o BM.
+          // Só grava quando a lista já traz o BM (payload novo); conta pessoal → null.
+          ...(acct && "business_id" in acct
+            ? {
+                external_business_id: acct.business_id ?? null,
+                external_business_name: acct.business_name ?? null,
+              }
+            : {}),
         })
         .eq("id", conn.id);
       if (error) throw error;
@@ -630,6 +640,11 @@ export default function CrmConnections() {
                                     <SelectItem key={value} value={value}>
                                       {a.name ?? "(sem nome)"} (act_{accId})
                                       {a.currency ? ` — ${a.currency}` : ""}
+                                      {a.business_name
+                                        ? ` · BM ${a.business_name}`
+                                        : "business_id" in a
+                                          ? " · conta pessoal"
+                                          : ""}
                                     </SelectItem>
                                   );
                                 })}
