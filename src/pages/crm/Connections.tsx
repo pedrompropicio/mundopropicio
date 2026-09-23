@@ -640,6 +640,11 @@ export default function CrmConnections() {
                                     <SelectItem key={value} value={value}>
                                       {a.name ?? "(sem nome)"} (act_{accId})
                                       {a.currency ? ` — ${a.currency}` : ""}
+                                      {a.business_name
+                                        ? ` · BM ${a.business_name}`
+                                        : "business_id" in a
+                                          ? " · conta pessoal"
+                                          : ""}
                                     </SelectItem>
                                   );
                                 })}
