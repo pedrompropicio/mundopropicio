@@ -184,3 +184,24 @@ export function stripCompanyId<T extends Record<string, any>>(payload: T): T {
   const { company_id, ...rest } = payload;
   return rest as T;
 }
+
+/**
+ * (Issue #241) Autorização por PERTENÇA: numa base multi-membership, a empresa
+ * por omissão (`profiles.company_id`) não prova acesso. Usa esta função quando
+ * precisas de saber se um utilizador pode agir sobre dados de uma empresa.
+ */
+export async function userBelongsToCompany(
+  adminClient: SupabaseClient,
+  userId: string,
+  companyId: string | null | undefined,
+): Promise<boolean> {
+  if (!userId || !companyId) return false;
+  const { data } = await adminClient
+    .from("user_roles")
+    .select("company_id")
+    .eq("user_id", userId)
+    .eq("company_id", companyId)
+    .limit(1)
+    .maybeSingle();
+  return Boolean(data);
+}
