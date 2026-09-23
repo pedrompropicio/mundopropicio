@@ -158,9 +158,8 @@ Deno.serve(async (req) => {
       isPlatformAdmin = Boolean(isPaRow);
       const { data: profile } = await admin
         .from("profiles").select("company_id, active_company_id").eq("id", userId).maybeSingle();
-      callerCompanyId = isPlatformAdmin
-        ? (profile?.active_company_id ?? profile?.company_id ?? null)
-        : (profile?.company_id ?? null);
+      // (Issue #241) Empresa activa = active_company_id ?? company_id, para todos.
+      callerCompanyId = profile?.active_company_id ?? profile?.company_id ?? null;
     }
 
     const body = await req.json().catch(() => ({} as any));
