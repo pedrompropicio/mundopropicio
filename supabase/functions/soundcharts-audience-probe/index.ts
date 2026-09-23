@@ -19,7 +19,7 @@ import {
 
 const FUNCTION_NAME = "soundcharts-audience-probe";
 const MAX_ARTISTS = 12;
-const VALID_SECTIONS = new Set(["report", "located", "spotify_cities"]);
+const VALID_SECTIONS = new Set(["report", "located", "spotify_cities", "identifiers"]);
 
 function errPayload(e: unknown): { status: number | null; detail: string } {
   if (e instanceof SoundchartsHttpError) return { status: e.status, detail: e.detail };
