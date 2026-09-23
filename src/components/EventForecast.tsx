@@ -2079,7 +2079,16 @@ const descRef = useRef<HTMLInputElement>(null);
   const comparisonData = buildComparison(comparisonForecasts, comparisonTransactions, categories);
 
   const unusedBudgetForecasts = useMemo(
-    () => (forecasts as any[]).filter((f) => f.event_id === eventId && !String(f.id ?? "").includes("::")),
+    () =>
+      (forecasts as any[]).filter(
+        (f) =>
+          f.event_id === eventId &&
+          !String(f.id ?? "").includes("::") &&
+          f.type === "expense" &&
+          f.status === "approved" &&
+          f.is_overhead === false &&
+          f.version_id == null,
+      ),
     [forecasts, eventId],
   );
   const unusedBudgetTransactions = useMemo(
