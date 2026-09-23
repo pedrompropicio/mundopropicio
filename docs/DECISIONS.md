@@ -4335,3 +4335,13 @@ RPC `public.song_growth_summary(p_song_id, p_to)` → jsonb (musica, kpis, grupo
 - Streams semana atual/anterior só com os pontos exactos de d, d−7, d−14; nunca interpolar.
 - S4A: 1.º registo → mais recente; hoje só 13/09, não entra.
 - Porque não `artist_dashboard`: lê platform_api, não tem histórico no lançamento e devolve anterior=null.
+
+## D-ERP137 — Erros de front do portal público registam-se em tabela própria com INSERT anónimo (23/09/2026)
+
+Decisão: os erros apanhados pelas fronteiras de erro do portal público passam a ser gravados em `public.portal_error_log`, escrita directamente pelo browser com a chave anónima.
+
+Porquê: o relato existente ia só para a telemetria da Lovable, que não conseguimos consultar. Sem dados nossos, cada incidente no portal dependia de alguém apanhar um screenshot — foi exactamente o que aconteceu a 23/09/2026 com o tráfego pago do Coala.
+
+Como: RLS ligada, uma única política de INSERT para `anon` e `authenticated`, SELECT revogado explicitamente a ambos (os privilégios por omissão dão SELECT a tabelas novas — não basta o `REVOKE ... FROM PUBLIC`), `service_role` lê. CHECK de comprimento em `message` (2000), `stack` (8000) e `url` (2000), e truncagem no cliente antes do envio. Teto de 3 registos por sessão em `sessionStorage`. O registo nunca lança excepção: um erro a registar erros não pode partir a página.
+
+Custo aceite: o endpoint é escrivível por qualquer visitante anónimo, como já acontece com o `lead_capture`. Mitigações: sem leitura, limites de comprimento, teto por sessão. Retenção e exclusão do backup ficam por decidir na #252.
