@@ -330,7 +330,10 @@ export function BpUnusedBudgetPanel(props: Props) {
       g.aPagar += r.aPagar;
       g.saldo += r.saldo;
     }
-    return Array.from(map.values()).sort((a, b) => b.saldo - a.saldo);
+    // Rubricas por código ascendente; dentro de cada rubrica, linhas por saldo descendente.
+    const list = Array.from(map.values());
+    for (const g of list) g.rows.sort((a, b) => b.saldo - a.saldo);
+    return list.sort((a, b) => a.key.localeCompare(b.key, "pt", { numeric: true }));
   }, [rowsView, forecastById]);
 
   /** Transações já vinculadas à linha (para a expansão "Ver transações"). */
