@@ -17836,6 +17836,10 @@ export type Database = {
           quantity: number
         }[]
       }
+      get_event_zone_price_dynamics: {
+        Args: { p_event_id: string }
+        Returns: Json
+      }
       get_leads_geo_stats: { Args: { p_period?: string }; Returns: Json }
       get_or_create_generic_camarim_supplier: {
         Args: { _company_id: string }
