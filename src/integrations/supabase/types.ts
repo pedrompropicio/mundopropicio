@@ -11976,6 +11976,45 @@ export type Database = {
           },
         ]
       }
+      portal_error_log: {
+        Row: {
+          boundary: string | null
+          company_id: string | null
+          created_at: string
+          id: string
+          message: string
+          referrer: string | null
+          route: string | null
+          stack: string | null
+          url: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          boundary?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          message: string
+          referrer?: string | null
+          route?: string | null
+          stack?: string | null
+          url?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          boundary?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          message?: string
+          referrer?: string | null
+          route?: string | null
+          stack?: string | null
+          url?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       portal_settings: {
         Row: {
           category: string
