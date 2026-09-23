@@ -35,6 +35,7 @@ select public.event_close_blockers(':EVENTO');
   - **Tolerância:** 0,01 € (arredondamento). Abaixo disso conta-se como zero.
   - **`skip_balance_check = true`:** a posição não é calculável nesse estado; a conta aparece no blocker com essa indicação e a flag tem de ser desligada. Uma conta de circuito existe para mostrar posição.
 - `soft.pending_expenses` não vazio → **decisão do responsável**, não bloqueia. Fecha-se com conhecimento e a decisão fica **registada na planilha** do evento.
+- `soft.bp_lines_unreviewed` com `count > 0` → **linhas de BP com verba por usar sem decisão de fecho** (#239, D-ERP131). Não bloqueia, mas cada linha com saldo conta como custo no acerto com sócios: ou é obrigação futura da MP, ou é financiamento de sócio, ou o previsto tem de descer. Resolver no painel **Verba por usar** do Fecho, linha a linha, **antes do selo** (passo 10). `saldo_net` é o total s/IVA em causa. Só aparece com valor em eventos `with_bp`.
 
 
 ## Passo 1 — Receitas
@@ -192,6 +193,7 @@ aos campos do selo é recusado pela base de dados.
 - [ ] Rubricas sem transação explicadas por ordenador/`can_pay`
 - [ ] Obrigação futura da MP quantificada
 - [ ] Financiamento dos sócios pagadores quantificado
+- [ ] **Verba por usar revista linha a linha antes do selo** (`soft.bp_lines_unreviewed` a zero ou cada linha com decisão registada)
 - [ ] Base de IVA correta por sócio
 - [ ] Sem movimento posterior à planilha
 - [ ] Fechamento **selado**
