@@ -207,6 +207,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Skip the INITIAL_SESSION event — we handle it via getSession above
         if (event === "INITIAL_SESSION") return;
 
+        // (#237) A cache de empresa do storage é por sessão/utilizador — se o
+        // utilizador mudou (login de outro utilizador, SIGNED_OUT), limpar para
+        // não herdar o prefixo de empresa do utilizador anterior.
+        const newUserId = updatedSession?.user?.id ?? null;
+        if (newUserId !== userIdRef.current) {
+          void import("@/lib/storage").then((m) => m.clearCompanyCache());
+        }
+
         // For token refreshes, update session silently but don't re-fetch
         // role/permissions (they don't change). This keeps the session object
         // current without the heavier re-render cascade that closes modals.
@@ -248,6 +256,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await clearBadge();
     } catch {
       /* badge is best-effort */
+    }
+    // (#237) limpar a cache de empresa do storage — não pode sobreviver ao logout.
+    try {
+      const { clearCompanyCache } = await import("@/lib/storage");
+      clearCompanyCache();
+    } catch {
+      /* best-effort */
     }
     await supabase.auth.signOut();
     setUser(null);

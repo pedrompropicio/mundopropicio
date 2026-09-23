@@ -56,6 +56,16 @@ export type Bucket =
   | "database-backups"
   | "card-documents";
 
+// Cache de módulo: o company_id é resolvido UMA vez e reutilizado.
+// Dever de limpeza (clearCompanyCache) — obrigatório em qualquer sítio que
+// troque de empresa ou de utilizador:
+//   1) useSetActiveCompany (src/hooks/useCompany.ts) — troca de empresa no cabeçalho;
+//   2) AuthContext (src/contexts/AuthContext.tsx) — signOut e mudança de utilizador da sessão.
+// Se ninguém limpar, withCompanyPath continua a prefixar com a empresa ANTERIOR:
+// os uploads chocam com a RLS do storage ("new row violates row-level security
+// policy") e os downloads/remoções/URLs assinados vão à pasta da empresa errada
+// sem erro nenhum (#237). Quem acrescentar um sítio novo de troca de
+// empresa/utilizador TEM de chamar clearCompanyCache().
 let cachedCompanyId: string | null = null;
 
 async function resolveCompanyId(): Promise<string> {

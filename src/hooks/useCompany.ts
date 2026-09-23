@@ -181,6 +181,12 @@ export function useSetActiveCompany() {
         target_company_id: companyId,
       } as any);
       if (error) throw error;
+      // (#237) A empresa mudou no servidor: limpar a cache de módulo do storage
+      // ANTES de qualquer invalidação, senão withCompanyPath continua a prefixar
+      // com a empresa anterior. Import dinâmico para evitar ciclo
+      // useCompany ↔ storage (storage importa getCurrentCompanyId daqui).
+      const { clearCompanyCache } = await import("@/lib/storage");
+      clearCompanyCache();
       try {
         if (typeof window !== "undefined") {
           localStorage.setItem(ACTIVE_COMPANY_CACHE_KEY, companyId);
