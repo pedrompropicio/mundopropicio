@@ -1583,6 +1583,15 @@ export default function EventDetail() {
               subEvents={subEvents}
               isMultiEvent={isMultiEvent}
               canSeePartners={!event?.parent_event_id && !selectedSubEvent}
+              onReviewUnusedBudget={() => {
+                const next = new URLSearchParams(searchParams);
+                if (selectedSubEvent) next.set("sub", selectedSubEvent);
+                else next.delete("sub");
+                next.set("tab", "forecast");
+                next.set("bpTab", "unused");
+                setActiveTab("forecast");
+                setSearchParams(next);
+              }}
             />
           </TabsContent>
         )}
@@ -1633,12 +1642,14 @@ function FechoUnifiedTab({
   subEvents,
   isMultiEvent,
   canSeePartners,
+  onReviewUnusedBudget,
 }: {
   event: any;
   selectedSubEvent: string | null;
   subEvents: any[];
   isMultiEvent: boolean;
   canSeePartners: boolean;
+  onReviewUnusedBudget: () => void;
 }) {
   const [mode, setMode] = useState<"general" | "partners">("general");
   const eventName = selectedSubEvent
@@ -1670,6 +1681,7 @@ function FechoUnifiedTab({
           eventName={eventName}
           childEventIds={!selectedSubEvent && isMultiEvent ? subEvents.map((s: any) => s.id) : []}
           parentEventId={selectedSubEvent ? event.id : event.parent_event_id}
+          onReviewUnusedBudget={onReviewUnusedBudget}
         />
       ) : (
         <PartnerSettlementTab

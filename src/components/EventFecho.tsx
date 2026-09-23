@@ -26,7 +26,7 @@ import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { computeSettlementRevenue } from "@/lib/settlement-revenue";
 import { FechoBasisSelector } from "@/components/FechoBasisSelector";
 import { fetchPartnerExtras, splitPartnerExtrasByKind } from "@/lib/partner-extras";
-import { BpUnusedBudgetPanel } from "@/components/fecho/BpUnusedBudgetPanel";
+import { BpUnusedBudgetSummaryCard } from "@/components/fecho/BpUnusedBudgetPanel";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 
@@ -37,6 +37,7 @@ interface Props {
   childEventIds?: string[];
   /** Se for sub-evento, ID do Master para puxar overhead via Master ÷N */
   parentEventId?: string | null;
+  onReviewUnusedBudget?: () => void;
 }
 
 /**
@@ -53,7 +54,7 @@ interface Props {
  * Nota fiscal: Overhead tem `exclude_from_result=true`, portanto não impacta o resultado
  * contabilístico da empresa. A coluna "c/ overhead" é apenas para o cálculo do acerto.
  */
-export function EventFecho({ eventId, eventName, childEventIds, parentEventId }: Props) {
+export function EventFecho({ eventId, eventName, childEventIds, parentEventId, onReviewUnusedBudget }: Props) {
   // ---- Eventos relevantes (master + filhos quando turnê)
   const allEventIds = [eventId, ...(childEventIds || [])];
 
@@ -546,8 +547,8 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
         </div>
       </div>
 
-      {/* Verba de BP por usar — revisão linha a linha (#239) */}
-      <BpUnusedBudgetPanel eventId={eventId} basis={basis} />
+      {/* Verba de BP por usar — resumo; a revisão linha a linha vive no BP (#239) */}
+      <BpUnusedBudgetSummaryCard eventId={eventId} basis={basis} onReviewUnusedBudget={onReviewUnusedBudget} />
 
 
 

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback, Suspense, lazy } from "react";
 import { roundCents, calcIvaAmount } from "@/lib/iva";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { moveToTrash } from "@/lib/trash";
 import { deleteTransactionCascade } from "@/lib/delete-transaction-cascade";
@@ -63,6 +63,7 @@ import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
 import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
 import { BPRecentChangesSheet } from "@/components/bp/BPRecentChangesSheet";
 import { BPEvolution } from "@/components/bp/BPEvolution";
+import { BpUnusedBudgetPanel } from "@/components/fecho/BpUnusedBudgetPanel";
 
 import { exportEventBPToPDF } from "@/lib/export-event-bp-pdf";
 import { exportCommittedBpToPDF } from "@/lib/export-bp-committed-pdf";
@@ -170,6 +171,8 @@ const emptyInline: InlineForm = {
   is_overhead: false,
 };
 
+type BpTab = "forecasts" | "comparison" | "unused" | "evolution";
+
 interface Props {
   eventId: string;
   eventDate: string;
@@ -251,6 +254,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   // Taxas de IVA do país da cidade do evento (PT por defeito).
   const { rates: ivaRates } = useEventIvaCountry(eventId);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [addingType, setAddingType] = useState<"income" | "expense" | null>(null);
   const [inlineForm, setInlineForm] = useState<InlineForm>(emptyInline);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -302,6 +306,10 @@ const descRef = useRef<HTMLInputElement>(null);
   const { selectedVersionId, setSelectedVersionId, isScenarioMode } = useEventScenario();
   // Phase A.1: toggle entre vista Agrupada (atual), Grelha e Planilha (Handsontable).
   const [forecastsViewMode, setForecastsViewMode] = useState<"grouped" | "grid" | "sheet">("grouped");
+  const [activeBpTab, setActiveBpTab] = useState<BpTab>(() =>
+    searchParams.get("bpTab") === "unused" ? "unused" : "forecasts",
+  );
+  const [unusedWithVat, setUnusedWithVat] = useState(false);
   const isMobile = useIsMobile();
   // Planilha é desktop-only; se o ecrã encolher, volta para Agrupada.
   useEffect(() => {
@@ -309,6 +317,11 @@ const descRef = useRef<HTMLInputElement>(null);
       setForecastsViewMode("grouped");
     }
   }, [isMobile, forecastsViewMode]);
+
+  useEffect(() => {
+    const urlBpTab = searchParams.get("bpTab");
+    if (urlBpTab === "unused") setActiveBpTab("unused");
+  }, [searchParams]);
 
 
 
@@ -378,7 +391,23 @@ const descRef = useRef<HTMLInputElement>(null);
     enabled: !!eventId,
   });
   const isCoalaEvent = eventMeta?.import_template === "coala";
+
+  const { data: budgetMode = "with_bp" } = useQuery({
+    queryKey: ["event-budget-mode", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("event_budget_mode", { _event_id: eventId });
+      if (error) throw error;
+      return (data as string | null) ?? "with_bp";
+    },
+    enabled: !!eventId,
+  });
+  const hasBpBudget = budgetMode !== "without_bp";
+
   const [showCoalaWizard, setShowCoalaWizard] = useState(false);
+
+  useEffect(() => {
+    if (!hasBpBudget && activeBpTab === "unused") setActiveBpTab("forecasts");
+  }, [hasBpBudget, activeBpTab]);
 
   const cacheCategoryId = useMemo(() => {
     // Procura a conta "Cachês" (despesa) por nome — robusto a renumerações do plano de contas.
@@ -2049,6 +2078,15 @@ const descRef = useRef<HTMLInputElement>(null);
   }, [transactions, includeSubsInBP, parentEventId, eventId, bpCategoryIds, orderingFilter, inheritedOrdererMap, payingFilter, inheritedPayerMap]);
   const comparisonData = buildComparison(comparisonForecasts, comparisonTransactions, categories);
 
+  const unusedBudgetForecasts = useMemo(
+    () => (forecasts as any[]).filter((f) => f.event_id === eventId && !String(f.id ?? "").includes("::")),
+    [forecasts, eventId],
+  );
+  const unusedBudgetTransactions = useMemo(
+    () => (transactions as any[]).filter((t) => t.event_id === eventId && t.type === "expense"),
+    [transactions, eventId],
+  );
+
   // Alinha os cards do BP ao mesmo perímetro estrito da vista "Previsão vs Real",
   // evitando que a visão Master mostre nos cards linhas/tx fora do escopo comparável.
   const totalForecastIncomeBase = comparisonForecasts
@@ -2266,12 +2304,13 @@ const descRef = useRef<HTMLInputElement>(null);
         </div>
       </div>
 
-      <Tabs defaultValue="forecasts" className="space-y-4">
+      <Tabs value={activeBpTab} onValueChange={(value) => setActiveBpTab(value as BpTab)} className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <TabsList>
               <TabsTrigger value="forecasts">Previsões</TabsTrigger>
               <TabsTrigger value="comparison">Previsão vs Real</TabsTrigger>
+              {hasBpBudget && <TabsTrigger value="unused">Verba por usar</TabsTrigger>}
               <TabsTrigger value="evolution">Evolução</TabsTrigger>
             </TabsList>
 
@@ -3121,6 +3160,20 @@ const descRef = useRef<HTMLInputElement>(null);
           </div>
           <ComparisonTable data={comparisonData} onOpenTransactionDocuments={setComparisonDocumentsTransaction} />
         </TabsContent>
+
+        {hasBpBudget && (
+          <TabsContent value="unused">
+            <BpUnusedBudgetPanel
+              eventId={eventId}
+              forecasts={unusedBudgetForecasts}
+              transactions={unusedBudgetTransactions}
+              budgetMode={budgetMode}
+              withVat={unusedWithVat}
+              onWithVatChange={setUnusedWithVat}
+              isLoadingInputs={isLoading}
+            />
+          </TabsContent>
+        )}
 
         {/* D4: evolução do previsto de despesa (leitura, sem edição) */}
         <TabsContent value="evolution">
