@@ -12,10 +12,14 @@ vi.mock("@/contexts/AuthContext", () => ({
 // Mock Supabase client BEFORE importing the SUT
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
-    rpc: vi.fn(async (_fn: string, args: { target_company_id: string }) => {
-      // O servidor passa a resolver a empresa nova.
-      mockState.companyId = args.target_company_id;
-      return { data: args.target_company_id, error: null };
+    rpc: vi.fn(async (fn: string, args?: { target_company_id: string }) => {
+      if (fn === "set_active_company" && args) {
+        // O servidor passa a resolver a empresa nova.
+        mockState.companyId = args.target_company_id;
+        return { data: args.target_company_id, error: null };
+      }
+      // current_company_id()
+      return { data: mockState.companyId, error: null };
     }),
     auth: {
       getUser: vi.fn(async () => ({
