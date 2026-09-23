@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
       if (sections.includes("identifiers")) {
         try {
           out.identifiers = await client.get(
-            `/api/v2.9/artist/${uuid}/identifiers?offset=0&limit=100`,
+            `/api/v2/artist/${uuid}/identifiers?offset=0&limit=100`,
           );
         } catch (e) {
           out.identifiers = { error: errPayload(e) };
