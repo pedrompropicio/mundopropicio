@@ -153,7 +153,7 @@ function useBpUnusedBudgetModel({ eventId, basis, forecasts: inputForecasts, tra
       const { data, error } = await supabase
         .from("transactions")
         .select(
-          "id, forecast_id, category_id, description, amount, iva_rate, status, paid_amount, date, installment_group_id, is_transitory, exclude_from_result, reversed_at, is_hidden, type, suppliers(name)",
+          "id, forecast_id, category_id, description, amount, iva_rate, status, paid_amount, date, invoice_ref, installment_group_id, is_transitory, exclude_from_result, reversed_at, is_hidden, type, suppliers(name)",
         )
         .eq("event_id", eventId)
         .eq("type", "expense");
