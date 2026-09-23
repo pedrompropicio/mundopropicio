@@ -7,7 +7,9 @@ type: feature
 Bucket `crm-meta-creatives` (6.500 ficheiros / ~855 MB). Regra decidida a 20/09/2026.
 
 ## Edge function `crm-meta-creatives-retention`
-`service_role` apenas. Body `{ dry_run: boolean, days?: 30, max_delete?: 500 }`.
+`service_role` apenas (`verify_jwt = true` + validação do papel dentro da função).
+Body `{ dry_run: boolean, days?: 183, max_files?: 500 }` — `max_delete` continua aceite
+como sinónimo de `max_files` (é o que o cron de 20/09 envia).
 `dry_run` só é falso se vier explicitamente `false` (default seguro = simulação).
 
 - **A — ligados a evento**: data final = `max(events.date)` do evento e dos sub-eventos
@@ -19,7 +21,10 @@ Bucket `crm-meta-creatives` (6.500 ficheiros / ~855 MB). Regra decidida a 20/09/
 - **B — ficheiro sem linha**: stem não é `meta_creative_id` de linha nenhuma → órfão,
   apagar. Stem é `meta_creative_id` de uma linha com outro `storage_path` que existe no
   bucket → duplicado, apagar. Se esse `storage_path` **não** existir → é a única cópia:
-  aponta `storage_path`/`file_url` para este ficheiro, **nunca apaga**.
+  aponta `storage_path`/`file_url` para este ficheiro, **nunca apaga**. A verificação de
+  que o caminho canónico existe é feita pela LISTAGEM do bucket, nunca por suposição.
+  Apaga em lotes de 100 pela API de storage, com o tecto `max_files` respeitado dentro
+  do lote.
 - **C — campanha sem `linked_event_id`**: nunca apaga. Devolve lista agrupada por
   empresa e campanha (nome, `stop_time`, último `updated_time`, nº criativos, bytes,
   anúncios activos) para expurgo manual.
@@ -27,6 +32,28 @@ Bucket `crm-meta-creatives` (6.500 ficheiros / ~855 MB). Regra decidida a 20/09/
 Nunca apaga ficheiro de criativo com anúncio `ACTIVE`. Tecto `max_delete` por corrida
 (o resto fica para a seguinte). Erros por ficheiro vão para `errors[]` e a corrida
 continua — sem `EXCEPTION`/catch mudo.
+
+## Regra de 6 meses (23/09/2026)
+`days` passou a 183 (≈6 meses) por omissão para a classe A: só sai ficheiro cuja última
+data do evento tenha mais de 6 meses **e** cujo anúncio não esteja activo.
+
+## Nenhuma outra coluna referencia o ficheiro
+Levantamento no schema: no bucket `crm-meta-creatives` só `crm.meta_creatives` aponta
+caminhos — colunas `storage_bucket`, `storage_path` e `file_url`. Nenhuma outra tabela de
+`crm` nem de `public` guarda caminhos deste bucket (as restantes `storage_path`/`file_url`
+são de buckets financeiros). Logo, "órfão" = caminho que nenhuma linha de
+`crm.meta_creatives` referencia por `storage_path` (nem é `meta_creative_id` de linha
+nenhuma).
+
+## Registo do que foi apagado
+`crm.meta_creatives_retention_log` (migração `20260923…_meta_creatives_retention_log`):
+uma linha por ficheiro removido — `run_id`, `company_id`, `path`, `grupo`
+(`orfao` | `duplicado` | `ligado_evento_mais_6_meses`), `bytes`, `creative_id`,
+`deleted_at`. **Fechada a `anon` e a `authenticated`** (`REVOKE ALL` + RLS com política
+só de `service_role`); não há UI por cima dela. Em `dry_run` não se escreve nada.
+Nenhuma coluna nova em `meta_creatives` foi necessária: a classe A limpa
+`storage_path`/`file_url`/`file_size_bytes` (colunas que já existiam) e mantém os
+metadados.
 
 ## Persistência e cron
 `crm.meta_creatives_retention_runs` — uma linha por corrida (contagens e bytes por
@@ -37,6 +64,11 @@ Cron `meta-creatives-retention`, `10 4 * * 0` (domingo 04:10 UTC), jobid 305,
 **em `dry_run: true`**. Para passar a apagar: editar o `body` do `cron.job` (jobname
 `meta-creatives-retention`) para `'dry_run', false` — via `cron.unschedule` +
 `cron.schedule` directamente em Live (pg_cron não propaga por Publish).
+
+## Corrida de 23/09/2026 (dry-run, days=183)
+6.561 ficheiros; órfãos 908 / 51,5 MB; duplicados 1.798 / 158,8 MB; ligados a evento com
+mais de 6 meses 61 / 15,6 MB; protegidos 3.074 / 465,7 MB (555 com anúncio activo, 2.117
+de campanha sem evento, 402 única cópia a repontar / 116,5 MB); 0 erros; nada apagado.
 
 ## Primeira corrida (20/09/2026, dry-run, days=30)
 6.500 ficheiros; A 146 / 37,4 MB; B órfãos 908 / 51,5 MB; B duplicados 1.798 / 158,8 MB;
