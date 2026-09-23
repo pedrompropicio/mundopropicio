@@ -108,8 +108,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // MULTI-TENANT GUARD: ensure caller belongs to same company as the transaction.
-    // Service-role bypasses RLS, so we MUST check company_id explicitly.
+    // MULTI-TENANT GUARD: ensure caller BELONGS to the transaction's company.
+    // Service-role bypasses RLS, so a guarda explícita continua obrigatória.
+    // (23/09/2026, Issue #241) A guarda comparava com `profiles.company_id` — a
+    // empresa por omissão — para quem não é platform_admin. Numa base onde a
+    // mesma pessoa é membro de várias empresas isso dava 403 a qualquer edição
+    // feita fora da empresa por omissão. Agora:
+    //   - a empresa activa resolve-se como `active_company_id ?? company_id`
+    //     para TODOS (igual a `current_company_id()` na base);
+    //   - a autorização é por PERTENÇA: existe linha em `user_roles` para
+    //     (caller, company da transação), ou o caller é platform_admin.
     {
       const { data: callerProfile } = await adminClient
         .from("profiles")
@@ -117,11 +125,27 @@ Deno.serve(async (req) => {
         .eq("id", caller.id)
         .maybeSingle();
       const { data: isPa } = await adminClient.rpc("is_platform_admin", { _user_id: caller.id });
-      const callerCompanyId = isPa
-        ? (callerProfile?.active_company_id ?? callerProfile?.company_id ?? null)
-        : (callerProfile?.company_id ?? null);
-      const allowCrossTenant = isPa && callerCompanyId == null;
-      if (!allowCrossTenant && transaction.company_id !== callerCompanyId) {
+      const callerCompanyId =
+        callerProfile?.active_company_id ?? callerProfile?.company_id ?? null;
+
+      let belongs = Boolean(isPa);
+      if (!belongs && transaction.company_id) {
+        const { data: membership } = await adminClient
+          .from("user_roles")
+          .select("company_id")
+          .eq("user_id", caller.id)
+          .eq("company_id", transaction.company_id)
+          .limit(1)
+          .maybeSingle();
+        belongs = Boolean(membership);
+      }
+
+      if (!belongs) {
+        console.warn("[update-transaction] cross-tenant denied", {
+          caller: caller.id,
+          caller_company: callerCompanyId,
+          transaction_company: transaction.company_id,
+        });
         return new Response(
           JSON.stringify({ error: "Cross-tenant access denied" }),
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
