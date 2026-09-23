@@ -351,8 +351,10 @@ Deno.serve(async (req) => {
     }
     if (clips.items.length === 0) {
       clipNotes.push(
-        `clips de ${groupId}: 0 sons — chaves de topo: [${clips.topKeys.join(", ")}]` +
-          (clips.arrayPaths.length > 0 ? ` — arrays: [${clips.arrayPaths.join(", ")}]` : ""),
+        (
+          `clips de ${groupId}: 0 sons — chaves de topo: [${clips.topKeys.join(", ")}]` +
+          (clips.arrayPaths.length > 0 ? ` — arrays: [${clips.arrayPaths.join(", ")}]` : "")
+        ).slice(0, 300),
       );
       continue;
     }
