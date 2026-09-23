@@ -1,3 +1,4 @@
+import { writeForecastAmount } from "@/lib/forecast-amount";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useState } from "react";
@@ -168,7 +169,6 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
           .from("event_forecasts")
           .update({
             description,
-            amount: amt,
             category_id: categoryId || null,
             notes: notes || null,
             type,
@@ -178,6 +178,8 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
           })
           .eq("id", editingId);
         if (error) throw error;
+        // #240: amount pelo helper (chão = realizado; observação se reduz linha com realizado)
+        await writeForecastAmount({ forecastId: editingId, newAmount: amt, interactive: true });
       } else {
         const { data, error } = await supabase
           .from("event_forecasts")
