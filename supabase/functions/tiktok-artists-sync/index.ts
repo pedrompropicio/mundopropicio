@@ -337,17 +337,26 @@ Deno.serve(async (req) => {
   // upsert em public.artist_song_tiktok_sounds (discovered_via='panel',
   // status='validated'). Nunca apaga nada.
   // ------------------------------------------------------------------------
-  placeholder-no
+  const clipNotes: string[] = [];
   let clipsUpserted = 0;
+  let clipCalls = 0;
   for (const [groupId, alvo] of mapa) {
     const clips = await fetchClips(cookie, groupId);
     apiCalls++;
+    clipCalls++;
     if (!clips.ok) {
       clipNotes.push(`clips de ${groupId}: ${clips.motivo}`);
       if (clips.motivo === "sessao_invalida") break;
       continue;
     }
-    if (clips.items.length === 0) continue;
+    if (clips.items.length === 0) {
+      clipNotes.push(
+        `clips de ${groupId}: 0 sons — chaves de topo: [${clips.topKeys.join(", ")}]` +
+          (clips.arrayPaths.length > 0 ? ` — arrays: [${clips.arrayPaths.join(", ")}]` : ""),
+      );
+      continue;
+    }
+    clipNotes.push(`clips de ${groupId}: ${clips.items.length} som(ns)`);
     const rows = clips.items.map((c) => ({
       company_id: alvo.company_id,
       artist_id: alvo.artist_id,
@@ -373,7 +382,10 @@ Deno.serve(async (req) => {
       clipsUpserted += rows.length;
     }
   }
-  if (clipsUpserted > 0) clipNotes.push(`${clipsUpserted} som(ns) do painel gravados`);
+  clipNotes.push(
+    `clip_data_list: ${clipCalls} chamada(s)` +
+      (clipsUpserted > 0 ? ` — ${clipsUpserted} som(ns) do painel gravados` : ""),
+  );
 
 
 
