@@ -36,9 +36,11 @@ O painel completo renderiza na sub-aba **Business Plan → Verba por usar**, dep
 queries próprias. Em Master revê só as linhas do próprio evento visto, sem sub-eventos.
 
 Tabela **agrupada por rubrica L3**: cada grupo tem cabeçalho (código · nome) com os
-subtotais Previsto · Pago · A pagar · Saldo e a contagem de linhas; grupos ordenados por
-saldo decrescente. Colunas das linhas: Descrição · Previsto · Pago · A pagar · Saldo ·
-Decisão (a rubrica deixou de se repetir linha a linha — vive no cabeçalho do grupo).
+subtotais Previsto · Pago · A pagar · Saldo e a contagem "N linha(s) (M por rever)".
+Grupos ordenados por **código ascendente**; dentro do grupo, linhas por saldo
+decrescente. Cabeçalhos **colapsáveis, abertos por defeito**, com "Expandir tudo /
+Colapsar tudo" no topo do painel. Colunas das linhas: Descrição · Previsto · Pago ·
+A pagar · Saldo · Decisão (a rubrica vive no cabeçalho do grupo).
 
 Cada linha tem duas expansões independentes: **Ver transações (N)** — transações já
 vinculadas à linha, com data, fornecedor, nº de fatura (`transactions.invoice_ref`, "—"
