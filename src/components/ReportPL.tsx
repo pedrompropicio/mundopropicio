@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
+import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, BarChart3, AlertTriangle, History } from "lucide-react";
@@ -595,12 +596,14 @@ export default function ReportPL() {
     return [...filteredActive, ...(scenarioForecasts as any[])];
   }, [activeForecasts, scenarioForecasts, scenarioVersionId]);
 
+  // Universo canónico de Fecho (ver fecho-filter-parity.md): status approved/paid
+  // + flags bloqueadores fora (is_transitory, exclude_from_result, reversed_at, is_hidden).
   const { data: transactions = [] } = useQuery({
-    queryKey: ["transactions"],
+    queryKey: ["transactions", "pl"],
     queryFn: async () => {
-      const { data, error } = await fetchAllPagedQuery(supabase.from("transactions").select("*").order("date", { ascending: false }));
+      const { data, error } = await fetchAllPagedQuery(supabase.from("transactions").select("*").in("status", ["approved", "paid"]).order("date", { ascending: false }));
       if (error) throw error;
-      return data;
+      return (data ?? []).filter((t: any) => !hasResultBlockingFlags(t));
     },
   });
 
