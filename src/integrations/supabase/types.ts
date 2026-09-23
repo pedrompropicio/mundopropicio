@@ -18686,6 +18686,10 @@ export type Database = {
           total_tiktok_ugc_por_dia: number
         }[]
       }
+      song_growth_summary: {
+        Args: { p_song_id: string; p_to?: string }
+        Returns: Json
+      }
       storage_path_belongs_to_current_company: {
         Args: { _name: string }
         Returns: boolean
