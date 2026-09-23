@@ -5,10 +5,10 @@
 //
 // 1. Auth: usa o JWT do user (Authorization header) para preservar RLS.
 // 2. Decifra o token Meta via RPC SECURITY DEFINER crm_get_meta_decrypted_token.
-// 3. Chama Graph API /me/adaccounts e filtra pelas que pertencem ao BM da connection.
+// 3. Chama Graph API /me/adaccounts (todas as contas, paginado; lista completa para escolher).
 // 4. Persiste o array (shape limpo) em crm.ad_platform_connections.available_ad_accounts.
-// 5. Sincroniza crm.ad_platform_account_links (upsert por (connection_id, ad_account_id))
-//    preservando is_primary/enabled definidos manualmente; garante 1 primary por connection.
+// 5. Sincroniza crm.ad_platform_account_links só com a conta escolhida + contas do
+//    mesmo BM (external_business_id); sem conta escolhida não cria links; a escolhida é a primary.
 // 6. Devolve { ad_accounts, business_id, business_name, links_synced }.
 //
 // Notas:
@@ -186,8 +186,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
   //    para preservar valores definidos manualmente pelo user.
   let linksSynced = 0;
   let linksWarning: string | undefined;
-  if (filtered.length > 0) {
-    const linksToUpsert = filtered.map((a) => ({
+  // #250 (seguimento) — regra: numa ligação de empresa, os links só têm a
+  // conta escolhida e as contas do MESMO BM (external_business_id). Sem conta
+  // escolhida não cria links. Ligações de artista não são tocadas aqui.
+  const { data: connRow } = await supabase
+    .schema("crm")
+    .from("ad_platform_connections")
+    .select("selected_ad_account_id, connection_scope")
+    .eq("id", connectionId)
+    .maybeSingle();
+  const conn = connRow as
+    | { selected_ad_account_id?: string | null; connection_scope?: string | null }
+    | null;
+  const selectedId = conn?.selected_ad_account_id ?? null;
+  const isArtist = conn?.connection_scope === "artist";
+  const selectedAcct = selectedId
+    ? filtered.find((a) => a.id === selectedId || a.account_id === selectedId)
+    : undefined;
+  const eligible = !isArtist && selectedId
+    ? filtered.filter(
+        (a) =>
+          a === selectedAcct ||
+          (businessId != null && a.business_id === businessId),
+      )
+    : [];
+
+  if (eligible.length > 0) {
+    const linksToUpsert = eligible.map((a) => ({
       connection_id: connectionId,
       company_id: companyId,
       ad_account_id: a.id,
@@ -207,8 +232,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     } else {
       linksSynced = linksToUpsert.length;
 
-      // Garantir 1 primary por connection. #250 — se a ligação já tem conta
-      // escolhida, só essa pode ser promovida; nunca uma conta de outro BM.
+      // Garantir 1 primary por connection: só a conta escolhida é promovida.
       const { data: existingPrimary } = await supabase
         .schema("crm")
         .from("ad_platform_account_links")
@@ -217,26 +241,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
         .eq("is_primary", true)
         .maybeSingle();
 
-      if (!existingPrimary) {
-        const { data: connRow } = await supabase
+      if (!existingPrimary && selectedAcct) {
+        await supabase
           .schema("crm")
-          .from("ad_platform_connections")
-          .select("selected_ad_account_id")
-          .eq("id", connectionId)
-          .maybeSingle();
-        const selectedId = (connRow as { selected_ad_account_id?: string | null } | null)
-          ?.selected_ad_account_id ?? null;
-        const candidate = selectedId
-          ? filtered.find((a) => a.id === selectedId || a.account_id === selectedId)
-          : filtered.find((a) => a.business_id === businessId) ?? filtered[0];
-        if (candidate) {
-          await supabase
-            .schema("crm")
-            .from("ad_platform_account_links")
-            .update({ is_primary: true })
-            .eq("connection_id", connectionId)
-            .eq("ad_account_id", candidate.id);
-        }
+          .from("ad_platform_account_links")
+          .update({ is_primary: true })
+          .eq("connection_id", connectionId)
+          .eq("ad_account_id", selectedAcct.id);
       }
     }
   }

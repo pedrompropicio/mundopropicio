@@ -285,6 +285,55 @@ export default function CrmConnections() {
         })
         .eq("id", conn.id);
       if (error) throw error;
+
+      // #250 (seguimento) — links só da conta escolhida + mesmo BM. Não apaga linhas.
+      if ((conn as any).connection_scope !== "artist") {
+        const chosenBm =
+          acct && "business_id" in acct && acct.business_id
+            ? acct.business_id
+            : conn.external_business_id;
+        const { error: upErr } = await (supabase as any)
+          .schema("crm")
+          .from("ad_platform_account_links")
+          .upsert(
+            {
+              connection_id: conn.id,
+              company_id: (conn as any).company_id,
+              ad_account_id: accountId,
+              ad_account_name: acct?.name ?? null,
+              ad_account_currency: acct?.currency ?? null,
+              display_label: acct?.name ?? accountId,
+              is_primary: true,
+              enabled: true,
+            },
+            { onConflict: "connection_id,ad_account_id" },
+          );
+        if (upErr) throw upErr;
+        await (supabase as any)
+          .schema("crm")
+          .from("ad_platform_account_links")
+          .update({ is_primary: false })
+          .eq("connection_id", conn.id)
+          .neq("ad_account_id", accountId);
+        const otherBm = (conn.available_ad_accounts ?? [])
+          .filter(
+            (a: any) =>
+              "business_id" in a &&
+              (a.id ?? a.account_id) !== accountId &&
+              (a.business_id ?? null) !== (chosenBm ?? null),
+          )
+          .map((a: any) => a.id ?? a.account_id);
+        if (otherBm.length > 0) {
+          await (supabase as any)
+            .schema("crm")
+            .from("ad_platform_account_links")
+            .update({ enabled: false })
+            .eq("connection_id", conn.id)
+            .in("ad_account_id", otherBm);
+        }
+        qc.invalidateQueries({ queryKey: ["ad-account-links"] });
+      }
+
       toast.success("Conta de anúncios selecionada");
       qc.invalidateQueries({ queryKey: ["crm-connections"] });
     } catch (e: any) {
