@@ -1,6 +1,6 @@
 ---
 name: Verba por usar — revisão de fecho LINHA A LINHA
-description: Painel do Fecho que lista cada linha de BP com saldo (previsto · pago · a pagar · saldo) e exige uma decisão por linha; candidatas a vínculo, reduce_forecast_budget, event_bp_line_reviews e soft.bp_lines_unreviewed
+description: Aba “Verba por usar” no Business Plan lista cada linha de BP com saldo e exige decisão; Fecho mostra só resumo/atalho; usa reduce_forecast_budget, event_bp_line_reviews e soft.bp_lines_unreviewed
 type: feature
 ---
 
@@ -29,9 +29,11 @@ Testes: `src/lib/__tests__/bp-line-review.test.ts` (12 casos).
 
 ## Painel — `src/components/fecho/BpUnusedBudgetPanel.tsx`
 
-No mesmo lugar do `EventFecho` (depois da Síntese Operacional) e **não renderiza** em
-`event_budget_mode = 'without_bp'`. Props: `{ eventId, basis }` — faz as suas queries
-(linhas, transações do evento com todos os estados, decisões, autores).
+O painel completo renderiza na sub-aba **Business Plan → Verba por usar**, depois de
+**Previsão vs Real** e antes de **Evolução**. **Não renderiza** em
+`event_budget_mode = 'without_bp'`. No BP recebe as linhas/transações já carregadas
+(`forecasts`, `transactions`) para não duplicar queries; fora do BP mantém fallback por
+queries próprias. Em Master revê só as linhas do próprio evento visto, sem sub-eventos.
 
 Tabela: Rubrica · Descrição · Previsto · Pago · A pagar · Saldo · Decisão.
 Texto fixo mantido: *"Lista de revisão, não de erro. Faturas de um evento podem chegar
@@ -49,9 +51,11 @@ A terceira abre diálogo (novo valor, default = realizado; observação obrigat�
 
 **Rodapé, na vista de IVA actual:** Obrigação futura da MP (Σ saldo `pending_invoice`) ·
 Financiamento de sócios a devolver (Σ saldo `partner_paid`) · Por rever (Σ saldo sem
-decisão válida).
+decisão válida). A aba do BP tem seletor próprio c/IVA↔s/IVA; por defeito abre s/IVA.
 
-O reconhecimento global antigo (`event_bp_review_acks`) **deixou de aparecer**; a tabela
+No Fecho (`EventFecho`) fica apenas um cartão-resumo com os três totais, contagem de
+linhas por rever e botão **Rever no BP** que abre `tab=forecast&bpTab=unused`. O
+reconhecimento global antigo (`event_bp_review_acks`) **deixou de aparecer**; a tabela
 e os registos ficam.
 
 ## Base de dados
