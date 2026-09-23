@@ -22,6 +22,10 @@ Antes disto a exclusão era feita documento a documento (`transaction_documents.
 - **UI de transação** (`src/components/TransactionEditModal.tsx`): badge **"Conta não contábil"**
   com tooltip, quando a conta da transação tem `is_accounting = false`. É **herdado e apenas
   informativo** — não existe nem deve existir campo próprio na transação.
+- **Aba Documentos de /contabilidade** (`src/pages/contabilidade/AccountantDocumentsTab.tsx`):
+  desde 23/09/2026 (#235) aplica a MESMA exclusão do ZIP — o dropdown "Conta" só lista contas
+  contábeis e a listagem exclui transações de contas gerenciais (helper puro
+  `src/lib/accountant-account-filter.ts`; transações sem conta continuam a entrar).
 - **Edge function `generate-accountant-zip`**: apura as contas com `is_accounting = false` da
   empresa e exclui (a) as transações dessa conta na query principal
   (`account_id.is.null,account_id.not.in.(…)` — transações sem conta continuam a entrar) e

@@ -19,6 +19,7 @@ import { fetchReviewsForTransactions, saveAccountantReview, reopenAccountantRevi
 import { useAuth } from "@/contexts/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, AlertTriangle, MessageSquare, Lock, RotateCcw } from "lucide-react";
+import { nonAccountingOrFilter, normalizeAccountFilter } from "@/lib/accountant-account-filter";
 
 interface Tx {
   id: string;
@@ -35,6 +36,11 @@ interface Tx {
   supplier_nif: string | null;
   doc_count: number;
 }
+
+const resourceTypeForBucket = (bucket: string) =>
+  bucket === "camarim-documents" ? "camarim_document"
+  : bucket === "card-documents" ? "card_document"
+  : "transaction_document";
 
 const fmtEUR = (n: number) =>
   new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n ?? 0);
@@ -54,10 +60,25 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["accountant-documents", companyId, period.from, period.to, typeFilter, accountFilter],
+  // Contas gerenciais (is_accounting = false): excluídas como no ZIP (#235).
+  const { data: nonAccountingIds } = useQuery({
+    queryKey: ["accountant-non-accounting-accounts", companyId],
     enabled: !!companyId,
+    queryFn: async (): Promise<string[]> => {
+      const { data } = await (supabase as any)
+        .from("financial_accounts")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("is_accounting", false);
+      return (data ?? []).map((a: any) => a.id as string);
+    },
+  });
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["accountant-documents", companyId, period.from, period.to, typeFilter, accountFilter, (nonAccountingIds ?? []).join(",")],
+    enabled: !!companyId && !!nonAccountingIds,
     queryFn: async () => {
+      const managerial = nonAccountingIds ?? [];
       let q = (supabase as any)
         .from("transactions")
         .select("id, type, payment_date, description, amount, invoice_ref, supplier_id, account_id, status, paid_amount, suppliers:supplier_id(name, nif)")
@@ -68,7 +89,10 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
         .order("payment_date", { ascending: false })
         .limit(2000);
       if (typeFilter !== "all") q = q.eq("type", typeFilter);
-      if (accountFilter !== "all") q = q.eq("account_id", accountFilter);
+      const effectiveAccount = normalizeAccountFilter(accountFilter, managerial);
+      if (effectiveAccount !== "all") q = q.eq("account_id", effectiveAccount);
+      const orFilter = nonAccountingOrFilter(managerial);
+      if (orFilter) q = q.or(orFilter);
 
       const { data: rows, error } = await q;
       if (error) throw error;
@@ -89,10 +113,11 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("financial_accounts")
-        .select("id, name")
+        .select("id, name, is_accounting")
         .eq("company_id", companyId)
         .order("name");
-      return (data ?? []) as { id: string; name: string }[];
+      return ((data ?? []) as { id: string; name: string; is_accounting: boolean | null }[])
+        .filter((a) => a.is_accounting !== false);
     },
   });
 
@@ -207,7 +232,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
           .createSignedUrl(d.path, 60 * 60, { download: true });
         if (error || !signed) continue;
         await supabase.rpc("record_document_download" as any, {
-          p_resource_type: d.bucket === "camarim-documents" ? "camarim_document" : "transaction_document",
+          p_resource_type: resourceTypeForBucket(d.bucket),
           p_resource_id: d.source_tx_id,
           p_bucket: d.bucket,
           p_file_path: d.path,
@@ -389,7 +414,7 @@ function AttachmentsPopover({ txId, count }: { txId: string; count: number }) {
         .createSignedUrl(d.path, 60 * 60);
       if (error || !signed) throw error ?? new Error("signed url falhou");
       await supabase.rpc("record_document_download" as any, {
-        p_resource_type: d.bucket === "camarim-documents" ? "camarim_document" : "transaction_document",
+        p_resource_type: resourceTypeForBucket(d.bucket),
         p_resource_id: d.source_tx_id,
         p_bucket: d.bucket,
         p_file_path: d.path,
