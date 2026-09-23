@@ -4312,4 +4312,15 @@ Decisões do Pedro (23/09/2026):
 
 `artist-youtube-oauth-start` (verify_jwt=true; admin/platform_admin/manager/marketing_manager) e `artist-youtube-oauth-callback` (verify_jwt=false). Redirect URI exacto `https://<ref>.supabase.co/functions/v1/artist-youtube-oauth-callback`; secrets `GOOGLE_YT_OAUTH_CLIENT_ID` / `GOOGLE_YT_OAUTH_CLIENT_SECRET`; scopes `youtube.readonly` + `yt-analytics.readonly`, `access_type=offline`, `prompt=consent`. State em `crm.oauth_states` (platform 'google', consumido/apagado por `crm.consume_oauth_state`). Sem `refresh_token` → erro. Posse: `channels?mine=true` tem de incluir `artist_channels.external_id`; senão não grava nada. Grava por `artist_upsert_channel_connection` (provider 'google', tokens cifrados com `ENCRYPTION_MASTER_KEY`) e `artist_channels.auth_status='authorized'`. Nenhum leitor existente de `artist_channel_connections` apanha provider 'google' (refresh: instagram/tiktok; syncs: instagram/meta e tiktok; disconnect só revoga tiktok — num canal google apaga a ligação local sem revogar no Google).
 
-Cadeia de token S4A (parte C): **não aplicada** — a migração falhou no BLOCO 3 (`WITH clause containing a data-modifying statement must be at the top level`); nada ficou gravado. Sem entrada D-ERP até haver SQL corrigido aprovado.
+Cadeia de token S4A (parte C): a 1.ª tentativa falhou no BLOCO 3 (UPDATE dentro de subconsulta) sem gravar nada; reenviada em plpgsql e aplicada a 23/09 — ver D-ERP135.
+
+## D-ERP135 — Spotify for Artists: cadeia de token no servidor (23/09/2026)
+
+Migração `20260923224609`: provider `spotify` no CHECK de `artist_channel_connections`; colunas `oauth_client_id`, `refresh_lock_until`; `artist_channel_refresh_lease(uuid,int)` (trinco 10–300 s) e `artist_channel_store_rotated_tokens(...)` (grava o par novo cifrado com `ENCRYPTION_MASTER_KEY`, limpa trinco, status active; P0002 se não existir) — ambas SECURITY DEFINER, só service_role.
+
+- O S4A é cliente OAuth PKCE público: refresh por `POST accounts.spotify.com/api/token` (grant_type=refresh_token, client_id, refresh_token), sem cookie nem login. O refresh_token RODA (o antigo dá invalid_grant) — por isso: trinco antes da troca e gravação imediata do par novo.
+- `_shared/s4a.ts` (`getS4aAccessToken`): módulo interno, NÃO é endpoint — o Bearer nunca sai por HTTP. Cache se expira > 5 min; sem trinco espera 2 s ×3 e depois `s4a_rotacao_ocupada`; invalid_grant → expired + precisa de semente; 200 sem gravação → expired "rotação feita mas não gravada"; outros HTTP → falha contada, status intacto.
+- `s4a-token-seed` (verify_jwt=true): só utilizador admin/platform_admin validado em user_roles contra `artists.company_id` (D-ERP128). Troca logo o refresh recebido (toma posse da cadeia) e grava; resposta sem tokens.
+- `s4a-probe` (verify_jwt=true; service_role ou admin da empresa do artista): um GET a `s4x-insights-api/v1/meta/latest-date`; não grava dados de negócio.
+- Regras duras: nunca login/authorize; nunca tokens, client_id completo ou cookies em logs/sync_runs/respostas.
+- Por fazer: sync diário.
