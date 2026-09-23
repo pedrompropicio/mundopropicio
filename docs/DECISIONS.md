@@ -4273,3 +4273,17 @@ pertença validada por papel em `user_roles` na empresa do artista
 directamente — usa as RPCs `artist_ads_*`.
 
 **Estado:** vigente.
+
+## D-ERP131 — Revisão de fecho por linha: o previsto que resta ou é obrigação, ou é financiamento de sócio, ou é ajustado (23/09/2026)
+
+**Contexto:** o custo do fecho é *BP aprovado + excedido*. Cada linha de BP com saldo conta como custo no acerto com os sócios; se a fatura nunca vier, o evento fecha com custo a mais e os sócios recebem a menos. Medido na Ivete a 23/09: **42 linhas, 258.136,40 € s/IVA**. O painel "Verba por usar" era por rubrica, com um único reconhecimento para o evento inteiro e nenhuma acção.
+
+**Decisão:** o painel passa a ser **por linha de BP** (`forecast_id`, nunca por rubrica), com Previsto · Pago · A pagar · Saldo e **uma decisão obrigatória por linha** antes do selo:
+1. **Custo real — fatura por chegar** → mantém; soma em *Obrigação futura da MP*.
+2. **Pago por sócio** → mantém; soma em *Financiamento de sócios a devolver*.
+3. **Ajustar previsto** → `reduce_forecast_budget` baixa o previsto (≥ realizado), observação obrigatória, `baseline_amount` intacto, registo em `forecast_audit_log`.
+
+Antes de decidir, **vincular**: as transações da mesma rubrica sem linha de BP aparecem como candidatas (parcelas vinculam-se em grupo, D-ERP77). Cada decisão grava o saldo do momento; se o saldo mudar, a linha volta a "por rever". `event_close_blockers` ganha `soft.bp_lines_unreviewed` — aviso, não bloqueio.
+
+**Estado:** vigente. Tabela `event_bp_line_reviews` (append-only), helper `computeBpLineReview` no pacote partilhado, painel `BpUnusedBudgetPanel`.
+

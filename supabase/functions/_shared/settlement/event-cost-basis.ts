@@ -16,7 +16,7 @@
  */
 
 import { calcTotalWithIva } from "./iva.ts";
-import { isValidFechoTransaction } from "./fecho-filters.ts";
+import { hasResultBlockingFlags, isValidFechoTransaction } from "./fecho-filters.ts";
 
 /** Tolerância do "ultrapassou o previsto" (meio cêntimo). */
 export const EXCESS_EPSILON = 0.005;
@@ -265,4 +265,117 @@ export function computeEventCostOnBasis(args: EventCostOnBasisArgs): EventCostOn
 export function computeMasterQuota(masterCost: number, n: number): number {
   const divisor = Math.max(1, Math.trunc(Number(n) || 0));
   return Number(masterCost || 0) / divisor;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * REVISÃO DE FECHO POR LINHA DE BP (issue #239 / D-ERP131)
+ *
+ * Espelho de `computeUnusedBudget`, mas POR LINHA (`event_forecasts.id`) e não
+ * por rubrica, porque é a linha que a trava de aprovação mede e é a linha que
+ * se ajusta. Mede-se pelo `forecast_id` da transação — nunca por rubrica.
+ *
+ * Pago / A pagar: o realizado da linha parte-se em duas metades pela fracção
+ * liquidada de cada transação (`paid_amount` sobre o bruto c/IVA). `status='paid'`
+ * sem `paid_amount` conta como 100 % liquidado.
+ * Transações `pending` NÃO entram no realizado — aparecem como aviso.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/** Estados de transação que já são realidade para a revisão de fecho. */
+const REVIEW_REALIZED_STATUSES = new Set(["approved", "paid", "partially_paid"]);
+
+export interface BpLineReviewTx extends AmountLine {
+  forecast_id?: string | null;
+  status?: string | null;
+  paid_amount?: number | string | null;
+  is_transitory?: boolean | null;
+  exclude_from_result?: boolean | null;
+  reversed_at?: string | null;
+  is_hidden?: boolean | null;
+  type?: string | null;
+}
+
+export interface BpLineReviewForecast extends AmountLine {
+  id: string;
+  description?: string | null;
+  status?: string | null;
+  type?: string | null;
+  is_overhead?: boolean | null;
+  is_transitory?: boolean | null;
+  exclude_from_result?: boolean | null;
+  version_id?: string | null;
+}
+
+export interface BpLineReviewRow {
+  forecastId: string;
+  categoryId: string | null;
+  description: string | null;
+  previsto: number;
+  pago: number;
+  aPagar: number;
+  saldo: number;
+  pendingCount: number;
+  pendingAmount: number;
+}
+
+/** Fracção já liquidada de uma transação (0..1), pelo bruto c/IVA. */
+export function paidFraction(t: BpLineReviewTx): number {
+  const gross = calcTotalWithIva(Number(t.amount || 0), Number(t.iva_rate || 0));
+  const paid = t.paid_amount == null ? null : Number(t.paid_amount);
+  if (t.status === "paid" && paid == null) return 1;
+  if (!gross) return 0;
+  const f = Math.min(paid ?? 0, gross) / gross;
+  return f < 0 ? 0 : f > 1 ? 1 : f;
+}
+
+export function computeBpLineReview(args: {
+  forecasts: BpLineReviewForecast[];
+  transactions: BpLineReviewTx[];
+  withVat: boolean;
+}): BpLineReviewRow[] {
+  const { forecasts, transactions, withVat } = args;
+
+  const lines = (forecasts ?? []).filter(
+    (f) => (f.type ?? "expense") === "expense" && isApprovedOperationalForecast(f),
+  );
+  const byId = new Map<string, BpLineReviewRow>();
+  for (const f of lines) {
+    byId.set(f.id, {
+      forecastId: f.id,
+      categoryId: f.category_id ?? null,
+      description: f.description ?? null,
+      previsto: lineValue(f.amount, f.iva_rate, withVat),
+      pago: 0,
+      aPagar: 0,
+      saldo: 0,
+      pendingCount: 0,
+      pendingAmount: 0,
+    });
+  }
+
+  for (const t of transactions ?? []) {
+    if ((t.type ?? "expense") !== "expense") continue;
+    if (!t.forecast_id) continue;
+    const row = byId.get(t.forecast_id);
+    if (!row) continue;
+    if (hasResultBlockingFlags(t)) continue;
+
+    const value = lineValue(t.amount, t.iva_rate, withVat);
+    if (t.status === "pending") {
+      row.pendingCount += 1;
+      row.pendingAmount += value;
+      continue;
+    }
+    if (!REVIEW_REALIZED_STATUSES.has(String(t.status ?? ""))) continue;
+
+    const pago = value * paidFraction(t);
+    row.pago += pago;
+    row.aPagar += value - pago;
+  }
+
+  const out: BpLineReviewRow[] = [];
+  for (const row of byId.values()) {
+    row.saldo = row.previsto - (row.pago + row.aPagar);
+    if (row.saldo > EXCESS_EPSILON) out.push(row);
+  }
+  return out.sort((a, b) => b.saldo - a.saldo);
 }

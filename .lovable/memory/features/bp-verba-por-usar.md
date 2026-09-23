@@ -1,53 +1,86 @@
 ---
-name: Verba por usar (Fecho do Evento)
-description: Painel de revisão no Fecho que lista, por rubrica, a verba de BP não consumida; espelho de computeOutsideBpExcess; reconhecimento append-only em event_bp_review_acks
+name: Verba por usar — revisão de fecho LINHA A LINHA
+description: Painel do Fecho que lista cada linha de BP com saldo (previsto · pago · a pagar · saldo) e exige uma decisão por linha; candidatas a vínculo, reduce_forecast_budget, event_bp_line_reviews e soft.bp_lines_unreviewed
 type: feature
 ---
 
-# Verba por usar — painel de revisão no Fecho do Evento
+# Verba por usar — revisão de fecho por linha de BP (#239, D-ERP131)
 
-Espelho do "excesso por rubrica" (D2 / `event-cost-basis.md`), do outro lado do sinal.
+Espelho do "excesso por rubrica" (`event-cost-basis.md`), do outro lado do sinal, mas
+**por linha de BP** — é a linha que a trava de aprovação mede e é a linha que se ajusta.
 
-## Cálculo — `src/lib/event-cost-basis.ts`
+## Cálculo — `supabase/functions/_shared/settlement/event-cost-basis.ts`
 
-- `computeUnusedBudget(forecasts, transactions, withVat)` → `UnusedBudgetEntry[]`
-  (`key`, `forecast`, `realized`, `unused`), só onde `previsto − realizado > EXCESS_EPSILON`,
-  ordenado por `unused` decrescente.
-- O agrupamento por `category_id` foi extraído para o helper interno `groupByCategory`,
-  partilhado com `computeOutsideBpExcess` (assinatura e resultado desta ficaram intactos).
-- IVA sempre linha a linha (Art.º 18 CIVA).
+`computeBpLineReview({ forecasts, transactions, withVat })` → `BpLineReviewRow[]`
+(`forecastId`, `categoryId`, `description`, `previsto`, `pago`, `aPagar`, `saldo`,
+`pendingCount`, `pendingAmount`), ordenado por `saldo` decrescente.
+
+- Linhas: `event_forecasts` do evento, `type='expense'`, `status='approved'`,
+  `version_id IS NULL`, operacionais (`isApprovedOperationalForecast`).
+- Realizado: transações do evento com **`forecast_id` = linha** (nunca por rubrica),
+  `type='expense'`, status ∈ {approved, paid, partially_paid}, sem `hasResultBlockingFlags`.
+- `paidFraction(t)` = `min(paid_amount, bruto)/bruto`; `status='paid'` sem `paid_amount` = 1.
+  **Pago** = valor × fracção · **A pagar** = valor − pago. IVA linha a linha (Art.º 18 CIVA).
+- **Saldo** = previsto − (pago + a pagar). Só entram linhas com saldo > `EXCESS_EPSILON` (0,005).
+- `pending` não entra no realizado — aparece como badge "N por aprovar".
+
+Testes: `src/lib/__tests__/bp-line-review.test.ts` (12 casos).
+`computeUnusedBudget` (por rubrica) mantém-se para outros consumidores.
 
 ## Painel — `src/components/fecho/BpUnusedBudgetPanel.tsx`
 
-Renderizado em `EventFecho` logo depois da "Síntese Operacional (sem overhead)".
-O painel **não renderiza** quando `event_budget_mode(event_id) = 'without_bp'` (nem enquanto
-essa RPC está a carregar) — eventos sem BP não têm verba por usar.
-Recebe por props `operationalForecasts`, `expenseTx` e `basis` — **não faz queries para
-o cálculo**. As únicas queries são: rubricas em falta (`account_categories`, só os
-`category_id` que não vêm nas transações), o último reconhecimento e o nome de quem o fez.
+No mesmo lugar do `EventFecho` (depois da Síntese Operacional) e **não renderiza** em
+`event_budget_mode = 'without_bp'`. Props: `{ eventId, basis }` — faz as suas queries
+(linhas, transações do evento com todos os estados, decisões, autores).
 
-A badge do cabeçalho mostra SÓ o critério de IVA (`Despesas c/IVA` | `s/IVA`) — o painel
-compara sempre previsto contra realizado, não segue `basis.expenseSource` nem o overhead.
-
-Texto fixo, literal: *"Lista de revisão, não de erro. Faturas de um evento podem chegar
+Tabela: Rubrica · Descrição · Previsto · Pago · A pagar · Saldo · Decisão.
+Texto fixo mantido: *"Lista de revisão, não de erro. Faturas de um evento podem chegar
 depois de ele acontecer — o valor que deve ficar em cada linha é decisão de gestão."*
 
-Rubrica sem realizado leva badge "sem transações". Sem linhas → "Nenhuma rubrica com
-verba por usar."
+**Candidatas a vínculo** (expansível por linha): transações do mesmo evento e mesma
+rubrica com `forecast_id` nulo e sem flags bloqueadores, com data, fornecedor, valor e
+estado. "Vincular a esta linha" faz `UPDATE forecast_id`; com `installment_group_id`
+vincula o grupo inteiro de parcelas (D-ERP77). Sem este passo a revisão mente (#111).
 
-## Reconhecimento — `public.event_bp_review_acks`
+**Decisão** (só com `manage_bp`): *Custo real — fatura por chegar* · *Pago por sócio* ·
+*Ajustar previsto*. As duas primeiras gravam em `event_bp_line_reviews` com nota opcional.
+A terceira abre diálogo (novo valor, default = realizado; observação obrigatória), chama
+`reduce_forecast_budget` e grava a decisão `adjusted`.
 
-Append-only (`SELECT` + `INSERT` apenas). Colunas: `event_id`, `company_id`,
-`acknowledged_by` (default `auth.uid()`), `acknowledged_at`, `unused_net`, `lines_count`,
-`note`. Índice `(event_id, acknowledged_at desc)`.
+**Rodapé, na vista de IVA actual:** Obrigação futura da MP (Σ saldo `pending_invoice`) ·
+Financiamento de sócios a devolver (Σ saldo `partner_paid`) · Por rever (Σ saldo sem
+decisão válida).
 
-RLS pelo padrão do módulo (igual a `event_forecast_formalidade_log`):
-PERMISSIVE `SELECT` a autenticados + RESTRICTIVE `company_isolation` por
-`current_company_id()`; `INSERT` exige `has_permission_in(auth.uid(),'manage_bp', company_id)`.
+O reconhecimento global antigo (`event_bp_review_acks`) **deixou de aparecer**; a tabela
+e os registos ficam.
 
-`unused_net` é gravado **sempre s/IVA**, independente do seletor da vista; `lines_count`
-é o número de rubricas listadas. Rodapé: sem registo → só o botão; registo a bater
-(±0,01 € e mesmo `lines_count`) → "Revisto por … em …"; a não bater → badge
-"Revisão desactualizada" + botão. Botão só com `manage_bp` (mesmo mecanismo do `canEditBP`).
+## Base de dados
 
-Não toca em `event_close_blockers`, no cálculo do resultado nem no acerto com sócios.
+`public.event_bp_line_reviews` — append-only (SELECT + INSERT): `event_id`, `forecast_id`,
+`company_id`, `decision` ∈ {`pending_invoice`,`partner_paid`,`adjusted`}, `saldo_at_review`
+(**sempre s/IVA**), `note`, `reviewed_by` (default `auth.uid()`), `reviewed_at`.
+Índice `(forecast_id, reviewed_at desc)`. RLS pelo padrão de `event_bp_review_acks`:
+SELECT a staff + RESTRICTIVE `company_isolation`; INSERT exige
+`has_permission_in(auth.uid(),'manage_bp', company_id)`.
+
+**Decisão válida** = a mais recente da linha **e** `saldo_at_review` igual (±0,01) ao saldo
+actual s/IVA. Se não bater, a linha volta a "por rever" (badge "Revisão desactualizada").
+
+`public.reduce_forecast_budget(_forecast_id, _new_amount, _observation)` — espelho de
+`raise_forecast_budget`: SECURITY DEFINER, `manage_bp` ou platform admin (service_role
+aceite), observação obrigatória, `_new_amount` < amount actual e ≥ realizado s/IVA,
+**nunca toca em `baseline_amount`**, grava em `forecast_audit_log` com
+`field_name='Valor (EUR)'` e observação prefixada `[ajuste de fecho] `.
+
+`event_close_blockers` ganhou `soft.bp_lines_unreviewed = { count, saldo_net }` (linhas com
+saldo e sem decisão válida, só em `with_bp`). **Não bloqueia** e não mexe nos `hard`.
+A revisão faz-se **antes do selo** (PROC passo 10), porque o ajuste muda o resultado dos sócios.
+
+## Medição em Live — Ivete Clareou 2026, 23/09/2026 (s/IVA)
+42 linhas com saldo · **258.136,40 €** de saldo · pago 64.940,32 € · a pagar 36.249,99 €.
+Zero linhas com candidatas a vínculo (o evento tem 9 transações sem linha, 19.915,17 €,
+todas em rubricas sem saldo). `soft.bp_lines_unreviewed = { count: 42, saldo_net: 258136.40 }`.
+
+## Fora de âmbito
+Master de turnê revê-se no seu próprio Fecho. O acerto com sócios não muda de fórmula —
+só passa a ler o previsto já revisto.
