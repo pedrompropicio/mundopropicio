@@ -93,17 +93,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    // MULTI-TENANT GUARD: every transaction must belong to caller's company.
+    // MULTI-TENANT GUARD: every transaction must belong to a company where the
+    // caller HAS a membership (Issue #241 — `profiles.company_id` é só a empresa
+    // por omissão e não serve de autorização em multi-membership).
     {
-      const { data: callerProfile } = await adminClient
-        .from("profiles").select("company_id, active_company_id").eq("id", callerId).maybeSingle();
       const { data: isPa } = await adminClient.rpc("is_platform_admin", { _user_id: callerId });
-      const callerCompanyId = isPa
-        ? (callerProfile?.active_company_id ?? callerProfile?.company_id ?? null)
-        : (callerProfile?.company_id ?? null);
-      const allowCrossTenant = isPa && callerCompanyId == null;
-      if (!allowCrossTenant) {
-        const foreign = (transactions ?? []).filter((t: any) => t.company_id !== callerCompanyId);
+      if (!isPa) {
+        const { data: memberships } = await adminClient
+          .from("user_roles").select("company_id").eq("user_id", callerId);
+        const memberCompanyIds = new Set(
+          (memberships ?? []).map((r: any) => r.company_id).filter(Boolean),
+        );
+        const foreign = (transactions ?? []).filter(
+          (t: any) => !t.company_id || !memberCompanyIds.has(t.company_id),
+        );
         if (foreign.length > 0) {
           return new Response(
             JSON.stringify({ error: "Cross-tenant access denied", offending_ids: foreign.map((t: any) => t.id) }),
