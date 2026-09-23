@@ -18609,6 +18609,10 @@ export type Database = {
         Returns: string
       }
       set_coala_match_source: { Args: { source: string }; Returns: undefined }
+      set_forecast_amount_with_observation: {
+        Args: { _amount: number; _forecast_id: string; _observation: string }
+        Returns: undefined
+      }
       set_formalidade_auto_suggested: {
         Args: { _value: boolean }
         Returns: undefined
