@@ -581,7 +581,7 @@ const descRef = useRef<HTMLInputElement>(null);
       // Fetch transactions for the event and child events
       const { data: directTx, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
-        .select("*, account_categories(code, name, type), suppliers(name)")
+        .select("*, account_categories(code, name, type), suppliers:suppliers!transactions_supplier_id_fkey(name)")
         .in("event_id", allRelevantEventIds));
       if (error) throw error;
 
@@ -615,7 +615,7 @@ const descRef = useRef<HTMLInputElement>(null);
       const uniqueParentIds = [...new Set(childTxIds)];
       const { data: parentTx, error: parentError } = await fetchAllPagedQuery(supabase
         .from("transactions")
-        .select("*, account_categories(code, name, type), suppliers(name)")
+        .select("*, account_categories(code, name, type), suppliers:suppliers!transactions_supplier_id_fkey(name)")
         .in("id", uniqueParentIds)
         .is("event_id", null));
       if (parentError) throw parentError;
