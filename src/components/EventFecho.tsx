@@ -546,13 +546,9 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
         </div>
       </div>
 
-      {/* Verba de BP por usar — só leitura + registo do reconhecimento */}
-      <BpUnusedBudgetPanel
-        eventId={eventId}
-        operationalForecasts={operationalForecasts as any[]}
-        expenseTx={expenseTx as any[]}
-        basis={basis}
-      />
+      {/* Verba de BP por usar — revisão linha a linha (#239) */}
+      <BpUnusedBudgetPanel eventId={eventId} basis={basis} />
+
 
 
 
