@@ -541,11 +541,18 @@ export default function SalesBIEvent() {
             </Card>
           )}
         </>
-      ) : (
-        <Card className="p-8 text-center text-sm text-muted-foreground">
-          Sem dados de zonas nem de sessões para este evento.
-        </Card>
+          ) : (
+            <Card className="p-8 text-center text-sm text-muted-foreground">
+              Sem dados de zonas nem de sessões para este evento.
+            </Card>
+          )}
+          </TabsContent>
+          <TabsContent value="lotes">
+            <ZoneLotsPrices eventId={eventId} withIva={withIva} ivaRate={rateOf(eventId)} />
+          </TabsContent>
+        </Tabs>
       )}
+
     </div>
   );
 }
