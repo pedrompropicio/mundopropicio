@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -445,8 +445,8 @@ export function BpUnusedBudgetPanel(props: Props) {
               const cands = candidatesFor(r);
               const isOpen = expanded === r.forecastId;
               return (
-                <>
-                  <TableRow key={r.forecastId}>
+                <Fragment key={r.forecastId}>
+                  <TableRow>
                     <TableCell className="text-sm align-top">{catLabel(r.forecastId)}</TableCell>
                     <TableCell className="text-sm align-top">
                       <div className="flex flex-col gap-1">
@@ -545,7 +545,7 @@ export function BpUnusedBudgetPanel(props: Props) {
                       </TableCell>
                     </TableRow>
                   )}
-                </>
+                </Fragment>
               );
             })}
           </TableBody>

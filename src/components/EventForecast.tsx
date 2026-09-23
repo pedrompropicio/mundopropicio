@@ -437,7 +437,7 @@ const descRef = useRef<HTMLInputElement>(null);
     queryFn: async () => {
       let query = supabase
         .from("event_forecasts")
-        .select("*, account_categories(code, name, type)")
+        .select("*, account_categories(code, name, type), suppliers(name)")
         .in("event_id", forecastEventIds);
       if (selectedVersionId) {
         query = query.eq("version_id", selectedVersionId);
@@ -465,7 +465,7 @@ const descRef = useRef<HTMLInputElement>(null);
       const n = (siblings ?? []).length || 1;
       const { data: oh, error: ohErr } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("*, account_categories(code, name, type)")
+        .select("*, account_categories(code, name, type), suppliers(name)")
         .eq("event_id", parentEventId)
         .eq("is_overhead", true).is("version_id", null));
       if (ohErr) throw ohErr;
@@ -581,7 +581,7 @@ const descRef = useRef<HTMLInputElement>(null);
       // Fetch transactions for the event and child events
       const { data: directTx, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
-        .select("*, account_categories(code, name, type)")
+        .select("*, account_categories(code, name, type), suppliers(name)")
         .in("event_id", allRelevantEventIds));
       if (error) throw error;
 
@@ -592,7 +592,7 @@ const descRef = useRef<HTMLInputElement>(null);
       if (parentEventId) {
         const { data: masterTx, error: masterError } = await fetchAllPagedQuery(supabase
           .from("transactions")
-          .select("*, account_categories(code, name, type)")
+          .select("*, account_categories(code, name, type), suppliers(name)")
           .eq("event_id", parentEventId));
         if (masterError) throw masterError;
 
@@ -615,7 +615,7 @@ const descRef = useRef<HTMLInputElement>(null);
       const uniqueParentIds = [...new Set(childTxIds)];
       const { data: parentTx, error: parentError } = await fetchAllPagedQuery(supabase
         .from("transactions")
-        .select("*, account_categories(code, name, type)")
+        .select("*, account_categories(code, name, type), suppliers(name)")
         .in("id", uniqueParentIds)
         .is("event_id", null));
       if (parentError) throw parentError;
@@ -748,7 +748,7 @@ const descRef = useRef<HTMLInputElement>(null);
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("*, account_categories(code, name, type)")
+        .select("*, account_categories(code, name, type), suppliers(name)")
         .eq("event_id", parentEventId!)
         .eq("type", "expense")
         .eq("is_overhead", false)
