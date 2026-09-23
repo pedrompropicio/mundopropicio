@@ -19,7 +19,7 @@ import {
 
 const FUNCTION_NAME = "soundcharts-audience-probe";
 const MAX_ARTISTS = 12;
-const VALID_SECTIONS = new Set(["report", "located", "spotify_cities"]);
+const VALID_SECTIONS = new Set(["report", "located", "spotify_cities", "identifiers"]);
 
 function errPayload(e: unknown): { status: number | null; detail: string } {
   if (e instanceof SoundchartsHttpError) return { status: e.status, detail: e.detail };
@@ -59,6 +59,12 @@ Deno.serve(async (req) => {
       .map((p: unknown) => String(p).trim().toLowerCase())
       .filter(Boolean);
 
+    let searchLimit = 3;
+    const rawLimit = Number(payload?.search_limit);
+    if (Number.isInteger(rawLimit) && rawLimit >= 1 && rawLimit <= 20) {
+      searchLimit = rawLimit;
+    }
+
     const client = await ScClient.create();
     const results: any[] = [];
 
@@ -75,10 +81,10 @@ Deno.serve(async (req) => {
       if (!uuid && inputName) {
         try {
           const body = await client.get(
-            `/api/v2/artist/search/${encodeURIComponent(inputName)}?offset=0&limit=3`,
+            `/api/v2/artist/search/${encodeURIComponent(inputName)}?offset=0&limit=${searchLimit}`,
           );
           const items = Array.isArray(body?.items) ? body.items : [];
-          candidates = items.slice(0, 3).map((r: any) => ({
+          candidates = items.slice(0, searchLimit).map((r: any) => ({
             uuid: r?.uuid ?? null,
             name: r?.name ?? null,
             countryCode: r?.countryCode ?? r?.country?.code ?? null,
@@ -121,6 +127,16 @@ Deno.serve(async (req) => {
           } catch (e) {
             out.located[platform] = { error: errPayload(e) };
           }
+        }
+      }
+
+      if (sections.includes("identifiers")) {
+        try {
+          out.identifiers = await client.get(
+            `/api/v2.9/artist/${uuid}/identifiers?offset=0&limit=100`,
+          );
+        } catch (e) {
+          out.identifiers = { error: errPayload(e) };
         }
       }
 
