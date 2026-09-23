@@ -203,18 +203,43 @@ async function fetchClips(cookie: string, groupId: string): Promise<ClipResult> 
       is_pgc: isPgc,
     });
   };
-  for (const [key, value] of Object.entries(data)) {
-    const k = key.toLowerCase();
-    if (!Array.isArray(value)) continue;
-    if (k.startsWith("pgc")) {
-      for (const v of value) push(v as Json, true);
-    } else if (k.startsWith("ugc")) {
-      for (const v of value) push(v as Json, false);
-    } else if (k.includes("clip")) {
-      for (const v of value) push(v as Json, null);
+
+  // As listas de clips vêm quase sempre aninhadas (ex.: dentro de `data`), por
+  // isso percorremos o JSON em profundidade (máx. 6 níveis) e recolhemos todos
+  // os arrays cuja chave comece por 'pgc'/'ugc' ou contenha 'clip'.
+  const arrayPaths: string[] = [];
+  const collect = (node: Json, path: string, depth: number) => {
+    if (depth > 6 || node === null || typeof node !== "object") return;
+    if (Array.isArray(node)) return;
+    for (const [key, value] of Object.entries(node)) {
+      const k = key.toLowerCase();
+      const p = path ? `${path}.${key}` : key;
+      if (Array.isArray(value)) {
+        if (k.startsWith("pgc")) {
+          arrayPaths.push(p);
+          for (const v of value) push(v as Json, true);
+        } else if (k.startsWith("ugc")) {
+          arrayPaths.push(p);
+          for (const v of value) push(v as Json, false);
+        } else if (k.includes("clip")) {
+          arrayPaths.push(p);
+          for (const v of value) push(v as Json, null);
+        }
+        continue;
+      }
+      collect(value as Json, p, depth + 1);
     }
+  };
+  collect(data, "", 0);
+
+  // Deduplicação por music_id: se aparecer em duas listas, fica is_pgc = true.
+  const porMusicId = new Map<string, PanelClip>();
+  for (const c of items) {
+    const prev = porMusicId.get(c.music_id);
+    if (!prev || (c.is_pgc && !prev.is_pgc)) porMusicId.set(c.music_id, c);
   }
-  return { ok: true, items };
+  const topKeys = Object.keys(data as Record<string, unknown>);
+  return { ok: true, items: [...porMusicId.values()], topKeys, arrayPaths };
 }
 
 Deno.serve(async (req) => {
