@@ -355,6 +355,18 @@ Deno.serve(async (req) => {
         sanitizedUpdates[field] = updates[field];
       }
     }
+    // (Issue #241) Campos enviados e NÃO escritos deixam rasto. `status` e
+    // `paid_amount` estão fora da lista por desenho (trigger/fluxos próprios);
+    // qualquer outro aqui é candidato a bug como o da Issue #238.
+    {
+      const droppedFields = Object.keys(updates).filter((f) => !allowedFields.includes(f));
+      if (droppedFields.length > 0) {
+        console.warn("[update-transaction] campos descartados (fora da allowedFields)", {
+          transaction_id,
+          dropped: droppedFields,
+        });
+      }
+    }
 
     // Apply update
     const { error: updateError } = await adminClient
