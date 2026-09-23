@@ -35,7 +35,17 @@ O painel completo renderiza na sub-aba **Business Plan → Verba por usar**, dep
 (`forecasts`, `transactions`) para não duplicar queries; fora do BP mantém fallback por
 queries próprias. Em Master revê só as linhas do próprio evento visto, sem sub-eventos.
 
-Tabela: Rubrica · Descrição · Previsto · Pago · A pagar · Saldo · Decisão.
+Tabela **agrupada por rubrica L3**: cada grupo tem cabeçalho (código · nome) com os
+subtotais Previsto · Pago · A pagar · Saldo e a contagem "N linha(s) (M por rever)".
+Grupos ordenados por **código ascendente**; dentro do grupo, linhas por saldo
+decrescente. Cabeçalhos **colapsáveis, abertos por defeito**, com "Expandir tudo /
+Colapsar tudo" no topo do painel. Colunas das linhas: Descrição · Previsto · Pago ·
+A pagar · Saldo · Decisão (a rubrica vive no cabeçalho do grupo).
+
+Cada linha tem duas expansões independentes: **Ver transações (N)** — transações já
+vinculadas à linha, com data, fornecedor, nº de fatura (`transactions.invoice_ref`, "—"
+se vazio), valor e estado; fica desactivada com o rótulo "Sem transações" — e
+**Candidatas a vínculo** (abaixo). O agrupamento e as expansões são só apresentação.
 Texto fixo mantido: *"Lista de revisão, não de erro. Faturas de um evento podem chegar
 depois de ele acontecer — o valor que deve ficar em cada linha é decisão de gestão."*
 

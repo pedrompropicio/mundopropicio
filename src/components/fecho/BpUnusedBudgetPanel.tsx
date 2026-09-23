@@ -153,7 +153,7 @@ function useBpUnusedBudgetModel({ eventId, basis, forecasts: inputForecasts, tra
       const { data, error } = await supabase
         .from("transactions")
         .select(
-          "id, forecast_id, category_id, description, amount, iva_rate, status, paid_amount, date, installment_group_id, is_transitory, exclude_from_result, reversed_at, is_hidden, type, suppliers(name)",
+          "id, forecast_id, category_id, description, amount, iva_rate, status, paid_amount, date, invoice_ref, installment_group_id, is_transitory, exclude_from_result, reversed_at, is_hidden, type, suppliers(name)",
         )
         .eq("event_id", eventId)
         .eq("type", "expense");
@@ -266,7 +266,16 @@ export function BpUnusedBudgetPanel(props: Props) {
   const canManageBp = hasPermission("manage_bp");
   const { forecasts, transactions: txs, reviews, rowsView, rowsNet, summary, hasBp, isLoading, effectiveWithVat } = useBpUnusedBudgetModel(props);
 
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expandedTx, setExpandedTx] = useState<string | null>(null);
+  const [expandedCands, setExpandedCands] = useState<string | null>(null);
+  // Cabeçalhos de rubrica colapsáveis (abertos por defeito) — só apresentação.
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const toggleGroup = (key: string) =>
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
   const [dialogRow, setDialogRow] = useState<BpLineReviewRow | null>(null);
   const [dialogDecision, setDialogDecision] = useState<Decision>("pending_invoice");
   const [note, setNote] = useState("");
@@ -303,11 +312,42 @@ export function BpUnusedBudgetPanel(props: Props) {
     return { review, valid: isValidBpLineReview(review, netSaldoById.get(forecastId) ?? 0) };
   };
 
-  const catLabel = (forecastId: string) => {
-    const f: any = (forecasts as any[]).find((x) => x.id === forecastId);
-    const c = f?.account_categories;
-    return c ? [c.code, c.name].filter(Boolean).join(" · ") : "—";
-  };
+  const forecastById = useMemo(
+    () => new Map((forecasts as any[]).map((f: any) => [f.id, f])),
+    [forecasts],
+  );
+
+  /** Agrupamento visual por rubrica L3 — não altera nenhum cálculo. */
+  const groups = useMemo(() => {
+    const map = new Map<
+      string,
+      { key: string; label: string; rows: BpLineReviewRow[]; previsto: number; pago: number; aPagar: number; saldo: number }
+    >();
+    for (const r of rowsView) {
+      const c: any = (forecastById.get(r.forecastId) as any)?.account_categories;
+      const key = c?.code ?? r.categoryId ?? "sem-rubrica";
+      const label = c ? [c.code, c.name].filter(Boolean).join(" · ") : "Sem rubrica";
+      let g = map.get(key);
+      if (!g) {
+        g = { key, label, rows: [], previsto: 0, pago: 0, aPagar: 0, saldo: 0 };
+        map.set(key, g);
+      }
+      g.rows.push(r);
+      g.previsto += r.previsto;
+      g.pago += r.pago;
+      g.aPagar += r.aPagar;
+      g.saldo += r.saldo;
+    }
+    // Rubricas por código ascendente; dentro de cada rubrica, linhas por saldo descendente.
+    const list = Array.from(map.values());
+    for (const g of list) g.rows.sort((a, b) => b.saldo - a.saldo);
+    return list.sort((a, b) => a.key.localeCompare(b.key, "pt", { numeric: true }));
+  }, [rowsView, forecastById]);
+
+  /** Transações já vinculadas à linha (para a expansão "Ver transações"). */
+  const linkedFor = (row: BpLineReviewRow) =>
+    (txs as any[]).filter((t) => t.forecast_id === row.forecastId);
+
 
   /** Candidatas a vínculo: mesma rubrica, mesmo evento, sem linha de BP. */
   const candidatesFor = (row: BpLineReviewRow) =>
@@ -422,6 +462,24 @@ export function BpUnusedBudgetPanel(props: Props) {
         Lista de revisão, não de erro. Faturas de um evento podem chegar depois de ele acontecer — o valor que deve ficar em cada linha é decisão de gestão.
       </p>
 
+      {rowsView.length > 0 && (
+        <div className="px-4 py-2 flex items-center gap-2 border-b border-border/50">
+          <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => setCollapsedGroups(new Set())}>
+            Expandir tudo
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 px-2 text-[10px]"
+            onClick={() => setCollapsedGroups(new Set(groups.map((g) => g.key)))}
+          >
+            Colapsar tudo
+          </Button>
+        </div>
+      )}
+
+
+
       {rowsView.length === 0 ? (
         <p className="px-4 py-6 text-center text-sm text-muted-foreground">
           Nenhuma linha de BP com verba por usar.
@@ -430,7 +488,6 @@ export function BpUnusedBudgetPanel(props: Props) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Rubrica</TableHead>
               <TableHead>Descrição</TableHead>
               <TableHead className="text-right">Previsto</TableHead>
               <TableHead className="text-right">Pago</TableHead>
@@ -440,112 +497,172 @@ export function BpUnusedBudgetPanel(props: Props) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rowsView.map((r) => {
-              const { review, valid } = reviewState(r.forecastId);
-              const cands = candidatesFor(r);
-              const isOpen = expanded === r.forecastId;
+            {groups.map((g) => {
+              const collapsed = collapsedGroups.has(g.key);
+              const pending = g.rows.filter((r) => !reviewState(r.forecastId).valid).length;
               return (
-                <Fragment key={r.forecastId}>
-                  <TableRow>
-                    <TableCell className="text-sm align-top">{catLabel(r.forecastId)}</TableCell>
-                    <TableCell className="text-sm align-top">
-                      <div className="flex flex-col gap-1">
-                        <span>{r.description || "—"}</span>
-                        <div className="flex flex-wrap gap-1">
-                          {r.pendingCount > 0 && (
-                            <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/30">
-                              {r.pendingCount} por aprovar · {formatCurrency(r.pendingAmount)}
-                            </Badge>
-                          )}
-                          {cands.length > 0 && (
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
-                              onClick={() => setExpanded(isOpen ? null : r.forecastId)}
-                            >
-                              {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                              {cands.length} candidata(s) a vínculo
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm">{formatCurrency(r.previsto)}</TableCell>
-                    <TableCell className="text-right font-mono text-sm text-muted-foreground">{formatCurrency(r.pago)}</TableCell>
-                    <TableCell className="text-right font-mono text-sm text-muted-foreground">{formatCurrency(r.aPagar)}</TableCell>
-                    <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(r.saldo)}</TableCell>
-                    <TableCell className="align-top">
-                      {review && valid ? (
-                        <div className="text-[10px] text-muted-foreground">
-                          <span className="flex items-center gap-1 text-foreground">
-                            <Check className="h-3 w-3 text-success" />
-                            {DECISION_LABEL[review.decision as Decision]}
-                          </span>
-                          Revisto por {reviewerName(review.reviewed_by)} em {format(new Date(review.reviewed_at), "dd/MM/yyyy HH:mm")}
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-start gap-1">
-                          {review && (
-                            <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/30">
-                              Revisão desactualizada
-                            </Badge>
-                          )}
-                          {canManageBp ? (
-                            <div className="flex flex-wrap gap-1">
-                              <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => openDialog(r, "pending_invoice")}>
-                                Fatura por chegar
-                              </Button>
-                              <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => openDialog(r, "partner_paid")}>
-                                Pago por sócio
-                              </Button>
-                              <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => openDialog(r, "adjusted")}>
-                                Ajustar previsto
-                              </Button>
+              <Fragment key={g.key}>
+                <TableRow className="bg-muted/40 cursor-pointer" onClick={() => toggleGroup(g.key)}>
+                  <TableCell className="text-sm font-semibold">
+                    <span className="inline-flex items-center gap-1">
+                      {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      {g.label}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(g.previsto)}</TableCell>
+                  <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(g.pago)}</TableCell>
+                  <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(g.aPagar)}</TableCell>
+                  <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(g.saldo)}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-[9px]">
+                      {g.rows.length} linha(s) ({pending} por rever)
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+
+                {!collapsed && g.rows.map((r) => {
+                  const { review, valid } = reviewState(r.forecastId);
+                  const cands = candidatesFor(r);
+                  const linked = linkedFor(r);
+                  const txOpen = expandedTx === r.forecastId;
+                  const candsOpen = expandedCands === r.forecastId;
+                  return (
+                    <Fragment key={r.forecastId}>
+                      <TableRow>
+                        <TableCell className="text-sm align-top pl-8">
+                          <div className="flex flex-col gap-1">
+                            <span>{r.description || "—"}</span>
+                            <div className="flex flex-wrap items-center gap-2">
+                              {r.pendingCount > 0 && (
+                                <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/30">
+                                  {r.pendingCount} por aprovar · {formatCurrency(r.pendingAmount)}
+                                </Badge>
+                              )}
+                              <button
+                                type="button"
+                                disabled={linked.length === 0}
+                                className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline disabled:text-muted-foreground disabled:no-underline disabled:cursor-default"
+                                onClick={() => setExpandedTx(txOpen ? null : r.forecastId)}
+                              >
+                                {linked.length > 0 &&
+                                  (txOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />)}
+                                {linked.length === 0 ? "Sem transações" : `Ver transações (${linked.length})`}
+                              </button>
+                              {cands.length > 0 && (
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
+                                  onClick={() => setExpandedCands(candsOpen ? null : r.forecastId)}
+                                >
+                                  {candsOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                  {cands.length} candidata(s) a vínculo
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">{formatCurrency(r.previsto)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-muted-foreground">{formatCurrency(r.pago)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-muted-foreground">{formatCurrency(r.aPagar)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(r.saldo)}</TableCell>
+                        <TableCell className="align-top">
+                          {review && valid ? (
+                            <div className="text-[10px] text-muted-foreground">
+                              <span className="flex items-center gap-1 text-foreground">
+                                <Check className="h-3 w-3 text-success" />
+                                {DECISION_LABEL[review.decision as Decision]}
+                              </span>
+                              Revisto por {reviewerName(review.reviewed_by)} em {format(new Date(review.reviewed_at), "dd/MM/yyyy HH:mm")}
                             </div>
                           ) : (
-                            <span className="text-[10px] text-muted-foreground">por rever</span>
-                          )}
-                        </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-
-                  {isOpen && (
-                    <TableRow key={`${r.forecastId}-cands`} className="bg-muted/20">
-                      <TableCell colSpan={7} className="py-2">
-                        <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          Transações da mesma rubrica sem linha de BP — vincular antes de decidir.
-                        </p>
-                        <div className="space-y-1">
-                          {cands.map((t: any) => (
-                            <div key={t.id} className="flex flex-wrap items-center gap-2 text-[11px]">
-                              <span className="font-mono">{formatDatePT(t.date)}</span>
-                              <span className="text-muted-foreground">{t.suppliers?.name || "—"}</span>
-                              <span className="min-w-0 truncate">{t.description}</span>
-                              <span className="font-mono">{formatCurrency(Number(t.amount))}</span>
-                              <Badge variant="outline" className="text-[9px]">{t.status}</Badge>
-                              {t.installment_group_id && (
-                                <Badge variant="outline" className="text-[9px]">grupo de parcelas</Badge>
+                            <div className="flex flex-col items-start gap-1">
+                              {review && (
+                                <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/30">
+                                  Revisão desactualizada
+                                </Badge>
                               )}
-                              {canManageBp && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 text-[10px]"
-                                  disabled={saving}
-                                  onClick={() => linkTx(r, t)}
-                                >
-                                  <Link2 className="mr-1 h-3 w-3" /> Vincular a esta linha
-                                </Button>
+                              {canManageBp ? (
+                                <div className="flex flex-wrap gap-1">
+                                  <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => openDialog(r, "pending_invoice")}>
+                                    Fatura por chegar
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => openDialog(r, "partner_paid")}>
+                                    Pago por sócio
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => openDialog(r, "adjusted")}>
+                                    Ajustar previsto
+                                  </Button>
+                                </div>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground">por rever</span>
                               )}
                             </div>
-                          ))}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </Fragment>
+                          )}
+                        </TableCell>
+                      </TableRow>
+
+                      {txOpen && linked.length > 0 && (
+                        <TableRow key={`${r.forecastId}-tx`} className="bg-muted/10">
+                          <TableCell colSpan={6} className="py-2">
+                            <p className="text-[10px] text-muted-foreground mb-1">
+                              Transações já vinculadas a esta linha de BP.
+                            </p>
+                            <div className="space-y-1">
+                              {linked.map((t: any) => (
+                                <div key={t.id} className="flex flex-wrap items-center gap-2 text-[11px]">
+                                  <span className="font-mono">{formatDatePT(t.date)}</span>
+                                  <span className="text-muted-foreground">{t.suppliers?.name || "—"}</span>
+                                  <span className="min-w-0 truncate">{t.description}</span>
+                                  <span className="font-mono text-muted-foreground">{t.invoice_ref || "—"}</span>
+                                  <span className="font-mono">{formatCurrency(Number(t.amount))}</span>
+                                  <Badge variant="outline" className="text-[9px]">{t.status}</Badge>
+                                </div>
+                              ))}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+
+                      {candsOpen && (
+                        <TableRow key={`${r.forecastId}-cands`} className="bg-muted/20">
+                          <TableCell colSpan={6} className="py-2">
+                            <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              Transações da mesma rubrica sem linha de BP — vincular antes de decidir.
+                            </p>
+                            <div className="space-y-1">
+                              {cands.map((t: any) => (
+                                <div key={t.id} className="flex flex-wrap items-center gap-2 text-[11px]">
+                                  <span className="font-mono">{formatDatePT(t.date)}</span>
+                                  <span className="text-muted-foreground">{t.suppliers?.name || "—"}</span>
+                                  <span className="min-w-0 truncate">{t.description}</span>
+                                  <span className="font-mono text-muted-foreground">{t.invoice_ref || "—"}</span>
+                                  <span className="font-mono">{formatCurrency(Number(t.amount))}</span>
+                                  <Badge variant="outline" className="text-[9px]">{t.status}</Badge>
+                                  {t.installment_group_id && (
+                                    <Badge variant="outline" className="text-[9px]">grupo de parcelas</Badge>
+                                  )}
+                                  {canManageBp && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 text-[10px]"
+                                      disabled={saving}
+                                      onClick={() => linkTx(r, t)}
+                                    >
+                                      <Link2 className="mr-1 h-3 w-3" /> Vincular a esta linha
+                                    </Button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </Fragment>
               );
             })}
           </TableBody>
