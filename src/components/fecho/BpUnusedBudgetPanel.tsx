@@ -471,20 +471,30 @@ export function BpUnusedBudgetPanel(props: Props) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {groups.map((g) => (
+            {groups.map((g) => {
+              const collapsed = collapsedGroups.has(g.key);
+              const pending = g.rows.filter((r) => !reviewState(r.forecastId).valid).length;
+              return (
               <Fragment key={g.key}>
-                <TableRow className="bg-muted/40">
-                  <TableCell className="text-sm font-semibold">{g.label}</TableCell>
+                <TableRow className="bg-muted/40 cursor-pointer" onClick={() => toggleGroup(g.key)}>
+                  <TableCell className="text-sm font-semibold">
+                    <span className="inline-flex items-center gap-1">
+                      {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      {g.label}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(g.previsto)}</TableCell>
                   <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(g.pago)}</TableCell>
                   <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(g.aPagar)}</TableCell>
                   <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(g.saldo)}</TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="text-[9px]">{g.rows.length} linha(s)</Badge>
+                    <Badge variant="outline" className="text-[9px]">
+                      {g.rows.length} linha(s) ({pending} por rever)
+                    </Badge>
                   </TableCell>
                 </TableRow>
 
-                {g.rows.map((r) => {
+                {!collapsed && g.rows.map((r) => {
                   const { review, valid } = reviewState(r.forecastId);
                   const cands = candidatesFor(r);
                   const linked = linkedFor(r);
