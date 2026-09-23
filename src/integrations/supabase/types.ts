@@ -17249,6 +17249,14 @@ export type Database = {
         Args: { p_content_id: string; p_song_id?: string; p_status?: string }
         Returns: undefined
       }
+      artist_dashboard: {
+        Args: { p_artist_id: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      artist_dashboard_platform_label: {
+        Args: { p_platform: string }
+        Returns: string
+      }
       artist_delete_channel_connection: {
         Args: { p_artist_channel_id: string }
         Returns: boolean
