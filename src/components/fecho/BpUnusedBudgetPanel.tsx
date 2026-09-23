@@ -304,11 +304,39 @@ export function BpUnusedBudgetPanel(props: Props) {
     return { review, valid: isValidBpLineReview(review, netSaldoById.get(forecastId) ?? 0) };
   };
 
-  const catLabel = (forecastId: string) => {
-    const f: any = (forecasts as any[]).find((x) => x.id === forecastId);
-    const c = f?.account_categories;
-    return c ? [c.code, c.name].filter(Boolean).join(" · ") : "—";
-  };
+  const forecastById = useMemo(
+    () => new Map((forecasts as any[]).map((f: any) => [f.id, f])),
+    [forecasts],
+  );
+
+  /** Agrupamento visual por rubrica L3 — não altera nenhum cálculo. */
+  const groups = useMemo(() => {
+    const map = new Map<
+      string,
+      { key: string; label: string; rows: BpLineReviewRow[]; previsto: number; pago: number; aPagar: number; saldo: number }
+    >();
+    for (const r of rowsView) {
+      const c: any = (forecastById.get(r.forecastId) as any)?.account_categories;
+      const key = c?.code ?? r.categoryId ?? "sem-rubrica";
+      const label = c ? [c.code, c.name].filter(Boolean).join(" · ") : "Sem rubrica";
+      let g = map.get(key);
+      if (!g) {
+        g = { key, label, rows: [], previsto: 0, pago: 0, aPagar: 0, saldo: 0 };
+        map.set(key, g);
+      }
+      g.rows.push(r);
+      g.previsto += r.previsto;
+      g.pago += r.pago;
+      g.aPagar += r.aPagar;
+      g.saldo += r.saldo;
+    }
+    return Array.from(map.values()).sort((a, b) => b.saldo - a.saldo);
+  }, [rowsView, forecastById]);
+
+  /** Transações já vinculadas à linha (para a expansão "Ver transações"). */
+  const linkedFor = (row: BpLineReviewRow) =>
+    (txs as any[]).filter((t) => t.forecast_id === row.forecastId);
+
 
   /** Candidatas a vínculo: mesma rubrica, mesmo evento, sem linha de BP. */
   const candidatesFor = (row: BpLineReviewRow) =>
