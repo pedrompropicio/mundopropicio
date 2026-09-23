@@ -1,3 +1,4 @@
+import { writeForecastAmount } from "@/lib/forecast-amount";
 import React, { useState, useRef, useEffect, useMemo, useCallback, Suspense, lazy } from "react";
 import { roundCents, calcIvaAmount } from "@/lib/iva";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
@@ -996,8 +997,11 @@ const descRef = useRef<HTMLInputElement>(null);
         payload.approved_by = user?.email || "system";
       }
       if (id) {
-        const { error } = await supabase.from("event_forecasts").update(payload).eq("id", id);
+        // #240: amount por batch_update_event_forecasts (pede observação se reduz linha com realizado)
+        const { amount: newAmt, ...rest } = payload;
+        const { error } = await supabase.from("event_forecasts").update(rest).eq("id", id);
         if (error) throw error;
+        await writeForecastAmount({ forecastId: id, newAmount: Number(newAmt), interactive: true });
       } else {
         const { error } = await supabase.from("event_forecasts").insert(payload);
         if (error) throw error;

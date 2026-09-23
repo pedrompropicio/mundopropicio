@@ -1,3 +1,4 @@
+import { writeForecastAmount, ForecastBelowRealizedError } from "@/lib/forecast-amount";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
@@ -200,11 +201,30 @@ async function revertEditForecast(r: UndoActionRecord) {
   if (!r.entity_id) throw new Error("Forecast ID em falta");
   const snapshot = r.payload.snapshot;
   if (!snapshot) throw new Error("Snapshot anterior não disponível");
-  const { error } = await (supabase as any)
-    .from("event_forecasts")
-    .update(snapshot)
-    .eq("id", r.entity_id);
-  if (error) throw error;
+  await restoreForecastSnapshot(r.entity_id, snapshot);
+}
+
+/**
+ * #240 — repõe um snapshot de linha de BP. O amount vai por
+ * writeForecastAmount (batch_update_event_forecasts): se a reposição reduz uma
+ * linha com realizado pede observação; abaixo do realizado não deixa desfazer.
+ */
+async function restoreForecastSnapshot(id: string, snapshot: Record<string, any>) {
+  const { amount, ...rest } = snapshot ?? {};
+  if (Object.keys(rest).length > 0) {
+    const { error } = await (supabase as any).from("event_forecasts").update(rest).eq("id", id);
+    if (error) throw error;
+  }
+  if (amount !== undefined && amount !== null) {
+    try {
+      await writeForecastAmount({ forecastId: id, newAmount: Number(amount), interactive: true });
+    } catch (e) {
+      if (e instanceof ForecastBelowRealizedError) {
+        throw new Error(`Não é possível desfazer: ${e.message}`);
+      }
+      throw e;
+    }
+  }
 }
 
 /**
@@ -297,11 +317,7 @@ async function revertBPGridBatchSave(r: UndoActionRecord) {
   // 2) Restore previous values for each updated row
   for (const snap of snapshots) {
     if (!snap?.id || !snap.before) continue;
-    const { error } = await (supabase as any)
-      .from("event_forecasts")
-      .update(snap.before)
-      .eq("id", snap.id);
-    if (error) throw error;
+    await restoreForecastSnapshot(snap.id, snap.before);
   }
 }
 
