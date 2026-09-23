@@ -166,8 +166,15 @@ Deno.serve(async (req) => {
     // company da transação) passam sem lista restrita.
     //
     // A lista abaixo é ESPELHO EXACTO do payload do ramo `paidLocked` de
-    // `src/components/TransactionEditModal.tsx` (~linha 568). Não a alargues sem
+    // `src/components/TransactionEditModal.tsx` (~linha 601). Não a alargues sem
     // alargar o ramo lá — e vice-versa.
+    // ATENÇÃO (23/09/2026): qualquer campo novo no ramo `paidLocked` do
+    // TransactionEditModal tem de entrar nas DUAS listas desta função — aqui na
+    // `paidAllowedFields` E na `allowedFields` mais abaixo. Esquecer a primeira
+    // dá 422 a quem não tem `approve_transactions` mesmo sem tocar no campo (o
+    // ramo envia-o sempre); esquecer a segunda faz a alteração desaparecer em
+    // silêncio, sem erro. Foi exactamente isto que aconteceu com
+    // `shared_cost_account_id`/`shared_cost_counterparty_id` entre 16/09 e 23/09.
     // Nota: só decide se o pedido é RECUSADO; não é lista de escrita.
     // `status` e `paid_amount` continuam fora da `allowedFields` mais abaixo (o
     // trigger trg_enforce_held_revenue_is_paid põe-nos sozinho), mas o ramo
@@ -190,7 +197,8 @@ Deno.serve(async (req) => {
       if (!canApproveTx) {
         const paidAllowedFields = [
           "specification", "supplier_id", "is_transitory", "transitory_reason", "is_confidential",
-          "exclude_from_result", "invoice_ref", "payment_method", "payment_entity",
+          "exclude_from_result", "shared_cost_account_id", "shared_cost_counterparty_id",
+          "invoice_ref", "payment_method", "payment_entity",
           "payment_reference", "operation_key", "ordering_partner_id", "paying_partner_id",
           "event_settlement_id", "held_by_supplier_id", "category_id",
           "status", "paid_amount", "payment_date",
