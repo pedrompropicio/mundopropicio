@@ -105,17 +105,18 @@ Deno.serve(async (req) => {
     const cardAccountId = (session as any).card_account_id as string;
 
     // ===== Guard multi-tenant =====
+    // (Issue #241) Pertença via `user_roles`, não `profiles.company_id`.
     const { data: isPa } = await adminClient.rpc("is_platform_admin", { _user_id: caller.id });
-    {
-      const { data: callerProfile } = await adminClient
-        .from("profiles").select("company_id, active_company_id").eq("id", caller.id).maybeSingle();
-      const callerCompanyId = isPa
-        ? ((callerProfile as any)?.active_company_id ?? (callerProfile as any)?.company_id ?? null)
-        : ((callerProfile as any)?.company_id ?? null);
-      const allowCrossTenant = isPa && callerCompanyId == null;
-      if (!allowCrossTenant && sessionCompanyId !== callerCompanyId) {
-        return json({ error: "Cross-tenant access denied" }, 403);
+    if (!isPa) {
+      let belongs = false;
+      if (sessionCompanyId) {
+        const { data: membership } = await adminClient
+          .from("user_roles").select("company_id")
+          .eq("user_id", caller.id).eq("company_id", sessionCompanyId)
+          .limit(1).maybeSingle();
+        belongs = Boolean(membership);
       }
+      if (!belongs) return json({ error: "Cross-tenant access denied" }, 403);
     }
 
     // ===== Autorização por permissão (integrar cria transações pagas) =====
