@@ -1,6 +1,8 @@
 // crm-meta-creatives-retention — retenção dos ficheiros do bucket crm-meta-creatives (#209).
 //
-// Body: { dry_run: boolean, days?: number = 30, max_delete?: number = 500 }
+// Body: { dry_run: boolean, days?: number = 183, max_files?: number = 500 }
+//   max_delete é aceite como sinónimo de max_files (compat. com o cron de 20/09).
+//   days = 183 (≈6 meses) é a regra decidida a 23/09/2026 para a classe A.
 // Auth: service_role apenas (cron-callable). Sem JWT de utilizador.
 //
 // Classes, por esta ordem:
@@ -27,7 +29,7 @@ const BUCKET = "crm-meta-creatives";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const PAGE = 1000;
-const SAMPLE_MAX = 50;
+const SAMPLE_MAX = 20;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -129,11 +131,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: "invalid_jwt", detail: (e as Error).message }, 401);
   }
 
-  let body: { dry_run?: boolean; days?: number; max_delete?: number } = {};
+  let body: { dry_run?: boolean; days?: number; max_files?: number; max_delete?: number } = {};
   try { body = await req.json(); } catch { /* corpo vazio = defaults */ }
   const dryRun = body.dry_run !== false; // default seguro: simulação
-  const days = Math.min(Math.max(body.days ?? 30, 0), 3650);
-  const maxDelete = Math.min(Math.max(body.max_delete ?? 500, 0), 5000);
+  const days = Math.min(Math.max(body.days ?? 183, 0), 3650); // 183 ≈ 6 meses
+  const maxDelete = Math.min(Math.max(body.max_files ?? body.max_delete ?? 500, 0), 5000);
 
   // deno-lint-ignore no-explicit-any
   const admin: any = createClient(SUPABASE_URL, SERVICE_ROLE, {
@@ -225,7 +227,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const classBDup: { file: FileEntry; canonical: string }[] = [];
     const classBRepoint: { file: FileEntry; rowId: string }[] = [];
     const classC: FileEntry[] = [];
-    let skippedActive = 0;
+    const skippedActiveFiles: FileEntry[] = [];
     let classCBytes = 0;
     const classCGroups = new Map<string, {
       company_id: string | null; campaign_id: string; campaign_name: string | null;
@@ -240,7 +242,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const metaId = row.meta_creative_id ? String(row.meta_creative_id) : null;
         const info = metaId ? adsByCreative.get(metaId) : undefined;
         if (!info) continue; // sem anúncio no espelho → fora de âmbito nesta versão
-        if (info.active) { skippedActive++; continue; }
+        if (info.active) { skippedActiveFiles.push(f); continue; }
         if (info.eventIds.size > 0) {
           let newest: string | null = null;
           for (const ev of info.eventIds) {
@@ -303,7 +305,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
       class_b_duplicate: { count: classBDup.length, bytes: sum(classBDup.map((d) => d.file)) },
       class_b_repoint: { count: classBRepoint.length, bytes: sum(classBRepoint.map((d) => d.file)) },
       class_c_listed_only: { count: classC.length, bytes: classCBytes },
-      skipped_active: skippedActive,
+      skipped_active: skippedActiveFiles.length,
+      // "Protegidos" = nunca apagados: anúncio activo + campanha sem evento +
+      // única cópia (classe B a repontar).
+      protected_total: {
+        count: skippedActiveFiles.length + classC.length + classBRepoint.length,
+        bytes: sum(skippedActiveFiles) + classCBytes + sum(classBRepoint.map((d) => d.file)),
+      },
+    };
+    const mb = (b: number) => Math.round((b / (1024 * 1024)) * 10) / 10;
+    const mbByGroup = {
+      orfaos_mb: mb(counts.class_b_orphan.bytes),
+      duplicados_mb: mb(counts.class_b_duplicate.bytes),
+      ligados_mais_6_meses_mb: mb(counts.class_a.bytes),
+      protegidos_mb: mb(counts.protected_total.bytes),
+      unica_copia_a_repontar_mb: mb(counts.class_b_repoint.bytes),
     };
 
     // 6) Execução (só quando dry_run=false)
@@ -311,6 +327,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     let deletedBytes = 0;
     let repointed = 0;
     const deletedPaths: string[] = [];
+    const logRows: { path: string; grupo: string; bytes: number; company_id: string | null; creative_id: string | null }[] = [];
 
     if (!dryRun) {
       // A) apagar ficheiro + limpar apontadores na linha
@@ -330,19 +347,39 @@ Deno.serve(async (req: Request): Promise<Response> => {
             .eq("id", row.id);
           if (updErr) throw new Error(`db_update: ${updErr.message}`);
           deletedCount++; deletedBytes += f.size; deletedPaths.push(f.path);
+          logRows.push({
+            path: f.path, grupo: "ligado_evento_mais_6_meses", bytes: f.size,
+            company_id: row?.company_id ?? null, creative_id: row?.id ?? null,
+          });
         } catch (e) {
           errors.push({ class: "A", path: f.path, detail: (e as Error).message });
         }
       }
-      // B) órfãos e duplicados
-      for (const f of [...classBOrphan, ...classBDup.map((d) => d.file)]) {
-        if (deletedCount >= maxDelete) break;
-        try {
-          const { error: delErr } = await admin.storage.from(BUCKET).remove([f.path]);
-          if (delErr) throw new Error(delErr.message);
-          deletedCount++; deletedBytes += f.size; deletedPaths.push(f.path);
-        } catch (e) {
-          errors.push({ class: "B", path: f.path, detail: (e as Error).message });
+      // B) órfãos e duplicados — em lotes pela API de storage.
+      const bGroups: { grupo: string; entries: FileEntry[] }[] = [
+        { grupo: "orfao", entries: classBOrphan },
+        { grupo: "duplicado", entries: classBDup.map((d) => d.file) },
+      ];
+      const BATCH = 100;
+      for (const { grupo, entries } of bGroups) {
+        for (let i = 0; i < entries.length; i += BATCH) {
+          if (deletedCount >= maxDelete) break;
+          const lote = entries.slice(i, i + BATCH).slice(0, Math.max(maxDelete - deletedCount, 0));
+          if (!lote.length) break;
+          const { error: delErr } = await admin.storage
+            .from(BUCKET).remove(lote.map((f) => f.path));
+          if (delErr) {
+            errors.push({ class: "B", grupo, paths: lote.length, detail: delErr.message });
+            continue;
+          }
+          for (const f of lote) {
+            deletedCount++; deletedBytes += f.size; deletedPaths.push(f.path);
+            logRows.push({
+              path: f.path, grupo, bytes: f.size,
+              company_id: rowByMetaId.get(f.stem)?.company_id ?? null,
+              creative_id: grupo === "duplicado" ? (rowByMetaId.get(f.stem)?.id ?? null) : null,
+            });
+          }
         }
       }
       // B) única cópia → apontar a linha para este ficheiro
@@ -392,7 +429,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       class_b_repointed_count: dryRun ? counts.class_b_repoint.count : repointed,
       class_c_count: counts.class_c_listed_only.count,
       class_c_bytes: counts.class_c_listed_only.bytes,
-      skipped_active_count: skippedActive,
+      skipped_active_count: skippedActiveFiles.length,
       deleted_count: deletedCount,
       deleted_bytes: deletedBytes,
       error_count: errors.length,
@@ -404,12 +441,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .from("meta_creatives_retention_runs").insert(runRow).select("id").single();
     if (insErr) errors.push({ scope: "run_insert", detail: insErr.message });
 
+    // Registo ficheiro-a-ficheiro do que saiu do bucket (nunca em dry_run).
+    if (logRows.length) {
+      for (let i = 0; i < logRows.length; i += 500) {
+        const { error: logErr } = await admin.schema("crm")
+          .from("meta_creatives_retention_log")
+          .insert(logRows.slice(i, i + 500).map((r) => ({ ...r, run_id: inserted?.id ?? null })));
+        if (logErr) errors.push({ scope: "retention_log_insert", detail: logErr.message });
+      }
+    }
+
     return json({
       run_id: inserted?.id ?? null,
       dry_run: dryRun,
       days,
+      max_files: maxDelete,
       max_delete: maxDelete,
       ...counts,
+      mb_por_grupo: mbByGroup,
+      logged_rows: logRows.length,
       deleted_count: deletedCount,
       deleted_bytes: deletedBytes,
       repointed,
