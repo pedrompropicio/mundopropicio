@@ -194,12 +194,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
 
   // 0) IDENTIDADE DO CHAMADOR (D-ERP127).
-  //    O JWT é validado pelo cliente ADMIN — admin.auth.getUser(token) — e não
-  //    por um cliente criado com a SUPABASE_ANON_KEY do ambiente. Era esse o
-  //    defeito: a chave anon do ambiente já não serve o endpoint /auth/v1/user
-  //    (sistema de signing keys), pelo que supabase.auth.getUser() devolvia null
-  //    para sessões perfeitamente válidas e a função respondia 401
-  //    sessao_invalida. Mesmo padrão de _shared/artist-meta.ts → authorize().
+  //    Causa do defeito: getUser() era chamado SEM o token, contando com o header
+  //    Authorization global do cliente. Nessa forma o supabase-js procura uma
+  //    sessão guardada (que aqui não existe, persistSession:false) e devolve null
+  //    — daí o 401 sessao_invalida com sessões perfeitamente válidas. O token vai
+  //    agora explícito, validado pelo cliente ADMIN, como em
+  //    _shared/artist-meta.ts → authorize().
   const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
   const isServiceRole = jwtRole(authHeader) === "service_role";
   let callerUserId: string | null = null;
