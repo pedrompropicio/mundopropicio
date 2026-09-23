@@ -529,8 +529,10 @@ export type Database = {
           id: string
           last_error: string | null
           last_validated_at: string | null
+          oauth_client_id: string | null
           provider: string
           refresh_expires_at: string | null
+          refresh_lock_until: string | null
           refresh_token_encrypted: string | null
           scopes: string[] | null
           status: string
@@ -554,8 +556,10 @@ export type Database = {
           id?: string
           last_error?: string | null
           last_validated_at?: string | null
+          oauth_client_id?: string | null
           provider: string
           refresh_expires_at?: string | null
+          refresh_lock_until?: string | null
           refresh_token_encrypted?: string | null
           scopes?: string[] | null
           status?: string
@@ -579,8 +583,10 @@ export type Database = {
           id?: string
           last_error?: string | null
           last_validated_at?: string | null
+          oauth_client_id?: string | null
           provider?: string
           refresh_expires_at?: string | null
+          refresh_lock_until?: string | null
           refresh_token_encrypted?: string | null
           scopes?: string[] | null
           status?: string
@@ -17283,6 +17289,20 @@ export type Database = {
           p_timeframe?: string
         }
         Returns: number
+      }
+      artist_channel_refresh_lease: {
+        Args: { p_connection_id: string; p_seconds?: number }
+        Returns: boolean
+      }
+      artist_channel_store_rotated_tokens: {
+        Args: {
+          p_access_token: string
+          p_connection_id: string
+          p_expires_at: string
+          p_master_key: string
+          p_refresh_token: string
+        }
+        Returns: undefined
       }
       artist_consume_oauth_state: {
         Args: { p_state_id: string }
