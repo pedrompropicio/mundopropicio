@@ -23,6 +23,7 @@ import {
   useUserMemberships,
   useSetActiveCompany,
   useCompaniesList,
+  useProfileActiveCompanyId,
 } from "@/hooks/useCompany";
 
 interface Props {
@@ -44,6 +45,11 @@ export function CompanySwitcher({ className }: Props = {}) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+
+  // (#237) LEITURA da empresa ativa do perfil. Não grava nada: se a empresa do
+  // perfil não estiver na lista acessível neste ERP, o seletor fica vazio e pede
+  // escolha ao utilizador.
+  const { data: profileActiveCompanyId } = useProfileActiveCompanyId();
 
   const isLoading = isPlatformAdmin ? loadingAll : loadingMemberships;
 
@@ -89,7 +95,15 @@ export function CompanySwitcher({ className }: Props = {}) {
     }
   };
 
-  const label = company?.display_name ?? "Selecionar empresa";
+  const listLoaded = isPlatformAdmin ? !!allCompanies : !!memberships;
+  const profileCompanyUnavailable =
+    !!profileActiveCompanyId &&
+    listLoaded &&
+    !companies.some((c) => c.id === profileActiveCompanyId);
+
+  const label = profileCompanyUnavailable
+    ? "Escolher empresa"
+    : (company?.display_name ?? "Selecionar empresa");
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

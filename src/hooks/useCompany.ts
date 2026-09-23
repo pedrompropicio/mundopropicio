@@ -134,6 +134,34 @@ export function useCompaniesList(enabled: boolean) {
 }
 
 /**
+ * (#237) LEITURA — empresa ativa gravada no perfil.
+ *
+ * O ERP NUNCA grava `profiles.active_company_id` por iniciativa própria: só o
+ * handler do seletor de empresa (CompanySwitcher.handleSelect → useSetActiveCompany)
+ * o faz, e apenas quando o utilizador escolhe outra empresa. Este hook é a
+ * contrapartida de leitura: no arranque o ERP adapta o estado local ao que está
+ * no perfil, sem escrever nada.
+ */
+export function useProfileActiveCompanyId(enabled: boolean = true) {
+  return useQuery({
+    queryKey: ["profile-active-company"],
+    enabled,
+    staleTime: 30_000,
+    queryFn: async (): Promise<string | null> => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("active_company_id")
+        .eq("id", auth.user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return ((data as any)?.active_company_id as string | null) ?? null;
+    },
+  });
+}
+
+/**
  * Multi-membership: lists every company where the current user has a role.
  * Reads from the SQL VIEW `user_companies` (security_invoker, filtered by auth.uid()).
  */
