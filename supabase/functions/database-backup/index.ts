@@ -290,9 +290,8 @@ Deno.serve(async (req) => {
 
       const { data: profile } = await adminClient
         .from("profiles").select("company_id, active_company_id").eq("id", userId).maybeSingle();
-      const callerCompanyId = isPlatformAdmin
-        ? (profile?.active_company_id ?? profile?.company_id ?? null)
-        : (profile?.company_id ?? null);
+      // (Issue #241) Empresa activa = active_company_id ?? company_id, para todos.
+      const callerCompanyId = profile?.active_company_id ?? profile?.company_id ?? null;
 
       if (wantsGlobal) {
         if (!isPlatformAdmin) return json({ error: "Apenas platform_admin pode pedir o backup global" }, 403);
