@@ -23,6 +23,7 @@ import {
   useUserMemberships,
   useSetActiveCompany,
   useCompaniesList,
+  useProfileActiveCompanyId,
 } from "@/hooks/useCompany";
 
 interface Props {
