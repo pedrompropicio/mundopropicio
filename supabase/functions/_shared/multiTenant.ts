@@ -53,7 +53,7 @@ export interface TenantContext {
 
 /**
  * Validates JWT, resolves the caller's *active* company server-side
- * (uses profiles.active_company_id when caller is platform_admin, else profiles.company_id),
+ * (profiles.active_company_id ?? profiles.company_id, para todos os papéis),
  * and returns clients ready for tenant-aware queries.
  *
  * Throws AuthError (401) when not authenticated.
