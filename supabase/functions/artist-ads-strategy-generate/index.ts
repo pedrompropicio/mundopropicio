@@ -485,7 +485,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Publicações/vídeos anunciáveis (só prontos). No TikTok são vídeos do artista
   // (post_kind 'tiktok_video'), no Google vídeos do YouTube (post_kind
   // 'youtube_video'); preferem-se os ligados à música.
-  let posts = (dados.blocos.publicacoes ?? []).filter((p: Any) => p?.meta_ready === true && p?.post_ref);
+  const postsTotais = (dados.blocos.publicacoes ?? []).filter((p: Any) => p?.meta_ready === true && p?.post_ref);
+  let posts = postsTotais;
   if (posts.length === 0) {
     return json({
       error: "sem_publicacoes_promoviveis",
@@ -503,8 +504,50 @@ Deno.serve(async (req: Request): Promise<Response> => {
     videosLigadosMusica = ligados.length;
     const limite = eGoogle ? MAX_VIDEOS_GOOGLE : MAX_VIDEOS_TIKTOK;
     posts = [...ligados, ...outros].slice(0, limite);
+  } else {
+    // META (defeito 23/09): a conta do Litto devolve 499 publicações prontas. A
+    // lista inteira ia para o prompt (centenas de KB) e o modelo respondia com
+    // post_ref truncado ou inventado — nenhum anúncio casava e o plano morria em
+    // plano_invalido. Agora envia-se uma lista curta e ordenada por evidência:
+    // ligadas à música → com gasto pago nos últimos 30 dias → mais recentes.
+    const ordenadas = [...posts].sort((a: Any, b: Any) => {
+      const ligA = a?.song_id === songId ? 1 : 0;
+      const ligB = b?.song_id === songId ? 1 : 0;
+      if (ligA !== ligB) return ligB - ligA;
+      const gA = Number(a?.spend_30d_cents ?? 0);
+      const gB = Number(b?.spend_30d_cents ?? 0);
+      if (gA !== gB) return gB - gA;
+      return Date.parse(b?.published_at ?? 0) - Date.parse(a?.published_at ?? 0);
+    });
+    videosLigadosMusica = posts.filter((p: Any) => p?.song_id === songId).length;
+    posts = ordenadas.slice(0, MAX_POSTS_META);
   }
   const postRefsOk = new Set(posts.map((p: Any) => String(p.post_ref)));
+
+  // Resolução de ids devolvidos pelo modelo (NÃO relaxa a validação: só aceita
+  // ids que identifiquem sem ambiguidade UMA publicação da lista permitida).
+  // O post_ref de object_story é "<page_id>_<post_id>"; o modelo devolve às
+  // vezes só o segundo segmento. Essa chave é aceite quando aponta para uma só
+  // publicação; se for ambígua ou desconhecida, o anúncio é descartado.
+  const refExactas = new Set(postRefsOk);
+  const refIndex = new Map<string, string>();
+  const refAmbiguas = new Set<string>();
+  for (const ref of refExactas) refIndex.set(ref, ref);
+  for (const ref of refExactas) {
+    if (!ref.includes("_")) continue;
+    for (const parte of ref.split("_")) {
+      if (!parte || refExactas.has(parte)) continue;
+      const jaTem = refIndex.get(parte);
+      if (jaTem && jaTem !== ref) { refAmbiguas.add(parte); continue; }
+      refIndex.set(parte, ref);
+    }
+  }
+  function resolverRef(v: unknown): string | null {
+    const s = typeof v === "string" ? v.trim() : "";
+    if (!s || refAmbiguas.has(s)) return null;
+    return refIndex.get(s) ?? null;
+  }
+
 
   // ── 1c) ANÁLISE DOS VÍDEOS ORGÂNICOS (D-ERP107 TikTok / D-ERP108 YouTube).
   const analiseVideos = eVideo
