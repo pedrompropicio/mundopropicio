@@ -637,7 +637,8 @@ export function BpUnusedBudgetPanel(props: Props) {
                   );
                 })}
               </Fragment>
-            ))}
+              );
+            })}
           </TableBody>
         </Table>
       )}
