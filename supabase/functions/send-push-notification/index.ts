@@ -99,9 +99,9 @@ Deno.serve(async (req) => {
         .from("profiles").select("company_id, active_company_id").eq("id", user.id).maybeSingle();
       const { data: isPaRow } = await adminClient.rpc("is_platform_admin", { _user_id: user.id });
       isPlatformAdmin = Boolean(isPaRow);
-      callerCompanyId = isPlatformAdmin
-        ? ((callerProfile as any)?.active_company_id ?? (callerProfile as any)?.company_id ?? null)
-        : ((callerProfile as any)?.company_id ?? null);
+      // (Issue #241) Empresa activa = active_company_id ?? company_id, para todos.
+      callerCompanyId =
+        (callerProfile as any)?.active_company_id ?? (callerProfile as any)?.company_id ?? null;
     }
 
     const body = await req.json();
