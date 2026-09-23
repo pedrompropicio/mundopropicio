@@ -30,3 +30,4 @@
 - [artist-ads-strategy-generate](mem://features/artist-ads-strategy-generate) — Plano de tráfego Meta por LLM no alvo MÚSICA: sessão do chamador, sem leituras crm.*, normalização determinística, plano em rascunho
 - [reverse_transaction](mem://features/reverse-transaction) — Overloads de 4 e 5 args desde 2026-09-20; overload legada de 3 args removida e registada como migration; chamada frontend tipada em PaymentTimeline.tsx
 - [Build code-splitting](mem://features/build-code-splitting) — Rotas lazy vs eager, manualChunks, vite:preloadError, campos de version.json e verificação pós-Publish
+- [BI de Vendas — Lotes e preços](mem://features/bi-vendas-lotes-precos) — Separador por evento com tabela por zona (preço em vigor, vendido, ocupação do libertado, viradas) e curva diária; RPC única get_event_zone_price_dynamics
