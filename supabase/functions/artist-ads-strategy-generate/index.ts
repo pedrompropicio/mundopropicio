@@ -739,168 +739,270 @@ async function gerar(req: Request, diag: Diag, admin: Any): Promise<Response> {
   if (eTiktok) {
     avisos.push("sem histórico pago TikTok; hipótese sustentada em orgânico TikTok + pago Meta/Google");
   }
-  const llm = await callLlm(
-    `Dados (única fonte de números permitida):\n\n${JSON.stringify(entradas)}`,
-    eGoogle ? SYSTEM_PROMPT_GOOGLE : eTiktok ? SYSTEM_PROMPT_TIKTOK : SYSTEM_PROMPT,
-  );
-  if ("fail" in llm && llm.fail) return llm.fail;
-  const plano: Any = llm.plano ?? {};
+  const systemPrompt = eGoogle ? SYSTEM_PROMPT_GOOGLE : eTiktok ? SYSTEM_PROMPT_TIKTOK : SYSTEM_PROMPT;
+  const promptBase = `Dados (única fonte de números permitida):\n\n${JSON.stringify(entradas)}`;
+  const idsPermitidos = [...refExactas];
+  const campoIdVideo = eGoogle ? "youtube_video_id" : "tiktok_video_id";
+  diag.posts_promoviveis_total = postsTotais.length;
+  diag.posts_enviados_ao_modelo = posts.length;
+  diag.ids_permitidos_exemplo = idsPermitidos.slice(0, 10);
+
+  type Normalizado = {
+    plano: Any;
+    adsets: Any[];
+    end: string | null;
+    dias: number;
+    avisos: string[];
+    ids_modelo: string[];
+    nao_casaram: Array<{ id: string; motivo: string; conjunto?: string }>;
+    adsets_do_modelo: number;
+    anuncios_do_modelo: number;
+  };
 
   // ── 8) Normalização determinística (não confiar na saída do modelo)
-  const objetivosOk = eGoogle ? OBJETIVOS_GOOGLE : eTiktok ? OBJETIVOS_TIKTOK : OBJETIVOS;
-  const objetivoOmissao = eVideo ? "VIDEO_VIEWS" : "AWARENESS";
-  let objetivo = String(plano.objetivo ?? "").toUpperCase();
-  if (!objetivosOk.includes(objetivo)) {
-    avisos.push(
-      `objetivo "${plano.objetivo ?? ""}" fora de ${objetivosOk.join("/")} — usado ${objetivoOmissao}`,
-    );
-    objetivo = objetivoOmissao;
-  }
-  if (objetivo === "TRAFFIC" && !smartLink && !String(plano.link_destino ?? "").startsWith("https://")) {
-    avisos.push(`Tráfego sem link https disponível — objetivo trocado para ${objetivoOmissao}`);
-    objetivo = objetivoOmissao;
-  }
-  plano.objetivo = objetivo;
-  plano.plataforma = plataforma;
-  plano.link_destino = objetivo === "TRAFFIC"
-    ? (String(plano.link_destino ?? "").startsWith("https://") ? plano.link_destino : smartLink)
-    : null;
+  async function normalizar(plano: Any): Promise<Normalizado> {
+    const av: string[] = [];
+    const idsModelo: string[] = [];
+    const naoCasaram: Array<{ id: string; motivo: string; conjunto?: string }> = [];
+    let anunciosDoModelo = 0;
 
-  let adsets: Any[] = Array.isArray(plano.adsets) ? plano.adsets.slice(0, 3) : [];
-  if (Array.isArray(plano.adsets) && plano.adsets.length > 3) {
-    avisos.push(`plano vinha com ${plano.adsets.length} conjuntos — ficaram os 3 primeiros`);
-  }
+    const objetivosOk = eGoogle ? OBJETIVOS_GOOGLE : eTiktok ? OBJETIVOS_TIKTOK : OBJETIVOS;
+    const objetivoOmissao = eVideo ? "VIDEO_VIEWS" : "AWARENESS";
+    let objetivo = String(plano.objetivo ?? "").toUpperCase();
+    if (!objetivosOk.includes(objetivo)) {
+      av.push(
+        `objetivo "${plano.objetivo ?? ""}" fora de ${objetivosOk.join("/")} — usado ${objetivoOmissao}`,
+      );
+      objetivo = objetivoOmissao;
+    }
+    if (objetivo === "TRAFFIC" && !smartLink && !String(plano.link_destino ?? "").startsWith("https://")) {
+      av.push(`Tráfego sem link https disponível — objetivo trocado para ${objetivoOmissao}`);
+      objetivo = objetivoOmissao;
+    }
+    plano.objetivo = objetivo;
+    plano.plataforma = plataforma;
+    plano.link_destino = objetivo === "TRAFFIC"
+      ? (String(plano.link_destino ?? "").startsWith("https://") ? plano.link_destino : smartLink)
+      : null;
 
-  // datas: end_time obriga a start_time e a end_time > start_time
-  const start = typeof plano.start_time === "string" ? plano.start_time : null;
-  let end = typeof plano.end_time === "string" ? plano.end_time : null;
-  if (end && (!start || Date.parse(end) <= Date.parse(start))) {
-    avisos.push("end_time inválido (sem start_time ou anterior ao arranque) — plano fica com orçamento diário");
-    end = null;
-  }
-  plano.start_time = start;
-  plano.end_time = end;
-  const dias = end && start
-    ? Math.max(1, Math.ceil((Date.parse(end) - Date.parse(start)) / 86_400_000))
-    : 1;
+    const adsetsDoModelo = Array.isArray(plano.adsets) ? plano.adsets.length : 0;
+    let adsets: Any[] = Array.isArray(plano.adsets) ? plano.adsets.slice(0, 3) : [];
+    if (adsetsDoModelo > 3) {
+      av.push(`plano vinha com ${adsetsDoModelo} conjuntos — ficaram os 3 primeiros`);
+    }
 
-  for (const a of adsets) {
-    const pub = (a.publico_sugerido = a.publico_sugerido ?? {});
-    // Defeito 4: geo só aceita código ISO de país com 2 letras. Cidade/estado em
-    // texto livre viraria país em targeting.geo_locations.countries e a Meta recusa.
-    const bruto: Any[] = Array.isArray(pub.geo) ? pub.geo : [];
-    const geo: string[] = [];
-    for (const g of bruto) {
-      const s = typeof g === "string" ? g.trim() : "";
-      if (/^[A-Za-z]{2}$/.test(s)) {
-        const iso = s.toUpperCase();
-        if (!geo.includes(iso)) geo.push(iso);
-      } else if (s.length > 0) {
-        avisos.push(
-          `geo_cidade_descartada: conjunto "${a.trigger_nome ?? "?"}" pedia "${s}" em geo — em geo só entram códigos ISO de país com 2 letras (estados vão em publico_sugerido.estados)`,
-        );
+    // datas: end_time obriga a start_time e a end_time > start_time
+    const start = typeof plano.start_time === "string" ? plano.start_time : null;
+    let end = typeof plano.end_time === "string" ? plano.end_time : null;
+    if (end && (!start || Date.parse(end) <= Date.parse(start))) {
+      av.push("end_time inválido (sem start_time ou anterior ao arranque) — plano fica com orçamento diário");
+      end = null;
+    }
+    plano.start_time = start;
+    plano.end_time = end;
+    const dias = end && start
+      ? Math.max(1, Math.ceil((Date.parse(end) - Date.parse(start)) / 86_400_000))
+      : 1;
+
+    for (const a of adsets) {
+      const pub = (a.publico_sugerido = a.publico_sugerido ?? {});
+      // Defeito 4: geo só aceita código ISO de país com 2 letras. Cidade/estado em
+      // texto livre viraria país em targeting.geo_locations.countries e a Meta recusa.
+      const bruto: Any[] = Array.isArray(pub.geo) ? pub.geo : [];
+      const geo: string[] = [];
+      for (const g of bruto) {
+        const s = typeof g === "string" ? g.trim() : "";
+        if (/^[A-Za-z]{2}$/.test(s)) {
+          const iso = s.toUpperCase();
+          if (!geo.includes(iso)) geo.push(iso);
+        } else if (s.length > 0) {
+          av.push(
+            `geo_cidade_descartada: conjunto "${a.trigger_nome ?? "?"}" pedia "${s}" em geo — em geo só entram códigos ISO de país com 2 letras (estados vão em publico_sugerido.estados)`,
+          );
+        }
       }
-    }
-    if (geo.length === 0) {
-      avisos.push(`conjunto "${a.trigger_nome ?? "?"}" sem geografia válida — usado ["BR"]`);
-      pub.geo = ["BR"];
-    } else {
-      pub.geo = geo;
-    }
+      if (geo.length === 0) {
+        av.push(`conjunto "${a.trigger_nome ?? "?"}" sem geografia válida — usado ["BR"]`);
+        pub.geo = ["BR"];
+      } else {
+        pub.geo = geo;
+      }
 
-    // Estados. No Meta → geo_regions [{nome, key}] com a chave resolvida na Meta.
-    // No TikTok/Google → geo_regions é LISTA DE NOMES; os location_ids (TikTok) e
-    // os geoTargetConstants (Google) são resolvidos no motor de publicação.
-    const estadosBrutos: Any[] = Array.isArray(pub.estados)
-      ? pub.estados
-      : (Array.isArray(pub.geo_regions) ? pub.geo_regions.map((r: Any) => r?.nome ?? r) : []);
-    const nomes = estadosBrutos
-      .map((e) => (typeof e === "string" ? e.trim() : ""))
-      .filter((e) => e.length > 2);
-    delete pub.estados;
-    delete pub.geo_regions;
-    if (nomes.length > 0) {
-      if (eVideo) {
-        // Nomes validados contra public.br_estados (comparação sem acentos); o
-        // motor de publicação resolve as chaves da plataforma a partir do nome.
-        const unicos: string[] = [];
-        for (const nome of nomes) {
-          const oficial = estadosBr.length === 0 ? nome : estadoOficial(nome, estadosBr);
-          if (!oficial) {
-            avisos.push(
-              `geo_regiao_nao_resolvida: conjunto "${a.trigger_nome ?? "?"}" pedia o estado "${nome}" — não existe em br_estados e ficou fora`,
+      // Estados. No Meta → geo_regions [{nome, key}] com a chave resolvida na Meta.
+      // No TikTok/Google → geo_regions é LISTA DE NOMES; os location_ids (TikTok) e
+      // os geoTargetConstants (Google) são resolvidos no motor de publicação.
+      const estadosBrutos: Any[] = Array.isArray(pub.estados)
+        ? pub.estados
+        : (Array.isArray(pub.geo_regions) ? pub.geo_regions.map((r: Any) => r?.nome ?? r) : []);
+      const nomes = estadosBrutos
+        .map((e) => (typeof e === "string" ? e.trim() : ""))
+        .filter((e) => e.length > 2);
+      delete pub.estados;
+      delete pub.geo_regions;
+      if (nomes.length > 0) {
+        if (eVideo) {
+          // Nomes validados contra public.br_estados (comparação sem acentos); o
+          // motor de publicação resolve as chaves da plataforma a partir do nome.
+          const unicos: string[] = [];
+          for (const nome of nomes) {
+            const oficial = estadosBr.length === 0 ? nome : estadoOficial(nome, estadosBr);
+            if (!oficial) {
+              av.push(
+                `geo_regiao_nao_resolvida: conjunto "${a.trigger_nome ?? "?"}" pedia o estado "${nome}" — não existe em br_estados e ficou fora`,
+              );
+              continue;
+            }
+            if (!unicos.includes(oficial)) unicos.push(oficial);
+          }
+          if (unicos.length > 0) pub.geo_regions = unicos;
+        } else {
+          const token = metaAppToken();
+          if (!token) {
+            av.push(
+              `geo_regions_nao_resolvidas: sem credenciais de aplicação Meta — estados pedidos ficaram fora (${nomes.join(", ")})`,
             );
+          } else {
+            const pais = pub.geo[0] ?? "BR";
+            const regioes: Any[] = [];
+            for (const nome of nomes) {
+              const key = await resolveRegionKey(nome, pais, token);
+              if (key) {
+                if (!regioes.some((r) => r.key === key)) regioes.push({ nome, key });
+              } else {
+                av.push(
+                  `geo_regiao_nao_resolvida: conjunto "${a.trigger_nome ?? "?"}" pedia o estado "${nome}" — não foi encontrado na Meta e ficou fora`,
+                );
+              }
+            }
+            if (regioes.length > 0) pub.geo_regions = regioes;
+          }
+        }
+      }
+
+      if (!Number.isFinite(pub.idade_min)) pub.idade_min = 18;
+      if (!Number.isFinite(pub.idade_max)) pub.idade_max = 65;
+
+      // anúncios: só publicações/vídeos realmente promovíveis; nunca inventar ref.
+      // resolverRef() aceita apenas ids que identifiquem SEM AMBIGUIDADE uma
+      // publicação da lista permitida (inclui o caso do modelo devolver só o
+      // segundo segmento de "<page_id>_<post_id>").
+      const lista = Array.isArray(a.anuncios) ? a.anuncios : [];
+      anunciosDoModelo += lista.length;
+      const validos: Any[] = [];
+      for (const an of lista) {
+        if (eVideo) {
+          const vidBruto = an?.[campoIdVideo] ?? an?.tiktok_video_id ?? an?.youtube_video_id ?? an?.video_id ?? an?.post_ref;
+          if (typeof vidBruto === "string" && vidBruto.trim()) idsModelo.push(vidBruto.trim());
+          const vid = resolverRef(vidBruto);
+          if (!vid) {
+            const motivo = typeof vidBruto !== "string" || !vidBruto.trim()
+              ? `sem ${campoIdVideo}`
+              : refAmbiguas.has(String(vidBruto).trim())
+              ? "id ambíguo (aponta para mais de uma publicação)"
+              : "não está na lista de vídeos promovíveis enviada ao modelo";
+            naoCasaram.push({ id: String(vidBruto ?? ""), motivo, conjunto: a.trigger_nome ?? "?" });
+            av.push(`conjunto "${a.trigger_nome ?? "?"}": vídeo ${vidBruto ?? `(sem ${campoIdVideo})`} ${motivo} — anúncio descartado`);
             continue;
           }
-          if (!unicos.includes(oficial)) unicos.push(oficial);
-        }
-        if (unicos.length > 0) pub.geo_regions = unicos;
-      } else {
-        const token = metaAppToken();
-        if (!token) {
-          avisos.push(
-            `geo_regions_nao_resolvidas: sem credenciais de aplicação Meta — estados pedidos ficaram fora (${nomes.join(", ")})`,
-          );
+          const porque = typeof an?.porque === "string" ? an.porque : null;
+          validos.push({ [campoIdVideo]: vid, ...(porque ? { porque } : {}) });
         } else {
-          const pais = pub.geo[0] ?? "BR";
-          const regioes: Any[] = [];
-          for (const nome of nomes) {
-            const key = await resolveRegionKey(nome, pais, token);
-            if (key) {
-              if (!regioes.some((r) => r.key === key)) regioes.push({ nome, key });
-            } else {
-              avisos.push(
-                `geo_regiao_nao_resolvida: conjunto "${a.trigger_nome ?? "?"}" pedia o estado "${nome}" — não foi encontrado na Meta e ficou fora`,
-              );
-            }
+          const refBruto = an?.existing_post?.post_ref ?? an?.post_ref;
+          if (typeof refBruto === "string" && refBruto.trim()) idsModelo.push(refBruto.trim());
+          const ref = resolverRef(refBruto);
+          if (!ref) {
+            const motivo = typeof refBruto !== "string" || !refBruto.trim()
+              ? "sem post_ref"
+              : refAmbiguas.has(String(refBruto).trim())
+              ? "id ambíguo (aponta para mais de uma publicação)"
+              : "não está na lista de publicações promovíveis enviada ao modelo";
+            naoCasaram.push({ id: String(refBruto ?? ""), motivo, conjunto: a.trigger_nome ?? "?" });
+            av.push(`conjunto "${a.trigger_nome ?? "?"}": publicação ${refBruto ?? "(sem post_ref)"} ${motivo} — anúncio descartado`);
+            continue;
           }
-          if (regioes.length > 0) pub.geo_regions = regioes;
+          const kindPedido = an?.existing_post?.kind;
+          const kind = kindPedido === "instagram_media" || !ref.includes("_") ? (ref.includes("_") ? "object_story" : "instagram_media") : "object_story";
+          validos.push({ ...an, existing_post: { post_ref: ref, kind } });
         }
+        if (validos.length >= 1) break; // um anúncio por conjunto
       }
+      a.anuncios = validos;
+      a.orcamento_cents = Math.max(0, Math.round(Number(a.orcamento_cents ?? 0)));
     }
 
-
-
-    if (!Number.isFinite(pub.idade_min)) pub.idade_min = 18;
-    if (!Number.isFinite(pub.idade_max)) pub.idade_max = 65;
-
-    // anúncios: só publicações/vídeos realmente promovíveis; nunca inventar ref
-    const lista = Array.isArray(a.anuncios) ? a.anuncios : [];
-    const validos: Any[] = [];
-    for (const an of lista) {
-      if (eVideo) {
-        const campoId = eGoogle ? "youtube_video_id" : "tiktok_video_id";
-        const vid = an?.[campoId] ?? an?.tiktok_video_id ?? an?.youtube_video_id ?? an?.video_id ?? an?.post_ref;
-        if (typeof vid !== "string" || !postRefsOk.has(vid)) {
-          avisos.push(
-            `conjunto "${a.trigger_nome ?? "?"}": vídeo ${vid ?? `(sem ${campoId})`} não está na lista de vídeos promovíveis — anúncio descartado`,
-          );
-          continue;
-        }
-        const porque = typeof an?.porque === "string" ? an.porque : null;
-        validos.push({ [campoId]: vid, ...(porque ? { porque } : {}) });
-      } else {
-        const ref = an?.existing_post?.post_ref;
-        if (typeof ref !== "string" || !postRefsOk.has(ref)) {
-          avisos.push(`conjunto "${a.trigger_nome ?? "?"}": publicação ${ref ?? "(sem post_ref)"} não é promovível — anúncio descartado`);
-          continue;
-        }
-        const kind = an.existing_post.kind === "instagram_media" ? "instagram_media" : "object_story";
-        validos.push({ ...an, existing_post: { post_ref: ref, kind } });
-      }
-      if (validos.length >= 1) break; // um anúncio por conjunto
-    }
-    a.anuncios = validos;
-    a.orcamento_cents = Math.max(0, Math.round(Number(a.orcamento_cents ?? 0)));
+    adsets = adsets.filter((a) => (a.anuncios ?? []).length > 0);
+    return {
+      plano,
+      adsets,
+      end,
+      dias,
+      avisos: av,
+      ids_modelo: idsModelo,
+      nao_casaram: naoCasaram,
+      adsets_do_modelo: adsetsDoModelo,
+      anuncios_do_modelo: anunciosDoModelo,
+    };
   }
 
-  adsets = adsets.filter((a) => (a.anuncios ?? []).length > 0);
+  let llm = await callLlm(promptBase, systemPrompt);
+  if ("fail" in llm && llm.fail) {
+    diag.erro = "chamada ao modelo falhou";
+    return llm.fail;
+  }
+  let r = await normalizar(llm.plano ?? {});
+  diag.tentativas = 1;
+
+  // Retry ÚNICO com a lista explícita de ids permitidos quando nenhum anúncio
+  // casou. Não relaxa a validação: só volta a pedir ao modelo que escolha de uma
+  // lista curta e literal.
+  if (r.adsets.length === 0) {
+    diag.retry_com_lista_de_ids = true;
+    const campoEsperado = eVideo ? campoIdVideo : "existing_post.post_ref";
+    const reforco = `\n\nATENÇÃO — a tua resposta anterior foi RECUSADA porque nenhum anúncio usava um id permitido.` +
+      ` Ids devolvidos e recusados: ${JSON.stringify(r.ids_modelo.slice(0, 20))}.` +
+      ` Cada anúncio tem de trazer em ${campoEsperado} EXACTAMENTE um destes ids, copiado tal e qual (sem cortar, sem juntar, sem inventar):\n` +
+      JSON.stringify(idsPermitidos);
+    const llm2 = await callLlm(promptBase + reforco, systemPrompt);
+    if (!("fail" in llm2 && llm2.fail)) {
+      const r2 = await normalizar(llm2.plano ?? {});
+      diag.tentativas = 2;
+      r2.ids_modelo = [...r.ids_modelo, ...r2.ids_modelo];
+      r2.nao_casaram = [...r.nao_casaram, ...r2.nao_casaram];
+      if (r2.adsets.length > 0) {
+        r2.avisos.push("1.ª resposta do modelo recusada (ids fora da lista) — plano da 2.ª tentativa");
+        llm = llm2;
+      }
+      r = r2;
+    }
+  }
+
+  const plano: Any = r.plano;
+  let adsets: Any[] = r.adsets;
+  const end = r.end;
+  const dias = r.dias;
+  avisos.push(...r.avisos);
+  diag.ids_devolvidos_pelo_modelo = r.ids_modelo.slice(0, 40);
+  diag.ids_nao_casaram = r.nao_casaram.slice(0, 40);
+  diag.adsets_do_modelo = r.adsets_do_modelo;
+  diag.anuncios_do_modelo = r.anuncios_do_modelo;
+  diag.adsets_validos = adsets.length;
+
   if (adsets.length === 0) {
+    diag.erro = "plano_invalido: nenhum anúncio com publicação promovível";
     return json({
       error: "plano_invalido",
       mensagem: eVideo
         ? "O plano gerado ficou sem conjuntos com vídeo promovível."
         : "O plano gerado ficou sem conjuntos com publicação promovível.",
+      detalhe: {
+        tentativas: diag.tentativas,
+        conjuntos_do_modelo: r.adsets_do_modelo,
+        anuncios_do_modelo: r.anuncios_do_modelo,
+        ids_nao_casaram: r.nao_casaram.length,
+        exemplos_nao_casaram: r.nao_casaram.slice(0, 5),
+        publicacoes_promoviveis_total: postsTotais.length,
+        publicacoes_enviadas_ao_modelo: posts.length,
+      },
       avisos,
     }, 422);
   }
