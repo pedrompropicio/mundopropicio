@@ -18,6 +18,8 @@ import { lisbonToday } from "@/lib/date-lisbon";
 import { IvaToggle, useIvaMode } from "@/components/sales/IvaToggle";
 import { netOfIva, useEventIvaRates } from "@/hooks/useEventIvaRates";
 import { fetchZoneCapacities, type ZoneCapacityRow } from "@/lib/zone-capacities";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ZoneLotsPrices from "@/components/sales/ZoneLotsPrices";
 
 const nfInt = new Intl.NumberFormat("pt-PT");
 const nfMoney = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -331,7 +333,14 @@ export default function SalesBIEvent() {
         <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> A carregar…
         </div>
-      ) : zonesModel ? (
+      ) : (
+        <Tabs defaultValue="geral" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="geral">Visão geral</TabsTrigger>
+            <TabsTrigger value="lotes">Lotes e preços</TabsTrigger>
+          </TabsList>
+          <TabsContent value="geral" className="space-y-4">
+          {zonesModel ? (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
             <Kpi label="Carga total" value={int(zonesModel.totalCarga)} />
@@ -541,11 +550,18 @@ export default function SalesBIEvent() {
             </Card>
           )}
         </>
-      ) : (
-        <Card className="p-8 text-center text-sm text-muted-foreground">
-          Sem dados de zonas nem de sessões para este evento.
-        </Card>
+          ) : (
+            <Card className="p-8 text-center text-sm text-muted-foreground">
+              Sem dados de zonas nem de sessões para este evento.
+            </Card>
+          )}
+          </TabsContent>
+          <TabsContent value="lotes">
+            <ZoneLotsPrices eventId={eventId} withIva={withIva} ivaRate={rateOf(eventId)} />
+          </TabsContent>
+        </Tabs>
       )}
+
     </div>
   );
 }
