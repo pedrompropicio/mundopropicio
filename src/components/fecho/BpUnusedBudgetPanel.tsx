@@ -459,7 +459,6 @@ export function BpUnusedBudgetPanel(props: Props) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Rubrica</TableHead>
               <TableHead>Descrição</TableHead>
               <TableHead className="text-right">Previsto</TableHead>
               <TableHead className="text-right">Pago</TableHead>
@@ -469,114 +468,163 @@ export function BpUnusedBudgetPanel(props: Props) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rowsView.map((r) => {
-              const { review, valid } = reviewState(r.forecastId);
-              const cands = candidatesFor(r);
-              const isOpen = expanded === r.forecastId;
-              return (
-                <Fragment key={r.forecastId}>
-                  <TableRow>
-                    <TableCell className="text-sm align-top">{catLabel(r.forecastId)}</TableCell>
-                    <TableCell className="text-sm align-top">
-                      <div className="flex flex-col gap-1">
-                        <span>{r.description || "—"}</span>
-                        <div className="flex flex-wrap gap-1">
-                          {r.pendingCount > 0 && (
-                            <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/30">
-                              {r.pendingCount} por aprovar · {formatCurrency(r.pendingAmount)}
-                            </Badge>
-                          )}
-                          {cands.length > 0 && (
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
-                              onClick={() => setExpanded(isOpen ? null : r.forecastId)}
-                            >
-                              {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                              {cands.length} candidata(s) a vínculo
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm">{formatCurrency(r.previsto)}</TableCell>
-                    <TableCell className="text-right font-mono text-sm text-muted-foreground">{formatCurrency(r.pago)}</TableCell>
-                    <TableCell className="text-right font-mono text-sm text-muted-foreground">{formatCurrency(r.aPagar)}</TableCell>
-                    <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(r.saldo)}</TableCell>
-                    <TableCell className="align-top">
-                      {review && valid ? (
-                        <div className="text-[10px] text-muted-foreground">
-                          <span className="flex items-center gap-1 text-foreground">
-                            <Check className="h-3 w-3 text-success" />
-                            {DECISION_LABEL[review.decision as Decision]}
-                          </span>
-                          Revisto por {reviewerName(review.reviewed_by)} em {format(new Date(review.reviewed_at), "dd/MM/yyyy HH:mm")}
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-start gap-1">
-                          {review && (
-                            <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/30">
-                              Revisão desactualizada
-                            </Badge>
-                          )}
-                          {canManageBp ? (
-                            <div className="flex flex-wrap gap-1">
-                              <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => openDialog(r, "pending_invoice")}>
-                                Fatura por chegar
-                              </Button>
-                              <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => openDialog(r, "partner_paid")}>
-                                Pago por sócio
-                              </Button>
-                              <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => openDialog(r, "adjusted")}>
-                                Ajustar previsto
-                              </Button>
+            {groups.map((g) => (
+              <Fragment key={g.key}>
+                <TableRow className="bg-muted/40">
+                  <TableCell className="text-sm font-semibold">{g.label}</TableCell>
+                  <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(g.previsto)}</TableCell>
+                  <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(g.pago)}</TableCell>
+                  <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(g.aPagar)}</TableCell>
+                  <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(g.saldo)}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-[9px]">{g.rows.length} linha(s)</Badge>
+                  </TableCell>
+                </TableRow>
+
+                {g.rows.map((r) => {
+                  const { review, valid } = reviewState(r.forecastId);
+                  const cands = candidatesFor(r);
+                  const linked = linkedFor(r);
+                  const txOpen = expandedTx === r.forecastId;
+                  const candsOpen = expandedCands === r.forecastId;
+                  return (
+                    <Fragment key={r.forecastId}>
+                      <TableRow>
+                        <TableCell className="text-sm align-top pl-8">
+                          <div className="flex flex-col gap-1">
+                            <span>{r.description || "—"}</span>
+                            <div className="flex flex-wrap items-center gap-2">
+                              {r.pendingCount > 0 && (
+                                <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/30">
+                                  {r.pendingCount} por aprovar · {formatCurrency(r.pendingAmount)}
+                                </Badge>
+                              )}
+                              <button
+                                type="button"
+                                disabled={linked.length === 0}
+                                className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline disabled:text-muted-foreground disabled:no-underline disabled:cursor-default"
+                                onClick={() => setExpandedTx(txOpen ? null : r.forecastId)}
+                              >
+                                {linked.length > 0 &&
+                                  (txOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />)}
+                                {linked.length === 0 ? "Sem transações" : `Ver transações (${linked.length})`}
+                              </button>
+                              {cands.length > 0 && (
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
+                                  onClick={() => setExpandedCands(candsOpen ? null : r.forecastId)}
+                                >
+                                  {candsOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                  {cands.length} candidata(s) a vínculo
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">{formatCurrency(r.previsto)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-muted-foreground">{formatCurrency(r.pago)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-muted-foreground">{formatCurrency(r.aPagar)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm font-semibold">{formatCurrency(r.saldo)}</TableCell>
+                        <TableCell className="align-top">
+                          {review && valid ? (
+                            <div className="text-[10px] text-muted-foreground">
+                              <span className="flex items-center gap-1 text-foreground">
+                                <Check className="h-3 w-3 text-success" />
+                                {DECISION_LABEL[review.decision as Decision]}
+                              </span>
+                              Revisto por {reviewerName(review.reviewed_by)} em {format(new Date(review.reviewed_at), "dd/MM/yyyy HH:mm")}
                             </div>
                           ) : (
-                            <span className="text-[10px] text-muted-foreground">por rever</span>
-                          )}
-                        </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-
-                  {isOpen && (
-                    <TableRow key={`${r.forecastId}-cands`} className="bg-muted/20">
-                      <TableCell colSpan={7} className="py-2">
-                        <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          Transações da mesma rubrica sem linha de BP — vincular antes de decidir.
-                        </p>
-                        <div className="space-y-1">
-                          {cands.map((t: any) => (
-                            <div key={t.id} className="flex flex-wrap items-center gap-2 text-[11px]">
-                              <span className="font-mono">{formatDatePT(t.date)}</span>
-                              <span className="text-muted-foreground">{t.suppliers?.name || "—"}</span>
-                              <span className="min-w-0 truncate">{t.description}</span>
-                              <span className="font-mono">{formatCurrency(Number(t.amount))}</span>
-                              <Badge variant="outline" className="text-[9px]">{t.status}</Badge>
-                              {t.installment_group_id && (
-                                <Badge variant="outline" className="text-[9px]">grupo de parcelas</Badge>
+                            <div className="flex flex-col items-start gap-1">
+                              {review && (
+                                <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/30">
+                                  Revisão desactualizada
+                                </Badge>
                               )}
-                              {canManageBp && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 text-[10px]"
-                                  disabled={saving}
-                                  onClick={() => linkTx(r, t)}
-                                >
-                                  <Link2 className="mr-1 h-3 w-3" /> Vincular a esta linha
-                                </Button>
+                              {canManageBp ? (
+                                <div className="flex flex-wrap gap-1">
+                                  <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => openDialog(r, "pending_invoice")}>
+                                    Fatura por chegar
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => openDialog(r, "partner_paid")}>
+                                    Pago por sócio
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => openDialog(r, "adjusted")}>
+                                    Ajustar previsto
+                                  </Button>
+                                </div>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground">por rever</span>
                               )}
                             </div>
-                          ))}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </Fragment>
-              );
-            })}
+                          )}
+                        </TableCell>
+                      </TableRow>
+
+                      {txOpen && linked.length > 0 && (
+                        <TableRow key={`${r.forecastId}-tx`} className="bg-muted/10">
+                          <TableCell colSpan={6} className="py-2">
+                            <p className="text-[10px] text-muted-foreground mb-1">
+                              Transações já vinculadas a esta linha de BP.
+                            </p>
+                            <div className="space-y-1">
+                              {linked.map((t: any) => (
+                                <div key={t.id} className="flex flex-wrap items-center gap-2 text-[11px]">
+                                  <span className="font-mono">{formatDatePT(t.date)}</span>
+                                  <span className="text-muted-foreground">{t.suppliers?.name || "—"}</span>
+                                  <span className="min-w-0 truncate">{t.description}</span>
+                                  <span className="font-mono text-muted-foreground">{t.invoice_ref || "—"}</span>
+                                  <span className="font-mono">{formatCurrency(Number(t.amount))}</span>
+                                  <Badge variant="outline" className="text-[9px]">{t.status}</Badge>
+                                </div>
+                              ))}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+
+                      {candsOpen && (
+                        <TableRow key={`${r.forecastId}-cands`} className="bg-muted/20">
+                          <TableCell colSpan={6} className="py-2">
+                            <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              Transações da mesma rubrica sem linha de BP — vincular antes de decidir.
+                            </p>
+                            <div className="space-y-1">
+                              {cands.map((t: any) => (
+                                <div key={t.id} className="flex flex-wrap items-center gap-2 text-[11px]">
+                                  <span className="font-mono">{formatDatePT(t.date)}</span>
+                                  <span className="text-muted-foreground">{t.suppliers?.name || "—"}</span>
+                                  <span className="min-w-0 truncate">{t.description}</span>
+                                  <span className="font-mono text-muted-foreground">{t.invoice_ref || "—"}</span>
+                                  <span className="font-mono">{formatCurrency(Number(t.amount))}</span>
+                                  <Badge variant="outline" className="text-[9px]">{t.status}</Badge>
+                                  {t.installment_group_id && (
+                                    <Badge variant="outline" className="text-[9px]">grupo de parcelas</Badge>
+                                  )}
+                                  {canManageBp && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 text-[10px]"
+                                      disabled={saving}
+                                      onClick={() => linkTx(r, t)}
+                                    >
+                                      <Link2 className="mr-1 h-3 w-3" /> Vincular a esta linha
+                                    </Button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </Fragment>
+            ))}
           </TableBody>
         </Table>
       )}
