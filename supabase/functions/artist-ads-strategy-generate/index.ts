@@ -1184,7 +1184,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     posts_enviados_ao_modelo: null,
     ids_permitidos_exemplo: [],
     tentativas: 0,
-    retry_com_lida_de_ids: false,
+    retry_com_lista_de_ids: false,
     ids_devolvidos_pelo_modelo: [],
     ids_nao_casaram: [],
     adsets_do_modelo: null,
