@@ -268,3 +268,9 @@ verify_jwt = true
 
 [functions.song-link-event]
 verify_jwt = false
+
+[functions.artist-ads-meta-interest-search]
+verify_jwt = true
+
+[functions.artist-ads-meta-create-ig-engagement-audience]
+verify_jwt = true
