@@ -675,7 +675,7 @@ Deno.serve(async (req) => {
     await finishSyncRun(admin, runId, startedMs, {
       status: resolveStatus(effectiveRows, errors.length),
       api_calls: client.calls,
-      rows_written: dryRun ? 0 : written,
+      rows_written: dryRun ? 0 : written + deezerRows,
       details: body,
       error_text: quotaError ?? (errors.length ? errors[0].error : null),
     });
