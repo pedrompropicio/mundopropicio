@@ -631,6 +631,64 @@ export type Database = {
           },
         ]
       }
+      artist_channel_seed_codes: {
+        Row: {
+          artist_id: string
+          code_hash: string
+          company_id: string
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          provider: string
+          used_at: string | null
+        }
+        Insert: {
+          artist_id: string
+          code_hash: string
+          company_id: string
+          created_at?: string
+          created_by: string
+          expires_at: string
+          id?: string
+          provider: string
+          used_at?: string | null
+        }
+        Update: {
+          artist_id?: string
+          code_hash?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          provider?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_channel_seed_codes_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_channel_seed_codes_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_benchmark_aligned"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_channel_seed_codes_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+        ]
+      }
       artist_channels: {
         Row: {
           account_type: string | null
@@ -17432,6 +17490,21 @@ export type Database = {
           metric_date: string
           platform: string
           value: number
+        }[]
+      }
+      artist_s4a_seed_code_consume: {
+        Args: { p_code: string }
+        Returns: {
+          artist_id: string
+          company_id: string
+          created_by: string
+        }[]
+      }
+      artist_s4a_seed_code_create: {
+        Args: { p_artist_id: string }
+        Returns: {
+          code: string
+          expires_at: string
         }[]
       }
       artist_song_base_title: { Args: { _title: string }; Returns: string }
