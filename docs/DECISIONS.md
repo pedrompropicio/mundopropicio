@@ -3210,6 +3210,8 @@ verificação de papel e sem teto; `crm-meta-entity-action` em connections de em
 papel nem teto (só o cap por utilizador em EUR); o motor não gera UTMs para evento;
 publicação de evento sem lock anti-corrida.
 
+**Nota 24/09/2026 — TikTok (portal, 24/09):** a partir de 01/01/2027 `/campaign/create`, `/adgroup/create` e `/ad/create` deixam de criar campanhas Legacy Manual para Sales, App Promotion e Lead Generation (Smart+). Os objetivos do motor para artistas (alcance, tráfego, visualizações) não constam da lista — confirmar na F5.
+
 ## D-ERP96 — `cron.job_run_details` tem retenção de 7 dias, purgada por cron em Live e vigiada por invariante (19/09/2026)
 
 **Contexto.** A 19/09/2026 às 13:44 UTC a base ficou indisponível (HTTP 522, sem FATAL no
@@ -4330,6 +4332,8 @@ Decisões do Pedro (23/09/2026):
 `artist-youtube-oauth-start` (verify_jwt=true; admin/platform_admin/manager/marketing_manager) e `artist-youtube-oauth-callback` (verify_jwt=false). Redirect URI exacto `https://<ref>.supabase.co/functions/v1/artist-youtube-oauth-callback`; secrets `GOOGLE_YT_OAUTH_CLIENT_ID` / `GOOGLE_YT_OAUTH_CLIENT_SECRET`; scopes `youtube.readonly` + `yt-analytics.readonly`, `access_type=offline`, `prompt=consent`. State em `crm.oauth_states` (platform 'google', consumido/apagado por `crm.consume_oauth_state`). Sem `refresh_token` → erro. Posse: `channels?mine=true` tem de incluir `artist_channels.external_id`; senão não grava nada. Grava por `artist_upsert_channel_connection` (provider 'google', tokens cifrados com `ENCRYPTION_MASTER_KEY`) e `artist_channels.auth_status='authorized'`. Nenhum leitor existente de `artist_channel_connections` apanha provider 'google' (refresh: instagram/tiktok; syncs: instagram/meta e tiktok; disconnect só revoga tiktok — num canal google apaga a ligação local sem revogar no Google).
 
 Cadeia de token S4A (parte C): a 1.ª tentativa falhou no BLOCO 3 (UPDATE dentro de subconsulta) sem gravar nada; reenviada em plpgsql e aplicada a 23/09 — ver D-ERP135.
+
+**Adenda 24/09/2026 — redirect_uri via mundopropicio.com.** O `redirect_uri` do OAuth Google do YouTube passa a ser `https://www.mundopropicio.com/oauth/google/callback` (rota do Mundo Propício Portal, publicada e provada, que faz 302 no servidor para a `artist-youtube-oauth-callback` mantendo a query intacta: code, state, scope, error). Motivo: para a Google verificar a app, todos os domínios autorizados têm de estar verificados no Search Console, e `<ref>.supabase.co` não pode ser. O valor vive numa única constante partilhada em `_shared/artist-youtube.ts` (`ytRedirectUri()`): `Deno.env.get('GOOGLE_YT_OAUTH_REDIRECT_URI')` (secret opcional, ex.: testes) ?? `https://www.mundopropicio.com/oauth/google/callback`. O callback usa exactamente o mesmo valor na troca do code. O novo URI está no cliente OAuth ao lado do antigo. O callback não depende do Host/Origin do pedido (lê só a query), por isso chegar via 302 do mundopropicio.com não muda nada.
 
 ## D-ERP135 — Spotify for Artists: cadeia de token no servidor (23/09/2026)
 
