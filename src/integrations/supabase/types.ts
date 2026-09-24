@@ -12820,6 +12820,7 @@ export type Database = {
           os: string | null
           region: string | null
           song_id: string | null
+          tiktok_status: string | null
           ttclid: string | null
           utm_campaign: string | null
           utm_content: string | null
@@ -12848,6 +12849,7 @@ export type Database = {
           os?: string | null
           region?: string | null
           song_id?: string | null
+          tiktok_status?: string | null
           ttclid?: string | null
           utm_campaign?: string | null
           utm_content?: string | null
@@ -12876,6 +12878,7 @@ export type Database = {
           os?: string | null
           region?: string | null
           song_id?: string | null
+          tiktok_status?: string | null
           ttclid?: string | null
           utm_campaign?: string | null
           utm_content?: string | null
@@ -12907,6 +12910,7 @@ export type Database = {
           meta_pixel_id: string | null
           slug: string
           song_id: string
+          tiktok_pixel_id: string | null
           title: string | null
           updated_at: string
         }
@@ -12923,6 +12927,7 @@ export type Database = {
           meta_pixel_id?: string | null
           slug: string
           song_id: string
+          tiktok_pixel_id?: string | null
           title?: string | null
           updated_at?: string
         }
@@ -12939,6 +12944,7 @@ export type Database = {
           meta_pixel_id?: string | null
           slug?: string
           song_id?: string
+          tiktok_pixel_id?: string | null
           title?: string | null
           updated_at?: string
         }
@@ -17712,6 +17718,7 @@ export type Database = {
           meta_pixel_id: string | null
           slug: string
           song_id: string
+          tiktok_pixel_id: string | null
           title: string | null
           updated_at: string
         }[]
@@ -19059,6 +19066,7 @@ export type Database = {
           destinations: Json
           meta_pixel_id: string
           slug: string
+          tiktok_pixel_id: string
           title: string
         }[]
       }
