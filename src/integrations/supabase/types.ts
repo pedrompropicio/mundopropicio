@@ -12798,6 +12798,195 @@ export type Database = {
           },
         ]
       }
+      song_link_events: {
+        Row: {
+          artist_id: string | null
+          capi_status: string | null
+          city: string | null
+          company_id: string | null
+          country: string | null
+          created_at: string
+          destination: string | null
+          device: string | null
+          event: string
+          event_id: string | null
+          fbclid: string | null
+          id: string
+          in_app_browser: string | null
+          ip_hash: string | null
+          link_id: string
+          mode: string | null
+          opened: string | null
+          os: string | null
+          region: string | null
+          song_id: string | null
+          ttclid: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          artist_id?: string | null
+          capi_status?: string | null
+          city?: string | null
+          company_id?: string | null
+          country?: string | null
+          created_at?: string
+          destination?: string | null
+          device?: string | null
+          event: string
+          event_id?: string | null
+          fbclid?: string | null
+          id?: string
+          in_app_browser?: string | null
+          ip_hash?: string | null
+          link_id: string
+          mode?: string | null
+          opened?: string | null
+          os?: string | null
+          region?: string | null
+          song_id?: string | null
+          ttclid?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          artist_id?: string | null
+          capi_status?: string | null
+          city?: string | null
+          company_id?: string | null
+          country?: string | null
+          created_at?: string
+          destination?: string | null
+          device?: string | null
+          event?: string
+          event_id?: string | null
+          fbclid?: string | null
+          id?: string
+          in_app_browser?: string | null
+          ip_hash?: string | null
+          link_id?: string
+          mode?: string | null
+          opened?: string | null
+          os?: string | null
+          region?: string | null
+          song_id?: string | null
+          ttclid?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "song_link_events_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "song_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      song_links: {
+        Row: {
+          active: boolean
+          artist_id: string
+          company_id: string
+          cover_url: string | null
+          created_at: string
+          created_by: string | null
+          default_mode: string
+          destinations: Json
+          id: string
+          meta_pixel_id: string | null
+          slug: string
+          song_id: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          artist_id: string
+          company_id: string
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_mode: string
+          destinations?: Json
+          id?: string
+          meta_pixel_id?: string | null
+          slug: string
+          song_id: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          artist_id?: string
+          company_id?: string
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_mode?: string
+          destinations?: Json
+          id?: string
+          meta_pixel_id?: string | null
+          slug?: string
+          song_id?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "song_links_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_links_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_benchmark_aligned"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "song_links_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "song_links_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "artist_songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_links_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "song_links_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["song_id"]
+          },
+        ]
+      }
       sponsorship_pipeline: {
         Row: {
           auto_sync_bp: boolean
@@ -17508,6 +17697,65 @@ export type Database = {
         }[]
       }
       artist_song_base_title: { Args: { _title: string }; Returns: string }
+      artist_song_link_list: {
+        Args: { p_artist_id: string }
+        Returns: {
+          active: boolean
+          artist_id: string
+          company_id: string
+          cover_url: string | null
+          created_at: string
+          created_by: string | null
+          default_mode: string
+          destinations: Json
+          id: string
+          meta_pixel_id: string | null
+          slug: string
+          song_id: string
+          title: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "song_links"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      artist_song_link_stats: {
+        Args: { p_artist_id: string; p_from: string; p_to: string }
+        Returns: {
+          aberturas_app: number
+          aberturas_web: number
+          campanha_id: string
+          campanha_nome: string
+          chegadas: number
+          custo_por_chegada: number
+          dia: string
+          escolhas: number
+          escolhas_por_destino: Json
+          gasto_campanha_dia: number
+          link_id: string
+          moeda: string
+          slug: string
+          song_id: string
+          utm_campaign: string
+          utm_content: string
+        }[]
+      }
+      artist_song_link_upsert: {
+        Args: {
+          p_active?: boolean
+          p_cover_url?: string
+          p_default_mode: string
+          p_destinations?: Json
+          p_meta_pixel_id?: string
+          p_slug: string
+          p_song_id: string
+          p_title?: string
+        }
+        Returns: string
+      }
       artist_song_mark_report_stale: {
         Args: { p_song_id: string }
         Returns: undefined
@@ -18802,6 +19050,19 @@ export type Database = {
         Args: { p_song_id: string; p_to?: string }
         Returns: Json
       }
+      song_link_public_get: {
+        Args: { p_slug: string }
+        Returns: {
+          active: boolean
+          cover_url: string
+          default_mode: string
+          destinations: Json
+          meta_pixel_id: string
+          slug: string
+          title: string
+        }[]
+      }
+      song_link_utm_slug: { Args: { p: string }; Returns: string }
       storage_path_belongs_to_current_company: {
         Args: { _name: string }
         Returns: boolean

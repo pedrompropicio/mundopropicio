@@ -262,3 +262,6 @@ verify_jwt = true
 
 [functions.artist-youtube-sync]
 verify_jwt = true
+
+[functions.song-link-event]
+verify_jwt = false
