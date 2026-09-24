@@ -1,6 +1,7 @@
 // geo-lookup — resolve country/city/region a partir do IP do visitante via
-// ipinfo.io. Chamada pública pelo portal (mundopropicio.com) com o consentimento
-// já validado client-side. Não escreve em BD — apenas devolve geo.
+// ipinfo.io. Chamada pública pelos portais (mundopropicio.com e
+// coalafestival.pt) com o consentimento já validado client-side. Não escreve
+// em BD — apenas devolve geo.
 //
 // Padrão de Vault token alinhado com capi-meta-events (Deno.env não acede a
 // secrets neste projeto → fallback para get_vault_secret via PostgREST).
@@ -12,10 +13,15 @@ const ALLOWED_ORIGINS = new Set<string>([
   "https://www.mundopropicio.com",
   "https://mundopropicio.com",
   "https://propicio-stage-portal.lovable.app",
+  "https://coalafestival.pt",
+  "https://www.coalafestival.pt",
+  "https://coalafestival.lovable.app",
 ]);
 
-const PORTAL_PROJECT_ID = "26b95793-17b6-478c-a6e8-745c0cfb7ed9";
-const PORTAL_PREVIEW_SUFFIX = `--${PORTAL_PROJECT_ID}.lovable.app`;
+const PORTAL_PREVIEW_SUFFIXES: string[] = [
+  `--26b95793-17b6-478c-a6e8-745c0cfb7ed9.lovable.app`, // portal MP
+  `--bef9c59c-c2a4-453d-9aec-dae7d16c9171.lovable.app`, // portal Coala
+];
 
 function isOriginAllowed(origin: string | null): boolean {
   if (!origin) return false;
@@ -23,7 +29,9 @@ function isOriginAllowed(origin: string | null): boolean {
   try {
     const u = new URL(origin);
     if (u.protocol !== "https:") return false;
-    if (u.hostname.endsWith(PORTAL_PREVIEW_SUFFIX)) return true;
+    for (const suffix of PORTAL_PREVIEW_SUFFIXES) {
+      if (u.hostname.endsWith(suffix)) return true;
+    }
   } catch {
     return false;
   }
