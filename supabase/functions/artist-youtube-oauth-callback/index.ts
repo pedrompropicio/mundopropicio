@@ -8,6 +8,7 @@
 
 import { adminClient, auditLog, isAllowedReturnUrl } from "../_shared/artist-meta.ts";
 import { ytRedirectUri } from "../_shared/artist-youtube.ts";
+import { invokeInternal } from "../_shared/internal-call.ts";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -174,6 +175,13 @@ Deno.serve(async (req) => {
       expires_at: expiresAt,
     },
   });
+
+  // Primeira recolha logo após ligar (best-effort, não bloqueia o redirect).
+  const firstSync = invokeInternal("artist-youtube-sync", { artist_id: channel.artist_id, dry_run: false })
+    .then((r) => { if (!r.ok) console.error("[artist-youtube-callback] sync inicial falhou:", r.status); })
+    .catch((e) => console.error("[artist-youtube-callback] sync inicial falhou:", (e as Error)?.message));
+  // @ts-ignore EdgeRuntime
+  if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(firstSync);
 
   return back(returnUrl, { youtube: "ok" });
 });
