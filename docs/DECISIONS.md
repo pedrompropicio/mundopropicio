@@ -4412,3 +4412,25 @@ A Soundcharts não grava Deezer em `artist_metrics_daily` (0 linhas a 24/09). O 
 **Continuidade com a recolha manual.** Os registos manuais de 13/09 têm metric_date = dia da leitura; os novos têm metric_date = D (último dia com dados S4A). Não se re-datam.
 
 **Fases seguintes.** Geografia (4); métricas de artista (5) depois de confirmada a forma; `s4a_playlists_count`.
+
+## D-ERP141 — Smart links por música com pixel: `song_links` + `song-link-event` (24/09/2026)
+
+**Porquê.** As campanhas Meta compravam visitas ao perfil que não convertem; as campanhas [MP] levam a pessoa a OUVIR e esse passo tem de ser medido e otimizado.
+
+**Portal (chat 4).** Páginas públicas `https://www.mundopropicio.com/m/<slug>` e `/m/<slug>/escolher` (projeto `26b95793-…`). Lêem o link por `song_link_public_get(slug)` e registam eventos em `song-link-event`. Modos: `redirect` (anúncios: dispara pixel e salta para a app), `choose` (escolha por plataforma), `create_sound` (som do TikTok para criar vídeo), `presave` (reservado).
+
+**Tabelas.** `public.song_links` (slug único `^[a-z0-9]+(-[a-z0-9]+)*$`, default_mode, title, cover_url, destinations jsonb por plataforma `{app, web}`, meta_pixel_id, active): SELECT para authenticated da empresa (current_company_id, platform_admin ou user_roles na empresa); escrita só por RPC; anon sem acesso. `public.song_link_events` (arrival/choice, destino, app/web, event_id, UTMs, fbclid/ttclid, geo, device/os/in_app_browser, ip_hash, capi_status): RLS sem políticas, só service_role.
+
+**Privacidade.** O IP nunca é guardado em claro: `ip_hash = sha256(SONG_LINK_IP_SALT:IP)`; sem o secret, `ip_hash` fica NULL. O IP só vai à Meta na CAPI. Geografia só por cabeçalhos do pedido (cf-ipcountry e equivalentes), sem serviços externos; em falta, NULL. Limite 60 eventos/minuto por ip_hash (memória da instância) → 429.
+
+**CAPI.** Com `meta_pixel_id` e secret `META_CAPI_TOKEN`: POST `graph.facebook.com/v18.0/{pixel}/events`, `ViewContent` (arrival) / `ListenClick` (choice, personalizado), `event_id` igual ao do browser (deduplicação pixel↔CAPI), `action_source=website`, user_data {IP, UA, fbc, fbp}, custom_data {content_name, content_ids:[song_id], destination}. `capi_status`: enviado | sem_token | sem_pixel | erro:<código>. O pedido nunca falha pela CAPI; resposta `{ok}` imediata, gravação e CAPI em segundo plano. CORS só `www.mundopropicio.com` / `mundopropicio.com`; verify_jwt=false.
+
+**Excepção à D-ERP94.** `song_link_public_get` tem EXECUTE para anon: página pública; devolve só slug, modo, título, capa, destinos, pixel e active de links activos — sem ids internos nem dados de terceiros. As restantes (`artist_song_link_upsert`, `_list` com papel admin/platform_admin/manager/marketing_manager via `artist_ads_assert_write`; `_stats` com `artist_ads_assert_access`) seguem a D-ERP94 (REVOKE PUBLIC/anon).
+
+**Estatísticas.** `artist_song_link_stats(artist, from, to)`: por dia (Europe/Lisbon) × utm_campaign × utm_content × link — chegadas, escolhas por destino, aberturas app/web, e custo por chegada = gasto Meta do dia da campanha ÷ chegadas dessa campanha no dia. Casa `utm_campaign` com `song_link_utm_slug(meta_campaign_snapshot.name)` (réplica SQL do `utmSlug()` do motor) nas connections de artista; sem casamento, custo NULL.
+
+**Motor (D-ERP95).** `artist_ads_plan_create`: em Tráfego sem `link_destino` explícito usa o smart link MP activo da música (`https://www.mundopropicio.com/m/<slug>`), senão `artist_songs.smart_link_url`. UTMs continuam as do motor (url_tags). O preflight de `crm-meta-publish-execute` tem o check `destino` (URL + origem). `artist-ads-strategy-generate` passa a propor o mesmo link.
+
+**Dados.** 1.º link `roupa-de-solteira` (Roupa De Solteira - Ao Vivo, redirect, spotify app/web, tiktok_sound só web — o deep link de som da app TikTok não é documentado), pixel NULL (o chat 4 cria-o).
+
+**Migração:** `20260924202758_ed08efce-1944-4b70-b975-cd4d0996a981.sql`, em Live.

@@ -408,3 +408,6 @@ Referência = app (`ios_shortcut` > `manual`) no benchmark, na folha e no relat�
 
 ## Relatório de lançamento — correções 24/09/2026
 Idade desde release_date (+ dia da campanha), playlists do Spotify renomeadas, segunda leitura TikTok for Artists em bloco próprio, *_day sem diferenças, validação pós-LLM em código (D-ERP54 adenda 24/09). artist-song-report e artist-ads-strategy-generate deployadas.
+
+## Smart links com pixel — backend (24/09/2026, D-ERP141)
+Migração `20260924202758_ed08efce-…` em Live: `song_links`, `song_link_events`, RPCs `song_link_public_get` (anon, excepção D-ERP94), `artist_song_link_upsert/list/stats`; motor usa o smart link MP em Tráfego. Edge `song-link-event` deployada (não corrida). 1.º link `roupa-de-solteira`. Pendente: secrets `META_CAPI_TOKEN` e `SONG_LINK_IP_SALT` (Pedro), pixel (chat 4).
