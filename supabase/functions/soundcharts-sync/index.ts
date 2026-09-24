@@ -510,6 +510,81 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 2c. Deezer — fãs (nb_fan) pela API pública, sem autenticação (D-ERP139).
+    // Só nas corridas sem lista de plataformas explícita e fora de dry_run;
+    // um pedido por artista por dia (salta se já houver linha de hoje).
+    // Falhas vão para notas, nunca para errors (não mudam o estado do sync).
+    const deezerNotes: string[] = [];
+    let deezerCalls = 0;
+    let deezerRows = 0;
+    const runDeezer = !dryRun && !(Array.isArray(payload.platforms) && payload.platforms.length) &&
+      !quotaError;
+    if (runDeezer) {
+      const hoje = today();
+      const { data: dzChannels, error: dzErr } = await admin
+        .from("artist_channels")
+        .select("id, artist_id, external_id, is_primary")
+        .eq("platform", "deezer")
+        .in("artist_id", artistIds);
+      if (dzErr) deezerNotes.push(`deezer: artist_channels falhou: ${dzErr.message}`);
+      const dzByArtist = new Map<string, { id: string; external_id: string }>();
+      for (const c of dzChannels ?? []) {
+        if (!c.external_id) continue;
+        if (!dzByArtist.has(c.artist_id) || c.is_primary) {
+          dzByArtist.set(c.artist_id, { id: c.id, external_id: String(c.external_id) });
+        }
+      }
+      const { data: jaHoje } = dzByArtist.size
+        ? await admin
+          .from("artist_metrics_daily")
+          .select("artist_id")
+          .eq("platform", "deezer")
+          .eq("metric", "followers")
+          .eq("source", "platform_api")
+          .eq("metric_date", hoje)
+          .in("artist_id", [...dzByArtist.keys()])
+        : { data: [] };
+      const feitos = new Set((jaHoje ?? []).map((r) => r.artist_id as string));
+      for (const [artistId, dz] of dzByArtist) {
+        const companyId = companyById.get(artistId);
+        if (!companyId) continue;
+        if (feitos.has(artistId)) {
+          deezerNotes.push(`deezer ${nameById.get(artistId) ?? artistId}: já gravado hoje`);
+          continue;
+        }
+        try {
+          deezerCalls++;
+          const res = await fetch(`https://api.deezer.com/artist/${encodeURIComponent(dz.external_id)}`, {
+            headers: { Accept: "application/json" },
+            signal: AbortSignal.timeout(15_000),
+          });
+          const body = await res.json().catch(() => null);
+          const fans = Number(body?.nb_fan);
+          if (!res.ok || body?.error || !Number.isFinite(fans)) {
+            const msg = body?.error?.message ?? `HTTP ${res.status}`;
+            deezerNotes.push(`deezer ${nameById.get(artistId) ?? artistId}: ${msg}`);
+            continue;
+          }
+          const { error: upDz } = await admin.from("artist_metrics_daily").upsert({
+            company_id: companyId,
+            artist_id: artistId,
+            channel_id: dz.id,
+            platform: "deezer",
+            metric: "followers",
+            metric_date: hoje,
+            value: fans,
+            source: "platform_api",
+            source_ref: "deezer_api",
+            captured_at: new Date().toISOString(),
+          }, { onConflict: "artist_id,platform,metric,metric_date,source" });
+          if (upDz) deezerNotes.push(`deezer ${nameById.get(artistId) ?? artistId}: upsert falhou: ${upDz.message}`);
+          else deezerRows++;
+        } catch (e) {
+          deezerNotes.push(`deezer ${nameById.get(artistId) ?? artistId}: ${e instanceof Error ? e.message : "erro"}`);
+        }
+      }
+    }
+
     // dedup pela chave única antes do upsert
     const byKey = new Map<string, MetricRow>();
     for (const r of rows) {
@@ -590,12 +665,13 @@ Deno.serve(async (req) => {
       series_by_artist: seriesSummary,
       platform_status: platformStatus,
       last_crawl_date: lastCrawl,
-      notes: errors.map((error) => `${error.platform}: ${error.error}`),
+      notes: [...errors.map((error) => `${error.platform}: ${error.error}`), ...deezerNotes],
+      deezer: { calls: deezerCalls, rows_written: deezerRows },
       errors,
     };
 
     // em dry_run conta-se o que ficaria gravado, para distinguir 'no_data' real
-    const effectiveRows = dryRun ? unique.length : written;
+    const effectiveRows = dryRun ? unique.length : written + deezerRows;
     await finishSyncRun(admin, runId, startedMs, {
       status: resolveStatus(effectiveRows, errors.length),
       api_calls: client.calls,
