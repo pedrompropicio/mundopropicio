@@ -849,6 +849,8 @@ Dados corrigidos a 11/09: a transação original passou para a conta Santander T
 
 **Estado:** vigente.
 
+**Adenda 24/09/2026 — liquidação em lote só de itens ativos (P0).** Na lista "Pagamentos 24/09/2026" o ecrã mostrou "23 de 21 para liquidar" e o modal ofereceu 83.430,47 €: a seleção (`selectedTxIds`) não era limpa quando itens eram removidos depois da aprovação, e o modal era alimentado por todos os itens (incluindo removidos) filtrados por essa seleção. Correção: (1) a seleção efetiva é sempre a interseção com os itens ativos não pagos e o botão fica desativado se X > Y; (2) o `BatchPaymentModal`, aberto a partir de uma lista, relê na base os itens com `removed_at IS NULL` e recusa a operação inteira se faltar algum. (3) Sem trigger: a liquidação não escreve em `payment_list_items`. Varrimento Live: 1 transação paga cujo único item está removido ("Passagem Aérea: Diego Soares", 518,20 €, removida 04/08, paga 07/08) — listada, não corrigida.
+
 ---
 
 ## D-ERP36 — Saldo a uma data, validado no servidor (11/09/2026)
