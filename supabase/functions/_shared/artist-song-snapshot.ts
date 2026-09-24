@@ -75,6 +75,18 @@ export async function buildSnapshot(admin: Admin, songId: string, days: number) 
   const launchRef: string | null = song.launch_started_at ?? song.release_date ?? null;
   if (!launchRef) lacunas.push("sem data de lançamento nem launch_started_at na música");
 
+  // Segunda leitura do UGC (TikTok for Artists) — outro método; nunca entra no ritmo nem no benchmark.
+  const { data: ttaRow } = await admin
+    .from("artist_song_metrics_daily")
+    .select("metric_date, value")
+    .eq("song_id", songId)
+    .eq("platform", "tiktok")
+    .eq("metric", "ugc_videos")
+    .eq("source", "tiktok_artists")
+    .order("metric_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const musica = {
     titulo: song.title,
     featuring: song.featuring ?? [],
@@ -84,6 +96,9 @@ export async function buildSnapshot(admin: Admin, songId: string, days: number) 
     launch_started_at: song.launch_started_at ?? null,
     dias_desde_lancamento: launchRef ? daysBetween(launchRef, periodEnd) : null,
     artista: artist ? { nome: artist.name, genero: artist.genre, cidade: artist.city } : null,
+    ugc_tiktok_for_artists: ttaRow
+      ? { valor: Math.round(Number(ttaRow.value)), data: ttaRow.metric_date }
+      : null,
   };
 
   // ---- streams por plataforma

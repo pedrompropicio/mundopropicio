@@ -401,3 +401,6 @@ apagava as métricas de vídeo que `crm-google-video-metrics-sync` punha em `raw
 
 ## S4A — sync diário (24/09/2026)
 `s4a-daily-sync` deployada (D-ERP140), dry_run por omissão, sem cron. Por fazer pelo Pedro: prova (modo `prova`), dry_run, corrida real, cron.
+
+## UGC TikTok — fonte de referência (24/09/2026)
+Referência = app (`ios_shortcut` > `manual`) no benchmark, na folha e no relatório. TikTok for Artists e Apify são segunda leitura, mostrada à parte, fora do ranking. Ver adendas D-ERP59/126/136.

@@ -2144,6 +2144,9 @@ Corrigido na origem, não na apresentação. `Math.round(x*100)/100`, `toFixed` 
 truncatura ficam proibidos em valores do fecho. Números de referência
 mantidos: RAFAEL LOBO 35.768,01 · EIN 273.953,35 · base a transferir 230.990,35.
 
+
+**Adenda 24/09/2026 — fonte de referência do UGC TikTok.** Em todo o lado a fonte de referência é o app: em cada dia `ios_shortcut` > `manual`. TikTok for Artists (`tiktok_artists`) e Apify (`ugc_videos_sounds`) são leituras de outro método (≈ metade do app): mostram-se à parte e nunca entram no ranking, no ritmo nem no benchmark. `v_song_benchmark_aligned` passou a ler só `ugc_videos` com source `ios_shortcut|manual` (migração `20260924034853`); `song_growth_summary` ganhou a linha `ugc_videos_painel` (segunda leitura); o relatório LLM recebe `musica.ugc_tiktok_for_artists` e a regra 20.
+
 ## D-ERP60 — Numa linha de fatura, só o que é do documento se propaga às irmãs (14/09/2026)
 
 **Contexto.** Editar uma linha de uma nota de reembolso alterava todas as linhas do
@@ -4198,6 +4201,9 @@ A data de referência é `(now() AT TIME ZONE 'Europe/Lisbon')::date`, para não
 
 **Estado:** vigente.
 
+
+**Adenda 24/09/2026 — fonte de referência do UGC TikTok.** Em todo o lado a fonte de referência é o app: em cada dia `ios_shortcut` > `manual`. TikTok for Artists (`tiktok_artists`) e Apify (`ugc_videos_sounds`) são leituras de outro método (≈ metade do app): mostram-se à parte e nunca entram no ranking, no ritmo nem no benchmark. `v_song_benchmark_aligned` passou a ler só `ugc_videos` com source `ios_shortcut|manual` (migração `20260924034853`); `song_growth_summary` ganhou a linha `ugc_videos_painel` (segunda leitura); o relatório LLM recebe `musica.ugc_tiktok_for_artists` e a regra 20.
+
 ## D-ERP128 — Edge function autentica pelo JWT explícito e valida pertença por papel, nunca por empresa activa (23/09/2026)
 
 **Problema (produção, 23/09/2026).** `crm-meta-publish-execute` recusava sessões
@@ -4343,6 +4349,9 @@ RPC `public.song_growth_summary(p_song_id, p_to)` → jsonb (musica, kpis, grupo
 - Porque não `artist_dashboard`: lê platform_api, não tem histórico no lançamento e devolve anterior=null.
 
 **Adenda 24/09/2026:** `notas[]` passa a ter só texto para o leitor (ex.: "Streams medidos desde 06/09 (primeira leitura disponível).", "Publicações no TikTok: contagem aproximada do app."); o resto vai para `notas_tecnicas[]`. Nas séries `aggregator` (streams da música, ouvintes mensais), um dia com valor igual ao do dia anterior é "sem leitura" (Soundcharts não actualizou): sai das `series` e não serve de ponto d/d−7/d−14 (semana null + nota). Caso: 19/09 repetia 18/09. Assinatura e grants inalterados. Migração `20260924014617`.
+
+
+**Adenda 24/09/2026 — fonte de referência do UGC TikTok.** Em todo o lado a fonte de referência é o app: em cada dia `ios_shortcut` > `manual`. TikTok for Artists (`tiktok_artists`) e Apify (`ugc_videos_sounds`) são leituras de outro método (≈ metade do app): mostram-se à parte e nunca entram no ranking, no ritmo nem no benchmark. `v_song_benchmark_aligned` passou a ler só `ugc_videos` com source `ios_shortcut|manual` (migração `20260924034853`); `song_growth_summary` ganhou a linha `ugc_videos_painel` (segunda leitura); o relatório LLM recebe `musica.ugc_tiktok_for_artists` e a regra 20.
 
 ## D-ERP137 — Erros de front do portal público registam-se em tabela própria com INSERT anónimo (23/09/2026)
 
