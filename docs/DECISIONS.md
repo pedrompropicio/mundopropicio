@@ -4370,3 +4370,21 @@ Nota: `set_active_company` passa a aceitar também não-platform_admin com perte
 ## D-ERP139 — Fãs do Deezer do artista pela API pública, no `soundcharts-sync` (24/09/2026)
 
 A Soundcharts não grava Deezer em `artist_metrics_daily` (0 linhas a 24/09). O `soundcharts-sync` (cron diário `carreira-soundcharts-sync-diario`) passa a ler `artist_channels` platform 'deezer' (`external_id`; Litto = 51638902), chamar `GET https://api.deezer.com/artist/<id>` e gravar `nb_fan` como platform 'deezer', metric 'followers', source 'platform_api', `source_ref='deezer_api'`, data da corrida. Um pedido por artista por dia (salta se já houver linha de hoje); não corre em dry_run nem com lista `platforms` explícita. Erro do Deezer vai para `notes`, nunca para `errors` (não muda o estado do sync).
+
+## D-ERP140 — Sync diário do Spotify for Artists: `s4a-daily-sync` (24/09/2026)
+
+**Decisão.** Nova edge function `s4a-daily-sync` (verify_jwt=true; service_role ou admin/platform_admin da empresa do artista, D-ERP128), sobre a cadeia de token da D-ERP135. `dry_run` por omissão TRUE. Sem cron nesta fase (criado pelo Pedro depois da prova). Regista em `sync_runs` (dry_run nunca conta rows_written; `details.D` guarda o dia S4A).
+
+**Contrato** (GET, Bearer do `getS4aAccessToken`, base `generic.wg.spotify.com`; artistId = `artist_channels.external_id` spotify):
+- (0) D = `s4x-insights-api/v1/meta/latest-date`. Todas as janelas acabam em D. Se D = D da última corrida real success/partial → só sync_run `no_data` "S4A sem dia novo".
+- (1) `catalog-view/v1/artist/{id}/songs?time-filter=28day` — filtra: só `artist_songs` activas com id spotify (`artist_song_identifiers`) presente no catálogo. Ids fora do catálogo → nota. Sem ISRC. Nada gravado.
+- (2) `song-stats-view/v1/.../recording/{track}/stats`: (a) F = max(release_date, D−27) → `s4a_{streams,listeners,saves,playlist_adds}_28d` (metric_date D) e `s4a_*_day` (metric_date = x, upsert dos últimos 28 pontos — o S4A revê dias recentes); (b) F = release_date → `s4a_*_since_release` (metric_date D). platform 'spotify', source 's4a_api', source_ref "s4a {F}–{D}".
+- (3) `song-stats-view/v2/.../top-playlists?time-filter=28day` → `artist_song_playlist_streams` (snapshot D, period 28, rank, made_by 'spotify' se author=Spotify/isAlgorithmic/isAlgotorial). Títulos repetidos: fica o de mais streams, nota com o excluído. Derivadas: `s4a_top100_playlist_streams_28d`, `s4a_spotify_owned_playlist_streams_28d`.
+- (5) `artist-home-metrics` só em dry_run (tenta '28day', depois 'last28days'), nada gravado; forma devolvida em `formas`.
+- Modo prova `{artist_id, prova:{track_id,from,to}}`: só (2), devolve agregados, sem gravar. Referência do painel (21/09, 4qaxoOFrYCRpBnXWcneTFy, 24/08–20/09): streams 302.067 · listeners 198.253 · saves 6.870 · playlist_adds 3.889.
+
+**Erros.** 401 → novo `getS4aAccessToken` e repete uma vez; 429/5xx/rede → pára o artista com nota, segue os outros. Pausa 300 ms entre pedidos. Nunca regista tokens.
+
+**Continuidade com a recolha manual.** Os registos manuais de 13/09 têm metric_date = dia da leitura; os novos têm metric_date = D (último dia com dados S4A). Não se re-datam.
+
+**Fases seguintes.** Geografia (4); métricas de artista (5) depois de confirmada a forma; `s4a_playlists_count`.

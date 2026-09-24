@@ -398,3 +398,6 @@ O upsert do supabase-js só escreve as colunas do payload, logo colunas própria
 protegidas por construção. Caso que originou a regra: o cron `crm-google-sync-campaigns-3h`
 apagava as métricas de vídeo que `crm-google-video-metrics-sync` punha em `raw`/`metrics`
 (ver adenda de D-ERP109).
+
+## S4A — sync diário (24/09/2026)
+`s4a-daily-sync` deployada (D-ERP140), dry_run por omissão, sem cron. Por fazer pelo Pedro: prova (modo `prova`), dry_run, corrida real, cron.
