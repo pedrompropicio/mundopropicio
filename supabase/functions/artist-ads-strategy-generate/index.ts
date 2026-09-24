@@ -485,9 +485,20 @@ async function gerar(req: Request, diag: Diag, admin: Any): Promise<Response> {
   if (song.artist_id !== artistId) {
     return json({ error: "musica_de_outro_artista", mensagem: "A música não pertence a este artista." }, 422);
   }
-  const smartLink = typeof song.smart_link_url === "string" && song.smart_link_url.startsWith("https://")
-    ? song.smart_link_url
-    : null;
+  // D-ERP141: smart link MP activo da música primeiro; senão artist_songs.smart_link_url.
+  const { data: songLink } = await user
+    .from("song_links")
+    .select("slug")
+    .eq("song_id", songId)
+    .eq("active", true)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const smartLink = songLink?.slug
+    ? `https://www.mundopropicio.com/m/${songLink.slug}`
+    : typeof song.smart_link_url === "string" && song.smart_link_url.startsWith("https://")
+      ? song.smart_link_url
+      : null;
   if (!smartLink) avisos.push("música sem smart link https — objetivo Tráfego indisponível");
 
   // ── 2) SNAPSHOT ÚNICO DO ARTISTA (D-ERP105) — um só coletor para música,
