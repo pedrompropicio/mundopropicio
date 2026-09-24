@@ -16,13 +16,10 @@ import {
   json,
 } from "../_shared/artist-meta.ts";
 import { ADS_ROLES, artistInCallerScope } from "../_shared/artist-ads.ts";
+import { ytRedirectUri } from "../_shared/artist-youtube.ts";
 
 export const YT_SCOPES =
   "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly";
-
-function ytRedirectUri(): string {
-  return `${Deno.env.get("SUPABASE_URL")}/functions/v1/artist-youtube-oauth-callback`;
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });

@@ -7,14 +7,11 @@
 // Nunca põe tokens em URL, logs ou auditLog.
 
 import { adminClient, auditLog, isAllowedReturnUrl } from "../_shared/artist-meta.ts";
+import { ytRedirectUri } from "../_shared/artist-youtube.ts";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FALLBACK_RETURN = "https://gestao-artistica.lovable.app";
-
-function ytRedirectUri(): string {
-  return `${Deno.env.get("SUPABASE_URL")}/functions/v1/artist-youtube-oauth-callback`;
-}
 
 function back(returnUrl: string | null, params: Record<string, string>): Response {
   let url: URL;
