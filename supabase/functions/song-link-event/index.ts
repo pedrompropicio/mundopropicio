@@ -8,6 +8,11 @@
 // existir o secret SONG_LINK_IP_SALT. O IP vai à Meta na CAPI (normal), não fica.
 // A resposta é imediata; gravação + CAPI correm em segundo plano. A CAPI nunca
 // faz falhar o pedido.
+// Adenda D-ERP141 (24/09/2026): também TikTok Events API 2.0 (POST
+// business-api.tiktok.com/open_api/v1.3/event/track/, header Access-Token,
+// event_source 'web', event_source_id = pixel) com o mesmo event_id do browser.
+// Códigos de teste meta_test_event_code / tiktok_test_event_code (só provas;
+// passados às APIs, nunca gravados).
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -16,6 +21,8 @@ const ALLOWED_ORIGINS = new Set<string>([
   "https://mundopropicio.com",
 ]);
 const GRAPH_VERSION = "v18.0";
+const TIKTOK_EVENTS_URL = "https://business-api.tiktok.com/open_api/v1.3/event/track/";
+const TEST_CODE_RE = /^[A-Za-z0-9]{3,40}$/;
 const RATE_LIMIT = 60; // eventos por ip_hash por minuto
 const RATE_WINDOW_MS = 60_000;
 
@@ -143,7 +150,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
   const { data: link, error: linkErr } = await admin
     .from("song_links")
-    .select("id, company_id, artist_id, song_id, title, meta_pixel_id, active")
+    .select("id, company_id, artist_id, song_id, title, meta_pixel_id, tiktok_pixel_id, active")
     .eq("slug", slug)
     .maybeSingle();
   if (linkErr) return json({ ok: false, error: "erro_interno" }, 500, origin);
@@ -157,6 +164,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const eventId = s(body?.event_id, 120);
   const pageUrl = s(body?.page_url, 2000);
   const destination = s(body?.destination, 60);
+  const metaTest = typeof body?.meta_test_event_code === "string" && TEST_CODE_RE.test(body.meta_test_event_code) ? body.meta_test_event_code : null;
+  const ttTest = typeof body?.tiktok_test_event_code === "string" && TEST_CODE_RE.test(body.tiktok_test_event_code) ? body.tiktok_test_event_code : null;
 
   const work = (async () => {
     // CAPI
@@ -186,6 +195,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
                 custom_data: { content_name: link.title ?? slug, content_ids: [link.song_id], destination: destination ?? undefined },
               }],
               access_token: token,
+              ...(metaTest ? { test_event_code: metaTest } : {}),
             }),
             signal: AbortSignal.timeout(8000),
           });
@@ -193,6 +203,50 @@ Deno.serve(async (req: Request): Promise<Response> => {
           capi_status = r.ok ? "enviado" : `erro:${r.status}`;
         } catch {
           capi_status = "erro:rede";
+        }
+      }
+    }
+    // TikTok Events API (nunca faz falhar o pedido; IP não fica guardado)
+    let tiktok_status = "sem_pixel";
+    if (link.tiktok_pixel_id) {
+      const ttToken = await getSecret("TIKTOK_EVENTS_ACCESS_TOKEN");
+      if (!ttToken) tiktok_status = "sem_token";
+      else {
+        try {
+          const user: Record<string, unknown> = {};
+          const ttclid = s(body?.ttclid, 500); const ttp = s(body?.ttp, 500);
+          if (ttclid) user.ttclid = ttclid;
+          if (ttp) user.ttp = ttp;
+          if (ip) user.ip = ip;
+          if (ua) user.user_agent = ua;
+          const r = await fetch(TIKTOK_EVENTS_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Access-Token": ttToken },
+            body: JSON.stringify({
+              event_source: "web",
+              event_source_id: link.tiktok_pixel_id,
+              ...(ttTest ? { test_event_code: ttTest } : {}),
+              data: [{
+                event: event === "arrival" ? "ViewContent" : "ClickButton",
+                event_time: Math.floor(Date.now() / 1000),
+                event_id: eventId ?? undefined,
+                user,
+                page: { url: pageUrl ?? undefined },
+                properties: {
+                  content_id: link.song_id,
+                  content_name: link.title ?? slug,
+                  content_type: "product",
+                  contents: [{ content_id: link.song_id, content_name: link.title ?? slug }],
+                  destination: destination ?? undefined,
+                },
+              }],
+            }),
+            signal: AbortSignal.timeout(8000),
+          });
+          const tj: any = await r.json().catch(() => null);
+          tiktok_status = r.ok && tj?.code === 0 ? "enviado" : `erro:${tj?.code ?? r.status}`;
+        } catch {
+          tiktok_status = "erro:rede";
         }
       }
     }
@@ -216,6 +270,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       country, region, city, device, os, in_app_browser,
       ip_hash: ipHash,
       capi_status,
+      tiktok_status,
     });
     if (insErr) console.warn("[song-link-event] insert falhou", insErr.message);
   })();
