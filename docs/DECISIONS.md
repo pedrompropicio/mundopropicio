@@ -4138,6 +4138,8 @@ Nova edge function `tiktok-sound-count-sync` (`verify_jwt = true`, aceita servic
 
 A3-bis: `tiktok-artists-sync` passa a chamar também `ttfa/song_data/clip_data_list/v1` por cada `group_id` mapeado e faz upsert dos sons `pgc_*`/`ugc_*` em `artist_song_tiktok_sounds` com `discovered_via='panel'`, `status='validated'`, `is_official` = som `pgc` e `title = clip_name`, sem apagar nada — a descoberta dos sons oficiais do nosso artista fica automática.
 
+**Adenda 24/09/2026 (A3-bis):** `fetchClips` do `tiktok-artists-sync` envia `Origin: https://artists.tiktok.com` e `Referer: https://artists.tiktok.com/artist/<handle>/music/<group_id>` (handle de `artist_channels` platform 'tiktok' do artista do mapa; sem handle vai só Origin). Resposta sem clips grava na nota os valores de `status_code`/`status_msg`. A recolha em profundidade apanha `all_clip_data_*` (contém 'clip'), `pgc_clip_data_*` e `ugc_clip_data_*` quando são arrays; id aceite: `music_id`, `clip_id`, `id`, `id_str`, `music_id_str`. Prova real pendente do Pedro.
+
 ## D-ERP126 — Pagamento nunca com data futura; saída prevista é data de vencimento (22/09/2026)
 
 **Decisão:** `payment_date` em `public.transactions` e `public.transaction_payments` nunca pode ser posterior ao dia corrente. Uma saída prevista regista-se em `due_date`, não em `payment_date`.
@@ -4336,6 +4338,8 @@ RPC `public.song_growth_summary(p_song_id, p_to)` → jsonb (musica, kpis, grupo
 - S4A: 1.º registo → mais recente; hoje só 13/09, não entra.
 - Porque não `artist_dashboard`: lê platform_api, não tem histórico no lançamento e devolve anterior=null.
 
+**Adenda 24/09/2026:** `notas[]` passa a ter só texto para o leitor (ex.: "Streams medidos desde 06/09 (primeira leitura disponível).", "Publicações no TikTok: contagem aproximada do app."); o resto vai para `notas_tecnicas[]`. Nas séries `aggregator` (streams da música, ouvintes mensais), um dia com valor igual ao do dia anterior é "sem leitura" (Soundcharts não actualizou): sai das `series` e não serve de ponto d/d−7/d−14 (semana null + nota). Caso: 19/09 repetia 18/09. Assinatura e grants inalterados. Migração `20260924014617`.
+
 ## D-ERP137 — Erros de front do portal público registam-se em tabela própria com INSERT anónimo (23/09/2026)
 
 Decisão: os erros apanhados pelas fronteiras de erro do portal público passam a ser gravados em `public.portal_error_log`, escrita directamente pelo browser com a chave anónima.
@@ -4358,3 +4362,7 @@ Consulta útil:
 SELECT created_at, changed_by, old_data, new_data, metadata FROM system_audit_log WHERE action='active_company_changed' ORDER BY created_at DESC;
 
 Nota: `set_active_company` passa a aceitar também não-platform_admin com pertença activa em `user_roles` na empresa alvo.
+
+## D-ERP139 — Fãs do Deezer do artista pela API pública, no `soundcharts-sync` (24/09/2026)
+
+A Soundcharts não grava Deezer em `artist_metrics_daily` (0 linhas a 24/09). O `soundcharts-sync` (cron diário `carreira-soundcharts-sync-diario`) passa a ler `artist_channels` platform 'deezer' (`external_id`; Litto = 51638902), chamar `GET https://api.deezer.com/artist/<id>` e gravar `nb_fan` como platform 'deezer', metric 'followers', source 'platform_api', `source_ref='deezer_api'`, data da corrida. Um pedido por artista por dia (salta se já houver linha de hoje); não corre em dry_run nem com lista `platforms` explícita. Erro do Deezer vai para `notes`, nunca para `errors` (não muda o estado do sync).
