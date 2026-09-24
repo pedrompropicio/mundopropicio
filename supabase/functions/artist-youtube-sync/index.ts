@@ -132,15 +132,26 @@ async function syncOne(admin: Admin, conn: any, dryRun: boolean, key: string) {
       subscribersGained: "yt_subscribers_gained_day", subscribersLost: "yt_subscribers_lost_day",
     };
     const di = cols.indexOf("day");
+    const seen = new Set<string>();
     for (const row of j2?.rows ?? []) {
       const day = String(row[di]);
+      seen.add(day);
       for (const [src, metric] of Object.entries(map)) {
         const i = cols.indexOf(src);
         if (i < 0 || row[i] == null) continue;
         rows.push({ ...base, metric, metric_date: day, value: Number(row[i]) });
       }
     }
-    if (!(j2?.rows ?? []).length) notes.push("analytics sem linhas no período");
+    // O Analytics omite os dias sem actividade: numa resposta 200, o valor
+    // verdadeiro desses dias é 0 — gravar explicitamente.
+    for (let t = F.getTime(); t <= D.getTime(); t += 86_400_000) {
+      const day = ymd(new Date(t));
+      if (seen.has(day)) continue;
+      for (const metric of Object.values(map)) {
+        rows.push({ ...base, metric, metric_date: day, value: 0 });
+      }
+    }
+    if (!(j2?.rows ?? []).length) notes.push("analytics sem actividade no período — dias gravados a 0");
   }
 
   const counts: Record<string, number> = {};
