@@ -4140,6 +4140,7 @@ A3-bis: `tiktok-artists-sync` passa a chamar também `ttfa/clip_data_list/` por 
 
 **Adenda 24/09/2026 (A3-bis):** `fetchClips` do `tiktok-artists-sync` envia `Origin: https://artists.tiktok.com` e `Referer: https://artists.tiktok.com/artist/<handle>/music/<group_id>` (handle de `artist_channels` platform 'tiktok' do artista do mapa; sem handle vai só Origin). Resposta sem clips grava na nota os valores de `status_code`/`status_msg`. A recolha em profundidade apanha `all_clip_data_*` (contém 'clip'), `pgc_clip_data_*` e `ugc_clip_data_*` quando são arrays; id aceite: `music_id`, `clip_id`, `id`, `id_str`, `music_id_str`. Prova real pendente do Pedro.
 
+**Adenda 24/09/2026 (A3-bis, URL):** ensaio dry_run com os cabeçalhos novos devolveu `status_code=0` `status_msg="url doesn't match"` — o endereço certo (o que deu dados no browser do Pedro a 21/09) é `POST https://artists.tiktok.com/tiktok/artist_api/ttfa/clip_data_list/` (sem `song_data/`, com barra final, sem `v1`). `CLIP_API_URL` corrigido; corpo `{group_id}` e cabeçalhos Origin/Referer mantidos.
 ## D-ERP126 — Pagamento nunca com data futura; saída prevista é data de vencimento (22/09/2026)
 
 **Decisão:** `payment_date` em `public.transactions` e `public.transaction_payments` nunca pode ser posterior ao dia corrente. Uma saída prevista regista-se em `due_date`, não em `payment_date`.
