@@ -4456,3 +4456,20 @@ A Soundcharts não grava Deezer em `artist_metrics_daily` (0 linhas a 24/09). O 
 **Acrescentar conta:** edge function artist-ads-meta-add-account (verify_jwt true; admin da empresa do artista por user_roles ou platform_admin, D-ERP128). POST { source_connection_id, ad_account_id }: valida a conta na Meta (account_status = 1) com o token da origem; idempotente; copia token cifrado, página, Instagram, BM e contas disponíveis; não toca na origem.
 
 **Ajustes:** artist-ads-select-account recusa (409) uma conta que já tem ligação própria; artist_ads_register_external (Google/TikTok) deixou de depender do índice antigo; artist_ads_campaign_settings escolhe a ligação que tem a campanha. Leituras artist_ads_* já agregam todas as ligações do artista; plano, preflight, publicação, teto e artist-ads-strategy-generate usam a connection_id pedida; syncs iteram por ligação.
+
+### Adenda D-ERP95 — contrato de público do alvo música (24/09/2026)
+
+- `publico_sugerido` (por conjunto, só alvo música) aceita, além de `geo`, `geo_regions`, `idade_min`/`idade_max` (13–65):
+  - `interesses: [{id, nome}]` → `targeting.flexible_spec = [{interests:[{id,name}]}]`;
+  - `publicos_personalizados: [{id, nome}]` → `targeting.custom_audiences`; `publicos_excluidos` → `excluded_custom_audiences`;
+  - `posicionamentos: {publisher_platforms, instagram_positions, facebook_positions}` → mesmas chaves no targeting. Sem o campo, Advantage+ placements (como antes).
+- `artist_ads_plan_validate` verifica só a forma (ids numéricos, valores de posicionamento conhecidos, idade). A existência na Meta é verificada no preflight (checks `interesses` via `/search?type=adinterestvalid` e `publico_<id>` via `/{id}?fields=name,approximate_count_lower_bound,operation_status,account_id`: tem de ser da conta da ligação e `operation_status.code=200`) e repetida antes da publicação real (erro `publico_invalido`).
+- Caminho de evento intacto: dry_run do plano 93529702-… continua md5 `0e2801d625781a22a1e4bb33fb0a0f6d` (confirmado a 24/09).
+- Funções novas: `artist-ads-meta-interest-search` (verify_jwt; papéis de tráfego da empresa do artista; `{connection_id, q}` → `/search?type=adinterest&locale=pt_BR`) e `artist-ads-meta-create-ig-engagement-audience` (verify_jwt; só admin/platform_admin; `{connection_id, ig_user_id, retention_days=60, name}` → `POST /act_{id}/customaudiences` com `rule` event_sources `ig_business` + `ig_business_profile_all` e `prefill=1`). SEM `subtype`: a documentação da Meta diz que desde 09/2018 `subtype` não é aceite em públicos de envolvimento (excepto vídeo). Escreve na Meta — só com OK do Pedro.
+- Nota: a pesquisa da Meta já não devolve "Forró" nem "Zé Vaqueiro" como interesses (24/09/2026); a prova usou "Música do Brasil" (6002933742373) e "Música sertaneja" (6003290358456).
+
+### Adenda D-ERP141 — TikTok Events API nos smart links (24/09/2026)
+
+- `song_links.tiktok_pixel_id` (novo); `song_link_public_get` devolve-o (mesmos grants: anon/authenticated/service_role). `song_link_events.tiktok_status` = `enviado | sem_token | sem_pixel | erro:<código>`.
+- `song-link-event` aceita `ttp` (cookie _ttp) e envia à Events API 2.0 (`POST https://business-api.tiktok.com/open_api/v1.3/event/track/`, header `Access-Token` = secret `TIKTOK_EVENTS_ACCESS_TOKEN`, `event_source:'web'`, `event_source_id` = pixel): `ViewContent` (arrival) / `ClickButton` (choice), mesmo `event_id` do browser, `user {ttclid, ttp, ip, user_agent}`, `page {url}`, `properties {content_id, content_name, contents, destination}`. Sucesso = HTTP 200 e `code=0`. Nunca faz falhar o pedido; IP não é guardado.
+- Códigos de teste: `meta_test_event_code` e `tiktok_test_event_code` (alfanuméricos 3–40) passam como `test_event_code` às duas APIs; não são gravados.
