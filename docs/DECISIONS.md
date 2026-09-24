@@ -4434,3 +4434,13 @@ A Soundcharts não grava Deezer em `artist_metrics_daily` (0 linhas a 24/09). O 
 **Dados.** 1.º link `roupa-de-solteira` (Roupa De Solteira - Ao Vivo, redirect, spotify app/web, tiktok_sound só web — o deep link de som da app TikTok não é documentado), pixel NULL (o chat 4 cria-o).
 
 **Migração:** `20260924202758_ed08efce-1944-4b70-b975-cd4d0996a981.sql`, em Live.
+
+## D-ERP142 — `validateSearch` de páginas públicas nunca lança, e a atribuição aceita número (24/09/2026)
+
+**Decisão:** nas rotas raiz dos portais públicos, o `validateSearch` do TanStack Router nunca pode lançar, e as chaves de atribuição aceitam string ou número, normalizando para string.
+
+**Porquê:** a 24/09/2026 o tráfego pago da Meta ficou 100% bloqueado durante dois dias. Os parâmetros dinâmicos da Meta trazem os IDs de campanha, conjunto e anúncio como números puros (`utm_campaign=52516095562316`); o router converte-os em `number`, o schema exigia `z.string()` e o erro subia ao `errorComponent` da raiz, que tapava o site inteiro. 1.728 ocorrências registadas só nesse dia.
+
+**Como:** cada chave de atribuição usa `z.preprocess((v) => v == null ? v : String(v), z.string().optional())`; o `validateSearch` corre dentro de try/catch e, em qualquer falha, regista `console.warn` e devolve a query string tal como veio. Devolve-se a search ORIGINAL e não a normalizada — devolver a normalizada faz o router reescrever o URL com aspas à volta dos IDs, que acabam gravadas no lead.
+
+**Princípio que fica:** numa página pública de marketing, nenhuma query string pode deixar a página em branco. A validação serve para tipar o que se lê, não para decidir se a página desenha.
