@@ -1201,6 +1201,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
 
   // ─── ESCRITA REAL ───────────────────────────────────────────────────
+  if (isSong) {
+    const maus = (await verificarPublicoMusica()).filter((c) => !c.ok);
+    if (maus.length > 0) {
+      return json({ ok: false, error: "publico_invalido", checks: maus, message: maus.map((c) => c.detail).join(" | ") }, 422);
+    }
+  }
   // Pré-check: se objetivo é conversões e o evento não tem pixel, falha ANTES de qualquer escrita.
   if (optimization_goal === "OFFSITE_CONVERSIONS" && !eventPixelId) {
     return json({
