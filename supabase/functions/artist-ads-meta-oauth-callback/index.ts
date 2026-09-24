@@ -4,7 +4,8 @@
 // Fluxo: consome o state (crm.consume_oauth_state) → troca code por token de
 // longa duração (igual ao CRM) → lista as contas de anúncios acessíveis →
 // grava crm.ad_platform_connections com connection_scope='artist' e token
-// cifrado pelo mesmo mecanismo do CRM → audit log → redirect ao return_url.
+// cifrado pelo mesmo mecanismo do CRM. D-ERP143: o token novo vai para TODAS
+// as ligações Meta do artista na empresa (uma por conta de anúncios) → audit log → redirect ao return_url.
 //
 // Endpoint público (redirect do browser): verify_jwt = false.
 
@@ -167,18 +168,29 @@ Deno.serve(async (req) => {
     return fail(returnUrl, "save_failed");
   }
 
-  // 5) Instagram da Página (D-ERP133): se a ligação já tem selected_page_id,
-  // grava selected_instagram_id. Falha aqui NÃO falha o OAuth.
-  let igResult: Record<string, unknown> = { skipped: "sem selected_page_id" };
+  // 5) Instagram da Página (D-ERP133): para CADA ligação Meta do artista com
+  // selected_page_id, grava selected_instagram_id (D-ERP143: várias ligações,
+  // token partilhado). Falha aqui NÃO falha o OAuth.
+  const igResults: Array<Record<string, unknown>> = [];
+  let finalStatus = single ? "active" : "pending_selection";
   try {
-    const { data: conn } = await (admin as any)
+    const { data: conns } = await (admin as any)
       .schema("crm")
       .from("ad_platform_connections")
-      .select("id, selected_page_id")
-      .eq("id", connectionId)
-      .maybeSingle();
-    const pageId = conn?.selected_page_id as string | null | undefined;
-    if (pageId) {
+      .select("id, status, selected_page_id")
+      .eq("company_id", st.company_id)
+      .eq("artist_id", st.artist_id)
+      .eq("platform", "meta")
+      .eq("connection_scope", "artist");
+    const list = (conns ?? []) as Array<{ id: string; status: string; selected_page_id: string | null }>;
+    finalStatus = list.find((c) => c.id === connectionId)?.status ?? finalStatus;
+    const byPage = new Map<string, string[]>();
+    for (const c of list) {
+      if (!c.selected_page_id) continue;
+      byPage.set(c.selected_page_id, [...(byPage.get(c.selected_page_id) ?? []), c.id]);
+    }
+    if (byPage.size === 0) igResults.push({ skipped: "sem selected_page_id" });
+    for (const [pageId, ids] of byPage) {
       const u = new URL(`${GRAPH}/${encodeURIComponent(pageId)}`);
       u.searchParams.set("fields", "instagram_business_account{id,username}");
       u.searchParams.set("access_token", longToken);
@@ -186,29 +198,30 @@ Deno.serve(async (req) => {
       const j = await res.json().catch(() => null);
       const igId = j?.instagram_business_account?.id as string | undefined;
       if (!res.ok || j?.error) {
-        igResult = {
+        igResults.push({
           page_id: pageId,
           error: `graph ${res.status} ${j?.error?.code ?? ""} ${j?.error?.message ?? ""}`.trim(),
-        };
+        });
       } else if (!igId) {
-        igResult = { page_id: pageId, error: "Página sem conta de Instagram ligada" };
+        igResults.push({ page_id: pageId, error: "Página sem conta de Instagram ligada" });
       } else {
         const { error: igErr } = await (admin as any)
           .schema("crm")
           .from("ad_platform_connections")
           .update({ selected_instagram_id: igId })
-          .eq("id", connectionId);
-        igResult = igErr
+          .in("id", ids);
+        igResults.push(igErr
           ? { page_id: pageId, error: `gravação falhou: ${igErr.message}` }
           : {
             page_id: pageId,
+            connections: ids.length,
             instagram_id: igId,
             instagram_username: j?.instagram_business_account?.username ?? null,
-          };
+          });
       }
     }
   } catch (e) {
-    igResult = { error: `exceção: ${(e as Error)?.message ?? String(e)}` };
+    igResults.push({ error: `exceção: ${(e as Error)?.message ?? String(e)}` });
   }
 
   await auditLog(admin, {
@@ -221,8 +234,8 @@ Deno.serve(async (req) => {
       platform: "meta",
       connection_id: connectionId,
       ad_accounts: accounts.length,
-      status: single ? "active" : "pending_selection",
-      instagram: igResult,
+      status: finalStatus,
+      instagram: igResults,
     },
   });
 
@@ -230,6 +243,6 @@ Deno.serve(async (req) => {
     connection: "ok",
     scope: "ads",
     platform: "meta",
-    status: single ? "active" : "pending_selection",
+    status: finalStatus,
   });
 });
