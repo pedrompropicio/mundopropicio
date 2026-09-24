@@ -4331,6 +4331,8 @@ Decisões do Pedro (23/09/2026):
 
 Cadeia de token S4A (parte C): a 1.ª tentativa falhou no BLOCO 3 (UPDATE dentro de subconsulta) sem gravar nada; reenviada em plpgsql e aplicada a 23/09 — ver D-ERP135.
 
+**Adenda 24/09/2026 — redirect_uri via mundopropicio.com.** O `redirect_uri` do OAuth Google do YouTube passa a ser `https://www.mundopropicio.com/oauth/google/callback` (rota do Mundo Propício Portal, publicada e provada, que faz 302 no servidor para a `artist-youtube-oauth-callback` mantendo a query intacta: code, state, scope, error). Motivo: para a Google verificar a app, todos os domínios autorizados têm de estar verificados no Search Console, e `<ref>.supabase.co` não pode ser. O valor vive numa única constante partilhada em `_shared/artist-youtube.ts` (`ytRedirectUri()`): `Deno.env.get('GOOGLE_YT_OAUTH_REDIRECT_URI')` (secret opcional, ex.: testes) ?? `https://www.mundopropicio.com/oauth/google/callback`. O callback usa exactamente o mesmo valor na troca do code. O novo URI está no cliente OAuth ao lado do antigo. O callback não depende do Host/Origin do pedido (lê só a query), por isso chegar via 302 do mundopropicio.com não muda nada.
+
 ## D-ERP135 — Spotify for Artists: cadeia de token no servidor (23/09/2026)
 
 Migração `20260923224609`: provider `spotify` no CHECK de `artist_channel_connections`; colunas `oauth_client_id`, `refresh_lock_until`; `artist_channel_refresh_lease(uuid,int)` (trinco 10–300 s) e `artist_channel_store_rotated_tokens(...)` (grava o par novo cifrado com `ENCRYPTION_MASTER_KEY`, limpa trinco, status active; P0002 se não existir) — ambas SECURITY DEFINER, só service_role.
