@@ -1393,6 +1393,13 @@ calendário ficam como estão.
 sem relatório), chama `artist-song-report` com
 `{ song_id, trigger_source:'data_change', stale_at }`.
 
+**Adenda 24/09/2026 — idade, playlists do Spotify, segunda leitura e validação em código.**
+- Idade: `musica.dias_desde_lancamento` = fim do período − `release_date` (só release_date). Novo `dias_desde_inicio_campanha` = fim − `launch_started_at` (null se não houver). As janelas que usam `launchRef` (artista −30d, valor no lançamento) não mudaram. Regra 21 no prompt.
+- `s4a_spotify_owned_playlist_streams_28d` sai no snapshot como `streams_playlists_do_spotify_28d`, com `descricao` ("editoriais e algorítmicas — não são só editoriais"); `totais` ganha `streams_playlists_do_spotify_descricao`. Regra 22: nunca chamar "editoriais" a esse valor.
+- TikTok for Artists sai de `musica` para `snapshot.segunda_leitura_tiktok_for_artists` { publicacoes, data, metodo }.
+- Métricas `*_day` já são diárias: não se diferenciam. Série com `valor_do_dia`, `soma_no_periodo`, médias dos 7 últimos e 7 anteriores sobre os próprios valores, `melhor_dia.valor`. Acumuladas ficam como estavam.
+- Validação pós-LLM em código (`validarRelatorio`): remove de `sinais_de_alerta` e `o_que_esta_puxando` itens que citem o número da segunda leitura ou "remoção de conteúdo" junto de UGC; remove "UGC … desatualizado" com atraso ≤ 2 e "S4A … desatualizado" com atraso ≤ 8. O que for removido fica em `report.notas_tecnicas_validacao`.
+
 ## D-ERP55 — O saldo do extrato é calculado sobre a ordem que se vê, não sobre a ordem plana (12/09/2026)
 
 

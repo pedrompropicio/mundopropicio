@@ -50,6 +50,9 @@ function avgGain(serie: { daily_gain: number | null }[], from: number, to: numbe
   return int0(slice.reduce((s, p) => s + (p.daily_gain ?? 0), 0) / slice.length);
 }
 
+const DESC_PL_SPOTIFY =
+  "playlists feitas pelo Spotify: editoriais e algorítmicas (Radio, mixes) — não são só editoriais";
+
 // ---------------------------------------------------------------- snapshot
 export async function buildSnapshot(admin: Admin, songId: string, days: number) {
   const lacunas: string[] = [];
@@ -87,6 +90,8 @@ export async function buildSnapshot(admin: Admin, songId: string, days: number) 
     .limit(1)
     .maybeSingle();
 
+  // Idade da música: SEMPRE desde release_date (D-ERP54 adenda 24/09). launchRef continua
+  // a servir as janelas (artista −30d, valor no lançamento), sem mudança.
   const musica = {
     titulo: song.title,
     featuring: song.featuring ?? [],
@@ -94,12 +99,20 @@ export async function buildSnapshot(admin: Admin, songId: string, days: number) 
     release_date: song.release_date ?? null,
     is_launch: song.is_launch,
     launch_started_at: song.launch_started_at ?? null,
-    dias_desde_lancamento: launchRef ? daysBetween(launchRef, periodEnd) : null,
-    artista: artist ? { nome: artist.name, genero: artist.genre, cidade: artist.city } : null,
-    ugc_tiktok_for_artists: ttaRow
-      ? { valor: Math.round(Number(ttaRow.value)), data: ttaRow.metric_date }
+    dias_desde_lancamento: song.release_date ? daysBetween(song.release_date, periodEnd) : null,
+    dias_desde_inicio_campanha: song.launch_started_at
+      ? daysBetween(song.launch_started_at, periodEnd)
       : null,
+    artista: artist ? { nome: artist.name, genero: artist.genre, cidade: artist.city } : null,
   };
+  const segundaLeituraTiktokForArtists = ttaRow
+    ? {
+      publicacoes: Math.round(Number(ttaRow.value)),
+      data: ttaRow.metric_date,
+      metodo:
+        "painel TikTok for Artists — outro método, conta cerca de metade do app; nunca comparar com o número do app",
+    }
+    : null;
 
   // ---- streams por plataforma
   const { data: smRows, error: smErr } = await admin
@@ -120,6 +133,31 @@ export async function buildSnapshot(admin: Admin, songId: string, days: number) 
   }
   for (const [k, rows] of groups) {
     const [platform, metric] = k.split("|");
+    // Métricas *_day já são valores diários: nunca se diferenciam (D-ERP54 adenda 24/09).
+    if (metric.endsWith("_day")) {
+      const byDate = new Map<string, number>();
+      for (const r of rows) byDate.set(r.metric_date, num(r.value));
+      const serie = [...byDate.keys()].sort().map((d) => ({ date: d, valor_do_dia: int0(byDate.get(d)!) }));
+      const avgVals = (from: number, to: number) => {
+        const s = serie.slice(Math.max(serie.length - from, 0), serie.length - to);
+        return s.length ? int0(s.reduce((a, p) => a + p.valor_do_dia, 0) / s.length) : null;
+      };
+      const melhor = serie.length
+        ? serie.reduce((a, b) => (b.valor_do_dia > a.valor_do_dia ? b : a))
+        : null;
+      streamsPorPlataforma.push({
+        plataforma: platform,
+        metrica: metric,
+        tipo: "valor_diario",
+        pontos: serie.length,
+        serie_diaria: serie,
+        soma_no_periodo: serie.length ? int0(serie.reduce((a, p) => a + p.valor_do_dia, 0)) : null,
+        media_diaria_ultimos_7: avgVals(7, 0),
+        media_diaria_7_anteriores: serie.length > 7 ? avgVals(14, 7) : null,
+        melhor_dia: melhor ? { data: melhor.date, valor: melhor.valor_do_dia } : null,
+      });
+      continue;
+    }
     const serie = seriesFrom(rows);
     const gains = serie.filter((p) => p.daily_gain != null);
     const melhor = gains.length
@@ -205,6 +243,17 @@ export async function buildSnapshot(admin: Admin, songId: string, days: number) 
       s4aMetricLatest[r.metric as string] = { valor: num(r.value), data: r.metric_date };
     }
   }
+  // Renomeia o total das playlists feitas pelo Spotify (não são só editoriais).
+  const ownedKey = "s4a_spotify_owned_playlist_streams_28d";
+  if (s4aMetricLatest[ownedKey]) {
+    const v = s4aMetricLatest[ownedKey] as Row;
+    delete s4aMetricLatest[ownedKey];
+    s4aMetricLatest["streams_playlists_do_spotify_28d"] = {
+      valor: v.valor,
+      data: v.data,
+      descricao: DESC_PL_SPOTIFY,
+    };
+  }
   const spotifyForArtists = s4aAll.length === 0 && s4aMetrics.length === 0 ? null : {
     fonte: "Spotify for Artists (recolha assistida na sessão do artista)",
     snapshot: s4aAll[0]?.snapshot_date ?? null,
@@ -215,6 +264,7 @@ export async function buildSnapshot(admin: Admin, songId: string, days: number) 
         playlists_na_snapshot: s4aAll[0].playlists_na_snapshot,
         streams_total: s4aAll[0].streams_total,
         streams_playlists_do_spotify: s4aAll[0].streams_spotify_owned,
+        streams_playlists_do_spotify_descricao: DESC_PL_SPOTIFY,
         streams_playlists_de_utilizadores: s4aAll[0].streams_user_playlists,
         streams_top_10: s4aAll[0].streams_top10,
       }
@@ -563,6 +613,7 @@ export async function buildSnapshot(admin: Admin, songId: string, days: number) 
       periodo: { inicio: periodStart, fim: periodEnd, dias: days },
       frescura,
       musica,
+      segunda_leitura_tiktok_for_artists: segundaLeituraTiktokForArtists,
       streams: streamsPorPlataforma,
       playlists,
       spotify_for_artists: spotifyForArtists,
