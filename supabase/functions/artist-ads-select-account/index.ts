@@ -52,6 +52,26 @@ Deno.serve(async (req) => {
     return json({ error: "conta não está entre as contas disponíveis" }, 400);
   }
 
+  // D-ERP143: uma ligação por conta — recusar se outra ligação do mesmo
+  // artista/plataforma já tem esta conta.
+  const chosenId = chosen.id ?? chosen.account_id;
+  const { data: dup } = await (admin as any)
+    .schema("crm")
+    .from("ad_platform_connections")
+    .select("id")
+    .eq("company_id", conn.company_id)
+    .eq("artist_id", conn.artist_id)
+    .eq("platform", conn.platform)
+    .eq("selected_ad_account_id", chosenId)
+    .neq("id", connectionId)
+    .maybeSingle();
+  if (dup) {
+    return json({
+      error: "esta conta já tem uma ligação própria para este artista",
+      existing_connection_id: dup.id,
+    }, 409);
+  }
+
   const { error: upErr } = await (admin as any)
     .schema("crm")
     .from("ad_platform_connections")

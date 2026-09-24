@@ -109,6 +109,9 @@ verify_jwt = false
 [functions.artist-ads-select-account]
 verify_jwt = true
 
+[functions.artist-ads-meta-add-account]
+verify_jwt = true
+
 [functions.artist-ads-disconnect]
 verify_jwt = true
 
