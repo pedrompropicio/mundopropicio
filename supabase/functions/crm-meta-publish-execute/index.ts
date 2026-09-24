@@ -516,6 +516,54 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return Array.isArray(g) && g.some((x: any) => typeof x === "string" && x.trim().length > 0);
   }
 
+  // Lista [{id, nome}] → [{id, name}] (só ids numéricos).
+  function idList(v: any): Array<{ id: string; name: string }> {
+    if (!Array.isArray(v)) return [];
+    return v
+      .filter((x: any) => x && /^\d+$/.test(String(x.id ?? "")))
+      .map((x: any) => ({ id: String(x.id), name: String(x.nome ?? x.name ?? x.id) }));
+  }
+
+  // Verifica na Meta interesses (adinterestvalid) e públicos (existência + pronto).
+  async function verificarPublicoMusica(): Promise<Array<{ check: string; ok: boolean; detail?: string }>> {
+    const out: Array<{ check: string; ok: boolean; detail?: string }> = [];
+    const intIds = new Map<string, string>();
+    const audIds = new Set<string>();
+    for (const a of adsets as any[]) {
+      const pub = a?.publico_sugerido ?? {};
+      for (const x of idList(pub.interesses)) intIds.set(x.id, x.name);
+      for (const x of idList(pub.publicos_personalizados)) audIds.add(x.id);
+      for (const x of idList(pub.publicos_excluidos)) audIds.add(x.id);
+    }
+    if (intIds.size > 0) {
+      const r = await graphGET("/search", { type: "adinterestvalid", interest_fbid_list: JSON.stringify([...intIds.keys()]) }, accessToken);
+      const validos = new Set<string>(((r.data?.data ?? []) as any[]).filter((d) => d?.valid === true && d?.id).map((d) => String(d.id)));
+      const maus = [...intIds.entries()].filter(([id]) => !validos.has(id));
+      out.push({
+        check: "interesses",
+        ok: r.ok && maus.length === 0,
+        detail: !r.ok ? JSON.stringify(r.data?.error ?? r.data).slice(0, 300)
+          : maus.length === 0 ? `${intIds.size} válido(s): ${[...intIds.entries()].map(([i, n]) => `${n} (${i})`).join(", ")}`
+          : `interesse(s) inexistente(s) na Meta: ${maus.map(([i, n]) => `${n} (${i})`).join(", ")}`,
+      });
+    }
+    for (const id of audIds) {
+      const r = await graphGET(`/${id}`, { fields: "name,approximate_count_lower_bound,operation_status,account_id" }, accessToken);
+      const code = Number(r.data?.operation_status?.code);
+      const contaOk = !r.data?.account_id || `act_${r.data.account_id}` === adAccountId;
+      const pronto = r.ok && contaOk && (!Number.isFinite(code) || code === 200);
+      out.push({
+        check: `publico_${id}`,
+        ok: pronto,
+        detail: !r.ok ? `público não encontrado nesta conta: ${JSON.stringify(r.data?.error ?? r.data).slice(0, 300)}`
+          : !contaOk ? `público de outra conta (${r.data.account_id})`
+          : `${r.data?.name ?? ""} ~${r.data?.approximate_count_lower_bound ?? "?"} estado=${code || "?"} ${r.data?.operation_status?.description ?? ""}`,
+      });
+    }
+    return out;
+  }
+
+
   function buildAdsetPayload(a: any, campaignIdParaPayload: string, adsetIdx: number): { payload: Record<string, unknown>; goal_used: string; sem_pixel?: boolean; budget_mode: "lifetime" | "daily"; abaixo_minimo?: { minimo_cents: number; orcamento_cents: number } } {
     const pub = a.publico_sugerido ?? {};
     // Alvo música (D-ERP95 F2b correcção): NUNCA há geografia por omissão —
@@ -1079,6 +1127,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           : `sem país: ${semGeoPre.join(", ")}`,
       });
       checks.push({ check: "teto", ok: !!tetoInfo?.ok, detail: JSON.stringify(tetoInfo) });
+      checks.push(...await verificarPublicoMusica());
       // D-ERP141: diz qual destino vai ser usado e de onde vem.
       {
         const { data: sl } = await (admin as any).from("song_links")
