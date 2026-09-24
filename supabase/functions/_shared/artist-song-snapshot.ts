@@ -50,6 +50,9 @@ function avgGain(serie: { daily_gain: number | null }[], from: number, to: numbe
   return int0(slice.reduce((s, p) => s + (p.daily_gain ?? 0), 0) / slice.length);
 }
 
+const DESC_PL_SPOTIFY =
+  "playlists feitas pelo Spotify: editoriais e algorítmicas (Radio, mixes) — não são só editoriais";
+
 // ---------------------------------------------------------------- snapshot
 export async function buildSnapshot(admin: Admin, songId: string, days: number) {
   const lacunas: string[] = [];
@@ -240,6 +243,17 @@ export async function buildSnapshot(admin: Admin, songId: string, days: number) 
       s4aMetricLatest[r.metric as string] = { valor: num(r.value), data: r.metric_date };
     }
   }
+  // Renomeia o total das playlists feitas pelo Spotify (não são só editoriais).
+  const ownedKey = "s4a_spotify_owned_playlist_streams_28d";
+  if (s4aMetricLatest[ownedKey]) {
+    const v = s4aMetricLatest[ownedKey] as Row;
+    delete s4aMetricLatest[ownedKey];
+    s4aMetricLatest["streams_playlists_do_spotify_28d"] = {
+      valor: v.valor,
+      data: v.data,
+      descricao: DESC_PL_SPOTIFY,
+    };
+  }
   const spotifyForArtists = s4aAll.length === 0 && s4aMetrics.length === 0 ? null : {
     fonte: "Spotify for Artists (recolha assistida na sessão do artista)",
     snapshot: s4aAll[0]?.snapshot_date ?? null,
@@ -250,6 +264,7 @@ export async function buildSnapshot(admin: Admin, songId: string, days: number) 
         playlists_na_snapshot: s4aAll[0].playlists_na_snapshot,
         streams_total: s4aAll[0].streams_total,
         streams_playlists_do_spotify: s4aAll[0].streams_spotify_owned,
+        streams_playlists_do_spotify_descricao: DESC_PL_SPOTIFY,
         streams_playlists_de_utilizadores: s4aAll[0].streams_user_playlists,
         streams_top_10: s4aAll[0].streams_top10,
       }
@@ -598,6 +613,7 @@ export async function buildSnapshot(admin: Admin, songId: string, days: number) 
       periodo: { inicio: periodStart, fim: periodEnd, dias: days },
       frescura,
       musica,
+      segunda_leitura_tiktok_for_artists: segundaLeituraTiktokForArtists,
       streams: streamsPorPlataforma,
       playlists,
       spotify_for_artists: spotifyForArtists,
