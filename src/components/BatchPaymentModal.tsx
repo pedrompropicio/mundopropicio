@@ -21,6 +21,7 @@ import { computeNetPayable, getDeclaredWithholding } from "@/lib/withholding";
 import { accountHasBalanceFor, useAccountTrueBalance } from "@/lib/account-balance-rpc";
 import { useInstallmentTxIds } from "@/hooks/useInstallmentTxIds";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { assertTxStillInPaymentList } from "@/lib/payment-list-revalidate";
 
 interface Props {
   transactions: any[];
@@ -33,9 +34,11 @@ interface Props {
    * de tipo `bank` (sem cartões pré-pagos, contas de acerto ou virtuais).
    */
   bankAccountsOnly?: boolean;
+  /** Lista de origem: revalida na base, antes de gravar, que os itens continuam ativos. */
+  paymentListId?: string;
 }
 
-export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "", initialPaymentDate, bankAccountsOnly = false }: Props) {
+export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "", initialPaymentDate, bankAccountsOnly = false, paymentListId }: Props) {
   const [invoiceRef, setInvoiceRef] = useState(initialInvoiceRef);
   const [accountId, setAccountId] = useState("");
   const [paymentDate, setPaymentDate] = useState(
@@ -249,6 +252,12 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
 
       if (!accountId) throw new Error("Selecione a conta");
       if (!paymentDate) throw new Error("Selecione a data de pagamento");
+
+      // P0 24/09/2026: aberto a partir de uma lista → revalida na base que TODAS
+      // as transações continuam ativas na lista (removed_at IS NULL). Recusa tudo.
+      if (paymentListId) {
+        await assertTxStillInPaymentList(paymentListId, transactions.map((t: any) => t.id));
+      }
 
       // Trava de saldo no servidor (D-ERP34): conta também as transações
       // confidenciais e respeita skip_balance_check internamente. Mantém-se a
