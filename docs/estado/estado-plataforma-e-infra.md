@@ -212,6 +212,12 @@ Regras que ficaram:
 - **A pesquisa só desiste sem LLM quando não há acerto lexical nem cosseno acima do limiar.** A pergunta "como exporto o SAF-T?" continua a falhar porque não há conteúdo sobre SAF-T no manual; perguntas com acerto lexical ("rateio dayoff", "hotel da folga") seguem para o LLM e respondem corretamente.
 - **Imagens de `docs/manual/img/` são a única exceção a "nunca HTML cru"** — os diagramas são SVG inline, referenciados no markdown como `![alt](img/x.svg)`.
 
+## Carreira Artística — três correções (24/09/2026)
+
+- `tiktok-artists-sync`: Origin/Referer no clip_data_list; nota com status_code/status_msg (D-ERP125). Deployado; prova real do Pedro.
+- `soundcharts-sync`: fãs do Deezer via API pública (D-ERP139). Deployado; sem corrida real.
+- `song_growth_summary`: notas para o leitor vs `notas_tecnicas`; dias repetidos da Soundcharts fora das séries (D-ERP136). Em Live; KPIs inalterados.
+
 ## A trabalhar agora
 - **#237 (fechada a 23/09)** — a cache de empresa do storage (`cachedCompanyId` em `src/lib/storage.ts`) nunca era limpa: trocar de empresa no cabeçalho deixava `withCompanyPath` a prefixar com a empresa anterior (uploads recusados pela RLS, downloads na pasta errada em silêncio). `clearCompanyCache()` passou a ser chamada em `useSetActiveCompany` (antes do `onSuccess`) e no `AuthContext` (signOut + mudança de utilizador da sessão); comentário de dever de limpeza em `storage.ts` e teste de regressão em `storage-multi-tenant.test.ts`. Decisão pendente do Pedro: substituir a cache de módulo por leitura do queryClient `["current-company"]`.
 - **#206 fase 2** — somas e contagens de tabelas grandes na base (RPCs), com ADR próprio. Não subir `db-max-rows`.
