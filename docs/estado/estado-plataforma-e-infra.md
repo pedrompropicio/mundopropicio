@@ -404,3 +404,7 @@ apagava as métricas de vídeo que `crm-google-video-metrics-sync` punha em `raw
 
 ## UGC TikTok — fonte de referência (24/09/2026)
 Referência = app (`ios_shortcut` > `manual`) no benchmark, na folha e no relatório. TikTok for Artists e Apify são segunda leitura, mostrada à parte, fora do ranking. Ver adendas D-ERP59/126/136.
+
+
+## Relatório de lançamento — correções 24/09/2026
+Idade desde release_date (+ dia da campanha), playlists do Spotify renomeadas, segunda leitura TikTok for Artists em bloco próprio, *_day sem diferenças, validação pós-LLM em código (D-ERP54 adenda 24/09). artist-song-report e artist-ads-strategy-generate deployadas.
