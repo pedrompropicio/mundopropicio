@@ -3210,6 +3210,8 @@ verificação de papel e sem teto; `crm-meta-entity-action` em connections de em
 papel nem teto (só o cap por utilizador em EUR); o motor não gera UTMs para evento;
 publicação de evento sem lock anti-corrida.
 
+**Nota 24/09/2026 — TikTok (portal, 24/09):** a partir de 01/01/2027 `/campaign/create`, `/adgroup/create` e `/ad/create` deixam de criar campanhas Legacy Manual para Sales, App Promotion e Lead Generation (Smart+). Os objetivos do motor para artistas (alcance, tráfego, visualizações) não constam da lista — confirmar na F5.
+
 ## D-ERP96 — `cron.job_run_details` tem retenção de 7 dias, purgada por cron em Live e vigiada por invariante (19/09/2026)
 
 **Contexto.** A 19/09/2026 às 13:44 UTC a base ficou indisponível (HTTP 522, sem FATAL no
