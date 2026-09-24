@@ -1923,8 +1923,27 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     });
   };
 
+  /**
+   * P0 24/09/2026: a seleção deriva SEMPRE dos itens ativos (removed_at IS NULL) e
+   * não pagos. Antes, selectedTxIds sobrevivia à remoção/recarga e o modal era
+   * alimentado por `items` (incluindo removidos) filtrado por essa seleção velha.
+   */
+  const unpaidTxIdSet = useMemo(
+    () => new Set<string>(unpaidItems.map((i: any) => i.transactions.id as string)),
+    [unpaidItems],
+  );
+  const effectiveSelectedTxIds = useMemo(
+    () => new Set([...selectedTxIds].filter((id) => unpaidTxIdSet.has(id))),
+    [selectedTxIds, unpaidTxIdSet],
+  );
+  useEffect(() => {
+    if (effectiveSelectedTxIds.size !== selectedTxIds.size) setSelectedTxIds(effectiveSelectedTxIds);
+  }, [effectiveSelectedTxIds, selectedTxIds]);
+  // Defensivo: X > Y nunca devia acontecer; se acontecer, botão desativado.
+  const selectionInconsistent = effectiveSelectedTxIds.size > unpaidItems.length;
+
   const toggleAll = () => {
-    if (selectedTxIds.size === unpaidItems.length && unpaidItems.length > 0) {
+    if (effectiveSelectedTxIds.size === unpaidItems.length && unpaidItems.length > 0) {
       setSelectedTxIds(new Set());
     } else {
       setSelectedTxIds(new Set(unpaidItems.map((item: any) => item.transactions.id)));
@@ -1937,16 +1956,16 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
    * linha em `transaction_payments`. Não há escrita direta a `transactions` aqui.
    */
   const handleBulkPayment = () => {
-    if (selectedTxIds.size === 0) return;
+    if (effectiveSelectedTxIds.size === 0 || selectionInconsistent) return;
     setShowBatchPayment(true);
   };
 
   const batchPaymentTransactions = useMemo(
     () =>
-      items
-        .filter((i: any) => i.transactions && selectedTxIds.has(i.transactions.id))
+      unpaidItems
+        .filter((i: any) => effectiveSelectedTxIds.has(i.transactions.id))
         .map((i: any) => i.transactions),
-    [items, selectedTxIds],
+    [unpaidItems, effectiveSelectedTxIds],
   );
 
   const handleBatchPaymentClose = () => {
@@ -2247,25 +2266,25 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           <div className="flex items-center justify-between rounded-lg border border-sky-500/30 bg-sky-500/5 px-4 py-2.5 mb-3">
             <div className="flex items-center gap-3">
               <Checkbox
-                checked={selectedTxIds.size === unpaidItems.length && unpaidItems.length > 0}
+                checked={effectiveSelectedTxIds.size === unpaidItems.length && unpaidItems.length > 0}
                 onCheckedChange={toggleAll}
                 className="border-sky-500 data-[state=checked]:bg-sky-600 data-[state=checked]:border-sky-600"
               />
               <span className="text-sm text-muted-foreground flex items-center gap-1.5">
                 <Banknote className="h-4 w-4 text-sky-500" />
-                {selectedTxIds.size > 0
-                  ? `${selectedTxIds.size} de ${unpaidItems.length} para liquidar`
+                {effectiveSelectedTxIds.size > 0
+                  ? `${effectiveSelectedTxIds.size} de ${unpaidItems.length} para liquidar`
                   : `${unpaidItems.length} pagamento(s) pendente(s) de liquidação`}
               </span>
             </div>
-            {selectedTxIds.size > 0 && (
+            {effectiveSelectedTxIds.size > 0 && (
               <button
                 onClick={handleBulkPayment}
-                disabled={paying}
+                disabled={paying || selectionInconsistent}
                 className="flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-sky-700 disabled:opacity-50"
               >
                 <Banknote className="h-4 w-4" />
-                {paying ? "A processar…" : `Liquidar (${selectedTxIds.size})`}
+                {paying ? "A processar…" : `Liquidar (${effectiveSelectedTxIds.size})`}
               </button>
             )}
           </div>
@@ -2660,6 +2679,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         <BatchPaymentModal
           transactions={batchPaymentTransactions}
           bankAccountsOnly
+          paymentListId={listId}
           onClose={handleBatchPaymentClose}
         />
       )}

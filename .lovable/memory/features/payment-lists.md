@@ -64,6 +64,17 @@ liquidada, não entra no saldo de nenhuma conta no sistema. Em 17/09/2026 existi
 
 “Marcar como Pago” e “Liquidar” são fases sucessivas, não categorias concorrentes.
 
+### Liquidação só de itens ativos (P0 corrigido em 2026-09-24)
+- A seleção de "Liquidar (N)" deriva SEMPRE dos itens ativos (`removed_at IS NULL`) e
+  não pagos: `effectiveSelectedTxIds` = seleção ∩ `unpaidItems`, podada a cada
+  remoção/restauro/recarga; o modal é alimentado por `unpaidItems`, nunca por `items`.
+  X > Y no contador → botão desativado.
+- `BatchPaymentModal` recebe `paymentListId` e, antes de gravar, relê os itens ativos da
+  lista na base (`assertTxStillInPaymentList`); se algum selecionado faltar, recusa tudo:
+  "N transação(ões) já não estão nesta lista (removidas). Recarrega a lista antes de liquidar."
+- Sem trigger em `payment_list_items`: a liquidação não escreve nesta tabela (só em
+  `transaction_payments`/`transactions`). `manually_marked_paid` é marca visual/SEPA.
+
 ### Ciclo completo do reembolso
 nota aprovada → tx de pagamento entra na lista → lista aprovada → marcar como pago
 (sinalização visual) → Liquidar → movimento associado a uma conta financeira.
