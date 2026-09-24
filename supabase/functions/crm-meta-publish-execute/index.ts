@@ -554,6 +554,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (excl && excl.size > 0) {
       targeting.excluded_custom_audiences = Array.from(excl).map((id) => ({ id: String(id) }));
     }
+    // D-ERP95 (adenda 24/09): contrato de público do alvo música. Só entra
+    // quando o plano traz os campos; o caminho de evento fica byte a byte igual.
+    if (isSong) {
+      const ints = idList(pub.interesses);
+      if (ints.length > 0) targeting.flexible_spec = [{ interests: ints }];
+      const cas = idList(pub.publicos_personalizados).map((x) => ({ id: x.id }));
+      if (cas.length > 0) targeting.custom_audiences = cas;
+      const exs = idList(pub.publicos_excluidos).map((x) => ({ id: x.id }));
+      if (exs.length > 0) targeting.excluded_custom_audiences = exs;
+      const pos = pub.posicionamentos;
+      if (pos && typeof pos === "object") {
+        for (const k of ["publisher_platforms", "instagram_positions", "facebook_positions"]) {
+          if (Array.isArray(pos[k]) && pos[k].length > 0) targeting[k] = pos[k].map(String);
+        }
+      }
+    }
     let goal = optimization_goal;
     const orcCents = Math.max(0, Number(a.orcamento_cents ?? 0));
     const payload: Record<string, unknown> = {
