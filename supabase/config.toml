@@ -259,3 +259,6 @@ verify_jwt = true
 
 [functions.s4a-daily-sync]
 verify_jwt = true
+
+[functions.artist-youtube-sync]
+verify_jwt = true
