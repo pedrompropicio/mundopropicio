@@ -29,7 +29,7 @@ const FUNCTION_NAME = "tiktok-artists-sync";
 const ROLES = ["admin", "platform_admin", "manager", "editor"];
 const API_URL = "https://artists.tiktok.com/tiktok/artist_api/ttfa/song_data/list/v1";
 // D-ERP125 (A3-bis) — lista de clips (sons) de cada música do painel.
-const CLIP_API_URL = "https://artists.tiktok.com/tiktok/artist_api/ttfa/song_data/clip_data_list/v1";
+const CLIP_API_URL = "https://artists.tiktok.com/tiktok/artist_api/ttfa/clip_data_list/";
 const DEFAULT_ARTIST_USER_ID = "6812764850029970437";
 const PAGE_SIZE = 60;
 const MAX_PAGES = 10;
