@@ -69,7 +69,49 @@ REGRAS DE FRESCURA:
 17. Ritmo por dia: use só o campo de ritmo que vem no snapshot. É PROIBIDO recalcular dividindo por outra idade e é PROIBIDO chamar um total acumulado de "por dia".
 18. Se frescura.ugc_dias_de_atraso for maior que 2, inclua em sinais_de_alerta "UGC TikTok desatualizado: último registro em DD/MM" e não descreva tendência de UGC. O mesmo para frescura.s4a_dias_de_atraso maior que 8. Se frescura.benchmark_ugc_dias_de_atraso for maior que 2, diga na comparação de UGC que os comparáveis têm registro de DD/MM e não conclua ultrapassagens por margens pequenas.
 19. UNIDADES DA AUDIÊNCIA — os números de audiência vêm com "unit": 'count' é contagem e 'pct' é já uma quota da plataforma, em percentagem. É PROIBIDO somar ou comparar valores de "unit" diferentes (nem dentro da mesma dimensão, nem entre dimensões). Ao citar um número de audiência diga sempre a plataforma, o tipo de audiência, a data do snapshot e, quando for percentagem, diga que é percentagem.
-20. O número de publicações do TikTok for Artists (ugc_tiktok_for_artists) é uma segunda leitura, feita por outro método, e costuma ser mais baixo que o do app. Cite-o só como complemento, com a data, e nunca o use para comparar com os comparáveis nem para calcular ritmo.`;
+20. O número de publicações do TikTok for Artists (ugc_tiktok_for_artists) é uma segunda leitura, feita por outro método, e costuma ser mais baixo que o do app. Cite-o só como complemento, com a data, e nunca o use para comparar com os comparáveis nem para calcular ritmo. O valor está em segunda_leitura_tiktok_for_artists.
+21. A idade da música é sempre dias_desde_lancamento (desde release_date). dias_desde_inicio_campanha só pode ser citado como 'dia N da campanha'.
+22. Nunca chamar 'editoriais' ao valor streams_playlists_do_spotify_28d. Editoriais são só as playlists de tipo Editorial na lista de playlists.`;
+
+// Validação pós-LLM em código (D-ERP54 adenda 24/09): o que tem de estar certo não se confia ao modelo.
+// deno-lint-ignore no-explicit-any
+function validarRelatorio(report: any, snapshot: any): string[] {
+  const notas: string[] = [];
+  if (!report || typeof report !== "object") return notas;
+  const tta = snapshot?.segunda_leitura_tiktok_for_artists?.publicacoes;
+  const fr = snapshot?.frescura ?? {};
+  const pats: RegExp[] = [];
+  if (typeof tta === "number") {
+    const plain = String(tta);
+    const dotted = tta.toLocaleString("de-DE");
+    pats.push(new RegExp(`(^|[^0-9.])(${plain}|${dotted.replace(/\./g, "\\.")})([^0-9]|$)`));
+  }
+  const remocaoUgc = (t: string) => /remo[çc][ãa]o de conte[úu]do/i.test(t) && /ugc|tiktok|publica/i.test(t);
+  for (const campo of ["sinais_de_alerta", "o_que_esta_puxando"]) {
+    const arr = report[campo];
+    if (!Array.isArray(arr)) continue;
+    report[campo] = arr.filter((item: unknown) => {
+      const t = String(item ?? "");
+      if (pats.some((re) => re.test(t)) || remocaoUgc(t)) {
+        notas.push(`removido de ${campo} (cruza a segunda leitura TikTok for Artists com o app): ${t}`);
+        return false;
+      }
+      if (campo === "sinais_de_alerta") {
+        if (typeof fr.ugc_dias_de_atraso === "number" && fr.ugc_dias_de_atraso <= 2 && /ugc.*desatualizad/i.test(t)) {
+          notas.push(`removido de sinais_de_alerta (UGC com ${fr.ugc_dias_de_atraso} dia(s) de atraso, dentro do limite de 2): ${t}`);
+          return false;
+        }
+        if (typeof fr.s4a_dias_de_atraso === "number" && fr.s4a_dias_de_atraso <= 8 && /s4a.*desatualizad/i.test(t)) {
+          notas.push(`removido de sinais_de_alerta (S4A com ${fr.s4a_dias_de_atraso} dia(s) de atraso, dentro do limite de 8): ${t}`);
+          return false;
+        }
+      }
+      return true;
+    });
+  }
+  report.notas_tecnicas_validacao = notas;
+  return notas;
+}
 
 
 const REPORT_TOOL = {
@@ -371,6 +413,9 @@ Deno.serve(async (req) => {
       });
       return json({ error: llm.fail.error, message: llm.fail.message }, llm.fail.status);
     }
+
+    const notasValidacao = validarRelatorio(llm.report, snapshot);
+    if (notasValidacao.length) console.log(`[${FUNCTION_NAME}] validação removeu ${notasValidacao.length} item(ns)`);
 
     const { data: inserted, error: iErr } = await admin
       .from("artist_song_reports")
