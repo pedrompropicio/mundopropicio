@@ -4444,3 +4444,15 @@ A Soundcharts não grava Deezer em `artist_metrics_daily` (0 linhas a 24/09). O 
 **Como:** cada chave de atribuição usa `z.preprocess((v) => v == null ? v : String(v), z.string().optional())`; o `validateSearch` corre dentro de try/catch e, em qualquer falha, regista `console.warn` e devolve a query string tal como veio. Devolve-se a search ORIGINAL e não a normalizada — devolver a normalizada faz o router reescrever o URL com aspas à volta dos IDs, que acabam gravadas no lead.
 
 **Princípio que fica:** numa página pública de marketing, nenhuma query string pode deixar a página em branco. A validação serve para tipar o que se lê, não para decidir se a página desenha.
+
+## D-ERP143 — Várias contas Meta por artista: uma ligação por conta, token partilhado (24/09/2026)
+
+**Porquê:** o Litto (artista b1a53be0-…) tem a ligação e5d12c36-… na CA 1 act_323668247351618 (BRL), onde o gestor de tráfego externo faz as campanhas que lemos (conta de LEITURA, continua). As campanhas [MP] do motor vão para a conta "MP – Litto Lins (EUR)" act_1818321225966067 (portfólio Mundo Propício 661222725105902; teto 100 EUR/dia; pixel 1707809916978287). O índice único uq_conn_company_artist_platform impedia uma segunda ligação Meta do mesmo artista.
+
+**Decisão:** uma ligação (linha de crm.ad_platform_connections) por conta de anúncios. Índices: único (company_id, artist_id, platform, selected_ad_account_id) com conta escolhida; único (company_id, artist_id, platform) sem conta escolhida (no máximo uma ligação "a meio do OAuth"). Ligações de empresa (artist_id NULL) sem alteração. Migração 20260924211147_d084cf2a-713f-46cf-8baf-23d5a0b32d12.sql.
+
+**Token partilhado:** as ligações do mesmo artista usam o mesmo token (mesma cifra). crm.upsert_artist_meta_connection (OAuth) grava o token novo em TODAS as ligações Meta do artista na empresa; as que têm conta escolhida voltam a 'active'. Só cria/actualiza a ligação pendente quando ainda não há nenhuma com conta. O callback grava selected_instagram_id em todas as ligações com selected_page_id.
+
+**Acrescentar conta:** edge function artist-ads-meta-add-account (verify_jwt true; admin da empresa do artista por user_roles ou platform_admin, D-ERP128). POST { source_connection_id, ad_account_id }: valida a conta na Meta (account_status = 1) com o token da origem; idempotente; copia token cifrado, página, Instagram, BM e contas disponíveis; não toca na origem.
+
+**Ajustes:** artist-ads-select-account recusa (409) uma conta que já tem ligação própria; artist_ads_register_external (Google/TikTok) deixou de depender do índice antigo; artist_ads_campaign_settings escolhe a ligação que tem a campanha. Leituras artist_ads_* já agregam todas as ligações do artista; plano, preflight, publicação, teto e artist-ads-strategy-generate usam a connection_id pedida; syncs iteram por ligação.

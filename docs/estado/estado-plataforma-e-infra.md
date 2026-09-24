@@ -411,3 +411,6 @@ Idade desde release_date (+ dia da campanha), playlists do Spotify renomeadas, s
 
 ## Smart links com pixel — backend (24/09/2026, D-ERP141)
 Migração `20260924202758_ed08efce-…` em Live: `song_links`, `song_link_events`, RPCs `song_link_public_get` (anon, excepção D-ERP94), `artist_song_link_upsert/list/stats`; motor usa o smart link MP em Tráfego. Edge `song-link-event` deployada (não corrida). 1.º link `roupa-de-solteira`. Pendente: secrets `META_CAPI_TOKEN` e `SONG_LINK_IP_SALT` (Pedro), pixel (chat 4).
+
+## Várias contas Meta por artista (24/09/2026, D-ERP143)
+Índices novos em crm.ad_platform_connections (uma ligação por conta; no máximo uma pendente). Nova função `artist-ads-meta-add-account` (verify_jwt true). OAuth propaga o token a todas as ligações Meta do artista. Deploy: artist-ads-meta-add-account, artist-ads-meta-oauth-callback, artist-ads-select-account. Sem Publish.
