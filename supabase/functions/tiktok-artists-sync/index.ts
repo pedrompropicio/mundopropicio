@@ -156,24 +156,38 @@ async function fetchPage(cookie: string, artistUserId: string, from: number): Pr
 type PanelClip = { music_id: string; clip_name: string | null; is_pgc: boolean };
 
 type ClipResult =
-  | { ok: true; items: PanelClip[]; topKeys: string[]; arrayPaths: string[] }
+  | { ok: true; items: PanelClip[]; topKeys: string[]; arrayPaths: string[]; status: ClipOk }
   | { ok: false; motivo: "sessao_invalida" | "rede" | "http" };
+
+type ClipOk = { statusCode: unknown; statusMsg: unknown };
 
 /**
  * Sons (clips) de uma música do painel. A resposta traz listas cujos nomes
  * começam por 'pgc' (som oficial) ou 'ugc' (som do utilizador); aceitamos
  * ambas as formas (listas separadas ou lista única com o tipo no item).
  */
-async function fetchClips(cookie: string, groupId: string): Promise<ClipResult> {
+async function fetchClips(
+  cookie: string,
+  groupId: string,
+  handle: string | null,
+): Promise<ClipResult> {
+  // Origin/Referer iguais aos do browser (o painel parece exigi-los neste
+  // endpoint). Sem handle do artista, vai só Origin.
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    Cookie: cookie,
+    Origin: "https://artists.tiktok.com",
+  };
+  if (handle) {
+    headers.Referer =
+      `https://artists.tiktok.com/artist/${encodeURIComponent(handle)}/music/${encodeURIComponent(groupId)}`;
+  }
   let res: Response;
   try {
     res = await fetch(CLIP_API_URL, {
       method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        Cookie: cookie,
-      },
+      headers,
       body: JSON.stringify({ group_id: groupId }),
       redirect: "manual",
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -195,7 +209,7 @@ async function fetchClips(cookie: string, groupId: string): Promise<ClipResult> 
 
   const items: PanelClip[] = [];
   const push = (raw: Json, pgcHint: boolean | null) => {
-    const id = raw.music_id ?? raw.clip_id ?? raw.id;
+    const id = raw.music_id ?? raw.clip_id ?? raw.id ?? raw.id_str ?? raw.music_id_str;
     if (id == null) return;
     const tipo = String(raw.clip_type ?? raw.type ?? "").toLowerCase();
     const isPgc = pgcHint ?? (tipo.startsWith("pgc") || raw.is_official === true);
@@ -241,7 +255,14 @@ async function fetchClips(cookie: string, groupId: string): Promise<ClipResult> 
     if (!prev || (c.is_pgc && !prev.is_pgc)) porMusicId.set(c.music_id, c);
   }
   const topKeys = Object.keys(data as Record<string, unknown>);
-  return { ok: true, items: [...porMusicId.values()], topKeys, arrayPaths };
+  const env = data as Record<string, unknown>;
+  return {
+    ok: true,
+    items: [...porMusicId.values()],
+    topKeys,
+    arrayPaths,
+    status: { statusCode: env.status_code ?? null, statusMsg: env.status_msg ?? null },
+  };
 }
 
 Deno.serve(async (req) => {
@@ -342,8 +363,27 @@ Deno.serve(async (req) => {
   const clipNotes: string[] = [];
   let clipsUpserted = 0;
   let clipCalls = 0;
+  // Handle TikTok por artista (artist_channels platform 'tiktok') para o Referer.
+  const handleByArtist = new Map<string, string>();
+  {
+    const ids = [...new Set([...mapa.values()].map((m) => m.artist_id))];
+    if (ids.length) {
+      const { data: chs } = await admin
+        .from("artist_channels")
+        .select("artist_id, handle, is_primary")
+        .eq("platform", "tiktok")
+        .in("artist_id", ids);
+      for (const c of (chs ?? []) as Json[]) {
+        const h = String(c.handle ?? "").replace(/^@/, "").trim();
+        if (!h) continue;
+        if (!handleByArtist.has(String(c.artist_id)) || c.is_primary === true) {
+          handleByArtist.set(String(c.artist_id), h);
+        }
+      }
+    }
+  }
   for (const [groupId, alvo] of mapa) {
-    const clips = await fetchClips(cookie, groupId);
+    const clips = await fetchClips(cookie, groupId, handleByArtist.get(alvo.artist_id) ?? null);
     apiCalls++;
     clipCalls++;
     if (!clips.ok) {
@@ -354,7 +394,10 @@ Deno.serve(async (req) => {
     if (clips.items.length === 0) {
       clipNotes.push(
         (
-          `clips de ${groupId}: 0 sons — chaves de topo: [${clips.topKeys.join(", ")}]` +
+          `clips de ${groupId}: 0 sons — status_code=${JSON.stringify(clips.status.statusCode)}` +
+          ` status_msg=${JSON.stringify(clips.status.statusMsg)}` +
+          ` — referer ${handleByArtist.has(alvo.artist_id) ? "com handle" : "sem handle (só Origin)"}` +
+          ` — chaves de topo: [${clips.topKeys.join(", ")}]` +
           (clips.arrayPaths.length > 0 ? ` — arrays: [${clips.arrayPaths.join(", ")}]` : "")
         ).slice(0, 300),
       );
