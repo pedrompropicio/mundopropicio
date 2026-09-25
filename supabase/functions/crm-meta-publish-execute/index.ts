@@ -1413,7 +1413,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
         if (aviso) avisos.push({ ...aviso, adset: a.trigger_nome, ad_idx: k, group_idx: gi });
         if (avisos_extra) for (const ax of avisos_extra) avisos.push({ ...ax, adset: a.trigger_nome, ad_idx: k, group_idx: gi });
         if (!payload) continue;
-        const r = await graphPOST(`/${adAccountId}/ads`, payload, accessToken);
+        // Post existente (alvo música): versão da Graph que suporta o formato actual.
+        const cr0 = (payload as any)?.creative ?? {};
+        const verAd = isSong && (cr0.source_instagram_media_id || cr0.object_story_id) ? SONG_POST_GRAPH_VERSION : GRAPH_API_VERSION;
+        const r = await graphPOST(`/${adAccountId}/ads`, payload, accessToken, verAd);
         if (!r.ok) {
           an.meta_ad_ids = criados;
           await (admin as any).schema("crm").from("meta_publish_plan")
