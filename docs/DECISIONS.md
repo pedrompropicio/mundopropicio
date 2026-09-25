@@ -4489,3 +4489,7 @@ A Soundcharts não grava Deezer em `artist_metrics_daily` (0 linhas a 24/09). O 
 **O que o sync definitivo tem de fazer.** Upsert com `source='api'` pelas mesmas chaves únicas (substitui sempre as manuais). Reconciliar o id sintético: ao encontrar pela API uma campanha com o mesmo nome de uma `manual:<slug>`, reescrever `external_campaign_id` da campanha, dos grupos e dos dias para o id real (mantendo `linked_song_id`/locked) antes do upsert, ou apagar as linhas sintéticas depois de gravar as reais.
 
 **Dados.** Registada a campanha [MP] "[MP] [ROUPA DE SOLTEIRA] [Visualizações UGC] 2026-09-25" (ligação 947ee0c7-…, `manual:mp-roupa-de-solteira-visualizacoes-ugc-2026-09-25`, 25000 BRL, música 74c40d7b-…) e grupos 1877256463382802 (A1 #forro) e 1877257271732434 (A2 aberto), 12500 cada, sem métricas.
+
+### Adenda D-ERP144 — "Resultados" TikTok = visualizações de 6 s (25/09/2026)
+
+`artist_ads_campaigns` (results_30d) e `artist_ads_daily` (results) passam a somar `video_views_6s` no ramo tiktok (mesma regra de nível campaign/adgroup), em vez de 0 fixo — é a otimização dos grupos [MP]. Meta/Google provados byte a byte iguais por hash na mesma transação; assinaturas e grants mantidos (anon false, authenticated true, service_role true).
