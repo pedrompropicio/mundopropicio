@@ -1179,9 +1179,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
             }
             if (pageTokenCache) tokPost = pageTokenCache;
           }
-          const g = await graphGET(`/${pr}`, { fields: "id" }, tokPost);
+          const g = await graphGET(`/${pr}`, { fields: "id" }, tokPost, SONG_POST_GRAPH_VERSION);
           okPost = g.ok;
           if (!g.ok) detalhe = JSON.stringify(g.data?.error ?? g.data);
+          if (okPost && igNaoPromovivel.has(pr)) {
+            okPost = false;
+            detalhe = igNaoPromovivel.get(pr)!;
+          }
+          if (okPost && !pr.includes("_") && !selectedPageId) {
+            okPost = false;
+            detalhe = "post do Instagram exige a Página do Facebook ligada (object_id) — a ligação não tem Página";
+          }
         }
         checks.push({ check: `post_${pr}`, ok: okPost, detail: detalhe });
       }
