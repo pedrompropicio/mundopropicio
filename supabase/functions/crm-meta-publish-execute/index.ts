@@ -179,7 +179,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { company_id?: string; plan_id?: string; dry_run?: boolean; preflight?: boolean; debug_variants?: boolean };
+  let body: { company_id?: string; plan_id?: string; dry_run?: boolean; preflight?: boolean };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
 
   const companyIdIn = body.company_id;
@@ -855,6 +855,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Vídeo do Instagram → post equivalente na Página (object_story_id).
   const igCrossPost = new Map<string, string>();
   const igMeta = new Map<string, { caption: string; ts: string; tipo: string }>();
+  // Alternativa ao 100/1815279 (definida quando há posts do Instagram no plano).
+  let igAlternativa: ((payload: Record<string, unknown>) => Promise<{ payload: Record<string, unknown> | null; motivo: string }>) | null = null;
+  const is1815279 = (e: any) => Number(e?.code) === 100 && Number(e?.error_subcode) === 1815279;
 
   // url_tags do criativo (só alvo música): UTMs geradas pelo motor.
   // Só há UTMs quando há destino efectivo: sem link, url_tags não vai no payload.
@@ -891,13 +894,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
         }
         if (igNaoPromovivel.has(postRef)) {
           return [{ payload: null, aviso: { codigo: "post_instagram_nao_promovivel", detalhe: `${postRef}: ${igNaoPromovivel.get(postRef)}` } }];
-        }
-        if (igCrossPost.has(postRef)) {
-          creative = { object_story_id: igCrossPost.get(postRef)! };
-          avisosEp.push({ codigo: "video_instagram_via_post_facebook", detalhe: `${postRef} → ${igCrossPost.get(postRef)}` });
-          const tagsX = urlTagsFor(nomeAdEp, link);
-          if (tagsX) (creative as any).url_tags = tagsX;
-          return [{ payload: { name: nomeAdEp, adset_id: adsetIdParaPayload, status: "PAUSED", creative }, aviso: { codigo: "post_existente", detalhe: `object_story:${igCrossPost.get(postRef)}` }, avisos_extra: avisosEp }];
         }
         // Formato documentado (v22+): object_id = Página ligada ao Instagram.
         creative = { object_id: selectedPageId, source_instagram_media_id: postRef, instagram_user_id: selectedInstagramId };
@@ -1090,6 +1086,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const cands = ((r.data?.data ?? []) as any[]).filter((p) => alvo ? norm(String(p?.message ?? "")) === alvo : false);
         return cands.length === 1 ? String(cands[0].id) : null;
       }
+      igAlternativa = async (payload: Record<string, unknown>): Promise<{ payload: Record<string, unknown> | null; motivo: string }> => {
+        const c = (payload as any)?.creative ?? {};
+        const pr = String(c.source_instagram_media_id ?? "");
+        const m = igMeta.get(pr);
+        if (!pr || !m) return { payload: null, motivo: "vídeo do Instagram sem equivalente no Facebook" };
+        let fb = igCrossPost.get(pr) ?? null;
+        if (!fb) { fb = await findCrossPost(m.caption, m.ts); if (fb) igCrossPost.set(pr, fb); }
+        if (!fb) return { payload: null, motivo: `vídeo do Instagram ${pr} (${m.tipo}) sem equivalente no Facebook — a Meta exige o vídeo carregado no Facebook` };
+        const alt: Record<string, unknown> = { object_story_id: fb };
+        if (c.url_tags) alt.url_tags = c.url_tags;
+        const p2 = { ...payload, creative: alt };
+        const v = await graphPOST(`/${adAccountId}/ads`, { ...p2, execution_options: ["validate_only"] }, accessToken, SONG_POST_GRAPH_VERSION);
+        if (!v.ok) return { payload: null, motivo: `vídeo do Instagram ${pr}: o post equivalente da Página (${fb}) também não é aceite — ${String(v.error?.error_user_msg ?? v.error?.message ?? "erro")}` };
+        return { payload: p2, motivo: `via post da Página ${fb}` };
+      };
       const igRefs = new Set<string>();
       for (const a of adsets) for (const an of (a?.anuncios ?? [])) {
         const ep = an?.existing_post;
@@ -1238,25 +1249,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
           const b = buildAdPayloads(a.meta_adset_id, an, resolveLink(a))[0];
           if (!b?.payload) { checks.push({ check: `validar_anuncio_${a.trigger_nome ?? "?"}_${k}`, ok: false, detail: `sem payload: ${JSON.stringify(b?.aviso ?? null)}` }); continue; }
           const v = await graphPOST(`/${adAccountId}/ads`, { ...b.payload, execution_options: ["validate_only"] }, accessToken, SONG_POST_GRAPH_VERSION);
-          if (body?.debug_variants) {
-            const c0 = (b.payload as any).creative;
-            const vars: Record<string, any> = {
-              v25_learn_more: { ...c0, call_to_action: { type: "LEARN_MORE", value: { link: resolveLink(a) } } },
-              v25_sem_cta: (() => { const x = { ...c0 }; delete x.call_to_action; return x; })(),
-            };
-            for (const [nm, cr] of Object.entries(vars)) {
-              const vv = await graphPOST(`/${adAccountId}/ads`, { ...b.payload, creative: cr, execution_options: ["validate_only"] }, accessToken, SONG_POST_GRAPH_VERSION);
-              checks.push({ check: `dbg_${nm}_${k}`, ok: vv.ok, detail: vv.ok ? "ok" : JSON.stringify(vv.error).slice(0, 300) });
-            }
-            const v18 = await graphPOST(`/${adAccountId}/ads`, { ...b.payload, execution_options: ["validate_only"] }, accessToken);
-            checks.push({ check: `dbg_v18_obj_${k}`, ok: v18.ok, detail: v18.ok ? "ok" : JSON.stringify(v18.error).slice(0, 300) });
-            checks.push({ check: `dbg_payload_${k}`, ok: true, detail: JSON.stringify(c0).slice(0, 400) });
+          let okV = v.ok;
+          let detV = v.ok ? "Meta aceita o anúncio (validate_only)" : JSON.stringify(v.error ?? v.raw).slice(0, 400);
+          if (!v.ok && is1815279(v.error) && igAlternativa) {
+            const alt = await igAlternativa(b.payload);
+            okV = !!alt.payload;
+            detV = alt.payload ? `Meta aceita o anúncio ${alt.motivo} (validate_only)` : alt.motivo;
           }
-          checks.push({
-            check: `validar_anuncio_${a.trigger_nome ?? "?"}_${k}`,
-            ok: v.ok,
-            detail: v.ok ? "Meta aceita o anúncio (validate_only)" : JSON.stringify(v.error ?? v.raw).slice(0, 400),
-          });
+          checks.push({ check: `validar_anuncio_${a.trigger_nome ?? "?"}_${k}`, ok: okV, detail: detV });
         }
       }
       // Geografia: o preflight tem de ser fiel à publicação real (F3).
@@ -1482,7 +1482,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
         // Post existente (alvo música): versão da Graph que suporta o formato actual.
         const cr0 = (payload as any)?.creative ?? {};
         const verAd = isSong && (cr0.source_instagram_media_id || cr0.object_story_id) ? SONG_POST_GRAPH_VERSION : GRAPH_API_VERSION;
-        const r = await graphPOST(`/${adAccountId}/ads`, payload, accessToken, verAd);
+        let r = await graphPOST(`/${adAccountId}/ads`, payload, accessToken, verAd);
+        if (!r.ok && isSong && is1815279(r.error) && igAlternativa) {
+          const alt = await igAlternativa(payload);
+          if (alt.payload) {
+            avisos.push({ codigo: "video_instagram_via_post_facebook", detalhe: alt.motivo, adset: a.trigger_nome, ad_idx: k, group_idx: gi });
+            r = await graphPOST(`/${adAccountId}/ads`, alt.payload, accessToken, SONG_POST_GRAPH_VERSION);
+          } else {
+            r = { ok: false, status: 422, error: { message: alt.motivo, code: 100, error_subcode: 1815279 }, raw: (r as any).raw };
+          }
+        }
         if (!r.ok) {
           an.meta_ad_ids = criados;
           await (admin as any).schema("crm").from("meta_publish_plan")
