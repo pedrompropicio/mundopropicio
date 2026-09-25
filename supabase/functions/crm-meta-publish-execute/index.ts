@@ -179,7 +179,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { company_id?: string; plan_id?: string; dry_run?: boolean; preflight?: boolean };
+  let body: { company_id?: string; plan_id?: string; dry_run?: boolean; preflight?: boolean; debug_variants?: boolean };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
 
   const companyIdIn = body.company_id;
