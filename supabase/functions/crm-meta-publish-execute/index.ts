@@ -854,6 +854,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const igNaoPromovivel = new Map<string, string>();
   // Vídeo do Instagram → post equivalente na Página (object_story_id).
   const igCrossPost = new Map<string, string>();
+  const igMeta = new Map<string, { caption: string; ts: string; tipo: string }>();
 
   // url_tags do criativo (só alvo música): UTMs geradas pelo motor.
   // Só há UTMs quando há destino efectivo: sem link, url_tags não vai no payload.
@@ -1106,15 +1107,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           igNaoPromovivel.set(pr, `a Meta indica que este post do Instagram (${tipo}) não pode ser anunciado${be.boost_ineligible_reason ? ` — ${be.boost_ineligible_reason}` : ""}`);
           continue;
         }
-        // Vídeo/Reel do Instagram: a Marketing API (confirmado em v18 e v25 por
-        // validate_only, erro 100/1815279) exige o vídeo no Facebook. Procura o
-        // mesmo conteúdo publicado na Página (cross-post) e usa esse post.
-        const isVideo = String(g.data?.media_type ?? "").toUpperCase() === "VIDEO" || String(g.data?.media_product_type ?? "").toUpperCase() === "REELS";
-        if (isVideo) {
-          const fb = await findCrossPost(String(g.data?.caption ?? ""), String(g.data?.timestamp ?? ""));
-          if (fb) igCrossPost.set(pr, fb);
-          else igNaoPromovivel.set(pr, `vídeo do Instagram sem equivalente no Facebook (${tipo}) — a Meta só anuncia vídeos do Instagram que também estejam publicados na Página do Facebook`);
-        }
+        igMeta.set(pr, { caption: String(g.data?.caption ?? ""), ts: String(g.data?.timestamp ?? ""), tipo });
       }
       if (igNaoPromovivel.size > 0) {
         if (!dryRun && !preflight) {
@@ -1245,6 +1238,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
           const b = buildAdPayloads(a.meta_adset_id, an, resolveLink(a))[0];
           if (!b?.payload) { checks.push({ check: `validar_anuncio_${a.trigger_nome ?? "?"}_${k}`, ok: false, detail: `sem payload: ${JSON.stringify(b?.aviso ?? null)}` }); continue; }
           const v = await graphPOST(`/${adAccountId}/ads`, { ...b.payload, execution_options: ["validate_only"] }, accessToken, SONG_POST_GRAPH_VERSION);
+          if (body?.debug_variants) {
+            const c0 = (b.payload as any).creative;
+            const vars: Record<string, any> = {
+              v25_learn_more: { ...c0, call_to_action: { type: "LEARN_MORE", value: { link: resolveLink(a) } } },
+              v25_sem_cta: (() => { const x = { ...c0 }; delete x.call_to_action; return x; })(),
+            };
+            for (const [nm, cr] of Object.entries(vars)) {
+              const vv = await graphPOST(`/${adAccountId}/ads`, { ...b.payload, creative: cr, execution_options: ["validate_only"] }, accessToken, SONG_POST_GRAPH_VERSION);
+              checks.push({ check: `dbg_${nm}_${k}`, ok: vv.ok, detail: vv.ok ? "ok" : JSON.stringify(vv.error).slice(0, 300) });
+            }
+            const v18 = await graphPOST(`/${adAccountId}/ads`, { ...b.payload, execution_options: ["validate_only"] }, accessToken);
+            checks.push({ check: `dbg_v18_obj_${k}`, ok: v18.ok, detail: v18.ok ? "ok" : JSON.stringify(v18.error).slice(0, 300) });
+            checks.push({ check: `dbg_payload_${k}`, ok: true, detail: JSON.stringify(c0).slice(0, 400) });
+          }
           checks.push({
             check: `validar_anuncio_${a.trigger_nome ?? "?"}_${k}`,
             ok: v.ok,
