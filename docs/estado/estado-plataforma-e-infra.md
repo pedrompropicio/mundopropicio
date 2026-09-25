@@ -414,3 +414,6 @@ Migração `20260924202758_ed08efce-…` em Live: `song_links`, `song_link_event
 
 ## Várias contas Meta por artista (24/09/2026, D-ERP143)
 Índices novos em crm.ad_platform_connections (uma ligação por conta; no máximo uma pendente). Nova função `artist-ads-meta-add-account` (verify_jwt true). OAuth propaga o token a todas as ligações Meta do artista. Deploy: artist-ads-meta-add-account, artist-ads-meta-oauth-callback, artist-ads-select-account. Sem Publish.
+
+## TikTok na app — via manual (25/09/2026, D-ERP144)
+Migração `20260925081304_25c63099-…` em Live: `crm.tiktok_campaign/adgroup/insights_daily`, RPC `artist_ads_tiktok_manual_upsert` (API tem sempre precedência), ramo tiktok + `data_source`/`last_recorded_at` em `artist_ads_campaigns/daily`. Campanha [MP] do Litto e 2 grupos registados, sem métricas. Pendente: 1.ª leitura do Cowork; sync definitivo quando a app da Marketing API for aprovada.
