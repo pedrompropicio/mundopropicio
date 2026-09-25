@@ -4468,6 +4468,10 @@ A Soundcharts não grava Deezer em `artist_metrics_daily` (0 linhas a 24/09). O 
 - Funções novas: `artist-ads-meta-interest-search` (verify_jwt; papéis de tráfego da empresa do artista; `{connection_id, q}` → `/search?type=adinterest&locale=pt_BR`) e `artist-ads-meta-create-ig-engagement-audience` (verify_jwt; só admin/platform_admin; `{connection_id, ig_user_id, retention_days=60, name}` → `POST /act_{id}/customaudiences` com `rule` event_sources `ig_business` + `ig_business_profile_all` e `prefill=1`). SEM `subtype`: a documentação da Meta diz que desde 09/2018 `subtype` não é aceite em públicos de envolvimento (excepto vídeo). Escreve na Meta — só com OK do Pedro.
 - Nota: a pesquisa da Meta já não devolve "Forró" nem "Zé Vaqueiro" como interesses (24/09/2026); a prova usou "Música do Brasil" (6002933742373) e "Música sertaneja" (6003290358456).
 
+### Adenda D-ERP95 — preflight: públicos a povoar e posts de Página (25/09/2026)
+
+`crm-meta-publish-execute` (só alvo música; eventos inalterados). Públicos personalizados: só bloqueiam os `operation_status` impeditivos (300 demasiado pequeno, 400/410/412 erro/sem dados/dados inválidos, 470/471 inactivo/expirado); os restantes (ex.: 441 "a povoar") ficam ok com aviso "a povoar — utilizável". Posts de Página (`<page>_<post>`): na Nova Experiência de Páginas a leitura exige o token da Página — obtido com `GET /{page_id}?fields=access_token`, só em memória da execução, nunca gravado nem registado; sem acesso fica a mensagem da Meta. A criação do anúncio com `object_story_id` continua com o token de utilizador (papel de anunciante na Página chega).
+
 ### Adenda D-ERP141 — TikTok Events API nos smart links (24/09/2026)
 
 - `song_links.tiktok_pixel_id` (novo); `song_link_public_get` devolve-o (mesmos grants: anon/authenticated/service_role). `song_link_events.tiktok_status` = `enviado | sem_token | sem_pixel | erro:<código>`.

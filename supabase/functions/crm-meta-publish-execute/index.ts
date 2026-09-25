@@ -551,13 +551,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const r = await graphGET(`/${id}`, { fields: "name,approximate_count_lower_bound,operation_status,account_id" }, accessToken);
       const code = Number(r.data?.operation_status?.code);
       const contaOk = !r.data?.account_id || `act_${r.data.account_id}` === adAccountId;
-      const pronto = r.ok && contaOk && (!Number.isFinite(code) || code === 200);
+      // operation_status: 200 = normal; só bloqueiam os códigos impeditivos
+      // (300 demasiado pequeno, 400/410/412 erro/sem dados/dados inválidos,
+      // 470/471 inactivo/expirado). Restantes (ex.: 441 "a povoar") → ok com aviso.
+      const BLOQUEANTES = new Set([300, 400, 410, 412, 470, 471]);
+      const temCode = Number.isFinite(code) && code > 0;
+      const bloqueia = temCode && BLOQUEANTES.has(code);
+      const aviso = temCode && code !== 200 && !bloqueia;
+      const pronto = r.ok && contaOk && !bloqueia;
       out.push({
         check: `publico_${id}`,
         ok: pronto,
         detail: !r.ok ? `público não encontrado nesta conta: ${JSON.stringify(r.data?.error ?? r.data).slice(0, 300)}`
           : !contaOk ? `público de outra conta (${r.data.account_id})`
-          : `${r.data?.name ?? ""} ~${r.data?.approximate_count_lower_bound ?? "?"} estado=${code || "?"} ${r.data?.operation_status?.description ?? ""}`,
+          : `${aviso ? (code === 441 ? "aviso: a povoar — utilizável | " : "aviso: estado não impeditivo — utilizável | ") : bloqueia ? "bloqueante | " : ""}${r.data?.name ?? ""} ~${r.data?.approximate_count_lower_bound ?? "?"} estado=${code || "?"} ${r.data?.operation_status?.description ?? ""}`,
       });
     }
     return out;
@@ -1107,11 +1114,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
       checks.push({ check: `criativo_owner_${uuid}`, ok: !(pageDifere || igDifere), detail: detalhe });
     }
     if (isSong) {
+      let pageTokenCache: string | null | undefined = undefined;
       for (const pr of postRefsPlano) {
         let okPost = postRefOk.has(pr);
         let detalhe = okPost ? "promovível" : "não consta das publicações promovíveis do artista ou o identificador não é utilizável pela Marketing API";
         if (okPost) {
-          const g = await graphGET(`/${pr}`, { fields: "id" }, accessToken);
+          // Nova Experiência de Páginas: ler posts de Página exige o token da
+          // PÁGINA. Obtido com o token de utilizador; só em memória, nunca
+          // gravado nem registado. Sem acesso → fica a mensagem da Meta.
+          let tokPost = accessToken;
+          if (pr.includes("_") && selectedPageId) {
+            if (pageTokenCache === undefined) {
+              const pt = await graphGET(`/${selectedPageId}`, { fields: "access_token" }, accessToken);
+              pageTokenCache = pt.ok && typeof pt.data?.access_token === "string" ? pt.data.access_token : null;
+            }
+            if (pageTokenCache) tokPost = pageTokenCache;
+          }
+          const g = await graphGET(`/${pr}`, { fields: "id" }, tokPost);
           okPost = g.ok;
           if (!g.ok) detalhe = JSON.stringify(g.data?.error ?? g.data);
         }
