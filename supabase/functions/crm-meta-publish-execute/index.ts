@@ -1205,7 +1205,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           const ja = Array.isArray(an.meta_ad_ids) ? an.meta_ad_ids.filter(Boolean) : [];
           if (ja.length > 0 || an.meta_ad_id) continue;
           const b = buildAdPayloads(a.meta_adset_id, an, resolveLink(a))[0];
-          if (!b?.payload) continue;
+          if (!b?.payload) { checks.push({ check: `validar_anuncio_${a.trigger_nome ?? "?"}_${k}`, ok: false, detail: `sem payload: ${JSON.stringify(b?.aviso ?? null)}` }); continue; }
           const v = await graphPOST(`/${adAccountId}/ads`, { ...b.payload, execution_options: ["validate_only"] }, accessToken, SONG_POST_GRAPH_VERSION);
           checks.push({
             check: `validar_anuncio_${a.trigger_nome ?? "?"}_${k}`,
