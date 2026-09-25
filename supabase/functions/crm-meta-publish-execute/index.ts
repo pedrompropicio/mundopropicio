@@ -1057,6 +1057,37 @@ Deno.serve(async (req: Request): Promise<Response> => {
         }, 422);
       }
       if (postRefBad.length > 0) avisos.push({ codigo: "post_nao_promovivel", detalhe: postRefBad.join(", ") });
+
+      // Media do Instagram: pergunta à Meta se é impulsionável como anúncio
+      // (boost_eligibility_info, v22+). Só leitura; corre em dry_run,
+      // preflight e publicação real, para recusar ANTES de criar a campanha.
+      const igRefs = new Set<string>();
+      for (const a of adsets) for (const an of (a?.anuncios ?? [])) {
+        const ep = an?.existing_post;
+        if (ep?.kind === "instagram_media" && typeof ep.post_ref === "string" && postRefOk.has(ep.post_ref)) igRefs.add(ep.post_ref);
+      }
+      for (const pr of igRefs) {
+        const g = await graphGET(`/${pr}`, { fields: "id,media_type,media_product_type,boost_eligibility_info" }, accessToken, SONG_POST_GRAPH_VERSION);
+        if (!g.ok) {
+          igNaoPromovivel.set(pr, `a Meta não deixa ler este post do Instagram: ${String(g.data?.error?.message ?? "erro")}`);
+          continue;
+        }
+        const be = g.data?.boost_eligibility_info;
+        if (be && be.eligible_to_boost === false) {
+          const tipo = [g.data?.media_product_type, g.data?.media_type].filter(Boolean).join("/");
+          igNaoPromovivel.set(pr, `a Meta indica que este post do Instagram (${tipo}) não pode ser anunciado${be.boost_ineligible_reason ? ` — ${be.boost_ineligible_reason}` : ""}`);
+        }
+      }
+      if (igNaoPromovivel.size > 0) {
+        if (!dryRun && !preflight) {
+          return json({
+            ok: false, error: "post_instagram_nao_promovivel",
+            posts: [...igNaoPromovivel].map(([post_ref, motivo]) => ({ post_ref, motivo })),
+            message: "Há posts do Instagram no plano que a Meta não aceita como anúncio. Troca-os ou retira-os antes de publicar.",
+          }, 422);
+        }
+        for (const [pr, m] of igNaoPromovivel) avisos.push({ codigo: "post_instagram_nao_promovivel", detalhe: `${pr}: ${m}` });
+      }
     }
 
     // Geografia obrigatória no alvo música: sem país, o motor recusa.
