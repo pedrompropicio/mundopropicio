@@ -17400,9 +17400,11 @@ export type Database = {
           cpc_30d: number
           cpv_30d: number
           currency: string
+          data_source: string
           end_date: string
           fx_missing_days: number
           impressions_30d: number
+          last_recorded_at: string
           last_synced_at: string
           linked_event_id: string
           linked_song_id: string
@@ -17471,9 +17473,11 @@ export type Database = {
           clicks: number
           connection_id: string
           currency: string
+          data_source: string
           day: string
           fx_missing_days: number
           impressions: number
+          last_recorded_at: string
           platform: string
           ref_currency: string
           results: number
@@ -17564,6 +17568,10 @@ export type Database = {
           last_sync_at: string
           platform: string
         }[]
+      }
+      artist_ads_tiktok_manual_upsert: {
+        Args: { p_connection_id: string; p_payload: Json }
+        Returns: Json
       }
       artist_ads_unlink_song: {
         Args: { p_artist_id: string; p_campaign_id: string; p_platform: string }
@@ -19104,6 +19112,7 @@ export type Database = {
           test_name: string
         }[]
       }
+      tiktok_manual_slug: { Args: { p_name: string }; Returns: string }
       tx_has_installment_schedule: {
         Args: { _tx_id: string }
         Returns: boolean
