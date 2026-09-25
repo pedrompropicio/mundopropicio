@@ -274,3 +274,6 @@ verify_jwt = true
 
 [functions.artist-ads-meta-create-ig-engagement-audience]
 verify_jwt = true
+
+[functions.artist-ads-tiktok-manual-ingest]
+verify_jwt = false

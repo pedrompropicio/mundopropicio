@@ -417,3 +417,6 @@ Migração `20260924202758_ed08efce-…` em Live: `song_links`, `song_link_event
 
 ## TikTok na app — via manual (25/09/2026, D-ERP144)
 Migração `20260925081304_25c63099-…` em Live: `crm.tiktok_campaign/adgroup/insights_daily`, RPC `artist_ads_tiktok_manual_upsert` (API tem sempre precedência), ramo tiktok + `data_source`/`last_recorded_at` em `artist_ads_campaigns/daily`. Campanha [MP] do Litto e 2 grupos registados, sem métricas. Pendente: 1.ª leitura do Cowork; sync definitivo quando a app da Marketing API for aprovada.
+
+## TikTok — ingestão da tarefa agendada (25/09/2026, D-ERP144 adenda)
+Core `crm.tiktok_manual_upsert_core` (só service_role) + porta `artist-ads-tiktok-manual-ingest` com chave `TIKTOK_MANUAL_INGEST_KEY`, só a ligação do Litto, 30/h, registo em sync_runs. Falta o Pedro criar o secret e entregá-lo ao Cowork.
