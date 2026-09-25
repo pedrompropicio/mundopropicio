@@ -29,6 +29,13 @@ import { resolveTarget, utmSlug } from "../_shared/campaign-target.ts";
 import { checkTetoPlano, type TetoInfo } from "../_shared/artist-ads-teto.ts";
 
 const GRAPH_API_VERSION = "v18.0";
+// Alvo música, post existente do Instagram (D-ERP95): o criativo
+// source_instagram_media_id + object_id (Página) + instagram_user_id só existe
+// a partir da v22.0 (instagram_user_id substitui instagram_actor_id). Em v18.0
+// a Meta trata o vídeo como upload legado e devolve 100/1815279. Usada SÓ na
+// criação de anúncios com post existente e no preflight dos posts; eventos
+// continuam em v18.0.
+const SONG_POST_GRAPH_VERSION = "v25.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -101,8 +108,8 @@ function mapObjective(objetivo: string): { optimization_goal: string; billing_ev
 
 type GraphError = { message?: string; code?: number; error_subcode?: number; type?: string };
 
-async function graphPOST(path: string, body: Record<string, unknown>, accessToken: string): Promise<{ ok: true; data: any } | { ok: false; status: number; error: GraphError | null; raw: any }> {
-  const url = `https://graph.facebook.com/${GRAPH_API_VERSION}${path}`;
+async function graphPOST(path: string, body: Record<string, unknown>, accessToken: string, version: string = GRAPH_API_VERSION): Promise<{ ok: true; data: any } | { ok: false; status: number; error: GraphError | null; raw: any }> {
+  const url = `https://graph.facebook.com/${version}${path}`;
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(body)) {
     if (v === undefined || v === null) continue;
@@ -121,9 +128,9 @@ async function graphPOST(path: string, body: Record<string, unknown>, accessToke
   return { ok: true, data: j };
 }
 
-async function graphGET(path: string, params: Record<string, string>, accessToken: string): Promise<{ ok: boolean; data: any; status: number }> {
+async function graphGET(path: string, params: Record<string, string>, accessToken: string, version: string = GRAPH_API_VERSION): Promise<{ ok: boolean; data: any; status: number }> {
   const qs = new URLSearchParams({ ...params, access_token: accessToken });
-  const r = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}${path}?${qs.toString()}`);
+  const r = await fetch(`https://graph.facebook.com/${version}${path}?${qs.toString()}`);
   const j = await r.json().catch(() => ({}));
   return { ok: r.ok && !j?.error, data: j, status: r.status };
 }
