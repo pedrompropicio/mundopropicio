@@ -852,6 +852,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // (boost_eligibility_info). Preenchido antes do preflight/publicação;
   // o anúncio é recusado com mensagem legível em vez de falhar a meio.
   const igNaoPromovivel = new Map<string, string>();
+  // Vídeo do Instagram → post equivalente na Página (object_story_id).
+  const igCrossPost = new Map<string, string>();
 
   // url_tags do criativo (só alvo música): UTMs geradas pelo motor.
   // Só há UTMs quando há destino efectivo: sem link, url_tags não vai no payload.
@@ -888,6 +890,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
         }
         if (igNaoPromovivel.has(postRef)) {
           return [{ payload: null, aviso: { codigo: "post_instagram_nao_promovivel", detalhe: `${postRef}: ${igNaoPromovivel.get(postRef)}` } }];
+        }
+        if (igCrossPost.has(postRef)) {
+          creative = { object_story_id: igCrossPost.get(postRef)! };
+          avisosEp.push({ codigo: "video_instagram_via_post_facebook", detalhe: `${postRef} → ${igCrossPost.get(postRef)}` });
+          const tagsX = urlTagsFor(nomeAdEp, link);
+          if (tagsX) (creative as any).url_tags = tagsX;
+          return [{ payload: { name: nomeAdEp, adset_id: adsetIdParaPayload, status: "PAUSED", creative }, aviso: { codigo: "post_existente", detalhe: `object_story:${igCrossPost.get(postRef)}` }, avisos_extra: avisosEp }];
         }
         // Formato documentado (v22+): object_id = Página ligada ao Instagram.
         creative = { object_id: selectedPageId, source_instagram_media_id: postRef, instagram_user_id: selectedInstagramId };
@@ -1061,21 +1070,50 @@ Deno.serve(async (req: Request): Promise<Response> => {
       // Media do Instagram: pergunta à Meta se é impulsionável como anúncio
       // (boost_eligibility_info, v22+). Só leitura; corre em dry_run,
       // preflight e publicação real, para recusar ANTES de criar a campanha.
+      // Cross-post: post da Página com a mesma legenda (normalizada) e publicado
+      // até 48 h antes/depois do post do Instagram. Token da Página só em memória.
+      let pageTokCross: string | null | undefined = undefined;
+      const norm = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim().slice(0, 120);
+      async function findCrossPost(caption: string, ts: string): Promise<string | null> {
+        if (!selectedPageId || !ts) return null;
+        if (pageTokCross === undefined) {
+          const pt = await graphGET(`/${selectedPageId}`, { fields: "access_token" }, accessToken, SONG_POST_GRAPH_VERSION);
+          pageTokCross = pt.ok && typeof pt.data?.access_token === "string" ? pt.data.access_token : null;
+        }
+        const t0 = new Date(ts).getTime();
+        if (!Number.isFinite(t0)) return null;
+        const since = Math.floor((t0 - 48 * 3600e3) / 1000), until = Math.floor((t0 + 48 * 3600e3) / 1000);
+        const r = await graphGET(`/${selectedPageId}/posts`, { fields: "id,message,created_time", since: String(since), until: String(until), limit: "50" }, pageTokCross ?? accessToken, SONG_POST_GRAPH_VERSION);
+        if (!r.ok) return null;
+        const alvo = norm(caption);
+        const cands = ((r.data?.data ?? []) as any[]).filter((p) => alvo ? norm(String(p?.message ?? "")) === alvo : false);
+        return cands.length === 1 ? String(cands[0].id) : null;
+      }
       const igRefs = new Set<string>();
       for (const a of adsets) for (const an of (a?.anuncios ?? [])) {
         const ep = an?.existing_post;
         if (ep?.kind === "instagram_media" && typeof ep.post_ref === "string" && postRefOk.has(ep.post_ref)) igRefs.add(ep.post_ref);
       }
       for (const pr of igRefs) {
-        const g = await graphGET(`/${pr}`, { fields: "id,media_type,media_product_type,boost_eligibility_info" }, accessToken, SONG_POST_GRAPH_VERSION);
+        const g = await graphGET(`/${pr}`, { fields: "id,media_type,media_product_type,caption,timestamp,boost_eligibility_info" }, accessToken, SONG_POST_GRAPH_VERSION);
         if (!g.ok) {
           igNaoPromovivel.set(pr, `a Meta não deixa ler este post do Instagram: ${String(g.data?.error?.message ?? "erro")}`);
           continue;
         }
         const be = g.data?.boost_eligibility_info;
+        const tipo = [g.data?.media_product_type, g.data?.media_type].filter(Boolean).join("/");
         if (be && be.eligible_to_boost === false) {
-          const tipo = [g.data?.media_product_type, g.data?.media_type].filter(Boolean).join("/");
           igNaoPromovivel.set(pr, `a Meta indica que este post do Instagram (${tipo}) não pode ser anunciado${be.boost_ineligible_reason ? ` — ${be.boost_ineligible_reason}` : ""}`);
+          continue;
+        }
+        // Vídeo/Reel do Instagram: a Marketing API (confirmado em v18 e v25 por
+        // validate_only, erro 100/1815279) exige o vídeo no Facebook. Procura o
+        // mesmo conteúdo publicado na Página (cross-post) e usa esse post.
+        const isVideo = String(g.data?.media_type ?? "").toUpperCase() === "VIDEO" || String(g.data?.media_product_type ?? "").toUpperCase() === "REELS";
+        if (isVideo) {
+          const fb = await findCrossPost(String(g.data?.caption ?? ""), String(g.data?.timestamp ?? ""));
+          if (fb) igCrossPost.set(pr, fb);
+          else igNaoPromovivel.set(pr, `vídeo do Instagram sem equivalente no Facebook (${tipo}) — a Meta só anuncia vídeos do Instagram que também estejam publicados na Página do Facebook`);
         }
       }
       if (igNaoPromovivel.size > 0) {
