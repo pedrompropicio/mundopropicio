@@ -848,6 +848,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Publicações promovíveis validadas para o alvo música (preenchido mais abaixo).
   const postRefOk = new Set<string>();
   const postRefBad: string[] = [];
+  // Media do Instagram (vídeo/Reel/imagem) não impulsionável segundo a Meta
+  // (boost_eligibility_info). Preenchido antes do preflight/publicação;
+  // o anúncio é recusado com mensagem legível em vez de falhar a meio.
+  const igNaoPromovivel = new Map<string, string>();
 
   // url_tags do criativo (só alvo música): UTMs geradas pelo motor.
   // Só há UTMs quando há destino efectivo: sem link, url_tags não vai no payload.
@@ -879,7 +883,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
         if (!selectedInstagramId) {
           return [{ payload: null, aviso: { codigo: "sem_conta_instagram", detalhe: postRef } }];
         }
-        creative = { source_instagram_media_id: postRef, instagram_user_id: selectedInstagramId };
+        if (!selectedPageId) {
+          return [{ payload: null, aviso: { codigo: "sem_pagina_para_post_instagram", detalhe: postRef } }];
+        }
+        if (igNaoPromovivel.has(postRef)) {
+          return [{ payload: null, aviso: { codigo: "post_instagram_nao_promovivel", detalhe: `${postRef}: ${igNaoPromovivel.get(postRef)}` } }];
+        }
+        // Formato documentado (v22+): object_id = Página ligada ao Instagram.
+        creative = { object_id: selectedPageId, source_instagram_media_id: postRef, instagram_user_id: selectedInstagramId };
         // CTA com link só faz sentido (e só é aceite) em Tráfego com link.
         if (objetivoUpper === "TRAFFIC" && link) {
           (creative as any).call_to_action = { type: cta, value: { link } };
