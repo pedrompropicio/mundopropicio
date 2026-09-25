@@ -1193,6 +1193,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
         }
         checks.push({ check: `post_${pr}`, ok: okPost, detail: detalhe });
       }
+      // Validação real da Meta (execution_options=validate_only: não cria nada)
+      // para anúncios de post do Instagram ainda por criar, quando o conjunto
+      // já existe na Meta (retoma). Sem conjunto criado não há onde validar —
+      // fica a verificação de boost_eligibility_info acima.
+      for (const a of adsets as any[]) {
+        if (!a?.meta_adset_id) continue;
+        for (let k = 0; k < (a.anuncios ?? []).length; k++) {
+          const an = a.anuncios[k];
+          if (an?.existing_post?.kind !== "instagram_media") continue;
+          const ja = Array.isArray(an.meta_ad_ids) ? an.meta_ad_ids.filter(Boolean) : [];
+          if (ja.length > 0 || an.meta_ad_id) continue;
+          const b = buildAdPayloads(a.meta_adset_id, an, resolveLink(a))[0];
+          if (!b?.payload) continue;
+          const v = await graphPOST(`/${adAccountId}/ads`, { ...b.payload, execution_options: ["validate_only"] }, accessToken, SONG_POST_GRAPH_VERSION);
+          checks.push({
+            check: `validar_anuncio_${a.trigger_nome ?? "?"}_${k}`,
+            ok: v.ok,
+            detail: v.ok ? "Meta aceita o anúncio (validate_only)" : JSON.stringify(v.error ?? v.raw).slice(0, 400),
+          });
+        }
+      }
       // Geografia: o preflight tem de ser fiel à publicação real (F3).
       const semGeoPre = (adsets as any[]).filter((a) => !temGeo(a)).map((a) => a?.trigger_nome ?? "?");
       checks.push({
