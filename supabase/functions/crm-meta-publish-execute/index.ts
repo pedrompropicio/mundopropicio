@@ -933,6 +933,35 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (w.falhou) igVideoCache.delete(pr);
     return { video_id: vid, pronto: w.pronto, erro: w.erro, falhouProcessamento: !!w.falhou };
   }
+  // Via (d) D-ERP95 (26/09, opção A): vídeo da Página recusado com 2446979 (reel com
+  // música licenciada) → descarrega de 'source' (token da Página, só em memória) e
+  // carrega em /{ad_account}/advideos. Cache por video_id ORIGINAL da Página
+  // (anuncios[k].origem_page_video_id + meta_video_id).
+  const is2446979 = (e: any) => Number(e?.code) === 100 && Number(e?.error_subcode) === 2446979;
+  const pageReupCache = new Map<string, string>();
+  for (const a of adsets) for (const an of (a?.anuncios ?? [])) {
+    if (an?.origem_page_video_id && an?.meta_video_id) pageReupCache.set(String(an.origem_page_video_id), String(an.meta_video_id));
+  }
+  let pageVideoSource: ((vid: string) => Promise<{ source: string | null; picture: string | null; length: number | null; motivo: string }>) | null = null;
+  async function reuploadPageVideo(pageVid: string): Promise<{ video_id?: string; pronto: boolean; erro?: string; falhou?: boolean; picture?: string | null }> {
+    let vid = pageReupCache.get(pageVid) ?? null;
+    let picture: string | null = null;
+    if (!vid) {
+      const s = pageVideoSource ? await pageVideoSource(pageVid) : { source: null, picture: null, length: null, motivo: "sem acesso à Página" };
+      if (!s.source) return { pronto: false, erro: s.motivo };
+      picture = s.picture;
+      const nome = `[MP] ${target.display_name} — Page video ${pageVid}`;
+      const r = await graphPOST(`/${adAccountId}/advideos`, { file_url: s.source, name: nome }, accessToken, SONG_POST_GRAPH_VERSION);
+      if (!r.ok) return { pronto: false, erro: `carregamento do vídeo da Página ${pageVid} falhou — ${String((r as any).error?.error_user_msg ?? (r as any).error?.message ?? `HTTP ${(r as any).status}`)}` };
+      vid = String((r as any).data?.id);
+      pageReupCache.set(pageVid, vid);
+      videosCarregados.push({ media_id: `page_video:${pageVid}`, meta_video_id: vid, nome });
+    }
+    const w = await waitVideoReady(vid);
+    if (w.falhou) pageReupCache.delete(pageVid);
+    return { video_id: vid, pronto: w.pronto, erro: w.erro, falhou: !!w.falhou, picture };
+  }
+
 
   // url_tags do criativo (só alvo música): UTMs geradas pelo motor.
   // Só há UTMs quando há destino efectivo: sem link, url_tags não vai no payload.
@@ -1180,6 +1209,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
         igPageVideoCache.set(pr, { video_id: vid, picture });
         return { video_id: vid, picture, motivo: `vídeo da Página ${vid} (post ${fb})` };
       };
+      pageVideoSource = async (vid: string) => {
+        if (pageTokCross === undefined) {
+          const pt = await graphGET(`/${selectedPageId}`, { fields: "access_token" }, accessToken, SONG_POST_GRAPH_VERSION);
+          pageTokCross = pt.ok && typeof pt.data?.access_token === "string" ? pt.data.access_token : null;
+        }
+        const g = await graphGET(`/${vid}`, { fields: "source,length,picture" }, pageTokCross ?? accessToken, SONG_POST_GRAPH_VERSION);
+        const src = g.ok && typeof g.data?.source === "string" && g.data.source ? String(g.data.source) : null;
+        return {
+          source: src,
+          picture: (g.data?.picture ?? null) as string | null,
+          length: typeof g.data?.length === "number" ? g.data.length : null,
+          motivo: src ? `source disponível (${g.data?.length ?? "?"} s)` : `o vídeo da Página ${vid} não devolveu 'source'${g.ok ? "" : ` — ${String(g.data?.error?.message ?? "erro")}`} — fica registado para retomar depois`,
+        };
+      };
       igAlternativa = async (payload: Record<string, unknown>): Promise<{ payload: Record<string, unknown> | null; motivo: string }> => {
         const c = (payload as any)?.creative ?? {};
         const pr = String(c.source_instagram_media_id ?? "");
@@ -1384,15 +1427,47 @@ Deno.serve(async (req: Request): Promise<Response> => {
               else {
                 const vv = await postIgVideoAd(b.payload, pv.video_id, linkV, true, pv.picture);
                 okV = !!vv.ok;
+                const reel = /REELS/.test(String(mV?.tipo ?? ""));
+                const avisoReel = reel ? " Atenção: é reel — se a Meta o recusar por música licenciada (2446979), o motor descarrega-o da Página e carrega-o na conta automaticamente." : "";
                 detV = vv.ok
-                  ? `via: vídeo da Página ${pv.video_id} — Meta aceita o criativo final (validate_only${vv.cta_fallback ? `, CTA ${vv.cta_fallback}` : ", CTA LISTEN_NOW"})`
+                  ? `via: vídeo da Página ${pv.video_id} — Meta aceita o criativo final (validate_only${vv.cta_fallback ? `, CTA ${vv.cta_fallback}` : ", CTA LISTEN_NOW"}).${avisoReel}`
                   : `via: vídeo da Página ${pv.video_id} — Meta recusa: ${JSON.stringify(vv.error ?? vv.raw).slice(0, 400)}`;
+                if (!vv.ok && is2446979(vv.error)) {
+                  const up = pageReupCache.get(pv.video_id);
+                  if (up) {
+                    const vu = await postIgVideoAd(b.payload, up, linkV, true, pv.picture);
+                    okV = !!vu.ok;
+                    detV = vu.ok
+                      ? `via: download+upload — vídeo da Página ${pv.video_id} tem música licenciada (2446979); vídeo já carregado ${up} aceite (validate_only)`
+                      : `via: download+upload — vídeo carregado ${up} recusado: ${JSON.stringify(vu.error ?? vu.raw).slice(0, 400)}`;
+                  } else {
+                    const s = pageVideoSource ? await pageVideoSource(pv.video_id) : { source: null, motivo: "sem acesso à Página" } as any;
+                    okV = !!s.source;
+                    detV = s.source
+                      ? `via: download+upload — vídeo da Página ${pv.video_id} é reel com música licenciada (2446979); na publicação o motor descarrega-o de 'source' (${s.motivo}) e carrega-o na conta (não carregado em preflight; o criativo final só é validado pela Meta depois do upload).`
+                      : `via: download+upload impossível — ${s.motivo}`;
+                  }
+                }
               }
             }
           } else if (!v.ok && !vidJa && is1815279(v.error) && igAlternativa && objetivoUpper !== "TRAFFIC") {
             const alt = await igAlternativa(b.payload);
             okV = !!alt.payload;
             detV = alt.payload ? `Meta aceita o anúncio ${alt.motivo} (validate_only)` : alt.motivo;
+          }
+          if (!v.ok && vidJa && is2446979(v.error)) {
+            const up = pageReupCache.get(vidJa);
+            if (up) {
+              const vu = await postIgVideoAd(b.payload, up, linkV, true);
+              okV = !!vu.ok;
+              detV = vu.ok ? `via: download+upload — vídeo já carregado ${up} aceite (validate_only)` : `via: download+upload — ${up} recusado: ${JSON.stringify(vu.error ?? vu.raw).slice(0, 400)}`;
+            } else {
+              const s = pageVideoSource ? await pageVideoSource(vidJa) : { source: null, motivo: "sem acesso à Página" } as any;
+              okV = !!s.source;
+              detV = s.source
+                ? `via: download+upload — vídeo da Página ${vidJa} (guardado no plano) é reel com música licenciada (2446979); na publicação o motor descarrega-o de 'source' (${s.motivo}) e carrega-o na conta (não carregado em preflight).`
+                : `via: download+upload impossível — ${s.motivo}`;
+            }
           }
           checks.push({ check: `validar_anuncio_${a.trigger_nome ?? "?"}_${k}`, ok: okV, detail: detV });
         }
@@ -1675,6 +1750,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
             r = await graphPOST(`/${adAccountId}/ads`, alt.payload, accessToken, SONG_POST_GRAPH_VERSION);
           } else {
             r = { ok: false, status: 422, error: { message: alt.motivo, code: 100, error_subcode: 1815279 }, raw: (r as any).raw };
+          }
+        }
+        // Via (d): vídeo da Página recusado por música licenciada (2446979) → download+upload.
+        if (!r.ok && isSong && prIg && videoUsado && is2446979(r.error) && ![...pageReupCache.values()].includes(videoUsado)) {
+          const pageVid = videoUsado;
+          const up = await reuploadPageVideo(pageVid);
+          if (up.video_id && !up.falhou) {
+            for (const ax of adsetsOut) for (const ay of (ax?.anuncios ?? [])) {
+              if (ay?.existing_post?.post_ref === prIg) { ay.meta_video_id = up.video_id; ay.origem_ig_media_id = prIg; ay.origem_page_video_id = pageVid; }
+            }
+            igVideoCache.set(prIg, up.video_id);
+            await (admin as any).schema("crm").from("meta_publish_plan").update({ adsets: adsetsOut }).eq("id", planId);
+          }
+          if (up.pronto && up.video_id) {
+            videoUsado = up.video_id;
+            avisos.push({ codigo: "video_pagina_carregado_conta", detalhe: `${prIg} → vídeo da Página ${pageVid} (música licenciada, 2446979) carregado como ${up.video_id}`, adset: a.trigger_nome, ad_idx: k, group_idx: gi });
+            r = await postIgVideoAd(payload, up.video_id, linkEf, false, up.picture ?? undefined);
+          } else {
+            r = { ok: false, status: 422, error: { message: `vídeo da Página ${pageVid}: reel com música licenciada (2446979) e ${up.erro ?? "upload falhou"}`, code: 100, error_subcode: 2446979, meta_video_id: up.video_id ?? pageVid }, raw: (r as any).raw };
           }
         }
         if (!r.ok) {
