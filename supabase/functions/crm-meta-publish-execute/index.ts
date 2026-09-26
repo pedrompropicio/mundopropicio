@@ -933,6 +933,35 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (w.falhou) igVideoCache.delete(pr);
     return { video_id: vid, pronto: w.pronto, erro: w.erro, falhouProcessamento: !!w.falhou };
   }
+  // Via (d) D-ERP95 (26/09, opção A): vídeo da Página recusado com 2446979 (reel com
+  // música licenciada) → descarrega de 'source' (token da Página, só em memória) e
+  // carrega em /{ad_account}/advideos. Cache por video_id ORIGINAL da Página
+  // (anuncios[k].origem_page_video_id + meta_video_id).
+  const is2446979 = (e: any) => Number(e?.code) === 100 && Number(e?.error_subcode) === 2446979;
+  const pageReupCache = new Map<string, string>();
+  for (const a of adsets) for (const an of (a?.anuncios ?? [])) {
+    if (an?.origem_page_video_id && an?.meta_video_id) pageReupCache.set(String(an.origem_page_video_id), String(an.meta_video_id));
+  }
+  let pageVideoSource: ((vid: string) => Promise<{ source: string | null; picture: string | null; length: number | null; motivo: string }>) | null = null;
+  async function reuploadPageVideo(pageVid: string): Promise<{ video_id?: string; pronto: boolean; erro?: string; falhou?: boolean; picture?: string | null }> {
+    let vid = pageReupCache.get(pageVid) ?? null;
+    let picture: string | null = null;
+    if (!vid) {
+      const s = pageVideoSource ? await pageVideoSource(pageVid) : { source: null, picture: null, length: null, motivo: "sem acesso à Página" };
+      if (!s.source) return { pronto: false, erro: s.motivo };
+      picture = s.picture;
+      const nome = `[MP] ${target.display_name} — Page video ${pageVid}`;
+      const r = await graphPOST(`/${adAccountId}/advideos`, { file_url: s.source, name: nome }, accessToken, SONG_POST_GRAPH_VERSION);
+      if (!r.ok) return { pronto: false, erro: `carregamento do vídeo da Página ${pageVid} falhou — ${String((r as any).error?.error_user_msg ?? (r as any).error?.message ?? `HTTP ${(r as any).status}`)}` };
+      vid = String((r as any).data?.id);
+      pageReupCache.set(pageVid, vid);
+      videosCarregados.push({ media_id: `page_video:${pageVid}`, meta_video_id: vid, nome });
+    }
+    const w = await waitVideoReady(vid);
+    if (w.falhou) pageReupCache.delete(pageVid);
+    return { video_id: vid, pronto: w.pronto, erro: w.erro, falhou: !!w.falhou, picture };
+  }
+
 
   // url_tags do criativo (só alvo música): UTMs geradas pelo motor.
   // Só há UTMs quando há destino efectivo: sem link, url_tags não vai no payload.
