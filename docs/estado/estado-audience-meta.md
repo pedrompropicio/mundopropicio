@@ -104,3 +104,9 @@ saída `{ plan_id, plano, resumo }`.
   402 `credits_exhausted` · 502 `ai_invalid_json`.
 - Sem migração, sem alteração de RPCs, sem front, sem Publish. Não foi gerado nenhum plano
   real (o piloto Litto Lins tem `smart_link_url` a null → TRAFFIC indisponível por desenho).
+
+## Adenda 2026-09-26 — Depreciação de artist_songs.smart_link_url
+- Fonte única de smart links passa a ser `public.song_links` (RPCs `artist_song_link_list` / `artist_song_link_upsert`). O front (c5fbb3d2) já não lê nem escreve a coluna antiga.
+- Coluna `artist_songs.smart_link_url` marcada DEPRECATED via COMMENT ON COLUMN: mantida só para histórico, não escrever mais aqui. Não foi apagada nem feito drop.
+- `artist_ads_song_set_smart_link` continua a existir mas deixou de ser executável por authenticated/anon (REVOKE); só service_role.
+- Usos remanescentes conhecidos (só leitura, backend, não corrigidos — aguardam decisão do Pedro): `crm-meta-publish-execute` (lê a coluna para comparar link de destino do plano) e `artist-ads-strategy-generate` (fallback quando a música não tem smart link MP em song_links — D-ERP141).
