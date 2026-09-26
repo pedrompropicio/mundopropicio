@@ -874,18 +874,37 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const m = igMeta.get(pr);
     return !!m && (m.media_type === "VIDEO" || /REELS|VIDEO/.test(m.tipo));
   };
-  function buildIgVideoPayload(payload: Record<string, unknown>, videoId: string, link: string | null): Record<string, unknown> {
+  // Vídeo da Página equivalente (cross-post) → { video_id, picture }. Via (c) da
+  // ordem D-ERP95 (26/09): sem media_url (música protegida) ou upload falhado.
+  // Atribuída dentro do bloco de verificação de posts (usa findCrossPost).
+  let igPageVideo: ((pr: string) => Promise<{ video_id: string | null; picture: string | null; motivo: string }>) | null = null;
+  const igPageVideoCache = new Map<string, { video_id: string; picture: string | null }>();
+  function buildIgVideoPayload(payload: Record<string, unknown>, videoId: string, link: string | null, thumbOverride?: string | null, ctaType?: string): Record<string, unknown> {
     const c = (payload as any)?.creative ?? {};
     const m = igMeta.get(String(c.source_instagram_media_id ?? ""));
     const videoData: Record<string, unknown> = { video_id: videoId };
     if (m?.caption) videoData.message = m.caption.slice(0, 2000);
-    if (m?.thumbnail_url) videoData.image_url = m.thumbnail_url;
-    if (link) videoData.call_to_action = { type: objetivoUpper === "TRAFFIC" ? "LISTEN_NOW" : "LEARN_MORE", value: { link } };
+    const thumb = thumbOverride ?? igPageVideoCache.get(String(c.source_instagram_media_id ?? ""))?.picture ?? m?.thumbnail_url ?? null;
+    if (thumb) videoData.image_url = thumb;
+    if (link) videoData.call_to_action = { type: ctaType ?? (objetivoUpper === "TRAFFIC" ? "LISTEN_NOW" : "LEARN_MORE"), value: { link } };
     const oss: Record<string, unknown> = { page_id: selectedPageId, video_data: videoData };
     if (selectedInstagramId) oss.instagram_user_id = selectedInstagramId;
     const creative: Record<string, unknown> = { object_story_spec: oss };
     if (c.url_tags) creative.url_tags = c.url_tags;
     return { ...payload, creative };
+  }
+  // POST /ads com o criativo de vídeo; se a Meta recusar o CTA LISTEN_NOW, repete UMA vez com LEARN_MORE.
+  async function postIgVideoAd(payload: Record<string, unknown>, vid: string, link: string | null, validateOnly: boolean, thumb?: string | null): Promise<any> {
+    const extra = validateOnly ? { execution_options: ["validate_only"] } : {};
+    let r: any = await graphPOST(`/${adAccountId}/ads`, { ...buildIgVideoPayload(payload, vid, link, thumb), ...extra }, accessToken, SONG_POST_GRAPH_VERSION);
+    if (!r.ok && link && objetivoUpper === "TRAFFIC") {
+      const txt = JSON.stringify(r.error ?? r.raw ?? "");
+      if (/call.?to.?action|cta|LISTEN_NOW|2446880/i.test(txt)) {
+        r = await graphPOST(`/${adAccountId}/ads`, { ...buildIgVideoPayload(payload, vid, link, thumb, "LEARN_MORE"), ...extra }, accessToken, SONG_POST_GRAPH_VERSION);
+        if (r.ok) r.cta_fallback = "LEARN_MORE";
+      }
+    }
+    return r;
   }
   async function waitVideoReady(vid: string): Promise<{ pronto: boolean; erro?: string; falhou?: boolean }> {
     const deadline = Date.now() + 180_000;
@@ -1142,6 +1161,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const cands = ((r.data?.data ?? []) as any[]).filter((p) => alvo ? norm(String(p?.message ?? "")) === alvo : false);
         return cands.length === 1 ? String(cands[0].id) : null;
       }
+      igPageVideo = async (pr: string) => {
+        const hit = igPageVideoCache.get(pr);
+        if (hit) return { ...hit, motivo: `vídeo da Página ${hit.video_id}` };
+        const m = igMeta.get(pr);
+        if (!m) return { video_id: null, picture: null, motivo: `vídeo do Instagram ${pr}: sem dados do post` };
+        let fb = igCrossPost.get(pr) ?? null;
+        if (!fb) { fb = await findCrossPost(m.caption, m.ts); if (fb) igCrossPost.set(pr, fb); }
+        if (!fb) return { video_id: null, picture: null, motivo: `vídeo do Instagram ${pr} sem media_url (música protegida) e sem vídeo equivalente na Página do Facebook` };
+        const tok = pageTokCross ?? accessToken;
+        const p = await graphGET(`/${fb}`, { fields: "attachments{media_type,type,target{id}}" }, tok, SONG_POST_GRAPH_VERSION);
+        const att = ((p.data?.attachments?.data ?? []) as any[]).find((x) => /video/i.test(String(x?.media_type ?? x?.type ?? "")));
+        const vid = att?.target?.id ? String(att.target.id) : null;
+        if (!p.ok || !vid) return { video_id: null, picture: null, motivo: `vídeo do Instagram ${pr}: o post da Página ${fb} não tem vídeo legível${p.ok ? "" : ` — ${String(p.data?.error?.message ?? "erro")}`}` };
+        const vg = await graphGET(`/${vid}`, { fields: "picture,thumbnails{uri,is_preferred}" }, tok, SONG_POST_GRAPH_VERSION);
+        const th = ((vg.data?.thumbnails?.data ?? []) as any[]);
+        const picture = (th.find((t) => t?.is_preferred)?.uri ?? th[0]?.uri ?? vg.data?.picture ?? m.thumbnail_url ?? null) as string | null;
+        igPageVideoCache.set(pr, { video_id: vid, picture });
+        return { video_id: vid, picture, motivo: `vídeo da Página ${vid} (post ${fb})` };
+      };
       igAlternativa = async (payload: Record<string, unknown>): Promise<{ payload: Record<string, unknown> | null; motivo: string }> => {
         const c = (payload as any)?.creative ?? {};
         const pr = String(c.source_instagram_media_id ?? "");
@@ -1336,8 +1374,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
             ? (vidJa ? `Meta aceita o anúncio com o vídeo já carregado ${vidJa} (validate_only)` : "Meta aceita o anúncio (validate_only)")
             : JSON.stringify(v.error ?? v.raw).slice(0, 400);
           if (!v.ok && !vidJa && is1815279(v.error) && isIgVideo(prV)) {
-            okV = true;
-            detV = `a Meta não aceita este vídeo directamente (1815279): na publicação vai ser carregado no Facebook como vídeo do anúncio (perde gostos/comentários do post original). Não carregado em preflight.`;
+            const mV = igMeta.get(prV);
+            if (mV?.media_url) {
+              okV = true;
+              detV = `via: upload — a Meta não aceita este vídeo directamente (1815279): na publicação vai ser carregado no Facebook a partir do media_url (não carregado em preflight).`;
+            } else {
+              const pv = igPageVideo ? await igPageVideo(prV) : { video_id: null, picture: null, motivo: "sem Página" };
+              if (!pv.video_id) { okV = false; detV = pv.motivo; }
+              else {
+                const vv = await postIgVideoAd(b.payload, pv.video_id, linkV, true, pv.picture);
+                okV = !!vv.ok;
+                detV = vv.ok
+                  ? `via: vídeo da Página ${pv.video_id} — Meta aceita o criativo final (validate_only${vv.cta_fallback ? `, CTA ${vv.cta_fallback}` : ", CTA LISTEN_NOW"})`
+                  : `via: vídeo da Página ${pv.video_id} — Meta recusa: ${JSON.stringify(vv.error ?? vv.raw).slice(0, 400)}`;
+              }
+            }
           } else if (!v.ok && !vidJa && is1815279(v.error) && igAlternativa && objetivoUpper !== "TRAFFIC") {
             const alt = await igAlternativa(b.payload);
             okV = !!alt.payload;
@@ -1580,26 +1631,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
             r = { ok: false, status: 422, error: { message: up.erro, code: 100, error_subcode: 1815279, meta_video_id: vid }, raw: null };
           } else {
             videoUsado = vid;
-            r = await graphPOST(`/${adAccountId}/ads`, buildIgVideoPayload(payload, vid, linkEf), accessToken, SONG_POST_GRAPH_VERSION);
+            r = await postIgVideoAd(payload, vid, linkEf, false);
           }
         } else {
           r = await graphPOST(`/${adAccountId}/ads`, payload, accessToken, verAd);
         }
         if (!r.ok && isSong && prIg && !videoUsado && is1815279(r.error) && isIgVideo(prIg)) {
-          // Caminho "vídeo carregado": POST /advideos com o media_url do Instagram.
-          const up = await uploadIgVideo(prIg);
-          if (up.video_id && !up.falhouProcessamento) {
+          // Ordem D-ERP95 (26/09): (a) cache → acima; (b) media_url → upload /advideos;
+          // (c) sem media_url ou upload falhado → vídeo da Página equivalente; (d) mensagem legível.
+          const persistVid = async (vid: string) => {
             for (const ax of adsetsOut) for (const ay of (ax?.anuncios ?? [])) {
-              if (ay?.existing_post?.post_ref === prIg) { ay.meta_video_id = up.video_id; ay.origem_ig_media_id = prIg; }
+              if (ay?.existing_post?.post_ref === prIg) { ay.meta_video_id = vid; ay.origem_ig_media_id = prIg; }
             }
             await (admin as any).schema("crm").from("meta_publish_plan").update({ adsets: adsetsOut }).eq("id", planId);
-          }
-          if (up.pronto && up.video_id) {
-            videoUsado = up.video_id;
-            avisos.push({ codigo: "video_instagram_carregado_facebook", detalhe: `${prIg} → vídeo ${up.video_id} (perde gostos/comentários do post original)`, adset: a.trigger_nome, ad_idx: k, group_idx: gi });
-            r = await graphPOST(`/${adAccountId}/ads`, buildIgVideoPayload(payload, up.video_id, linkEf), accessToken, SONG_POST_GRAPH_VERSION);
-          } else {
-            r = { ok: false, status: 422, error: { message: `vídeo do Instagram ${prIg}: ${up.erro}`, code: 100, error_subcode: 1815279, meta_video_id: up.video_id ?? null }, raw: (r as any).raw };
+          };
+          let erroUp: string | null = null;
+          if (igMeta.get(prIg)?.media_url) {
+            const up = await uploadIgVideo(prIg);
+            if (up.video_id && !up.falhouProcessamento) await persistVid(up.video_id);
+            if (up.pronto && up.video_id) {
+              videoUsado = up.video_id;
+              avisos.push({ codigo: "video_instagram_carregado_facebook", detalhe: `${prIg} → vídeo ${up.video_id} (perde gostos/comentários do post original)`, adset: a.trigger_nome, ad_idx: k, group_idx: gi });
+              r = await postIgVideoAd(payload, up.video_id, linkEf, false);
+            } else erroUp = up.erro ?? "upload falhou";
+          } else erroUp = "a Meta não devolveu o media_url do post";
+          if (!videoUsado) {
+            const pv = igPageVideo ? await igPageVideo(prIg) : { video_id: null, picture: null, motivo: "sem Página ligada" };
+            if (pv.video_id) {
+              videoUsado = pv.video_id;
+              await persistVid(pv.video_id);
+              igVideoCache.set(prIg, pv.video_id);
+              videosCarregados.push({ media_id: prIg, meta_video_id: pv.video_id, nome: `vídeo da Página (sem upload)` });
+              avisos.push({ codigo: "video_instagram_via_video_pagina", detalhe: `${prIg} → ${pv.motivo} (${erroUp})`, adset: a.trigger_nome, ad_idx: k, group_idx: gi });
+              r = await postIgVideoAd(payload, pv.video_id, linkEf, false, pv.picture);
+            } else {
+              r = { ok: false, status: 422, error: { message: `vídeo do Instagram ${prIg}: ${erroUp}; ${pv.motivo}`, code: 100, error_subcode: 1815279 }, raw: (r as any).raw };
+            }
           }
         } else if (!r.ok && isSong && !videoUsado && is1815279(r.error) && igAlternativa && objetivoUpper !== "TRAFFIC") {
           const alt = await igAlternativa(payload);
