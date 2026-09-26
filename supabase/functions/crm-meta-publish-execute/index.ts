@@ -1699,15 +1699,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
         let videoUsado: string | null = null;
         let r: any;
         // Vídeo do Instagram já carregado neste plano → usa-o directamente (sem novo upload).
+        // Cache = já confirmado 'ready' (na carga original ou no plano persistido) → SEM nova sondagem
+        // (waitVideoReady só corre dentro dos uploads novos desta execução).
         if (prIg && igVideoCache.has(prIg)) {
           const vid = igVideoCache.get(prIg)!;
-          const up = await waitVideoReady(vid);
-          if (!up.pronto) {
-            r = { ok: false, status: 422, error: { message: up.erro, code: 100, error_subcode: 1815279, meta_video_id: vid }, raw: null };
-          } else {
-            videoUsado = vid;
-            r = await postIgVideoAd(payload, vid, linkEf, false);
-          }
+          videoUsado = vid;
+          r = await postIgVideoAd(payload, vid, linkEf, false);
         } else {
           r = await graphPOST(`/${adAccountId}/ads`, payload, accessToken, verAd);
         }
