@@ -1209,6 +1209,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
         igPageVideoCache.set(pr, { video_id: vid, picture });
         return { video_id: vid, picture, motivo: `vídeo da Página ${vid} (post ${fb})` };
       };
+      pageVideoSource = async (vid: string) => {
+        if (pageTokCross === undefined) {
+          const pt = await graphGET(`/${selectedPageId}`, { fields: "access_token" }, accessToken, SONG_POST_GRAPH_VERSION);
+          pageTokCross = pt.ok && typeof pt.data?.access_token === "string" ? pt.data.access_token : null;
+        }
+        const g = await graphGET(`/${vid}`, { fields: "source,length,picture" }, pageTokCross ?? accessToken, SONG_POST_GRAPH_VERSION);
+        const src = g.ok && typeof g.data?.source === "string" && g.data.source ? String(g.data.source) : null;
+        return {
+          source: src,
+          picture: (g.data?.picture ?? null) as string | null,
+          length: typeof g.data?.length === "number" ? g.data.length : null,
+          motivo: src ? `source disponível (${g.data?.length ?? "?"} s)` : `o vídeo da Página ${vid} não devolveu 'source'${g.ok ? "" : ` — ${String(g.data?.error?.message ?? "erro")}`} — fica registado para retomar depois`,
+        };
+      };
       igAlternativa = async (payload: Record<string, unknown>): Promise<{ payload: Record<string, unknown> | null; motivo: string }> => {
         const c = (payload as any)?.creative ?? {};
         const pr = String(c.source_instagram_media_id ?? "");
