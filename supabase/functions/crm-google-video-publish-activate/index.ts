@@ -74,7 +74,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: userInfo } = await supabase.auth.getUser();
+  const { data: userInfo } = await supabase.auth.getUser(authHeader.replace(/^Bearer\s+/i, ""));
   const userId = userInfo?.user?.id ?? null;
 
   // 1) Plano.

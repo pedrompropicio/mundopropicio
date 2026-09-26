@@ -97,7 +97,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
 
   // Utilizador (para activated_by)
-  const { data: userInfo } = await supabase.auth.getUser();
+  const { data: userInfo } = await supabase.auth.getUser(authHeader.replace(/^Bearer\s+/i, ""));
   const userId = userInfo?.user?.id ?? null;
 
   // 1) Lê o plano (RLS valida pertença ao company)
