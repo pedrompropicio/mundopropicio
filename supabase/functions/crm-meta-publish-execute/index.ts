@@ -1427,9 +1427,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
               else {
                 const vv = await postIgVideoAd(b.payload, pv.video_id, linkV, true, pv.picture);
                 okV = !!vv.ok;
+                const reel = /REELS/.test(String(mV?.tipo ?? ""));
+                const avisoReel = reel ? " Atenção: é reel — se a Meta o recusar por música licenciada (2446979), o motor descarrega-o da Página e carrega-o na conta automaticamente." : "";
                 detV = vv.ok
-                  ? `via: vídeo da Página ${pv.video_id} — Meta aceita o criativo final (validate_only${vv.cta_fallback ? `, CTA ${vv.cta_fallback}` : ", CTA LISTEN_NOW"})`
+                  ? `via: vídeo da Página ${pv.video_id} — Meta aceita o criativo final (validate_only${vv.cta_fallback ? `, CTA ${vv.cta_fallback}` : ", CTA LISTEN_NOW"}).${avisoReel}`
                   : `via: vídeo da Página ${pv.video_id} — Meta recusa: ${JSON.stringify(vv.error ?? vv.raw).slice(0, 400)}`;
+                if (!vv.ok && is2446979(vv.error)) {
+                  const up = pageReupCache.get(pv.video_id);
+                  if (up) {
+                    const vu = await postIgVideoAd(b.payload, up, linkV, true, pv.picture);
+                    okV = !!vu.ok;
+                    detV = vu.ok
+                      ? `via: download+upload — vídeo da Página ${pv.video_id} tem música licenciada (2446979); vídeo já carregado ${up} aceite (validate_only)`
+                      : `via: download+upload — vídeo carregado ${up} recusado: ${JSON.stringify(vu.error ?? vu.raw).slice(0, 400)}`;
+                  } else {
+                    const s = pageVideoSource ? await pageVideoSource(pv.video_id) : { source: null, motivo: "sem acesso à Página" } as any;
+                    okV = !!s.source;
+                    detV = s.source
+                      ? `via: download+upload — vídeo da Página ${pv.video_id} é reel com música licenciada (2446979); na publicação o motor descarrega-o de 'source' (${s.motivo}) e carrega-o na conta (não carregado em preflight; o criativo final só é validado pela Meta depois do upload).`
+                      : `via: download+upload impossível — ${s.motivo}`;
+                  }
+                }
               }
             }
           } else if (!v.ok && !vidJa && is1815279(v.error) && igAlternativa && objetivoUpper !== "TRAFFIC") {
