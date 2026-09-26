@@ -1161,6 +1161,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const cands = ((r.data?.data ?? []) as any[]).filter((p) => alvo ? norm(String(p?.message ?? "")) === alvo : false);
         return cands.length === 1 ? String(cands[0].id) : null;
       }
+      igPageVideo = async (pr: string) => {
+        const hit = igPageVideoCache.get(pr);
+        if (hit) return { ...hit, motivo: `vídeo da Página ${hit.video_id}` };
+        const m = igMeta.get(pr);
+        if (!m) return { video_id: null, picture: null, motivo: `vídeo do Instagram ${pr}: sem dados do post` };
+        let fb = igCrossPost.get(pr) ?? null;
+        if (!fb) { fb = await findCrossPost(m.caption, m.ts); if (fb) igCrossPost.set(pr, fb); }
+        if (!fb) return { video_id: null, picture: null, motivo: `vídeo do Instagram ${pr} sem media_url (música protegida) e sem vídeo equivalente na Página do Facebook` };
+        const tok = pageTokCross ?? accessToken;
+        const p = await graphGET(`/${fb}`, { fields: "attachments{media_type,type,target{id}}" }, tok, SONG_POST_GRAPH_VERSION);
+        const att = ((p.data?.attachments?.data ?? []) as any[]).find((x) => /video/i.test(String(x?.media_type ?? x?.type ?? "")));
+        const vid = att?.target?.id ? String(att.target.id) : null;
+        if (!p.ok || !vid) return { video_id: null, picture: null, motivo: `vídeo do Instagram ${pr}: o post da Página ${fb} não tem vídeo legível${p.ok ? "" : ` — ${String(p.data?.error?.message ?? "erro")}`}` };
+        const vg = await graphGET(`/${vid}`, { fields: "picture,thumbnails{uri,is_preferred}" }, tok, SONG_POST_GRAPH_VERSION);
+        const th = ((vg.data?.thumbnails?.data ?? []) as any[]);
+        const picture = (th.find((t) => t?.is_preferred)?.uri ?? th[0]?.uri ?? vg.data?.picture ?? m.thumbnail_url ?? null) as string | null;
+        igPageVideoCache.set(pr, { video_id: vid, picture });
+        return { video_id: vid, picture, motivo: `vídeo da Página ${vid} (post ${fb})` };
+      };
       igAlternativa = async (payload: Record<string, unknown>): Promise<{ payload: Record<string, unknown> | null; motivo: string }> => {
         const c = (payload as any)?.creative ?? {};
         const pr = String(c.source_instagram_media_id ?? "");
