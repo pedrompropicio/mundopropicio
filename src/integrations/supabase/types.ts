@@ -702,6 +702,7 @@ export type Database = {
           is_primary: boolean
           notes: string | null
           platform: string
+          revoked_at: string | null
           updated_at: string
           url: string | null
         }
@@ -717,6 +718,7 @@ export type Database = {
           is_primary?: boolean
           notes?: string | null
           platform: string
+          revoked_at?: string | null
           updated_at?: string
           url?: string | null
         }
@@ -732,6 +734,7 @@ export type Database = {
           is_primary?: boolean
           notes?: string | null
           platform?: string
+          revoked_at?: string | null
           updated_at?: string
           url?: string | null
         }
@@ -18652,6 +18655,7 @@ export type Database = {
           slug: string
         }[]
       }
+      purge_revoked_youtube_data: { Args: never; Returns: Json }
       raise_forecast_budget: {
         Args: {
           _forecast_id: string
