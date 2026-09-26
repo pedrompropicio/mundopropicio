@@ -874,18 +874,37 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const m = igMeta.get(pr);
     return !!m && (m.media_type === "VIDEO" || /REELS|VIDEO/.test(m.tipo));
   };
-  function buildIgVideoPayload(payload: Record<string, unknown>, videoId: string, link: string | null): Record<string, unknown> {
+  // Vídeo da Página equivalente (cross-post) → { video_id, picture }. Via (c) da
+  // ordem D-ERP95 (26/09): sem media_url (música protegida) ou upload falhado.
+  // Atribuída dentro do bloco de verificação de posts (usa findCrossPost).
+  let igPageVideo: ((pr: string) => Promise<{ video_id: string | null; picture: string | null; motivo: string }>) | null = null;
+  const igPageVideoCache = new Map<string, { video_id: string; picture: string | null }>();
+  function buildIgVideoPayload(payload: Record<string, unknown>, videoId: string, link: string | null, thumbOverride?: string | null, ctaType?: string): Record<string, unknown> {
     const c = (payload as any)?.creative ?? {};
     const m = igMeta.get(String(c.source_instagram_media_id ?? ""));
     const videoData: Record<string, unknown> = { video_id: videoId };
     if (m?.caption) videoData.message = m.caption.slice(0, 2000);
-    if (m?.thumbnail_url) videoData.image_url = m.thumbnail_url;
-    if (link) videoData.call_to_action = { type: objetivoUpper === "TRAFFIC" ? "LISTEN_NOW" : "LEARN_MORE", value: { link } };
+    const thumb = thumbOverride ?? igPageVideoCache.get(String(c.source_instagram_media_id ?? ""))?.picture ?? m?.thumbnail_url ?? null;
+    if (thumb) videoData.image_url = thumb;
+    if (link) videoData.call_to_action = { type: ctaType ?? (objetivoUpper === "TRAFFIC" ? "LISTEN_NOW" : "LEARN_MORE"), value: { link } };
     const oss: Record<string, unknown> = { page_id: selectedPageId, video_data: videoData };
     if (selectedInstagramId) oss.instagram_user_id = selectedInstagramId;
     const creative: Record<string, unknown> = { object_story_spec: oss };
     if (c.url_tags) creative.url_tags = c.url_tags;
     return { ...payload, creative };
+  }
+  // POST /ads com o criativo de vídeo; se a Meta recusar o CTA LISTEN_NOW, repete UMA vez com LEARN_MORE.
+  async function postIgVideoAd(payload: Record<string, unknown>, vid: string, link: string | null, validateOnly: boolean, thumb?: string | null): Promise<any> {
+    const extra = validateOnly ? { execution_options: ["validate_only"] } : {};
+    let r: any = await graphPOST(`/${adAccountId}/ads`, { ...buildIgVideoPayload(payload, vid, link, thumb), ...extra }, accessToken, SONG_POST_GRAPH_VERSION);
+    if (!r.ok && link && objetivoUpper === "TRAFFIC") {
+      const txt = JSON.stringify(r.error ?? r.raw ?? "");
+      if (/call.?to.?action|cta|LISTEN_NOW/i.test(txt)) {
+        r = await graphPOST(`/${adAccountId}/ads`, { ...buildIgVideoPayload(payload, vid, link, thumb, "LEARN_MORE"), ...extra }, accessToken, SONG_POST_GRAPH_VERSION);
+        if (r.ok) r.cta_fallback = "LEARN_MORE";
+      }
+    }
+    return r;
   }
   async function waitVideoReady(vid: string): Promise<{ pronto: boolean; erro?: string; falhou?: boolean }> {
     const deadline = Date.now() + 180_000;
