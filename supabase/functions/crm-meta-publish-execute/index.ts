@@ -1631,26 +1631,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
             r = { ok: false, status: 422, error: { message: up.erro, code: 100, error_subcode: 1815279, meta_video_id: vid }, raw: null };
           } else {
             videoUsado = vid;
-            r = await graphPOST(`/${adAccountId}/ads`, buildIgVideoPayload(payload, vid, linkEf), accessToken, SONG_POST_GRAPH_VERSION);
+            r = await postIgVideoAd(payload, vid, linkEf, false);
           }
         } else {
           r = await graphPOST(`/${adAccountId}/ads`, payload, accessToken, verAd);
         }
         if (!r.ok && isSong && prIg && !videoUsado && is1815279(r.error) && isIgVideo(prIg)) {
-          // Caminho "vídeo carregado": POST /advideos com o media_url do Instagram.
-          const up = await uploadIgVideo(prIg);
-          if (up.video_id && !up.falhouProcessamento) {
+          // Ordem D-ERP95 (26/09): (a) cache → acima; (b) media_url → upload /advideos;
+          // (c) sem media_url ou upload falhado → vídeo da Página equivalente; (d) mensagem legível.
+          const persistVid = async (vid: string) => {
             for (const ax of adsetsOut) for (const ay of (ax?.anuncios ?? [])) {
-              if (ay?.existing_post?.post_ref === prIg) { ay.meta_video_id = up.video_id; ay.origem_ig_media_id = prIg; }
+              if (ay?.existing_post?.post_ref === prIg) { ay.meta_video_id = vid; ay.origem_ig_media_id = prIg; }
             }
             await (admin as any).schema("crm").from("meta_publish_plan").update({ adsets: adsetsOut }).eq("id", planId);
-          }
-          if (up.pronto && up.video_id) {
-            videoUsado = up.video_id;
-            avisos.push({ codigo: "video_instagram_carregado_facebook", detalhe: `${prIg} → vídeo ${up.video_id} (perde gostos/comentários do post original)`, adset: a.trigger_nome, ad_idx: k, group_idx: gi });
-            r = await graphPOST(`/${adAccountId}/ads`, buildIgVideoPayload(payload, up.video_id, linkEf), accessToken, SONG_POST_GRAPH_VERSION);
-          } else {
-            r = { ok: false, status: 422, error: { message: `vídeo do Instagram ${prIg}: ${up.erro}`, code: 100, error_subcode: 1815279, meta_video_id: up.video_id ?? null }, raw: (r as any).raw };
+          };
+          let erroUp: string | null = null;
+          if (igMeta.get(prIg)?.media_url) {
+            const up = await uploadIgVideo(prIg);
+            if (up.video_id && !up.falhouProcessamento) await persistVid(up.video_id);
+            if (up.pronto && up.video_id) {
+              videoUsado = up.video_id;
+              avisos.push({ codigo: "video_instagram_carregado_facebook", detalhe: `${prIg} → vídeo ${up.video_id} (perde gostos/comentários do post original)`, adset: a.trigger_nome, ad_idx: k, group_idx: gi });
+              r = await postIgVideoAd(payload, up.video_id, linkEf, false);
+            } else erroUp = up.erro ?? "upload falhou";
+          } else erroUp = "a Meta não devolveu o media_url do post";
+          if (!videoUsado) {
+            const pv = igPageVideo ? await igPageVideo(prIg) : { video_id: null, picture: null, motivo: "sem Página ligada" };
+            if (pv.video_id) {
+              videoUsado = pv.video_id;
+              await persistVid(pv.video_id);
+              igVideoCache.set(prIg, pv.video_id);
+              videosCarregados.push({ media_id: prIg, meta_video_id: pv.video_id, nome: `vídeo da Página (sem upload)` });
+              avisos.push({ codigo: "video_instagram_via_video_pagina", detalhe: `${prIg} → ${pv.motivo} (${erroUp})`, adset: a.trigger_nome, ad_idx: k, group_idx: gi });
+              r = await postIgVideoAd(payload, pv.video_id, linkEf, false, pv.picture);
+            } else {
+              r = { ok: false, status: 422, error: { message: `vídeo do Instagram ${prIg}: ${erroUp}; ${pv.motivo}`, code: 100, error_subcode: 1815279 }, raw: (r as any).raw };
+            }
           }
         } else if (!r.ok && isSong && !videoUsado && is1815279(r.error) && igAlternativa && objetivoUpper !== "TRAFFIC") {
           const alt = await igAlternativa(payload);
