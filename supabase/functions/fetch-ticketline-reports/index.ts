@@ -16,7 +16,7 @@ import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 import { unescapeSjr, extractTables, parseNumberLabel } from "../_shared/ticketline-sjr-parser.ts";
 import { parseTicketTypesGrid, type Grid } from "../_shared/ticketline-ticket-types-parser.ts";
 
-const VERSION = "v2.41_capture_day_all_enabled";
+const VERSION = "v2.42_migrated_sync_skipped";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -3070,15 +3070,30 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     return { ok: !silentEmpty, runId, audit, status: finalStatus, warning: warnMsg };
 
   } catch (e: any) {
-    const phase = e?.phase || "failed";
-    const msg = e?.message || String(e);
+    let phase = e?.phase || "failed";
+    let msg = e?.message || String(e);
     if (e?.dashDebug) debug.dashboard_today = e.dashDebug;
+    // v2.42: evento migrado para a nova área de Promotores (daily_fallback_active)
+    // e o .xlsx devolve a landing → não é falha: a série diária vem da capture_day.
+    const isPromotoresLanding = phase === "html_response" &&
+      /nova área de Promotores/i.test(String(e?.htmlSnippet || msg));
+    if (cfg.daily_fallback_active === true && isPromotoresLanding) {
+      phase = "skipped";
+      msg = "Evento migrado para a nova área de Promotores: sale_summary.xlsx devolve a landing. " +
+        "Sem falha — a série diária (ticketline_daily_sales) vem da capture_day e é a fonte de leitura (daily_fallback_active=true).";
+      debug.skipped_reason = "migrated_promotores_landing";
+      debug.original_error = e?.message || String(e);
+    }
     await updateRun(admin, runId, {
       status: phase, finished_at: new Date().toISOString(),
       error_message: msg, files_downloaded: e?.filesAudit || null,
       import_audit: { debug },
     });
     await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: phase });
+    if (phase === "skipped") {
+      console.log(`[ticketline ${runId}] skipped: evento migrado (${cfg.ticketline_event_id})`);
+      return { ok: true, runId, status: "skipped", skipped: true, reason: msg };
+    }
     console.error(`[ticketline ${runId}] ${phase}: ${msg}`);
     return { ok: false, runId, phase, error: msg };
   }
