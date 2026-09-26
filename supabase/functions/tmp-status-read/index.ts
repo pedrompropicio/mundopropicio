@@ -47,9 +47,9 @@ Deno.serve(async (req: Request) => {
     p_connection_id: CONNECTION_ID,
     p_master_key: masterKey,
   });
-  const token = tok?.access_token;
+  const token = Array.isArray(tok) ? tok[0]?.access_token : tok?.access_token;
   if (tokErr || !token) {
-    return json({ ok: false, error: "token decrypt failed", detail: tokErr?.message ?? tok }, 500);
+    return json({ ok: false, error: "token decrypt failed", detail: tokErr?.message ?? "sem token" }, 500);
   }
 
   const results: Record<string, unknown> = {};
