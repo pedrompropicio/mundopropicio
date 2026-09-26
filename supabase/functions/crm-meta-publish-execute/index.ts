@@ -1455,6 +1455,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
             okV = !!alt.payload;
             detV = alt.payload ? `Meta aceita o anúncio ${alt.motivo} (validate_only)` : alt.motivo;
           }
+          if (!v.ok && vidJa && is2446979(v.error)) {
+            const up = pageReupCache.get(vidJa);
+            if (up) {
+              const vu = await postIgVideoAd(b.payload, up, linkV, true);
+              okV = !!vu.ok;
+              detV = vu.ok ? `via: download+upload — vídeo já carregado ${up} aceite (validate_only)` : `via: download+upload — ${up} recusado: ${JSON.stringify(vu.error ?? vu.raw).slice(0, 400)}`;
+            } else {
+              const s = pageVideoSource ? await pageVideoSource(vidJa) : { source: null, motivo: "sem acesso à Página" } as any;
+              okV = !!s.source;
+              detV = s.source
+                ? `via: download+upload — vídeo da Página ${vidJa} (guardado no plano) é reel com música licenciada (2446979); na publicação o motor descarrega-o de 'source' (${s.motivo}) e carrega-o na conta (não carregado em preflight).`
+                : `via: download+upload impossível — ${s.motivo}`;
+            }
+          }
           checks.push({ check: `validar_anuncio_${a.trigger_nome ?? "?"}_${k}`, ok: okV, detail: detV });
         }
       }
