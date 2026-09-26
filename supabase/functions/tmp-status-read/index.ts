@@ -13,7 +13,7 @@ function json(body: unknown, status = 200) {
   });
 }
 
-const CONNECTION_ID = "d7497955-7d67-41f0-a4d2-e4cd9a0ca4c6";
+const CONNECTION_ID = "d7497955-2eb2-43ca-b590-cd6dd130f39b";
 const OBJECTS = ["120250057238210176", "120250057238670176", "120250063964740176"];
 
 Deno.serve(async (req: Request) => {
@@ -47,14 +47,15 @@ Deno.serve(async (req: Request) => {
     p_connection_id: CONNECTION_ID,
     p_master_key: masterKey,
   });
-  if (tokErr || !tok?.token) {
+  const token = tok?.access_token;
+  if (tokErr || !token) {
     return json({ ok: false, error: "token decrypt failed", detail: tokErr?.message ?? tok }, 500);
   }
 
   const results: Record<string, unknown> = {};
   for (const id of OBJECTS) {
     const res = await fetch(
-      `https://graph.facebook.com/v25.0/${id}?fields=id,name,status,effective_status&access_token=${encodeURIComponent(tok.token)}`,
+      `https://graph.facebook.com/v25.0/${id}?fields=id,name,status,effective_status&access_token=${encodeURIComponent(token)}`,
       { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(20_000) },
     );
     results[id] = { status: res.status, body: await res.json().catch(() => null) };
