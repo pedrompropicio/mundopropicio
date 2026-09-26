@@ -1374,8 +1374,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
             ? (vidJa ? `Meta aceita o anúncio com o vídeo já carregado ${vidJa} (validate_only)` : "Meta aceita o anúncio (validate_only)")
             : JSON.stringify(v.error ?? v.raw).slice(0, 400);
           if (!v.ok && !vidJa && is1815279(v.error) && isIgVideo(prV)) {
-            okV = true;
-            detV = `a Meta não aceita este vídeo directamente (1815279): na publicação vai ser carregado no Facebook como vídeo do anúncio (perde gostos/comentários do post original). Não carregado em preflight.`;
+            const mV = igMeta.get(prV);
+            if (mV?.media_url) {
+              okV = true;
+              detV = `via: upload — a Meta não aceita este vídeo directamente (1815279): na publicação vai ser carregado no Facebook a partir do media_url (não carregado em preflight).`;
+            } else {
+              const pv = igPageVideo ? await igPageVideo(prV) : { video_id: null, picture: null, motivo: "sem Página" };
+              if (!pv.video_id) { okV = false; detV = pv.motivo; }
+              else {
+                const vv = await postIgVideoAd(b.payload, pv.video_id, linkV, true, pv.picture);
+                okV = !!vv.ok;
+                detV = vv.ok
+                  ? `via: vídeo da Página ${pv.video_id} — Meta aceita o criativo final (validate_only${vv.cta_fallback ? `, CTA ${vv.cta_fallback}` : ", CTA LISTEN_NOW"})`
+                  : `via: vídeo da Página ${pv.video_id} — Meta recusa: ${JSON.stringify(vv.error ?? vv.raw).slice(0, 400)}`;
+              }
+            }
           } else if (!v.ok && !vidJa && is1815279(v.error) && igAlternativa && objetivoUpper !== "TRAFFIC") {
             const alt = await igAlternativa(b.payload);
             okV = !!alt.payload;
