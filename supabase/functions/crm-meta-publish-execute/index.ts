@@ -1738,6 +1738,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
             r = { ok: false, status: 422, error: { message: alt.motivo, code: 100, error_subcode: 1815279 }, raw: (r as any).raw };
           }
         }
+        // Via (d): vídeo da Página recusado por música licenciada (2446979) → download+upload.
+        if (!r.ok && isSong && prIg && videoUsado && is2446979(r.error) && ![...pageReupCache.values()].includes(videoUsado)) {
+          const pageVid = videoUsado;
+          const up = await reuploadPageVideo(pageVid);
+          if (up.video_id && !up.falhou) {
+            for (const ax of adsetsOut) for (const ay of (ax?.anuncios ?? [])) {
+              if (ay?.existing_post?.post_ref === prIg) { ay.meta_video_id = up.video_id; ay.origem_ig_media_id = prIg; ay.origem_page_video_id = pageVid; }
+            }
+            igVideoCache.set(prIg, up.video_id);
+            await (admin as any).schema("crm").from("meta_publish_plan").update({ adsets: adsetsOut }).eq("id", planId);
+          }
+          if (up.pronto && up.video_id) {
+            videoUsado = up.video_id;
+            avisos.push({ codigo: "video_pagina_carregado_conta", detalhe: `${prIg} → vídeo da Página ${pageVid} (música licenciada, 2446979) carregado como ${up.video_id}`, adset: a.trigger_nome, ad_idx: k, group_idx: gi });
+            r = await postIgVideoAd(payload, up.video_id, linkEf, false, up.picture ?? undefined);
+          } else {
+            r = { ok: false, status: 422, error: { message: `vídeo da Página ${pageVid}: reel com música licenciada (2446979) e ${up.erro ?? "upload falhou"}`, code: 100, error_subcode: 2446979, meta_video_id: up.video_id ?? pageVid }, raw: (r as any).raw };
+          }
+        }
         if (!r.ok) {
           an.meta_ad_ids = criados;
           await (admin as any).schema("crm").from("meta_publish_plan")
