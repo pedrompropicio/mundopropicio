@@ -854,10 +854,66 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const igNaoPromovivel = new Map<string, string>();
   // Vídeo do Instagram → post equivalente na Página (object_story_id).
   const igCrossPost = new Map<string, string>();
-  const igMeta = new Map<string, { caption: string; ts: string; tipo: string }>();
-  // Alternativa ao 100/1815279 (definida quando há posts do Instagram no plano).
+  const igMeta = new Map<string, { caption: string; ts: string; tipo: string; media_type?: string; media_url?: string | null; thumbnail_url?: string | null }>();
+  // Alternativa ao 100/1815279 pelo post cruzado da Página — só fora de TRAFFIC
+  // (em Tráfego a Meta recusa sempre com 1815520: post da Página sem link).
   let igAlternativa: ((payload: Record<string, unknown>) => Promise<{ payload: Record<string, unknown> | null; motivo: string }>) | null = null;
   const is1815279 = (e: any) => Number(e?.code) === 100 && Number(e?.error_subcode) === 1815279;
+
+  // Caminho "vídeo carregado" (D-ERP95, opção B 26/09): vídeo do Instagram que a
+  // Meta não aceita directamente é carregado em /{ad_account}/advideos a partir
+  // do media_url e o anúncio usa object_story_spec.video_data. Cache por
+  // media_id dentro do plano (adsets[i].anuncios[k].meta_video_id + origem_ig_media_id).
+  const igVideoCache = new Map<string, string>();
+  for (const a of adsets) for (const an of (a?.anuncios ?? [])) {
+    if (an?.origem_ig_media_id && an?.meta_video_id) igVideoCache.set(String(an.origem_ig_media_id), String(an.meta_video_id));
+  }
+  const igVideoAcesso = new Map<string, string>();
+  const videosCarregados: Array<{ media_id: string; meta_video_id: string; nome: string }> = [];
+  const isIgVideo = (pr: string): boolean => {
+    const m = igMeta.get(pr);
+    return !!m && (m.media_type === "VIDEO" || /REELS|VIDEO/.test(m.tipo));
+  };
+  function buildIgVideoPayload(payload: Record<string, unknown>, videoId: string, link: string | null): Record<string, unknown> {
+    const c = (payload as any)?.creative ?? {};
+    const m = igMeta.get(String(c.source_instagram_media_id ?? ""));
+    const videoData: Record<string, unknown> = { video_id: videoId };
+    if (m?.caption) videoData.message = m.caption.slice(0, 2000);
+    if (m?.thumbnail_url) videoData.image_url = m.thumbnail_url;
+    if (link) videoData.call_to_action = { type: objetivoUpper === "TRAFFIC" ? "LISTEN_NOW" : "LEARN_MORE", value: { link } };
+    const oss: Record<string, unknown> = { page_id: selectedPageId, video_data: videoData };
+    if (selectedInstagramId) oss.instagram_user_id = selectedInstagramId;
+    const creative: Record<string, unknown> = { object_story_spec: oss };
+    if (c.url_tags) creative.url_tags = c.url_tags;
+    return { ...payload, creative };
+  }
+  async function waitVideoReady(vid: string): Promise<{ pronto: boolean; erro?: string; falhou?: boolean }> {
+    const deadline = Date.now() + 180_000;
+    while (true) {
+      const s = await graphGET(`/${vid}`, { fields: "status" }, accessToken, SONG_POST_GRAPH_VERSION);
+      const st = String(s.data?.status?.video_status ?? "");
+      if (st === "ready") return { pronto: true };
+      if (st === "error") return { pronto: false, falhou: true, erro: `a Meta não conseguiu processar o vídeo ${vid}` };
+      if (Date.now() > deadline) return { pronto: false, erro: `o vídeo ${vid} ainda não está pronto na Meta após 3 min (estado: ${st || "desconhecido"}) — fica guardado; tenta retomar daqui a uns minutos` };
+      await new Promise((res) => setTimeout(res, 5000));
+    }
+  }
+  async function uploadIgVideo(pr: string): Promise<{ video_id?: string; pronto: boolean; erro?: string; falhouProcessamento?: boolean }> {
+    let vid = igVideoCache.get(pr) ?? null;
+    if (!vid) {
+      const m = igMeta.get(pr);
+      if (!m?.media_url) return { pronto: false, erro: "a Meta não devolveu o media_url do post (não é possível carregar o vídeo)" };
+      const nome = `[MP] ${target.display_name} — IG ${pr}`;
+      const r = await graphPOST(`/${adAccountId}/advideos`, { file_url: m.media_url, name: nome }, accessToken, SONG_POST_GRAPH_VERSION);
+      if (!r.ok) return { pronto: false, erro: `carregamento do vídeo falhou — ${String((r as any).error?.error_user_msg ?? (r as any).error?.message ?? `HTTP ${(r as any).status}`)}` };
+      vid = String((r as any).data?.id);
+      igVideoCache.set(pr, vid);
+      videosCarregados.push({ media_id: pr, meta_video_id: vid, nome });
+    }
+    const w = await waitVideoReady(vid);
+    if (w.falhou) igVideoCache.delete(pr);
+    return { video_id: vid, pronto: w.pronto, erro: w.erro, falhouProcessamento: !!w.falhou };
+  }
 
   // url_tags do criativo (só alvo música): UTMs geradas pelo motor.
   // Só há UTMs quando há destino efectivo: sem link, url_tags não vai no payload.
@@ -1001,7 +1057,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
   }
 
-  async function logCreate(entity: "campaign" | "adset" | "ad", externalId: string, nome: string): Promise<void> {
+  async function logCreate(entity: "campaign" | "adset" | "ad", externalId: string, nome: string, extra?: Record<string, unknown>): Promise<void> {
     const { error } = await (admin as any).schema("crm").from("meta_entity_actions_log").insert({
       company_id: planRow.company_id,
       connection_id: connectionId,
@@ -1011,7 +1067,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       entity_name: nome || null,
       action: "create",
       new_status: "PAUSED",
-      updates_jsonb: { plan_id: planId, alvo: "song", song_id: (planRow as any).song_id, artist_id: (planRow as any).artist_id },
+      updates_jsonb: { plan_id: planId, alvo: "song", song_id: (planRow as any).song_id, artist_id: (planRow as any).artist_id, ...(extra ?? {}) },
       success: true,
       performed_by: callerUserId,
     });
@@ -1107,7 +1163,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         if (ep?.kind === "instagram_media" && typeof ep.post_ref === "string" && postRefOk.has(ep.post_ref)) igRefs.add(ep.post_ref);
       }
       for (const pr of igRefs) {
-        const g = await graphGET(`/${pr}`, { fields: "id,media_type,media_product_type,caption,timestamp,boost_eligibility_info" }, accessToken, SONG_POST_GRAPH_VERSION);
+        const g = await graphGET(`/${pr}`, { fields: "id,media_type,media_product_type,media_url,thumbnail_url,permalink,caption,timestamp,boost_eligibility_info" }, accessToken, SONG_POST_GRAPH_VERSION);
         if (!g.ok) {
           igNaoPromovivel.set(pr, `a Meta não deixa ler este post do Instagram: ${String(g.data?.error?.message ?? "erro")}`);
           continue;
@@ -1118,7 +1174,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
           igNaoPromovivel.set(pr, `a Meta indica que este post do Instagram (${tipo}) não pode ser anunciado${be.boost_ineligible_reason ? ` — ${be.boost_ineligible_reason}` : ""}`);
           continue;
         }
-        igMeta.set(pr, { caption: String(g.data?.caption ?? ""), ts: String(g.data?.timestamp ?? ""), tipo });
+        igMeta.set(pr, {
+          caption: String(g.data?.caption ?? ""), ts: String(g.data?.timestamp ?? ""), tipo,
+          media_type: String(g.data?.media_type ?? ""),
+          media_url: typeof g.data?.media_url === "string" ? g.data.media_url : null,
+          thumbnail_url: typeof g.data?.thumbnail_url === "string" ? g.data.thumbnail_url : null,
+        });
+        // Vídeo: avisa que, se a Meta não o aceitar directamente, vai ser carregado
+        // no Facebook. Em dry_run/preflight só se testa o acesso ao media_url
+        // (GET de 1 KB) — nunca se carrega nada.
+        if (isIgVideo(pr) && (dryRun || preflight)) {
+          const m = igMeta.get(pr)!;
+          let acesso = "sem media_url";
+          if (m.media_url) {
+            try {
+              const h = await fetch(m.media_url, { headers: { Range: "bytes=0-1023" } });
+              acesso = h.ok ? `media_url acessível (HTTP ${h.status})` : `media_url inacessível (HTTP ${h.status})`;
+              try { await h.body?.cancel(); } catch { /* ignore */ }
+            } catch (e) { acesso = `media_url inacessível (${String((e as Error)?.message ?? e).slice(0, 80)})`; }
+          }
+          igVideoAcesso.set(pr, acesso);
+          avisos.push({ codigo: "video_instagram_sera_carregado", detalhe: `${pr}: se a Meta não o aceitar directamente, vai ser carregado no Facebook como vídeo do anúncio (perde gostos/comentários do post original)${igVideoCache.has(pr) ? ` — já carregado: ${igVideoCache.get(pr)}` : ""}; ${acesso}` });
+        }
       }
       if (igNaoPromovivel.size > 0) {
         if (!dryRun && !preflight) {
@@ -1248,10 +1325,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
           if (ja.length > 0 || an.meta_ad_id) continue;
           const b = buildAdPayloads(a.meta_adset_id, an, resolveLink(a))[0];
           if (!b?.payload) { checks.push({ check: `validar_anuncio_${a.trigger_nome ?? "?"}_${k}`, ok: false, detail: `sem payload: ${JSON.stringify(b?.aviso ?? null)}` }); continue; }
-          const v = await graphPOST(`/${adAccountId}/ads`, { ...b.payload, execution_options: ["validate_only"] }, accessToken, SONG_POST_GRAPH_VERSION);
+          const prV = String(an.existing_post.post_ref);
+          const linkV = resolveLink(a);
+          const vidJa = igVideoCache.get(prV) ?? null;
+          const v = vidJa
+            ? await graphPOST(`/${adAccountId}/ads`, { ...buildIgVideoPayload(b.payload, vidJa, linkV), execution_options: ["validate_only"] }, accessToken, SONG_POST_GRAPH_VERSION)
+            : await graphPOST(`/${adAccountId}/ads`, { ...b.payload, execution_options: ["validate_only"] }, accessToken, SONG_POST_GRAPH_VERSION);
           let okV = v.ok;
-          let detV = v.ok ? "Meta aceita o anúncio (validate_only)" : JSON.stringify(v.error ?? v.raw).slice(0, 400);
-          if (!v.ok && is1815279(v.error) && igAlternativa) {
+          let detV = v.ok
+            ? (vidJa ? `Meta aceita o anúncio com o vídeo já carregado ${vidJa} (validate_only)` : "Meta aceita o anúncio (validate_only)")
+            : JSON.stringify(v.error ?? v.raw).slice(0, 400);
+          if (!v.ok && !vidJa && is1815279(v.error) && isIgVideo(prV)) {
+            okV = true;
+            detV = `a Meta não aceita este vídeo directamente (1815279): na publicação vai ser carregado no Facebook como vídeo do anúncio (perde gostos/comentários do post original). Não carregado em preflight.`;
+          } else if (!v.ok && !vidJa && is1815279(v.error) && igAlternativa && objetivoUpper !== "TRAFFIC") {
             const alt = await igAlternativa(b.payload);
             okV = !!alt.payload;
             detV = alt.payload ? `Meta aceita o anúncio ${alt.motivo} (validate_only)` : alt.motivo;
@@ -1482,8 +1569,39 @@ Deno.serve(async (req: Request): Promise<Response> => {
         // Post existente (alvo música): versão da Graph que suporta o formato actual.
         const cr0 = (payload as any)?.creative ?? {};
         const verAd = isSong && (cr0.source_instagram_media_id || cr0.object_story_id) ? SONG_POST_GRAPH_VERSION : GRAPH_API_VERSION;
-        let r = await graphPOST(`/${adAccountId}/ads`, payload, accessToken, verAd);
-        if (!r.ok && isSong && is1815279(r.error) && igAlternativa) {
+        const prIg: string = isSong ? String(cr0.source_instagram_media_id ?? "") : "";
+        let videoUsado: string | null = null;
+        let r: any;
+        // Vídeo do Instagram já carregado neste plano → usa-o directamente (sem novo upload).
+        if (prIg && igVideoCache.has(prIg)) {
+          const vid = igVideoCache.get(prIg)!;
+          const up = await waitVideoReady(vid);
+          if (!up.pronto) {
+            r = { ok: false, status: 422, error: { message: up.erro, code: 100, error_subcode: 1815279, meta_video_id: vid }, raw: null };
+          } else {
+            videoUsado = vid;
+            r = await graphPOST(`/${adAccountId}/ads`, buildIgVideoPayload(payload, vid, linkEf), accessToken, SONG_POST_GRAPH_VERSION);
+          }
+        } else {
+          r = await graphPOST(`/${adAccountId}/ads`, payload, accessToken, verAd);
+        }
+        if (!r.ok && isSong && prIg && !videoUsado && is1815279(r.error) && isIgVideo(prIg)) {
+          // Caminho "vídeo carregado": POST /advideos com o media_url do Instagram.
+          const up = await uploadIgVideo(prIg);
+          if (up.video_id && !up.falhouProcessamento) {
+            for (const ax of adsetsOut) for (const ay of (ax?.anuncios ?? [])) {
+              if (ay?.existing_post?.post_ref === prIg) { ay.meta_video_id = up.video_id; ay.origem_ig_media_id = prIg; }
+            }
+            await (admin as any).schema("crm").from("meta_publish_plan").update({ adsets: adsetsOut }).eq("id", planId);
+          }
+          if (up.pronto && up.video_id) {
+            videoUsado = up.video_id;
+            avisos.push({ codigo: "video_instagram_carregado_facebook", detalhe: `${prIg} → vídeo ${up.video_id} (perde gostos/comentários do post original)`, adset: a.trigger_nome, ad_idx: k, group_idx: gi });
+            r = await graphPOST(`/${adAccountId}/ads`, buildIgVideoPayload(payload, up.video_id, linkEf), accessToken, SONG_POST_GRAPH_VERSION);
+          } else {
+            r = { ok: false, status: 422, error: { message: `vídeo do Instagram ${prIg}: ${up.erro}`, code: 100, error_subcode: 1815279, meta_video_id: up.video_id ?? null }, raw: (r as any).raw };
+          }
+        } else if (!r.ok && isSong && !videoUsado && is1815279(r.error) && igAlternativa && objetivoUpper !== "TRAFFIC") {
           const alt = await igAlternativa(payload);
           if (alt.payload) {
             avisos.push({ codigo: "video_instagram_via_post_facebook", detalhe: alt.motivo, adset: a.trigger_nome, ad_idx: k, group_idx: gi });
@@ -1496,7 +1614,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           an.meta_ad_ids = criados;
           await (admin as any).schema("crm").from("meta_publish_plan")
             .update({ adsets: adsetsOut }).eq("id", planId);
-          return await failAndStop("create_ad", r.error ?? { message: `HTTP ${r.status}` }, { adset: a.trigger_nome, ad_idx: k, group_idx: gi, raw: r.raw });
+          return await failAndStop("create_ad", r.error ?? { message: `HTTP ${r.status}` }, { adset: a.trigger_nome, ad_idx: k, group_idx: gi, raw: r.raw, videos_carregados: videosCarregados });
         }
         const novoId = r.data.id as string;
         criados[gi] = novoId;
@@ -1505,7 +1623,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         if (gi === 0) an.meta_ad_id = novoId; // back-compat
         await (admin as any).schema("crm").from("meta_publish_plan")
           .update({ adsets: adsetsOut }).eq("id", planId);
-        if (isSong) await logCreate("ad", novoId, String((payload as any)?.name ?? ""));
+        if (isSong) await logCreate("ad", novoId, String((payload as any)?.name ?? ""), videoUsado ? { meta_video_id: videoUsado, origem_ig_media_id: prIg } : undefined);
       }
     }
 
@@ -1524,5 +1642,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     ad_account_numeric: adAccountNumeric,
     adsets: respAdsets,
     avisos,
+    ...(videosCarregados.length > 0 ? { videos_carregados: videosCarregados } : {}),
   });
 });
