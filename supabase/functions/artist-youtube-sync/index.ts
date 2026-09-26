@@ -67,6 +67,12 @@ async function getToken(admin: Admin, connId: string, key: string): Promise<stri
       await admin.from("artist_channel_connections").update({
         status: "expired", last_error: "YouTube: autorização revogada ou expirada — voltar a ligar",
       }).eq("id", connId);
+      // invalid_grant = autorização revogada: conta como "desligado" para o apagamento em 30 dias
+      const { data: conn } = await admin.from("artist_channel_connections").select("artist_channel_id").eq("id", connId).maybeSingle();
+      if (conn?.artist_channel_id) {
+        await admin.from("artist_channels").update({ revoked_at: new Date().toISOString() })
+          .eq("id", conn.artist_channel_id).is("revoked_at", null);
+      }
       throw new YtError("YouTube: autorização revogada ou expirada — voltar a ligar");
     }
     throw new YtError(`renovação do token falhou (HTTP ${res.status})`);
