@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: user } = await userClient.auth.getUser();
+  const { data: user } = await userClient.auth.getUser((req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, ""));
 
   const { data: plan, error: planErr } = await (userClient as any)
     .schema("crm")
