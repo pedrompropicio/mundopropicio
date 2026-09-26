@@ -899,7 +899,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     let r: any = await graphPOST(`/${adAccountId}/ads`, { ...buildIgVideoPayload(payload, vid, link, thumb), ...extra }, accessToken, SONG_POST_GRAPH_VERSION);
     if (!r.ok && link && objetivoUpper === "TRAFFIC") {
       const txt = JSON.stringify(r.error ?? r.raw ?? "");
-      if (/call.?to.?action|cta|LISTEN_NOW/i.test(txt)) {
+      if (/call.?to.?action|cta|LISTEN_NOW|2446880/i.test(txt)) {
         r = await graphPOST(`/${adAccountId}/ads`, { ...buildIgVideoPayload(payload, vid, link, thumb, "LEARN_MORE"), ...extra }, accessToken, SONG_POST_GRAPH_VERSION);
         if (r.ok) r.cta_fallback = "LEARN_MORE";
       }
