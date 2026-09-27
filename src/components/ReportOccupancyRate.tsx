@@ -5,31 +5,74 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from "recharts";
 import { Progress } from "@/components/ui/progress";
+import { fetchAllPaged } from "@/lib/supabase-paging";
+import { fetchTicketlineCutoffs, keepTicketSaleRow, cumulativeWithCutoff } from "@/lib/ticketline-cutoff";
 
 export default function ReportOccupancyRate() {
-  const { data: events = [], isLoading } = useQuery({
-    queryKey: ["occupancy-events"],
+  // Vendidos = acumulado da plataforma (ticket_sales por zona, com o corte dos
+  // eventos Ticketline migrados — regra única em lib/ticketline-cutoff), igual à
+  // capa e à aba Bilheteira. events.tickets_sold NÃO é alimentado por nenhum
+  // caminho (0 em todos os eventos) e deixou de ser lido aqui.
+  // Capacidade = soma de total_capacity das zonas; fallback events.tickets_total.
+  const { data, isLoading } = useQuery({
+    queryKey: ["occupancy-events-v2"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: evs, error } = await supabase
         .from("events")
-        .select("id, name, status, date, tickets_sold, tickets_total, parent_event_id")
+        .select("id, name, status, date, tickets_total, parent_event_id")
         .in("status", ["active", "completed"])
-        .gt("tickets_total", 0)
         .order("date", { ascending: false });
       if (error) throw error;
-      return data;
+      const events = evs ?? [];
+      const ids = events.map((e) => e.id);
+      const zones = ids.length
+        ? await fetchAllPaged<any>((from, to) =>
+            supabase.from("event_ticket_zones").select("id, event_id, total_capacity")
+              .in("event_id", ids).order("id", { ascending: true }).range(from, to))
+        : [];
+      const zoneIds = zones.map((z) => z.id);
+      const sales = zoneIds.length
+        ? await fetchAllPaged<any>((from, to) =>
+            supabase.from("ticket_sales").select("zone_id, quantity, unit_price, sale_date")
+              .in("zone_id", zoneIds).order("id", { ascending: true }).range(from, to))
+        : [];
+      const cutoffs = await fetchTicketlineCutoffs(ids);
+      return { events, zones, sales, cutoffs };
     },
   });
 
   const chartData = useMemo(() => {
-    return events.filter((e) => !e.parent_event_id).map((e) => ({
-      name: e.name.length > 20 ? e.name.slice(0, 18) + "…" : e.name,
-      fullName: e.name,
-      rate: e.tickets_total > 0 ? (e.tickets_sold / e.tickets_total) * 100 : 0,
-      sold: e.tickets_sold,
-      total: e.tickets_total,
-    })).sort((a, b) => b.rate - a.rate);
-  }, [events]);
+    if (!data) return [];
+    const { events, zones, sales, cutoffs } = data;
+    const zoneEvent: Record<string, string> = {};
+    const cap: Record<string, number> = {};
+    zones.forEach((z: any) => {
+      zoneEvent[z.id] = z.event_id;
+      cap[z.event_id] = (cap[z.event_id] ?? 0) + Number(z.total_capacity ?? 0);
+    });
+    const base: Record<string, { qty: number; value: number }> = {};
+    sales.forEach((s: any) => {
+      const eid = zoneEvent[s.zone_id];
+      if (!eid || !keepTicketSaleRow(cutoffs, eid, s.sale_date)) return;
+      const b = (base[eid] ??= { qty: 0, value: 0 });
+      b.qty += Number(s.quantity ?? 0);
+      b.value += Number(s.quantity ?? 0) * Number(s.unit_price ?? 0);
+    });
+    return events
+      .map((e) => {
+        const sold = cumulativeWithCutoff(base[e.id] ?? { qty: 0, value: 0 }, cutoffs.get(e.id)).qty;
+        const total = cap[e.id] > 0 ? cap[e.id] : Number(e.tickets_total ?? 0);
+        return {
+          name: e.name.length > 20 ? e.name.slice(0, 18) + "…" : e.name,
+          fullName: e.name,
+          rate: total > 0 ? (sold / total) * 100 : 0,
+          sold,
+          total,
+        };
+      })
+      .filter((d) => d.total > 0)
+      .sort((a, b) => b.rate - a.rate);
+  }, [data]);
 
   const avgRate = chartData.length > 0 ? chartData.reduce((s, d) => s + d.rate, 0) / chartData.length : 0;
   const chartConfig = { rate: { label: "Ocupação %", color: "hsl(var(--primary))" } };
