@@ -1232,6 +1232,23 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
                     </tr>
                   );
                 })}
+                {cutoffInfo && (
+                  <tr>
+                    <td className="py-2.5 font-medium">
+                      Após {ddmm(cutoffInfo.cutoffDate)} (sem zona)
+                      <span className="block text-[11px] font-normal text-muted-foreground">
+                        Série diária da Ticketline. A repartição por zona está congelada a {ddmm(cutoffInfo.cutoffDate)}.
+                      </span>
+                    </td>
+                    <td className="py-2.5 text-right font-mono font-semibold pl-4">{cutoffInfo.postQty.toLocaleString()}</td>
+                    <td className="py-2.5 text-right font-mono font-semibold text-success pl-4">{formatCurrency(cutoffInfo.postValue)}</td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">—</td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground pl-6">—</td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">—</td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground pl-6">—</td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">—</td>
+                  </tr>
+                )}
               </tbody>
               <tfoot>
                 {(() => {
@@ -1247,6 +1264,10 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
                     },
                     { tickets: 0, revenue: 0, fcTickets: 0, fcValue: 0, cap: 0 },
                   );
+                  if (cutoffInfo) {
+                    tot.tickets += cutoffInfo.postQty;
+                    tot.revenue += cutoffInfo.postValue;
+                  }
                   const devTix = tot.tickets - tot.fcTickets;
                   const devVal = tot.revenue - tot.fcValue;
                   return (
