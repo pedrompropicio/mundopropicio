@@ -16,3 +16,10 @@ Regra nova (v2.41, 2026-09-16, issue #184) — CAPTURA e LEITURA são independen
 - `daily_fallback_active` decide APENAS a precedência de LEITURA (`get_daily_sales_series`, `get_sales_position`, `get_sales_position_by_provider`, `vw_event_daily_sales`) — inalterada.
 - A flag só DESCE por decisão humana (UI ou SQL). O caminho `.xlsx` com sucesso deixou de a pôr a `false` (era o único sítio; anulava a captura e deixou 5 cidades do Ghanem sem vendas de 14/09 a 16/09).
 - Sem alvos, `capture_day` grava uma corrida `status = "skipped"` em `ticketline_sync_runs` com `error_message` explicativo — já não devolve 200 sem rasto.
+
+Decisão de arquitectura (2026-09-27) — ACUMULADO COM CORTE nos eventos migrados:
+- Num evento migrado o acumulado é o histórico congelado até à data do corte mais a série diária depois dela; são períodos disjuntos, com fronteira registada, e isso não viola a doutrina de fontes, que proíbe somar duas fontes para o mesmo período.
+- Marca e fronteira: `ticketline_sync_config.promotores_migrated_at` (timestamptz) + `promotores_cutoff_date` (date, inclusive do lado do `ticket_sales`). Restrição `ticketline_cutoff_requires_migrated`. RG - Lisboa: corte 2026-09-24.
+- Regra numa só função partilhada: `src/lib/ticketline-cutoff.ts` (fetchTicketlineCutoffs / keepTicketSaleRow / cumulativeWithCutoff). Usada na capa, aba Bilheteira, BI de ocupação, lista das bilheteiras, presenças/simulador. DRE e Fecho não usam.
+- A série diária não tem zona: a parte depois do corte entra no total do evento; a repartição por zona e a ocupação ficam congeladas na última leitura e mostram-se sempre com "última leitura DD/MM".
+- `daily_fallback_active` NÃO significa "migrado": liga-se também em eventos não migrados (Almada, Estoril, Albufeira, Santarém) cuja série diária é parcial — começou quando a capture_day arrancou. Usá-la como critério de migrado trocaria o acumulado pela série e tiraria bilhetes (no Almada, um bilhete; no Porto seriam 1.782 se lá estivesse ligada). Só `promotores_migrated_at` decide o corte.
