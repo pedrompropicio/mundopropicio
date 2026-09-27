@@ -10,6 +10,7 @@ import { SalesLogPanel } from "@/components/SalesLogPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { useTicketlineCutoffs, keepTicketSaleRow } from "@/lib/ticketline-cutoff";
 
 interface Props {
   officeId?: string; // if provided, filter to this office only
@@ -66,6 +67,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
   });
 
   const zoneIds = zones.map((z: any) => z.id);
+  const { data: ticketlineCutoffs } = useTicketlineCutoffs(eventIds);
   const zoneEventMap = useMemo(() => {
     const map: Record<string, string> = {};
     zones.forEach((z: any) => { map[z.id] = z.event_id; });
@@ -215,7 +217,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     });
 
     return map;
-  }, [sales, txns, zoneEventMap, lotIvaMap, eventIds, officeId, importLogs]);
+  }, [sales, txns, zoneEventMap, lotIvaMap, eventIds, officeId, importLogs, ticketlineCutoffs]);
 
   const totalRevenue = Object.values(eventSummaries).reduce((s, e) => s + e.revenue, 0);
   const totalExpenses = Object.values(eventSummaries).reduce((s, e) => s + e.expenses, 0);
