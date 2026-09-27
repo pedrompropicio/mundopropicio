@@ -250,7 +250,7 @@ export default function SalesBIEvent() {
       totalRitmo: zones.reduce((s, z) => s + z.ritmo, 0),
       ocupGlobal: totalCarga > 0 ? (totalOcupado / totalCarga) * 100 : null,
       esgotadas: zones.filter((z) => z.porVender === 0).length,
-      capturedAt: zones[0]?.observedOn ?? null,
+      capturedAt: zones.reduce<string | null>((m, z) => (!m || z.observedOn > m ? z.observedOn : m), null),
     };
   }, [capsQ.data, daysLeft, today]);
 

@@ -375,12 +375,13 @@ export default function SalesBIDetail() {
   const sala = useMemo(() => {
     const cap = (capacityQ.data ?? []).find((c) => c.group_id === groupId);
     if (!cap || !cap.trustworthy || !cap.capacity) {
-      return { pct: null as number | null, occupied: null as number | null, capacity: null as number | null, issue: cap?.issue ?? null };
+      return { pct: null as number | null, occupied: null as number | null, capacity: null as number | null, observed: null as string | null, issue: cap?.issue ?? null };
     }
     return {
       pct: (Number(cap.occupied || 0) / Number(cap.capacity)) * 100,
       occupied: Number(cap.occupied || 0),
       capacity: Number(cap.capacity),
+      observed: (cap as any).last_observed ?? null,
       issue: null as string | null,
     };
   }, [capacityQ.data, groupId]);
@@ -509,6 +510,10 @@ export default function SalesBIDetail() {
                   <p className="text-lg font-semibold">{nf1.format(sala.pct)}%</p>
                   <p className="text-xs text-muted-foreground">
                     {int(sala.occupied ?? 0)} de {int(sala.capacity ?? 0)} lugares
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    última leitura {ddmm(sala.observed)}
+                    {(cutoffsQ.data?.size ?? 0) > 0 ? " · cidades migradas com zonas congeladas" : ""}
                   </p>
                 </>
               ) : (
