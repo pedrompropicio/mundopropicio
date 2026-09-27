@@ -1,63 +1,60 @@
-# Leitura: quem muda `profiles.active_company_id` do Pedro
+# Issue #255 — aviso "fatura sem NIF da empresa" (proposta, nada implementado)
 
-Só leitura, sem alterações. Onde não há prova, está escrito "não confirmado".
+## 1. O que já existe e se reutiliza
+- NIF da empresa: `companies.tax_id` (MP = 515274291). Não existe coluna `nif`. O VAT com prefixo (PT515274291) não está guardado: compara-se só pelos dígitos.
+- Leitura de faturas por IA: a função `extract-invoice-total` (Gemini 2.5 Flash, via Lovable AI) já é usada no formulário de transação, na divisão por IVA, no Scanner de Faturas e em cartões. Hoje extrai o NIF do **emitente**. Por instrução, **ignora de propósito o NIF do cliente**. Falta-lhe um campo `customer_nif` / `customer_name`.
+- `extract-camarim-receipt` segue a mesma regra: só lê o emitente.
+- `audit-invoice-groups` já percorre os anexos e chama a `extract-invoice-total`. Serve de molde para o varrimento retroativo e grava os veredictos em `invoice_group_audit` (primeiro corre em modo dry-run).
+- O anexo no TransactionDocumentsModal e a ingestão por API (`ingest-transaction-document`) **não** passam pela leitura por IA.
+- Faturas Ads: o leitor de texto das faturas Meta/Google é determinístico e não tem custo de IA.
+- Custo: uma chamada Flash por documento (1 página em JPEG), da ordem de cêntimos de euro. Não há faturação por documento além do consumo de IA.
 
-## 1) Escritas em `profiles` e `active_company_id` (src/ e supabase/functions/)
+## 2. Onde aparece e se é aviso ou bloqueio
+Concordo com **aviso não bloqueante**. Porquê:
+- Há documentos legítimos sem o NIF da empresa: recibos, talões pequenos, comprovativos de transferência, contratos.
+- A leitura por IA pode falhar.
+- Um bloqueio travaria o pagamento, que é um problema diferente da dedutibilidade.
 
-A única escrita de `active_company_id` é:
-- `src/hooks/useCompany.ts:208` — `supabase.rpc("set_active_company", { target_company_id: companyId })`, dentro do `mutationFn` de `useSetActiveCompany()`.
-- Só tem um sítio que a chama: `src/components/CompanySwitcher.tsx:44` (`const setActive = useSetActiveCompany();`), usado em `handleSelect`.
+Pontos de aviso:
+- a) TransactionDocumentsModal: depois do upload, lê em segundo plano e mostra o badge "sem NIF da empresa" no anexo e na transação.
+- b) `ingest-transaction-document`: lê de forma assíncrona e grava o resultado. A resposta da API não muda.
+- c) Scanner de Faturas: aviso logo a seguir à leitura, antes de gravar, porque a leitura já acontece aí.
+- d) Faturas Ads: fica de fora. As contas Meta e Google estão em nome da MP e a leitura do texto confirma o cliente sem custo. Opcional: verificar o NIF no texto já lido.
 
-Outras escritas em `profiles`, nenhuma delas toca `active_company_id`:
-- `supabase/functions/create-staff/index.ts:84` — `admin.from("profiles").upsert({ id: newUserId, ..., company_id: companyId, ... })`. Corre quando alguém cria staff de operação, e escreve o perfil do utilizador novo, não o do Pedro.
-- `supabase/functions/create-user/index.ts:151` e `:292` — `.update({ is_operacao_only: true })`. Corre quando se cria um utilizador.
-- `src/components/operacao/shared/NewProfileInlineDialog.tsx:54` e `src/components/operacao/equipa/NewProducerDialog.tsx:59` — `.update({ phone })`. Corre por clique num diálogo.
+Invariante novo `docs_sem_nif_empresa`: conta as despesas **com IVA maior que 0** cujo documento contabilístico foi lido e não traz o NIF da empresa. Aparece como aviso, nunca como erro.
 
-Todos os outros resultados do grep são leituras (`select("company_id, active_company_id")`), nas edge functions (#241) e em `MetaAudiencesList.tsx:121/329`.
+## 3. Onde se grava (não voltar a ler)
+Recomendado: **tabela nova `transaction_document_checks`** com:
+- `document_id` (único) e `company_id`;
+- `customer_nif_found`, `customer_name_found` e `matches_company` (sim / não / não lido);
+- `doc_kind`, `model`, `checked_at`;
+- `file_hash`, para não repetir a leitura se o mesmo ficheiro for anexado de novo.
 
-No código do ERP não há `from('profiles').update(...)` com `active_company_id`, nem nenhum `upsert` que o inclua.
+Porquê tabela e não coluna em `transaction_documents`: não mexe numa tabela crítica (partilhada com o Portal do Sócio), guarda o histórico e permite a "decisão humana" (marcar "aceite sem NIF", como o `fora_sistema` das Ads). Mesmo padrão de permissões de acesso (RLS) por empresa. Exige DDL, que precisa da tua autorização.
 
-## 2) `user_activity_log`: os dois formatos vêm do mesmo front
+Standalone invoices: acrescentar `customer_nif` à mesma chamada e gravar num campo em `standalone_invoices`, ou na mesma tabela de verificações.
 
-Só há um escritor, `src/hooks/useActivityTracker.ts:61`:
-```
-.from("user_activity_log").insert({ user_id: user.id, page })
-```
-Onde corre: `App.tsx:311` e `PartnerLayout.tsx:17`. É disparado em cada mudança de `location.pathname`, com `force=true` (linhas 71-78), a cada 15 s em modo heartbeat, e com rato, teclado, scroll e foco (limitado a um registo por 30 s).
+## 4. Documentos já anexados
+Em Live: 1.681 documentos. Destes, 1.676 são ficheiros (os restantes são referências `ref://`), 1.557 são PDF e 1.400 estão marcados como contabilísticos. Todos foram carregados em 2026.
+- Varrimento com uma função nova `audit-company-nif`, no molde da `audit-invoice-groups`: dry-run, por lotes, só admin.
+- Âmbito recomendado: só os contabilísticos de despesas, cerca de 1.400. Estimativa de 1 a 3 cêntimos cada, ou seja **cerca de 15 a 40 €** e 1 a 2 horas por lotes. É uma estimativa, não uma medição: medir primeiro num lote de 50.
 
-**Os nomes e os caminhos vêm da mesma função**, `resolvePageLabel` (linhas 24-35):
-- `"/"` dá `"Dashboard"`; `/eventos/...` dá `"Detalhe Evento"`.
-- Rotas que não estão em `PAGE_LABELS` gravam o caminho cru (`return pathname;`).
-- `/erp` (`App.tsx:521`, `<Route path="/erp" element={<Index />} />`) e `/scanner-faturas` (`App.tsx:542`) não estão mapeadas. Por isso aparecem como caminho.
+## 5. Esforço e riscos
+Esforço: cerca de 2 a 3 dias.
+- Campo novo na leitura por IA (meio dia).
+- Tabela, RLS e invariante (meio dia).
+- Aviso no modal e no Scanner, e badge (1 dia).
+- Varrimento e página de resultados (meio dia a 1 dia).
 
-Conclusão: os dois formatos vêm do mesmo front (este ERP). Não provam que haja dois fronts.
+Riscos:
+- PDFs digitalizados: a leitura só vê a 1.ª página e a morada do cliente pode estar noutra. Nesse caso fica "não lido", que não é o mesmo que "não tem".
+- Faturas estrangeiras: aceitar PT515274291, "VAT PT 515 274 291" e variantes, comparando só os dígitos depois de retirar o prefixo PT. Guardar os VAT alternativos numa lista de identificadores da empresa, em vez de os fixar no código.
+- A IA confundir o NIF do emitente com o do cliente: a instrução pede os dois em separado e só se aceita "sim" quando aparece o nome ou o NIF da empresa.
+- Multi-empresa: a comparação usa sempre o `tax_id` da empresa ativa do documento, nunca um valor fixo.
+- Falsos positivos em recibos e comprovativos: o invariante só conta faturas com IVA maior que 0.
 
-**O `company_id` não é enviado pelo front.** A coluna tem por omissão `current_company_id()`, e o trigger `trg_set_company_id BEFORE INSERT ... set_company_id_on_insert()` preenche-a. Ou seja, o valor gravado é o que a base resolve a partir do perfil no instante do INSERT. O log mostra a empresa activa nesse momento; não mostra quem a mudou.
-
-## 3) `CompanySwitcher` / `useSetActiveCompany`: pode disparar sem clique?
-
-- `handleSelect` só é chamado em `onSelect={() => handleSelect(c.id)}` de um `CommandItem`, dentro de um `Popover` (cmdk). Não é um `Select` com `onValueChange`. Não há `useEffect` que o chame.
-- Quando a empresa do perfil não está na lista, o código só muda o rótulo para "Escolher empresa" (`profileCompanyUnavailable`, linhas 100-107). Não escreve nada.
-- Não encontrei nenhum efeito que "corrija" a empresa activa. O comentário em `useCompany.ts:139` diz o mesmo: "O ERP NUNCA grava ... por iniciativa própria".
-- **Depois de trocar há redirecção para o Dashboard:** `navigate("/", { replace: true });` (linha 86). A mudança de pathname gera logo um registo `"Dashboard"` com `force=true`.
-- Não confirmado: se o cmdk pode disparar `onSelect` sem clique, por exemplo com Enter no campo de procura quando há um item destacado. Isso exige o popover aberto e uma tecla, portanto é sempre uma acção do utilizador.
-
-## 4) Login, OAuth, convites e app desktop
-
-- Grep por `set_active_company` / `active_company_id` nas funções `*oauth*` e `*callback*`, em `AcceptInvitation.tsx` e em `src/contexts`: 0 escritas.
-- Os callbacks OAuth (Meta, Google, TikTok, artistas) não gravam o perfil do utilizador.
-- Não há wrapper desktop no repositório (sem electron nem tauri). `public/manifest.webmanifest` tem `"display": "standalone"`: a "app MP Gestão" é o PWA e carrega o mesmo bundle publicado.
-
-## 5) Conclusão sobre as mudanças às 03:18:47 e 03:22:29 de 23/09
-
-- Neste repositório só há um caminho de escrita: um clique numa empresa do `CompanySwitcher`. A sequência é o RPC `set_active_company`, depois `navigate("/")`, depois o log `"Dashboard"` já com a empresa nova (via `current_company_id()`).
-- Esse padrão bate exactamente com o observado: a mudança coincide sempre com um `"Dashboard"`.
-- Neste repositório não existe caminho de escrita sem clique.
-- A sequência também é compatível com outra coisa: a escrita foi feita noutro lado (Gestão Artística, portal, ou um `.update` directo permitido pela policy "Users can update own profile") e o ERP só registou a navegação seguinte. Neste caso, o `"Dashboard"` apareceria só se o Pedro fosse para `/` por outro motivo. Não confirmado: o log não guarda quem escreveu.
-- `profiles` não tem trigger de auditoria em `active_company_id`. Por isso, com os dados actuais não se consegue provar qual das duas hipóteses aconteceu.
-
-## Próximo passo proposto (precisa da tua autorização; não está feito)
-
-1. Uma migração com um trigger de auditoria `AFTER UPDATE OF active_company_id ON public.profiles`. Grava em `system_audit_log` o valor antigo e o novo, o `auth.uid()`, o `current_setting('request.headers')` (origin e user-agent) e se a escrita veio do RPC ou de um UPDATE directo, via uma flag `set_config` posta dentro de `set_active_company`.
-2. Opcional, e decisão tua: apertar a policy "Users can update own profile" com um `WITH CHECK` que impeça mudar `active_company_id` fora do RPC.
-3. Opcional: acrescentar `"/erp"` e `"/scanner-faturas"` a `PAGE_LABELS`, para o log deixar de misturar os dois formatos.
+## Decisões para o Pedro
+1. Aviso não bloqueante mais invariante. Recomendado: sim.
+2. Guardar numa tabela nova ou numa coluna em `transaction_documents`. Recomendado: tabela nova.
+3. Âmbito do varrimento: só contabilísticos de despesas, ou todos. Recomendado: só contabilísticos de despesas, com um piloto de 50.
+4. Faturas Ads fora do âmbito. Recomendado: sim.
