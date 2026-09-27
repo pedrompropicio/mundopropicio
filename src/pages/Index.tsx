@@ -24,6 +24,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { Progress } from "@/components/ui/progress";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { useTicketlineCutoffs, keepTicketSaleRow, ddmm } from "@/lib/ticketline-cutoff";
 
 interface EnrichedEvent {
   id: string;
@@ -290,6 +291,8 @@ export default function Dashboard() {
       return all;
     },
   });
+
+  const { data: ticketlineCutoffs } = useTicketlineCutoffs((events as any[]).map((e) => e.id));
 
   const { data: ticketZones = [] } = useQuery({
     queryKey: ["dashboard_ticket_zones", companyId],
