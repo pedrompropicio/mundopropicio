@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { keepLatestFeverImportRows } from "@/lib/ticket-sales-batch-filter";
+import { useTicketlineCutoffs, keepTicketSaleRow } from "@/lib/ticketline-cutoff";
 
 /**
  * Fonte canónica de "público por dia" para um evento.
@@ -40,6 +41,8 @@ export interface UseEventAttendanceResult {
   totalsByZone: Record<string, number>;
   /** Total geral (Σ dias). */
   grandTotal: number;
+  /** Eventos Ticketline migrados: bilhetes da série diária depois do corte (sem zona; já incluídos em grandTotal). */
+  postCutoffPaying?: number;
   /** Datas do evento ordenadas. */
   dates: { id: string; date: string; day_index: number }[];
 }
@@ -106,6 +109,10 @@ export function useEventAttendance(
     enabled: zoneIds.length > 0,
   });
 
+  // Acumulado com corte (eventos Ticketline migrados) — regra em lib/ticketline-cutoff.
+  const { data: ticketlineCutoffs } = useTicketlineCutoffs(eventId ? [eventId] : []);
+  const cutoffInfo = eventId ? ticketlineCutoffs?.get(eventId) : undefined;
+
   const { data: realSales = [] } = useQuery({
     queryKey: ["event_real_sales_attendance", eventId, zoneIds.join(",")],
     queryFn: async () => {
@@ -114,7 +121,7 @@ export function useEventAttendance(
       const data = await fetchAllPaged<any>((from, to) =>
         supabase
           .from("ticket_sales")
-          .select("zone_id, lot_id, quantity, financial_account_id, source, import_batch_id, created_at")
+          .select("zone_id, lot_id, quantity, financial_account_id, source, import_batch_id, created_at, sale_date")
           .in("zone_id", zoneIds)
           .order("id", { ascending: true })
           .range(from, to),
@@ -217,6 +224,7 @@ export function useEventAttendance(
     if (scenario === "real") {
       for (const s of realSales as any[]) {
         if (!s.zone_id) continue;
+        if (!keepTicketSaleRow(ticketlineCutoffs, eventId, s.sale_date)) continue;
         movements.push({ zone_id: s.zone_id, lot_id: s.lot_id ?? null, qty: Number(s.quantity || 0) });
       }
     } else {
@@ -290,13 +298,21 @@ export function useEventAttendance(
       grand += c.total;
     }
 
+    // Série diária depois do corte: sem zona → entra só no total (e no dia, se o evento tem 1 dia).
+    const postCutoffPaying = scenario === "real" && cutoffInfo ? cutoffInfo.postQty : 0;
+    if (postCutoffPaying > 0) {
+      grand += postCutoffPaying;
+      if (dates.length === 1) totalsByDay[dates[0].day_index] = (totalsByDay[dates[0].day_index] ?? 0) + postCutoffPaying;
+    }
+
     return {
       isLoading: false,
       cells: cells.sort((a, b) => a.day_index - b.day_index || a.zone_name.localeCompare(b.zone_name)),
       totalsByDay,
       totalsByZone,
       grandTotal: grand,
+      postCutoffPaying,
       dates,
     };
-  }, [eventId, scenario, dates, sessions, zones, lots, realSales, courtesies, loadingDates]);
+  }, [eventId, scenario, dates, sessions, zones, lots, realSales, courtesies, loadingDates, cutoffInfo]);
 }

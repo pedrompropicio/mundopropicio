@@ -28,6 +28,7 @@ import { Sparkles } from "lucide-react";
 import { isComboAllowed, coerceLotKind } from "@/lib/combo-gating";
 import { computeZoneAllocations, validateLotAgainstCapacity } from "@/lib/combo-capacity";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
+import { useTicketlineCutoffs, keepTicketSaleRow, ddmm } from "@/lib/ticketline-cutoff";
 
 interface Props {
   eventId: string;
@@ -186,8 +187,11 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
 
   // Vendas REAIS agregadas por zona (todas as sources de ticket_sales) — 1 query, sem N+1.
   const zoneIdsKey = (allZones as any[]).map((z) => z.id).sort().join(",");
+  // Acumulado com corte (eventos Ticketline migrados) — regra em lib/ticketline-cutoff.
+  const { data: ticketlineCutoffs, isSuccess: cutoffsReady } = useTicketlineCutoffs([eventId]);
+  const cutoffInfo = ticketlineCutoffs?.get(eventId);
   const { data: realSalesByZone = {} } = useQuery({
-    queryKey: ["event_ticket_sales_by_zone", eventId, zoneIdsKey],
+    queryKey: ["event_ticket_sales_by_zone", eventId, zoneIdsKey, cutoffInfo?.cutoffDate ?? null],
     queryFn: async () => {
       const zoneIds = (allZones as any[]).map((z) => z.id);
       if (zoneIds.length === 0) return {} as Record<string, { tickets: number; revenue: number }>;
@@ -195,7 +199,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       const data = await fetchAllPaged<any>((from, to) =>
         supabase
           .from("ticket_sales")
-          .select("zone_id, quantity, unit_price, total_value")
+          .select("zone_id, quantity, unit_price, total_value, sale_date")
           .in("zone_id", zoneIds)
           .order("id", { ascending: true })
           .range(from, to),
@@ -203,6 +207,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       const acc: Record<string, { tickets: number; revenue: number }> = {};
       for (const s of (data ?? []) as any[]) {
         if (!s.zone_id) continue;
+        if (!keepTicketSaleRow(ticketlineCutoffs, eventId, s.sale_date)) continue;
         const cur = acc[s.zone_id] ?? { tickets: 0, revenue: 0 };
         cur.tickets += Number(s.quantity ?? 0);
         cur.revenue +=
@@ -211,7 +216,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       }
       return acc;
     },
-    enabled: (allZones as any[]).length > 0,
+    enabled: (allZones as any[]).length > 0 && cutoffsReady,
   });
 
   // Fetch event data for last_sales_date + event_type + parent (gating do Combo)
@@ -1227,6 +1232,23 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
                     </tr>
                   );
                 })}
+                {cutoffInfo && (
+                  <tr>
+                    <td className="py-2.5 font-medium">
+                      Após {ddmm(cutoffInfo.cutoffDate)} (sem zona)
+                      <span className="block text-[11px] font-normal text-muted-foreground">
+                        Série diária da Ticketline. A repartição por zona está congelada a {ddmm(cutoffInfo.cutoffDate)}.
+                      </span>
+                    </td>
+                    <td className="py-2.5 text-right font-mono font-semibold pl-4">{cutoffInfo.postQty.toLocaleString()}</td>
+                    <td className="py-2.5 text-right font-mono font-semibold text-success pl-4">{formatCurrency(cutoffInfo.postValue)}</td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">—</td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground pl-6">—</td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">—</td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground pl-6">—</td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">—</td>
+                  </tr>
+                )}
               </tbody>
               <tfoot>
                 {(() => {
@@ -1242,6 +1264,10 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
                     },
                     { tickets: 0, revenue: 0, fcTickets: 0, fcValue: 0, cap: 0 },
                   );
+                  if (cutoffInfo) {
+                    tot.tickets += cutoffInfo.postQty;
+                    tot.revenue += cutoffInfo.postValue;
+                  }
                   const devTix = tot.tickets - tot.fcTickets;
                   const devVal = tot.revenue - tot.fcValue;
                   return (

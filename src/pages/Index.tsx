@@ -24,6 +24,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { Progress } from "@/components/ui/progress";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { useTicketlineCutoffs, keepTicketSaleRow, ddmm } from "@/lib/ticketline-cutoff";
 
 interface EnrichedEvent {
   id: string;
@@ -291,6 +292,8 @@ export default function Dashboard() {
     },
   });
 
+  const { data: ticketlineCutoffs } = useTicketlineCutoffs((events as any[]).map((e) => e.id));
+
   const { data: ticketZones = [] } = useQuery({
     queryKey: ["dashboard_ticket_zones", companyId],
     enabled: !!companyId,
@@ -385,9 +388,25 @@ export default function Dashboard() {
     });
 
     const salesMap: Record<string, SalesBreakdown> = {};
-    ticketSales.forEach((ts: any) => {
+    // Acumulado com corte (eventos Ticketline migrados) — regra em lib/ticketline-cutoff.
+    const cutoffs = ticketlineCutoffs;
+    const postCutoffRows: any[] = [];
+    cutoffs?.forEach((info) => {
+      for (const d of info.postDays) {
+        postCutoffRows.push({
+          event_ticket_zones: { event_id: info.eventId },
+          zone_id: null,
+          __zone_label: `Após ${ddmm(info.cutoffDate)} (sem zona)`,
+          quantity: d.qty,
+          total_value: d.value,
+          sale_date: d.date,
+        });
+      }
+    });
+    [...ticketSales, ...postCutoffRows].forEach((ts: any) => {
       const eventId = ts.event_ticket_zones?.event_id;
       if (!eventId) return;
+      if (!ts.__zone_label && !keepTicketSaleRow(cutoffs, eventId, ts.sale_date)) return;
       if (!salesMap[eventId]) {
         salesMap[eventId] = {
           qty: 0, revenue: 0, yesterday: 0, last7d: 0,
@@ -406,7 +425,7 @@ export default function Dashboard() {
       // Combos (ex.: Passe 2 dias) ficam atribuídos à zona de origem do lote
       // — não espalhamos qty/rev pelas zonas consumidas, senão não bate com o
       // ficheiro da bilheteira.
-      const zName = (ts.zone_id && zoneInfo[ts.zone_id]?.name) || "Sem zona";
+      const zName = ts.__zone_label || (ts.zone_id && zoneInfo[ts.zone_id]?.name) || "Sem zona";
 
       const saleDate: string | undefined = ts.sale_date;
       const inYesterday = saleDate === yesterdayISO;
@@ -496,7 +515,7 @@ export default function Dashboard() {
     };
 
     return { planning, active, completed, yearAccum };
-  }, [events, transactions, ticketSales, ticketZones, ticketLots, forecasts, eventDates]);
+  }, [events, transactions, ticketSales, ticketZones, ticketLots, forecasts, eventDates, ticketlineCutoffs]);
 
   if (isLoading) {
     return (

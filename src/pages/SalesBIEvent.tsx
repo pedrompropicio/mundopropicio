@@ -20,6 +20,7 @@ import { netOfIva, useEventIvaRates } from "@/hooks/useEventIvaRates";
 import { fetchZoneCapacities, type ZoneCapacityRow } from "@/lib/zone-capacities";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ZoneLotsPrices from "@/components/sales/ZoneLotsPrices";
+import { useTicketlineCutoffs, keepTicketSaleRow, cumulativeWithCutoff, ddmm } from "@/lib/ticketline-cutoff";
 
 const nfInt = new Intl.NumberFormat("pt-PT");
 const nfMoney = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -119,6 +120,35 @@ export default function SalesBIEvent() {
   });
 
   const hasSnaps = (capsQ.data?.length ?? 0) > 0;
+
+  // Acumulado com corte (eventos Ticketline migrados) — regra em lib/ticketline-cutoff.
+  const cutoffsQ = useTicketlineCutoffs(eventId ? [eventId] : []);
+  const cutoffInfo = eventId ? cutoffsQ.data?.get(eventId) : undefined;
+  const cumulativeQ = useQuery({
+    queryKey: ["bi-event-cumulative-cutoff", eventId, cutoffInfo?.cutoffDate ?? null],
+    enabled: !!eventId && !!cutoffInfo,
+    queryFn: async () => {
+      const { data: zs, error } = await supabase.from("event_ticket_zones").select("id").eq("event_id", eventId);
+      if (error) throw error;
+      const zoneIds = (zs ?? []).map((z: any) => z.id);
+      if (zoneIds.length === 0) return cumulativeWithCutoff({ qty: 0, value: 0 }, cutoffInfo);
+      const rows = await fetchAllPaged<any>((from, to) =>
+        supabase
+          .from("ticket_sales")
+          .select("quantity, unit_price, total_value, sale_date")
+          .in("zone_id", zoneIds)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
+      const base = { qty: 0, value: 0 };
+      for (const r of rows as any[]) {
+        if (!keepTicketSaleRow(cutoffsQ.data, eventId, r.sale_date)) continue;
+        base.qty += Number(r.quantity ?? 0);
+        base.value += r.total_value != null ? Number(r.total_value) : Number(r.quantity ?? 0) * Number(r.unit_price ?? 0);
+      }
+      return cumulativeWithCutoff(base, cutoffInfo);
+    },
+  });
 
   const zonesQ = useQuery({
     queryKey: ["bi-event-zones", eventId],
@@ -220,7 +250,7 @@ export default function SalesBIEvent() {
       totalRitmo: zones.reduce((s, z) => s + z.ritmo, 0),
       ocupGlobal: totalCarga > 0 ? (totalOcupado / totalCarga) * 100 : null,
       esgotadas: zones.filter((z) => z.porVender === 0).length,
-      capturedAt: zones[0]?.observedOn ?? null,
+      capturedAt: zones.reduce<string | null>((m, z) => (!m || z.observedOn > m ? z.observedOn : m), null),
     };
   }, [capsQ.data, daysLeft, today]);
 
@@ -342,13 +372,27 @@ export default function SalesBIEvent() {
           <TabsContent value="geral" className="space-y-4">
           {zonesModel ? (
         <>
+          {cutoffInfo && (
+            <Card className="border-warning/40 p-3 text-sm">
+              <p className="font-medium">
+                Bilhetes vendidos (acumulado actual):{" "}
+                {cumulativeQ.data ? `${int(cumulativeQ.data.qty)} · ${money(cumulativeQ.data.value)}` : "…"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                A Ticketline migrou este evento. O total do evento é actual: histórico até {ddmm(cutoffInfo.cutoffDate)}
+                {" "}mais a série diária depois dessa data. A repartição por zona e a ocupação abaixo estão congeladas
+                {" "}na última leitura ({ddmm(zonesModel.capturedAt)}) e não são de hoje.
+              </p>
+            </Card>
+          )}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
-            <Kpi label="Carga total" value={int(zonesModel.totalCarga)} />
-            <Kpi label="Ocupado" value={int(zonesModel.totalOcupado)} />
-            <Kpi label="Lugares por vender" value={int(zonesModel.totalPorVender)} />
+            <Kpi label="Carga total" value={int(zonesModel.totalCarga)} sub={`última leitura ${ddmm(zonesModel.capturedAt)}`} />
+            <Kpi label="Ocupado" value={int(zonesModel.totalOcupado)} sub={`última leitura ${ddmm(zonesModel.capturedAt)}`} />
+            <Kpi label="Lugares por vender" value={int(zonesModel.totalPorVender)} sub={`última leitura ${ddmm(zonesModel.capturedAt)}`} />
             <Kpi
               label="Ocupação da sala"
               value={zonesModel.ocupGlobal !== null ? pct(zonesModel.ocupGlobal) : "—"}
+              sub={`última leitura ${ddmm(zonesModel.capturedAt)}`}
             />
             <Kpi label="Saíram nos últimos 7 dias" value={int(zonesModel.totalSaiu)} />
             <Kpi label="Ritmo diário" value={`${nf1.format(zonesModel.totalRitmo)}/dia`} />

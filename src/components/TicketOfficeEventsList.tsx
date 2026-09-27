@@ -10,6 +10,7 @@ import { SalesLogPanel } from "@/components/SalesLogPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { useTicketlineCutoffs, keepTicketSaleRow } from "@/lib/ticketline-cutoff";
 
 interface Props {
   officeId?: string; // if provided, filter to this office only
@@ -66,6 +67,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
   });
 
   const zoneIds = zones.map((z: any) => z.id);
+  const { data: ticketlineCutoffs } = useTicketlineCutoffs(eventIds);
   const zoneEventMap = useMemo(() => {
     const map: Record<string, string> = {};
     zones.forEach((z: any) => { map[z.id] = z.event_id; });
@@ -152,10 +154,14 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     const map: Record<string, { revenue: number; ivaRevenue: number; expenses: number; ivaExpenses: number; qty: number; firstSaleDate: string | null; lastSaleDate: string | null; lastImportDate: string | null; importPeriodFrom: string | null; importPeriodTo: string | null }> = {};
     eventIds.forEach((eid) => { map[eid] = { revenue: 0, ivaRevenue: 0, expenses: 0, ivaExpenses: 0, qty: 0, firstSaleDate: null, lastSaleDate: null, lastImportDate: null, importPeriodFrom: null, importPeriodTo: null }; });
 
+    // Acumulado com corte (eventos Ticketline migrados) — regra em lib/ticketline-cutoff.
+    const officeMatched = new Set<string>();
     sales.forEach((s: any) => {
       const eventId = zoneEventMap[s.zone_id];
       if (!eventId || !map[eventId]) return;
       if (officeId && s.financial_account_id && s.financial_account_id !== officeId) return;
+      officeMatched.add(eventId);
+      if (!keepTicketSaleRow(ticketlineCutoffs, eventId, s.sale_date)) return;
       const lineTotal = s.quantity * Number(s.unit_price);
       map[eventId].revenue += lineTotal;
       map[eventId].qty += s.quantity;
@@ -171,6 +177,20 @@ export function TicketOfficeEventsList({ officeId }: Props) {
           map[eventId].ivaRevenue += lineTotal - lineTotal / (1 + rate / 100);
         }
       }
+    });
+
+    // Série diária depois do corte: entra no total do evento (sem zona).
+    // Com filtro de bilheteira, só se o evento vende por essa bilheteira.
+    ticketlineCutoffs?.forEach((info) => {
+      const entry = map[info.eventId];
+      if (!entry || info.postQty === 0) return;
+      if (officeId && !officeMatched.has(info.eventId)) return;
+      const ivaShare = entry.revenue > 0 ? entry.ivaRevenue / entry.revenue : 0;
+      entry.qty += info.postQty;
+      entry.revenue += info.postValue;
+      entry.ivaRevenue += info.postValue * ivaShare;
+      const last = info.postDays[info.postDays.length - 1]?.date ?? null;
+      if (last && (!entry.lastSaleDate || last > entry.lastSaleDate)) entry.lastSaleDate = last;
     });
 
     // Attach import log info
@@ -197,7 +217,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     });
 
     return map;
-  }, [sales, txns, zoneEventMap, lotIvaMap, eventIds, officeId, importLogs]);
+  }, [sales, txns, zoneEventMap, lotIvaMap, eventIds, officeId, importLogs, ticketlineCutoffs]);
 
   const totalRevenue = Object.values(eventSummaries).reduce((s, e) => s + e.revenue, 0);
   const totalExpenses = Object.values(eventSummaries).reduce((s, e) => s + e.expenses, 0);
