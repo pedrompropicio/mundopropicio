@@ -27,6 +27,7 @@ import { exportEventSalesPdf, type EventSalesPdfVariant } from "@/lib/export-eve
 import { fetchZoneCapacities, totalsByEvent } from "@/lib/zone-capacities";
 import { traction, type Traction } from "@/lib/traction";
 import { salesAvgDays, salesAvgDaysLabel } from "@/lib/sales-avg-days";
+import { useTicketlineCutoffs, ddmm } from "@/lib/ticketline-cutoff";
 
 
 const nfInt = new Intl.NumberFormat("pt-PT");
@@ -237,6 +238,8 @@ export default function SalesBIDetail() {
     queryFn: async () => totalsByEvent(await fetchZoneCapacities(eventIds)),
   });
 
+  const cutoffsQ = useTicketlineCutoffs(eventIds);
+
   const isLoading = seriesQ.isLoading || eventsQ.isLoading;
 
   const model = useMemo(() => {
@@ -342,6 +345,7 @@ export default function SalesBIDetail() {
           salaCapacity: t && t.capacity > 0 ? t.capacity : null,
           salaOccupied: t && t.capacity > 0 ? t.occupied : null,
           salaPct: t && t.capacity > 0 ? (t.occupied / t.capacity) * 100 : null,
+          salaObserved: t?.lastObserved ?? null,
         };
       })
       .sort((a, b) => b.qty - a.qty);
@@ -578,6 +582,10 @@ export default function SalesBIDetail() {
                             {nf1.format(c.salaPct)}%
                             <span className="block text-xs text-muted-foreground">
                               {int(c.salaOccupied ?? 0)} de {int(c.salaCapacity ?? 0)}
+                            </span>
+                            <span className="block text-[10px] text-muted-foreground">
+                              última leitura {ddmm(c.salaObserved)}
+                              {cutoffsQ.data?.has(c.id) ? " · zonas congeladas" : ""}
                             </span>
                           </>
                         ) : (
