@@ -14320,6 +14320,8 @@ export type Database = {
           last_run_at: string | null
           last_run_status: string | null
           organization_name: string
+          promotores_cutoff_date: string | null
+          promotores_migrated_at: string | null
           sales_start_date: string | null
           ticketline_event_id: string
           ticketline_report_codes: string | null
@@ -14336,6 +14338,8 @@ export type Database = {
           last_run_at?: string | null
           last_run_status?: string | null
           organization_name?: string
+          promotores_cutoff_date?: string | null
+          promotores_migrated_at?: string | null
           sales_start_date?: string | null
           ticketline_event_id: string
           ticketline_report_codes?: string | null
@@ -14352,6 +14356,8 @@ export type Database = {
           last_run_at?: string | null
           last_run_status?: string | null
           organization_name?: string
+          promotores_cutoff_date?: string | null
+          promotores_migrated_at?: string | null
           sales_start_date?: string | null
           ticketline_event_id?: string
           ticketline_report_codes?: string | null
