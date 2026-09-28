@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from "react";
+import { OffsetLineNote } from "@/components/TransactionOffsetsBlock";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -3084,6 +3085,7 @@ function ApproveModal({
                            {tx && isInternalNoIban(tx) && <NoIbanBadge className="ml-1.5" variant="neutral" {...internalNoIbanBadgeProps()} />}
                            {tx && isSocialSecurityByNif(tx) && <NoIbanBadge className="ml-1.5" variant="neutral" {...socialSecurityBadgeProps()} />}
                            {tx?.specification && <p className="text-[11px] text-muted-foreground">{tx.specification}</p>}
+                           {tx && <OffsetLineNote txId={tx.id} />}
                            {bpCheck.exceeds && (
                              <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={txAmount} /></div>
                            )}

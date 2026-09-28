@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency } from "@/lib/mock-data";
 import { Link2, Trash2 } from "lucide-react";
 import {
   createOffset,
