@@ -1,3 +1,4 @@
+import { cacheImpactOnTopOfCost } from "@/lib/event-cost-basis";
 /**
  * Card de Lucro na capa do evento (#223, regra final do dono do negócio).
  *
@@ -109,7 +110,7 @@ export function useEventContractResult(
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select(
-          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description, vat_non_recoverable",
+          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description, vat_non_recoverable, formula_type, cache_config_id",
         )
         .in("event_id", allEventIds)
         .eq("status", "approved")
@@ -165,11 +166,13 @@ export function useEventContractResult(
       ticketSales,
       basis: { includeOverhead: basis.includeOverhead, expenseSource: basis.expenseSource },
     });
+    // #259: cachê só por cima quando o módulo não está já nas linhas de BP.
+    const cacheOnTop = cacheImpactOnTopOfCost(cacheImpact, forecasts as any[], basis.expenseSource);
     return computeContractBasisResult(
       {
         revenueNet: totals.revenueNet,
-        expensesNet: totals.expensesNet + cacheImpact,
-        expensesGross: totals.expensesGross + cacheImpact,
+        expensesNet: totals.expensesNet + cacheOnTop,
+        expensesGross: totals.expensesGross + cacheOnTop,
       },
       (event as any)?.partner_calc_basis ?? partnerCalcBasis,
     );

@@ -167,8 +167,12 @@ export function EventFinancialCard(props: Props) {
   // Extras visíveis (cachê, rateio turnê e overhead) — mostrados em todos os modos quando > 0.
   const extras: Array<{ label: string; value: number }> = [];
   if (kind === "expense") {
+    // #259: "+ Cachê" só quando soma de facto; se já está nas linhas do módulo
+    // no BP, aparece como decomposição informativa ("já no BP").
     const cache = Number(props.cacheImpact || 0);
-    if (cache > 0) extras.push({ label: "Cachê", value: cache });
+    const cacheAdded = Number((data.meta as any)?.cacheAdded ?? cache);
+    if (cacheAdded > 0) extras.push({ label: "Cachê", value: cacheAdded });
+    else if (cache > 0) extras.push({ label: "Cachê (já no BP, não soma)", value: cache });
     // Rateio da turnê: quota do custo do Master no MESMO critério (#217).
     const rateio = Number((data.meta as any)?.masterQuota || 0);
     if (rateio > 0) extras.push({ label: "Rateio turnê", value: rateio });

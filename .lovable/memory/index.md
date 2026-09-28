@@ -32,3 +32,4 @@
 - [Build code-splitting](mem://features/build-code-splitting) — Rotas lazy vs eager, manualChunks, vite:preloadError, campos de version.json e verificação pós-Publish
 - [BI de Vendas — Lotes e preços](mem://features/bi-vendas-lotes-precos) — Separador por evento com tabela por zona (preço em vigor, vendido, ocupação do libertado, viradas) e curva diária; RPC única get_event_zone_price_dynamics
 - [Meta ligação empresa — BM pela conta](mem://features/meta-company-connection-bm) — #250: fetch-ad-accounts sem filtro por BM, paginado; escolher conta grava external_business_id desse BM
+- [Cachê no card de Custos](mem://features/tour-cache-in-cost-card) — #259: cachê calculado não soma quando as linhas cache_module já estão no BP; função única cacheImpactOnTopOfCost
