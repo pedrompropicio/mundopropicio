@@ -375,6 +375,85 @@ export type Database = {
         }
         Relationships: []
       }
+      artist_ads_campaign_goals: {
+        Row: {
+          artist_id: string
+          company_id: string
+          created_at: string
+          external_adgroup_id: string | null
+          external_campaign_id: string
+          id: string
+          meta_tipo: string
+          meta_valor: number
+          moeda: string
+          nivel: string
+          notas: string | null
+          origem: string
+          platform: string
+          resultado_nome: string
+          updated_at: string
+          valido_desde: string
+        }
+        Insert: {
+          artist_id: string
+          company_id: string
+          created_at?: string
+          external_adgroup_id?: string | null
+          external_campaign_id: string
+          id?: string
+          meta_tipo: string
+          meta_valor: number
+          moeda: string
+          nivel?: string
+          notas?: string | null
+          origem: string
+          platform: string
+          resultado_nome: string
+          updated_at?: string
+          valido_desde?: string
+        }
+        Update: {
+          artist_id?: string
+          company_id?: string
+          created_at?: string
+          external_adgroup_id?: string | null
+          external_campaign_id?: string
+          id?: string
+          meta_tipo?: string
+          meta_valor?: number
+          moeda?: string
+          nivel?: string
+          notas?: string | null
+          origem?: string
+          platform?: string
+          resultado_nome?: string
+          updated_at?: string
+          valido_desde?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_ads_campaign_goals_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_ads_campaign_goals_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_benchmark_aligned"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_ads_campaign_goals_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+        ]
+      }
       artist_aliases: {
         Row: {
           alias: string
@@ -17461,6 +17540,49 @@ export type Database = {
         Args: { p_connection_id: string; p_daily_cap: number; p_notes?: string }
         Returns: string
       }
+      artist_ads_campaign_goal_list: {
+        Args: { p_artist_id: string }
+        Returns: {
+          artist_id: string
+          company_id: string
+          created_at: string
+          external_adgroup_id: string | null
+          external_campaign_id: string
+          id: string
+          meta_tipo: string
+          meta_valor: number
+          moeda: string
+          nivel: string
+          notas: string | null
+          origem: string
+          platform: string
+          resultado_nome: string
+          updated_at: string
+          valido_desde: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "artist_ads_campaign_goals"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      artist_ads_campaign_goal_upsert: {
+        Args: {
+          p_artist_id: string
+          p_external_adgroup_id: string
+          p_external_campaign_id: string
+          p_meta_tipo: string
+          p_meta_valor: number
+          p_moeda: string
+          p_nivel: string
+          p_notas: string
+          p_platform: string
+          p_resultado_nome: string
+        }
+        Returns: string
+      }
+      artist_ads_campaign_key: { Args: { p_text: string }; Returns: string }
       artist_ads_campaign_settings: {
         Args: {
           p_artist_id: string
@@ -17574,6 +17696,10 @@ export type Database = {
         Returns: number
       }
       artist_ads_norm: { Args: { p_text: string }; Returns: string }
+      artist_ads_period_report: {
+        Args: { p_artist_id: string; p_from: string; p_to: string }
+        Returns: Json
+      }
       artist_ads_plan_create: {
         Args: {
           p_artist_id: string
