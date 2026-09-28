@@ -1,4 +1,5 @@
 import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
+import { TransactionOffsetsBlock } from "@/components/TransactionOffsetsBlock";
 import { computeBudgetExcess, type BudgetExcessLine } from "@/lib/bp-budget-excess";
 import { isBpLinkAllowedForEvent, fetchWithBpEventIds } from "@/lib/bp-line-required";
 import { useState, useEffect, useMemo } from "react";
@@ -1223,6 +1224,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
 
           <TabsContent value="payment" className="pt-3">
             <PaymentTimeline transaction={transaction} canApprove={canApprove} eventCompleted={eventCompleted} />
+            <div className="mt-3"><TransactionOffsetsBlock transaction={transaction as any} canEdit={!eventCompleted} /></div>
           </TabsContent>
 
           {hasCamarim && (

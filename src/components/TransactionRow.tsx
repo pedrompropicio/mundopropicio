@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { OffsetPaidBadge } from "@/components/TransactionOffsetsBlock";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
@@ -371,6 +372,7 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
             <div>
               <div className="flex items-center gap-1.5">
                 <p className="font-medium">{t.description}</p>
+                <OffsetPaidBadge txId={t.id} />
                 {t.operation_key && (
                   <Tooltip>
                     <TooltipTrigger asChild>

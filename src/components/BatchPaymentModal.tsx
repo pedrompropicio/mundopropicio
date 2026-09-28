@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { OffsetLineNote } from "@/components/TransactionOffsetsBlock";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -539,6 +540,7 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
                     />
                   </span>
                 </div>
+                <OffsetLineNote txId={item.id} />
                 {item.withholdingApplied && (
                   <div className="flex items-center justify-end gap-2 text-[10px] text-warning font-mono">
                     <span>L: {formatCurrency(item.netPayable)}</span>

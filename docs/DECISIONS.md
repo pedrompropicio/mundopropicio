@@ -1036,6 +1036,8 @@ longa duração (~60 dias) renovado por `artist-token-refresh`. Detalhe em
 
 **Estado:** vigente.
 
+**Adenda 28/09/2026 (D-ERP146).** A compensação passa a ter origem registada: um pagamento `compensation` gerado por uma ligação leva `offset_id` → `transaction_offsets`. Continua sem conta.
+
 ## D-ERP44 — Domínio fechado de `payment_method` (12/09/2026)
 
 **Decisão.** `payment_method` tem exactamente cinco valores, garantidos em três camadas: fonte única no cliente, espelho no servidor, CHECK na base.
@@ -4526,3 +4528,12 @@ Adenda D-ERP95 (26/09, opção A — música licenciada): em `crm-meta-publish-e
 **Uma só função.** `cacheImpactOnTopOfCost(cacheImpact, forecasts, mode)` em `supabase/functions/_shared/settlement/event-cost-basis.ts` (reexportada por `src/lib/event-cost-basis.ts`), usada no card de Custos (`useEventFinancialCardData`), no Lucro/badge "≠ fecho" (`useEventContractResult`) e na lista de eventos (`events-list-financials`). O Fecho (`computeEventSettlementTotals`) e o DRE não somam cachê calculado — não tinham o bug.
 
 **Prova.** SM 2026: 566.187,39 → 411.236,45 €; Lucro −178.810,03 → −23.859,09 € (387.377,36 − 411.236,45). Maiara e Maraisa 2026: 344.195,33 € (sem mudança; cachê já lançado). Raphael Ghanem Tour 2027: 199.975,10 € (sem linhas do módulo; sem mudança).
+
+## D-ERP146 — Compensação ligada: a origem é um dado, o efeito vive na base (28/09/2026)
+
+**Caso real (24/09/2026).** Ivete Clareou 2026, food ZigPay: 6 faturas de comissão+fees (receita) e 6 repasses líquidos (despesa) ao mesmo operador. Os repasses foram pagos na lista; as faturas ficaram "Aprovado · Aberto" e foram liquidadas à mão por SQL.
+
+**Decisão.** Tabela `transaction_offsets` liga uma receita e uma despesa do mesmo fornecedor/cliente. Quando uma recebe pagamento real, o trigger `trg_apply_transaction_offsets` em `transaction_payments` insere na outra um pagamento `compensation` sem conta, com `offset_id`, na mesma data. Estorno ou apagamento do pagamento real estorna a compensação. Por viver num trigger, vale para todos os caminhos de pagamento (lista, modal, lote, Lançar do banco, reconcile_bank_line). A derivação de `paid_amount` (D-ERP86) foi extraída para `_derive_paid_amount` e é a única que escreve esses campos. Invariante `compensacao_pendente`. Detalhe: `.lovable/memory/features/compensacao-ligada.md`.
+
+**Estado:** vigente.
+
