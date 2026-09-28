@@ -277,3 +277,6 @@ verify_jwt = true
 
 [functions.artist-ads-tiktok-manual-ingest]
 verify_jwt = false
+
+[functions.artist-ads-period-analysis]
+verify_jwt = false
