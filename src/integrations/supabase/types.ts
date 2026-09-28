@@ -14595,6 +14595,61 @@ export type Database = {
           },
         ]
       }
+      transaction_offsets: {
+        Row: {
+          amount: number
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          payable_transaction_id: string
+          receivable_transaction_id: string
+        }
+        Insert: {
+          amount: number
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          payable_transaction_id: string
+          receivable_transaction_id: string
+        }
+        Update: {
+          amount?: number
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          payable_transaction_id?: string
+          receivable_transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_offsets_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_offsets_payable_transaction_id_fkey"
+            columns: ["payable_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_offsets_receivable_transaction_id_fkey"
+            columns: ["receivable_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transaction_payments: {
         Row: {
           account_id: string | null
@@ -14610,6 +14665,7 @@ export type Database = {
           id: string
           invoice_ref: string | null
           notes: string | null
+          offset_id: string | null
           original_amount: number | null
           payment_date: string
           payment_entity: string | null
@@ -14640,6 +14696,7 @@ export type Database = {
           id?: string
           invoice_ref?: string | null
           notes?: string | null
+          offset_id?: string | null
           original_amount?: number | null
           payment_date: string
           payment_entity?: string | null
@@ -14670,6 +14727,7 @@ export type Database = {
           id?: string
           invoice_ref?: string | null
           notes?: string | null
+          offset_id?: string | null
           original_amount?: number | null
           payment_date?: string
           payment_entity?: string | null
@@ -14699,6 +14757,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_payments_offset_id_fkey"
+            columns: ["offset_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_offsets"
             referencedColumns: ["id"]
           },
           {
@@ -17027,6 +17092,15 @@ export type Database = {
         Args: { _account_id: string }
         Returns: number
       }
+      _apply_transaction_offset: {
+        Args: { p_offset_id: string; p_origin_payment_id: string }
+        Returns: string
+      }
+      _derive_paid_amount: { Args: { p_tx_id: string }; Returns: undefined }
+      _reverse_transaction_offsets_for: {
+        Args: { p_tx_id: string }
+        Returns: undefined
+      }
       _revert_event_to_version: {
         Args: {
           _event_id: string
@@ -19123,6 +19197,19 @@ export type Database = {
         }[]
       }
       tiktok_manual_slug: { Args: { p_name: string }; Returns: string }
+      transaction_offset_create: {
+        Args: {
+          p_amount: number
+          p_note?: string
+          p_payable: string
+          p_receivable: string
+        }
+        Returns: string
+      }
+      transaction_offset_remove: {
+        Args: { p_offset_id: string }
+        Returns: undefined
+      }
       tx_has_installment_schedule: {
         Args: { _tx_id: string }
         Returns: boolean
