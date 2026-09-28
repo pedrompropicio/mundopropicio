@@ -90,7 +90,7 @@ export async function fetchEventsListFinancials(
     fetchAllPagedQuery(supabase
       .from("event_forecasts")
       .select(
-        "id, event_id, type, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, is_overhead, event_settlement_id, account_categories(code)",
+        "id, event_id, type, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, is_overhead, event_settlement_id, formula_type, cache_config_id, account_categories(code)",
       )
       .in("event_id", allIds)
       .is("version_id", null)),
@@ -165,7 +165,12 @@ export async function fetchEventsListFinancials(
       if (r.approvedCount > 0) expenseHasBp = true;
     }
     // Cachê ainda não lançado em transações (igual ao card de Custos).
-    expense += num(cacheImpact[spec.id]);
+    // #259: se as linhas do módulo de cachê já estão no BP considerado, não soma.
+    expense += cacheImpactOnTopOfCost(
+      num(cacheImpact[spec.id]),
+      ids.flatMap((id) => fcByEvent.get(id) ?? []),
+      spec.costMode,
+    );
 
     // ── RECEITA: núcleo puro do SSoT (D24) ───────────────────────────
     const ticket = ids.reduce<MoneyPair>(
