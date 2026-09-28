@@ -379,3 +379,29 @@ export function computeBpLineReview(args: {
   }
   return out.sort((a, b) => b.saldo - a.saldo);
 }
+
+// ─── Cachê: "se há módulo, o módulo é a fonte — uma vez só" (#259) ─────────
+/** Linha de BP gerada pelo módulo de cachê (sync de `useSyncCacheForecasts`). */
+export function isCacheModuleForecast(f: any): boolean {
+  return f?.formula_type === "cache_module" || f?.cache_config_id != null;
+}
+
+/**
+ * Parte do cachê calculado (`cacheImpact`) que ainda pode somar POR CIMA do
+ * custo do evento. Na base `committed`/forecast o custo já inclui as linhas de
+ * BP aprovadas; se entre elas houver linhas do módulo de cachê, o cachê já está
+ * lá dentro → devolve 0 (fica só como decomposição informativa). Na base
+ * `realized` o custo são só transações, por isso o cachê não lançado soma.
+ */
+export function cacheImpactOnTopOfCost(
+  cacheImpact: number,
+  forecasts: any[],
+  mode: "realized" | "committed",
+): number {
+  const v = Number(cacheImpact || 0);
+  if (v <= 0 || mode === "realized") return Math.max(0, v);
+  const inBp = (forecasts ?? []).some(
+    (f) => f?.type !== "income" && isApprovedOperationalForecast(f) && isCacheModuleForecast(f),
+  );
+  return inBp ? 0 : v;
+}

@@ -8,7 +8,7 @@ import {
 } from "@/lib/event-financial-card";
 import {
   lineValue, computeOutsideBpExcess,
-  computeEventCostOnBasis, computeMasterQuota,
+  computeEventCostOnBasis, computeMasterQuota, cacheImpactOnTopOfCost,
 } from "@/lib/event-cost-basis";
 import { isValidFechoTransaction } from "@/lib/fecho-filters";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
@@ -131,7 +131,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead, event_settlement_id")
+        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead, event_settlement_id, formula_type, cache_config_id")
         .in("event_id", ids)
         .is("version_id", null)
         .eq("type", kind));
@@ -166,7 +166,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead, event_settlement_id")
+        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead, event_settlement_id, formula_type, cache_config_id")
         .in("event_id", masterIdsArr)
         .is("version_id", null)
         .eq("type", kind));
@@ -337,7 +337,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
             { label: "Comprometido (próprio)", value: approved },
           ],
           formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
-          meta: { masterQuota: c.quota },
+          meta: { masterQuota: c.quota, cacheAdded: cache },
           perimeter: { net: cNet.total + cNet.quota + cache, gross: cGross.total + cGross.quota + cache },
         };
       }
@@ -380,7 +380,11 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         emptyBreakdown(),
       );
 
-      const cache = Number(args.cacheImpact || 0);
+      // #259: se as linhas do módulo de cachê já estão no BP considerado, o
+      // cachê NÃO soma de novo (o módulo é a fonte — uma vez só).
+      const cache = cacheImpactOnTopOfCost(
+        Number(args.cacheImpact || 0), [...(forecasts as any[]), ...(masterForecasts as any[])], "committed",
+      );
       // Perímetro nas duas bases de IVA — o Lucro escolhe a base pelo contrato.
       const c2Net = withVat ? costForMode("committed", false) : { total: c2.total, quota: c2.quota };
       const c2Gross = withVat ? { total: c2.total, quota: c2.quota } : costForMode("committed", true);
@@ -389,7 +393,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         subtotals: [], // mini-barra é render direto da breakdown
         formalidadeBreakdown: bd,
         phase, modeUsed, unavailable: c2.approvedCount === 0,
-        meta: { overhead: c2.overhead, excess: c2.excess, masterQuota: c2.quota },
+        meta: { overhead: c2.overhead, excess: c2.excess, masterQuota: c2.quota, cacheAdded: cache },
         perimeter: { net: c2Net.total + c2Net.quota + cache, gross: c2Gross.total + c2Gross.quota + cache },
       };
     }
@@ -555,9 +559,13 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         // Rateio da turnê no modo exploratório Forecast: mesma quota da base
         // "Previsto + excedido" (o Forecast não tem base própria no Master).
         const quota = costForMode("committed", vat).quota;
-        const extra = quota + Number(args.cacheImpact || 0);
+        // #259: mesma regra — BP com linhas do módulo de cachê já contém o cachê.
+        const cacheAdded = cacheImpactOnTopOfCost(
+          Number(args.cacheImpact || 0), [...(forecasts as any[]), ...(masterForecasts as any[])], "committed",
+        );
+        const extra = quota + cacheAdded;
         const total = bpSum + txLinkedSum + orphanSum + extra;
-        return { bpSum, txLinkedSum, orphanSum, quota, total };
+        return { bpSum, txLinkedSum, orphanSum, quota, total, cacheAdded };
       };
 
       const fxNet = forecastExpenseFor(false);
@@ -572,7 +580,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
           { label: "Forecast total", value: fx.total },
         ],
         formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
-        meta: { masterQuota: fx.quota },
+        meta: { masterQuota: fx.quota, cacheAdded: fx.cacheAdded },
         perimeter: { net: fxNet.total, gross: fxGross.total },
       };
     }
