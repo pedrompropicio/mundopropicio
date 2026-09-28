@@ -4537,3 +4537,15 @@ Adenda D-ERP95 (26/09, opção A — música licenciada): em `crm-meta-publish-e
 
 **Estado:** vigente.
 
+
+## D-ERP147 — Metas por campanha e relatório de tráfego pago por período (28/09/2026)
+
+- **Metas:** `public.artist_ads_campaign_goals` (uma linha por campanha/nível/`valido_desde`; origem `pedro`|`plano`). Escrita só via `artist_ads_campaign_goal_upsert` (assert_access + assert_write); leitura por `artist_ads_campaign_goal_list`. No relatório vale a meta com `valido_desde` mais recente ≤ fim do período; se houver plano com `resumo.meta` {nome,valor}, o plano prevalece.
+- **Relatório:** `public.artist_ads_period_report(artist, de, até)` → jsonb com o contrato combinado com o chat 3 (não mudar sem avisar). Acrescento: `fonte.resultado_origem` (texto) diz de onde vem o resultado (incl. "fallback: cliques …").
+  - Null quando não há dado, nunca 0. Alcance só se houver alcance único do período exacto gravado (hoje nenhum → null). Vídeo por definição de cada plataforma.
+  - Resultado: TikTok Visualizações → `views_6s`; TikTok Tráfego e Meta `[MP]` Tráfego → `chegada_smart_link` = `song_link_events.event='arrival'` com utm_source da plataforma e utm_campaign casado pelo nome normalizado (`artist_ads_campaign_key`: sem acentos, sem de/da/do/dos/das/e, só [a-z0-9], igual ou prefixo); sem correspondência → cliques. Meta externo "Visitas ao perfil" → os insights gravados NÃO trazem action de visita ao perfil → `cliques_link` = cliques. Google VIDEO + TARGET_CPM → `impressoes`, custo = CPM.
+  - Gestor da conta: `mp` se o nome da conta começa por "MP" ou tem campanhas `[MP]`/`manual:mp-`; senão `externo`.
+- **Análise:** edge `artist-ads-period-analysis` chama a RPC com o token do utilizador e devolve {resumo, por_plataforma, alertas, numeros_citados}. Só números do JSON, sem causalidade tráfego→música. Fase 1: não grava.
+
+### Adenda ao D-ERP144 (28/09/2026)
+A ingestão manual TikTok aceita `dias[].view_content` e `dias[].button_click` (pixel), opcionais. Gravam só se vierem; sem o campo, uma linha nova fica null e uma existente mantém o valor anterior. Contrato inalterado para quem não os envia.
