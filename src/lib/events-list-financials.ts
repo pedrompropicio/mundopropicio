@@ -25,7 +25,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
-import { computeEventCostOnBasis, type EventCostMode } from "@/lib/event-cost-basis";
+import { computeEventCostOnBasis, cacheImpactOnTopOfCost, type EventCostMode } from "@/lib/event-cost-basis";
 import { isValidFechoTransaction } from "@/lib/fecho-filters";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { fetchRootSettlements } from "@/hooks/useEventRootSettlements";
