@@ -9,3 +9,7 @@ type: feature
 - Prova 01–28/09 Litto: Meta 3.075,31; Google 3.036,89; TikTok 816,91; total 6.929,11 BRL.
 - TikTok manual: view_content/button_click opcionais, nunca 0 inventado.
 - Detalhe em docs/DECISIONS.md D-ERP147.
+
+## Desempenho (29/09)
+- Chegadas ao smart link: agrupar song_link_events por (utm_source, utm_campaign) num CTE `MATERIALIZED` ANTES de comparar com cada campanha. Sem MATERIALIZED o planner empurra o filtro com artist_ads_campaign_key para o seq scan e repete-o por campanha (8,3 s → 48 ms).
+- fx_convert: uma chamada por linha diária (não duas).
