@@ -4552,3 +4552,14 @@ A ingestão manual TikTok aceita `dias[].view_content` e `dias[].button_click` (
 
 ## D-ERP148 — Deduções do cachê variável: BP prioritário + rateio igual do Master (29/09/2026)
 Uma rubrica configurada como dedução do cachê conta desde o início pelo BP aprovado (incl. overhead), sem precisar de transação. Havendo transação, aplica-se "Previsto + excedido" (`computeOutsideBpExcess`, por evento, nunca em pool) — nunca BP + TX. Por cidade de turnê: BP/excedido da cidade + quota igual 1/N do BP/excedido do Master (N = nº de cidades), independentemente das vendas. Núcleo em `src/lib/real-cache-calc.ts` (`cityDeductionSources`). `expandMasterAdoptedExpensesToSplits` e o Acerto de Sócios não mudaram. Prova SM 2026: Lisboa 24.582,28 · Porto 25.423,68.
+
+## D-ERP149 — Linhas de BP com fórmula (% da receita de bilhetes · custo por pessoa) (29/09/2026)
+
+Issue #263. `event_forecasts.formula_type` (texto livre) ganha `pct_ticket_revenue` e `per_head`;
+parâmetros em `formula_params` (jsonb, coluna nova). Motor puro único
+`supabase/functions/_shared/settlement/bp-formula.ts` (reexport `src/lib/bp-formula.ts`).
+- Receita: `ticket_sales` de TODAS as fontes, ligadas pelas zonas do evento; líquido linha a linha pelo IVA do lote (D11).
+- Antes do evento (`isEventRealized` falso) e sem filtro de zonas: previsto do simulador (`computeLiveTicketForecast`). Com filtro de zonas: real até hoje (o simulador não dá o detalhe por zona). Depois do evento: real.
+- Convites: reutiliza `event_courtesies` (não há tabela nova). Previsto = scenario 'forecast', Final = 'real'; 'breakeven' nunca entra. Depois do evento, um dia/zona sem 'real' usa o 'forecast' e marca "convites finais por preencher". Nunca `event_zone_capacities` nem vendas a 0 €.
+- Recálculo `useSyncFormulaForecasts` (padrão do cachê): BP, capa e Fecho. Descer respeita o chão da #240 (grava o realizado e avisa), observação "[fórmula] recálculo". `baseline_amount` nunca é tocado (D3). No Master não recalcula.
+- `event_courtesies` ganhou `updated_by` + trigger de auditoria genérico. As leituras do Simulador e de `useEventAttendance` e o editor da Bilheteira filtram `scenario='real'` (antes liam todas; hoje só há 'real', logo sem mudança de números).

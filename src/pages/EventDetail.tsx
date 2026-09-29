@@ -17,6 +17,7 @@ import { EventForecast } from "@/components/EventForecast";
 import { SponsorshipPipelineBoard } from "@/components/sponsorship/SponsorshipPipelineBoard";
 import { EventTicketing } from "@/components/EventTicketing";
 import { EventCacheConfig } from "@/components/EventCacheConfig";
+import { FormulaSyncRunner } from "@/components/BpFormulaPanel";
 import { useEventCacheImpact } from "@/hooks/useEventCacheImpact";
 import { useEventCostBasis } from "@/hooks/useEventCostBasis";
 import { EventPartnersTab } from "@/components/EventPartnersTab";
@@ -869,6 +870,9 @@ export default function EventDetail() {
 
   return (
     <div className="min-w-0 space-y-6">
+      {/* #263 — recálculo das linhas com fórmula (capa/Fecho); cidades de turnê incluídas */}
+      {event?.id && <FormulaSyncRunner eventId={event.id} isMaster={subEvents.length > 0} />}
+      {subEvents.map((s: any) => <FormulaSyncRunner key={`fs-${s.id}`} eventId={s.id} isMaster={false} />)}
       <div>
         <Link to="/eventos" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3">
           <ArrowLeft className="h-4 w-4" /> Voltar aos eventos

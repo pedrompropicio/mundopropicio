@@ -138,7 +138,8 @@ export function useEventAttendance(
       const { data, error } = await supabase
         .from("event_courtesies")
         .select("event_date_id, zone_id, quantity")
-        .eq("event_id", eventId!);
+        .eq("event_id", eventId!)
+        .eq("scenario", "real"); // #263: "forecast" são os convites previstos do BP
       if (error) throw error;
       return data ?? [];
     },
