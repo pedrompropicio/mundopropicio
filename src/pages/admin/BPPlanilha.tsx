@@ -117,7 +117,7 @@ const isLockedEntry = (e: {
   master_forecast_id?: string | null;
   is_retroactive_override?: boolean | null;
 }) =>
-  !!e.is_overhead || !!e.exclude_from_result || !!e.master_forecast_id || !!e.is_retroactive_override;
+  !!e.is_overhead || !!e.exclude_from_result || !!e.master_forecast_id || !!e.is_retroactive_override || e.formula_type === "pct_ticket_revenue" || e.formula_type === "per_head";
 
 interface Entry {
   id: string;
