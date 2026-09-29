@@ -35,3 +35,4 @@
 - [Cachê no card de Custos](mem://features/tour-cache-in-cost-card) — #259: cachê calculado não soma quando as linhas cache_module já estão no BP; função única cacheImpactOnTopOfCost
 - [Compensação ligada](mem://features/compensacao-ligada) — transaction_offsets receita↔despesa mesmo fornecedor; trigger gera compensation sem conta em qualquer caminho de pagamento; estorno propaga; invariante compensacao_pendente
 - [Tráfego por período + metas](mem://features/artist-ads-period-report) — RPC artist_ads_period_report (contrato fixo chat 3), metas por campanha (plano > tabela), análise sem causalidade, pixel TikTok opcional
+- [Linhas de BP com fórmula](mem://features/bp-linhas-com-formula) — #263 D-ERP149: % receita bilhetes / custo por pessoa, convites forecast/real em event_courtesies, chão #240

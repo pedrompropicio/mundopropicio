@@ -163,3 +163,6 @@ Nenhum.
 - `src/components/bp/BPEvolution.tsx`
 - `docs/questoes-bp-receita.md`
 - `docs/integrations/ticketline.md`
+
+## Linhas com fórmula (#263, D-ERP149, 29/09/2026)
+Implementado: coluna formula_params, motor bp-formula.ts (8 testes), recálculo useSyncFormulaForecasts, painel "Linhas com fórmula" + Convites Previsto/Final no BP. Aceitação SM Lisboa/Porto (2.6.07): números reportados, conversão aguarda o Pedro.
