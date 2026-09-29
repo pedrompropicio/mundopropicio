@@ -8,6 +8,15 @@
  * Fonte de verdade da regra: aqui. O hook passou a ser um wrapper de fetch.
  */
 import { resolvePercentageFromTiers, getCacheEffectiveAmount } from "@/lib/cache-pl-helper";
+import {
+  computeOutsideBpExcess,
+  isApprovedOperationalForecast,
+  isApprovedOverheadForecast,
+  sumLines,
+} from "@/lib/event-cost-basis";
+
+/** Origem do valor de uma dedução (decisão do Pedro, 29/09/2026). */
+export type DeductionOrigin = "bp" | "transaction" | "bp_excess" | "none";
 
 export interface DeductionDetail {
   categoryId: string;
@@ -15,6 +24,22 @@ export interface DeductionDetail {
   categoryName: string;
   amount: number;
   hasTransaction: boolean;
+  /** Parte que vem do BP aprovado (já pesada pela quota). */
+  bpAmount: number;
+  /** Excedido das transações sobre o BP (Previsto + excedido), já pesado. */
+  excessAmount: number;
+  origin: DeductionOrigin;
+}
+
+/**
+ * Fonte de deduções: um evento (cidade ou Master) com o seu BP e transações,
+ * e o peso com que entra (1 = própria cidade; 1/N = quota igual do Master).
+ * O excesso calcula-se POR EVENTO (nunca em pool — ver #217).
+ */
+export interface DeductionSource {
+  forecasts: any[];
+  expenses: any[];
+  weight: number;
 }
 
 export interface RealCacheResult {
@@ -46,6 +71,8 @@ export interface RealCacheInput {
   categoryMap: Map<string, { code: string; name: string }>;
   /** despesas reais já filtradas (approved/paid, sem splits/transitórias/excluídas). */
   expenses: any[];
+  /** Fontes BP + transações. Se ausente, usa só `expenses` (peso 1, sem BP). */
+  sources?: DeductionSource[];
   revenue: { gross: number; net: number };
   occupancyPct: number;
 }
@@ -122,23 +149,41 @@ export function computeRealCacheResults(input: RealCacheInput): RealCacheResult[
     const deductionCategoryIds = configDeductions.map((d: any) => d.category_id);
     const deductionBasisGross = (config.cache_deduction_basis || "net") === "gross";
 
+    const sources: DeductionSource[] = input.sources ?? [{ forecasts: [], expenses, weight: 1 }];
     const deductionDetails: DeductionDetail[] = deductionCategoryIds.map((catId: string) => {
       const catInfo = categoryMap.get(catId);
-      const matching = expenses.filter((t: any) => t.category_id === catId);
-      const amount = matching.reduce((s: number, t: any) => {
-        const base = Number(t.amount);
-        if (deductionBasisGross) {
-          const rate = Number(t.iva_rate ?? 0);
-          return s + base * (1 + rate / 100);
-        }
-        return s + base;
-      }, 0);
+      let bpAmount = 0;
+      let excessAmount = 0;
+      let hasTransaction = false;
+      for (const src of sources) {
+        const fc = (src.forecasts ?? []).filter(
+          (f: any) =>
+            f.category_id === catId &&
+            (f.type ?? "expense") === "expense" &&
+            (isApprovedOperationalForecast(f) || isApprovedOverheadForecast(f)),
+        );
+        const tx = (src.expenses ?? []).filter((t: any) => t.category_id === catId);
+        if (tx.length > 0) hasTransaction = true;
+        // Previsto + excedido: BP + max(realizado − previsto, 0). Nunca BP + TX.
+        bpAmount += sumLines(fc, deductionBasisGross) * src.weight;
+        excessAmount += computeOutsideBpExcess(fc, tx, deductionBasisGross) * src.weight;
+      }
+      bpAmount = roundCents(bpAmount);
+      excessAmount = roundCents(excessAmount);
+      const origin: DeductionOrigin =
+        bpAmount > 0 && excessAmount > 0 ? "bp_excess"
+          : bpAmount > 0 ? "bp"
+          : excessAmount > 0 ? "transaction"
+          : "none";
       return {
         categoryId: catId,
         categoryCode: catInfo?.code ?? "",
         categoryName: catInfo?.name ?? "Categoria desconhecida",
-        amount,
-        hasTransaction: matching.length > 0,
+        amount: roundCents(bpAmount + excessAmount),
+        hasTransaction,
+        bpAmount,
+        excessAmount,
+        origin,
       };
     });
 
@@ -171,9 +216,32 @@ export function computeRealCacheResults(input: RealCacheInput): RealCacheResult[
       minimumGuaranteed: minGuaranteed,
       finalAmount,
       isUsingMinimum: minGuaranteed > 0 && finalAmount === Math.round(minGuaranteed * 100) / 100,
-      missingDeductionCategories: deductionDetails.filter((d) => !d.hasTransaction),
+      missingDeductionCategories: deductionDetails.filter((d) => d.origin === "none"),
     };
   });
+}
+
+function roundCents(v: number): number {
+  return Math.round((v + Number.EPSILON) * 100) / 100;
+}
+
+/**
+ * Fontes de dedução de uma CIDADE de turnê: o BP/TX da própria cidade (peso 1)
+ * mais a quota igual 1/N do BP/TX do Master (N = nº de cidades), independente
+ * das vendas de cada cidade.
+ */
+export function cityDeductionSources(args: {
+  cityForecasts: any[];
+  cityExpenses: any[];
+  masterForecasts: any[];
+  masterExpenses: any[];
+  cityCount: number;
+}): DeductionSource[] {
+  const n = Math.max(1, Math.trunc(args.cityCount || 0));
+  return [
+    { forecasts: args.cityForecasts, expenses: args.cityExpenses, weight: 1 },
+    { forecasts: args.masterForecasts, expenses: args.masterExpenses, weight: 1 / n },
+  ];
 }
 
 /** Filtro canónico das despesas reais que servem de dedução ao cachê. */

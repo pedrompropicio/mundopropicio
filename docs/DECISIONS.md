@@ -4549,3 +4549,6 @@ Adenda D-ERP95 (26/09, opção A — música licenciada): em `crm-meta-publish-e
 
 ### Adenda ao D-ERP144 (28/09/2026)
 A ingestão manual TikTok aceita `dias[].view_content` e `dias[].button_click` (pixel), opcionais. Gravam só se vierem; sem o campo, uma linha nova fica null e uma existente mantém o valor anterior. Contrato inalterado para quem não os envia.
+
+## D-ERP148 — Deduções do cachê variável: BP prioritário + rateio igual do Master (29/09/2026)
+Uma rubrica configurada como dedução do cachê conta desde o início pelo BP aprovado (incl. overhead), sem precisar de transação. Havendo transação, aplica-se "Previsto + excedido" (`computeOutsideBpExcess`, por evento, nunca em pool) — nunca BP + TX. Por cidade de turnê: BP/excedido da cidade + quota igual 1/N do BP/excedido do Master (N = nº de cidades), independentemente das vendas. Núcleo em `src/lib/real-cache-calc.ts` (`cityDeductionSources`). `expandMasterAdoptedExpensesToSplits` e o Acerto de Sócios não mudaram. Prova SM 2026: Lisboa 24.582,28 · Porto 25.423,68.
