@@ -6680,6 +6680,7 @@ export type Database = {
           quantity: number
           scenario: string
           updated_at: string
+          updated_by: string | null
           zone_id: string
         }
         Insert: {
@@ -6692,6 +6693,7 @@ export type Database = {
           quantity?: number
           scenario?: string
           updated_at?: string
+          updated_by?: string | null
           zone_id: string
         }
         Update: {
@@ -6704,6 +6706,7 @@ export type Database = {
           quantity?: number
           scenario?: string
           updated_at?: string
+          updated_by?: string | null
           zone_id?: string
         }
         Relationships: [
@@ -7005,6 +7008,7 @@ export type Database = {
           formalidade: Database["public"]["Enums"]["bp_formalidade"]
           formalidade_changed_at: string | null
           formalidade_changed_by: string | null
+          formula_params: Json | null
           formula_type: string
           formula_value: number
           fx_rate: number | null
@@ -7049,6 +7053,7 @@ export type Database = {
           formalidade?: Database["public"]["Enums"]["bp_formalidade"]
           formalidade_changed_at?: string | null
           formalidade_changed_by?: string | null
+          formula_params?: Json | null
           formula_type?: string
           formula_value?: number
           fx_rate?: number | null
@@ -7093,6 +7098,7 @@ export type Database = {
           formalidade?: Database["public"]["Enums"]["bp_formalidade"]
           formalidade_changed_at?: string | null
           formalidade_changed_by?: string | null
+          formula_params?: Json | null
           formula_type?: string
           formula_value?: number
           fx_rate?: number | null
@@ -18888,6 +18894,7 @@ export type Database = {
           formalidade: Database["public"]["Enums"]["bp_formalidade"]
           formalidade_changed_at: string | null
           formalidade_changed_by: string | null
+          formula_params: Json | null
           formula_type: string
           formula_value: number
           fx_rate: number | null
@@ -18974,6 +18981,7 @@ export type Database = {
           formalidade: Database["public"]["Enums"]["bp_formalidade"]
           formalidade_changed_at: string | null
           formalidade_changed_by: string | null
+          formula_params: Json | null
           formula_type: string
           formula_value: number
           fx_rate: number | null
