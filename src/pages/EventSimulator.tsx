@@ -328,7 +328,7 @@ export default function EventSimulator() {
     queryFn: async () => {
       if (!eventId) return [] as Array<{ date: string | null; zone_name: string; quantity: number }>;
       const [{ data: cs }, { data: ds }, { data: zs }] = await Promise.all([
-        supabase.from("event_courtesies").select("event_date_id, zone_id, quantity").eq("event_id", eventId),
+        supabase.from("event_courtesies").select("event_date_id, zone_id, quantity").eq("event_id", eventId).eq("scenario", "real"),
         supabase.from("event_dates").select("id, date").eq("event_id", eventId),
         supabase.from("event_ticket_zones").select("id, name").eq("event_id", eventId).is("version_id", null),
       ]);

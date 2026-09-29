@@ -1,3 +1,4 @@
+import type React from "react";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +12,10 @@ import { Save } from "lucide-react";
 
 interface Props {
   eventId: string;
+  /** #263: cenário a editar. Por defeito 'real' (comportamento de sempre). */
+  scenario?: "real" | "forecast";
+  title?: string;
+  description?: React.ReactNode;
 }
 
 /**
@@ -19,7 +24,7 @@ interface Props {
  * representam quantos lugares por zona/dia são oferecidos e por isso
  * NÃO entram à venda mas SOMAM ao público (denominador per capita A&B).
  */
-export function EventCourtesiesEditor({ eventId }: Props) {
+export function EventCourtesiesEditor({ eventId, scenario = "real", title, description }: Props) {
   const qc = useQueryClient();
   const [draft, setDraft] = useState<Record<string, number>>({});
 
@@ -77,12 +82,13 @@ export function EventCourtesiesEditor({ eventId }: Props) {
   };
 
   const { data: rows = [] } = useQuery({
-    queryKey: ["event_courtesies", eventId],
+    queryKey: ["event_courtesies", eventId, scenario],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_courtesies")
         .select("id, event_date_id, zone_id, quantity")
-        .eq("event_id", eventId);
+        .eq("event_id", eventId)
+        .eq("scenario", scenario);
       if (error) throw error;
       return data ?? [];
     },
@@ -121,7 +127,7 @@ export function EventCourtesiesEditor({ eventId }: Props) {
             event_id: eventId,
             event_date_id: dateId,
             zone_id: zoneId,
-            scenario: "real",
+            scenario,
             quantity: qty,
           });
           if (error) throw error;
@@ -133,6 +139,7 @@ export function EventCourtesiesEditor({ eventId }: Props) {
       setDraft({});
       qc.invalidateQueries({ queryKey: ["event_courtesies", eventId] });
       qc.invalidateQueries({ queryKey: ["event_courtesies_attendance", eventId] });
+      qc.invalidateQueries({ queryKey: ["bp-formula-sync"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -156,10 +163,10 @@ export function EventCourtesiesEditor({ eventId }: Props) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-2">
         <div>
-          <CardTitle className="text-base">Cortesias por dia</CardTitle>
+          <CardTitle className="text-base">{title ?? "Cortesias por dia"}</CardTitle>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Iguais para Real, Break Even e Projecção. Somam ao público (per capita A&amp;B) e
-            <strong> não consomem capacidade à venda</strong> — acrescem.
+            {description ?? (<>Iguais para Real, Break Even e Projecção. Somam ao público (per capita A&amp;B) e
+            <strong> não consomem capacidade à venda</strong> — acrescem.</>)}
           </p>
         </div>
         <Button size="sm" disabled={!dirty || saveMutation.isPending} onClick={() => saveMutation.mutate()}>
