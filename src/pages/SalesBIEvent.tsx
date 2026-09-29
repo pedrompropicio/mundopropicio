@@ -21,6 +21,7 @@ import { fetchZoneCapacities, type ZoneCapacityRow } from "@/lib/zone-capacities
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ZoneLotsPrices from "@/components/sales/ZoneLotsPrices";
 import { useTicketlineCutoffs, keepTicketSaleRow, cumulativeWithCutoff, ddmm } from "@/lib/ticketline-cutoff";
+import { zoneSelloutPill } from "@/lib/zone-sellout-pill";
 
 const nfInt = new Intl.NumberFormat("pt-PT");
 const nfMoney = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -216,13 +217,7 @@ export default function SalesBIEvent() {
       const esgota = ritmo > 0 ? Math.ceil(porVender / ritmo) : null;
       const ocup = capacity && capacity > 0 ? (occupied / capacity) * 100 : null;
       const oversold = capacity != null && occupied > capacity;
-      let pill: { label: string; tone: "ok" | "warn" | "bad" | "muted" };
-      if (porVender === 0) pill = { label: "esgotada", tone: "ok" };
-      else if (ritmo <= 0) pill = { label: "parada", tone: "bad" };
-      else if (daysLeft !== null && esgota !== null && esgota <= daysLeft * 0.8)
-        pill = { label: "esgota a tempo", tone: "ok" };
-      else if (daysLeft !== null && esgota !== null && esgota <= daysLeft) pill = { label: "à justa", tone: "warn" };
-      else pill = { label: "não chega lá", tone: "bad" };
+      const pill = zoneSelloutPill({ porVender, ritmo, esgota, daysLeft });
       return {
         label,
         capacity,
@@ -346,14 +341,23 @@ export default function SalesBIEvent() {
           <ArrowLeft className="h-3.5 w-3.5" /> Voltar
         </Link>
         <h1 className="mt-1 text-xl font-bold tracking-tight lg:text-2xl">{eventQ.data?.name ?? "Evento"}</h1>
-        <p className="text-sm text-muted-foreground">
-          {fmtDay(eventDate)}
-          {daysLeft !== null
-            ? daysLeft >= 0
-              ? ` · faltam ${int(daysLeft)} dias`
-              : ` · há ${int(Math.abs(daysLeft))} dias`
-            : ""}
-        </p>
+        {eventQ.isSuccess && !eventQ.data ? (
+          <p className="text-sm text-warning">
+            Este evento não está visível na empresa ativa (ou não existe). Troca a empresa ativa no topo para a dona do
+            evento.
+          </p>
+        ) : eventQ.isError ? (
+          <p className="text-sm text-destructive">Não foi possível ler o evento.</p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {eventQ.data && !eventDate ? "sem data" : fmtDay(eventDate)}
+            {daysLeft !== null
+              ? daysLeft >= 0
+                ? ` · faltam ${int(daysLeft)} dias`
+                : ` · há ${int(Math.abs(daysLeft))} dias`
+              : ""}
+          </p>
+        )}
         <div className="mt-3">
           <IvaToggle withIva={withIva} onChange={setWithIva} />
         </div>
@@ -601,7 +605,13 @@ export default function SalesBIEvent() {
           )}
           </TabsContent>
           <TabsContent value="lotes">
-            <ZoneLotsPrices eventId={eventId} withIva={withIva} ivaRate={rateOf(eventId)} />
+            <ZoneLotsPrices
+              eventId={eventId}
+              withIva={withIva}
+              ivaRate={rateOf(eventId)}
+              eventDate={eventDate}
+              todayISO={todayISO}
+            />
           </TabsContent>
         </Tabs>
       )}
