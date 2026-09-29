@@ -19,6 +19,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { detectPriceTurns, type PriceTurn } from "@/lib/zone-price-turns";
+import { turnElasticity, zoneProjection, type ZoneProjection, type TurnElasticity } from "@/lib/zone-price-elasticity";
+import { zoneSelloutPill } from "@/lib/zone-sellout-pill";
 import { netOfIva } from "@/hooks/useEventIvaRates";
 
 const nfInt = new Intl.NumberFormat("pt-PT");
@@ -79,14 +81,34 @@ const PALETTE = [
   "hsl(var(--muted-foreground))",
 ];
 
+function PillTag({ label, tone }: { label: string; tone: string }) {
+  return (
+    <span
+      className={cn(
+        "ml-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium",
+        tone === "ok" && "bg-success/15 text-success",
+        tone === "warn" && "bg-warning/15 text-warning",
+        tone === "bad" && "bg-destructive/15 text-destructive",
+        tone === "muted" && "bg-muted text-muted-foreground",
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
 export default function ZoneLotsPrices({
   eventId,
   withIva,
   ivaRate,
+  eventDate = null,
+  todayISO,
 }: {
   eventId: string;
   withIva: boolean;
   ivaRate: number;
+  eventDate?: string | null;
+  todayISO: string;
 }) {
   const [selected, setSelected] = useState<string[] | null>(null);
   const [mode, setMode] = useState<"acumulado" | "dia">("acumulado");
@@ -120,6 +142,47 @@ export default function ZoneLotsPrices({
   }, [zones, data?.series]);
 
   const activeIds = selected ?? zones.slice(0, 4).map((z) => z.zone_id);
+
+  // #214 2.ª ronda — tudo a partir do jsonb já agregado; nada com 1 dia de série.
+  const lastDate = data?.totais?.ultima_sale_date?.slice(0, 10) ?? null;
+  const singleDay = (data?.totais?.dias_distintos ?? 0) <= 1;
+  const seriesByZone = useMemo(() => {
+    const m = new Map<string, { sale_date: string; qty: number | null }[]>();
+    for (const s of data?.series ?? []) {
+      const l = m.get(s.zone_id) ?? [];
+      l.push({ sale_date: String(s.sale_date).slice(0, 10), qty: s.qty });
+      m.set(s.zone_id, l);
+    }
+    return m;
+  }, [data?.series]);
+  const projByZone = useMemo(() => {
+    const m = new Map<string, ZoneProjection>();
+    if (singleDay || !lastDate) return m;
+    for (const z of zones) {
+      m.set(
+        z.zone_id,
+        zoneProjection({
+          series: seriesByZone.get(z.zone_id) ?? [],
+          lastDate,
+          vendido: Number(z.qty || 0),
+          released: z.released !== null ? Number(z.released) : null,
+          eventDate,
+          fromDate: todayISO,
+        }),
+      );
+    }
+    return m;
+  }, [zones, seriesByZone, lastDate, singleDay, eventDate, todayISO]);
+  const elasticityRows = useMemo(() => {
+    const out: { zone: string; turn: PriceTurn; e: TurnElasticity }[] = [];
+    if (singleDay || !lastDate) return out;
+    for (const z of zones) {
+      for (const t of turnsByZone.get(z.zone_id) ?? []) {
+        out.push({ zone: z.zone_name, turn: t, e: turnElasticity(seriesByZone.get(z.zone_id) ?? [], t.sale_date, lastDate) });
+      }
+    }
+    return out.sort((a, b) => a.turn.sale_date.localeCompare(b.turn.sale_date) || a.zone.localeCompare(b.zone));
+  }, [zones, turnsByZone, seriesByZone, lastDate, singleDay]);
 
   const chart = useMemo(() => {
     const series = (data?.series ?? []).filter((s) => activeIds.includes(s.zone_id));
@@ -196,7 +259,7 @@ export default function ZoneLotsPrices({
           </p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-sm">
+          <table className="w-full min-w-[1200px] text-sm">
             <thead>
               <tr className="border-b text-left text-xs text-muted-foreground">
                 <th className="p-3 font-medium">Zona / lote</th>
@@ -206,6 +269,9 @@ export default function ZoneLotsPrices({
                 <th className="p-3 text-right font-medium">Libertado</th>
                 <th className="p-3 text-right font-medium">Ocupação do libertado</th>
                 <th className="p-3 font-medium">Viradas de preço</th>
+                <th className="p-3 text-right font-medium">Ritmo 7d</th>
+                <th className="p-3 text-right font-medium">Esgota em</th>
+                <th className="p-3 text-right font-medium">Até ao evento</th>
               </tr>
             </thead>
             <tbody className="tabular-nums">
@@ -254,6 +320,44 @@ export default function ZoneLotsPrices({
                         </div>
                       )}
                     </td>
+                    {(() => {
+                      const p = projByZone.get(z.zone_id);
+                      if (!p) {
+                        return (
+                          <>
+                            <td className="p-3 text-right text-muted-foreground">—</td>
+                            <td className="p-3 text-right text-muted-foreground">—</td>
+                            <td className="p-3 text-right text-muted-foreground">—</td>
+                          </>
+                        );
+                      }
+                      const porVender = z.released !== null ? Math.max(0, Number(z.released) - Number(z.qty || 0)) : null;
+                      const pill =
+                        porVender !== null
+                          ? zoneSelloutPill({ porVender, ritmo: p.ritmo, esgota: p.esgotaDias, daysLeft: p.diasAteEvento })
+                          : p.parada
+                            ? { label: "parada", tone: "bad" }
+                            : null;
+                      return (
+                        <>
+                          <td className="p-3 text-right">{p.parada ? "parada" : `${nf1.format(p.ritmo)}/dia`}</td>
+                          <td className="p-3 text-right">
+                            {p.esgotaDias !== null ? (
+                              <>
+                                {int(p.esgotaDias)} dias
+                                <span className="block text-xs text-muted-foreground">{fmtDay(p.esgotaData)}</span>
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="p-3 text-right">
+                            {p.ateEvento !== null ? int(Math.round(p.ateEvento)) : <span className="text-muted-foreground">—</span>}
+                            {pill && <PillTag label={pill.label} tone={pill.tone} />}
+                          </td>
+                        </>
+                      );
+                    })()}
                   </tr>
                 );
               })}
@@ -265,6 +369,65 @@ export default function ZoneLotsPrices({
           venda (última leitura de {fmtDay(zones.find((z) => z.released_on)?.released_on ?? null)}); zonas sem leitura
           correspondente ficam com “—”. Os lotes que a Ticketline escreve no nome da zona contam como zonas.
         </p>
+        <p className="px-3 pb-3 text-xs text-muted-foreground">
+          Ritmo 7d = bilhetes da zona nos 7 dias de calendário até {fmtDay(lastDate)} ÷ 7. “Esgota em” conta a partir
+          de hoje sobre o libertado; “Até ao evento” = vendido + ritmo × dias até {fmtDay(eventDate)}, limitado ao
+          libertado quando há leitura.
+        </p>
+      </Card>
+
+      <Card className="p-0">
+        <div className="p-3">
+          <p className="text-sm font-semibold">Viradas</p>
+          <p className="text-xs text-muted-foreground">
+            Bilhetes/dia nos 14 dias de calendário antes da virada (÷ 14) e do dia da virada aos 13 seguintes (ou os
+            dias decorridos, se ainda não passaram 14).
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs text-muted-foreground">
+                <th className="p-3 font-medium">Zona</th>
+                <th className="p-3 font-medium">Data</th>
+                <th className="p-3 font-medium">Preço antigo → novo</th>
+                <th className="p-3 text-right font-medium">Antes /dia</th>
+                <th className="p-3 text-right font-medium">Depois /dia</th>
+                <th className="p-3 text-right font-medium">Variação</th>
+                <th className="p-3 text-right font-medium">Dias</th>
+              </tr>
+            </thead>
+            <tbody className="tabular-nums">
+              {soAcumulado || elasticityRows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-3 text-xs text-muted-foreground">
+                    {soAcumulado ? "—  (esta bilheteira só dá o acumulado)" : "sem viradas de preço na série"}
+                  </td>
+                </tr>
+              ) : (
+                elasticityRows.map((r, i) => (
+                  <tr key={i} className="border-b last:border-0">
+                    <td className="p-3 font-medium">{r.zone}</td>
+                    <td className="p-3">{fmtDay(r.turn.sale_date)}</td>
+                    <td className="p-3">
+                      {money(val(r.turn.from))} → {money(val(r.turn.to))}
+                    </td>
+                    <td className="p-3 text-right">{nf1.format(r.e.antesDia)}</td>
+                    <td className="p-3 text-right">{nf1.format(r.e.depoisDia)}</td>
+                    <td className="p-3 text-right">
+                      {r.e.variacaoPct === null
+                        ? "—"
+                        : `${r.e.variacaoPct > 0 ? "+" : ""}${pct(r.e.variacaoPct)}`}
+                    </td>
+                    <td className="p-3 text-right">
+                      {r.e.janelaIncompleta ? `${r.e.diasDepois} dias` : r.e.diasDepois}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
       <Card className="p-0">

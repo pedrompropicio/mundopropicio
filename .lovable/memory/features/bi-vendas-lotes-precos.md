@@ -60,3 +60,11 @@ preço muda entre dois dias **consecutivos da série**; dias sem venda não cont
 Simone Mendes Lisboa 7 zonas com venda / 1 virada; Porto 7 zonas / 7 viradas;
 Ghanem Porto 2027 26 zonas / 0 viradas. Eventos BOL do Ghanem (Coimbra, Santa
 Maria da Feira) caem no aviso de acumulado.
+
+## 2.ª ronda (29/09/2026) — elasticidade e projecção
+
+Só cliente, a partir do jsonb da RPC (sem DDL, sem ticket_sales).
+- `src/lib/zone-price-elasticity.ts`: `turnElasticity(series, turnDate, lastDate)` — antes = dias −14..−1 ÷ 14 (calendário); depois = dia 0..+13 ÷ dias (se <14 decorridos até à última sale_date, usa-os e mostra "n dias"); variação null se antes = 0. `zoneProjection(...)` — ritmo = qty dos 7 dias de calendário até à última sale_date ÷ 7; "esgota em" = ceil((released − vendido)/ritmo) a contar de hoje; "até ao evento" = vendido + ritmo × dias até events.date, limitado ao released; evento passado/sem data → null; ritmo 0 → "parada".
+- `src/lib/zone-sellout-pill.ts`: pill (esgotada / parada / esgota a tempo / à justa / não chega lá) extraída da Visão geral sem mudar a regra.
+- UI: colunas Ritmo 7d · Esgota em · Até ao evento + tabela "Viradas". Retrato acumulado (1 dia de série) → tudo "—".
+- Cabeçalho "Evento / —": a rota recebe events.id; `events` tem RESTRICTIVE `company_id = current_company_id()` sem excepção para platform_admin, enquanto a RPC passa por `is_platform_admin()`. Com a empresa ativa ≠ dona do evento o cabeçalho fica null mas os separadores com RPC mostram dados. Agora mostra aviso explícito; RLS não mexida.
