@@ -80,7 +80,10 @@ export function useSyncFormulaForecasts({ eventId, isMaster, enabled = true }: {
     const byId = new Map(d.lines.map((l: any) => [l.id, l]));
     const todo = d.evals.filter((e) => {
       const l: any = byId.get(e.forecastId);
-      return l && (Math.abs(Number(l.amount) - e.result.amount) >= 0.005 || l.formula_params?.last_text !== e.text);
+      if (!l) return false;
+      const p = l.formula_params ?? {};
+      if (p.last_text === e.text && Number(p.last_calculated) === e.result.amount) return false; // já tratado (inclui chão)
+      return true;
     });
     if (!todo.length) return;
     running.current = true;
