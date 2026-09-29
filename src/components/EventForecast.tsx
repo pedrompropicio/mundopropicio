@@ -60,6 +60,8 @@ import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
+import { BpFormulaPanel } from "@/components/BpFormulaPanel";
+import { isFormulaType } from "@/lib/bp-formula";
 import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
 import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
 import { BPRecentChangesSheet } from "@/components/bp/BPRecentChangesSheet";
@@ -999,7 +1001,9 @@ const descRef = useRef<HTMLInputElement>(null);
       if (id) {
         // #240: amount por batch_update_event_forecasts (pede observação se reduz linha com realizado)
         const { amount: newAmt, ...rest } = payload;
-        await writeForecastAmount({ forecastId: id, newAmount: Number(newAmt), interactive: true });
+        // #263: linhas com fórmula não se editam à mão no valor
+        const isFormulaLine = isFormulaType((forecasts as any[]).find((x: any) => x.id === id)?.formula_type);
+        if (!isFormulaLine) await writeForecastAmount({ forecastId: id, newAmount: Number(newAmt), interactive: true });
         const { error } = await supabase.from("event_forecasts").update(rest).eq("id", id);
         if (error) throw error;
       } else {
@@ -2293,6 +2297,10 @@ const descRef = useRef<HTMLInputElement>(null);
           </div>
         </div>
       )}
+      {/* #263 / D-ERP149 — linhas com fórmula + convites (só na Ativa) */}
+      {!selectedVersionId && (
+        <BpFormulaPanel eventId={eventId} isMaster={!!(childEventIds && childEventIds.length > 0)} canEdit={canEditBP && !forceReadOnly} />
+      )}
       {/* Summary cards */}
       <div className={`grid gap-4 ${expenseOnly ? "sm:grid-cols-2" : parentEventId ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
         {!expenseOnly && <SummaryCard label="Receitas" helpText="Previsão = receitas BP no perímetro comparável; se não houver linhas de receita, usa a receita prevista de bilheteira sem IVA. Real = transações de receita aprovadas/pagas no mesmo perímetro + bilheteira vendida sem IVA. Este card trabalha sem IVA." forecast={totalForecastIncome} actual={totalActualIncome} icon={<TrendingUp className="h-4 w-4 text-success" />} />}
@@ -2752,7 +2760,7 @@ const descRef = useRef<HTMLInputElement>(null);
                                      {f.baseline_amount != null ? formatCurrency(Number(f.baseline_amount)) : "—"}
                                    </td>
                                     <td className="py-1.5 pr-2">
-                                     <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} disabled={canEditBPPartial && !canEditBP} />
+                                     <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} disabled={(canEditBPPartial && !canEditBP) || isFormulaType(forecasts.find((x: any) => x.id === editingId)?.formula_type)} title={isFormulaType(forecasts.find((x: any) => x.id === editingId)?.formula_type) ? "Valor calculado pela fórmula" : undefined} />
                                    </td>
                                    <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">—</td>
                                    <td className="py-1.5 text-right">
@@ -3050,7 +3058,7 @@ const descRef = useRef<HTMLInputElement>(null);
                                     </select>
                                   </td>
                                     <td className="py-1.5 pr-2">
-                                     <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} disabled={canEditBPPartial && !canEditBP} />
+                                     <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} disabled={(canEditBPPartial && !canEditBP) || isFormulaType(forecasts.find((x: any) => x.id === editingId)?.formula_type)} title={isFormulaType(forecasts.find((x: any) => x.id === editingId)?.formula_type) ? "Valor calculado pela fórmula" : undefined} />
                                    </td>
                                   <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
                                     {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
