@@ -19,6 +19,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { detectPriceTurns, type PriceTurn } from "@/lib/zone-price-turns";
+import { turnElasticity, zoneProjection, type ZoneProjection, type TurnElasticity } from "@/lib/zone-price-elasticity";
+import { zoneSelloutPill } from "@/lib/zone-sellout-pill";
 import { netOfIva } from "@/hooks/useEventIvaRates";
 
 const nfInt = new Intl.NumberFormat("pt-PT");
@@ -79,14 +81,34 @@ const PALETTE = [
   "hsl(var(--muted-foreground))",
 ];
 
+function PillTag({ label, tone }: { label: string; tone: string }) {
+  return (
+    <span
+      className={cn(
+        "ml-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium",
+        tone === "ok" && "bg-success/15 text-success",
+        tone === "warn" && "bg-warning/15 text-warning",
+        tone === "bad" && "bg-destructive/15 text-destructive",
+        tone === "muted" && "bg-muted text-muted-foreground",
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
 export default function ZoneLotsPrices({
   eventId,
   withIva,
   ivaRate,
+  eventDate = null,
+  todayISO,
 }: {
   eventId: string;
   withIva: boolean;
   ivaRate: number;
+  eventDate?: string | null;
+  todayISO: string;
 }) {
   const [selected, setSelected] = useState<string[] | null>(null);
   const [mode, setMode] = useState<"acumulado" | "dia">("acumulado");
