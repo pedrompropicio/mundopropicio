@@ -232,9 +232,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [cautionPayer, setCautionPayer] = useState<string>(""); // "__mp__" | partner_id | ""
   const [showNewReimbursementNote, setShowNewReimbursementNote] = useState(false);
   const [newReimbursementEmployeeName, setNewReimbursementEmployeeName] = useState("");
-  const [showSplitDisambiguation, setShowSplitDisambiguation] = useState(false);
-  const [disambiguationCategoryId, setDisambiguationCategoryId] = useState("");
-  const [disambiguationForecast, setDisambiguationForecast] = useState<any>(null);
   const [showReinforcementDialog, setShowReinforcementDialog] = useState(false);
   const [reinforcementChoice, setReinforcementChoice] = useState<"local" | "master" | null>(null);
   // VAT split: when set, proceedWithCreate creates N sibling transactions sharing invoice_ref.
@@ -927,103 +924,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.event_id]);
 
-  // Helper: when user is in a sub-event and selects a category from the parent's BP,
-  // show disambiguation dialog instead of auto-activating split.
-  // `clickedLine` (optional): when the user clicks a specific BP line, prefer it
-  // for auto-fill instead of falling back to the first matching forecast in the category.
-  const tryAutoSplitFromSubEvent = (categoryId: string, type: string, clickedLine?: any) => {
-    if (!isSubEvent || isSplit || !categoryId) return false;
-    const parentId = selectedEvent?.parent_event_id;
-    if (!parentId) return false;
-
-    // Check if this category exists in the parent's BP
-    const parentForecast = eventForecasts.find(
-      (f: any) => f.event_id === parentId && f.type === type && f.category_id === categoryId
-    );
-    if (!parentForecast) return false;
-
-    // Determine the sub-event forecast to use for auto-fill on "Exclusive":
-    // 1) If user clicked a specific line in the sub-event's BP, prefer it.
-    // 2) Otherwise fall back to the first matching forecast in the category.
-    const clickedIsSubEventLine =
-      clickedLine && clickedLine.event_id === form.event_id;
-    const subEventForecast = clickedIsSubEventLine
-      ? clickedLine
-      : eventForecasts.find(
-          (f: any) => f.event_id === form.event_id && f.type === type && f.category_id === categoryId
-        );
-
-    // Get all sibling sub-events (children of the same parent)
-    const siblings = subEventsByParent[parentId] || [];
-    if (siblings.length < 2) return false;
-
-    // Show disambiguation dialog
-    setDisambiguationCategoryId(categoryId);
-    setDisambiguationForecast({ parentForecast, subEventForecast, parentId, siblings });
-    setShowSplitDisambiguation(true);
-    return true;
-  };
-
-  /**
-   * D-ERP73 (fase 2, 16/09/2026) — "é custo da tour inteira": a transação passa
-   * a ser lançada UMA vez no MASTER, na linha do Master. A repartição pelas
-   * cidades é virtual, feita no relatório (proração Master→cidades). Antes esta
-   * opção rebentava a despesa em mãe + filhas por cidade, e era o caminho que
-   * escapava à guarda G1 (fatura 113-XP, 04/08/2026).
-   */
-  const confirmMasterFromDisambiguation = () => {
-    const { parentForecast, parentId } = disambiguationForecast;
-
-    setIsSplit(false);
-    setSplitAutoConfigured(false);
-    setSplitMasterEventId("");
-    setSplitEntries([]);
-
-    // Move a transação para o Master e vincula à linha do Master
-    setForm(prev => ({
-      ...prev,
-      event_id: parentId,
-      category_id: disambiguationCategoryId,
-      description: parentForecast.description || "",
-      amount: String(Number(parentForecast.amount) || ""),
-      iva_rate: (parentForecast.iva_rate ?? 23) as IvaRate,
-      specification: parentForecast.specification || "",
-    }));
-    if (typeof parentForecast.id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parentForecast.id)) {
-      setSelectedForecastId(parentForecast.id);
-    }
-
-    setShowSplitDisambiguation(false);
-    setDisambiguationCategoryId("");
-    setDisambiguationForecast(null);
-  };
-
-  // Confirm exclusive (this event only) from disambiguation
-  const confirmExclusiveFromDisambiguation = () => {
-    const categoryId = disambiguationCategoryId;
-    const subForecast = disambiguationForecast?.subEventForecast;
-
-    if (subForecast) {
-      // Category exists in sub-event's BP — fill from it
-      setForm(prev => ({
-        ...prev,
-        category_id: categoryId,
-        description: subForecast.description || "",
-        amount: String(Number(subForecast.amount) || ""),
-        iva_rate: (subForecast.iva_rate ?? 23) as IvaRate,
-        specification: subForecast.specification || "",
-      }));
-    } else {
-      // Not in sub-event BP — set category and activate override
-      setForm(prev => ({ ...prev, category_id: categoryId }));
-      setPlOverride(true);
-    }
-
-    setShowSplitDisambiguation(false);
-    setDisambiguationCategoryId("");
-    setDisambiguationForecast(null);
-    setPlExpanded(false);
-  };
 
   // Reset payment_method when category changes away from state categories
   useEffect(() => {
@@ -3075,8 +2975,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               }));
               // Vincula à linha BP (FK escrita no INSERT). Ignora pseudo-ids (ex: "cache-auto").
               if (isUuid(line.id)) setSelectedForecastId(line.id);
-              const switched = tryAutoSplitFromSubEvent(detail.catId, form.type, line);
-              if (switched) return; // disambiguation dialog will handle it (e sobrepõe o preenchido)
               setPlExpanded(false);
             };
 
@@ -3086,8 +2984,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 handleLineClick(detail.lines[0], detail);
                 return;
               }
-              const switched = tryAutoSplitFromSubEvent(detail.catId, form.type);
-              if (switched) return; // disambiguation dialog will handle it
               setForm(prev => ({
                 ...prev,
                 category_id: detail.catId,
@@ -3280,11 +3176,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               options={categoryOptions}
               value={form.category_id}
               onValueChange={(v) => {
-                const switched = tryAutoSplitFromSubEvent(v, form.type);
-                if (!switched) {
-                  setForm({ ...form, category_id: v });
-                }
-                // If switched, disambiguation dialog handles everything
+                setForm({ ...form, category_id: v });
               }}
               placeholder={hasPLRestriction && !plOverride ? "Selecionar do BP…" : "Selecionar categoria…"}
               searchPlaceholder="Pesquisar categoria…"
@@ -4436,88 +4328,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
       </div>
 
-      {/* Split disambiguation dialog */}
-      {showSplitDisambiguation && disambiguationForecast && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50" onClick={(e) => { if (isInsideHelpPanel(e.target)) return; setShowSplitDisambiguation(false); }}>
-            <div className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl space-y-4" onClick={e => e.stopPropagation()}>
-              <div className="space-y-1">
-                <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-                  <Split className="h-4 w-4 text-primary" />
-                  Custo da tour ou desta cidade?
-                  <HelpTooltip anchor="rateios.master" size={13} />
-                </h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Esta rubrica existe no BP do evento Master. Este custo serve a tour inteira ou é só desta cidade?
-                </p>
-              </div>
-
-              {(() => {
-                const catInfo = categories.find((c: any) => c.id === disambiguationCategoryId);
-                const catLabel = catInfo ? `${catInfo.code} ${catInfo.name}` : "Categoria";
-                const parentEvent = events.find((e: any) => e.id === disambiguationForecast.parentId);
-                const masterAmount = Number(disambiguationForecast.parentForecast?.amount || 0);
-                const subForecast = disambiguationForecast.subEventForecast;
-                const siblingCount = disambiguationForecast.siblings?.length || 0;
-                const fmtMoney = (n: number) => n.toLocaleString("pt-PT", { minimumFractionDigits: 2 }) + "€";
-
-                return (
-                  <div className="space-y-2">
-                    <div className="rounded-lg bg-secondary/50 p-3 text-xs space-y-1">
-                      <p className="font-medium text-foreground">{catLabel}</p>
-                      <p className="text-muted-foreground">Master: {parentEvent?.name} — BP: {fmtMoney(masterAmount)}</p>
-                      {subForecast && (
-                        <p className="text-muted-foreground">Sub-evento: BP local — {fmtMoney(Number(subForecast.amount))}</p>
-                      )}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={confirmMasterFromDisambiguation}
-                      className="w-full rounded-lg border-2 border-primary/30 bg-primary/5 p-3 text-left transition-all hover:border-primary/60 hover:bg-primary/10"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Split className="h-4 w-4 text-primary shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium text-foreground">Custo da tour — lançar no Master ({parentEvent?.name})</p>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">
-                            Uma transação única no Master, na linha do BP do Master. A repartição pelas {siblingCount} cidades
-                            é virtual e acontece nos relatórios (DRE e BP).
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={confirmExclusiveFromDisambiguation}
-                      className="w-full rounded-lg border-2 border-border bg-background p-3 text-left transition-all hover:border-accent hover:bg-accent/5"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base shrink-0">📌</span>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">Exclusivo deste evento</p>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">
-                            {subForecast
-                              ? "Despesa específica desta cidade. Usa os dados do BP local."
-                              : "Despesa específica desta cidade. Sem previsão no BP — será marcada como 'Fora do BP'."}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  </div>
-                );
-              })()}
-
-              <button
-                type="button"
-                onClick={() => setShowSplitDisambiguation(false)}
-                className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors py-1"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        )}
 
       <LocalReinforcementDialog
         open={showReinforcementDialog}
