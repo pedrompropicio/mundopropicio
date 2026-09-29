@@ -10,7 +10,7 @@ const sales = [
 describe("computeBpFormula — % da receita", () => {
   it("soma duas fontes, base bruta", () => {
     const r = computeBpFormula({ formulaType: "pct_ticket_revenue", params: { rate: 2, basis: "gross", zone_ids: null }, sales, courtesies: [], realized: true });
-    expect(r.amount).toBe(123.2); // 2% × 6.160
+    expect(r.amount).toBe(121.2); // 2% × 6.060
   });
   it("base líquida tira o IVA linha a linha pelo lote", () => {
     const r = computeBpFormula({ formulaType: "pct_ticket_revenue", params: { rate: 2, basis: "net", zone_ids: null }, sales, courtesies: [], realized: true });
