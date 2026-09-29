@@ -259,7 +259,7 @@ export default function ZoneLotsPrices({
           </p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-sm">
+          <table className="w-full min-w-[1200px] text-sm">
             <thead>
               <tr className="border-b text-left text-xs text-muted-foreground">
                 <th className="p-3 font-medium">Zona / lote</th>
