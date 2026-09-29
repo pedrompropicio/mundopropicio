@@ -5,6 +5,7 @@ import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import {
   computeRealCacheResults,
   computeTicketRevenueAndOccupancy,
+  cityDeductionSources,
   filterRealCacheExpenses,
   type DeductionDetail,
   type RealCacheResult,
@@ -79,6 +80,22 @@ export function useRealCacheCalculation(
     enabled: enabled && allEventIds.length > 0,
   });
 
+  // BP aprovado (fonte primária das deduções — decisão 29/09/2026).
+  const { data: bpForecasts = [] } = useQuery({
+    queryKey: ["real-cache-bp-forecasts", allEventIds.join(",")],
+    queryFn: async () => {
+      const { data, error } = await fetchAllPagedQuery(supabase
+        .from("event_forecasts")
+        .select("id, event_id, type, category_id, amount, iva_rate, status, is_transitory, is_overhead, exclude_from_result, version_id")
+        .in("event_id", allEventIds)
+        .eq("type", "expense")
+        .is("version_id", null));
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: enabled && allEventIds.length > 0,
+  });
+
   // Category lookup map
   const categoryMap = useMemo(() => {
     const map = new Map<string, { code: string; name: string }>();
@@ -103,10 +120,16 @@ export function useRealCacheCalculation(
         deductions,
         categoryMap,
         expenses: realExpenses,
+        // Cada evento (Master + cidades) com o seu BP e excesso, peso 1 — soma = Σ cidades.
+        sources: allEventIds.map((id) => ({
+          forecasts: bpForecasts.filter((f: any) => f.event_id === id),
+          expenses: realExpenses.filter((t: any) => t.event_id === id),
+          weight: 1,
+        })),
         revenue: realRevenue,
         occupancyPct,
       }),
-    [cacheConfigs, deductions, categoryMap, realExpenses, realRevenue, occupancyPct],
+    [cacheConfigs, deductions, categoryMap, realExpenses, bpForecasts, allEventIds, realRevenue, occupancyPct],
   );
 
   // Por cidade (turnês): mesma regra, receita/ocupação/despesas da cidade.
@@ -122,12 +145,19 @@ export function useRealCacheCalculation(
         deductions,
         categoryMap,
         expenses: realExpenses.filter((t: any) => t.event_id === childId),
+        sources: cityDeductionSources({
+          cityForecasts: bpForecasts.filter((f: any) => f.event_id === childId),
+          cityExpenses: realExpenses.filter((t: any) => t.event_id === childId),
+          masterForecasts: bpForecasts.filter((f: any) => f.event_id === eventId),
+          masterExpenses: realExpenses.filter((t: any) => t.event_id === eventId),
+          cityCount: childEventIds.length,
+        }),
         revenue: r.revenue,
         occupancyPct: r.occupancyPct,
       });
     }
     return map;
-  }, [cacheConfigs, deductions, salesData, realExpenses, categoryMap, childEventIds]);
+  }, [cacheConfigs, deductions, salesData, realExpenses, bpForecasts, categoryMap, childEventIds, eventId]);
 
   return {
     results,

@@ -101,7 +101,6 @@ export function CacheSettlementPanel({
   const balanceToPay = Math.max(0, effectiveValue - advancesPaid);
   const diff = effectiveValue - projectedValue;
   const isVariable = config.cache_type === "variable";
-  const hasMissingDeductions = (realResult?.missingDeductionCategories?.length ?? 0) > 0;
 
   const adjustedDiffersFromCalculated = useMemo(() => {
     const parsed = parseFloat(adjustedInput);
@@ -221,23 +220,6 @@ export function CacheSettlementPanel({
         )}
       </div>
 
-      {/* Missing deductions alert */}
-      {hasMissingDeductions && !isFinalized && (
-        <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-2.5">
-          <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
-          <div>
-            <p className="text-xs font-medium text-warning">Deduções sem transação lançada</p>
-            <ul className="mt-1 space-y-0.5">
-              {realResult.missingDeductionCategories.map((d) => (
-                <li key={d.categoryId} className="text-[10px] text-warning/80">
-                  • {d.categoryCode} {d.categoryName} — sem lançamento (será considerada €0,00)
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-
       {/* Comparison cards */}
       <div className="grid grid-cols-3 gap-2 text-center">
         <div className="rounded-lg border border-border bg-background p-2.5">
@@ -326,12 +308,16 @@ export function CacheSettlementPanel({
 
               {/* Category deductions */}
               {realResult.deductionDetails.map((d) => (
-                <tr key={d.categoryId} className={!d.hasTransaction ? "bg-warning/5" : ""}>
+                <tr key={d.categoryId}>
                   <td className="px-3 py-1.5 pl-6 text-muted-foreground">
                     (−) {d.categoryCode} {d.categoryName}
-                    {!d.hasTransaction && (
-                      <span className="ml-1 text-warning text-[10px]">⚠ sem transação</span>
-                    )}
+                    <span className="ml-1 text-[10px]">
+                      {d.origin === "bp" && `· BP ${formatCurrency(d.bpAmount)}`}
+                      {d.origin === "transaction" && `· transação ${formatCurrency(d.excessAmount)}`}
+                      {d.origin === "bp_excess" &&
+                        `· BP ${formatCurrency(d.bpAmount)} + excedido ${formatCurrency(d.excessAmount)}`}
+                      {d.origin === "none" && "· sem BP nem transação"}
+                    </span>
                   </td>
                   <td className="px-3 py-1.5 text-right font-mono text-destructive">
                     {d.amount > 0 ? `−${formatCurrency(d.amount)}` : "€0,00"}
