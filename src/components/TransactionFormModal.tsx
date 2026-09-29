@@ -3058,8 +3058,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
             const handleLineClick = (line: any, detail: PLDetail) => {
               if (detail.catId === "none") return;
-              const switched = tryAutoSplitFromSubEvent(detail.catId, form.type, line);
-              if (switched) return; // disambiguation dialog will handle it
+              // Resiliência: preenche o formulário ANTES da desambiguação. Se o
+              // diálogo disparar, os handlers de confirmação sobrepõem o que foi
+              // preenchido (como já fazem hoje); se o diálogo não ficar visível
+              // por qualquer razão, o ecrã nunca fica sem resposta visível.
               setForm(prev => ({
                 ...prev,
                 category_id: detail.catId,
@@ -3074,6 +3076,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               }));
               // Vincula à linha BP (FK escrita no INSERT). Ignora pseudo-ids (ex: "cache-auto").
               if (isUuid(line.id)) setSelectedForecastId(line.id);
+              const switched = tryAutoSplitFromSubEvent(detail.catId, form.type, line);
+              if (switched) return; // disambiguation dialog will handle it (e sobrepõe o preenchido)
               setPlExpanded(false);
             };
 
@@ -4433,7 +4437,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
         {/* Split disambiguation dialog */}
         {showSplitDisambiguation && disambiguationForecast && createPortal(
-          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50" onClick={(e) => { if (isInsideHelpPanel(e.target)) return; setShowSplitDisambiguation(false); }}>
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50" onClick={(e) => { if (isInsideHelpPanel(e.target)) return; setShowSplitDisambiguation(false); }}>
             <div className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl space-y-4" onClick={e => e.stopPropagation()}>
               <div className="space-y-1">
                 <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
