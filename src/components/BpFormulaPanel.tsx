@@ -9,7 +9,6 @@ import { Sigma, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useSyncFormulaForecasts } from "@/hooks/useSyncFormulaForecasts";
 import { EventCourtesiesEditor } from "@/components/EventCourtesiesEditor";
-import { writeForecastAmount } from "@/lib/forecast-amount";
 
 const eur = (v: number) => new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(v);
 
@@ -217,5 +216,8 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit }: { eventId: string
   );
 }
 
-// evita aviso de import não usado em builds estritos
-void writeForecastAmount;
+/** Montador invisível: recalcula as fórmulas de um evento (capa, Fecho). */
+export function FormulaSyncRunner({ eventId, isMaster }: { eventId: string; isMaster: boolean }) {
+  useSyncFormulaForecasts({ eventId, isMaster });
+  return null;
+}
