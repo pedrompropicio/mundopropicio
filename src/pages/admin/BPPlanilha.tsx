@@ -110,6 +110,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  * recálculos automáticos. Por isso a grelha deixa só essa coluna editável.
  */
 const isLockedEntry = (e: {
+  /** #263: linhas com fórmula — valor calculado, não se edita na Planilha */
+  formula_type?: string | null;
   is_overhead?: boolean | null;
   exclude_from_result?: boolean | null;
   master_forecast_id?: string | null;
@@ -339,7 +341,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
       const forecastBaseQuery = supabase
           .from("event_forecasts")
           .select(
-            "id, event_id, type, category_id, description, specification, amount, iva_rate, formalidade, status, transaction_id, ordering_partner_id, paying_partner_id, is_overhead, exclude_from_result, master_forecast_id, is_retroactive_override",
+            "id, event_id, type, category_id, description, specification, amount, iva_rate, formalidade, status, transaction_id, ordering_partner_id, paying_partner_id, is_overhead, exclude_from_result, master_forecast_id, is_retroactive_override, formula_type",
           )
           .eq("event_id", eventId)
           .in("status", ["approved", "draft"])
