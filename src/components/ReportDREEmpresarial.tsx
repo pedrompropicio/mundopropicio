@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { buildCategoryLookup, aggregateByHierarchyDRE, type AggregatedGroup } from "@/lib/category-hierarchy";
 import { Button } from "@/components/ui/button";
 import { FileSpreadsheet } from "lucide-react";
-import { buildAbsorptionMap } from "@/lib/admin-cost-allocation";
 import { partnerUsesGrossExpenses } from "@/lib/partner-calc-basis";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
@@ -185,21 +184,12 @@ export default function ReportDREEmpresarial() {
     [yearTx, corporateCatIds]
   );
 
-  // Mapa de absorção: tx.id -> evento absorvedor (Fase 3 da alocação Group 10).
-  // Usa TODAS as transações do ano (não só corporativas) por consistência, mas o helper
-  // já filtra por categoria absorvível.
-  const absorptionMap = useMemo(
-    () => buildAbsorptionMap(yearTx as any, categories as any, events as any),
-    [yearTx, categories, events]
-  );
-
   // Also include corporate-category transactions that have event_id (edge case).
-  // Excluímos do DRE Empresarial qualquer transação absorvida por evento ativo.
+  // #264: a janela administrativa é trava real na base (o evento é gravado na
+  // transação); já não há absorção virtual no DRE.
   const corpTxAll = useMemo(
-    () => yearTx.filter(
-      (t) => corporateCatIds.has(t.category_id || "") && !absorptionMap.has(t.id)
-    ),
-    [yearTx, corporateCatIds, absorptionMap]
+    () => yearTx.filter((t) => corporateCatIds.has(t.category_id || "")),
+    [yearTx, corporateCatIds]
   );
 
   const lines = useMemo(() => {

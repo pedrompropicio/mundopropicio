@@ -89,9 +89,9 @@ function CategoryRow({
           {cat.allocate_to_active_event && (
             <span
               className="ml-2 inline-flex items-center rounded-full bg-primary/15 text-primary px-2 py-0.5 text-[10px] font-medium align-middle"
-              title="Esta conta é absorvida pelo evento ativo (Group 10)"
+              title="Com data do documento dentro da janela administrativa, esta conta tem de ir para o evento da janela"
             >
-              ↪ Absorvida pelo evento ativo
+              ↪ Custo do evento da janela
             </span>
           )}
         </td>

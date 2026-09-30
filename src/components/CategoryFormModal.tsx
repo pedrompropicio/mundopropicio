@@ -1,3 +1,4 @@
+import { isAdminWindowLockedCode } from "@/lib/admin-window";
 import React, { useState, useMemo, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -153,6 +154,9 @@ export default function CategoryFormModal({
     return grandParent?.code === "10";
   }, [effectiveParentId, categories]);
 
+  // #264: contas que nunca podem ser custo do evento da janela (a base também recusa).
+  const allocateLocked = isAdminWindowLockedCode(code);
+
   const createMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.from("account_categories").insert({
@@ -161,7 +165,7 @@ export default function CategoryFormModal({
         type,
         parent_id: effectiveParentId || null,
         event_required: !effectiveParentId ? eventRequired : true,
-        allocate_to_active_event: isL3InGroup10 ? allocateToActiveEvent : false,
+        allocate_to_active_event: isL3InGroup10 && !allocateLocked ? allocateToActiveEvent : false,
       }).select("id").single();
       if (error) throw error;
       return data.id;
@@ -181,7 +185,7 @@ export default function CategoryFormModal({
       if (!editingCategory) return;
       const updateData: any = { code, name, type, parent_id: effectiveParentId || null };
       if (!effectiveParentId) updateData.event_required = eventRequired;
-      if (isL3InGroup10) updateData.allocate_to_active_event = allocateToActiveEvent;
+      if (isL3InGroup10) updateData.allocate_to_active_event = allocateLocked ? false : allocateToActiveEvent;
       const { error } = await supabase.from("account_categories").update(updateData).eq("id", editingCategory.id);
       if (error) throw error;
       return editingCategory.id;
@@ -304,19 +308,25 @@ export default function CategoryFormModal({
 
           {isL3InGroup10 && (
             <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
-              <p className="text-xs font-medium text-primary">Absorção pelo evento ativo</p>
-              <div className="flex items-start gap-2">
+              <p className="text-xs font-medium text-primary">Custo do evento da janela administrativa</p>
+              <div
+                className="flex items-start gap-2"
+                title={allocateLocked ? "10.1, 10.2, 10.3 e 10.12 (sócios, capital, transferências internas e custos partilhados) ficam sempre na empresa — não podem ser custo do evento da janela." : undefined}
+              >
                 <input
                   type="checkbox"
                   id="cat_allocate_active"
-                  checked={allocateToActiveEvent}
+                  checked={allocateLocked ? false : allocateToActiveEvent}
+                  disabled={allocateLocked}
                   onChange={(e) => setAllocateToActiveEvent(e.target.checked)}
-                  className="mt-0.5 rounded border-border"
+                  className="mt-0.5 rounded border-border disabled:opacity-50"
                 />
-                <Label htmlFor="cat_allocate_active" className="text-xs leading-relaxed cursor-pointer">
-                  <span className="font-semibold">Absorver esta conta pelo evento ativo</span>
+                <Label htmlFor="cat_allocate_active" className={`text-xs leading-relaxed ${allocateLocked ? "opacity-60" : "cursor-pointer"}`}>
+                  <span className="font-semibold">Esta conta é custo do evento da janela</span>
                   <span className="block text-[10px] text-muted-foreground mt-0.5">
-                    Quando ativada, transações desta conta dentro da janela administrativa de um evento ficam alocadas ao DRE desse evento (e saem do DRE empresarial). Útil para empresas de evento único.
+                    {allocateLocked
+                      ? "Bloqueada: 10.1, 10.2, 10.3 e 10.12 ficam sempre na empresa."
+                      : "Quando ativada, uma transação desta conta com data do documento dentro da janela administrativa de um evento tem de ser lançada nesse evento (a base recusa outro evento ou sem evento, salvo excepção autorizada)."}
                   </span>
                 </Label>
               </div>

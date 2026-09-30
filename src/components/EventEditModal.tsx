@@ -33,6 +33,24 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
   const [adminWindowStart, setAdminWindowStart] = useState<string>(event.admin_window_start || "");
   const [adminWindowEnd, setAdminWindowEnd] = useState<string>(event.admin_window_end || "");
 
+  // #264: janelas vizinhas da empresa (só leitura; a base valida a contiguidade).
+  const { data: neighbourWindows = [] } = useQuery({
+    queryKey: ["admin-windows", event.company_id],
+    enabled: !!event.company_id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, name, admin_window_start, admin_window_end")
+        .eq("company_id", event.company_id)
+        .eq("absorbs_admin_costs", true)
+        .is("parent_event_id", null)
+        .order("admin_window_start", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const fmtPt = (d: string | null) => (d ? d.split("-").reverse().join("/") : "—");
+
   // Tráfego pago (só evento-mãe / single): nível de lançamento + nomes alternativos
   const [adsLevel, setAdsLevel] = useState<string>(event.ads_allocation_level || "tour");
   const [adsAliases, setAdsAliases] = useState<string>(
@@ -167,29 +185,33 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
       return;
     }
     if (canAbsorb && absorbsAdminCosts) {
-      if (!adminWindowStart || !adminWindowEnd) {
-        toast({ title: "Defina a janela administrativa (início e fim)", variant: "destructive" });
+      if (!adminWindowStart) {
+        toast({ title: "Defina a data de início da janela administrativa", variant: "destructive" });
         return;
       }
-      if (adminWindowStart > adminWindowEnd) {
+      if (adminWindowEnd && adminWindowStart > adminWindowEnd) {
         toast({ title: "A data de início da janela tem de ser ≤ à data de fim", variant: "destructive" });
         return;
       }
     }
+    // Contiguidade/sobreposição: a base valida e devolve a mensagem.
     updateMutation.mutate();
   };
 
-  // Toggle absorção: ao ativar pela 1ª vez, sugerir janela default (10 meses antes + 2 depois da data do evento)
+  // Toggle: início por defeito = dia seguinte ao fim da última janela da empresa; fim em aberto.
   const handleToggleAbsorb = (checked: boolean) => {
     setAbsorbsAdminCosts(checked);
-    if (checked && date && (!adminWindowStart || !adminWindowEnd)) {
-      const eventDate = new Date(date + "T00:00:00");
-      const start = new Date(eventDate); start.setMonth(start.getMonth() - 10);
-      const end = new Date(eventDate); end.setMonth(end.getMonth() + 2);
-      const fmt = (d: Date) =>
-        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      setAdminWindowStart(fmt(start));
-      setAdminWindowEnd(fmt(end));
+    if (checked && !adminWindowStart) {
+      const others = neighbourWindows.filter((w: any) => w.id !== event.id && w.admin_window_end);
+      const last = others[others.length - 1];
+      if (last?.admin_window_end) {
+        const d = new Date(last.admin_window_end + "T00:00:00");
+        d.setDate(d.getDate() + 1);
+        setAdminWindowStart(
+          `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+        );
+      }
+      setAdminWindowEnd("");
     }
   };
 
@@ -375,7 +397,7 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
             </div>
           </div>
 
-          {/* Absorção de Custos Administrativos */}
+          {/* Janela administrativa (#264 — trava real na base) */}
           {canAbsorb ? (
             <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
               <div className="flex items-start gap-2">
@@ -389,7 +411,7 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
                 <label htmlFor="ev_absorbs_admin" className="text-xs leading-relaxed cursor-pointer flex-1">
                   <span className="font-semibold text-primary">Este evento absorve custos administrativos</span>
                   <span className="block text-[10px] text-muted-foreground mt-0.5">
-                    Para empresas de evento único: contas administrativas marcadas no Plano de Contas (Group 10) com despesas dentro da janela abaixo serão alocadas ao DRE deste evento, em vez do DRE empresarial anual.
+                    Transações das contas marcadas no Plano de Contas com data do documento dentro desta janela têm de ser lançadas neste evento. As janelas da empresa são contíguas: ligar uma janela depois de outra em aberto fecha a anterior no dia antes.
                   </span>
                 </label>
               </div>
@@ -401,9 +423,20 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
                     <DatePicker value={adminWindowStart} onChange={setAdminWindowStart} />
                   </div>
                   <div>
-                    <label className="mb-1 block text-[10px] font-medium text-muted-foreground">Janela: fim</label>
+                    <label className="mb-1 block text-[10px] font-medium text-muted-foreground">Janela: fim (vazio = em aberto)</label>
                     <DatePicker value={adminWindowEnd} onChange={setAdminWindowEnd} />
                   </div>
+                </div>
+              )}
+
+              {neighbourWindows.length > 0 && (
+                <div className="space-y-1 text-[10px] text-muted-foreground">
+                  <div className="font-medium">Janelas da empresa</div>
+                  {neighbourWindows.map((w: any) => (
+                    <div key={w.id} className={w.id === event.id ? "font-semibold text-foreground" : ""}>
+                      {w.name}: {fmtPt(w.admin_window_start)} → {w.admin_window_end ? fmtPt(w.admin_window_end) : "em aberto"}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

@@ -1,5 +1,7 @@
 import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import { makeTxInsert } from "@/lib/admin-window";
+import { AdminCostOverrideDialog, useAdminWindowEvent } from "@/components/AdminCostOverrideDialog";
 import { isInsideHelpPanel } from "@/lib/help-panel-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -528,11 +530,26 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const { data: categories = [] } = useQuery({
     queryKey: ["account_categories"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("account_categories").select("id, name, code, type, parent_id, event_required").eq("is_active", true);
+      const { data, error } = await supabase.from("account_categories").select("id, name, code, type, parent_id, event_required, allocate_to_active_event").eq("is_active", true);
       if (error) throw error;
       return sortByHierarchicalCode(data ?? [], (category) => category.code);
     },
   });
+
+  // #264 — janela administrativa: conta marcada + data do documento na janela →
+  // evento vem da janela; outro evento/sem evento só com excepção (RPC).
+  const overrideReasonRef = useRef<string | null>(null);
+  const txInsert = useMemo(() => makeTxInsert(() => overrideReasonRef.current), []);
+  const [overridePrompt, setOverridePrompt] = useState(false);
+  const selectedCatFlagged = !!(categories as any[]).find((c: any) => c.id === form.category_id)?.allocate_to_active_event;
+  const adminWindow = useAdminWindowEvent({ categoryFlagged: selectedCatFlagged, date: form.date });
+  useEffect(() => {
+    if (adminWindow && !form.event_id) setForm((f) => ({ ...f, event_id: adminWindow.event_id }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminWindow?.event_id]);
+  useEffect(() => {
+    overrideReasonRef.current = null;
+  }, [form.event_id, form.category_id, form.date, isSplit]);
 
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
@@ -1342,7 +1359,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
         // 2. Create parent transaction (no event)
         const parentAccountId = isPaidByPartner ? null : (data.account_id || null);
-        const { data: parentRow, error: parentError } = await supabase.from("transactions").insert({
+        const { data: parentRow, error: parentError } = await txInsert({
           description: data.description,
           type: data.type,
           amount: totalAmount,
@@ -1520,7 +1537,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
         // Sufixo curto que distingue as duas pernas na lista de transações.
         const mpLegSuffix = lineSplitActive ? " — parte MP" : "";
-        const { data: insertedTx, error } = await supabase.from("transactions").insert({
+        const { data: insertedTx, error } = await txInsert({
           description: data.description + totalSuffix + mpLegSuffix,
           type: data.type,
           amount: firstParcelNet,
@@ -1578,9 +1595,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // estados diferentes deixariam o grupo permanentemente parcial.
         if (lineSplitActive && insertedTx?.id) {
           const thirdGross = Number((sharedCostThirdNum * ivaMultiplier).toFixed(2));
-          const { data: thirdLeg, error: thirdErr } = await supabase
-            .from("transactions")
-            .insert({
+          const { data: thirdLeg, error: thirdErr } = await txInsert({
               description: `${data.description} — parte de terceiros`,
               type: data.type,
               amount: sharedCostThirdNum,
@@ -1748,7 +1763,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
             const inst = installmentRows[i];
             const netAmt = installmentNets[i] ?? 0;
-            const { data: siblingTx, error: sErr } = await supabase.from("transactions").insert({
+            const { data: siblingTx, error: sErr } = await txInsert({
               description: `${data.description} (${i + 1}/${n})`,
               type: data.type,
               amount: netAmt,
@@ -1851,9 +1866,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             // irmã transitória por X. Soma do grupo == total da fatura (invariante D-ERP17).
             // Estado e pago seguem a principal: se a principal nasce paga, a irmã também;
             // se nasce pendente, a irmã fica pendente (antes estava fixa em 'paid').
-            const { data: siblingTx, error: siblingErr } = await supabase
-              .from("transactions")
-              .insert({
+            const { data: siblingTx, error: siblingErr } = await txInsert({
                 description: `${data.description} — extra sócio (parcial)`,
                 type: data.type,
                 amount: partnerExtraPartialNum,
@@ -2240,6 +2253,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    {
+      const chosen = isSplit ? null : (form.event_id || null);
+      if (adminWindow && chosen !== adminWindow.event_id && !overrideReasonRef.current) {
+        setOverridePrompt(true);
+        return;
+      }
+    }
     if (!form.description || !form.amount) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
@@ -4393,6 +4413,18 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         onClose={() => {
           setInvoiceSuggestion(null);
           onClose();
+        }}
+      />
+      <AdminCostOverrideDialog
+        open={overridePrompt && !!adminWindow}
+        windowEventName={adminWindow?.event_name ?? ""}
+        chosenLabel={isSplit || !form.event_id ? "sem evento (rateio/empresa)" : "outro evento"}
+        canOverride={hasPermission("admin_cost_override")}
+        onCancel={() => setOverridePrompt(false)}
+        onConfirm={(reason) => {
+          overrideReasonRef.current = reason;
+          setOverridePrompt(false);
+          handleSubmit({ preventDefault() {} } as any);
         }}
       />
     </div>
