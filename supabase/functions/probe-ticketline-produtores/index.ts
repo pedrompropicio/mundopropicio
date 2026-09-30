@@ -116,6 +116,54 @@ Deno.serve(async (req) => {
   if (!loggedIn) return json({ ...out, autenticou: false, parado: "login falhou — não repetido" });
 
   const reqBody = await req.json().catch(() => ({}));
+  if (reqBody?.mode === "sweep") {
+    // Varredura só-leitura: lista eventos do portal e, para os pedidos, lê o texto do PDF de Ocupação.
+    const { extractText, getDocumentProxy } = await import("npm:unpdf@0.12.1");
+    let page = loc2 ? await get(new URL(loc2, action).toString()) : { status: 200, url: action, html: body2, ctype: null };
+    const fields = (html: string) => {
+      const f: Record<string, string> = {};
+      for (const m of html.matchAll(/<input[^>]*type="(hidden|text)"[^>]*>/gi)) {
+        const n = m[0].match(/name="([^"]+)"/)?.[1]; if (!n) continue;
+        f[n] = decode(m[0].match(/value="([^"]*)"/)?.[1] ?? "");
+      }
+      for (const m of html.matchAll(/<select[^>]*name="([^"]+)"[^>]*>([\s\S]*?)<\/select>/gi)) {
+        f[m[1]] = m[2].match(/<option[^>]*selected[^>]*value="([^"]*)"/i)?.[1] ?? m[2].match(/<option[^>]*value="([^"]*)"/i)?.[1] ?? "";
+      }
+      return f;
+    };
+    const post = async (html: string, url: string, extra: Record<string, string>) => {
+      const r = await fetch(url, { method: "POST", redirect: "manual", signal: AbortSignal.timeout(30000),
+        headers: { "User-Agent": UA, Cookie: jar.header(), "Content-Type": "application/x-www-form-urlencoded", Referer: url },
+        body: new URLSearchParams({ ...fields(html), ...extra }).toString() });
+      jar.take(r);
+      return { status: r.status, location: r.headers.get("location"), html: await r.text() };
+    };
+    const opts = (html: string, name: string) => {
+      const s = html.match(new RegExp(`<select[^>]*name="[^"]*${name}"[^>]*>([\\s\\S]*?)<\\/select>`, "i"))?.[1] ?? "";
+      return [...s.matchAll(/<option[^>]*value="([^"]*)"[^>]*>([\s\S]*?)<\/option>/gi)].map((o) => ({ id: o[1], nome: strip(o[2]) }));
+    };
+    const eventos = opts(page.html, "cboEvento");
+    const results: any[] = [];
+    for (const id of (reqBody.eventos ?? []) as string[]) {
+      try {
+        const sel = await post(page.html, page.url, { "__EVENTTARGET": "ctl00$ContentPlaceHolder2$cboEvento", "__EVENTARGUMENT": "", "ctl00$ContentPlaceHolder2$cboEvento": id });
+        page = { status: sel.status, url: page.url, html: sel.html, ctype: null };
+        const sessoes = opts(sel.html, "cboSessao");
+        const r = await post(page.html, page.url, { "ctl00$ContentPlaceHolder2$btnOcupacao": "x" });
+        if (!r.location) { results.push({ id, sessoes, erro: "sem redirect para relatório" }); continue; }
+        const rel = await fetch(new URL(r.location, page.url).toString(), { headers: { "User-Agent": UA, Cookie: jar.header() }, signal: AbortSignal.timeout(30000) });
+        jar.take(rel);
+        const relHtml = await rel.text();
+        const pdfPath = relHtml.match(/["']([^"']*TempReports\/[^"']+\.pdf)["']/i)?.[1];
+        if (!pdfPath) { results.push({ id, sessoes, erro: "PDF não encontrado" }); continue; }
+        const buf = new Uint8Array(await (await fetch(new URL(pdfPath, rel.url).toString(), { signal: AbortSignal.timeout(30000) })).arrayBuffer());
+        const { text } = await extractText(await getDocumentProxy(buf), { mergePages: true });
+        const t = String(text);
+        results.push({ id, sessoes, linhas_total: t.split("\n").filter((l) => /total/i.test(l)).slice(0, 6), fim: t.slice(-900) });
+      } catch (e) { results.push({ id, erro: String(e).slice(0, 200) }); }
+    }
+    return json({ ...out, autenticou: true, modo: "sweep", eventos, results });
+  }
   if (reqBody?.mode === "reports") {
     // Postbacks ASP.NET sobre a página principal: escolher evento e carregar botões de relatório.
     let page = loc2 ? await get(new URL(loc2, action).toString()) : { status: 200, url: action, html: body2, ctype: null };
