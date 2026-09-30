@@ -408,6 +408,7 @@ export default function CardSessionDetail() {
         } as any);
         if (auditErr) console.warn("[deleteExpense] system_audit_log falhou:", auditErr.message);
       }
+      if (storageErr) throw storageErr;
 
       if (linkedItems && linkedItems.length > 0) {
         await supabase

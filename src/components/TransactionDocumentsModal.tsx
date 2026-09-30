@@ -194,6 +194,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
           shared_rows_removed: deletedIds.length,
         },
       });
+      if (storageErr) throw storageErr;
     },
     onMutate: async (doc) => {
       // Optimistic update: remove from list immediately
