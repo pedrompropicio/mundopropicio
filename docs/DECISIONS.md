@@ -4566,3 +4566,20 @@ parâmetros em `formula_params` (jsonb, coluna nova). Motor puro único
 - **30/09/2026 (decisão do Pedro):** só existem DOIS tipos de fórmula — % da receita de bilhetes e valor por pessoa. A SPA fica manual (é negociada). Não se criam variantes por escalões de público nem mínimo por bilhete.
 - **30/09/2026:** Simulador e `useEventAttendance` (A&B) deixam de filtrar só 'real' e usam a mesma regra do motor via `selectCourtesyRows` (bp-formula.ts; `courtesyTotals` assenta nela). Realizado por `fetchEventRealized`.
 - **30/09/2026:** SM Lisboa/Porto "2% comissão ticketline" convertidas (pct_ticket_revenue, 2%, bruta). São overhead → `writeForecastAmount` usa o update directo (o RPC recusa overhead), por isso não fica entrada em `forecast_audit_log` com a observação.
+
+## D-ERP150 — #264: janela administrativa passa a trava real na base (30/09/2026)
+
+Substitui a absorção virtual no DRE (`src/lib/admin-cost-allocation.ts`, removido; com 0 eventos a absorver, nenhum número mudou).
+
+Decisões do Pedro (30/09/2026):
+1. A data que decide a janela é sempre `transactions.date` (data do documento), nunca `payment_date`. O evento decide-se no lançamento e não muda ao pagar.
+2. A base recusa marcar `allocate_to_active_event` em 10.1.*, 10.2.*, 10.3.* e 10.12.*. As restantes L3 do grupo 10 são configuráveis por empresa (IRC 10.5 é custo do evento). DML única: desmarcadas 10.1.01–10.1.03 da MP.
+3. A excepção é a permissão configurável `admin_cost_override` (por defeito admin e manager), com justificação obrigatória e registo em `system_audit_log`. service_role não tem excepção.
+4. As janelas são contíguas e sem buraco; fim em aberto só na última; ligar a seguinte fecha a anterior no dia antes.
+
+Resoluções (mesmo dia):
+- Sync Coala sem isenção: o Coala 2026 fica selado e desligado; o 2027 grava com o evento 2027.
+- Restauros sem isenção: transação histórica na janela sem o evento da janela é recusada; resolve-se à mão.
+- Filhas de rateio e parcelas (`parent_transaction_id`) isentas; a regra aplica-se à mãe.
+
+Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_admin_windows_contiguous` + `validate_event_admin_absorption` (events), CHECK `events_admin_window_required` passou a aceitar fim NULL, RPC `admin_cost_override_write` (a justificação só vive dentro da transacção, por isso a RPC faz a escrita). Memória: `.lovable/memory/features/janela-administrativa.md`.

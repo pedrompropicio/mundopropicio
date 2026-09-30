@@ -36,3 +36,4 @@
 - [Compensação ligada](mem://features/compensacao-ligada) — transaction_offsets receita↔despesa mesmo fornecedor; trigger gera compensation sem conta em qualquer caminho de pagamento; estorno propaga; invariante compensacao_pendente
 - [Tráfego por período + metas](mem://features/artist-ads-period-report) — RPC artist_ads_period_report (contrato fixo chat 3), metas por campanha (plano > tabela), análise sem causalidade, pixel TikTok opcional
 - [Linhas de BP com fórmula](mem://features/bp-linhas-com-formula) — #263 D-ERP149: % receita bilhetes / custo por pessoa, convites forecast/real em event_courtesies, chão #240
+- [Janela administrativa (#264)](mem://features/janela-administrativa) — Trava real na base: conta G10 marcada + data do documento na janela → evento da janela; excepção admin_cost_override; janelas contíguas; 10.1/10.2/10.3/10.12 bloqueadas; absorção virtual no DRE removida
