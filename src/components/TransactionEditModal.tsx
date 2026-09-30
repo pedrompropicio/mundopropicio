@@ -3,6 +3,8 @@ import { TransactionOffsetsBlock } from "@/components/TransactionOffsetsBlock";
 import { computeBudgetExcess, type BudgetExcessLine } from "@/lib/bp-budget-excess";
 import { isBpLinkAllowedForEvent, fetchWithBpEventIds } from "@/lib/bp-line-required";
 import { useState, useEffect, useMemo } from "react";
+import { fetchAdminWindowEvent, writeWithAdminCostOverride } from "@/lib/admin-window";
+import { AdminCostOverrideDialog } from "@/components/AdminCostOverrideDialog";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink } from "react-router-dom";
@@ -718,6 +720,34 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         }
       }
 
+      // #264 — janela administrativa (trava real na base). Só quando a edição muda
+      // evento/conta/data; o histórico nunca é reavaliado.
+      {
+        const u: any = updates;
+        const newEvent = ("event_id" in u ? u.event_id : txAny.event_id) ?? null;
+        const newCat = ("category_id" in u ? u.category_id : txAny.category_id) ?? null;
+        const newDate = ("date" in u ? u.date : txAny.date) ?? null;
+        const keysChanged = newEvent !== (txAny.event_id ?? null)
+          || newCat !== (txAny.category_id ?? null)
+          || newDate !== (txAny.date ?? null);
+        if (keysChanged && newCat && newDate && !txAny.parent_transaction_id) {
+          const { data: catRow, error: catErr } = await supabase
+            .from("account_categories").select("allocate_to_active_event").eq("id", newCat).maybeSingle();
+          if (catErr) throw catErr;
+          if ((catRow as any)?.allocate_to_active_event) {
+            const win = await fetchAdminWindowEvent(txAny.company_id, newDate);
+            if (win && newEvent !== win.event_id) {
+              const reason = await new Promise<string | null>((resolve) =>
+                setAdminOverrideAsk({ windowEventName: win.event_name, chosenLabel: newEvent ? "outro evento" : "sem evento", resolve }));
+              if (!reason) throw new Error(`Esta conta é custo do evento ${win.event_name} nesta data. Escolhe esse evento ou pede a excepção.`);
+              const keys: Record<string, unknown> = { event_id: newEvent, category_id: newCat, date: newDate };
+              if ("forecast_id" in u) keys.forecast_id = u.forecast_id;
+              await writeWithAdminCostOverride(reason, keys, transaction.id);
+            }
+          }
+        }
+      }
+
       // Build snapshot of pre-change values for the same fields
       const snapshot: Record<string, any> = {};
       for (const key of Object.keys(updates)) {
@@ -986,6 +1016,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   const [unlinkBpRequested, setUnlinkBpRequested] = useState(false);
   // #240 Porta 1 — diálogos da mudança de evento de transação aprovada
   const [eventMovePick, setEventMovePick] = useState<{ resolve: (id: string | null) => void } | null>(null);
+  const [adminOverrideAsk, setAdminOverrideAsk] = useState<{ windowEventName: string; chosenLabel: string; resolve: (reason: string | null) => void } | null>(null);
   const [eventMoveRaise, setEventMoveRaise] = useState<{ lines: BudgetExcessLine[]; resolve: (ok: boolean) => void } | null>(null);
   const isBpLinked = !!linkedForecast && !unlinkBpRequested;
   const bpCategoryId = isBpLinked ? ((linkedForecast as any)?.category_id ?? null) : null;
@@ -2616,6 +2647,14 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
         />
 
         {/* D1+D8 — reversão total de Extra do Sócio: escolher a linha de BP antes de escrever. */}
+        <AdminCostOverrideDialog
+          open={!!adminOverrideAsk}
+          windowEventName={adminOverrideAsk?.windowEventName ?? ""}
+          chosenLabel={adminOverrideAsk?.chosenLabel ?? ""}
+          canOverride={hasPermission("admin_cost_override")}
+          onCancel={() => { adminOverrideAsk?.resolve(null); setAdminOverrideAsk(null); }}
+          onConfirm={(reason) => { adminOverrideAsk?.resolve(reason); setAdminOverrideAsk(null); }}
+        />
         {eventMovePick && (
           <LinkBpLineDialog
             transaction={{ ...(transaction as any), event_id: form.event_id, category_id: form.category_id || transaction.category_id, events: null }}
