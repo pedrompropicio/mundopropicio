@@ -7,6 +7,7 @@
  * `card_item_documents` (1 linha por ficheiro) e é isso que o fecho da sessão
  * replica nas transações consolidadas como `card://<path>`.
  */
+import { deleteStorageObject, deleteStorageObjects } from "@/lib/storage-delete";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentCompanyId } from "@/hooks/useCompany";
 import { isHeicFile, normalizeImageFile } from "@/lib/image-upload";
@@ -63,7 +64,7 @@ export async function uploadCardItemDocument(
     .select("id, item_id, file_path, file_name, mime_type, created_at")
     .single();
   if (error) {
-    await supabase.storage.from("card-documents").remove([path]);
+    await deleteStorageObject("card-documents", path, { reason: "limpeza de upload falhado", related_table: "card_item_documents" }).catch((e) => console.error("[card doc] limpeza falhou", e));
     throw error;
   }
 
@@ -77,14 +78,16 @@ export async function uploadCardItemDocument(
 }
 
 export async function deleteCardItemDocument(doc: CardItemDoc): Promise<void> {
-  const { error } = await supabase.from("card_item_documents").delete().eq("id", doc.id);
+  const { data: delRows, error } = await supabase.from("card_item_documents").delete().eq("id", doc.id).select("id");
   if (error) throw error;
-  await supabase.storage.from("card-documents").remove([doc.file_path]);
+  if (!delRows || delRows.length === 0) throw new Error("Sem permissão para remover este documento.");
   const rest = await fetchCardItemDocuments(doc.item_id);
   await supabase
     .from("card_session_items")
     .update({ document_path: rest[0]?.file_path ?? null })
     .eq("id", doc.item_id);
+  // #265: objeto só depois da linha, via storage-delete (verifica referências, regista, _trash).
+  await deleteStorageObject("card-documents", doc.file_path, { reason: "remover documento de item de cartão", related_table: "card_item_documents", related_id: doc.id });
 }
 
 /** Abre o documento numa nova aba (signed URL de 1h). */

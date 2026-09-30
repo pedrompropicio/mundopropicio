@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { deleteStorageObject, deleteStorageObjects } from "@/lib/storage-delete";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
@@ -179,12 +180,14 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
         .eq("item_id", itemId);
       const paths = ((docs ?? []) as any[]).map((d) => d.file_path).filter(Boolean);
       if (paths.length > 0) {
-        await supabase.storage.from("camarim-documents").remove(paths);
         await supabase.from("camarim_item_documents" as any).delete().eq("item_id", itemId);
       }
       // CASCADE da FK parent_item_id apaga os filhos automaticamente.
-      const { error } = await supabase.from("camarim_items" as any).delete().eq("id", itemId);
+      const { data: delRows, error } = await supabase.from("camarim_items" as any).delete().eq("id", itemId).select("id");
       if (error) throw error;
+      if (!delRows || delRows.length === 0) throw new Error("Sem permissão para eliminar este lançamento.");
+      // #265: ficheiros só depois da linha, via storage-delete (registo + _trash).
+      await deleteStorageObjects("camarim-documents", paths, { reason: "eliminar lançamento de camarim", related_table: "camarim_items", related_id: itemId });
       toast({
         title: childrenCount > 0 ? "Talão e linhas filhas eliminados" : "Lançamento eliminado",
       });
@@ -532,7 +535,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
             } as any);
           if (docInsErr) {
             // Storage gravou mas a tabela não — limpa o ficheiro órfão
-            await supabase.storage.from("camarim-documents").remove([path]);
+            await deleteStorageObject("camarim-documents", path, { reason: "limpeza de upload falhado", related_table: "camarim_item_documents" }).catch((e) => console.error("[camarim] limpeza falhou", e));
             throw docInsErr;
           }
         } catch (upErr: any) {

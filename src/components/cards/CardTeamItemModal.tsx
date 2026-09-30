@@ -1,4 +1,5 @@
 import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
+import { deleteStorageObject, deleteStorageObjects } from "@/lib/storage-delete";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -312,14 +313,17 @@ export function CardTeamItemModal({
     if (!window.confirm("Eliminar este lançamento?")) return;
     setDeleting(true);
     try {
-      if (existingDocPath) {
-        await supabase.storage.from("card-documents").remove([existingDocPath]);
-      }
-      const { error } = await supabase
+      const { data: delRows, error } = await supabase
         .from("card_session_items")
         .delete()
-        .eq("id", itemId);
+        .eq("id", itemId)
+        .select("id");
       if (error) throw error;
+      if (!delRows || delRows.length === 0) throw new Error("Sem permissão para eliminar este lançamento.");
+      // #265: ficheiro só depois da linha, via storage-delete (registo + _trash).
+      if (existingDocPath) {
+        await deleteStorageObject("card-documents", existingDocPath, { reason: "eliminar lançamento de cartão", related_table: "card_session_items", related_id: itemId });
+      }
       toast({ title: "Lançamento eliminado" });
       invalidateCardSessionQueries(qc, sessionId);
       onSaved?.();

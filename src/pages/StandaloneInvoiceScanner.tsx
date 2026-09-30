@@ -323,7 +323,10 @@ export default function StandaloneInvoiceScanner() {
       setSaved(true);
       toast({ title: "Fatura guardada", description: "Disponível no portal da contabilidade." });
     } catch (err: any) {
-      if (uploadedPath) await removeFromCompanyBucket("standalone-invoices", [uploadedPath]);
+      if (uploadedPath) {
+        const { error: cleanupErr } = await removeFromCompanyBucket("standalone-invoices", [uploadedPath], "limpeza de upload falhado");
+        if (cleanupErr) console.error("[scanner] limpeza falhou", cleanupErr);
+      }
       const duplicate = err?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(err);
       toast({ title: duplicate ? "Fatura duplicada" : "Não foi possível guardar", description: duplicate ? "Já existe uma fatura deste fornecedor com este número." : err.message, variant: "destructive" });
     } finally {

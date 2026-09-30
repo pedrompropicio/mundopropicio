@@ -224,14 +224,16 @@ export function AccountantStandaloneInvoicesTab() {
 
   const removeInvoice = useMutation({
     mutationFn: async (r: Row) => {
-      const { error } = await (supabase as any)
+      const { data: delRows, error } = await (supabase as any)
         .from("standalone_invoices")
         .delete()
         .eq("id", r.id)
-        .eq("status", "new");
+        .eq("status", "new")
+        .select("id");
       if (error) throw error;
-      const { error: storageError } = await removeFromCompanyBucket("standalone-invoices", [r.storage_path]);
-      if (storageError) console.warn("[standalone-invoices] ficheiro não removido", storageError);
+      if (!delRows || delRows.length === 0) throw new Error("Sem permissão para apagar esta fatura.");
+      const { error: storageError } = await removeFromCompanyBucket("standalone-invoices", [r.storage_path], "apagar fatura avulsa");
+      if (storageError) throw new Error(`Fatura apagada, mas o ficheiro não saiu do armazenamento: ${storageError.message}`);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["standalone-invoices"] });
