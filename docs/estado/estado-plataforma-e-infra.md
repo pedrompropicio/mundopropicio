@@ -419,3 +419,25 @@ Migração `20260925081304_25c63099-…` em Live: `crm.tiktok_campaign/adgroup/i
 
 ## TikTok — ingestão da tarefa agendada (25/09/2026, D-ERP144 adenda)
 Core `crm.tiktok_manual_upsert_core` (só service_role) + porta `artist-ads-tiktok-manual-ingest` com chave `TIKTOK_MANUAL_INGEST_KEY`, só a ligação do Litto, 30/h, registo em sync_runs. Falta o Pedro criar o secret e entregá-lo ao Cowork.
+
+## Documentos: remoção por servidor, _trash e vigilância alargada (30/09/2026)
+
+**A ordem de operações da edge `delete-transaction-document` é fixa e não se reordena.** Recebe o pedido (por `documentId`, por `fileUrl` com âmbito de lista de pagamento, ou por `fileUrl` em modo órfão) e: valida a permissão pela empresa dona do documento (admin/manager, via `_shared/caller-context.ts`) → apaga as linhas de `transaction_documents` (e as réplicas de `payment_list_documents`, quando é o âmbito de lista) com `service_role`, sem RLS a filtrar nada → conta quantas linhas, EM TODAS AS EMPRESAS, ainda apontam ao mesmo `file_url` → só com a contagem a zero move o objecto do bucket para `_trash/<data>/<caminho>`, com registo prévio em `storage_deletion_log`. `bank://`, `ref://`, `camarim://` e `card://` nunca chegam ao storage. Falha no move = sucesso com aviso; o ficheiro fica onde está.
+
+**Porque é que a contagem sem RLS é o ponto que interessa.** Grupos de fatura e o `ingest-transaction-document` partilham o mesmo `file_url` entre N linhas, e as réplicas de lista de pagamento copiam o `file_url` da transação. Uma contagem feita com a chave pública de quem está a ver só conta as linhas que as políticas dessa sessão deixam ver — devolve zero com linhas vivas noutra empresa ou noutro âmbito, e é exactamente com esse zero que o caminho antigo decidia apagar. O estado real dos dois comprovativos de lote prova-o: 2 e 17 linhas órfãs que o utilizador não via e a contagem sujeita a RLS não contava. Contagem sem RLS não é um detalhe de privilégio; é a diferença entre saber e parecer que se sabe.
+
+**A vigilância diária passou de uma tabela para nove (D-ERP154, #268).** O invariante `documento_sem_ficheiro_no_storage` compara agora cada uma destas tabelas com o seu bucket, contando ficheiros DISTINTOS pelo par (bucket, caminho) e excluindo sempre os esquemas `bank:`, `ref:`, `camarim://`, `card://` e `http(s)://`:
+
+- `transaction_documents.file_url` → `transaction-documents`
+- `payment_list_documents.file_url` → `transaction-documents`
+- `camarim_item_documents.file_path` → `camarim-documents`
+- `card_item_documents.file_path` → `card-documents`
+- `event_forecast_attachments.storage_path` → `event-forecast-attachments`
+- `bank_line_documents.file_url` → `bank-statements`
+- `event_ab_attachments.storage_path` → `event-ab-attachments`
+- `entity_documents.storage_path` → `entity-documents`
+- `supplier_documents.file_url` → `supplier-documents`
+
+A amostra de cada infractor diz `tabela`, `bucket`, `file_url` e `linhas` — sem a tabela não se sabe onde reparar. A conformidade mantém-se por `<=` face à referência: **18** ficheiros distintos, medidos em Live a 30/09 — 9 no bucket `transaction-documents`, dos quais 2 também aparecem em `payment_list_documents` (as mesmas réplicas; por isso 9 + 2 não são 11), mais 9 em `camarim-documents`. Foi a primeira corrida desta versão que revelou os 9 ficheiros perdidos em `camarim_item_documents` desde **27/04/2026** — cinco meses invisíveis, porque ninguém vigiava aquela tabela. A reposição por segunda via dos 8 documentos da #213 fica por fazer.
+
+**A regra que fica:** ⚠️ nenhum ecrã apaga objectos de buckets de documentos — a decisão de remover é do servidor, que conta referências sem RLS. E uma contagem de referências feita com uma leitura sujeita a RLS não é uma contagem, é a opinião de quem está a ver. Os buckets de documentos passaram de sete a dez (`ACCOUNTING_BUCKETS` em `supabase/functions/_shared/storage-trash.ts` e em `src/lib/storage-delete.ts` juntaram `bank-statements`, `event-forecast-attachments` e `event-ab-attachments`) e nenhum deles apaga: move para `_trash` com registo em `storage_deletion_log` ANTES do move, num caminho único (`trashStorageObject`) partilhado pela edge `storage-delete` e pelas edges com `service_role` (`ads-invoice-apply`, `ingest-transaction-document`, `ingest-standalone-invoice`). Guarda de regressão: `src/lib/__tests__/no-direct-transaction-document-remove.test.ts`, provada a falhar com o padrão antigo reintroduzido à mão. Detalhe em `.lovable/memory/features/transaction-documents.md`, `.lovable/memory/features/storage-deletion-log.md` e `.lovable/memory/features/invariant-monitor.md`.
