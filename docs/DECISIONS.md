@@ -4583,3 +4583,11 @@ Resoluções (mesmo dia):
 - Filhas de rateio e parcelas (`parent_transaction_id`) isentas; a regra aplica-se à mãe.
 
 Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_admin_windows_contiguous` + `validate_event_admin_absorption` (events), CHECK `events_admin_window_required` passou a aceitar fim NULL, RPC `admin_cost_override_write` (a justificação só vive dentro da transacção, por isso a RPC faz a escrita). Memória: `.lovable/memory/features/janela-administrativa.md`.
+
+## D-ERP152 — Vigia diária Ticketline: portal de Produtores contra a plataforma (30/09/2026)
+- Fonte independente: `produtores.ticketline.pt`, Mapa de Ocupação (PDF), total = postos + internet + bilheteira (sem convites/cativos).
+- Correspondência só por data da sessão + recinto; nunca por nome. Ambíguo ou sem par → `nao_encontrado`.
+- Série no tempo em `ticketline_crosscheck_runs` (uma linha por evento e dia). Só a vigia escreve; leitura por empresa.
+- Alerta = condição (e) da vigia de bilheteira existente: ≥ 3 bilhetes ou ≥ 100 € em duas leituras diárias seguidas; `nao_encontrado` alerta à primeira. Porquê: uma leitura isolada a horas diferentes é ruído; divergência que persiste não é.
+- Uma tentativa de login por corrida; falha → linhas `erro`, sem repetição (proteger a conta).
+- Cron `ticketline-crosscheck-daily` 06:50 UTC, corpo sem dry-run.
