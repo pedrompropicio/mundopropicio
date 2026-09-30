@@ -53,3 +53,27 @@ export async function writeWithAdminCostOverride(
   if (error) throw error;
   return data as string;
 }
+
+/**
+ * Insert de UMA transação com o mesmo encadeamento do supabase-js
+ * (`.select("id").single()`). Com justificação, passa pela RPC da excepção.
+ */
+export function makeTxInsert(getReason: () => string | null) {
+  return (row: Record<string, unknown>) => ({
+    select: (_cols: string) => ({
+      single: async (): Promise<{ data: { id: string } | null; error: any }> => {
+        const reason = getReason();
+        if (!reason) {
+          const r = await supabase.from("transactions").insert(row as any).select("id").single();
+          return { data: (r.data as any) ?? null, error: r.error };
+        }
+        try {
+          const id = await writeWithAdminCostOverride(reason, row);
+          return { data: { id }, error: null };
+        } catch (e: any) {
+          return { data: null, error: e };
+        }
+      },
+    }),
+  });
+}

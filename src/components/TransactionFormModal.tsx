@@ -1342,7 +1342,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
         // 2. Create parent transaction (no event)
         const parentAccountId = isPaidByPartner ? null : (data.account_id || null);
-        const { data: parentRow, error: parentError } = await supabase.from("transactions").insert({
+        const { data: parentRow, error: parentError } = await txInsert({
           description: data.description,
           type: data.type,
           amount: totalAmount,
@@ -1520,7 +1520,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
         // Sufixo curto que distingue as duas pernas na lista de transações.
         const mpLegSuffix = lineSplitActive ? " — parte MP" : "";
-        const { data: insertedTx, error } = await supabase.from("transactions").insert({
+        const { data: insertedTx, error } = await txInsert({
           description: data.description + totalSuffix + mpLegSuffix,
           type: data.type,
           amount: firstParcelNet,
@@ -1578,9 +1578,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // estados diferentes deixariam o grupo permanentemente parcial.
         if (lineSplitActive && insertedTx?.id) {
           const thirdGross = Number((sharedCostThirdNum * ivaMultiplier).toFixed(2));
-          const { data: thirdLeg, error: thirdErr } = await supabase
-            .from("transactions")
-            .insert({
+          const { data: thirdLeg, error: thirdErr } = await txInsert({
               description: `${data.description} — parte de terceiros`,
               type: data.type,
               amount: sharedCostThirdNum,
@@ -1748,7 +1746,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
             const inst = installmentRows[i];
             const netAmt = installmentNets[i] ?? 0;
-            const { data: siblingTx, error: sErr } = await supabase.from("transactions").insert({
+            const { data: siblingTx, error: sErr } = await txInsert({
               description: `${data.description} (${i + 1}/${n})`,
               type: data.type,
               amount: netAmt,
@@ -1851,9 +1849,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             // irmã transitória por X. Soma do grupo == total da fatura (invariante D-ERP17).
             // Estado e pago seguem a principal: se a principal nasce paga, a irmã também;
             // se nasce pendente, a irmã fica pendente (antes estava fixa em 'paid').
-            const { data: siblingTx, error: siblingErr } = await supabase
-              .from("transactions")
-              .insert({
+            const { data: siblingTx, error: siblingErr } = await txInsert({
                 description: `${data.description} — extra sócio (parcial)`,
                 type: data.type,
                 amount: partnerExtraPartialNum,
