@@ -17353,6 +17353,23 @@ export type Database = {
           balance: number
         }[]
       }
+      admin_cost_override_write: {
+        Args: { p_reason: string; p_row: Json; p_transaction_id?: string }
+        Returns: string
+      }
+      admin_window_event_for: {
+        Args: { p_company_id: string; p_date: string }
+        Returns: string
+      }
+      admin_window_event_lookup: {
+        Args: { p_company_id: string; p_date: string }
+        Returns: {
+          admin_window_end: string
+          admin_window_start: string
+          event_id: string
+          event_name: string
+        }[]
+      }
       ads_event_windows: {
         Args: { p_company_id: string }
         Returns: {
@@ -18109,6 +18126,10 @@ export type Database = {
         Returns: boolean
       }
       can_view_supplier_bank_data: { Args: never; Returns: boolean }
+      check_admin_windows_contiguous: {
+        Args: { p_company_id: string }
+        Returns: undefined
+      }
       check_leads_capi_health: { Args: never; Returns: Json }
       check_rpc_smoke: {
         Args: never
