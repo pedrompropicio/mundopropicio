@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { keepLatestFeverImportRows } from "@/lib/ticket-sales-batch-filter";
+import { selectCourtesyRows } from "@/lib/bp-formula";
+import { fetchEventRealized } from "@/lib/event-revenue-basis";
 import { useTicketlineCutoffs, keepTicketSaleRow } from "@/lib/ticketline-cutoff";
 
 /**
@@ -137,11 +139,13 @@ export function useEventAttendance(
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_courtesies")
-        .select("event_date_id, zone_id, quantity")
+        .select("event_date_id, zone_id, quantity, scenario")
         .eq("event_id", eventId!)
-        .eq("scenario", "real"); // #263: "forecast" são os convites previstos do BP
+        .in("scenario", ["real", "forecast"]);
       if (error) throw error;
-      return data ?? [];
+      // D-ERP149: regra única previsto/final (bp-formula.selectCourtesyRows).
+      const realized = await fetchEventRealized(eventId!);
+      return selectCourtesyRows((data ?? []) as any[], null, realized).rows;
     },
     enabled: !!eventId,
   });
