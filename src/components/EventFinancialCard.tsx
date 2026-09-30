@@ -12,6 +12,7 @@ import {
 import { formatCurrency } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEventCostBasis } from "@/hooks/useEventCostBasis";
+import type { EbitdaParcels } from "@/lib/ebitda";
 
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
@@ -47,6 +48,8 @@ interface Props {
   partnerCalcBasis?: string | null;
   /** Reporta a vista de IVA deste card (só para o aviso do card de Lucro). */
   onVatViewChange?: (v: boolean) => void;
+  /** Vista EBITDA (D-ERP151): parcelas classificadas deste card nas duas bases de IVA. */
+  onEbitdaParcelsChange?: (p: { net: EbitdaParcels; gross: EbitdaParcels } | null) => void;
 }
 
 const MODE_LABEL: Record<CardMode, string> = {
@@ -144,6 +147,11 @@ export function EventFinancialCard(props: Props) {
     const p = data.perimeter;
     props.onPerimeterChange?.(p ? { net: p.net, gross: p.gross, mode: data.modeUsed } : null);
   }, [shared.isLoading, data.perimeter, data.modeUsed, props.onPerimeterChange]);
+
+  useEffect(() => {
+    if (shared.isLoading) return;
+    props.onEbitdaParcelsChange?.(data.ebitdaParcels ?? null);
+  }, [shared.isLoading, data.ebitdaParcels, props.onEbitdaParcelsChange]);
 
   // Nota discreta quando a vista escolhida difere da receita real.
   const realHint = kind === "income" && data.realValue != null

@@ -192,6 +192,10 @@ export default function EventDetail() {
   // Vistas de IVA reportadas por cada card (#223) — independentes entre si.
   const [incomeViewVat, setIncomeViewVat] = useState<boolean | null>(null);
   const [expenseViewVat, setExpenseViewVat] = useState<boolean | null>(null);
+  // Vista EBITDA (D-ERP151) — só análise; sócios/cachê/Fecho continuam no resultado.
+  const [incomeEbitda, setIncomeEbitda] = useState<{ net: EbitdaParcels; gross: EbitdaParcels } | null>(null);
+  const [expenseEbitda, setExpenseEbitda] = useState<{ net: EbitdaParcels; gross: EbitdaParcels } | null>(null);
+  const [profitView, setProfitView] = useState<"result" | "ebitda">("result");
 
   // Reflect tab + sub-event into the URL so they survive navigations.
   useEffect(() => {
@@ -1101,6 +1105,7 @@ export default function EventDetail() {
           onPerimeterChange={setCardIncomePerimeter}
           partnerCalcBasis={event.partner_calc_basis}
           onVatViewChange={setIncomeViewVat}
+          onEbitdaParcelsChange={setIncomeEbitda}
         />
         <EventFinancialCard
           eventId={id!}
@@ -1118,11 +1123,21 @@ export default function EventDetail() {
           cacheImpact={Number(calculatedCacheImpact || 0)}
           onPerimeterChange={setCardExpensePerimeter}
           onVatViewChange={setExpenseViewVat}
+          onEbitdaParcelsChange={setExpenseEbitda}
         />
 
-        <StatCard
-          title="Lucro"
-          value={!contract ? "—" : formatCurrency(contract.result)}
+{(() => {
+          const pick = (p: { net: EbitdaParcels; gross: EbitdaParcels } | null, vat: boolean | null) =>
+            p ? (vat ? p.gross : p.net) : null;
+          const inc = pick(incomeEbitda, incomeViewVat);
+          const exp = pick(expenseEbitda, expenseViewVat);
+          const eb = contract && inc && exp ? computeEbitda(contract.result, addParcels(exp, inc)) : null;
+          const showEbitda = profitView === "ebitda";
+          return (
+            <div className="flex flex-col gap-2">
+                      <StatCard
+          title={showEbitda ? "EBITDA" : "Lucro (após impostos)"}
+          value={!contract ? "—" : showEbitda ? (eb ? formatCurrency(eb.ebitda) : "—") : formatCurrency(contract.result)}
           icon={Wallet}
           variant="primary"
           subtitle={
@@ -1137,6 +1152,27 @@ export default function EventDetail() {
           }
           tooltip="Subtração direta dos valores exibidos nos cards de Receitas e Custos: Lucro = Receitas exibidas − Custos exibidos, com os seletores de perímetro (Realizado / Previsto + excedido / Forecast) e de IVA (c/IVA · s/IVA) que cada card tiver ativos. Mudar um botão muda o Lucro. O badge '≠ fecho' indica que este valor difere do Resultado do Encontro de Contas (a base contratual do fecho com o sócio) — respondem a perguntas diferentes."
         />
+              <div className="flex items-center gap-1.5">
+                <Button size="sm" variant={!showEbitda ? "default" : "outline"} className="h-7 text-xs" onClick={() => setProfitView("result")}>
+                  Resultado (após impostos)
+                </Button>
+                <Button size="sm" variant={showEbitda ? "default" : "outline"} className="h-7 text-xs" onClick={() => setProfitView("ebitda")}>
+                  EBITDA
+                </Button>
+              </div>
+              {showEbitda && contract && eb && (
+                <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs space-y-0.5">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Resultado</span><span className="font-mono">{formatCurrency(eb.result)}</span></div>
+                  {eb.bridge.map((l) => (
+                    <div key={l.key} className="flex justify-between"><span className="text-muted-foreground">+ {l.label}</span><span className="font-mono">{formatCurrency(l.value)}</span></div>
+                  ))}
+                  <div className="flex justify-between border-t border-border pt-0.5 font-semibold"><span>EBITDA</span><span className="font-mono">{formatCurrency(eb.ebitda)}</span></div>
+                  <p className="pt-1 text-[10px] text-muted-foreground">Vista de análise. Acerto com sócios, cachê e Fecho usam sempre o resultado.</p>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         <StatCard
           title="Bilhetes"
