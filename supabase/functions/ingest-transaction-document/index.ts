@@ -386,8 +386,13 @@ Deno.serve(async (req) => {
     )
     if (insErr) {
       // Nunca deixar ficheiro órfão no storage.
+      // #265: só remove se nenhuma linha de transaction_documents o referenciar.
       if (uploadedPath) {
-        await admin.storage.from(BUCKET).remove([uploadedPath]).catch(() => {})
+        const { data: stillRef, error: refErr } = await admin
+          .from('transaction_documents').select('id').eq('file_url', uploadedPath).limit(1)
+        if (!refErr && (stillRef ?? []).length === 0) {
+          await admin.storage.from(BUCKET).remove([uploadedPath]).catch(() => {})
+        }
       }
       console.error('[ingest-transaction-document] insert', insErr)
       return json({ error: `Falha ao gravar transaction_documents: ${insErr.message}` }, 500)
