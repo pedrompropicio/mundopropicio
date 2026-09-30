@@ -176,24 +176,9 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
       if (deletedIds.length === 0) {
         throw new Error("Sem permissão para remover este documento ou documento não encontrado.");
       }
-      if (storagePath) {
-        // Don't remove the underlying camarim file when deleting a transaction_documents
-        // row that points to it — the dossier/receipt is shared with the camarim session.
-        if (!doc.file_url?.startsWith("camarim://")) {
-          // O objeto só sai do bucket quando já não resta nenhuma linha a apontar-lhe.
-          const { data: rest, error: restErr } = await supabase
-            .from("transaction_documents")
-            .select("id")
-            .eq("file_url", doc.file_url)
-            .limit(1);
-          if (restErr) throw restErr;
-          if ((rest ?? []).length === 0) {
-            await supabase.storage.from("transaction-documents").remove([storagePath]).catch((err) => {
-              console.warn("Storage cleanup failed (non-blocking):", err);
-            });
-          }
-        }
-      }
+      // #265: o objeto só sai do bucket quando já não resta nenhuma linha a apontar-lhe
+      // (o helper ignora camarim://, card://, bank://, ref:// e URLs externas).
+      if (storagePath) await removeTransactionDocumentObjects([doc.file_url]);
       await logAudit({
         entity_type: "transaction_document",
         entity_id: doc.id,
@@ -266,14 +251,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     if (dbError) {
       const ids = (inserted ?? []).map((d: any) => d.id);
       if (ids.length) await supabase.from("transaction_documents").delete().in("id", ids);
-      const { data: rest } = await supabase
-        .from("transaction_documents")
-        .select("id")
-        .eq("file_url", filePath)
-        .limit(1);
-      if ((rest ?? []).length === 0) {
-        await supabase.storage.from("transaction-documents").remove([filePath]).catch(() => {});
-      }
+      await removeTransactionDocumentObjects([filePath]);
       throw new Error(
         `${dbError.message} — nada ficou anexado${ids.length ? " (as linhas criadas foram desfeitas)" : ""}.`,
       );

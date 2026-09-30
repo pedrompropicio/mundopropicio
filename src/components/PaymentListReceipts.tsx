@@ -183,12 +183,17 @@ export default function PaymentListReceipts({ listId, listTitle, activeTransacti
         .eq("file_url", doc.file_url);
       if (repErr) throw repErr;
 
-      // 2) registo da lista
-      const { error: dbErr } = await supabase.from("payment_list_documents").delete().eq("id", doc.id);
+      // 2) registo da lista (com .select para detetar RLS)
+      const { data: delList, error: dbErr } = await supabase
+        .from("payment_list_documents")
+        .delete()
+        .eq("id", doc.id)
+        .select("id");
       if (dbErr) throw dbErr;
+      if (!delList || delList.length === 0) throw new Error("Sem permissão para remover este comprovativo.");
 
-      // 3) ficheiro no storage (único)
-      await supabase.storage.from("transaction-documents").remove([doc.file_url]);
+      // 3) ficheiro no storage — #265: só se nenhuma linha ainda o referenciar
+      await removeTransactionDocumentObjects([doc.file_url]);
 
       queryClient.invalidateQueries({ queryKey: ["payment_list_documents", listId] });
       queryClient.invalidateQueries({ queryKey: ["payment_list_sepa_exports", listId] });
