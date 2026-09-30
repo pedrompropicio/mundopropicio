@@ -194,7 +194,7 @@ function buildDRE(
   if (ebitdaClassMap) {
     const parcels = signedParcelsFromLines([...incomes, ...expensesWithOverhead], ebitdaClassMap, false);
     const eb = computeEbitda(resEx, parcels);
-    eb.bridge.forEach((b) => lines.push({ label: `+ ${b.label}`, amountExIva: b.value, ivaAmount: 0, amountIncIva: 0, isEbitda: true, indent: true }));
+    eb.bridge.forEach((b) => lines.push({ label: b.isSubtotal ? `= ${b.label}` : `+ ${b.label}`, amountExIva: b.value, ivaAmount: 0, amountIncIva: 0, isEbitda: true, indent: !b.isSubtotal }));
     lines.push({ label: "EBITDA", amountExIva: eb.ebitda, ivaAmount: 0, amountIncIva: 0, isEbitda: true, isEbitdaTotal: true });
   }
 
