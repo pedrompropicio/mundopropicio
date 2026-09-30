@@ -24,6 +24,7 @@ import {
   type CardSessionStatus,
 } from "@/lib/card-session-helpers";
 import { fetchCardAccountBalance } from "@/lib/card-account-balance";
+import { removeTransactionDocumentObjects } from "@/lib/transaction-document-storage";
 import { fetchCardSessionAccountSync, resolveOpening } from "@/lib/card-session-balance";
 import { CardLoadModal } from "@/components/cards/CardLoadModal";
 
@@ -338,41 +339,51 @@ export default function CardSessionDetail() {
   /**
    * Exclusão de despesa (só com sessão aberta).
    * - Bloqueia se a transação estiver numa lista de pagamento (FK NO ACTION).
-   * - Apaga ficheiros do storage + transaction_documents (FK CASCADE).
+   * - #265: a transação sai PRIMEIRO (DELETE com .select para detetar RLS);
+   *   só depois os ficheiros, e só os que nenhuma linha ainda referencia.
    * - Item da equipa que gerou a despesa volta a 'submitted' (FK SET NULL deixaria
    *   um item "aprovado" sem transação).
    * - transaction_audit_log tem FK CASCADE → o registo vai para system_audit_log.
    */
   const deleteExpenseMut = useMutation({
     mutationFn: async (e: any) => {
-      const { data: inLists } = await supabase
+      const { data: inLists, error: listErr } = await supabase
         .from("payment_list_items")
         .select("id")
         .eq("transaction_id", e.id)
         .limit(1);
+      if (listErr) throw listErr;
       if (inLists && inLists.length > 0) {
         throw new Error("Esta despesa está numa lista de pagamento. Remova-a da lista antes de excluir.");
       }
 
-      const { data: docs } = await fetchAllPagedQuery(supabase
+      const { data: docs, error: docsErr } = await fetchAllPagedQuery(supabase
         .from("transaction_documents")
         .select("file_url")
         .eq("transaction_id", e.id));
-      const paths = (docs ?? [])
-        .map((d: any) => d.file_url as string)
-        .filter((p) => p && !p.startsWith("ref://") && !p.startsWith("http"));
-      if (paths.length > 0) {
-        await supabase.storage.from("transaction-documents").remove(paths);
-      }
+      if (docsErr) throw docsErr;
+      const fileUrls = (docs ?? []).map((d: any) => d.file_url as string).filter(Boolean);
 
       const { data: linkedItems } = await supabase
         .from("card_session_items")
         .select("id")
         .eq("transaction_id", e.id);
 
+      const { data: deleted, error } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("id", e.id)
+        .select("id");
+      if (error) throw error;
+      if (!deleted || deleted.length === 0) {
+        throw new Error("Sem permissão para excluir esta despesa.");
+      }
+
+      await removeTransactionDocumentObjects(fileUrls);
+
       const gross = Number(e.paid_amount) || cardItemGross(e);
       if (e.company_id) {
-        await supabase.from("system_audit_log").insert({
+        const { error: auditErr } = await supabase.from("system_audit_log").insert({
           entity_type: "card_session_expense",
           entity_id: e.id,
           action: "delete",
@@ -394,10 +405,8 @@ export default function CardSessionDetail() {
             reverted_item_ids: (linkedItems ?? []).map((i: any) => i.id),
           },
         } as any);
+        if (auditErr) console.warn("[deleteExpense] system_audit_log falhou:", auditErr.message);
       }
-
-      const { error } = await supabase.from("transactions").delete().eq("id", e.id);
-      if (error) throw error;
 
       if (linkedItems && linkedItems.length > 0) {
         await supabase

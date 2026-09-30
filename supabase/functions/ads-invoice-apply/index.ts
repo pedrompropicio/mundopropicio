@@ -815,8 +815,19 @@ async function handleRevert(body: any, userId?: string) {
   const prefix = `${inv.company_id}/ads-invoices/${inv.id}/`;
   const { data: files } = await admin.storage.from(DOC_BUCKET).list(prefix.replace(/\/$/, ""), { limit: 1000 });
   const paths = (files ?? []).filter((f: any) => f.name).map((f: any) => `${prefix}${f.name}`);
+  // #265: só sai do bucket o objeto que nenhuma linha de transaction_documents ainda referencia.
+  let deletable: string[] = [];
   if (paths.length > 0) {
-    const { data: removed } = await admin.storage.from(DOC_BUCKET).remove(paths);
+    const { data: stillRef, error: refErr } = await admin
+      .from("transaction_documents").select("file_url").in("file_url", paths);
+    if (refErr) console.warn("[ads-invoice-apply] verificação de referências falhou; ficheiros mantidos:", refErr.message);
+    else {
+      const used = new Set((stillRef ?? []).map((r: any) => r.file_url));
+      deletable = paths.filter((p) => !used.has(p));
+    }
+  }
+  if (deletable.length > 0) {
+    const { data: removed } = await admin.storage.from(DOC_BUCKET).remove(deletable);
     filesDeleted = (removed ?? []).length;
   }
 

@@ -10,6 +10,7 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { removeTransactionDocumentObjects } from "@/lib/transaction-document-storage";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -149,12 +150,15 @@ export default function BPAttachmentModal({ open, onOpenChange, forecast }: Prop
 
   const removeNativeMutation = useMutation({
     mutationFn: async (doc: { id: string; file_url: string }) => {
-      // Storage cleanup: best-effort
-      try {
-        await supabase.storage.from("transaction-documents").remove([doc.file_url]);
-      } catch {}
-      const { error } = await supabase.from("transaction_documents").delete().eq("id", doc.id);
+      // #265: linha primeiro (com .select para detetar RLS), objeto depois e só se ninguém o referenciar.
+      const { data: deleted, error } = await supabase
+        .from("transaction_documents")
+        .delete()
+        .eq("id", doc.id)
+        .select("id");
       if (error) throw error;
+      if (!deleted || deleted.length === 0) throw new Error("Sem permissão para remover este ficheiro.");
+      await removeTransactionDocumentObjects([doc.file_url]);
     },
     onSuccess: () => {
       toast({ title: "Ficheiro removido" });
