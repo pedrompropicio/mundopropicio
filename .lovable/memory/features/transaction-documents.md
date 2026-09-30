@@ -27,3 +27,9 @@ type: feature
 apagava do bucket, mas a RLS filtrava o DELETE em transactions (0 linhas, sem
 erro) e o insert em system_audit_log falhava sem verificação → ficheiro perdido,
 linha órfã, toast falso, zero rasto. RLS/policies de storage vão por SQL separado.
+
+## 30/09/2026 — remoção só no servidor
+- Edge `delete-transaction-document` (service_role; permissões via `_shared/caller-context.ts`, partilhado com resolve-attachment-url): modos `{documentId, includeShared?}`, `{fileUrl, scope:"payment_list", paymentListId}`, `{fileUrl, scope:"orphan"}`.
+- Ordem: permissão pela empresa dona (admin/manager) → apaga linhas sem RLS → conta file_url em TODAS as empresas → só com zero move para `_trash` (trashStorageObject, #265). bank:/ref:/camarim:/card: nunca tocam no storage. Falha no storage = sucesso com aviso.
+- Cliente: `deleteTransactionDocument` em `src/lib/transaction-document-storage.ts`. Rollback de insert no TransactionDocumentsModal só apaga as linhas.
+- Guarda: `src/lib/__tests__/no-direct-transaction-document-remove.test.ts`.
