@@ -17,6 +17,10 @@ export const ACCOUNTING_BUCKETS = new Set<string>([
   "standalone-invoices",
   "supplier-documents",
   "ticket-office-settlements",
+  // #268
+  "bank-statements",
+  "event-forecast-attachments",
+  "event-ab-attachments",
 ]);
 
 export interface StorageDeleteMeta {
