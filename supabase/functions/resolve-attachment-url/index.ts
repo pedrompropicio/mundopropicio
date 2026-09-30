@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getCallerContext, canAccessCompany } from "../_shared/caller-context.ts";
 
 // v5 — força redeploy em Live (2ª tentativa): prioriza candidato {company}/{path} e valida com download() antes de devolver.
 const corsHeaders = {
@@ -74,39 +75,6 @@ function buildCandidates(rawPath: string, companyId?: string | null) {
   }
 
   return candidates;
-}
-
-async function getCallerContext(adminClient: any, callerId: string) {
-  const [{ data: profile }, { data: isPlatformAdmin }, { data: roles }] = await Promise.all([
-    adminClient.from("profiles").select("company_id, active_company_id").eq("id", callerId).maybeSingle(),
-    adminClient.rpc("is_platform_admin", { _user_id: callerId }),
-    adminClient.from("user_roles").select("role, company_id").eq("user_id", callerId),
-  ]);
-
-  const roleList = (roles ?? []).map((row: any) => row.role as string);
-  // (Issue #241) Empresa activa = active_company_id ?? company_id, para todos.
-  const activeCompanyId = profile?.active_company_id ?? profile?.company_id ?? null;
-  // Autorização por PERTENÇA: todas as empresas onde o caller tem papel.
-  const memberCompanyIds = (roles ?? [])
-    .map((row: any) => row.company_id as string | null)
-    .filter((id: string | null): id is string => Boolean(id));
-
-  return {
-    activeCompanyId,
-    memberCompanyIds,
-    isPlatformAdmin: Boolean(isPlatformAdmin),
-    roles: roleList,
-  };
-}
-
-function canAccessCompany(
-  ctx: { activeCompanyId: string | null; memberCompanyIds?: string[]; isPlatformAdmin: boolean },
-  companyId?: string | null,
-) {
-  if (!companyId) return false;
-  if (ctx.isPlatformAdmin) return true;
-  if ((ctx.memberCompanyIds ?? []).includes(companyId)) return true;
-  return ctx.activeCompanyId === companyId;
 }
 
 async function resolveTransactionDocument(adminClient: any, documentId: string, callerCtx: any) {
