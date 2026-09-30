@@ -4589,6 +4589,7 @@ Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_a
 - Valores iniciais pelo código, em todas as empresas: 10.5.03 → imposto_rendimento; 10.6.02, 10.6.03, 10.6.04, 10.6.05 → financeiro. 10.6.01, 10.5.05 e 2.7.05 ficam operacionais. Sem modelo de Plano de Contas: contas novas escolhem a classe no formulário ("Classe para EBITDA").
 - A classe lê-se na conta de lançamento (último nível); não herda da L2.
 - EBITDA = resultado + gastos (financeiro + imposto_rendimento + amortizacao) − rendimentos dessas classes. Helper único `_shared/settlement/ebitda.ts`, sobre a MESMA base de cada ecrã: card = `computeEventCostOnBasis`; DRE = transações do perímetro do `buildDRE` (s/IVA).
+- Ordem da ponte (ajuste 30/09/2026): Resultado → + Imposto sobre o rendimento → = Resultado antes de impostos (subtotal, só quando IRC ≠ 0) → + Resultado financeiro → + Amortizações → EBITDA. O valor do EBITDA não muda; linhas a zero escondem-se; o subtotal não entra em totais nem na distribuição a sócios.
 - Vista de análise: distribuição a sócios, MUNDO PROPÍCIO (x%), cachê e cascata do Fecho continuam sobre o resultado; o EBITDA nunca é base de repartição.
 - Why: o resultado passou a ser após impostos com a #264; faltava a leitura operacional sem juros/impostos.
 
