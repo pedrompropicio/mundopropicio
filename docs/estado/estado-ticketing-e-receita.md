@@ -1,8 +1,10 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-09-21 · Issues: #73, #78, #128, #129, #130, #155, #206 (transversal, plataforma-e-infra), #208, #211 (transversal, plataforma-e-infra), #228 · Fechadas: #132, #145, #184, #198, #205, #207, #210
+Atualizado: 2026-09-30 · Issues: #73, #78, #128, #129, #130, #155, #206 (transversal, plataforma-e-infra), #208, #211 (transversal, plataforma-e-infra), #228 · Fechadas: #132, #145, #184, #198, #205, #207, #210
 
 ## Em que pé está
+
+- **Vigia diária portal de Produtores ↔ plataforma (30/09, D-ERP152).** Edge `ticketline-crosscheck` faz login uma vez em `produtores.ticketline.pt` (secrets `TICKETLINE_PRODUTORES_USER`/`_PASSWORD`), percorre os `ticketline_sync_config` activos, corresponde cada evento ao do portal **por data da sessão + recinto** (nunca pelo nome; sem recinto nosso só aceita se for o único evento nessa data), lê o total do Mapa de Ocupação em PDF (postos + internet + bilheteira, sem convites) e grava uma linha por evento e por dia em `ticketline_crosscheck_runs` (`UNIQUE (config_id, checked_on)`, upsert). Os nossos números seguem a regra de `src/lib/ticketline-cutoff.ts`. Cron `ticketline-crosscheck-daily` (jobid 1640, `50 6 * * *`, sem dry-run). Alerta = condição **(e)** de `check_ticketing_sync_health()`: ≥ 3 bilhetes ou ≥ 100 € em duas leituras diárias seguidas, ou `nao_encontrado` logo à primeira. Primeira leitura 30/09: 13/13 correspondidos, 8 batem a zero; divergem RG Almada +83 / +2.760 €, RG Braga +51 / +1.665 €, SM Lisboa −10 / −560 €, SM Porto −5 / −250 €, RG Estoril +4 / +140 € (nossos − portal). Almada e Braga: temos mais do que o portal — por investigar (devoluções/anulações?). Helper partilhado `supabase/functions/_shared/ticketline-produtores.ts`.
 
 - **Sync de vendas a funcionar** — Ticketline (`fetch-ticketline-reports`, cron horário), BOL (`fetch-bol-reports`), Fever e, desde 21/09, Onebox (`fetch-onebox-dashboard`). `ticket_sales` tem 4.284 registos de sete origens distintas. A bilheteira é a principal fonte de receita e está em nome da MP.
 

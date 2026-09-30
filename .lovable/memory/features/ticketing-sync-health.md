@@ -1,6 +1,6 @@
 ---
 name: Saúde do sync de bilheteira
-description: check_ticketing_sync_health() — 4 condições (a/b/c/d), canais system_reminders + email ticketing-sync-alert, anti-spam 12h e cron ticketing-sync-health
+description: check_ticketing_sync_health() — 5 condições (a/b/c/d/e), canais system_reminders + email ticketing-sync-alert, anti-spam 12h e cron ticketing-sync-health
 type: feature
 ---
 
@@ -31,6 +31,7 @@ Universo: configs de `ticketline_sync_config` e `bol_sync_config` cujo evento te
 | (a) falha persistente | config `enabled` cujas 3 corridas mais recentes (por `started_at desc`) estão todas fora de `('success','warning','skipped')` | sim |
 | (b) parado | config `enabled` sem corrida `success`/`warning` nas últimas 6 h | sim |
 | (c) desligado | config `enabled = false` (informativo) | **não** — só banner |
+| (e) divergência portal Produtores | `ticketline_crosscheck_runs`: ≥3 bilhetes ou ≥100 € em 2 leituras diárias seguidas, ou `nao_encontrado` à 1.ª (sync_type `ticketline_crosscheck`) | sim |
 | (d) captura horária parada | existe config Ticketline `enabled` de evento futuro e nenhuma corrida `triggered_by like 'capture_day:%'` com `success` nas últimas 3 h | sim |
 
 `warning` conta como **saudável** (na BOL é o M2 importado com o Diário falhado).
