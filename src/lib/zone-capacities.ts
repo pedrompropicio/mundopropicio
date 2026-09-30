@@ -77,19 +77,7 @@ export function latestByZone(rows: ZoneCapacityRow[]): ZoneCapacityRow[] {
   return Array.from(best.values());
 }
 
-/** Data da observação corrente de cada evento (null quando não há linhas). */
-export function currentObservationDate(rows: ZoneCapacityRow[], eventId: string): string | null {
-  let out: string | null = null;
-  for (const r of rows) {
-    if (r.event_id !== eventId) continue;
-    const d = String(r.observed_on).slice(0, 10);
-    if (!out || d > out) out = d;
-  }
-  return out;
-}
-
-
-/** Totais por evento, já sobre a última observação de cada zona. */
+/** Totais por evento, já sobre a observação corrente (zonas fantasma excluídas). */
 export function totalsByEvent(rows: ZoneCapacityRow[]): Map<string, ZoneCapacityTotals> {
   const out = new Map<string, ZoneCapacityTotals>();
   for (const r of latestByZone(rows)) {
