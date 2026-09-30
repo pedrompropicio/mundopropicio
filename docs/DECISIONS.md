@@ -4573,7 +4573,7 @@ Substitui a absorção virtual no DRE (`src/lib/admin-cost-allocation.ts`, remov
 
 Decisões do Pedro (30/09/2026):
 1. A data que decide a janela é sempre `transactions.date` (data do documento), nunca `payment_date`. O evento decide-se no lançamento e não muda ao pagar.
-2. A base recusa marcar `allocate_to_active_event` em 10.1.*, 10.2.*, 10.3.* e 10.12.*. As restantes L3 do grupo 10 são configuráveis por empresa (IRC 10.5 é custo do evento). DML única: desmarcadas 10.1.01–10.1.03 da MP.
+2. A base recusa marcar `allocate_to_active_event` em 10.1.*, 10.2.*, 10.3.* e 10.12.*. As restantes L3 do grupo 10 são configuráveis por empresa (IRC 10.5 é custo do evento).
 3. A excepção é a permissão configurável `admin_cost_override` (por defeito admin e manager), com justificação obrigatória e registo em `system_audit_log`. service_role não tem excepção.
 4. As janelas são contíguas e sem buraco; fim em aberto só na última; ligar a seguinte fecha a anterior no dia antes.
 
