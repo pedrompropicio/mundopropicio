@@ -24,7 +24,7 @@ import {
   type CardSessionStatus,
 } from "@/lib/card-session-helpers";
 import { fetchCardAccountBalance } from "@/lib/card-account-balance";
-import { removeTransactionDocumentObjects } from "@/lib/transaction-document-storage";
+import { deleteTransactionDocument } from "@/lib/transaction-document-storage";
 import { fetchCardSessionAccountSync, resolveOpening } from "@/lib/card-session-balance";
 import { CardLoadModal } from "@/components/cards/CardLoadModal";
 
@@ -380,7 +380,12 @@ export default function CardSessionDetail() {
       }
 
       // #265: falha no storage fica visível, mas só depois de gravar a auditoria.
-      const storageErr = await removeTransactionDocumentObjects(fileUrls, { reason: "excluir despesa de cartão", related_table: "transactions", related_id: e.id }).then(() => null, (err: any) => err as Error);
+      // Só DEPOIS de a despesa sair (as linhas caem por cascata): limpa os ficheiros sem referências.
+      let storageErr: Error | null = null;
+      for (const fileUrl of [...new Set(fileUrls)]) {
+        try { await deleteTransactionDocument({ fileUrl, scope: "orphan" }); }
+        catch (err: any) { storageErr = err as Error; }
+      }
 
       const gross = Number(e.paid_amount) || cardItemGross(e);
       if (e.company_id) {

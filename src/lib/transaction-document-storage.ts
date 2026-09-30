@@ -1,52 +1,32 @@
 /**
- * #265 — regra única para tirar objetos do bucket `transaction-documents`.
- *
- * O objeto só sai do bucket DEPOIS de a linha sair da BD e quando nenhuma linha
- * de `transaction_documents` o referencia (a verificação é feita no servidor,
- * na edge `storage-delete`, que regista e move para `_trash`).
- * Falhas agora LANÇAM (antes só console.warn e ninguém lia o retorno).
+ * Remoção de anexos do bucket `transaction-documents` — SÓ pela edge
+ * `delete-transaction-document` (service_role). Um ficheiro serve N linhas
+ * (mesmo file_url); a contagem de referências corre no servidor, em todas as
+ * empresas, sem RLS. O frontend nunca chama storage.from("transaction-documents").remove
+ * (guarda: src/lib/__tests__/no-direct-transaction-document-remove.test.ts).
  */
-import { deleteStorageObject } from "@/lib/storage-delete";
+import { supabase } from "@/integrations/supabase/client";
+import { extractFnError } from "@/lib/edge-fn-error";
 
-const BUCKET = "transaction-documents";
+export type DeleteTransactionDocumentRequest =
+  | { documentId: string; includeShared?: boolean }
+  | { fileUrl: string; scope: "payment_list"; paymentListId: string }
+  | { fileUrl: string; scope: "orphan" };
 
-/** Caminho no bucket, como o resolveStorageRef do TransactionDocumentsModal; null = não é deste bucket. */
-function toBucketPath(fileUrl: string): string | null {
-  if (!fileUrl) return null;
-  if (/^(ref|camarim|card|bank):\/\//i.test(fileUrl)) return null;
-  if (/^https?:\/\//i.test(fileUrl)) return null;
-  return fileUrl;
+export interface DeleteTransactionDocumentResult {
+  ok: true;
+  deleted_rows: number;
+  deleted_list_rows: number;
+  storage: "trashed" | "not_found" | "kept_referenced" | "partilhado" | "esquema_proprio" | "mantido" | "falhou";
+  warning?: string;
 }
 
-export interface RemoveObjectsResult {
-  removed: string[];
-  kept: string[];
-}
-
-export async function removeTransactionDocumentObjects(
-  fileUrls: string[],
-  meta: { reason?: string; related_table?: string; related_id?: string | null } = {},
-): Promise<RemoveObjectsResult> {
-  const out: RemoveObjectsResult = { removed: [], kept: [] };
-  const unique = [...new Set((fileUrls ?? []).filter(Boolean))];
-  const errors: string[] = [];
-  for (const url of unique) {
-    const path = toBucketPath(url);
-    if (!path) continue;
-    try {
-      const status = await deleteStorageObject(BUCKET, path, {
-        reason: meta.reason ?? "remover anexo de transação",
-        related_table: meta.related_table ?? "transaction_documents",
-        related_id: meta.related_id ?? null,
-      });
-      if (status === "kept_referenced") out.kept.push(path);
-      else out.removed.push(path);
-    } catch (e: any) {
-      errors.push(`${path}: ${e?.message ?? String(e)}`);
-    }
-  }
-  if (errors.length) {
-    throw new Error(`O registo foi removido, mas o ficheiro não saiu do armazenamento: ${errors.join("; ")}`);
-  }
-  return out;
+export async function deleteTransactionDocument(
+  req: DeleteTransactionDocumentRequest,
+): Promise<DeleteTransactionDocumentResult> {
+  const { data, error } = await supabase.functions.invoke("delete-transaction-document", { body: req });
+  if (error) throw new Error(await extractFnError(error, "Falha ao remover o documento."));
+  if (!data?.ok) throw new Error(data?.error ?? "Falha ao remover o documento.");
+  if (data.warning) console.warn("[delete-transaction-document]", data.warning);
+  return data as DeleteTransactionDocumentResult;
 }

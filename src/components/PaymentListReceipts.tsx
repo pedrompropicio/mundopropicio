@@ -16,7 +16,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { removeTransactionDocumentObjects } from "@/lib/transaction-document-storage";
+import { deleteTransactionDocument } from "@/lib/transaction-document-storage";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -177,24 +177,9 @@ export default function PaymentListReceipts({ listId, listTitle, activeTransacti
   const handleDelete = async (doc: any) => {
     setDeleting(true);
     try {
-      // 1) réplicas nas transações (mesmo file_url)
-      const { error: repErr } = await supabase
-        .from("transaction_documents")
-        .delete()
-        .eq("file_url", doc.file_url);
-      if (repErr) throw repErr;
-
-      // 2) registo da lista (com .select para detetar RLS)
-      const { data: delList, error: dbErr } = await supabase
-        .from("payment_list_documents")
-        .delete()
-        .eq("id", doc.id)
-        .select("id");
-      if (dbErr) throw dbErr;
-      if (!delList || delList.length === 0) throw new Error("Sem permissão para remover este comprovativo.");
-
-      // 3) ficheiro no storage — #265: só se nenhuma linha ainda o referenciar
-      await removeTransactionDocumentObjects([doc.file_url], { reason: "remover comprovativo de lista de pagamento", related_table: "payment_list_documents", related_id: doc.id });
+      // Servidor (service_role): registo da lista + réplicas nas transações da
+      // empresa dona; ficheiro só sai se mais nenhuma linha lhe apontar.
+      await deleteTransactionDocument({ fileUrl: doc.file_url, scope: "payment_list", paymentListId: listId });
 
       queryClient.invalidateQueries({ queryKey: ["payment_list_documents", listId] });
       queryClient.invalidateQueries({ queryKey: ["payment_list_sepa_exports", listId] });
