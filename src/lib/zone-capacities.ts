@@ -47,16 +47,42 @@ export async function fetchZoneCapacities(eventIds: string[]): Promise<ZoneCapac
   return (data ?? []) as unknown as ZoneCapacityRow[];
 }
 
-/** Última observação por (event_id, zone_label). */
+/**
+ * OBSERVAÇÃO CORRENTE do evento (#198, reincidência 30/09/2026).
+ *
+ * Carga, ocupado, bloqueado, por vender e ocupação vêm TODOS da mesma
+ * observação: a mais recente do evento. Uma zona que não aparece nessa
+ * observação deixou de existir (a bilheteira mudou-lhe o nome) e não conta para
+ * nada. Nunca se mistura a leitura de hoje com a de outro dia — era isso que
+ * inflacionava o SM - Porto (8.482 em vez de 6.368) e duplicava o RG - Albufeira.
+ *
+ * Se a mesma zona tiver mais do que uma linha nesse dia, fica a última lida.
+ */
 export function latestByZone(rows: ZoneCapacityRow[]): ZoneCapacityRow[] {
+  const lastObserved = new Map<string, string>();
+  for (const r of rows) {
+    const cur = lastObserved.get(r.event_id);
+    if (!cur || String(r.observed_on) > cur) lastObserved.set(r.event_id, String(r.observed_on));
+  }
   const best = new Map<string, ZoneCapacityRow>();
   for (const r of rows) {
-    const k = `${r.event_id}|${r.zone_label}`;
-    const cur = best.get(k);
-    if (!cur || String(r.observed_on) > String(cur.observed_on)) best.set(k, r);
+    if (String(r.observed_on) !== lastObserved.get(r.event_id)) continue;
+    best.set(`${r.event_id}|${r.zone_label}`, r);
   }
   return Array.from(best.values());
 }
+
+/** Data da observação corrente de cada evento (null quando não há linhas). */
+export function currentObservationDate(rows: ZoneCapacityRow[], eventId: string): string | null {
+  let out: string | null = null;
+  for (const r of rows) {
+    if (r.event_id !== eventId) continue;
+    const d = String(r.observed_on).slice(0, 10);
+    if (!out || d > out) out = d;
+  }
+  return out;
+}
+
 
 /** Totais por evento, já sobre a última observação de cada zona. */
 export function totalsByEvent(rows: ZoneCapacityRow[]): Map<string, ZoneCapacityTotals> {
