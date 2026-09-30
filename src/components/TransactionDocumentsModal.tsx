@@ -3,7 +3,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { removeTransactionDocumentObjects } from "@/lib/transaction-document-storage";
+import { deleteTransactionDocument } from "@/lib/transaction-document-storage";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { X, Upload, FileText, Trash2, ExternalLink, BookOpen, Info } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -154,34 +154,12 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
         !!doc.file_url && !doc.file_url.startsWith("ref://") && (sharedCounts as any)[doc.file_url] > 1;
 
       // Documento partilhado pelo grupo de fatura: um ficheiro, N registos —
-      // remover apaga as N linhas (#181).
-      let deletedIds: string[] = [];
-      if (shared) {
-        const { data: deleted, error: dbError } = await supabase
-          .from("transaction_documents")
-          .delete()
-          .eq("file_url", doc.file_url)
-          .select("id");
-        if (dbError) throw dbError;
-        deletedIds = (deleted ?? []).map((d: any) => d.id);
-      } else {
-        // Use .select() so we can detect when RLS silently blocks the delete (0 rows returned)
-        const { data: deleted, error: dbError } = await supabase
-          .from("transaction_documents")
-          .delete()
-          .eq("id", doc.id)
-          .select("id");
-        if (dbError) throw dbError;
-        deletedIds = (deleted ?? []).map((d: any) => d.id);
-      }
+      // remover apaga as N linhas (#181). Linhas e ficheiro tratados no servidor.
+      const r = await deleteTransactionDocument({ documentId: doc.id, includeShared: shared });
+      const deletedIds = Array.from({ length: r.deleted_rows });
       if (deletedIds.length === 0) {
         throw new Error("Sem permissão para remover este documento ou documento não encontrado.");
       }
-      // #265: o objeto só sai do bucket quando já não resta nenhuma linha a apontar-lhe
-      // (o helper ignora camarim://, card://, bank://, ref:// e URLs externas).
-      const storageErr = storagePath
-        ? await removeTransactionDocumentObjects([doc.file_url], { reason: "remover anexo de transação", related_id: doc.id }).then(() => null, (err: any) => err as Error)
-        : null;
       await logAudit({
         entity_type: "transaction_document",
         entity_id: doc.id,
@@ -194,7 +172,6 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
           shared_rows_removed: deletedIds.length,
         },
       });
-      if (storageErr) throw storageErr;
     },
     onMutate: async (doc) => {
       // Optimistic update: remove from list immediately
@@ -255,9 +232,9 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     if (dbError) {
       const ids = (inserted ?? []).map((d: any) => d.id);
       if (ids.length) await supabase.from("transaction_documents").delete().in("id", ids);
-      const cleanupErr = await removeTransactionDocumentObjects([filePath], { reason: "limpeza de upload falhado" }).then(() => null, (err: any) => err as Error);
+      // Rollback: só as linhas criadas; o objeto fica (órfão inofensivo).
       throw new Error(
-        `${dbError.message} — nada ficou anexado${ids.length ? " (as linhas criadas foram desfeitas)" : ""}.${cleanupErr ? ` ${cleanupErr.message}` : ""}`,
+        `${dbError.message} — nada ficou anexado${ids.length ? " (as linhas criadas foram desfeitas)" : ""}.`,
       );
     }
 
