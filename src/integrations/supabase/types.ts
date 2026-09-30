@@ -13430,6 +13430,48 @@ export type Database = {
         }
         Relationships: []
       }
+      storage_deletion_log: {
+        Row: {
+          bucket: string
+          company_id: string | null
+          created_at: string
+          deleted_by: string | null
+          deleted_by_email: string | null
+          id: string
+          object_path: string
+          reason: string | null
+          related_id: string | null
+          related_table: string | null
+          trashed_to: string | null
+        }
+        Insert: {
+          bucket: string
+          company_id?: string | null
+          created_at?: string
+          deleted_by?: string | null
+          deleted_by_email?: string | null
+          id?: string
+          object_path: string
+          reason?: string | null
+          related_id?: string | null
+          related_table?: string | null
+          trashed_to?: string | null
+        }
+        Update: {
+          bucket?: string
+          company_id?: string | null
+          created_at?: string
+          deleted_by?: string | null
+          deleted_by_email?: string | null
+          id?: string
+          object_path?: string
+          reason?: string | null
+          related_id?: string | null
+          related_table?: string | null
+          trashed_to?: string | null
+        }
+        Relationships: []
+      }
       supplier_credit_usages: {
         Row: {
           amount: number
@@ -18175,6 +18217,10 @@ export type Database = {
           warning: string
           window_days: number
         }[]
+      }
+      can_delete_storage_object: {
+        Args: { p_bucket: string; p_name: string }
+        Returns: boolean
       }
       can_manage_cards: { Args: { _user_id: string }; Returns: boolean }
       can_manage_event_operacao_full: {
