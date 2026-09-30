@@ -4606,3 +4606,10 @@ Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_a
 - Permissões alinhadas: apagar linha de `transaction_documents` passa a admin/manager (editor saiu), igual ao bucket — escolhido o conjunto mais restritivo; ajustada a tabela, não o storage.
 - Falta: limpeza real de `_trash` aos 30 dias (sem cron ainda).
 - Why: a 23–24/09 um objeto desapareceu sem rasto (fc36ff8f); apagar pela API não deixava registo.
+
+## D-ERP154 — #268: remoção de objectos dos buckets de documentos só pelo servidor (30/09/2026)
+- Remover um objecto de um bucket de documentos só acontece no servidor (edge com service_role): a contagem de referências corre sem RLS, em todas as empresas; só sem referências o objecto é movido para `_trash/<AAAA-MM-DD>/<caminho>`, com registo prévio em `storage_deletion_log`.
+- O frontend nunca remove objectos destes buckets.
+- `ACCOUNTING_BUCKETS` (em `_shared/storage-trash.ts` e `src/lib/storage-delete.ts`) passa a incluir bank-statements, event-forecast-attachments e event-ab-attachments.
+- O invariante `documento_sem_ficheiro_no_storage` cobre todas as tabelas de documentos (referência 18).
+- Why: verificações no cliente, sujeitas a RLS, contavam zero referências e removiam ficheiros com linhas vivas (9+9 ficheiros perdidos em Live).

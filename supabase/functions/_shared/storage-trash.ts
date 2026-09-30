@@ -14,6 +14,10 @@ export const ACCOUNTING_BUCKETS = new Set([
   "standalone-invoices",
   "supplier-documents",
   "ticket-office-settlements",
+  // #268
+  "bank-statements",
+  "event-forecast-attachments",
+  "event-ab-attachments",
 ]);
 
 export interface TrashInput {
