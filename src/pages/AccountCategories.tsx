@@ -19,6 +19,7 @@ interface Category {
   is_active: boolean;
   event_required: boolean;
   allocate_to_active_event?: boolean;
+  ebitda_class?: string | null;
   children?: Category[];
 }
 
