@@ -17,6 +17,24 @@ describe("computeEbitda", () => {
     expect(r.ebitda).toBeCloseTo(-850, 2);
     expect(r.bridge.map((b) => b.key)).toEqual(["financeiro", "amortizacao"]);
   });
+  it("com IRC: ordem IRC → subtotal antes de impostos → financeiro → amortizações", () => {
+    const r = computeEbitda(-1000, { financeiro: 120, imposto_rendimento: 200, amortizacao: 30 });
+    expect(r.ebitda).toBeCloseTo(-650, 2);
+    expect(r.bridge.map((b) => b.key)).toEqual([
+      "imposto_rendimento",
+      "resultado_antes_impostos",
+      "financeiro",
+      "amortizacao",
+    ]);
+    const sub = r.bridge.find((b) => b.key === "resultado_antes_impostos");
+    expect(sub?.isSubtotal).toBe(true);
+    expect(sub?.value).toBeCloseTo(-800, 2); // resultado + IRC
+  });
+  it("sem IRC: subtotal ausente e EBITDA inalterado", () => {
+    const r = computeEbitda(-1000, { financeiro: 120, imposto_rendimento: 0, amortizacao: 30 });
+    expect(r.bridge.some((b) => b.isSubtotal)).toBe(false);
+    expect(r.ebitda).toBeCloseTo(-850, 2);
+  });
   it("sem parcelas: EBITDA = resultado e ponte vazia", () => {
     const r = computeEbitda(500, emptyParcels());
     expect(r.ebitda).toBe(500);
