@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { lisbonToday } from "@/lib/date-lisbon";
 import { IvaToggle, useIvaMode } from "@/components/sales/IvaToggle";
 import { netOfIva, useEventIvaRates } from "@/hooks/useEventIvaRates";
-import { fetchZoneCapacities, type ZoneCapacityRow } from "@/lib/zone-capacities";
+import { fetchZoneCapacities, latestByZone, type ZoneCapacityRow } from "@/lib/zone-capacities";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ZoneLotsPrices from "@/components/sales/ZoneLotsPrices";
 import { useTicketlineCutoffs, keepTicketSaleRow, cumulativeWithCutoff, ddmm } from "@/lib/ticketline-cutoff";
@@ -202,9 +202,11 @@ export default function SalesBIEvent() {
       byZone.set(r.zone_label, list);
     }
 
-    const zones = Array.from(byZone.entries()).map(([label, list]) => {
-      const sorted = [...list].sort((a, b) => String(b.observed_on).localeCompare(String(a.observed_on)));
-      const latest = sorted[0];
+    // Só as zonas da observação corrente do evento (regra única em zone-capacities);
+    // o histórico da zona serve apenas para a referência de ~7 dias.
+    const zones = latestByZone(rows).map((latest) => {
+      const label = latest.zone_label;
+      const sorted = [...(byZone.get(label) ?? [latest])].sort((a, b) => String(b.observed_on).localeCompare(String(a.observed_on)));
       const ref = sorted.reduce((best, r) => (dist(r.observed_on) < dist(best.observed_on) ? r : best), sorted[0]);
       const capacity = latest.capacity != null ? Number(latest.capacity) : null;
       const occupied = Number(latest.occupied ?? 0);

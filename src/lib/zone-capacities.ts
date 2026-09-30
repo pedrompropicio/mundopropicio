@@ -12,6 +12,7 @@
  * bilhetes por esta carga.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 
 export interface ZoneCapacityRow {
   event_id: string;
@@ -36,29 +37,47 @@ export interface ZoneCapacityTotals {
 export async function fetchZoneCapacities(eventIds: string[]): Promise<ZoneCapacityRow[]> {
   const ids = eventIds.filter(Boolean);
   if (ids.length === 0) return [];
-  const { data, error } = await supabase
-    .from("event_zone_capacities")
-    .select("event_id, zone_label, capacity, available, occupied, blocked, observed_on")
-    .in("event_id", ids)
-    .eq("capacity_kind", "released")
-    .order("observed_on", { ascending: false })
-    .limit(20000);
-  if (error) throw error;
-  return (data ?? []) as unknown as ZoneCapacityRow[];
+  // Paginado: o PostgREST corta aos 1.000 e a tabela tem uma linha por zona por dia.
+  return fetchAllPaged<ZoneCapacityRow>((from, to) =>
+    supabase
+      .from("event_zone_capacities")
+      .select("event_id, zone_label, capacity, available, occupied, blocked, observed_on")
+      .in("event_id", ids)
+      .eq("capacity_kind", "released")
+      .order("observed_on", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to) as any);
 }
 
-/** Última observação por (event_id, zone_label). */
+/**
+ * OBSERVAÇÃO CORRENTE do evento (#198, reincidência 30/09/2026).
+ *
+ * Carga, ocupado, bloqueado, por vender e ocupação vêm TODOS da mesma
+ * observação: a mais recente do evento. Uma zona que não aparece nessa
+ * observação deixou de existir (a bilheteira mudou-lhe o nome) e não conta para
+ * nada. Nunca se mistura a leitura de hoje com a de outro dia — era isso que
+ * inflacionava o SM - Porto (8.482 em vez de 6.368) e duplicava o RG - Albufeira.
+ *
+ * Se a mesma zona tiver mais do que uma linha nesse dia, fica a última lida.
+ */
 export function latestByZone(rows: ZoneCapacityRow[]): ZoneCapacityRow[] {
+  const lastObserved = new Map<string, string>();
+  for (const r of rows) {
+    const d = String(r.observed_on).slice(0, 10);
+    const cur = lastObserved.get(r.event_id);
+    if (!cur || d > cur) lastObserved.set(r.event_id, d);
+  }
   const best = new Map<string, ZoneCapacityRow>();
   for (const r of rows) {
+    if (String(r.observed_on).slice(0, 10) !== lastObserved.get(r.event_id)) continue;
     const k = `${r.event_id}|${r.zone_label}`;
     const cur = best.get(k);
-    if (!cur || String(r.observed_on) > String(cur.observed_on)) best.set(k, r);
+    if (!cur || String(r.observed_on) >= String(cur.observed_on)) best.set(k, r);
   }
   return Array.from(best.values());
 }
 
-/** Totais por evento, já sobre a última observação de cada zona. */
+/** Totais por evento, já sobre a observação corrente (zonas fantasma excluídas). */
 export function totalsByEvent(rows: ZoneCapacityRow[]): Map<string, ZoneCapacityTotals> {
   const out = new Map<string, ZoneCapacityTotals>();
   for (const r of latestByZone(rows)) {
