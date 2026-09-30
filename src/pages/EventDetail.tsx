@@ -65,6 +65,7 @@ import {
   translateCloseBlockerError,
 } from "@/components/events/CloseEventGuardDialog";
 import { Button } from "@/components/ui/button";
+import { type EbitdaParcels, computeEbitda, addParcels } from "@/lib/ebitda";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEventContractResult, type ContractPerimeterInput } from "@/hooks/useEventContractResult";
