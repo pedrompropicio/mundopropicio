@@ -14308,6 +14308,68 @@ export type Database = {
           },
         ]
       }
+      ticketline_crosscheck_runs: {
+        Row: {
+          checked_at: string
+          checked_on: string
+          company_id: string
+          config_id: string
+          diff_qty: number | null
+          diff_value: number | null
+          error_message: string | null
+          event_id: string
+          id: string
+          our_qty: number | null
+          our_value: number | null
+          portal_qty: number | null
+          portal_value: number | null
+          produtores_event_id: string | null
+          status: string
+        }
+        Insert: {
+          checked_at?: string
+          checked_on: string
+          company_id: string
+          config_id: string
+          diff_qty?: number | null
+          diff_value?: number | null
+          error_message?: string | null
+          event_id: string
+          id?: string
+          our_qty?: number | null
+          our_value?: number | null
+          portal_qty?: number | null
+          portal_value?: number | null
+          produtores_event_id?: string | null
+          status: string
+        }
+        Update: {
+          checked_at?: string
+          checked_on?: string
+          company_id?: string
+          config_id?: string
+          diff_qty?: number | null
+          diff_value?: number | null
+          error_message?: string | null
+          event_id?: string
+          id?: string
+          our_qty?: number | null
+          our_value?: number | null
+          portal_qty?: number | null
+          portal_value?: number | null
+          produtores_event_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticketline_crosscheck_runs_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "ticketline_sync_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticketline_daily_sales: {
         Row: {
           company_id: string
