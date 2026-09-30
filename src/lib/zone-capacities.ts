@@ -12,6 +12,7 @@
  * bilhetes por esta carga.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaged } from "@/lib/supabase-paging";
 
 export interface ZoneCapacityRow {
   event_id: string;
@@ -36,15 +37,16 @@ export interface ZoneCapacityTotals {
 export async function fetchZoneCapacities(eventIds: string[]): Promise<ZoneCapacityRow[]> {
   const ids = eventIds.filter(Boolean);
   if (ids.length === 0) return [];
-  const { data, error } = await supabase
-    .from("event_zone_capacities")
-    .select("event_id, zone_label, capacity, available, occupied, blocked, observed_on")
-    .in("event_id", ids)
-    .eq("capacity_kind", "released")
-    .order("observed_on", { ascending: false })
-    .limit(20000);
-  if (error) throw error;
-  return (data ?? []) as unknown as ZoneCapacityRow[];
+  // Paginado: o PostgREST corta aos 1.000 e a tabela tem uma linha por zona por dia.
+  return fetchAllPaged<ZoneCapacityRow>((from, to) =>
+    supabase
+      .from("event_zone_capacities")
+      .select("event_id, zone_label, capacity, available, occupied, blocked, observed_on")
+      .in("event_id", ids)
+      .eq("capacity_kind", "released")
+      .order("observed_on", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to) as any);
 }
 
 /**
@@ -61,13 +63,16 @@ export async function fetchZoneCapacities(eventIds: string[]): Promise<ZoneCapac
 export function latestByZone(rows: ZoneCapacityRow[]): ZoneCapacityRow[] {
   const lastObserved = new Map<string, string>();
   for (const r of rows) {
+    const d = String(r.observed_on).slice(0, 10);
     const cur = lastObserved.get(r.event_id);
-    if (!cur || String(r.observed_on) > cur) lastObserved.set(r.event_id, String(r.observed_on));
+    if (!cur || d > cur) lastObserved.set(r.event_id, d);
   }
   const best = new Map<string, ZoneCapacityRow>();
   for (const r of rows) {
-    if (String(r.observed_on) !== lastObserved.get(r.event_id)) continue;
-    best.set(`${r.event_id}|${r.zone_label}`, r);
+    if (String(r.observed_on).slice(0, 10) !== lastObserved.get(r.event_id)) continue;
+    const k = `${r.event_id}|${r.zone_label}`;
+    const cur = best.get(k);
+    if (!cur || String(r.observed_on) >= String(cur.observed_on)) best.set(k, r);
   }
   return Array.from(best.values());
 }
