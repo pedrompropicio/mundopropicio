@@ -24,3 +24,12 @@ planeamento (fixa, denominador do "correu como se planeou"); carga corrente =
 - Simulador: projecção por defeito nasce da carga corrente (fallback:
   capacidade − vendido), nunca acima dela (baixa + nota "projecção ajustada à
   carga corrente de <data>"); `capacity_target` continua a ser a capacidade.
+
+## Observação corrente — regra única (#198 reincidência, 30/09/2026)
+Carga, ocupado, bloqueado, por vender e ocupação vêm TODOS da observação mais
+recente DO EVENTO (`latestByZone` em `src/lib/zone-capacities.ts`, também base de
+`totalsByEvent`). Zona ausente dessa observação = nome antigo = não conta. O #198
+(17/09) só corrigiu a RPC `get_event_capacity_quality`; os cartões/tabela de
+`SalesBIEvent` e a ocupação por cidade de `SalesBIDetail` liam a última linha por
+rótulo e ficaram de fora. Dados antigos ficam intocados — com esta regra são inofensivos.
+`fetchZoneCapacities` é paginado (corte dos 1.000 do PostgREST).
