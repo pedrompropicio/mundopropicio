@@ -1165,7 +1165,10 @@ export default function EventDetail() {
                 <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs space-y-0.5">
                   <div className="flex justify-between"><span className="text-muted-foreground">Resultado</span><span className="font-mono">{formatCurrency(eb.result)}</span></div>
                   {eb.bridge.map((l) => (
-                    <div key={l.key} className="flex justify-between"><span className="text-muted-foreground">+ {l.label}</span><span className="font-mono">{formatCurrency(l.value)}</span></div>
+                    <div key={l.key} className={`flex justify-between ${l.isSubtotal ? "border-t border-border pt-0.5 font-semibold" : ""}`}>
+                      <span className={l.isSubtotal ? "" : "text-muted-foreground"}>{l.isSubtotal ? "= " : "+ "}{l.label}</span>
+                      <span className="font-mono">{formatCurrency(l.value)}</span>
+                    </div>
                   ))}
                   <div className="flex justify-between border-t border-border pt-0.5 font-semibold"><span>EBITDA</span><span className="font-mono">{formatCurrency(eb.ebitda)}</span></div>
                   <p className="pt-1 text-[10px] text-muted-foreground">Vista de análise. Acerto com sócios, cachê e Fecho usam sempre o resultado.</p>

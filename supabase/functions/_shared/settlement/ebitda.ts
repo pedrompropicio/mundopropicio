@@ -95,9 +95,11 @@ export function signedParcelsFromLines(
 }
 
 export interface EbitdaBridgeLine {
-  key: EbitdaClass;
+  key: string;
   label: string;
   value: number;
+  /** Subtotal da ponte ("Resultado antes de impostos") — não é uma classe. */
+  isSubtotal?: boolean;
 }
 
 export interface EbitdaResult {
@@ -109,11 +111,23 @@ export interface EbitdaResult {
 
 const ZERO = 0.005;
 
+/**
+ * Ponte: Resultado → + Imposto sobre o rendimento → = Resultado antes de
+ * impostos (subtotal, só quando IRC ≠ 0) → + Resultado financeiro →
+ * + Amortizações → EBITDA. O valor do EBITDA não depende da ordem.
+ */
 export function computeEbitda(result: number, parcels: EbitdaParcels): EbitdaResult {
   const r = Number(result || 0);
-  const bridge = EBITDA_CLASSES
-    .map((k) => ({ key: k, label: EBITDA_CLASS_LABEL[k], value: Number(parcels[k] || 0) }))
-    .filter((l) => Math.abs(l.value) > ZERO);
+  const irc = Number(parcels.imposto_rendimento || 0);
+  const bridge: EbitdaBridgeLine[] = [];
+  if (Math.abs(irc) > ZERO) {
+    bridge.push({ key: "imposto_rendimento", label: EBITDA_CLASS_LABEL.imposto_rendimento, value: irc });
+    bridge.push({ key: "resultado_antes_impostos", label: "Resultado antes de impostos", value: r + irc, isSubtotal: true });
+  }
+  for (const k of ["financeiro", "amortizacao"] as EbitdaClass[]) {
+    const v = Number(parcels[k] || 0);
+    if (Math.abs(v) > ZERO) bridge.push({ key: k, label: EBITDA_CLASS_LABEL[k], value: v });
+  }
   const ebitda = r + EBITDA_CLASSES.reduce((s, k) => s + Number(parcels[k] || 0), 0);
   return { result: r, ebitda, bridge };
 }
