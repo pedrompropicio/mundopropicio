@@ -14,8 +14,8 @@ export function useAdminWindowEvent(opts: {
   date: string | null | undefined;
   companyId?: string | null;
 }): AdminWindowEvent | null {
-  const { data: company } = useCompany();
-  const companyId = opts.companyId ?? (company as any)?.id ?? null;
+  const { companyId: activeCompanyId } = useCompany();
+  const companyId = opts.companyId ?? activeCompanyId ?? null;
   const { data } = useQuery({
     queryKey: ["admin-window-event", companyId, opts.date],
     enabled: opts.categoryFlagged && !!companyId && !!opts.date,
