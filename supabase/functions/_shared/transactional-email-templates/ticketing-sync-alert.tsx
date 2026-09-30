@@ -37,6 +37,7 @@ const LABELS: Record<string, string> = {
   b: 'Parado (sem corrida com sucesso há mais de 6 horas)',
   c: 'Desligado',
   d: 'Captura horária da Ticketline parada',
+  e: 'Divergência com o portal de Produtores da Ticketline',
 }
 
 const TicketingSyncAlertEmail = ({ runAt = '', itens = [] }: Props) => (
