@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { deleteStorageObject, deleteStorageObjects } from "@/lib/storage-delete";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -78,7 +79,7 @@ export function CamarimItemAttachmentButton({ itemId, iconOnly, className, sessi
         created_by: user?.id ?? null,
       } as any);
       if (insErr) {
-        await supabase.storage.from("camarim-documents").remove([path]);
+        await deleteStorageObject("camarim-documents", path, { reason: "limpeza de upload falhado", related_table: "camarim_item_documents" }).catch((e) => console.error("[camarim attach] limpeza falhou", e));
         throw insErr;
       }
       await supabase.from("camarim_items" as any).update({ has_document: true }).eq("id", itemId);

@@ -1,5 +1,6 @@
 // ingest-standalone-invoice — ingestão externa de faturas avulsas (#191–#193).
 // Regra absoluta: esta função escreve apenas em standalone_invoices e no bucket homónimo.
+import { trashStorageObject } from '../_shared/storage-trash.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { z } from 'npm:zod@3.23.8'
 import { getEcbRate } from '../_shared/fx-rate.ts'
@@ -202,7 +203,14 @@ Deno.serve(async (req) => {
   const { error: uploadError } = await admin.storage.from(BUCKET).upload(path, bytes, { contentType, upsert: false })
   if (uploadError) return json({ error: `Falha no upload: ${uploadError.message}` }, 500)
 
-  const cleanup = async () => { await admin.storage.from(BUCKET).remove([path]).catch(() => undefined) }
+  const cleanup = async () => {
+    // #265: move para _trash e grava storage_deletion_log (nunca apaga em silêncio).
+    const r = await trashStorageObject(admin, {
+      bucket: BUCKET, path, reason: 'ingest-standalone-invoice: limpeza de insert falhado',
+      related_table: 'standalone_invoices', company_id: body.company_id,
+    })
+    if (!r.ok) console.error('[ingest-standalone-invoice] limpeza falhou', r.error)
+  }
   const { data: inserted, error: insertError } = await admin.from('standalone_invoices').insert({
     company_id: body.company_id, storage_path: path, file_name: body.nome,
     supplier_name: body.supplier_name || null, supplier_nif: body.supplier_nif || null,

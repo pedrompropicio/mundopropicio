@@ -8,6 +8,7 @@
 //
 // NÃO toca em crm.auto_link_*, crons, funções de sync nem em resolve_ads_event.
 // Import de supabase-js SEMPRE npm: (nunca esm.sh).
+import { trashStorageObject } from "../_shared/storage-trash.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildPdf, type PdfOp } from "../_shared/simple-pdf.ts";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
@@ -826,9 +827,15 @@ async function handleRevert(body: any, userId?: string) {
       deletable = paths.filter((p) => !used.has(p));
     }
   }
-  if (deletable.length > 0) {
-    const { data: removed } = await admin.storage.from(DOC_BUCKET).remove(deletable);
-    filesDeleted = (removed ?? []).length;
+  // #265: nunca apagar directo — move para _trash e grava storage_deletion_log.
+  for (const p of deletable) {
+    const r = await trashStorageObject(admin, {
+      bucket: DOC_BUCKET, path: p, reason: "ads-invoice-apply: reverter fatura",
+      related_table: "ads_invoice", related_id: inv.id, deleted_by: userId ?? null,
+      company_id: inv.company_id,
+    });
+    if (r.ok && r.status === "trashed") filesDeleted++;
+    else if (!r.ok) console.error("[ads-invoice-apply] remoção de ficheiro falhou:", p, r.error);
   }
 
   // ---------------- (d) fatura volta a proposta

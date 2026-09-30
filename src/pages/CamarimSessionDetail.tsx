@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { deleteStorageObject, deleteStorageObjects } from "@/lib/storage-delete";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -234,12 +235,12 @@ export default function CamarimSessionDetail() {
         .select("file_path,item_id,camarim_items!inner(session_id)")
         .eq("camarim_items.session_id", id);
       const paths = ((docs ?? []) as any[]).map((d) => d.file_path).filter(Boolean);
-      if (paths.length > 0) {
-        await supabase.storage.from("camarim-documents").remove(paths);
-      }
+      // #265: linha primeiro; ficheiros depois, via storage-delete (registo + _trash).
       // O CASCADE da BD trata de items, fund_moves, session_events, integrations, item_documents.
-      const { error } = await supabase.from("camarim_sessions" as any).delete().eq("id", id);
+      const { data: delRows, error } = await supabase.from("camarim_sessions" as any).delete().eq("id", id).select("id");
       if (error) throw error;
+      if (!delRows || delRows.length === 0) throw new Error("Sem permissão para eliminar esta sessão.");
+      await deleteStorageObjects("camarim-documents", paths, { reason: "eliminar sessão de camarim", related_table: "camarim_sessions", related_id: id });
       toast({ title: "Sessão eliminada" });
       navigate("/camarim");
     } catch (e: any) {

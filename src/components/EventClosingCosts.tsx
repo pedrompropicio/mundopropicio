@@ -1,4 +1,6 @@
 import { writeForecastAmount } from "@/lib/forecast-amount";
+import { withCompanyPath } from "@/lib/storage";
+import { deleteStorageObject, deleteStorageObjects } from "@/lib/storage-delete";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useState } from "react";
@@ -214,12 +216,13 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { data: docs } = await supabase.storage.from("closing-cost-documents").list(`${id}`);
-      if (docs && docs.length > 0) {
-        await supabase.storage.from("closing-cost-documents").remove(docs.map((d) => `${id}/${d.name}`));
-      }
+      // #265: caminhos exactos (nunca prefixo); linha primeiro, ficheiros depois via storage-delete.
+      const folder = await withCompanyPath("closing-cost-documents", `${id}`);
+      const { data: docs } = await supabase.storage.from("closing-cost-documents").list(folder);
+      const paths = (docs ?? []).filter((d) => d.name && d.id).map((d) => `${folder}/${d.name}`);
       const { error } = await supabase.from("event_forecasts").delete().eq("id", id);
       if (error) throw error;
+      await deleteStorageObjects("closing-cost-documents", paths, { reason: "remover custo de fecho", related_table: "event_forecasts", related_id: id });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event-overhead-forecasts", eventId] });

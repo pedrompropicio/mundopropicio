@@ -179,7 +179,9 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
       }
       // #265: o objeto só sai do bucket quando já não resta nenhuma linha a apontar-lhe
       // (o helper ignora camarim://, card://, bank://, ref:// e URLs externas).
-      if (storagePath) await removeTransactionDocumentObjects([doc.file_url]);
+      const storageErr = storagePath
+        ? await removeTransactionDocumentObjects([doc.file_url], { reason: "remover anexo de transação", related_id: doc.id }).then(() => null, (err: any) => err as Error)
+        : null;
       await logAudit({
         entity_type: "transaction_document",
         entity_id: doc.id,
@@ -192,6 +194,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
           shared_rows_removed: deletedIds.length,
         },
       });
+      if (storageErr) throw storageErr;
     },
     onMutate: async (doc) => {
       // Optimistic update: remove from list immediately
@@ -252,9 +255,9 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     if (dbError) {
       const ids = (inserted ?? []).map((d: any) => d.id);
       if (ids.length) await supabase.from("transaction_documents").delete().in("id", ids);
-      await removeTransactionDocumentObjects([filePath]);
+      const cleanupErr = await removeTransactionDocumentObjects([filePath], { reason: "limpeza de upload falhado" }).then(() => null, (err: any) => err as Error);
       throw new Error(
-        `${dbError.message} — nada ficou anexado${ids.length ? " (as linhas criadas foram desfeitas)" : ""}.`,
+        `${dbError.message} — nada ficou anexado${ids.length ? " (as linhas criadas foram desfeitas)" : ""}.${cleanupErr ? ` ${cleanupErr.message}` : ""}`,
       );
     }
 

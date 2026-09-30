@@ -4591,3 +4591,10 @@ Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_a
 - Alerta = condição (e) da vigia de bilheteira existente: ≥ 3 bilhetes ou ≥ 100 € em duas leituras diárias seguidas; `nao_encontrado` alerta à primeira. Porquê: uma leitura isolada a horas diferentes é ruído; divergência que persiste não é.
 - Uma tentativa de login por corrida; falha → linhas `erro`, sem repetição (proteger a conta).
 - Cron `ticketline-crosscheck-daily` 06:50 UTC, corpo sem dry-run.
+
+## D-ERP153 — #265: remoção de ficheiros contabilísticos só com rasto e lixo (30/09/2026)
+- Os 7 buckets (transaction-documents, camarim-documents, card-documents, closing-cost-documents, standalone-invoices, supplier-documents, ticket-office-settlements) deixam de ter DELETE directo para authenticated (9 políticas retiradas).
+- Única porta: edge `storage-delete` (utilizadores; valida via `can_delete_storage_object`, que reproduz as regras antigas) e `_shared/storage-trash.ts` (edges service_role). Caminho exacto, nunca prefixo; verifica referências; grava `storage_deletion_log` ANTES; MOVE para `_trash/<AAAA-MM-DD>/<caminho>`; se o move falhar, desfaz o registo e devolve erro.
+- Permissões alinhadas: apagar linha de `transaction_documents` passa a admin/manager (editor saiu), igual ao bucket — escolhido o conjunto mais restritivo; ajustada a tabela, não o storage.
+- Falta: limpeza real de `_trash` aos 30 dias (sem cron ainda).
+- Why: a 23–24/09 um objeto desapareceu sem rasto (fc36ff8f); apagar pela API não deixava registo.

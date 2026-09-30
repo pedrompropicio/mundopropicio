@@ -7,6 +7,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentCompanyId } from "@/hooks/useCompany";
+import { ACCOUNTING_BUCKETS, deleteStorageObjects } from "@/lib/storage-delete";
 
 export const ISOLATED_BUCKETS = new Set<string>([
   "bank-statements",
@@ -122,8 +123,17 @@ export async function downloadFromCompanyBucket(bucket: Bucket, path: string) {
   return supabase.storage.from(bucket).download(fullPath);
 }
 
-export async function removeFromCompanyBucket(bucket: Bucket, paths: string[]) {
+export async function removeFromCompanyBucket(bucket: Bucket, paths: string[], reason = "remover ficheiro") {
   const full = await Promise.all(paths.map((p) => withCompanyPath(bucket, p)));
+  // #265: buckets contabilísticos só saem via storage-delete (registo + _trash).
+  if (ACCOUNTING_BUCKETS.has(bucket)) {
+    try {
+      await deleteStorageObjects(bucket, full, { reason });
+      return { data: full.map((name) => ({ name })), error: null };
+    } catch (e: any) {
+      return { data: null, error: e instanceof Error ? e : new Error(String(e)) };
+    }
+  }
   return supabase.storage.from(bucket).remove(full);
 }
 

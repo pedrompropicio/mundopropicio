@@ -14,6 +14,7 @@
 // `revalidateInvoiceGroupAfterDocument`.
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { trashStorageObject } from '../_shared/storage-trash.ts'
 import { fetchAllPagedQuery } from '../_shared/paging.ts'
 
 const corsHeaders = {
@@ -388,11 +389,11 @@ Deno.serve(async (req) => {
       // Nunca deixar ficheiro órfão no storage.
       // #265: só remove se nenhuma linha de transaction_documents o referenciar.
       if (uploadedPath) {
-        const { data: stillRef, error: refErr } = await admin
-          .from('transaction_documents').select('id').eq('file_url', uploadedPath).limit(1)
-        if (!refErr && (stillRef ?? []).length === 0) {
-          await admin.storage.from(BUCKET).remove([uploadedPath]).catch(() => {})
-        }
+        const r = await trashStorageObject(admin, {
+          bucket: BUCKET, path: uploadedPath, reason: 'ingest-transaction-document: limpeza de insert falhado',
+          related_table: 'transaction_documents', company_id: companyId,
+        })
+        if (!r.ok) console.error('[ingest-transaction-document] limpeza falhou', r.error)
       }
       console.error('[ingest-transaction-document] insert', insErr)
       return json({ error: `Falha ao gravar transaction_documents: ${insErr.message}` }, 500)

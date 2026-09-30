@@ -2,10 +2,11 @@
  * #265 — regra única para tirar objetos do bucket `transaction-documents`.
  *
  * O objeto só sai do bucket DEPOIS de a linha sair da BD e quando nenhuma linha
- * de `transaction_documents` o referencia (grupos de fatura e a ingestão por API
- * partilham o mesmo file_url entre N linhas). Nunca lança: erros vêm no retorno.
+ * de `transaction_documents` o referencia (a verificação é feita no servidor,
+ * na edge `storage-delete`, que regista e move para `_trash`).
+ * Falhas agora LANÇAM (antes só console.warn e ninguém lia o retorno).
  */
-import { supabase } from "@/integrations/supabase/client";
+import { deleteStorageObject } from "@/lib/storage-delete";
 
 const BUCKET = "transaction-documents";
 
@@ -20,36 +21,32 @@ function toBucketPath(fileUrl: string): string | null {
 export interface RemoveObjectsResult {
   removed: string[];
   kept: string[];
-  errors: string[];
 }
 
-export async function removeTransactionDocumentObjects(fileUrls: string[]): Promise<RemoveObjectsResult> {
-  const out: RemoveObjectsResult = { removed: [], kept: [], errors: [] };
+export async function removeTransactionDocumentObjects(
+  fileUrls: string[],
+  meta: { reason?: string; related_table?: string; related_id?: string | null } = {},
+): Promise<RemoveObjectsResult> {
+  const out: RemoveObjectsResult = { removed: [], kept: [] };
   const unique = [...new Set((fileUrls ?? []).filter(Boolean))];
+  const errors: string[] = [];
   for (const url of unique) {
     const path = toBucketPath(url);
     if (!path) continue;
     try {
-      const { data, error } = await supabase
-        .from("transaction_documents")
-        .select("id")
-        .eq("file_url", url)
-        .limit(1);
-      if (error) {
-        out.errors.push(`${path}: ${error.message}`);
-        continue;
-      }
-      if ((data ?? []).length > 0) {
-        out.kept.push(path);
-        continue;
-      }
-      const { error: rmErr } = await supabase.storage.from(BUCKET).remove([path]);
-      if (rmErr) out.errors.push(`${path}: ${rmErr.message}`);
+      const status = await deleteStorageObject(BUCKET, path, {
+        reason: meta.reason ?? "remover anexo de transação",
+        related_table: meta.related_table ?? "transaction_documents",
+        related_id: meta.related_id ?? null,
+      });
+      if (status === "kept_referenced") out.kept.push(path);
       else out.removed.push(path);
     } catch (e: any) {
-      out.errors.push(`${path}: ${e?.message ?? String(e)}`);
+      errors.push(`${path}: ${e?.message ?? String(e)}`);
     }
   }
-  if (out.errors.length) console.warn("[removeTransactionDocumentObjects]", out.errors);
+  if (errors.length) {
+    throw new Error(`O registo foi removido, mas o ficheiro não saiu do armazenamento: ${errors.join("; ")}`);
+  }
   return out;
 }

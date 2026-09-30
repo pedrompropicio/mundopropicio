@@ -1,0 +1,10 @@
+SET lock_timeout = '5s';
+DROP POLICY IF EXISTS "Camarim documents deletable by admin or manager" ON storage.objects;
+DROP POLICY IF EXISTS "Camarim documents deletable by team or manager" ON storage.objects;
+DROP POLICY IF EXISTS "Transaction docs deletable by admin or manager" ON storage.objects;
+DROP POLICY IF EXISTS "Admins can delete settlement files" ON storage.objects;
+DROP POLICY IF EXISTS "Closing cost docs deletable by admin or manager" ON storage.objects;
+DROP POLICY IF EXISTS "Supplier docs deletable by admin or manager" ON storage.objects;
+DROP POLICY IF EXISTS "Card docs delete" ON storage.objects;
+DROP POLICY IF EXISTS "standalone_invoices_storage_delete" ON storage.objects;
+DROP POLICY IF EXISTS "standalone_invoices_bucket_delete" ON storage.objects;

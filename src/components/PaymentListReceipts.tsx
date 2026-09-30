@@ -194,7 +194,7 @@ export default function PaymentListReceipts({ listId, listTitle, activeTransacti
       if (!delList || delList.length === 0) throw new Error("Sem permissão para remover este comprovativo.");
 
       // 3) ficheiro no storage — #265: só se nenhuma linha ainda o referenciar
-      await removeTransactionDocumentObjects([doc.file_url]);
+      await removeTransactionDocumentObjects([doc.file_url], { reason: "remover comprovativo de lista de pagamento", related_table: "payment_list_documents", related_id: doc.id });
 
       queryClient.invalidateQueries({ queryKey: ["payment_list_documents", listId] });
       queryClient.invalidateQueries({ queryKey: ["payment_list_sepa_exports", listId] });
