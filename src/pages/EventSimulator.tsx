@@ -8,6 +8,8 @@
  * Bloco 4: IVA por sessão
  * Bloco 5: Resultados (Geral / Evento / A&B / Souvenir) + Indicadores per capita
  */
+import { selectCourtesyRows } from "@/lib/bp-formula";
+import { fetchEventRealized } from "@/lib/event-revenue-basis";
 import React, { useMemo, useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -328,13 +330,15 @@ export default function EventSimulator() {
     queryFn: async () => {
       if (!eventId) return [] as Array<{ date: string | null; zone_name: string; quantity: number }>;
       const [{ data: cs }, { data: ds }, { data: zs }] = await Promise.all([
-        supabase.from("event_courtesies").select("event_date_id, zone_id, quantity").eq("event_id", eventId).eq("scenario", "real"),
+        supabase.from("event_courtesies").select("event_date_id, zone_id, quantity, scenario").eq("event_id", eventId).in("scenario", ["real", "forecast"]),
         supabase.from("event_dates").select("id, date").eq("event_id", eventId),
         supabase.from("event_ticket_zones").select("id, name").eq("event_id", eventId).is("version_id", null),
       ]);
       const dateById = new Map((ds ?? []).map((d: any) => [d.id, d.date as string]));
       const nameById = new Map((zs ?? []).map((z: any) => [z.id, z.name as string]));
-      return (cs ?? []).map((c: any) => ({
+      // D-ERP149: regra única previsto/final (bp-formula.selectCourtesyRows).
+      const realized = await fetchEventRealized(eventId);
+      return selectCourtesyRows((cs ?? []) as any[], null, realized).rows.map((c: any) => ({
         date: dateById.get(c.event_date_id) ?? null,
         zone_name: nameById.get(c.zone_id) ?? "",
         quantity: Number(c.quantity || 0),

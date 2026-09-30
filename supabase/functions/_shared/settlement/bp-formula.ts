@@ -120,35 +120,45 @@ export function realTicketTotals(sales: FormulaSale[], zoneIds: string[] | null)
   return { gross: roundCents(gross), net: roundCents(net), sold };
 }
 
-/** Convites nas zonas pedidas, com a regra previsto/final. */
-export function courtesyTotals(rows: FormulaCourtesy[], zoneIds: string[] | null, realized: boolean) {
-  const byKey = new Map<string, { real: number | null; forecast: number | null }>();
+/**
+ * Regra ÚNICA previsto/final dos convites (D-ERP149): escolhe, por (dia, zona),
+ * as linhas do cenário que conta. Usada pelo motor das fórmulas, pelo Simulador
+ * e pelo A&B (useEventAttendance) — nunca reimplementar.
+ */
+export function selectCourtesyRows<T extends FormulaCourtesy>(rows: T[], zoneIds: string[] | null, realized: boolean) {
+  const byKey = new Map<string, { real: T[]; forecast: T[] }>();
   for (const r of rows) {
     if (r.scenario !== "real" && r.scenario !== "forecast") continue; // breakeven fora
     if (zoneIds && zoneIds.length > 0 && !inZones(r.zone_id, zoneIds)) continue;
     const k = `${r.event_date_id ?? ""}|${r.zone_id ?? ""}`;
-    const cur = byKey.get(k) ?? { real: null, forecast: null };
-    if (r.scenario === "real") cur.real = (cur.real ?? 0) + n(r.quantity);
-    else cur.forecast = (cur.forecast ?? 0) + n(r.quantity);
+    const cur = byKey.get(k) ?? { real: [], forecast: [] };
+    (r.scenario === "real" ? cur.real : cur.forecast).push(r);
     byKey.set(k, cur);
   }
-  let total = 0;
+  const out: T[] = [];
   let pending = false;
   const used = new Set<"forecast" | "real">();
   for (const v of byKey.values()) {
     const primary = realized ? v.real : v.forecast;
     const fallback = realized ? v.forecast : v.real;
-    if (primary !== null) {
-      total += primary;
+    if (primary.length) {
+      out.push(...primary);
       used.add(realized ? "real" : "forecast");
-    } else if (fallback !== null) {
-      total += fallback;
+    } else if (fallback.length) {
+      out.push(...fallback);
       used.add(realized ? "forecast" : "real");
       if (realized) pending = true;
     }
   }
   const src = used.size === 0 ? null : used.size > 1 ? "misto" : [...used][0];
-  return { total, pending, source: src as BpFormulaComposition["courtesiesSource"] };
+  return { rows: out, pending, source: src as BpFormulaComposition["courtesiesSource"] };
+}
+
+/** Convites nas zonas pedidas, com a regra previsto/final. */
+export function courtesyTotals(rows: FormulaCourtesy[], zoneIds: string[] | null, realized: boolean) {
+  const sel = selectCourtesyRows(rows, zoneIds, realized);
+  const total = sel.rows.reduce((a, r) => a + n(r.quantity), 0);
+  return { total, pending: sel.pending, source: sel.source };
 }
 
 export function computeBpFormula(input: BpFormulaInput): BpFormulaResult {
