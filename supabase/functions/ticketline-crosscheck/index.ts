@@ -63,7 +63,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const admin = createClient(SUPABASE_URL, SERVICE);
   const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
-  if (jwt !== SERVICE) {
+  // verify_jwt=true (config.toml): a assinatura já foi validada no gateway; aqui só se lê o papel.
+  let role: string | null = null;
+  try { role = JSON.parse(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).role ?? null; } catch { role = null; }
+  if (jwt !== SERVICE && role !== "service_role") {
     const { data: u } = await admin.auth.getUser(jwt);
     if (!u?.user) return json({ error: "sem sessão" }, 401);
     const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", u.user.id);
