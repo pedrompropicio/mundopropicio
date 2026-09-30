@@ -4584,6 +4584,14 @@ Resoluções (mesmo dia):
 
 Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_admin_windows_contiguous` + `validate_event_admin_absorption` (events), CHECK `events_admin_window_required` passou a aceitar fim NULL, RPC `admin_cost_override_write` (a justificação só vive dentro da transacção, por isso a RPC faz a escrita). Memória: `.lovable/memory/features/janela-administrativa.md`.
 
+## D-ERP151 — #266: vista EBITDA ao lado do resultado (30/09/2026)
+- Coluna `account_categories.ebitda_class` (NULL = operacional; `financeiro`, `imposto_rendimento`, `amortizacao`).
+- Valores iniciais pelo código, em todas as empresas: 10.5.03 → imposto_rendimento; 10.6.02, 10.6.03, 10.6.04, 10.6.05 → financeiro. 10.6.01, 10.5.05 e 2.7.05 ficam operacionais. Sem modelo de Plano de Contas: contas novas escolhem a classe no formulário ("Classe para EBITDA").
+- A classe lê-se na conta de lançamento (último nível); não herda da L2.
+- EBITDA = resultado + gastos (financeiro + imposto_rendimento + amortizacao) − rendimentos dessas classes. Helper único `_shared/settlement/ebitda.ts`, sobre a MESMA base de cada ecrã: card = `computeEventCostOnBasis`; DRE = transações do perímetro do `buildDRE` (s/IVA).
+- Vista de análise: distribuição a sócios, MUNDO PROPÍCIO (x%), cachê e cascata do Fecho continuam sobre o resultado; o EBITDA nunca é base de repartição.
+- Why: o resultado passou a ser após impostos com a #264; faltava a leitura operacional sem juros/impostos.
+
 ## D-ERP152 — Vigia diária Ticketline: portal de Produtores contra a plataforma (30/09/2026)
 - Fonte independente: `produtores.ticketline.pt`, Mapa de Ocupação (PDF), total = postos + internet + bilheteira (sem convites/cativos).
 - Correspondência só por data da sessão + recinto; nunca por nome. Ambíguo ou sem par → `nao_encontrado`.

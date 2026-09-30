@@ -19,6 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { computeTotals as computeABTotals, type ABTotals, type ABZoneInput, type ABFoodConfig } from "@/lib/event-ab-calc";
 import { partnerUsesGrossExpenses } from "@/lib/partner-calc-basis";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { signedParcelsFromLines, computeEbitda, isEbitdaClass, type EbitdaClassMap } from "@/lib/ebitda";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
@@ -37,6 +38,9 @@ interface DRELine {
   isPartnerExtra?: boolean;
   isPartnerNet?: boolean;
   isHouse?: boolean;
+  /** #266: linha da ponte EBITDA (vista de análise; não entra em totais). */
+  isEbitda?: boolean;
+  isEbitdaTotal?: boolean;
 }
 
 function calcAmountWithIva(amount: number, ivaRate: number): number {
@@ -57,7 +61,8 @@ function buildDRE(
   parentEventId?: string | null,
   closingCosts?: any[],
   partnerExtras?: any[],
-  abTotals?: ABTotals | null
+  abTotals?: ABTotals | null,
+  ebitdaClassMap?: EbitdaClassMap | null
 ): DRELine[] {
   const lookup = buildCategoryLookup(categories);
 
@@ -98,6 +103,7 @@ function buildDRE(
       category_id: cc.category_id,
       amount: Number(cc.amount || 0),
       iva_rate: cc.iva_rate != null ? Number(cc.iva_rate) : 23,
+      type: "expense",
     }));
   const expensesWithOverhead = [...expenses, ...overheadAsExpenses];
 
@@ -182,6 +188,15 @@ function buildDRE(
   const resEx = totalIncEx - totalExpEx;
   const resInc = totalIncInc - totalExpInc;
   lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: 0, amountIncIva: 0, isGrandTotal: true });
+
+  // #266 (D-ERP151): ponte EBITDA sobre as MESMAS linhas do resultado (s/IVA).
+  // Vista de análise — a distribuição a sócios abaixo continua sobre resEx.
+  if (ebitdaClassMap) {
+    const parcels = signedParcelsFromLines([...incomes, ...expensesWithOverhead], ebitdaClassMap, false);
+    const eb = computeEbitda(resEx, parcels);
+    eb.bridge.forEach((b) => lines.push({ label: `+ ${b.label}`, amountExIva: b.value, ivaAmount: 0, amountIncIva: 0, isEbitda: true, indent: true }));
+    lines.push({ label: "EBITDA", amountExIva: eb.ebitda, ivaAmount: 0, amountIncIva: 0, isEbitda: true, isEbitdaTotal: true });
+  }
 
   // Partner distribution section — sub-events inherit from parent
   const resolvedPartnerId = parentEventId || eventId;
@@ -269,6 +284,7 @@ export default function ReportDRE() {
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("transactions");
   const [showPartnerView, setShowPartnerView] = useState(false);
+  const [showEbitda, setShowEbitda] = useState(false);
 
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
@@ -311,6 +327,14 @@ export default function ReportDRE() {
       return data;
     },
   });
+
+  // #266: classe EBITDA lida na conta de lançamento (não herda).
+  const ebitdaClassMap = useMemo(() => {
+    const m: EbitdaClassMap = {};
+    for (const c of categories as any[]) if (isEbitdaClass(c.ebitda_class)) m[c.id] = c.ebitda_class;
+    return m;
+  }, [categories]);
+  const ebitdaArg = showEbitda ? ebitdaClassMap : null;
 
   const { data: ticketZones = [] } = useQuery({
     queryKey: ["ticket-zones-all"],
@@ -541,11 +565,12 @@ export default function ReportDRE() {
     const evtTx = getEffectiveTransactions(e.id);
     const parentEvt = (e as any).parent_event_id ? events.find((pe) => pe.id === (e as any).parent_event_id) : null;
     const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (e as any).partner_calc_basis || "net_result";
-    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, (e as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[e.id] ?? null);
+    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, (e as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[e.id] ?? null, ebitdaArg);
     const revLine = dre.find((l) => l.label === "RECEITAS");
     const expLine = dre.find((l) => l.label === "DESPESAS");
     const resLine = dre.find((l) => l.isGrandTotal);
     const retainedLine = dre.find((l) => l.isRetained);
+    const ebitdaLine = dre.find((l) => l.isEbitdaTotal);
 
     return {
       ...e,
@@ -556,6 +581,7 @@ export default function ReportDRE() {
       resultEx: resLine?.amountExIva ?? 0,
       resultInc: resLine?.amountIncIva ?? 0,
       retainedEx: retainedLine?.amountExIva ?? null,
+      ebitdaEx: ebitdaLine?.amountExIva ?? 0,
       txCount: evtTx.length,
       hasPartners: !!retainedLine,
     };
@@ -567,6 +593,7 @@ export default function ReportDRE() {
   const globalExpInc = eventSummaries.reduce((s, e) => s + e.totalExpInc, 0);
   const globalResultEx = globalIncEx - globalExpEx;
   const globalResultInc = globalIncInc - globalExpInc;
+  const globalEbitdaEx = eventSummaries.reduce((s, e) => s + e.ebitdaEx, 0);
 
   // Distribuição global aos sócios (excluindo a Mundo Propício, que tem o seu
   // próprio agregado abaixo). A Mundo Propício é a sócia principal/proprietária
@@ -579,7 +606,7 @@ export default function ReportDRE() {
     const evtTx = getEffectiveTransactions(evt.id);
     const parentEvt = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
     const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (evt as any).partner_calc_basis || "net_result";
-    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[evt.id] ?? null);
+    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[evt.id] ?? null, ebitdaArg);
     dre.filter((l) => l.isDistribution).forEach((l) => {
       if (l.isHouse) {
         globalHouseSum += l.amountExIva;
@@ -693,6 +720,14 @@ export default function ReportDRE() {
           <span className="text-xs text-muted-foreground">
             {showPartnerView ? "Inclui rateios de overhead e extras de sócios no resultado" : "Vista Empresa: sem overhead"}
           </span>
+          <div className="ml-4 inline-flex rounded-md border border-border/50 p-0.5">
+            <Button type="button" size="sm" variant={showEbitda ? "ghost" : "secondary"} className="h-7 text-xs" onClick={() => setShowEbitda(false)}>
+              Resultado (após impostos)
+            </Button>
+            <Button type="button" size="sm" variant={showEbitda ? "secondary" : "ghost"} className="h-7 text-xs" onClick={() => setShowEbitda(true)}>
+              EBITDA
+            </Button>
+          </div>
         </div>
         <div className="flex items-center gap-2">
         <Button
@@ -714,7 +749,7 @@ export default function ReportDRE() {
         </div>
       </div>
 
-      <div className={`grid gap-4 ${hasGlobalPartners ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"}`}>
+      <div className={`grid gap-4 ${hasGlobalPartners && showEbitda ? "sm:grid-cols-2 lg:grid-cols-5" : hasGlobalPartners || showEbitda ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"}`}>
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Receitas</p>
           <p className="mt-1 text-lg font-bold text-success">{formatCurrency(globalIncEx)}</p>
@@ -729,6 +764,15 @@ export default function ReportDRE() {
             {formatCurrency(globalResultEx)}
           </p>
         </div>
+        {showEbitda && (
+          <div className="glass rounded-xl p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">EBITDA</p>
+            <p className={`mt-1 text-lg font-bold ${globalEbitdaEx >= 0 ? "text-success" : "text-destructive"}`}>
+              {formatCurrency(globalEbitdaEx)}
+            </p>
+            <p className="mt-1 text-[10px] text-muted-foreground">Vista de análise — sócios sobre o resultado</p>
+          </div>
+        )}
         {hasGlobalPartners && (
           <div className="glass rounded-xl p-4">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resultado MUNDO PROPÍCIO</p>
@@ -757,7 +801,7 @@ export default function ReportDRE() {
           const evtTx = getEffectiveTransactions(evt.id);
           const parentEvtDetail = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
           const calcBasis = parentEvtDetail ? (parentEvtDetail as any).partner_calc_basis || "net_result" : (evt as any).partner_calc_basis || "net_result";
-          const dre = isOpen ? buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[evt.id] ?? null) : [];
+          const dre = isOpen ? buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[evt.id] ?? null, ebitdaArg) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">
@@ -809,6 +853,10 @@ export default function ReportDRE() {
                             ? ""
                             : line.isDistribution
                             ? "bg-amber-500/5"
+                            : line.isEbitdaTotal
+                            ? "border-t border-primary/30 bg-primary/5"
+                            : line.isEbitda
+                            ? "bg-primary/5"
                             : line.isGrandTotal
                             ? "border-t-2 border-primary/30 bg-primary/5"
                             : line.isTotal ? "bg-secondary/20"
@@ -823,7 +871,7 @@ export default function ReportDRE() {
                               <TableCell className={valClass(line.amountExIva)}>
                                 {line.amountExIva < 0 ? `-${formatCurrency(Math.abs(line.amountExIva))}` : formatCurrency(line.amountExIva)}
                               </TableCell>
-                              {line.isGrandTotal || line.isDistribution || line.isRetained || line.isPartnerExtra || line.isPartnerNet ? (
+                              {line.isGrandTotal || line.isEbitda || line.isDistribution || line.isRetained || line.isPartnerExtra || line.isPartnerNet ? (
                                 <>
                                   <TableCell />
                                   <TableCell />
