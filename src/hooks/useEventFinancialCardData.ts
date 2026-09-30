@@ -18,6 +18,11 @@ import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 
 import { computeScenarioRevenue, type CoalaConfig, type CoalaSession } from "@/lib/event-simulator-coala";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import {
+  type EbitdaParcels, emptyParcels, addParcels, scaleParcels, costParcelsOnBasis,
+  signedParcelsFromLines, classOf,
+} from "@/lib/ebitda";
+import { useEbitdaClassMap } from "@/hooks/useEbitdaClassMap";
 
 
 
@@ -75,6 +80,8 @@ export interface UseEventFinancialCardDataResult {
   unavailable: boolean;
   /** Total da componente forecast bilheteira para casos especiais. */
   meta?: Record<string, number | null>;
+  /** Parcelas EBITDA (a somar ao resultado) nas duas bases de IVA. null = classes a carregar. */
+  ebitdaParcels?: { net: EbitdaParcels; gross: EbitdaParcels } | null;
 }
 
 export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): UseEventFinancialCardDataResult {
@@ -83,6 +90,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     withVat = false, includeOverhead = false,
   } = args;
   const ids = eventIds.length > 0 ? eventIds : [eventId];
+  const { data: classMap } = useEbitdaClassMap();
   const idsKey = ids.slice().sort().join(",");
 
   // SSoT da receita (D24) — só para kind='income'. O custo mantém a lógica própria.
@@ -218,7 +226,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     enabled: simEnabled,
   });
 
-  return useMemo<UseEventFinancialCardDataResult>(() => {
+  const base = useMemo<UseEventFinancialCardDataResult>(() => {
     // ── Fase ──
     const realizedTx = txs.filter((t: any) =>
       (t.status === "paid" || t.status === "approved" || t.status === "partially_paid") && !hasResultBlockingFlags(t)
@@ -589,4 +597,57 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       includeOverhead, eventId, masterForecasts, masterTxs,
       args.ticketSales, args.masterQuota, args.cacheImpact]);
 
+  // ── Vista EBITDA (D-ERP151): parcelas classificadas sobre a MESMA base do card ──
+  const ebitdaParcels = useMemo(() => {
+    if (!classMap) return null;
+    const basis: "realized" | "committed" = base.modeUsed === "realized" ? "realized" : "committed";
+    const forVat = (vat: boolean): EbitdaParcels => {
+      if (kind === "expense") {
+        const byEvent = new Map<string, { f: any[]; t: any[] }>();
+        const bucket = (evId: string) => {
+          let b = byEvent.get(evId);
+          if (!b) { b = { f: [], t: [] }; byEvent.set(evId, b); }
+          return b;
+        };
+        for (const f of forecasts as any[]) bucket(f.event_id ?? eventId).f.push(f);
+        for (const t of txs as any[]) if (t.type === "expense") bucket(t.event_id ?? eventId).t.push(t);
+        let acc = emptyParcels();
+        for (const b of byEvent.values()) {
+          acc = addParcels(acc, costParcelsOnBasis({
+            forecasts: b.f, transactions: b.t, mode: basis, withVat: vat, includeOverhead, classMap,
+          }));
+        }
+        if (args.masterQuota) {
+          const m = costParcelsOnBasis({
+            forecasts: masterForecasts as any[],
+            transactions: (masterTxs as any[]).filter((t) => t.type === "expense"),
+            mode: basis, withVat: vat, includeOverhead, classMap,
+          });
+          acc = addParcels(acc, scaleParcels(m, computeMasterQuota(1, args.masterQuota.siblingCount)));
+        }
+        return acc;
+      }
+      // Receita: rendimentos destas classes SUBTRAEM ao resultado.
+      const real = (txs as any[]).filter((t) => t.type === "income" && isValidFechoTransaction(t));
+      if (basis === "realized") return signedParcelsFromLines(real, classMap, vat);
+      // "Previsto + excedido": por rubrica max(real, previsto aprovado) — o critério da receita.
+      const byCat = new Map<string, { r: number; f: number }>();
+      const put = (cat: string | null | undefined, k: "r" | "f", v: number) => {
+        if (!classOf(cat, classMap)) return;
+        const e = byCat.get(cat!) ?? { r: 0, f: 0 };
+        e[k] += v; byCat.set(cat!, e);
+      };
+      for (const t of real) put(t.category_id, "r", lineValue(t.amount, t.iva_rate, vat));
+      for (const f of forecasts as any[]) {
+        if (f.status !== "approved" || f.is_transitory || f.exclude_from_result) continue;
+        put(f.category_id, "f", lineValue(f.amount, f.iva_rate, vat));
+      }
+      const out = emptyParcels();
+      for (const [cat, e] of byCat) out[classOf(cat, classMap)!] -= Math.max(e.r, e.f);
+      return out;
+    };
+    return { net: forVat(false), gross: forVat(true) };
+  }, [classMap, base.modeUsed, kind, forecasts, txs, masterForecasts, masterTxs, includeOverhead, eventId, args.masterQuota]);
+
+  return { ...base, ebitdaParcels };
 }
