@@ -749,7 +749,7 @@ export default function ReportDRE() {
         </div>
       </div>
 
-      <div className={`grid gap-4 ${(hasGlobalPartners ? 4 : 3) + (showEbitda ? 1 : 0) >= 4 ? "sm:grid-cols-2 lg:grid-cols-" + ((hasGlobalPartners ? 4 : 3) + (showEbitda ? 1 : 0)) : "sm:grid-cols-3"}`}>
+      <div className={`grid gap-4 ${hasGlobalPartners && showEbitda ? "sm:grid-cols-2 lg:grid-cols-5" : hasGlobalPartners || showEbitda ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"}`}>
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Receitas</p>
           <p className="mt-1 text-lg font-bold text-success">{formatCurrency(globalIncEx)}</p>

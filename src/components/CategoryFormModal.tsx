@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronRight, ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
+import { EBITDA_CLASSES, EBITDA_CLASS_LABEL, isEbitdaClass } from "@/lib/ebitda";
 
 interface Category {
   id: string;
@@ -20,6 +21,7 @@ interface Category {
   is_active: boolean;
   event_required: boolean;
   allocate_to_active_event?: boolean;
+  ebitda_class?: string | null;
 }
 
 interface CategoryFormModalProps {
@@ -62,6 +64,8 @@ export default function CategoryFormModal({
   const [parentId, setParentId] = useState<string>("");
   const [eventRequired, setEventRequired] = useState(true);
   const [allocateToActiveEvent, setAllocateToActiveEvent] = useState(false);
+  // #266: "__op__" = Operacional (grava NULL).
+  const [ebitdaClass, setEbitdaClass] = useState<string>("__op__");
 
   const { data: categories = [] } = useQuery({
     queryKey: ["account-categories"],
@@ -118,6 +122,7 @@ export default function CategoryFormModal({
         setParentId(editingCategory.parent_id || "");
         setEventRequired(editingCategory.event_required);
         setAllocateToActiveEvent(editingCategory.allocate_to_active_event ?? false);
+        setEbitdaClass(isEbitdaClass(editingCategory.ebitda_class) ? editingCategory.ebitda_class : "__op__");
       } else {
         setCode("");
         setName("");
@@ -125,6 +130,7 @@ export default function CategoryFormModal({
         setParentId(defaultParentId || "");
         setEventRequired(true);
         setAllocateToActiveEvent(false);
+        setEbitdaClass("__op__");
       }
     }
   }, [open, editingCategory, defaultParentId, defaultType]);
@@ -166,7 +172,8 @@ export default function CategoryFormModal({
         parent_id: effectiveParentId || null,
         event_required: !effectiveParentId ? eventRequired : true,
         allocate_to_active_event: isL3InGroup10 && !allocateLocked ? allocateToActiveEvent : false,
-      }).select("id").single();
+        ebitda_class: ebitdaClass === "__op__" ? null : ebitdaClass,
+      } as any).select("id").single();
       if (error) throw error;
       return data.id;
     },
@@ -183,7 +190,7 @@ export default function CategoryFormModal({
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!editingCategory) return;
-      const updateData: any = { code, name, type, parent_id: effectiveParentId || null };
+      const updateData: any = { code, name, type, parent_id: effectiveParentId || null, ebitda_class: ebitdaClass === "__op__" ? null : ebitdaClass };
       if (!effectiveParentId) updateData.event_required = eventRequired;
       if (isL3InGroup10) updateData.allocate_to_active_event = allocateLocked ? false : allocateToActiveEvent;
       const { error } = await supabase.from("account_categories").update(updateData).eq("id", editingCategory.id);
@@ -285,6 +292,20 @@ export default function CategoryFormModal({
                 <SelectContent className="z-[250]">
                   <SelectItem value="income">Receita</SelectItem>
                   <SelectItem value="expense">Despesa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>Classe para EBITDA</Label>
+              <Select value={ebitdaClass} onValueChange={setEbitdaClass}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="z-[250]">
+                  <SelectItem value="__op__">Operacional</SelectItem>
+                  {EBITDA_CLASSES.map((c) => (
+                    <SelectItem key={c} value={c}>{EBITDA_CLASS_LABEL[c]}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
