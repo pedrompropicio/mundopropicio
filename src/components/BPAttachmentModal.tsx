@@ -158,7 +158,7 @@ export default function BPAttachmentModal({ open, onOpenChange, forecast }: Prop
         .select("id");
       if (error) throw error;
       if (!deleted || deleted.length === 0) throw new Error("Sem permissão para remover este ficheiro.");
-      await removeTransactionDocumentObjects([doc.file_url]);
+      await removeTransactionDocumentObjects([doc.file_url], { reason: "remover anexo da linha de BP", related_id: doc.id });
     },
     onSuccess: () => {
       toast({ title: "Ficheiro removido" });

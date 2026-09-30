@@ -379,7 +379,8 @@ export default function CardSessionDetail() {
         throw new Error("Sem permissão para excluir esta despesa.");
       }
 
-      await removeTransactionDocumentObjects(fileUrls);
+      // #265: falha no storage fica visível, mas só depois de gravar a auditoria.
+      const storageErr = await removeTransactionDocumentObjects(fileUrls, { reason: "excluir despesa de cartão", related_table: "transactions", related_id: e.id }).then(() => null, (err: any) => err as Error);
 
       const gross = Number(e.paid_amount) || cardItemGross(e);
       if (e.company_id) {
