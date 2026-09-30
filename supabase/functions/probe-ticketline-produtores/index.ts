@@ -143,6 +143,7 @@ Deno.serve(async (req) => {
       return [...s.matchAll(/<option[^>]*value="([^"]*)"[^>]*>([\s\S]*?)<\/option>/gi)].map((o) => ({ id: o[1], nome: strip(o[2]) }));
     };
     const eventos = opts(page.html, "cboEvento");
+    if (reqBody.debug) return json({ status: page.status, url: page.url, snip: page.html.slice(Math.max(0, page.html.indexOf("cboEvento") - 300), page.html.indexOf("cboEvento") + 1500) });
     const results: any[] = [];
     for (const id of (reqBody.eventos ?? []) as string[]) {
       try {
