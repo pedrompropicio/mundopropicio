@@ -1,3 +1,4 @@
+import { isAdminWindowLockedCode } from "@/lib/admin-window";
 import React, { useState, useMemo, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
