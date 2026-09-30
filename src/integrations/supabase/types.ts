@@ -20,6 +20,7 @@ export type Database = {
           code: string
           company_id: string
           created_at: string
+          ebitda_class: string | null
           event_required: boolean
           id: string
           is_active: boolean
@@ -33,6 +34,7 @@ export type Database = {
           code: string
           company_id?: string
           created_at?: string
+          ebitda_class?: string | null
           event_required?: boolean
           id?: string
           is_active?: boolean
@@ -46,6 +48,7 @@ export type Database = {
           code?: string
           company_id?: string
           created_at?: string
+          ebitda_class?: string | null
           event_required?: boolean
           id?: string
           is_active?: boolean
