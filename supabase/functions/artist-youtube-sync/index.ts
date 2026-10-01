@@ -98,13 +98,18 @@ async function syncOne(admin: Admin, conn: any, dryRun: boolean, key: string) {
   const token = await getToken(admin, conn.id, key);
   const H = { Authorization: `Bearer ${token}`, Accept: "application/json" };
 
+  // D-ERP134 (01/10): sem youtube.readonly. Estatísticas públicas pela chave de
+  // API; a posse do canal prova-se pelo Analytics (ids=channel==<external_id>).
+  const pubKey = Deno.env.get("YOUTUBE_PUBLIC_API_KEY");
+  if (!pubKey) throw new YtError("YOUTUBE_PUBLIC_API_KEY não configurada");
   apiCalls++;
-  const r1 = await fetch("https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet&mine=true",
-    { headers: H, signal: AbortSignal.timeout(20_000) });
+  const r1 = await fetch(
+    `https://www.googleapis.com/youtube/v3/channels?${new URLSearchParams({ id: ch.external_id, part: "statistics,snippet", key: pubKey })}`,
+    { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(20_000) });
   const j1 = await r1.json().catch(() => null);
   if (!r1.ok) throw new YtError(`channels falhou (HTTP ${r1.status})`);
   const item = (j1?.items ?? []).find((i: any) => i?.id === ch.external_id);
-  if (!item) throw new YtError("o canal da conta Google não é o external_id registado — nada gravado");
+  if (!item) throw new YtError("canal external_id não encontrado na API pública — nada gravado");
 
   const today = new Date();
   const hoje = ymd(today);
