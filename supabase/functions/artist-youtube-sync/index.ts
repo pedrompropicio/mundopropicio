@@ -1,9 +1,10 @@
 // artist-youtube-sync — sync diário do canal de YouTube do artista pela API
 // (ligação OAuth provider 'google', D-ERP134).
 //
-// (a) GET youtube/v3/channels?part=statistics,snippet&mine=true → confirma o
-//     external_id; grava subscribers / video_count / views_total (metric_date = hoje).
-// (b) GET youtubeanalytics v2 reports, dimensions=day, D-27..D (D = ontem UTC)
+// (a) GET youtube/v3/channels?id=<external_id>&part=statistics,snippet (chave de
+//     API pública, sem OAuth); grava subscribers / video_count / views_total (metric_date = hoje).
+// (b) GET youtubeanalytics v2 reports, ids=channel==<external_id> (403 = não é dono
+//     → nada gravado), dimensions=day, D-27..D (D = ontem UTC)
 //     → yt_views_day, yt_minutes_watched_day, yt_subscribers_gained_day,
 //       yt_subscribers_lost_day (metric_date = dia; zeros gravam-se).
 // platform 'youtube', source 'platform_api'. dry_run por omissão TRUE.
@@ -128,13 +129,16 @@ async function syncOne(admin: Admin, conn: any, dryRun: boolean, key: string) {
   const D = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 1));
   const F = new Date(D.getTime() - 27 * 86_400_000);
   const q = new URLSearchParams({
-    ids: "channel==MINE", startDate: ymd(F), endDate: ymd(D),
+    ids: `channel==${ch.external_id}`, startDate: ymd(F), endDate: ymd(D),
     metrics: "views,estimatedMinutesWatched,subscribersGained,subscribersLost", dimensions: "day",
   });
   apiCalls++;
   const r2 = await fetch(`https://youtubeanalytics.googleapis.com/v2/reports?${q}`,
     { headers: H, signal: AbortSignal.timeout(30_000) });
   const j2 = await r2.json().catch(() => null);
+  if (r2.status === 401 || r2.status === 403) {
+    throw new YtError(`a conta Google não é dona do canal (analytics HTTP ${r2.status}) — nada gravado`);
+  }
   if (!r2.ok) notes.push(`analytics falhou (HTTP ${r2.status})`);
   else {
     const cols: string[] = (j2?.columnHeaders ?? []).map((c: any) => c?.name);
