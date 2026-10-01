@@ -9,7 +9,7 @@
 // Resposta nunca contém tokens; o código nunca é registado em log.
 
 import { adminClient, allowedReturnOrigins } from "../_shared/artist-meta.ts";
-import { authorizeArtistAdmin, s4aRefresh } from "../_shared/s4a.ts";
+import { authorizeArtistAdmin, s4aRefresh, setSpotifyChannelAuth } from "../_shared/s4a.ts";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CLIENT_RE = /^[A-Za-z0-9]{32}$/;
@@ -149,6 +149,7 @@ Deno.serve(async (req) => {
   const { error: cErr2 } = await admin.from("artist_channel_connections")
     .update({ oauth_client_id: clientId, refresh_lock_until: null }).eq("id", connectionId);
   if (cErr2) return json({ ok: false, error: "client_id não gravado", connection_id: connectionId }, 500);
+  await setSpotifyChannelAuth(admin, channel.id, "authorized");
 
   return json({ ok: true, connection_id: connectionId, expires_at: expiresAt });
 });
