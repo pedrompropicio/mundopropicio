@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { X, ArrowRightLeft } from "lucide-react";
@@ -165,7 +166,7 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
     !fromAccountSkip && sourceBalance !== undefined && sourceBalance !== null && !isNaN(numAmount) && numAmount > sourceBalance;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
       <div className="glass w-full max-w-md rounded-xl p-6">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -277,6 +278,6 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
           </div>
         </form>
       </div>
-    </div>
+    </OverlayLayer>
   );
 }

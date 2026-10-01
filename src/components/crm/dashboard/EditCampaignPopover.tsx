@@ -161,7 +161,7 @@ export function EditCampaignPopover({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-80 z-[100]"
+        className="w-80"
         align="end"
         onClick={(e) => e.stopPropagation()}
       >

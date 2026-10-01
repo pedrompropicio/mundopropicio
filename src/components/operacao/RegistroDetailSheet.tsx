@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -618,8 +619,8 @@ function DetailMediaThumb({
         )}
       </button>
       {open && full && (
-        <div
-          className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4"
+        <OverlayLayer
+          className="fixed inset-0 bg-black/90 flex items-center justify-center p-4"
           onClick={() => setOpen(false)}
         >
           {m.file_type === "video" ? (
@@ -627,7 +628,7 @@ function DetailMediaThumb({
           ) : (
             <img src={full} alt="" className="max-h-full max-w-full" />
           )}
-        </div>
+        </OverlayLayer>
       )}
     </>
   );

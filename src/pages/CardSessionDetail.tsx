@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -924,7 +925,7 @@ export default function CardSessionDetail() {
         item={editItem}
       />
       {deleteExpense && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
           <div className="glass w-full max-w-md rounded-xl p-6">
             <h2 className="mb-2 text-lg font-semibold">Excluir despesa?</h2>
             <p className="text-sm text-muted-foreground">
@@ -951,7 +952,7 @@ export default function CardSessionDetail() {
               </button>
             </div>
           </div>
-        </div>
+        </OverlayLayer>
       )}
 
       <Dialog open={openingOpen} onOpenChange={setOpeningOpen}>

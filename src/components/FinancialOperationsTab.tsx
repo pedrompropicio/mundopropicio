@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -342,7 +343,7 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
 
       {/* Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={(e) => { if (isInsideHelpPanel(e.target)) return; setShowForm(false); }}>
+        <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" onClick={(e) => { if (isInsideHelpPanel(e.target)) return; setShowForm(false); }}>
           <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold">Nova Operação Financeira</h2>
@@ -519,7 +520,7 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
               </Button>
             </form>
           </div>
-        </div>
+        </OverlayLayer>
       )}
 
       {/* Recent operations table */}

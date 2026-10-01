@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -674,7 +675,7 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
 
    return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
         <div className="glass w-full max-w-sm rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">{modalTitle}</h2>
@@ -1031,7 +1032,7 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
                   <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 </div>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 z-[100]" align="start">
+              <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                   mode="single"
                   selected={paymentDate}
@@ -1138,7 +1139,7 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
             </button>
           </div>
         </div>
-      </div>
+      </OverlayLayer>
 
       {showDocuments && (
         <TransactionDocumentsModal

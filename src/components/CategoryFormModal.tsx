@@ -224,7 +224,7 @@ export default function CategoryFormModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg z-[200]">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar Conta" : "Nova Conta"}</DialogTitle>
         </DialogHeader>
@@ -236,7 +236,7 @@ export default function CategoryFormModal({
               <SelectTrigger>
                 <SelectValue placeholder="Nenhuma (raiz)" />
               </SelectTrigger>
-              <SelectContent className="z-[250] max-h-[300px]">
+              <SelectContent className="max-h-[300px]">
                 <SelectItem value="__none__" className="text-xs text-muted-foreground">
                   Nenhuma (raiz)
                 </SelectItem>
@@ -289,7 +289,7 @@ export default function CategoryFormModal({
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="z-[250]">
+                <SelectContent>
                   <SelectItem value="income">Receita</SelectItem>
                   <SelectItem value="expense">Despesa</SelectItem>
                 </SelectContent>
@@ -301,7 +301,7 @@ export default function CategoryFormModal({
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="z-[250]">
+                <SelectContent>
                   <SelectItem value="__op__">Operacional</SelectItem>
                   {EBITDA_CLASSES.map((c) => (
                     <SelectItem key={c} value={c}>{EBITDA_CLASS_LABEL[c]}</SelectItem>

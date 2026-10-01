@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -351,7 +352,7 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
   const backdrop = useBackdropClose(onClose);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
+    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">Histórico de Pagamentos</h2>
@@ -407,7 +408,7 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
                             <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
                           </button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 z-[100]" align="start">
+                        <PopoverContent className="w-auto p-0" align="start">
                           <Calendar mode="single" selected={directForm.payment_date ?? undefined}
                             onSelect={(d) => { if (d) setDirectForm({ ...directForm, payment_date: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0) }); setDirectDateOpen(false); }}
                             initialFocus className="p-3" />
@@ -475,7 +476,7 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
                               <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0 z-[100]" align="start">
+                          <PopoverContent className="w-auto p-0" align="start">
                             <Calendar mode="single" selected={editForm.payment_date}
                               onSelect={(d) => { if (d) setEditForm({ ...editForm, payment_date: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0) }); setEditDateOpen(false); }}
                               initialFocus className="p-3" />
@@ -635,6 +636,6 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
           </div>
         )}
       </div>
-    </div>
+    </OverlayLayer>
   );
 }

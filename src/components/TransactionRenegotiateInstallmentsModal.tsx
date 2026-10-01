@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Layers, X } from "lucide-react";
@@ -204,7 +205,7 @@ export function TransactionRenegotiateInstallmentsModal({
   });
 
   return createPortal(
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4">
+    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
       <div className="glass w-full max-w-2xl rounded-xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
@@ -315,7 +316,7 @@ export function TransactionRenegotiateInstallmentsModal({
           </div>
         )}
       </div>
-    </div>,
+    </OverlayLayer>,
     document.body,
   );
 }

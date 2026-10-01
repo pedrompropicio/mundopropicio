@@ -826,7 +826,7 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
                         <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 z-[100]" align="start">
+                    <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
                         selected={directForm.payment_date ?? undefined}

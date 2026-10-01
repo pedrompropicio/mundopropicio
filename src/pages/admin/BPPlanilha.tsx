@@ -65,6 +65,7 @@ import { useEventHouseLabel } from "@/hooks/useEventHouseLabel";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { useEventScenario } from "@/contexts/EventScenarioContext";
 import { useBPVersions } from "@/hooks/useBPVersions";
+import { useOverlayLayer } from "@/lib/overlay-layer";
 import { getBPPlanilhaRpcVersionId, getBPPlanilhaVersionFilter } from "@/lib/bp-planilha-version";
 
 
@@ -224,6 +225,8 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [dataVersion, setDataVersion] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
+  // Ecrã inteiro entra na pilha de camadas: diálogos abertos daqui ficam por cima.
+  const fullscreenZ = useOverlayLayer(fullscreen);
   /* Ordenador de despesas por sócio (mesma semântica da visão agrupada). */
   const [partners, setPartners] = useState<OrderingPartnerOption[]>([]);
   const [orderingFilter, setOrderingFilter] = useState<string>(ORDERING_FILTER_ALL);
@@ -1209,9 +1212,10 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
           key={htThemeClass}
           className={
             fullscreen
-              ? `fixed inset-0 z-[9999] flex flex-col bg-background p-3 ${htThemeClass}`
+              ? `fixed inset-0 flex flex-col bg-background p-3 ${htThemeClass}`
               : `${htThemeClass} overflow-hidden rounded-xl border border-border`
           }
+          style={fullscreen ? { zIndex: fullscreenZ } : undefined}
         >
           {fullscreen && (
             <div className="mb-2 shrink-0 rounded-lg border bg-background/95 px-3 py-2 shadow-sm backdrop-blur">

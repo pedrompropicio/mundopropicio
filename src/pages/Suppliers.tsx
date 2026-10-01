@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Search, FileText, Phone, Mail, Building2, Pencil, Trash2, LayoutGrid, List, ArrowUpDown, ChevronDown, EyeOff, Eye, Ban, RotateCcw } from "lucide-react";
@@ -163,7 +164,7 @@ export default function Suppliers() {
       />
 
       {deleting && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setDeleting(null)}>
+        <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" onClick={() => setDeleting(null)}>
           <div className="glass w-full max-w-md rounded-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold">Eliminar «{deleting.name}»?</h3>
 
@@ -239,7 +240,7 @@ export default function Suppliers() {
               </>
             )}
           </div>
-        </div>
+        </OverlayLayer>
       )}
 
       {/* Tabs */}

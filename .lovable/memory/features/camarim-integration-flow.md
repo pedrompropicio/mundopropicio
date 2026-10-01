@@ -8,5 +8,5 @@ type: feature
 - Excede → bloco "Elevar a verba da linha" com mínimo pré-preenchido e observação obrigatória; `budget_raise` segue na MESMA chamada. Sem `raise_budget`: bloco diz logo "Precisa de alguém com permissão para elevar verbas de BP — pede ao Pedro" e o botão fica desativado.
 - Sem linha 2.6.04 no evento → botão desativado com a explicação.
 - Qualquer erro da close-camarim-session (4xx/5xx, error, errors[], budget_excess) aparece em texto no modal; "A integrar…" termina sempre; console.error com prefixo [camarim-integrate]. Se o servidor devolver budget_excess com mínimo maior, o modal adopta esse mínimo.
-- Selects dentro do modal usam z-[210] (AlertDialog é z-[200]). Nunca abrir Dialog z-50 por cima do AlertDialog.
+- Selects dentro do modal: z vem da pilha de overlays (ver constraints/pilha-de-overlays); nunca z manual.
 - Bug 01/10/2026 (sessão Ivete 89a93e14): LinkBpLineDialog/RaiseBudgetDialog (Dialog z-50) abriam atrás do AlertDialog z-[200]; a função nunca chegou a ser chamada.

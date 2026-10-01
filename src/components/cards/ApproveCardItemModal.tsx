@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -197,7 +198,7 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
   if (!open || !item) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
       <div className="glass max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl p-6">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -304,7 +305,7 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
           </div>
         </div>
       </div>
-    </div>
+    </OverlayLayer>
   );
 }
 

@@ -1,4 +1,5 @@
 import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -464,7 +465,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
   const backdrop = useBackdropClose(onClose);
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/60 p-4 sm:flex sm:items-center sm:justify-center" {...backdrop}>
+    <OverlayLayer className="fixed inset-0 overflow-y-auto bg-black/60 p-4 sm:flex sm:items-center sm:justify-center" {...backdrop}>
       <div className="glass mx-auto mt-6 w-full max-w-lg rounded-xl p-4 sm:mt-0 sm:p-6 space-y-4 max-h-[calc(100dvh-3rem)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div>
@@ -520,7 +521,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
                   <Info className="h-3.5 w-3.5" />
                 </button>
               </PopoverTrigger>
-              <PopoverContent side="top" className="w-72 text-xs space-y-1.5 p-3 z-[120]">
+              <PopoverContent side="top" className="w-72 text-xs space-y-1.5 p-3">
                 <p className="font-semibold text-sm">📋 Documentos contábeis:</p>
                 <ul className="list-disc pl-4 space-y-0.5 text-muted-foreground">
                   <li>Faturas (Portugal)</li>
@@ -621,8 +622,8 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
       />
 
       {proposal && (
-        <div
-          className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 p-4"
+        <OverlayLayer
+          className="fixed inset-0 flex items-center justify-center bg-black/60 p-4"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="glass w-full max-w-md space-y-3 rounded-xl p-4">
@@ -659,9 +660,9 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
               </button>
             </div>
           </div>
-        </div>
+        </OverlayLayer>
       )}
-    </div>,
+    </OverlayLayer>,
     document.body
   );
 }

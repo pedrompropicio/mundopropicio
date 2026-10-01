@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { OffsetLineNote } from "@/components/TransactionOffsetsBlock";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -1057,7 +1058,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
   const backdrop = useBackdropClose(onClose);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
+    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-4xl lg:max-w-[min(95vw,1400px)] max-h-[90vh] overflow-y-auto rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-xl font-bold mb-4">Nova Lista de Contas a Pagar</h2>
 
@@ -1263,7 +1264,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
           </div>
         </div>
       </div>
-    </div>
+    </OverlayLayer>
   );
 }
 
@@ -2136,7 +2137,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   const backdrop = useBackdropClose(onClose);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 p-2 sm:p-4" {...backdrop}>
+    <OverlayLayer className="fixed inset-0 bg-black/60 p-2 sm:p-4" {...backdrop}>
       <div
         className="glass w-full sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-4 sm:p-6 absolute left-2 right-2 sm:left-auto sm:right-auto"
         style={{
@@ -2686,7 +2687,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       )}
 
 
-    </div>
+    </OverlayLayer>
   );
 }
 
@@ -2707,7 +2708,7 @@ function RevisionModal({
   const backdrop = useBackdropClose(onClose);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
+    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-md rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-4">
           <RotateCcw className="h-5 w-5 text-amber-500" />
@@ -2742,7 +2743,7 @@ function RevisionModal({
           </button>
         </div>
       </div>
-    </div>
+    </OverlayLayer>
   );
 }
 
@@ -2995,7 +2996,7 @@ function ApproveModal({
   const backdrop = useBackdropClose(onClose);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
+    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-4">
           <ShieldCheck className="h-5 w-5 text-emerald-500" />
@@ -3150,7 +3151,7 @@ function ApproveModal({
           </div>
         </div>
       </div>
-    </div>
+    </OverlayLayer>
   );
 }
 /* ─── Adicionar transações a uma lista editável ─── */
@@ -3262,7 +3263,7 @@ function AddTransactionsToList({
   const backdrop = useBackdropClose(onClose);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" {...backdrop}>
+    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-4xl lg:max-w-[min(95vw,1400px)] max-h-[90vh] overflow-y-auto rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-xl font-bold mb-1">Adicionar transações à lista</h2>
         <p className="text-sm text-muted-foreground mb-4">
@@ -3427,6 +3428,6 @@ function AddTransactionsToList({
           </div>
         </div>
       </div>
-    </div>
+    </OverlayLayer>
   );
 }

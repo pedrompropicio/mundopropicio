@@ -241,7 +241,7 @@ function NonCanonicalBadge({ tx }: { tx: any }) {
           não conta
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-3 z-[120]" align="end">
+      <PopoverContent className="w-64 p-3" align="end">
         <p className="text-xs font-semibold">{reason?.label ?? "Fora do realizado"}</p>
         {reason?.detail && <p className="mt-1 text-[11px] text-muted-foreground">{reason.detail}</p>}
         <p className="mt-2 text-[10px] text-muted-foreground">

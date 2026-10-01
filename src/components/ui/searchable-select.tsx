@@ -205,7 +205,7 @@ export function SearchableSelect({
         )}
       </div>
       <PopoverContent
-        className="min-w-[280px] w-[--radix-popover-trigger-width] max-w-[min(500px,95vw)] p-0 z-[200] flex flex-col max-h-[min(70vh,var(--radix-popover-content-available-height,70vh))]"
+        className="min-w-[280px] w-[--radix-popover-trigger-width] max-w-[min(500px,95vw)] p-0 flex flex-col max-h-[min(70vh,var(--radix-popover-content-available-height,70vh))]"
         align="start"
         collisionPadding={12}
         avoidCollisions

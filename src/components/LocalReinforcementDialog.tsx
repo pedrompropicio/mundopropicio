@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Lock, Layers, HelpCircle, X } from "lucide-react";
@@ -27,8 +28,8 @@ export function LocalReinforcementDialog({ open, onOpenChange, categoryName, mas
   if (!open) return null;
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4"
+    <OverlayLayer
+      className="fixed inset-0 flex items-center justify-center bg-black/70 p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onOpenChange(false);
       }}
@@ -82,7 +83,7 @@ export function LocalReinforcementDialog({ open, onOpenChange, categoryName, mas
                   <PopoverContent
                     side="top"
                     align="start"
-                    className="w-80 p-4 text-xs leading-relaxed space-y-2.5 z-[210]"
+                    className="w-80 p-4 text-xs leading-relaxed space-y-2.5"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="font-semibold text-sm flex items-center gap-1.5 text-blue-400">
@@ -158,7 +159,7 @@ export function LocalReinforcementDialog({ open, onOpenChange, categoryName, mas
           </button>
         </div>
       </div>
-    </div>,
+    </OverlayLayer>,
     document.body
   );
 }

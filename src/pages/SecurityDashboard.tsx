@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/hooks/useCompany";
@@ -381,7 +382,7 @@ export default function SecurityDashboard() {
 
       {/* MFA Setup Modal */}
       {showMfaSetup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowMfaSetup(false)}>
+        <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowMfaSetup(false)}>
           <div className="glass w-full max-w-sm rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
             <MfaEnroll
               onComplete={() => {
@@ -392,12 +393,12 @@ export default function SecurityDashboard() {
               onSkip={() => setShowMfaSetup(false)}
             />
           </div>
-        </div>
+        </OverlayLayer>
       )}
 
       {/* New Recovery Codes Modal */}
       {newCodes && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
           <div className="glass w-full max-w-sm rounded-xl p-6 space-y-4">
             <div className="text-center">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15">
@@ -426,7 +427,7 @@ export default function SecurityDashboard() {
               Já guardei
             </button>
           </div>
-        </div>
+        </OverlayLayer>
       )}
     </div>
   );
