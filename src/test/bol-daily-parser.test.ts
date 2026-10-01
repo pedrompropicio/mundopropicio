@@ -102,3 +102,17 @@ describe("parseBolDiario", () => {
     expect(res.header.generatedAt).toMatch(/14\|08\|2026/);
   });
 });
+
+describe("parseBolDiario — linha TOTAL tolerante", () => {
+  const base = "Mapa Diário TOTAL 01/10/2026 2 0,00 € 0,00 € 80,00 € 0,00 € 0,00 € 0,00 € 80,00 € 30/09/2026 1 0,00 € 0,00 € 40,00 € 0,00 € 0,00 € 0,00 € 40,00 € ";
+  const m = "0,00 € 0,00 € 120,00 € 0,00 € 0,00 € 0,00 € 120,00 €";
+  it("aceita TOTAIS e número colado", () => {
+    expect(parseBolDiario(base + "TOTAIS 3 " + m).totalRow?.quantity).toBe(3);
+    expect(parseBolDiario(base + "TOTAL3 " + m).totalRow?.quantity).toBe(3);
+  });
+  it("ignora o TOTAL do cabeçalho e devolve diag", () => {
+    const r = parseBolDiario(base + "rodapé");
+    expect(r.totalRow).toBeNull();
+    expect((r.diag as any).total_windows).toHaveLength(1);
+  });
+});
