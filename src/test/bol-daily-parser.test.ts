@@ -116,3 +116,16 @@ describe("parseBolDiario — linha TOTAL tolerante", () => {
     expect((r.diag as any).total_windows).toHaveLength(1);
   });
 });
+
+describe("parseBolDiario — bilhetes colados ao montante (caso real 01/10/2026)", () => {
+  it("'76 115,00 €' e 'TOTAL 982 230,00 €' separam bilhetes do montante", () => {
+    const t = "Data TOTAL Internet 01/10/2026 76 115,00 € 0,00 € 2 820,00 € 0,00 € 0,00 € 0,00 € 2 935,00 € " +
+      "22/06/2026 6 0,00 € 0,00 € 320,00 € 0,00 € 0,00 € 0,00 € 320,00 € " +
+      "TOTAL 82 115,00 € 0,00 € 3 140,00 € 0,00 € 0,00 € 0,00 € 3 255,00 € Mapa";
+    const r = parseBolDiario(t);
+    expect(r.rows.find((x) => x.date === "2026-10-01")?.quantity).toBe(76);
+    expect(r.totalRow).toEqual({ quantity: 82, totalValue: 3255 });
+    expect(r.totals.quantity).toBe(82);
+    expect(r.warnings).toEqual([]);
+  });
+});

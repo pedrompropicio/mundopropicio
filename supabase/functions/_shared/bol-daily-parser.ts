@@ -73,7 +73,7 @@ function normalize(text: string): string {
  */
 type Tok =
   | { k: "date"; iso: string }
-  | { k: "money"; v: number }
+  | { k: "money"; v: number; raw: string }
   | { k: "int"; v: number }
   | { k: "word"; v: string };
 
@@ -93,7 +93,7 @@ function tokenize(flat: string): Tok[] {
       const d = DATE_RE.exec(m[1])!;
       toks.push({ k: "date", iso: `${d[3]}-${d[2]}-${d[1]}` });
     } else if (m[2]) {
-      toks.push({ k: "money", v: parsePtNumber(m[2]) });
+      toks.push({ k: "money", v: parsePtNumber(m[2]), raw: m[2] });
     } else if (m[3]) {
       toks.push({ k: "int", v: parseInt(m[3], 10) });
     } else {
@@ -109,18 +109,31 @@ function readBlock(toks: Tok[], from: number): { qty: number; monies: number[]; 
   let i = from;
   // o inteiro tem de vir antes de qualquer montante
   while (i < toks.length && toks[i].k === "word") i++;
-  if (i >= toks.length || toks[i].k !== "int") return null;
-  const qty = (toks[i] as { k: "int"; v: number }).v;
-  const m = readMonies(toks, i + 1);
-  if (!m) return null;
-  return { qty, monies: m.monies, next: m.next };
+  if (i >= toks.length) return null;
+  const t = toks[i];
+  if (t.k === "int") {
+    const m = readMonies(toks, i + 1);
+    if (!m) return null;
+    return { qty: t.v, monies: m.monies, next: m.next };
+  }
+  // Bilhetes colados ao 1.º montante pelo agrupamento de milhar:
+  // "982 230,00 €" → qty 982 + 230,00 €. Na posição dos bilhetes TEM de haver
+  // um inteiro, por isso o 1.º grupo é o inteiro; exige-se os 7 montantes.
+  if (t.k === "money") {
+    const sp = /^(\d{1,3})[ ](\d{1,3}(?:[ .]\d{3})*,\d{2}\s*€?)$/.exec(t.raw.trim());
+    if (!sp) return null;
+    const rest = readMonies(toks, i + 1, 6);
+    if (!rest) return null;
+    return { qty: parseInt(sp[1], 10), monies: [parsePtNumber(sp[2]), ...rest.monies], next: rest.next };
+  }
+  return null;
 }
 
 /** A partir de `from`, captura exactamente 7 montantes. */
-function readMonies(toks: Tok[], from: number): { monies: number[]; next: number } | null {
+function readMonies(toks: Tok[], from: number, count = 7): { monies: number[]; next: number } | null {
   let i = from;
   const monies: number[] = [];
-  while (i < toks.length && monies.length < 7) {
+  while (i < toks.length && monies.length < count) {
     const t = toks[i];
     if (t.k === "money") {
       monies.push(t.v);
@@ -131,7 +144,7 @@ function readMonies(toks: Tok[], from: number): { monies: number[]; next: number
       i++;
     } else break;
   }
-  if (monies.length !== 7) return null;
+  if (monies.length !== count) return null;
   return { monies, next: i };
 }
 
@@ -237,7 +250,7 @@ export function parseBolDiario(text: string): BolDailyParseResult {
 }
 
 function tokView(t: Tok): { k: string; v: string | number } {
-  return t.k === "date" ? { k: "date", v: t.iso } : { k: t.k, v: t.v };
+  return t.k === "date" ? { k: "date", v: t.iso } : t.k === "money" ? { k: "money", v: t.raw } : { k: t.k, v: t.v };
 }
 
 /** Diagnóstico para falhas: janelas de 40 tokens à volta de cada TOTAL* + cauda do texto. */
