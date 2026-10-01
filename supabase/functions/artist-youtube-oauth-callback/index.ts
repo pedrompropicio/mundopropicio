@@ -1,6 +1,6 @@
 // artist-youtube-oauth-callback — retorno do OAuth Google do canal de YouTube
 // do artista (D-ERP134). Valida state (crm.consume_oauth_state apaga-o),
-// troca o code, exige refresh_token, valida a posse do canal (mine=true tem de
+// troca o code, exige refresh_token, valida a posse do canal (Analytics ids=channel==<external_id> tem de dar 200; D-ERP134 01/10, sem youtube.readonly)
 // incluir artist_channels.external_id) e grava tokens cifrados.
 //
 // Endpoint público (redirect do browser): verify_jwt = false.
