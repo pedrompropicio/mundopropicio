@@ -3,9 +3,8 @@ import { deleteStorageObject, deleteStorageObjects } from "@/lib/storage-delete"
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import LinkBpLineDialog from "@/components/LinkBpLineDialog";
-import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
-import type { BudgetExcessLine } from "@/lib/bp-budget-excess";
+import { CamarimIntegrateBpSection, type CamarimBpSelection } from "@/components/camarim/CamarimIntegrateBpSection";
+import { parseIntegrateError, sessionBaseAmount } from "@/lib/camarim-integrate";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +26,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, ShoppingBag, CheckCircle2, XCircle, Wallet, Plus, Lock, Zap, AlertTriangle, Pencil, Trash2, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { exportCamarimSessionPdf } from "@/lib/export-camarim-session-pdf";
-import { extractFnError } from "@/lib/edge-fn-error";
 
 import {
   SESSION_STATUS_LABELS,
@@ -129,12 +127,15 @@ export default function CamarimSessionDetail() {
   const [showIntegrate, setShowIntegrate] = useState(false);
   const [integrating, setIntegrating] = useState(false);
   /**
-   * D1+D8 — uma sessão de camarim = UMA linha de BP (2.6.04) do evento.
-   * Escolhida aqui, antes de disparar a edge function; vai no body em `forecast_id`.
+   * D16 — uma sessão de camarim = UMA linha de BP (2.6.04) do evento, escolhida
+   * DENTRO do modal (CamarimIntegrateBpSection), com o excesso (D2) no mesmo ecrã.
    */
-  const [bpGate, setBpGate] = useState<{ eventId: string; eventName: string; categoryId: string; categoryCode: string; categoryName: string } | null>(null);
-  // DR-2026-09-02-D2 — excesso de verba da linha da sessão (422 budget_excess).
-  const [raiseState, setRaiseState] = useState<{ lines: BudgetExcessLine[]; forecastId: string } | null>(null);
+  const [bpCtx, setBpCtx] = useState<{ eventId: string; eventName: string; categoryId: string; categoryCode: string; categoryName: string } | null>(null);
+  const [bpCtxLoading, setBpCtxLoading] = useState(false);
+  const [bpSel, setBpSel] = useState<CamarimBpSelection>({ forecastId: null, budgetRaise: null, blockReason: null });
+  const [integrateError, setIntegrateError] = useState<{ message: string; details: string[] } | null>(null);
+  const [serverSuggested, setServerSuggested] = useState<{ forecastId: string; amount: number } | null>(null);
+  const canRaiseBudget = hasPermission("raise_budget");
   const [cardAccountId, setCardAccountId] = useState<string>("");
   const [settlementAccountId, setSettlementAccountId] = useState<string>("");
   const [accounts, setAccounts] = useState<FinAccount[]>([]);
@@ -465,7 +466,9 @@ export default function CamarimSessionDetail() {
       .select("event_id,is_primary")
       .eq("session_id", id as string);
     const primary = ((evRows ?? []) as any[]).find((e) => e.is_primary) ?? ((evRows ?? []) as any[])[0];
-    const eventId = (primary?.event_id ?? sess?.master_event_id ?? null) as string | null;
+    // Mesma resolução da edge function: master_common → master_event_id; resto → primário.
+    const anyMaster = approvedItems.some((it: any) => it.bp_scope === "master_common");
+    const eventId = ((anyMaster ? sess?.master_event_id : null) ?? primary?.event_id ?? sess?.master_event_id ?? null) as string | null;
     if (!eventId) return null;
 
     const { data: mode } = await supabase.rpc("event_budget_mode" as any, { _event_id: eventId } as any);
@@ -489,10 +492,25 @@ export default function CamarimSessionDetail() {
     };
   };
 
-  const runIntegrate = async (
-    forecastId?: string | null,
-    budgetRaise?: { new_amount: number; observation: string } | null,
-  ) => {
+  // Ao abrir o modal: resolve se o evento é with_bp (mostra a secção de BP no próprio modal).
+  useEffect(() => {
+    if (!showIntegrate || !session) { setBpCtx(null); return; }
+    let cancelled = false;
+    setBpCtxLoading(true);
+    resolveBpGate()
+      .then((g) => { if (!cancelled) setBpCtx(g); })
+      .catch((e) => {
+        console.error("[camarim-integrate] resolver BP falhou", e);
+        if (!cancelled) setIntegrateError({ message: e?.message ?? "Não foi possível verificar o BP do evento.", details: [] });
+      })
+      .finally(() => { if (!cancelled) setBpCtxLoading(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showIntegrate, session?.id]);
+
+  const bpBlockReason = bpCtxLoading ? "A verificar o BP do evento…" : bpCtx ? bpSel.blockReason : null;
+
+  const runIntegrate = async () => {
     if (!id) return;
     if (blockingIssues.length > 0) {
       toast({
@@ -535,23 +553,20 @@ export default function CamarimSessionDetail() {
       }
     }
 
-    setIntegrating(true);
-    try {
-      // Linha de BP obrigatória em eventos geridos com BP (D1+D8).
-      if (!forecastId) {
-        const gate = await resolveBpGate();
-        if (gate) {
-          setBpGate(gate);
-          setIntegrating(false);
-          return;
-        }
-      }
+    // D16 — linha de BP e excesso resolvidos no próprio modal (nunca diálogos encadeados).
+    if (bpCtx && bpBlockReason) {
+      setIntegrateError({ message: bpBlockReason, details: [] });
+      return;
+    }
 
+    setIntegrating(true);
+    setIntegrateError(null);
+    try {
       const { data, error } = await supabase.functions.invoke("close-camarim-session", {
         body: {
           session_id: id,
-          forecast_id: forecastId ?? null,
-          budget_raise: budgetRaise ?? null,
+          forecast_id: bpCtx ? bpSel.forecastId : null,
+          budget_raise: bpCtx ? bpSel.budgetRaise : null,
           card_account_id: cardAccountId || null,
           settlement_account_id: settlementAccountId || null,
           settlement_supplier_id: administrator?.supplierId ?? null,
@@ -562,37 +577,44 @@ export default function CamarimSessionDetail() {
           })),
         },
       });
-      if (error) {
-        // D2 — excesso de verba: abre o diálogo de elevação e repete a integração.
-        try {
-          const ctx = (error as any)?.context;
-          const body = ctx && typeof ctx.text === "function" ? await ctx.text() : null;
-          const parsed = body ? JSON.parse(body) : null;
-          if (Array.isArray(parsed?.budget_excess) && parsed.budget_excess.length > 0 && forecastId) {
-            setRaiseState({ lines: parsed.budget_excess as BudgetExcessLine[], forecastId });
-            setIntegrating(false);
-            return;
-          }
-        } catch {
-          /* cai no erro normal */
+      if (error || data?.error) {
+        let status: number | null = null;
+        let body: unknown = data ?? null;
+        const ctx = (error as any)?.context;
+        if (ctx) {
+          status = typeof ctx.status === "number" ? ctx.status : null;
+          try {
+            const txt = typeof ctx.text === "function" ? await ctx.text() : null;
+            try { body = txt ? JSON.parse(txt) : null; } catch { body = txt; }
+          } catch { /* corpo ilegível */ }
         }
-        throw new Error(await extractFnError(error));
+        const view = parseIntegrateError(status, body, (error as any)?.message);
+        console.error("[camarim-integrate] close-camarim-session falhou", { status, body, error });
+        if (view.budgetExcess && bpSel.forecastId) {
+          const srv = view.budgetExcess.find((b) => b.forecast_id === bpSel.forecastId) ?? view.budgetExcess[0];
+          setServerSuggested({ forecastId: srv.forecast_id, amount: Number(srv.suggested_amount) });
+          view.message = `${view.message} Mínimo da nova verba: ${formatCurrency(Number(srv.suggested_amount), session?.currency ?? "EUR")}.`;
+        }
+        setIntegrateError(view);
+        return;
       }
-      if (data?.error) throw new Error(data.error);
       const settlementMsg = data?.settlement?.type && data.settlement.type !== "balanced"
         ? ` · Acerto: ${data.settlement.type === "reinforcement" ? "reforço a pagar" : "devolução a receber"} de ${formatCurrency(Math.abs(data.settlement.balance ?? 0), session?.currency ?? "EUR")}`
         : "";
+      if (data?.errors?.length) console.error("[camarim-integrate] integração parcial", data.errors);
       toast({
         title: "Sessão integrada",
         description: `${data?.created ?? 0} transação(ões) gerada(s)${
-          data?.errors?.length ? ` · ${data.errors.length} erro(s)` : ""
+          data?.errors?.length ? ` · ${data.errors.length} erro(s): ${data.errors.slice(0, 2).join(" | ")}` : ""
         }${settlementMsg}`,
       });
       setShowIntegrate(false);
       setParkedDecisions({});
+      setServerSuggested(null);
       void load();
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erro ao integrar", description: e.message });
+      console.error("[camarim-integrate] erro inesperado", e);
+      setIntegrateError({ message: e?.message || "Erro inesperado ao integrar.", details: [] });
     } finally {
       setIntegrating(false);
     }
@@ -1111,7 +1133,7 @@ export default function CamarimSessionDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showIntegrate} onOpenChange={(o) => { setShowIntegrate(o); if (!o) setConfirmIntegration(false); }}>
+      <AlertDialog open={showIntegrate} onOpenChange={(o) => { if (integrating) return; setShowIntegrate(o); if (!o) { setConfirmIntegration(false); setIntegrateError(null); setServerSuggested(null); } }}>
         <AlertDialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Integrar sessão no sistema financeiro</AlertDialogTitle>
@@ -1252,7 +1274,7 @@ export default function CamarimSessionDetail() {
                 <Label className="text-xs">Conta financeira do cartão (fallback para itens legados)</Label>
                 <Select value={cardAccountId} onValueChange={setCardAccountId}>
                   <SelectTrigger><SelectValue placeholder="Selecionar conta…" /></SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[210]">
                     {accounts.map((a) => (
                       <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                     ))}
@@ -1285,7 +1307,7 @@ export default function CamarimSessionDetail() {
                     <Label className="text-xs">Conta para o acerto (opcional — usa a do adiantamento se vazio)</Label>
                     <Select value={settlementAccountId} onValueChange={setSettlementAccountId}>
                       <SelectTrigger className="h-8"><SelectValue placeholder="Mesma do adiantamento" /></SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[210]">
                         {accounts.map((a) => (
                           <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                         ))}
@@ -1321,7 +1343,7 @@ export default function CamarimSessionDetail() {
                         }
                       >
                         <SelectTrigger className="h-8"><SelectValue placeholder="Escolher destino…" /></SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="z-[210]">
                           <SelectItem value="reject">Rejeitar (descarta)</SelectItem>
                           <SelectItem value="approve_without_doc">Aprovar sem documento (com justificativa)</SelectItem>
                           <SelectItem value="defer">Adiar (fica para próxima sessão)</SelectItem>
@@ -1348,6 +1370,35 @@ export default function CamarimSessionDetail() {
             )}
           </div>
 
+          {bpCtxLoading && <p className="text-xs text-muted-foreground">A verificar o BP do evento…</p>}
+          {bpCtx && (
+            <CamarimIntegrateBpSection
+              eventId={bpCtx.eventId}
+              eventName={bpCtx.eventName}
+              categoryId={bpCtx.categoryId}
+              sessionBase={sessionBaseAmount([
+                ...approvedItems,
+                ...parkedItems.filter((p) => parkedDecisions[p.id]?.decision === "approve_without_doc"),
+              ] as any[])}
+              currency={session.currency ?? "EUR"}
+              canRaise={canRaiseBudget}
+              serverSuggested={serverSuggested}
+              onChange={setBpSel}
+            />
+          )}
+
+          {integrateError && (
+            <div role="alert" data-testid="camarim-integrate-error" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+              <p className="font-semibold">Não foi possível integrar</p>
+              <p className="mt-1">{integrateError.message}</p>
+              {integrateError.details.length > 0 && (
+                <ul className="mt-1 list-disc pl-4">
+                  {integrateError.details.map((d, i) => <li key={i}>{d}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
+
           {approvedItems.length > 0 && blockingIssues.length === 0 && (
             <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
               <Checkbox
@@ -1362,11 +1413,15 @@ export default function CamarimSessionDetail() {
             </div>
           )}
 
+          {bpBlockReason && !integrating && (
+            <p className="text-xs text-muted-foreground" data-testid="camarim-integrate-block-reason">{bpBlockReason}</p>
+          )}
+
           <AlertDialogFooter>
             <AlertDialogCancel disabled={integrating}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); void runIntegrate(null); }}
-              disabled={integrating || blockingIssues.length > 0 || (approvedItems.length > 0 && !confirmIntegration)}
+              onClick={(e) => { e.preventDefault(); void runIntegrate(); }}
+              disabled={integrating || blockingIssues.length > 0 || (approvedItems.length > 0 && !confirmIntegration) || !!bpBlockReason}
             >
               {integrating ? "A integrar…" : "Confirmar e integrar"}
             </AlertDialogAction>
@@ -1374,40 +1429,6 @@ export default function CamarimSessionDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {bpGate && (
-        <LinkBpLineDialog
-          pickOnly
-          transaction={{
-            id: "",
-            description: `Sessão de Camarim: ${session.title}`,
-            amount: totals.spent,
-            iva_rate: 0,
-            event_id: bpGate.eventId,
-            category_id: bpGate.categoryId,
-            events: { name: bpGate.eventName },
-            account_categories: { code: bpGate.categoryCode, name: bpGate.categoryName },
-          }}
-          onClose={() => setBpGate(null)}
-          onLinked={() => setBpGate(null)}
-          onPicked={(forecastId) => {
-            setBpGate(null);
-            void runIntegrate(forecastId);
-          }}
-        />
-      )}
-
-      {raiseState && (
-        <RaiseBudgetDialog
-          lines={raiseState.lines}
-          onClose={() => setRaiseState(null)}
-          onConfirm={(raises) => {
-            const r = raises[0];
-            const fid = raiseState.forecastId;
-            setRaiseState(null);
-            if (r) void runIntegrate(fid, { new_amount: r.new_amount, observation: r.observation });
-          }}
-        />
-      )}
 
       {splitItemId && (
         <SplitItemModal
