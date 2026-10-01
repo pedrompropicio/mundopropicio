@@ -15,7 +15,7 @@ import {
   IG_GRAPH_ROOT,
   json,
 } from "../_shared/artist-meta.ts";
-import { tiktokCreds, ttRefresh } from "../_shared/artist-tiktok.ts";
+import { tiktokCreds, ttRefresh, ttScopeList } from "../_shared/artist-tiktok.ts";
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
@@ -183,7 +183,7 @@ Deno.serve(async (req) => {
           p_external_page_id: null,
           p_external_page_name: null,
           p_token_type: conn.token_type ?? "tiktok_user",
-          p_scopes: null,
+          p_scopes: ttScopeList(r.tokens.scope),
           p_expires_at: r.tokens.expires_at,
           p_connected_by: null,
           p_refresh_token: r.tokens.refresh_token,

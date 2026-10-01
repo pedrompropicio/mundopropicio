@@ -97,6 +97,18 @@ function resolveMetricDate(envelope: Json, item: Json): { date: string; field: s
   return { date: dayOffset(0), field: null };
 }
 
+/**
+ * D-ERP155: o painel responde HTTP 200 com status_code=8 "Login expired"
+ * quando o cookie caduca. Qualquer sinal de sessão inválida no corpo conta.
+ */
+function isSessionExpiredBody(data: Json): boolean {
+  const code = Number((data as Record<string, unknown>)?.status_code);
+  const msg = String((data as Record<string, unknown>)?.status_msg ?? "").toLowerCase();
+  return code === 8 || /login expired|not logged|session expired|please log ?in/.test(msg);
+}
+
+const SESSAO_INVALIDA_TEXT = "sessao_invalida: cookie TIKTOK_ARTISTS_COOKIE expirado — renovar o secret";
+
 function isLoginRedirect(status: number, headers: Headers): boolean {
   if (status >= 300 && status < 400) {
     const loc = (headers.get("Location") || "").toLowerCase();
@@ -143,6 +155,9 @@ async function fetchPage(cookie: string, artistUserId: string, from: number): Pr
   try {
     data = JSON.parse(text) as Json;
   } catch (_e) {
+    return { ok: false, motivo: "sessao_invalida", http_status: res.status, detalhe: text.slice(0, 300) };
+  }
+  if (isSessionExpiredBody(data)) {
     return { ok: false, motivo: "sessao_invalida", http_status: res.status, detalhe: text.slice(0, 300) };
   }
   if (!res.ok) {
@@ -205,6 +220,7 @@ async function fetchClips(
   } catch (_e) {
     return { ok: false, motivo: "sessao_invalida" };
   }
+  if (isSessionExpiredBody(data)) return { ok: false, motivo: "sessao_invalida" };
   if (!res.ok) return { ok: false, motivo: "http" };
 
   const items: PanelClip[] = [];
@@ -306,15 +322,18 @@ Deno.serve(async (req) => {
         api_calls: apiCalls,
         rows_written: 0,
         details: { motivo, http_status: r.http_status, paginas: page },
-        error_text: `${motivo} (HTTP ${r.http_status}) — ${r.detalhe}`,
+        error_text: motivo === "sessao_invalida"
+          ? SESSAO_INVALIDA_TEXT
+          : `${motivo} (HTTP ${r.http_status}) — ${r.detalhe}`,
       });
       return json({
         ok: false,
         http_status: r.http_status,
         motivo,
+        error: motivo === "sessao_invalida" ? SESSAO_INVALIDA_TEXT : undefined,
         detalhe: r.detalhe,
         notes: ["sem retries — sessão do TikTok Artists tem de ser renovada à mão"],
-      });
+      }, motivo === "sessao_invalida" ? 401 : 200);
     }
     envelope = r.envelope;
     songs.push(...r.songs);

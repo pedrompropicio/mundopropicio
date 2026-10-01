@@ -220,3 +220,10 @@ export async function ttVideoPage(token: string, cursor?: number | null) {
 export function normalizeHandle(v: unknown): string {
   return String(v ?? "").replace(/^@/, "").trim().toLowerCase();
 }
+
+/** D-ERP155: campo "scope" do TikTok ("a,b,c") → array; null quando não vem. */
+export function ttScopeList(scope: string | null | undefined): string[] | null {
+  if (!scope) return null;
+  const arr = String(scope).split(",").map((s) => s.trim()).filter(Boolean);
+  return arr.length ? arr : null;
+}

@@ -59,7 +59,7 @@ async function findConnection(admin: SupabaseClient, artistId: string) {
     .eq("artist_channel_id", ch.id).eq("provider", "spotify")
     .limit(1).maybeSingle();
   if (!conn) throw new S4aError("s4a_sem_ligacao");
-  return conn as { id: string; status: string; oauth_client_id: string | null; expires_at: string | null; consecutive_failures: number | null };
+  return { ...conn, channel_id: ch.id } as { channel_id: string; id: string; status: string; oauth_client_id: string | null; expires_at: string | null; consecutive_failures: number | null };
 }
 
 async function readTokens(admin: SupabaseClient, id: string, key: string) {
@@ -68,6 +68,22 @@ async function readTokens(admin: SupabaseClient, id: string, key: string) {
   const t = Array.isArray(data) ? data[0] : data;
   if (!t?.access_token) throw new S4aError("s4a_leitura_falhou");
   return t as { access_token: string; refresh_token: string | null; expires_at: string | null };
+}
+
+/**
+ * D-ERP155: selo do canal spotify segue a ligação S4A — 'authorized' com a
+ * ligação active, 'expired' quando cai (mesma regra de Instagram/TikTok).
+ * Nunca lança: o selo não pode fazer falhar a cadeia de token.
+ */
+export async function setSpotifyChannelAuth(
+  admin: SupabaseClient, channelId: string, status: "authorized" | "expired",
+): Promise<void> {
+  try {
+    const { error } = await admin.from("artist_channels").update({ auth_status: status }).eq("id", channelId);
+    if (error) console.error("[s4a] auth_status não gravado:", error.message);
+  } catch (e) {
+    console.error("[s4a] auth_status não gravado:", (e as Error)?.message ?? e);
+  }
 }
 
 const fresh = (exp: string | null) => !!exp && new Date(exp).getTime() > Date.now() + 5 * 60_000;
@@ -100,6 +116,7 @@ export async function getS4aAccessToken(admin: SupabaseClient, artistId: string)
       status: "expired", refresh_lock_until: null, consecutive_failures: failures,
       last_error: "S4A: ligação sem client_id/refresh_token — precisa de nova semente",
     }).eq("id", conn.id);
+    await setSpotifyChannelAuth(admin, conn.channel_id, "expired");
     throw new S4aError("s4a_precisa_semente");
   }
 
@@ -115,8 +132,10 @@ export async function getS4aAccessToken(admin: SupabaseClient, artistId: string)
         status: "expired", refresh_lock_until: null, consecutive_failures: failures,
         last_error: "S4A: rotação feita mas não gravada — precisa de nova semente",
       }).eq("id", conn.id);
+      await setSpotifyChannelAuth(admin, conn.channel_id, "expired");
       throw new S4aError("s4a_rotacao_nao_gravada");
     }
+    await setSpotifyChannelAuth(admin, conn.channel_id, "authorized");
     return { accessToken: r.access_token, expiresAt, rotated: true, connectionId: conn.id };
   }
 
@@ -125,6 +144,7 @@ export async function getS4aAccessToken(admin: SupabaseClient, artistId: string)
       status: "expired", refresh_lock_until: null, consecutive_failures: failures,
       last_error: "S4A: refresh_token inválido — precisa de nova semente",
     }).eq("id", conn.id);
+    await setSpotifyChannelAuth(admin, conn.channel_id, "expired");
     throw new S4aError("s4a_precisa_semente");
   }
 
