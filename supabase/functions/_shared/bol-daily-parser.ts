@@ -38,10 +38,12 @@ export interface BolDailyParseResult {
   totals: { quantity: number; totalValue: number };
   warnings: string[];
   debug: Record<string, unknown>;
+  diag?: Record<string, unknown>;
 }
 
 /** " 3 600,00 €" / "1.184,00 €" / "0,00 €" */
 const MONEY_RE = /-?\d+(?:[ .]\d{3})*,\d{2}\s*€?/;
+const TOTAL_WORD_RE = /^TOTA(?:L|IS)/i;
 const DATE_RE = /^(\d{2})\/(\d{2})\/(\d{4})$/;
 
 /** "1 184,00" / "1.184,00" / "365,00" → number */
@@ -109,7 +111,14 @@ function readBlock(toks: Tok[], from: number): { qty: number; monies: number[]; 
   while (i < toks.length && toks[i].k === "word") i++;
   if (i >= toks.length || toks[i].k !== "int") return null;
   const qty = (toks[i] as { k: "int"; v: number }).v;
-  i++;
+  const m = readMonies(toks, i + 1);
+  if (!m) return null;
+  return { qty, monies: m.monies, next: m.next };
+}
+
+/** A partir de `from`, captura exactamente 7 montantes. */
+function readMonies(toks: Tok[], from: number): { monies: number[]; next: number } | null {
+  let i = from;
   const monies: number[] = [];
   while (i < toks.length && monies.length < 7) {
     const t = toks[i];
@@ -123,7 +132,7 @@ function readBlock(toks: Tok[], from: number): { qty: number; monies: number[]; 
     } else break;
   }
   if (monies.length !== 7) return null;
-  return { qty, monies, next: i };
+  return { monies, next: i };
 }
 
 export function parseBolDiario(text: string): BolDailyParseResult {
@@ -156,11 +165,19 @@ export function parseBolDiario(text: string): BolDailyParseResult {
     i = blk.next - 1;
   }
 
-  // Linha TOTAL: a ocorrência de "TOTAL" DEPOIS do último dia seguida de
-  // inteiro + 7 montantes (a do cabeçalho não tem bloco numérico atrás).
+  // Linha TOTAL: o 1.º token que comece por TOTAL/TOTAIS DEPOIS do último dia,
+  // seguido de inteiro + 7 montantes (a do cabeçalho não tem bloco numérico
+  // atrás e fica antes dos dias). Aceita o número colado ("TOTAL267").
   for (let i = Math.max(0, lastDayIdx); i < toks.length; i++) {
     const t = toks[i];
-    if (t.k !== "word" || !/^TOTAL$/i.test(t.v)) continue;
+    if (t.k !== "word" || !TOTAL_WORD_RE.test(t.v)) continue;
+    const glued = /^TOTA(?:L|IS)[:.]?(\d+)$/i.exec(t.v);
+    if (glued) {
+      const m = readMonies(toks, i + 1);
+      if (!m) continue;
+      totalRow = { quantity: parseInt(glued[1], 10), totalValue: m.monies[6] };
+      break;
+    }
     const blk = readBlock(toks, i + 1);
     if (!blk) continue;
     totalRow = { quantity: blk.qty, totalValue: blk.monies[6] };
@@ -215,7 +232,28 @@ export function parseBolDiario(text: string): BolDailyParseResult {
       firstDate: rows[0]?.date || null,
       lastDate: rows[rows.length - 1]?.date || null,
     },
+    diag: buildDiag(toks, flat, lastDayIdx),
   };
+}
+
+function tokView(t: Tok): { k: string; v: string | number } {
+  return t.k === "date" ? { k: "date", v: t.iso } : { k: t.k, v: t.v };
+}
+
+/** Diagnóstico para falhas: janelas de 40 tokens à volta de cada TOTAL* + cauda do texto. */
+function buildDiag(toks: Tok[], flat: string, lastDayIdx: number) {
+  const totalWindows: { index: number; after_last_day: boolean; window: { i: number; k: string; v: string | number }[] }[] = [];
+  toks.forEach((t, idx) => {
+    if (t.k !== "word" || !TOTAL_WORD_RE.test(t.v)) return;
+    const from = Math.max(0, idx - 20);
+    const to = Math.min(toks.length, idx + 20);
+    totalWindows.push({
+      index: idx,
+      after_last_day: idx >= lastDayIdx,
+      window: toks.slice(from, to).map((x, j) => ({ i: from + j, ...tokView(x) })),
+    });
+  });
+  return { tokens: toks.length, last_day_token_index: lastDayIdx, total_windows: totalWindows, tail_text: flat.slice(-1500) };
 }
 
 export interface BolDailyImportAudit {
@@ -224,6 +262,7 @@ export interface BolDailyImportAudit {
   daily_total_value: number;
   daily_deleted: number;
   warnings: string[];
+  validated_by: "total_row" | "m2_total";
 }
 
 /**
@@ -235,24 +274,43 @@ export async function importBolDailySeries(opts: {
   eventId: string;
   companyId: string;
   parseResult: BolDailyParseResult;
+  /** Total do M2 da mesma corrida (validador independente). */
+  m2Total?: { qty: number; value: number } | null;
 }): Promise<BolDailyImportAudit> {
   const { supabase, eventId, companyId, parseResult } = opts;
 
   if (parseResult.rows.length === 0) {
     throw new Error("Mapa Diário sem linhas reconhecidas — série diária não importada.");
   }
-  if (!parseResult.totalRow) {
-    throw new Error("Mapa Diário sem linha TOTAL — impossível validar a série diária.");
-  }
-  if (parseResult.totalRow.quantity !== parseResult.totals.quantity) {
-    throw new Error(
-      `Validação falhou (Diário): TOTAL do relatório = ${parseResult.totalRow.quantity} bilhetes, soma dos dias = ${parseResult.totals.quantity}.`,
-    );
-  }
-  if (Math.abs(parseResult.totalRow.totalValue - parseResult.totals.totalValue) > 0.01) {
-    throw new Error(
-      `Validação falhou (Diário): TOTAL do relatório = ${parseResult.totalRow.totalValue} €, soma dos dias = ${parseResult.totals.totalValue} €.`,
-    );
+  const sums = parseResult.totals;
+  const warnings = [...parseResult.warnings];
+  let validatedBy: "total_row" | "m2_total";
+  if (parseResult.totalRow) {
+    // Linha TOTAL existe: manda ela. Se não bater, recusa (o M2 não a contradiz).
+    if (parseResult.totalRow.quantity !== sums.quantity) {
+      throw new Error(
+        `Validação falhou (Diário): TOTAL do relatório = ${parseResult.totalRow.quantity} bilhetes, soma dos dias = ${sums.quantity}.`,
+      );
+    }
+    if (Math.abs(parseResult.totalRow.totalValue - sums.totalValue) > 0.01) {
+      throw new Error(
+        `Validação falhou (Diário): TOTAL do relatório = ${parseResult.totalRow.totalValue} €, soma dos dias = ${sums.totalValue} €.`,
+      );
+    }
+    validatedBy = "total_row";
+  } else {
+    // Sem linha TOTAL: só importa se a soma dos dias bater com o M2 da MESMA corrida.
+    const m2 = opts.m2Total;
+    if (!m2) throw new Error("Mapa Diário sem linha TOTAL e sem total do M2 — impossível validar a série diária.");
+    const qtyOk = m2.qty === sums.quantity;
+    const valOk = Math.abs(m2.value - sums.totalValue) < 0.01;
+    if (!qtyOk || !valOk) {
+      throw new Error(
+        `Mapa Diário sem linha TOTAL e soma dos dias (${sums.quantity} / ${sums.totalValue} €) não bate com o M2 (${m2.qty} / ${m2.value} €) — série não importada.`,
+      );
+    }
+    validatedBy = "m2_total";
+    warnings.push(`Série diária validada pelo total do M2 (${m2.qty} / ${m2.value} €), não pela linha TOTAL do Mapa Diário.`);
   }
 
   const { data: prior } = await supabase.from("bol_daily_sales").select("id").eq("event_id", eventId);
@@ -276,6 +334,7 @@ export async function importBolDailySeries(opts: {
     daily_total_qty: parseResult.totals.quantity,
     daily_total_value: parseResult.totals.totalValue,
     daily_deleted: prior?.length || 0,
-    warnings: parseResult.warnings,
+    warnings,
+    validated_by: validatedBy,
   };
 }

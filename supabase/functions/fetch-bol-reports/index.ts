@@ -1077,6 +1077,11 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     let dailyAudit: any = null;
     let dailyWarning: string | null = null;
     const dailyDebug: Record<string, any> = {};
+    let dParseRef: any = null;
+    const m2Total = parseRes.totalRow
+      ? { qty: parseRes.totalRow.totalQty, value: parseRes.totalRow.totalValue }
+      : { qty: parseRes.totals.qty, value: parseRes.totals.value };
+    dailyDebug.m2_total = m2Total;
     try {
       const dPdf = await downloadM2Pdf(jar, cfg.bol_event_id, dailyDebug, expectedName, "diario");
       filesAudit.push({
@@ -1087,16 +1092,27 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
       const dText = await extractPdfText(dPdf.bytes);
       dailyDebug.pdf_text_chars = dText.length;
       const dParse = parseBolDiario(dText);
+      dParseRef = dParse;
       dailyDebug.parser = dParse.debug;
       dailyAudit = await importBolDailySeries({
         supabase: admin,
         eventId: cfg.event_id,
         companyId: cfg.company_id,
         parseResult: dParse,
+        m2Total: m2Total,
       });
     } catch (e: any) {
       dailyWarning = `Série diária BOL não importada: ${e?.message || e}`;
       dailyDebug.error = dailyWarning;
+      if (dParseRef) {
+        // Instrumentação: o suficiente para perceber a falha sem repetir a investigação.
+        dailyDebug.daysParsed = dParseRef.debug?.daysParsed;
+        dailyDebug.firstDate = dParseRef.debug?.firstDate;
+        dailyDebug.lastDate = dParseRef.debug?.lastDate;
+        dailyDebug.hasTotalRow = dParseRef.debug?.hasTotalRow;
+        dailyDebug.sum_days = dParseRef.totals;
+        dailyDebug.diag = dParseRef.diag;
+      }
       console.warn(`[bol ${runId}] ${dailyWarning}`);
     }
 
