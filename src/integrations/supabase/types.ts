@@ -17803,6 +17803,7 @@ export type Database = {
         Args: { p_artist_id: string; p_days?: number }
         Returns: {
           account_id: string
+          button_click: number
           campaign_id: string
           campaign_name: string
           clicks: number
@@ -17810,15 +17811,19 @@ export type Database = {
           currency: string
           data_source: string
           day: string
+          follows: number
           fx_missing_days: number
           impressions: number
           last_recorded_at: string
+          likes: number
           platform: string
           ref_currency: string
           results: number
           spend: number
           spend_ref: number
           video_views: number
+          video_views_6s: number
+          view_content: number
         }[]
       }
       artist_ads_link_song: {
