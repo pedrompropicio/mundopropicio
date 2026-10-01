@@ -15,7 +15,7 @@ import {
   IG_GRAPH_ROOT,
   json,
 } from "../_shared/artist-meta.ts";
-import { tiktokCreds, ttRefresh } from "../_shared/artist-tiktok.ts";
+import { tiktokCreds, ttRefresh, ttScopeList } from "../_shared/artist-tiktok.ts";
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;

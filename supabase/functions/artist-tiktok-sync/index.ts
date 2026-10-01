@@ -30,6 +30,7 @@ import {
   ttTokenInvalid,
   ttUserInfo,
   ttVideoPage,
+  ttScopeList,
 } from "../_shared/artist-tiktok.ts";
 
 const FUNCTION_NAME = "artist-tiktok-sync";
