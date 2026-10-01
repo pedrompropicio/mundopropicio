@@ -466,7 +466,7 @@ export function TransactionInstallmentGroupEditor({
                           : "—"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 z-[120]" align="start">
+                    <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
                         selected={edited.due_date ? fromYmd(edited.due_date) : undefined}

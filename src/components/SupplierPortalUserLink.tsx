@@ -127,7 +127,7 @@ export function SupplierPortalUserLink({ supplierId }: { supplierId: string }) {
         <SelectTrigger id="sup-portal-user">
           <SelectValue placeholder={isLoading ? "A carregar…" : "Acrescentar representante"} />
         </SelectTrigger>
-        <SelectContent className="z-[70]">
+        <SelectContent>
           {available.map((l) => (
             <SelectItem key={l.profile_id} value={l.profile_id}>
               {l.full_name || l.email || l.profile_id}

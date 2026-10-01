@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -425,7 +426,7 @@ export default function FinancialAccounts() {
 
       {/* Form modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => resetForm()}>
+        <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" onClick={() => resetForm()}>
           <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold">{editingId ? "Editar Conta" : "Nova Conta"}</h2>
@@ -657,7 +658,7 @@ export default function FinancialAccounts() {
               </button>
             </form>
           </div>
-        </div>
+        </OverlayLayer>
       )}
 
       {/* Accounts table */}
@@ -869,7 +870,7 @@ export default function FinancialAccounts() {
 
 
       {deletingAccount && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setDeletingAccount(null)}>
+        <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" onClick={() => setDeletingAccount(null)}>
           <div className="glass w-full max-w-sm rounded-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold">Eliminar Conta</h2>
             <p className="text-sm text-muted-foreground">
@@ -891,7 +892,7 @@ export default function FinancialAccounts() {
               </button>
             </div>
           </div>
-        </div>
+        </OverlayLayer>
       )}
     </div>
   );

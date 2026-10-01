@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -513,7 +514,7 @@ export default function Events() {
 
       {/* Creation Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowForm(false)}>
+        <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowForm(false)}>
           <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold">Novo Evento</h2>
@@ -913,7 +914,7 @@ export default function Events() {
               </button>
             </form>
           </div>
-        </div>
+        </OverlayLayer>
       )}
 
       {isLoading ? (

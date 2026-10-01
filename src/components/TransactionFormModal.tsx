@@ -1,4 +1,5 @@
 import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { makeTxInsert } from "@/lib/admin-window";
 import { AdminCostOverrideDialog, useAdminWindowEvent } from "@/components/AdminCostOverrideDialog";
@@ -2625,7 +2626,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
   return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+      <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
         <div className="glass w-full max-w-lg md:max-w-3xl lg:max-w-4xl xl:max-w-6xl rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">{titleOverride ?? "Nova Transação"}</h2>
@@ -3697,8 +3698,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 open={showNewSupplier}
                 onOpenChange={setShowNewSupplier}
                 onCreated={(id) => setForm((prev) => ({ ...prev, supplier_id: id }))}
-                overlayClassName="z-[110]"
-                contentClassName="z-[111]"
               />
             </div>
           )}
@@ -3729,8 +3728,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 open={showNewSupplier}
                 onOpenChange={setShowNewSupplier}
                 onCreated={(id) => setForm((prev) => ({ ...prev, supplier_id: id }))}
-                overlayClassName="z-[110]"
-                contentClassName="z-[111]"
               />
               {/* Emitente lido pelo OCR: caminho normal é NÃO haver match (poucos fornecedores têm NIF). */}
               {ocrSupplierHint && !ocrSupplierHint.matched && (
@@ -4427,6 +4424,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           handleSubmit({ preventDefault() {} } as any);
         }}
       />
-    </div>
+    </OverlayLayer>
   );
 }

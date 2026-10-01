@@ -13,6 +13,7 @@
  *          com `budget_raises`.
  */
 import { useEffect, useMemo, useState } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -336,7 +337,7 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
     "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
       <div className="glass max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl p-6">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -698,7 +699,7 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
           }}
         />
       )}
-    </div>
+    </OverlayLayer>
   );
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -307,13 +308,13 @@ function MediaThumb({ m }: { m: any }) {
         )}
       </button>
       {open && full && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
+        <OverlayLayer className="fixed inset-0 bg-black/90 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
           {m.file_type === "video" ? (
             <video src={full} controls className="max-h-full max-w-full" />
           ) : (
             <img src={full} alt="" className="max-h-full max-w-full" />
           )}
-        </div>
+        </OverlayLayer>
       )}
     </>
   );

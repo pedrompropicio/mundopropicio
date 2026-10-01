@@ -1274,7 +1274,7 @@ export default function CamarimSessionDetail() {
                 <Label className="text-xs">Conta financeira do cartão (fallback para itens legados)</Label>
                 <Select value={cardAccountId} onValueChange={setCardAccountId}>
                   <SelectTrigger><SelectValue placeholder="Selecionar conta…" /></SelectTrigger>
-                  <SelectContent className="z-[210]">
+                  <SelectContent>
                     {accounts.map((a) => (
                       <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                     ))}
@@ -1307,7 +1307,7 @@ export default function CamarimSessionDetail() {
                     <Label className="text-xs">Conta para o acerto (opcional — usa a do adiantamento se vazio)</Label>
                     <Select value={settlementAccountId} onValueChange={setSettlementAccountId}>
                       <SelectTrigger className="h-8"><SelectValue placeholder="Mesma do adiantamento" /></SelectTrigger>
-                      <SelectContent className="z-[210]">
+                      <SelectContent>
                         {accounts.map((a) => (
                           <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                         ))}
@@ -1343,7 +1343,7 @@ export default function CamarimSessionDetail() {
                         }
                       >
                         <SelectTrigger className="h-8"><SelectValue placeholder="Escolher destino…" /></SelectTrigger>
-                        <SelectContent className="z-[210]">
+                        <SelectContent>
                           <SelectItem value="reject">Rejeitar (descarta)</SelectItem>
                           <SelectItem value="approve_without_doc">Aprovar sem documento (com justificativa)</SelectItem>
                           <SelectItem value="defer">Adiar (fica para próxima sessão)</SelectItem>

@@ -152,7 +152,7 @@ export function QuickAdvanceModal({ open, onClose, officeId, officeName, eventId
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="z-[100] sm:max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Novo Adiantamento</DialogTitle>
         </DialogHeader>

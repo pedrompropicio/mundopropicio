@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { OffsetLineNote } from "@/components/TransactionOffsetsBlock";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -491,7 +492,7 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
   const payableCount = computed.filter((i) => i.remainingEurFinal > 0).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
       <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold flex items-center gap-2">
@@ -765,6 +766,6 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
           )}
         </button>
       </div>
-    </div>
+    </OverlayLayer>
   );
 }

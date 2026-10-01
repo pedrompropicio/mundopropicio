@@ -4,8 +4,8 @@
  *
  * Substitui os diálogos encadeados (LinkBpLineDialog / RaiseBudgetDialog) que
  * abriam ATRÁS do AlertDialog (z-[200] vs Dialog z-50) e deixavam só o fundo
- * escuro visível. Tudo é resolvido no mesmo ecrã; os Selects daqui usam
- * z-[210] para ficarem acima do AlertDialog (escada de z-index).
+ * escuro visível. Tudo é resolvido no mesmo ecrã; os Selects ficam acima do
+ * AlertDialog pela pilha única de camadas (src/lib/overlay-layer.ts).
  */
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -132,7 +132,7 @@ export function CamarimIntegrateBpSection({
       ) : (
         <Select value={selectedId ?? undefined} onValueChange={(v) => { setSelectedId(v); setObservation(""); }}>
           <SelectTrigger className="h-9" aria-label="Linha de BP"><SelectValue placeholder="Escolher linha…" /></SelectTrigger>
-          <SelectContent className="z-[210]">
+          <SelectContent>
             {lines.map((l) => (
               <SelectItem key={l.id} value={l.id}>
                 {lineLabel(l)} — disp. {formatCurrency(round2(l.amount - l.realized), currency)}

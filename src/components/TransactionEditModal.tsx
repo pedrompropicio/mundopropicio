@@ -1,4 +1,5 @@
 import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { TransactionOffsetsBlock } from "@/components/TransactionOffsetsBlock";
 import { computeBudgetExcess, type BudgetExcessLine } from "@/lib/bp-budget-excess";
 import { isBpLinkAllowedForEvent, fetchWithBpEventIds } from "@/lib/bp-line-required";
@@ -1205,7 +1206,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
       <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-2">
@@ -2699,7 +2700,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           />
         )}
       </div>
-    </div>,
+    </OverlayLayer>,
     document.body
   );
 }

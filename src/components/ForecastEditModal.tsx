@@ -1,4 +1,5 @@
 import { writeForecastAmount } from "@/lib/forecast-amount";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -324,7 +325,7 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
   const backdrop = useBackdropClose(onClose);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
+    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-lg rounded-xl p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
 
 
@@ -507,6 +508,6 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
           </div>
         )}
       </div>
-    </div>
+    </OverlayLayer>
   );
 }

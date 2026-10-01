@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -103,7 +104,7 @@ export default function AccountAccessModal({ accountId, accountName, onClose }: 
   const backdrop = useBackdropClose(onClose);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
+    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div className="glass w-full max-w-md rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div>
@@ -165,6 +166,6 @@ export default function AccountAccessModal({ accountId, accountName, onClose }: 
           )}
         </div>
       </div>
-    </div>
+    </OverlayLayer>
   );
 }

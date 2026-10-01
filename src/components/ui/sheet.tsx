@@ -5,6 +5,7 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 import { guardHelpPanelOutside } from "@/lib/help-panel-dom";
+import { useComposedRefs, useLayerNodeRefs } from "@/lib/overlay-layer";
 
 const Sheet = SheetPrimitive.Root;
 
@@ -20,7 +21,7 @@ const SheetOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Overlay
     className={cn(
-      "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className,
     )}
     {...props}
@@ -30,7 +31,7 @@ const SheetOverlay = React.forwardRef<
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName;
 
 const sheetVariants = cva(
-  "fixed z-50 gap-4 bg-background p-6 pt-[max(1.5rem,calc(env(safe-area-inset-top)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+1rem))] shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+  "fixed gap-4 bg-background p-6 pt-[max(1.5rem,calc(env(safe-area-inset-top)+1rem))] pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+1rem))] shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
   {
     variants: {
       side: {
@@ -53,13 +54,17 @@ interface SheetContentProps
     VariantProps<typeof sheetVariants> {}
 
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = "right", className, children, ...props }, ref) => (
+  ({ side = "right", className, children, style, ...props }, ref) => {
+    const layer = useLayerNodeRefs();
+  const contentRef = useComposedRefs(ref, layer.contentRef);
+    return (
     <SheetPortal>
-      <SheetOverlay />
+      <SheetOverlay ref={layer.overlayRef} />
       <SheetPrimitive.Content
-        ref={ref}
+        ref={contentRef}
         className={cn(sheetVariants({ side }), className)}
         {...props}
+        style={style}
         // Interações vindas do painel do Manual nunca fecham o sheet.
         onPointerDownOutside={guardHelpPanelOutside(props.onPointerDownOutside)}
         onInteractOutside={guardHelpPanelOutside(props.onInteractOutside)}
@@ -72,7 +77,8 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
         </SheetPrimitive.Close>
       </SheetPrimitive.Content>
     </SheetPortal>
-  ),
+    );
+  },
 );
 SheetContent.displayName = SheetPrimitive.Content.displayName;
 

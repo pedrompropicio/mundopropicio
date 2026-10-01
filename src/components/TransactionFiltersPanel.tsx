@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search, X, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useOverlayLayer } from "@/lib/overlay-layer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { OperationKeyManager } from "@/components/OperationKeyManager";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
@@ -244,17 +245,21 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
     </button>
   );
 
+  // Pilha única de camadas (src/lib/overlay-layer.ts).
+  const layerZ = useOverlayLayer(open);
+
   return (
     <SheetPrimitive.Root open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetPrimitive.Portal>
         <SheetPrimitive.Content
           className={cn(
-            "fixed inset-y-0 right-0 z-50 h-full w-full sm:max-w-md border-l border-border bg-background p-6 shadow-2xl",
+            "fixed inset-y-0 right-0 h-full w-full sm:max-w-md border-l border-border bg-background p-6 shadow-2xl",
             "overflow-y-auto",
             "transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out",
             "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
             "data-[state=closed]:duration-300 data-[state=open]:duration-500",
           )}
+          style={{ zIndex: layerZ }}
         >
           <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
             <X className="h-4 w-4" />

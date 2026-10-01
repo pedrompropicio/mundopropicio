@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -103,7 +104,7 @@ export function ReimbursementNoteFormModal({ onClose, onCreated }: Props) {
   const hasAnyIban = !!(selectedSupplier?.iban || selectedSupplier?.iban_2 || selectedSupplier?.iban_3);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
       <div className="glass w-full max-w-md rounded-xl p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">Nova Nota de Reembolso</h2>
@@ -246,6 +247,6 @@ export function ReimbursementNoteFormModal({ onClose, onCreated }: Props) {
           </Button>
         </div>
       </div>
-    </div>
+    </OverlayLayer>
   );
 }

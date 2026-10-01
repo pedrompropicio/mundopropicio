@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -404,8 +405,8 @@ export default function DatabaseBackups() {
 
       {/* Restore Preview / Confirmation Modal */}
       {restoreTarget && (restorePreview || previewing) && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+        <OverlayLayer
+          className="fixed inset-0 flex items-center justify-center bg-black/60 p-4"
           onClick={() => {
             if (!restoring) {
               setRestoreTarget(null);
@@ -583,7 +584,7 @@ export default function DatabaseBackups() {
               </div>
             ) : null}
           </div>
-        </div>
+        </OverlayLayer>
       )}
 
       {/* Info Card */}

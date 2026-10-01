@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -440,7 +441,7 @@ export function CacheTransactionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/50">
       <div className="w-full max-w-lg rounded-xl border border-border bg-card shadow-xl max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4 shrink-0">
@@ -832,6 +833,6 @@ export function CacheTransactionModal({
           }}
         />
       )}
-    </div>
+    </OverlayLayer>
   );
 }

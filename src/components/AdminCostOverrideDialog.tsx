@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,7 +41,7 @@ export function AdminCostOverrideDialog({ open, windowEventName, chosenLabel, ca
   useEffect(() => { if (open) setReason(""); }, [open]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-background/70 p-4">
+    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-background/70 p-4">
       <div className="glass w-full max-w-md space-y-3 rounded-xl p-5">
         <h3 className="text-base font-semibold">Custo do evento da janela administrativa</h3>
         <p className="text-sm text-muted-foreground">
@@ -69,6 +70,6 @@ export function AdminCostOverrideDialog({ open, windowEventName, chosenLabel, ca
           </>
         )}
       </div>
-    </div>
+    </OverlayLayer>
   );
 }
