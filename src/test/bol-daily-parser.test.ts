@@ -102,3 +102,30 @@ describe("parseBolDiario", () => {
     expect(res.header.generatedAt).toMatch(/14\|08\|2026/);
   });
 });
+
+describe("parseBolDiario — linha TOTAL tolerante", () => {
+  const base = "Mapa Diário TOTAL 01/10/2026 2 0,00 € 0,00 € 80,00 € 0,00 € 0,00 € 0,00 € 80,00 € 30/09/2026 1 0,00 € 0,00 € 40,00 € 0,00 € 0,00 € 0,00 € 40,00 € ";
+  const m = "0,00 € 0,00 € 120,00 € 0,00 € 0,00 € 0,00 € 120,00 €";
+  it("aceita TOTAIS e número colado", () => {
+    expect(parseBolDiario(base + "TOTAIS 3 " + m).totalRow?.quantity).toBe(3);
+    expect(parseBolDiario(base + "TOTAL3 " + m).totalRow?.quantity).toBe(3);
+  });
+  it("ignora o TOTAL do cabeçalho e devolve diag", () => {
+    const r = parseBolDiario(base + "rodapé");
+    expect(r.totalRow).toBeNull();
+    expect((r.diag as any).total_windows).toHaveLength(1);
+  });
+});
+
+describe("parseBolDiario — bilhetes colados ao montante (caso real 01/10/2026)", () => {
+  it("'76 115,00 €' e 'TOTAL 982 230,00 €' separam bilhetes do montante", () => {
+    const t = "Data TOTAL Internet 01/10/2026 76 115,00 € 0,00 € 2 820,00 € 0,00 € 0,00 € 0,00 € 2 935,00 € " +
+      "22/06/2026 6 0,00 € 0,00 € 320,00 € 0,00 € 0,00 € 0,00 € 320,00 € " +
+      "TOTAL 82 115,00 € 0,00 € 3 140,00 € 0,00 € 0,00 € 0,00 € 3 255,00 € Mapa";
+    const r = parseBolDiario(t);
+    expect(r.rows.find((x) => x.date === "2026-10-01")?.quantity).toBe(76);
+    expect(r.totalRow).toEqual({ quantity: 82, totalValue: 3255 });
+    expect(r.totals.quantity).toBe(82);
+    expect(r.warnings).toEqual([]);
+  });
+});

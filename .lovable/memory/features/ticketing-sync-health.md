@@ -32,11 +32,12 @@ Universo: configs de `ticketline_sync_config` e `bol_sync_config` cujo evento te
 | (b) parado | config `enabled` sem corrida `success`/`warning` nas últimas 6 h | sim |
 | (c) desligado | config `enabled = false` (informativo) | **não** — só banner |
 | (e) divergência portal Produtores | `ticketline_crosscheck_runs`: ≥3 bilhetes ou ≥100 € em 2 leituras diárias seguidas, ou `nao_encontrado` à 1.ª (sync_type `ticketline_crosscheck`) | sim |
+| (f) sem sucesso seguido | 6 corridas mais recentes da config todas com status ≠ `success` (warning conta) — desde 01/10/2026 | sim |
 | (d) captura horária parada | existe config Ticketline `enabled` de evento futuro e nenhuma corrida `triggered_by like 'capture_day:%'` com `success` nas últimas 3 h | sim |
 
 `warning` conta como **saudável** (na BOL é o M2 importado com o Diário falhado).
 `skipped` não alarma mas também não repõe o relógio de (b). Por config reporta-se
-uma condição (prioridade c → a → b).
+uma condição (prioridade c → a → f → b).
 
 ## Canais, por esta ordem
 

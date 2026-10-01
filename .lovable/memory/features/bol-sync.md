@@ -153,3 +153,9 @@ Parser `_shared/bol-report-parser.ts` → `parseBolM2(text)`:
   42 corridas `import_failed` da Conferência de Mulheres Plenitude desde 16/09.
 - Testes: `src/test/bol-m2-parser.test.ts` (9) inclui TOTAL e setor com qty de 3
   dígitos e valor ≥ 100.000 €, e a não-regressão de "60 3 600,00 €" / "17 816,00 €".
+
+## Série diária — Mapa Diário (01/10/2026)
+- Bilhetes de 3 dígitos colados a montante < 1.000 € ("982 230,00 €") eram lidos como milhar; na posição dos bilhetes um montante com espaço de milhar parte-se em qty + montante.
+- Linha TOTAL: prefixo TOTAL/TOTAIS, aceita número colado; só depois do último dia (nunca a do cabeçalho).
+- Validação: TOTAL existe → manda (não bate = recusa). Sem TOTAL → só importa se soma dos dias = total do M2 da mesma corrida (qty igual, valor < 0,01 €); `validated_by` = total_row | m2_total. Nunca afrouxar.
+- Falha → `import_audit.daily_debug` com diag (janelas 40 tokens à volta de cada TOTAL*, tail 1500 chars).
