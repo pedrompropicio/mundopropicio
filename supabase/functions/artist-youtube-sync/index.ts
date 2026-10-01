@@ -101,18 +101,12 @@ async function syncOne(admin: Admin, conn: any, dryRun: boolean, key: string) {
 
   // D-ERP134 (01/10): sem youtube.readonly. Estatísticas públicas pela chave de
   // API; a posse do canal prova-se pelo Analytics (ids=channel==<external_id>).
-  // Transição: sem a chave pública configurada, cai no pedido antigo com o token
-  // (só funciona em ligações que ainda têm youtube.readonly).
   const pubKey = Deno.env.get("YOUTUBE_PUBLIC_API_KEY");
-  if (!pubKey) notes.push("YOUTUBE_PUBLIC_API_KEY em falta — estatísticas pelo token (caminho antigo)");
+  if (!pubKey) throw new YtError("YOUTUBE_PUBLIC_API_KEY não configurada");
   apiCalls++;
-  const r1 = pubKey
-    ? await fetch(
-      `https://www.googleapis.com/youtube/v3/channels?${new URLSearchParams({ id: ch.external_id, part: "statistics,snippet", key: pubKey })}`,
-      { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(20_000) })
-    : await fetch(
-      `https://www.googleapis.com/youtube/v3/channels?${new URLSearchParams({ id: ch.external_id, part: "statistics,snippet" })}`,
-      { headers: H, signal: AbortSignal.timeout(20_000) });
+  const r1 = await fetch(
+    `https://www.googleapis.com/youtube/v3/channels?${new URLSearchParams({ id: ch.external_id, part: "statistics,snippet", key: pubKey })}`,
+    { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(20_000) });
   const j1 = await r1.json().catch(() => null);
   if (!r1.ok) throw new YtError(`channels falhou (HTTP ${r1.status})`);
   const item = (j1?.items ?? []).find((i: any) => i?.id === ch.external_id);
