@@ -1,7 +1,7 @@
 // artist-youtube-oauth-callback — retorno do OAuth Google do canal de YouTube
 // do artista (D-ERP134). Valida state (crm.consume_oauth_state apaga-o),
-// troca o code, exige refresh_token, valida a posse do canal (mine=true tem de
-// incluir artist_channels.external_id) e grava tokens cifrados.
+// troca o code, exige refresh_token, valida a posse do canal (Analytics ids=channel==<external_id> tem de dar 200; D-ERP134 01/10, sem youtube.readonly)
+// e grava tokens cifrados.
 //
 // Endpoint público (redirect do browser): verify_jwt = false.
 // Nunca põe tokens em URL, logs ou auditLog.
@@ -98,37 +98,50 @@ Deno.serve(async (req) => {
     return fail(returnUrl, "o Google não devolveu refresh_token; repetir com consentimento");
   }
 
-  // 2) posse do canal
-  let owned: Array<{ id: string; title: string | null }> = [];
+  // 2) posse do canal — D-ERP134 (01/10): sem youtube.readonly. O Analytics só
+  // responde 200 a ids=channel==<external_id> se a conta autorizada for dona.
+  let ownerStatus = 0;
   try {
-    const res = await fetch(
-      "https://www.googleapis.com/youtube/v3/channels?part=id,snippet&mine=true&maxResults=50",
-      {
-        headers: { Authorization: `Bearer ${tok.access_token}`, Accept: "application/json" },
-        signal: AbortSignal.timeout(20_000),
-      },
-    );
-    const j = await res.json().catch(() => null);
-    if (!res.ok) return fail(returnUrl, `leitura dos canais falhou (HTTP ${res.status})`);
-    owned = (j?.items ?? []).map((i: any) => ({
-      id: String(i?.id ?? ""),
-      title: i?.snippet?.title ?? null,
-    }));
+    const day = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    const q = new URLSearchParams({
+      ids: `channel==${channel.external_id}`, startDate: day, endDate: day, metrics: "views",
+    });
+    const res = await fetch(`https://youtubeanalytics.googleapis.com/v2/reports?${q}`, {
+      headers: { Authorization: `Bearer ${tok.access_token}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(20_000),
+    });
+    ownerStatus = res.status;
+    await res.text();
   } catch (_e) {
-    return fail(returnUrl, "leitura dos canais falhou");
+    return fail(returnUrl, "verificação de posse do canal falhou");
   }
-  const match = owned.find((c) => c.id === channel.external_id);
-  if (!match) {
+  if (ownerStatus !== 200) {
     await auditLog(admin, {
       entity_type: "artist_channel",
       entity_id: channel.id,
       action: "youtube_oauth_not_owner",
       changed_by: st.user_id ?? "service_role",
       company_id: channel.company_id,
-      metadata: { expected: channel.external_id, got: owned.map((c) => c.id) },
+      metadata: { expected: channel.external_id, analytics_status: ownerStatus },
     });
-    return fail(returnUrl, "esta conta Google não é dona do canal");
+    return fail(returnUrl, ownerStatus === 401 || ownerStatus === 403
+      ? "esta conta Google não é dona do canal"
+      : `verificação de posse falhou (HTTP ${ownerStatus})`);
   }
+  // título do canal pela chave de API pública (best-effort)
+  let title: string | null = null;
+  const pubKey = Deno.env.get("YOUTUBE_PUBLIC_API_KEY");
+  if (pubKey) {
+    try {
+      const res = await fetch(
+        `https://www.googleapis.com/youtube/v3/channels?${new URLSearchParams({ id: channel.external_id, part: "snippet", key: pubKey })}`,
+        { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(20_000) },
+      );
+      const j = await res.json().catch(() => null);
+      title = j?.items?.[0]?.snippet?.title ?? null;
+    } catch (_e) { /* título é opcional */ }
+  }
+  const match = { id: String(channel.external_id), title };
 
   // 3) gravar (tokens cifrados com a mesma chave mestra)
   const expiresAt = new Date(Date.now() + (Number(tok.expires_in) || 3600) * 1000).toISOString();

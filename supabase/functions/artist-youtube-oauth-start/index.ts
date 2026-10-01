@@ -18,8 +18,9 @@ import {
 import { ADS_ROLES, artistInCallerScope } from "../_shared/artist-ads.ts";
 import { ytRedirectUri } from "../_shared/artist-youtube.ts";
 
-export const YT_SCOPES =
-  "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly";
+// D-ERP134 (01/10): só yt-analytics.readonly. Dados públicos do canal vêm pela
+// chave de API (YOUTUBE_PUBLIC_API_KEY), sem OAuth.
+export const YT_SCOPES = "https://www.googleapis.com/auth/yt-analytics.readonly";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
