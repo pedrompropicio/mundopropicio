@@ -221,7 +221,7 @@ begin
 
   if jsonb_array_length(v_items) > 0 then
     v_msg := 'Sincronização de bilheteira a precisar de atenção:' || E'\n' || v_lines
-      || E'\n' || '(a) falha persistente · (b) parado >6h · (c) desligado · (d) captura horária parada · (e) divergência com o portal de Produtores';
+      || E'\n' || '(a) falha persistente · (b) parado >6h · (c) desligado · (d) captura horária parada · (e) divergência com o portal de Produtores · (f) 6 corridas seguidas sem sucesso';
 
     insert into public.system_reminders (key, title, message, due_date, frequency, link_url, is_active)
     values ('ticketing_sync_stalled', 'Sync de bilheteira precisa de atenção',
