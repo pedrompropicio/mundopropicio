@@ -4702,3 +4702,13 @@ Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_a
 **Consequência.** A regra de "sem entrega" depende da última prova de sync, não de histórico por dia. EXECUTE só authenticated e service_role.
 
 **Estado:** vigente.
+
+## D-ERP162 — Regras de trabalho da frente Ticketing & Receita (02/10/2026)
+
+**Contexto.** No fecho de 02/10 o fecho de bilheteira foi diagnosticado três vezes antes de alguém abrir os ficheiros de memória que o descrevem por inteiro; e um mesmo problema (perna de transferência do fecho) recebeu duas correcções a metade no mesmo dia, uma dentro do fluxo e outra fora.
+
+**Decisão.**
+1. Antes de diagnosticar um fluxo já implementado, nomear o ficheiro de `.lovable/memory/features/` que foi lido; se não houver ficheiro, procurar no índice gerado da memória antes de concluir que não existe.
+2. Uma correcção autorizada corre do princípio ao fim ou não começa. Apagar a parte antiga e deixar a nova por criar deixa os saldos errados no intervalo.
+
+**Estado:** vigente.
