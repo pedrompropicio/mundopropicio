@@ -17289,6 +17289,10 @@ export type Database = {
         Returns: string
       }
       _derive_paid_amount: { Args: { p_tx_id: string }; Returns: undefined }
+      _paid_guard_is_exempt: {
+        Args: { p: Database["public"]["Tables"]["transactions"]["Row"] }
+        Returns: boolean
+      }
       _reverse_transaction_offsets_for: {
         Args: { p_tx_id: string }
         Returns: undefined
@@ -17360,6 +17364,20 @@ export type Database = {
         }[]
       }
       _run_invariant_checks_infra: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
+      _run_invariant_checks_paid: {
         Args: never
         Returns: {
           conforme: boolean
