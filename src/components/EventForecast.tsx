@@ -90,6 +90,7 @@ import { useBPIncomeSynthetic } from "@/hooks/useBPIncomeSynthetic";
 import { SponsorshipTargetsPanel } from "@/components/SponsorshipTargetsPanel";
 import { useCompany } from "@/hooks/useCompany";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
 
 
 /**
@@ -938,6 +939,8 @@ const descRef = useRef<HTMLInputElement>(null);
 
   // Linhas sintéticas de receita por módulo (bilheteira, A&B, patrocínios) — D21/D22.
   const syntheticIncome = useBPIncomeSynthetic(eventId, childEventIds ?? []);
+  // Receita dos cards = mesma fonte da capa do evento (D24).
+  const { data: revenueBasis } = useEventRevenueBasis(eventId, childEventIds ?? []);
   const { companyId } = useCompany();
   // Linhas 1.2.01 persistidas que a sintética de patrocínios já representa (vazio sem verbas).
   const sponsorshipExcludedIds = useMemo(
@@ -2130,7 +2133,9 @@ const descRef = useRef<HTMLInputElement>(null);
   const incomeCurrentIvaTotal = totalForecastIncomeIva + syntheticIncome.totals.currentIva;
   // #219: os três valores dos cards do BP na MESMA base — SEM IVA, como o
   // helpText promete. A receita prevista não soma `incomeCurrentIvaTotal`.
-  const totalForecastIncome = incomeCurrentTotal;
+  // 02/10/2026: a receita prevista dos cards vem da MESMA fonte da capa
+  // (SSoT D24, "previsto + excedido", s/IVA). Enquanto carrega, cai no cálculo local.
+  const totalForecastIncome = revenueBasis ? revenueBasis.committed.total.net : incomeCurrentTotal;
   const forecastProfit = totalForecastIncome - totalForecastExpense;
 
   const totalActualIncomeStrict = comparisonTransactions
@@ -3150,15 +3155,7 @@ const descRef = useRef<HTMLInputElement>(null);
                 </div>
               </div>}
 
-              {/* BP summary row */}
-              {(incomeForecasts.length > 0 || expenseForecasts.length > 0) && (
-                <div className="glass rounded-xl p-4 flex items-center justify-between">
-                  <span className="text-sm font-semibold">Resultado Previsto</span>
-                  <span className={`font-mono text-lg font-bold ${forecastProfit >= 0 ? "text-success" : "text-destructive"}`}>
-                    {formatCurrency(forecastProfit)}
-                  </span>
-                </div>
-              )}
+              {/* 02/10/2026 — linha "Resultado Previsto" retirada (decisão do Pedro): o resultado vive no card do topo. */}
             </div>
               )}
             </div>

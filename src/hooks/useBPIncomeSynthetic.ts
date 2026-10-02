@@ -57,7 +57,7 @@ export function useBPIncomeSynthetic(eventId: string, extraEventIds: string[] = 
 
   const { data: ticket } = useQuery({
     queryKey: ["bp_income_ticket_synthetic", idsKey],
-    queryFn: () => computeTicketSynthetic(eventId, idsKey.split(",")),
+    queryFn: async () => { const t0 = performance.now(); console.warn("[DBGBP] start", idsKey); try { const r = await computeTicketSynthetic(eventId, idsKey.split(",")); console.warn("[DBGBP] ok", performance.now() - t0, r.currentNet); return r; } catch (e) { console.warn("[DBGBP] err", String(e)); throw e; } },
     enabled: !!eventId,
   });
 
