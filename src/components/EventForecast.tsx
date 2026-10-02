@@ -2140,17 +2140,14 @@ const descRef = useRef<HTMLInputElement>(null);
   const totalForecastIncome: number | null = revenueBasis ? revenueBasis.committed.total.net : null;
   const forecastProfit: number | null = totalForecastIncome === null ? null : totalForecastIncome - totalForecastExpense;
 
-  const totalActualIncomeStrict = comparisonTransactions
-    .filter((t) => t.type === "income")
-    .reduce((s, t) => s + Number(t.amount), 0);
-  // O card de receita real deve refletir a bilheteira vendida + outras receitas reais,
-  // com o mesmo critério de arredondamento do cabeçalho do evento (D11/D21).
-  const incomeRealTotal = totalActualIncomeStrict + syntheticIncome.totals.realNet;
-  const totalActualIncome = incomeRealTotal;
+  // 02/10/2026: o real dos cards Receitas/Resultado vem da MESMA fonte da capa
+  // (SSoT D24, `revenueBasis.real`, s/IVA). Enquanto a base não chega, "—" —
+  // nunca o cálculo local, que subestima o real (bilheteira fora).
+  const totalActualIncome: number | null = revenueBasis ? revenueBasis.real.total.net : null;
   const totalActualExpense = comparisonTransactions
     .filter((t) => t.type === "expense")
     .reduce((s, t) => s + Number(t.amount), 0);
-  const actualProfit = totalActualIncome - totalActualExpense;
+  const actualProfit: number | null = totalActualIncome === null ? null : totalActualIncome - totalActualExpense;
 
   const draftCount = forecasts.filter((f) => f.status === "draft").length;
   const approvedCount = forecasts.filter((f) => f.status === "approved").length;
