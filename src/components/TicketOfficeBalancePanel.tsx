@@ -5,7 +5,6 @@ import { formatCurrency } from "@/lib/mock-data";
 import { AlertCircle, CheckCircle2, Store, TrendingUp, TrendingDown, ArrowRight, Receipt, Plus } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import HelpTooltip from "@/components/HelpTooltip";
-import helpTexts from "@/lib/help-texts";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { TicketOfficeSettlementModal } from "@/components/TicketOfficeSettlementModal";
@@ -302,7 +301,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
         className={`rounded-lg p-3 text-center cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all ${summary.hasInconsistency ? "bg-destructive/10 border border-destructive/30" : "bg-secondary/40"}`}
       >
         <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
-          Retido na Bilheteira <HelpTooltip text={helpTexts.ticketOfficeBalance} size={12} />
+          Retido na Bilheteira <HelpTooltip anchor="fecho.bilheteira" size={12} />
           <HelpTooltip size={12} text="Âmbito deste painel (#129): só os eventos atribuídos a esta bilheteira." />
         </p>
         <p className={`text-lg font-mono font-bold ${summary.globalBalance >= 0 ? "text-emerald-500" : "text-red-400"}`}>

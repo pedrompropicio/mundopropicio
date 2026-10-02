@@ -110,8 +110,6 @@ const helpTexts: Record<string, string> = {
   // Partner-related tabs
   partnerExpenses:
     "Despesas pagas diretamente por sócios do evento. Estas despesas não movimentam contas da empresa e são integradas no encontro de contas do Fecho Parceiros.",
-  partnerSettlement:
-    "Encontro de contas automático com cada sócio. Consolida a quota-parte do resultado, extras a descontar e despesas pagas pelo sócio para determinar o acerto final. Exportável em PDF.",
 
   // Key buttons/actions
   newTransaction:
@@ -142,8 +140,6 @@ const helpTexts: Record<string, string> = {
     "Despesas extras pagas pelo evento em nome do artista (ex: hotel extra, transfer). São descontadas analiticamente do cachê bruto para determinar o valor líquido a pagar. Não geram transações separadas.",
   partnerExtras:
     "Despesas extras pagas pelo evento em nome de um sócio específico (ex: alojamento, despesas pessoais). São descontadas apenas da quota-parte desse sócio no resultado, sem afetar o resultado global do evento.",
-  ticketOfficeBalance:
-    "Saldo calculado: Vendas − Despesas Diretas − Transferências. Mostra o valor que permanece retido na bilheteira. Transferências superiores ao saldo retido são bloqueadas pelo sistema.",
   accountingDocFlag:
     "Marque como 'Documento contábil' apenas ficheiros fiscais: faturas, notas fiscais, recibos, notas de crédito/débito e comprovativos de pagamento bancário. Propostas, contratos e riders NÃO devem ser marcados.",
   uploadDocuments:
