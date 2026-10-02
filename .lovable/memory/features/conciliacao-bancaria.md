@@ -458,3 +458,7 @@ Provas em Live (BEGIN … ROLLBACK), linha MATUDIS
 do em aberto recusado; despesa numa linha a crédito recusada; caminho feliz
 deixa a transação `paid` com 7.380,00 €, `payment_date = 2026-09-17` e conta
 Santander; repetir na mesma linha recusa por já estar conciliada.
+
+## Lançar a partir da linha (D-ERP157, 02/10/2026)
+`launch_from_bank_lines` cria a transação `approved` + linha em `transaction_payments` (bruto ou paid_amount pedido, data-valor da linha, conta da linha, created_by = email). Nunca grava paid_amount/status. A base tem ainda `zz_materialize_paid_amount_payment` (cria a linha em falta em qualquer caminho) e `zz_guard_paid_amount_vs_payments` (recusa baixar o valor pago abaixo dos pagamentos). Vigia `paid_sem_pagamento`.
+

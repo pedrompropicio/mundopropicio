@@ -2634,6 +2634,8 @@ A 18/09 o backup global passou a incluir `infra.json` e `identities.json`. A est
 
 **Adenda (18/09/2026, #127) — moeda nas linhas de pagamento:** `transaction_payments.amount` é **sempre EUR**; a moeda de origem passa a ficar na própria linha, com a MESMA convenção de `transactions` e `standalone_invoices` — `currency` (default `'EUR'`, NOT NULL), `original_amount`, `fx_rate`, `fx_rate_source`. CHECK `transaction_payments_fx_required`: `currency = 'EUR' OR (original_amount IS NOT NULL AND fx_rate IS NOT NULL)`. Os modais de pagamento (individual e em lote) gravam o valor liquidado na moeda de origem e o câmbio usado (`dia (manual)` quando o utilizador introduz a taxa do dia, senão `original da transação`); a auditoria "Câmbio do dia" mantém-se. Backfill das 3 linhas legadas em BRL com o câmbio original da transação. Verificação: invariante `pagamento_moeda_sem_cambio` (erro, global, referência 0).
 
+**Adenda (02/10/2026, D-ERP157) — a derivação passa a ser garantida pela base.** O invariante `paid_amount_sem_linhas` só olhava para transações COM linhas; ficavam de fora as pagas SEM nenhuma linha (395 a 02/10: MP 32, Coala 363). Agora a base cria a linha em falta sempre que uma transação é gravada com valor pago acima da soma dos pagamentos, e recusa baixar o valor pago abaixo dessa soma. Nova vigia `paid_sem_pagamento`. Ver D-ERP157.
+
 ## D-ERP88 — O câmbio da fatura resolve-se no servidor, pela data da fatura (adenda D-ERP78) (18/09/2026)
 
 **Decisão:** o câmbio de uma fatura avulsa em moeda estrangeira resolve-se **no servidor pela data da fatura** (câmbio de referência do BCE via Frankfurter; se nessa data não houver fixing, o último dia útil anterior). O chamador só envia `fx_rate` quando quer **impor** um valor — e nesse caso ganha o valor explícito, com `total_amount` obrigatório e a validação de ±0,01 €.
@@ -4636,3 +4638,23 @@ Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_a
 - Invariante `camarim_sessao_integrada_com_saldo` (erro, referência 0) em `_run_invariant_checks_extra()`.
 - Migração Ivete (89a93e14): 4 despesas pagas pela conta da sessão; acerto 655d18a1 (765,85 € a pagar à Liliam) + perna conta c81440e3 (liquidada); custo do evento e linha a5f7b7b3 inalterados; conta a 0.
 - Why: sessões mistas geravam devolução e reembolso opostos em simultâneo; despesas do bolso ficavam por pagar fora de qualquer nota.
+
+## D-ERP157 — Valor pago sem linha de pagamento: a base cria a linha; baixar à mão é recusado (02/10/2026)
+
+**Contexto.** A 02/10 havia 395 transações não isentas com `paid_amount > 0` e nenhuma linha `paid` em `transaction_payments` (MP 32 = 484.105,36 €; Coala 363). Os saldos batiam porque `_account_true_balance_*` lê `paid_amount`, mas qualquer evento que disparasse o sync (`_derive_paid_amount`) punha-as a 0 e o saldo mudava sozinho. Caminhos que gravam pago sem linha (02/10): `launch_from_bank_lines` (Lançar do banco); `TransferFormModal` (as 2 pernas); `QuickAdvanceModal`; `TicketOfficeAdvancesPanel`; `TicketOfficeSettlementModal` (carimbo do fecho ~l.595); `SponsorsImportModal`; `TransactionFormModal` (pai, sócio, irmã extra); `TransactionEditModal` (repartir/eliminar extra do sócio); `BankLineLaunchModal`; `NewCardExpenseModal`; edge `close-card-session`, `close-camarim-session` (itens de cartão), `apply-coala-bp`; triggers `sync_partner_aporte_mirror`, `sync_shared_cost_mirror`, `enforce_held_revenue_is_paid`; RPCs `create_settlement_transfer`, `card_load_on_out_paid`, `renegotiate_transaction_installments`.
+
+**Decisão.**
+1. `launch_from_bank_lines` cria a transação `approved` sem valor pago e a linha em `transaction_payments` (bruto ou o `paid_amount` pedido, data-valor da linha do banco, conta da linha, `created_by` = email de quem lança). `paid_amount`/estado vêm do sync.
+2. Para os outros ~20 caminhos, a correcção vive na base (um sítio em vez de 20, e cobre edge functions e triggers): `zz_materialize_paid_amount_payment` (AFTER INSERT / UPDATE OF paid_amount) cria a linha em falta pela diferença (conta da transação; sem conta → `compensation`, conta NULL; `created_by 'base D-ERP157'`) e chama `_derive_paid_amount`. `zz_guard_paid_amount_vs_payments` (BEFORE UPDATE OF paid_amount) recusa, em escrita directa, baixar o valor pago abaixo da soma dos pagamentos — mensagem pt-PT a mandar estornar o pagamento. Escritas internas de triggers (espelhos) que baixam o valor estornam as linhas criadas pela base e recriam pelo valor certo.
+3. Isentas como no D-ERP86: reembolso, filha de rateio, pago pelo sócio.
+4. `TicketOfficeSettlementsPanel` (desfazer fecho) passa a apagar os pagamentos antes de repor as despesas.
+5. Vigia `paid_sem_pagamento` (erro, empresa, referência 0) em `_run_invariant_checks_paid()`, agregada em `_run_invariant_checks_all()` (função própria para não reescrever a `_extra`).
+
+**Desvio ao pedido.** Pediu-se recusa também no INSERT; isso partiria em produção transferências, fechos de bilheteira, cartões, espelhos e importações, que gravam pago sem linha. Materializar dá o mesmo resultado na base (linha com conta e data certas) sem partir esses fluxos.
+
+**Backfill 02/10.** 238 linhas `created_by 'backfill D-ERP86 02/10'` (2.786.849,81 €; 42 compensação). Saldos das 25 contas iguais antes/depois. 16 transações da Coala ficaram `approved` em vez de `paid`: o valor pago gravado era só a base (sem IVA 23 %) — o sync passou a dizê-lo. Ficam por tratar 157 da Coala com valor pago ACIMA do bruto (1.890.091,87 €): a base recusa pagamento acima do bruto (`validate_installments_total`); decisão do Pedro.
+
+**Consequência.** `apply-coala-bp` volta a falhar se tentar gravar pago acima do bruto; pagamento com data futura passa a ser recusado também nestes caminhos (regra já vigente para pagamentos).
+
+**Estado:** vigente.
+
