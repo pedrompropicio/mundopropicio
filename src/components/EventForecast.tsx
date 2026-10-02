@@ -2135,8 +2135,10 @@ const descRef = useRef<HTMLInputElement>(null);
   // helpText promete. A receita prevista não soma `incomeCurrentIvaTotal`.
   // 02/10/2026: a receita prevista dos cards vem da MESMA fonte da capa
   // (SSoT D24, "previsto + excedido", s/IVA). Enquanto carrega, cai no cálculo local.
-  const totalForecastIncome = revenueBasis ? revenueBasis.committed.total.net : incomeCurrentTotal;
-  const forecastProfit = totalForecastIncome - totalForecastExpense;
+  // Enquanto a base da capa (revenueBasis) não chega, os cards Receitas/Resultado
+  // mostram "—" — nunca o cálculo antigo (incomeCurrentTotal), que pode estar errado.
+  const totalForecastIncome: number | null = revenueBasis ? revenueBasis.committed.total.net : null;
+  const forecastProfit: number | null = totalForecastIncome === null ? null : totalForecastIncome - totalForecastExpense;
 
   const totalActualIncomeStrict = comparisonTransactions
     .filter((t) => t.type === "income")
@@ -4237,10 +4239,11 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
 }
 
 function SummaryCard({ label, helpText, forecast, actual, icon, isProfit }: {
-  label: string; helpText?: string; forecast: number; actual: number; icon: React.ReactNode; isProfit?: boolean;
+  label: string; helpText?: string; forecast: number | null; actual: number; icon: React.ReactNode; isProfit?: boolean;
 }) {
-  const variance = actual - forecast;
-  const variancePct = forecast !== 0 ? (variance / Math.abs(forecast)) * 100 : 0;
+  const hasForecast = forecast !== null;
+  const variance = hasForecast ? actual - (forecast as number) : 0;
+  const variancePct = hasForecast && forecast !== 0 ? (variance / Math.abs(forecast)) * 100 : 0;
   const isPositive = isProfit ? variance >= 0 : (label === "Despesas" ? variance <= 0 : variance >= 0);
 
   return (
@@ -4249,14 +4252,14 @@ function SummaryCard({ label, helpText, forecast, actual, icon, isProfit }: {
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div>
           <span className="text-muted-foreground">Previsão</span>
-          <p className="font-mono font-bold text-sm">{formatCurrency(forecast)}</p>
+          <p className="font-mono font-bold text-sm">{hasForecast ? formatCurrency(forecast as number) : "—"}</p>
         </div>
         <div>
           <span className="text-muted-foreground">Real</span>
           <p className="font-mono font-bold text-sm">{formatCurrency(actual)}</p>
         </div>
       </div>
-      {forecast > 0 && (
+      {hasForecast && (forecast as number) > 0 && (
         <div className={`text-xs font-medium ${isPositive ? "text-success" : "text-destructive"}`}>
           {variance >= 0 ? "+" : ""}{formatCurrency(variance)} ({variancePct >= 0 ? "+" : ""}{variancePct.toFixed(1)}%)
         </div>
