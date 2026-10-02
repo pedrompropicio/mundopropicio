@@ -2140,6 +2140,10 @@ const descRef = useRef<HTMLInputElement>(null);
   const totalForecastIncome: number | null = revenueBasis ? revenueBasis.committed.total.net : null;
   const forecastProfit: number | null = totalForecastIncome === null ? null : totalForecastIncome - totalForecastExpense;
 
+  // Total local da tabela de receitas do BP (rodapé) — não é o Real dos cards.
+  const incomeRealTotal = comparisonTransactions
+    .filter((t) => t.type === "income")
+    .reduce((s, t) => s + Number(t.amount), 0) + syntheticIncome.totals.realNet;
   // 02/10/2026: o real dos cards Receitas/Resultado vem da MESMA fonte da capa
   // (SSoT D24, `revenueBasis.real`, s/IVA). Enquanto a base não chega, "—" —
   // nunca o cálculo local, que subestima o real (bilheteira fora).
