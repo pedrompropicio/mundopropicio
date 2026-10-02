@@ -4678,3 +4678,13 @@ Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_a
 **Consequência.** ~1.100–1.900 IPs distintos/dia → no máximo ~2.000 chamadas/dia ao ipinfo (menos com cache quente; mais se houver várias instâncias frias). Eventos antigos ficam sem geo (sem backfill: o IP não foi guardado). Alterar `_shared/geo.ts` implica re-deploy das duas funções.
 
 **Estado:** vigente.
+
+## D-ERP160 — Folha de crescimento sem linhas enganadoras; playlists do S4A identificadas pelo URI (02/10/2026)
+
+**Contexto.** (1) Em `song_growth_summary`, o grupo `musica` mostrava linhas `s4a_*_day` (valor de um dia contra base 0) e duplicava `*_28d` com `*_since_release` em músicas com mais de 28 dias. (2) `artist_song_playlist_streams` usava o título como chave; no sync de 24/09 uma playlist com título repetido ficou de fora (#50, 394 streams).
+
+**Decisão.** (1) Só em `grupos[]` do grupo `musica`: saem as `s4a_*_day`; com `p_to − release_date > 28`, sai a `*_28d` quando existe a gémea `*_since_release` com valor; as `*_28d` sem gémea ficam com o campo novo `janela:'28d'`. Até 28 dias, igual a antes. `kpis` e `series` intactos; `notas_tecnicas` diz o que foi omitido e porquê. (2) Coluna `playlist_uri` (nullable; linhas antigas null) e coluna gerada `playlist_key = coalesce(playlist_uri, 'name:' || playlist_name)` com índice único `(song_id, snapshot_date, period_days, playlist_key)`; a constraint antiga por título foi removida depois de criado o índice. A coluna gerada existe porque o upsert do PostgREST só aceita colunas no onConflict. `s4a-daily-sync` grava o `uri` do S4A e deduplica/faz upsert pela chave; `artist_song_playlist_streams_set` (manual, sem uri) usa `'name:'||nome`.
+
+**Consequência.** A mesma playlist gravada à mão (chave pelo nome) e pelo sync (chave pelo uri) no mesmo dia fica em duas linhas. EXECUTE das duas funções só para authenticated e service_role.
+
+**Estado:** vigente.

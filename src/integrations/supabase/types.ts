@@ -1612,7 +1612,9 @@ export type Database = {
           id: string
           made_by: string | null
           period_days: number
+          playlist_key: string | null
           playlist_name: string
+          playlist_uri: string | null
           rank: number | null
           snapshot_date: string
           song_id: string
@@ -1627,7 +1629,9 @@ export type Database = {
           id?: string
           made_by?: string | null
           period_days?: number
+          playlist_key?: string | null
           playlist_name: string
+          playlist_uri?: string | null
           rank?: number | null
           snapshot_date: string
           song_id: string
@@ -1642,7 +1646,9 @@ export type Database = {
           id?: string
           made_by?: string | null
           period_days?: number
+          playlist_key?: string | null
           playlist_name?: string
+          playlist_uri?: string | null
           rank?: number | null
           snapshot_date?: string
           song_id?: string
