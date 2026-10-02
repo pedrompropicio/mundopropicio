@@ -3519,7 +3519,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   const [showNotesAttachments, setShowNotesAttachments] = useState(false);
 
   // #269 — contagem de anexos lida de UMA query por evento (mapa partilhado).
-  const attachmentCounts = useForecastAttachmentCounts(eventId);
+  const attachmentCounts = useForecastAttachmentCounts(eventId ?? item.event_id);
   const uploadCount =
     !item._readonly && !item._prorated && !item._overhead_via_master
       ? attachmentCounts[item.id] ?? 0
