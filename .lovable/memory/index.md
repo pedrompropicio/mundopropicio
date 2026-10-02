@@ -6,7 +6,35 @@
 ## Por onde começar
 
 <!-- por-onde-comecar:inicio (escrito à mão; o gerador preserva) -->
+Uma linha por tema, por frente: pergunta → ficheiros (mem://pasta/ficheiro). Só temas com ficheiro.
 
+**ERP — bilheteira**
+- Como funciona o fecho de bilheteira (líquido, transferência, venda à porta, saldo)? → features/settlement-transfer-pair, features/venue-retained-door-sales, features/ticket-office-reconciliation, features/ticket-office-sales-scope
+- Como entram as vendas da BOL / Ticketline e quem vigia o sync? → features/bol-sync, features/bilheteira-sync, features/ticketing-sync-health, features/ticketline-crosscheck, features/ticketline-dashboard-daily-fallback
+- Um sync pode escrever no planeamento (zonas/lotes)? → constraints/sync-never-writes-planning
+
+**ERP — BP, receita e custo**
+- De onde vem a receita / o custo de um evento (capa, cards, BP)? → features/event-revenue-basis, features/event-cost-basis, features/bp-receita, features/event-financial-cards
+- Como se ligam linhas do BP e transações? → features/bp-tx-category-coherence, features/transactions-bp-linkage, security/bp-tx-cross-event-guards
+- Excesso e verba por usar no fecho do BP? → features/bp-excesso-de-verba, features/bp-verba-por-usar
+
+**ERP — pagamentos, contas e conciliação**
+- Como se regista um pagamento / valor pago? → features/payment-amount-invariants, features/conciliacao-bancaria, features/compensacao-ligada
+- Saldo de conta e travas de saldo? → features/account-balance-cutoff-date, security/account-balance-server-side-guard
+
+**ERP — camarim, cartões, sócios e fecho do evento**
+- Como se integra uma sessão de camarim? → features/camarim-integration-flow, features/camarim-integration-lock
+- Sessões de cartão? → features/card-sessions
+- Fecho do evento e acerto com sócios? → features/event-settlements, features/partner-settlement, features/settlement-participants-source-of-truth, security/partner-identity-and-settlement-visibility
+
+**Transversal**
+- Invariantes e vigias? → features/invariant-monitor
+- Como se aplica DDL / crons? → constraints/lovable-cloud-ddl-workflow, constraints/cron-job-run-details
+- Overlays / modais por cima uns dos outros? → constraints/pilha-de-overlays
+
+**MP Audience / CRM / Carreira**
+- Publicar campanha Meta? → features/mp-audience-meta-publish, features/meta-company-connection-bm
+- Tráfego por artista? → features/artist-ads-connections, features/artist-ads-period-report, features/artist-tiktok-sync
 <!-- por-onde-comecar:fim -->
 
 ## constraints
@@ -15,7 +43,7 @@
 - [cron.job_run_details — consulta e retenção](mem://constraints/cron-job-run-details) — Nunca consultar cron.job_run_details sem intervalo de runid (PK); retenção de 7 dias pelo job 262; tabela vive só em Live
 - [Edge functions — nunca importar supabase-js via esm.sh](mem://constraints/edge-fn-esm-sh-supabase-js) — esm.sh/@supabase/supabase-js quebrou o boot (WORKER_ERROR, node:url not found) e parou o CAPI 16 dias; usar sempre npm:@supabase/supabase-js@2
 - [Formulário não grava com Enter](mem://constraints/formulario-nao-grava-com-enter) — Formulários de gravação só gravam pelo botão; Enter num campo nunca submete (guarda em src/lib/form-enter-guard.ts)
-- [constraints/lovable-cloud-ddl-workflow](mem://constraints/lovable-cloud-ddl-workflow) — 
+- [Lovable Cloud — DDL Workflow](mem://constraints/lovable-cloud-ddl-workflow) — Todo o DDL passa pelo agente Lovable como migration tracked; nunca SQL à mão no SQL Editor (incidentes reais)
 - [Master/Split implementation guardrails](mem://constraints/master-split-implementation-guardrails) — Guardrails internos para evitar regressões ao mexer em BP Master/Split, rateio, promoção ao Master e auditorias de produção.
 - [Pagamento nunca com data futura](mem://constraints/pagamento-nunca-com-data-futura) — payment_date em transactions e transaction_payments nunca pode ser posterior a hoje; saídas previstas vivem em due_date
 - [Pilha de overlays (z-index)](mem://constraints/pilha-de-overlays) — Nenhum componente define z-index de overlay à mão; Dialog/AlertDialog/Sheet/Drawer/OverlayLayer e flutuantes usam a pilha de src/lib/overlay-layer.ts
@@ -25,10 +53,10 @@
 ## features
 
 - [A&B attachments](mem://features/ab-attachments) — Anexos no separador A&B do evento (event_ab_attachments + bucket privado event-ab-attachments), réplica exacta do mecanismo dos anexos de linhas do BP; só armazenamento, fora de cálculos
-- [features/ab-module-dual-mode](mem://features/ab-module-dual-mode) — 
+- [A&B Module v2 — Dual Mode](mem://features/ab-module-dual-mode) — A&B com dois modos independentes por Bebidas/Alimentos: terceirização (quota fee + %) ou exploração própria
 - [A&B v2 — Brief para o Lovable](mem://features/ab-module-v2-lovable-brief) — Racional completo do redesign do módulo A&B — do problema à solução — para validação e implementação pelo Lovable.
 - [Módulo A&B v2 — Redesign (Terceirização + Exploração Própria)](mem://features/ab-module-v2-redesign) — Racional, arquitectura, decisões validadas pelo Lovable e plano de implementação.
-- [features/ab-module-v2-test-guide](mem://features/ab-module-v2-test-guide) — 
+- [Guia de Teste — A&B Module v2](mem://features/ab-module-v2-test-guide) — Guia de teste do A&B dual mode: colunas de event_ab_config da migration 20260505162358 e passos funcionais
 - [Account balance cutoff date](mem://features/account-balance-cutoff-date) — financial_accounts.initial_balance_date define o corte do saldo inicial; skip_balance_check nunca vira número; estorno repago limpa reversed_at
 - [Faturas Ads (Meta e Google)](mem://features/ads-invoices) — Fatura em PDF é fonte de verdade (parse_meta/parse_google), importação em 3 fases com dry_run, e rateio dos ajustes pelas transações-filhas
 - [Aprovar transações é permissão (validada no servidor)](mem://features/approve-transactions-permission) — approve_transactions + raise_budget em role_permissions; trigger BEFORE UPDATE em transactions protege a transição para 'approved'; policy de UPDATE continua aberta a editor
@@ -123,7 +151,7 @@
 - [MP Operação foundation (Batch 1 v2 + 2A UI)](mem://features/mp-operacao-foundation) — Módulo de gestão operacional (Frentes/Etapas/Registros/Chamados) — DB + UI mobile + escalação push/WhatsApp
 - [Multi-country roadmap (Fase 8)](mem://features/multi-country-roadmap) — Plano PT+BR APROVADO mas EM QUARENTENA até 2026-05-29; arranque condicionado a 6 gatilhos; convivência Modelo B+C; protocolo §10.7 pós-fase
 - [Multi-membership model (1 user → N empresas)](mem://features/multi-membership-model) — Identidade única no auth.users; acessos por (user_id, company_id) em user_roles/user_permissions; switcher para qualquer user com ≥2 memberships
-- [features/multi-platform-tracking-roadmap](mem://features/multi-platform-tracking-roadmap) — 
+- [Roadmap — Tracking multi-plataforma (event_trackers)](mem://features/multi-platform-tracking-roadmap) — Planeado: tabela canónica event_trackers evento × plataforma × tracker (Meta/Google/TikTok); distinta de event_marketing
 - [Multi-tenant email branding](mem://features/multi-tenant-email-branding) — Templates de auth (signup, recovery, invite, magic-link, email-change, reauthentication) leem branding por empresa via lookup profiles.email→company_id; UI em /admin/empresas para editar logo + display_name + primary_color
 - [Multi-tenant roadmap](mem://features/multi-tenant-roadmap) — Plano e estado da transição multi-empresa (Coala/Cloudscape como 2ª empresa); Fases 1+2+3+4+5+6 COMPLETAS em Test (Fase 7 = migração Live, pendente)
 - [Multi-tenant test suite](mem://features/multi-tenant-test-suite) — Bateria de testes (Vitest + Deno + SQL + E2E manual) que valida multi-empresa antes da Fase 7 Live
@@ -147,8 +175,8 @@
 - [role-accountant](mem://features/role-accountant) — Role accountant — portal /contabilidade read-only com 3 abas (Documentos / Relatórios / Fornecedores), ZIP export, audit log de downloads
 - [Transferência do fecho de bilheteira](mem://features/settlement-transfer-pair) — create_settlement_transfer cria o par expense+income na rubrica 10.3 com operation_key TRF-FECHO-; não existe transação de tipo 'transfer
 - [Simulator BE surplus mode](mem://features/simulator-be-surplus-mode) — Card BE no Simulador mostra ponto de equilíbrio real mesmo quando ultrapassado (solver inverso)
-- [features/simulator-dashboard-v2-brief](mem://features/simulator-dashboard-v2-brief) — 
-- [features/simulator-dashboard-v2-implementation-prompt](mem://features/simulator-dashboard-v2-implementation-prompt) — 
+- [Simulador — Dashboard Financeiro v2 (Design Brief)](mem://features/simulator-dashboard-v2-brief) — Brief de redesenho do ExecutiveDashboard do Simulador em estilo plataforma financeira; props imutáveis (3 cenários)
+- [Simulador — Dashboard v2: prompt de implementação](mem://features/simulator-dashboard-v2-implementation-prompt) — Decisões finais pós-mockup: dark só no wrapper (data-theme=financial), FinancialTable única, donut
 - [Simulator public unit (Pagantes×dia)](mem://features/simulator-public-unit) — Cards Hoje/BE/Forecast do Simulador mostram só pagantes×dia; cortesias só informativas
 - [Sponsorship Pipeline ↔ BP/Simulador](mem://features/sponsorship-pipeline-simulator-integration) — Pipeline de patrocínios alimenta BP só via botão manual; Simulador lê só BP; reset_reimport preserva vínculos
 - [Standalone invoices (Scanner de Faturas Avulsas)](mem://features/standalone-invoices) — Faturas no NIF da empresa pagas com recursos próprios da diretoria — só documento + metadados em standalone_invoices; NUNCA cria transação, BP, lista de pagamento ou movimento de conta
@@ -166,7 +194,7 @@
 - [Ticketline section1 fallback](mem://features/ticketline-section1-fallback) — Import Ticketline suporta layouts sem secção ZONA via totais diários da secção 1; runs com 0 linhas mas vendas detetadas ficam 'warning
 - [Retenção do import_audit das runs Ticketline](mem://features/ticketline-sync-runs-retention) — import_audit completo 7 dias, depois resumo compacto via cron ticketline-sync-runs-retention (#204)
 - [Ticketline sync — conta única e cache de sessão](mem://features/ticketline-sync-single-account) — Modelo de credenciais único (ticketline_master), 1 login Devise por corrida, cron 22:59 UTC funcional desde v2.6, semântica de runs html_response
-- [features/tickets-v2-migration](mem://features/tickets-v2-migration) — 
+- [Tickets V2 — Migração tipo como container](mem://features/tickets-v2-migration) — Migração em coexistência (Fase 2 parcial); lição do drift Test↔Live que partiu o Publish a 2026-05-09
 - [Cachê no card de Custos (turnê e simples)](mem://features/tour-cache-in-cost-card) — Regra #259 — o cachê calculado não soma ao custo quando as linhas do módulo de cachê já estão no BP considerado; função única cacheImpactOnTopOfCost
 - [Retenção de identificadores de tráfego (180 dias)](mem://features/traffic-events-retention) — anonymize_traffic_events + cron traffic-events-anonymize anulam IP/UA/fbc/fbp/gclid após 180 dias sem apagar linhas (#75, D-ERP115)
 - [Anexos de transação — ordem de eliminação (#265)](mem://features/transaction-documents) — Objeto do bucket transaction-documents só sai depois da linha e quando nenhuma linha o referencia; helper único removeTransactionDocumentObjects; DELETE sempre com .select
