@@ -10,6 +10,9 @@ import {
 } from "@/lib/event-ab-calc";
 import { useEventAttendance } from "@/hooks/useEventAttendance";
 
+// #269 — defaults estáveis: `= []` cria um array novo a cada desenho e reabre useMemo/efeitos.
+const EMPTY_ARR_STABLE: any[] = [];
+
 export interface ABScenarioParticipants {
   /** map zone_label (lowercase) → participantes */
   real: Record<string, number>;
@@ -45,7 +48,7 @@ export function useEventABScenarios(
   eventId: string | undefined,
   participants: ABScenarioParticipants,
 ): UseEventABResult {
-  const { data: zones = [] } = useQuery({
+  const { data: zones = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["ab_zones_simulator", eventId],
     queryFn: async () => {
       const { data, error } = await supabase

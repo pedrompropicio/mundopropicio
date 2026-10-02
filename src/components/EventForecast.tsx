@@ -92,6 +92,10 @@ import { useCompany } from "@/hooks/useCompany";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
 
+// #269 — defaults estáveis: `= []` cria um array novo a cada desenho e reabre useMemo/efeitos.
+const EMPTY_ARR_STABLE: any[] = [];
+const EMPTY_OBJ_STABLE: Record<string, any> = {};
+
 
 /**
  * Returns the subset of forecast IDs that are eligible to be auto-promoted to
@@ -109,7 +113,7 @@ function pickFormalidadePromotableIds(items: any[]): string[] {
 }
 
 function TransactionAttachmentButton({ transactionId, onClick }: { transactionId: string; onClick: () => void }) {
-  const { data: docs = [] } = useQuery({
+  const { data: docs = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["transaction_documents_summary", transactionId],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
@@ -353,7 +357,7 @@ const descRef = useRef<HTMLInputElement>(null);
     }
   }, [addingType, editingId]);
 
-  const { data: categories = [] } = useQuery({
+  const { data: categories = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["account_categories"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -436,7 +440,7 @@ const descRef = useRef<HTMLInputElement>(null);
     return Array.from(new Set(ids));
   }, [eventId, childEventIds, includeSubsInBP]);
 
-  const { data: forecastsRaw = [], isLoading } = useQuery({
+  const { data: forecastsRaw = EMPTY_ARR_STABLE, isLoading } = useQuery({
     queryKey: ["event_forecasts", eventId, forecastEventIds.join(","), includeSubsInBP, selectedVersionId ?? "active"],
     queryFn: async () => {
       let query = supabase
@@ -456,7 +460,7 @@ const descRef = useRef<HTMLInputElement>(null);
 
   // Overhead via Master: quando este evento é um Split, busca os overheads do Master e
   // adiciona uma fatia virtual (÷N splits) para esta cidade. Read-only, badge "via Master".
-  const { data: masterOverheadSlice = [] } = useQuery({
+  const { data: masterOverheadSlice = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["bp_overhead_via_master", parentEventId, eventId],
     queryFn: async () => {
       if (!parentEventId) return [] as any[];
@@ -494,7 +498,7 @@ const descRef = useRef<HTMLInputElement>(null);
 
   // Fetch event partners (sócios) — for child events, fetch from parent
   const partnersSourceId = parentEventId || eventId;
-  const { data: eventPartners = [] } = useQuery({
+  const { data: eventPartners = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event_partners_for_bp", partnersSourceId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -525,7 +529,7 @@ const descRef = useRef<HTMLInputElement>(null);
   const houseLabel = useEventHouseLabel(eventId);
 
   // Fetch forecast-partner assignments
-  const { data: forecastPartners = [] } = useQuery({
+  const { data: forecastPartners = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["forecast_partners", eventId],
     queryFn: async () => {
       const forecastIds = forecasts.map((f) => f.id);
@@ -541,7 +545,7 @@ const descRef = useRef<HTMLInputElement>(null);
   });
 
   // Fetch adopted sub-event forecasts (linked via master_forecast_id)
-  const { data: adoptedForecasts = [] } = useQuery({
+  const { data: adoptedForecasts = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["adopted_forecasts", eventId, childEventIds],
     queryFn: async () => {
       if (!childEventIds || childEventIds.length === 0) return [] as any[];
@@ -579,7 +583,7 @@ const descRef = useRef<HTMLInputElement>(null);
     return ids;
   }, [eventId, childEventIds]);
 
-  const { data: transactions = [] } = useQuery({
+  const { data: transactions = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event_transactions_actual", eventId, childEventIds],
     queryFn: async () => {
       // Fetch transactions for the event and child events
@@ -642,7 +646,7 @@ const descRef = useRef<HTMLInputElement>(null);
     () => (transactions ?? []).map((t: any) => t.id).filter(Boolean) as string[],
     [transactions],
   );
-  const { data: nativeDocCountByTx = {} } = useQuery({
+  const { data: nativeDocCountByTx = EMPTY_OBJ_STABLE } = useQuery({
     queryKey: ["bp_native_doc_counts", eventId, transactionIdsForDocs.sort().join(",")],
     queryFn: async () => {
       if (transactionIdsForDocs.length === 0) return {} as Record<string, number>;
@@ -674,7 +678,7 @@ const descRef = useRef<HTMLInputElement>(null);
     }
     return ids;
   }, [ticketEventIds, parentEventId]);
-  const { data: ticketZones = [] } = useQuery({
+  const { data: ticketZones = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event_ticket_zones", eventId, childEventIds],
     queryFn: async () => {
       const { data, error } = await supabase.from("event_ticket_zones").select("id").in("event_id", ticketEventIds);
@@ -683,7 +687,7 @@ const descRef = useRef<HTMLInputElement>(null);
     },
   });
 
-  const { data: ticketLots = [] } = useQuery({
+  const { data: ticketLots = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event_ticket_lots_for_pl", eventId],
     queryFn: async () => {
       const zoneIds = ticketZones.map((z) => z.id);
@@ -696,7 +700,7 @@ const descRef = useRef<HTMLInputElement>(null);
   });
 
   // Fetch ticket sales for actual revenue
-  const { data: ticketSales = [] } = useQuery({
+  const { data: ticketSales = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event_ticket_sales_for_pl", eventId, childEventIds],
     queryFn: async () => {
       const lotIds = ticketLots.map((l) => l.id);
@@ -715,7 +719,7 @@ const descRef = useRef<HTMLInputElement>(null);
   });
 
   // Fetch cache configs for this event and its child events (for consolidated BP)
-  const { data: cacheConfigs = [] } = useQuery({
+  const { data: cacheConfigs = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event_cache_configs", cacheEventIds.join(",")],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -729,7 +733,7 @@ const descRef = useRef<HTMLInputElement>(null);
   });
 
   const cacheConfigIds = cacheConfigs.map((c) => c.id);
-  const { data: cacheDeductions = [] } = useQuery({
+  const { data: cacheDeductions = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event_cache_deductions", cacheConfigIds.join(",")],
     queryFn: async () => {
       if (cacheConfigIds.length === 0) return [];
@@ -747,7 +751,7 @@ const descRef = useRef<HTMLInputElement>(null);
   // Excludes is_overhead=true: overheads have their own dedicated slicing via
   // masterOverheadSlice (_overhead_via_master). Including them here would
   // duplicate the line in the split BP (one as _prorated, one as via Master).
-  const { data: parentForecasts = [] } = useQuery({
+  const { data: parentForecasts = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["parent_event_forecasts", parentEventId],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
@@ -770,7 +774,7 @@ const descRef = useRef<HTMLInputElement>(null);
     [parentForecasts]
   );
 
-  const { data: parentForecastPartners = [] } = useQuery({
+  const { data: parentForecastPartners = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["parent_forecast_partners_for_bp", parentEventId, parentForecastIds.join(",")],
     queryFn: async () => {
       if (parentForecastIds.length === 0) return [];
@@ -795,7 +799,7 @@ const descRef = useRef<HTMLInputElement>(null);
   }, [forecastPartners, parentForecastPartners]);
 
   // Fetch sibling sub-events for proration + tour cache sync
-  const { data: siblingEvents = [] } = useQuery({
+  const { data: siblingEvents = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["sibling_events", parentEventId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -1140,7 +1144,7 @@ const descRef = useRef<HTMLInputElement>(null);
   });
 
   // Fetch sub-event names for distribute feature (only on master)
-  const { data: subEventNames = [] } = useQuery({
+  const { data: subEventNames = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["sub_event_names_for_distribute", childEventIds],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -3528,7 +3532,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   });
 
   // (g6) Nome do fechamento a que a linha é devolvida (custos internos da sociedade).
-  const { data: addbackSettlements = [] } = useEventSettlementOptions(
+  const { data: addbackSettlements = EMPTY_ARR_STABLE } = useEventSettlementOptions(
     item.addback_settlement_id ? item.event_id ?? eventId ?? null : null
   );
   const addbackSettlementName =
@@ -3601,7 +3605,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     [paidTransactions],
   );
 
-  const { data: auditLogs = [] } = useQuery({
+  const { data: auditLogs = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["forecast_audit_log", item.id],
     queryFn: async () => {
       const { data, error } = await supabase

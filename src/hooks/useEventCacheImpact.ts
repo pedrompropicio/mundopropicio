@@ -5,6 +5,9 @@ import { useRealCacheCalculation } from "@/hooks/useRealCacheCalculation";
 import { getCacheEffectiveAmount } from "@/lib/cache-pl-helper";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
+// #269 — defaults estáveis: `= []` cria um array novo a cada desenho e reabre useMemo/efeitos.
+const EMPTY_ARR_STABLE: any[] = [];
+
 /**
  * Calcula o impacto do cachê (calculado/efetivo) nos Cards de Despesas do evento.
  *
@@ -33,7 +36,7 @@ export function useEventCacheImpact(params: {
 
   // 1) Buscar configs do evento "raiz" (em turnês os configs vivem no Master)
   const configsEventId = eventId;
-  const { data: cacheConfigs = [] } = useQuery({
+  const { data: cacheConfigs = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event_cache_configs_impact", configsEventId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -48,7 +51,7 @@ export function useEventCacheImpact(params: {
 
   const configIds = cacheConfigs.map((c: any) => c.id);
 
-  const { data: deductions = [] } = useQuery({
+  const { data: deductions = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event_cache_deductions_impact", configIds.join(",")],
     queryFn: async () => {
       if (configIds.length === 0) return [];
@@ -62,7 +65,7 @@ export function useEventCacheImpact(params: {
     enabled: enabled && configIds.length > 0,
   });
 
-  const { data: tiers = [] } = useQuery({
+  const { data: tiers = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event_cache_tiers_impact", configIds.join(",")],
     queryFn: async () => {
       if (configIds.length === 0) return [];
@@ -77,7 +80,7 @@ export function useEventCacheImpact(params: {
     enabled: enabled && configIds.length > 0,
   });
 
-  const { data: categories = [] } = useQuery({
+  const { data: categories = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["account_categories_impact"],
     queryFn: async () => {
       const { data, error: qErr1 } = await supabase
@@ -90,7 +93,7 @@ export function useEventCacheImpact(params: {
     enabled: enabled && configIds.length > 0,
   });
 
-  const { data: citySettlements = [] } = useQuery({
+  const { data: citySettlements = EMPTY_ARR_STABLE } = useQuery({
     queryKey: [
       "event_cache_city_settlements_impact",
       configIds.join(","),

@@ -78,6 +78,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
+// #269 — defaults estáveis: `= []` cria um array novo a cada desenho e reabre useMemo/efeitos.
+const EMPTY_ARR_STABLE: any[] = [];
+
 /** Placeholder estável (evita novo objeto por render nas deps do card). */
 const EMPTY_TICKET_SALES = { net: 0, gross: 0 };
 
@@ -239,7 +242,7 @@ export default function EventDetail() {
   const isMultiEvent = eventType === "multi_day" || eventType === "master";
 
   // Fetch sub-events for multi-day
-  const { data: subEvents = [] } = useQuery({
+  const { data: subEvents = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["sub_events", id],
     queryFn: async () => {
       const { data, error } = await (supabase
@@ -254,7 +257,7 @@ export default function EventDetail() {
   });
 
   // Fetch festival dates
-  const { data: festivalDates = [] } = useQuery({
+  const { data: festivalDates = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["festival_dates", id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -270,7 +273,7 @@ export default function EventDetail() {
 
   // Fetch sessions for the active event (or sub-event)
   const activeEventId = selectedSubEvent || id!;
-  const { data: eventSessions = [] } = useQuery({
+  const { data: eventSessions = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event_sessions", activeEventId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -321,7 +324,7 @@ export default function EventDetail() {
   const houseLabel = useEventHouseLabel(id);
   // Mesmo critério de IVA dos cartões financeiros (partilhado com o Fecho).
   const costBasis = useEventCostBasis(id!, event?.partner_calc_basis);
-  const { data: orderingPartners = [] } = useQuery({
+  const { data: orderingPartners = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event-ordering-partners", id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -338,7 +341,7 @@ export default function EventDetail() {
     },
     enabled: !!id,
   });
-  const { data: orderingForecasts = [] } = useQuery({
+  const { data: orderingForecasts = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event-ordering-forecasts", id],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
@@ -353,7 +356,7 @@ export default function EventDetail() {
     enabled: !!id,
   });
 
-  const { data: eventTransactions = [] } = useQuery({
+  const { data: eventTransactions = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event_transactions", id, selectedSubEvent, subEvents.map((s: any) => s.id).join(",")],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
