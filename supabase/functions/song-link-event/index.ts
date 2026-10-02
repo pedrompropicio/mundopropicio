@@ -15,6 +15,7 @@
 // passados às APIs, nunca gravados).
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { lookupIpGeo, type Geo } from "../_shared/geo.ts";
 
 const ALLOWED_ORIGINS = new Set<string>([
   "https://www.mundopropicio.com",
@@ -83,6 +84,22 @@ async function getSecret(name: string): Promise<string | null> {
   } catch { /* sem secret */ }
   secretCache.set(name, val);
   return val;
+}
+
+// D-ERP159: geo por IP (ipinfo) quando os cabeçalhos não trazem país.
+// Cache em memória da instância por chave de hash (nunca o IP) durante 24 h.
+const GEO_TTL_MS = 24 * 60 * 60 * 1000;
+const geoCache = new Map<string, { at: number; geo: Geo }>();
+async function geoFor(key: string, ip: string): Promise<Geo> {
+  const now = Date.now();
+  const hit = geoCache.get(key);
+  if (hit && now - hit.at < GEO_TTL_MS) return hit.geo;
+  const geo = await lookupIpGeo(ip, { timeoutMs: 3000, tag: "song-link-event" });
+  geoCache.set(key, { at: now, geo });
+  if (geoCache.size > 20000) {
+    for (const [k, v] of geoCache) if (now - v.at >= GEO_TTL_MS) geoCache.delete(k);
+  }
+  return geo;
 }
 
 // Limite em memória da instância.
@@ -158,9 +175,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const ua = req.headers.get("user-agent") ?? "";
   const { device, os, in_app_browser } = parseUA(ua);
-  const country = s(req.headers.get("cf-ipcountry") ?? req.headers.get("x-vercel-ip-country") ?? req.headers.get("x-country"), 8);
-  const region = s(req.headers.get("cf-region") ?? req.headers.get("x-vercel-ip-country-region"), 80);
-  const city = s(req.headers.get("cf-ipcity") ?? req.headers.get("x-vercel-ip-city"), 120);
+  const hdrCountry = s(req.headers.get("cf-ipcountry") ?? req.headers.get("x-vercel-ip-country") ?? req.headers.get("x-country"), 8);
+  const hdrRegion = s(req.headers.get("cf-region") ?? req.headers.get("x-vercel-ip-country-region"), 80);
+  const hdrCity = s(req.headers.get("cf-ipcity") ?? req.headers.get("x-vercel-ip-city"), 120);
   const eventId = s(body?.event_id, 120);
   const pageUrl = s(body?.page_url, 2000);
   const destination = s(body?.destination, 60);
@@ -168,6 +185,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const ttTest = typeof body?.tiktok_test_event_code === "string" && TEST_CODE_RE.test(body.tiktok_test_event_code) ? body.tiktok_test_event_code : null;
 
   const work = (async () => {
+    // Geo: cabeçalhos primeiro; senão ipinfo (3 s, falha → null). Nunca atrasa a resposta.
+    let country = hdrCountry, region = hdrRegion, city = hdrCity;
+    if (!country && ip) {
+      try {
+        const g = await geoFor(rlKey, ip);
+        country = s(g.country, 8); region = s(g.region, 80); city = s(g.city, 120);
+      } catch { /* fica null */ }
+    }
     // CAPI
     let capi_status = "sem_pixel";
     if (link.meta_pixel_id) {

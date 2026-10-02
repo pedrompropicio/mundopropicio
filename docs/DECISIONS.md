@@ -4668,3 +4668,13 @@ Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_a
 
 **Estado:** vigente.
 
+
+## D-ERP159 — Smart links: país/região/cidade resolvidos pelo IP no ipinfo (02/10/2026)
+
+**Contexto.** `song_link_events` tinha 13.840 eventos desde 26/09 sem country/region/city: `song-link-event` lia cabeçalhos `cf-ipcountry`/`x-vercel-ip-*` que não chegam (chamada directa do browser, sem proxy). O pedido referia "D-ERP156", mas esse número já é do camarim; usa-se o seguinte livre.
+
+**Decisão.** Resolução por IP extraída de `geo-lookup` para `supabase/functions/_shared/geo.ts` (ipinfo.io, `IPINFO_TOKEN` por Deno.env com fallback `get_vault_secret`, filtro de IP privado/inválido); `geo-lookup` usa-o sem mudar a resposta. `song-link-event`: cabeçalhos primeiro; sem país, ipinfo no trabalho em segundo plano antes do insert, timeout 3 s, falha → null, nunca falha o pedido. Cache em memória da instância por ip_hash (ou hash local sem sal) durante 24 h. O IP continua a não ser guardado. country = ISO-2, region e city = nomes, como o ipinfo devolve.
+
+**Consequência.** ~1.100–1.900 IPs distintos/dia → no máximo ~2.000 chamadas/dia ao ipinfo (menos com cache quente; mais se houver várias instâncias frias). Eventos antigos ficam sem geo (sem backfill: o IP não foi guardado). Alterar `_shared/geo.ts` implica re-deploy das duas funções.
+
+**Estado:** vigente.
