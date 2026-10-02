@@ -1,3 +1,8 @@
+---
+name: A&B Module v2 — Dual Mode
+description: A&B com dois modos independentes por Bebidas/Alimentos: terceirização (quota fee + %) ou exploração própria
+type: feature
+---
 # A&B Module v2 — Dual Mode (Estado Final)
 
 > **Ficheiro de memória Lovable** — gerado após implementação e revisão.

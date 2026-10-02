@@ -1,3 +1,8 @@
+---
+name: Guia de Teste — A&B Module v2
+description: Guia de teste do A&B dual mode: colunas de event_ab_config da migration 20260505162358 e passos funcionais
+type: feature
+---
 # Guia de Teste — A&B Module v2 (Dual Mode)
 
 > **Contexto:** Implementação do suporte a dois modos de operação de A&B (Alimentos & Bebidas)

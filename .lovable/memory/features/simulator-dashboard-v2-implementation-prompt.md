@@ -1,3 +1,8 @@
+---
+name: Simulador — Dashboard v2: prompt de implementação
+description: Decisões finais pós-mockup: dark só no wrapper (data-theme=financial), FinancialTable única, donut
+type: feature
+---
 # Simulador — Dashboard Financeiro v2: Prompt de Implementação para o Lovable
 
 > **Estado:** Mockup aprovado pelo utilizador em 2026-05-05.
