@@ -9,6 +9,8 @@
 //
 // verify_jwt = false (config.toml).
 
+import { isPrivateOrInvalid, lookupIpGeo } from "../_shared/geo.ts";
+
 const ALLOWED_ORIGINS = new Set<string>([
   "https://www.mundopropicio.com",
   "https://mundopropicio.com",
@@ -69,69 +71,6 @@ function extractIp(req: Request): string | null {
   return null;
 }
 
-function isPrivateOrInvalid(ip: string): boolean {
-  if (!ip) return true;
-  // IPv6 loopback / unique local
-  if (ip === "::1") return true;
-  const low = ip.toLowerCase();
-  if (low.startsWith("fc") || low.startsWith("fd")) return true; // fc00::/7
-  // IPv4
-  const m = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (m) {
-    const o = m.slice(1, 5).map(Number);
-    if (o.some((n) => n < 0 || n > 255)) return true;
-    if (o[0] === 10) return true;
-    if (o[0] === 127) return true;
-    if (o[0] === 192 && o[1] === 168) return true;
-    if (o[0] === 172 && o[1] >= 16 && o[1] <= 31) return true;
-    if (o[0] === 169 && o[1] === 254) return true; // link-local
-    if (o[0] === 0) return true;
-    return false;
-  }
-  // IPv6 básico
-  if (ip.includes(":")) return false;
-  return true; // não é v4 nem v6
-}
-
-let _cachedToken: string | null = null;
-async function getIpinfoToken(): Promise<string | null> {
-  if (_cachedToken) return _cachedToken;
-  const env = Deno.env.get("IPINFO_TOKEN");
-  if (env) { _cachedToken = env; return env; }
-
-  const srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-  if (!srk || !supabaseUrl) return null;
-
-  try {
-    const r = await fetch(`${supabaseUrl}/rest/v1/rpc/get_vault_secret`, {
-      method: "POST",
-      headers: {
-        "apikey": srk,
-        "Authorization": `Bearer ${srk}`,
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      },
-      body: JSON.stringify({ _name: "IPINFO_TOKEN" }),
-    });
-    if (!r.ok) return null;
-    const raw = await r.text();
-    if (!raw) return null;
-    let parsed: any = raw;
-    try { parsed = JSON.parse(raw); } catch { /* raw */ }
-    let token: string | null = null;
-    if (Array.isArray(parsed) && parsed.length > 0) token = String(parsed[0]);
-    else if (typeof parsed === "string") token = parsed;
-    else if (parsed && typeof parsed === "object" && "get_vault_secret" in parsed) {
-      token = String((parsed as any).get_vault_secret);
-    }
-    if (token) _cachedToken = token;
-    return token;
-  } catch {
-    return null;
-  }
-}
-
 Deno.serve(async (req: Request): Promise<Response> => {
   const origin = req.headers.get("origin");
 
@@ -153,26 +92,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ ip: null, country: null, city: null, region: null }, 200, origin);
   }
 
-  const token = await getIpinfoToken();
-  if (!token) {
-    console.warn("[geo-lookup] IPINFO_TOKEN indisponível — devolve nulls");
-    return json({ ip, country: null, city: null, region: null }, 200, origin);
+  const g = await lookupIpGeo(ip, { tag: "geo-lookup" });
+  if (g.country || g.city || g.region) {
+    console.log("[geo-lookup] resolved", { country: g.country, has_city: !!g.city, has_region: !!g.region });
   }
-
-  try {
-    const r = await fetch(`https://ipinfo.io/${encodeURIComponent(ip)}/json?token=${token}`);
-    if (!r.ok) {
-      console.warn("[geo-lookup] ipinfo non-ok", r.status);
-      return json({ ip, country: null, city: null, region: null }, 200, origin);
-    }
-    const j: any = await r.json();
-    const country = typeof j?.country === "string" ? j.country : null;
-    const city = typeof j?.city === "string" ? j.city : null;
-    const region = typeof j?.region === "string" ? j.region : null;
-    console.log("[geo-lookup] resolved", { country, has_city: !!city, has_region: !!region });
-    return json({ ip, country, city, region }, 200, origin);
-  } catch (e) {
-    console.warn("[geo-lookup] fetch threw", String(e));
-    return json({ ip, country: null, city: null, region: null }, 200, origin);
-  }
+  return json({ ip, country: g.country, city: g.city, region: g.region }, 200, origin);
 });
