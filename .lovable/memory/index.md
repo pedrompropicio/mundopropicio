@@ -25,7 +25,7 @@ Uma linha por tema, por frente: pergunta → ficheiros (mem://pasta/ficheiro). S
 **ERP — camarim, cartões, sócios e fecho do evento**
 - Como se integra uma sessão de camarim? → features/camarim-integration-flow, features/camarim-integration-lock
 - Sessões de cartão? → features/card-sessions
-- Fecho do evento e acerto com sócios? → features/event-settlements, features/partner-settlement, features/settlement-participants-source-of-truth, security/partner-identity-and-settlement-visibility
+- Fecho do evento e acerto com sócios? → features/event-settlements, features/partner-settlement, security/partner-identity-and-settlement-visibility
 
 **Transversal**
 - Invariantes e vigias? → features/invariant-monitor
