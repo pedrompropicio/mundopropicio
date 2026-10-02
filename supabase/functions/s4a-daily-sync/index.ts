@@ -216,28 +216,35 @@ async function syncArtist(admin: Admin, artist: any, dryRun: boolean, triggerSou
       else {
         if (!formas.playlistOverall && pl.body?.playlistOverall !== undefined) formas.playlistOverall = shape(pl.body.playlistOverall);
         const list: any[] = (pl.body?.data ?? []).slice(0, 100);
-        const byTitle = new Map<string, any>();
+        if (!formas.playlistItem && list[0]) formas.playlistItem = shape(list[0]);
+        // D-ERP160: a playlist identifica-se pelo URI do S4A; sem URI, pelo título.
+        const byKey = new Map<string, any>();
         list.forEach((p, i) => {
           const title = String(p?.title ?? "").trim();
           if (!title) return;
+          const uriRaw = String(p?.uri ?? p?.playlistUri ?? p?.spotifyUri ?? "").trim();
+          const playlist_uri = uriRaw ? uriRaw.slice(0, 200) : null;
           const row = {
             company_id: artist.company_id, artist_id: artist.id, song_id: song.id,
-            snapshot_date: D, period_days: 28, rank: i + 1, playlist_name: title,
+            snapshot_date: D, period_days: 28, rank: i + 1, playlist_name: title, playlist_uri,
             made_by: p?.author === "Spotify" || p?.isAlgorithmic === true || p?.isAlgotorial === true ? "spotify" : "user",
             streams: Number.isFinite(Number(p?.streams)) ? Math.round(Number(p.streams)) : null,
             date_added: DATE_RE.test(String(p?.dateAdded ?? "").slice(0, 10)) ? String(p.dateAdded).slice(0, 10) : null,
             source: "s4a_api",
           };
-          const prev = byTitle.get(title);
-          if (!prev) byTitle.set(title, row);
+          const key = playlist_uri ?? `name:${title}`;
+          const prev = byKey.get(key);
+          if (!prev) byKey.set(key, row);
           else {
             const keep = (row.streams ?? 0) > (prev.streams ?? 0) ? row : prev;
             const drop = keep === row ? prev : row;
-            byTitle.set(title, keep);
-            notes.push(`"${song.title}": playlist repetida "${title}" — fica #${keep.rank} (${keep.streams}), fora #${drop.rank} (${drop.streams})`);
+            byKey.set(key, keep);
+            notes.push(`"${song.title}": playlist repetida "${title}" (${playlist_uri ?? "sem uri"}) — fica #${keep.rank} (${keep.streams}), fora #${drop.rank} (${drop.streams})`);
           }
         });
-        const rows = [...byTitle.values()];
+        const semUri = [...byKey.values()].filter((r) => !r.playlist_uri).length;
+        if (semUri) notes.push(`"${song.title}": ${semUri} playlists sem uri — chave pelo título`);
+        const rows = [...byKey.values()];
         playlistRows.push(...rows);
         const sumAll = list.reduce((s, p) => s + (Number(p?.streams) || 0), 0);
         const sumSp = rows.filter((r) => r.made_by === "spotify").reduce((s, r) => s + (r.streams ?? 0), 0);
@@ -269,7 +276,7 @@ async function syncArtist(admin: Admin, artist: any, dryRun: boolean, triggerSou
       }
       if (playlistRows.length) {
         const { error } = await admin.from("artist_song_playlist_streams")
-          .upsert(playlistRows, { onConflict: "song_id,snapshot_date,period_days,playlist_name" });
+          .upsert(playlistRows, { onConflict: "song_id,snapshot_date,period_days,playlist_key" });
         if (error) { errors++; notes.push(`gravação playlists falhou: ${error.message}`); } else written += playlistRows.length;
       }
     }
