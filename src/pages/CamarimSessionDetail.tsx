@@ -322,15 +322,16 @@ export default function CamarimSessionDetail() {
   // (Categoria contabilística é fixa — 2.6.04 Camarins, atribuída no fecho.)
 
 
-  // Acerto previsto: gasto via adiantamento - adiantamento líquido entregue
+  // Conta-corrente da administradora (D-ERP156): saldo = recebido − pago por ela
+  // (adiantamento + bolso). > 0 ela devolve; < 0 a MP paga-lhe; 0 nada.
   const settlementPreview = useMemo(() => {
     const advanceNet = totals.advances - totals.refunds;
     const spentFromAdvance = items
-      .filter((i) => i.payment_origin === "advance" && (i.status === "approved" || i.status === "integrated"))
+      .filter((i) => (i.payment_origin === "advance" || i.payment_origin === "out_of_pocket") && (i.status === "approved" || i.status === "integrated"))
       .reduce((acc, i) => acc + Number(i.total_amount ?? 0), 0);
-    const balance = +(spentFromAdvance - advanceNet).toFixed(2);
+    const balance = +(advanceNet - spentFromAdvance).toFixed(2);
     let type: "balanced" | "reinforcement" | "refund" = "balanced";
-    if (advanceNet > 0 && Math.abs(balance) >= 0.01) type = balance > 0 ? "reinforcement" : "refund";
+    if (Math.abs(balance) >= 0.01) type = balance > 0 ? "refund" : "reinforcement";
     return { advanceNet, spentFromAdvance, balance, type };
   }, [items, totals]);
 
@@ -1138,7 +1139,7 @@ export default function CamarimSessionDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Integrar sessão no sistema financeiro</AlertDialogTitle>
             <AlertDialogDescription>
-              Os {approvedItems.length} recibos aprovados vão ser <strong>agregados</strong> em transações na categoria <strong>2.6.04 — Camarins</strong> — uma por taxa de IVA (e por destino de BP, evento, origem de pagamento e conta). A administradora da sessão{administrator ? ` (${administrator.name})` : ""} fica como entidade das transações e como contraparte do acerto do adiantamento. Os recibos individuais continuam na sessão e ficam anexos às transações agregadas. Itens pagos por adiantamento ficam liquidados na caixa do camarim; recursos próprios ficam a reembolsar.
+              Os {approvedItems.length} recibos aprovados vão ser <strong>agregados</strong> em transações na categoria <strong>2.6.04 — Camarins</strong> — uma por taxa de IVA (e por destino de BP, evento, origem de pagamento e conta). A administradora da sessão{administrator ? ` (${administrator.name})` : ""} fica como entidade das transações e como contraparte do acerto do adiantamento. Os recibos individuais continuam na sessão e ficam anexos às transações agregadas. Tudo o que a administradora pagou (adiantamento ou bolso) fica pago pela conta da sessão; no fim há um único acerto pelo saldo.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -1210,7 +1211,7 @@ export default function CamarimSessionDetail() {
                       <strong className="tabular-nums">{formatCurrency(integrationPreview.byOrigin.card, session.currency)}</strong>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Reembolso ({integrationPreview.countByOrigin.out_of_pocket}): </span>
+                      <span className="text-muted-foreground">Do bolso da administradora ({integrationPreview.countByOrigin.out_of_pocket}): </span>
                       <strong className="tabular-nums">{formatCurrency(integrationPreview.byOrigin.out_of_pocket, session.currency)}</strong>
                     </div>
                   </div>
@@ -1283,30 +1284,32 @@ export default function CamarimSessionDetail() {
               </div>
             )}
 
-            {/* Acerto de adiantamento */}
-            {settlementPreview.advanceNet > 0 && (
-              <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
-                <p className="text-sm font-medium">Acerto de adiantamento</p>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>Adiantamento líquido: <strong className="tabular-nums">{formatCurrency(settlementPreview.advanceNet, session.currency)}</strong></div>
-                  <div>Gasto via adiant.: <strong className="tabular-nums">{formatCurrency(settlementPreview.spentFromAdvance, session.currency)}</strong></div>
+            {/* Conta-corrente da sessão (D-ERP156) — acerto único pelo saldo */}
+            {(settlementPreview.advanceNet > 0 || settlementPreview.spentFromAdvance > 0) && (
+              <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2" data-testid="camarim-conta-corrente">
+                <p className="text-sm font-medium">Conta-corrente da sessão{administrator ? ` — ${administrator.name}` : ""}</p>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div>Recebido: <strong className="tabular-nums">{formatCurrency(settlementPreview.advanceNet, session.currency)}</strong></div>
+                  <div>Pago por ela: <strong className="tabular-nums">{formatCurrency(settlementPreview.spentFromAdvance, session.currency)}</strong></div>
+                  <div>Saldo: <strong className="tabular-nums">{formatCurrency(settlementPreview.balance, session.currency)}</strong></div>
                 </div>
                 {settlementPreview.type === "balanced" ? (
-                  <p className="text-xs text-emerald-600">✓ Equilibrado — sem acerto necessário.</p>
+                  <p className="text-xs text-muted-foreground">Saldo zero — sem acerto.</p>
                 ) : settlementPreview.type === "reinforcement" ? (
                   <p className="text-xs text-destructive">
-                    Falta pagar à equipa: <strong>{formatCurrency(Math.abs(settlementPreview.balance), session.currency)}</strong> — será criada transação de despesa <em>aprovada</em>.
+                    A MP paga-lhe <strong>{formatCurrency(Math.abs(settlementPreview.balance), session.currency)}</strong> — um único pagamento, que fica por pagar (lista de pagamentos ou banco).
                   </p>
                 ) : (
-                  <p className="text-xs text-emerald-600">
-                    Sobra a devolver: <strong>{formatCurrency(Math.abs(settlementPreview.balance), session.currency)}</strong> — será criada transação de receita <em>aprovada</em>.
+                  <p className="text-xs text-foreground">
+                    Ela devolve <strong>{formatCurrency(Math.abs(settlementPreview.balance), session.currency)}</strong> — um único recebimento, que fica por receber.
                   </p>
                 )}
+                <p className="text-[11px] text-muted-foreground">As despesas ficam pagas pela conta da sessão; não há reembolsos individuais.</p>
                 {settlementPreview.type !== "balanced" && (
                   <div className="space-y-1">
-                    <Label className="text-xs">Conta para o acerto (opcional — usa a do adiantamento se vazio)</Label>
+                    <Label className="text-xs">Conta do banco para o acerto (opcional — escolhe-se ao pagar se vazio)</Label>
                     <Select value={settlementAccountId} onValueChange={setSettlementAccountId}>
-                      <SelectTrigger className="h-8"><SelectValue placeholder="Mesma do adiantamento" /></SelectTrigger>
+                      <SelectTrigger className="h-8"><SelectValue placeholder="Mesma do adiantamento / escolher depois" /></SelectTrigger>
                       <SelectContent>
                         {accounts.map((a) => (
                           <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>

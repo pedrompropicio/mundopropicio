@@ -499,8 +499,18 @@ Deno.serve(async (req) => {
           continue;
         }
       } else if (it.payment_origin === "out_of_pocket") {
-        buyerId = it.buyer_profile_id ?? null;
-        // accountId stays null — reimbursements are NOT linked to a financial account
+        // D-ERP156: o que a administradora pagou do bolso é CRÉDITO na conta-corrente
+        // da sessão — a despesa nasce paga pela conta da sessão (como o adiantamento)
+        // e o acerto único no fecho salda a diferença. Deixa de haver reembolso por
+        // despesa. buyer_profile_id está vazio nos itens (não há como identificar
+        // outra pessoa) — trata-se só a administradora (fund_holder).
+        accountId = camarimAccountId;
+        if (!accountId) {
+          preflightErrors.push(
+            `Item ${it.id}: pago pela administradora, mas não foi possível resolver a conta-corrente da sessão de camarim (financial_accounts type='camarim_session'). Verifica a sessão antes de integrar.`,
+          );
+          continue;
+        }
       }
 
       resolved.push({
@@ -533,9 +543,10 @@ Deno.serve(async (req) => {
       [
         r.eventId,
         (r.raw.bp_scope as string | null) ?? "",
-        r.paymentOrigin,
+        // D-ERP156: adiantamento e bolso da administradora são a MESMA conta-corrente
+        // (ambos pagos pela conta da sessão) → agregam juntos por IVA.
+        r.paymentOrigin === "card" ? "card" : "holder",
         r.accountId ?? "",
-        r.buyerId ?? "",
         r.ivaRate,
       ].join("|");
 
@@ -553,6 +564,10 @@ Deno.serve(async (req) => {
 
     const sessionDateFallback = new Date(session.closed_at ?? session.opened_at)
       .toISOString().slice(0, 10);
+
+    // Soma exata do que foi pago pela conta-corrente da sessão (bruto das despesas
+    // da administradora) — base do saldo único do acerto (D-ERP156).
+    let holderPaidTotal = 0;
 
     for (const [key, groupItems] of groups.entries()) {
       const first = groupItems[0];
@@ -582,12 +597,11 @@ Deno.serve(async (req) => {
       // Build legible description and analytical specification
       const itemCount = groupItems.length;
       const originLabel =
-        first.paymentOrigin === "advance" ? "Adiantamento"
-        : first.paymentOrigin === "card" ? "Cartão"
-        : "Reembolso";
+        first.paymentOrigin === "card" ? "Cartão"
+        : "Conta-corrente da sessão (administradora)";
 
       const receiptWord = itemCount === 1 ? "recibo" : "recibos";
-      const originSuffix = first.paymentOrigin === "advance" ? "" : ` · ${originLabel}`;
+      const originSuffix = first.paymentOrigin === "card" ? ` · ${originLabel}` : "";
       const description =
         `Camarim — ${session.title} (${itemCount} ${receiptWord}, IVA ${first.ivaRate}%)${originSuffix}`
           .slice(0, 250);
@@ -630,9 +644,13 @@ Deno.serve(async (req) => {
         `IVA: ${first.ivaRate}%`,
       ].filter(Boolean).join("\n");
 
-      const isReimbursement = first.paymentOrigin === "out_of_pocket";
-      const txStatus: "paid" | "approved" =
-        first.paymentOrigin === "out_of_pocket" ? "approved" : "paid";
+      // D-ERP156: nenhuma despesa do camarim é reembolso individual. Cartão mantém-se
+      // como antes (nasce paga). Itens da administradora (adiantamento ou bolso)
+      // nascem approved e são pagos por transaction_payments na conta da sessão,
+      // um pagamento por recibo, na data do recibo (D-ERP86: paid_amount/status
+      // derivados pelo trigger, nunca escritos à mão).
+      const isCard = first.paymentOrigin === "card";
+      const txStatus: "paid" | "approved" = isCard ? "paid" : "approved";
 
       const ivaNote = ivaDriftCents > 1
         ? `\nIVA real do recibo: ${realIvaSum.toFixed(2)}€ · IVA recalculado a ${snappedRate}%: ${ivaAmount.toFixed(2)}€ · desvio ${(ivaDriftCents/100).toFixed(2)}€ (taxas mistas no recibo)`
@@ -652,8 +670,8 @@ Deno.serve(async (req) => {
         status: txStatus,
         invoice_ref: null,
         currency: session.currency ?? "EUR",
-        is_reimbursement: isReimbursement,
-        reimbursement_to: isReimbursement ? first.buyerId : null,
+        is_reimbursement: false,
+        reimbursement_to: null,
         company_id: sessionCompanyId, // service-role: current_company_id() returns NULL
         forecast_id: sessionForecastId, // N:1 — todas as consolidadas da sessão na mesma linha
       };
@@ -664,6 +682,7 @@ Deno.serve(async (req) => {
         txPayload.account_id = first.accountId;
       } else {
         txPayload.paid_amount = 0;
+        txPayload.account_id = first.accountId; // conta-corrente da sessão
       }
 
       const { data: newTx, error: txErr } = await adminClient
@@ -678,6 +697,29 @@ Deno.serve(async (req) => {
       }
 
       const newTxId = (newTx as any).id as string;
+
+      if (!isCard) {
+        // Um pagamento pelo bruto, na data da transação (= data do recibo mais recente
+        // do grupo). Um pagamento por recibo foi descartado: datas de recibo erradas
+        // (ex.: 2023 por engano de leitura) caíam antes do corte initial_balance_date
+        // da conta e deixavam a conta da sessão fora de zero.
+        const gross = +(baseAmount * (1 + snappedRate / 100)).toFixed(2);
+        const acc = gross;
+        const payRows = [{
+          transaction_id: newTxId,
+          amount: gross,
+          payment_date: txDate,
+          account_id: first.accountId,
+          payment_method: "transfer",
+          status: "paid",
+          created_by: caller.email ?? "sistema",
+          notes: `Camarim ${sessionOperationKey} · pago pela conta-corrente da sessão`,
+          company_id: sessionCompanyId,
+        }];
+        const { error: payErr } = await adminClient.from("transaction_payments").insert(payRows);
+        if (payErr) errors.push(`Grupo [${key}] pagamento na conta da sessão: ${payErr.message}`);
+        else holderPaidTotal = +(holderPaidTotal + acc).toFixed(2);
+      }
 
       // Link every item in the group → consolidated transaction
       const itemIds = groupItems.map((g) => g.raw.id as string);
@@ -781,21 +823,26 @@ Deno.serve(async (req) => {
       .reduce((acc: number, m: any) => acc + Number(m.amount ?? 0), 0);
     const advanceNet = advanceTotal - refundTotal;
 
-    const spentFromAdvance = resolved
-      .filter((r) => r.paymentOrigin === "advance")
-      .reduce((acc, r) => acc + r.total, 0);
-
-    const balance = +(spentFromAdvance - advanceNet).toFixed(2);
+    // D-ERP156 — saldo único da conta-corrente da administradora:
+    //   saldo = recebido (adiantamentos + reforços − devoluções) − pago por ela.
+    //   > 0 → ela devolve (refund); < 0 → a MP paga-lhe (reinforcement); 0 → nada.
+    const spentFromAdvance = holderPaidTotal; // nome mantido no resumo: tudo o que ela pagou
+    const balance = +(advanceNet - holderPaidTotal).toFixed(2);
     let settlementType: "refund" | "reinforcement" | "balanced" = "balanced";
     let settlementTxId: string | null = null;
     let settlementCounterTxId: string | null = null;
 
-    const settlementBankAccountId = body.settlement_account_id ?? advanceAccountId;
+    // Conta do banco do acerto: a escolhida no fecho, senão a de origem do adiantamento,
+    // senão nenhuma (escolhe-se ao pagar/receber, via lista de pagamentos ou banco).
+    const settlementBankAccountId = body.settlement_account_id ?? advanceAccountId ?? null;
     const SETTLEMENT_TOLERANCE = 0.01;
 
-    if (advanceNet > 0 && Math.abs(balance) >= SETTLEMENT_TOLERANCE && settlementBankAccountId) {
-      // Categoria de transferência interna 10.3 — company-scoped (mesma armadilha
-      // multi-tenant da 2.6.04: 1 linha por código POR EMPRESA).
+    // Nome da administradora para a descrição do acerto.
+    const { data: holderSup } = await adminClient
+      .from("suppliers").select("name").eq("id", administratorSupplierId).maybeSingle();
+    const holderName = ((holderSup as any)?.name as string | null) ?? "administradora";
+
+    if (Math.abs(balance) >= SETTLEMENT_TOLERANCE) {
       const { data: transferCat, error: transferCatErr } = await adminClient
         .from("account_categories")
         .select("id")
@@ -806,23 +853,26 @@ Deno.serve(async (req) => {
 
       if (transferCatErr || !transferCat?.id) {
         errors.push(
-          "Acerto do adiantamento não criado: categoria 10.3 (transferência interna) não encontrada/ativa no plano de contas desta empresa. Avisa um administrador.",
+          "Acerto da sessão não criado: categoria 10.3 (transferência interna) não encontrada/ativa no plano de contas desta empresa. Avisa um administrador.",
         );
       } else if (!camarimAccountId) {
         errors.push(
-          "Acerto do adiantamento não criado: conta-corrente da sessão de camarim não resolvida (financial_accounts type='camarim_session').",
+          "Acerto da sessão não criado: conta-corrente da sessão de camarim não resolvida (financial_accounts type='camarim_session').",
         );
       } else {
         const transferCategoryId = transferCat.id as string;
-        const settlementDate = new Date().toISOString().slice(0, 10);
+        // Data da integração (Lisboa) — as duas pernas do par 10.3 com a MESMA data.
+        const settlementDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Lisbon" }).format(new Date());
         const absBalance = +Math.abs(balance).toFixed(2);
-        const isRefund = balance < 0;
-        settlementType = isRefund ? "refund" : "reinforcement";
+        const sheReturns = balance > 0;
+        settlementType = sheReturns ? "refund" : "reinforcement";
 
-        const label = isRefund ? "Devolução" : "Reforço";
-        const spec = isRefund
-          ? `Acerto automático do adiantamento da sessão ${session.title} (devolução de caixa em mão pela administradora) — transferência interna`
-          : `Acerto automático do adiantamento da sessão ${session.title} (reforço à administradora) — transferência interna`;
+        const bankDescription = sheReturns
+          ? `Camarim — Acerto da sessão: devolução de ${holderName} · ${session.title}`
+          : `Camarim — Acerto da sessão a favor de ${holderName} · ${session.title}`;
+        const spec = sheReturns
+          ? `Acerto único da conta-corrente da sessão ${session.title}: recebido ${advanceNet.toFixed(2)}€ − pago ${holderPaidTotal.toFixed(2)}€ = ${absBalance.toFixed(2)}€ a devolver por ${holderName} — transferência interna`
+          : `Acerto único da conta-corrente da sessão ${session.title}: pago ${holderPaidTotal.toFixed(2)}€ − recebido ${advanceNet.toFixed(2)}€ = ${absBalance.toFixed(2)}€ a pagar a ${holderName} — transferência interna`;
 
         const baseLeg = {
           iva_rate: 0,
@@ -836,36 +886,50 @@ Deno.serve(async (req) => {
           currency: session.currency ?? "EUR",
           paid_amount: 0,
           amount: absBalance,
+          is_reimbursement: false,
           company_id: sessionCompanyId,
         };
 
-        // Perna bancária (settlement_transaction_id aponta para esta)
-        const bankLeg = {
-          ...baseLeg,
-          description: `Camarim — ${label} (acerto adiantamento) · ${session.title}`,
-          type: isRefund ? "income" : "expense",
-          account_id: settlementBankAccountId,
-        };
-        // Perna da conta camarim (contrapartida — zera a conta-corrente)
+        // Perna da conta da sessão — nasce liquidada (zera a conta). Gravada PRIMEIRO.
         const camarimLeg = {
           ...baseLeg,
-          description: `Camarim — ${label} (acerto adiantamento · conta camarim) · ${session.title}`,
-          type: isRefund ? "expense" : "income",
+          description: `${bankDescription} (conta camarim)`.slice(0, 250),
+          type: sheReturns ? "expense" : "income",
           account_id: camarimAccountId,
         };
+        // Perna do banco — fica por pagar/receber (settlement_transaction_id).
+        const bankLeg = {
+          ...baseLeg,
+          description: bankDescription.slice(0, 250),
+          type: sheReturns ? "income" : "expense",
+          account_id: settlementBankAccountId,
+        };
 
-        const { data: bankTx, error: bankErr } = await adminClient
-          .from("transactions").insert(bankLeg).select("id").single();
-        if (bankErr) {
-          errors.push(`Acerto/${settlementType} (perna bancária): ${bankErr.message}`);
+        const { data: camTx, error: camErr } = await adminClient
+          .from("transactions").insert(camarimLeg).select("id").single();
+        if (camErr) {
+          errors.push(`Acerto/${settlementType} (perna conta camarim): ${camErr.message}`);
         } else {
-          settlementTxId = (bankTx as any).id as string;
-          const { data: camTx, error: camErr } = await adminClient
-            .from("transactions").insert(camarimLeg).select("id").single();
-          if (camErr) {
-            errors.push(`Acerto/${settlementType} (perna conta camarim): ${camErr.message}`);
+          settlementCounterTxId = (camTx as any).id as string;
+          const { error: camPayErr } = await adminClient.from("transaction_payments").insert({
+            transaction_id: settlementCounterTxId,
+            amount: absBalance,
+            payment_date: settlementDate,
+            account_id: camarimAccountId,
+            payment_method: "transfer",
+            status: "paid",
+            created_by: caller.email ?? "sistema",
+            notes: `Camarim ${sessionOperationKey} · acerto (perna conta camarim)`,
+            company_id: sessionCompanyId,
+          });
+          if (camPayErr) errors.push(`Acerto (liquidação perna conta camarim): ${camPayErr.message}`);
+
+          const { data: bankTx, error: bankErr } = await adminClient
+            .from("transactions").insert(bankLeg).select("id").single();
+          if (bankErr) {
+            errors.push(`Acerto/${settlementType} (perna bancária): ${bankErr.message}`);
           } else {
-            settlementCounterTxId = (camTx as any).id as string;
+            settlementTxId = (bankTx as any).id as string;
           }
         }
       }
@@ -886,9 +950,9 @@ Deno.serve(async (req) => {
         old_value: null,
         new_value: `Sessão de camarim ${session.title} (${sessionOperationKey})${
           txId === settlementTxId
-            ? " · acerto de adiantamento (perna bancária, transferência interna 10.3)"
+            ? " · acerto da sessão (perna bancária, transferência interna 10.3)"
             : txId === settlementCounterTxId
-              ? " · acerto de adiantamento (perna conta camarim, transferência interna 10.3)"
+              ? " · acerto da sessão (perna conta camarim, transferência interna 10.3)"
               : " · agregado por taxa de IVA"
         }`,
         changed_by: caller.email ?? caller.id,
