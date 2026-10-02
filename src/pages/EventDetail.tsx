@@ -200,6 +200,17 @@ export default function EventDetail() {
   const [incomeEbitda, setIncomeEbitda] = useState<{ net: EbitdaParcels; gross: EbitdaParcels } | null>(null);
   const [expenseEbitda, setExpenseEbitda] = useState<{ net: EbitdaParcels; gross: EbitdaParcels } | null>(null);
   const [profitView, setProfitView] = useState<"result" | "ebitda">("result");
+  // #269 — só actualizar quando o conteúdo muda (evita redesenhos em ciclo).
+  const setIncomeEbitdaIfChanged = useCallback(
+    (v: { net: EbitdaParcels; gross: EbitdaParcels } | null) =>
+      setIncomeEbitda((prev) => (JSON.stringify(prev) === JSON.stringify(v) ? prev : v)),
+    [],
+  );
+  const setExpenseEbitdaIfChanged = useCallback(
+    (v: { net: EbitdaParcels; gross: EbitdaParcels } | null) =>
+      setExpenseEbitda((prev) => (JSON.stringify(prev) === JSON.stringify(v) ? prev : v)),
+    [],
+  );
 
   // Reflect tab + sub-event into the URL so they survive navigations.
   useEffect(() => {
@@ -1109,7 +1120,7 @@ export default function EventDetail() {
           onPerimeterChange={setCardIncomePerimeter}
           partnerCalcBasis={event.partner_calc_basis}
           onVatViewChange={setIncomeViewVat}
-          onEbitdaParcelsChange={setIncomeEbitda}
+          onEbitdaParcelsChange={setIncomeEbitdaIfChanged}
         />
         <EventFinancialCard
           eventId={id!}
@@ -1127,7 +1138,7 @@ export default function EventDetail() {
           cacheImpact={Number(calculatedCacheImpact || 0)}
           onPerimeterChange={setCardExpensePerimeter}
           onVatViewChange={setExpenseViewVat}
-          onEbitdaParcelsChange={setExpenseEbitda}
+          onEbitdaParcelsChange={setExpenseEbitdaIfChanged}
         />
 
 {(() => {
