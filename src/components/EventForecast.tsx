@@ -4236,11 +4236,13 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
 }
 
 function SummaryCard({ label, helpText, forecast, actual, icon, isProfit }: {
-  label: string; helpText?: string; forecast: number | null; actual: number; icon: React.ReactNode; isProfit?: boolean;
+  label: string; helpText?: string; forecast: number | null; actual: number | null; icon: React.ReactNode; isProfit?: boolean;
 }) {
   const hasForecast = forecast !== null;
-  const variance = hasForecast ? actual - (forecast as number) : 0;
-  const variancePct = hasForecast && forecast !== 0 ? (variance / Math.abs(forecast)) * 100 : 0;
+  const hasActual = actual !== null;
+  const showVariance = hasForecast && hasActual && (forecast as number) > 0;
+  const variance = showVariance ? (actual as number) - (forecast as number) : 0;
+  const variancePct = showVariance && forecast !== 0 ? (variance / Math.abs(forecast as number)) * 100 : 0;
   const isPositive = isProfit ? variance >= 0 : (label === "Despesas" ? variance <= 0 : variance >= 0);
 
   return (
@@ -4253,10 +4255,10 @@ function SummaryCard({ label, helpText, forecast, actual, icon, isProfit }: {
         </div>
         <div>
           <span className="text-muted-foreground">Real</span>
-          <p className="font-mono font-bold text-sm">{formatCurrency(actual)}</p>
+          <p className="font-mono font-bold text-sm">{hasActual ? formatCurrency(actual as number) : "—"}</p>
         </div>
       </div>
-      {hasForecast && (forecast as number) > 0 && (
+      {showVariance && (
         <div className={`text-xs font-medium ${isPositive ? "text-success" : "text-destructive"}`}>
           {variance >= 0 ? "+" : ""}{formatCurrency(variance)} ({variancePct >= 0 ? "+" : ""}{variancePct.toFixed(1)}%)
         </div>
