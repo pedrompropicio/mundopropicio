@@ -4658,3 +4658,13 @@ Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_a
 
 **Estado:** vigente.
 
+## D-ERP158 — O índice da memória é gerado, não escrito à mão (02/10/2026)
+
+**Contexto.** `.lovable/memory/index.md` era escrito à mão e listava ~40 de 176 ficheiros (faltavam, entre outros, ticket-office-reconciliation, venue-retained-door-sales, event-settlements, bol-sync, ticketline-crosscheck) e referia um ficheiro inexistente (settlement-participants-source-of-truth). Quem procurava um fluxo no índice concluía que não existia — foi assim que o fecho de bilheteira foi diagnosticado sem ler os ficheiros que o descrevem.
+
+**Decisão.** O índice é derivado do frontmatter (`name`, `description`) de `.lovable/memory/**/*.md` por `node scripts/gen-memory-index.mjs` (lógica em `scripts/memory-index-lib.mjs`), agrupado por pasta e por ordem alfabética. Só a secção "Por onde começar" (pergunta → ficheiros), entre marcadores, é escrita à mão e preservada. O teste `src/test/memory-index.test.ts` falha se um ficheiro não estiver no índice, se o índice referir um ficheiro inexistente, ou se faltar `name`/`description` — e diz qual e para correr o script. Ritual de arranque (docs/INDEX.md): nomear o ficheiro de memória lido antes de diagnosticar.
+
+**Consequência.** Ficheiro de memória novo exige correr o script. 7 ficheiros ganharam frontmatter tirado do próprio conteúdo. Issue #271 aberta (fechos de bilheteira sem vista por evento).
+
+**Estado:** vigente.
+
