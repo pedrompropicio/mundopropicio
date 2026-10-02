@@ -133,6 +133,9 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
         .filter((t: any) => t.type === "expense")
         .map((t: any) => t.id);
       if (expenseIds.length > 0) {
+        // D-ERP157: o pagamento do fecho vive em transaction_payments; apaga-o
+        // primeiro — a base recusa baixar paid_amount abaixo dos pagamentos.
+        await (supabase as any).from("transaction_payments").delete().in("transaction_id", expenseIds);
         await (supabase as any)
           .from("transactions")
           .update({ settlement_id: null, status: "pending", payment_date: null, paid_amount: 0, account_id: null })
