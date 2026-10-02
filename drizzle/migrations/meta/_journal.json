@@ -15,6 +15,13 @@
       "when": 1790964695358,
       "tag": "0001_derp160_playlist_streams_uri",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790966093421,
+      "tag": "0002_derp161_artist_ads_period_report_medicao",
+      "breakpoints": true
     }
   ]
 }
