@@ -32,6 +32,9 @@ import {
 } from "@/lib/event-contract-result";
 import { useFechoBasis } from "@/hooks/useFechoBasis";
 
+// #269 — defaults estáveis: `= []` cria um array novo a cada desenho e reabre useMemo/efeitos.
+const EMPTY_ARR_STABLE: any[] = [];
+
 export interface ContractPerimeterInput {
   /** Total do card, s/IVA. */
   net: number;
@@ -69,7 +72,7 @@ export function useEventContractResult(
 
   const basis = useFechoBasis(eventId, (event as any)?.partner_calc_basis ?? partnerCalcBasis);
 
-  const { data: events = [], isPending: eventsPending } = useQuery({
+  const { data: events = EMPTY_ARR_STABLE, isPending: eventsPending } = useQuery({
     queryKey: ["event-settlement-engine-events", eventId],
     enabled: !!eventId,
     queryFn: async () => {
@@ -88,7 +91,7 @@ export function useEventContractResult(
   );
   const idsKey = allEventIds.join(",");
 
-  const { data: transactions = [], isPending: txPending } = useQuery({
+  const { data: transactions = EMPTY_ARR_STABLE, isPending: txPending } = useQuery({
     queryKey: ["event-settlement-engine-tx", idsKey],
     enabled: allEventIds.length > 0,
     queryFn: async () => {
@@ -103,7 +106,7 @@ export function useEventContractResult(
     },
   });
 
-  const { data: forecasts = [], isPending: bpPending } = useQuery({
+  const { data: forecasts = EMPTY_ARR_STABLE, isPending: bpPending } = useQuery({
     queryKey: ["event-settlement-engine-bp", idsKey],
     enabled: allEventIds.length > 0,
     queryFn: async () => {
@@ -120,7 +123,7 @@ export function useEventContractResult(
     },
   });
 
-  const { data: ticketSales = [], isPending: tsPending } = useQuery({
+  const { data: ticketSales = EMPTY_ARR_STABLE, isPending: tsPending } = useQuery({
     queryKey: ["event-settlement-engine-tickets", idsKey],
     enabled: allEventIds.length > 0,
     queryFn: async () => {

@@ -24,6 +24,9 @@ import {
 } from "@/lib/ebitda";
 import { useEbitdaClassMap } from "@/hooks/useEbitdaClassMap";
 
+// #269 — defaults estáveis: `= []` cria um array novo a cada desenho e reabre useMemo/efeitos.
+const EMPTY_ARR_STABLE: any[] = [];
+
 
 
 export interface UseEventFinancialCardDataArgs {
@@ -113,7 +116,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
   // NOTA: o Card mostra "Pago vs Comprometido" usando paid_amount, por isso inclui "partially_paid".
   // O Fecho (isValidFechoTransaction) só aceita approved/paid. A diferença de status é intencional;
   // o que se alinha entre vistas são os flags bloqueadores, via hasResultBlockingFlags.
-  const { data: txsAll = [] } = useQuery({
+  const { data: txsAll = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["efc-tx", idsKey],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
@@ -134,7 +137,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
 
 
   // ── BP forecasts (active version) — usados em committed e forecast ──
-  const { data: forecastsAll = [] } = useQuery({
+  const { data: forecastsAll = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["efc-forecasts", idsKey, kind],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
@@ -156,7 +159,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
   const masterId = kind === "expense" ? (args.masterQuota?.masterEventId ?? null) : null;
   const masterIdsArr = masterId ? [masterId] : [];
 
-  const { data: masterTxsAll = [] } = useQuery({
+  const { data: masterTxsAll = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["efc-master-tx", masterId],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
@@ -169,7 +172,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     enabled: !!masterId,
   });
 
-  const { data: masterForecastsAll = [] } = useQuery({
+  const { data: masterForecastsAll = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["efc-master-forecasts", masterId, kind],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
@@ -211,7 +214,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     enabled: simEnabled,
   });
 
-  const { data: simInputs = [] } = useQuery({
+  const { data: simInputs = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["efc-sim-inputs", eventId],
     queryFn: async () => {
       const { data, error: qErr2 } = await supabase

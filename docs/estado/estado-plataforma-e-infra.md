@@ -1,6 +1,6 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado 2026-09-30 · Issues #213, #265, #268, #186, #202, #204, #206, #83, #57 · a-seguir #96, #61. Fechadas a 18/09: #211, #203, #15.
+Atualizado 2026-10-02 · Issues #269, #213, #265, #268, #186, #202, #204, #206, #83, #57 · a-seguir #96, #61. Fechadas a 18/09: #211, #203, #15.
 
 ## Em que pé está
 
@@ -221,8 +221,13 @@ Regras que ficaram:
 - `song_growth_summary`: notas para o leitor vs `notas_tecnicas`; dias repetidos da Soundcharts fora das séries (D-ERP136). Em Live; KPIs inalterados.
 
 ## A trabalhar agora
+- **#269 (02/10/2026)** — capa e BP do Coala lentos. Causa 1 (ciclo de redesenho capa ⇄ cards: defaults `= []` instáveis + avisos sem comparação) e causa 2 (anexos do BP pedidos um a um por linha) corrigidas em código; causa 3 (leituras em série/repetidas na receita e sintéticas) pendente de medição no Coala depois do Publish. Diagnóstico e correcções em `docs/diagnosticos/269-bp-coala-desempenho.md`.
 - **Índice da memória gerado (02/10/2026, D-ERP158)** — `.lovable/memory/index.md` regenera-se com `node scripts/gen-memory-index.mjs` (176 ficheiros); só "Por onde começar" é manual; trava em `src/test/memory-index.test.ts`. Issue #271 aberta (fechos de bilheteira por evento / vista única).
 - **#265 (30/09/2026)** — anexo perdido do bucket `transaction-documents` com linha órfã. Causa: "Excluir despesa" no cartão (`CardSessionDetail`) apagava os ficheiros antes da transação; com RLS a filtrar o DELETE (0 linhas, sem erro) ficava ficheiro perdido, linha intacta e toast falso. Correção em código: helper único `removeTransactionDocumentObjects` (`src/lib/transaction-document-storage.ts`) — objeto só sai depois da linha e se nenhuma linha o referencia; DELETE com `.select` em CardSessionDetail, BPAttachmentModal, PaymentListReceipts e TransactionDocumentsModal; `ads-invoice-apply` e `ingest-transaction-document` verificam referências antes de remover (deploy das duas edge functions pendente de autorização). Falta: RLS/policies de storage por SQL separado. Regra em `.lovable/memory/features/transaction-documents.md`.
+- **#237 (fechada a 23/09)** — a cache de empresa do storage (`cachedCompanyId` em `src/lib/storage.ts`) é limpa em `useSetActiveCompany` e no `AuthContext`; teste de regressão em `storage-multi-tenant.test.ts`. Decisão pendente do Pedro: substituir a cache de módulo por leitura do queryClient `["current-company"]`.
+- **#206 fase 2** — somas e contagens de tabelas grandes na base (RPCs), com ADR próprio. Não subir `db-max-rows`.
+- **#186** — diálogo "Rateio ou Exclusivo?" do modal Nova Transação. Correção publicada a 16/09 — falta confirmação visual do Pedro no diálogo "Custo da tour ou desta cidade?".
+- **Manual de Orientação** — próximos capítulos, um de cada vez, no formato de `rateios.md`. #194 (capítulo "Fecho do evento") aguarda 4 respostas do Pedro.
 
 ## Incidente — o ecrã de Transações ficou vazio para toda a gente (14/09/2026)
 Uma chave estrangeira nova entre `transactions` e `suppliers` deixou **duas** FKs entre o mesmo par de tabelas. O embed escrito como `suppliers(name)` passou a ser ambíguo e o PostgREST responde **HTTP 300 / PGRST201** — **recusa o pedido inteiro**, não devolve resultado parcial. O ecrã não mostrava erro nenhum: a query era desestruturada sem ler `{ error }` e a linha "Sem transações registadas." servia tanto para lista vazia como para query falhada.

@@ -137,3 +137,35 @@ soma de `ticket_sales.quantity`).
 
 1 primeiro (é o que multiplica tudo o resto e é uma correcção pequena); depois 2;
 depois 3. Medir de novo no Coala depois de 1, com o Pedro na empresa do Coala.
+
+## Correcções aplicadas (1 e 2) — 02/10/2026
+
+Nenhum valor nem critério de receita/custo mudou; só quando e quantas vezes se
+desenha e se pede.
+
+**Causa 1 — ciclo capa ⇄ cards.**
+- Defaults `= []` / `= {}` de `useQuery` trocados por constantes estáveis de módulo
+  (`EMPTY_ARR_STABLE`, `EMPTY_OBJ_STABLE`) em `useEventFinancialCardData.ts`,
+  `EventDetail.tsx`, `useEventCacheImpact.ts`, `useEventContractResult.ts`,
+  `useEventAttendance.ts`, `useEventABScenarios.ts` e `EventForecast.tsx`.
+- `EventFinancialCard.tsx`: `onPerimeterChange` e `onEbitdaParcelsChange` só são
+  chamados quando o conteúdo muda (comparação por valor com o último enviado, em ref).
+- `EventDetail.tsx`: `setIncomeEbitda`/`setExpenseEbitda` passam por setters que
+  mantêm o estado anterior quando o conteúdo é igual.
+- Prova: `src/test/event-financial-card-render-loop.test.tsx` — 1 chamada, estável
+  ao fim de 1 s, sem desenhos novos. Com o código antigo reposto à mão o mesmo teste
+  dá **411 chamadas em 0,5 s** (falha).
+
+**Causa 2 — anexos N+1.**
+- `src/hooks/useForecastAttachmentCounts.ts`: uma leitura por evento (evento +
+  sub-eventos), queryKey `["event_forecast_attachments_counts", eventId]`, mapa
+  `forecast_id → nº`. `ForecastRow` lê do mapa. A invalidação por prefixo que o
+  `BPNotesAttachmentsModal` já fazia cobre a nova chave.
+- Prova: `src/test/forecast-attachment-counts.test.tsx` — 361 linhas → 1 pedido a
+  `event_forecast_attachments`.
+
+Verificação: tsgo sem erros; vitest 768 passam, 9 falham — as mesmas 9
+pré-existentes (EventABTab, storage-multi-tenant, postgrest-embeds,
+postgrest-row-limit, forecast-boost).
+
+Causa 3 fica por tratar; medir de novo no Coala depois do Publish.

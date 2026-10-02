@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TrendingUp, TrendingDown, Settings2 } from "lucide-react";
 import { useEventFinancialCardData } from "@/hooks/useEventFinancialCardData";
 import {
@@ -142,15 +142,27 @@ export function EventFinancialCard(props: Props) {
   // Nunca propagar números antes de o critério da BD chegar (evita Lucro com critério errado).
   // O Lucro usa o PERÍMETRO em vigor neste card (totais s/IVA e c/IVA + modo) —
   // a base de IVA do Lucro é a do contrato, nunca a vista deste card (#223 correção).
+  // #269 — só avisar a página quando o CONTEÚDO muda (comparação por valor),
+  // senão um objecto novo por desenho fecha um ciclo capa ⇄ card.
+  const lastPerimeterSent = useRef<string | undefined>(undefined);
+  const lastEbitdaSent = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (shared.isLoading) return;
     const p = data.perimeter;
-    props.onPerimeterChange?.(p ? { net: p.net, gross: p.gross, mode: data.modeUsed } : null);
+    const next = p ? { net: p.net, gross: p.gross, mode: data.modeUsed } : null;
+    const key = JSON.stringify(next);
+    if (key === lastPerimeterSent.current) return;
+    lastPerimeterSent.current = key;
+    props.onPerimeterChange?.(next);
   }, [shared.isLoading, data.perimeter, data.modeUsed, props.onPerimeterChange]);
 
   useEffect(() => {
     if (shared.isLoading) return;
-    props.onEbitdaParcelsChange?.(data.ebitdaParcels ?? null);
+    const next = data.ebitdaParcels ?? null;
+    const key = JSON.stringify(next);
+    if (key === lastEbitdaSent.current) return;
+    lastEbitdaSent.current = key;
+    props.onEbitdaParcelsChange?.(next);
   }, [shared.isLoading, data.ebitdaParcels, props.onEbitdaParcelsChange]);
 
   // Nota discreta quando a vista escolhida difere da receita real.

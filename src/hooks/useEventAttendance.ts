@@ -7,6 +7,9 @@ import { selectCourtesyRows } from "@/lib/bp-formula";
 import { fetchEventRealized } from "@/lib/event-revenue-basis";
 import { useTicketlineCutoffs, keepTicketSaleRow } from "@/lib/ticketline-cutoff";
 
+// #269 — defaults estáveis: `= []` cria um array novo a cada desenho e reabre useMemo/efeitos.
+const EMPTY_ARR_STABLE: any[] = [];
+
 /**
  * Fonte canónica de "público por dia" para um evento.
  *
@@ -53,7 +56,7 @@ export function useEventAttendance(
   eventId: string | undefined,
   scenario: AttendanceScenario = "real",
 ): UseEventAttendanceResult {
-  const { data: dates = [], isLoading: loadingDates } = useQuery({
+  const { data: dates = EMPTY_ARR_STABLE, isLoading: loadingDates } = useQuery({
     queryKey: ["event_dates_attendance", eventId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -67,7 +70,7 @@ export function useEventAttendance(
     enabled: !!eventId,
   });
 
-  const { data: sessions = [] } = useQuery({
+  const { data: sessions = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event_sessions_attendance", eventId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -80,7 +83,7 @@ export function useEventAttendance(
     enabled: !!eventId,
   });
 
-  const { data: zones = [] } = useQuery({
+  const { data: zones = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event_zones_attendance", eventId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -96,7 +99,7 @@ export function useEventAttendance(
 
   const zoneIds = zones.map((z) => z.id);
 
-  const { data: lots = [] } = useQuery({
+  const { data: lots = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event_lots_attendance", eventId, zoneIds.join(",")],
     queryFn: async () => {
       if (zoneIds.length === 0) return [];
@@ -115,7 +118,7 @@ export function useEventAttendance(
   const { data: ticketlineCutoffs } = useTicketlineCutoffs(eventId ? [eventId] : []);
   const cutoffInfo = eventId ? ticketlineCutoffs?.get(eventId) : undefined;
 
-  const { data: realSales = [] } = useQuery({
+  const { data: realSales = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event_real_sales_attendance", eventId, zoneIds.join(",")],
     queryFn: async () => {
       if (zoneIds.length === 0) return [];
@@ -134,7 +137,7 @@ export function useEventAttendance(
   });
 
   // Cortesias são iguais para Real/BE/Forecast — não filtramos por cenário.
-  const { data: courtesies = [] } = useQuery({
+  const { data: courtesies = EMPTY_ARR_STABLE } = useQuery({
     queryKey: ["event_courtesies_attendance", eventId],
     queryFn: async () => {
       const { data, error } = await supabase
