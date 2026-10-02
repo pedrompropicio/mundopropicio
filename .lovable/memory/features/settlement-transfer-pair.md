@@ -32,3 +32,13 @@ as duas pernas em conjunto. `QuickAdvanceModal` usa o mesmo padrão de par
 coluna "Transferências" do relatório de auditoria somam despesas na rubrica 10.3,
 separadas das restantes despesas. A fórmula do saldo (D-ERP15) não mudou.
 Reconciliação validada em Live: BOL 140.765,00 €, Ticketline 275.792,63 €.
+
+**Regra (#272, 02/10/2026): a perna da transferência NUNCA é dedução.** A perna de
+despesa tem `settlement_id` do fecho e está paga pela própria bilheteira, por isso
+passava nos critérios de `eligibleTxns` do `TicketOfficeSettlementModal` e era abatida
+2× ao reabrir (Plenitude 112.842,00/0,00; H&K Lisboa 237.982,55/0,00). A query exclui
+`id = transfer_transaction_id` do fecho e qualquer `operation_key` `TRF-FECHO-%`,
+antes da excepção "já ligada a este fecho" — não pode ser marcada à mão. Pares
+`ADIANT-BILH-` continuam excluídos pela via de `event_ticket_office_advances`
+(sem mudança). Fecho com `transfer_transaction_id` não se reconfirma: botão
+"Confirmar fecho" desactivado com a razão ao lado + guarda no `handleSubmit`.

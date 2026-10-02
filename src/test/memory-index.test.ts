@@ -1,7 +1,6 @@
 // Trava: o índice de memória tem de ser exactamente derivado dos ficheiros.
 import fs from "node:fs";
 import { describe, it, expect } from "vitest";
-// @ts-expect-error módulo .mjs sem tipos
 import { INDEX_FILE, GEN_COMMAND, listMemoryFiles, indexedKeys } from "../../scripts/memory-index-lib.mjs";
 
 type MemFile = { file: string; key: string; fm: Record<string, string> | null };
