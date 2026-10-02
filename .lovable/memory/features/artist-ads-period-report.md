@@ -13,3 +13,9 @@ type: feature
 ## Desempenho (29/09)
 - Chegadas ao smart link: agrupar song_link_events por (utm_source, utm_campaign) num CTE `MATERIALIZED` ANTES de comparar com cada campanha. Sem MATERIALIZED o planner empurra o filtro com artist_ads_campaign_key para o seq scan e repete-o por campanha (8,3 s → 48 ms).
 - fx_convert: uma chamada por linha diária (não duas).
+
+## D-ERP161 (02/10)
+- custo = gasto medido ÷ resultado; gasto_sem_medicao {valor,dias} + lacuna.
+- Meta: cliques = clicks; cliques_link = actions link_click (null sem ação). Sem action de visita ao perfil gravada → fallback:cliques.
+- api: dias_sem_entrega (sync correu depois do dia) vs dias_sem_leitura (não correu); manual igual.
+- Smart link: chegadas_eventos + visitantes_unicos_dia (ip_hash × dia UTC).
