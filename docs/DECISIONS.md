@@ -4688,3 +4688,17 @@ Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_a
 **Consequência.** A mesma playlist gravada à mão (chave pelo nome) e pelo sync (chave pelo uri) no mesmo dia fica em duas linhas. EXECUTE das duas funções só para authenticated e service_role.
 
 **Estado:** vigente.
+
+## D-ERP161 — Relatório de tráfego por período: custo só com gasto medido, cliques vs cliques_link, sem entrega vs sem leitura, visitantes do smart link (02/10/2026)
+
+**Decisão.** `public.artist_ads_period_report` (mesma assinatura; JSON só ganha campos):
+1. `resultado.custo` = gasto dos dias/grupos em que o resultado foi lido ÷ resultado (todas as plataformas). Novo por campanha `gasto_sem_medicao {valor, dias}` + linha em `lacunas` ("gasto sem medição: R$ … a DD/MM — campanha"). `gasto` não muda.
+2. Meta: `cliques` = coluna clicks (todos); novo `cliques_link` = soma de actions `link_click` (null sem a ação). Os insights guardados do Litto não têm nenhuma action de visita ao perfil → campanhas PROFILE_VISIT ficam com `resultado.nome='cliques'`, `fonte.resultado_origem='fallback:cliques'` e nota em lacunas.
+3. `data_source='api'`: dia sem linha passa a `fonte.dias_sem_entrega` quando o sync de insights da ligação correu com sucesso depois desse dia (prova: max(last_synced_at) dos insights da ligação e, na Meta, `crm.meta_sync_state` insights_campaign sem erro posterior; `public.sync_runs` não regista estes syncs); senão `fonte.dias_sem_leitura`. `manual`: igual a antes. Novo `fonte.ultimo_sync_ok`.
+4. Smart link: `chegadas_eventos` (= o número de antes) e `visitantes_unicos_dia` (count distinct ip_hash × dia UTC) + `fonte.metodo_chegadas`.
+5. Google: `crm.google_campaign_insights_daily` tem chave única (connection, campanha, dia) e o sync faz upsert → a RPC lê sempre a última versão revista.
+`artist-ads-period-analysis`: SYSTEM_PROMPT usa os campos novos; redeploy.
+
+**Consequência.** A regra de "sem entrega" depende da última prova de sync, não de histórico por dia. EXECUTE só authenticated e service_role.
+
+**Estado:** vigente.

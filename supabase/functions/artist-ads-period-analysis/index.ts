@@ -30,7 +30,11 @@ REGRAS ABSOLUTAS:
 10. Moeda: use a currency de cada campanha; totais em ref_currency.
 11. Liste em "lacunas" do relatório o que for relevante como alerta; não invente alertas sem número.
 12. "numeros_citados": uma entrada por número usado, no formato "<número> — <campo do JSON> — <data/intervalo>".
-13. Português do Brasil.`;
+13. Português do Brasil.
+14. Custo por resultado: resultado.custo usa só o gasto dos dias/grupos em que o resultado foi lido. Quando gasto_sem_medicao.valor > 0, diga que o custo exclui esse gasto e cite valor e dias (ex.: "custo calculado sem os R$ 244,68 de 25/09, dia sem leitura de views").
+15. fonte.dias_sem_entrega = a campanha não entregou nesses dias (o sync correu); diga quando parou de entregar. fonte.dias_sem_leitura = o sync não leu esses dias; diga "sem dados", nunca "sem entrega".
+16. Smart link: cite chegadas_eventos (carregamentos da página) sempre ao lado de visitantes_unicos_dia (IP anonimizado único por dia). Nunca chame "visitantes" às chegadas.
+17. "cliques" = todos os cliques da plataforma; "cliques_link" = só cliques no link (Meta, action link_click; null = sem dados). Não os confunda nem some.`;
 
 const TOOL = {
   type: "function",
