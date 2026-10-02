@@ -438,6 +438,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
   const handleSubmit = async (confirm: boolean) => {
     if (!eventId) return toast.error("Selecione o evento");
+    if (confirm && transferAlreadyDone) return toast.error("Fecho com transferência lançada — estornar primeiro para alterar");
     if (!hasSalesLog) {
       return toast.error("Sem registo de vendas", {
         description: "Só é possível fazer fecho de eventos com bilhetes vendidos registados nesta bilheteira. Importe ou registe as vendas antes de prosseguir.",
