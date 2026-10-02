@@ -17,6 +17,7 @@ import type { EngineCheck, SettlementNodeResult } from "@/lib/event-settlement-e
 import { EventThirdPartyOperationsPanel } from "@/components/EventThirdPartyOperationsPanel";
 import { SettlementSealControl } from "@/components/SettlementSealControl";
 import { effectiveExpenseBasisLabel } from "@/lib/settlement-basis";
+import HelpTooltip from "@/components/HelpTooltip";
 
 interface Props {
   eventId: string;
@@ -201,6 +202,7 @@ export function EventSettlementsPanel({ eventId }: Props) {
     <div className="space-y-4">
       <p className="flex items-start gap-2 text-xs text-muted-foreground">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <HelpTooltip anchor="fecho.encontro-de-contas" size={13} />
         Vista informativa. Critério de custo em uso: despesas{" "}
         {basis.expenseSource === "committed" ? "previsto + excedido" : "realizado"} ·{" "}
         {basis.includeOverhead ? "com overhead" : "sem overhead"} — o mesmo do Encontro de Contas.

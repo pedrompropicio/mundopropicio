@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
 import { logAudit, getAuditUser } from "@/lib/audit";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import HelpTooltip from "@/components/HelpTooltip";
 
 interface Props {
   officeId: string;
@@ -199,7 +200,9 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Fechos de Bilheteira</h3>
+          <h3 className="flex items-center gap-2 text-lg font-semibold">
+            Fechos de Bilheteira <HelpTooltip anchor="fecho.bilheteira" size={14} />
+          </h3>
           <p className="text-sm text-muted-foreground">Consolidação por evento de receitas, despesas e líquido transferido</p>
         </div>
         {canManage && (

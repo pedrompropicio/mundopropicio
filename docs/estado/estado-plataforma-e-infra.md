@@ -227,7 +227,7 @@ Regras que ficaram:
 - **#237 (fechada a 23/09)** — a cache de empresa do storage (`cachedCompanyId` em `src/lib/storage.ts`) é limpa em `useSetActiveCompany` e no `AuthContext`; teste de regressão em `storage-multi-tenant.test.ts`. Decisão pendente do Pedro: substituir a cache de módulo por leitura do queryClient `["current-company"]`.
 - **#206 fase 2** — somas e contagens de tabelas grandes na base (RPCs), com ADR próprio. Não subir `db-max-rows`.
 - **#186** — diálogo "Rateio ou Exclusivo?" do modal Nova Transação. Correção publicada a 16/09 — falta confirmação visual do Pedro no diálogo "Custo da tour ou desta cidade?".
-- **Manual de Orientação** — próximos capítulos, um de cada vez, no formato de `rateios.md`. #194 (capítulo "Fecho do evento") aguarda 4 respostas do Pedro.
+- **Manual de Orientação** — #194: capítulo **Fecho do evento** validado e ligado aos ecrãs; aguarda Publish + **Administração → Sincronizar manual**. Próximo capítulo: **Transitórias** ou **BP**.
 
 ## Incidente — o ecrã de Transações ficou vazio para toda a gente (14/09/2026)
 Uma chave estrangeira nova entre `transactions` e `suppliers` deixou **duas** FKs entre o mesmo par de tabelas. O embed escrito como `suppliers(name)` passou a ser ambíguo e o PostgREST responde **HTTP 300 / PGRST201** — **recusa o pedido inteiro**, não devolve resultado parcial. O ecrã não mostrava erro nenhum: a query era desestruturada sem ler `{ error }` e a linha "Sem transações registadas." servia tanto para lista vazia como para query falhada.

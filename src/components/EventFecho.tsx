@@ -508,11 +508,16 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <FileBarChart2 className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-bold">Fecho do Evento</h3>
+          <h3 className="flex items-center gap-2 text-lg font-bold">
+            Fecho do Evento <HelpTooltip anchor="fecho.ordem" size={14} />
+          </h3>
           <Badge variant="outline" className="text-[10px]">{describeFechoBasis(basis)}</Badge>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <FechoBasisSelector basis={basis} />
+          <div className="flex items-center gap-1">
+            <FechoBasisSelector basis={basis} />
+            <HelpTooltip anchor="fecho.numeros" size={13} />
+          </div>
           <Button size="sm" variant="outline" onClick={exportPdf}>
             <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
           </Button>
@@ -655,7 +660,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
           <div className="px-4 py-3 border-b border-border/50 bg-muted/30 flex items-center gap-2">
             <ArrowRightLeft className="h-4 w-4 text-primary" />
             <span className="font-semibold">Acerto com Sócios</span>
-            <HelpTooltip text="Quota de cada sócio sobre o resultado COM overhead, somada ao que pagou pelo evento e descontados extras analíticos." size={13} />
+            <HelpTooltip anchor="fecho.encontro-de-contas" size={13} />
           </div>
           <Table>
             <TableHeader>

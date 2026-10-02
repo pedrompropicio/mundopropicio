@@ -10,7 +10,7 @@ fontes: [D-ERP10, D-ERP13, D-ERP14, D-ERP15, D-ERP20, D-ERP22, D-ERP23, D-ERP26,
 
 # Fecho do evento
 
-Fechar um evento é **parar de o alimentar**, conferir o que entrou e o que saiu, acertar com os sócios e trancar o resultado. São seis passos, sempre pela mesma ordem. Saltar um passo não dá erro no momento — dá números diferentes mais tarde, quando já houver um documento na mão do sócio.
+Fechar um evento é **parar de o alimentar**, conferir o que entrou e o que saiu, acertar com os sócios e trancar o resultado. São sete passos, sempre pela mesma ordem. Saltar um passo não dá erro no momento — dá números diferentes mais tarde, quando já houver um documento na mão do sócio.
 
 ---
 
@@ -18,7 +18,7 @@ Fechar um evento é **parar de o alimentar**, conferir o que entrou e o que saiu
 
 ```ajuda
 id: fecho.ordem
-tooltip: "Pela ordem: fechar sessões de camarim e cartões, zerar as contas de rateio de terceiros, conferir receitas e custos, fazer o Encontro de Contas até C1 e C2 darem 0,00 €, selar o fechamento e só depois concluir o evento."
+tooltip: "Pela ordem: fechar sessões de camarim e cartões, fechar a bilheteira e transferir o líquido, zerar as contas de rateio de terceiros, conferir receitas e custos, fazer o Encontro de Contas até C1 e C2 darem 0,00 €, selar o fechamento e só depois concluir o evento."
 ecras: [evento.fecho, evento.socios, evento.concluir]
 perfis: [manager, admin]
 fontes: [PROC-fecho-evento, event-settlements]
@@ -28,11 +28,12 @@ termos: [fechar evento, fecho do evento, fechamento, concluir evento, como fecho
 ![Sequência do fecho do evento](img/fecho-sequencia.svg)
 
 1. **Fechar as sessões abertas** — camarim por integrar e sessões de cartão.
-2. **Zerar as contas de rateio de terceiros** — acerto com promotores e coprodutores.
-3. **Conferir receitas e custos** na aba **Fecho**.
-4. **Encontro de Contas** com os sócios, até as duas conferências darem **0,00 €**.
-5. **Selar o fechamento** e exportar os PDFs **depois** de selar.
-6. **Concluir o evento**, que bloqueia alterações.
+2. **Fechar a bilheteira e transferir o líquido** para a conta da empresa.
+3. **Zerar as contas de rateio de terceiros** — acerto com promotores e coprodutores.
+4. **Conferir receitas e custos** na aba **Fecho**.
+5. **Encontro de Contas** com os sócios, até as duas conferências darem **0,00 €**.
+6. **Selar o fechamento** e exportar os PDFs **depois** de selar.
+7. **Concluir o evento**, que bloqueia alterações.
 
 Numa turnê, o fecho faz-se no **Master**: é lá que vivem os sócios, o Encontro de Contas e o selo. As cidades entram pela quebra por cidade.
 
@@ -60,7 +61,28 @@ Ao carregar em **Concluir evento** abre o diálogo **Concluir evento**, que veri
 
 ---
 
-## 2. Que números o fecho usa
+## 2. Bilheteira e dinheiro retido
+
+```ajuda
+id: fecho.bilheteira
+tooltip: "O fecho de bilheteira liga as despesas pagas pelo recinto, apura o líquido e registra a transferência para a conta da empresa. O retido só deixa de ser retido quando a transferência existe."
+ecras: [bilheteiras.fecho, bilheteiras.saldo, evento.bilheteira]
+perfis: [manager, admin]
+fontes: [D-ERP15, D-ERP20, settlement-transfer-pair, ticket-office-reconciliation]
+termos: [fecho de bilheteira, bilheteira, recinto, retido, base a transferir, transferência do fecho, líquido da bilheteira, adiantamento de bilheteira, estorno do fecho]
+```
+
+**O retido em bilheteira não é caixa da empresa.** É dinheiro que existe, mas ainda está no operador ou no recinto. A leitura é sempre a mesma fórmula:
+
+> vendas − despesas − transferências − adiantamentos ± outros movimentos = **retido**
+
+No fecho de bilheteira do evento: ligam-se as despesas que o recinto pagou, apura-se o **líquido** (ajustável, com justificação), abatem-se os **adiantamentos** já recebidos e registra-se a **transferência** do líquido para a conta da empresa. A transferência é um par de movimentos na rubrica **10.3 Transferências Internas** — sai de uma conta e entra na outra, e não toca no resultado do evento. Só um administrador estorna um fecho.
+
+Numa turnê, uma despesa rateada abate-se **uma só vez**, pela transação-mãe. A lista mostra "fatura completa · parte deste evento" para se perceber que só uma parte é do evento à frente.
+
+---
+
+## 3. Que números o fecho usa
 
 ```ajuda
 id: fecho.numeros
@@ -90,7 +112,7 @@ O **excedido** entra sempre na base "Previsto + excedido" — não é um botão.
 
 ---
 
-## 3. Encontro de Contas
+## 4. Encontro de Contas
 
 ```ajuda
 id: fecho.encontro-de-contas
@@ -123,7 +145,7 @@ Por isso o card de cada sócio mostra **Operacional** (liquidável agora) e **Sa
 
 ---
 
-## 4. Selar o fechamento
+## 5. Selar o fechamento
 
 ```ajuda
 id: fecho.selar
@@ -147,7 +169,7 @@ Selado, o fechamento fica **só de leitura**: participantes, quotas e filhos nã
 
 ---
 
-## 5. Concluir o evento
+## 6. Concluir o evento
 
 ```ajuda
 id: fecho.concluir
@@ -167,30 +189,9 @@ Antes de concluir, confirme a lista curta:
 - [ ] Sem taxas públicas com IVA no BP (taxas públicas não levam IVA)
 - [ ] Rubricas sem transação explicadas — quem devia pagar, e se pagou
 - [ ] Sessões de camarim integradas e sessões de cartão fechadas
-- [ ] Contas de rateio de terceiros a zero
 - [ ] Fecho de bilheteira feito e a transferência do líquido registada
+- [ ] Contas de rateio de terceiros a zero
 - [ ] Fechamento **selado** e PDFs exportados depois do selo
-
----
-
-## 6. Bilheteira e dinheiro retido
-
-```ajuda
-id: fecho.bilheteira
-tooltip: "O fecho de bilheteira liga as despesas pagas pelo recinto, apura o líquido e registra a transferência para a conta da empresa. O retido só deixa de ser retido quando a transferência existe."
-ecras: [bilheteiras.fecho, bilheteiras.saldo, evento.bilheteira]
-perfis: [manager, admin]
-fontes: [D-ERP15, D-ERP20, settlement-transfer-pair, ticket-office-reconciliation]
-termos: [fecho de bilheteira, bilheteira, recinto, retido, base a transferir, transferência do fecho, líquido da bilheteira, adiantamento de bilheteira, estorno do fecho]
-```
-
-**O retido em bilheteira não é caixa da empresa.** É dinheiro que existe, mas ainda está no operador ou no recinto. A leitura é sempre a mesma fórmula:
-
-> vendas − despesas − transferências − adiantamentos ± outros movimentos = **retido**
-
-No fecho de bilheteira do evento: ligam-se as despesas que o recinto pagou, apura-se o **líquido** (ajustável, com justificação), abatem-se os **adiantamentos** já recebidos e registra-se a **transferência** do líquido para a conta da empresa. A transferência é um par de movimentos na rubrica **10.3 Transferências Internas** — sai de uma conta e entra na outra, e não toca no resultado do evento. Só um administrador estorna um fecho.
-
-Numa turnê, uma despesa rateada abate-se **uma só vez**, pela transação-mãe. A lista mostra "fatura completa · parte deste evento" para se perceber que só uma parte é do evento à frente.
 
 ---
 
@@ -240,3 +241,5 @@ termos: [fechamento, apuramento, acerto, encontro de contas, cascata, quota, ext
 | **base a transferir** | o líquido do fecho de bilheteira que sai do recinto para a conta da empresa |
 | **conta espelho** | a conta corrente de um sócio, onde o aporte em espécie é **derivado** do que foi lançado, nunca digitado |
 | **casa** | a participação da MP no fechamento, o que sobra depois das partes dos sócios |
+
+Os **Extras do Sócio** e o **Overhead** ficam aqui apenas referidos; terão secções próprias no futuro capítulo **Sócios**.
