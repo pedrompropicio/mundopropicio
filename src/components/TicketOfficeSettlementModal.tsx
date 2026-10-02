@@ -25,6 +25,7 @@ import { computeSettlement } from "@/lib/ticket-office-settlement-calc";
 import { roundCents } from "@/lib/iva";
 import { PAYMENT_METHOD } from "@/lib/payment-methods";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import HelpTooltip from "@/components/HelpTooltip";
 
 
 interface Props {
@@ -905,6 +906,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
           <DialogTitle className="flex items-center gap-2">
             <Receipt className="h-5 w-5 text-primary" />
             {existingSettlement ? "Editar Fecho" : "Novo Fecho de Bilheteira"}
+            <HelpTooltip anchor="fecho.bilheteira" size={14} />
             <span className="text-muted-foreground font-normal">— {officeName}</span>
             {existingSettlement?.status === "confirmed" && (
               <Badge variant="default" className="ml-auto bg-emerald-500/15 text-emerald-500 border-emerald-500/30">

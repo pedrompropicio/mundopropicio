@@ -16,7 +16,6 @@ import { format } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import HelpTooltip from "@/components/HelpTooltip";
-import helpTexts from "@/lib/help-texts";
 import { calcTotalWithIva, calcIvaAmount, roundCents } from "@/lib/iva";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { expandMasterAdoptedExpensesToSplits } from "@/lib/master-adopted-expense-proration";
@@ -1803,7 +1802,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ArrowRightLeft className="h-4 w-4 text-primary" />
-          <h3 className="text-lg font-bold flex items-center gap-2">Encontro de Contas <HelpTooltip text={helpTexts.partnerSettlement} size={14} /></h3>
+          <h3 className="text-lg font-bold flex items-center gap-2">Encontro de Contas <HelpTooltip anchor="fecho.encontro-de-contas" size={14} /></h3>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {(eventSettlements as any[]).length > 1 && (

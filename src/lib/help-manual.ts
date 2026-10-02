@@ -114,16 +114,6 @@ const helpManual: HelpSection[] = [
           "Quando um sócio/parceiro paga uma despesa diretamente do seu bolso (sem usar contas da empresa), utilize o toggle '🤝 Pago por Sócio' no formulário de transação. O toggle aparece automaticamente quando o evento selecionado tem sócios.\n\nAo ativar:\n  • O campo 'Conta Destino' desaparece (não há movimentação em contas da empresa)\n  • Aparece o seletor 'Sócio que pagou' para indicar qual parceiro pagou\n  • A despesa é criada normalmente e segue o ciclo de aprovação padrão (Aguardando → Aprovada → Paga)\n  • A despesa pode ser editada e eliminada segundo as mesmas regras de qualquer transação\n  • Na listagem de transações, a despesa mostra um badge '🤝 Sócio' com tooltip indicando o nome do parceiro\n  • A despesa aparece no separador 'Desp. Sócios' do evento, agrupada por sócio\n  • No 'Fecho Parceiros', o total de despesas pagas pelo sócio é integrado no encontro de contas final\n\nO módulo 'Desp. Sócios' também permite vincular manualmente despesas existentes a um sócio, ou desvincular associações.",
       },
       {
-        title: "Fecho de Parceiros (Encontro de Contas)",
-        content:
-          "O separador 'Fecho Parceiros' no detalhe do evento automatiza o encontro de contas com cada sócio. O sistema consolida:\n\n  1. Resultado do evento (Receitas − Despesas)\n  2. Quota-parte do sócio (% de participação)\n  3. Extras a descontar do sócio\n  4. Despesas pagas diretamente pelo sócio\n\nO saldo final indica:\n  • Positivo → 'Empresa paga X €' ao sócio\n  • Negativo → 'Sócio paga X €' à empresa\n\nO relatório pode ser exportado em PDF para formalização do acerto de contas, incluindo detalhe analítico de cada despesa paga pelo sócio.",
-      },
-      {
-        title: "Custos de Fecho",
-        content:
-          "São despesas que não geram transação de pagamento (ex: rateio de equipa, assessoria jurídica), mas que impactam o resultado final do evento e o cálculo da participação dos sócios. Adicione-os na aba de Fecho do evento.",
-      },
-      {
         title: "Bilheteira do evento",
         content:
           "Configure zonas (ex: Pista, Camarote) e lotes de bilhetes com preços e capacidades. O sistema calcula automaticamente a receita bruta, IVA e receita líquida. Associe bilheteiras (pontos de venda) para acompanhar vendas por canal.",

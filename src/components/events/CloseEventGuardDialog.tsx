@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertTriangle, Lock, Loader2 } from "lucide-react";
+import HelpTooltip from "@/components/HelpTooltip";
 
 /**
  * D19 — Guarda de fecho do evento.
@@ -113,7 +114,9 @@ export function CloseEventGuardDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Concluir evento</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            Concluir evento <HelpTooltip anchor="fecho.concluir" size={14} />
+          </DialogTitle>
           <DialogDescription>
             {eventName} — o fecho bloqueia alterações. Apenas um administrador pode reabrir.
           </DialogDescription>
@@ -133,6 +136,7 @@ export function CloseEventGuardDialog({
               <div className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3">
                 <p className="flex items-center gap-2 text-sm font-medium text-destructive">
                   <Lock className="h-4 w-4" /> Não é possível fechar o evento
+                  <HelpTooltip anchor="fecho.bloqueios" size={13} />
                 </p>
                 {blockers!.hard.card_sessions.length > 0 && (
                   <div className="text-xs text-destructive/90">

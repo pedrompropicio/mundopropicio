@@ -42,7 +42,7 @@ export function TicketOfficeSettlementLauncher() {
       >
         <Receipt className="h-4 w-4" />
         <span className="hidden sm:inline">Fecho de Bilheteira</span>
-        <HelpTooltip text="Iniciar fecho de uma bilheteira por evento" size={13} />
+        <HelpTooltip anchor="fecho.bilheteira" size={13} />
       </button>
 
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>

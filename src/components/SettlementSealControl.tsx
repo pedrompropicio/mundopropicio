@@ -28,6 +28,7 @@ import {
 import { Lock, LockOpen, AlertTriangle } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import type { EngineResult } from "@/lib/event-settlement-engine";
+import HelpTooltip from "@/components/HelpTooltip";
 import {
   buildSealSnapshot,
   canSeal,
@@ -158,6 +159,7 @@ export function SettlementSealControl({ eventId, settlement, allSettlements, res
           <Lock className="h-3 w-3" /> Selado em {fmtDate(settlement.sealed_at)}
           {sealedByName ? ` por ${sealedByName}` : ""}
         </Badge>
+        <HelpTooltip anchor="fecho.selar" size={13} />
         {snapshot && (
           <span className="text-[11px] text-muted-foreground">
             Selado {formatCurrency(snapshot.nodes.find((n) => n.id === settlement.id)?.resultNet ?? 0)} · ao vivo{" "}
@@ -216,6 +218,7 @@ export function SettlementSealControl({ eventId, settlement, allSettlements, res
       >
         <Lock className="mr-1.5 h-3.5 w-3.5" /> Selar
       </Button>
+      <HelpTooltip anchor="fecho.selar" size={13} />
 
       <Dialog open={sealOpen} onOpenChange={setSealOpen}>
         <DialogContent>
