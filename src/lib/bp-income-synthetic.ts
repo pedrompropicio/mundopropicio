@@ -91,10 +91,13 @@ export async function computeTicketSynthetic(
   // (DR-2026-09-03-D21, adenda 2). Nunca o fallback estático.
   // #227: depois da data do evento o previsto corrente é o REAL — o simulador
   // deixa de mandar. O previsto ORIGINAL (baseline) não muda.
-  const [live, eventRealized] = await Promise.all([
-    computeLiveTicketForecast(eventId),
-    fetchEventRealized(eventId, ids),
-  ]);
+  // Como em computeEventRevenueBasis: realizado → o simulador nem corre (no
+  // Coala 2026 o cálculo ao vivo não terminava e a linha de bilheteira nunca
+  // chegava ao BP).
+  const eventRealized = await fetchEventRealized(eventId, ids);
+  const live = eventRealized
+    ? { currentLoad: null as number | null, currentLoadOn: null as string | null, net: null as number | null, totalQty: 0 }
+    : await computeLiveTicketForecast(eventId);
 
   return {
     initialLoad,
