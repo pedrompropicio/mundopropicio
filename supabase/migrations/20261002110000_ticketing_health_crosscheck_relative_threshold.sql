@@ -202,7 +202,7 @@ begin
   loop
     v_detail := case when r.status = 'nao_encontrado'
       then 'Evento não encontrado no portal de Produtores (data + recinto)'
-      else format('Plataforma − portal: %s bilhetes em %s (%s%%), %s EUR (%s); %s bilhetes em %s (%s%%), %s EUR (%s)',
+      else format('Plataforma - portal: %s bilhetes em %s (%s%%), %s EUR (%s); %s bilhetes em %s (%s%%), %s EUR (%s)',
                   r.diff_qty, r.portal_qty, to_char(round(100.0*abs(r.diff_qty)/nullif(r.portal_qty,0),1),'FM990.0'),
                   replace(replace(replace(trim(to_char(r.diff_value,'S999,999,990.00')),',','#'),'.',','),'#','.'), to_char(r.checked_on,'DD/MM'),
                   r.prev_qty, r.prev_portal_qty, to_char(round(100.0*abs(r.prev_qty)/nullif(r.prev_portal_qty,0),1),'FM990.0'),
