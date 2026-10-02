@@ -221,6 +221,7 @@ Regras que ficaram:
 - `song_growth_summary`: notas para o leitor vs `notas_tecnicas`; dias repetidos da Soundcharts fora das séries (D-ERP136). Em Live; KPIs inalterados.
 
 ## A trabalhar agora
+- **Índice da memória gerado (02/10/2026, D-ERP158)** — `.lovable/memory/index.md` regenera-se com `node scripts/gen-memory-index.mjs` (176 ficheiros); só "Por onde começar" é manual; trava em `src/test/memory-index.test.ts`. Issue #271 aberta (fechos de bilheteira por evento / vista única).
 - **#265 (30/09/2026)** — anexo perdido do bucket `transaction-documents` com linha órfã. Causa: "Excluir despesa" no cartão (`CardSessionDetail`) apagava os ficheiros antes da transação; com RLS a filtrar o DELETE (0 linhas, sem erro) ficava ficheiro perdido, linha intacta e toast falso. Correção em código: helper único `removeTransactionDocumentObjects` (`src/lib/transaction-document-storage.ts`) — objeto só sai depois da linha e se nenhuma linha o referencia; DELETE com `.select` em CardSessionDetail, BPAttachmentModal, PaymentListReceipts e TransactionDocumentsModal; `ads-invoice-apply` e `ingest-transaction-document` verificam referências antes de remover (deploy das duas edge functions pendente de autorização). Falta: RLS/policies de storage por SQL separado. Regra em `.lovable/memory/features/transaction-documents.md`.
 
 ## Incidente — o ecrã de Transações ficou vazio para toda a gente (14/09/2026)

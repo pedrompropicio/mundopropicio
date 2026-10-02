@@ -121,6 +121,8 @@ Ler **D-ERP57** antes de mexer.
 
 Se o tema toca num fluxo já implementado, procurar primeiro em `.lovable/memory/features/`. A hipótese por defeito é que **já existe**.
 
+**Antes de diagnosticar um fluxo já implementado, nomear o ficheiro de `.lovable/memory/features/` que foi lido.** Se não houver ficheiro, procurar no índice gerado `.lovable/memory/index.md` (secção "Por onde começar" e lista completa) antes de concluir que não existe. O índice é gerado por `node scripts/gen-memory-index.mjs` (D-ERP158).
+
 ## Ritual de fecho (obrigatório)
 
 1. Atualizar o `estado-<frente>.md` — reescrever, não acrescentar.

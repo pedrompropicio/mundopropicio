@@ -1,3 +1,8 @@
+---
+name: Simulador — Dashboard Financeiro v2 (Design Brief)
+description: Brief de redesenho do ExecutiveDashboard do Simulador em estilo plataforma financeira; props imutáveis (3 cenários)
+type: feature
+---
 # Simulador — Dashboard Financeiro v2 (Design Brief)
 
 > **Objectivo:** Redesenhar o ExecutiveDashboard e o layout geral do Simulador para um padrão

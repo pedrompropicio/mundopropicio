@@ -1,3 +1,8 @@
+---
+name: Lovable Cloud — DDL Workflow
+description: Todo o DDL passa pelo agente Lovable como migration tracked; nunca SQL à mão no SQL Editor (incidentes reais)
+type: constraint
+---
 # Lovable Cloud — DDL Workflow
 
 > Constraint operacional baseada em incidentes reais. Ler antes de qualquer alteração ao schema da base de dados.

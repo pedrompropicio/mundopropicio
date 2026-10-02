@@ -1,3 +1,8 @@
+---
+name: Roadmap — Tracking multi-plataforma (event_trackers)
+description: Planeado: tabela canónica event_trackers evento × plataforma × tracker (Meta/Google/TikTok); distinta de event_marketing
+type: feature
+---
 # Roadmap — Tracking multi-plataforma (event_trackers)
 
 **Estado:** Planeado · item nº1 do roadmap multi-plataforma

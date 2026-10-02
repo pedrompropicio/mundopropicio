@@ -1,3 +1,8 @@
+---
+name: Tickets V2 — Migração tipo como container
+description: Migração em coexistência (Fase 2 parcial); lição do drift Test↔Live que partiu o Publish a 2026-05-09
+type: feature
+---
 # Tickets V2 — Migração para "tipo como container"
 
 **Status**: em coexistência (Fase 2 parcial concluída).
