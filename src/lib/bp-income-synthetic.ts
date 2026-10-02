@@ -40,7 +40,6 @@ export async function computeTicketSynthetic(
     supabase.from("event_ticket_zones").select("id, total_capacity").in("event_id", ids),
     supabase.from("events").select("ticketing_baseline_net").eq("id", eventId).maybeSingle(),
   ]);
-  console.warn("[DBGBP] s1 zones");
   const initialLoad = (zones ?? []).reduce((s: number, z: any) => s + Number(z.total_capacity || 0), 0);
   const zoneIds = (zones ?? []).map((z: any) => z.id);
 
@@ -74,12 +73,10 @@ export async function computeTicketSynthetic(
     pIva += qty * rate;
   }
 
-  console.warn("[DBGBP] s2 lots/sales", lots.length, sales.length);
   const soldQty = sales.reduce((s, x) => s + Number(x.quantity || 0), 0);
   // Real: SSoT da receita (D24) — mesma função que o card e o Fecho usam.
   const realNet = (await fetchTicketSalesRevenue(ids)).net;
 
-  console.warn("[DBGBP] s3 rpc");
   const ivaPct = pQty > 0 ? pIva / pQty : 6;
   // DR-2026-09-03-D21 (adenda): previsto original = min(carga inicial, Σ qty dos lotes
   // de planeamento) × preço médio líquido ponderado. Sem lotes de planeamento não há
@@ -98,7 +95,6 @@ export async function computeTicketSynthetic(
   // Coala 2026 o cálculo ao vivo não terminava e a linha de bilheteira nunca
   // chegava ao BP).
   const eventRealized = await fetchEventRealized(eventId, ids);
-  console.warn("[DBGBP] s4 realized", eventRealized);
   const live = eventRealized
     ? { currentLoad: null as number | null, currentLoadOn: null as string | null, net: null as number | null, totalQty: 0 }
     : await computeLiveTicketForecast(eventId);
