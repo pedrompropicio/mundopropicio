@@ -4625,3 +4625,14 @@ Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_a
 - `tiktok-artists-sync`: `status_code=8` / "Login expired" (ou outro sinal de sessão no corpo) → corrida `error`, `error_text` "sessao_invalida: cookie TIKTOK_ARTISTS_COOKIE expirado — renovar o secret", HTTP 401, sem métricas. `no_data` só com sessão válida sem resultados.
 - Refresh do token TikTok de canal (`artist-token-refresh`, `artist-tiktok-sync`) grava em `scopes` o campo `scope` devolvido (vírgulas → array), como o callback já fazia.
 - Why: o estado mostrava atrasos/horas de jobs globais a artistas sem ligações; a ligação S4A não acendia "Ligado"; a sessão expirada do TikTok Artists ficou 7 dias silenciosa como `no_data`.
+
+## D-ERP156 — O acerto do camarim é o saldo da conta-corrente da administradora; as despesas não são reembolsos individuais (02/10/2026)
+
+- Tudo o que a administradora da sessão (fund_holder) paga — do adiantamento ou do bolso — nasce como despesa 2.6.04 paga pela conta-corrente da sessão (`camarim_sessions.advance_account_id`, type `camarim_session`): TX `approved` + linha em `transaction_payments` pelo bruto, na data da TX (recibo mais recente do grupo); `paid_amount`/`status` derivados (D-ERP86). Agregação por IVA junta adiantamento e bolso. Cartão mantém-se como antes.
+- A integração do camarim deixa de criar transações `is_reimbursement`. `reimbursement_to` só é escrito pelo módulo de Reembolsos, sempre com o NOME (a edge gravava um id de perfil).
+- Saldo = recebido (adiantamentos + reforços − devoluções) − pago por ela. > 0 → ela devolve (`refund`); < 0 → a MP paga-lhe (`reinforcement`); 0 → nada. Um único par 10.3, mesma data (dia da integração, Lisboa): a perna na conta da sessão nasce liquidada (zera a conta); a perna do banco fica `approved` por pagar/receber, sem conta obrigatória, supplier = administradora, pagável pela lista de pagamentos e pelo banco. `settlement_balance` passa a usar este sinal.
+- Sem trava de saldo no servidor para inserções em `camarim_session` (a trava `account_has_balance_for` é só dos formulários), por isso a ordem das pernas não bloqueia; ainda assim grava-se primeiro a perna da conta.
+- Outras pessoas: `buyer_profile_id` está vazio em todos os itens; trata-se só a administradora.
+- Invariante `camarim_sessao_integrada_com_saldo` (erro, referência 0) em `_run_invariant_checks_extra()`.
+- Migração Ivete (89a93e14): 4 despesas pagas pela conta da sessão; acerto 655d18a1 (765,85 € a pagar à Liliam) + perna conta c81440e3 (liquidada); custo do evento e linha a5f7b7b3 inalterados; conta a 0.
+- Why: sessões mistas geravam devolução e reembolso opostos em simultâneo; despesas do bolso ficavam por pagar fora de qualquer nota.
