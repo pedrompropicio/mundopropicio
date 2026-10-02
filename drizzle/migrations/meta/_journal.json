@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1790964655232,
+      "tag": "0000_derp160_song_growth_summary_grupo_musica",
+      "breakpoints": true
+    }
+  ]
+}
