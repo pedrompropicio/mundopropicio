@@ -91,6 +91,7 @@ import { SponsorshipTargetsPanel } from "@/components/SponsorshipTargetsPanel";
 import { useCompany } from "@/hooks/useCompany";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
+import { useForecastAttachmentCounts } from "@/hooks/useForecastAttachmentCounts";
 
 // #269 — defaults estáveis: `= []` cria um array novo a cada desenho e reabre useMemo/efeitos.
 const EMPTY_ARR_STABLE: any[] = [];
@@ -3517,19 +3518,12 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   const isApproved = item.status === "approved";
   const [showNotesAttachments, setShowNotesAttachments] = useState(false);
 
-  // Count of native uploads for this BP line (event_forecast_attachments).
-  const { data: uploadCount = 0 } = useQuery({
-    queryKey: ["event_forecast_attachments_counts", item.id],
-    queryFn: async () => {
-      const { count } = await supabase
-        .from("event_forecast_attachments" as any)
-        .select("id", { count: "exact", head: true })
-        .eq("forecast_id", item.id);
-      return count ?? 0;
-    },
-    enabled: !item._readonly && !item._prorated && !item._overhead_via_master,
-    staleTime: 60_000,
-  });
+  // #269 — contagem de anexos lida de UMA query por evento (mapa partilhado).
+  const attachmentCounts = useForecastAttachmentCounts(eventId);
+  const uploadCount =
+    !item._readonly && !item._prorated && !item._overhead_via_master
+      ? attachmentCounts[item.id] ?? 0
+      : 0;
 
   // (g6) Nome do fechamento a que a linha é devolvida (custos internos da sociedade).
   const { data: addbackSettlements = EMPTY_ARR_STABLE } = useEventSettlementOptions(
