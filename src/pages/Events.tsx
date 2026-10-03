@@ -19,7 +19,8 @@ import { fetchEventsListFinancials, type EventsListFinancialSpec } from "@/lib/e
 import { readStoredMode, readStoredWithVat } from "@/lib/event-financial-card";
 import { normalizePartnerCalcBasis, usesGrossExpenseAmounts } from "@/lib/partner-calc-basis";
 import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
-import { EVENT_NATURES, type EventNature } from "@/lib/event-nature";
+import { EVENT_NATURES, type EventNature, eventNatureLabel, filterEventsByNature } from "@/lib/event-nature";
+import { EventNatureFilter } from "@/components/EventNatureFilter";
 
 type EventType = "simple" | "festival" | "multi_day" | "tour" | "master" | "split";
 
@@ -107,6 +108,7 @@ export default function Events() {
   }, []);
   const [sortField, setSortField] = useState<"date" | "location" | "status" | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user } = useAuth();
   const userId = user?.id ?? "anon";
@@ -455,7 +457,7 @@ export default function Events() {
     return sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />;
   };
 
-  const sortedEvents = [...events].sort((a: any, b: any) => {
+  const sortedEvents = [...filterEventsByNature(events as any[], natureFilter)].sort((a: any, b: any) => {
     if (!sortField) return 0;
     const dir = sortDir === "asc" ? 1 : -1;
       const getEffectiveDate = (e: any) => {
@@ -966,6 +968,7 @@ export default function Events() {
 
                 <div className="flex items-center gap-2 mb-3">
                   <EventTypeBadge type={eventType} format={event.format} />
+                  <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">{eventNatureLabel(event.event_nature)}</span>
                   {((eventType === "multi_day" || eventType === "master") && event.subEvents?.length > 0) && (
                     <span className="text-[10px] text-muted-foreground">{event.subEvents.length} datas</span>
                   )}
@@ -1085,7 +1088,10 @@ export default function Events() {
                         )}
                       </td>
                       <td className="px-4 py-3 hidden sm:table-cell">
-                        <EventStatusBadge status={event.status as any} />
+                        <div className="flex flex-wrap items-center gap-1">
+                          <EventStatusBadge status={event.status as any} />
+                          <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">{eventNatureLabel(event.event_nature)}</span>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-sm font-medium text-success">{formatCurrency(event.totalIncome)}</td>
                       <td className="px-4 py-3 text-right font-mono text-sm font-medium text-warning">{formatCurrency(event.totalExpenses)}</td>
