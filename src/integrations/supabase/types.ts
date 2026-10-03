@@ -9203,7 +9203,7 @@ export type Database = {
           description_en: string | null
           description_es: string | null
           description_pt: string | null
-          event_nature: string | null
+          event_nature: string
           event_type: string
           format: string | null
           hero_image_url: string | null
@@ -9269,7 +9269,7 @@ export type Database = {
           description_en?: string | null
           description_es?: string | null
           description_pt?: string | null
-          event_nature?: string | null
+          event_nature: string
           event_type?: string
           format?: string | null
           hero_image_url?: string | null
@@ -9335,7 +9335,7 @@ export type Database = {
           description_en?: string | null
           description_es?: string | null
           description_pt?: string | null
-          event_nature?: string | null
+          event_nature?: string
           event_type?: string
           format?: string | null
           hero_image_url?: string | null
