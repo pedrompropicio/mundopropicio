@@ -311,7 +311,7 @@ export function SalesPositionWidget() {
                   <Cell qty={r.total_qty} value={r.total_value} missing={false} />
                 </span>
               </div>
-            </div>
+            </Link>
           ))}
 
           <div className="border-t border-border/60 bg-secondary/30 px-3 py-1.5 text-xs font-bold">
