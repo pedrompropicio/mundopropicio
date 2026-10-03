@@ -26,6 +26,7 @@ import {
 } from "@/lib/card-session-helpers";
 import { fetchCardAccountBalance } from "@/lib/card-account-balance";
 import { deleteTransactionDocument } from "@/lib/transaction-document-storage";
+import { deleteStorageObject } from "@/lib/storage-delete";
 import { fetchCardSessionAccountSync, resolveOpening, computeOpenSessionTheoretical } from "@/lib/card-session-balance";
 import { CardLoadModal } from "@/components/cards/CardLoadModal";
 
@@ -61,6 +62,7 @@ export default function CardSessionDetail() {
   const [editExpense, setEditExpense] = useState<any | null>(null);
   const [editItem, setEditItem] = useState<any | null>(null);
   const [deleteExpense, setDeleteExpense] = useState<any | null>(null);
+  const [deleteItem, setDeleteItem] = useState<any | null>(null);
   const [approveItem, setApproveItem] = useState<any | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
   const [docsTx, setDocsTx] = useState<{ id: string; description: string } | null>(null);
