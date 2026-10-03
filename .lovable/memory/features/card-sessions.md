@@ -331,3 +331,13 @@ Trigger `enforce_transaction_approval_permission`, sessões já fechadas (`ffdea
 **D18 — alocação das antigas é OBRIGATÓRIA (decisão 03/09, o flag `adopt_legacy_lines` foi REMOVIDO):** as transações antigas da sessão com `event_id`+`category_id` iguais a um par com `forecast_id` em `forecast_lines` e ainda sem linha recebem esse `forecast_id` (update + `transaction_audit_log` `bp_line_adopted_at_card_close`) e o valor líquido entra no excesso (D2) dessa linha como "a alocar" (não como realizado — o realizado só conta transações já vinculadas, logo não há dupla contagem). Antigas SEM `event_id` ficam como estão; antigas que JÁ têm `forecast_id` não se tocam e contam no realizado.
 
 Consequências: `missing_bp_lines` inclui os pares vindos das antigas (`item_count`/`total_base` dos itens + `legacy_count`/`legacy_total` das antigas) — se a rubrica não tiver linha nenhuma, cria-se na L3 pelo `LinkBpLineDialog` em modo `pickOnly`. Ordem de escrita: todas as validações (linhas + D2 + permissões) → raises → `forecast_id` nas antigas (`transaction_audit_log` `bp_line_adopted_at_card_close`, `new_value` = forecast_id · descrição da linha) → transações consolidadas dos itens. Falha antes de escrever ⇒ nada se escreve.
+
+## Duplo lançamento entre sessões (03/10/2026)
+
+- Nada impede o mesmo talão de existir como transação numa sessão (modelo pré-D17) e como item em `card_session_items` de outra sessão do mesmo cartão. Não há chave, aviso nem invariante.
+- Caso real no cartão 0663: 15 talões lançados duas vezes, 954,00 €. Prova: 7 dos 15 ficheiros são byte a byte idênticos (mesmo eTag); os outros são PDFs regerados do mesmo talão com data, bruto e fornecedor coincidentes.
+- Efeito: o saldo teórico da sessão `cac2f5a0` estava em −472,18 € e passou a +481,83 € depois de os 15 itens irem a `rejected` a 03/10/2026. O saldo da conta nunca foi afectado, porque um item só vira transação na integração — nenhum dos 63 itens tem `transaction_id`. O risco era futuro: a integração teria criado 15 transações pagas na conta do cartão.
+- Itens duplicados marcam-se `rejected`, nunca se apagam: foi um item duplicado que preservou a foto do talão do McDonald's de 07/08 (12,05 €) que o bucket `transaction-documents` tinha perdido (#213), religado por referência `card://`.
+- Fecho corrido no meio de uma recarga: a sessão `ffdea120` fechou a 19/08 às 19:19 com `closing_summary.total_loads = 1.384,58`, quando a sessão teve duas recargas (2.686,68 €); a de 1.302,10 foi criada às 19:06 e só gerou crédito às 21:08. O resumo histórico não foi reescrito de propósito. Ver #273.
+
+Issues abertas: #274 (aviso de duplicado na aprovação + invariante) e #273 (fecho não trava com recarga por liquidar).
