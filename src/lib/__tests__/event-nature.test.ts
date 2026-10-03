@@ -12,7 +12,7 @@ describe("eventNatureLabel", () => {
     expect(eventNatureLabel(null)).toBe("— por definir —");
   });
 });
-import { filterEventsByNature, EVENT_NATURES } from "@/lib/event-nature";
+import { filterEventsByNature } from "../event-nature";
 
 describe("filterEventsByNature (#256 fase 2)", () => {
   const fixture = [

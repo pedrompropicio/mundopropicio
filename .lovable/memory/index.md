@@ -109,7 +109,7 @@ Uma linha por tema, por frente: pergunta → ficheiros (mem://pasta/ficheiro). S
 - [Tesouraria entre Eventos (Event Cash Treasury) — FASE 1](mem://features/event-cash-treasury) — Camada de tesouraria que corre EM PARALELO ao resultado. Torna visível
 - [Event cost basis](mem://features/event-cost-basis) — Helper único de composição do custo do evento (overhead, transações fora do BP, IVA linha a linha) usado no card da capa, no Fecho e no portal do sócio
 - [Event Financial Cards (3 modes)](mem://features/event-financial-cards) — Cards Receitas/Custos no EventDetail com 3 modos (Realizado/Comprometido/Forecast), mini-barra de formalidade e integração com Simulador
-- [Natureza económica do evento](mem://features/event-nature) — Separa a natureza económica do evento da visibilidade management_type; cinco valores e fase 2 pendente
+- [Natureza económica do evento](mem://features/event-nature) — event_nature NOT NULL e obrigatório na criação, distinto de management_type; relatórios filtram por natureza sem alterar cálculos
 - [Event revenue basis (SSoT)](mem://features/event-revenue-basis) — Função única da receita do evento em 3 bases (real / previsto corrente / previsto + excedido) com decomposição por bucket
 - [Event settlements (Fechamentos)](mem://features/event-settlements) — Fundação dos Apuramentos por evento — event_settlements + event_settlement_participants, modos settles/nominal, casa implícita e espelho temporário de event_partners
 - [Event view permissions (granular per-tab)](mem://features/event-view-permissions) — 4 permissões granulares (view_bp/view_sponsorship/view_ab/view_simulator) controlam visibilidade de abas no EventDetail; gate frontend + RLS
