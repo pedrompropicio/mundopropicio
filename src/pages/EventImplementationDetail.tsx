@@ -1,3 +1,4 @@
+import { EVENT_NATURES, type EventNature } from "@/lib/event-nature";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -90,6 +91,7 @@ export default function EventImplementationDetail() {
   const [setupDate, setSetupDate] = useState("");
   const [setupCities, setSetupCities] = useState("");
   const [setupExistingId, setSetupExistingId] = useState("");
+  const [setupNature, setSetupNature] = useState<EventNature | "">("");
   const [extracting, setExtracting] = useState(false);
   const [extracted, setExtracted] = useState<ExtractedInfo | null>(null);
   const [selectedSheets, setSelectedSheets] = useState<string[]>([]);
@@ -418,12 +420,14 @@ export default function EventImplementationDetail() {
         eventId = setupExistingId;
       } else if (setupMode === "create_simple") {
         if (!setupName) throw new Error("Informe o nome do evento");
+        if (!setupNature) throw new Error("Escolha a natureza do evento");
         const { data, error } = await supabase
           .from("events")
           .insert({
             name: setupName,
             date: setupDate || new Date().toISOString().slice(0, 10),
             status: "planning",
+            event_nature: setupNature,
           })
           .select("id")
           .single();
@@ -432,6 +436,7 @@ export default function EventImplementationDetail() {
       } else {
         // create_master
         if (!setupName) throw new Error("Informe o nome do evento");
+        if (!setupNature) throw new Error("Escolha a natureza do evento");
         const { data: master, error: masterErr } = await supabase
           .from("events")
           .insert({
@@ -439,6 +444,7 @@ export default function EventImplementationDetail() {
             date: setupDate || new Date().toISOString().slice(0, 10),
             event_type: "master",
             status: "planning",
+            event_nature: setupNature,
           })
           .select("id")
           .single();
@@ -458,6 +464,7 @@ export default function EventImplementationDetail() {
               event_type: "split",
               parent_event_id: master.id,
               status: "planning",
+              event_nature: setupNature,
               location: cityInfo?.venue || null,
             });
           if (error) throw error;
@@ -625,6 +632,17 @@ export default function EventImplementationDetail() {
                     <Label>Data</Label>
                     <DatePicker value={setupDate} onChange={setSetupDate} />
                   </div>
+                  <div>
+                    <Label>Natureza do evento</Label>
+                    <Select value={setupNature || undefined} onValueChange={(v) => setSetupNature(v as EventNature)}>
+                      <SelectTrigger><SelectValue placeholder="Escolha a natureza do evento" /></SelectTrigger>
+                      <SelectContent>
+                        {EVENT_NATURES.map((n) => (
+                          <SelectItem key={n.value} value={n.value}>{n.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   {setupMode === "create_master" && (
                     <div className="space-y-3">
                       <div>
@@ -668,7 +686,7 @@ export default function EventImplementationDetail() {
                 disabled={
                   createAndLinkMutation.isPending ||
                   (setupMode === "link_existing" && !setupExistingId) ||
-                  (setupMode !== "link_existing" && !setupName)
+                  (setupMode !== "link_existing" && (!setupName || !setupNature))
                 }
               >
                 {setupMode === "link_existing" ? (

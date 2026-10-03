@@ -5,6 +5,8 @@ import { ChevronLeft, ChevronRight, MapPin, Music, CalendarDays, Plus, CalendarC
 import { cn, formatDatePTOptions } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { EVENT_NATURES, type EventNature } from "@/lib/event-nature";
 import { VenueReservationModal } from "@/components/calendar/VenueReservationModal";
 import { ScheduledEventsPanel } from "@/components/calendar/ScheduledEventsPanel";
 import { VenueReservationsPanel } from "@/components/calendar/VenueReservationsPanel";
@@ -122,8 +124,11 @@ export default function EventCalendar() {
     },
   });
 
+  const [pendingConvert, setPendingConvert] = useState<{ id: string; date: string; venue_id: string; city_id: string | null; notes: string | null } | null>(null);
+  const [convertNature, setConvertNature] = useState<EventNature | "">("");
+
   const convertToEventMutation = useMutation({
-    mutationFn: async (reservation: { id: string; date: string; venue_id: string; city_id: string | null; notes: string | null }) => {
+    mutationFn: async ({ nature, ...reservation }: { id: string; date: string; venue_id: string; city_id: string | null; notes: string | null; nature: EventNature }) => {
       const venue = venues.find((v) => v.id === reservation.venue_id);
       // Create event
       const { error: insertErr } = await supabase.from("events").insert({
@@ -133,6 +138,7 @@ export default function EventCalendar() {
         city_id: reservation.city_id || venue?.city_id || null,
         status: "planning",
         event_type: "simple",
+        event_nature: nature,
       });
       if (insertErr) throw insertErr;
       // Delete reservation
@@ -595,7 +601,7 @@ export default function EventCalendar() {
                       variant="ghost"
                       className="h-7 w-7"
                       title="Converter em evento"
-                      onClick={() => convertToEventMutation.mutate(r)}
+                      onClick={() => { setConvertNature(""); setPendingConvert(r); }}
                     >
                       <ArrowRightCircle className="h-3.5 w-3.5 text-primary" />
                     </Button>
@@ -694,7 +700,8 @@ export default function EventCalendar() {
         }}
         onDelete={(id) => deleteReservationMutation.mutate(id)}
         onConvertToEvent={(r) => {
-          convertToEventMutation.mutate({
+          setConvertNature("");
+          setPendingConvert({
             id: r.id,
             date: r.date,
             venue_id: r.venue_id,
