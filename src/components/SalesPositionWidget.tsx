@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
