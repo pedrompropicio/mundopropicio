@@ -31,3 +31,16 @@ export type EventNature = (typeof EVENT_NATURES)[number]["value"];
 export function eventNatureLabel(value: string | null | undefined): string {
   return EVENT_NATURES.find((nature) => nature.value === value)?.label ?? "— por definir —";
 }
+/**
+ * Restringe um conjunto de eventos às naturezas escolhidas (#256 fase 2).
+ * Lista vazia ou com todas as naturezas = devolve o mesmo array (resultado idêntico ao de antes).
+ * Não altera nenhum cálculo: só decide que eventos entram.
+ */
+export function filterEventsByNature<T extends { event_nature?: string | null }>(
+  events: T[],
+  selected: readonly string[],
+): T[] {
+  if (selected.length === 0 || selected.length >= EVENT_NATURES.length) return events;
+  const set = new Set(selected);
+  return events.filter((e) => !!e.event_nature && set.has(e.event_nature));
+}
