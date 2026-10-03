@@ -232,17 +232,7 @@ Atualizado: 2026-10-03. Issues abertas da frente: #273, #274 e #275 (sessões de
 
 ## A trabalhar agora
 
-**Saldo teórico da sessão de cartão alinhado com o fecho (03/10, #275).** O KPI
-"Saldo teórico da sessão" de `/cartoes/:id` não descontava os itens da sessão e
-descontava duas vezes uma transação carimbada com data anterior à abertura
-(cac2f5a0: ecrã 1.773,36 € vs fecho 481,77 €; a8257a56: 1.714,60 € vs 1.238,26 €),
-convidando a um acerto falso no modal de fecho. Correcção: `fetchCardSessionAccountSync`
-testa o carimbo da sessão antes da data (como `close-card-session`) e devolve
-`legacySessionSpend`/`legacySessionCount`; sessões abertas usam
-abertura + recargas − itens por integrar + transações da sessão + directos; o modal
-de fecho mostra o mesmo número. Sessões fechadas continuam a ler o `closing_summary`.
-`close-card-session` não foi tocada. A fila de aprovação filtrada ficou publicada a
-03/10 (commit fcf8617).
+Nada em execução.
 
 A conta corrente do sócio ficou fechada a 17/09 (#193). Estado a essa data,
 com o ano de extratos completo:
