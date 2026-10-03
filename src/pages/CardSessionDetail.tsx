@@ -1063,6 +1063,37 @@ export default function CardSessionDetail() {
         </OverlayLayer>
       )}
 
+      {deleteItem && (
+        <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
+          <div className="glass w-full max-w-md rounded-xl p-6">
+            <h2 className="mb-2 text-lg font-semibold">Excluir item?</h2>
+            <p className="text-sm text-muted-foreground">
+              {deleteItem.description ?? deleteItem.supplier_name ?? "Despesa"} — <span className="font-semibold text-foreground">
+                {formatCurrency(cardItemGross(deleteItem))}
+              </span>
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              O item é eliminado da sessão e o valor volta ao saldo teórico. O talão vai para o lixo recuperável, exceto se estiver referenciado por uma transação.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setDeleteItem(null)}
+                className="flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:bg-muted"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => deleteItemMut.mutate(deleteItem)}
+                disabled={deleteItemMut.isPending}
+                className="flex-1 rounded-lg bg-destructive py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+              >
+                {deleteItemMut.isPending ? "A excluir…" : "Excluir"}
+              </button>
+            </div>
+          </div>
+        </OverlayLayer>
+      )}
+
       <Dialog open={openingOpen} onOpenChange={setOpeningOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
