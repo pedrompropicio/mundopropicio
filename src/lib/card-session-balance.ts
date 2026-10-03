@@ -160,3 +160,17 @@ export async function fetchAccountBalanceAsOf(accountId: string, beforeDay?: str
   }
   return balance;
 }
+
+/** Saldo teórico de uma sessão ABERTA (ecrã + modal de fecho). */
+export function computeOpenSessionTheoretical(p: {
+  opening: number;
+  totalLoads: number;
+  openItemsGross: number;
+  legacySessionSpend: number;
+  directTotal: number;
+  totalApproved?: number;
+  totalPending?: number;
+}): number {
+  // TEMP (estado actual do ecrã, para provar o teste a falhar)
+  return p.opening + p.totalLoads - (p.totalApproved ?? 0) - (p.totalPending ?? 0) + p.directTotal;
+}
