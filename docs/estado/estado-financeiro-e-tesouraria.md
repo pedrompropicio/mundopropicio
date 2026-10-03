@@ -230,7 +230,13 @@ Atualizado: 2026-10-03. Issues abertas da frente: #273 e #274 (sessões de cart�
 
 ## A trabalhar agora
 
-Nada em execução.
+**Fila de aprovação da sessão de cartão filtrada (03/10).** O separador "Fila de
+aprovação" de `/cartoes/:id` mostrava todos os itens da sessão, qualquer que fosse
+o estado — na sessão `cac2f5a0` eram 63 linhas num separador cujo contador mostra 0.
+Passa a mostrar por omissão só os `submitted`, com um controlo discreto
+"Mostrar histórico (N)" (N = aprovados + rejeitados + integrados) que alterna a
+visibilidade dos restantes; fila vazia com histórico fechado mostra "Nada por
+aprovar.". Nenhum cálculo alterado. Ficheiro: `src/pages/CardSessionDetail.tsx`.
 
 A conta corrente do sócio ficou fechada a 17/09 (#193). Estado a essa data,
 com o ano de extratos completo:
