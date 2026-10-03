@@ -26,6 +26,7 @@ import {
 } from "@/lib/card-session-helpers";
 import { fetchCardAccountBalance } from "@/lib/card-account-balance";
 import { deleteTransactionDocument } from "@/lib/transaction-document-storage";
+import { deleteStorageObject } from "@/lib/storage-delete";
 import { fetchCardSessionAccountSync, resolveOpening, computeOpenSessionTheoretical } from "@/lib/card-session-balance";
 import { CardLoadModal } from "@/components/cards/CardLoadModal";
 
@@ -61,6 +62,7 @@ export default function CardSessionDetail() {
   const [editExpense, setEditExpense] = useState<any | null>(null);
   const [editItem, setEditItem] = useState<any | null>(null);
   const [deleteExpense, setDeleteExpense] = useState<any | null>(null);
+  const [deleteItem, setDeleteItem] = useState<any | null>(null);
   const [approveItem, setApproveItem] = useState<any | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
   const [docsTx, setDocsTx] = useState<{ id: string; description: string } | null>(null);
@@ -442,6 +444,85 @@ export default function CardSessionDetail() {
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
+  /**
+   * Exclusão de item da sessão (#276) — só com sessão aberta.
+   * Ordem (#265, decalque de deleteExpenseMut):
+   * 1. lê os card_item_documents (file_path) + legado document_path;
+   * 2. auditoria em system_audit_log ANTES do delete;
+   * 3. apaga a linha de card_session_items com .select("id") — 0 linhas = RLS
+   *    filtrou, nunca sucesso falso;
+   * 4. SÓ DEPOIS remove os ficheiros de card-documents via storage-delete
+   *    (que verifica referências, incl. transaction_documents.file_url =
+   *    card://<caminho> — um talão referenciado por uma transação é mantido).
+   *    Falha no storage fica visível, mas só depois da auditoria gravada.
+   */
+  const deleteItemMut = useMutation({
+    mutationFn: async (it: any) => {
+      const { data: docs, error: docsErr } = await supabase
+        .from("card_item_documents")
+        .select("file_path")
+        .eq("item_id", it.id);
+      if (docsErr) throw docsErr;
+      const filePaths = [
+        ...(docs ?? []).map((d: any) => d.file_path as string),
+        ...(it.document_path ? [it.document_path as string] : []),
+      ].filter(Boolean);
+
+      const gross = cardItemGross(it);
+      if (it.company_id) {
+        const { error: auditErr } = await supabase.from("system_audit_log").insert({
+          entity_type: "card_session_item",
+          entity_id: it.id,
+          action: "delete",
+          changed_by: user?.email ?? "sistema",
+          company_id: it.company_id,
+          old_data: {
+            date: it.item_date,
+            supplier_name: it.supplier_name,
+            description: it.description,
+            amount: it.amount,
+            iva_rate: it.iva_rate,
+            total_gross: gross,
+            event_id: it.event_id,
+            category_id: it.category_id,
+          },
+          metadata: { card_session_id: id },
+        } as any);
+        if (auditErr) console.warn("[deleteItem] system_audit_log falhou:", auditErr.message);
+      }
+
+      const { data: deleted, error } = await supabase
+        .from("card_session_items")
+        .delete()
+        .eq("id", it.id)
+        .select("id");
+      if (error) throw error;
+      if (!deleted || deleted.length === 0) {
+        throw new Error("Sem permissão para excluir este item.");
+      }
+
+      // Só depois de a linha sair: ficheiros para o lixo recuperável.
+      let storageErr: Error | null = null;
+      for (const p of [...new Set(filePaths)]) {
+        try {
+          await deleteStorageObject("card-documents", p, {
+            reason: "excluir item de sessão de cartão",
+            related_table: "card_session_items",
+            related_id: it.id,
+          });
+        } catch (err: any) { storageErr = err as Error; }
+      }
+      if (storageErr) throw storageErr;
+    },
+    onSuccess: () => {
+      toast({ title: "Item excluído." });
+      invalidateCardSessionQueries(qc, id);
+      setDeleteItem(null);
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+  });
+
+
 
 
   if (!session) {
@@ -783,6 +864,15 @@ export default function CardSessionDetail() {
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                         )}
+                        {canEditExpenses && (
+                          <button
+                            onClick={() => setDeleteItem(it)}
+                            title="Excluir item"
+                            className="inline-flex items-center gap-1 rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <span className="font-semibold">{formatCurrency(cardItemGross(it))}</span>
                       </div>
                     </div>
@@ -967,6 +1057,37 @@ export default function CardSessionDetail() {
                 className="flex-1 rounded-lg bg-destructive py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
               >
                 {deleteExpenseMut.isPending ? "A excluir…" : "Excluir"}
+              </button>
+            </div>
+          </div>
+        </OverlayLayer>
+      )}
+
+      {deleteItem && (
+        <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
+          <div className="glass w-full max-w-md rounded-xl p-6">
+            <h2 className="mb-2 text-lg font-semibold">Excluir item?</h2>
+            <p className="text-sm text-muted-foreground">
+              {deleteItem.description ?? deleteItem.supplier_name ?? "Despesa"} — <span className="font-semibold text-foreground">
+                {formatCurrency(cardItemGross(deleteItem))}
+              </span>
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              O item é eliminado da sessão e o valor volta ao saldo teórico. O talão vai para o lixo recuperável, exceto se estiver referenciado por uma transação.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setDeleteItem(null)}
+                className="flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:bg-muted"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => deleteItemMut.mutate(deleteItem)}
+                disabled={deleteItemMut.isPending}
+                className="flex-1 rounded-lg bg-destructive py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+              >
+                {deleteItemMut.isPending ? "A excluir…" : "Excluir"}
               </button>
             </div>
           </div>
