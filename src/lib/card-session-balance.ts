@@ -50,6 +50,10 @@ export interface CardSessionAccountSync {
   directTotal: number;
   /** Saldo calculado da conta (mesma fórmula do módulo Contas). */
   accountBalance: number;
+  /** Σ assinada das transações carimbadas com a sessão (modelo pré-D17), qualquer data. */
+  legacySessionSpend: number;
+  /** Nº de transações carimbadas com a sessão. */
+  legacySessionCount: number;
 }
 
 /**
@@ -94,19 +98,27 @@ export async function fetchCardSessionAccountSync(params: {
   let accountBalance = base;
   const directMovements: CardAccountTx[] = [];
   let directTotal = 0;
+  let legacySessionSpend = 0;
+  let legacySessionCount = 0;
 
   for (const raw of (txs ?? []) as CardAccountTx[]) {
     // Data de corte do saldo inicial: o que é anterior já está no initial_balance.
     if (!countsAfterCutoff(raw, cutoff)) continue;
     const signed = txSignedAmount(raw);
     accountBalance += signed;
+    // Ordem igual a close-card-session (#275): o carimbo da sessão ganha à data,
+    // para que uma transação da sessão nunca entre no saldo de abertura.
+    if (raw.card_session_id === sessionId) {
+      legacySessionSpend += signed;
+      legacySessionCount += 1;
+      continue;
+    }
     const eff = txEffectiveDate(raw);
     if (eff && openDay && eff < openDay) {
       dynamicOpening += signed;
       continue;
     }
-    // Período da sessão: só é "direto" se não pertencer à sessão nem às recargas.
-    if (raw.card_session_id === sessionId) continue;
+    // Período da sessão: só é "direto" se não pertencer às recargas.
     if (loadIds.has(raw.id)) continue;
     if (signed === 0) continue;
     directMovements.push(raw);
@@ -120,6 +132,8 @@ export async function fetchCardSessionAccountSync(params: {
     directMovements,
     directTotal,
     accountBalance,
+    legacySessionSpend,
+    legacySessionCount,
   };
 }
 
@@ -168,9 +182,7 @@ export function computeOpenSessionTheoretical(p: {
   openItemsGross: number;
   legacySessionSpend: number;
   directTotal: number;
-  totalApproved?: number;
-  totalPending?: number;
 }): number {
-  // TEMP (estado actual do ecrã, para provar o teste a falhar)
-  return p.opening + p.totalLoads - (p.totalApproved ?? 0) - (p.totalPending ?? 0) + p.directTotal;
+  // Mesma fórmula de close-card-session. legacySessionSpend já é assinado (despesa < 0).
+  return p.opening + p.totalLoads - p.openItemsGross + p.legacySessionSpend + p.directTotal;
 }

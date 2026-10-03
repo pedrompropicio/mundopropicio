@@ -252,7 +252,11 @@ export default function CardSessionDetail() {
       }
     : resolveOpening(rawOverride, accountSync?.dynamicOpening ?? 0);
   const directTotal = isClosedSession ? 0 : accountSync?.directTotal ?? 0;
-  const theoretical = opening + totalLoads - totalApproved - totalPending + directTotal;
+  const legacySessionSpend = isClosedSession ? 0 : accountSync?.legacySessionSpend ?? 0;
+  // #275 — sessões abertas usam a fórmula do fecho (close-card-session).
+  const theoretical = isClosedSession
+    ? opening + totalLoads - totalApproved - totalPending + directTotal
+    : computeOpenSessionTheoretical({ opening, totalLoads, openItemsGross, legacySessionSpend, directTotal });
 
 
   /** Breakdown por evento: transações antigas da sessão + itens (novo modelo). */
@@ -648,7 +652,7 @@ export default function CardSessionDetail() {
           hint={
             isClosedSession
               ? "Saldo de abertura + recargas − gasto aprovado − pendente."
-              : `Abertura + recargas − gasto aprovado − pendente ± movimentos diretos na conta (${formatCurrency(directTotal)}).`
+              : "Abertura + recargas − itens por integrar ± movimentos da sessão e directos. É o valor que o fecho vai calcular."
           }
         />
       </div>
@@ -1060,6 +1064,9 @@ export default function CardSessionDetail() {
           pending_items: pendingItems.length,
           expenses_by_event: expensesByEvent,
           direct_total: directTotal,
+          open_items_gross: openItemsGross,
+          legacy_session_spend: legacySessionSpend,
+          theoretical,
           direct_movements: (accountSync?.directMovements ?? []).map((t) => ({
             id: t.id,
             description: t.description ?? "(sem descrição)",
