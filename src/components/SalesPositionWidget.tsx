@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -253,9 +254,11 @@ export function SalesPositionWidget() {
           </div>
 
           {rows.map((r) => (
-            <div
+            <Link
               key={r.group_id}
-              className="border-b border-border/30 px-3 py-1.5 text-xs last:border-0"
+              to={`/eventos/${r.group_id}`}
+              aria-label={`Abrir evento ${r.event_name}`}
+              className="block border-b border-border/30 px-3 py-2 text-xs no-underline transition-colors last:border-0 hover:bg-secondary/40 sm:py-1.5"
             >
               {/* Layout mobile */}
               <div className="flex flex-col gap-0.5 sm:hidden">
@@ -308,7 +311,7 @@ export function SalesPositionWidget() {
                   <Cell qty={r.total_qty} value={r.total_value} missing={false} />
                 </span>
               </div>
-            </div>
+            </Link>
           ))}
 
           <div className="border-t border-border/60 bg-secondary/30 px-3 py-1.5 text-xs font-bold">
