@@ -254,9 +254,11 @@ export function SalesPositionWidget() {
           </div>
 
           {rows.map((r) => (
-            <div
+            <Link
               key={r.group_id}
-              className="border-b border-border/30 px-3 py-1.5 text-xs last:border-0"
+              to={`/eventos/${r.group_id}`}
+              aria-label={`Abrir evento ${r.event_name}`}
+              className="block border-b border-border/30 px-3 py-2 text-xs no-underline transition-colors last:border-0 hover:bg-secondary/40 sm:py-1.5"
             >
               {/* Layout mobile */}
               <div className="flex flex-col gap-0.5 sm:hidden">
