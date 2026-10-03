@@ -1,3 +1,5 @@
+import { EventNatureFilter } from "@/components/EventNatureFilter";
+import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,18 +15,21 @@ import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 export default function ReportBudgetDeviation() {
   const [selectedEventId, setSelectedEventId] = useState<string>("");
 
-  const { data: events = [] } = useQuery({
+  const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
+  const { data: allEvents = [] } = useQuery({
     queryKey: ["budget-dev-events"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select("id, name, status, date, parent_event_id")
+        .select("id, name, status, date, parent_event_id, event_nature")
         .in("status", ["active", "completed"])
         .order("date", { ascending: false });
       if (error) throw error;
       return data;
     },
   });
+  // #256: o filtro só restringe o conjunto de eventos; vazio = todos (resultado idêntico).
+  const events = useMemo(() => filterEventsByNature(allEvents as any[], natureFilter) as typeof allEvents, [allEvents, natureFilter]);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["budget-dev-categories"],
@@ -107,6 +112,7 @@ export default function ReportBudgetDeviation() {
 
   return (
     <div className="space-y-6">
+<EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
       <Select value={selectedEventId} onValueChange={setSelectedEventId}>
         <SelectTrigger className="w-full max-w-md"><SelectValue placeholder="Selecione um evento" /></SelectTrigger>
         <SelectContent>

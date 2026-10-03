@@ -1,3 +1,5 @@
+import { EventNatureFilter } from "@/components/EventNatureFilter";
+import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,7 +44,8 @@ export default function ReportDREEmpresarial() {
   const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("ticket_sales");
   const year = Number(selectedYear);
 
-  const { data: events = [] } = useQuery({
+  const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
+  const { data: allEvents = [] } = useQuery({
     queryKey: ["events"],
     queryFn: async () => {
       const { data, error } = await supabase.from("events").select("*").order("date");
@@ -50,6 +53,8 @@ export default function ReportDREEmpresarial() {
       return data;
     },
   });
+  // #256: o filtro só restringe o conjunto de eventos; vazio = todos (resultado idêntico).
+  const events = useMemo(() => filterEventsByNature(allEvents as any[], natureFilter) as typeof allEvents, [allEvents, natureFilter]);
 
   const { data: transactions = [] } = useQuery({
     queryKey: ["transactions-approved"],
@@ -391,6 +396,7 @@ export default function ReportDREEmpresarial() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-4">
+<EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
         <Select value={selectedYear} onValueChange={setSelectedYear}>
           <SelectTrigger className="w-32">
             <SelectValue />

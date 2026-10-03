@@ -1,3 +1,5 @@
+import { EventNatureFilter } from "@/components/EventNatureFilter";
+import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
 import React, { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -568,7 +570,8 @@ export default function ReportPL() {
     });
   };
 
-  const { data: events = [] } = useQuery({
+  const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
+  const { data: allEvents = [] } = useQuery({
     queryKey: ["events"],
     queryFn: async () => {
       const { data, error } = await supabase.from("events").select("*").order("date", { ascending: false });
@@ -576,6 +579,8 @@ export default function ReportPL() {
       return data;
     },
   });
+  // #256: o filtro só restringe o conjunto de eventos; vazio = todos (resultado idêntico).
+  const events = useMemo(() => filterEventsByNature(allEvents as any[], natureFilter) as typeof allEvents, [allEvents, natureFilter]);
 
   const { data: activeForecasts = [] } = useQuery({
     queryKey: ["all-forecasts"],
@@ -926,7 +931,8 @@ export default function ReportPL() {
             <p className="text-sm font-medium">Selecionar Eventos</p>
             <button onClick={toggleAll} className="text-xs text-primary hover:underline">
               {selectedEventIds.length === events.length ? "Desmarcar todos" : "Selecionar todos"}
-            </button>
+            </button><EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
+
           </div>
           <div className="flex flex-col gap-2">
             {events.filter((e) => !e.parent_event_id).map((e) => {
@@ -937,6 +943,7 @@ export default function ReportPL() {
                   <label className="flex items-center gap-2 cursor-pointer text-sm">
                     <Checkbox checked={selectedEventIds.includes(e.id)} onCheckedChange={() => toggleEvent(e.id)} />
                     <span className={isParent ? "font-semibold" : ""}>{e.name}</span>
+                  <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{eventNatureLabel((e as any).event_nature)}</span>
                     {isParent && <span className="text-xs text-muted-foreground">(consolidado)</span>}
                   </label>
                   {isParent && (

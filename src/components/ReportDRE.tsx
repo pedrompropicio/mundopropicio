@@ -1,3 +1,5 @@
+import { EventNatureFilter } from "@/components/EventNatureFilter";
+import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
@@ -286,7 +288,8 @@ export default function ReportDRE() {
   const [showPartnerView, setShowPartnerView] = useState(false);
   const [showEbitda, setShowEbitda] = useState(false);
 
-  const { data: events = [] } = useQuery({
+  const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
+  const { data: allEvents = [] } = useQuery({
     queryKey: ["events"],
     queryFn: async () => {
       const { data, error } = await supabase.from("events").select("*").order("date", { ascending: false });
@@ -294,6 +297,8 @@ export default function ReportDRE() {
       return data;
     },
   });
+  // #256: o filtro só restringe o conjunto de eventos; vazio = todos (resultado idêntico).
+  const events = useMemo(() => filterEventsByNature(allEvents as any[], natureFilter) as typeof allEvents, [allEvents, natureFilter]);
 
   const { data: transactionsAll = [] } = useQuery({
     queryKey: ["transactions", "dre"],
@@ -638,6 +643,7 @@ export default function ReportDRE() {
             {selectedEventIds.length === eventsWithTransactions.length ? "Desmarcar todos" : "Selecionar todos"}
           </button>
         </div>
+<EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
         <div className="flex flex-col gap-2">
           {eventsWithTransactions.filter((e) => !e.parent_event_id).map((e) => {
             const children = eventsWithTransactions.filter((c) => c.parent_event_id === e.id);
@@ -650,6 +656,7 @@ export default function ReportDRE() {
                     onCheckedChange={() => toggleEvent(e.id)}
                   />
                   <span className={isParent ? "font-semibold" : ""}>{e.name}</span>
+                  <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{eventNatureLabel((e as any).event_nature)}</span>
                   {isParent && <span className="text-xs text-muted-foreground">(consolidado)</span>}
                 </label>
                 {isParent && (
