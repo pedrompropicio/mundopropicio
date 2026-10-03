@@ -490,6 +490,7 @@ export default function Events() {
           <p className="text-sm text-muted-foreground">Gestão e acompanhamento financeiro por evento</p>
         </div>
         <div className="flex items-center gap-2">
+          <EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
           <div className="flex items-center rounded-lg border border-border bg-secondary/50 p-0.5">
             <button
               onClick={() => setViewMode("cards")}
