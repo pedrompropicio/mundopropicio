@@ -19,6 +19,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useCompany } from "@/hooks/useCompany";
 import { toSlug } from "../lib/slug";
+import { EVENT_NATURES, type EventNature } from "@/lib/event-nature";
 
 type Mgmt = "own" | "partner_managed";
 type Status = "planning" | "active" | "confirmed" | "completed" | "cancelled" | "archived";
@@ -30,6 +31,7 @@ export default function NewEventoPage() {
   const [date, setDate] = useState("");
   const [status, setStatus] = useState<Status>("planning");
   const [mgmt, setMgmt] = useState<Mgmt>("own");
+  const [eventNature, setEventNature] = useState<EventNature | "">("");
   const [partnerName, setPartnerName] = useState("");
   const [location, setLocation] = useState("");
   const [slug, setSlug] = useState("");
@@ -51,6 +53,7 @@ export default function NewEventoPage() {
         date,
         status,
         management_type: mgmt,
+        event_nature: eventNature || null,
         partner_name: mgmt === "partner_managed" ? partnerName.trim() || null : null,
         location: location.trim() || null,
         slug: finalSlug || null,
@@ -120,6 +123,17 @@ export default function NewEventoPage() {
                 <span>Parceria (sócio externo gere)</span>
               </label>
             </RadioGroup>
+          </Field>
+          <Field label="Natureza do evento">
+            <Select value={eventNature || "undefined"} onValueChange={(v) => setEventNature(v === "undefined" ? "" : v as EventNature)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="undefined">— por definir —</SelectItem>
+                {EVENT_NATURES.map((nature) => (
+                  <SelectItem key={nature.value} value={nature.value}>{nature.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
         </div>
 

@@ -11,16 +11,18 @@ import { toast } from "sonner";
 import { X, Plus, Calendar } from "lucide-react";
 import { formatCityLabel } from "@/lib/country";
 import { createSubEventInTour, type SessionDraft } from "@/lib/create-sub-event";
+import type { EventNature } from "@/lib/event-nature";
 
 interface AddSubEventModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   masterEventId: string;
   masterStatus: string;
+  masterEventNature?: EventNature | null;
   onCreated?: (newSubId: string) => void;
 }
 
-export function AddSubEventModal({ open, onOpenChange, masterEventId, masterStatus, onCreated }: AddSubEventModalProps) {
+export function AddSubEventModal({ open, onOpenChange, masterEventId, masterStatus, masterEventNature, onCreated }: AddSubEventModalProps) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
@@ -63,6 +65,7 @@ export function AddSubEventModal({ open, onOpenChange, masterEventId, masterStat
       return createSubEventInTour({
         parentId: masterEventId,
         parentStatus: masterStatus,
+        parentEventNature: masterEventNature,
         sub: {
           name: name.trim(),
           date,

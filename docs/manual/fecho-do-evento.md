@@ -2,7 +2,7 @@
 capitulo: fecho-do-evento
 titulo: Fecho do evento
 modulo: erp
-atualizado: 2026-09-22
+atualizado: 2026-10-03
 perfis: [manager, admin, editor, partner]
 rotas: [/eventos/:id, /bilheteiras, /cartoes, /camarim, /contas, /relatorios/extrato]
 fontes: [D-ERP10, D-ERP13, D-ERP14, D-ERP15, D-ERP20, D-ERP22, D-ERP23, D-ERP26, D-ERP69, D-ERP113, D-ERP114, PROC-fecho-evento, event-settlements, partner-settlement, settlement-transfer-pair, fecho-filter-parity, event-cost-basis, event-revenue-basis, ticket-office-reconciliation, card-sessions, camarim-integration-lock, custo-partilhado-terceiros, partner-advance-expenses]

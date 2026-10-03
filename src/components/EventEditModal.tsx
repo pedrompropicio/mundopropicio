@@ -12,6 +12,7 @@ import { formatCityLabel } from "@/lib/country";
 import { useBackdropClose } from "@/lib/backdropClose";
 import type { EventFormat } from "@/lib/event-format";
 import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
+import { EVENT_NATURES, type EventNature } from "@/lib/event-nature";
 
 interface EventEditModalProps {
   event: any;
@@ -28,6 +29,7 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
   const [budget, setBudget] = useState(String(event.budget || ""));
   const [ticketsTotal, setTicketsTotal] = useState(String(event.tickets_total || ""));
   const [status, setStatus] = useState(event.status);
+  const [eventNature, setEventNature] = useState<EventNature | "">(event.event_nature || "");
   const [plMode, setPlMode] = useState(event.pl_mode || "passive");
   const [format, setFormat] = useState<EventFormat>(event.format === "residencia" ? "residencia" : "festival");
   const [absorbsAdminCosts, setAbsorbsAdminCosts] = useState<boolean>(!!event.absorbs_admin_costs);
@@ -126,6 +128,7 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
           budget: parseFloat(budget) || 0,
           tickets_total: parseInt(ticketsTotal) || 0,
           status,
+          event_nature: eventNature || null,
           pl_mode: plMode,
           // `format` é SÓ apresentação (Festival/Residência); a mecânica lê event_type
           format: eventType === "festival" ? format : null,
@@ -247,6 +250,20 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
               onChange={(e) => setName(e.target.value)}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Natureza do evento</label>
+            <select
+              value={eventNature}
+              onChange={(e) => setEventNature(e.target.value as EventNature | "")}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              <option value="">— por definir —</option>
+              {EVENT_NATURES.map((nature) => (
+                <option key={nature.value} value={nature.value}>{nature.label}</option>
+              ))}
+            </select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

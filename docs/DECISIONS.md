@@ -4712,3 +4712,13 @@ Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_a
 2. Uma correcção autorizada corre do princípio ao fim ou não começa. Apagar a parte antiga e deixar a nova por criar deixa os saldos errados no intervalo.
 
 **Estado:** vigente.
+
+## D-ERP163 — Natureza económica do evento é um campo próprio, distinto de management_type (03/10/2026)
+
+**Contexto.** A Issue #256 mostrou que a distinção produção própria / intermediação não existia no sistema. `events.management_type` controla visibilidade: oito ecrãs filtram `own`, enquanto seis relatórios não leem esse campo. Na Tour M&M, usar `partner_managed` para representar a relação económica escondeu 105.553,14 € de receita.
+
+**Decisão.** `events.event_nature` passa a representar a natureza económica com cinco valores: `producao_propria`, `intermediacao`, `coproducao`, `parceiro_local` e `temporada`. É independente de `management_type`, que continua exclusivamente como controlo de visibilidade. Na fase 1 o campo é opcional e não altera qualquer filtro ou cálculo; os sub-eventos herdam o valor do Master quando são criados. Na fase 2, depois do retro-preenchimento, torna-se obrigatório na criação e na base, e os relatórios passam por revisão explícita.
+
+**Alternativa rejeitada.** Reaproveitar `management_type`: mistura natureza económica com visibilidade e pode voltar a esconder eventos e receita dos módulos internos.
+
+**Estado:** vigente.

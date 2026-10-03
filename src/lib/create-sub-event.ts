@@ -15,6 +15,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
+import type { EventNature } from "@/lib/event-nature";
 
 export interface SessionDraft {
   date: string;
@@ -35,6 +36,8 @@ export interface CreateSubEventArgs {
   parentId: string;
   /** Herdado do master no wizard; ao adicionar posteriormente passa-se o status atual do master. */
   parentStatus: string;
+  /** A natureza económica é sempre herdada do Master na criação. */
+  parentEventNature?: EventNature | null;
   sub: SubEventDraft;
   venuesMap: Record<string, { name?: string } | any>;
   citiesMap: Record<string, string>;
@@ -44,6 +47,7 @@ export interface CreateSubEventArgs {
 export async function createSubEventInTour({
   parentId,
   parentStatus,
+  parentEventNature,
   sub,
   venuesMap,
   citiesMap,
@@ -63,6 +67,7 @@ export async function createSubEventInTour({
       status: parentStatus,
       event_type: sub.extra_dates.length > 0 ? "festival" : "simple",
       parent_event_id: parentId,
+      event_nature: parentEventNature ?? null,
       budget: 0,
       tickets_total: 0,
     } as any)

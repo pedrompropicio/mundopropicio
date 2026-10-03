@@ -32,6 +32,7 @@ import PurchaseAudienceCard from "@/components/crm/PurchaseAudienceCard";
 import { MP_COMPANY_ID } from "../constants";
 import { CopyTourContentDialog } from "./CopyTourContentDialog";
 import { TourCreativesAudit } from "./TourCreativesAudit";
+import { EVENT_NATURES, type EventNature } from "@/lib/event-nature";
 
 
 type FormState = Omit<
@@ -93,7 +94,7 @@ export default function EventMarketingEditor() {
     queryFn: async (): Promise<any> => {
       const { data, error } = await (supabase as any)
         .from("events")
-        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, venue_map_url, venue_directions_url, meta_pixel_id, meta_audience_id, meta_audience_name, ad_destination_url, event_type, parent_event_id, title_es, description_es, location_es")
+        .select("id, name, slug, status, date, company_id, management_type, event_nature, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, venue_map_url, venue_directions_url, meta_pixel_id, meta_audience_id, meta_audience_name, ad_destination_url, event_type, parent_event_id, title_es, description_es, location_es")
         .eq("id", eventId)
         .maybeSingle();
       if (error) throw error;
@@ -979,6 +980,7 @@ function GestaoTab({
   const { companyId } = useCompany();
   const qc = useQueryClient();
   const [mgmt, setMgmt] = useState<string>(ev?.management_type ?? "own");
+  const [eventNature, setEventNature] = useState<EventNature | "">(ev?.event_nature ?? "");
   const [partnerName, setPartnerName] = useState<string>(ev?.partner_name ?? "");
   const [location, setLocation] = useState<string>(ev?.location ?? "");
   const [titleEs, setTitleEs] = useState<string>(ev?.title_es ?? "");
@@ -1015,6 +1017,7 @@ function GestaoTab({
 
   useEffect(() => {
     setMgmt(ev?.management_type ?? "own");
+    setEventNature(ev?.event_nature ?? "");
     setPartnerName(ev?.partner_name ?? "");
     setLocation(ev?.location ?? "");
     setTitleEs(ev?.title_es ?? "");
@@ -1053,6 +1056,7 @@ function GestaoTab({
         .from("events")
         .update({
           management_type: mgmt,
+          event_nature: eventNature || null,
           partner_name: mgmt === "partner_managed" ? (partnerName.trim() || null) : null,
           location: location.trim() || null,
           title_es: titleEs.trim() || null,
@@ -1154,6 +1158,22 @@ function GestaoTab({
               <SelectContent>
                 <SelectItem value="own">Própria (MP gere tudo)</SelectItem>
                 <SelectItem value="partner_managed">Parceria (sócio externo gere)</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field label="Natureza do evento">
+            <Select
+              value={eventNature || "undefined"}
+              onValueChange={(v) => setEventNature(v === "undefined" ? "" : v as EventNature)}
+              disabled={disabled}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="undefined">— por definir —</SelectItem>
+                {EVENT_NATURES.map((nature) => (
+                  <SelectItem key={nature.value} value={nature.value}>{nature.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </Field>
