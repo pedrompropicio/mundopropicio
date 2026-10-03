@@ -1056,7 +1056,7 @@ function GestaoTab({
         .from("events")
         .update({
           management_type: mgmt,
-          event_nature: eventNature || null,
+          ...(eventNature ? { event_nature: eventNature } : {}),
           partner_name: mgmt === "partner_managed" ? (partnerName.trim() || null) : null,
           location: location.trim() || null,
           title_es: titleEs.trim() || null,
@@ -1164,13 +1164,12 @@ function GestaoTab({
 
           <Field label="Natureza do evento">
             <Select
-              value={eventNature || "undefined"}
-              onValueChange={(v) => setEventNature(v === "undefined" ? "" : v as EventNature)}
+              value={eventNature || undefined}
+              onValueChange={(v) => setEventNature(v as EventNature)}
               disabled={disabled}
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="undefined">— por definir —</SelectItem>
                 {EVENT_NATURES.map((nature) => (
                   <SelectItem key={nature.value} value={nature.value}>{nature.label}</SelectItem>
                 ))}

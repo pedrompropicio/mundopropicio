@@ -271,7 +271,7 @@ export default function Events() {
         budget: parseFloat(data.budget) || 0,
         tickets_total: parseInt(data.tickets_total) || 0,
         status: data.status,
-        event_nature: data.event_nature || null,
+        event_nature: data.event_nature as EventNature,
         event_type: data.event_type,
         // `format` é SÓ apresentação (Festival/Residência); a mecânica lê event_type
         format: data.event_type === "festival" ? data.format : null,
@@ -311,7 +311,7 @@ export default function Events() {
           await createSubEventInTour({
             parentId,
             parentStatus: data.status,
-            parentEventNature: data.event_nature || null,
+            parentEventNature: data.event_nature as EventNature,
             sub: s,
             venuesMap,
             citiesMap,
@@ -619,7 +619,7 @@ export default function Events() {
                   onChange={(e) => setForm({ ...form, event_nature: e.target.value as EventNature | "" })}
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
-                  <option value="">— por definir —</option>
+                  <option value="" disabled>Escolha a natureza do evento</option>
                   {EVENT_NATURES.map((nature) => (
                     <option key={nature.value} value={nature.value}>{nature.label}</option>
                   ))}
@@ -926,11 +926,14 @@ export default function Events() {
 
               <button
                 type="submit"
-                disabled={createMutation.isPending}
+                disabled={createMutation.isPending || !form.event_nature}
                 className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
               >
                 {createMutation.isPending ? "A guardar…" : "Criar Evento"}
               </button>
+              {!form.event_nature && (
+                <p className="text-center text-xs text-destructive">Escolha a natureza do evento</p>
+              )}
             </form>
           </div>
         </OverlayLayer>

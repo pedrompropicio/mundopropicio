@@ -53,7 +53,7 @@ export default function NewEventoPage() {
         date,
         status,
         management_type: mgmt,
-        event_nature: eventNature || null,
+        event_nature: eventNature as EventNature,
         partner_name: mgmt === "partner_managed" ? partnerName.trim() || null : null,
         location: location.trim() || null,
         slug: finalSlug || null,
@@ -125,10 +125,9 @@ export default function NewEventoPage() {
             </RadioGroup>
           </Field>
           <Field label="Natureza do evento">
-            <Select value={eventNature || "undefined"} onValueChange={(v) => setEventNature(v === "undefined" ? "" : v as EventNature)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Select value={eventNature || undefined} onValueChange={(v) => setEventNature(v as EventNature)}>
+              <SelectTrigger><SelectValue placeholder="Escolha a natureza do evento" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="undefined">— por definir —</SelectItem>
                 {EVENT_NATURES.map((nature) => (
                   <SelectItem key={nature.value} value={nature.value}>{nature.label}</SelectItem>
                 ))}
@@ -201,7 +200,7 @@ export default function NewEventoPage() {
           <Button variant="ghost" onClick={() => navigate("/crm/eventos")}>
             Cancelar
           </Button>
-          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !eventNature} title={!eventNature ? "Escolha a natureza do evento" : undefined}>
             {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Criar evento
           </Button>

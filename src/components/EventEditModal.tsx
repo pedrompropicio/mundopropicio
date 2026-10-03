@@ -128,7 +128,7 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
           budget: parseFloat(budget) || 0,
           tickets_total: parseInt(ticketsTotal) || 0,
           status,
-          event_nature: eventNature || null,
+          ...(eventNature ? { event_nature: eventNature } : {}),
           pl_mode: plMode,
           // `format` é SÓ apresentação (Festival/Residência); a mecânica lê event_type
           format: eventType === "festival" ? format : null,
@@ -259,7 +259,6 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
               onChange={(e) => setEventNature(e.target.value as EventNature | "")}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
-              <option value="">— por definir —</option>
               {EVENT_NATURES.map((nature) => (
                 <option key={nature.value} value={nature.value}>{nature.label}</option>
               ))}
