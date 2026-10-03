@@ -44,7 +44,6 @@ interface SessionData {
   /** #275 — valores do ecrã, para o modal mostrar o mesmo teórico que o fecho. */
   open_items_gross?: number;
   legacy_session_spend?: number;
-  theoretical?: number;
 }
 
 interface Props {

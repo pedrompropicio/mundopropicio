@@ -26,7 +26,7 @@ import {
 } from "@/lib/card-session-helpers";
 import { fetchCardAccountBalance } from "@/lib/card-account-balance";
 import { deleteTransactionDocument } from "@/lib/transaction-document-storage";
-import { fetchCardSessionAccountSync, resolveOpening } from "@/lib/card-session-balance";
+import { fetchCardSessionAccountSync, resolveOpening, computeOpenSessionTheoretical } from "@/lib/card-session-balance";
 import { CardLoadModal } from "@/components/cards/CardLoadModal";
 
 import { NewCardExpenseModal } from "@/components/cards/NewCardExpenseModal";
@@ -1066,7 +1066,6 @@ export default function CardSessionDetail() {
           direct_total: directTotal,
           open_items_gross: openItemsGross,
           legacy_session_spend: legacySessionSpend,
-          theoretical,
           direct_movements: (accountSync?.directMovements ?? []).map((t) => ({
             id: t.id,
             description: t.description ?? "(sem descrição)",
