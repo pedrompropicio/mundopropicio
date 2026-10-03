@@ -19,6 +19,7 @@ import { fetchEventsListFinancials, type EventsListFinancialSpec } from "@/lib/e
 import { readStoredMode, readStoredWithVat } from "@/lib/event-financial-card";
 import { normalizePartnerCalcBasis, usesGrossExpenseAmounts } from "@/lib/partner-calc-basis";
 import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
+import { EVENT_NATURES, type EventNature } from "@/lib/event-nature";
 
 type EventType = "simple" | "festival" | "multi_day" | "tour" | "master" | "split";
 
@@ -63,6 +64,7 @@ interface EventForm {
   budget: string;
   tickets_total: string;
   status: string;
+  event_nature: EventNature | "";
   event_type: EventType;
   /** Rótulo cosmético (só festival): festival | residencia */
   format: EventFormat;
@@ -80,6 +82,7 @@ const emptyForm: EventForm = {
   budget: "",
   tickets_total: "",
   status: "planning",
+  event_nature: "",
   event_type: "simple",
   format: "festival",
   pl_mode: "passive",
@@ -268,6 +271,7 @@ export default function Events() {
         budget: parseFloat(data.budget) || 0,
         tickets_total: parseInt(data.tickets_total) || 0,
         status: data.status,
+        event_nature: data.event_nature || null,
         event_type: data.event_type,
         // `format` é SÓ apresentação (Festival/Residência); a mecânica lê event_type
         format: data.event_type === "festival" ? data.format : null,
@@ -307,6 +311,7 @@ export default function Events() {
           await createSubEventInTour({
             parentId,
             parentStatus: data.status,
+            parentEventNature: data.event_nature || null,
             sub: s,
             venuesMap,
             citiesMap,
@@ -605,6 +610,20 @@ export default function Events() {
                     <option value="cancelled">Cancelado</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Natureza do evento</label>
+                <select
+                  value={form.event_nature}
+                  onChange={(e) => setForm({ ...form, event_nature: e.target.value as EventNature | "" })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">— por definir —</option>
+                  {EVENT_NATURES.map((nature) => (
+                    <option key={nature.value} value={nature.value}>{nature.label}</option>
+                  ))}
+                </select>
               </div>
 
               {/* BP Mode */}
