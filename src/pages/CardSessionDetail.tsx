@@ -864,6 +864,15 @@ export default function CardSessionDetail() {
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                         )}
+                        {canEditExpenses && (
+                          <button
+                            onClick={() => setDeleteItem(it)}
+                            title="Excluir item"
+                            className="inline-flex items-center gap-1 rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <span className="font-semibold">{formatCurrency(cardItemGross(it))}</span>
                       </div>
                     </div>
