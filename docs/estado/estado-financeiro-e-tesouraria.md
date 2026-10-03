@@ -1,10 +1,10 @@
 # ESTADO — Financeiro & Tesouraria
 
-Atualizado: 2026-10-03. Issues abertas da frente: #273 e #274 (sessões de cartão, P1), #212 (scanner com câmbio da data da fatura, pequena) e as duas de revisão de dados com o Pedro, #134 e #135; #196 é transversal (plataforma-e-infra).
+Atualizado: 2026-10-03. Issues abertas da frente: #273, #274 e #275 (sessões de cartão, P1), #212 (scanner com câmbio da data da fatura, pequena) e as duas de revisão de dados com o Pedro, #134 e #135; #196 é transversal (plataforma-e-infra).
 
 ## Em que pé está
 
-- **Duplo lançamento entre sessões de cartão (03/10, #274 aberta).** Nada impedia o mesmo talão de existir como transação numa sessão (modelo pré-D17) e como item em `card_session_items` de outra. Caso real no cartão 0663: 15 talões lançados duas vezes, 954,00 € (prova: 7 dos 15 ficheiros byte a byte idênticos, mesmo eTag; os outros são PDFs regerados do mesmo talão). O saldo teórico da sessão `cac2f5a0` estava em −472,18 € e passou a +481,83 € depois de os 15 itens irem a `rejected` a 03/10. O saldo da conta nunca foi afectado — um item só vira transação na integração e nenhum dos 63 itens tem `transaction_id`; o risco era futuro. Itens duplicados marcam-se `rejected`, nunca se apagam: foi um item duplicado que preservou a foto do talão do McDonald's de 07/08 (12,05 €) que o bucket `transaction-documents` tinha perdido (#213), religado por referência `card://`. Correcção proposta na issue: aviso na aprovação + invariante `item_de_cartao_duplica_transacao`.
+- **Duplo lançamento entre sessões de cartão (03/10, #274 aberta).** Nada impedia o mesmo talão de existir como transação numa sessão (modelo pré-D17) e como item em `card_session_items` de outra. Caso real no cartão 0663: 15 talões lançados duas vezes, 954,00 € (prova: 7 dos 15 ficheiros byte a byte idênticos, mesmo eTag; os outros são PDFs regerados do mesmo talão). O KPI afectado foi o **saldo real estimado** da sessão `cac2f5a0`, que passou de **−472,23 €** para **+481,77 €** depois de os 15 itens irem a `rejected` a 03/10; o saldo teórico nunca foi afectado pelos duplicados. O bruto dos 48 itens que ficam é **1.404,91 €** (a UI arredonda item a item). O saldo da conta nunca foi afectado — um item só vira transação na integração e nenhum dos 63 itens tem `transaction_id`; o risco era futuro. Itens duplicados marcam-se `rejected`, nunca se apagam: foi um item duplicado que preservou a foto do talão do McDonald's de 07/08 (12,05 €) que o bucket `transaction-documents` tinha perdido (#213), religado por referência `card://`. Correcção proposta na issue: aviso na aprovação + invariante `item_de_cartao_duplica_transacao`.
 - **Fecho de sessão corrido no meio de uma recarga (03/10, #273 aberta).** A sessão `ffdea120` fechou a 19/08 às 19:19 com `closing_summary.total_loads = 1.384,58`, quando teve duas recargas (2.686,68 €); a de 1.302,10 foi criada às 19:06 e só gerou crédito às 21:08. O resumo histórico não foi reescrito de propósito. Correcção proposta: o fecho recusa com 422 quando há recarga sem crédito no cartão.
 
 - **Scanner de Faturas Avulsas: feedback de leitura OCR melhorado (#236, 23/09).** O toast "Fatura lida com IA" só aparece quando o OCR devolve os campos principais preenchidos. Leitura vazia dá toast destrutivo "Não consegui ler este documento" (com aviso extra para PDFs reimpressos); leitura parcial sem total dá toast "Leitura parcial" listando os campos em falta. Alterado só em `src/pages/StandaloneInvoiceScanner.tsx`; sem Publish.
@@ -230,13 +230,17 @@ Atualizado: 2026-10-03. Issues abertas da frente: #273 e #274 (sessões de cart�
 
 ## A trabalhar agora
 
-**Fila de aprovação da sessão de cartão filtrada (03/10).** O separador "Fila de
-aprovação" de `/cartoes/:id` mostrava todos os itens da sessão, qualquer que fosse
-o estado — na sessão `cac2f5a0` eram 63 linhas num separador cujo contador mostra 0.
-Passa a mostrar por omissão só os `submitted`, com um controlo discreto
-"Mostrar histórico (N)" (N = aprovados + rejeitados + integrados) que alterna a
-visibilidade dos restantes; fila vazia com histórico fechado mostra "Nada por
-aprovar.". Nenhum cálculo alterado. Ficheiro: `src/pages/CardSessionDetail.tsx`.
+**Saldo teórico da sessão de cartão alinhado com o fecho (03/10, #275).** O KPI
+"Saldo teórico da sessão" de `/cartoes/:id` não descontava os itens da sessão e
+descontava duas vezes uma transação carimbada com data anterior à abertura
+(cac2f5a0: ecrã 1.773,36 € vs fecho 481,77 €; a8257a56: 1.714,60 € vs 1.238,26 €),
+convidando a um acerto falso no modal de fecho. Correcção: `fetchCardSessionAccountSync`
+testa o carimbo da sessão antes da data (como `close-card-session`) e devolve
+`legacySessionSpend`/`legacySessionCount`; sessões abertas usam
+abertura + recargas − itens por integrar + transações da sessão + directos; o modal
+de fecho mostra o mesmo número. Sessões fechadas continuam a ler o `closing_summary`.
+`close-card-session` não foi tocada. A fila de aprovação filtrada ficou publicada a
+03/10 (commit fcf8617).
 
 A conta corrente do sócio ficou fechada a 17/09 (#193). Estado a essa data,
 com o ano de extratos completo:

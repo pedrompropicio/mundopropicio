@@ -26,6 +26,7 @@ import LinkBpLineDialog from "@/components/LinkBpLineDialog";
 import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
 import type { BudgetExcessLine, BudgetRaise } from "@/lib/bp-budget-excess";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { computeOpenSessionTheoretical } from "@/lib/card-session-balance";
 
 interface SessionData {
   id: string;
@@ -40,6 +41,9 @@ interface SessionData {
   direct_total?: number;
   direct_movements?: { id: string; description: string; signed: number; date: string }[];
   account_balance?: number | null;
+  /** #275 — valores do ecrã, para o modal mostrar o mesmo teórico que o fecho. */
+  open_items_gross?: number;
+  legacy_session_spend?: number;
 }
 
 interface Props {
@@ -229,17 +233,28 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
   const directTotal = Number(session.direct_total ?? 0);
   const directMovements = session.direct_movements ?? [];
   const legacySpend = useMemo(
-    () => legacy.reduce((s: number, t: any) => s - Number(t.paid_amount ?? 0), 0),
-    [legacy],
+    () =>
+      session.legacy_session_spend ??
+      legacy.reduce((s: number, t: any) => s - Number(t.paid_amount ?? 0), 0),
+    [legacy, session.legacy_session_spend],
   );
   const newSpendGross = useMemo(
-    () => (approvedItems as any[]).reduce((s, it) => s + cardItemGross(it), 0),
-    [approvedItems],
+    () =>
+      session.open_items_gross ??
+      (items as any[]).reduce((s, it) => s + cardItemGross(it), 0),
+    [items, session.open_items_gross],
   );
+  // Mesma fórmula de close-card-session e do ecrã (#275).
   const theoretical = useMemo(
     () =>
       Math.round(
-        (session.opening_balance + session.total_loads - newSpendGross + legacySpend + directTotal) * 100,
+        computeOpenSessionTheoretical({
+          opening: session.opening_balance,
+          totalLoads: session.total_loads,
+          openItemsGross: newSpendGross,
+          legacySessionSpend: legacySpend,
+          directTotal,
+        }) * 100,
       ) / 100,
     [session.opening_balance, session.total_loads, newSpendGross, legacySpend, directTotal],
   );
