@@ -900,11 +900,9 @@ export default function EventDetail() {
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="min-w-0 text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2"><span className="truncate" title={event.name}>{event.name}</span> <HelpTooltip text={helpTexts.eventDetail} /></h1>
           <EventStatusBadge status={event.status as any} />
-          {event.event_nature && (
-            <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-              {eventNatureLabel(event.event_nature)}
-            </span>
-          )}
+          <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            {eventNatureLabel(event.event_nature)}
+          </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             <EventTypeIcon className="h-3 w-3" />
             {eventType === "festival" ? eventFormatLabel(event) : eventTypeLabels[eventType]}
@@ -1284,7 +1282,7 @@ export default function EventDetail() {
           onOpenChange={setShowAddSubEvent}
           masterEventId={event.id}
           masterStatus={event.status}
-          masterEventNature={event.event_nature as EventNature | null}
+          masterEventNature={event.event_nature as EventNature}
           onCreated={(newSubId) => setSelectedSubEvent(newSubId)}
         />
       )}

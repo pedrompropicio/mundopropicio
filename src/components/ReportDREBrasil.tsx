@@ -1,3 +1,5 @@
+import { EventNatureFilter } from "@/components/EventNatureFilter";
+import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
@@ -238,7 +240,8 @@ export default function ReportDREBrasil() {
   const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("ticket_sales");
   const [showPartnerView, setShowPartnerView] = useState(false);
 
-  const { data: events = [] } = useQuery({
+  const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
+  const { data: allEvents = [] } = useQuery({
     queryKey: ["events"],
     queryFn: async () => {
       const { data, error } = await supabase.from("events").select("*").order("date", { ascending: false });
@@ -246,6 +249,8 @@ export default function ReportDREBrasil() {
       return data;
     },
   });
+  // #256: o filtro só restringe o conjunto de eventos; vazio = todos (resultado idêntico).
+  const events = useMemo(() => filterEventsByNature(allEvents as any[], natureFilter) as typeof allEvents, [allEvents, natureFilter]);
 
   const { data: transactionsAll = [] } = useQuery({
     queryKey: ["transactions", "dre-brasil"],
@@ -524,7 +529,8 @@ export default function ReportDREBrasil() {
           <p className="text-sm font-medium">Selecionar Eventos</p>
           <button onClick={toggleAll} className="text-xs text-primary hover:underline">
             {selectedEventIds.length === eventsWithTransactions.length ? "Desmarcar todos" : "Selecionar todos"}
-          </button>
+          </button><EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
+
         </div>
         <p className="text-xs text-muted-foreground">
           Apenas eventos com base de cálculo "Receita s/IVA - Despesas c/IVA" são exibidos neste relatório.
@@ -541,6 +547,7 @@ export default function ReportDREBrasil() {
                     onCheckedChange={() => toggleEvent(e.id)}
                   />
                   <span className={isParent ? "font-semibold" : ""}>{e.name}</span>
+                  <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{eventNatureLabel((e as any).event_nature)}</span>
                   {isParent && <span className="text-xs text-muted-foreground">(consolidado)</span>}
                 </label>
                 {isParent && (

@@ -1,3 +1,5 @@
+import { EventNatureFilter } from "@/components/EventNatureFilter";
+import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,17 +14,20 @@ import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 export default function ReportProfitability() {
   const [view, setView] = useState<"artist" | "venue">("artist");
 
-  const { data: events = [] } = useQuery({
+  const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
+  const { data: allEvents = [] } = useQuery({
     queryKey: ["profitability-events"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select("id, name, status, venue_id, parent_event_id")
+        .select("id, name, status, venue_id, parent_event_id, event_nature")
         .in("status", ["completed"]);
       if (error) throw error;
       return data;
     },
   });
+  // #256: o filtro só restringe o conjunto de eventos; vazio = todos (resultado idêntico).
+  const events = useMemo(() => filterEventsByNature(allEvents as any[], natureFilter) as typeof allEvents, [allEvents, natureFilter]);
 
   const { data: venues = [] } = useQuery({
     queryKey: ["profitability-venues"],
@@ -118,6 +123,7 @@ export default function ReportProfitability() {
 
   return (
     <div className="space-y-6">
+<EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
       <Tabs value={view} onValueChange={(v) => setView(v as any)}>
         <TabsList>
           <TabsTrigger value="artist">Por Artista</TabsTrigger>

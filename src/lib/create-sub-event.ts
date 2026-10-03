@@ -37,7 +37,7 @@ export interface CreateSubEventArgs {
   /** Herdado do master no wizard; ao adicionar posteriormente passa-se o status atual do master. */
   parentStatus: string;
   /** A natureza económica é sempre herdada do Master na criação. */
-  parentEventNature?: EventNature | null;
+  parentEventNature: EventNature;
   sub: SubEventDraft;
   venuesMap: Record<string, { name?: string } | any>;
   citiesMap: Record<string, string>;
@@ -52,6 +52,7 @@ export async function createSubEventInTour({
   venuesMap,
   citiesMap,
 }: CreateSubEventArgs): Promise<string> {
+  if (!parentEventNature) throw new Error("O evento principal não tem natureza definida.");
   const subVenue = sub.venue_id ? (venuesMap as any)[sub.venue_id]?.name : null;
   const subCity = sub.city_id ? (citiesMap as any)[sub.city_id] : null;
   const subLocation = [subVenue, subCity].filter(Boolean).join(", ");
@@ -67,7 +68,7 @@ export async function createSubEventInTour({
       status: parentStatus,
       event_type: sub.extra_dates.length > 0 ? "festival" : "simple",
       parent_event_id: parentId,
-      event_nature: parentEventNature ?? null,
+      event_nature: parentEventNature,
       budget: 0,
       tickets_total: 0,
     } as any)
