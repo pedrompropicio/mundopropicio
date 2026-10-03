@@ -65,7 +65,7 @@ export function AddSubEventModal({ open, onOpenChange, masterEventId, masterStat
       return createSubEventInTour({
         parentId: masterEventId,
         parentStatus: masterStatus,
-        parentEventNature: masterEventNature,
+        parentEventNature: masterEventNature as EventNature,
         sub: {
           name: name.trim(),
           date,
