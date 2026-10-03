@@ -720,6 +720,31 @@ export default function EventCalendar() {
         }}
         editReservation={editingReservation}
       />
+      <Dialog open={!!pendingConvert} onOpenChange={(o) => { if (!o) setPendingConvert(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Converter reserva em evento</DialogTitle></DialogHeader>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Natureza do evento</label>
+          <select
+            value={convertNature}
+            onChange={(e) => setConvertNature(e.target.value as EventNature)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="" disabled>Escolha a natureza do evento</option>
+            {EVENT_NATURES.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
+          </select>
+          {!convertNature && <p className="text-xs text-destructive">Escolha a natureza do evento</p>}
+          <DialogFooter>
+            <Button
+              disabled={!convertNature || convertToEventMutation.isPending}
+              onClick={() => {
+                if (!pendingConvert || !convertNature) return;
+                convertToEventMutation.mutate({ ...pendingConvert, nature: convertNature });
+                setPendingConvert(null);
+              }}
+            >Converter</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
