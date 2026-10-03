@@ -67,6 +67,7 @@ export default function CardSessionDetail() {
   const [openingOpen, setOpeningOpen] = useState(false);
   const [openingValue, setOpeningValue] = useState("");
   const [openingReason, setOpeningReason] = useState("");
+  const [showQueueHistory, setShowQueueHistory] = useState(false);
 
 
 
@@ -789,44 +790,57 @@ export default function CardSessionDetail() {
         </div>
       )}
 
-      {tab === "queue" && (
-        <div className="space-y-2">
-          {items.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sem itens submetidos pela equipa.</p>
-          ) : (
-            (items as any[]).map((it) => (
-              <div key={it.id} className={cn(
-                "flex gap-3 rounded-lg border px-3 py-2 text-sm",
-                it.status === "approved" ? "border-emerald-500/40 bg-emerald-500/5" :
-                it.status === "rejected" ? "border-destructive/40 bg-destructive/5" :
-                "border-amber-500/40 bg-amber-500/5",
-              )}>
-                {it.document_path && <CardItemThumb path={it.document_path} />}
-                <div className="flex flex-1 items-center justify-between gap-2">
-                  <div>
-                    <div className="font-medium">{it.supplier_name || it.description || "—"}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {it.item_date} · {it.events?.name ?? "Sem evento"} · {it.status}
-                      {it.rejection_reason && <> · motivo: {it.rejection_reason}</>}
+      {tab === "queue" && (() => {
+        const queueItems = (items as any[]).filter((it) => it.status === "submitted");
+        const historyItems = (items as any[]).filter((it) => it.status !== "submitted");
+        const visibleItems = showQueueHistory ? (items as any[]) : queueItems;
+        return (
+          <div className="space-y-2">
+            {historyItems.length > 0 && (
+              <button
+                onClick={() => setShowQueueHistory((v) => !v)}
+                className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+              >
+                {showQueueHistory ? "Esconder histórico" : `Mostrar histórico (${historyItems.length})`}
+              </button>
+            )}
+            {visibleItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nada por aprovar.</p>
+            ) : (
+              visibleItems.map((it) => (
+                <div key={it.id} className={cn(
+                  "flex gap-3 rounded-lg border px-3 py-2 text-sm",
+                  it.status === "approved" ? "border-emerald-500/40 bg-emerald-500/5" :
+                  it.status === "rejected" ? "border-destructive/40 bg-destructive/5" :
+                  "border-amber-500/40 bg-amber-500/5",
+                )}>
+                  {it.document_path && <CardItemThumb path={it.document_path} />}
+                  <div className="flex flex-1 items-center justify-between gap-2">
+                    <div>
+                      <div className="font-medium">{it.supplier_name || it.description || "—"}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {it.item_date} · {it.events?.name ?? "Sem evento"} · {it.status}
+                        {it.rejection_reason && <> · motivo: {it.rejection_reason}</>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{formatCurrency(cardItemGross(it))}</span>
+                      {canManage && it.status === "submitted" && !isLocked && (
+                        <button
+                          onClick={() => setApproveItem(it)}
+                          className="rounded-md border border-primary/40 bg-primary/10 px-2 py-1 text-xs text-primary hover:bg-primary/20"
+                        >
+                          Rever
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">{formatCurrency(cardItemGross(it))}</span>
-                    {canManage && it.status === "submitted" && !isLocked && (
-                      <button
-                        onClick={() => setApproveItem(it)}
-                        className="rounded-md border border-primary/40 bg-primary/10 px-2 py-1 text-xs text-primary hover:bg-primary/20"
-                      >
-                        Rever
-                      </button>
-                    )}
-                  </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
+              ))
+            )}
+          </div>
+        );
+      })()}
 
       {tab === "loads" && (
         <div className="space-y-2">
