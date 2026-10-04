@@ -556,6 +556,7 @@ Deno.serve(async (req) => {
     campos_item: songs.length > 0 ? Object.keys(songs[0]) : [],
     campos_envelope: Object.keys(envelope),
     sem_correspondencia: semCorrespondencia,
+    clip_samples: body.inspect_clips === true ? clipSamples : undefined,
     notes,
   });
 });
