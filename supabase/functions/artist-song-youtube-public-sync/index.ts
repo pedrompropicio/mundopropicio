@@ -60,7 +60,26 @@ Deno.serve(async (req) => {
   if (!bearer) return json({ ok: false, error: "sem sessão" }, 401);
   // deno-lint-ignore no-explicit-any
   const body: any = await req.json().catch(() => ({}));
-  const artistId = body?.artist_id ?? DEFAULT_ARTIST;
+  // D-ERP169 adenda: modo "todos" (sem artist_id ou all:true) → uma invocação por artista.
+  if (body?.all === true || body?.artist_id === undefined) {
+    if (!isServiceRole(bearer)) return json({ ok: false, error: "modo todos só para service_role" }, 403);
+    const admin0 = adminClient();
+    const { data: chs } = await admin0.from("artist_channels").select("artist_id, artists!inner(id, name, status, roster_type)")
+      .eq("platform", "youtube").is("revoked_at", null).eq("artists.roster_type", "elenco").neq("artists.status", "inativo");
+    const ids = [...new Set((chs ?? []).map((c: { artist_id: string }) => c.artist_id))];
+    const self = `${Deno.env.get("SUPABASE_URL")}/functions/v1/${FN}`;
+    const results = [];
+    for (const id of ids) {
+      const r = await fetch(self, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${bearer}` },
+        body: JSON.stringify({ artist_id: id, dry_run: body?.dry_run === false ? false : body?.dry_run ?? false }),
+      });
+      results.push({ artist_id: id, http: r.status, resultado: await r.json().catch(() => null) });
+    }
+    return json({ ok: results.every((r) => r.http === 200), modo: "todos", artistas: ids.length, results });
+  }
+  const artistId = body?.artist_id;
   if (typeof artistId !== "string" || !UUID_RE.test(artistId)) return json({ ok: false, error: "artist_id inválido" }, 400);
   const dryRun = body?.dry_run !== false;
   const key = Deno.env.get("YOUTUBE_PUBLIC_API_KEY");
@@ -203,17 +222,45 @@ Deno.serve(async (req) => {
     // deno-lint-ignore no-explicit-any
     const inserts: any[] = [], updates: any[] = [], durOnly: { id: string; d: number }[] = [];
     let novos = 0, longos = 0, collabs = 0;
+    const via = { aggregator: 0, head_shorts: 0, head_watch: 0, duracao: 0 };
+    // (b) HEAD a /shorts/<id> sem seguir redirects, em lotes de 20.
+    const headType = new Map<string, "short" | "video">();
+    const needHead = allIds.filter((id) => byId.has(id) && (exByExt.get(id)?.source ?? "youtube_public") === "youtube_public");
+    for (let i = 0; i < needHead.length; i += 20) {
+      await Promise.all(needHead.slice(i, i + 20).map(async (id) => {
+        try {
+          const r = await fetch(`https://www.youtube.com/shorts/${id}`, { method: "HEAD", redirect: "manual", signal: AbortSignal.timeout(6_000) });
+          if (r.status === 200) headType.set(id, "short");
+          else if (r.status >= 300 && r.status < 400 && /\/watch/.test(r.headers.get("location") ?? "")) headType.set(id, "video");
+        } catch (_e) { /* ambíguo → duração */ }
+      }));
+    }
     // deno-lint-ignore no-explicit-any
     const novosLista: any[] = [];
+    const classify = (id: string, dur: number | null): "short" | "video" => {
+      const h = headType.get(id);
+      if (h === "short") { via.head_shorts++; return "short"; }
+      if (h === "video") { via.head_watch++; return "video"; }
+      via.duracao++;
+      return dur !== null && dur <= 60 ? "short" : "video";
+    };
     for (const id of allIds) {
       const it = byId.get(id);
       if (!it) continue;
+      const exA = exByExt.get(id);
+      if (exA && exA.source !== "youtube_public") {
+        // (a) já existe como linha aggregator (shorts Soundcharts) → short; não se toca.
+        via.aggregator++;
+        if (exA.duration_seconds === null) { const d0 = isoDuration(it.contentDetails?.duration); if (d0 !== null) durOnly.push({ id: exA.id, d: d0 }); }
+        if (it.snippet?.channelId && it.snippet.channelId !== channelExt) collabs++;
+        continue;
+      }
       const sn = it.snippet ?? {};
       const dur = isoDuration(it.contentDetails?.duration);
       if (sn.channelId && sn.channelId !== channelExt) collabs++;
       const row = {
         company_id: artist.company_id, artist_id: artistId, platform: "youtube", external_id: id,
-        content_type: dur !== null && dur > 180 ? "video" : "short",
+        content_type: classify(id, dur),
         source: "youtube_public", title: sn.title ?? null,
         permalink: `https://www.youtube.com/watch?v=${id}`,
         published_at: sn.publishedAt ?? null, duration_seconds: dur,
@@ -226,7 +273,7 @@ Deno.serve(async (req) => {
         if (row.content_type === "video") longos++;
         novosLista.push({ id, tipo: row.content_type, titulo: row.title, views: num(it.statistics?.viewCount) });
       } else if (ex.source === "youtube_public") updates.push(row);
-      else if (ex.duration_seconds === null && dur !== null) durOnly.push({ id: ex.id, d: dur });
+
     }
 
     let contentWritten = 0;
@@ -277,7 +324,7 @@ Deno.serve(async (req) => {
     discovery = {
       uploads_vistos: uploadIds.length, rastreados: trackedIds.length,
       fora_dos_uploads: allIds.filter((x) => !uploadSet.has(x)).length,
-      devolvidos_api: byId.size, novos, longos, collabs_por_id: collabs,
+      devolvidos_api: byId.size, novos, longos, collabs_por_id: collabs, classificacao_via: via,
       novos_top: novosLista.sort((a, b) => (b.views ?? 0) - (a.views ?? 0)).slice(0, 5),
     };
 

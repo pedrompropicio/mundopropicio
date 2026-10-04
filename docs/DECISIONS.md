@@ -4773,3 +4773,8 @@ Nova `public.user_has_company_access(p_company_id uuid, p_roles app_role[] DEFAU
 - Backfill: -QYQprJcAgU (Roupa de Solteira, canal do próprio Litto) ligado a 74c40d7b como `confirmed`, série 02/10..04/10 copiada.
 - Cron `carreira-youtube-public-diario` (#1621, 07:00 UTC) só chama o Litto — Mara corre à mão até o Pedro decidir.
 - Limite: clipes ≤ 180 s ficam `short` pela regra (ex.: 8 do Litto e 21 da Mara com "clipe/DVD/lyric" no título).
+### D-ERP169 — adenda (04/10/2026)
+- Modo "todos": sem artist_id (ou `all:true`, só service_role) percorre artistas roster_type 'elenco', status ≠ 'inativo', com canal youtube não revogado; uma invocação e uma linha sync_runs por artista. DEFAULT_VIDEOS do Litto mantém-se.
+- Cron `carreira-youtube-public-diario` recriado (jobid 1808, antes 1621), `0 7 * * *`, body `{"all":true,"dry_run":false}`.
+- Classificação short/video (substitui os 180 s): (a) existe linha 'aggregator' Soundcharts → short, não se toca; (b) HEAD https://www.youtube.com/shorts/<id> sem redirects: 200 → short, 3xx para /watch → video; (c) falha/ambíguo → ≤ 60 s short, senão video. Contagem por via em details.classificacao_via. Linhas youtube_public reclassificadas em cada corrida; aggregator e song_id nunca tocados.
+- 1.ª corrida: Litto 10 short→video (via HEAD 17 watch), Mara 47 short→video (HEAD 5 shorts, 113 watch); 0 por duração.
