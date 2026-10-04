@@ -477,7 +477,7 @@ async function gerar(req: Request, diag: Diag, admin: Any): Promise<Response> {
   // ── 1) Música + artista (a RLS faz o isolamento por empresa)
   const { data: song, error: songErr } = await user
     .from("artist_songs")
-    .select("id, artist_id, title, release_date, is_launch, smart_link_url, cover_url, tracking_status")
+    .select("id, artist_id, title, release_date, is_launch, cover_url, tracking_status")
     .eq("id", songId)
     .maybeSingle();
   if (songErr) return json({ error: "sem_permissao", mensagem: songErr.message }, 403);
@@ -485,7 +485,7 @@ async function gerar(req: Request, diag: Diag, admin: Any): Promise<Response> {
   if (song.artist_id !== artistId) {
     return json({ error: "musica_de_outro_artista", mensagem: "A música não pertence a este artista." }, 422);
   }
-  // D-ERP141: smart link MP activo da música primeiro; senão artist_songs.smart_link_url.
+  // D-ERP167: a única origem do link é song_links (link activo da música).
   const { data: songLink } = await user
     .from("song_links")
     .select("slug")
@@ -496,9 +496,7 @@ async function gerar(req: Request, diag: Diag, admin: Any): Promise<Response> {
     .maybeSingle();
   const smartLink = songLink?.slug
     ? `https://www.mundopropicio.com/m/${songLink.slug}`
-    : typeof song.smart_link_url === "string" && song.smart_link_url.startsWith("https://")
-      ? song.smart_link_url
-      : null;
+    : null;
   if (!smartLink) avisos.push("música sem smart link https — objetivo Tráfego indisponível");
 
   // ── 2) SNAPSHOT ÚNICO DO ARTISTA (D-ERP105) — um só coletor para música,
