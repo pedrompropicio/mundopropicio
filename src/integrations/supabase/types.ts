@@ -18166,6 +18166,10 @@ export type Database = {
         }
         Returns: number
       }
+      artist_top_videos_gain: {
+        Args: { p_artist_id: string; p_dias: number; p_limit?: number }
+        Returns: Json
+      }
       artist_upsert_channel_connection: {
         Args: {
           p_access_token: string
