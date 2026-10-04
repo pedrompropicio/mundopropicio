@@ -12898,6 +12898,9 @@ export type Database = {
       song_link_events: {
         Row: {
           artist_id: string | null
+          capi_external_id: boolean | null
+          capi_fbc: boolean | null
+          capi_fbp: boolean | null
           capi_status: string | null
           city: string | null
           company_id: string | null
@@ -12927,6 +12930,9 @@ export type Database = {
         }
         Insert: {
           artist_id?: string | null
+          capi_external_id?: boolean | null
+          capi_fbc?: boolean | null
+          capi_fbp?: boolean | null
           capi_status?: string | null
           city?: string | null
           company_id?: string | null
@@ -12956,6 +12962,9 @@ export type Database = {
         }
         Update: {
           artist_id?: string | null
+          capi_external_id?: boolean | null
+          capi_fbc?: boolean | null
+          capi_fbp?: boolean | null
           capi_status?: string | null
           city?: string | null
           company_id?: string | null

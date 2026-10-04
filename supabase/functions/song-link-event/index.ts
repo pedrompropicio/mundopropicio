@@ -195,6 +195,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
     // CAPI
     let capi_status = "sem_pixel";
+    let capi_fbc: boolean | null = null, capi_fbp: boolean | null = null, capi_external_id: boolean | null = null;
     if (link.meta_pixel_id) {
       const token = await getSecret("META_CAPI_TOKEN");
       if (!token) capi_status = "sem_token";
@@ -203,9 +204,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
           const user_data: Record<string, unknown> = {};
           if (ip) user_data.client_ip_address = ip;
           if (ua) user_data.client_user_agent = ua;
-          const fbc = s(body?.fbc, 500); const fbp = s(body?.fbp, 500);
+          let fbc = s(body?.fbc, 500); const fbp = s(body?.fbp, 500);
+          // D-ERP171: fbc no servidor a partir do fbclid quando o Portal não o enviou.
+          const fbclidIn = s(body?.fbclid, 500);
+          if (!fbc && fbclidIn) fbc = `fb.1.${Date.now()}.${fbclidIn}`;
           if (fbc) user_data.fbc = fbc;
           if (fbp) user_data.fbp = fbp;
+          // D-ERP171: external_id = sha256(sal:ip:ua). Nunca gravado; sem cookies.
+          if (salt && ip) user_data.external_id = await sha256Hex(`${salt}:${ip}:${ua}`);
+          // D-ERP171: geo em hash (normalização Meta).
+          const norm = (v: string | null) => v ? v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "") : "";
+          const nCountry = norm(country), nRegion = norm(region), nCity = norm(city);
+          if (nCountry.length === 2) user_data.country = await sha256Hex(nCountry);
+          if (nRegion) user_data.st = await sha256Hex(nRegion);
+          if (nCity) user_data.ct = await sha256Hex(nCity);
           const r = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${link.meta_pixel_id}/events`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -224,8 +236,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
             }),
             signal: AbortSignal.timeout(8000),
           });
-          await r.text();
+          const rt = await r.text();
           capi_status = r.ok ? "enviado" : `erro:${r.status}`;
+          capi_fbc = !!user_data.fbc; capi_fbp = !!user_data.fbp; capi_external_id = !!user_data.external_id;
+          let er: unknown = null;
+          try { er = JSON.parse(rt)?.events_received ?? null; } catch { /* */ }
+          console.log("[song-link-event] capi", JSON.stringify({ status: r.status, events_received: er, user_data_keys: Object.keys(user_data), test: !!metaTest }));
         } catch {
           capi_status = "erro:rede";
         }
@@ -295,6 +311,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       country, region, city, device, os, in_app_browser,
       ip_hash: ipHash,
       capi_status,
+      capi_fbc, capi_fbp, capi_external_id,
       tiktok_status,
     });
     if (insErr) console.warn("[song-link-event] insert falhou", insErr.message);
