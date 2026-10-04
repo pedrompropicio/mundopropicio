@@ -4788,3 +4788,8 @@ Nova `public.user_has_company_access(p_company_id uuid, p_roles app_role[] DEFAU
 - public.log_table_change(): antes de inserir em system_audit_log, se o company_id resolvido já não existe em companies → NULL (o id fica em entity_id/old_data). Evita a FK system_audit_log_company_id_fkey em qualquer DELETE de companies.
 - Já aplicado em Live a 04/10 pelo chat 2 com autorização do Pedro; registo em supabase/manual/20261004_derp170_log_table_change.sql.
 - Com isso foram apagados a empresa-sandbox "[TESTE] Google Review" (de0466af…) e o utilizador google-review@mundopropicio.com; 7 linhas de system_audit_log e 8 de backup_runs ficaram com company_id NULL.
+
+## D-ERP171 — CAPI do smart link com mais sinais de correspondência (04/10/2026)
+- song-link-event (só envio Meta; TikTok, CORS e rate limit intactos): fbc construído no servidor `fb.1.<ms>.<fbclid>` quando o Portal não o envia; external_id = sha256(`SONG_LINK_IP_SALT:ip:ua`) só com sal e IP, nunca gravado, sem cookies; country/st/ct em SHA-256 da geo já resolvida (minúsculas, sem acentos/espaços; country só se ISO-2).
+- song_link_events.capi_fbc / capi_fbp / capi_external_id = o que foi efectivamente enviado; null quando não houve envio (sem pixel/token/erro de rede). DDL aplicado em Live pelo chat 2; registo em supabase/manual/20261004_derp171_song_link_events_capi_flags.sql.
+- event_name, event_id e custom_data inalterados; IP continua sem ser gravado em claro. Log da função mostra só as chaves de user_data.
