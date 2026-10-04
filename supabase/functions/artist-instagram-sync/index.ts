@@ -315,15 +315,21 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Métricas de total_value: UMA chamada por métrica e por DIA JÁ FECHADO,
-      // com a janela do próprio dia (since = until = dia). Nunca se pede uma
-      // janela que inclua hoje, porque hoje ainda não fechou; nunca se volta à
-      // janela de 2 dias como recurso (D-ERP116).
+      // Métricas de total_value: UMA chamada por métrica e por DIA JÁ FECHADO.
+      // D-ERP164: `since = until = dia` (datas) devolvia 200 com `data` vazia
+      // desde 21/09 — a API trata a janela como vazia. A janela do dia passa a
+      // ir em unix timestamps [dia 00:00 UTC, dia+1 00:00 UTC). Nunca inclui
+      // hoje e nunca volta à janela de 2 dias (D-ERP116).
       const dias: string[] = [];
       for (let i = 1; i <= diasMetricas; i++) {
         dias.push(ymd(new Date(Date.now() - i * 86_400_000)));
       }
+      const janela = (dia: string) => {
+        const s = Math.floor(Date.parse(`${dia}T00:00:00Z`) / 1000);
+        return { since: String(s), until: String(s + 86_400) };
+      };
       const insightsPorDia = per.insights_por_dia as Array<Record<string, unknown>>;
+      const rawTotalValue: Record<string, string> = {};
       let orcamentoEsgotado = false;
       for (const spec of ACCOUNT_INSIGHTS.filter((s) => s.metric_type === "total_value")) {
         const metric = spec.metric;
@@ -334,16 +340,18 @@ Deno.serve(async (req) => {
             faltaram.push(dia);
             continue;
           }
+          const w = janela(dia);
           const ins = await graphGet(
             `${node}/insights`,
-            { metric, period: "day", metric_type: "total_value", since: dia, until: dia },
+            { metric, period: "day", metric_type: "total_value", ...w },
             token,
             base,
           );
           graphCalls++;
+          if (!rawTotalValue[metric]) rawTotalValue[metric] = `${dia}: ${rawSample(ins.body)}`;
           if (!ins.ok) {
             notes.push(
-              `insight ${metric} ${dia} (janela ${dia}→${dia}) não gravado: ${
+              `insight ${metric} ${dia} (janela ${w.since}→${w.until}) não gravado: ${
                 String(ins.body?.error?.message ?? ins.status).slice(0, 300)
               }`,
             );
@@ -357,7 +365,7 @@ Deno.serve(async (req) => {
             if (v === null) continue;
             gravou = true;
             (per.insights as Record<string, number>)[name] = v;
-            insightsPorDia.push({ metrica: name, dia, since: dia, until: dia, valor: v });
+            insightsPorDia.push({ metrica: name, dia, since: w.since, until: w.until, valor: v });
             metricRows.push({
               company_id: conn.company_id,
               artist_id: conn.artist_id,
@@ -372,7 +380,7 @@ Deno.serve(async (req) => {
           }
           if (!gravou) {
             notes.push(
-              `insight ${metric} ${dia} (janela ${dia}→${dia}) sem valores na resposta — nada gravado`,
+              `insight ${metric} ${dia} (janela ${w.since}→${w.until}) sem valores na resposta — nada gravado`,
             );
           }
         }
@@ -382,6 +390,71 @@ Deno.serve(async (req) => {
           );
         }
       }
+
+      // Seguidores ganhos/perdidos por dia (D-ERP164): follows_and_unfollows
+      // com breakdown follow_type. FOLLOWER = seguiu (ganho), NON_FOLLOWER =
+      // deixou de seguir (perda). Mesma janela por dia fechado.
+      for (const dia of dias) {
+        if (Date.now() - startedMs > INVOKE_BUDGET_MS) {
+          orcamentoEsgotado = true;
+          notes.push(`follows_and_unfollows ${dia}: paragem por orçamento de tempo`);
+          continue;
+        }
+        const w = janela(dia);
+        const fu = await graphGet(
+          `${node}/insights`,
+          {
+            metric: "follows_and_unfollows",
+            period: "day",
+            metric_type: "total_value",
+            breakdown: "follow_type",
+            ...w,
+          },
+          token,
+          base,
+        );
+        graphCalls++;
+        if (!rawTotalValue.follows_and_unfollows) {
+          rawTotalValue.follows_and_unfollows = `${dia}: ${rawSample(fu.body)}`;
+        }
+        if (!fu.ok) {
+          notes.push(
+            `follows_and_unfollows ${dia} não gravado: ${
+              String(fu.body?.error?.message ?? fu.status).slice(0, 300)
+            }`,
+          );
+          continue;
+        }
+        let gravou = false;
+        for (const entry of fu.body?.data ?? []) {
+          const results = entry?.total_value?.breakdowns?.[0]?.results ?? [];
+          for (const r of results) {
+            const tipo = String(r?.dimension_values?.[0] ?? "").toUpperCase();
+            const metric = tipo === "FOLLOWER"
+              ? "followers_gained"
+              : tipo === "NON_FOLLOWER"
+              ? "followers_lost"
+              : null;
+            const v = toCount(r?.value);
+            if (!metric || v === null) continue;
+            gravou = true;
+            insightsPorDia.push({ metrica: metric, dia, since: w.since, until: w.until, valor: v });
+            metricRows.push({
+              company_id: conn.company_id,
+              artist_id: conn.artist_id,
+              channel_id: conn.artist_channel_id,
+              platform: PLATFORM,
+              metric,
+              metric_date: dia,
+              value: v,
+              source: SOURCE,
+              source_ref: igId,
+            });
+          }
+        }
+        if (!gravou) notes.push(`follows_and_unfollows ${dia} sem valores na resposta — nada gravado`);
+      }
+      per.raw_total_value = rawTotalValue;
       if (orcamentoEsgotado) {
         notes.push("orçamento de tempo esgotado nas métricas de conta — repetir com dias_metricas menor");
       }
