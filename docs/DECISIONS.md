@@ -4744,3 +4744,8 @@ Defeito: desde 24/09 a soma `ugc_videos_sounds` não era gravada (regra "todos o
 1. A soma grava-se com os sons que responderam hoje; `source_ref` = `<run>:<n>/<total> sons; precisão: completa|parcial n/total; fora: <music_ids>`. Nunca se reutiliza o último valor de um som em falta.
 2. Som validated sem resposta → corrida `partial` (ou `error` se nada gravado) com `error_text` a nomear os sons e a última resposta de cada; `details.sem_resposta[].ultima_resposta`.
 3. Estado `indisponivel` (3 dias seguidos sem resposta → sai da soma, com data e motivo) precisa de DDL (CHECK de status) — SQL em `supabase/manual/20261004_tiktok_sounds_indisponivel.sql`, não aplicado.
+
+### D-ERP166 — adenda (04/10/2026)
+- "Não responde ao ator" não é "indisponível": o SQL `supabase/manual/20261004_tiktok_sounds_indisponivel.sql` fica marcado NÃO APLICAR (o som 7681780720700327953 é o oficial da Roupa de Solteira).
+- `tiktok-sound-count-sync`: segunda passagem no mesmo run, um pedido ao ator por som em falta (timeout 45 s, orçamento 330 s); depois recurso à contagem do painel TikTok for Artists do PRÓPRIO dia (`artist_song_tiktok_sound_daily`, source `tiktok_artists`), encadeando `tiktok-artists-sync` via `_shared/internal-call.ts` se ainda não houver; nunca valores de dias anteriores. `source_ref` da soma diz quantos sons vieram de cada fonte.
+- `tiktok-artists-sync`: grava `video_count` por som de `clip_data_list` (preferência `all_clip_data_90d`; valor igual em 7d/28d/90d) com source `tiktok_artists`, sem sobrepor a linha Apify do dia.
