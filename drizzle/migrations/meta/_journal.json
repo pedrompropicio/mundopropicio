@@ -71,6 +71,13 @@
       "when": 1791132202648,
       "tag": "0009_derp167_drop_set_smart_link",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791132465832,
+      "tag": "0010_derp168_artist_rls_empresa_do_artista",
+      "breakpoints": true
     }
   ]
 }

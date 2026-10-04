@@ -19552,6 +19552,13 @@ export type Database = {
         Args: { _event_ids: string[]; _user: string }
         Returns: string[]
       }
+      user_has_company_access: {
+        Args: {
+          p_company_id: string
+          p_roles?: Database["public"]["Enums"]["app_role"][]
+        }
+        Returns: boolean
+      }
       user_has_event_access: {
         Args: { p_event_id: string; p_user_id: string }
         Returns: boolean
