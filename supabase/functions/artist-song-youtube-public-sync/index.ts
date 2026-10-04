@@ -7,6 +7,8 @@
 //      metric 'youtube_views' / 'youtube_likes', metric_date = hoje UTC.
 //  - canal → public.artist_metrics_daily (nível artista, channel_id = artist_channels.id):
 //      metric 'youtube_subscribers' (+ 'youtube_channel_views', 'youtube_video_count').
+// D-ERP169: descobre uploads do canal (≤200) + vídeos youtube_public já rastreados
+//   (collabs por id) → artist_content (video >180 s / short) e artist_content_metrics_daily.
 // Nunca grava 0 quando a API não devolve o campo. dry_run por omissão TRUE.
 // Auth: service_role (cron) ou admin/manager/marketing_manager/platform_admin.
 
@@ -18,6 +20,7 @@ const API = "https://www.googleapis.com/youtube/v3";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VID_RE = /^[A-Za-z0-9_-]{11}$/;
 const CH_RE = /^UC[A-Za-z0-9_-]{22}$/;
+const MAX_UPLOADS = 200;
 const ROLES = new Set(["admin", "manager", "marketing_manager"]);
 
 // Omissão: Litto Lins — vídeo oficial "ROUPA DE SOLTEIRA" → lançamento "Roupa De Solteira - Ao Vivo".
@@ -41,6 +44,15 @@ const num = (v: unknown): number | null => {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };
+
+/** ISO-8601 (PT#H#M#S / P#DT…) → segundos; null se ausente/ilegível. */
+function isoDuration(v: unknown): number | null {
+  if (typeof v !== "string") return null;
+  const m = v.match(/^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/);
+  if (!m) return null;
+  const [, d, h, mi, s] = m.map((x) => Number(x ?? 0));
+  return d * 86400 + h * 3600 + mi * 60 + s;
+}
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ ok: false, error: "método" }, 405);
@@ -94,42 +106,22 @@ Deno.serve(async (req) => {
   const hoje = now.toISOString().slice(0, 10);
   // deno-lint-ignore no-explicit-any
   const songRows: any[] = [], artistRows: any[] = [];
+  // deno-lint-ignore no-explicit-any
+  let discovery: Record<string, any> = {};
 
   try {
-    if (videos.length) {
-      apiCalls++;
-      const q = new URLSearchParams({ part: "statistics,snippet", id: videos.map((v) => v.video_id).join(","), key });
-      const r = await fetch(`${API}/videos?${q}`, { signal: AbortSignal.timeout(20_000) });
-      const j = await r.json().catch(() => null);
-      if (!r.ok) { errors++; notes.push(`videos.list HTTP ${r.status}: ${j?.error?.message ?? ""}`.trim()); }
-      else {
-        // deno-lint-ignore no-explicit-any
-        const byId = new Map<string, any>((j?.items ?? []).map((i: any) => [i.id, i]));
-        for (const v of videos) {
-          const it = byId.get(v.video_id);
-          if (!it) { notes.push(`vídeo ${v.video_id} não devolvido pela API`); continue; }
-          const base = {
-            company_id: artist.company_id, artist_id: artistId, song_id: v.song_id,
-            platform: "youtube", source: "youtube_public", source_ref: v.video_id,
-            metric_date: hoje, captured_at: now.toISOString(),
-          };
-          const views = num(it.statistics?.viewCount), likes = num(it.statistics?.likeCount);
-          if (views !== null) songRows.push({ ...base, metric: "youtube_views", value: views });
-          else notes.push(`vídeo ${v.video_id} sem viewCount`);
-          if (likes !== null) songRows.push({ ...base, metric: "youtube_likes", value: likes });
-          else notes.push(`vídeo ${v.video_id} sem likeCount (ocultos?)`);
-        }
-      }
-    } else notes.push("sem vídeos configurados");
-
+    // D-ERP169 — descoberta: uploads do canal + vídeos já rastreados (youtube_public) + configurados.
+    let uploadsPlaylist: string | null = null;
     if (channelExt) {
       apiCalls++;
-      const q = new URLSearchParams({ part: "statistics", id: channelExt, key });
+      const q = new URLSearchParams({ part: "statistics,contentDetails", id: channelExt, key });
       const r = await fetch(`${API}/channels?${q}`, { signal: AbortSignal.timeout(20_000) });
       const j = await r.json().catch(() => null);
       if (!r.ok) { errors++; notes.push(`channels.list HTTP ${r.status}: ${j?.error?.message ?? ""}`.trim()); }
       else {
-        const st = j?.items?.[0]?.statistics;
+        const it = j?.items?.[0];
+        uploadsPlaylist = it?.contentDetails?.relatedPlaylists?.uploads ?? null;
+        const st = it?.statistics;
         if (!st) notes.push("canal não devolvido pela API");
         else {
           const base = {
@@ -147,6 +139,148 @@ Deno.serve(async (req) => {
       }
     } else notes.push("sem channel_id do YouTube");
 
+    const uploadIds: string[] = [];
+    if (uploadsPlaylist) {
+      let pageToken = "";
+      while (uploadIds.length < MAX_UPLOADS) {
+        apiCalls++;
+        const q = new URLSearchParams({ part: "contentDetails", playlistId: uploadsPlaylist, maxResults: "50", key });
+        if (pageToken) q.set("pageToken", pageToken);
+        const r = await fetch(`${API}/playlistItems?${q}`, { signal: AbortSignal.timeout(20_000) });
+        const j = await r.json().catch(() => null);
+        if (!r.ok) { errors++; notes.push(`playlistItems.list HTTP ${r.status}: ${j?.error?.message ?? ""}`.trim()); break; }
+        // deno-lint-ignore no-explicit-any
+        for (const i of (j?.items ?? []) as any[]) {
+          const vid = i?.contentDetails?.videoId;
+          if (vid && VID_RE.test(vid) && uploadIds.length < MAX_UPLOADS) uploadIds.push(vid);
+        }
+        pageToken = j?.nextPageToken ?? "";
+        if (!pageToken) break;
+      }
+    }
+
+    const { data: tracked } = await admin.from("artist_content").select("external_id")
+      .eq("artist_id", artistId).eq("platform", "youtube").eq("source", "youtube_public");
+    const uploadSet = new Set(uploadIds);
+    const trackedIds = (tracked ?? []).map((t: { external_id: string }) => t.external_id).filter((x: string) => VID_RE.test(x));
+    const allIds = [...new Set([...uploadIds, ...trackedIds, ...videos.map((v) => v.video_id)])];
+
+    // deno-lint-ignore no-explicit-any
+    const byId = new Map<string, any>();
+    for (let i = 0; i < allIds.length; i += 50) {
+      apiCalls++;
+      const q = new URLSearchParams({ part: "snippet,statistics,contentDetails", id: allIds.slice(i, i + 50).join(","), key });
+      const r = await fetch(`${API}/videos?${q}`, { signal: AbortSignal.timeout(20_000) });
+      const j = await r.json().catch(() => null);
+      if (!r.ok) { errors++; notes.push(`videos.list HTTP ${r.status}: ${j?.error?.message ?? ""}`.trim()); continue; }
+      // deno-lint-ignore no-explicit-any
+      for (const it of (j?.items ?? []) as any[]) byId.set(it.id, it);
+    }
+
+    // Escrita legada em artist_song_metrics_daily (mantida).
+    for (const v of videos) {
+      const it = byId.get(v.video_id);
+      if (!it) { notes.push(`vídeo ${v.video_id} não devolvido pela API`); continue; }
+      const base = {
+        company_id: artist.company_id, artist_id: artistId, song_id: v.song_id,
+        platform: "youtube", source: "youtube_public", source_ref: v.video_id,
+        metric_date: hoje, captured_at: now.toISOString(),
+      };
+      const views = num(it.statistics?.viewCount), likes = num(it.statistics?.likeCount);
+      if (views !== null) songRows.push({ ...base, metric: "youtube_views", value: views });
+      else notes.push(`vídeo ${v.video_id} sem viewCount`);
+      if (likes !== null) songRows.push({ ...base, metric: "youtube_likes", value: likes });
+      else notes.push(`vídeo ${v.video_id} sem likeCount (ocultos?)`);
+    }
+
+    // artist_content + artist_content_metrics_daily
+    const { data: existing } = allIds.length
+      ? await admin.from("artist_content").select("id, external_id, source, duration_seconds")
+        .eq("artist_id", artistId).eq("platform", "youtube").in("external_id", allIds)
+      : { data: [] };
+    // deno-lint-ignore no-explicit-any
+    const exByExt = new Map<string, any>((existing ?? []).map((e: any) => [e.external_id, e]));
+    // deno-lint-ignore no-explicit-any
+    const inserts: any[] = [], updates: any[] = [], durOnly: { id: string; d: number }[] = [];
+    let novos = 0, longos = 0, collabs = 0;
+    // deno-lint-ignore no-explicit-any
+    const novosLista: any[] = [];
+    for (const id of allIds) {
+      const it = byId.get(id);
+      if (!it) continue;
+      const sn = it.snippet ?? {};
+      const dur = isoDuration(it.contentDetails?.duration);
+      if (sn.channelId && sn.channelId !== channelExt) collabs++;
+      const row = {
+        company_id: artist.company_id, artist_id: artistId, platform: "youtube", external_id: id,
+        content_type: dur !== null && dur > 180 ? "video" : "short",
+        source: "youtube_public", title: sn.title ?? null,
+        permalink: `https://www.youtube.com/watch?v=${id}`,
+        published_at: sn.publishedAt ?? null, duration_seconds: dur,
+        thumbnail_url: sn.thumbnails?.high?.url ?? sn.thumbnails?.medium?.url ?? sn.thumbnails?.default?.url ?? null,
+        author_handle: sn.channelTitle ?? null, updated_at: now.toISOString(),
+      };
+      const ex = exByExt.get(id);
+      if (!ex) {
+        inserts.push(row); novos++;
+        if (row.content_type === "video") longos++;
+        novosLista.push({ id, tipo: row.content_type, titulo: row.title, views: num(it.statistics?.viewCount) });
+      } else if (ex.source === "youtube_public") updates.push(row);
+      else if (ex.duration_seconds === null && dur !== null) durOnly.push({ id: ex.id, d: dur });
+    }
+
+    let contentWritten = 0;
+    if (!dryRun) {
+      if (inserts.length) {
+        const { error } = await admin.from("artist_content").insert(inserts);
+        if (error) { errors++; notes.push(`insert artist_content: ${error.message}`); } else contentWritten += inserts.length;
+      }
+      if (updates.length) {
+        // upsert só com metadados — nunca song_id/song_link_status (D-ERP53)
+        const { error } = await admin.from("artist_content").upsert(updates, { onConflict: "artist_id,platform,external_id" });
+        if (error) { errors++; notes.push(`update artist_content: ${error.message}`); } else contentWritten += updates.length;
+      }
+      for (const d of durOnly) {
+        const { error } = await admin.from("artist_content").update({ duration_seconds: d.d }).eq("id", d.id).is("duration_seconds", null);
+        if (error) { errors++; notes.push(`duração ${d.id}: ${error.message}`); } else contentWritten++;
+      }
+      // Métricas só para linhas youtube_public (as shorts da Soundcharts têm as suas — evita contar a dobrar).
+      const { data: pub } = allIds.length
+        ? await admin.from("artist_content").select("id, external_id")
+          .eq("artist_id", artistId).eq("platform", "youtube").eq("source", "youtube_public").in("external_id", allIds)
+        : { data: [] };
+      // deno-lint-ignore no-explicit-any
+      const mRows: any[] = [];
+      for (const p of (pub ?? []) as { id: string; external_id: string }[]) {
+        const st = byId.get(p.external_id)?.statistics;
+        if (!st) continue;
+        for (const [metric, f] of [["views", "viewCount"], ["likes", "likeCount"], ["comments", "commentCount"]]) {
+          const v = num(st[f]);
+          if (v !== null) mRows.push({
+            company_id: artist.company_id, content_id: p.id, artist_id: artistId, platform: "youtube",
+            metric, metric_date: hoje, value: v, source: "youtube_public", captured_at: now.toISOString(),
+          });
+        }
+      }
+      for (let i = 0; i < mRows.length; i += 500) {
+        const { error } = await admin.from("artist_content_metrics_daily")
+          .upsert(mRows.slice(i, i + 500), { onConflict: "content_id,metric,metric_date,source" });
+        if (error) { errors++; notes.push(`métricas conteúdo: ${error.message}`); break; }
+      }
+      contentWritten += mRows.length;
+      if (inserts.length) {
+        const { error } = await admin.rpc("artist_content_link_songs", { p_artist_id: artistId, p_dry_run: false });
+        if (error) notes.push(`ligação vídeo→música falhou: ${error.message}`);
+      }
+    }
+    written += contentWritten;
+    discovery = {
+      uploads_vistos: uploadIds.length, rastreados: trackedIds.length,
+      fora_dos_uploads: allIds.filter((x) => !uploadSet.has(x)).length,
+      devolvidos_api: byId.size, novos, longos, collabs_por_id: collabs,
+      novos_top: novosLista.sort((a, b) => (b.views ?? 0) - (a.views ?? 0)).slice(0, 5),
+    };
+
     if (!dryRun) {
       if (songRows.length) {
         const { error } = await admin.from("artist_song_metrics_daily")
@@ -160,10 +294,10 @@ Deno.serve(async (req) => {
       }
     }
     const status = resolveStatus(written, errors);
-    const details = { hoje, videos: videos.map((v) => v.video_id), channel: channelExt, notes };
+    const details = { hoje, videos: videos.map((v) => v.video_id), channel: channelExt, ...discovery, notes };
     await finishSyncRun(admin, runId, started, { status, api_calls: apiCalls, rows_written: written, details, error_text: errors ? notes.join(" | ") : null });
     return json({
-      ok: errors === 0, dry_run: dryRun, status, api_calls: apiCalls, written,
+      ok: errors === 0, dry_run: dryRun, status, api_calls: apiCalls, written, ...discovery,
       amostra: [...songRows, ...artistRows].map(({ metric, source_ref, value }) => ({ metric, source_ref, value })), notes,
     });
   } catch (e) {
