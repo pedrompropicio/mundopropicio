@@ -6,7 +6,7 @@
 // (b) GET youtubeanalytics v2 reports, ids=channel==<external_id> (403 = não é dono
 //     → nada gravado), dimensions=day, D-27..D (D = ontem UTC)
 //     → yt_views_day, yt_minutes_watched_day, yt_subscribers_gained_day,
-//       yt_subscribers_lost_day (metric_date = dia; zeros gravam-se).
+//       yt_subscribers_lost_day (metric_date = dia; zeros só antes do último dia devolvido — D-ERP134 adenda 2).
 // platform 'youtube', source 'platform_api'. dry_run por omissão TRUE.
 // Auth: service_role ou admin/platform_admin/manager/marketing_manager da
 // empresa do artista (user_roles). Nunca regista tokens.
@@ -134,6 +134,8 @@ async function syncOne(admin: Admin, conn: any, dryRun: boolean, key: string) {
   if (st.videoCount != null) rows.push({ ...base, metric: "video_count", metric_date: hoje, value: Number(st.videoCount) });
   if (st.viewCount != null) rows.push({ ...base, metric: "views_total", metric_date: hoje, value: Number(st.viewCount) });
 
+  let ultimoDia: string | null = null, diasSemDado = 0;
+  let pendentesApos: { de: string; ate: string; metrics: string[] } | null = null;
   const D = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 1));
   const F = new Date(D.getTime() - 27 * 86_400_000);
   const q = new URLSearchParams({
@@ -165,16 +167,19 @@ async function syncOne(admin: Admin, conn: any, dryRun: boolean, key: string) {
         rows.push({ ...base, metric, metric_date: day, value: Number(row[i]) });
       }
     }
-    // O Analytics omite os dias sem actividade: numa resposta 200, o valor
-    // verdadeiro desses dias é 0 — gravar explicitamente.
-    for (let t = F.getTime(); t <= D.getTime(); t += 86_400_000) {
-      const day = ymd(new Date(t));
-      if (seen.has(day)) continue;
-      for (const metric of Object.values(map)) {
-        rows.push({ ...base, metric, metric_date: day, value: 0 });
+    // D-ERP134 adenda 2: só os dias ausentes ANTERIORES ao último dia devolvido são
+    // dias sem actividade (0). Depois dele o Analytics ainda não processou → sem linha.
+    ultimoDia = seen.size ? [...seen].sort().at(-1)! : null;
+    if (ultimoDia) {
+      for (let t = F.getTime(); t <= D.getTime(); t += 86_400_000) {
+        const day = ymd(new Date(t));
+        if (day >= ultimoDia) break;
+        if (seen.has(day)) continue;
+        diasSemDado++;
+        for (const metric of Object.values(map)) rows.push({ ...base, metric, metric_date: day, value: 0 });
       }
-    }
-    if (!(j2?.rows ?? []).length) notes.push("analytics sem actividade no período — dias gravados a 0");
+      pendentesApos = { de: ultimoDia, ate: ymd(D), metrics: Object.values(map) };
+    } else notes.push("analytics sem rows no período — nada gravado (sem zeros)");
   }
 
   const counts: Record<string, number> = {};
@@ -185,12 +190,18 @@ async function syncOne(admin: Admin, conn: any, dryRun: boolean, key: string) {
       .upsert(rows, { onConflict: "artist_id,platform,metric,metric_date,source" });
     if (error) throw new YtError(`upsert falhou: ${error.message}`);
     written = rows.length;
+    if (pendentesApos) {
+      const { error: dErr } = await admin.from("artist_metrics_daily").delete()
+        .eq("artist_id", conn.artist_id).eq("platform", "youtube").eq("source", "platform_api")
+        .in("metric", pendentesApos.metrics).gt("metric_date", pendentesApos.de).lte("metric_date", pendentesApos.ate);
+      if (dErr) notes.push(`limpeza após último dia falhou: ${dErr.message}`);
+    }
     await admin.from("artist_channel_connections").update({ last_error: null }).eq("id", conn.id);
   }
   return {
     artist_id: conn.artist_id, channel: item.snippet?.title ?? null, janela: { de: ymd(F), ate: ymd(D) },
     counts, amostra: rows.slice(0, 3).map(({ metric, metric_date, value }) => ({ metric, metric_date, value })),
-    written, api_calls: apiCalls, notes,
+    written, api_calls: apiCalls, notes, ultimo_dia_analytics: ultimoDia, dias_sem_dado: diasSemDado,
   };
 }
 
@@ -245,7 +256,7 @@ Deno.serve(async (req) => {
       const r = await syncOne(admin, c, dryRun, key);
       await finishSyncRun(admin, runId, started, {
         status: resolveStatus(r.written, r.notes.some((n) => n.includes("falhou")) ? 1 : 0),
-        api_calls: r.api_calls, rows_written: r.written, details: { counts: r.counts, notes: r.notes, janela: r.janela },
+        api_calls: r.api_calls, rows_written: r.written, details: { counts: r.counts, notes: r.notes, janela: r.janela, ultimo_dia_analytics: r.ultimo_dia_analytics, dias_sem_dado: r.dias_sem_dado },
       });
       results.push({ ok: true, ...r });
     } catch (e) {
