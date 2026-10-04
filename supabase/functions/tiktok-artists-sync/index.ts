@@ -171,7 +171,7 @@ async function fetchPage(cookie: string, artistUserId: string, from: number): Pr
 type PanelClip = { music_id: string; clip_name: string | null; is_pgc: boolean };
 
 type ClipResult =
-  | { ok: true; items: PanelClip[]; topKeys: string[]; arrayPaths: string[]; status: ClipOk }
+  | { ok: true; items: PanelClip[]; topKeys: string[]; arrayPaths: string[]; status: ClipOk; sample: Json | null; porPath: Json[]; contagens: Map<string, { video_count: number; path: string }> }
   | { ok: false; motivo: "sessao_invalida" | "rede" | "http" };
 
 type ClipOk = { statusCode: unknown; statusMsg: unknown };
@@ -224,7 +224,9 @@ async function fetchClips(
   if (!res.ok) return { ok: false, motivo: "http" };
 
   const items: PanelClip[] = [];
+  let sample: Json | null = null;
   const push = (raw: Json, pgcHint: boolean | null) => {
+    if (!sample && raw && typeof raw === "object") sample = raw;
     const id = raw.music_id ?? raw.clip_id ?? raw.id ?? raw.id_str ?? raw.music_id_str;
     if (id == null) return;
     const tipo = String(raw.clip_type ?? raw.type ?? "").toLowerCase();
@@ -240,6 +242,7 @@ async function fetchClips(
   // isso percorremos o JSON em profundidade (máx. 6 níveis) e recolhemos todos
   // os arrays cuja chave comece por 'pgc'/'ugc' ou contenha 'clip'.
   const arrayPaths: string[] = [];
+  const porPath: Json[] = [];
   const collect = (node: Json, path: string, depth: number) => {
     if (depth > 6 || node === null || typeof node !== "object") return;
     if (Array.isArray(node)) return;
@@ -247,6 +250,11 @@ async function fetchClips(
       const k = key.toLowerCase();
       const p = path ? `${path}.${key}` : key;
       if (Array.isArray(value)) {
+        for (const v of value) {
+          const r = v as Json;
+          const vid = String(r?.clip_id ?? r?.music_id ?? r?.id ?? "");
+          if (vid) porPath.push({ path: p, id: vid, video_count: r.video_count ?? null, view_count: r.view_count ?? null });
+        }
         if (k.startsWith("pgc")) {
           arrayPaths.push(p);
           for (const v of value) push(v as Json, true);
@@ -270,6 +278,21 @@ async function fetchClips(
     const prev = porMusicId.get(c.music_id);
     if (!prev || (c.is_pgc && !prev.is_pgc)) porMusicId.set(c.music_id, c);
   }
+  // D-ERP166 (adenda): contagem de vídeos por som (video_count). O valor é o mesmo
+  // nas janelas 7d/28d/90d (acumulado do som); preferimos all_clip_data_90d e,
+  // na falta, o maior valor visto noutra lista.
+  const contagens = new Map<string, { video_count: number; path: string }>();
+  for (const r of porPath) {
+    const vc = typeof r.video_count === "number" ? r.video_count : Number(r.video_count);
+    if (!Number.isFinite(vc)) continue;
+    const id = String(r.id);
+    const path = String(r.path);
+    const prev = contagens.get(id);
+    if (!prev || (path === "all_clip_data_90d" && prev.path !== "all_clip_data_90d") ||
+      (prev.path !== "all_clip_data_90d" && vc > prev.video_count)) {
+      contagens.set(id, { video_count: vc, path });
+    }
+  }
   const topKeys = Object.keys(data as Record<string, unknown>);
   const env = data as Record<string, unknown>;
   return {
@@ -278,6 +301,9 @@ async function fetchClips(
     topKeys,
     arrayPaths,
     status: { statusCode: env.status_code ?? null, statusMsg: env.status_msg ?? null },
+    sample,
+    porPath,
+    contagens,
   };
 }
 
@@ -382,6 +408,7 @@ Deno.serve(async (req) => {
   const clipNotes: string[] = [];
   let clipsUpserted = 0;
   let clipCalls = 0;
+  const clipSamples: Json[] = [];
   // Handle TikTok por artista (artist_channels platform 'tiktok') para o Referer.
   const handleByArtist = new Map<string, string>();
   {
@@ -423,6 +450,7 @@ Deno.serve(async (req) => {
       continue;
     }
     clipNotes.push(`clips de ${groupId}: ${clips.items.length} som(ns)`);
+    clipSamples.push({ group_id: groupId, array_paths: clips.arrayPaths, sample: clips.sample, por_path: clips.porPath });
     const rows = clips.items.map((c) => ({
       company_id: alvo.company_id,
       artist_id: alvo.artist_id,
@@ -435,9 +463,34 @@ Deno.serve(async (req) => {
       discovered_via: "panel",
       validated_at: new Date().toISOString(),
     }));
+    // D-ERP166 (adenda): contagem do painel por som → artist_song_tiktok_sound_daily
+    // (source 'tiktok_artists'). ignoreDuplicates: nunca sobrepõe a linha do Apify
+    // do mesmo dia; é a fonte de recurso da tiktok-sound-count-sync.
+    const hoje = new Date().toISOString().slice(0, 10);
+    const linhasContagem = [...clips.contagens.entries()].map(([musicId, c]) => ({
+      company_id: alvo.company_id,
+      song_id: alvo.song_id,
+      music_id: musicId,
+      metric_date: hoje,
+      video_count: c.video_count,
+      source: "tiktok_artists",
+      source_ref: `${groupId}:${c.path}`,
+      captured_at: new Date().toISOString(),
+    }));
     if (dryRun) {
       clipNotes.push(`${rows.length} som(ns) do painel em ${groupId} (dry-run, não gravado)`);
+      clipNotes.push(`${linhasContagem.length} contagem(ns) de vídeos por som (dry-run, não gravado)`);
       continue;
+    }
+    if (linhasContagem.length > 0) {
+      const { error: cErr } = await admin
+        .from("artist_song_tiktok_sound_daily")
+        .upsert(linhasContagem, { onConflict: "music_id,metric_date", ignoreDuplicates: true });
+      clipNotes.push(
+        cErr
+          ? `contagens por som do painel (${groupId}) falharam: ${cErr.message}`
+          : `${linhasContagem.length} contagem(ns) de vídeos por som do painel (${groupId}) gravadas sem sobrepor Apify`,
+      );
     }
     const { error } = await admin
       .from("artist_song_tiktok_sounds")
@@ -551,6 +604,7 @@ Deno.serve(async (req) => {
     campos_item: songs.length > 0 ? Object.keys(songs[0]) : [],
     campos_envelope: Object.keys(envelope),
     sem_correspondencia: semCorrespondencia,
+    clip_samples: body.inspect_clips === true ? clipSamples : undefined,
     notes,
   });
 });

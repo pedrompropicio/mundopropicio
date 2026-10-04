@@ -20,6 +20,7 @@
 // Fronteira: não lê artist_channel_connections nem ad_platform_connections.
 
 import { adminClient, authorize, corsHeaders, json } from "../_shared/soundcharts.ts";
+import { invokeInternal } from "../_shared/internal-call.ts";
 import {
   deduceTriggerSource,
   finishSyncRun,
@@ -44,6 +45,10 @@ const SOUND_URL_PREFIX = "https://www.tiktok.com/music/som-";
 const APIFY_TIMEOUT_MS = 240_000;
 const METRIC = "ugc_videos_sounds";
 const DROP_ALERT_RATIO = 0.10;
+// D-ERP166 (adenda): segunda passagem um a um para os sons que faltam no lote.
+const APIFY_SINGLE_TIMEOUT_MS = 45_000;
+const FUNCTION_BUDGET_MS = 330_000; // abaixo do limite de parede da função
+const PANEL_SOURCE = "tiktok_artists";
 
 type Json = Record<string, unknown>;
 
@@ -191,16 +196,102 @@ Deno.serve(async (req) => {
 
   const apifyRunId = res.headers.get("x-apify-run-id") ??
     res.headers.get("x-apify-actor-run-id") ?? "run-sync";
-  const sourceRefSom = `${APIFY_ACTOR_ID}:${apifyRunId}`;
 
   // 3. Contagens por som.
   const contagens = new Map<string, number>();
-  for (const item of items) {
-    const sound = (item.sound ?? item) as Json;
-    const id = sound.id != null ? String(sound.id) : null;
-    const count = numOrNull(sound.videoCount);
-    if (!id || count === null) continue;
-    contagens.set(id, count);
+  const origem = new Map<string, { source: string; ref: string }>();
+  const lerItens = (lista: Json[], ref: string) => {
+    for (const item of lista) {
+      const sound = (item.sound ?? item) as Json;
+      const id = sound.id != null ? String(sound.id) : null;
+      const count = numOrNull(sound.videoCount);
+      if (!id || count === null || contagens.has(id)) continue;
+      contagens.set(id, count);
+      origem.set(id, { source: "apify", ref });
+    }
+  };
+  lerItens(items, `${APIFY_ACTOR_ID}:${apifyRunId}`);
+  const respLote = contagens.size;
+  let apiCalls = 1;
+
+  // 3b. Segunda passagem: um pedido ao ator por som em falta (timeout curto).
+  const segundaPassagem: Json[] = [];
+  for (const id of musicIds) {
+    if (contagens.has(id)) continue;
+    if (Date.now() - startedMs > FUNCTION_BUDGET_MS - APIFY_SINGLE_TIMEOUT_MS) {
+      segundaPassagem.push({ music_id: id, resultado: "sem_orcamento" });
+      continue;
+    }
+    apiCalls++;
+    try {
+      const r = await fetch(`${APIFY_RUN_URL}?token=${encodeURIComponent(apifyToken)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ soundUrls: [`${SOUND_URL_PREFIX}${id}`], ...APIFY_INPUT_DEFAULTS }),
+        signal: AbortSignal.timeout(APIFY_SINGLE_TIMEOUT_MS),
+      });
+      const t = await r.text();
+      if (!r.ok) {
+        segundaPassagem.push({ music_id: id, resultado: `HTTP ${r.status}` });
+        continue;
+      }
+      const lista = (() => {
+        try {
+          const j = JSON.parse(t);
+          return Array.isArray(j) ? j as Json[] : [];
+        } catch {
+          return [];
+        }
+      })();
+      const rid = r.headers.get("x-apify-run-id") ?? r.headers.get("x-apify-actor-run-id") ?? "run-sync";
+      lerItens(lista, `${APIFY_ACTOR_ID}:${rid}:individual`);
+      segundaPassagem.push({
+        music_id: id,
+        resultado: contagens.has(id) ? "respondeu" : `sem item (${lista.length} itens)`,
+      });
+    } catch (e) {
+      segundaPassagem.push({
+        music_id: id,
+        resultado: (e as Error)?.name === "TimeoutError" ? "timeout" : "rede",
+      });
+    }
+  }
+
+  // 3c. Fonte oficial: contagem do painel TikTok for Artists de HOJE
+  // (tiktok-artists-sync grava source 'tiktok_artists'). Nunca dias anteriores.
+  const metricDateHoje = todayUTC();
+  const faltamPainel = () => musicIds.filter((id) => !contagens.has(id));
+  const painel: Json = { usado: false };
+  const lerPainel = async () => {
+    const f = faltamPainel();
+    if (f.length === 0) return 0;
+    const { data } = await admin
+      .from("artist_song_tiktok_sound_daily")
+      .select("music_id, video_count, source_ref")
+      .eq("metric_date", metricDateHoje)
+      .eq("source", PANEL_SOURCE)
+      .in("music_id", f);
+    let n = 0;
+    for (const r of (data ?? []) as Json[]) {
+      const c = numOrNull(r.video_count);
+      if (c === null) continue;
+      contagens.set(String(r.music_id), c);
+      origem.set(String(r.music_id), { source: PANEL_SOURCE, ref: String(r.source_ref ?? "") });
+      n++;
+    }
+    return n;
+  };
+  if (faltamPainel().length > 0) {
+    painel.usado = true;
+    let n = await lerPainel();
+    if (faltamPainel().length > 0 && !dryRun && Date.now() - startedMs < FUNCTION_BUDGET_MS - 60_000) {
+      // Painel de hoje ainda não lido (o cron dele corre depois): encadear.
+      const r = await invokeInternal("tiktok-artists-sync", { dry_run: false }, { timeoutMs: 90_000 });
+      apiCalls++;
+      painel.encadeado = r.ok ? "ok" : (r.error ?? `HTTP ${r.status}`).slice(0, 200);
+      n += await lerPainel();
+    }
+    painel.sons = n;
   }
 
   const metricDate = todayUTC();
@@ -221,8 +312,8 @@ Deno.serve(async (req) => {
         music_id: alvo.music_id,
         metric_date: metricDate,
         video_count: count,
-        source: "apify",
-        source_ref: sourceRefSom,
+        source: origem.get(alvo.music_id)?.source ?? "apify",
+        source_ref: origem.get(alvo.music_id)?.ref ?? "",
         captured_at: new Date().toISOString(),
       });
     }
@@ -289,9 +380,17 @@ Deno.serve(async (req) => {
       metric_date: metricDate,
       value: agg.soma,
       source: "apify",
-      source_ref: `${apifyRunId}:${agg.vistos}/${agg.total} sons; precisão: ${
-        foraDaSoma.length === 0 ? "completa" : `parcial ${agg.vistos}/${agg.total}`
-      }${foraDaSoma.length ? `; fora: ${foraDaSoma.join(",")}` : ""}`,
+      source_ref: (() => {
+        const ids = alvos.filter((a) => a.song_id === songId && contagens.has(a.music_id));
+        const lote = ids.filter((a) => origem.get(a.music_id)?.ref.endsWith(apifyRunId)).length;
+        const indiv = ids.filter((a) => origem.get(a.music_id)?.ref.endsWith(":individual")).length;
+        const pnl = ids.filter((a) => origem.get(a.music_id)?.source === PANEL_SOURCE);
+        return `${apifyRunId}:${agg.vistos}/${agg.total} sons (apify lote ${lote}, apify individual ${indiv}, painel ${pnl.length}${
+          pnl.length ? ` [${pnl.map((a) => `${a.music_id}=${contagens.get(a.music_id)}`).join(",")}]` : ""
+        }); precisão: ${foraDaSoma.length === 0 ? "completa" : `parcial ${agg.vistos}/${agg.total}`}${
+          foraDaSoma.length ? `; fora: ${foraDaSoma.join(",")}` : ""
+        }`;
+      })(),
       captured_at: new Date().toISOString(),
     });
   }
@@ -343,13 +442,16 @@ Deno.serve(async (req) => {
 
   await finishSyncRun(admin, runRecordId, startedMs, {
     status: resolveStatus(rowsWritten, errorCount + errosSom),
-    api_calls: 1,
+    api_calls: apiCalls,
     rows_written: rowsWritten,
     details: {
       ator: APIFY_ACTOR_NAME,
       apify_run_id: apifyRunId,
       sons_pedidos: musicIds.length,
       sons_respondidos: contagens.size,
+      respondidos_lote: respLote,
+      segunda_passagem: segundaPassagem,
+      painel,
       musicas: porMusica.size,
       somas_gravadas: linhasMusica.length,
       sem_resposta: semResposta.map((x) => ({ ...x, ultima_resposta: ultimaResposta.get(x.music_id) ?? null })),
@@ -366,6 +468,9 @@ Deno.serve(async (req) => {
     metric_date: metricDate,
     sons_pedidos: musicIds.length,
     sons_respondidos: contagens.size,
+    respondidos_lote: respLote,
+    segunda_passagem: segundaPassagem,
+    painel,
     linhas_som: linhasSom.length,
     somas_por_musica: linhasMusica.length,
     sem_resposta: semResposta,

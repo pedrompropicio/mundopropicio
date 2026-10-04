@@ -1,3 +1,4 @@
+-- NÃO APLICAR (Pedro, 04/10/2026): 7681780720700327953 é o som oficial vivo; "não responde ao ator" != indisponível.
 -- D-ERP166 (a) — NÃO APLICADO (DDL de tabela; fica para o Pedro).
 -- Permite status 'indisponivel' em artist_song_tiktok_sounds, com data e motivo.
 SET lock_timeout = '5s';
