@@ -4737,3 +4737,10 @@ Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_a
 2. **`artist_top_videos_gain(p_artist_id, p_dias, p_limit=10)`**: por vídeo, ganho = views no último dia com dados da janela − views no dia imediatamente antes do início (por plataforma, último dia com dados de views ≤ hoje). Sem ponto de partida → fora do top, contado em `sem_ponto_partida`. Devolve janela {de, ate, dias}, `ultimo_dia_com_dados` por plataforma e os vídeos (content_id, platform, title, thumbnail, url, published_at, views/gostos ganhos e totais). SECURITY DEFINER + `artist_ads_assert_access`; EXECUTE só authenticated e service_role.
 
 **Adenda D-ERP165 (04/10/2026).** `artist_dashboard` passa a incluir em `redes` os kpis diários Instagram accounts_engaged, profile_links_taps, followers_gained, followers_lost e YouTube yt_views_day, yt_minutes_watched_day, yt_subscribers_gained_day, yt_subscribers_lost_day — todos `tipo='dia_fechado'`, mesma forma. São linhas novas no array; o front ignora as que não conhece (rótulos no chat 3).
+
+## D-ERP166 — tiktok-sound-count-sync: soma parcial explícita e corrida 'partial' (04/10/2026)
+
+Defeito: desde 24/09 a soma `ugc_videos_sounds` não era gravada (regra "todos os sons validados responderam") e a corrida fechava `success` — falha silenciosa de 11 dias. O ator `funny_ground/tiktok-sound-scraper` simplesmente omite alguns sons da resposta (sem erro nem item); o som principal 7681780720700327953 (2.656 de 2.993 vídeos a 23/09) é um deles.
+1. A soma grava-se com os sons que responderam hoje; `source_ref` = `<run>:<n>/<total> sons; precisão: completa|parcial n/total; fora: <music_ids>`. Nunca se reutiliza o último valor de um som em falta.
+2. Som validated sem resposta → corrida `partial` (ou `error` se nada gravado) com `error_text` a nomear os sons e a última resposta de cada; `details.sem_resposta[].ultima_resposta`.
+3. Estado `indisponivel` (3 dias seguidos sem resposta → sai da soma, com data e motivo) precisa de DDL (CHECK de status) — SQL em `supabase/manual/20261004_tiktok_sounds_indisponivel.sql`, não aplicado.
