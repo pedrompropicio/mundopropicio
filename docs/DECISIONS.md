@@ -4749,3 +4749,9 @@ Defeito: desde 24/09 a soma `ugc_videos_sounds` não era gravada (regra "todos o
 - "Não responde ao ator" não é "indisponível": o SQL `supabase/manual/20261004_tiktok_sounds_indisponivel.sql` fica marcado NÃO APLICAR (o som 7681780720700327953 é o oficial da Roupa de Solteira).
 - `tiktok-sound-count-sync`: segunda passagem no mesmo run, um pedido ao ator por som em falta (timeout 45 s, orçamento 330 s); depois recurso à contagem do painel TikTok for Artists do PRÓPRIO dia (`artist_song_tiktok_sound_daily`, source `tiktok_artists`), encadeando `tiktok-artists-sync` via `_shared/internal-call.ts` se ainda não houver; nunca valores de dias anteriores. `source_ref` da soma diz quantos sons vieram de cada fonte.
 - `tiktok-artists-sync`: grava `video_count` por som de `clip_data_list` (preferência `all_clip_data_90d`; valor igual em 7d/28d/90d) com source `tiktok_artists`, sem sobrepor a linha Apify do dia.
+
+### D-ERP134 — adenda (04/10/2026): cron diário do YouTube
+- Cron `carreira-youtube-sync-diario` 09:05 UTC (jobid 1805) chama `artist-youtube-sync` com `{"dry_run":false,"trigger":"cron"}` e a service key do vault, como os outros `carreira-*`.
+- Sem `artist_id`: percorre todas as ligações google `active`, exclui artistas com status `inativo`; um `sync_runs` por artista.
+- Refresh do token Google é feito na própria sync (o `artist-token-refresh` só cobre instagram/tiktok). `invalid_grant` e outras falhas 4xx do refresh → ligação `expired` + `last_error`, corrida `error`; 5xx/rede → `last_error`, corrida `error`. Nunca `success` silencioso.
+- Scope continua só `yt-analytics.readonly`; não pedir `youtube.readonly`.

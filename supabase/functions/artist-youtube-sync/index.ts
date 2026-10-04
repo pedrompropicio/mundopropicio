@@ -76,7 +76,15 @@ async function getToken(admin: Admin, connId: string, key: string): Promise<stri
       }
       throw new YtError("YouTube: autorização revogada ou expirada — voltar a ligar");
     }
-    throw new YtError(`renovação do token falhou (HTTP ${res.status})`);
+    // D-ERP134 (adenda): outra falha 4xx do refresh (invalid_client, unauthorized_client…)
+    // também é persistente → ligação expirada. 5xx/rede: só last_error; a corrida fica 'error'.
+    const motivo = `renovação do token falhou (HTTP ${res.status}${j?.error ? ` ${j.error}` : ""})`;
+    await admin.from("artist_channel_connections").update(
+      res.status >= 400 && res.status < 500
+        ? { status: "expired", last_error: `YouTube: ${motivo} — voltar a ligar` }
+        : { last_error: `YouTube: ${motivo}` },
+    ).eq("id", connId);
+    throw new YtError(motivo);
   }
   const expiresAt = new Date(Date.now() + (Number(j.expires_in) || 3600) * 1000).toISOString();
   const { error: stErr } = await admin.rpc("artist_channel_store_rotated_tokens", {
@@ -213,13 +221,20 @@ Deno.serve(async (req) => {
   if (artistId) qb = qb.eq("artist_id", artistId);
   const { data: conns, error } = await qb;
   if (error) return json({ ok: false, error: "leitura das ligações falhou" }, 500);
-  const list = (conns ?? []).filter((c: any) => allowed(c.company_id));
+  // D-ERP134 (adenda): modo "todas as ligações" exclui artistas com status 'inativo'.
+  const ids = [...new Set((conns ?? []).map((c: any) => c.artist_id))];
+  const inativos = new Set<string>();
+  if (ids.length) {
+    const { data: arts } = await admin.from("artists").select("id, status").in("id", ids);
+    for (const a of (arts ?? []) as any[]) if (a.status === "inativo") inativos.add(a.id);
+  }
+  const list = (conns ?? []).filter((c: any) => allowed(c.company_id) && (artistId || !inativos.has(c.artist_id)));
   if (artistId && !list.length) {
     return json({ ok: false, error: (conns ?? []).length ? "papel insuficiente" : "sem ligação google activa" },
       (conns ?? []).length ? 403 : 404);
   }
 
-  const trigger = deduceTriggerSource(req);
+  const trigger = sr && body?.trigger === "cron" ? "cron" : deduceTriggerSource(req);
   const results: unknown[] = [];
   for (const c of list) {
     const started = Date.now();
@@ -240,5 +255,5 @@ Deno.serve(async (req) => {
       results.push({ ok: false, artist_id: c.artist_id, error: msg });
     }
   }
-  return json({ ok: true, dry_run: dryRun, artistas: results.length, results });
+  return json({ ok: true, dry_run: dryRun, artistas: results.length, excluidos_inativos: [...inativos], results });
 });
