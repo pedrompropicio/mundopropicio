@@ -43,6 +43,13 @@
       "when": 1791104322761,
       "tag": "0005_derp164_artist_ads_cliques_perfil",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791127669001,
+      "tag": "0006_derp165_artist_dashboard_medias_top_videos",
+      "breakpoints": true
     }
   ]
 }

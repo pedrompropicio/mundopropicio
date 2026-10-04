@@ -23,3 +23,7 @@ type: feature
 ## D-ERP164 (04/10)
 - Meta destino perfil IG (optimization_goal PROFILE_VISIT/VISIT_INSTAGRAM_PROFILE/PROFILE_AND_PAGE_ENGAGEMENT): resultado 'cliques_perfil' rótulo "Cliques para o perfil" = link_click; nota fixa em fonte.nota_resultado. Cliques (todos) só entrega.
 - actions: coluna crm.meta_*_insights_daily.actions preenchida (fallback raw->'actions').
+
+## D-ERP165 (04/10) — painel do artista
+- artist_dashboard: kpi.tipo instantaneo|dia_fechado; dia_fechado = média 7 dias fechados vs 7 anteriores (+janela_atual/anterior, ultimo_dia).
+- artist_top_videos_gain(artist, dias, limit): substitui as ~11 leituras de 1.000 linhas do bloco "Mais vistos".
