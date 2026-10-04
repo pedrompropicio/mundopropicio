@@ -64,6 +64,13 @@
       "when": 1791132136429,
       "tag": "0008_derp167_plan_link_so_song_links",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791132202648,
+      "tag": "0009_derp167_drop_set_smart_link",
+      "breakpoints": true
     }
   ]
 }

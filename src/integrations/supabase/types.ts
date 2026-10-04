@@ -17924,10 +17924,6 @@ export type Database = {
         }
         Returns: string
       }
-      artist_ads_song_set_smart_link: {
-        Args: { p_song_id: string; p_url: string }
-        Returns: undefined
-      }
       artist_ads_sync_status: {
         Args: { p_artist_id: string }
         Returns: {
