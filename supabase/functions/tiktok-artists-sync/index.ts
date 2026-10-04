@@ -171,7 +171,7 @@ async function fetchPage(cookie: string, artistUserId: string, from: number): Pr
 type PanelClip = { music_id: string; clip_name: string | null; is_pgc: boolean };
 
 type ClipResult =
-  | { ok: true; items: PanelClip[]; topKeys: string[]; arrayPaths: string[]; status: ClipOk; sample: Json | null }
+  | { ok: true; items: PanelClip[]; topKeys: string[]; arrayPaths: string[]; status: ClipOk; sample: Json | null; porPath: Json[] }
   | { ok: false; motivo: "sessao_invalida" | "rede" | "http" };
 
 type ClipOk = { statusCode: unknown; statusMsg: unknown };
@@ -242,6 +242,7 @@ async function fetchClips(
   // isso percorremos o JSON em profundidade (máx. 6 níveis) e recolhemos todos
   // os arrays cuja chave comece por 'pgc'/'ugc' ou contenha 'clip'.
   const arrayPaths: string[] = [];
+  const porPath: Json[] = [];
   const collect = (node: Json, path: string, depth: number) => {
     if (depth > 6 || node === null || typeof node !== "object") return;
     if (Array.isArray(node)) return;
@@ -249,6 +250,11 @@ async function fetchClips(
       const k = key.toLowerCase();
       const p = path ? `${path}.${key}` : key;
       if (Array.isArray(value)) {
+        for (const v of value) {
+          const r = v as Json;
+          const vid = String(r?.clip_id ?? r?.music_id ?? r?.id ?? "");
+          if (vid) porPath.push({ path: p, id: vid, video_count: r.video_count ?? null, view_count: r.view_count ?? null });
+        }
         if (k.startsWith("pgc")) {
           arrayPaths.push(p);
           for (const v of value) push(v as Json, true);
@@ -281,6 +287,7 @@ async function fetchClips(
     arrayPaths,
     status: { statusCode: env.status_code ?? null, statusMsg: env.status_msg ?? null },
     sample,
+    porPath,
   };
 }
 
@@ -427,7 +434,7 @@ Deno.serve(async (req) => {
       continue;
     }
     clipNotes.push(`clips de ${groupId}: ${clips.items.length} som(ns)`);
-    clipSamples.push({ group_id: groupId, array_paths: clips.arrayPaths, sample: clips.sample });
+    clipSamples.push({ group_id: groupId, array_paths: clips.arrayPaths, sample: clips.sample, por_path: clips.porPath });
     const rows = clips.items.map((c) => ({
       company_id: alvo.company_id,
       artist_id: alvo.artist_id,
