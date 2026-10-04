@@ -4759,7 +4759,7 @@ Defeito: desde 24/09 a soma `ugc_videos_sounds` não era gravada (regra "todos o
 ## D-ERP167 — smart link da música: fonte única public.song_links (04/10/2026)
 
 O link de destino de planos de música (`artist_ads_plan_create` / `_update` / `_get`), o snapshot do `artist-ads-strategy-generate` e o check `destino` do preflight de `crm-meta-publish-execute` passam a ler SÓ o link activo em `public.song_links` (`https://www.mundopropicio.com/m/<slug>`). Sem link activo, comportamento igual ao da coluna vazia (não se inventa destino). `artist_ads_plan_get` mantém a chave `song_smart_link_url`, agora calculada de `song_links`. `artist_ads_song_set_smart_link(uuid,text)` removida. Migrações `0008_derp167_plan_link_so_song_links.sql`, `0009_derp167_drop_set_smart_link.sql`.
-PENDENTE: `ALTER TABLE public.artist_songs DROP COLUMN smart_link_url` foi recusado pela guarda de alterações incompatíveis da Lovable Cloud; a coluna ficou marcada `DEPRECATED (D-ERP167)` (0 valores, 0 leitores). Para remover: o Pedro muda em Lovable Cloud › preferências de ferramentas "Execute backward incompatible database migrations" para "Ask each time" e pede o DROP.
+RESOLVIDO: a coluna `artist_songs.smart_link_url` foi removida em Live a 04/10/2026 pelo chat 2, com autorização expressa do Pedro (0 valores em 29 linhas; lock_timeout 5s). Registada em `20261004170000_derp167_drop_smart_link_url.sql` (idempotente, documental). Types regenerados.
 
 ## D-ERP168 — Gestão Artística: acesso pela empresa da linha, não pela empresa ativa (04/10/2026)
 
