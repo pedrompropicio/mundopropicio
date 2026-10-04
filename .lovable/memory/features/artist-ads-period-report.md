@@ -19,3 +19,7 @@ type: feature
 - Meta: cliques = clicks; cliques_link = actions link_click (null sem ação). Sem action de visita ao perfil gravada → fallback:cliques.
 - api: dias_sem_entrega (sync correu depois do dia) vs dias_sem_leitura (não correu); manual igual.
 - Smart link: chegadas_eventos + visitantes_unicos_dia (ip_hash × dia UTC).
+
+## D-ERP164 (04/10)
+- Meta destino perfil IG (optimization_goal PROFILE_VISIT/VISIT_INSTAGRAM_PROFILE/PROFILE_AND_PAGE_ENGAGEMENT): resultado 'cliques_perfil' rótulo "Cliques para o perfil" = link_click; nota fixa em fonte.nota_resultado. Cliques (todos) só entrega.
+- actions: coluna crm.meta_*_insights_daily.actions preenchida (fallback raw->'actions').

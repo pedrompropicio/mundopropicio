@@ -4722,3 +4722,11 @@ Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_a
 **Alternativa rejeitada.** Reaproveitar `management_type`: mistura natureza económica com visibilidade e pode voltar a esconder eventos e receita dos módulos internos.
 
 **Estado:** vigente.
+
+## D-ERP164 — Instagram ganhos/perdas e métricas de conta; actions Meta; resultado "Cliques para o perfil" (04/10/2026)
+
+1. **Instagram — janela por dia.** Desde D-ERP116 (21/09) as 4 métricas de conta (`views`, `accounts_engaged`, `total_interactions`, `profile_links_taps`) eram pedidas com `since = until = dia` (datas); a Graph API v25.0 responde 200 com `data` vazia a essa janela — por isso a série parou a 20/09. Passam a ser pedidas com unix timestamps `[dia 00:00 UTC, dia+1 00:00 UTC)`. Continua um valor por dia fechado, nunca hoje, nunca janela de 2 dias.
+2. **Seguidores ganhos/perdidos.** `follows_and_unfollows` (`metric_type=total_value`, `breakdown=follow_type`) na mesma janela: `FOLLOWER` → `followers_gained`, `NON_FOLLOWER` → `followers_lost`, em `artist_metrics_daily` (instagram, platform_api, `metric_date` = dia). O dia anterior à corrida pode vir sem valores (latência) — nada gravado. Corpo cru do primeiro dia de cada métrica fica em `sync_runs.details.artists[].raw_total_value`.
+3. **Meta — coluna `actions`.** `crm-meta-sync-insights` preenche `actions` (de `it.actions`) nos níveis campaign/adset/ad; backfill `actions = raw->'actions'` onde estava NULL.
+4. **Relatório de tráfego.** Campanhas Meta com destino ao perfil do Instagram — identificadas por `meta_adset_snapshot.optimization_goal` ∈ {PROFILE_VISIT, VISIT_INSTAGRAM_PROFILE, PROFILE_AND_PAGE_ENGAGEMENT} (`destination_type` não é gravado) — têm resultado `cliques_perfil` ("Cliques para o perfil") = soma de `link_click` das actions; custo = gasto medido ÷ esse valor; `fonte.nota_resultado` fixa. Cliques (todos) fica ao lado como entrega. Se a API expuser a ação de visita ao perfil do Instagram, substitui o link_click. O antigo `visitas_perfil`/`fallback:cliques` desaparece.
+5. **tiktok-artists-sync.** Músicas do painel sem correspondência em `artist_songs` = nota informativa "catálogo não acompanhado: N músicas" (`details.nota_informativa`), nunca erro nem aviso.

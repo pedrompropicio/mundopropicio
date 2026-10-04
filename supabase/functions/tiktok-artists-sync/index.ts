@@ -503,7 +503,10 @@ Deno.serve(async (req) => {
     );
   }
   if (dateFieldUsado) notes.push(`data de actualização lida do campo '${dateFieldUsado}'`);
-  notes.push(`${semCorrespondencia.length} sound(s) do TikTok sem música mapeada`);
+  // D-ERP164: músicas do painel fora de artist_songs são catálogo não acompanhado —
+  // nota informativa, nunca erro nem aviso (não conta para errorCount).
+  const notaCatalogo = `catálogo não acompanhado: ${semCorrespondencia.length} músicas`;
+  notes.push(notaCatalogo);
 
   let rowsWritten = 0;
   let errorCount = 0;
@@ -531,6 +534,7 @@ Deno.serve(async (req) => {
       sem_correspondencia: semCorrespondencia.length,
       campo_data: dateFieldUsado,
       acumulado: true,
+      nota_informativa: notaCatalogo,
       notes,
     },
     error_text: errorCount > 0 ? notes[notes.length - 1] : null,
