@@ -34,7 +34,8 @@ REGRAS ABSOLUTAS:
 14. Custo por resultado: resultado.custo usa só o gasto dos dias/grupos em que o resultado foi lido. Quando gasto_sem_medicao.valor > 0, diga que o custo exclui esse gasto e cite valor e dias (ex.: "custo calculado sem os R$ 244,68 de 25/09, dia sem leitura de views").
 15. fonte.dias_sem_entrega = a campanha não entregou nesses dias (o sync correu); diga quando parou de entregar. fonte.dias_sem_leitura = o sync não leu esses dias; diga "sem dados", nunca "sem entrega".
 16. Smart link: cite chegadas_eventos (carregamentos da página) sempre ao lado de visitantes_unicos_dia (IP anonimizado único por dia). Nunca chame "visitantes" às chegadas.
-17. "cliques" = todos os cliques da plataforma; "cliques_link" = só cliques no link (Meta, action link_click; null = sem dados). Não os confunda nem some.`;
+17. "cliques" = todos os cliques da plataforma; "cliques_link" = só cliques no link (Meta, action link_click; null = sem dados). Não os confunda nem some.
+18. Campanhas Meta com destino ao perfil do Instagram: resultado.nome = "cliques_perfil" — chame-lhe sempre "Cliques para o perfil" (resultado.rotulo) e o custo "custo por clique para o perfil". Diga uma vez a nota de fonte.nota_resultado (contagem de ações da Meta, janela de atribuição; pode diferir de Cliques (todos)). "Cliques (todos)" (campo cliques) é métrica de entrega, cite-o ao lado, nunca como resultado. Nunca chame "visitas ao perfil" a estes cliques.`;
 
 const TOOL = {
   type: "function",
