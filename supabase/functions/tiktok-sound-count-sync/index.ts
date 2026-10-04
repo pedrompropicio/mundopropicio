@@ -12,8 +12,10 @@
 //   - a soma por música em public.artist_song_metrics_daily
 //     (platform='tiktok', metric='ugc_videos_sounds', source='apify')
 //
-// Guardas: som validado em falta na resposta → NÃO grava a soma dessa música;
-// queda > 10% face ao último valor → grava com aviso.
+// Guardas (D-ERP166): a soma grava-se com os sons que responderam HOJE — nunca
+// se reutiliza o último valor de um som em falta. source_ref diz quantos entraram
+// e quais ficaram de fora (precisão: completa|parcial). Som validated sem resposta
+// → corrida 'partial' com error_text a nomear os sons. Queda > 10% → aviso.
 //
 // Fronteira: não lê artist_channel_connections nem ad_platform_connections.
 
@@ -230,17 +232,33 @@ Deno.serve(async (req) => {
   const semResposta = alvos
     .filter((a) => !contagens.has(a.music_id))
     .map((a) => ({ song_id: a.song_id, music_id: a.music_id }));
+  // Último dia em que cada som em falta respondeu (diagnóstico de persistência).
+  const ultimaResposta = new Map<string, string | null>();
+  for (const s of semResposta) {
+    const { data: u } = await admin
+      .from("artist_song_tiktok_sound_daily")
+      .select("metric_date")
+      .eq("music_id", s.music_id)
+      .order("metric_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    ultimaResposta.set(s.music_id, (u?.metric_date as string | undefined) ?? null);
+  }
+  const semRespostaTxt = semResposta.map((s) =>
+    `${s.music_id} (última resposta ${ultimaResposta.get(s.music_id) ?? "nunca"})`
+  );
   if (semResposta.length > 0) {
     notes.push(
-      `${semResposta.length} som(ns) validated sem resposta do ator — soma não gravada nessas músicas`,
+      `${semResposta.length} som(ns) validated sem resposta do ator — fora da soma de hoje: ${semRespostaTxt.join(", ")}`,
     );
   }
 
-  // 4. Soma por música (só quando todos os sons validados responderam).
+  // 4. Soma por música com os sons que responderam hoje.
   const linhasMusica: Json[] = [];
   const avisos: string[] = [];
   for (const [songId, agg] of porMusica) {
-    if (agg.vistos < agg.total) continue;
+    if (agg.vistos === 0) continue;
+    const foraDaSoma = semResposta.filter((x) => x.song_id === songId).map((x) => x.music_id);
 
     const { data: ultimo } = await admin
       .from("artist_song_metrics_daily")
@@ -271,7 +289,9 @@ Deno.serve(async (req) => {
       metric_date: metricDate,
       value: agg.soma,
       source: "apify",
-      source_ref: `${apifyRunId}:${agg.total} sons`,
+      source_ref: `${apifyRunId}:${agg.vistos}/${agg.total} sons; precisão: ${
+        foraDaSoma.length === 0 ? "completa" : `parcial ${agg.vistos}/${agg.total}`
+      }${foraDaSoma.length ? `; fora: ${foraDaSoma.join(",")}` : ""}`,
       captured_at: new Date().toISOString(),
     });
   }
@@ -313,8 +333,16 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Som validated sem resposta conta como erro: a corrida nunca fecha 'success'.
+  const errosSom = semResposta.length > 0 ? 1 : 0;
+  const errorText = errorCount > 0
+    ? notes.find((n) => n.includes("falhou")) ?? notes[notes.length - 1]
+    : errosSom > 0
+    ? `sons validated sem resposta do ator: ${semRespostaTxt.join(", ")}`
+    : null;
+
   await finishSyncRun(admin, runRecordId, startedMs, {
-    status: resolveStatus(rowsWritten, errorCount),
+    status: resolveStatus(rowsWritten, errorCount + errosSom),
     api_calls: 1,
     rows_written: rowsWritten,
     details: {
@@ -324,10 +352,10 @@ Deno.serve(async (req) => {
       sons_respondidos: contagens.size,
       musicas: porMusica.size,
       somas_gravadas: linhasMusica.length,
-      sem_resposta: semResposta,
+      sem_resposta: semResposta.map((x) => ({ ...x, ultima_resposta: ultimaResposta.get(x.music_id) ?? null })),
       notes,
     },
-    error_text: errorCount > 0 ? notes[notes.length - 1] : null,
+    error_text: errorText,
   });
 
   return json({
