@@ -2159,7 +2159,6 @@ export type Database = {
           notes: string | null
           release_date: string | null
           report_stale_at: string | null
-          smart_link_url: string | null
           soundcharts_uuid: string | null
           tiktok_hashtags: string[] | null
           tiktok_song_id: string | null
@@ -2181,7 +2180,6 @@ export type Database = {
           notes?: string | null
           release_date?: string | null
           report_stale_at?: string | null
-          smart_link_url?: string | null
           soundcharts_uuid?: string | null
           tiktok_hashtags?: string[] | null
           tiktok_song_id?: string | null
@@ -2203,7 +2201,6 @@ export type Database = {
           notes?: string | null
           release_date?: string | null
           report_stale_at?: string | null
-          smart_link_url?: string | null
           soundcharts_uuid?: string | null
           tiktok_hashtags?: string[] | null
           tiktok_song_id?: string | null
