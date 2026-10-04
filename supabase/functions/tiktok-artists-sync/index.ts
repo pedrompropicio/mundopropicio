@@ -171,7 +171,7 @@ async function fetchPage(cookie: string, artistUserId: string, from: number): Pr
 type PanelClip = { music_id: string; clip_name: string | null; is_pgc: boolean };
 
 type ClipResult =
-  | { ok: true; items: PanelClip[]; topKeys: string[]; arrayPaths: string[]; status: ClipOk }
+  | { ok: true; items: PanelClip[]; topKeys: string[]; arrayPaths: string[]; status: ClipOk; sample: Json | null }
   | { ok: false; motivo: "sessao_invalida" | "rede" | "http" };
 
 type ClipOk = { statusCode: unknown; statusMsg: unknown };
@@ -224,7 +224,9 @@ async function fetchClips(
   if (!res.ok) return { ok: false, motivo: "http" };
 
   const items: PanelClip[] = [];
+  let sample: Json | null = null;
   const push = (raw: Json, pgcHint: boolean | null) => {
+    if (!sample && raw && typeof raw === "object") sample = raw;
     const id = raw.music_id ?? raw.clip_id ?? raw.id ?? raw.id_str ?? raw.music_id_str;
     if (id == null) return;
     const tipo = String(raw.clip_type ?? raw.type ?? "").toLowerCase();
@@ -278,6 +280,7 @@ async function fetchClips(
     topKeys,
     arrayPaths,
     status: { statusCode: env.status_code ?? null, statusMsg: env.status_msg ?? null },
+    sample,
   };
 }
 
@@ -382,6 +385,7 @@ Deno.serve(async (req) => {
   const clipNotes: string[] = [];
   let clipsUpserted = 0;
   let clipCalls = 0;
+  const clipSamples: Json[] = [];
   // Handle TikTok por artista (artist_channels platform 'tiktok') para o Referer.
   const handleByArtist = new Map<string, string>();
   {
@@ -423,6 +427,7 @@ Deno.serve(async (req) => {
       continue;
     }
     clipNotes.push(`clips de ${groupId}: ${clips.items.length} som(ns)`);
+    clipSamples.push({ group_id: groupId, array_paths: clips.arrayPaths, sample: clips.sample });
     const rows = clips.items.map((c) => ({
       company_id: alvo.company_id,
       artist_id: alvo.artist_id,
