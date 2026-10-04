@@ -98,7 +98,7 @@ O jsonb segue o MESMO contrato de `adsets` que o `crm-meta-publish-execute` já 
 {
   "objetivo": "TRAFFIC",              // AWARENESS | TRAFFIC | ENGAGEMENT (conversões NÃO)
   "orcamento_total_cents": 30000,
-  "link_destino": "https://...",      // em falta, usa artist_songs.smart_link_url
+  "link_destino": "https://...",      // em falta, usa o link activo da música em song_links (D-ERP167); sem link, fica vazio
   "start_time": "2026-09-25T10:00:00Z",
   "end_time": null,                    // com end_time o motor usa lifetime_budget
   "resumo": { },

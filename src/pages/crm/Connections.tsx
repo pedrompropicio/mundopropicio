@@ -380,12 +380,14 @@ export default function CrmConnections() {
   );
 
   const { data: artistNames } = useQuery({
-    queryKey: ["crm-connections-artists", artistIds.join(",")],
-    enabled: artistIds.length > 0,
+    queryKey: ["crm-connections-artists", companyId, artistIds.join(",")],
+    enabled: artistIds.length > 0 && !!companyId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("artists")
         .select("id, name")
+        // D-ERP168: a RLS de artists já não filtra pela empresa ativa — o ERP filtra aqui.
+        .eq("company_id", companyId!)
         .in("id", artistIds);
       if (error) throw error;
       const map: Record<string, string> = {};

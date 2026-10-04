@@ -95,13 +95,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   const userId = userData.user.id;
 
-  // Artista (a RLS faz o isolamento por empresa) → company_id
-  const { data: artist, error: aErr } = await user
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  // D-ERP168: artista lido com service_role (não depende da empresa ativa);
+  // a autorização é o artist_ads_assert_write abaixo, na sessão do chamador.
+  const { data: artist, error: aErr } = await (admin as Any)
     .from("artists")
     .select("id, name, company_id")
     .eq("id", artistId)
     .maybeSingle();
-  if (aErr) return json({ error: "sem_permissao", mensagem: aErr.message }, 403);
+  if (aErr) return json({ error: "artista_falhou", mensagem: aErr.message }, 500);
   if (!artist) return json({ error: "artista_nao_encontrado", mensagem: "Artista não encontrado." }, 404);
 
   // Papel de tráfego — a decisão é da RPC, na sessão do chamador.
@@ -109,10 +114,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (roleErr) {
     return json({ error: "sem_permissao", mensagem: roleErr.message }, 403);
   }
-
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
 
   // Ligação: tem de ser deste artista e desta empresa.
   const { data: conn, error: cErr } = await (admin as Any)

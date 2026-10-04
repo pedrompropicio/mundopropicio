@@ -17924,10 +17924,6 @@ export type Database = {
         }
         Returns: string
       }
-      artist_ads_song_set_smart_link: {
-        Args: { p_song_id: string; p_url: string }
-        Returns: undefined
-      }
       artist_ads_sync_status: {
         Args: { p_artist_id: string }
         Returns: {
@@ -19555,6 +19551,13 @@ export type Database = {
       user_event_partner_ids: {
         Args: { _event_ids: string[]; _user: string }
         Returns: string[]
+      }
+      user_has_company_access: {
+        Args: {
+          p_company_id: string
+          p_roles?: Database["public"]["Enums"]["app_role"][]
+        }
+        Returns: boolean
       }
       user_has_event_access: {
         Args: { p_event_id: string; p_user_id: string }

@@ -1483,18 +1483,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
       });
       checks.push({ check: "teto", ok: !!tetoInfo?.ok, detail: JSON.stringify(tetoInfo) });
       checks.push(...await verificarPublicoMusica());
-      // D-ERP141: diz qual destino vai ser usado e de onde vem.
+      // D-ERP141/D-ERP167 (só song_links): diz qual destino vai ser usado e de onde vem.
       {
         const { data: sl } = await (admin as any).from("song_links")
           .select("slug").eq("song_id", planRow.song_id).eq("active", true)
           .order("updated_at", { ascending: false }).limit(1).maybeSingle();
-        const { data: sg } = await (admin as any).from("artist_songs")
-          .select("smart_link_url").eq("id", planRow.song_id).maybeSingle();
         const smartMp = sl?.slug ? `https://www.mundopropicio.com/m/${sl.slug}` : null;
         const origem = !planoLinkDestino
           ? (algumLink ? "só nos conjuntos" : "nenhum")
           : planoLinkDestino === smartMp ? "smart link MP da música"
-          : planoLinkDestino === (sg as any)?.smart_link_url ? "smart_link_url da música"
           : "explícito no plano";
         const precisa = String(planRow.objetivo ?? "").toUpperCase() === "TRAFFIC";
         checks.push({
