@@ -4778,3 +4778,13 @@ Nova `public.user_has_company_access(p_company_id uuid, p_roles app_role[] DEFAU
 - Cron `carreira-youtube-public-diario` recriado (jobid 1808, antes 1621), `0 7 * * *`, body `{"all":true,"dry_run":false}`.
 - Classificação short/video (substitui os 180 s): (a) existe linha 'aggregator' Soundcharts → short, não se toca; (b) HEAD https://www.youtube.com/shorts/<id> sem redirects: 200 → short, 3xx para /watch → video; (c) falha/ambíguo → ≤ 60 s short, senão video. Contagem por via em details.classificacao_via. Linhas youtube_public reclassificadas em cada corrida; aggregator e song_id nunca tocados.
 - 1.ª corrida: Litto 10 short→video (via HEAD 17 watch), Mara 47 short→video (HEAD 5 shorts, 113 watch); 0 por duração.
+
+### D-ERP134 — adenda 2 (04/10/2026): sem zeros falsos no YouTube Analytics
+- artist-youtube-sync: só se grava 0 nos dias ausentes ANTERIORES ao último dia devolvido pelo Analytics; dias posteriores (atraso normal de 2–3 dias) ficam sem linha. Resposta sem rows → nada gravado, com nota.
+- Em cada corrida apagam-se as linhas yt_*_day platform_api do artista com metric_date > último dia e dentro da janela; os 28 dias continuam a ser reescritos por upsert.
+- sync_runs.details: ultimo_dia_analytics, dias_sem_dado. Limpeza feita a 04/10: zeros do Litto em 02/10 e 03/10.
+
+## D-ERP170 — auditoria não rebenta com empresa apagada (04/10/2026)
+- public.log_table_change(): antes de inserir em system_audit_log, se o company_id resolvido já não existe em companies → NULL (o id fica em entity_id/old_data). Evita a FK system_audit_log_company_id_fkey em qualquer DELETE de companies.
+- Já aplicado em Live a 04/10 pelo chat 2 com autorização do Pedro; registo em supabase/manual/20261004_derp170_log_table_change.sql.
+- Com isso foram apagados a empresa-sandbox "[TESTE] Google Review" (de0466af…) e o utilizador google-review@mundopropicio.com; 7 linhas de system_audit_log e 8 de backup_runs ficaram com company_id NULL.
