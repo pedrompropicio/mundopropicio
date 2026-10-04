@@ -195,6 +195,8 @@ function rowFromItem(it: any, level: Level, ctx: { companyId: string; connection
     video_avg_time_watched_sec: videoNum(it.video_avg_time_watched_actions),
 
     currency: it.account_currency || "EUR",
+    // D-ERP164: coluna actions preenchida a partir do raw em todos os níveis.
+    actions: Array.isArray(it.actions) ? it.actions : null,
     raw: it,
     last_synced_at: new Date().toISOString(),
   };
