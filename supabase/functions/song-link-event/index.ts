@@ -311,6 +311,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       country, region, city, device, os, in_app_browser,
       ip_hash: ipHash,
       capi_status,
+      capi_fbc, capi_fbp, capi_external_id,
       tiktok_status,
     });
     if (insErr) console.warn("[song-link-event] insert falhou", insErr.message);
