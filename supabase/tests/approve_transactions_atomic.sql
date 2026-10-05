@@ -1,6 +1,8 @@
 -- Prova da aprovação atómica (D-ERP173, incidente 05/10/2026).
 -- Corre dentro de BEGIN … ROLLBACK: não deixa nada na base.
 BEGIN;
+-- O trigger enforce_forecast_amount_floor exige observação para baixar a verba.
+SELECT set_config('mp.bp_change_observation', 'teste atomico', true);
 
 -- Despesa pendente real, com linha de BP, sem pai e sem isenções.
 CREATE TEMP TABLE _alvo ON COMMIT DROP AS
@@ -13,8 +15,13 @@ WHERE t.status IN ('pending', 'overdue') AND t.type = 'expense'
   AND t.reversed_at IS NULL AND coalesce(t.is_hidden, false) = false AND t.shared_cost_account_id IS NULL
 LIMIT 1;
 
--- Força excesso: verba da linha = 0.
-UPDATE public.event_forecasts SET amount = 0 WHERE id = (SELECT forecast_id FROM _alvo);
+-- Força excesso: verba da linha = realizado (mínimo que o trigger aceita).
+UPDATE public.event_forecasts f SET amount = coalesce((
+  SELECT sum(o.amount) FROM public.transactions o
+  WHERE o.forecast_id = f.id AND o.type = 'expense' AND o.status IN ('approved','paid','partially_paid')
+    AND coalesce(o.is_transitory,false) = false AND coalesce(o.exclude_from_result,false) = false
+    AND o.reversed_at IS NULL AND coalesce(o.is_hidden,false) = false), 0)
+WHERE id = (SELECT forecast_id FROM _alvo);
 
 -- (ii) sem raises e com excesso → P0409 e nada gravado.
 SAVEPOINT s_ii;
@@ -31,6 +38,8 @@ SELECT 'ii' AS caso, t.status, f.amount AS verba,
 FROM public.transactions t JOIN public.event_forecasts f ON f.id = t.forecast_id
 WHERE t.id = (SELECT id FROM _alvo);
 
+-- Nota: as duas chamadas são sequenciais na mesma sessão; em paralelo o
+-- FOR UPDATE SKIP LOCKED dá o mesmo resultado (a segunda não vê a linha).
 -- (i) duas chamadas para o mesmo id com raise → 1 aprova e eleva, a outra skipped.
 CREATE TEMP TABLE _r ON COMMIT DROP AS
 SELECT 1 AS n, public.approve_transactions_atomic(

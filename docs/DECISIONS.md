@@ -4793,3 +4793,10 @@ Nova `public.user_has_company_access(p_company_id uuid, p_roles app_role[] DEFAU
 - song-link-event (só envio Meta; TikTok, CORS e rate limit intactos): fbc construído no servidor `fb.1.<ms>.<fbclid>` quando o Portal não o envia; external_id = sha256(`SONG_LINK_IP_SALT:ip:ua`) só com sal e IP, nunca gravado, sem cookies; country/st/ct em SHA-256 da geo já resolvida (minúsculas, sem acentos/espaços; country só se ISO-2).
 - song_link_events.capi_fbc / capi_fbp / capi_external_id = o que foi efectivamente enviado; null quando não houve envio (sem pixel/token/erro de rede). DDL aplicado em Live pelo chat 2; registo em supabase/manual/20261004_derp171_song_link_events_capi_flags.sql.
 - event_name, event_id e custom_data inalterados; IP continua sem ser gravado em claro. Log da função mostra só as chaves de user_data.
+
+## D-ERP173 — Aprovação e elevação de verba são atómicas na base (05/10/2026)
+
+Contexto: incidente 05/10 — um clique gerou 39 chamadas a approve-transaction; a elevação de verba (D2) corria antes do UPDATE condicional, por isso dois pedidos concorrentes podiam elevar a verba duas vezes.
+Decisão: RPC `public.approve_transactions_atomic(p_ids, p_raises, p_caller_name)` (SECURITY DEFINER, só service_role) faz numa transação: FOR UPDATE SKIP LOCKED nas transações pending/overdue, tranca as linhas de BP, recalcula o excesso (mesmas isenções), exige raise válido para cada linha em excesso (senão P0409 com o detalhe e nada é gravado), aplica raises + forecast_audit_log, aprova, audita só as trancadas, grava bp_budget_raised e propaga às filhas. A edge function só autoriza e mapeia P0409 → 409 `{error, budget_excess}`.
+Alternativa rejeitada: trinco só no cliente — não protege de separadores, repetições de rede nem chamadas directas.
+Nota: número D-ERP172 fica reservado ao S4A (ainda por registar).
