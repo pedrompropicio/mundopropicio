@@ -14,7 +14,8 @@
 //    ?countries=BR,PT → artist_song_metrics_daily s4a_streams_day_br / _pt
 //    (source 's4a_api'), desde o lançamento. Upsert pela chave única existente.
 //    Não há coluna de país: o resto dos países aguarda DDL (decisão do Pedro).
-// D) city/aggregate por música: NÃO grava (só em prova, body.prova_cidades).
+// C/D) country|city/aggregate por música (28 dias até D) → artist_audience_demographics
+//    com song_id, audience_type 'streams' (adenda 05/10).
 
 import { adminClient, corsHeaders, json } from "../_shared/artist-meta.ts";
 import { authorizeArtistAdmin, getS4aAccessToken, S4aError } from "../_shared/s4a.ts";
@@ -142,7 +143,7 @@ async function syncArtist(admin: Admin, artist: any, dryRun: boolean, trigger: "
         if (!rows.length) continue;
         const { error: dErr } = await admin.from("artist_audience_demographics").delete()
           .eq("artist_id", artist.id).eq("platform", "spotify").eq("audience_type", "listeners")
-          .eq("dimension", dim).eq("timeframe", "last_28_days").eq("snapshot_date", D).eq("source", "platform_api");
+          .eq("dimension", dim).eq("timeframe", "last_28_days").eq("snapshot_date", D).eq("source", "platform_api").is("song_id", null);
         if (dErr) { errors++; notes.push(`apagar ${dim} falhou: ${dErr.message}`); continue; }
         const { error } = await admin.from("artist_audience_demographics").insert(rows);
         if (error) { errors++; notes.push(`gravar ${dim} falhou: ${error.message}`); } else written += rows.length;
@@ -163,7 +164,6 @@ async function syncArtist(admin: Admin, artist: any, dryRun: boolean, trigger: "
       : { data: [] };
     const capturedAt = new Date().toISOString();
     const metricRows: any[] = [];
-    const cidadesMusica: Record<string, unknown> = {};
     for (const s of songs ?? []) {
       const track = (idents ?? []).filter((i: any) => i.song_id === s.id).map((i: any) => String(i.external_id)).find((x: string) => catIds.has(x));
       if (!track) continue;
@@ -185,15 +185,40 @@ async function syncArtist(admin: Admin, artist: any, dryRun: boolean, trigger: "
           });
         }
       }
-      if (provaCidades) {
-        const ca = await c.get(`${BASE}/song-stats-view/v1/artist/${ext}/recording/${track}/streams/city/aggregate?fromDate=${from}&toDate=${D}`);
-        cidadesMusica[s.title] = ca.status === 200
-          ? ((ca.body?.geography ?? []) as any[]).slice(0, 10).map((g) => [`${g.name}, ${g.region ?? ""} ${g.country ?? ""}`.trim(), Number(g.num)])
-          : `HTTP ${ca.status}`;
+      // C/D) geografia por música, janela 28 dias até D (D-ERP172 adenda).
+      const d27 = (() => { const t = new Date(D + "T00:00:00Z"); t.setUTCDate(t.getUTCDate() - 27); return t.toISOString().slice(0, 10); })();
+      const f28 = s.release_date > d27 ? (s.release_date > D ? D : s.release_date) : d27;
+      const songDemo = (dimension: string, dim_key: string, value: number) => ({
+        company_id: artist.company_id, artist_id: artist.id, song_id: s.id, platform: "spotify",
+        audience_type: "streams", dimension, dim_key, value, timeframe: "last_28_days",
+        snapshot_date: D, source: "platform_api", unit: "count",
+      });
+      for (const dim of ["country", "city"] as const) {
+        const r = await c.get(`${BASE}/song-stats-view/v1/artist/${ext}/recording/${track}/streams/${dim}/aggregate?fromDate=${f28}&toDate=${D}`);
+        if (r.status !== 200) { errors++; notes.push(`"${s.title}": ${dim}/aggregate HTTP ${r.status}`); continue; }
+        const rows: any[] = [];
+        for (const g of (r.body?.geography ?? []) as any[]) {
+          const name = String(g?.name ?? "").trim();
+          const v = num(g?.num);
+          if (!name || v === null) continue;
+          if (dim === "country") { rows.push(songDemo("country", name.toUpperCase(), v)); continue; }
+          const country = String(g?.country ?? "").toUpperCase();
+          const region = String(g?.region ?? "").toUpperCase();
+          let suffix = country || "?";
+          if (country === "BR") { const nome = ufNome.get(region); if (nome) suffix = nome; else { ufsSemNome.add(region); suffix = region || "BR"; } }
+          rows.push(songDemo("city", `${name}, ${suffix}`, v));
+        }
+        counts[`song_${dim}`] = (counts[`song_${dim}`] ?? 0) + rows.length;
+        if (dryRun || !rows.length) continue;
+        const { error: dErr } = await admin.from("artist_audience_demographics").delete()
+          .eq("artist_id", artist.id).eq("song_id", s.id).eq("platform", "spotify").eq("audience_type", "streams")
+          .eq("dimension", dim).eq("snapshot_date", D).eq("source", "platform_api");
+        if (dErr) { errors++; notes.push(`"${s.title}": apagar ${dim} falhou: ${dErr.message}`); continue; }
+        const { error } = await admin.from("artist_audience_demographics").insert(rows);
+        if (error) { errors++; notes.push(`"${s.title}": gravar ${dim} falhou: ${error.message}`); } else written += rows.length;
       }
     }
     counts.streams_day_pais = metricRows.length;
-    if (provaCidades) prova.cidades_por_musica = cidadesMusica;
     if (!dryRun && metricRows.length) {
       for (let i = 0; i < metricRows.length; i += 500) {
         const chunk = metricRows.slice(i, i + 500);
