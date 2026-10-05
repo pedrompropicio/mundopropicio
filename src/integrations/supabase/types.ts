@@ -17578,6 +17578,10 @@ export type Database = {
         }
         Returns: Json
       }
+      approve_transactions_atomic: {
+        Args: { p_caller_name: string; p_ids: string[]; p_raises: Json }
+        Returns: Json
+      }
       archive_bp_version: {
         Args: {
           _performed_by?: string

@@ -78,6 +78,13 @@
       "when": 1791132465832,
       "tag": "0010_derp168_artist_rls_empresa_do_artista",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791219113771,
+      "tag": "0011_approve_transactions_atomic",
+      "breakpoints": true
     }
   ]
 }
