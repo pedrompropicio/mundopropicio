@@ -27,6 +27,26 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: code }, 409);
   }
 
+  // D-ERP172: modo sonda de caminhos (só GET a generic.wg.spotify.com; nada gravado).
+  if (Array.isArray(body?.paths)) {
+    const { data: ch } = await admin.from("artist_channels").select("external_id")
+      .eq("artist_id", artistId).eq("platform", "spotify").limit(1).maybeSingle();
+    const ext = ch?.external_id ?? "";
+    const out: unknown[] = [];
+    for (const p of body.paths.slice(0, 40)) {
+      if (typeof p !== "string" || !p.startsWith("/")) continue;
+      const url = `https://generic.wg.spotify.com${p.replaceAll("{artist}", ext)}`;
+      let st = 0; let txt = "";
+      try {
+        const r = await fetch(url, { headers: { Authorization: `Bearer ${tok.accessToken}`, Accept: "application/json" }, signal: AbortSignal.timeout(15_000) });
+        st = r.status; txt = await r.text();
+      } catch (_e) { /* */ }
+      out.push({ path: p, status: st, body: txt.slice(0, body?.full ? 60000 : 600) });
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    return json({ ok: true, artist_ext: ext, resultados: out });
+  }
+
   let status = 0;
   let latest: unknown = null;
   try {
