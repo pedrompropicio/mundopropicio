@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { createApproveLock, blockKeyRepeat } from "@/lib/approve-lock";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
 import { moveToTrash } from "@/lib/trash";
@@ -420,6 +421,11 @@ export default function Transactions() {
   // Lê o corpo do erro da edge function (invoke devolve só "non-2xx").
   // 409 = D1+D8 (sem linha de BP) OU D2 (excesso de verba, com `budget_excess`).
   // 403 = sem permissão para elevar verbas.
+  // Trinco síncrono partilhado por requestApprove e handleBulkApprove (05/10/2026).
+  const approvingRef = useRef(false);
+  const [validating, setValidating] = useState(false);
+  const approveLock = useMemo(() => createApproveLock(approvingRef, setValidating), []);
+
   const readApproveError = async (error: any): Promise<Error & { budgetExcess?: BudgetExcessLine[] }> => {
     let message = error?.message ?? "Erro desconhecido";
     let budgetExcess: BudgetExcessLine[] | undefined;
@@ -442,8 +448,10 @@ export default function Transactions() {
     } catch {
       /* cai no fallback */
     }
-    const err = new Error(message) as Error & { budgetExcess?: BudgetExcessLine[] };
+    const err = new Error(message) as Error & { budgetExcess?: BudgetExcessLine[]; status?: number };
     err.budgetExcess = budgetExcess;
+    const st = Number(error?.context?.status);
+    if (Number.isFinite(st) && st > 0) err.status = st;
     return err;
   };
 
@@ -523,8 +531,9 @@ export default function Transactions() {
         setRaiseState({ lines: err.budgetExcess, ids: [id] });
         return;
       }
-      toast({ title: "Erro ao aprovar", description: err.message, variant: "destructive" });
+      toast({ title: `Erro ao aprovar${err?.status ? ` (${err.status})` : ""}`, description: err.message, variant: "destructive" });
     },
+    onSettled: () => approveLock.release(),
   });
 
   const bulkApproveMutation = useMutation({
@@ -567,8 +576,9 @@ export default function Transactions() {
         setRaiseState({ lines: err.budgetExcess, ids });
         return;
       }
-      toast({ title: "Erro ao aprovar em lote", description: err.message, variant: "destructive" });
+      toast({ title: `Erro ao aprovar em lote${err?.status ? ` (${err.status})` : ""}`, description: err.message, variant: "destructive" });
     },
+    onSettled: () => approveLock.release(),
   });
 
   // Check for dependent records before deleting
@@ -1034,6 +1044,17 @@ export default function Transactions() {
     // Não reentrar enquanto uma aprovação corre: relê a verba antes de a
     // elevação estar gravada e reabria o diálogo com números velhos.
     if (approveMutation.isPending || bulkApproveMutation.isPending) return;
+    // Trinco síncrono ANTES do primeiro await (incidente 05/10/2026).
+    if (!approveLock.acquire()) return;
+    let handed = false;
+    try {
+      await requestApproveInner(id, () => { handed = true; });
+    } finally {
+      if (!handed) approveLock.release();
+    }
+  };
+
+  const requestApproveInner = async (id: string, markHanded: () => void) => {
     const tx = transactions.find((t: any) => t.id === id);
     if (!tx) return;
     try {
@@ -1050,11 +1071,23 @@ export default function Transactions() {
       toast({ title: "Não foi possível validar a linha de BP", description: err.message, variant: "destructive" });
       return;
     }
+    markHanded();
     approveMutation.mutate({ id });
   };
 
   const handleBulkApprove = async () => {
     if (approveMutation.isPending || bulkApproveMutation.isPending) return;
+    // Trinco síncrono ANTES do primeiro await (incidente 05/10/2026).
+    if (!approveLock.acquire()) return;
+    let handed = false;
+    try {
+      await handleBulkApproveInner(() => { handed = true; });
+    } finally {
+      if (!handed) approveLock.release();
+    }
+  };
+
+  const handleBulkApproveInner = async (markHanded: () => void) => {
     const ids = [...selectedIds].filter((id) => pendingInView.some((t) => t.id === id));
     if (ids.length === 0) return;
     const allSelected = transactions.filter((t: any) => ids.includes(t.id));
@@ -1094,6 +1127,7 @@ export default function Transactions() {
         toast({ title: "Não foi possível validar as verbas do BP", description: err.message, variant: "destructive" });
         return;
       }
+      markHanded();
       bulkApproveMutation.mutate({ ids: approvableIds });
     } else if (blocked.length > 0) {
       toast({
@@ -1221,6 +1255,7 @@ export default function Transactions() {
         showPaymentDate={opts.showPaymentDate}
         onEdit={(id) => setEditingId(id)}
         onApprove={(id) => { void requestApprove(id); }}
+        approveDisabled={validating || approveMutation.isPending || bulkApproveMutation.isPending}
         onPayment={(id) => setShowPaymentId(id)}
         onDocs={(id) => setShowDocsId(id)}
         onAudit={(id) => setShowAuditId(id)}
@@ -1836,8 +1871,9 @@ export default function Transactions() {
 
         {canApprove && selectedPendingCount > 0 && (
           <button
-            onClick={handleBulkApprove}
-            disabled={bulkApproveMutation.isPending || approveMutation.isPending}
+            onClick={() => { void handleBulkApprove(); }}
+            onKeyDown={blockKeyRepeat}
+            disabled={validating || bulkApproveMutation.isPending || approveMutation.isPending}
             className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-emerald-700 disabled:opacity-50"
           >
             <ShieldCheck className="h-4 w-4" />

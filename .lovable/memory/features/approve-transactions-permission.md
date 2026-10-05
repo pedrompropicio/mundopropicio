@@ -45,3 +45,10 @@ Nenhum caminho aprova transações com identidade de editor:
 
 ## Histórico
 - 2026-09-02: criadas as permissões + trigger; fechado o buraco de o editor poder aprovar por fora da UI.
+
+## Auditoria só depois do UPDATE condicional (05/10/2026)
+
+Incidente: um clique em "Aprovar 1 selecionada" gerou 39 chamadas a `approve-transaction` e 39 linhas falsas "pending→approved" (a auditoria era gravada ANTES do UPDATE). Diagnóstico em `docs/diagnosticos/aprovar-transacao-39-chamadas-2026-10-05.md`.
+
+- Edge `approve-transaction` (`approve-core.ts` → `approveAndAudit`): `UPDATE ... SET status='approved' WHERE id IN (...) AND status IN ('pending','overdue') RETURNING id` primeiro; `transaction_audit_log` só para os ids devolvidos; os restantes passam a `skipped`. O mesmo nas filhas de rateio. Nunca voltar a auditar antes do UPDATE.
+- Frontend (`Transactions.tsx`): trinco síncrono `approvingRef` (`src/lib/approve-lock.ts`) partilhado por `requestApprove` e `handleBulkApprove`, activado antes do 1.º await e libertado nos returns antecipados e no `onSettled`; estado `validating` desactiva o botão em lote e os de cada linha; repetição de tecla ignorada (`e.repeat`). Os toasts de erro mostram o código HTTP.
