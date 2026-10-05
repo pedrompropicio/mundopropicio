@@ -121,6 +121,7 @@ Deno.serve(async (req) => {
     dry_run?: boolean;
     max_media?: number;
     dias_metricas?: number;
+    probe_demographics?: boolean;
   } = {};
   try {
     body = await req.json();
@@ -218,6 +219,32 @@ Deno.serve(async (req) => {
       const base = direct ? IG_GRAPH : GRAPH;
       const node = direct ? "me" : igId;
       per.provider = conn.provider;
+
+      // D-ERP175: sonda de follower_demographics (só leitura, nada gravado).
+      if (body.probe_demographics === true) {
+        const sonda: Record<string, unknown> = {};
+        for (const tf of ["this_month", "this_week", "last_14_days", "last_30_days", "last_90_days", "prev_month"]) {
+          for (const bd of ["country", "city"]) {
+            const r = await graphGet(`${node}/insights`, {
+              metric: "follower_demographics", period: "lifetime", timeframe: tf,
+              metric_type: "total_value", breakdown: bd,
+            }, token, base);
+            graphCalls++;
+            if (!r.ok) { sonda[`${tf}/${bd}`] = { status: r.status, erro: String(r.body?.error?.message ?? "").slice(0, 200) }; continue; }
+            const res: any[] = r.body?.data?.[0]?.total_value?.breakdowns?.[0]?.results ?? [];
+            const sorted = res.map((x) => [(x?.dimension_values ?? []).join(" / "), Number(x?.value)] as [string, number])
+              .sort((a, b) => b[1] - a[1]);
+            sonda[`${tf}/${bd}`] = {
+              status: r.status, n: sorted.length, soma: sorted.reduce((a, b) => a + b[1], 0),
+              top: sorted.slice(0, 8), end_time: r.body?.data?.[0]?.end_time ?? null,
+              chaves: Object.keys(r.body?.data?.[0] ?? {}),
+            };
+          }
+        }
+        per.sonda_demografia = sonda;
+        perConnection.push(per);
+        continue;
+      }
 
       const metricRows: Array<Record<string, unknown>> = [];
       const demoRows: Array<Record<string, unknown>> = [];
@@ -652,7 +679,7 @@ Deno.serve(async (req) => {
             .from("artist_audience_demographics")
             .upsert(demoRows, {
               onConflict:
-                "artist_id,platform,audience_type,dimension,dim_key,snapshot_date",
+                "artist_id,platform,audience_type,dimension,dim_key,snapshot_date,song_id",
             });
           if (error) throw new Error(`artist_audience_demographics: ${error.message}`);
           rowsWritten += demoRows.length;
