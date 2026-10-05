@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { createApproveLock, blockKeyRepeat } from "@/lib/approve-lock";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
 import { moveToTrash } from "@/lib/trash";
@@ -420,6 +421,11 @@ export default function Transactions() {
   // Lê o corpo do erro da edge function (invoke devolve só "non-2xx").
   // 409 = D1+D8 (sem linha de BP) OU D2 (excesso de verba, com `budget_excess`).
   // 403 = sem permissão para elevar verbas.
+  // Trinco síncrono partilhado por requestApprove e handleBulkApprove (05/10/2026).
+  const approvingRef = useRef(false);
+  const [validating, setValidating] = useState(false);
+  const approveLock = useMemo(() => createApproveLock(approvingRef, setValidating), []);
+
   const readApproveError = async (error: any): Promise<Error & { budgetExcess?: BudgetExcessLine[] }> => {
     let message = error?.message ?? "Erro desconhecido";
     let budgetExcess: BudgetExcessLine[] | undefined;
@@ -442,8 +448,10 @@ export default function Transactions() {
     } catch {
       /* cai no fallback */
     }
-    const err = new Error(message) as Error & { budgetExcess?: BudgetExcessLine[] };
+    const err = new Error(message) as Error & { budgetExcess?: BudgetExcessLine[]; status?: number };
     err.budgetExcess = budgetExcess;
+    const st = Number(error?.context?.status);
+    if (Number.isFinite(st) && st > 0) err.status = st;
     return err;
   };
 
@@ -523,8 +531,9 @@ export default function Transactions() {
         setRaiseState({ lines: err.budgetExcess, ids: [id] });
         return;
       }
-      toast({ title: "Erro ao aprovar", description: err.message, variant: "destructive" });
+      toast({ title: `Erro ao aprovar${err?.status ? ` (${err.status})` : ""}`, description: err.message, variant: "destructive" });
     },
+    onSettled: () => approveLock.release(),
   });
 
   const bulkApproveMutation = useMutation({
@@ -567,8 +576,9 @@ export default function Transactions() {
         setRaiseState({ lines: err.budgetExcess, ids });
         return;
       }
-      toast({ title: "Erro ao aprovar em lote", description: err.message, variant: "destructive" });
+      toast({ title: `Erro ao aprovar em lote${err?.status ? ` (${err.status})` : ""}`, description: err.message, variant: "destructive" });
     },
+    onSettled: () => approveLock.release(),
   });
 
   // Check for dependent records before deleting
