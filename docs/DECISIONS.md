@@ -4833,3 +4833,9 @@ Decisão: o sync compara o retrato de cada audience_type com o último gravado; 
 Série por país antes/depois de 29/09: impossível pela API (sem histórico nem janelas distintas); só existe a nossa série gravada até 23/09.
 Correcção lateral: o upsert de artist_audience_demographics passou a usar o onConflict com song_id (a constraint mudou a 05/10 com o song_id; sem isto o sync de amanhã falharia).
 As linhas repetidas de 24/09–05/10 ficaram na base (não apaguei dados).
+
+### D-ERP171 — adenda (05/10): destino "instagram"
+event "choice" + destination "instagram" (botão "Segue o artista") grava em song_link_events mas NÃO envia à CAPI Meta nem à TikTok Events API; capi_status e tiktok_status = 'nao_aplicavel'; capi_fbc/fbp/external_id = null. Motivo: seguir o artista não é intenção de escuta (ListenClick/ClickButton). Prova: POST de teste gravou os dois 'nao_aplicavel'; linha apagada por event_id.
+
+### D-ERP172 — adenda (05/10): varredura da chave de artist_audience_demographics
+Escritas encontradas: artist-instagram-sync (upsert, onConflict já com song_id); s4a-audience-sync (apagar+inserir, sem onConflict — não afectado); RPC artist_audience_set_manual (Live já com song_id, corrigida pelo chat 2). Restantes (tiktok-artists-sync, artist-tiktok-sync, soundcharts-*, artist-audience-*) não escrevem nesta tabela. drizzle/migrations/0010 mantém o ON CONFLICT de 6 colunas como histórico (migração já aplicada, substituída em Live). Nada a alterar nem a deployar.
