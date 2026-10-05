@@ -290,3 +290,6 @@ verify_jwt = true
 
 [functions.ticketline-crosscheck]
 verify_jwt = true
+
+[functions.s4a-audience-sync]
+verify_jwt = true
