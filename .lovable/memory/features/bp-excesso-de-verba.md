@@ -44,7 +44,7 @@ em curso, o botão do lote desactiva com qualquer das duas mutações, e
 | `src/lib/bp-budget-excess.ts` | `computeBudgetExcess(entries)` → `BudgetExcessLine[]`; `isLikelyIvaRounding` (≤ 5 € ou ≤ 1%) |
 | `public.raise_forecast_budget(_forecast_id, _new_amount, _observation)` | SECURITY DEFINER; exige `auth.uid()`, `is_platform_admin` OU `has_permission_in(uid,'raise_budget', company_id da linha)`; observação não vazia; só sobe; escreve `forecast_audit_log` (`field_name = 'Valor (EUR)'`, a convenção já existente) |
 | `src/components/RaiseBudgetDialog.tsx` | todas as linhas de uma vez; observação partilhada + "usar observação própria"; sem `raise_budget` só explica e não avança. Modos: `onConfirm` (devolve raises) ou `applyViaRpc` |
-| `approve-transaction` | body `budget_raises: [{forecast_id, new_amount, observation}]`; 409 `{ error, budget_excess }` sem aprovar nada; valida cada raise (403 sem permissão) e aplica ANTES de aprovar; `transaction_audit_log` ganha `bp_budget_raised` |
+| `approve-transaction` | body `budget_raises: [{forecast_id, new_amount, observation}]`; só autoriza (403 sem `raise_budget`); o cálculo do excesso, os raises, a aprovação e o `bp_budget_raised` correm ATÓMICOS na RPC `approve_transactions_atomic` (D-ERP173); P0409 → 409 `{ error, budget_excess }` sem gravar nada |
 | `close-camarim-session` | body `budget_raise: { new_amount, observation }`; 422 `{ error, budget_excess }` no pré-voo; aplica antes de criar transações |
 
 ## Ecrãs ligados

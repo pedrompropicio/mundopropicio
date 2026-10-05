@@ -52,3 +52,10 @@ Incidente: um clique em "Aprovar 1 selecionada" gerou 39 chamadas a `approve-tra
 
 - Edge `approve-transaction` (`approve-core.ts` → `approveAndAudit`): `UPDATE ... SET status='approved' WHERE id IN (...) AND status IN ('pending','overdue') RETURNING id` primeiro; `transaction_audit_log` só para os ids devolvidos; os restantes passam a `skipped`. O mesmo nas filhas de rateio. Nunca voltar a auditar antes do UPDATE.
 - Frontend (`Transactions.tsx`): trinco síncrono `approvingRef` (`src/lib/approve-lock.ts`) partilhado por `requestApprove` e `handleBulkApprove`, activado antes do 1.º await e libertado nos returns antecipados e no `onSettled`; estado `validating` desactiva o botão em lote e os de cada linha; repetição de tecla ignorada (`e.repeat`). Os toasts de erro mostram o código HTTP.
+
+## Aprovação atómica pela RPC (05/10/2026, D-ERP173)
+
+- A edge `approve-transaction` só AUTORIZA (JWT, multi-tenant, `approve_transactions`, `raise_budget` por empresa da linha, D1, expansão invoice_group) e chama `public.approve_transactions_atomic(p_ids, p_raises, p_caller_name)` (`approve-rpc.ts`). `approve-core.ts` foi apagado.
+- A RPC (SECURITY DEFINER, EXECUTE só service_role) tranca com `FOR UPDATE SKIP LOCKED`, recalcula o excesso, aplica raises, aprova, audita só as trancadas, grava `bp_budget_raised` e propaga às filhas. Não trancadas → `skipped_ids`.
+- Excesso sem raise válido → `P0409` (DETAIL = jsonb das linhas) → edge devolve 409 `{error, budget_excess}`. Nunca voltar a UPDATEs soltos na edge.
+- Prova: `supabase/tests/approve_transactions_atomic.sql`.
