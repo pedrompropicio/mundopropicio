@@ -4800,3 +4800,14 @@ Contexto: incidente 05/10 — um clique gerou 39 chamadas a approve-transaction;
 Decisão: RPC `public.approve_transactions_atomic(p_ids, p_raises, p_caller_name)` (SECURITY DEFINER, só service_role) faz numa transação: FOR UPDATE SKIP LOCKED nas transações pending/overdue, tranca as linhas de BP, recalcula o excesso (mesmas isenções), exige raise válido para cada linha em excesso (senão P0409 com o detalhe e nada é gravado), aplica raises + forecast_audit_log, aprova, audita só as trancadas, grava bp_budget_raised e propaga às filhas. A edge function só autoriza e mapeia P0409 → 409 `{error, budget_excess}`.
 Alternativa rejeitada: trinco só no cliente — não protege de separadores, repetições de rede nem chamadas directas.
 Nota: número D-ERP172 fica reservado ao S4A (ainda por registar).
+
+## D-ERP172 — Audiência S4A por país/cidade automática (05/10/2026)
+
+Contexto: a sonda de 04/10 falhou por usar `time-filter`; o painel usa `time_filter` (underscore). Endereços reais apanhados no Chrome pelo chat 2.
+Decisão: nova edge `s4a-audience-sync` (cron `carreira-s4a-audience-diario`, 08:45 UTC, todos os artistas com ligação spotify activa, sync_runs por artista).
+- locations → `artist_audience_demographics` country, dim_key = ISO-2 (a API não devolve nome; igual à leitura manual de 20/09), todos os países; timeframe last_28_days; snapshot_date = latest-date; source platform_api.
+- top-cities → city, dim_key "Cidade, Estado" (UF → br_estados.nome; as 27 UFs batem); fora do Brasil "Cidade, ISO".
+- Idempotência sem DDL: apagar o snapshot e reinserir.
+- country/timeline (`countries=BR,PT`, vírgula) → `artist_song_metrics_daily` s4a_streams_day_br / s4a_streams_day_pt, source s4a_api, desde o lançamento.
+- city/aggregate por música: só em prova (`prova_cidades`), não grava.
+Pendente: guardar todos os países por música exige coluna de país (DDL a decidir pelo Pedro).
