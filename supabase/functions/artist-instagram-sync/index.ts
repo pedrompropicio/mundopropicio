@@ -674,6 +674,40 @@ Deno.serve(async (req) => {
           if (error) throw new Error(`artist_metrics_daily: ${error.message}`);
           rowsWritten += metricRows.length;
         }
+        // D-ERP175: a Meta pode devolver a MESMA demografia dias seguidos (e
+        // ignora o timeframe). Nunca fingir um dia novo: se o retrato de um
+        // audience_type é igual ao último gravado, não grava e regista desde quando.
+        if (demoRows.length) {
+          const sig = (rows: any[]) => rows.map((r) => `${r.dimension}|${r.dim_key}|${Number(r.value)}`).sort().join("\n");
+          const desde = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10);
+          const parados: Record<string, string> = {};
+          for (const at of [...new Set(demoRows.map((r) => r.audience_type as string))]) {
+            const novos = demoRows.filter((r) => r.audience_type === at);
+            const { data: hist } = await admin.from("artist_audience_demographics")
+              .select("dimension, dim_key, value, snapshot_date")
+              .eq("artist_id", conn.artist_id).eq("platform", PLATFORM).eq("audience_type", at)
+              .eq("source", SOURCE).is("song_id", null).gte("snapshot_date", desde).lt("snapshot_date", today)
+              .limit(20000);
+            const porDia = new Map<string, any[]>();
+            for (const h of hist ?? []) {
+              const k = String(h.snapshot_date);
+              if (!porDia.has(k)) porDia.set(k, []);
+              porDia.get(k)!.push(h);
+            }
+            const dias = [...porDia.keys()].sort().reverse();
+            if (!dias.length) continue;
+            const atual = sig(novos);
+            if (sig(porDia.get(dias[0])!) !== atual) continue;
+            let x = dias[0];
+            for (const d of dias.slice(1)) { if (sig(porDia.get(d)!) === atual) x = d; else break; }
+            parados[at] = x;
+            notes.push(`demografia ${at} sem atualização da Meta desde ${x} — não gravada hoje`);
+          }
+          if (Object.keys(parados).length) {
+            per.demografia_parada = parados;
+            for (let i = demoRows.length - 1; i >= 0; i--) if (parados[demoRows[i].audience_type]) demoRows.splice(i, 1);
+          }
+        }
         if (demoRows.length) {
           const { error } = await admin
             .from("artist_audience_demographics")
