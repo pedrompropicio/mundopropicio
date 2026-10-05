@@ -4811,3 +4811,10 @@ Decisão: nova edge `s4a-audience-sync` (cron `carreira-s4a-audience-diario`, 08
 - country/timeline (`countries=BR,PT`, vírgula) → `artist_song_metrics_daily` s4a_streams_day_br / s4a_streams_day_pt, source s4a_api, desde o lançamento.
 - city/aggregate por música: só em prova (`prova_cidades`), não grava.
 Pendente: guardar todos os países por música exige coluna de país (DDL a decidir pelo Pedro).
+
+### D-ERP172 adenda — geografia por música (05/10/2026)
+- DDL do chat 2 (song_id em artist_audience_demographics, UNIQUE NULLS NOT DISTINCT com song_id, artist_audience_set_manual) registado em supabase/manual/20261005_derp172_song_geo_chat2.sql.
+- v_artist_audience_by_state filtra `song_id IS NULL` (só audiência do artista); colunas iguais; valores de 03/10 iguais antes/depois.
+- s4a-audience-sync grava country/city aggregate por música (28 dias até latest-date) com song_id, audience_type 'streams'; apagar+reinserir por (artist, song, platform, audience_type, dimension, snapshot_date, source). Snapshot do artista apaga só `song_id IS NULL`.
+- BLOQUEADO: o CHECK artist_audience_demographics_audience_type_check não aceita 'streams' — aguarda DDL (proposta no ficheiro manual).
+- Correcção ao relatório de 05/10: "US 18.657" era Instagram followers (this_month), não Spotify; o valor Spotify é 4.757 ouvintes (a query não filtrava platform).

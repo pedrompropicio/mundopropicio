@@ -527,6 +527,7 @@ export type Database = {
           id: string
           platform: string
           snapshot_date: string
+          song_id: string | null
           source: string
           timeframe: string | null
           unit: string
@@ -542,6 +543,7 @@ export type Database = {
           id?: string
           platform: string
           snapshot_date: string
+          song_id?: string | null
           source?: string
           timeframe?: string | null
           unit?: string
@@ -557,6 +559,7 @@ export type Database = {
           id?: string
           platform?: string
           snapshot_date?: string
+          song_id?: string | null
           source?: string
           timeframe?: string | null
           unit?: string
@@ -590,6 +593,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_audience_demographics_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "artist_songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_audience_demographics_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "artist_audience_demographics_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["song_id"]
           },
         ]
       }
