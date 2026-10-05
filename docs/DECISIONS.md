@@ -4818,3 +4818,10 @@ Pendente: guardar todos os países por música exige coluna de país (DDL a deci
 - s4a-audience-sync grava country/city aggregate por música (28 dias até latest-date) com song_id, audience_type 'streams'; apagar+reinserir por (artist, song, platform, audience_type, dimension, snapshot_date, source). Snapshot do artista apaga só `song_id IS NULL`.
 - BLOQUEADO: o CHECK artist_audience_demographics_audience_type_check não aceita 'streams' — aguarda DDL (proposta no ficheiro manual).
 - Correcção ao relatório de 05/10: "US 18.657" era Instagram followers (this_month), não Spotify; o valor Spotify é 4.757 ouvintes (a query não filtrava platform).
+
+## D-ERP174 — TikTok Portugal: segunda ligação TikTok do Litto (05/10/2026)
+(D-ERP173 já estava usado pela aprovação atómica.)
+- Ligação crm.ad_platform_connections aa667121-937e-49b7-b017-086dcd176a7a (Mundo Propicio Unipessoal Lda, EUR, pending_link), criada em Live pelo chat 2.
+- artist-ads-tiktok-manual-ingest: ALLOWED passa a ter 947ee0c7… (omissão, BR/BRL) e aa667121… (PT/EUR). Deploy feito.
+- tiktok_manual_upsert_core: chaves por connection_id (campanha: connection_id+external_campaign_id; grupo: connection_id+external_adgroup_id; dias: connection_id+level+external_id+date_start) — sem colisões entre as duas ligações. Moeda vem de selected_ad_account_currency (EUR).
+- artist_ads_sync_status: inclui tiktok active/pending_link, mas só mostra a linha 'tiktok' quando há insights manuais; as duas ligações fundem-se numa só linha (max(recorded_at)).

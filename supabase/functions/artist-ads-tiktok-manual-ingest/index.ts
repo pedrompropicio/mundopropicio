@@ -7,7 +7,10 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { finishSyncRun, resolveStatus, startSyncRun } from "../_shared/sync-run.ts";
 
 const FN = "artist-ads-tiktok-manual-ingest";
-const ALLOWED = new Set(["947ee0c7-60a4-49f6-9882-561237c3483a"]); // Litto
+const ALLOWED = new Set([
+  "947ee0c7-60a4-49f6-9882-561237c3483a", // Litto (BR, omissão)
+  "aa667121-937e-49b7-b017-086dcd176a7a", // Litto TikTok PT (Mundo Propicio Unipessoal, EUR) — D-ERP174
+]);
 const RATE_LIMIT = 30;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
 const hits: number[] = [];
