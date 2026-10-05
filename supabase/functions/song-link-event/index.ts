@@ -194,9 +194,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
       } catch { /* fica null */ }
     }
     // CAPI
-    let capi_status = "sem_pixel";
+    // D-ERP171 adenda: destino "instagram" (seguir o artista) não é escuta → sem CAPI nem TikTok.
+    const naoAplicavel = event === "choice" && (destination ?? "").toLowerCase() === "instagram";
+    let capi_status = naoAplicavel ? "nao_aplicavel" : "sem_pixel";
     let capi_fbc: boolean | null = null, capi_fbp: boolean | null = null, capi_external_id: boolean | null = null;
-    if (link.meta_pixel_id) {
+    if (!naoAplicavel && link.meta_pixel_id) {
       const token = await getSecret("META_CAPI_TOKEN");
       if (!token) capi_status = "sem_token";
       else {
@@ -248,8 +250,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       }
     }
     // TikTok Events API (nunca faz falhar o pedido; IP não fica guardado)
-    let tiktok_status = "sem_pixel";
-    if (link.tiktok_pixel_id) {
+    let tiktok_status = naoAplicavel ? "nao_aplicavel" : "sem_pixel";
+    if (!naoAplicavel && link.tiktok_pixel_id) {
       const ttToken = await getSecret("TIKTOK_EVENTS_ACCESS_TOKEN");
       if (!ttToken) tiktok_status = "sem_token";
       else {
