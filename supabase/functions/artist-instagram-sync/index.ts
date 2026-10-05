@@ -121,6 +121,7 @@ Deno.serve(async (req) => {
     dry_run?: boolean;
     max_media?: number;
     dias_metricas?: number;
+    probe_demographics?: boolean;
   } = {};
   try {
     body = await req.json();
@@ -218,6 +219,32 @@ Deno.serve(async (req) => {
       const base = direct ? IG_GRAPH : GRAPH;
       const node = direct ? "me" : igId;
       per.provider = conn.provider;
+
+      // D-ERP175: sonda de follower_demographics (só leitura, nada gravado).
+      if (body.probe_demographics === true) {
+        const sonda: Record<string, unknown> = {};
+        for (const tf of ["this_month", "this_week", "last_14_days", "last_30_days", "last_90_days", "prev_month"]) {
+          for (const bd of ["country", "city"]) {
+            const r = await graphGet(`${node}/insights`, {
+              metric: "follower_demographics", period: "lifetime", timeframe: tf,
+              metric_type: "total_value", breakdown: bd,
+            }, token, base);
+            graphCalls++;
+            if (!r.ok) { sonda[`${tf}/${bd}`] = { status: r.status, erro: String(r.body?.error?.message ?? "").slice(0, 200) }; continue; }
+            const res: any[] = r.body?.data?.[0]?.total_value?.breakdowns?.[0]?.results ?? [];
+            const sorted = res.map((x) => [(x?.dimension_values ?? []).join(" / "), Number(x?.value)] as [string, number])
+              .sort((a, b) => b[1] - a[1]);
+            sonda[`${tf}/${bd}`] = {
+              status: r.status, n: sorted.length, soma: sorted.reduce((a, b) => a + b[1], 0),
+              top: sorted.slice(0, 8), end_time: r.body?.data?.[0]?.end_time ?? null,
+              chaves: Object.keys(r.body?.data?.[0] ?? {}),
+            };
+          }
+        }
+        per.sonda_demografia = sonda;
+        summary.push(per);
+        continue;
+      }
 
       const metricRows: Array<Record<string, unknown>> = [];
       const demoRows: Array<Record<string, unknown>> = [];
@@ -647,12 +674,53 @@ Deno.serve(async (req) => {
           if (error) throw new Error(`artist_metrics_daily: ${error.message}`);
           rowsWritten += metricRows.length;
         }
+        // D-ERP175: a Meta pode devolver a MESMA demografia dias seguidos (e
+        // ignora o timeframe). Nunca fingir um dia novo: se o retrato de um
+        // audience_type é igual ao último gravado, não grava e regista desde quando.
+        if (demoRows.length) {
+          const sig = (rows: any[]) => rows.map((r) => `${r.dimension}|${r.dim_key}|${Number(r.value)}`).sort().join("\n");
+          const desde = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10);
+          const parados: Record<string, string> = {};
+          for (const at of [...new Set(demoRows.map((r) => r.audience_type as string))]) {
+            const novos = demoRows.filter((r) => r.audience_type === at);
+            if (!novos.length) continue;
+            // Um dia de cada vez (o PostgREST corta em 1000 linhas por pedido).
+            const atual = sig(novos);
+            const diaSig = async (d: string) => {
+              const { data } = await admin.from("artist_audience_demographics")
+                .select("dimension, dim_key, value")
+                .eq("artist_id", conn.artist_id).eq("platform", PLATFORM).eq("audience_type", at)
+                .eq("source", SOURCE).is("song_id", null).eq("snapshot_date", d).limit(1000);
+              return data && data.length ? sig(data) : null;
+            };
+            const { data: ult } = await admin.from("artist_audience_demographics")
+              .select("snapshot_date").eq("artist_id", conn.artist_id).eq("platform", PLATFORM)
+              .eq("audience_type", at).eq("source", SOURCE).is("song_id", null)
+              .gte("snapshot_date", desde).lt("snapshot_date", today)
+              .order("snapshot_date", { ascending: false }).limit(1).maybeSingle();
+            if (!ult?.snapshot_date) continue;
+            let x = String(ult.snapshot_date);
+            if ((await diaSig(x)) !== atual) continue;
+            for (let i = 1; i <= 60; i++) {
+              const d = new Date(Date.parse(x + "T00:00:00Z") - 86_400_000).toISOString().slice(0, 10);
+              if (d < desde || (await diaSig(d)) !== atual) break;
+              x = d;
+            }
+            parados[at] = x;
+            notes.push(`demografia ${at} sem atualização da Meta desde ${x} — não gravada hoje`);
+          }
+          if (Object.keys(parados).length) {
+            per.demografia_parada = parados;
+            per.demographics_skipped = demoRows.filter((r) => parados[String(r.audience_type)]).length;
+            for (let i = demoRows.length - 1; i >= 0; i--) if (parados[String(demoRows[i].audience_type)]) demoRows.splice(i, 1);
+          }
+        }
         if (demoRows.length) {
           const { error } = await admin
             .from("artist_audience_demographics")
             .upsert(demoRows, {
               onConflict:
-                "artist_id,platform,audience_type,dimension,dim_key,snapshot_date",
+                "artist_id,platform,audience_type,dimension,dim_key,snapshot_date,song_id",
             });
           if (error) throw new Error(`artist_audience_demographics: ${error.message}`);
           rowsWritten += demoRows.length;
