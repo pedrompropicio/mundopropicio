@@ -242,7 +242,7 @@ Deno.serve(async (req) => {
           }
         }
         per.sonda_demografia = sonda;
-        perConnection.push(per);
+        summary.push(per);
         continue;
       }
 
