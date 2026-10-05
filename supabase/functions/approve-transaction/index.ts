@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
+import { approveAndAudit } from "./approve-core.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -405,34 +406,23 @@ Deno.serve(async (req) => {
 
 
     if (approvedIds.length > 0) {
-      const auditEntries = approvedIds.map((id) => ({
-        transaction_id: id,
-        company_id: approvableTx.find((t) => t.id === id)?.company_id,
-        changed_by: callerName,
-        field_name: "status",
-        old_value: approvableTx.find((t) => t.id === id)?.status ?? "pending",
-        new_value: "approved",
-      }));
-
-      const { error: auditError } = await adminClient
-        .from("transaction_audit_log")
-        .insert(auditEntries);
-
-      if (auditError) {
-        console.error("Audit log error:", auditError);
-      }
-
-      const { error: updateError } = await adminClient
-        .from("transactions")
-        .update({ status: "approved" })
-        .in("id", approvedIds);
-
-      if (updateError) {
-        return new Response(JSON.stringify({ error: updateError.message }), {
+      // Incidente 05/10/2026: UPDATE condicional (só pending/overdue) PRIMEIRO;
+      // auditoria só para os ids que mudaram. Quem perdeu a corrida → ignorado.
+      const res = await approveAndAudit(adminClient, approvableTx as any[], callerName);
+      if (res.error) {
+        return new Response(JSON.stringify({ error: res.error }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      if (res.raceSkippedIds.length > 0) {
+        const lost = new Set(res.raceSkippedIds);
+        for (let i = approvedIds.length - 1; i >= 0; i--) if (lost.has(approvedIds[i])) approvedIds.splice(i, 1);
+        skippedIds.push(...res.raceSkippedIds);
+      }
+    }
+
+    if (approvedIds.length > 0) {
 
       // D2 — deixa rasto na transação que motivou a elevação da verba.
       if (excessTxIds.size > 0 && appliedRaises.length > 0) {
@@ -470,27 +460,9 @@ Deno.serve(async (req) => {
         if (children && children.length > 0) {
           const pendingChildren = children.filter((c) => c.status === "pending" || c.status === "overdue");
           if (pendingChildren.length > 0) {
-            const childIds = pendingChildren.map((c) => c.id);
-
-            const childAuditEntries = pendingChildren.map((c) => ({
-              transaction_id: c.id,
-              company_id: c.company_id,
-              changed_by: callerName,
-              field_name: "status",
-              old_value: c.status,
-              new_value: "approved",
-            }));
-
-            const { error: childAuditError } = await adminClient
-              .from("transaction_audit_log")
-              .insert(childAuditEntries);
-            if (childAuditError) {
-              console.error("[approve-transaction] audit children error:", childAuditError);
-            }
-            await adminClient
-              .from("transactions")
-              .update({ status: "approved" })
-              .in("id", childIds);
+            // UPDATE condicional primeiro; auditoria só das filhas que mudaram.
+            const childRes = await approveAndAudit(adminClient, pendingChildren as any[], callerName);
+            if (childRes.error) console.error("[approve-transaction] update children error:", childRes.error);
           }
         }
       }
