@@ -683,6 +683,7 @@ Deno.serve(async (req) => {
           const parados: Record<string, string> = {};
           for (const at of [...new Set(demoRows.map((r) => r.audience_type as string))]) {
             const novos = demoRows.filter((r) => r.audience_type === at);
+            if (!novos.length) continue;
             const { data: hist } = await admin.from("artist_audience_demographics")
               .select("dimension, dim_key, value, snapshot_date")
               .eq("artist_id", conn.artist_id).eq("platform", PLATFORM).eq("audience_type", at)
@@ -705,7 +706,8 @@ Deno.serve(async (req) => {
           }
           if (Object.keys(parados).length) {
             per.demografia_parada = parados;
-            for (let i = demoRows.length - 1; i >= 0; i--) if (parados[demoRows[i].audience_type]) demoRows.splice(i, 1);
+            per.demographics_skipped = demoRows.filter((r) => parados[String(r.audience_type)]).length;
+            for (let i = demoRows.length - 1; i >= 0; i--) if (parados[String(demoRows[i].audience_type)]) demoRows.splice(i, 1);
           }
         }
         if (demoRows.length) {
