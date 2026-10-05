@@ -4825,3 +4825,11 @@ Pendente: guardar todos os países por música exige coluna de país (DDL a deci
 - artist-ads-tiktok-manual-ingest: ALLOWED passa a ter 947ee0c7… (omissão, BR/BRL) e aa667121… (PT/EUR). Deploy feito.
 - tiktok_manual_upsert_core: chaves por connection_id (campanha: connection_id+external_campaign_id; grupo: connection_id+external_adgroup_id; dias: connection_id+level+external_id+date_start) — sem colisões entre as duas ligações. Moeda vem de selected_ad_account_currency (EUR).
 - artist_ads_sync_status: inclui tiktok active/pending_link, mas só mostra a linha 'tiktok' quando há insights manuais; as duas ligações fundem-se numa só linha (max(recorded_at)).
+
+## D-ERP175 — Demografia do Instagram parada: é a Meta, não o sync (05/10/2026)
+Contexto: follower_demographics do Litto igual todos os dias de 24/09 a 05/10 (soma 293.333; BR 235.317; IN 19.520; US 18.657) com seguidores a cair.
+Prova (sonda `probe_demographics` em artist-instagram-sync, só leitura): this_month, this_week, last_14_days, last_30_days, last_90_days e prev_month dão TODOS 200 e EXACTAMENTE os mesmos números (país e cidade) — a Meta ignora o timeframe e devolve um retrato único (top 45), sem end_time. Igual ao gravado: não há cache nem data errada do nosso lado. Idade/género/cidade também parados desde 24/09.
+Decisão: o sync compara o retrato de cada audience_type com o último gravado; se for igual, NÃO grava e escreve em notes/details "demografia <tipo> sem atualização da Meta desde X" (`demografia_parada`). Timeframe mantém-se this_month (não há alternativa fresca).
+Série por país antes/depois de 29/09: impossível pela API (sem histórico nem janelas distintas); só existe a nossa série gravada até 23/09.
+Correcção lateral: o upsert de artist_audience_demographics passou a usar o onConflict com song_id (a constraint mudou a 05/10 com o song_id; sem isto o sync de amanhã falharia).
+As linhas repetidas de 24/09–05/10 ficaram na base (não apaguei dados).
