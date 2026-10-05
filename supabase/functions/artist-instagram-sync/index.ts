@@ -684,23 +684,28 @@ Deno.serve(async (req) => {
           for (const at of [...new Set(demoRows.map((r) => r.audience_type as string))]) {
             const novos = demoRows.filter((r) => r.audience_type === at);
             if (!novos.length) continue;
-            const { data: hist } = await admin.from("artist_audience_demographics")
-              .select("dimension, dim_key, value, snapshot_date")
-              .eq("artist_id", conn.artist_id).eq("platform", PLATFORM).eq("audience_type", at)
-              .eq("source", SOURCE).is("song_id", null).gte("snapshot_date", desde).lt("snapshot_date", today)
-              .limit(20000);
-            const porDia = new Map<string, any[]>();
-            for (const h of hist ?? []) {
-              const k = String(h.snapshot_date);
-              if (!porDia.has(k)) porDia.set(k, []);
-              porDia.get(k)!.push(h);
-            }
-            const dias = [...porDia.keys()].sort().reverse();
-            if (!dias.length) continue;
+            // Um dia de cada vez (o PostgREST corta em 1000 linhas por pedido).
             const atual = sig(novos);
-            if (sig(porDia.get(dias[0])!) !== atual) continue;
-            let x = dias[0];
-            for (const d of dias.slice(1)) { if (sig(porDia.get(d)!) === atual) x = d; else break; }
+            const diaSig = async (d: string) => {
+              const { data } = await admin.from("artist_audience_demographics")
+                .select("dimension, dim_key, value")
+                .eq("artist_id", conn.artist_id).eq("platform", PLATFORM).eq("audience_type", at)
+                .eq("source", SOURCE).is("song_id", null).eq("snapshot_date", d).limit(1000);
+              return data && data.length ? sig(data) : null;
+            };
+            const { data: ult } = await admin.from("artist_audience_demographics")
+              .select("snapshot_date").eq("artist_id", conn.artist_id).eq("platform", PLATFORM)
+              .eq("audience_type", at).eq("source", SOURCE).is("song_id", null)
+              .gte("snapshot_date", desde).lt("snapshot_date", today)
+              .order("snapshot_date", { ascending: false }).limit(1).maybeSingle();
+            if (!ult?.snapshot_date) continue;
+            let x = String(ult.snapshot_date);
+            if ((await diaSig(x)) !== atual) continue;
+            for (let i = 1; i <= 60; i++) {
+              const d = new Date(Date.parse(x + "T00:00:00Z") - 86_400_000).toISOString().slice(0, 10);
+              if (d < desde || (await diaSig(d)) !== atual) break;
+              x = d;
+            }
             parados[at] = x;
             notes.push(`demografia ${at} sem atualização da Meta desde ${x} — não gravada hoje`);
           }
