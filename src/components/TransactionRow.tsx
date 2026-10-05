@@ -56,6 +56,8 @@ interface Props {
   showPaymentDate?: boolean;
   onEdit: (id: string) => void;
   onApprove: (id: string) => void;
+  /** Desactiva o botão de aprovar enquanto uma aprovação valida/corre. */
+  approveDisabled?: boolean;
   onPayment: (id: string) => void;
   onDocs: (id: string) => void;
   onAudit: (id: string) => void;
@@ -113,7 +115,7 @@ function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; on
   );
 }
 
-export function TransactionRow({ transaction: t, canApprove, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete, onToggleHidden, onViewPayments, highlightId, inGroup, hasInstallments }: Props) {
+export function TransactionRow({ transaction: t, canApprove, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, approveDisabled, onPayment, onDocs, onAudit, onDelete, onToggleHidden, onViewPayments, highlightId, inGroup, hasInstallments }: Props) {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const [childrenExpanded, setChildrenExpanded] = useState(false);
@@ -712,7 +714,7 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                       <ShieldCheck className="h-3.5 w-3.5" />
                     </BlockedActionButton>
                   ) : (
-                    <button onClick={() => onApprove(t.id)} className="rounded-lg p-1.5 text-blue-400 hover:bg-blue-500/15 transition-colors" title="Aprovar">
+                    <button onClick={() => onApprove(t.id)} onKeyDown={(e) => { if (e.repeat && (e.key === "Enter" || e.key === " ")) e.preventDefault(); }} disabled={approveDisabled} className="rounded-lg p-1.5 text-blue-400 hover:bg-blue-500/15 transition-colors disabled:opacity-50" title="Aprovar">
                       <ShieldCheck className="h-3.5 w-3.5" />
                     </button>
                   )
