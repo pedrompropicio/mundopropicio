@@ -17876,6 +17876,7 @@ export type Database = {
           impressions_30d: number
           last_recorded_at: string
           last_synced_at: string
+          link_kind: string
           linked_event_id: string
           linked_song_id: string
           objective: string
@@ -18032,6 +18033,15 @@ export type Database = {
         }
         Returns: string
       }
+      artist_ads_set_link_kind: {
+        Args: {
+          p_artist_id: string
+          p_campaign_id: string
+          p_kind: string
+          p_platform: string
+        }
+        Returns: number
+      }
       artist_ads_sync_status: {
         Args: { p_artist_id: string }
         Returns: {
@@ -18051,6 +18061,10 @@ export type Database = {
       artist_ads_unlink_song: {
         Args: { p_artist_id: string; p_campaign_id: string; p_platform: string }
         Returns: number
+      }
+      artist_ads_unlinked_summary: {
+        Args: { p_artist_id: string }
+        Returns: Json
       }
       artist_audience_set_manual: {
         Args: {
