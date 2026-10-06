@@ -13026,6 +13026,80 @@ export type Database = {
           },
         ]
       }
+      song_link_health_daily: {
+        Row: {
+          arrivals: number
+          choice_rate: number | null
+          choices: number
+          choices_instagram: number
+          company_id: string
+          created_at: string
+          day: string
+          flags: string[]
+          id: string
+          in_app_browser: string
+          link_id: string
+          os: string | null
+          redirect_app: number
+          redirect_web: number
+          slug: string | null
+          song_id: string | null
+          tap_screen_arrivals: number
+          utm_campaign: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          arrivals?: number
+          choice_rate?: number | null
+          choices?: number
+          choices_instagram?: number
+          company_id: string
+          created_at?: string
+          day: string
+          flags?: string[]
+          id?: string
+          in_app_browser?: string
+          link_id: string
+          os?: string | null
+          redirect_app?: number
+          redirect_web?: number
+          slug?: string | null
+          song_id?: string | null
+          tap_screen_arrivals?: number
+          utm_campaign?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          arrivals?: number
+          choice_rate?: number | null
+          choices?: number
+          choices_instagram?: number
+          company_id?: string
+          created_at?: string
+          day?: string
+          flags?: string[]
+          id?: string
+          in_app_browser?: string
+          link_id?: string
+          os?: string | null
+          redirect_app?: number
+          redirect_web?: number
+          slug?: string | null
+          song_id?: string | null
+          tap_screen_arrivals?: number
+          utm_campaign?: string | null
+          utm_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "song_link_health_daily_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "song_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       song_links: {
         Row: {
           active: boolean
@@ -19481,6 +19555,11 @@ export type Database = {
         Args: { p_song_id: string; p_to?: string }
         Returns: Json
       }
+      song_link_health_get: {
+        Args: { p_days?: number; p_link_id?: string }
+        Returns: Json
+      }
+      song_link_health_run: { Args: { p_day?: string }; Returns: Json }
       song_link_public_get: {
         Args: { p_slug: string }
         Returns: {
