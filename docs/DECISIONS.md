@@ -4839,3 +4839,10 @@ event "choice" + destination "instagram" (botão "Segue o artista") grava em son
 
 ### D-ERP172 — adenda (05/10): varredura da chave de artist_audience_demographics
 Escritas encontradas: artist-instagram-sync (upsert, onConflict já com song_id); s4a-audience-sync (apagar+inserir, sem onConflict — não afectado); RPC artist_audience_set_manual (Live já com song_id, corrigida pelo chat 2). Restantes (tiktok-artists-sync, artist-tiktok-sync, soundcharts-*, artist-audience-*) não escrevem nesta tabela. drizzle/migrations/0010 mantém o ON CONFLICT de 6 colunas como histórico (migração já aplicada, substituída em Live). Nada a alterar nem a deployar.
+
+### D-ERP176 — Saúde diária dos smart links (06/10)
+Tabela public.song_link_health_daily (1 linha por dia × link × utm_source × utm_campaign × os × in_app_browser ('-' se null); UNIQUE NULLS NOT DISTINCT; RLS só leitura para membros da empresa via user_has_company_access; escrita só service_role; sem anon). Função song_link_health_run(p_day = ontem UTC), SECURITY DEFINER, idempotente (apaga o dia e volta a inserir), regista em sync_runs ('song-link-health', linhas, nº de flags). RPC song_link_health_get(p_link_id, p_days=14) devolve linhas + s4a_streams_day_br/pt da música (artist_song_metrics_daily). Cron carreira-song-link-health-diario 06:30 UTC (Live, jobid 1853). Migração drizzle/migrations/0013_derp176_song_link_health.sql.
+Métricas: tap_screen_arrivals = arrival com opened null e mode redirect; choices = choice sem destination instagram; redirect_app/web = eventos com opened app/web.
+Limiares: taxa_toque_baixa (toque ≥ 20 e choice_rate < 0,20); ios_spotify_web (os ios e redirect_web ≥ 5); queda_chegadas (chegadas < 50% da média dos 7 dias anteriores da mesma chave, média ≥ 50; chaves que desaparecem também levam a flag); sem_eventos_link (link activo sem chegadas, média 7d ≥ 50; linha com utm_source '(nenhum)').
+Nota: redirect_app no Android é tentativa de intent, não confirmação de que a app abriu.
+Backfill 22/09–05/10: 73 linhas (sem eventos de 22 a 24/09).
