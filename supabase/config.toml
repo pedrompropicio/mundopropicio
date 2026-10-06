@@ -307,3 +307,6 @@ verify_jwt = true
 # D-ERP178 — sync TikTok Marketing API (só GET).
 [functions.artist-ads-tiktok-sync]
 verify_jwt = true
+
+[functions.artist-catalog-import]
+verify_jwt = true
