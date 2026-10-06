@@ -639,6 +639,35 @@ Deno.serve(async (req) => {
       seriesSummary[label][key] = statsFor(pts);
     }
 
+    // Precisão da série (pedido chat 5): a Soundcharts arredonda perfis sociais (ex.: TikTok
+    // grande em degraus de 100.000). Se os últimos 7 dias seguidos da série são todos múltiplos
+    // de P (100.000 > 10.000 > 1.000 > 100), marca source_ref "soundcharts; precisao: P".
+    // Mesma convenção "precisão: X" que artist_dashboard já lê. Spotify não é marcado.
+    const precisaoMarcadas: Record<string, number> = {};
+    {
+      const PASSOS = [100000, 10000, 1000, 100];
+      const porSerie = new Map<string, Array<any>>();
+      for (const r of unique as Array<any>) {
+        if (r.source !== "aggregator" || r.platform === "spotify") continue;
+        const k = `${r.artist_id}|${r.platform}|${r.metric}`;
+        const arr = porSerie.get(k) ?? [];
+        arr.push(r);
+        porSerie.set(k, arr);
+      }
+      const dia = (d: string) => Math.round(Date.parse(d + "T00:00:00Z") / 86400000);
+      for (const [k, arr] of porSerie) {
+        arr.sort((a, b) => String(a.metric_date).localeCompare(String(b.metric_date)));
+        for (let i = 6; i < arr.length; i++) {
+          const jan = arr.slice(i - 6, i + 1);
+          if (dia(jan[6].metric_date) - dia(jan[0].metric_date) !== 6) continue; // 7 dias seguidos
+          const p = PASSOS.find((st) => jan.every((x) => Number(x.value) > 0 && Number(x.value) % st === 0));
+          if (!p) continue;
+          arr[i].source_ref = `soundcharts; precisao: ${p}`;
+          precisaoMarcadas[k] = p;
+        }
+      }
+    }
+
     let written = 0;
     if (!dryRun && unique.length) {
       for (let i = 0; i < unique.length; i += 500) {
@@ -663,6 +692,7 @@ Deno.serve(async (req) => {
       rows_written: dryRun ? 0 : written,
       rows_by_platform_metric: summary,
       series_by_artist: seriesSummary,
+      precisao_marcada: precisaoMarcadas,
       platform_status: platformStatus,
       last_crawl_date: lastCrawl,
       notes: [...errors.map((error) => `${error.platform}: ${error.error}`), ...deezerNotes],
