@@ -4936,3 +4936,9 @@ Problema: as RPCs de tráfego misturavam BR e PT e convertiam tudo para BRL; a c
 - Cadência Soundcharts dos comparáveis: semanal → diária (jobid 1875, '30 9 * * *'). Consumo: 4.703 chamadas nos últimos 30 dias; referências 24 chamadas/corrida; diário ≈ 4.703 − 96 + 720 ≈ 5.330/mês (53% de 10.000).
 - Precisão: soundcharts-sync marca source_ref "soundcharts; precisao: P" quando os últimos 7 dias seguidos são múltiplos de P (100.000/10.000/1.000/100). Mesma convenção que artist_dashboard já lê. Instagram vem exato; TikTok e YouTube vêm arredondados.
 - Apify (clockworks/tiktok-profile-scraper, função comparables-tiktok-apify-sync): devolve os MESMOS valores arredondados (o TikTok público já arredonda). Custo real 0,015 US$/corrida de 5 perfis (≈ 0,45 US$/mês diário). Sem cron; as 5 linhas de teste foram apagadas. Canais TikTok dos 5 comparáveis gravados a partir dos identifiers da Soundcharts.
+
+### D-ERP182 — adenda (2026-10-06, aprovado pelo Pedro)
+- Migração 0023 (drizzle/migrations/0023_derp182_momentum_growth_secdef.sql): funções SECURITY DEFINER `artist_momentum_rows()` e `artist_growth_summary_rows()` verificam o acesso à company uma vez (companies × user_has_company_access); `v_artist_momentum` e `v_artist_growth_summary` passam a `SELECT * FROM` estas funções, mesmas colunas + `precisao` no fim (lida de source_ref). EXECUTE só authenticated/service_role.
+- Tempos com a sessão do Pedro (PostgREST): v_artist_momentum 0,24–0,44 s (antes timeout 8,4 s); v_artist_growth_summary 0,42–0,44 s (antes 5,0 s). Linhas iguais às de antes (32 e 64), 8 com precisao.
+- Isolamento: utilizador sem acesso → 0 linhas nas duas vistas e funções; anon → 401.
+- Apify: não agendado; comparables-tiktok-apify-sync fica de reserva.

@@ -1,4 +1,4 @@
--- AGUARDA PEDRO — NÃO APLICADO. v_artist_momentum rápida sob RLS + coluna precisao.
+-- APLICADO em 2026-10-06 pela migração 0023 (ver drizzle/migrations/0023_derp182_momentum_growth_secdef.sql). Mantido só como histórico.
 -- Acesso à company verificado UMA vez (companies × user_has_company_access) numa função
 -- SECURITY DEFINER; mesmas colunas e semântica (janelas ±5 dias de 7/30/90, prioridade de fonte).
 CREATE OR REPLACE FUNCTION public.artist_momentum_rows()
