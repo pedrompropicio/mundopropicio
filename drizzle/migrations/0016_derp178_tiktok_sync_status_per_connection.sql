@@ -61,7 +61,7 @@ BEGIN
              FROM crm.ad_platform_connections c
             WHERE c.artist_id = p_artist_id AND c.connection_scope = 'artist' AND c.platform = 'tiktok'
               AND c.status IN ('active','pending_link','error')
-            ORDER BY c.created_at LOOP
+            ORDER BY c.connected_at NULLS LAST, c.id LOOP
     v_api := NULL; v_api_err := NULL; v_man := NULL;
     SELECT max(r.finished_at) INTO v_api FROM public.sync_runs r
      WHERE r.function_name = 'artist-ads-tiktok-sync' AND NOT r.dry_run
@@ -71,7 +71,7 @@ BEGIN
      ORDER BY r.started_at DESC LIMIT 1;
     IF v_api IS NOT NULL OR v_api_err IS NOT NULL THEN
       RETURN QUERY SELECT 'tiktok'::text, ('campanhas e resultados (' || coalesce(t.cur,'?') || ')')::text, v_api,
-        '3x por dia'::text, 360, (v_api IS NULL OR v_api < now() - interval '720 minutes'), v_api_err;
+        '3x por dia (API)'::text, 360, (v_api IS NULL OR v_api < now() - interval '720 minutes'), v_api_err;
     ELSE
       SELECT max(i.recorded_at) INTO v_man FROM crm.tiktok_insights_daily i WHERE i.connection_id = t.id AND i.source = 'manual';
       IF v_man IS NOT NULL THEN
