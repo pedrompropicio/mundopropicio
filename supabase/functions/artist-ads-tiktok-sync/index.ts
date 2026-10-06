@@ -210,7 +210,7 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
     }
   }
   const rows = campRows.length + grpRows.length + adDays.length + grpDays.length;
-  return { ok: true, api_calls: c.calls, rows, counts, accepted, refused, nao_mapeadas: naoMapeadas, ambiguas, anuncios_sem_grupo: [...new Set(semGrupo)], substituidas, start, end, tz, conta: ai.name ?? null, currency };
+  return { ok: true, api_calls: c.calls, rows, counts, accepted, refused, nao_mapeadas: naoMapeadas, ambiguas, anuncios_sem_grupo: [...new Set(semGrupo)], substituidas, start, end, tz, conta: ai.name ?? null, currency, market_country: marketCountry };
 }
 
 Deno.serve(async (req) => {
