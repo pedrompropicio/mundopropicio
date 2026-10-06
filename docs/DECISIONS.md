@@ -4910,3 +4910,22 @@ Substitui os alertas da leitura manual (Cowork, desligada). Base: dados de artis
 - Tetos: reutiliza `crm.artist_ads_budget_caps` (o mesmo teto da publicação, fechado por omissão). 947ee0c7 = R$ 1.800; aa667121 = € 90, piso € 25 depois das 15:00 Europe/Lisbon. Atenção: quando houver publicação TikTok com teto, é este mesmo valor. Alterar com `artist_ads_budget_cap_set`; o piso só por SQL por agora.
 - Registo: `public.artist_ads_alert_log` (dedupe UNIQUE NULLS NOT DISTINCT (connection_id, kind, campaign_id, day); RLS leitura `user_has_company_access`, escrita só service_role). `public.artist_ads_alerts_run()` (só service_role) grava as novas, marca `resolved_at` nas que deixaram de disparar e regista em sync_runs ('artist-ads-alerts'). É chamada no fim de cada artist-ads-tiktok-sync real com linhas gravadas; não há cron próprio.
 - Teste (simulação dentro de uma transação desfeita): as 5 regras disparam. Prova ponta-a-ponta: sync real da aa667121 → alertas_run corre no fim (0 a disparar). Migração 0021 corrige DELETE sem WHERE (bloqueado pela BD) no artist_ads_alerts_run. Com os dados reais de 06/10 nenhuma dispara (BR R$ 394,88 hoje; PT € 29,53; nenhum anúncio rejeitado/parado; custo por view A1 vs A2 dentro de 1,5×).
+
+## D-ERP181 — País de mercado por campanha (2026-10-06)
+
+Problema: as RPCs de tráfego misturavam BR e PT e convertiam tudo para BRL; a conta não define o país.
+
+- Colunas `market_country` (ISO-2 ou 'MULTI', CHECK) + `market_country_locked` (default false) em crm.tiktok_campaign, crm.google_campaign, crm.meta_campaign_snapshot; `market_country` também em crm.tiktok_adgroup (para os alertas).
+- Automático (nunca sobrescreve locked; sem dados → mantém o anterior):
+  - Meta: `ads_market_country_refresh(conn)` no fim de crm-meta-sync-adsets — países de targeting.geo_locations (countries + `.country` de regions/cities/zips/custom_locations).
+  - TikTok: artist-ads-tiktok-sync guarda `raw.location_ids` dos grupos e chama a mesma função; ids → ISO via crm.ads_geo_country_map (GeoNames: BR 3469034, PT 2264397, ES 2510769, US 6252001). Ids sem mapa vêm em `tiktok_location_ids_sem_mapa`.
+  - Google: crm-google-sync-campaigns lê campaign_criterion LOCATION (não negativos) + geo_target_constant.country_code e chama `ads_market_country_apply_google`. Falha fica em notes, não trava o sync.
+  - Um país → ISO; vários → 'MULTI'.
+- Manual: `artist_ads_set_market_country(p_platform, p_campaign_id, p_country)` grava e bloqueia; p_country null desbloqueia. Papéis admin/manager/marketing_manager/platform_admin da company.
+- Fixas PT: TikTok 1878234185487474, 1878235862930498; Google 24327958069 ("… PT teste 2026-10-06").
+- `artist_ads_campaigns(p_artist_id, p_include_removed, p_country DEFAULT NULL)`: coluna nova no fim `market_country`; filtro '?' = sem país.
+- `artist_ads_period_report(p_artist_id, p_from, p_to, p_country DEFAULT NULL)`: cada campanha traz `market_country`; `totais.por_pais` = [{pais, moedas:[{currency, gasto, impressoes, cliques, ctr, cpc, cpm, views, campanhas}]}] na moeda nativa (sem conversão). `totais.gasto_ref` só existe quando há um único grupo país×moeda; senão null + lacuna. `totais.filtro_pais`. Os campos antigos ficam (compatibilidade).
+- Ambas recriadas com DROP + CREATE a partir da definição em vigor (DO + replace com verificação de cada trecho); chamadas antigas com argumentos nomeados continuam a funcionar.
+- Alertas D-ERP180: custo_view_desequilibrado só compara grupos do mesmo país (grupo → campanha → '?'); a mensagem leva [PT]/[BR].
+- `artist_ads_country_benchmarks(country, metric, value, currency, notes)`: vazia; leitura authenticated, escrita service_role.
+- Migração drizzle/migrations/0022_derp181_market_country.sql.

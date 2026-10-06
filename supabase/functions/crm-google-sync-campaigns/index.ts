@@ -1120,6 +1120,51 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
 
 
+      // --- 1c) D-ERP181: país de mercado por campanha (campaign_criterion LOCATION, só leitura).
+      // Respeita market_country_locked; sem critérios de local → não mexe. Falha nunca trava o sync.
+      let marketCountryUpdated: number | null = null;
+      try {
+        const critRows = await searchStreamCampaigns(accessToken, GOOGLE_ADS_DEVELOPER_TOKEN!, loginCustomerId, customerId, `
+  SELECT campaign.id, campaign_criterion.location.geo_target_constant
+  FROM campaign_criterion
+  WHERE campaign_criterion.type = 'LOCATION' AND campaign_criterion.negative = FALSE
+`) as Array<Record<string, any>>;
+        const byCamp = new Map<string, Set<string>>();
+        const geoIds = new Set<string>();
+        for (const r of critRows) {
+          const cid = r.campaign?.id != null ? String(r.campaign.id) : null;
+          const gid = String(r.campaignCriterion?.location?.geoTargetConstant ?? "").match(/(\d+)$/)?.[1];
+          if (!cid || !gid) continue;
+          geoIds.add(gid);
+          if (!byCamp.has(cid)) byCamp.set(cid, new Set());
+          byCamp.get(cid)!.add(gid);
+        }
+        const gidCountry = new Map<string, string>();
+        const ids = [...geoIds];
+        for (let i = 0; i < ids.length; i += 200) {
+          const rows = await searchStreamCampaigns(accessToken, GOOGLE_ADS_DEVELOPER_TOKEN!, loginCustomerId, customerId, `
+  SELECT geo_target_constant.id, geo_target_constant.country_code
+  FROM geo_target_constant
+  WHERE geo_target_constant.id IN (${ids.slice(i, i + 200).join(",")})
+`) as Array<Record<string, any>>;
+          for (const g of rows) {
+            const id = g.geoTargetConstant?.id != null ? String(g.geoTargetConstant.id) : null;
+            const cc = g.geoTargetConstant?.countryCode;
+            if (id && typeof cc === "string" && cc) gidCountry.set(id, cc.toUpperCase());
+          }
+        }
+        const map: Record<string, string[]> = {};
+        for (const [cid, gids] of byCamp) {
+          const isos = [...new Set([...gids].map((g) => gidCountry.get(g)).filter(Boolean) as string[])];
+          if (isos.length) map[cid] = isos;
+        }
+        const { data: mcN, error: mcErr } = await (supabase as any).rpc("ads_market_country_apply_google", { p_connection_id: conn.id, p_map: map });
+        if (mcErr) notes.push(`ligação ${conn.id}: market_country falhou (${mcErr.message})`);
+        else marketCountryUpdated = typeof mcN === "number" ? mcN : null;
+      } catch (e) {
+        notes.push(`ligação ${conn.id}: market_country (campaign_criterion) recusado (${String((e as Error)?.message ?? e).slice(0, 200)})`);
+      }
+
       // --- 2) Insights diários (chunks de 500 para não estourar o payload) ---
       let dailyUpserted = 0;
       const nowIso = new Date().toISOString();
@@ -1187,6 +1232,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         daily_rows_upserted: dailyUpserted,
         auto_link: autoLink,
         songs_linked: songsLinked,
+        market_country_updated: marketCountryUpdated,
       });
 
     } catch (e) {

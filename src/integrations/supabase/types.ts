@@ -389,6 +389,7 @@ export type Database = {
           id: string
           kind: string
           message: string
+          notified_at: string | null
           platform: string
           resolved_at: string | null
           severity: string
@@ -403,6 +404,7 @@ export type Database = {
           id?: string
           kind: string
           message: string
+          notified_at?: string | null
           platform: string
           resolved_at?: string | null
           severity: string
@@ -417,6 +419,7 @@ export type Database = {
           id?: string
           kind?: string
           message?: string
+          notified_at?: string | null
           platform?: string
           resolved_at?: string | null
           severity?: string
@@ -530,6 +533,36 @@ export type Database = {
             referencedColumns: ["artist_id"]
           },
         ]
+      }
+      artist_ads_country_benchmarks: {
+        Row: {
+          country: string
+          currency: string | null
+          id: string
+          metric: string
+          notes: string | null
+          updated_at: string
+          value: number | null
+        }
+        Insert: {
+          country: string
+          currency?: string | null
+          id?: string
+          metric: string
+          notes?: string | null
+          updated_at?: string
+          value?: number | null
+        }
+        Update: {
+          country?: string
+          currency?: string | null
+          id?: string
+          metric?: string
+          notes?: string | null
+          updated_at?: string
+          value?: number | null
+        }
+        Relationships: []
       }
       artist_aliases: {
         Row: {
@@ -17703,6 +17736,14 @@ export type Database = {
           total_lines: number
         }[]
       }
+      ads_market_country_apply_google: {
+        Args: { p_connection_id: string; p_map: Json }
+        Returns: number
+      }
+      ads_market_country_refresh: {
+        Args: { p_connection_id?: string }
+        Returns: Json
+      }
       ads_norm_text: { Args: { p_text: string }; Returns: string }
       analyze_formalidade_bulk: {
         Args: { _event_ids?: string[] }
@@ -17932,7 +17973,11 @@ export type Database = {
         Returns: Json
       }
       artist_ads_campaigns: {
-        Args: { p_artist_id: string; p_include_removed?: boolean }
+        Args: {
+          p_artist_id: string
+          p_country?: string
+          p_include_removed?: boolean
+        }
         Returns: {
           account_id: string
           account_name: string
@@ -17954,6 +17999,7 @@ export type Database = {
           link_kind: string
           linked_event_id: string
           linked_song_id: string
+          market_country: string
           objective: string
           platform: string
           ref_currency: string
@@ -18043,7 +18089,12 @@ export type Database = {
       }
       artist_ads_norm: { Args: { p_text: string }; Returns: string }
       artist_ads_period_report: {
-        Args: { p_artist_id: string; p_from: string; p_to: string }
+        Args: {
+          p_artist_id: string
+          p_country?: string
+          p_from: string
+          p_to: string
+        }
         Returns: Json
       }
       artist_ads_plan_create: {
@@ -18115,6 +18166,10 @@ export type Database = {
           p_kind: string
           p_platform: string
         }
+        Returns: number
+      }
+      artist_ads_set_market_country: {
+        Args: { p_campaign_id: string; p_country: string; p_platform: string }
         Returns: number
       }
       artist_ads_sync_status: {
