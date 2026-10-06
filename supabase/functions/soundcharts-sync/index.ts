@@ -692,6 +692,7 @@ Deno.serve(async (req) => {
       rows_written: dryRun ? 0 : written,
       rows_by_platform_metric: summary,
       series_by_artist: seriesSummary,
+      precisao_marcada: precisaoMarcadas,
       platform_status: platformStatus,
       last_crawl_date: lastCrawl,
       notes: [...errors.map((error) => `${error.platform}: ${error.error}`), ...deezerNotes],
