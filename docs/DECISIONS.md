@@ -4897,3 +4897,16 @@ aa667121 (EUR, advertiser 7684063259020017665) recebeu em Live (Pedro) o mesmo t
 - Criada à mão em artist_songs "Metade Amor" (d25d48e7, catalogo, isrc null, pré-Universal); 6 campanhas Meta "Metade Amor" ligadas com trinco (linked_song_locked + link_kind_locked), incluindo "Engajamento | Metade Amor | Idiota ainda te amo" (antes auto-ligada a Idiota).
 - Regra nova (migração 0019, crm.artist_ads_event_keyword_name): nome com 'show', 'farra do raio', 'forro na essencia', 'fortal' → link_kind 'event' mesmo sem evento no ERP (Google/Meta/TikTok, a seguir à música e antes de perfil). 5 campanhas passaram a 'event'.
 - Resumo Litto: a_decidir 0, historico_sem_musica 36.
+
+## D-ERP180 — Alertas TikTok no ERP (2026-10-06)
+
+Substitui os alertas da leitura manual (Cowork, desligada). Base: dados de artist-ads-tiktok-sync (API).
+- Regras em `crm.artist_ads_tiktok_alerts_core(artist_id)`, expostas em `public.artist_ads_alerts` (mesmo formato; linhas platform='tiktok'), por ligação, na moeda da conta, "hoje" no fuso da conta (`ad_platform_connections.oauth_meta.account_timezone`, gravado pelo sync):
+  1. anuncio_rejeitado (alta): secondary_status do anúncio com REJECT/NOT_PASS/AUDIT_DENY/UNAPPROVED.
+  2. anuncio_parado (média): anúncio DISABLE (ou *_DISABLE próprio) em grupo e campanha ENABLE; grupos/campanhas pausados de propósito não alertam.
+  3. gasto_dia_acima (alta): soma do gasto de hoje (nível grupo) > `crm.artist_ads_budget_caps.daily_cap`.
+  4. gasto_dia_abaixo (média): gasto de hoje < `alert_daily_floor` depois de `alert_floor_after_local` em `alert_floor_tz` (colunas novas, só preenchidas na aa667121).
+  5. custo_view_desequilibrado (média): campanha VIDEO_VIEWS, custo por view 6 s de um grupo ≥ 1,5× o de outro em 2 dias seguidos (o mais recente = hoje ou ontem); exclui grupos começados por "R" (depois do prefixo [MP]) e grupos com < R$ 30 / € 5 no dia.
+- Tetos: reutiliza `crm.artist_ads_budget_caps` (o mesmo teto da publicação, fechado por omissão). 947ee0c7 = R$ 1.800; aa667121 = € 90, piso € 25 depois das 15:00 Europe/Lisbon. Atenção: quando houver publicação TikTok com teto, é este mesmo valor. Alterar com `artist_ads_budget_cap_set`; o piso só por SQL por agora.
+- Registo: `public.artist_ads_alert_log` (dedupe UNIQUE NULLS NOT DISTINCT (connection_id, kind, campaign_id, day); RLS leitura `user_has_company_access`, escrita só service_role). `public.artist_ads_alerts_run()` (só service_role) grava as novas, marca `resolved_at` nas que deixaram de disparar e regista em sync_runs ('artist-ads-alerts'). É chamada no fim de cada artist-ads-tiktok-sync real com linhas gravadas; não há cron próprio.
+- Teste (simulação dentro de uma transação desfeita): as 5 regras disparam. Com os dados reais de 06/10 nenhuma dispara (BR R$ 394,88 hoje; PT € 29,53; nenhum anúncio rejeitado/parado; custo por view A1 vs A2 dentro de 1,5×).
