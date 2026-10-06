@@ -148,6 +148,13 @@
       "when": 1791299705471,
       "tag": "0020_derp180_tiktok_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791299855339,
+      "tag": "0021_derp180b_alerts_run_delete_where",
+      "breakpoints": true
     }
   ]
 }
