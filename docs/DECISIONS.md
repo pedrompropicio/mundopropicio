@@ -4873,3 +4873,8 @@ aa667121 (EUR, advertiser 7684063259020017665) recebeu em Live (Pedro) o mesmo t
 - Campanha manual substituída (mesmo nome que uma campanha da API): as linhas manuais que sobrarem passam a apontar para o id real e a campanha manual fica com status REMOVED e raw.substituida_por_api. Nada apagado.
 - sync_runs 'artist-ads-tiktok-sync' com details.per_connection (contagens, recusadas, não mapeadas). artist_ads_sync_status: uma linha TikTok POR LIGAÇÃO (migração 0016); sem corridas por API, mostra o registo manual.
 - Cron carreira-tiktok-ads-sync 20 7,13,19 * * * {"all":true,"days":3} (jobid 1867).
+
+### D-ERP178 — adenda (decisões do Pedro, 2026-10-06)
+- (a) Campanhas PT 1878235862930498 e 1878234185487474 ligadas à música 74c40d7b (Roupa De Solteira - Ao Vivo), linked_song_locked=true.
+- Mapeamento automático no artist-ads-tiktok-sync (só quando não há ligação existente nem campanha manual de nome igual): cada "[...]" do nome da campanha é comparado (sem acentos/maiúsculas) com o título das artist_songs do artista da ligação; se nenhum igual, compara com o título-base (antes de " - "/"("). Vários candidatos → desempata pela música já usada noutras campanhas da ligação; se continuar ambíguo, não liga e regista em details.ambiguas.
+- (b) Leitura manual via Cowork desligada pelo Pedro; artist-ads-tiktok-manual-ingest mantém-se como reserva, sem alterações.
