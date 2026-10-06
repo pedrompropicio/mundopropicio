@@ -91,11 +91,29 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
   const byName = new Map<string, any>(); const existing = new Map<string, any>();
   for (const m of manualCamps ?? []) { existing.set(m.external_campaign_id, m); if (m.source === "manual") byName.set(String(m.name).trim(), m); }
   const naoMapeadas: string[] = [];
+  const ambiguas: string[] = [];
   const now = new Date().toISOString();
+
+  // D-ERP178 (decisão a): mapeamento automático por "[NOME DA MÚSICA]" no nome da campanha.
+  const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+  const baseTitle = (s: string) => norm(s.replace(/\s+[-–(].*$/, ""));
+  const { data: songs } = cRow?.artist_id
+    ? await admin.from("artist_songs").select("id, title").eq("artist_id", cRow.artist_id)
+    : { data: [] as any[] };
+  const usadas = new Set((manualCamps ?? []).map((m: any) => m.linked_song_id).filter(Boolean));
+  const autoSong = (name: string): string | null => {
+    const tags = [...String(name ?? "").matchAll(/\[([^\]]+)\]/g)].map((m) => norm(m[1]));
+    let cand = (songs ?? []).filter((s: any) => tags.includes(norm(s.title)));
+    if (cand.length === 0) cand = (songs ?? []).filter((s: any) => tags.includes(baseTitle(s.title)));
+    if (cand.length > 1) { const u = cand.filter((s: any) => usadas.has(s.id)); if (u.length === 1) cand = u; }
+    if (cand.length === 1) return cand[0].id;
+    if (cand.length > 1) ambiguas.push(`${name} → ${cand.map((s: any) => s.title).join(" | ")}`);
+    return null;
+  };
 
   const campRows = camps.list.map((x: any) => {
     const ex = existing.get(String(x.campaign_id)); const man = byName.get(String(x.campaign_name ?? "").trim());
-    const song = ex?.linked_song_id ?? man?.linked_song_id ?? null;
+    const song = ex?.linked_song_id ?? man?.linked_song_id ?? autoSong(x.campaign_name) ?? null;
     if (!song) naoMapeadas.push(`${x.campaign_id} ${x.campaign_name}`);
     return {
       company_id: cRow.company_id, connection_id: connectionId, external_campaign_id: String(x.campaign_id),
@@ -155,7 +173,7 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
   }));
 
   const counts = { campanhas: campRows.length, grupos: grpRows.length, anuncios: ads.list.length, dias_ad: adDays.length, dias_adgroup: grpDays.length };
-  if (opts.dryRun) return { ok: true, dry_run: true, api_calls: c.calls, rows: 0, counts, accepted, refused, nao_mapeadas: naoMapeadas, start, end, tz, conta: ai.name ?? null };
+  if (opts.dryRun) return { ok: true, dry_run: true, api_calls: c.calls, rows: 0, counts, accepted, refused, nao_mapeadas: naoMapeadas, ambiguas, start, end, tz, conta: ai.name ?? null };
 
   const crm = admin.schema("crm");
   const chunks = <T,>(a: T[], n = 500) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
@@ -181,7 +199,7 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
     substituidas.push(`${man.external_campaign_id} → ${cr.external_campaign_id}`);
   }
   const rows = campRows.length + grpRows.length + adDays.length + grpDays.length;
-  return { ok: true, api_calls: c.calls, rows, counts, accepted, refused, nao_mapeadas: naoMapeadas, anuncios_sem_grupo: [...new Set(semGrupo)], substituidas, start, end, tz, conta: ai.name ?? null, currency };
+  return { ok: true, api_calls: c.calls, rows, counts, accepted, refused, nao_mapeadas: naoMapeadas, ambiguas, anuncios_sem_grupo: [...new Set(semGrupo)], substituidas, start, end, tz, conta: ai.name ?? null, currency };
 }
 
 Deno.serve(async (req) => {
