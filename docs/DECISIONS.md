@@ -4891,3 +4891,9 @@ aa667121 (EUR, advertiser 7684063259020017665) recebeu em Live (Pedro) o mesmo t
 - `artist_ads_campaigns` recriada com `link_kind` no fim (DROP+CREATE; consumidores SQL artist_dashboard e artist_ads_alerts usam colunas por nome). `artist_ads_link_song` passa a fixar link_kind='song'. Nova `artist_ads_set_link_kind(platform, campaign_id, artist_id, kind)` (null = por decidir, trancado).
 - `artist_ads_unlinked_summary(p_artist_id)` → `{a_decidir, historico_sem_musica, a_decidir_lista}`; a_decidir = sem música, sem evento, sem link_kind e (ACTIVE/ENABLED ou gasto 30d > 0).
 - Resultado Litto: 50 faixas importadas (3 participações excluídas); 42 campanhas passaram a ter música; 75 classificadas 'profile'; a_decidir 0; histórico sem música 45. "Metade Amor" não está no catálogo Spotify do Litto (não ligou).
+
+### D-ERP179 adenda (2026-10-06, decisões do Pedro)
+- "[SEU PERFIL] …" fica ligado à música Seu Perfil.
+- Criada à mão em artist_songs "Metade Amor" (d25d48e7, catalogo, isrc null, pré-Universal); 6 campanhas Meta "Metade Amor" ligadas com trinco (linked_song_locked + link_kind_locked), incluindo "Engajamento | Metade Amor | Idiota ainda te amo" (antes auto-ligada a Idiota).
+- Regra nova (migração 0019, crm.artist_ads_event_keyword_name): nome com 'show', 'farra do raio', 'forro na essencia', 'fortal' → link_kind 'event' mesmo sem evento no ERP (Google/Meta/TikTok, a seguir à música e antes de perfil). 5 campanhas passaram a 'event'.
+- Resumo Litto: a_decidir 0, historico_sem_musica 36.
