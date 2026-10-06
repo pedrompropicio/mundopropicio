@@ -134,6 +134,13 @@
       "when": 1791297704286,
       "tag": "0018_derp179_catalog_link_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791299055532,
+      "tag": "0019_derp179b_event_keywords",
+      "breakpoints": true
     }
   ]
 }
