@@ -1232,6 +1232,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         daily_rows_upserted: dailyUpserted,
         auto_link: autoLink,
         songs_linked: songsLinked,
+        market_country_updated: marketCountryUpdated,
       });
 
     } catch (e) {
