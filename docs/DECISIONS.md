@@ -4942,3 +4942,9 @@ Problema: as RPCs de tráfego misturavam BR e PT e convertiam tudo para BRL; a c
 - Tempos com a sessão do Pedro (PostgREST): v_artist_momentum 0,24–0,44 s (antes timeout 8,4 s); v_artist_growth_summary 0,42–0,44 s (antes 5,0 s). Linhas iguais às de antes (32 e 64), 8 com precisao.
 - Isolamento: utilizador sem acesso → 0 linhas nas duas vistas e funções; anon → 401.
 - Apify: não agendado; comparables-tiktok-apify-sync fica de reserva.
+
+### D-ERP182 — adenda 2 (2026-10-06): precisão com dias em falta
+- Regra no soundcharts-sync: para cada ponto, janela = últimos 7 PONTOS existentes nos 30 dias até ele (dias sem dados ignorados; mínimo 4). Se todos forem múltiplos de P (o maior de 100000/10000/1000/100), marca "soundcharts; precisao: P" em todos os pontos da janela; junta os pontos já gravados (40 dias) e corrige-os.
+- Backfill sem chamar a Soundcharts: mesma regra em SQL sobre todas as séries aggregator (exceto Spotify).
+- Vistas (migrações 0024 + 0025): precisao = a do último ponto; se null, a precisão comum dos últimos 7 pontos aggregator, só se o último valor também for múltiplo dela (um último ponto exato de platform_api não herda).
+- Confirmado (TikTok): Léo 100000, Wesley 100000, Henry 100000, Eric 100, Nuzio 100; Litto 203421 (exato, platform_api) → null. Vistas a 0,2 s.

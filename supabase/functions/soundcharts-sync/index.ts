@@ -639,11 +639,13 @@ Deno.serve(async (req) => {
       seriesSummary[label][key] = statsFor(pts);
     }
 
-    // Precisão da série (pedido chat 5): a Soundcharts arredonda perfis sociais (ex.: TikTok
-    // grande em degraus de 100.000). Se os últimos 7 dias seguidos da série são todos múltiplos
-    // de P (100.000 > 10.000 > 1.000 > 100), marca source_ref "soundcharts; precisao: P".
-    // Mesma convenção "precisão: X" que artist_dashboard já lê. Spotify não é marcado.
+    // Precisão da série (D-ERP182 adenda): a Soundcharts arredonda perfis sociais. Para cada
+    // ponto t, janela = últimos 7 PONTOS existentes nos 30 dias até t (ignora dias sem dados;
+    // mínimo 4). Se todos são múltiplos de P (o maior de 100.000/10.000/1.000/100), TODOS os
+    // pontos da janela ficam "soundcharts; precisao: P". Junta os pontos já gravados (40 dias)
+    // para não depender só da janela pedida; corrige também os gravados. Spotify não é marcado.
     const precisaoMarcadas: Record<string, number> = {};
+    const refsAntigosAtualizar: Array<{ id: string; source_ref: string }> = [];
     {
       const PASSOS = [100000, 10000, 1000, 100];
       const porSerie = new Map<string, Array<any>>();
@@ -655,16 +657,49 @@ Deno.serve(async (req) => {
         porSerie.set(k, arr);
       }
       const dia = (d: string) => Math.round(Date.parse(d + "T00:00:00Z") / 86400000);
-      for (const [k, arr] of porSerie) {
-        arr.sort((a, b) => String(a.metric_date).localeCompare(String(b.metric_date)));
-        for (let i = 6; i < arr.length; i++) {
-          const jan = arr.slice(i - 6, i + 1);
-          if (dia(jan[6].metric_date) - dia(jan[0].metric_date) !== 6) continue; // 7 dias seguidos
-          const p = PASSOS.find((st) => jan.every((x) => Number(x.value) > 0 && Number(x.value) % st === 0));
+      for (const [k, novos] of porSerie) {
+        const [aId, plat, met] = k.split("|");
+        novos.sort((a, b) => String(a.metric_date).localeCompare(String(b.metric_date)));
+        const desde = new Date((dia(novos[0].metric_date) - 40) * 86400000).toISOString().slice(0, 10);
+        const { data: antigos } = await admin.from("artist_metrics_daily")
+          .select("id, metric_date, value, source_ref")
+          .eq("artist_id", aId).eq("platform", plat).eq("metric", met).eq("source", "aggregator")
+          .gte("metric_date", desde);
+        const novosDias = new Set(novos.map((x) => String(x.metric_date)));
+        const arr: Array<any> = [
+          ...((antigos ?? []) as Array<any>).filter((x) => !novosDias.has(String(x.metric_date)))
+            .map((x) => ({ ...x, _old: true })),
+          ...novos,
+        ].sort((a, b) => String(a.metric_date).localeCompare(String(b.metric_date)));
+        const pPorIdx: Array<number | null> = arr.map(() => null);
+        for (let i = 0; i < arr.length; i++) {
+          const jan: number[] = [];
+          for (let j = i; j >= 0 && jan.length < 7; j--) {
+            if (dia(arr[i].metric_date) - dia(arr[j].metric_date) >= 30) break;
+            jan.push(j);
+          }
+          if (jan.length < 4) continue;
+          const p = PASSOS.find((st) => jan.every((j) => Number(arr[j].value) > 0 && Number(arr[j].value) % st === 0));
           if (!p) continue;
-          arr[i].source_ref = `soundcharts; precisao: ${p}`;
-          precisaoMarcadas[k] = p;
+          for (const j of jan) pPorIdx[j] = Math.max(pPorIdx[j] ?? 0, p);
         }
+        arr.forEach((x, i) => {
+          const ref = pPorIdx[i] ? `soundcharts; precisao: ${pPorIdx[i]}` : "soundcharts";
+          if (pPorIdx[i]) precisaoMarcadas[k] = pPorIdx[i]!;
+          if (x._old) {
+            const atual = x.source_ref ?? null;
+            if ((atual === null || String(atual).startsWith("soundcharts")) && atual !== ref) {
+              refsAntigosAtualizar.push({ id: x.id, source_ref: ref });
+            }
+          } else {
+            x.source_ref = ref;
+          }
+        });
+      }
+    }
+    if (!dryRun) {
+      for (const u of refsAntigosAtualizar) {
+        await admin.from("artist_metrics_daily").update({ source_ref: u.source_ref }).eq("id", u.id);
       }
     }
 

@@ -169,6 +169,20 @@
       "when": 1791313877337,
       "tag": "0023_derp182_momentum_growth_secdef",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791317207634,
+      "tag": "0024_derp182b_precisao_fallback",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791317299844,
+      "tag": "0025_derp182c_precisao_fallback_guard",
+      "breakpoints": true
     }
   ]
 }
