@@ -378,6 +378,80 @@ export type Database = {
         }
         Relationships: []
       }
+      artist_ads_alert_log: {
+        Row: {
+          artist_id: string
+          campaign_id: string | null
+          company_id: string
+          connection_id: string
+          day: string
+          detected_at: string
+          id: string
+          kind: string
+          message: string
+          platform: string
+          resolved_at: string | null
+          severity: string
+        }
+        Insert: {
+          artist_id: string
+          campaign_id?: string | null
+          company_id: string
+          connection_id: string
+          day: string
+          detected_at?: string
+          id?: string
+          kind: string
+          message: string
+          platform: string
+          resolved_at?: string | null
+          severity: string
+        }
+        Update: {
+          artist_id?: string
+          campaign_id?: string | null
+          company_id?: string
+          connection_id?: string
+          day?: string
+          detected_at?: string
+          id?: string
+          kind?: string
+          message?: string
+          platform?: string
+          resolved_at?: string | null
+          severity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_ads_alert_log_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_ads_alert_log_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_benchmark_aligned"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_ads_alert_log_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_ads_alert_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       artist_ads_campaign_goals: {
         Row: {
           artist_id: string
@@ -17742,6 +17816,7 @@ export type Database = {
           severity: string
         }[]
       }
+      artist_ads_alerts_run: { Args: never; Returns: Json }
       artist_ads_assert_access: {
         Args: { p_artist_id: string }
         Returns: string
