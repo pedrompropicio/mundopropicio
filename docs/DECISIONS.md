@@ -4860,3 +4860,16 @@ App "MP Audience" (App ID 7693412880665804820). Secrets (criados pelo Pedro, nom
 - OAuth concluído: 947ee0c7 active, advertiser_ids [7584174212085235728, 7684063259020017665, 7687011845512839188, 7689229625189138438].
 - Prova só GET (crm-tiktok-probe, nova, só leitura): advertiser 7689229625189138438 = "LITTO LINS PRODUÇÕES ARTISTICAS E EDIÇOES MUSICAIS LTDA_adv", BRL, Etc/GMT+3, STATUS_ENABLE; 2 campanhas.
 - Proposta para aa667121 (EUR): reutilizar o token da mesma autorização (copiar o token cifrado da 947ee0c7, porque 7684063259020017665 está nos advertiser_ids), em vez de pedir um OAuth próprio. Ainda não executado.
+
+### D-ERP177 — adenda 2 (06/10)
+aa667121 (EUR, advertiser 7684063259020017665) recebeu em Live (Pedro) o mesmo token cifrado da 947ee0c7 (advertiser incluído na autorização); oauth_meta com token_source_connection; status active. Um novo OAuth numa das duas só substitui o token dessa ligação.
+
+### D-ERP178 — Sync TikTok por API (06/10) — substitui a leitura manual D-ERP144
+- Função artist-ads-tiktok-sync (verify_jwt; ADS_ROLES ou service_role; body {connection_id?, days=7, since?, all (só service_role), dry_run}). Só GET: advertiser/info, campaign/get, adgroup/get, ad/get, report/integrated/get (BASIC, AUCTION_AD, ad_id × stat_time_day, fuso da conta, janelas de 30 dias, paginado).
+- Métricas: tenta as 22 pedidas; se a API recusar, testa uma a uma e regista as recusadas em details. No backfill a API aceitou todas.
+- Escreve nas mesmas tabelas da manual (crm.tiktok_campaign/adgroup/insights_daily), source 'api', moeda da conta; fx_convert dos relatórios não mudou. Diário em nível 'adgroup' (o que os relatórios somam, igual à manual; reach fica null porque não se soma entre anúncios) + nível 'ad' (detalhe; os relatórios ignoram). Mesma chave (ligação, nível, id, dia): 'api' sobrescreve 'manual' e a manual já não escreve onde há 'api'.
+- Anúncios: sem tabela própria; lista em tiktok_adgroup.raw.ads. Optimização, colocações e datas também em raw.
+- Música: mesmo critério da manual (song_id da campanha manual com o mesmo nome; mantém o que já estiver ligado). Campanha sem correspondência fica sem música e é listada em details.nao_mapeadas.
+- Campanha manual substituída (mesmo nome que uma campanha da API): as linhas manuais que sobrarem passam a apontar para o id real e a campanha manual fica com status REMOVED e raw.substituida_por_api. Nada apagado.
+- sync_runs 'artist-ads-tiktok-sync' com details.per_connection (contagens, recusadas, não mapeadas). artist_ads_sync_status: uma linha TikTok POR LIGAÇÃO (migração 0016); sem corridas por API, mostra o registo manual.
+- Cron carreira-tiktok-ads-sync 20 7,13,19 * * * {"all":true,"days":3} (jobid 1867).
