@@ -155,6 +155,13 @@
       "when": 1791299855339,
       "tag": "0021_derp180b_alerts_run_delete_where",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791302336904,
+      "tag": "0022_derp181_market_country",
+      "breakpoints": true
     }
   ]
 }
