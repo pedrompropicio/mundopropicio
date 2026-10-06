@@ -173,7 +173,7 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
   }));
 
   const counts = { campanhas: campRows.length, grupos: grpRows.length, anuncios: ads.list.length, dias_ad: adDays.length, dias_adgroup: grpDays.length };
-  if (opts.dryRun) return { ok: true, dry_run: true, api_calls: c.calls, rows: 0, counts, accepted, refused, nao_mapeadas: naoMapeadas, start, end, tz, conta: ai.name ?? null };
+  if (opts.dryRun) return { ok: true, dry_run: true, api_calls: c.calls, rows: 0, counts, accepted, refused, nao_mapeadas: naoMapeadas, ambiguas, start, end, tz, conta: ai.name ?? null };
 
   const crm = admin.schema("crm");
   const chunks = <T,>(a: T[], n = 500) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
@@ -199,7 +199,7 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
     substituidas.push(`${man.external_campaign_id} → ${cr.external_campaign_id}`);
   }
   const rows = campRows.length + grpRows.length + adDays.length + grpDays.length;
-  return { ok: true, api_calls: c.calls, rows, counts, accepted, refused, nao_mapeadas: naoMapeadas, anuncios_sem_grupo: [...new Set(semGrupo)], substituidas, start, end, tz, conta: ai.name ?? null, currency };
+  return { ok: true, api_calls: c.calls, rows, counts, accepted, refused, nao_mapeadas: naoMapeadas, ambiguas, anuncios_sem_grupo: [...new Set(semGrupo)], substituidas, start, end, tz, conta: ai.name ?? null, currency };
 }
 
 Deno.serve(async (req) => {
