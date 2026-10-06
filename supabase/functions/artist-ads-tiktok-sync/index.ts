@@ -198,6 +198,13 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
       .eq("connection_id", connectionId).eq("external_campaign_id", man.external_campaign_id).eq("source", "manual");
     substituidas.push(`${man.external_campaign_id} → ${cr.external_campaign_id}`);
   }
+  // D-ERP180: fuso da conta usado pelos alertas ("hoje" no fuso da conta).
+  if (info.ok && tz) {
+    const { data: cm } = await crm.from("ad_platform_connections").select("oauth_meta").eq("id", connectionId).single();
+    if ((cm?.oauth_meta ?? {}).account_timezone !== tz) {
+      await crm.from("ad_platform_connections").update({ oauth_meta: { ...(cm?.oauth_meta ?? {}), account_timezone: tz } }).eq("id", connectionId);
+    }
+  }
   const rows = campRows.length + grpRows.length + adDays.length + grpDays.length;
   return { ok: true, api_calls: c.calls, rows, counts, accepted, refused, nao_mapeadas: naoMapeadas, ambiguas, anuncios_sem_grupo: [...new Set(semGrupo)], substituidas, start, end, tz, conta: ai.name ?? null, currency };
 }
@@ -244,5 +251,11 @@ Deno.serve(async (req) => {
     status, api_calls: calls, rows_written: rows, details: { days, since: since ?? null, per_connection: per },
     error_text: errs ? Object.entries(per).filter(([, v]: any) => !v.ok).map(([k, v]: any) => `${k}: ${v.error}`).join("; ").slice(0, 1000) : null,
   });
-  return json({ ok: errs === 0, status, rows, per_connection: per });
+  // D-ERP180: alertas TikTok logo a seguir a cada sync real (regista em sync_runs 'artist-ads-alerts').
+  let alertas: unknown = null;
+  if (!dryRun && rows > 0) {
+    const { data: al, error: alErr } = await admin.rpc("artist_ads_alerts_run");
+    alertas = alErr ? { erro: alErr.message } : al;
+  }
+  return json({ ok: errs === 0, status, rows, per_connection: per, alertas });
 });
