@@ -303,3 +303,7 @@ verify_jwt = false
 
 [functions.crm-tiktok-probe]
 verify_jwt = true
+
+# D-ERP178 — sync TikTok Marketing API (só GET).
+[functions.artist-ads-tiktok-sync]
+verify_jwt = true
