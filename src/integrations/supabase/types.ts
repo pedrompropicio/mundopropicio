@@ -16498,39 +16498,11 @@ export type Database = {
           latest_value: number | null
           metric: string | null
           platform: string | null
+          precisao: number | null
           worst_date: string | null
           worst_value: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "artist_metrics_daily_artist_id_fkey"
-            columns: ["artist_id"]
-            isOneToOne: false
-            referencedRelation: "artists"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "artist_metrics_daily_artist_id_fkey"
-            columns: ["artist_id"]
-            isOneToOne: false
-            referencedRelation: "v_song_benchmark_aligned"
-            referencedColumns: ["artist_id"]
-          },
-          {
-            foreignKeyName: "artist_metrics_daily_artist_id_fkey"
-            columns: ["artist_id"]
-            isOneToOne: false
-            referencedRelation: "v_song_ugc_benchmark"
-            referencedColumns: ["artist_id"]
-          },
-          {
-            foreignKeyName: "artist_metrics_daily_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       v_artist_metric_indexed: {
         Row: {
@@ -16629,38 +16601,10 @@ export type Database = {
           metric: string | null
           momentum_index: number | null
           platform: string | null
+          precisao: number | null
           roster_type: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "artist_metrics_daily_artist_id_fkey"
-            columns: ["artist_id"]
-            isOneToOne: false
-            referencedRelation: "artists"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "artist_metrics_daily_artist_id_fkey"
-            columns: ["artist_id"]
-            isOneToOne: false
-            referencedRelation: "v_song_benchmark_aligned"
-            referencedColumns: ["artist_id"]
-          },
-          {
-            foreignKeyName: "artist_metrics_daily_artist_id_fkey"
-            columns: ["artist_id"]
-            isOneToOne: false
-            referencedRelation: "v_song_ugc_benchmark"
-            referencedColumns: ["artist_id"]
-          },
-          {
-            foreignKeyName: "artist_metrics_daily_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       v_artist_release_performance: {
         Row: {
@@ -18274,6 +18218,33 @@ export type Database = {
           token_type: string
         }[]
       }
+      artist_growth_summary_rows: {
+        Args: never
+        Returns: {
+          accel_pct: number
+          artist_id: string
+          artist_name: string
+          best_date: string
+          best_value: number
+          company_id: string
+          d30_base_date: string
+          d30_delta: number
+          d30_pct: number
+          d7_base_date: string
+          d7_delta: number
+          d7_pct: number
+          d90_base_date: string
+          d90_delta: number
+          d90_pct: number
+          latest_date: string
+          latest_value: number
+          metric: string
+          platform: string
+          precisao: number
+          worst_date: string
+          worst_value: number
+        }[]
+      }
       artist_mark_connection_status: {
         Args: { p_connection_id: string; p_error?: string; p_status: string }
         Returns: undefined
@@ -18312,6 +18283,24 @@ export type Database = {
           metric_date: string
           platform: string
           value: number
+        }[]
+      }
+      artist_momentum_rows: {
+        Args: never
+        Returns: {
+          artist_id: string
+          artist_name: string
+          company_id: string
+          d30_pct: number
+          d7_pct: number
+          d90_pct: number
+          latest_date: string
+          latest_value: number
+          metric: string
+          momentum_index: number
+          platform: string
+          precisao: number
+          roster_type: string
         }[]
       }
       artist_s4a_seed_code_consume: {
