@@ -4854,3 +4854,9 @@ App "MP Audience" (App ID 7693412880665804820). Secrets (criados pelo Pedro, nom
 - _shared/tiktok-ads.ts decifra por crm_get_tiktok_decrypted_token (a RPC do Meta filtra platform='meta', nunca serviria). Quem chama não mudou.
 - DDL mínima (migração 0014): crm.oauth_states.connection_id, crm.ad_platform_connections.oauth_meta jsonb, 3 RPC só service_role.
 - Sync de campanhas por API fica para depois (substituirá o manual D-ERP144).
+
+### D-ERP177 — adenda (06/10)
+- CHECK crm.ad_platform_connections_token_type_check passa a aceitar 'system_user','long_lived_user','short_lived_user','tiktok_business' (o callback falhava com 'tiktok_business'). Corrigido em Live pelo Pedro; registado em drizzle/migrations/0015_derp177_token_type_tiktok.sql (idempotente).
+- OAuth concluído: 947ee0c7 active, advertiser_ids [7584174212085235728, 7684063259020017665, 7687011845512839188, 7689229625189138438].
+- Prova só GET (crm-tiktok-probe, nova, só leitura): advertiser 7689229625189138438 = "LITTO LINS PRODUÇÕES ARTISTICAS E EDIÇOES MUSICAIS LTDA_adv", BRL, Etc/GMT+3, STATUS_ENABLE; 2 campanhas.
+- Proposta para aa667121 (EUR): reutilizar o token da mesma autorização (copiar o token cifrado da 947ee0c7, porque 7684063259020017665 está nos advertiser_ids), em vez de pedir um OAuth próprio. Ainda não executado.
