@@ -4846,3 +4846,11 @@ Métricas: tap_screen_arrivals = arrival com opened null e mode redirect; choice
 Limiares: taxa_toque_baixa (toque ≥ 20 e choice_rate < 0,20); ios_spotify_web (os ios e redirect_web ≥ 5); queda_chegadas (chegadas < 50% da média dos 7 dias anteriores da mesma chave, média ≥ 50; chaves que desaparecem também levam a flag); sem_eventos_link (link activo sem chegadas, média 7d ≥ 50; linha com utm_source '(nenhum)').
 Nota: redirect_app no Android é tentativa de intent, não confirmação de que a app abriu.
 Backfill 22/09–05/10: 73 linhas (sem eventos de 22 a 24/09).
+
+### D-ERP177 — OAuth de produção da TikTok Marketing API (06/10)
+App "MP Audience" (App ID 7693412880665804820). Secrets (criados pelo Pedro, nomes fixos): TIKTOK_BUSINESS_APP_ID, TIKTOK_BUSINESS_APP_SECRET, TIKTOK_API_HOST; em falta → "secret X em falta", sem valores.
+- crm-tiktok-oauth-start (verify_jwt; ADS_ROLES, os mesmos da ligação de tráfego Meta; ligação TikTok da empresa do utilizador): state em crm.oauth_states (platform 'tiktok', connection_id, 10 min, uso único) → authorize_url do portal TikTok. Um só redirect para empresa e artista.
+- crm-tiktok-oauth-callback (público): consome o state (RPC crm_tiktok_consume_oauth_state; state inválido não toca em nenhuma ligação), troca auth_code em {TIKTOK_API_HOST}oauth2/access_token/, grava token cifrado (pgp_sym + ENCRYPTION_MASTER_KEY, igual ao Meta) via crm_tiktok_store_token, scope/advertiser_ids em oauth_meta; selected_ad_account_id e moeda mantêm-se. 947ee0c7… exige advertiser 7689229625189138438, senão status 'error'. Erro → last_error + 302 /audience/connections?tiktok=erro; sucesso → ?tiktok=ok.
+- _shared/tiktok-ads.ts decifra por crm_get_tiktok_decrypted_token (a RPC do Meta filtra platform='meta', nunca serviria). Quem chama não mudou.
+- DDL mínima (migração 0014): crm.oauth_states.connection_id, crm.ad_platform_connections.oauth_meta jsonb, 3 RPC só service_role.
+- Sync de campanhas por API fica para depois (substituirá o manual D-ERP144).
