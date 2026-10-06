@@ -310,7 +310,8 @@ export async function loadTikTokConnection(
 
   let accessToken: string | null = null;
   if (temToken) {
-    const { data: rows, error: tErr } = await (admin as any).rpc("crm_get_meta_decrypted_token", {
+    // D-ERP177: decifra pela RPC própria do TikTok (a do Meta filtra platform='meta').
+    const { data: rows, error: tErr } = await (admin as any).rpc("crm_get_tiktok_decrypted_token", {
       p_connection_id: opts.connectionId,
       p_master_key: opts.masterKey,
     });

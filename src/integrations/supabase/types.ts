@@ -18547,6 +18547,12 @@ export type Database = {
           external_business_name: string
         }[]
       }
+      crm_get_tiktok_decrypted_token: {
+        Args: { p_connection_id: string; p_master_key: string }
+        Returns: {
+          access_token: string
+        }[]
+      }
       crm_meta_audience_collect_leads: {
         Args: { p_audience_id: string }
         Returns: {
@@ -18564,6 +18570,25 @@ export type Database = {
       crm_meta_audiences_dashboard: { Args: never; Returns: Json }
       crm_meta_capi_dashboard: { Args: { p_days?: number }; Returns: Json }
       crm_rgpd_erase_contact: { Args: { p_contact_id: string }; Returns: Json }
+      crm_tiktok_consume_oauth_state: {
+        Args: { p_state_id: string }
+        Returns: {
+          company_id: string
+          connection_id: string
+          user_id: string
+          valid: boolean
+        }[]
+      }
+      crm_tiktok_store_token: {
+        Args: {
+          p_access_token: string
+          p_connection_id: string
+          p_master_key: string
+          p_oauth_meta: Json
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       crm_upsert_artist_meta_connection: {
         Args: {
           p_access_token: string

@@ -293,3 +293,10 @@ verify_jwt = true
 
 [functions.s4a-audience-sync]
 verify_jwt = true
+
+# D-ERP177 — OAuth de produção TikTok Marketing API.
+[functions.crm-tiktok-oauth-start]
+verify_jwt = true
+
+[functions.crm-tiktok-oauth-callback]
+verify_jwt = false
