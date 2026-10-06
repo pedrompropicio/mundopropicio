@@ -250,5 +250,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
   await reportMetaSyncSuccess(connectionId, "adsets");
 
-  return json({ synced_count: rows.length, ad_account_id: adAccountId, mode, incremental_cursor: lastSyncAt });
+  // D-ERP181: país de mercado das campanhas pela geo dos adsets (respeita market_country_locked).
+  const { data: marketCountry, error: mcErr } = await (supabase as any).rpc("ads_market_country_refresh", { p_connection_id: connectionId });
+  if (mcErr) console.error("[crm-meta-sync-adsets] market_country refresh failed:", mcErr.message);
+
+  return json({ synced_count: rows.length, ad_account_id: adAccountId, mode, incremental_cursor: lastSyncAt, market_country: mcErr ? { erro: mcErr.message } : marketCountry });
 });
