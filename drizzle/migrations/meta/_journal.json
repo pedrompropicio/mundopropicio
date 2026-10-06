@@ -162,6 +162,13 @@
       "when": 1791302336904,
       "tag": "0022_derp181_market_country",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791313877337,
+      "tag": "0023_derp182_momentum_growth_secdef",
+      "breakpoints": true
     }
   ]
 }
