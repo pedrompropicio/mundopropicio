@@ -4929,3 +4929,10 @@ Problema: as RPCs de tráfego misturavam BR e PT e convertiam tudo para BRL; a c
 - Alertas D-ERP180: custo_view_desequilibrado só compara grupos do mesmo país (grupo → campanha → '?'); a mensagem leva [PT]/[BR].
 - `artist_ads_country_benchmarks(country, metric, value, currency, notes)`: vazia; leitura authenticated, escrita service_role.
 - Migração drizzle/migrations/0022_derp181_market_country.sql.
+
+## D-ERP182 — Comparáveis: cadência, precisão e momentum (2026-10-06)
+
+- v_artist_momentum: com a sessão do Pedro dá timeout (8,4 s); v_artist_growth_summary 5,0 s. Causa: user_has_company_access avaliado por linha de artist_metrics_daily (3 chamadas a artist_metric_growth por linha). Proposta (NÃO aplicada, aguarda Pedro): função SECURITY DEFINER artist_momentum_rows() que verifica o acesso uma vez por company; mesmos 32 resultados (diff igual); 0,48 s → 0,14 s sem RLS. SQL em supabase/manual/aguarda_pedro_momentum_precisao.sql.
+- Cadência Soundcharts dos comparáveis: semanal → diária (jobid 1875, '30 9 * * *'). Consumo: 4.703 chamadas nos últimos 30 dias; referências 24 chamadas/corrida; diário ≈ 4.703 − 96 + 720 ≈ 5.330/mês (53% de 10.000).
+- Precisão: soundcharts-sync marca source_ref "soundcharts; precisao: P" quando os últimos 7 dias seguidos são múltiplos de P (100.000/10.000/1.000/100). Mesma convenção que artist_dashboard já lê. Instagram vem exato; TikTok e YouTube vêm arredondados.
+- Apify (clockworks/tiktok-profile-scraper, função comparables-tiktok-apify-sync): devolve os MESMOS valores arredondados (o TikTok público já arredonda). Custo real 0,015 US$/corrida de 5 perfis (≈ 0,45 US$/mês diário). Sem cron; as 5 linhas de teste foram apagadas. Canais TikTok dos 5 comparáveis gravados a partir dos identifiers da Soundcharts.
