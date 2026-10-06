@@ -139,6 +139,7 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
       operation_status: g.operation_status, secondary_status: g.secondary_status, optimization_goal: g.optimization_goal,
       billing_event: g.billing_event, budget: g.budget, budget_mode: g.budget_mode, schedule_start_time: g.schedule_start_time,
       schedule_end_time: g.schedule_end_time, placements: g.placements, placement_type: g.placement_type, ads: adsByGroup.get(String(g.adgroup_id)) ?? [],
+      location_ids: Array.isArray(g.location_ids) ? g.location_ids.map(String) : null, // D-ERP181
     },
   }));
 
@@ -187,6 +188,9 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
       if (error) return { ok: false, error: `${tbl}: ${error.message}`, api_calls: c.calls, counts };
     }
   }
+  // D-ERP181: país de mercado pela segmentação (location_ids → ISO); respeita market_country_locked.
+  const { data: mc, error: mcErr } = await admin.rpc("ads_market_country_refresh", { p_connection_id: connectionId });
+  const marketCountry = mcErr ? { erro: mcErr.message } : mc;
   // Campanhas manuais substituídas pela API (mesmo nome): re-apontar o que sobrar e esconder; nada é apagado.
   const substituidas: string[] = [];
   for (const cr of campRows) {
