@@ -768,11 +768,31 @@ export default function CardSessionDetail() {
         />
         <Kpi
           label="Entregue"
-          value={formatCurrency(opening + totalLoads)}
+          value={
+            isClosedSession
+              ? closedDelivered === null
+                ? "—"
+                : formatCurrency(closedDelivered)
+              : formatCurrency(opening + totalLoads)
+          }
           hint={
-            isOverride
-              ? `Abertura ${formatCurrency(opening)} (override manual) + ${loads.length} recarga(s)`
-              : `Abertura ${formatCurrency(opening)} (calculado da conta) + ${loads.length} recarga(s)`
+            isClosedSession ? (
+              <>
+                <span>
+                  Abertura {closedOpening !== null ? formatCurrency(closedOpening) : "—"} + recargas{" "}
+                  {closedLoads !== null ? formatCurrency(closedLoads) : "—"} (valores do fecho)
+                </span>
+                {closedDelivered === null && (
+                  <span className="mt-1 block text-amber-600">
+                    Resumo gravado com dados incompletos no fecho (#273).
+                  </span>
+                )}
+              </>
+            ) : isOverride ? (
+              `Abertura ${formatCurrency(opening)} (override manual) + ${loads.length} recarga(s)`
+            ) : (
+              `Abertura ${formatCurrency(opening)} (calculado da conta) + ${loads.length} recarga(s)`
+            )
           }
           badge={
             !isClosedSession ? (
