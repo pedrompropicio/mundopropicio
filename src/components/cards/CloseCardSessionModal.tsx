@@ -86,6 +86,47 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
     }
   }, [open]);
 
+  // ===== Recargas sem crédito no cartão (#273) =====
+  // Mesma regra do pré-voo do close-card-session: sem in_transaction_id OU
+  // saída ainda não 'paid'. Numa carga liquida-se, nunca se marca como pago (#201).
+  const [serverPendingLoads, setServerPendingLoads] = useState<PendingLoad[] | null>(null);
+  const { data: livePendingLoads, refetch: refetchLoads } = useQuery({
+    queryKey: ["card-close-pending-loads", session.id],
+    enabled: open,
+    queryFn: async (): Promise<PendingLoad[]> => {
+      const { data: loads, error: lErr } = await supabase
+        .from("card_session_loads")
+        .select("id, amount, load_date, out_transaction_id, in_transaction_id")
+        .eq("session_id", session.id);
+      if (lErr) throw lErr;
+      const outIds = (loads ?? []).map((l: any) => l.out_transaction_id).filter(Boolean) as string[];
+      const outStatus = new Map<string, string>();
+      if (outIds.length > 0) {
+        const { data: outs, error: oErr } = await supabase
+          .from("transactions").select("id, status").in("id", outIds);
+        if (oErr) throw oErr;
+        for (const t of outs ?? []) outStatus.set((t as any).id, (t as any).status);
+      }
+      return (loads ?? [])
+        .map((l: any) => ({
+          id: l.id,
+          amount: Number(l.amount ?? 0),
+          load_date: l.load_date,
+          out_transaction_id: l.out_transaction_id,
+          in_transaction_id: l.in_transaction_id,
+          out_status: l.out_transaction_id ? outStatus.get(l.out_transaction_id) ?? null : null,
+        }))
+        .filter((l) => !l.in_transaction_id || l.out_status !== "paid");
+    },
+  });
+  useEffect(() => {
+    // Uma leitura nova sem pendentes limpa o aviso vindo do servidor.
+    if (livePendingLoads && livePendingLoads.length === 0) setServerPendingLoads(null);
+  }, [livePendingLoads]);
+  const pendingLoads: PendingLoad[] =
+    (serverPendingLoads && serverPendingLoads.length > 0 ? serverPendingLoads : livePendingLoads) ?? [];
+  const hasPendingLoads = pendingLoads.length > 0;
+
   // ===== Dados da sessão =====
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["card-close-wizard", session.id],
@@ -318,6 +359,17 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
         }
         if (Array.isArray(parsed?.budget_excess) && parsed.budget_excess.length > 0) {
           setRaiseLines(parsed.budget_excess as BudgetExcessLine[]);
+          return;
+        }
+        if (Array.isArray(parsed?.pending_loads) && parsed.pending_loads.length > 0) {
+          setServerPendingLoads(parsed.pending_loads as PendingLoad[]);
+          toast({
+            variant: "destructive",
+            title: "Há recargas sem crédito no cartão",
+            description: "Liquida ou elimina cada recarga antes de fechar a sessão.",
+          });
+          setStep(3);
+          void refetchLoads();
           return;
         }
         if (Array.isArray(parsed?.parked_items) && parsed.parked_items.length > 0) {
@@ -596,6 +648,8 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
                   <Row label="Saldo teórico" value={formatCurrency(theoretical)} bold />
                 </div>
 
+                {hasPendingLoads && <PendingLoadsWarning loads={pendingLoads} />}
+
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
                     Saldo real conferido no cartão
@@ -643,7 +697,7 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
                   <Button variant="outline" onClick={() => setStep(pairs.length > 0 ? 2 : 1)}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
                   </Button>
-                  <Button disabled={noteRequired && !note.trim()} onClick={() => setStep(4)}>
+                  <Button disabled={(noteRequired && !note.trim()) || hasPendingLoads} onClick={() => setStep(4)}>
                     Continuar <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
@@ -671,7 +725,7 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
                   <Button variant="outline" onClick={() => setStep(3)} disabled={running}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
                   </Button>
-                  <Button onClick={() => void run()} disabled={running}>
+                  <Button onClick={() => void run()} disabled={running || hasPendingLoads}>
                     {running && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Fechar e integrar
                   </Button>
