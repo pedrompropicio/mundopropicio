@@ -13026,6 +13026,39 @@ export type Database = {
           },
         ]
       }
+      song_link_diag: {
+        Row: {
+          arrival_event_id: string | null
+          created_at: string
+          detail: string | null
+          id: number
+          in_app: string | null
+          kind: string
+          ms: number | null
+          slug: string
+        }
+        Insert: {
+          arrival_event_id?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: never
+          in_app?: string | null
+          kind: string
+          ms?: number | null
+          slug: string
+        }
+        Update: {
+          arrival_event_id?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: never
+          in_app?: string | null
+          kind?: string
+          ms?: number | null
+          slug?: string
+        }
+        Relationships: []
+      }
       song_link_events: {
         Row: {
           artist_id: string | null
@@ -13211,6 +13244,7 @@ export type Database = {
         Row: {
           active: boolean
           artist_id: string
+          artist_line: string | null
           company_id: string
           cover_url: string | null
           created_at: string
@@ -13228,6 +13262,7 @@ export type Database = {
         Insert: {
           active?: boolean
           artist_id: string
+          artist_line?: string | null
           company_id: string
           cover_url?: string | null
           created_at?: string
@@ -13245,6 +13280,7 @@ export type Database = {
         Update: {
           active?: boolean
           artist_id?: string
+          artist_line?: string | null
           company_id?: string
           cover_url?: string | null
           created_at?: string
@@ -18324,6 +18360,7 @@ export type Database = {
         Returns: {
           active: boolean
           artist_id: string
+          artist_line: string | null
           company_id: string
           cover_url: string | null
           created_at: string
@@ -19722,6 +19759,20 @@ export type Database = {
         Args: { p_slug: string }
         Returns: {
           active: boolean
+          cover_url: string
+          default_mode: string
+          destinations: Json
+          meta_pixel_id: string
+          slug: string
+          tiktok_pixel_id: string
+          title: string
+        }[]
+      }
+      song_link_public_get_v2: {
+        Args: { p_slug: string }
+        Returns: {
+          active: boolean
+          artist_line: string
           cover_url: string
           default_mode: string
           destinations: Json
