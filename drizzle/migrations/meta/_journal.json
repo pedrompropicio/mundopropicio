@@ -183,6 +183,13 @@
       "when": 1791317299844,
       "tag": "0025_derp182c_precisao_fallback_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791394083297,
+      "tag": "0026_derp274_invariant_item_duplica_transacao",
+      "breakpoints": true
     }
   ]
 }
