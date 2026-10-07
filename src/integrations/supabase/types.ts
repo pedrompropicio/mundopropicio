@@ -19774,7 +19774,12 @@ export type Database = {
         Returns: Json
       }
       song_link_event_canal: {
-        Args: { p_link_canal: string; p_utm_source: string }
+        Args: {
+          p_link_canal: string
+          p_utm_campaign: string
+          p_utm_medium: string
+          p_utm_source: string
+        }
         Returns: string
       }
       song_link_health_get: {
