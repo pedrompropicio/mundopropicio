@@ -341,7 +341,12 @@ Consequências: `missing_bp_lines` inclui os pares vindos das antigas (`item_cou
 - Itens duplicados marcam-se `rejected`, nunca se apagam: foi um item duplicado que preservou a foto do talão do McDonald's de 07/08 (12,05 €) que o bucket `transaction-documents` tinha perdido (#213), religado por referência `card://`.
 - Fecho corrido no meio de uma recarga: a sessão `ffdea120` fechou a 19/08 às 19:19 com `closing_summary.total_loads = 1.384,58`, quando a sessão teve duas recargas (2.686,68 €); a de 1.302,10 foi criada às 19:06 e só gerou crédito às 21:08. O resumo histórico não foi reescrito de propósito. Ver #273.
 
-Issues abertas: #274 (aviso de duplicado na aprovação + invariante) e #273 (fecho não trava com recarga por liquidar).
+**Deteção (#274, 07/10/2026) — regra única, igual nos três sítios:** par suspeito = item `approved` de `card_session_items` × transação com `account_id = card_sessions.card_account_id` da sessão do item, com data efetiva (`payment_date` → `date`) = `item_date`, `|paid_amount − amount × (1 + iva_rate/100)| < 0,01`, sem NENHUM `card_session_items.transaction_id` a apontar para ela (exclui as consolidadas da integração e as criadas na aprovação), `reversed_at IS NULL` e `is_hidden = false`.
+- `ApproveCardItemModal`: antes de aprovar mostra aviso âmbar com data, valor e descrição de cada transação suspeita (usa a data e o total escritos no modal). **Aviso, nunca bloqueio** — há repetições legítimas (4 portagens de 1,60 € no mesmo dia no 8363, confirmadas pelo Pedro).
+- Invariante `item_de_cartao_duplica_transacao` (error, global, referência 0) em `_run_invariant_checks_cards()`, unida por `_run_invariant_checks_all()` (migração 0026). A linha em `system_invariants` é inserida pelo Pedro.
+- `close-card-session`: no pré-voo, depois das recargas (#273) e antes de qualquer escrita, lista os pares dos itens aprovados e grava-os em `closing_summary.possible_duplicates` / `integration_summary.possible_duplicates` (item_id, item_date, item_gross, item_description, transaction_id, transaction_date, transaction_gross, transaction_description). Não bloqueia. Itens aprovados via `parked_decisions` no próprio fecho não entram nessa lista (são aprovados depois do pré-voo).
+
+Issue aberta: #273 resolvida no código (fecho recusa recargas sem crédito); #274 resolvida no código.
 
 ## KPIs de sessão fechada (07/10/2026)
 
