@@ -17,6 +17,7 @@ import {
 import { OpenCardSessionModal } from "@/components/cards/OpenCardSessionModal";
 import { fetchAccountCashAdjustments, computeAccountBalance, buildAccountCutoffs } from "@/lib/account-balance";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { formatDatePT } from "@/lib/utils";
 
 export default function CardSessions() {
   const navigate = useNavigate();
@@ -74,7 +75,7 @@ export default function CardSessions() {
     queryFn: async () => {
       const { data, error: qErr2 } = await supabase
         .from("card_sessions")
-        .select("id, card_account_id, holder_name, primary_event_id, status, opening_balance, opened_at, events:primary_event_id(name)")
+        .select("id, card_account_id, holder_name, primary_event_id, status, opening_balance, opened_at, closed_at, events:primary_event_id(name), financial_accounts:card_account_id(name)")
         .order("opened_at", { ascending: false });
       if (qErr2) throw qErr2;
       return data ?? [];
@@ -213,12 +214,13 @@ export default function CardSessions() {
                 onClick={() => navigate(`/cartoes/${s.id}`)}
                 className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-muted/50"
               >
-                <span>
+                <span className="min-w-0 text-left">
                   <strong>{s.holder_name}</strong>
-                  {s.events?.name && <> — {s.events.name}</>}
+                  <span className="text-muted-foreground"> · {s.financial_accounts?.name ?? "Cartão"}</span>
+                  {s.events?.name && <span className="block truncate text-xs text-muted-foreground">{s.events.name}</span>}
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  {new Date(s.opened_at).toLocaleDateString("pt-PT")}
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {formatDatePT(s.opened_at)} a {s.closed_at ? formatDatePT(s.closed_at) : "—"}
                 </span>
               </button>
             ))}
