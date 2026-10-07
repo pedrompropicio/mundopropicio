@@ -52,6 +52,15 @@ interface Props {
   session: SessionData;
 }
 
+interface PendingLoad {
+  id: string;
+  amount: number;
+  load_date: string | null;
+  out_transaction_id: string | null;
+  in_transaction_id: string | null;
+  out_status: string | null;
+}
+
 type ParkedDecision = { decision: "reject" | "approve_without_doc" | "defer"; reason: string };
 
 interface PairKey {
@@ -777,6 +786,36 @@ function Row({ label, value, bold }: { label: string; value: string; bold?: bool
     <div className={`flex items-center justify-between py-1 ${bold ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
       <span>{label}</span>
       <span className="tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+function fmtLoadDate(d: string | null): string {
+  if (!d) return "sem data";
+  const [y, m, day] = d.slice(0, 10).split("-");
+  return `${day}/${m}/${y}`;
+}
+
+/** #273 — recargas sem crédito no cartão bloqueiam o fecho. "Liquidar", nunca "marcar como pago" (#201). */
+function PendingLoadsWarning({ loads }: { loads: PendingLoad[] }) {
+  return (
+    <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm">
+      <p className="flex items-center gap-2 font-semibold text-destructive">
+        <AlertTriangle className="h-4 w-4" />
+        {loads.length === 1 ? "Há uma recarga sem crédito no cartão" : `Há ${loads.length} recargas sem crédito no cartão`}
+      </p>
+      <ul className="mt-2 space-y-1">
+        {loads.map((l) => (
+          <li key={l.id} className="flex justify-between gap-2 tabular-nums">
+            <span>Recarga de {fmtLoadDate(l.load_date)}</span>
+            <span className="font-medium">{formatCurrency(l.amount)}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Cada recarga tem de ser liquidada (ou eliminada) antes de fechar a sessão. Enquanto não for
+        liquidada, o dinheiro não entra no cartão e o saldo teórico fica errado.
+      </p>
     </div>
   );
 }
