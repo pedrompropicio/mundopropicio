@@ -11,7 +11,7 @@ Cartão continua a ser `financial_accounts` com `type='prepaid_card'`. Cada desp
 Camada nova (schema 2026-07-09):
 - `card_sessions` — id, company_id, card_account_id, holder_profile_id?, holder_name, primary_event_id?, opening_balance (snapshot na entrega), status ∈ open|in_review|closed, opened_at/by, closed_at/by, closing_balance_confirmed?, closing_summary jsonb?, notes. Unique parcial: 1 sessão não-fechada por cartão.
 - `card_session_loads` — session_id CASCADE, amount>0, load_date, source_account_id, out_transaction_id, in_transaction_id.
-- `card_session_items` — fila de aprovação (submitted|approved|rejected) para submissões do produtor (Fase 2). transaction_id UNIQUE quando aprovado.
+- `card_session_items` — fila de aprovação (submitted|approved|rejected) para submissões do produtor (Fase 2). `transaction_id` **NÃO é único**: no modelo D17, N itens partilham a MESMA transação consolidada por evento × rubrica × taxa de IVA. O constraint `card_session_items_transaction_id_key`, herdado da Fase 1, foi removido a 07/10/2026 e substituído pelo índice não-único `idx_card_session_items_transaction_id`.
 - `transactions.card_session_id` — carimbo auditável em toda despesa criada dentro da sessão.
 
 ## Recarga (par de duas pernas)
@@ -345,3 +345,19 @@ Issues abertas: #274 (aviso de duplicado na aprovação + invariante) e #273 (fe
 ## KPIs de sessão fechada (07/10/2026)
 
 O `close-card-session` grava os números do fecho no topo do `closing_summary` OU dentro de `closing_summary.reconciliation` (ex.: cac2f5a0 tem `opening_balance`, `total_loads`, `new_spend_gross`, `legacy_session_movements`, `theoretical_balance`, `confirmed_balance` só em `reconciliation`). Em `CardSessionDetail.tsx` TODA a leitura de sessão fechada passa por `closingNumber(key)` (topo → reconciliation), definido ANTES do cálculo dos KPIs. Regras: chave em falta → KPI mostra "—" + aviso #273, nunca 0; gasto aprovado = `new_spend_gross` + |`legacy_session_movements`| quando negativo; saldo teórico mostra o valor gravado e o recálculo serve só para o aviso de divergência (>0,01 €).
+
+## Integração falhada e reparação (07/10/2026)
+
+- A sessão `cac2f5a0-4e28-487a-b0f7-53ad69a6a9d7` (cartão 0663) foi integrada às 13:10 por producao@ e falhou parcialmente: `error_count = 4`, todos "duplicate key value violates unique constraint card_session_items_transaction_id_key".
+- Por causa do UNIQUE, só o primeiro item de cada grupo ligava. A integração de cartão nunca tinha funcionado para nenhum grupo com mais de um item.
+- Estado deixado pela falha: as 4 transações consolidadas criadas (1.380,17 €, rubrica 2.6.08, evento Ivete Clareou, status `paid`, 49 documentos), a linha de BP `8cc8a32b` subida de 1.877,62 para 2.680,98 €, mas os 46 itens todos em `approved` e sem `transaction_id`. Reabrir e reintegrar teria duplicado 1.380,17 € no BP do Ivete.
+- Reparação: remoção do constraint, índice não-único novo, e ligação dos 46 itens por `iva_rate` + `event_id` + `category_id` com guarda de contagem. Verificação: 8 / 3 / 11 / 24 itens por taxa, diferença 0,00 € nos quatro grupos, nenhuma transação nova criada. Chave `repair` acrescentada ao `closing_summary`, preservando os `errors` originais.
+- **Regra:** uma integração que devolva `error_count > 0` deixa itens órfãos; conferir sempre itens `approved` sem `transaction_id` depois de integrar.
+
+## Alterar o valor de uma transação consolidada (07/10/2026)
+
+- A trava `guard_paid_amount_vs_payments` impede baixar `transactions.paid_amount` abaixo da soma das linhas pagas de `transaction_payments`. É preciso reduzir primeiro a linha de pagamento.
+- Ao reduzir a linha de pagamento, um trigger despromove a transação de `paid` para `approved` e limpa `payment_date`, porque durante um instante a soma dos pagamentos fica abaixo do `paid_amount` antigo. A transação SAI do saldo da conta sem aviso.
+- Caso real: o saldo do cartão 0663 saltou de 600,89 € para 1.443,36 € (exatamente os 842,47 € da transação despromovida). Foi preciso repor `status='paid'` e `payment_date` à mão.
+- **Sequência correta:** reduzir a linha de `transaction_payments`, reduzir `amount` e `paid_amount` da transação, repor `status` e `payment_date`, e conferir o saldo da conta no fim.
+- `transactions.payment_method` é NOT NULL e o CHECK só aceita `transfer`, `service_payment`, `direct_debit`, `state_payment`, `compensation`. Não existe valor "card".
