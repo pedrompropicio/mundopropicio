@@ -178,6 +178,59 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ===== Possíveis duplicados (#274) — AVISO, nunca bloqueia =====
+    // Corre antes de qualquer escrita. Regra única (igual à invariante
+    // `item_de_cartao_duplica_transacao` e ao aviso do ApproveCardItemModal):
+    // item 'approved' × transação da conta do cartão com a mesma data efetiva
+    // (payment_date → date), bruto igual (±0,01 €), sem nenhum item a apontar
+    // para ela, não estornada nem oculta. Fica registado em `possible_duplicates`.
+    const possibleDuplicates: any[] = [];
+    {
+      const { data: apprItems, error: aErr } = await adminClient
+        .from("card_session_items")
+        .select("id, item_date, amount, iva_rate, description, supplier_name")
+        .eq("session_id", body.session_id)
+        .eq("status", "approved");
+      if (aErr) return json({ error: aErr.message }, 500);
+      if ((apprItems ?? []).length > 0) {
+        const { data: accTxs, error: tErr } = await fetchAllPagedQuery(adminClient
+          .from("transactions")
+          .select("id, description, paid_amount, date, payment_date, reversed_at, is_hidden")
+          .eq("account_id", cardAccountId)
+          .is("reversed_at", null));
+        if (tErr) return json({ error: tErr.message }, 500);
+        const cands = ((accTxs ?? []) as any[]).filter((t) => !t.is_hidden);
+        const candIds = cands.map((t) => t.id);
+        const linked = new Set<string>();
+        for (let i = 0; i < candIds.length; i += 200) {
+          const { data: lk, error: lkErr } = await adminClient
+            .from("card_session_items").select("transaction_id")
+            .in("transaction_id", candIds.slice(i, i + 200));
+          if (lkErr) return json({ error: lkErr.message }, 500);
+          for (const r of lk ?? []) linked.add((r as any).transaction_id);
+        }
+        const free = cands.filter((t) => !linked.has(t.id));
+        for (const it of apprItems as any[]) {
+          const itemGross = Number(it.amount ?? 0) * (1 + Number(it.iva_rate ?? 0) / 100);
+          for (const t of free) {
+            const eff = String(t.payment_date ?? t.date ?? "").slice(0, 10);
+            if (eff !== String(it.item_date ?? "").slice(0, 10)) continue;
+            if (Math.abs(Number(t.paid_amount ?? 0) - itemGross) >= 0.01) continue;
+            possibleDuplicates.push({
+              item_id: it.id,
+              item_date: it.item_date,
+              item_gross: Math.round(itemGross * 100) / 100,
+              item_description: it.description ?? it.supplier_name ?? null,
+              transaction_id: t.id,
+              transaction_date: eff,
+              transaction_gross: Number(t.paid_amount ?? 0),
+              transaction_description: t.description ?? null,
+            });
+          }
+        }
+      }
+    }
+
     // ===== Decisões sobre itens parqueados (submitted) =====
     for (const d of body.parked_decisions ?? []) {
       if (!d.item_id) continue;
@@ -857,6 +910,7 @@ Deno.serve(async (req) => {
     }
 
     const integrationSummary = {
+      possible_duplicates: possibleDuplicates,
       generated_at: new Date().toISOString(),
       generated_by: caller.email ?? caller.id,
       integrated_by_user_id: caller.id,

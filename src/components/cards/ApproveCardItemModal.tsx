@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { X, CheckCircle2 } from "lucide-react";
+import { X, CheckCircle2, AlertTriangle } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { cardBaseFromTotal, cardTotalFromBase, invalidateCardSessionQueries } from "@/lib/card-session-helpers";
@@ -98,6 +98,39 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
       const { data, error: qErr3 } = await supabase.from("suppliers").select("id, name").order("name");
       if (qErr3) throw qErr3;
       return data ?? [];
+    },
+  });
+
+  /**
+   * #274 — possível duplicado: transação na conta do cartão com a mesma data
+   * efetiva (payment_date → date), bruto igual (±0,01 €), sem nenhum item a
+   * apontar para ela, não estornada nem oculta. Mesma regra da invariante
+   * `item_de_cartao_duplica_transacao` e de `possible_duplicates` no fecho.
+   * É AVISO, nunca bloqueio (há repetições legítimas, ex. portagens).
+   */
+  const totalNum = Number(total) || 0;
+  const { data: possibleDuplicates = [] } = useQuery({
+    queryKey: ["card-item-possible-duplicates", item?.id, cardAccountId, date, totalNum],
+    enabled: open && !!item && !!cardAccountId && !!date && totalNum > 0,
+    queryFn: async () => {
+      const { data: txs, error } = await supabase
+        .from("transactions")
+        .select("id, description, paid_amount, date, payment_date, reversed_at, is_hidden")
+        .eq("account_id", cardAccountId)
+        .or(`payment_date.eq.${date},and(payment_date.is.null,date.eq.${date})`)
+        .is("reversed_at", null);
+      if (error) throw error;
+      const cands = ((txs ?? []) as any[]).filter(
+        (t) => !t.is_hidden && Math.abs(Number(t.paid_amount ?? 0) - totalNum) < 0.01,
+      );
+      if (cands.length === 0) return [];
+      const { data: linked, error: lErr } = await supabase
+        .from("card_session_items")
+        .select("transaction_id")
+        .in("transaction_id", cands.map((t) => t.id));
+      if (lErr) throw lErr;
+      const linkedIds = new Set((linked ?? []).map((l: any) => l.transaction_id));
+      return cands.filter((t) => !linkedIds.has(t.id));
     },
   });
 
@@ -284,6 +317,35 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
               placeholder="(sem evento)"
             />
           </div>
+
+          {possibleDuplicates.length > 0 && (
+            <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+              <p className="flex items-center gap-2 font-semibold text-amber-600">
+                <AlertTriangle className="h-4 w-4" />
+                Possível talão repetido neste cartão
+              </p>
+              <ul className="mt-2 space-y-1">
+                {(possibleDuplicates as any[]).map((t) => {
+                  const d = String(t.payment_date ?? t.date ?? "").slice(0, 10).split("-");
+                  return (
+                    <li key={t.id} className="flex justify-between gap-2">
+                      <span className="truncate">
+                        {d.length === 3 ? `${d[2]}/${d[1]}/${d[0]}` : "—"} · {t.description ?? "(sem descrição)"}
+                      </span>
+                      <span className="shrink-0 tabular-nums font-medium">
+                        {new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(Number(t.paid_amount ?? 0))}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Já existe uma despesa com a mesma data e o mesmo valor neste cartão. Se for o mesmo talão,
+                aprovar vai lançar a despesa uma segunda vez. Se for uma repetição real (ex.: duas
+                portagens iguais no mesmo dia), podes aprovar.
+              </p>
+            </div>
+          )}
 
           <div className="flex gap-2 pt-2">
             <button
