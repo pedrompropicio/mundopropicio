@@ -13169,6 +13169,7 @@ export type Database = {
       song_link_health_daily: {
         Row: {
           arrivals: number
+          canal: string | null
           choice_rate: number | null
           choices: number
           choices_instagram: number
@@ -13190,6 +13191,7 @@ export type Database = {
         }
         Insert: {
           arrivals?: number
+          canal?: string | null
           choice_rate?: number | null
           choices?: number
           choices_instagram?: number
@@ -13211,6 +13213,7 @@ export type Database = {
         }
         Update: {
           arrivals?: number
+          canal?: string | null
           choice_rate?: number | null
           choices?: number
           choices_instagram?: number
@@ -13245,6 +13248,7 @@ export type Database = {
           active: boolean
           artist_id: string
           artist_line: string | null
+          canal: string | null
           company_id: string
           cover_url: string | null
           created_at: string
@@ -13263,6 +13267,7 @@ export type Database = {
           active?: boolean
           artist_id: string
           artist_line?: string | null
+          canal?: string | null
           company_id: string
           cover_url?: string | null
           created_at?: string
@@ -13281,6 +13286,7 @@ export type Database = {
           active?: boolean
           artist_id?: string
           artist_line?: string | null
+          canal?: string | null
           company_id?: string
           cover_url?: string | null
           created_at?: string
@@ -18375,6 +18381,7 @@ export type Database = {
           active: boolean
           artist_id: string
           artist_line: string | null
+          canal: string | null
           company_id: string
           cover_url: string | null
           created_at: string
@@ -18403,6 +18410,7 @@ export type Database = {
           aberturas_web: number
           campanha_id: string
           campanha_nome: string
+          canal: string
           chegadas: number
           custo_por_chegada: number
           dia: string
@@ -18420,6 +18428,7 @@ export type Database = {
       artist_song_link_upsert: {
         Args: {
           p_active?: boolean
+          p_canal?: string
           p_cover_url?: string
           p_default_mode: string
           p_destinations?: Json
@@ -19763,6 +19772,10 @@ export type Database = {
       song_growth_summary: {
         Args: { p_song_id: string; p_to?: string }
         Returns: Json
+      }
+      song_link_event_canal: {
+        Args: { p_link_canal: string; p_utm_source: string }
+        Returns: string
       }
       song_link_health_get: {
         Args: { p_days?: number; p_link_id?: string }
