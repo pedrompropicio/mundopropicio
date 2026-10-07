@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-import { cn } from "@/lib/utils";
+import { cn, formatDatePT } from "@/lib/utils";
 import {
   CARD_SESSION_STATUS_LABELS,
   CARD_SESSION_STATUS_VARIANTS,
@@ -45,7 +45,6 @@ import {
   type CardSessionExportData,
 } from "@/lib/export-card-session";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
-import { formatDatePT } from "@/lib/utils";
 import { formatLisbonDateTime } from "@/lib/date-lisbon";
 
 type Tab = "expenses" | "queue" | "loads";
