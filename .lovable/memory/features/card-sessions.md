@@ -71,6 +71,7 @@ Fase 2 abrirá `/cartoes-equipa` (mobile PWA) onde o produtor submete com câmar
 
 `CloseCardSessionModal` (só manager/admin):
 - Bloqueado se houver items 'submitted'.
+- **Bloqueado se houver recarga sem crédito no cartão (#273, 07/10/2026):** `close-card-session` recusa com 422 e `pending_loads` (id, amount, load_date, out_transaction_id, in_transaction_id, out_status) quando alguma `card_session_loads` tem `in_transaction_id IS NULL` ou a saída não está `paid`. A verificação corre antes de qualquer escrita (incluindo as `parked_decisions`). O modal mostra o aviso acima de "Saldo real conferido" e desativa "Continuar"/"Fechar e integrar"; o texto diz "liquidar", nunca "marcar como pago" (#201). Caso real: ffdea120 gravou total_loads 1.384,58 em vez de 2.686,68.
 - Mostra: opening + Σ loads − Σ despesas aprovadas = saldo teórico.
 - Campo "Saldo real conferido"; se diferença ≠ 0 opção OPCIONAL "Criar transação de ajuste".
 - **Ajuste = CONCILIAÇÃO DE SALDO da conta do cartão (2026-08-13)**, não receita/despesa do evento:
