@@ -341,3 +341,7 @@ Consequências: `missing_bp_lines` inclui os pares vindos das antigas (`item_cou
 - Fecho corrido no meio de uma recarga: a sessão `ffdea120` fechou a 19/08 às 19:19 com `closing_summary.total_loads = 1.384,58`, quando a sessão teve duas recargas (2.686,68 €); a de 1.302,10 foi criada às 19:06 e só gerou crédito às 21:08. O resumo histórico não foi reescrito de propósito. Ver #273.
 
 Issues abertas: #274 (aviso de duplicado na aprovação + invariante) e #273 (fecho não trava com recarga por liquidar).
+
+## KPIs de sessão fechada (07/10/2026)
+
+O `close-card-session` grava os números do fecho no topo do `closing_summary` OU dentro de `closing_summary.reconciliation` (ex.: cac2f5a0 tem `opening_balance`, `total_loads`, `new_spend_gross`, `legacy_session_movements`, `theoretical_balance`, `confirmed_balance` só em `reconciliation`). Em `CardSessionDetail.tsx` TODA a leitura de sessão fechada passa por `closingNumber(key)` (topo → reconciliation), definido ANTES do cálculo dos KPIs. Regras: chave em falta → KPI mostra "—" + aviso #273, nunca 0; gasto aprovado = `new_spend_gross` + |`legacy_session_movements`| quando negativo; saldo teórico mostra o valor gravado e o recálculo serve só para o aviso de divergência (>0,01 €).
