@@ -588,23 +588,13 @@ export default function CardSessionDetail() {
   // Editar/excluir despesas só com a sessão ABERTA (in_review/closed = leitura).
   const canEditExpenses = canManage && status === "open";
   const canEditOpening = canEditExpenses;
-  const closingSummary = ((session as any).closing_summary ?? {}) as Record<string, any>;
-  const reconciliation = (closingSummary.reconciliation ?? {}) as Record<string, any>;
-  const closingNumber = (key: string): number | null => {
-    const value = closingSummary[key] ?? reconciliation[key];
-    if (value === null || value === undefined || value === "") return null;
-    const number = Number(value);
-    return Number.isFinite(number) ? number : null;
-  };
-  const closedAccountBalance = closingNumber("account_balance");
-  const closedConfirmedBalance = closingNumber("confirmed_balance");
-  const closedTheoreticalBalance = closingNumber("theoretical_balance");
   const theoreticalDiverges =
     isClosedSession &&
     closedTheoreticalBalance !== null &&
+    closedOpening !== null &&
     Math.abs(theoretical - closedTheoreticalBalance) > 0.01;
-  const closingOpening = closingNumber("opening_balance") ?? closingNumber("opening");
-  const closingLoads = closingNumber("total_loads");
+  const closingOpening = closedOpening;
+  const closingLoads = closedLoads;
   const closingApproved =
     closingNumber("total_approved_expenses") ??
     closingNumber("approved") ??
