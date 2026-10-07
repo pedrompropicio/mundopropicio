@@ -176,7 +176,7 @@ async function runStories(req: Request, admin: any, masterKey: string, body: { a
           apiCalls++;
           if (r.ok) return r.body?.data ?? [];
           if (isNoData(r.body)) { noData = true; return null; }
-          if (metricUnsupported(r.body)) return null;
+          if (metricUnsupported(r.body) || /does not support/i.test(String(r.body?.error?.message ?? ""))) return null;
           erros.push(`story ${m.id} ${tag}: ${r.body?.error?.message ?? r.status}`);
           return null;
         };
