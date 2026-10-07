@@ -4948,3 +4948,11 @@ Problema: as RPCs de tráfego misturavam BR e PT e convertiam tudo para BRL; a c
 - Backfill sem chamar a Soundcharts: mesma regra em SQL sobre todas as séries aggregator (exceto Spotify).
 - Vistas (migrações 0024 + 0025): precisao = a do último ponto; se null, a precisão comum dos últimos 7 pontos aggregator, só se o último valor também for múltiplo dela (um último ponto exato de platform_api não herda).
 - Confirmado (TikTok): Léo 100000, Wesley 100000, Henry 100000, Eric 100, Nuzio 100; Litto 203421 (exato, platform_api) → null. Vistas a 0,2 s.
+
+## D-ERP183 — card_session_items.transaction_id deixa de ser único (07/10/2026)
+
+**Decisão:** `card_session_items.transaction_id` deixa de ser único. O constraint `card_session_items_transaction_id_key` foi substituído pelo índice não-único `idx_card_session_items_transaction_id`.
+
+**Porquê:** o modelo D17 consolida N itens numa transação por evento × rubrica × taxa de IVA, logo o UNIQUE herdado da Fase 1 era incompatível e fazia falhar toda a integração com mais de um item por grupo.
+
+**Estado:** vigente. Aplicado em Live a 07/10/2026 com autorização do Pedro.
