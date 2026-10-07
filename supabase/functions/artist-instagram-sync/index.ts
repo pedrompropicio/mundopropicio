@@ -104,6 +104,139 @@ function ymd(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+// ---------------------------------------------------------------- D-ERP184
+// Modo "stories": lê os stories activos (24 h) e grava insights por story.
+// metric_date = data (UTC, YYYY-MM-DD) da publicação do story; cada leitura faz
+// upsert, pelo que a última antes das 24 h fica como valor final.
+const STORY_METRICS = ["reach", "replies", "shares", "follows", "profile_visits", "views", "total_interactions", "reposts"];
+const NAV_KEEP = new Set(["tap_forward", "tap_back", "tap_exit", "swipe_forward"]);
+
+function isNoData(body: any): boolean {
+  return body?.error?.code === 10;
+}
+
+// deno-lint-ignore no-explicit-any
+async function runStories(req: Request, admin: any, masterKey: string, body: { artist_id?: string; connection_id?: string; dry_run?: boolean }) {
+  const dryRun = body.dry_run === true;
+  let q = admin.from("artist_channel_connections")
+    .select("id, artist_id, company_id, provider, external_account_id, external_account_username")
+    .eq("provider", "instagram").eq("status", "active");
+  if (body.artist_id) q = q.eq("artist_id", body.artist_id);
+  if (body.connection_id) q = q.eq("id", body.connection_id);
+  const startedMs = Date.now();
+  const runId = await startSyncRun(admin, {
+    function_name: "artist-instagram-sync-stories",
+    trigger_source: deduceTriggerSource(req),
+    dry_run: dryRun,
+    artist_id: body.artist_id ?? null,
+  });
+  let apiCalls = 0, storiesLidos = 0, metricasGravadas = 0, semDados = 0;
+  const erros: string[] = [];
+  const porLigacao: Array<Record<string, unknown>> = [];
+  const { data: conns, error: cErr } = await q;
+  if (cErr) {
+    await finishSyncRun(admin, runId, startedMs, { status: "error", error_text: cErr.message });
+    return json({ error: cErr.message }, 500);
+  }
+  for (const conn of conns ?? []) {
+    const per: Record<string, unknown> = { connection_id: conn.id, artist_id: conn.artist_id, username: conn.external_account_username };
+    try {
+      const { data: tok, error: tErr } = await admin.rpc("artist_get_connection_token", { p_connection_id: conn.id, p_master_key: masterKey });
+      if (tErr) throw new Error(tErr.message);
+      const t = Array.isArray(tok) ? tok[0] : tok;
+      if (!t?.access_token) throw new Error("token não disponível");
+      const token: string = t.access_token;
+      const st = await graphGet("me/stories", {
+        fields: "id,media_type,media_product_type,permalink,timestamp,thumbnail_url,media_url",
+        limit: "100",
+      }, token, IG_GRAPH);
+      apiCalls++;
+      if (!st.ok) throw new Error(`stories: ${st.body?.error?.message ?? st.status}`);
+      const list = (st.body?.data ?? []) as any[];
+      storiesLidos += list.length;
+      per.stories = list.length;
+      if (!list.length || dryRun) { porLigacao.push(per); continue; }
+      const rows = list.map((m) => ({
+        company_id: conn.company_id, artist_id: conn.artist_id, platform: PLATFORM,
+        content_type: "story", external_id: String(m.id), published_at: m.timestamp ?? null,
+        permalink: m.permalink ?? null, thumbnail_url: m.thumbnail_url ?? m.media_url ?? null, source: "api",
+      }));
+      const { data: saved, error: uErr } = await admin.from("artist_content")
+        .upsert(rows, { onConflict: "artist_id,platform,external_id" }).select("id, external_id");
+      if (uErr) throw new Error(`artist_content: ${uErr.message}`);
+      const byExt = new Map((saved ?? []).map((r: any) => [r.external_id, r.id]));
+      for (const m of list) {
+        const contentId = byExt.get(String(m.id));
+        if (!contentId) continue;
+        const day = m.timestamp ? ymd(new Date(m.timestamp)) : ymd(new Date());
+        const vals: Record<string, number> = {};
+        let noData = false;
+        const pedir = async (params: Record<string, string>, tag: string) => {
+          const r = await graphGet(`${m.id}/insights`, params, token, IG_GRAPH);
+          apiCalls++;
+          if (r.ok) return r.body?.data ?? [];
+          if (isNoData(r.body)) { noData = true; return null; }
+          if (metricUnsupported(r.body)) return null;
+          erros.push(`story ${m.id} ${tag}: ${r.body?.error?.message ?? r.status}`);
+          return null;
+        };
+        // a) métricas simples, uma a uma se o lote falhar por métrica não suportada
+        let base = await pedir({ metric: STORY_METRICS.join(",") }, "base");
+        if (base === null && !noData) {
+          base = [];
+          for (const mt of STORY_METRICS) {
+            const r = await pedir({ metric: mt }, mt);
+            if (noData) break;
+            if (r) base.push(...r);
+          }
+        }
+        for (const e of base ?? []) {
+          const v = toCount(e?.values?.[0]?.value ?? e?.total_value?.value);
+          if (v !== null) vals[e.name] = v;
+        }
+        if (!noData) {
+          const nav = await pedir({ metric: "navigation", breakdown: "story_navigation_action_type" }, "navigation");
+          for (const e of nav ?? []) for (const b of e?.total_value?.breakdowns ?? []) for (const r of b?.results ?? []) {
+            const k = String(r?.dimension_values?.[0] ?? "").toLowerCase();
+            const v = toCount(r?.value);
+            if (NAV_KEEP.has(k) && v !== null) vals[`nav_${k}`] = v;
+          }
+        }
+        if (!noData) {
+          const pa = await pedir({ metric: "profile_activity", breakdown: "action_type" }, "profile_activity");
+          for (const e of pa ?? []) for (const b of e?.total_value?.breakdowns ?? []) for (const r of b?.results ?? []) {
+            const k = String(r?.dimension_values?.[0] ?? "").toLowerCase();
+            const v = toCount(r?.value);
+            if (!k || v === null) continue;
+            vals[k === "bio_link_clicked" ? "bio_link_clicked" : `profile_activity_${k}`] = v;
+          }
+        }
+        if (noData) { semDados++; continue; }
+        const cm = Object.entries(vals).map(([metric, value]) => ({
+          company_id: conn.company_id, content_id: contentId, artist_id: conn.artist_id,
+          platform: PLATFORM, metric, metric_date: day, value, source: "api",
+        }));
+        if (cm.length) {
+          const { error } = await admin.from("artist_content_metrics_daily")
+            .upsert(cm, { onConflict: "content_id,metric,metric_date,source" });
+          if (error) erros.push(`story ${m.id} gravação: ${error.message}`);
+          else metricasGravadas += cm.length;
+        }
+      }
+    } catch (e) {
+      erros.push(`${conn.id}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    porLigacao.push(per);
+  }
+  const details = { stories_lidos: storiesLidos, metricas_gravadas: metricasGravadas, sem_dados: semDados, erros: erros.length, ligacoes: porLigacao };
+  await finishSyncRun(admin, runId, startedMs, {
+    status: resolveStatus(metricasGravadas, erros.length),
+    api_calls: apiCalls, rows_written: metricasGravadas, details,
+    error_text: erros.length ? erros.join(" | ").slice(0, 4000) : null,
+  });
+  return json({ ok: erros.length === 0, dry_run: dryRun, ...details, errors: erros });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
@@ -122,10 +255,12 @@ Deno.serve(async (req) => {
     max_media?: number;
     dias_metricas?: number;
     probe_demographics?: boolean;
+    mode?: string;
   } = {};
   try {
     body = await req.json();
   } catch (_e) { /* body opcional */ }
+  if (body.mode === "stories") return await runStories(req, admin, masterKey, body);
   const dryRun = body.dry_run !== false;
   const maxMedia = Number.isFinite(body.max_media) && (body.max_media ?? 0) > 0
     ? Math.min(Math.floor(body.max_media as number), 200)
