@@ -7,7 +7,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { MirrorAporteNotice } from "@/components/MirrorAporteNotice";
 import { calcWithIva, isFullyPaid } from "@/lib/utils";
-import { X, FileText, Loader2, RefreshCw } from "lucide-react";
+import { X, FileText, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
+import { checkPaymentBankability, resolvePaymentIban } from "@/lib/payment-iban";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "@/hooks/use-toast";
@@ -40,7 +41,57 @@ interface Props {
   paymentListId?: string;
 }
 
-export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "", initialPaymentDate, bankAccountsOnly = false, paymentListId }: Props) {
+export function BatchPaymentModal({ transactions: allTransactions, onClose, initialInvoiceRef = "", initialPaymentDate, bankAccountsOnly = false, paymentListId }: Props) {
+  // ===== #281 — Lote SEPA vs outro canal =====
+  // Só as linhas que viajaram no ficheiro SEPA saíram do banco no lote. As outras
+  // (Pag. Serviços, Estado, Débito Direto, transferência fora do lote) pagam-se
+  // uma a uma noutro canal: desselecionadas por omissão, checkbox individual.
+  const { data: sepaExportedIds = null } = useQuery({
+    queryKey: ["batch-sepa-exported-ids", paymentListId ?? null],
+    enabled: !!paymentListId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payment_list_sepa_exports")
+        .select("transaction_ids")
+        .eq("payment_list_id", paymentListId!);
+      if (error) throw error;
+      const rows = data ?? [];
+      if (rows.length === 0) return null; // sem exportação → regra do método
+      const ids = new Set<string>();
+      for (const r of rows as any[]) for (const id of r.transaction_ids ?? []) ids.add(id);
+      return ids;
+    },
+  });
+  const isInSepaBatch = (t: any): boolean => {
+    if (sepaExportedIds) return sepaExportedIds.has(t.id);
+    // Sem exportação: mesma regra do SepaExportModal — transfer com IBAN resolvível.
+    const method = t.payment_method ?? "transfer";
+    if (method !== "transfer") return false;
+    const chk = checkPaymentBankability(t);
+    return chk.ok && !!resolvePaymentIban(t);
+  };
+  const batchTxs = useMemo(() => allTransactions.filter((t) => isInSepaBatch(t)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allTransactions, sepaExportedIds]);
+  const otherChannelTxs = useMemo(() => allTransactions.filter((t) => !isInSepaBatch(t)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allTransactions, sepaExportedIds]);
+  const [otherChosen, setOtherChosen] = useState<Set<string>>(new Set());
+  const transactions = useMemo(
+    () => allTransactions.filter((t) => isInSepaBatch(t) || otherChosen.has(t.id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allTransactions, sepaExportedIds, otherChosen],
+  );
+  const otherChosenCount = otherChannelTxs.filter((t) => otherChosen.has(t.id)).length;
+  const otherChannelMethodLabel = (t: any): string => {
+    const m = t.payment_method ?? "transfer";
+    if (m === "service_payment") return "Pagamento de Serviços";
+    if (m === "state_payment") return "Pagamento ao Estado";
+    if (m === "direct_debit") return "Débito Direto";
+    if (m === "compensation") return "Compensação";
+    return "Transferência fora do lote";
+  };
+
   const [invoiceRef, setInvoiceRef] = useState(initialInvoiceRef);
   const [accountId, setAccountId] = useState("");
   const [paymentDate, setPaymentDate] = useState(
@@ -743,6 +794,54 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
           </div>
         </div>
 
+        {otherChannelTxs.length > 0 && (
+          <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+            <p className="flex items-center gap-2 font-semibold text-amber-600">
+              <AlertTriangle className="h-4 w-4" />
+              Pagas por outro canal ({otherChannelTxs.length})
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {sepaExportedIds
+                ? "Estas linhas não foram no ficheiro SEPA."
+                : "Esta lista não tem ficheiro SEPA exportado: estas linhas não entrariam no ficheiro."}{" "}
+              Cada uma é paga pelo seu próprio canal. Só as liquides depois de confirmares que o
+              pagamento saiu mesmo do banco.
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              {otherChannelTxs.map((t: any) => {
+                const gross = Number(t.amount ?? 0) * (1 + Number(t.iva_rate ?? 0) / 100);
+                const ref = [t.payment_entity && `Ent. ${t.payment_entity}`, t.payment_reference && `Ref. ${t.payment_reference}`]
+                  .filter(Boolean).join(" · ");
+                return (
+                  <li key={t.id}>
+                    <label className="flex cursor-pointer items-start gap-2">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5"
+                        checked={otherChosen.has(t.id)}
+                        onChange={(e) =>
+                          setOtherChosen((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(t.id); else next.delete(t.id);
+                            return next;
+                          })
+                        }
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{t.description ?? "(sem descrição)"}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {otherChannelMethodLabel(t)}{ref ? ` · ${ref}` : ""}
+                        </span>
+                      </span>
+                      <span className="shrink-0 tabular-nums">{formatCurrency(gross)}</span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
         <button
           onClick={() => paymentMutation.mutate()}
           disabled={
@@ -760,7 +859,7 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
           ) : (
             <>
               <FileText className="h-4 w-4" />
-              Liquidar {payableCount} transação(ões) —{" "}
+              Liquidar {batchTxs.length} do lote{otherChosenCount > 0 ? ` + ${otherChosenCount} de outro canal` : ""} —{" "}
               {formatCurrency(totalRemaining)}
             </>
           )}

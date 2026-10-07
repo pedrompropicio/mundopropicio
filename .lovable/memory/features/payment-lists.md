@@ -64,6 +64,13 @@ liquidada, não entra no saldo de nenhuma conta no sistema. Em 17/09/2026 existi
 
 “Marcar como Pago” e “Liquidar” são fases sucessivas, não categorias concorrentes.
 
+### Lote SEPA vs outro canal na liquidação (#281, 07/10/2026)
+- `BatchPaymentModal` lê `payment_list_sepa_exports` da lista (`paymentListId`) e faz a UNIÃO dos `transaction_ids[]` de todas as exportações = o que viajou no lote.
+- Divide a seleção (que continua a vir de `effectiveSelectedTxIds` ∩ `unpaidItems` e passa pela guarda `assertTxStillInPaymentList`) em **"Foram no ficheiro SEPA"** (incluídas por omissão) e **"Pagas por outro canal"** (DESSELECIONADAS por omissão, bloco âmbar acima do botão, uma checkbox por linha, sem "selecionar tudo"; mostra descrição, valor, método e entidade/referência).
+- Lista sem nenhuma exportação: conta como lote só `transfer` com IBAN resolvível (`checkPaymentBankability` + `resolvePaymentIban`, os mesmos helpers do SEPA); `service_payment`, `state_payment`, `direct_debit` caem em "outro canal".
+- Botão: "Liquidar X do lote + Y de outro canal"; desativado sem nada a liquidar. "Marcar como Pago" (#200), cargas (#201) e download SEPA ficam iguais.
+- Origem: listas "Pagamentos 17/09/2026" e "Pagamentos 22/09/2026" — linhas fora do lote foram liquidadas em bloco; dois seguros Allianz (Conferência de Mulheres Plenitude, 72,33 € e 65,65 €, Pag. Serviços, Ent. 20175) ficaram `paid` sem débito no extrato Santander; repostos a A Pagar à mão.
+
 ### Liquidação só de itens ativos (P0 corrigido em 2026-09-24)
 - A seleção de "Liquidar (N)" deriva SEMPRE dos itens ativos (`removed_at IS NULL`) e
   não pagos: `effectiveSelectedTxIds` = seleção ∩ `unpaidItems`, podada a cada
