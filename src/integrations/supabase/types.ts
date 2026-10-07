@@ -17494,6 +17494,34 @@ export type Database = {
         Args: { p_offset_id: string; p_origin_payment_id: string }
         Returns: string
       }
+      _artist_metric_momentum: {
+        Args: { _d30: number; _d7: number; _d90: number }
+        Returns: number
+      }
+      _artist_metric_pct_near: {
+        Args: {
+          _artist: string
+          _d: string
+          _days: number
+          _hi: number
+          _lo: number
+          _metric: string
+          _platform: string
+          _value: number
+        }
+        Returns: number
+      }
+      _artist_metric_precisao: {
+        Args: {
+          _artist: string
+          _d: string
+          _metric: string
+          _platform: string
+          _source_ref: string
+          _value: number
+        }
+        Returns: number
+      }
       _derive_paid_amount: { Args: { p_tx_id: string }; Returns: undefined }
       _paid_guard_is_exempt: {
         Args: { p: Database["public"]["Tables"]["transactions"]["Row"] }
@@ -18304,6 +18332,28 @@ export type Database = {
       artist_mark_connection_status: {
         Args: { p_connection_id: string; p_error?: string; p_status: string }
         Returns: undefined
+      }
+      artist_metric_compare_aligned: {
+        Args: {
+          p_artist_ids: string[]
+          p_base_artist_id: string
+          p_company_id: string
+          p_metric: string
+          p_platform: string
+        }
+        Returns: {
+          artist_id: string
+          d30_pct_base: number
+          data_d: string
+          momentum_index: number
+          momentum_index_base: number
+          precisao: number
+          source: string
+          source_base: string
+          source_base_fallback: boolean
+          valor_base: number
+          valor_comparavel: number
+        }[]
       }
       artist_metric_growth: {
         Args: { _artist_id: string; _days: number }
