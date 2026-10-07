@@ -654,7 +654,7 @@ export default function CardSessionDetail() {
             {(session as any).events?.name && <span>Evento principal: {(session as any).events.name}</span>}
             <span>
               {isClosedSession && (session as any).closed_at
-                ? `· Fechada · ${formatDatePT(session.opened_at)} a ${formatDatePT((session as any).closed_at)}`
+                ? `· ${formatDatePT(session.opened_at)} a ${formatDatePT((session as any).closed_at)}`
                 : `· Aberta em ${formatDatePT(session.opened_at)}`}
             </span>
           </div>
