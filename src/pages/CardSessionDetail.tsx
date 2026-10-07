@@ -268,21 +268,47 @@ export default function CardSessionDetail() {
     },
   });
 
+  /**
+   * Leitor único do resumo do fecho (#278): o close-card-session grava os
+   * números no topo do closing_summary OU dentro de closing_summary.reconciliation.
+   * Toda a leitura de sessão fechada passa por aqui — nunca em bruto.
+   */
+  const closingSummary = ((session as any)?.closing_summary ?? {}) as Record<string, any>;
+  const reconciliation = (closingSummary.reconciliation ?? {}) as Record<string, any>;
+  const closingNumber = (key: string): number | null => {
+    const value = closingSummary[key] ?? reconciliation[key];
+    if (value === null || value === undefined || value === "") return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  };
+  const closedAccountBalance = closingNumber("account_balance");
+  const closedConfirmedBalance = closingNumber("confirmed_balance");
+  const closedTheoreticalBalance = closingNumber("theoretical_balance");
+  // KPIs de sessão FECHADA — sempre do resumo gravado; chave em falta = "—", nunca 0.
+  const closedOpening = isClosedSession
+    ? closingNumber("opening_balance") ?? closingNumber("opening")
+    : null;
+  const closedLoads = isClosedSession ? closingNumber("total_loads") : null;
+  const closedNewSpend = isClosedSession ? closingNumber("new_spend_gross") : null;
+  const closedLegacyMovements = isClosedSession ? closingNumber("legacy_session_movements") : null;
+  // Movimentos diretos negativos são despesas carimbadas com a sessão — somam ao gasto.
+  const closedLegacySpend =
+    closedLegacyMovements !== null && closedLegacyMovements < 0 ? Math.abs(closedLegacyMovements) : 0;
+  const closedApprovedSpend = closedNewSpend === null ? null : closedNewSpend + closedLegacySpend;
+  const closedDelivered =
+    closedOpening !== null && closedLoads !== null ? closedOpening + closedLoads : null;
+
   const rawOverride =
     (session as any)?.opening_balance === null || (session as any)?.opening_balance === undefined
       ? null
       : Number((session as any).opening_balance);
   const { opening, isOverride } = isClosedSession
-    ? {
-        opening: Number(
-          (session as any)?.closing_summary?.opening_balance ?? (session as any)?.opening_balance ?? 0,
-        ),
-        isOverride: rawOverride !== null,
-      }
+    ? { opening: closedOpening ?? 0, isOverride: rawOverride !== null }
     : resolveOpening(rawOverride, accountSync?.dynamicOpening ?? 0);
   const directTotal = isClosedSession ? 0 : accountSync?.directTotal ?? 0;
   const legacySessionSpend = isClosedSession ? 0 : accountSync?.legacySessionSpend ?? 0;
   // #275 — sessões abertas usam a fórmula do fecho (close-card-session).
+  // Em sessão fechada este valor serve APENAS de recálculo para o aviso de divergência.
   const theoretical = isClosedSession
     ? opening + totalLoads - totalApproved - totalPending + directTotal
     : computeOpenSessionTheoretical({ opening, totalLoads, openItemsGross, legacySessionSpend, directTotal });
