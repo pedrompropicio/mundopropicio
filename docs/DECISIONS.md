@@ -4956,3 +4956,13 @@ Problema: as RPCs de tráfego misturavam BR e PT e convertiam tudo para BRL; a c
 **Porquê:** o modelo D17 consolida N itens numa transação por evento × rubrica × taxa de IVA, logo o UNIQUE herdado da Fase 1 era incompatível e fazia falhar toda a integração com mais de um item por grupo.
 
 **Estado:** vigente. Aplicado em Live a 07/10/2026 com autorização do Pedro.
+
+## D-ERP184 — Stories do Instagram do Litto (07/10/2026)
+- `artist-instagram-sync` ganha `mode: "stories"` (o modo atual não muda). Só ligações `provider='instagram'` (Instagram Login, graph.instagram.com, nó `me`); scopes instagram_business_basic + instagram_business_manage_insights. Sem DDL.
+- GET `me/stories` → upsert em `artist_content` (content_type 'story', source 'api') pela chave (artist_id, platform, external_id).
+- Insights por story em 3 pedidos: métricas base (reach, replies, shares, follows, profile_visits, views, total_interactions, reposts); `navigation` por `story_navigation_action_type` → nav_tap_forward, nav_tap_back, nav_tap_exit, nav_swipe_forward; `profile_activity` por `action_type` → bio_link_clicked e restantes como profile_activity_<ação>. Métrica não suportada (ex.: `reposts` hoje) é ignorada e as outras pedidas uma a uma.
+- `artist_content_metrics_daily`, source 'api', metric_date = data (UTC) da publicação do story; upsert por (content_id, metric, metric_date, source) → a última leitura antes das 24 h fica como valor final.
+- Erro #10 (< 5 visualizações) = sem dados: não grava 0, conta em `sync_runs.details.sem_dados`. Outros erros vão para `error_text` sem parar os restantes stories.
+- `sync_runs.function_name = 'artist-instagram-sync-stories'`, details: stories_lidos, metricas_gravadas, sem_dados, erros.
+- Cron `carreira-instagram-stories-4h` (`15 */4 * * *`), mesmo padrão do job 96; crons existentes intactos.
+- Nota: os cliques no autocolante de link não existem na API e medem-se pelas chegadas do smart link com utm_medium=story.
