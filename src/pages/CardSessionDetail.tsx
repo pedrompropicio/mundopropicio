@@ -47,6 +47,8 @@ import {
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { formatLisbonDateTime } from "@/lib/date-lisbon";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 type Tab = "expenses" | "queue" | "loads";
 
 export default function CardSessionDetail() {
@@ -240,6 +242,30 @@ export default function CardSessionDetail() {
         openedAt: (session as any).opened_at,
         loadInTransactionIds: loadInIds,
       }),
+  });
+
+  /**
+   * "Fechado por": o resumo do fecho só guarda o id do utilizador
+   * (closing_summary.closed_by_user_id, em alternativa card_sessions.closed_by).
+   * O nome vem de profiles; sem acesso, mostra "—" — nunca o uuid.
+   */
+  const closingPersonId = useMemo(() => {
+    const raw =
+      (session as any)?.closing_summary?.closed_by_user_id ?? (session as any)?.closed_by ?? null;
+    return typeof raw === "string" && UUID_RE.test(raw) ? raw : null;
+  }, [session]);
+  const { data: closingPersonProfile } = useQuery({
+    queryKey: ["card-session-closer", closingPersonId],
+    enabled: !!closingPersonId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .eq("id", closingPersonId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
   });
 
   const rawOverride =
@@ -554,7 +580,11 @@ export default function CardSessionDetail() {
   const closingOpening = closingNumber("opening_balance") ?? closingNumber("opening");
   const closingLoads = closingNumber("total_loads");
   const closingApproved =
-    closingNumber("approved") ?? closingNumber("total_approved") ?? closingNumber("new_spend_gross") ?? closingNumber("total_amount");
+    closingNumber("total_approved_expenses") ??
+    closingNumber("approved") ??
+    closingNumber("total_approved") ??
+    closingNumber("new_spend_gross") ??
+    closingNumber("total_amount");
   const closingDifference = closingNumber("difference");
   const closingExpenses = Object.values(
     (closingSummary.expenses_by_event ?? closingSummary.by_event ?? {}) as Record<string, any>,
@@ -562,10 +592,9 @@ export default function CardSessionDetail() {
   const closingPersonRaw =
     closingSummary.adjusted_by ?? closingSummary.closed_by_name ?? closingSummary.generated_by ?? null;
   const closingPerson =
-    typeof closingPersonRaw === "string" &&
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(closingPersonRaw)
+    typeof closingPersonRaw === "string" && !UUID_RE.test(closingPersonRaw)
       ? closingPersonRaw
-      : null;
+      : closingPersonProfile?.full_name || closingPersonProfile?.email || null;
   const closingWhen =
     closingSummary.adjusted_at ?? closingSummary.closed_at ?? closingSummary.generated_at ?? (session as any).closed_at;
 
