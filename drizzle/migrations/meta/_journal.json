@@ -204,6 +204,13 @@
       "when": 1791412364376,
       "tag": "0028_derp185b_song_link_canal_medium",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791412729308,
+      "tag": "0029_derp185c_custo_chegada_trafego",
+      "breakpoints": true
     }
   ]
 }
