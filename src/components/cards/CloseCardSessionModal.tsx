@@ -52,6 +52,15 @@ interface Props {
   session: SessionData;
 }
 
+interface PendingLoad {
+  id: string;
+  amount: number;
+  load_date: string | null;
+  out_transaction_id: string | null;
+  in_transaction_id: string | null;
+  out_status: string | null;
+}
+
 type ParkedDecision = { decision: "reject" | "approve_without_doc" | "defer"; reason: string };
 
 interface PairKey {
@@ -85,6 +94,47 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
       setRunning(false);
     }
   }, [open]);
+
+  // ===== Recargas sem crédito no cartão (#273) =====
+  // Mesma regra do pré-voo do close-card-session: sem in_transaction_id OU
+  // saída ainda não 'paid'. Numa carga liquida-se, nunca se marca como pago (#201).
+  const [serverPendingLoads, setServerPendingLoads] = useState<PendingLoad[] | null>(null);
+  const { data: livePendingLoads, refetch: refetchLoads } = useQuery({
+    queryKey: ["card-close-pending-loads", session.id],
+    enabled: open,
+    queryFn: async (): Promise<PendingLoad[]> => {
+      const { data: loads, error: lErr } = await supabase
+        .from("card_session_loads")
+        .select("id, amount, load_date, out_transaction_id, in_transaction_id")
+        .eq("session_id", session.id);
+      if (lErr) throw lErr;
+      const outIds = (loads ?? []).map((l: any) => l.out_transaction_id).filter(Boolean) as string[];
+      const outStatus = new Map<string, string>();
+      if (outIds.length > 0) {
+        const { data: outs, error: oErr } = await supabase
+          .from("transactions").select("id, status").in("id", outIds);
+        if (oErr) throw oErr;
+        for (const t of outs ?? []) outStatus.set((t as any).id, (t as any).status);
+      }
+      return (loads ?? [])
+        .map((l: any) => ({
+          id: l.id,
+          amount: Number(l.amount ?? 0),
+          load_date: l.load_date,
+          out_transaction_id: l.out_transaction_id,
+          in_transaction_id: l.in_transaction_id,
+          out_status: l.out_transaction_id ? outStatus.get(l.out_transaction_id) ?? null : null,
+        }))
+        .filter((l) => !l.in_transaction_id || l.out_status !== "paid");
+    },
+  });
+  useEffect(() => {
+    // Uma leitura nova sem pendentes limpa o aviso vindo do servidor.
+    if (livePendingLoads && livePendingLoads.length === 0) setServerPendingLoads(null);
+  }, [livePendingLoads]);
+  const pendingLoads: PendingLoad[] =
+    (serverPendingLoads && serverPendingLoads.length > 0 ? serverPendingLoads : livePendingLoads) ?? [];
+  const hasPendingLoads = pendingLoads.length > 0;
 
   // ===== Dados da sessão =====
   const { data, isLoading, refetch } = useQuery({
@@ -318,6 +368,17 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
         }
         if (Array.isArray(parsed?.budget_excess) && parsed.budget_excess.length > 0) {
           setRaiseLines(parsed.budget_excess as BudgetExcessLine[]);
+          return;
+        }
+        if (Array.isArray(parsed?.pending_loads) && parsed.pending_loads.length > 0) {
+          setServerPendingLoads(parsed.pending_loads as PendingLoad[]);
+          toast({
+            variant: "destructive",
+            title: "Há recargas sem crédito no cartão",
+            description: "Liquida ou elimina cada recarga antes de fechar a sessão.",
+          });
+          setStep(3);
+          void refetchLoads();
           return;
         }
         if (Array.isArray(parsed?.parked_items) && parsed.parked_items.length > 0) {
@@ -596,6 +657,8 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
                   <Row label="Saldo teórico" value={formatCurrency(theoretical)} bold />
                 </div>
 
+                {hasPendingLoads && <PendingLoadsWarning loads={pendingLoads} />}
+
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
                     Saldo real conferido no cartão
@@ -643,7 +706,7 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
                   <Button variant="outline" onClick={() => setStep(pairs.length > 0 ? 2 : 1)}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
                   </Button>
-                  <Button disabled={noteRequired && !note.trim()} onClick={() => setStep(4)}>
+                  <Button disabled={(noteRequired && !note.trim()) || hasPendingLoads} onClick={() => setStep(4)}>
                     Continuar <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
@@ -671,7 +734,7 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
                   <Button variant="outline" onClick={() => setStep(3)} disabled={running}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
                   </Button>
-                  <Button onClick={() => void run()} disabled={running}>
+                  <Button onClick={() => void run()} disabled={running || hasPendingLoads}>
                     {running && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Fechar e integrar
                   </Button>
@@ -723,6 +786,36 @@ function Row({ label, value, bold }: { label: string; value: string; bold?: bool
     <div className={`flex items-center justify-between py-1 ${bold ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
       <span>{label}</span>
       <span className="tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+function fmtLoadDate(d: string | null): string {
+  if (!d) return "sem data";
+  const [y, m, day] = d.slice(0, 10).split("-");
+  return `${day}/${m}/${y}`;
+}
+
+/** #273 — recargas sem crédito no cartão bloqueiam o fecho. "Liquidar", nunca "marcar como pago" (#201). */
+function PendingLoadsWarning({ loads }: { loads: PendingLoad[] }) {
+  return (
+    <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm">
+      <p className="flex items-center gap-2 font-semibold text-destructive">
+        <AlertTriangle className="h-4 w-4" />
+        {loads.length === 1 ? "Há uma recarga sem crédito no cartão" : `Há ${loads.length} recargas sem crédito no cartão`}
+      </p>
+      <ul className="mt-2 space-y-1">
+        {loads.map((l) => (
+          <li key={l.id} className="flex justify-between gap-2 tabular-nums">
+            <span>Recarga de {fmtLoadDate(l.load_date)}</span>
+            <span className="font-medium">{formatCurrency(l.amount)}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Cada recarga tem de ser liquidada (ou eliminada) antes de fechar a sessão. Enquanto não for
+        liquidada, o dinheiro não entra no cartão e o saldo teórico fica errado.
+      </p>
     </div>
   );
 }
