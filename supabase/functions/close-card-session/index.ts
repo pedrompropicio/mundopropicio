@@ -143,6 +143,41 @@ Deno.serve(async (req) => {
     // limpa por mudança de método de pagamento. Distinta de payment_reference.
     const sessionOperationKey = `CARTAO-${String(session.id).slice(0, 8).toUpperCase()}`;
 
+    // ===== Recargas sem crédito no cartão bloqueiam o fecho (#273) =====
+    // Corre ANTES de qualquer escrita. Uma recarga só credita o cartão quando a
+    // saída é liquidada (trigger card_load_on_out_paid → in_transaction_id).
+    {
+      const { data: loads, error: lErr } = await adminClient
+        .from("card_session_loads")
+        .select("id, amount, load_date, out_transaction_id, in_transaction_id")
+        .eq("session_id", body.session_id);
+      if (lErr) return json({ error: lErr.message }, 500);
+      const outIds = (loads ?? []).map((l: any) => l.out_transaction_id).filter(Boolean);
+      const outStatus = new Map<string, string>();
+      if (outIds.length > 0) {
+        const { data: outs, error: oErr } = await adminClient
+          .from("transactions").select("id, status").in("id", outIds);
+        if (oErr) return json({ error: oErr.message }, 500);
+        for (const t of outs ?? []) outStatus.set((t as any).id, (t as any).status);
+      }
+      const pendingLoads = (loads ?? [])
+        .map((l: any) => ({
+          id: l.id,
+          amount: Number(l.amount ?? 0),
+          load_date: l.load_date,
+          out_transaction_id: l.out_transaction_id,
+          in_transaction_id: l.in_transaction_id,
+          out_status: l.out_transaction_id ? (outStatus.get(l.out_transaction_id) ?? null) : null,
+        }))
+        .filter((l) => !l.in_transaction_id || l.out_status !== "paid");
+      if (pendingLoads.length > 0) {
+        return json({
+          error: "Há recargas sem crédito no cartão — liquida ou elimina cada uma antes de fechar a sessão.",
+          pending_loads: pendingLoads,
+        }, 422);
+      }
+    }
+
     // ===== Decisões sobre itens parqueados (submitted) =====
     for (const d of body.parked_decisions ?? []) {
       if (!d.item_id) continue;
