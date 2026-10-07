@@ -4966,3 +4966,14 @@ Problema: as RPCs de tráfego misturavam BR e PT e convertiam tudo para BRL; a c
 - `sync_runs.function_name = 'artist-instagram-sync-stories'`, details: stories_lidos, metricas_gravadas, sem_dados, erros.
 - Cron `carreira-instagram-stories-4h` (`15 */4 * * *`), mesmo padrão do job 96; crons existentes intactos.
 - Nota: os cliques no autocolante de link não existem na API e medem-se pelas chegadas do smart link com utm_medium=story.
+
+## D-ERP185 — Canal por smart link (07/10/2026)
+(Pedido como "D-ERP183"; renumerado porque D-ERP183 e D-ERP184 já existiam.)
+- `song_links.canal` (NULL; CHECK tiktok_ads|meta_ads|google_ads|instagram_bio|universal|outro). rs-tt → tiktok_ads, rs-meta → meta_ads, rs-ig → instagram_bio, rs-umg → universal; os links mistos ficam NULL e dependem das UTMs.
+- `song_link_health_daily.canal` (NULL).
+- Regra única `public.song_link_event_canal(link_canal, utm_source)` IMMUTABLE: canal do link primeiro; senão utm_source (tiktok → tiktok_ads; meta/facebook/fb/ig → meta_ads; google/youtube → google_ads; teste* → teste; vazio → sem_origem; resto → outro). Não repetir a regra noutro sítio.
+- `artist_song_link_upsert(..., p_canal)`; `artist_song_link_stats` devolve `canal` e agrupa também por canal (DROP+CREATE, mesmos GRANTs).
+- `artist_ads_period_report`: ligação por campanha (utm_campaign) igual; novo `totais.chegadas_por_canal` {canal:{chegadas,visitantes}}; cada plataforma ganha `chegadas`, `visitantes`, `custo_por_chegada` (gasto_ref da plataforma ÷ chegadas cujo canal efetivo mapeia nela, com ou sem utm_campaign). Canal efetivo 'teste' fica fora de todos os totais. p_country continua a filtrar só o gasto.
+- `song_link_health_run`: grava o canal efetivo; 'queda_chegadas' e 'sem_eventos_link' só disparam se a música (todos os links do song_id) também cair abaixo de 50% da média de 7 dias, para que tráfego mudado entre links da mesma música não dê alarme. `song_link_health_get` devolve a coluna (to_jsonb da linha).
+- Atenção: um evento teste_* num link com canal (ex.: rs-umg) fica com o canal do link, não com 'teste'.
+- Migração drizzle/migrations/0027_derp185_song_link_canal.sql.
