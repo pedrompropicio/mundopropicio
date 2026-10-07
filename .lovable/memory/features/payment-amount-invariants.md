@@ -126,3 +126,10 @@ Nenhum agregado soma outra coluna que não `amount` (EUR): `PaymentTimeline`
 
 Verificação: invariante `pagamento_moeda_sem_cambio` (error, global, referência 0)
 em `_run_invariant_checks_extra()`. Backfill `backfill-127` nas 3 linhas legadas em BRL.
+
+## Re-derivação do estado ao alterar amount/iva_rate (07/10/2026)
+
+- Trigger `zz_rederive_paid_amount_on_amount_change` (AFTER UPDATE OF amount, iva_rate ON public.transactions) → função `public.rederive_paid_amount_on_amount_change()`, que chama `public._derive_paid_amount(new.id)` quando o valor ou a taxa de IVA mudam e a transação tem linhas pagas em `transaction_payments`. Guarda `pg_trigger_depth() > 1` contra recursão. Criado em Live a 07/10/2026.
+- Porquê: `_derive_paid_amount` compara os pagamentos com o bruto (`amount × (1 + iva_rate/100)`) e só corria em alterações a `transaction_payments`. Mudar `amount`/`iva_rate` deixava `status` e `payment_date` congelados — uma transação totalmente paga podia ficar `approved` e sair do saldo da conta sem aviso. Caso real: saldo do cartão 0663 passou de 600,89 € para 1.443,36 €.
+- Teste em Live (revertido): `amount` da consolidada 684,94 → 900,00 passou-a a `approved` com `payment_date` NULL; repor 684,94 devolveu `paid` com `payment_date` 03/09/2026, reconstruída da linha de pagamento.
+- Antes da correção não havia nenhuma outra transação em Live com estado incoerente com os pagamentos.
