@@ -541,6 +541,12 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
   });
 
   const payableCount = computed.filter((i) => i.remainingEurFinal > 0).length;
+  // O botão conta só o que vai mesmo ser liquidado, separado pelas duas origens.
+  const payableSepaCount = computed.filter(
+    (i) => i.remainingEurFinal > 0 && isInSepaBatch(i),
+  ).length;
+  const payableOtherCount = payableCount - payableSepaCount;
+
 
   return (
     <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
