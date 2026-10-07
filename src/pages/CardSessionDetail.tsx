@@ -827,7 +827,33 @@ export default function CardSessionDetail() {
             ) : undefined
           }
         />
-        <Kpi label="Gasto aprovado" value={formatCurrency(totalApproved)} hint={`${expenses.length} transação(ões)`} />
+        <Kpi
+          label="Gasto aprovado"
+          value={
+            isClosedSession
+              ? closedApprovedSpend === null
+                ? "—"
+                : formatCurrency(closedApprovedSpend)
+              : formatCurrency(totalApproved)
+          }
+          hint={
+            isClosedSession ? (
+              <>
+                {closedApprovedSpend !== null && (
+                  <span>
+                    {formatCurrency(closedNewSpend ?? 0)} de itens integrados
+                    {closedLegacySpend > 0 && ` + ${formatCurrency(closedLegacySpend)} de movimentos diretos`}
+                  </span>
+                )}
+                {closedApprovedSpend === null && (
+                  <span className="text-amber-600">Resumo gravado com dados incompletos no fecho (#273).</span>
+                )}
+              </>
+            ) : (
+              `${expenses.length} transação(ões)`
+            )
+          }
+        />
         <Kpi label="Pendente de aprovação" value={formatCurrency(totalPending)} hint={`${pendingItems.length} item(s)`} tone={pendingItems.length > 0 ? "warn" : undefined} />
         <Kpi
           label="Saldo teórico da sessão"
