@@ -863,6 +863,11 @@ export default function CardSessionDetail() {
               ? (
                   <>
                     <span>Valor gravado no dia do fecho.</span>
+                    {closedTheoreticalBalance === null && (
+                      <span className="mt-1 block text-amber-600">
+                        Resumo gravado com dados incompletos no fecho (#273).
+                      </span>
+                    )}
                     {theoreticalDiverges && (
                       <span className="mt-1 block text-amber-600">
                         Recalculado hoje dá {formatCurrency(theoretical)} — o resumo foi gravado com dados incompletos no fecho (#273).
