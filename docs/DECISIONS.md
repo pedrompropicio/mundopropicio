@@ -4988,3 +4988,9 @@ Problema: as RPCs de tráfego misturavam BR e PT e convertiam tudo para BRL; a c
 - O base tem de ter ponto exatamente em D (as vistas ancoram no próprio dia, sem tolerância). Se não tiver, os campos do base vêm NULL.
 - Lógica partilhada em helpers internos (sem EXECUTE para authenticated): `_artist_metric_pct_near`, `_artist_metric_momentum`, `_artist_metric_precisao`. `artist_momentum_rows()` passou a usá-los. Comparei antes e depois por md5 com sessão do Pedro: v_artist_growth_summary e v_artist_momentum ficaram iguais.
 - Migração drizzle/migrations/0031_derp186_metric_compare_aligned.sql. Sem DDL de tabelas.
+
+### Adenda D-ERP186 — artist_growth_summary_rows passa a usar _artist_metric_precisao (07/10/2026)
+
+- Opção (a) do ponto em aberto: a regra de precisão que estava escrita à parte em `artist_growth_summary_rows()` foi substituída pela chamada a `public._artist_metric_precisao(artist_id, platform, metric, latest_date, latest_value, source_ref da linha latest)`. A CTE `latest` ganhou a coluna `latest_source_ref` (a linha escolhida pelo DISTINCT ON é a mesma que a subquery antiga escolhia, pela mesma prioridade de source, pelo que a lógica é equivalente).
+- Verificação de igualdade: o teste md5 original não foi reproduzível (método de serialização não recuperado). Em substituição, prova mais forte: a definição antiga foi recriada como função temporária e comparada linha a linha com a nova, com a sessão do Pedro (role authenticated + claims): `EXCEPT` nos dois sentidos = 0 diferenças, 64 linhas em cada. `v_artist_momentum` não foi tocada nesta adenda (já usava os helpers desde a 0031).
+- Migrações: drizzle/migrations/0032_derp186b_growth_precisao_helper.sql (CREATE OR REPLACE) e 0033_derp186b_drop_tmp_growth_check.sql (DROP da função temporária de verificação). Só funções, sem DDL de tabelas, sem Publish.

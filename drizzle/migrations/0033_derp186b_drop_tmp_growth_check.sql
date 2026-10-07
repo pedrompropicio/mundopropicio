@@ -1,0 +1,1 @@
+DROP FUNCTION public._tmp_old_growth_summary_rows();
