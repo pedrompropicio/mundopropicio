@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-import { cn } from "@/lib/utils";
+import { cn, formatDatePT } from "@/lib/utils";
 import {
   CARD_SESSION_STATUS_LABELS,
   CARD_SESSION_STATUS_VARIANTS,
@@ -45,6 +45,7 @@ import {
   type CardSessionExportData,
 } from "@/lib/export-card-session";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { formatLisbonDateTime } from "@/lib/date-lisbon";
 
 type Tab = "expenses" | "queue" | "loads";
 
@@ -448,9 +449,9 @@ export default function CardSessionDetail() {
    * Exclusão de item da sessão (#276) — só com sessão aberta.
    * Ordem (#265, decalque de deleteExpenseMut):
    * 1. lê os card_item_documents (file_path) + legado document_path;
-   * 2. auditoria em system_audit_log ANTES do delete;
-   * 3. apaga a linha de card_session_items com .select("id") — 0 linhas = RLS
+   * 2. apaga a linha de card_session_items com .select("id") — 0 linhas = RLS
    *    filtrou, nunca sucesso falso;
+   * 3. grava a auditoria com o snapshot que já está em memória;
    * 4. SÓ DEPOIS remove os ficheiros de card-documents via storage-delete
    *    (que verifica referências, incl. transaction_documents.file_url =
    *    card://<caminho> — um talão referenciado por uma transação é mantido).
@@ -467,6 +468,16 @@ export default function CardSessionDetail() {
         ...(docs ?? []).map((d: any) => d.file_path as string),
         ...(it.document_path ? [it.document_path as string] : []),
       ].filter(Boolean);
+
+      const { data: deleted, error } = await supabase
+        .from("card_session_items")
+        .delete()
+        .eq("id", it.id)
+        .select("id");
+      if (error) throw error;
+      if (!deleted || deleted.length === 0) {
+        throw new Error("Sem permissão para excluir este item.");
+      }
 
       const gross = cardItemGross(it);
       if (it.company_id) {
@@ -489,16 +500,6 @@ export default function CardSessionDetail() {
           metadata: { card_session_id: id },
         } as any);
         if (auditErr) console.warn("[deleteItem] system_audit_log falhou:", auditErr.message);
-      }
-
-      const { data: deleted, error } = await supabase
-        .from("card_session_items")
-        .delete()
-        .eq("id", it.id)
-        .select("id");
-      if (error) throw error;
-      if (!deleted || deleted.length === 0) {
-        throw new Error("Sem permissão para excluir este item.");
       }
 
       // Só depois de a linha sair: ficheiros para o lixo recuperável.
@@ -535,6 +536,38 @@ export default function CardSessionDetail() {
   // Editar/excluir despesas só com a sessão ABERTA (in_review/closed = leitura).
   const canEditExpenses = canManage && status === "open";
   const canEditOpening = canEditExpenses;
+  const closingSummary = ((session as any).closing_summary ?? {}) as Record<string, any>;
+  const reconciliation = (closingSummary.reconciliation ?? {}) as Record<string, any>;
+  const closingNumber = (key: string): number | null => {
+    const value = closingSummary[key] ?? reconciliation[key];
+    if (value === null || value === undefined || value === "") return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  };
+  const closedAccountBalance = closingNumber("account_balance");
+  const closedConfirmedBalance = closingNumber("confirmed_balance");
+  const closedTheoreticalBalance = closingNumber("theoretical_balance");
+  const theoreticalDiverges =
+    isClosedSession &&
+    closedTheoreticalBalance !== null &&
+    Math.abs(theoretical - closedTheoreticalBalance) > 0.01;
+  const closingOpening = closingNumber("opening_balance") ?? closingNumber("opening");
+  const closingLoads = closingNumber("total_loads");
+  const closingApproved =
+    closingNumber("approved") ?? closingNumber("total_approved") ?? closingNumber("new_spend_gross") ?? closingNumber("total_amount");
+  const closingDifference = closingNumber("difference");
+  const closingExpenses = Object.values(
+    (closingSummary.expenses_by_event ?? closingSummary.by_event ?? {}) as Record<string, any>,
+  ).filter((entry: any) => entry && typeof entry === "object" && entry.name);
+  const closingPersonRaw =
+    closingSummary.adjusted_by ?? closingSummary.closed_by_name ?? closingSummary.generated_by ?? null;
+  const closingPerson =
+    typeof closingPersonRaw === "string" &&
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(closingPersonRaw)
+      ? closingPersonRaw
+      : null;
+  const closingWhen =
+    closingSummary.adjusted_at ?? closingSummary.closed_at ?? closingSummary.generated_at ?? (session as any).closed_at;
 
   /** Payload de exportação — os mesmos números dos cards acima. */
   const buildExportData = (): CardSessionExportData => {
@@ -618,7 +651,11 @@ export default function CardSessionDetail() {
               {CARD_SESSION_STATUS_LABELS[status]}
             </Badge>
             {(session as any).events?.name && <span>Evento principal: {(session as any).events.name}</span>}
-            <span>· Aberta em {new Date(session.opened_at).toLocaleDateString("pt-PT")}</span>
+            <span>
+              {isClosedSession && (session as any).closed_at
+                ? `· ${formatDatePT(session.opened_at)} a ${formatDatePT((session as any).closed_at)}`
+                : `· Aberta em ${formatDatePT(session.opened_at)}`}
+            </span>
           </div>
         </div>
 
@@ -674,15 +711,15 @@ export default function CardSessionDetail() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Kpi
           label="Saldo contabilístico"
-          value={cardBalance == null ? "—" : formatCurrency(cardBalance)}
-          hint="Saldo da conta no módulo Contas (só transações)"
-          tone={cardBalance != null && cardBalance < 0 ? "warn" : undefined}
+          value={isClosedSession ? (closedAccountBalance === null ? "—" : formatCurrency(closedAccountBalance)) : (cardBalance == null ? "—" : formatCurrency(cardBalance))}
+          hint={isClosedSession ? "Valor contabilístico no dia do fecho." : "Saldo da conta no módulo Contas (só transações)"}
+          tone={(isClosedSession ? closedAccountBalance : cardBalance) != null && Number(isClosedSession ? closedAccountBalance : cardBalance) < 0 ? "warn" : undefined}
         />
         <Kpi
           label="Saldo real estimado"
-          value={realEstimated == null ? "—" : formatCurrency(realEstimated)}
-          hint={`Contabilístico − itens da sessão ainda não integrados (${formatCurrency(openItemsGross)})`}
-          tone={realEstimated != null && realEstimated < 0 ? "warn" : undefined}
+          value={isClosedSession ? (closedConfirmedBalance === null ? "—" : formatCurrency(closedConfirmedBalance)) : (realEstimated == null ? "—" : formatCurrency(realEstimated))}
+          hint={isClosedSession ? "Valor conferido no dia do fecho." : `Contabilístico − itens da sessão ainda não integrados (${formatCurrency(openItemsGross)})`}
+          tone={(isClosedSession ? closedConfirmedBalance : realEstimated) != null && Number(isClosedSession ? closedConfirmedBalance : realEstimated) < 0 ? "warn" : undefined}
         />
         <Kpi
           label="Entregue"
@@ -729,10 +766,19 @@ export default function CardSessionDetail() {
         <Kpi label="Pendente de aprovação" value={formatCurrency(totalPending)} hint={`${pendingItems.length} item(s)`} tone={pendingItems.length > 0 ? "warn" : undefined} />
         <Kpi
           label="Saldo teórico da sessão"
-          value={formatCurrency(theoretical)}
+          value={isClosedSession ? (closedTheoreticalBalance === null ? "—" : formatCurrency(closedTheoreticalBalance)) : formatCurrency(theoretical)}
           hint={
             isClosedSession
-              ? "Saldo de abertura + recargas − gasto aprovado − pendente."
+              ? (
+                  <>
+                    <span>Valor gravado no dia do fecho.</span>
+                    {theoreticalDiverges && (
+                      <span className="mt-1 block text-amber-600">
+                        Recalculado hoje dá {formatCurrency(theoretical)} — o resumo foi gravado com dados incompletos no fecho (#273).
+                      </span>
+                    )}
+                  </>
+                )
               : "Abertura + recargas − itens por integrar ± movimentos da sessão e directos. É o valor que o fecho vai calcular."
           }
         />
@@ -996,8 +1042,39 @@ export default function CardSessionDetail() {
       {isLocked && session.closing_summary && (
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">Resumo do fecho</CardTitle></CardHeader>
-          <CardContent className="text-xs text-muted-foreground">
-            <pre className="whitespace-pre-wrap text-[11px]">{JSON.stringify(session.closing_summary, null, 2)}</pre>
+          <CardContent className="space-y-4 text-sm">
+            <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+              <SummaryRow label="Saldo de abertura" value={closingOpening === null ? "—" : `${formatCurrency(closingOpening)}${(closingSummary.opening_is_override ?? reconciliation.opening_is_override) ? " (override)" : ""}`} />
+              <SummaryRow label="Total de recargas" value={closingLoads === null ? "—" : formatCurrency(closingLoads)} />
+              <SummaryRow label="Gasto aprovado" value={closingApproved === null ? "—" : formatCurrency(closingApproved)} />
+              <SummaryRow label="Saldo teórico" value={closedTheoreticalBalance === null ? "—" : formatCurrency(closedTheoreticalBalance)} />
+              <SummaryRow label="Saldo conferido" value={closedConfirmedBalance === null ? "—" : formatCurrency(closedConfirmedBalance)} />
+              <SummaryRow label="Diferença" value={closingDifference === null ? "—" : formatCurrency(closingDifference)} />
+              <SummaryRow label="Ajuste criado" value={(closingSummary.adjustment_created ?? reconciliation.adjustment_created) ? "Sim" : "Não"} />
+              <SummaryRow label="Fechado por" value={closingPerson ?? "—"} />
+              <SummaryRow label="Fechado em" value={closingWhen ? formatLisbonDateTime(closingWhen) : "—"} />
+            </dl>
+
+            {closingExpenses.length > 0 && (
+              <div className="border-t border-border pt-3">
+                <h3 className="mb-2 text-xs font-semibold text-muted-foreground">Despesas por evento</h3>
+                <div className="space-y-1.5">
+                  {closingExpenses.map((entry: any, index) => (
+                    <div key={`${entry.name}-${index}`} className="flex items-center justify-between gap-4">
+                      <span className="text-muted-foreground">{entry.name}</span>
+                      <span className="font-medium">{formatCurrency(Number(entry.amount ?? entry.total ?? 0))}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {isAdmin && (
+              <details className="border-t border-border pt-3 text-xs text-muted-foreground">
+                <summary className="cursor-pointer select-none font-medium">Ver detalhe técnico</summary>
+                <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap text-[11px]">{JSON.stringify(session.closing_summary, null, 2)}</pre>
+              </details>
+            )}
           </CardContent>
         </Card>
       )}
@@ -1210,7 +1287,7 @@ export default function CardSessionDetail() {
   );
 }
 
-function Kpi({ label, value, hint, tone, action, badge }: { label: string; value: string; hint?: string; tone?: "warn"; action?: React.ReactNode; badge?: React.ReactNode }) {
+function Kpi({ label, value, hint, tone, action, badge }: { label: string; value: string; hint?: React.ReactNode; tone?: "warn"; action?: React.ReactNode; badge?: React.ReactNode }) {
   return (
     <Card>
       <CardContent className="p-4">
@@ -1225,6 +1302,15 @@ function Kpi({ label, value, hint, tone, action, badge }: { label: string; value
         {hint && <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>}
       </CardContent>
     </Card>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-b border-border/50 pb-1">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="text-right font-medium text-foreground">{value}</dd>
+    </div>
   );
 }
 
