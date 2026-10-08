@@ -17,7 +17,6 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 const HOST = "https://dash.oneboxtds.com";
 const LOGIN_URL = `${HOST}/login/`;
 const DASHBOARD_ID = 43;
-const FILTER_KEY = "YAu04AgWBog";
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 
@@ -46,6 +45,9 @@ class Jar {
   header() {
     return [...this.map.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
   }
+  clear() {
+    this.map.clear();
+  }
   names() {
     return [...this.map.keys()];
   }
@@ -67,6 +69,23 @@ function extractCsrf(html: string): string | null {
 
 class OneboxError extends Error {}
 
+class CsrfMissingError extends OneboxError {}
+
+// D-ERP189: csrf em falta no HTML do login = caso previsto. Uma 2.ª tentativa
+// com sessão limpa (cookies apagados), não um ciclo. O POST de login continua
+// a ser feito uma só vez por tentativa.
+async function loginWithRetry(jar: Jar, audit: Record<string, unknown>): Promise<string> {
+  try {
+    return await login(jar);
+  } catch (e) {
+    if (!(e instanceof CsrfMissingError)) throw e;
+    audit.login_retry = "csrf_token em falta na 1.ª tentativa — repetido com sessão limpa";
+    jar.clear();
+    await new Promise((r) => setTimeout(r, 3000));
+    return await login(jar);
+  }
+}
+
 async function login(jar: Jar): Promise<string> {
   const user = Deno.env.get("ONEBOX_DASH_USER");
   const pass = Deno.env.get("ONEBOX_DASH_PASSWORD");
@@ -83,7 +102,7 @@ async function login(jar: Jar): Promise<string> {
     throw new OneboxError("bloqueio por IP na página de login (403/desafio)");
   }
   const csrfLogin = extractCsrf(html1);
-  if (!csrfLogin) throw new OneboxError("csrf_token não encontrado no HTML do login");
+  if (!csrfLogin) throw new CsrfMissingError("csrf_token não encontrado no HTML do login");
 
   // 2. UMA tentativa de login. Nunca repetir — a conta pode ser bloqueada.
   const r2 = await fetch(LOGIN_URL, {
@@ -170,10 +189,36 @@ async function chartData(jar: Jar, csrf: string, payload: unknown): Promise<any>
     body: JSON.stringify(payload),
   });
   const text = await res.text();
+  if (res.status === 202) return await awaitAsyncJob(jar, JSON.parse(text));
   if (res.status !== 200) {
     throw new OneboxError(`POST /api/v1/chart/data → ${res.status}: ${text.slice(0, 400)}`);
   }
   return JSON.parse(text);
+}
+
+// D-ERP189: a Onebox ligou as "global async queries" do Superset (visto a
+// 08/10/2026). /chart/data responde 202 com job_id; o resultado obtém-se
+// por polling a /api/v1/async_event/ (cookie async-token) e depois GET ao
+// result_url. Até ~90 s; erro do job = falha da corrida.
+async function awaitAsyncJob(jar: Jar, job: any): Promise<any> {
+  const jobId = job?.job_id;
+  if (!jobId) throw new OneboxError(`chart/data 202 sem job_id: ${JSON.stringify(job).slice(0, 200)}`);
+  let lastId: string | null = null;
+  const deadline = Date.now() + 90_000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 1500));
+    const q = lastId ? `?last_id=${encodeURIComponent(lastId)}` : "";
+    const ev = await apiGet(jar, `/api/v1/async_event/${q}`);
+    for (const e of ev?.result ?? []) {
+      if (e?.id) lastId = e.id;
+      if (e?.job_id !== jobId) continue;
+      if (e.status === "done" && e.result_url) return await apiGet(jar, e.result_url);
+      if (e.status === "error") {
+        throw new OneboxError(`job async ${jobId} falhou: ${JSON.stringify(e.errors ?? e).slice(0, 300)}`);
+      }
+    }
+  }
+  throw new OneboxError(`job async ${jobId} sem resultado em 90 s`);
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -222,25 +267,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
   };
 
   try {
-    const csrf = await login(jar);
+    const csrf = await loginWithRetry(jar, audit);
     audit.login = { ok: true, cookies: jar.names() };
 
     // ── charts do dashboard (nada cravado no código) ─────────────────────
     const charts = await apiGet(jar, `/api/v1/dashboard/${DASHBOARD_ID}/charts`);
     const slices: any[] = charts?.result ?? [];
-    const filterState = await apiGet(
-      jar,
-      `/api/v1/dashboard/${DASHBOARD_ID}/filter_state/${FILTER_KEY}`,
-    );
-    let nativeFilters: any[] = [];
+    // D-ERP189: sem filter_state. A chave fixa caducou do lado da Onebox
+    // (404 a 07/10/2026). Os filtros nativos vêm agora da configuração do
+    // próprio painel (json_metadata.native_filter_configuration →
+    // defaultDataMask.extraFormData.filters) e seguem no payload da query.
+    const dash = await apiGet(jar, `/api/v1/dashboard/${DASHBOARD_ID}`);
+    const nativeFilters: any[] = [];
     try {
-      const fs = JSON.parse(filterState?.value ?? "{}");
-      for (const f of Object.values<any>(fs.filters ?? fs ?? {})) {
-        const col = f?.extraFormData?.filters?.[0] ?? null;
-        if (col) nativeFilters.push(col);
-        else if (Array.isArray(f?.filters)) nativeFilters.push(...f.filters);
+      const meta = JSON.parse(dash?.result?.json_metadata ?? "{}");
+      for (const f of meta.native_filter_configuration ?? []) {
+        const fl = f?.defaultDataMask?.extraFormData?.filters;
+        if (Array.isArray(fl)) nativeFilters.push(...fl);
       }
-    } catch { /* filtros ilegíveis → seguem vazios */ }
+    } catch { /* metadata ilegível → filtros vazios */ }
+    audit.native_filters = nativeFilters;
 
     if (inspect) {
       const alvo = slices.find((s) => /Ventas por Sesion/i.test(s.slice_name ?? ""));
