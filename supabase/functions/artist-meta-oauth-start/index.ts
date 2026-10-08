@@ -99,7 +99,10 @@ Deno.serve(async (req) => {
   authorizeUrl.searchParams.set("client_id", appId);
   authorizeUrl.searchParams.set("redirect_uri", redirectUri());
   authorizeUrl.searchParams.set("state", state.id);
-  authorizeUrl.searchParams.set("scope", SCOPES.join(","));
+  // Configuração de login "Carreira - Stories e Pagina" na Meta (Facebook
+  // Login para Empresas): token de utilizador com as 4 permissões.
+  // O config_id não é segredo.
+  authorizeUrl.searchParams.set("config_id", "1799675897902961");
   authorizeUrl.searchParams.set("response_type", "code");
 
   await auditLog(admin, {
