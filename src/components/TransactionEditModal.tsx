@@ -16,6 +16,7 @@ import type { IvaRate } from "@/lib/mock-data";
 import IvaRateSelect from "@/components/IvaRateSelect";
 import { X, Building, FileText, Landmark, AlertTriangle, Repeat, Layers } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { TransactionDuplicateWarning, useTransactionDuplicateCheck, DUPLICATE_CONFIRM_TOAST } from "@/components/TransactionDuplicateWarning";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -1118,6 +1119,16 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   })();
 
   const isExpense = transaction.type === "expense";
+
+  // #284 — aviso de duplicação (regras a+b), só em mães; exclui a própria.
+  const dupCheck = useTransactionDuplicateCheck({
+    enabled: isExpense && !transaction.parent_transaction_id,
+    supplierId: form.supplier_id || null,
+    invoiceRef: form.invoice_ref,
+    amount: parseFloat(String(form.amount)) || 0,
+    date: form.date,
+    excludeTransactionId: transaction.id,
+  });
   const isApproved = transaction.status === "approved";
   const valueLocked = paidLocked || isInstallmentGroup;
   const isParentSplit = !transaction.parent_transaction_id && transaction.split_percentage === null;
@@ -1135,6 +1146,10 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (dupCheck.needsConfirmation) {
+      toast(DUPLICATE_CONFIRM_TOAST);
+      return;
+    }
     if (!form.description || !form.amount) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
@@ -2631,6 +2646,8 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
             </span>
           </div>
           )}
+
+          <TransactionDuplicateWarning state={dupCheck} />
 
           <button type="submit" disabled={editMutation.isPending || eventCompleted || !!servicePaymentError}
             title={eventCompleted ? "Evento concluído. Reabre o evento para editar." : (servicePaymentError ?? undefined)}

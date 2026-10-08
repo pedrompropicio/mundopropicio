@@ -7,6 +7,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, UserCheck, Check, X, Clock } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { TransactionDuplicateWarning, useTransactionDuplicateCheck, DUPLICATE_CONFIRM_TOAST } from "@/components/TransactionDuplicateWarning";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/mock-data";
@@ -125,7 +126,7 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
 
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
-        .select("id, description, amount, iva_rate, date, event_id, status, account_categories(name)")
+        .select("id, description, amount, iva_rate, date, event_id, status, supplier_id, invoice_ref, account_categories(name)")
         .in("event_id", allTreeIds)
         .eq("type", "expense")
         .not("status", "in", "(paid,reversed)")
@@ -188,6 +189,19 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
     const { error: auditErr } = await supabase.from("transaction_audit_log").insert(auditEntries as any);
     if (auditErr) throw auditErr;
   }
+
+  // #284 — só regra (a): aqui o comprovativo é muitas vezes talão/extrato sem
+  // ref; com a regra (b) o aviso dispararia em quase tudo. Sem ref, não avisa.
+  const selectedTxForDup: any = (availableTransactions as any[]).find((t: any) => t.id === selectedTransactionId);
+  const dupCheck = useTransactionDuplicateCheck({
+    enabled: !!selectedTxForDup,
+    supplierId: selectedTxForDup?.supplier_id ?? null,
+    invoiceRef: selectedTxForDup?.invoice_ref ?? null,
+    amount: Number(selectedTxForDup?.amount ?? 0),
+    date: selectedTxForDup?.date ?? null,
+    excludeTransactionId: selectedTxForDup?.id ?? null,
+    onlyInvoiceRefRule: true,
+  });
 
   const addMutation = useMutation({
     mutationFn: async () => {
@@ -346,6 +360,7 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
               />
             </div>
           </div>
+          <TransactionDuplicateWarning state={dupCheck} />
           <div className="grid gap-3 sm:grid-cols-3 items-end">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Data do pagamento pelo sócio</label>
@@ -354,7 +369,10 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
             <div className="sm:col-span-2 flex items-end">
               <Button
                 size="sm"
-                onClick={() => addMutation.mutate()}
+                onClick={() => {
+                  if (dupCheck.needsConfirmation) { toast(DUPLICATE_CONFIRM_TOAST); return; }
+                  addMutation.mutate();
+                }}
                 disabled={!selectedPartnerId || !selectedTransactionId || !paidDate || addMutation.isPending}
               >
                 {canApprove ? "Vincular e marcar como paga" : "Propor vinculação"}
