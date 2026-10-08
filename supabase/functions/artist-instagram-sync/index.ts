@@ -115,6 +115,12 @@ function isNoData(body: any): boolean {
   return body?.error?.code === 10;
 }
 
+// D-ERP187: #200 (Permissions error) — a métrica não está disponível para
+// esse story com o token 'meta' (ex.: story anterior a 01/07/2026).
+function isPermissionsError(body: any): boolean {
+  return body?.error?.code === 200 || /permissions error/i.test(String(body?.error?.message ?? ""));
+}
+
 // deno-lint-ignore no-explicit-any
 async function runStories(req: Request, admin: any, masterKey: string, body: { artist_id?: string; connection_id?: string; dry_run?: boolean }) {
   const dryRun = body.dry_run === true;
@@ -130,7 +136,7 @@ async function runStories(req: Request, admin: any, masterKey: string, body: { a
     dry_run: dryRun,
     artist_id: body.artist_id ?? null,
   });
-  let apiCalls = 0, storiesLidos = 0, metricasGravadas = 0, semDados = 0;
+  let apiCalls = 0, storiesLidos = 0, metricasGravadas = 0, semDados = 0, metaNaoSuportada = 0;
   const erros: string[] = [];
   const porLigacao: Array<Record<string, unknown>> = [];
   const { data: conns, error: cErr } = await q;
@@ -231,6 +237,9 @@ async function runStories(req: Request, admin: any, masterKey: string, body: { a
             apiCalls++;
             if (r.ok) return r.body?.data ?? [];
             if (isNoData(r.body)) { noData = true; return null; }
+            // D-ERP187: #200 (Permissions error) com o token 'meta' = métrica
+            // não suportada nesse story → ignora só essa métrica, sem erro.
+            if (isPermissionsError(r.body)) { metaNaoSuportada++; return null; }
             if (metricUnsupported(r.body) || /does not support/i.test(String(r.body?.error?.message ?? ""))) return null;
             erros.push(`story ${m.id} meta ${metric}: ${r.body?.error?.message ?? r.status}`);
             return null;
@@ -266,7 +275,7 @@ async function runStories(req: Request, admin: any, masterKey: string, body: { a
     }
     porLigacao.push(per);
   }
-  const details = { stories_lidos: storiesLidos, metricas_gravadas: metricasGravadas, sem_dados: semDados, erros: erros.length, ligacoes: porLigacao };
+  const details = { stories_lidos: storiesLidos, metricas_gravadas: metricasGravadas, sem_dados: semDados, meta_nao_suportada: metaNaoSuportada, erros: erros.length, ligacoes: porLigacao };
   await finishSyncRun(admin, runId, startedMs, {
     status: resolveStatus(metricasGravadas, erros.length),
     api_calls: apiCalls, rows_written: metricasGravadas, details,
