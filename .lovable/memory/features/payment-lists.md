@@ -219,3 +219,6 @@ O aviso conta exatamente a fase "Por pagar" do ecrã (issue #200): marcado → "
 Pagamento parcial válido conta como Liquidada nos dois (antes o aviso usava paid_amount vs bruto).
 Guardas de apagar/editar (ReimbursementNoteDetail, TransactionEditModal, ads-invoice-apply) continuam a contar
 QUALQUER linha: protegem o razão contra CASCADE, não decidem "liquidado".
+Saldo das contas (08/10/2026): `fetchAccountCashAdjustments` e as funções SQL `_account_true_balance_raw` /
+`_account_true_balance_asof_raw` (migração 0035) só somam retenção+crédito de pagamentos paid não estornados.
+`account_true_balances_asof` delega na _asof_raw. Prova: 26 saldos iguais antes/depois.
