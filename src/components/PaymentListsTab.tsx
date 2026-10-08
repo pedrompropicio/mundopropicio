@@ -339,7 +339,7 @@ export default function PaymentListsTab() {
           .select(
             "payment_list_id, removed_at, removed_reason, manually_marked_paid, transactions(id, amount, iva_rate, status)",
           ),
-        fetchAllPagedQuery(onlySettlingPayments(supabase.from("transaction_payments").select(SETTLEMENT_COLUMNS))),
+        fetchAllPagedQuery(onlySettlingPayments<any>((supabase as any).from("transaction_payments").select(SETTLEMENT_COLUMNS))),
       ]);
       if (itemsRes.error) throw itemsRes.error;
       if (paymentsRes.error) throw paymentsRes.error;
