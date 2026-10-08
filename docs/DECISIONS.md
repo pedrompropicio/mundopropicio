@@ -4997,6 +4997,8 @@ Problema: as RPCs de tráfego misturavam BR e PT e convertiam tudo para BRL; a c
 
 ## D-ERP187 — Ligação de canal Meta (Facebook Login) para link_clicks dos stories (08/10/2026)
 
+**Adenda (08/10/2026):** a app "MP Carreira Artistas" é do tipo Empresas — o arranque passa a usar o Login do Facebook para Empresas: `config_id=1799675897902961` (configuração de login "Carreira - Stories e Pagina", token de utilizador com as 4 permissões) em vez do parâmetro `scope`. `response_type=code`, `redirect_uri` e `state` mantêm-se. O config_id não é segredo (constante no código). O callback não muda: os 4 scopes continuam a ser gravados na ligação.
+
 - A ligação de canal provider 'meta' em artist_channel_connections vive no canal **facebook** do artista (Litto: 55fc3bec). A ligação 'instagram' (Instagram Login, canal instagram) não é tocada. Sem DDL: a regra de uma ligação por canal (UNIQUE artist_channel_id) é respeitada.
 - O fluxo usa artist-meta-oauth-start e artist-meta-oauth-callback (já existiam, adaptados). App própria "MP Carreira Artistas" (1698313077931137) via secrets CARREIRA_META_APP_ID / CARREIRA_META_APP_SECRET. Nunca usa META_APP_* do CRM (D-ERP68). Se faltarem, o arranque devolve "faltam CARREIRA_META_APP_ID/CARREIRA_META_APP_SECRET". O fluxo de anúncios do CRM não muda.
 - Scopes: instagram_basic, instagram_manage_insights, pages_read_engagement, pages_show_list. Callback: code → token longo → /me/accounts; escolhe a Página cujo instagram_business_account.id = external_account_id da ligação instagram do artista; grava token da Página cifrado (pgp_sym + ENCRYPTION_MASTER_KEY), external_account_id = IG, external_page_id, status 'active'. Sem correspondência → status 'error' com o motivo em last_error.
