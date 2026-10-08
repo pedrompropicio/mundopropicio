@@ -79,6 +79,7 @@ export function invalidateCardSessionQueries(
     ["card-sessions"],
     ["prepaid-cards-list"],
     ["prepaid-cards-tx"],
+    ["card-session-open-items-by-session"],
     ["financial-accounts"],
     ["financial-accounts-tx-summary"],
     ["financial-accounts-cash-adjustments"],
