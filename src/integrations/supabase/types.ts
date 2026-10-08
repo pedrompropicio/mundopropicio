@@ -14240,6 +14240,7 @@ export type Database = {
       }
       system_reminders: {
         Row: {
+          company_id: string | null
           completed_at: string | null
           completed_by: string | null
           created_at: string
@@ -14259,6 +14260,7 @@ export type Database = {
           whatsapp_recipient: string | null
         }
         Insert: {
+          company_id?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
@@ -14278,6 +14280,7 @@ export type Database = {
           whatsapp_recipient?: string | null
         }
         Update: {
+          company_id?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
@@ -18649,7 +18652,10 @@ export type Database = {
           title: string
         }[]
       }
-      check_ticketing_sync_health: { Args: never; Returns: Json }
+      check_ticketing_sync_health: {
+        Args: { _dry_run?: boolean }
+        Returns: Json
+      }
       cleanup_old_backups: {
         Args: never
         Returns: {
@@ -19902,6 +19908,10 @@ export type Database = {
           account_id: string
           balance: number
         }[]
+      }
+      ticketing_health_mark_notified: {
+        Args: { _company: string }
+        Returns: undefined
       }
       ticketline_crosscheck_signals: {
         Args: { _as_of?: string }

@@ -91,3 +91,15 @@ Migração `0034_derp189_onebox_sync_health.sql` (patch por replace sobre a defi
 - Cron `ticketing-sync-health` (jobid 217) desactivado por ordem do Pedro: 16 emails/dia e destinatários juntados por papel SEM filtro de empresa (chegava a manager de outra empresa, 7d831e59). Não reactivar antes de corrigir isso.
 - `ticketline-crosscheck-daily` continua a escrever. O ecrã lê a MESMA detecção: RPC `get_ticketing_divergences()` (SECURITY DEFINER, anon=false, authenticated=true) = `ticketline_crosscheck_signals()` filtrado por `row_belongs_to_current_company` + última leitura + dias seguidos com status `divergente`.
 - UI: `TicketingDivergenceIndicator` ao lado de "Por bilheteira" no `SalesPositionWidget`; sem divergências não desenha nada; (g) diz por palavras "problema do fornecedor".
+
+## Isolamento por empresa (D-ERP193, Issue #282, 08/10/2026)
+- Assinatura: `check_ticketing_sync_health(_dry_run boolean default false)` — NÃO envia email; faz lembretes por empresa
+  (`system_reminders.key = 'ticketing_sync_stalled:<company_id>'`, coluna `company_id`, policy RESTRICTIVE) e devolve
+  `plano_por_empresa` [{company_id, recipients, itens, status: enviar|ja_enviado_hoje|sem_destinatarios|sem_alertas_email}].
+- Destinatários: admin/manager/platform_admin com `user_roles.company_id = empresa`. platform_admin NÃO atravessa empresas.
+  Sem destinatários → não envia + `system_audit_log action='no_recipients'`. Fallback CC global removido.
+- Envio: edge `ticketing-sync-health` (só service_role; dry_run default). 1 email/dia/empresa com todas as condições;
+  marca `sync_notifications_sent(company_id,'health_company_daily')` só depois de enviar. Substitui o anti-spam por config acima.
+- Cron 217 continua desactivado; o comando actual já não envia. Reactivar = apontar à edge com `{"dry_run":false}`.
+- Prova 08/10: plano real = 1 empresa (7c858982, condição g ×2) → 3 emails/dia (matheuslcoelho, pedroneto, producao@mundopropicio);
+  antes 16–32/dia. michel.silva só está na lista da 7d831e59.

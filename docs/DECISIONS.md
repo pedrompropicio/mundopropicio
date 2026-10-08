@@ -5033,3 +5033,17 @@ Contexto: a vigia mandava 16 emails/dia e juntava destinatários por papel sem f
 manager da 7d831e59). Cron ticketing-sync-health desactivado. Decisão: o Dashboard mostra um ícone discreto ao lado de
 "Por bilheteira" só quando há divergência; janela com detalhe. Fonte: RPC `get_ticketing_divergences()` sobre a mesma
 `ticketline_crosscheck_signals()` (sem segunda regra), isolada por `row_belongs_to_current_company`. Migração 0037.
+
+## D-ERP193 — Alertas isolados por empresa; 1 email/dia/empresa (Issue #282, 08/10/2026)
+Contexto: `check_ticketing_sync_health()` juntava destinatários admin/manager/platform_admin de TODAS as empresas e mandava
+cada bloco por empresa à lista toda (manager da 7d831e59 recebeu números da Mundo Propício); 16–32 emails/dia.
+Decisão: (1) destinatários calculados POR empresa (`ur.company_id = empresa`); platform_admin só entra se tiver papel NESSA
+empresa (sem atravessar empresas); sem destinatários → não envia, `RAISE WARNING` + `system_audit_log` `no_recipients`; acabou o
+fallback global `BILHETEIRA_SYNC_NOTIFY_CC`. (2) 1 email por dia (Lisboa) por empresa com TODAS as condições, anti-spam
+`sync_notifications_sent(config_id=company_id, sync_type='health_company_daily')`. (3) O envio saiu da base: a função devolve
+`plano_por_empresa` (aceita `_dry_run`) e a edge function `ticketing-sync-health` (dry_run default; `dry_run:false` explícito) envia
+e marca via `ticketing_health_mark_notified`. Cron 217 continua desactivado e, se reactivado como está, já não envia nada —
+reactivar = apontá-lo à edge function (decisão do Pedro). (4) `system_reminders.company_id` + policy RESTRICTIVE: o lembrete
+da vigia passa a `ticketing_sync_stalled:<empresa>` (antes um admin de outra empresa via o texto global). Varredura: mesmo
+padrão corrigido em `check-login-rate` (alerta de segurança ia a todos os admins) e `bilheteira-sync` (lista fixa dos secrets
+filtrada aos membros da empresa). Migração 0038.
