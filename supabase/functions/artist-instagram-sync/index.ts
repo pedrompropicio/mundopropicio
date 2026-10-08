@@ -130,7 +130,7 @@ async function runStories(req: Request, admin: any, masterKey: string, body: { a
     dry_run: dryRun,
     artist_id: body.artist_id ?? null,
   });
-  let apiCalls = 0, storiesLidos = 0, metricasGravadas = 0, semDados = 0;
+  let apiCalls = 0, storiesLidos = 0, metricasGravadas = 0, semDados = 0, metaNaoSuportada = 0;
   const erros: string[] = [];
   const porLigacao: Array<Record<string, unknown>> = [];
   const { data: conns, error: cErr } = await q;
