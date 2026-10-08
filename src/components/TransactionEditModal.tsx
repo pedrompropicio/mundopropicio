@@ -1127,6 +1127,8 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     invoiceRef: form.invoice_ref,
     amount: parseFloat(String(form.amount)) || 0,
     date: form.date,
+    description: form.description,
+    eventId: form.event_id || null,
     excludeTransactionId: transaction.id,
   });
   const isApproved = transaction.status === "approved";

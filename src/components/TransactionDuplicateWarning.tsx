@@ -31,6 +31,8 @@ export function useTransactionDuplicateCheck(input: HookInput) {
       normalizeInvoiceRef(input.invoiceRef),
       amountKey,
       input.date,
+      (input.description ?? "").trim().toLowerCase(),
+      input.eventId ?? null,
       input.excludeTransactionId ?? null,
       !!input.onlyInvoiceRefRule,
     ],
@@ -58,6 +60,25 @@ const STATUS_LABEL: Record<string, string> = {
   partial: "Paga parcialmente",
 };
 
+const TEXTS: Record<string, { title: string; text: string }> = {
+  invoice_ref: {
+    title: "Possível fatura repetida deste fornecedor",
+    text: "Já existe uma despesa deste fornecedor com o mesmo nº de fatura. Se for o mesmo documento, gravar vai lançá-lo uma segunda vez. Se for uma fatura repartida por várias linhas ou uma proforma, podes gravar.",
+  },
+  amount_date: {
+    title: "Possível despesa repetida deste fornecedor",
+    text: "Já existe uma despesa deste fornecedor com o mesmo valor a menos de 30 dias. Se for o mesmo talão, gravar vai lançá-lo uma segunda vez. Se for uma repetição real, podes gravar.",
+  },
+  description: {
+    title: "Possível despesa repetida neste evento",
+    text: "Já existe uma despesa com a mesma descrição neste evento, com o mesmo valor ou o mesmo fornecedor. Se for a mesma despesa, gravar vai lançá-la uma segunda vez. Se for uma repetição real, podes gravar.",
+  },
+  mixed: {
+    title: "Possível despesa repetida",
+    text: "Já existem despesas parecidas com esta (mesmo nº de fatura, mesmo valor a menos de 30 dias ou mesma descrição no evento). Se for o mesmo documento, gravar vai lançá-lo uma segunda vez. Se for uma fatura repartida, uma proforma ou uma repetição real, podes gravar.",
+  },
+};
+
 const fmt = (v: number) => new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(v);
 const fmtDate = (d: string | null) => {
   const p = String(d ?? "").slice(0, 10).split("-");
@@ -71,12 +92,14 @@ export function TransactionDuplicateWarning({
 }) {
   const { candidates, confirmed, setConfirmed } = state;
   if (candidates.length === 0) return null;
-  const byRef = candidates[0].rule === "invoice_ref";
+  const rules = new Set(candidates.map((c) => c.rule));
+  const only = rules.size === 1 ? candidates[0].rule : null;
+  const { title, text } = TEXTS[only ?? "mixed"];
   return (
     <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
       <p className="flex items-center gap-2 font-semibold text-amber-600">
         <AlertTriangle className="h-4 w-4" />
-        {byRef ? "Possível fatura repetida deste fornecedor" : "Possível despesa repetida deste fornecedor"}
+        {title}
       </p>
       <ul className="mt-2 space-y-1">
         {candidates.map((t) => (
@@ -93,9 +116,7 @@ export function TransactionDuplicateWarning({
         ))}
       </ul>
       <p className="mt-2 text-xs text-muted-foreground">
-        {byRef
-          ? "Já existe uma despesa deste fornecedor com o mesmo nº de fatura. Se for o mesmo documento, gravar vai lançá-lo uma segunda vez. Se for uma fatura repartida por várias linhas ou uma proforma, podes gravar."
-          : "Já existe uma despesa deste fornecedor com o mesmo valor a menos de 30 dias. Se for o mesmo talão, gravar vai lançá-lo uma segunda vez. Se for uma repetição real, podes gravar."}
+        {text}
       </p>
       <label className="mt-2 flex items-center gap-2 text-xs font-medium">
         <Checkbox checked={confirmed} onCheckedChange={(v) => setConfirmed(v === true)} />

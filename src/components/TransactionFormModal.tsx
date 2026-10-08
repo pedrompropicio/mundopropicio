@@ -571,6 +571,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     invoiceRef: form.invoice_ref,
     amount: parseFloat(form.amount) || 0,
     date: form.date,
+    description: form.description,
+    eventId: form.event_id || null,
   });
 
   const { data: financialAccounts = [] } = useQuery({
