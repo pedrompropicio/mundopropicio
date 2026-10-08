@@ -19881,6 +19881,23 @@ export type Database = {
           balance: number
         }[]
       }
+      ticketline_crosscheck_signals: {
+        Args: { _as_of?: string }
+        Returns: {
+          as_of: string
+          company_id: string
+          cond_e: boolean
+          cond_g: boolean
+          config_id: string
+          event_id: string
+          event_name: string
+          n_days: number
+          series: string
+          sum_ours: number
+          sum_pdf: number
+          sum_xlsx: number
+        }[]
+      }
       ticketline_sync_runs_compact_audit: {
         Args: { _days?: number }
         Returns: {
