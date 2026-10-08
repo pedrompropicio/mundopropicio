@@ -4489,6 +4489,15 @@ A Soundcharts não grava Deezer em `artist_metrics_daily` (0 linhas a 24/09). O 
 - `song-link-event` aceita `ttp` (cookie _ttp) e envia à Events API 2.0 (`POST https://business-api.tiktok.com/open_api/v1.3/event/track/`, header `Access-Token` = secret `TIKTOK_EVENTS_ACCESS_TOKEN`, `event_source:'web'`, `event_source_id` = pixel): `ViewContent` (arrival) / `ClickButton` (choice), mesmo `event_id` do browser, `user {ttclid, ttp, ip, user_agent}`, `page {url}`, `properties {content_id, content_name, contents, destination}`. Sucesso = HTTP 200 e `code=0`. Nunca faz falhar o pedido; IP não é guardado.
 - Códigos de teste: `meta_test_event_code` e `tiktok_test_event_code` (alfanuméricos 3–40) passam como `test_event_code` às duas APIs; não são gravados.
 
+### Adenda D-ERP141 — Smart links de playlist (song_id NULL) (08/10/2026)
+
+DDL já em Live: `song_links.song_id` nullable + `link_type` ('song'|'playlist') com check `song_links_song_obrigatoria`. Primeiro link: `litto-playlist` (268b4f6b-9abf-4f83-9729-fe7c15903a4d).
+
+- `song-link-event`: `contentId = link.song_id ?? link.id` em `custom_data.content_ids` (Meta) e `properties.content_id` / `contents[].content_id` (TikTok; evita erro 40002 e `content_ids [null]`). `content_name` = título do link; `content_type` = `product_group` para playlist.
+- `song_link_health_run` (migração 0042): o alarme de queda ao nível da música agrupa por `coalesce(song_id, link.id)` — cada playlist é a sua própria "música".
+- `artist_song_link_stats` e `artist_ads_period_report` filtram por `artist_id` e canal do evento: as chegadas de playlist entram sem alteração.
+- Prova 08/10 15:29 UTC: evento 3e9f4981 (utm_source teste_chat2), capi_status=enviado, tiktok_status=enviado.
+
 ## D-ERP144 — TikTok na app: via provisória manual, compatível com o sync definitivo (25/09/2026)
 
 **Decisão.** Os anúncios TikTok de artista passam a ter tabelas próprias em `crm`, espelho das Google (D-ERP90–93): `crm.tiktok_campaign` (UNIQUE connection_id+external_campaign_id), `crm.tiktok_adgroup` (UNIQUE connection_id+external_adgroup_id) e `crm.tiktok_insights_daily` (UNIQUE connection_id+level+external_id+date_start; level `campaign|adgroup|ad`). Todas com `source` `manual|api`. Enquanto a app da Marketing API está em revisão, os dados entram à mão (leitura do Ads Manager pelo Cowork) pela RPC `public.artist_ads_tiktok_manual_upsert`.
