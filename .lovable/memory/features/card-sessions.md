@@ -368,3 +368,9 @@ O `close-card-session` grava os números do fecho no topo do `closing_summary` O
 - **Sequência correta:** reduzir a linha de `transaction_payments`, reduzir `amount` e `paid_amount` da transação, repor `status` e `payment_date`, e conferir o saldo da conta no fim.
 - **Desde 07/10/2026** a reposição manual de `status` e `payment_date` deixou de ser necessária: o trigger `zz_rederive_paid_amount_on_amount_change` re-deriva o estado quando `amount` ou `iva_rate` mudam. Ver `.lovable/memory/features/payment-amount-invariants.md` (secção "Re-derivação do estado ao alterar amount/iva_rate").
 - `transactions.payment_method` é NOT NULL e o CHECK só aceita `transfer`, `service_payment`, `direct_debit`, `state_payment`, `compensation`. Não existe valor "card".
+
+## Colisão de queryKey (ecrã branco, 08/10/2026)
+
+- **Causa:** `CardSessions.tsx` (lista) usava `queryKey ["card-session-items", openSessionIds.join(",")]` devolvendo um `Map<session_id, total>`, enquanto `CardSessionDetail.tsx` usava `["card-session-items", id]` devolvendo um array. Com UMA só sessão aberta, `openSessionIds.join(",")` é igual ao id — mesma chave, shapes diferentes. O detalhe lia o Map e rebentava ("TypeError: ne.map is not a function" no useMemo → ecrã branco em `/cartoes/<id>`).
+- **Correção:** a query da lista passou a `["card-session-open-items-by-session", openSessionIds.join(",")]` e `invalidateCardSessionQueries` invalida a raiz nova (`card-session-helpers.ts`).
+- **Regra:** a raiz de uma queryKey identifica o SHAPE dos dados — nunca reutilizar a mesma raiz para um agregado e para uma lista, porque `ids.join(",")` com um id só é indistinguível do id.

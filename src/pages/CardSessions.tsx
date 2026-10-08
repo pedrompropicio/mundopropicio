@@ -86,7 +86,7 @@ export default function CardSessions() {
 
   const openSessionIds = (sessions as any[]).filter((s) => s.status !== "closed").map((s) => s.id);
   const { data: openItemsBySession } = useQuery({
-    queryKey: ["card-session-items", openSessionIds.join(",")],
+    queryKey: ["card-session-open-items-by-session", openSessionIds.join(",")],
     enabled: openSessionIds.length > 0,
     queryFn: async () => {
       const { data, error: qErr3 } = await supabase
