@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { TransactionDuplicateWarning, useTransactionDuplicateCheck, DUPLICATE_CONFIRM_TOAST } from "@/components/TransactionDuplicateWarning";
 import { formatCurrency } from "@/lib/mock-data";
 import { X, FileText, Calendar, Building2, Wallet, ArrowDown, Plus, Trash2, AlertTriangle, Split } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -421,10 +422,24 @@ export function CacheTransactionModal({
    * escolhida/criada pelo utilizador (mesmo fluxo de src/pages/Transactions.tsx).
    * Cachê variável: o módulo garante a linha, sem intervenção.
    */
+  // #284 — aviso de duplicação (regras a+b). Cachê não tem nº de fatura no
+  // modal → na prática corre a regra (b) sobre a 1ª parte (fornecedor+valor+data de hoje).
+  const dupCheck = useTransactionDuplicateCheck({
+    enabled: open,
+    supplierId: effectiveParts[0]?.supplierId || null,
+    invoiceRef: null,
+    amount: effectiveParts[0]?.amount || 0,
+    date: new Date().toISOString().split("T")[0],
+  });
+
   const [raiseLines, setRaiseLines] = useState<BudgetExcessLine[] | null>(null);
   const [pickedForecastId, setPickedForecastId] = useState<string | null>(null);
 
   const handleSubmit = async () => {
+    if (dupCheck.needsConfirmation) {
+      toast(DUPLICATE_CONFIRM_TOAST);
+      return;
+    }
     if (isFixedCache) {
       try {
         const withBp = await fetchWithBpEventIds([eventId]);
@@ -757,6 +772,11 @@ export function CacheTransactionModal({
 
         </div>
 
+        {dupCheck.candidates.length > 0 && (
+          <div className="px-5 pb-3 shrink-0">
+            <TransactionDuplicateWarning state={dupCheck} />
+          </div>
+        )}
         {/* Footer */}
         <div className="flex items-center justify-between gap-2 border-t border-border px-5 py-4 shrink-0">
           <div className="text-xs text-muted-foreground">
