@@ -1,5 +1,6 @@
-// artist-meta-oauth-start — inicia a ligação oficial do Instagram de um artista
-// (Instagram API with Facebook Login). Só backend: devolve o URL de autorização.
+// artist-meta-oauth-start — inicia a ligação de CANAL Meta do artista (Facebook
+// Login, D-ERP187), no canal facebook. Dá link_clicks/total_views dos stories e
+// o fan_count da Página. Só backend: devolve o URL de autorização.
 //
 // JWT obrigatório (verify_jwt = true). Papéis aceites: admin, platform_admin,
 // manager, editor. service_role também é aceite (uso interno).
@@ -36,8 +37,13 @@ Deno.serve(async (req) => {
   ]);
   if (!caller.allowed) return json({ error: caller.reason ?? "not authorized" }, 403);
 
-  const appId = Deno.env.get("META_APP_ID");
-  if (!appId) return json({ error: "META_APP_ID não configurado" }, 500);
+  // D-ERP187: app própria da Carreira ("MP Carreira Artistas"). Nunca usa
+  // META_APP_* do CRM (D-ERP68 separa as duas apps).
+  const appId = (Deno.env.get("CARREIRA_META_APP_ID") ?? "").trim();
+  const appSecretSet = !!(Deno.env.get("CARREIRA_META_APP_SECRET") ?? "").trim();
+  if (!appId || !appSecretSet) {
+    return json({ error: "faltam CARREIRA_META_APP_ID/CARREIRA_META_APP_SECRET" }, 500);
+  }
 
   let body: { artist_channel_id?: string; return_url?: string };
   try {
@@ -61,11 +67,10 @@ Deno.serve(async (req) => {
 
   if (chErr) return json({ error: chErr.message }, 500);
   if (!channel) return json({ error: "canal não encontrado" }, 404);
-  if (channel.platform !== "instagram") {
-    return json({ error: "o canal não é de Instagram" }, 400);
-  }
-  if (!channel.handle) {
-    return json({ error: "o canal não tem handle definido" }, 400);
+  // D-ERP187: a ligação 'meta' vive no canal FACEBOOK do artista; a ligação
+  // 'instagram' (Instagram Login) do canal instagram não é tocada.
+  if (channel.platform !== "facebook") {
+    return json({ error: "o canal não é de Facebook (D-ERP187: a ligação meta usa o canal facebook)" }, 400);
   }
 
   // Isolamento multi-empresa: o utilizador tem de pertencer à empresa do canal.
