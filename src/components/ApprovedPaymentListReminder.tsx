@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { calcWithIva } from "@/lib/utils";
+import { listItemPhase, onlySettlingPayments, settledTxIdsFrom, SETTLEMENT_COLUMNS } from "@/lib/payment-settlement";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -53,7 +53,19 @@ export function ApprovedPaymentListReminder() {
         .order("approved_at", { ascending: false });
 
       if (error) throw error;
-      return data ?? [];
+      const lists = (data ?? []) as any[];
+      // Regra única (D-ERP86/D-ERP157): só pagamentos 'paid' não estornados liquidam.
+      const txIds = [...new Set(lists.flatMap((l) =>
+        (l.payment_list_items ?? []).map((i: any) => i.transactions?.id).filter(Boolean)))];
+      let settled = new Set<string>();
+      for (let i = 0; i < txIds.length; i += 200) {
+        const { data: pays, error: pErr } = await onlySettlingPayments(
+          supabase.from("transaction_payments").select(SETTLEMENT_COLUMNS),
+        ).in("transaction_id", txIds.slice(i, i + 200));
+        if (pErr) throw pErr;
+        for (const id of settledTxIdsFrom(pays as any[])) settled.add(id);
+      }
+      return lists.map((l) => ({ ...l, settledTxIds: settled }));
     },
   });
 
@@ -61,13 +73,14 @@ export function ApprovedPaymentListReminder() {
     const listsWithUnpaid = approvedLists
       .map((list: any) => {
         const unpaidCount = (list.payment_list_items ?? []).filter((item: any) => {
-          if (item.manually_marked_paid) return false;
+          // Mesma regra de fases do ecrã da lista (issue #200): conta só "Por pagar".
           if (item.removed_at) return false;
           const tx = item.transactions;
           if (!tx) return false;
-          const totalWithIva = calcWithIva(Number(tx.amount ?? 0), Number(tx.iva_rate ?? 23));
-          const paid = Number(tx.paid_amount ?? 0);
-          return tx.status !== "paid" && paid < totalWithIva - 0.05;
+          return listItemPhase({
+            txId: tx.id, txStatus: tx.status, manuallyMarkedPaid: item.manually_marked_paid,
+            settledTxIds: list.settledTxIds ?? new Set<string>(),
+          }) === "unpaid";
         }).length;
 
         return {
