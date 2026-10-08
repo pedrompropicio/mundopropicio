@@ -59,8 +59,8 @@ export function ApprovedPaymentListReminder() {
         (l.payment_list_items ?? []).map((i: any) => i.transactions?.id).filter(Boolean)))];
       let settled = new Set<string>();
       for (let i = 0; i < txIds.length; i += 200) {
-        const { data: pays, error: pErr } = await onlySettlingPayments(
-          supabase.from("transaction_payments").select(SETTLEMENT_COLUMNS),
+        const { data: pays, error: pErr } = await onlySettlingPayments<any>(
+          (supabase as any).from("transaction_payments").select(SETTLEMENT_COLUMNS),
         ).in("transaction_id", txIds.slice(i, i + 200));
         if (pErr) throw pErr;
         for (const id of settledTxIdsFrom(pays as any[])) settled.add(id);
