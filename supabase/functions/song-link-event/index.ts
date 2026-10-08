@@ -172,6 +172,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .maybeSingle();
   if (linkErr) return json({ ok: false, error: "erro_interno" }, 500, origin);
   if (!link || !link.active) return json({ ok: false, error: "link_inexistente" }, 404, origin);
+  const contentId: string = link.song_id ?? link.id;
 
   const ua = req.headers.get("user-agent") ?? "";
   const { device, os, in_app_browser } = parseUA(ua);
