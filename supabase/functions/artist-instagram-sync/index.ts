@@ -146,6 +146,18 @@ async function runStories(req: Request, admin: any, masterKey: string, body: { a
       const t = Array.isArray(tok) ? tok[0] : tok;
       if (!t?.access_token) throw new Error("token não disponível");
       const token: string = t.access_token;
+      // D-ERP187: ligação de canal 'meta' (Facebook Login) do mesmo artista →
+      // link_clicks e total_views por story. Sem ela, nada muda.
+      let metaToken: string | null = null;
+      const { data: metaConn } = await admin.from("artist_channel_connections")
+        .select("id").eq("artist_id", conn.artist_id).eq("provider", "meta").eq("status", "active")
+        .limit(1).maybeSingle();
+      if (metaConn?.id) {
+        const { data: mt } = await admin.rpc("artist_get_connection_token", { p_connection_id: metaConn.id, p_master_key: masterKey });
+        const mtr = Array.isArray(mt) ? mt[0] : mt;
+        metaToken = mtr?.access_token ?? null;
+        per.meta_connection_id = metaConn.id;
+      }
       const st = await graphGet("me/stories", {
         fields: "id,media_type,media_product_type,permalink,timestamp,thumbnail_url,media_url",
         limit: "100",
@@ -209,6 +221,32 @@ async function runStories(req: Request, admin: any, masterKey: string, body: { a
             const v = toCount(r?.value);
             if (!k || v === null) continue;
             vals[k === "bio_link_clicked" ? "bio_link_clicked" : `profile_activity_${k}`] = v;
+          }
+        }
+        if (!noData && metaToken) {
+          // Só na Instagram API with Facebook Login. Métrica não suportada
+          // (ex.: story anterior a 01/07/2026) → ignora só essa.
+          const pedirMeta = async (metric: string) => {
+            const r = await graphGet(`${m.id}/insights`, { metric }, metaToken!, GRAPH);
+            apiCalls++;
+            if (r.ok) return r.body?.data ?? [];
+            if (isNoData(r.body)) { noData = true; return null; }
+            if (metricUnsupported(r.body) || /does not support/i.test(String(r.body?.error?.message ?? ""))) return null;
+            erros.push(`story ${m.id} meta ${metric}: ${r.body?.error?.message ?? r.status}`);
+            return null;
+          };
+          let md = await pedirMeta("link_clicks,total_views");
+          if (md === null && !noData) {
+            md = [];
+            for (const mt of ["link_clicks", "total_views"]) {
+              const r = await pedirMeta(mt);
+              if (noData) break;
+              if (r) md.push(...r);
+            }
+          }
+          for (const e of md ?? []) {
+            const v = toCount(e?.values?.[0]?.value ?? e?.total_value?.value);
+            if (v !== null && (e.name === "link_clicks" || e.name === "total_views")) vals[e.name] = v;
           }
         }
         if (noData) { semDados++; continue; }
@@ -289,7 +327,12 @@ Deno.serve(async (req) => {
     artist_id: body.artist_id ?? null,
   });
 
-  const { data: connections, error: cErr } = await q;
+  const { data: connectionsRaw, error: cErr } = await q;
+  // D-ERP187: uma ligação 'meta' de um artista que já tem 'instagram' activa
+  // serve só os stories (link_clicks/total_views) e o fan_count; não repete o
+  // sync diário do IG.
+  const igArtists = new Set((connectionsRaw ?? []).filter((c: any) => c.provider === "instagram").map((c: any) => c.artist_id));
+  const connections = (connectionsRaw ?? []).filter((c: any) => !(c.provider === "meta" && igArtists.has(c.artist_id)));
   if (cErr) {
     // falhou antes de gravar
     await finishSyncRun(admin, runId, startedMs, {
