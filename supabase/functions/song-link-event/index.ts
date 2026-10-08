@@ -167,7 +167,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
   const { data: link, error: linkErr } = await admin
     .from("song_links")
-    .select("id, company_id, artist_id, song_id, title, meta_pixel_id, tiktok_pixel_id, active")
+    .select("id, company_id, artist_id, song_id, link_type, title, meta_pixel_id, tiktok_pixel_id, active")
     .eq("slug", slug)
     .maybeSingle();
   if (linkErr) return json({ ok: false, error: "erro_interno" }, 500, origin);
@@ -231,7 +231,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
                 action_source: "website",
                 event_source_url: pageUrl ?? undefined,
                 user_data,
-                custom_data: { content_name: link.title ?? slug, content_ids: [link.song_id], destination: destination ?? undefined },
+                custom_data: { content_name: link.title ?? slug, content_ids: [contentId], destination: destination ?? undefined },
               }],
               access_token: token,
               ...(metaTest ? { test_event_code: metaTest } : {}),
@@ -276,10 +276,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
                 user,
                 page: { url: pageUrl ?? undefined },
                 properties: {
-                  content_id: link.song_id,
+                  content_id: contentId,
                   content_name: link.title ?? slug,
-                  content_type: "product",
-                  contents: [{ content_id: link.song_id, content_name: link.title ?? slug }],
+                  content_type: link.link_type === "playlist" ? "product_group" : "product",
+                  contents: [{ content_id: contentId, content_name: link.title ?? slug }],
                   destination: destination ?? undefined,
                 },
               }],
