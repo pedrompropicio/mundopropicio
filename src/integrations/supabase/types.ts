@@ -13256,9 +13256,10 @@ export type Database = {
           default_mode: string
           destinations: Json
           id: string
+          link_type: string
           meta_pixel_id: string | null
           slug: string
-          song_id: string
+          song_id: string | null
           tiktok_pixel_id: string | null
           title: string | null
           updated_at: string
@@ -13275,9 +13276,10 @@ export type Database = {
           default_mode: string
           destinations?: Json
           id?: string
+          link_type?: string
           meta_pixel_id?: string | null
           slug: string
-          song_id: string
+          song_id?: string | null
           tiktok_pixel_id?: string | null
           title?: string | null
           updated_at?: string
@@ -13294,9 +13296,10 @@ export type Database = {
           default_mode?: string
           destinations?: Json
           id?: string
+          link_type?: string
           meta_pixel_id?: string | null
           slug?: string
-          song_id?: string
+          song_id?: string | null
           tiktok_pixel_id?: string | null
           title?: string | null
           updated_at?: string
@@ -18442,9 +18445,10 @@ export type Database = {
           default_mode: string
           destinations: Json
           id: string
+          link_type: string
           meta_pixel_id: string | null
           slug: string
-          song_id: string
+          song_id: string | null
           tiktok_pixel_id: string | null
           title: string | null
           updated_at: string
