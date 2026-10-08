@@ -17593,6 +17593,20 @@ export type Database = {
           severity: string
         }[]
       }
+      _run_invariant_checks_duplicate_invoices: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _run_invariant_checks_extra: {
         Args: never
         Returns: {

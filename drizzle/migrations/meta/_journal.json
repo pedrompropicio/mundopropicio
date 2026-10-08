@@ -309,6 +309,13 @@
       "when": 1791480842154,
       "tag": "0043_derp196_283_parte4_backfill_pax_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1791485319889,
+      "tag": "0044_derp197_284_invariante_transacao_duplica_fatura",
+      "breakpoints": true
     }
   ]
 }
