@@ -19183,6 +19183,28 @@ export type Database = {
           revenue: number
         }[]
       }
+      get_ticketing_divergences: {
+        Args: never
+        Returns: {
+          bilheteira: string
+          condicao: string
+          config_id: string
+          dias: number
+          diff_qty: number
+          diff_value: number
+          event_id: string
+          event_name: string
+          last_read: string
+          our_qty: number
+          our_value: number
+          portal_qty: number
+          portal_value: number
+          series: string
+          sum_ours: number
+          sum_pdf: number
+          sum_xlsx: number
+        }[]
+      }
       get_user_max_daily_budget_eur: {
         Args: { _user_id: string }
         Returns: number
