@@ -5055,3 +5055,13 @@ explícita do `company_id` da linha com a empresa do utilizador). Um id recebido
 crédito, versão) é sempre validado contra a empresa antes de ler ou escrever. Corrigido nesta data (migração 0039):
 `lead_capture_admin_delete`, `sync_runs_select_authenticated`, `consent_log_select_admin`. Nota: o helper
 `row_belongs_to_current_company` deixa passar `company_id IS NULL` e o platform_admin por desenho.
+
+## D-ERP195 — Funções só-admin ficam como estão até à operação SaaS; platform_admin atravessa (Issue #283, 08/10/2026)
+Decisão do Pedro: (1) `platform_admin` continua a atravessar empresas — documentado, não restringido (helpers
+`row_belongs_to_current_company`, `_assert_row_company`, `_scope_event_ids_to_company` deixam-no passar). (2) Ficam sem
+guarda de empresa da linha: `reverse_payment`, `reverse_transaction`, `apply_supplier_credit`, `restore_bp_versions_from_trash`,
+`list_endorsable_companies`, `list_endorsable_events`. Razão: hoje o Pedro é o único admin. Condição de reabertura:
+"no dia em que existir um segundo admin". Corrigido nesta data (só o explorável por não-admin): probe-fever-login apagada;
+migração 0040 (12 SECDEF com `<nome>__impl` + invólucro que valida a empresa da linha); 6 edge functions de credenciais com
+`assertCallerRoleOnRow`; migração 0041 + invariantes `politicas_sem_predicado_empresa` (ref. 6) e `secdef_sem_guarda_empresa`
+(ref. 12 — eram 32 antes da 0040; só pode descer).
