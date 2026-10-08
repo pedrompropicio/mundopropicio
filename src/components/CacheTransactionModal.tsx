@@ -425,7 +425,6 @@ export function CacheTransactionModal({
   // #284 — aviso de duplicação (regras a+b). Cachê não tem nº de fatura no
   // modal → na prática corre a regra (b) sobre a 1ª parte (fornecedor+valor+data de hoje).
   const dupCheck = useTransactionDuplicateCheck({
-    enabled: open,
     supplierId: effectiveParts[0]?.supplierId || null,
     invoiceRef: null,
     amount: effectiveParts[0]?.amount || 0,

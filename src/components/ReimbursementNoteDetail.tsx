@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
+import { TransactionDuplicateWarning, useTransactionDuplicateCheck, DUPLICATE_CONFIRM_TOAST } from "@/components/TransactionDuplicateWarning";
 import { ArrowLeft, Plus, Trash2, CheckCircle, CreditCard, AlertTriangle, FileText, ExternalLink, Download, Paperclip, Pencil, RotateCcw } from "lucide-react";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
@@ -297,6 +298,21 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
     }
     approveMutation.mutate();
   };
+
+  // #284 — aviso de duplicação (regras a+b) sobre a transação de pagamento:
+  // sem nº de fatura → regra (b): mesmo colaborador + mesmo total ±30 dias.
+  const payGrossPreview = items.reduce(
+    (s: number, i: any) =>
+      s + Number(i.transactions?.amount || 0) * (1 + Number(i.transactions?.iva_rate || 0) / 100),
+    0,
+  );
+  const dupCheck = useTransactionDuplicateCheck({
+    enabled: showPayConfirm,
+    supplierId: (note as any)?.supplier_id ?? null,
+    invoiceRef: null,
+    amount: Math.round(payGrossPreview * 100) / 100,
+    date: new Date().toISOString().split("T")[0],
+  });
 
   const payMutation = useMutation({
     mutationFn: async () => {
@@ -690,11 +706,15 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           <p className="text-[11px] text-muted-foreground">
             A conta bancária de saída será escolhida no momento da liquidação da transação.
           </p>
+          <TransactionDuplicateWarning state={dupCheck} />
           <div className="flex gap-2">
             <Button size="sm" variant="ghost" onClick={() => setShowPayConfirm(false)}>Cancelar</Button>
             <Button
               size="sm"
-              onClick={() => payMutation.mutate()}
+              onClick={() => {
+                if (dupCheck.needsConfirmation) { toast(DUPLICATE_CONFIRM_TOAST); return; }
+                payMutation.mutate();
+              }}
               disabled={payMutation.isPending}
             >
               {payMutation.isPending ? "A gerar…" : "Gerar Transação"}
