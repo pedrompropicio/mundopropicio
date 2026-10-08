@@ -214,11 +214,8 @@ function describeChanges(
 }
 
 async function sendDigest(
-  admin: {
-    functions: {
-      invoke: (name: string, opts: { body: Record<string, unknown> }) => Promise<{ error: unknown }>;
-    };
-  },
+  // deno-lint-ignore no-explicit-any
+  admin: any,
   events: DigestEvent[],
   companyId: string | null,
 ): Promise<{ sent: boolean; reason?: string; recipients?: string[] }> {
@@ -276,7 +273,22 @@ async function sendDigest(
 
   const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
   // dedup preservando a ordem (TO primeiro, depois CC)
-  const recipients = [...new Set([...toList, ...ccList].map((e) => e.toLowerCase()))];
+  const secretRecipients = [...new Set([...toList, ...ccList].map((e) => e.toLowerCase()))];
+  // Issue #282: os secrets são uma lista fixa; só recebe quem tem papel na empresa dos eventos.
+  const { data: members } = await admin
+    .from("user_roles").select("user_id").eq("company_id", companyId);
+  const memberIds = [...new Set((members ?? []).map((m: any) => m.user_id))];
+  const { data: memberProfiles } = memberIds.length
+    ? await admin.from("profiles").select("email").in("id", memberIds)
+    : { data: [] };
+  const memberEmails = new Set((memberProfiles ?? []).map((p: any) => String(p.email ?? "").toLowerCase()));
+  const recipients = secretRecipients.filter((e) => memberEmails.has(e));
+  const excluded = secretRecipients.filter((e) => !memberEmails.has(e));
+  if (excluded.length) console.warn(`[bilheteira-sync] destinatários sem papel na empresa ${companyId} excluídos: ${excluded.length}`);
+  if (recipients.length === 0) {
+    console.error(`[bilheteira-sync] nenhum destinatário do secret pertence à empresa ${companyId} — digest não enviado (#282)`);
+    return { sent: false, reason: "no_recipient_in_company" };
+  }
 
   let sent = false;
   let reason: string | undefined;

@@ -236,20 +236,46 @@ async function sendSecurityAlert(
   attempts: number
 ) {
   try {
+    // Issue #282: só os admins da(s) empresa(s) do utilizador visado. Antes
+    // ia a TODOS os admins de TODAS as empresas.
+    const { data: target } = await supabaseAdmin
+      .from("profiles").select("id").ilike("email", targetEmail).maybeSingle();
+    const { data: targetRoles } = target
+      ? await supabaseAdmin.from("user_roles").select("company_id").eq("user_id", target.id)
+      : { data: [] as any[] };
+    const companyIds = [...new Set((targetRoles ?? []).map((r: any) => r.company_id).filter(Boolean))];
+
+    if (companyIds.length === 0) {
+      console.warn(`[check-login-rate] alerta não enviado: ${targetEmail} sem empresa conhecida (IP ${ip})`);
+      await supabaseAdmin.from("system_audit_log").insert({
+        entity_type: "security", entity_id: ip, action: "security_alert_no_company", changed_by: "system",
+        metadata: { target_email: targetEmail, ip_address: ip, verified_failed_attempts: attempts },
+      });
+      return;
+    }
+
     const { data: adminRoles } = await supabaseAdmin
       .from("user_roles")
-      .select("user_id")
-      .eq("role", "admin");
+      .select("user_id, company_id")
+      .eq("role", "admin")
+      .in("company_id", companyIds);
 
-    if (!adminRoles?.length) return;
+    const adminProfiles: { email: string; company_id: string }[] = [];
+    for (const r of (adminRoles ?? []) as any[]) {
+      const { data: p } = await supabaseAdmin.from("profiles").select("email").eq("id", r.user_id).maybeSingle();
+      if (p?.email && !adminProfiles.some((a) => a.email === p.email && a.company_id === r.company_id)) {
+        adminProfiles.push({ email: p.email, company_id: r.company_id });
+      }
+    }
 
-    const adminIds = adminRoles.map((r: any) => r.user_id);
-    const { data: adminProfiles } = await supabaseAdmin
-      .from("profiles")
-      .select("email, company_id")
-      .in("id", adminIds);
-
-    if (!adminProfiles?.length) return;
+    if (!adminProfiles.length) {
+      console.warn(`[check-login-rate] alerta não enviado: empresas ${companyIds.join(",")} sem admin com email`);
+      await supabaseAdmin.from("system_audit_log").insert({
+        entity_type: "security", entity_id: ip, action: "security_alert_no_recipients", changed_by: "system",
+        metadata: { target_email: targetEmail, ip_address: ip, company_ids: companyIds },
+      });
+      return;
+    }
 
     // Idempotency key now keyed on IP+hour, not email — one alert per IP/hour
     const hourKey = new Date().toISOString().slice(0, 13);
