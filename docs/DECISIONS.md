@@ -5027,3 +5027,9 @@ principal = variação diária do xlsx vs variação das nossas vendas (níveis 
 ≥ 10 e Σ3d PDF ≤ 20% disso = defeito do fornecedor; (4) email (e)/(g) 1×/dia. RPC `ticketline_crosscheck_signals`,
 migração 0036. Desvio do critério proposto para (g) ("3 deltas PDF = 0"): o PDF do Almada mexeu +2 a 05/10 e 08/10,
 o que nunca deixaria 3 zeros seguidos — a regra por soma apanha-o. Prova 03–08/10: (e) 0 alertas; (g) Braga 6/6 dias, Almada 5/6.
+
+## D-ERP192 — Avisos de divergência no ecrã, não por email (08/10/2026)
+Contexto: a vigia mandava 16 emails/dia e juntava destinatários por papel sem filtrar pela empresa do evento (chegou a um
+manager da 7d831e59). Cron ticketing-sync-health desactivado. Decisão: o Dashboard mostra um ícone discreto ao lado de
+"Por bilheteira" só quando há divergência; janela com detalhe. Fonte: RPC `get_ticketing_divergences()` sobre a mesma
+`ticketline_crosscheck_signals()` (sem segunda regra), isolada por `row_belongs_to_current_company`. Migração 0037.

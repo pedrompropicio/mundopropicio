@@ -17,3 +17,4 @@ type: feature
 - RPC `ticketline_crosscheck_signals(_as_of)` (service_role): 3 deltas diários seguidos terminando em _as_of. (e) = nos 3 dias |dx−dn| ≥ 5 E ≥ 50% do maior. (g) = Σdx ≥ 10 E Σdpdf ≤ 20% de Σdx → PDF parado com xlsx a mexer = defeito do fornecedor.
 - Email (e)/(g): 1 por dia (data de Lisboa), não 12h; sync_type `ticketline_crosscheck` / `ticketline_pdf_stale`. `nao_encontrado` deixou de alertar.
 - Prova 03–08/10: (e) silenciosa em todos os eventos; (g) dispara no Braga 03–08 e Almada 04–08 (03/10 não: xlsx só +4).
+- 08/10: email desligado; aviso passa ao Dashboard via `get_ticketing_divergences()` (D-ERP192), isolado por empresa.

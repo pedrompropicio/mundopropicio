@@ -86,3 +86,8 @@ Sem tabela de config: a linha `onebox` do universo é o evento H&K Madrid
 enquanto `events.date >= current_date`. Corridas de `onebox_sync_runs` (config_id = esse evento).
 Mesmas condições a/f/b, mesmo email, anti-spam 12h com `sync_type = 'onebox_health'`.
 Migração `0034_derp189_onebox_sync_health.sql` (patch por replace sobre a definição viva). Novo evento Onebox = acrescentar o id ali.
+
+## Canal de email DESLIGADO (08/10/2026) + aviso no ecrã (D-ERP192)
+- Cron `ticketing-sync-health` (jobid 217) desactivado por ordem do Pedro: 16 emails/dia e destinatários juntados por papel SEM filtro de empresa (chegava a manager de outra empresa, 7d831e59). Não reactivar antes de corrigir isso.
+- `ticketline-crosscheck-daily` continua a escrever. O ecrã lê a MESMA detecção: RPC `get_ticketing_divergences()` (SECURITY DEFINER, anon=false, authenticated=true) = `ticketline_crosscheck_signals()` filtrado por `row_belongs_to_current_company` + última leitura + dias seguidos com status `divergente`.
+- UI: `TicketingDivergenceIndicator` ao lado de "Por bilheteira" no `SalesPositionWidget`; sem divergências não desenha nada; (g) diz por palavras "problema do fornecedor".
