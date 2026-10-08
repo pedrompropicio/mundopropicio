@@ -5047,3 +5047,11 @@ reactivar = apontá-lo à edge function (decisão do Pedro). (4) `system_reminde
 da vigia passa a `ticketing_sync_stalled:<empresa>` (antes um admin de outra empresa via o texto global). Varredura: mesmo
 padrão corrigido em `check-login-rate` (alerta de segurança ia a todos os admins) e `bilheteira-sync` (lista fixa dos secrets
 filtrada aos membros da empresa). Migração 0038.
+
+## D-ERP194 — Verificar o papel não é filtrar a linha (Issue #283, 08/10/2026)
+Regra: em tabela com `company_id`, toda a política, RPC SECURITY DEFINER ou edge function com service_role tem de ter
+DOIS predicados: o papel (has_role — já por empresa) E a linha (`row_belongs_to_current_company(company_id)` ou comparação
+explícita do `company_id` da linha com a empresa do utilizador). Um id recebido do cliente (evento, transação, pagamento,
+crédito, versão) é sempre validado contra a empresa antes de ler ou escrever. Corrigido nesta data (migração 0039):
+`lead_capture_admin_delete`, `sync_runs_select_authenticated`, `consent_log_select_admin`. Nota: o helper
+`row_belongs_to_current_company` deixa passar `company_id IS NULL` e o platform_admin por desenho.
