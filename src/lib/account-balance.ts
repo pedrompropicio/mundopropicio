@@ -15,6 +15,7 @@
  *   const adj = await fetchAccountCashAdjustments();
  *   const realBalance = grossBalance + (adj.get(accountId) ?? 0);
  */
+import { isSettlingPayment, onlySettlingPayments } from "@/lib/payment-settlement";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
@@ -56,7 +57,8 @@ export function buildAccountCutoffs(
 
 /**
  * Returns a Map<account_id, adjustment> where adjustment = sum of
- * (withholding_amount + credit_amount) of all transaction_payments rows
+ * (withholding_amount + credit_amount) of settling transaction_payments rows
+ * (status='paid', reversed_at null)
  * tied to that account. Add this value to the gross balance.
  *
  * @param accountIds Optional filter; when omitted, returns adjustments for
@@ -74,9 +76,11 @@ export async function fetchAccountCashAdjustments(
   cutoffs?: AccountCutoffs,
   bounds?: { gte?: string; lt?: string; lte?: string }
 ): Promise<AccountCashAdjustments> {
-  let query = supabase
+  // Regra única (D-ERP86/D-ERP157): só pagamentos status='paid' e não
+  // estornados entram no ajuste — cancelados/planeados/estornados não saíram.
+  let query = onlySettlingPayments<any>((supabase as any)
     .from("transaction_payments")
-    .select("account_id, withholding_amount, credit_amount, payment_date")
+    .select("account_id, withholding_amount, credit_amount, payment_date, status, reversed_at"))
     .not("account_id", "is", null);
 
   if (accountIds && accountIds.length > 0) {
@@ -92,6 +96,7 @@ export async function fetchAccountCashAdjustments(
   const map: AccountCashAdjustments = new Map();
   for (const row of data ?? []) {
     if (!row.account_id) continue;
+    if (!isSettlingPayment(row as any)) continue; // defesa em profundidade
     if (!countsAfterCutoff(row as any, cutoffs?.get(row.account_id))) continue;
     if (bounds) {
       const eff = effectivePaymentDate(row as any);
