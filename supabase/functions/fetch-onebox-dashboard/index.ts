@@ -189,10 +189,36 @@ async function chartData(jar: Jar, csrf: string, payload: unknown): Promise<any>
     body: JSON.stringify(payload),
   });
   const text = await res.text();
+  if (res.status === 202) return await awaitAsyncJob(jar, JSON.parse(text));
   if (res.status !== 200) {
     throw new OneboxError(`POST /api/v1/chart/data → ${res.status}: ${text.slice(0, 400)}`);
   }
   return JSON.parse(text);
+}
+
+// D-ERP189: a Onebox ligou as "global async queries" do Superset (visto a
+// 08/10/2026). /chart/data responde 202 com job_id; o resultado obtém-se
+// por polling a /api/v1/async_event/ (cookie async-token) e depois GET ao
+// result_url. Até ~90 s; erro do job = falha da corrida.
+async function awaitAsyncJob(jar: Jar, job: any): Promise<any> {
+  const jobId = job?.job_id;
+  if (!jobId) throw new OneboxError(`chart/data 202 sem job_id: ${JSON.stringify(job).slice(0, 200)}`);
+  let lastId: string | null = null;
+  const deadline = Date.now() + 90_000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 1500));
+    const q = lastId ? `?last_id=${encodeURIComponent(lastId)}` : "";
+    const ev = await apiGet(jar, `/api/v1/async_event/${q}`);
+    for (const e of ev?.result ?? []) {
+      if (e?.id) lastId = e.id;
+      if (e?.job_id !== jobId) continue;
+      if (e.status === "done" && e.result_url) return await apiGet(jar, e.result_url);
+      if (e.status === "error") {
+        throw new OneboxError(`job async ${jobId} falhou: ${JSON.stringify(e.errors ?? e).slice(0, 300)}`);
+      }
+    }
+  }
+  throw new OneboxError(`job async ${jobId} sem resultado em 90 s`);
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
