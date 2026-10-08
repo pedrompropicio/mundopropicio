@@ -1,6 +1,7 @@
 // update-fever-credentials
 // Helper para a UI escrever/atualizar credenciais Fever no Vault.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { assertCallerRoleOnRow, errorResponse } from "../_shared/multiTenant.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,6 +38,9 @@ Deno.serve(async (req) => {
   if (!configId || !username || !password) {
     return new Response(JSON.stringify({ error: "configId, username, password required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
+
+  // #283 — papel verificado na empresa da config, não só globalmente.
+  try { await assertCallerRoleOnRow(req, "fever_sync_config", configId, ["admin", "manager", "editor", "platform_admin"]); } catch (e) { return errorResponse(e); }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 

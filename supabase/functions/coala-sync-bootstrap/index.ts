@@ -14,6 +14,7 @@
 //   Sem candidato: row_state gravado sem forecast_id (ainda assim cobre identity_key).
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { assertCallerRoleOnRow, errorResponse } from "../_shared/multiTenant.ts";
 import { parseCoalaXlsx } from "../_shared/coalaParser.ts";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
@@ -141,6 +142,14 @@ Deno.serve(async (req) => {
       if (!(roles ?? []).some((r: any) => allowed.has(r.role))) {
         return json({ error: "Sem permissão (admin/manager)" }, 403);
       }
+    }
+
+    // #283 — utilizador: configId obrigatório e da empresa activa (sem configId
+    // percorria TODAS as empresas). Só service_role pode iterar tudo.
+    if (!isServiceRole) {
+      if (!configId) return json({ error: "configId obrigatório" }, 400);
+      try { await assertCallerRoleOnRow(req, "coala_sync_config", configId, ["admin", "manager", "platform_admin"]); }
+      catch (e) { return errorResponse(e); }
     }
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);

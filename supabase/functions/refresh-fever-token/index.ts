@@ -2,6 +2,7 @@
 // Renova o B2bToken Fever via login HTTP server-side e guarda no Vault.
 // Auth: aceita service_role (cron) OU user JWT com role privilegiada (admin/manager/editor/platform_admin).
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { assertCallerRoleOnRow, errorResponse } from "../_shared/multiTenant.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -125,6 +126,11 @@ Deno.serve(async (req) => {
   const configId = body.configId;
   const triggeredBy = body.triggeredBy || (auth.via === "service_role" ? "service_role" : "ui");
   if (!configId) return json(400, { error: "configId required" });
+  // #283 — chamada por utilizador: a config tem de ser da empresa activa e o papel dessa empresa.
+  if (auth.via === "user") {
+    try { await assertCallerRoleOnRow(req, "fever_sync_config", configId, ["admin", "manager", "editor", "platform_admin"]); }
+    catch (e) { return errorResponse(e); }
+  }
 
   console.log(`[refresh-fever-token] start config=${configId} via=${auth.via} triggeredBy=${triggeredBy}`);
 

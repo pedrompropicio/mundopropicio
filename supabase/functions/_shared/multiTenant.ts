@@ -205,3 +205,33 @@ export async function userBelongsToCompany(
     .maybeSingle();
   return Boolean(data);
 }
+
+/**
+ * (#283 / D-ERP195) Papel verificado NA EMPRESA DA LINHA — "verificar o papel
+ * não é filtrar a linha". Carrega `table.company_id` do recurso e exige:
+ *  - a empresa da linha = empresa activa do chamador (ou platform_admin), e
+ *  - um dos `roles` em user_roles PARA ESSA empresa (platform_admin passa).
+ * @throws TenantError (403) / AuthError (401)
+ */
+export async function assertCallerRoleOnRow(
+  req: Request,
+  table: string,
+  id: string,
+  roles: string[],
+): Promise<TenantContext & { rowCompanyId: string | null }> {
+  const ctx = await authenticateAndResolveCompany(req);
+  const { data, error } = await ctx.adminClient.from(table).select("company_id").eq("id", id).maybeSingle();
+  if (error) throw new TenantError(`Falha a ler ${table}: ${error.message}`);
+  if (!data) throw new TenantError(`${table}.${id} não encontrado`);
+  const rowCompanyId = (data as any).company_id ?? null;
+  if (ctx.isPlatformAdmin) return { ...ctx, rowCompanyId };
+  if (!rowCompanyId || rowCompanyId !== ctx.callerCompanyId) {
+    throw new TenantError(`Acesso negado: ${table}.${id} não pertence à empresa activa`);
+  }
+  const { data: r } = await ctx.adminClient
+    .from("user_roles").select("role").eq("user_id", ctx.caller.id).eq("company_id", rowCompanyId);
+  if (!(r ?? []).some((x: any) => roles.includes(x.role))) {
+    throw new TenantError("Sem permissão nesta empresa");
+  }
+  return { ...ctx, rowCompanyId };
+}

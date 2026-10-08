@@ -60,3 +60,12 @@ Helper partilhado: `supabase/functions/_shared/multiTenant.ts`.
 
 ## Pré-requisito Live
 Antes de promover para Live: o cron tem de gerar pelo menos 1 ciclo de backups v3 (1 por empresa). Backups v2 existentes ficam disponíveis mas só platform_admin os pode restaurar.
+
+## #283 parte 3 (08/10/2026)
+- Corrigidos: probe-fever-login apagada; credenciais Fever/Ticketline/BOL/B2B/refresh/coala-bootstrap com assertCallerRoleOnRow
+  (papel verificado NA empresa da linha). SECDEF de BP/CRM/artistas com invólucro `_assert_row_company` (migração 0040).
+- Invariantes diários: politicas_sem_predicado_empresa (6) e secdef_sem_guarda_empresa (12).
+- ABERTOS SEM AUTENTICAÇÃO (por decidir pelo Pedro): tmp-fever-reimport (ESCRITA em qualquer evento), restore-debug (lê
+  qualquer backup), crm-meta-peek-video-ids (usa o token Meta de qualquer empresa), fetch-fever-reports (dispara sync de
+  qualquer config), probe-onebox-login e probe-ticketline-produtores (login com os segredos do fornecedor).
+- Só-admin ficam como estão até haver 2.º admin (D-ERP195).
