@@ -998,6 +998,86 @@ Deno.serve(async (req) => {
     summary.push(per);
   }
 
+  // ------------------------------------------------------------- D-ERP188
+  // Seguidores da Página do Facebook: para cada artista com ligação 'meta'
+  // activa e external_page_id, lê fan_count/followers_count da Página e grava
+  // em artist_metrics_daily (platform 'facebook'). Uma falha não pára o sync.
+  let facebookPages = 0;
+  try {
+    let mq = admin.from("artist_channel_connections")
+      .select("id, artist_id, artist_channel_id, company_id, external_page_id")
+      .eq("provider", "meta").eq("status", "active").not("external_page_id", "is", null);
+    if (body.artist_id) mq = mq.eq("artist_id", body.artist_id);
+    const { data: metaConns, error: mErr } = await mq;
+    if (mErr) throw new Error(mErr.message);
+    for (const mc of metaConns ?? []) {
+      facebookPages++;
+      const per: Record<string, unknown> = {
+        connection_id: mc.id,
+        artist_id: mc.artist_id,
+        facebook_page_id: mc.external_page_id,
+        account_metrics: {} as Record<string, number>,
+        notes: [] as string[],
+      };
+      const notesFb = per.notes as string[];
+      try {
+        const { data: tok, error: tErr } = await admin.rpc("artist_get_connection_token", {
+          p_connection_id: mc.id,
+          p_master_key: masterKey,
+        });
+        if (tErr) throw new Error(tErr.message);
+        const t = Array.isArray(tok) ? tok[0] : tok;
+        if (!t?.access_token) throw new Error("token não disponível");
+        const page = await graphGet(
+          String(mc.external_page_id),
+          { fields: "fan_count,followers_count" },
+          t.access_token,
+          GRAPH,
+        );
+        graphCalls++;
+        if (!page.ok) throw new Error(page.body?.error?.message ?? `HTTP ${page.status}`);
+        const fbRows: Array<Record<string, unknown>> = [];
+        for (const [field, metric] of [
+          ["followers_count", "followers"],
+          ["fan_count", "page_likes"],
+        ] as const) {
+          const v = toCount(page.body?.[field]);
+          if (v === null) {
+            notesFb.push(`página: ${metric} não exposta`);
+            continue;
+          }
+          (per.account_metrics as Record<string, number>)[metric] = v;
+          fbRows.push({
+            company_id: mc.company_id,
+            artist_id: mc.artist_id,
+            channel_id: mc.artist_channel_id,
+            platform: "facebook",
+            metric,
+            metric_date: today,
+            value: v,
+            source: SOURCE,
+            source_ref: String(mc.external_page_id),
+          });
+        }
+        if (!dryRun && fbRows.length) {
+          const { error } = await admin.from("artist_metrics_daily")
+            .upsert(fbRows, { onConflict: "artist_id,platform,metric,metric_date,source" });
+          if (error) throw new Error(`artist_metrics_daily: ${error.message}`);
+          rowsWritten += fbRows.length;
+        }
+        per.metrics_prepared = fbRows.length;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        notesFb.push(`erro: ${msg}`);
+        errors.push({ connection_id: mc.id, error: msg });
+      }
+      summary.push(per);
+    }
+  } catch (eFb) {
+    // nunca pára o sync do IG
+    errors.push({ connection_id: null, error: `facebook: ${eFb instanceof Error ? eFb.message : String(eFb)}` });
+  }
+
   // ligação estimada vídeo→música por menção textual (nunca em dry_run)
   let estimatedSongLinks = 0;
   const songLinkNotes: string[] = [];
@@ -1032,6 +1112,7 @@ Deno.serve(async (req) => {
     params: { max_media: maxMedia, dias_metricas: diasMetricas },
     graph_version: "v25.0",
     connections: connections.length,
+    facebook_pages: facebookPages,
     graph_calls: graphCalls,
     rows_written: dryRun ? 0 : rowsWritten,
     estimated_song_links: estimatedSongLinks,
