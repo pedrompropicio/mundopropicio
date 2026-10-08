@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from "react";
+import { listItemPhase, onlySettlingPayments, settledTxIdsFrom, SETTLEMENT_COLUMNS } from "@/lib/payment-settlement";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { OffsetLineNote } from "@/components/TransactionOffsetsBlock";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -325,7 +326,7 @@ export default function PaymentListsTab() {
   // APROVAÇÃO contam (composição original submetida).
   //
   // FASES (issue #200): "Marcar como Pago" e "Liquidar" não são categorias, são
-  // fases. Liquidada = tem linha em `transaction_payments` (o sistema sabe de que
+  // fases. Liquidada = tem linha `paid` não estornada em `transaction_payments` (sabe de que
   // conta saiu) e GANHA sobre "paga". Os quatro estados dos itens ativos são
   // disjuntos e somam sempre às Lançadas; "Não aprovadas" são itens removidos
   // pela aprovação, logo ficam FORA das Lançadas.
@@ -338,14 +339,13 @@ export default function PaymentListsTab() {
           .select(
             "payment_list_id, removed_at, removed_reason, manually_marked_paid, transactions(id, amount, iva_rate, status)",
           ),
-        fetchAllPagedQuery(supabase.from("transaction_payments").select("transaction_id")),
+        fetchAllPagedQuery(onlySettlingPayments<any>((supabase as any).from("transaction_payments").select(SETTLEMENT_COLUMNS))),
       ]);
       if (itemsRes.error) throw itemsRes.error;
       if (paymentsRes.error) throw paymentsRes.error;
 
-      const settledTxIds = new Set<string>(
-        ((paymentsRes.data ?? []) as any[]).map((r) => String(r.transaction_id)),
-      );
+      // Regra única (D-ERP86/D-ERP157): só status='paid' e reversed_at null.
+      const settledTxIds = settledTxIdsFrom((paymentsRes.data ?? []) as any[]);
 
       const map: Record<string, number> = {};
       const phases = emptyPhaseTotals();
@@ -374,10 +374,11 @@ export default function PaymentListsTab() {
         map[row.payment_list_id] = (map[row.payment_list_id] ?? 0) + withIva;
         add(row.payment_list_id, "launched", withIva);
 
-        if (settledTxIds.has(String(tx.id))) add(row.payment_list_id, "settled", withIva);
-        else if (row.manually_marked_paid) add(row.payment_list_id, "markedPaid", withIva);
-        else if (tx.status === "paid") add(row.payment_list_id, "legacy", withIva);
-        else add(row.payment_list_id, "unpaid", withIva);
+        add(
+          row.payment_list_id,
+          listItemPhase({ txId: tx.id, txStatus: tx.status, manuallyMarkedPaid: row.manually_marked_paid, settledTxIds }),
+          withIva,
+        );
       }
       return { totals: map, phases, phasesByList };
     },

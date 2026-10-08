@@ -5,6 +5,7 @@
  * O cliente só lê, cria (RPC `transaction_offset_create`) e remove
  * (RPC `transaction_offset_remove`). Nunca escreve pagamentos de compensação.
  */
+import { onlySettlingPayments } from "@/lib/payment-settlement";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -41,12 +42,10 @@ export function useAllTransactionOffsets() {
       const ids = (data ?? []).map((o: any) => o.id);
       let appliedIds = new Set<string>();
       if (ids.length) {
-        const { data: pays, error: e2 } = await db
+        const { data: pays, error: e2 } = await onlySettlingPayments(db
           .from("transaction_payments")
-          .select("offset_id")
-          .in("offset_id", ids)
-          .eq("status", "paid")
-          .is("reversed_at", null);
+          .select("offset_id"))
+          .in("offset_id", ids);
         if (e2) throw e2;
         appliedIds = new Set((pays ?? []).map((p: any) => p.offset_id));
       }
