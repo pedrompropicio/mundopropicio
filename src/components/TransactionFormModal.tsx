@@ -15,6 +15,7 @@ import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { X, Plus, AlertTriangle, ChevronDown, ChevronRight, Split, Building, FileText, Landmark, Receipt, Sparkles, Loader2, Paperclip, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { TransactionDuplicateWarning, useTransactionDuplicateCheck, DUPLICATE_CONFIRM_TOAST } from "@/components/TransactionDuplicateWarning";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { useMasterCategoryDetection } from "@/hooks/useMasterCategoryDetection";
 import { LocalReinforcementDialog } from "@/components/LocalReinforcementDialog";
@@ -564,6 +565,15 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
 
   const selectedSupplier = suppliers.find((s: any) => s.id === form.supplier_id) ?? null;
+
+  // #284 — aviso de duplicação (regras a+b). Nunca bloqueia: pede confirmação.
+  const dupCheck = useTransactionDuplicateCheck({
+    enabled: open && form.type === "expense",
+    supplierId: form.supplier_id || null,
+    invoiceRef: form.invoice_ref,
+    amount: parseFloat(form.amount) || 0,
+    date: form.date,
+  });
 
   const { data: financialAccounts = [] } = useQuery({
     queryKey: ["financial-accounts-active"],
@@ -2254,6 +2264,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (dupCheck.needsConfirmation) {
+      toast(DUPLICATE_CONFIRM_TOAST);
+      return;
+    }
     {
       const chosen = isSplit ? null : (form.event_id || null);
       if (adminWindow && chosen !== adminWindow.event_id && !overrideReasonRef.current) {
@@ -4295,6 +4309,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               amount={parseFloat(form.amount || "0") || 0}
             />
           )}
+
+          <TransactionDuplicateWarning state={dupCheck} />
 
           {!showProrationConfirm && !showDuplicateConfirm && (
 
