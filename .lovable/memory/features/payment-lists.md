@@ -207,3 +207,15 @@ Superfícies:
    "N item(ns) sem dados bancários — ficam fora do ficheiro Santander" com nomes.
    No `SepaExportModal` continuam na secção "Excluídos" (agora com a descrição além do
    beneficiário). Nunca exclusão silenciosa.
+
+## Regra única de liquidação (08/10/2026)
+
+"Liquidada" = a transação tem ≥1 linha em `transaction_payments` com `status='paid'` e `reversed_at IS NULL`
+(a mesma regra de `_derive_paid_amount`). Linhas `cancelled`/`planned`/estornadas NÃO liquidam.
+Helper partilhado `src/lib/payment-settlement.ts` (`isSettlingPayment`, `settledTxIdsFrom`, `onlySettlingPayments`,
+`listItemPhase`), usado pelo ecrã das listas (PaymentListsTab), pelo aviso "Pagamentos aprovados por liquidar"
+(ApprovedPaymentListReminder) e pela aplicação de compensações (transaction-offsets).
+O aviso conta exatamente a fase "Por pagar" do ecrã (issue #200): marcado → "Pagas por liquidar", fora do aviso.
+Pagamento parcial válido conta como Liquidada nos dois (antes o aviso usava paid_amount vs bruto).
+Guardas de apagar/editar (ReimbursementNoteDetail, TransactionEditModal, ads-invoice-apply) continuam a contar
+QUALQUER linha: protegem o razão contra CASCADE, não decidem "liquidado".
