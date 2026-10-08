@@ -231,6 +231,9 @@ async function runStories(req: Request, admin: any, masterKey: string, body: { a
             apiCalls++;
             if (r.ok) return r.body?.data ?? [];
             if (isNoData(r.body)) { noData = true; return null; }
+            // D-ERP187: #200 (Permissions error) com o token 'meta' = métrica
+            // não suportada nesse story → ignora só essa métrica, sem erro.
+            if (isPermissionsError(r.body)) { metaNaoSuportada++; return null; }
             if (metricUnsupported(r.body) || /does not support/i.test(String(r.body?.error?.message ?? ""))) return null;
             erros.push(`story ${m.id} meta ${metric}: ${r.body?.error?.message ?? r.status}`);
             return null;
