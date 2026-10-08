@@ -5074,3 +5074,10 @@ guarda de empresa da linha: `reverse_payment`, `reverse_transaction`, `apply_sup
 migração 0040 (12 SECDEF com `<nome>__impl` + invólucro que valida a empresa da linha); 6 edge functions de credenciais com
 `assertCallerRoleOnRow`; migração 0041 + invariantes `politicas_sem_predicado_empresa` (ref. 6) e `secdef_sem_guarda_empresa`
 (ref. 12 — eram 32 antes da 0040; só pode descer).
+
+## D-ERP196 — #283 parte 4: sobras apagadas, 2 funções só service_role, backfill e guarda do pax (08/10/2026)
+- Apagadas (código + função publicada; sem bloco no config.toml; grep sem chamadores no src nem noutras funções): tmp-fever-reimport, restore-debug, probe-onebox-login.
+- crm-meta-peek-video-ids e fetch-fever-reports só aceitam a service_role key (Bearer comparado com a key ou claim role=service_role), declaradas no config.toml com verify_jwt=true. Os crons fever-sync-* (13/14/15, desligados) já enviam a service key do Vault.
+- lead_capture.company_id passa a ser preenchido na origem pelo trigger BEFORE INSERT trg_lead_capture_set_company_id (evento por slug; sem evento → Mundo Propício). Escolhido no servidor porque o portal grava directo com a anon key: corrige qualquer cliente sem depender de deploy do portal.
+- Backfill (migração 0043): lead_capture 618 → 0 sem empresa; sync_runs só por artist_id (27); corridas globais ficam NULL.
+- recalculate_pax_benchmarks: _company_id NULL = empresa activa; explícito tem de ser a activa.

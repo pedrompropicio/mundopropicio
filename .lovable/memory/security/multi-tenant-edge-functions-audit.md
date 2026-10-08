@@ -69,3 +69,9 @@ Antes de promover para Live: o cron tem de gerar pelo menos 1 ciclo de backups v
   qualquer backup), crm-meta-peek-video-ids (usa o token Meta de qualquer empresa), fetch-fever-reports (dispara sync de
   qualquer config), probe-onebox-login e probe-ticketline-produtores (login com os segredos do fornecedor).
 - Só-admin ficam como estão até haver 2.º admin (D-ERP195).
+
+## Parte 4 (08/10/2026, D-ERP196)
+- Apagadas: tmp-fever-reimport, restore-debug, probe-onebox-login.
+- Só service_role: crm-meta-peek-video-ids, fetch-fever-reports (molde portal-media-import).
+- lead_capture: company_id preenchido por trigger na inserção; backfill feito. recalculate_pax_benchmarks presa à empresa activa.
+- Por fazer na parte 5: 29 edge functions por ler, sync-coala-from-drive, crm-google-ads-sync.

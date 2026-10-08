@@ -310,3 +310,13 @@ verify_jwt = true
 
 [functions.artist-catalog-import]
 verify_jwt = true
+
+# Só service_role (#283 parte 4): lê o token Meta da ligação activa. Sem JWT de
+# utilizador; a função compara o Bearer com a service key (molde do portal-media-import).
+[functions.crm-meta-peek-video-ids]
+verify_jwt = true
+
+# Só service_role (#283 parte 4): chamada pelos crons fever-sync-* com a service key
+# do Vault; dispara o sync de qualquer config. A função compara o Bearer com a service key.
+[functions.fetch-fever-reports]
+verify_jwt = true

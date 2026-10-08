@@ -59,7 +59,7 @@
 | `database-restore-v2` | Restauro completo hardened (handle child tables) |
 | `selective-restore` | Restauro seletivo por tabela ou evento |
 | `surgical-restore` | Restauro cirúrgico de linhas específicas |
-| `restore-debug` | Debug do restore |
+| ~~`restore-debug`~~ | Apagada em 08/10/2026 (#283 parte 4) |
 
 ### 2.4 Transações
 | Função | Descrição |

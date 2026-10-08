@@ -35,6 +35,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
+  // Só service_role (molde do portal-media-import, #283 parte 4).
+  {
+    const _sk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const _b = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+    let _ok = Boolean(_sk) && _b === _sk;
+    if (!_ok) {
+      const _p = _b.split(".");
+      if (_p.length === 3) {
+        try {
+          let s = _p[1].replace(/-/g, "+").replace(/_/g, "/");
+          while (s.length % 4) s += "=";
+          _ok = JSON.parse(atob(s))?.role === "service_role";
+        } catch { _ok = false; }
+      }
+    }
+    if (!_ok) {
+      return new Response(JSON.stringify({ error: "Não autorizado — esta função só aceita a service_role key." }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
   let body: { company_id?: string; meta_creative_ids?: string[] };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
 
