@@ -117,13 +117,31 @@ Deno.serve(async (req) => {
     id: string; name?: string; access_token?: string;
     instagram_business_account?: { id: string; username?: string };
   }>;
-  const match = pages.find((p) => String(p.instagram_business_account?.id ?? "") === wantedIg);
+  let match: {
+    id: string; name?: string; access_token?: string;
+    instagram_business_account?: { id: string; username?: string };
+  } | undefined = pages.find((p) => String(p.instagram_business_account?.id ?? "") === wantedIg);
+  let path: "me_accounts" | "page_direct" = "me_accounts";
+
+  // D-ERP187 adenda 2: Páginas acedidas por Business Manager não aparecem em
+  // /me/accounts. 2.º caminho: ler a Página directamente pelo external_id do canal.
+  if (!match && channel.external_id && /^\d+$/.test(String(channel.external_id))) {
+    const direct = await graphGet(
+      String(channel.external_id),
+      { fields: "id,name,access_token,instagram_business_account{id,username}" },
+      userToken,
+    );
+    if (direct.ok && String(direct.body?.instagram_business_account?.id ?? "") === wantedIg) {
+      match = direct.body;
+      path = "page_direct";
+    }
+  }
 
   const scopes = ["instagram_basic", "instagram_manage_insights", "pages_read_engagement", "pages_show_list"];
 
-  if (!match || !match.access_token) {
+  if (!match) {
     // Sem correspondência: grava a ligação com status 'error' e o motivo.
-    const motivo = `nenhuma Página com instagram_business_account = ${wantedIg} (${pages.length} páginas)`;
+    const motivo = `nenhuma Página com instagram_business_account = ${wantedIg} (me_accounts: ${pages.length} páginas; page_direct: ${channel.external_id ?? "sem external_id"})`;
     const { data: cid, error: e1 } = await admin.rpc("artist_upsert_channel_connection", {
       p_artist_channel_id: channel.id, p_company_id: channel.company_id, p_artist_id: channel.artist_id,
       p_provider: "meta", p_access_token: userToken, p_master_key: masterKey,
@@ -142,15 +160,21 @@ Deno.serve(async (req) => {
     return fail(motivo);
   }
 
-  // 4) Guardar ligação 'meta' (token da Página cifrado; não expira)
+  // 4) Guardar ligação 'meta': token da Página se vier; senão token de utilizador longo.
+  const usePage = !!match.access_token;
   const { data: connectionId, error: upErr } = await admin.rpc("artist_upsert_channel_connection", {
     p_artist_channel_id: channel.id, p_company_id: channel.company_id, p_artist_id: channel.artist_id,
-    p_provider: "meta", p_access_token: match.access_token, p_master_key: masterKey,
+    p_provider: "meta", p_access_token: usePage ? match.access_token : userToken, p_master_key: masterKey,
     p_external_account_id: wantedIg,
     p_external_account_username: match.instagram_business_account?.username ?? null,
     p_external_page_id: match.id, p_external_page_name: match.name ?? null,
-    p_token_type: "page", p_scopes: scopes, p_expires_at: null, p_connected_by: st.user_id,
+    p_token_type: usePage ? "page" : "user", p_scopes: scopes,
+    p_expires_at: usePage ? null : userExpiresAt, p_connected_by: st.user_id,
   });
+  if (!upErr && connectionId) {
+    await admin.from("artist_channel_connections")
+      .update({ status: "active", last_error: null }).eq("id", connectionId);
+  }
   if (upErr) return fail(upErr.message);
 
   await admin.from("artist_channels")
