@@ -17528,6 +17528,10 @@ export type Database = {
         }
         Returns: number
       }
+      _assert_row_company: {
+        Args: { _company_id: string; _ctx: string }
+        Returns: undefined
+      }
       _derive_paid_amount: { Args: { p_tx_id: string }; Returns: undefined }
       _paid_guard_is_exempt: {
         Args: { p: Database["public"]["Tables"]["transactions"]["Row"] }
@@ -17687,6 +17691,10 @@ export type Database = {
           severity: string
         }[]
       }
+      _scope_event_ids_to_company: {
+        Args: { _event_ids: string[] }
+        Returns: string[]
+      }
       _test_tickets_v2_compute_function: {
         Args: never
         Returns: {
@@ -17780,6 +17788,25 @@ export type Database = {
       }
       ads_norm_text: { Args: { p_text: string }; Returns: string }
       analyze_formalidade_bulk: {
+        Args: { _event_ids?: string[] }
+        Returns: {
+          approved_total: number
+          bp_amount: number
+          category_code: string
+          category_name: string
+          confidence: string
+          current_formalidade: Database["public"]["Enums"]["bp_formalidade"]
+          description: string
+          event_id: string
+          event_name: string
+          forecast_id: string
+          has_transaction: boolean
+          paid_total: number
+          reason: string
+          suggested_formalidade: Database["public"]["Enums"]["bp_formalidade"]
+        }[]
+      }
+      analyze_formalidade_bulk__impl: {
         Args: { _event_ids?: string[] }
         Returns: {
           approved_total: number
@@ -18230,6 +18257,10 @@ export type Database = {
         Args: { p_artist_id: string }
         Returns: Json
       }
+      artist_ads_unlinked_summary__impl: {
+        Args: { p_artist_id: string }
+        Returns: Json
+      }
       artist_audience_set_manual: {
         Args: {
           p_artist_id: string
@@ -18269,6 +18300,14 @@ export type Database = {
         }[]
       }
       artist_content_link_songs: {
+        Args: { p_artist_id?: string; p_dry_run?: boolean }
+        Returns: {
+          content_id: string
+          reason: string
+          song_id: string
+        }[]
+      }
+      artist_content_link_songs__impl: {
         Args: { p_artist_id?: string; p_dry_run?: boolean }
         Returns: {
           content_id: string
@@ -18497,6 +18536,10 @@ export type Database = {
         Returns: string
       }
       artist_song_mark_report_stale: {
+        Args: { p_song_id: string }
+        Returns: undefined
+      }
+      artist_song_mark_report_stale__impl: {
         Args: { p_song_id: string }
         Returns: undefined
       }
@@ -18751,6 +18794,15 @@ export type Database = {
         }
         Returns: string
       }
+      create_scenario_draft__impl: {
+        Args: {
+          _description?: string
+          _event_id: string
+          _scenario_assumptions?: Json
+          _scenario_label: string
+        }
+        Returns: string
+      }
       create_settlement_transfer: {
         Args: {
           p_amount: number
@@ -18767,6 +18819,13 @@ export type Database = {
         Returns: string
       }
       crm_auto_link_google_campaigns_to_events: {
+        Args: { p_company_id: string }
+        Returns: {
+          total_active_campaigns: number
+          updated_count: number
+        }[]
+      }
+      crm_auto_link_google_campaigns_to_events__impl: {
         Args: { p_company_id: string }
         Returns: {
           total_active_campaigns: number
@@ -18906,6 +18965,10 @@ export type Database = {
         Args: { _version_id: string }
         Returns: undefined
       }
+      discard_scenario_draft__impl: {
+        Args: { _version_id: string }
+        Returns: undefined
+      }
       email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
@@ -18944,6 +19007,20 @@ export type Database = {
         }[]
       }
       formalidade_audit_stats: {
+        Args: { _event_ids?: string[] }
+        Returns: {
+          count_estimado: number
+          count_fechado: number
+          count_pago_parcial: number
+          count_pago_total: number
+          total_events: number
+          total_lines: number
+          with_category_match: number
+          with_direct_tx: number
+          without_any_match: number
+        }[]
+      }
+      formalidade_audit_stats__impl: {
         Args: { _event_ids?: string[] }
         Returns: {
           count_estimado: number
@@ -19371,6 +19448,13 @@ export type Database = {
           merged_into_splits: number
         }[]
       }
+      merge_forecasts_into_active_snapshot__impl: {
+        Args: { _event_id: string; _forecast_ids: string[] }
+        Returns: {
+          merged_into_master: number
+          merged_into_splits: number
+        }[]
+      }
       move_operacao_etapa: {
         Args: { p_etapa_id: string; p_new_frente_id: string }
         Returns: Json
@@ -19412,6 +19496,14 @@ export type Database = {
         Returns: Json[]
       }
       promote_scenario_draft_to_active: {
+        Args: {
+          _new_active_description?: string
+          _new_active_label?: string
+          _scenario_version_id: string
+        }
+        Returns: string
+      }
+      promote_scenario_draft_to_active__impl: {
         Args: {
           _new_active_description?: string
           _new_active_label?: string
@@ -19599,6 +19691,14 @@ export type Database = {
         }[]
       }
       rename_bp_version: {
+        Args: {
+          _new_description?: string
+          _new_label?: string
+          _version_id: string
+        }
+        Returns: undefined
+      }
+      rename_bp_version__impl: {
         Args: {
           _new_description?: string
           _new_label?: string
