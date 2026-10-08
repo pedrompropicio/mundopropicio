@@ -21,7 +21,7 @@ const SITE_NAME = 'MP Gestão Eventos'
 export interface TicketingSyncAlertItem {
   evento: string
   bilheteira: string
-  /** 'a' falha persistente · 'b' parado · 'c' desligado · 'd' captura horária parada · 'e' divergência portal · 'f' 6 sem sucesso */
+  /** 'a' falha persistente · 'b' parado · 'c' desligado · 'd' captura horária parada · 'e' variação xlsx ≠ nossas · 'f' 6 sem sucesso · 'g' PDF do portal parado (fornecedor) */
   condicao: string
   detalhe?: string | null
   desdeQuando?: string | null
@@ -37,7 +37,8 @@ const LABELS: Record<string, string> = {
   b: 'Parado (sem corrida com sucesso há mais de 6 horas)',
   c: 'Desligado',
   d: 'Captura horária da Ticketline parada',
-  e: 'Divergência com o portal de Produtores da Ticketline',
+  e: 'Variação do Mapa de Ocupação diferente das nossas vendas',
+  g: 'PDF do portal de Produtores parado (problema da Ticketline)',
 }
 
 // O valor em euros chega do SQL como "EUR" (texto ASCII) e é desenhado aqui com a
@@ -79,8 +80,9 @@ const ItemBox = ({ it, divergence }: { it: TicketingSyncAlertItem; divergence: b
 )
 
 const TicketingSyncAlertEmail = ({ runAt = '', itens = [] }: Props) => {
-  const sync = itens.filter((it) => it.condicao !== 'e')
+  const sync = itens.filter((it) => it.condicao !== 'e' && it.condicao !== 'g')
   const div = itens.filter((it) => it.condicao === 'e')
+  const stale = itens.filter((it) => it.condicao === 'g')
   return (
     <Html lang="pt" dir="ltr">
       <Head>
@@ -112,14 +114,30 @@ const TicketingSyncAlertEmail = ({ runAt = '', itens = [] }: Props) => {
                 Divergência com o portal de Produtores
               </Heading>
               <Text style={text}>
-                {div.length} evento{div.length === 1 ? '' : 's'} com diferença entre as nossas vendas e
-                o Mapa de Ocupação do portal de Produtores da Ticketline
-                {runAt ? ` (${runAt})` : ''}. A captura está a funcionar e as vendas continuam a
-                entrar; o que diverge é a comparação com o portal, em duas leituras diárias
-                seguidas (ou o evento não foi encontrado no portal).
+                {div.length} evento{div.length === 1 ? '' : 's'} em que a variação diária do Mapa de
+                Ocupação (xlsx) da Ticketline foi diferente da variação das nossas vendas em três dias
+                seguidos{runAt ? ` (${runAt})` : ''}. Pode faltar captura nossa ou haver vendas fora
+                dos nossos canais — vale a pena olhar.
               </Text>
               {div.map((it, i) => (
                 <ItemBox key={`d${i}`} it={it} divergence />
+              ))}
+            </>
+          ) : null}
+
+          {stale.length > 0 ? (
+            <>
+              <Heading style={sync.length + div.length > 0 ? h2 : h1Info}>
+                Portal de Produtores parado — problema da Ticketline
+              </Heading>
+              <Text style={text}>
+                {stale.length} evento{stale.length === 1 ? '' : 's'} em que o PDF do Mapa de Ocupação do
+                portal de Produtores não se mexeu em três leituras diárias, enquanto o xlsx do mesmo
+                evento continuou a subir. <strong>Não é problema nosso</strong>: a nossa captura está a
+                funcionar e acompanha o xlsx. É um defeito do lado do fornecedor — reportar à Ticketline.
+              </Text>
+              {stale.map((it, i) => (
+                <ItemBox key={`g${i}`} it={it} divergence />
               ))}
             </>
           ) : null}
@@ -142,7 +160,10 @@ export const template = {
   subject: (data: Record<string, any>) => {
     const itens: TicketingSyncAlertItem[] = Array.isArray(data.itens) ? data.itens : []
     const n = itens.length
-    if (n > 0 && itens.every((it) => it.condicao === 'e')) {
+    if (n > 0 && itens.every((it) => it.condicao === 'g')) {
+      return `Portal de Produtores parado — problema da Ticketline (${n} caso${n === 1 ? '' : 's'})`
+    }
+    if (n > 0 && itens.every((it) => it.condicao === 'e' || it.condicao === 'g')) {
       return `Divergência com o portal de Produtores (${n} caso${n === 1 ? '' : 's'})`
     }
     return `⚠️ Sync de bilheteira parado (${n} caso${n === 1 ? '' : 's'})`
