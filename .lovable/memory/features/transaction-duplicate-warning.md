@@ -1,6 +1,6 @@
 ---
 name: Aviso de duplicação de fatura (#284)
-description: Mecanismo único de aviso de duplicado em transações mãe (absorveu a guarda de setembro); regras cumulativas; ecrãs cobertos e excluídos com motivo
+description: Aviso âmbar não bloqueante de duplicado em transações mãe; TRÊS regras cumulativas (invoice_ref, amount_date, description); absorveu a guarda de setembro; ecrãs cobertos e excluídos com motivo
 type: feature
 ---
 ## Aviso de duplicação de fatura (#284)
