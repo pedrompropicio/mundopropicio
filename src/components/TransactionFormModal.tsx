@@ -177,8 +177,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   }, [currency, eurFromCurrency]);
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [showProrationConfirm, setShowProrationConfirm] = useState(false);
-  const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
-  const [duplicateMatches, setDuplicateMatches] = useState<any[]>([]);
   const [plExpanded, setPlExpanded] = useState(true);
   // Linha BP escolhida pelo utilizador (FK a escrever em event_forecasts.transaction_id).
   // Quando set: filtra dropdown de categoria a L3 do mesmo L2 e escreve FK no INSERT.
@@ -573,6 +571,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     invoiceRef: form.invoice_ref,
     amount: parseFloat(form.amount) || 0,
     date: form.date,
+    description: form.description,
+    eventId: form.event_id || null,
   });
 
   const { data: financialAccounts = [] } = useQuery({
@@ -2059,7 +2059,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   };
 
   const proceedWithCreate = async () => {
-    setShowDuplicateConfirm(false);
     setShowProrationConfirm(false);
     // Validação de parcelamento (Fase 1.5)
     if (useInstallments) {
@@ -2180,7 +2179,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     setReinforcementChoice(choice);
     setShowReinforcementDialog(false);
     // Re-trigger submit flow (choice is now set, dialog won't re-appear)
-    setTimeout(() => checkDuplicatesAndSubmit(), 0);
+    setTimeout(() => continueSubmitFlow(), 0);
   };
 
   // Reset reinforcement choice when event/category changes
@@ -2188,72 +2187,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     if (reinforcementChoice) setReinforcementChoice(null);
   };
 
-  const checkDuplicatesAndSubmit = async () => {
-    // Check for existing transactions with same description + event + similar amount
-    try {
-      let query = supabase
-        .from("transactions")
-        .select("id, description, amount, status, due_date, supplier_id, event_id, specification, invoice_ref")
-        .ilike("description", form.description.trim());
-
-      if (form.event_id) {
-        query = query.eq("event_id", form.event_id);
-      }
-
-      const { data: matches } = await query.limit(10);
-
-      if (matches && matches.length > 0) {
-        const amount = parseFloat(form.amount) || 0;
-        const norm = (s: any) => (s ?? "").toString().trim().toLowerCase();
-        const newSpec = norm(form.specification);
-        const newInv = norm(form.invoice_ref);
-        const relevant = matches.filter((m: any) => {
-          const diff = Math.abs(Number(m.amount) - amount);
-          const amountOrSupplierMatch = diff < 0.01 || form.supplier_id === m.supplier_id;
-          if (!amountOrSupplierMatch) return false;
-          // Se ambos têm fatura preenchida, têm de coincidir; se só um tem, não é duplicado
-          const mInv = norm(m.invoice_ref);
-          if (newInv || mInv) {
-            if (newInv !== mInv) return false;
-          }
-          // Idem para especificação (quando ambos preenchidos)
-          const mSpec = norm(m.specification);
-          if (newSpec && mSpec && newSpec !== mSpec) return false;
-          return true;
-        });
-        if (relevant.length > 0) {
-          setDuplicateMatches(relevant);
-          setShowDuplicateConfirm(true);
-          return;
-        }
-      }
-
-      // Verificação INDEPENDENTE da descrição: mesmo fornecedor + mesmo nº de fatura
-      // E MESMO VALOR é sempre suspeito (incidente 2026-09). Se o nº coincide mas o
-      // valor difere, é o caso legítimo da fatura repartida por várias linhas de BP —
-      // esse risco já é coberto pelo diálogo de documentos divergentes.
-      const refRaw = form.invoice_ref.trim();
-      if (form.supplier_id && refRaw) {
-        const amount = parseFloat(form.amount) || 0;
-        const { data: sameRef } = await fetchAllPagedQuery(supabase
-          .from("transactions")
-          .select("id, description, amount, status, due_date, supplier_id, event_id, specification, invoice_ref")
-          .eq("supplier_id", form.supplier_id)
-          .eq("invoice_ref", refRaw));
-        const hits = (sameRef ?? []).filter(
-          (m: any) => Math.abs(Number(m.amount ?? 0) - amount) < 0.01,
-        );
-        if (hits.length > 0) {
-          setDuplicateMatches(hits);
-          setShowDuplicateConfirm(true);
-          return;
-        }
-      }
-
-    } catch {
-      // If check fails, proceed anyway
-    }
-
+  // #284 — o aviso de duplicado vive no TransactionDuplicateWarning (visto
+  // obrigatório em handleSubmit). Aqui fica só o encadeamento: proration → criar.
+  const continueSubmitFlow = () => {
     // Caução / Transitória nunca é rateada — vai sempre direto ao Master sem confirmação
     if (isParentMultiDay && !showProrationConfirm && !isTransitory && !selectedCategoryIsCapital) {
       setShowProrationConfirm(true);
@@ -2494,17 +2430,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       }
     }
 
-    // Skip duplicate check if already confirmed
-    if (showDuplicateConfirm) {
-      if (isParentMultiDay && !showProrationConfirm && !isTransitory && !selectedCategoryIsCapital) {
-        setShowProrationConfirm(true);
-        return;
-      }
-      proceedWithCreate();
-      return;
-    }
-
-    checkDuplicatesAndSubmit();
+    continueSubmitFlow();
   };
 
   // Ramo Capital (10.1.*): isento da restrição do BP e da justificação.
@@ -3532,64 +3458,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             );
           })()}
 
-          {/* Duplicate detection warning */}
-          {showDuplicateConfirm && duplicateMatches.length > 0 && (
-            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 space-y-3">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-destructive">⚠️ Possível duplicação detectada</p>
-                  <p className="text-xs text-muted-foreground">
-                    Já existe(m) {duplicateMatches.length} transação(ões) com descrição e valores semelhantes:
-                  </p>
-                  <div className="mt-2 space-y-1.5 max-h-32 overflow-y-auto">
-                    {duplicateMatches.map((m: any) => {
-                      const evName = events.find((e: any) => e.id === m.event_id)?.name;
-                      const suppName = suppliers.find((s: any) => s.id === m.supplier_id)?.name;
-                      return (
-                        <div key={m.id} className="text-xs bg-background/60 rounded px-2 py-1.5 border border-border">
-                          <span className="font-medium">{m.description}</span>
-                          <span className="text-muted-foreground"> — {Number(m.amount).toFixed(2)}€</span>
-                          {evName && <span className="text-muted-foreground"> · {evName}</span>}
-                          {suppName && <span className="text-muted-foreground"> · {suppName}</span>}
-                          <span className={`ml-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-                            m.status === "paid" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"
-                          }`}>
-                            {m.status === "paid" ? "Pago" : m.status === "approved" ? "Aprovado" : "Pendente"}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isParentMultiDay && !isTransitory && !selectedCategoryIsCapital) {
-                      setShowDuplicateConfirm(false);
-                      setShowProrationConfirm(true);
-                    } else {
-                      proceedWithCreate();
-                    }
-                  }}
-                  disabled={createMutation.isPending}
-                  className="flex-1 rounded-lg bg-destructive/20 py-2 text-xs font-medium text-destructive hover:bg-destructive/30 transition-colors disabled:opacity-50"
-                >
-                  {createMutation.isPending ? "A guardar…" : "Criar Mesmo Assim"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setShowDuplicateConfirm(false); setDuplicateMatches([]); }}
-                  className="flex-1 rounded-lg bg-secondary py-2 text-xs font-medium text-muted-foreground hover:bg-secondary/80 transition-colors"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Proration confirmation for multi_day parent */}
           {showProrationConfirm && isParentMultiDay && !isTransitory && !selectedCategoryIsCapital && (
             <div className="rounded-lg border border-warning/50 bg-warning/10 p-4 space-y-3">
@@ -4312,7 +4180,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
           <TransactionDuplicateWarning state={dupCheck} />
 
-          {!showProrationConfirm && !showDuplicateConfirm && (
+          {!showProrationConfirm && (
 
             <div className="flex gap-2">
               <label
