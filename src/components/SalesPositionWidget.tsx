@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/mock-data";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { lisbonToday } from "@/lib/date-lisbon";
 import { cn } from "@/lib/utils";
+import { TicketingDivergenceIndicator } from "@/components/TicketingDivergenceIndicator";
 
 interface SalesPositionRow {
   group_id: string;
@@ -350,8 +351,9 @@ export function SalesPositionWidget() {
 
           {providers.length > 0 && (
             <div className="border-t border-border/60">
-              <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+              <div className="flex items-center gap-1.5 px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
                 Por bilheteira
+                <TicketingDivergenceIndicator />
               </div>
               {providers.map((p) => (
                 <div
