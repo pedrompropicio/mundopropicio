@@ -288,6 +288,13 @@
       "when": 1791472330501,
       "tag": "0040_0040_derp195_secdef_row_company_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1791472585730,
+      "tag": "0041_0041_derp195_invariants_tenant_predicate",
+      "breakpoints": true
     }
   ]
 }
