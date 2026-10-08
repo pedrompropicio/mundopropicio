@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCompany } from "@/hooks/useCompany";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   canCheckDuplicates,
   findDuplicateTransactions,
@@ -17,21 +18,39 @@ type HookInput = Omit<DuplicateCheckInput, "companyId"> & { enabled?: boolean };
  * #284 — estado do aviso de duplicação. `needsConfirmation` fica true enquanto
  * houver candidatas e a pessoa não tiver marcado a confirmação. NUNCA bloqueia
  * por si: o ecrã usa-o só para pedir o visto antes de gravar.
+ *
+ * Os campos que se escrevem a correr (descrição, invoiceRef, amount) passam por
+ * debounce de 400 ms antes de entrar na queryKey; enquanto o valor com debounce
+ * não igualou o actual (`settled`), o aviso fica em silêncio — nunca mostra
+ * candidatas calculadas a partir de texto que já mudou.
  */
 export function useTransactionDuplicateCheck(input: HookInput) {
   const { companyId } = useCompany() as any;
-  const full: DuplicateCheckInput = { ...input, companyId };
+  const debouncedDescription = useDebouncedValue(input.description ?? "", 400);
+  const debouncedInvoiceRef = useDebouncedValue(input.invoiceRef ?? "", 400);
+  const debouncedAmount = useDebouncedValue(input.amount, 400);
+  const settled =
+    debouncedDescription === (input.description ?? "") &&
+    debouncedInvoiceRef === (input.invoiceRef ?? "") &&
+    debouncedAmount === input.amount;
+  const full: DuplicateCheckInput = {
+    ...input,
+    description: debouncedDescription,
+    invoiceRef: debouncedInvoiceRef,
+    amount: debouncedAmount,
+    companyId,
+  };
   const enabled = (input.enabled ?? true) && canCheckDuplicates(full);
-  const amountKey = Math.round((Number(input.amount) || 0) * 100);
+  const amountKey = Math.round((Number(debouncedAmount) || 0) * 100);
   const { data: candidates = [] } = useQuery({
     queryKey: [
       "tx-duplicate-check",
       companyId,
       input.supplierId,
-      normalizeInvoiceRef(input.invoiceRef),
+      normalizeInvoiceRef(debouncedInvoiceRef),
       amountKey,
       input.date,
-      (input.description ?? "").trim().toLowerCase(),
+      debouncedDescription,
       input.eventId ?? null,
       input.excludeTransactionId ?? null,
       !!input.onlyInvoiceRefRule,
@@ -40,7 +59,7 @@ export function useTransactionDuplicateCheck(input: HookInput) {
     staleTime: 15_000,
     queryFn: () => findDuplicateTransactions(full),
   });
-  const list = enabled ? candidates : [];
+  const list = enabled && settled ? candidates : [];
   const signature = list.map((c) => c.id).join(",");
   const [confirmed, setConfirmed] = useState(false);
   // Nova lista de candidatas → pede nova confirmação.
