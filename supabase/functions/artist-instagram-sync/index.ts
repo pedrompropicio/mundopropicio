@@ -115,6 +115,12 @@ function isNoData(body: any): boolean {
   return body?.error?.code === 10;
 }
 
+// D-ERP187: #200 (Permissions error) — a métrica não está disponível para
+// esse story com o token 'meta' (ex.: story anterior a 01/07/2026).
+function isPermissionsError(body: any): boolean {
+  return body?.error?.code === 200 || /permissions error/i.test(String(body?.error?.message ?? ""));
+}
+
 // deno-lint-ignore no-explicit-any
 async function runStories(req: Request, admin: any, masterKey: string, body: { artist_id?: string; connection_id?: string; dry_run?: boolean }) {
   const dryRun = body.dry_run === true;
@@ -269,7 +275,7 @@ async function runStories(req: Request, admin: any, masterKey: string, body: { a
     }
     porLigacao.push(per);
   }
-  const details = { stories_lidos: storiesLidos, metricas_gravadas: metricasGravadas, sem_dados: semDados, erros: erros.length, ligacoes: porLigacao };
+  const details = { stories_lidos: storiesLidos, metricas_gravadas: metricasGravadas, sem_dados: semDados, meta_nao_suportada: metaNaoSuportada, erros: erros.length, ligacoes: porLigacao };
   await finishSyncRun(admin, runId, startedMs, {
     status: resolveStatus(metricasGravadas, erros.length),
     api_calls: apiCalls, rows_written: metricasGravadas, details,
