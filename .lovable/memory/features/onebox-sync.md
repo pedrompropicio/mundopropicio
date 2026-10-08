@@ -75,3 +75,16 @@ não se leem como fraqueza de vendas. Procedimento completo em
 Desligar as duas tarefas agendadas do Chrome (captação + keep-alive) e apagar as funções
 descartáveis `probe-onebox` e `probe-onebox-login`, depois de comparadas 24 horas das duas
 origens — issue P2 aberta na frente `ticketing-e-receita`.
+
+## D-ERP189 (08/10/2026) — paragem de 07/10 e correções
+
+Parou 07/10 04:35 UTC → 08/10 00:35 (21 falhas). Causas, do lado da Onebox:
+1. `filter_state/YAu04AgWBog` (chave fixa) passou a 404. **Já não se usa filter_state**:
+   os filtros nativos vêm de `GET /api/v1/dashboard/43` → `json_metadata.native_filter_configuration[].defaultDataMask.extraFormData.filters`
+   (hoje: `ESTADO_EVENTO IN ['Activo']`) e seguem no payload da query.
+2. Ligaram as *global async queries*: `/chart/data` responde **202 + job_id**. A função faz polling a
+   `/api/v1/async_event/` (cookie `async-token`) até 90 s e lê o `result_url`. Datasource mudou 33 → **330**
+   (lido dinamicamente do chart, nada cravado).
+3. Login: `csrf_token` em falta no HTML → **1 repetição** com cookies limpos (3 s), depois falha. O POST continua 1 por tentativa.
+Recuperação automática: corrida 08/10 01:57 UTC → 2.917 / 164.029,25 €, tripla bateu; 07/10 = 117, 08/10 = 15.
+A captação está na vigia `check_ticketing_sync_health()` (src `onebox`, sync_type `onebox_health`).

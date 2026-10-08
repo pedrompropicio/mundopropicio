@@ -5010,3 +5010,11 @@ Problema: as RPCs de tráfego misturavam BR e PT e convertiam tudo para BRL; a c
 - Pendente desde 24/09. Na `artist-instagram-sync` em modo diário, depois do loop de ligações: para cada artista com ligação 'meta' activa com `external_page_id`, lê `GET /{external_page_id}?fields=fan_count,followers_count` com o token dessa ligação e grava em `artist_metrics_daily` platform 'facebook', metric 'followers' (followers_count) e 'page_likes' (fan_count), `metric_date` = hoje (mesma convenção dos seguidores do IG), source 'platform_api', `source_ref` = page_id, `channel_id` = canal facebook do artista. Upsert pela chave `artist_id,platform,metric,metric_date,source` (a mesma do resto).
 - Falha na leitura → entra em `errors` e nas notes da Página, sem parar o sync do IG. Crons inalterados. Sem DDL.
 - Primeira corrida (Litto, Página 385669081539715): followers 5683, page_likes 5683 (fan_count = followers_count nesta Página), metric_date 2026-10-08, confirmado em `artist_metrics_daily`. Output cru: `claude-outputs/2026-10-08-0200-derp188-facebook-page.md`.
+
+## D-ERP189 — Captação Onebox sem chave fixa, async e na vigia (08/10/2026)
+
+Contexto: 21 corridas falhadas (07/10 04:35 → 08/10 00:35 UTC) sem aviso. Decisão: (1) filtros do painel 43 lidos da
+`json_metadata` e passados no payload, sem `filter_state`; (2) suporte às async queries do Superset (202 → polling →
+`result_url`), descoberto ao corrigir (1); (3) csrf em falta = 1 repetição com sessão limpa; (4) Onebox na
+`check_ticketing_sync_health()` (migração 0034). Conferência tripla e `dry_run` por omissão intactos.
+Recuperação: 2.917 bilhetes / 164.029,25 €; 06/10 139, 07/10 117, 08/10 15.

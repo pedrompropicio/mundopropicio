@@ -111,3 +111,9 @@ fiável a 14–15/09. A cadência era `0 8-23 * * *` em UTC, mais uma diária.
 O que se assumia e deixou de ser verdade: que a Onebox não dava acesso programático
 porque `POST /api/v1/security/login` devolvia 401. O caminho certo era o **login de
 formulário** (`POST /login/` com `csrf_token`), não o endpoint de API.
+
+## Atualização D-ERP189 (08/10/2026)
+
+Autenticação igual (login por formulário). Mudou a leitura: sem `filter_state` (filtros vêm da
+`json_metadata` do painel 43) e `/chart/data` assíncrono (202 → polling `/api/v1/async_event/` → `result_url`).
+csrf em falta no login: uma repetição com sessão limpa. A captação está na vigia horária.

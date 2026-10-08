@@ -77,3 +77,11 @@ Só o bloco de envio de email tem `EXCEPTION WHEN OTHERS`, e esse **não é mudo
 `emails_sent: 0`, `reminder_active: false` — as 4 configs BOL e as 13 Ticketline de
 eventos futuros estavam a sincronizar. Nenhuma linha em `email_send_log` nem em
 `system_audit_log`.
+
+## Onebox (D-ERP189, 08/10/2026)
+
+Sem tabela de config: a linha `onebox` do universo é o evento H&K Madrid
+`bf9ce2d8-754e-4485-8427-e2d486c39919` (o mesmo fixo na `fetch-onebox-dashboard`), sempre `enabled`,
+enquanto `events.date >= current_date`. Corridas de `onebox_sync_runs` (config_id = esse evento).
+Mesmas condições a/f/b, mesmo email, anti-spam 12h com `sync_type = 'onebox_health'`.
+Migração `0034_derp189_onebox_sync_health.sql` (patch por replace sobre a definição viva). Novo evento Onebox = acrescentar o id ali.
