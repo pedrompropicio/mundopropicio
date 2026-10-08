@@ -2,6 +2,7 @@
 // Helper para a UI escrever/atualizar credenciais Ticketline ({email,password}) no Vault.
 // Espelha update-fever-credentials.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { assertCallerRoleOnRow, errorResponse } from "../_shared/multiTenant.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,6 +35,9 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { return json(400, { error: "invalid json" }); }
   const { configId, email, password } = body;
   if (!configId || !email || !password) return json(400, { error: "configId, email, password required" });
+
+  // #283 — papel verificado na empresa da config, não só globalmente.
+  try { await assertCallerRoleOnRow(req, "ticketline_sync_config", configId, ["admin", "manager", "editor", "platform_admin"]); } catch (e) { return errorResponse(e); }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 

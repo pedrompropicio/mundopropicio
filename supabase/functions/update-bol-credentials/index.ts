@@ -1,6 +1,7 @@
 // Grava/actualiza o segredo Vault com as credenciais BOL (produtores.bol.pt).
 // Padrão da update-ticketline-credentials.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { assertCallerRoleOnRow, errorResponse } from "../_shared/multiTenant.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,6 +41,13 @@ Deno.serve(async (req) => {
   const password = body.password || "";
   if (!/^[a-z0-9_\-]{3,80}$/i.test(secretName)) return json(400, { error: "secretName inválido" });
   if (!email || !password) return json(400, { error: "email e password são obrigatórios" });
+
+  // #283 — o segredo tem de estar ligado a uma config BOL da empresa activa
+  // (antes aceitava qualquer nome que passasse o regex).
+  const { data: bolCfg } = await admin.from("bol_sync_config").select("id").eq("vault_secret_name", secretName).limit(1).maybeSingle();
+  if (!bolCfg) return json(403, { error: "segredo não ligado a nenhuma config BOL" });
+  try { await assertCallerRoleOnRow(req, "bol_sync_config", (bolCfg as any).id, ["admin", "manager", "platform_admin"]); }
+  catch (e) { return errorResponse(e); }
 
   const { error } = await admin.rpc("upsert_vault_secret" as any, {
     _name: secretName,

@@ -1,6 +1,7 @@
 // update-fever-b2b-token
 // Guarda no Vault o B2bToken Fever (JWT) usado pela edge fetch-fever-reports.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { assertCallerRoleOnRow, errorResponse } from "../_shared/multiTenant.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,6 +42,9 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { return json(400, { error: "invalid json" }); }
   const { configId, token: b2bToken } = body;
   if (!configId || !b2bToken) return json(400, { error: "configId, token required" });
+
+  // #283 — papel verificado na empresa da config, não só globalmente.
+  try { await assertCallerRoleOnRow(req, "fever_sync_config", configId, ["admin", "manager", "editor", "platform_admin"]); } catch (e) { return errorResponse(e); }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
