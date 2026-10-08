@@ -31,7 +31,8 @@ Universo: configs de `ticketline_sync_config` e `bol_sync_config` cujo evento te
 | (a) falha persistente | config `enabled` cujas 3 corridas mais recentes (por `started_at desc`) estão todas fora de `('success','warning','skipped')` | sim |
 | (b) parado | config `enabled` sem corrida `success`/`warning` nas últimas 6 h | sim |
 | (c) desligado | config `enabled = false` (informativo) | **não** — só banner |
-| (e) divergência portal Produtores | `ticketline_crosscheck_runs`: ≥3 bilhetes ou ≥100 € em 2 leituras diárias seguidas, ou `nao_encontrado` à 1.ª (sync_type `ticketline_crosscheck`) | sim |
+| (e) variação xlsx ≠ nossas vendas | `ticketline_crosscheck_signals()`: 3 dias seguidos com \|dx−dn\| ≥ 5 e ≥ 50% do maior (D-ERP191; PDF já não dispara) | sim, 1×/dia |
+| (g) PDF do portal parado | Σ3d xlsx ≥ 10 e Σ3d PDF ≤ 20% disso — problema do fornecedor (sync_type `ticketline_pdf_stale`) | sim, 1×/dia |
 | (f) sem sucesso seguido | 6 corridas mais recentes da config todas com status ≠ `success` (warning conta) — desde 01/10/2026 | sim |
 | (d) captura horária parada | existe config Ticketline `enabled` de evento futuro e nenhuma corrida `triggered_by like 'capture_day:%'` com `success` nas últimas 3 h | sim |
 
@@ -58,7 +59,7 @@ O registo vem primeiro de propósito: uma falha de email nunca apaga o aviso.
 
 - admin/manager/platform_admin via `user_roles` + `profiles.email`; se não resolver
   nenhum, recorre ao secret `BILHETEIRA_SYNC_NOTIFY_CC`. Sem secrets novos.
-- Máximo 1 email por config a cada 12 h via `sync_notifications_sent`
+- (e) e (g): máximo 1 email por config por dia de Lisboa (D-ERP191). Restantes: máximo 1 email por config a cada 12 h via `sync_notifications_sent`
   (`UNIQUE (config_id, sync_type)`, **sem FK** em `config_id`). `sync_type` é
   `ticketline_health` / `bol_health`; para a condição (d) usa-se
   `config_id = d7f4efc8-ab89-4357-a9ee-113eb28d8e7c` com

@@ -5018,3 +5018,12 @@ Contexto: 21 corridas falhadas (07/10 04:35 → 08/10 00:35 UTC) sem aviso. Deci
 `result_url`), descoberto ao corrigir (1); (3) csrf em falta = 1 repetição com sessão limpa; (4) Onebox na
 `check_ticketing_sync_health()` (migração 0034). Conferência tripla e `dry_run` por omissão intactos.
 Recuperação: 2.917 bilhetes / 164.029,25 €; 06/10 139, 07/10 117, 08/10 15.
+
+## D-ERP191 — Conferência do portal de Produtores pela variação do occupation.xlsx (08/10/2026)
+Contexto: o PDF do Mapa de Ocupação está parado há 9 leituras no RG Almada (751→755) e RG Braga (1.273), enquanto o
+occupation.xlsx do mesmo evento acompanha as nossas vendas (Almada +44/+44, Braga +81/+73). Decisão: (1) fonte
+principal = variação diária do xlsx vs variação das nossas vendas (níveis não comparáveis: xlsx inclui convites);
+(e) dispara com 3 dias seguidos |dx−dn| ≥ 5 e ≥ 50% do maior; (2) PDF fica informativo; (3) sinal novo (g): Σ3d xlsx
+≥ 10 e Σ3d PDF ≤ 20% disso = defeito do fornecedor; (4) email (e)/(g) 1×/dia. RPC `ticketline_crosscheck_signals`,
+migração 0036. Desvio do critério proposto para (g) ("3 deltas PDF = 0"): o PDF do Almada mexeu +2 a 05/10 e 08/10,
+o que nunca deixaria 3 zeros seguidos — a regra por soma apanha-o. Prova 03–08/10: (e) 0 alertas; (g) Braga 6/6 dias, Almada 5/6.
