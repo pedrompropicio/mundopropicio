@@ -66,8 +66,15 @@ describe("multi-tenant storage helpers", () => {
   });
 
   describe("ISOLATED_BUCKETS / GLOBAL_BUCKETS classification", () => {
-    it("contains the 11 known isolated buckets", () => {
+    // Actualizado 09/10/2026: D-ERP154 (#268, um bucket por tabela de documentos) e
+    // standalone-invoices acrescentaram 5 buckets isolados por empresa.
+    it("contains the 16 known isolated buckets", () => {
       const expected = [
+        "bank-statements",
+        "event-ab-attachments",
+        "event-forecast-attachments",
+        "entity-documents",
+        "standalone-invoices",
         "bp-version-snapshots",
         "cache-extra-documents",
         "camarim-documents",
@@ -80,12 +87,14 @@ describe("multi-tenant storage helpers", () => {
         "ticket-office-settlements",
         "transaction-documents",
       ];
-      expect(ISOLATED_BUCKETS.size).toBe(11);
+      expect(ISOLATED_BUCKETS.size).toBe(16);
       for (const b of expected) expect(ISOLATED_BUCKETS.has(b)).toBe(true);
     });
 
-    it("contains exactly the 2 global buckets", () => {
-      expect(GLOBAL_BUCKETS.size).toBe(2);
+    // DR-2026-09-03-D17: card-documents é isolado por SESSÃO (<session_id>/…), não por empresa.
+    it("contains exactly the 3 global buckets", () => {
+      expect(GLOBAL_BUCKETS.size).toBe(3);
+      expect(GLOBAL_BUCKETS.has("card-documents")).toBe(true);
       expect(GLOBAL_BUCKETS.has("company-branding")).toBe(true);
       expect(GLOBAL_BUCKETS.has("database-backups")).toBe(true);
     });
