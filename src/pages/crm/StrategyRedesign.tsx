@@ -162,7 +162,7 @@ export default function CrmStrategyRedesign() {
   const [inheritAdsetIds, setInheritAdsetIds] = useState<Set<string>>(new Set());
   const [approvedGaps, setApprovedGaps] = useState<Set<number>>(new Set());
   const [dailyBudgetEur, setDailyBudgetEur] = useState<string>("");
-  const [roasFloor, setRoasFloor] = useState<string>("8");
+  const [roasFloor, setRoasFloor] = useState<string>("");
   const [endTime, setEndTime] = useState<string>("");
   const [pauseOriginalMode, setPauseOriginalMode] = useState<"immediate" | "delayed_7d" | "manual">("immediate");
 
@@ -212,16 +212,22 @@ export default function CrmStrategyRedesign() {
     },
   });
 
-  const { data: eventDate } = useQuery({
+  const { data: eventInfo } = useQuery({
     queryKey: ["redesign-event-date", campaignSnap?.linked_event_id],
     enabled: !!campaignSnap?.linked_event_id,
     queryFn: async () => {
       const { data, error: qErr1 } = await supabase.from("events")
-        .select("date").eq("id", campaignSnap!.linked_event_id!).maybeSingle();
+        .select("date, target_roas").eq("id", campaignSnap!.linked_event_id!).maybeSingle();
       if (qErr1) throw qErr1;
-      return (data?.date as string | null) ?? null;
+      return { date: (data?.date as string | null) ?? null, target: eventTargetRoas(data) };
     },
   });
+  const eventDate = eventInfo?.date ?? null;
+  // Meta de ROAS SÓ de public.events.target_roas; NULL = sem meta, piso fica vazio (não enviado).
+  const eventTarget = eventInfo?.target ?? null;
+  useEffect(() => {
+    if (eventTarget != null) setRoasFloor((prev) => (prev === "" ? String(eventTarget) : prev));
+  }, [eventTarget]);
 
   // ── Populate defaults quando inventory chega ─────────────────
   useEffect(() => {
@@ -443,8 +449,7 @@ export default function CrmStrategyRedesign() {
                   ROAS{" "}
                   <span className={cn(
                     "font-semibold font-mono",
-                    (inventory.campaign_summary.roas ?? 0) >= 8 ? "text-emerald-400"
-                    : (inventory.campaign_summary.roas ?? 0) >= 4 ? "text-amber-400" : "text-red-400",
+                    roasColorByEvent(inventory.campaign_summary.roas, eventTarget),
                   )}>
                     {formatRoas(inventory.campaign_summary.roas)}
                   </span>
@@ -717,7 +722,7 @@ export default function CrmStrategyRedesign() {
                         <TooltipContent className="max-w-xs text-xs">Cada adset deve entregar pelo menos este ROAS. Target blended do evento é normalmente 8x.</TooltipContent>
                       </Tooltip>
                     </Label>
-                    <Input id="rd-roas" type="number" step="0.5" value={roasFloor} onChange={(e) => setRoasFloor(e.target.value)} placeholder="8" className="mt-1" />
+                    <Input id="rd-roas" type="number" step="0.5" value={roasFloor} onChange={(e) => setRoasFloor(e.target.value)} placeholder="— sem meta" className="mt-1" />
                   </div>
                   <div>
                     <Label htmlFor="rd-end" className="text-xs uppercase text-muted-foreground flex items-center gap-1">
@@ -798,7 +803,7 @@ export default function CrmStrategyRedesign() {
                 <Separator />
                 <div className="text-xs text-muted-foreground space-y-1">
                   <p>• Verba diária: <span className="font-mono text-foreground">{dailyBudgetEur ? `€${dailyBudgetEur}` : "(manter original)"}</span></p>
-                  <p>• ROAS floor: <span className="font-mono text-foreground">{roasFloor || "—"}x</span></p>
+                  <p>• ROAS floor: <span className="font-mono text-foreground">{roasFloor ? `${roasFloor}x` : "— sem meta"}</span></p>
                   <p>• End: <span className="font-mono text-foreground">{endTime || "(não definido)"}</span></p>
                   <p>• Pause original: <span className="font-mono text-foreground">{PAUSE_MODE_LABELS[pauseOriginalMode].title}</span></p>
                 </div>
