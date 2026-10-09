@@ -74,4 +74,25 @@ Antes de promover para Live: o cron tem de gerar pelo menos 1 ciclo de backups v
 - Apagadas: tmp-fever-reimport, restore-debug, probe-onebox-login.
 - Só service_role: crm-meta-peek-video-ids, fetch-fever-reports (molde portal-media-import).
 - lead_capture: company_id preenchido por trigger na inserção; backfill feito. recalculate_pax_benchmarks presa à empresa activa.
-- Por fazer na parte 5: 29 edge functions por ler, sync-coala-from-drive, crm-google-ads-sync.
+- Parte 5 feita (09/10/2026, D-ERP203) — ver secção abaixo.
+
+## Parte 5 (09/10/2026, D-ERP203) — lista nominal das 29
+Molde: `isServiceRoleRequest` (service role exacta ou verificada no Auth — o payload sozinho forja-se), `assertCallerRoleInCompany` (company_id do corpo = activa + papel nessa empresa), `assertCallerRoleOnRow` (id → empresa da linha). getUser obrigatório; a anon key é pública.
+
+Corrigidas (8, porta aberta: anon key bastava):
+- crm-meta-create-purchase-audience (empresa do evento), crm-meta-create-lookalike, crm-meta-create-website-audience, crm-meta-upload-creative, crm-meta-upload-creative-v2, crm-meta-list-audiences, crm-google-sync-campaigns, crm-google-video-metrics-sync.
+
+Limpas (17):
+- Linha vs company_id + papel na empresa da linha: crm-meta-publish-update, crm-meta-publish-activate, crm-google-video-publish-execute, crm-google-video-publish-activate.
+- RLS da sessão (políticas `company_id = current_company_id()` confirmadas em crm.google_publish_plan, crm.ad_platform_connections, crm.ad_platform_account_links, crm.meta_creatives, crm.meta_campaign_snapshot, public.meta_custom_audiences) ou empresa activa: crm-meta-publish-prepare, crm-google-publish-activate, crm-google-publish-execute, crm-google-publish-lookups, crm-meta-campaign-from-scratch, crm-meta-campaign-redesign, crm-meta-create-reels-ad (só grava linha de debug antes da RLS), crm-meta-audience-sync, crm-meta-sync-creatives (token via RPC com a sessão; RPC filtra pela empresa activa).
+- Empresa resolvida no servidor: crm-meta-audience-upload.
+- crm-google-ads-sync: corrigida para admin NA empresa fixa (era has_role em qualquer empresa).
+- crm-meta-publish-execute: limpa para utilizadores; o ramo service role confia no payload do JWT com verify_jwt=false (por decidir, ver abaixo).
+
+Por desenho / só-admin (4, sem mexer):
+- crm-google-click-ingest — sinal do portal, empresa fixa, sem auth.
+- crm-google-conversion-upload, crm-google-customer-match-sync, crm-google-user-list-ensure — admin em qualquer empresa age na MP (user-list-ensure aceita user_list_id sem filtro): D-ERP195.
+
+Também: sync-coala-from-drive (papel na empresa da config + service role verificada); probe-ticketline-produtores apagada; `authenticateAndResolveCompany` usa `getUser(jwt)`.
+
+Por decidir (achado da prova): service role pelo payload sem assinatura e verify_jwt=false em apply-coala-bp, coala-sync-bootstrap, bilheteira-sync, fetch-ticketline-reports, fetch-bol-reports, crm-meta-publish-execute. Correcção = trocar por `isServiceRoleRequest`.

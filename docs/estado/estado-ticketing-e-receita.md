@@ -1,6 +1,6 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-10-09 · Issues: `agora` #283 (parte 5), #267 · `a-seguir` #206 · `depois` #73, #78 · `bloqueada` #211 (transversal, plataforma-e-infra)
+Atualizado: 2026-10-09 · Issues: `agora` #267 · `a-seguir` #206 · `depois` #73, #78 · `bloqueada` #211 (transversal, plataforma-e-infra)
 
 ## Em vigor
 
@@ -12,7 +12,6 @@ Atualizado: 2026-10-09 · Issues: `agora` #283 (parte 5), #267 · `a-seguir` #20
 
 ## A trabalhar agora
 
-- **#283 parte 5 — auditoria multiempresa às edge functions.** 29 das 54 edge functions com service_role e ids vindos do cliente, por ler à mão. Prioridade: `sync-coala-from-drive`, `crm-google-ads-sync`, `crm-meta-publish-*`, `crm-meta-create-*`, `crm-google-*`. Também `probe-ticketline-produtores`, publicada e com a guarda por confirmar.
 - **#267 — Mapa de Ocupação (PDF) da Ticketline parado.** O PDF do portal está parado há dez dias — Braga 1.273 sem mexer, Almada 751 → 755 — enquanto o occupation.xlsx mexe e bate certo com as nossas vendas. Defeito do fornecedor; o indicador já o diz. Email à Ticketline redigido e por enviar.
 
 ## Bloqueios
@@ -22,6 +21,8 @@ Atualizado: 2026-10-09 · Issues: `agora` #283 (parte 5), #267 · `a-seguir` #20
 - **#73** — corte por tipo de bilhete.
 
 ## Fechado a 09/10/2026
+
+- **#283 — auditoria multiempresa às edge functions (parte 5, D-ERP203).** 8 funções do CRM/Ads que aceitavam a chave pública passam a exigir sessão e papel na empresa da linha; sync-coala-from-drive e crm-google-ads-sync com papel na empresa certa; probe-ticketline-produtores apagada. Lista nominal das 29 em `.lovable/memory/security/multi-tenant-edge-functions-audit.md`. Fica por decidir o ramo service role forjável em 6 funções (apply-coala-bp, coala-sync-bootstrap, bilheteira-sync, fetch-ticketline-reports, fetch-bol-reports, crm-meta-publish-execute).
 
 - **#271 — fechos de bilheteira por evento e lista única.** Forma de liquidação provada nos 5 fechos da Mundo Propício: Plenitude e H&K Lisboa = transferência própria; H&K Porto = encontro de contas; Anitta e Ivete = compensado.
 - **Vigia toda no ecrã (D-ERP197).** Dry-run antes e depois: as mesmas 2 × (g), RG Almada e RG Braga. (a) forçada numa transacção anulada → vermelho; o michel (Coala) vê 0 condições e 0 fechos.
