@@ -249,6 +249,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
     }
     setValidationErrors({});
     setInactiveMatch(null);
+    setSimilar(null);
 
     // Validação estrutural (checksum MOD-97) e duplicação cross-supplier
     const ibanFields: Array<{ key: "iban" | "iban_2" | "iban_3"; label: string; value: string | null }> = [
@@ -324,7 +325,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
     createMutation.mutate(raw);
   };
 
-  const useExisting = async (c: SimilarSupplier) => {
+  const pickExisting = async (c: SimilarSupplier) => {
     if (!c.is_active) {
       reactivateMutation.mutate(c.id);
       return;
@@ -561,7 +562,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
                             <button
                               type="button"
                               disabled={reactivateMutation.isPending}
-                              onClick={() => useExisting(c)}
+                              onClick={() => pickExisting(c)}
                               className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
                             >
                               {c.is_active ? `Usar «${c.name}»` : `Reativar e usar «${c.name}»`}
