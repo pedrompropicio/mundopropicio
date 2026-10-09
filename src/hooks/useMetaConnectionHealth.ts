@@ -56,3 +56,22 @@ export function daysUntilExpiry(expiresAt: string | null | undefined): number | 
   if (!Number.isFinite(ms)) return null;
   return Math.floor(ms / 86_400_000);
 }
+
+/** #36(c) — causa legível + acção a partir do estado/último erro da ligação. */
+export function describeMetaFailure(
+  status: string | null | undefined,
+  lastError: string | null | undefined,
+): { cause: string; action: string } {
+  const e = (lastError ?? "").toLowerCase();
+  const reauth = "reautorizar em Ligações";
+  if (status === "expired" || status === "revoked" || /oauth|invalidated|expired|session|token|\b190\b/.test(e))
+    return { cause: "Token Meta inválido", action: reauth };
+  if (/permission|\b(10|200|294)\b|not authorized|ads_management/.test(e))
+    return { cause: "Sem permissão na conta de anúncios Meta", action: reauth };
+  if (/rate|limit|\b(4|17|32|613)\b|too many/.test(e))
+    return { cause: "Limite de pedidos da Meta atingido", action: "tentar de novo dentro de uma hora" };
+  if (/timeout|5\d\d|unavailable/.test(e))
+    return { cause: "Meta temporariamente indisponível", action: "tentar de novo mais tarde" };
+  if (status === "error") return { cause: "Ligação Meta com falhas repetidas", action: reauth };
+  return { cause: "Falha no sync Meta", action: "ver estado em Ligações" };
+}

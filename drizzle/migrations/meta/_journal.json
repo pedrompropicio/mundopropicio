@@ -400,6 +400,20 @@
       "when": 1791584216619,
       "tag": "0056_bp_grid_atomic_save",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1791585940375,
+      "tag": "0057_card_documents_accountant_select",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1791586039068,
+      "tag": "0058_card_documents_accountant_select_dedupe",
+      "breakpoints": true
     }
   ]
 }

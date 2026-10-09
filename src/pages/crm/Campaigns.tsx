@@ -37,7 +37,7 @@ import { useCompany } from "@/hooks/useCompany";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
 import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
 import {
-  useMetaConnectionHealth,
+  useMetaConnectionHealth, describeMetaFailure,
   daysUntilExpiry,
   CONNECTION_STATUS_LABEL,
   EXPIRY_WARNING_DAYS,
@@ -793,7 +793,21 @@ export default function CrmCampaigns() {
         description: `${cData?.synced_count ?? 0} campanhas · ${asData?.synced_count ?? 0} adsets · ${adData?.synced_count ?? 0} ads · ${iData?.synced_rows ?? 0} insights${creativesPart}${gData ? ` · Google: ${gData?.synced_rows ?? 0} linhas` : ""}${cData?.auto_linked_count ? ` · ${cData.auto_linked_count} vinculadas a evento` : ""}`,
       });
     } else {
-      toast.error(`Sync com ${errors.length} erro(s)`, { description: errors.join(" · ") });
+      // #36(c): causa legível + acção, lida do estado fresco da ligação.
+      let fresh: { status?: string | null; last_error?: string | null } | null = null;
+      if (connectionId) {
+        const { data: row } = await (supabase as any).schema("crm").from("ad_platform_connections")
+          .select("status, last_error").eq("id", connectionId).maybeSingle();
+        fresh = row ?? null;
+      }
+      const metaErrors = errors.filter((x) => !x.startsWith("google:"));
+      if (metaErrors.length > 0) {
+        const { cause, action } = describeMetaFailure(fresh?.status, fresh?.last_error ?? metaErrors.join(" "));
+        toast.error(`${cause} — ${action}`, { description: `${errors.length} passo(s) falharam` });
+      } else {
+        toast.error(`Sync com ${errors.length} erro(s)`, { description: errors.join(" · ") });
+      }
+      qc.invalidateQueries({ queryKey: ["meta-connection-health", connectionId] });
     }
 
 
