@@ -5153,3 +5153,7 @@ Decisão: `_supplier_resolve_or_create(p_company_id, p_name, p_nif, p_source)` (
 **Decisão.** Migração 0055: `ALTER COLUMN target_roas DROP NOT NULL` (sem default), comentário na coluna. A função grava `target_roas = NULL` sem meta; `diagnosis_jsonb.input.target_roas_source = "none"` mantém-se. Reimplantada.
 **Backfill.** 0 linhas: nenhuma das 65 linhas tinha target_roas = 0 (a sentinela nunca chegou a ser gravada).
 **Leitores.** CampaignView esconde "Target" quando null ou ≤ 0; scale/surgical só fazem select da coluna sem a usar; nenhuma vista depende da coluna. Contrato: o campo pode ser null.
+
+## D-ERP208 — #247: gravação da Grelha BP e snapshot atómicos (09/10/2026)
+**Decisão.** Migração 0056 cria `batch_save_event_forecasts`: sessão obrigatória e guarda da empresa da linha; reutiliza os batch existentes e os seus locks/#240. Snapshot de BP ativo no evento raiz com permissão staff, inserções e alterações integram a mesma transação. Parceiros/Splits não ganham novas permissões de snapshot. O frontend pede observações antes da chamada única.
+**Prova real.** Na Plenitude, redução recusada de 81,30 € para 0 € após tentativa de inserção: versões 2→2, linhas 47→47, mesmos IDs, valor original 81,30 € intacto. Nenhuma alteração de dados persistiu.
