@@ -19134,6 +19134,13 @@ export type Database = {
         Returns: number
       }
       current_company_id: { Args: never; Returns: string }
+      daily_sales_mirror_events: {
+        Args: never
+        Returns: {
+          event_id: string
+          provider: string
+        }[]
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
