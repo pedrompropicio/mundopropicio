@@ -414,6 +414,13 @@
       "when": 1791586039068,
       "tag": "0058_card_documents_accountant_select_dedupe",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1791588872249,
+      "tag": "0059_partner_portal_expenses_manual_extras",
+      "breakpoints": true
     }
   ]
 }

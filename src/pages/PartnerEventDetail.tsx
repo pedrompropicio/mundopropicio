@@ -598,7 +598,8 @@ export default function PartnerEventDetail() {
 
   const partnerAdvances = useMemo(
     () => (partnerExpenseRows as any[])
-      .filter((r) => r.kind === "advance")
+      // (#148) extras = transação ('advance') + manuais ('manual', sem taxa, valor escrito).
+      .filter((r) => r.kind === "advance" || r.kind === "manual")
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
       .map(mapPartnerExpenseRow),
     [partnerExpenseRows],

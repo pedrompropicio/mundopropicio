@@ -1,3 +1,4 @@
+import { fetchPartnerExtras } from "@/lib/partner-extras";
 import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -121,6 +122,13 @@ export default function ReportPartnerSettlement() {
     },
   });
 
+  // (#148) Extras pela fonte única (transação + manual).
+  const { data: partnerExtrasUnion = [] } = useQuery({
+    queryKey: ["partner-extras-union", "report-settlement", (events as any[]).length],
+    queryFn: () => fetchPartnerExtras((events as any[]).map((e: any) => e.id)),
+    enabled: (events as any[]).length > 0,
+  });
+
   const settlementData = useMemo(
     () => buildPartnerSettlementReportData({
       events: events as any,
@@ -129,9 +137,10 @@ export default function ReportPartnerSettlement() {
       forecasts: forecasts as any,
       paidExpenses: paidExpenses as any,
       partnerAdvances: partnerAdvances as any,
+      partnerExtras: partnerExtrasUnion as any,
       ticketSales: ticketSales as any,
     }),
-    [events, forecasts, paidExpenses, partnerAdvances, partners, ticketSales, transactions],
+    [events, forecasts, paidExpenses, partnerAdvances, partnerExtrasUnion, partners, ticketSales, transactions],
   );
 
   const totals = settlementData.reduce(

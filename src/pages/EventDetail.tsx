@@ -1162,15 +1162,16 @@ export default function EventDetail() {
           variant="primary"
           subtitle={
             contract
-              ? `${contract.label}${
+              ? `Base do contrato: ${contract.contractLabel}${
                   contract.revenueBase > 0
                     ? ` · margem ${((contract.result / contract.revenueBase) * 100).toFixed(1)}%`
                     : ""
-}${contract.perimeterMismatch ? " · perímetros diferentes nos cards" : ""
-                }${contract.differsFromSettlement ? " · ≠ fecho" : ""}`
+                }${contract.differsFromSettlement
+                  ? ` · ⚠ vistas dos cards noutra base (${contract.label} = ${formatCurrency(contract.viewResult)})`
+                  : ""}`
               : undefined
           }
-          tooltip="Subtração direta dos valores exibidos nos cards de Receitas e Custos: Lucro = Receitas exibidas − Custos exibidos, com os seletores de perímetro (Realizado / Previsto + excedido / Forecast) e de IVA (c/IVA · s/IVA) que cada card tiver ativos. Mudar um botão muda o Lucro. O badge '≠ fecho' indica que este valor difere do Resultado do Encontro de Contas (a base contratual do fecho com o sócio) — respondem a perguntas diferentes."
+          tooltip="Lucro na base do critério contratual do evento — o mesmo número do Encontro de Contas. Os seletores dos cards de Receitas e Custos mudam só o que se vê nesses cards; quando estão noutra base, aparece o aviso com a subtração das vistas."
         />
               <div className="flex items-center gap-1.5">
                 <Button size="sm" variant={!showEbitda ? "default" : "outline"} className="h-7 text-xs" onClick={() => setProfitView("result")}>

@@ -1,3 +1,5 @@
+import { fetchPartnerExtras, partnerExtraValue } from "@/lib/partner-extras";
+import { partnerUsesGrossExpenses } from "@/lib/partner-calc-basis";
 import { EventNatureFilter } from "@/components/EventNatureFilter";
 import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
 import { useState, useMemo } from "react";
@@ -181,7 +183,11 @@ function buildDREBrasil(
       });
 
       // Partner extras
-      const pExtras = (partnerExtras || []).filter((ex: any) => ex.partner_id === p.id);
+      // (#148) só kind 'extra' abate; valor na base do sócio (partnerExtraValue).
+      const pGross = partnerUsesGrossExpenses(calcBasis, p.expense_includes_iva ?? null);
+      const pExtras = (partnerExtras || [])
+        .filter((ex: any) => ex.partner_id === p.id && ex.kind !== "disbursement_adjustment")
+        .map((ex: any) => ({ ...ex, amount: partnerExtraValue(ex, pGross) }));
       let partnerExtraTotal = 0;
       if (pExtras.length > 0) {
         pExtras.forEach((ex: any) => {
@@ -343,9 +349,10 @@ export default function ReportDREBrasil() {
   const { data: partnerExtras = [] } = useQuery({
     queryKey: ["partner-extras-all"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("event_partner_extras").select("*");
+      // (#148) Fonte única: transação + manual (partner-extras.ts).
+      const { data: evs, error } = await supabase.from("events").select("id");
       if (error) throw error;
-      return data;
+      return fetchPartnerExtras((evs ?? []).map((e: any) => e.id));
     },
   });
 

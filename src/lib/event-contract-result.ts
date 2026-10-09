@@ -19,6 +19,7 @@
  * discreto "≠ fecho" quando a capa e o fecho diferem — são perguntas diferentes.
  */
 import {
+  getPartnerCalcBasisLabel,
   getPartnerRevenueBase,
   ignoresOperationalExpenses,
   normalizePartnerCalcBasis,
@@ -70,8 +71,12 @@ export interface ContractResult {
    * evento) — só para o badge "≠ fecho". `null` enquanto não está calculado.
    */
   settlementResult: number | null;
-  /** true ⇒ o Lucro (capa) difere do Resultado do Encontro. */
+  /** true ⇒ a subtração das vistas dos cards difere do Lucro contratual. */
   differsFromSettlement: boolean;
+  /** (#223, 09/10/2026) Subtração das vistas dos cards — só informativa. */
+  viewResult: number;
+  /** Rótulo da base contratual em que o Lucro é calculado. */
+  contractLabel: string;
 }
 
 /**
@@ -120,17 +125,25 @@ export function computeEventContractResult(
     label = `${revMode ? `${revMode} · ` : ""}Receita ${revVatLabel} − Despesa ${expVatLabel}`;
   }
 
+  // (#223, decisão do Pedro 09/10/2026 — substitui "na capa mandam os botões"):
+  // o Lucro calcula-se na BASE CONTRATUAL (o mesmo número do Encontro de
+  // Contas, via computeContractBasisResult). As vistas dos cards só mudam o
+  // que se vê em cima; a subtração delas fica em `viewResult` para o aviso.
+  const viewResult = revenueBase - expenseBase;
+  const result = settlementResult ?? viewResult;
   return {
     calcBasis,
     withVat: vatViews.expense,
     revenueBase,
     expenseBase,
-    result: revenueBase - expenseBase,
+    result,
+    viewResult,
+    contractLabel: getPartnerCalcBasisLabel(calcBasis),
     label,
     perimeterMismatch,
     settlementResult: settlementResult ?? null,
     differsFromSettlement:
       settlementResult != null &&
-      Math.abs(revenueBase - expenseBase - settlementResult) > 0.005,
+      Math.abs(viewResult - settlementResult) > 0.005,
   };
 }
