@@ -3,7 +3,7 @@
 // READ-ONLY. Sem LLM. Não trunca nada — o caller serializa/trunca.
 //
 // Critério ÚNICO de "vencedor" (D1): rácio ROAS puro, igual ao redesign.
-//   winner se creative_roas >= caps.target_blended_roas * 0.6,
+//   winner se creative_roas >= caps.target_blended_roas * 0.6 (sem meta → "inconclusive"),
 //   gates spend>=€50 e purchases>=3;
 //   abaixo dos gates → "inconclusive"; senão → "loser".
 //
@@ -57,7 +57,7 @@ const DAILY_SERIES_MAX_DAYS = 90;
 // ────────────────────────────────────────────────────────────────────────────
 
 export type BudgetCaps = {
-  target_blended_roas: number;          // D5 — passado pelo caller
+  target_blended_roas: number | null;   // D5 — passado pelo caller; null = sem meta (events.target_roas NULL)
   daily_budget_cents?: number | null;
   lifetime_budget_cents?: number | null;
   roas_floor?: number | null;
@@ -173,7 +173,7 @@ export type DailyPoint = {
 };
 
 export type Viability = {
-  target_roas: number;
+  target_roas: number | null;
   current_roas: number;
   trajectory: TrajectoryString;
   event_goal_revenue_eur: number;
@@ -185,7 +185,7 @@ export type Viability = {
   current_projected_spend_eur: number;
   meets_statistical_floor: boolean;
   roas_gap: number | null;
-  gap_severity: GapSeverity;
+  gap_severity: GapSeverity | null;   // null = sem meta (não avaliado)
   // constantes usadas — auditabilidade
   constants: {
     ticket_avg_fallback_eur: number;
@@ -252,7 +252,7 @@ export type CampaignBrief = {
   };
 
   caps: BudgetCaps;
-  winner_roas_threshold: number;       // = caps.target_blended_roas * 0.6
+  winner_roas_threshold: number | null; // = caps.target_blended_roas * 0.6; null sem meta
 
   event: EventContext;
 
@@ -387,7 +387,7 @@ async function classifyCreativesForCampaign(
   supabase: SupabaseClient,
   companyId: string,
   externalCampaignId: string,
-  winnerRoasThreshold: number,
+  winnerRoasThreshold: number | null,
   computeFatigue: boolean,
 ): Promise<WinnerPacket[]> {
   const sb: any = supabase;
@@ -482,7 +482,8 @@ async function classifyCreativesForCampaign(
     const pv_eur = agg.purchasesValueCents / 100;
     const roas = roasOf(agg);
     let label: WinnerLabel;
-    if (spend_eur < CREATIVE_MIN_SPEND_EUR || agg.purchases < CREATIVE_MIN_PURCHASES) {
+    if (winnerRoasThreshold == null || spend_eur < CREATIVE_MIN_SPEND_EUR || agg.purchases < CREATIVE_MIN_PURCHASES) {
+      // Sem meta não há régua winner/loser — nunca julgar contra um valor assumido.
       label = "inconclusive";
     } else {
       label = roas != null && roas >= winnerRoasThreshold ? "winner" : "loser";
@@ -541,7 +542,7 @@ async function buildAdsetSignals(
   supabase: SupabaseClient,
   companyId: string,
   externalCampaignId: string,
-  winnerRoasThreshold: number,
+  winnerRoasThreshold: number | null,
 ): Promise<{
   audience_ranking: AudienceRanking;
   adset_saturation: AdsetSaturationItem[];
@@ -633,7 +634,8 @@ async function buildAdsetSignals(
     const pv_eur = agg.purchasesValueCents / 100;
     const roas = roasOf(agg);
     let label: WinnerLabel;
-    if (spend_eur < CREATIVE_MIN_SPEND_EUR || agg.purchases < CREATIVE_MIN_PURCHASES) {
+    if (winnerRoasThreshold == null || spend_eur < CREATIVE_MIN_SPEND_EUR || agg.purchases < CREATIVE_MIN_PURCHASES) {
+      // Sem meta não há régua winner/loser — nunca julgar contra um valor assumido.
       label = "inconclusive";
     } else {
       label = roas != null && roas >= winnerRoasThreshold ? "winner" : "loser";
@@ -732,7 +734,7 @@ function buildFormatGaps(winners: WinnerPacket[]): FormatGaps {
 
 // analyzeViability — espelha redesign L958-1010.
 function buildViability(args: {
-  targetRoas: number;
+  targetRoas: number | null;
   currentRoas: number;
   buckets: ROASBuckets;
   trajectory: TrajectoryString;
@@ -751,14 +753,14 @@ function buildViability(args: {
   const currentDailySpend = (campSpendCents / 100) / Math.max(1, periodDays);
   const currentPurchaseRate = campPurchases / Math.max(1, periodDays);
   const projectedPurchases = currentPurchaseRate * daysUntil;
-  const spendNeededForGoal = eventGoalRevenue > 0 ? eventGoalRevenue / targetRoas : null;
+  const spendNeededForGoal = targetRoas != null && targetRoas > 0 && eventGoalRevenue > 0 ? eventGoalRevenue / targetRoas : null;
   const dailySpendNeeded = spendNeededForGoal != null && daysUntil > 0 ? spendNeededForGoal / daysUntil : null;
   const currentProjectedSpend = currentDailySpend * daysUntil;
   const meetsStatFloor =
     currentProjectedSpend >= STATISTICAL_FLOOR_SPEND_EUR ||
     projectedPurchases >= STATISTICAL_FLOOR_PURCHASES;
-  const roasGap = targetRoas > 0 ? targetRoas / Math.max(0.1, currentRoas) : null;
-  let gap_severity: GapSeverity = "comfortable";
+  const roasGap = targetRoas != null && targetRoas > 0 ? targetRoas / Math.max(0.1, currentRoas) : null;
+  let gap_severity: GapSeverity | null = roasGap != null ? "comfortable" : null;
   if (roasGap != null) {
     if (roasGap < 1.5) gap_severity = "comfortable";
     else if (roasGap < 2.5) gap_severity = "stretch";
@@ -802,12 +804,17 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
   } else if (mode === "blank") {
     if (!args.event_id) throw new Error("missing_event_id");
   }
-  if (!caps || typeof caps.target_blended_roas !== "number" || !(caps.target_blended_roas > 0)) {
-    throw new Error("missing_or_invalid_caps.target_blended_roas");
+  if (!caps) throw new Error("missing_caps");
+  if (caps.target_blended_roas != null && !(typeof caps.target_blended_roas === "number" && caps.target_blended_roas > 0)) {
+    throw new Error("invalid_caps.target_blended_roas");
   }
   const periodDays = Math.min(Math.max(period_days ?? 30, 7), 90);
-  const winnerRoasThreshold = caps.target_blended_roas * CREATIVE_WINNER_ROAS_RATIO;
+  const winnerRoasThreshold: number | null = caps.target_blended_roas != null
+    ? caps.target_blended_roas * CREATIVE_WINNER_ROAS_RATIO : null;
   const warnings: string[] = [];
+  if (winnerRoasThreshold == null) {
+    warnings.push("sem_meta_roas: evento sem target_roas — winner/loser e viabilidade face à meta não avaliados");
+  }
   const sb: any = supabase;
 
   // 1) Snapshot da campanha (só se campaign_id existir — modo full continua a falhar duro)
@@ -1126,7 +1133,7 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
       lifetime_budget_cents: campaign?.lifetime_budget_cents ?? null,
     },
     caps,
-    winner_roas_threshold: round4(winnerRoasThreshold),
+    winner_roas_threshold: winnerRoasThreshold != null ? round4(winnerRoasThreshold) : null,
     event,
     diagnosis_360: (diagRow ?? null) as any,
     roas_buckets,

@@ -3,7 +3,8 @@
 // Nada na app a chama hoje — inerte por design, para validação isolada.
 //
 // POST { campaign_id, reference_campaign_id?, caps?, period_days? }
-// caps default: { target_blended_roas: 8 }
+// caps sem target_blended_roas = evento sem meta (events.target_roas NULL): os
+// critérios que dependem da meta são omitidos; NUNCA se assume 8.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { buildCampaignBrief, BudgetCaps } from "../_shared/campaign-brief.ts";
@@ -63,13 +64,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // Caps com defaults
   const caps: BudgetCaps = {
-    target_blended_roas: body.caps?.target_blended_roas ?? 8,
+    target_blended_roas: body.caps?.target_blended_roas ?? null,
     daily_budget_cents: body.caps?.daily_budget_cents ?? null,
     lifetime_budget_cents: body.caps?.lifetime_budget_cents ?? null,
     roas_floor: body.caps?.roas_floor ?? null,
     end_time: body.caps?.end_time ?? null,
   };
-  if (!(caps.target_blended_roas > 0)) {
+  if (caps.target_blended_roas != null && !(caps.target_blended_roas > 0)) {
     return json({ error: "invalid_caps.target_blended_roas" }, 400);
   }
 

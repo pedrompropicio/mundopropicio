@@ -41,7 +41,6 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 // Fallback fixo de ROAS-alvo quando o request não o fornece (Fase 1A).
-const DEFAULT_TARGET_ROAS = 8.0;
 
 // ── Projeção de trajetória (Fase 1C) — constantes CALIBRÁVEIS ──
 // PASSO 1: pesos do número-base. Renormalizados se alguma janela for excluída.
@@ -427,19 +426,21 @@ function computeCampaignTrajectory(
 // FASE 1D — Classificação da campanha-fonte
 // ──────────────────────────────────────────────────────────────────────────
 // Decide a classe cruzando NÍVEL (baseline vs floor) com DIREÇÃO (trend_band).
-// targetRoas chega sempre como número válido (handler garante o default 8.0).
+// targetRoas = meta do evento (events.target_roas) enviada pelo pedido, ou null =
+// sem meta. Sem meta, "fraca" vs "saudável" (dependem do floor = meta × 0.60) não
+// são avaliados → "indeterminada". "morta" (limiar absoluto) continua a valer.
 type TrajectoryBlock = ReturnType<typeof computeCampaignTrajectory>;
 
 type CampaignClassification = {
   source_campaign_class: SourceCampaignClass;
   recommended_posture: RecommendedPosture;
-  healthy_floor: number;
+  healthy_floor: number | null;
   classification_reason: string;
-  inputs: { projected_baseline_roas: number | null; trend_band: string; target_roas: number };
+  inputs: { projected_baseline_roas: number | null; trend_band: string; target_roas: number | null };
 };
 
-function classifyCampaign(trajectory: TrajectoryBlock, targetRoas: number): CampaignClassification {
-  const healthyFloor = round(targetRoas * HEALTHY_FLOOR_RATIO, 4);
+function classifyCampaign(trajectory: TrajectoryBlock, targetRoas: number | null): CampaignClassification {
+  const healthyFloor = targetRoas != null ? round(targetRoas * HEALTHY_FLOOR_RATIO, 4) : null;
   const baseline = trajectory.projected_baseline_roas;
   const band = trajectory.trend_band;
   const fmt = (n: number) => n.toFixed(2);
@@ -469,6 +470,10 @@ function classifyCampaign(trajectory: TrajectoryBlock, targetRoas: number): Camp
     // "Morta" depende SÓ do baseline perto de zero, não de uma janela de 7d.
     cls = "morta";
     reason = `baseline projetado ${fmt(baseline)}x <= limiar de morta ${fmt(DEAD_BASELINE_THRESHOLD)}x — retorno praticamente nulo`;
+  } else if (healthyFloor == null) {
+    // Sem meta: não há floor para julgar o nível — nunca comparar contra um valor assumido.
+    cls = "indeterminada";
+    reason = `baseline projetado ${fmt(baseline)}x, tendência ${band}; sem meta de ROAS no evento — nível (fraca/saudável) não avaliado`;
   } else if (baseline < healthyFloor) {
     cls = "fraca";
     reason = `baseline projetado ${fmt(baseline)}x abaixo do floor ${fmt(healthyFloor)}x e acima do limiar de morta ${fmt(DEAD_BASELINE_THRESHOLD)}x`;
@@ -620,10 +625,10 @@ function computeMaturationGate(
 // Classificação forçada quando o portão dispara (curto-circuita a Fase 1D).
 function maturationClassification(
   trajectory: TrajectoryBlock,
-  targetRoas: number,
+  targetRoas: number | null,
   gate: MaturationGate,
 ): CampaignClassification {
-  const healthyFloor = round(targetRoas * HEALTHY_FLOOR_RATIO, 4);
+  const healthyFloor = targetRoas != null ? round(targetRoas * HEALTHY_FLOOR_RATIO, 4) : null;
   return {
     source_campaign_class: "em_maturacao",
     recommended_posture: POSTURE_BY_CLASS["em_maturacao"],
@@ -651,7 +656,7 @@ async function readInsightWindows(
   supabase: any,
   companyId: string,
   campaignId: string,
-  targetRoas: number,
+  targetRoas: number | null,
 ) {
   // As 3 tabelas de insights têm external_campaign_id + company_id → filtramos
   // diretamente, sem precisar de juntar as snapshots nesta fase.
@@ -944,7 +949,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { company_id?: string; external_campaign_id?: string; target_roas?: number };
+  let body: { company_id?: string; external_campaign_id?: string; target_roas?: number | null };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
 
   const companyId = body.company_id;
@@ -952,9 +957,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!companyId) return json({ error: "missing_company_id" }, 400);
   if (!campaignId) return json({ error: "missing_external_campaign_id" }, 400);
 
-  const targetRoas = typeof body.target_roas === "number" && body.target_roas > 0
+  // Meta SÓ do pedido (events.target_roas do evento ligado). Ausente = sem meta.
+  const targetRoas: number | null = typeof body.target_roas === "number" && body.target_roas > 0
     ? body.target_roas
-    : DEFAULT_TARGET_ROAS;
+    : null;
 
   console.log(
     `[campaign-diagnosis] start company=${companyId} campaign=${campaignId} target_roas=${targetRoas}`,
@@ -1040,7 +1046,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       company_id: companyId,
       external_campaign_id: campaignId,
       target_roas: targetRoas,
-      target_roas_source: typeof body.target_roas === "number" && body.target_roas > 0 ? "request" : "default",
+      target_roas_source: targetRoas != null ? "request" : "none",
     },
     // ── Espelho de topo ──
     source_campaign_class: sourceCampaignClass,
@@ -1078,7 +1084,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
         connection_id: campaignMeta.connection_id,
         external_campaign_id: campaignId,
         campaign_name: campaignMeta.campaign_name,
-        target_roas: targetRoas,
+        // Coluna NOT NULL (sem DDL nesta tarefa): 0 = "sem meta". O valor real
+        // (null) vai em diagnosis_jsonb.input.target_roas + target_roas_source="none".
+        target_roas: targetRoas ?? 0,
         diagnosis_jsonb: diagnosis,
         source_campaign_class: sourceCampaignClass,
         projected_baseline_roas: projectedBaselineRoas,

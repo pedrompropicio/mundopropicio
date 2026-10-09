@@ -33,7 +33,8 @@ const json = (b: unknown, s = 200) =>
 // ────────────────────────────────────────────────────────────────────────────
 
 type BudgetCaps = {
-  target_blended_roas: number;
+  // null = evento sem meta (events.target_roas NULL). Nunca assumir um valor.
+  target_blended_roas: number | null;
   daily_budget_cents?: number | null;
   lifetime_budget_cents?: number | null;
   roas_floor?: number | null;
@@ -467,13 +468,15 @@ Deno.serve(async (req: Request) => {
     }
     const newBody = body as unknown as CanonicalInput;
     const caps: BudgetCaps = {
-      target_blended_roas: newBody.caps?.target_blended_roas ?? 8,
+      target_blended_roas: newBody.caps?.target_blended_roas ?? null,
       daily_budget_cents: newBody.caps?.daily_budget_cents ?? null,
       lifetime_budget_cents: newBody.caps?.lifetime_budget_cents ?? null,
       roas_floor: newBody.caps?.roas_floor ?? null,
       end_time: newBody.caps?.end_time ?? null,
     };
-    if (!(caps.target_blended_roas > 0)) return json({ error: "invalid_caps.target_blended_roas" }, 400);
+    if (caps.target_blended_roas != null && !(caps.target_blended_roas > 0)) {
+      return json({ error: "invalid_caps.target_blended_roas" }, 400);
+    }
 
     const duel_id = crypto.randomUUID();
     const { data: ins, error: insErr } = await sbCrmInit.from("audience_duel_runs").insert({
