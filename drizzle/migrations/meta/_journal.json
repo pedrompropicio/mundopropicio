@@ -428,6 +428,13 @@
       "when": 1791589995914,
       "tag": "0060_derp214_daily_sales_precedence_shared",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1791590323153,
+      "tag": "0061_derp214_ticketline_parallel_series_invariant",
+      "breakpoints": true
     }
   ]
 }
