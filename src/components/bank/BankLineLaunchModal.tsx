@@ -33,6 +33,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
 import LinkBpLineDialog from "@/components/LinkBpLineDialog";
+import { SimilarSuppliersNotice, type SimilarSupplier } from "@/components/SimilarSuppliersNotice";
+import { reactivateSupplier } from "@/lib/supplier-lifecycle";
 import { friendlyPaymentError } from "@/lib/payment-methods";
 import {
   findMatchingRule,
@@ -188,10 +190,13 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
     },
   });
 
-  /** Criação rápida de fornecedor (só nome) a partir do próprio campo. */
-  const handleCreateSupplier = async (text: string) => {
-    const name = text.trim();
-    if (!name) return false;
+  // D-ERP199: antes de criar só com o nome, procurar fornecedores parecidos.
+  const [similarPending, setSimilarPending] = useState<{ name: string; list: SimilarSupplier[] } | null>(null);
+  const [similarBusy, setSimilarBusy] = useState(false);
+  const authRole = (useAuth() as any).role as string | undefined;
+  const canManageSuppliers = authRole === "admin" || authRole === "platform_admin" || authRole === "manager";
+
+  const insertSupplier = async (name: string) => {
     const { data: companyId, error: cErr } = await supabase.rpc("current_company_id" as any);
     if (cErr || !companyId) {
       toast.error("Não foi possível identificar a empresa activa.");
@@ -210,6 +215,40 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
     await queryClient.invalidateQueries({ queryKey: ["bank-launch-suppliers"] });
     toast.success(`Fornecedor "${name}" criado.`);
     return true;
+  };
+
+  /** Criação rápida de fornecedor (só nome) a partir do próprio campo. */
+  const handleCreateSupplier = async (text: string) => {
+    const name = text.trim();
+    if (!name) return false;
+    const { data: sim, error: simErr } = await supabase.rpc("check_supplier_similar" as any, {
+      p_name: name, p_nif: null, p_supplier_id: null,
+    });
+    if (simErr) {
+      toast.error("Erro ao procurar fornecedores parecidos: " + simErr.message);
+      return false;
+    }
+    const list = (sim ?? []) as SimilarSupplier[];
+    if (list.length > 0) {
+      setSimilarPending({ name, list });
+      return false;
+    }
+    return insertSupplier(name);
+  };
+
+  const pickSimilar = async (c: SimilarSupplier) => {
+    setSimilarBusy(true);
+    try {
+      if (!c.is_active) await reactivateSupplier(c.id);
+      await queryClient.invalidateQueries({ queryKey: ["bank-launch-suppliers"] });
+      setSupplierId(c.id);
+      setSimilarPending(null);
+      toast.success(c.is_active ? `A usar «${c.name}»` : `«${c.name}» reativado`);
+    } catch (e: any) {
+      toast.error("Erro ao reativar fornecedor: " + (e?.message ?? "desconhecido"));
+    } finally {
+      setSimilarBusy(false);
+    }
   };
 
   const { data: categories = [] } = useQuery({
@@ -706,6 +745,19 @@ export function BankLineLaunchModal({ lines, accountId, accountName, rules, feeP
           </div>
           )}
 
+          {!isTransfer && !feePlan && similarPending && (
+            <SimilarSuppliersNotice
+              list={similarPending.list}
+              canManage={canManageSuppliers}
+              busy={similarBusy}
+              onUse={pickSimilar}
+              onCreateAnyway={async () => {
+                const n = similarPending.name;
+                setSimilarPending(null);
+                await insertSupplier(n);
+              }}
+            />
+          )}
           {!isTransfer && !feePlan && (
             <div className="grid gap-3 md:grid-cols-3">
               <div>
