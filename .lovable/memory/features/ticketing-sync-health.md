@@ -1,6 +1,6 @@
 ---
 name: Saúde do sync de bilheteira
-description: check_ticketing_sync_health() — 5 condições (a/b/c/d/e), canais system_reminders + email ticketing-sync-alert, anti-spam 12h e cron ticketing-sync-health
+description: Vigia de bilheteira — condições a–g calculadas uma só vez em ticketing_sync_conditions(); único canal é o indicador do Dashboard por empresa (D-ERP197); sem email, WhatsApp nem lembrete; cron 217 morto
 type: feature
 ---
 
@@ -103,3 +103,10 @@ Migração `0034_derp189_onebox_sync_health.sql` (patch por replace sobre a defi
 - Cron 217 continua desactivado; o comando actual já não envia. Reactivar = apontar à edge com `{"dry_run":false}`.
 - Prova 08/10: plano real = 1 empresa (7c858982, condição g ×2) → 3 emails/dia (matheuslcoelho, pedroneto, producao@mundopropicio);
   antes 16–32/dia. michel.silva só está na lista da 7d831e59.
+
+## D-ERP197 (09/10/2026) — canal único: o indicador do Dashboard
+- Cálculo único: `public.ticketing_sync_conditions()` (SECDEF, só service_role) devolve company_id, config_id, event_id, event_name, bilheteira, condicao, nivel, detalhe, desde_quando. Prioridade por config c → a → f → b; (d) por empresa; (e)/(g) de `ticketline_crosscheck_signals()`. NÃO duplicar noutro sítio.
+- `check_ticketing_sync_health(_dry_run)` lê dessa função; NÃO escreve em `system_reminders` (chave `ticketing_sync_stalled:*` apagada). Continua a devolver `items` + `plano_por_empresa` (cada item com `nivel`).
+- Ecrã: `get_ticketing_sync_status()` (SECDEF, authenticated, filtro `row_belongs_to_current_company`). `TicketingDivergenceIndicator`: vermelho a/b/d/f, âmbar e/g (g = fornecedor), informativo c. Números de e/g continuam de `get_ticketing_divergences()`.
+- Cron `ticketing-sync-health` (jobid 217) desactivado em DEFINITIVO. Não religar. As secções "Canais" e "Canal de email" acima ficam como histórico.
+- Prova 09/10: dry-run antes = depois = 2 × (g) (RG Almada, RG Braga). Forçado (a) com 3 corridas `failed` numa transacção anulada → vermelho no Almada; michel (Coala) vê 0.
