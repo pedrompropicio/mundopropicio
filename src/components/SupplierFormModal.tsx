@@ -286,11 +286,88 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
 
     if (isEditing) {
       updateMutation.mutate(raw);
-    } else {
-      createMutation.mutate(raw);
-
+      return;
     }
+
+    // D-ERP199: NIF igual ou nome parecido → aviso antes de criar.
+    const { data: sim, error: simErr } = await supabase.rpc("check_supplier_similar" as any, {
+      p_name: raw.name,
+      p_nif: raw.nif,
+      p_supplier_id: null,
+    });
+    if (simErr) {
+      toast.error("Erro ao procurar fornecedores parecidos", { description: simErr.message });
+      return;
+    }
+    const list = (sim ?? []) as SimilarSupplier[];
+    if (list.length > 0) {
+      setSimilar({ raw, list });
+      return;
+    }
+    createMutation.mutate(raw);
   };
+
+  const useExisting = async (c: SimilarSupplier) => {
+    if (!c.is_active) {
+      reactivateMutation.mutate(c.id);
+      return;
+    }
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: ["suppliers"] }),
+      queryClient.refetchQueries({ queryKey: ["suppliers-active"] }),
+    ]);
+    setSimilar(null);
+    onOpenChange(false);
+    toast.success(`A usar «${c.name}»`);
+    onCreated?.(c.id);
+  };
+
+  // IBAN escrito (o primeiro) e slot livre na ficha existente.
+  const ibanAppendPlan = (c: SimilarSupplier, raw: Record<string, any>) => {
+    const typed = [
+      { iban: raw.iban, swift: raw.swift_bic },
+      { iban: raw.iban_2, swift: raw.swift_bic_2 },
+      { iban: raw.iban_3, swift: raw.swift_bic_3 },
+    ].find((x) => x.iban);
+    if (!typed) return null;
+    const existing = [c.iban, c.iban_2, c.iban_3].map((v) => normalizeIban(v));
+    if (existing.includes(normalizeIban(typed.iban))) return null;
+    const idx = [c.iban, c.iban_2, c.iban_3].findIndex((v) => !v);
+    if (idx < 0) return null;
+    const slot = (["iban", "iban_2", "iban_3"] as const)[idx];
+    const swiftSlot = (["swift_bic", "swift_bic_2", "swift_bic_3"] as const)[idx];
+    return { slot, swiftSlot, iban: typed.iban as string, swift: (typed.swift as string | null) ?? null };
+  };
+
+  const appendIbanMutation = useMutation({
+    mutationFn: async ({ c, plan }: { c: SimilarSupplier; plan: NonNullable<ReturnType<typeof ibanAppendPlan>> }) => {
+      const patch: Record<string, any> = { [plan.slot]: plan.iban };
+      if (plan.swift) patch[plan.swiftSlot] = plan.swift;
+      const { error } = await supabase.from("suppliers").update(patch as any).eq("id", c.id);
+      if (error) throw error;
+      await logAudit({
+        entity_type: "supplier",
+        entity_id: c.id,
+        action: "update_bank_details",
+        changed_by: getAuditUser(user),
+        old_data: Object.fromEntries(Object.keys(patch).map((k) => [k, null])),
+        new_data: patch,
+        metadata: { supplier_name: c.name, source: "similar_supplier_append_iban" },
+      });
+      return c;
+    },
+    onSuccess: async (c) => {
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["suppliers"] }),
+        queryClient.refetchQueries({ queryKey: ["suppliers-active"] }),
+      ]);
+      setSimilar(null);
+      onOpenChange(false);
+      toast.success(`IBAN acrescentado a «${c.name}»`);
+      onCreated?.(c.id);
+    },
+    onError: (err: any) => toast.error("Erro ao acrescentar IBAN", { description: String(err?.message ?? err) }),
+  });
 
   const isPending = createMutation.isPending || updateMutation.isPending;
   const s = editingSupplier;
