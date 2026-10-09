@@ -12,6 +12,7 @@
 //   - cron: header X-Cron-Secret = COALA_SYNC_CRON_SECRET (ou service-role direto)
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { assertCallerRoleOnRow, errorResponse } from "../_shared/multiTenant.ts";
 import {
   parseCoalaXlsx,
   buildValidationReport,
@@ -249,6 +250,24 @@ Deno.serve(async (req) => {
     const { configId, mode = "dry_run", basedOnRunId } = body ?? {};
     const triggeredBy = isCron ? "cron" : (body?.triggeredBy ?? "manual");
     if (!["dry_run", "apply", "auto_apply"].includes(mode)) return json({ error: "mode inválido" }, 400);
+
+    // #283 parte 5 (D-ERP194): utilizador → papel verificado NA empresa da config.
+    // A run base (basedOnRunId) tem de ser da mesma config.
+    if (authedUserId) {
+      let cfgIdForGuard: string | null = configId ?? null;
+      if (basedOnRunId) {
+        const { data: br } = await admin.from("coala_sync_runs").select("config_id").eq("id", basedOnRunId).maybeSingle();
+        if (!br) return json({ error: "Run base não encontrada" }, 404);
+        if (cfgIdForGuard && br.config_id !== cfgIdForGuard) return json({ error: "Run base não pertence à config" }, 403);
+        cfgIdForGuard = br.config_id;
+      }
+      if (!cfgIdForGuard) return json({ error: "configId obrigatório em chamadas manuais" }, 400);
+      try {
+        await assertCallerRoleOnRow(req, "coala_sync_config", cfgIdForGuard, ["admin", "manager", "platform_admin"]);
+      } catch (e) {
+        return errorResponse(e);
+      }
+    }
 
     // ─────────────────────────────────────────────────────────────
     // Modo auto_apply manual: re-baixa o XLSX da config, chama
