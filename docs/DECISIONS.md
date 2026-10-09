@@ -4500,6 +4500,10 @@ DDL já em Live: `song_links.song_id` nullable + `link_type` ('song'|'playlist')
 - `artist_song_link_stats` e `artist_ads_period_report` filtram por `artist_id` e canal do evento: as chegadas de playlist entram sem alteração.
 - Prova 08/10 15:29 UTC: evento 3e9f4981 (utm_source teste_chat2), capi_status=enviado, tiktok_status=enviado.
 
+### Adenda D-ERP141 — `song_link_diag` aceita kind 'redirect' (09/10/2026)
+
+Migração 0053 (DDL autorizada pelo Pedro): `song_link_diag_kind_check` refeito com 'shown','tap_button','tap_other','hidden','visible','pagehide','redirect'. Nada mais muda. Prova: linha 1573 inserida por anon REST (via do Portal), kind=redirect, slug/detail=teste_chat2.
+
 ## D-ERP144 — TikTok na app: via provisória manual, compatível com o sync definitivo (25/09/2026)
 
 **Decisão.** Os anúncios TikTok de artista passam a ter tabelas próprias em `crm`, espelho das Google (D-ERP90–93): `crm.tiktok_campaign` (UNIQUE connection_id+external_campaign_id), `crm.tiktok_adgroup` (UNIQUE connection_id+external_adgroup_id) e `crm.tiktok_insights_daily` (UNIQUE connection_id+level+external_id+date_start; level `campaign|adgroup|ad`). Todas com `source` `manual|api`. Enquanto a app da Marketing API está em revisão, os dados entram à mão (leitura do Ads Manager pelo Cowork) pela RPC `public.artist_ads_tiktok_manual_upsert`.
