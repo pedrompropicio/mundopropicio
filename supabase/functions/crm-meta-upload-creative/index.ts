@@ -13,6 +13,7 @@
 // Auth também devolve HTTP 200 ok:false para preservar o detalhe no frontend.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { assertCallerRoleOnRow, assertCallerRoleInCompany, isServiceRoleRequest, errorResponse, CRM_ADS_ROLES } from "../_shared/multiTenant.ts";
 
 const BUILD_VERSION = "upload-creative-v5-authtrace 2026-06-24";
 const GRAPH_API_VERSION = "v21.0";
@@ -153,6 +154,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const force = !!body.force;
     await dbg("start", { creative_id: creativeId ?? null, company_id: companyId ?? null });
     if (!companyId || !creativeId) return bizErr({ error: "missing_params" });
+    if (!(await isServiceRoleRequest(req))) {
+      // #283 parte 5 (D-ERP203): company_id = empresa activa + papel nessa empresa; getUser obrigatório.
+      try { await assertCallerRoleInCompany(req, companyId, CRM_ADS_ROLES); } catch (e) { return errorResponse(e); }
+    }
 
     // 1) Criativo
     const { data: cre, error: creErr } = await (sbCrm as any)

@@ -12,7 +12,7 @@
 //   - cron: header X-Cron-Secret = COALA_SYNC_CRON_SECRET (ou service-role direto)
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { assertCallerRoleOnRow, errorResponse } from "../_shared/multiTenant.ts";
+import { assertCallerRoleOnRow, errorResponse, isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import {
   parseCoalaXlsx,
   buildValidationReport,
@@ -224,7 +224,8 @@ Deno.serve(async (req) => {
     const cronSecretHdr = req.headers.get("x-cron-secret");
     const expectedCronSecret = Deno.env.get("COALA_SYNC_CRON_SECRET");
     const auth = req.headers.get("Authorization");
-    const isServiceRole = auth === `Bearer ${SERVICE_ROLE}` || jwtRole(auth) === "service_role";
+    // #283 parte 5: o payload do JWT sozinho forja-se (verify_jwt=false) — só conta verificado no Auth.
+    const isServiceRole = auth === `Bearer ${SERVICE_ROLE}` || (jwtRole(auth) === "service_role" && await isServiceRoleRequest(req));
     const isCron = !!expectedCronSecret && cronSecretHdr === expectedCronSecret;
 
     // Auth: cron OU JWT de utilizador privilegiado

@@ -9,6 +9,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
+import { assertCallerRoleOnRow, assertCallerRoleInCompany, isServiceRoleRequest, errorResponse, CRM_ADS_ROLES } from "../_shared/multiTenant.ts";
 
 const BUILD_VERSION = "list-audiences-v2 2026-08-27 (delivery_estimate)";
 const GRAPH_API_VERSION = "v21.0";
@@ -103,6 +104,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const startedAt = Date.now();
     const TIME_BUDGET_MS = 50_000;
     if (!companyId) return bizErr({ error: "missing_params", detail: "company_id" });
+    if (!(await isServiceRoleRequest(req))) {
+      // #283 parte 5 (D-ERP203): company_id = empresa activa + papel nessa empresa; getUser obrigatório.
+      try { await assertCallerRoleInCompany(req, companyId, CRM_ADS_ROLES); } catch (e) { return errorResponse(e); }
+    }
 
     // 1) Conexão Meta ativa
     const { data: conn, error: connErr } = await sbCrm

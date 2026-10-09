@@ -16,6 +16,7 @@
 // v24 mantém o endpoint googleAds:searchStream e suporta DEMAND_GEN.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { assertCallerRoleInCompany, authenticateAndResolveCompany, isServiceRoleRequest, errorResponse, CRM_ADS_ROLES } from "../_shared/multiTenant.ts";
 import {
   finishSyncRun,
   resolveStatus,
@@ -864,20 +865,8 @@ async function authenticateRequest(req: Request): Promise<AuthInfo> {
   const svc = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   if (svc && token === svc) return { isServiceRole: true, userId: null };
 
-  // Detecta service_role pelo payload (chave legacy em JWT)
-  try {
-    const parts = token.split(".");
-    if (parts.length >= 2) {
-      const payload = JSON.parse(
-        atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")),
-      );
-      if (payload?.role === "service_role") {
-        return { isServiceRole: true, userId: null };
-      }
-    }
-  } catch (_e) {
-    // ignore, tentar como user token
-  }
+  // Service role legacy em JWT: só com verificação no Auth (#283 parte 5).
+  if (await isServiceRoleRequest(req)) return { isServiceRole: true, userId: null };
 
   // Valida como user token
   const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -921,6 +910,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   } catch (_e) {
     // ignore
+  }
+
+  // #283 parte 5 (D-ERP203): utilizador → company_id (por omissão a activa) tem de ser a
+  // empresa activa, com papel nessa empresa; a connection_id fica filtrada por ela.
+  if (!auth.isServiceRole) {
+    try {
+      const t = await authenticateAndResolveCompany(req);
+      const cid = bodyJson.company_id ?? t.callerCompanyId ?? undefined;
+      await assertCallerRoleInCompany(req, cid, CRM_ADS_ROLES);
+      bodyJson.company_id = cid;
+    } catch (e) { return errorResponse(e); }
   }
 
   // D-ERP104: modo breakdowns (opt-in). Sai aqui; o caminho normal fica intacto.

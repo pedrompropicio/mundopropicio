@@ -7,6 +7,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
+import { assertCallerRoleOnRow, assertCallerRoleInCompany, isServiceRoleRequest, errorResponse, CRM_ADS_ROLES } from "../_shared/multiTenant.ts";
 
 const BUILD_VERSION = "create-lookalike-v1 2026-06-24";
 const GRAPH_API_VERSION = "v21.0";
@@ -68,6 +69,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const companyId = body.company_id;
     const sourceId = body.source_audience_id_meta ? String(body.source_audience_id_meta) : "";
     if (!companyId) return bizErr({ error: "missing_params", detail: "company_id" });
+    if (!(await isServiceRoleRequest(req))) {
+      // #283 parte 5 (D-ERP203): company_id = empresa activa + papel nessa empresa; getUser obrigatório.
+      try { await assertCallerRoleInCompany(req, companyId, CRM_ADS_ROLES); } catch (e) { return errorResponse(e); }
+    }
     if (!sourceId) return bizErr({ error: "missing_params", detail: "source_audience_id_meta" });
 
     const country = (body.country ?? "PT").toString().toUpperCase().slice(0, 2);

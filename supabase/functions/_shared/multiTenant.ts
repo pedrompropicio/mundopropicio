@@ -70,7 +70,10 @@ export async function authenticateAndResolveCompany(req: Request): Promise<Tenan
     global: { headers: { Authorization: authHeader } },
   });
 
-  const { data: userData, error: authError } = await callerClient.auth.getUser();
+  // JWT passado explicitamente: sem sessão em storage o getUser() sem argumento
+  // não lê o cabeçalho global (#283 parte 5).
+  const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
+  const { data: userData, error: authError } = await callerClient.auth.getUser(jwt);
   if (authError || !userData?.user) throw new AuthError("Não autorizado");
   const caller = userData.user;
 
@@ -234,4 +237,57 @@ export async function assertCallerRoleOnRow(
     throw new TenantError("Sem permissão nesta empresa");
   }
   return { ...ctx, rowCompanyId };
+}
+
+/**
+ * (#283 parte 5) Pedido interno com a service role? Aceita a chave exacta do
+ * runtime; um JWT cujo payload diz role=service_role só conta se o Auth o
+ * aceitar como service role (o payload sozinho não é assinatura — com
+ * verify_jwt=false podia ser forjado).
+ */
+export async function isServiceRoleRequest(req: Request): Promise<boolean> {
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;
+  const srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (srk && token === srk) return true;
+  let claimRole: string | null = null;
+  try {
+    const p = token.split(".");
+    if (p.length >= 2) claimRole = JSON.parse(atob(p[1].replace(/-/g, "+").replace(/_/g, "/")))?.role ?? null;
+  } catch { /* não é JWT */ }
+  if (claimRole !== "service_role") return false;
+  try {
+    const r = await fetch(`${Deno.env.get("SUPABASE_URL")}/auth/v1/admin/users?per_page=1`, {
+      headers: { apikey: token, Authorization: `Bearer ${token}` },
+    });
+    await r.text();
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Papéis que operam o CRM/Ads (criar públicos, subir criativos, sincronizar). */
+export const CRM_ADS_ROLES = ["admin", "manager", "marketing_manager", "content_manager", "platform_admin"];
+
+/**
+ * (#283 parte 5) company_id vindo do corpo: tem de ser a empresa ACTIVA do
+ * chamador e o papel tem de existir NESSA empresa (platform_admin atravessa,
+ * D-ERP195). getUser() obrigatório — a anon key não chega.
+ */
+export async function assertCallerRoleInCompany(
+  req: Request,
+  companyId: string | null | undefined,
+  roles: string[],
+): Promise<TenantContext> {
+  const ctx = await authenticateAndResolveCompany(req);
+  if (!companyId) throw new TenantError("company_id em falta");
+  if (ctx.isPlatformAdmin) return ctx;
+  if (companyId !== ctx.callerCompanyId) {
+    throw new TenantError("Acesso negado: a empresa pedida não é a empresa activa");
+  }
+  const { data: r } = await ctx.adminClient
+    .from("user_roles").select("role").eq("user_id", ctx.caller.id).eq("company_id", companyId);
+  if (!(r ?? []).some((x: any) => roles.includes(x.role))) throw new TenantError("Sem permissão nesta empresa");
+  return ctx;
 }
