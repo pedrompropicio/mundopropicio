@@ -1,4 +1,6 @@
 import { calcTotalWithIva } from "@/lib/iva";
+import { splitPartnerExtrasByKind, type PartnerExtraItem } from "@/lib/partner-extras";
+import { partnerUsesGrossExpenses } from "@/lib/partner-calc-basis";
 import {
   getPartnerExpenseBase,
   getPartnerRevenueBase,
@@ -106,6 +108,8 @@ export function buildPartnerSettlementReportData(input: {
   forecasts: SettlementReportForecast[];
   paidExpenses: SettlementReportPaidExpense[];
   partnerAdvances: SettlementReportAdvance[];
+  /** (#148) Fonte única dos extras (as duas naturezas). Quando presente, substitui partnerAdvances. */
+  partnerExtras?: PartnerExtraItem[];
   ticketSales: SettlementTicketSaleAggregate[];
 }): SettlementReportRow[] {
   const { events, partners, transactions, forecasts, paidExpenses, partnerAdvances, ticketSales } = input;
@@ -217,6 +221,12 @@ export function buildPartnerSettlementReportData(input: {
 
       const extrasTotal = isHouse
         ? 0
+        : input.partnerExtras
+        ? splitPartnerExtrasByKind(
+            input.partnerExtras.filter((e) => familyEventIds.has(e.event_id)),
+            partner.id,
+            partnerUsesGrossExpenses(calcBasis, partner.expense_includes_iva ?? null),
+          ).extras
         : familyPartnerAdvances
             .filter((advance) => advance.partner_id === partner.id)
             .reduce((sum, advance) => {
