@@ -29,7 +29,7 @@ import {
 } from "./partner-calc-basis.ts";
 
 import { computeOutsideBpExcess, sumLines } from "./event-cost-basis.ts";
-import { expandOverheadToSplits } from "./overhead-proration.ts";
+import { expandOverheadToSplits, overheadLinesFor } from "./overhead-proration.ts";
 import { expandMasterAdoptedExpensesToSplits } from "./master-adopted-expense-proration.ts";
 import { computeEventSettlementTotals, collectSettlementExpenseDocLines } from "./event-settlement-inputs.ts";
 import { computeSettlementRevenue } from "./settlement-revenue.ts";
@@ -589,9 +589,10 @@ export function buildPartnerStatement(
   const revenueTxForTotals = revenue.incomeTxUsed;
   const eventRevenueNet = revenue.revenueNet;
 
-  const overheads = expandOverheadToSplits(
-    forecasts.filter((f: any) => f.is_overhead) as any,
-    events as any,
+  // (#292) Agregado de família: o overhead entra uma vez (só as originais).
+  const overheads = overheadLinesFor(
+    expandOverheadToSplits(forecasts.filter((f: any) => f.is_overhead) as any, events as any),
+    "originals",
   );
   const operationalForecasts = forecasts.filter(
     (f: any) =>

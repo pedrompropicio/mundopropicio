@@ -5172,3 +5172,9 @@ As regras do BP acima, do Desfazer (restaurar apenas campos alterados e validar 
 - #250: paginação real, business_id/name por conta e gravação do BM da conta escolhida já existiam. Sem alteração.
 - #234: a política "Card docs viewable by accountant" já existia (20260923023459). 0057 criou um duplicado; 0058 removeu-o.
 - #143: função onebox-on-sale-sessions (dry_run por omissão, travas do PROC). A página do ECI responde 403 Cloudflare às edge functions → não ligada ao cron, nada escrito.
+
+## D-ERP211 (09/10/2026) — #292 overhead do Master contado a dobrar
+- expandOverheadToSplits devolve originais + fatias; somar tudo duplica. Regra única: overheadLinesFor(expanded, "originals" | "slices") em _shared/settlement/overhead-proration.ts.
+- "originals" em: PartnerSettlementTab (total, categorias, repartição por cidade com quota do Master ÷N), computeEventSettlementTotals + collectSettlementExpenseDocLines, statement-service (partner-statement), partner-settlement-report, ResultsAnalysis (a quota ÷N já vem de getMasterShare), PartnerDREDialog (consolidado).
+- ReportDRE/ReportDREBrasil não dobram: filtram por event_id === evento (o Master lê as originais, a cidade a sua fatia).
+- PENDÊNCIA (sem decisão): o ramo overhead não lê exclude_from_result (as linhas de overhead da Simone Mendes têm true e entram no fecho).

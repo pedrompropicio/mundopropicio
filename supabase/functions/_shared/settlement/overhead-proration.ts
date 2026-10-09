@@ -84,3 +84,25 @@ export function expandOverheadToSplits(
 
   return out;
 }
+
+/**
+ * (#292) Regra única de consumo do array expandido: num agregado de família
+ * (Master + cidades) o overhead entra UMA vez — ou as originais, ou as fatias.
+ *
+ * - "originals": só as linhas reais (sem `_overhead_via_master`). Usar em totais
+ *   de família e em repartições que já fazem a quota do Master ÷N à parte.
+ * - "slices": as linhas tal como cada evento as "vê" — num Split, a fatia virtual;
+ *   num Master com Splits, nada (o Master não conta para si o que já foi às cidades);
+ *   num evento sem Splits, a linha original. Usar quando se soma por cidade sem
+ *   quota do Master à parte.
+ */
+export function overheadLinesFor<T extends ExpandedOverhead>(
+  expanded: T[],
+  mode: "originals" | "slices",
+): T[] {
+  if (mode === "originals") return expanded.filter((o) => !o._overhead_via_master);
+  const mastersWithSlices = new Set(
+    expanded.filter((o) => o._overhead_via_master).map((o) => o._master_event_id as string),
+  );
+  return expanded.filter((o) => o._overhead_via_master || !mastersWithSlices.has(o.event_id));
+}

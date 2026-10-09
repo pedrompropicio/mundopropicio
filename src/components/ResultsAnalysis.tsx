@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { expandOverheadToSplits } from "@/lib/overhead-proration";
+import { expandOverheadToSplits, overheadLinesFor } from "@/lib/overhead-proration";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
@@ -208,7 +208,8 @@ export function ResultsAnalysis() {
 
   // Proração Master→Splits (÷N) — ver src/lib/overhead-proration.ts
   const closingCosts = useMemo(
-    () => expandOverheadToSplits(closingCostsRaw as any, events as any),
+    // (#292) A quota do Master ÷N já entra por getMasterShare → só as originais.
+    () => overheadLinesFor(expandOverheadToSplits(closingCostsRaw as any, events as any), "originals"),
     [closingCostsRaw, events],
   );
 

@@ -6,7 +6,7 @@ import {
   normalizePartnerCalcBasis,
   usesGrossExpenseAmounts,
 } from "@/lib/partner-calc-basis";
-import { expandOverheadToSplits } from "@/lib/overhead-proration";
+import { expandOverheadToSplits, overheadLinesFor } from "@/lib/overhead-proration";
 
 type NamedSupplier = { name?: string | null } | null | undefined;
 
@@ -161,7 +161,8 @@ export function buildPartnerSettlementReportData(input: {
       ) as any,
       familyEvents as any,
     );
-    const totalOverhead = overheads.reduce((sum: number, forecast: any) => sum + Number(forecast.amount || 0), 0);
+    // (#292) Agregado de família: só as originais (as fatias são a mesma despesa).
+    const totalOverhead = overheadLinesFor(overheads, "originals").reduce((sum: number, forecast: any) => sum + Number(forecast.amount || 0), 0);
 
     const revenueBase = getPartnerRevenueBase(totalRevenueNet);
     const expenseBase = getPartnerExpenseBase(
