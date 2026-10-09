@@ -17,6 +17,7 @@
 // Versão da API: v24 (a mesma do sync).
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { assertCallerRoleInCompany, authenticateAndResolveCompany, isServiceRoleRequest, errorResponse, CRM_ADS_ROLES } from "../_shared/multiTenant.ts";
 import { getGoogleAdsAccessToken } from "../_shared/google-ads.ts";
 import { finishSyncRun, resolveStatus, startSyncRun } from "../_shared/sync-run.ts";
 
@@ -246,16 +247,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) return json({ error: "unauthorized" }, 401);
-  let isServiceRole = token === SERVICE_ROLE;
-  if (!isServiceRole) {
-    try {
-      const parts = token.split(".");
-      if (parts.length >= 2) {
-        const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
-        if (payload?.role === "service_role") isServiceRole = true;
-      }
-    } catch (_e) { /* tenta como user token */ }
-  }
+  // #283 parte 5: service role legacy só com verificação no Auth (o payload sozinho forja-se).
+  const isServiceRole = await isServiceRoleRequest(req);
   if (!isServiceRole) {
     const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const { data, error } = await supa.auth.getClaims(token);
@@ -273,6 +266,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
   try {
     if (req.headers.get("content-type")?.includes("application/json")) body = await req.json();
   } catch (_e) { /* body opcional */ }
+  // #283 parte 5 (D-ERP203): utilizador → company_id (por omissão a activa) tem de ser a
+  // empresa activa, com papel nessa empresa; a connection_id fica filtrada por ela.
+  if (!isServiceRole) {
+    try {
+      const t = await authenticateAndResolveCompany(req);
+      const cid = body.company_id ?? t.callerCompanyId ?? undefined;
+      await assertCallerRoleInCompany(req, cid, CRM_ADS_ROLES);
+      body.company_id = cid;
+    } catch (e) { return errorResponse(e); }
+  }
 
   const days = Math.min(90, Math.max(1, Math.floor(Number(body.days ?? 30))));
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
