@@ -1,9 +1,9 @@
-import { createPortal } from "react-dom";
-import { OverlayLayer } from "@/components/ui/overlay-layer";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Lock, Layers, HelpCircle, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Lock, Layers, HelpCircle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 
 interface Props {
   open: boolean;
@@ -15,6 +15,7 @@ interface Props {
 
 export function LocalReinforcementDialog({ open, onOpenChange, categoryName, masterDescription, onConfirm }: Props) {
   const [choice, setChoice] = useState<"local" | "master">("local");
+  const localChoiceRef = useRef<HTMLButtonElement>(null);
 
   // Reset choice when dialog opens
   useEffect(() => {
@@ -27,34 +28,27 @@ export function LocalReinforcementDialog({ open, onOpenChange, categoryName, mas
 
   if (!open) return null;
 
-  return createPortal(
-    <OverlayLayer
-      className="fixed inset-0 flex items-center justify-center bg-black/70 p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onOpenChange(false);
-      }}
-    >
-      <div className="glass w-full max-w-md rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto bg-background border shadow-2xl relative">
-        <button
-          type="button"
-          onClick={() => onOpenChange(false)}
-          className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100 transition-opacity"
-          aria-label="Fechar"
-        >
-          <X className="h-4 w-4" />
-        </button>
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="max-w-md space-y-4 max-h-[90vh] overflow-y-auto"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          localChoiceRef.current?.focus();
+        }}
+      >
 
         <div className="space-y-1.5 pr-6">
-          <h2 className="flex items-center gap-2 text-base font-semibold leading-none tracking-tight">
+          <DialogTitle className="flex items-center gap-2 text-base font-semibold leading-none tracking-tight">
             <Layers className="h-4 w-4 text-primary" />
             Classificação da Despesa
-          </h2>
-          <p className="text-sm text-muted-foreground">
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
             A categoria <strong className="text-foreground">{categoryName}</strong> tem rateio no BP Master
             {masterDescription && (
               <span className="text-muted-foreground"> ("{masterDescription}")</span>
             )}. Como pretende classificar esta despesa?
-          </p>
+          </DialogDescription>
         </div>
 
         <RadioGroup value={choice} onValueChange={(v) => setChoice(v as "local" | "master")} className="space-y-3 py-2">
@@ -64,7 +58,7 @@ export function LocalReinforcementDialog({ open, onOpenChange, categoryName, mas
               choice === "local" ? "border-primary/50 bg-primary/5" : "border-border hover:bg-muted/30"
             }`}
           >
-            <RadioGroupItem value="local" id="choice-local" className="mt-0.5" />
+            <RadioGroupItem ref={localChoiceRef} value="local" id="choice-local" className="mt-0.5" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 font-medium text-sm">
                 <Lock className="h-3.5 w-3.5 text-blue-400" />
@@ -143,23 +137,21 @@ export function LocalReinforcementDialog({ open, onOpenChange, categoryName, mas
         </RadioGroup>
 
         <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 gap-2 sm:gap-0">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             onClick={() => onOpenChange(false)}
             className="rounded-lg px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
           >
             Cancelar
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
             onClick={handleConfirm}
             className="rounded-lg px-4 py-2 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             Confirmar
-          </button>
+          </Button>
         </div>
-      </div>
-    </OverlayLayer>,
-    document.body
+      </DialogContent>
+    </Dialog>
   );
 }
