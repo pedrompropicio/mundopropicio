@@ -15,7 +15,7 @@ import { IbanWarning } from "@/components/IbanWarning";
 import { normalizeIban, validateIban, ibanWarningMessage } from "@/lib/iban";
 import { SupplierPortalUserLink } from "@/components/SupplierPortalUserLink";
 import { reactivateSupplier } from "@/lib/supplier-lifecycle";
-import { normalizeNif } from "@/lib/supplier-similarity";
+import { SimilarSuppliersNotice, type SimilarSupplier } from "@/components/SimilarSuppliersNotice";
 import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 
 const supplierCategories = [
@@ -42,16 +42,6 @@ const supplierCategories = [
   "Outro",
 ];
 
-type SimilarSupplier = {
-  id: string;
-  name: string;
-  nif: string | null;
-  iban: string | null;
-  iban_2: string | null;
-  iban_3: string | null;
-  is_active: boolean;
-  motivo: "nif" | "nome";
-};
 
 interface SupplierFormModalProps {
   open: boolean;
@@ -530,72 +520,21 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
               )}
             </div>
           )}
-          {similar && (() => {
-            const nifBlock = !!normalizeNif(similar.raw.nif) &&
-              similar.list.some((c) => c.motivo === "nif" && c.is_active);
-            return (
-              <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm space-y-3">
-                <p className="font-medium">
-                  {nifBlock
-                    ? "Já existe um fornecedor ativo com este NIF"
-                    : "Há fornecedores parecidos — confirma antes de criar"}
-                </p>
-                <ul className="space-y-3">
-                  {similar.list.map((c) => {
-                    const plan = canManageSuppliers ? ibanAppendPlan(c, similar.raw) : null;
-                    const blockedInactive = !c.is_active && !canManageSuppliers;
-                    return (
-                      <li key={c.id} className="space-y-1.5">
-                        <p>
-                          <span className="font-medium">«{c.name}»</span>{" "}
-                          <span className="text-muted-foreground">
-                            (NIF: {c.nif ?? "—"}) · {c.motivo === "nif" ? "mesmo NIF" : "nome parecido"}
-                            {!c.is_active && " · desativado"}
-                          </span>
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {blockedInactive ? (
-                            <span className="text-xs text-muted-foreground">
-                              Pede a um admin/manager para reativar «{c.name}».
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={reactivateMutation.isPending}
-                              onClick={() => pickExisting(c)}
-                              className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
-                            >
-                              {c.is_active ? `Usar «${c.name}»` : `Reativar e usar «${c.name}»`}
-                            </button>
-                          )}
-                          {plan && c.is_active && (
-                            <button
-                              type="button"
-                              disabled={appendIbanMutation.isPending}
-                              onClick={() => appendIbanMutation.mutate({ c, plan })}
-                              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
-                            >
-                              Acrescentar o IBAN a «{c.name}»
-                            </button>
-                          )}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-                {!nifBlock && (
-                  <button
-                    type="button"
-                    disabled={createMutation.isPending}
-                    onClick={() => { const r = similar.raw; setSimilar(null); createMutation.mutate(r); }}
-                    className="rounded-md border border-border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
-                  >
-                    É outra entidade — criar mesmo assim
-                  </button>
-                )}
-              </div>
-            );
-          })()}
+          {similar && (
+            <SimilarSuppliersNotice
+              list={similar.list}
+              typedNif={similar.raw.nif}
+              canManage={canManageSuppliers}
+              busy={reactivateMutation.isPending || appendIbanMutation.isPending || createMutation.isPending}
+              onUse={pickExisting}
+              canAppendIban={(c) => canManageSuppliers && !!ibanAppendPlan(c, similar.raw)}
+              onAppendIban={(c) => {
+                const plan = ibanAppendPlan(c, similar.raw);
+                if (plan) appendIbanMutation.mutate({ c, plan });
+              }}
+              onCreateAnyway={() => { const r = similar.raw; setSimilar(null); createMutation.mutate(r); }}
+            />
+          )}
           <button type="submit" disabled={isPending}
             className="mt-2 w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50">
             {isPending ? "A guardar…" : isEditing ? "Guardar Alterações" : "Criar Fornecedor"}
