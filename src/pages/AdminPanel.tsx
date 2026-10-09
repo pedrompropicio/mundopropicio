@@ -92,6 +92,12 @@ const adminCards = [
     description: "Auditoria retroativa: IBANs partilhados por mais de um fornecedor na empresa ativa",
   },
   {
+    to: "/admin/fornecedores-parecidos",
+    icon: Banknote,
+    title: "Fornecedores parecidos",
+    description: "Fornecedores criados em lote com nome ou NIF parecido a outro, por rever",
+  },
+  {
     to: "/admin/invariantes",
     icon: ShieldCheck,
     title: "Verificador de Invariantes",
