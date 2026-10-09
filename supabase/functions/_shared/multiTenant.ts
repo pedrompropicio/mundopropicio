@@ -70,7 +70,10 @@ export async function authenticateAndResolveCompany(req: Request): Promise<Tenan
     global: { headers: { Authorization: authHeader } },
   });
 
-  const { data: userData, error: authError } = await callerClient.auth.getUser();
+  // JWT passado explicitamente: sem sessão em storage o getUser() sem argumento
+  // não lê o cabeçalho global (#283 parte 5).
+  const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
+  const { data: userData, error: authError } = await callerClient.auth.getUser(jwt);
   if (authError || !userData?.user) throw new AuthError("Não autorizado");
   const caller = userData.user;
 
