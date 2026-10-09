@@ -24,6 +24,7 @@
 // O alvo é resolvido por _shared/campaign-target.ts (resolvedor único).
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
 import { resolveTarget, utmSlug } from "../_shared/campaign-target.ts";
 import { checkTetoPlano, type TetoInfo } from "../_shared/artist-ads-teto.ts";
@@ -135,18 +136,6 @@ async function graphGET(path: string, params: Record<string, string>, accessToke
   return { ok: r.ok && !j?.error, data: j, status: r.status };
 }
 
-// Papel declarado no JWT do pedido (sem validar assinatura — serve apenas para
-// distinguir service_role de sessão de utilizador; a autoridade é o getUser()).
-function jwtRole(authHeader: string): string | null {
-  try {
-    const tok = authHeader.replace(/^Bearer\s+/i, "");
-    const p = tok.split(".")[1];
-    if (!p) return null;
-    const pad = p.replace(/-/g, "+").replace(/_/g, "/");
-    const claims = JSON.parse(atob(pad + "=".repeat((4 - pad.length % 4) % 4)));
-    return typeof claims?.role === "string" ? claims.role : null;
-  } catch { return null; }
-}
 
 // ALVO MÚSICA (D-ERP95 F2b) — objectivos ODAX sem pixel.
 // Fonte: Meta Marketing API, Ad Set "destination_type" + combinações objectivo ×
@@ -208,7 +197,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   //    agora explícito, validado pelo cliente ADMIN, como em
   //    _shared/artist-meta.ts → authorize().
   const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
-  const isServiceRole = jwtRole(authHeader) === "service_role";
+  // #283 parte 5 (D-ERP204): service role verificada no Auth, nunca pelo payload.
+  const isServiceRole = await isServiceRoleRequest(req);
   let callerUserId: string | null = null;
   if (!isServiceRole) {
     const { data: userInfo, error: userErr } = await admin.auth.getUser(bearer);

@@ -6,6 +6,7 @@
 // (verify_jwt=false em config.toml — autenticação manual.)
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -64,14 +65,7 @@ Deno.serve(async (req) => {
 
   const authHeader = req.headers.get("Authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-  let jwtRole: string | null = null;
-  try {
-    const p = JSON.parse(
-      atob((token.split(".")[1] ?? "").replace(/-/g, "+").replace(/_/g, "/")),
-    );
-    jwtRole = p?.role ?? null;
-  } catch { /* ignore */ }
-  if (jwtRole !== "service_role") {
+  if (!(await isServiceRoleRequest(req))) {
     return json({ error: "unauthorized" }, 401);
   }
 

@@ -31,6 +31,7 @@
 // é VIDEO_RESPONSIVE e o anúncio video_responsive_ad.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import { songObjectiveLabel } from "../_shared/campaign-target.ts";
 import {
   ageRangeTypes,
@@ -127,7 +128,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 2) Papéis. Leitura aceita service_role; escrita exige sessão + papel de tráfego.
   const { data: userInfo } = await supabase.auth.getUser();
   const callerUserId = userInfo?.user?.id ?? null;
-  const isServiceRole = !callerUserId && jwtRole(authHeader) === "service_role";
+  const isServiceRole = !callerUserId && await isServiceRoleRequest(req);
   if (!callerUserId && !isServiceRole) {
     return json({ ok: false, error: "sessao_invalida", message: "Sessão inválida." }, 401);
   }
