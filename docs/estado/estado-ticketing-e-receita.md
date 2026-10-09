@@ -23,6 +23,7 @@ Nada em curso.
 ## Risco a vigiar
 
 - **Mapa de Ocupação da Ticketline (#267, fechada por decisão).** Se algum apuramento da Ticketline vier a ser calculado sobre o Mapa de Ocupação em vez das vendas efectivas, os 9.680,00 € passam a ser dinheiro. Conferir no próximo fecho de Almada, Braga ou Estoril.
+- **Prova de isolamento nas edge functions por impersonação (D-ERP197/#283) por fazer.** As funções corrigidas recusam a chave pública e o token forjado, mas nunca foram testadas com uma sessão válida de outra empresa.
 
 ## Fechado a 09/10/2026
 
