@@ -12,6 +12,7 @@
 //   - cron: header X-Cron-Secret = COALA_SYNC_CRON_SECRET (ou service-role direto)
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { assertCallerRoleOnRow, errorResponse } from "../_shared/multiTenant.ts";
 import {
   parseCoalaXlsx,
   buildValidationReport,
