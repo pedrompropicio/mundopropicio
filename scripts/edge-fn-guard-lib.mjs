@@ -15,13 +15,28 @@ const ID_FIELD = /\b[a-z_]*(_id|Id|_ids|Ids)\b/;
 // Identidade: sessão de utilizador verificada, service role (chave/verificada no Auth ou
 // claim com verify_jwt=true), segredo partilhado, ou helper partilhado que faz isto.
 const USER_PATH = /(auth\.getUser\(|auth\.getClaims\(|authenticateAndResolveCompany\(|assertCallerRole(OnRow|InCompany)\(|authorize[A-Za-z]*\(|ensureDraft\()/;
-const MACHINE_PATH = /(isServiceRoleRequest\(|role\s*[!=]==\s*["']service_role["']|["']service_role["']\s*[!=]==|SERVICE_ROLE_KEY"\)\s*\?\?\s*"\\u0000"\)|-secret["']|_SECRET["']\)|_TOKEN["']\)|LOVABLE_API_KEY|x-hub-signature|stripe-signature)/i;
+const MACHINE_PATH = /(isServiceRoleRequest\(|role\s*[!=]==\s*["']service_role["']|["']service_role["']\s*[!=]==|SERVICE_ROLE_KEY"\)\s*\?\?\s*"\\u0000"\)|-secret["']|_SECRET["']\)|_TOKEN["']\)|LOVABLE_API_KEY|timingSafeEqual\(|!== `Bearer \$\{SERVICE_ROLE\}`|x-hub-signature|stripe-signature)/i;
 const COMPANY_GUARD = /(assertCallerRole(OnRow|InCompany)\(|authenticateAndResolveCompany\(|canAccessCompany\(|assertResourceCompan|userBelongsToCompany\(|current_company_id|row_belongs_to_current_company|activeCompanyId|active_company_id|\.eq\("company_id"|company_id !==|company_id ===|is_platform_admin|isServiceRoleRequest\(|authorize\()/;
 
 const RLS_SESSION = /global:\s*\{\s*headers:\s*\{\s*Authorization/;
 
 /** Funções que o heurístico marca mas estão certas por desenho — sempre com motivo. */
-export const POR_DESENHO = {};
+export const POR_DESENHO = {
+  // públicas por desenho (token de uso único / sinal do portal / fluxo de auth)
+  "accept-invitation": "público: valida o token do convite e força a empresa do convite",
+  "accept-staff-invite": "público: valida o token do convite de staff",
+  "onboarding-preview": "público: lê só pelo first_access_token (uuid) e devolve email mascarado",
+  "request-password-reset": "público: fluxo de reposição de palavra-passe",
+  "handle-email-unsubscribe": "público: token de cancelamento de subscrição",
+  "send-transactional-email": "infra de email gerida; company_id preenchido por trigger",
+  "crm-google-click-ingest": "sinal do portal, empresa fixa, sem auth (D-ERP203)",
+  // guarda de empresa feita de forma que o heurístico não reconhece (lida à mão)
+  "artist-youtube-sync": "filtra as ligações pelas empresas onde o chamador tem papel (allowed(c.company_id))",
+  "audit-invoice-groups": "recusa se alguma transação do âmbito for de empresa onde o chamador não tem papel",
+  "s4a-audience-sync": "authorizeArtistAdmin (_shared/s4a.ts) verifica o papel na empresa do artista; modo todos só service role",
+  "s4a-daily-sync": "authorizeArtistAdmin (_shared/s4a.ts) + filtro por empresas onde é admin",
+  "s4a-token-seed": "código de uso único ou authorizeArtistAdmin na empresa do artista",
+};
 
 function readFn(dir) {
   const files = [];
