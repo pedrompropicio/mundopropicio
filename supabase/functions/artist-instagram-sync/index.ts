@@ -136,6 +136,7 @@ async function runStories(req: Request, admin: any, masterKey: string, body: { a
     dry_run: dryRun,
     artist_id: body.artist_id ?? null,
   });
+  const storiesIds: string[] = [];
   let apiCalls = 0, storiesLidos = 0, metricasGravadas = 0, semDados = 0, metaNaoSuportada = 0;
   const erros: string[] = [];
   const porLigacao: Array<Record<string, unknown>> = [];
@@ -173,6 +174,8 @@ async function runStories(req: Request, admin: any, masterKey: string, body: { a
       const list = (st.body?.data ?? []) as any[];
       storiesLidos += list.length;
       per.stories = list.length;
+      // D-ERP184 adenda: rasto de leituras por story (sem DDL).
+      for (const m of list) storiesIds.push(String(m.id));
       if (!list.length || dryRun) { porLigacao.push(per); continue; }
       const rows = list.map((m) => ({
         company_id: conn.company_id, artist_id: conn.artist_id, platform: PLATFORM,
@@ -262,6 +265,8 @@ async function runStories(req: Request, admin: any, masterKey: string, body: { a
         const cm = Object.entries(vals).map(([metric, value]) => ({
           company_id: conn.company_id, content_id: contentId, artist_id: conn.artist_id,
           platform: PLATFORM, metric, metric_date: day, value, source: "api",
+          // D-ERP184 adenda: cada leitura grava por cima value E captured_at.
+          captured_at: new Date().toISOString(),
         }));
         if (cm.length) {
           const { error } = await admin.from("artist_content_metrics_daily")
@@ -275,7 +280,7 @@ async function runStories(req: Request, admin: any, masterKey: string, body: { a
     }
     porLigacao.push(per);
   }
-  const details = { stories_lidos: storiesLidos, metricas_gravadas: metricasGravadas, sem_dados: semDados, meta_nao_suportada: metaNaoSuportada, erros: erros.length, ligacoes: porLigacao };
+  const details = { stories_lidos: storiesLidos, stories_ids: storiesIds, metricas_gravadas: metricasGravadas, sem_dados: semDados, meta_nao_suportada: metaNaoSuportada, erros: erros.length, ligacoes: porLigacao };
   await finishSyncRun(admin, runId, startedMs, {
     status: resolveStatus(metricasGravadas, erros.length),
     api_calls: apiCalls, rows_written: metricasGravadas, details,
@@ -961,6 +966,7 @@ Deno.serve(async (req) => {
                 metric_date: today,
                 value: v,
                 source: SOURCE,
+                captured_at: new Date().toISOString(), // D-ERP184 adenda
               });
             }
           }

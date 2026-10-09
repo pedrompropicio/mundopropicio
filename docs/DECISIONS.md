@@ -4976,6 +4976,12 @@ Problema: as RPCs de tráfego misturavam BR e PT e convertiam tudo para BRL; a c
 - Cron `carreira-instagram-stories-4h` (`15 */4 * * *`), mesmo padrão do job 96; crons existentes intactos.
 - Nota: os cliques no autocolante de link não existem na API e medem-se pelas chegadas do smart link com utm_medium=story.
 
+### Adenda 09/10/2026 — leitura repetida dos stories (pedido dos chats 4 e 6)
+- O modo stories já relia todos os stories ativos e atualizava `value`; o `captured_at` ficava com o default `now()` da primeira inserção, e cada story parecia lido uma só vez (ex.: 17960741265217513, publicado a 08/10 03:16, com `captured_at` 04:15 em todas as métricas).
+- `artist-instagram-sync` envia agora `captured_at = new Date().toISOString()` em cada linha do upsert de `artist_content_metrics_daily`: modo stories (incluindo `link_clicks`/`total_views` do caminho meta) e modo diário dos Reels/posts, que tinha o mesmo defeito.
+- Rasto de leituras sem DDL: `sync_runs.details.stories_ids` guarda os `external_id` lidos em cada corrida do modo stories.
+- Prova a 09/10 02:48 UTC (Litto): 8 stories lidos, 102 métricas, 0 erros; story 18115092875279439 com `captured_at` 02:48:48.
+
 ## D-ERP185 — Canal por smart link (07/10/2026)
 (Pedido como "D-ERP183"; renumerado porque D-ERP183 e D-ERP184 já existiam.)
 - `song_links.canal` (NULL; CHECK tiktok_ads|meta_ads|google_ads|instagram_bio|universal|outro). rs-tt → tiktok_ads, rs-meta → meta_ads, rs-ig → instagram_bio, rs-umg → universal; os links mistos ficam NULL e dependem das UTMs.
