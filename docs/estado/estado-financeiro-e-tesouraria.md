@@ -506,3 +506,8 @@ Desde 18/09 (D-ERP85) o lançamento é a RPC `launch_from_bank_lines` — ver `.
 
 Ficheiros alterados:
 - `docs/estado/estado-financeiro-e-tesouraria.md` (único ficheiro alterado)
+
+### Fornecedores parecidos — backfill da fila (09/10/2026, D-ERP201)
+- 50 pares gravados em `supplier_similarity_flags` com source `backfill_09_10` (só inserção, nenhum fornecedor alterado): Mundo Propício 6 por nome; 7d831e59 2 por NIF + 42 por nome. Um registo por par (menor id em `supplier_id`).
+- Migração 0050: o CHECK de `source` passa a aceitar `backfill_09_10`.
+- Vigia `supplier_similar_por_rever`: referência 50 (nota "backfill 09/10/2026") — daqui em diante só acusa crescimento; "São diferentes"/"Resolvido" em /admin/fornecedores-parecidos baixam a contagem (conta só `resolved_at IS NULL`).
