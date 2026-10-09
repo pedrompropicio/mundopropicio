@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { pt } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
+import { eventTargetRoas } from "@/lib/crm/dashboard-format";
 import { formatMoney } from "@/lib/currency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
 import { Card } from "@/components/ui/card";
@@ -501,11 +502,10 @@ export default function CrmCampaignView() {
     setBriefLoading(true);
     setBriefError(null);
     try {
-      const target = Number(diagnosis?.target_roas) || 8;
       const { data, error } = await supabase.functions.invoke("crm-campaign-brief", {
         body: {
           campaign_id: campaign.external_campaign_id,
-          caps: { target_blended_roas: target },
+          caps: eventTarget != null ? { target_blended_roas: eventTarget } : {},
         },
       });
       if (error) {
@@ -704,6 +704,19 @@ export default function CrmCampaignView() {
       return (data?.[0] ?? null) as DiagnosisRow | null;
     },
   });
+
+  // Meta de ROAS do evento ligado (SÓ public.events.target_roas; NULL = sem meta, sem padrão).
+  const { data: linkedEventTarget } = useQuery({
+    queryKey: ["crm-campaign-view-event-target", campaign?.linked_event_id],
+    enabled: !!campaign?.linked_event_id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events").select("target_roas").eq("id", campaign!.linked_event_id!).maybeSingle();
+      if (error) throw error;
+      return eventTargetRoas(data);
+    },
+  });
+  const eventTarget: number | null = linkedEventTarget ?? null;
 
   // 7) Histórico — mudanças (últimas 30)
   const { data: changes } = useQuery({
@@ -1121,7 +1134,7 @@ export default function CrmCampaignView() {
         body: {
           company_id: (campaign as any).company_id,
           external_campaign_id: campaign.external_campaign_id,
-          target_roas: diagnosis?.target_roas ?? 8.0,
+          ...(eventTarget != null ? { target_roas: eventTarget } : {}),
         },
       });
       if (error) {
@@ -1153,11 +1166,10 @@ export default function CrmCampaignView() {
     if (!campaign || !diagnosis) return;
     setDuelLaunching(true);
     try {
-      const target = Number(diagnosis?.target_roas) || 8;
       const { data, error } = await supabase.functions.invoke("crm-audience-duel", {
         body: {
           campaign_id: campaign.external_campaign_id,
-          caps: { target_blended_roas: target },
+          caps: eventTarget != null ? { target_blended_roas: eventTarget } : {},
         },
       });
       if (error) {
@@ -1198,8 +1210,7 @@ export default function CrmCampaignView() {
     if (campaign.external_campaign_id) {
       params.set("reference_campaign_id", String(campaign.external_campaign_id));
     }
-    const tr = Number((diagnosis as any)?.target_roas) || 8;
-    if (Number.isFinite(tr) && tr > 0) params.set("target_roas", String(tr));
+    if (eventTarget != null) params.set("target_roas", String(eventTarget));
     const connId = (campaign as any).connection_id;
     if (connId) params.set("connection_id", String(connId));
     params.set("source", "campaign_view");

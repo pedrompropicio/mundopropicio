@@ -156,6 +156,7 @@ export function TourFamilyCard({
               campaigns={allCampaigns}
               insightsByCampaign={insightsByCampaign}
               fallbackCurrency={currency}
+              targetRoas={targetRoas}
             />
           </div>
           <div className="border-t border-border divide-y divide-border">

@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export default function DiagnosisTest() {
   const [companyId, setCompanyId] = useState("7c858982-6ccd-47ca-bd65-e0dd3eebf01c");
   const [externalCampaignId, setExternalCampaignId] = useState("120249812312780595");
-  const [targetRoas, setTargetRoas] = useState("8.0");
+  const [targetRoas, setTargetRoas] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<any>(null);
@@ -22,7 +22,8 @@ export default function DiagnosisTest() {
         body: {
           company_id: companyId,
           external_campaign_id: externalCampaignId,
-          target_roas: Number(targetRoas),
+          // Página de teste sem evento em contexto: sem valor, não envia meta.
+          ...(Number(targetRoas) > 0 ? { target_roas: Number(targetRoas) } : {}),
         },
       });
       if (error) {

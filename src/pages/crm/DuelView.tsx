@@ -69,7 +69,7 @@ function deriveState(s: StatusResp | undefined | null): DerivedState {
 
 // ── Árbitro determinístico (apenas sinal, nunca escolhe) ────────────────────
 // score 0-100 baseado em sinais objetivos do generated_plan.
-function scorePlan(plan: any, targetRoas: number): { score: number; parts: Record<string, number> } {
+function scorePlan(plan: any, targetRoas: number | null): { score: number; parts: Record<string, number> } {
   if (!plan || typeof plan !== "object") return { score: 0, parts: {} };
 
   const summary = plan.summary ?? {};
@@ -82,9 +82,11 @@ function scorePlan(plan: any, targetRoas: number): { score: number; parts: Recor
 
   // 1) Aderência ao target ROAS (×30)
   const expR = Number(summary.expected_overall_roas);
-  const t = Math.max(targetRoas, 0.1);
-  const adherence = Number.isFinite(expR) && expR > 0 ? Math.min(1, expR / t) : 0;
-  const adherenceP = adherence * 30;
+  // Sem meta (events/estratégia sem target_roas) o critério é omitido e os
+  // restantes 70 pontos são reescalados para 0-100 — não penaliza "abaixo da meta".
+  const hasTarget = targetRoas != null && targetRoas > 0;
+  const adherence = hasTarget && Number.isFinite(expR) && expR > 0 ? Math.min(1, expR / targetRoas!) : 0;
+  const adherenceP = hasTarget ? adherence * 30 : 0;
 
   // 2) Feasibility (×15)
   const feasMap: Record<string, number> = { high: 1, medium: 0.7, low: 0.4, impossible: 0 };
@@ -130,11 +132,12 @@ function scorePlan(plan: any, targetRoas: number): { score: number; parts: Recor
   ).length;
   const riskP = Math.max(0, 5 - Math.min(5, highRisks * 2.5));
 
-  const total = Math.round(adherenceP + feasP + audP + coverageP + warnP + riskP);
+  const raw = adherenceP + feasP + audP + coverageP + warnP + riskP;
+  const total = Math.round(hasTarget ? raw : (raw * 100) / 70);
   return {
     score: Math.max(0, Math.min(100, total)),
     parts: {
-      adherence: Math.round(adherenceP * 10) / 10,
+      adherence: hasTarget ? Math.round(adherenceP * 10) / 10 : NaN,
       feasibility: Math.round(feasP * 10) / 10,
       audiences: Math.round(audP * 10) / 10,
       coverage: Math.round(coverageP * 10) / 10,
@@ -234,10 +237,10 @@ export default function DuelView() {
     },
   });
 
-  const targetRoas =
+  const targetRoas: number | null =
     Number((gemCand as any)?.target_roas) ||
     Number((gptCand as any)?.target_roas) ||
-    8;
+    null;
 
   const gemScore = useMemo(
     () => (gemCand ? scorePlan((gemCand as any).generated_plan, targetRoas) : null),
@@ -436,7 +439,7 @@ function ScoreBlock({
       </div>
       {score && (
         <div className="grid grid-cols-3 gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
-          <div>Target {score.parts.adherence}</div>
+          <div>Target {Number.isNaN(score.parts.adherence) ? "— sem meta" : score.parts.adherence}</div>
           <div>Viab. {score.parts.feasibility}</div>
           <div>Aud. {score.parts.audiences}</div>
           <div>Fases {score.parts.coverage}</div>
