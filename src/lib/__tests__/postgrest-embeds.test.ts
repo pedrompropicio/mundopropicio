@@ -171,8 +171,7 @@ describe("embeds do PostgREST em pares com FK duplicada", () => {
     expect(files.length).toBeGreaterThan(100);
   });
 
-  // Isolado em CI: falha por defeito de código (embeds ambíguos), não do teste.
-  it.skip("[Issue #288] nenhum embed ambíguo sem a FK nomeada", () => {
+  it("[Issue #288] nenhum embed ambíguo sem a FK nomeada", () => {
     const offences = files.filter((f) => !f.endsWith("postgrest-embeds.test.ts")).flatMap(scanFile);
     const msg = offences
       .map(
