@@ -90,7 +90,6 @@ import {
   formatCurrency,
   formatCompact,
   formatRoas,
-  DEFAULT_TARGET_ROAS,
 } from "@/lib/crm/dashboard-format";
 import {
   PLATFORM_COLOR_VAR,
@@ -1039,7 +1038,7 @@ export default function CrmCampaigns() {
           label="ROAS"
           big={formatRoas(kpis.roas.value)}
           delta={kpis.roas.delta}
-          subtitle={`Receita / Gasto · meta do evento ${DEFAULT_TARGET_ROAS}x por omissão`}
+          subtitle={"Receita / Gasto · meta definida por evento"}
           accent="primary"
           direction="up-good"
           comparable={comparable}

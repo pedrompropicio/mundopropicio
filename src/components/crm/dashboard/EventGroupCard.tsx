@@ -99,7 +99,7 @@ export function EventGroupCard({
   }, [allInsights, agg.revenueCents, agg.spendCents, event.date]);
 
   const targetRoas = eventTargetRoas(event);
-  const progressPct = agg.roas != null && Number.isFinite(agg.roas)
+  const progressPct = targetRoas != null && agg.roas != null && Number.isFinite(agg.roas)
     ? Math.min(100, Math.max(0, (agg.roas / targetRoas) * 100))
     : null;
 
@@ -133,18 +133,18 @@ export function EventGroupCard({
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground tabular-nums">
                   ROAS{" "}
-                  <span className={cn("font-semibold font-mono", roasColorByEvent(agg.roas))}>
+                  <span className={cn("font-semibold font-mono", roasColorByEvent(agg.roas, targetRoas))}>
                     {formatRoas(agg.roas)}
                   </span>{" "}
                   · Gasto {formatCurrency(agg.spendCents, currency)} · Receita{" "}
                   <span className="text-emerald-500/90">{formatCurrency(agg.revenueCents, currency)}</span>{" "}
                   · Conv. {agg.conversions}
                 </div>
-                {progressPct != null && (
+                {progressPct != null && targetRoas != null ? (
                   <div className="mt-1.5 flex items-center gap-2 text-[11px]">
                     <div className="h-1.5 rounded bg-muted overflow-hidden w-[180px] shrink-0">
                       <div
-                        className={cn("h-full transition-all", roasBarBgByEvent(agg.roas))}
+                        className={cn("h-full transition-all", roasBarBgByEvent(agg.roas, targetRoas))}
                         style={{ width: `${progressPct}%` }}
                       />
                     </div>
@@ -157,15 +157,20 @@ export function EventGroupCard({
                       onSaved={onEdited}
                     />
                   </div>
+                ) : (
+                  <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <span>— sem meta</span>
+                    <TargetRoasEditor eventId={event.id} value={event.target_roas} onSaved={onEdited} />
+                  </div>
                 )}
                 {projection && (
                   <div className="mt-1 text-[11px] text-muted-foreground">
                     Projecção linear conservadora (não inclui uplift de urgência):{" "}
-                    <span className={cn("font-mono font-semibold", roasColorByEvent(projection.projectedBlended))}>
+                    <span className={cn("font-mono font-semibold", roasColorByEvent(projection.projectedBlended, targetRoas))}>
                       {formatRoas(projection.projectedBlended)}
                     </span>{" "}
                     em {projection.daysUntilEvent}d
-                    {projection.projectedBlended < targetRoas && (
+                    {targetRoas != null && projection.projectedBlended < targetRoas && (
                       <span className="text-amber-500"> · Risco de não atingir meta — analisar</span>
                     )}
                   </div>

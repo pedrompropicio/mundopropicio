@@ -42,34 +42,37 @@ export function roasBadgeClass(roas: number | null | undefined): string {
   return "bg-red-500/15 text-red-500 border border-red-500/30";
 }
 
-// Banda do ROAS BLENDED por EVENTO. A meta vem de public.events.target_roas;
-// quando é NULL usa-se este padrão (Mundo Propício = 8x agregado).
-export const DEFAULT_TARGET_ROAS = 8;
-/** Meta de ROAS efectiva do evento (target_roas do evento ou o padrão). */
-export function eventTargetRoas(event: { target_roas?: number | null } | null | undefined): number {
+// Banda do ROAS BLENDED por EVENTO. A meta vem SÓ de public.events.target_roas;
+// NULL = sem meta (sem padrão): cor neutra, sem avisos nem barra de progresso.
+/** Meta de ROAS do evento, ou null quando o evento não tem meta definida. */
+export function eventTargetRoas(event: { target_roas?: number | null } | null | undefined): number | null {
   const t = event?.target_roas;
-  return t != null && Number.isFinite(Number(t)) && Number(t) > 0 ? Number(t) : DEFAULT_TARGET_ROAS;
+  return t != null && Number.isFinite(Number(t)) && Number(t) > 0 ? Number(t) : null;
 }
-export function roasColorByEvent(roas: number | null | undefined): string {
+// Bandas relativas à meta: ≥ meta verde; ≥ 75% âmbar; ≥ 50% laranja; abaixo vermelho.
+function roasBand(roas: number | null | undefined, target: number | null | undefined): "none" | "ok" | "warn" | "low" | "bad" {
+  if (roas === null || roas === undefined) return "none";
+  if (target == null || !(target > 0)) return "none";
+  if (roas >= target) return "ok";
+  if (roas >= target * 0.75) return "warn";
+  if (roas >= target * 0.5) return "low";
+  return "bad";
+}
+export function roasColorByEvent(roas: number | null | undefined, target?: number | null): string {
   if (roas === null || roas === undefined) return "text-muted-foreground";
-  if (roas >= 8) return "text-emerald-500";
-  if (roas >= 6) return "text-amber-500";
-  if (roas >= 4) return "text-orange-500";
-  return "text-red-500";
+  return { none: "text-foreground", ok: "text-emerald-500", warn: "text-amber-500", low: "text-orange-500", bad: "text-red-500" }[roasBand(roas, target)];
 }
-export function roasBadgeClassByEvent(roas: number | null | undefined): string {
-  if (roas === null || roas === undefined) return "bg-muted text-muted-foreground";
-  if (roas >= 8) return "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30";
-  if (roas >= 6) return "bg-amber-500/15 text-amber-500 border border-amber-500/30";
-  if (roas >= 4) return "bg-orange-500/15 text-orange-500 border border-orange-500/30";
-  return "bg-red-500/15 text-red-500 border border-red-500/30";
+export function roasBadgeClassByEvent(roas: number | null | undefined, target?: number | null): string {
+  return {
+    none: "bg-muted text-muted-foreground",
+    ok: "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30",
+    warn: "bg-amber-500/15 text-amber-500 border border-amber-500/30",
+    low: "bg-orange-500/15 text-orange-500 border border-orange-500/30",
+    bad: "bg-red-500/15 text-red-500 border border-red-500/30",
+  }[roasBand(roas, target)];
 }
-export function roasBarBgByEvent(roas: number | null | undefined): string {
-  if (roas === null || roas === undefined) return "bg-muted-foreground";
-  if (roas >= 8) return "bg-emerald-500";
-  if (roas >= 6) return "bg-amber-500";
-  if (roas >= 4) return "bg-orange-500";
-  return "bg-red-500";
+export function roasBarBgByEvent(roas: number | null | undefined, target?: number | null): string {
+  return { none: "bg-muted-foreground", ok: "bg-emerald-500", warn: "bg-amber-500", low: "bg-orange-500", bad: "bg-red-500" }[roasBand(roas, target)];
 }
 
 // Range de datas a partir das splits de um tour_master.

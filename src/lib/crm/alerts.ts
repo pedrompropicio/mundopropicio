@@ -111,6 +111,8 @@ export function computeDashboardAlerts(input: AlertsInput): DashboardAlert[] {
   for (const [, { event, rows }] of byEvent) {
     const agg = aggregate(rows);
     const targetRoas = eventTargetRoas(event);
+    // Sem meta definida no evento → não há aviso "abaixo da meta".
+    if (targetRoas == null) continue;
     if (agg.roas == null || agg.spendCents <= 0) continue;
     if (agg.roas >= targetRoas) continue;
     let projLabel = "";

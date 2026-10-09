@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { DEFAULT_TARGET_ROAS } from "@/lib/crm/dashboard-format";
 
 /** Edição da meta de ROAS do evento (public.events.target_roas). NULL ⇒ fallback 8x. */
 export function TargetRoasEditor({
@@ -38,7 +37,7 @@ export function TargetRoasEditor({
       toast.error("Não foi possível gravar a meta", { description: error.message });
       return;
     }
-    toast.success(clear ? `Meta reposta no padrão (${DEFAULT_TARGET_ROAS}x)` : `Meta ${parsed}x gravada`);
+    toast.success(clear ? "Meta removida — evento sem meta" : `Meta ${parsed}x gravada`);
     setOpen(false);
     onSaved?.();
   };
@@ -62,12 +61,12 @@ export function TargetRoasEditor({
           <Input
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={String(DEFAULT_TARGET_ROAS)}
+            placeholder="sem meta"
             inputMode="decimal"
             className="h-8 text-sm"
           />
           <p className="text-[11px] text-muted-foreground">
-            Vazio ou reposto usa o padrão de {DEFAULT_TARGET_ROAS}x.
+            Sem meta: não há avisos nem projeção contra meta.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -82,7 +81,7 @@ export function TargetRoasEditor({
             disabled={saving}
             onClick={() => save(true)}
           >
-            Repor padrão
+            Remover meta
           </Button>
         </div>
       </PopoverContent>
