@@ -30,6 +30,7 @@ Uma linha por tema, por frente: pergunta → ficheiros (mem://pasta/ficheiro). S
 - Fecho do evento e acerto com sócios? → features/event-settlements, features/partner-settlement, security/partner-identity-and-settlement-visibility
 
 **Transversal**
+- Onde registar regras sem criar ficheiros na raiz? → constraints/no-unrequested-root-files
 - Invariantes e vigias? → features/invariant-monitor
 - Como se aplica DDL / crons? → constraints/lovable-cloud-ddl-workflow, constraints/cron-job-run-details
 - Overlays / modais por cima uns dos outros? → constraints/pilha-de-overlays
@@ -47,6 +48,7 @@ Uma linha por tema, por frente: pergunta → ficheiros (mem://pasta/ficheiro). S
 - [Formulário não grava com Enter](mem://constraints/formulario-nao-grava-com-enter) — Formulários de gravação só gravam pelo botão; Enter num campo nunca submete (guarda em src/lib/form-enter-guard.ts)
 - [Lovable Cloud — DDL Workflow](mem://constraints/lovable-cloud-ddl-workflow) — Todo o DDL passa pelo agente Lovable como migration tracked; nunca SQL à mão no SQL Editor (incidentes reais)
 - [Master/Split implementation guardrails](mem://constraints/master-split-implementation-guardrails) — Guardrails internos para evitar regressões ao mexer em BP Master/Split, rateio, promoção ao Master e auditorias de produção.
+- [Não criar ficheiros na raiz sem pedido](mem://constraints/no-unrequested-root-files) — Pedro não quer novos ficheiros na raiz sem pedido; regras de arquitetura vivem em docs/DECISIONS.md
 - [Pagamento nunca com data futura](mem://constraints/pagamento-nunca-com-data-futura) — payment_date em transactions e transaction_payments nunca pode ser posterior a hoje; saídas previstas vivem em due_date
 - [Pilha de overlays (z-index)](mem://constraints/pilha-de-overlays) — Nenhum componente define z-index de overlay à mão; Dialog/AlertDialog/Sheet/Drawer/OverlayLayer e flutuantes usam a pilha de src/lib/overlay-layer.ts
 - [Sync nunca escreve no planeamento de bilhética](mem://constraints/sync-never-writes-planning) — Fronteira entre syncs de bilheteira e o planeamento humano (event_ticket_zones/event_ticket_lots); flag sync_generated e réguas do portal em event_marketing.ticket_lots

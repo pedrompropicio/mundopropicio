@@ -54,3 +54,16 @@ têm de ser posteriores ao deploy e `commit` igual ao HEAD publicado. Se não
 mudarem, o build morreu e o Publish não chegou a produção — foi exactamente o
 que aconteceu a 2026-09-22 às 05:12 (workbox rebentou por o chunk principal ter
 passado os 10 MiB).
+
+## Verificação executável e relatório (#231, 09/10/2026)
+
+`node scripts/check-deploy.mjs` compara produção com o HEAD local; aceita
+origem e SHA completo opcionais. Falha com exit 1 em SHA diferente/ausente,
+JSON/data inválidos ou erro de rede. Não publica nem altera dados.
+Procedimento: `docs/procedimentos/PROC-verificar-publish.md`.
+
+`vite.config.ts` gera `dist/bundle-report.json` com bytes por chunk, módulos
+e imports estáticos transitivos (`initial`). O log mostra a soma inicial.
+Medição em produção a 09/10: entrada 821.293 bytes (0,783 MiB); entrada mais
+preloads da app 4.553.745 bytes (4,343 MiB). O splitting já existia desde
+`5552fefcd`; nenhuma nova divisão de rotas foi necessária no lote 2.

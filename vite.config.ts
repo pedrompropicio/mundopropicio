@@ -5,9 +5,39 @@ import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 import fs from "fs";
 import { execSync } from "child_process";
+import type { Plugin } from "vite";
 
 const BUILD_AT = new Date();
 const BUILD_ID = String(BUILD_AT.getTime());
+
+// Relatório derivado do bundle real, incluindo imports estáticos transitivos.
+const bundleReportPlugin = (): Plugin => ({
+  name: "bundle-size-report",
+  apply: "build",
+  generateBundle(_, bundle) {
+    const chunks = Object.values(bundle).filter((item) => item.type === "chunk");
+    const initial = new Set<string>();
+    const visit = (fileName: string) => {
+      if (initial.has(fileName)) return;
+      const chunk = bundle[fileName];
+      if (!chunk || chunk.type !== "chunk") return;
+      initial.add(fileName);
+      chunk.imports.forEach(visit);
+    };
+    chunks.filter((chunk) => chunk.isEntry).forEach((chunk) => visit(chunk.fileName));
+    const report = chunks.map((chunk) => ({
+      file: chunk.fileName,
+      bytes: Buffer.byteLength(chunk.code),
+      initial: initial.has(chunk.fileName),
+      imports: chunk.imports,
+      modules: Object.entries(chunk.modules)
+        .map(([id, info]) => ({ id: path.relative(process.cwd(), id), bytes: info.renderedLength }))
+        .sort((a, b) => b.bytes - a.bytes),
+    })).sort((a, b) => b.bytes - a.bytes);
+    this.emitFile({ type: "asset", fileName: "bundle-report.json", source: JSON.stringify(report, null, 2) });
+    console.log(`[bundle] inicial estático: ${report.filter((chunk) => chunk.initial).reduce((sum, chunk) => sum + chunk.bytes, 0)} bytes`);
+  },
+});
 
 // Commit publicado: serve para confirmar, depois de um Publish, que o que está
 // em produção é de facto o HEAD publicado. Nunca pode fazer o build falhar.
@@ -80,6 +110,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     buildVersionPlugin(),
+    bundleReportPlugin(),
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
