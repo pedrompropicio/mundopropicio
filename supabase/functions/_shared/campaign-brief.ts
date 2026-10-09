@@ -811,8 +811,10 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
   const periodDays = Math.min(Math.max(period_days ?? 30, 7), 90);
   const winnerRoasThreshold: number | null = caps.target_blended_roas != null
     ? caps.target_blended_roas * CREATIVE_WINNER_ROAS_RATIO : null;
-  if (winnerRoasThreshold == null) warnings.push("sem_meta_roas: evento sem target_roas — winner/loser e viabilidade face à meta não avaliados");
   const warnings: string[] = [];
+  if (winnerRoasThreshold == null) {
+    warnings.push("sem_meta_roas: evento sem target_roas — winner/loser e viabilidade face à meta não avaliados");
+  }
   const sb: any = supabase;
 
   // 1) Snapshot da campanha (só se campaign_id existir — modo full continua a falhar duro)
