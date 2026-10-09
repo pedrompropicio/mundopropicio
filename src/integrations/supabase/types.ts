@@ -13913,6 +13913,60 @@ export type Database = {
           },
         ]
       }
+      supplier_similarity_flags: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          motivo: string
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          similar_supplier_id: string
+          source: string
+          supplier_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          motivo: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          similar_supplier_id: string
+          source: string
+          supplier_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          motivo?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          similar_supplier_id?: string
+          source?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_similarity_flags_similar_supplier_id_fkey"
+            columns: ["similar_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_similarity_flags_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           address: string | null
@@ -17726,6 +17780,20 @@ export type Database = {
           severity: string
         }[]
       }
+      _run_invariant_checks_suppliers: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _run_invariant_checks_tenant: {
         Args: never
         Returns: {
@@ -17743,6 +17811,33 @@ export type Database = {
       _scope_event_ids_to_company: {
         Args: { _event_ids: string[] }
         Returns: string[]
+      }
+      _supplier_resolve_or_create: {
+        Args: {
+          p_company_id: string
+          p_name: string
+          p_nif: string
+          p_source: string
+        }
+        Returns: Json
+      }
+      _supplier_similar_candidates: {
+        Args: {
+          p_company_id: string
+          p_exclude?: string
+          p_name: string
+          p_nif: string
+        }
+        Returns: {
+          iban: string
+          iban_2: string
+          iban_3: string
+          id: string
+          is_active: boolean
+          motivo: string
+          name: string
+          nif: string
+        }[]
       }
       _test_tickets_v2_compute_function: {
         Args: never
@@ -19536,6 +19631,7 @@ export type Database = {
       }
       norm_coala_desc: { Args: { s: string }; Returns: string }
       normalize_supplier_name: { Args: { p_name: string }; Returns: string }
+      normalize_supplier_nif: { Args: { p_nif: string }; Returns: string }
       normalize_zone_label: { Args: { _label: string }; Returns: string }
       partner_portal_links: {
         Args: never
@@ -20071,6 +20167,10 @@ export type Database = {
       suggest_formalidade: {
         Args: { _forecast_id: string }
         Returns: Database["public"]["Enums"]["bp_formalidade"]
+      }
+      supplier_resolve_or_create: {
+        Args: { p_name: string; p_nif: string; p_source: string }
+        Returns: Json
       }
       test_latest_backup: { Args: never; Returns: Json }
       ticket_office_balances: {

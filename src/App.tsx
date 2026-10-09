@@ -131,6 +131,7 @@ const SyncHealth = lazy(() => import("./pages/admin/SyncHealth"));
 const Notifications = lazy(() => import("./pages/admin/Notifications"));
 const DiagnosisTest = lazy(() => import("./pages/admin/DiagnosisTest"));
 const IbanDuplicates = lazy(() => import("./pages/admin/IbanDuplicates"));
+const SimilarSuppliersReview = lazy(() => import("./pages/admin/SimilarSuppliersReview"));
 const AuditDownloads = lazy(() => import("./pages/admin/AuditDownloads"));
 const TrashPage = lazy(() => import("./pages/Trash"));
 const UserActivityLog = lazy(() => import("./pages/UserActivityLog"));
@@ -636,6 +637,7 @@ function ProtectedLayout() {
               <Route path="/admin/notifications" element={<Notifications />} />
               <Route path="/admin/diagnosis-test" element={<DiagnosisTest />} />
               <Route path="/admin/iban-duplicados" element={<IbanDuplicates />} />
+              <Route path="/admin/fornecedores-parecidos" element={<SimilarSuppliersReview />} />
               <Route path="/admin/audit-downloads" element={<AuditDownloads />} />
 
 

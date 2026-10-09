@@ -26,3 +26,4 @@ Ecrã de Fornecedores: Ativos (por defeito) / Inativos / Todos + badge "Inativo"
 
 ## Fornecedor parecido ao criar (D-ERP199)
 `SupplierFormModal` (só criação) chama `check_supplier_similar` depois das validações de IBAN. Candidatos: Usar / Acrescentar IBAN (1.º slot livre, audit update_bank_details) / Criar mesmo assim. NIF igual a ativo bloqueia criar. Espelho TS da normalização em `src/lib/supplier-similarity.ts` (testes).
+- Adenda (D-ERP199/D-ERP201): o aviso é o componente `SimilarSuppliersNotice` (SupplierFormModal + BankLineLaunchModal). NIF compara sem prefixo de país quando o resto é só dígitos. Regra única `_supplier_similar_candidates`. Lotes (SponsorsImportModal, apply-coala-bp) usam `_supplier_resolve_or_create`: NIF igual a um ativo → reutiliza; senão cria e marca em `supplier_similarity_flags`; revisão em /admin/fornecedores-parecidos (fusão manual).
