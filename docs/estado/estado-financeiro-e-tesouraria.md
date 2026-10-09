@@ -271,6 +271,8 @@ Correções feitas:
 
 ## A trabalhar agora
 
+- Camarim #287 fechada (D-ERP200): a perna da conta da sessão de um adiantamento/reforço/devolução passa a ser paga pela base quando a do banco é paga. Vigia camarim_adiantamento_sem_entrada = 0.
+
 - Fornecedores: aviso de ficha parecida (NIF/nome) ao criar no formulário — D-ERP199, migração 0046. Sem aviso: lançar a partir do banco, importação de patrocinadores, apply-coala-bp, fornecedor genérico do Camarim.
 
 - Publicar `dd8165d` e `9aaf0b4`.
