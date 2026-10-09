@@ -625,6 +625,9 @@ verify_jwt = true
 [functions.fetch-onebox-dashboard]
 verify_jwt = true
 
+[functions.onebox-on-sale-sessions]
+verify_jwt = true
+
 [functions.fetch-ticketline-reports]
 verify_jwt = true
 
