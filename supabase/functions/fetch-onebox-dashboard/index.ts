@@ -12,6 +12,7 @@
 // Nunca imprime a palavra-passe nem valores de cookies.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { assertCallerRoleInCompany, isServiceRoleRequest, errorResponse, CRM_ADS_ROLES } from "../_shared/multiTenant.ts";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const HOST = "https://dash.oneboxtds.com";
@@ -231,6 +232,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
       status: s,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
+  // Auth (#283 parte 6, D-ERP205): cron = service role verificada no Auth
+  // (isServiceRoleRequest); manual = getUser(jwt) + admin/manager NA empresa fixa
+  // (COMPANY_ID) com essa empresa activa, ou platform_admin.
+  if (!(await isServiceRoleRequest(req))) {
+    try { await assertCallerRoleInCompany(req, COMPANY_ID, ["admin", "manager", "platform_admin"]); }
+    catch (e) { return errorResponse(e); }
+  }
 
   let body: { dry_run?: boolean; mode?: string; inspect?: boolean } = {};
   try {

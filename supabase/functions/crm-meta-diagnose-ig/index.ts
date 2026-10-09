@@ -1,5 +1,8 @@
-// TEMP diagnostic (no JWT; pinned to one connection_id for safety).
+// Diagnóstico (fixo a uma connection_id).
+// Auth (#283 parte 6, D-ERP205): service role verificada no Auth (isServiceRoleRequest),
+// ou getUser(jwt) + papel CRM_ADS_ROLES NA empresa da ligação (assertCallerRoleInCompany).
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { assertCallerRoleInCompany, isServiceRoleRequest, errorResponse, CRM_ADS_ROLES } from "../_shared/multiTenant.ts";
 
 const GRAPH = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -55,6 +58,12 @@ Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  if (!(await isServiceRoleRequest(req))) {
+    const { data: connRow } = await (supabase as any).schema("crm").from("ad_platform_connections")
+      .select("company_id").eq("id", connection_id).maybeSingle();
+    try { await assertCallerRoleInCompany(req, connRow?.company_id ?? null, CRM_ADS_ROLES); }
+    catch (e) { return errorResponse(e); }
+  }
 
   const { data: tokenRows, error: tokenErr } = await supabase.rpc(
     "crm_get_meta_decrypted_token",

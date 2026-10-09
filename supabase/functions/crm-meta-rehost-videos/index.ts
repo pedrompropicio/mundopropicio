@@ -10,9 +10,12 @@
 // rejeita não-imagem — aqui o upload é MP4 byte-a-byte, inline.
 //
 // Input: { company_id: string, creative_ids?: string[] }
+// Auth (#283 parte 6, D-ERP205): service role verificada no Auth (isServiceRoleRequest),
+// ou getUser(jwt) + company_id = empresa activa + papel CRM_ADS_ROLES nessa empresa.
 // Output: { ok: [...], falhou: [{id, name, motivo}] }
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { assertCallerRoleInCompany, isServiceRoleRequest, errorResponse, CRM_ADS_ROLES } from "../_shared/multiTenant.ts";
 import { REHOST_BUCKET } from "../_shared/rehost-creative.ts";
 
 const BUILD_VERSION = "rehost-videos-v1 2026-06-24";
@@ -84,6 +87,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const companyId = body.company_id;
   if (!companyId) return json({ error: "missing_company_id" }, 400);
+  if (!(await isServiceRoleRequest(req))) {
+    try { await assertCallerRoleInCompany(req, companyId, CRM_ADS_ROLES); } catch (e) { return errorResponse(e); }
+  }
   const explicitIds = Array.isArray(body.creative_ids) ? body.creative_ids.filter(Boolean) : [];
 
   const sb = createClient(SUPABASE_URL, SRK, {
