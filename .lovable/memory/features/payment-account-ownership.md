@@ -40,3 +40,7 @@ type: feature
 526 transações liquidadas em Live (1.247.597 €) sem `account_id` e sem
 `transaction_payments`, resultantes destes caminhos. **Sem backfill** — decisão separada
 do Pedro. Não corrigir sem instrução explícita.
+
+## 09/10/2026 — paid_sem_pagamento: referência 157, sem backfill
+Fica uma única vigia: `paid_sem_pagamento` (error, reference_count 157). Exclui o estrutural (is_reimbursement, filhas de rateio com split_percentage, partner_paid_expenses). As 157 são todas do Coala (7d831e59-…), data ≤ 09/08/2026, 1.890.091,87 €, vindas dos caminhos de "marcar como pago" anteriores à correcção de 30/08/2026. Decisão do Pedro: não há backfill, não se toca. A partir da 158.ª acende = caso novo.
+A vigia `tx_paga_sem_linha_de_pagamento` (critério cru, 447) foi removida: era o mesmo problema com outro número, e duas contagens diferentes para a mesma coisa ensinam a ignorar o painel.
