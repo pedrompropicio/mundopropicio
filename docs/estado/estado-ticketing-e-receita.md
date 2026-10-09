@@ -1,6 +1,6 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-10-09 · Issues: `agora` #267 · `a-seguir` #206 · `depois` #73, #78 · `bloqueada` #211 (transversal, plataforma-e-infra)
+Atualizado: 2026-10-09 · Issues: `agora` — · `a-seguir` #206 · `depois` #73, #78 · `bloqueada` #211 (transversal, plataforma-e-infra)
 
 ## Em vigor
 
@@ -12,7 +12,7 @@ Atualizado: 2026-10-09 · Issues: `agora` #267 · `a-seguir` #206 · `depois` #7
 
 ## A trabalhar agora
 
-- **#267 — Mapa de Ocupação (PDF) da Ticketline parado.** O PDF do portal está parado há dez dias — Braga 1.273 sem mexer, Almada 751 → 755 — enquanto o occupation.xlsx mexe e bate certo com as nossas vendas. Defeito do fornecedor; o indicador já o diz. Email à Ticketline redigido e por enviar.
+Nada em curso.
 
 ## Bloqueios
 
@@ -20,11 +20,14 @@ Atualizado: 2026-10-09 · Issues: `agora` #267 · `a-seguir` #206 · `depois` #7
 - **#78** — o import da Ticketline não limpa a série antiga quando o formato muda.
 - **#73** — corte por tipo de bilhete.
 
+## Risco a vigiar
+
+- **Mapa de Ocupação da Ticketline (#267, fechada por decisão).** Se algum apuramento da Ticketline vier a ser calculado sobre o Mapa de Ocupação em vez das vendas efectivas, os 9.680,00 € passam a ser dinheiro. Conferir no próximo fecho de Almada, Braga ou Estoril.
+
 ## Fechado a 09/10/2026
 
-- **#283 — fecho da parte 6 + remate (D-ERP205 + D-ERP206).** As 232 funções declaram verify_jwt (210 true, 18 false com motivo) e foram reimplantadas: 210/210 respondem pelo portão a um token forjado; as abertas continuam a receber o pedido. 4 sondas de 2025 apagadas; crm-meta-diagnose-ig, crm-meta-rehost-videos e fetch-onebox-dashboard guardadas; 4 helpers sem claim do payload. Canário runtime no CI (precisa dos secrets EDGE_GATE_BASE_URL e EDGE_GATE_ANON_KEY no GitHub). Invariante em 2 por decisão do Pedro.
-- **#283 — auditoria multiempresa às edge functions, partes 5 (D-ERP203 + D-ERP204).** 8 funções do CRM/Ads exigem sessão e papel na empresa da linha; sync-coala-from-drive e crm-google-ads-sync com papel na empresa certa; probe-ticketline-produtores apagada. Ramo service role só verificado no Auth em 10 funções (as 6 + whatsapp-dispatcher, migrate-legacy-images, crm-google-video-publish-execute, crm-tiktok-publish-execute). Invariante `edge_fn_sem_guarda_empresa` (vitest, diário no CI), referência 9. Lista nominal das 29 em `.lovable/memory/security/multi-tenant-edge-functions-audit.md`.
-
+- **#283 — auditoria de isolamento multiempresa, RESOLVIDA (D-ERP194 a D-ERP205).** Seis partes. Base: 3 políticas e 12 funções SECURITY DEFINER com guarda da empresa da linha. Funções de servidor: 9 sondas e ficheiros temporários esquecidos apagados, ~20 funções com sessão e papel na empresa da linha, ramo service role validado no Auth em 10 funções e nos 4 helpers partilhados. Dados: 618 leads órfãos adoptados e a origem corrigida por gatilho. verify_jwt declarado explicitamente em todas as funções. Três invariantes diários.
+- **#267 — Mapa de Ocupação da Ticketline parado. FECHADA POR DECISÃO DO PEDRO, não por resolução.** Não se reporta ao fornecedor. A 09/10: Almada 129 bilhetes / 4.300,00 €, Braga 138 / 4.470,00 €, Estoril 26 / 910,00 €; total 293 bilhetes / 9.680,00 € que o PDF do portal não reflecte, enquanto o occupation.xlsx do mesmo portal bate certo com as nossas vendas. Cinco outros eventos coincidem ao cêntimo na mesma leitura, logo não é do nosso lado. Nenhum número nosso depende do PDF. Continua vigiado pelo sinal (g) no indicador do Dashboard.
 - **#271 — fechos de bilheteira por evento e lista única.** Forma de liquidação provada nos 5 fechos da Mundo Propício: Plenitude e H&K Lisboa = transferência própria; H&K Porto = encontro de contas; Anitta e Ivete = compensado.
 - **Vigia toda no ecrã (D-ERP197).** Dry-run antes e depois: as mesmas 2 × (g), RG Almada e RG Braga. (a) forçada numa transacção anulada → vermelho; o michel (Coala) vê 0 condições e 0 fechos.
 
@@ -49,6 +52,11 @@ Atualizado: 2026-10-09 · Issues: `agora` #267 · `a-seguir` #206 · `depois` #7
 - **Uma correcção corre de ponta a ponta ou não começa.** Apagar metade e deixar o resto por fazer deixa dois saldos errados.
 - **Verificar o papel não é filtrar a linha (D-ERP194).**
 - **A receita de bilheteira vive em `ticket_sales`, não em `transactions`. É por desenho.**
+- **Neste projecto, uma edge function sem bloco no config.toml corre SEM verificação de assinatura no portão.** O valor por omissão documentado pelo Supabase não se aplica aqui. Verificado em Live a 09/10 com o mesmo token forjado: função sem bloco devolve o erro dela; função com verify_jwt=true devolve UNAUTHORIZED_LEGACY_JWT do portão.
+- **Declarar verify_jwt no config.toml não basta: a definição só vale depois de a função ser reimplantada.** Depois de um Publish, as declarações novas ainda estavam desarmadas.
+- **Um teste que lê a configuração não prova o comportamento.** O invariante das edge functions leva por isso uma sonda real contra o portão.
+- **Um comentário que mente esconde o defeito durante meses** (o cabeçalho da crm-meta-create-purchase-audience dizia "sem getUser()" depois de passar a ter).
+- **Um helper partilhado de auth corrigido à pressa parte tudo o que o importa, e ninguém dá por isso enquanto ninguém usar a funcionalidade.**
 
 ## Onde ler mais
 
