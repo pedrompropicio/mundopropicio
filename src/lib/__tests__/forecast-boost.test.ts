@@ -112,8 +112,7 @@ describe("solveForecast — janela adaptativa & boost", () => {
     expect(sol.qtyByKey["0-Geral"]).toBeLessThanOrEqual(505);
   });
 
-  // Isolado em CI: falha por defeito de código no solver (passe 2 dias).
-  it.skip("[Issue #290] PASSE 2 DIAS: agrupa por zone_label, não duplica vendas entre dias", () => {
+  it("[Issue #290] PASSE 2 DIAS: agrupa por zone_label, não duplica vendas entre dias", () => {
     // Mesmo zone_label em 2 day_index com vendas só no dia anchor (dia 0)
     const sessions = [
       mkSession({ day_index: 0, zone_label: "Passe 2 dias", real_sales_qty: 200 }),
@@ -128,6 +127,32 @@ describe("solveForecast — janela adaptativa & boost", () => {
     expect(sibling).toBe(0);
     // Velocidade calculada com base no total da zona, não no dia anchor sozinho.
     expect(sol.breakdown[0].recent_velocity).toBeCloseTo(200 / 30, 1);
+  });
+
+  it("passe com a mesma quantidade nos 2 dias → âncora leva toda a projeção, irmão fica com o real", () => {
+    const sessions = [
+      mkSession({ day_index: 0, zone_label: "Passe", real_sales_qty: 200 }),
+      mkSession({ day_index: 1, zone_label: "Passe", real_sales_qty: 200 }),
+    ];
+    const lots = { Passe: lot(2000, 30, 200) };
+    const sol = solveForecast(sessions, cfg, lots, dateInDays(60));
+    expect(sol.qtyByKey["1-Passe"]).toBe(200);
+    expect(sol.qtyByKey["0-Passe"]).toBeGreaterThan(200);
+  });
+
+  it("bilhete-dia com real desigual → projeção pro-rata pelo real", () => {
+    const sessions = [
+      mkSession({ day_index: 0, zone_label: "Dia", real_sales_qty: 600 }),
+      mkSession({ day_index: 1, zone_label: "Dia", real_sales_qty: 300 }),
+    ];
+    const lots = { Dia: lot(5000, 30, 900) };
+    const sol = solveForecast(sessions, cfg, lots, dateInDays(60));
+    const p0 = sol.breakdown[0].projected_qty;
+    const p1 = sol.breakdown[1].projected_qty;
+    expect(p1).toBeGreaterThan(0);
+    expect(Math.abs(p0 - 2 * p1)).toBeLessThanOrEqual(1);
+    const zoneProj = sol.qtyByKey["0-Dia"] + sol.qtyByKey["1-Dia"] - 900;
+    expect(p0 + p1).toBe(zoneProj);
   });
 
   it("zona sem velocidade nem manual → projeção = 0 e reason no_velocity", () => {
