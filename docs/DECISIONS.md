@@ -5182,3 +5182,10 @@ As regras do BP acima, do Desfazer (restaurar apenas campos alterados e validar 
 ## D-ERP212 (09/10/2026) — #259 e #261 verificados; lista de eventos alinhada
 - #259 já resolvido em D-ERP145 (cacheImpactOnTopOfCost: card, Lucro, lista). Sem código novo; teste unitário acrescentado.
 - #261 já resolvido no hook useRealCacheCalculation e no CacheSettlementPanel (BP primeiro, Previsto + excedido, 1/N do Master, origem da dedução em vez do aviso €0,00). Faltava a lista de eventos (src/lib/events-list-cache-impact.ts), que ainda deduzia só por transações da cidade: passa a usar cityDeductionSources com o BP.
+
+## D-ERP213 (09/10/2026) — #223/#148/#65: Lucro pela base do contrato; extras pela fonte única
+- #223 (decisão do Pedro, 09/10/2026 — SUBSTITUI a regra anterior "na capa mandam os botões" de event-contract-result.ts): o card Lucro mostra computeContractBasisResult (o mesmo do Encontro de Contas). As vistas de IVA/perímetro dos cards de Receita e Custos continuam independentes e só mudam o que se vê; quando divergem, o Lucro mostra o aviso com a subtração das vistas (`viewResult`).
+- #148: ReportPartnerSettlement, ReportDRE, ReportDREBrasil leem fetchPartnerExtras (as duas tabelas), só kind 'extra', valor por partnerExtraValue na base do sócio. RPC get_partner_event_partner_expenses passa a devolver 'manual'/'manual_adjustment' (migração 0059); o Portal soma 'advance'+'manual' na base do sócio.
+- #65/#64: verificado — EventFecho e PartnerSettlementTab já apuram o sócio por partnerUsesGrossExpenses(partner_calc_basis, expense_includes_iva); withVat é derivado do contrato e não é editável. expenseSource/includeOverhead são o critério GRAVADO no evento (D25 e2), não uma vista — continuam a entrar no apuramento.
+- PENDÊNCIA (Pedro): Mágicos Henry&Klaus mãe = net_result_gross_expenses, filhas = net_result. Herdam da mãe ou critério por cidade? Dados não tocados.
+- PENDÊNCIA (Pedro): invariante card = Encontro em SQL não feito — o cálculo vive em TypeScript partilhado; reimplementá-lo em SQL criaria uma segunda fonte. Com o Lucro a usar a mesma função do Encontro, a divergência é estrutural zero.
