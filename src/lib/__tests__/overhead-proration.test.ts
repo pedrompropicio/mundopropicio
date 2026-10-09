@@ -115,3 +115,36 @@ describe("expandOverheadToSplits", () => {
     expect(slice.type).toBe("expense");
   });
 });
+
+import { overheadLinesFor } from "../overhead-proration";
+
+describe("overheadLinesFor (#292) — overhead entra uma vez", () => {
+  const fam = [
+    { id: "m", parent_event_id: null },
+    { id: "lis", parent_event_id: "m" },
+    { id: "por", parent_event_id: "m" },
+  ];
+  const raw = [
+    { id: "a", event_id: "m", amount: 2000, iva_rate: 23 },
+    { id: "b", event_id: "m", amount: 8000, iva_rate: 23 },
+  ];
+  const sum = (xs: any[]) => xs.reduce((s, o) => s + Number(o.amount), 0);
+
+  it("array expandido soma o dobro (o defeito)", () => {
+    expect(sum(expandOverheadToSplits(raw, fam))).toBe(20000);
+  });
+  it("originals: total de família = original", () => {
+    expect(sum(overheadLinesFor(expandOverheadToSplits(raw, fam), "originals"))).toBe(10000);
+  });
+  it("slices: total = original e cada cidade leva 5.000 uma vez", () => {
+    const s = overheadLinesFor(expandOverheadToSplits(raw, fam), "slices");
+    expect(sum(s)).toBe(10000);
+    expect(sum(s.filter((o) => o.event_id === "lis"))).toBe(5000);
+    expect(sum(s.filter((o) => o.event_id === "por"))).toBe(5000);
+    expect(s.some((o) => o.event_id === "m")).toBe(false);
+  });
+  it("evento sem cidades: slices mantém a original", () => {
+    const s = overheadLinesFor(expandOverheadToSplits([{ id: "x", event_id: "solo", amount: 300 }], [{ id: "solo" }]), "slices");
+    expect(sum(s)).toBe(300);
+  });
+});
