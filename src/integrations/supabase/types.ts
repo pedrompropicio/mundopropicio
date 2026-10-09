@@ -17532,6 +17532,13 @@ export type Database = {
         Args: { _company_id: string; _ctx: string }
         Returns: undefined
       }
+      _camarim_fund_move_legs: {
+        Args: { p_move_id: string }
+        Returns: {
+          bank_tx: string
+          session_tx: string
+        }[]
+      }
       _derive_paid_amount: { Args: { p_tx_id: string }; Returns: undefined }
       _paid_guard_is_exempt: {
         Args: { p: Database["public"]["Tables"]["transactions"]["Row"] }
@@ -17552,6 +17559,20 @@ export type Database = {
         Returns: undefined
       }
       _run_invariant_checks_all: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
+      _run_invariant_checks_camarim: {
         Args: never
         Returns: {
           conforme: boolean
@@ -18678,6 +18699,10 @@ export type Database = {
           warning: string
           window_days: number
         }[]
+      }
+      camarim_sync_session_leg_payment: {
+        Args: { p_tx: string }
+        Returns: undefined
       }
       can_delete_storage_object: {
         Args: { p_bucket: string; p_name: string }
