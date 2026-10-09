@@ -18716,6 +18716,19 @@ export type Database = {
         Args: { p_iban: string; p_supplier_id?: string }
         Returns: Json
       }
+      check_supplier_similar: {
+        Args: { p_name: string; p_nif: string; p_supplier_id?: string }
+        Returns: {
+          iban: string
+          iban_2: string
+          iban_3: string
+          id: string
+          is_active: boolean
+          motivo: string
+          name: string
+          nif: string
+        }[]
+      }
       check_system_invariants: {
         Args: never
         Returns: {
@@ -19497,6 +19510,7 @@ export type Database = {
         Returns: number
       }
       norm_coala_desc: { Args: { s: string }; Returns: string }
+      normalize_supplier_name: { Args: { p_name: string }; Returns: string }
       normalize_zone_label: { Args: { _label: string }; Returns: string }
       partner_portal_links: {
         Args: never

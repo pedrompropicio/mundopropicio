@@ -323,6 +323,13 @@
       "when": 1791508669557,
       "tag": "0045_derp198_285_iva_rate_divisao_inteira",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1791511107735,
+      "tag": "0046_derp199_check_supplier_similar",
+      "breakpoints": true
     }
   ]
 }
