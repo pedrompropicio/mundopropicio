@@ -7,9 +7,11 @@
 //   - se sem configId e triggeredBy='cron' → itera todos os enabled
 //   - apply só permitido se a última run dry_run for "limpa" (zero conflitos)
 //
-// Auth:
-//   - manual: JWT do utilizador (admin/manager)
-//   - cron: header X-Cron-Secret = COALA_SYNC_CRON_SECRET (ou service-role direto)
+// Auth (#283 parte 5, D-ERP203/D-ERP204):
+//   - manual: getUser(jwt) + papel admin/manager NA empresa da config (assertCallerRoleOnRow);
+//     configId obrigatório; basedOnRunId tem de ser da mesma config
+//   - cron: header X-Cron-Secret = COALA_SYNC_CRON_SECRET, ou service role verificada no
+//     Auth (isServiceRoleRequest) — o payload do JWT sozinho não conta
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { assertCallerRoleOnRow, errorResponse, isServiceRoleRequest } from "../_shared/multiTenant.ts";
@@ -226,7 +228,7 @@ Deno.serve(async (req) => {
       const userClient = createClient(SUPABASE_URL, ANON, {
         global: { headers: { Authorization: auth } },
       });
-      const { data: { user } } = await userClient.auth.getUser();
+      const { data: { user } } = await userClient.auth.getUser(auth.replace(/^Bearer\s+/i, ""));
       if (!user) return json({ error: "Sessão inválida" }, 401);
       const admin0 = createClient(SUPABASE_URL, SERVICE_ROLE);
       const { data: roles } = await admin0.from("user_roles").select("role").eq("user_id", user.id);

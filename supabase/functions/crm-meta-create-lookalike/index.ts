@@ -2,7 +2,10 @@
 // Cria uma Lookalike Audience na conta Meta a partir de uma audiência-origem existente.
 //
 // Input: { company_id, source_audience_id_meta, country?="PT", ratio?=0.01, name? }
-// Auth: header Authorization obrigatório (verify_jwt=true no gateway), sem getUser().
+// Auth (#283 parte 5, D-ERP203): getUser(jwt) obrigatório — a anon key não chega.
+//   Utilizador: company_id do corpo tem de ser a empresa activa e o papel CRM_ADS_ROLES
+//   tem de existir NESSA empresa (assertCallerRoleInCompany).
+//   Interno: service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
 // Espelha o padrão de crm-meta-upload-creative-v2 / crm-meta-list-audiences.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";

@@ -10,6 +10,9 @@
 //
 // Cada bloco tem try/catch isolado: falha de um não rebenta os outros.
 //
+// Auth do chamador (#283 parte 5, D-ERP203): getClaims(jwt) + admin NA empresa Mundo
+// Propício (COMPANY_ID fixa no código) ou platform_admin (D-ERP195).
+//
 // Auth Google: service account (GOOGLE_SA_KEY_JSON) → JWT RS256 scope adwords
 // → access_token em https://oauth2.googleapis.com/token.
 // API: REST v24 (override via secret GOOGLE_ADS_API_VERSION).

@@ -7,7 +7,9 @@
 // (RPC crm_get_meta_decrypted_token + ENCRYPTION_MASTER_KEY), mesmo subtype/rule.
 //
 // Input: { event_id (uuid, obrigatório), retention_days?=180, is_primary?=false }
-// Auth: header Authorization obrigatório (verify_jwt=true), sem getUser().
+// Auth (#283 parte 5, D-ERP203): getUser(jwt) obrigatório — a anon key não chega.
+//   Utilizador: papel CRM_ADS_ROLES verificado NA empresa do evento (assertCallerRoleOnRow).
+//   Interno: service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";

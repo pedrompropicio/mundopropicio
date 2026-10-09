@@ -5,7 +5,10 @@
 // Idempotente: se já tem o id respetivo e force!=true, devolve o existente.
 //
 // Input: { company_id, creative_id, force? }
-// Auth user JWT obrigatório.
+// Auth (#283 parte 5, D-ERP203): getUser(jwt) obrigatório — a anon key não chega.
+//   Utilizador: company_id do corpo tem de ser a empresa activa e o papel CRM_ADS_ROLES
+//   tem de existir NESSA empresa (assertCallerRoleInCompany).
+//   Interno: service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
 //
 // OBSERVABILIDADE (v5): erros de negócio devolvem HTTP 200 com { ok:false, error, detail, fb_error? }
 // para que supabase.functions.invoke entregue o body ao front em vez de mascarar como erro de transporte.
@@ -93,15 +96,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     await insertDirectDebug("auth_no_header", `hasAuthHeader=${!!authHeader}`);
     return json({ ok: false, error: "missing_authorization", detail: `hasAuthHeader=${!!authHeader}` }, 200);
   }
-  // Auth alinhado com crm-campaign-design-generate / crm-validate-design-text (que FUNCIONAM):
-  // essas funções NÃO chamam getUser() — apenas exigem o header Authorization presente
-  // (feito acima) e operam via service_role com checagem explícita de company_id/ownership.
-  // Com verify_jwt=true o gateway já validou a assinatura do JWT do projeto antes de a
-  // função arrancar, por isso o header que chega é sempre um JWT válido do projeto.
-  // getUser() devolvia "Auth session missing! / hasUser=false" porque o token que o
-  // supabase-js envia é frequentemente a anon key (sessão não hidratada no momento do
-  // invoke), que é um JWT válido mas sem user associado — daí o falso-negativo.
-  // Todas as queries abaixo já usam admin/sbCrm (service_role); userData.user nunca era usado.
+  // Histórico: até à #283 parte 5 esta função não chamava getUser() e bastava a anon key.
+  // Hoje a identidade e o papel na empresa verificam-se mais abaixo
+  // (isServiceRoleRequest / assertCallerRoleInCompany, com getUser(jwt)).
   await insertDirectDebug("after_getuser", "skipped_getuser_aligned_with_design_generate");
 
   const admin = createClient(SUPABASE_URL, SRK, {

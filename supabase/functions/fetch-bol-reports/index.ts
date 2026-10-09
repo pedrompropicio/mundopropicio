@@ -1161,7 +1161,7 @@ Deno.serve(async (req) => {
     authorized = true;
   } else {
     const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: `Bearer ${token}` } } });
-    const { data: userData } = await userClient.auth.getUser();
+    const { data: userData } = await userClient.auth.getUser(token);
     if (userData?.user) {
       const admin0 = createClient(SUPABASE_URL, SERVICE_ROLE);
       const { data: roles } = await admin0.from("user_roles").select("role").eq("user_id", userData.user.id);

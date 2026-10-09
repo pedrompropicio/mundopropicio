@@ -6,7 +6,9 @@
 // mensal desde 2026). Se aparecer erro 400 UNSUPPORTED_VERSION, atualizar
 // GOOGLE_ADS_API_VERSION para a versão estável atual.
 //
-// Auth: aceita service_role (cron) ou JWT de utilizador autenticado (manual).
+// Auth (#283 parte 5, D-ERP203): cron = service role verificada no Auth (isServiceRoleRequest);
+//   manual = getUser(jwt) + papel CRM_ADS_ROLES NA empresa (company_id do corpo = empresa activa;
+//   sem company_id fica a activa) e connection_id filtrada por essa empresa.
 // Por connection google em crm.ad_platform_connections (status=active).
 //
 // Decisão sobre ad_groups: NESTE PASSO só sincroniza campanhas. Ad groups

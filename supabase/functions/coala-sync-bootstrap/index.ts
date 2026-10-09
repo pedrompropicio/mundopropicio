@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
     if (!isServiceRole) {
       if (!auth) return json({ error: "Não autenticado" }, 401);
       const u = createClient(SUPABASE_URL, ANON, { global: { headers: { Authorization: auth } } });
-      const { data: { user } } = await u.auth.getUser();
+      const { data: { user } } = await u.auth.getUser(auth.replace(/^Bearer\s+/i, ""));
       if (!user) return json({ error: "Sessão inválida" }, 401);
       const admin0 = createClient(SUPABASE_URL, SERVICE_ROLE);
       const { data: roles } = await admin0.from("user_roles").select("role").eq("user_id", user.id);

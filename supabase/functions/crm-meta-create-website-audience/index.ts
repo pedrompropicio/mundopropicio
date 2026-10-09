@@ -3,7 +3,10 @@
 // de evento do pixel (ViewContent [+ opcional content_category]).
 //
 // Input: { company_id, name, pixel_id, retention_days?=180, content_category?=null }
-// Auth: header Authorization obrigatório (verify_jwt=true), sem getUser().
+// Auth (#283 parte 5, D-ERP203): getUser(jwt) obrigatório — a anon key não chega.
+//   Utilizador: company_id do corpo tem de ser a empresa activa e o papel CRM_ADS_ROLES
+//   tem de existir NESSA empresa (assertCallerRoleInCompany).
+//   Interno: service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
 // Espelha o padrão de crm-meta-create-lookalike (token via RPC + ENCRYPTION_MASTER_KEY,
 // ad account via crm.ad_platform_connections->ad_platform_account_links,
 // persistência em public.meta_custom_audiences com regra dentro de filters jsonb).

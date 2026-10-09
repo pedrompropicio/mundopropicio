@@ -2,10 +2,10 @@
 // Lê o inventário de Custom Audiences da conta Meta e faz upsert em public.meta_custom_audiences.
 //
 // Input: { company_id }
-// Auth: header Authorization obrigatório (verify_jwt=true no gateway), sem getUser().
-//
-// Espelha o padrão de auth da função crm-meta-upload-creative-v2 (que funciona):
-// não chama getUser(); opera via service_role com checagem explícita de company_id.
+// Auth (#283 parte 5, D-ERP203): getUser(jwt) obrigatório — a anon key não chega.
+//   Utilizador: company_id do corpo tem de ser a empresa activa e o papel CRM_ADS_ROLES
+//   tem de existir NESSA empresa (assertCallerRoleInCompany).
+//   Interno: service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
@@ -80,8 +80,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   console.log(`[crm-meta-list-audiences] BUILD_VERSION=${BUILD_VERSION} env url=${!!SUPABASE_URL} srk=${!!SRK} anon=${!!ANON} key=${!!KEY}`);
 
-  // Auth: exige Authorization header presente (gateway já validou JWT com verify_jwt=true).
-  // Não chama getUser() — alinhado com crm-meta-upload-creative-v2.
+  // Auth: header presente aqui; a identidade e o papel na empresa verificam-se mais
+  // abaixo (isServiceRoleRequest / assertCallerRoleInCompany, que fazem getUser(jwt)).
   const authHeader = req.headers.get("Authorization") ?? "";
   if (!authHeader.toLowerCase().startsWith("bearer ")) {
     return json({ ok: false, error: "missing_authorization" }, 200);
