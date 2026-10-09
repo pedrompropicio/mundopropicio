@@ -60,3 +60,17 @@ describe("deduções do cachê — BP prioritário + rateio igual do Master", ()
     expect(r.deductionDetails[1].origin).toBe("none");
   });
 });
+
+import { cacheImpactOnTopOfCost } from "@/lib/event-cost-basis";
+describe("#259 — cachê uma vez só no custo", () => {
+  const op = { type: "expense", status: "approved", version_id: null, amount: 100 };
+  it("BP com linhas do módulo de cachê: cachê não soma por cima", () => {
+    expect(cacheImpactOnTopOfCost(154950.94, [op, { ...op, cache_config_id: "cfg", amount: 69477.36 }], "committed")).toBe(0);
+  });
+  it("BP sem linhas do módulo: cachê soma", () => {
+    expect(cacheImpactOnTopOfCost(1000, [op], "committed")).toBe(1000);
+  });
+  it("realizado: cachê ainda não lançado soma", () => {
+    expect(cacheImpactOnTopOfCost(1000, [{ ...op, cache_config_id: "cfg" }], "realized")).toBe(1000);
+  });
+});
