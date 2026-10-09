@@ -5,20 +5,13 @@
 // Corre em cada commit e diariamente no CI (o código das edge functions não está
 // na base, por isso não pode viver em run_invariant_checks).
 import { describe, it, expect } from "vitest";
-import { scanEdgeFunctions } from "../../scripts/edge-fn-guard-lib.mjs";
+import { scanEdgeFunctions, functionsWithoutVerifyJwtBlock } from "../../scripts/edge-fn-guard-lib.mjs";
 
-// Referência gravada a 09/10/2026, depois das correcções da parte 5.
-// Nenhuma tem verificação de identidade no código: o portão (verify_jwt) aceita a
-// anon key, que é pública. Por decidir pelo Pedro — não mexer sem instrução.
+// Referência gravada a 09/10/2026 (parte 6, D-ERP205): 2.
+// Têm bloco verify_jwt = true, mas o portão só verifica a ASSINATURA — a anon key
+// (pública) passa. Ficam por decisão do Pedro; não mexer sem instrução.
 const REFERENCIA = [
   "crm-extract-video-dimensions",
-  "crm-meta-destilar-2025",
-  "crm-meta-diagnose-ig",
-  "crm-meta-fq-recon",
-  "crm-meta-historico-probe",
-  "crm-meta-recon-2025",
-  "crm-meta-rehost-videos",
-  "fetch-onebox-dashboard",
   "vip-coupon-email",
 ];
 
@@ -42,5 +35,18 @@ describe("edge_fn_sem_guarda_empresa", () => {
   it("a referência não guarda funções já corrigidas (baixa-a)", () => {
     const corrigidas = REFERENCIA.filter((f) => !nomes.includes(f));
     expect(corrigidas, `Já não aparecem — tira-as da REFERENCIA: ${corrigidas.join(", ")}`).toEqual([]);
+  });
+});
+
+// Facto de Live (D-ERP205): função sem bloco no config.toml corre SEM verificação
+// de assinatura no portão. Toda a edge function declara verify_jwt explicitamente.
+describe("verify_jwt explícito no config.toml", () => {
+  it("nenhuma edge function sem bloco [functions.<nome>] com verify_jwt", () => {
+    const sem = functionsWithoutVerifyJwtBlock();
+    expect(
+      sem,
+      `Sem bloco verify_jwt em supabase/config.toml:\n${sem.join("\n")}\n` +
+        "Acrescenta [functions.<nome>] com verify_jwt = true (ou false com comentário: porquê e quem chama).",
+    ).toEqual([]);
   });
 });

@@ -2,6 +2,7 @@
 // artista (módulo Carreira Artística). NÃO toca em nada do CRM.
 
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { isServiceRoleRequest } from "./multiTenant.ts";
 
 /** Versão actual (latest) da Graph API à data desta implementação. */
 export const GRAPH_VERSION = "v25.0";
@@ -66,14 +67,8 @@ export async function authorize(
   const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
   if (!bearer) return { allowed: false, reason: "missing token" };
 
-  try {
-    const payload = JSON.parse(atob(bearer.split(".")[1] ?? ""));
-    if (payload?.role === "service_role") {
-      return { allowed: true, isServiceRole: true };
-    }
-  } catch (_e) {
-    // não-JWT: segue para validação de utilizador
-  }
+  // #283 parte 6 (D-ERP205): service role verificada no Auth, nunca pelo payload.
+  if (await isServiceRoleRequest(req)) return { allowed: true, isServiceRole: true };
 
   const { data, error } = await admin.auth.getUser(bearer);
   if (error || !data?.user) return { allowed: false, reason: "invalid token" };

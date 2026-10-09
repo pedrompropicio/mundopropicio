@@ -70,3 +70,19 @@ export function scanEdgeFunctions(root = process.cwd()) {
   }
   return out.sort((a, b) => a.fn.localeCompare(b.fn));
 }
+
+/** Edge functions sem bloco [functions.<nome>] no config.toml (facto de Live:
+ *  sem bloco = portão SEM verificação de assinatura). Tem de ser sempre vazio. */
+export function functionsWithoutVerifyJwtBlock(root = process.cwd()) {
+  const base = path.join(root, FN_DIR);
+  const cfg = fs.readFileSync(path.join(root, "supabase/config.toml"), "utf8");
+  const declared = new Set();
+  const re = /^\[functions\.([a-z0-9_-]+)\]\s*\n(?:[^\[\n][^\n]*\n)*?\s*verify_jwt\s*=\s*(true|false)/gm;
+  for (const m of cfg.matchAll(re)) declared.add(m[1]);
+  return fs.readdirSync(base, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && !e.name.startsWith("_") && e.name !== "tests"
+      && fs.existsSync(path.join(base, e.name, "index.ts")))
+    .map((e) => e.name)
+    .filter((n) => !declared.has(n))
+    .sort();
+}

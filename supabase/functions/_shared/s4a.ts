@@ -3,6 +3,7 @@
 // client_id completo ou cookies. Só refresh_token (nunca login/authorize).
 
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { isServiceRoleRequest } from "./multiTenant.ts";
 
 export const S4A_TOKEN_URL = "https://accounts.spotify.com/api/token";
 
@@ -168,11 +169,8 @@ export async function authorizeArtistAdmin(
   const { data: artist } = await admin.from("artists").select("id, company_id").eq("id", artistId).maybeSingle();
   if (!artist?.company_id) return { ok: false, status: 404, error: "artista não encontrado" };
 
-  let isSr = false;
-  try {
-    isSr = JSON.parse(atob(bearer.split(".")[1] ?? ""))?.role === "service_role";
-  } catch (_e) { /* não-JWT */ }
-  if (!isSr && bearer === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "\u0000")) isSr = true;
+  // #283 parte 6 (D-ERP205): service role verificada no Auth, nunca pelo payload.
+  const isSr = await isServiceRoleRequest(req);
   if (isSr) {
     return allowServiceRole
       ? { ok: true, userId: null, companyId: artist.company_id }
