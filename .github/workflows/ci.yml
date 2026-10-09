@@ -40,5 +40,13 @@ jobs:
             grep -E "Test Files|Tests " vitest.log || echo "sem resumo"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Canário runtime verify_jwt
+        # Declarar verify_jwt no ficheiro não prova que a definição foi implantada.
+        # Os dois secrets são obrigatórios para o canário de rede; se faltarem, o
+        # script termina com erro (nunca finge cobertura verde).
+        env:
+          EDGE_GATE_BASE_URL: ${{ secrets.EDGE_GATE_BASE_URL }}
+          EDGE_GATE_ANON_KEY: ${{ secrets.EDGE_GATE_ANON_KEY }}
+        run: bun scripts/probe-edge-jwt-gate.mjs
       - name: Build (vite)
         run: bunx vite build

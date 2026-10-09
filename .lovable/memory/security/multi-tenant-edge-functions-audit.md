@@ -103,3 +103,14 @@ Por decidir (achado da prova): service role pelo payload sem assinatura e verify
 - Ainda com claim lido do payload (sem chamada ao Auth), todas com `verify_jwt = true` explícito ou por omissão no config — por rever: ~33 funções + helpers _shared/artist-meta.ts `authorize`, _shared/artist-ads.ts, _shared/s4a.ts, _shared/soundcharts.ts.
 - Invariante `edge_fn_sem_guarda_empresa` (src/test/edge-fn-guard.test.ts, scripts/edge-fn-guard-lib.mjs). Referência 9, sem verificação de identidade no código, por decidir: crm-extract-video-dimensions, crm-meta-destilar-2025, crm-meta-diagnose-ig, crm-meta-fq-recon, crm-meta-historico-probe, crm-meta-recon-2025, crm-meta-rehost-videos, fetch-onebox-dashboard, vip-coupon-email.
 - Prova 09/10: chave pública e token forjado recusados (401/403) nas 16 funções; controlo positivo com a sessão do Pedro (crm-meta-publish-execute preflight) passa. Prova com o michel NÃO feita: precisa de aprovação, não disponível aqui.
+
+## Parte 6 + remate (09/10/2026, D-ERP205/D-ERP206)
+- FACTO DE LIVE 1: função sem bloco no config.toml corre SEM verificação de assinatura no portão. Não assumir o valor por omissão documentado.
+- FACTO DE LIVE 2: declarar `verify_jwt` no config.toml NÃO basta — o Publish propaga o ficheiro, não a definição. Só vale depois de REIMPLANTAR a função. Corpo distingue: portão = `{"code":"UNAUTHORIZED_LEGACY_JWT","message":"Invalid JWT"}` (inglês); código = português.
+- 232 funções com bloco explícito: 210 true, 18 false com comentário (webhooks/OAuth callbacks/email hooks/song-link-event/crm-google-click-ingest/geo-lookup/artist-screen-ingest/artist-ads-tiktok-manual-ingest/fever-ingest-browser).
+- Apagadas: crm-meta-destilar-2025, crm-meta-recon-2025, crm-meta-fq-recon, crm-meta-historico-probe. Guardadas: crm-meta-diagnose-ig, crm-meta-rehost-videos, fetch-onebox-dashboard.
+- Helpers artist-meta/artist-ads/s4a/soundcharts com `isServiceRoleRequest`; controlo positivo com a sessão do Pedro passou em artist-meta-oauth-start, artist-ads-meta-interest-search, s4a-probe, soundcharts-artist-search (anon recusada em todos).
+- Prova runtime 09/10 após reimplantação: 210/210 com true respondem pelo portão ao token forjado.
+- Invariante `edge_fn_sem_guarda_empresa` referência 2 (crm-extract-video-dimensions, vip-coupon-email — por decisão do Pedro) + verificação "sem bloco verify_jwt" + canário runtime `scripts/probe-edge-jwt-gate.mjs` no CI.
+- Regra: mudar config.toml de uma função ⇒ reimplantar essa função e sondar com token forjado (corpo, não só o código).
+
