@@ -337,6 +337,13 @@
       "when": 1791511525229,
       "tag": "0047_derp200_287_camarim_adiantamento_entrada",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1791512235613,
+      "tag": "0048_derp201_supplier_similarity_flags",
+      "breakpoints": true
     }
   ]
 }
