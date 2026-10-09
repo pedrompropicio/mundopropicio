@@ -118,8 +118,10 @@ function rateLimited(key: string): boolean {
 function parseUA(ua: string) {
   const u = ua || "";
   let in_app_browser: string | null = null;
-  if (/Instagram/i.test(u)) in_app_browser = "instagram";
-  else if (/FBAN|FBAV|FB_IAB|FBIOS|FB4A/i.test(u)) in_app_browser = "facebook";
+  // Adenda D-ERP141 (09/10/2026): navegador interno da Meta = IABMV/FB4A/FBAN/FBAV/FB_IAB/FBIOS
+  // ou "Instagram"; com "Instagram" fica 'instagram', senão 'facebook'.
+  const isMeta = /IABMV|FB4A|FBAN|FBAV|FB_IAB|FBIOS|Instagram/i.test(u);
+  if (isMeta) in_app_browser = /Instagram/i.test(u) ? "instagram" : "facebook";
   else if (/musical_ly|BytedanceWebview|TikTok|trill/i.test(u)) in_app_browser = "tiktok";
   let os: string | null = null;
   if (/iPhone|iPad|iPod/i.test(u)) os = "ios";
@@ -147,7 +149,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405, origin);
 
   let body: any;
-  try { body = await req.json(); } catch { return json({ ok: false, error: "invalid_json" }, 400, origin); }
+  // sendBeacon envia text/plain com JSON (pedido simples, sem pré-verificação CORS):
+  // ler sempre como texto e fazer JSON.parse, seja qual for o Content-Type.
+  try { body = JSON.parse(await req.text()); } catch { return json({ ok: false, error: "invalid_json" }, 400, origin); }
 
   const slug = s(body?.slug, 120)?.toLowerCase() ?? null;
   const event = body?.event;
