@@ -18768,6 +18768,16 @@ export type Database = {
         Args: { _event_id: string; _inserts?: Json; _version_id?: string }
         Returns: Json
       }
+      batch_save_event_forecasts: {
+        Args: {
+          _edits?: Json
+          _event_id: string
+          _inserts?: Json
+          _snapshot_description?: string
+          _version_id?: string
+        }
+        Returns: Json
+      }
       batch_update_event_forecasts: {
         Args: { _edits?: Json; _event_id: string; _version_id?: string }
         Returns: Json

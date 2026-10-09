@@ -1,4 +1,7 @@
 import { writeForecastAmount } from "@/lib/forecast-amount";
+import { recordUndo } from "@/lib/undo";
+import { showUndoToast } from "@/hooks/useUndoToast";
+import { forecastEditDiff } from "@/lib/forecast-edit-diff";
 import React, { useState, useRef, useEffect, useMemo, useCallback, Suspense, lazy } from "react";
 import { roundCents, calcIvaAmount } from "@/lib/iva";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
@@ -968,16 +971,19 @@ const descRef = useRef<HTMLInputElement>(null);
 
   const saveMutation = useMutation({
     mutationFn: async ({ form, id }: { form: InlineForm; id: string | null }) => {
+      const previous = id ? (forecasts as any[]).find((row) => row.id === id) : null;
+      if (id && !previous) throw new Error("Linha de BP não encontrada.");
       const isCompletedEvent = eventStatus === "completed";
       // Editor partial edit: only description + category
       if (id && canEditBPPartial && !canEditBP) {
-        const partialPayload = {
+        const partialPayload = forecastEditDiff(previous, {
           description: form.description,
           category_id: form.category_id || null,
-        };
+        });
+        if (Object.keys(partialPayload).length === 0) return null;
         const { error } = await supabase.from("event_forecasts").update(partialPayload).eq("id", id);
         if (error) throw error;
-        return;
+        return { snapshot: Object.fromEntries(Object.keys(partialPayload).map((key) => [key, previous[key] ?? null])) };
       }
       const parsedAmount = parseFloat(form.amount);
       if (!Number.isFinite(parsedAmount)) {
@@ -1008,18 +1014,26 @@ const descRef = useRef<HTMLInputElement>(null);
       }
       if (id) {
         // #240: amount por batch_update_event_forecasts (pede observação se reduz linha com realizado)
-        const { amount: newAmt, ...rest } = payload;
+        const { event_id: _event, version_id: _version, ...editablePayload } = payload;
         // #263: linhas com fórmula não se editam à mão no valor
         const isFormulaLine = isFormulaType((forecasts as any[]).find((x: any) => x.id === id)?.formula_type);
-        if (!isFormulaLine) await writeForecastAmount({ forecastId: id, newAmount: Number(newAmt), interactive: true });
-        const { error } = await supabase.from("event_forecasts").update(rest).eq("id", id);
-        if (error) throw error;
+        if (isFormulaLine) delete editablePayload.amount;
+        const changes = forecastEditDiff(previous, editablePayload);
+        const { amount: newAmt, ...rest } = changes;
+        if (newAmt !== undefined) await writeForecastAmount({ forecastId: id, newAmount: Number(newAmt), interactive: true });
+        if (Object.keys(rest).length > 0) {
+          const { error } = await supabase.from("event_forecasts").update(rest as any).eq("id", id);
+          if (error) throw error;
+        }
+        return Object.keys(changes).length > 0
+          ? { snapshot: Object.fromEntries(Object.keys(changes).map((key) => [key, previous[key] ?? null])) }
+          : null;
       } else {
         const { error } = await supabase.from("event_forecasts").insert(payload);
         if (error) throw error;
       }
     },
-    onSuccess: (_, vars) => {
+    onSuccess: async (result, vars) => {
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       toast({ title: vars.id ? "Previsão atualizada!" : "Previsão adicionada!" });
       if (!vars.id && addingType) {
@@ -1030,6 +1044,27 @@ const descRef = useRef<HTMLInputElement>(null);
         setAddingType(null);
         setEditingId(null);
         setInlineForm(emptyInline);
+      }
+      if (vars.id && result?.snapshot && user?.id) {
+        const undoRec = await recordUndo({
+          action_type: "edit_forecast",
+          entity_type: "event_forecast",
+          entity_id: vars.id,
+          payload: { snapshot: result.snapshot },
+          description: `Edição inline BP: ${vars.form.description}`.slice(0, 200),
+          performed_by: user.id,
+          performed_by_name: user.user_metadata?.full_name ?? user.email ?? undefined,
+        });
+        if (undoRec) showUndoToast({
+          message: "Previsão atualizada!",
+          undoId: undoRec.id,
+          user: { id: user.id, name: user.email ?? undefined },
+          onUndone: () => {
+            queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+            queryClient.invalidateQueries({ queryKey: ["scenario-forecasts"] });
+            queryClient.invalidateQueries({ queryKey: ["forecast_audit_log", vars.id] });
+          },
+        });
       }
     },
     onError: (err: any) => {

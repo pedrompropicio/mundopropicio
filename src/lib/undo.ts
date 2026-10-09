@@ -211,10 +211,6 @@ async function revertEditForecast(r: UndoActionRecord) {
  */
 async function restoreForecastSnapshot(id: string, snapshot: Record<string, any>) {
   const { amount, ...rest } = snapshot ?? {};
-  if (Object.keys(rest).length > 0) {
-    const { error } = await (supabase as any).from("event_forecasts").update(rest).eq("id", id);
-    if (error) throw error;
-  }
   if (amount !== undefined && amount !== null) {
     try {
       await writeForecastAmount({ forecastId: id, newAmount: Number(amount), interactive: true });
@@ -224,6 +220,11 @@ async function restoreForecastSnapshot(id: string, snapshot: Record<string, any>
       }
       throw e;
     }
+  }
+  // Ask/validate the reduction before restoring any other field (#240).
+  if (Object.keys(rest).length > 0) {
+    const { error } = await (supabase as any).from("event_forecasts").update(rest).eq("id", id);
+    if (error) throw error;
   }
 }
 

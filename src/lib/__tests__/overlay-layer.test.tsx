@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import {
   pushLayer,
   popLayer,
@@ -14,6 +14,7 @@ import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogContent, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LocalReinforcementDialog } from "@/components/LocalReinforcementDialog";
 
 const z = (el: Element | null) => Number((el as HTMLElement | null)?.style.zIndex || 0);
 
@@ -33,6 +34,19 @@ describe("pilha de camadas — núcleo", () => {
 
 describe("pilha de camadas — aninhamentos reais", () => {
   beforeEach(() => __resetLayers());
+
+  it("#260 classificação acima da Nova Transação recebe foco e confirma escolha", () => {
+    const confirm = vi.fn();
+    render(<OverlayLayer data-testid="transaction" className="fixed inset-0">
+      <LocalReinforcementDialog open onOpenChange={() => {}} categoryName="Hospedagem"
+        masterDescription="Rateio dayoffs" onConfirm={confirm} />
+    </OverlayLayer>);
+    const dialog = screen.getByRole("dialog", { name: "Classificação da Despesa" });
+    expect(z(dialog)).toBeGreaterThan(z(screen.getByTestId("transaction")));
+    expect(document.activeElement).toBe(screen.getByRole("radio", { name: /Custo Isolado/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    expect(confirm).toHaveBeenCalledWith("local");
+  });
 
   it("Dialog fechado não ocupa camada", () => {
     render(

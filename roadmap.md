@@ -1,5 +1,12 @@
 # Roadmap — épica #146 (e)
 
+## Lote 1 — BP (#260, #249, #247, #248)
+- [x] #260: diálogo de classificação na pilha comum com foco; percurso antigo de desambiguação já removido anteriormente.
+- [x] #249: campos intactos preservados; Vincular ao BP já usa a pilha comum, confirmado por teste.
+- [x] #247: snapshot + inserts + updates atómicos; prova real recusada sem novas versões/linhas.
+- [x] #248: edição inline regista Desfazer; cancelamento da observação não repõe outros campos.
+- [x] Testes e camadas verificados, sem Publish; percurso visual completo fica para Pedro.
+
 ## Feito
 - [x] Fase 1 — inversão do espelho: `event_partners` é derivada de
       `event_settlement_participants` (trigger `trg_esp_sync_event_partners` +
