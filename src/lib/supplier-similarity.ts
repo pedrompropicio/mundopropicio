@@ -16,8 +16,10 @@ export function normalizeSupplierName(name: string | null | undefined): string {
     .trim();
 }
 
+/** NIF só com letras/dígitos; prefixo de país (2 letras) sai quando o resto é só dígitos. */
 export function normalizeNif(nif: string | null | undefined): string {
-  return (nif ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  const x = (nif ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  return /^[A-Z]{2}[0-9]+$/.test(x) ? x.slice(2) : x;
 }
 
 /** Trigramas como no pg_trgm (cada palavra com "  " à esquerda e " " à direita). */
