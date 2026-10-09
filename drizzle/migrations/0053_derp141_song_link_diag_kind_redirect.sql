@@ -1,0 +1,2 @@
+ALTER TABLE public.song_link_diag DROP CONSTRAINT song_link_diag_kind_check;
+ALTER TABLE public.song_link_diag ADD CONSTRAINT song_link_diag_kind_check CHECK (kind = ANY (ARRAY['shown','tap_button','tap_other','hidden','visible','pagehide','redirect']));
