@@ -284,9 +284,6 @@ verify_jwt = false
 [functions.artist-ads-period-analysis]
 verify_jwt = false
 
-# Sonda descartável do portal de Produtores da Ticketline. Só leitura.
-[functions.probe-ticketline-produtores]
-verify_jwt = true
 
 [functions.ticketline-crosscheck]
 verify_jwt = true
