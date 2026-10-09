@@ -11,6 +11,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
+import { assertCallerRoleOnRow, assertCallerRoleInCompany, isServiceRoleRequest, errorResponse, CRM_ADS_ROLES } from "../_shared/multiTenant.ts";
 
 const BUILD_VERSION = "create-purchase-audience-v1 2026-06-28";
 const GRAPH_API_VERSION = "v21.0";
@@ -74,6 +75,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const isPrimary = Boolean(body.is_primary);
 
     if (!eventId) return bizErr({ error: "missing_params", detail: "event_id" });
+    if (!(await isServiceRoleRequest(req))) {
+      // #283 parte 5 (D-ERP203): papel NA empresa do evento; getUser obrigatório.
+      try { await assertCallerRoleOnRow(req, "events", eventId, CRM_ADS_ROLES); } catch (e) { return errorResponse(e); }
+    }
 
     // 1) Resolve evento (pixel obrigatório + company_id + nome)
     const { data: ev, error: evErr } = await admin
