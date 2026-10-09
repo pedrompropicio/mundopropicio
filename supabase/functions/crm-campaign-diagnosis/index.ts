@@ -1084,9 +1084,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
         connection_id: campaignMeta.connection_id,
         external_campaign_id: campaignId,
         campaign_name: campaignMeta.campaign_name,
-        // Coluna NOT NULL (sem DDL nesta tarefa): 0 = "sem meta". O valor real
-        // (null) vai em diagnosis_jsonb.input.target_roas + target_roas_source="none".
-        target_roas: targetRoas ?? 0,
+        // NULL = sem meta (coluna nullable desde D-ERP207); nunca sentinela 0.
+        target_roas: targetRoas,
         diagnosis_jsonb: diagnosis,
         source_campaign_class: sourceCampaignClass,
         projected_baseline_roas: projectedBaselineRoas,
