@@ -1,4 +1,5 @@
 import { writeForecastAmount } from "@/lib/forecast-amount";
+import { forecastEditDiff, preserveUnchangedForecastText } from "@/lib/forecast-edit-diff";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -102,15 +103,15 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
     mutationFn: async () => {
       const newAmount = Math.round(eurAmount * 100) / 100;
       const newIvaRate = parseInt(ivaRate) || 0;
-      const newDescription = description.trim();
-      const newSpecification = specification.trim() || null;
+      const newDescription = preserveUnchangedForecastText(description, forecast.description);
+      const newSpecification = preserveUnchangedForecastText(specification, forecast.specification);
       const newCategoryId = categoryId || null;
       const newCurrency = currency;
       const newOriginal = newCurrency === "EUR" ? null : (parseFloat(originalAmount) || 0);
       const newFxRate = newCurrency === "EUR" ? null : (parseFloat(fxRate) || 0);
       const newFxRateSource = newCurrency === "EUR" ? null : fxRateSource;
 
-      if (!newDescription) throw new Error("A descrição é obrigatória.");
+      if (!newDescription?.trim()) throw new Error("A descrição é obrigatória.");
       if (newCurrency !== "EUR" && (!newFxRate || newFxRate <= 0)) {
         throw new Error("Define o câmbio para a moeda selecionada.");
       }
@@ -199,22 +200,8 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
       if (!observation.trim()) throw new Error("A observação é obrigatória para alterações em previsões aprovadas.");
 
       // Snapshot for undo (pre-change values)
-      const snapshot = {
-        description: forecast.description,
-        specification: forecast.specification,
-        category_id: forecast.category_id,
-        amount: Number(forecast.amount),
-        iva_rate: Number(forecast.iva_rate),
-        currency: oldCurrency,
-        original_amount: forecast.original_amount,
-        fx_rate: forecast.fx_rate,
-        fx_rate_source: forecast.fx_rate_source,
-        is_overhead: !!forecast.is_overhead,
-        exclude_from_result: !!forecast.exclude_from_result,
-      };
-
       // Update forecast
-      const updatePayload: any = {
+      const updatePayload = forecastEditDiff({ ...forecast, currency: oldCurrency }, {
         description: newDescription,
         specification: newSpecification,
         category_id: newCategoryId,
@@ -225,12 +212,13 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         fx_rate: newFxRate,
         fx_rate_source: newFxRateSource,
         is_overhead: newOverhead,
-        exclude_from_result: newOverhead,
+        exclude_from_result: newOverhead !== !!forecast.is_overhead ? newOverhead : !!forecast.exclude_from_result,
         event_settlement_id: newSettlementId,
         addback_settlement_id: newAddbackId,
         addback_reason: newAddbackId ? newAddbackReason : null,
         vat_non_recoverable: newVatNonRecoverable,
-      };
+      });
+      const snapshot = Object.fromEntries(Object.keys(updatePayload).map((key) => [key, forecast[key] ?? null]));
       // #240: amount nunca por .update directo — vai por batch_update_event_forecasts
       // (trigger: chão = realizado; observação obrigatória se há realizado).
       const { amount: _amt, ...restPayload } = updatePayload;
@@ -238,11 +226,13 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         // redução primeiro, com a observação do modal (valida chão antes de gravar o resto)
         await writeForecastAmount({ forecastId: forecast.id, newAmount, observation: observation.trim() });
       }
-      const { error: updateError } = await supabase
-        .from("event_forecasts")
-        .update(restPayload)
-        .eq("id", forecast.id);
-      if (updateError) throw updateError;
+      if (Object.keys(restPayload).length > 0) {
+        const { error: updateError } = await supabase
+          .from("event_forecasts")
+          .update(restPayload)
+          .eq("id", forecast.id);
+        if (updateError) throw updateError;
+      }
       if (Math.abs(Number(forecast.amount) - newAmount) >= 0.005 && newAmount > Number(forecast.amount)) {
         await writeForecastAmount({ forecastId: forecast.id, newAmount, observation: observation.trim() });
       }
