@@ -5,11 +5,11 @@ export function preserveUnchangedForecastText(draft: string, previous: string | 
 }
 
 /** Send only changed fields, so audit/undo never includes untouched values. */
-export function forecastEditDiff(previous: Record<string, any>, next: Record<string, any>): Record<string, any> {
+export function forecastEditDiff<T extends Record<string, any>>(previous: Record<string, any>, next: T): Partial<T> {
   return Object.fromEntries(Object.entries(next).filter(([key, value]) => {
     const old = previous[key] ?? null;
     if (typeof value === "number") return Number(old) !== value;
     if (typeof value === "boolean") return Boolean(old) !== value;
     return old !== value;
-  }));
+  })) as Partial<T>;
 }

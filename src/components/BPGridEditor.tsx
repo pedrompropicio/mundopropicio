@@ -415,7 +415,7 @@ export default function BPGridEditor({
   const totalErrors = rowErrors.size + pendingErrors.size;
   const saveBlockingErrors = rowErrors.size + pendingSaveErrorsCount;
 
-  // --- SAVE (inserts + updates, atomic per RPC) ---
+  // --- SAVE (snapshot + inserts + updates in one transaction, #247) ---
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (saveBlockingErrors > 0) {
@@ -439,22 +439,9 @@ export default function BPGridEditor({
         undoSnapshots.push({ id: row.id, before });
       }
 
-      // Snapshot once on Active before any writes
-      if (selectedVersionId === null && hasUnsaved) {
-        try {
-          await supabase.rpc("create_bp_snapshot" as any, {
-            _event_id: eventId,
-            _description: `Edição em grelha — ${dirtyCount} edição(ões) + ${insertCount} nova(s)`,
-            _approve_immediately: false,
-          } as any);
-        } catch (err) {
-          console.warn("[BPGrid] snapshot failed (non-blocking)", err);
-        }
-      }
-
-      let insertedIds: string[] = [];
-      if (insertCount > 0) {
-        const payload = pendingInserts.map((p) => ({
+      // Collect #240 observations before the transaction creates any snapshot.
+      const editsArr = await prepareBatchEditsForReductions(Object.entries(dirty).map(([id, fields]) => ({ id, ...(fields as any) })));
+      const payload = pendingInserts.map((p) => ({
           type: p.type,
           description: p.description.trim(),
           specification: p.specification?.trim() || null,
@@ -464,27 +451,16 @@ export default function BPGridEditor({
           formalidade: p.formalidade,
           notes: p.notes || null,
         }));
-        const { data, error } = await supabase.rpc("batch_insert_event_forecasts" as any, {
+      const { data, error } = await supabase.rpc("batch_save_event_forecasts", {
           _event_id: eventId,
           _version_id: selectedVersionId,
           _inserts: payload,
-        } as any);
-        if (error) throw error;
-        insertedIds = ((data as any)?.ids ?? []) as string[];
-      }
-
-      let updated = 0;
-      if (dirtyCount > 0) {
-        // #240: chão = realizado; observação pedida a cada redução com realizado
-        const editsArr = await prepareBatchEditsForReductions(Object.entries(dirty).map(([id, fields]) => ({ id, ...(fields as any) })));
-        const { data, error } = await supabase.rpc("batch_update_event_forecasts" as any, {
-          _event_id: eventId,
-          _version_id: selectedVersionId,
           _edits: editsArr,
-        } as any);
-        if (error) throw error;
-        updated = (data as any)?.updated ?? 0;
-      }
+          _snapshot_description: `Edição em grelha — ${dirtyCount} edição(ões) + ${insertCount} nova(s)`,
+      });
+      if (error) throw error;
+      const insertedIds = ((data as any)?.ids ?? []) as string[];
+      const updated = (data as any)?.updated ?? 0;
 
       return { updated, inserted: insertedIds.length, insertedIds, undoSnapshots };
     },
@@ -492,6 +468,7 @@ export default function BPGridEditor({
       setDirty({});
       setPendingInserts([]);
       queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+      queryClient.invalidateQueries({ queryKey: ["bp-versions"] });
       toast({
         title: "BP guardado",
         description: `${res.inserted} inserida(s) · ${res.updated} atualizada(s).`,

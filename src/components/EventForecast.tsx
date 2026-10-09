@@ -1022,7 +1022,7 @@ const descRef = useRef<HTMLInputElement>(null);
         const { amount: newAmt, ...rest } = changes;
         if (newAmt !== undefined) await writeForecastAmount({ forecastId: id, newAmount: Number(newAmt), interactive: true });
         if (Object.keys(rest).length > 0) {
-          const { error } = await supabase.from("event_forecasts").update(rest).eq("id", id);
+          const { error } = await supabase.from("event_forecasts").update(rest as any).eq("id", id);
           if (error) throw error;
         }
         return Object.keys(changes).length > 0
