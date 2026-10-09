@@ -365,6 +365,13 @@
       "when": 1791513452184,
       "tag": "0051_derp203_285_rateio_filhas_bruto",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1791514766875,
+      "tag": "0052_derp_remove_tx_paga_sem_linha_ref_paid_157",
+      "breakpoints": true
     }
   ]
 }
