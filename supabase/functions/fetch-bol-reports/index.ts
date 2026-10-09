@@ -1,7 +1,7 @@
 // fetch-bol-reports
 // Sync de bilheteira BOL (produtores.bol.pt) — mesma espinha da
 // fetch-ticketline-reports v2.8:
-//   - auth: service role estrito OU jwtRole()=='service_role' OU JWT de
+//   - auth: service role verificada no Auth (isServiceRoleRequest) OU JWT de
 //     admin/manager/editor/platform_admin
 //   - sem configId → fan-out sequencial (1 sub-invocação por config)
 //   - com configId → corre um só
@@ -18,6 +18,7 @@
 // depuração caso o postback falhe.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import { parseBolM2, extractPdfText } from "../_shared/bol-report-parser.ts";
 import { runBolImport } from "../_shared/bol-import-server.ts";
 import { parseBolDiario, importBolDailySeries } from "../_shared/bol-daily-parser.ts";
@@ -39,16 +40,6 @@ const LOGIN_PATH = "/Utilizadores/Autenticacao.aspx";
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
 
-const jwtRole = (authHeader: string | null): string | null => {
-  const token = authHeader?.replace(/^Bearer\s+/i, "") ?? "";
-  const payload = token.split(".")[1];
-  if (!payload) return null;
-  try {
-    return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")))?.role ?? null;
-  } catch {
-    return null;
-  }
-};
 
 interface Body {
   configId?: string;
@@ -1166,11 +1157,11 @@ Deno.serve(async (req) => {
   if (!token) return json(401, { error: "missing authorization" });
 
   let authorized = false;
-  if (token === SERVICE_ROLE || jwtRole(authHeader) === "service_role") {
+  if (await isServiceRoleRequest(req)) {
     authorized = true;
   } else {
     const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: `Bearer ${token}` } } });
-    const { data: userData } = await userClient.auth.getUser();
+    const { data: userData } = await userClient.auth.getUser(token);
     if (userData?.user) {
       const admin0 = createClient(SUPABASE_URL, SERVICE_ROLE);
       const { data: roles } = await admin0.from("user_roles").select("role").eq("user_id", userData.user.id);

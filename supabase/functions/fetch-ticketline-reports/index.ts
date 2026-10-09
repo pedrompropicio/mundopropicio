@@ -4,6 +4,7 @@
 // Multi-evento: se body.configId vier, corre só esse; senão corre todos os configs enabled=true.
 // Auth: aceita SERVICE_ROLE (cron) OU JWT de admin/manager/editor/platform_admin (UI).
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 // (parser SJR por-evento mantido em _shared para as sondas; o sync usa a série diária do dashboard)
@@ -58,20 +59,6 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-// Helper jwtRole — mesmo padrão da sync-coala-from-drive: decodifica o payload
-// do JWT sem verificação de assinatura e lê o claim "role". Permite aceitar o
-// service role JWT do Vault (email_queue_service_role_key) que o cron envia,
-// em vez da igualdade estrita `token === SERVICE_ROLE` (env) que nunca bate.
-const jwtRole = (authHeader: string | null): string | null => {
-  const token = authHeader?.replace(/^Bearer\s+/i, "") ?? "";
-  const payload = token.split(".")[1];
-  if (!payload) return null;
-  try {
-    return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")))?.role ?? null;
-  } catch {
-    return null;
-  }
-};
 
 const BASE = "https://manager.ticketline.pt";
 
@@ -3111,11 +3098,11 @@ Deno.serve(async (req) => {
   // Caminho cron: service role. Aceita igualdade estrita (env) OU JWT cujo
   // payload tenha role "service_role" — mesmo padrão da sync-coala-from-drive,
   // que é o que destrava o cron diário (Bearer + service role do Vault).
-  if (token === SERVICE_ROLE || jwtRole(authHeader) === "service_role") {
+  if (await isServiceRoleRequest(req)) {
     authorized = true;
   } else {
     const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: `Bearer ${token}` } } });
-    const { data: userData } = await userClient.auth.getUser();
+    const { data: userData } = await userClient.auth.getUser(token);
     if (userData?.user) {
       const admin0 = createClient(SUPABASE_URL, SERVICE_ROLE);
       const { data: roles } = await admin0.from("user_roles").select("role").eq("user_id", userData.user.id);

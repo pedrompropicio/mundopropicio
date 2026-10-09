@@ -11,6 +11,7 @@
 // Returns { ok, runId, summary }
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import {
   parseCoalaXlsx,
   buildValidationReport,
@@ -38,16 +39,6 @@ const corsHeaders = {
 
 type SyncMode = "replace" | "append";
 
-const jwtRole = (authHeader: string | null): string | null => {
-  const token = authHeader?.replace(/^Bearer\s+/i, "") ?? "";
-  const payload = token.split(".")[1];
-  if (!payload) return null;
-  try {
-    return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")))?.role ?? null;
-  } catch {
-    return null;
-  }
-};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -58,7 +49,7 @@ Deno.serve(async (req) => {
 
     const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     // Permite chamadas internas (ex.: sync-coala-from-drive) com service_role
-    const isServiceRole = auth === `Bearer ${SERVICE_ROLE}` || jwtRole(auth) === "service_role";
+    const isServiceRole = await isServiceRoleRequest(req);
 
     let user: { id: string } | null = null;
     if (!isServiceRole) {
@@ -67,7 +58,7 @@ Deno.serve(async (req) => {
         Deno.env.get("SUPABASE_ANON_KEY")!,
         { global: { headers: { Authorization: auth } } },
       );
-      const { data: { user: u } } = await userClient.auth.getUser();
+      const { data: { user: u } } = await userClient.auth.getUser(auth.replace(/^Bearer\s+/i, ""));
       if (!u) return json({ error: "Sessão inválida" }, 401);
       user = { id: u.id };
     }

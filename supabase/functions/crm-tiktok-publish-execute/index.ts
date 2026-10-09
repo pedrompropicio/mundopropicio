@@ -33,6 +33,7 @@
 //      EXERCITADA (sem identity autorizada na ligação do piloto).
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import { songObjectiveLabel } from "../_shared/campaign-target.ts";
 import {
   TIKTOK_SANDBOX_HOST,
@@ -113,7 +114,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 2) Papéis. Igual ao Meta: leitura aceita service_role; escrita exige sessão + papel.
   const { data: userInfo } = await supabase.auth.getUser();
   const callerUserId = userInfo?.user?.id ?? null;
-  const isServiceRole = !callerUserId && jwtRole(authHeader) === "service_role";
+  const isServiceRole = !callerUserId && await isServiceRoleRequest(req);
   if (!callerUserId && !isServiceRole) {
     return json({ ok: false, error: "sessao_invalida", message: "Sessão inválida." }, 401);
   }

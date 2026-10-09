@@ -1,5 +1,9 @@
 // crm-google-video-metrics-sync  (PASSO 1 da captação de métricas de vídeo)
 //
+// Auth (#283 parte 5, D-ERP203): cron = service role verificada no Auth (isServiceRoleRequest);
+//   manual = getUser(jwt) + papel CRM_ADS_ROLES NA empresa (company_id do corpo = empresa activa;
+//   sem company_id fica a activa) e connection_id filtrada por essa empresa.
+//
 // Só LEITURA na Google Ads API + escrita em COLUNAS PRÓPRIAS (cada escritor é
 // dono das suas colunas; nunca dois syncs a escrever o mesmo jsonb):
 //   crm.google_campaign_insights_daily.video_metrics

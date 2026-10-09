@@ -2,6 +2,7 @@
 // Lê notification_queue (status='queued') e envia via Meta WhatsApp Cloud API.
 // Atualiza status para sent/failed e regista em notification_log.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,15 +29,10 @@ Deno.serve(async (req) => {
   // service_role JWT (cron) OR explicit cron secret. Blocks anon JWT replay.
   const authHeader = req.headers.get("Authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-  let jwtRole: string | null = null;
-  try {
-    const p = JSON.parse(atob((token.split(".")[1] ?? "").replace(/-/g, "+").replace(/_/g, "/")));
-    jwtRole = p?.role ?? null;
-  } catch { /* ignore */ }
   const cronSecret = Deno.env.get("WHATSAPP_DISPATCHER_CRON_SECRET");
   const providedCronSecret = req.headers.get("x-cron-secret");
   const isCron = !!cronSecret && providedCronSecret === cronSecret;
-  if (jwtRole !== "service_role" && !isCron) {
+  if (!isCron && !(await isServiceRoleRequest(req))) {
     return new Response(JSON.stringify({ error: "forbidden" }), {
       status: 403,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

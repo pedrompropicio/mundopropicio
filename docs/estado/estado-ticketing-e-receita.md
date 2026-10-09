@@ -16,13 +16,15 @@ Atualizado: 2026-10-09 · Issues: `agora` #267 · `a-seguir` #206 · `depois` #7
 
 ## Bloqueios
 
+- **9 edge functions sem verificação de identidade no código** (achado do invariante `edge_fn_sem_guarda_empresa`, D-ERP204) — à espera da decisão do Pedro.
+
 - **#211 (plataforma-e-infra)** — o `notify_sync_action_needed()` aponta em Live para o projeto de TEST antigo e é um no-op; bilheteira já não depende dele, mas Coala e Fever continuam sem aviso próprio.
 - **#78** — o import da Ticketline não limpa a série antiga quando o formato muda.
 - **#73** — corte por tipo de bilhete.
 
 ## Fechado a 09/10/2026
 
-- **#283 — auditoria multiempresa às edge functions (parte 5, D-ERP203).** 8 funções do CRM/Ads que aceitavam a chave pública passam a exigir sessão e papel na empresa da linha; sync-coala-from-drive e crm-google-ads-sync com papel na empresa certa; probe-ticketline-produtores apagada. Lista nominal das 29 em `.lovable/memory/security/multi-tenant-edge-functions-audit.md`. Fica por decidir o ramo service role forjável em 6 funções (apply-coala-bp, coala-sync-bootstrap, bilheteira-sync, fetch-ticketline-reports, fetch-bol-reports, crm-meta-publish-execute).
+- **#283 — auditoria multiempresa às edge functions, fechada (D-ERP203 + D-ERP204).** 8 funções do CRM/Ads exigem sessão e papel na empresa da linha; sync-coala-from-drive e crm-google-ads-sync com papel na empresa certa; probe-ticketline-produtores apagada. Ramo service role só verificado no Auth em 10 funções (as 6 + whatsapp-dispatcher, migrate-legacy-images, crm-google-video-publish-execute, crm-tiktok-publish-execute). Invariante `edge_fn_sem_guarda_empresa` (vitest, diário no CI), referência 9. Lista nominal das 29 em `.lovable/memory/security/multi-tenant-edge-functions-audit.md`.
 
 - **#271 — fechos de bilheteira por evento e lista única.** Forma de liquidação provada nos 5 fechos da Mundo Propício: Plenitude e H&K Lisboa = transferência própria; H&K Porto = encontro de contas; Anitta e Ivete = compensado.
 - **Vigia toda no ecrã (D-ERP197).** Dry-run antes e depois: as mesmas 2 × (g), RG Almada e RG Braga. (a) forçada numa transacção anulada → vermelho; o michel (Coala) vê 0 condições e 0 fechos.

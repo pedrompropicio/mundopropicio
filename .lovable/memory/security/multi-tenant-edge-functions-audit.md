@@ -96,3 +96,10 @@ Por desenho / só-admin (4, sem mexer):
 Também: sync-coala-from-drive (papel na empresa da config + service role verificada); probe-ticketline-produtores apagada; `authenticateAndResolveCompany` usa `getUser(jwt)`.
 
 Por decidir (achado da prova): service role pelo payload sem assinatura e verify_jwt=false em apply-coala-bp, coala-sync-bootstrap, bilheteira-sync, fetch-ticketline-reports, fetch-bol-reports, crm-meta-publish-execute. Correcção = trocar por `isServiceRoleRequest`.
+
+## Fecho (09/10/2026, D-ERP204)
+- Ramo service role: `isServiceRoleRequest` em apply-coala-bp, coala-sync-bootstrap, bilheteira-sync, fetch-ticketline-reports, fetch-bol-reports, crm-meta-publish-execute + whatsapp-dispatcher, migrate-legacy-images, crm-google-video-publish-execute, crm-tiktok-publish-execute. crm-meta-publish-update usa o claim só para recusar (fica).
+- Facto de Live: funções SEM `verify_jwt = true` explícito no config.toml correm com verify_jwt=false (token forjado chega ao código). Só as que têm o bloco explícito recebem `UNAUTHORIZED_LEGACY_JWT` no portão.
+- Ainda com claim lido do payload (sem chamada ao Auth), todas com `verify_jwt = true` explícito ou por omissão no config — por rever: ~33 funções + helpers _shared/artist-meta.ts `authorize`, _shared/artist-ads.ts, _shared/s4a.ts, _shared/soundcharts.ts.
+- Invariante `edge_fn_sem_guarda_empresa` (src/test/edge-fn-guard.test.ts, scripts/edge-fn-guard-lib.mjs). Referência 9, sem verificação de identidade no código, por decidir: crm-extract-video-dimensions, crm-meta-destilar-2025, crm-meta-diagnose-ig, crm-meta-fq-recon, crm-meta-historico-probe, crm-meta-recon-2025, crm-meta-rehost-videos, fetch-onebox-dashboard, vip-coupon-email.
+- Prova 09/10: chave pública e token forjado recusados (401/403) nas 16 funções; controlo positivo com a sessão do Pedro (crm-meta-publish-execute preflight) passa. Prova com o michel NÃO feita: precisa de aprovação, não disponível aqui.
