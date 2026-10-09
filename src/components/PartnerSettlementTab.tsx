@@ -17,7 +17,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import HelpTooltip from "@/components/HelpTooltip";
 import { calcTotalWithIva, calcIvaAmount, roundCents } from "@/lib/iva";
-import { expandOverheadToSplits } from "@/lib/overhead-proration";
+import { expandOverheadToSplits, overheadLinesFor } from "@/lib/overhead-proration";
 import { expandMasterAdoptedExpensesToSplits } from "@/lib/master-adopted-expense-proration";
 import { isValidFechoTransaction, isTicketingRevenueTx } from "@/lib/fecho-filters";
 import { computeSettlementRevenue } from "@/lib/settlement-revenue";
@@ -461,7 +461,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   });
 
   const overheads = useMemo(
-    () => expandOverheadToSplits((forecasts as any[]).filter((f: any) => f.is_overhead) as any, subEvents as any),
+    // (#292) Agregado de família + repartição com quota do Master ÷N à parte:
+    // só as originais, para o overhead entrar uma vez em cada soma.
+    () => overheadLinesFor(
+      expandOverheadToSplits((forecasts as any[]).filter((f: any) => f.is_overhead) as any, subEvents as any),
+      "originals",
+    ),
     [forecasts, subEvents],
   );
 

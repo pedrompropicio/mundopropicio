@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileText, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
-import { expandOverheadToSplits } from "@/lib/overhead-proration";
+import { expandOverheadToSplits, overheadLinesFor } from "@/lib/overhead-proration";
 import {
   buildDREForExport,
   exportDREToPDF,
@@ -165,7 +165,8 @@ export default function PartnerDREDialog({ open, onOpenChange, eventId, eventNam
         bundle.events,
         true,
         // Em consolidado, somar overheads de todas as cidades
-        (closingCosts || []).map((cc: any) =>
+        // (#292) Consolidado: só as originais — as fatias das cidades são o mesmo overhead do Master.
+        overheadLinesFor(closingCosts as any[], "originals").map((cc: any) =>
           children.some((c: any) => c.id === cc.event_id) ? { ...cc, event_id: eventId } : cc,
         ),
       );
