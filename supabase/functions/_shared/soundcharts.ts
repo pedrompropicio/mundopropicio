@@ -2,6 +2,7 @@
 // NUNCA ecoar credenciais nem tokens.
 
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { isServiceRoleRequest } from "./multiTenant.ts";
 
 export const SC_BASE = "https://customer.api.soundcharts.com";
 const SC_TOKEN_URL = "https://account.soundcharts.com/oauth/token";
@@ -131,12 +132,8 @@ export async function authorize(
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   if (sameSecret(bearer, serviceKey)) return { allowed: true, isServiceRole: true };
 
-  try {
-    const payload = JSON.parse(atob(bearer.split(".")[1] ?? ""));
-    if (payload?.role === "service_role") return { allowed: true, isServiceRole: true };
-  } catch (_e) {
-    // não-JWT: segue para validação de utilizador
-  }
+  // #283 parte 6 (D-ERP205): JWT de serviço (ex.: do Vault) só conta verificado no Auth.
+  if (await isServiceRoleRequest(req)) return { allowed: true, isServiceRole: true };
 
   const { data, error } = await admin.auth.getUser(bearer);
   if (error || !data?.user) return { allowed: false, reason: "invalid token" };

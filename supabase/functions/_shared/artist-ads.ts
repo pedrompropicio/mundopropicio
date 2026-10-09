@@ -7,6 +7,7 @@
 // Usa o MESMO app Meta e os MESMOS scopes que a ligação Meta do CRM.
 
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { isServiceRoleRequest } from "./multiTenant.ts";
 import { callerCompanyIds } from "./artist-meta.ts";
 
 /** Papéis autorizados a ligar/escolher/desligar contas de tráfego. */
@@ -87,8 +88,8 @@ export async function artistMetaConnWithToken(
 > {
   const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
   if (!bearer) return { ok: false, status: 401, error: "missing token" };
-  let isServiceRole = false;
-  try { isServiceRole = JSON.parse(atob(bearer.split(".")[1] ?? ""))?.role === "service_role"; } catch (_e) { /* segue */ }
+  // #283 parte 6 (D-ERP205): service role verificada no Auth, nunca pelo payload.
+  const isServiceRole = await isServiceRoleRequest(req);
   let userId: string | null = null;
   if (!isServiceRole) {
     const { data, error } = await admin.auth.getUser(bearer);
