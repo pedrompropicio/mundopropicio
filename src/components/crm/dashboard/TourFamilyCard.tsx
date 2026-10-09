@@ -82,7 +82,7 @@ export function TourFamilyCard({
   const tourDateLabel = formatTourDateRange(splits);
 
   const targetRoas = eventTargetRoas(master);
-  const progressPct = aggAll.roas != null && Number.isFinite(aggAll.roas)
+  const progressPct = targetRoas != null && aggAll.roas != null && Number.isFinite(aggAll.roas)
     ? Math.min(100, Math.max(0, (aggAll.roas / targetRoas) * 100))
     : null;
 
@@ -112,24 +112,29 @@ export function TourFamilyCard({
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground tabular-nums">
                   ROAS{" "}
-                  <span className={cn("font-semibold font-mono", roasColorByEvent(aggAll.roas))}>
+                  <span className={cn("font-semibold font-mono", roasColorByEvent(aggAll.roas, targetRoas))}>
                     {formatRoas(aggAll.roas)}
                   </span>{" "}
                   · Gasto {formatCurrency(aggAll.spendCents, currency)} · Receita{" "}
                   <span className="text-emerald-500/90">{formatCurrency(aggAll.revenueCents, currency)}</span>{" "}
                   · Conv. {aggAll.conversions}
                 </div>
-                {progressPct != null && (
+                {progressPct != null && targetRoas != null ? (
                   <div className="mt-1.5 flex items-center gap-2 text-[11px]">
                     <div className="h-1.5 rounded bg-muted overflow-hidden w-[180px] shrink-0">
                       <div
-                        className={cn("h-full transition-all", roasBarBgByEvent(aggAll.roas))}
+                        className={cn("h-full transition-all", roasBarBgByEvent(aggAll.roas, targetRoas))}
                         style={{ width: `${progressPct}%` }}
                       />
                     </div>
                     <span className="font-mono tabular-nums text-muted-foreground">
                       {formatRoas(aggAll.roas)} / {targetRoas}x → {progressPct.toFixed(0)}% (blended tour)
                     </span>
+                    <TargetRoasEditor eventId={master.id} value={master.target_roas} onSaved={onEdited} />
+                  </div>
+                ) : (
+                  <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <span>— sem meta</span>
                     <TargetRoasEditor eventId={master.id} value={master.target_roas} onSaved={onEdited} />
                   </div>
                 )}
@@ -174,7 +179,7 @@ export function TourFamilyCard({
                     {cs.length > 0 && (
                       <span className="text-[11px] text-muted-foreground tabular-nums ml-auto">
                         ROAS{" "}
-                        <span className={cn("font-semibold font-mono", roasColorByEvent(aggSplit.roas))}>
+                        <span className={cn("font-semibold font-mono", roasColorByEvent(aggSplit.roas, targetRoas))}>
                           {formatRoas(aggSplit.roas)}
                         </span>{" "}
                         · {formatCurrency(aggSplit.spendCents, currency)} · {formatCurrency(aggSplit.revenueCents, currency)} · {aggSplit.conversions} conv.
