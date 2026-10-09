@@ -1,5 +1,6 @@
 import HelpTooltip from "@/components/HelpTooltip";
 import { TicketOfficeEventsList } from "@/components/TicketOfficeEventsList";
+import { TicketOfficeSettlementsOverview } from "@/components/TicketOfficeSettlementsOverview";
 import helpTexts from "@/lib/help-texts";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -469,6 +470,8 @@ export default function TicketOffices() {
       </AlertDialog>
 
       <TicketOfficeEventsList />
+
+      <TicketOfficeSettlementsOverview />
 
       <TicketImportModal open={showImport} onClose={() => setShowImport(false)} />
       <FeverImportModal open={showFeverImport} onClose={() => setShowFeverImport(false)} />
