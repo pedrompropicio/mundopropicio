@@ -188,6 +188,28 @@ function isPassLikeMultiDayGroup(sessions: CoalaSession[], idxs: number[]): bool
   return qtys.every((q) => Math.abs(q - qtys[0]) <= 0.0001);
 }
 
+/**
+ * Regra única de repartição de uma quantidade/receita de zona pelas sessões
+ * do grupo (usada por solveBreakEven e solveForecast):
+ *  - passe multi-dia (`isPassLikeMultiDayGroup`) → âncora (groupIdxs[0]) leva tudo;
+ *  - bilhete-dia → pro-rata pelo real de cada sessão (soma 0 → âncora leva tudo).
+ */
+function distributeAcrossGroup(
+  sessions: CoalaSession[],
+  groupIdxs: number[],
+  idx: number,
+  totalQty: number,
+  totalRevenue: number,
+): { qty: number; revenue: number } {
+  const anchorIdx = groupIdxs[0] ?? idx;
+  if (isPassLikeMultiDayGroup(sessions, groupIdxs)) {
+    return idx === anchorIdx ? { qty: totalQty, revenue: totalRevenue } : { qty: 0, revenue: 0 };
+  }
+  const totalReal = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
+  const share = totalReal > 0 ? sessionTodayQty(sessions[idx]) / totalReal : (idx === anchorIdx ? 1 : 0);
+  return { qty: totalQty * share, revenue: totalRevenue * share };
+}
+
 /** Break-Even por sessão: distribuição proporcional do break-even global é tratada externamente.
  *  Esta função devolve só a quantidade adicional ao Real para atingir o forecast. */
 export function sessionForecastQty(s: CoalaSession): number {
@@ -605,17 +627,9 @@ export function solveBreakEven(
       let myRemoved = 0;
       let myRemovedRev = 0;
       if (z && z.removed > 0) {
-        if (idx === anchorIdx && isPassLikeMultiDayGroup(sessions, groupIdxs)) {
-          // passe multi-dia: anchor leva tudo
-          myRemoved = z.removed;
-          myRemovedRev = z.removedRevenue;
-        } else if (!isPassLikeMultiDayGroup(sessions, groupIdxs)) {
-          // bilhete-dia: pro-rata pelo real vendido em cada dia
-          const totalReal = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
-          const share = totalReal > 0 ? real / totalReal : (idx === anchorIdx ? 1 : 0);
-          myRemoved = z.removed * share;
-          myRemovedRev = z.removedRevenue * share;
-        }
+        const d = distributeAcrossGroup(sessions, groupIdxs, idx, z.removed, z.removedRevenue);
+        myRemoved = d.qty;
+        myRemovedRev = d.revenue;
       }
       if (myRemoved > 0) {
         map[key] = real - myRemoved;
@@ -823,15 +837,9 @@ export function solveBreakEven(
     let myExtra = 0;
     let myExtraRevenue = 0;
     if (anchorSlot?.extra > 0) {
-      if (sl.idx === anchorIdx && isPassLikeMultiDayGroup(sessions, groupIdxs)) {
-        myExtra = anchorSlot.extra;
-        myExtraRevenue = anchorSlot.extraRevenue;
-      } else if (!isPassLikeMultiDayGroup(sessions, groupIdxs)) {
-        const totalReal = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
-        const share = totalReal > 0 ? real / totalReal : (sl.idx === anchorIdx ? 1 : 0);
-        myExtra = anchorSlot.extra * share;
-        myExtraRevenue = anchorSlot.extraRevenue * share;
-      }
+      const d = distributeAcrossGroup(sessions, groupIdxs, sl.idx, anchorSlot.extra, anchorSlot.extraRevenue);
+      myExtra = d.qty;
+      myExtraRevenue = d.revenue;
     }
     map[sl.key] = real + myExtra;
     revMap[sl.key] = realRev + myExtraRevenue;
@@ -1006,27 +1014,39 @@ export function solveForecast(
     });
   }
 
-  // Segundo passo: distribui ÷N entre as sessões do grupo.
-  for (const s of sessions) {
+  // Segundo passo: reparte a projeção da zona pelas sessões do grupo com a
+  // MESMA regra do Break-Even (`distributeAcrossGroup`): passe multi-dia
+  // (mesmo real em todos os dias) → a âncora leva tudo; bilhete-dia →
+  // pro-rata pelo real de cada sessão. Assim a projeção nunca aparece numa
+  // sessão sem vendas e BE e Forecast dizem o mesmo (Issue #290).
+  // A diferença de arredondamento cai na âncora (soma do grupo = zona).
+  const roundedQtyByIdx = new Map<number, number>();
+  for (const [groupKey, idxs] of groupIndexes) {
+    const gp = groupProjection.get(groupKey);
+    if (!gp || idxs.length === 0) continue;
+    let others = 0;
+    for (const i of idxs.slice(1)) {
+      const q = Math.round(distributeAcrossGroup(sessions, idxs, i, gp.projectedQtyZone, 0).qty);
+      roundedQtyByIdx.set(i, q);
+      others += q;
+    }
+    roundedQtyByIdx.set(idxs[0], gp.projectedQtyZone - others);
+  }
+
+  sessions.forEach((s, sIdx) => {
     const key = `${s.day_index}-${s.zone_label}`;
     const groupKey = logicalZoneGroup(s.zone_label);
-    const idxs = groupIndexes.get(groupKey) ?? [];
-    const groupSize = Math.max(1, idxs.length);
-    const positionInGroup = idxs.indexOf(sessions.indexOf(s));
-    const isLastInGroup = positionInGroup === groupSize - 1;
+    const idxs = groupIndexes.get(groupKey) ?? [sIdx];
+    const isAnchor = idxs[0] === sIdx;
     const gp = groupProjection.get(groupKey)!;
 
     const realQty = sessionTodayQty(s);
     const realRev = sessionTodayRevenue(s);
 
-    // Distribuição ÷N, com o resto a cair na última sessão para não perder
-    // unidades por arredondamento.
-    const baseShareQty = Math.floor(gp.projectedQtyZone / groupSize);
-    const remainderQty = gp.projectedQtyZone - baseShareQty * groupSize;
-    const projectedQty = isLastInGroup ? baseShareQty + remainderQty : baseShareQty;
-    const extraRevenue = isLastInGroup
-      ? gp.extraRevenueZone - (gp.extraRevenueZone / groupSize) * (groupSize - 1)
-      : gp.extraRevenueZone / groupSize;
+    const projectedQty = roundedQtyByIdx.get(sIdx) ?? 0;
+    const extraRevenue = distributeAcrossGroup(
+      sessions, idxs, sIdx, gp.projectedQtyZone, gp.extraRevenueZone,
+    ).revenue;
 
     let reason: ForecastBreakdownItem["reason"] = "ok";
     if (gp.recentVelocity <= 0 && !gp.manualUsed) reason = "no_velocity";
@@ -1043,15 +1063,15 @@ export function solveForecast(
       projected_qty: projectedQty,
       forecast_qty: realQty + projectedQty,
       capacity_left: Number.isFinite(gp.capLeft)
-        ? Math.max(0, gp.capLeft - gp.projectedQtyZone) / groupSize
+        ? (isAnchor ? gp.capLeft - gp.projectedQtyZone : 0)
         : Number.POSITIVE_INFINITY,
-      recent_velocity: gp.recentVelocity / groupSize,
+      recent_velocity: isAnchor ? gp.recentVelocity : 0,
       days_to_event: daysToEvent,
       capped_by_capacity: gp.cappedByCapacity,
       manual_floor_used: gp.manualUsed,
       reason,
     });
-  }
+  });
 
   return { qtyByKey, revenueByKey, breakdown, daysToEvent, hasCapacityPlan };
 }
