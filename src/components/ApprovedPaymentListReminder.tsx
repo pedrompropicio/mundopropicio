@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { useAuth } from "@/contexts/AuthContext";
 import { listItemPhase, onlySettlingPayments, settledTxIdsFrom, SETTLEMENT_COLUMNS } from "@/lib/payment-settlement";
 import { Button } from "@/components/ui/button";
@@ -59,9 +60,9 @@ export function ApprovedPaymentListReminder() {
         (l.payment_list_items ?? []).map((i: any) => i.transactions?.id).filter(Boolean)))];
       let settled = new Set<string>();
       for (let i = 0; i < txIds.length; i += 200) {
-        const { data: pays, error: pErr } = await onlySettlingPayments<any>(
+        const { data: pays, error: pErr } = await fetchAllPagedQuery(onlySettlingPayments<any>(
           (supabase as any).from("transaction_payments").select(SETTLEMENT_COLUMNS),
-        ).in("transaction_id", txIds.slice(i, i + 200));
+        ).in("transaction_id", txIds.slice(i, i + 200)));
         if (pErr) throw pErr;
         for (const id of settledTxIdsFrom(pays as any[])) settled.add(id);
       }

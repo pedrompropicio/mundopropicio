@@ -350,8 +350,8 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
           .in("status", ["approved", "draft"])
           .eq("type", "expense");
       const forecastQuery = versionFilter.method === "is"
-        ? forecastBaseQuery.is(versionFilter.column, versionFilter.value)
-        : forecastBaseQuery.eq(versionFilter.column, versionFilter.value);
+        ? fetchAllPagedQuery(forecastBaseQuery.is(versionFilter.column, versionFilter.value))
+        : fetchAllPagedQuery(forecastBaseQuery.eq(versionFilter.column, versionFilter.value));
       const transactionsPromise = isScenarioMode
         ? Promise.resolve({ data: [], error: null })
         : fetchAllPagedQuery(supabase
@@ -362,7 +362,7 @@ export default function BPPlanilha({ eventId, canEdit = true }: BPPlanilhaProps)
             .eq("event_id", eventId)
             .eq("type", "expense"));
       const [fRes, cRes, pRes, tRes] = await Promise.all([
-        fetchAllPagedQuery(forecastQuery),
+        forecastQuery,
         eventCompanyId ? catQuery.eq("company_id", eventCompanyId) : catQuery,
         supabase
           .from("event_partners")

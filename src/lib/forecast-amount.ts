@@ -8,6 +8,7 @@
  * Este helper antecipa a regra para a UI poder pedir a observação / explicar.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export class ForecastBelowRealizedError extends Error {
   constructor(public requested: number, public realized: number) {
@@ -43,12 +44,12 @@ export function setReductionObservationPrompter(fn: Prompter | null) {
 
 /** Realizado da linha — mesmo predicado de reduce_forecast_budget e do trigger. */
 export async function fetchForecastRealized(forecastId: string): Promise<number> {
-  const { data, error } = await (supabase as any)
+  const { data, error } = await fetchAllPagedQuery((supabase as any)
     .from("transactions")
     .select("amount, is_transitory, exclude_from_result, reversed_at, is_hidden")
     .eq("forecast_id", forecastId)
     .eq("type", "expense")
-    .in("status", ["approved", "paid", "partially_paid"]);
+    .in("status", ["approved", "paid", "partially_paid"]));
   if (error) throw error;
   return (data ?? [])
     .filter((t: any) => !t.is_transitory && !t.exclude_from_result && !t.reversed_at && !t.is_hidden)
@@ -127,10 +128,10 @@ export async function prepareBatchEditsForReductions<T extends { id: string; amo
 ): Promise<(T & { observation?: string })[]> {
   const withAmount = edits.filter((e) => e.amount !== undefined && e.amount !== null);
   if (withAmount.length === 0) return edits;
-  const { data, error } = await (supabase as any)
+  const { data, error } = await fetchAllPagedQuery((supabase as any)
     .from("event_forecasts")
     .select("id, amount, status, type, version_id, description")
-    .in("id", withAmount.map((e) => e.id));
+    .in("id", withAmount.map((e) => e.id)));
   if (error) throw error;
   const byId = new Map<string, any>((data ?? []).map((r: any) => [r.id, r]));
   const out: (T & { observation?: string })[] = [];

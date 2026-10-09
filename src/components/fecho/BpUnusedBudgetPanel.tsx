@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -130,7 +131,7 @@ function useBpUnusedBudgetModel({ eventId, basis, forecasts: inputForecasts, tra
     queryKey: ["bp-line-review-forecasts", eventId],
     enabled: hasBp && shouldFetchForecasts,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select(
           "id, company_id, category_id, description, amount, iva_rate, status, type, is_overhead, is_transitory, exclude_from_result, version_id, account_categories(code, name)",
@@ -139,7 +140,7 @@ function useBpUnusedBudgetModel({ eventId, basis, forecasts: inputForecasts, tra
         .eq("type", "expense")
         .eq("status", "approved")
         .eq("is_overhead", false)
-        .is("version_id", null);
+        .is("version_id", null));
       if (error) throw error;
       return data || [];
     },
@@ -150,13 +151,13 @@ function useBpUnusedBudgetModel({ eventId, basis, forecasts: inputForecasts, tra
     queryKey: ["bp-line-review-tx", eventId],
     enabled: hasBp && shouldFetchTransactions,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select(
           "id, forecast_id, category_id, description, amount, iva_rate, status, paid_amount, date, invoice_ref, installment_group_id, is_transitory, exclude_from_result, reversed_at, is_hidden, type, suppliers:suppliers!transactions_supplier_id_fkey(name)",
         )
         .eq("event_id", eventId)
-        .eq("type", "expense");
+        .eq("type", "expense"));
       if (error) throw error;
       return data || [];
     },

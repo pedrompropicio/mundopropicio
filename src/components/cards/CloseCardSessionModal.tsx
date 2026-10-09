@@ -111,8 +111,8 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
       const outIds = (loads ?? []).map((l: any) => l.out_transaction_id).filter(Boolean) as string[];
       const outStatus = new Map<string, string>();
       if (outIds.length > 0) {
-        const { data: outs, error: oErr } = await supabase
-          .from("transactions").select("id, status").in("id", outIds);
+        const { data: outs, error: oErr } = await fetchAllPagedQuery(supabase
+          .from("transactions").select("id, status").in("id", outIds));
         if (oErr) throw oErr;
         for (const t of outs ?? []) outStatus.set((t as any).id, (t as any).status);
       }

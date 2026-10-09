@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { X, CheckCircle2, AlertTriangle } from "lucide-react";
@@ -113,12 +114,12 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
     queryKey: ["card-item-possible-duplicates", item?.id, cardAccountId, date, totalNum],
     enabled: open && !!item && !!cardAccountId && !!date && totalNum > 0,
     queryFn: async () => {
-      const { data: txs, error } = await supabase
+      const { data: txs, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select("id, description, paid_amount, date, payment_date, reversed_at, is_hidden")
         .eq("account_id", cardAccountId)
         .or(`payment_date.eq.${date},and(payment_date.is.null,date.eq.${date})`)
-        .is("reversed_at", null);
+        .is("reversed_at", null));
       if (error) throw error;
       const cands = ((txs ?? []) as any[]).filter(
         (t) => !t.is_hidden && Math.abs(Number(t.paid_amount ?? 0) - totalNum) < 0.01,

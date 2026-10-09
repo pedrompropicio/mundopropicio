@@ -155,8 +155,8 @@ Deno.serve(async (req) => {
       const outIds = (loads ?? []).map((l: any) => l.out_transaction_id).filter(Boolean);
       const outStatus = new Map<string, string>();
       if (outIds.length > 0) {
-        const { data: outs, error: oErr } = await adminClient
-          .from("transactions").select("id, status").in("id", outIds);
+        const { data: outs, error: oErr } = await fetchAllPagedQuery(adminClient
+          .from("transactions").select("id, status").in("id", outIds));
         if (oErr) return json({ error: oErr.message }, 500);
         for (const t of outs ?? []) outStatus.set((t as any).id, (t as any).status);
       }

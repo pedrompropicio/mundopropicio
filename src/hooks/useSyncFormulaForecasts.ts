@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllPaged } from "@/lib/supabase-paging";
+import { fetchAllPaged, fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { computeBpFormula, describeBpFormula, isFormulaType, type BpFormulaResult } from "@/lib/bp-formula";
 import { computeLiveTicketForecast } from "@/lib/event-simulator-forecast-live";
 import { fetchEventRealized } from "@/lib/event-revenue-basis";
@@ -64,9 +64,9 @@ export function useSyncFormulaForecasts({ eventId, isMaster, enabled = true }: {
     enabled: !!eventId && enabled,
     refetchInterval: 60000,
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from("event_forecasts")
+      const { data, error } = await fetchAllPagedQuery((supabase as any).from("event_forecasts")
         .select("id, description, amount, formula_type, formula_params, formula_value, version_id")
-        .eq("event_id", eventId).is("version_id", null).in("formula_type", ["pct_ticket_revenue", "per_head"]);
+        .eq("event_id", eventId).is("version_id", null).in("formula_type", ["pct_ticket_revenue", "per_head"]));
       if (error) throw error;
       const lines = (data ?? []).filter((l: any) => isFormulaType(l.formula_type));
       if (isMaster) return { lines, evals: [] as FormulaEvaluation[], masterBlocked: lines.length > 0 };

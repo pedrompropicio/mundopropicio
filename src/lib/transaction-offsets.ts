@@ -8,6 +8,7 @@
 import { onlySettlingPayments } from "@/lib/payment-settlement";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 export interface TransactionOffsetView {
   id: string;
@@ -42,10 +43,10 @@ export function useAllTransactionOffsets() {
       const ids = (data ?? []).map((o: any) => o.id);
       let appliedIds = new Set<string>();
       if (ids.length) {
-        const { data: pays, error: e2 } = await onlySettlingPayments(db
+        const { data: pays, error: e2 } = await fetchAllPagedQuery(onlySettlingPayments(db
           .from("transaction_payments")
           .select("offset_id"))
-          .in("offset_id", ids);
+          .in("offset_id", ids));
         if (e2) throw e2;
         appliedIds = new Set((pays ?? []).map((p: any) => p.offset_id));
       }

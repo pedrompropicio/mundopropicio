@@ -819,8 +819,8 @@ async function handleRevert(body: any, userId?: string) {
   // #265: só sai do bucket o objeto que nenhuma linha de transaction_documents ainda referencia.
   let deletable: string[] = [];
   if (paths.length > 0) {
-    const { data: stillRef, error: refErr } = await admin
-      .from("transaction_documents").select("file_url").in("file_url", paths);
+    const { data: stillRef, error: refErr } = await fetchAllPagedQuery(admin
+      .from("transaction_documents").select("file_url").in("file_url", paths));
     if (refErr) console.warn("[ads-invoice-apply] verificação de referências falhou; ficheiros mantidos:", refErr.message);
     else {
       const used = new Set((stillRef ?? []).map((r: any) => r.file_url));
