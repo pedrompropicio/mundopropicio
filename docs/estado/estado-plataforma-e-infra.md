@@ -2,6 +2,7 @@
 
 Atualizado 2026-10-03 · Issues #256, #269, #213, #265, #268, #186, #202, #204, #206, #83, #57 · a-seguir #96, #61. Fechadas a 18/09: #211, #203, #15.
 Última verificação deste lote: 09/10/2026 — #244 sem falhas herdadas; #231 splitting já existente e prova de SHA acrescentada; #61 bloqueada por falta dos ficheiros reais para comparação. Sem Publish.
+Suite final: 834 passed | 1 skipped | 11 todo; build automático OK. Índice regenerado e teste do índice aprovado. CI remoto e tsgo isolado não confirmados nesta sessão; tamanho do novo artefacto não disponível no sandbox, medição reportada é a produção actual.
 
 ## Em que pé está
 

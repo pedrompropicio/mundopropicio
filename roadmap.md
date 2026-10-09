@@ -5,6 +5,7 @@
 - [x] #244: suite sem falhas; identificar commits e prova de correção do cálculo, não do teste.
 - [x] #231: confirmar splitting existente e medir entrada/preloads em produção; acrescentar relatório derivado do bundle.
 - [x] #231: verificar version.json contra SHA/HEAD por script, com testes positivos e negativos.
+- [x] Suite final: 834 passed, zero falhas; build automático OK; índice regenerado/testado. CI remoto não confirmado.
 - [ ] #61: migrar xlsx, validar Coala/Ticketline, só depois unpdf/BOL — bloqueado: três ficheiros reais não disponíveis no storage identificado. Imports intactos.
 
 ## Lote 1 — BP (#260, #249, #247, #248)

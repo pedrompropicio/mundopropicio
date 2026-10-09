@@ -30,6 +30,7 @@ Uma linha por tema, por frente: pergunta → ficheiros (mem://pasta/ficheiro). S
 - Fecho do evento e acerto com sócios? → features/event-settlements, features/partner-settlement, security/partner-identity-and-settlement-visibility
 
 **Transversal**
+- Onde registar regras sem criar ficheiros na raiz? → constraints/no-unrequested-root-files
 - Invariantes e vigias? → features/invariant-monitor
 - Como se aplica DDL / crons? → constraints/lovable-cloud-ddl-workflow, constraints/cron-job-run-details
 - Overlays / modais por cima uns dos outros? → constraints/pilha-de-overlays
