@@ -16,7 +16,7 @@ describe("supplier similarity (D-ERP199)", () => {
     expect(normalizeSupplierName("ACME S.A.")).toBe("acme");
     expect(trigramSimilarity("elos estrondodos", "elos estrondosos")).toBeCloseTo(0.764706, 5);
     expect(trigramSimilarity("bolt", "volt lisboa")).toBeCloseTo(0.133333, 5);
-    expect(normalizeNif("PT 123.456.789")).toBe("PT123456789");
+    expect(normalizeNif("PT 123.456.789")).toBe("123456789");
   });
 });
 
