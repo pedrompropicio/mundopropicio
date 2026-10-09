@@ -4442,6 +4442,8 @@ A Soundcharts não grava Deezer em `artist_metrics_daily` (0 linhas a 24/09). O 
 
 **Migração:** `20260924202758_ed08efce-1944-4b70-b975-cd4d0996a981.sql`, em Live.
 
+**Adenda (09/10/2026) — navegador da Meta e sendBeacon.** `parseUA`: IABMV, FB4A, FBAN, FBAV, FB_IAB (e FBIOS) ou "Instagram" = navegador interno da Meta; com "Instagram" → `instagram`, senão → `facebook`. TikTok inalterado. O corpo lê-se sempre com `req.text()` + `JSON.parse` (o Portal envia por `sendBeacon`, `text/plain` com JSON = pedido simples, sem pré-verificação CORS; o POST responde com `Access-Control-Allow-Origin` da origem permitida). Prova com `utm_source=teste_chat2`: UA iPhone "Instagram 345" → `instagram`; UA só FBAN/FBAV/IABMV → `facebook`. Sem DDL.
+
 ## D-ERP142 — `validateSearch` de páginas públicas nunca lança, e a atribuição aceita número (24/09/2026)
 
 **Decisão:** nas rotas raiz dos portais públicos, o `validateSearch` do TanStack Router nunca pode lançar, e as chaves de atribuição aceitam string ou número, normalizando para string.
