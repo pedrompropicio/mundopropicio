@@ -3080,10 +3080,15 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
       (d: any) => d.vendasQty !== 0 || d.vendasValue !== 0 || d.geralQty !== 0 || d.geralValue !== 0,
     );
     const silentEmpty = (audit?.rowsImported || 0) === 0 && s1HasSales;
-    const finalStatus = silentEmpty ? "warning" : "success";
+    // #78 — BD ≠ relatório no mesmo período → warning com a diferença, nunca em silêncio.
+    const rec = (audit as any)?.reconciliation;
+    const reconDiverges = !!rec && (rec.diffQty !== 0 || Math.abs(rec.diffValue) > 0.01);
+    const finalStatus = silentEmpty || reconDiverges ? "warning" : "success";
     const warnMsg = silentEmpty
       ? "Parser encontrou vendas na secção 1 mas 0 linhas foram importadas — verificar layout do relatório."
-      : null;
+      : reconDiverges
+        ? `Reconciliação: BD diverge do relatório em ${rec.diffQty} bilhetes / ${Number(rec.diffValue).toFixed(2)} €.`
+        : null;
     debug.data_source = audit?.dataSource || null;
 
     await updateRun(admin, runId, {
