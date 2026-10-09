@@ -1,5 +1,12 @@
 # Roadmap — épica #146 (e)
 
+## Lote 1 — BP (#260, #249, #247, #248)
+- [ ] #260: diálogo de classificação acima da Nova Transação, com foco.
+- [ ] #249: evitar alterações/audit de campos intactos e validar Vincular ao BP acima da edição.
+- [ ] #247: gravação recusada não cria versões rascunho.
+- [ ] #248: edição inline usa Desfazer com as guardas de redução existentes.
+- [ ] Validar testes e camadas, sem Publish.
+
 ## Feito
 - [x] Fase 1 — inversão do espelho: `event_partners` é derivada de
       `event_settlement_participants` (trigger `trg_esp_sync_event_partners` +
