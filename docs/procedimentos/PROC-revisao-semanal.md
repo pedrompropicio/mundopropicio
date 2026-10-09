@@ -30,5 +30,19 @@ group by e.id, e.name, e.event_type order by 5 desc nulls last;
 ```
 Evento com data próxima e BP parado há semanas = risco. Levantar com o Pedro.
 
-## 6. Fechar
+## 6. Invariantes
+```sql
+select name, severity, scope, current_count, reference_count, sample
+from run_invariant_checks() where not conforme order by severity, name;
+```
+(Fonte e motor: `.lovable/memory/features/invariant-monitor.md`; ecrã `/admin/invariantes`.) Para cada não conforme, registar UMA decisão: corrigir / aceitar e subir referência com motivo / abrir Issue.
+
+Bloco pronto a copiar:
+```
+INVARIANTES — revisão de AAAA-MM-DD
+- <key> (<severity>): atual N / ref M
+  decisão: corrigir | aceitar (nova ref = N, motivo: ...) | Issue #...
+```
+
+## 7. Fechar
 Atualizar os estados tocados. Não escrever handoff — a revisão semanal não é sessão de trabalho.
