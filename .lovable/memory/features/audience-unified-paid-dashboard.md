@@ -13,6 +13,7 @@ Fase 3B do redesenho do MP Audience.
 - CTR é sempre **fracção** nas duas plataformas (o sync Google não multiplica por 100).
 - Consolidação por evento (Meta · Google · Consolidado) só soma quando as moedas coincidem; moedas diferentes nunca são convertidas.
 - Meta de ROAS vem só de `public.events.target_roas`; NULL = sem meta (sem padrão): cor neutra, "— sem meta", sem barra, sem aviso "abaixo da meta"/Simular nem "Risco de não atingir meta". Com meta, bandas relativas (≥meta verde, ≥75% âmbar, ≥50% laranja). Editável no lápis "Meta" do card; "Remover meta" grava NULL.
+- `crm.campaign_diagnosis_360.target_roas` é nullable (D-ERP207): sem meta grava NULL, nunca 0; `target_roas_source = "none"` no diagnosis_jsonb.
 - Frescura por plataforma no cabeçalho (max `last_synced_at`); >48h fica em alerta com nº de dias. "Sincronizar agora" corre Meta + Google.
 - Acções (pausar/activar, editar, drill-down de conjuntos, IA, testar funil) são só Meta; linhas Google são acompanhamento.
 - A aba "Campanhas" da página `/audience/google-ads` foi removida (duplicava o dashboard e tinha EUR fixo); a página fica só com Conversões offline.

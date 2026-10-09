@@ -1,0 +1,2 @@
+ALTER TABLE crm.campaign_diagnosis_360 ALTER COLUMN target_roas DROP NOT NULL;
+COMMENT ON COLUMN crm.campaign_diagnosis_360.target_roas IS 'Meta de ROAS usada no diagnóstico (events.target_roas enviada no pedido). NULL = sem meta; nunca sentinela 0.';

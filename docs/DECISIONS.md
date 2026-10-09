@@ -5147,3 +5147,9 @@ Decisão: `_supplier_resolve_or_create(p_company_id, p_name, p_nif, p_source)` (
 **Decisão.** (1) Reimplantadas as 161 funções com bloco novo ou alterado na parte 6 (143 `true` + as 18 `false`) e as 37 que importam os 4 helpers e ainda não tinham sido reimplantadas. (2) Prova: token forjado contra as 210 com `true` → 210/210 `{"code":"UNAUTHORIZED_LEGACY_JWT","message":"Invalid JWT"}`; abertas (song-link-event, geo-lookup) continuam a chegar ao código (`forbidden_origin` — guarda de origem do próprio código). (3) Canário runtime `scripts/probe-edge-jwt-gate.mjs` no CI (passo "Canário runtime verify_jwt"; secrets `EDGE_GATE_BASE_URL` e `EDGE_GATE_ANON_KEY`); sem eles o passo falha — nunca reporta verde sem rede.
 **Lição — um teste que lê a configuração não prova o comportamento.** O invariante do config.toml teria dado verde com o portão desarmado. Toda a garantia de segurança tem um controlo em runtime contra o sistema real (canário), não só contra o ficheiro.
 
+
+## D-ERP207 — crm.campaign_diagnosis_360.target_roas passa a nullable; sem meta = NULL (09/10/2026)
+**Contexto.** Fecho do ponto 2 da remoção da meta 8x. A coluna era NOT NULL e o crm-campaign-diagnosis gravava 0 como sentinela de "sem meta".
+**Decisão.** Migração 0055: `ALTER COLUMN target_roas DROP NOT NULL` (sem default), comentário na coluna. A função grava `target_roas = NULL` sem meta; `diagnosis_jsonb.input.target_roas_source = "none"` mantém-se. Reimplantada.
+**Backfill.** 0 linhas: nenhuma das 65 linhas tinha target_roas = 0 (a sentinela nunca chegou a ser gravada).
+**Leitores.** CampaignView esconde "Target" quando null ou ≤ 0; scale/surgical só fazem select da coluna sem a usar; nenhuma vista depende da coluna. Contrato: o campo pode ser null.
