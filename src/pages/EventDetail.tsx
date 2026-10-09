@@ -67,6 +67,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { type EbitdaParcels, computeEbitda, addParcels } from "@/lib/ebitda";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TicketOfficeSettlementsOverview } from "@/components/TicketOfficeSettlementsOverview";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEventContractResult, type ContractPerimeterInput } from "@/hooks/useEventContractResult";
 import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
@@ -1459,6 +1460,7 @@ export default function EventDetail() {
 
 
         <TabsContent value="ticketing">
+          <div className="mb-4"><TicketOfficeSettlementsOverview eventId={activeEventId} /></div>
           {isMultiEvent && !selectedSubEvent ? (
             <div className="glass rounded-xl p-8 text-center space-y-2">
               <Ticket className="h-8 w-8 mx-auto text-muted-foreground" />
