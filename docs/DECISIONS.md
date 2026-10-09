@@ -5178,3 +5178,7 @@ As regras do BP acima, do Desfazer (restaurar apenas campos alterados e validar 
 - "originals" em: PartnerSettlementTab (total, categorias, repartição por cidade com quota do Master ÷N), computeEventSettlementTotals + collectSettlementExpenseDocLines, statement-service (partner-statement), partner-settlement-report, ResultsAnalysis (a quota ÷N já vem de getMasterShare), PartnerDREDialog (consolidado).
 - ReportDRE/ReportDREBrasil não dobram: filtram por event_id === evento (o Master lê as originais, a cidade a sua fatia).
 - PENDÊNCIA (sem decisão): o ramo overhead não lê exclude_from_result (as linhas de overhead da Simone Mendes têm true e entram no fecho).
+
+## D-ERP212 (09/10/2026) — #259 e #261 verificados; lista de eventos alinhada
+- #259 já resolvido em D-ERP145 (cacheImpactOnTopOfCost: card, Lucro, lista). Sem código novo; teste unitário acrescentado.
+- #261 já resolvido no hook useRealCacheCalculation e no CacheSettlementPanel (BP primeiro, Previsto + excedido, 1/N do Master, origem da dedução em vez do aviso €0,00). Faltava a lista de eventos (src/lib/events-list-cache-impact.ts), que ainda deduzia só por transações da cidade: passa a usar cityDeductionSources com o BP.
