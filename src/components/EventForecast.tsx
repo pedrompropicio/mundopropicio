@@ -601,7 +601,7 @@ const descRef = useRef<HTMLInputElement>(null);
       if (parentEventId) {
         const { data: masterTx, error: masterError } = await fetchAllPagedQuery(supabase
           .from("transactions")
-          .select("*, account_categories(code, name, type), suppliers(name)")
+          .select("*, account_categories(code, name, type), suppliers:suppliers!transactions_supplier_id_fkey(name)")
           .eq("event_id", parentEventId));
         if (masterError) throw masterError;
 
