@@ -271,6 +271,8 @@ Correções feitas:
 
 ## A trabalhar agora
 
+- Fornecedores: aviso de ficha parecida (NIF/nome) ao criar no formulário — D-ERP199, migração 0046. Sem aviso: lançar a partir do banco, importação de patrocinadores, apply-coala-bp, fornecedor genérico do Camarim.
+
 - Publicar `dd8165d` e `9aaf0b4`.
 - Submeter as **975,91 €** da viagem do Ghanem no 8363.
 - Decidir o orçado da linha do Ivete.
