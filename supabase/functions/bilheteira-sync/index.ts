@@ -15,6 +15,7 @@
 //  - Zonas de mobilidade condicionada/reduzida são ignoradas.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import {
   findTicketlineSessionUrl,
   parseTicketlineSession,
@@ -51,16 +52,6 @@ const UA =
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const jwtRole = (authHeader: string | null): string | null => {
-  const token = authHeader?.replace(/^Bearer\s+/i, "") ?? "";
-  const payload = token.split(".")[1];
-  if (!payload) return null;
-  try {
-    return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")))?.role ?? null;
-  } catch {
-    return null;
-  }
-};
 
 async function fetchHtml(url: string): Promise<{ ok: boolean; status: number; html: string; url: string }> {
   const r = await tolerantFetch(url);
@@ -568,7 +559,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const auth = req.headers.get("Authorization");
-  const isServiceRole = auth === `Bearer ${SERVICE_ROLE}` || jwtRole(auth) === "service_role";
+  const isServiceRole = await isServiceRoleRequest(req);
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 

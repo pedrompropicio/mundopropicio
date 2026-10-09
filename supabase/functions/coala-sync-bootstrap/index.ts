@@ -14,7 +14,7 @@
 //   Sem candidato: row_state gravado sem forecast_id (ainda assim cobre identity_key).
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { assertCallerRoleOnRow, errorResponse } from "../_shared/multiTenant.ts";
+import { assertCallerRoleOnRow, errorResponse, isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import { parseCoalaXlsx } from "../_shared/coalaParser.ts";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
@@ -113,11 +113,6 @@ async function downloadDriveXlsx(fileIdOrUrl: string, accessToken: string): Prom
   throw new Error(`Drive download falhou (${r.status})`);
 }
 
-const jwtRole = (h: string | null) => {
-  const tok = h?.replace(/^Bearer\s+/i, "") ?? "";
-  const p = tok.split(".")[1]; if (!p) return null;
-  try { return JSON.parse(atob(p.replace(/-/g, "+").replace(/_/g, "/")))?.role ?? null; } catch { return null; }
-};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -130,7 +125,7 @@ Deno.serve(async (req) => {
     const { configId, dryRun = false } = body ?? {};
 
     const auth = req.headers.get("Authorization");
-    const isServiceRole = auth === `Bearer ${SERVICE_ROLE}` || jwtRole(auth) === "service_role";
+    const isServiceRole = await isServiceRoleRequest(req);
     if (!isServiceRole) {
       if (!auth) return json({ error: "Não autenticado" }, 401);
       const u = createClient(SUPABASE_URL, ANON, { global: { headers: { Authorization: auth } } });
