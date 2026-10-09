@@ -131,7 +131,7 @@ describe("barreira dos 1.000 registos do PostgREST", () => {
     expect(files.length).toBeGreaterThan(100);
   });
 
-  it.skip("[Issue #289] nenhuma leitura de tabela grande sem paginação", () => {
+  it("[Issue #289] nenhuma leitura de tabela grande sem paginação", () => {
     const offences = files.flatMap(scanFile);
     const msg = offences
       .map(
