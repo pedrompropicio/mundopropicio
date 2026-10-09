@@ -23,3 +23,6 @@ Helpers únicos em `src/lib/supplier-lifecycle.ts` (usados por `Suppliers.tsx` e
 
 ## Filtro
 Ecrã de Fornecedores: Ativos (por defeito) / Inativos / Todos + badge "Inativo" na linha e no cartão.
+
+## Fornecedor parecido ao criar (D-ERP199)
+`SupplierFormModal` (só criação) chama `check_supplier_similar` depois das validações de IBAN. Candidatos: Usar / Acrescentar IBAN (1.º slot livre, audit update_bank_details) / Criar mesmo assim. NIF igual a ativo bloqueia criar. Espelho TS da normalização em `src/lib/supplier-similarity.ts` (testes).

@@ -15,6 +15,7 @@ import { IbanWarning } from "@/components/IbanWarning";
 import { normalizeIban, validateIban, ibanWarningMessage } from "@/lib/iban";
 import { SupplierPortalUserLink } from "@/components/SupplierPortalUserLink";
 import { reactivateSupplier } from "@/lib/supplier-lifecycle";
+import { normalizeNif } from "@/lib/supplier-similarity";
 import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 
 const supplierCategories = [
@@ -40,6 +41,17 @@ const supplierCategories = [
   "Serviços Jurídicos e Contabilidade",
   "Outro",
 ];
+
+type SimilarSupplier = {
+  id: string;
+  name: string;
+  nif: string | null;
+  iban: string | null;
+  iban_2: string | null;
+  iban_3: string | null;
+  is_active: boolean;
+  motivo: "nif" | "nome";
+};
 
 interface SupplierFormModalProps {
   open: boolean;
@@ -169,8 +181,13 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const canManageSuppliers =
     role === "admin" || role === "platform_admin" || role === "manager";
 
+  const [similar, setSimilar] = useState<{ raw: Record<string, any>; list: SimilarSupplier[] } | null>(null);
+
   useEffect(() => {
-    if (!open) setInactiveMatch(null);
+    if (!open) {
+      setInactiveMatch(null);
+      setSimilar(null);
+    }
   }, [open]);
 
   const reactivateMutation = useMutation({
@@ -232,6 +249,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
     }
     setValidationErrors({});
     setInactiveMatch(null);
+    setSimilar(null);
 
     // Validação estrutural (checksum MOD-97) e duplicação cross-supplier
     const ibanFields: Array<{ key: "iban" | "iban_2" | "iban_3"; label: string; value: string | null }> = [
@@ -286,11 +304,88 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
 
     if (isEditing) {
       updateMutation.mutate(raw);
-    } else {
-      createMutation.mutate(raw);
-
+      return;
     }
+
+    // D-ERP199: NIF igual ou nome parecido → aviso antes de criar.
+    const { data: sim, error: simErr } = await supabase.rpc("check_supplier_similar" as any, {
+      p_name: raw.name,
+      p_nif: raw.nif,
+      p_supplier_id: null,
+    });
+    if (simErr) {
+      toast.error("Erro ao procurar fornecedores parecidos", { description: simErr.message });
+      return;
+    }
+    const list = (sim ?? []) as SimilarSupplier[];
+    if (list.length > 0) {
+      setSimilar({ raw, list });
+      return;
+    }
+    createMutation.mutate(raw);
   };
+
+  const pickExisting = async (c: SimilarSupplier) => {
+    if (!c.is_active) {
+      reactivateMutation.mutate(c.id);
+      return;
+    }
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: ["suppliers"] }),
+      queryClient.refetchQueries({ queryKey: ["suppliers-active"] }),
+    ]);
+    setSimilar(null);
+    onOpenChange(false);
+    toast.success(`A usar «${c.name}»`);
+    onCreated?.(c.id);
+  };
+
+  // IBAN escrito (o primeiro) e slot livre na ficha existente.
+  const ibanAppendPlan = (c: SimilarSupplier, raw: Record<string, any>) => {
+    const typed = [
+      { iban: raw.iban, swift: raw.swift_bic },
+      { iban: raw.iban_2, swift: raw.swift_bic_2 },
+      { iban: raw.iban_3, swift: raw.swift_bic_3 },
+    ].find((x) => x.iban);
+    if (!typed) return null;
+    const existing = [c.iban, c.iban_2, c.iban_3].map((v) => normalizeIban(v));
+    if (existing.includes(normalizeIban(typed.iban))) return null;
+    const idx = [c.iban, c.iban_2, c.iban_3].findIndex((v) => !v);
+    if (idx < 0) return null;
+    const slot = (["iban", "iban_2", "iban_3"] as const)[idx];
+    const swiftSlot = (["swift_bic", "swift_bic_2", "swift_bic_3"] as const)[idx];
+    return { slot, swiftSlot, iban: typed.iban as string, swift: (typed.swift as string | null) ?? null };
+  };
+
+  const appendIbanMutation = useMutation({
+    mutationFn: async ({ c, plan }: { c: SimilarSupplier; plan: NonNullable<ReturnType<typeof ibanAppendPlan>> }) => {
+      const patch: Record<string, any> = { [plan.slot]: plan.iban };
+      if (plan.swift) patch[plan.swiftSlot] = plan.swift;
+      const { error } = await supabase.from("suppliers").update(patch as any).eq("id", c.id);
+      if (error) throw error;
+      await logAudit({
+        entity_type: "supplier",
+        entity_id: c.id,
+        action: "update_bank_details",
+        changed_by: getAuditUser(user),
+        old_data: Object.fromEntries(Object.keys(patch).map((k) => [k, null])),
+        new_data: patch,
+        metadata: { supplier_name: c.name, source: "similar_supplier_append_iban" },
+      });
+      return c;
+    },
+    onSuccess: async (c) => {
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["suppliers"] }),
+        queryClient.refetchQueries({ queryKey: ["suppliers-active"] }),
+      ]);
+      setSimilar(null);
+      onOpenChange(false);
+      toast.success(`IBAN acrescentado a «${c.name}»`);
+      onCreated?.(c.id);
+    },
+    onError: (err: any) => toast.error("Erro ao acrescentar IBAN", { description: String(err?.message ?? err) }),
+  });
 
   const isPending = createMutation.isPending || updateMutation.isPending;
   const s = editingSupplier;
@@ -435,6 +530,72 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
               )}
             </div>
           )}
+          {similar && (() => {
+            const nifBlock = !!normalizeNif(similar.raw.nif) &&
+              similar.list.some((c) => c.motivo === "nif" && c.is_active);
+            return (
+              <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm space-y-3">
+                <p className="font-medium">
+                  {nifBlock
+                    ? "Já existe um fornecedor ativo com este NIF"
+                    : "Há fornecedores parecidos — confirma antes de criar"}
+                </p>
+                <ul className="space-y-3">
+                  {similar.list.map((c) => {
+                    const plan = canManageSuppliers ? ibanAppendPlan(c, similar.raw) : null;
+                    const blockedInactive = !c.is_active && !canManageSuppliers;
+                    return (
+                      <li key={c.id} className="space-y-1.5">
+                        <p>
+                          <span className="font-medium">«{c.name}»</span>{" "}
+                          <span className="text-muted-foreground">
+                            (NIF: {c.nif ?? "—"}) · {c.motivo === "nif" ? "mesmo NIF" : "nome parecido"}
+                            {!c.is_active && " · desativado"}
+                          </span>
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {blockedInactive ? (
+                            <span className="text-xs text-muted-foreground">
+                              Pede a um admin/manager para reativar «{c.name}».
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={reactivateMutation.isPending}
+                              onClick={() => pickExisting(c)}
+                              className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                            >
+                              {c.is_active ? `Usar «${c.name}»` : `Reativar e usar «${c.name}»`}
+                            </button>
+                          )}
+                          {plan && c.is_active && (
+                            <button
+                              type="button"
+                              disabled={appendIbanMutation.isPending}
+                              onClick={() => appendIbanMutation.mutate({ c, plan })}
+                              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                            >
+                              Acrescentar o IBAN a «{c.name}»
+                            </button>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {!nifBlock && (
+                  <button
+                    type="button"
+                    disabled={createMutation.isPending}
+                    onClick={() => { const r = similar.raw; setSimilar(null); createMutation.mutate(r); }}
+                    className="rounded-md border border-border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                  >
+                    É outra entidade — criar mesmo assim
+                  </button>
+                )}
+              </div>
+            );
+          })()}
           <button type="submit" disabled={isPending}
             className="mt-2 w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50">
             {isPending ? "A guardar…" : isEditing ? "Guardar Alterações" : "Criar Fornecedor"}
