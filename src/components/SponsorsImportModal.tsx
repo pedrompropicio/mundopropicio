@@ -152,15 +152,17 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
         nameToId[(s as any).name.toLowerCase()] = (s as any).id;
       }
       const toCreate = uniqueNames.filter((n) => !nameToId[n.toLowerCase()]);
-      if (toCreate.length > 0) {
-        const { data: created, error: createErr } = await supabase
-          .from("suppliers")
-          .insert(toCreate.map((name) => ({ name, is_active: true })))
-          .select("id, name");
+      // D-ERP201: regra única da base — NIF igual a um ativo reutiliza; nome parecido
+      // cria e fica marcado em supplier_similarity_flags para revisão.
+      let suppliersFlagged = 0;
+      for (const name of toCreate) {
+        const { data: res, error: createErr } = await supabase.rpc("supplier_resolve_or_create" as any, {
+          p_name: name, p_nif: null, p_source: "sponsors_import",
+        });
         if (createErr) throw createErr;
-        for (const s of created || []) {
-          nameToId[(s as any).name.toLowerCase()] = (s as any).id;
-        }
+        const r = res as { id: string; flagged: number };
+        nameToId[name.toLowerCase()] = r.id;
+        if (r.flagged > 0) suppliersFlagged++;
       }
 
       // 2) Procurar forecasts existentes (idempotência por evento + descrição = nome)
@@ -338,7 +340,7 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
         } else failures.push(`Recovery "${t.description}": ${error.message}`);
       }
 
-      return { forecastsCreated, forecastsUpdated, forecastsRecovered, txCreated, txSkipped, failures, touchedForecastIds };
+      return { forecastsCreated, forecastsUpdated, forecastsRecovered, txCreated, txSkipped, failures, touchedForecastIds, suppliersFlagged };
     },
     onSuccess: (res) => {
       const recoveryNote = res.forecastsRecovered > 0
@@ -347,7 +349,10 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
       const failNote = res.failures.length > 0
         ? ` • ${res.failures.length} falhas: ${res.failures.slice(0, 3).join(" | ")}${res.failures.length > 3 ? "…" : ""}`
         : "";
-      const summary = `BP: ${res.forecastsCreated} criadas, ${res.forecastsUpdated} atualizadas. Transações: ${res.txCreated} criadas${res.txSkipped ? `, ${res.txSkipped} ignoradas (já existiam)` : ""}.${recoveryNote}${failNote}`;
+      const flagNote = res.suppliersFlagged > 0
+        ? ` • ${res.suppliersFlagged} fornecedor(es) novo(s) parecido(s) com outros — rever em Administração › Fornecedores parecidos.`
+        : "";
+      const summary = `BP: ${res.forecastsCreated} criadas, ${res.forecastsUpdated} atualizadas. Transações: ${res.txCreated} criadas${res.txSkipped ? `, ${res.txSkipped} ignoradas (já existiam)` : ""}.${recoveryNote}${flagNote}${failNote}`;
       toast({
         title: res.failures.length > 0 ? "Importação concluída com avisos" : "Importação concluída",
         description: summary,
