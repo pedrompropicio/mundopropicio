@@ -261,11 +261,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: "unauthorized" }, 401);
   }
   const userId = claimsData.claims.sub as string;
-  const { data: isAdmin } = await userClient.rpc("has_role", {
-    _user_id: userId,
-    _role: "admin",
-  });
-  if (!isAdmin) return json({ error: "forbidden_admin_only" }, 403);
+  // #283 parte 5 (D-ERP194): a conta Google Ads está presa à COMPANY_ID e a
+  // função escreve linhas dessa empresa — o papel admin tem de ser NESSA empresa
+  // (antes: has_role em qualquer empresa). platform_admin atravessa (D-ERP195).
+  {
+    const roleAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const [{ data: isPa }, { data: r }] = await Promise.all([
+      roleAdmin.rpc("is_platform_admin", { _user_id: userId }),
+      roleAdmin.from("user_roles").select("role").eq("user_id", userId).eq("company_id", COMPANY_ID),
+    ]);
+    const ok = Boolean(isPa) || (r ?? []).some((x: any) => x.role === "admin");
+    if (!ok) return json({ error: "forbidden_admin_only" }, 403);
+  }
 
   const devToken = Deno.env.get("GOOGLE_ADS_DEVELOPER_TOKEN");
   if (!devToken) {
