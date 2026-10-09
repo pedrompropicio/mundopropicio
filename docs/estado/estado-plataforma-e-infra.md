@@ -1,6 +1,7 @@
 # ESTADO — Plataforma & Infra
 
 Atualizado 2026-10-03 · Issues #256, #269, #213, #265, #268, #186, #202, #204, #206, #83, #57 · a-seguir #96, #61. Fechadas a 18/09: #211, #203, #15.
+Última verificação deste lote: 09/10/2026 — #244 sem falhas herdadas; #231 splitting já existente e prova de SHA acrescentada; #61 bloqueada por falta dos ficheiros reais para comparação. Sem Publish.
 
 ## Em que pé está
 
@@ -221,6 +222,7 @@ Regras que ficaram:
 - `song_growth_summary`: notas para o leitor vs `notas_tecnicas`; dias repetidos da Soundcharts fora das séries (D-ERP136). Em Live; KPIs inalterados.
 
 ## A trabalhar agora
+- **Lote 2 (09/10, D-ERP209)** — #244: baseline 831 passed, zero falhas; Router `94408fa92`, buckets `144937159`, cálculo Forecast `1263e45b9`, testes reactivados `ec389028a` (o teste de 0 manteve-se). #231: splitting já em `5552fefcd`; entrada em produção 0,783 MiB, entrada + preloads 4,343 MiB. Acrescentados script `check-deploy.mjs` e relatório de bundle no build; uso após o próximo Publish. #61: não alterada; faltam XLSX reais Coala/Ticketline e PDF M2 BOL para provar os parses antigos/novos. AGENTS.md removido; regras preservadas em DECISIONS.
 - **Barreira de qualidade (09/10/2026)** — CI `.github/workflows/ci.yml` activo (tsgo + vitest + vite build); 6 runs verdes em main. As três Issues de isolamento foram resolvidas e fechadas a 09/10: #288 (embeds `transactions→suppliers` — era defeito em produção: card "Verba por usar" do Fecho e transações do Master no BP de sub-evento; commit fdf992c), #289 (14 leituras sem paginação → `fetchAllPagedQuery`; commit 54584c2), #290 (solver do Forecast reparte por dia com a regra do Break-Even, helper `distributeAcrossGroup`, D-ERP202; commit cc1315e). Zero `it.skip` por defeito; o único skip é `src/test/partner-statement-edge.test.ts`, teste de integração que só corre com `PARTNER_STATEMENT_TOKEN`.
 - **#291 (aberta 09/10)** — passe multi-dia replicado nos 2 dias soma o real em duplicado nos dois solvers do simulador; latente (o sync guarda o passe numa linha só).
 - **Incidente 05/10/2026 — 39 chamadas a aprovar** — resolvido e publicado (D-ERP173, RPC `approve_transactions_atomic`).

@@ -1,5 +1,12 @@
 # Roadmap — épica #146 (e)
 
+## Lote 2 — Infra (#231, #244, #61)
+- [x] Remover AGENTS.md; preservar regras em docs/DECISIONS.md.
+- [x] #244: suite sem falhas; identificar commits e prova de correção do cálculo, não do teste.
+- [x] #231: confirmar splitting existente e medir entrada/preloads em produção; acrescentar relatório derivado do bundle.
+- [x] #231: verificar version.json contra SHA/HEAD por script, com testes positivos e negativos.
+- [ ] #61: migrar xlsx, validar Coala/Ticketline, só depois unpdf/BOL — bloqueado: três ficheiros reais não disponíveis no storage identificado. Imports intactos.
+
 ## Lote 1 — BP (#260, #249, #247, #248)
 - [x] #260: diálogo de classificação na pilha comum com foco; percurso antigo de desambiguação já removido anteriormente.
 - [x] #249: campos intactos preservados; Vincular ao BP já usa a pilha comum, confirmado por teste.
