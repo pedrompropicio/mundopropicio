@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { eventTargetRoas, roasColorByEvent } from "@/lib/crm/dashboard-format";
 import PurchaseAudienceCard from "@/components/crm/PurchaseAudienceCard";
 
 

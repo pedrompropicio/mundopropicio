@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-/** Edição da meta de ROAS do evento (public.events.target_roas). NULL ⇒ fallback 8x. */
+/** Edição da meta de ROAS do evento (public.events.target_roas). NULL = sem meta. */
 export function TargetRoasEditor({
   eventId,
   value,

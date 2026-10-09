@@ -29,10 +29,13 @@ export function PlatformBreakdown({
   campaigns,
   insightsByCampaign,
   fallbackCurrency,
+  targetRoas = null,
 }: {
   campaigns: CampaignRow[];
   insightsByCampaign: Map<string, InsightRow[]>;
   fallbackCurrency: string;
+  /** Meta do evento (events.target_roas); null = sem meta → cor neutra. */
+  targetRoas?: number | null;
 }) {
   const blocks = useMemo<Block[]>(() => {
     return (["meta", "google"] as const).map((key) => {
@@ -93,7 +96,7 @@ export function PlatformBreakdown({
                 <Metric
                   label="ROAS"
                   value={formatRoas(b.agg.roas)}
-                  className={cn("font-semibold", roasColorByEvent(b.agg.roas))}
+                  className={cn("font-semibold", roasColorByEvent(b.agg.roas, targetRoas))}
                 />
                 <Metric label="CPA" value={formatCurrency(computeCpa(b.agg), cur)} />
               </>
@@ -123,7 +126,7 @@ export function PlatformBreakdown({
             <Metric
               label="ROAS"
               value={formatRoas(consolidated.roas)}
-              className={cn("font-semibold", roasColorByEvent(consolidated.roas))}
+              className={cn("font-semibold", roasColorByEvent(consolidated.roas, targetRoas))}
             />
             <Metric
               label="Custo/conv."

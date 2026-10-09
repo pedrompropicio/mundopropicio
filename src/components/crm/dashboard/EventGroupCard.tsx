@@ -193,6 +193,7 @@ export function EventGroupCard({
               campaigns={campaigns}
               insightsByCampaign={insightsByCampaign}
               fallbackCurrency={currency}
+              targetRoas={eventTargetRoas(event)}
             />
           </div>
           <div className="border-t border-border p-3">
