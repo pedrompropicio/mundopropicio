@@ -19445,6 +19445,25 @@ export type Database = {
           revenue: number
         }[]
       }
+      get_ticket_office_settlements_overview: {
+        Args: { _event_id?: string; _office_id?: string }
+        Returns: {
+          adjustment_notes: string
+          event_id: string
+          event_name: string
+          forma_liquidacao: string
+          gross_revenue: number
+          id: string
+          net_transferred: number
+          net_value: number
+          notes: string
+          office_id: string
+          office_name: string
+          settlement_date: string
+          status: string
+          total_deductions: number
+        }[]
+      }
       get_ticketing_divergences: {
         Args: never
         Returns: {
@@ -19465,6 +19484,19 @@ export type Database = {
           sum_ours: number
           sum_pdf: number
           sum_xlsx: number
+        }[]
+      }
+      get_ticketing_sync_status: {
+        Args: never
+        Returns: {
+          bilheteira: string
+          condicao: string
+          config_id: string
+          desde_quando: string
+          detalhe: string
+          event_id: string
+          event_name: string
+          nivel: string
         }[]
       }
       get_user_max_daily_budget_eur: {
@@ -20197,6 +20229,21 @@ export type Database = {
       ticketing_health_mark_notified: {
         Args: { _company: string }
         Returns: undefined
+      }
+      ticketing_sync_conditions: {
+        Args: never
+        Returns: {
+          bilheteira: string
+          company_id: string
+          condicao: string
+          config_id: string
+          desde_quando: string
+          detalhe: string
+          event_id: string
+          event_name: string
+          last_ok: string
+          nivel: string
+        }[]
       }
       ticketline_crosscheck_signals: {
         Args: { _as_of?: string }
