@@ -1665,7 +1665,8 @@ export default function CrmCampaignView() {
                 <div className="text-sm">
                   <span className="text-muted-foreground">Baseline: </span>
                   <strong>{diagnosis.projected_baseline_roas != null ? `${Number(diagnosis.projected_baseline_roas).toFixed(2)}x` : "—"}</strong>
-                  {diagnosis.target_roas != null && (
+                  {/* 0 = gravado sem meta (coluna NOT NULL) */}
+                  {diagnosis.target_roas != null && Number(diagnosis.target_roas) > 0 && (
                     <span className="text-muted-foreground"> · Target: <strong className="text-foreground">{Number(diagnosis.target_roas).toFixed(2)}x</strong></span>
                   )}
                 </div>

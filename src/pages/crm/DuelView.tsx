@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { eventTargetRoas } from "@/lib/crm/dashboard-format";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -215,7 +216,7 @@ export default function DuelView() {
       const { data, error } = await (supabase as any)
         .schema("crm")
         .from("meta_campaign_strategies")
-        .select("id, status, generated_plan, target_roas, source_model")
+        .select("id, status, generated_plan, target_roas, source_model, event_id")
         .eq("id", gemId!)
         .maybeSingle();
       if (error) throw new Error(error.message);
@@ -229,7 +230,7 @@ export default function DuelView() {
       const { data, error } = await (supabase as any)
         .schema("crm")
         .from("meta_campaign_strategies")
-        .select("id, status, generated_plan, target_roas, source_model")
+        .select("id, status, generated_plan, target_roas, source_model, event_id")
         .eq("id", gptId!)
         .maybeSingle();
       if (error) throw new Error(error.message);
@@ -237,10 +238,23 @@ export default function DuelView() {
     },
   });
 
+  // Meta: 1.º events.target_roas do evento ligado à estratégia; 2.º target_roas da
+  // estratégia; sem nenhuma → critério omitido (scorePlan reescala para 100).
+  const duelEventId: string | null =
+    (gemCand as any)?.event_id ?? (gptCand as any)?.event_id ?? null;
+  const { data: duelEventTarget } = useQuery({
+    queryKey: ["duel-event-target", duelEventId],
+    enabled: !!duelEventId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events").select("target_roas").eq("id", duelEventId!).maybeSingle();
+      if (error) throw new Error(error.message);
+      return eventTargetRoas(data);
+    },
+  });
   const targetRoas: number | null =
-    Number((gemCand as any)?.target_roas) ||
-    Number((gptCand as any)?.target_roas) ||
-    null;
+    duelEventTarget ??
+    (Number((gemCand as any)?.target_roas) || Number((gptCand as any)?.target_roas) || null);
 
   const gemScore = useMemo(
     () => (gemCand ? scorePlan((gemCand as any).generated_plan, targetRoas) : null),
