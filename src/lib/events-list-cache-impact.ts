@@ -14,6 +14,7 @@ import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import {
   computeRealCacheResults,
   computeTicketRevenueAndOccupancy,
+  cityDeductionSources,
   enrichCacheConfigs,
   filterRealCacheExpenses,
   getCacheEffectiveAmount,
@@ -59,7 +60,7 @@ export async function fetchEventsListCacheImpact(
     new Set(relevant.flatMap((s) => [s.id, ...s.childIds]).filter(Boolean)),
   );
 
-  const [tiersRes, dedRes, cityRes, catRes, zonesRes] = await Promise.all([
+  const [tiersRes, dedRes, cityRes, catRes, zonesRes, bpRes] = await Promise.all([
     fetchAllPagedQuery(supabase.from("event_cache_tiers").select("*").in("cache_config_id", configIds)),
     fetchAllPagedQuery(supabase.from("event_cache_deductions" as any).select("*").in("cache_config_id", configIds)),
     fetchAllPagedQuery(supabase
@@ -74,8 +75,15 @@ export async function fetchEventsListCacheImpact(
       .from("event_ticket_zones")
       .select("id, event_id, total_capacity")
       .in("event_id", relevantIds)),
+    // #261: BP aprovado é a fonte primária das deduções (mesma regra do hook).
+    fetchAllPagedQuery(supabase
+      .from("event_forecasts")
+      .select("id, event_id, type, category_id, amount, iva_rate, status, is_transitory, is_overhead, exclude_from_result, version_id")
+      .in("event_id", relevantIds)
+      .eq("type", "expense")
+      .is("version_id", null)),
   ]);
-  for (const r of [tiersRes, dedRes, cityRes, catRes, zonesRes]) {
+  for (const r of [tiersRes, dedRes, cityRes, catRes, zonesRes, bpRes]) {
     if (r.error) throw r.error;
   }
 
@@ -103,6 +111,9 @@ export async function fetchEventsListCacheImpact(
     categories.find((c: any) => c.code === "2.1.01" && c.type === "expense")?.id ?? null;
 
   const realExpenses = filterRealCacheExpenses(allTransactions);
+  const bpForecasts = (bpRes.data ?? []) as any[];
+  const fcOf = (id: string) => bpForecasts.filter((f: any) => f.event_id === id);
+  const txOf = (id: string) => realExpenses.filter((t: any) => t.event_id === id);
 
   // Zonas / vendas por evento — recorte local, sem novas queries.
   const zonesByEvent = new Map<string, any[]>();
@@ -133,7 +144,15 @@ export async function fetchEventsListCacheImpact(
           configs: evConfigs,
           deductions,
           categoryMap,
-          expenses: realExpenses.filter((t: any) => t.event_id === childId),
+          expenses: txOf(childId),
+          // #261: BP da cidade + quota 1/N do Master (Previsto + excedido).
+          sources: cityDeductionSources({
+            cityForecasts: fcOf(childId),
+            cityExpenses: txOf(childId),
+            masterForecasts: fcOf(spec.id),
+            masterExpenses: txOf(spec.id),
+            cityCount: spec.childIds.length,
+          }),
           revenue: r.revenue,
           occupancyPct: r.occupancyPct,
         });
@@ -153,6 +172,7 @@ export async function fetchEventsListCacheImpact(
         deductions,
         categoryMap,
         expenses: realExpenses.filter((t: any) => scopeIds.includes(t.event_id)),
+        sources: scopeIds.map((id) => ({ forecasts: fcOf(id), expenses: txOf(id), weight: 1 })),
         revenue: r.revenue,
         occupancyPct: r.occupancyPct,
       });
