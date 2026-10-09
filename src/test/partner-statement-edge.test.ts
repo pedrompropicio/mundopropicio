@@ -16,7 +16,7 @@ const EVENT_ID = "fdfb39fe-45f2-43f5-9ec9-7cb536360ae1"; // Anitta EDA 2026
 
 const canRun = Boolean(TOKEN && URL_BASE && ANON);
 
-describe.skipIf(!canRun)("partner-statement (sócio RAFAEL LOBO)", () => {
+describe.skipIf(!canRun)("partner-statement (sócio RAFAEL LOBO) [integração — corre só com PARTNER_STATEMENT_TOKEN]", () => {
   it("devolve 200 com a parte e a cascata do sócio", async () => {
     const res = await fetch(`${URL_BASE}/functions/v1/partner-statement`, {
       method: "POST",
