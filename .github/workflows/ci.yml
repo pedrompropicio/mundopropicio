@@ -21,7 +21,7 @@ jobs:
       - name: Install
         run: bun install --frozen-lockfile || bun install
       - name: Typecheck (tsgo)
-        run: bunx --bun -p @typescript/native-preview tsgo -p tsconfig.app.json --noEmit
+        run: bunx -p @typescript/native-preview tsgo -p tsconfig.app.json --noEmit
       - name: Testes (vitest)
         run: |
           set -o pipefail

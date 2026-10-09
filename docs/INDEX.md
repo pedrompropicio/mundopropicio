@@ -121,6 +121,8 @@ Ler **D-ERP57** antes de mexer.
 
 Se o tema toca num fluxo já implementado, procurar primeiro em `.lovable/memory/features/`. A hipótese por defeito é que **já existe**.
 
+**Regra (09/10/2026, barreira de qualidade): Uma tarefa só está concluída com tsgo limpo, vitest sem falhas novas (antes/depois no relatório) e CI verde no commit. Testes isolados por skip só com Issue no nome.** CI em `.github/workflows/ci.yml` (tsgo + vitest + vite build em push/PR para main).
+
 **Antes de diagnosticar um fluxo já implementado, nomear o ficheiro de `.lovable/memory/features/` que foi lido.** Se não houver ficheiro, procurar no índice gerado `.lovable/memory/index.md` (secção "Por onde começar" e lista completa) antes de concluir que não existe. O índice é gerado por `node scripts/gen-memory-index.mjs` (D-ERP158).
 
 ## Ritual de fecho (obrigatório)

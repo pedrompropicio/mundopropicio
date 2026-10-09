@@ -6,6 +6,8 @@
 ## Por onde começar
 
 <!-- por-onde-comecar:inicio (escrito à mão; o gerador preserva) -->
+**Regra fixa:** Uma tarefa só está concluída com tsgo limpo, vitest sem falhas novas (antes/depois no relatório) e CI verde no commit. Testes isolados por skip só com Issue no nome.
+
 Uma linha por tema, por frente: pergunta → ficheiros (mem://pasta/ficheiro). Só temas com ficheiro.
 
 **ERP — bilheteira**
