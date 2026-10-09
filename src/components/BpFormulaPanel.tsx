@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,9 +38,9 @@ export function BpFormulaPanel({ eventId, isMaster, canEdit }: { eventId: string
     queryKey: ["bp-formula-candidates", eventId],
     enabled: open,
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from("event_forecasts")
+      const { data, error } = await fetchAllPagedQuery((supabase as any).from("event_forecasts")
         .select("id, description, amount, formula_type, formula_params, account_categories(code)")
-        .eq("event_id", eventId).is("version_id", null).eq("type", "expense").is("cache_config_id", null).order("description");
+        .eq("event_id", eventId).is("version_id", null).eq("type", "expense").is("cache_config_id", null).order("description"));
       if (error) throw error;
       return data ?? [];
     },

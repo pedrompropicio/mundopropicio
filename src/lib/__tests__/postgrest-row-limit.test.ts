@@ -131,8 +131,7 @@ describe("barreira dos 1.000 registos do PostgREST", () => {
     expect(files.length).toBeGreaterThan(100);
   });
 
-  // Isolado em CI: falha por defeito de código (leituras sem paginação).
-  it.skip("[Issue #289] nenhuma leitura de tabela grande sem paginação", () => {
+  it("[Issue #289] nenhuma leitura de tabela grande sem paginação", () => {
     const offences = files.flatMap(scanFile);
     const msg = offences
       .map(

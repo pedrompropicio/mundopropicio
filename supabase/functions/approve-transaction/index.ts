@@ -247,8 +247,8 @@ Deno.serve(async (req) => {
       const { data: isPa2 } = await adminClient.rpc("is_platform_admin", { _user_id: callerId });
       if (!isPa2) {
         const raiseIds = [...new Set(raises.map((r: any) => r?.forecast_id).filter((x: any) => typeof x === "string"))];
-        const { data: rLines, error: rErr } = await adminClient
-          .from("event_forecasts").select("id, company_id").in("id", raiseIds as string[]);
+        const { data: rLines, error: rErr } = await fetchAllPagedQuery(adminClient
+          .from("event_forecasts").select("id, company_id").in("id", raiseIds as string[]));
         if (rErr) {
           return new Response(JSON.stringify({ error: rErr.message }), {
             status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
