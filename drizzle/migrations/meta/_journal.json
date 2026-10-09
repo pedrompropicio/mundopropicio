@@ -344,6 +344,13 @@
       "when": 1791512235613,
       "tag": "0048_derp201_supplier_similarity_flags",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1791512880607,
+      "tag": "0049_derp202_285_invariante_pago_abaixo_do_bruto",
+      "breakpoints": true
     }
   ]
 }
