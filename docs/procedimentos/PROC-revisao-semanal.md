@@ -32,8 +32,8 @@ Evento com data próxima e BP parado há semanas = risco. Levantar com o Pedro.
 
 ## 6. Invariantes
 ```sql
-select key, severity, current_count, reference_count, conforme, sample
-from run_invariant_checks() where not conforme order by severity, key;
+select name, severity, scope, current_count, reference_count, sample
+from run_invariant_checks() where not conforme order by severity, name;
 ```
 (Fonte e motor: `.lovable/memory/features/invariant-monitor.md`; ecrã `/admin/invariantes`.) Para cada não conforme, registar UMA decisão: corrigir / aceitar e subir referência com motivo / abrir Issue.
 
