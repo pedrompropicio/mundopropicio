@@ -317,3 +317,450 @@ verify_jwt = true
 # do Vault; dispara o sync de qualquer config. A função compara o Bearer com a service key.
 [functions.fetch-fever-reports]
 verify_jwt = true
+
+# ── #283 parte 6 (D-ERP205): verify_jwt explícito em TODAS as funções.
+# Facto de Live: função sem bloco corre SEM verificação de assinatura no portão.
+# true = só chamadas internas (service role) ou com sessão / anon key do frontend.
+[functions.accept-invitation]
+verify_jwt = true
+
+[functions.accept-staff-invite]
+verify_jwt = true
+
+[functions.apply-coala-bp]
+verify_jwt = true
+
+[functions.approve-transaction]
+verify_jwt = true
+
+[functions.audit-categories]
+verify_jwt = true
+
+# ABERTA por desenho: hook de email do Auth (infra Lovable), assinado por webhook (verifyWebhookRequest), sem JWT.
+[functions.auth-email-hook]
+verify_jwt = false
+
+[functions.bilheteira-sync]
+verify_jwt = true
+
+[functions.capi-meta-events]
+verify_jwt = true
+
+[functions.check-login-rate]
+verify_jwt = true
+
+[functions.classify-coala-tx-with-ai]
+verify_jwt = true
+
+[functions.close-camarim-session]
+verify_jwt = true
+
+[functions.coala-sync-bootstrap]
+verify_jwt = true
+
+[functions.comparables-tiktok-apify-sync]
+verify_jwt = true
+
+[functions.create-company]
+verify_jwt = true
+
+[functions.create-staff]
+verify_jwt = true
+
+[functions.create-user]
+verify_jwt = true
+
+[functions.crm-assisted-assembly-compute]
+verify_jwt = true
+
+[functions.crm-assisted-assembly-narrate]
+verify_jwt = true
+
+[functions.crm-audience-duel]
+verify_jwt = true
+
+[functions.crm-audience-duel-status]
+verify_jwt = true
+
+[functions.crm-campaign-brief]
+verify_jwt = true
+
+[functions.crm-campaign-design-generate]
+verify_jwt = true
+
+[functions.crm-campaign-diagnosis]
+verify_jwt = true
+
+[functions.crm-cron-pause-replaced-originals]
+verify_jwt = true
+
+[functions.crm-diag-image-resolution]
+verify_jwt = true
+
+[functions.crm-diag-meta-recommendations]
+verify_jwt = true
+
+[functions.crm-diag-video-source]
+verify_jwt = true
+
+[functions.crm-google-ads-sync]
+verify_jwt = true
+
+[functions.crm-google-conversion-upload]
+verify_jwt = true
+
+[functions.crm-google-customer-match-sync]
+verify_jwt = true
+
+[functions.crm-google-lead-conversion-enqueue]
+verify_jwt = true
+
+[functions.crm-google-publish-activate]
+verify_jwt = true
+
+[functions.crm-google-publish-execute]
+verify_jwt = true
+
+[functions.crm-google-publish-lookups]
+verify_jwt = true
+
+[functions.crm-google-sync-campaigns]
+verify_jwt = true
+
+[functions.crm-google-user-list-ensure]
+verify_jwt = true
+
+[functions.crm-measure-action-impact]
+verify_jwt = true
+
+[functions.crm-meta-audience-blueprints]
+verify_jwt = true
+
+[functions.crm-meta-audience-coach]
+verify_jwt = true
+
+[functions.crm-meta-audience-create]
+verify_jwt = true
+
+[functions.crm-meta-audience-sync]
+verify_jwt = true
+
+[functions.crm-meta-audiences-cron-tick]
+verify_jwt = true
+
+[functions.crm-meta-audit-summary]
+verify_jwt = true
+
+[functions.crm-meta-campaign-analyze]
+verify_jwt = true
+
+[functions.crm-meta-campaign-from-scratch]
+verify_jwt = true
+
+[functions.crm-meta-campaign-new-design]
+verify_jwt = true
+
+[functions.crm-meta-campaign-redesign]
+verify_jwt = true
+
+[functions.crm-meta-campaign-scale]
+verify_jwt = true
+
+[functions.crm-meta-campaign-strategy-generate]
+verify_jwt = true
+
+[functions.crm-meta-campaign-surgical]
+verify_jwt = true
+
+[functions.crm-meta-create-purchase-audience]
+verify_jwt = true
+
+[functions.crm-meta-create-reels-ad]
+verify_jwt = true
+
+[functions.crm-meta-creative-analyze]
+verify_jwt = true
+
+[functions.crm-meta-creatives-recover-hires]
+verify_jwt = true
+
+[functions.crm-meta-creatives-rehost]
+verify_jwt = true
+
+[functions.crm-meta-deployment-toggle]
+verify_jwt = true
+
+[functions.crm-meta-diagnose-ig]
+verify_jwt = true
+
+[functions.crm-meta-entity-action]
+verify_jwt = true
+
+[functions.crm-meta-extract-landing-urls]
+verify_jwt = true
+
+[functions.crm-meta-fetch-ad-accounts]
+verify_jwt = true
+
+[functions.crm-meta-fetch-pages]
+verify_jwt = true
+
+[functions.crm-meta-funnel-breakdown]
+verify_jwt = true
+
+[functions.crm-meta-funnel-test-run]
+verify_jwt = true
+
+[functions.crm-meta-funnel-test-status]
+verify_jwt = true
+
+[functions.crm-meta-interest-search]
+verify_jwt = true
+
+[functions.crm-meta-landing-audit]
+verify_jwt = true
+
+[functions.crm-meta-list-custom-audiences]
+verify_jwt = true
+
+[functions.crm-meta-list-pixels]
+verify_jwt = true
+
+# ABERTA por desenho: redirect do browser vindo da Meta (?code&state); sem JWT; valida o state no código.
+[functions.crm-meta-oauth-callback]
+verify_jwt = false
+
+[functions.crm-meta-pixel-health]
+verify_jwt = true
+
+[functions.crm-meta-publish-activate]
+verify_jwt = true
+
+[functions.crm-meta-publish-execute]
+verify_jwt = true
+
+[functions.crm-meta-publish-prepare]
+verify_jwt = true
+
+[functions.crm-meta-recommendations]
+verify_jwt = true
+
+[functions.crm-meta-redesign-inventory]
+verify_jwt = true
+
+[functions.crm-meta-rehost-images-targeted]
+verify_jwt = true
+
+[functions.crm-meta-rehost-videos]
+verify_jwt = true
+
+[functions.crm-meta-strategy-deploy]
+verify_jwt = true
+
+[functions.crm-meta-sync-ads]
+verify_jwt = true
+
+[functions.crm-meta-sync-adsets]
+verify_jwt = true
+
+[functions.crm-meta-sync-campaigns]
+verify_jwt = true
+
+[functions.crm-meta-sync-creatives]
+verify_jwt = true
+
+[functions.crm-meta-sync-insights]
+verify_jwt = true
+
+[functions.crm-validate-creative-messages]
+verify_jwt = true
+
+[functions.crm-validate-design-text]
+verify_jwt = true
+
+[functions.database-backup]
+verify_jwt = true
+
+[functions.database-restore]
+verify_jwt = true
+
+[functions.database-restore-v2]
+verify_jwt = true
+
+[functions.debug-key-check]
+verify_jwt = true
+
+[functions.delete-transaction-document]
+verify_jwt = true
+
+[functions.delete-user]
+verify_jwt = true
+
+[functions.extract-camarim-receipt]
+verify_jwt = true
+
+[functions.extract-invoice-total]
+verify_jwt = true
+
+[functions.extract-ticket-pdf]
+verify_jwt = true
+
+[functions.fetch-bol-reports]
+verify_jwt = true
+
+[functions.fetch-fx-rate]
+verify_jwt = true
+
+[functions.fetch-onebox-dashboard]
+verify_jwt = true
+
+[functions.fetch-ticketline-reports]
+verify_jwt = true
+
+[functions.fx-rates-sync]
+verify_jwt = true
+
+[functions.generate-accountant-zip]
+verify_jwt = true
+
+[functions.github-issues]
+verify_jwt = true
+
+[functions.google-drive-health]
+verify_jwt = true
+
+# ABERTA por desenho: webhook de supressão da infra de email Lovable, assinado (verifyWebhookRequest), sem JWT.
+[functions.handle-email-suppression]
+verify_jwt = false
+
+[functions.invite-company-admin]
+verify_jwt = true
+
+[functions.manual-sync]
+verify_jwt = true
+
+[functions.match-categories]
+verify_jwt = true
+
+[functions.migrate-legacy-images]
+verify_jwt = true
+
+[functions.migrate-portal-event-images]
+verify_jwt = true
+
+[functions.migrate-press-clippings]
+verify_jwt = true
+
+[functions.onboarding-bulk-import]
+verify_jwt = true
+
+[functions.onboarding-complete]
+verify_jwt = true
+
+[functions.onboarding-preview]
+verify_jwt = true
+
+[functions.onebox-auth-probe]
+verify_jwt = true
+
+[functions.onebox-probe]
+verify_jwt = true
+
+[functions.parse-coala-bp]
+verify_jwt = true
+
+# ABERTA por desenho: chamada pelo backend da Lovable com Authorization: Bearer <LOVABLE_API_KEY> (não é JWT do projecto); gated no código.
+[functions.preview-transactional-email]
+verify_jwt = false
+
+[functions.probe-onebox]
+verify_jwt = true
+
+[functions.process-lead-capture]
+verify_jwt = true
+
+[functions.process-leads-capi]
+verify_jwt = true
+
+[functions.process-redirect-log]
+verify_jwt = true
+
+[functions.refresh-fever-token]
+verify_jwt = true
+
+[functions.request-password-reset]
+verify_jwt = true
+
+[functions.resend-reset-email]
+verify_jwt = true
+
+[functions.resolve-attachment-url]
+verify_jwt = true
+
+[functions.resolve-operacao-media-url]
+verify_jwt = true
+
+[functions.run-rls-legacy-audit]
+verify_jwt = true
+
+[functions.selective-restore]
+verify_jwt = true
+
+[functions.send-push-notification]
+verify_jwt = true
+
+[functions.send-staff-invite]
+verify_jwt = true
+
+[functions.send-system-reminders]
+verify_jwt = true
+
+[functions.send-transactional-email]
+verify_jwt = true
+
+[functions.sepa-compact-descriptions]
+verify_jwt = true
+
+[functions.soundcharts-audience-probe]
+verify_jwt = true
+
+[functions.storage-delete]
+verify_jwt = true
+
+[functions.surgical-restore]
+verify_jwt = true
+
+[functions.sync-coala-from-drive]
+verify_jwt = true
+
+[functions.test-multi-tenant-isolation]
+verify_jwt = true
+
+[functions.ticketing-sync-health]
+verify_jwt = true
+
+[functions.tmp-status-read]
+verify_jwt = true
+
+[functions.update-bol-credentials]
+verify_jwt = true
+
+[functions.update-fever-b2b-token]
+verify_jwt = true
+
+[functions.update-fever-credentials]
+verify_jwt = true
+
+[functions.update-ticketline-credentials]
+verify_jwt = true
+
+[functions.update-transaction]
+verify_jwt = true
+
+[functions.whatsapp-dispatcher]
+verify_jwt = true
+
+# ABERTA por desenho: chamada pela Meta Cloud API (handshake GET + eventos POST), sem JWT; valida o verify token / assinatura no código.
+[functions.whatsapp-webhook]
+verify_jwt = false
+

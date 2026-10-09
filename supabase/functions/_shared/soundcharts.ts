@@ -127,7 +127,7 @@ export async function authorize(
   const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
   if (!bearer) return { allowed: false, reason: "missing token" };
 
-  // Chaves de serviço novas (`sb_secret_…`) NÃO são JWT: o atob abaixo falha e a
+  // Chaves de serviço novas (`sb_secret_…`) NÃO são JWT: a leitura do payload falhava e a
   // chamada interna caía em 403. Comparar directamente com a chave do runtime.
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   if (sameSecret(bearer, serviceKey)) return { allowed: true, isServiceRole: true };
