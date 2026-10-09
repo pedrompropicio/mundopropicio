@@ -21,6 +21,7 @@ verify_jwt = true
 [functions.crm-meta-audience-upload]
 verify_jwt = true
 
+# ABERTA por desenho: bookmarklet do browser do Pedro no FeverZone, sem sessão do projecto; autenticação por x-ingest-secret no código.
 [functions.fever-ingest-browser]
 verify_jwt = false
 
@@ -81,6 +82,7 @@ verify_jwt = true
 [functions.artist-meta-oauth-start]
 verify_jwt = true
 
+# ABERTA por desenho: redirect OAuth do browser vindo da Meta; valida o state no código.
 [functions.artist-meta-oauth-callback]
 verify_jwt = false
 
@@ -97,12 +99,14 @@ verify_jwt = true
 [functions.artist-instagram-oauth-start]
 verify_jwt = true
 
+# ABERTA por desenho: redirect OAuth do browser vindo do Instagram; valida o state no código.
 [functions.artist-instagram-oauth-callback]
 verify_jwt = false
 
 [functions.artist-ads-meta-oauth-start]
 verify_jwt = true
 
+# ABERTA por desenho: redirect OAuth do browser vindo da Meta (Ads); valida o state no código.
 [functions.artist-ads-meta-oauth-callback]
 verify_jwt = false
 
@@ -136,6 +140,7 @@ verify_jwt = true
 [functions.artist-tiktok-oauth-start]
 verify_jwt = true
 
+# ABERTA por desenho: redirect OAuth do browser vindo do TikTok; valida o state no código.
 [functions.artist-tiktok-oauth-callback]
 verify_jwt = false
 
@@ -219,8 +224,9 @@ verify_jwt = true
 [functions.crm-google-video-publish-activate]
 verify_jwt = true
 
+# #283 parte 6: só cron (service role verificada) ou sessão de utilizador — portão ligado.
 [functions.crm-google-video-metrics-sync]
-verify_jwt = false
+verify_jwt = true
 
 # Sonda de diagnóstico para o TikTok Artists (artists.tiktok.com).
 # Só leitura: não escreve em tabelas nem cria sync_runs/crons.
@@ -251,6 +257,7 @@ verify_jwt = true
 [functions.artist-youtube-oauth-start]
 verify_jwt = true
 
+# ABERTA por desenho: redirect OAuth do browser vindo da Google; valida o state no código.
 [functions.artist-youtube-oauth-callback]
 verify_jwt = false
 
@@ -269,6 +276,7 @@ verify_jwt = true
 [functions.artist-song-youtube-public-sync]
 verify_jwt = true
 
+# ABERTA por desenho: beacon público do portal (sendBeacon, sem cabeçalhos); empresa resolvida no servidor.
 [functions.song-link-event]
 verify_jwt = false
 
@@ -278,11 +286,13 @@ verify_jwt = true
 [functions.artist-ads-meta-create-ig-engagement-audience]
 verify_jwt = true
 
+# ABERTA por desenho: tarefa agendada externa (Cowork) sem sessão; x-ingest-key em tempo constante + allowlist de ligações.
 [functions.artist-ads-tiktok-manual-ingest]
 verify_jwt = false
 
+# #283 parte 6: só cron (service role verificada) ou sessão de utilizador — portão ligado.
 [functions.artist-ads-period-analysis]
-verify_jwt = false
+verify_jwt = true
 
 
 [functions.ticketline-crosscheck]
@@ -295,6 +305,7 @@ verify_jwt = true
 [functions.crm-tiktok-oauth-start]
 verify_jwt = true
 
+# ABERTA por desenho: redirect OAuth do browser vindo do TikTok Marketing API; valida o state no código.
 [functions.crm-tiktok-oauth-callback]
 verify_jwt = false
 
