@@ -393,6 +393,13 @@
       "when": 1791571807443,
       "tag": "0055_crm_diagnosis_target_roas_nullable",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1791584216619,
+      "tag": "0056_bp_grid_atomic_save",
+      "breakpoints": true
     }
   ]
 }
