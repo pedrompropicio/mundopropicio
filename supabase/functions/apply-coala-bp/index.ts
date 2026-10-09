@@ -18,6 +18,19 @@ import {
 } from "../_shared/coalaParser.ts";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
 
+// D-ERP201: criação de fornecedor pela regra única da base. NIF igual a um ativo
+// reutiliza; nome parecido cria e regista em supplier_similarity_flags.
+async function resolveSupplierFlagged(
+  admin: any, companyId: string, name: string, counter: { n: number },
+): Promise<{ id: string; created: boolean } | null> {
+  const { data, error } = await admin.rpc("_supplier_resolve_or_create", {
+    p_company_id: companyId, p_name: name, p_nif: null, p_source: "apply_coala_bp",
+  });
+  if (error || !data) { console.warn("supplier resolve failed", name, error?.message); return null; }
+  if (Number(data.flagged ?? 0) > 0) counter.n++;
+  return { id: data.id, created: !!data.created };
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -982,14 +995,12 @@ Deno.serve(async (req) => {
         }
       }
       const newSupplierIds: string[] = [];
+      const flaggedCounter = { n: 0 };
       for (const rawName of neededSuppliers) {
         const name = String(rawName || "").trim().toUpperCase();
         if (!name || supByName.has(name)) continue;
-        const { data: ins } = await admin
-          .from("suppliers")
-          .insert({ name, company_id: ev.company_id, is_active: true })
-          .select("id").single();
-        if (ins) { supByName.set(name, ins.id); newSupplierIds.push(ins.id); }
+        const ins = await resolveSupplierFlagged(admin, ev.company_id, name, flaggedCounter);
+        if (ins) { supByName.set(name, ins.id); if (ins.created) newSupplierIds.push(ins.id); }
       }
 
       // BR partner heuristic (defense in depth — should already be 'review')
@@ -1024,6 +1035,7 @@ Deno.serve(async (req) => {
         txDeleted: 0,
         txAmountUpdated: 0,
         suppliersCreated: newSupplierIds.length,
+        suppliersFlagged: flaggedCounter.n,
         anchorsUpserted: 0,
         anchorsErrors: 0,
         skipped: [] as Array<{ kind: string; reason: string; id?: string; rowNumber?: number }>,
@@ -1756,6 +1768,7 @@ Deno.serve(async (req) => {
       // Re-importar com mapa preservado
       const importBatchId = crypto.randomUUID();
       const newSupplierIds: string[] = [];
+      const flaggedCounter = { n: 0 };
       const distinctSuppliers = new Set<string>();
       for (const r of parsed.rows) {
         if (r.excluded) continue;
@@ -1764,11 +1777,8 @@ Deno.serve(async (req) => {
       for (const rawName of distinctSuppliers) {
         const name = String(rawName || "").trim().toUpperCase();
         if (!name || supByName.has(name)) continue;
-        const { data: ins } = await admin
-          .from("suppliers")
-          .insert({ name, company_id: ev.company_id, is_active: true })
-          .select("id").single();
-        if (ins) { supByName.set(name, ins.id); newSupplierIds.push(ins.id); }
+        const ins = await resolveSupplierFlagged(admin, ev.company_id, name, flaggedCounter);
+        if (ins) { supByName.set(name, ins.id); if (ins.created) newSupplierIds.push(ins.id); }
       }
 
       const formalidadeMap: Record<string, string> = {
@@ -2134,6 +2144,7 @@ Deno.serve(async (req) => {
           forecastsCreated: createdForecastIds.length,
           transactionsCreated: createdTransactionIds.length,
           suppliersCreated: newSupplierIds.length,
+        suppliersFlagged: flaggedCounter.n,
           deletedForecasts: (existingFcs || []).length,
           deletedTransactions: txIds.length,
           preservedTransactions: preservedTx.length,
@@ -2165,6 +2176,7 @@ Deno.serve(async (req) => {
 
     // Create new suppliers
     const newSupplierIds: string[] = [];
+      const flaggedCounter = { n: 0 };
     const distinctSuppliers = new Set<string>();
     for (const r of parsed.rows) {
       if (r.excluded) continue;
@@ -2173,16 +2185,8 @@ Deno.serve(async (req) => {
     for (const rawName of distinctSuppliers) {
       const name = String(rawName || "").trim().toUpperCase();
       if (!name || supByName.has(name)) continue;
-      const { data: ins, error: e } = await admin
-        .from("suppliers")
-        .insert({ name, company_id: ev.company_id, is_active: true })
-        .select("id")
-        .single();
-      if (e) console.warn("supplier insert failed", name, e.message);
-      else if (ins) {
-        supByName.set(name, ins.id);
-        newSupplierIds.push(ins.id);
-      }
+      const ins = await resolveSupplierFlagged(admin, ev.company_id, name, flaggedCounter);
+      if (ins) { supByName.set(name, ins.id); if (ins.created) newSupplierIds.push(ins.id); }
     }
 
     // BP snapshot (auto)
@@ -2419,6 +2423,7 @@ Deno.serve(async (req) => {
         forecastsSkipped: skippedForecasts.length,
         transactionsSkipped: skippedTransactions.length,
         suppliersCreated: newSupplierIds.length,
+        suppliersFlagged: flaggedCounter.n,
         excludedAB: pendencies.excludedAB,
         pendencies,
         totals: parsed.totals,
