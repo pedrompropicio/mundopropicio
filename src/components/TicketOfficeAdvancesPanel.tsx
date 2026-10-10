@@ -271,7 +271,7 @@ export function TicketOfficeAdvancesPanel({ officeId, officeName }: Props) {
         <div>
           <h3 className="text-lg font-semibold">Adiantamentos por Evento</h3>
           <p className="text-sm text-muted-foreground">
-            Histórico (só leitura, #303). Os repasses novos registam-se no Apuramento Ticketline.
+            Histórico do modelo anterior (só leitura, #303). A atribuição por evento não tem valor probatório: os repasses da Ticketline são genéricos e leem-se no Apuramento Ticketline, sem evento.
           </p>
         </div>
         {/* #303: histórico só de leitura — a base recusa escrita nova. */}
@@ -282,18 +282,11 @@ export function TicketOfficeAdvancesPanel({ officeId, officeName }: Props) {
         )}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3">
         <div className="glass rounded-xl p-4">
           <p className="text-xs text-muted-foreground uppercase">Total registado</p>
           <p className="text-2xl font-mono font-bold mt-1">
             {formatCurrency(advances.reduce((s: number, a: any) => s + Number(a.amount), 0))}
-          </p>
-        </div>
-        <div className="glass rounded-xl p-4">
-          <p className="text-xs text-muted-foreground uppercase">Pendente de fecho</p>
-          <p className="text-2xl font-mono font-bold mt-1 text-amber-500">{formatCurrency(totalPending)}</p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Será abatido automaticamente nos fechos dos respetivos eventos.
           </p>
         </div>
       </div>
@@ -315,11 +308,6 @@ export function TicketOfficeAdvancesPanel({ officeId, officeName }: Props) {
                 </div>
                 <div className="text-right shrink-0">
                   <p className="font-mono font-bold text-lg">{formatCurrency(g.total)}</p>
-                  {g.pending > 0 && (
-                    <p className="text-[11px] text-amber-500">
-                      {formatCurrency(g.pending)} por abater
-                    </p>
-                  )}
                 </div>
               </div>
               <ul className="divide-y divide-border/60 rounded-md border border-border">
@@ -335,15 +323,9 @@ export function TicketOfficeAdvancesPanel({ officeId, officeName }: Props) {
                             <ArrowRight className="h-3 w-3" /> {a.target_account.name}
                           </span>
                         )}
-                        {a.settlement_id ? (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-500">
-                            <CheckCircle2 className="h-3 w-3" /> Abatido no fecho
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-500">
-                            <Banknote className="h-3 w-3" /> Pendente
-                          </span>
-                        )}
+                        <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          <Banknote className="h-3 w-3" /> Registo histórico (modelo anterior)
+                        </span>
                       </div>
                       {a.notes && (
                         <p className="text-xs text-muted-foreground mt-0.5 truncate">{a.notes}</p>
