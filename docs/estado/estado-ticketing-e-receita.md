@@ -48,6 +48,34 @@ Nada em curso.
 - **NÃO existe percentagem de referência da Ticketline.** Há um acordo verbal de repasse em torno de 85% das vendas do período, nunca exacto, com arredondamentos e mutável a qualquer momento. Não serve de base a cálculo nem a alarme.
 - **Fecho = direito do evento (D-ERP232); nunca abate adiantamentos.** Os 25 adiantamentos da Ticketline (2.008.500,00) têm transaction_id e settlement_id; `_ticket_office_balance_raw` só subtrai os que têm os dois a NULL — por isso a tabela é só leitura (INSERT/UPDATE/DELETE) e tem CHECK que impede ficar com os dois a NULL.
 
+- **O saldo RETIDO numa bilheteira já É a posição actual.** Não se abate dele a posição do último apuramento — essa já está lá dentro. A decomposição é:
+
+  ```
+  retido = posição já apurada (pode ser negativa)
+         + vendas de eventos ainda sem fecho
+         + itens de conciliação por lançar
+  ```
+
+  Ticketline a 10/10/2026, medido às 15:27 de Lisboa:
+
+  ```
+  207.301,17 = −49.050,59 + 248.692,00 + 7.659,76
+  ```
+
+  - `−49.050,59` posição apurada até ao 3163 (negativa por causa do transitado de 271.416,37 do apuramento 2816)
+  - `248.692,00` os 8 eventos do RG, nenhum com fecho: Porto 69.603,00 · Braga 44.985,00 · Lisboa 35.660,00 · Almada 28.760,00 · Estoril 23.195,00 · Albufeira 22.040,00 · Santarém 15.745,00 · Montijo 8.704,00
+  - `7.659,76` itens de conciliação (ver abaixo)
+
+  **O que ainda reduz o retido** são SÓ as deduções dos apuramentos que faltam fazer — comissão da bilheteira, acertos de sala, faturas de campanha. NUNCA a posição já apurada, que já está dentro do retido.
+
+  **Itens de conciliação** são duas coisas, e nenhuma é dinheiro a haver:
+  - faturas da bilheteira lançadas **sem conta**, que por isso ainda não baixaram o saldo. Caso actual: FT FA.2026/3159, transações 4fffa03d (6.009,78) e 015d2665 (1.384,98) = 7.394,76, ambas com account_id a null.
+  - **bilheteira local da sala**, que está nas nossas vendas mas nunca passou pela bilheteira. Caso actual: 265,00 do Forum Braga (D-ERP231).
+
+  **O erro a não repetir:** dizer que a posição do último apuramento "sai" do retido, ou que o retido não é a posição real. O retido é dinheiro verdadeiro que a bilheteira tem da Mundo Propício, e é a favor da MP.
+
+
+
 - **Linha do evento no apuramento Ticketline = a nossa bilheteira bruta − a bilheteira local da sala (D-ERP231).** Confirmado no 3163/2026: SM Porto 256.330,00 − 254.135,00 = 2.195,00 (Super Bock Arena); SM Lisboa 208.945,00 − 206.345,00 = 2.600,00 (Sagres Campo Pequeno); Deive Braga 20.659,00 − 20.394,00 = 265,00 (Forum Braga). Distinto do "ACERTO SALA", que vem em linha própria (−26.673,10 Super Bock Arena, −10.904,61 Sagres Campo Pequeno).
 
 - **Os números de fecho conferem-se sempre nos dois portais da Ticketline;** o portal do produtor é o mais assertivo. A Juliana faz conferência directa de todas as informações e vendas.
