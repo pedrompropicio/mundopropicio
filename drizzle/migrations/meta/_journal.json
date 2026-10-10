@@ -547,6 +547,13 @@
       "when": 1791640271286,
       "tag": "0077_derp231_ticket_office_statements",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1791642941482,
+      "tag": "0078_derp232_direito_do_evento",
+      "breakpoints": true
     }
   ]
 }

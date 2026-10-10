@@ -14476,6 +14476,9 @@ export type Database = {
           document_url: string | null
           event_id: string
           financial_account_id: string
+          forma_liquidacao_manual: string | null
+          forma_liquidacao_manual_notes: string | null
+          gross_adjustment_notes: string | null
           gross_revenue: number
           id: string
           net_adjusted: number | null
@@ -14511,6 +14514,9 @@ export type Database = {
           document_url?: string | null
           event_id: string
           financial_account_id: string
+          forma_liquidacao_manual?: string | null
+          forma_liquidacao_manual_notes?: string | null
+          gross_adjustment_notes?: string | null
           gross_revenue?: number
           id?: string
           net_adjusted?: number | null
@@ -14546,6 +14552,9 @@ export type Database = {
           document_url?: string | null
           event_id?: string
           financial_account_id?: string
+          forma_liquidacao_manual?: string | null
+          forma_liquidacao_manual_notes?: string | null
+          gross_adjustment_notes?: string | null
           gross_revenue?: number
           id?: string
           net_adjusted?: number | null
@@ -19789,7 +19798,10 @@ export type Database = {
           adjustment_notes: string
           event_id: string
           event_name: string
+          forma_derivada: string
           forma_liquidacao: string
+          forma_manual: string
+          forma_manual_notes: string
           gross_revenue: number
           id: string
           net_transferred: number
@@ -19798,6 +19810,8 @@ export type Database = {
           office_id: string
           office_name: string
           settlement_date: string
+          statement_id: string
+          statement_number: string
           status: string
           total_deductions: number
         }[]
