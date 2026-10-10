@@ -87,7 +87,7 @@ export default function ReportBudgetDeviation() {
     }
 
     for (const t of transactions) {
-      if (t.is_transitory || t.exclude_from_result || !t.category_id) continue;
+      if (t.is_transitory || t.exclude_from_result || (t as any).reversed_at != null || (t as any).is_hidden === true || !t.category_id) continue;
       const cat = lookup[t.category_id];
       if (!cat) continue;
       const key = cat.groupCode;
