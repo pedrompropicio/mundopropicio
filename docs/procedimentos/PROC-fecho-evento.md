@@ -107,6 +107,8 @@ where f.event_id = ':EVENTO' and f.version_id is null and f.iva_rate <> 0
 
 ## Passo 5 — Rubricas sem transação, por ordenador
 
+> **Desde #239 (D-ERP131) a revisão faz-se em Business Plan → Verba por usar**, linha a linha: Pago · A pagar · Saldo por linha, candidatas a vincular e uma decisão por linha (fatura por chegar / pago por sócio / ajustar previsto), antes do selo (passo 10). A query abaixo fica só como conferência por ordenador.
+
 ```sql
 select coalesce(s.name,'MP') as ordenador, coalesce(ep.can_pay,true) as paga,
        count(*) as linhas, round(sum(f.amount),2) as valor
