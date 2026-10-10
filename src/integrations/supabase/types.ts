@@ -15187,8 +15187,10 @@ export type Database = {
           notes: string | null
           offset_id: string | null
           original_amount: number | null
+          outside_batch: boolean
           payment_date: string
           payment_entity: string | null
+          payment_list_id: string | null
           payment_method: string
           payment_reference: string | null
           reversal_kind: string | null
@@ -15218,8 +15220,10 @@ export type Database = {
           notes?: string | null
           offset_id?: string | null
           original_amount?: number | null
+          outside_batch?: boolean
           payment_date: string
           payment_entity?: string | null
+          payment_list_id?: string | null
           payment_method?: string
           payment_reference?: string | null
           reversal_kind?: string | null
@@ -15249,8 +15253,10 @@ export type Database = {
           notes?: string | null
           offset_id?: string | null
           original_amount?: number | null
+          outside_batch?: boolean
           payment_date?: string
           payment_entity?: string | null
+          payment_list_id?: string | null
           payment_method?: string
           payment_reference?: string | null
           reversal_kind?: string | null
@@ -15284,6 +15290,13 @@ export type Database = {
             columns: ["offset_id"]
             isOneToOne: false
             referencedRelation: "transaction_offsets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_payments_payment_list_id_fkey"
+            columns: ["payment_list_id"]
+            isOneToOne: false
+            referencedRelation: "payment_lists"
             referencedColumns: ["id"]
           },
           {
