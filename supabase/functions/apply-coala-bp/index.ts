@@ -15,6 +15,8 @@ import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import {
   parseCoalaXlsx,
   buildValidationReport,
+  normCentroCusto,
+  FALLBACK_CATEGORY_CODE,
   type ParsedRow,
 } from "../_shared/coalaParser.ts";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
@@ -116,15 +118,28 @@ Deno.serve(async (req) => {
       .eq("company_id", ev.company_id)
       .eq("is_active", true);
     const allCats = cats || [];
-    const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
-    const fallback = allCats.find((c: any) => c.code === "0.0.99")
-      ?? allCats.find((c: any) => c.code === "2.6.08");
-    if (!fallback) return json({ error: "Categoria fallback 0.0.99/2.6.08 não existe" }, 500);
+    // #230 — normalização partilhada (trim + espaços + acentos NFKD + minúsculas).
+    const norm = normCentroCusto;
+    // #230 — fallback é SEMPRE 0.0.99 A Classificar (nunca 2.6.08 Despesas Extras).
+    const fallback = allCats.find((c: any) => c.code === FALLBACK_CATEGORY_CODE);
+    if (!fallback) return json({ error: `Categoria fallback ${FALLBACK_CATEGORY_CODE} não existe` }, 500);
+    // #230 — o fallback nunca é silencioso: conta por Centro Custo bruto.
+    const ccFallback = new Map<string, { count: number; net: number }>();
+    const noteFallback = (cc: string | null, net = 0): string => {
+      const k = cc ?? "(sem Centro Custo)";
+      const e = ccFallback.get(k) ?? { count: 0, net: 0 };
+      e.count++; e.net = Math.round((e.net + (Number(net) || 0)) * 100) / 100;
+      ccFallback.set(k, e);
+      return fallback.id;
+    };
+    const ccFallbackReport = () => ({
+      total: Array.from(ccFallback.values()).reduce((a, e) => a + e.count, 0),
+      byCentroCusto: Array.from(ccFallback.entries()).map(([cc, e]) => ({ cc, ...e })).sort((a, b) => b.count - a.count),
+    });
 
-    const categoryFor = (cc: string | null): string => {
-      if (!cc) return fallback.id;
-      const m = allCats.find((c: any) => c.parent_id != null && norm(c.name) === norm(cc));
-      return m?.id ?? fallback.id;
+    const categoryFor = (cc: string | null, net = 0): string => {
+      const m = cc ? allCats.find((c: any) => c.parent_id != null && norm(c.name) === norm(cc)) : null;
+      return m?.id ?? noteFallback(cc, net);
     };
 
     // Pre-load suppliers
@@ -1014,7 +1029,7 @@ Deno.serve(async (req) => {
           const m = allCats.find((c: any) => c.parent_id != null && norm(c.name) === norm(r.rawCenterCusto || ""));
           if (m) return m.id;
         }
-        return fallback.id;
+        return noteFallback(r.rawCenterCusto, r.netAmount);
       };
 
       const audit = {
@@ -1421,7 +1436,7 @@ Deno.serve(async (req) => {
         bp_version_id: bpVersionId,
         status: audit.errors.length === 0 ? "auto_applied" : "auto_applied_with_errors",
         totals: parsed.totals, validation_report: validation,
-        pendencies_report: { auto_apply: true, basedOnRunId, audit },
+        pendencies_report: { auto_apply: true, basedOnRunId, audit, ccFallback: ccFallbackReport() },
         applied_at: new Date().toISOString(), created_by: user?.id ?? null,
       });
 
@@ -1919,7 +1934,7 @@ Deno.serve(async (req) => {
         if (xlsxCat) { fellbackToCC++; return { catId: xlsxCat.id }; }
         // 5) Fallback "0.0.99 A Classificar"
         fellbackToFallback++;
-        return { catId: fallback.id };
+        return { catId: noteFallback(r.rawCenterCusto, r.netAmount) };
       };
 
       for (const r of parsed.rows) {
@@ -2113,7 +2128,7 @@ Deno.serve(async (req) => {
         bp_version_id: bpVersionId, import_batch_id: importBatchId,
         status: reconciliation.ok ? "applied" : "applied_with_diff",
         totals: parsed.totals, validation_report: validation,
-        pendencies_report: { reset_mode: true, preservedFromMap, fellbackToCC, fellbackToFallback,
+        pendencies_report: { reset_mode: true, ccFallback: ccFallbackReport(), preservedFromMap, fellbackToCC, fellbackToFallback,
           autoLearnedExact, autoLearnedFuzzy, ccProtectedConflicts,
           rejectedLearningCount,
           autoLearnedMeta: autoLearnedMeta.slice(0, 500),
@@ -2265,7 +2280,7 @@ Deno.serve(async (req) => {
     for (const r of parsed.rows) {
       if (r.excluded) continue;
 
-      const categoryId = categoryFor(r.rawCenterCusto);
+      const categoryId = categoryFor(r.rawCenterCusto, r.netAmount);
       const supplierId = r.supplier ? supByName.get(r.supplier) ?? null : null;
 
       // ── Forecast dedupe (descrição+valor) + decisão manual/IA da fase preview
@@ -2394,7 +2409,7 @@ Deno.serve(async (req) => {
         status: "applied",
         totals: parsed.totals,
         validation_report: validation,
-        pendencies_report: pendencies,
+        pendencies_report: { ...pendencies, ccFallback: ccFallbackReport() },
         created_transaction_ids: createdTransactionIds,
         created_forecast_ids: createdForecastIds,
         created_supplier_ids: newSupplierIds,

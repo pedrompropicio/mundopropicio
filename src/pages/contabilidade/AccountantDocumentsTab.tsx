@@ -19,7 +19,7 @@ import { fetchReviewsForTransactions, saveAccountantReview, reopenAccountantRevi
 import { useAuth } from "@/contexts/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, AlertTriangle, MessageSquare, Lock, RotateCcw } from "lucide-react";
-import { nonAccountingOrFilter, normalizeAccountFilter } from "@/lib/accountant-account-filter";
+import { fetchNonAccountingAccountIds, nonAccountingOrFilter, normalizeAccountFilter } from "@/lib/accountant-account-filter";
 
 interface Tx {
   id: string;
@@ -65,12 +65,8 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
     queryKey: ["accountant-non-accounting-accounts", companyId],
     enabled: !!companyId,
     queryFn: async (): Promise<string[]> => {
-      const { data } = await (supabase as any)
-        .from("financial_accounts")
-        .select("id")
-        .eq("company_id", companyId)
-        .eq("is_accounting", false);
-      return (data ?? []).map((a: any) => a.id as string);
+      // Mesmo helper que o generate-accountant-zip (lista única, #235).
+      return fetchNonAccountingAccountIds(supabase as any, companyId!);
     },
   });
 
@@ -107,19 +103,27 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
     },
   });
 
-  const { data: accounts } = useQuery({
+  const { data: allAccounts } = useQuery({
     queryKey: ["accountant-accounts", companyId],
     enabled: !!companyId,
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("financial_accounts")
-        .select("id, name, is_accounting")
+        .select("id, name")
         .eq("company_id", companyId)
         .order("name");
-      return ((data ?? []) as { id: string; name: string; is_accounting: boolean | null }[])
-        .filter((a) => a.is_accounting !== false);
+      return (data ?? []) as { id: string; name: string }[];
     },
   });
+  // Dropdown: sem as gerenciais, pela MESMA lista que exclui as linhas (#235).
+  const accounts = useMemo(
+    () => (nonAccountingIds ? (allAccounts ?? []).filter((a) => !nonAccountingIds.includes(a.id)) : undefined),
+    [allAccounts, nonAccountingIds],
+  );
+  const accountNameById = useMemo(
+    () => new Map((allAccounts ?? []).map((a) => [a.id, a.name] as const)),
+    [allAccounts],
+  );
 
   const txIds = useMemo(() => (data ?? []).map((t) => t.id), [data]);
 
@@ -341,6 +345,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
                 <th className="p-2">Descrição</th>
                 <th className="p-2 cursor-pointer" onClick={() => toggleSort("supplier_name")}>Fornecedor</th>
                 <th className="p-2">NIF</th>
+                <th className="p-2">Conta</th>
                 <th className="p-2 text-right cursor-pointer" onClick={() => toggleSort("amount")}>Valor</th>
                 <th className="p-2">Nº Doc</th>
                 <th className="p-2">Anexos</th>
@@ -350,9 +355,9 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={9} className="p-6 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin inline mr-2" />A carregar…</td></tr>
+                <tr><td colSpan={10} className="p-6 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin inline mr-2" />A carregar…</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={9} className="p-6 text-center text-muted-foreground">Sem transações no período.</td></tr>
+                <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">Sem transações no período.</td></tr>
               ) : rows.map((t) => (
                 <tr key={t.id} className="border-t hover:bg-muted/30">
                   <td className="p-2 whitespace-nowrap">{t.payment_date ? format(new Date(t.payment_date), "dd/MM/yyyy") : "—"}</td>
@@ -366,6 +371,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
                   </td>
                   <td className="p-2">{t.supplier_name ?? "—"}</td>
                   <td className="p-2">{t.supplier_nif ?? "—"}</td>
+                  <td className="p-2 whitespace-nowrap">{(t.account_id && accountNameById.get(t.account_id)) ?? "—"}</td>
                   <td className="p-2 text-right whitespace-nowrap">{fmtEUR(Number(t.amount))}</td>
                   <td className="p-2">{t.invoice_ref ?? "—"}</td>
                   <td className="p-2">

@@ -19,7 +19,7 @@ export const EXCLUDED_CC = [
   "alimento",
 ];
 
-export const FALLBACK_CATEGORY_CODE = "0.0.99"; // "A classificar"
+export { FALLBACK_CATEGORY_CODE, normCentroCusto } from "./coala-centro-custo.ts";
 
 const FORMALIDADE_MAP: Array<[RegExp, string]> = [
   [/^fechad/, "Fechado"],
@@ -107,7 +107,9 @@ export interface ParseResult {
 // ─────────────────────────────────────────────────────────────────────
 const norm = (s: any): string =>
   String(s ?? "")
-    .normalize("NFKC")
+    // #230 — NFKD (não NFKC): só a decomposição separa o acento da letra e
+    // deixa o replace seguinte removê-lo ("Artístico" → "artistico").
+    .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[\u200B-\u200F\u2060\uFEFF]/g, "")
     .replace(/[\u00AD\u034F\u17B4\u17B5]/g, "")
