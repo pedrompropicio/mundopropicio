@@ -171,6 +171,9 @@ Se houve movimento depois da última planilha, **regerar antes de mostrar a algu
 
 ## Passo 10 — Selar o fechamento
 
+> (#89) Ao selar a raiz, o sistema colhe automaticamente os benchmarks do Simulador (curva de vendas D-180…D0 e per capita A&B). Pode repetir-se no botão "Colher benchmarks" do Fecho — é idempotente.
+> (#88) Se o Fecho mostrar "Fecho incompleto" (sem sócios, sem BP aprovado ou sem receita), resolver antes de selar. Numa cidade de turnê o acerto com os sócios da turnê faz-se no Fecho do Master.
+
 Depois de as duas conferências (C1 receitas, C2 sócios) fecharem a **0,00 €** e
 antes de mostrar qualquer documento ao sócio:
 
