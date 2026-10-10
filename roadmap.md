@@ -18,7 +18,7 @@
 - [x] Actualizar estado e comentar #303 sem fechar; confirmação fica para Pedro (comentário 6099594598, issue aberta verificada).
 
 ## Smart links — chegada SSR (despacho D-ERP189)
-- [ ] D-ERP234 adenda: aceitar SSR sem IP válido, deploy e prova HTTP 200/origin ssr, sem DDL.
+- [x] D-ERP234 adenda: deploy e prova Live sem client_ip, UA vazio: 200, origin ssr, hash/geo null, other; 24 testes passaram. Meta tentou sem IP (400 nesta prova sem UA/cookies), TikTok enviado; sem DDL.
 - [x] D-ERP234: migração 0080 aplicada, função implantada, 11 testes focados passaram; Live: 401 sem escrita, browser/repetição uma linha, Meta/TikTok enviados, cookie completado; segredo não criado.
 - [ ] Provar SSR válida, repetição browser e prefetch autenticado — bloqueado por SONG_LINK_SSR_KEY, que Pedro configura igual no ERP e Portal.
 
