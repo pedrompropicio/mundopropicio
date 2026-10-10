@@ -390,11 +390,11 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         .order("created_at", { ascending: false }));
       let ownPayments: OwnSettlementPayment[] = [];
       if (ownPaymentIds.length > 0) {
-        const { data: pays, error: paysErr } = await (supabase as any)
+        const { data: pays } = await fetchAllPagedQuery((supabase as any)
           .from("transaction_payments")
           .select("id, transaction_id, amount")
-          .in("id", ownPaymentIds);
-        if (paysErr) throw paysErr;
+          .in("id", ownPaymentIds)
+          .order("id"));
         ownPayments = (pays || []) as OwnSettlementPayment[];
       }
       const list = (data || []).map((t: any) => {
