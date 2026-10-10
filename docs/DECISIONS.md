@@ -5433,3 +5433,12 @@ Customer Match:
 - Linha da diferença e detalhe só aparecem se valor absoluto >=0,01; abaixo disso não há linha, sucesso nem visto. Componente preservado.
 - Execução parada: tentativa atómica falhou na validação das parcelas (530,00 > 265,00), integralmente anulada e verificada em Live. Zero novas transacções; saldos e registos protegidos intactos. Requisito aprovado, não implementado nesta tentativa; não alterar mecanismos de pagamento para contornar a validação.
 - Entrega de tarefas confirma-se com `list_messages`, nunca por `get_project.agentFinished`: estado partilhado entre chats não identifica a frente. Timeout desta frente em 10/10/2026 coincidiu com conclusão de tarefas de audience e criou falsa impressão de execução.
+
+## D-ERP236 — Bilheteira local retida pela sala (10/10/2026)
+
+- Quando a sala vende bilheteira local e retém o valor, o fecho da Ticketline traz esse valor como retido pela sala e NÃO o paga em dinheiro. O registo é um par de transferência interna 10.3 (`expense` + `income`, `exclude_from_result = true` nas duas pernas, nunca `type='transfer'`) da conta da bilheteira para a conta de acerto da turnê, mais a comissão da sala como despesa normal contra o fornecedor da sala, essa a entrar no resultado.
+- Sem isto o saldo da conta de bilheteira fica inflacionado pelo valor retido e aparece como diferença no card. Precedente de forma: par Anitta EIN `f4c66167` / `0ac1e3d2`.
+- Caso de origem: Deive Leonardo Braga, 265,00 retidos pelo Fórum Braga + 6,15 de comissão IB, lançados em 10/10/2026. Transferência `78489f4b` / `38380a2b`; comissão `e3e0e028`. A devolução de 258,85 só se regista quando recebida; não foi antecipada.
+- Travas usam apenas VARIAÇÕES de saldos lidos na mesma operação, nunca saldos absolutos numa bilheteira com vendas em curso: Ticketline −265,00; Acerto +258,85; impacto no resultado −6,15; diferença dos cartões 0,00. Apuramento 3163 −49.050,59 e respectivas linhas, fecho draft com direito 20.384,11 e 25 adiantamentos / 2.008.500,00 / zero sem vínculo preservados.
+- A observação e o detalhe da diferença só renderizam com `Math.abs(diferenca) >= 0.01`; com zero o cartão apresenta o título e saldo, sem observação, mensagem de sucesso ou visto. Fórmula, restantes cartões e modal de fecho inalterados.
+- Identificador D-ERP236 mantido conforme pedido do Pedro; esta entrada é da frente ticketing-e-receita, distinta da entrada anterior sobre investimento em tráfego.
