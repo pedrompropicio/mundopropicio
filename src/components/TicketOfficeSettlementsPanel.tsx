@@ -197,9 +197,9 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                           </span>
                         )
                       )}
-                      {s.status === "confirmed" && Number(s.net_transferred || 0) === 0 && Number(netFinal || 0) > 0.01 && (
+                      {s.status === "confirmed" && !s.statement_id && Number(s.net_transferred || 0) === 0 && Number(netFinal || 0) > 0.01 && (
                         <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-2 py-0.5 text-xs text-amber-500" title="Fecho confirmado sem transferência lançada — o líquido continua retido na bilheteira.">
-                          <AlertCircle className="h-3 w-3" /> Líquido ainda retido na bilheteira
+                          <AlertCircle className="h-3 w-3" /> Direito ainda retido na bilheteira
                         </span>
                       )}
                     </div>
@@ -268,7 +268,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                     <p className="font-mono font-semibold text-red-400">−{formatCurrency(Number(s.total_deductions))}</p>
                   </div>
                   <div className="rounded-lg bg-secondary/40 p-2 text-center">
-                    <p className="text-[10px] text-muted-foreground uppercase">Líquido</p>
+                    <p className="text-[10px] text-muted-foreground uppercase">Direito do evento</p>
                     <p className={`font-mono font-semibold ${netFinal >= 0 ? "text-emerald-500" : "text-red-400"}`}>
                       {formatCurrency(Number(netFinal))}
                     </p>
