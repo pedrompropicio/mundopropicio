@@ -12,7 +12,7 @@ Atualizado: 2026-10-10 · #303 entregue parcialmente, permanece aberta · Issues
 
 ## A trabalhar agora
 
-Nada em curso.
+Fórum Braga — desdobramento autorizado, parado na conferência prévia: a conta Acerto Turnê · Deive Leonardo Europa já tem saldo canónico 632,19 (saldo inicial 0, movimentos 632,19, ajustes 0). Receber 265,00 e pagar 6,15 deixaria 891,04, não os 258,85 exigidos na trava. Nenhuma transacção criada, nenhuma alteração ao ecrã. Comissão SM Lisboa conferida (2.6.07, base 49,06, IVA 23%); Braga não tem linha BP nessa rubrica, não criar por iniciativa própria. Aguarda decisão do Pedro sobre o saldo esperado; não corrigir movimentos anteriores nem mudar de conta sem autorização.
 
 ## Bloqueios
 

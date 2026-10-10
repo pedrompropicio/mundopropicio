@@ -1,5 +1,10 @@
 # Roadmap — épica #146 (e)
 
+## Fórum Braga — bilheteira local (Pedro, 10/10/2026)
+- [ ] BLOQUEADO: saldo canónico da conta de acerto já é 632,19; lançamentos previstos dariam 891,04, não 258,85. Pedro pediu parar em divergência; nenhuma escrita financeira feita. Comissão SM conferida; sem linha BP 2.6.07 no Braga.
+- [ ] Diferença condicional com tolerância <0,01; testar desaparecimento e registar decisão/factos.
+- [ ] Devolução 258,85 aguarda recebimento; pendência da Délia, não lançar agora.
+
 ## Folha de crescimento — período de comparação (D-ERP235 autorizada)
 - [x] Acrescentar p_from preservando resultado integral sem período; autorizado sem novas confirmações.
 - [x] Testar MD5 integral na mesma transacção e bases/deltas de 7 e 28 dias; documentar decisão e commits.
