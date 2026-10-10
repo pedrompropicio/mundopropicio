@@ -7,7 +7,7 @@ type: feature
 # Event Financial Cards — Receitas & Custos no EventDetail
 
 ## Visão geral
-Substitui os 2 StatCards estáticos (`Receitas`, `Despesas`) por `<EventFinancialCard>` com 3 modos comutáveis pelo utilizador via dropdown ⚙️ no canto do card. O card `Lucro` reage automaticamente aos displayValues escolhidos (via `onValueChange`).
+Substitui os 2 StatCards estáticos (`Receitas`, `Despesas`) por `<EventFinancialCard>` com 3 modos comutáveis pelo utilizador via dropdown ⚙️ no canto do card. O card "Resultado do evento (antes de impostos)" (ex-Lucro) mostra Receitas − Custos nas vistas dos dois cards (IVA e perímetro); por baixo, "Base do contrato (fecho): X €" (computeContractBasisResult). Sem aviso ⚠ e sem toggle EBITDA (adenda D-ERP213, 10/10/2026). Linhas de IRC (ebitda_class imposto_rendimento) não entram nos cards.
 
 ## 3 modos
 - **Realizado** — lógica histórica (paid+approved, hasTicketSales replace, masterExpenseShare, cacheImpact). Sub-totais:
