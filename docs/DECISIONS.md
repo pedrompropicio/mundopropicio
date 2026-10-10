@@ -5273,3 +5273,19 @@ Decisões do Pedro: (1) aceitar transitória como saída ao sócio? (2) sede do 
 - Reparação (1 linha): ca803e97 "CUSTO 2026 - Serviços Jurídicos" (Coala Festival Portugal 2027) — âncora 199695a4 → 51d56dfc.
 - Os 10 casos Master↔cidade de 10/10 (9 Deive Leonardo, 1 SM - Porto) NÃO foram tocados: ficam com os chats dos eventos (mover para o Master ou ligar a linha da cidade).
 - Frontend: isBpLinkAllowedForEvent espelha a regra; a nova transação deixa de oferecer linhas do Master numa cidade; LinkBpLineDialog já só lia linhas do evento da transação.
+
+## D-ERP226 (10/10/2026) — #281 Liquidar lista só liquida o que foi no lote SEPA
+- Já existia (07/10): BatchPaymentModal separa "Foram no ficheiro SEPA" de "Pagas por outro canal" (desselecionadas, uma a uma). Critério: UNIÃO dos transaction_ids de payment_list_sepa_exports da lista (é o que viajou de facto no banco); lista sem exportação → só `transfer` com IBAN resolvível. Escolhido o critério da exportação porque uma `transfer` sem IBAN ou excluída do ficheiro também não saiu no lote.
+- Novo (migração 0075): transaction_payments.payment_list_id + outside_batch; trigger BEFORE INSERT enforce_payment_list_batch_channel (SECURITY DEFINER, sem EXECUTE para anon/authenticated): liquidação com payment_list_id exige item ativo na lista e (com exportação) estar no ficheiro, (sem exportação) payment_method='transfer' — salvo outside_batch=true, que só o ecrã envia para as linhas escolhidas uma a uma. Liquidações avulsas (payment_list_id NULL) não mudam. Verificado em Live com rollback: service_payment sem outside_batch → 22023; com outside_batch → passa.
+- Ecrã da lista: chips por método (n.º de linhas e valor c/IVA); métodos fora do lote a âmbar "uma a uma".
+- Raio de alcance (Live 10/10, linhas ativas em listas aprovadas, não-transfer, com pagamento posterior à aprovação; o sistema não registava a origem, por isso inclui também as liquidadas uma a uma de propósito): 34 transações em 26 listas, 0 delas em exportação SEPA — service_payment 13, state_payment 21.
+- 40da4765 (72,33) e fe18ebe5 (65,65): os pagamentos de 17/09 e 22/09 já estão `cancelled`; ambas foram repagas a 09/10/2026 (payment_method agora `transfer`, b22a0c57 e 42a2558f). NÃO corrigido. Só se o pagamento de 09/10 também não tiver movimento no banco:
+  UPDATE transaction_payments SET status='cancelled' WHERE id IN ('b22a0c57-e104-4e0a-915d-903006f4296e','42a2558f-07f8-4b46-921b-9b8e08718f34');
+  -- o trigger sync_paid_amount_from_payments recalcula paid_amount/status/payment_date; confirmar:
+  SELECT id,status,paid_amount,payment_date FROM transactions WHERE id::text LIKE '40da4765%' OR id::text LIKE 'fe18ebe5%';
+  -- esperado: status='approved', paid_amount=0, payment_date NULL. Se não, UPDATE transactions SET status='approved', paid_amount=0, payment_date=NULL WHERE id IN (<ids completos>);
+
+## D-ERP227 (10/10/2026) — #206 Barreira dos 1.000: já existia
+- Helper fetchAllPaged/fetchAllPagedQuery (src/lib/supabase-paging.ts, gémeo _shared/paging.ts), lista src/lib/postgrest-large-tables.json e teste src/lib/__tests__/postgrest-row-limit.test.ts (#205/#207 18/09, #289 10/10) — não reescritos. Teste passa (corrigido SplitByBpLinesModal na tarefa anterior).
+- Auditados 916 `.from()` das 20 tabelas vigiadas: 0 sem paginação/RPC; exceções: nenhuma lista explícita — só os escapes do teste (.single/.maybeSingle/count:/.limit/.range/.rpc e escritas).
+- Achado (não corrigido, lote próprio): 26 tabelas acima de 1.000 em Live fora da lista (meta_creatives 4.115, meta_ad_snapshot 6.668, meta_*_insights_daily, artist_content*, lead_capture, email_send_log…). Acrescentá-las faz o teste acusar 75 leituras em 23 ficheiros (CRM/Meta e _shared/campaign-brief, artist-song-snapshot). Não entraram na lista para não partir o CI.

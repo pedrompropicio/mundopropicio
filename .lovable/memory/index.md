@@ -31,6 +31,7 @@ Uma linha por tema, por frente: pergunta → ficheiros (mem://pasta/ficheiro). S
 
 **Transversal**
 - Onde registar regras sem criar ficheiros na raiz? → constraints/no-unrequested-root-files
+- Leituras de tabelas grandes (>1000)? → constraints/postgrest-1000-barrier
 - Invariantes e vigias? → features/invariant-monitor
 - Como se aplica DDL / crons? → constraints/lovable-cloud-ddl-workflow, constraints/cron-job-run-details
 - Overlays / modais por cima uns dos outros? → constraints/pilha-de-overlays

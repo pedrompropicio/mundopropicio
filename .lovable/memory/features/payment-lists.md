@@ -222,3 +222,6 @@ QUALQUER linha: protegem o razão contra CASCADE, não decidem "liquidado".
 Saldo das contas (08/10/2026): `fetchAccountCashAdjustments` e as funções SQL `_account_true_balance_raw` /
 `_account_true_balance_asof_raw` (migração 0035) só somam retenção+crédito de pagamentos paid não estornados.
 `account_true_balances_asof` delega na _asof_raw. Prova: 26 saldos iguais antes/depois.
+
+### Guarda no servidor (#281, 10/10/2026, migração 0075)
+`transaction_payments.payment_list_id` + `outside_batch`; trigger `enforce_payment_list_batch_channel`: liquidação vinda da lista só passa se a linha foi no ficheiro SEPA (ou, sem exportação, é `transfer`), salvo `outside_batch=true` (escolha explícita "outro canal"). Ecrã mostra chips por método.
