@@ -1,7 +1,7 @@
 # Roadmap — épica #146 (e)
 
 ## Fórum Braga — bilheteira local (Pedro, 10/10/2026)
-- [ ] BLOQUEADO: saldo canónico da conta de acerto já é 632,19; lançamentos previstos dariam 891,04, não 258,85. Pedro pediu parar em divergência; nenhuma escrita financeira feita. Comissão SM conferida; sem linha BP 2.6.07 no Braga.
+- [ ] PARADO: tentativa atómica anulada por validação de parcelas (530,00 > 265,00 ao inserir pagamento). Confirmado rollback integral: 0 novas transacções, saldos e MD5 protegidos intactos. Investigar criação automática de pagamento antes de repetir; não alterar triggers. Saldo autorizado do acerto: +258,85 até 891,04. Sem linha BP no Braga, não criar.
 - [ ] Diferença condicional com tolerância <0,01; testar desaparecimento e registar decisão/factos.
 - [ ] Devolução 258,85 aguarda recebimento; pendência da Délia, não lançar agora.
 
