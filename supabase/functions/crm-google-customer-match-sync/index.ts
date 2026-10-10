@@ -13,6 +13,15 @@ import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 const MP_COMPANY_ID = "7c858982-6ccd-47ca-bd65-e0dd3eebf01c";
 const CUSTOMER_ID = "2200043144";
 
+interface ListRow { id: string; status: string | null; raw: unknown; last_synced_at: string | null }
+
+/** Lista em erro por 403 PERMISSION_DENIED vindo da Google Ads API. */
+function isBlocked403(l: ListRow): boolean {
+  if (l.status !== "error") return false;
+  const s = JSON.stringify(l.raw ?? "");
+  return s.includes("403") && s.includes("PERMISSION_DENIED");
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -95,11 +104,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // ---------- 2) Resolver user list alvo ----------
   let targetListId: string | null = null;
+  let targetList: ListRow | null = null;
   {
     const q = admin
       .schema("crm")
       .from("google_user_list")
-      .select("id, company_id")
+      .select("id, company_id, status, raw, last_synced_at")
       .eq("company_id", MP_COMPANY_ID);
 
     if (body.user_list_id) {
@@ -109,6 +119,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       }
       if (!data) return json({ error: "no_user_list" }, 404);
       targetListId = (data as { id: string }).id;
+      targetList = data as ListRow;
     } else {
       const { data, error } = await q
         .order("created_at", { ascending: true })
@@ -120,43 +131,46 @@ Deno.serve(async (req: Request): Promise<Response> => {
         return json({ error: "no_user_list" }, 404);
       }
       targetListId = (data[0] as { id: string }).id;
+      targetList = data[0] as ListRow;
     }
   }
 
-  // ---------- 3) Detetar coluna de company em public.lead_capture ----------
-  let leadCaptureHasCompany = false;
-  {
-    const { data, error } = await admin
-      .from("information_schema.columns" as never)
-      .select("column_name")
-      .eq("table_schema", "public")
-      .eq("table_name", "lead_capture");
-    if (!error && Array.isArray(data)) {
-      leadCaptureHasCompany = data.some((r: { column_name: string }) =>
-        r.column_name === "company_id"
-      );
+  // ---------- 2b) Backoff do 403 (#62, D-ERP230) ----------
+  // Lista em 'error' com 403 PERMISSION_DENIED da Google: no máximo uma tentativa
+  // por dia (o bloqueio é do lado da Google — ver D-ERP230). force=true ignora.
+  if (targetList && isBlocked403(targetList) && body.force !== true) {
+    const last = targetList.last_synced_at ? Date.parse(targetList.last_synced_at) : 0;
+    if (Date.now() - last < 24 * 3600_000) {
+      return json({
+        user_list_id: targetListId,
+        skipped: true,
+        reason: "google_403_permission_denied_backoff_24h",
+        message: "Lista bloqueada pela Google (403 ACTION_NOT_PERMITTED). Nova tentativa só 24h depois da última; ver D-ERP230.",
+        last_synced_at: targetList.last_synced_at,
+      });
     }
-    // fallback silencioso: se a query falhar, assume single-tenant (false)
   }
 
-  // ---------- 4) Ler leads elegíveis ----------
-  let query = admin
-    .from("lead_capture")
-    .select("id, email")
-    .eq("consent_email", true)
-    .not("email", "is", null)
-    .neq("email", "");
-
-  if (leadCaptureHasCompany) {
-    query = (query as never as { eq: (c: string, v: string) => typeof query })
-      .eq("company_id", MP_COMPANY_ID);
+  // ---------- 3+4) Leads elegíveis da empresa, paginados (#206) ----------
+  // Antes: sem company_id (a detecção via information_schema falhava sempre e
+  // juntava os leads de todas as empresas) e sem paginação (cortava em 1000).
+  const leads: Array<{ id: string; email: string }> = [];
+  for (let from = 0; ; from += 1000) {
+    const { data: page, error: leadsErr } = await admin
+      .from("lead_capture")
+      .select("id, email")
+      .eq("company_id", MP_COMPANY_ID)
+      .eq("consent_email", true)
+      .not("email", "is", null)
+      .neq("email", "")
+      .order("id")
+      .range(from, from + 999);
+    if (leadsErr) {
+      return json({ error: "fetch_leads_failed", detail: leadsErr.message }, 500);
+    }
+    leads.push(...((page ?? []) as Array<{ id: string; email: string }>));
+    if (!page || page.length < 1000) break;
   }
-
-  const { data: leads, error: leadsErr } = await query;
-  if (leadsErr) {
-    return json({ error: "fetch_leads_failed", detail: leadsErr.message }, 500);
-  }
-
   const eligible = leads?.length ?? 0;
 
   // ---------- 5) Normalizar + hashear + dedup (em memória, sem persistir) ----------
