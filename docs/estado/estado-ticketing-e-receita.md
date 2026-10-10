@@ -1,6 +1,6 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-10-10 (#303 apuramento Ticketline, D-ERP231) · Issues: `agora` — · `a-seguir` #206 · `depois` #73, #78 · `bloqueada` #211 (transversal, plataforma-e-infra)
+Atualizado: 2026-10-10 (#303 direito do evento no fecho, D-ERP232; apuramento Ticketline, D-ERP231) · Issues: `agora` — · `a-seguir` #206 · `depois` #73, #78 · `bloqueada` #211 (transversal, plataforma-e-infra)
 
 ## Em vigor
 
@@ -8,7 +8,8 @@ Atualizado: 2026-10-10 (#303 apuramento Ticketline, D-ERP231) · Issues: `agora`
 - **Série diária do BOL.** A validação deixou de depender só da linha TOTAL do Mapa Diário: passa a aceitar também a validação pelo total do M2 da mesma corrida (soma dos dias = M2 em quantidade e valor ao cêntimo; `validated_by = m2_total` + aviso) e recusa quando nenhum dos dois bate. Quando falha, grava `daily_debug` no `import_audit` com a janela de tokens à volta de cada ocorrência de TOTAL. Alerta novo: condição **(f)** — 6 corridas seguidas com status ≠ `success` na mesma config (warning conta), anti-spam 12h.
 - **Conferência portal de Produtores (D-ERP191/192).** Fonte = variação do occupation.xlsx; o PDF é só informativo; sinal **(g)** = "PDF parado com xlsx a mexer".
 - **A vigia não tem canal empurrado (D-ERP197, 09/10).** O único canal é o indicador do Dashboard (`TicketingDivergenceIndicator`, bloco "Por bilheteira"), por empresa activa. Mostra TODAS as condições: vermelho (a) falha persistente, (b) parado >6h, (d) captura horária parada, (f) 6 corridas sem sucesso; âmbar (e) e (g) — a (g) diz que é problema do fornecedor; (c) import desligado só informativo. Cálculo único em `ticketing_sync_conditions()`, usado pela vigia e pelo RPC do ecrã `get_ticketing_sync_status()` (filtro `row_belongs_to_current_company`). Sem email, sem WhatsApp, sem lembrete: a chave `ticketing_sync_stalled:*` deixou de existir. Cron 217 morto em definitivo.
-- **Fechos de bilheteira por evento e transversais (#271, 09/10).** Bloco "Fecho de bilheteira" no separador Bilheteira da ficha do evento; lista "Todos os fechos de bilheteira" em /bilheteiras com filtro por bilheteira e por evento. Mostra bruto, deduções, líquido, data, estado, forma de liquidação derivada (transferência própria / encontro de contas na conta-corrente / compensado / por liquidar) e sempre as notas. RPC `get_ticket_office_settlements_overview`, isolada por empresa.
+- **Fechos de bilheteira por evento e transversais (#271, 09/10; D-ERP232, 10/10).** Bloco "Fecho de bilheteira" no separador Bilheteira da ficha do evento; lista "Todos os fechos de bilheteira" em /bilheteiras com filtro por bilheteira e por evento. Mostra bruto, deduções, **direito do evento**, data, estado, forma de liquidação (derivada ou declarada à mão, as duas visíveis; inclui "Incluído no Apuramento Ticketline nº X" com ligação) e sempre as notas. RPC `get_ticket_office_settlements_overview`, isolada por empresa.
+- **Direito do evento no fecho (D-ERP232).** `net_calculated` = bruto − deduções − retido pela sala − saldo de fatura pago pela bilheteira. Adiantamentos não entram (histórico em leitura no modal). Fecho ligado a apuramento: o passo da transferência mostra a forma e a ligação, sem formulário. Ajuste da receita bruta e do direito exigem justificação.
 
 ## A trabalhar agora
 
@@ -21,6 +22,8 @@ Nada em curso.
 - **#73** — corte por tipo de bilhete.
 
 ## Fechado a 10/10/2026
+
+- **#303 — fecho mostra o direito do evento (D-ERP232).** 4 fechos migrados (Ivete 490.417,77; Anitta 2.411.336,17; SM Lisboa 194.527,58; SM Porto 226.454,85); H&K Lisboa, H&K Porto e Plenitude iguais ao cêntimo. Saldo Ticketline 207.301,17 antes e depois; net_transferred/transfer_account_id intactos; nenhum resultado de evento mudou. Adiantamentos: CHECK + trigger só-leitura também em DELETE.
 
 - **#303 passo 2 — Apuramento Ticketline (D-ERP231).** Tabelas `ticket_office_statements` + `ticket_office_statement_lines` (event_right, ticketline_invoice, venue_settlement, advance, carry_over); `ticket_office_settlements.statement_id`; `event_ticket_office_advances` só de leitura (trigger). Anitta (ed7b4b3c): as pernas 10.3 f4c66167 (905.000,00) e 43807ccb (402.836,17) passaram de dedução a repasse no apuramento 2558 — deduções 12.863,83, direito 2.411.336,17, total 2558 = 0. Apuramento 3163 em rascunho, com PDF anexado: Σ linhas −49.050,59 = total do documento; os 265,00 do Deive são a bilheteira local do Forum Braga (venue_settlement), resolvidos por documento. Nenhum resultado de evento mudou (BP, vendas e transações iguais; saldo Ticketline 207.021,17 antes e depois).
 
@@ -41,6 +44,9 @@ Nada em curso.
 - **Índice de memória** passa a ser gerado por `scripts/gen-memory-index.mjs`, com teste que falha se o ficheiro for editado à mão.
 
 ## Factos que não se reinvestigam
+
+- **NÃO existe percentagem de referência da Ticketline.** Há um acordo verbal de repasse em torno de 85% das vendas do período, nunca exacto, com arredondamentos e mutável a qualquer momento. Não serve de base a cálculo nem a alarme.
+- **Fecho = direito do evento (D-ERP232); nunca abate adiantamentos.** Os 25 adiantamentos da Ticketline (2.008.500,00) têm transaction_id e settlement_id; `_ticket_office_balance_raw` só subtrai os que têm os dois a NULL — por isso a tabela é só leitura (INSERT/UPDATE/DELETE) e tem CHECK que impede ficar com os dois a NULL.
 
 - **Linha do evento no apuramento Ticketline = a nossa bilheteira bruta − a bilheteira local da sala (D-ERP231).** Confirmado no 3163/2026: SM Porto 256.330,00 − 254.135,00 = 2.195,00 (Super Bock Arena); SM Lisboa 208.945,00 − 206.345,00 = 2.600,00 (Sagres Campo Pequeno); Deive Braga 20.659,00 − 20.394,00 = 265,00 (Forum Braga). Distinto do "ACERTO SALA", que vem em linha própria (−26.673,10 Super Bock Arena, −10.904,61 Sagres Campo Pequeno).
 

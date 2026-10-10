@@ -5362,3 +5362,12 @@ Customer Match:
 - **Regra:** a linha de cada evento no apuramento Ticketline = a nossa bilheteira bruta − o que a sala vendeu na bilheteira local. Confirmado no 3163: SM Porto 256.330,00 − 254.135,00 = 2.195,00 (Super Bock Arena); SM Lisboa 208.945,00 − 206.345,00 = 2.600,00 (Sagres Campo Pequeno); Deive Braga 20.659,00 − 20.394,00 = 265,00 (Forum Braga). Distinto do "ACERTO SALA", que o documento lista em linha própria (−26.673,10 Super Bock Arena, −10.904,61 Sagres Campo Pequeno).
 - Fora: 1158 e 2816 ainda não registados (o 3163 leva o transitado do 2816 como linha sem ligação); 120,00 do SM Porto continuam em ticket_sales; ecrã de criação; Publish.
 
+
+## D-ERP232 — Fecho de bilheteira mostra o direito do evento; forma de liquidação derivada com correcção à mão (10/10/2026, #303)
+
+**Decisão (Pedro):** o líquido do fecho deixa de abater adiantamentos. `net_calculated` = **direito do evento** = bruto − deduções − venda à porta retida pela sala − saldo de fatura pago pela bilheteira. Repasses/adiantamentos vivem só no Apuramento Ticketline (D-ERP231). É o mesmo corte do "Saldo por evento" do painel de liquidez.
+- Migração dos 7 fechos (todos confirmados): mudaram 058416b2 Ivete 0,00→490.417,77; ed7b4b3c Anitta 0,00→2.411.336,17; 9557adbe SM Lisboa 0,00→194.527,58; 1950c08e SM Porto 6.400,20→226.454,85. Não mudaram (fórmula nova dá o mesmo ao cêntimo): bbfd5de7 H&K Lisboa 178.629,83; e2938bac H&K Porto 87.409,86; d7042a04 Plenitude 79.499,04. net_transferred e transfer_account_id intactos; saldo Ticketline 207.301,17 antes e depois; nenhuma transação, BP ou venda tocada.
+- **Forma de liquidação:** derivada em `get_ticket_office_settlements_overview` (transferência própria > incluído no Apuramento Ticketline nº X > compensado > encontro de contas > compensado por adiantamentos históricos ligados ≥ direito > por liquidar). Correcção à mão em `forma_liquidacao_manual` + `forma_liquidacao_manual_notes` (justificação obrigatória no ecrã); a RPC devolve as duas (`forma_derivada`, `forma_manual`) e nunca se perde qual é qual.
+- Ajuste manual da receita bruta passa a exigir justificação (`gross_adjustment_notes`), como o do direito.
+- Adiantamentos: CHECK `etoa_never_open_chk` (transaction_id ou settlement_id sempre preenchido) + trigger só-leitura alargado a DELETE.
+- Migração: `drizzle/migrations/0078_derp232_direito_do_evento.sql`; DML dos 4 fechos à parte.
