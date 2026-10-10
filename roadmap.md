@@ -5,7 +5,7 @@
 - [x] Actualizar estado e comentar #303 sem fechar; confirmação fica para Pedro (comentário 6099594598, issue aberta verificada).
 
 ## Smart links — chegada SSR (despacho D-ERP189)
-- [ ] D-ERP234: migração, função, deploy e testes browser/401 autorizados; segredo partilhado por criar pelo Pedro.
+- [x] D-ERP234: migração 0080 aplicada, função implantada, 11 testes focados passaram; Live: 401 sem escrita, browser/repetição uma linha, Meta/TikTok enviados, cookie completado; segredo não criado.
 - [ ] Provar SSR válida, repetição browser e prefetch autenticado — bloqueado por SONG_LINK_SSR_KEY, que Pedro configura igual no ERP e Portal.
 
 ## #303 — cartões e resumo de apuramentos
