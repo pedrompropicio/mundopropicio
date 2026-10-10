@@ -51,14 +51,14 @@ export interface PriorCurveData {
 }
 
 export async function fetchPriorCurve(eventId: string): Promise<PriorCurveData> {
-  const { data } = await fetchAllPaged<any>(() =>
+  const rows = await fetchAllPaged<any>((from, to) =>
     supabase
       .from("event_simulator_sales_curve_buckets")
       .select("days_before, cumulative_pct, updated_at")
       .eq("event_id", eventId)
-      .order("days_before"),
+      .order("days_before")
+      .range(from, to),
   );
-  const rows = (data ?? []) as any[];
   const collectedAt = rows.reduce<string | null>((m, r) => (!m || r.updated_at > m ? r.updated_at : m), null);
   return {
     points: rows.map((r) => ({ days_before: Number(r.days_before), cumulative_pct: Number(r.cumulative_pct) })),
@@ -75,17 +75,29 @@ export interface BenchmarkSourceEvent {
 }
 
 /** Eventos da empresa com curva colhida (uma linha D0 por evento); mesmo artista primeiro. */
+/** Série/artista: nome sem ano, datas nem sufixo de cidade ("Anitta EDA 2026" → "anitta eda"). */
+export function seriesKey(name: string | null | undefined): string {
+  return (name ?? "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split(/\s[-–—|·]\s/)[0]
+    .replace(/\b(19|20)\d{2}\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export async function listBenchmarkSourceEvents(
   currentEventId: string,
-  currentArtistId: string | null,
+  currentEventName: string | null,
 ): Promise<BenchmarkSourceEvent[]> {
-  const { data: d0 } = await fetchAllPaged<any>(() =>
+  const d0 = await fetchAllPaged<any>((from, to) =>
     supabase
       .from("event_simulator_sales_curve_buckets")
       .select("event_id, updated_at")
       .eq("days_before", 0)
       .neq("event_id", currentEventId)
-      .order("event_id"),
+      .order("event_id")
+      .range(from, to),
   );
   const ids = ((d0 ?? []) as any[]).map((r) => r.event_id as string);
   if (ids.length === 0) return [];
@@ -94,7 +106,7 @@ export async function listBenchmarkSourceEvents(
   for (let i = 0; i < ids.length; i += 100) {
     const { data: evs } = await supabase
       .from("events")
-      .select("id, name, date, artist_id")
+      .select("id, name, date")
       .in("id", ids.slice(i, i + 100))
       .limit(100);
     for (const e of (evs ?? []) as any[]) {
@@ -103,7 +115,7 @@ export async function listBenchmarkSourceEvents(
         name: e.name,
         date: e.date ?? null,
         collectedAt: (at.get(e.id) as string) ?? null,
-        sameArtist: !!currentArtistId && e.artist_id === currentArtistId,
+        sameArtist: !!seriesKey(currentEventName) && seriesKey(e.name) === seriesKey(currentEventName),
       });
     }
   }

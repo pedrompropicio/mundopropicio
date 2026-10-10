@@ -897,7 +897,7 @@ export function solveForecast(
   cfg: CoalaConfig,
   lotInfoByKey?: Record<string, SessionLotInfo>,
   eventDate?: string | null,
-  opts?: { finalAccel?: number; finalWindowDays?: number },
+  opts?: { finalAccel?: number; finalWindowDays?: number; priorCurve?: PriorCurvePoint[] | null },
 ): ForecastSolution {
   const finalAccel = Number.isFinite(opts?.finalAccel) && (opts!.finalAccel as number) > 0
     ? (opts!.finalAccel as number)
@@ -970,6 +970,9 @@ export function solveForecast(
     const baseProjection = recentVelocity * baseWindow;
     const finalProjection = recentVelocity * finalAccel * finalWindow;
     let projectedQtyZone = Math.round(baseProjection + finalProjection);
+    // #89: curva histórica de outro evento (fallback à curva por defeito).
+    const priorExtra = projectWithPriorCurve(realQtyZone, opts?.priorCurve, daysToEvent);
+    if (priorExtra !== null) projectedQtyZone = priorExtra;
 
     let cappedByCapacity = false;
     if (Number.isFinite(capLeft) && projectedQtyZone > capLeft) {
