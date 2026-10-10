@@ -778,3 +778,7 @@ verify_jwt = true
 [functions.whatsapp-webhook]
 verify_jwt = false
 
+
+# #254: backfill de geo; só service_role (molde do portal-media-import).
+[functions.geo-backfill]
+verify_jwt = true
