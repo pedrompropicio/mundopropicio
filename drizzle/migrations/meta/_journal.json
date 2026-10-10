@@ -498,6 +498,20 @@
       "when": 1791601674592,
       "tag": "0070_derp221_sepa_guard_planned_installments_split_bp",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1791602579322,
+      "tag": "0071_collect_event_benchmarks",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1791602641921,
+      "tag": "0072_collect_event_benchmarks_count_refunds",
+      "breakpoints": true
     }
   ]
 }

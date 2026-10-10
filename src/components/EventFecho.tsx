@@ -4,6 +4,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Download, FileBarChart2, TrendingUp, TrendingDown, ArrowRightLeft, Users, Layers } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 import { formatCurrency } from "@/lib/mock-data";
 import { calcTotalWithIva, roundCents } from "@/lib/iva";
 import { format } from "date-fns";
@@ -28,6 +30,7 @@ import { FechoBasisSelector } from "@/components/FechoBasisSelector";
 import { fetchPartnerExtras, splitPartnerExtrasByKind } from "@/lib/partner-extras";
 import { BpUnusedBudgetSummaryCard } from "@/components/fecho/BpUnusedBudgetPanel";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { computeFechoPreconditions, hasBlockingPrecondition } from "@/lib/fecho-preconditions";
 
 
 interface Props {
@@ -58,18 +61,32 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
   // ---- Eventos relevantes (master + filhos quando turnê)
   const allEventIds = [eventId, ...(childEventIds || [])];
 
-  // ---- Sócios deste evento (ou pai, se sub-evento)
+  // ---- Sócios (#88): os do PRÓPRIO evento. Numa cidade de turnê os sócios do pai
+  // aplicam-se ao consolidado do pai (Fecho do Master), nunca ao resultado da cidade.
+  // O critério de cálculo continua a vir do pai (pendência D-ERP213).
   const partnersSourceId = parentEventId || eventId;
   const { data: partners = [] } = useQuery({
-    queryKey: ["fecho-partners", partnersSourceId],
+    queryKey: ["fecho-partners", eventId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_partners")
         .select("*, suppliers(name)")
-        .eq("event_id", partnersSourceId)
+        .eq("event_id", eventId)
         .order("created_at");
       if (error) throw error;
       return data;
+    },
+  });
+  const { data: parentPartnersCount = 0 } = useQuery({
+    queryKey: ["fecho-parent-partners-count", parentEventId],
+    enabled: !!parentEventId,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("event_partners")
+        .select("id", { count: "exact", head: true })
+        .eq("event_id", parentEventId!);
+      if (error) throw error;
+      return count ?? 0;
     },
   });
 
@@ -200,14 +217,15 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
     skipForecast: true,
   });
 
-  // ---- Despesas pagas por sócios
+  // ---- Despesas pagas por sócios — (#88) fonte única com o PartnerSettlementTab:
+  // perímetro = allEventIds (evento + filhos), o mesmo das transações e do BP.
   const { data: paidByPartners = [] } = useQuery({
-    queryKey: ["fecho-paid-by-partners", eventId],
+    queryKey: ["fecho-paid-by-partners", allEventIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
         .select("partner_id, transactions(amount, iva_rate)")
-        .eq("event_id", eventId)
+        .in("event_id", allEventIds)
         .eq("status", "approved");
       if (error) throw error;
       return data || [];
@@ -216,8 +234,8 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
 
   // ---- Extras de sócios (união das duas naturezas: transação + manual). Não são custo do evento.
   const { data: partnerExtras = [] } = useQuery({
-    queryKey: ["fecho-partner-extras", eventId],
-    queryFn: () => fetchPartnerExtras([eventId]),
+    queryKey: ["fecho-partner-extras", allEventIds],
+    queryFn: () => fetchPartnerExtras(allEventIds),
   });
 
   // ============= Cálculos =============
@@ -352,6 +370,36 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
   const hasMixedExpenseBases = new Set(settlements.map((s) => s.usesGrossExpenses)).size > 1;
   // (#224) coluna "Ajustes" só aparece quando algum sócio tem ajuste ao desembolso.
   const hasAdjustments = settlements.some((s) => s.adjustments !== 0);
+
+  const preconditions = computeFechoPreconditions({
+    revenue: revenueForSettlement,
+    hasTicketSales: !!revenueBasis?.real.hasTicketSales,
+    bpExpenseLines: (operationalForecasts as any[]).length,
+    bpIncomeLines: (incomeForecasts as any[]).length,
+    partners: partners.length,
+    isTourCity: !!parentEventId && !(childEventIds && childEventIds.length),
+    parentPartners: parentPartnersCount,
+    expenses: expensesOp,
+  });
+  const blocked = hasBlockingPrecondition(preconditions);
+
+  // (#89) Colher benchmarks para o Simulador (idempotente; também corre ao selar).
+  const [collecting, setCollecting] = useState(false);
+  async function collectBenchmarks() {
+    setCollecting(true);
+    try {
+      const { data, error } = await supabase.rpc("collect_event_benchmarks" as any, { _event_id: eventId });
+      if (error) throw error;
+      const r = (data ?? {}) as any;
+      if (!r.ok) throw new Error("Resposta inesperada");
+      toast.success(`Benchmarks colhidos: ${r.curve_buckets} dias de curva (${r.tickets} bilhetes)` +
+        (r.ab_per_capita != null ? `, per capita A&B ${r.ab_per_capita}` : ", sem A&B real"));
+    } catch (e: any) {
+      toast.error(`Não foi possível colher benchmarks: ${e?.message ?? e}`);
+    } finally {
+      setCollecting(false);
+    }
+  }
   const mixedBasesNote =
     "Sócios com bases de cálculo diferentes: a quota de cada um segue a base do respetivo contrato, pelo que não existe um resultado único e a soma das quotas não fecha contra um único total.";
 
@@ -464,7 +512,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
     y = (doc as any).lastAutoTable.finalY + 8;
 
     // Acerto sócios
-    if (settlements.length > 0) {
+    if (!blocked && settlements.length > 0) {
       if (y > 230) { doc.addPage(); y = 16; }
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
@@ -520,6 +568,10 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
           </div>
           <Button size="sm" variant="outline" onClick={exportPdf}>
             <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
+          </Button>
+          <Button size="sm" variant="outline" onClick={collectBenchmarks} disabled={collecting}
+            title="Grava a curva de vendas (D-180…D0) e o per capita A&B para o Simulador reutilizar. Também corre ao selar.">
+            <Layers className="mr-1.5 h-3.5 w-3.5" /> {collecting ? "A colher…" : "Colher benchmarks"}
           </Button>
         </div>
       </div>
@@ -651,11 +703,25 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
         )}
       </div>
 
+      {/* (#88) Pré-condições — dizer o que falta antes de apresentar quotas */}
+      {preconditions.length > 0 && (
+        <div className={`rounded-xl border p-4 space-y-1 ${blocked ? "border-destructive/40 bg-destructive/5" : "border-warning/40 bg-warning/5"}`}>
+          <p className="text-xs font-semibold uppercase tracking-wider">
+            {blocked ? "Fecho incompleto — acerto com sócios não apurado" : "Atenção antes de usar o acerto"}
+          </p>
+          <ul className="list-disc pl-5 text-sm">
+            {preconditions.map((p) => (
+              <li key={p.key} className={p.level === "blocking" ? "text-destructive" : "text-muted-foreground"}>{p.message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Acerto com Sócios */}
-      {settlements.length > 0 && hasMixedExpenseBases && (
+      {!blocked && settlements.length > 0 && hasMixedExpenseBases && (
         <p className="text-[11px] leading-snug text-amber-600 dark:text-amber-500">{mixedBasesNote}</p>
       )}
-      {settlements.length > 0 && (
+      {!blocked && settlements.length > 0 && (
         <div className="glass rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-border/50 bg-muted/30 flex items-center gap-2">
             <ArrowRightLeft className="h-4 w-4 text-primary" />
