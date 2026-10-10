@@ -5515,7 +5515,7 @@ UPDATE account_categories SET allocate_to_active_event=false
  WHERE company_id='7d831e59-6e82-427b-95a0-64904aae5dd2' AND code IN ('10.1.01','10.1.02','10.1.03');
 -- 2) marcar todas as L3 de 10.4 a 10.11 (inclui 10.5 IRC e 10.6)
 UPDATE account_categories SET allocate_to_active_event=true
- WHERE company_id='7d831e59-6e82-427b-95a0-64904aae5dd2' AND level=3
+ WHERE company_id='7d831e59-6e82-427b-95a0-64904aae5dd2' AND code ~ '^10\.[0-9]+\.[0-9]+$'
    AND split_part(code,'.',1)='10' AND split_part(code,'.',2)::int BETWEEN 4 AND 11;
 -- 3) Coala 2027 absorve desde 29/08/2026, fim em aberto (Coala 2026 não se mexe)
 UPDATE events SET admin_window_start='2026-08-29', admin_window_end=NULL
