@@ -5434,7 +5434,7 @@ Customer Match:
 - Execução parada: tentativa atómica falhou na validação das parcelas (530,00 > 265,00), integralmente anulada e verificada em Live. Zero novas transacções; saldos e registos protegidos intactos. Requisito aprovado, não implementado nesta tentativa; não alterar mecanismos de pagamento para contornar a validação.
 - Entrega de tarefas confirma-se com `list_messages`, nunca por `get_project.agentFinished`: estado partilhado entre chats não identifica a frente. Timeout desta frente em 10/10/2026 coincidiu com conclusão de tarefas de audience e criou falsa impressão de execução.
 
-## D-ERP236 — Bilheteira local retida pela sala (10/10/2026)
+## D-ERP237 — Bilheteira local retida pela sala (10/10/2026)
 
 - Quando a sala vende bilheteira local e retém o valor, o fecho da Ticketline traz esse valor como retido pela sala e NÃO o paga em dinheiro. O registo é um par de transferência interna 10.3 (`expense` + `income`, `exclude_from_result = true` nas duas pernas, nunca `type='transfer'`) da conta da bilheteira para a conta de acerto da turnê, mais a comissão da sala como despesa normal contra o fornecedor da sala, essa a entrar no resultado.
 - Sem isto o saldo da conta de bilheteira fica inflacionado pelo valor retido e aparece como diferença no card. Precedente de forma: par Anitta EIN `f4c66167` / `0ac1e3d2`.
