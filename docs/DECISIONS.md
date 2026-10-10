@@ -5233,3 +5233,10 @@ As regras do BP acima, do Desfazer (restaurar apenas campos alterados e validar 
   - Reparação das 3 (NÃO corrida): acerta a diferença na filha de maior valor:
     `UPDATE transactions c SET amount = c.amount + (m.amount - s.soma) FROM transactions m, (SELECT parent_transaction_id p, sum(amount) soma, max(amount) mx FROM transactions WHERE split_percentage IS NOT NULL GROUP BY 1) s WHERE m.id = s.p AND c.parent_transaction_id = m.id AND c.amount = s.mx AND m.id IN ('b18b54d5-4140-4838-935b-579ac103ac39','f4483eb6-503e-487c-bd92-62dd35a9ad77','093616b5-e9af-4e0c-9fd1-83d89c2e4ca1');`
 - **10/10/2026 (#263 revisitada):** as duas linhas SM nunca acompanharam a venda: `formula_params.last_calculated` = 4.178,90 (Lisboa) / 5.129,00 (Porto) mas `amount` ficou 3.942,36 / 4.838,68. O update directo do overhead não gravava e não dava erro, e o hook considerava a linha tratada por `last_text`. Corrigido: overhead grava por `set_forecast_amount_observed` (D-ERP219); o hook só dá por tratada quando `amount` = calculado (ou chão); falhas e parâmetros passam a aviso no ecrã (mustWrite). A próxima abertura do BP/capa/Fecho de cada cidade recalcula sozinha — sem DML. Se o Pedro preferir forçar já: abrir o BP de cada cidade (o recálculo corre no ecrã, com a sessão de quem tem manage_bp).
+
+## D-ERP220 — UI do budget_mode (#100) · 10/10/2026
+- Criação do evento (Events.tsx): escolha Com BP / Sem BP, default da empresa pré-seleccionado; grava valor explícito.
+- Edição do evento (EventEditModal): select "Padrão da empresa / Com BP / Sem BP" ("" = NULL = herda); só admin/manager editam.
+- Default da empresa: cartão em Administração; RPCs get/set_company_default_budget_mode (SECURITY DEFINER, admin/manager da empresa activa ou platform_admin) porque companies UPDATE é só platform_admin. Migração 0069.
+- #31: Planilha já suportava cenários desde 22/09; snapshots congelados não são selecionáveis (o selector só lista working_draft). Pendente: as RPCs batch_* não recusam escrita numa versão congelada.
+- #114: bloqueada — ecrãs de despesa sem RaiseBudgetDialog (ver relatório).

@@ -5,6 +5,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useCompany } from "@/hooks/useCompany";
 import SystemRemindersBanner from "@/components/SystemRemindersBanner";
+import { CompanyBudgetModeCard } from "@/components/CompanyBudgetModeCard";
 
 const adminCards = [
   {
@@ -168,6 +169,10 @@ export default function AdminPanel() {
             </CardHeader>
           </Card>
         ))}
+      </div>
+
+      <div className="max-w-xl">
+        <CompanyBudgetModeCard />
       </div>
     </div>
   );

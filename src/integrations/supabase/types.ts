@@ -19352,6 +19352,7 @@ export type Database = {
           kind: string
         }[]
       }
+      get_company_default_budget_mode: { Args: never; Returns: string }
       get_daily_sales_series: {
         Args: {
           p_end: string
@@ -20234,6 +20235,10 @@ export type Database = {
         Returns: string
       }
       set_coala_match_source: { Args: { source: string }; Returns: undefined }
+      set_company_default_budget_mode: {
+        Args: { _mode: string }
+        Returns: string
+      }
       set_forecast_amount_observed: {
         Args: { _amount: number; _forecast_id: string; _observation?: string }
         Returns: Json
