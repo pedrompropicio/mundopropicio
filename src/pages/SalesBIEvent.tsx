@@ -6,10 +6,9 @@
  * MODO B (sessões): quando não existem snapshots — as "zonas" do ERP são
  *   sessões (ex.: Henry & Klauss - Madrid) e as vendas vêm de ticket_sales.
  */
-import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { setZoneOnSale, fetchOnSaleRunStatus, onSaleAlert } from "@/lib/zone-on-sale";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -550,7 +549,9 @@ export default function SalesBIEvent() {
           )}
 
           {(() => {
-            const msg = onSaleAlert(onSaleRunsQ.data);
+            // Só eventos com sessões faseadas (marca on_sale já usada).
+            const phased = (zonesQ.data ?? []).some((z) => z.on_sale !== null);
+            const msg = phased ? onSaleAlert(onSaleRunsQ.data) : null;
             const m = onSaleRunsQ.data?.lastManual;
             return (msg || m) ? (
               <Card className="border-warning/40 bg-warning/5 p-3 text-sm space-y-1">
