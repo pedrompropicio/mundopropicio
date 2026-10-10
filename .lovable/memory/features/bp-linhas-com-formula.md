@@ -11,4 +11,4 @@ D-ERP149. Motor único `supabase/functions/_shared/settlement/bp-formula.ts` —
 - Só em evento simples / cidade; no Master mostra aviso e não recalcula.
 - Valor não se edita à mão (form inline e Planilha bloqueiam). A Planilha não tem exportação de ficheiro; grava só os campos editados, portanto não perde formula_type/params.
 - Decisão 30/09/2026: só DOIS tipos (% receita de bilhetes, valor por pessoa). SPA fica manual (negociada). Sem escalões de público nem mínimo por bilhete.
-- Overhead: conversão/recálculo passam por update directo (RPC recusa overhead) → sem observação no forecast_audit_log.
+- Overhead: desde 10/10/2026 (#246, D-ERP219) o amount grava por `set_forecast_amount_observed` (com observação "[fórmula] recálculo"). Antes era update directo e falhava em silêncio (SM Lisboa/Porto ficaram por actualizar). O hook só dá a linha por tratada se `amount` = calculado (ou floor_hit).

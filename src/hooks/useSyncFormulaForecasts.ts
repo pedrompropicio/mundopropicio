@@ -7,6 +7,7 @@ import { computeLiveTicketForecast } from "@/lib/event-simulator-forecast-live";
 import { fetchEventRealized } from "@/lib/event-revenue-basis";
 import { writeForecastAmount, ForecastBelowRealizedError } from "@/lib/forecast-amount";
 import { toast } from "@/hooks/use-toast";
+import { mustWrite } from "@/lib/must-write";
 
 /**
  * #263 / D-ERP149 — recálculo das linhas de BP com fórmula (padrão useSyncCacheForecasts).
@@ -82,7 +83,10 @@ export function useSyncFormulaForecasts({ eventId, isMaster, enabled = true }: {
       const l: any = byId.get(e.forecastId);
       if (!l) return false;
       const p = l.formula_params ?? {};
-      if (p.last_text === e.text && Number(p.last_calculated) === e.result.amount) return false; // já tratado (inclui chão)
+      // Já tratado só se o valor da linha bate com o calculado (ou ficou no chão).
+      // Antes bastava last_text: a escrita do overhead falhava em silêncio e nunca se repetia.
+      const same = p.last_text === e.text && Number(p.last_calculated) === e.result.amount;
+      if (same && (p.floor_hit || Math.abs(Number(l.amount || 0) - e.result.amount) < 0.005)) return false;
       return true;
     });
     if (!todo.length) return;
@@ -100,13 +104,22 @@ export function useSyncFormulaForecasts({ eventId, isMaster, enabled = true }: {
             floorHit = true;
             try {
               await writeForecastAmount({ forecastId: e.forecastId, newAmount: written, observation: "[fórmula] recálculo (chão do realizado)" });
-            } catch (e2) { console.error("[fórmula] chão", e2); continue; }
+            } catch (e2: any) {
+              toast({ title: `Fórmula — ${l.description}: não gravado`, description: e2?.message ?? String(e2), variant: "destructive" });
+              continue;
+            }
             toast({ title: `Fórmula — ${l.description}`, description: "O recálculo ficou abaixo do já realizado; gravado o realizado.", variant: "destructive" });
-          } else { console.error("[useSyncFormulaForecasts]", err); continue; }
+          } else {
+            toast({ title: `Fórmula — ${l.description}: não gravado`, description: (err as any)?.message ?? String(err), variant: "destructive" });
+            continue;
+          }
         }
         const params = { ...(l.formula_params ?? {}), last_text: e.text, last_recalc_at: new Date().toISOString(), last_calculated: e.result.amount, floor_hit: floorHit };
-        const { error } = await (supabase as any).from("event_forecasts").update({ formula_value: written, formula_params: params }).eq("id", e.forecastId);
-        if (error) console.error("[fórmula] params", error);
+        try {
+          await mustWrite((supabase as any).from("event_forecasts").update({ formula_value: written, formula_params: params }).eq("id", e.forecastId).select("id"), "Fórmula: parâmetros", { expectRows: true });
+        } catch (pErr: any) {
+          toast({ title: `Fórmula — ${l.description}`, description: pErr.message, variant: "destructive" });
+        }
       }
       running.current = false;
       qc.invalidateQueries({ queryKey: ["event_forecasts"] });
