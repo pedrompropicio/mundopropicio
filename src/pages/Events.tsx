@@ -10,6 +10,7 @@ import { toast } from "@/hooks/use-toast";
 import { CityVenueSelector } from "@/components/CityVenueSelector";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useAuth } from "@/contexts/AuthContext";
+import { BUDGET_MODES, type BudgetMode, useCompanyDefaultBudgetMode } from "@/lib/budget-mode";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { formatCityLabel } from "@/lib/country";
@@ -70,6 +71,8 @@ interface EventForm {
   /** Rótulo cosmético (só festival): festival | residencia */
   format: EventFormat;
   pl_mode: "active" | "passive";
+  /** D6 — "" = ainda não carregado o default da empresa */
+  budget_mode: BudgetMode | "";
   festival_dates: string[];
   sessions: SessionDraft[];
   sub_events: SubEventForm[];
@@ -87,6 +90,7 @@ const emptyForm: EventForm = {
   event_type: "simple",
   format: "festival",
   pl_mode: "passive",
+  budget_mode: "",
   festival_dates: [],
   sessions: [],
   sub_events: [{ name: "", date: "", city_id: "", venue_id: "", extra_dates: [], sessions: [] }],
@@ -111,6 +115,7 @@ export default function Events() {
   const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user } = useAuth();
+  const { data: defaultBudgetMode } = useCompanyDefaultBudgetMode();
   const userId = user?.id ?? "anon";
 
   // Fetch cities and venues for display on cards
@@ -278,6 +283,7 @@ export default function Events() {
         // `format` é SÓ apresentação (Festival/Residência); a mecânica lê event_type
         format: data.event_type === "festival" ? data.format : null,
         pl_mode: data.pl_mode,
+        budget_mode: data.budget_mode || defaultBudgetMode || "with_bp",
         city_id: data.city_id || null,
         venue_id: data.venue_id || null,
       } as any).select().single();
@@ -657,6 +663,31 @@ export default function Events() {
                     <span className="block font-semibold">BP Passivo</span>
                     <span className="block text-[10px] opacity-70 mt-0.5">Transações livres sem controlo</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Modo orçamental (D6) — NÃO é operacao_mode */}
+              <div>
+                <label className="mb-2 block text-xs font-medium text-muted-foreground">Modo orçamental</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {BUDGET_MODES.map((b) => {
+                    const sel = (form.budget_mode || defaultBudgetMode || "with_bp") === b.value;
+                    return (
+                      <button
+                        key={b.value}
+                        type="button"
+                        onClick={() => setForm({ ...form, budget_mode: b.value })}
+                        className={`rounded-lg border p-3 text-xs font-medium transition-all text-left ${
+                          sel ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                        }`}
+                      >
+                        <span className="block font-semibold">
+                          {b.label}{defaultBudgetMode === b.value ? " (padrão da empresa)" : ""}
+                        </span>
+                        <span className="block text-[10px] opacity-70 mt-0.5">{b.hint}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
