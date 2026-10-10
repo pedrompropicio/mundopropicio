@@ -5177,7 +5177,7 @@ As regras do BP acima, do Desfazer (restaurar apenas campos alterados e validar 
 - expandOverheadToSplits devolve originais + fatias; somar tudo duplica. Regra única: overheadLinesFor(expanded, "originals" | "slices") em _shared/settlement/overhead-proration.ts.
 - "originals" em: PartnerSettlementTab (total, categorias, repartição por cidade com quota do Master ÷N), computeEventSettlementTotals + collectSettlementExpenseDocLines, statement-service (partner-statement), partner-settlement-report, ResultsAnalysis (a quota ÷N já vem de getMasterShare), PartnerDREDialog (consolidado).
 - ReportDRE/ReportDREBrasil não dobram: filtram por event_id === evento (o Master lê as originais, a cidade a sua fatia).
-- PENDÊNCIA (sem decisão): o ramo overhead não lê exclude_from_result (as linhas de overhead da Simone Mendes têm true e entram no fecho).
+- DECIDIDO (10/10/2026, Pedro, chat fecho-e-socios): fica como está, por desenho. No fecho com sócios o overhead entra ou não só pelo critério gravado do evento `cost_include_overhead` (toggle "Incluir overhead"); `exclude_from_result` numa linha overhead governa o resultado do evento (cards, DRE), não a conta do sócio. Facto em Live a 10/10: as 20 linhas overhead da base têm todas `exclude_from_result = true` — marcar overhead e "fora do resultado" é o mesmo gesto. Honrar a flag no ramo overhead deixaria o toggle sem efeito e mudava Anitta (15.000 + 15.000 + 2.500 s/IVA) e Ivete (8.000 + 2.000 + 3.526,77 + 1.200 + 558). Sem código.
 
 ## D-ERP212 (09/10/2026) — #259 e #261 verificados; lista de eventos alinhada
 - #259 já resolvido em D-ERP145 (cacheImpactOnTopOfCost: card, Lucro, lista). Sem código novo; teste unitário acrescentado.
