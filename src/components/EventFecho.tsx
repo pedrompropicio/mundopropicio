@@ -707,7 +707,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
       {preconditions.length > 0 && (
         <div className={`rounded-xl border p-4 space-y-1 ${blocked ? "border-destructive/40 bg-destructive/5" : "border-warning/40 bg-warning/5"}`}>
           <p className="text-xs font-semibold uppercase tracking-wider">
-            {blocked ? "Fecho incompleto — acerto com sócios não apurado" : "Atenção antes de usar o acerto"}
+            {blocked ? "Fecho incompleto — acerto com sócios não apurado" : "Atenção antes de usar o acerto"} <HelpTooltip anchor="fecho.precondicoes" size={12} />
           </p>
           <ul className="list-disc pl-5 text-sm">
             {preconditions.map((p) => (
