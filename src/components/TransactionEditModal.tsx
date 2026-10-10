@@ -198,7 +198,17 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     return Object.values(childAdjustments).reduce((s, v) => s + v, 0);
   }, [childAdjustments]);
   
-  const childMismatch = hasChildren && amountChanged && Math.abs(childAdjustmentTotal - newParentAmount) > 0.01;
+  // #150 (D-ERP219): divergência mãe≠soma das filhas que JÁ existia antes desta edição
+  // não bloqueia quem edita — só se mostra. Bloqueia apenas a divergência criada agora.
+  const preexistingSplitDiff = useMemo(() => {
+    if (!hasChildren) return 0;
+    const sum = childTransactions.reduce((s: number, c: any) => s + Number(c.amount || 0), 0);
+    return +(Number(transaction.amount || 0) - sum).toFixed(2);
+  }, [hasChildren, childTransactions, transaction.amount]);
+  const hasPreexistingSplitDiff = Math.abs(preexistingSplitDiff) > 0.01;
+  const newSplitDiff = +(newParentAmount - childAdjustmentTotal).toFixed(2);
+  const childMismatch = hasChildren && amountChanged && Math.abs(newSplitDiff) > 0.01
+    && !(hasPreexistingSplitDiff && Math.abs(newSplitDiff - preexistingSplitDiff) <= 0.01);
 
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
@@ -1563,6 +1573,11 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                   );
                 })}
               </div>
+              {hasPreexistingSplitDiff && (
+                <p className="text-[10px] text-warning">
+                  Divergência já existente: mãe {Number(transaction.amount || 0).toFixed(2)}€ vs soma das filhas {(Number(transaction.amount || 0) - preexistingSplitDiff).toFixed(2)}€ (diferença {preexistingSplitDiff.toFixed(2)}€). Não foi criada por esta edição — pode gravar.
+                </p>
+              )}
               {amountChanged && (
                 <div className="flex items-center justify-between border-t border-border/30 pt-1.5">
                   <span className="text-[10px] text-muted-foreground">Total splits</span>

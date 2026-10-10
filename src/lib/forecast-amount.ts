@@ -100,10 +100,13 @@ export async function writeForecastAmount({ forecastId, newAmount, observation, 
   // essas linhas são geridas por outros módulos; o trigger continua a guardá-las.
   const batchRefuses = row.is_overhead || row.exclude_from_result || row.master_forecast_id || row.is_retroactive_override;
   if (batchRefuses) {
-    const { error: upErr } = await (supabase as any)
-      .from("event_forecasts")
-      .update({ amount: newAmount })
-      .eq("id", forecastId);
+    // #246: por RPC, que define mp.bp_change_observation antes do UPDATE
+    // (o chão continua a recusar abaixo do realizado).
+    const { error: upErr } = await (supabase as any).rpc("set_forecast_amount_observed", {
+      _forecast_id: forecastId,
+      _amount: newAmount,
+      _observation: obs,
+    });
     if (upErr) throw upErr;
     return;
   }

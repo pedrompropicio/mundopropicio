@@ -2,6 +2,7 @@ import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload"
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { mustWrite } from "@/lib/must-write";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { toast } from "sonner";
@@ -564,11 +565,11 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
       // Unlink previously linked transactions not in current selection (admin edits)
       if (existingSettlement) {
-        await (supabase as any)
+        await mustWrite((supabase as any)
           .from("transactions")
           .update({ settlement_id: null })
           .eq("settlement_id", settlementId)
-          .not("id", "in", `(${Array.from(selectedTxnIds).map((id) => `"${id}"`).join(",") || '""'})`);
+          .not("id", "in", `(${Array.from(selectedTxnIds).map((id) => `"${id}"`).join(",") || '""'})`), "Fecho: transactions");
       }
 
       // Link selected transactions; if confirming, also mark as paid via this office
@@ -613,11 +614,11 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                 new_value: "Carimbo de estorno limpo — transação voltou a ser paga",
               });
             }
-            const { error: payErr } = await (supabase as any)
+            await mustWrite((supabase as any)
               .from("transactions")
               .update(patch)
-              .eq("id", t.id);
-            if (payErr) throw payErr;
+              .eq("id", t.id)
+              .select("id"), "Fecho: liquidar despesa", { expectRows: true });
           }
 
           if (stampAudit.length > 0) {
@@ -627,10 +628,10 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
             if (auditErr) throw auditErr;
           }
         } else {
-          await (supabase as any)
+          await mustWrite((supabase as any)
             .from("transactions")
             .update({ settlement_id: settlementId })
-            .in("id", ids);
+            .in("id", ids).select("id"), "Fecho: transactions", { expectRows: true });
         }
       }
 
@@ -651,7 +652,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
           Math.abs(venueRetainedNum - prevRetainedAmount) > 0.005
         );
       if (needsRevertPrev) {
-        await (supabase as any).from("transaction_payments").delete().eq("id", prevRetainedPaymentId);
+        await mustWrite((supabase as any).from("transaction_payments").delete().eq("id", prevRetainedPaymentId).select("id"), "Fecho: transaction_payments", { expectRows: true });
         if (prevRetainedInvoiceId) {
           const { data: prevTxn } = await (supabase as any)
             .from("transactions")
@@ -661,20 +662,20 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
           if (prevTxn) {
             const newPaid = Math.max(0, Number(prevTxn.paid_amount || 0) - prevRetainedAmount);
             const total = Number(prevTxn.amount || 0) * (1 + Number(prevTxn.iva_rate || 0) / 100);
-            await (supabase as any)
+            await mustWrite((supabase as any)
               .from("transactions")
               .update({
                 paid_amount: newPaid,
                 status: newPaid >= total - 0.005 ? "paid" : "approved",
                 payment_date: newPaid >= total - 0.005 ? settlementDate : null,
               })
-              .eq("id", prevRetainedInvoiceId);
+              .eq("id", prevRetainedInvoiceId).select("id"), "Fecho: transactions", { expectRows: true });
           }
         }
-        await (supabase as any)
+        await mustWrite((supabase as any)
           .from("ticket_office_settlements")
           .update({ venue_retained_payment_id: null })
-          .eq("id", settlementId);
+          .eq("id", settlementId).select("id"), "Fecho: ticket_office_settlements", { expectRows: true });
       }
 
       // Criar novo pagamento parcial se há valor + fatura e estamos a confirmar
@@ -716,11 +717,11 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
             patch.reversed_at = null;
             patch.reversal_kind = null;
           }
-          const { error: invErr } = await (supabase as any)
+          await mustWrite((supabase as any)
             .from("transactions")
             .update(patch)
-            .eq("id", venueRetainedInvoiceId);
-          if (invErr) throw invErr;
+            .eq("id", venueRetainedInvoiceId)
+            .select("id"), "Fecho: fatura da sala", { expectRows: true });
           if (becomesPaid && invTxn.reversed_at) {
             const { error: stampErr1 } = await (supabase as any).from("transaction_audit_log").insert({
               transaction_id: venueRetainedInvoiceId,
@@ -732,10 +733,10 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
             if (stampErr1) throw stampErr1;
           }
         }
-        await (supabase as any)
+        await mustWrite((supabase as any)
           .from("ticket_office_settlements")
           .update({ venue_retained_payment_id: pay.id })
-          .eq("id", settlementId);
+          .eq("id", settlementId).select("id"), "Fecho: ticket_office_settlements", { expectRows: true });
       }
 
       // Saldo restante da fatura pago pela bilheteira (abate do repasse) — criar / reverter
@@ -753,7 +754,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
           Math.abs(invoiceRemainder - prevRemainderAmount) > 0.005
         );
       if (needsRevertRemainder) {
-        await (supabase as any).from("transaction_payments").delete().eq("id", prevRemainderPaymentId);
+        await mustWrite((supabase as any).from("transaction_payments").delete().eq("id", prevRemainderPaymentId).select("id"), "Fecho: transaction_payments", { expectRows: true });
         if (prevRemainderInvoiceId) {
           const { data: prevTxn } = await (supabase as any)
             .from("transactions")
@@ -763,20 +764,20 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
           if (prevTxn) {
             const newPaid = Math.max(0, Number(prevTxn.paid_amount || 0) - prevRemainderAmount);
             const total = Number(prevTxn.amount || 0) * (1 + Number(prevTxn.iva_rate || 0) / 100);
-            await (supabase as any)
+            await mustWrite((supabase as any)
               .from("transactions")
               .update({
                 paid_amount: newPaid,
                 status: newPaid >= total - 0.005 ? "paid" : "approved",
                 payment_date: newPaid >= total - 0.005 ? settlementDate : null,
               })
-              .eq("id", prevRemainderInvoiceId);
+              .eq("id", prevRemainderInvoiceId).select("id"), "Fecho: transactions", { expectRows: true });
           }
         }
-        await (supabase as any)
+        await mustWrite((supabase as any)
           .from("ticket_office_settlements")
           .update({ venue_invoice_remainder_payment_id: null })
-          .eq("id", settlementId);
+          .eq("id", settlementId).select("id"), "Fecho: ticket_office_settlements", { expectRows: true });
       }
 
       if (
@@ -817,11 +818,11 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
             patch.reversed_at = null;
             patch.reversal_kind = null;
           }
-          const { error: invErr } = await (supabase as any)
+          await mustWrite((supabase as any)
             .from("transactions")
             .update(patch)
-            .eq("id", venueRetainedInvoiceId);
-          if (invErr) throw invErr;
+            .eq("id", venueRetainedInvoiceId)
+            .select("id"), "Fecho: fatura da sala", { expectRows: true });
           if (becomesPaid && invTxn.reversed_at) {
             const { error: stampErr2 } = await (supabase as any).from("transaction_audit_log").insert({
               transaction_id: venueRetainedInvoiceId,
@@ -833,23 +834,23 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
             if (stampErr2) throw stampErr2;
           }
         }
-        await (supabase as any)
+        await mustWrite((supabase as any)
           .from("ticket_office_settlements")
           .update({ venue_invoice_remainder_payment_id: pay.id })
-          .eq("id", settlementId);
+          .eq("id", settlementId).select("id"), "Fecho: ticket_office_settlements", { expectRows: true });
       }
 
       if (pendingAdvances.length > 0) {
         const advanceIds = pendingAdvances.map((a: any) => a.id);
-        await (supabase as any)
+        await mustWrite((supabase as any)
           .from("event_ticket_office_advances")
           .update({ settlement_id: confirm ? settlementId : null })
-          .in("id", advanceIds);
+          .in("id", advanceIds).select("id"), "Fecho: event_ticket_office_advances", { expectRows: true });
       }
 
       // Carimbo de conciliação: um fecho confirmado marca a atribuição como conciliada.
       if (confirm && eventId) {
-        await (supabase as any)
+        await mustWrite((supabase as any)
           .from("event_ticket_office_assignments")
           .update({
             is_conciliated: true,
@@ -857,7 +858,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
             conciliated_by: user?.email || "system",
           })
           .eq("event_id", eventId)
-          .eq("financial_account_id", officeId);
+          .eq("financial_account_id", officeId), "Fecho: event_ticket_office_assignments");
       }
 
       await logAudit({

@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { HEIC_ACCEPT, isHeicFile, normalizeImageFile } from "@/lib/image-upload";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { useAuth } from "@/contexts/AuthContext";
+import { mustWrite } from "@/lib/must-write";
 
 interface Props {
   itemId: string;
@@ -82,7 +83,7 @@ export function CamarimItemAttachmentButton({ itemId, iconOnly, className, sessi
         await deleteStorageObject("camarim-documents", path, { reason: "limpeza de upload falhado", related_table: "camarim_item_documents" }).catch((e) => console.error("[camarim attach] limpeza falhou", e));
         throw insErr;
       }
-      await supabase.from("camarim_items" as any).update({ has_document: true }).eq("id", itemId);
+      await mustWrite(supabase.from("camarim_items" as any).update({ has_document: true }).eq("id", itemId).select("id"), "camarim_items", { expectRows: true });
       toast({ title: "Anexo gravado" });
       onAttached?.();
     } catch (err: any) {

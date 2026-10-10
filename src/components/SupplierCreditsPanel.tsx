@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/mock-data";
 import { ChevronDown, Plus, CreditCard, Calendar, Trash2, Paperclip, FileText, Loader2, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { mustWrite } from "@/lib/must-write";
 
 interface Props {
   supplierId: string;
@@ -150,7 +151,7 @@ function CreditLine({ credit, supplierId, onEdit }: { credit: any; supplierId: s
         file,
       );
       if (uploadErr) throw uploadErr;
-      await supabase.from("supplier_credits" as any).update({ file_url: storedPath }).eq("id", credit.id);
+      await mustWrite(supabase.from("supplier_credits" as any).update({ file_url: storedPath }).eq("id", credit.id).select("id"), "supplier_credits", { expectRows: true });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["supplier-credits", supplierId] });
@@ -304,7 +305,7 @@ function CreditForm({
             file,
           );
           if (uploadErr) throw uploadErr;
-          await supabase.from("supplier_credits" as any).update({ file_url: storedPath }).eq("id", existingCredit.id);
+          await mustWrite(supabase.from("supplier_credits" as any).update({ file_url: storedPath }).eq("id", existingCredit.id).select("id"), "supplier_credits", { expectRows: true });
         }
       } else {
         // Create new credit
@@ -330,7 +331,7 @@ function CreditForm({
             file,
           );
           if (uploadErr) throw uploadErr;
-          await supabase.from("supplier_credits" as any).update({ file_url: storedPath }).eq("id", inserted.id);
+          await mustWrite(supabase.from("supplier_credits" as any).update({ file_url: storedPath }).eq("id", inserted.id).select("id"), "supplier_credits", { expectRows: true });
         }
       }
     },

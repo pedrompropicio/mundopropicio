@@ -25,6 +25,7 @@ const PAYMENT_OUT_OF_POCKET = "__out_of_pocket__";
 import { extractJpegFromDng, isDngFile } from "@/lib/dng-extract-preview";
 import { pdfFirstPageToJpeg } from "@/lib/pdf-first-page-to-jpeg";
 import { SplitItemModal } from "./SplitItemModal";
+import { mustWrite } from "@/lib/must-write";
 
 interface Props {
   open: boolean;
@@ -180,7 +181,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
         .eq("item_id", itemId);
       const paths = ((docs ?? []) as any[]).map((d) => d.file_path).filter(Boolean);
       if (paths.length > 0) {
-        await supabase.from("camarim_item_documents" as any).delete().eq("item_id", itemId);
+        await mustWrite(supabase.from("camarim_item_documents" as any).delete().eq("item_id", itemId), "camarim_item_documents");
       }
       // CASCADE da FK parent_item_id apaga os filhos automaticamente.
       const { data: delRows, error } = await supabase.from("camarim_items" as any).delete().eq("id", itemId).select("id");
@@ -542,7 +543,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
           console.error("Camarim attachment upload failed", upErr);
           if (createdNow && savedId) {
             // Rollback do item recém-criado para o utilizador poder voltar a tentar
-            await supabase.from("camarim_items" as any).delete().eq("id", savedId);
+            await mustWrite(supabase.from("camarim_items" as any).delete().eq("id", savedId).select("id"), "camarim_items", { expectRows: true });
           }
           const msg =
             upErr?.message?.includes("row-level security") || upErr?.statusCode === 403

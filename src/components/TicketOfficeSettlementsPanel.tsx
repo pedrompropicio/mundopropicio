@@ -110,71 +110,14 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
 
   const reverseMutation = useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
-      // Unlink transactions and revert their status
-      const { data: linked } = await fetchAllPagedQuery((supabase as any)
-        .from("transactions")
-        .select("id, type")
-        .eq("settlement_id", id));
-      // A transferência é um PAR (expense + income) com a mesma chave de operação:
-      // estornar apaga as duas pernas, nunca só a apontada pelo fecho.
-      const settlement = settlements.find((s: any) => s.id === id);
-      if (settlement?.transfer_transaction_id) {
-        const { data: leg } = await (supabase as any)
-          .from("transactions")
-          .select("id, operation_key")
-          .eq("id", settlement.transfer_transaction_id)
-          .maybeSingle();
-        if (leg?.operation_key) {
-          await (supabase as any).from("transactions").delete().eq("operation_key", leg.operation_key);
-        } else if (leg?.id) {
-          await (supabase as any).from("transactions").delete().eq("id", leg.id);
-        }
-      }
-      const expenseIds = (linked || [])
-        .filter((t: any) => t.type === "expense")
-        .map((t: any) => t.id);
-      if (expenseIds.length > 0) {
-        // D-ERP157: o pagamento do fecho vive em transaction_payments; apaga-o
-        // primeiro — a base recusa baixar paid_amount abaixo dos pagamentos.
-        await (supabase as any).from("transaction_payments").delete().in("transaction_id", expenseIds);
-        await (supabase as any)
-          .from("transactions")
-          .update({ settlement_id: null, status: "pending", payment_date: null, paid_amount: 0, account_id: null })
-          .in("id", expenseIds);
-      }
-      // Release advances back to pending
-      await (supabase as any)
-        .from("event_ticket_office_advances")
-        .update({ settlement_id: null })
-        .eq("settlement_id", id);
-      const { error } = await (supabase as any)
-        .from("ticket_office_settlements")
-        .update({
-          status: "reversed",
-          reversed_at: new Date().toISOString(),
-          reversed_by: user?.id,
-          reversal_reason: reason,
-          transfer_transaction_id: null,
-          net_transferred: 0,
-          transfer_account_id: null,
-        })
-        .eq("id", id);
-      if (error) throw error;
-      // Estornar o fecho retira o carimbo de conciliação da atribuição.
-      if (settlement?.event_id) {
-        await (supabase as any)
-          .from("event_ticket_office_assignments")
-          .update({ is_conciliated: false, conciliated_at: null, conciliated_by: null })
-          .eq("event_id", settlement.event_id)
-          .eq("financial_account_id", officeId);
-      }
-      await logAudit({
-        entity_type: "ticket_office_settlement",
-        entity_id: id,
-        action: "reverse",
-        changed_by: getAuditUser(user),
-        metadata: { reason },
+      // #295 (D-ERP219): estorno atómico na base — pernas da transferência,
+      // pagamentos, despesas, adiantamentos, carimbo de conciliação e auditoria.
+      const { error } = await (supabase as any).rpc("reverse_ticket_office_settlement", {
+        p_settlement_id: id,
+        p_reason: reason,
+        p_caller_name: getAuditUser(user),
       });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ticket_office_settlements"] });

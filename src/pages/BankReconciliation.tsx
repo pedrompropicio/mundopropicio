@@ -61,6 +61,7 @@ import {
 } from "@/lib/bank-statement/reconcile";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { parseDateConflicts, withDateActions, type DateAction, type DateConflict } from "@/lib/bank-link-date";
+import { mustWrite } from "@/lib/must-write";
 
 const PAGE = 1000;
 
@@ -1253,7 +1254,7 @@ export default function BankReconciliation() {
           .select("id", { count: "exact", head: true })
           .eq("statement_id", stmtId);
         if (!count) {
-          await supabase.from("bank_statements").delete().eq("id", stmtId);
+          await mustWrite(supabase.from("bank_statements").delete().eq("id", stmtId).select("id"), "bank_statements", { expectRows: true });
           toast.info("Este extrato já tinha sido importado por inteiro — nada de novo a guardar.");
           setStatementId(reusable?.id ?? null);
           setParsed(null);
@@ -1409,7 +1410,7 @@ export default function BankReconciliation() {
       })
       .eq("id", ignoreLine.id);
     if (error) return toast.error("Erro ao ignorar: " + error.message);
-    await supabase.from("bank_line_transactions").delete().eq("line_id", ignoreLine.id);
+    await mustWrite(supabase.from("bank_line_transactions").delete().eq("line_id", ignoreLine.id), "bank_line_transactions");
     toast.success("Linha marcada como ignorada.");
     setIgnoreLine(null);
     setIgnoreNote("");
@@ -1487,7 +1488,7 @@ export default function BankReconciliation() {
         // As linhas desta passagem deixam de ter conciliação manual de N: o
         // `on delete cascade` não cobre isto, porque a linha não é apagada.
         if ((bridgeByLine.get(l.id) ?? []).length > 0) {
-          await supabase.from("bank_line_transactions").delete().eq("line_id", l.id);
+          await mustWrite(supabase.from("bank_line_transactions").delete().eq("line_id", l.id), "bank_line_transactions");
         }
         (m?.transactionIds ?? []).forEach((id) => preUsed.add(id));
       }

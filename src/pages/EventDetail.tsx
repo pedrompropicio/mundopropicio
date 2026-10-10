@@ -79,6 +79,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { eventNatureLabel, type EventNature } from "@/lib/event-nature";
+import { mustWrite } from "@/lib/must-write";
 
 // #269 — defaults estáveis: `= []` cria um array novo a cada desenho e reabre useMemo/efeitos.
 const EMPTY_ARR_STABLE: any[] = [];
@@ -594,17 +595,18 @@ export default function EventDetail() {
       }
 
       // Delete related data first
-      await supabase.from("event_dates").delete().eq("event_id", id!);
-      await supabase.from("event_forecasts").delete().eq("event_id", id!); // OK: eliminação total do evento (apaga Ativa + cenários)
-      await supabase.from("event_cache_configs").delete().eq("event_id", id!);
+      await mustWrite(supabase.from("event_dates").delete().eq("event_id", id!), "event_dates");
+      // OK: eliminação total do evento (apaga Ativa + cenários)
+      await mustWrite(supabase.from("event_forecasts").delete().eq("event_id", id!), "event_forecasts");
+      await mustWrite(supabase.from("event_cache_configs").delete().eq("event_id", id!), "event_cache_configs");
       // Delete ticket lots via zones
       const { data: zones } = await supabase.from("event_ticket_zones").select("id").eq("event_id", id!);
       if (zones && zones.length > 0) {
         const zoneIds = zones.map(z => z.id);
-        await supabase.from("event_ticket_lots").delete().in("zone_id", zoneIds);
-        await supabase.from("ticket_sales").delete().in("zone_id", zoneIds);
+        await mustWrite(supabase.from("event_ticket_lots").delete().in("zone_id", zoneIds), "event_ticket_lots");
+        await mustWrite(supabase.from("ticket_sales").delete().in("zone_id", zoneIds), "ticket_sales");
       }
-      await supabase.from("event_ticket_zones").delete().eq("event_id", id!);
+      await mustWrite(supabase.from("event_ticket_zones").delete().eq("event_id", id!), "event_ticket_zones");
       // Delete the event itself
       const { error } = await supabase.from("events").delete().eq("id", id!);
       if (error) throw error;
@@ -1571,7 +1573,7 @@ export default function EventDetail() {
                       toast({ title: "A data de origem não tem previsões no BP", variant: "destructive" });
                       return;
                     }
-                    await supabase.from("event_forecasts").insert(
+                    await mustWrite(supabase.from("event_forecasts").insert(
                       sourceForecasts.map(f => ({
                         event_id: selectedSubEvent,
                         type: f.type,
@@ -1583,7 +1585,7 @@ export default function EventDetail() {
                         specification: f.specification,
                         status: "draft",
                       }))
-                    );
+                    ), "event_forecasts");
                     queryClient.invalidateQueries({ queryKey: ["event_forecasts", selectedSubEvent] });
                     toast({ title: "BP copiado com sucesso!" });
                   }}

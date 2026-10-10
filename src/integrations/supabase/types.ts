@@ -17776,6 +17776,20 @@ export type Database = {
           severity: string
         }[]
       }
+      _run_invariant_checks_rateio: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _run_invariant_checks_raw: {
         Args: never
         Returns: {
@@ -19222,6 +19236,15 @@ export type Database = {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
       }
+      delete_transaction_cascade: {
+        Args: {
+          p_caller_name?: string
+          p_cascade_invoice_group?: boolean
+          p_reason?: string
+          p_transaction_id: string
+        }
+        Returns: Json
+      }
       discard_bp_version_draft: {
         Args: {
           _performed_by?: string
@@ -20112,6 +20135,14 @@ export type Database = {
         }
         Returns: Json
       }
+      reverse_ticket_office_settlement: {
+        Args: {
+          p_caller_name?: string
+          p_reason: string
+          p_settlement_id: string
+        }
+        Returns: Json
+      }
       reverse_transaction:
         | {
             Args: {
@@ -20203,6 +20234,10 @@ export type Database = {
         Returns: string
       }
       set_coala_match_source: { Args: { source: string }; Returns: undefined }
+      set_forecast_amount_observed: {
+        Args: { _amount: number; _forecast_id: string; _observation?: string }
+        Returns: Json
+      }
       set_forecast_amount_with_observation: {
         Args: { _amount: number; _forecast_id: string; _observation: string }
         Returns: undefined
