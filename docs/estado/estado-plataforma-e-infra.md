@@ -1,6 +1,6 @@
 # ESTADO — Plataforma & Infra
 
-Atualizado 2026-10-03 · Issues #256, #269, #213, #265, #268, #186, #202, #204, #206, #83, #57 · a-seguir #96, #61. Fechadas a 18/09: #211, #203, #15.
+Atualizado 2026-10-10 · Issues #256, #269, #213, #265, #268, #186, #202, #204, #206, #83, #57 · a-seguir #96, #61. Fechadas a 18/09: #211, #203, #15. Fechada a 10/10: #254 (geo por IP — ver secção própria no fim).
 Última verificação deste lote: 09/10/2026 — #244 sem falhas herdadas; #231 splitting já existente e prova de SHA acrescentada; #61 bloqueada por falta dos ficheiros reais para comparação. Sem Publish.
 Suite final: 834 passed | 1 skipped | 11 todo; build automático OK. Índice regenerado e teste do índice aprovado. CI remoto e tsgo isolado não confirmados nesta sessão; tamanho do novo artefacto não disponível no sandbox, medição reportada é a produção actual.
 
@@ -398,6 +398,7 @@ Cada fornecedor desativado tem nota auditável: `[2026-09-12] Duplicado por IBAN
 - `claude/auditoria-company-id-service-role-2026-09-01.md` (incidente da auditoria, 01/09)
 - `docs/procedimentos/PROC-recuperacao-plataforma.md`
 - `.lovable/memory/constraints/lovable-cloud-ddl-workflow.md` (reescrita a 30/08 — o mundo com Test acabou), `edge-fn-esm-sh-supabase-js.md`
+- `.lovable/memory/features/ip-geo-cache.md` — cache geo por IP (`public.ip_geo_cache`, TTL 30 d) e `portal-track` (#254, fechada 10/10/2026)
 - Issues #186, #202, #203, #204, #206, #211, #140, #83, #96, #61, #57
 
 ## Regra de escrita entre syncs (20/09/2026)
