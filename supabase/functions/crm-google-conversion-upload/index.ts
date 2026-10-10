@@ -33,6 +33,9 @@ import {
   toRfc3339,
 } from "../_shared/google-data-manager.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
+import { positiveConversionValue } from "../_shared/google-click-match.ts";
+
+const MP_COMPANY_ID = "7c858982-6ccd-47ca-bd65-e0dd3eebf01c";
 
 /** Conta Google Ads que recebe os dados (220-004-3144). */
 const OPERATING_ACCOUNT_ID = "2200043144";
@@ -133,6 +136,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  // ---------- 0) Valor por lead (D-ERP230) ----------
+  // Lê portal_settings.google_lead_conversion_value no momento do envio.
+  // >0 → envia esse valor; 0/vazio → envia SEM valor (nunca 0): a Google aplica
+  // o valor por omissão da acção de conversão, ao passo que 0 grava zero.
+  const { data: valSetting } = await admin
+    .from("portal_settings")
+    .select("value")
+    .eq("company_id", MP_COMPANY_ID)
+    .eq("key", "google_lead_conversion_value")
+    .maybeSingle();
+  const leadValue = positiveConversionValue((valSetting as { value?: unknown } | null)?.value);
 
   // ---------- 1) Ler pendentes ----------
   const { data: pendingRaw, error: fetchErr } = await admin
@@ -244,8 +259,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     else if (r.gbraid) ev.adIdentifiers!.gbraid = r.gbraid;
     else if (r.wbraid) ev.adIdentifiers!.wbraid = r.wbraid;
 
-    if (r.conversion_value !== null && r.conversion_value !== undefined) {
-      ev.conversionValue = Number(r.conversion_value);
+    const value = leadValue ?? positiveConversionValue(r.conversion_value);
+    if (value !== null) {
+      ev.conversionValue = value;
       ev.currency = r.currency_code ?? "EUR";
     }
     // order_id = lead_capture.id — é a nossa chave de dedupe.
