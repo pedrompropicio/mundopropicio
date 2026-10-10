@@ -185,4 +185,14 @@ describe("solveForecast — janela adaptativa & boost", () => {
     const proj = sol.qtyByKey["0-Geral"] - 500;
     expect(proj).toBeLessThan(40);
   });
+
+  it("[#291] passe 200/200 replicado em 2 dias → velocidade 200/30, não 400/30", () => {
+    const sessions = [
+      mkSession({ day_index: 0, zone_label: "Passe", real_sales_qty: 200 }),
+      mkSession({ day_index: 1, zone_label: "Passe", real_sales_qty: 200 }),
+    ];
+    const lots = { Passe: lot(2000, 30, 200) };
+    const sol = solveForecast(sessions, cfg, lots, dateInDays(60));
+    expect(sol.breakdown[0].recent_velocity).toBeCloseTo(200 / 30, 4);
+  });
 });

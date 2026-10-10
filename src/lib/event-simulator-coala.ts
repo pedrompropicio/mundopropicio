@@ -189,6 +189,19 @@ function isPassLikeMultiDayGroup(sessions: CoalaSession[], idxs: number[]): bool
 }
 
 /**
+ * #291 — soma de uma grandeza da zona sem duplicar o passe multi-dia.
+ * Passe (`isPassLikeMultiDayGroup`) replicado em N dias traz a MESMA venda em
+ * cada dia: conta-se só o dia da âncora. Bilhete-dia: soma todas as sessões.
+ */
+function zoneSum(sessions: CoalaSession[], idxs: number[], f: (s: CoalaSession) => number): number {
+  if (isPassLikeMultiDayGroup(sessions, idxs)) {
+    const day = sessions[idxs[0]].day_index;
+    return idxs.filter((i) => sessions[i].day_index === day).reduce((a, i) => a + f(sessions[i]), 0);
+  }
+  return idxs.reduce((a, i) => a + f(sessions[i]), 0);
+}
+
+/**
  * Regra única de repartição de uma quantidade/receita de zona pelas sessões
  * do grupo (usada por solveBreakEven e solveForecast):
  *  - passe multi-dia (`isPassLikeMultiDayGroup`) → âncora (groupIdxs[0]) leva tudo;
@@ -545,7 +558,7 @@ export function solveBreakEven(
     sessions.forEach((s, idx) => {
       const groupIdxs = groupIndexes.get(logicalZoneGroup(s.zone_label)) ?? [idx];
       if (groupIdxs[0] !== idx) return; // só anchor representa a zona
-      const realQtyZone = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
+      const realQtyZone = zoneSum(sessions, groupIdxs, sessionTodayQty);
       if (realQtyZone <= 0) return;
       const key = `${s.day_index}-${s.zone_label}`;
       const info = lotInfoByKey?.[key] ?? lotInfoByKey?.[s.zone_label];
@@ -712,7 +725,7 @@ export function solveBreakEven(
     const isAnchor = groupIdxs[0] === idx;
     // realQty agregado por zona (todas as duplicatas) para evitar viés
     // no dia em que o sync concentrou as vendas reais.
-    const realQtyZone = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
+    const realQtyZone = zoneSum(sessions, groupIdxs, sessionTodayQty);
     const realQty = sessionTodayQty(s);
 
     // Capacidade da zona: única, mesmo aparecendo em vários dias.
@@ -937,11 +950,11 @@ export function solveForecast(
     const anchor = sessions[idxs[0]];
     const key = `${anchor.day_index}-${anchor.zone_label}`;
     const info = lotInfoByKey?.[key] ?? lotInfoByKey?.[anchor.zone_label];
-    const realQtyZone = idxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
-    const courtesyZone = idxs.reduce((a, i) => a + n(sessions[i].courtesy_qty), 0);
+    const realQtyZone = zoneSum(sessions, idxs, sessionTodayQty);
+    const courtesyZone = zoneSum(sessions, idxs, (x) => n(x.courtesy_qty));
     const manualFloorZone = Math.max(
       0,
-      idxs.reduce((a, i) => a + n(sessions[i].forecast_qty), 0) - courtesyZone,
+      zoneSum(sessions, idxs, (x) => n(x.forecast_qty)) - courtesyZone,
     );
 
     const hasCapacity = (info?.capacity ?? 0) > 0;
