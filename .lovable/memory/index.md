@@ -31,7 +31,6 @@ Uma linha por tema, por frente: pergunta → ficheiros (mem://pasta/ficheiro). S
 
 **Transversal**
 - Onde registar regras sem criar ficheiros na raiz? → constraints/no-unrequested-root-files
-- [Barreira 1000 PostgREST](mem://constraints/postgrest-1000-barrier) — leituras de tabelas grandes só paginadas ou por RPC; somas na base
 - Invariantes e vigias? → features/invariant-monitor
 - Como se aplica DDL / crons? → constraints/lovable-cloud-ddl-workflow, constraints/cron-job-run-details
 - Overlays / modais por cima uns dos outros? → constraints/pilha-de-overlays
@@ -51,6 +50,7 @@ Uma linha por tema, por frente: pergunta → ficheiros (mem://pasta/ficheiro). S
 - [Master/Split implementation guardrails](mem://constraints/master-split-implementation-guardrails) — Guardrails internos para evitar regressões ao mexer em BP Master/Split, rateio, promoção ao Master e auditorias de produção.
 - [Não criar ficheiros na raiz sem pedido](mem://constraints/no-unrequested-root-files) — Pedro não quer novos ficheiros na raiz sem pedido; regras de arquitetura vivem em docs/DECISIONS.md
 - [Pagamento nunca com data futura](mem://constraints/pagamento-nunca-com-data-futura) — payment_date em transactions e transaction_payments nunca pode ser posterior a hoje; saídas previstas vivem em due_date
+- [Barreira 1000 PostgREST](mem://constraints/postgrest-1000-barrier) — leituras de tabelas grandes só paginadas ou por RPC; somas na base
 - [Pilha de overlays (z-index)](mem://constraints/pilha-de-overlays) — Nenhum componente define z-index de overlay à mão; Dialog/AlertDialog/Sheet/Drawer/OverlayLayer e flutuantes usam a pilha de src/lib/overlay-layer.ts
 - [Sync nunca escreve no planeamento de bilhética](mem://constraints/sync-never-writes-planning) — Fronteira entre syncs de bilheteira e o planeamento humano (event_ticket_zones/event_ticket_lots); flag sync_generated e réguas do portal em event_marketing.ticket_lots
 - [Datas de vendas sempre Europe/Lisbon](mem://constraints/timezone-portugal) — Janelas de vendas (hoje/ontem/últimos N dias) usam sempre o fuso de Portugal, na BD e no frontend
