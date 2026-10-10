@@ -7,7 +7,7 @@ UPDATE public.profiles SET active_company_id = '7c858982-6ccd-47ca-bd65-e0dd3eeb
 
 CREATE TEMP TABLE _alvo ON COMMIT DROP AS
 SELECT e.status AS ev_status, t.id AS tx_id, t.event_id,
-       (SELECT ep.partner_id FROM public.event_partners ep WHERE ep.event_id = e.id LIMIT 1) AS partner_id
+       (SELECT ep.id FROM public.event_partners ep WHERE ep.event_id = e.id LIMIT 1) AS partner_id
   FROM public.events e
   JOIN LATERAL (SELECT t.* FROM public.transactions t
                  WHERE t.event_id = e.id AND t.type = 'expense' AND NOT coalesce(t.is_transitory, false)
