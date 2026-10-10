@@ -356,12 +356,14 @@ Deno.serve(async (req) => {
       template_name: "invite_set_password",
       recipient_email: normalizedEmail,
       status: "pending",
+      company_id: callerCompanyId,
     });
 
     const { error: enqueueError } = await adminClient.rpc("enqueue_email", {
       queue_name: "transactional_emails",
       payload: {
         message_id: messageId,
+        company_id: callerCompanyId,
         idempotency_key: idempotencyKey,
         unsubscribe_token: unsubscribeToken,
         to: normalizedEmail,

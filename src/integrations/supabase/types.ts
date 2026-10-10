@@ -17724,6 +17724,20 @@ export type Database = {
           severity: string
         }[]
       }
+      _run_invariant_checks_isolation: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _run_invariant_checks_paid: {
         Args: never
         Returns: {
@@ -19190,10 +19204,12 @@ export type Database = {
         Returns: undefined
       }
       email_queue_dispatch: { Args: never; Returns: undefined }
-      enqueue_email: {
-        Args: { payload: Json; queue_name: string }
-        Returns: number
-      }
+      enqueue_email:
+        | { Args: { payload: Json; queue_name: string }; Returns: number }
+        | {
+            Args: { company_id: string; payload: Json; queue_name: string }
+            Returns: number
+          }
       enqueue_whatsapp_notification: {
         Args: {
           p_context_id?: string

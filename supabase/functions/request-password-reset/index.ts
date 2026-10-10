@@ -274,6 +274,7 @@ Deno.serve(async (req) => {
       queue_name: "transactional_emails",
       payload: {
         message_id: messageId,
+        company_id: companyId,
         idempotency_key: idempotencyKey,
         unsubscribe_token: unsubscribeToken,
         to: email,
@@ -296,6 +297,7 @@ Deno.serve(async (req) => {
         recipient_email: email,
         status: "failed",
         error_message: enqueueError.message,
+        company_id: companyId,
       });
     }
 

@@ -259,12 +259,14 @@ Deno.serve(async (req) => {
       template_name: "resend_reset",
       recipient_email: email,
       status: "pending",
+      company_id: profile.company_id,
     });
 
     const { error: enqueueError } = await adminClient.rpc("enqueue_email", {
       queue_name: "transactional_emails",
       payload: {
         message_id: messageId,
+        company_id: profile.company_id,
         idempotency_key: idempotencyKey,
         unsubscribe_token: unsubscribeToken,
         to: email,
@@ -288,6 +290,7 @@ Deno.serve(async (req) => {
         recipient_email: email,
         status: "failed",
         error_message: enqueueError.message,
+        company_id: profile.company_id,
       });
 
       return new Response(JSON.stringify({ error: "Erro ao enviar email" }), {
