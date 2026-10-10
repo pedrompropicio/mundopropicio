@@ -5390,3 +5390,16 @@ Customer Match:
 - Somas de vendas conferem-se com `coalesce(total_value, quantity * unit_price)`, como `_ticket_office_balance_raw`; `total_value` isolado omite linhas NULL. A app usa a fonte agregada `get_ticket_office_sales`.
 - Cadeia de apuramentos incompleta: Ivete e H&K Porto com fecho mas sem apuramento; M&M Lisboa/Porto sem fecho nem apuramento e liquidados a zero. Resolver pelos PDFs anteriores ao 3163, sem inventar ligações. Total coincidente não prova o corte do PDF linha a linha.
 - Retido, valor por apurar e diferença de calendário são consultados na hora, nunca escritos como números em estado/handoff/notas. A posição do documento pode ser registada.
+
+## D-ERP234 — Chegada SSR dos smart links e deduplicação antes da entrega (10/10/2026)
+
+**Decisão (Pedro):** registar a chegada no loader SSR do Portal, pois o JavaScript não corre em muitas visitas provenientes da Meta. D-ERP189 mantém o significado Onebox; este despacho tem numeração própria.
+- Contrato: POST `song-link-event` sem Origin, autenticado por `x-song-link-ssr-key` igual a `SONG_LINK_SSR_KEY` (comparação dos hashes em tempo constante). Secret ausente/incorrecto: 401 sem escrita. O Pedro configura o mesmo valor no ERP e no Portal; não foi criado nem gerado nesta tarefa.
+- SSR usa `client_ip` e `client_ua` para geografia, hash privado e CAPI/TikTok; grava `origin='ssr'`. Browser mantém `origin='browser'`. `event_id` gerado no servidor é reutilizado pelo browser.
+- Prefetch ou bot: apenas diagnóstico `kind='prefetch'`, sem chegada nem entrega externa; `detail` limitado a 60 caracteres, com purpose ou nome do bot.
+- `song_link_event_claim(jsonb)`, só service_role, faz INSERT ON CONFLICT DO NOTHING antes da Meta/TikTok. Só uma linha nova autoriza envio. Repetição browser apenas completa evidência de cookie em falta, sem reenvio e sem alterar a origem.
+- Índice parcial único `(event_id,event)` desde 10/10/2026 UTC mantém os duplicados históricos anteriores intactos. Falha na entrega externa fica no estado da linha; não há reenvio automático por repetição do browser.
+- Relatórios `artist_ads_period_report`, `artist_song_link_stats` e `song_link_health_run` contam `arrival` sem filtro de origin; não precisaram de alteração. A unicidade garante uma chegada nas novas visitas SSR/browser.
+- Migração aplicada: `drizzle/migrations/0080_derp234_song_link_ssr_dedup.sql`. Função implantada e testes locais de chave/bots/ordem da entrega passaram. Provas Live com `utm_source=teste_chat2`: chave errada → 401 sem linha; browser → 200, repetição → 200 duplicate, uma linha só.
+- Falta, após configurar o segredo: SSR válida sem Origin (origin ssr e IP/UA do visitante); repetição browser do mesmo event_id com uma linha e sem reenvio; prefetch autenticado e bot com apenas diagnóstico; confirmar entrega Meta/TikTok e deduplicação com o pixel do Portal.
+- Commit de base observado: `738a8b9df5c52625c4772b39e047c5528eef9267`; o commit desta alteração é gerido pelo Lovable e ainda não estava disponível durante a execução. Não confundir o SHA de base com o commit de entrega.
