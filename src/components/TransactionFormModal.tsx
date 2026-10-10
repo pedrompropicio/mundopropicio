@@ -2072,7 +2072,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const proceedWithCreate = async () => {
     setShowProrationConfirm(false);
     if (!budgetPreflightDoneRef.current && form.type === "expense" && selectedForecastId && form.event_id
-        && !isSplit && !isTransitory && !form.exclude_from_result && !form.shared_cost_account_id) {
+        && !isSplit && !isTransitory && !sharedCostAccountId) {
       try {
         const excess = await computeBudgetExcess([{
           forecast_id: selectedForecastId,
