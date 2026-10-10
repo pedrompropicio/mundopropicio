@@ -1041,7 +1041,7 @@ Deno.serve(async (req) => {
       };
       const resolveCatForRow = (r: ParsedRow): string => {
         if (r.rawCenterCusto) {
-          const m = allCats.find((c: any) => c.parent_id != null && norm(c.name) === norm(r.rawCenterCusto || ""));
+          const m = catByCc(r.rawCenterCusto);
           if (m) return m.id;
         }
         return noteFallback(r.rawCenterCusto, r.netAmount);
@@ -1969,7 +1969,7 @@ Deno.serve(async (req) => {
           });
           // Detectar conflito: XLSX traz CC e learning diz outra coisa
           if (r.rawCenterCusto) {
-            const xlsxCat = allCats.find((c: any) => c.parent_id != null && norm(c.name) === norm(r.rawCenterCusto || ""));
+            const xlsxCat = catByCc(r.rawCenterCusto);
             if (xlsxCat && xlsxCat.id !== categoryId) {
               ccProtectedConflicts++;
               ccProtectedLog.push({
