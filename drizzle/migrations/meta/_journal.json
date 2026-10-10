@@ -526,6 +526,13 @@
       "when": 1791603490335,
       "tag": "0074_emails_presos_pending_ignore_sent_pairs",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1791603996846,
+      "tag": "0075_payment_list_settlement_channel_guard",
+      "breakpoints": true
     }
   ]
 }
