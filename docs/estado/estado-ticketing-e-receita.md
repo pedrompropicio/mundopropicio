@@ -1,6 +1,6 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-10-09 · Issues: `agora` — · `a-seguir` #206 · `depois` #73, #78 · `bloqueada` #211 (transversal, plataforma-e-infra)
+Atualizado: 2026-10-10 (#303 apuramento Ticketline, D-ERP231) · Issues: `agora` — · `a-seguir` #206 · `depois` #73, #78 · `bloqueada` #211 (transversal, plataforma-e-infra)
 
 ## Em vigor
 
@@ -20,10 +20,9 @@ Nada em curso.
 - **#78** — o import da Ticketline não limpa a série antiga quando o formato muda.
 - **#73** — corte por tipo de bilhete.
 
-## Risco a vigiar
+## Fechado a 10/10/2026
 
-- **Mapa de Ocupação da Ticketline (#267, fechada por decisão).** Se algum apuramento da Ticketline vier a ser calculado sobre o Mapa de Ocupação em vez das vendas efectivas, os 9.680,00 € passam a ser dinheiro. Conferir no próximo fecho de Almada, Braga ou Estoril.
-- **Prova de isolamento nas edge functions por impersonação (D-ERP197/#283) por fazer.** As funções corrigidas recusam a chave pública e o token forjado, mas nunca foram testadas com uma sessão válida de outra empresa.
+- **#303 passo 2 — Apuramento Ticketline (D-ERP231).** Tabelas `ticket_office_statements` + `ticket_office_statement_lines` (event_right, ticketline_invoice, venue_settlement, advance, carry_over); `ticket_office_settlements.statement_id`; `event_ticket_office_advances` só de leitura (trigger). Anitta (ed7b4b3c): as pernas 10.3 f4c66167 (905.000,00) e 43807ccb (402.836,17) passaram de dedução a repasse no apuramento 2558 — deduções 12.863,83, direito 2.411.336,17, total 2558 = 0. Apuramento 3163 em rascunho: Σ linhas −48.785,59, total a fechar −49.050,59; a diferença é a linha do Deive (≈265,00) **pendente de documento** — bloqueia a confirmação. Nenhum resultado de evento mudou (BP, vendas e transações iguais; saldo Ticketline 207.021,17 antes e depois).
 
 ## Fechado a 09/10/2026
 
@@ -43,6 +42,8 @@ Nada em curso.
 
 ## Factos que não se reinvestigam
 
+- **Os números de fecho conferem-se sempre nos dois portais da Ticketline;** o portal do produtor é o mais assertivo. A Juliana faz conferência directa de todas as informações e vendas.
+- **Apuramento Ticketline ≠ fecho do evento (D-ERP231).** O fecho mostra o direito do evento; repasses e transitados vivem só no apuramento. Posição da conta = Σ direitos apurados − Σ faturas sem evento apurado − Σ repasses (08/10: 1.019.194,17 − 19.000,76 − 1.048.244,00 = −49.050,59). O saldo da conta não é a prova: 207.021,17 = −49.050,59 + 248.412,00 (8 RG por apurar) + 7.659,76.
 - **Fecho de bilheteira (fluxo completo):** ler `.lovable/memory/features/settlement-transfer-pair.md`, `venue-retained-door-sales.md`, `ticket-office-reconciliation.md` e `ticket-office-sales-scope.md` antes de diagnosticar.
 - **Vigia de sync:** `.lovable/memory/features/ticketing-sync-health.md` (condições a–g, cálculo único `ticketing_sync_conditions()`, canal único o indicador — D-ERP197).
 - **Crosscheck portal de Produtores:** `.lovable/memory/features/ticketline-crosscheck.md` (correspondência por data+recinto, limiar 3 bilhetes E 1%).

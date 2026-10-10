@@ -14486,6 +14486,7 @@ export type Database = {
           reversed_at: string | null
           reversed_by: string | null
           settlement_date: string
+          statement_id: string | null
           status: string
           total_deductions: number
           transfer_account_id: string | null
@@ -14520,6 +14521,7 @@ export type Database = {
           reversed_at?: string | null
           reversed_by?: string | null
           settlement_date?: string
+          statement_id?: string | null
           status?: string
           total_deductions?: number
           transfer_account_id?: string | null
@@ -14554,6 +14556,7 @@ export type Database = {
           reversed_at?: string | null
           reversed_by?: string | null
           settlement_date?: string
+          statement_id?: string | null
           status?: string
           total_deductions?: number
           transfer_account_id?: string | null
@@ -14590,6 +14593,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ticket_office_settlements_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_office_statements"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ticket_office_settlements_transfer_account_id_fkey"
             columns: ["transfer_account_id"]
             isOneToOne: false
@@ -14615,6 +14625,172 @@ export type Database = {
             columns: ["venue_retained_payment_id"]
             isOneToOne: false
             referencedRelation: "transaction_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_office_statement_lines: {
+        Row: {
+          amount: number | null
+          company_id: string
+          created_at: string
+          description: string
+          event_id: string | null
+          id: string
+          invoice_group_id: string | null
+          line_type: string
+          notes: string | null
+          pending_document: boolean
+          position: number
+          previous_statement_id: string | null
+          statement_id: string
+          ticket_office_settlement_id: string | null
+          transaction_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          company_id: string
+          created_at?: string
+          description: string
+          event_id?: string | null
+          id?: string
+          invoice_group_id?: string | null
+          line_type: string
+          notes?: string | null
+          pending_document?: boolean
+          position?: number
+          previous_statement_id?: string | null
+          statement_id: string
+          ticket_office_settlement_id?: string | null
+          transaction_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          company_id?: string
+          created_at?: string
+          description?: string
+          event_id?: string | null
+          id?: string
+          invoice_group_id?: string | null
+          line_type?: string
+          notes?: string | null
+          pending_document?: boolean
+          position?: number
+          previous_statement_id?: string | null
+          statement_id?: string
+          ticket_office_settlement_id?: string | null
+          transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_office_statement_lines_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_office_statement_lines_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_office_statement_lines_previous_statement_id_fkey"
+            columns: ["previous_statement_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_office_statements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_office_statement_lines_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_office_statements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_office_statement_lines_ticket_office_settlement_id_fkey"
+            columns: ["ticket_office_settlement_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_office_settlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_office_statement_lines_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_office_statements: {
+        Row: {
+          company_id: string
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          created_by: string | null
+          document_name: string | null
+          document_total: number | null
+          document_url: string | null
+          financial_account_id: string
+          id: string
+          notes: string | null
+          number: string
+          statement_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_name?: string | null
+          document_total?: number | null
+          document_url?: string | null
+          financial_account_id: string
+          id?: string
+          notes?: string | null
+          number: string
+          statement_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_name?: string | null
+          document_total?: number | null
+          document_url?: string | null
+          financial_account_id?: string
+          id?: string
+          notes?: string | null
+          number?: string
+          statement_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_office_statements_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_office_statements_financial_account_id_fkey"
+            columns: ["financial_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -19038,6 +19214,10 @@ export type Database = {
           warnings: string[]
           zone_signature: string[]
         }[]
+      }
+      confirm_ticket_office_statement: {
+        Args: { p_statement_id: string }
+        Returns: undefined
       }
       consume_recovery_code: { Args: { _code_hash: string }; Returns: boolean }
       convert_transaction_to_partner_extra: {
