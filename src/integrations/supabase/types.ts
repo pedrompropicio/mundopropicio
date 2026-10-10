@@ -18166,6 +18166,10 @@ export type Database = {
         Args: { _event_ids: string[] }
         Returns: string[]
       }
+      _song_growth_summary_initial: {
+        Args: { p_song_id: string; p_to?: string }
+        Returns: Json
+      }
       _supplier_resolve_or_create: {
         Args: {
           p_company_id: string
@@ -20571,7 +20575,7 @@ export type Database = {
         }[]
       }
       song_growth_summary: {
-        Args: { p_song_id: string; p_to?: string }
+        Args: { p_from?: string; p_song_id: string; p_to?: string }
         Returns: Json
       }
       song_link_event_canal: {
