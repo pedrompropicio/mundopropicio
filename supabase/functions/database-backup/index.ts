@@ -23,12 +23,6 @@ const corsHeaders = {
 
 const BACKUP_VERSION = 4;
 
-const STORAGE_BUCKETS = [
-  "database-backups",
-  "transaction-documents", "supplier-documents",
-  "partner-extra-documents", "cache-extra-documents",
-  "closing-cost-documents", "import-reports",
-];
 
 interface InventoryRow { schema_name: string; tbl_name: string; has_company_id: boolean }
 
@@ -453,28 +447,26 @@ Deno.serve(async (req) => {
 
 
     // Manifesto de storage: cross-tenant por natureza, fica no global.
+    // #202: TODOS os buckets (lista dinâmica de storage.buckets, menos database-backups),
+    // recursivo, com contagem e bytes por bucket (RPC backup_storage_manifest).
     let storageManifest: Record<string, any[]> | undefined;
     let storageCounts: Record<string, number> | undefined;
+    let storageReport: Record<string, { objects: number; bytes: number; mb: number; trash_objects: number; trash_bytes: number }> | undefined;
     if (scope === "global") {
+      const { data: sm, error: smErr } = await adminClient.rpc("backup_storage_manifest");
+      if (smErr) throw new Error(`backup_storage_manifest: ${smErr.message}`);
       storageManifest = {};
-      for (const bucket of STORAGE_BUCKETS) {
-        try {
-          const files = await listAllFiles(adminClient, bucket);
-          storageManifest[bucket] = files.map((f) => ({
-            name: f.name,
-            size: f.metadata?.size ?? null,
-            mimetype: f.metadata?.mimetype ?? null,
-            created_at: f.created_at,
-            updated_at: f.updated_at,
-          }));
-        } catch (e) {
-          errors.push(`storage/${bucket}: ${e instanceof Error ? e.message : "?"}`);
-          storageManifest[bucket] = [];
-        }
+      storageReport = {};
+      for (const [bucket, v] of Object.entries((sm ?? {}) as Record<string, any>)) {
+        storageManifest[bucket] = v.files ?? [];
+        storageReport[bucket] = {
+          objects: Number(v.objects ?? 0), bytes: Number(v.bytes ?? 0),
+          mb: Math.round((Number(v.bytes ?? 0) / 1048576) * 100) / 100,
+          trash_objects: Number(v.trash_objects ?? 0), trash_bytes: Number(v.trash_bytes ?? 0),
+        };
       }
-      storageCounts = Object.fromEntries(
-        Object.entries(storageManifest).map(([k, v]) => [k, v.length]),
-      );
+      storageCounts = Object.fromEntries(Object.entries(storageReport).map(([k, v]) => [k, v.objects]));
+      bytes += await uploadJson(adminClient, `${folder}/storage-manifest.json`, storageManifest);
     }
 
     // ---- Infraestrutura e identidades: só no global, e obrigatórias ----
@@ -508,7 +500,7 @@ Deno.serve(async (req) => {
       schemas,
       excluded,
       ...(Object.keys(partsMap).length ? { parts: partsMap } : {}),
-      ...(storageManifest ? { storage_manifest: storageManifest, storage_counts: storageCounts } : {}),
+      ...(storageReport ? { storage_manifest: "storage-manifest.json", storage_counts: storageCounts, storage_report: storageReport } : {}),
       ...(infraCounts || identityCounts
         ? {
             infra: "infra.json",
@@ -547,6 +539,7 @@ Deno.serve(async (req) => {
       rows_total: rowsTotal,
       bytes,
       error_text: errorText || null,
+      ...(storageReport ? { storage_report: storageReport } : {}),
     });
 
     return json({
