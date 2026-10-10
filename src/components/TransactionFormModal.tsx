@@ -1,5 +1,7 @@
 import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
 import { mustWrite } from "@/lib/must-write";
+import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
+import { computeBudgetExcess, type BudgetExcessLine, type BudgetRaise } from "@/lib/bp-budget-excess";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { makeTxInsert } from "@/lib/admin-window";
@@ -1448,7 +1450,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           ? (relevantForecasts as any[]).find((f: any) => f.id === selectedForecastId)
           : null;
         const forecastTotal = lineForecast
-          ? Number(lineForecast.amount) || 0
+          ? raisedForecastAmountRef.current[lineForecast.id] ?? (Number(lineForecast.amount) || 0)
           : forecastBudgetByCategory[budgetKey] || 0;
         const usedTotal = lineForecast
           ? usedByForecastId[lineForecast.id] || 0
@@ -2060,8 +2062,32 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     }
   };
 
+  // #114 (D2 no trigger): despesa com linha de BP que passaria a verba →
+  // aviso + elevação no mesmo acto. Sem elevar: lançamento normal fica pendente;
+  // nascer pago acima da verba é recusado (a base também recusa).
+  const raisedForecastAmountRef = useRef<Record<string, number>>({});
+  const budgetPreflightDoneRef = useRef(false);
+  const [budgetRaisePrompt, setBudgetRaisePrompt] = useState<{ lines: BudgetExcessLine[]; mustRaise: boolean } | null>(null);
+
   const proceedWithCreate = async () => {
     setShowProrationConfirm(false);
+    if (!budgetPreflightDoneRef.current && form.type === "expense" && selectedForecastId && form.event_id
+        && !isSplit && !isTransitory && !sharedCostAccountId) {
+      try {
+        const excess = await computeBudgetExcess([{
+          forecast_id: selectedForecastId,
+          amount: parseFloat(form.amount) || 0,
+          iva_rate: Number(form.iva_rate) || 0,
+        }]);
+        if (excess.length > 0) {
+          setBudgetRaisePrompt({ lines: excess, mustRaise: effectiveAutoMarkPaid });
+          return;
+        }
+      } catch (e) {
+        console.error("budget preflight", e);
+      }
+    }
+    budgetPreflightDoneRef.current = false;
     // Validação de parcelamento (Fase 1.5)
     if (useInstallments) {
       if (form.type === "income") {
@@ -2575,6 +2601,38 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
 
+        {budgetRaisePrompt && (
+          <RaiseBudgetDialog
+            lines={budgetRaisePrompt.lines}
+            onClose={() => {
+              const must = budgetRaisePrompt.mustRaise;
+              setBudgetRaisePrompt(null);
+              if (must) {
+                toast({ title: "Não gravado", description: "Uma despesa paga não pode nascer acima da verba da linha. Eleve a verba ou desmarque \"pago\".", variant: "destructive" });
+                return;
+              }
+              toast({ title: "Fica pendente", description: "Sem elevar a verba, a despesa grava-se pendente de aprovação." });
+              budgetPreflightDoneRef.current = true;
+              void proceedWithCreate();
+            }}
+            onConfirm={async (raises: BudgetRaise[]) => {
+              setBudgetRaisePrompt(null);
+              for (const r of raises) {
+                const { error } = await supabase.rpc("raise_forecast_budget" as any, {
+                  _forecast_id: r.forecast_id, _new_amount: r.new_amount, _observation: r.observation,
+                });
+                if (error) {
+                  toast({ title: "Verba não elevada", description: error.message, variant: "destructive" });
+                  return;
+                }
+                raisedForecastAmountRef.current[r.forecast_id] = r.new_amount;
+              }
+              queryClient.invalidateQueries({ queryKey: ["event-forecasts"] });
+              budgetPreflightDoneRef.current = true;
+              void proceedWithCreate();
+            }}
+          />
+        )}
         <form onKeyDown={blockImplicitSubmitOnEnter} onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
           <div className="flex gap-2">
             {(["income", "expense"] as const).map((t) => (

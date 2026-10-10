@@ -49,6 +49,8 @@ em curso, o botão do lote desactiva com qualquer das duas mutações, e
 
 ## Ecrãs ligados
 
+- (#114, 10/10/2026) `TransactionFormModal` — pré-verificação ao criar com linha; e a base recusa (trigger, P0409) aprovar/inserir acima da verba sem elevar. Ver D-ERP242.
+
 - `Transactions.tsx` — individual e lote (modo devolver); trata também o 409
   `budget_excess` devolvido pela função e repete;
 - `CamarimSessionDetail.tsx` — depois de escolher a linha; trata o 422;

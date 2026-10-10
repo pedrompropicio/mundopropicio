@@ -694,6 +694,20 @@
       "when": 1791670115096,
       "tag": "0098_derp_293_ads_invoice_tour_split",
       "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1791672056368,
+      "tag": "0099_derp_114_d2_verba_no_trigger",
+      "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1791672106470,
+      "tag": "0100_derp_114_d2_formato_pt",
+      "breakpoints": true
     }
   ]
 }
