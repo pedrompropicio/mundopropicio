@@ -26,6 +26,11 @@ async function writeCacheAmount(forecastId: string, amount: number, artist: stri
       return;
     }
     console.error("[useSyncCacheForecasts] falha a gravar amount do cachê", e);
+    toast({
+      title: `Cachê — ${artist}: linha não actualizada`,
+      description: (e as any)?.message ?? String(e),
+      variant: "destructive",
+    });
   }
 }
 
@@ -197,8 +202,14 @@ export function useSyncCacheForecasts({
           );
         }
         lastSyncHash.current = hash;
-      } catch (err) {
+      } catch (err: any) {
+        // #295: gravação recusada (RLS/trava) deixa de ficar só no console.
         console.error("Cache forecast sync error:", err);
+        toast({
+          title: "Cachê: o BP não foi actualizado",
+          description: err?.message ?? String(err),
+          variant: "destructive",
+        });
       } finally {
         syncingRef.current = false;
       }
