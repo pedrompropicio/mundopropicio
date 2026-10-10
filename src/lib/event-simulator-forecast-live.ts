@@ -15,6 +15,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
+import { fetchPriorCurve, PRIOR_CURVE_MODE } from "@/lib/simulator-prior-curve";
 import { keepLatestFeverImportRows } from "@/lib/ticket-sales-batch-filter";
 import {
   computeScenarioRevenue,
@@ -244,7 +245,13 @@ export async function computeLiveTicketForecast(eventId: string): Promise<LiveTi
   // Data do evento = última sessão (mesmo critério da página do Simulador).
   const dateList = ((dates ?? []) as any[]).map((d) => d.date).filter(Boolean);
   const eventDate = dateList.length ? dateList[dateList.length - 1] : ((evtRow as any)?.date ?? null);
+  // #89: curva histórica de outro evento, se escolhida no Simulador.
+  const priorCurve =
+    (cfg as any)?.sales_curve_mode === PRIOR_CURVE_MODE && (cfg as any)?.sales_curve_prior_event_id
+      ? (await fetchPriorCurve((cfg as any).sales_curve_prior_event_id)).points
+      : null;
   const solution = solveForecast(sessions, coala, lotInfoByKey, eventDate, {
+    priorCurve,
     finalAccel: Number(cfg.forecast_final_accel) || undefined,
     finalWindowDays: Number(cfg.forecast_final_window_days) || undefined,
   });

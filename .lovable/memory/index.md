@@ -236,3 +236,4 @@ Uma linha por tema, por frente: pergunta → ficheiros (mem://pasta/ficheiro). S
 - [RLS legacy audit job](mem://security/rls-legacy-audit-job) — Auditoria automática diária (02:30 UTC) que conta policies em `public` com padrão antigo `auth.uid() IS NOT NULL` e regista snapshot histórico
 - [SECDEF hardening 2026-05](mem://security/secdef-hardening-2026-05) — Auditoria + endurecimento das ~63 funções SECURITY DEFINER em public — Cat. A intacta; B.1+B.2+B.3+C aplicadas; D já estava endurecida (Fase 2 concluída)
 - [Security hardening 2026-05](mem://security/security-hardening-2026-05) — 4 fixes pós-multi-tenant aplicados em 2026-05-01 — suppliers viewer-leak, storage role checks, realtime auth, update-transaction role gate
+- [Simulador curva histórica](mem://features/simulator-prior-curve) — "Usar histórico de…": prior_editions + evento-fonte, fallback à curva por defeito, só sugere
