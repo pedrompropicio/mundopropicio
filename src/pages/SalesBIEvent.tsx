@@ -8,7 +8,10 @@
  */
 import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { toast } from "@/hooks/use-toast";
+import { setZoneOnSale, fetchOnSaleRunStatus, onSaleAlert } from "@/lib/zone-on-sale";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
@@ -105,9 +108,9 @@ export default function SalesBIEvent() {
     queryKey: ["bi-event", eventId],
     enabled: !!eventId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("events").select("id, name, date").eq("id", eventId).maybeSingle();
+      const { data, error } = await supabase.from("events").select("id, name, date, company_id").eq("id", eventId).maybeSingle();
       if (error) throw error;
-      return data as { id: string; name: string; date: string | null } | null;
+      return data as { id: string; name: string; date: string | null; company_id: string } | null;
     },
   });
 
@@ -150,6 +153,30 @@ export default function SalesBIEvent() {
       return cumulativeWithCutoff(base, cutoffInfo);
     },
   });
+
+  // #143 — marca à venda manual + alerta da leitura automática (ECI 403).
+  const qc = useQueryClient();
+  const [savingZone, setSavingZone] = useState<string | null>(null);
+  const companyId = eventQ.data?.company_id ?? null;
+  const onSaleRunsQ = useQuery({
+    queryKey: ["bi-on-sale-runs", companyId, eventId],
+    enabled: !!companyId && !!eventId,
+    queryFn: () => fetchOnSaleRunStatus(companyId as string, eventId),
+  });
+  const toggleOnSale = async (r: { id: string; name: string; onSale: boolean }, after: boolean) => {
+    if (!companyId) return;
+    setSavingZone(r.id);
+    try {
+      await setZoneOnSale({ zoneId: r.id, zoneName: r.name, eventId, companyId, before: r.onSale, after });
+      toast({ title: after ? "Sessão posta à venda" : "Sessão retirada da venda", description: r.name });
+      qc.invalidateQueries({ queryKey: ["bi-event-zones", eventId] });
+      qc.invalidateQueries({ queryKey: ["bi-on-sale-runs"] });
+    } catch (e: any) {
+      toast({ title: "Não gravado", description: e?.message ?? String(e), variant: "destructive" });
+    } finally {
+      setSavingZone(null);
+    }
+  };
 
   const zonesQ = useQuery({
     queryKey: ["bi-event-zones", eventId],
@@ -522,6 +549,21 @@ export default function SalesBIEvent() {
             </Card>
           )}
 
+          {(() => {
+            const msg = onSaleAlert(onSaleRunsQ.data);
+            const m = onSaleRunsQ.data?.lastManual;
+            return (msg || m) ? (
+              <Card className="border-warning/40 bg-warning/5 p-3 text-sm space-y-1">
+                {msg && <p className="font-medium">{msg}</p>}
+                {m && (
+                  <p className="text-xs text-muted-foreground">
+                    Última marcação manual: {m.sessao} → {m.depois ? "à venda" : "não lançada"}, por {m.email ?? "—"} em{" "}
+                    {new Date(m.started_at).toLocaleString("pt-PT", { timeZone: "Europe/Lisbon" })}.
+                  </p>
+                )}
+              </Card>
+            ) : null;
+          })()}
           <Card className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[820px] text-sm">
@@ -554,7 +596,13 @@ export default function SalesBIEvent() {
                         </td>
                       ))}
                       <td className="p-3">
-                        <Pill label={r.pill.label} tone={r.pill.tone} />
+                        <div className="flex items-center gap-2">
+                          <Pill label={r.pill.label} tone={r.pill.tone} />
+                          <button type="button" className="text-xs text-muted-foreground underline disabled:opacity-50"
+                            disabled={savingZone === r.id} onClick={() => toggleOnSale(r, false)}>
+                            Retirar da venda
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -586,7 +634,13 @@ export default function SalesBIEvent() {
                           {r.cap !== null ? int(r.cap) : <span className="text-muted-foreground">—</span>}
                         </td>
                         <td className="p-3">
-                          <Pill label="não lançada" tone="muted" />
+                          <div className="flex items-center gap-2">
+                            <Pill label="não lançada" tone="muted" />
+                            <button type="button" className="text-xs text-primary underline disabled:opacity-50"
+                              disabled={savingZone === r.id} onClick={() => toggleOnSale(r, true)}>
+                              Pôr à venda
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
