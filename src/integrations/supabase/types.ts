@@ -14676,6 +14676,60 @@ export type Database = {
           },
         ]
       }
+      ticket_office_statement_documents: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          document_source: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          mime_type: string
+          statement_id: string
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          document_source: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          mime_type: string
+          statement_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          document_source?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string
+          statement_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_office_statement_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_office_statement_documents_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_office_statements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_office_statement_lines: {
         Row: {
           amount: number | null
