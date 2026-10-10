@@ -10,9 +10,15 @@ import { Badge } from "@/components/ui/badge";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from "recharts";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { keepRootPerimeter } from "@/lib/settlement-perimeter";
+import { hasResultBlockingFlags } from "@/lib/fecho-filters";
+import { eventCostMode, eventCostTotal, groupByEvent, type ReportCostSource } from "@/lib/report-event-cost";
+import { ReportCostSourceToggle } from "@/components/ReportCostSourceToggle";
 
 export default function ReportProfitability() {
   const [view, setView] = useState<"artist" | "venue">("artist");
+  // #218: custo pelo BP (padrão); "Transações" só para comparação — nunca gravado.
+  const [costSource, setCostSource] = useState<ReportCostSource>("bp");
 
   const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
   const { data: allEvents = [] } = useQuery({
@@ -20,7 +26,7 @@ export default function ReportProfitability() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select("id, name, status, venue_id, parent_event_id, event_nature")
+        .select("id, name, status, venue_id, parent_event_id, event_nature, cost_expense_source")
         .in("status", ["completed"]);
       if (error) throw error;
       return data;
@@ -49,17 +55,64 @@ export default function ReportProfitability() {
     },
   });
 
-  const { data: transactions = [] } = useQuery({
+  const { data: transactionsAll = [] } = useQuery({
     queryKey: ["profitability-transactions"],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
-        .select("event_id, type, amount, status, is_transitory, exclude_from_result")
+        .select("event_id, type, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, reversed_at, is_hidden, event_settlement_id")
         .in("status", ["approved", "paid"]));
       if (error) throw error;
       return data;
     },
   });
+
+  const { data: rootSettlementIds } = useQuery({
+    queryKey: ["dre-root-settlements"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_settlements").select("id, parent_id");
+      if (error) throw error;
+      return new Set(((data ?? []) as any[]).filter((s) => !s.parent_id).map((s) => s.id as string));
+    },
+  });
+
+  // #218: filtro canónico + perímetro da raiz (paridade com o Fecho).
+  const transactions = useMemo(
+    () => keepRootPerimeter((transactionsAll as any[]).filter((t) => !hasResultBlockingFlags(t)), rootSettlementIds),
+    [transactionsAll, rootSettlementIds],
+  );
+
+  // #218: BP vivo (version_id IS NULL) — viva vs congelada é decisão pendente.
+  const { data: forecastsAll = [] } = useQuery({
+    queryKey: ["profitability-forecasts-expense"],
+    queryFn: async () => {
+      const { data, error } = await fetchAllPagedQuery(supabase
+        .from("event_forecasts")
+        .select("id, event_id, type, status, category_id, amount, iva_rate, version_id, is_transitory, is_overhead, exclude_from_result, event_settlement_id")
+        .eq("type", "expense")
+        .is("version_id", null)
+        .order("id", { ascending: true }));
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  // Custo do evento: função única (computeEventCostOnBasis) no critério gravado no evento.
+  const expenseByEvent = useMemo(() => {
+    const fcBy = groupByEvent(keepRootPerimeter(forecastsAll as any[], rootSettlementIds));
+    const txBy = groupByEvent(transactions as any[]);
+    const m = new Map<string, number>();
+    for (const e of events as any[]) {
+      const evTx = txBy.get(e.id) ?? [];
+      m.set(
+        e.id,
+        costSource === "bp"
+          ? eventCostTotal({ forecasts: fcBy.get(e.id) ?? [], transactions: evTx, mode: eventCostMode(e) })
+          : evTx.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0),
+      );
+    }
+    return m;
+  }, [events, forecastsAll, transactions, rootSettlementIds, costSource]);
 
   const artistData = useMemo(() => {
     const map = new Map<string, { artist: string; events: number; totalRevenue: number; totalExpense: number; margin: number }>();
@@ -70,7 +123,7 @@ export default function ReportProfitability() {
       
       const evTxs = transactions.filter((t) => t.event_id === cc.event_id && !t.is_transitory && !t.exclude_from_result);
       const revenue = evTxs.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
-      const expense = evTxs.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
+      const expense = expenseByEvent.get(cc.event_id) ?? 0;
       const margin = revenue - expense;
 
       const existing = map.get(cc.artist_name);
@@ -84,7 +137,7 @@ export default function ReportProfitability() {
       }
     }
     return Array.from(map.values()).sort((a, b) => b.margin - a.margin);
-  }, [cacheConfigs, events, transactions]);
+  }, [cacheConfigs, events, transactions, expenseByEvent]);
 
   const venueData = useMemo(() => {
     const map = new Map<string, { venue: string; events: number; totalRevenue: number; totalExpense: number; margin: number }>();
@@ -96,7 +149,7 @@ export default function ReportProfitability() {
 
       const evTxs = transactions.filter((t) => t.event_id === ev.id && !t.is_transitory && !t.exclude_from_result);
       const revenue = evTxs.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
-      const expense = evTxs.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
+      const expense = expenseByEvent.get(ev.id) ?? 0;
       const margin = revenue - expense;
 
       const existing = map.get(venueName);
@@ -110,7 +163,7 @@ export default function ReportProfitability() {
       }
     }
     return Array.from(map.values()).sort((a, b) => b.margin - a.margin);
-  }, [events, venues, transactions]);
+  }, [events, venues, transactions, expenseByEvent]);
 
   const data = view === "artist" ? artistData : venueData;
   const nameKey = view === "artist" ? "artist" : "venue";
@@ -124,6 +177,7 @@ export default function ReportProfitability() {
   return (
     <div className="space-y-6">
 <EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
+      <ReportCostSourceToggle value={costSource} onChange={setCostSource} />
       <Tabs value={view} onValueChange={(v) => setView(v as any)}>
         <TabsList>
           <TabsTrigger value="artist">Por Artista</TabsTrigger>

@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
+import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, BarChart3, AlertTriangle, History } from "lucide-react";
@@ -602,7 +603,7 @@ export default function ReportPL() {
 
   // Universo canónico de Fecho (ver fecho-filter-parity.md): status approved/paid
   // + flags bloqueadores fora (is_transitory, exclude_from_result, reversed_at, is_hidden).
-  const { data: transactions = [] } = useQuery({
+  const { data: transactionsRaw = [] } = useQuery({
     queryKey: ["transactions", "pl"],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase.from("transactions").select("*").in("status", ["approved", "paid"]).order("date", { ascending: false }));
@@ -610,6 +611,19 @@ export default function ReportPL() {
       return (data ?? []).filter((t: any) => !hasResultBlockingFlags(t));
     },
   });
+  // #218 (defeito 1): perímetro da raiz também no Realizado do P&L (D25 g3).
+  const { data: plRootSettlementIds } = useQuery({
+    queryKey: ["dre-root-settlements"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_settlements").select("id, parent_id");
+      if (error) throw error;
+      return new Set(((data ?? []) as any[]).filter((s) => !s.parent_id).map((s) => s.id as string));
+    },
+  });
+  const transactions = useMemo(
+    () => keepRootPerimeter(transactionsRaw as any[], plRootSettlementIds),
+    [transactionsRaw, plRootSettlementIds],
+  );
 
   const { data: categories = [] } = useQuery({
     queryKey: ["account-categories"],
