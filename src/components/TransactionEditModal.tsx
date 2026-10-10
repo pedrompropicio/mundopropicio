@@ -2075,8 +2075,19 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                     return;
                   }
 
-                  await supabase.from("partner_advance_expenses").delete().eq("transaction_id", extraSibling.id);
-                  await supabase.from("transactions").delete().eq("id", extraSibling.id);
+                  // #196: o extra sai pela RPC (permissão + estado do evento); a irmã só é
+                  // apagada depois, e confirma-se que a linha saiu mesmo.
+                  const { error: revErr } = await supabase.rpc("revert_partner_extra" as any, { p_tx_id: extraSibling.id, p_clear_transitory: false });
+                  if (revErr) {
+                    await supabase.from("transactions").update({ amount: transaction.amount, paid_amount: (transaction as any).paid_amount ?? 0 } as any).eq("id", transaction.id);
+                    toast({ title: "Não foi possível remover o Extra do Sócio", description: revErr.message, variant: "destructive" });
+                    return;
+                  }
+                  const { data: delRows, error: delErr } = await supabase.from("transactions").delete().eq("id", extraSibling.id).select("id");
+                  if (delErr || !delRows?.length) {
+                    toast({ title: "A irmã do Extra não foi apagada", description: delErr?.message ?? "Sem permissão para apagar a transação (0 linhas).", variant: "destructive" });
+                    return;
+                  }
                   queryClient.invalidateQueries({ queryKey: ["partner-extra-sibling"] });
                   queryClient.invalidateQueries({ queryKey: ["transactions"] });
                   queryClient.invalidateQueries({ queryKey: ["partner-advance-expenses"] });
