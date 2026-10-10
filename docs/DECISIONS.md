@@ -5458,3 +5458,11 @@ Customer Match:
   - Os cartões de fecho mostravam a data um dia antes (08/10 quando a base diz 09/10), por lerem uma coluna `date` como instante UTC e mostrarem-na no fuso de quem olha, que trabalha de Fortaleza. Corrigido em 5 pontos de data civil da aba da bilheteira. Regra: coluna `date` é dia civil, nunca muda de dia por causa do fuso do browser. Ver `.lovable/memory/constraints/timezone-portugal.md`.
   - O carimbo de geração aparecia duas vezes e na hora de quem gera. Passou a aparecer só no rodapé e sempre em Europe/Lisbon.
 - A nota do fecho do Deive foi corrigida por SQL em 10/10/2026: dizia "Sem confirmação, transferência ou registo da comissão/devolução da InvestBraga", o que deixou de ser verdade quando a transferência e a comissão foram lançadas nesse mesmo dia.
+
+## D-ERP238 — Invariante: conta de numerário com saldo negativo (10/10/2026, #305)
+
+- Frente financeiro-e-tesouraria. Novo invariante `conta_cash_saldo_negativo` (severidade `error`, âmbito `empresa`, referência 0): qualquer conta de `financial_accounts` com `type = 'cash'` e saldo < 0. Numerário negativo é fisicamente impossível — ou falta uma entrada, ou sobra uma saída, ou o saldo de abertura está mal implantado.
+- Saldo vigiado: `_account_true_balance_asof_raw(id, NULL)`, o mesmo que o Dashboard mostra via `account_true_balances_asof`. Um invariante que vigiasse um número diferente do ecrã não serviria de nada. A função não filtra `status`, `reversed_at` nem `is_hidden` nas transacções; é conhecido e fica fora desta decisão.
+- Padrão existente: linha em `system_invariants` + módulo `_run_invariant_checks_cash()` incluído em `_run_invariant_checks_all()` (como `_run_invariant_checks_rateio`). Migração `0089_derp238_invariant_cash_negativo` (cópia em `supabase/migrations/20261010184500_derp238_invariant_cash_negativo.sql`).
+- Caso de origem: a Conta Caixa mostrava −6.120,00 por ter `initial_balance_date = 2026-08-31` com `initial_balance = 0,00` quando havia 6.120,00 reais na gaveta; corrigido a 10/10/2026, saldo agora 0,00.
+- Prova: hoje 0, conforme. Numa transacção anulada, a Conta Caixa a −100,00 fez o invariante dar 1, não conforme, com a conta na amostra; depois da anulação voltou a 0, conforme, sem nada escrito.

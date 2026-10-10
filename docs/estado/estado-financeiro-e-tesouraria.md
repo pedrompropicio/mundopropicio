@@ -4,6 +4,10 @@ Atualizado: 09/10/2026 (ritual de fecho da frente; inclui o trabalho do chat fin
 
 ## Em que pé está
 
+### Resolvido a 10/10/2026
+
+- **#305 — invariante `conta_cash_saldo_negativo` (D-ERP238).** Qualquer conta `type = 'cash'` com saldo negativo acusa erro (referência 0). Saldo = `_account_true_balance_asof_raw(id, NULL)`, o mesmo do Dashboard. Caso de origem: Conta Caixa a −6.120,00 (`initial_balance_date = 2026-08-31` com `initial_balance = 0,00`), corrigida a 10/10/2026, saldo agora 0,00. Hoje: 0, conforme. Disparo provado numa transacção anulada.
+
 ### Resolvido nesta sessão (09/10/2026)
 
 - **#285 — divisão inteira no cálculo do bruto.** Causa encontrada e corrigida: `transactions.iva_rate` é `integer`, e `/100` era divisão inteira. Migração `0045_derp198` em `reimbursement_propagate_payment` e `get_partner_settlement_summary`. **8 linhas** de notas de reembolso corrigidas (**+47,77 €** de IVA). Regra em `.lovable/memory/features/iva-rate-divisao-inteira.md`.

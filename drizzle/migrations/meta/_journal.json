@@ -624,6 +624,13 @@
       "when": 1791654741903,
       "tag": "0088_derp236_projection_complete",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1791657816082,
+      "tag": "0089_derp238_invariant_cash_negativo",
+      "breakpoints": true
     }
   ]
 }
