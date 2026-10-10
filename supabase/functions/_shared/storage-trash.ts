@@ -57,6 +57,11 @@ async function isReferenced(admin: any, bucket: string, path: string): Promise<b
   }
   if (bucket === "camarim-documents") checks.push(["transaction_documents", "file_url", `camarim://${path}`]);
   if (bucket === "standalone-invoices") checks.push(["standalone_invoices", "storage_path", path]);
+  if (bucket === "transaction-documents") checks.push(["payment_list_documents", "file_url", path]);
+  if (bucket === "camarim-documents") checks.push(["camarim_item_documents", "file_path", path]);
+  if (bucket === "bank-statements") checks.push(["bank_line_documents", "file_url", path]);
+  if (bucket === "event-forecast-attachments") checks.push(["event_forecast_attachments", "storage_path", path]);
+  if (bucket === "event-ab-attachments") checks.push(["event_ab_attachments", "storage_path", path]);
   for (const [table, col, val] of checks) {
     const { data, error } = await admin.from(table).select("id").eq(col, val).limit(1);
     if (error) throw new Error(`verificação de referências em ${table}: ${error.message}`);
