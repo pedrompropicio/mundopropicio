@@ -1,6 +1,6 @@
 # ESTADO — Vínculo BP ↔ Transações
 
-Atualizado: 2026-09-23 · #240 fechada — vínculo preso ao evento e chão das linhas de BP na base de dados · isenções D1+D8 alinhadas nas três camadas · vínculo BP↔TX blindado contra troca de versão do BP
+Atualizado: 2026-10-10 · vínculo só no mesmo evento e âncora corrigida (D-ERP224) · janela administrativa como trava real (#264, D-ERP150) · portas ao excedido fechadas na base (#240) · isenções D1+D8 alinhadas nas três camadas
 
 ## Em que pé está
 O vínculo canónico é `transactions.forecast_id` (N transações : 1 linha). A 02/09 foram escritas **168 FK** em rubricas com uma linha única — onde o matching já era determinístico e a escrita não muda número nenhum.
@@ -10,9 +10,21 @@ O vínculo canónico é `transactions.forecast_id` (N transações : 1 linha). A
 Depois de 02/09 fechou-se a fuga que fazia a cobertura degradar-se sozinha: os caminhos que criavam despesa de evento **já aprovada ou já paga**, sem nunca passar por `pending`, e portanto sem nunca cruzar a trava.
 
 ## A trabalhar agora
-Nada em execução. Na fila desta frente: #246 (P1 — linhas overhead/excluídas/adotadas perdem a observação na redução) e #114 (D2 no trigger como última linha de defesa). Por confirmar quando ocorrerem: C2 (próxima sync da Coala grava com '[sync Coala] planilha' ou fica em audit.errors) e C3 (recálculo de cachê abaixo do pago avisa e não grava).
+Nada em execução pelo agente. Pendente de outros chats:
+- 10 transações de cidade ligadas a linhas do Master (invariante VINCULO_CROSS_EVENTO = 10, de propósito): 9 do Deive Leonardo (Braga/Lisboa, 429,55 €) com o bp-deive-leonardo e 1 da SM - Porto (Backline 3.575,00 €) com o fecho-simone-mendes. Cada uma: mover para o Master ou ligar a uma linha da cidade. A invariante desce 1 por cada caso resolvido.
+- #264 aberta: testes de base (BEGIN…ROLLBACK) por correr no quadro de testes; configuração do Coala (contas 10.4–10.11 e janela do Coala 2027 desde 29/08/2026, fim em aberto) com a frente 5; depois o teste de ecrã da Nova Transação.
+- Por confirmar quando ocorrerem: C2 (próxima sync da Coala grava com '[sync Coala] planilha' ou fica em audit.errors) e C3 (recálculo de cachê abaixo do pago avisa e não grava).
+Na fila desta frente: #114 (D2 no trigger como última linha de defesa).
 
 ## Fechado agora (D1 + D2 + D8 + D13–D19)
+
+### 10/10 — vínculo só no mesmo evento e âncora corrigida (D-ERP224)
+Pedido do chat financeiro: duas invariantes desta frente em error com referência 0. Eram defeitos reais, não se fixou referência.
+VINCULO_DESSINCRONIZADO (1 → 0): sync_tx_forecast_to_anchor só repunha a âncora quando o forecast_id passava a NULL; quando a transação mudava directamente da linha A para a B, a âncora de A ficava presa. Corrigido para qualquer saída de A (próxima transação de A por date, created_at, id, saltando as que atravessam eventos; NULL se não houver). Reparada a linha ca803e97 "CUSTO 2026 - Serviços Jurídicos" do Coala 2027 (âncora 199695a4 → 51d56dfc).
+VINCULO_CROSS_EVENTO (10, fica): transações de cidade ligadas a linhas do BP do Master. bp_tx_link_allowed permitia Master↔cidade, mas o custo do evento mede por evento e rubrica — contava a dobrar. Decisão do Pedro (10/10): só mesmo evento (ou transação/linha sem evento); os 10 casos existentes decidem-nos os chats dos eventos. A Nova Transação deixou de oferecer linhas do Master numa cidade. Publicado: commit 7fd17829 (version.json 03:33 UTC).
+
+### 30/09 — janela administrativa como trava real (#264, D-ERP150)
+Empresa de evento único (Coala): conta do grupo 10 marcada + data do documento (transactions.date, nunca payment_date) dentro da janela de um evento que absorve → a base obriga a esse evento (trg_enforce_admin_window_event). Excepção só com a permissão admin_cost_override (admin e gestor por defeito), justificação e system_audit_log, pela RPC admin_cost_override_write. Janelas contíguas por empresa, fim em aberto, fecho automático da anterior. Contas 10.1/10.2/10.3/10.12 nunca podem ser marcadas (as 10.1.01–03 da MP foram desmarcadas). Absorção virtual do DRE retirada. Sem isenção para a sync do Coala nem para restauros; filhas de rateio e parcelas isentas. Publicado: commit b11cb24b. Hoje 0 contas marcadas e 0 eventos a absorver — nada muda até a frente 5 configurar o Coala.
 
 ### 23/09 — duas portas ao excedido fechadas na base de dados (#240)
 Caso de origem: a 'Produtor Liliam' (1.500,00 €) mudou da Ivete para a Anitta com o forecast_id ainda na linha da Ivete, e a linha tinha sido baixada abaixo do realizado sem observação — excedido falso. A correcção desse vínculo foi feita pelo fecho-anitta-2026.
@@ -83,14 +95,16 @@ Propagação às filhas por `parent_transaction_id` mantida. Medido em Live: **1
 Isenções vigentes no trigger: `auth.uid() IS NULL`, `parent_transaction_id IS NOT NULL`, `type <> 'expense'`, `event_id` nulo, evento sem BP.
 
 ## Próximo passo concreto
-**#114 — D2 e D1 no trigger, como última linha de defesa** para os caminhos de escrita directa, agora que todos os ecrãs estão ligados (cartões incluídos). Depois: os **3 cards meio-ligados da Anitta** (Durex 15.000 €, Matudis 6.000 €, Durex aluguer 813,01 €) corrigem-se **à mão com o padrão SQL do Casino**, depois do fecho da Anitta — nunca pelo botão. O rascunho de cenário do Coala (v51, 355 linhas, 23 transações vinculadas) está pronto a promover — a reposição de vínculos já corre em todos os caminhos. Ao fazer o #114, replicar o predicado das quatro isenções tal como está hoje nas três camadas.
+**#114 — D2 e D1 no trigger, como última linha de defesa** para os caminhos de escrita directa. Ao fazê-lo, replicar o predicado das quatro isenções tal como está nas três camadas. Os 3 cards meio-ligados da Anitta (Durex 15.000 €, Matudis 6.000 €, Durex aluguer 813,01 €) corrigem-se à mão com o padrão SQL do Casino, depois do fecho da Anitta — nunca pelo botão.
 
 ## Bloqueios
 Nenhum.
 
 ## Factos que não se reinvestigam
 
-**Vínculo e verba têm guardas na base de dados desde 23/09 (#240).** Uma transação só pode apontar para uma linha viva do seu evento (ou Master↔cidade, ou sem evento); uma linha aprovada nunca desce abaixo do realizado. Invariantes medidas nesse dia: 0 transações fora de bp_tx_link_allowed; 13 linhas aprovadas já abaixo do realizado (5.054,35 € de excedido histórico), que os triggers não tocam — só actuam quando o amount desce.
+**Vínculo e verba têm guardas na base de dados desde 23/09 (#240), apertadas a 10/10 (D-ERP224).** Uma transação só pode apontar para uma linha viva do SEU evento, ou ligar sem evento (mães de rateio) — Master↔cidade deixou de ser permitido a 10/10, porque o custo do evento mede por evento e rubrica e contava a dobrar. Uma linha aprovada nunca desce abaixo do realizado. Linhas aprovadas já abaixo do realizado (excedido histórico, 13 a 23/09) não são tocadas pelos triggers — só actuam quando o amount desce. Invariantes a vigiar: VINCULO_CROSS_EVENTO, VINCULO_DESSINCRONIZADO, FORECAST_ID_ORFAO.
+
+**A edge function github-issues exige Authorization desde antes de 10/10.** Chamada por net.http_post com header 'Authorization: Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name='email_queue_service_role_key'). Sem o header devolve 401 UNAUTHORIZED_NO_AUTH_HEADER.
 
 **Uma isenção da trava D1+D8 muda-se em três sítios ao mesmo tempo** — trigger, `bp-line-required.ts` e `approve-transaction`. A edge function é a barreira real (service_role passa o trigger); se ficar para trás, bloqueia o que o trigger deixaria passar. Regra de verificação depois de qualquer alteração: aprovar em lote uma despesa `exclude_from_result` num evento `with_bp`.
 
@@ -135,4 +149,5 @@ Nenhum.
 - `src/lib/bp-tx-matching.ts`, `src/lib/bp-line-required.ts`, `src/lib/bp-budget-excess.ts`, `src/components/LinkBpLineDialog.tsx`, `src/components/RaiseBudgetDialog.tsx`
 - `supabase/functions/approve-transaction/index.ts`, `supabase/functions/close-camarim-session/index.ts`, `supabase/functions/close-card-session/index.ts`
 - `src/components/events/CloseEventGuardDialog.tsx`, `docs/procedimentos/PROC-fecho-evento.md` (Passo 0-bis)
-- `docs/DECISIONS.md` — DR-2026-09-02-D1, D2, D8, D12 e DR-2026-09-03-D13 a D19
+- `docs/DECISIONS.md` — DR-2026-09-02-D1, D2, D8, D12 e DR-2026-09-03-D13 a D19; D-ERP132, D-ERP150, D-ERP224
+- `.lovable/memory/features/janela-administrativa.md`
