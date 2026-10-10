@@ -12,6 +12,7 @@
 import { adminClient, corsHeaders, json } from "../_shared/artist-meta.ts";
 import { authorizeArtistAdmin, getS4aAccessToken, S4aError } from "../_shared/s4a.ts";
 import { deduceTriggerSource, finishSyncRun, resolveStatus, startSyncRun } from "../_shared/sync-run.ts";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const FN = "s4a-daily-sync";
 const BASE = "https://generic.wg.spotify.com";
@@ -344,8 +345,8 @@ Deno.serve(async (req) => {
   } else {
     // Sem artist_id: todos os artistas com ligação spotify activa (só service_role).
     const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
-    let isSr = bearer === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "\u0000");
-    try { isSr = isSr || JSON.parse(atob(bearer.split(".")[1] ?? ""))?.role === "service_role"; } catch (_e) { /* */ }
+    // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+    const isSr = await isServiceRoleRequest(req);
     const { data: conns } = await admin.from("artist_channel_connections")
       .select("artist_id, company_id").eq("provider", "spotify").eq("status", "active");
     const uniq = [...new Map((conns ?? []).map((c: any) => [c.artist_id, c])).values()] as any[];

@@ -8,6 +8,7 @@
 // JWT; senão has_role admin.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const MP_COMPANY_ID = "7c858982-6ccd-47ca-bd65-e0dd3eebf01c";
 const CUSTOMER_ID = "2200043144";
@@ -58,18 +59,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
 
   // Service_role bypass (cron) — decode manual do payload.
-  let isServiceRole = false;
-  try {
-    const parts = token.split(".");
-    if (parts.length >= 2) {
-      const payload = JSON.parse(
-        atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")),
-      );
-      if (payload?.role === "service_role") isServiceRole = true;
-    }
-  } catch {
-    // ignora — cai no caminho admin
-  }
+  // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+  const isServiceRole = await isServiceRoleRequest(req);
 
   if (!isServiceRole) {
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

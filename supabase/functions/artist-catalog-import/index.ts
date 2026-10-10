@@ -10,6 +10,7 @@
 import { adminClient, corsHeaders, json } from "../_shared/artist-meta.ts";
 import { ADS_ROLES } from "../_shared/artist-ads.ts";
 import { getS4aAccessToken, S4aError } from "../_shared/s4a.ts";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const norm = (s: string) =>
@@ -28,8 +29,8 @@ Deno.serve(async (req) => {
   if (!bearer) return json({ ok: false, error: "sem sessão" }, 401);
   const { data: artist } = await admin.from("artists").select("id, company_id, name").eq("id", artistId).maybeSingle();
   if (!artist) return json({ ok: false, error: "artista não encontrado" }, 404);
-  let isSr = false;
-  try { isSr = JSON.parse(atob(bearer.split(".")[1] ?? ""))?.role === "service_role"; } catch (_e) { /* */ }
+  // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+  const isSr = await isServiceRoleRequest(req);
   if (!isSr) {
     const { data: u, error } = await admin.auth.getUser(bearer);
     if (error || !u?.user) return json({ ok: false, error: "sessão inválida" }, 401);

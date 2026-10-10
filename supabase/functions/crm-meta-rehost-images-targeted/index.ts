@@ -9,6 +9,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { rehostCreative } from "../_shared/rehost-creative.ts";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -37,15 +38,9 @@ function normalizeAdAccountId(raw: string): string {
   return c.startsWith("act_") ? c : `act_${c}`;
 }
 
-function isServiceRoleJWT(authHeader: string): boolean {
-  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-  if (!token) return false;
-  const parts = token.split(".");
-  if (parts.length < 2) return false;
-  try {
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
-    return payload?.role === "service_role";
-  } catch { return false; }
+// #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+function isServiceRoleJWT(req: Request): Promise<boolean> {
+  return isServiceRoleRequest(req);
 }
 
 interface AdImageInfo { url: string; width: number | null; height: number | null; }
@@ -119,7 +114,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (creativeIds.length === 0) return json({ error: "no_valid_creative_ids" }, 400);
 
   const adAccountId = normalizeAdAccountId(adAccountRaw);
-  const isServiceRole = isServiceRoleJWT(authHeader);
+  const isServiceRole = await isServiceRoleJWT(req);
 
   // supabase client com o JWT do request (para a RPC SECURITY DEFINER funcionar
   // em ambos os modes — user JWT ou service_role).

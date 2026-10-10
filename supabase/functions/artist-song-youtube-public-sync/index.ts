@@ -14,6 +14,7 @@
 
 import { adminClient } from "../_shared/artist-meta.ts";
 import { deduceTriggerSource, finishSyncRun, resolveStatus, startSyncRun } from "../_shared/sync-run.ts";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const FN = "artist-song-youtube-public-sync";
 const API = "https://www.googleapis.com/youtube/v3";
@@ -32,11 +33,9 @@ const DEFAULT_VIDEOS: Record<string, { video_id: string; song_id: string }[]> = 
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 
-function isServiceRole(bearer: string): boolean {
-  try {
-    if (JSON.parse(atob(bearer.split(".")[1] ?? ""))?.role === "service_role") return true;
-  } catch (_e) { /* não-JWT */ }
-  return bearer === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "\u0000");
+// #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+function isServiceRole(req: Request): Promise<boolean> {
+  return isServiceRoleRequest(req);
 }
 
 const num = (v: unknown): number | null => {
@@ -62,7 +61,7 @@ Deno.serve(async (req) => {
   const body: any = await req.json().catch(() => ({}));
   // D-ERP169 adenda: modo "todos" (sem artist_id ou all:true) → uma invocação por artista.
   if (body?.all === true || body?.artist_id === undefined) {
-    if (!isServiceRole(bearer)) return json({ ok: false, error: "modo todos só para service_role" }, 403);
+    if (!(await isServiceRole(req))) return json({ ok: false, error: "modo todos só para service_role" }, 403);
     const admin0 = adminClient();
     const { data: chs } = await admin0.from("artist_channels").select("artist_id, artists!inner(id, name, status, roster_type)")
       .eq("platform", "youtube").is("revoked_at", null).eq("artists.roster_type", "elenco").neq("artists.status", "inativo");
@@ -89,7 +88,7 @@ Deno.serve(async (req) => {
   const { data: artist, error: aErr } = await admin.from("artists").select("id, company_id").eq("id", artistId).maybeSingle();
   if (aErr || !artist) return json({ ok: false, error: "artista não encontrado" }, 404);
 
-  if (!isServiceRole(bearer)) {
+  if (!(await isServiceRole(req))) {
     const { data: u, error } = await admin.auth.getUser(bearer);
     if (error || !u?.user) return json({ ok: false, error: "sessão inválida" }, 401);
     const { data: roles } = await admin.from("user_roles").select("role, company_id").eq("user_id", u.user.id);

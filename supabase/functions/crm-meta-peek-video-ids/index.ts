@@ -4,6 +4,7 @@
 // NUNCA escreve no DB nem no Meta. Espelha auth/token do crm-meta-publish-execute.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const GRAPH_API_VERSION = "v21.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -37,19 +38,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // Só service_role (molde do portal-media-import, #283 parte 4).
   {
-    const _sk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    const _b = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
-    let _ok = Boolean(_sk) && _b === _sk;
-    if (!_ok) {
-      const _p = _b.split(".");
-      if (_p.length === 3) {
-        try {
-          let s = _p[1].replace(/-/g, "+").replace(/_/g, "/");
-          while (s.length % 4) s += "=";
-          _ok = JSON.parse(atob(s))?.role === "service_role";
-        } catch { _ok = false; }
-      }
-    }
+    // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+    const _ok = await isServiceRoleRequest(req);
     if (!_ok) {
       return new Response(JSON.stringify({ error: "Não autorizado — esta função só aceita a service_role key." }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },

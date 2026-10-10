@@ -24,6 +24,7 @@
 // por corrida. Erros por ficheiro vão para errors[] e a corrida continua.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const BUCKET = "crm-meta-creatives";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -120,15 +121,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) return json({ error: "missing_authorization" }, 401);
-  try {
-    const parts = token.split(".");
-    if (parts.length < 2) throw new Error("invalid_jwt_shape");
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
-    if (payload?.role !== "service_role") {
-      return json({ error: "forbidden", detail: "service_role required" }, 403);
-    }
-  } catch (e) {
-    return json({ error: "invalid_jwt", detail: (e as Error).message }, 401);
+  // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+  if (!(await isServiceRoleRequest(req))) {
+    return json({ error: "forbidden", detail: "service_role required" }, 403);
   }
 
   let body: { dry_run?: boolean; days?: number; max_files?: number; max_delete?: number } = {};

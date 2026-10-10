@@ -31,6 +31,7 @@
 // assumimos continuidade nem usamos generate_series.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 // Cliente único service-role: a função corre server-side e é invocada também
@@ -981,7 +982,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // service_role  → chamada interna de confiança (server-to-server): aceita o body.
   // authenticated → resolve o company do utilizador (padrão de _shared/multiTenant.ts:
   //   profiles.company_id, ou active_company_id + is_platform_admin) e exige match.
-  if (tokenRole === "service_role") {
+  // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+  if (await isServiceRoleRequest(req)) {
     console.log("[campaign-diagnosis] caller=service_role (server-to-server) — company_id aceite");
   } else if (tokenRole === "authenticated" && createdBy) {
     const { data: profile } = await supabase

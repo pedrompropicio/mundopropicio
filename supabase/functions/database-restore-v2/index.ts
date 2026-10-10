@@ -5,6 +5,7 @@
 // 4) Continua mesmo que uma tabela falhe — relata tudo
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -81,7 +82,8 @@ Deno.serve(async (req) => {
 
     // SECURITY: only service_role (cron / internal) OR an authenticated admin user.
     // 'anon' role is a public JWT and MUST NOT bypass admin gate.
-    const isMachine = role === "service_role";
+    // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+    const isMachine = await isServiceRoleRequest(req);
     if (!isMachine) {
       if (!userId) return jsonErr("Não autorizado", 401);
       const { data: roleRow } = await admin

@@ -32,6 +32,7 @@ import {
   ingestEvents,
   toRfc3339,
 } from "../_shared/google-data-manager.ts";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 /** Conta Google Ads que recebe os dados (220-004-3144). */
 const OPERATING_ACCOUNT_ID = "2200043144";
@@ -109,18 +110,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // ----- auth do caller: service_role (cron) ou admin -----
-  let isServiceRole = false;
-  try {
-    const parts = token.split(".");
-    if (parts.length >= 2) {
-      const payload = JSON.parse(
-        atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")),
-      );
-      if (payload?.role === "service_role") isServiceRole = true;
-    }
-  } catch {
-    // ignora — cai no caminho admin
-  }
+  // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+  const isServiceRole = await isServiceRoleRequest(req);
 
   if (!isServiceRole) {
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

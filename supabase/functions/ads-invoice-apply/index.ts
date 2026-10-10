@@ -12,6 +12,7 @@ import { trashStorageObject } from "../_shared/storage-trash.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildPdf, type PdfOp } from "../_shared/simple-pdf.ts";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const VERSION = "v2.4_platform_dup_guard_and_terms";
 
@@ -46,13 +47,8 @@ async function authorize(req: Request): Promise<{ ok: boolean; userId?: string; 
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
   if (!token) return { ok: false, error: "missing Authorization" };
   if (SERVICE_ROLE && token === SERVICE_ROLE) return { ok: true };
-  try {
-    const parts = token.split(".");
-    if (parts.length >= 2) {
-      const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
-      if (payload?.role === "service_role") return { ok: true };
-    }
-  } catch (_e) { /* tentar como token de utilizador */ }
+  // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+  if (await isServiceRoleRequest(req)) return { ok: true };
   const { data, error } = await admin.auth.getUser(token);
   if (error || !data?.user) return { ok: false, error: "invalid token" };
   return { ok: true, userId: data.user.id };

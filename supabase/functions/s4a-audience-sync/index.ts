@@ -20,6 +20,7 @@
 import { adminClient, corsHeaders, json } from "../_shared/artist-meta.ts";
 import { authorizeArtistAdmin, getS4aAccessToken, S4aError } from "../_shared/s4a.ts";
 import { deduceTriggerSource, finishSyncRun, resolveStatus, startSyncRun } from "../_shared/sync-run.ts";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const FN = "s4a-audience-sync";
 const BASE = "https://generic.wg.spotify.com";
@@ -263,8 +264,8 @@ Deno.serve(async (req) => {
     if (data) artists = [data];
   } else {
     const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
-    let isSr = bearer === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "\u0000");
-    try { isSr = isSr || JSON.parse(atob(bearer.split(".")[1] ?? ""))?.role === "service_role"; } catch (_e) { /* */ }
+    // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+    const isSr = await isServiceRoleRequest(req);
     if (!isSr) return json({ ok: false, error: "modo todos só para service_role" }, 403);
     const { data: conns } = await admin.from("artist_channel_connections")
       .select("artist_id, company_id").eq("provider", "spotify").eq("status", "active");

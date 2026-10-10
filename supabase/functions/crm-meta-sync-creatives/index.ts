@@ -24,6 +24,7 @@ import {
   reportMetaSyncSuccess,
 } from "../_shared/meta-connection-health.ts";
 import { REHOST_BUCKET, rehostCreative } from "../_shared/rehost-creative.ts";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -49,16 +50,9 @@ function normalizeAdAccountId(raw: string): string {
   return c.startsWith("act_") ? c : `act_${c}`;
 }
 
-// Inspect JWT payload to detect service_role (cron) vs user JWT.
-function isServiceRoleJWT(authHeader: string): boolean {
-  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-  if (!token) return false;
-  const parts = token.split(".");
-  if (parts.length < 2) return false;
-  try {
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
-    return payload?.role === "service_role";
-  } catch { return false; }
+// #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+function isServiceRoleJWT(req: Request): Promise<boolean> {
+  return isServiceRoleRequest(req);
 }
 
 // Graph API fields. Pedimos tudo o que o parser pode usar; campos opcionais
@@ -430,7 +424,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  const isServiceRole = isServiceRoleJWT(authHeader);
+  const isServiceRole = await isServiceRoleJWT(req);
 
   let body: {
     connection_id?: string;
