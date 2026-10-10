@@ -8,7 +8,7 @@ Dashboard funcional com campanha real "[NEW] Ivete Clareou - Cascais 2026" (DEMA
 **Motor único de campanhas — F1 fundações (19/09, D-ERP95):** `crm.google_publish_plan` aceita evento XOR artista+música; nasceu `crm.ads_entity_actions_log` (log de acções Google/TikTok, que não existia) com vista unificada `crm.v_ads_entity_actions_log`. Só schema — comportamento inalterado; alvo música na F2/F3, com prioridade a Demand Gen com vídeo do canal YouTube.
 
 ## A trabalhar agora
-Nada em execução.
+Nada em execução. #62 (10/10, D-ERP230): casamento clique↔lead corrigido no enqueue (90 dias, gclid primeiro), valor enviado só quando >0, Customer Match com recuo de 24h e alerta no painel; desbloqueio do 403 e valor por lead são do Pedro.
 
 ## Próximo passo concreto
 **#62 (P1)** — leads do CRM não alimentam o Google Ads: cadeia de atribuição partida em 3 pontos. É o bloqueador do eixo lead→conversão.
