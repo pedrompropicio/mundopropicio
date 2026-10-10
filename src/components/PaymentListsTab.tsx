@@ -2242,6 +2242,36 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           </p>
         )}
 
+        {/* #281: por método — só "Transferência" viaja no lote SEPA; o resto liquida-se uma a uma. */}
+        {(() => {
+          const LABEL: Record<string, string> = {
+            transfer: "Transferência (lote SEPA)",
+            service_payment: "Pag. Serviços — uma a uma",
+            state_payment: "Pag. Estado — uma a uma",
+            direct_debit: "Débito Direto — uma a uma",
+          };
+          const by = new Map<string, { n: number; v: number }>();
+          for (const it of items as any[]) {
+            const tx = it.transactions;
+            if (!tx || it.removed_at) continue;
+            const m = tx.payment_method ?? "transfer";
+            const cur = by.get(m) ?? { n: 0, v: 0 };
+            cur.n += 1;
+            cur.v += calcWithIva(Number(tx.amount), Number(tx.iva_rate ?? 23));
+            by.set(m, cur);
+          }
+          if (by.size === 0) return null;
+          return (
+            <div className="mb-2 flex flex-wrap gap-2 text-xs" aria-label="Linhas por método de pagamento">
+              {[...by.entries()].map(([m, s]) => (
+                <span key={m} className={`rounded-md border px-2 py-1 ${m === "transfer" ? "border-border/60 bg-muted/30" : "border-amber-500/30 bg-amber-500/5"}`}>
+                  {LABEL[m] ?? m}: <span className="font-medium">{s.n}</span> · <span className="font-mono">{formatCurrency(s.v)}</span>
+                </span>
+              ))}
+            </div>
+          );
+        })()}
+
         {/* Totais financeiros (c/IVA) — sempre alinhados com a composição atual */}
         <div className={`mb-3 grid grid-cols-1 gap-2 ${listTotals.listApproved && listTotals.notApproved > 0 ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
           <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
