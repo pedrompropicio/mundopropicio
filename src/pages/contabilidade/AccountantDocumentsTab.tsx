@@ -103,19 +103,27 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
     },
   });
 
-  const { data: accounts } = useQuery({
+  const { data: allAccounts } = useQuery({
     queryKey: ["accountant-accounts", companyId],
     enabled: !!companyId,
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("financial_accounts")
-        .select("id, name, is_accounting")
+        .select("id, name")
         .eq("company_id", companyId)
         .order("name");
-      return ((data ?? []) as { id: string; name: string; is_accounting: boolean | null }[])
-        .filter((a) => a.is_accounting !== false);
+      return (data ?? []) as { id: string; name: string }[];
     },
   });
+  // Dropdown: sem as gerenciais, pela MESMA lista que exclui as linhas (#235).
+  const accounts = useMemo(
+    () => (nonAccountingIds ? (allAccounts ?? []).filter((a) => !nonAccountingIds.includes(a.id)) : undefined),
+    [allAccounts, nonAccountingIds],
+  );
+  const accountNameById = useMemo(
+    () => new Map((allAccounts ?? []).map((a) => [a.id, a.name] as const)),
+    [allAccounts],
+  );
 
   const txIds = useMemo(() => (data ?? []).map((t) => t.id), [data]);
 
