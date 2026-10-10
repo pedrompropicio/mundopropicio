@@ -37,8 +37,33 @@ export default function AudienceGoogleAds() {
     },
   });
 
+  // #62 (D-ERP230): alerta único enquanto a lista Customer Match estiver bloqueada pela Google.
+  const { data: listaBloqueada } = useQuery({
+    queryKey: ["audience-google-user-list-blocked"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("google_user_list")
+        .select("id, name, status, raw, updated_at")
+        .eq("status", "error")
+        .limit(5);
+      if (error) return null;
+      return ((data ?? []) as any[]).find((l) => JSON.stringify(l.raw ?? "").includes("PERMISSION_DENIED")) ?? null;
+    },
+  });
+
   return (
     <div className="space-y-6 p-6 max-w-7xl mx-auto">
+      {listaBloqueada ? (
+        <div role="alert" className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-destructive" />
+          <span>
+            Customer Match bloqueado pela Google (403 · sem permissão para esta acção) desde{" "}
+            {String(listaBloqueada.updated_at ?? "").slice(0, 10)}. O sistema só volta a tentar uma vez por dia.
+            O desbloqueio é feito na conta Google Ads, não aqui.
+          </span>
+        </div>
+      ) : null}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
