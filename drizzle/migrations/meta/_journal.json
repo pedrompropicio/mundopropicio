@@ -512,6 +512,13 @@
       "when": 1791602641921,
       "tag": "0072_collect_event_benchmarks_count_refunds",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1791603008669,
+      "tag": "0073_bp_link_same_event_only_and_anchor_fix",
+      "breakpoints": true
     }
   ]
 }
