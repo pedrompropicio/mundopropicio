@@ -13,6 +13,8 @@ import { useBackdropClose } from "@/lib/backdropClose";
 import type { EventFormat } from "@/lib/event-format";
 import { blockImplicitSubmitOnEnter } from "@/lib/form-enter-guard";
 import { EVENT_NATURES, type EventNature } from "@/lib/event-nature";
+import { useAuth } from "@/contexts/AuthContext";
+import { BUDGET_MODES, type BudgetMode, useCompanyDefaultBudgetMode } from "@/lib/budget-mode";
 
 interface EventEditModalProps {
   event: any;
@@ -31,6 +33,11 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
   const [status, setStatus] = useState(event.status);
   const [eventNature, setEventNature] = useState<EventNature | "">(event.event_nature || "");
   const [plMode, setPlMode] = useState(event.pl_mode || "passive");
+  // D6 — "" = herda o default da empresa (events.budget_mode NULL). NÃO é operacao_mode.
+  const [budgetMode, setBudgetMode] = useState<BudgetMode | "">(event.budget_mode ?? "");
+  const { isAdmin, isManager } = useAuth();
+  const canEditBudgetMode = isAdmin || isManager;
+  const { data: companyBudgetMode } = useCompanyDefaultBudgetMode();
   const [format, setFormat] = useState<EventFormat>(event.format === "residencia" ? "residencia" : "festival");
   const [absorbsAdminCosts, setAbsorbsAdminCosts] = useState<boolean>(!!event.absorbs_admin_costs);
   const [adminWindowStart, setAdminWindowStart] = useState<string>(event.admin_window_start || "");
@@ -117,7 +124,7 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
       const cityName = cityId ? citiesMap[cityId] : null;
       const locationStr = [venueName, cityName].filter(Boolean).join(", ");
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("events")
         .update({
           name,
@@ -130,6 +137,7 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
           status,
           ...(eventNature ? { event_nature: eventNature } : {}),
           pl_mode: plMode,
+          ...(canEditBudgetMode ? { budget_mode: budgetMode || null } : {}),
           // `format` é SÓ apresentação (Festival/Residência); a mecânica lê event_type
           format: eventType === "festival" ? format : null,
           // Absorção de custos administrativos (só Single/Master)
@@ -146,8 +154,10 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
                   .filter(Boolean),
               }),
         } as any)
-        .eq("id", event.id);
+        .eq("id", event.id)
+        .select("id");
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error("Evento não gravado (sem permissão ou inexistente).");
 
       // Update festival dates if applicable.
       // Em modo Residência o bloco de datas não é renderizado → NÃO tocar em event_dates.
@@ -285,6 +295,24 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
                 <option value="cancelled">Cancelado</option>
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Modo orçamental</label>
+            <select
+              value={budgetMode}
+              disabled={!canEditBudgetMode}
+              onChange={(e) => setBudgetMode(e.target.value as BudgetMode | "")}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-70"
+            >
+              <option value="">Padrão da empresa ({BUDGET_MODES.find((b) => b.value === (companyBudgetMode ?? "with_bp"))?.label})</option>
+              {BUDGET_MODES.map((b) => (
+                <option key={b.value} value={b.value}>{b.label}</option>
+              ))}
+            </select>
+            {!canEditBudgetMode && (
+              <p className="mt-1 text-[11px] text-muted-foreground">Só admin ou manager podem alterar.</p>
+            )}
           </div>
 
           {eventType === "festival" && (
