@@ -162,6 +162,9 @@ function buildMetadataGaql(): string {
     campaign.start_date_time,
     campaign.end_date_time,
     campaign_budget.amount_micros,
+    campaign_budget.total_amount_micros,
+    campaign_budget.period,
+    campaign_budget.delivery_method,
     customer.currency_code
   FROM campaign
 `;
@@ -282,8 +285,12 @@ function aggregate(rows: GAdsCampaignRow[]): AggCampaign[] {
       status: (c.status as string) ?? null,
       advertising_channel_type: (c.advertisingChannelType as string) ?? null,
       bidding_strategy_type: (c.biddingStrategyType as string) ?? null,
+      // D-ERP236 adenda: só o orçamento DAILY vai para budget_amount_micros;
+      // total_amount_micros (orçamento total) fica no raw.campaignBudget.
       budget_amount_micros:
-        b.amountMicros != null ? Number(b.amountMicros) : null,
+        b.amountMicros != null && (b.period == null || b.period === "DAILY")
+          ? Number(b.amountMicros)
+          : null,
       start_date: truncToDate(c.startDateTime),
       end_date: truncToDate(c.endDateTime),
       impressions: 0,
