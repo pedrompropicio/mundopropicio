@@ -18,7 +18,7 @@ vi.mock("jspdf", async (importOriginal) => {
       this.save = (() => {
         writeFileSync("/tmp/settlement-pdf-qa.pdf", Buffer.from(this.output("arraybuffer")));
         return this;
-      }) as typeof this.save;
+      }) as unknown as typeof this.save;
     }
   } };
 });
