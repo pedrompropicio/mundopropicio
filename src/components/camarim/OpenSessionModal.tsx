@@ -180,7 +180,7 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
             is_primary: true,
           } as any);
           if (linkErr) {
-            await mustWrite(supabase.from("camarim_sessions" as any).delete().eq("id", sid).select("id"), "camarim_sessions", { expectRows: true });
+            await supabase.from("camarim_sessions" as any).delete().eq("id", sid); // rollback compensatório: o erro original é o que se mostra
             throw new Error(`Não foi possível ligar a sessão ao evento: ${linkErr.message}`);
           }
           created.push(sid);
@@ -223,14 +223,14 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
         // #115 — exige pelo menos um evento ligado; sem vínculo a sessão é
         // invisível à guarda de fecho (D19), por isso desfaz-se a criação.
         if (links.length === 0) {
-          await mustWrite(supabase.from("camarim_sessions" as any).delete().eq("id", sid).select("id"), "camarim_sessions", { expectRows: true });
+          await supabase.from("camarim_sessions" as any).delete().eq("id", sid); // rollback compensatório: o erro original é o que se mostra
           throw new Error("A sessão tem de ter pelo menos um evento ligado.");
         }
         const { error: linkErr } = await supabase
           .from("camarim_session_events" as any)
           .insert(links as any);
         if (linkErr) {
-          await mustWrite(supabase.from("camarim_sessions" as any).delete().eq("id", sid).select("id"), "camarim_sessions", { expectRows: true });
+          await supabase.from("camarim_sessions" as any).delete().eq("id", sid); // rollback compensatório: o erro original é o que se mostra
           throw new Error(`Não foi possível ligar a sessão ao evento: ${linkErr.message}`);
         }
         toast({ title: "Sessão criada" });

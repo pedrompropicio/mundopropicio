@@ -596,8 +596,9 @@ export default function EventDetail() {
 
       // Delete related data first
       await mustWrite(supabase.from("event_dates").delete().eq("event_id", id!), "event_dates");
-      await mustWrite(supabase.from("event_forecasts").delete().eq("event_id", id!); // OK: eliminação total do evento (apaga Ativa + cenários)
-      await mustWrite(supabase.from("event_cache_configs").delete().eq("event_id", id!), "event_cache_configs"), "event_forecasts");
+      // OK: eliminação total do evento (apaga Ativa + cenários)
+      await mustWrite(supabase.from("event_forecasts").delete().eq("event_id", id!), "event_forecasts");
+      await mustWrite(supabase.from("event_cache_configs").delete().eq("event_id", id!), "event_cache_configs");
       // Delete ticket lots via zones
       const { data: zones } = await supabase.from("event_ticket_zones").select("id").eq("event_id", id!);
       if (zones && zones.length > 0) {
