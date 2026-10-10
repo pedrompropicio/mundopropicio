@@ -2080,7 +2080,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                   // apagada depois, e confirma-se que a linha saiu mesmo.
                   const { error: revErr } = await supabase.rpc("revert_partner_extra" as any, { p_tx_id: extraSibling.id, p_clear_transitory: false });
                   if (revErr) {
-                    await mustWrite(supabase.from("transactions").update({ amount: transaction.amount, paid_amount: (transaction as any).paid_amount ?? 0 } as any).eq("id", transaction.id).select("id"), "transactions.update", { expectRows: true });
+                    await supabase.from("transactions").update({ amount: transaction.amount, paid_amount: (transaction as any).paid_amount ?? 0 } as any).eq("id", transaction.id);
                     toast({ title: "Não foi possível remover o Extra do Sócio", description: revErr.message, variant: "destructive" });
                     return;
                   }
@@ -2713,7 +2713,12 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
             onLinked={() => setRevertNeedsBpLine(false)}
             onPicked={async (forecastId) => {
               setRevertNeedsBpLine(false);
-              await mustWrite(supabase.from("partner_advance_expenses").delete().eq("transaction_id", transaction.id).select("id"), "partner_advance_expenses.delete", { expectRows: true });
+              // #196: o extra sai pela RPC (permissão + estado do evento) antes de mexer na transação.
+              const { error: revErr } = await supabase.rpc("revert_partner_extra" as any, { p_tx_id: transaction.id, p_clear_transitory: false });
+              if (revErr) {
+                toast({ title: "Erro a reverter", description: revErr.message, variant: "destructive" });
+                return;
+              }
               const { error } = await supabase
                 .from("transactions")
                 .update({ is_transitory: false, forecast_id: forecastId })
