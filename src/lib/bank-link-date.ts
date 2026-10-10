@@ -42,3 +42,23 @@ export function withDateActions(
 export function bankDateOf(line: { value_date?: string | null; booking_date?: string | null } | null | undefined): string | null {
   return line?.value_date ?? line?.booking_date ?? null;
 }
+
+/**
+ * Data do banco das linhas já ligadas a estas transações (directa ou multi).
+ * Só devolve data se TODAS as transações tiverem linha e a data for a mesma.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function fetchKnownBankDate(client: any, txIds: string[]): Promise<string | null> {
+  const ids = [...new Set(txIds.filter(Boolean))];
+  if (ids.length === 0) return null;
+  const [direct, multi] = await Promise.all([
+    client.from("bank_statement_lines").select("matched_transaction_id, value_date, booking_date").in("matched_transaction_id", ids),
+    client.from("bank_line_transactions").select("transaction_id, bank_statement_lines(value_date, booking_date)").in("transaction_id", ids),
+  ]);
+  const byTx = new Map<string, string | null>();
+  for (const r of direct.data ?? []) byTx.set(r.matched_transaction_id, bankDateOf(r));
+  for (const r of multi.data ?? []) if (!byTx.has(r.transaction_id)) byTx.set(r.transaction_id, bankDateOf(r.bank_statement_lines));
+  const dates = ids.map((id) => byTx.get(id) ?? null);
+  if (dates.some((d) => !d)) return null;
+  return new Set(dates).size === 1 ? dates[0] : null;
+}

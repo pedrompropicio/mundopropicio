@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { fetchKnownBankDate } from "@/lib/bank-link-date";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -53,6 +54,17 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
   });
+  // #233: transação já ligada a uma linha do banco → a data do banco, não "hoje".
+  useEffect(() => {
+    if (transaction.payment_date) return;
+    let alive = true;
+    fetchKnownBankDate(supabase, [transaction.id]).then((d) => {
+      if (!alive || !d) return;
+      const [y, m, dd] = d.split("-").map(Number);
+      setPaymentDate(new Date(y, m - 1, dd, 12, 0, 0));
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [transaction.id, transaction.payment_date]);
   const [showDocuments, setShowDocuments] = useState(false);
   const [paymentDateOpen, setPaymentDateOpen] = useState(false);
   const [invoiceRef, setInvoiceRef] = useState(transaction.invoice_ref ?? "");
