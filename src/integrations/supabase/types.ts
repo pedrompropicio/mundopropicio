@@ -17820,6 +17820,15 @@ export type Database = {
         Args: { p_offset_id: string; p_origin_payment_id: string }
         Returns: string
       }
+      _artist_ads_investment_source: {
+        Args: {
+          p_artist_id: string
+          p_country?: string
+          p_from: string
+          p_to: string
+        }
+        Returns: Json
+      }
       _artist_metric_momentum: {
         Args: { _d30: number; _d7: number; _d90: number }
         Returns: number
