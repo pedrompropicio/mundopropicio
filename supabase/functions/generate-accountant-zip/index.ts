@@ -2,6 +2,7 @@
 // Builds a ZIP with all transaction documents (attachments) for the requested
 // company + period + filters. Caller must be accountant/admin/manager.
 // Limits: 500 transactions OR 200MB output. Sync (no background).
+import { fetchNonAccountingAccountIds, nonAccountingOrFilter, accountingOnlyIds } from "../_shared/accountant-account-filter.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import JSZip from "npm:jszip@3.10.1";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
@@ -90,13 +91,8 @@ Deno.serve(async (req) => {
 
     // Contas gerenciais (is_accounting=false): movimentos e documentos NÃO entram na
     // exportação para a contabilidade. Herdado da conta, não há campo na transação.
-    const { data: nonAccountingAccounts, error: naErr } = await admin
-      .from("financial_accounts")
-      .select("id")
-      .eq("company_id", company_id)
-      .eq("is_accounting", false);
-    if (naErr) throw naErr;
-    const nonAccountingIds = (nonAccountingAccounts ?? []).map((a: any) => a.id);
+    // #235 — mesma lista e mesmo predicado da aba Documentos (helper partilhado).
+    const nonAccountingIds = await fetchNonAccountingAccountIds(admin, company_id);
 
     // Query transactions
     let q = admin
@@ -110,10 +106,12 @@ Deno.serve(async (req) => {
       .limit(MAX_TX + 1);
 
     if (filters.type && filters.type !== "all") q = q.eq("type", filters.type);
-    if (Array.isArray(filters.account_ids) && filters.account_ids.length) q = q.in("account_id", filters.account_ids);
+    const askedAccounts = Array.isArray(filters.account_ids) ? accountingOnlyIds(filters.account_ids, nonAccountingIds) : [];
+    if (askedAccounts.length) q = q.in("account_id", askedAccounts);
     if (Array.isArray(filters.supplier_ids) && filters.supplier_ids.length) q = q.in("supplier_id", filters.supplier_ids);
     // NOT IN devolve NULL para account_id nulo — manter essas transações explicitamente
-    if (nonAccountingIds.length) q = q.or(`account_id.is.null,account_id.not.in.(${nonAccountingIds.join(",")})`);
+    const naOr = nonAccountingOrFilter(nonAccountingIds);
+    if (naOr) q = q.or(naOr);
 
     const { data: txs, error: txErr } = await q;
     if (txErr) throw txErr;
