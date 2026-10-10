@@ -1,5 +1,10 @@
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import autoTableRaw from "jspdf-autotable";
+import { sanitizePdfText, sanitizePdfRows } from "@/lib/pdf-text";
+
+// Todo o texto das tabelas passa pelo saneador (jsPDF/WinAnsi não tem U+2212).
+const autoTable = (doc: jsPDF, opts: any) =>
+  autoTableRaw(doc, { ...opts, head: sanitizePdfRows(opts.head), body: sanitizePdfRows(opts.body), foot: sanitizePdfRows(opts.foot) });
 import { supabase } from "@/integrations/supabase/client";
 import { formatDatePT } from "@/lib/utils";
 import {
@@ -101,6 +106,10 @@ export async function exportCamarimSessionPdf(sessionId: string, generatedBy?: s
   const primaryEvent = eventLinks.find((l) => l.is_primary)?.events?.name ?? eventLinks[0]?.events?.name ?? "";
 
   const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "landscape" });
+  // Todo o texto livre passa pelo saneador (jsPDF/WinAnsi não tem U+2212).
+  const rawText = doc.text.bind(doc);
+  (doc as any).text = (t: string | string[], ...rest: any[]) =>
+    rawText((Array.isArray(t) ? t.map(sanitizePdfText) : sanitizePdfText(t)) as any, ...(rest as [any, any]));
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 32;
   let y = margin;

@@ -8,7 +8,9 @@ import { settlementPdfFileName, SETTLEMENT_STATUS_LABEL, type SettlementView } f
 
 // Helvetica/WinAnsi do jsPDF não suporta U+2212; normalizar também os traços
 // das notas da base para evitar sinais ilegíveis no documento.
-export const sanitizeSettlementPdfText = (text: string): string => text.replace(/[\u2212\u2013\u2014]/g, "-");
+import { sanitizePdfText } from "@/lib/pdf-text";
+/** Reexportado para compatibilidade; a implementação vive em pdf-text.ts. */
+export const sanitizeSettlementPdfText = sanitizePdfText;
 const pdfRows = (rows: string[][]) => rows.map((row) => row.map(sanitizeSettlementPdfText));
 
 /** PDF de leitura de um fecho de bilheteira — padrão do app (jspdf + autotable + cabeçalho institucional). */
