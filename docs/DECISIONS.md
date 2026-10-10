@@ -5466,3 +5466,19 @@ Customer Match:
 - Padrão existente: linha em `system_invariants` + módulo `_run_invariant_checks_cash()` incluído em `_run_invariant_checks_all()` (como `_run_invariant_checks_rateio`). Migração `0089_derp238_invariant_cash_negativo` (cópia em `supabase/migrations/20261010184500_derp238_invariant_cash_negativo.sql`).
 - Caso de origem: a Conta Caixa mostrava −6.120,00 por ter `initial_balance_date = 2026-08-31` com `initial_balance = 0,00` quando havia 6.120,00 reais na gaveta; corrigido a 10/10/2026, saldo agora 0,00.
 - Prova: hoje 0, conforme. Numa transacção anulada, a Conta Caixa a −100,00 fez o invariante dar 1, não conforme, com a conta na amostra; depois da anulação voltou a 0, conforme, sem nada escrito.
+
+## D-ERP239 (10/10/2026) — #297 / #56 / #304.4: versões BP congeladas, company_id nos emails, natureza divergente na DRE
+- **#297:** `batch_update_event_forecasts` e `batch_insert_event_forecasts` recusam (42501, pt-PT) `_version_id` cujo `bp_versions.state <> 'working_draft'`; `_version_id NULL` (BP vivo) intacto. Snapshots guardam as linhas em `snapshot_payload` (JSON) e os cenários copiam linhas por INSERT directo em `create_scenario_draft__impl` — nenhum passa pelas RPCs, por isso nada se parte. Migração 0095.
+- **#56:** `lead_capture` já estava fechado (trigger `lead_capture_set_company_id`: evento por `event_slug`, senão MP) — 0 NULL. `email_send_log`: produtores já passavam company_id; os NULL vinham de `process-email-queue` com payload sem company_id (último NULL 08/10/2026 13:45). Endurecido: o dispatcher herda a empresa da linha `pending` com o mesmo `message_id`. Trigger soft existente não foi tocado.
+- **Backfill `email_send_log` (NÃO corrido; 886 NULL em 10/10):** regra 1 — empresa da linha irmã com o mesmo `message_id` (186); regra 2 — empresa única do perfil do destinatário (108); restantes 592 ficam NULL até decisão.
+```sql
+UPDATE public.email_send_log l SET company_id = s.company_id
+  FROM (SELECT DISTINCT ON (message_id) message_id, company_id FROM public.email_send_log
+         WHERE company_id IS NOT NULL AND message_id IS NOT NULL ORDER BY message_id, created_at) s
+ WHERE l.company_id IS NULL AND l.message_id = s.message_id;
+UPDATE public.email_send_log l SET company_id = p.company_id
+  FROM (SELECT lower(email) e, min(company_id::text)::uuid company_id FROM public.profiles
+         WHERE company_id IS NOT NULL GROUP BY 1 HAVING count(DISTINCT company_id) = 1) p
+ WHERE l.company_id IS NULL AND lower(l.recipient_email) = p.e;
+```
+- **#304 ponto 4:** invariante `transacoes_natureza_divergente_da_rubrica` (warn, ref 73) em `_run_invariant_checks_dre_nature()`, ligado a `_run_invariant_checks_all()` (migração 0096). DRE Empresarial mostra aviso "Fora da DRE: natureza divergente da rubrica" (`src/lib/dre-nature-divergence.ts`), sem mudar totais. Pontos 1–3 ficam com o Pedro.
