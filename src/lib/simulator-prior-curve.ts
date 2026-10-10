@@ -10,11 +10,12 @@
  *  - `projectWithPriorCurve` = vendas reais / fracção − vendas reais.
  * Só sugere: o piso manual continua a ganhar (solveForecast).
  */
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 
 export * from "@/lib/simulator-prior-curve-calc";
-import type { PriorCurvePoint } from "@/lib/simulator-prior-curve-calc";
+import { PRIOR_CURVE_MODE, type PriorCurvePoint } from "@/lib/simulator-prior-curve-calc";
 
 export interface PriorCurveData {
   points: PriorCurvePoint[];
@@ -110,4 +111,14 @@ export async function fetchAbPerCapitaBenchmark(companyId: string) {
     .limit(1)
     .maybeSingle();
   return data as { avg_ticket_per_pax: number; sample_size: number; last_calculated_at: string } | null;
+}
+
+/** Hook: curva histórica activa na config (null = curva por defeito). */
+export function usePriorCurve(cfg: { sales_curve_mode?: string | null; sales_curve_prior_event_id?: string | null } | null | undefined) {
+  const id = cfg?.sales_curve_mode === PRIOR_CURVE_MODE ? cfg?.sales_curve_prior_event_id ?? null : null;
+  return useQuery({
+    queryKey: ["sim-prior-curve", id],
+    enabled: !!id,
+    queryFn: () => fetchPriorCurve(id as string),
+  });
 }

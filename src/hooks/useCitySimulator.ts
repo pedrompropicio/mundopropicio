@@ -9,6 +9,7 @@
  *
  * Não faz mutações nem mostra UI — é apenas um leitor agregador.
  */
+import { usePriorCurve } from "@/lib/simulator-prior-curve";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -236,12 +237,14 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
     [calcSessions, calcCosts, calcCfg, beLotInfo],
   );
   const eventDate = (event as any)?.end_date ?? (event as any)?.start_date ?? null;
+  const { data: priorCurveData } = usePriorCurve(cfg as any);
   const fcSolution = useMemo(
     () => solveForecast(calcSessions, calcCfg, beLotInfo, eventDate, {
+      priorCurve: priorCurveData?.points ?? null,
       finalAccel: Number(cfg?.forecast_final_accel) || undefined,
       finalWindowDays: Number(cfg?.forecast_final_window_days) || undefined,
     }),
-    [calcSessions, calcCfg, beLotInfo, eventDate, cfg?.forecast_final_accel, cfg?.forecast_final_window_days],
+    [calcSessions, calcCfg, beLotInfo, eventDate, cfg?.forecast_final_accel, cfg?.forecast_final_window_days, priorCurveData],
   );
 
   const todayRev = useMemo(

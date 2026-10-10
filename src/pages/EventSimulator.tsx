@@ -8,6 +8,7 @@
  * Bloco 4: IVA por sessão
  * Bloco 5: Resultados (Geral / Evento / A&B / Souvenir) + Indicadores per capita
  */
+import { usePriorCurve } from "@/lib/simulator-prior-curve";
 import { selectCourtesyRows } from "@/lib/bp-formula";
 import { fetchEventRealized } from "@/lib/event-revenue-basis";
 import React, { useMemo, useState, useEffect } from "react";
@@ -646,12 +647,14 @@ export default function EventSimulator() {
     return (event as any)?.end_date ?? (event as any)?.start_date ?? null;
   }, [lotSalesData, event]);
 
+  const { data: priorCurveData } = usePriorCurve(localCfg as any);
   const fcSolution: ForecastSolution = useMemo(
     () => solveForecast(calcSessions, calcCfg, beLotInfo, eventDate, {
+      priorCurve: priorCurveData?.points ?? null,
       finalAccel: Number(localCfg?.forecast_final_accel) || undefined,
       finalWindowDays: Number(localCfg?.forecast_final_window_days) || undefined,
     }),
-    [calcSessions, calcCfg, beLotInfo, eventDate, localCfg?.forecast_final_accel, localCfg?.forecast_final_window_days],
+    [calcSessions, calcCfg, beLotInfo, eventDate, localCfg?.forecast_final_accel, localCfg?.forecast_final_window_days, priorCurveData],
   );
 
   // Pass 1 do solver BE: sem override de A&B. Usado APENAS para alimentar
