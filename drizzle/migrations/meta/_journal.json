@@ -477,6 +477,13 @@
       "when": 1791596367061,
       "tag": "0067_derp219_delete_cascade_settlement_reverse_forecast_amount_rateio",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1791596667331,
+      "tag": "0068_derp219_fix_rateio_invariant_ambiguous",
+      "breakpoints": true
     }
   ]
 }
