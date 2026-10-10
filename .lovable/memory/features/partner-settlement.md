@@ -133,6 +133,7 @@ Presente no Encontro de Contas (`PartnerSettlementTab`) e no Fecho do Evento (`E
 - **IVA nas despesas**: s/IVA ↔ c/IVA (inicial: `partner_calc_basis`).
 - **Base da despesa**: `realized` ("Realizado", transações, default) ou `committed` ("Previsto + excedido"): linhas operacionais aprovadas do BP **mais** o excesso por rubrica (Σ max(realizado − previsto, 0)), que entra sempre.
 - **Incluir overhead**: default **ON** (comportamento histórico).
+- Regra D-ERP211 (10/10/2026): é SÓ este critério (`events.cost_include_overhead`) que decide se as linhas `is_overhead` entram no fecho com sócios. O ramo overhead do motor NÃO lê `exclude_from_result` — por desenho: essa flag tira o overhead do resultado do evento (cards, DRE), e em Live todas as linhas overhead a têm. Nunca "corrigir" isto para honrar a flag: deixava o toggle sem efeito e mudava fechos já apurados (Anitta, Ivete).
 - O antigo toggle "Incluir transações fora do BP" foi removido a 20/08/2026 (ver `event-cost-basis.md`): o excedido deixou de ser opcional e não há UI que o desligue.
 
 
