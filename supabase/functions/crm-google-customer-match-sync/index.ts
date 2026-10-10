@@ -94,7 +94,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
 
   // ---------- 1) Body opcional ----------
-  let body: { user_list_id?: string } = {};
+  let body: { user_list_id?: string; force?: boolean } = {};
   try {
     const txt = await req.text();
     if (txt) body = JSON.parse(txt);
