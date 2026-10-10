@@ -287,6 +287,15 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       const advanceTxnIds = new Set<string>(
         (advRows || []).map((a: any) => a.transaction_id).filter(Boolean)
       );
+      // #303: uma transação já registada numa linha do Apuramento Ticketline
+      // (repasse, fatura Ticketline, …) nunca é dedução do fecho do evento.
+      const { data: stmtRows, error: stmtErr } = await (supabase as any)
+        .from("ticket_office_statement_lines")
+        .select("transaction_id")
+        .not("transaction_id", "is", null)
+        .in("line_type", ["advance", "carry_over"]);
+      if (stmtErr) throw stmtErr;
+      for (const r of stmtRows || []) advanceTxnIds.add(r.transaction_id);
 
       const all = [...(direct || []), ...masterTxns];
       const seen = new Set<string>();
@@ -866,7 +875,9 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
           .eq("id", settlementId).select("id"), "Fecho: ticket_office_settlements", { expectRows: true });
       }
 
-      if (pendingAdvances.length > 0) {
+      // #303: event_ticket_office_advances é histórico só de leitura (trigger na base);
+      // não há adiantamentos por ligar em Live. Os repasses vivem no Apuramento Ticketline.
+      if (false && pendingAdvances.length > 0) {
         const advanceIds = pendingAdvances.map((a: any) => a.id);
         await mustWrite((supabase as any)
           .from("event_ticket_office_advances")
@@ -1064,8 +1075,8 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                         variant="outline"
                         size="sm"
                         onClick={() => setShowNewAdvance(true)}
-                        disabled={!eventId}
-                        title={!eventId ? "Selecione o evento primeiro" : ""}
+                        disabled
+                        title="Adiantamentos passaram a histórico (#303): os repasses registam-se no Apuramento Ticketline."
                       >
                         <Banknote className="h-3.5 w-3.5 mr-1" /> Novo adiantamento
                       </Button>

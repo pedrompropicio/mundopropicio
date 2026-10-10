@@ -271,10 +271,11 @@ export function TicketOfficeAdvancesPanel({ officeId, officeName }: Props) {
         <div>
           <h3 className="text-lg font-semibold">Adiantamentos por Evento</h3>
           <p className="text-sm text-muted-foreground">
-            Valores que esta bilheteira já transferiu para abater no fecho de cada evento.
+            Histórico (só leitura, #303). Os repasses novos registam-se no Apuramento Ticketline.
           </p>
         </div>
-        {canManage && (
+        {/* #303: histórico só de leitura — a base recusa escrita nova. */}
+        {false && canManage && (
           <Button onClick={openCreate}>
             <Plus className="h-4 w-4 mr-2" /> Novo adiantamento
           </Button>
@@ -351,7 +352,7 @@ export function TicketOfficeAdvancesPanel({ officeId, officeName }: Props) {
                     <span className="font-mono font-semibold whitespace-nowrap">
                       {formatCurrency(Number(a.amount))}
                     </span>
-                    {canManage && !a.settlement_id && (
+                    {false && canManage && !a.settlement_id && (
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => openEdit(a)}
