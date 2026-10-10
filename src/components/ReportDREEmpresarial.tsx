@@ -25,6 +25,7 @@ import {
   type ReportCostSource,
 } from "@/lib/report-event-cost";
 import { ReportCostSourceToggle } from "@/components/ReportCostSourceToggle";
+import { computeNatureDivergence } from "@/lib/dre-nature-divergence";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
@@ -459,6 +460,12 @@ export default function ReportDREEmpresarial() {
     return result;
   }, [costSource, bpCostByEvent, eventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year, ticketRevenueSource, ticketSales, ticketLots, ticketZones, ticketCategoryId]);
 
+  // #304 ponto 4: o que cai fora de todas as secções por natureza ≠ rubrica — só aviso.
+  const natureDivergence = useMemo(
+    () => computeNatureDivergence(corpTxAll as any[], categories as any[]),
+    [corpTxAll, categories],
+  );
+
   const years = useMemo(() => {
     const ySet = new Set<number>();
     transactions.forEach((t) => {
@@ -576,6 +583,20 @@ export default function ReportDREEmpresarial() {
           </TableBody>
         </Table>
       </div>
+
+      {natureDivergence.count > 0 && (
+        <div role="alert" className="rounded-lg border border-destructive/50 bg-destructive/5 p-3 text-sm space-y-1">
+          <p className="font-semibold">Fora da DRE: natureza divergente da rubrica</p>
+          <p>
+            {natureDivergence.count} transações · {formatCurrency(natureDivergence.total)} (líquido) não entram em nenhuma secção
+            porque a natureza não bate com a da rubrica 10*. Os totais acima não as incluem.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Receitas em rubrica de despesa: {natureDivergence.byType.income.count} · {formatCurrency(natureDivergence.byType.income.total)}
+            {" — "}Despesas em rubrica de receita: {natureDivergence.byType.expense.count} · {formatCurrency(natureDivergence.byType.expense.total)}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
