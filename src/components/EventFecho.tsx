@@ -58,18 +58,32 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
   // ---- Eventos relevantes (master + filhos quando turnê)
   const allEventIds = [eventId, ...(childEventIds || [])];
 
-  // ---- Sócios deste evento (ou pai, se sub-evento)
+  // ---- Sócios (#88): os do PRÓPRIO evento. Numa cidade de turnê os sócios do pai
+  // aplicam-se ao consolidado do pai (Fecho do Master), nunca ao resultado da cidade.
+  // O critério de cálculo continua a vir do pai (pendência D-ERP213).
   const partnersSourceId = parentEventId || eventId;
   const { data: partners = [] } = useQuery({
-    queryKey: ["fecho-partners", partnersSourceId],
+    queryKey: ["fecho-partners", eventId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_partners")
         .select("*, suppliers(name)")
-        .eq("event_id", partnersSourceId)
+        .eq("event_id", eventId)
         .order("created_at");
       if (error) throw error;
       return data;
+    },
+  });
+  const { data: parentPartnersCount = 0 } = useQuery({
+    queryKey: ["fecho-parent-partners-count", parentEventId],
+    enabled: !!parentEventId,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("event_partners")
+        .select("id", { count: "exact", head: true })
+        .eq("event_id", parentEventId!);
+      if (error) throw error;
+      return count ?? 0;
     },
   });
 
@@ -200,14 +214,15 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
     skipForecast: true,
   });
 
-  // ---- Despesas pagas por sócios
+  // ---- Despesas pagas por sócios — (#88) fonte única com o PartnerSettlementTab:
+  // perímetro = allEventIds (evento + filhos), o mesmo das transações e do BP.
   const { data: paidByPartners = [] } = useQuery({
-    queryKey: ["fecho-paid-by-partners", eventId],
+    queryKey: ["fecho-paid-by-partners", allEventIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
         .select("partner_id, transactions(amount, iva_rate)")
-        .eq("event_id", eventId)
+        .in("event_id", allEventIds)
         .eq("status", "approved");
       if (error) throw error;
       return data || [];
@@ -216,8 +231,8 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
 
   // ---- Extras de sócios (união das duas naturezas: transação + manual). Não são custo do evento.
   const { data: partnerExtras = [] } = useQuery({
-    queryKey: ["fecho-partner-extras", eventId],
-    queryFn: () => fetchPartnerExtras([eventId]),
+    queryKey: ["fecho-partner-extras", allEventIds],
+    queryFn: () => fetchPartnerExtras(allEventIds),
   });
 
   // ============= Cálculos =============
