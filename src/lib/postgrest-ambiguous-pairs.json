@@ -27,11 +27,15 @@
   { "from": "operacao_staff_invites", "to": "profiles" },
   { "from": "partner_aporte_mirror", "to": "transactions" },
   { "from": "profiles", "to": "companies" },
+  { "from": "shared_cost_mirror", "to": "transactions" },
   { "from": "sponsorship_pipeline", "to": "auth.users" },
   { "from": "static_pages", "to": "auth.users" },
+  { "from": "supplier_similarity_flags", "to": "suppliers" },
   { "from": "system_reminders", "to": "auth.users" },
   { "from": "ticket_office_settlements", "to": "financial_accounts" },
   { "from": "ticket_office_settlements", "to": "transactions" },
+  { "from": "transaction_offsets", "to": "transactions" },
   { "from": "transactions", "to": "event_partners" },
+  { "from": "transactions", "to": "financial_accounts" },
   { "from": "transactions", "to": "suppliers" }
 ]
