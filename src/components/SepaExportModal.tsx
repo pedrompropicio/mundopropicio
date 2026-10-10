@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { mustWrite } from "@/lib/must-write";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
@@ -181,6 +182,8 @@ export default function SepaExportModal({
   const selectedAccount = accounts.find((a: any) => normalizeIban(a.iban) === debtorIban);
 
   const handleGenerate = async () => {
+    // #37 — lista não aprovada nunca produz ficheiro (o servidor também recusa o registo).
+    if (isTest) return;
     if (valid.length === 0 || !debtorIban) return;
     const out = buildPain001({
       listId,
@@ -200,35 +203,33 @@ export default function SepaExportModal({
         remittance: truncateUstrd(r.remittance),
       })),
     });
-    downloadXml(out.xml, out.fileName);
-
-    // Histórico de exportações — guarda os ids EXATOS que entraram no XML, para
-    // que o comprovativo do lote seja replicado só nessas transações.
-    // Faturas agrupadas: uma linha do ficheiro cobre N transações — o histórico
-    // guarda todos os ids para o comprovativo ser replicado a todas.
+    // Histórico de exportações — guarda os ids EXATOS que entraram no XML.
+    // #37: o registo vem ANTES do download; se o servidor o recusar (lista não aprovada
+    // ou sem permissão), não sai ficheiro nenhum.
     const exportedTxIds = valid.flatMap((r) =>
       r.groupTransactionIds?.length ? r.groupTransactionIds : [r.transactionId],
     );
     try {
       const { data: userData } = await supabase.auth.getUser();
-      const { error } = await supabase.from("payment_list_sepa_exports").insert({
-        payment_list_id: listId,
-        exported_by: userData?.user?.email ?? "sistema",
-        file_name: out.fileName,
-        msg_id: out.msgId,
-        total_amount: Number(out.controlSum),
-        n_transactions: out.numberOfTxs,
-        transaction_ids: exportedTxIds,
-      } as any);
-      if (error) throw error;
+      await mustWrite(
+        supabase.from("payment_list_sepa_exports").insert({
+          payment_list_id: listId,
+          exported_by: userData?.user?.email ?? "sistema",
+          file_name: out.fileName,
+          msg_id: out.msgId,
+          total_amount: Number(out.controlSum),
+          n_transactions: out.numberOfTxs,
+          transaction_ids: exportedTxIds,
+        } as any).select("id"),
+        "Registo da exportação SEPA",
+        { expectRows: true },
+      );
       queryClient.invalidateQueries({ queryKey: ["payment_list_sepa_exports", listId] });
     } catch (err: any) {
-      toast({
-        title: "Ficheiro gerado, registo do histórico falhou",
-        description: err?.message ?? "Não foi possível guardar o registo da exportação.",
-        variant: "destructive",
-      });
+      toast({ title: "Ficheiro não gerado", description: err?.message, variant: "destructive" });
+      return;
     }
+    downloadXml(out.xml, out.fileName);
 
     // O ficheiro seguiu para o banco: marcar como pago o que ele leva (issue #200).
     // Corre mesmo que o histórico tenha falhado — o dinheiro sai de qualquer forma.
@@ -264,8 +265,7 @@ export default function SepaExportModal({
           <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
             <span>
-              <strong>Lista ainda não aprovada — ficheiro de teste.</strong> O nome do ficheiro leva o sufixo{" "}
-              <code>_TESTE</code>.
+              <strong>Lista ainda não aprovada — não é possível gerar o ficheiro.</strong> Aprova a lista primeiro.
             </span>
           </div>
         )}
@@ -399,7 +399,7 @@ export default function SepaExportModal({
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleGenerate} disabled={valid.length === 0 || !debtorIban}>
+          <Button onClick={handleGenerate} disabled={isTest || valid.length === 0 || !debtorIban}>
             <Download className="mr-1.5 h-4 w-4" /> Gerar ficheiro ({valid.length})
           </Button>
         </div>

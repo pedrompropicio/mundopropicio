@@ -273,6 +273,28 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
     onError: (e: any) => toast({ title: "Erro ao estornar parcela", description: e.message, variant: "destructive" }),
   });
 
+  // #39 — editar valor/vencimento das parcelas planeadas (Modelo B), atómico via RPC.
+  const [scheduleDraft, setScheduleDraft] = useState<Record<string, { amount: string; scheduled_date: string }> | null>(null);
+  const saveScheduleMutation = useMutation({
+    mutationFn: async (rows: { id: string; amount: number; scheduled_date: string }[]) => {
+      const { data: u } = await supabase.auth.getUser();
+      const { data, error } = await supabase.rpc("update_planned_installments" as any, {
+        p_transaction_id: txId,
+        p_rows: rows,
+        p_changed_by: u?.user?.user_metadata?.full_name ?? u?.user?.email ?? "sistema",
+      } as any);
+      if (error) throw new Error(error.message);
+      return Number(data ?? 0);
+    },
+    onSuccess: (n) => {
+      setScheduleDraft(null);
+      queryClient.invalidateQueries({ queryKey: ["payment-timeline", txId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast({ title: n > 0 ? `${n} parcela(s) atualizada(s)` : "Sem alterações" });
+    },
+    onError: (e: any) => toast({ title: "Erro ao gravar o cronograma", description: e.message, variant: "destructive" }),
+  });
+
   const cancelInstallmentMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -513,6 +535,64 @@ export function PaymentTimeline({ transaction, canApprove = false, eventComplete
           icon={<Clock className="h-3.5 w-3.5" />}
           title={`Cronograma de parcelas (${plannedPayments.length} agendada${plannedPayments.length === 1 ? "" : "s"}${cancelledPayments.length > 0 ? ` · ${cancelledPayments.length} cancelada${cancelledPayments.length === 1 ? "" : "s"}` : ""})`}
         >
+          {scheduleDraft && (() => {
+            const draftSum = plannedPayments.reduce((acc: number, p: any) => acc + (Number(scheduleDraft[p.id]?.amount) || 0), 0);
+            const diff = +(totalPlanned - draftSum).toFixed(2);
+            const invalid = plannedPayments.some((p: any) => !(Number(scheduleDraft[p.id]?.amount) > 0) || !scheduleDraft[p.id]?.scheduled_date);
+            return (
+              <div className="mb-2 space-y-1.5 rounded-md border border-primary/30 bg-primary/5 p-2">
+                {plannedPayments.map((p: any, i: number) => (
+                  <div key={p.id} className="flex items-center gap-2 text-xs">
+                    <span className="w-6 text-muted-foreground">#{i + 1}</span>
+                    <input
+                      type="date"
+                      value={scheduleDraft[p.id]?.scheduled_date ?? ""}
+                      onChange={(e) => setScheduleDraft({ ...scheduleDraft, [p.id]: { ...scheduleDraft[p.id], scheduled_date: e.target.value } })}
+                      className="rounded border border-border bg-background px-1.5 py-0.5"
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={scheduleDraft[p.id]?.amount ?? ""}
+                      onChange={(e) => setScheduleDraft({ ...scheduleDraft, [p.id]: { ...scheduleDraft[p.id], amount: e.target.value } })}
+                      className="w-28 rounded border border-border bg-background px-1.5 py-0.5 text-right font-mono"
+                    />
+                  </div>
+                ))}
+                <p className={`text-[11px] ${Math.abs(diff) > 0.01 ? "text-destructive" : "text-muted-foreground"}`}>
+                  Soma: {formatCurrency(draftSum)} de {formatCurrency(totalPlanned)}
+                  {Math.abs(diff) > 0.01 && ` — faltam ${formatCurrency(diff)} para bater com o total`}
+                  . Parcelas pagas ficam travadas (corrigem-se em "Parcelas pagas → Editar", só admin).
+                </p>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setScheduleDraft(null)}>Cancelar</Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={invalid || Math.abs(diff) > 0.01 || saveScheduleMutation.isPending}
+                    onClick={() => saveScheduleMutation.mutate(plannedPayments.map((p: any) => ({
+                      id: p.id,
+                      amount: +Number(scheduleDraft[p.id].amount).toFixed(2),
+                      scheduled_date: scheduleDraft[p.id].scheduled_date,
+                    })))}
+                  >
+                    Gravar cronograma
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+          {canApprove && plannedPayments.length > 0 && !scheduleDraft && (
+            <div className="mb-1 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setScheduleDraft(Object.fromEntries(plannedPayments.map((p: any) => [p.id, { amount: String(Number(p.amount).toFixed(2)), scheduled_date: p.scheduled_date ?? "" }])))}
+                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-primary hover:bg-primary/10"
+              >
+                <Pencil className="h-3 w-3" /> Editar valores e vencimentos
+              </button>
+            </div>
+          )}
           <ul className="divide-y divide-border/40">
             {[...plannedPayments, ...cancelledPayments].map((p: any, i: number) => {
               const isPlanned = p.status === "planned";

@@ -56,6 +56,7 @@ import InvoiceGroupAction from "@/components/InvoiceGroupAction";
 import { TransactionCamarimTab } from "@/components/camarim/TransactionCamarimTab";
 import { WithholdingDeclaredFields } from "@/components/WithholdingDeclaredFields";
 import { TransactionInstallmentGroupEditor, useInstallmentGroup } from "@/components/TransactionInstallmentGroupEditor";
+import { SplitByBpLinesModal } from "@/components/SplitByBpLinesModal";
 import {
   TransactionRenegotiateInstallmentsModal,
   useCanRenegotiateInstallments,
@@ -519,6 +520,14 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
     eventCompleted,
   });
   const [renegotiateOpen, setRenegotiateOpen] = useState(false);
+  // #29 — repartir por N linhas de BP (só antes de pagar; o servidor revalida tudo).
+  const [splitBpOpen, setSplitBpOpen] = useState(false);
+  const showSplitBp =
+    transaction?.type === "expense" && !!transaction?.event_id && !eventCompleted &&
+    !transaction?.parent_transaction_id && transaction?.split_percentage == null &&
+    !transaction?.installment_group_id && Number(transaction?.paid_amount ?? 0) <= 0 &&
+    !["paid", "reversed"].includes(transaction?.status) &&
+    (canApprove || isManager || hasPermission("manage_transactions"));
   const showRenegotiate = canRenegotiate && (canApprove || isManager || hasPermission("manage_transactions"));
 
 
@@ -1417,6 +1426,19 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                 <Layers className="h-3.5 w-3.5 mr-1.5" /> Renegociar em parcelas
               </Button>
             </div>
+          )}
+          {showSplitBp && (
+            <div className="flex items-center justify-between gap-2 flex-wrap rounded-lg border border-border bg-secondary/30 px-3 py-2">
+              <div className="min-w-0 text-xs text-muted-foreground">
+                Uma fatura para várias linhas de BP? Reparte o valor — cada parte fica com a sua linha.
+              </div>
+              <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={() => setSplitBpOpen(true)}>
+                <Layers className="h-3.5 w-3.5 mr-1.5" /> Repartir por linhas de BP
+              </Button>
+            </div>
+          )}
+          {splitBpOpen && (
+            <SplitByBpLinesModal transaction={transaction} onClose={() => setSplitBpOpen(false)} onSuccess={onClose} />
           )}
           {renegotiateOpen && (
             <TransactionRenegotiateInstallmentsModal

@@ -20346,6 +20346,10 @@ export type Database = {
         }[]
       }
       song_link_utm_slug: { Args: { p: string }; Returns: string }
+      split_transaction_by_bp_lines: {
+        Args: { p_changed_by: string; p_lines: Json; p_transaction_id: string }
+        Returns: string
+      }
       storage_path_belongs_to_current_company: {
         Args: { _name: string }
         Returns: boolean
@@ -20464,6 +20468,10 @@ export type Database = {
       unset_partner_portal_user: {
         Args: { _profile_id: string }
         Returns: string
+      }
+      update_planned_installments: {
+        Args: { p_changed_by: string; p_rows: Json; p_transaction_id: string }
+        Returns: number
       }
       update_vault_secret: {
         Args: { _id: string; _value: string }
