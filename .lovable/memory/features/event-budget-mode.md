@@ -53,3 +53,6 @@ de evento e o ecrã da empresa vêm num passo seguinte.
   mão a 16/09: são `partner_managed`/Workshow, shows vendidos a terceiros, com **zero linhas de
   BP** — exigir linha de BP ali era ruído. Ficam **6 eventos `partner_managed`** no mesmo engano,
   listados na #100.
+
+## Estado (2026-10-10) — #100 com UI
+- Criação de evento: escolha com default da empresa pré-seleccionado. Edição do evento: select com "Padrão da empresa" (NULL). Default da empresa: cartão em Administração via RPC set_company_default_budget_mode (admin/manager). Hoje: 54 eventos herdam (with_bp), 5 without_bp explícitos.
