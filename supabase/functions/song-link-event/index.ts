@@ -16,7 +16,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { lookupIpGeo, type Geo } from "../_shared/geo.ts";
-import { validSsrKey, prefetchDetail } from "./ssr.ts";
+import { validSsrKey, prefetchDetail, ssrClientIp } from "./ssr.ts";
 
 const ALLOWED_ORIGINS = new Set<string>([
   "https://www.mundopropicio.com",
@@ -118,7 +118,7 @@ function rateLimited(key: string): boolean {
 
 function parseUA(ua: string) {
   const u = ua || "";
-  let in_app_browser: string | null = null;
+  let in_app_browser: string | null = u ? null : "other";
   // Adenda D-ERP141 (09/10/2026): navegador interno da Meta = IABMV/FB4A/FBAN/FBAV/FB_IAB/FBIOS
   // ou "Instagram"; com "Instagram" fica 'instagram', senão 'facebook'.
   const isMeta = /IABMV|FB4A|FBAN|FBAV|FB_IAB|FBIOS|Instagram/i.test(u);
@@ -161,9 +161,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!body || typeof body !== "object" || Array.isArray(body)) return json({ ok: false, error: "invalid_body" }, 400, origin);
   if (body.ssr === true && !isSsr) return json({ ok: false, error: "unauthorized_ssr" }, 401, origin);
   if (isSsr && (body.ssr !== true || body.event !== "arrival" || !s(body.event_id, 120) ||
-    typeof body.client_ua !== "string" || body.client_ua.length > 4000 ||
-    typeof body.client_ip !== "string" || !/^[0-9a-fA-F:.]{3,45}$/.test(body.client_ip) ||
-    typeof body.prefetch !== "boolean" || (body.purpose != null && typeof body.purpose !== "string"))) {
+    typeof body.prefetch !== "boolean")) {
     return json({ ok: false, error: "invalid_ssr_body" }, 400, origin);
   }
 
@@ -173,13 +171,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (event !== "arrival" && event !== "choice") return json({ ok: false, error: "event_invalido" }, 400, origin);
   const opened = body?.opened === "app" || body?.opened === "web" ? body.opened : null;
 
-  const ip = isSsr ? s(body.client_ip, 45) : extractIp(req);
+  const ssrIp = isSsr ? ssrClientIp(body.client_ip) : null;
+  if (ssrIp?.reason) console.warn(`[song-link-event] SSR sem IP: ${ssrIp.reason}; chegada aceite sem hash nem geo`);
+  const ip = isSsr ? ssrIp?.ip ?? null : extractIp(req);
   const ua = isSsr ? s(body.client_ua, 4000) ?? "" : req.headers.get("user-agent") ?? "";
   const salt = await getSecret("SONG_LINK_IP_SALT");
   const ipHash = ip && salt ? await sha256Hex(`${salt}:${ip}`) : null;
   // Chave do limite: ip_hash; sem sal, um hash local sem sal (só em memória, nunca gravado).
   const rlKey = ipHash ?? (ip ? await sha256Hex(`rl:${ip}`) : "sem-ip");
-  if (rateLimited(rlKey)) return json({ ok: false, error: "rate_limited" }, 429, origin);
+  // Authenticated SSR without visitor IP must not share a global "sem-ip" quota.
+  if (!(isSsr && !ip) && rateLimited(rlKey)) return json({ ok: false, error: "rate_limited" }, 429, origin);
 
   const databaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");

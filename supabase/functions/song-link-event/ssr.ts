@@ -1,4 +1,15 @@
 // Shared by the handler and focused tests; no credentials are stored here.
+import { isIP } from "node:net";
+
+export function ssrClientIp(value: unknown): { ip: string | null; reason: string | null } {
+  if (value === undefined) return { ip: null, reason: "client_ip ausente" };
+  if (value === null) return { ip: null, reason: "client_ip null" };
+  if (typeof value !== "string" || isIP(value.trim()) === 0) {
+    return { ip: null, reason: "client_ip inválido" };
+  }
+  return { ip: value.trim(), reason: null };
+}
+
 export async function validSsrKey(provided: string | null, expected: string | undefined): Promise<boolean> {
   if (!provided || !expected) return false;
   const hash = async (value: string) => new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
