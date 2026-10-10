@@ -74,6 +74,7 @@ import {
   type RevenueHeldRow,
 } from "@/lib/partner-disbursement";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { PaidByPartnerPanel } from "@/components/PaidByPartnerPanel";
 
 
 
@@ -1804,6 +1805,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
   return (
     <div className="space-y-6">
+      <PaidByPartnerPanel eventId={eventId} eventName={eventName} />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ArrowRightLeft className="h-4 w-4 text-primary" />
