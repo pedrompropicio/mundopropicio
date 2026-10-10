@@ -42,6 +42,7 @@ import { labelCta } from "@/lib/meta-labels";
 import { toast } from "sonner";
 import { evaluatePiece, evaluateAdset, recommendForArchetype } from "@/lib/crm/creativeQuality";
 
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 export interface CampaignDesignStudioProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -549,10 +550,10 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
 
   async function fetchCreativeMeta(ids: string[]) {
     if (ids.length === 0) return new Map<string, CreativeMini>();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await fetchAllPagedQuery((supabase as any)
       .schema("crm").from("meta_creatives")
       .select("id, name, type, file_url, width, height, duration_seconds, file_mime_type, headline, body, cta_type, analysis_jsonb, updated_at")
-      .in("id", ids);
+      .in("id", ids));
     if (error) {
       console.warn("[design-studio] fetch creatives failed", error);
       return new Map<string, CreativeMini>();

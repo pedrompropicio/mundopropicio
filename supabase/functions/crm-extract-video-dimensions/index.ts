@@ -7,6 +7,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const BUILD_VERSION = "extract-video-dims-v1 2026-06-24";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SRK = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -167,7 +168,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         .is("width", null);
     }
 
-    const { data: rows, error: qErr } = await query;
+    const { data: rows, error: qErr } = await fetchAllPagedQuery(query);
     if (qErr) return bizErr({ error: "query_failed", detail: qErr.message });
     if (!rows || rows.length === 0) {
       return json({ ok: true, processed: [], errors: [], note: "no_rows" });

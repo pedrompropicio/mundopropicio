@@ -9,6 +9,7 @@ import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
 import { printAuditReport } from "@/lib/audience-pdf";
 import { cn } from "@/lib/utils";
 
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 type AuditContext = { type: "event" | "campaign" | "landing" | "pixel"; id: string };
 
 
@@ -117,19 +118,19 @@ export default function CrmAudit() {
           // Read campaign + try to extract landing URLs from ad creatives
           const { data: camp } = await (supabase as any).schema("crm").from("meta_campaign_snapshot")
             .select("external_campaign_id, name").eq("external_campaign_id", ctx.id).maybeSingle();
-          const { data: adsets } = await (supabase as any).schema("crm").from("meta_adset_snapshot")
-            .select("external_adset_id").eq("external_campaign_id", ctx.id);
+          const { data: adsets } = await fetchAllPagedQuery((supabase as any).schema("crm").from("meta_adset_snapshot")
+            .select("external_adset_id").eq("external_campaign_id", ctx.id));
           const adsetIds = (adsets ?? []).map((a: any) => a.external_adset_id);
           let creativeIds: string[] = [];
           if (adsetIds.length) {
-            const { data: ads } = await (supabase as any).schema("crm").from("meta_ad_snapshot")
-              .select("meta_creative_id").in("external_adset_id", adsetIds);
+            const { data: ads } = await fetchAllPagedQuery((supabase as any).schema("crm").from("meta_ad_snapshot")
+              .select("meta_creative_id").in("external_adset_id", adsetIds));
             creativeIds = Array.from(new Set((ads ?? []).map((a: any) => a.meta_creative_id).filter(Boolean)));
           }
           let urls = new Set<string>();
           if (creativeIds.length) {
-            const { data: crs } = await (supabase as any).schema("crm").from("meta_creatives")
-              .select("link_url").in("meta_creative_id", creativeIds);
+            const { data: crs } = await fetchAllPagedQuery((supabase as any).schema("crm").from("meta_creatives")
+              .select("link_url").in("meta_creative_id", creativeIds));
             for (const c of crs ?? []) {
               if (c.link_url) urls.add(String(c.link_url));
             }
@@ -146,18 +147,18 @@ export default function CrmAudit() {
             .select("external_campaign_id, name").eq("linked_event_id", ctx.id);
           const adsetIds: string[] = [];
           for (const c of camps ?? []) {
-            const { data: as } = await (supabase as any).schema("crm").from("meta_adset_snapshot")
-              .select("external_adset_id").eq("external_campaign_id", c.external_campaign_id);
+            const { data: as } = await fetchAllPagedQuery((supabase as any).schema("crm").from("meta_adset_snapshot")
+              .select("external_adset_id").eq("external_campaign_id", c.external_campaign_id));
             for (const a of as ?? []) adsetIds.push(a.external_adset_id);
           }
           let urls = new Set<string>();
           if (adsetIds.length) {
-            const { data: ads } = await (supabase as any).schema("crm").from("meta_ad_snapshot")
-              .select("meta_creative_id").in("external_adset_id", adsetIds);
+            const { data: ads } = await fetchAllPagedQuery((supabase as any).schema("crm").from("meta_ad_snapshot")
+              .select("meta_creative_id").in("external_adset_id", adsetIds));
             const cIds = Array.from(new Set((ads ?? []).map((a: any) => a.meta_creative_id).filter(Boolean)));
             if (cIds.length) {
-              const { data: crs } = await (supabase as any).schema("crm").from("meta_creatives")
-                .select("link_url").in("meta_creative_id", cIds);
+              const { data: crs } = await fetchAllPagedQuery((supabase as any).schema("crm").from("meta_creatives")
+                .select("link_url").in("meta_creative_id", cIds));
               for (const c of crs ?? []) {
                 if (c.link_url) urls.add(String(c.link_url));
               }
@@ -186,9 +187,9 @@ export default function CrmAudit() {
 
           const urls = new Set<string>();
           if (active?.ad_account_id) {
-            const { data: ads } = await (supabase as any).schema("crm").from("meta_ad_snapshot")
+            const { data: ads } = await fetchAllPagedQuery((supabase as any).schema("crm").from("meta_ad_snapshot")
               .select("meta_creative_id, tracking_specs")
-              .eq("ad_account_id", active.ad_account_id);
+              .eq("ad_account_id", active.ad_account_id));
             const matchingCreatives = new Set<string>();
             for (const a of ads ?? []) {
               const ts = a.tracking_specs;
@@ -199,16 +200,16 @@ export default function CrmAudit() {
               }
             }
             if (matchingCreatives.size) {
-              const { data: crs } = await (supabase as any).schema("crm").from("meta_creatives")
-                .select("link_url").in("meta_creative_id", Array.from(matchingCreatives));
+              const { data: crs } = await fetchAllPagedQuery((supabase as any).schema("crm").from("meta_creatives")
+                .select("link_url").in("meta_creative_id", Array.from(matchingCreatives)));
               for (const c of crs ?? []) if (c.link_url) urls.add(String(c.link_url));
             }
             // Fallback: top URLs across ad_account if no match
             if (urls.size === 0) {
               const creativeIds = Array.from(new Set((ads ?? []).map((a: any) => a.meta_creative_id).filter(Boolean)));
               if (creativeIds.length) {
-                const { data: crs } = await (supabase as any).schema("crm").from("meta_creatives")
-                  .select("link_url").in("meta_creative_id", creativeIds.slice(0, 200));
+                const { data: crs } = await fetchAllPagedQuery((supabase as any).schema("crm").from("meta_creatives")
+                  .select("link_url").in("meta_creative_id", creativeIds.slice(0, 200)));
                 for (const c of crs ?? []) if (c.link_url) urls.add(String(c.link_url));
               }
             }

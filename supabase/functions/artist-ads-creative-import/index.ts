@@ -22,6 +22,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -128,11 +129,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // Espelho dos anúncios do gestor externo.
-  const { data: snapRows, error: sErr } = await (admin as Any)
+  const { data: snapRows, error: sErr } = await fetchAllPagedQuery((admin as Any)
     .schema("crm").from("meta_ad_snapshot")
     .select("external_ad_id, meta_creative_id, name, raw, company_id, connection_id, updated_time")
     .eq("connection_id", connectionId)
-    .in("meta_creative_id", creativeIds);
+    .in("meta_creative_id", creativeIds));
   if (sErr) return json({ error: "snapshot_falhou", mensagem: sErr.message }, 500);
 
   // Um criativo pode aparecer em vários anúncios: fica o mais recente.
@@ -145,11 +146,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // Já existentes (idempotência).
-  const { data: existentes, error: eErr } = await (admin as Any)
+  const { data: existentes, error: eErr } = await fetchAllPagedQuery((admin as Any)
     .schema("crm").from("meta_creatives")
     .select("id, meta_creative_id")
     .eq("company_id", artist.company_id)
-    .in("meta_creative_id", creativeIds);
+    .in("meta_creative_id", creativeIds));
   if (eErr) return json({ error: "criativos_falhou", mensagem: eErr.message }, 500);
   const jaExiste = new Map<string, string>();
   for (const r of (existentes ?? []) as Any[]) jaExiste.set(String(r.meta_creative_id), String(r.id));

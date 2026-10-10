@@ -6,6 +6,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -106,11 +107,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .maybeSingle();
 
   // Camada 1 — DB local
-  const { data: ads, error: adsErr } = await (supabase as any)
+  const { data: ads, error: adsErr } = await fetchAllPagedQuery((supabase as any)
     .schema("crm")
     .from("meta_ad_snapshot")
     .select("external_ad_id, meta_creative_id, effective_status, tracking_specs, raw, connection_id")
-    .eq("external_campaign_id", campaignId);
+    .eq("external_campaign_id", campaignId));
 
   if (adsErr) return json({ error: "ads_query_failed", detail: adsErr.message }, 500);
 
@@ -125,11 +126,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   if (creativeIds.size > 0) {
-    const { data: creatives } = await (supabase as any)
+    const { data: creatives } = await fetchAllPagedQuery((supabase as any)
       .schema("crm")
       .from("meta_creatives")
       .select("meta_creative_id, link_url")
-      .in("meta_creative_id", [...creativeIds]);
+      .in("meta_creative_id", [...creativeIds]));
     for (const c of creatives ?? []) pushIfUrl(dbUrls, c.link_url);
   }
 

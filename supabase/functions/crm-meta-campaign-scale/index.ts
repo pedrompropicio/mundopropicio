@@ -25,6 +25,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
@@ -172,10 +173,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const adsetsInv: any[] = inventory?.adsets_inventory ?? [];
 
   // ── 4) Snapshots de adsets (verba atual, status, ids p/ entity-action) ──────
-  const { data: adsetSnaps } = await (supabase as any)
+  const { data: adsetSnaps } = await fetchAllPagedQuery((supabase as any)
     .schema("crm").from("meta_adset_snapshot")
     .select("external_adset_id, name, optimization_goal, effective_status, daily_budget_cents, lifetime_budget_cents, connection_id, ad_account_id")
-    .eq("external_campaign_id", campaignId);
+    .eq("external_campaign_id", campaignId));
   const adsetById = new Map<string, any>();
   for (const a of (adsetSnaps ?? [])) adsetById.set(String(a.external_adset_id), a);
 

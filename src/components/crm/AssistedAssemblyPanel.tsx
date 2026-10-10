@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { uploadCreativeFile, CREATIVE_UPLOAD_ACCEPT } from "@/lib/creative-upload";
 
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 export interface AssistedAssemblyPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -141,12 +142,12 @@ export function AssistedAssemblyPanel({
   useEffect(() => {
     if (!open || !companyId) return;
     (async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await fetchAllPagedQuery((supabase as any)
         .schema("crm")
         .from("meta_creatives")
         .select("id, name, file_url, type, file_mime_type, meta_image_hash, meta_video_id")
         .eq("company_id", companyId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false }));
       if (error) {
         console.warn("[assembly-panel] fetch company creatives failed", error);
         return;
@@ -188,11 +189,11 @@ export function AssistedAssemblyPanel({
 
   async function fetchCreativeNames(ids: string[]) {
     if (ids.length === 0) return new Map<string, CreativeMini>();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await fetchAllPagedQuery((supabase as any)
       .schema("crm")
       .from("meta_creatives")
       .select("id, name, file_url, type, file_mime_type, meta_image_hash, meta_video_id")
-      .in("id", ids);
+      .in("id", ids));
     if (error) {
       console.warn("[assembly-panel] fetch creative names failed", error);
       return new Map<string, CreativeMini>();

@@ -15,6 +15,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { normalizePlanInPlace } from "../_shared/plan-normalize.ts";
 import { buildCampaignBrief, type CampaignBrief } from "../_shared/campaign-brief.ts";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 // ─────────────────────────────────────────────────────────────────────────
 // Constantes
 // ─────────────────────────────────────────────────────────────────────────
@@ -405,11 +406,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // Calcula ROAS real da referência via insights agregados (90d).
     const PERIOD_DAYS = 90;
     const fromIso = new Date(Date.now() - PERIOD_DAYS * 86400000).toISOString().slice(0, 10);
-    const { data: insRows } = await (supabase as any)
+    const { data: insRows } = await fetchAllPagedQuery((supabase as any)
       .schema("crm").from("meta_campaign_insights_daily")
       .select("spend_cents, purchases_count, purchases_value_cents")
       .eq("external_campaign_id", body.reference_campaign_id!)
-      .gte("date_start", fromIso);
+      .gte("date_start", fromIso));
     let spendCents = 0, valueCents = 0, purchases = 0;
     for (const r of insRows ?? []) {
       spendCents += Number((r as any).spend_cents ?? 0);

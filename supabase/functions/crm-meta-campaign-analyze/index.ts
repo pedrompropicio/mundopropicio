@@ -5,6 +5,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
@@ -128,14 +129,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (campErr || !campaign) return json({ error: "campaign_not_found", detail: campErr?.message }, 404);
 
   // ── 2) Insights da campanha ──
-  const { data: campInsights, error: ciErr } = await (supabase as any)
+  const { data: campInsights, error: ciErr } = await fetchAllPagedQuery((supabase as any)
     .schema("crm")
     .from("meta_campaign_insights_daily")
     .select("date_start, impressions, reach, frequency, clicks, spend_cents, purchases_count, purchases_value_cents")
     .eq("external_campaign_id", campaignId)
     .gte("date_start", fromDate)
     .lte("date_start", toDate)
-    .order("date_start", { ascending: true });
+    .order("date_start", { ascending: true }));
   if (ciErr) return json({ error: "campaign_insights_failed", detail: ciErr.message }, 500);
   if (!campInsights || campInsights.length === 0) {
     return json({ error: "no_data", message: "Sem dados de insights suficientes para esta campanha. Sincronize primeiro." }, 422);
@@ -144,22 +145,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const campMetrics = metricsOf(campAgg);
 
   // ── 3) Adsets da campanha ──
-  const { data: adsets } = await (supabase as any)
+  const { data: adsets } = await fetchAllPagedQuery((supabase as any)
     .schema("crm")
     .from("meta_adset_snapshot")
     .select("external_adset_id, name, status, effective_status, optimization_goal, billing_event")
-    .eq("external_campaign_id", campaignId);
+    .eq("external_campaign_id", campaignId));
   const adsetIds: string[] = (adsets ?? []).map((a: any) => a.external_adset_id);
 
   let adsetInsights: any[] = [];
   if (adsetIds.length > 0) {
-    const { data } = await (supabase as any)
+    const { data } = await fetchAllPagedQuery((supabase as any)
       .schema("crm")
       .from("meta_adset_insights_daily")
       .select("external_adset_id, impressions, reach, frequency, clicks, spend_cents, purchases_count, purchases_value_cents")
       .in("external_adset_id", adsetIds)
       .gte("date_start", fromDate)
-      .lte("date_start", toDate);
+      .lte("date_start", toDate));
     adsetInsights = data ?? [];
   }
 
@@ -185,24 +186,24 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // ── 4) Ads da campanha ──
   let ads: any[] = [];
   if (adsetIds.length > 0) {
-    const { data } = await (supabase as any)
+    const { data } = await fetchAllPagedQuery((supabase as any)
       .schema("crm")
       .from("meta_ad_snapshot")
       .select("external_ad_id, external_adset_id, name, status, effective_status, meta_creative_id, recommendations, issues_info")
-      .in("external_adset_id", adsetIds);
+      .in("external_adset_id", adsetIds));
     ads = data ?? [];
   }
   const adIds: string[] = ads.map((a) => a.external_ad_id);
 
   let adInsights: any[] = [];
   if (adIds.length > 0) {
-    const { data } = await (supabase as any)
+    const { data } = await fetchAllPagedQuery((supabase as any)
       .schema("crm")
       .from("meta_ad_insights_daily")
       .select("external_ad_id, impressions, reach, frequency, clicks, spend_cents, purchases_count, purchases_value_cents")
       .in("external_ad_id", adIds)
       .gte("date_start", fromDate)
-      .lte("date_start", toDate);
+      .lte("date_start", toDate));
     adInsights = data ?? [];
   }
 
@@ -224,11 +225,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const creativeIds = Array.from(new Set(ads.map((a) => a.meta_creative_id).filter(Boolean)));
   const creativeMap = new Map<string, any>();
   if (creativeIds.length > 0) {
-    const { data: crs } = await (supabase as any)
+    const { data: crs } = await fetchAllPagedQuery((supabase as any)
       .schema("crm")
       .from("meta_creatives")
       .select("meta_creative_id, name, type, analysis_jsonb, analyzed_at")
-      .in("meta_creative_id", creativeIds);
+      .in("meta_creative_id", creativeIds));
     for (const c of crs ?? []) creativeMap.set(c.meta_creative_id, c);
   }
   let creativesAnalyzedCount = 0;

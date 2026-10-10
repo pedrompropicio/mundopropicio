@@ -680,6 +680,20 @@
       "when": 1791668938328,
       "tag": "0096_derp_304_invariant_natureza_divergente",
       "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1791669921429,
+      "tag": "0097_derp_299_invariant_tabelas_1000_por_nome",
+      "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1791670115096,
+      "tag": "0098_derp_293_ads_invoice_tour_split",
+      "breakpoints": true
     }
   ]
 }

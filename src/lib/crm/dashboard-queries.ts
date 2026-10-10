@@ -13,6 +13,7 @@ import type {
   InsightRow,
 } from "@/components/crm/dashboard/types";
 
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 // Colunas de métricas partilhadas pelos 3 níveis (Fase 1).
 const METRIC_COLS =
   "date_start, spend_cents, cpc_cents, ctr, impressions, clicks, purchases_count, purchases_value_cents, " +
@@ -74,14 +75,14 @@ export function useAdsetBudgetsQuery(opts: {
     queryKey: ["crm-meta-adset-budgets", companyId, adAccountId],
     enabled: enabled && !!companyId && !!adAccountId,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await fetchAllPagedQuery((supabase as any)
         .schema("crm")
         .from("meta_adset_snapshot")
         .select(
           "external_campaign_id, external_adset_id, name, status, effective_status, daily_budget_cents, lifetime_budget_cents, learning_stage_info",
         )
 
-        .eq("ad_account_id", adAccountId);
+        .eq("ad_account_id", adAccountId));
       if (error) throw error;
       return (data ?? []) as AdsetBudgetRow[];
     },
@@ -122,14 +123,14 @@ export function useInsightsQuery(opts: {
     enabled: enabled && !!companyId && !!adAccountId,
     queryFn: async () => {
       const sixtyAgo = subDays(lisbonToday(), 60);
-      const { data, error } = await (supabase as any)
+      const { data, error } = await fetchAllPagedQuery((supabase as any)
         .schema("crm")
         .from("meta_campaign_insights_daily")
         .select(
           INSIGHT_COLS_CAMPAIGN,
         )
         .eq("ad_account_id", adAccountId)
-        .gte("date_start", format(sixtyAgo, "yyyy-MM-dd"));
+        .gte("date_start", format(sixtyAgo, "yyyy-MM-dd")));
       if (error) throw error;
       onFetched?.();
       return (data ?? []) as InsightRow[];
@@ -204,20 +205,20 @@ export function useAdsetsQuery(opts: {
     queryFn: async () => {
       const client = (supabase as any).schema("crm");
       const [ins, snap] = await Promise.all([
-        client
+        fetchAllPagedQuery(client
           .from("meta_adset_insights_daily")
           .select(INSIGHT_COLS_ADSET)
           .eq("ad_account_id", adAccountId)
           .eq("external_campaign_id", externalCampaignId)
           .gte("date_start", from)
-          .lte("date_start", to),
-        client
+          .lte("date_start", to)),
+        fetchAllPagedQuery(client
           .from("meta_adset_snapshot")
           .select(
             "external_adset_id, external_campaign_id, name, status, effective_status, daily_budget_cents, lifetime_budget_cents, optimization_goal, learning_stage_info, attribution_spec",
           )
           .eq("ad_account_id", adAccountId)
-          .eq("external_campaign_id", externalCampaignId),
+          .eq("external_campaign_id", externalCampaignId)),
       ]);
       if (ins.error) throw ins.error;
       if (snap.error) throw snap.error;
@@ -245,18 +246,18 @@ export function useAdsQuery(opts: {
     queryFn: async () => {
       const client = (supabase as any).schema("crm");
       const [ins, snap] = await Promise.all([
-        client
+        fetchAllPagedQuery(client
           .from("meta_ad_insights_daily")
           .select(INSIGHT_COLS_AD)
           .eq("ad_account_id", adAccountId)
           .eq("external_adset_id", externalAdsetId)
           .gte("date_start", from)
-          .lte("date_start", to),
-        client
+          .lte("date_start", to)),
+        fetchAllPagedQuery(client
           .from("meta_ad_snapshot")
           .select("external_ad_id, external_adset_id, name, status, effective_status, meta_creative_id")
           .eq("ad_account_id", adAccountId)
-          .eq("external_adset_id", externalAdsetId),
+          .eq("external_adset_id", externalAdsetId)),
       ]);
       if (ins.error) throw ins.error;
       if (snap.error) throw snap.error;

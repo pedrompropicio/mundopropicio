@@ -17,6 +17,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
@@ -194,12 +195,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (campErr || !campaign) return json({ error: "campaign_not_found", detail: campErr?.message }, 404);
 
   // ── 2) Campaign-level insights ───────────────────────────────────────
-  const { data: campInsights, error: ciErr } = await (supabase as any)
+  const { data: campInsights, error: ciErr } = await fetchAllPagedQuery((supabase as any)
     .schema("crm").from("meta_campaign_insights_daily")
     .select("date_start, spend_cents, impressions, reach, clicks, purchases_count, purchases_value_cents, frequency")
     .eq("external_campaign_id", campaignId)
     .gte("date_start", fromIso)
-    .lte("date_start", toIso);
+    .lte("date_start", toIso));
   if (ciErr) return json({ error: "campaign_insights_failed", detail: ciErr.message }, 500);
 
   const campAgg = emptyAgg();
@@ -252,22 +253,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
   };
 
   // ── 3) Adsets + insights ─────────────────────────────────────────────
-  const { data: adsetsRaw, error: asErr } = await (supabase as any)
+  const { data: adsetsRaw, error: asErr } = await fetchAllPagedQuery((supabase as any)
     .schema("crm").from("meta_adset_snapshot")
     .select("external_adset_id, name, optimization_goal, billing_event, targeting, start_time")
-    .eq("external_campaign_id", campaignId);
+    .eq("external_campaign_id", campaignId));
   if (asErr) return json({ error: "adsets_failed", detail: asErr.message }, 500);
   const adsets = adsetsRaw ?? [];
   const adsetIds: string[] = adsets.map((a: any) => a.external_adset_id);
 
   let adsetInsightsRaw: any[] = [];
   if (adsetIds.length > 0) {
-    const { data, error } = await (supabase as any)
+    const { data, error } = await fetchAllPagedQuery((supabase as any)
       .schema("crm").from("meta_adset_insights_daily")
       .select("external_adset_id, date_start, spend_cents, impressions, clicks, purchases_count, purchases_value_cents, frequency")
       .in("external_adset_id", adsetIds)
       .gte("date_start", fromIso)
-      .lte("date_start", toIso);
+      .lte("date_start", toIso));
     if (error) return json({ error: "adset_insights_failed", detail: error.message }, 500);
     adsetInsightsRaw = data ?? [];
   }
@@ -359,12 +360,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   let adInsightsRaw: any[] = [];
   if (adIds.length > 0) {
-    const { data } = await (supabase as any)
+    const { data } = await fetchAllPagedQuery((supabase as any)
       .schema("crm").from("meta_ad_insights_daily")
       .select("external_ad_id, spend_cents, impressions, clicks, purchases_count, purchases_value_cents")
       .in("external_ad_id", adIds)
       .gte("date_start", fromIso)
-      .lte("date_start", toIso);
+      .lte("date_start", toIso));
     adInsightsRaw = data ?? [];
   }
   const adAgg = new Map<string, Agg>();
@@ -393,10 +394,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const creativeIds = [...creativeAdsMap.keys()];
   let creativeMeta: any[] = [];
   if (creativeIds.length > 0) {
-    const { data } = await (supabase as any)
+    const { data } = await fetchAllPagedQuery((supabase as any)
       .schema("crm").from("meta_creatives")
       .select("meta_creative_id, name, type, file_url, headline, body, analysis_jsonb")
-      .in("meta_creative_id", creativeIds);
+      .in("meta_creative_id", creativeIds));
     creativeMeta = data ?? [];
   }
   const creativeMetaMap = new Map<string, any>();
@@ -510,12 +511,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     if (peers.length > 0) {
       const peerIds = peers.map((p: any) => p.external_campaign_id);
-      const { data: peerInsights } = await (supabase as any)
+      const { data: peerInsights } = await fetchAllPagedQuery((supabase as any)
         .schema("crm").from("meta_campaign_insights_daily")
         .select("external_campaign_id, spend_cents, impressions, clicks, purchases_count, purchases_value_cents, frequency")
         .in("external_campaign_id", peerIds)
         .gte("date_start", fromIso)
-        .lte("date_start", toIso);
+        .lte("date_start", toIso));
       const peerAggs = new Map<string, Agg>();
       for (const id of peerIds) peerAggs.set(id, emptyAgg());
       for (const r of peerInsights ?? []) {
@@ -568,10 +569,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .schema("crm").from("meta_campaign_snapshot")
       .select("external_campaign_id, name, objective")
       .in("external_campaign_id", eventCampaignIds);
-    const { data: eventAdsetDetails } = await (supabase as any)
+    const { data: eventAdsetDetails } = await fetchAllPagedQuery((supabase as any)
       .schema("crm").from("meta_adset_snapshot")
       .select("external_campaign_id, name")
-      .in("external_campaign_id", eventCampaignIds);
+      .in("external_campaign_id", eventCampaignIds));
 
     const hasConversion = (eventCampaignDetails ?? []).some((c: any) => CONVERSION_GOALS.test(c.objective ?? ""));
     const hasRetargeting = (eventAdsetDetails ?? []).some((a: any) => RETARGETING_RE.test(a.name ?? ""));
@@ -667,10 +668,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const poolAdAgg = new Map<string, Agg>();
     for (const idp of poolAdIds) poolAdAgg.set(idp, emptyAgg());
     if (poolAdIds.length > 0) {
-      const { data: ins } = await (supabase as any)
+      const { data: ins } = await fetchAllPagedQuery((supabase as any)
         .schema("crm").from("meta_ad_insights_daily")
         .select("external_ad_id, spend_cents, impressions, clicks, purchases_count, purchases_value_cents")
-        .in("external_ad_id", poolAdIds).gte("date_start", fromIso).lte("date_start", toIso);
+        .in("external_ad_id", poolAdIds).gte("date_start", fromIso).lte("date_start", toIso));
       for (const r of ins ?? []) { const a = poolAdAgg.get(r.external_ad_id); if (a) addRow(a, r); }
     }
     // Agregar por meta_creative_id (+ que campanhas o usam).
@@ -689,9 +690,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const poolCreativeIds = [...poolByCreative.keys()];
     const poolLib = new Map<string, any>();
     if (poolCreativeIds.length > 0) {
-      const { data } = await (supabase as any).schema("crm").from("meta_creatives")
+      const { data } = await fetchAllPagedQuery((supabase as any).schema("crm").from("meta_creatives")
         .select("id, meta_creative_id, name, type, file_url, headline, body, cta_type, link_url, analysis_jsonb")
-        .in("meta_creative_id", poolCreativeIds);
+        .in("meta_creative_id", poolCreativeIds));
       for (const c of data ?? []) poolLib.set(c.meta_creative_id, c);
     }
     // Thresholds de criativo escalados pelo spend total do evento (mesma lógica do main).

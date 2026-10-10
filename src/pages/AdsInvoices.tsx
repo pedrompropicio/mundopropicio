@@ -29,6 +29,7 @@ import { useCompany } from "@/hooks/useCompany";
 import { AdsInvoiceImportDialog } from "@/components/ads/AdsInvoiceImportDialog";
 import HelpTooltip from "@/components/HelpTooltip";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { AdsTourSplitDialog } from "@/components/ads/AdsTourSplitDialog";
 
 interface AdsInvoiceRow {
   id: string;
@@ -60,6 +61,7 @@ interface AdsInvoiceLineRow {
   matched_at: string | null;
   amount: number;
   is_adjustment: boolean;
+  event_split: Array<{ event_id: string; amount: number }> | null;
 }
 
 interface EventOption {
@@ -120,6 +122,7 @@ export default function AdsInvoices() {
   const { companyId } = useCompany();
   const canImport = isAdmin || isManager || isAccountant;
   const [openId, setOpenId] = useState<string | null>(null);
+  const [splitLine, setSplitLine] = useState<AdsInvoiceLineRow | null>(null);
   const [blocked, setBlocked] = useState<any[] | null>(null);
   const [revertBlockers, setRevertBlockers] = useState<any[] | null>(null);
   const [reopenOpen, setReopenOpen] = useState(false);
@@ -258,6 +261,7 @@ export default function AdsInvoices() {
         .from("ads_invoice_line")
         .update({
           event_id: v.eventId,
+          event_split: null, // #293: mudar o evento anula a repartição pela turnê
           match_source: "manual",
           match_note: "atribuído à mão",
           matched_by: auth.user.id,
@@ -315,7 +319,7 @@ export default function AdsInvoices() {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("ads_invoice_line")
         .select(
-          "id, line_no, raw_description, placement, campaign_name, event_id, match_source, match_note, matched_by, matched_at, amount, is_adjustment",
+          "id, line_no, raw_description, placement, campaign_name, event_id, match_source, match_note, matched_by, matched_at, amount, is_adjustment, event_split",
         )
         .eq("invoice_id", openId!)
         .order("line_no"));
@@ -445,6 +449,13 @@ export default function AdsInvoices() {
 
     return (
       <TooltipProvider>
+        <AdsTourSplitDialog
+          lineId={splitLine?.id ?? null}
+          amount={Number(splitLine?.amount ?? 0)}
+          hasSplit={!!splitLine?.event_split?.length}
+          onClose={() => setSplitLine(null)}
+          onSaved={invalidate}
+        />
       <div className="space-y-6 p-6">
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => setOpenId(null)}>
@@ -742,6 +753,11 @@ export default function AdsInvoices() {
                     <TableCell className="max-w-[520px] text-xs">{l.raw_description}</TableCell>
                     <TableCell className={l.event_id ? "" : "text-muted-foreground"}>
                       {l.is_adjustment ? "—" : eventName(l.event_id)}
+                      {!!l.event_split?.length && (
+                        <div className="text-[11px] text-muted-foreground">
+                          {l.event_split.map((p) => `${eventName(p.event_id)} ${formatCurrency(Number(p.amount))}`).join(" · ")}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{l.match_source}</Badge>
@@ -776,6 +792,12 @@ export default function AdsInvoices() {
                             disabled={assignMutation.isPending}
                             onSelect={(eventId) => assignMutation.mutate({ id: l.id, eventId })}
                           />
+                        )}
+                        {!readOnly && !l.is_adjustment && l.event_id && l.match_source !== "fora_sistema" &&
+                          eventOptions.some((o) => o.parent_event_id === l.event_id) && (
+                          <Button size="sm" variant="outline" onClick={() => setSplitLine(l)}>
+                            {l.event_split?.length ? "Repartição" : "Repartir pela turnê"}
+                          </Button>
                         )}
                         {!readOnly && !l.is_adjustment && l.match_source === "fora_sistema" && (
                           <Button

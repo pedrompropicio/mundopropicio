@@ -359,10 +359,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   type CreativeInfo = { meta_creative_id: string | null; meta_image_hash: string | null; meta_video_id: string | null; type: string | null; file_url: string | null; width: number | null; height: number | null };
   const resolvedCreatives = new Map<string, CreativeInfo>();
   if (creativeUuids.length > 0) {
-    const { data: rows, error: cErr } = await (admin as any)
+    const { data: rows, error: cErr } = await fetchAllPagedQuery((admin as any)
       .schema("crm").from("meta_creatives")
       .select("id, meta_creative_id, meta_image_hash, meta_video_id, type, file_url, width, height")
-      .in("id", creativeUuids);
+      .in("id", creativeUuids));
     if (cErr) return json({ error: "creatives_query_failed", detail: cErr.message }, 500);
     for (const r of (rows ?? [])) {
       resolvedCreatives.set(r.id as string, {

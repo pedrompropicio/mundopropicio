@@ -16,6 +16,7 @@ import { adminClient } from "../_shared/artist-meta.ts";
 import { deduceTriggerSource, finishSyncRun, resolveStatus, startSyncRun } from "../_shared/sync-run.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const FN = "artist-song-youtube-public-sync";
 const API = "https://www.googleapis.com/youtube/v3";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -177,8 +178,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    const { data: tracked } = await admin.from("artist_content").select("external_id")
-      .eq("artist_id", artistId).eq("platform", "youtube").eq("source", "youtube_public");
+    const { data: tracked } = await fetchAllPagedQuery(admin.from("artist_content").select("external_id")
+      .eq("artist_id", artistId).eq("platform", "youtube").eq("source", "youtube_public"));
     const uploadSet = new Set(uploadIds);
     const trackedIds = (tracked ?? []).map((t: { external_id: string }) => t.external_id).filter((x: string) => VID_RE.test(x));
     const allIds = [...new Set([...uploadIds, ...trackedIds, ...videos.map((v) => v.video_id)])];
@@ -213,8 +214,8 @@ Deno.serve(async (req) => {
 
     // artist_content + artist_content_metrics_daily
     const { data: existing } = allIds.length
-      ? await admin.from("artist_content").select("id, external_id, source, duration_seconds")
-        .eq("artist_id", artistId).eq("platform", "youtube").in("external_id", allIds)
+      ? await fetchAllPagedQuery(admin.from("artist_content").select("id, external_id, source, duration_seconds")
+        .eq("artist_id", artistId).eq("platform", "youtube").in("external_id", allIds))
       : { data: [] };
     // deno-lint-ignore no-explicit-any
     const exByExt = new Map<string, any>((existing ?? []).map((e: any) => [e.external_id, e]));
@@ -292,8 +293,8 @@ Deno.serve(async (req) => {
       }
       // Métricas só para linhas youtube_public (as shorts da Soundcharts têm as suas — evita contar a dobrar).
       const { data: pub } = allIds.length
-        ? await admin.from("artist_content").select("id, external_id")
-          .eq("artist_id", artistId).eq("platform", "youtube").eq("source", "youtube_public").in("external_id", allIds)
+        ? await fetchAllPagedQuery(admin.from("artist_content").select("id, external_id")
+          .eq("artist_id", artistId).eq("platform", "youtube").eq("source", "youtube_public").in("external_id", allIds))
         : { data: [] };
       // deno-lint-ignore no-explicit-any
       const mRows: any[] = [];

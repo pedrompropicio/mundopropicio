@@ -8,6 +8,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -166,12 +167,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const allElegiveis = Array.from(new Set(Array.from(draftByKey.values()).flatMap((d) => d.creative_ids)));
 
   // meta_creatives.id → meta_creative_id
-  const { data: creativesRows, error: crErr } = await (adminClient as any)
+  const { data: creativesRows, error: crErr } = await fetchAllPagedQuery((adminClient as any)
     .schema("crm")
     .from("meta_creatives")
     .select("id, meta_creative_id")
     .eq("company_id", company_id)
-    .in("id", allElegiveis);
+    .in("id", allElegiveis));
   if (crErr) return json({ error: "creatives_read_failed", detail: crErr.message }, 500);
 
   const metaCreativeIdByCreativeId = new Map<string, string>();
@@ -184,12 +185,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // meta_creative_id → external_ad_id (via meta_ad_snapshot)
   const externalAdsByMetaCreative = new Map<string, Set<string>>();
   if (allMetaCreativeIds.length > 0) {
-    const { data: adRows, error: adErr } = await (adminClient as any)
+    const { data: adRows, error: adErr } = await fetchAllPagedQuery((adminClient as any)
       .schema("crm")
       .from("meta_ad_snapshot")
       .select("meta_creative_id, external_ad_id")
       .eq("company_id", company_id)
-      .in("meta_creative_id", allMetaCreativeIds);
+      .in("meta_creative_id", allMetaCreativeIds));
     if (adErr) return json({ error: "ad_snapshot_read_failed", detail: adErr.message }, 500);
     for (const r of (adRows ?? [])) {
       if (!r.meta_creative_id || !r.external_ad_id) continue;
@@ -208,13 +209,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const allExternalAdIds = Array.from(new Set(Array.from(externalAdsByMetaCreative.values()).flatMap((s) => Array.from(s))));
   if (allExternalAdIds.length > 0) {
-    const { data: insRows, error: insErr } = await (adminClient as any)
+    const { data: insRows, error: insErr } = await fetchAllPagedQuery((adminClient as any)
       .schema("crm")
       .from("meta_ad_insights_daily")
       .select("external_ad_id, date_start, spend_cents, purchases_value_cents, purchases_count")
       .eq("company_id", company_id)
       .in("external_ad_id", allExternalAdIds)
-      .gte("date_start", sinceStr);
+      .gte("date_start", sinceStr));
     if (insErr) return json({ error: "insights_read_failed", detail: insErr.message }, 500);
     for (const r of (insRows ?? [])) {
       const k = r.external_ad_id as string;

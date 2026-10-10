@@ -20,6 +20,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
@@ -162,17 +163,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const gapsInv: any[] = inventory?.gaps_detected ?? [];
 
   // ── 4) Snapshots de adsets/ads (verba atual, status, ids p/ entity-action) ──
-  const { data: adsetSnaps } = await (supabase as any)
+  const { data: adsetSnaps } = await fetchAllPagedQuery((supabase as any)
     .schema("crm").from("meta_adset_snapshot")
     .select("external_adset_id, name, optimization_goal, effective_status, daily_budget_cents, lifetime_budget_cents, connection_id, ad_account_id")
-    .eq("external_campaign_id", campaignId);
+    .eq("external_campaign_id", campaignId));
   const adsetById = new Map<string, any>();
   for (const a of (adsetSnaps ?? [])) adsetById.set(String(a.external_adset_id), a);
 
-  const { data: adSnaps } = await (supabase as any)
+  const { data: adSnaps } = await fetchAllPagedQuery((supabase as any)
     .schema("crm").from("meta_ad_snapshot")
     .select("external_ad_id, external_adset_id, meta_creative_id, name, effective_status, connection_id, ad_account_id")
-    .eq("external_campaign_id", campaignId);
+    .eq("external_campaign_id", campaignId));
   const ads: any[] = adSnaps ?? [];
 
   // ── 5) Cap de verba por role (pré-validação — decisão G/D) ──────────────────
