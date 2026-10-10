@@ -51,6 +51,7 @@ const FIELDS: Record<string, Record<string, number | "bool" | "json">> = {
     fbp: 500, user_agent: 1000, client_event_id: 200, raw: "json",
   },
 };
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TABLE: Record<string, string> = { redirect: "redirect_log", lead: "lead_capture" };
 
 function pick(kind: string, p: any): Record<string, unknown> {
@@ -64,6 +65,7 @@ function pick(kind: string, p: any): Record<string, unknown> {
       if (typeof v === "object" && JSON.stringify(v).length <= 20000) out[k] = v;
     } else if (typeof v === "string" || typeof v === "number") out[k] = String(v).slice(0, spec);
   }
+  if (typeof out.client_event_id === "string" && !UUID_RE.test(out.client_event_id)) delete out.client_event_id;
   return out; // ip_inet / geo_* nunca vêm do corpo
 }
 
