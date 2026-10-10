@@ -29,6 +29,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { sortByHierarchicalCode, cn, calcWithIva } from "@/lib/utils";
 import SharedCostFields from "@/components/SharedCostFields";
 import { PaymentTimeline } from "@/components/PaymentTimeline";
+import { TransactionBankExecution } from "@/components/SepaBankExecutionPanel";
 import { ReimbursementNoteRefBadge } from "@/components/ReimbursementNoteRefBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AccountantReviewBlock } from "@/components/AccountantReviewBadge";
@@ -1294,6 +1295,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           <TabsContent value="payment" className="pt-3">
             <PaymentTimeline transaction={transaction} canApprove={canApprove} eventCompleted={eventCompleted} />
             <div className="mt-3"><TransactionOffsetsBlock transaction={transaction as any} canEdit={!eventCompleted} /></div>
+            {transaction?.id && <div className="mt-3"><TransactionBankExecution transactionId={transaction.id} /></div>}
           </TabsContent>
 
           {hasCamarim && (

@@ -35,6 +35,7 @@ import { enrichCardLoadDestinations } from "@/lib/card-load-destination";
 
 
 import PaymentListReceipts from "@/components/PaymentListReceipts";
+import SepaBankExecutionPanel from "@/components/SepaBankExecutionPanel";
 import { useCompany } from "@/hooks/useCompany";
 
 
@@ -2297,6 +2298,8 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             </div>
           )}
         </div>
+
+        <SepaBankExecutionPanel listId={listId} />
 
         <PaymentListReceipts
           listId={listId}

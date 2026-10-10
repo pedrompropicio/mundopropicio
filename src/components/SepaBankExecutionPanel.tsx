@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { mustWrite } from "@/lib/supabase-write";
+import { mustWrite } from "@/lib/must-write";
 import { useSepaBankExecution } from "@/hooks/useSepaBankExecution";
 import { BANK_EXEC_LABEL, stateByTransaction, type BeLineResult } from "@/lib/sepa/bank-execution";
 import { formatCurrency } from "@/lib/mock-data";
@@ -43,7 +43,8 @@ export default function SepaBankExecutionPanel({ listId }: { listId: string }) {
             confirmed_by: u.user?.id,
           })) as any,
         ).select("id"),
-        { expectRows: items.length },
+        "Confirmar execução pelo banco",
+        { expectRows: true },
       );
       toast.success(`${items.length} linha(s) confirmada(s) como executadas pelo banco.`);
       qc.invalidateQueries({ queryKey: ["sepa-bank-execution"] });
