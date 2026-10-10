@@ -2622,6 +2622,7 @@ export type Database = {
           slug: string | null
           started_at: string
           status: string
+          storage_report: Json | null
           tables_count: number | null
         }
         Insert: {
@@ -2638,6 +2639,7 @@ export type Database = {
           slug?: string | null
           started_at?: string
           status: string
+          storage_report?: Json | null
           tables_count?: number | null
         }
         Update: {
@@ -2654,6 +2656,7 @@ export type Database = {
           slug?: string | null
           started_at?: string
           status?: string
+          storage_report?: Json | null
           tables_count?: number | null
         }
         Relationships: [
@@ -17808,6 +17811,20 @@ export type Database = {
           severity: string
         }[]
       }
+      _run_invariant_checks_storage: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _run_invariant_checks_suppliers: {
         Args: never
         Returns: {
@@ -18798,6 +18815,7 @@ export type Database = {
       backup_enqueue_slice: { Args: { p_body: Json }; Returns: number }
       backup_identities_snapshot: { Args: never; Returns: Json }
       backup_infra_snapshot: { Args: never; Returns: Json }
+      backup_storage_manifest: { Args: never; Returns: Json }
       backup_table_inventory: {
         Args: never
         Returns: {
