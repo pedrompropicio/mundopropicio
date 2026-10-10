@@ -18646,6 +18646,10 @@ export type Database = {
           view_content: number
         }[]
       }
+      artist_ads_investment_report: {
+        Args: { p_artist_id: string; p_from?: string; p_to?: string }
+        Returns: Json
+      }
       artist_ads_link_song: {
         Args: { p_campaign_id: string; p_platform: string; p_song_id: string }
         Returns: number

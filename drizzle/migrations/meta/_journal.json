@@ -575,6 +575,13 @@
       "when": 1791650284239,
       "tag": "0081_derp235_growth_period",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1791650445429,
+      "tag": "0082_derp236_investment_report",
+      "breakpoints": true
     }
   ]
 }
