@@ -74,8 +74,6 @@ Nada em curso.
 
   **O erro a não repetir:** dizer que a posição do último apuramento "sai" do retido, ou que o retido não é a posição real. O retido é dinheiro verdadeiro que a bilheteira tem da Mundo Propício, e é a favor da MP.
 
-
-
 - **Linha do evento no apuramento Ticketline = a nossa bilheteira bruta − a bilheteira local da sala (D-ERP231).** Confirmado no 3163/2026: SM Porto 256.330,00 − 254.135,00 = 2.195,00 (Super Bock Arena); SM Lisboa 208.945,00 − 206.345,00 = 2.600,00 (Sagres Campo Pequeno); Deive Braga 20.659,00 − 20.394,00 = 265,00 (Forum Braga). Distinto do "ACERTO SALA", que vem em linha própria (−26.673,10 Super Bock Arena, −10.904,61 Sagres Campo Pequeno).
 
 - **Os números de fecho conferem-se sempre nos dois portais da Ticketline;** o portal do produtor é o mais assertivo. A Juliana faz conferência directa de todas as informações e vendas.
