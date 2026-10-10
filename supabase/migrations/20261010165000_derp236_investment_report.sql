@@ -4,7 +4,7 @@ RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'publi
 DECLARE
  v_company uuid; v_ref text; v_from date; v_to date:=coalesce(p_to,current_date); v_start date;
  v_report jsonb; v_daily jsonb; v_campaigns jsonb; v_active jsonb; v_projection jsonb; v_totals jsonb; v_fx jsonb;
- v_kpis jsonb:='[]'; v_series jsonb:='[]'; v_marks jsonb; spec record; v_base record; v_current record; pts jsonb;
+ v_kpis jsonb:='[]'; v_series jsonb:='[]'; v_marks jsonb; spec record; b record; a record; pts jsonb;
  v_spend numeric; v_arrivals numeric; v_traffic numeric; v_streams numeric; v_projected numeric; v_month numeric;
 BEGIN
  v_company:=public.artist_ads_assert_access(p_artist_id);
@@ -87,32 +87,32 @@ BEGIN
  ('ouvintes_mensais_spotify','Ouvintes mensais Spotify','ouvintes','artist_metrics_daily'),('streams_periodo','Streams das músicas no período','streams','artist_song_metrics_daily'),
  ('seguidores_tiktok','Seguidores TikTok','seguidores','artist_metrics_daily'),('seguidores_instagram','Seguidores Instagram','seguidores','artist_metrics_daily')) x(chave,rotulo,unit,source)
  LOOP
-  v_base:=NULL;v_current:=NULL;pts:='[]';
+  b:=NULL;a:=NULL;pts:='[]';
   IF spec.chave IN ('ouvintes_mensais_spotify','seguidores_tiktok','seguidores_instagram') THEN
    WITH m AS (SELECT DISTINCT ON(metric_date) metric_date d,value v,source FROM public.artist_metrics_daily WHERE artist_id=p_artist_id AND platform=CASE spec.chave WHEN 'ouvintes_mensais_spotify' THEN 'spotify' WHEN 'seguidores_tiktok' THEN 'tiktok' ELSE 'instagram' END AND metric=CASE WHEN spec.chave='ouvintes_mensais_spotify' THEN 'monthly_listeners' ELSE 'followers' END AND metric_date<=v_to ORDER BY metric_date,CASE source WHEN 'aggregator' THEN 1 WHEN 'platform_api' THEN 2 WHEN 'public_page' THEN 3 ELSE 4 END,captured_at DESC NULLS LAST)
    SELECT coalesce(jsonb_agg(jsonb_build_object('d',d,'v',v) ORDER BY d) FILTER(WHERE d BETWEEN v_from AND v_to),'[]') INTO pts FROM m;
-   SELECT (p->>'d')::date d,(p->>'v')::numeric v INTO v_base FROM jsonb_array_elements(pts) p ORDER BY abs((p->>'d')::date-v_from) LIMIT 1;
-   SELECT (p->>'d')::date d,(p->>'v')::numeric v INTO v_current FROM jsonb_array_elements(pts) p ORDER BY p->>'d' DESC LIMIT 1;
+   SELECT (p->>'d')::date d,(p->>'v')::numeric v INTO b FROM jsonb_array_elements(pts) p ORDER BY abs((p->>'d')::date-v_from) LIMIT 1;
+   SELECT (p->>'d')::date d,(p->>'v')::numeric v INTO a FROM jsonb_array_elements(pts) p ORDER BY p->>'d' DESC LIMIT 1;
   ELSIF spec.chave='streams_periodo' THEN
    WITH m AS (SELECT DISTINCT ON(song_id,metric_date) song_id,metric_date d,value v FROM public.artist_song_metrics_daily WHERE artist_id=p_artist_id AND metric='s4a_streams_day' AND metric_date BETWEEN v_from AND v_to ORDER BY song_id,metric_date,(source='s4a_api') DESC,captured_at DESC)
    SELECT coalesce(jsonb_agg(jsonb_build_object('d',d,'v',v) ORDER BY d),'[]'),sum(v) INTO pts,v_streams FROM (SELECT d,sum(v) v FROM m GROUP BY d) x;
-   SELECT v_from d,0::numeric v INTO v_base; SELECT max((p->>'d')::date) d,v_streams v INTO v_current FROM jsonb_array_elements(pts) p;
+   SELECT v_from d,0::numeric v INTO b; SELECT max((p->>'d')::date) d,v_streams v INTO a FROM jsonb_array_elements(pts) p;
   ELSE
    IF spec.chave='gasto_total' THEN
     SELECT coalesce(jsonb_agg(jsonb_build_object('d',d,'v',v) ORDER BY d),'[]') INTO pts FROM (SELECT j->>'dia' d,sum((j->>'gasto_ref')::numeric) v FROM jsonb_array_elements(v_daily) j GROUP BY 1) z;
-    SELECT v_from d,0::numeric v INTO v_base;SELECT v_to d,v_spend v INTO v_current;
+    SELECT v_from d,0::numeric v INTO b;SELECT v_to d,v_spend v INTO a;
    ELSE
     -- Same effective-channel mapping as D-ERP185; test events excluded. No click fallback.
     WITH ev AS (SELECT e.created_at::date d,public.song_link_event_canal(l.canal,e.utm_source,e.utm_medium,e.utm_campaign) canal FROM public.song_link_events e LEFT JOIN public.song_links l ON l.id=e.link_id WHERE e.artist_id=p_artist_id AND e.event='arrival' AND e.created_at>=v_from::timestamptz AND e.created_at<(v_to+1)::timestamptz),
     arr AS (SELECT d,count(*) n FROM ev WHERE canal IN ('meta_ads','google_ads','tiktok_ads') GROUP BY d),
     tr AS (SELECT (j->>'dia')::date d,sum((j->>'gasto_trafego_ref')::numeric) spend FROM jsonb_array_elements(v_daily) j GROUP BY 1)
     SELECT coalesce(jsonb_agg(jsonb_build_object('d',d,'v',CASE WHEN spec.chave='chegadas_spotify' THEN n ELSE CASE WHEN n>0 THEN round(spend/n,4) END END) ORDER BY d),'[]') INTO pts FROM arr LEFT JOIN tr USING(d);
-    SELECT v_from d,CASE WHEN spec.chave='chegadas_spotify' THEN 0::numeric ELSE NULL::numeric END v INTO v_base;
-    SELECT v_to d,CASE WHEN spec.chave='chegadas_spotify' THEN v_arrivals ELSE CASE WHEN v_arrivals>0 THEN round(v_traffic/v_arrivals,4) END END v INTO v_current;
+    SELECT v_from d,CASE WHEN spec.chave='chegadas_spotify' THEN 0::numeric ELSE NULL::numeric END v INTO b;
+    SELECT v_to d,CASE WHEN spec.chave='chegadas_spotify' THEN v_arrivals ELSE CASE WHEN v_arrivals>0 THEN round(v_traffic/v_arrivals,4) END END v INTO a;
    END IF;
   END IF;
-  v_kpis:=v_kpis||jsonb_build_object('chave',spec.chave,'valor_inicial',v_base.v,'valor_atual',v_current.v,'delta',v_current.v-v_base.v,'unidade',spec.unit,'fonte',spec.source,'as_of',v_current.d,'base_data',v_base.d);
-  v_series:=v_series||jsonb_build_object('chave',spec.chave,'rotulo',spec.rotulo,'pontos',pts,'fonte',spec.source,'as_of',v_current.d);
+  v_kpis:=v_kpis||jsonb_build_object('chave',spec.chave,'valor_inicial',b.v,'valor_atual',a.v,'delta',a.v-b.v,'unidade',spec.unit,'fonte',spec.source,'as_of',a.d,'base_data',b.d);
+  v_series:=v_series||jsonb_build_object('chave',spec.chave,'rotulo',spec.rotulo,'pontos',pts,'fonte',spec.source,'as_of',a.d);
  END LOOP;
  SELECT coalesce(jsonb_agg(jsonb_build_object('dia',d,'texto',txt) ORDER BY d,txt),'[]') INTO v_marks FROM (
  SELECT (c->>'start_date')::date d,'Início: '||(c->>'nome') txt FROM jsonb_array_elements(v_campaigns) c WHERE c->>'nome' ~* '^\s*\[mp\]' AND (c->>'start_date')::date BETWEEN v_from AND v_to
