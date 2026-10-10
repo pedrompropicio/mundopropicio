@@ -100,7 +100,7 @@ Por decidir (achado da prova): service role pelo payload sem assinatura e verify
 ## Fecho (09/10/2026, D-ERP204)
 - Ramo service role: `isServiceRoleRequest` em apply-coala-bp, coala-sync-bootstrap, bilheteira-sync, fetch-ticketline-reports, fetch-bol-reports, crm-meta-publish-execute + whatsapp-dispatcher, migrate-legacy-images, crm-google-video-publish-execute, crm-tiktok-publish-execute. crm-meta-publish-update usa o claim só para recusar (fica).
 - Facto de Live: funções SEM `verify_jwt = true` explícito no config.toml correm com verify_jwt=false (token forjado chega ao código). Só as que têm o bloco explícito recebem `UNAUTHORIZED_LEGACY_JWT` no portão.
-- Ainda com claim lido do payload (sem chamada ao Auth), todas com `verify_jwt = true` explícito ou por omissão no config — por rever: ~33 funções + helpers _shared/artist-meta.ts `authorize`, _shared/artist-ads.ts, _shared/s4a.ts, _shared/soundcharts.ts.
+- (Fechado a 10/10, D-ERP229 — ver secção "Resto da #283".) Antes: ~33 funções + 4 helpers liam o claim do payload.
 - Invariante `edge_fn_sem_guarda_empresa` (src/test/edge-fn-guard.test.ts, scripts/edge-fn-guard-lib.mjs). Referência 9, sem verificação de identidade no código, por decidir: crm-extract-video-dimensions, crm-meta-destilar-2025, crm-meta-diagnose-ig, crm-meta-fq-recon, crm-meta-historico-probe, crm-meta-recon-2025, crm-meta-rehost-videos, fetch-onebox-dashboard, vip-coupon-email.
 - Prova 09/10: chave pública e token forjado recusados (401/403) nas 16 funções; controlo positivo com a sessão do Pedro (crm-meta-publish-execute preflight) passa. Prova com o michel NÃO feita: precisa de aprovação, não disponível aqui.
 
@@ -114,3 +114,11 @@ Por decidir (achado da prova): service role pelo payload sem assinatura e verify
 - Invariante `edge_fn_sem_guarda_empresa` referência 2 (crm-extract-video-dimensions, vip-coupon-email — por decisão do Pedro) + verificação "sem bloco verify_jwt" + canário runtime `scripts/probe-edge-jwt-gate.mjs` no CI.
 - Regra: mudar config.toml de uma função ⇒ reimplantar essa função e sondar com token forjado (corpo, não só o código).
 
+
+## Resto da #283 (10/10/2026, D-ERP229)
+- 32 funções passaram a `isServiceRoleRequest` (o ramo service role fica; comportamento funcional igual): ads-invoice-apply, ads-invoice-ingest, artist-ads-meta-add-account, artist-catalog-import, artist-song-youtube-public-sync, artist-youtube-sync, crm-campaign-diagnosis, crm-cron-pause-replaced-originals, crm-google-conversion-upload, crm-google-customer-match-sync, crm-google-lead-conversion-enqueue, crm-google-user-list-ensure, crm-measure-action-impact, crm-meta-creatives-retention, crm-meta-funnel-test-run, crm-meta-peek-video-ids, crm-meta-rehost-images-targeted, crm-meta-sync-creatives, database-backup, database-restore, database-restore-v2, fetch-fever-reports, ingest-standalone-invoice, ingest-transaction-document, portal-media-import, process-email-queue, refresh-fever-token, s4a-audience-sync, s4a-daily-sync, selective-restore, send-push-notification, ticketline-crosscheck. Todas reimplantadas a 10/10; verify_jwt não mudou (todas true).
+- Ficam com o claim do payload, por desenho: crm-meta-publish-update e s4a-token-seed (só RECUSAM service role); _shared/sync-run.ts deduceTriggerSource (só rotula cron/manual).
+- database-backup: o ramo "máquina" continua a aceitar anon (cron via anon, por desenho); só o service role passou a ser verificado (force/continuação exigem service role verificada).
+- Os 4 helpers já estavam desde 09/10 (D-ERP205); controlo positivo repetido a 10/10 com a sessão do Pedro: passou nos 4.
+- Guarda nova em src/test/edge-fn-guard.test.ts: describe "service_role_pelo_payload" trava atob + comparação com service_role fora das 3 excepções.
+- Invariante edge_fn_sem_guarda_empresa fica em 2: mede ids do cliente sem guarda, não o claim do payload.
