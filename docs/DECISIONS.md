@@ -5419,3 +5419,10 @@ Customer Match:
 - Litto: omissão 24/09–10/10 e explícito 01/10–10/10, sete KPIs/séries HTTP 200 e igualdade de gasto por todas as plataformas. EXPLAIN ANALYZE final: omissão 1508,956 ms; explícito 1231,199 ms (nova medição explícita após ajuste de identidade no output final). Medições SQL, não rede.
 - Lacuna de dados: três campanhas Google activas sem `budget_amount_micros`; projecção Google, total_projetado_ref e total_mes_ref null. Nenhum orçamento inventado. Corrigir a recolha do orçamento está fora desta tarefa de funções.
 - Migrações 0082–0087: criação, record aliases, projecção canónica optimizada, contrato, pernas de orçamento e identidade exacta. Base aplicada `583234104`; optimização `4e83a451b`. Commits finais no relatório da tarefa.
+
+## D-ERP234 — Adenda: SSR sem IP nunca perde a chegada (10/10/2026)
+- Pedro autorizou apenas a função e deploy, sem DDL/RPC/RLS. `client_ip` ausente, null ou inválido torna-se null; validação real IPv4/IPv6, sem fallback ao IP do servidor e sem quota global partilhada entre SSR sem IP. `console.warn` indica apenas o motivo, nunca IP ou segredo.
+- Hash e geografia ficam null; Meta/TikTok recebem o evento sem IP. UA vazio é aceite e classificado `other`. Metadados opcionais não provocam 400 SSR; mantêm-se os campos obrigatórios, autenticação, validação de slug/evento e deduplicação anteriores.
+- Deploy confirmado. Teste Deno envia POST sem Origin, sem client_ip, client_ua vazio, com o segredo existente lido apenas no ambiente de teste: HTTP 200 `{ok:true}`. Event ID `derp234-no-ip-cacd2be8-4312-40c0-8dae-f23a52c4f7c9`: Live origin=ssr, ip_hash/country/region/city null, in_app_browser=other; warning confirmado.
+- TikTok `enviado`; Meta `erro:400` nesta prova sem IP/UA/cookies. Não confundir tentativa de envio com aceitação externa: a falha externa não recusa a chegada.
+- Testes focados antes: 11/11; depois: 24/24. Teste HTTP Live: 1/1. Build automático OK. Commit da implementação `7220823ee`; teste Live `0d417ad5f`. CI remoto não verificado.
