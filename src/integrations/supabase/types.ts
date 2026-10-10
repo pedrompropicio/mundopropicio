@@ -10232,6 +10232,30 @@ export type Database = {
         }
         Relationships: []
       }
+      ip_geo_cache: {
+        Row: {
+          city: string | null
+          country: string | null
+          ip: string
+          region: string | null
+          resolved_at: string
+        }
+        Insert: {
+          city?: string | null
+          country?: string | null
+          ip: string
+          region?: string | null
+          resolved_at?: string
+        }
+        Update: {
+          city?: string | null
+          country?: string | null
+          ip?: string
+          region?: string | null
+          resolved_at?: string
+        }
+        Relationships: []
+      }
       lead_capture: {
         Row: {
           client_event_id: string | null
