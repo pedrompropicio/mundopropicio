@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normCentroCusto, FALLBACK_CATEGORY_CODE } from "../../supabase/functions/_shared/coalaParser";
+import { normCentroCusto, FALLBACK_CATEGORY_CODE } from "../../supabase/functions/_shared/coala-centro-custo";
 
 // #230 — variantes reais da planilha Coala 2026.
 describe("#230 normCentroCusto", () => {

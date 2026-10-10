@@ -19,7 +19,7 @@ export const EXCLUDED_CC = [
   "alimento",
 ];
 
-export const FALLBACK_CATEGORY_CODE = "0.0.99"; // "A classificar"
+export { FALLBACK_CATEGORY_CODE, normCentroCusto } from "./coala-centro-custo.ts";
 
 const FORMALIDADE_MAP: Array<[RegExp, string]> = [
   [/^fechad/, "Fechado"],
@@ -105,12 +105,6 @@ export interface ParseResult {
 // ─────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────
-/**
- * #230 — normalização do Centro Custo usada dos DOIS lados (planilha e nome
- * da rubrica): trim, colapsa espaços, remove acentos (NFKD) e minúsculas.
- * "Cachê Artistico", "Cachê Artístico" e "Cachê Artístico  " ficam iguais.
- */
-export const normCentroCusto = (s: any): string => norm(s);
 const norm = (s: any): string =>
   String(s ?? "")
     // #230 — NFKD (não NFKC): só a decomposição separa o acento da letra e
