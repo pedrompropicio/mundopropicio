@@ -5350,3 +5350,13 @@ Customer Match:
 - Nada insistia: user-list-ensure só trata listas 'draft' e não há cron; customer-match-sync não chama a Google. Mesmo assim: customer-match-sync passa a recuar 24h quando a lista está em 403 (force=true ignora), e o painel Google Ads mostra um alerta único.
 - Também corrigido em customer-match-sync: não filtrava empresa (juntava leads de todas) e cortava em 1.000. Elegíveis hoje (consent_email, email não vazio, empresa MP): 712 emails distintos (2.311 contando todas as empresas).
 - PARA O PEDRO no Google Ads: (1) Admin → Acesso e segurança da conta 220-004-3144 (e do MCC 974-322-1780): dar à service account mp-audience-api@… acesso Standard/Admin, não "só leitura"; (2) confirmar que a conta aceitou os Termos de dados do cliente (Customer Match) e cumpre os requisitos de política; (3) confirmar o nível do developer token (Basic chega para Customer Match em contas próprias; Standard se a Google o exigir). Depois, repor a lista para 'draft' para o ensure tentar outra vez.
+
+## D-ERP231 (10/10/2026) — #303 fecho de bilheteira por apuramento (Ticketline)
+- Modelo: `ticket_office_statements` (conta, número, data, total do documento, draft|confirmed, documento) + `ticket_office_statement_lines` (event_right, ticketline_invoice, venue_settlement, advance, carry_over; valor com sinal; ligação opcional a evento, fecho, transação, invoice_group ou apuramento anterior). `ticket_office_settlements.statement_id`. Migração 0077. Não reaproveita `event_settlements` (é o fechamento dos sócios).
+- Um repasse ou transitado NUNCA se imputa a evento: vive só no apuramento. O fecho do evento mostra o direito (bruto − deduções − retido − saldo restante da fatura da sala).
+- Confirmar só por `confirm_ticket_office_statement` (SECURITY DEFINER, empresa + admin/manager): Σ linhas = total ao cêntimo e nenhuma linha `pending_document`. Linhas de apuramento confirmado não mudam (trigger).
+- `event_ticket_office_advances`: histórico só de leitura (trigger recusa INSERT/UPDATE; dados ficam). Ecrãs de adiantamento desligados.
+- Anitta 2558: as pernas 10.3 (905.000,00 e 402.836,17) são repasses, não deduções — direito 2.411.336,17, total 0. Faturas de evento já apurado (FT 3159 Ivete) contam só no apuramento onde aparecem; o direito fica congelado.
+- 3163 em rascunho com a linha do Deive (≈265,00) pendente do PDF; não se fecha por diferença.
+- Fora: 1158 e 2816 ainda não registados (o 3163 leva o transitado do 2816 como linha sem ligação); 120,00 do SM Porto continuam em ticket_sales; ecrã de criação; Publish.
+
