@@ -35,6 +35,10 @@ verify_jwt = false
 [functions.geo-lookup]
 verify_jwt = false
 
+# ABERTA por desenho: beacon público do portal (sendBeacon); allowlist de Origin; IP/geo só com consent=true, lidos do x-forwarded-for no servidor.
+[functions.portal-track]
+verify_jwt = false
+
 # Só é chamada por triggers/cron da BD com a service_role key do Vault.
 [functions.vip-coupon-email]
 verify_jwt = true
