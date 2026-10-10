@@ -41,6 +41,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const VERSION = "2026-06-28-v2-creative-ids+video";
 console.log(`[crm-meta-creatives-recover-hires] boot ${VERSION}`);
 
@@ -188,11 +189,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (creativeIds.length === 0) return json({ error: "no_creative_ids" }, 400);
 
     // 1) Buscar todos os criativos pedidos
-    const { data: creatives, error: cErr } = await (admin as any)
+    const { data: creatives, error: cErr } = await fetchAllPagedQuery((admin as any)
       .schema("crm")
       .from("meta_creatives")
       .select("id, company_id, type, meta_image_hash, meta_video_id, storage_bucket, storage_path, file_url")
-      .in("id", creativeIds);
+      .in("id", creativeIds));
     if (cErr) return json({ error: "db_query_failed", detail: cErr.message }, 500);
     const rows = (creatives ?? []) as CreativeRow[];
     if (rows.length === 0) return json({ error: "no_rows_for_creative_ids" }, 404);
@@ -271,12 +272,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // 5b) Processar imagens hash-a-hash (com also_updated_creative_ids)
     for (const [hash, group] of byHash.entries()) {
       // Buscar TODAS as rows da company com esse hash (não só as pedidas) — coerência de overwrite
-      const { data: allRowsForHash } = await (admin as any)
+      const { data: allRowsForHash } = await fetchAllPagedQuery((admin as any)
         .schema("crm")
         .from("meta_creatives")
         .select("id, meta_creative_id, storage_bucket, storage_path")
         .eq("company_id", companyId)
-        .eq("meta_image_hash", hash);
+        .eq("meta_image_hash", hash));
       const allRows = (allRowsForHash ?? []) as Array<{ id: string; meta_creative_id: string | null; storage_bucket: string | null; storage_path: string | null }>;
       const requestedIds = new Set(group.map((g) => g.id));
       const alsoIds = allRows.map((r) => r.id).filter((id) => !requestedIds.has(id));
@@ -591,12 +592,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const results: HashResult[] = [];
 
   for (const hash of hashes) {
-    const { data: rows, error: rowsErr } = await (admin as any)
+    const { data: rows, error: rowsErr } = await fetchAllPagedQuery((admin as any)
       .schema("crm")
       .from("meta_creatives")
       .select("id, meta_creative_id, storage_bucket, storage_path, file_url")
       .eq("company_id", companyId)
-      .eq("meta_image_hash", hash);
+      .eq("meta_image_hash", hash));
     if (rowsErr) {
       results.push({ hash, status: "failed", reason: `db_query: ${rowsErr.message}` });
       continue;

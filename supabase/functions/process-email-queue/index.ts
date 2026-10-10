@@ -2,6 +2,7 @@ import { sendLovableEmail } from 'npm:@lovable.dev/email-js'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const MAX_RETRIES = 5
 const DEFAULT_BATCH_SIZE = 10
 const DEFAULT_SEND_DELAY_MS = 200
@@ -230,11 +231,11 @@ Deno.serve(async (req) => {
     )
     const failedAttemptsByMessageId = new Map<string, number>()
     if (messageIds.length > 0) {
-      const { data: failedRows, error: failedRowsError } = await supabase
+      const { data: failedRows, error: failedRowsError } = await fetchAllPagedQuery(supabase
         .from('email_send_log')
         .select('message_id')
         .in('message_id', messageIds)
-        .eq('status', 'failed')
+        .eq('status', 'failed'))
 
       if (failedRowsError) {
         console.error('Failed to load failed-attempt counters', {

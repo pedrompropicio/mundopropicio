@@ -14,6 +14,7 @@
 
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.39.0";
 
+import { fetchAllPagedQuery } from "./paging.ts";
 const GRAPH_API_VERSION = "v21.0";
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -392,12 +393,12 @@ async function classifyCreativesForCampaign(
 ): Promise<WinnerPacket[]> {
   const sb: any = supabase;
 
-  const { data: ads } = await sb
+  const { data: ads } = await fetchAllPagedQuery(sb
     .schema("crm").from("meta_ad_snapshot")
     .select("external_ad_id, meta_creative_id, name, effective_status")
     .eq("company_id", companyId)
     .eq("external_campaign_id", externalCampaignId)
-    .not("meta_creative_id", "is", null);
+    .not("meta_creative_id", "is", null));
 
   const inheritedMap = new Map<string, { meta_creative_id: string; ad_name: string | null; library: any | null }>();
   const adToCreative = new Map<string, string>();
@@ -411,10 +412,10 @@ async function classifyCreativesForCampaign(
   const inheritedIds = [...inheritedMap.keys()];
   if (inheritedIds.length === 0) return [];
 
-  const { data: lib } = await sb
+  const { data: lib } = await fetchAllPagedQuery(sb
     .schema("crm").from("meta_creatives")
     .select("id, name, type, file_url, headline, body, cta_type, link_url, meta_creative_id")
-    .in("meta_creative_id", inheritedIds);
+    .in("meta_creative_id", inheritedIds));
   for (const c of lib ?? []) {
     const slot = inheritedMap.get(c.meta_creative_id);
     if (slot) slot.library = c;
@@ -443,12 +444,12 @@ async function classifyCreativesForCampaign(
     const selectCols = computeFatigue
       ? "external_ad_id, date_start, spend_cents, purchases_value_cents, purchases_count, frequency"
       : "external_ad_id, spend_cents, purchases_value_cents, purchases_count";
-    const { data: insights } = await sb
+    const { data: insights } = await fetchAllPagedQuery(sb
       .schema("crm").from("meta_ad_insights_daily")
       .select(selectCols)
       .eq("company_id", companyId)
       .eq("external_campaign_id", externalCampaignId)
-      .in("external_ad_id", adIds);
+      .in("external_ad_id", adIds));
     for (const r of insights ?? []) {
       const cid = adToCreative.get(r.external_ad_id);
       if (!cid) continue;
@@ -530,10 +531,10 @@ async function loadAdsets(
   supabase: SupabaseClient,
   externalCampaignId: string,
 ): Promise<AdsetSummary[]> {
-  const { data } = await (supabase as any)
+  const { data } = await fetchAllPagedQuery((supabase as any)
     .schema("crm").from("meta_adset_snapshot")
     .select("external_adset_id, name, optimization_goal, billing_event, daily_budget_cents, lifetime_budget_cents")
-    .eq("external_campaign_id", externalCampaignId);
+    .eq("external_campaign_id", externalCampaignId));
   return (data ?? []) as AdsetSummary[];
 }
 
@@ -550,11 +551,11 @@ async function buildAdsetSignals(
   const sb: any = supabase;
 
   // Adsets com targeting
-  const { data: adsetRows } = await sb
+  const { data: adsetRows } = await fetchAllPagedQuery(sb
     .schema("crm").from("meta_adset_snapshot")
     .select("external_adset_id, name, targeting")
     .eq("company_id", companyId)
-    .eq("external_campaign_id", externalCampaignId);
+    .eq("external_campaign_id", externalCampaignId));
 
   const adsetIds: string[] = (adsetRows ?? []).map((a: any) => a.external_adset_id).filter(Boolean);
 
@@ -594,11 +595,11 @@ async function buildAdsetSignals(
   const cPrevEnd = cutoffPrevEnd.toISOString().slice(0, 10);
 
   if (adsetIds.length > 0) {
-    const { data: insights } = await sb
+    const { data: insights } = await fetchAllPagedQuery(sb
       .schema("crm").from("meta_adset_insights_daily")
       .select("external_adset_id, date_start, impressions, clicks, spend_cents, purchases_count, purchases_value_cents, frequency, ctr, cpm_cents")
       .eq("company_id", companyId)
-      .in("external_adset_id", adsetIds);
+      .in("external_adset_id", adsetIds));
     for (const r of insights ?? []) {
       if (!adsetAllTime.has(r.external_adset_id)) adsetAllTime.set(r.external_adset_id, emptyAgg());
       aggregateInto(adsetAllTime.get(r.external_adset_id)!, r);
@@ -863,11 +864,11 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
   let winners_packet: WinnerPacket[] = [];
 
   if (campaign_id) {
-    const { data: campInsights } = await sb
+    const { data: campInsights } = await fetchAllPagedQuery(sb
       .schema("crm").from("meta_campaign_insights_daily")
       .select("date_start, spend_cents, purchases_count, purchases_value_cents, impressions, reach, frequency, clicks")
       .eq("external_campaign_id", campaign_id)
-      .order("date_start", { ascending: false });
+      .order("date_start", { ascending: false }));
 
     for (const r of campInsights ?? []) {
       const d = r.date_start as string;
@@ -968,11 +969,11 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
     const emptyPeer = (): PeerAgg => ({ spendCents: 0, purchases: 0, purchasesValueCents: 0, impressions: 0, reach: 0, clicks: 0, freqSum: 0, freqN: 0 });
     const peerAggs = new Map<string, PeerAgg>();
     if (peerIds.length > 0) {
-      const { data: pi } = await sb
+      const { data: pi } = await fetchAllPagedQuery(sb
         .schema("crm").from("meta_campaign_insights_daily")
         .select("external_campaign_id, spend_cents, purchases_count, purchases_value_cents, impressions, reach, frequency, clicks")
         .in("external_campaign_id", peerIds)
-        .gte("date_start", fromDate).lte("date_start", toDate);
+        .gte("date_start", fromDate).lte("date_start", toDate));
       for (const id of peerIds) peerAggs.set(id, emptyPeer());
       for (const r of pi ?? []) {
         const a = peerAggs.get(r.external_campaign_id);

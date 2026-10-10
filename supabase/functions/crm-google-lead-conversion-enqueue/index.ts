@@ -24,6 +24,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import { matchClickToLead, MATCH_WINDOW_DAYS, positiveConversionValue } from "../_shared/google-click-match.ts";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const MP_COMPANY_ID = "7c858982-6ccd-47ca-bd65-e0dd3eebf01c";
 const MAX_BATCH = 5000;
 
@@ -223,11 +224,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const leadByClientEventId = new Map<string, string>();
   for (let i = 0; i < clientEventIds.length; i += 100) {
     const chunk = clientEventIds.slice(i, i + 100);
-    const { data: leads, error: leadsErr } = await admin
+    const { data: leads, error: leadsErr } = await fetchAllPagedQuery(admin
       .from("lead_capture")
       .select("id, client_event_id")
       .eq("company_id", MP_COMPANY_ID)
-      .in("client_event_id", chunk);
+      .in("client_event_id", chunk));
     if (leadsErr) return json({ error: "leads_read_failed", detail: leadsErr.message }, 500);
     for (const l of (leads ?? []) as Array<{ id: string; client_event_id: string }>) {
       if (l.client_event_id && !leadByClientEventId.has(l.client_event_id)) {

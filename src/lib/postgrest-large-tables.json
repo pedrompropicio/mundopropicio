@@ -1,5 +1,5 @@
 {
-  "_comment": "Tabelas onde uma leitura sem paginação fica silenciosamente truncada nos 1.000 registos do PostgREST (#206, apurado em Live a 18/09/2026). A lista CRESCE: quando o invariante tabelas_acima_de_1000 do run_invariant_checks() acusar uma tabela nova acima de 500-1.000 linhas em Live, acrescenta-a aqui.",
+  "_comment": "Tabelas onde uma leitura sem paginação fica silenciosamente truncada nos 1.000 registos do PostgREST (#206, apurado em Live a 18/09/2026). A lista CRESCE: quando o invariante tabelas_acima_de_1000 do run_invariant_checks() acusar uma tabela nova acima de 500-1.000 linhas em Live, acrescenta-a aqui. Desde 10/10/2026 (#299) o invariante compara por NOME com a lista espelhada na função _run_invariant_checks_extra (array v_watched): acrescentar aqui E lá (o teste postgrest-large-tables-mirror falha se divergirem).",
   "tables": [
     "transactions",
     "ticket_sales",
@@ -20,6 +20,33 @@
     "coala_sync_runs",
     "fever_sync_runs",
     "transaction_payments",
-    "bank_statement_lines"
+    "bank_statement_lines",
+    "artist_content_metrics_daily",
+    "song_link_events",
+    "redirect_log",
+    "consent_log",
+    "google_click",
+    "meta_ad_insights_daily",
+    "artist_metrics_daily",
+    "song_link_diag",
+    "meta_ad_snapshot",
+    "tickets_v2_sync_log",
+    "ads_insights_breakdown_daily",
+    "meta_adset_insights_daily",
+    "meta_creatives",
+    "artist_audience_demographics",
+    "meta_creatives_retention_log",
+    "lead_capture",
+    "email_send_log",
+    "artist_content",
+    "artist_song_metrics_daily",
+    "meta_adset_snapshot",
+    "email_unsubscribe_tokens",
+    "portal_error_log",
+    "meta_campaign_insights_daily",
+    "artist_song_playlist_streams",
+    "event_forecast_formalidade_log",
+    "artist_release_metrics_daily",
+    "ip_geo_cache"
   ]
 }

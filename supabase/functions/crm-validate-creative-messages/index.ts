@@ -7,6 +7,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -193,11 +194,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const expired = all.filter((g) => g.estado === "expirado" || (g.validade && g.validade < today));
 
   // 2) Lê os criativos pedidos (filtra por company via RLS-user)
-  const { data: creatives, error: crErr } = await (userClient as any)
+  const { data: creatives, error: crErr } = await fetchAllPagedQuery((userClient as any)
     .schema("crm")
     .from("meta_creatives")
     .select("id, name, headline, body, cta_type, company_id")
-    .in("id", creative_ids);
+    .in("id", creative_ids));
   if (crErr) return json({ error: "creatives_read_failed", detail: crErr.message }, 500);
 
   const validCreatives = (creatives ?? []).filter((c: any) => c.company_id === company_id) as (Creative & { company_id: string })[];

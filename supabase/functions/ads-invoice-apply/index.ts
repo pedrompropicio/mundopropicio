@@ -340,6 +340,24 @@ async function handleGenerate(body: any, userId?: string) {
       continue;
     }
     if (l.match_source === "fora_sistema") { outOfScope += amount; outOfScopeLines++; continue; }
+    // #293: linha repartida por Master + cidades (confirmada por humano). A soma
+    // das partes tem de ser o valor da linha do PDF ao cêntimo — senão recusa.
+    if (Array.isArray(l.event_split) && l.event_split.length > 0) {
+      const parts = l.event_split as Array<{ event_id: string; amount: number }>;
+      const partsSum = round2(parts.reduce((a, p) => a + Number(p.amount), 0));
+      if (Math.abs(partsSum - round2(amount)) >= 0.005) {
+        return json({
+          error: `a repartição da linha ${l.line_no} (${fmtEur(partsSum)}) não dá o valor da linha (${fmtEur(amount)}). Geração recusada.`,
+        }, 400);
+      }
+      for (const p of parts) {
+        const pa = round2(Number(p.amount));
+        if (pa === 0) continue;
+        mediaByEvent.set(p.event_id, round2((mediaByEvent.get(p.event_id) ?? 0) + pa));
+        pushLine(p.event_id, { ...l, amount: pa, event_id: p.event_id, raw_description: `${l.raw_description} (parte repartida)` });
+      }
+      continue;
+    }
     mediaByEvent.set(l.event_id, round2((mediaByEvent.get(l.event_id) ?? 0) + amount));
     pushLine(l.event_id, l);
   }

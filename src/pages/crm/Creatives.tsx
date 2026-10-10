@@ -8,6 +8,7 @@ import { Image as ImageIcon, Plus, Loader2, Play, Video, ExternalLink } from "lu
 import { cn } from "@/lib/utils";
 import { classifyCreative, metaAdsManagerUrl } from "@/lib/creative-media";
 
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 type CreativeRow = {
   id: string;
   name: string;
@@ -32,11 +33,11 @@ export default function CrmCreatives() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["crm-creatives-list"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await fetchAllPagedQuery((supabase as any)
         .schema("crm")
         .from("meta_creatives")
         .select("id, name, type, file_url, file_mime_type, duration_seconds, tags, created_at")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false }));
       if (error) throw error;
       return (data ?? []) as CreativeRow[];
     },

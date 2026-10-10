@@ -24,6 +24,7 @@ import { normalizePlanInPlace } from "../_shared/plan-normalize.ts";
 import { resolveInterestsInPlace } from "../_shared/resolve-interests.ts";
 import { resolveCustomLocationsInPlace } from "../_shared/resolve-geo.ts";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -182,10 +183,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const eventCampIds: string[] = (pool?.source_campaigns ?? []).map((c: any) => c.external_campaign_id);
   if (eventCampIds.length > 0) {
     const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
-    const { data: peerIns } = await (supabase as any)
+    const { data: peerIns } = await fetchAllPagedQuery((supabase as any)
       .schema("crm").from("meta_campaign_insights_daily")
       .select("external_campaign_id, spend_cents, purchases_value_cents")
-      .in("external_campaign_id", eventCampIds).gte("date_start", since);
+      .in("external_campaign_id", eventCampIds).gte("date_start", since));
     const agg = new Map<string, { spend: number; rev: number }>();
     for (const r of peerIns ?? []) {
       const a = agg.get(r.external_campaign_id) ?? { spend: 0, rev: 0 };

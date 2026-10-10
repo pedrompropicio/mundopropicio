@@ -1,3 +1,4 @@
+import { fetchAllPagedQuery } from "./paging.ts";
 // artist-song-snapshot.ts — COLETOR ÚNICO do snapshot de uma música (D-ERP54).
 //
 // Extraído de artist-song-report/index.ts sem alteração de comportamento, para
@@ -115,13 +116,13 @@ export async function buildSnapshot(admin: Admin, songId: string, days: number) 
     : null;
 
   // ---- streams por plataforma
-  const { data: smRows, error: smErr } = await admin
+  const { data: smRows, error: smErr } = await fetchAllPagedQuery(admin
     .from("artist_song_metrics_daily")
     .select("platform, metric, metric_date, value")
     .eq("song_id", songId)
     .gte("metric_date", periodStart)
     .lte("metric_date", periodEnd)
-    .order("metric_date", { ascending: true });
+    .order("metric_date", { ascending: true }));
   if (smErr) throw new Error(`artist_song_metrics_daily: ${smErr.message}`);
 
   const streamsPorPlataforma: Row[] = [];
@@ -287,21 +288,21 @@ export async function buildSnapshot(admin: Admin, songId: string, days: number) 
   }
 
   // ---- vídeos ligados à música
-  const { data: linked, error: lcErr } = await admin
+  const { data: linked, error: lcErr } = await fetchAllPagedQuery(admin
     .from("artist_content")
     .select("id, platform, caption_excerpt, title, published_at, permalink, song_link_status")
     .eq("song_id", songId)
-    .in("song_link_status", ["estimated", "confirmed"]);
+    .in("song_link_status", ["estimated", "confirmed"]));
   if (lcErr) throw new Error(`artist_content: ${lcErr.message}`);
   const linkedIds = (linked ?? []).map((c: Row) => c.id);
 
   const metricsByContent = new Map<string, Row>();
   if (linkedIds.length > 0) {
-    const { data: cm } = await admin
+    const { data: cm } = await fetchAllPagedQuery(admin
       .from("artist_content_metrics_daily")
       .select("content_id, metric, metric_date, value")
       .in("content_id", linkedIds)
-      .order("metric_date", { ascending: true });
+      .order("metric_date", { ascending: true }));
     for (const r of cm ?? []) {
       const cur = metricsByContent.get(r.content_id) ?? { views: null, likes: null, views_7d_ago: null };
       if (r.metric === "views") {
@@ -322,19 +323,19 @@ export async function buildSnapshot(admin: Admin, songId: string, days: number) 
 
   // média de views dos vídeos do artista NÃO ligados a esta música (60 dias)
   const d60 = daysAgoFrom(periodEnd, 60);
-  const { data: others } = await admin
+  const { data: others } = await fetchAllPagedQuery(admin
     .from("artist_content")
     .select("id, platform, published_at, song_id")
     .eq("artist_id", song.artist_id)
-    .gte("published_at", `${d60}T00:00:00Z`);
+    .gte("published_at", `${d60}T00:00:00Z`));
   const othersFiltered = (others ?? []).filter((c: Row) => c.song_id !== songId);
   const otherViews = new Map<string, number[]>();
   if (othersFiltered.length > 0) {
-    const { data: om } = await admin
+    const { data: om } = await fetchAllPagedQuery(admin
       .from("artist_content_metrics_daily")
       .select("content_id, metric, value")
       .in("content_id", othersFiltered.map((c: Row) => c.id))
-      .eq("metric", "views");
+      .eq("metric", "views"));
     const latest = new Map<string, number>();
     for (const r of om ?? []) latest.set(r.content_id, num(r.value));
     for (const c of othersFiltered) {
@@ -382,12 +383,12 @@ export async function buildSnapshot(admin: Admin, songId: string, days: number) 
 
   // ---- artista: seguidores/ouvintes, aceleração no lançamento
   const artistFrom = launchRef ? daysAgoFrom(launchRef, 30) : periodStart;
-  const { data: amRows, error: amErr } = await admin
+  const { data: amRows, error: amErr } = await fetchAllPagedQuery(admin
     .from("artist_metrics_daily")
     .select("platform, metric, metric_date, value, source")
     .eq("artist_id", song.artist_id)
     .gte("metric_date", artistFrom)
-    .order("metric_date", { ascending: true });
+    .order("metric_date", { ascending: true }));
   if (amErr) throw new Error(`artist_metrics_daily: ${amErr.message}`);
 
   const artistaPorPlataforma: Row[] = [];

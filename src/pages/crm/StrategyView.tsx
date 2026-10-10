@@ -128,6 +128,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { statusLabel, STRATEGY_STATUS_OPTIONS } from "@/lib/strategy-status";
 
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 const feasibilityStyles: Record<string, string> = {
   high: "bg-emerald-500/15 text-emerald-400 border-emerald-500/40",
   medium: "bg-amber-500/15 text-amber-400 border-amber-500/40",
@@ -253,11 +254,11 @@ export default function CrmStrategyView() {
     queryKey: ["crm-creatives-for-selector"],
     enabled: selectorOpen,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await fetchAllPagedQuery((supabase as any)
         .schema("crm")
         .from("meta_creatives")
         .select("id, name, type, file_url, duration_seconds, headline")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false }));
       if (error) throw error;
       return data ?? [];
     },

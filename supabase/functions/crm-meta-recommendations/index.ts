@@ -13,6 +13,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const GRAPH_API_VERSION = "v21.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -226,10 +227,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   const adsetToCampaign = new Map<string, string>();
   if (adsetIds.size > 0) {
-    const { data: snaps } = await (supabaseSvc as any).schema("crm")
+    const { data: snaps } = await fetchAllPagedQuery((supabaseSvc as any).schema("crm")
       .from("meta_adset_snapshot")
       .select("external_adset_id, external_campaign_id")
-      .in("external_adset_id", Array.from(adsetIds));
+      .in("external_adset_id", Array.from(adsetIds)));
     if (Array.isArray(snaps)) {
       for (const s of snaps) {
         if (s.external_adset_id && s.external_campaign_id) {

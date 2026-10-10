@@ -33,6 +33,7 @@ import { Check, X, AlertTriangle, Plus, Video, ArrowLeft, Loader2, ShieldCheck, 
 import { evaluateCreativeForReels, type ReelsCheckResult } from "@/lib/crm/creativeReelsCheck";
 import { classifyCreative } from "@/lib/creative-media";
 
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 // ─────────────────────────────────────────────────────────────────────────────
 // Seletor de criativo da BIBLIOTECA para a recomendação REELS_PC.
 // Fluxo em DUAS FASES:
@@ -105,14 +106,14 @@ export function ReelsCreativePickerDialog({
     queryKey: ["crm-creatives-reels-picker", companyId],
     enabled: open && !!companyId,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await fetchAllPagedQuery((supabase as any)
         .schema("crm")
         .from("meta_creatives")
         .select(
           "id, name, type, file_url, file_mime_type, width, height, duration_seconds, meta_video_id, meta_creative_id, storage_path, headline, created_at",
         )
         .eq("type", "video")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false }));
       if (error) throw error;
       return (data ?? []) as CreativeRow[];
     },
@@ -124,12 +125,12 @@ export function ReelsCreativePickerDialog({
     queryKey: ["crm-creatives-in-use", companyId, externalCampaignId],
     enabled: open && !!companyId && !!externalCampaignId,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await fetchAllPagedQuery((supabase as any)
         .schema("crm")
         .from("meta_ad_snapshot")
         .select("meta_creative_id")
         .eq("company_id", companyId)
-        .eq("external_campaign_id", externalCampaignId);
+        .eq("external_campaign_id", externalCampaignId));
       if (error) throw error;
       const ids = new Set<string>();
       for (const r of (data ?? []) as Array<{ meta_creative_id: string | null }>) {

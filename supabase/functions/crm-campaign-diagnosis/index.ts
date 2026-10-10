@@ -33,6 +33,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 // Cliente único service-role: a função corre server-side e é invocada também
 // server-to-server (sem JWT de utilizador), por isso NÃO depende do token
@@ -662,18 +663,18 @@ async function readInsightWindows(
   // As 3 tabelas de insights têm external_campaign_id + company_id → filtramos
   // diretamente, sem precisar de juntar as snapshots nesta fase.
   const [campRes, adsetRes, adRes] = await Promise.all([
-    supabase.schema("crm").from("meta_campaign_insights_daily")
+    fetchAllPagedQuery(supabase.schema("crm").from("meta_campaign_insights_daily")
       .select(CAMPAIGN_COLS)
       .eq("company_id", companyId).eq("external_campaign_id", campaignId)
-      .order("date_start", { ascending: true }),
-    supabase.schema("crm").from("meta_adset_insights_daily")
+      .order("date_start", { ascending: true })),
+    fetchAllPagedQuery(supabase.schema("crm").from("meta_adset_insights_daily")
       .select(ADSET_COLS)
       .eq("company_id", companyId).eq("external_campaign_id", campaignId)
-      .order("date_start", { ascending: true }),
-    supabase.schema("crm").from("meta_ad_insights_daily")
+      .order("date_start", { ascending: true })),
+    fetchAllPagedQuery(supabase.schema("crm").from("meta_ad_insights_daily")
       .select(AD_COLS)
       .eq("company_id", companyId).eq("external_campaign_id", campaignId)
-      .order("date_start", { ascending: true }),
+      .order("date_start", { ascending: true })),
   ]);
 
   for (const [lvl, res] of [["campaign", campRes], ["adset", adsetRes], ["ad", adRes]] as const) {
@@ -749,10 +750,10 @@ async function readInsightWindows(
   // service_role tem SELECT). effective_status → wind-down; optimization_goal →
   // portão de maturação (recorte dos adsets de conversão).
   // Maioria PAUSED (> WINDDOWN_PAUSED_ADSET_RATIO) → is_winddown.
-  const { data: adsetSnaps } = await supabase
+  const { data: adsetSnaps } = await fetchAllPagedQuery(supabase
     .schema("crm").from("meta_adset_snapshot")
     .select("external_adset_id, effective_status, optimization_goal")
-    .eq("company_id", companyId).eq("external_campaign_id", campaignId);
+    .eq("company_id", companyId).eq("external_campaign_id", campaignId));
   const totalAdsets = adsetSnaps?.length ?? 0;
   const pausedAdsets = (adsetSnaps ?? []).filter((a: any) => a.effective_status === "PAUSED").length;
   const pausedRatio = totalAdsets > 0 ? pausedAdsets / totalAdsets : 0;

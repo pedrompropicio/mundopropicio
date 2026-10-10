@@ -18,6 +18,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { assertCallerRoleInCompany, isServiceRoleRequest, errorResponse, CRM_ADS_ROLES } from "../_shared/multiTenant.ts";
 import { REHOST_BUCKET } from "../_shared/rehost-creative.ts";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const BUILD_VERSION = "rehost-videos-v1 2026-06-24";
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -136,7 +137,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .not("file_url", "ilike", "%.mp4%");
   }
 
-  const { data: targets, error: qErr } = await query;
+  const { data: targets, error: qErr } = await fetchAllPagedQuery(query);
   if (qErr) return json({ error: "query_failed", detail: qErr.message }, 500);
 
   console.log(`[crm-meta-rehost-videos] company=${companyId} targets=${targets?.length ?? 0}`);

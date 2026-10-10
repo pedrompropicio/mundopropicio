@@ -8,6 +8,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { computePerAdsetCents } from "../_shared/budget-split.ts";
 import { resolvePurchaseAudience, type CatalogAudience } from "../_shared/purchase-audience-match.ts";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -451,10 +452,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // Carregar criativos referenciados
     const allCreativeIds = [...new Set(Object.values(creativeIdsByPhase).flat())];
     const { data: creatives } = allCreativeIds.length > 0
-      ? await (supabase as any)
+      ? await fetchAllPagedQuery((supabase as any)
           .schema("crm").from("meta_creatives")
           .select("id, name, file_url, file_mime_type, headline, body, cta_type, link_url, meta_image_hash")
-          .in("id", allCreativeIds)
+          .in("id", allCreativeIds))
       : { data: [] };
     const creativesById = new Map<string, any>();
     for (const c of creatives ?? []) creativesById.set(c.id, c);
@@ -479,10 +480,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
     const inheritedCreativeTypes = new Map<string, string>();
     if (inheritedCreativeIds.size > 0) {
-      const { data: inheritedRows } = await (supabase as any)
+      const { data: inheritedRows } = await fetchAllPagedQuery((supabase as any)
         .schema("crm").from("meta_creatives")
         .select("meta_creative_id, type")
-        .in("meta_creative_id", [...inheritedCreativeIds]);
+        .in("meta_creative_id", [...inheritedCreativeIds]));
       for (const r of (inheritedRows ?? [])) {
         if (r.meta_creative_id) inheritedCreativeTypes.set(r.meta_creative_id, r.type ?? "");
       }
@@ -509,11 +510,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // de consistência da fonte (source_pixel_inconsistent) deixa de bloquear o
     // deploy, alinhado com a decisão de precedência.
     if (!eventPixelId && strategy.source_campaign_id) {
-      const { data: sourceAdsets } = await (supabase as any)
+      const { data: sourceAdsets } = await fetchAllPagedQuery((supabase as any)
         .schema("crm").from("meta_adset_snapshot")
         .select("external_adset_id, raw")
         .eq("company_id", companyId)
-        .eq("external_campaign_id", strategy.source_campaign_id);
+        .eq("external_campaign_id", strategy.source_campaign_id));
 
       const promotedObjects = (sourceAdsets ?? [])
         .map((r: any) => r?.raw?.promoted_object)

@@ -276,6 +276,7 @@ export type Database = {
           company_id: string
           created_at: string
           event_id: string | null
+          event_split: Json | null
           external_campaign_id: string | null
           id: string
           invoice_id: string
@@ -296,6 +297,7 @@ export type Database = {
           company_id: string
           created_at?: string
           event_id?: string | null
+          event_split?: Json | null
           external_campaign_id?: string | null
           id?: string
           invoice_id: string
@@ -316,6 +318,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           event_id?: string | null
+          event_split?: Json | null
           external_campaign_id?: string | null
           id?: string
           invoice_id?: string
@@ -18362,6 +18365,14 @@ export type Database = {
       ads_invoice_line_is_pending: {
         Args: { l: Database["public"]["Tables"]["ads_invoice_line"]["Row"] }
         Returns: boolean
+      }
+      ads_invoice_line_set_tour_split: {
+        Args: { _line_id: string; _parts: Json }
+        Returns: Json
+      }
+      ads_invoice_line_tour_suggestion: {
+        Args: { _line_id: string }
+        Returns: Json
       }
       ads_invoice_pending_counts: {
         Args: { p_invoice_ids: string[] }

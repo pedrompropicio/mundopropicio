@@ -11,6 +11,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { rehostCreative } from "../_shared/rehost-creative.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -139,12 +140,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   };
 
   // 1) Lê as peças (service_role) — só do company decifrado.
-  const { data: rows, error: rowsErr } = await adminClient
+  const { data: rows, error: rowsErr } = await fetchAllPagedQuery(adminClient
     .schema("crm")
     .from("meta_creatives")
     .select("id, company_id, type, meta_image_hash, file_url, meta_creative_id, storage_path")
     .in("id", creativeIds)
-    .eq("company_id", companyId);
+    .eq("company_id", companyId));
 
   if (rowsErr) {
     console.error("[rehost-images-targeted] select failed:", rowsErr);

@@ -12,6 +12,7 @@ import { resolveInterestsInPlace } from "../_shared/resolve-interests.ts";
 import { resolveCustomLocationsInPlace } from "../_shared/resolve-geo.ts";
 import { buildCampaignBrief, type CampaignBrief } from "../_shared/campaign-brief.ts";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -767,11 +768,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // A1 — 3 buckets (roas_7d, roas_28d, roas_lifetime) + janela legacy periodDays.
   // Query única sem filtro de data, sliced em memória pelos cut-offs.
   // Insights por campanha são pequenos (~365 rows/campanha max).
-  const { data: campInsightsLifetime } = await (supabase as any)
+  const { data: campInsightsLifetime } = await fetchAllPagedQuery((supabase as any)
     .schema("crm").from("meta_campaign_insights_daily")
     .select("date_start, impressions, reach, frequency, clicks, spend_cents, purchases_count, purchases_value_cents")
     .eq("external_campaign_id", campaignId)
-    .order("date_start", { ascending: false });
+    .order("date_start", { ascending: false }));
 
   const cutoff7 = new Date(today); cutoff7.setUTCDate(cutoff7.getUTCDate() - 6);
   const cutoff28 = new Date(today); cutoff28.setUTCDate(cutoff28.getUTCDate() - 27);
@@ -798,19 +799,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
     roas_lifetime: metricsOf(lifetimeAgg).roas,
   };
 
-  const { data: adsets } = await (supabase as any)
+  const { data: adsets } = await fetchAllPagedQuery((supabase as any)
     .schema("crm").from("meta_adset_snapshot")
     .select("external_adset_id, name, optimization_goal, billing_event")
-    .eq("external_campaign_id", campaignId);
+    .eq("external_campaign_id", campaignId));
   const adsetIds: string[] = (adsets ?? []).map((a: any) => a.external_adset_id);
 
   // 3.1) Criativos herdados — reaproveitar por defeito
-  const { data: ads } = await (supabase as any)
+  const { data: ads } = await fetchAllPagedQuery((supabase as any)
     .schema("crm").from("meta_ad_snapshot")
     .select("meta_creative_id, name, effective_status")
     .eq("external_campaign_id", campaignId)
     .in("effective_status", ["ACTIVE", "PAUSED"])
-    .not("meta_creative_id", "is", null);
+    .not("meta_creative_id", "is", null));
   const inheritedMap = new Map<string, { meta_creative_id: string; ad_name: string | null; library: any | null }>();
   for (const a of ads ?? []) {
     if (!a.meta_creative_id) continue;
@@ -820,10 +821,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   const inheritedIds = [...inheritedMap.keys()];
   if (inheritedIds.length > 0) {
-    const { data: lib } = await (supabase as any)
+    const { data: lib } = await fetchAllPagedQuery((supabase as any)
       .schema("crm").from("meta_creatives")
       .select("id, name, type, file_url, headline, body, cta_type, link_url, meta_creative_id")
-      .in("meta_creative_id", inheritedIds);
+      .in("meta_creative_id", inheritedIds));
     for (const c of lib ?? []) {
       const slot = inheritedMap.get(c.meta_creative_id);
       if (slot) slot.library = c;
@@ -897,11 +898,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const peers = peersRaw ?? [];
     if (peers.length > 0) {
       const peerIds: string[] = peers.map((p: any) => p.external_campaign_id);
-      const { data: peerInsights } = await (supabase as any)
+      const { data: peerInsights } = await fetchAllPagedQuery((supabase as any)
         .schema("crm").from("meta_campaign_insights_daily")
         .select("external_campaign_id, impressions, reach, clicks, spend_cents, purchases_count, purchases_value_cents, frequency")
         .in("external_campaign_id", peerIds)
-        .gte("date_start", fromDate).lte("date_start", toDate);
+        .gte("date_start", fromDate).lte("date_start", toDate));
       const peerAggsMap = new Map<string, Agg>();
       for (const id of peerIds) peerAggsMap.set(id, emptyAgg());
       for (const r of peerInsights ?? []) {
@@ -957,12 +958,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // criativos herdados (qualquer status — maximiza o histórico de performance).
     // Query separada da herança (não tocamos na query de 656-681).
     const adToCreative = new Map<string, string>();
-    const { data: creativeAds } = await (supabase as any)
+    const { data: creativeAds } = await fetchAllPagedQuery((supabase as any)
       .schema("crm").from("meta_ad_snapshot")
       .select("external_ad_id, meta_creative_id")
       .eq("company_id", campaign.company_id)
       .eq("external_campaign_id", campaignId)
-      .in("meta_creative_id", inheritedIds);
+      .in("meta_creative_id", inheritedIds));
     for (const a of creativeAds ?? []) {
       if (a.external_ad_id && a.meta_creative_id) adToCreative.set(a.external_ad_id, a.meta_creative_id);
     }
@@ -972,12 +973,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const perfByCreative = new Map<string, { spend_cents: number; pv_cents: number; purchases: number }>();
     for (const id of inheritedIds) perfByCreative.set(id, { spend_cents: 0, pv_cents: 0, purchases: 0 });
     if (adIdsForPerf.length > 0) {
-      const { data: creativeAdInsights } = await (supabase as any)
+      const { data: creativeAdInsights } = await fetchAllPagedQuery((supabase as any)
         .schema("crm").from("meta_ad_insights_daily")
         .select("external_ad_id, spend_cents, purchases_value_cents, purchases_count")
         .eq("company_id", campaign.company_id)
         .eq("external_campaign_id", campaignId)
-        .in("external_ad_id", adIdsForPerf);
+        .in("external_ad_id", adIdsForPerf));
       for (const r of creativeAdInsights ?? []) {
         const cid = adToCreative.get(r.external_ad_id);
         if (!cid) continue;
@@ -1884,10 +1885,10 @@ async function runGenerationPipeline(
 
     let keepAdsetDetails = "";
     if (keepAdsetIds.length > 0) {
-      const { data: keepAdsetsData } = await (supabase as any)
+      const { data: keepAdsetsData } = await fetchAllPagedQuery((supabase as any)
         .schema("crm").from("meta_adset_snapshot")
         .select("external_adset_id, name, optimization_goal, targeting")
-        .in("external_adset_id", keepAdsetIds);
+        .in("external_adset_id", keepAdsetIds));
       keepAdsetDetails = (keepAdsetsData ?? []).map((a: any) => {
         const t = a.targeting ?? {};
         const countries = (t.geo_locations?.countries ?? []).slice(0, 3).join("/");

@@ -35,6 +35,7 @@ import {
   startSyncRun,
 } from "../_shared/sync-run.ts";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const FUNCTION_NAME = "artist-shorts-sync";
 const ROLES = ["admin", "platform_admin", "manager", "editor"];
 const DEFAULT_PLATFORMS = ["tiktok", "youtube", "instagram"];
@@ -266,11 +267,11 @@ Deno.serve(async (req) => {
 
           // Conteúdo já existente: por external_id (mesma origem) e por
           // permalink (o Reel oficial do Instagram tem outro external_id).
-          const { data: existing } = await admin
+          const { data: existing } = await fetchAllPagedQuery(admin
             .from("artist_content")
             .select("id, external_id, permalink, source, song_id")
             .eq("artist_id", artist.id)
-            .eq("platform", platform);
+            .eq("platform", platform));
           const byExternal = new Map<string, any>();
           const byPermalink = new Map<string, any>();
           for (const e of existing ?? []) {
@@ -387,11 +388,11 @@ Deno.serve(async (req) => {
             }
 
             // ids internos para as métricas do dia
-            const { data: saved } = await admin
+            const { data: saved } = await fetchAllPagedQuery(admin
               .from("artist_content")
               .select("id, external_id")
               .eq("artist_id", artist.id)
-              .eq("platform", platform);
+              .eq("platform", platform));
             const idByExternal = new Map<string, string>();
             for (const s of saved ?? []) idByExternal.set(s.external_id as string, s.id as string);
 

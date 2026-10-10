@@ -8,6 +8,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -242,10 +243,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // 3) Lê todos os criativos referenciados
   const allCreativeIds = Array.from(new Set(adsetsIn.flatMap((a) => a.creative_ids || [])));
-  const { data: creativesRaw, error: crErr } = await (adminClient as any)
+  const { data: creativesRaw, error: crErr } = await fetchAllPagedQuery((adminClient as any)
     .schema("crm").from("meta_creatives")
     .select("id, company_id, name, type, headline, body, cta_type, file_url, width, height, duration_seconds, analysis_jsonb")
-    .in("id", allCreativeIds.length > 0 ? allCreativeIds : ["00000000-0000-0000-0000-000000000000"]);
+    .in("id", allCreativeIds.length > 0 ? allCreativeIds : ["00000000-0000-0000-0000-000000000000"]));
   if (crErr) return json({ error: "creatives_read_failed", detail: crErr.message }, 500);
   const creativesById = new Map<string, Creative>();
   for (const c of (creativesRaw ?? []) as any[]) {

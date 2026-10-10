@@ -77,6 +77,7 @@ import { MetaPublishPanel } from "@/components/crm/MetaPublishPanel";
 import { useConfirmMetaAction, type PendingMetaAction } from "@/components/crm/ConfirmMetaActionDialog";
 import { RecommendationsPanel } from "@/components/crm/RecommendationsPanel";
 
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 // ── Tipos (subset dos snapshots; só o que a página usa) ─────────────────────
 interface CampaignSnap {
   external_campaign_id: string;
@@ -573,7 +574,7 @@ export default function CrmCampaignView() {
     queryKey: ["crm-campaign-view-insights", id, periodFromStr, periodToStr],
     enabled: !!id,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await fetchAllPagedQuery((supabase as any)
         .schema("crm")
         .from("meta_campaign_insights_daily")
         .select(
@@ -581,7 +582,7 @@ export default function CrmCampaignView() {
         )
         .eq("external_campaign_id", id)
         .gte("date_start", periodFromStr)
-        .lte("date_start", periodToStr);
+        .lte("date_start", periodToStr));
       if (error) throw error;
       return (data ?? []) as InsightRow[];
     },
@@ -596,7 +597,7 @@ export default function CrmCampaignView() {
     queryKey: ["crm-campaign-view-adset-insights", id, periodFromStr, periodToStr],
     enabled: !!id,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await fetchAllPagedQuery((supabase as any)
         .schema("crm")
         .from("meta_adset_insights_daily")
         .select(
@@ -604,7 +605,7 @@ export default function CrmCampaignView() {
         )
         .eq("external_campaign_id", id)
         .gte("date_start", periodFromStr)
-        .lte("date_start", periodToStr);
+        .lte("date_start", periodToStr));
       if (error) throw error;
       return (data ?? []) as AdsetInsightRow[];
     },
@@ -615,7 +616,7 @@ export default function CrmCampaignView() {
     queryKey: ["crm-campaign-view-ad-insights", id, periodFromStr, periodToStr],
     enabled: !!id,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await fetchAllPagedQuery((supabase as any)
         .schema("crm")
         .from("meta_ad_insights_daily")
         .select(
@@ -623,7 +624,7 @@ export default function CrmCampaignView() {
         )
         .eq("external_campaign_id", id)
         .gte("date_start", periodFromStr)
-        .lte("date_start", periodToStr);
+        .lte("date_start", periodToStr));
       if (error) throw error;
       return (data ?? []) as AdInsightRow[];
     },
@@ -635,13 +636,13 @@ export default function CrmCampaignView() {
     queryKey: ["crm-campaign-view-adsets", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await fetchAllPagedQuery((supabase as any)
         .schema("crm")
         .from("meta_adset_snapshot")
         .select(
           "external_adset_id, name, status, effective_status, optimization_goal, billing_event, daily_budget_cents, lifetime_budget_cents, currency, targeting, connection_id, ad_account_id",
         )
-        .eq("external_campaign_id", id);
+        .eq("external_campaign_id", id));
       if (error) throw error;
       return (data ?? []) as AdsetSnap[];
     },
@@ -652,13 +653,13 @@ export default function CrmCampaignView() {
     queryKey: ["crm-campaign-view-ads", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await fetchAllPagedQuery((supabase as any)
         .schema("crm")
         .from("meta_ad_snapshot")
         .select(
           "external_ad_id, external_adset_id, name, status, effective_status, meta_creative_id, connection_id, ad_account_id",
         )
-        .eq("external_campaign_id", id);
+        .eq("external_campaign_id", id));
       if (error) throw error;
       return (data ?? []) as AdSnap[];
     },
@@ -676,13 +677,13 @@ export default function CrmCampaignView() {
     queryKey: ["crm-campaign-view-creatives", creativeIds.sort().join(",")],
     enabled: creativeIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await fetchAllPagedQuery((supabase as any)
         .schema("crm")
         .from("meta_creatives")
         .select(
           "id, meta_creative_id, name, type, file_url, file_mime_type, headline, body, cta_type, link_url, analysis_jsonb",
         )
-        .in("meta_creative_id", creativeIds);
+        .in("meta_creative_id", creativeIds));
       if (error) throw error;
       return (data ?? []) as CreativeRow[];
     },

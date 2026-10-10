@@ -31,6 +31,7 @@ import {
   soundchartsQuotaMessage,
 } from "../_shared/soundcharts.ts";
 
+import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const FUNCTION_NAME = "soundcharts-sync";
 
 const corsHeaders = {
@@ -535,14 +536,14 @@ Deno.serve(async (req) => {
         }
       }
       const { data: jaHoje } = dzByArtist.size
-        ? await admin
+        ? await fetchAllPagedQuery(admin
           .from("artist_metrics_daily")
           .select("artist_id")
           .eq("platform", "deezer")
           .eq("metric", "followers")
           .eq("source", "platform_api")
           .eq("metric_date", hoje)
-          .in("artist_id", [...dzByArtist.keys()])
+          .in("artist_id", [...dzByArtist.keys()]))
         : { data: [] };
       const feitos = new Set((jaHoje ?? []).map((r) => r.artist_id as string));
       for (const [artistId, dz] of dzByArtist) {
@@ -661,10 +662,10 @@ Deno.serve(async (req) => {
         const [aId, plat, met] = k.split("|");
         novos.sort((a, b) => String(a.metric_date).localeCompare(String(b.metric_date)));
         const desde = new Date((dia(novos[0].metric_date) - 40) * 86400000).toISOString().slice(0, 10);
-        const { data: antigos } = await admin.from("artist_metrics_daily")
+        const { data: antigos } = await fetchAllPagedQuery(admin.from("artist_metrics_daily")
           .select("id, metric_date, value, source_ref")
           .eq("artist_id", aId).eq("platform", plat).eq("metric", met).eq("source", "aggregator")
-          .gte("metric_date", desde);
+          .gte("metric_date", desde));
         const novosDias = new Set(novos.map((x) => String(x.metric_date)));
         const arr: Array<any> = [
           ...((antigos ?? []) as Array<any>).filter((x) => !novosDias.has(String(x.metric_date)))
