@@ -1,7 +1,7 @@
 # Roadmap — épica #146 (e)
 
 ## PDF e datas dos fechos — 10/10/2026
-- [ ] Sanear sinais no PDF, carimbo único em Lisboa e datas civis nos fechos; testar e inspeccionar PDF. Sem dados ou Publish.
+- [x] Sinais saneados no PDF, carimbo único em Lisboa e datas civis preservadas; 7 testes passaram e PDF inspeccionado sem sobreposições. Sem dados ou Publish.
 
 ## Fórum Braga — bilheteira local (Pedro, 10/10/2026)
 - [x] Par 10.3 de 265,00 e comissão IB de 6,15 executados; variações Ticketline −265,00 / Acerto +258,85, diferença zero, restantes travas preservadas. Sem linha BP nova ou devolução antecipada.

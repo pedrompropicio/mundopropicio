@@ -1,5 +1,4 @@
 import { useState, useMemo } from "react";
-import { formatDatePT } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -317,7 +316,7 @@ export function TicketOfficeAdvancesPanel({ officeId, officeName }: Props) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium">
-                          {formatDatePT(a.advance_date)}
+                          {new Date(a.advance_date).toLocaleDateString("pt-PT")}
                         </span>
                         {a.target_account?.name && (
                           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">

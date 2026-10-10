@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { formatDatePT } from "@/lib/utils";
+import { formatLisbonDateTime } from "@/lib/date-lisbon";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
@@ -9,7 +10,6 @@ import { Calendar, ChevronRight, Upload } from "lucide-react";
 import { TicketImportModal } from "@/components/TicketUploadModals";
 import { SalesLogPanel } from "@/components/SalesLogPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { format } from "date-fns";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { useTicketlineCutoffs, keepTicketSaleRow } from "@/lib/ticketline-cutoff";
 
@@ -278,7 +278,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
                       )}
                       {s.lastImportDate && (
                         <span className="text-[10px] text-primary">
-                          Últ. importação: {format(new Date(s.lastImportDate), "dd/MM/yyyy HH:mm")}
+                          Últ. importação: {formatLisbonDateTime(s.lastImportDate)}
                         </span>
                       )}
                     </div>
