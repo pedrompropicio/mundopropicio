@@ -20,6 +20,8 @@ import { exportDREToExcel, exportDREToPDF, buildDREForExport, getEffectiveTransa
 import { buildCategoryLookup, aggregateByHierarchyDRE } from "@/lib/category-hierarchy";
 import { Switch } from "@/components/ui/switch";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { eventCostLines, eventCostMode, groupByEvent, type ReportCostSource } from "@/lib/report-event-cost";
+import { ReportCostSourceToggle } from "@/components/ReportCostSourceToggle";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
@@ -247,6 +249,8 @@ export default function ReportDREBrasil() {
   const [showPartnerView, setShowPartnerView] = useState(false);
 
   const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
+  // #218 (D-ERP244): custo de evento pelo BP (padrão), mesma função do DRE; "Transações" só comparação, nunca gravado.
+  const [costSource, setCostSource] = useState<ReportCostSource>("bp");
   const { data: allEvents = [] } = useQuery({
     queryKey: ["events"],
     queryFn: async () => {
@@ -280,6 +284,26 @@ export default function ReportDREBrasil() {
   });
 
   const transactions = keepRootPerimeter((transactionsAll as any[]).filter((t) => !hasResultBlockingFlags(t)), rootSettlementIds);
+
+  // #218: BP vivo (version_id IS NULL) — igual ao ReportDRE.
+  const { data: costForecastsAll = [] } = useQuery({
+    queryKey: ["dre-forecasts-expense"],
+    queryFn: async () => {
+      const { data, error } = await fetchAllPagedQuery(supabase
+        .from("event_forecasts")
+        .select("id, event_id, type, status, category_id, amount, iva_rate, version_id, is_transitory, is_overhead, exclude_from_result, event_settlement_id")
+        .eq("type", "expense")
+        .is("version_id", null)
+        .order("id", { ascending: true }));
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const costForecastsByEvent = useMemo(
+    () => groupByEvent(keepRootPerimeter(costForecastsAll as any[], rootSettlementIds)),
+    [costForecastsAll, rootSettlementIds],
+  );
+  const txByEventForCost = useMemo(() => groupByEvent(transactions as any[]), [transactions]);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["account-categories"],
@@ -402,7 +426,8 @@ export default function ReportDREBrasil() {
   // Filter events: only those with gross_expenses basis and transactions
   const eventsWithTransactions = events.filter((e) => {
     if (!isGrossExpBasis(e.id)) return false;
-    const hasDirect = transactions.some((t: any) => t.event_id === e.id);
+    const hasDirect = transactions.some((t: any) => t.event_id === e.id)
+      || (costSource === "bp" && (costForecastsByEvent.get(e.id)?.length ?? 0) > 0);
     if (hasDirect) return true;
     const children = childrenByParent[e.id];
     if (children) return children.some((cid) => transactions.some((t: any) => t.event_id === cid));
@@ -459,6 +484,27 @@ export default function ReportDREBrasil() {
         const childTx = transactions.filter((t: any) => t.event_id === childId);
         evtTx = [...evtTx, ...childTx];
       });
+    }
+    if (costSource === "bp") {
+      // #218: despesas do evento pela função única (eventCostLines), com a mesma
+      // propagação Master÷N → cidade e cidades → Master. Despesas por transações
+      // ficam fora (nunca pelas duas portas).
+      const costOf = (id: string) => {
+        const ev = events.find((x: any) => x.id === id);
+        return eventCostLines({
+          eventId: id,
+          forecasts: costForecastsByEvent.get(id) ?? [],
+          transactions: txByEventForCost.get(id) ?? [],
+          mode: eventCostMode(ev as any),
+        });
+      };
+      let cost: any[] = costOf(eventId);
+      if (parentId) {
+        const siblingCount = subCountByParent[parentId] || 1;
+        cost = [...cost, ...costOf(parentId).map((l) => ({ ...l, amount: l.amount / siblingCount, _prorated: true }))];
+      }
+      if (children && children.length > 0) children.forEach((cid) => { cost = [...cost, ...costOf(cid)]; });
+      evtTx = [...evtTx.filter((t: any) => t.type !== "expense"), ...cost];
     }
     return evtTx;
   }
@@ -537,6 +583,7 @@ export default function ReportDREBrasil() {
           <button onClick={toggleAll} className="text-xs text-primary hover:underline">
             {selectedEventIds.length === eventsWithTransactions.length ? "Desmarcar todos" : "Selecionar todos"}
           </button><EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
+          <ReportCostSourceToggle value={costSource} onChange={setCostSource} />
 
         </div>
         <p className="text-xs text-muted-foreground">

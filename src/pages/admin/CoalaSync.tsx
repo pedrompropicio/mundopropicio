@@ -19,6 +19,7 @@ import { useHasFeature } from "@/hooks/useCompanyFeatures";
 import { FEATURES } from "@/lib/features";
 import { FeatureNotEnabledCard } from "@/components/FeatureNotEnabledCard";
 import CoalaApplyButton from "@/components/coala/CoalaApplyButton";
+import CostCenterMapPanel from "@/components/coala/CostCenterMapPanel";
 
 
 type Cfg = {
@@ -364,6 +365,8 @@ export default function CoalaSync() {
           qc.invalidateQueries({ queryKey: ["coala-sync-config"] });
         }}
       />
+
+      <CostCenterMapPanel />
     </div>
   );
 }

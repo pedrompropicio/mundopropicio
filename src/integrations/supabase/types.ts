@@ -10198,6 +10198,51 @@ export type Database = {
           },
         ]
       }
+      import_cost_center_map: {
+        Row: {
+          category_id: string
+          company_id: string
+          confirmed_at: string
+          confirmed_by: string
+          cost_center_raw: string
+          id: string
+          source: string
+        }
+        Insert: {
+          category_id: string
+          company_id?: string
+          confirmed_at?: string
+          confirmed_by?: string
+          cost_center_raw: string
+          id?: string
+          source?: string
+        }
+        Update: {
+          category_id?: string
+          company_id?: string
+          confirmed_at?: string
+          confirmed_by?: string
+          cost_center_raw?: string
+          id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_cost_center_map_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "account_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_cost_center_map_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invariant_runs: {
         Row: {
           created_at: string
@@ -12102,6 +12147,78 @@ export type Database = {
             foreignKeyName: "partner_paid_expenses_transaction_id_fkey"
             columns: ["transaction_id"]
             isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_list_bank_executions: {
+        Row: {
+          bank_statement_line_id: string
+          company_id: string
+          confirmed_at: string
+          confirmed_by: string
+          id: string
+          match_kind: string
+          payment_list_id: string
+          sepa_export_id: string
+          transaction_id: string
+        }
+        Insert: {
+          bank_statement_line_id: string
+          company_id?: string
+          confirmed_at?: string
+          confirmed_by?: string
+          id?: string
+          match_kind: string
+          payment_list_id: string
+          sepa_export_id: string
+          transaction_id: string
+        }
+        Update: {
+          bank_statement_line_id?: string
+          company_id?: string
+          confirmed_at?: string
+          confirmed_by?: string
+          id?: string
+          match_kind?: string
+          payment_list_id?: string
+          sepa_export_id?: string
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_list_bank_executions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_list_bank_executions_line_fkey"
+            columns: ["bank_statement_line_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_list_bank_executions_payment_list_id_fkey"
+            columns: ["payment_list_id"]
+            isOneToOne: false
+            referencedRelation: "payment_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_list_bank_executions_sepa_export_id_fkey"
+            columns: ["sepa_export_id"]
+            isOneToOne: false
+            referencedRelation: "payment_list_sepa_exports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_list_bank_executions_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
             referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
