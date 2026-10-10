@@ -257,6 +257,20 @@ Deno.serve(async (req) => {
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i]
       const payload = msg.message
+      // #56: mensagens sem company_id no payload (enfileiradas por produtores antigos)
+      // herdam a empresa da linha 'pending' gravada pelo produtor com o mesmo message_id.
+      // Sem isto o log nasce NULL (aqui não há sessão para o trigger resolver).
+      if (payload && !payload.company_id && typeof payload.message_id === 'string') {
+        const { data: origin } = await supabase
+          .from('email_send_log')
+          .select('company_id')
+          .eq('message_id', payload.message_id)
+          .not('company_id', 'is', null)
+          .limit(1)
+          .maybeSingle()
+        if (origin?.company_id) payload.company_id = origin.company_id
+        else console.warn('[process-email-queue] mensagem sem company_id', { message_id: payload.message_id, label: payload.label })
+      }
       const failedAttempts =
         payload?.message_id && typeof payload.message_id === 'string'
           ? (failedAttemptsByMessageId.get(payload.message_id) ?? 0)
