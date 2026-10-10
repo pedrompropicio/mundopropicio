@@ -47,7 +47,7 @@ export function TicketOfficePositionCards({ officeId }: { officeId: string }) {
         }
       }
       for (const line of latest?.ticket_office_statement_lines ?? []) {
-        if (line.line_type === "venue_settlement") calendarItems.push({ id: line.id, description: line.description, amount: -Number(line.amount ?? 0) });
+        if (line.line_type === "venue_settlement") calendarItems.push({ id: line.id, description: `${line.description} — a regularizar quando o fecho for confirmado e a sala efectuar a devolução.`, amount: -Number(line.amount ?? 0) });
       }
       return { ...ticketOfficePosition(events, (settlements.data ?? []).map((row) => row.event_id), allLines.map((line: any) => line.event_id).filter(Boolean), Number(latest?.document_total ?? 0), Number(retained)), latest, calendarItems };
     },
@@ -75,7 +75,7 @@ export function TicketOfficePositionCards({ officeId }: { officeId: string }) {
           <p className="text-2xl font-mono font-bold text-primary break-words">{formatCurrency(data.retained)}</p>
           <p className="text-xs text-muted-foreground">Dinheiro verdadeiro que a bilheteira tem da MP, a favor da MP. O já adiantado está incluído neste saldo.</p>
           <Button variant="link" className="h-auto p-0 text-left text-xs text-muted-foreground whitespace-normal" onClick={() => setDetail(detail === "calendar" ? null : "calendar")} aria-expanded={detail === "calendar"}>
-            Diferença de calendário: {formatCurrency(data.calendarDifference)} — custos apropriados nos fechos ainda não descontados pela bilheteira e eventos à espera do seu apuramento.
+            Diferença de calendário: {formatCurrency(data.calendarDifference)} — movimentos que a bilheteira já fez mas que o nosso registo ainda não reflecte, e eventos à espera do seu apuramento. Neste momento, é a bilheteira local da sala em eventos ainda sem fecho confirmado.
           </Button>
         </div>
       </div>

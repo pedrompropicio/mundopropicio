@@ -1,5 +1,9 @@
 # Roadmap — épica #146 (e)
 
+## #303 — correcção da explicação da diferença
+- [x] Corrigir texto e memória: movimentos já feitos pela bilheteira, ainda não reflectidos no nosso registo; nenhuma escrita financeira.
+- [ ] Verificar lista clicável, identidade dos cartões e apresentação discreta após a correcção externa da FT 3159.
+
 ## #303 — rascunho Deive Braga
 - [x] Criar rascunho documental, ligar dedução existente e linha do 3163, verificar travas sem novos movimentos.
 - [x] Actualizar estado e comentar #303 sem fechar; confirmação fica para Pedro (comentário 6099594598, issue aberta verificada).
