@@ -8,6 +8,8 @@ interface DeleteCascadeParams {
   auditReason?: string;
   /** true (default): elimina também as irmãs do mesmo invoice_group_id. */
   cascadeInvoiceGroup?: boolean;
+  /** Em ciclos: a transação pode já ter saído com uma irmã do mesmo grupo de fatura. */
+  ignoreMissing?: boolean;
 }
 
 export interface DeleteCascadeResult {
@@ -28,13 +30,15 @@ export async function deleteTransactionCascade({
   user,
   auditReason,
   cascadeInvoiceGroup = true,
-}: DeleteCascadeParams): Promise<DeleteCascadeResult> {
+  ignoreMissing = false,
+}: DeleteCascadeParams): Promise<DeleteCascadeResult | null> {
   const { data, error } = await (supabase as any).rpc("delete_transaction_cascade", {
     p_transaction_id: transactionId,
     p_reason: auditReason ?? null,
     p_cascade_invoice_group: cascadeInvoiceGroup,
     p_caller_name: getAuditUser(user),
   });
+  if (error && ignoreMissing && error.code === "P0002") return null;
   if (error) throw new Error(`Eliminar transação: ${error.message}`);
   return data as DeleteCascadeResult;
 }

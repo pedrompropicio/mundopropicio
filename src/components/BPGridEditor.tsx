@@ -548,6 +548,7 @@ export default function BPGridEditor({
             transactionId: tx.id,
             user,
             auditReason: "Eliminada via grelha BP",
+            ignoreMissing: true,
           });
         }
       }

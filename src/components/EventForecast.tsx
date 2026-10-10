@@ -1081,6 +1081,7 @@ const descRef = useRef<HTMLInputElement>(null);
             transactionId: txId,
             user,
             auditReason: "Eliminada via BP",
+            ignoreMissing: true,
           });
         }
       }
