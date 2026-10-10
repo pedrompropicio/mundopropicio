@@ -22,7 +22,7 @@ Nada em curso.
 
 ## Fechado a 10/10/2026
 
-- **#303 passo 2 — Apuramento Ticketline (D-ERP231).** Tabelas `ticket_office_statements` + `ticket_office_statement_lines` (event_right, ticketline_invoice, venue_settlement, advance, carry_over); `ticket_office_settlements.statement_id`; `event_ticket_office_advances` só de leitura (trigger). Anitta (ed7b4b3c): as pernas 10.3 f4c66167 (905.000,00) e 43807ccb (402.836,17) passaram de dedução a repasse no apuramento 2558 — deduções 12.863,83, direito 2.411.336,17, total 2558 = 0. Apuramento 3163 em rascunho: Σ linhas −48.785,59, total a fechar −49.050,59; a diferença é a linha do Deive (≈265,00) **pendente de documento** — bloqueia a confirmação. Nenhum resultado de evento mudou (BP, vendas e transações iguais; saldo Ticketline 207.021,17 antes e depois).
+- **#303 passo 2 — Apuramento Ticketline (D-ERP231).** Tabelas `ticket_office_statements` + `ticket_office_statement_lines` (event_right, ticketline_invoice, venue_settlement, advance, carry_over); `ticket_office_settlements.statement_id`; `event_ticket_office_advances` só de leitura (trigger). Anitta (ed7b4b3c): as pernas 10.3 f4c66167 (905.000,00) e 43807ccb (402.836,17) passaram de dedução a repasse no apuramento 2558 — deduções 12.863,83, direito 2.411.336,17, total 2558 = 0. Apuramento 3163 em rascunho, com PDF anexado: Σ linhas −49.050,59 = total do documento; os 265,00 do Deive são a bilheteira local do Forum Braga (venue_settlement), resolvidos por documento. Nenhum resultado de evento mudou (BP, vendas e transações iguais; saldo Ticketline 207.021,17 antes e depois).
 
 ## Fechado a 09/10/2026
 
@@ -41,6 +41,8 @@ Nada em curso.
 - **Índice de memória** passa a ser gerado por `scripts/gen-memory-index.mjs`, com teste que falha se o ficheiro for editado à mão.
 
 ## Factos que não se reinvestigam
+
+- **Linha do evento no apuramento Ticketline = a nossa bilheteira bruta − a bilheteira local da sala (D-ERP231).** Confirmado no 3163/2026: SM Porto 256.330,00 − 254.135,00 = 2.195,00 (Super Bock Arena); SM Lisboa 208.945,00 − 206.345,00 = 2.600,00 (Sagres Campo Pequeno); Deive Braga 20.659,00 − 20.394,00 = 265,00 (Forum Braga). Distinto do "ACERTO SALA", que vem em linha própria (−26.673,10 Super Bock Arena, −10.904,61 Sagres Campo Pequeno).
 
 - **Os números de fecho conferem-se sempre nos dois portais da Ticketline;** o portal do produtor é o mais assertivo. A Juliana faz conferência directa de todas as informações e vendas.
 - **Apuramento Ticketline ≠ fecho do evento (D-ERP231).** O fecho mostra o direito do evento; repasses e transitados vivem só no apuramento. Posição da conta = Σ direitos apurados − Σ faturas sem evento apurado − Σ repasses (08/10: 1.019.194,17 − 19.000,76 − 1.048.244,00 = −49.050,59). O saldo da conta não é a prova: 207.021,17 = −49.050,59 + 248.412,00 (8 RG por apurar) + 7.659,76.
