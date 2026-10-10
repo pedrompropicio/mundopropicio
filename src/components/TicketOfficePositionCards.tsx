@@ -36,7 +36,7 @@ export function TicketOfficePositionCards({ officeId }: { officeId: string }) {
         transactions: transactions.data ?? [], advances: [],
       });
       const events = eventIds.map((id) => ({ id, name: (assigned.find((row: any) => row.event_id === id) as any)?.events?.name ?? id, balance: byEvent[id] ?? 0 }));
-      const invoiceIds = [...new Set(allLines.filter((line: any) => line.line_type === "ticketline_invoice" && line.transaction_id).map((line: any) => String(line.transaction_id)))];
+      const invoiceIds = [...new Set<string>(allLines.filter((line: any) => line.line_type === "ticketline_invoice" && line.transaction_id).map((line: any) => String(line.transaction_id)))];
       const calendarItems: { id: string; description: string; amount: number }[] = [];
       for (let offset = 0; offset < invoiceIds.length; offset += 100) {
         const result = await supabase.from("transactions").select("id,description,account_id").in("id", invoiceIds.slice(offset, offset + 100)).is("account_id", null);
