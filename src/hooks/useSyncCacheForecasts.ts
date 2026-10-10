@@ -7,7 +7,7 @@ import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { writeForecastAmount, ForecastBelowRealizedError } from "@/lib/forecast-amount";
 import { toast } from "@/hooks/use-toast";
 import { mustWrite } from "@/lib/must-write";
-import { computeTicketRevenueAndOccupancy, filterRealCacheExpenses } from "@/lib/real-cache-calc";
+import { computeTicketRevenueAndOccupancy, enrichCacheConfigs, filterRealCacheExpenses } from "@/lib/real-cache-calc";
 import { computeTourCityCacheAmount } from "@/lib/tour-cache-sync";
 
 /**
@@ -354,8 +354,24 @@ async function syncTourCacheForecasts(
 
   let changed = false;
 
+  // #301 — escalões e campos de prioridade lidos da base: os dois ecrãs que chamam
+  // este hook passam configs diferentes (um sem tiers/ajustes); a regra não pode depender disso.
+  const { data: tierRows, error: tierErr } = cacheConfigIds.length > 0
+    ? await supabase.from("event_cache_tiers").select("cache_config_id, occupancy_threshold, percentage").in("cache_config_id", cacheConfigIds)
+    : { data: [] as any[], error: null };
+  if (tierErr) throw tierErr;
+  const { data: cfgRows, error: cfgErr } = cacheConfigIds.length > 0
+    ? await supabase.from("event_cache_configs").select("id, is_finalized, real_amount, adjusted_amount").in("id", cacheConfigIds)
+    : { data: [] as any[], error: null };
+  if (cfgErr) throw cfgErr;
+  const cfgById = new Map((cfgRows ?? []).map((r: any) => [r.id, r]));
+  const fullConfigs = enrichCacheConfigs(
+    cacheConfigs.map((c) => ({ ...c, ...(cfgById.get(c.id) ?? {}) })),
+    tierRows ?? [],
+  );
+
   // 3. For each config × child, create/update forecast
-  for (const config of cacheConfigs) {
+  for (const config of fullConfigs) {
     const configDeductions = deductions.filter((d) => d.cache_config_id === config.id);
 
     for (const childId of childEventIds) {
