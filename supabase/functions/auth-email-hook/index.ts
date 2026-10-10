@@ -225,6 +225,7 @@ async function handleWebhook(req: Request): Promise<Response> {
   let brandName: string | undefined
   let brandLogoUrl: string | undefined
   let brandPrimaryColor: string | undefined
+  let companyId: string | null = null
   try {
     const { data: profile } = await supabase
       .from('profiles')
@@ -232,6 +233,7 @@ async function handleWebhook(req: Request): Promise<Response> {
       .eq('email', payload.data.email)
       .maybeSingle()
     if (profile?.company_id) {
+      companyId = profile.company_id
       const { data: company } = await supabase
         .from('companies')
         .select('display_name, logo_url, theme_config')
@@ -274,6 +276,7 @@ async function handleWebhook(req: Request): Promise<Response> {
     template_name: emailType,
     recipient_email: payload.data.email,
     status: 'pending',
+    company_id: companyId,
   })
 
   const { error: enqueueError } = await supabase.rpc('enqueue_email', {
@@ -281,6 +284,7 @@ async function handleWebhook(req: Request): Promise<Response> {
     payload: {
       run_id,
       message_id: messageId,
+      company_id: companyId,
       to: payload.data.email,
       from: `${brandName ?? SITE_NAME} <noreply@${FROM_DOMAIN}>`,
       sender_domain: SENDER_DOMAIN,
@@ -301,6 +305,7 @@ async function handleWebhook(req: Request): Promise<Response> {
       recipient_email: payload.data.email,
       status: 'failed',
       error_message: 'Failed to enqueue email',
+      company_id: companyId,
     })
     return new Response(JSON.stringify({ error: 'Failed to enqueue email' }), {
       status: 500,
