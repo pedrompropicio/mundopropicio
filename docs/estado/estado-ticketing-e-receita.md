@@ -48,6 +48,7 @@ Nada em curso.
 - **NÃO existe percentagem de referência da Ticketline.** Há um acordo verbal de repasse em torno de 85% das vendas do período, nunca exacto, com arredondamentos e mutável a qualquer momento. Não serve de base a cálculo nem a alarme.
 - **Fecho = direito do evento (D-ERP232); nunca abate adiantamentos.** Os 25 adiantamentos da Ticketline (2.008.500,00) têm transaction_id e settlement_id; `_ticket_office_balance_raw` só subtrai os que têm os dois a NULL — por isso a tabela é só leitura (INSERT/UPDATE/DELETE) e tem CHECK que impede ficar com os dois a NULL.
 
+- **Repasses da Ticketline não têm evento (#303).** Os repasses da Ticketline são genéricos, sobre as vendas quinzenais de todos os eventos à venda — não se sabe de que evento vem cada repasse. A atribuição por evento em `event_ticket_office_advances` é artefacto do modelo antigo, construída para o fecho dar zero, e NÃO tem valor probatório (ex.: adiantamentos SM Lisboa somam 194.527,58 = direito do evento ao cêntimo). Os repasses leem-se no Apuramento Ticketline, sem evento. As 25 notas estão carimbadas `[LEGADO #303: …]` (10/10/2026); o modal de fecho já não mostra adiantamentos.
 - **O saldo RETIDO numa bilheteira já É a posição actual.** Não se abate dele a posição do último apuramento — essa já está lá dentro. A decomposição é:
 
   ```
