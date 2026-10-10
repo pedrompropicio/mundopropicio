@@ -2,11 +2,12 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, FileText, RotateCcw, Pencil, CheckCircle2, AlertCircle, Loader2, Banknote, Clock } from "lucide-react";
+import { Plus, Eye, FileText, RotateCcw, Pencil, CheckCircle2, AlertCircle, Loader2, Banknote, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
 import { TicketOfficeSettlementModal } from "./TicketOfficeSettlementModal";
+import { TicketOfficeSettlementViewDialog } from "./TicketOfficeSettlementViewDialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -29,6 +30,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
 
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+  const [viewing, setViewing] = useState<any>(null);
   const [reversingId, setReversingId] = useState<string | null>(null);
   const [reverseReason, setReverseReason] = useState("");
   const [confirmingCredit, setConfirmingCredit] = useState<any | null>(null);
@@ -208,6 +210,14 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => setViewing(s)}
+                      className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      title="Ver fecho"
+                      aria-label="Ver fecho"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </button>
                     {s.document_url && (
                       <button
                         onClick={() => openDoc(s.document_url)}
@@ -320,6 +330,8 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
           })}
         </div>
       )}
+
+      <TicketOfficeSettlementViewDialog settlement={viewing} officeName={officeName} onClose={() => setViewing(null)} />
 
       {showModal && (
         <TicketOfficeSettlementModal

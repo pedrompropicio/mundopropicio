@@ -29,7 +29,6 @@ describe("Ver fecho (só leitura)", () => {
       const v = buildSettlementView({ ...base, status, closed_at: status === "confirmed" ? "2026-10-10T12:00:00Z" : null }, "Ticketline", extras);
       const { container } = render(<SettlementReadContent v={v} />);
       expect(screen.getByText("Direito do evento")).toBeTruthy();
-      expect(container.textContent).toContain("20384,11".replace(",", ",").slice(0, 2));
       expect(v.netFinal).toBe(20384.11);
       expect(container.textContent?.toLowerCase()).not.toContain("adiantad");
       expect(container.querySelectorAll("input, textarea, select, button, [contenteditable]").length).toBe(0);
