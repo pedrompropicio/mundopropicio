@@ -230,8 +230,8 @@ export default function TicketOffices() {
               <TabsTrigger value="dados">Dados</TabsTrigger>
               <TabsTrigger value="liquidez">Liquidez</TabsTrigger>
               <TabsTrigger value="vendas">Vendas / Bilhetes</TabsTrigger>
-              <TabsTrigger value="adiantamentos">Adiantamentos</TabsTrigger>
               <TabsTrigger value="fechos">Fechos</TabsTrigger>
+              <TabsTrigger value="apuramentos">Apuramentos</TabsTrigger>
             </TabsList>
           </div>
 
@@ -302,12 +302,14 @@ export default function TicketOffices() {
             </div>
           </TabsContent>
 
-          <TabsContent value="adiantamentos">
-            <TicketOfficeAdvancesPanel officeId={selectedOffice.id} officeName={selectedOffice.name} />
-          </TabsContent>
-
           <TabsContent value="fechos">
             <TicketOfficeSettlementsPanel officeId={selectedOffice.id} officeName={selectedOffice.name} />
+          </TabsContent>
+
+          {/* #303 — o apuramento é a prova; os adiantamentos são histórico do modelo anterior. */}
+          <TabsContent value="apuramentos" className="space-y-6">
+            <TicketOfficeStatementsPanel officeId={selectedOffice.id} />
+            <TicketOfficeAdvancesPanel officeId={selectedOffice.id} officeName={selectedOffice.name} />
           </TabsContent>
         </Tabs>
 
@@ -473,7 +475,6 @@ export default function TicketOffices() {
       <TicketOfficeEventsList />
 
       <TicketOfficeSettlementsOverview />
-      <TicketOfficeStatementsPanel />
 
       <TicketImportModal open={showImport} onClose={() => setShowImport(false)} />
       <FeverImportModal open={showFeverImport} onClose={() => setShowFeverImport(false)} />
