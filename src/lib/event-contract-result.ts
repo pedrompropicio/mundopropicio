@@ -71,7 +71,7 @@ export interface ContractResult {
    * evento) — só para o badge "≠ fecho". `null` enquanto não está calculado.
    */
   settlementResult: number | null;
-  /** true ⇒ a subtração das vistas dos cards difere do Lucro contratual. */
+  /** true ⇒ a vista dos cards difere da base do contrato (informativo). */
   differsFromSettlement: boolean;
   /** (#223, 09/10/2026) Subtração das vistas dos cards — só informativa. */
   viewResult: number;
@@ -125,12 +125,12 @@ export function computeEventContractResult(
     label = `${revMode ? `${revMode} · ` : ""}Receita ${revVatLabel} − Despesa ${expVatLabel}`;
   }
 
-  // (#223, decisão do Pedro 09/10/2026 — substitui "na capa mandam os botões"):
-  // o Lucro calcula-se na BASE CONTRATUAL (o mesmo número do Encontro de
-  // Contas, via computeContractBasisResult). As vistas dos cards só mudam o
-  // que se vê em cima; a subtração delas fica em `viewResult` para o aviso.
+  // (Adenda D-ERP213, 10/10/2026 — substitui a parte de 09/10): o "Resultado do
+  // evento (antes de impostos)" é a subtração das VISTAS dos cards de Receitas e
+  // Custos (IVA e perímetro escolhidos). A base do contrato (Encontro de Contas,
+  // computeContractBasisResult) fica em `settlementResult`, mostrada por baixo.
   const viewResult = revenueBase - expenseBase;
-  const result = settlementResult ?? viewResult;
+  const result = viewResult;
   return {
     calcBasis,
     withVat: vatViews.expense,

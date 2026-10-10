@@ -6,6 +6,8 @@ interface StatCardProps {
   title: string;
   value: string;
   subtitle?: string;
+  /** Linha secundária abaixo do subtítulo. */
+  footnote?: string;
   icon: LucideIcon;
   trend?: { value: string; positive: boolean };
   variant?: "default" | "primary" | "accent" | "warning";
@@ -28,7 +30,7 @@ const iconVariantStyles = {
   warning: "bg-warning/15 text-warning",
 };
 
-export function StatCard({ title, value, subtitle, icon: Icon, trend, variant = "default", forecast, executionPercent, tooltip }: StatCardProps) {
+export function StatCard({ title, value, subtitle, footnote, icon: Icon, trend, variant = "default", forecast, executionPercent, tooltip }: StatCardProps) {
   return (
     <div className={cn("glass rounded-xl p-5 animate-fade-in", variantStyles[variant])}>
       <div className="flex items-start justify-between">
@@ -62,6 +64,7 @@ export function StatCard({ title, value, subtitle, icon: Icon, trend, variant = 
             </div>
           )}
           {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+          {footnote && <p className="text-xs font-medium text-muted-foreground">{footnote}</p>}
           {trend && (
             <p className={cn("text-xs font-medium", trend.positive ? "text-success" : "text-destructive")}>
               {trend.positive ? "↑" : "↓"} {trend.value}

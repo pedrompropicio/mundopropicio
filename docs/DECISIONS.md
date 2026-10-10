@@ -4604,6 +4604,12 @@ Resoluções (mesmo dia):
 
 Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_admin_windows_contiguous` + `validate_event_admin_absorption` (events), CHECK `events_admin_window_required` passou a aceitar fim NULL, RPC `admin_cost_override_write` (a justificação só vive dentro da transacção, por isso a RPC faz a escrita). Memória: `.lovable/memory/features/janela-administrativa.md`.
 
+### Adenda (10/10/2026, Pedro) — janela com mais de um evento na empresa
+- 100% do custo administrativo vai ao evento que absorve (Editar Evento: "Absorve custos administrativos" + janela). Sem rateio automático entre eventos.
+- Outro evento da mesma empresa (ex.: Djavan 2027 na Coala) só recebe custo administrativo por `admin_cost_override`, com justificação.
+- Onde se configura (já existe): Editar Evento + Plano de Contas ("alocar ao evento ativo"). A 10.5.03 continua marcada onde está: a janela continua a dar-lhe evento, para o DRE por evento.
+- Nota: o Caetano Veloso Porto 2026 está na empresa Mundo Propício, não na Coala.
+
 ## D-ERP151 — #266: vista EBITDA ao lado do resultado (30/09/2026)
 - Coluna `account_categories.ebitda_class` (NULL = operacional; `financeiro`, `imposto_rendimento`, `amortizacao`).
 - Valores iniciais pelo código, em todas as empresas: 10.5.03 → imposto_rendimento; 10.6.02, 10.6.03, 10.6.04, 10.6.05 → financeiro. 10.6.01, 10.5.05 e 2.7.05 ficam operacionais. Sem modelo de Plano de Contas: contas novas escolhem a classe no formulário ("Classe para EBITDA").
@@ -4612,6 +4618,13 @@ Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_a
 - Ordem da ponte (ajuste 30/09/2026): Resultado → + Imposto sobre o rendimento → = Resultado antes de impostos (subtotal, só quando IRC ≠ 0) → + Resultado financeiro → + Amortizações → EBITDA. O valor do EBITDA não muda; linhas a zero escondem-se; o subtotal não entra em totais nem na distribuição a sócios.
 - Vista de análise: distribuição a sócios, MUNDO PROPÍCIO (x%), cachê e cascata do Fecho continuam sobre o resultado; o EBITDA nunca é base de repartição.
 - Why: o resultado passou a ser após impostos com a #264; faltava a leitura operacional sem juros/impostos.
+
+### Adenda (10/10/2026, Pedro) — IRC fora do resultado do evento; EBITDA só no DRE
+- Linhas de BP e transações cuja conta de lançamento tem `ebitda_class = 'imposto_rendimento'` NÃO entram no custo do evento. Regra única: `isIncomeTaxLine`/`withoutIncomeTax` em `supabase/functions/_shared/settlement/fecho-filters.ts`, aplicada em `computeEventCostOnBasis` e no motor do fecho (`computeEventSettlementTotals`, `collectSettlementExpenseDocLines`) e nas leituras que os alimentam (cards, lista de eventos, Encontro de Contas, Fecho do Evento, motor dos apuramentos, statement-service/Portal, PDFs de sócio, Rentabilidade). A classe lê-se no embed `account_categories(ebitda_class)` — quem alimenta estes cálculos tem de o trazer.
+- Financeiro e amortizações continuam dentro do resultado do evento ("antes de impostos").
+- O DRE (buildDRE / `eventCostLines`) não muda: IRC abaixo do resultado, com a ponte EBITDA.
+- O toggle Resultado/EBITDA sai do EventDetail; EBITDA e resultado após IRC só no DRE.
+- Prova Live (10/10): Coala Festival 2027 — custo committed s/IVA 1.661.925,00 → 1.647.762,00 (resultado +14.163,00); realizado 12.332,74 → 2.890,74 (+9.442,00). Único evento com IRC com event_id.
 
 ## D-ERP152 — Vigia diária Ticketline: portal de Produtores contra a plataforma (30/09/2026)
 - Fonte independente: `produtores.ticketline.pt`, Mapa de Ocupação (PDF), total = postos + internet + bilheteira (sem convites/cativos).
@@ -5189,6 +5202,11 @@ As regras do BP acima, do Desfazer (restaurar apenas campos alterados e validar 
 - #65/#64: verificado — EventFecho e PartnerSettlementTab já apuram o sócio por partnerUsesGrossExpenses(partner_calc_basis, expense_includes_iva); withVat é derivado do contrato e não é editável. expenseSource/includeOverhead são o critério GRAVADO no evento (D25 e2), não uma vista — continuam a entrar no apuramento.
 - PENDÊNCIA (Pedro): Mágicos Henry&Klaus mãe = net_result_gross_expenses, filhas = net_result. Herdam da mãe ou critério por cidade? Dados não tocados.
 - PENDÊNCIA (Pedro): invariante card = Encontro em SQL não feito — o cálculo vive em TypeScript partilhado; reimplementá-lo em SQL criaria uma segunda fonte. Com o Lucro a usar a mesma função do Encontro, a divergência é estrutural zero.
+
+### Adenda (10/10/2026, Pedro) — card volta à vista, com linha do contrato
+- Substitui a parte desta decisão que pôs o Lucro na base do contrato. O card passa a "Resultado do evento (antes de impostos)" e o número principal é Receitas − Custos nas vistas dos cards (IVA e perímetro).
+- Por baixo: "Base do contrato (fecho): X €" (`computeContractBasisResult`), o número do Encontro de Contas. O aviso ⚠ "vistas dos cards noutra base" sai.
+- Fecho, sócios, MUNDO PROPÍCIO (x%), cachê e cascata não mudam de base.
 
 ## D-ERP214 (09/10/2026) — #197/#73/#78: precedência única das séries diárias, cron por tipo de bilhete, importador sem séries paralelas
 - #197: `daily_sales_mirror_events()` é a regra única de precedência por evento (Ticketline = flag `daily_fallback_active`; BOL = config enabled; Onebox = existência de linhas). Usada por `vw_event_daily_sales` e `get_daily_sales_series` (migração 0060). `get_sales_position*` ainda têm a regra inline idêntica — migrar para a função quando forem tocadas.

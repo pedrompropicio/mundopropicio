@@ -13,7 +13,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import HelpTooltip from "@/components/HelpTooltip";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
-import { isValidFechoTransaction } from "@/lib/fecho-filters";
+import { isValidFechoTransaction, withoutIncomeTax } from "@/lib/fecho-filters";
 import {
   normalizePartnerCalcBasis,
   partnerUsesGrossExpenses,
@@ -118,11 +118,11 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
-        .select("id, type, amount, iva_rate, status, description, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, event_settlement_id, account_categories(name, code)")
+        .select("id, type, amount, iva_rate, status, description, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, event_settlement_id, account_categories(name, code, ebitda_class)")
         .in("event_id", allEventIds)
         .in("status", ["approved", "paid"]));
       if (error) throw error;
-      return (data || []).filter((t: any) => isValidFechoTransaction(t));
+      return withoutIncomeTax(data || []).filter((t: any) => isValidFechoTransaction(t));
     },
   });
 
@@ -146,14 +146,14 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, type, amount, iva_rate, category_id, description, is_transitory, exclude_from_result, event_settlement_id")
+        .select("id, event_id, type, amount, iva_rate, category_id, description, is_transitory, exclude_from_result, event_settlement_id, account_categories(ebitda_class)")
         .in("event_id", allEventIds)
         .eq("type", "expense")
         .eq("status", "approved")
         .eq("is_overhead", false)
         .is("version_id", null));
       if (error) throw error;
-      return (data || []).filter((f: any) => !f.is_transitory && !f.exclude_from_result);
+      return withoutIncomeTax(data || []).filter((f: any) => !f.is_transitory && !f.exclude_from_result);
     },
   });
 

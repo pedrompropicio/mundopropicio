@@ -18,7 +18,7 @@ decide-se no lançamento e não muda ao pagar.
 ## Contas bloqueadas
 10.1.*, 10.2.*, 10.3.*, 10.12.* nunca podem ser marcadas (`validate_category_allocate_flag`;
 ecrã bloqueia com tooltip). As restantes L3 do grupo 10 são configuráveis por empresa
-(o IRC, 10.5, é custo do evento).
+(o IRC, 10.5.03, continua marcado e recebe evento pela janela, para o DRE por evento; mas desde 10/10/2026 não entra no resultado do evento — adenda D-ERP151).
 
 ## Janelas
 - Início obrigatório; fim NULL = em aberto. Só Master/Single.
@@ -56,3 +56,6 @@ evento_escolhido, justificacao}. Sem uid (service_role, crons, edge functions) �
 
 ## Configuração
 Marcar contas e ligar a janela do Coala 2027 = frente 5, só depois disto em produção.
+
+## Mais de um evento na empresa (adenda D-ERP150, 10/10/2026)
+100% ao evento que absorve; outro evento da mesma empresa (ex.: Djavan 2027 na Coala) só por `admin_cost_override` com justificação. Sem rateio automático. Configura-se em Editar Evento + Plano de Contas. O Caetano Veloso Porto 2026 é da Mundo Propício, não da Coala.

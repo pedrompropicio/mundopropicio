@@ -17,13 +17,17 @@ describe("#148 — extras: as duas naturezas, base do sócio", () => {
   });
 });
 
-describe("#223 — Lucro na base do contrato, independente das vistas", () => {
+describe("#223 + adenda D-ERP213 (10/10) — resultado na vista; contrato por baixo", () => {
   const totals = { revenueNet: 326070.99, revenueGross: 345635.25, expensesNet: 306768.92, expensesGross: 344444.58 };
   const contract = computeContractBasisResult(totals, "net_result_gross_expenses");
   it("H&K: contrato = −18.373,59", () => expect(contract).toBeCloseTo(-18373.59, 2));
   for (const v of [{ revenue: true, expense: true }, { revenue: false, expense: false }, { revenue: false, expense: true }]) {
-    it(`vistas ${JSON.stringify(v)} não mexem no Lucro`, () => {
-      expect(computeEventContractResult(totals, v, undefined, contract, "net_result_gross_expenses").result).toBeCloseTo(-18373.59, 2);
+    it(`vistas ${JSON.stringify(v)}: resultado = vista; contrato inalterado`, () => {
+      const r = computeEventContractResult(totals, v, undefined, contract, "net_result_gross_expenses");
+      const rev = v.revenue ? totals.revenueGross : totals.revenueNet;
+      const exp = v.expense ? totals.expensesGross : totals.expensesNet;
+      expect(r.result).toBeCloseTo(rev - exp, 2);
+      expect(r.settlementResult).toBeCloseTo(-18373.59, 2);
     });
   }
 });
