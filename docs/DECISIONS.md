@@ -5576,3 +5576,40 @@ UPDATE transactions t SET category_id = m.category_id
    AND t.category_id = (SELECT id FROM account_categories a WHERE a.company_id = c.company_id AND a.code = '0.0.99')
    AND s.center_custo_norm = '<centro>';
 ```
+
+## D-ERP246 (10/10/2026) — #85 Despesas pagas por sócio — IMPLEMENTADO com defaults POR CONFIRMAR PELO PEDRO
+Aplica D-ERP223. Migração 0104.
+- (a) Devolução ao sócio = transação transitória (is_transitory, transitory_reason='devolucao_socio' — valor novo no domínio), exclude_from_result=true, rubrica 10.3, event_id do evento, supplier_id do sócio, nasce pendente. Não toca no custo (D-ERP3). — por confirmar.
+- (b) Sede = suppliers.country (ISO-2, default 'PT'); o sócio vive em suppliers via event_partners.supplier_id. — por confirmar.
+- (c) IVA (src/lib/partner-rebill-vat.ts): sócio PT → refatura com IVA à taxa de cada custo; fora de PT → fatura sem IVA; MP autoliquida só se o local do serviço (cities.country do evento; vazio = PT) for PT. — por confirmar.
+- (d) Fonte única = transactions.paying_partner_id. partner_paid_expenses = LEGADO (comentário na tabela); o painel novo não a lê; o Fecho continua a lê-la até ao alinhamento. — por confirmar.
+- (e) Ecrã: "Pagas pelo sócio" no topo do Encontro de Contas (PaidByPartnerPanel): por sócio nº, base, IVA faturado, IVA autoliquidado, a devolver, já gerado, botão "Gerar devolução" (pelo que falta).
+- Live: FEBRACIS (PT, Plenitude) 5 tx, base 38.247,20, IVA 100,68 (só 437,75 a 23%), a devolver 38.347,88. HENRY VARGAS (BR): 0 tx com paying_partner_id → painel vazio; em partner_paid_expenses 5 linhas IVA 0 (Mágicos 17.536,80; H&K Lisboa 36.872,85; Porto 23.873,78) → com BR + serviço em PT: autoliquidação 0,00, a devolver = base.
+Comandos prontos, NÃO corridos:
+```sql
+-- sede BR da HENRY VARGAS
+UPDATE public.suppliers SET country='BR' WHERE id='92eee446-4500-438b-9a5f-94ca4b08b819';
+-- alinhar as 6 linhas de partner_paid_expenses sem paying_partner_id
+UPDATE public.transactions t SET paying_partner_id=p.partner_id
+  FROM public.partner_paid_expenses p
+ WHERE p.transaction_id=t.id AND t.paying_partner_id IS NULL
+   AND p.id IN ('499ad7db-6c84-4649-814f-f5c6d7000c46','ce00bfc6-ccec-40d7-96a7-57b58471593d','ff7ab3b0-5a34-4741-9948-48e5002de4e9','67232cee-49f6-4fec-a0fb-3c5119bbb546','0be7d7ec-23cb-4caa-b0d8-5f56527a70f0','5a6a19f4-6ca9-41d9-a573-0b94452dd6a4');
+```
+
+## #266 (10/10/2026) — verificação: já feito em D-ERP151
+ebitda_class em account_categories (financeiro / imposto_rendimento / amortizacao), editável no Plano de Contas. Marcadas na MP: 10.5.03 IRC; 10.6.02–10.6.05. 10.6.01 taxas bancárias e 10.5.05 Selo ficam operacionais; não há rubrica de depreciações. Adenda do Pedro (10/10): EBITDA só no DRE, fora do resultado do evento — mantida; nada mudado. Live 2026 (aprovadas/pagas, sem transitórias): IRC 22.544,30; financeiro 2.967,18 → EBITDA = resultado + 25.511,48.
+
+## #194 (10/10/2026) — capítulo "BP e cachê"
+docs/manual/bp-e-cache.md (6 blocos ajuda: bp.modo, bp.linhas, bp.formula, bp.verba, bp.verba-por-usar, cache.config). Saíram de help-manual.ts 6 tópicos do capítulo "events" (BP, modos, regras, limites, cachê, extras do artista). Tooltips com anchor: EventForecast (bp.linhas), EventCacheConfig (cache.config). Falta Publish → Sincronizar manual (D-ERP79).
+
+## D-ERP247 (10/10/2026) — #303 Apuramento Ticketline como unidade de acerto — PROPOSTA, NÃO DECIDIDA
+Problema: hoje cada fecho de bilheteira por evento recebe repasses atribuídos à mão; o apuramento da Ticketline (ex. 3163/2026: SM Lisboa + Porto, Deive Braga; −49.050,59 a favor da Ticketline, a abater nas vendas do RG) junta vários eventos e transporta saldos.
+Modelo:
+- ticketline_statements: número, data, período (de/até), saldo anterior transportado, saldo final, adiantamento por conta de eventos futuros, estado (rascunho/confirmado), company_id, documentos (reutiliza ticket_office_statement_documents).
+- ticketline_statement_events: statement_id, event_id, vendas brutas, IVA, comissões, faturas da Ticketline imputadas, acertos de sala (ex. Fórum Braga 265,00), líquido do evento.
+- ticketline_statement_flows: repasses recebidos / pagos (ligam a transações 10.3), faturas (ligam a transactions).
+- Saldo final = saldo anterior + Σ líquidos − Σ repasses − adiantamento; negativo = a favor da Ticketline, transporta para o apuramento seguinte.
+Fecho por evento: o líquido de cada evento = a sua linha do apuramento (quota), não repasses atribuídos; o fecho fica só leitura nesse valor; vários apuramentos somam por evento.
+Migração dos fechos: SM Lisboa/Porto e Deive (3163) → criar o apuramento 3163 e ligar os fechos existentes como derivados; números iguais se a soma bater (diferença reportada, não corrigida). Ivete e Anitta (acertados fora do sistema / sem apuramento) ficam como hoje, marcados "fora de apuramento". Transações já lançadas não mudam.
+event_ticket_office_advances: deixam de abater por evento à mão; passam a ser linha "adiantamento" do apuramento; os 25 existentes ficam como histórico ligado ao apuramento que os absorveu.
+Decisões do Pedro: (1) apuramento só Ticketline ou genérico para todas as bilheteiras? (2) quota por evento: líquido declarado no apuramento ou repartição proporcional às vendas? (3) saldo negativo (3163): transportar ou abater nas vendas do RG como evento específico? (4) fechos já selados: re-derivar ou congelar? (5) adiantamentos: converter os 25 ou só daqui para a frente? (6) quem confirma o apuramento (admin/gestor)?
