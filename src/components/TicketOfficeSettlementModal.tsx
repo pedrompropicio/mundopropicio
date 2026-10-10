@@ -28,6 +28,7 @@ import { PAYMENT_METHOD } from "@/lib/payment-methods";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import HelpTooltip from "@/components/HelpTooltip";
 import { SETTLEMENT_FORM_LABELS, type SettlementForm } from "@/lib/ticket-office-settlement-form";
+import { isSettlementEligibleTxn } from "@/lib/ticket-office-settlement-eligible";
 
 
 interface Props {
@@ -245,7 +246,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     enabled: !!eventId,
     queryFn: async () => {
       const settlementFilter = `settlement_id.is.null,settlement_id.eq.${existingSettlement?.id ?? "00000000-0000-0000-0000-000000000000"}`;
-      const cols = "id, description, amount, iva_rate, paid_amount, status, account_id, operation_key, supplier_id, category_id, event_id, settlement_id, parent_transaction_id, split_amount, split_percentage, suppliers:suppliers!transactions_supplier_id_fkey(name), account_categories(name, code)";
+      const cols = "id, description, amount, iva_rate, paid_amount, status, account_id, operation_key, supplier_id, category_id, event_id, settlement_id, parent_transaction_id, split_amount, split_percentage, exclude_from_result, suppliers:suppliers!transactions_supplier_id_fkey(name), account_categories(name, code)";
 
       // 1) Direct expenses for this event (Splits also live here with parent_transaction_id set)
       const { data: direct } = await fetchAllPagedQuery((supabase as any)
@@ -310,20 +311,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       const eligible = all.filter((t) => {
         if (seen.has(t.id)) return false;
         seen.add(t.id);
-        // #272: a perna de despesa da transferência do fecho (create_settlement_transfer)
-        // NUNCA é dedução — tem settlement_id deste fecho e está paga pela bilheteira,
-        // mas já é o próprio líquido. Excluída antes da excepção "já ligada ao fecho".
-        if (existingSettlement?.transfer_transaction_id && t.id === existingSettlement.transfer_transaction_id) return false;
-        if (typeof t.operation_key === "string" && t.operation_key.startsWith("TRF-FECHO-")) return false;
-        // Always keep transactions already linked to this settlement (when editing).
-        // This is the ONLY exception to the advance exclusion above.
-        if (existingSettlement && t.settlement_id === existingSettlement.id) return true;
-        if (advanceTxnIds.has(t.id)) return false;
-        // Eligible: pending/approved (to be liquidated by the settlement) OR
-        // already paid by this very box-office account (e.g. registered via "Nova despesa liquidada").
-        if (t.status === "pending" || t.status === "approved") return true;
-        if (t.status === "paid" && t.account_id === officeId) return true;
-        return false;
+        return isSettlementEligibleTxn(t, officeId, existingSettlement, advanceTxnIds);
       });
 
       // 4) Filhos de rateio nunca são pagáveis (não recebem account_id): se o Master
