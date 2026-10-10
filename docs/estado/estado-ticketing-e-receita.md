@@ -1,15 +1,14 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-10-10 (#303 direito do evento no fecho, D-ERP232; apuramento Ticketline, D-ERP231) · Issues: `agora` — · `a-seguir` #206 · `depois` #73, #78 · `bloqueada` #211 (transversal, plataforma-e-infra)
+Atualizado: 2026-10-10 · #303 entregue parcialmente, permanece aberta · Issues: `agora` — · `a-seguir` #206 · `depois` #73, #78 · `bloqueada` #211 (transversal, plataforma-e-infra)
 
 ## Em vigor
 
-- **Vigia ticketline-crosscheck (D-ERP152).** Corrida diária 06:50 UTC (cron `ticketline-crosscheck-daily`, jobid 1640), tabela `ticketline_crosscheck_runs`, alerta como condição **(e)** de `check_ticketing_sync_health()`. Limiar revisto a 02/10: alerta com **pelo menos 3 bilhetes E pelo menos 1% da quantidade do portal**, em duas leituras diárias seguidas; o valor em euros deixou de ser gatilho e é só informação; evento não encontrado no portal alerta logo à primeira leitura. Motivo da revisão: com o limiar absoluto de 100 €, o SM Porto alertava com 2 bilhetes de diferença em 4.921 (0,04%).
-- **Série diária do BOL.** A validação deixou de depender só da linha TOTAL do Mapa Diário: passa a aceitar também a validação pelo total do M2 da mesma corrida (soma dos dias = M2 em quantidade e valor ao cêntimo; `validated_by = m2_total` + aviso) e recusa quando nenhum dos dois bate. Quando falha, grava `daily_debug` no `import_audit` com a janela de tokens à volta de cada ocorrência de TOTAL. Alerta novo: condição **(f)** — 6 corridas seguidas com status ≠ `success` na mesma config (warning conta), anti-spam 12h.
-- **Conferência portal de Produtores (D-ERP191/192).** Fonte = variação do occupation.xlsx; o PDF é só informativo; sinal **(g)** = "PDF parado com xlsx a mexer".
-- **A vigia não tem canal empurrado (D-ERP197, 09/10).** O único canal é o indicador do Dashboard (`TicketingDivergenceIndicator`, bloco "Por bilheteira"), por empresa activa. Mostra TODAS as condições: vermelho (a) falha persistente, (b) parado >6h, (d) captura horária parada, (f) 6 corridas sem sucesso; âmbar (e) e (g) — a (g) diz que é problema do fornecedor; (c) import desligado só informativo. Cálculo único em `ticketing_sync_conditions()`, usado pela vigia e pelo RPC do ecrã `get_ticketing_sync_status()` (filtro `row_belongs_to_current_company`). Sem email, sem WhatsApp, sem lembrete: a chave `ticketing_sync_stalled:*` deixou de existir. Cron 217 morto em definitivo.
-- **Fechos de bilheteira por evento e transversais (#271, 09/10; D-ERP232, 10/10).** Bloco "Fecho de bilheteira" no separador Bilheteira da ficha do evento; lista "Todos os fechos de bilheteira" em /bilheteiras com filtro por bilheteira e por evento. Mostra bruto, deduções, **direito do evento**, data, estado, forma de liquidação (derivada ou declarada à mão, as duas visíveis; inclui "Incluído no Apuramento Ticketline nº X" com ligação) e sempre as notas. RPC `get_ticket_office_settlements_overview`, isolada por empresa.
-- **Direito do evento no fecho (D-ERP232).** `net_calculated` = bruto − deduções − retido pela sala − saldo de fatura pago pela bilheteira. Adiantamentos não entram (histórico em leitura no modal). Fecho ligado a apuramento: o passo da transferência mostra a forma e a ligação, sem formulário. Ajuste da receita bruta e do direito exigem justificação.
+- **Apuramento Ticketline (D-ERP231).** `ticket_office_statements` e `ticket_office_statement_lines` distinguem direitos de eventos, faturas, acertos de sala, repasses e transitados. `statement_id` liga o fecho ao apuramento. Apuramentos 2558 e 3163 registados; o 3163 continua em rascunho, com PDF anexado e posição do documento −49.050,59. A soma fecha no total, mas a reconciliação linha a linha com o corte do PDF ainda falta.
+- **Fecho = DIREITO do evento (D-ERP232).** Bruto − deduções − retido pela sala − saldo de fatura pago pela bilheteira; nunca abate adiantamentos. Forma de liquidação derivada, com correcção manual justificada em campo próprio; ambas permanecem distinguíveis. Ajustes do bruto e do direito exigem justificação. Lista transversal e ficha do evento usam `get_ticket_office_settlements_overview`, isolada por empresa.
+- **Página da bilheteira (D-ERP233).** Dados · Liquidez · Vendas/Bilhetes · Fechos · Apuramentos. Histórico de adiantamentos dentro de Apuramentos; fora do modal de fecho. Retido em destaque, sem heurística dos 15%. Apuramentos mostram três cartões, diferença de calendário discreta e clicável, subtotais por tipo e significado da posição.
+- **Vigia de ticketing (D-ERP152/191/192/197).** Fonte do portal de Produtores = occupation.xlsx; PDF informativo. Crosscheck diário às 06:50 UTC: pelo menos 3 bilhetes E 1% da quantidade do portal, em duas leituras seguidas; evento não encontrado alerta logo. Série BOL valida pelo TOTAL do Mapa Diário ou pelo M2 da mesma corrida; se falhar, guarda `daily_debug`.
+- **Canal único da vigia:** indicador por empresa no Dashboard, sem email/WhatsApp/lembrete. `ticketing_sync_conditions()` alimenta `get_ticketing_sync_status()`: vermelho (a) falha persistente, (b) parado >6h, (d) captura horária parada, (f) 6 corridas BOL sem sucesso; âmbar (e) divergência e (g) PDF parado com xlsx a mexer; (c) import desligado é informativo. Cron 217 desactivado em definitivo.
 
 ## A trabalhar agora
 
@@ -17,88 +16,68 @@ Nada em curso.
 
 ## Bloqueios
 
-- **#211 (plataforma-e-infra)** — o `notify_sync_action_needed()` aponta em Live para o projeto de TEST antigo e é um no-op; bilheteira já não depende dele, mas Coala e Fever continuam sem aviso próprio.
-- **#78** — o import da Ticketline não limpa a série antiga quando o formato muda.
-- **#73** — corte por tipo de bilhete.
+- **#303 — cadeia de apuramentos incompleta.** Quatro eventos acertados fora do sistema de apuramentos:
+  - Ivete Clareou 2026: tem fecho, sem apuramento.
+  - Henry&Klaus Porto: tem fecho, sem apuramento.
+  - Maiara e Maraisa Lisboa: sem fecho e sem apuramento, saldo zero.
+  - Maiara e Maraisa Porto: sem fecho e sem apuramento, saldo zero.
+  O que já foi acertado depende do conhecimento do Pedro, não de uma cadeia completa no sistema. O transitado chega como valor opaco. Resolver exige os PDFs dos apuramentos anteriores ao 3163 (1158/2816 ainda não registados). Não inventar ligações, fechos ou valores.
+- **#303 — reconciliação documental por fazer.** O 3163 fecha no total, mas as linhas do sistema não espelham o corte do PDF da Ticketline. Conferir linha a linha antes de concluir a issue; fechar a soma não prova equivalência documental.
+- **#211 (plataforma-e-infra):** `notify_sync_action_needed()` aponta em Live para o Test antigo e é um no-op; bilheteira já não depende dele, mas Coala/Fever continuam sem aviso próprio.
+- **#78:** import Ticketline não limpa a série antiga quando o formato muda.
+- **#73:** corte por tipo de bilhete.
+- **Prova de isolamento ainda por fazer:** chamadas das edge functions corrigidas com sessão válida de outra empresa; testes de chave pública/token forjado não substituem essa prova.
+- **Noutras frentes, abertas:** #304 (rubrica 10.3) e #305 (invariante de caixa negativa). Fora do âmbito deste fecho documental.
+- **Ligação «ver apuramento»:** abrir o separador Apuramentos antes de saltar para a âncora continua por resolver.
 
 ## Fechado a 10/10/2026
 
-- **#303 — fecho mostra o direito do evento (D-ERP232).** 4 fechos migrados (Ivete 490.417,77; Anitta 2.411.336,17; SM Lisboa 194.527,58; SM Porto 226.454,85); H&K Lisboa, H&K Porto e Plenitude iguais ao cêntimo. Saldo Ticketline 207.301,17 antes e depois; net_transferred/transfer_account_id intactos; nenhum resultado de evento mudou. Adiantamentos: CHECK + trigger só-leitura também em DELETE.
+Entregas da #303, sem fechar a issue:
 
-- **#303 passo 2 — Apuramento Ticketline (D-ERP231).** Tabelas `ticket_office_statements` + `ticket_office_statement_lines` (event_right, ticketline_invoice, venue_settlement, advance, carry_over); `ticket_office_settlements.statement_id`; `event_ticket_office_advances` só de leitura (trigger). Anitta (ed7b4b3c): as pernas 10.3 f4c66167 (905.000,00) e 43807ccb (402.836,17) passaram de dedução a repasse no apuramento 2558 — deduções 12.863,83, direito 2.411.336,17, total 2558 = 0. Apuramento 3163 em rascunho, com PDF anexado: Σ linhas −49.050,59 = total do documento; os 265,00 do Deive são a bilheteira local do Forum Braga (venue_settlement), resolvidos por documento. Nenhum resultado de evento mudou (BP, vendas e transações iguais; saldo Ticketline inalterado antes e depois).
+- **D-ERP231:** modelo de apuramento, ligação ao fecho e histórico só-leitura. 2558 e 3163 registados. Os 265,00 do Deive são bilheteira local do Forum Braga (`venue_settlement`), resolvidos pelo PDF, não por diferença.
+- **D-ERP232:** quatro fechos migrados para direito do evento, três inalterados; formas derivada/manual separadas. Retido inalterado nas verificações antes/depois, transferências e resultados dos eventos preservados.
+- **Repasses:** secção retirada do modal de fecho; 25 registos carimbados `[LEGADO #303]`, sem apagar nem desligar ligações. Protecção só-leitura e CHECK preservados.
+- **FKs:** cinco chaves repostas em `event_ticket_office_advances`, ON DELETE RESTRICT; embed dos apuramentos desambiguado pela FK de `statement_id`. Leitura autenticada voltou a mostrar o histórico.
+- **Página:** Apuramentos próprio, adiantamentos como histórico lá dentro, heurística dos 15% removida, três cartões e listas, resumos por tipo e explicação da posição. Nota do 3163 sem números móveis. Cartões verificados em desktop/mobile; testes focados passaram. Sem Publish nesta sessão.
 
 ## Fechado a 09/10/2026
 
-- **#283 — auditoria de isolamento multiempresa, RESOLVIDA (D-ERP194 a D-ERP205).** Seis partes. Base: 3 políticas e 12 funções SECURITY DEFINER com guarda da empresa da linha. Funções de servidor: 9 sondas e ficheiros temporários esquecidos apagados, ~20 funções com sessão e papel na empresa da linha, ramo service role validado no Auth em 10 funções e nos 4 helpers partilhados. Dados: 618 leads órfãos adoptados e a origem corrigida por gatilho. verify_jwt declarado explicitamente em todas as funções. Três invariantes diários.
-- **#267 — Mapa de Ocupação da Ticketline parado. FECHADA POR DECISÃO DO PEDRO, não por resolução.** Não se reporta ao fornecedor. A 09/10: Almada 129 bilhetes / 4.300,00 €, Braga 138 / 4.470,00 €, Estoril 26 / 910,00 €; total 293 bilhetes / 9.680,00 € que o PDF do portal não reflecte, enquanto o occupation.xlsx do mesmo portal bate certo com as nossas vendas. Cinco outros eventos coincidem ao cêntimo na mesma leitura, logo não é do nosso lado. Nenhum número nosso depende do PDF. Continua vigiado pelo sinal (g) no indicador do Dashboard.
-- **#271 — fechos de bilheteira por evento e lista única.** Forma de liquidação provada nos 5 fechos da Mundo Propício: Plenitude e H&K Lisboa = transferência própria; H&K Porto = encontro de contas; Anitta e Ivete = compensado.
-- **Vigia toda no ecrã (D-ERP197).** Dry-run antes e depois: as mesmas 2 × (g), RG Almada e RG Braga. (a) forçada numa transacção anulada → vermelho. Isolamento provado por impersonação do michel (Coala) nos RPC do ecrã: 0 divergências, 0 condições de sync, 0 fechos; o Pedro vê 2, 2 e 5. **Por fazer:** a prova equivalente por impersonação nas edge functions — as que foram corrigidas recusam a chave pública e o token forjado, mas nunca foram testadas com uma sessão válida de outra empresa.
+- **#283:** auditoria de isolamento multiempresa (D-ERP194–205): políticas/funções com guarda da empresa, remoção de sondas esquecidas, validação do ramo de serviço e invariantes. A prova com sessão válida de outra empresa nas edge functions fica explicitamente em Bloqueios.
+- **#267:** fechada por decisão do Pedro, não por resolução do fornecedor. O PDF do Mapa de Ocupação não reflecte o occupation.xlsx; nenhum cálculo nosso depende do PDF. Continua vigiado por (g); não reportar ao fornecedor.
+- **#271:** fechos por evento e lista transversal entregues; a forma de liquidação passou depois ao modelo D-ERP232.
+- **D-ERP197:** vigia no ecrã; isolamento do RPC provado por impersonação e sinal vermelho testado numa transacção anulada.
 
 ## Fechado a 08/10/2026
 
-- **#282 (fuga de dados entre empresas nos alertas) — FECHADA.** `check_ticketing_sync_health` filtra destinatários por `ur.company_id = v_company`; platform_admin só entra com papel nessa empresa. A função deixou de enviar: devolve o plano por empresa e escreve o lembrete. Dry-run de 08/10: uma só empresa no plano, Mundo Propício.
-- **#272 (modal de fecho de bilheteira) — fechada**, verificada em ecrã pelo Pedro.
-- **Fecho da bilheteira do Plenitude refeito pelo fluxo:** bruto 112.842,00 €, deduções 33.342,96 €, líquido 79.499,04 €, par `TRF-FECHO-D7042A04`. Saldo BOL 72.950,00 €.
-- **Série diária BOL reposta** com um segundo validador pelo total do M2, que apanhou o defeito real (906 vs 982).
-- **Sync Onebox reposto** (2.917 / 164.029,25 €) e acrescentado à vigia de saúde.
-- **Índice de memória** passa a ser gerado por `scripts/gen-memory-index.mjs`, com teste que falha se o ficheiro for editado à mão.
+- **#282:** destinatários dos alertas isolados por empresa; função devolve plano e escreve lembrete em vez de enviar.
+- **#272:** modal de fecho verificado pelo Pedro; fecho Plenitude refeito pelo fluxo.
+- Série diária BOL reposta com validação alternativa pelo M2; sync Onebox reposto e incluído na vigia.
+- Índice de memória gerado por `scripts/gen-memory-index.mjs`, protegido por teste.
 
 ## Factos que não se reinvestigam
 
-- **Cartões de posição nos Apuramentos (#303, 10/10).** «Valor por apurar» soma SALDOS (vendas + movimentos da conta por evento) dos eventos sem fecho E sem apuramento; os liquidados em dinheiro entram a zero, mesmo sem fecho. «Já adiantado» é o absoluto da posição do último apuramento; «Saldo retido» vem da fórmula canónica e já inclui essa posição. Para posição negativa: valor por apurar − já adiantado + diferença de calendário = saldo retido, ao cêntimo. A diferença é de calendário (custos apropriados nos fechos ainda não descontados e eventos à espera do apuramento): linha discreta clicável, nunca pendência, tarefa, alerta ou desvio. Resumo de cada apuramento por tipo; posição negativa = crédito para o seguinte, positiva = valor a entregar à MP. Notas não guardam saldos móveis.
-
-- **NÃO existe percentagem de referência da Ticketline.** Há um acordo verbal de repasse em torno de 85% das vendas do período, nunca exacto, com arredondamentos e mutável a qualquer momento. Não serve de base a cálculo nem a alarme.
-- **Fecho = direito do evento (D-ERP232); nunca abate adiantamentos.** Os 25 adiantamentos da Ticketline (2.008.500,00) têm transaction_id e settlement_id; `_ticket_office_balance_raw` só subtrai os que têm os dois a NULL — por isso a tabela é só leitura (INSERT/UPDATE/DELETE) e tem CHECK que impede ficar com os dois a NULL.
-
-- **Repasses da Ticketline não têm evento (#303).** Os repasses da Ticketline são genéricos, sobre as vendas quinzenais de todos os eventos à venda — não se sabe de que evento vem cada repasse. A atribuição por evento em `event_ticket_office_advances` é artefacto do modelo antigo, construída para o fecho dar zero, e NÃO tem valor probatório (ex.: adiantamentos SM Lisboa somam 194.527,58 = direito do evento ao cêntimo). Os repasses leem-se no Apuramento Ticketline, sem evento. As 25 notas estão carimbadas `[LEGADO #303: …]` (10/10/2026); o modal de fecho já não mostra adiantamentos.
-- **Página da bilheteira (D-ERP233).** Liquidez mostra o retido e a sua composição (posição apurada + vendas sem fecho + por conciliar, resíduo sem alarme); sem percentagem de referência nem desvio. Ecrã vazio com dados na base = verificar FKs/ambiguidade do embed do PostgREST (PGRST200/PGRST201 engolidos ficam em silêncio) — foi a causa nos adiantamentos (sem FKs, corrigido na 0079) e nos apuramentos (duas FKs para statements).
-- **O saldo RETIDO numa bilheteira já É a posição actual.** Não se abate dele a posição do último apuramento — essa já está lá dentro. A decomposição é:
-
-  ```
-  retido = posição já apurada (pode ser negativa)
-         + vendas de eventos ainda sem fecho
-         + itens de conciliação por lançar
-  ```
-
-  Ticketline a 10/10/2026, medido às 15:27 de Lisboa:
-
-  ```
-  207.301,17 = −49.050,59 + 248.692,00 + 7.659,76
-  ```
-
-  - `−49.050,59` posição apurada até ao 3163 (negativa por causa do transitado de 271.416,37 do apuramento 2816)
-  - `248.692,00` os 8 eventos do RG, nenhum com fecho: Porto 69.603,00 · Braga 44.985,00 · Lisboa 35.660,00 · Almada 28.760,00 · Estoril 23.195,00 · Albufeira 22.040,00 · Santarém 15.745,00 · Montijo 8.704,00
-  - `7.659,76` itens de conciliação (ver abaixo)
-
-  **O que ainda reduz o retido** são SÓ as deduções dos apuramentos que faltam fazer — comissão da bilheteira, acertos de sala, faturas de campanha. NUNCA a posição já apurada, que já está dentro do retido.
-
-  **Itens de conciliação** são duas coisas, e nenhuma é dinheiro a haver:
-  - faturas da bilheteira lançadas **sem conta**, que por isso ainda não baixaram o saldo. Caso actual: FT FA.2026/3159, transações 4fffa03d (6.009,78) e 015d2665 (1.384,98) = 7.394,76, ambas com account_id a null.
-  - **bilheteira local da sala**, que está nas nossas vendas mas nunca passou pela bilheteira. Caso actual: 265,00 do Forum Braga (D-ERP231).
-
-  **O erro a não repetir:** dizer que a posição do último apuramento "sai" do retido, ou que o retido não é a posição real. O retido é dinheiro verdadeiro que a bilheteira tem da Mundo Propício, e é a favor da MP.
-
-- **Linha do evento no apuramento Ticketline = a nossa bilheteira bruta − a bilheteira local da sala (D-ERP231).** Confirmado no 3163/2026: SM Porto 256.330,00 − 254.135,00 = 2.195,00 (Super Bock Arena); SM Lisboa 208.945,00 − 206.345,00 = 2.600,00 (Sagres Campo Pequeno); Deive Braga 20.659,00 − 20.394,00 = 265,00 (Forum Braga). Distinto do "ACERTO SALA", que vem em linha própria (−26.673,10 Super Bock Arena, −10.904,61 Sagres Campo Pequeno).
-
-- **Os números de fecho conferem-se sempre nos dois portais da Ticketline;** o portal do produtor é o mais assertivo. A Juliana faz conferência directa de todas as informações e vendas.
-- **Apuramento Ticketline ≠ fecho do evento (D-ERP231).** O fecho mostra o direito do evento; repasses e transitados vivem só no apuramento. Posição da conta = Σ direitos apurados − Σ faturas sem evento apurado − Σ repasses (08/10: 1.019.194,17 − 19.000,76 − 1.048.244,00 = −49.050,59). A posição apurada prova-se pelo apuramento, não por ler o saldo da conta — mas o saldo retido É dinheiro verdadeiro da MP e já inclui a posição apurada. Ver o facto "O saldo RETIDO numa bilheteira já É a posição actual" nesta mesma secção, com a decomposição e os números actuais.
-- **Fecho de bilheteira (fluxo completo):** ler `.lovable/memory/features/settlement-transfer-pair.md`, `venue-retained-door-sales.md`, `ticket-office-reconciliation.md` e `ticket-office-sales-scope.md` antes de diagnosticar.
-- **Vigia de sync:** `.lovable/memory/features/ticketing-sync-health.md` (condições a–g, cálculo único `ticketing_sync_conditions()`, canal único o indicador — D-ERP197).
-- **Crosscheck portal de Produtores:** `.lovable/memory/features/ticketline-crosscheck.md` (correspondência por data+recinto, limiar 3 bilhetes E 1%).
-- **Série diária por evento:** `public.vw_event_daily_sales` — precedência por evento (espelhos vs `ticket_sales`), as duas famílias nunca se somam no mesmo evento.
-- **Conta-corrente MP↔Ticketline:** o débito que transita decompõe-se em Ivete (−215.582,23) + H&K Porto (−55.834,14) = −271.416,37; a posição da conta é positiva para a MP (283.427,63 € a 13/09). Não voltar a confundir saldo de fecho com posição da conta.
-- **Transferência entre contas** = par `expense`+`income` na rubrica 10.3 via `create_settlement_transfer`; nunca `type: 'transfer'`. Estorno apaga as duas pernas pela `operation_key`.
-- **A perna da transferência do fecho nunca é dedução** — está excluída da lista de elegíveis do modal por `id = transfer_transaction_id` e por `operation_key TRF-FECHO-%`. Um fecho com transferência lançada não se reconfirma; estorna-se.
-- **Uma correcção corre de ponta a ponta ou não começa.** Apagar metade e deixar o resto por fazer deixa dois saldos errados.
-- **Verificar o papel não é filtrar a linha (D-ERP194).**
-- **A receita de bilheteira vive em `ticket_sales`, não em `transactions`. É por desenho.**
-- **Neste projecto, uma edge function sem bloco no config.toml corre SEM verificação de assinatura no portão.** O valor por omissão documentado pelo Supabase não se aplica aqui. Verificado em Live a 09/10 com o mesmo token forjado: função sem bloco devolve o erro dela; função com verify_jwt=true devolve UNAUTHORIZED_LEGACY_JWT do portão.
-- **Declarar verify_jwt no config.toml não basta: a definição só vale depois de a função ser reimplantada.** Depois de um Publish, as declarações novas ainda estavam desarmadas.
-- **Um teste que lê a configuração não prova o comportamento.** O invariante das edge functions leva por isso uma sonda real contra o portão.
-- **Um comentário que mente esconde o defeito durante meses** (o cabeçalho da crm-meta-create-purchase-audience dizia "sem getUser()" depois de passar a ter).
-- **Um helper partilhado de auth corrigido à pressa parte tudo o que o importa, e ninguém dá por isso enquanto ninguém usar a funcionalidade.**
+- **Somas de `ticket_sales`: SEMPRE `coalesce(total_value, quantity * unit_price)`.** Mesma expressão de `_ticket_office_balance_raw`. Somar apenas `total_value` dá zero onde o campo é NULL. Caso de 10/10/2026: Maiara e Maraisa Lisboa e Porto, vendas históricas de 360.591,50 lidas como zero por esse erro. Nas leituras da app, usar `get_ticket_office_sales`; nunca somar uma resposta truncada do PostgREST.
+- **Identidade dos cartões:** `valor por apurar − já adiantado + diferença de calendário = saldo retido` (posição do último apuramento negativa). «Valor por apurar» soma SALDOS dos eventos sem fecho E sem apuramento, não vendas brutas; liquidados em dinheiro entram a zero. «Já adiantado» = absoluto da posição do último apuramento. Se a posição for positiva, é valor a entregar à MP, não adiantamento.
+- **Diferença de calendário:** custos apropriados nos fechos ainda não descontados pela bilheteira e eventos à espera do apuramento. Nunca pendência, tarefa, alerta ou desvio; sem cor/ícone de aviso. Notas e estado não congelam retido, valor por apurar nem diferença: consultam-se na hora.
+- **O saldo RETIDO já É a posição actual:** dinheiro verdadeiro da MP, a favor da MP. A posição apurada já está dentro dele; NUNCA se abate novamente. A prova da posição apurada lê-se do apuramento, não inferindo-a do saldo retido. Só deduções ainda não reflectidas nos apuramentos futuros poderão reduzir o retido.
+- **Fecho ≠ apuramento:** o primeiro mostra direito do evento; repasses/transitados vivem no segundo, sem imputação a evento. Posição negativa = crédito da bilheteira para o seguinte; positiva = valor a entregar à MP. A posição documental do 3163 é −49.050,59.
+- **Repasses genéricos:** vendas quinzenais de todos os eventos à venda, sem saber de que evento vem cada repasse. A atribuição por evento no histórico é artefacto do modelo antigo, construído para o fecho dar zero, sem valor probatório. As 25 notas têm `[LEGADO #303]`.
+- **Adiantamentos não se desligam nem apagam:** histórico só-leitura (INSERT/UPDATE/DELETE), CHECK `etoa_never_open_chk`. `_ticket_office_balance_raw` só subtrai os que têm `transaction_id` E `settlement_id` ambos NULL; os históricos ligados já entram pela transacção.
+- **NÃO existe percentagem de referência da Ticketline:** acordo verbal em torno de 85% das vendas do período, nunca exacto, com arredondamentos e mutável. Sem valor de cálculo nem de alarme.
+- **Ecrã vazio com dados na base: verificar FKs.** Tabela sem chave estrangeira quebra o embed do PostgREST (PGRST200); relação ambígua dá PGRST201. Se o erro for engolido, o ecrã fica vazio EM SILÊNCIO. Verificar chamada real, não apenas configuração, antes de atribuir a RLS.
+- **Corte do PDF:** linha do evento = bilheteira bruta menos bilheteira local da sala, distinta do «ACERTO SALA». Os 265,00 do Forum Braga foram documentados assim. Esta regra não prova que as actuais linhas do sistema já espelhem todo o PDF: reconciliação em aberto.
+- **Conferência de fecho:** sempre nos dois portais Ticketline; o portal do produtor é o mais assertivo. A Juliana confere directamente vendas e documentos.
+- **Receita:** vive em `ticket_sales`, não em `transactions`. Série `vw_event_daily_sales` tem precedência por evento entre espelhos e `ticket_sales`; nunca somar as duas famílias no mesmo evento.
+- **Transferência:** par expense+income na rubrica 10.3 via `create_settlement_transfer`, nunca `type='transfer'`; estorno das duas pernas pela `operation_key`. Perna do fecho não é dedução (`transfer_transaction_id`/`TRF-FECHO-%`); fecho com transferência não se reconfirma, estorna-se.
+- Uma correcção é integral ou não começa. Verificar papel não substitui filtrar empresa (D-ERP194).
+- **Funções públicas:** configuração sem bloco explícito não prova assinatura no portão; declaração só vale após reimplantação. Teste de configuração não prova comportamento: sonda real obrigatória. Comentário antigo não é prova do código, e helper de auth afecta todos os importadores.
 
 ## Onde ler mais
 
-- `.lovable/memory/features/` — índice gerado por `node scripts/gen-memory-index.mjs` (D-ERP158); secção "Por onde começar" do índice.
-- Regra do ritual: antes de diagnosticar um fluxo já implementado, nomear o ficheiro de `.lovable/memory/features/` que foi lido (D-ERP162).
+- `.lovable/memory/features/ticket-office-statements.md` — apuramentos, repasses e significado das posições.
+- `.lovable/memory/features/ticket-office-sales-scope.md` e `ticket-office-reconciliation.md` — fonte das vendas, saldo e âmbitos.
+- `.lovable/memory/features/settlement-transfer-pair.md` e `venue-retained-door-sales.md` — fluxo completo do fecho.
+- `.lovable/memory/features/ticketing-sync-health.md` e `ticketline-crosscheck.md` — vigia e conferência do portal.
+- `docs/DECISIONS.md` — D-ERP231/232/233 e adendas; GitHub #303 — cadeia e reconciliação ainda abertas.
+- Handoff desta sessão: `docs/handoffs/2026-10-10-ticketing-e-receita.md` (arquivo, não fonte de estado).
+- Antes de diagnosticar, nomear a memória lida (D-ERP162); índice gerado por `scripts/gen-memory-index.mjs`.
