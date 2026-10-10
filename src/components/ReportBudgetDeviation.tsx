@@ -61,7 +61,7 @@ export default function ReportBudgetDeviation() {
       if (!selectedEventId) return [];
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
-        .select("category_id, amount, type, status, is_transitory, exclude_from_result")
+        .select("category_id, amount, type, status, is_transitory, exclude_from_result, reversed_at, is_hidden")
         .eq("event_id", selectedEventId)
         .eq("type", "expense")
         .in("status", ["approved", "paid"]));
