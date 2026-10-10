@@ -492,7 +492,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
     y = (doc as any).lastAutoTable.finalY + 8;
 
     // Acerto sócios
-    if (settlements.length > 0) {
+    if (!blocked && settlements.length > 0) {
       if (y > 230) { doc.addPage(); y = 16; }
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
@@ -694,10 +694,10 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
       )}
 
       {/* Acerto com Sócios */}
-      {settlements.length > 0 && hasMixedExpenseBases && (
+      {!blocked && settlements.length > 0 && hasMixedExpenseBases && (
         <p className="text-[11px] leading-snug text-amber-600 dark:text-amber-500">{mixedBasesNote}</p>
       )}
-      {settlements.length > 0 && (
+      {!blocked && settlements.length > 0 && (
         <div className="glass rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-border/50 bg-muted/30 flex items-center gap-2">
             <ArrowRightLeft className="h-4 w-4 text-primary" />
