@@ -5501,3 +5501,43 @@ UPDATE public.email_send_log l SET company_id = p.company_id
 - #114 fase 2 (migrações 0099/0100): enforce_transaction_approval_permission recusa (P0409) INSERT aprovado/pago e UPDATE→approved de despesa cuja linha ficaria acima de event_forecasts.amount (base líquida; realizado approved/paid sem transitórias, excluídas, revertidas, escondidas; tolerância 0,005; FOR UPDATE na linha). Isenções mantidas: auth.uid() NULL, parent_transaction_id, UPDATE→paid. baseline_amount não lido. Live antes: 13 linhas em 8 eventos já acima da verba (Σ excesso 5.467,85; RG26 Santarém 1.360,00; H&K Lisboa 4 linhas 1.288,24; Ivete Clareou 1.101,42; Anitta EDA 933,21; FestVybbe 660,00; Deive Braga 116,00; H&K Madrid 8,94; Deive 0,04) — nada corrigido; só novas aprovações nessas linhas exigem elevar.
 - #143: a captação horária (onebox-sync-hourly) não toca on_sale; onebox-on-sale-sessions nunca correu (0 registos on_sale_*, sem cron); a página ECI dá 403 Cloudflare. Alternativa: na BI do evento, "Pôr à venda"/"Retirar da venda" por sessão (mustWrite + registo em onebox_sync_runs mode on_sale_manual com quem/quando/antes/depois) e aviso quando a leitura automática falhou ou não corre (só eventos com sessões faseadas). Live confirmado: 19 à venda, 20 não lançadas; nada alterado.
 - #281 verificação: débitos Santander 09/10 -72,33 "Seguro RC Plenitude-E18382798" e -65,65 "Seguro Monitores Plenitude-E18382724", ambos matched às transações 40da4765/fe18ebe5; extrato importado cobre 02/10–09/10. O UPDATE de cancelamento de D-ERP226 NÃO se aplica. Raio de alcance reconstruído hoje: 30 transações (19 listas; 14 service, 16 state) — difere dos 35 de D-ERP226 (critério reconstruído); 6 conciliadas, 24 sem movimento; só 1 paga dentro do período coberto pelos extratos (desde 31/08).
+
+## D-ERP243 (10/10/2026) — #264 verificação, #252 portal_error_log, #213 ficheiros inalcançáveis
+
+### #264 — empresa de evento único (já implementado em D-ERP150, 30/09)
+- Live hoje: triggers `trg_enforce_admin_window_event` + `trg_admin_windows_contiguous` activos; `admin_cost_override` em role_permissions = admin, manager; `src/lib/admin-cost-allocation.ts` já removido (sem consumidores) — DRE sem absorção virtual, totais inalterados.
+- O estado de Live NÃO é o descrito na issue: 1 evento absorve (Coala Festival Portugal 2027, 01/09/2026 → 31/08/2027); Coala com 35 L3 marcadas (10.4.*, 10.5.03, 10.5.05, 10.6.01–03, 10.7.*–10.11.*); 10.1.01–03 já desmarcadas.
+- Testes com rollback (Live, nada gravado): sem evento na janela → 42501 "Esta conta é custo do evento Coala Festival Portugal 2027…"; manager + justificação → aceita e grava 1 linha em system_audit_log; sem permissão → 42501; 01/08/2026 (fora da janela) → livre.
+- Comandos prontos (NÃO corridos) para alinhar com a decisão "Coala 2027 desde 29/08/2026, fim em aberto":
+```sql
+-- 1) desmarcar 10.1.01–03 (hoje já desmarcadas; idempotente)
+UPDATE account_categories SET allocate_to_active_event=false
+ WHERE company_id='7d831e59-6e82-427b-95a0-64904aae5dd2' AND code IN ('10.1.01','10.1.02','10.1.03');
+-- 2) marcar todas as L3 de 10.4 a 10.11 (inclui 10.5 IRC e 10.6)
+UPDATE account_categories SET allocate_to_active_event=true
+ WHERE company_id='7d831e59-6e82-427b-95a0-64904aae5dd2' AND code ~ '^10\.[0-9]+\.[0-9]+$'
+   AND split_part(code,'.',1)='10' AND split_part(code,'.',2)::int BETWEEN 4 AND 11;
+-- 3) Coala 2027 absorve desde 29/08/2026, fim em aberto (Coala 2026 não se mexe)
+UPDATE events SET admin_window_start='2026-08-29', admin_window_end=NULL
+ WHERE id='49cb03de-331d-415c-97cc-b8b0695b015e' AND absorbs_admin_costs;
+```
+
+### #252 — portal_error_log
+- Migração 0101: entrada em `backup_excluded_tables` (motivo: registo de erros de front anónimo, sem valor histórico); invariante `backup_tabelas_excluidas` referência 1 → 2; função `purge_portal_error_log(p_days default 90)` (service_role).
+- Não há cron genérico de retenção de tabelas da app (os existentes: cleanup-old-backups = ficheiros de backup; cron-purge-run-details = cron.job_run_details; ticketline-sync-runs-retention; meta-creatives-retention; traffic-events-anonymize). Agendar em Live (SQL Editor, crons não propagam):
+```sql
+SELECT cron.schedule('portal-error-log-retention','25 3 * * *','SELECT public.purge_portal_error_log(90);');
+```
+- Já em `src/lib/postgrest-large-tables.json`. Hoje: 1.826 linhas, mais antiga 23/09/2026 → a 1.ª corrida apagaria 0.
+
+### #213 — documentos inalcançáveis (varredura 10/10)
+- 25 (critério do invariante `documentos_inalcancaveis`). Nenhum em `_trash`, nenhum com o mesmo nome noutro bucket. Os backups guardam só a listagem (`storage-manifest.json`, 30 dias), não os ficheiros → nada restaurável do backup.
+- 19 linhas = 2 comprovativos da Lista de Pagamento b0f58e19 (parcialmente aprovada, 06/08): `…/payment-lists/b0f58e19…/1786187009740.pdf` (2 transações) e `…/1786439164641.pdf` (17). Também faltam em payment_list_documents. Pedir o comprovativo SEPA ao banco.
+- Candidatos com outro nome (mesma transação) — comando pronto, NÃO corrido; confirmar abrindo o ficheiro antes:
+```sql
+-- H&K Lisboa, IMOBIMACUS 3.266,50 (09/04): ficheiro 16 min anterior no mesmo transaction_id
+UPDATE transaction_documents SET file_url='b851ffbd-50a0-4462-8254-1e02e6a36fb2/1775742727380.pdf' WHERE id::text LIKE '89751203%';
+-- (alternativa: apagar a linha se o 1775742727380.pdf já estiver ligado por outra linha)
+-- Material Escritório MP 92,13 (21/08): 3 ficheiros carregados a 07/10 no mesmo transaction_id (6b964779) — provável recarga; apagar a linha fc36ff8f se já estiverem ligados.
+```
+- Sem rasto em lado nenhum (pedir documento): J.C.DECAUX 2.128,00 (09/04, Mágicos H&K, tx e2ed0d05, 2 ficheiros); Padaria 7,99 (15/07, Anitta EDA, tx 33b29e81, sem fornecedor); Padaria 8,81 (21/07, Anitta EDA, tx cba93475, sem fornecedor).

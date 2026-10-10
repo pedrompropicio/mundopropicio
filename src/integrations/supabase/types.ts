@@ -20240,6 +20240,7 @@ export type Database = {
           slug: string
         }[]
       }
+      purge_portal_error_log: { Args: { p_days?: number }; Returns: number }
       purge_revoked_youtube_data: { Args: never; Returns: Json }
       raise_forecast_budget: {
         Args: {
