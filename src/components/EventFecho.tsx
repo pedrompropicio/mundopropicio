@@ -4,6 +4,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Download, FileBarChart2, TrendingUp, TrendingDown, ArrowRightLeft, Users, Layers } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 import { formatCurrency } from "@/lib/mock-data";
 import { calcTotalWithIva, roundCents } from "@/lib/iva";
 import { format } from "date-fns";
@@ -380,6 +382,24 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
     expenses: expensesOp,
   });
   const blocked = hasBlockingPrecondition(preconditions);
+
+  // (#89) Colher benchmarks para o Simulador (idempotente; também corre ao selar).
+  const [collecting, setCollecting] = useState(false);
+  async function collectBenchmarks() {
+    setCollecting(true);
+    try {
+      const { data, error } = await supabase.rpc("collect_event_benchmarks" as any, { _event_id: eventId });
+      if (error) throw error;
+      const r = (data ?? {}) as any;
+      if (!r.ok) throw new Error("Resposta inesperada");
+      toast.success(`Benchmarks colhidos: ${r.curve_buckets} dias de curva (${r.tickets} bilhetes)` +
+        (r.ab_per_capita != null ? `, per capita A&B ${r.ab_per_capita}` : ", sem A&B real"));
+    } catch (e: any) {
+      toast.error(`Não foi possível colher benchmarks: ${e?.message ?? e}`);
+    } finally {
+      setCollecting(false);
+    }
+  }
   const mixedBasesNote =
     "Sócios com bases de cálculo diferentes: a quota de cada um segue a base do respetivo contrato, pelo que não existe um resultado único e a soma das quotas não fecha contra um único total.";
 
@@ -548,6 +568,10 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
           </div>
           <Button size="sm" variant="outline" onClick={exportPdf}>
             <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
+          </Button>
+          <Button size="sm" variant="outline" onClick={collectBenchmarks} disabled={collecting}
+            title="Grava a curva de vendas (D-180…D0) e o per capita A&B para o Simulador reutilizar. Também corre ao selar.">
+            <Layers className="mr-1.5 h-3.5 w-3.5" /> {collecting ? "A colher…" : "Colher benchmarks"}
           </Button>
         </div>
       </div>
