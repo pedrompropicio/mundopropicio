@@ -5358,5 +5358,7 @@ Customer Match:
 - `event_ticket_office_advances`: histórico só de leitura (trigger recusa INSERT/UPDATE; dados ficam). Ecrãs de adiantamento desligados.
 - Anitta 2558: as pernas 10.3 (905.000,00 e 402.836,17) são repasses, não deduções — direito 2.411.336,17, total 0. Faturas de evento já apurado (FT 3159 Ivete) contam só no apuramento onde aparecem; o direito fica congelado.
 - 3163 em rascunho com a linha do Deive (≈265,00) pendente do PDF; não se fecha por diferença.
+- **Adenda 10/10 (Pedro):** o PDF do 3163 existia (o mesmo dos fechos SM Lisboa 9557adbe e SM Porto 1950c08e) e foi anexado ao apuramento. Os 265,00 **não são dedução**: são a bilheteira local do Forum Braga (linha venue_settlement −265,00). Σ linhas = −49.050,59 = document_total; resolvido por documento, não por diferença.
+- **Regra:** a linha de cada evento no apuramento Ticketline = a nossa bilheteira bruta − o que a sala vendeu na bilheteira local. Confirmado no 3163: SM Porto 256.330,00 − 254.135,00 = 2.195,00 (Super Bock Arena); SM Lisboa 208.945,00 − 206.345,00 = 2.600,00 (Sagres Campo Pequeno); Deive Braga 20.659,00 − 20.394,00 = 265,00 (Forum Braga). Distinto do "ACERTO SALA", que o documento lista em linha própria (−26.673,10 Super Bock Arena, −10.904,61 Sagres Campo Pequeno).
 - Fora: 1158 e 2816 ainda não registados (o 3163 leva o transitado do 2816 como linha sem ligação); 120,00 do SM Porto continuam em ticket_sales; ecrã de criação; Publish.
 
