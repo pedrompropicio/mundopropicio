@@ -110,7 +110,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("ticket_office_statements")
-        .select("id, number, statement_date, document_total, status, ticket_office_statement_lines(id, line_type, position, description, amount, event_id)")
+        .select("id, number, statement_date, document_total, status, ticket_office_statement_lines!ticket_office_statement_lines_statement_id_fkey(id, line_type, position, description, amount, event_id)")
         .eq("financial_account_id", officeId)
         .order("statement_date", { ascending: false });
       if (error) throw error;

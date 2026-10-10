@@ -22,7 +22,7 @@ export function TicketOfficeStatementsPanel({ officeId }: { officeId?: string } 
     queryFn: async () => {
       let q = (supabase as any)
         .from("ticket_office_statements")
-        .select("id, number, statement_date, document_total, status, notes, ticket_office_statement_lines(id, line_type, position, description, amount, pending_document, notes)")
+        .select("id, number, statement_date, document_total, status, notes, ticket_office_statement_lines!ticket_office_statement_lines_statement_id_fkey(id, line_type, position, description, amount, pending_document, notes)")
         .order("statement_date", { ascending: false });
       if (officeId) q = q.eq("financial_account_id", officeId);
       const { data, error } = await q;
