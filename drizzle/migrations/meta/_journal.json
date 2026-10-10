@@ -519,6 +519,13 @@
       "when": 1791603008669,
       "tag": "0073_bp_link_same_event_only_and_anchor_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1791603490335,
+      "tag": "0074_emails_presos_pending_ignore_sent_pairs",
+      "breakpoints": true
     }
   ]
 }
