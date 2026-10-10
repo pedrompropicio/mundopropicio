@@ -52,8 +52,8 @@ export async function fetchKnownBankDate(client: any, txIds: string[]): Promise<
   const ids = [...new Set(txIds.filter(Boolean))];
   if (ids.length === 0) return null;
   const [direct, multi] = await Promise.all([
-    client.from("bank_statement_lines").select("matched_transaction_id, value_date, booking_date").in("matched_transaction_id", ids),
-    client.from("bank_line_transactions").select("transaction_id, bank_statement_lines(value_date, booking_date)").in("transaction_id", ids),
+    client.from("bank_statement_lines").select("matched_transaction_id, value_date, booking_date").in("matched_transaction_id", ids).limit(1000),
+    client.from("bank_line_transactions").select("transaction_id, bank_statement_lines(value_date, booking_date)").in("transaction_id", ids).limit(1000),
   ]);
   const byTx = new Map<string, string | null>();
   for (const r of direct.data ?? []) byTx.set(r.matched_transaction_id, bankDateOf(r));
