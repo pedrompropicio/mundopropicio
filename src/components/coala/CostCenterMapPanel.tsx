@@ -34,10 +34,19 @@ export default function CostCenterMapPanel() {
       const cfgIds = (cfgs ?? []).map((c: any) => c.id);
       const { data: rows, error: re } = cfgIds.length
         ? await fetchAllPagedQuery(supabase.from("coala_sync_row_state")
-            .select("center_custo_norm, net_amount_cents, event_forecasts(category_id)")
+            .select("center_custo_norm, net_amount_cents, forecast_id")
             .in("config_id", cfgIds).order("id", { ascending: true }))
         : { data: [], error: null };
       if (re) throw re;
+      // forecast_id não tem FK (sem embed): lê as rubricas actuais por blocos.
+      const fIds = Array.from(new Set(((rows ?? []) as any[]).map((r) => r.forecast_id).filter(Boolean)));
+      const catByForecast = new Map<string, string | null>();
+      for (let i = 0; i < fIds.length; i += 100) {
+        const { data: fs, error: fe } = await supabase.from("event_forecasts").select("id, category_id").in("id", fIds.slice(i, i + 100)).limit(100);
+        if (fe) throw fe;
+        for (const f of (fs ?? []) as any[]) catByForecast.set(f.id, f.category_id);
+      }
+      for (const r of (rows ?? []) as any[]) r.category_id = r.forecast_id ? catByForecast.get(r.forecast_id) ?? null : null;
       const { data: cats, error: ke } = await supabase.from("account_categories").select("id, code, name, parent_id")
         .eq("company_id", companyId!).eq("is_active", true).order("code").limit(1000);
       if (ke) throw ke;
@@ -56,7 +65,7 @@ export default function CostCenterMapPanel() {
       if (!cc) continue;
       const e = m.get(cc) ?? { cc, n: 0, value: 0, hist: [] };
       e.n++; e.value += Number(r.net_amount_cents || 0) / 100;
-      e.hist.push({ category_id: r.event_forecasts?.category_id ?? null });
+      e.hist.push({ category_id: r.category_id ?? null });
       m.set(cc, e);
     }
     const mapped = new Map(data.map.map((x) => [x.cost_center_raw, x.category_id]));
