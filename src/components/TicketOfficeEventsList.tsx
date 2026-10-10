@@ -256,7 +256,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
           {events.map((ev: any) => {
             const s = eventSummaries[ev.id] || { revenue: 0, expenses: 0, ivaRevenue: 0, ivaExpenses: 0, qty: 0, firstSaleDate: null, lastSaleDate: null, lastImportDate: null, importPeriodFrom: null, importPeriodTo: null };
             const ivaBalance = s.ivaRevenue - s.ivaExpenses;
-            const fmtD = (d: string | null) => d ? format(new Date(d), "dd/MM/yyyy") : "—";
+            const fmtD = (d: string | null) => d ? formatDatePT(d) : "—";
             return (
               <TableRow
                 key={ev.id}
@@ -267,7 +267,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
                   <div>
                     <p className="font-medium text-sm truncate max-w-[220px]">{ev.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {format(new Date(ev.date), "dd/MM/yyyy")} · {s.qty} bilhetes
+                      {formatDatePT(ev.date)} · {s.qty} bilhetes
                     </p>
                     <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                       {s.firstSaleDate && (

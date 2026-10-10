@@ -316,7 +316,7 @@ export function TicketOfficeAdvancesPanel({ officeId, officeName }: Props) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium">
-                          {new Date(a.advance_date).toLocaleDateString("pt-PT")}
+                          {formatDatePT(a.advance_date)}
                         </span>
                         {a.target_account?.name && (
                           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
