@@ -21,12 +21,13 @@ describe("#89 curva histórica", () => {
   });
   it("solveForecast: curva prior muda a projeção; sem curva igual ao defeito", () => {
     const d = new Date(Date.now() + 20 * 86400000).toISOString().slice(0, 10);
-    const sessions: any[] = [{ day_index: 0, zone_label: "Pista", real_qty: 900, real_revenue: 9000, courtesy_qty: 0, forecast_qty: 0, avg_ticket_override: null, iva_pct: 6 }];
+    const sessions: any[] = [{ day_index: 0, zone_label: "Pista", real_sales_qty: 900, real_sales_revenue: 9000, courtesy_qty: 0, forecast_qty: 0, avg_ticket_override: null, iva_pct: 6 }];
     const info: any = { "0-Pista": { capacity: 5000, days_selling: 90, lots: [{ lot_number: 1, price: 10, quantity: 5000, sold: 900 }] } };
     const base = solveForecast(sessions, {} as any, info, d);
     const same = solveForecast(sessions, {} as any, info, d, { priorCurve: [] });
     const prior = solveForecast(sessions, {} as any, info, d, { priorCurve: curve });
-    expect(same.totals?.forecastQty ?? JSON.stringify(same)).toEqual(base.totals?.forecastQty ?? JSON.stringify(base));
-    expect(JSON.stringify(prior)).not.toEqual(JSON.stringify(base));
+    expect(JSON.stringify(same)).toEqual(JSON.stringify(base));
+    expect(prior.qtyByKey["0-Pista"]).toBe(1000);
+    expect(base.qtyByKey["0-Pista"]).not.toBe(1000);
   });
 });
