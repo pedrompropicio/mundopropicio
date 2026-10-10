@@ -1,12 +1,13 @@
 # Roadmap — épica #146 (e)
 
-## Folha de crescimento — período de comparação (D-ERP235 proposta)
-- [ ] Acrescentar p_from preservando resultado integral sem período; aguardando autorização do passo seguinte.
-- [ ] Testar MD5 integral na mesma transacção e bases/deltas de 7 e 28 dias; documentar decisão e commit.
+## Folha de crescimento — período de comparação (D-ERP235 autorizada)
+- [x] Acrescentar p_from preservando resultado integral sem período; autorizado sem novas confirmações.
+- [x] Testar MD5 integral na mesma transacção e bases/deltas de 7 e 28 dias; documentar decisão e commits.
 
-## Relatório de investimento — D-ERP236 proposta
-- [ ] Resolver contrato de seis/sete métricas e incompatibilidade entre câmbio pedido e igualdade com o relatório actual.
-- [ ] Criar função reutilizando o relatório canónico, testar Litto e desempenho, registar decisão e commit.
+## Relatório de investimento — D-ERP236 autorizada
+- [x] Sete KPIs/séries, BCE canónico sem alterar relatório existente; igualdade pela soma das campanhas por plataforma, tempo SQL.
+- [x] Criar função reutilizando a lógica canónica, testar Litto e desempenho SQL abaixo de 2 s; registar decisão e commits.
+- [ ] Projecção Google numérica — bloqueada por orçamento diário ausente nos snapshots de três campanhas activas; retorna null, sem inventar orçamento nem alterar dados.
 
 ## #303 — correcção da explicação da diferença
 - [x] Corrigir texto e memória: movimentos já feitos pela bilheteira, ainda não reflectidos no nosso registo; nenhuma escrita financeira.

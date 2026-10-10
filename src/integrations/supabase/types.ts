@@ -17820,6 +17820,15 @@ export type Database = {
         Args: { p_offset_id: string; p_origin_payment_id: string }
         Returns: string
       }
+      _artist_ads_investment_source: {
+        Args: {
+          p_artist_id: string
+          p_country?: string
+          p_from: string
+          p_to: string
+        }
+        Returns: Json
+      }
       _artist_metric_momentum: {
         Args: { _d30: number; _d7: number; _d90: number }
         Returns: number
@@ -18165,6 +18174,10 @@ export type Database = {
       _scope_event_ids_to_company: {
         Args: { _event_ids: string[] }
         Returns: string[]
+      }
+      _song_growth_summary_initial: {
+        Args: { p_song_id: string; p_to?: string }
+        Returns: Json
       }
       _supplier_resolve_or_create: {
         Args: {
@@ -18641,6 +18654,10 @@ export type Database = {
           video_views_6s: number
           view_content: number
         }[]
+      }
+      artist_ads_investment_report: {
+        Args: { p_artist_id: string; p_from?: string; p_to?: string }
+        Returns: Json
       }
       artist_ads_link_song: {
         Args: { p_campaign_id: string; p_platform: string; p_song_id: string }
@@ -20571,7 +20588,7 @@ export type Database = {
         }[]
       }
       song_growth_summary: {
-        Args: { p_song_id: string; p_to?: string }
+        Args: { p_from?: string; p_song_id: string; p_to?: string }
         Returns: Json
       }
       song_link_event_canal: {
