@@ -20,7 +20,7 @@
 ## Smart links — chegada SSR (despacho D-ERP189)
 - [x] D-ERP234 adenda: deploy e prova Live sem client_ip, UA vazio: 200, origin ssr, hash/geo null, other; 24 testes passaram. Meta tentou sem IP (400 nesta prova sem UA/cookies), TikTok enviado; sem DDL.
 - [x] D-ERP234: migração 0080 aplicada, função implantada, 11 testes focados passaram; Live: 401 sem escrita, browser/repetição uma linha, Meta/TikTok enviados, cookie completado; segredo não criado.
-- [ ] Provar SSR válida, repetição browser e prefetch autenticado — bloqueado por SONG_LINK_SSR_KEY, que Pedro configura igual no ERP e Portal.
+- [ ] Completar provas anteriores de repetição browser e prefetch autenticado; chave já configurada e SSR sem IP comprovada nesta adenda. Fora do âmbito desta adenda.
 
 ## #303 — cartões e resumo de apuramentos
 - [x] Cartões com saldos dos eventos sem fecho e sem apuramento, diferença de calendário e listas.
