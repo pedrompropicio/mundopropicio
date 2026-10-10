@@ -4,6 +4,7 @@ import { fetchExportBranding, drawPdfExportHeader } from "@/lib/export-header";
 import { formatDatePT } from "@/lib/utils";
 import { formatCurrency } from "@/lib/mock-data";
 import { formatLisbonDateTime } from "@/lib/date-lisbon";
+import { sourceLabel } from "@/lib/ticket-office-statement-documents";
 import { settlementPdfFileName, SETTLEMENT_STATUS_LABEL, type SettlementView } from "@/lib/ticket-office-settlement-view";
 
 // Helvetica/WinAnsi do jsPDF não suporta U+2212; normalizar também os traços
@@ -58,6 +59,21 @@ export async function exportTicketOfficeSettlementPdf(v: SettlementView) {
     footStyles: { fillColor: [230, 230, 230], textColor: 20 },
   });
   y = (doc as any).lastAutoTable.finalY + 6;
+
+  // Documentos do APURAMENTO ligado — só nomes e natureza, sem links.
+  if (v.statementNumber && v.statementDocuments.length > 0) {
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(sanitizeSettlementPdfText(`Documentos do apuramento ${v.statementNumber}`), 14, y);
+    autoTable(doc, {
+      startY: y + 2,
+      head: pdfRows([["Documento", "Natureza"]]),
+      body: pdfRows(v.statementDocuments.map((d) => [d.fileName, sourceLabel(d.source)])),
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [40, 40, 40] },
+    });
+    y = (doc as any).lastAutoTable.finalY + 6;
+  }
 
   const lines: [string, string][] = [];
   if (v.venueRetainedAmount > 0) lines.push(["Retido pela sala", formatCurrency(v.venueRetainedAmount) + (v.venueRetainedNotes ? ` — ${v.venueRetainedNotes}` : "")]);

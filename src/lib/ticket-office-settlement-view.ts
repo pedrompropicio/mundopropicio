@@ -15,6 +15,13 @@ export interface SettlementDeduction {
   value: number;
 }
 
+export interface SettlementStatementDocument {
+  id: string;
+  fileName: string;
+  source: string;
+  filePath: string;
+}
+
 export interface SettlementView {
   id: string;
   status: string;
@@ -23,6 +30,8 @@ export interface SettlementView {
   settlementDate: string | null;
   officeName: string;
   statementNumber: string | null;
+  /** Documentos do APURAMENTO ligado (não o document_url do fecho). Vazio sem apuramento. */
+  statementDocuments: SettlementStatementDocument[];
   grossRevenue: number;
   totalDeductions: number;
   netFinal: number;
@@ -59,7 +68,7 @@ export function settlementPdfFileName(eventName: string, settlementDate: string 
 export function buildSettlementView(
   s: any,
   officeName: string,
-  extras: { deductions: SettlementDeduction[]; statementNumber: string | null; closedByName: string | null },
+  extras: { deductions: SettlementDeduction[]; statementNumber: string | null; closedByName: string | null; statementDocuments?: SettlementStatementDocument[] },
 ): SettlementView {
   return {
     id: s.id,
@@ -69,6 +78,7 @@ export function buildSettlementView(
     settlementDate: s.settlement_date ?? (s.created_at ? String(s.created_at).slice(0, 10) : null),
     officeName,
     statementNumber: extras.statementNumber,
+    statementDocuments: s.statement_id ? extras.statementDocuments ?? [] : [],
     grossRevenue: Number(s.gross_revenue || 0),
     totalDeductions: Number(s.total_deductions || 0),
     netFinal: Number(s.net_adjusted ?? s.net_calculated ?? 0),
@@ -98,7 +108,10 @@ export async function fetchSettlementView(s: any, officeName: string): Promise<S
         .order("description"),
     ),
     s.statement_id
-      ? (supabase as any).from("ticket_office_statements").select("number").eq("id", s.statement_id).maybeSingle()
+      ? (supabase as any).from("ticket_office_statements")
+          .select("number, ticket_office_statement_documents!ticket_office_statement_documents_statement_id_fkey(id, file_name, file_path, document_source, created_at)")
+          .eq("id", s.statement_id)
+          .maybeSingle()
       : Promise.resolve({ data: null }),
     s.closed_by
       ? (supabase as any).from("profiles").select("full_name, email").eq("id", s.closed_by).maybeSingle()
@@ -111,10 +124,14 @@ export async function fetchSettlementView(s: any, officeName: string): Promise<S
     value: deductionGross(t.amount, t.iva_rate),
   }));
   const pr = (prRes as any)?.data;
+  const statementDocuments: SettlementStatementDocument[] = [...((stRes as any)?.data?.ticket_office_statement_documents ?? [])]
+    .sort((a: any, b: any) => String(a.created_at).localeCompare(String(b.created_at)))
+    .map((d: any) => ({ id: d.id, fileName: d.file_name, source: d.document_source, filePath: d.file_path }));
   return buildSettlementView(s, officeName, {
     deductions,
     statementNumber: (stRes as any)?.data?.number != null ? String((stRes as any).data.number) : null,
     closedByName: pr ? pr.full_name || pr.email || null : null,
+    statementDocuments,
   });
 }
 

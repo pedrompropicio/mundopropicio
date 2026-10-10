@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/mock-data";
 import { formatDatePT } from "@/lib/utils";
 import { formatLisbonDateTime } from "@/lib/date-lisbon";
+import { openStatementDocument, sourceLabel } from "@/lib/ticket-office-statement-documents";
 import { fetchSettlementView, SETTLEMENT_STATUS_LABEL, type SettlementView } from "@/lib/ticket-office-settlement-view";
 
 /** Corpo de leitura do fecho — sem campos editáveis, nada grava. */
@@ -70,6 +71,23 @@ export function SettlementReadContent({ v }: { v: SettlementView }) {
       {v.notes && <p><span className="font-semibold">Notas do fecho:</span> {v.notes}</p>}
       {v.adjustmentNotes && <p><span className="font-semibold">Notas de ajuste:</span> {v.adjustmentNotes}</p>}
       {v.grossAdjustmentNotes && <p><span className="font-semibold">Notas de ajuste do bruto:</span> {v.grossAdjustmentNotes}</p>}
+      {v.statementNumber && v.statementDocuments.length > 0 && (
+        <div data-testid="settlement-statement-docs">
+          <p className="font-semibold mb-1">Documentos do apuramento {v.statementNumber}</p>
+          <ul className="space-y-0.5">
+            {v.statementDocuments.map((d) => (
+              <li key={d.id}>
+                <button
+                  type="button"
+                  className="hover:underline text-left"
+                  onClick={async () => { const err = await openStatementDocument(d.filePath); if (err) toast.error(err); }}
+                >{d.fileName}</button>
+                <span className="text-xs text-muted-foreground"> · {sourceLabel(d.source)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {v.status === "confirmed" && (
         <p className="text-xs text-muted-foreground">Fechado por {v.closedByName ?? "—"}{v.closedAt ? ` em ${formatLisbonDateTime(v.closedAt)}` : ""}</p>
       )}

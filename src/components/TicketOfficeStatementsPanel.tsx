@@ -4,6 +4,9 @@ import { formatCurrency } from "@/lib/mock-data";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle } from "lucide-react";
 import { statementTypeTotals } from "@/lib/ticket-office-position";
+import { useAuth } from "@/contexts/AuthContext";
+import { TicketOfficeStatementDocuments } from "@/components/TicketOfficeStatementDocuments";
+import { STATEMENT_DOCUMENTS_EMBED } from "@/lib/ticket-office-statement-documents";
 
 const SUMMARY_LABEL: Record<string, string> = {
   event_right: "Direitos dos eventos apurados",
@@ -26,12 +29,15 @@ const TYPE_LABEL: Record<string, string> = {
  * linhas pendentes de documento ficam destacadas e bloqueiam a confirmação.
  */
 export function TicketOfficeStatementsPanel({ officeId }: { officeId?: string } = {}) {
+  const { user, isAdmin, isManager } = useAuth();
+  // Igual à RLS de ticket_office_statement_documents: escrita só admin/manager.
+  const canManageDocs = isAdmin || isManager;
   const { data = [] } = useQuery({
     queryKey: ["ticket-office-statements", officeId ?? null],
     queryFn: async () => {
       let q = (supabase as any)
         .from("ticket_office_statements")
-        .select("id, number, statement_date, document_total, status, notes, ticket_office_statement_lines!ticket_office_statement_lines_statement_id_fkey(id, line_type, position, description, amount, pending_document, notes)")
+        .select("id, number, statement_date, document_total, status, notes, ticket_office_statement_lines!ticket_office_statement_lines_statement_id_fkey(id, line_type, position, description, amount, pending_document, notes), " + STATEMENT_DOCUMENTS_EMBED)
         .order("statement_date", { ascending: false });
       if (officeId) q = q.eq("financial_account_id", officeId);
       const { data, error } = await q;
@@ -88,6 +94,7 @@ export function TicketOfficeStatementsPanel({ officeId }: { officeId?: string } 
             </dl>
             <p className="text-sm text-muted-foreground">{sum < -0.005 ? `A bilheteira adiantou ${formatCurrency(Math.abs(sum))} a mais do que os eventos renderam e leva esse valor como crédito para o apuramento seguinte.` : sum > 0.005 ? `A bilheteira tem ${formatCurrency(sum)} a entregar à MP.` : "A posição está a zero: não há valor a entregar à MP nem crédito a levar para o apuramento seguinte."}</p>
             {s.notes && <p className="text-xs text-muted-foreground">{s.notes}</p>}
+            <TicketOfficeStatementDocuments statementId={s.id} documents={s.ticket_office_statement_documents ?? []} canManage={canManageDocs} userId={user?.id ?? null} />
           </div>
         );
       })}
