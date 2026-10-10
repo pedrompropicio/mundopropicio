@@ -14,6 +14,17 @@ import { Button } from "@/components/ui/button";
 import { FileSpreadsheet } from "lucide-react";
 import { partnerUsesGrossExpenses } from "@/lib/partner-calc-basis";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { keepRootPerimeter } from "@/lib/settlement-perimeter";
+import { hasResultBlockingFlags } from "@/lib/fecho-filters";
+import {
+  bpLinePeriodDate,
+  eventCostLines,
+  eventCostMode,
+  groupByEvent,
+  transactionBranch,
+  type ReportCostSource,
+} from "@/lib/report-event-cost";
+import { ReportCostSourceToggle } from "@/components/ReportCostSourceToggle";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
@@ -42,6 +53,8 @@ export default function ReportDREEmpresarial() {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(String(currentYear));
   const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("ticket_sales");
+  // #218: custo de evento pelo BP (padrão). "Transações" é só comparação — nunca gravado.
+  const [costSource, setCostSource] = useState<ReportCostSource>("bp");
   const year = Number(selectedYear);
 
   const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
@@ -56,7 +69,7 @@ export default function ReportDREEmpresarial() {
   // #256: o filtro só restringe o conjunto de eventos; vazio = todos (resultado idêntico).
   const events = useMemo(() => filterEventsByNature(allEvents as any[], natureFilter) as typeof allEvents, [allEvents, natureFilter]);
 
-  const { data: transactions = [] } = useQuery({
+  const { data: transactionsAll = [] } = useQuery({
     queryKey: ["transactions-approved"],
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase.from("transactions").select("*").in("status", ["approved", "paid"]));
@@ -64,6 +77,41 @@ export default function ReportDREEmpresarial() {
       return data;
     },
   });
+
+  const { data: rootSettlementIds } = useQuery({
+    queryKey: ["dre-root-settlements"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_settlements").select("id, parent_id");
+      if (error) throw error;
+      return new Set(((data ?? []) as any[]).filter((s) => !s.parent_id).map((s) => s.id as string));
+    },
+  });
+
+  // #218: filtro canónico (reversed/hidden/transitórias/excluídas) + perímetro da raiz.
+  const transactions = useMemo(
+    () => keepRootPerimeter((transactionsAll as any[]).filter((t) => !hasResultBlockingFlags(t)), rootSettlementIds),
+    [transactionsAll, rootSettlementIds],
+  );
+
+  // #218: BP vivo (version_id IS NULL) — viva vs congelada é decisão pendente do Pedro.
+  const { data: forecastsAll = [] } = useQuery({
+    queryKey: ["dre-emp-forecasts-expense"],
+    queryFn: async () => {
+      const { data, error } = await fetchAllPagedQuery(supabase
+        .from("event_forecasts")
+        .select("id, event_id, type, status, category_id, amount, iva_rate, version_id, is_transitory, is_overhead, exclude_from_result, event_settlement_id")
+        .eq("type", "expense")
+        .is("version_id", null)
+        .order("id", { ascending: true }));
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const forecastsByEvent = useMemo(
+    () => groupByEvent(keepRootPerimeter(forecastsAll as any[], rootSettlementIds)),
+    [forecastsAll, rootSettlementIds],
+  );
+  const txByEvent = useMemo(() => groupByEvent(transactions as any[]), [transactions]);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["account-categories"],
@@ -192,10 +240,33 @@ export default function ReportDREEmpresarial() {
   // Also include corporate-category transactions that have event_id (edge case).
   // #264: a janela administrativa é trava real na base (o evento é gravado na
   // transação); já não há absorção virtual no DRE.
+  // #218 "nunca pelas duas portas": no modo BP, transações com evento ficam fora
+  // (o custo delas já está no BP do evento).
   const corpTxAll = useMemo(
-    () => yearTx.filter((t) => corporateCatIds.has(t.category_id || "")),
-    [yearTx, corporateCatIds]
+    () => transactionBranch(yearTx, costSource).filter((t) => corporateCatIds.has(t.category_id || "")),
+    [yearTx, corporateCatIds, costSource]
   );
+
+  // #218: custo de cada evento do ano pela função única (computeEventCostOnBasis),
+  // no critério gravado no evento. Período = data do evento (bpLinePeriodDate).
+  const bpCostByEvent = useMemo(() => {
+    const m = new Map<string, { month: number; net: number; gross: number }>();
+    if (costSource !== "bp") return m;
+    for (const e of events as any[]) {
+      const pd = bpLinePeriodDate(e);
+      if (!pd || !pd.startsWith(String(year))) continue;
+      const lines = eventCostLines({
+        eventId: e.id,
+        forecasts: forecastsByEvent.get(e.id) ?? [],
+        transactions: txByEvent.get(e.id) ?? [],
+        mode: eventCostMode(e),
+      });
+      const net = lines.reduce((s, l) => s + l.amount, 0);
+      const gross = lines.reduce((s, l) => s + calcAmountWithIva(l.amount, l.iva_rate), 0);
+      m.set(e.id, { month: getMonthIndex(pd), net, gross });
+    }
+    return m;
+  }, [costSource, events, year, forecastsByEvent, txByEvent]);
 
   const lines = useMemo(() => {
     const result: MonthlyLine[] = [];
@@ -216,10 +287,14 @@ export default function ReportDREEmpresarial() {
       if (t.type === "income" && !t.is_transitory && !t.exclude_from_result) {
         if (useTicketSales && ticketCategoryId && t.category_id === ticketCategoryId) return;
         eventIncomeMonthly[mi] += Number(t.amount);
-      } else if (t.type === "expense" && !t.is_transitory && !t.exclude_from_result) {
+      } else if (costSource === "transactions" && t.type === "expense" && !t.is_transitory && !t.exclude_from_result) {
         eventExpenseMonthly[mi] += Number(t.amount);
       }
     });
+    // #218: modo BP — custo de evento vem do BP, no mês da data do evento.
+    if (costSource === "bp") {
+      bpCostByEvent.forEach((c) => { eventExpenseMonthly[c.month] += c.net; });
+    }
 
     // Soma de bilheteira (líquida s/IVA) a partir de ticket_sales — agrupada por mês de venda.
     if (useTicketSales) {
@@ -274,7 +349,8 @@ export default function ReportDREEmpresarial() {
         }, 0);
         inc += ticketNet;
       }
-      const exp = evtTx.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result)
+      const bpCost = costSource === "bp" ? bpCostByEvent.get(evt.id) : undefined;
+      const exp = bpCost ? bpCost.net : evtTx.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result)
         .reduce((s, t) => s + Number(t.amount), 0);
       const netResult = inc - exp;
       const calcBasis = (evt as any).partner_calc_basis || "net_result";
@@ -285,7 +361,7 @@ export default function ReportDREEmpresarial() {
         if (calcBasis === "gross_revenue") {
           base = inc;
         } else if (partnerUsesGrossExpenses(calcBasis, p.expense_includes_iva)) {
-          const expInc = evtTx.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result)
+          const expInc = bpCost ? bpCost.gross : evtTx.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result)
             .reduce((s, t) => s + calcAmountWithIva(Number(t.amount), Number(t.iva_rate ?? 23)), 0);
           base = inc - expInc;
         } else {
@@ -381,7 +457,7 @@ export default function ReportDREEmpresarial() {
     }
 
     return result;
-  }, [eventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year, ticketRevenueSource, ticketSales, ticketLots, ticketZones, ticketCategoryId]);
+  }, [costSource, bpCostByEvent, eventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year, ticketRevenueSource, ticketSales, ticketLots, ticketZones, ticketCategoryId]);
 
   const years = useMemo(() => {
     const ySet = new Set<number>();
@@ -397,6 +473,7 @@ export default function ReportDREEmpresarial() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-4">
 <EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
+        <ReportCostSourceToggle value={costSource} onChange={setCostSource} />
         <Select value={selectedYear} onValueChange={setSelectedYear}>
           <SelectTrigger className="w-32">
             <SelectValue />
