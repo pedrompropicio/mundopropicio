@@ -17933,6 +17933,20 @@ export type Database = {
           severity: string
         }[]
       }
+      _run_invariant_checks_cash: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _run_invariant_checks_docs: {
         Args: never
         Returns: {
