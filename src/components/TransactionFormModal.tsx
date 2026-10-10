@@ -2797,7 +2797,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
           {/* BP forecast lines — auto-expand when event selected */}
           {hasPL && effectiveEventId && plExpanded && !partnerExtraBypassesBp && (() => {
-            const typeForecasts = relevantForecasts.filter(f => f.type === form.type);
+            // D-ERP224: só linhas do próprio evento (numa cidade, nunca as do Master).
+            const typeForecasts = relevantForecasts.filter(
+              (f: any) => f.type === form.type && (!f.event_id || f.event_id === effectiveEventId),
+            );
 
             // Calculate cachê lines for expense view
             const cacheLines = form.type === "expense" && cacheConfigs.length > 0
@@ -2937,7 +2940,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 paying_partner_id: (line as any).paying_partner_id || prev.paying_partner_id,
               }));
               // Vincula à linha BP (FK escrita no INSERT). Ignora pseudo-ids (ex: "cache-auto").
-              if (isUuid(line.id)) setSelectedForecastId(line.id);
+              if (isUuid(line.id) && (!(line as any).event_id || (line as any).event_id === effectiveEventId)) setSelectedForecastId(line.id);
               setPlExpanded(false);
             };
 
