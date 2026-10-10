@@ -6,7 +6,7 @@ import {
 } from "../ticket-office-settlement-calc";
 
 describe("computeSettlement — fluxo base", () => {
-  it("sem retenção e sem fatura: líquido = bruto − deduções − adiantamentos", () => {
+  it("sem retenção e sem fatura: direito = bruto − deduções (adiantamentos não entram, D-ERP232)", () => {
     const r = computeSettlement({
       grossRevenue: 10000,
       totalDeductions: 1500,
@@ -15,7 +15,7 @@ describe("computeSettlement — fluxo base", () => {
       selectedInvoiceOpen: null,
       payInvoiceRemainder: false,
     });
-    expect(r.netCalculated).toBe(8000);
+    expect(r.netCalculated).toBe(8500);
     expect(r.invoiceRemainder).toBe(0);
     expect(r.remainderApplied).toBe(false);
     expect(r.venueRetainedExceedsInvoice).toBe(false);
@@ -114,7 +114,7 @@ describe("computeSettlement — venda retida com fatura", () => {
 });
 
 describe("computeSettlement — combinações com deduções e adiantamentos", () => {
-  it("tudo somado: bruto − deduções − adiantamentos − retido − restante", () => {
+  it("tudo somado: bruto − deduções − retido − restante (adiantamento ignorado)", () => {
     const r = computeSettlement({
       grossRevenue: 20000,
       totalDeductions: 2000, // segurança, comissões…
@@ -124,14 +124,14 @@ describe("computeSettlement — combinações com deduções e adiantamentos", (
       payInvoiceRemainder: true,
     });
     expect(r.invoiceRemainder).toBe(3500);
-    expect(r.netCalculated).toBe(20000 - 2000 - 3000 - 1000 - 3500); // 10500
+    expect(r.netCalculated).toBe(20000 - 2000 - 1000 - 3500); // 13500
     expect(r.totalAppliedToInvoice).toBe(4500); // fatura quitada
   });
 
   it("netCalculated pode ficar negativo (caso degenerado) — não força clamp", () => {
     const r = computeSettlement({
       grossRevenue: 1000,
-      totalDeductions: 500,
+      totalDeductions: 1100,
       totalAdvances: 600,
       venueRetainedAmount: 0,
       selectedInvoiceOpen: null,
@@ -327,5 +327,21 @@ describe("Fluxo completo simulado (retenção + restante + quitação + reversã
     });
     expect(rev2.newPaid).toBe(0);
     expect(rev2.status).toBe("approved");
+  });
+});
+
+describe("computeSettlement — direito do evento nos fechos reais (D-ERP232)", () => {
+  const d = (g: number, ded: number, ret: number, open: number | null, rem: boolean) =>
+    Math.round(computeSettlement({ grossRevenue: g, totalDeductions: ded, venueRetainedAmount: ret, selectedInvoiceOpen: open, payInvoiceRemainder: rem }).netCalculated * 100) / 100;
+  it("os quatro que mudam", () => {
+    expect(d(493152.5, 2734.73, 0, null, false)).toBe(490417.77); // Ivete
+    expect(d(2424200, 12863.83, 0, null, false)).toBe(2411336.17); // Anitta
+    expect(d(208945, 10542.92, 2600, 3874.5, true)).toBe(194527.58); // SM Lisboa
+    expect(d(256330, 16345.15, 2195, 13530, true)).toBe(226454.85); // SM Porto
+  });
+  it("os três que não mudam", () => {
+    expect(d(237982.55, 59352.7152, 0, null, false)).toBe(178629.83); // H&K Lisboa
+    expect(d(107652.7, 18486.8385, 1756, null, false)).toBe(87409.86); // H&K Porto
+    expect(d(112842, 33342.96, 0, null, false)).toBe(79499.04); // Plenitude
   });
 });

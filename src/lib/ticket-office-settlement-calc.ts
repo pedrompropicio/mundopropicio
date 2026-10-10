@@ -6,7 +6,8 @@
 export interface SettlementInputs {
   grossRevenue: number;
   totalDeductions: number;
-  totalAdvances: number;
+  /** @deprecated D-ERP232 — ignorado: adiantamentos/repasses vivem no Apuramento Ticketline, não no fecho. */
+  totalAdvances?: number;
   venueRetainedAmount: number;
   /** Saldo em aberto da fatura escolhida (já líquido de pagamentos prévios), ou null/undefined se não há fatura escolhida. */
   selectedInvoiceOpen?: number | null;
@@ -19,7 +20,7 @@ export interface SettlementResult {
   invoiceRemainder: number;
   /** True se o saldo restante será efetivamente abatido (checkbox + saldo > epsilon). */
   remainderApplied: boolean;
-  /** Líquido a transferir, depois de todos os abatimentos. */
+  /** Direito do evento (D-ERP232) = bruto − deduções − retido pela sala − saldo de fatura (se aplicado). */
   netCalculated: number;
   /** True quando o valor retido excede o saldo em aberto da fatura selecionada. */
   venueRetainedExceedsInvoice: boolean;
@@ -33,7 +34,6 @@ export function computeSettlement(inputs: SettlementInputs): SettlementResult {
   const {
     grossRevenue,
     totalDeductions,
-    totalAdvances,
     venueRetainedAmount,
     selectedInvoiceOpen,
     payInvoiceRemainder,
@@ -51,7 +51,6 @@ export function computeSettlement(inputs: SettlementInputs): SettlementResult {
   const netCalculated =
     grossRevenue -
     totalDeductions -
-    totalAdvances -
     venueRetainedAmount -
     (remainderApplied ? invoiceRemainder : 0);
 

@@ -27,6 +27,7 @@ import { roundCents } from "@/lib/iva";
 import { PAYMENT_METHOD } from "@/lib/payment-methods";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import HelpTooltip from "@/components/HelpTooltip";
+import { SETTLEMENT_FORM_LABELS, type SettlementForm } from "@/lib/ticket-office-settlement-form";
 
 
 interface Props {
@@ -63,6 +64,10 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   const [existingDocName, setExistingDocName] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [grossOverride, setGrossOverride] = useState<string>("");
+  const [grossAdjustmentNotes, setGrossAdjustmentNotes] = useState<string>("");
+  // D-ERP232: forma de liquidação declarada à mão (vazio = vale a derivada).
+  const [formaManual, setFormaManual] = useState<string>("");
+  const [formaManualNotes, setFormaManualNotes] = useState<string>("");
   const [showNewExpense, setShowNewExpense] = useState(false);
   const [showNewAdvance, setShowNewAdvance] = useState(false);
   const [settlementDate, setSettlementDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
@@ -97,6 +102,9 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setTransferAccountId(existingSettlement.transfer_account_id ?? "");
       setTransferAmount(existingSettlement.net_transferred ? String(existingSettlement.net_transferred) : "");
       setNotes(existingSettlement.notes ?? "");
+      setGrossAdjustmentNotes(existingSettlement.gross_adjustment_notes ?? "");
+      setFormaManual(existingSettlement.forma_liquidacao_manual ?? "");
+      setFormaManualNotes(existingSettlement.forma_liquidacao_manual_notes ?? "");
       setExistingDocUrl(existingSettlement.document_url ?? null);
       setExistingDocName(existingSettlement.document_name ?? null);
       setVenueRetainedAmount(
@@ -450,17 +458,31 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       computeSettlement({
         grossRevenue,
         totalDeductions,
-        totalAdvances,
         venueRetainedAmount: venueRetainedNum,
         selectedInvoiceOpen: selectedInvoice ? Number(selectedInvoice._open || 0) : null,
         payInvoiceRemainder,
       }),
-    [grossRevenue, totalDeductions, totalAdvances, venueRetainedNum, selectedInvoice, payInvoiceRemainder]
+    [grossRevenue, totalDeductions, venueRetainedNum, selectedInvoice, payInvoiceRemainder]
   );
   const { invoiceRemainder, remainderApplied, venueRetainedExceedsInvoice } = settlementCalc;
   // Líquido sempre ao cêntimo (evita resíduos de arredondamento no repasse).
   const netCalculated = roundCents(settlementCalc.netCalculated);
 
+
+  // D-ERP232: liquidação por Apuramento Ticketline (fecho ligado a um apuramento).
+  const statementId: string | null = existingSettlement?.statement_id ?? null;
+  const { data: statement } = useQuery({
+    queryKey: ["settlement_statement", statementId],
+    enabled: !!statementId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("ticket_office_statements").select("id, number, status").eq("id", statementId).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const byStatement = !!statementId && !transferAlreadyDone;
+  const hasGrossAdjustment = grossOverride !== "" && Math.abs(Number(grossOverride) - grossAuto) > 0.01;
 
   const netFinal = adjustedNet !== "" ? Number(adjustedNet) : netCalculated;
   const hasAdjustment = adjustedNet !== "" && Math.abs(Number(adjustedNet) - netCalculated) > 0.01;
@@ -482,16 +504,22 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       });
     }
     if (hasAdjustment && !adjustmentNotes.trim()) {
-      return toast.error("Justifique o ajuste manual do líquido");
+      return toast.error("Justifique o ajuste manual do direito do evento");
+    }
+    if (hasGrossAdjustment && !grossAdjustmentNotes.trim()) {
+      return toast.error("Justifique o ajuste manual da receita bruta");
+    }
+    if (formaManual && !formaManualNotes.trim()) {
+      return toast.error("Justifique a forma de liquidação declarada à mão");
     }
     if (venueRetainedExceedsInvoice) {
       return toast.error("Valor retido excede o saldo da fatura escolhida");
     }
-    const transferAmt = transferAmount ? Number(transferAmount) : 0;
+    const transferAmt = !byStatement && transferAmount ? Number(transferAmount) : 0;
     if (transferAmt > 0 && !transferAccountId) {
       return toast.error("Selecione a conta destino da transferência");
     }
-    if (transferAccountId && !(transferAmt > 0)) {
+    if (!byStatement && transferAccountId && !(transferAmt > 0)) {
       return toast.error("Falta o valor da transferência", {
         description: 'Preencha o valor a transferir ou escolha "— Não transferir agora —".',
       });
@@ -523,6 +551,9 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         net_calculated: netCalculated,
         net_adjusted: hasAdjustment ? Number(adjustedNet) : null,
         adjustment_notes: hasAdjustment ? adjustmentNotes : null,
+        gross_adjustment_notes: hasGrossAdjustment ? grossAdjustmentNotes : null,
+        forma_liquidacao_manual: formaManual || null,
+        forma_liquidacao_manual_notes: formaManual ? formaManualNotes : null,
         // net_transferred / transfer_account_id só são preenchidos por
         // create_settlement_transfer, quando a transferência existe de facto.
         net_transferred: existingSettlement?.transfer_transaction_id
@@ -572,6 +603,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         confirm &&
         transferAmt > 0 &&
         transferAccountId &&
+        !byStatement &&
         !existingSettlement?.transfer_transaction_id
       ) {
         const isCredited = creditStatus === "credited" && !targetWithholds;
@@ -935,6 +967,19 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     deductions: !!eventId,
     net: !!eventId && (!hasAdjustment || !!adjustmentNotes.trim()),
   };
+  // Numeração sequencial dos passos (o passo dos adiantamentos só aparece quando há histórico).
+  const hasAdvanceHistory = pendingAdvances.length > 0;
+  const stepNo = {
+    advances: 4,
+    venue: hasAdvanceHistory ? 5 : 4,
+    net: hasAdvanceHistory ? 6 : 5,
+    transfer: hasAdvanceHistory ? 7 : 6,
+    doc: hasAdvanceHistory ? 8 : 7,
+  };
+  const formulaText =
+    "Receita bruta − Despesas pagas pela bilheteira" +
+    (venueRetainedNum > 0 ? " − Venda à porta retida pela sala" : "") +
+    (remainderApplied ? " − Saldo da fatura pago pela bilheteira" : "");
 
   return (
     <>
@@ -1055,6 +1100,16 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                         onChange={(e) => setGrossOverride(e.target.value)}
                         disabled={!canEdit}
                       />
+                      {hasGrossAdjustment && (
+                        <Textarea
+                          rows={2}
+                          value={grossAdjustmentNotes}
+                          onChange={(e) => setGrossAdjustmentNotes(e.target.value)}
+                          placeholder="Justificação obrigatória do ajuste da receita bruta (ex.: vendas por importar, conferido no portal do produtor)…"
+                          disabled={!canEdit}
+                          className="border-amber-500/40"
+                        />
+                      )}
                     </div>
                   </div>
                 </section>
@@ -1204,14 +1259,14 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                 {pendingAdvances.length > 0 && (
                   <section className="space-y-2">
                     <StepHeader
-                      n={4}
+                      n={stepNo.advances}
                       icon={<Banknote className="h-4 w-4" />}
-                      title="Adiantamentos já recebidos"
+                      title="Adiantamentos já recebidos (histórico, só leitura)"
                       badge={`${pendingAdvances.length}`}
                     />
                     <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
                       <p className="text-xs text-muted-foreground">
-                        Valores que esta bilheteira já transferiu para este evento. São automaticamente abatidos do líquido a transferir.
+                        Histórico de valores que esta bilheteira já transferiu. Não entram no direito do evento: os repasses registam-se no Apuramento Ticketline.
                       </p>
                       <ul className="divide-y divide-border/60 rounded-md border border-border bg-background">
                         {pendingAdvances.map((a: any) => (
@@ -1221,14 +1276,14 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                             </span>
                             <span className="flex-1 truncate">{a.notes || "Adiantamento"}</span>
                             <span className="font-mono font-semibold text-amber-500 whitespace-nowrap">
-                              − {formatCurrency(Number(a.amount))}
+                              {formatCurrency(Number(a.amount))}
                             </span>
                           </li>
                         ))}
                       </ul>
                       <div className="flex justify-between items-center text-sm pt-1">
                         <span className="text-muted-foreground">Total adiantamentos</span>
-                        <span className="font-mono font-bold text-amber-500">− {formatCurrency(totalAdvances)}</span>
+                        <span className="font-mono font-bold text-muted-foreground">{formatCurrency(totalAdvances)}</span>
                       </div>
                     </div>
                   </section>
@@ -1237,14 +1292,14 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                 {/* STEP — Venda à porta retida pela sala (abate fatura) */}
                 <section className="space-y-2">
                   <StepHeader
-                    n={pendingAdvances.length > 0 ? 5 : 4}
+                    n={stepNo.venue}
                     icon={<Banknote className="h-4 w-4" />}
                     title="Venda à porta retida pela sala (opcional)"
                     badge={venueRetainedNum > 0 ? formatCurrency(venueRetainedNum) : undefined}
                   />
                   <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4 space-y-3">
                     <p className="text-xs text-muted-foreground">
-                      Use este campo quando a <strong>sala/recinto</strong> vendeu bilhetes à porta e fica com esse valor para abater do aluguer (ou outra fatura), repassando-vos só a diferença. O valor é abatido do líquido a transferir e cria automaticamente um pagamento parcial na fatura escolhida.
+                      Use este campo quando a <strong>sala/recinto</strong> vendeu bilhetes à porta e fica com esse valor para abater do aluguer (ou outra fatura), repassando-vos só a diferença. O valor é abatido do direito do evento e cria automaticamente um pagamento parcial na fatura escolhida.
                     </p>
                     <div className="grid gap-3 sm:grid-cols-[200px_1fr]">
                       <div className="space-y-1">
@@ -1296,7 +1351,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                     )}
                     {venueRetainedNum > 0 && !venueRetainedInvoiceId && (
                       <p className="text-[11px] text-amber-500">
-                        Sem fatura selecionada: o valor abate o líquido mas terá de fazer o pagamento parcial manualmente depois.
+                        Sem fatura selecionada: o valor abate o direito do evento mas terá de fazer o pagamento parcial manualmente depois.
                       </p>
                     )}
                     {selectedInvoice && invoiceRemainder > 0.005 && !venueRetainedExceedsInvoice && (
@@ -1323,24 +1378,19 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                 {/* STEP — Net */}
                 <section className="space-y-2">
                   <StepHeader
-                    n={(pendingAdvances.length > 0 ? 1 : 0) + 5}
+                    n={stepNo.net}
                     icon={<Calculator className="h-4 w-4" />}
-                    title="Líquido a receber"
+                    title="Direito do evento"
                     done={stepDone.net}
                   />
                   <div className="rounded-lg border border-border p-4 space-y-3">
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">
-                        Bruto − Deduções
-                        {totalAdvances > 0 ? " − Adiantamentos" : ""}
-                        {venueRetainedNum > 0 ? " − Retido pela sala" : ""}
-                        {remainderApplied ? " − Saldo fatura" : ""}
-                      </span>
+                      <span className="text-muted-foreground">{formulaText}</span>
                       <span className="font-mono font-semibold">{formatCurrency(netCalculated)}</span>
                     </div>
                     <div className="space-y-2 pt-2 border-t border-border/60">
                       <Label className="text-xs text-muted-foreground">
-                        Líquido recebido pelo banco (ajuste manual)
+                        Direito declarado (ajuste manual, com justificação)
                       </Label>
                       <Input
                         type="number"
@@ -1367,7 +1417,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                       )}
                     </div>
                     <div className="flex justify-between items-center pt-3 border-t border-border">
-                      <span className="text-sm font-semibold">Líquido final</span>
+                      <span className="text-sm font-semibold">Direito do evento{hasAdjustment ? " (declarado)" : ""}</span>
                       <span className={`font-mono font-bold text-2xl ${netFinal >= 0 ? "text-emerald-500" : "text-red-400"}`}>
                         {formatCurrency(netFinal)}
                       </span>
@@ -1377,7 +1427,49 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
                 {/* STEP 5 — Transfer (optional) */}
                 <section className="space-y-2">
-                  <StepHeader n={5} icon={<ArrowRightLeft className="h-4 w-4" />} title="Transferência para banco (opcional)" />
+                  <StepHeader
+                    n={stepNo.transfer}
+                    icon={<ArrowRightLeft className="h-4 w-4" />}
+                    title={byStatement ? "Forma de liquidação" : "Transferência para banco (opcional)"}
+                  />
+                  {byStatement && (
+                    <div className="rounded-lg border border-sky-500/40 bg-sky-500/5 p-4 space-y-1 text-xs">
+                      <p className="font-semibold">
+                        Incluído no Apuramento Ticketline nº {statement?.number ?? "…"}
+                        {statement?.status === "confirmed" ? " (confirmado)" : statement ? " (rascunho)" : ""}
+                      </p>
+                      <p className="text-muted-foreground">
+                        Este direito liquida-se no apuramento, por encontro com faturas e repasses — não há transferência própria deste fecho.
+                      </p>
+                      <a href={`/bilheteiras#apuramento-${statementId}`} className="text-primary hover:underline">Abrir o apuramento</a>
+                    </div>
+                  )}
+                  <div className="rounded-lg border border-border p-3 space-y-2">
+                    <Label className="text-xs text-muted-foreground">
+                      Forma de liquidação declarada (opcional — vazio = derivada automaticamente)
+                    </Label>
+                    <select
+                      value={formaManual}
+                      onChange={(e) => setFormaManual(e.target.value)}
+                      disabled={!canEdit}
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">— Derivada automaticamente —</option>
+                      {(Object.keys(SETTLEMENT_FORM_LABELS) as SettlementForm[]).map((k) => (
+                        <option key={k} value={k}>{SETTLEMENT_FORM_LABELS[k]}</option>
+                      ))}
+                    </select>
+                    {formaManual && (
+                      <Textarea
+                        rows={2}
+                        value={formaManualNotes}
+                        onChange={(e) => setFormaManualNotes(e.target.value)}
+                        placeholder="Justificação obrigatória da forma declarada…"
+                        disabled={!canEdit}
+                        className="border-amber-500/40"
+                      />
+                    )}
+                  </div>
                   {transferAlreadyDone && (
                   <div className="rounded-lg border border-sky-500/40 bg-sky-500/5 p-4 space-y-2 text-xs">
                     <p className="font-semibold text-sky-600 dark:text-sky-400">
@@ -1403,10 +1495,10 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                     </p>
                   </div>
                   )}
-                  {!transferAlreadyDone && (
+                  {!transferAlreadyDone && !byStatement && (
                   <div className="rounded-lg border border-border p-4 space-y-3">
                     <p className="text-xs text-muted-foreground">
-                      Pode adiar — o líquido fica retido na bilheteira até transferência manual.
+                      Pode adiar — o direito fica retido na bilheteira até transferência manual.
                     </p>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1">
@@ -1510,7 +1602,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
                 {/* STEP 6 — Document & notes */}
                 <section className="space-y-2">
-                  <StepHeader n={6} icon={<Paperclip className="h-4 w-4" />} title="Comprovativo e notas (opcional)" />
+                  <StepHeader n={stepNo.doc} icon={<Paperclip className="h-4 w-4" />} title="Comprovativo e notas (opcional)" />
                   <div className="rounded-lg border border-border p-4 space-y-3">
                     {existingDocUrl && !file ? (
                       <div className="flex items-center justify-between rounded-md bg-muted/40 p-2 text-sm">
@@ -1555,13 +1647,16 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                 {/* Sticky summary footer */}
                 <div className="sticky bottom-0 -mx-6 -mb-5 px-6 py-3 bg-background/95 backdrop-blur border-t border-border">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Resumo</span>
-                    <span>
+                    <span>Direito do evento</span>
+                    <span className="text-right">
                       <span className="text-emerald-500 font-mono">{formatCurrency(grossRevenue)}</span>
                       <span className="mx-1">−</span>
                       <span className="text-red-400 font-mono">{formatCurrency(totalDeductions)}</span>
+                      {venueRetainedNum > 0 && (<><span className="mx-1">−</span><span className="font-mono">{formatCurrency(venueRetainedNum)}</span></>)}
+                      {remainderApplied && (<><span className="mx-1">−</span><span className="font-mono">{formatCurrency(invoiceRemainder)}</span></>)}
                       <span className="mx-1">=</span>
-                      <span className="text-foreground font-mono font-semibold">{formatCurrency(netFinal)}</span>
+                      <span className="text-foreground font-mono font-semibold">{formatCurrency(netCalculated)}</span>
+                      {hasAdjustment && (<span className="ml-2">· declarado <span className="font-mono font-semibold text-foreground">{formatCurrency(netFinal)}</span></span>)}
                     </span>
                   </div>
                 </div>

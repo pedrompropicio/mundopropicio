@@ -27,6 +27,7 @@ export const POR_DESENHO = {
   "accept-staff-invite": "público: valida o token do convite de staff",
   "onboarding-preview": "público: lê só pelo first_access_token (uuid) e devolve email mascarado",
   "request-password-reset": "público: fluxo de reposição de palavra-passe",
+  "portal-track": "público: beacon do portal (#254); allowlist de Origin; só insere redirect_log/lead_capture, ip/geo lidos no servidor",
   "handle-email-unsubscribe": "público: token de cancelamento de subscrição",
   "send-transactional-email": "infra de email gerida; company_id preenchido por trigger",
   "crm-google-click-ingest": "sinal do portal, empresa fixa, sem auth (D-ERP203)",
