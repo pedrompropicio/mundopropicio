@@ -14161,6 +14161,7 @@ export type Database = {
           category: string | null
           company_id: string
           contact_name: string | null
+          country: string
           created_at: string
           doc_locale: string
           email: string | null
@@ -14186,6 +14187,7 @@ export type Database = {
           category?: string | null
           company_id?: string
           contact_name?: string | null
+          country?: string
           created_at?: string
           doc_locale?: string
           email?: string | null
@@ -14211,6 +14213,7 @@ export type Database = {
           category?: string | null
           company_id?: string
           contact_name?: string | null
+          country?: string
           created_at?: string
           doc_locale?: string
           email?: string | null
