@@ -16,6 +16,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { lookupIpGeo, type Geo } from "../_shared/geo.ts";
+import { validSsrKey, prefetchDetail } from "./ssr.ts";
 
 const ALLOWED_ORIGINS = new Set<string>([
   "https://www.mundopropicio.com",
@@ -30,7 +31,7 @@ const RATE_WINDOW_MS = 60_000;
 function cors(origin: string | null): Record<string, string> {
   const ok = !!origin && ALLOWED_ORIGINS.has(origin);
   return {
-    "Access-Control-Allow-Origin": ok ? origin! : "null",
+    "Access-Control-Allow-Origin": ok && origin ? origin : "null",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Max-Age": "86400",
@@ -61,7 +62,7 @@ async function sha256Hex(s: string): Promise<string> {
 // Secrets: Deno.env primeiro; senão Vault via get_vault_secret (padrão capi-meta-events/geo-lookup).
 const secretCache = new Map<string, string | null>();
 async function getSecret(name: string): Promise<string | null> {
-  if (secretCache.has(name)) return secretCache.get(name)!;
+  if (secretCache.has(name)) return secretCache.get(name) ?? null;
   const env = Deno.env.get(name);
   if (env) { secretCache.set(name, env); return env; }
   const srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -142,16 +143,29 @@ const s = (v: unknown, max = 500): string | null =>
 Deno.serve(async (req: Request): Promise<Response> => {
   const origin = req.headers.get("origin");
   if (req.method === "OPTIONS") {
-    if (!origin || !ALLOWED_ORIGINS.has(origin)) return new Response(null, { status: 403 });
+    if (!origin || !ALLOWED_ORIGINS.has(origin)) return json({ ok: false, error: "forbidden_origin" }, 403, origin);
     return new Response(null, { status: 204, headers: cors(origin) });
   }
-  if (!origin || !ALLOWED_ORIGINS.has(origin)) return json({ ok: false, error: "forbidden_origin" }, 403, origin);
+  const ssrHeader = req.headers.get("x-song-link-ssr-key");
+  const isSsr = ssrHeader !== null;
+  if (isSsr && !(await validSsrKey(ssrHeader, Deno.env.get("SONG_LINK_SSR_KEY")))) {
+    return json({ ok: false, error: "unauthorized_ssr" }, 401, origin);
+  }
+  if (!isSsr && (!origin || !ALLOWED_ORIGINS.has(origin))) return json({ ok: false, error: "forbidden_origin" }, 403, origin);
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405, origin);
 
   let body: any;
   // sendBeacon envia text/plain com JSON (pedido simples, sem pré-verificação CORS):
   // ler sempre como texto e fazer JSON.parse, seja qual for o Content-Type.
   try { body = JSON.parse(await req.text()); } catch { return json({ ok: false, error: "invalid_json" }, 400, origin); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return json({ ok: false, error: "invalid_body" }, 400, origin);
+  if (body.ssr === true && !isSsr) return json({ ok: false, error: "unauthorized_ssr" }, 401, origin);
+  if (isSsr && (body.ssr !== true || body.event !== "arrival" || !s(body.event_id, 120) ||
+    typeof body.client_ua !== "string" || body.client_ua.length > 4000 ||
+    typeof body.client_ip !== "string" || !/^[0-9a-fA-F:.]{3,45}$/.test(body.client_ip) ||
+    typeof body.prefetch !== "boolean" || (body.purpose != null && typeof body.purpose !== "string"))) {
+    return json({ ok: false, error: "invalid_ssr_body" }, 400, origin);
+  }
 
   const slug = s(body?.slug, 120)?.toLowerCase() ?? null;
   const event = body?.event;
@@ -159,14 +173,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (event !== "arrival" && event !== "choice") return json({ ok: false, error: "event_invalido" }, 400, origin);
   const opened = body?.opened === "app" || body?.opened === "web" ? body.opened : null;
 
-  const ip = extractIp(req);
+  const ip = isSsr ? s(body.client_ip, 45) : extractIp(req);
+  const ua = isSsr ? s(body.client_ua, 4000) ?? "" : req.headers.get("user-agent") ?? "";
   const salt = await getSecret("SONG_LINK_IP_SALT");
   const ipHash = ip && salt ? await sha256Hex(`${salt}:${ip}`) : null;
   // Chave do limite: ip_hash; sem sal, um hash local sem sal (só em memória, nunca gravado).
   const rlKey = ipHash ?? (ip ? await sha256Hex(`rl:${ip}`) : "sem-ip");
   if (rateLimited(rlKey)) return json({ ok: false, error: "rate_limited" }, 429, origin);
 
-  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
+  const databaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!databaseUrl || !serviceKey) return json({ ok: false, error: "erro_interno" }, 500, origin);
+  const admin = createClient(databaseUrl, serviceKey, {
     auth: { persistSession: false },
   });
   const { data: link, error: linkErr } = await admin
@@ -178,16 +196,47 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!link || !link.active) return json({ ok: false, error: "link_inexistente" }, 404, origin);
   const contentId: string = link.song_id ?? link.id;
 
-  const ua = req.headers.get("user-agent") ?? "";
   const { device, os, in_app_browser } = parseUA(ua);
-  const hdrCountry = s(req.headers.get("cf-ipcountry") ?? req.headers.get("x-vercel-ip-country") ?? req.headers.get("x-country"), 8);
-  const hdrRegion = s(req.headers.get("cf-region") ?? req.headers.get("x-vercel-ip-country-region"), 80);
-  const hdrCity = s(req.headers.get("cf-ipcity") ?? req.headers.get("x-vercel-ip-city"), 120);
+  const detail = prefetchDetail(body.prefetch === true, body.purpose, ua);
+  if (detail !== null) {
+    const { error } = await admin.from("song_link_diag").insert({ kind: "prefetch", slug: slug.slice(0, 80),
+      arrival_event_id: s(body.event_id, 120), in_app: in_app_browser ?? "other", detail });
+    if (error) return json({ ok: false, error: "erro_interno" }, 500, origin);
+    return json({ ok: true, prefetch: true }, 200, origin);
+  }
+  const hdrCountry = isSsr ? null : s(req.headers.get("cf-ipcountry") ?? req.headers.get("x-vercel-ip-country") ?? req.headers.get("x-country"), 8);
+  const hdrRegion = isSsr ? null : s(req.headers.get("cf-region") ?? req.headers.get("x-vercel-ip-country-region"), 80);
+  const hdrCity = isSsr ? null : s(req.headers.get("cf-ipcity") ?? req.headers.get("x-vercel-ip-city"), 120);
   const eventId = s(body?.event_id, 120);
   const pageUrl = s(body?.page_url, 2000);
   const destination = s(body?.destination, 60);
   const metaTest = typeof body?.meta_test_event_code === "string" && TEST_CODE_RE.test(body.meta_test_event_code) ? body.meta_test_event_code : null;
   const ttTest = typeof body?.tiktok_test_event_code === "string" && TEST_CODE_RE.test(body.tiktok_test_event_code) ? body.tiktok_test_event_code : null;
+
+  // D-ERP234: atomic INSERT ON CONFLICT happens before any external delivery.
+  const { data: claimedId, error: claimError } = await admin.rpc("song_link_event_claim", { p_payload: {
+    link_id: link.id, company_id: link.company_id, artist_id: link.artist_id, song_id: link.song_id,
+    event, mode: s(body.mode, 30), destination, opened, event_id: eventId,
+    utm_source: s(body.utm_source, 200), utm_medium: s(body.utm_medium, 200),
+    utm_campaign: s(body.utm_campaign, 200), utm_content: s(body.utm_content, 200), utm_term: s(body.utm_term, 200),
+    fbclid: s(body.fbclid, 500), ttclid: s(body.ttclid, 500),
+    country: hdrCountry, region: hdrRegion, city: hdrCity, device, os, in_app_browser,
+    ip_hash: ipHash, origin: isSsr ? "ssr" : "browser",
+  }});
+  if (claimError) {
+    console.warn("[song-link-event] claim falhou", claimError.message);
+    return json({ ok: false, error: "erro_interno" }, 500, origin);
+  }
+  if (!claimedId) {
+    // Fill missing browser-cookie evidence only; never deliver twice or change origin.
+    if (!isSsr && eventId && s(body.fbp, 500)) {
+      const { error } = await admin.from("song_link_events").update({ capi_fbp: true })
+        .eq("event_id", eventId).eq("event", event).eq("link_id", link.id)
+        .gte("created_at", "2026-10-10T00:00:00Z").or("capi_fbp.is.null,capi_fbp.eq.false");
+      if (error) return json({ ok: false, error: "erro_interno" }, 500, origin);
+    }
+    return json({ ok: true, duplicate: true }, 200, origin);
+  }
 
   const work = (async () => {
     // Geo: cabeçalhos primeiro; senão ipinfo (3 s, falha → null). Nunca atrasa a resposta.
@@ -298,30 +347,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
         }
       }
     }
-    const { error: insErr } = await admin.from("song_link_events").insert({
-      link_id: link.id,
-      company_id: link.company_id,
-      artist_id: link.artist_id,
-      song_id: link.song_id,
-      event,
-      mode: s(body?.mode, 30),
-      destination,
-      opened,
-      event_id: eventId,
-      utm_source: s(body?.utm_source, 200),
-      utm_medium: s(body?.utm_medium, 200),
-      utm_campaign: s(body?.utm_campaign, 200),
-      utm_content: s(body?.utm_content, 200),
-      utm_term: s(body?.utm_term, 200),
-      fbclid: s(body?.fbclid, 500),
-      ttclid: s(body?.ttclid, 500),
-      country, region, city, device, os, in_app_browser,
-      ip_hash: ipHash,
+    const { error: insErr } = await admin.from("song_link_events").update({
+      country, region, city,
       capi_status,
-      capi_fbc, capi_fbp, capi_external_id,
+      capi_fbc, capi_external_id,
       tiktok_status,
-    });
-    if (insErr) console.warn("[song-link-event] insert falhou", insErr.message);
+    }).eq("id", claimedId);
+    // Do not overwrite enrichment by a concurrent browser request with false/null.
+    if (capi_fbp === true) await admin.from("song_link_events").update({ capi_fbp: true }).eq("id", claimedId);
+    if (insErr) console.warn("[song-link-event] update falhou", insErr.message);
   })();
 
   // @ts-ignore EdgeRuntime

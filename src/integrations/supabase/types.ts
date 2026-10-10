@@ -13146,6 +13146,7 @@ export type Database = {
           link_id: string
           mode: string | null
           opened: string | null
+          origin: string
           os: string | null
           region: string | null
           song_id: string | null
@@ -13178,6 +13179,7 @@ export type Database = {
           link_id: string
           mode?: string | null
           opened?: string | null
+          origin?: string
           os?: string | null
           region?: string | null
           song_id?: string | null
@@ -13210,6 +13212,7 @@ export type Database = {
           link_id?: string
           mode?: string | null
           opened?: string | null
+          origin?: string
           os?: string | null
           region?: string | null
           song_id?: string | null
@@ -20580,6 +20583,7 @@ export type Database = {
         }
         Returns: string
       }
+      song_link_event_claim: { Args: { p_payload: Json }; Returns: string }
       song_link_health_get: {
         Args: { p_days?: number; p_link_id?: string }
         Returns: Json

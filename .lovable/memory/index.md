@@ -187,6 +187,7 @@ Uma linha por tema, por frente: pergunta → ficheiros (mem://pasta/ficheiro). S
 - [Simulador — Dashboard Financeiro v2 (Design Brief)](mem://features/simulator-dashboard-v2-brief) — Brief de redesenho do ExecutiveDashboard do Simulador em estilo plataforma financeira; props imutáveis (3 cenários)
 - [Simulador — Dashboard v2: prompt de implementação](mem://features/simulator-dashboard-v2-implementation-prompt) — Decisões finais pós-mockup: dark só no wrapper (data-theme=financial), FinancialTable única, donut
 - [Simulator public unit (Pagantes×dia)](mem://features/simulator-public-unit) — Cards Hoje/BE/Forecast do Simulador mostram só pagantes×dia; cortesias só informativas
+- [Chegada SSR dos smart links](mem://features/song-link-ssr) — D-ERP234; autenticação partilhada, prefetch só diagnóstico e unicidade antes de Meta/TikTok
 - [Sponsorship Pipeline ↔ BP/Simulador](mem://features/sponsorship-pipeline-simulator-integration) — Pipeline de patrocínios alimenta BP só via botão manual; Simulador lê só BP; reset_reimport preserva vínculos
 - [Standalone invoices (Scanner de Faturas Avulsas)](mem://features/standalone-invoices) — Faturas no NIF da empresa pagas com recursos próprios da diretoria — só documento + metadados em standalone_invoices; NUNCA cria transação, BP, lista de pagamento ou movimento de conta
 - [Remoção de ficheiros contabilísticos (#265)](mem://features/storage-deletion-log) — 7 buckets sem DELETE directo; tudo via edge storage-delete / _shared/storage-trash.ts, registo em storage_deletion_log e move para _trash/<data>/
