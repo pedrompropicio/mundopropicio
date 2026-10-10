@@ -8,6 +8,7 @@
  * Bloco 4: IVA por sessão
  * Bloco 5: Resultados (Geral / Evento / A&B / Souvenir) + Indicadores per capita
  */
+import { PriorCurveSelector } from "@/components/simulator/PriorCurveSelector";
 import { usePriorCurve } from "@/lib/simulator-prior-curve";
 import { selectCourtesyRows } from "@/lib/bp-formula";
 import { fetchEventRealized } from "@/lib/event-revenue-basis";
@@ -74,6 +75,8 @@ type DbConfig = {
   sponsor_category_l2_id: string | null;
   forecast_final_accel: number;
   forecast_final_window_days: number;
+  sales_curve_mode?: string | null;
+  sales_curve_prior_event_id?: string | null;
 };
 
 type DbInput = {
@@ -1897,6 +1900,26 @@ boost       = ritmo final / ritmo base`}
                       }}
                     />
                   </div>
+                  <PriorCurveSelector
+                    eventId={eventId!}
+                    eventName={(event as any)?.name ?? null}
+                    companyId={companyId ?? null}
+                    mode={localCfg.sales_curve_mode}
+                    priorEventId={localCfg.sales_curve_prior_event_id}
+                    collectedAt={priorCurveData?.collectedAt}
+                    onChange={async (mode, prior) => {
+                      const next = { ...localCfg, sales_curve_mode: mode, sales_curve_prior_event_id: prior };
+                      setLocalCfg(next);
+                      if (eventId && companyId) {
+                        await supabase
+                          .from("event_simulator_config")
+                          .upsert({ ...next, event_id: eventId, company_id: companyId } as any)
+                          .throwOnError();
+                        qc.invalidateQueries({ queryKey: ["sim-coala-cfg", eventId] });
+                        toast({ title: prior ? "Histórico aplicado" : "Curva por defeito reposta" });
+                      }
+                    }}
+                  />
                   <div className="col-span-full mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
                     <div className="col-span-full">
                       <p className="text-sm font-semibold">Ano anterior (2025) — manual</p>
