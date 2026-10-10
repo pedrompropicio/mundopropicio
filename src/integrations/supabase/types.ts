@@ -17822,6 +17822,20 @@ export type Database = {
           severity: string
         }[]
       }
+      _run_invariant_checks_ticketline_series: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
       _scope_event_ids_to_company: {
         Args: { _event_ids: string[] }
         Returns: string[]
@@ -19134,6 +19148,13 @@ export type Database = {
         Returns: number
       }
       current_company_id: { Args: never; Returns: string }
+      daily_sales_mirror_events: {
+        Args: never
+        Returns: {
+          event_id: string
+          provider: string
+        }[]
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean

@@ -17,7 +17,7 @@ import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 import { unescapeSjr, extractTables, parseNumberLabel } from "../_shared/ticketline-sjr-parser.ts";
 import { parseTicketTypesGrid, type Grid } from "../_shared/ticketline-ticket-types-parser.ts";
 
-const VERSION = "v2.42_migrated_sync_skipped";
+const VERSION = "v2.43_ticket_types_batch";
 
 // Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
 function fmtDDMMYYYY(d: Date): string {
@@ -62,7 +62,7 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const BASE = "https://manager.ticketline.pt";
 
-interface Body { urls?: string[]; configId?: string; dateISO?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" | "probe_nova_area" | "probe_params" | "sjr" | "capture_day" | "capture_ticket_types" | "capture_occupation" }
+interface Body { urls?: string[]; configId?: string; dateISO?: string; compareConfigId?: string; mode?: "manual" | "cron"; triggeredBy?: string; dateFrom?: string; dateTo?: string; budgetMs?: number; resumeAt?: { cfg?: string; day?: string }; action?: "sync" | "discover" | "probe" | "dump" | "matrix" | "form" | "text" | "postfilter" | "probe_nova_area" | "probe_params" | "sjr" | "capture_day" | "capture_ticket_types" | "capture_occupation" }
 
 const json = (status: number, body: any) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -1628,6 +1628,47 @@ async function runCaptureDay(admin: any, configId?: string, dateISO?: string) {
   }
 }
 
+
+/**
+ * v2.43 — lote de capture_ticket_types (issue #73).
+ * Sem configId → todos os configs enabled com ticketline_event_id.
+ * Datas: dateFrom..dateTo (default: ontem Europe/Lisbon = D+1 do seal).
+ * Um login por conta; orçamento de tempo — devolve `next` para continuar.
+ */
+async function runCaptureTicketTypesBatch(admin: any, body: any) {
+  const yest = (() => { const d = new Date(lisbonTodayIso() + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); })();
+  const from = /^\d{4}-\d{2}-\d{2}$/.test(body.dateFrom || "") ? body.dateFrom : yest;
+  const to = /^\d{4}-\d{2}-\d{2}$/.test(body.dateTo || "") ? body.dateTo : from;
+  let q = admin.from("ticketline_sync_config").select("id").eq("enabled", true).not("ticketline_event_id", "is", null);
+  if (body.configId) q = q.eq("id", body.configId);
+  const { data: cfgs, error } = await q.order("id");
+  if (error) return json(500, { ok: false, error: error.message });
+  const days: string[] = [];
+  for (let d = new Date(from + "T12:00:00Z"); d.toISOString().slice(0, 10) <= to; d.setUTCDate(d.getUTCDate() + 1)) days.push(d.toISOString().slice(0, 10));
+  const t0 = Date.now(); const budget = Number(body.budgetMs) || 120000;
+  const jars = new Map<string, Jar>();
+  const results: any[] = [];
+  const startAt = body.resumeAt as { cfg?: string; day?: string } | undefined;
+  let skipping = !!startAt;
+  for (const c of cfgs || []) {
+    for (const day of days) {
+      if (skipping) { if (c.id === startAt!.cfg && day === startAt!.day) skipping = false; else continue; }
+      if (Date.now() - t0 > budget) return json(200, { ok: true, partial: true, next: { cfg: c.id, day }, results });
+      try {
+        const { creds } = await loadCfgAndCreds(admin, c.id);
+        let jar = jars.get(creds.email);
+        if (!jar) { jar = (await loginDevise(creds.email, creds.password)).jar; jars.set(creds.email, jar); }
+        const r = await runCaptureTicketTypes(admin, c.id, day, jar);
+        const j = await r.json();
+        results.push({ cfg: c.id, day, ok: j.ok, upserted: j.audit?.upserted ?? 0, phase: j.phase });
+      } catch (e: any) {
+        results.push({ cfg: c.id, day, ok: false, phase: e?.phase || "batch_failed", error: e?.message });
+      }
+    }
+  }
+  return json(200, { ok: results.every((r) => r.ok), partial: false, from, to, configs: (cfgs || []).length, results });
+}
+
 // ============================================================================
 // v2.37 — action `capture_ticket_types` (issue #73)
 // Série diária POR TIPO DE BILHETE a partir do relatório POR EVENTO:
@@ -1682,7 +1723,7 @@ async function fetchTicketTypeXlsx(jar: Jar, id: string, dayDD: string) {
  * `dateISO` (default hoje Europe/Lisbon) para o evento do `configId`.
  * Login FRESCO dedicado (não usa o SessionCache dos syncs xlsx).
  */
-async function runCaptureTicketTypes(admin: any, configId?: string, dateISO?: string) {
+async function runCaptureTicketTypes(admin: any, configId?: string, dateISO?: string, sharedJar?: Jar) {
   if (!configId) return json(400, { error: "capture_ticket_types requer configId" });
   const dayIso = dateISO && /^\d{4}-\d{2}-\d{2}$/.test(dateISO) ? dateISO : lisbonTodayIso();
   const dayDD = isoToDDMMYYYY(dayIso);
@@ -1713,8 +1754,8 @@ async function runCaptureTicketTypes(admin: any, configId?: string, dateISO?: st
   };
 
   try {
-    // 1. login fresco dedicado
-    const { jar } = await loginDevise(creds.email, creds.password);
+    // 1. login fresco dedicado (ou o do lote, quando chamado pelo batch)
+    const jar = sharedJar ?? (await loginDevise(creds.email, creds.password)).jar;
 
     // 2. XLSX do relatório por tipo de bilhete (filtro na query string)
     const got = await fetchTicketTypeXlsx(jar, String(cfg.ticketline_event_id), dayDD);
@@ -3039,10 +3080,15 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
       (d: any) => d.vendasQty !== 0 || d.vendasValue !== 0 || d.geralQty !== 0 || d.geralValue !== 0,
     );
     const silentEmpty = (audit?.rowsImported || 0) === 0 && s1HasSales;
-    const finalStatus = silentEmpty ? "warning" : "success";
+    // #78 — BD ≠ relatório no mesmo período → warning com a diferença, nunca em silêncio.
+    const rec = (audit as any)?.reconciliation;
+    const reconDiverges = !!rec && (rec.diffQty !== 0 || Math.abs(rec.diffValue) > 0.01);
+    const finalStatus = silentEmpty || reconDiverges ? "warning" : "success";
     const warnMsg = silentEmpty
       ? "Parser encontrou vendas na secção 1 mas 0 linhas foram importadas — verificar layout do relatório."
-      : null;
+      : reconDiverges
+        ? `Reconciliação: BD diverge do relatório em ${rec.diffQty} bilhetes / ${Number(rec.diffValue).toFixed(2)} €.`
+        : null;
     debug.data_source = audit?.dataSource || null;
 
     await updateRun(admin, runId, {
@@ -3127,6 +3173,7 @@ Deno.serve(async (req) => {
 
   if (action === "capture_ticket_types") {
     try {
+      if (!configId || (body as any).dateFrom) return await runCaptureTicketTypesBatch(admin, body);
       return await runCaptureTicketTypes(admin, configId, body.dateISO);
     } catch (e: any) {
       return json(500, { ok: false, phase: e?.phase || "capture_ticket_types_failed", error: e?.message || String(e) });

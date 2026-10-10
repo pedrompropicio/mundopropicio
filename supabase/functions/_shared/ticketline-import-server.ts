@@ -50,6 +50,8 @@ export interface TicketlineImportAudit {
   section1Daily: any[];
   section2DailyTotals: any[];
   zoneLotMap: Array<{ zone: string; lot: string; zoneId: string; lotId: string }>;
+  /** #78 — total gravado vs total do relatório no mesmo período. */
+  reconciliation?: { dbQty: number; dbValue: number; reportQty: number; reportValue: number; diffQty: number; diffValue: number };
 }
 
 
@@ -225,13 +227,30 @@ export async function runTicketlineImport(input: TicketlineImportInput): Promise
     if (error) audit.warnings.push(`Assignment falhou (não-crítico): ${error.message}`);
   }
 
-  // 7. Apagar vendas Ticketline anteriores deste evento+conta
-  if (allZoneIds.length > 0) {
-    const { data: prior } = await fetchAllPagedQuery(supabase.from("ticket_sales").select("id")
-      .in("zone_id", allZoneIds).eq("financial_account_id", ticketlineAccountId).eq("source", SOURCE));
+  // 7. Apagar vendas Ticketline anteriores deste evento+conta — em TODAS as
+  // zonas do evento (#78), não só nas zonas do relatório actual. Quando o
+  // formato muda (zona sintética "Geral" → por zona) a série antiga do mesmo
+  // período desaparece; nunca ficam as duas a somar.
+  const eventZoneIds = Array.from(new Set([
+    ...(existingZones || []).map((z: any) => z.id as string),
+    ...allZoneIds,
+  ]));
+  const pFrom = parseResult.header.period_from || null;
+  const pTo = parseResult.header.period_to || null;
+  const scopeDel = (q: any) => {
+    q = q.in("zone_id", eventZoneIds).eq("financial_account_id", ticketlineAccountId).eq("source", SOURCE);
+    if (pFrom) q = q.gte("sale_date", pFrom);
+    if (pTo) q = q.lte("sale_date", pTo);
+    return q;
+  };
+  if (eventZoneIds.length > 0) {
+    const { data: prior } = await fetchAllPagedQuery(scopeDel(supabase.from("ticket_sales").select("id, zone_id")));
     audit.prevSalesDeleted = prior?.length || 0;
-    const { error } = await supabase.from("ticket_sales").delete()
-      .in("zone_id", allZoneIds).eq("financial_account_id", ticketlineAccountId).eq("source", SOURCE);
+    const orphanZones = new Set((prior || []).map((r: any) => r.zone_id).filter((z: string) => !allZoneIds.includes(z)));
+    if (orphanZones.size > 0) {
+      audit.warnings.push(`Transição de formato: apagadas vendas antigas em ${orphanZones.size} zona(s) que já não vêm no relatório (série paralela evitada).`);
+    }
+    const { error } = await scopeDel(supabase.from("ticket_sales").delete());
     if (error) throw new Error(`Apagar vendas anteriores: ${error.message}`);
   }
 
@@ -262,6 +281,24 @@ export async function runTicketlineImport(input: TicketlineImportInput): Promise
     if (error) throw new Error(`Insert ticket_sales: ${error.message}`);
   }
   audit.rowsImported = payload.length;
+
+  // 8b. Guarda de reconciliação (#78): total gravado na BD (evento, conta,
+  // período) tem de bater com o TOTAL VENDAS do relatório.
+  if (eventZoneIds.length > 0 || allZoneIds.length > 0) {
+    let q = supabase.from("ticket_sales").select("quantity, total_value")
+      .in("zone_id", Array.from(new Set([...eventZoneIds, ...allZoneIds])))
+      .eq("financial_account_id", ticketlineAccountId).eq("source", SOURCE);
+    if (pFrom) q = q.gte("sale_date", pFrom);
+    if (pTo) q = q.lte("sale_date", pTo);
+    const { data: stored } = await fetchAllPagedQuery(q);
+    const dbQty = (stored || []).reduce((a: number, r: any) => a + Number(r.quantity || 0), 0);
+    const dbVal = Math.round((stored || []).reduce((a: number, r: any) => a + Number(r.total_value || 0), 0) * 100) / 100;
+    audit.reconciliation = { dbQty, dbValue: dbVal, reportQty: audit.totals.qtyVendas, reportValue: audit.totals.valueVendas,
+      diffQty: dbQty - audit.totals.qtyVendas, diffValue: Math.round((dbVal - audit.totals.valueVendas) * 100) / 100 };
+    if (audit.reconciliation.diffQty !== 0 || Math.abs(audit.reconciliation.diffValue) > 0.01) {
+      audit.warnings.push(`RECONCILIAÇÃO: BD ${dbQty} bilhetes / ${dbVal.toFixed(2)} € ≠ relatório ${audit.totals.qtyVendas} / ${audit.totals.valueVendas.toFixed(2)} € (diferença ${audit.reconciliation.diffQty} / ${audit.reconciliation.diffValue.toFixed(2)} €).`);
+    }
+  }
 
   // 9. Log
   const { data: log, error: logErr } = await supabase.from("ticket_import_logs").insert({
