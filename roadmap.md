@@ -1,8 +1,8 @@
 # Roadmap — épica #146 (e)
 
 ## Fórum Braga — bilheteira local (Pedro, 10/10/2026)
-- [ ] PARADO: tentativa atómica anulada por validação de parcelas (530,00 > 265,00 ao inserir pagamento). Confirmado rollback integral: 0 novas transacções, saldos e MD5 protegidos intactos. Investigar criação automática de pagamento antes de repetir; não alterar triggers. Saldo autorizado do acerto: +258,85 até 891,04. Sem linha BP no Braga, não criar.
-- [ ] Diferença condicional com tolerância <0,01; testar desaparecimento e registar decisão/factos.
+- [x] Par 10.3 de 265,00 e comissão IB de 6,15 executados; variações Ticketline −265,00 / Acerto +258,85, diferença zero, restantes travas preservadas. Sem linha BP nova ou devolução antecipada.
+- [ ] Fecho documental: diferença condicional com tolerância <0,01, actualizar D-ERP236/estado/memória e verificar desaparecimento sem mudar fórmulas nem publicar.
 - [ ] Devolução 258,85 aguarda recebimento; pendência da Délia, não lançar agora.
 
 ## Folha de crescimento — período de comparação (D-ERP235 autorizada)
