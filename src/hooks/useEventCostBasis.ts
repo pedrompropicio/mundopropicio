@@ -12,7 +12,9 @@ import { normalizePartnerCalcBasis, usesGrossExpenseAmounts } from "@/lib/partne
  * `events.cost_expense_source` ('realized' | 'committed', default 'committed')
  * e `events.cost_include_overhead' (boolean, default true). Assim o card da
  * capa, o Fecho, o Encontro de Contas, o painel Apuramentos, os PDFs e o Portal
- * do Sócio mostram o MESMO número em qualquer computador.
+ * do Sócio mostram o MESMO número em qualquer computador. Desde #218 (D-ERP228)
+ * o DRE, o DRE Empresarial e a Rentabilidade leem o mesmo critério gravado
+ * (via src/lib/report-event-cost.ts → computeEventCostOnBasis).
  *
  * `withVat` continua a vir de `events.partner_calc_basis` (critério contratual)
  * — é derivado, não é preferência de ecrã, e o toggle NUNCA o reescreve.
