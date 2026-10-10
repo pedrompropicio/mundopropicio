@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import { Plus, Link2, Unlink } from "lucide-react";
+import { mustWrite } from "@/lib/must-write";
 
 interface Props {
   transactionId: string;
@@ -81,10 +82,10 @@ export function LinkReimbursementNoteModal({ transactionId, defaultEmployeeName 
 
       // Sync reimbursement_to to note's employee name
       if (tx.reimbursement_to !== note.employee_name) {
-        await supabase
+        await mustWrite(supabase
           .from("transactions")
           .update({ reimbursement_to: note.employee_name })
-          .eq("id", transactionId);
+          .eq("id", transactionId).select("id"), "transactions", { expectRows: true });
       }
 
       // Recalc note total
@@ -93,7 +94,7 @@ export function LinkReimbursementNoteModal({ transactionId, defaultEmployeeName 
         .select("transactions(amount)")
         .eq("reimbursement_note_id", noteId);
       const total = (items || []).reduce((s: number, i: any) => s + Number(i.transactions?.amount || 0), 0);
-      await supabase.from("reimbursement_notes").update({ total_amount: total }).eq("id", noteId);
+      await mustWrite(supabase.from("reimbursement_notes").update({ total_amount: total }).eq("id", noteId).select("id"), "reimbursement_notes", { expectRows: true });
     },
     onSuccess: () => {
       invalidate();
@@ -125,14 +126,14 @@ export function LinkReimbursementNoteModal({ transactionId, defaultEmployeeName 
       if (insErr) throw insErr;
 
       // Sync employee name on tx
-      await supabase
+      await mustWrite(supabase
         .from("transactions")
         .update({ reimbursement_to: employeeName })
-        .eq("id", transactionId);
+        .eq("id", transactionId).select("id"), "transactions", { expectRows: true });
 
       // Recalc total
       const { data: tx } = await supabase.from("transactions").select("amount").eq("id", transactionId).single();
-      await supabase.from("reimbursement_notes").update({ total_amount: Number(tx?.amount || 0) }).eq("id", note.id);
+      await mustWrite(supabase.from("reimbursement_notes").update({ total_amount: Number(tx?.amount || 0) }).eq("id", note.id).select("id"), "reimbursement_notes", { expectRows: true });
     },
     onSuccess: () => {
       invalidate();

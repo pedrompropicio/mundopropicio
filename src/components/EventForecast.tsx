@@ -95,6 +95,7 @@ import { useCompany } from "@/hooks/useCompany";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
 import { useForecastAttachmentCounts } from "@/hooks/useForecastAttachmentCounts";
+import { mustWrite } from "@/lib/must-write";
 
 // #269 — defaults estáveis: `= []` cria um array novo a cada desenho e reabre useMemo/efeitos.
 const EMPTY_ARR_STABLE: any[] = [];
@@ -1123,11 +1124,11 @@ const descRef = useRef<HTMLInputElement>(null);
       if (updateError) throw updateError;
 
       // Update event status to "active" on first approval
-      await supabase
+      await mustWrite(supabase
         .from("events")
         .update({ status: "active" })
         .eq("id", eventId)
-        .in("status", ["planning", "confirmed"]);
+        .in("status", ["planning", "confirmed"]), "events");
     },
     onSuccess: (_, forecast) => {
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
@@ -1159,11 +1160,11 @@ const descRef = useRef<HTMLInputElement>(null);
       }
 
       // Update event status to "active" on approval (only for planning/confirmed events, not completed)
-      await supabase
+      await mustWrite(supabase
         .from("events")
         .update({ status: "active" })
         .eq("id", eventId)
-        .in("status", ["planning", "confirmed"]);
+        .in("status", ["planning", "confirmed"]), "events");
     },
     onSuccess: (_, items) => {
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
@@ -1278,22 +1279,22 @@ const descRef = useRef<HTMLInputElement>(null);
         // Audit: log creation from BP (and auto-approval if applicable)
         if (insertedTx?.id) {
           const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
-          await supabase.from("transaction_audit_log").insert({
+          await mustWrite(supabase.from("transaction_audit_log").insert({
             transaction_id: insertedTx.id,
             changed_by: callerName,
             field_name: "Criação",
             old_value: null,
             new_value: `Gerado do BP — ${f.description} — ${Number(f.amount).toFixed(2)} €`,
-          });
+          }), "transaction_audit_log");
           if (isBPApproved) {
-            await supabase.from("transaction_audit_log").insert({
+            await mustWrite(supabase.from("transaction_audit_log").insert({
               transaction_id: insertedTx.id,
               changed_by: callerName,
               field_name: "status",
               old_value: "pending",
               new_value: "approved",
               observation: "Aprovação automática — linha do BP já aprovada",
-            } as any);
+            } as any), "transaction_audit_log");
             autoApproved++;
           }
 
@@ -1323,17 +1324,17 @@ const descRef = useRef<HTMLInputElement>(null);
                 is_accounting: true,
               };
             });
-            await supabase.from("transaction_documents").insert(docs as any);
+            await mustWrite(supabase.from("transaction_documents").insert(docs as any), "transaction_documents");
             propagatedAttachments += refUrls.length;
           }
 
           // Back-link the forecast to the new transaction so future BP edits
           // continue to propagate automatically.
           if (!f.transaction_id) {
-            await supabase
+            await mustWrite(supabase
               .from("event_forecasts")
               .update({ transaction_id: insertedTx.id } as any)
-              .eq("id", f.id);
+              .eq("id", f.id).select("id"), "event_forecasts", { expectRows: true });
           }
         }
         created++;
@@ -1448,31 +1449,31 @@ const descRef = useRef<HTMLInputElement>(null);
         }
         if (insertedTx?.id) {
           ids.push(insertedTx.id);
-          await supabase.from("transaction_audit_log").insert({
+          await mustWrite(supabase.from("transaction_audit_log").insert({
             transaction_id: insertedTx.id,
             changed_by: callerName,
             field_name: "Criação",
             old_value: null,
               new_value: `Programação de parcelas — ${i + 1}/${preparedInstallments.length} de "${forecast.description}" — ${Number(inst.amount).toFixed(2)} €`,
-          });
+          }), "transaction_audit_log");
           if (isBPApproved) {
-            await supabase.from("transaction_audit_log").insert({
+            await mustWrite(supabase.from("transaction_audit_log").insert({
               transaction_id: insertedTx.id,
               changed_by: callerName,
               field_name: "status",
               old_value: "pending",
               new_value: "approved",
               observation: "Aprovação automática — linha do BP já aprovada",
-            } as any);
+            } as any), "transaction_audit_log");
           }
         }
       }
       // Back-link first transaction to the forecast (matches single-tx convention).
       if (!forecast.transaction_id && ids[0]) {
-        await supabase
+        await mustWrite(supabase
           .from("event_forecasts")
           .update({ transaction_id: ids[0] } as any)
-          .eq("id", forecast.id);
+          .eq("id", forecast.id).select("id"), "event_forecasts", { expectRows: true });
       }
       return ids.length;
     },
@@ -1614,7 +1615,7 @@ const descRef = useRef<HTMLInputElement>(null);
             .from("implementation-files")
             .remove([prev.reference_file_url]);
         }
-        await supabase
+        await mustWrite(supabase
           .from("event_implementations")
           .update({
             reference_file_url: filePath,
@@ -1622,7 +1623,7 @@ const descRef = useRef<HTMLInputElement>(null);
             import_instructions: instructions || null,
             status: "in_progress",
           })
-          .eq("id", implementationId);
+          .eq("id", implementationId).select("id"), "event_implementations", { expectRows: true });
       } else {
         const { data: created, error: insertErr } = await supabase
           .from("event_implementations")
@@ -3579,15 +3580,15 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     if (!queryClient || !eventId) return;
     const isAssigned = assignedPartnerIds.includes(partnerId);
     if (isAssigned) {
-      await supabase
+      await mustWrite(supabase
         .from("event_forecast_partners")
         .delete()
         .eq("forecast_id", item.id)
-        .eq("partner_id", partnerId);
+        .eq("partner_id", partnerId), "event_forecast_partners");
     } else {
-      await supabase
+      await mustWrite(supabase
         .from("event_forecast_partners")
-        .insert({ forecast_id: item.id, partner_id: partnerId });
+        .insert({ forecast_id: item.id, partner_id: partnerId }), "event_forecast_partners");
     }
     queryClient.invalidateQueries({ queryKey: ["forecast_partners", eventId] });
   };
@@ -3709,10 +3710,10 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
 
       // Back-link the BP line to its first transaction so future syncs / cascades work.
       if (!item.transaction_id && matchingTransactions.length > 0) {
-        await supabase
+        await mustWrite(supabase
           .from("event_forecasts")
           .update({ transaction_id: matchingTransactions[0].id } as any)
-          .eq("id", item.id);
+          .eq("id", item.id).select("id"), "event_forecasts", { expectRows: true });
       }
 
       toast({

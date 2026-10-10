@@ -21,6 +21,7 @@ import * as XLSX from "xlsx";
 import { formatDatePT } from "@/lib/utils";
 import { useEventIvaCountry } from "@/hooks/useEventIvaCountry";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { mustWrite } from "@/lib/must-write";
 
 interface Props {
   implementation: any;
@@ -336,14 +337,14 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       const createdForecastIds = [...new Set(createdEntries.map((e: any) => e.forecast_id))];
       for (const fId of createdForecastIds) {
         // Log BEFORE deleting (FK constraint requires forecast to exist)
-        await supabase.from("forecast_audit_log").insert({
+        await mustWrite(supabase.from("forecast_audit_log").insert({
           forecast_id: fId,
           changed_by: changedBy,
           field_name: "rollback",
           old_value: null,
           new_value: null,
           observation: `rollback batch:${batch.batchId} | ação:eliminar`,
-        });
+        }), "forecast_audit_log");
         const { error } = await supabase.from("event_forecasts").delete().eq("id", fId);
         if (error) {
           errors.push(`Eliminar ${fId.substring(0, 8)}: ${error.message}`);
@@ -380,14 +381,14 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             errors.push(`Restaurar ${fId.substring(0, 8)}: ${error.message}`);
           } else {
             restored++;
-            await supabase.from("forecast_audit_log").insert({
+            await mustWrite(supabase.from("forecast_audit_log").insert({
               forecast_id: fId,
               changed_by: changedBy,
               field_name: "rollback",
               old_value: null,
               new_value: JSON.stringify(restoreValues),
               observation: `rollback batch:${batch.batchId} | ação:restaurar`,
-            });
+            }), "forecast_audit_log");
           }
         }
       }
@@ -927,11 +928,11 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
 
               // Audit log
               if (amountDiff) {
-                await supabase.from("forecast_audit_log").insert({
+                await mustWrite(supabase.from("forecast_audit_log").insert({
                   forecast_id: existing.id, changed_by: changedBy, field_name: "amount",
                   old_value: String(existing.amount), new_value: String(row.baseAmount),
                   observation: `batch:${batchId} | ação:atualizar | master-sync`,
-                });
+                }), "forecast_audit_log");
               }
             } else {
               // Create new line
@@ -943,11 +944,11 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
               }).select("id").single();
               if (error) { errors.push(`"${row.description}": ${error.message}`); continue; }
               created++;
-              await supabase.from("forecast_audit_log").insert({
+              await mustWrite(supabase.from("forecast_audit_log").insert({
                 forecast_id: inserted.id, changed_by: changedBy, field_name: "importação",
                 old_value: null, new_value: `${row.description} — ${row.baseAmount}€`,
                 observation: `batch:${batchId} | ação:criar | master-sync`,
-              });
+              }), "forecast_audit_log");
             }
           }
 
@@ -996,14 +997,14 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           }).select("id").single();
           if (error) { errors.push(`"${row.description}": ${error.message}`); continue; }
           created++;
-          await supabase.from("forecast_audit_log").insert({
+          await mustWrite(supabase.from("forecast_audit_log").insert({
             forecast_id: inserted.id,
             changed_by: changedBy,
             field_name: "importação",
             old_value: null,
             new_value: `${row.description} — ${row.baseAmount}€`,
             observation: `batch:${batchId} | ação:criar | master-rateio`,
-          });
+          }), "forecast_audit_log");
         }
 
         if (errors.length > 0) {
@@ -1052,14 +1053,14 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       
       // Helper: log audit entry for a forecast
       const logAuditEntry = async (forecastId: string, fieldName: string, oldValue: string | null, newValue: string | null, observation?: string) => {
-        await supabase.from("forecast_audit_log").insert({
+        await mustWrite(supabase.from("forecast_audit_log").insert({
           forecast_id: forecastId,
           changed_by: changedBy,
           field_name: fieldName,
           old_value: oldValue,
           new_value: newValue,
           observation: observation || null,
-        });
+        }), "forecast_audit_log");
       };
       
       if (isNewImport) {

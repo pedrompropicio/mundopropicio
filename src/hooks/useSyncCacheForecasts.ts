@@ -6,6 +6,7 @@ import { resolvePercentageFromTiers, getCacheEffectiveAmount, type CacheTier, ty
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { writeForecastAmount, ForecastBelowRealizedError } from "@/lib/forecast-amount";
 import { toast } from "@/hooks/use-toast";
+import { mustWrite } from "@/lib/must-write";
 
 /**
  * #240 (Q2): o amount das linhas cache_module vai por batch_update_event_forecasts
@@ -368,16 +369,16 @@ async function syncTourCacheForecasts(
           const patch: any = { description: `Cachê — ${config.artist_name}` };
           if (needsStatusUpdate) patch.status = "approved";
           // status primeiro: a regra do chão (#240) aplica-se à linha já aprovada
-          await supabase
+          await mustWrite(supabase
             .from("event_forecasts")
             .update(patch)
-            .eq("id", existing.id);
+            .eq("id", existing.id).select("id"), "event_forecasts", { expectRows: true });
           if (needsAmountUpdate) await writeCacheAmount(existing.id, amount, config.artist_name);
           changed = true;
         }
         existingMap.delete(key);
       } else {
-        await supabase.from("event_forecasts").insert({
+        await mustWrite(supabase.from("event_forecasts").insert({
           event_id: childId,
           type: "expense",
           description: `Cachê — ${config.artist_name}`,
@@ -387,7 +388,7 @@ async function syncTourCacheForecasts(
           formula_type: "cache_module",
           cache_config_id: config.id,
           status: shouldApprove ? "approved" : "draft",
-        });
+        }), "event_forecasts");
         changed = true;
       }
     }
@@ -395,7 +396,7 @@ async function syncTourCacheForecasts(
 
   // 4. Delete orphans (old forecasts on master or removed configs/children)
   for (const [, orphan] of existingMap) {
-    await supabase.from("event_forecasts").delete().eq("id", orphan.id);
+    await mustWrite(supabase.from("event_forecasts").delete().eq("id", orphan.id).select("id"), "event_forecasts", { expectRows: true });
     changed = true;
   }
 
@@ -408,7 +409,7 @@ async function syncTourCacheForecasts(
     .eq("formula_type", "cache_module")
     .is("cache_config_id", null).is("version_id", null));
   for (const orphan of (orphanCacheForecasts ?? [])) {
-    await supabase.from("event_forecasts").delete().eq("id", orphan.id);
+    await mustWrite(supabase.from("event_forecasts").delete().eq("id", orphan.id).select("id"), "event_forecasts", { expectRows: true });
     changed = true;
   }
 
@@ -509,15 +510,15 @@ async function syncSimpleCacheForecasts(
       const currentAmount = Math.round(Number(existing.amount) * 100);
       const newAmount = Math.round(amount * 100);
       if (currentAmount !== newAmount) {
-        await supabase
+        await mustWrite(supabase
           .from("event_forecasts")
           .update({ description: `Cachê — ${config.artist_name}` })
-          .eq("id", existing.id);
+          .eq("id", existing.id).select("id"), "event_forecasts", { expectRows: true });
         await writeCacheAmount(existing.id, amount, config.artist_name);
         changed = true;
       }
     } else {
-      await supabase.from("event_forecasts").insert({
+      await mustWrite(supabase.from("event_forecasts").insert({
         event_id: eventId,
         type: "expense",
         description: `Cachê — ${config.artist_name}`,
@@ -527,7 +528,7 @@ async function syncSimpleCacheForecasts(
         formula_type: "cache_module",
         cache_config_id: config.id,
         status: "draft",
-      });
+      }), "event_forecasts");
       changed = true;
     }
 
@@ -535,7 +536,7 @@ async function syncSimpleCacheForecasts(
   }
 
   for (const [, orphan] of existingMap) {
-    await supabase.from("event_forecasts").delete().eq("id", (orphan as any).id);
+    await mustWrite(supabase.from("event_forecasts").delete().eq("id", (orphan as any).id).select("id"), "event_forecasts", { expectRows: true });
     changed = true;
   }
 
@@ -548,7 +549,7 @@ async function syncSimpleCacheForecasts(
     .eq("formula_type", "cache_module")
     .is("cache_config_id", null).is("version_id", null));
   for (const orphan of (simpleOrphanForecasts ?? [])) {
-    await supabase.from("event_forecasts").delete().eq("id", orphan.id);
+    await mustWrite(supabase.from("event_forecasts").delete().eq("id", orphan.id).select("id"), "event_forecasts", { expectRows: true });
     changed = true;
   }
 

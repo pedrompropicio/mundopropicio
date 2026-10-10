@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { Loader2, Calendar, Map, MapPin } from "lucide-react";
 import { type CamarimSessionMode, SESSION_MODE_LABELS, SESSION_MODE_DESCRIPTIONS } from "@/lib/camarim-helpers";
 import { FundHolderPicker, type FundHolderValue } from "./FundHolderPicker";
+import { mustWrite } from "@/lib/must-write";
 
 interface EventOption {
   id: string;
@@ -179,7 +180,7 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
             is_primary: true,
           } as any);
           if (linkErr) {
-            await supabase.from("camarim_sessions" as any).delete().eq("id", sid);
+            await mustWrite(supabase.from("camarim_sessions" as any).delete().eq("id", sid).select("id"), "camarim_sessions", { expectRows: true });
             throw new Error(`Não foi possível ligar a sessão ao evento: ${linkErr.message}`);
           }
           created.push(sid);
@@ -222,14 +223,14 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
         // #115 — exige pelo menos um evento ligado; sem vínculo a sessão é
         // invisível à guarda de fecho (D19), por isso desfaz-se a criação.
         if (links.length === 0) {
-          await supabase.from("camarim_sessions" as any).delete().eq("id", sid);
+          await mustWrite(supabase.from("camarim_sessions" as any).delete().eq("id", sid).select("id"), "camarim_sessions", { expectRows: true });
           throw new Error("A sessão tem de ter pelo menos um evento ligado.");
         }
         const { error: linkErr } = await supabase
           .from("camarim_session_events" as any)
           .insert(links as any);
         if (linkErr) {
-          await supabase.from("camarim_sessions" as any).delete().eq("id", sid);
+          await mustWrite(supabase.from("camarim_sessions" as any).delete().eq("id", sid).select("id"), "camarim_sessions", { expectRows: true });
           throw new Error(`Não foi possível ligar a sessão ao evento: ${linkErr.message}`);
         }
         toast({ title: "Sessão criada" });

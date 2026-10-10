@@ -11,6 +11,7 @@ import { deleteStorageObject, deleteStorageObjects } from "@/lib/storage-delete"
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentCompanyId } from "@/hooks/useCompany";
 import { isHeicFile, normalizeImageFile } from "@/lib/image-upload";
+import { mustWrite } from "@/lib/must-write";
 
 export interface CardItemDoc {
   id: string;
@@ -71,7 +72,7 @@ export async function uploadCardItemDocument(
   // Compatibilidade com o legado: `document_path` guarda o primeiro anexo.
   const existing = await fetchCardItemDocuments(itemId);
   if (existing.length === 1) {
-    await supabase.from("card_session_items").update({ document_path: path }).eq("id", itemId);
+    await mustWrite(supabase.from("card_session_items").update({ document_path: path }).eq("id", itemId).select("id"), "card_session_items", { expectRows: true });
   }
 
   return data as CardItemDoc;
@@ -82,10 +83,10 @@ export async function deleteCardItemDocument(doc: CardItemDoc): Promise<void> {
   if (error) throw error;
   if (!delRows || delRows.length === 0) throw new Error("Sem permissão para remover este documento.");
   const rest = await fetchCardItemDocuments(doc.item_id);
-  await supabase
+  await mustWrite(supabase
     .from("card_session_items")
     .update({ document_path: rest[0]?.file_path ?? null })
-    .eq("id", doc.item_id);
+    .eq("id", doc.item_id).select("id"), "card_session_items", { expectRows: true });
   // #265: objeto só depois da linha, via storage-delete (verifica referências, regista, _trash).
   await deleteStorageObject("card-documents", doc.file_path, { reason: "remover documento de item de cartão", related_table: "card_item_documents", related_id: doc.id });
 }

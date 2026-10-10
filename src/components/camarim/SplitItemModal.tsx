@@ -23,6 +23,7 @@ import {
 import { Loader2, Plus, Trash2, Split } from "lucide-react";
 import { formatCurrency } from "@/lib/camarim-helpers";
 import { cn } from "@/lib/utils";
+import { mustWrite } from "@/lib/must-write";
 
 interface ParentItem {
   id: string;
@@ -281,10 +282,10 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
       // Se é resplit, apaga os filhos antigos primeiro (CASCADE no storage não é necessário —
       // os filhos não têm anexos próprios, partilham via lookup ao pai).
       if (canResplit) {
-        await supabase
+        await mustWrite(supabase
           .from("camarim_items" as any)
           .delete()
-          .eq("parent_item_id", itemId);
+          .eq("parent_item_id", itemId), "camarim_items");
       }
 
       // Proporção do IVA por linha (mesma proporção do total)
