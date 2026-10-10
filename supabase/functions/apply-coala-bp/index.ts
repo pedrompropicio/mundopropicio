@@ -137,8 +137,23 @@ Deno.serve(async (req) => {
       byCentroCusto: Array.from(ccFallback.entries()).map(([cc, e]) => ({ cc, ...e })).sort((a, b) => b.count - a.count),
     });
 
+    // #230 (D-ERP245) — mapa confirmado Centro Custo → rubrica, consultado ANTES do nome e do fallback.
+    const { data: ccMapRows, error: ccMapErr } = await admin
+      .from("import_cost_center_map")
+      .select("cost_center_raw, category_id")
+      .eq("company_id", ev.company_id)
+      .eq("source", "coala");
+    if (ccMapErr) return json({ error: `import_cost_center_map: ${ccMapErr.message}` }, 500);
+    const ccMap = new Map<string, string>((ccMapRows ?? []).map((r: any) => [r.cost_center_raw, r.category_id]));
+    const catByCc = (cc: string | null | undefined): any => {
+      const k = norm(cc ?? "");
+      if (!k) return null;
+      const mapped = ccMap.get(k);
+      if (mapped) { const c = allCats.find((x: any) => x.id === mapped); if (c) return c; }
+      return allCats.find((c: any) => c.parent_id != null && norm(c.name) === k) ?? null;
+    };
     const categoryFor = (cc: string | null, net = 0): string => {
-      const m = cc ? allCats.find((c: any) => c.parent_id != null && norm(c.name) === norm(cc)) : null;
+      const m = catByCc(cc);
       return m?.id ?? noteFallback(cc, net);
     };
 
@@ -1880,9 +1895,7 @@ Deno.serve(async (req) => {
           if (hit) { preservedFromMap++; return { catId: hit }; }
         }
         // Pré-resolver categoria do XLSX (centro de custo) para validação L2 (Frente D)
-        const xlsxCat = r.rawCenterCusto
-          ? allCats.find((c: any) => c.parent_id != null && norm(c.name) === norm(r.rawCenterCusto || ""))
-          : null;
+        const xlsxCat = r.rawCenterCusto ? catByCc(r.rawCenterCusto) : null;
         const xlsxL2 = xlsxCat ? getL2Id(xlsxCat.id) : null;
 
         // 3) Learning table — match exacto por (supplier_id + descrição normalizada)
