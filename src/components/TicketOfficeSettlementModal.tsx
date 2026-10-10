@@ -285,7 +285,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       }
 
       // 3) Advance transactions of this event/office must NEVER appear as deductions:
-      // they are already subtracted by the "Adiantamentos já recebidos" section.
+      // they live only in the Apuramento Ticketline (#303).
       // Marking one here would subtract it twice from the net amount (duplo abate).
       const { data: advRows } = await (supabase as any)
         .from("event_ticket_office_advances")
@@ -371,29 +371,6 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     }
   }, [targetWithholds, creditStatus]);
 
-  // Pending advances for this event on this office (excluding any already linked to this settlement)
-  const { data: pendingAdvances = [] } = useQuery({
-    queryKey: ["settlement_advances", officeId, eventId, existingSettlement?.id],
-    enabled: !!eventId,
-    queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("event_ticket_office_advances")
-        .select("*")
-        .eq("financial_account_id", officeId)
-        .eq("event_id", eventId)
-        .order("advance_date", { ascending: true });
-      const list = data || [];
-      // Include unlinked OR linked to this settlement (when editing)
-      return list.filter((a: any) =>
-        !a.settlement_id || (existingSettlement && a.settlement_id === existingSettlement.id)
-      );
-    },
-  });
-
-  const totalAdvances = useMemo(
-    () => pendingAdvances.reduce((s: number, a: any) => s + Number(a.amount), 0),
-    [pendingAdvances]
-  );
 
   // Faturas/despesas do evento candidatas a receber o abatimento da venda retida pela sala.
   // Mostra qualquer despesa do evento (qualquer fornecedor) com saldo em aberto.
@@ -907,15 +884,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
           .eq("id", settlementId).select("id"), "Fecho: ticket_office_settlements", { expectRows: true });
       }
 
-      // #303: event_ticket_office_advances é histórico só de leitura (trigger na base);
-      // não há adiantamentos por ligar em Live. Os repasses vivem no Apuramento Ticketline.
-      if (false && pendingAdvances.length > 0) {
-        const advanceIds = pendingAdvances.map((a: any) => a.id);
-        await mustWrite((supabase as any)
-          .from("event_ticket_office_advances")
-          .update({ settlement_id: confirm ? settlementId : null })
-          .in("id", advanceIds).select("id"), "Fecho: event_ticket_office_advances", { expectRows: true });
-      }
+      // #303: os repasses vivem só no Apuramento Ticketline; o fecho não lê nem liga adiantamentos.
 
       // Carimbo de conciliação: um fecho confirmado marca a atribuição como conciliada.
       if (confirm && eventId) {
@@ -967,15 +936,8 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     deductions: !!eventId,
     net: !!eventId && (!hasAdjustment || !!adjustmentNotes.trim()),
   };
-  // Numeração sequencial dos passos (o passo dos adiantamentos só aparece quando há histórico).
-  const hasAdvanceHistory = pendingAdvances.length > 0;
-  const stepNo = {
-    advances: 4,
-    venue: hasAdvanceHistory ? 5 : 4,
-    net: hasAdvanceHistory ? 6 : 5,
-    transfer: hasAdvanceHistory ? 7 : 6,
-    doc: hasAdvanceHistory ? 8 : 7,
-  };
+  // Numeração sequencial dos passos. #303: repasses não aparecem no fecho (só no Apuramento Ticketline).
+  const stepNo = { venue: 4, net: 5, transfer: 6, doc: 7 };
   const formulaText =
     "Receita bruta − Despesas pagas pela bilheteira" +
     (venueRetainedNum > 0 ? " − Venda à porta retida pela sala" : "") +
@@ -1254,40 +1216,6 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                     <span className="font-mono font-bold text-red-400">− {formatCurrency(totalDeductions)}</span>
                   </div>
                 </section>
-
-                {/* STEP 3.5 — Advances received */}
-                {pendingAdvances.length > 0 && (
-                  <section className="space-y-2">
-                    <StepHeader
-                      n={stepNo.advances}
-                      icon={<Banknote className="h-4 w-4" />}
-                      title="Adiantamentos já recebidos (histórico, só leitura)"
-                      badge={`${pendingAdvances.length}`}
-                    />
-                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-                      <p className="text-xs text-muted-foreground">
-                        Histórico de valores que esta bilheteira já transferiu. Não entram no direito do evento: os repasses registam-se no Apuramento Ticketline.
-                      </p>
-                      <ul className="divide-y divide-border/60 rounded-md border border-border bg-background">
-                        {pendingAdvances.map((a: any) => (
-                          <li key={a.id} className="flex items-center gap-2 p-2 text-xs">
-                            <span className="text-muted-foreground whitespace-nowrap">
-                              {new Date(a.advance_date).toLocaleDateString("pt-PT")}
-                            </span>
-                            <span className="flex-1 truncate">{a.notes || "Adiantamento"}</span>
-                            <span className="font-mono font-semibold text-amber-500 whitespace-nowrap">
-                              {formatCurrency(Number(a.amount))}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                      <div className="flex justify-between items-center text-sm pt-1">
-                        <span className="text-muted-foreground">Total adiantamentos</span>
-                        <span className="font-mono font-bold text-muted-foreground">{formatCurrency(totalAdvances)}</span>
-                      </div>
-                    </div>
-                  </section>
-                )}
 
                 {/* STEP — Venda à porta retida pela sala (abate fatura) */}
                 <section className="space-y-2">
