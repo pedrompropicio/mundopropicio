@@ -5371,3 +5371,9 @@ Customer Match:
 - Ajuste manual da receita bruta passa a exigir justificação (`gross_adjustment_notes`), como o do direito.
 - Adiantamentos: CHECK `etoa_never_open_chk` (transaction_id ou settlement_id sempre preenchido) + trigger só-leitura alargado a DELETE.
 - Migração: `drizzle/migrations/0078_derp232_direito_do_evento.sql`; DML dos 4 fechos à parte.
+
+## D-ERP233 — Página da bilheteira: retido em destaque com composição, sem heurística; FKs em falta nos adiantamentos (10/10/2026, #303)
+- Liquidez: "Retido na Bilheteira" em destaque; por baixo, a composição clicável: posição já apurada (último apuramento) + vendas de eventos ainda sem fecho + por conciliar (resíduo, sem cor de alarme). A posição apurada já está dentro do retido; nunca se abate. Retirados "Saldo esperado (15%)", "Desvio" e o alarme de 5%; retirado o cartão "Adiantamentos" (só contava os por ligar, sempre 0).
+- Separadores: Dados · Liquidez · Vendas/Bilhetes · Fechos · Apuramentos. Os adiantamentos vivem dentro de Apuramentos, como histórico só de leitura, sem "Pendente de fecho"/"por abater".
+- Defeito: `event_ticket_office_advances` só tinha a FK de company_id; o embed `events(...)` dava 400 PGRST200, o painel engolia o erro e mostrava "Sem adiantamentos". Migração 0079: 5 FKs ON DELETE RESTRICT. Mesmo padrão encontrado nos apuramentos: `ticket_office_statement_lines` tem 2 FKs para statements → PGRST201 ambíguo; embed passa a nomear `ticket_office_statement_lines_statement_id_fkey`.
+- Regra: ecrã vazio com dados na base → verificar FKs e ambiguidade do embed (chamar a API e ler o código de erro) antes de suspeitar de RLS.

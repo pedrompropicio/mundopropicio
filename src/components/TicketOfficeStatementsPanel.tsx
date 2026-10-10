@@ -16,19 +16,21 @@ const TYPE_LABEL: Record<string, string> = {
  * Apuramentos Ticketline (#303) — só leitura. Σ linhas vs total do documento;
  * linhas pendentes de documento ficam destacadas e bloqueiam a confirmação.
  */
-export function TicketOfficeStatementsPanel() {
+export function TicketOfficeStatementsPanel({ officeId }: { officeId?: string } = {}) {
   const { data = [] } = useQuery({
-    queryKey: ["ticket-office-statements"],
+    queryKey: ["ticket-office-statements", officeId ?? null],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      let q = (supabase as any)
         .from("ticket_office_statements")
-        .select("id, number, statement_date, document_total, status, notes, ticket_office_statement_lines(id, line_type, position, description, amount, pending_document, notes)")
+        .select("id, number, statement_date, document_total, status, notes, ticket_office_statement_lines!ticket_office_statement_lines_statement_id_fkey(id, line_type, position, description, amount, pending_document, notes)")
         .order("statement_date", { ascending: false });
+      if (officeId) q = q.eq("financial_account_id", officeId);
+      const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
     },
   });
-  if (!data.length) return null;
+  if (!data.length) return <p className="text-sm text-muted-foreground">Sem apuramentos registados nesta bilheteira.</p>;
   return (
     <section className="space-y-3">
       <h2 className="text-lg font-semibold">Apuramentos Ticketline</h2>

@@ -28,6 +28,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
   const { isAdmin, hasPermission } = useAuth();
   const navigate = useNavigate();
   const canManage = isAdmin || hasPermission("manage_accounts");
+  const [openPart, setOpenPart] = useState<"pos" | "open" | "res" | null>(null);
   const [settlementModal, setSettlementModal] = useState<{ open: boolean; eventId?: string }>({ open: false });
 
   // Get all assignments for this office (financial_account_id)
@@ -91,29 +92,27 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
     },
   });
 
-  // Regra de retenção da bilheteira (opcional)
-  const { data: office } = useQuery({
-    queryKey: ["ticket_office_retention", officeId],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("financial_accounts")
-        .select("id, advance_retention_pct")
-        .eq("id", officeId)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Fechos confirmados (para saber que eventos já foram fechados)
-  const { data: confirmedSettlements = [] } = useQuery({
-    queryKey: ["ticket_office_confirmed_settlements", officeId],
+  // #303 — decomposição do retido: fechos (qualquer estado) e apuramentos desta bilheteira.
+  const { data: settledEventIds = [] } = useQuery({
+    queryKey: ["ticket_office_settled_event_ids", officeId],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("ticket_office_settlements")
-        .select("event_id, status")
+        .select("event_id")
+        .eq("financial_account_id", officeId);
+      if (error) throw error;
+      return (data || []).map((r: any) => r.event_id).filter(Boolean) as string[];
+    },
+  });
+
+  const { data: statements = [] } = useQuery({
+    queryKey: ["ticket_office_statements_for_balance", officeId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("ticket_office_statements")
+        .select("id, number, statement_date, document_total, status, ticket_office_statement_lines!ticket_office_statement_lines_statement_id_fkey(id, line_type, position, description, amount, event_id)")
         .eq("financial_account_id", officeId)
-        .eq("status", "confirmed");
+        .order("statement_date", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -190,28 +189,6 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
     const activeEvents = Object.values(eventMap).filter((e) => e.status !== "completed");
     const hasInconsistency = activeEvents.length === 0 && Math.abs(globalBalance) > 0.01;
 
-    // Saldo esperado pela regra de retenção
-    const retentionPct = office?.advance_retention_pct != null ? Number(office.advance_retention_pct) : null;
-    const settledEventIds = new Set((confirmedSettlements as any[]).map((s: any) => s.event_id));
-    let expectedBalance: number | null = null;
-    let deviation: number | null = null;
-    let deviationWarn = false;
-    let deviationMsg = "";
-    if (retentionPct != null && Number.isFinite(retentionPct)) {
-      const openSales = Object.entries(eventMap)
-        .filter(([id]) => !settledEventIds.has(id))
-        .reduce((s, [, e]) => s + e.sales, 0);
-      expectedBalance = (retentionPct / 100) * openSales;
-      deviation = globalBalance - expectedBalance;
-      if (Math.abs(expectedBalance) < 0.01) {
-        deviationWarn = Math.abs(deviation) > 0.01;
-        deviationMsg = "Sem eventos em aberto — o saldo devia estar a zero.";
-      } else {
-        deviationWarn = Math.abs(deviation) > Math.abs(expectedBalance) * 0.05;
-        deviationMsg = "Desvio acima de 5% — vendas por importar ou repasse por lançar";
-      }
-    }
-
 
     return {
       events: Object.entries(eventMap).map(([id, data]) => ({
@@ -225,13 +202,8 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
       totalAdvancesPending,
       globalBalance,
       hasInconsistency,
-      retentionPct,
-      expectedBalance,
-      deviation,
-      deviationWarn,
-      deviationMsg,
     };
-  }, [assignments, ticketSales, accountTxns, pendingAdvances, officeId, office, confirmedSettlements]);
+  }, [assignments, ticketSales, accountTxns, pendingAdvances, officeId]);
 
 
   if (assignments.length === 0) {
@@ -252,9 +224,29 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
   });
   const hasOtherMovements = Math.abs(otherMovements) >= 0.01;
 
+  // #303 — retido = posição já apurada + vendas de eventos sem fecho + por conciliar (resíduo).
+  // A posição apurada já está DENTRO do retido; nunca se abate dele.
+  const decomposition = (() => {
+    const statement: any = (statements as any[])[0];
+    if (!statement || statement.document_total == null) return null;
+    const inStatement = new Set<string>();
+    (statements as any[]).forEach((st: any) =>
+      (st.ticket_office_statement_lines || []).forEach((l: any) => l.event_id && inStatement.add(l.event_id)),
+    );
+    const settled = new Set(settledEventIds as string[]);
+    const openEvents = summary.events
+      .filter((e) => !settled.has(e.id) && !inStatement.has(e.id) && Math.abs(e.balance) >= 0.01)
+      .sort((a, b) => b.balance - a.balance);
+    const position = Number(statement.document_total);
+    const openTotal = Math.round(openEvents.reduce((acc, e) => acc + e.balance, 0) * 100) / 100;
+    const residual = Math.round((summary.globalBalance - position - openTotal) * 100) / 100;
+    const statementLines = [...(statement.ticket_office_statement_lines || [])].sort((a: any, b: any) => a.position - b.position);
+    return { statement, position, openEvents, openTotal, residual, statementLines };
+  })();
+
   return (
     <div className="space-y-3">
-      <div className={`grid grid-cols-2 gap-2 ${hasOtherMovements ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
+      <div className={`grid grid-cols-2 gap-2 ${hasOtherMovements ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
         <div className="rounded-lg bg-secondary/40 p-2 text-center">
           <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><TrendingUp className="h-3 w-3" /> Vendas</p>
           <p className="text-sm font-mono font-semibold text-emerald-500">{formatCurrency(summary.totalSales)}</p>
@@ -262,10 +254,6 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
         <div className="rounded-lg bg-secondary/40 p-2 text-center">
           <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><TrendingDown className="h-3 w-3" /> Desp. Diretas</p>
           <p className="text-sm font-mono font-semibold text-amber-500">{formatCurrency(summary.totalDirectExpenses)}</p>
-        </div>
-        <div className="rounded-lg bg-secondary/40 p-2 text-center">
-          <p className="text-[10px] text-muted-foreground">Adiantamentos</p>
-          <p className="text-sm font-mono font-semibold text-amber-500">{formatCurrency(summary.totalAdvancesPending)}</p>
         </div>
         <div className="rounded-lg bg-secondary/40 p-2 text-center">
           <p className="text-[10px] text-muted-foreground">Transferências</p>
@@ -277,7 +265,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
               Outros movimentos
               <HelpTooltip
                 size={12}
-                text="Receitas lançadas como transação nesta bilheteira e movimentos sem evento associado. É o que falta para os quatro valores acima fecharem no retido (#155)."
+                text="Receitas lançadas como transação nesta bilheteira e movimentos sem evento associado. É o que falta para os valores acima fecharem no retido (#155)."
               />
             </p>
             <p className={`text-sm font-mono font-semibold ${otherMovements >= 0 ? "text-emerald-500" : "text-red-400"}`}>
@@ -308,34 +296,56 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
           {formatCurrency(summary.globalBalance)}
         </p>
         <p className="text-[10px] text-muted-foreground mt-0.5">
-          Vendas − despesas − transferências − adiantamentos em aberto ± outros movimentos = retido
+          Vendas − despesas − transferências ± outros movimentos = retido
         </p>
-        {summary.retentionPct != null && (
-          <div className="mt-2 grid grid-cols-2 gap-2 border-t border-border/40 pt-2">
-            <div>
-              <p className="text-[10px] text-muted-foreground">Saldo esperado ({summary.retentionPct}%)</p>
-              <p className="text-sm font-mono font-semibold">{formatCurrency(summary.expectedBalance ?? 0)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground">Desvio</p>
-              <p className={`text-sm font-mono font-semibold ${summary.deviationWarn ? "text-amber-500" : "text-muted-foreground"}`}>
-                {formatCurrency(summary.deviation ?? 0)}
-              </p>
-            </div>
-            {summary.deviationWarn && (
-              <p className="col-span-2 flex items-center justify-center gap-1 text-[10px] text-amber-500">
-                <AlertCircle className="h-3 w-3" /> {summary.deviationMsg}
-              </p>
-            )}
-          </div>
-        )}
-
         {summary.hasInconsistency && (
           <p className="flex items-center justify-center gap-1 text-[10px] text-destructive mt-1">
             <AlertCircle className="h-3 w-3" /> Sem eventos em venda — saldo deveria ser zero
           </p>
         )}
       </div>
+
+      {decomposition && (
+        <div className="rounded-lg border border-border/60 p-2 space-y-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Composição do retido (já incluída nele)
+          </p>
+          <DecompRow
+            label={`Posição já apurada (Apuramento ${decomposition.statement.number})`}
+            value={decomposition.position}
+            open={openPart === "pos"}
+            onToggle={() => setOpenPart(openPart === "pos" ? null : "pos")}
+          >
+            {decomposition.statementLines.map((l: any) => (
+              <li key={l.id} className="flex justify-between gap-2"><span className="truncate">{l.description}</span><span className="font-mono">{formatCurrency(Number(l.amount ?? 0))}</span></li>
+            ))}
+          </DecompRow>
+          <DecompRow
+            label={`+ Vendas de eventos ainda sem fecho (${decomposition.openEvents.length})`}
+            value={decomposition.openTotal}
+            open={openPart === "open"}
+            onToggle={() => setOpenPart(openPart === "open" ? null : "open")}
+          >
+            {decomposition.openEvents.map((e) => (
+              <li key={e.id} className="flex justify-between gap-2"><Link to={`/eventos/${e.id}`} className="truncate hover:underline">{e.name}</Link><span className="font-mono">{formatCurrency(e.balance)}</span></li>
+            ))}
+          </DecompRow>
+          <DecompRow
+            label="+ Por conciliar (resíduo)"
+            value={decomposition.residual}
+            open={openPart === "res"}
+            onToggle={() => setOpenPart(openPart === "res" ? null : "res")}
+          >
+            <li>
+              Resto entre o retido e as duas parcelas acima: faturas lançadas sem conta e bilheteira local de sala, entre outros.{" "}
+              <Link to={`/relatorios/bilheteiras?conta=${officeId}`} className="text-primary hover:underline">Ver transação a transação</Link>
+            </li>
+          </DecompRow>
+          <p className="text-[10px] text-muted-foreground pt-1">
+            Posição apurada + vendas sem fecho + por conciliar = retido ({formatCurrency(summary.globalBalance)}).
+          </p>
+        </div>
+      )}
 
       {summary.events.length > 0 && (
         <div>
@@ -394,6 +404,19 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
           defaultEventId={settlementModal.eventId}
         />
       )}
+    </div>
+  );
+}
+
+function DecompRow({ label, value, open, onToggle, children }: { label: string; value: number; open: boolean; onToggle: () => void; children: React.ReactNode }) {
+  return (
+    <div>
+      <button type="button" onClick={onToggle} aria-expanded={open}
+        className="flex w-full items-center justify-between gap-2 rounded px-1 py-0.5 text-xs hover:bg-muted/30">
+        <span className="text-left">{label}</span>
+        <span className="font-mono font-medium">{formatCurrency(value)}</span>
+      </button>
+      {open && <ul className="ml-3 mt-1 space-y-0.5 text-[11px] text-muted-foreground">{children}</ul>}
     </div>
   );
 }

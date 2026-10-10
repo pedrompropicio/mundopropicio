@@ -661,17 +661,6 @@ export default function ReportTicketOfficeAudit() {
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3 px-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-              <ArrowRightLeft className="h-3.5 w-3.5" />
-              Adiantamentos
-            </div>
-            <p className="text-lg font-mono font-bold">
-              {formatCurrency(grandTotals.advances)}
-            </p>
-          </CardContent>
-        </Card>
 
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
@@ -705,7 +694,6 @@ export default function ReportTicketOfficeAudit() {
                   <TableHead className="text-right">Vendas</TableHead>
                   <TableHead className="text-right">Desp. Diretas</TableHead>
                   <TableHead className="text-right">Transferências</TableHead>
-                  <TableHead className="text-right">Adiantamentos</TableHead>
                   <TableHead className="text-right">Saldo Previsto</TableHead>
                   <TableHead className="text-center">Eventos</TableHead>
                 </TableRow>
@@ -713,7 +701,7 @@ export default function ReportTicketOfficeAudit() {
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Nenhuma bilheteira encontrada
                     </TableCell>
                   </TableRow>
@@ -739,7 +727,6 @@ export default function ReportTicketOfficeAudit() {
                           <TableCell className="text-right font-mono text-emerald-500">{formatCurrency(office.totalSales)}</TableCell>
                           <TableCell className="text-right font-mono text-amber-500">{formatCurrency(office.totalDirectExpenses)}</TableCell>
                           <TableCell className="text-right font-mono">{formatCurrency(office.totalTransfers)}</TableCell>
-                          <TableCell className="text-right font-mono">{formatCurrency(office.totalAdvances || 0)}</TableCell>
                           <TableCell className={cn("text-right font-mono font-semibold", office.expectedBalance >= 0 ? "text-emerald-500" : "text-red-400")}>
                             {formatCurrency(office.expectedBalance)}
                           </TableCell>
@@ -770,7 +757,6 @@ export default function ReportTicketOfficeAudit() {
                                 <TableCell className="text-right font-mono text-sm text-emerald-500">{formatCurrency(ev.totalSales)}</TableCell>
                                 <TableCell className="text-right font-mono text-sm text-amber-500">{formatCurrency(ev.totalExpenses)}</TableCell>
                                 <TableCell className="text-right font-mono text-sm">{formatCurrency(ev.totalTransfers || 0)}</TableCell>
-                                <TableCell className="text-right font-mono text-sm">{formatCurrency(ev.totalAdvances || 0)}</TableCell>
                                 <TableCell className={cn("text-right font-mono text-sm font-medium", ev.balance >= 0 ? "text-emerald-500" : "text-red-400")}>
                                   {formatCurrency(ev.balance)}
                                 </TableCell>
@@ -803,7 +789,6 @@ export default function ReportTicketOfficeAudit() {
                     <TableCell className="text-right font-mono text-emerald-500">{formatCurrency(grandTotals.sales)}</TableCell>
                     <TableCell className="text-right font-mono text-amber-500">{formatCurrency(grandTotals.expenses)}</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(grandTotals.transfers)}</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(grandTotals.advances)}</TableCell>
                     <TableCell className={cn("text-right font-mono", grandTotals.balance >= 0 ? "text-emerald-500" : "text-red-400")}>
                       {formatCurrency(grandTotals.balance)}
                     </TableCell>
