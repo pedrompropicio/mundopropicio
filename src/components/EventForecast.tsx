@@ -2360,7 +2360,7 @@ const descRef = useRef<HTMLInputElement>(null);
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="h-4 w-4 text-primary" />
             Estado do BP
-            <HelpTooltip text="Pendentes = linhas do BP em rascunho. Aprovadas = linhas do BP aprovadas para este evento dentro da vista atual. Este card mostra contagem de linhas, sem cálculo de IVA." size={14} />
+            <HelpTooltip anchor="bp.linhas" size={14} />
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div>

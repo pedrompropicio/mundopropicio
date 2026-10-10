@@ -68,37 +68,6 @@ const helpManual: HelpSection[] = [
           "Para eventos do tipo 'Múltiplos Dias', o sistema oferece um assistente avançado que permite configurar a hierarquia completa de cidades (eventos Split), datas extra e múltiplas sessões num único fluxo atómico. Ao finalizar o wizard, toda a estrutura é criada de uma só vez.",
       },
       {
-        title: "Business Plan (BP)",
-        image: "bp-workflow",
-        content:
-          "O BP é o orçamento detalhado do evento. Liste todas as receitas e despesas previstas, associando cada linha a uma categoria do Plano de Contas. Após aprovação, as linhas do BP podem ser convertidas em transações reais. Compare sempre previsão vs realizado para controlar desvios.",
-      },
-      {
-        title: "Modos do BP: Ativo vs Passivo",
-        content:
-          "O BP pode operar em dois modos:\n\nBP Ativo — restringe a criação de transações apenas às categorias previamente orçamentadas. Qualquer despesa ou receita fora do orçamento exige o mecanismo de bypass ('Categoria não prevista?'), que obriga ao preenchimento de uma justificação. Estas transações ficam marcadas como 'Fora do BP' e entram no estado 'Aguardando' para revisão, sem auto-aprovação.\n\nBP Passivo — permite criar transações em qualquer categoria do plano de contas, sem restrição de bypass. O BP funciona apenas como referência de comparação (previsto vs realizado), sem bloquear operações.\n\nEscolha o modo na configuração do evento. Use 'Ativo' para controlo rigoroso e 'Passivo' para flexibilidade operacional.",
-      },
-      {
-        title: "Regras: BP × Transações",
-        content:
-          "Relação entre linhas do BP e transações:\n\n1. Aprovação — Apenas Admins e Gestores podem aprovar linhas do BP. A primeira aprovação de uma linha em eventos 'Planeamento' ou 'Confirmado' transita automaticamente o evento para 'Ativo'. Em eventos 'Concluídos', a aprovação não altera o estado.\n\n2. Conversão — Uma linha aprovada do BP pode ser convertida numa transação real, vinculando previsão ao registo financeiro efetivo.\n\n3. Alteração de valores aprovados — Admins e Gestores podem alterar valores de linhas já aprovadas em eventos ativos, mas é obrigatória uma justificação que fica registada no log de auditoria. O histórico de alterações é visível na interface e pode ser incluído no PDF do relatório.\n\n4. Bypass (BP Ativo) — Se precisar de uma categoria não prevista no orçamento, utilize o link 'Categoria não prevista?'. A transação criada por bypass:\n   • Exige justificação obrigatória\n   • Entra como 'Aguardando' (sem auto-aprovação)\n   • Fica marcada com badge 'Fora do BP' nos relatórios\n\n5. Ordenação — Todas as linhas do BP seguem obrigatoriamente a ordem do código numérico do plano de contas, tanto na interface como nas exportações.\n\n6. Cópia de BP — É possível copiar o Business Plan de outro evento para acelerar o planeamento de eventos semelhantes.",
-      },
-      {
-        title: "Limites de edição por estado do evento",
-        content:
-          "Planeamento — Edição livre de todas as linhas do BP e transações.\nConfirmado — BP editável; transações podem ser criadas normalmente.\nAtivo — Linhas aprovadas do BP só podem ser alteradas por Admin/Gestor com justificação. Transações seguem o fluxo padrão de aprovação.\nConcluído — Edições operacionais bloqueadas. Apenas ajustes administrativos de bilheteira são permitidos. Aprovações de linhas do BP não alteram o estado do evento.",
-      },
-      {
-        title: "Cachê de artistas",
-        content:
-          "Configure o cachê na aba dedicada do evento. Pode ser um valor fixo ou uma percentagem da receita (bruta ou líquida). Defina deduções por categoria para calcular a base correta do cachê variável. O sistema calcula automaticamente o valor final.\n\nCachê Fixo — Valor pré-acordado, independente da receita do evento.\n\nCachê Variável — Percentagem sobre a receita de bilheteira, podendo usar a base bruta ou líquida (sem IVA). Antes de aplicar a percentagem, o sistema subtrai:\n  • Deduções por categoria — despesas do BP associadas a categorias selecionadas (ex: som, luz)\n  • Dedução fixa percentual — uma percentagem direta sobre a receita\n\nO cálculo é: (Receita − Deduções) × Percentagem do Artista = Cachê Bruto.",
-      },
-      {
-        title: "Despesas Extras do Artista",
-        content:
-          "São custos adicionais pagos pelo evento em nome do artista (ex: quarto de hotel extra, transfer especial, catering adicional) que devem ser descontados do cachê final. Estas despesas não geram transações financeiras separadas — são registadas apenas para efeito de cálculo e demonstração no acerto.\n\nAceda à secção 'Extras a Descontar' dentro da configuração de cachê de cada artista. Cada extra tem descrição, valor e pode ter documentos anexados (recibos, faturas).\n\nNo Relatório de Cachê do Artista, os extras aparecem analiticamente após o cachê bruto:\n  Cachê Bruto\n  (-) Extra 1\n  (-) Extra 2\n  = Cachê Líquido a Pagar",
-      },
-      {
         title: "Despesas Pagas por Sócio ('Pago por Sócio')",
         content:
           "Quando um sócio/parceiro paga uma despesa diretamente do seu bolso (sem usar contas da empresa), utilize o toggle '🤝 Pago por Sócio' no formulário de transação. O toggle aparece automaticamente quando o evento selecionado tem sócios.\n\nAo ativar:\n  • O campo 'Conta Destino' desaparece (não há movimentação em contas da empresa)\n  • Aparece o seletor 'Sócio que pagou' para indicar qual parceiro pagou\n  • A despesa é criada normalmente e segue o ciclo de aprovação padrão (Aguardando → Aprovada → Paga)\n  • A despesa pode ser editada e eliminada segundo as mesmas regras de qualquer transação\n  • Na listagem de transações, a despesa mostra um badge '🤝 Sócio' com tooltip indicando o nome do parceiro\n  • A despesa aparece no separador 'Desp. Sócios' do evento, agrupada por sócio\n  • No 'Fecho Parceiros', o total de despesas pagas pelo sócio é integrado no encontro de contas final\n\nO módulo 'Desp. Sócios' também permite vincular manualmente despesas existentes a um sócio, ou desvincular associações.",
