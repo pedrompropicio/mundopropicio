@@ -45,6 +45,8 @@ Nada em curso.
 
 ## Factos que não se reinvestigam
 
+- **Cartões de posição nos Apuramentos (#303, 10/10).** «Valor por apurar» soma SALDOS (vendas + movimentos da conta por evento) dos eventos sem fecho E sem apuramento; os liquidados em dinheiro entram a zero, mesmo sem fecho. «Já adiantado» é o absoluto da posição do último apuramento; «Saldo retido» vem da fórmula canónica e já inclui essa posição. Para posição negativa: valor por apurar − já adiantado + diferença de calendário = saldo retido, ao cêntimo. A diferença é de calendário (custos apropriados nos fechos ainda não descontados e eventos à espera do apuramento): linha discreta clicável, nunca pendência, tarefa, alerta ou desvio. Resumo de cada apuramento por tipo; posição negativa = crédito para o seguinte, positiva = valor a entregar à MP. Notas não guardam saldos móveis.
+
 - **NÃO existe percentagem de referência da Ticketline.** Há um acordo verbal de repasse em torno de 85% das vendas do período, nunca exacto, com arredondamentos e mutável a qualquer momento. Não serve de base a cálculo nem a alarme.
 - **Fecho = direito do evento (D-ERP232); nunca abate adiantamentos.** Os 25 adiantamentos da Ticketline (2.008.500,00) têm transaction_id e settlement_id; `_ticket_office_balance_raw` só subtrai os que têm os dois a NULL — por isso a tabela é só leitura (INSERT/UPDATE/DELETE) e tem CHECK que impede ficar com os dois a NULL.
 

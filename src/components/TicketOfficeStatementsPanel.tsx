@@ -3,6 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle } from "lucide-react";
+import { statementTypeTotals } from "@/lib/ticket-office-position";
+
+const SUMMARY_LABEL: Record<string, string> = {
+  event_right: "Direitos dos eventos apurados",
+  venue_settlement: "Acerto de sala",
+  ticketline_invoice: "Faturas da Ticketline",
+  advance: "Repasses do período",
+  carry_over: "Transitado do apuramento anterior",
+};
 
 const TYPE_LABEL: Record<string, string> = {
   event_right: "Direito do evento",
@@ -39,6 +48,7 @@ export function TicketOfficeStatementsPanel({ officeId }: { officeId?: string } 
         const sum = lines.reduce((acc: number, l: any) => acc + Number(l.amount ?? 0), 0);
         const pending = lines.filter((l: any) => l.pending_document);
         const diff = s.document_total != null ? Number(s.document_total) - sum : null;
+        const totals = statementTypeTotals(lines);
         return (
           <div key={s.id} id={`apuramento-${s.id}`} className="rounded-lg border border-border bg-card p-4 space-y-2 scroll-mt-20">
             <div className="flex flex-wrap items-center gap-2">
@@ -49,7 +59,7 @@ export function TicketOfficeStatementsPanel({ officeId }: { officeId?: string } 
                 <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" /> {pending.length} pendente(s) de documento</Badge>
               )}
             </div>
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto"><table className="w-full text-sm">
               <tbody>
                 {lines.map((l: any) => (
                   <tr key={l.id} className={l.pending_document ? "text-destructive" : ""}>
@@ -69,7 +79,14 @@ export function TicketOfficeStatementsPanel({ officeId }: { officeId?: string } 
                   </tr>
                 )}
               </tbody>
-            </table>
+            </table></div>
+            <dl className="border-t border-border pt-3 space-y-1 text-sm">
+              {Object.entries(SUMMARY_LABEL).filter(([type]) => type in totals).map(([type, label]) => (
+                <div key={type} className="flex justify-between gap-4"><dt>{label}</dt><dd className="font-mono whitespace-nowrap">{formatCurrency(totals[type])}</dd></div>
+              ))}
+              <div className="flex justify-between gap-4 border-t border-border pt-2 font-semibold"><dt>= Posição a fechar</dt><dd className="font-mono whitespace-nowrap">{formatCurrency(sum)}</dd></div>
+            </dl>
+            <p className="text-sm text-muted-foreground">{sum < -0.005 ? `A bilheteira adiantou ${formatCurrency(Math.abs(sum))} a mais do que os eventos renderam e leva esse valor como crédito para o apuramento seguinte.` : sum > 0.005 ? `A bilheteira tem ${formatCurrency(sum)} a entregar à MP.` : "A posição está a zero: não há valor a entregar à MP nem crédito a levar para o apuramento seguinte."}</p>
             {s.notes && <p className="text-xs text-muted-foreground">{s.notes}</p>}
           </div>
         );
