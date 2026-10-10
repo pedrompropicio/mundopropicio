@@ -442,6 +442,13 @@
       "when": 1791591461285,
       "tag": "0062_derp215_invariant_documentos_inalcancaveis",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1791592586202,
+      "tag": "0063_derp216_isolation_email_company_views",
+      "breakpoints": true
     }
   ]
 }
