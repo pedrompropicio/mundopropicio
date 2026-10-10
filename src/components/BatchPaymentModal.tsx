@@ -443,8 +443,12 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
         // paid_amount, status e payment_date. Em moeda estrangeira,
         // closes_transaction diz que esta linha fecha a dívida mesmo que a soma
         // em EUR não atinja o bruto original (variação cambial).
+        const srcTx = allTransactions.find((t: any) => t.id === item.id);
         const { error: batchPaymentError } = await (supabase as any).from("transaction_payments").insert({
           transaction_id: item.id,
+          // #281: o servidor recusa linhas fora do lote sem a escolha explícita "outro canal".
+          payment_list_id: paymentListId ?? null,
+          outside_batch: paymentListId ? !(srcTx && isInSepaBatch(srcTx)) : false,
           amount: settleEur,
           payment_date: paymentDate,
           account_id: accountId,
