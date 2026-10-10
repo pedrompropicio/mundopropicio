@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/mock-data";
 import { formatDatePT } from "@/lib/utils";
+import { formatLisbonDateTime } from "@/lib/date-lisbon";
 import { fetchSettlementView, SETTLEMENT_STATUS_LABEL, type SettlementView } from "@/lib/ticket-office-settlement-view";
 
 /** Corpo de leitura do fecho — sem campos editáveis, nada grava. */
@@ -70,7 +71,7 @@ export function SettlementReadContent({ v }: { v: SettlementView }) {
       {v.adjustmentNotes && <p><span className="font-semibold">Notas de ajuste:</span> {v.adjustmentNotes}</p>}
       {v.grossAdjustmentNotes && <p><span className="font-semibold">Notas de ajuste do bruto:</span> {v.grossAdjustmentNotes}</p>}
       {v.status === "confirmed" && (
-        <p className="text-xs text-muted-foreground">Fechado por {v.closedByName ?? "—"}{v.closedAt ? ` em ${new Date(v.closedAt).toLocaleString("pt-PT")}` : ""}</p>
+        <p className="text-xs text-muted-foreground">Fechado por {v.closedByName ?? "—"}{v.closedAt ? ` em ${formatLisbonDateTime(v.closedAt)}` : ""}</p>
       )}
     </div>
   );

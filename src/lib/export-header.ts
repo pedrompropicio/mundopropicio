@@ -99,6 +99,8 @@ export interface PdfHeaderOptions {
   marginLeft?: number;
   y?: number;
   logoWidth?: number;
+  /** Exportações com carimbo no rodapé podem omiti-lo no cabeçalho. */
+  includeGenerationStamp?: boolean;
 }
 
 /**
@@ -139,7 +141,7 @@ export function drawPdfExportHeader(doc: jsPDF, opts: PdfHeaderOptions): number 
   doc.setTextColor(110, 110, 110);
   const lines = [
     ...(opts.subtitles ?? []).filter(Boolean),
-    `${opts.branding.displayName} · Gerado em ${new Date().toLocaleString("pt-PT")}`,
+    ...(opts.includeGenerationStamp === false ? [] : [`${opts.branding.displayName} · Gerado em ${new Date().toLocaleString("pt-PT")}`]),
   ];
   for (const line of lines) {
     doc.text(line, marginLeft, y);

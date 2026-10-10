@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { Plus, Eye, FileText, RotateCcw, Pencil, CheckCircle2, AlertCircle, Loader2, Banknote, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/mock-data";
+import { formatDatePT } from "@/lib/utils";
+import { formatLisbonDateTime } from "@/lib/date-lisbon";
 import { useAuth } from "@/contexts/AuthContext";
 import { TicketOfficeSettlementModal } from "./TicketOfficeSettlementModal";
 import { TicketOfficeSettlementViewDialog } from "./TicketOfficeSettlementViewDialog";
@@ -190,7 +192,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                       )}
                       {s.status === "confirmed" && s.transfer && (
                         s.transfer.status === "paid" ? (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/15 px-2 py-0.5 text-xs text-sky-400" title={`Crédito em ${s.transfer.payment_date ? new Date(s.transfer.payment_date).toLocaleDateString("pt-PT") : "—"}`}>
+                          <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/15 px-2 py-0.5 text-xs text-sky-400" title={`Crédito em ${formatDatePT(s.transfer.payment_date) || "—"}`}>
                             <Banknote className="h-3 w-3" /> Crédito liquidado
                           </span>
                         ) : (
@@ -206,7 +208,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {s.events?.date ?? ""} • Fecho em {s.settlement_date ? new Date(s.settlement_date).toLocaleDateString("pt-PT") : new Date(s.created_at).toLocaleDateString("pt-PT")}
+                      {formatDatePT(s.events?.date)} • Fecho em {s.settlement_date ? formatDatePT(s.settlement_date) : formatLisbonDateTime(s.created_at).split(",")[0]}
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
