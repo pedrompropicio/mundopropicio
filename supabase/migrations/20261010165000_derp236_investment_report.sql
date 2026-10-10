@@ -59,15 +59,15 @@ BEGIN
  'pct',CASE WHEN v_spend>0 THEN round((SELECT sum((c->>'gasto_ref')::numeric) FROM jsonb_array_elements(p->'campanhas') c)/v_spend*100,2) END,'campanhas',jsonb_array_length(p->'campanhas'))) INTO v_totals FROM jsonb_array_elements(v_report->'plataformas') p;
  -- Account-level daily rows; same campaign/adgroup precedence and one canonical FX call per daily campaign.
  WITH conns AS (SELECT * FROM crm.ad_platform_connections WHERE artist_id=p_artist_id AND company_id=v_company AND connection_scope='artist'),
- tl AS (SELECT i.*,bool_or(level='campaign') OVER(PARTITION BY connection_id,external_campaign_id,date_start) has_c FROM crm.tiktok_insights_daily i JOIN conns c ON c.id=i.connection_id WHERE i.level IN ('campaign','adgroup') AND i.date_start BETWEEN least(v_from,date_trunc('month',current_date)::date) AND greatest(v_to,current_date)),
+ tl AS (SELECT i.*,bool_or(i.level='campaign') OVER(PARTITION BY i.connection_id,i.external_campaign_id,i.date_start) has_c FROM crm.tiktok_insights_daily i JOIN conns c ON c.id=i.connection_id WHERE i.level IN ('campaign','adgroup') AND i.date_start BETWEEN least(v_from,date_trunc('month',current_date)::date) AND greatest(v_to,current_date)),
  cd AS (
  SELECT 'meta'::text platform,c.selected_ad_account_id account,i.external_campaign_id cid,i.date_start d,coalesce(i.currency,c.selected_ad_account_currency) currency,i.spend_cents/100.0 spend FROM crm.meta_campaign_insights_daily i JOIN conns c ON c.id=i.connection_id AND c.platform='meta' WHERE i.date_start BETWEEN least(v_from,date_trunc('month',current_date)::date) AND greatest(v_to,current_date)
  UNION ALL SELECT 'google',c.selected_ad_account_id,i.external_campaign_id,i.date_start,coalesce(i.currency,c.selected_ad_account_currency),i.spend_cents/100.0 FROM crm.google_campaign_insights_daily i JOIN conns c ON c.id=i.connection_id AND c.platform='google' WHERE i.date_start BETWEEN least(v_from,date_trunc('month',current_date)::date) AND greatest(v_to,current_date)
  UNION ALL SELECT 'tiktok',c.selected_ad_account_id,i.external_campaign_id,i.date_start,coalesce(max(i.currency),max(c.selected_ad_account_currency)),sum(i.spend_cents)/100.0 FROM tl i JOIN conns c ON c.id=i.connection_id WHERE (i.has_c AND i.level='campaign') OR (NOT i.has_c AND i.level='adgroup') GROUP BY c.selected_ad_account_id,i.external_campaign_id,i.date_start),
- cdr AS MATERIALIZED (SELECT *,CASE WHEN coalesce(spend,0)=0 THEN 0 ELSE public.fx_convert(spend,currency,v_ref,d) END gr FROM cd)
- SELECT coalesce(jsonb_agg(jsonb_build_object('dia',d,'plataforma',platform,'conta',account,'moeda',currency,'gasto',g,'gasto_ref',gr) ORDER BY d,platform,account) FILTER(WHERE d BETWEEN v_from AND v_to),'[]'),
-  CASE WHEN count(*) FILTER(WHERE d BETWEEN date_trunc('month',current_date)::date AND current_date AND miss)>0 THEN NULL ELSE round(sum(gr) FILTER(WHERE d BETWEEN date_trunc('month',current_date)::date AND current_date),2) END
- INTO v_daily,v_month FROM (SELECT d,platform,account,currency,sum(spend) g,sum(gr) gr,bool_or(spend>0 AND gr IS NULL) miss FROM cdr GROUP BY 1,2,3,4) x;
+ cdr AS MATERIALIZED (SELECT *,CASE WHEN coalesce(spend,0)=0 THEN 0 ELSE public.fx_convert(spend,currency,v_ref,d) END gr FROM cd), tagged AS (SELECT cdr.*, CASE WHEN EXISTS(SELECT 1 FROM jsonb_array_elements(v_report->'plataformas') p,jsonb_array_elements(p->'campanhas') c WHERE p->>'platform'=cdr.platform AND c->>'campaign_id'=cdr.cid AND c->>'account_id'=cdr.account AND c->'resultado'->>'nome'='chegada_smart_link') THEN gr ELSE 0 END gt FROM cdr)
+ SELECT coalesce(jsonb_agg(jsonb_build_object('dia',d,'plataforma',platform,'conta',account,'moeda',currency,'gasto',g,'gasto_ref',gr,'gasto_trafego_ref',gt) ORDER BY d,platform,account) FILTER(WHERE d BETWEEN v_from AND v_to),'[]'),
+  CASE WHEN count(*) FILTER(WHERE d BETWEEN date_trunc('month',current_date)::date AND current_date AND miss)>0 THEN NULL ELSE coalesce(round(sum(gr) FILTER(WHERE d BETWEEN date_trunc('month',current_date)::date AND current_date),2),0) END
+ INTO v_daily,v_month FROM (SELECT d,platform,account,currency,sum(spend) g,sum(gr) gr,sum(gt) gt,bool_or(spend>0 AND gr IS NULL) miss FROM tagged GROUP BY 1,2,3,4) x;
  SELECT coalesce(jsonb_agg(jsonb_build_object('moeda',currency,'moeda_ref',v_ref,'fonte','BCE','taxa',public.fx_convert(1,currency,v_ref,d),'data',d) ORDER BY d,currency),'[]') INTO v_fx
  FROM (SELECT DISTINCT j->>'moeda' currency,(j->>'dia')::date d FROM jsonb_array_elements(v_daily) j WHERE j->>'moeda'<>v_ref) f;
  SELECT coalesce(jsonb_agg(jsonb_build_object('plataforma',c->>'platform','campanha',c->>'nome','objetivo',c->>'objective',
@@ -105,7 +105,7 @@ BEGIN
     -- Same effective-channel mapping as D-ERP185; test events excluded. No click fallback.
     WITH ev AS (SELECT e.created_at::date d,public.song_link_event_canal(l.canal,e.utm_source,e.utm_medium,e.utm_campaign) canal FROM public.song_link_events e LEFT JOIN public.song_links l ON l.id=e.link_id WHERE e.artist_id=p_artist_id AND e.event='arrival' AND e.created_at>=v_from::timestamptz AND e.created_at<(v_to+1)::timestamptz),
     arr AS (SELECT d,count(*) n FROM ev WHERE canal IN ('meta_ads','google_ads','tiktok_ads') GROUP BY d),
-    tr AS (SELECT (j->>'dia')::date d,sum((j->>'gasto_ref')::numeric) spend FROM jsonb_array_elements(v_daily) j GROUP BY 1)
+    tr AS (SELECT (j->>'dia')::date d,sum((j->>'gasto_trafego_ref')::numeric) spend FROM jsonb_array_elements(v_daily) j GROUP BY 1)
     SELECT coalesce(jsonb_agg(jsonb_build_object('d',d,'v',CASE WHEN spec.chave='chegadas_spotify' THEN n ELSE CASE WHEN n>0 THEN round(spend/n,4) END END) ORDER BY d),'[]') INTO pts FROM arr LEFT JOIN tr USING(d);
     SELECT v_from d,CASE WHEN spec.chave='chegadas_spotify' THEN 0::numeric ELSE NULL::numeric END v INTO b;
     SELECT v_to d,CASE WHEN spec.chave='chegadas_spotify' THEN v_arrivals ELSE CASE WHEN v_arrivals>0 THEN round(v_traffic/v_arrivals,4) END END v INTO a;
@@ -120,7 +120,7 @@ BEGIN
  UNION ALL SELECT (j->>'d')::date,'Investimento diário acima de 2× a média do período' FROM jsonb_array_elements(v_series->0->'pontos') j WHERE (j->>'v')::numeric>2*v_spend/(v_to-v_from+1)) z;
  RETURN jsonb_build_object('artista_id',p_artist_id,'ref_currency',v_ref,'periodo',jsonb_build_object('de',v_from,'ate',v_to,'inicio_gestao',v_start,'dia_parcial',v_to>=current_date),
  'kpis',v_kpis,'gasto_diario',v_daily,'cambio',v_fx,'totais_plataforma',coalesce(v_totals,'[]'),'marcos',v_marks,'series',v_series,'campanhas_no_ar',v_active,
- 'ritmo_diario_ref',v_spend/(v_to-v_from+1),'projecao',v_projection,'total_projetado_ref',v_projected,'total_mes_ref',coalesce(v_month,0)+v_projected,
+ 'ritmo_diario_ref',v_spend/(v_to-v_from+1),'projecao',v_projection,'total_projetado_ref',v_projected,'total_mes_ref',v_month+v_projected,
  'fontes',jsonb_build_array('artist_ads_period_report: campanhas.gasto_ref, gasto_trafego e chegadas por canal (D-ERP185)','Insights diários: Meta, Google e TikTok; precedência campaign > adgroup','artist_metrics_daily: aggregator > platform_api > public_page','artist_song_metrics_daily: s4a_streams_day, soma diária por música','fx_convert: BCE do próprio dia; câmbio ausente = null; projeção exclui hoje','Orçamentos diários activos; lifetime não é orçamento diário'),
  'lacunas',jsonb_build_array('Chegadas ao Spotify são chegadas a smart links do artista nos canais pagos; não provam abertura nem stream no Spotify.','Streams: soma S4A diária das músicas do artista; sem medição retorna null.'));
 END $fn$;
