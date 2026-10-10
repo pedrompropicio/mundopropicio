@@ -371,29 +371,6 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     }
   }, [targetWithholds, creditStatus]);
 
-  // Pending advances for this event on this office (excluding any already linked to this settlement)
-  const { data: pendingAdvances = [] } = useQuery({
-    queryKey: ["settlement_advances", officeId, eventId, existingSettlement?.id],
-    enabled: !!eventId,
-    queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("event_ticket_office_advances")
-        .select("*")
-        .eq("financial_account_id", officeId)
-        .eq("event_id", eventId)
-        .order("advance_date", { ascending: true });
-      const list = data || [];
-      // Include unlinked OR linked to this settlement (when editing)
-      return list.filter((a: any) =>
-        !a.settlement_id || (existingSettlement && a.settlement_id === existingSettlement.id)
-      );
-    },
-  });
-
-  const totalAdvances = useMemo(
-    () => pendingAdvances.reduce((s: number, a: any) => s + Number(a.amount), 0),
-    [pendingAdvances]
-  );
 
   // Faturas/despesas do evento candidatas a receber o abatimento da venda retida pela sala.
   // Mostra qualquer despesa do evento (qualquer fornecedor) com saldo em aberto.
@@ -907,15 +884,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
           .eq("id", settlementId).select("id"), "Fecho: ticket_office_settlements", { expectRows: true });
       }
 
-      // #303: event_ticket_office_advances é histórico só de leitura (trigger na base);
-      // não há adiantamentos por ligar em Live. Os repasses vivem no Apuramento Ticketline.
-      if (false && pendingAdvances.length > 0) {
-        const advanceIds = pendingAdvances.map((a: any) => a.id);
-        await mustWrite((supabase as any)
-          .from("event_ticket_office_advances")
-          .update({ settlement_id: confirm ? settlementId : null })
-          .in("id", advanceIds).select("id"), "Fecho: event_ticket_office_advances", { expectRows: true });
-      }
+      // #303: os repasses vivem só no Apuramento Ticketline; o fecho não lê nem liga adiantamentos.
 
       // Carimbo de conciliação: um fecho confirmado marca a atribuição como conciliada.
       if (confirm && eventId) {
