@@ -23,8 +23,13 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** `.from("transaction-documents")` seguido de `.remove(` no mesmo encadeamento (quebras de linha incluídas). */
-const RE = /\.from\(\s*(["'`])transaction-documents\1\s*\)\s*\.remove\s*\(/g;
+/** #268: os 10 buckets contabilísticos — `.from("<bucket>")` seguido de `.remove(` (quebras de linha incluídas). */
+export const GUARDED_BUCKETS = [
+  "transaction-documents", "camarim-documents", "card-documents", "closing-cost-documents",
+  "standalone-invoices", "supplier-documents", "ticket-office-settlements",
+  "bank-statements", "event-forecast-attachments", "event-ab-attachments",
+];
+const RE = new RegExp(`\\.from\\(\\s*(["'\`])(${GUARDED_BUCKETS.join("|")})\\1\\s*\\)\\s*\\.remove\\s*\\(`, "g");
 
 describe("sem remoção directa em transaction-documents no frontend", () => {
   const files = walk(join(ROOT, "src")).filter((f) => !f.endsWith("no-direct-transaction-document-remove.test.ts"));
@@ -33,7 +38,7 @@ describe("sem remoção directa em transaction-documents no frontend", () => {
     expect(files.length).toBeGreaterThan(100);
   });
 
-  it("nenhuma chamada a storage.from(\"transaction-documents\").remove", () => {
+  it("nenhuma chamada directa a .remove nos 10 buckets contabilísticos", () => {
     const offences: string[] = [];
     for (const f of files) {
       const src = readFileSync(f, "utf8");
@@ -41,7 +46,7 @@ describe("sem remoção directa em transaction-documents no frontend", () => {
       RE.lastIndex = 0;
       while ((m = RE.exec(src))) {
         const line = src.slice(0, m.index).split("\n").length;
-        offences.push(`${f.slice(ROOT.length + 1)}:${line}: usa deleteTransactionDocument (edge delete-transaction-document)`);
+        offences.push(`${f.slice(ROOT.length + 1)}:${line}: ${m[2]} — usa deleteTransactionDocument / deleteStorageObject (storage-delete)`);
       }
     }
     expect(offences.join("\n"), `\n${offences.join("\n")}\n`).toBe("");
@@ -50,5 +55,9 @@ describe("sem remoção directa em transaction-documents no frontend", () => {
   it("a guarda apanha o padrão", () => {
     RE.lastIndex = 0;
     expect(RE.test(`supabase.storage\n  .from("transaction-documents")\n  .remove([p])`)).toBe(true);
+    RE.lastIndex = 0;
+    expect(RE.test(`supabase.storage.from('bank-statements').remove([p])`)).toBe(true);
+    RE.lastIndex = 0;
+    expect(RE.test(`supabase.storage.from("implementation-files").remove([p])`)).toBe(false);
   });
 });
