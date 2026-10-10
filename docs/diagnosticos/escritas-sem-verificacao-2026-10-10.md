@@ -175,3 +175,11 @@ src/pages/crm-admin/audiences/audienceSnapshot.ts:61 update audiences
 src/pages/operacao/ChamadoDetail.tsx:164 insert operacao_registro_media
 src/pages/operacao/ChamadoNovo.tsx:78 insert operacao_registro_media
 ```
+
+## Atualização 10/10/2026 — P1 (#295, D-ERP219)
+- delete-transaction-cascade: 15 → RPC delete_transaction_cascade.
+- TicketOfficeSettlementsPanel: estorno (6) → RPC reverse_ticket_office_settlement.
+- TicketOfficeSettlementModal: 15 com mustWrite (gravação ainda sequencial; RPC pendente).
+- EventForecast 13, useSyncCacheForecasts 8, EventDetail 7, ImplBPTab 6, LinkReimbursementNoteModal 4, SupplierCreditsPanel 3, camarim 4 (CamarimItemAttachmentButton 1, CamarimItemModal 2, SplitItemModal 1), card-item-documents 2, BankReconciliation 3: mustWrite.
+- OpenSessionModal 3: rollbacks compensatórios, sem verificação de propósito.
+- Ficam P2 e P3.
