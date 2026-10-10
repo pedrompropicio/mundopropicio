@@ -1,8 +1,8 @@
 # Roadmap — épica #146 (e)
 
 ## #303 — rascunho Deive Braga
-- [ ] Criar rascunho documental, ligar dedução existente e linha do 3163, verificar travas sem novos movimentos.
-- [ ] Actualizar estado e comentar #303 sem fechar; confirmação fica para Pedro.
+- [x] Criar rascunho documental, ligar dedução existente e linha do 3163, verificar travas sem novos movimentos.
+- [x] Actualizar estado e comentar #303 sem fechar; confirmação fica para Pedro (comentário 6099594598, issue aberta verificada).
 
 ## Smart links — chegada SSR (despacho D-ERP189)
 - [ ] Migração, função e testes — aguarda autorização para avançar após preflight; segredo partilhado por criar pelo Pedro.
