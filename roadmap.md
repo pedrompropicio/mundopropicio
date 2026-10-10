@@ -1,5 +1,9 @@
 # Roadmap — épica #146 (e)
 
+## #303 — correcção da explicação da diferença
+- [x] Corrigir texto e memória: movimentos já feitos pela bilheteira, ainda não reflectidos no nosso registo; nenhuma escrita financeira.
+- [x] Lista clicável com uma linha de bilheteira local, identidade ao cêntimo e apresentação discreta verificadas em desktop/mobile; 3 testes passaram. Sem dados ou Publish.
+
 ## #303 — rascunho Deive Braga
 - [x] Criar rascunho documental, ligar dedução existente e linha do 3163, verificar travas sem novos movimentos.
 - [x] Actualizar estado e comentar #303 sem fechar; confirmação fica para Pedro (comentário 6099594598, issue aberta verificada).
