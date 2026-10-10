@@ -1,6 +1,6 @@
 ---
 name: Apuramento Ticketline (#303)
-description: ticket_office_statements + linhas tipadas; repasses e transitados só no apuramento; fecho do evento mostra o direito; advances só leitura; confirmar exige Σ = total e zero pendentes
+description: ticket_office_statements + linhas tipadas; repasses e transitados só no apuramento; fecho do evento mostra o direito; advances só leitura; confirmar exige Σ = total e zero pendentes; retido JÁ é a posição actual (não se abate a posição apurada)
 type: feature
 ---
 - Tabelas `ticket_office_statements` / `ticket_office_statement_lines` (event_right, ticketline_invoice, venue_settlement, advance, carry_over). Valor com sinal (+ MP, − Ticketline). `pending_document` = valor por provar, bloqueia confirmação. O plano dizia amount NULL; na prática a linha pendente foi gravada com amount 0,00 (ambos aceites — o que conta é a flag).
