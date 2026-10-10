@@ -22,6 +22,11 @@ interface Row {
   net_value: number | null;
   net_transferred: number | null;
   forma_liquidacao: string;
+  forma_derivada: string;
+  forma_manual: string | null;
+  forma_manual_notes: string | null;
+  statement_id: string | null;
+  statement_number: string | null;
   notes: string | null;
   adjustment_notes: string | null;
 }
@@ -86,9 +91,20 @@ export function TicketOfficeSettlementsOverview({ eventId }: { eventId?: string 
           <dl className="grid grid-cols-3 gap-2 text-xs">
             <div><dt className="text-muted-foreground">Bruto</dt><dd>{formatCurrency(Number(r.gross_revenue ?? 0))}</dd></div>
             <div><dt className="text-muted-foreground">Deduções</dt><dd>{formatCurrency(Number(r.total_deductions ?? 0))}</dd></div>
-            <div><dt className="text-muted-foreground">Líquido</dt><dd className="font-medium">{formatCurrency(Number(r.net_value ?? 0))}</dd></div>
+            <div><dt className="text-muted-foreground">Direito do evento</dt><dd className="font-medium">{formatCurrency(Number(r.net_value ?? 0))}</dd></div>
           </dl>
-          <p className="text-xs"><span className="text-muted-foreground">Forma de liquidação: </span>{settlementFormLabel(r.forma_liquidacao)}</p>
+          <p className="text-xs">
+            <span className="text-muted-foreground">Forma de liquidação: </span>
+            {settlementFormLabel(r.forma_liquidacao, r.statement_number)}
+            {r.forma_manual ? (
+              <span className="text-muted-foreground"> (declarada à mão; derivada: {settlementFormLabel(r.forma_derivada, r.statement_number)}{r.forma_manual_notes ? ` — ${r.forma_manual_notes}` : ""})</span>
+            ) : (
+              <span className="text-muted-foreground"> (derivada)</span>
+            )}
+            {r.statement_id && (
+              <> · <a href={`/bilheteiras#apuramento-${r.statement_id}`} className="text-primary hover:underline">ver apuramento</a></>
+            )}
+          </p>
           <p className="text-xs whitespace-pre-wrap">
             <span className="text-muted-foreground">Notas: </span>{r.notes?.trim() || "sem notas"}
           </p>

@@ -38,7 +38,7 @@ export function TicketOfficeStatementsPanel() {
         const pending = lines.filter((l: any) => l.pending_document);
         const diff = s.document_total != null ? Number(s.document_total) - sum : null;
         return (
-          <div key={s.id} className="rounded-lg border border-border bg-card p-4 space-y-2">
+          <div key={s.id} id={`apuramento-${s.id}`} className="rounded-lg border border-border bg-card p-4 space-y-2 scroll-mt-20">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-semibold">Apuramento {s.number}</span>
               <span className="text-xs text-muted-foreground">{s.statement_date}</span>
