@@ -2180,9 +2180,22 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                 </Button>
               </>
             )}
-            <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setShowSepa(true); }} title="Gerar ficheiro SEPA para o NetBanco Santander">
-              <Landmark className="mr-1.5 h-4 w-4" /> Ficheiro Santander
-            </Button>
+            {/* #37 — só quem aprova listas (admin) exporta; só listas aprovadas geram ficheiro. */}
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!(list?.status === "approved" || list?.status === "partially_approved")}
+                onClick={(e) => { e.stopPropagation(); setShowSepa(true); }}
+                title={
+                  list?.status === "approved" || list?.status === "partially_approved"
+                    ? "Gerar ficheiro SEPA para o NetBanco Santander"
+                    : "Disponível só depois de a lista ser aprovada"
+                }
+              >
+                <Landmark className="mr-1.5 h-4 w-4" /> Ficheiro Santander
+              </Button>
+            )}
             {canEditItems && (
               <button
                 onClick={(e) => { e.stopPropagation(); setShowAddTx(true); }}

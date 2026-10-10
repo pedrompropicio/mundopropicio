@@ -181,6 +181,8 @@ export default function SepaExportModal({
   const selectedAccount = accounts.find((a: any) => normalizeIban(a.iban) === debtorIban);
 
   const handleGenerate = async () => {
+    // #37 — lista não aprovada nunca produz ficheiro (o servidor também recusa o registo).
+    if (isTest) return;
     if (valid.length === 0 || !debtorIban) return;
     const out = buildPain001({
       listId,
@@ -264,8 +266,7 @@ export default function SepaExportModal({
           <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
             <span>
-              <strong>Lista ainda não aprovada — ficheiro de teste.</strong> O nome do ficheiro leva o sufixo{" "}
-              <code>_TESTE</code>.
+              <strong>Lista ainda não aprovada — não é possível gerar o ficheiro.</strong> Aprova a lista primeiro.
             </span>
           </div>
         )}
