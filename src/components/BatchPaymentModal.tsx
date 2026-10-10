@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { mustWrite } from "@/lib/must-write";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { OffsetLineNote } from "@/components/TransactionOffsetsBlock";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -515,7 +516,7 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
             // A saída de dinheiro pertence à transação-mãe: as filhas de rateio
             // recebem paid_amount/status mas NUNCA account_id nem linha em
             // transaction_payments (senão a saída contaria duas vezes no saldo).
-            await supabase
+            await mustWrite(supabase
               .from("transactions")
               .update({
                 paid_amount: childNewPaid,
@@ -525,7 +526,7 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
                   ? { invoice_ref: effectiveInvoiceRef }
                   : {}),
               } as any)
-              .eq("id", child.id);
+              .eq("id", child.id).select("id"), "transactions.update", { expectRows: true });
           }
         }
       }

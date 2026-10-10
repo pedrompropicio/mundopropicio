@@ -1,4 +1,5 @@
 import RaiseBudgetDialog from "@/components/RaiseBudgetDialog";
+import { mustWrite } from "@/lib/must-write";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { TransactionOffsetsBlock } from "@/components/TransactionOffsetsBlock";
 import { computeBudgetExcess, type BudgetExcessLine } from "@/lib/bp-budget-excess";
@@ -1926,7 +1927,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                         let groupId = transaction.invoice_group_id ?? null;
                         if (!groupId) {
                           groupId = crypto.randomUUID();
-                          await supabase.from("transactions").update({ invoice_group_id: groupId }).eq("id", transaction.id);
+                          await mustWrite(supabase.from("transactions").update({ invoice_group_id: groupId }).eq("id", transaction.id).select("id"), "transactions.update", { expectRows: true });
                         }
                         // 3) Cria a nova transação NORMAL pelo valor revertido
                         const { error: insErr } = await supabase.from("transactions").insert({
@@ -2079,7 +2080,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                   // apagada depois, e confirma-se que a linha saiu mesmo.
                   const { error: revErr } = await supabase.rpc("revert_partner_extra" as any, { p_tx_id: extraSibling.id, p_clear_transitory: false });
                   if (revErr) {
-                    await supabase.from("transactions").update({ amount: transaction.amount, paid_amount: (transaction as any).paid_amount ?? 0 } as any).eq("id", transaction.id);
+                    await mustWrite(supabase.from("transactions").update({ amount: transaction.amount, paid_amount: (transaction as any).paid_amount ?? 0 } as any).eq("id", transaction.id).select("id"), "transactions.update", { expectRows: true });
                     toast({ title: "Não foi possível remover o Extra do Sócio", description: revErr.message, variant: "destructive" });
                     return;
                   }
@@ -2232,7 +2233,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                         let groupId = transaction.invoice_group_id ?? null;
                         if (!groupId) {
                           groupId = crypto.randomUUID();
-                          await supabase.from("transactions").update({ invoice_group_id: groupId }).eq("id", transaction.id);
+                          await mustWrite(supabase.from("transactions").update({ invoice_group_id: groupId }).eq("id", transaction.id).select("id"), "transactions.update", { expectRows: true });
                         }
                         // 2) Cria PRIMEIRO a irmã transitória pela parte do sócio; só depois se
                         //    reduz a principal (amount + paid_amount no MESMO update, senão a
@@ -2712,7 +2713,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
             onLinked={() => setRevertNeedsBpLine(false)}
             onPicked={async (forecastId) => {
               setRevertNeedsBpLine(false);
-              await supabase.from("partner_advance_expenses").delete().eq("transaction_id", transaction.id);
+              await mustWrite(supabase.from("partner_advance_expenses").delete().eq("transaction_id", transaction.id).select("id"), "partner_advance_expenses.delete", { expectRows: true });
               const { error } = await supabase
                 .from("transactions")
                 .update({ is_transitory: false, forecast_id: forecastId })

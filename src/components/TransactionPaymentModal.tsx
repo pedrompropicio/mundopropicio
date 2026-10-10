@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { mustWrite } from "@/lib/must-write";
 import { fetchKnownBankDate } from "@/lib/bank-link-date";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -529,18 +530,18 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
       for (const [creditId, valStr] of Object.entries(creditAllocations)) {
         const val = parseFloat(valStr) || 0;
         if (val <= 0) continue;
-        await supabase.from("supplier_credit_usages" as any).insert({
+        await mustWrite(supabase.from("supplier_credit_usages" as any).insert({
           credit_id: creditId,
           transaction_id: transaction.id,
           amount: val,
           used_by: userName,
-        });
+        }), "supplier_credit_usages.insert");
         // Update used_amount on the credit
         const credit = availableCredits.find((c: any) => c.id === creditId);
         if (credit) {
           const newUsed = Math.round((Number(credit.used_amount) + val) * 100) / 100;
           const newStatus = newUsed >= Number(credit.amount) ? "exhausted" : "active";
-          await supabase.from("supplier_credits" as any).update({ used_amount: newUsed, status: newStatus }).eq("id", creditId);
+          await mustWrite(supabase.from("supplier_credits" as any).update({ used_amount: newUsed, status: newStatus }).eq("id", creditId).select("id"), "supplier_credits.update", { expectRows: true });
         }
       }
 
@@ -584,14 +585,14 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
             ? "paid"
             : "approved";
 
-          await (supabase as any)
+          await mustWrite((supabase as any)
             .from("transactions")
             .update({
               paid_amount: childNewPaid,
               status: childStatus,
               payment_date: format(paymentDate, "yyyy-MM-dd"),
             })
-            .eq("id", child.id);
+            .eq("id", child.id).select("id"), "transactions.update", { expectRows: true });
 
 
 

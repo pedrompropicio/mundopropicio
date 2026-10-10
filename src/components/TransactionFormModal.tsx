@@ -1,4 +1,5 @@
 import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
+import { mustWrite } from "@/lib/must-write";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { makeTxInsert } from "@/lib/admin-window";
@@ -1853,7 +1854,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         if (reinforcementChoice === "master" && insertedTx?.id && data.event_id && data.category_id) {
           const masterForecast = masterDetection.getMasterForecastForCategory(data.category_id);
           if (masterForecast) {
-            await supabase.from("event_forecasts").insert({
+            await mustWrite(supabase.from("event_forecasts").insert({
               event_id: data.event_id,
               type: "expense",
               description: data.description || "(sem descrição)",
@@ -1863,7 +1864,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               status: "approved",
               transaction_id: insertedTx.id,
               master_forecast_id: masterForecast.id,
-            } as any);
+            } as any), "event_forecasts.insert");
           }
         }
 
@@ -1939,10 +1940,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
           if (noteId) {
             // Link transaction to the note
-            await supabase.from("reimbursement_note_items").insert({
+            await mustWrite(supabase.from("reimbursement_note_items").insert({
               reimbursement_note_id: noteId,
               transaction_id: insertedTx.id,
-            });
+            }), "reimbursement_note_items.insert");
 
             // Update note total
             const txAmount = parseFloat(data.amount);
@@ -1951,10 +1952,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               .select("total_amount")
               .eq("id", noteId)
               .single();
-            await supabase
+            await mustWrite(supabase
               .from("reimbursement_notes")
               .update({ total_amount: (Number(currentNote?.total_amount) || 0) + txAmount } as any)
-              .eq("id", noteId);
+              .eq("id", noteId).select("id"), "reimbursement_notes.update", { expectRows: true });
           }
         }
       }
