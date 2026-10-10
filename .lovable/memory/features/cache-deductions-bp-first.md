@@ -9,3 +9,4 @@ type: feature
 - Aceitação SM 2026: Lisboa 24.582,28 (20.860,18 + 3.722,10) · Porto 25.423,68 (20.860,18 + 4.563,50).
 - Pendente: grelha /eventos (events-list-cache-impact.ts) ainda usa só transações.
 - #301 (2026-10-10): a linha de cachê das cidades no BP (useSyncCacheForecasts, ramo turnê) usa o mesmo núcleo do real — `computeTourCityCacheAmount` (src/lib/tour-cache-sync.ts) = computeRealCacheResults + cityDeductionSources + ocupação real da cidade (100 só no fallback sem vendas, com receita planeada). Escalões e ajustes/finalizações lidos da base, não do ecrã que chama. Prioridade settlement cidade > config > calculado; chão #240 mantido. Impacto em Live: só Deive Leonardo - Braga +3,22.
+- #301 A (2026-10-10): a deteção de alterações do recálculo inclui `masterDeductionFingerprint` — BP e despesas do Master só nas rubricas de dedução (valor, IVA, estado, estorno, flags). Mudança fora das deduções não dispara.

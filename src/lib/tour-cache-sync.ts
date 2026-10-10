@@ -37,3 +37,23 @@ export function computeTourCityCacheAmount(args: {
   });
   return getCacheEffectiveAmount(args.config, r.finalAmount, args.citySettlement ?? null);
 }
+
+/**
+ * #301 (opção A) — impressão digital do Master para a deteção de alterações do recálculo.
+ * Só entram linhas do BP e transações do Master em rubricas de DEDUÇÃO do cachê;
+ * qualquer mudança de valor, IVA, estado, estorno, escondida/transitória/excluída muda a string.
+ */
+export function masterDeductionFingerprint(
+  forecasts: any[],
+  transactions: any[],
+  deductionCategoryIds: string[],
+): string {
+  const cats = new Set(deductionCategoryIds);
+  const f = forecasts
+    .filter((r) => r.category_id && cats.has(r.category_id))
+    .map((r) => `f:${r.id}:${r.category_id}:${Math.round(Number(r.amount || 0) * 100)}:${r.iva_rate ?? ""}:${r.status ?? ""}:${!!r.is_overhead}:${!!r.is_transitory}:${!!r.exclude_from_result}`);
+  const t = transactions
+    .filter((r) => r.category_id && cats.has(r.category_id))
+    .map((r) => `t:${r.id}:${r.category_id}:${Math.round(Number(r.amount || 0) * 100)}:${r.iva_rate ?? ""}:${r.status ?? ""}:${r.reversed_at ?? ""}:${!!r.is_hidden}:${!!r.is_transitory}:${!!r.exclude_from_result}:${r.parent_transaction_id ?? ""}:${r.split_percentage ?? ""}`);
+  return [...f, ...t].sort().join("|");
+}

@@ -31,3 +31,22 @@ describe("#301 — linha de cachê da cidade = cachê real (Simone Mendes 2026)"
   it("config finalizada ganha ao calculado", () =>
     expect(city(197117.92, 3991.42, 69.47, null, { ...config, is_finalized: true, real_amount: 1234 })).toBe(1234));
 });
+
+import { masterDeductionFingerprint } from "@/lib/tour-cache-sync";
+describe("#301 A — alteração no Master dispara o recálculo só em rubricas de dedução", () => {
+  const OUTRA = "outra-rubrica";
+  const cats = [AEREO, COMISSAO];
+  const baseF = [{ id: "f1", ...fc(AEREO, 41720.35) }, { id: "f2", ...fc(OUTRA, 500) }];
+  const baseT = [{ id: "t1", category_id: AEREO, amount: 1000, iva_rate: 0, status: "paid" }, { id: "t2", category_id: OUTRA, amount: 10, iva_rate: 0, status: "paid" }];
+  const fp0 = masterDeductionFingerprint(baseF, baseT, cats);
+  it("linha do BP do Master alterada na dedução muda a impressão", () =>
+    expect(masterDeductionFingerprint([{ ...baseF[0], amount: 42000 }, baseF[1]], baseT, cats)).not.toBe(fp0));
+  it("despesa nova na dedução muda", () =>
+    expect(masterDeductionFingerprint(baseF, [...baseT, { id: "t3", category_id: COMISSAO, amount: 5, status: "approved" }], cats)).not.toBe(fp0));
+  it("despesa estornada na dedução muda", () =>
+    expect(masterDeductionFingerprint(baseF, [{ ...baseT[0], reversed_at: "2026-10-10" }, baseT[1]], cats)).not.toBe(fp0));
+  it("alterações fora das deduções não mudam nada", () => {
+    expect(masterDeductionFingerprint([baseF[0], { ...baseF[1], amount: 9999 }], baseT, cats)).toBe(fp0);
+    expect(masterDeductionFingerprint(baseF, [...baseT, { id: "t9", category_id: OUTRA, amount: 1, status: "paid" }], cats)).toBe(fp0);
+  });
+});

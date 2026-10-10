@@ -8,7 +8,7 @@ import { writeForecastAmount, ForecastBelowRealizedError } from "@/lib/forecast-
 import { toast } from "@/hooks/use-toast";
 import { mustWrite } from "@/lib/must-write";
 import { computeTicketRevenueAndOccupancy, enrichCacheConfigs, filterRealCacheExpenses } from "@/lib/real-cache-calc";
-import { computeTourCityCacheAmount } from "@/lib/tour-cache-sync";
+import { computeTourCityCacheAmount, masterDeductionFingerprint } from "@/lib/tour-cache-sync";
 
 /**
  * #240 (Q2): o amount das linhas cache_module vai por batch_update_event_forecasts
@@ -144,6 +144,33 @@ export function useSyncCacheForecasts({
     refetchInterval: 10000,
   });
 
+  // #301 (A): BP e despesas do Master nas rubricas de dedução entram na deteção de alterações.
+  const deductionCatsKey = useMemo(() => [...new Set(deductions.map((d) => d.category_id))].sort().join(","), [deductions]);
+  const isTourForFp = !!childEventIds && childEventIds.length > 0;
+  const { data: masterFingerprint } = useQuery({
+    queryKey: ["cache-sync-master-fp", eventId, deductionCatsKey],
+    queryFn: async () => {
+      const cats = deductionCatsKey ? deductionCatsKey.split(",") : [];
+      if (cats.length === 0) return "no-deductions";
+      const [fRes, tRes] = await Promise.all([
+        fetchAllPagedQuery(supabase
+          .from("event_forecasts")
+          .select("id, category_id, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result")
+          .eq("event_id", eventId).eq("type", "expense").in("category_id", cats)
+          .is("cache_config_id", null).is("version_id", null).order("id")),
+        fetchAllPagedQuery(supabase
+          .from("transactions")
+          .select("id, category_id, amount, iva_rate, status, reversed_at, is_hidden, is_transitory, exclude_from_result, parent_transaction_id, split_percentage")
+          .eq("event_id", eventId).eq("type", "expense").in("category_id", cats).order("id")),
+      ]);
+      if (fRes.error) throw fRes.error;
+      if (tRes.error) throw tRes.error;
+      return masterDeductionFingerprint(fRes.data ?? [], tRes.data ?? [], cats);
+    },
+    enabled: enabled && isTourForFp && cacheConfigs.length > 0,
+    refetchInterval: 15000,
+  });
+
   useEffect(() => {
     if (!enabled || !cacheCategoryId || cacheConfigs.length === 0 || syncingRef.current) return;
 
@@ -171,6 +198,7 @@ export function useSyncCacheForecasts({
       childEventIds: childEventIds?.sort(),
       salesFingerprint,
       citySettlementsFingerprint,
+      masterFingerprint,
       expenseForecasts: forecasts
         .filter((f) => f.type === "expense" && !f.cache_config_id)
         .map((f) => `${f.category_id}:${Math.round(Number(f.amount) * 100)}:${f.iva_rate}`)
@@ -218,7 +246,7 @@ export function useSyncCacheForecasts({
     };
 
     doSync();
-  }, [eventId, childEventIds, cacheConfigs, deductions, forecasts, ticketRevenueNet, ticketRevenueGross, cacheCategoryId, enabled, queryClient, salesFingerprint, citySettlementsFingerprint]);
+  }, [eventId, childEventIds, cacheConfigs, deductions, forecasts, ticketRevenueNet, ticketRevenueGross, cacheCategoryId, enabled, queryClient, salesFingerprint, citySettlementsFingerprint, masterFingerprint]);
 }
 
 /**
