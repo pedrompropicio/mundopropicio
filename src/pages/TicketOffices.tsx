@@ -2,6 +2,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 import { TicketOfficeEventsList } from "@/components/TicketOfficeEventsList";
 import { TicketOfficeSettlementsOverview } from "@/components/TicketOfficeSettlementsOverview";
 import { TicketOfficeStatementsPanel } from "@/components/TicketOfficeStatementsPanel";
+import { TicketOfficePositionCards } from "@/components/TicketOfficePositionCards";
 import helpTexts from "@/lib/help-texts";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -308,6 +309,7 @@ export default function TicketOffices() {
 
           {/* #303 — o apuramento é a prova; os adiantamentos são histórico do modelo anterior. */}
           <TabsContent value="apuramentos" className="space-y-6">
+            <TicketOfficePositionCards officeId={selectedOffice.id} />
             <TicketOfficeStatementsPanel officeId={selectedOffice.id} />
             <TicketOfficeAdvancesPanel officeId={selectedOffice.id} officeName={selectedOffice.name} />
           </TabsContent>

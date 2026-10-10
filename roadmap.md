@@ -1,5 +1,10 @@
 # Roadmap — épica #146 (e)
 
+## #303 — cartões e resumo de apuramentos
+- [ ] Cartões com saldos dos eventos sem fecho e sem apuramento, diferença de calendário e listas.
+- [ ] Subtotais por tipo, significado da posição e nota do 3163 sem números móveis.
+- [ ] Registar decisões e verificar travas, testes e ecrã; sem Publish.
+
 ## Lote 2 — Infra (#231, #244, #61)
 - [x] Remover AGENTS.md; preservar regras em docs/DECISIONS.md.
 - [x] #244: suite sem falhas; identificar commits e prova de correção do cálculo, não do teste.
