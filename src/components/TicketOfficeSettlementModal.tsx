@@ -1,5 +1,5 @@
 import { isHeicFile, normalizeImageFile, HEIC_ACCEPT } from "@/lib/image-upload";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { mustWrite } from "@/lib/must-write";
@@ -75,9 +75,18 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   // Liquidar saldo restante da fatura escolhida pela bilheteira (abate do repasse)
   const [payInvoiceRemainder, setPayInvoiceRemainder] = useState<boolean>(false);
 
-  // Reset/load when opening
+  // Reset/load when opening — corre UMA vez por abertura (por fecho), para que
+  // uma mudança de identidade das props (refetch do React Query) nunca limpe
+  // um ficheiro de comprovativo já escolhido pelo utilizador.
+  const initedForRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      initedForRef.current = null;
+      return;
+    }
+    const initKey = existingSettlement?.id ?? "new";
+    if (initedForRef.current === initKey) return;
+    initedForRef.current = initKey;
     setOpenGroupExpanded(false);
     setOpenSearch("");
 
