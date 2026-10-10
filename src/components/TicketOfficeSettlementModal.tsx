@@ -285,7 +285,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       }
 
       // 3) Advance transactions of this event/office must NEVER appear as deductions:
-      // they are already subtracted by the "Adiantamentos já recebidos" section.
+      // they live only in the Apuramento Ticketline (#303).
       // Marking one here would subtract it twice from the net amount (duplo abate).
       const { data: advRows } = await (supabase as any)
         .from("event_ticket_office_advances")
@@ -967,15 +967,8 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     deductions: !!eventId,
     net: !!eventId && (!hasAdjustment || !!adjustmentNotes.trim()),
   };
-  // Numeração sequencial dos passos (o passo dos adiantamentos só aparece quando há histórico).
-  const hasAdvanceHistory = pendingAdvances.length > 0;
-  const stepNo = {
-    advances: 4,
-    venue: hasAdvanceHistory ? 5 : 4,
-    net: hasAdvanceHistory ? 6 : 5,
-    transfer: hasAdvanceHistory ? 7 : 6,
-    doc: hasAdvanceHistory ? 8 : 7,
-  };
+  // Numeração sequencial dos passos. #303: repasses não aparecem no fecho (só no Apuramento Ticketline).
+  const stepNo = { venue: 4, net: 5, transfer: 6, doc: 7 };
   const formulaText =
     "Receita bruta − Despesas pagas pela bilheteira" +
     (venueRetainedNum > 0 ? " − Venda à porta retida pela sala" : "") +
@@ -1254,40 +1247,6 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                     <span className="font-mono font-bold text-red-400">− {formatCurrency(totalDeductions)}</span>
                   </div>
                 </section>
-
-                {/* STEP 3.5 — Advances received */}
-                {pendingAdvances.length > 0 && (
-                  <section className="space-y-2">
-                    <StepHeader
-                      n={stepNo.advances}
-                      icon={<Banknote className="h-4 w-4" />}
-                      title="Adiantamentos já recebidos (histórico, só leitura)"
-                      badge={`${pendingAdvances.length}`}
-                    />
-                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-                      <p className="text-xs text-muted-foreground">
-                        Histórico de valores que esta bilheteira já transferiu. Não entram no direito do evento: os repasses registam-se no Apuramento Ticketline.
-                      </p>
-                      <ul className="divide-y divide-border/60 rounded-md border border-border bg-background">
-                        {pendingAdvances.map((a: any) => (
-                          <li key={a.id} className="flex items-center gap-2 p-2 text-xs">
-                            <span className="text-muted-foreground whitespace-nowrap">
-                              {new Date(a.advance_date).toLocaleDateString("pt-PT")}
-                            </span>
-                            <span className="flex-1 truncate">{a.notes || "Adiantamento"}</span>
-                            <span className="font-mono font-semibold text-amber-500 whitespace-nowrap">
-                              {formatCurrency(Number(a.amount))}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                      <div className="flex justify-between items-center text-sm pt-1">
-                        <span className="text-muted-foreground">Total adiantamentos</span>
-                        <span className="font-mono font-bold text-muted-foreground">{formatCurrency(totalAdvances)}</span>
-                      </div>
-                    </div>
-                  </section>
-                )}
 
                 {/* STEP — Venda à porta retida pela sala (abate fatura) */}
                 <section className="space-y-2">
