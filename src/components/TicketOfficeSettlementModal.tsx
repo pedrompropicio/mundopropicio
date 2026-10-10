@@ -551,7 +551,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         .filter((t: any) => selectedTxnIds.has(t.id))
         .map((t: any) => ({ id: t.id, paid_amount: txnGross(t) }));
       // Ligações já existentes que não estejam na lista elegível continuam seleccionadas.
-      for (const id of selectedTxnIds) if (!selected.some((x) => x.id === id)) selected.push({ id, paid_amount: 0 });
+      for (const id of selectedTxnIds) if (!selected.some((x) => x.id === id)) selected.push({ id, paid_amount: null as any });
       const { data: saved, error: saveErr } = await (supabase as any).rpc("save_ticket_office_settlement", {
         p_settlement_id: existingSettlement?.id ?? null,
         p_payload: { ...payload, conciliated_by: user?.email || "system" },

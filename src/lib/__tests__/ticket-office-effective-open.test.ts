@@ -28,3 +28,24 @@ describe("#302 effectiveInvoiceOpen", () => {
     expect(effectiveInvoiceOpen({ invoiceId: "inv", total: 100, paidAmount: 100, settlement, ownPayments: [{ id: "p1", transaction_id: "other", amount: 50 }] })).toBe(0);
   });
 });
+
+describe("#302 casos de Live (SM Lisboa 9557adbe, SM Porto 1950c08e)", () => {
+  const cases = [
+    { nome: "SM Lisboa", amount: 3150, iva: 23, paid: 3874.5, p1: 2600, p2: 1274.5, gross: 208945, ded: 10542.92, ret: 2600, rem: 1274.5, net: 194527.58 },
+    { nome: "SM Porto", amount: 11000, iva: 23, paid: 13530, p1: 2195, p2: 11335, gross: 256330, ded: 16345.15, ret: 2195, rem: 11335, net: 226454.85 },
+  ];
+  for (const c of cases) {
+    it(`${c.nome}: reabrir mostra o mesmo saldo restante e direito gravados`, () => {
+      const total = c.amount * (1 + c.iva / 100);
+      const open = effectiveInvoiceOpen({
+        invoiceId: "inv", total, paidAmount: c.paid,
+        settlement: { venue_retained_invoice_id: "inv", venue_retained_payment_id: "p1", venue_invoice_remainder_payment_id: "p2" },
+        ownPayments: [{ id: "p1", transaction_id: "inv", amount: c.p1 }, { id: "p2", transaction_id: "inv", amount: c.p2 }],
+      });
+      const r = computeSettlement({ grossRevenue: c.gross, totalDeductions: c.ded, venueRetainedAmount: c.ret, selectedInvoiceOpen: open, payInvoiceRemainder: true });
+      expect(r.venueRetainedExceedsInvoice).toBe(false);
+      expect(r.invoiceRemainder).toBeCloseTo(c.rem, 2);
+      expect(r.netCalculated).toBeCloseTo(c.net, 2);
+    });
+  }
+});
