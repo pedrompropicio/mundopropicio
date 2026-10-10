@@ -55,3 +55,8 @@ Se o utilizador preencher valor mas escolher "Sem fatura", o valor abate do líq
 - **Quando entra**: No fecho/conciliação (a receita só é reconhecida ao confirmar o settlement; o abatimento na fatura também só acontece nesse momento).
 - **Quem identifica a sala**: Selecionado manualmente no fecho (qualquer fornecedor com despesa em aberto no evento, não obrigatoriamente o venue cadastrado).
 - **Conta financeira**: Não — só metadado no settlement + `transaction_payments` com `account_id=null` e `payment_method='compensation'` (não toca em saldos bancários).
+
+## Reabrir um fecho confirmado (#302, 2026-10-10)
+
+O `paid_amount` da fatura já inclui os pagamentos que o próprio fecho criou. Em edição, o saldo em aberto da fatura é o **efetivo**: `total − paid_amount + valor real (transaction_payments) de venue_retained_payment_id + de venue_invoice_remainder_payment_id`, só quando esses pagamentos pertencem à `venue_retained_invoice_id` do fecho. Função pura `effectiveInvoiceOpen` em `src/lib/ticket-office-settlement-calc.ts` (teste `ticket-office-effective-open.test.ts`). Com isto, reabrir e confirmar sem alterações dá o mesmo retido e o mesmo saldo restante → a lógica "mudou?" não apaga nem cria pagamentos. A checkbox do saldo restante abre a partir de `venue_invoice_remainder_paid`.
+Limite conhecido: fechos antigos com compensação sem `venue_retained_payment_id` ligado (ex.: Henry&Klaus Porto) não somam de volta → aviso "retido excede" e confirmação bloqueada; o líquido não muda.
