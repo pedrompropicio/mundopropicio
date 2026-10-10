@@ -1,5 +1,12 @@
 # Roadmap — épica #146 (e)
 
+## #303 — rascunho Deive Braga
+- [ ] Criar rascunho documental, ligar dedução existente e linha do 3163, verificar travas sem novos movimentos.
+- [ ] Actualizar estado e comentar #303 sem fechar; confirmação fica para Pedro.
+
+## Smart links — chegada SSR (despacho D-ERP189)
+- [ ] Migração, função e testes — aguarda autorização para avançar após preflight; segredo partilhado por criar pelo Pedro.
+
 ## #303 — cartões e resumo de apuramentos
 - [x] Cartões com saldos dos eventos sem fecho e sem apuramento, diferença de calendário e listas.
 - [x] Subtotais por tipo, significado da posição e nota do 3163 sem números móveis.
