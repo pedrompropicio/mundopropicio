@@ -14,7 +14,7 @@ Atualizado: 2026-10-10 · #303 entregue parcialmente, permanece aberta · Issues
 
 - **Cadeia de apuramento incompleta (#303):** Ivete Clareou 2026 e Henry&Klaus Porto têm fecho sem apuramento; Maiara e Maraisa Lisboa e Porto não têm nenhum dos dois. Obter os PDFs anteriores ao 3163, sem inventar ligações ou valores.
 - **Conciliação do 3163 contra o PDF (#303):** conferir linha a linha; a soma −49.050,59 já fecha, mas não prova equivalência documental.
-- **Fecho Deive Leonardo Braga:** permanece em draft, direito 20.384,11, ligado ao 3163; aguarda confirmação do Pedro.
+- **Fecho Deive Leonardo Braga:** permanece em draft, direito 20.384,11, ligado ao 3163; aguarda a confirmação do Pedro no ecrã.
 
 ## Bloqueios
 
@@ -61,6 +61,9 @@ Entregas da #303, sem fechar a issue:
 
 - **Entrega de tarefas ao agente:** verificar com `list_messages`, NÃO com `get_project`. `agentFinished` é partilhado entre chats e pode reflectir trabalho de outra frente; não prova chegada nem execução desta tarefa. Caso 10/10/2026: despacho desta frente deu timeout e não chegou enquanto o agente terminava tarefas de audience.
 - Trava com saldo de conta de bilheteira nunca usa valor absoluto. O RG está a vender ao minuto. Valida a VARIAÇÃO (`depois − antes = X`), lendo o saldo no momento da execução.
+- Fecho de bilheteira tem vista de leitura e PDF desde 10/10/2026. Não é preciso abrir o modal de edição para ler um fecho.
+- Texto que vai para PDF passa sempre pelo saneador de `src/lib/pdf-text.ts`. O jsPDF não aceita U+2212.
+- Coluna `date` mostra-se com `formatDatePT`, nunca convertida para instante. O Pedro trabalha de Fortaleza e qualquer conversão recua um dia.
 - Bilheteira local retida pela sala resolve-se com par 10.3 + comissão. Ver D-ERP237. Não é diferença de conciliação.
 - A diferença do card é 0,00 desde 10/10/2026. Se voltar a aparecer, a causa provável é uma retenção da sala ainda não lançada, não um erro de cálculo.
 - **Diferença condicional:** mostrar linha e detalhe só se |diferença| >=0,01; abaixo disso nada, sem sucesso/visto. Preservar componente. Implementado; fórmula, outros cartões e modal de fecho inalterados.
