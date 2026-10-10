@@ -8,3 +8,4 @@ type: constraint
 - Somas/contagens: na base (RPC/vista), nunca no cliente.
 - O teste postgrest-row-limit.test.ts falha o build; escapes aceites: .range/.single/.maybeSingle/count:/.limit/.rpc/escritas.
 - Porquê: corte silencioso (#129 Ticketline −3,2 M€; #206 DRE −789.161,63 €).
+- Desde 10/10/2026 (#299) o invariante tabelas_acima_de_1000 compara por nome: tabela nova → JSON + array em _run_invariant_checks_extra (teste postgrest-large-tables-mirror).
