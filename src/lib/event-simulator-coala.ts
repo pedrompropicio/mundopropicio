@@ -9,7 +9,7 @@
  *  - IVA bilheteira por sessão
  *  - Resultado Geral / Evento / A&B / Souvenir e indicadores per capita
  */
-import { projectWithPriorCurve, type PriorCurvePoint } from "@/lib/simulator-prior-curve";
+import { projectWithPriorCurve, type PriorCurvePoint } from "@/lib/simulator-prior-curve-calc";
 
 export type CoalaSession = {
   day_index: number;
