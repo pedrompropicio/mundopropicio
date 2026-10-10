@@ -373,16 +373,35 @@ Deno.serve(async (req) => {
           )
         }
 
-        // Log success
-        const { error: sentLogError } = await supabase.from('email_send_log').insert({
-          message_id: payload.message_id,
-          template_name: payload.label || queue,
-          recipient_email: payload.to,
-          status: 'sent',
-          company_id: payload.company_id ?? null,
-        })
-        if (sentLogError) {
-          console.error('Failed to log sent email', { queue, msg_id: msg.msg_id, code: sentLogError.code, message: sentLogError.message })
+        // Log success — (emails_presos_pending, 10/10/2026) promove a linha 'pending'
+        // gravada ao enfileirar em vez de criar outra; só insere se não houver pending.
+        // As linhas 'failed'/'dlq'/'rate_limited'/'suppressed' continuam a ser
+        // acrescentadas: o limite de tentativas conta as linhas 'failed' por message_id.
+        let promoted = 0
+        if (payload.message_id) {
+          const { data: upd, error: updErr } = await supabase
+            .from('email_send_log')
+            .update({ status: 'sent', error_message: null })
+            .eq('message_id', payload.message_id)
+            .eq('status', 'pending')
+            .select('id')
+          if (updErr) {
+            console.error('Failed to promote pending log to sent', { queue, msg_id: msg.msg_id, code: updErr.code, message: updErr.message })
+          } else {
+            promoted = upd?.length ?? 0
+          }
+        }
+        if (promoted === 0) {
+          const { error: sentLogError } = await supabase.from('email_send_log').insert({
+            message_id: payload.message_id,
+            template_name: payload.label || queue,
+            recipient_email: payload.to,
+            status: 'sent',
+            company_id: payload.company_id ?? null,
+          })
+          if (sentLogError) {
+            console.error('Failed to log sent email', { queue, msg_id: msg.msg_id, code: sentLogError.code, message: sentLogError.message })
+          }
         }
 
         // Delete from queue
