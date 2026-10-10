@@ -5420,6 +5420,16 @@ Customer Match:
 - Lacuna de dados: três campanhas Google activas sem `budget_amount_micros`; projecção Google, total_projetado_ref e total_mes_ref null. Nenhum orçamento inventado. Corrigir a recolha do orçamento está fora desta tarefa de funções.
 - Migrações 0082–0087: criação, record aliases, projecção canónica optimizada, contrato, pernas de orçamento e identidade exacta. Base aplicada `583234104`; optimização `4e83a451b`. Commits finais no relatório da tarefa.
 
+## D-ERP236 — Adenda: projecção completa (10/10/2026)
+- Substitui as regras "orçamento ausente ⇒ totais null" e "datas 2036 são as recebidas" da D-ERP236. Pedro autorizou CREATE OR REPLACE FUNCTION; sem tabelas, RLS nem dados.
+- Sync Google (`crm-google-sync-campaigns`) lê `campaign_budget.amount_micros/total_amount_micros/period/delivery_method`; `budget_amount_micros` só com período DAILY; orçamento total fica em `raw.campaignBudget.totalAmountMicros`.
+- Google com orçamento total: `orcamento_dia` = (total − gasto até hoje) / max(1, end_date − hoje), `orcamento_tipo='derivado'`; projecção = orçamento restante. Diário: `orcamento_tipo='diario'`.
+- Qualquer plataforma: fim a mais de 365 dias no futuro conta como sem fim (`termina` null); a projecção vai até ao fim do mês.
+- `total_projetado_ref` e `total_mes_ref` somam o conhecido e nunca são null; `parcial` true|false e `em_falta[{plataforma,campanha,motivo}]` (orcamento_desconhecido | cambio_indisponivel) dizem o que ficou de fora.
+- Litto (omissão 24/09–10/10 e 01/10–10/10, ref BRL): Google derivado 90,41 / 446,30 / 132,27 por dia ⇒ 3.512,34; TikTok 44.378,37; Meta 0,00; total_projetado_ref 47.890,71; total_mes_ref 65.622,27; parcial false; em_falta []. Migração 0088 (aplicada por substituições verificadas sobre a definição viva).
+
+
+
 ## D-ERP234 — Adenda: SSR sem IP nunca perde a chegada (10/10/2026)
 - Pedro autorizou apenas a função e deploy, sem DDL/RPC/RLS. `client_ip` ausente, null ou inválido torna-se null; validação real IPv4/IPv6, sem fallback ao IP do servidor e sem quota global partilhada entre SSR sem IP. `console.warn` indica apenas o motivo, nunca IP ou segredo.
 - Hash e geografia ficam null; Meta/TikTok recebem o evento sem IP. UA vazio é aceite e classificado `other`. Metadados opcionais não provocam 400 SSR; mantêm-se os campos obrigatórios, autenticação, validação de slug/evento e deduplicação anteriores.
