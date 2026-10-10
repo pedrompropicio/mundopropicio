@@ -20568,6 +20568,19 @@ export type Database = {
       }
       run_rls_legacy_audit_cron: { Args: never; Returns: Json }
       run_vip_coupon_reminder: { Args: never; Returns: Json }
+      save_ticket_office_settlement: {
+        Args: {
+          p_audit_user: string
+          p_confirm: boolean
+          p_payload: Json
+          p_remainder_payment_notes: string
+          p_retained_payment_notes: string
+          p_selected: Json
+          p_settlement_id: string
+          p_transfer: Json
+        }
+        Returns: Json
+      }
       seal_event_settlement: {
         Args: {
           _bp_version_id?: string
