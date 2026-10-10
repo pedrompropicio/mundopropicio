@@ -60,6 +60,7 @@ import {
   type ReconcileTransaction,
 } from "@/lib/bank-statement/reconcile";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { parseDateConflicts, withDateActions, type DateAction, type DateConflict } from "@/lib/bank-link-date";
 
 const PAGE = 1000;
 
@@ -116,6 +117,9 @@ export default function BankReconciliation() {
    */
   const [manualModes, setManualModes] = useState<Record<string, "link" | "settle">>({});
   const [manualSaving, setManualSaving] = useState(false);
+  // #233: divergências de data no modo link, à espera da decisão da pessoa.
+  const [dateConflicts, setDateConflicts] = useState<DateConflict[] | null>(null);
+  const [dateActions, setDateActions] = useState<Record<string, DateAction>>({});
 
   /** Confirmação explícita para ligar a uma transação registada NOUTRA conta. */
   const [crossAccountAck, setCrossAccountAck] = useState(false);
@@ -1326,7 +1330,7 @@ export default function BankReconciliation() {
   );
   const manualDiff = Math.round((manualSelectedTotal - manualTarget) * 100) / 100;
 
-  async function confirmManual() {
+  async function confirmManual(actions: Record<string, DateAction> = {}) {
     if (!manualLine || manualItems.length === 0) return;
     // Não existe conciliação parcial da LINHA: a soma tem de bater com ela.
     if (Math.abs(manualDiff) > 0.01) {
@@ -1343,13 +1347,18 @@ export default function BankReconciliation() {
       // pessoa mandou liquidar. Qualquer erro reverte tudo.
       const { error } = await (supabase as any).rpc("reconcile_bank_line", {
         p_line_id: manualLine.id,
-        p_items: manualItems.map((i) => ({
-          transaction_id: i.id,
-          mode: i.mode,
-          amount: i.amount,
-        })),
+        p_items: withDateActions(manualItems, actions),
       });
+      const conflicts = parseDateConflicts(error as any);
+      if (conflicts) {
+        // Nunca em silêncio: mostra a divergência e espera pela escolha.
+        setDateConflicts(conflicts);
+        setDateActions(Object.fromEntries(conflicts.map((c) => [c.transaction_id, "align" as DateAction])));
+        return;
+      }
       if (error) throw error;
+      setDateConflicts(null);
+      setDateActions({});
 
       const nSettle = manualItems.filter((i) => i.mode === "settle").length;
       if (manualTxIds.some((id) => crossAccountIds.has(id))) {
@@ -2295,10 +2304,32 @@ export default function BankReconciliation() {
             </div>
 
           )}
+          {dateConflicts && dateConflicts.length > 0 && (
+            <div className="space-y-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm" role="alert">
+              <div className="flex items-center gap-2 font-medium">
+                <AlertTriangle className="h-4 w-4" /> Data de pagamento diferente da do banco
+              </div>
+              {dateConflicts.map((c) => {
+                const t = manualCandidates.get(c.transaction_id);
+                return (
+                  <div key={c.transaction_id} className="space-y-1 border-t border-border/50 pt-2">
+                    <div className="text-xs text-muted-foreground">{t?.description ?? c.transaction_id} · {formatCurrency(Number(c.amount))}</div>
+                    <div className="text-xs">No sistema: <b>{c.system_date ? formatDatePT(c.system_date) : "sem data"}</b> · No banco: <b>{formatDatePT(c.bank_date)}</b></div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant={dateActions[c.transaction_id] === "align" ? "default" : "outline"}
+                        onClick={() => setDateActions((p) => ({ ...p, [c.transaction_id]: "align" }))}>Alinhar pela data do banco</Button>
+                      <Button size="sm" variant={dateActions[c.transaction_id] === "keep" ? "default" : "outline"}
+                        onClick={() => setDateActions((p) => ({ ...p, [c.transaction_id]: "keep" }))}>Manter (fica registado)</Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setManualLine(null)}>Cancelar</Button>
+            <Button variant="ghost" onClick={() => { setManualLine(null); setDateConflicts(null); setDateActions({}); }}>Cancelar</Button>
             <Button
-              onClick={confirmManual}
+              onClick={() => confirmManual(dateConflicts ? dateActions : {})}
               disabled={
                 manualTxIds.length === 0 ||
                 manualSaving ||

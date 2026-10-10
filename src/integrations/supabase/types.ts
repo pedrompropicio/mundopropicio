@@ -2856,6 +2856,7 @@ export type Database = {
           company_id: string
           created_at: string
           created_transaction_id: string | null
+          date_divergence: Json | null
           description: string
           financial_account_id: string
           id: string
@@ -2879,6 +2880,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           created_transaction_id?: string | null
+          date_divergence?: Json | null
           description?: string
           financial_account_id: string
           id?: string
@@ -2902,6 +2904,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           created_transaction_id?: string | null
+          date_divergence?: Json | null
           description?: string
           financial_account_id?: string
           id?: string
@@ -17601,6 +17604,10 @@ export type Database = {
         Args: { p: Database["public"]["Tables"]["transactions"]["Row"] }
         Returns: boolean
       }
+      _partner_extra_assert_can_write: {
+        Args: { p_event_id: string }
+        Returns: undefined
+      }
       _reverse_transaction_offsets_for: {
         Args: { p_tx_id: string }
         Returns: undefined
@@ -18981,6 +18988,16 @@ export type Database = {
         }[]
       }
       consume_recovery_code: { Args: { _code_hash: string }; Returns: boolean }
+      convert_transaction_to_partner_extra: {
+        Args: {
+          p_clear_forecast?: boolean
+          p_event_id: string
+          p_notes?: string
+          p_partner_id: string
+          p_tx_id: string
+        }
+        Returns: string
+      }
       copy_event_tour_content:
         | {
             Args: {
@@ -20115,6 +20132,10 @@ export type Database = {
             }
             Returns: Json
           }
+      revert_partner_extra: {
+        Args: { p_clear_transitory?: boolean; p_tx_id: string }
+        Returns: number
+      }
       revert_to_bp_version: {
         Args: {
           _force?: boolean

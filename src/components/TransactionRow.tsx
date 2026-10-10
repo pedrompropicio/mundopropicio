@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { mustWrite } from "@/lib/must-write";
 import { OffsetPaidBadge } from "@/components/TransactionOffsetsBlock";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -795,7 +796,7 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                                       toast({ title: "Linha Master não encontrada para esta categoria", variant: "destructive" });
                                       return;
                                     }
-                                    await supabase.from("event_forecasts").insert({
+                                    await mustWrite(supabase.from("event_forecasts").insert({
                                       event_id: t.event_id,
                                       type: "expense",
                                       description: t.description || "(sem descrição)",
@@ -805,7 +806,7 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                                       status: "approved",
                                       transaction_id: t.id,
                                       master_forecast_id: masterFc[0].id,
-                                    } as any);
+                                    } as any), "event_forecasts.insert");
                                     toast({ title: "Reclassificado como Rateio Master" });
                                   } else {
                                     const { data: linkedFc } = await fetchAllPagedQuery(supabase
@@ -814,7 +815,7 @@ export function TransactionRow({ transaction: t, canApprove, selectable, selecte
                                       .eq("transaction_id", t.id)
                                       .not("master_forecast_id", "is", null).is("version_id", null));
                                     if (linkedFc?.length) {
-                                      await supabase.from("event_forecasts").delete().in("id", linkedFc.map(f => f.id));
+                                      await mustWrite(supabase.from("event_forecasts").delete().in("id", linkedFc.map(f => f.id)).select("id"), "event_forecasts.delete", { expectRows: true });
                                     }
                                     toast({ title: "Reclassificado como Custo Isolado" });
                                   }

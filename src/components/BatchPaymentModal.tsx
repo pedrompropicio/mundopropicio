@@ -1,8 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
+import { mustWrite } from "@/lib/must-write";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { OffsetLineNote } from "@/components/TransactionOffsetsBlock";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchKnownBankDate } from "@/lib/bank-link-date";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { MirrorAporteNotice } from "@/components/MirrorAporteNotice";
@@ -98,6 +100,16 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
     initialPaymentDate || new Date().toISOString().split("T")[0]
   );
   const [notes, setNotes] = useState("");
+  // #233: lote cujas transações já estão ligadas à mesma linha do banco → data do banco.
+  useEffect(() => {
+    if (initialPaymentDate) return;
+    let alive = true;
+    fetchKnownBankDate(supabase, allTransactions.map((t: any) => t.id)).then((d) => {
+      if (alive && d) setPaymentDate(d);
+    }).catch(() => {});
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPaymentDate]);
   // FX rate per non-EUR currency present in the batch (string for input control)
   const [fxRates, setFxRates] = useState<Record<CurrencyCode, string>>({} as any);
   const [loadingFx, setLoadingFx] = useState<CurrencyCode | null>(null);
@@ -504,7 +516,7 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
             // A saída de dinheiro pertence à transação-mãe: as filhas de rateio
             // recebem paid_amount/status mas NUNCA account_id nem linha em
             // transaction_payments (senão a saída contaria duas vezes no saldo).
-            await supabase
+            await mustWrite(supabase
               .from("transactions")
               .update({
                 paid_amount: childNewPaid,
@@ -514,7 +526,7 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
                   ? { invoice_ref: effectiveInvoiceRef }
                   : {}),
               } as any)
-              .eq("id", child.id);
+              .eq("id", child.id).select("id"), "transactions.update", { expectRows: true });
           }
         }
       }
