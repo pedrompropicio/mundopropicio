@@ -105,9 +105,17 @@ export interface ParseResult {
 // ─────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────
+/**
+ * #230 — normalização do Centro Custo usada dos DOIS lados (planilha e nome
+ * da rubrica): trim, colapsa espaços, remove acentos (NFKD) e minúsculas.
+ * "Cachê Artistico", "Cachê Artístico" e "Cachê Artístico  " ficam iguais.
+ */
+export const normCentroCusto = (s: any): string => norm(s);
 const norm = (s: any): string =>
   String(s ?? "")
-    .normalize("NFKC")
+    // #230 — NFKD (não NFKC): só a decomposição separa o acento da letra e
+    // deixa o replace seguinte removê-lo ("Artístico" → "artistico").
+    .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[\u200B-\u200F\u2060\uFEFF]/g, "")
     .replace(/[\u00AD\u034F\u17B4\u17B5]/g, "")

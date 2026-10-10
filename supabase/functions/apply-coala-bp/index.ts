@@ -15,6 +15,8 @@ import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import {
   parseCoalaXlsx,
   buildValidationReport,
+  normCentroCusto,
+  FALLBACK_CATEGORY_CODE,
   type ParsedRow,
 } from "../_shared/coalaParser.ts";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
@@ -2407,7 +2409,7 @@ Deno.serve(async (req) => {
         status: "applied",
         totals: parsed.totals,
         validation_report: validation,
-        pendencies_report: pendencies,
+        pendencies_report: { ...pendencies, ccFallback: ccFallbackReport() },
         created_transaction_ids: createdTransactionIds,
         created_forecast_ids: createdForecastIds,
         created_supplier_ids: newSupplierIds,
