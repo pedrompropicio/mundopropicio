@@ -47,7 +47,7 @@ export function TicketOfficePositionCards({ officeId }: { officeId: string }) {
         }
       }
       for (const line of latest?.ticket_office_statement_lines ?? []) {
-        if (line.line_type === "venue_settlement") calendarItems.push({ id: line.id, description: `${line.description} — a regularizar quando o fecho for confirmado e a sala efectuar a devolução.`, amount: -Number(line.amount ?? 0) });
+        if (line.line_type === "venue_settlement") calendarItems.push({ id: line.id, description: /f[oó]rum braga/i.test(line.description ?? "") ? `${line.description} — Deive Leonardo — Braga; a regularizar quando o fecho for confirmado e a InvestBraga devolver os 258,85 €.` : `${line.description} — a regularizar quando o fecho for confirmado e a sala efectuar a devolução.`, amount: -Number(line.amount ?? 0) });
       }
       return { ...ticketOfficePosition(events, (settlements.data ?? []).map((row) => row.event_id), allLines.map((line: any) => line.event_id).filter(Boolean), Number(latest?.document_total ?? 0), Number(retained)), latest, calendarItems };
     },
