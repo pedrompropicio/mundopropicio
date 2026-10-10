@@ -1,7 +1,7 @@
 # Roadmap — épica #146 (e)
 
 ## Fórum Braga — bilheteira local (Pedro, 10/10/2026)
-- [ ] Conferir travas Live e precedente Anitta; lançar par 10.3 de 265,00 e comissão 5,00 + IVA 23%, sem confirmar fecho nem alterar apuramento.
+- [ ] BLOQUEADO: saldo canónico da conta de acerto já é 632,19; lançamentos previstos dariam 891,04, não 258,85. Pedro pediu parar em divergência; nenhuma escrita financeira feita. Comissão SM conferida; sem linha BP 2.6.07 no Braga.
 - [ ] Diferença condicional com tolerância <0,01; testar desaparecimento e registar decisão/factos.
 - [ ] Devolução 258,85 aguarda recebimento; pendência da Délia, não lançar agora.
 
