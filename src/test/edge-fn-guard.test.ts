@@ -10,6 +10,9 @@ import { scanEdgeFunctions, functionsWithoutVerifyJwtBlock } from "../../scripts
 // Referência gravada a 09/10/2026 (parte 6, D-ERP205): 2.
 // Têm bloco verify_jwt = true, mas o portão só verifica a ASSINATURA — a anon key
 // (pública) passa. Ficam por decisão do Pedro; não mexer sem instrução.
+// Nota 10/10/2026 (D-ERP229): o resto da #283 (32 funções que liam service_role do
+// payload) não mexe nesta contagem — mede outra coisa (ids do cliente sem guarda).
+// O claim do payload tem guarda própria no describe "service_role_pelo_payload".
 const REFERENCIA = [
   "crm-extract-video-dimensions",
   "vip-coupon-email",
@@ -48,5 +51,38 @@ describe("verify_jwt explícito no config.toml", () => {
       `Sem bloco verify_jwt em supabase/config.toml:\n${sem.join("\n")}\n` +
         "Acrescenta [functions.<nome>] com verify_jwt = true (ou false com comentário: porquê e quem chama).",
     ).toEqual([]);
+  });
+});
+
+// D-ERP229: decidir "é service role" lendo o claim do payload (sem validar) está proibido.
+// Excepções: o claim serve só para RECUSAR a chave de serviço, ou só rotula a origem.
+const PAYLOAD_SO_RECUSA_OU_ROTULO: Record<string, string> = {
+  "crm-meta-publish-update/index.ts": "recusa service role (edição exige sessão de utilizador)",
+  "s4a-token-seed/index.ts": "recusa service role quando vem com código OAuth",
+  "_shared/sync-run.ts": "só rotula trigger_source cron/manual; não autoriza",
+};
+describe("service_role_pelo_payload", () => {
+  it("nenhuma edge function aceita service role pelo claim sem isServiceRoleRequest", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const root = path.resolve(__dirname, "../../supabase/functions");
+    const files: string[] = [];
+    const walk = (d: string) => {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        const f = path.join(d, e.name);
+        if (e.isDirectory()) walk(f);
+        else if (f.endsWith(".ts")) files.push(f);
+      }
+    };
+    walk(root);
+    const re = /(role\s*[!=]==?\s*['"]service_role['"]|['"]service_role['"]\s*[!=]==?\s*\w*role)/;
+    const achados = files
+      .map((f) => path.relative(root, f).split(path.sep).join("/"))
+      .filter((rel) => rel !== "_shared/multiTenant.ts" && !PAYLOAD_SO_RECUSA_OU_ROTULO[rel])
+      .filter((rel) => {
+        const s = fs.readFileSync(path.join(root, rel), "utf8");
+        return /atob\(/.test(s) && re.test(s);
+      });
+    expect(achados, `Usa isServiceRoleRequest (_shared/multiTenant.ts): ${achados.join(", ")}`).toEqual([]);
   });
 });
