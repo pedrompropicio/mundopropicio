@@ -2,10 +2,10 @@
 capitulo: fecho-do-evento
 titulo: Fecho do evento
 modulo: erp
-atualizado: 2026-10-03
+atualizado: 2026-10-10
 perfis: [manager, admin, editor, partner]
 rotas: [/eventos/:id, /bilheteiras, /cartoes, /camarim, /contas, /relatorios/extrato]
-fontes: [D-ERP10, D-ERP13, D-ERP14, D-ERP15, D-ERP20, D-ERP22, D-ERP23, D-ERP26, D-ERP69, D-ERP113, D-ERP114, PROC-fecho-evento, event-settlements, partner-settlement, settlement-transfer-pair, fecho-filter-parity, event-cost-basis, event-revenue-basis, ticket-office-reconciliation, card-sessions, camarim-integration-lock, custo-partilhado-terceiros, partner-advance-expenses]
+fontes: [D-ERP10, D-ERP13, D-ERP14, D-ERP15, D-ERP20, D-ERP22, D-ERP23, D-ERP26, D-ERP69, D-ERP113, D-ERP114, D-ERP211, D-ERP212, D-ERP222, D-ERP232, D-ERP237, PROC-fecho-evento, event-settlements, partner-settlement, settlement-transfer-pair, fecho-filter-parity, event-cost-basis, event-revenue-basis, ticket-office-reconciliation, card-sessions, camarim-integration-lock, custo-partilhado-terceiros, partner-advance-expenses]
 ---
 
 # Fecho do evento
@@ -78,6 +78,14 @@ termos: [fecho de bilheteira, bilheteira, recinto, retido, base a transferir, tr
 
 No fecho de bilheteira do evento: ligam-se as despesas que o recinto pagou, apura-se o **líquido** (ajustável, com justificação), abatem-se os **adiantamentos** já recebidos e registra-se a **transferência** do líquido para a conta da empresa. A transferência é um par de movimentos na rubrica **10.3 Transferências Internas** — sai de uma conta e entra na outra, e não toca no resultado do evento. Só um administrador estorna um fecho.
 
+**O já adiantado está dentro do saldo retido.** Os cartões da bilheteira mostram *valor por apurar*, *já adiantado* e *saldo retido*; o saldo retido é a posição actual e **nunca** se lhe abate outra vez o já adiantado. Só aparece a observação da diferença de calendário quando ela é de pelo menos 0,01 €.
+
+**Despesa descontada pela bilheteira tem de ficar na conta dessa bilheteira.** Lançada sem conta, o saldo retido fica inflacionado.
+
+**Bilheteira local que ficou na sala.** Quando a sala ficou com dinheiro que o operador nunca teve, lança-se a passagem como par de movimentos 10.3 (fora do resultado) e a comissão da sala como despesa verdadeira. Transferências internas (fora do resultado) nunca aparecem como deduções a ligar no fecho de bilheteira.
+
+**Ver um fecho.** Na aba **Fechos**, o botão do olho abre o fecho só para leitura, em qualquer estado, com os documentos do apuramento, e permite **Guardar PDF**. Os adiantamentos não entram nessa vista.
+
 Numa turnê, uma despesa rateada abate-se **uma só vez**, pela transação-mãe. A lista mostra "fatura completa · parte deste evento" para se perceber que só uma parte é do evento à frente.
 
 ---
@@ -106,9 +114,30 @@ termos: [números do fecho, receita do fecho, custo do fecho, previsto mais exce
 
 O **excedido** entra sempre na base "Previsto + excedido" — não é um botão. É sinal de BP desactualizado e deve tender para zero; veja-o na vista **Previsão vs Real** do BP.
 
-**Overhead** (custos de estrutura da empresa imputados ao evento) entra por interruptor, ligado por omissão no Fecho. A vista da empresa é **sem** overhead; a vista do sócio é **com**.
+**Overhead** (custos de estrutura da empresa imputados ao evento) entra por interruptor, ligado por omissão no Fecho. A vista da empresa é **sem** overhead; a vista do sócio é **com**. No acerto com sócios manda só esse interruptor do evento ("Incluir overhead"); o overhead do Master conta **uma vez** — no Master as linhas originais, em cada cidade a sua fatia.
 
 **Depois do evento, o previsto deixa de mandar.** Passada a última data (ou com o evento concluído), bilheteira e A&B passam a valer pelo real. Onde não há real nem módulo, a linha do BP alimenta o valor — a linha do módulo **substitui** a do BP, nunca soma.
+
+---
+
+## Antes do Encontro de Contas: pré-condições
+
+```ajuda
+id: fecho.precondicoes
+tooltip: "O Fecho só mostra o acerto com sócios se houver sócios, BP de despesa aprovado e receita. Avisa quando não há bilheteira, quando o BP não tem receita ou quando a receita cobre menos de metade do custo."
+ecras: [evento.fecho]
+perfis: [manager, admin]
+fontes: [D-ERP222]
+termos: [acerto não aparece, sem sócios, sem bp, sem receita, fecho bloqueado, receita baixa, cidade sem sócios, colher benchmarks]
+```
+
+**Bloqueiam** (o acerto não é mostrado nem vai ao PDF): evento sem sócios, sem nenhuma linha de despesa aprovada no BP, ou sem receita.
+
+**Avisam** (o acerto aparece, com aviso): sem vendas de bilheteira registadas, BP sem linhas de receita aprovadas, ou receita abaixo de metade do custo.
+
+Numa turnê, os sócios do Master aplicam-se ao consolidado do Master. Uma cidade só apura os seus próprios sócios; se não os tem, o Fecho remete para o Master.
+
+**Colher benchmarks.** O botão no Fecho guarda a curva de vendas e o per capita de A&B do evento para o Simulador de eventos futuros. Também corre sozinho ao selar o fechamento raiz.
 
 ---
 

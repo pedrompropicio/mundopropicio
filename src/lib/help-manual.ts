@@ -99,16 +99,6 @@ const helpManual: HelpSection[] = [
           "São custos adicionais pagos pelo evento em nome do artista (ex: quarto de hotel extra, transfer especial, catering adicional) que devem ser descontados do cachê final. Estas despesas não geram transações financeiras separadas — são registadas apenas para efeito de cálculo e demonstração no acerto.\n\nAceda à secção 'Extras a Descontar' dentro da configuração de cachê de cada artista. Cada extra tem descrição, valor e pode ter documentos anexados (recibos, faturas).\n\nNo Relatório de Cachê do Artista, os extras aparecem analiticamente após o cachê bruto:\n  Cachê Bruto\n  (-) Extra 1\n  (-) Extra 2\n  = Cachê Líquido a Pagar",
       },
       {
-        title: "Parceiros / Sócios",
-        content:
-          "Associe fornecedores marcados como 'Parceiro' ao evento e defina a percentagem de participação no resultado. O sistema valida que o total não exceda 100%. O cálculo pode usar base líquida (s/IVA) ou bruta (c/IVA), configurável por evento. O sistema calcula automaticamente a divisão de lucros/prejuízos com base nas receitas, despesas e custos de fecho.",
-      },
-      {
-        title: "Despesas Extras do Sócio",
-        content:
-          "São despesas pagas pelo evento em nome de um sócio específico (ex: quarto de hotel extra, despesas pessoais) que devem ser descontadas apenas da parte desse sócio no resultado. Não afetam o resultado global do evento nem geram movimentações nas contas.\n\nAceda à secção 'Extras a Descontar' dentro do painel de cada sócio na aba Sócios do evento. Cada extra tem descrição, valor, notas e pode ter documentos anexados.\n\nNo DRE com visão Sócio, os extras aparecem analiticamente:\n  Quota Bruta do Sócio (X%)\n  (-) Despesa Extra 1\n  (-) Despesa Extra 2\n  = Quota Líquida do Sócio",
-      },
-      {
         title: "Despesas Pagas por Sócio ('Pago por Sócio')",
         content:
           "Quando um sócio/parceiro paga uma despesa diretamente do seu bolso (sem usar contas da empresa), utilize o toggle '🤝 Pago por Sócio' no formulário de transação. O toggle aparece automaticamente quando o evento selecionado tem sócios.\n\nAo ativar:\n  • O campo 'Conta Destino' desaparece (não há movimentação em contas da empresa)\n  • Aparece o seletor 'Sócio que pagou' para indicar qual parceiro pagou\n  • A despesa é criada normalmente e segue o ciclo de aprovação padrão (Aguardando → Aprovada → Paga)\n  • A despesa pode ser editada e eliminada segundo as mesmas regras de qualquer transação\n  • Na listagem de transações, a despesa mostra um badge '🤝 Sócio' com tooltip indicando o nome do parceiro\n  • A despesa aparece no separador 'Desp. Sócios' do evento, agrupada por sócio\n  • No 'Fecho Parceiros', o total de despesas pagas pelo sócio é integrado no encontro de contas final\n\nO módulo 'Desp. Sócios' também permite vincular manualmente despesas existentes a um sócio, ou desvincular associações.",
