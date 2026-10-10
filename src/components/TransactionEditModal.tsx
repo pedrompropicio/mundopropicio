@@ -1977,8 +1977,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                             return;
                           }
                         }
-                        await supabase.from("partner_advance_expenses").delete().eq("transaction_id", transaction.id);
-                        await supabase.from("transactions").update({ is_transitory: false }).eq("id", transaction.id);
+                        // #196: atómico no servidor (permissão + estado do evento).
+                        const { error: revErr } = await supabase.rpc("revert_partner_extra" as any, { p_tx_id: transaction.id, p_clear_transitory: true });
+                        if (revErr) { toast({ title: "Não foi possível reverter o Extra do Sócio", description: revErr.message, variant: "destructive" }); return; }
                         toast({ title: "Extra do Sócio revertido" });
                       }
                       queryClient.invalidateQueries({ queryKey: ["partner-extra-link", transaction.id] });
@@ -2266,12 +2267,16 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                           toast({ title: "Não foi possível repartir a fatura", description: redErr.message, variant: "destructive" });
                           return;
                         }
-                        // 4) Vincula a irmã ao partner_advance_expenses
-                        await supabase.from("partner_advance_expenses").insert({
-                          event_id: form.event_id,
-                          partner_id: convertPartnerId,
-                          transaction_id: sibling.id,
-                        } as any);
+                        // 4) Vincula a irmã ao extra — atómico (#196). Falhou → desfaz 2 e 3.
+                        const { error: linkErr } = await supabase.rpc("convert_transaction_to_partner_extra" as any, {
+                          p_tx_id: sibling.id, p_partner_id: convertPartnerId, p_event_id: form.event_id, p_notes: null, p_clear_forecast: true,
+                        });
+                        if (linkErr) {
+                          await supabase.from("transactions").update({ amount: transaction.amount, paid_amount: (transaction as any).paid_amount ?? 0 } as any).eq("id", transaction.id);
+                          await supabase.from("transactions").delete().eq("id", sibling.id);
+                          toast({ title: "Não foi possível criar o Extra do Sócio", description: linkErr.message, variant: "destructive" });
+                          return;
+                        }
                         toast({
                           title: "Fatura repartida",
                           description: `Despesa do evento ${newPrincipalNet.toFixed(2)} € · extra do sócio ${partial.toFixed(2)} € (s/IVA).`,
@@ -2289,16 +2294,12 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
                             .maybeSingle();
                           if (fc) orphanLine = { description: (fc as any).description, amount: Number((fc as any).amount) };
                         }
-                        await supabase.from("partner_advance_expenses").insert({
-                          event_id: form.event_id,
-                          partner_id: convertPartnerId,
-                          transaction_id: transaction.id,
-                        } as any);
-                        // O extra é custo do sócio: nunca consome verba do BP → limpa o vínculo.
-                        await supabase
-                          .from("transactions")
-                          .update({ is_transitory: true, transitory_reason: "partner_advance", exclude_from_result: false, forecast_id: null })
-                          .eq("id", transaction.id);
+                        // #196: UPDATE da transação + INSERT do extra numa só transação no servidor.
+                        // O extra é custo do sócio: nunca consome verba do BP → a RPC limpa o vínculo.
+                        const { error: convErr } = await supabase.rpc("convert_transaction_to_partner_extra" as any, {
+                          p_tx_id: transaction.id, p_partner_id: convertPartnerId, p_event_id: form.event_id, p_notes: null, p_clear_forecast: true,
+                        });
+                        if (convErr) { toast({ title: "Não foi possível converter em Extra do Sócio", description: convErr.message, variant: "destructive" }); return; }
                         toast({ title: "Convertido em Extra do Sócio" });
                         if (orphanLine) {
                           toast({

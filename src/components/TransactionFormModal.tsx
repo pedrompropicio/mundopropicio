@@ -1902,18 +1902,19 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               .select("id")
               .single();
             if (siblingErr) throw siblingErr;
-            await supabase.from("partner_advance_expenses").insert({
-              event_id: data.event_id,
-              partner_id: partnerExtraId,
-              transaction_id: siblingTx!.id,
-              notes: `Parcela do sócio na fatura "${data.description}" (total ${totalAmtNum.toFixed(2)} €)`,
-            } as any);
+            // #196: vínculo atómico; erro sobe (nunca fica transitória sem extra).
+            const { error: linkErr } = await supabase.rpc("convert_transaction_to_partner_extra" as any, {
+              p_tx_id: siblingTx!.id, p_partner_id: partnerExtraId, p_event_id: data.event_id,
+              p_notes: `Parcela do sócio na fatura "${data.description}" (total ${totalAmtNum.toFixed(2)} €)`,
+              p_clear_forecast: true,
+            });
+            if (linkErr) throw linkErr;
           } else {
-            await supabase.from("partner_advance_expenses").insert({
-              event_id: data.event_id,
-              partner_id: partnerExtraId,
-              transaction_id: insertedTx.id,
-            } as any);
+            const { error: linkErr } = await supabase.rpc("convert_transaction_to_partner_extra" as any, {
+              p_tx_id: insertedTx.id, p_partner_id: partnerExtraId, p_event_id: data.event_id,
+              p_notes: null, p_clear_forecast: false,
+            });
+            if (linkErr) throw linkErr;
           }
         }
 
