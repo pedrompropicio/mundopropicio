@@ -16,7 +16,7 @@
  */
 
 import { calcTotalWithIva } from "./iva.ts";
-import { hasResultBlockingFlags, isValidFechoTransaction } from "./fecho-filters.ts";
+import { hasResultBlockingFlags, isValidFechoTransaction, withoutIncomeTax } from "./fecho-filters.ts";
 
 /** Tolerância do "ultrapassou o previsto" (meio cêntimo). */
 export const EXCESS_EPSILON = 0.005;
@@ -230,9 +230,12 @@ export function isApprovedOverheadForecast(f: any): boolean {
 }
 
 export function computeEventCostOnBasis(args: EventCostOnBasisArgs): EventCostOnBasisResult {
-  const { forecasts, transactions, mode, withVat, includeOverhead } = args;
+  const { mode, withVat, includeOverhead } = args;
+  // Adenda D-ERP151 (10/10/2026): IRC fora do custo do evento — regra única em fecho-filters.
+  const forecasts = withoutIncomeTax(args.forecasts);
+  const transactions = withoutIncomeTax(args.transactions);
 
-  const validTx = (transactions ?? []).filter((t) => isValidFechoTransaction(t));
+  const validTx = transactions.filter((t) => isValidFechoTransaction(t));
 
   if (mode === "realized") {
     return {
@@ -244,8 +247,8 @@ export function computeEventCostOnBasis(args: EventCostOnBasisArgs): EventCostOn
     };
   }
 
-  const operational = (forecasts ?? []).filter(isApprovedOperationalForecast);
-  const overheadLines = (forecasts ?? []).filter(isApprovedOverheadForecast);
+  const operational = forecasts.filter(isApprovedOperationalForecast);
+  const overheadLines = forecasts.filter(isApprovedOverheadForecast);
 
   const operationalSum = sumLines(operational, withVat);
   const overheadSum = includeOverhead ? sumLines(overheadLines, withVat) : 0;

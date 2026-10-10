@@ -19,7 +19,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 import { calcTotalWithIva, calcIvaAmount, roundCents } from "@/lib/iva";
 import { expandOverheadToSplits, overheadLinesFor } from "@/lib/overhead-proration";
 import { expandMasterAdoptedExpensesToSplits } from "@/lib/master-adopted-expense-proration";
-import { isValidFechoTransaction, isTicketingRevenueTx } from "@/lib/fecho-filters";
+import { isValidFechoTransaction, isTicketingRevenueTx, withoutIncomeTax } from "@/lib/fecho-filters";
 import { computeSettlementRevenue } from "@/lib/settlement-revenue";
 import { isCapitalCategoryCode } from "@/lib/capital-branch";
 import {
@@ -301,10 +301,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
-        .select("id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, event_settlement_id, account_categories(name, code, parent_id)")
+        .select("id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, event_settlement_id, account_categories(name, code, parent_id, ebitda_class)")
         .in("event_id", allEventIds));
       if (error) throw error;
-      return data;
+      return withoutIncomeTax(data ?? []);
     },
   });
 
@@ -452,11 +452,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           // select de propósito — acrescentá-los mudaria o universo de despesa
           // deste ecrã (o filtro `operationalForecasts` passaria a excluí-las),
           // e o critério de despesa não é objecto desta mudança.
-          .select("id, event_id, description, type, amount, iva_rate, status, is_overhead, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, account_categories(name, code)")
+          .select("id, event_id, description, type, amount, iva_rate, status, is_overhead, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, account_categories(name, code, ebitda_class)")
         .in("event_id", allEventIds)
         .eq("status", "approved").is("version_id", null));
       if (error) throw error;
-      return data;
+      return withoutIncomeTax(data ?? []);
     },
   });
 

@@ -10,7 +10,7 @@ import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { calcTotalWithIva } from "@/lib/iva";
-import { isValidFechoTransaction } from "@/lib/fecho-filters";
+import { isValidFechoTransaction, withoutIncomeTax } from "@/lib/fecho-filters";
 import { normalizePartnerCalcBasis } from "@/lib/partner-calc-basis";
 import {
   HOUSE_PARTNER_NAME,
@@ -76,11 +76,11 @@ export function useEventSettlementEngine(eventId: string) {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select(
-          "id, amount, iva_rate, type, status, event_id, event_settlement_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, account_categories(code)",
+          "id, amount, iva_rate, type, status, event_id, event_settlement_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, account_categories(code, ebitda_class)",
         )
         .in("event_id", allEventIds));
       if (error) throw error;
-      return data ?? [];
+      return withoutIncomeTax(data ?? []);
     },
     enabled: allEventIds.length > 0,
   });
@@ -93,13 +93,13 @@ export function useEventSettlementEngine(eventId: string) {
         .select(
           // (#226) `account_categories(code)` é obrigatório: a receita do fecho
           // classifica as linhas de BP por rubrica.
-          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description, vat_non_recoverable, account_categories(code, name)",
+          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description, vat_non_recoverable, account_categories(code, name, ebitda_class)",
         )
         .in("event_id", allEventIds)
         .eq("status", "approved")
         .is("version_id", null));
       if (error) throw error;
-      return data ?? [];
+      return withoutIncomeTax(data ?? []);
     },
     enabled: allEventIds.length > 0,
   });

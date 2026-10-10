@@ -10,7 +10,7 @@ import {
   lineValue, computeOutsideBpExcess,
   computeEventCostOnBasis, computeMasterQuota, cacheImpactOnTopOfCost,
 } from "@/lib/event-cost-basis";
-import { isValidFechoTransaction } from "@/lib/fecho-filters";
+import { isValidFechoTransaction, withoutIncomeTax } from "@/lib/fecho-filters";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 import { useEventRevenueBasis } from "@/hooks/useEventRevenueBasis";
 import { useEventRootSettlements } from "@/hooks/useEventRootSettlements";
@@ -121,10 +121,11 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
-        .select("id, event_id, type, status, amount, paid_amount, iva_rate, category_id, is_transitory, is_hidden, reversed_at, exclude_from_result, event_settlement_id, account_categories(code)")
+        .select("id, event_id, type, status, amount, paid_amount, iva_rate, category_id, is_transitory, is_hidden, reversed_at, exclude_from_result, event_settlement_id, account_categories(code, ebitda_class)")
         .in("event_id", ids));
       if (error) throw error;
-      return (data ?? []) as any[];
+      // Adenda D-ERP151: IRC fora do resultado do evento.
+      return withoutIncomeTax((data ?? []) as any[]);
     },
     enabled: ids.length > 0,
   });
@@ -142,12 +143,13 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead, event_settlement_id, formula_type, cache_config_id")
+        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead, event_settlement_id, formula_type, cache_config_id, account_categories(ebitda_class)")
         .in("event_id", ids)
         .is("version_id", null)
         .eq("type", kind));
       if (error) throw error;
-      return (data ?? []) as any[];
+      // Adenda D-ERP151: IRC fora do resultado do evento.
+      return withoutIncomeTax((data ?? []) as any[]);
     },
 
     enabled: ids.length > 0,
@@ -164,10 +166,11 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
-        .select("id, event_id, type, status, amount, paid_amount, iva_rate, category_id, is_transitory, is_hidden, reversed_at, exclude_from_result, event_settlement_id, account_categories(code)")
+        .select("id, event_id, type, status, amount, paid_amount, iva_rate, category_id, is_transitory, is_hidden, reversed_at, exclude_from_result, event_settlement_id, account_categories(code, ebitda_class)")
         .in("event_id", masterIdsArr));
       if (error) throw error;
-      return (data ?? []) as any[];
+      // Adenda D-ERP151: IRC fora do resultado do evento.
+      return withoutIncomeTax((data ?? []) as any[]);
     },
     enabled: !!masterId,
   });
@@ -177,12 +180,13 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead, event_settlement_id, formula_type, cache_config_id")
+        .select("id, event_id, type, status, amount, iva_rate, category_id, transaction_id, formalidade, is_transitory, exclude_from_result, is_overhead, event_settlement_id, formula_type, cache_config_id, account_categories(ebitda_class)")
         .in("event_id", masterIdsArr)
         .is("version_id", null)
         .eq("type", kind));
       if (error) throw error;
-      return (data ?? []) as any[];
+      // Adenda D-ERP151: IRC fora do resultado do evento.
+      return withoutIncomeTax((data ?? []) as any[]);
     },
     enabled: !!masterId,
   });

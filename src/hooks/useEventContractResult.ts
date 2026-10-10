@@ -1,3 +1,4 @@
+import { withoutIncomeTax } from "@/lib/fecho-filters";
 import { cacheImpactOnTopOfCost } from "@/lib/event-cost-basis";
 /**
  * Card de Lucro na capa do evento (#223, regra final do dono do negócio).
@@ -98,11 +99,11 @@ export function useEventContractResult(
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
         .select(
-          "id, amount, iva_rate, type, status, event_id, event_settlement_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, account_categories(code)",
+          "id, amount, iva_rate, type, status, event_id, event_settlement_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, account_categories(code, ebitda_class)",
         )
         .in("event_id", allEventIds));
       if (error) throw error;
-      return data ?? [];
+      return withoutIncomeTax(data ?? []);
     },
   });
 
@@ -113,13 +114,13 @@ export function useEventContractResult(
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select(
-          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description, vat_non_recoverable, formula_type, cache_config_id",
+          "id, event_id, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, description, vat_non_recoverable, formula_type, cache_config_id, account_categories(code, name, ebitda_class)",
         )
         .in("event_id", allEventIds)
         .eq("status", "approved")
         .is("version_id", null));
       if (error) throw error;
-      return data ?? [];
+      return withoutIncomeTax(data ?? []);
     },
   });
 

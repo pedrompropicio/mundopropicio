@@ -21,7 +21,7 @@
  */
 import { calcIvaAmount, calcTotalWithIva, roundCents } from "./iva.ts";
 import { HOUSE_PARTNER_NAME } from "./house.ts";
-import { isValidFechoTransaction } from "./fecho-filters.ts";
+import { isValidFechoTransaction, withoutIncomeTax } from "./fecho-filters.ts";
 import {
   getPartnerRevenueBase,
   ignoresOperationalExpenses,
@@ -137,19 +137,19 @@ export async function loadStatementBundle(
       fetchAllPagedQuery(client
         .from("transactions")
         .select(
-          "id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, event_settlement_id, held_by_supplier_id, account_id, account_categories(id, name, code, parent_id)",
+          "id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, reversed_at, is_hidden, category_id, event_settlement_id, held_by_supplier_id, account_id, account_categories(id, name, code, parent_id, ebitda_class)",
         )
-        .in("event_id", allEventIds)),
+        .in("event_id", allEventIds)).then((r: any) => ({ ...r, data: withoutIncomeTax(r.data) })),
     ),
     must<any>(
       fetchAllPagedQuery(client
         .from("event_forecasts")
         .select(
-          "id, event_id, description, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, vat_non_recoverable, account_categories(name, code)",
+          "id, event_id, description, type, amount, iva_rate, status, is_overhead, is_transitory, exclude_from_result, master_forecast_id, transaction_id, paying_partner_id, category_id, event_settlement_id, addback_settlement_id, addback_reason, vat_non_recoverable, account_categories(name, code, ebitda_class)",
         )
         .in("event_id", allEventIds)
         .eq("status", "approved")
-        .is("version_id", null)),
+        .is("version_id", null)).then((r: any) => ({ ...r, data: withoutIncomeTax(r.data) })),
     ),
     must<any>(client.from("account_categories").select("id, name, code, parent_id")),
     must<any>(

@@ -65,7 +65,6 @@ import {
   translateCloseBlockerError,
 } from "@/components/events/CloseEventGuardDialog";
 import { Button } from "@/components/ui/button";
-import { type EbitdaParcels, computeEbitda, addParcels } from "@/lib/ebitda";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TicketOfficeSettlementsOverview } from "@/components/TicketOfficeSettlementsOverview";
 import { useAuth } from "@/contexts/AuthContext";
@@ -199,22 +198,6 @@ export default function EventDetail() {
   // Vistas de IVA reportadas por cada card (#223) — independentes entre si.
   const [incomeViewVat, setIncomeViewVat] = useState<boolean | null>(null);
   const [expenseViewVat, setExpenseViewVat] = useState<boolean | null>(null);
-  // Vista EBITDA (D-ERP151) — só análise; sócios/cachê/Fecho continuam no resultado.
-  const [incomeEbitda, setIncomeEbitda] = useState<{ net: EbitdaParcels; gross: EbitdaParcels } | null>(null);
-  const [expenseEbitda, setExpenseEbitda] = useState<{ net: EbitdaParcels; gross: EbitdaParcels } | null>(null);
-  const [profitView, setProfitView] = useState<"result" | "ebitda">("result");
-  // #269 — só actualizar quando o conteúdo muda (evita redesenhos em ciclo).
-  const setIncomeEbitdaIfChanged = useCallback(
-    (v: { net: EbitdaParcels; gross: EbitdaParcels } | null) =>
-      setIncomeEbitda((prev) => (JSON.stringify(prev) === JSON.stringify(v) ? prev : v)),
-    [],
-  );
-  const setExpenseEbitdaIfChanged = useCallback(
-    (v: { net: EbitdaParcels; gross: EbitdaParcels } | null) =>
-      setExpenseEbitda((prev) => (JSON.stringify(prev) === JSON.stringify(v) ? prev : v)),
-    [],
-  );
-
   // Reflect tab + sub-event into the URL so they survive navigations.
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
@@ -1127,7 +1110,6 @@ export default function EventDetail() {
           onPerimeterChange={setCardIncomePerimeter}
           partnerCalcBasis={event.partner_calc_basis}
           onVatViewChange={setIncomeViewVat}
-          onEbitdaParcelsChange={setIncomeEbitdaIfChanged}
         />
         <EventFinancialCard
           eventId={id!}
@@ -1145,60 +1127,29 @@ export default function EventDetail() {
           cacheImpact={Number(calculatedCacheImpact || 0)}
           onPerimeterChange={setCardExpensePerimeter}
           onVatViewChange={setExpenseViewVat}
-          onEbitdaParcelsChange={setExpenseEbitdaIfChanged}
         />
 
-{(() => {
-          const pick = (p: { net: EbitdaParcels; gross: EbitdaParcels } | null, vat: boolean | null) =>
-            p ? (vat ? p.gross : p.net) : null;
-          const inc = pick(incomeEbitda, incomeViewVat);
-          const exp = pick(expenseEbitda, expenseViewVat);
-          const eb = contract && inc && exp ? computeEbitda(contract.result, addParcels(exp, inc)) : null;
-          const showEbitda = profitView === "ebitda";
-          return (
-            <div className="flex flex-col gap-2">
-                      <StatCard
-          title={showEbitda ? "EBITDA" : "Lucro (após impostos)"}
-          value={!contract ? "—" : showEbitda ? (eb ? formatCurrency(eb.ebitda) : "—") : formatCurrency(contract.result)}
+        <StatCard
+          title="Resultado do evento (antes de impostos)"
+          value={!contract ? "—" : formatCurrency(contract.result)}
           icon={Wallet}
           variant="primary"
           subtitle={
             contract
-              ? `Base do contrato: ${contract.contractLabel}${
+              ? `${contract.label}${
                   contract.revenueBase > 0
                     ? ` · margem ${((contract.result / contract.revenueBase) * 100).toFixed(1)}%`
                     : ""
-                }${contract.differsFromSettlement
-                  ? ` · ⚠ vistas dos cards noutra base (${contract.label} = ${formatCurrency(contract.viewResult)})`
-                  : ""}`
+                }`
               : undefined
           }
-          tooltip="Lucro na base do critério contratual do evento — o mesmo número do Encontro de Contas. Os seletores dos cards de Receitas e Custos mudam só o que se vê nesses cards; quando estão noutra base, aparece o aviso com a subtração das vistas."
+          footnote={
+            contract?.settlementResult != null
+              ? `Base do contrato (fecho): ${formatCurrency(contract.settlementResult)}`
+              : undefined
+          }
+          tooltip="Receitas − Custos tal como estão nos dois cards ao lado (mesma vista de IVA e perímetro). Não inclui o imposto sobre o rendimento (IRC). A linha «Base do contrato (fecho)» é o número do Encontro de Contas, no critério contratual do evento. O EBITDA e o resultado após IRC estão no DRE."
         />
-              <div className="flex items-center gap-1.5">
-                <Button size="sm" variant={!showEbitda ? "default" : "outline"} className="h-7 text-xs" onClick={() => setProfitView("result")}>
-                  Resultado (após impostos)
-                </Button>
-                <Button size="sm" variant={showEbitda ? "default" : "outline"} className="h-7 text-xs" onClick={() => setProfitView("ebitda")}>
-                  EBITDA
-                </Button>
-              </div>
-              {showEbitda && contract && eb && (
-                <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs space-y-0.5">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Resultado</span><span className="font-mono">{formatCurrency(eb.result)}</span></div>
-                  {eb.bridge.map((l) => (
-                    <div key={l.key} className={`flex justify-between ${l.isSubtotal ? "border-t border-border pt-0.5 font-semibold" : ""}`}>
-                      <span className={l.isSubtotal ? "" : "text-muted-foreground"}>{l.isSubtotal ? "= " : "+ "}{l.label}</span>
-                      <span className="font-mono">{formatCurrency(l.value)}</span>
-                    </div>
-                  ))}
-                  <div className="flex justify-between border-t border-border pt-0.5 font-semibold"><span>EBITDA</span><span className="font-mono">{formatCurrency(eb.ebitda)}</span></div>
-                  <p className="pt-1 text-[10px] text-muted-foreground">Vista de análise. Acerto com sócios, cachê e Fecho usam sempre o resultado.</p>
-                </div>
-              )}
-            </div>
-          );
-        })()}
 
         <StatCard
           title="Bilhetes"

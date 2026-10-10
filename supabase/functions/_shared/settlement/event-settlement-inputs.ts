@@ -14,7 +14,7 @@ import { calcTotalWithIva } from "./iva.ts";
 import { computeOutsideBpExcess, computeOutsideBpExcessLines, sumLines } from "./event-cost-basis.ts";
 import { expandOverheadToSplits, overheadLinesFor } from "./overhead-proration.ts";
 import { expandMasterAdoptedExpensesToSplits } from "./master-adopted-expense-proration.ts";
-import { isValidFechoTransaction } from "./fecho-filters.ts";
+import { isValidFechoTransaction, withoutIncomeTax } from "./fecho-filters.ts";
 import { computeSettlementRevenue } from "./settlement-revenue.ts";
 
 export interface SettlementTotalsBasis {
@@ -44,7 +44,10 @@ export interface SettlementTotals {
 }
 
 export function computeEventSettlementTotals(input: SettlementTotalsInput): SettlementTotals {
-  const { events, transactions, forecasts, ticketSales, basis } = input;
+  const { events, ticketSales, basis } = input;
+  // Adenda D-ERP151 (10/10/2026): IRC fora do resultado do evento.
+  const transactions = withoutIncomeTax(input.transactions);
+  const forecasts = withoutIncomeTax(input.forecasts);
 
   // (#292) Agregado de família: o overhead entra uma vez (só as originais).
   const overheads = overheadLinesFor(
@@ -132,7 +135,10 @@ export interface SettlementExpenseDocLine {
  * (`keepRootPerimeter`), porque a base do documento é sempre o evento.
  */
 export function collectSettlementExpenseDocLines(input: SettlementTotalsInput): SettlementExpenseDocLine[] {
-  const { events, transactions, forecasts, basis } = input;
+  const { events, basis } = input;
+  // Adenda D-ERP151 (10/10/2026): IRC fora do resultado do evento.
+  const transactions = withoutIncomeTax(input.transactions);
+  const forecasts = withoutIncomeTax(input.forecasts);
 
   // (#292) Agregado de família: o overhead entra uma vez (só as originais).
   const overheads = overheadLinesFor(

@@ -60,7 +60,7 @@ export default function ReportProfitability() {
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("transactions")
-        .select("event_id, type, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, reversed_at, is_hidden, event_settlement_id")
+        .select("event_id, type, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, reversed_at, is_hidden, event_settlement_id, account_categories(ebitda_class)")
         .in("status", ["approved", "paid"]));
       if (error) throw error;
       return data;
@@ -88,7 +88,7 @@ export default function ReportProfitability() {
     queryFn: async () => {
       const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
-        .select("id, event_id, type, status, category_id, amount, iva_rate, version_id, is_transitory, is_overhead, exclude_from_result, event_settlement_id")
+        .select("id, event_id, type, status, category_id, amount, iva_rate, version_id, is_transitory, is_overhead, exclude_from_result, event_settlement_id, account_categories(ebitda_class)")
         .eq("type", "expense")
         .is("version_id", null)
         .order("id", { ascending: true }));

@@ -26,7 +26,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { computeEventCostOnBasis, cacheImpactOnTopOfCost, type EventCostMode } from "@/lib/event-cost-basis";
-import { isValidFechoTransaction } from "@/lib/fecho-filters";
+import { isValidFechoTransaction, withoutIncomeTax } from "@/lib/fecho-filters";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { fetchRootSettlements } from "@/hooks/useEventRootSettlements";
 import {
@@ -84,13 +84,13 @@ export async function fetchEventsListFinancials(
     fetchAllPagedQuery(supabase
       .from("transactions")
       .select(
-        "id, event_id, type, status, amount, iva_rate, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, parent_transaction_id, split_percentage, event_settlement_id, account_categories(code, name)",
+        "id, event_id, type, status, amount, iva_rate, category_id, is_transitory, exclude_from_result, reversed_at, is_hidden, parent_transaction_id, split_percentage, event_settlement_id, account_categories(code, name, ebitda_class)",
       )
       .in("event_id", allIds)),
     fetchAllPagedQuery(supabase
       .from("event_forecasts")
       .select(
-        "id, event_id, type, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, is_overhead, event_settlement_id, formula_type, cache_config_id, account_categories(code)",
+        "id, event_id, type, amount, iva_rate, category_id, status, is_transitory, exclude_from_result, is_overhead, event_settlement_id, formula_type, cache_config_id, account_categories(code, ebitda_class)",
       )
       .in("event_id", allIds)
       .is("version_id", null)),
@@ -111,9 +111,9 @@ export async function fetchEventsListFinancials(
 
   // Perímetro da raiz (D25 g3): linhas de um fechamento filho não entram no
   // resultado do evento.
-  const txsAll = (txRes.data ?? []) as any[];
+  const txsAll = withoutIncomeTax((txRes.data ?? []) as any[]); // Adenda D-ERP151: IRC fora
   const txs = keepRootPerimeter(txsAll, roots.rootIds);
-  const fcs = keepRootPerimeter((fcRes.data ?? []) as any[], roots.rootIds);
+  const fcs = keepRootPerimeter(withoutIncomeTax((fcRes.data ?? []) as any[]), roots.rootIds);
 
   // Cachê efectivo — mesma regra do card de Custos, em lote.
   const cacheImpact = await fetchEventsListCacheImpact(

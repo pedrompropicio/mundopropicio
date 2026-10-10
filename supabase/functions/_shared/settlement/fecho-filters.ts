@@ -55,3 +55,30 @@ export function isBilheteiraCategoryCode(code?: string | null): boolean {
 export function isTicketingRevenueTx(t: any): boolean {
   return isBilheteiraCategoryCode(t?.account_categories?.code);
 }
+
+/**
+ * IRC FORA DO RESULTADO DO EVENTO (adenda D-ERP151, 10/10/2026) — REGRA ÚNICA.
+ *
+ * Linha de BP ou transação cuja conta de lançamento tem
+ * `account_categories.ebitda_class = 'imposto_rendimento'` NÃO é custo do
+ * evento: o resultado do evento é "antes de impostos". Aplica-se em
+ * `computeEventCostOnBasis` e no motor do fecho (totais + linhas do documento),
+ * que é o que cards, lista de eventos, fechos, Portal e PDFs consomem.
+ * Financeiro e amortizações continuam dentro. O DRE (`eventCostLines`/buildDRE)
+ * NÃO usa esta regra: mostra o IRC abaixo do resultado com a ponte EBITDA.
+ *
+ * A classe lê-se no embed `account_categories(ebitda_class)` da linha — quem
+ * alimenta estes cálculos TEM de o trazer no select (ver INCOME_TAX_EMBED_COLUMN).
+ */
+export const INCOME_TAX_CLASS = "imposto_rendimento";
+export const INCOME_TAX_EMBED_COLUMN = "ebitda_class";
+
+export function isIncomeTaxLine(l: any): boolean {
+  const c = l?.account_categories;
+  const cls = Array.isArray(c) ? c[0]?.ebitda_class : c?.ebitda_class;
+  return cls === INCOME_TAX_CLASS || l?.ebitda_class === INCOME_TAX_CLASS;
+}
+
+export function withoutIncomeTax<T>(lines: T[] | null | undefined): T[] {
+  return (lines ?? []).filter((l) => !isIncomeTaxLine(l));
+}
