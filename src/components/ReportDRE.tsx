@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { keepRootPerimeter } from "@/lib/settlement-perimeter";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
+import { eventCostLines, eventCostMode, groupByEvent, type ReportCostSource } from "@/lib/report-event-cost";
+import { ReportCostSourceToggle } from "@/components/ReportCostSourceToggle";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, Info, Eye } from "lucide-react";
@@ -294,6 +296,8 @@ export default function ReportDRE() {
   const [showEbitda, setShowEbitda] = useState(false);
 
   const [natureFilter, setNatureFilter] = useState<EventNature[]>([]);
+  // #218: custo de evento pelo BP (padrão); "Transações" só para comparação — nunca gravado.
+  const [costSource, setCostSource] = useState<ReportCostSource>("bp");
   const { data: allEvents = [] } = useQuery({
     queryKey: ["events"],
     queryFn: async () => {
@@ -328,6 +332,26 @@ export default function ReportDRE() {
   // Flags bloqueadores canónicos (reversed_at, is_hidden, ...) antes do perímetro
   // da raiz — paridade com o filtro de Fecho (fecho-filter-parity.md).
   const transactions = keepRootPerimeter((transactionsAll as any[]).filter((t) => !hasResultBlockingFlags(t)), rootSettlementIds);
+
+  // #218: BP vivo (version_id IS NULL) — viva vs congelada é decisão pendente do Pedro.
+  const { data: costForecastsAll = [] } = useQuery({
+    queryKey: ["dre-forecasts-expense"],
+    queryFn: async () => {
+      const { data, error } = await fetchAllPagedQuery(supabase
+        .from("event_forecasts")
+        .select("id, event_id, type, status, category_id, amount, iva_rate, version_id, is_transitory, is_overhead, exclude_from_result, event_settlement_id")
+        .eq("type", "expense")
+        .is("version_id", null)
+        .order("id", { ascending: true }));
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const costForecastsByEvent = useMemo(
+    () => groupByEvent(keepRootPerimeter(costForecastsAll as any[], rootSettlementIds)),
+    [costForecastsAll, rootSettlementIds],
+  );
+  const txByEventForCost = useMemo(() => groupByEvent(transactions as any[]), [transactions]);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["account-categories"],
@@ -517,7 +541,8 @@ export default function ReportDRE() {
   };
 
   const eventsWithTransactions = events.filter((e) => {
-    const hasDirect = transactions.some((t: any) => t.event_id === e.id);
+    const hasDirect = transactions.some((t: any) => t.event_id === e.id)
+      || (costSource === "bp" && (costForecastsByEvent.get(e.id)?.length ?? 0) > 0);
     if (hasDirect) return true;
     const children = childrenByParent[e.id];
     if (children) return children.some((cid) => transactions.some((t: any) => t.event_id === cid));
@@ -568,6 +593,27 @@ export default function ReportDRE() {
         const childTx = transactions.filter((t: any) => t.event_id === childId);
         evtTx = [...evtTx, ...childTx];
       });
+    }
+    if (costSource === "bp") {
+      // #218: despesas do evento pelo BP (função única), com a mesma propagação
+      // Master÷N → cidade e cidades → Master que as transações já tinham.
+      // As transações de despesa ficam fora (nunca pelas duas portas).
+      const costOf = (id: string) => {
+        const ev = events.find((x: any) => x.id === id);
+        return eventCostLines({
+          eventId: id,
+          forecasts: costForecastsByEvent.get(id) ?? [],
+          transactions: txByEventForCost.get(id) ?? [],
+          mode: eventCostMode(ev as any),
+        });
+      };
+      let cost: any[] = costOf(eventId);
+      if (parentId) {
+        const siblingCount = subCountByParent[parentId] || 1;
+        cost = [...cost, ...costOf(parentId).map((l) => ({ ...l, amount: l.amount / siblingCount, _prorated: true }))];
+      }
+      if (children && children.length > 0) children.forEach((cid) => { cost = [...cost, ...costOf(cid)]; });
+      evtTx = [...evtTx.filter((t: any) => t.type !== "expense"), ...cost];
     }
     return evtTx;
   }
@@ -650,6 +696,7 @@ export default function ReportDRE() {
           </button>
         </div>
 <EventNatureFilter value={natureFilter} onChange={setNatureFilter} />
+        <ReportCostSourceToggle value={costSource} onChange={setCostSource} />
         <div className="flex flex-col gap-2">
           {eventsWithTransactions.filter((e) => !e.parent_event_id).map((e) => {
             const children = eventsWithTransactions.filter((c) => c.parent_event_id === e.id);
