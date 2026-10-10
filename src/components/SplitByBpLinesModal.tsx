@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { toast } from "@/hooks/use-toast";
 import { invalidateTransactionQueries } from "@/lib/invalidate-transactions";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 /**
  * #29 — Repartir uma despesa por N linhas de BP do mesmo evento.
@@ -26,13 +27,13 @@ export function SplitByBpLinesModal({ transaction, onClose, onSuccess }: { trans
     queryKey: ["split-bp-lines", transaction.event_id],
     enabled: !!transaction.event_id,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await fetchAllPagedQuery(supabase
         .from("event_forecasts")
         .select("id, description, amount, account_categories(code, name)")
         .eq("event_id", transaction.event_id)
         .is("version_id", null)
         .eq("type", "expense")
-        .order("description");
+        .order("description"));
       if (error) throw error;
       return data ?? [];
     },
