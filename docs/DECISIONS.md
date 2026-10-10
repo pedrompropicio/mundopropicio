@@ -5541,3 +5541,38 @@ UPDATE transaction_documents SET file_url='b851ffbd-50a0-4462-8254-1e02e6a36fb2/
 -- Material Escritório MP 92,13 (21/08): 3 ficheiros carregados a 07/10 no mesmo transaction_id (6b964779) — provável recarga; apagar a linha fc36ff8f se já estiverem ligados.
 ```
 - Sem rasto em lado nenhum (pedir documento): J.C.DECAUX 2.128,00 (09/04, Mágicos H&K, tx e2ed0d05, 2 ficheiros); Padaria 7,99 (15/07, Anitta EDA, tx 33b29e81, sem fornecedor); Padaria 8,81 (21/07, Anitta EDA, tx cba93475, sem fornecedor).
+
+## D-ERP244 (10/10/2026) — #37 ponto 3 retorno do banco SEPA; #218 DRE Brasil pelo BP
+### #37 ponto 3
+- O pain.001 (src/lib/sepa/pain001.ts) gera MsgId (= payment_list_sepa_exports.msg_id), EndToEndId `PLnnn-<8 hex da transação>` e Ustrd. O extrato Santander NÃO traz o EndToEndId: cada lote é UMA linha a débito "LOTE TRF CRED SEPA+…" pelo total.
+- Motor puro src/lib/sepa/bank-execution.ts: (1) lote = débito igual ao total ao cêntimo em [exportação, +10 d] (reutiliza matched_sepa_export_id da conciliação; uma linha do banco serve uma só exportação); (2) linha individual = débito igual ao valor da transação + nome do beneficiário (ou EndToEndId) no descritivo. Estados: executado / por executar / sem extrato (data da exportação antes do 1.º extrato importado).
+- Sugestão nunca grava. "Confirmar" grava em payment_list_bank_executions (migração 0102; RLS empresa + admin/manager/manage_bank_reconciliation). Não toca transactions nem bank_statement_lines.
+- Ecrãs: painel "Retorno do banco (SEPA)" na lista; linha "Banco (SEPA)" no separador Pagamento da transação.
+- Live 10/10: 23 exportações / 22 listas; extratos 31/08–09/10. Exportações: 13 casam por lote, 2 não casam (re-exportações iguais da mesma lista: bcb69c0f e be677e58 — a linha do banco ficou para a irmã), 8 sem extrato (de 08/08 a 28/08). Por linha de lista (296 transação×lista): 207 executadas, 0 por executar, 89 sem extrato, em 7 listas sem extrato.
+### #218 DRE Brasil
+- ReportDREBrasil passa a usar eventCostLines/eventCostMode (mesma função do DRE), toggle "Custo de evento: BP (padrão) | Transações (comparação)", trava das duas portas (no modo BP as despesas por transação do evento saem). Mesma propagação Master÷N → cidade e cidades → Master. Receita e viva vs congelada não mudaram.
+- Live 10/10, 2026, eventos com base "Despesas c/IVA" (6): despesa de evento c/IVA transações 1.564.104,32 → BP 3.482.395,07. Top 5 (BP | tx): Anitta EDA 1.888.446,58 | 561.821,59; Ivete Clareou 795.232,43 | 644.614,03; FestVybbe 359.011,83 | 47.186,80; H&K Lisboa 230.311,61 | 180.347,63; H&K Porto 183.697,51 | 130.134,27. Atenção: a Anitta EDA triplica — confirmar o BP aprovado antes de usar o relatório.
+
+## D-ERP245 (10/10/2026) — #230 mapa de centros de custo
+- Tabela import_cost_center_map (company_id, source, cost_center_raw normalizado, category_id, confirmed_by/at; UNIQUE por empresa+fonte+centro; a rubrica tem de ser da mesma empresa) — migração 0103.
+- Normalizador único normCentroCusto (já existia, D-ERP215) partilhado ecrã/importador. Sugestão (src/lib/cost-center-map.ts): rubrica usada à mão em ≥60% das linhas importadas do mesmo centro, senão semelhança de nome ≥0,5 (L3, ou L2 pai). Nunca 0.0.99.
+- Ecrã: "Mapa de centros de custo" no fim de Admin › Coala Sync; grava só ao confirmar.
+- apply-coala-bp (reimplantada): mapa → nome exacto → 0.0.99. coala-sync-bootstrap só usa o centro para validar a L2 da aprendizagem: ficou igual.
+- Live 10/10: 0 linhas de BP e 0 transações em 0.0.99 A Classificar (Coala); os 226 mil da issue já não existem. 63 centros vistos em coala_sync_row_state; nenhuma corrida gravou ainda pendencies_report.ccFallback.
+- UPDATE pronto (NÃO corrido), por centro, a partir do mapa:
+```sql
+-- BP
+UPDATE event_forecasts f SET category_id = m.category_id
+  FROM coala_sync_row_state s JOIN coala_sync_config c ON c.id = s.config_id
+  JOIN import_cost_center_map m ON m.company_id = c.company_id AND m.source = 'coala' AND m.cost_center_raw = s.center_custo_norm
+ WHERE f.id = s.forecast_id
+   AND f.category_id = (SELECT id FROM account_categories a WHERE a.company_id = c.company_id AND a.code = '0.0.99')
+   AND s.center_custo_norm = '<centro>';
+-- Transações ligadas a essas linhas
+UPDATE transactions t SET category_id = m.category_id
+  FROM coala_sync_row_state s JOIN coala_sync_config c ON c.id = s.config_id
+  JOIN import_cost_center_map m ON m.company_id = c.company_id AND m.source = 'coala' AND m.cost_center_raw = s.center_custo_norm
+ WHERE t.forecast_id = s.forecast_id
+   AND t.category_id = (SELECT id FROM account_categories a WHERE a.company_id = c.company_id AND a.code = '0.0.99')
+   AND s.center_custo_norm = '<centro>';
+```
