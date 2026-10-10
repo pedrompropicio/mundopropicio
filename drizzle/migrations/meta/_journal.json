@@ -673,6 +673,13 @@
       "when": 1791668663126,
       "tag": "0095_derp_297_bp_frozen_version_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1791668938328,
+      "tag": "0096_derp_304_invariant_natureza_divergente",
+      "breakpoints": true
     }
   ]
 }
