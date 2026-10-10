@@ -16,7 +16,17 @@
 //     do lote: nome do lote = `${lot} | ${ticketType}` quando ticketType ≠ null.
 //     Mantém a mesma zona e permite o utilizador distinguir nas tabelas.
 //   - iva_rate default = 6 (mesmo da Fever Portugal).
-import type { OperationsParseResult } from "./ticketline-operations-parser.ts";
+// Forma estrutural de OperationsParseResult (ticketline-operations-parser.ts).
+// Não importamos o tipo directamente porque esse ficheiro puxa o xlsx do esm.sh
+// e partia a verificação de tipos do app quando este módulo é testado (#78).
+type OperationsParseResult = {
+  header: { period_from: string; period_to: string; [k: string]: any };
+  rows: Array<{ date: string; zone: string; lot: string; ticketType: string | null; rawLabel: string;
+    totalGeralQty: number; totalGeralValue: number; totalVendasQty: number; totalVendasValue: number }>;
+  warnings: string[];
+  section1Daily: any[];
+  section2DailyTotals: any[];
+};
 import { fetchAllPagedQuery } from "./paging.ts";
 
 const SOURCE = "ticketline_import";
