@@ -5309,3 +5309,26 @@ Decisões do Pedro: (1) aceitar transitória como saída ao sócio? (2) sede do 
 - verify_jwt não mudou em nenhuma; as 32 foram reimplantadas para o código valer.
 - Guarda: src/test/edge-fn-guard.test.ts "service_role_pelo_payload" falha se voltar atob + comparação com service_role fora das excepções.
 - edge_fn_sem_guarda_empresa fica em 2 (mede outra coisa).
+
+## D-ERP230 (10/10/2026) — #62 cadeia de atribuição Google: casamento clique↔lead, valor e Customer Match
+Diagnóstico (Live 10/10):
+- O portal JÁ guarda gclid/gbraid/wbraid em lead_capture.raw (chaves presentes em todos os leads). Só 17 leads em 1.851 (30 dias) trazem gclid e 16 gbraid/wbraid: ~95% dos leads vêm do Meta/IG (utm_source ig 1.178, fb 70, META 102). O 0,06% não é só defeito — a maioria dos cliques Google nunca deixou lead.
+- Três defeitos no enqueue: (1) só lia os 5.000 cliques MAIS ANTIGOS (ordem ascendente + limit) — nada depois de 08/09/2026 era visto; (2) só casava por client_event_id; 94 leads casam só por gclid/braid com client_event_id diferente; (3) .in() de 500 uuids rebentava o URL (500 "leads_read_failed … error sending request" no cron das 04:30).
+- Correcção: janela de 90 dias (limite da Google), paginação, casamento lead_capture_id → gclid/gbraid/wbraid de lead_capture.raw → client_event_id (fallback), método gravado em google_conversion.raw.match_method; .in() em blocos de 100; leads filtrados por company_id. Email não serve: o clique não o guarda.
+- Backfill (NÃO corrido; o enqueue faz o mesmo sozinho para os da janela de 90 dias). Estimativa 10/10: 647 cliques / 122 leads ao todo; 288 cliques / 108 leads dentro dos 90 dias com consentimento.
+  UPDATE crm.google_click c SET lead_capture_id = m.lead_id
+  FROM (SELECT DISTINCT ON (c2.id) c2.id click_id, l.id lead_id
+        FROM crm.google_click c2 JOIN public.lead_capture l ON l.company_id = c2.company_id AND (
+             (c2.gclid IS NOT NULL AND l.raw->>'gclid' = c2.gclid) OR (c2.gbraid IS NOT NULL AND l.raw->>'gbraid' = c2.gbraid)
+          OR (c2.wbraid IS NOT NULL AND l.raw->>'wbraid' = c2.wbraid) OR l.client_event_id = c2.client_event_id)
+        WHERE c2.lead_capture_id IS NULL
+        ORDER BY c2.id, (l.client_event_id = c2.client_event_id), l.created_at) m
+  WHERE c.id = m.click_id AND c.lead_capture_id IS NULL;
+Valor:
+- O enqueue grava conversion_value NULL quando o valor é 0/vazio; o upload lê portal_settings.google_lead_conversion_value no envio e, se 0/vazio, envia SEM valor. Diferença na Google: sem valor → aplica o valor por omissão da acção de conversão; 0 → grava zero.
+- DECISÃO DO PEDRO: o valor por lead. Origem pensada: valor médio de um lead convertido em bilhete. Hoje NÃO é calculável: as vendas Ticketline/Fever/BOL chegam agregadas, sem comprador, e leads/lead_capture não têm ligação a compra. Até haver comprador individual, o valor é por estimativa do Pedro (ex.: receita de bilheteira ÷ bilhetes × taxa de conversão de lead).
+Customer Match:
+- Erro (14/06): HTTP 403 PERMISSION_DENIED, authorizationError ACTION_NOT_PERMITTED no userLists:mutate (v24), via service account com login-customer-id do MCC. Das três hipóteses: developer token Basic daria DEVELOPER_TOKEN_NOT_APPROVED/…PROHIBITED e as leituras de campanhas falhariam (funcionam); conta sem elegibilidade costuma vir como erro de política de dados (ex.: CUSTOMER_NOT_ACCEPTED_CUSTOMER_DATA_TERMS / USER_LIST_ERROR). ACTION_NOT_PERMITTED é autorização do UTILIZADOR — o mais provável é a service account ter acesso só de leitura (ou sem acesso de escrita a listas) na conta 220-004-3144/MCC. Não confirmado do lado da Google.
+- Nada insistia: user-list-ensure só trata listas 'draft' e não há cron; customer-match-sync não chama a Google. Mesmo assim: customer-match-sync passa a recuar 24h quando a lista está em 403 (force=true ignora), e o painel Google Ads mostra um alerta único.
+- Também corrigido em customer-match-sync: não filtrava empresa (juntava leads de todas) e cortava em 1.000. Elegíveis hoje (consent_email, email não vazio, empresa MP): 712 emails distintos (2.311 contando todas as empresas).
+- PARA O PEDRO no Google Ads: (1) Admin → Acesso e segurança da conta 220-004-3144 (e do MCC 974-322-1780): dar à service account mp-audience-api@… acesso Standard/Admin, não "só leitura"; (2) confirmar que a conta aceitou os Termos de dados do cliente (Customer Match) e cumpre os requisitos de política; (3) confirmar o nível do developer token (Basic chega para Customer Match em contas próprias; Standard se a Google o exigir). Depois, repor a lista para 'draft' para o ensure tentar outra vez.
