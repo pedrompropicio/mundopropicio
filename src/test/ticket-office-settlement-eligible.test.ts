@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isSettlementEligibleTxn } from "@/components/TicketOfficeSettlementModal";
+import { isSettlementEligibleTxn } from "@/lib/ticket-office-settlement-eligible";
 
 const OFFICE = "bb741051-5716-4149-a971-984803e095cf";
 
