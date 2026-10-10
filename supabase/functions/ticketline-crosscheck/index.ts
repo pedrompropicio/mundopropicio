@@ -4,6 +4,7 @@
 // de check_ticketing_sync_health(). Não toca na captação existente.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { ProdutoresSession, venueTokens, type OccupationTotal } from "../_shared/ticketline-produtores.ts";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b, null, 2), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
@@ -63,10 +64,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const admin = createClient(SUPABASE_URL, SERVICE);
   const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
-  // verify_jwt=true (config.toml): a assinatura já foi validada no gateway; aqui só se lê o papel.
-  let role: string | null = null;
-  try { role = JSON.parse(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).role ?? null; } catch { role = null; }
-  if (jwt !== SERVICE && role !== "service_role") {
+  // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+  if (!(await isServiceRoleRequest(req))) {
     const { data: u } = await admin.auth.getUser(jwt);
     if (!u?.user) return json({ error: "sem sessão" }, 401);
     const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", u.user.id);

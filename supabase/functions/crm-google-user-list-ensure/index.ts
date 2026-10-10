@@ -11,6 +11,7 @@
 // crm-google-conversion-upload.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const GOOGLE_ADS_API_VERSION = Deno.env.get("GOOGLE_ADS_API_VERSION") ?? "v24";
 const LOGIN_CUSTOMER_ID = "9743221780";
@@ -148,18 +149,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
 
   // Service_role bypass (cron) — decode manual do payload.
-  let isServiceRole = false;
-  try {
-    const parts = token.split(".");
-    if (parts.length >= 2) {
-      const payload = JSON.parse(
-        atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")),
-      );
-      if (payload?.role === "service_role") isServiceRole = true;
-    }
-  } catch {
-    // ignora — cai no caminho admin
-  }
+  // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+  const isServiceRole = await isServiceRoleRequest(req);
 
   if (!isServiceRole) {
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

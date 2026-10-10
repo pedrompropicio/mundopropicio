@@ -14,6 +14,7 @@
 // (public.backup_table_inventory) e cada tabela é subida assim que termina,
 // libertando a memória antes da seguinte.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -244,11 +245,13 @@ Deno.serve(async (req) => {
       userId = payload?.sub ?? null;
     } catch { /* not a JWT */ }
 
-    const isMachine = role === "service_role" || role === "anon";
+    // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+    const isSr = await isServiceRoleRequest(req);
+    const isMachine = isSr || role === "anon";
 
     let body: any = {};
     try { body = await req.json(); } catch { /* sem corpo */ }
-    const force = body?.force === true && role === "service_role";
+    const force = body?.force === true && isSr;
     const wantsGlobal = body?.target === "global";
     const wantedCompanyId: string | null =
       typeof body?.company_id === "string" && body.company_id ? body.company_id : null;
@@ -313,7 +316,7 @@ Deno.serve(async (req) => {
     const runDate = new Date().toISOString().slice(0, 10);
 
     // ---- Continuação de uma corrida já aberta (fatiamento por CPU) ----
-    const cont = body?.run_id && body?.folder && role === "service_role"
+    const cont = body?.run_id && body?.folder && isSr
       ? {
           runId: String(body.run_id),
           folder: String(body.folder),

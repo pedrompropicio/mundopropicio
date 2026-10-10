@@ -13,6 +13,7 @@
 
 import { adminClient } from "../_shared/artist-meta.ts";
 import { deduceTriggerSource, finishSyncRun, resolveStatus, startSyncRun } from "../_shared/sync-run.ts";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const FN = "artist-youtube-sync";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -23,11 +24,9 @@ const json = (b: unknown, s = 200) =>
 // deno-lint-ignore no-explicit-any
 type Admin = any;
 
-function isServiceRole(bearer: string): boolean {
-  try {
-    if (JSON.parse(atob(bearer.split(".")[1] ?? ""))?.role === "service_role") return true;
-  } catch (_e) { /* não-JWT */ }
-  return bearer === (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "\u0000");
+// #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+function isServiceRole(req: Request): Promise<boolean> {
+  return isServiceRoleRequest(req);
 }
 
 async function userCompanies(admin: Admin, bearer: string) {
@@ -219,7 +218,7 @@ Deno.serve(async (req) => {
   if (!key) return json({ ok: false, error: "ENCRYPTION_MASTER_KEY não configurada" }, 500);
 
   const admin = adminClient();
-  const sr = isServiceRole(bearer);
+  const sr = (await isServiceRole(req));
   let allowed: ((companyId: string) => boolean) = () => true;
   if (!sr) {
     const u = await userCompanies(admin, bearer);

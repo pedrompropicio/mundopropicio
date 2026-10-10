@@ -2,7 +2,7 @@
 // Renova o B2bToken Fever via login HTTP server-side e guarda no Vault.
 // Auth: aceita service_role (cron) OU user JWT com role privilegiada (admin/manager/editor/platform_admin).
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { assertCallerRoleOnRow, errorResponse } from "../_shared/multiTenant.ts";
+import { assertCallerRoleOnRow, errorResponse, isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -80,19 +80,8 @@ async function authorize(req: Request): Promise<{ ok: true; via: "service_role" 
     return { ok: true, via: "service_role" };
   }
 
-  // Decode JWT payload (sem verificar signature — já confiamos no Supabase upstream)
-  let payload: any = null;
-  try {
-    const parts = token.split(".");
-    if (parts.length === 3) {
-      let p = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-      while (p.length % 4) p += "=";
-      payload = JSON.parse(atob(p));
-    }
-  } catch (_) { /* não é JWT decodificável */ }
-
-  // service_role bypass: qualquer JWT com role=service_role passa
-  if (payload?.role === "service_role") {
+  // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+  if (await isServiceRoleRequest(req)) {
     console.log("[refresh-fever-token] service_role authorized via JWT role");
     return { ok: true, via: "service_role" };
   }

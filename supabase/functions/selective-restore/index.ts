@@ -22,6 +22,7 @@ import {
   isUuid,
   stampLegacyCompanyId,
 } from "../_shared/restore-legacy-company.ts";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -120,7 +121,8 @@ Deno.serve(async (req) => {
       userId = payload?.sub ?? null;
     } catch { /* não é JWT */ }
 
-    const isMachine = role === "service_role";
+    // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+    const isMachine = await isServiceRoleRequest(req);
     let isPlatformAdmin = false;
     let callerCompanyId: string | null = null;
 

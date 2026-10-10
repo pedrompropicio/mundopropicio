@@ -12,6 +12,7 @@
 // é byte-igual à env key (keys novas não-JWT).
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -58,18 +59,8 @@ Deno.serve(async (req) => {
   // de esta função correr; aqui validamos apenas o claim `role` do JWT. Se o bearer
   // não for um JWT mas for byte-igual à env key, também é aceite (key nova não-JWT).
   const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
-  const isServiceRole = ((): boolean => {
-    if (serviceKey && bearer === serviceKey) return true
-    const parts = bearer.split('.')
-    if (parts.length !== 3) return false
-    try {
-      const payloadJson = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))
-      const payload = JSON.parse(payloadJson) as { role?: unknown }
-      return payload.role === 'service_role'
-    } catch {
-      return false
-    }
-  })()
+  // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+  const isServiceRole = await isServiceRoleRequest(req)
   if (!isServiceRole) {
     return json({ error: 'Não autorizado — esta função só aceita a service_role key.' }, 401)
   }

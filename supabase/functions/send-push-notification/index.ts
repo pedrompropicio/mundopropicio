@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendWhatsApp } from "../_shared/twilio.ts";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,16 +72,8 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     const token = authHeader.replace(/^Bearer\s+/i, "");
-    let isServiceRole = false;
-    try {
-      const parts = token.split(".");
-      if (parts.length === 3) {
-        let p = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-        while (p.length % 4) p += "=";
-        const payload = JSON.parse(atob(p));
-        if (payload?.role === "service_role") isServiceRole = true;
-      }
-    } catch { /* ignore */ }
+    // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+    const isServiceRole = await isServiceRoleRequest(req);
 
     let callerCompanyId: string | null = null;
     let isPlatformAdmin = false;

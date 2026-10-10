@@ -9,6 +9,7 @@
 
 import { adminClient, auditLog, corsHeaders, json } from "../_shared/artist-meta.ts";
 import { META_GRAPH_VERSION } from "../_shared/artist-ads.ts";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -21,10 +22,8 @@ Deno.serve(async (req) => {
   // --- autenticação (JWT explícito, D-ERP128)
   const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
   if (!bearer) return json({ error: "missing token" }, 401);
-  let isServiceRole = false;
-  try {
-    isServiceRole = JSON.parse(atob(bearer.split(".")[1] ?? ""))?.role === "service_role";
-  } catch (_e) { /* segue */ }
+  // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+  const isServiceRole = await isServiceRoleRequest(req);
   let userId: string | null = null;
   if (!isServiceRole) {
     const { data, error } = await admin.auth.getUser(bearer);

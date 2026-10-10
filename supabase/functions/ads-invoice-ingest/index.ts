@@ -18,6 +18,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { parseMetaInvoice } from "../_shared/ads-invoice-parser.ts";
 import { parseGoogleInvoice } from "../_shared/ads-invoice-google-parser.ts";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const VERSION = "v3.0_parse_google";
 
@@ -55,18 +56,8 @@ async function authorize(req: Request): Promise<{ ok: boolean; userId?: string; 
   if (!token) return { ok: false, error: "missing Authorization" };
   if (SERVICE_ROLE && token === SERVICE_ROLE) return { ok: true };
 
-  // Chave legacy em JWT: detecta service_role pelo payload
-  try {
-    const parts = token.split(".");
-    if (parts.length >= 2) {
-      const payload = JSON.parse(
-        atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")),
-      );
-      if (payload?.role === "service_role") return { ok: true };
-    }
-  } catch (_e) {
-    // ignore, tentar como token de utilizador
-  }
+  // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+  if (await isServiceRoleRequest(req)) return { ok: true };
 
   const { data, error } = await admin.auth.getUser(token);
   if (error || !data?.user) return { ok: false, error: "invalid token" };

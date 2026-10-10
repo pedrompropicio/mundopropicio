@@ -16,6 +16,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { trashStorageObject } from '../_shared/storage-trash.ts'
 import { fetchAllPagedQuery } from '../_shared/paging.ts'
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -68,19 +69,8 @@ Deno.serve(async (req) => {
   }
 
   const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
-  const isServiceRole = ((): boolean => {
-    if (serviceKey && bearer === serviceKey) return true
-    const parts = bearer.split('.')
-    if (parts.length !== 3) return false
-    try {
-      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))) as {
-        role?: unknown
-      }
-      return payload.role === 'service_role'
-    } catch {
-      return false
-    }
-  })()
+  // #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+  const isServiceRole = await isServiceRoleRequest(req)
   if (!isServiceRole) {
     return json({ error: 'Não autorizado — esta função só aceita a service_role key.' }, 401)
   }

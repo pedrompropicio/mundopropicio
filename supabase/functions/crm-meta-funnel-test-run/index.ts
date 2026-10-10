@@ -19,6 +19,7 @@ import {
   SUPPORTED_PROVIDERS,
   type FlowPreset,
 } from "./presets/index.ts";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 // Pós-Fase-1: step IDs são `string` genérico (variam por preset).
 type StepName = string;
@@ -51,14 +52,9 @@ function isValidUrl(u: string): boolean {
   } catch { return false; }
 }
 
-function isServiceRoleAuth(authHeader: string): boolean {
-  if (SERVICE_ROLE.length > 0 && authHeader === `Bearer ${SERVICE_ROLE}`) return true;
-  try {
-    const token = authHeader.replace(/^Bearer\s+/i, "");
-    const part = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    const payload = JSON.parse(atob(part.padEnd(Math.ceil(part.length / 4) * 4, "=")));
-    return payload?.role === "service_role";
-  } catch { return false; }
+// #283 resto (D-ERP229): service role verificada no Auth (isServiceRoleRequest), nunca pelo payload.
+function isServiceRoleAuth(req: Request): Promise<boolean> {
+  return isServiceRoleRequest(req);
 }
 
 function b64ToBytes(b64: string): Uint8Array {
@@ -433,7 +429,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   let body: { target_url?: string; connection_id?: string; event_id?: string; debug_browserless?: boolean };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
 
-  if (body.debug_browserless === true && isServiceRoleAuth(authHeader)) {
+  if (body.debug_browserless === true && (await isServiceRoleAuth(req))) {
     if (!BROWSERLESS_API_KEY) return json({ error: "missing_browserless_api_key" }, 500);
     const ping = await pingBrowserless(BROWSERLESS_API_KEY);
     return json({ browserless: ping }, ping.some((x) => x.ok) ? 200 : 502);
@@ -442,7 +438,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const targetUrl = (body.target_url ?? "").trim();
   if (!targetUrl || !isValidUrl(targetUrl)) return json({ error: "invalid_target_url" }, 400);
 
-    const serviceRoleRequest = isServiceRoleAuth(authHeader);
+    const serviceRoleRequest = (await isServiceRoleAuth(req));
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
     auth: { persistSession: false, autoRefreshToken: false },
