@@ -22,6 +22,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
+import { matchClickToLead, MATCH_WINDOW_DAYS, positiveConversionValue } from "../_shared/google-click-match.ts";
 
 const MP_COMPANY_ID = "7c858982-6ccd-47ca-bd65-e0dd3eebf01c";
 const MAX_BATCH = 5000;
@@ -138,109 +139,122 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
   }
   const valueRaw = readSettingScalar(map.get("google_lead_conversion_value"));
-  const conversionValue = (() => {
-    if (valueRaw == null || valueRaw === "") return 0;
-    const n = typeof valueRaw === "number" ? valueRaw : parseFloat(String(valueRaw));
-    return Number.isFinite(n) ? n : 0;
-  })();
+  const conversionValue = positiveConversionValue(valueRaw);
 
-  // 3) Candidatos — google_click com lead_capture_id, pelo menos um id de
-  //    clique e consent_granted=true. Limita a MAX_BATCH; o índice UNIQUE
-  //    parcial em (company_id, conversion_action_ref, order_id) garante
-  //    idempotência. Filtramos também na query para evitar trabalho inútil.
-  const { data: existing, error: existingErr } = await admin
-    .schema("crm")
-    .from("google_conversion")
-    .select("order_id")
-    .eq("company_id", MP_COMPANY_ID)
-    .eq("conversion_action_ref", actionRef)
-    .not("order_id", "is", null);
-  if (existingErr) {
-    return json(
-      { error: "existing_read_failed", detail: existingErr.message },
-      500,
-    );
-  }
-  const alreadyEnqueued = new Set<string>(
-    (existing ?? []).map((r: { order_id: string }) => r.order_id),
-  );
+  // 3) Candidatos (#62, D-ERP230). Antes: só os 5.000 cliques MAIS ANTIGOS eram
+  //    vistos (nada depois de 08/09 entrava), o lead só se procurava por
+  //    client_event_id e o .in() de 500 uuids rebentava o tamanho do URL.
+  //    Agora: cliques da janela de 90 dias (limite da Google para conversões de
+  //    clique), paginados; casamento 1) lead_capture_id já gravado, 2) mesmo
+  //    gclid/gbraid/wbraid guardado pelo portal em lead_capture.raw (primeiro),
+  //    3) mesmo client_event_id (sessão do portal) — fallback explícito, marcado
+  //    em google_conversion.raw.match_method. O clique não guarda email, por isso
+  //    não há casamento por email.
+  const PAGE = 1000;
+  const windowStart = new Date(Date.now() - MATCH_WINDOW_DAYS * 86_400_000).toISOString();
 
-  const { data: clicks, error: clicksErr } = await admin
-    .schema("crm")
-    .from("google_click")
-    .select(
-      "id, lead_capture_id, client_event_id, gclid, gbraid, wbraid, captured_at, consent_granted",
-    )
-    .eq("company_id", MP_COMPANY_ID)
-    .eq("consent_granted", true)
-    .or("client_event_id.not.is.null,lead_capture_id.not.is.null")
-    .or("gclid.not.is.null,gbraid.not.is.null,wbraid.not.is.null")
-    .order("captured_at", { ascending: true })
-    .limit(MAX_BATCH);
-  if (clicksErr) {
-    return json(
-      { error: "clicks_read_failed", detail: clicksErr.message },
-      500,
-    );
+  const alreadyEnqueued = new Set<string>();
+  for (let from = 0; ; from += PAGE) {
+    const { data: page, error: existingErr } = await admin
+      .schema("crm")
+      .from("google_conversion")
+      .select("order_id")
+      .eq("company_id", MP_COMPANY_ID)
+      .eq("conversion_action_ref", actionRef)
+      .not("order_id", "is", null)
+      .order("id")
+      .range(from, from + PAGE - 1);
+    if (existingErr) {
+      return json({ error: "existing_read_failed", detail: existingErr.message }, 500);
+    }
+    for (const r of (page ?? []) as Array<{ order_id: string }>) alreadyEnqueued.add(r.order_id);
+    if (!page || page.length < PAGE) break;
   }
 
-  const candidates: ClickRow[] = (clicks ?? []) as ClickRow[];
-  const errors: Array<{ google_click_id: string; reason: string }> = [];
-  const rowsToInsert: Array<Record<string, unknown>> = [];
-  let skippedExisting = 0;
+  const candidates: ClickRow[] = [];
+  for (let from = 0; candidates.length < MAX_BATCH; from += PAGE) {
+    const { data: page, error: clicksErr } = await admin
+      .schema("crm")
+      .from("google_click")
+      .select(
+        "id, lead_capture_id, client_event_id, gclid, gbraid, wbraid, captured_at, consent_granted",
+      )
+      .eq("company_id", MP_COMPANY_ID)
+      .eq("consent_granted", true)
+      .gte("captured_at", windowStart)
+      .or("gclid.not.is.null,gbraid.not.is.null,wbraid.not.is.null")
+      .order("captured_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (clicksErr) {
+      return json({ error: "clicks_read_failed", detail: clicksErr.message }, 500);
+    }
+    candidates.push(...((page ?? []) as ClickRow[]));
+    if (!page || page.length < PAGE) break;
+  }
 
-  // 3b) Resolução em LOTE de lead_capture por client_event_id (o portal não
-  //     consegue devolver o id do insert anónimo sob RLS; client_event_id é a chave).
-  const clientEventIds = Array.from(
-    new Set(
-      candidates
-        .filter((c) => !c.lead_capture_id && c.client_event_id)
-        .map((c) => c.client_event_id as string),
-    ),
-  );
-  const leadByClientEventId = new Map<string, string>();
-  if (clientEventIds.length > 0) {
-    for (let i = 0; i < clientEventIds.length; i += 500) {
-      const chunk = clientEventIds.slice(i, i + 500);
-      const { data: leads, error: leadsErr } = await admin
-        .from("lead_capture")
-        .select("id, client_event_id")
-        .in("client_event_id", chunk);
-      if (leadsErr) {
-        return json(
-          { error: "leads_read_failed", detail: leadsErr.message },
-          500,
-        );
-      }
-      for (const l of (leads ?? []) as Array<{ id: string; client_event_id: string }>) {
-        if (l.client_event_id && !leadByClientEventId.has(l.client_event_id)) {
-          leadByClientEventId.set(l.client_event_id, l.id);
+  // 3a) Leads com identificador de clique guardado pelo portal (raw.gclid/gbraid/wbraid).
+  const leadByIdent = new Map<string, string>();
+  for (let from = 0; ; from += PAGE) {
+    const { data: page, error: lErr } = await admin
+      .from("lead_capture")
+      .select("id, raw, created_at")
+      .eq("company_id", MP_COMPANY_ID)
+      .or("raw->>gclid.not.is.null,raw->>gbraid.not.is.null,raw->>wbraid.not.is.null")
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (lErr) return json({ error: "leads_read_failed", detail: lErr.message }, 500);
+    for (const l of (page ?? []) as Array<{ id: string; raw: Record<string, unknown> | null }>) {
+      for (const k of ["gclid", "gbraid", "wbraid"]) {
+        const v = l.raw?.[k];
+        if (typeof v === "string" && v.trim() && !leadByIdent.has(`${k}:${v.trim()}`)) {
+          leadByIdent.set(`${k}:${v.trim()}`, l.id); // o lead mais antigo ganha
         }
       }
     }
+    if (!page || page.length < PAGE) break;
   }
 
+  // 3b) Fallback por client_event_id, em blocos pequenos (URL do .in()).
+  const clientEventIds = Array.from(
+    new Set(candidates.filter((c) => !c.lead_capture_id && c.client_event_id).map((c) => c.client_event_id as string)),
+  );
+  const leadByClientEventId = new Map<string, string>();
+  for (let i = 0; i < clientEventIds.length; i += 100) {
+    const chunk = clientEventIds.slice(i, i + 100);
+    const { data: leads, error: leadsErr } = await admin
+      .from("lead_capture")
+      .select("id, client_event_id")
+      .eq("company_id", MP_COMPANY_ID)
+      .in("client_event_id", chunk);
+    if (leadsErr) return json({ error: "leads_read_failed", detail: leadsErr.message }, 500);
+    for (const l of (leads ?? []) as Array<{ id: string; client_event_id: string }>) {
+      if (l.client_event_id && !leadByClientEventId.has(l.client_event_id)) {
+        leadByClientEventId.set(l.client_event_id, l.id);
+      }
+    }
+  }
+
+  const errors: Array<{ google_click_id: string; reason: string }> = [];
+  const rowsToInsert: Array<Record<string, unknown>> = [];
+  let skippedExisting = 0;
+  let noLead = 0;
+  const byMethod: Record<string, number> = { lead_capture_id: 0, click_identifier: 0, client_event_id: 0 };
   const backfill: Array<{ clickId: string; leadId: string }> = [];
 
   for (const c of candidates) {
-    let orderId = c.lead_capture_id;
-    if (!orderId && c.client_event_id) {
-      const resolved = leadByClientEventId.get(c.client_event_id);
-      if (resolved) {
-        orderId = resolved;
-        backfill.push({ clickId: c.id, leadId: resolved });
-      }
-    }
-    if (!orderId) {
-      errors.push({ google_click_id: c.id, reason: "lead_nao_encontrado" });
+    const m = matchClickToLead(c, leadByIdent, leadByClientEventId);
+    if (!m) {
+      noLead++;
       continue;
     }
+    const orderId = m.leadId;
+    if (m.method !== "lead_capture_id") backfill.push({ clickId: c.id, leadId: orderId });
     if (alreadyEnqueued.has(orderId)) {
       skippedExisting++;
       continue;
     }
-
-    // Identificador de clique (prioridade gclid > gbraid > wbraid; exatamente um)
     const ident = c.gclid
       ? { gclid: c.gclid, gbraid: null, wbraid: null }
       : c.gbraid
@@ -252,6 +266,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       errors.push({ google_click_id: c.id, reason: "sem_identificador_clique" });
       continue;
     }
+    byMethod[m.method]++;
     rowsToInsert.push({
       company_id: MP_COMPANY_ID,
       conversion_action_ref: actionRef,
@@ -259,16 +274,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
       gbraid: ident.gbraid,
       wbraid: ident.wbraid,
       google_click_id: c.id,
+      // D-ERP230: sem valor configurado → null (o upload envia SEM valor, não 0).
       conversion_value: conversionValue,
       currency_code: "EUR",
       order_id: orderId,
       conversion_datetime: c.captured_at,
       status: "pending",
+      raw: { match_method: m.method },
     });
-    // Marca já como enfileirado em memória para o batch atual evitar duplicados
     alreadyEnqueued.add(orderId);
   }
-
   // 4) Insert com upsert + ignoreDuplicates (idempotente face ao índice
   //    parcial UNIQUE google_conversion_dedup_uidx).
   let enqueued = 0;
@@ -310,6 +325,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   return json({
     candidates: candidates.length,
+    no_lead: noLead,
+    by_method: byMethod,
+    window_days: MATCH_WINDOW_DAYS,
     enqueued,
     skipped_existing: skippedExisting,
     lead_capture_id_backfilled: backfilled,
