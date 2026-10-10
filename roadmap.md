@@ -2,7 +2,7 @@
 
 ## Fórum Braga — bilheteira local (Pedro, 10/10/2026)
 - [x] Par 10.3 de 265,00 e comissão IB de 6,15 executados; variações Ticketline −265,00 / Acerto +258,85, diferença zero, restantes travas preservadas. Sem linha BP nova ou devolução antecipada.
-- [ ] Fecho documental: diferença condicional com tolerância <0,01, actualizar D-ERP236/estado/memória e verificar desaparecimento sem mudar fórmulas nem publicar.
+- [x] Fecho documental: observação e detalhe ocultos abaixo de 0,01; D-ERP236/estado/memória actualizados; 17 testes passaram e build automático OK. Fórmulas intactas, sem DML ou Publish.
 - [ ] Devolução 258,85 aguarda recebimento; pendência da Délia, não lançar agora.
 
 ## Folha de crescimento — período de comparação (D-ERP235 autorizada)
