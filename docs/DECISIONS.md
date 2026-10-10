@@ -5301,3 +5301,11 @@ Decisões do Pedro: (1) aceitar transitória como saída ao sócio? (2) sede do 
 - PENDENTE (Pedro): BP vivo vs congelado (bp_versions) para exercícios fechados — usa-se a viva; o DRE de um ano fechado muda se alguém editar a linha hoje.
 - PENDENTE: ReportDREBrasil continua por transações (fora deste lote).
 - Live 10/10: DRE 2026 despesa de evento — transações 2.514.034,26 (951 tx) → BP 5.857.588,05 (39 eventos). Evento não realizado em 2026: H&K Madrid (21/11) BP 606.808,63 vs tx 553.710,26 (+53.098,37).
+
+## D-ERP229 (10/10/2026) — #283 resto: service role nunca pelo claim do payload
+- 32 edge functions passaram a decidir "é service role" por `isServiceRoleRequest` (_shared/multiTenant.ts: chave exacta, ou JWT verificado no Auth). O ramo service role fica (o cron envia o JWT de serviço do Vault); comportamento funcional igual. Lista na memória security/multi-tenant-edge-functions-audit.md.
+- Os 4 helpers (artist-meta authorize, artist-ads, s4a, soundcharts) já estavam desde D-ERP205; controlo positivo com sessão real repetido a 10/10 — passou nos 4.
+- Ficam por desenho: crm-meta-publish-update e s4a-token-seed (o claim só RECUSA service role); _shared/sync-run.ts deduceTriggerSource (só rotula a origem).
+- verify_jwt não mudou em nenhuma; as 32 foram reimplantadas para o código valer.
+- Guarda: src/test/edge-fn-guard.test.ts "service_role_pelo_payload" falha se voltar atob + comparação com service_role fora das excepções.
+- edge_fn_sem_guarda_empresa fica em 2 (mede outra coisa).
