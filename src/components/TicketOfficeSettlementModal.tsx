@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { sumTicketSalesRevenue } from "@/lib/ticket-sales-revenue";
 import { TransactionFormModal } from "@/components/TransactionFormModal";
 import { QuickAdvanceModal } from "@/components/QuickAdvanceModal";
-import { computeSettlement } from "@/lib/ticket-office-settlement-calc";
+import { computeSettlement, effectiveInvoiceOpen, type OwnSettlementPayment } from "@/lib/ticket-office-settlement-calc";
 import { roundCents } from "@/lib/iva";
 import { PAYMENT_METHOD } from "@/lib/payment-methods";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
@@ -371,8 +371,14 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
   // Faturas/despesas do evento candidatas a receber o abatimento da venda retida pela sala.
   // Mostra qualquer despesa do evento (qualquer fornecedor) com saldo em aberto.
+  // #302 — em edição, o saldo em aberto é o EFETIVO: soma de volta os pagamentos reais
+  // que este fecho criou (compensação + saldo restante), lidos de transaction_payments.
+  const ownPaymentIds = [
+    existingSettlement?.venue_retained_payment_id,
+    existingSettlement?.venue_invoice_remainder_payment_id,
+  ].filter(Boolean) as string[];
   const { data: invoiceCandidates = [] } = useQuery({
-    queryKey: ["settlement_venue_invoice_candidates", eventId],
+    queryKey: ["settlement_venue_invoice_candidates", eventId, existingSettlement?.id ?? null, ownPaymentIds.join(",")],
     enabled: !!eventId,
     queryFn: async () => {
       const { data } = await fetchAllPagedQuery((supabase as any)
@@ -382,10 +388,21 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         .eq("type", "expense")
         .in("status", ["pending", "approved", "paid"])
         .order("created_at", { ascending: false }));
+      let ownPayments: OwnSettlementPayment[] = [];
+      if (ownPaymentIds.length > 0) {
+        const { data: pays, error: paysErr } = await fetchAllPagedQuery((supabase as any)
+          .from("transaction_payments")
+          .select("id, transaction_id, amount")
+          .in("id", ownPaymentIds)
+          .order("id"));
+        if (paysErr) throw paysErr;
+        ownPayments = (pays || []) as OwnSettlementPayment[];
+      }
       const list = (data || []).map((t: any) => {
         const total = Number(t.amount || 0) * (1 + Number(t.iva_rate || 0) / 100);
         const paid = Number(t.paid_amount || 0);
-        return { ...t, _total: total, _open: Math.max(0, total - paid) };
+        const open = effectiveInvoiceOpen({ invoiceId: t.id, total, paidAmount: paid, settlement: existingSettlement ?? null, ownPayments });
+        return { ...t, _total: total, _open: open };
       });
       return list.filter((t: any) => t._open > 0.005 || t.id === venueRetainedInvoiceId);
     },

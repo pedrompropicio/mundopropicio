@@ -107,3 +107,41 @@ export function revertPaymentFromInvoice(params: {
     isFullyPaid,
   };
 }
+
+/**
+ * #302 — Saldo em aberto EFETIVO de uma fatura ao editar um fecho já confirmado.
+ * O paid_amount da fatura já inclui os pagamentos que este mesmo fecho criou
+ * (compensação do retido + transferência do saldo restante). Para o ecrã mostrar
+ * o mesmo saldo que existia antes da confirmação, somam-se de volta os valores
+ * REAIS desses pagamentos (transaction_payments), só se pertencerem a esta fatura.
+ */
+export interface OwnSettlementPayment {
+  id: string;
+  transaction_id: string;
+  amount: number;
+}
+
+export function effectiveInvoiceOpen(params: {
+  invoiceId: string;
+  total: number;
+  paidAmount: number;
+  /** Fecho em edição (ou null se é um fecho novo). */
+  settlement?: {
+    venue_retained_invoice_id?: string | null;
+    venue_retained_payment_id?: string | null;
+    venue_invoice_remainder_payment_id?: string | null;
+  } | null;
+  /** Pagamentos reais lidos de transaction_payments pelos ids do fecho. */
+  ownPayments?: OwnSettlementPayment[];
+}): number {
+  const { invoiceId, total, paidAmount, settlement, ownPayments = [] } = params;
+  let addBack = 0;
+  if (settlement && settlement.venue_retained_invoice_id === invoiceId) {
+    for (const pid of [settlement.venue_retained_payment_id, settlement.venue_invoice_remainder_payment_id]) {
+      if (!pid) continue;
+      const p = ownPayments.find((x) => x.id === pid);
+      if (p && p.transaction_id === invoiceId) addBack += Number(p.amount || 0);
+    }
+  }
+  return Math.max(0, Math.round((total - paidAmount + addBack) * 100) / 100);
+}
