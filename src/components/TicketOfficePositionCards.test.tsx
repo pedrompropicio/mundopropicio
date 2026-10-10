@@ -30,7 +30,7 @@ describe("TicketOfficePositionCards — observação condicional", () => {
     expect(html).toContain("Valor por apurar");
     expect(html).toContain("Já adiantado");
     expect(html).not.toContain("Diferença de calendário:");
-    expect(html).not.toContain("Dinheiro verdadeiro que a bilheteira tem");
+    expect(html).toContain("O já adiantado está incluído neste saldo");
     expect(html).not.toContain("Tudo certo");
   });
 
