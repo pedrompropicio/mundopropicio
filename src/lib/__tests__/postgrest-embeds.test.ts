@@ -7,7 +7,7 @@
  * Sempre que existir MAIS DO QUE UMA chave estrangeira entre duas tabelas, o
  * embed tem de nomear a FK (`suppliers!transactions_supplier_id_fkey(...)`).
  * A lista de pares vive em `src/lib/postgrest-ambiguous-pairs.json` e foi
- * apurada em Live a 14/09/2026 com:
+ * apurada em Live a 10/10/2026 com:
  *
  *   select conrelid::regclass::text, confrelid::regclass::text
  *     from pg_constraint
