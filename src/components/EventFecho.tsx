@@ -28,6 +28,7 @@ import { FechoBasisSelector } from "@/components/FechoBasisSelector";
 import { fetchPartnerExtras, splitPartnerExtrasByKind } from "@/lib/partner-extras";
 import { BpUnusedBudgetSummaryCard } from "@/components/fecho/BpUnusedBudgetPanel";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
+import { computeFechoPreconditions, hasBlockingPrecondition } from "@/lib/fecho-preconditions";
 
 
 interface Props {
@@ -367,6 +368,18 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
   const hasMixedExpenseBases = new Set(settlements.map((s) => s.usesGrossExpenses)).size > 1;
   // (#224) coluna "Ajustes" só aparece quando algum sócio tem ajuste ao desembolso.
   const hasAdjustments = settlements.some((s) => s.adjustments !== 0);
+
+  const preconditions = computeFechoPreconditions({
+    revenue: revenueForSettlement,
+    hasTicketSales: !!revenueBasis?.real.hasTicketSales,
+    bpExpenseLines: (operationalForecasts as any[]).length,
+    bpIncomeLines: (incomeForecasts as any[]).length,
+    partners: partners.length,
+    isTourCity: !!parentEventId && !(childEventIds && childEventIds.length),
+    parentPartners: parentPartnersCount,
+    expenses: expensesOp,
+  });
+  const blocked = hasBlockingPrecondition(preconditions);
   const mixedBasesNote =
     "Sócios com bases de cálculo diferentes: a quota de cada um segue a base do respetivo contrato, pelo que não existe um resultado único e a soma das quotas não fecha contra um único total.";
 
@@ -665,6 +678,20 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId, o
           </p>
         )}
       </div>
+
+      {/* (#88) Pré-condições — dizer o que falta antes de apresentar quotas */}
+      {preconditions.length > 0 && (
+        <div className={`rounded-xl border p-4 space-y-1 ${blocked ? "border-destructive/40 bg-destructive/5" : "border-warning/40 bg-warning/5"}`}>
+          <p className="text-xs font-semibold uppercase tracking-wider">
+            {blocked ? "Fecho incompleto — acerto com sócios não apurado" : "Atenção antes de usar o acerto"}
+          </p>
+          <ul className="list-disc pl-5 text-sm">
+            {preconditions.map((p) => (
+              <li key={p.key} className={p.level === "blocking" ? "text-destructive" : "text-muted-foreground"}>{p.message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Acerto com Sócios */}
       {settlements.length > 0 && hasMixedExpenseBases && (
