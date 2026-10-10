@@ -73,17 +73,16 @@ export function TicketOfficePositionCards({ officeId }: { officeId: string }) {
         <div className="rounded-lg border border-primary/40 bg-card p-4 space-y-2">
           <p className="text-sm font-semibold">Saldo retido</p>
           <p className="text-2xl font-mono font-bold text-primary break-words">{formatCurrency(data.retained)}</p>
-          {Math.abs(data.calendarDifference) >= 0.01 && <>
-            <p className="text-xs text-muted-foreground">Dinheiro verdadeiro que a bilheteira tem da MP, a favor da MP. O já adiantado está incluído neste saldo.</p>
-            <Button variant="link" className="h-auto p-0 text-left text-xs text-muted-foreground whitespace-normal" onClick={() => setDetail(detail === "calendar" ? null : "calendar")} aria-expanded={detail === "calendar"}>
-              Diferença de calendário: {formatCurrency(data.calendarDifference)} — movimentos que a bilheteira já fez mas que o nosso registo ainda não reflecte, e eventos à espera do seu apuramento. Neste momento, é a bilheteira local da sala em eventos ainda sem fecho confirmado.
-            </Button>
-          </>}
+          <p className="text-xs text-muted-foreground">Dinheiro verdadeiro que a bilheteira tem da MP, a favor da MP. O já adiantado está incluído neste saldo.</p>
+          {Math.abs(data.calendarDifference) >= 0.01 && <Button variant="link" className="h-auto p-0 text-left text-xs text-muted-foreground whitespace-normal" onClick={() => setDetail(detail === "calendar" ? null : "calendar")} aria-expanded={detail === "calendar"}>
+            Diferença de calendário: {formatCurrency(data.calendarDifference)} — movimentos que a bilheteira já fez mas que o nosso registo ainda não reflecte, e eventos à espera do seu apuramento. Neste momento, é a bilheteira local da sala em eventos ainda sem fecho confirmado.
+          </Button>}
+
         </div>
       </div>
       {detail === "events" && <ul className="space-y-2 text-sm">{data.openEvents.map((event) => <li key={event.id} className="flex justify-between gap-4"><Link className="hover:underline" to={`/eventos/${event.id}`}>{event.name}</Link><span className="font-mono whitespace-nowrap">{formatCurrency(event.balance)}</span></li>)}</ul>}
       {detail === "calendar" && Math.abs(data.calendarDifference) >= 0.01 && <div className="space-y-2 text-sm text-muted-foreground"><ul className="space-y-2">{data.calendarItems.map((item) => <li key={item.id} className="flex justify-between gap-4"><span>{item.description}</span><span className="font-mono whitespace-nowrap">{formatCurrency(item.amount)}</span></li>)}</ul><Link className="hover:underline" to={`/relatorios/bilheteiras?conta=${officeId}`}>Ver movimentos da bilheteira</Link></div>}
-      <p className="text-xs text-muted-foreground">Valor por apurar {data.position > 0 ? "+ posição a entregar" : "− já adiantado"} + diferença de calendário = saldo retido.</p>
+      <p className="text-xs text-muted-foreground">Valor por apurar {data.position > 0 ? "+ posição a entregar" : "− já adiantado"} {Math.abs(data.calendarDifference) >= 0.01 ? "+ diferença de calendário =" : "="} saldo retido.</p>
     </section>
   );
 }
