@@ -5377,3 +5377,9 @@ Customer Match:
 - Separadores: Dados · Liquidez · Vendas/Bilhetes · Fechos · Apuramentos. Os adiantamentos vivem dentro de Apuramentos, como histórico só de leitura, sem "Pendente de fecho"/"por abater".
 - Defeito: `event_ticket_office_advances` só tinha a FK de company_id; o embed `events(...)` dava 400 PGRST200, o painel engolia o erro e mostrava "Sem adiantamentos". Migração 0079: 5 FKs ON DELETE RESTRICT. Mesmo padrão encontrado nos apuramentos: `ticket_office_statement_lines` tem 2 FKs para statements → PGRST201 ambíguo; embed passa a nomear `ticket_office_statement_lines_statement_id_fkey`.
 - Regra: ecrã vazio com dados na base → verificar FKs e ambiguidade do embed (chamar a API e ler o código de erro) antes de suspeitar de RLS.
+
+## D-ERP233 — Adenda: cartões de posição e resumo por apuramento (10/10/2026, #303)
+- Decisão do Pedro: «Valor por apurar» = soma dos SALDOS dos eventos sem fecho E sem apuramento (vendas + movimentos da conta por evento). Um evento liquidado em dinheiro entra a zero mesmo sem fecho; não são vendas brutas. Os dois Maiara e Maraisa ficam intocados.
+- «Já adiantado» = absoluto da posição do último apuramento; «Saldo retido» = fórmula canónica da bilheteira, dinheiro verdadeiro da MP que já inclui essa posição. Para posição negativa: valor por apurar − já adiantado + diferença de calendário = saldo retido, ao cêntimo. Posição positiva é valor a entregar, não adiantamento.
+- Diferença de calendário = custos apropriados nos fechos ainda não descontados e eventos à espera do apuramento. Linha discreta clicável; nunca pendência, tarefa, alerta ou desvio, sem cor/ícone de aviso.
+- Cada apuramento mostra subtotais por tipo; posição negativa significa crédito para o seguinte, positiva significa valor a entregar à MP. Notas guardam apenas posição do documento e referência ao PDF, não saldos móveis.
