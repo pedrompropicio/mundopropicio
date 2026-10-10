@@ -7,6 +7,8 @@ import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { writeForecastAmount, ForecastBelowRealizedError } from "@/lib/forecast-amount";
 import { toast } from "@/hooks/use-toast";
 import { mustWrite } from "@/lib/must-write";
+import { computeTicketRevenueAndOccupancy, filterRealCacheExpenses } from "@/lib/real-cache-calc";
+import { computeTourCityCacheAmount } from "@/lib/tour-cache-sync";
 
 /**
  * #240 (Q2): o amount das linhas cache_module vai por batch_update_event_forecasts
@@ -234,7 +236,7 @@ async function syncTourCacheForecasts(
   // 1. Fetch ticket data for all children to calculate per-child revenue
   const { data: zones } = await supabase
     .from("event_ticket_zones")
-    .select("id, event_id")
+    .select("id, event_id, total_capacity")
     .in("event_id", childEventIds);
   const zoneIds = (zones ?? []).map((z) => z.id);
 
@@ -292,9 +294,11 @@ async function syncTourCacheForecasts(
 
   // Use actual sales when available, fall back to planned
   const revenueByChild: Record<string, { gross: number; net: number }> = {};
+  const hasSalesByChild: Record<string, boolean> = {};
   for (const cid of childEventIds) {
     const actual = actualRevenueByChild[cid];
-    revenueByChild[cid] = (actual.gross > 0 || actual.net > 0) ? actual : plannedRevenueByChild[cid];
+    hasSalesByChild[cid] = actual.gross > 0 || actual.net > 0;
+    revenueByChild[cid] = hasSalesByChild[cid] ? actual : plannedRevenueByChild[cid];
   }
 
   // 2. Fetch expense forecasts per child (for deduction calculation)
@@ -305,13 +309,24 @@ async function syncTourCacheForecasts(
     .in("event_id", allTargetIds)
     .not("cache_config_id", "is", null).is("version_id", null));
 
-  // Also fetch non-cache expense forecasts per child for deduction calc
-  const { data: childExpenseForecasts } = await fetchAllPagedQuery(supabase
+  // #301 — deduções: BP aprovado (não-cachê) + transações reais das cidades E do Master
+  // (cityDeductionSources: cidade peso 1, Master 1/N, previsto + excedido por evento).
+  const { data: deductionForecasts } = await fetchAllPagedQuery(supabase
     .from("event_forecasts")
-    .select("event_id, type, category_id, amount, iva_rate, cache_config_id")
-    .in("event_id", childEventIds)
+    .select("id, event_id, type, category_id, amount, iva_rate, status, is_transitory, is_overhead, exclude_from_result, version_id")
+    .in("event_id", allTargetIds)
     .eq("type", "expense")
     .is("cache_config_id", null).is("version_id", null));
+  const { data: realTxRows, error: realTxErr } = await fetchAllPagedQuery(supabase
+    .from("transactions")
+    .select("id, event_id, type, category_id, amount, iva_rate, status, is_hidden, is_transitory, exclude_from_result, parent_transaction_id, split_percentage")
+    .in("event_id", allTargetIds)
+    .eq("type", "expense")
+    .eq("is_hidden", false)
+    .in("status", ["approved", "paid"]));
+  if (realTxErr) throw realTxErr;
+  const realExpenses = filterRealCacheExpenses(realTxRows ?? []);
+  const byEvent = (rows: any[], id: string) => rows.filter((r: any) => r.event_id === id);
 
   // Fetch per-city settlements (override priority over master legacy fields)
   const cacheConfigIds = cacheConfigs.map((c) => c.id);
@@ -331,14 +346,6 @@ async function syncTourCacheForecasts(
     });
   }
 
-  const expensesByChild: Record<string, { type: string; category_id: string | null; amount: number; iva_rate?: number }[]> = {};
-  for (const cid of childEventIds) expensesByChild[cid] = [];
-  for (const f of (childExpenseForecasts ?? [])) {
-    if (expensesByChild[f.event_id]) {
-      expensesByChild[f.event_id].push({ type: f.type, category_id: f.category_id, amount: Number(f.amount), iva_rate: Number(f.iva_rate ?? 0) });
-    }
-  }
-
   // Map existing cache forecasts: key = `${event_id}:${cache_config_id}`
   const existingMap = new Map<string, { id: string; amount: number; status?: string; transaction_id?: string | null }>();
   for (const f of (existingForecasts ?? [])) {
@@ -353,9 +360,23 @@ async function syncTourCacheForecasts(
 
     for (const childId of childEventIds) {
       const rev = revenueByChild[childId] || { gross: 0, net: 0 };
-      const childExpenses = expensesByChild[childId] || [];
       const citySettlement = citySettlementMap.get(`${childId}:${config.id}`) ?? null;
-      const amount = calculateCacheAmount(config, configDeductions, rev.net, rev.gross, childExpenses, 100, citySettlement);
+      // Ocupação real da cidade para o escalão; sem vendas (fallback do BP planeado) fica 100.
+      const occ = hasSalesByChild[childId]
+        ? computeTicketRevenueAndOccupancy(sales, lots, zones ?? [], childId).occupancyPct
+        : 100;
+      const amount = computeTourCityCacheAmount({
+        config,
+        deductions: configDeductions,
+        revenue: rev,
+        occupancyPct: occ,
+        cityForecasts: byEvent(deductionForecasts ?? [], childId),
+        cityExpenses: byEvent(realExpenses, childId),
+        masterForecasts: byEvent(deductionForecasts ?? [], masterEventId),
+        masterExpenses: byEvent(realExpenses, masterEventId),
+        cityCount: childEventIds.length,
+        citySettlement,
+      });
 
       const key = `${childId}:${config.id}`;
       const existing = existingMap.get(key);
