@@ -62,7 +62,7 @@ export function useSepaBankExecution(filter: { listId?: string; transactionId?: 
       for (let i = 0; i < txIds.length; i += 100) {
         const { data: txs, error: te } = await supabase
           .from("transactions")
-          .select("id, amount, iva_rate, paid_amount, description, suppliers(name)")
+          .select("id, amount, iva_rate, paid_amount, description, suppliers:suppliers!transactions_supplier_id_fkey(name)")
           .in("id", txIds.slice(i, i + 100))
           .limit(100);
         if (te) throw te;
