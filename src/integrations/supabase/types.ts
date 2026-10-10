@@ -18982,6 +18982,7 @@ export type Database = {
         Returns: Json
       }
       coala_unsub_token: { Args: { p_email: string }; Returns: string }
+      collect_event_benchmarks: { Args: { _event_id: string }; Returns: Json }
       compute_ticket_type_for_lot: {
         Args: {
           p_applies_to_days: number
