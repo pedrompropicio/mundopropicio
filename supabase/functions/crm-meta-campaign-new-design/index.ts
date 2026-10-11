@@ -18,6 +18,7 @@
 //
 // LLM só escreve (briefs/racional); estrutura, herança e decisões = determinístico.
 // Diagnóstico: crm.campaign_diagnosis_360. Auth: user JWT.
+// Meta só de events.target_roas via body; sem meta = sem alvo (NULL), nunca um padrão.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { normalizePlanInPlace } from "../_shared/plan-normalize.ts";
@@ -75,7 +76,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   let body: {
     campaign_id?: string;
     goal_revenue_eur?: number; ticket_avg_eur?: number; total_budget_eur?: number;
-    target_roas?: number; country_codes?: string[]; user_notes?: string; strategy_name?: string;
+    target_roas?: number | null; country_codes?: string[]; user_notes?: string; strategy_name?: string;
     inheritance_decisions?: {
       inherit_creative_ids?: string[];
       discard_creative_ids?: string[];
@@ -93,7 +94,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const goalRevenueEur = Number(body.goal_revenue_eur);
   const ticketAvgEur = Number(body.ticket_avg_eur);
   const totalBudgetEur = typeof body.total_budget_eur === "number" ? body.total_budget_eur : null;
-  const targetRoas = typeof body.target_roas === "number" && body.target_roas > 0 ? body.target_roas : 9;
+  const targetRoas: number | null = typeof body.target_roas === "number" && Number.isFinite(body.target_roas) && body.target_roas > 0 ? body.target_roas : null;
   const countries = body.country_codes && body.country_codes.length ? body.country_codes : ["PT", "BR"];
   const inh = body.inheritance_decisions ?? null;
 
@@ -299,8 +300,8 @@ IMPORTANTE: Esta estratégia será criada AUTOMATICAMENTE via Meta Marketing API
 - Data: ${startAtIso ?? "N/A"} (dias até evento: ${daysUntilEvent ?? "N/A"})
 - Local: ${event.location || "N/A"} · Capacidade: ${event.tickets_total || "N/A"}
 - Meta de receita: ${goalRevenueEur}€ · Ticket médio: ${ticketAvgEur}€ · Vendas necessárias: ${expectedPurchases}
-- Verba total: ${totalBudgetEur ? totalBudgetEur + "€" : "calcular pelo ROAS alvo"}
-- ROAS alvo BLENDED: ${targetRoas}x (agregado do evento; awareness 0–2x, conversão >=8x, retargeting 10–20x)
+- Verba total: ${totalBudgetEur ? totalBudgetEur + "€" : (targetRoas != null ? "calcular pelo ROAS alvo" : "dimensionar pela receita pedida e pelo histórico disponível, sem assumir ROAS alvo")}
+- ROAS alvo BLENDED: ${targetRoas != null ? `${targetRoas}x (agregado do evento; awareness pode ficar abaixo da meta, conversão e retargeting compensam para atingir o blended, sem bandas absolutas)` : "sem meta de ROAS definida — não fixes um alvo, dimensiona pela verba e pela receita pedidas; omite target_kpis.roas_min em todas as fases"}
 - Países: ${countries.join(", ")} · Notas: ${body.user_notes || "—"}
 
 == CONTEXTO META ==
@@ -413,6 +414,12 @@ Sê preciso, realista e crítico. Números coerentes entre si.`;
         a.ads = a.ads.filter((ad: any) =>
           typeof ad?.existing_creative_id !== "string" || allowedCreativeSet.has(ad.existing_creative_id));
       }
+    }
+  }
+
+  if (targetRoas == null) {
+    for (const phase of plan?.phases ?? []) {
+      if (phase?.target_kpis) delete phase.target_kpis.roas_min;
     }
   }
 

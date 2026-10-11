@@ -2,6 +2,7 @@
 // POST { campaign_id, diagnosis_id?, period_days? }
 // Lê campanha + diagnóstico + dados granulares e gera variante optimizada,
 // persistindo em crm.meta_campaign_strategies (status='generated').
+// Meta só de events.target_roas via roas_floor; sem meta = sem alvo (NULL), nunca um padrão.
 //
 // Reutiliza o schema generated_plan do crm-meta-campaign-strategy-generate
 // para que crm-meta-strategy-deploy continue a funcionar sem alterações.
@@ -233,10 +234,10 @@ function computeAnchoredNumbers(args: {
     roas_7d: number | null;
     roas_28d: number | null;
     roas_lifetime: number | null;
-    gap_severity: string;
+    gap_severity: string | null;
     trajectory: string;
   };
-  constraints: { daily_budget_eur: number | null; roas_floor: number; end_date: string };
+  constraints: { daily_budget_eur: number | null; roas_floor: number | null; end_date: string };
   horizon_days: number;
   recommended_total_budget_eur: number;
   actual_revenue_eur: number;
@@ -253,7 +254,7 @@ function computeAnchoredNumbers(args: {
   number_lineage: {
     baseline_roas: number;
     baseline_components: { lifetime?: number; "28d"?: number; "7d"?: number; weights: Record<string, number> };
-    gap_severity: string;
+    gap_severity: string | null;
     gap_factor: number;
     trajectory: string;
     trajectory_factor: number;
@@ -305,14 +306,14 @@ function computeAnchoredNumbers(args: {
   const usedTrajectory = cleanOverride ? cleanOverride.trajectory : viability.trajectory;
 
   // STEP 2-3 — Factors gap_severity + trajectory.
-  const gap_factor = GAP_SEVERITY_FACTORS[viability.gap_severity] ?? 1.00;
+  const gap_factor = viability.gap_severity != null ? GAP_SEVERITY_FACTORS[viability.gap_severity] ?? 1.00 : 1.00;
   const trajectory_factor = TRAJECTORY_PROJECTION_FACTORS[usedTrajectory] ?? 1.00;
 
   // STEP 4-5 — Computed + cap defensivo.
   const raw_computed_roas = usedBaselineRoas * gap_factor * trajectory_factor;
-  const max_allowed = constraints.roas_floor * ANCHORED_ROAS_CAP_VS_FLOOR;
-  const final_roas = Math.min(raw_computed_roas, max_allowed);
-  const capped_at = raw_computed_roas > max_allowed ? max_allowed : null;
+  const max_allowed = constraints.roas_floor != null ? constraints.roas_floor * ANCHORED_ROAS_CAP_VS_FLOOR : null;
+  const final_roas = max_allowed != null ? Math.min(raw_computed_roas, max_allowed) : raw_computed_roas;
+  const capped_at = max_allowed != null && raw_computed_roas > max_allowed ? max_allowed : null;
 
   // STEP 6 — Avg ticket (actual ou fallback).
   let avg_ticket_eur: number;
@@ -364,11 +365,11 @@ function computeAnchoredNumbers(args: {
 // gap_severity + trajectory. Regras prioritárias: low force (qualquer crítico),
 // cap em medium (downtrend), promo a high (todos os requisitos OK).
 function computeAnchoredConfidence(args: {
-  viability: { gap_severity: string; trajectory: string };
+  viability: { gap_severity: string | null; trajectory: string };
   horizon_days: number;
   statistical_floor_met: boolean;
   final_roas: number;
-  target_roas_floor: number;
+  target_roas_floor: number | null;
 }): { confidence: "low" | "medium" | "high"; confidence_reasons: string[] } {
   const { viability, horizon_days, statistical_floor_met } = args;
   const reasons: string[] = [];
@@ -424,7 +425,7 @@ function generateCounterProposals(args: {
   };
   constraints: {
     daily_budget_eur: number;
-    roas_floor: number;
+    roas_floor: number | null;
     end_date: string;
   };
   horizon_days: number;
@@ -466,7 +467,9 @@ function generateCounterProposals(args: {
         },
         trade_offs: [
           `Investimento total aumenta de €${round(current_daily_total_eur)} para €${round(newTotal)} (+${increasePct}%)`,
-          "Não garante atingir ROAS floor — apenas permite avaliação correcta",
+          constraints.roas_floor != null
+            ? "Não garante atingir ROAS floor — apenas permite avaliação correcta"
+            : "Permite avaliação correcta; sem meta de ROAS definida",
         ],
         confidence: "high",
       });
@@ -479,6 +482,7 @@ function generateCounterProposals(args: {
   const lifetime = viability.roas_lifetime;
   if (
     lifetime != null && lifetime > 0 &&
+    constraints.roas_floor != null &&
     constraints.roas_floor > lifetime * COUNTER_PROPOSAL_FLOOR_VS_LIFETIME_TRIGGER_RATIO
   ) {
     const rawProposed = lifetime * COUNTER_PROPOSAL_REALISTIC_FLOOR_MULTIPLIER;
@@ -515,7 +519,7 @@ function generateCounterProposals(args: {
   }
 
   // CP3 — Híbrido budget + floor (multi_knob). Dispara se ambos CP1+CP2 disparam E magnitudes superam thresholds.
-  if (p1Fires && p2Fires && p1ProposedDaily != null && p2ProposedFloor != null) {
+  if (constraints.roas_floor != null && p1Fires && p2Fires && p1ProposedDaily != null && p2ProposedFloor != null) {
     const budgetRatio = p1ProposedDaily / constraints.daily_budget_eur;
     const floorReductionPct = (constraints.roas_floor - p2ProposedFloor) / constraints.roas_floor;
     if (
@@ -628,7 +632,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       keep_original_budget?: boolean;
       daily_budget_cents?: number;
       lifetime_budget_cents?: number;
-      roas_floor?: number;
+      roas_floor?: number | null;
       end_time?: string;
     };
     // Sprint 3a-2 — opcionais (retrocompatível: chamada sem estes campos preserva comportamento).
@@ -940,11 +944,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     effDailyCents = campaign.daily_budget_cents ?? null;
     effLifetimeCents = campaign.lifetime_budget_cents ?? null;
   }
-  const effRoasFloor: number | null = typeof ctIn.roas_floor === "number" ? ctIn.roas_floor : null;
+  const effRoasFloor: number | null = typeof ctIn.roas_floor === "number" && Number.isFinite(ctIn.roas_floor) && ctIn.roas_floor > 0 ? ctIn.roas_floor : null;
   const effEndTime: string | null = typeof ctIn.end_time === "string" && ctIn.end_time ? ctIn.end_time : null;
   // Target BLENDED ROAS para o evento (piso da meta — redesign corrige campanha existente face a este piso).
-  // Default 8 (não 9 como em strategy-generate; aqui é piso, não centro da banda).
-  const targetBlendedRoas: number = typeof ctIn.roas_floor === "number" && ctIn.roas_floor > 0 ? ctIn.roas_floor : 8;
+  // Sem piso positivo explícito, omite todos os critérios dependentes da meta.
+  const targetBlendedRoas: number | null = effRoasFloor;
 
   // ─────────────────────────────────────────────────────────────────────────
   // Fase 3B — Classificação determinística de criativos herdados (winner/loser/
@@ -991,7 +995,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     // Classifica cada criativo herdado e anexa os campos (não remove nenhum).
-    const winnerRoasThreshold = targetBlendedRoas * CREATIVE_WINNER_ROAS_RATIO;
+    const winnerRoasThreshold = targetBlendedRoas != null ? targetBlendedRoas * CREATIVE_WINNER_ROAS_RATIO : null;
     const creativeLabelCounts = { winner: 0, loser: 0, inconclusive: 0 };
     for (const c of inheritedCreatives as any[]) {
       const agg = perfByCreative.get(c.meta_creative_id) ?? { spend_cents: 0, pv_cents: 0, purchases: 0 };
@@ -999,8 +1003,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const purchases_value_eur = agg.pv_cents / 100;
       const roas = spend_eur > 0 ? Math.round((purchases_value_eur / spend_eur) * 10000) / 10000 : null;
       let label: "winner" | "loser" | "inconclusive";
-      if (spend_eur < CREATIVE_MIN_SPEND_EUR || agg.purchases < CREATIVE_MIN_PURCHASES) {
-        // Gate de volume (inclui criativos sem qualquer insight) → não julgar.
+      if (winnerRoasThreshold == null || spend_eur < CREATIVE_MIN_SPEND_EUR || agg.purchases < CREATIVE_MIN_PURCHASES) {
+        // Sem meta ou volume suficiente (inclui ausência de insights) → não julgar.
         label = "inconclusive";
       } else {
         label = roas != null && roas >= winnerRoasThreshold ? "winner" : "loser";
@@ -1021,7 +1025,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       winner: creativeLabelCounts.winner,
       loser: creativeLabelCounts.loser,
       inconclusive: creativeLabelCounts.inconclusive,
-      winner_roas_threshold: Math.round(winnerRoasThreshold * 100) / 100,
+      winner_roas_threshold: winnerRoasThreshold != null ? Math.round(winnerRoasThreshold * 100) / 100 : null,
     });
   }
 
@@ -1049,7 +1053,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const currentPurchaseRate = campAgg.purchases / Math.max(1, periodDays);
     const projectedPurchases = currentPurchaseRate * daysUntil;
 
-    const spendNeededForGoal = eventGoalRevenue > 0 ? eventGoalRevenue / targetRoas : null;
+    const spendNeededForGoal = eventGoalRevenue > 0 && targetRoas != null ? eventGoalRevenue / targetRoas : null;
     const dailySpendNeeded = spendNeededForGoal != null && daysUntil > 0 ? spendNeededForGoal / daysUntil : null;
 
     const statisticalFloorSpend = STATISTICAL_FLOOR_SPEND_EUR;
@@ -1058,8 +1062,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const meetsStatFloor = currentProjectedSpend >= statisticalFloorSpend
       || projectedPurchases >= statisticalFloorPurchases;
 
-    const roasGap = targetRoas > 0 ? targetRoas / Math.max(0.1, currentRoas) : null;
-    let gapSeverity: "comfortable" | "stretch" | "aggressive" | "unrealistic" = "comfortable";
+    const roasGap = targetRoas != null ? targetRoas / Math.max(0.1, currentRoas) : null;
+    let gapSeverity: "comfortable" | "stretch" | "aggressive" | "unrealistic" | null = null;
     if (roasGap != null) {
       if (roasGap < 1.5) gapSeverity = "comfortable";
       else if (roasGap < 2.5) gapSeverity = "stretch";
@@ -1075,6 +1079,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       roas_lifetime: buckets.roas_lifetime,
       trajectory,
       roas_gap_multiplier: roasGap,
+      roas_gap: roasGap,
+      spend_needed_for_goal: spendNeededForGoal,
       gap_severity: gapSeverity,
       event_goal_revenue_eur: eventGoalRevenue,
       need_purchases: needPurchases,
@@ -1100,11 +1106,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // ─────────────────────────────────────────────────────────────────────────
   function computeDeterministicBudget() {
     const days = Math.max(1, viability.days_until_event);
-    const candidato_goal = viability.target_roas > 0
-      ? viability.event_goal_revenue_eur / viability.target_roas / days : 0;
+    const candidato_goal = viability.target_roas != null
+      ? viability.event_goal_revenue_eur / viability.target_roas / days : null;
     const candidato_floor = STATISTICAL_FLOOR_SPEND_EUR / days;
-    const ancora = Math.max(candidato_goal, candidato_floor);
-    const winner: "goal" | "floor" = candidato_goal >= candidato_floor ? "goal" : "floor";
+    const ancora = Math.max(candidato_goal ?? 0, candidato_floor);
+    const winner: "goal" | "floor" = candidato_goal != null && candidato_goal >= candidato_floor ? "goal" : "floor";
     // Cap só quando há gasto actual conhecido (>0) — gasto 0/desconhecido NÃO limita
     // (evita forçar budget 0); usa-se a âncora directamente.
     const cap = viability.current_daily_spend_eur > 0
@@ -1119,7 +1125,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const budgetDet = computeDeterministicBudget();
   const useDeterministicBudget = !hasExplicitBudgetConstraint && budgetDet.total > 0;
   console.log("[redesign] budget_deterministic", {
-    candidato_goal: Math.round(budgetDet.candidato_goal * 100) / 100,
+    candidato_goal: budgetDet.candidato_goal != null ? Math.round(budgetDet.candidato_goal * 100) / 100 : null,
     candidato_floor: Math.round(budgetDet.candidato_floor * 100) / 100,
     ancora: Math.round(budgetDet.ancora * 100) / 100,
     cap: budgetDet.cap != null ? Math.round(budgetDet.cap * 100) / 100 : null,
@@ -1202,7 +1208,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // ─────────────────────────────────────────────────────────────────────────
   function decideSkip(): { reason: SkipReason; message: string } | null {
     // D1 — Gap unrealistic + sem budget para validar
-    if (viability.gap_severity === "unrealistic" && !viability.meets_statistical_floor) {
+    if (viability.target_roas != null && viability.gap_severity === "unrealistic" && !viability.meets_statistical_floor) {
       return {
         reason: "unrealistic_gap",
         message:
@@ -1240,7 +1246,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (
       (viability.trajectory === "strong_uptrend" || viability.trajectory === "uptrend") &&
       viability.roas_7d != null &&
-      viability.target_roas > 0 &&
+      viability.target_roas != null &&
       viability.roas_7d >= viability.target_roas * NO_OP_TARGET_PROXIMITY
     ) {
       return {
@@ -1436,7 +1442,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         goal_revenue_eur: 0,
         ticket_avg_eur: null,
         total_budget_eur: null,
-        target_roas: null,
+        target_roas: targetBlendedRoas,
         days_until_event: eventCtx.daysUntil ?? null,
         country_codes: ["PT", "BR"],
         user_notes: `Re-design abortado (${skip.reason}) — campanha ${campaign.external_campaign_id}`,
@@ -1521,13 +1527,12 @@ REGRAS OBRIGATÓRIAS para este caso:
 == ANÁLISE DE VIABILIDADE DO BUDGET ACTUAL (CONTEXTO PARA O TEU JUÍZO) ==
 
 Métricas calculadas a partir dos dados reais:
-- ROAS actual: ${viability.current_roas.toFixed(2)}x | ROAS alvo: ${viability.target_roas.toFixed(1)}x
-- Gap ROAS: ${viability.roas_gap_multiplier != null ? viability.roas_gap_multiplier.toFixed(1) + "x" : "N/A"} (severity: **${viability.gap_severity}**)
+- ROAS actual: ${viability.current_roas.toFixed(2)}x${viability.target_roas != null ? ` | ROAS alvo: ${viability.target_roas.toFixed(1)}x\n- Gap ROAS: ${viability.roas_gap_multiplier?.toFixed(1)}x (severity: **${viability.gap_severity}**)` : " | sem meta de ROAS definida — não fixes um alvo, dimensiona pela verba e pela receita pedidas e usa o ROAS actual como referência"}
 - Goal de receita do evento (estimado, ticket avg €${TICKET_AVG_FALLBACK_EUR}): €${viability.event_goal_revenue_eur.toFixed(0)}
 - Compras necessárias: ${viability.need_purchases ?? "N/A"}
 - Spend diário actual: €${viability.current_daily_spend_eur.toFixed(2)}/dia
 - Spend total projectado até evento (no ritmo actual): €${viability.projected_total_spend_eur.toFixed(0)}
-- Spend diário necessário para hit goal ao ROAS alvo: ${viability.daily_spend_needed_for_goal_eur != null ? "€" + viability.daily_spend_needed_for_goal_eur.toFixed(2) + "/dia" : "N/A"}
+${viability.target_roas != null ? `- Spend diário necessário para hit goal ao ROAS alvo: ${viability.daily_spend_needed_for_goal_eur != null ? "€" + viability.daily_spend_needed_for_goal_eur.toFixed(2) + "/dia" : "N/A"}` : ""}
 - Compras projectadas no ritmo actual: ${viability.projected_purchases_at_current_rate}
 - Dias até evento: ${viability.days_until_event}
 
@@ -1537,13 +1542,13 @@ Floor estatístico para validar a tese (mínimo absoluto para concluir algo):
 
 INSTRUÇÕES DE USO DESTAS MÉTRICAS:
 
-1. **Não inventes números fora deste contexto.** Os teus expected_purchases / expected_revenue / recommended_total_budget devem ser COERENTES com a realidade actual. Se propões ROAS ${viability.target_roas.toFixed(1)}x quando actual é ${viability.current_roas.toFixed(2)}x, justifica especificamente como (que adsets pausar, que criativos escalar, etc.).
+1. **Não inventes números fora deste contexto.** Os teus expected_purchases / expected_revenue / recommended_total_budget devem ser COERENTES com a realidade actual. ${viability.target_roas != null ? `Se propões ROAS ${viability.target_roas.toFixed(1)}x quando actual é ${viability.current_roas.toFixed(2)}x, justifica especificamente como (que adsets pausar, que criativos escalar, etc.).` : "Sem meta, o ROAS actual é referência observada, não um alvo."}
 
-2. **Calibra a viabilidade no gap_severity:**
+${viability.target_roas != null ? `2. **Calibra a viabilidade no gap_severity:**
    - 'comfortable' (gap < 1.5x): feasibility=high, confidence=high é OK
    - 'stretch' (1.5–2.5x): feasibility=high mas confidence=medium é o teto
    - 'aggressive' (2.5–4x): feasibility=medium, confidence=medium ou low
-   - 'unrealistic' (>4x): feasibility=low ou impossible, confidence=low. Marca claramente em feasibility_reason que o gap é grande demais sem mudança operacional radical (criativos novos, audiences novas, etc.).
+   - 'unrealistic' (>4x): feasibility=low ou impossible, confidence=low. Marca claramente em feasibility_reason que o gap é grande demais sem mudança operacional radical (criativos novos, audiences novas, etc.).` : "2. Sem meta, omite o critério de gap ROAS na viabilidade e confiança; avalia verba, receita, horizonte e volume observados."}
 
 3. **Budget analysis (NOVO — campo budget_recommendation):**
    No JSON de output, preenche \`budget_recommendation\` com sugestão de ajuste (mais detalhes no schema). Regras:
@@ -1554,7 +1559,7 @@ INSTRUÇÕES DE USO DESTAS MÉTRICAS:
 
 4. **Verba no plano não é prescrição autoritária — é sugestão informada.** O utilizador decide.
 
-5. **feasibility_reason DEVE citar números concretos do contexto acima.** Ex: "ROAS actual 1.89x vs alvo 8x = gap 4.2x (unrealistic). Sem recalibração criativa profunda e expansão de audience, target não é atingível mesmo com 5x mais spend."
+5. **feasibility_reason DEVE citar números concretos do contexto acima.** ${viability.target_roas != null ? `Cita ROAS actual ${viability.current_roas.toFixed(2)}x vs alvo ${viability.target_roas.toFixed(1)}x e o gap calculado ${viability.roas_gap_multiplier?.toFixed(1)}x.` : "Cita a verba, receita pedida, horizonte e ROAS observado; não inventes alvo nem gap."}
 `;
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1636,10 +1641,7 @@ INSTRUÇÕES DE USO DESTAS MÉTRICAS:
           : null;
 
         const summary = (plan as any)?.summary ?? {};
-        const capsRoas = (body.constraints as any)?.target_blended_roas;
-        const target_roas =
-          typeof summary.expected_overall_roas === "number" ? summary.expected_overall_roas :
-          (typeof capsRoas === "number" ? capsRoas : null);
+        const target_roas = targetBlendedRoas;
         const goal_revenue_eur =
           typeof summary.expected_revenue_eur === "number" ? summary.expected_revenue_eur : 0;
         const total_budget_eur =
@@ -1737,7 +1739,7 @@ INSTRUÇÕES DE USO DESTAS MÉTRICAS:
       goal_revenue_eur: plan?.summary?.expected_revenue_eur ?? 0,
       ticket_avg_eur: null,
       total_budget_eur: plan?.summary?.recommended_total_budget_eur ?? null,
-      target_roas: plan?.summary?.expected_overall_roas ?? null,
+      target_roas: targetBlendedRoas,
       days_until_event: eventCtx.daysUntil ?? null,
       country_codes: countries,
       user_notes: `Re-design da campanha ${campaign.external_campaign_id} (${campaign.name})`,
@@ -1809,7 +1811,7 @@ type GenerationPipelineCtx = {
   toDate: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   eventCtx: any;
-  targetBlendedRoas: number;
+  targetBlendedRoas: number | null;
   constraintsBlock: string;
   viabilityBlock: string;
   downtrendInstructionsBlock: string;
@@ -2197,10 +2199,10 @@ ${inheritanceDecisionsText}
 ${viabilityBlock}
 ${downtrendInstructionsBlock}
 ${postureBlock ? postureBlock + "\n" : ""}${briefBlock ? briefBlock + "\n" : ""}== META PRINCIPAL ==
-ROAS alvo BLENDED do evento: ${targetBlendedRoas.toFixed(1)}x (agregado entre TODAS as fases — não por campanha/adset individual).
-Avaliação por fase: fases REACH/AWARENESS/VIDEO_VIEWS terão ROAS individual baixo (esperado 0–2x); fases CONVERSIONS/SALES devem entregar ROAS >=${targetBlendedRoas.toFixed(1)}x para puxar o blended; retargeting deve entregar 10–20x.
+${targetBlendedRoas != null ? `ROAS alvo BLENDED do evento: ${targetBlendedRoas.toFixed(1)}x (agregado entre TODAS as fases — não por campanha/adset individual).
+Avaliação por fase relativa à meta: awareness pode ficar abaixo da meta; conversão e retargeting devem compensar para atingir o blended, sem bandas absolutas.
 ROAS floor é HARD CONSTRAINT: nenhuma phase com peso >${(HIGH_BUDGET_SHARE_THRESHOLD * 100).toFixed(0)}% do budget total pode propor target_kpis.roas_min inferior a ${targetBlendedRoas.toFixed(1)}x.
-Se não consegues atingir esse floor em phases com peso significativo, marca feasibility=medium/low e explica no redesign_rationale por que (não inflaciones números para forçar consistency).
+Se não consegues atingir esse floor em phases com peso significativo, marca feasibility=medium/low e explica no redesign_rationale por que (não inflaciones números para forçar consistency).` : "sem meta de ROAS definida — não fixes um alvo, dimensiona pela verba e pela receita pedidas e usa o ROAS actual como referência; omite target_kpis.roas_min em todas as fases."}
 
 == O QUE PRECISO QUE FAÇAS ==
 Desenha uma estratégia COMPLETA estruturada em fases (3-5), aplicando o diagnóstico:
@@ -2216,9 +2218,9 @@ REGRAS:
 - **COERÊNCIA INTERNA OBRIGATÓRIA dos campos do summary** (Sprint 3c-4.5) — todos devem bater entre si dentro de 10% de tolerância:
   * \`expected_revenue_eur ≈ expected_overall_roas × recommended_total_budget_eur\`
   * \`recommended_total_budget_eur ≈ expected_cpa_eur × expected_purchases\`
-  Não inventes números aspiracionais para um campo enquanto mantens outros baseados na realidade. Se ROAS alvo é 8x, então \`recommended_total_budget × 8 = expected_revenue\`. Sem excepções.
-  Exemplo correcto: budget 11000€, ROAS alvo 8x → revenue 88000€, com purchases ≈ 88000 / ticket_avg ≈ 3520, CPA = 11000 / 3520 ≈ 3.13€.
-  Se a aritmética não bate, ajusta budget ou ROAS alvo. NÃO inventes. Plano com KPIs incoerentes será automaticamente marcado confidence='low'.
+  Não inventes números aspiracionais para um campo enquanto mantens outros baseados na realidade.
+  Exemplo parametrizado: verba B, ROAS projectado R e ticket médio T → receita B × R, compras ≈ B × R / T, CPA ≈ B / compras. R é projecção fundamentada, não uma meta inventada.
+  Se a aritmética não bate, ajusta budget ou ROAS projectado. NÃO inventes. Plano com KPIs incoerentes será automaticamente marcado confidence='low'.
 - Learning Phase: cada adset OFFSITE_CONVERSIONS precisa ~50 conversões/7d.
 - Frequência: alertar se >5.
 - Custom audiences / exclusions: usa APENAS os ids da lista "CUSTOM AUDIENCES disponíveis" acima, verbatim como id="...". NUNCA inventes placeholders nem nomes humanos como id. Se a lista estiver vazia, NÃO incluas \`custom_audiences\` nem \`exclusions\` no targeting_json.
@@ -2599,7 +2601,7 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       budgetDet.daily_final > curDaily ? "increase" : budgetDet.daily_final < curDaily ? "decrease" : "maintain";
     plan.budget_recommendation.adjustment_reason =
       `Budget determinístico (3C): €${budgetDet.daily_final}/dia × ${viability.days_until_event} dias = €${budgetDet.total}. ` +
-      `Âncora=${budgetDet.winner} (goal €${Math.round(budgetDet.candidato_goal)}/dia vs floor €${Math.round(budgetDet.candidato_floor)}/dia)` +
+      `Âncora=${budgetDet.winner} (${budgetDet.candidato_goal != null ? `goal €${Math.round(budgetDet.candidato_goal)}/dia vs ` : "sem meta ROAS; "}floor €${Math.round(budgetDet.candidato_floor)}/dia)` +
       `${budgetDet.cap_applied ? `, limitado a ${BUDGET_MAX_MULTIPLIER_VS_CURRENT}x o gasto diário actual (€${Math.round(curDaily)})` : ""}.`;
     plan.budget_recommendation.deterministic = true;
   }
@@ -2609,6 +2611,12 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
   // FIX1 pode forçar feasibility='impossible'; FIX3 só dispara se FIX1 não bloqueou.
   // Os caps do Sprint 3c-2 (logo a seguir) operam sobre os valores já potencialmente ajustados.
   // ─────────────────────────────────────────────────────────────────────────
+
+  if (targetBlendedRoas == null) {
+    for (const phase of plan?.phases ?? []) {
+      if (phase?.target_kpis) delete phase.target_kpis.roas_min;
+    }
+  }
 
   // FIX 2 (Sprint 3c-2.5) — Forçar roas_min=0 em phases não-conversion.
   // IA estava a herdar roas_min do constraint global em phases REACH/VIDEO_VIEWS,
@@ -2679,7 +2687,7 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
   // Determinístico, sem chamada LLM. Output adicional em plan.counter_proposals.
   if (plan?.summary?.feasibility === "impossible") {
     const dailyBudgetEur = effDailyCents != null ? effDailyCents / 100 : null;
-    if (dailyBudgetEur != null && effRoasFloor != null && viability.days_until_event > 0) {
+    if (dailyBudgetEur != null && viability.days_until_event > 0) {
       plan.counter_proposals = generateCounterProposals({
         viability: {
           roas_lifetime: viability.roas_lifetime,

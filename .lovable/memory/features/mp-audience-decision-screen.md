@@ -17,7 +17,7 @@ Botão "Diagnosticar agora" / "Re-diagnosticar" no cabeçalho da secção. Invoc
 `crm-campaign-diagnosis` (mesmo padrão da `DiagnosisTest`):
 `supabase.functions.invoke("crm-campaign-diagnosis", { body: { company_id,
 external_campaign_id, target_roas } })` — `company_id` do snapshot da campanha,
-`target_roas` = `diagnosis.target_roas ?? 8.0`. Estados de loading e erro
+`target_roas` vem só de `public.events.target_roas`; sem meta = NULL, critério omitido. Estados de loading e erro
 (toast). No fim invalida a query `crm-campaign-view-diagnosis` para refrescar.
 
 ## Mapeamento postura → ação (nomes reais de POSTURE_BY_CLASS)
@@ -98,9 +98,7 @@ antiga `crm.meta_campaign_diagnoses` **mantém-se como está** por agora.
    `crm.meta_campaign_diagnoses`; o plano de migração para `campaign_diagnosis_360`
    fica registado para ser executado junto com a revisão da geração/prompt (com
    validação do output do redesign). Não fazer isolado.
-2. **`target_roas` do diagnóstico on-demand — manter `diagnosis.target_roas ??
-   8.0`.** Sem seletor de target na UI nesta etapa; revisitar na **Etapa 4**
-   (postura de escala / `manter_escalar`).
+2. **Meta de ROAS só de `public.events.target_roas` (D-ERP207).** Nos motores `crm-meta-campaign-redesign` e `crm-meta-campaign-new-design`, sem meta = sem alvo: persistem NULL, omitem os critérios dependentes da meta e pedem à IA dimensionamento pela verba/receita, sem padrões 8x/9x.
 3. **Posturas info (`aguardar_maturacao`, `recolher_mais_dados`) sem CTA** — só
    mensagem + métricas. Confirmado como pretendido nesta etapa.
 

@@ -104,3 +104,7 @@ Nota: nenhum Publish feito.
 - [x] Trocar a tabela principal por blocos com barra de cinco fases por lista.
 - [x] Validar por lista: fases = Lançadas + Não aprovadas.
 - [x] Corrigir a memória de “Marcar como Pago” versus “Liquidar (N)”.
+
+## Tráfego Pago — meta ROAS opcional (11/10/2026)
+- [ ] Retirar alvos implícitos dos dois motores e do cliente new-design, actualizar memória e testar sem meta.
+- [ ] Verificar testes antes/depois e implantar apenas as duas funções, sem DDL/DML/Publish.
