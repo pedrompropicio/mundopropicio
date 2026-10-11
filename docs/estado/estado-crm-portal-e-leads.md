@@ -22,7 +22,7 @@ A 24/09/2026 foi resolvido o incidente que punha o ecrã "Algo correu mal" a 100
 ## Próximo passo concreto
 1. **Fase 4 da #306** — email de boas-vindas pelo Resend; texto a definir pelo Pedro.
 2. **Pedro no ERP** — artes do evento + `portal_visible = true`: activa a página do evento, a vista de trackers e dispensa o fallback do pixel no Clube.
-3. **Frente 8 (Google)** — evento derivado `ng27_clube_inscricao` no GA4 e importação no Google Ads.
+3. **Audience — Google** — evento derivado `ng27_clube_inscricao` no GA4 e importação no Google Ads.
 4. **Lista "Clube Newgang" no CRM** — linha própria do quadro, P1 até 02/11.
 
 ## Bloqueios
