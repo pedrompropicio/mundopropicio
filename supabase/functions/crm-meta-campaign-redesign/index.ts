@@ -396,7 +396,7 @@ function computeAnchoredConfidence(args: {
   }
 
   // Promo a high — todos os requisitos. "moderate" mantido para compat com user spec; "comfortable" é o equivalente real do codebase.
-  const isFavourableGap = viability.gap_severity === "moderate" || viability.gap_severity === "comfortable";
+  const isFavourableGap = viability.gap_severity == null || viability.gap_severity === "moderate" || viability.gap_severity === "comfortable";
   const isFavourableTraj =
     viability.trajectory === "stable" ||
     viability.trajectory === "uptrend" ||
@@ -409,7 +409,9 @@ function computeAnchoredConfidence(args: {
     isFavourableTraj
   ) {
     confidence = "high";
-    reasons.push("Horizonte longo + gap moderate/comfortable + trajectory favorável");
+    reasons.push(viability.gap_severity != null
+      ? "Horizonte longo + gap moderate/comfortable + trajectory favorável"
+      : "Horizonte longo + trajectory favorável; critério ROAS omitido (sem meta)");
   }
 
   return { confidence, confidence_reasons: reasons };
@@ -1552,10 +1554,10 @@ ${viability.target_roas != null ? `2. **Calibra a viabilidade no gap_severity:**
 
 3. **Budget analysis (NOVO — campo budget_recommendation):**
    No JSON de output, preenche \`budget_recommendation\` com sugestão de ajuste (mais detalhes no schema). Regras:
-   - Se gap_severity='comfortable' e meets_floor=true: adjustment_direction='maintain' (sugestão = actual).
+${viability.target_roas != null ? `   - Se gap_severity='comfortable' e meets_floor=true: adjustment_direction='maintain' (sugestão = actual).
    - Se gap_severity='stretch'/'aggressive' e meets_floor=true: pode sugerir 'increase' moderado (15-50%) ou 'maintain'. Reason explica.
    - Se !meets_floor: SEMPRE sugerir 'increase' suficiente para chegar a statistical_floor_spend até à data do evento. floor_warning preenchido.
-   - Se gap_severity='unrealistic': sugerir reanalisar premissa (ex: reduzir goal_revenue, prolongar prazo, ou aceitar ROAS menor). adjustment_direction='maintain' e floor_warning explica.
+   - Se gap_severity='unrealistic': sugerir reanalisar premissa (ex: reduzir goal_revenue, prolongar prazo, ou aceitar ROAS menor). adjustment_direction='maintain' e floor_warning explica.` : "   - Sem meta, dimensiona pela verba e receita pedidas, horizonte e volume; não uses gap_severity. Se !meets_floor, sugere verba suficiente para avaliação estatística, sem criar um alvo ROAS."}
 
 4. **Verba no plano não é prescrição autoritária — é sugestão informada.** O utilizador decide.
 
