@@ -572,6 +572,39 @@ Deno.serve(async (req: Request): Promise<Response> => {
     console.log(`[meta-sync-creatives] event_scope company_campaigns=${companyCampaignCount} past_events=${pastEventCount} past_campaigns=${pastCampaignSet.size}`);
   }
 
+  // ── 0b) Trava de campanhas históricas (#209, 183 dias) ───────────────
+  // Campanha com stop_time (ou, na falta, updated_time) há mais de 183 dias é
+  // candidata a histórica; só fica de fora se NENHUM anúncio dela estiver ACTIVE
+  // (verificado no varrimento do Step A). Nunca recria criativos dessas campanhas.
+  // Aplica-se sempre, mesmo com exclude_past_events=false.
+  const RETENTION_DAYS = 183;
+  const staleCandidateSet = new Set<string>();
+  {
+    const cutoff = Date.now() - RETENTION_DAYS * 86400_000;
+    const PAGE = 1000;
+    let from = 0;
+    while (true) {
+      const { data: camps, error: cErr } = await (supabase as any)
+        .schema("crm")
+        .from("meta_campaign_snapshot")
+        .select("external_campaign_id, stop_time, updated_time")
+        .eq("company_id", companyId)
+        .order("external_campaign_id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (cErr) {
+        console.error("[meta-sync-creatives] stale campaigns query error:", cErr);
+        return json({ error: "stale_campaigns_query_failed", detail: cErr.message }, 500);
+      }
+      const batch = camps ?? [];
+      for (const c of batch) {
+        const ref = (c.stop_time ?? c.updated_time) as string | null;
+        if (ref && new Date(ref).getTime() < cutoff) staleCandidateSet.add(String(c.external_campaign_id));
+      }
+      if (batch.length < PAGE) break;
+      from += PAGE;
+    }
+  }
+
   // ── 1) Identificar creative IDs a sincronizar ─────────────────────────
   // Step A: distinct meta_creative_id em meta_ad_snapshot. Varrimento paginado
   // (range de 1000) para não cair no cap default de linhas; exclui em memória os
@@ -579,6 +612,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // menos um ad numa campanha NÃO passada.
   const includedCreativeIds = new Set<string>();
   let excludedAdRows = 0;
+  let staleAdRows = 0;
+  const scanned: Array<{ creative: string; campaign: string | null }> = [];
+  const campaignsWithActiveAd = new Set<string>();
   {
     const PAGE = 1000;
     let from = 0;
@@ -586,7 +622,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const { data: snapRows, error: snapErr } = await (supabase as any)
         .schema("crm")
         .from("meta_ad_snapshot")
-        .select("external_ad_id, meta_creative_id, external_campaign_id")
+        .select("external_ad_id, meta_creative_id, external_campaign_id, effective_status")
         .eq("company_id", companyId)
         .eq("connection_id", connectionId)
         .eq("ad_account_id", adAccountId)
@@ -599,20 +635,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
       }
       const batch = snapRows ?? [];
       for (const r of batch) {
-        if (excludePastEvents && r.external_campaign_id && pastCampaignSet.has(String(r.external_campaign_id))) {
+        const camp = r.external_campaign_id ? String(r.external_campaign_id) : null;
+        if (camp && r.effective_status === "ACTIVE") campaignsWithActiveAd.add(camp);
+        if (excludePastEvents && camp && pastCampaignSet.has(camp)) {
           excludedAdRows++;
           continue;
         }
-        if (r.meta_creative_id) includedCreativeIds.add(r.meta_creative_id as string);
+        if (r.meta_creative_id) scanned.push({ creative: r.meta_creative_id as string, campaign: camp });
       }
       if (batch.length < PAGE) break;
       from += PAGE;
     }
   }
-  const allSnapIds: string[] = Array.from(includedCreativeIds);
-  if (excludePastEvents) {
-    console.log(`[meta-sync-creatives] step_a included_creatives=${allSnapIds.length} excluded_ad_rows=${excludedAdRows}`);
+  for (const s of scanned) {
+    if (s.campaign && staleCandidateSet.has(s.campaign) && !campaignsWithActiveAd.has(s.campaign)) {
+      staleAdRows++;
+      continue;
+    }
+    includedCreativeIds.add(s.creative);
   }
+  const allSnapIds: string[] = Array.from(includedCreativeIds);
+  const staleCampaignsSkipped = [...staleCandidateSet].filter((c) => !campaignsWithActiveAd.has(c)).length;
+  console.log(`[meta-sync-creatives] step_a included_creatives=${allSnapIds.length} excluded_ad_rows=${excludedAdRows} stale_ad_rows=${staleAdRows} stale_campaigns=${staleCampaignsSkipped}`);
 
   // Step B: existentes em meta_creatives para esta company.
   // v2: force_resync skipa o set-diff (processa TODOS os IDs do snapshot).
