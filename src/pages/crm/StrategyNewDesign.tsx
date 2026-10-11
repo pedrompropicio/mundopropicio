@@ -174,7 +174,7 @@ export default function CrmStrategyNewDesign() {
         goal_revenue_eur: parseFloat(goalRevenue),
         ticket_avg_eur: parseFloat(ticketAvg),
         total_budget_eur: totalBudget ? parseFloat(totalBudget) : undefined,
-        target_roas: eventTargetRoas({ target_roas: targetRoas }),
+        target_roas: eventTargetRoas({ target_roas: targetRoas ? Number(targetRoas) : null }),
         country_codes: countries.length ? countries : undefined,
         user_notes: userNotes || undefined,
         strategy_name: name || undefined,
