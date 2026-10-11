@@ -22,3 +22,4 @@ Fase 3B do redesenho do MP Audience.
 
 ## Ligação automática Meta campanha→evento (D-ERP249, 11/10/2026)
 Só preenche quando linked_event_id é NULL (nunca religa); anos 20xx no nome têm de coincidir; cidades não contam (tiktok_event_distinct_tokens); só campanhas criadas após o evento ou ACTIVE; empate → `ambiguous` no retorno, não liga.
+- Card Conversões: inteiro arredondado com separador pt (`formatInteger`, "1 195"); a Meta devolve conversões fracionárias.
