@@ -19654,6 +19654,7 @@ export type Database = {
       crm_auto_link_meta_campaigns_to_events: {
         Args: { p_company_id: string }
         Returns: {
+          ambiguous: Json
           total_active_campaigns: number
           updated_count: number
         }[]
