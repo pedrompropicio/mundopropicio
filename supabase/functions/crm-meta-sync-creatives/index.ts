@@ -710,7 +710,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({
       synced_count: 0, skipped_count: 0, ad_account_id: adAccountId, mode,
       remaining_to_sync: remainingToSync, triggered_by: triggeredBy,
-      exclude_past_events: excludePastEvents,
+      exclude_past_events: excludePastEvents, stale_ad_rows: staleAdRows, stale_campaigns_skipped: staleCampaignsSkipped, considered_creatives: allSnapIds.length,
       past_event_count: pastEventCount,
       past_campaign_count: pastCampaignSet.size,
     });
@@ -980,7 +980,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     ad_account_id: adAccountId,
     mode,
     force_resync: forceResync,
-    exclude_past_events: excludePastEvents,
+    exclude_past_events: excludePastEvents, stale_ad_rows: staleAdRows, stale_campaigns_skipped: staleCampaignsSkipped, considered_creatives: allSnapIds.length,
     past_event_count: pastEventCount,
     past_campaign_count: pastCampaignSet.size,
     remaining_to_sync: remainingToSync,
