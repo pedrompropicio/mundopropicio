@@ -90,7 +90,43 @@ Deno.serve(async (req) => {
   let body: any;
   try { body = JSON.parse(await req.text()); } catch { return json({ ok: false, error: "invalid_json" }, 400, origin); }
   const kind = body?.kind;
-  if (kind !== "redirect" && kind !== "lead") return json({ ok: false, error: "unknown_kind" }, 400, origin);
+  if (kind !== "redirect" && kind !== "lead" && kind !== "song_link_client_fail") {
+    return json({ ok: false, error: "unknown_kind" }, 400, origin);
+  }
+
+  const url = Deno.env.get("SUPABASE_URL")!;
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  if (kind === "song_link_client_fail") {
+    const p = body.payload && typeof body.payload === "object" ? body.payload : {};
+    const slug = typeof p.slug === "string" ? p.slug.trim().slice(0, 80) : "";
+    const reason = typeof p.reason === "string" ? p.reason.trim() : "";
+    if (!slug || !CLIENT_FAIL_REASONS.has(reason)) {
+      return json({ ok: false, error: "invalid_payload" }, 400, origin);
+    }
+    const inApp = typeof p.in_app === "string" ? p.in_app.slice(0, 40) : null;
+    const row = {
+      kind: "redirect",
+      slug,
+      in_app: inApp,
+      detail: `client_fail:${reason}`.slice(0, 60),
+    };
+    try {
+      const r = await fetch(`${url}/rest/v1/song_link_diag`, {
+        method: "POST",
+        headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify(row),
+      });
+      if (!r.ok) {
+        console.error("[portal-track] insert song_link_diag", r.status, await r.text());
+        return json({ ok: false }, 500, origin);
+      }
+    } catch (e) {
+      console.error("[portal-track] insert threw", String(e));
+      return json({ ok: false }, 500, origin);
+    }
+    return json({ ok: true }, 200, origin);
+  }
 
   const row: Record<string, unknown> = pick(kind, body.payload);
   if (body.consent === true) {
