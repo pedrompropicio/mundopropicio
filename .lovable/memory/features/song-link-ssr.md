@@ -11,3 +11,4 @@ type: feature
 - Claim atómico com índice parcial event_id/event desde 10/10/2026 UTC ANTES de enviar. Duplicado não reenvia; browser pode completar cookie em falta. Duplicados históricos anteriores não se apagam.
 - Relatórios de período, estatísticas e saúde contam arrival das duas origens; não acrescentar filtros só browser.
 - Provas SSR válida, browser após SSR e prefetch autenticado dependem do segredo. Estado de entrega não se infere de testes unitários.- Adenda 2 (11/10/2026): browser com event_id já gravado por SSR faz UPDATE da linha (opened/destination/mode se null; in_app/device/os do browser); nunca event_id/origin/created_at/ip_hash/geo/utm; sem reenvio CAPI/TikTok; diag kind redirect detail ssr_enrich.
+- Adenda 3 (11/10/2026): log "[song-link-event] req" por pedido; duplicado sem linha do link grava com event_id novo sem reentrega; beacon sem Origin aceite se o Referer for do Portal. A perda rs-meta está a montante (Portal), não na função.
