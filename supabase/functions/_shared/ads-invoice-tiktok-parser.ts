@@ -7,7 +7,8 @@
 //   detalhe de consumo: uma linha por campanha com o ID da campanha (16–19 dígitos),
 //     o nome e o valor consumido.
 // O total TEM de fechar com a soma das linhas ao cêntimo — senão o ingest recusa gravar.
-import { extractPdfLines, type TextLine } from "./ads-invoice-parser.ts";
+// Puro (sem dependências) para ser testável no vitest; a extração do PDF fica no ingest.
+interface TextLine { tokens: Array<{ text: string }> }
 
 export interface TiktokInvoiceHeader {
   invoiceNumber: string | null;
@@ -111,7 +112,6 @@ export function parseTiktokInvoiceText(rows: string[]): TiktokInvoiceParseResult
   return { header: h, lines, linesSum, warnings, debug: { rows: rows.length } };
 }
 
-export async function parseTiktokInvoice(bytes: Uint8Array): Promise<TiktokInvoiceParseResult> {
-  const pdfLines = await extractPdfLines(bytes);
+export function parseTiktokInvoiceLines(pdfLines: TextLine[]): TiktokInvoiceParseResult {
   return parseTiktokInvoiceText(pdfLines.map(text));
 }

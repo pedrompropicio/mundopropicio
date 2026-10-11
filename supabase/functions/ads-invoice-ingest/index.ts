@@ -18,7 +18,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { parseMetaInvoice } from "../_shared/ads-invoice-parser.ts";
 import { parseGoogleInvoice } from "../_shared/ads-invoice-google-parser.ts";
-import { parseTiktokInvoice } from "../_shared/ads-invoice-tiktok-parser.ts";
+import { parseTiktokInvoiceLines } from "../_shared/ads-invoice-tiktok-parser.ts";
+import { extractPdfLines } from "../_shared/ads-invoice-parser.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const VERSION = "v3.1_parse_tiktok";
@@ -468,7 +469,7 @@ async function handleParseTiktok(body: Record<string, any>) {
   const loaded = await loadPdf(body);
   if (loaded instanceof Response) return loaded;
   const { bytes, companyId, filePath } = loaded;
-  const parsed = await parseTiktokInvoice(bytes);
+  const parsed = parseTiktokInvoiceLines(await extractPdfLines(bytes));
   const h = parsed.header;
   if (!h.invoiceNumber || !h.billingPeriod || h.totalAmount === null) {
     return json({ error: "cabeçalho incompleto", header: h, warnings: parsed.warnings, debug: parsed.debug }, 422);
