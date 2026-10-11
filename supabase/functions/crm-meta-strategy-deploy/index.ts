@@ -561,7 +561,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         error: "no_pixel_available",
         event_id: strategy.event_id ?? null,
         source_campaign_id: strategy.source_campaign_id ?? null,
-        message: "O plano tem adsets de conversão (Vendas) mas não há pixel disponível. Configura o pixel Meta no cartão "Trackers" do evento em /eventos/<id> ou, em modo redesign, garante que a campanha-fonte tem pixel sincronizado (re-sync em modo full).",
+        message: "O plano tem adsets de conversão (Vendas) mas não há pixel disponível. Configura o pixel Meta no cartão Trackers do evento em /eventos/<id> ou, em modo redesign, garante que a campanha-fonte tem pixel sincronizado (re-sync em modo full).",
       }, 422);
     }
 
