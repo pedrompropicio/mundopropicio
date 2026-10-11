@@ -771,6 +771,13 @@
       "when": 1791755729271,
       "tag": "0109_derp251_event_trackers_public",
       "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "7",
+      "when": 1791755761383,
+      "tag": "0110_derp251_event_trackers_revoke_anon",
+      "breakpoints": true
     }
   ]
 }

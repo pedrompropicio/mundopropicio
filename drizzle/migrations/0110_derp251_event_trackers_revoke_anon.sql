@@ -1,0 +1,1 @@
+REVOKE ALL ON public.event_trackers FROM anon;
