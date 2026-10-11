@@ -16638,6 +16638,23 @@ export type Database = {
           },
         ]
       }
+      event_trackers_public: {
+        Row: {
+          event_id: string | null
+          event_slug: string | null
+          platform: string | null
+          tracker_code: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_trackers_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events_public: {
         Row: {
           age_rating: string | null
