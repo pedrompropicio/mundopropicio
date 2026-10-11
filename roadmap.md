@@ -106,5 +106,6 @@ Nota: nenhum Publish feito.
 - [x] Corrigir a memória de “Marcar como Pago” versus “Liquidar (N)”.
 
 ## Tráfego Pago — meta ROAS opcional (11/10/2026)
-- [ ] Retirar alvos implícitos dos dois motores e do cliente new-design, actualizar memória e testar sem meta.
-- [ ] Verificar testes antes/depois e implantar apenas as duas funções, sem DDL/DML/Publish.
+- [x] Retirar alvos implícitos dos dois motores e do cliente new-design, actualizar memória e testar sem meta.
+- [x] Vitest antes 984/depois 999 passed, sem falhas; sintaxe das funções limpa, compilação automática OK; duas funções implantadas, sem DDL/DML/Publish.
+- [ ] Verificação tsgo explícita/CI — não executada nesta sessão; compilação automática não substitui essa prova.
