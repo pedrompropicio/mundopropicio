@@ -1,6 +1,6 @@
 # ESTADO — MP CRM, Portal & Leads
 
-Atualizado: 2026-10-10 · Issues: #251, #252 · Fechadas: #253 (24/09), #254 (10/10) · Bloqueio: #62
+Atualizado: 2026-10-11 · Issues: #251, #252, #306 · Fechadas: #253 (24/09), #254 (10/10) · Bloqueio: #62
 
 ## Em que pé está
 Dois portais distintos, dois projetos Lovable, a mesma base Supabase:
@@ -12,10 +12,18 @@ A Early Bird 2027 do Coala está a captar em contínuo (`lead_capture`, origens 
 A 24/09/2026 foi resolvido o incidente que punha o ecrã "Algo correu mal" a 100% do tráfego pago da Meta (#253, fechada). A geolocalização do Coala passou a funcionar e o registo de erros de front está em produção.
 
 ## A trabalhar agora
-Nada em execução. A 10/10 a captação de `redirect_log` e `lead_capture` passou a fazer-se no servidor, pela edge function `portal-track` (IP lido do `x-forwarded-for`, geo pela cache `public.ip_geo_cache`, só com consentimento) — detalhe na secção própria de `estado-plataforma-e-infra.md` e em `.lovable/memory/features/ip-geo-cache.md`.
+**Clube Newgang (#306, P0 até 19/10)** — fases 1–3 feitas e publicadas a 11/10.
+
+- **Página** `/pt/newgang-festival-2027/clube` em produção: standalone com a identidade do festival (logo oficial, Anton/Barlow Condensed); serve `mundopropicio.com` e será linkada de `newgang.pt`. Formulário: nome\*, email\*, telemóvel, e data de nascimento/cidade/código postal no `raw` de `lead_capture`. Fonte `clube_newgang`. Confirmação com partilha. Assinatura Newgang Produções + Mundo Propício + Fever.
+- **Captação** pela edge function `portal-track`, com `company_id` definido no servidor a partir do Origin já validado (fase 1 da #306) — linhas novas nunca nascem órfãs; fecha o caminho da #56 para a captação nova. Detalhe de IP/geo em `estado-plataforma-e-infra.md` e `.lovable/memory/features/ip-geo-cache.md`.
+- **Pixels:** Meta Lead (pixel do evento em `events.meta_pixel_id`); TikTok ViewContent + CompleteRegistration (pixel `DB5VO83C77U5NP31S1P0`, só com consentimento de marketing, `event_id` = `client_event_id`); GA4 `sign_up` `{event_slug, method}` no dataLayer.
+- **Trackers** lidos de `public.event_trackers_public` (D-ERP251), com fallback no Clube enquanto o evento estiver `portal_visible = false`. TikTok ViewContent/InitiateCheckout também nas páginas de evento com tracker — o InitiateCheckout leva o `client_event_id` da `portal-track`, para dedupe futura com a CAPI TikTok.
 
 ## Próximo passo concreto
-Reavaliar o rácio sem-IP em `redirect_log`/`lead_capture` na revisão semanal (`procedimentos/PROC-revisao-semanal.md`). Medir o rácio de consumo do ipinfo deixou de ser métrica: a conta migrou para o modelo **"Lite"**, sem quota.
+1. **Fase 4 da #306** — email de boas-vindas pelo Resend; texto a definir pelo Pedro.
+2. **Pedro no ERP** — artes do evento + `portal_visible = true`: activa a página do evento, a vista de trackers e dispensa o fallback do pixel no Clube.
+3. **Audience — Google** — evento derivado `ng27_clube_inscricao` no GA4 e importação no Google Ads.
+4. **Lista "Clube Newgang" no CRM** — linha própria do quadro, P1 até 02/11.
 
 ## Bloqueios
 - **#62** (frente Google) — os leads do CRM não alimentam o Google Ads.
