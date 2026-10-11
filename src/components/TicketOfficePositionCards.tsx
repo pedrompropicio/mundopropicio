@@ -46,8 +46,20 @@ export function TicketOfficePositionCards({ officeId }: { officeId: string }) {
           calendarItems.push({ id: transaction.id, description: transaction.description ?? line.description, amount: Math.abs(Number(line.amount)) });
         }
       }
-      for (const line of latest?.ticket_office_statement_lines ?? []) {
-        if (line.line_type === "venue_settlement") calendarItems.push({ id: line.id, description: /f[oó]rum braga/i.test(line.description ?? "") ? `${line.description} — Deive Leonardo — Braga; a regularizar quando o fecho for confirmado e a InvestBraga devolver os 258,85 €.` : `${line.description} — a regularizar quando o fecho for confirmado e a sala efectuar a devolução.`, amount: -Number(line.amount ?? 0) });
+      const venueLines = (latest?.ticket_office_statement_lines ?? []).filter((line: any) => line.line_type === "venue_settlement");
+      const eventNames = new Map<string, string>();
+      for (const row of assigned) {
+        if (row.events?.name) eventNames.set(row.event_id, row.events.name);
+      }
+      const missingEventIds = [...new Set<string>(venueLines.filter((line: any) => line.event_id && !eventNames.has(line.event_id)).map((line: any) => String(line.event_id)))];
+      for (let offset = 0; offset < missingEventIds.length; offset += 100) {
+        const result = await supabase.from("events").select("id,name").in("id", missingEventIds.slice(offset, offset + 100)).limit(100);
+        if (result.error) throw result.error;
+        for (const event of result.data ?? []) eventNames.set(event.id, event.name);
+      }
+      for (const line of venueLines) {
+        const description = [line.description, eventNames.get(line.event_id)].filter(Boolean).join(" — ");
+        calendarItems.push({ id: line.id, description: `${description}${description ? " — " : ""}a regularizar quando o fecho for confirmado e a sala efectuar a devolução.`, amount: -Number(line.amount ?? 0) });
       }
       return { ...ticketOfficePosition(events, (settlements.data ?? []).map((row) => row.event_id), allLines.map((line: any) => line.event_id).filter(Boolean), Number(latest?.document_total ?? 0), Number(retained)), latest, calendarItems };
     },
