@@ -19,3 +19,6 @@ Fase 3B do redesenho do MP Audience.
 - A aba "Campanhas" da página `/audience/google-ads` foi removida (duplicava o dashboard e tinha EUR fixo); a página fica só com Conversões offline.
 - TikTok (D-ERP248): `platform='tiktok'` (cor `--chart-3`), `src/lib/crm/tiktok-queries.ts`. Lê `crm.tiktok_insights_daily` ao nível 'adgroup' e só campanhas com `linked_event_id` de eventos da empresa (RLS própria + filtro por events.company_id). Compras, alcance, frequência e cliques únicos ficam null ("—"). Só acompanhamento.
 - Conta TikTok partilhada MP/Carreira (aa667121, `shared_company_ids`): campanha tem evento OU música (CHECK). As funções e alertas da Carreira leem as vistas `*_carreira`, que excluem as campanhas de evento.
+
+## Ligação automática Meta campanha→evento (D-ERP249, 11/10/2026)
+Só preenche quando linked_event_id é NULL (nunca religa); anos 20xx no nome têm de coincidir; cidades não contam (tiktok_event_distinct_tokens); só campanhas criadas após o evento ou ACTIVE; empate → `ambiguous` no retorno, não liga.
