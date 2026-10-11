@@ -229,14 +229,43 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ ok: false, error: "erro_interno" }, 500, origin);
   }
   if (!claimedId) {
-    // Fill missing browser-cookie evidence only; never deliver twice or change origin.
-    if (!isSsr && eventId && s(body.fbp, 500)) {
-      const { error } = await admin.from("song_link_events").update({ capi_fbp: true })
+    // D-ERP234 adenda 2: browser após SSR enriquece a linha SSR (opened, destination,
+    // in_app_browser, device, os, mode). Nunca mexe em event_id, origin, created_at,
+    // ip_hash, geo nem utm. Sem nova entrega externa: a arrival (ViewContent) já foi
+    // enviada pelo SSR e antes do SSR não havia conversão própria ligada a opened.
+    let enriched = false;
+    if (!isSsr && eventId) {
+      const { data: row, error: rowErr } = await admin.from("song_link_events")
+        .select("id, origin, opened, destination, in_app_browser, device, os, mode, capi_fbp")
         .eq("event_id", eventId).eq("event", event).eq("link_id", link.id)
-        .gte("created_at", "2026-10-10T00:00:00Z").or("capi_fbp.is.null,capi_fbp.eq.false");
-      if (error) return json({ ok: false, error: "erro_interno" }, 500, origin);
+        .gte("created_at", "2026-10-10T00:00:00Z").order("created_at").limit(1).maybeSingle();
+      if (rowErr) return json({ ok: false, error: "erro_interno" }, 500, origin);
+      const patch: Record<string, unknown> = {};
+      if (row?.origin === "ssr") {
+        if (opened && !row.opened) patch.opened = opened;
+        if (destination && !row.destination) patch.destination = destination;
+        const mode = s(body.mode, 30);
+        if (mode && !row.mode) patch.mode = mode;
+        // UA real do browser é mais fiável que o UA reencaminhado pelo SSR.
+        if (in_app_browser && in_app_browser !== "other") patch.in_app_browser = in_app_browser;
+        else if (in_app_browser && !row.in_app_browser) patch.in_app_browser = in_app_browser;
+        if (device) patch.device = device;
+        if (os) patch.os = os;
+      }
+      if (row && s(body.fbp, 500) && row.capi_fbp !== true) patch.capi_fbp = true;
+      if (row && Object.keys(patch).length) {
+        const { error } = await admin.from("song_link_events").update(patch).eq("id", row.id);
+        if (error) return json({ ok: false, error: "erro_interno" }, 500, origin);
+        enriched = row.origin === "ssr";
+        if (enriched) {
+          await admin.from("song_link_diag").insert({ kind: "redirect", slug: slug.slice(0, 80),
+            arrival_event_id: /^[0-9a-f-]{36}$/i.test(eventId) ? eventId : null,
+            in_app: in_app_browser && ["tiktok", "instagram", "facebook"].includes(in_app_browser) ? in_app_browser : "other",
+            detail: "ssr_enrich" });
+        }
+      }
     }
-    return json({ ok: true, duplicate: true }, 200, origin);
+    return json({ ok: true, duplicate: true, enriched, delivery: "ja_enviada_pelo_ssr" }, 200, origin);
   }
 
   const work = (async () => {

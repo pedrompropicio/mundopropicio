@@ -36,10 +36,15 @@ function normalizeAdAccountId(raw: string): string {
 // precisa de miniatura e permalink, e crm.meta_creatives (biblioteca do MP
 // Audience) não serve para isto. Guarda-se tudo em `raw.creative` — sem colunas
 // novas. NOTA: `thumbnail_url` da Meta EXPIRA; é refrescado a cada sync.
+// Destino do anúncio (D-ERP234 adenda 2 / Parte 2): link_data.link,
+// video_data.call_to_action.value.link, asset_feed_spec.link_urls e url_tags
+// ficam em raw.creative; lidos pela RPC meta_ad_destinations.
 const CREATIVE_SUBFIELDS = [
   "id", "name", "thumbnail_url", "image_url", "video_id",
   "effective_object_story_id", "effective_instagram_media_id",
-  "instagram_permalink_url", "object_type",
+  "instagram_permalink_url", "object_type", "url_tags", "link_url",
+  "object_story_spec{link_data{link,call_to_action},video_data{call_to_action}}",
+  "asset_feed_spec{link_urls}",
 ].join(",");
 
 const AD_FIELDS = [

@@ -5613,3 +5613,10 @@ Fecho por evento: o líquido de cada evento = a sua linha do apuramento (quota),
 Migração dos fechos: SM Lisboa/Porto e Deive (3163) → criar o apuramento 3163 e ligar os fechos existentes como derivados; números iguais se a soma bater (diferença reportada, não corrigida). Ivete e Anitta (acertados fora do sistema / sem apuramento) ficam como hoje, marcados "fora de apuramento". Transações já lançadas não mudam.
 event_ticket_office_advances: deixam de abater por evento à mão; passam a ser linha "adiantamento" do apuramento; os 25 existentes ficam como histórico ligado ao apuramento que os absorveu.
 Decisões do Pedro: (1) apuramento só Ticketline ou genérico para todas as bilheteiras? (2) quota por evento: líquido declarado no apuramento ou repartição proporcional às vendas? (3) saldo negativo (3163): transportar ou abater nas vendas do RG como evento específico? (4) fechos já selados: re-derivar ou congelar? (5) adiantamentos: converter os 25 ou só daqui para a frente? (6) quem confirma o apuramento (admin/gestor)?
+
+## D-ERP234 — Adenda 2: browser após SSR enriquece a chegada (11/10/2026)
+- Causa: o browser reutiliza o event_id do SSR; o claim devolvia duplicado e o pedido era descartado → desde 10/10 16:00 UTC as chegadas ficavam sem opened/destination.
+- Regra: pedido browser com (event_id, event) já existente e linha com origin 'ssr' → UPDATE dessa linha: opened, destination e mode só onde estão null; in_app_browser, device e os passam ao valor do browser (UA real mais fiável). Nunca mexe em event_id, origin, created_at, ip_hash, geo nem utm.
+- Entregas: a arrival (ViewContent) já foi enviada pelo SSR → não se reenvia. Antes do SSR não existia conversão própria ligada a opened/destination (opened era só um campo da arrival; a escolha é o evento choice, com claim próprio) → nada a enviar.
+- Resposta 200 {duplicate, enriched, delivery:'ja_enviada_pelo_ssr'}; cada enriquecimento regista song_link_diag kind 'redirect', detail 'ssr_enrich' (sem DDL; o check de kind não permite valor novo).
+- Prova: teste enrich-live.test.ts — 1 linha, origin ssr, opened app, destination spotify.

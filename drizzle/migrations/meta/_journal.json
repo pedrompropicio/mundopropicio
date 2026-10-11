@@ -736,6 +736,13 @@
       "when": 1791674472822,
       "tag": "0104_0104_derp_246_partner_country_and_refund",
       "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1791734139173,
+      "tag": "0105_meta_ad_destinations",
+      "breakpoints": true
     }
   ]
 }
