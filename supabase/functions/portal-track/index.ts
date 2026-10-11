@@ -140,8 +140,6 @@ Deno.serve(async (req) => {
     }
   }
 
-  const url = Deno.env.get("SUPABASE_URL")!;
-  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   try {
     const r = await fetch(`${url}/rest/v1/${TABLE[kind]}`, {
       method: "POST",
