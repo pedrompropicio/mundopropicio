@@ -104,3 +104,8 @@ Nota: nenhum Publish feito.
 - [x] Trocar a tabela principal por blocos com barra de cinco fases por lista.
 - [x] Validar por lista: fases = Lançadas + Não aprovadas.
 - [x] Corrigir a memória de “Marcar como Pago” versus “Liquidar (N)”.
+
+## Tráfego Pago — meta ROAS opcional (11/10/2026)
+- [x] Retirar alvos implícitos dos dois motores e do cliente new-design, actualizar memória e testar sem meta.
+- [x] Vitest antes 984/depois 999 passed, sem falhas; sintaxe das funções limpa, compilação automática OK; duas funções implantadas, sem DDL/DML/Publish.
+- [ ] Verificação tsgo explícita/CI — não executada nesta sessão; compilação automática não substitui essa prova.

@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Sparkles, Loader2, Info, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
+import { eventTargetRoas } from "@/lib/crm/dashboard-format";
 import PurchaseAudienceCard from "@/components/crm/PurchaseAudienceCard";
 
 
@@ -59,7 +60,7 @@ export default function CrmStrategyNewDesign() {
   const [goalRevenue, setGoalRevenue] = useState("");
   const [ticketAvg, setTicketAvg] = useState("25");
   const [totalBudget, setTotalBudget] = useState("");
-  const [targetRoas, setTargetRoas] = useState("9");
+  const [targetRoas, setTargetRoas] = useState("");
   const [countries, setCountries] = useState<string[]>(["PT", "BR"]);
   const [userNotes, setUserNotes] = useState("");
 
@@ -93,11 +94,17 @@ export default function CrmStrategyNewDesign() {
     queryKey: ["new-design-event", eventId],
     enabled: !!eventId,
     queryFn: async () => {
-      const { data, error: qErr1 } = await supabase.from("events").select("id, name, date").eq("id", eventId!).maybeSingle();
+      if (!eventId) return null;
+      const { data, error: qErr1 } = await supabase.from("events").select("id, name, date, target_roas").eq("id", eventId).maybeSingle();
       if (qErr1) throw qErr1;
-      return data as { id: string; name: string; date: string | null } | null;
+      return data as { id: string; name: string; date: string | null; target_roas: number | null } | null;
     },
   });
+
+  const eventTarget = eventTargetRoas(event);
+  useEffect(() => {
+    setTargetRoas(eventTarget != null ? String(eventTarget) : "");
+  }, [eventTarget, eventId]);
 
   // Pool de herança (morta + peers do evento) via inventory com event_id
   const { data: pool, isLoading: poolLoading, error: poolErr } = useQuery({
@@ -167,7 +174,7 @@ export default function CrmStrategyNewDesign() {
         goal_revenue_eur: parseFloat(goalRevenue),
         ticket_avg_eur: parseFloat(ticketAvg),
         total_budget_eur: totalBudget ? parseFloat(totalBudget) : undefined,
-        target_roas: targetRoas ? parseFloat(targetRoas) : undefined,
+        target_roas: eventTargetRoas({ target_roas: targetRoas ? Number(targetRoas) : null }),
         country_codes: countries.length ? countries : undefined,
         user_notes: userNotes || undefined,
         strategy_name: name || undefined,
@@ -267,7 +274,7 @@ export default function CrmStrategyNewDesign() {
           </div>
           <div className="grid gap-2">
             <Label htmlFor="nd-roas">ROAS alvo</Label>
-            <Input id="nd-roas" type="number" step="0.1" min={0} value={targetRoas} onChange={(e) => setTargetRoas(e.target.value)} placeholder="9" />
+            <Input id="nd-roas" type="number" step="0.1" min={0} value={targetRoas} onChange={(e) => setTargetRoas(e.target.value)} placeholder="— sem meta" />
           </div>
         </div>
         <div className="grid gap-2">
