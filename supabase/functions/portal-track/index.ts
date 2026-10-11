@@ -40,6 +40,10 @@ function cors(origin: string | null): Record<string, string> {
 const json = (b: unknown, s: number, o: string | null) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors(o), "Content-Type": "application/json" } });
 
+// song_link_client_fail: aviso anónimo do Portal quando o browser falha a confirmar
+// a chegada (D-ERP234 adenda 3). Grava em song_link_diag, sem IP nem UA completo.
+const CLIENT_FAIL_REASONS = new Set(["send_failed", "left_before_confirm"]);
+
 const FIELDS: Record<string, Record<string, number | "bool" | "json">> = {
   redirect: {
     event_slug: 200, fbc: 500, fbp: 500, utm_source: 300, utm_medium: 300, utm_campaign: 300,
