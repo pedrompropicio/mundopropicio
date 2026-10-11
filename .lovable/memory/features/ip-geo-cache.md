@@ -30,3 +30,4 @@ REGRA: o IP de redirect_log/lead_capture captura-se no servidor via `portal-trac
 - Strings truncadas; client_event_id não-UUID descartado. Insert service role (Prefer: return=minimal); 200 {ok:true} / 500 {ok:false}.
 - O gateway põe o IP real à frente no x-forwarded-for: um XFF forjado pelo cliente não passa.
 - INSERT anon das duas tabelas mantém-se durante a transição do portal.
+- REGRA (#306 fase 1): company_id é do servidor, derivado do Origin — o corpo nunca o define. Mapa: mundopropicio.com, www.mundopropicio.com, previews --26b95793-…lovable.app → 7c858982-6ccd-47ca-bd65-e0dd3eebf01c (MP); coalafestival.pt, www.coalafestival.pt, coalafestival.lovable.app, previews --bef9c59c-…lovable.app → 7d831e59-6e82-427b-95a0-64904aae5dd2 (Coala). Só lead_capture tem a coluna (redirect_log não). O trigger lead_capture_set_company_id só preenche quando NULL — não sobrepõe. song_link_client_fail não usa company_id.

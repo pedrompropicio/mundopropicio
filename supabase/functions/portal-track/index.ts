@@ -18,6 +18,34 @@ const PORTAL_PREVIEW_SUFFIXES = [
   `--bef9c59c-c2a4-453d-9aec-dae7d16c9171.lovable.app`,
 ];
 
+// #306 fase 1: company_id é do servidor, derivado do Origin validado — o corpo nunca o define.
+const MP_COMPANY = "7c858982-6ccd-47ca-bd65-e0dd3eebf01c";
+const COALA_COMPANY = "7d831e59-6e82-427b-95a0-64904aae5dd2";
+const ORIGIN_COMPANY: Record<string, string> = {
+  "https://mundopropicio.com": MP_COMPANY,
+  "https://www.mundopropicio.com": MP_COMPANY,
+  "https://coalafestival.pt": COALA_COMPANY,
+  "https://www.coalafestival.pt": COALA_COMPANY,
+  "https://coalafestival.lovable.app": COALA_COMPANY,
+};
+const PREVIEW_COMPANY: Array<[string, string]> = [
+  [`--26b95793-17b6-478c-a6e8-745c0cfb7ed9.lovable.app`, MP_COMPANY],
+  [`--bef9c59c-c2a4-453d-9aec-dae7d16c9171.lovable.app`, COALA_COMPANY],
+];
+// Só lead_capture tem company_id (redirect_log não tem — verificado em information_schema, 11/10/2026).
+const TABLES_WITH_COMPANY = new Set<string>(["lead_capture"]);
+
+function companyForOrigin(origin: string | null): string | null {
+  if (!origin) return null;
+  if (ORIGIN_COMPANY[origin]) return ORIGIN_COMPANY[origin];
+  try {
+    const u = new URL(origin);
+    if (u.protocol !== "https:") return null;
+    for (const [suf, c] of PREVIEW_COMPANY) if (u.hostname.endsWith(suf)) return c;
+  } catch { /* noop */ }
+  return null;
+}
+
 function isOriginAllowed(origin: string | null): boolean {
   if (!origin) return false;
   if (ALLOWED_ORIGINS.has(origin)) return true;
@@ -129,6 +157,10 @@ Deno.serve(async (req) => {
   }
 
   const row: Record<string, unknown> = pick(kind, body.payload);
+  if (TABLES_WITH_COMPANY.has(TABLE[kind])) {
+    const company = companyForOrigin(origin);
+    if (company) row.company_id = company;
+  }
   if (body.consent === true) {
     const ip = extractIp(req);
     if (ip && !isPrivateOrInvalid(ip)) {
