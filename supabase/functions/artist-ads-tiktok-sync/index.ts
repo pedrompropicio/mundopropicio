@@ -87,7 +87,7 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
 
   // Mapeamento música: mesmo critério da manual (song_id da campanha manual de nome igual).
   const { data: manualCamps } = await admin.schema("crm").from("tiktok_campaign")
-    .select("external_campaign_id, name, linked_song_id, linked_song_locked, source").eq("connection_id", connectionId);
+    .select("external_campaign_id, name, linked_song_id, linked_song_locked, linked_event_id, source").eq("connection_id", connectionId);
   const byName = new Map<string, any>(); const existing = new Map<string, any>();
   for (const m of manualCamps ?? []) { existing.set(m.external_campaign_id, m); if (m.source === "manual") byName.set(String(m.name).trim(), m); }
   const naoMapeadas: string[] = [];
@@ -113,8 +113,10 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
 
   const campRows = camps.list.map((x: any) => {
     const ex = existing.get(String(x.campaign_id)); const man = byName.get(String(x.campaign_name ?? "").trim());
-    const song = ex?.linked_song_id ?? man?.linked_song_id ?? autoSong(x.campaign_name) ?? null;
-    if (!song) naoMapeadas.push(`${x.campaign_id} ${x.campaign_name}`);
+    // Campanha com evento (MP) nunca leva música: evento OU música, nunca os dois.
+    const hasEvent = !!ex?.linked_event_id;
+    const song = hasEvent ? null : (ex?.linked_song_id ?? man?.linked_song_id ?? autoSong(x.campaign_name) ?? null);
+    if (!song && !hasEvent) naoMapeadas.push(`${x.campaign_id} ${x.campaign_name}`);
     return {
       company_id: cRow.company_id, connection_id: connectionId, external_campaign_id: String(x.campaign_id),
       name: x.campaign_name, status: x.operation_status ?? x.secondary_status ?? null, objective: x.objective_type ?? null,
@@ -191,6 +193,9 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
   // D-ERP181: país de mercado pela segmentação (location_ids → ISO); respeita market_country_locked.
   const { data: mc, error: mcErr } = await admin.rpc("ads_market_country_refresh", { p_connection_id: connectionId });
   const marketCountry = mcErr ? { erro: mcErr.message } : mc;
+  // D-ERP248: ligação automática campanha → evento das empresas com quem a conta é partilhada.
+  const { data: ev, error: evErr } = await admin.rpc("tiktok_auto_link_events_for_connection", { p_connection_id: connectionId });
+  const eventLinks = evErr ? { erro: evErr.message } : ev;
   // Campanhas manuais substituídas pela API (mesmo nome): re-apontar o que sobrar e esconder; nada é apagado.
   const substituidas: string[] = [];
   for (const cr of campRows) {
@@ -210,7 +215,7 @@ async function syncOne(admin: any, connectionId: string, opts: { days: number; s
     }
   }
   const rows = campRows.length + grpRows.length + adDays.length + grpDays.length;
-  return { ok: true, api_calls: c.calls, rows, counts, accepted, refused, nao_mapeadas: naoMapeadas, ambiguas, anuncios_sem_grupo: [...new Set(semGrupo)], substituidas, start, end, tz, conta: ai.name ?? null, currency, market_country: marketCountry };
+  return { ok: true, api_calls: c.calls, rows, counts, accepted, refused, nao_mapeadas: naoMapeadas, ambiguas, anuncios_sem_grupo: [...new Set(semGrupo)], substituidas, start, end, tz, conta: ai.name ?? null, currency, market_country: marketCountry, event_links: eventLinks };
 }
 
 Deno.serve(async (req) => {

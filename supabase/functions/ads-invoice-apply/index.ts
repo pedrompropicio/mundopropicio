@@ -14,7 +14,9 @@ import { buildPdf, type PdfOp } from "../_shared/simple-pdf.ts";
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
-const VERSION = "v2.4_platform_dup_guard_and_terms";
+const VERSION = "v2.5_tiktok_carreira";
+/** D-ERP248: chave da filha da Carreira (linhas TikTok de música, sem evento). */
+const CARREIRA_KEY = "carreira";
 
 /** Meta e Google faturam a 60 dias ("Payment Terms: NET 60" no PDF). */
 const PAYMENT_TERMS_DAYS = 60;
@@ -39,8 +41,8 @@ const CATEGORY_DIGITAL = "c0000034-0000-0000-0000-000000000001"; // 3.2.01 Digit
 const DOC_BUCKET = "transaction-documents";
 const ADS_BUCKET = "ads-invoices";
 
-const platformLabel: Record<string, string> = { meta: "Meta Platforms Ireland Limited", google: "Google Ireland Limited" };
-const platformAccount: Record<string, string> = { meta: "5094207367314169", google: "220-004-3144" };
+const platformLabel: Record<string, string> = { meta: "Meta Platforms Ireland Limited", google: "Google Ireland Limited", tiktok: "TikTok Information Technologies UK Limited" };
+const platformAccount: Record<string, string> = { meta: "5094207367314169", google: "220-004-3144", tiktok: "7684063259020017665" };
 const IVA_NOTE = "IVA 0% - autoliquidação pelo adquirente (art. 196.º da Diretiva 2006/112/CE)";
 
 async function authorize(req: Request): Promise<{ ok: boolean; userId?: string; error?: string }> {
@@ -340,6 +342,12 @@ async function handleGenerate(body: any, userId?: string) {
       continue;
     }
     if (l.match_source === "fora_sistema") { outOfScope += amount; outOfScopeLines++; continue; }
+    // D-ERP248: linha TikTok de música → filha da Carreira (sem evento), mesmo padrão mãe/filhas.
+    if (l.match_source === "carreira") {
+      mediaByEvent.set(CARREIRA_KEY, round2((mediaByEvent.get(CARREIRA_KEY) ?? 0) + amount));
+      pushLine(CARREIRA_KEY, l);
+      continue;
+    }
     // #293: linha repartida por Master + cidades (confirmada por humano). A soma
     // das partes tem de ser o valor da linha do PDF ao cêntimo — senão recusa.
     if (Array.isArray(l.event_split) && l.event_split.length > 0) {
@@ -413,7 +421,7 @@ async function handleGenerate(body: any, userId?: string) {
   }
 
   // fornecedor: o mesmo já usado nas transações de tráfego pago da plataforma
-  const supplierName = inv.platform === "meta" ? "META PLATFORMS IRELAND LIMITED" : "GOOGLE";
+  const supplierName = inv.platform === "meta" ? "META PLATFORMS IRELAND LIMITED" : inv.platform === "tiktok" ? "TIKTOK" : "GOOGLE";
   const { data: sup } = await admin
     .from("suppliers")
     .select("id, name")
@@ -436,7 +444,8 @@ async function handleGenerate(body: any, userId?: string) {
   // Meta: NET 60 por transferência. Google: débito direto ao atingir o limiar
   // de 500 €, sem prazo — vence na data de emissão. Em ambas o estado fica
   // "approved"; quem liquida é a conciliação bancária.
-  const isGoogle = inv.platform === "google";
+  // TikTok: Autopay (débito no cartão/conta), sem prazo — como o Google.
+  const isGoogle = inv.platform === "google" || inv.platform === "tiktok";
   const dueDate = isGoogle ? txDate : addDays(txDate, PAYMENT_TERMS_DAYS);
   const base = {
     type: "expense",
@@ -453,7 +462,7 @@ async function handleGenerate(body: any, userId?: string) {
   };
 
   // linhas de BP 3.2.01 dos eventos envolvidos (versão ativa)
-  const eventIds = Array.from(byEvent.keys());
+  const eventIds = Array.from(byEvent.keys()).filter((k) => k !== CARREIRA_KEY);
   const { data: forecasts } = await fetchAllPagedQuery(admin
     .from("event_forecasts")
     .select("id, event_id, description, amount")
@@ -471,7 +480,7 @@ async function handleGenerate(body: any, userId?: string) {
   };
 
   const { data: eventRows } = await admin.from("events").select("id, name").in("id", eventIds);
-  const eventName = (id: string) => (eventRows ?? []).find((e: any) => e.id === id)?.name ?? "(evento)";
+  const eventName = (id: string) => id === CARREIRA_KEY ? "Carreira" : (eventRows ?? []).find((e: any) => e.id === id)?.name ?? "(evento)";
 
   /** subtotal do evento / total da fatura × 100, 4 casas decimais */
   const splitPct = (subtotal: number) =>
@@ -565,10 +574,11 @@ async function handleGenerate(body: any, userId?: string) {
       .from("transactions")
       .insert({
         ...base,
-        event_id: eventId,
+        event_id: eventId === CARREIRA_KEY ? null : eventId,
         amount: subtotal,
         parent_transaction_id: parent.id,
-        forecast_id: pickForecast(eventId),
+        forecast_id: eventId === CARREIRA_KEY ? null : pickForecast(eventId),
+        ...(eventId === CARREIRA_KEY ? { specification: `${spec} · Carreira (TikTok)` } : {}),
         split_mode: "percentage",
         split_percentage: splitPct(subtotal),
       })
@@ -596,11 +606,8 @@ async function handleGenerate(body: any, userId?: string) {
     if (de) return json({ error: `documento comprovativo: ${de.message}` }, 500);
 
     // liga as linhas deste evento — mídia e ajustes com campanha identificada
-    await admin
-      .from("ads_invoice_line")
-      .update({ transaction_id: child.id })
-      .eq("invoice_id", inv.id)
-      .eq("event_id", eventId);
+    const linkQ = admin.from("ads_invoice_line").update({ transaction_id: child.id }).eq("invoice_id", inv.id);
+    await (eventId === CARREIRA_KEY ? linkQ.eq("match_source", "carreira") : linkQ.eq("event_id", eventId));
 
     created.push({ role: "filha", id: child.id, event: eventName(eventId), amount: subtotal, forecast_id: child.forecast_id });
   }

@@ -6,7 +6,7 @@ import { PLATFORM_COLOR_VAR, PLATFORM_LABEL, platformOf, singleCurrency } from "
 import type { CampaignRow, InsightRow } from "@/components/crm/dashboard/types";
 
 interface Block {
-  key: "meta" | "google";
+  key: "meta" | "google" | "tiktok";
   campaigns: number;
   agg: Aggregate;
   currency: string | null;
@@ -38,7 +38,7 @@ export function PlatformBreakdown({
   targetRoas?: number | null;
 }) {
   const blocks = useMemo<Block[]>(() => {
-    return (["meta", "google"] as const).map((key) => {
+    return (["meta", "google", "tiktok"] as const).map((key) => {
       const list = campaigns.filter((c) => platformOf(c) === key);
       const rows = list.flatMap((c) => insightsByCampaign.get(c.external_campaign_id) ?? []);
       return {

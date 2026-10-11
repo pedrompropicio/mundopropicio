@@ -9303,6 +9303,54 @@ export type Database = {
           },
         ]
       }
+      event_trackers: {
+        Row: {
+          company_id: string
+          created_at: string
+          event_id: string
+          id: string
+          platform: string
+          tracker_id: string
+          tracker_metadata: Json
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          event_id: string
+          id?: string
+          platform: string
+          tracker_id: string
+          tracker_metadata?: Json
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          platform?: string
+          tracker_id?: string
+          tracker_metadata?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_trackers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_trackers_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_zone_capacities: {
         Row: {
           available: number | null
@@ -20950,7 +20998,31 @@ export type Database = {
           test_name: string
         }[]
       }
+      tiktok_auto_link_events_for_connection: {
+        Args: { p_connection_id: string }
+        Returns: Json
+      }
+      tiktok_event_distinct_tokens: {
+        Args: { p_name: string }
+        Returns: string[]
+      }
+      tiktok_linkable_campaigns: {
+        Args: never
+        Returns: {
+          currency: string
+          external_campaign_id: string
+          id: string
+          linked_event_id: string
+          linked_event_locked: boolean
+          name: string
+          status: string
+        }[]
+      }
       tiktok_manual_slug: { Args: { p_name: string }; Returns: string }
+      tiktok_set_campaign_event: {
+        Args: { p_campaign_id: string; p_event_id: string }
+        Returns: Json
+      }
       transaction_offset_create: {
         Args: {
           p_amount: number

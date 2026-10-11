@@ -18,9 +18,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { parseMetaInvoice } from "../_shared/ads-invoice-parser.ts";
 import { parseGoogleInvoice } from "../_shared/ads-invoice-google-parser.ts";
+import { parseTiktokInvoiceLines } from "../_shared/ads-invoice-tiktok-parser.ts";
+import { extractPdfLines } from "../_shared/ads-invoice-parser.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
-const VERSION = "v3.0_parse_google";
+const VERSION = "v3.1_parse_tiktok";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -85,7 +87,7 @@ interface LineDraft {
   campaign_name: string | null;
   external_campaign_id: string | null;
   event_id: string | null;
-  match_source: "erp_link" | "fuzzy" | "manual" | "none" | "regra";
+  match_source: "erp_link" | "fuzzy" | "manual" | "none" | "regra" | "carreira";
   match_note: string | null;
   amount: number;
   is_adjustment: boolean;
@@ -456,6 +458,79 @@ async function handleParseGoogle(body: Record<string, any>) {
   });
 }
 
+// ---------------------------------------------------------------- parse_tiktok
+/**
+ * D-ERP248 — faturas TikTok (Autopay, fornecedor UK, autoliquidação, 3.2.01).
+ * O PDF é a fonte de verdade (D-ERP31). Cada linha de campanha casa pelo ID da
+ * campanha com crm.tiktok_campaign: com evento da empresa → evento (erp_link);
+ * com música (Carreira) → 'carreira' (sem evento, filha própria); sem nada → none.
+ */
+async function handleParseTiktok(body: Record<string, any>) {
+  const loaded = await loadPdf(body);
+  if (loaded instanceof Response) return loaded;
+  const { bytes, companyId, filePath } = loaded;
+  const parsed = parseTiktokInvoiceLines(await extractPdfLines(bytes));
+  const h = parsed.header;
+  if (!h.invoiceNumber || !h.billingPeriod || h.totalAmount === null) {
+    return json({ error: "cabeçalho incompleto", header: h, warnings: parsed.warnings, debug: parsed.debug }, 422);
+  }
+  const reconcilia = Math.abs(h.totalAmount - parsed.linesSum) < 0.005;
+  if (body.dry_run === true) {
+    return json({
+      version: VERSION, dry_run: true, platform: "tiktok", invoice_number: h.invoiceNumber,
+      billing_period: h.billingPeriod, issue_date: h.issueDate, period_start: h.periodStart, period_end: h.periodEnd,
+      total_amount: h.totalAmount, lines_sum: parsed.linesSum, reconcilia, linhas: parsed.lines.length, warnings: parsed.warnings,
+    });
+  }
+  if (!reconcilia) {
+    return json({ error: `a soma das linhas (${parsed.linesSum}) não reconcilia com o total da fatura (${h.totalAmount}). Nada foi gravado.`, header: h, warnings: parsed.warnings }, 422);
+  }
+  const ids = [...new Set(parsed.lines.map((l) => l.externalCampaignId).filter(Boolean))] as string[];
+  const byId = new Map<string, any>();
+  if (ids.length) {
+    const { data, error } = await admin.schema("crm").from("tiktok_campaign")
+      .select("external_campaign_id, name, linked_event_id, linked_song_id").in("external_campaign_id", ids);
+    if (error) throw new Error(`tiktok_campaign: ${error.message}`);
+    for (const c of data ?? []) byId.set(c.external_campaign_id, c);
+  }
+  const evIds = [...new Set([...byId.values()].map((c) => c.linked_event_id).filter(Boolean))];
+  const ownEvents = new Set<string>();
+  if (evIds.length) {
+    const { data } = await admin.from("events").select("id").in("id", evIds).eq("company_id", companyId);
+    for (const e of data ?? []) ownEvents.add(e.id);
+  }
+  const lines: LineDraft[] = parsed.lines.map((l) => {
+    const c = l.externalCampaignId ? byId.get(l.externalCampaignId) : null;
+    let event_id: string | null = null; let match_source: LineDraft["match_source"] = "none"; let match_note: string | null = null;
+    if (!l.isAdjustment && c) {
+      if (c.linked_event_id && ownEvents.has(c.linked_event_id)) { event_id = c.linked_event_id; match_source = "erp_link"; match_note = "campanha TikTok ligada ao evento"; }
+      else if (c.linked_song_id || !c.linked_event_id) {
+        if (c.linked_song_id) { match_source = "carreira"; match_note = "campanha TikTok de música (Carreira)"; }
+        else match_note = "campanha TikTok sem evento nem música";
+      }
+    } else if (!l.isAdjustment) match_note = "campanha não encontrada no espelho TikTok";
+    else match_note = "crédito/ajuste da plataforma";
+    return {
+      line_no: l.lineNo, raw_description: l.rawDescription, placement: null,
+      campaign_name: c?.name ?? l.campaignName, external_campaign_id: l.externalCampaignId,
+      event_id, match_source, match_note, amount: l.amount, is_adjustment: l.isAdjustment,
+    };
+  });
+  await upsertInvoice({
+    company_id: companyId, platform: "tiktok", invoice_number: h.invoiceNumber, billing_period: h.billingPeriod,
+    issue_date: h.issueDate, currency: "EUR", total_amount: h.totalAmount, lines_sum: parsed.linesSum,
+    source: "pdf", source_ref: body.source_ref ?? null, file_path: filePath ?? null, status: "proposed",
+  }, lines);
+  const alloc = await buildAllocation(companyId, lines);
+  return json({
+    version: VERSION, platform: "tiktok", invoice_number: h.invoiceNumber, billing_period: h.billingPeriod,
+    total_amount: h.totalAmount, lines_sum: parsed.linesSum, reconcilia: true, linhas: lines.length,
+    carreira: lines.filter((l) => l.match_source === "carreira").length,
+    sem_evento: lines.filter((l) => !l.is_adjustment && l.match_source === "none").length,
+    ajustes: alloc.ajustes, por_evento: alloc.por_evento, warnings: parsed.warnings,
+  });
+}
+
 // -------------------------------------------------------------- propose_google
 
 async function handleProposeGoogle(body: Record<string, any>) {
@@ -579,10 +654,12 @@ Deno.serve(async (req) => {
         return await handleParseMeta(body);
       case "parse_google":
         return await handleParseGoogle(body);
+      case "parse_tiktok":
+        return await handleParseTiktok(body);
       case "propose_google":
         return await handleProposeGoogle(body);
       default:
-        return json({ error: "action deve ser parse_meta, parse_google ou propose_google" }, 400);
+        return json({ error: "action deve ser parse_meta, parse_google, parse_tiktok ou propose_google" }, 400);
     }
   } catch (e) {
     console.error("ads-invoice-ingest", e);

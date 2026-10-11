@@ -29,7 +29,7 @@ import { AlertTriangle, CheckCircle2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/mock-data";
 
-type Platform = "meta" | "google";
+type Platform = "meta" | "google" | "tiktok";
 
 interface DryRunResult {
   platform: string;
@@ -45,7 +45,7 @@ interface DryRunResult {
   warnings?: string[];
 }
 
-const platformLabels: Record<Platform, string> = { meta: "Meta", google: "Google" };
+const platformLabels: Record<Platform, string> = { meta: "Meta", google: "Google", tiktok: "TikTok" };
 
 /**
  * Num non-2xx o `data` vem null e a mensagem do erro é genérica: o corpo real
@@ -86,7 +86,7 @@ export function AdsInvoiceImportDialog({ companyId }: { companyId: string | null
     setBusy(false);
   };
 
-  const action = platform === "meta" ? "parse_meta" : "parse_google";
+  const action = platform === "meta" ? "parse_meta" : platform === "tiktok" ? "parse_tiktok" : "parse_google";
 
   /** Fase 2 — sobe o ficheiro e lê, sem gravar nada. */
   const doRead = async () => {
@@ -168,7 +168,7 @@ export function AdsInvoiceImportDialog({ companyId }: { companyId: string | null
           <div className="space-y-2">
             <Label>Plataforma</Label>
             <div className="flex gap-2">
-              {(["google", "meta"] as Platform[]).map((p) => (
+              {(["google", "meta", "tiktok"] as Platform[]).map((p) => (
                 <Button
                   key={p}
                   type="button"

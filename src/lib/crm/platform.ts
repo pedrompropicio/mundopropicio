@@ -2,22 +2,24 @@
 // A cor nunca vai sozinha na UI: vem sempre com o nome da plataforma em texto.
 import type { CampaignRow, InsightRow } from "@/components/crm/dashboard/types";
 
-export type AdPlatform = "meta" | "google";
+export type AdPlatform = "meta" | "google" | "tiktok";
 export type PlatformFilter = "all" | AdPlatform;
 
 export const PLATFORM_LABEL: Record<AdPlatform, string> = {
   meta: "Meta",
   google: "Google",
+  tiktok: "TikTok",
 };
 
 /** Tokens já validados para daltonismo (ver --chart-1/--chart-2 em index.css). */
 export const PLATFORM_COLOR_VAR: Record<AdPlatform, string> = {
   meta: "hsl(var(--chart-1))",
   google: "hsl(var(--chart-2))",
+  tiktok: "hsl(var(--chart-3))",
 };
 
 export function platformOf(row: { platform?: AdPlatform | null } | null | undefined): AdPlatform {
-  return row?.platform === "google" ? "google" : "meta";
+  return row?.platform === "google" ? "google" : row?.platform === "tiktok" ? "tiktok" : "meta";
 }
 
 export function matchesPlatform(
@@ -31,8 +33,12 @@ export function matchesPlatform(
 export function splitCampaignsByPlatform(campaigns: CampaignRow[]) {
   const meta: CampaignRow[] = [];
   const google: CampaignRow[] = [];
-  for (const c of campaigns) (platformOf(c) === "google" ? google : meta).push(c);
-  return { meta, google };
+  const tiktok: CampaignRow[] = [];
+  for (const c of campaigns) {
+    const p = platformOf(c);
+    (p === "google" ? google : p === "tiktok" ? tiktok : meta).push(c);
+  }
+  return { meta, google, tiktok };
 }
 
 /** Moeda distinta encontrada num conjunto de linhas de insights (null se divergirem). */
