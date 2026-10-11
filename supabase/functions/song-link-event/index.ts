@@ -140,7 +140,33 @@ function parseUA(ua: string) {
 const s = (v: unknown, max = 500): string | null =>
   typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null;
 
+// D-ERP234 adenda 3: uma linha estruturada por pedido (slug, ssr/browser, resultado,
+// família de UA) para contar perdas; sem IP nem tokens.
+function uaFamily(ua: string): string {
+  if (/Instagram/i.test(ua)) return "instagram";
+  if (/FBAN|FBAV|FB_IAB|FBIOS|FB4A/i.test(ua)) return "facebook";
+  if (/musical_ly|BytedanceWebview|TikTok|trill/i.test(ua)) return "tiktok";
+  return ua ? "outro" : "vazio";
+}
+
 Deno.serve(async (req: Request): Promise<Response> => {
+  const ctx = { slug: null as string | null, ua: req.headers.get("user-agent") ?? "" };
+  const isSsrReq = req.headers.get("x-song-link-ssr-key") !== null;
+  const res = await handle(req, ctx);
+  if (req.method === "POST") {
+    let outcome = String(res.status);
+    try {
+      const j = await res.clone().json();
+      outcome = j?.error ? `${res.status}:${j.error}` : j?.prefetch ? "prefetch" : j?.enriched ? "enriched"
+        : j?.recovered ? "recovered" : j?.duplicate ? "duplicate" : `${res.status}:novo`;
+    } catch { /* sem corpo */ }
+    console.log("[song-link-event] req " + JSON.stringify({ slug: ctx.slug, via: isSsrReq ? "ssr" : "browser",
+      outcome, ua: uaFamily(ctx.ua), origin_hdr: req.headers.get("origin") ? "sim" : "nao" }));
+  }
+  return res;
+});
+
+async function handle(req: Request, ctx: { slug: string | null; ua: string }): Promise<Response> {
   const origin = req.headers.get("origin");
   if (req.method === "OPTIONS") {
     if (!origin || !ALLOWED_ORIGINS.has(origin)) return json({ ok: false, error: "forbidden_origin" }, 403, origin);
@@ -151,7 +177,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (isSsr && !(await validSsrKey(ssrHeader, Deno.env.get("SONG_LINK_SSR_KEY")))) {
     return json({ ok: false, error: "unauthorized_ssr" }, 401, origin);
   }
-  if (!isSsr && (!origin || !ALLOWED_ORIGINS.has(origin))) return json({ ok: false, error: "forbidden_origin" }, 403, origin);
+  // Alguns navegadores internos enviam o beacon sem Origin; aceitar quando o Referer é do Portal.
+  let refOrigin: string | null = null;
+  try { refOrigin = new URL(req.headers.get("referer") ?? "").origin; } catch { /* sem referer */ }
+  const browserOk = (!!origin && ALLOWED_ORIGINS.has(origin)) || (!origin && !!refOrigin && ALLOWED_ORIGINS.has(refOrigin));
+  if (!isSsr && !browserOk) return json({ ok: false, error: "forbidden_origin" }, 403, origin);
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405, origin);
 
   let body: any;
@@ -167,6 +197,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const slug = s(body?.slug, 120)?.toLowerCase() ?? null;
   const event = body?.event;
+  ctx.slug = slug;
   if (!slug || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) return json({ ok: false, error: "slug_invalido" }, 400, origin);
   if (event !== "arrival" && event !== "choice") return json({ ok: false, error: "event_invalido" }, 400, origin);
   const opened = body?.opened === "app" || body?.opened === "web" ? body.opened : null;
@@ -251,6 +282,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
         else if (in_app_browser && !row.in_app_browser) patch.in_app_browser = in_app_browser;
         if (device) patch.device = device;
         if (os) patch.os = os;
+      }
+      if (!row) {
+        // Adenda 3: event_id já usado mas sem linha deste link → nunca perder a chegada.
+        // Grava com event_id novo e sem entrega externa (o original pode já ter sido entregue).
+        const { error } = await admin.from("song_link_events").insert({
+          link_id: link.id, company_id: link.company_id, artist_id: link.artist_id, song_id: link.song_id,
+          event, mode: s(body.mode, 30), destination, opened, event_id: crypto.randomUUID(),
+          utm_source: s(body.utm_source, 200), utm_medium: s(body.utm_medium, 200),
+          utm_campaign: s(body.utm_campaign, 200), utm_content: s(body.utm_content, 200), utm_term: s(body.utm_term, 200),
+          fbclid: s(body.fbclid, 500), ttclid: s(body.ttclid, 500), country: hdrCountry, region: hdrRegion, city: hdrCity,
+          device, os, in_app_browser, ip_hash: ipHash, origin: "browser",
+          capi_status: "nao_reenviado", tiktok_status: "nao_reenviado" });
+        if (error) return json({ ok: false, error: "erro_interno" }, 500, origin);
+        return json({ ok: true, duplicate: true, recovered: true, delivery: "nao_reenviada" }, 200, origin);
       }
       if (row && s(body.fbp, 500) && row.capi_fbp !== true) patch.capi_fbp = true;
       if (row && Object.keys(patch).length) {
@@ -393,4 +438,4 @@ Deno.serve(async (req: Request): Promise<Response> => {
   else await work;
 
   return json({ ok: true }, 200, origin);
-});
+}
