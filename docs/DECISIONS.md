@@ -5652,3 +5652,18 @@ Decisões do Pedro: (1) apuramento só Ticketline ou genérico para todas as bil
 **Fora desta decisão:** o pixel TikTok no portal (outro projeto) e a criação do pixel do Newgang.
 
 **Estado:** vigente.
+
+## D-ERP249 (11/10/2026) — Ligação automática Meta campanha→evento só preenche, respeita o ano e ignora cidades
+
+**Defeito (Live, 11/10):** ao ficar ativo o "Newgang Festival 2027", `crm.auto_link_meta_campaigns_to_events__impl` passou para ele 9 campanhas de 2025/2026 ligadas ao Newgang 2026 — o ano não contava, a função substituía ligações (`IS DISTINCT FROM`) e varria campanhas pausadas/históricas.
+
+**Decisão (migração `0108_derp249_meta_autolink_safe`):**
+- Só preenche `linked_event_id` quando está NULL (e sem `linked_song_id` nem `linked_event_locked`). Nunca religa.
+- `crm.meta_campaign_event_score(campanha, evento)`: todos os tokens distintos do evento (`public.tiktok_event_distinct_tokens`, sem cidades, números nem palavras genéricas) têm de estar no nome da campanha; se ambos os nomes têm ano 20xx (`crm.meta_campaign_years`), os anos têm de coincidir.
+- Elegível só se `created_time >= events.created_at` ou `effective_status = 'ACTIVE'`.
+- Vence o evento com mais tokens; empate → não liga e sai em `ambiguous jsonb` (nova coluna no retorno; `updated_count`/`total_active_campaigns` mantêm-se, o sync continua a ler `updated_count`).
+- Teste: `supabase/tests/meta_autolink_newgang_years.sql` (Newgang 2025/2026/2027, empate, cidade).
+
+**Herança por decidir (Pedro):** 9 campanhas ligadas com ano diferente do evento — ver relatório de 11/10 (Simone Mendes ×6, M&M ×2, Raphael Ghanem ×1). Não corrigidas.
+
+**Estado:** vigente.
