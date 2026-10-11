@@ -5620,3 +5620,11 @@ Decisões do Pedro: (1) apuramento só Ticketline ou genérico para todas as bil
 - Entregas: a arrival (ViewContent) já foi enviada pelo SSR → não se reenvia. Antes do SSR não existia conversão própria ligada a opened/destination (opened era só um campo da arrival; a escolha é o evento choice, com claim próprio) → nada a enviar.
 - Resposta 200 {duplicate, enriched, delivery:'ja_enviada_pelo_ssr'}; cada enriquecimento regista song_link_diag kind 'redirect', detail 'ssr_enrich' (sem DDL; o check de kind não permite valor novo).
 - Prova: teste enrich-live.test.ts — 1 linha, origin ssr, opened app, destination spotify.
+
+## D-ERP234 — Adenda 3: perda de chegadas rs-meta (11/10/2026)
+- Números de 11/10: campanha 120246020914270358 com 305 link_click e 192 LPV; rs-meta com 12 chegadas não-teste e 7 choice. A campanha começou hoje e os 2 anúncios apontam para /m/rs-meta.
+- Claim: song_link_event_claim é um único INSERT ... ON CONFLICT DO NOTHING RETURNING id. Não há reserva sem linha; o ramo prefetch/bot nunca chama o claim. Hipótese do duplicado fantasma afastada. Defesa: um duplicado sem linha deste link passa a gravar a chegada com event_id novo e capi/tiktok 'nao_reenviado' (sem reentrega).
+- Rate limit: 60/min por IP e por isolado; com ~19 cliques/hora não explica a perda. 0 respostas 429 na janela observada.
+- Logs: a retenção é de ~10 min, por isso não há contagem do dia. Passa a existir uma linha por pedido "[song-link-event] req {slug, via, outcome, ua, origin_hdr}". Primeira janela após o deploy (16:10–16:15): rs-meta 1 SSR novo e 0 pedidos browser, 0 rejeições. rs-tt: 66 SSR, 44 enriched, 11 prefetch.
+- Origin: um beacon sem Origin passa a ser aceite quando o Referer é do Portal.
+- Conclusão: as visitas Meta em falta não chegam à função, nem por SSR nem pelo browser. A perda está antes, no Portal: o SSR salta UAs de robô (isBotUa) sem deixar rasto, e o navegador da Meta pode servir uma página pré-carregada. Exige uma alteração no Portal, que é outro projecto.
