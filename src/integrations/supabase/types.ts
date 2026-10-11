@@ -20282,6 +20282,18 @@ export type Database = {
           merged_into_splits: number
         }[]
       }
+      meta_ad_destinations: {
+        Args: { p_account_id?: string }
+        Returns: {
+          ad_id: string
+          campaign_id: string
+          nome: string
+          slug: string
+          status: string
+          url_destino: string
+          url_tags: string
+        }[]
+      }
       move_operacao_etapa: {
         Args: { p_etapa_id: string; p_new_frente_id: string }
         Returns: Json
