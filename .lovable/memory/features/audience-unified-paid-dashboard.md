@@ -17,3 +17,5 @@ Fase 3B do redesenho do MP Audience.
 - Frescura por plataforma no cabeçalho (max `last_synced_at`); >48h fica em alerta com nº de dias. "Sincronizar agora" corre Meta + Google.
 - Acções (pausar/activar, editar, drill-down de conjuntos, IA, testar funil) são só Meta; linhas Google são acompanhamento.
 - A aba "Campanhas" da página `/audience/google-ads` foi removida (duplicava o dashboard e tinha EUR fixo); a página fica só com Conversões offline.
+- TikTok (D-ERP248): `platform='tiktok'` (cor `--chart-3`), `src/lib/crm/tiktok-queries.ts`. Lê `crm.tiktok_insights_daily` ao nível 'adgroup' e só campanhas com `linked_event_id` de eventos da empresa (RLS própria + filtro por events.company_id). Compras, alcance, frequência e cliques únicos ficam null ("—"). Só acompanhamento.
+- Conta TikTok partilhada MP/Carreira (aa667121, `shared_company_ids`): campanha tem evento OU música (CHECK). As funções e alertas da Carreira leem as vistas `*_carreira`, que excluem as campanhas de evento.

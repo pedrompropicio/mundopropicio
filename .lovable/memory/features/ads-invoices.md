@@ -86,3 +86,8 @@ fatura pedida — a barreira dos 1.000 do PostgREST não se aplica.
 
 Live 18/09: 8 faturas, 130 linhas, `sum(total_lines)=130`, `sum(pending_lines)=0`, igual à
 contagem direta pela função; 0 linhas com evento e `match_source='none'`.
+
+## TikTok (D-ERP248, 11/10/2026)
+- `platform='tiktok'`; acção `parse_tiktok` no ingest (parser puro `_shared/ads-invoice-tiktok-parser.ts`; extração do PDF no ingest). **Ainda não validado contra um PDF real** — o 1.º PDF entra com `dry_run` e o parser ajusta-se ao layout real.
+- Casamento pelo **ID da campanha** com `crm.tiktok_campaign`: evento da empresa → `erp_link`; música → `match_source='carreira'` (event_id NULL, não conta como pendente); sem nada → `none`.
+- Geração: mesmo padrão mãe/filhas; a Carreira é uma filha sem evento nem linha de BP, e participa no rateio dos ajustes anónimos. Fornecedor "TikTok Information Technologies UK Limited", 3.2.01, Autopay (vence na emissão).
