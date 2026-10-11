@@ -28,6 +28,7 @@ import { Trash2, Plus, ArrowUp, ArrowDown } from "lucide-react";
 import { FaqsTab } from "./FaqsTab";
 import { LineupTab } from "./LineupTab";
 import { MetaAudienceCard } from "./MetaAudienceCard";
+import { EventTrackersCard } from "./EventTrackersCard";
 import PurchaseAudienceCard from "@/components/crm/PurchaseAudienceCard";
 import { MP_COMPANY_ID } from "../constants";
 import { CopyTourContentDialog } from "./CopyTourContentDialog";
@@ -1140,6 +1141,7 @@ function GestaoTab({
           disabled={disabled}
         />
       )}
+      {!lean && <EventTrackersCard eventId={eventId} disabled={disabled} />}
 
       {!lean && (
         <PurchaseAudienceCard

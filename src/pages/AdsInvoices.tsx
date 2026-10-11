@@ -72,7 +72,7 @@ interface EventOption {
   isChild: boolean;
 }
 
-const platformLabels: Record<string, string> = { meta: "Meta", google: "Google" };
+const platformLabels: Record<string, string> = { meta: "Meta", google: "Google", tiktok: "TikTok" };
 const statusLabels: Record<string, string> = {
   proposed: "Proposta",
   confirmed: "Confirmada",
@@ -428,7 +428,7 @@ export default function AdsInvoices() {
     const missing = missingByInvoice.get(openInvoice.id) ?? 0;
     for (const l of lines) {
       if (l.is_adjustment) { adjustments += Number(l.amount); continue; }
-      if (l.match_source === "fora_sistema") {
+      if (l.match_source === "fora_sistema" || l.match_source === "carreira") {
         outOfScope += Number(l.amount);
         outOfScopeLines++;
         continue;
@@ -714,7 +714,7 @@ export default function AdsInvoices() {
                 )}
                 <TableRow>
                   <TableCell className="text-muted-foreground">
-                    Fora do sistema ({outOfScopeLines} linha{outOfScopeLines === 1 ? "" : "s"})
+                    Fora do sistema / Carreira ({outOfScopeLines} linha{outOfScopeLines === 1 ? "" : "s"})
                   </TableCell>
                   <TableCell className="text-right">{formatCurrency(outOfScope)}</TableCell>
                 </TableRow>
@@ -799,7 +799,7 @@ export default function AdsInvoices() {
                             {l.event_split?.length ? "Repartição" : "Repartir pela turnê"}
                           </Button>
                         )}
-                        {!readOnly && !l.is_adjustment && l.match_source === "fora_sistema" && (
+                        {!readOnly && !l.is_adjustment && (l.match_source === "fora_sistema" || l.match_source === "carreira") && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -809,7 +809,7 @@ export default function AdsInvoices() {
                             Repor por resolver
                           </Button>
                         )}
-                        {!readOnly && !l.is_adjustment && l.match_source !== "fora_sistema" && (
+                        {!readOnly && !l.is_adjustment && l.match_source !== "fora_sistema" && l.match_source !== "carreira" && (
                           <MarkOutsideButton
                             disabled={markMutation.isPending}
                             onConfirm={(note) => markMutation.mutate({ id: l.id, note })}
@@ -837,7 +837,7 @@ export default function AdsInvoices() {
             <HelpTooltip anchor="rateios.faturas-ads" size={14} />
           </h1>
           <p className="text-sm text-muted-foreground">
-            Propostas de rateio das faturas de tráfego pago (Meta e Google).
+            Propostas de rateio das faturas de tráfego pago (Meta, Google e TikTok).
           </p>
         </div>
         {canImport && <AdsInvoiceImportDialog companyId={companyId} />}

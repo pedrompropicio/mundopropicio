@@ -89,7 +89,8 @@ export function CampaignTableRow({
 
   // Fase 3B — as acções e o drill-down existentes são específicos do Meta.
   const platform = platformOf(c);
-  const isGoogle = platform === "google";
+  // Google e TikTok são só acompanhamento (acções/drill-down só Meta).
+  const isGoogle = platform !== "meta";
   // Moeda da própria linha (a conta Google pode não ser a da conta Meta activa).
   const rowCurrency = singleCurrency(insights, currencyProp) ?? currencyProp;
 

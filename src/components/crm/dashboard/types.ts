@@ -25,7 +25,7 @@ export interface CampaignRow {
   bid_strategy: string | null;
   replaced_by_strategy_id: string | null; // Sprint 3a-1 — marca campanha substituída por redesign
   /** Fase 3B — plataforma de origem. Ausente ⇒ "meta" (compatibilidade). */
-  platform?: "meta" | "google";
+  platform?: "meta" | "google" | "tiktok";
   /** Google Ads: tipo de canal (equivalente prático do objective). */
   channel_type?: string | null;
 }
@@ -64,7 +64,7 @@ export interface InsightRow {
   adset_name?: string | null;
   ad_name?: string | null;
   /** Fase 3B — plataforma de origem. Ausente ⇒ "meta". */
-  platform?: "meta" | "google";
+  platform?: "meta" | "google" | "tiktok";
 }
 
 /** Snapshot de conjunto (crm.meta_adset_snapshot) — subconjunto usado no drill-down. */

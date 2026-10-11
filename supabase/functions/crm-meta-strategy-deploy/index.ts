@@ -176,11 +176,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (!strategy.connection_id) return json({ error: "connection_missing" }, 400);
 
     // ── Pixel do EVENTO (precedência sobre o pixel da campanha-fonte) ─────────
-    // events.meta_pixel_id é a fonte de verdade do pixel de tracking de
-    // bilheteira. Se preenchido, manda sobre o pixel herdado da fonte (que
-    // continua a ser populado abaixo como fallback). strategy.event_id pode ser
-    // null em planos manuais sem evento — aí cai-se silenciosamente no fallback.
+    // D-ERP248: a fonte de verdade é public.event_trackers (platform='meta').
+    // Só sem linha se cai na inferência pela campanha-fonte (abaixo).
+    // strategy.event_id pode ser null em planos manuais sem evento.
     let eventPixelId: string | null = null;
+    let eventPixelEventType = "PURCHASE";
     let eventAdDestinationUrl: string | null = null;
     let eventTicketingUrl: string | null = null;
     let eventName: string | null = null;
@@ -188,8 +188,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (strategy.event_id) {
       const { data: eventRow } = await (supabase as any)
         .schema("public").from("events")
-        .select("name, slug, meta_pixel_id, ad_destination_url, ticketing_url").eq("id", strategy.event_id).maybeSingle();
-      eventPixelId = (eventRow as any)?.meta_pixel_id ?? null;
+        .select("name, slug, ad_destination_url, ticketing_url").eq("id", strategy.event_id).maybeSingle();
+      const { data: trackers } = await (supabase as any)
+        .schema("public").from("event_trackers")
+        .select("tracker_id, tracker_metadata, updated_at")
+        .eq("event_id", strategy.event_id).eq("platform", "meta")
+        .order("updated_at", { ascending: false }).limit(1);
+      const tr = (trackers ?? [])[0];
+      eventPixelId = tr?.tracker_id ?? null;
+      if (tr?.tracker_metadata?.custom_event_type) eventPixelEventType = String(tr.tracker_metadata.custom_event_type);
       eventAdDestinationUrl = (eventRow as any)?.ad_destination_url ?? null;
       eventTicketingUrl = (eventRow as any)?.ticketing_url ?? null;
       eventName = (eventRow as any)?.name ?? null;
@@ -490,11 +497,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     // ── Pixel da campanha-fonte (redesign Meta) ──────────────────────────────
-    // DEBT(multi-platform): MVP Meta — lê pixel da campanha-fonte. Quando entrar
-    // Google/TikTok, mover para tabela event_trackers (event_id × platform ×
-    // tracker_id). Ver .lovable/memory/features/multi-platform-tracking-roadmap.md.
-    //
-    // Deriva UM promoted_object consistente dos adsets da campanha-fonte
+    // Fallback (só quando o evento não tem linha 'meta' em event_trackers):
+    // deriva UM promoted_object consistente dos adsets da campanha-fonte
     // (crm.meta_adset_snapshot.raw->'promoted_object') e injecta-o nos adsets
     // novos. Os casos-limite abortam ANTES de criar qualquer entidade na Meta.
     const CONVERSION_GOALS = new Set(["OFFSITE_CONVERSIONS", "CONVERSIONS", "VALUE"]);
@@ -536,7 +540,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // Precedência EVENTO-PRIMEIRO: pixel do evento manda; fonte é fallback.
     const resolvedPromotedObject: { pixel_id: string; custom_event_type?: string } | null =
       eventPixelId
-        ? { pixel_id: String(eventPixelId), custom_event_type: "PURCHASE" }
+        ? { pixel_id: String(eventPixelId), custom_event_type: eventPixelEventType }
         : (sourcePromotedObject ?? null);
     const pixelSource: "event" | "source_campaign" | null =
       eventPixelId ? "event" : (sourcePromotedObject ? "source_campaign" : null);
@@ -548,7 +552,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       // Sem pixel disponível (nem no evento, nem na campanha-fonte) e o plano
       // usa goal de conversão → a chamada /adsets falharia na Meta. Aborta com
       // mensagem clara que orienta o utilizador a configurar o pixel no evento.
-      addLog("error", "Sem pixel disponível (evento sem meta_pixel_id e fonte sem promoted_object) e o plano usa optimization_goal de conversão", {
+      addLog("error", "Sem pixel disponível (evento sem pixel em event_trackers e fonte sem promoted_object) e o plano usa optimization_goal de conversão", {
         event_id: strategy.event_id ?? null,
         source_campaign_id: strategy.source_campaign_id ?? null,
       });
@@ -557,7 +561,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         error: "no_pixel_available",
         event_id: strategy.event_id ?? null,
         source_campaign_id: strategy.source_campaign_id ?? null,
-        message: "O plano tem adsets de conversão (Vendas) mas não há pixel disponível. Configura meta_pixel_id no evento em /eventos/<id> ou, em modo redesign, garante que a campanha-fonte tem pixel sincronizado (re-sync em modo full).",
+        message: "O plano tem adsets de conversão (Vendas) mas não há pixel disponível. Configura o pixel Meta no cartão "Trackers" do evento em /eventos/<id> ou, em modo redesign, garante que a campanha-fonte tem pixel sincronizado (re-sync em modo full).",
       }, 422);
     }
 
@@ -781,7 +785,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
                 status: "PAUSED",
                 start_time: startTime,
               };
-              // Injecta o pixel herdado da campanha-fonte (ver bloco DEBT acima).
+              // Injecta o pixel (event_trackers ou, sem linha, o herdado da campanha-fonte).
               // SÓ quando a campanha é OUTCOME_SALES E o optimization_goal do adset
               // é de conversão (CONVERSION_GOALS). A Meta rejeita promoted_object/pixel
               // em objetivos não-conversão (OUTCOME_AWARENESS/THRUPLAY, OUTCOME_TRAFFIC)

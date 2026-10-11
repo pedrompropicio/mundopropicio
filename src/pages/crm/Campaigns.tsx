@@ -98,6 +98,7 @@ import {
   type PlatformFilter,
 } from "@/lib/crm/platform";
 import { useGoogleCampaignsQuery, useGoogleInsightsQuery } from "@/lib/crm/google-queries";
+import { useTiktokCampaignsQuery, useTiktokInsightsQuery } from "@/lib/crm/tiktok-queries";
 
 import {
   useCampaignsQuery,
@@ -263,16 +264,27 @@ export default function CrmCampaigns() {
     enabled: isAuthorized,
   });
 
-  // Universo unificado das duas plataformas, já filtrado pelo selector de plataforma.
+  // ---------- TikTok Ads (D-ERP248) — só campanhas com evento da empresa ----------
+  const { data: tiktokCampaignsRaw, isLoading: tiktokCampaignsLoading } = useTiktokCampaignsQuery({
+    companyId,
+    enabled: isAuthorized,
+  });
+  const { data: tiktokInsightsRaw, isLoading: tiktokInsightsLoading } = useTiktokInsightsQuery({
+    companyId,
+    campaigns: tiktokCampaignsRaw,
+    enabled: isAuthorized,
+  });
+
+  // Universo unificado das plataformas, já filtrado pelo selector de plataforma.
   const campaigns = useMemo(() => {
-    const all = [...(metaCampaigns ?? []), ...(googleCampaignsRaw ?? [])];
+    const all = [...(metaCampaigns ?? []), ...(googleCampaignsRaw ?? []), ...(tiktokCampaignsRaw ?? [])];
     return all.filter((c) => matchesPlatform(c, platformFilter));
-  }, [metaCampaigns, googleCampaignsRaw, platformFilter]);
+  }, [metaCampaigns, googleCampaignsRaw, tiktokCampaignsRaw, platformFilter]);
 
   const insights = useMemo(() => {
-    const all = [...(metaInsights ?? []), ...(googleInsightsRaw ?? [])];
+    const all = [...(metaInsights ?? []), ...(googleInsightsRaw ?? []), ...(tiktokInsightsRaw ?? [])];
     return all.filter((r) => matchesPlatform(r, platformFilter));
-  }, [metaInsights, googleInsightsRaw, platformFilter]);
+  }, [metaInsights, googleInsightsRaw, tiktokInsightsRaw, platformFilter]);
 
   // Sinal para a dialog de activação: campanha já gastou no período seleccionado?
   const reactivateHasRunBefore = useMemo(() => {
@@ -626,7 +638,7 @@ export default function CrmCampaigns() {
   // Frescura por plataforma: max(last_synced_at) de cada tabela de insights.
   // >48h ⇒ estado de alerta com o nº de dias. Nunca esconder dados velhos.
   const freshness = useMemo(() => {
-    const build = (rows: InsightRow[] | undefined, key: "meta" | "google") => {
+    const build = (rows: InsightRow[] | undefined, key: "meta" | "google" | "tiktok") => {
       const latest = (rows ?? [])
         .map((i) => i.last_synced_at)
         .filter(Boolean)
@@ -642,8 +654,8 @@ export default function CrmCampaigns() {
         days: Math.floor(hours / 24),
       };
     };
-    return [build(metaInsights, "meta"), build(googleInsightsRaw, "google")];
-  }, [metaInsights, googleInsightsRaw]);
+    return [build(metaInsights, "meta"), build(googleInsightsRaw, "google"), build(tiktokInsightsRaw, "tiktok")];
+  }, [metaInsights, googleInsightsRaw, tiktokInsightsRaw]);
 
   const adAccountsCount = useMemo(() => {
     const set = new Set((campaigns ?? []).map((c) => c.ad_account_id));
@@ -844,7 +856,8 @@ export default function CrmCampaigns() {
   if (!isAuthorized) return <Navigate to="/" replace />;
 
   const loadingAny =
-    campaignsLoading || insightsLoading || googleCampaignsLoading || googleInsightsLoading;
+    campaignsLoading || insightsLoading || googleCampaignsLoading || googleInsightsLoading ||
+    tiktokCampaignsLoading || tiktokInsightsLoading;
 
   return (
     <BudgetModeContext.Provider value={budgetModeByCampaign}>
@@ -1012,6 +1025,7 @@ export default function CrmCampaigns() {
             { k: "all", l: "Todas" },
             { k: "meta", l: "Meta" },
             { k: "google", l: "Google" },
+            { k: "tiktok", l: "TikTok" },
           ] as const).map((p) => (
             <Button
               key={`plat-${p.k}`}
