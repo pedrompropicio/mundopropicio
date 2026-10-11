@@ -1089,7 +1089,7 @@ export default function CrmCampaigns() {
         />
         <KpiCard
           label="Conversões"
-          big={kpis.conv.value > 0 ? String(kpis.conv.value) : "0"}
+          big={formatInteger(kpis.conv.value)}
           delta={kpis.conv.delta}
           subtitle="Compras no período"
           direction="up-good"
