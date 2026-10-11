@@ -90,6 +90,7 @@ import {
   formatCurrency,
   formatCompact,
   formatRoas,
+  formatInteger,
 } from "@/lib/crm/dashboard-format";
 import {
   PLATFORM_COLOR_VAR,
