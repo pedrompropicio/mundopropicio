@@ -90,3 +90,11 @@ export function formatTourDateRange(splits: EventRow[]): string | null {
   }
   return `${format(first, "dd MMM", { locale: ptBR })} → ${format(last, "dd MMM yyyy", { locale: ptBR })} · ${count} datas`;
 }
+
+/** Inteiro arredondado com separador de milhares pt ("1 195"); null → "—". */
+export function formatInteger(n: number | null | undefined): string {
+  if (n === null || n === undefined || !Number.isFinite(n)) return "—";
+  const r = Math.round(n);
+  const s = String(Math.abs(r)).replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0");
+  return r < 0 ? `-${s}` : s;
+}

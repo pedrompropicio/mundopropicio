@@ -83,3 +83,6 @@ anúncio activo; 0 erros.
 - **Publicação Meta** (`crm-meta-publish-execute`, reels) usa `meta_image_hash` /
   `meta_video_id` / `meta_creative_id` — metadados, não o ficheiro. Apagar o ficheiro
   não impede publicar nem perde histórico.
+
+## Trava no sync de criativos (#307, 11/10/2026)
+`crm-meta-sync-creatives` ignora sempre (mesmo com exclude_past_events=false) anúncios de campanhas com `stop_time` (ou `updated_time`) há mais de 183 dias e sem nenhum anúncio `effective_status='ACTIVE'`; nunca recria criativos delas. A resposta traz `stale_ad_rows`, `stale_campaigns_skipped` e `considered_creatives`.
