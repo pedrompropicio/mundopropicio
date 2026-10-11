@@ -5628,3 +5628,27 @@ Decisões do Pedro: (1) apuramento só Ticketline ou genérico para todas as bil
 - Logs: a retenção é de ~10 min, por isso não há contagem do dia. Passa a existir uma linha por pedido "[song-link-event] req {slug, via, outcome, ua, origin_hdr}". Primeira janela após o deploy (16:10–16:15): rs-meta 1 SSR novo e 0 pedidos browser, 0 rejeições. rs-tt: 66 SSR, 44 enriched, 11 prefetch.
 - Origin: um beacon sem Origin passa a ser aceite quando o Referer é do Portal.
 - Conclusão: as visitas Meta em falta não chegam à função, nem por SSR nem pelo browser. A perda está antes, no Portal: o SSR salta UAs de robô (isBotUa) sem deixar rasto, e o navegador da Meta pode servir uma página pré-carregada. Exige uma alteração no Portal, que é outro projecto.
+
+---
+
+## D-ERP248 (11/10/2026) — #306 MP Audience preparado para TikTok Ads por evento (Newgang 2027)
+
+**Decisão do Pedro:** uma só conta TikTok Ads, "Mundo Propicio Unipessoal Lda" 7684063259020017665 (EUR), partilhada entre MP (7c858982) e Carreira (ligação aa667121, company cb5b15cb, artista Litto). A separação é por campanha, como na Meta. **Não há segunda ligação para o mesmo advertiser** — índice único parcial `uq_conn_active_platform_account (platform, selected_ad_account_id) WHERE status='active' AND selected_ad_account_id IS NOT NULL`. Provado em Live: a tentativa de duplicar devolve `unique_violation`.
+
+**1. `public.event_trackers`** (migração 0106) — evento × plataforma ('meta'|'google'|'tiktok') × tracker_id, `tracker_metadata jsonb`, UNIQUE (event_id, platform, tracker_id). RLS: PERMISSIVE SELECT + escrita admin/manager/marketing_manager/platform_admin + RESTRICTIVE `row_belongs_to_current_company`. Trigger `event_trackers_sync_company` força `company_id` = empresa do evento (o cliente nunca o define). Backfill: 16 linhas 'meta' a partir de `events.meta_pixel_id` (a coluna **fica**; migração 0107 põe um trigger que a espelha em event_trackers, porque o portal e a CAPI continuam a lê-la). `crm-meta-strategy-deploy` lê o pixel de `event_trackers` e só cai na inferência pela campanha-fonte quando não há linha — **o bloco DEBT(multi-platform) foi removido**.
+
+**2. Campanha TikTok → evento OU música.** `crm.tiktok_campaign` ganha `linked_event_id` + `linked_event_locked` e o CHECK `tiktok_campaign_event_xor_song` (nunca os dois; provado: `check_violation`). `ad_platform_connections.shared_company_ids uuid[]` diz com que empresas a conta é partilhada (aa667121 → MP).
+- Automático: `tiktok_auto_link_events_for_connection(connection_id)` (service_role, chamada no fim do sync). Exige que **todos** os tokens distintos do nome do evento estejam no nome da campanha; **nomes de cidades nunca contam** (`public.cities`), nem palavras genéricas (festival, tour, vendas, tráfego…). Empate entre eventos → não liga, vai para `ambiguas`. É a resposta ao caso Meta de artistas casados pela cidade.
+- Manual: `tiktok_set_campaign_event(p_campaign_id, p_event_id)` (authenticated, papéis admin/manager/marketing_manager/platform_admin), só campanhas de contas partilhadas com a empresa e só eventos da empresa; recusa campanha com música. `tiktok_linkable_campaigns()` lista o que a empresa pode ligar.
+- Acesso cruzado sem abrir a tabela: política SELECT nova em `tiktok_campaign`/`tiktok_insights_daily` para a empresa **do evento ligado**. A Carreira não regride: as vistas `crm.tiktok_campaign_carreira` e `crm.tiktok_insights_daily_carreira` (security_invoker) excluem campanhas com evento, e as 6 funções da Carreira (`artist_ads_campaigns`, `artist_ads_daily`, `artist_ads_period_report`, `artist_ads_investment_report`, `_artist_ads_investment_source`, `artist_ads_tiktok_alerts_core`) foram recriadas a ler delas.
+- O sync nunca põe música numa campanha que já tem evento.
+
+**3. Dashboard.** `/audience/dashboard` ganha `platform='tiktok'` ao lado de Meta e Google (`src/lib/crm/tiktok-queries.ts`, cor `--chart-3`, sempre com o nome em texto). Lê `crm.tiktok_insights_daily` ao nível **'adgroup'** e só campanhas com evento da empresa. Cêntimos; moedas nunca convertidas; compras, alcance, frequência e cliques únicos ficam null → "—", nunca zero. Acções e drill-down continuam só Meta.
+
+**4. Faturas TikTok no pipeline de Faturas Ads** (sem pipeline novo): `ads_invoice.platform` aceita 'tiktok'; `ads-invoice-ingest` ganha a acção `parse_tiktok` (parser `_shared/ads-invoice-tiktok-parser.ts`, PDF = fonte de verdade, recusa gravar se a soma não fechar ao cêntimo — D-ERP31 e as 3 fases mantêm-se). Cada linha casa pelo **ID da campanha** com `crm.tiktok_campaign`: evento da MP → `erp_link`; música → novo `match_source='carreira'` (sem evento, `ads_invoice_line_carreira_sem_evento`). O `ads-invoice-apply` gera o mesmo padrão mãe/filhas, com uma filha "Carreira" sem evento nem linha de BP; `ads_invoice_line_is_pending` deixa de contar 'carreira' como pendente. Fornecedor "TikTok Information Technologies UK Limited" (UK, autoliquidação, rubrica 3.2.01); pagamento Autopay (vence na emissão, como o Google).
+
+**Contagens 11/10:** event_trackers 0 → 16; campanhas TikTok com evento 0 → 0 (as 7 existentes são todas de música; as do Newgang ainda não existem); com música 7 → 7; ligações TikTok 2 (ambas ativas), nenhuma duplicada.
+
+**Fora desta decisão:** o pixel TikTok no portal (outro projeto) e a criação do pixel do Newgang.
+
+**Estado:** vigente.
