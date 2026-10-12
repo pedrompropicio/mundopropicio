@@ -601,7 +601,7 @@ function ProtectedLayout() {
                 <Route path="auditoria-iva" element={<ReportIvaAuditPage />} />
               </Route>
               
-              <Route path="/admin" element={<AdminPanel />} />
+              <Route path="/admin" element={<RequireAccess area="settings.admin"><AdminPanel /></RequireAccess>} />
               <Route path="/admin/utilizadores" element={<RequireAccess area="settings.users"><UserManagement /></RequireAccess>} />
               <Route path="/admin/backups" element={<RequireAccess area="settings.backups"><DatabaseBackups /></RequireAccess>} />
               <Route path="/admin/seguranca" element={<RequireAccess area="settings.security"><SecurityDashboard /></RequireAccess>} />
