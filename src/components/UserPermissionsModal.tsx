@@ -126,37 +126,27 @@ export default function UserPermissionsModal({ open, onOpenChange, userId, userN
     },
   });
 
-  const groups = [...new Set(ALL_PERMISSIONS.map((p) => p.group))];
+  // #311 F2b — "Módulos" e "Configurações" primeiro; os interruptores crm.*
+  // ficam por baixo de "Módulo MP Audience" (dentro do grupo Módulos).
+  const PRIORITY = ["Módulos", "Configurações"];
+  const groups = [
+    ...PRIORITY.filter((g) => ALL_PERMISSIONS.some((p) => p.group === g)),
+    ...[...new Set(ALL_PERMISSIONS.map((p) => p.group))].filter((g) => !PRIORITY.includes(g) && g !== "MP Audience"),
+  ];
+  const audienceChildren = ALL_PERMISSIONS.filter((p) => p.group === "MP Audience");
+  const audienceOn = isPermGranted("module.audience");
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Permissões de {userName}</DialogTitle>
-          <p className="text-xs text-muted-foreground">
-            Toggle para ativar/desativar. Itens com fundo destacado têm override individual.
-          </p>
-        </DialogHeader>
-
-        {isLoading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <div className="space-y-5">
-            {groups.map((group) => (
-              <div key={group}>
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{group}</h4>
-                <div className="space-y-1">
-                  {ALL_PERMISSIONS.filter((p) => p.group === group).map((perm) => {
-                    const granted = isPermGranted(perm.key);
+  const renderPerm = (perm: { key: string; label: string }, opts?: { nested?: boolean; disabled?: boolean }) => {
+    const granted = isPermGranted(perm.key);
                     const overridden = isOverridden(perm.key);
                     return (
                       <button
                         key={perm.key}
                         type="button"
                         onClick={() => togglePerm(perm.key)}
-                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
+                        disabled={opts?.disabled}
+                        aria-disabled={opts?.disabled}
+                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${opts?.nested ? "pl-8 " : ""}${opts?.disabled ? "opacity-40 pointer-events-none " : ""}${
                           overridden
                             ? "bg-primary/10 border border-primary/20"
                             : "hover:bg-secondary/50"
@@ -183,7 +173,37 @@ export default function UserPermissionsModal({ open, onOpenChange, userId, userN
                         </div>
                       </button>
                     );
-                  })}
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Permissões de {userName}</DialogTitle>
+          <p className="text-xs text-muted-foreground">
+            Toggle para ativar/desativar. Itens com fundo destacado têm override individual.
+          </p>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {groups.map((group) => (
+              <div key={group}>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{group}</h4>
+                <div className="space-y-1">
+                  {ALL_PERMISSIONS.filter((p) => p.group === group).map((perm) => (
+                    <div key={perm.key}>
+                      {renderPerm(perm)}
+                      {perm.key === "module.audience" &&
+                        audienceChildren.map((child) => (
+                          <div key={child.key}>{renderPerm(child, { nested: true, disabled: !audienceOn })}</div>
+                        ))}
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}

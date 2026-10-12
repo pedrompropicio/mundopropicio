@@ -10,7 +10,7 @@ import PartnerPortal from "@/pages/PartnerPortal";
 import PartnerEventDetail from "@/pages/PartnerEventDetail";
 
 export function PartnerLayout() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut, role, hasPermission } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   useInactivityTimeout(!loading && !!user);
@@ -25,7 +25,7 @@ export function PartnerLayout() {
     }
   }, [loading, user, signOut]);
 
-  if (loading) {
+  if (loading || (user && role === null)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <p className="text-muted-foreground">A carregar…</p>
@@ -34,6 +34,8 @@ export function PartnerLayout() {
   }
 
   if (!user) return <Navigate to="/login" replace />;
+  // #311 F2b — Portal do Sócio só com module.partner_portal
+  if (!hasPermission("module.partner_portal")) return <Navigate to="/modulos" replace />;
 
   return (
     <div className="flex min-h-screen flex-col">

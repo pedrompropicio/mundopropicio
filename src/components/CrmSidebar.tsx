@@ -24,7 +24,7 @@ import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 export function CrmSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, hasPermission } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
 
   const items = [
@@ -35,13 +35,13 @@ export function CrmSidebar() {
     { to: "/crm/clube-newgang", icon: Users, label: "Clube Newgang" },
     { to: "/crm/audiences", icon: Target, label: "Audiências" },
     { to: "/crm/blog", icon: FileText, label: "Blog" },
-    { to: "/crm/paginas", icon: FilePen, label: "Páginas" },
-    { to: "/crm/videos", icon: Video, label: "Vídeos" },
+    { need: "settings.portal", to: "/crm/paginas", icon: FilePen, label: "Páginas" },
+    { need: "settings.portal", to: "/crm/videos", icon: Video, label: "Vídeos" },
     { to: "/crm/press", icon: Newspaper, label: "Imprensa" },
-    { to: "/crm/portal-settings", icon: Settings, label: "Config. portal" },
-    { to: "/crm/meta-capi", icon: Activity, label: "Meta CAPI" },
+    { need: "settings.portal", to: "/crm/portal-settings", icon: Settings, label: "Config. portal" },
+    { need: "settings.integrations.meta", to: "/crm/meta-capi", icon: Activity, label: "Meta CAPI" },
     { to: "/crm/meta-audiences", icon: Target, label: "Meta Audiences" },
-    { to: "/crm/google-ads", icon: Sparkles, label: "Google Ads" },
+    { need: "settings.integrations.google", to: "/crm/google-ads", icon: Sparkles, label: "Google Ads" },
   ];
 
   const isItemActive = (to: string, end?: boolean) => {
@@ -64,7 +64,7 @@ export function CrmSidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 px-2 lg:px-3 w-full overflow-y-auto">
-        {items.map((item) => {
+        {items.filter((item: any) => !item.need || hasPermission(item.need)).map((item) => {
           const active = isItemActive(item.to, item.end);
           return (
             <RouterNavLink

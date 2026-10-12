@@ -54,6 +54,8 @@ import { AudienceLayout } from "./components/layout/AudienceLayout";
 import { AudiencePrintGuard } from "./components/layout/AudiencePrintGuard";
 import { CrmLayout } from "./components/layout/CrmLayout";
 import { PartnerLayout } from "./components/PartnerLayout";
+import { accessByPermission, moduleLanding, isCamarimOnlyUser } from "@/lib/access";
+import { RequireAccess } from "@/components/guards/RequireAccess";
 
 // --- Lazy: ERP ---
 const Events = lazy(() => import("./pages/Events"));
@@ -275,7 +277,8 @@ function MobileNavSheet() {
 }
 
 function ProtectedLayout() {
-  const { user, loading, isPartner, isAdmin, isManager, hasPermission, role, signOut } = useAuth();
+  const { user, loading, isAdmin, isManager, hasPermission, role, signOut, permissions } = useAuth();
+  const erpAllowed = accessByPermission(String(role ?? ""), permissions ?? []).has("erp");
   const { companyId, isLoading: companyLoading, isError: companyError, error: companyErrorObj, isPlatformAdmin, refetch: refetchCompany } = useCompany();
   const queryClient = useQueryClient();
   const previousCompanyIdRef = useRef<string | null>(null);
@@ -426,29 +429,11 @@ function ProtectedLayout() {
     );
   }
 
-  // Partner users are redirected to their dedicated layout
-  if (isPartner) {
-    return <Navigate to="/parceiro" replace />;
-  }
-
   // Camarim-only users (team members with no management access) go to the
-  // compact PWA-like camarim-equipa view. Bloqueia acesso a QUALQUER rota
-  // do dashboard administrativo — só podem ver /camarim-equipa.
+  // compact PWA-like camarim-equipa view.
   if (isCamarimOnly) {
     return <Navigate to="/camarim-equipa" replace />;
   }
-
-  // content_manager só tem acesso ao MP CRM — bloqueia qualquer rota do ERP
-  // (inclui reabertura da PWA no último URL guardado).
-  if ((role as any) === "content_manager") {
-    return <Navigate to="/crm" replace />;
-  }
-
-  // accountant → portal de contabilidade dedicado, read-only
-  if ((role as any) === "accountant") {
-    return <Navigate to="/contabilidade" replace />;
-  }
-
 
   // Preferência opcional: admin/manager com permissão camarim_team pode
   // optar por que a rota raiz "/" abra direto a vista compacta de equipa.
@@ -472,6 +457,13 @@ function ProtectedLayout() {
   // utilizadores de campo (Operação) também consigam abrir o seletor.
   if (currentPath === "/modulos") {
     return <ModuleSelector />;
+  }
+
+  // #311 F2b — rotas do ERP exigem module.erp ou module.operacao; quem não as
+  // tem vai para o módulo que tem (sócio, contabilista, content_manager…).
+  if (!erpAllowed) {
+    const dest = moduleLanding(String(role ?? ""), permissions ?? []);
+    return <Navigate to={dest && dest !== "/erp" && dest !== "/operacao/campo" ? dest : "/modulos"} replace />;
   }
 
   return (
@@ -609,19 +601,19 @@ function ProtectedLayout() {
                 <Route path="auditoria-iva" element={<ReportIvaAuditPage />} />
               </Route>
               
-              <Route path="/admin" element={<AdminPanel />} />
-              <Route path="/admin/utilizadores" element={<UserManagement />} />
-              <Route path="/admin/backups" element={<DatabaseBackups />} />
-              <Route path="/admin/seguranca" element={<SecurityDashboard />} />
-              <Route path="/admin/lixeira" element={<TrashPage />} />
-              <Route path="/admin/implantacao" element={<EventImplementations />} />
-              <Route path="/admin/implantacao/:id" element={<EventImplementationDetail />} />
-              <Route path="/admin/atividade" element={<UserActivityLog />} />
-              <Route path="/admin/auditoria-contas" element={<AuditoriaContas />} />
-              <Route path="/admin/formalidade" element={<FormalidadeAudit />} />
-              <Route path="/admin/reconciliacao-bp-tx" element={<ReconciliacaoBpTx />} />
+              <Route path="/admin" element={<RequireAccess area="settings.admin"><AdminPanel /></RequireAccess>} />
+              <Route path="/admin/utilizadores" element={<RequireAccess area="settings.users"><UserManagement /></RequireAccess>} />
+              <Route path="/admin/backups" element={<RequireAccess area="settings.backups"><DatabaseBackups /></RequireAccess>} />
+              <Route path="/admin/seguranca" element={<RequireAccess area="settings.security"><SecurityDashboard /></RequireAccess>} />
+              <Route path="/admin/lixeira" element={<RequireAccess area="settings.trash"><TrashPage /></RequireAccess>} />
+              <Route path="/admin/implantacao" element={<RequireAccess area="settings.bp_tools"><EventImplementations /></RequireAccess>} />
+              <Route path="/admin/implantacao/:id" element={<RequireAccess area="settings.bp_tools"><EventImplementationDetail /></RequireAccess>} />
+              <Route path="/admin/atividade" element={<RequireAccess area="settings.audit_log"><UserActivityLog /></RequireAccess>} />
+              <Route path="/admin/auditoria-contas" element={<RequireAccess area="settings.audit_accounts"><AuditoriaContas /></RequireAccess>} />
+              <Route path="/admin/formalidade" element={<RequireAccess area="settings.bp_tools"><FormalidadeAudit /></RequireAccess>} />
+              <Route path="/admin/reconciliacao-bp-tx" element={<RequireAccess area="settings.bp_tools"><ReconciliacaoBpTx /></RequireAccess>} />
               <Route path="/admin/empresas" element={<Companies />} />
-              <Route path="/admin/lembretes" element={<Reminders />} />
+              <Route path="/admin/lembretes" element={<RequireAccess area="settings.notifications"><Reminders /></RequireAccess>} />
               
               <Route path="/admin/auditoria-rls" element={<RlsLegacyAudit />} />
               <Route path="/admin/sincronizar-manual" element={<ManualSync />} />
@@ -630,16 +622,16 @@ function ProtectedLayout() {
               <Route path="/admin/invariantes" element={<InvariantMonitor />} />
               <Route path="/admin/invariantes-diarias" element={<Navigate to="/admin/invariantes" replace />} />
               <Route path="/admin/upload-coala-fotos" element={<UploadCoalaFotos />} />
-              <Route path="/admin/sync-health" element={<SyncHealth />} />
-              <Route path="/admin/sync-coala" element={<CoalaSync />} />
-              <Route path="/admin/fever-sync" element={<FeverSync />} />
-              <Route path="/admin/ticketline-sync" element={<TicketlineSync />} />
-              <Route path="/admin/bol-sync" element={<BolSync />} />
-              <Route path="/admin/notifications" element={<Notifications />} />
-              <Route path="/admin/diagnosis-test" element={<DiagnosisTest />} />
+              <Route path="/admin/sync-health" element={<RequireAccess area="settings.integrations.ticketing"><SyncHealth /></RequireAccess>} />
+              <Route path="/admin/sync-coala" element={<RequireAccess area="settings.integrations.ticketing"><CoalaSync /></RequireAccess>} />
+              <Route path="/admin/fever-sync" element={<RequireAccess area="settings.integrations.ticketing"><FeverSync /></RequireAccess>} />
+              <Route path="/admin/ticketline-sync" element={<RequireAccess area="settings.integrations.ticketing"><TicketlineSync /></RequireAccess>} />
+              <Route path="/admin/bol-sync" element={<RequireAccess area="settings.integrations.ticketing"><BolSync /></RequireAccess>} />
+              <Route path="/admin/notifications" element={<RequireAccess area="settings.notifications"><Notifications /></RequireAccess>} />
+              <Route path="/admin/diagnosis-test" element={<RequireAccess area="settings.diagnostics"><DiagnosisTest /></RequireAccess>} />
               <Route path="/admin/iban-duplicados" element={<IbanDuplicates />} />
               <Route path="/admin/fornecedores-parecidos" element={<SimilarSuppliersReview />} />
-              <Route path="/admin/audit-downloads" element={<AuditDownloads />} />
+              <Route path="/admin/audit-downloads" element={<RequireAccess area="settings.audit_log"><AuditDownloads /></RequireAccess>} />
 
 
               <Route path="/perfil" element={<UserSettings />} />
@@ -705,11 +697,11 @@ function App() {
                     <Route path="dashboard" element={<CrmCampaigns />} />
                     <Route path="campaigns/new" element={<CrmCampaignFromScratch />} />
                     <Route path="campaigns/:id" element={<CrmCampaignView />} />
-                    <Route path="connections" element={<CrmConnections />} />
-                    <Route path="pixels" element={<CrmPixels />} />
+                    <Route path="connections" element={<RequireAccess area="settings.integrations.meta"><CrmConnections /></RequireAccess>} />
+                    <Route path="pixels" element={<RequireAccess area="settings.integrations.meta"><CrmPixels /></RequireAccess>} />
                     <Route path="insights" element={<CrmInsights />} />
-                    <Route path="ad-accounts" element={<CrmAdAccounts />} />
-                    <Route path="setup" element={<CrmSetup />} />
+                    <Route path="ad-accounts" element={<RequireAccess area="settings.integrations.meta"><CrmAdAccounts /></RequireAccess>} />
+                    <Route path="setup" element={<RequireAccess area="settings.integrations.meta"><CrmSetup /></RequireAccess>} />
                     <Route path="strategies" element={<CrmStrategies />} />
                     <Route path="strategies/new" element={<CrmStrategyNew />} />
                     <Route path="strategies/redesign/:campaignId" element={<CrmStrategyRedesign />} />
@@ -719,7 +711,7 @@ function App() {
                     <Route path="creatives" element={<CrmCreatives />} />
                     <Route path="creatives/new" element={<CrmCreativeNew />} />
                     <Route path="creatives/:id" element={<CrmCreativeView />} />
-                    <Route path="google-ads" element={<AudienceGoogleAds />} />
+                    <Route path="google-ads" element={<RequireAccess area="settings.integrations.google"><AudienceGoogleAds /></RequireAccess>} />
                     <Route path="audit/funnel-test" element={<CrmFunnelTest />} />
                     <Route path="audit/:contextType/:contextId" element={<CrmAudit />} />
                     <Route path="audit/:contextType" element={<CrmAudit />} />
@@ -746,15 +738,15 @@ function App() {
                     <Route path="blog" element={<BlogList />} />
                     <Route path="blog/novo" element={<BlogEditor mode="new" />} />
                     <Route path="blog/:id" element={<BlogEditor mode="edit" />} />
-                    <Route path="paginas" element={<PaginasList />} />
-                    <Route path="paginas/:slug" element={<PaginaEditor />} />
-                    <Route path="videos" element={<VideosList />} />
+                    <Route path="paginas" element={<RequireAccess area="settings.portal"><PaginasList /></RequireAccess>} />
+                    <Route path="paginas/:slug" element={<RequireAccess area="settings.portal"><PaginaEditor /></RequireAccess>} />
+                    <Route path="videos" element={<RequireAccess area="settings.portal"><VideosList /></RequireAccess>} />
                     <Route path="press" element={<PressList />} />
-                    <Route path="portal-settings" element={<PortalSettings />} />
-                    <Route path="meta-capi" element={<MetaCapiMonitor />} />
+                    <Route path="portal-settings" element={<RequireAccess area="settings.portal"><PortalSettings /></RequireAccess>} />
+                    <Route path="meta-capi" element={<RequireAccess area="settings.integrations.meta"><MetaCapiMonitor /></RequireAccess>} />
                     <Route path="meta-audiences" element={<MetaAudiencesList />} />
                     <Route path="meta-audiences/upload" element={<CustomerMatchUpload />} />
-                    <Route path="google-ads" element={<GoogleAdsAdmin />} />
+                    <Route path="google-ads" element={<RequireAccess area="settings.integrations.google"><GoogleAdsAdmin /></RequireAccess>} />
                   </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
@@ -770,51 +762,17 @@ function App() {
 }
 
 function AuthRoute() {
-  const { user, loading, isPartner, isAdmin, isManager, hasPermission, role } = useAuth();
+  const { user, loading, hasPermission, role, permissions } = useAuth();
   if (loading) return null;
   // Don't redirect if user is in the middle of password recovery flow
   const isRecoveryFlow = sessionStorage.getItem("recovery_in_progress") === "true";
-  // Aguarda resolução do role antes de decidir destino (evita race que
-  // mandava content_manager para /erp enquanto role ainda era null).
+  // Aguarda resolução do role antes de decidir destino.
   if (user && !isRecoveryFlow && role === null) return null;
   if (user && !isRecoveryFlow) {
-    if (isPartner) return <Navigate to="/parceiro" replace />;
-    const MANAGEMENT_PERMS = [
-      "camarim_manage",
-      "manage_events",
-      "view_events",
-      "manage_transactions",
-      "manage_suppliers",
-      "manage_quotations",
-      "manage_accounts",
-      "view_balances",
-      "manage_tickets",
-      "manage_ticket_offices",
-      "manage_payment_lists",
-      "manage_iva",
-      "manage_categories",
-      "manage_calendar",
-      "manage_recurring",
-      "view_reports",
-      "edit_approved_bp",
-    ];
-    const hasAnyManagement = MANAGEMENT_PERMS.some((p) => hasPermission(p));
-    const isCamarimOnly =
-      !isAdmin && !isManager && hasPermission("camarim_team") && !hasAnyManagement;
-    if (isCamarimOnly) return <Navigate to="/camarim-equipa" replace />;
-    // marketing_manager-only → módulo MP Audience direto
-    if ((role as any) === "marketing_manager") {
-      return <Navigate to="/audience/dashboard" replace />;
-    }
-    // content_manager → admin do MP CRM (edição de conteúdo)
-    if ((role as any) === "content_manager") {
-      return <Navigate to="/crm" replace />;
-    }
-    // accountant → portal de contabilidade dedicado
-    if ((role as any) === "accountant") {
-      return <Navigate to="/contabilidade" replace />;
-    }
-    // Preferência opcional: admin/manager pode forçar entrada direta na vista compacta
+    const r = String(role ?? "");
+    const perms = permissions ?? [];
+    if (isCamarimOnlyUser(r, perms)) return <Navigate to="/camarim-equipa" replace />;
+    // Preferência opcional: forçar entrada direta na vista compacta
     try {
       const prefersCamarim =
         typeof window !== "undefined" &&
@@ -823,19 +781,21 @@ function AuthRoute() {
         return <Navigate to="/camarim-equipa" replace />;
       }
     } catch {}
+    // #311 F2b — destino pelas chaves module.* (uma só → directo; várias → seletor)
+    const dest = moduleLanding(r, perms);
+    if (dest && dest !== "/modulos" && dest !== "/erp") return <Navigate to={dest} replace />;
     return <Navigate to="/" replace />;
   }
   return <Auth />;
 }
 
 function AccountantGate() {
-  const { user, loading, role, isAdmin } = useAuth();
+  const { user, loading, role, hasPermission } = useAuth();
   if (loading || (user && role === null)) {
     return <div className="min-h-screen flex items-center justify-center bg-background"><p className="text-muted-foreground">A carregar…</p></div>;
   }
   if (!user) return <Navigate to="/login" replace />;
-  const isAccountant = (role as any) === "accountant";
-  if (!isAccountant && !isAdmin && (role as any) !== "platform_admin") {
+  if (!hasPermission("module.accounting")) {
     return <Navigate to="/" replace />;
   }
   return <AccountantHome />;

@@ -5685,3 +5685,11 @@ A prova (src/lib/access.ts + src/lib/__tests__/permissions-guards-proof.test.ts,
 2. marketing_manager (thiago.fernan.gestor@gmail.com) abria as rotas do ERP (o ProtectedLayout não o bloqueava); sem module.erp deixa de abrir.
 3. Editores com view_operacao perdem a Operação (sem module.operacao): geral@, adm@ (MP e Coala), liliam@, producaoexec@ na MP.
 4. Managers ganham settings.chart_of_accounts (antes só o admin editava o plano de contas): matheuslcoelho@, producao@ (MP e Coala), fernanda@, michel.silva@.
+
+### D-ERP254 — Adenda F2b-2 (12/10/2026): decisões do Pedro e guardas ligadas
+Decisões sobre as 4 diferenças da prova:
+1. Portal do Sócio FECHA — /parceiro só com module.partner_portal (sócios e admins).
+2. marketing_manager no ERP FECHA — sem module.erp deixa de abrir as rotas do ERP.
+3. Editor recebe module.operacao em role_permissions (run_sql, só INSERT) — mantém o acesso de hoje.
+4. Manager perde settings.chart_of_accounts em role_permissions (run_sql, DELETE dessa linha só) — "só o admin edita".
+A prova (permissions-guards-proof.test.ts) foi reactivada com 1 e 2 como excepções explícitas e passa sem mais diferenças. Guardas de módulos (CrmLayout, AudienceLayout, AudiencePrintGuard, ModuleSelector, ModuleSwitcherButton, PostLoginRedirect, AuthRoute, ProtectedLayout, AccountantGate, PartnerLayout) e rotas/menus de configuração passam a chaves module.*/settings.* (src/lib/access.ts, RequireAccess). Destino pós-login: um só módulo → directo; vários → seletor. /admin/empresas, features da empresa e MfaRequiredGate inalterados. Botões e secções internas continuam por papel (F2d).
