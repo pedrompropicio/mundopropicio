@@ -5678,3 +5678,10 @@ Decisões do Pedro (12/10):
 Chaves novas: `module.*` (6) e `settings.*` (20) em ALL_PERMISSIONS. Ajustes à matriz por omissão (vindos do código): manager `settings.bp_tools` (entra em Auditoria Contas e Reconciliação BP×TX); marketing_manager `settings.portal`; content_manager `settings.integrations.meta` e `settings.integrations.google` (o MP CRM deixa-os entrar nessas páginas).
 Sementeira feita por `run_sql` (dados), não por migração. Migrações: 0114 (tabela `permission_snapshot_311`, só service_role), 0115 (funções).
 Prova: snapshots `antes` / `depois` / `depois-ecra`; diferença = 8 linhas previstas (3 editores→producer no Coala, 3 perdas de Operação na MP, excepções de adm@/producao@ só da MP). Guardas de ecrã inalteradas — F2b.
+
+### D-ERP254 — Adenda F2b (12/10/2026): prova das guardas BLOQUEADA
+A prova (src/lib/access.ts + src/lib/__tests__/permissions-guards-proof.test.ts, fixture `src/test/fixtures/permission-snapshot-311.json` do snapshot depois-ecra) compara guardas antigas (papel) e novas (permissão) para os 52 utilizador×empresa. Encontrou diferenças → nenhuma guarda de ecrã foi alterada; teste em `it.skip` até decisão:
+1. Portal do Sócio: `PartnerLayout` não tinha guarda — qualquer utilizador com sessão abria /parceiro; com module.partner_portal só sócios e admins.
+2. marketing_manager (thiago.fernan.gestor@gmail.com) abria as rotas do ERP (o ProtectedLayout não o bloqueava); sem module.erp deixa de abrir.
+3. Editores com view_operacao perdem a Operação (sem module.operacao): geral@, adm@ (MP e Coala), liliam@, producaoexec@ na MP.
+4. Managers ganham settings.chart_of_accounts (antes só o admin editava o plano de contas): matheuslcoelho@, producao@ (MP e Coala), fernanda@, michel.silva@.
