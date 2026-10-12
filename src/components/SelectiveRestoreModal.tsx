@@ -163,9 +163,9 @@ export default function SelectiveRestoreModal({ fileName, onClose }: Props) {
   const backdrop = useBackdropClose(onClose);
 
   return (
-    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
-      <div className="glass w-full max-w-3xl max-h-[90vh] rounded-xl p-5 overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
+    <OverlayLayer className="modal-safe-overlay fixed inset-0 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
+      <div className="manual-modal-shell glass w-full max-w-3xl rounded-xl p-5 overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="manual-modal-header flex items-center justify-between mb-4">
           <div>
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <RotateCcw className="h-5 w-5 text-primary" /> Restauração Seletiva

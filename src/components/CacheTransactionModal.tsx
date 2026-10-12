@@ -455,10 +455,10 @@ export function CacheTransactionModal({
   };
 
   return (
-    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-lg rounded-xl border border-border bg-card shadow-xl max-h-[90vh] flex flex-col">
+    <OverlayLayer className="modal-safe-overlay fixed inset-0 flex items-center justify-center bg-black/50">
+      <div className="manual-modal-shell w-full max-w-lg rounded-xl border border-border bg-card shadow-xl flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-5 py-4 shrink-0">
+        <div className="manual-modal-header flex items-center justify-between border-b border-border px-5 py-4 shrink-0">
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
             <h3 className="font-semibold text-foreground">Gerar Transação de Cachê</h3>
