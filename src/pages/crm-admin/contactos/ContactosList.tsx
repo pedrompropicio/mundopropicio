@@ -215,7 +215,7 @@ export default function ContactosList() {
       </div>
 
       <Card className="p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-8 gap-2">
           <Select value={listaId ?? "all"} onValueChange={setLista}>
             <SelectTrigger aria-label="Lista" className="lg:col-span-2 border-primary/50 font-medium">
               <ListFilter className="h-4 w-4 mr-1.5 shrink-0 text-primary" />
@@ -230,7 +230,7 @@ export default function ContactosList() {
               ))}
             </SelectContent>
           </Select>
-          <div className="relative lg:col-span-1">
+          <div className="relative lg:col-span-2">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Pesquisar email, nome ou telefone…"
