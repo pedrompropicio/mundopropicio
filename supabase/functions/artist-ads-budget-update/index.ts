@@ -1,4 +1,4 @@
-// D-ERP237 (PROPOSTA — NÃO FAZER DEPLOY antes de existir crm.artist_ads_budget_changes).
+// D-ERP237 (aceite 2026-10-12).
 // Muda o orçamento DIÁRIO de uma campanha / adset / adgroup de artista, depois de o
 // utilizador confirmar no front. O clique é a aprovação. Só admin da empresa
 // (ou platform_admin); nunca service role vinda do browser.
@@ -99,11 +99,6 @@ Deno.serve(async (req) => {
   };
 
   try {
-    const adapter = await makeAdapter(admin, conn, platform, level, externalId);
-    const before = await adapter.read();
-    if (before.mode !== "DAILY") throw new Refuse("orcamento_nao_diario", `O orçamento desta entidade não é diário (${before.mode}). Não é alterado por aqui.`);
-    if (before.daily == null) throw new Refuse("sem_orcamento_neste_nivel", "Esta entidade não tem orçamento próprio (está no nível acima, ex.: CBO na campanha).");
-
     // Teto do artista (crm.artist_ads_budget_caps) — mesma RPC do motor (D-ERP95).
     const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: req.headers.get("Authorization")! } }, auth: { persistSession: false },
@@ -113,6 +108,12 @@ Deno.serve(async (req) => {
     const cap = ((caps ?? []) as any[]).find((r) => r.platform === platform && String(r.connection_id) === conn.id);
     if (!cap || cap.has_cap !== true) throw new Refuse("sem_teto", "Esta ligação não tem teto diário definido. Define o teto antes de alterar orçamentos.");
     if (String(cap.cap_currency ?? "").toUpperCase() !== currency) throw new Refuse("moeda_do_teto_diferente", `O teto está em ${cap.cap_currency}.`);
+    // Teto validado ANTES de tocar na plataforma.
+    const adapter = await makeAdapter(admin, conn, platform, level, externalId);
+    const before = await adapter.read();
+    if (before.mode !== "DAILY") throw new Refuse("orcamento_nao_diario", `O orçamento desta entidade não é diário (${before.mode}). Não é alterado por aqui.`);
+    if (before.daily == null) throw new Refuse("sem_orcamento_neste_nivel", "Esta entidade não tem orçamento próprio (está no nível acima, ex.: CBO na campanha).");
+
     const capVal = Number(cap.daily_cap);
     const committed = cap.committed_daily == null ? null : Number(cap.committed_daily);
     const projected = committed == null ? newDaily : committed - before.daily + newDaily;

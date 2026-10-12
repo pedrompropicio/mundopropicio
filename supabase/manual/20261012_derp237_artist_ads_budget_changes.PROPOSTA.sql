@@ -1,4 +1,4 @@
--- D-ERP237 — PROPOSTA. NÃO APLICAR sem OK do Pedro (aplicar por migração tracked).
+-- D-ERP237 — APLICADA em 2026-10-12 (ver supabase/migrations/20261012165000_0118_...).
 CREATE TABLE crm.artist_ads_budget_changes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id uuid NOT NULL,
