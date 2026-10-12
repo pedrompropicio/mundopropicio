@@ -9632,6 +9632,66 @@ export type Database = {
           },
         ]
       }
+      fever_buyers: {
+        Row: {
+          company_id: string
+          edition_label: string
+          email: string
+          event_date: string | null
+          event_name: string | null
+          fever_event_id: string | null
+          first_name: string | null
+          id: string
+          imported_at: string
+          language: string | null
+          last_name: string | null
+          line_hash: string
+          marketing_pref: boolean
+          order_ref: string | null
+          source_file: string | null
+          start_time: string | null
+          ticket_type: string | null
+        }
+        Insert: {
+          company_id: string
+          edition_label: string
+          email: string
+          event_date?: string | null
+          event_name?: string | null
+          fever_event_id?: string | null
+          first_name?: string | null
+          id?: string
+          imported_at?: string
+          language?: string | null
+          last_name?: string | null
+          line_hash: string
+          marketing_pref?: boolean
+          order_ref?: string | null
+          source_file?: string | null
+          start_time?: string | null
+          ticket_type?: string | null
+        }
+        Update: {
+          company_id?: string
+          edition_label?: string
+          email?: string
+          event_date?: string | null
+          event_name?: string | null
+          fever_event_id?: string | null
+          first_name?: string | null
+          id?: string
+          imported_at?: string
+          language?: string | null
+          last_name?: string | null
+          line_hash?: string
+          marketing_pref?: boolean
+          order_ref?: string | null
+          source_file?: string | null
+          start_time?: string | null
+          ticket_type?: string | null
+        }
+        Relationships: []
+      }
       fever_sync_config: {
         Row: {
           b2b_token_secret_name: string | null
