@@ -209,6 +209,19 @@ export default function ResetPassword() {
           </div>
         )}
 
+        {status === "ready-to-verify" && (
+          <div className="glass rounded-xl p-6 space-y-4 text-center">
+            <p className="text-sm text-muted-foreground">Clique para continuar e definir a sua senha</p>
+            <button
+              onClick={handleContinue}
+              disabled={verifyLoading}
+              className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50 glow-primary"
+            >
+              {verifyLoading ? "A validar…" : "Continuar"}
+            </button>
+          </div>
+        )}
+
         {status === "ready" && (
           <form onSubmit={handleSubmit} className="glass rounded-xl p-6 space-y-4">
             <div>
