@@ -118,6 +118,7 @@ export async function callerCompanyIds(
 export function allowedReturnOrigins(): string[] {
   const fixed = [
     "https://gestao-artistica.lovable.app",
+    "https://app.socialartists.com.br",
     "http://localhost:8080",
     "http://localhost:5173",
   ];
