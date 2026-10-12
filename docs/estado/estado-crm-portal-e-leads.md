@@ -1,6 +1,6 @@
 # ESTADO — MP CRM, Portal & Leads
 
-Atualizado: 2026-10-11 · Issues: #251, #252, #306 · Fechadas: #253 (24/09), #254 (10/10) · Bloqueio: #62
+Atualizado: 2026-10-12 · Issues: #251, #252, #306, #308 · Fechadas: #253 (24/09), #254 (10/10) · Bloqueio: #62
 
 ## Em que pé está
 Dois portais distintos, dois projetos Lovable, a mesma base Supabase:
@@ -19,11 +19,13 @@ A 24/09/2026 foi resolvido o incidente que punha o ecrã "Algo correu mal" a 100
 - **Pixels:** Meta Lead (pixel do evento em `events.meta_pixel_id`); TikTok ViewContent + CompleteRegistration (pixel `DB5VO83C77U5NP31S1P0`, só com consentimento de marketing, `event_id` = `client_event_id`); GA4 `sign_up` `{event_slug, method}` no dataLayer.
 - **Trackers** lidos de `public.event_trackers_public` (D-ERP251), com fallback no Clube enquanto o evento estiver `portal_visible = false`. TikTok ViewContent/InitiateCheckout também nas páginas de evento com tracker — o InitiateCheckout leva o `client_event_id` da `portal-track`, para dedupe futura com a CAPI TikTok.
 
+**Acompanhamento no MP CRM (#308, P1 até 02/11)** — construído a 12/10, aguarda Publish. Página `/crm/clube-newgang` no menu do MP CRM: cartões total/hoje/7 dias + barra da meta 15.000 até 02/11, agregados por dia/cidade/UTM/faixa etária (hora de Lisboa), tabela paginada com pesquisa e consentimentos, export CSV formato Fever da base completa. Migração `0111_derp252_clube_newgang_crm.sql`: RPCs SECURITY DEFINER `clube_newgang_summary` e `clube_newgang_list` (anon sem acesso; papéis admin/platform_admin/marketing_manager/content_manager; filtro à empresa ativa). Formato da data de nascimento confirmado AAAA-MM-DD (o portal valida antes de gravar no raw). Pendente: confirmar com a Fever se os consentimentos no CSV devem ser "sim"/"não" ou true/false.
+
 ## Próximo passo concreto
 1. **Fase 4 da #306** — email de boas-vindas pelo Resend; texto a definir pelo Pedro.
 2. **Pedro no ERP** — artes do evento + `portal_visible = true`: activa a página do evento, a vista de trackers e dispensa o fallback do pixel no Clube.
 3. **Audience — Google** — evento derivado `ng27_clube_inscricao` no GA4 e importação no Google Ads.
-4. **Lista "Clube Newgang" no CRM** — linha própria do quadro, P1 até 02/11.
+4. **Publish do ERP** com a página #308 — e depois envios email/WhatsApp à lista (resto da linha P1 do quadro).
 
 ## Bloqueios
 - **#62** (frente Google) — os leads do CRM não alimentam o Google Ads.
