@@ -137,7 +137,7 @@ export default function AudiencesList() {
                     <TableCell className="text-sm">
                       {snapByAudience.get(a.id)?.snapshot_id ? (
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{(snapByAudience.get(a.id)?.member_count ?? 0).toLocaleString("pt-PT")}</span>
+                          <span className="font-medium">{String(snapByAudience.get(a.id)?.member_count ?? 0).replace(/\B(?=(\d{3})+(?!\d))/g, ".")}</span>
                           <Link to={`/crm/contactos?lista=${a.id}`} className="text-xs text-emerald-600 hover:underline">Ver contactos</Link>
                         </div>
                       ) : "—"}

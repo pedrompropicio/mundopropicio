@@ -43,7 +43,8 @@ import {
   type TriState, type ContactFilters, CONTACTS_PAGE_SIZE, fetchContactsPage, exportContactsCsv,
 } from "./contactsQuery";
 
-const fmt = (n: number) => n.toLocaleString("pt-PT");
+// pt-PT não agrupa 4 algarismos (6829); o pedido é "6.829" / "16.123".
+const fmt = (n: number) => String(Math.trunc(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 
 export default function ContactosList() {
   const qc = useQueryClient();
