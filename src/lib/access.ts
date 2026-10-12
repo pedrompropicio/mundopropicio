@@ -99,3 +99,23 @@ export function accessByPermission(role: string, perms: string[]): Set<AccessAre
   };
   return new Set(ACCESS_AREAS.filter((a) => out[a]));
 }
+
+/** Destino pós-login decidido só pelas chaves module.* (F2b). */
+export function moduleLanding(role: string, perms: string[]): string | null {
+  const a = accessByPermission(role, perms);
+  const has = (p: string) => perms.includes(p);
+  const mods: string[] = [];
+  if (a.has("erp")) mods.push(has("module.erp") ? "/erp" : "/operacao/campo");
+  if (a.has("crm")) mods.push("/crm");
+  if (a.has("audience")) mods.push("/audience/dashboard");
+  if (a.has("accounting")) mods.push("/contabilidade");
+  if (a.has("partner_portal")) mods.push("/parceiro");
+  if (mods.length === 0) return null;
+  if (mods.length === 1) return mods[0];
+  return "/modulos";
+}
+
+export function countModules(role: string, perms: string[]): number {
+  const a = accessByPermission(role, perms);
+  return (["erp", "crm", "audience", "accounting", "partner_portal"] as const).filter((m) => a.has(m)).length;
+}
