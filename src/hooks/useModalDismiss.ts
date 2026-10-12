@@ -21,6 +21,8 @@ export function useModalDismiss(hasChanges: boolean, onClose: () => void) {
           document.querySelector('[data-help-panel="true"]') ||
           document.querySelector('[data-radix-popper-content-wrapper]')) return;
       event.preventDefault();
+      // O mesmo Esc não pode chegar ao AlertDialog acabado de abrir.
+      event.stopImmediatePropagation();
       requestClose();
     };
     document.addEventListener("keydown", onKeyDown);
