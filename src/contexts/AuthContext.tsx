@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef, ty
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
-import { resolveEffectivePermissions } from "@/lib/permissions";
+import { parseEffectivePermissions, onActiveCompanyChanged } from "@/lib/permissions";
 
 export type AppRole = "admin" | "manager" | "producer" | "field_producer" | "editor" | "viewer" | "user" | "partner" | "platform_admin" | "marketing_manager" | "content_manager" | "accountant";
 
@@ -121,6 +121,33 @@ export const ALL_PERMISSIONS = [
   { key: "crm.campaign.publish", label: "MP Audience — Publicar Campanhas", group: "MP Audience" },
   { key: "crm.campaign.set_budget", label: "MP Audience — Definir Orçamentos", group: "MP Audience" },
   { key: "crm.attribution.view", label: "MP Audience — Ver Atribuição", group: "MP Audience" },
+  // #311 F2a — acesso a módulos e configurações por permissão por empresa.
+  { key: "module.erp", label: "Módulo ERP (gestão financeira)", group: "Módulos" },
+  { key: "module.operacao", label: "Módulo Operação", group: "Módulos" },
+  { key: "module.crm", label: "Módulo MP CRM", group: "Módulos" },
+  { key: "module.audience", label: "Módulo MP Audience", group: "Módulos" },
+  { key: "module.accounting", label: "Módulo Contabilidade", group: "Módulos" },
+  { key: "module.partner_portal", label: "Portal do Sócio", group: "Módulos" },
+  { key: "settings.admin", label: "Painel de administração", group: "Configurações" },
+  { key: "settings.users", label: "Gerir utilizadores", group: "Configurações" },
+  { key: "settings.permissions", label: "Gerir permissões", group: "Configurações" },
+  { key: "settings.backups", label: "Cópias de segurança", group: "Configurações" },
+  { key: "settings.security", label: "Segurança", group: "Configurações" },
+  { key: "settings.audit_log", label: "Registos de actividade e downloads", group: "Configurações" },
+  { key: "settings.trash", label: "Lixeira (restaurar)", group: "Configurações" },
+  { key: "settings.diagnostics", label: "Diagnósticos e auditorias técnicas", group: "Configurações" },
+  { key: "settings.notifications", label: "Lembretes e notificações", group: "Configurações" },
+  { key: "settings.integrations.ticketing", label: "Integrações de bilheteira (Coala, Fever, Ticketline, BOL)", group: "Configurações" },
+  { key: "settings.integrations.meta", label: "Integração Meta", group: "Configurações" },
+  { key: "settings.integrations.google", label: "Integração Google", group: "Configurações" },
+  { key: "settings.integrations.tiktok", label: "Integração TikTok", group: "Configurações" },
+  { key: "settings.portal", label: "Marca e portal", group: "Configurações" },
+  { key: "settings.email", label: "Email da empresa", group: "Configurações" },
+  { key: "settings.bp_tools", label: "Ferramentas de BP (implantação, formalidade, reconciliação)", group: "Configurações" },
+  { key: "settings.accounts", label: "Configurar contas financeiras", group: "Configurações" },
+  { key: "settings.chart_of_accounts", label: "Configurar plano de contas", group: "Configurações" },
+  { key: "settings.ticket_offices", label: "Configurar bilheteiras", group: "Configurações" },
+  { key: "settings.audit_accounts", label: "Auditoria de contas", group: "Configurações" },
 ];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -147,45 +174,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user?.id, queryClient]);
 
   const fetchRoleAndPermissions = useCallback(async (userId: string) => {
-    const { data: roleRows, error: rolesError } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
-
-    console.log("[AuthContext] fetchRoleAndPermissions", { userId, roleRows, rolesError });
-
-    // Priority: platform_admin > admin > manager > accountant > editor > partner > viewer > user
-    const priority: Record<string, number> = {
-      platform_admin: 0, admin: 1, manager: 2, accountant: 3,
-      marketing_manager: 4, content_manager: 4, editor: 4, producer: 4, field_producer: 4, partner: 5, viewer: 6, user: 7,
-    };
-    const roles = Array.from(new Set((roleRows ?? []).map((r: any) => r.role as AppRole)));
-    roles.sort((a, b) => (priority[a] ?? 99) - (priority[b] ?? 99));
-    const userRole = (roles[0] as AppRole) ?? "user";
-    setRole(userRole);
-
-    // #105: admin/platform_admin partem de ALL_PERMISSIONS, mas os overrides de
-    // user_permissions aplicam-se por cima — mesma semântica de has_permission_in
-    // (o override decide; sem override vale o papel). A autoridade fica no servidor.
-    const { data: rolePerms } = await supabase
-      .from("role_permissions")
-      .select("permission")
-      .in("role", roles.length ? roles : [userRole]);
-
-    const { data: userPerms } = await supabase
-      .from("user_permissions")
-      .select("permission, granted")
-      .eq("user_id", userId);
-
-    setPermissions(
-      resolveEffectivePermissions({
-        roles: roles.length ? roles : [userRole],
-        rolePermissions: (rolePerms ?? []).map((p: any) => p.permission),
-        overrides: (userPerms ?? []).map((p: any) => ({ permission: p.permission, granted: !!p.granted })),
-        allPermissions: ALL_PERMISSIONS.map((p) => p.key),
-      }),
-    );
+    // #311 F2a: papel e permissões resolvidos NO SERVIDOR pela empresa activa
+    // (fonte única com has_permission). platform_admin tem todas as chaves;
+    // excepções negadas continuam a valer (#105).
+    const { data, error } = await supabase.rpc("my_effective_permissions" as any, {
+      p_universe: ALL_PERMISSIONS.map((p) => p.key),
+    } as any);
+    if (userIdRef.current && userIdRef.current !== userId) return; // troca de utilizador entretanto
+    if (error) {
+      console.error("[AuthContext] my_effective_permissions", error);
+      setRole("user" as AppRole);
+      setPermissions([]);
+      return;
+    }
+    const eff = parseEffectivePermissions(data);
+    setRole(eff.role as AppRole);
+    setPermissions(eff.permissions);
   }, []);
+
+  // #311 F2a: trocar de empresa recarrega papel e permissões (não só no login).
+  useEffect(() => onActiveCompanyChanged(() => {
+    const uid = userIdRef.current;
+    if (uid) void fetchRoleAndPermissions(uid);
+  }), [fetchRoleAndPermissions]);
 
   useEffect(() => {
     // 1. Restore session from storage FIRST
