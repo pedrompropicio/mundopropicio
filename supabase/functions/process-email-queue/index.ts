@@ -22,6 +22,7 @@ const DEFAULT_TRANSACTIONAL_TTL_MINUTES = 60
 const RESEND_DOMAINS: Record<string, string> = {
   'notify.coalafestival.pt': 'RESEND_API_KEY_COALA',
   'news.coalafestival.pt': 'RESEND_API_KEY_COALA',
+  'news.newgangfestival.pt': 'RESEND_API_KEY_NEWGANG',
 }
 
 class ResendAPIError extends Error {
