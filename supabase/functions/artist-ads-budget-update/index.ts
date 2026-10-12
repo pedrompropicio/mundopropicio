@@ -255,7 +255,7 @@ async function checkPermissions(req: Request, connectionId: string) {
   if (!UUID.test(connectionId)) return jsonResponse({ ok: false, error: "invalid_input", fields: ["connection_id"] }, 400);
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
   const { data: conn } = await (admin as any).schema("crm").from("ad_platform_connections")
-    .select("id, company_id, platform, selected_ad_account_id, scopes").eq("id", connectionId).maybeSingle();
+    .select("id, company_id, platform, selected_ad_account_id").eq("id", connectionId).maybeSingle();
   if (!conn) return jsonResponse({ ok: false, error: "ligacao_nao_encontrada" }, 404);
   try { await assertCallerRoleInCompany(req, conn.company_id, ["admin"]); }
   catch (e) { return jsonResponse({ ok: false, error: "sem_permissao", message: (e as Error).message }, 403); }
@@ -279,7 +279,7 @@ async function checkPermissions(req: Request, connectionId: string) {
     if (!c.ok || !host) return jsonResponse({ ok: false, error: c.ok ? "tiktok_host_em_falta" : c.error }, 422);
     const info = await tiktokGET<any>(host, "advertiser/info/", { advertiser_ids: JSON.stringify([c.advertiserId]), fields: JSON.stringify(["name", "currency", "status", "role"]) } as any, c.accessToken!);
     const it = ((info.data as any)?.list ?? [])[0] ?? null;
-    return jsonResponse({ ok: info.ok, platform: "tiktok", advertiser_id: c.advertiserId, stored_scopes: conn.scopes ?? null,
+    return jsonResponse({ ok: info.ok, platform: "tiktok", advertiser_id: c.advertiserId,
       advertiser: it, error: info.ok ? null : info.message });
   }
   return jsonResponse({ ok: false, error: "so_meta_ou_tiktok" }, 422);
