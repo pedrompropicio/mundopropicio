@@ -5,7 +5,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Music2 } from "lucide-react";
 import { PasswordStrengthIndicator, validatePassword } from "@/components/PasswordStrengthIndicator";
 
-type ResetStatus = "loading" | "ready" | "expired";
+type ResetStatus = "loading" | "ready-to-verify" | "ready" | "expired";
 
 function getErrorFromUrl() {
   const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
@@ -35,36 +35,27 @@ export default function ResetPassword() {
   const [status, setStatus] = useState<ResetStatus>("loading");
   const [statusDetail, setStatusDetail] = useState("A verificar link de recuperação…");
   const [isTokenHashFlow, setIsTokenHashFlow] = useState(false);
+  const [verifyLoading, setVerifyLoading] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const resolvedRef = useRef(false);
+  const tokenHashRef = useRef<string | null>(null);
+  const tokenTypeRef = useRef<string>("recovery");
 
   useEffect(() => {
-    // Check for token_hash flow (direct link from invite email)
+    // Check for token_hash flow (direct link from invite email).
+    // Never verify automatically on mount: email link previews would consume the token.
     const tokenHash = searchParams.get("token_hash");
     const type = searchParams.get("type") || "recovery";
 
     if (tokenHash) {
       setIsTokenHashFlow(true);
-      // Verify the token hash directly with Supabase
-      supabase.auth.verifyOtp({
-        token_hash: tokenHash,
-        type: type as any,
-      }).then(({ data, error }) => {
-        if (error) {
-          setStatus("expired");
-          setStatusDetail(mapRecoveryError(error.message));
-        } else if (data.session) {
-          resolvedRef.current = true;
-          setStatus("ready");
-          setStatusDetail("Defina a sua senha para aceder à plataforma");
-        } else {
-          setStatus("expired");
-          setStatusDetail("Não foi possível validar o link. Solicite um novo convite.");
-        }
-        // Clean URL
-        window.history.replaceState({}, document.title, "/reset-password");
-      });
+      tokenHashRef.current = tokenHash;
+      tokenTypeRef.current = type;
+      // Clean URL
+      window.history.replaceState({}, document.title, "/reset-password");
+      setStatus("ready-to-verify");
+      setStatusDetail("Clique para continuar e definir a sua senha");
       return;
     }
 
@@ -119,6 +110,38 @@ export default function ResetPassword() {
       subscription.unsubscribe();
     };
   }, [searchParams]);
+
+  const handleContinue = async () => {
+    const tokenHash = tokenHashRef.current;
+    if (!tokenHash || verifyLoading) return;
+    setVerifyLoading(true);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: tokenTypeRef.current as any,
+      });
+      if (error) {
+        // The link may already have been validated in this browser (e.g. preview consumed it,
+        // but a session was created before the token was spent).
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setStatus("ready");
+          setStatusDetail("Defina a sua senha para aceder à plataforma");
+        } else {
+          setStatus("expired");
+          setStatusDetail(mapRecoveryError(error.message));
+        }
+      } else if (data.session) {
+        setStatus("ready");
+        setStatusDetail("Defina a sua senha para aceder à plataforma");
+      } else {
+        setStatus("expired");
+        setStatusDetail("Não foi possível validar o link. Solicite um novo convite.");
+      }
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,6 +205,18 @@ export default function ResetPassword() {
               className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
             >
               Voltar ao login
+            </button>
+          </div>
+        )}
+
+        {status === "ready-to-verify" && (
+          <div className="glass rounded-xl p-6 space-y-4 text-center">
+            <button
+              onClick={handleContinue}
+              disabled={verifyLoading}
+              className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50 glow-primary"
+            >
+              {verifyLoading ? "A validar…" : "Continuar"}
             </button>
           </div>
         )}
