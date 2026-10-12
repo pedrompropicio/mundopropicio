@@ -35,9 +35,12 @@ export default function ResetPassword() {
   const [status, setStatus] = useState<ResetStatus>("loading");
   const [statusDetail, setStatusDetail] = useState("A verificar link de recuperação…");
   const [isTokenHashFlow, setIsTokenHashFlow] = useState(false);
+  const [verifyLoading, setVerifyLoading] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const resolvedRef = useRef(false);
+  const tokenHashRef = useRef<string | null>(null);
+  const tokenTypeRef = useRef<string>("recovery");
 
   useEffect(() => {
     // Check for token_hash flow (direct link from invite email).
@@ -107,6 +110,38 @@ export default function ResetPassword() {
       subscription.unsubscribe();
     };
   }, [searchParams]);
+
+  const handleContinue = async () => {
+    const tokenHash = tokenHashRef.current;
+    if (!tokenHash || verifyLoading) return;
+    setVerifyLoading(true);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: tokenTypeRef.current as any,
+      });
+      if (error) {
+        // The link may already have been validated in this browser (e.g. preview consumed it,
+        // but a session was created before the token was spent).
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setStatus("ready");
+          setStatusDetail("Defina a sua senha para aceder à plataforma");
+        } else {
+          setStatus("expired");
+          setStatusDetail(mapRecoveryError(error.message));
+        }
+      } else if (data.session) {
+        setStatus("ready");
+        setStatusDetail("Defina a sua senha para aceder à plataforma");
+      } else {
+        setStatus("expired");
+        setStatusDetail("Não foi possível validar o link. Solicite um novo convite.");
+      }
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
