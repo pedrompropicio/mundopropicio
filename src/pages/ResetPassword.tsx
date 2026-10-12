@@ -211,7 +211,6 @@ export default function ResetPassword() {
 
         {status === "ready-to-verify" && (
           <div className="glass rounded-xl p-6 space-y-4 text-center">
-            <p className="text-sm text-muted-foreground">Clique para continuar e definir a sua senha</p>
             <button
               onClick={handleContinue}
               disabled={verifyLoading}

@@ -54,7 +54,7 @@ describe("ResetPassword — token_hash flow", () => {
 
     await waitFor(() => expect(mocks.verifyOtp).toHaveBeenCalledTimes(1));
     expect(mocks.verifyOtp).toHaveBeenCalledWith({ token_hash: "abc", type: "recovery" });
-    await waitFor(() => expect(screen.getByLabelText("Nova senha")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Definir senha" })).toBeInTheDocument());
   });
 
   it("(b) verifyOtp com erro + sessão existente → formulário visível", async () => {
@@ -65,7 +65,7 @@ describe("ResetPassword — token_hash flow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
 
     await waitFor(() => expect(mocks.getSession).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByLabelText("Nova senha")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Definir senha" })).toBeInTheDocument());
     expect(screen.queryByText(/expirou|Solicite um novo/i)).not.toBeInTheDocument();
   });
 
@@ -79,6 +79,6 @@ describe("ResetPassword — token_hash flow", () => {
     await waitFor(() =>
       expect(screen.getByText(/O link de recuperação expirou/)).toBeInTheDocument()
     );
-    expect(screen.queryByLabelText("Nova senha")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Definir senha" })).not.toBeInTheDocument();
   });
 });
