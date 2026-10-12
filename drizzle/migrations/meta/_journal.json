@@ -799,6 +799,20 @@
       "when": 1791771269377,
       "tag": "0113_derp253_fever_buyers_grants_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 114,
+      "version": "7",
+      "when": 1791808833386,
+      "tag": "0114_derp254_permission_snapshot_311",
+      "breakpoints": true
+    },
+    {
+      "idx": 115,
+      "version": "7",
+      "when": 1791808892236,
+      "tag": "0115_derp254_permissions_per_company",
+      "breakpoints": true
     }
   ]
 }

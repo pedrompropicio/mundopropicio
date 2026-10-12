@@ -12555,6 +12555,33 @@ export type Database = {
           },
         ]
       }
+      permission_snapshot_311: {
+        Row: {
+          company_id: string | null
+          permission: string | null
+          role: string | null
+          snapshot: string
+          taken_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id?: string | null
+          permission?: string | null
+          role?: string | null
+          snapshot: string
+          taken_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string | null
+          permission?: string | null
+          role?: string | null
+          snapshot?: string
+          taken_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       portal_error_log: {
         Row: {
           boundary: string | null
@@ -18173,6 +18200,10 @@ export type Database = {
       _clube_newgang_assert_access: { Args: never; Returns: undefined }
       _clube_newgang_birth: { Args: { p_raw: Json }; Returns: string }
       _derive_paid_amount: { Args: { p_tx_id: string }; Returns: undefined }
+      _effective_permissions_for: {
+        Args: { _company_id: string; _universe?: string[]; _user_id: string }
+        Returns: Json
+      }
       _paid_guard_is_exempt: {
         Args: { p: Database["public"]["Tables"]["transactions"]["Row"] }
         Returns: boolean
@@ -20454,6 +20485,10 @@ export type Database = {
           source_queue: string
         }
         Returns: number
+      }
+      my_effective_permissions: {
+        Args: { p_universe?: string[] }
+        Returns: Json
       }
       norm_coala_desc: { Args: { s: string }; Returns: string }
       normalize_supplier_name: { Args: { p_name: string }; Returns: string }
