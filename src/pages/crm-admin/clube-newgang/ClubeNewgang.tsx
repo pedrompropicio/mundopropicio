@@ -28,7 +28,7 @@ type Row = {
 };
 
 const n = (v: number) => v.toLocaleString("pt-PT");
-const rpc = supabase.rpc as any;
+const rpc = (fn: string, args?: Record<string, unknown>) => (supabase as any).rpc(fn, args);
 
 function csvCell(v: unknown): string {
   const s = v == null ? "" : String(v);
