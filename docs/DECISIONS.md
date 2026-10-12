@@ -5694,10 +5694,18 @@ Decisões sobre as 4 diferenças da prova:
 4. Manager perde settings.chart_of_accounts em role_permissions (run_sql, DELETE dessa linha só) — "só o admin edita".
 A prova (permissions-guards-proof.test.ts) foi reactivada com 1 e 2 como excepções explícitas e passa sem mais diferenças. Guardas de módulos (CrmLayout, AudienceLayout, AudiencePrintGuard, ModuleSelector, ModuleSwitcherButton, PostLoginRedirect, AuthRoute, ProtectedLayout, AccountantGate, PartnerLayout) e rotas/menus de configuração passam a chaves module.*/settings.* (src/lib/access.ts, RequireAccess). Destino pós-login: um só módulo → directo; vários → seletor. /admin/empresas, features da empresa e MfaRequiredGate inalterados. Botões e secções internas continuam por papel (F2d).
 
-### D-ERP237 — PROPOSTA (12/10/2026): alterar orçamentos de campanhas de artista pela plataforma
-Estado: proposta; DDL por aprovar; função escrita sem deploy.
+### D-ERP237 — ACEITE (12/10/2026): alterar orçamentos de campanhas de artista pela plataforma
+Estado: aceite. DDL autorizado pelo Pedro e aplicado (drizzle 0118 + supabase/migrations/20261012165000_0118_...); função publicada. Google sem teto por decisão do Pedro: a função recusa (sem_teto) até haver teto.
 - O Pedro muda o orçamento diário (campaign/adset/adgroup) com um clique depois de confirmar; o clique é a aprovação. O chat 6 só propõe valores.
 - Edge function `artist-ads-budget-update` (verify_jwt=true, recusa service role, só admin da empresa ou platform_admin). Lê na plataforma → valida teto `crm.artist_ads_budget_caps` (via `artist_ads_budget_cap_get`, comprometido − antes + depois ≤ teto) e `role_budget_limits` (só em EUR) → escreve → relê → grava antes/depois confirmados.
 - Meta: `daily_budget` em cêntimos no adset ou na campanha (CBO); recusa orçamento total ou nível sem orçamento. TikTok: `adgroup/budget/update/` ou `smart_plus/adgroup/budget/update/` (campanha: `campaign/update/` / `smart_plus/campaign/update/`), só `BUDGET_MODE_DAY`/dinâmico diário. Google: só campanha, `campaignBudgets:mutate` com `amount_micros`, recusa período não diário, orçamento total ou orçamento partilhado.
 - Idempotência por `request_id` (UNIQUE company_id+request_id, reservado antes de chamar a API). `dry_run` valida sem escrever.
 - Auditoria nova `crm.artist_ads_budget_changes` (DDL em `supabase/manual/20261012_derp237_artist_ads_budget_changes.PROPOSTA.sql`): leitura pela empresa, escrita só service_role. As tabelas existentes não servem: `meta_entity_actions_log` é só Meta; `ads_entity_actions_log` só google/tiktok (CHECK), e nenhuma tem request_id, valores antes/depois, moeda nem motivo.
+- Ordem: teto (sem_teto / moeda) validado ANTES de ler a plataforma. Acção só de leitura `action=check_permissions` (admin) devolve debug_token Meta / advertiser/info TikTok sem expor o token.
+- Testes 12/10/2026 (dry_run, nenhuma escrita nas plataformas; output cru em claude-outputs/2026-10-12-1700-derp237-testes-budget-update.md):
+  a) Meta adset 120246020914290358 (act_323668247351618, BRL): antes 100, pedido 100 → dry_run, teto 150.
+  b) TikTok adgroup 1877407035386882 (7689229625189138438): actual 850 (snapshot local dizia 400; 1.º dry_run com 400, repetido com 850) → dry_run, teto 1800.
+  c) Google campanha 21309690692 → refused sem_teto.
+  d) Meta 5000 BRL → refused acima_do_teto.
+  e) Repetição do request_id de a) → idempotent_replay, sem nova linha.
+- Permissões: Meta token USER válido, sem expiração, com ads_management; conta "CA 1 - Litto Lins" com user_tasks MANAGE/ADVERTISE → pode escrever. TikTok advertiser STATUS_ENABLE, ROLE_ADVERTISER (BRL) → acesso de anunciante; a escrita só fica 100% provada no primeiro clique real.
