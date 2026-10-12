@@ -22,19 +22,19 @@ import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 export function AudienceSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, hasPermission } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
 
   const items = [
-    { to: "/audience/setup", icon: Rocket, label: "Setup MP Audience" },
+    { need: "settings.integrations.meta", to: "/audience/setup", icon: Rocket, label: "Setup MP Audience" },
     { to: "/audience/dashboard", icon: TrendingUp, label: "Dashboard" },
     { to: "/audience/campaigns/new", icon: PlusCircle, label: "Criar campanha" },
     { to: "/audience/strategies", icon: Brain, label: "Estratégias" },
     { to: "/audience/creatives", icon: ImageIcon, label: "Criativos" },
     { to: "/audience/insights", icon: Lightbulb, label: "Insights" },
-    { to: "/audience/connections", icon: Plug, label: "Conexões" },
-    { to: "/audience/google-ads", icon: Sparkles, label: "Google Ads" },
-    { to: "/audience/pixels", icon: Zap, label: "Pixels" },
+    { need: "settings.integrations.meta", to: "/audience/connections", icon: Plug, label: "Conexões" },
+    { need: "settings.integrations.google", to: "/audience/google-ads", icon: Sparkles, label: "Google Ads" },
+    { need: "settings.integrations.meta", to: "/audience/pixels", icon: Zap, label: "Pixels" },
     { to: "/audience/audit/funnel-test", icon: Target, label: "Funnel Test 360" },
   ];
 
@@ -53,7 +53,7 @@ export function AudienceSidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 px-2 lg:px-3 w-full overflow-y-auto">
-        {items.map((item) => {
+        {items.filter((item: any) => !item.need || hasPermission(item.need)).map((item) => {
           const isActive = location.pathname.startsWith(item.to);
           return (
             <RouterNavLink
