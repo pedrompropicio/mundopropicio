@@ -5667,3 +5667,14 @@ Decisões do Pedro: (1) apuramento só Ticketline ou genérico para todas as bil
 **Herança por decidir (Pedro):** 9 campanhas ligadas com ano diferente do evento — ver relatório de 11/10 (Simone Mendes ×6, M&M ×2, Raphael Ghanem ×1). Não corrigidas.
 
 **Estado:** vigente.
+
+## D-ERP254 (12/10/2026) — #311 F2a: acesso por permissão por empresa (fundação)
+Regra: **papel e permissões valem pela EMPRESA ACTIVA.** O ecrã lê-os do servidor (`my_effective_permissions(p_universe)` → `_effective_permissions_for(uid, current_company_id(), universe)`), fonte única com `has_permission`. Trocar de empresa recarrega papel e permissões (evento `mp:active-company-changed`, emitido por `useSetActiveCompany`).
+Decisões do Pedro (12/10):
+1. Papel e permissões resolvem-se pela empresa activa (antes o ecrã juntava todas as empresas).
+2. manager NÃO recebe `module.crm`/`module.audience` por omissão — só por excepção individual.
+3. platform_admin tem todas as chaves em qualquer empresa; excepção negada (`user_permissions.granted=false`) continua a valer (#105). Aplicado em `has_permission` e `has_permission_in`.
+4. Opção A (diferença não prevista): Liliam, geral@ e producaoexec@ perdem `manage_operacao_etapas/_frentes/_staff` na Mundo Propício (vinham do papel producer na Coala; a MP tem 0 registos de Operação); no Coala mantêm. Sem excepções.
+Chaves novas: `module.*` (6) e `settings.*` (20) em ALL_PERMISSIONS. Ajustes à matriz por omissão (vindos do código): manager `settings.bp_tools` (entra em Auditoria Contas e Reconciliação BP×TX); marketing_manager `settings.portal`; content_manager `settings.integrations.meta` e `settings.integrations.google` (o MP CRM deixa-os entrar nessas páginas).
+Sementeira feita por `run_sql` (dados), não por migração. Migrações: 0114 (tabela `permission_snapshot_311`, só service_role), 0115 (funções).
+Prova: snapshots `antes` / `depois` / `depois-ecra`; diferença = 8 linhas previstas (3 editores→producer no Coala, 3 perdas de Operação na MP, excepções de adm@/producao@ só da MP). Guardas de ecrã inalteradas — F2b.

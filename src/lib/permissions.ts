@@ -51,3 +51,70 @@ export function resolveEffectivePermissions({
 
   return Array.from(base);
 }
+
+// ---------------------------------------------------------------------------
+// #311 F2a — papel e permissões pela EMPRESA ACTIVA.
+// Fonte única: RPC public.my_effective_permissions(p_universe) →
+// public._effective_permissions_for(uid, current_company_id(), universe).
+// A função abaixo é a réplica fiel em TS (para testes e documentação).
+// ---------------------------------------------------------------------------
+
+export const ROLE_PRIORITY: Record<string, number> = {
+  platform_admin: 0, admin: 1, manager: 2, accountant: 3,
+  marketing_manager: 4, content_manager: 4, editor: 4, producer: 4, field_producer: 4,
+  partner: 5, viewer: 6, user: 7,
+};
+
+export interface Membership { role: string; company_id: string | null }
+export interface CompanyOverride extends PermissionOverride { company_id: string }
+
+export function pickTopRole(roles: string[]): string {
+  return [...roles].sort((a, b) => (ROLE_PRIORITY[a] ?? 99) - (ROLE_PRIORITY[b] ?? 99) || a.localeCompare(b))[0] ?? "user";
+}
+
+/** Réplica de `_effective_permissions_for`. */
+export function resolveForCompany(input: {
+  companyId: string;
+  memberships: Membership[];
+  overrides: CompanyOverride[];
+  rolePermissions: Record<string, string[]>;
+  universe: string[];
+}): { role: string; permissions: string[] } {
+  const { companyId, memberships, overrides, rolePermissions, universe } = input;
+  const roles = Array.from(new Set(
+    memberships.filter((m) => m.company_id === companyId || m.role === "platform_admin").map((m) => m.role),
+  ));
+  const isPa = memberships.some((m) => m.role === "platform_admin");
+  const full = isPa || roles.includes("admin");
+  const base = new Set<string>(full ? universe : []);
+  if (isPa) Object.values(rolePermissions).flat().forEach((p) => base.add(p));
+  for (const r of roles) (rolePermissions[r] ?? []).forEach((p) => base.add(p));
+  for (const o of overrides.filter((x) => x.company_id === companyId)) {
+    if (o.granted) base.add(o.permission); else base.delete(o.permission);
+  }
+  return { role: roles.length ? pickTopRole(roles) : "user", permissions: Array.from(base).sort() };
+}
+
+/** Evento de troca de empresa activa — o AuthContext recarrega papel e permissões. */
+export const ACTIVE_COMPANY_CHANGED_EVENT = "mp:active-company-changed";
+
+export function notifyActiveCompanyChanged(companyId: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(ACTIVE_COMPANY_CHANGED_EVENT, { detail: { companyId } }));
+}
+
+export function onActiveCompanyChanged(cb: (companyId: string) => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const h = (e: Event) => cb((e as CustomEvent).detail?.companyId);
+  window.addEventListener(ACTIVE_COMPANY_CHANGED_EVENT, h);
+  return () => window.removeEventListener(ACTIVE_COMPANY_CHANGED_EVENT, h);
+}
+
+/** Lê o resultado da RPC my_effective_permissions. */
+export function parseEffectivePermissions(data: unknown): { role: string; permissions: string[] } {
+  const d = (data ?? {}) as { role?: string | null; permissions?: unknown };
+  return {
+    role: d.role ?? "user",
+    permissions: Array.isArray(d.permissions) ? d.permissions.map(String) : [],
+  };
+}

@@ -1,3 +1,4 @@
+import { notifyActiveCompanyChanged } from "@/lib/permissions";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -223,6 +224,9 @@ export function useSetActiveCompany() {
       return data as string;
     },
     onSuccess: async (newCompanyId) => {
+      // (#311 F2a) papel e permissões valem pela empresa activa: o AuthContext
+      // recarrega-os ao ouvir este evento.
+      notifyActiveCompanyChanged(newCompanyId);
       // 1) Force the current-company query to refetch FIRST, so the header,
       //    branding and the database RLS scope agree before pages render.
       await qc.refetchQueries({
