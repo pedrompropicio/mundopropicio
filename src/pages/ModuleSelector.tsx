@@ -37,10 +37,14 @@ export default function ModuleSelector() {
     "";
   const firstName = fullName.split(" ")[0] || fullName;
 
-  const canAudience =
-    role === "admin" ||
-    (role as any) === "platform_admin" ||
-    (role as any) === "marketing_manager";
+  // #311 F2b — acesso por chaves module.* (permissão por empresa)
+  const { can } = useAccess();
+  const canErp = can("erp") && hasPermission("module.erp");
+  const canOperacao = can("operacao");
+  const canAudience = can("audience");
+  const canCrm = can("crm");
+  const canAccounting = can("accounting");
+  const canPartner = can("partner_portal");
 
   const cards: ModuleCard[] = [
     {
@@ -51,8 +55,8 @@ export default function ModuleSelector() {
       bullets: "Calendário · Transações · Plano de Contas · Reembolsos",
       icon: Building2,
       to: "/erp",
-      enabled: (role as any) !== "content_manager" && (role as any) !== "marketing_manager",
-      noAccess: (role as any) === "content_manager" || (role as any) === "marketing_manager",
+      enabled: canErp,
+      noAccess: !canErp,
       accent: {
         border: "border-primary/30 hover:border-primary/60",
         bg: "bg-primary/5",
@@ -87,8 +91,8 @@ export default function ModuleSelector() {
       bullets: "Frentes · Etapas · Registos · Chamados",
       icon: Radar,
       to: "/operacao/zonas",
-      enabled: isAdmin || hasPermission("view_operacao"),
-      noAccess: !(isAdmin || hasPermission("view_operacao")),
+      enabled: canOperacao,
+      noAccess: !canOperacao,
       accent: {
         border: "border-violet-500/30 hover:border-violet-500/60",
         bg: "bg-violet-500/5",
@@ -105,14 +109,50 @@ export default function ModuleSelector() {
       bullets: "Eventos · Contactos · Leads · Audiências · Blog · Páginas",
       icon: Users,
       to: "/crm",
-      enabled: isAdmin || (role as any) === "platform_admin" || (role as any) === "marketing_manager" || (role as any) === "content_manager",
-      noAccess: !(isAdmin || (role as any) === "platform_admin" || (role as any) === "marketing_manager" || (role as any) === "content_manager"),
+      enabled: canCrm,
+      noAccess: !canCrm,
       accent: {
         border: "border-emerald-500/30 hover:border-emerald-500/60",
         bg: "bg-emerald-500/5",
         icon: "text-emerald-600",
         title: "text-foreground",
         glow: "hover:shadow-[0_0_40px_-10px_rgb(16_185_129_/_0.5)]",
+      },
+    },
+    {
+      key: "accounting",
+      title: "Contabilidade",
+      subtitle: "Portal do contabilista",
+      description: "Documentos fiscais, pendências e exportações",
+      bullets: "Faturas · Pendências · Exportação ZIP",
+      icon: Calculator,
+      to: "/contabilidade",
+      enabled: canAccounting,
+      noAccess: !canAccounting,
+      accent: {
+        border: "border-primary/30 hover:border-primary/60",
+        bg: "bg-primary/5",
+        icon: "text-primary",
+        title: "text-foreground",
+        glow: "hover:shadow-[0_0_40px_-10px_hsl(var(--primary)/0.5)]",
+      },
+    },
+    {
+      key: "partner_portal",
+      title: "Portal do Sócio",
+      subtitle: "Parcerias",
+      description: "Eventos em parceria, BP e acerto de contas",
+      bullets: "Eventos · BP · Resultado",
+      icon: Handshake,
+      to: "/parceiro",
+      enabled: canPartner,
+      noAccess: !canPartner,
+      accent: {
+        border: "border-primary/30 hover:border-primary/60",
+        bg: "bg-primary/5",
+        icon: "text-primary",
+        title: "text-foreground",
+        glow: "hover:shadow-[0_0_40px_-10px_hsl(var(--primary)/0.5)]",
       },
     },
   ];
