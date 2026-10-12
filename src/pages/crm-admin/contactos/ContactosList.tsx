@@ -341,7 +341,7 @@ export default function ContactosList() {
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <p className="text-sm font-medium" data-testid="contactos-total">{fmt(total)} contactos</p>
+          <p className="text-sm font-medium" data-testid="contactos-total">{isLoading ? "A carregar…" : `${fmt(total)} contactos`}</p>
           <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting || total === 0}>
             {exporting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Download className="h-4 w-4 mr-1.5" />}
             Exportar CSV
