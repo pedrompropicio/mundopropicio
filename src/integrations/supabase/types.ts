@@ -19959,6 +19959,19 @@ export type Database = {
             Args: { company_id: string; payload: Json; queue_name: string }
             Returns: number
           }
+      enqueue_email_batch: {
+        Args: {
+          p_batch_size?: number
+          p_interval_minutes?: number
+          p_payloads: Json
+          p_queue_name: string
+        }
+        Returns: {
+          batches: number
+          enqueued: number
+          last_visible_at: string
+        }[]
+      }
       enqueue_whatsapp_notification: {
         Args: {
           p_context_id?: string
