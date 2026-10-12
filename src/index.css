@@ -191,3 +191,45 @@ input[type="number"]::-webkit-inner-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
 }
+
+/* Cabeçalho fora do scroll: não altera a pilha de camadas. */
+.modal-safe-overlay {
+  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+.manual-modal-shell {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: min(var(--modal-height, 90vh), calc(100vh - max(1rem, env(safe-area-inset-top)) - max(1rem, env(safe-area-inset-bottom))));
+}
+@supports (height: 100dvh) {
+  .manual-modal-shell {
+    max-height: min(var(--modal-dynamic-height, 90dvh), calc(100dvh - max(1rem, env(safe-area-inset-top)) - max(1rem, env(safe-area-inset-bottom))));
+  }
+}
+.manual-modal-header { flex-shrink: 0; }
+.manual-modal-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.dialog-fixed-header, .dialog-scroll-body { display: contents; }
+@media (max-width: 639px) {
+  .manual-modal-header { position: sticky; top: 0; background: hsl(var(--card)); }
+  .manual-modal-header > :first-child { min-width: 0; }
+  .manual-modal-header button:has(> svg.lucide-x) {
+    width: 44px; height: 44px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mobile-dialog-content {
+    display: flex; flex-direction: column; overflow: hidden;
+    width: calc(100% - 2rem);
+    max-height: calc(100vh - max(1rem, env(safe-area-inset-top)) - max(1rem, env(safe-area-inset-bottom)));
+  }
+  @supports (height: 100dvh) {
+    .mobile-dialog-content {
+      max-height: calc(100dvh - max(1rem, env(safe-area-inset-top)) - max(1rem, env(safe-area-inset-bottom)));
+    }
+  }
+  .dialog-fixed-header { display: block; flex-shrink: 0; padding-right: 2rem; background: hsl(var(--background)); }
+  .dialog-scroll-body { display: grid; gap: 1rem; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .mobile-dialog-close { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; }
+  .mobile-dialog-content:not(:has(.dialog-fixed-header)) { padding-top: 3.75rem; }
+}

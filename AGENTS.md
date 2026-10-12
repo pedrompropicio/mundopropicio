@@ -7,3 +7,4 @@
 - Growth summaries delegate omitted comparison periods to the private legacy implementation to preserve the complete prior JSON contract.
 - Investment source projections reuse the canonical report's spend/classification CTEs without modifying that report; any future canonical change must regenerate and regression-test the projection to prevent drift.
 - Campaign projections join by platform, account and external campaign ID, never by name, because campaign names are not unique.
+- Manual modals separate their header from the scrolling body and use shared viewport/safe-area styles; this keeps dismissal accessible without changing the overlay stack.
