@@ -4,65 +4,76 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/ca
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useCompany } from "@/hooks/useCompany";
+import { useAuth } from "@/contexts/AuthContext";
 import SystemRemindersBanner from "@/components/SystemRemindersBanner";
 import { CompanyBudgetModeCard } from "@/components/CompanyBudgetModeCard";
 
 const adminCards = [
   {
+    need: "settings.users",
     to: "/admin/utilizadores",
     icon: Users,
     title: "Utilizadores",
     description: "Gerir contas, perfis e permissões de utilizadores",
   },
   {
+    need: "settings.backups",
     to: "/admin/backups",
     icon: Database,
     title: "Backups",
     description: "Visualizar e gerir backups da base de dados",
   },
   {
+    need: "settings.security",
     to: "/admin/seguranca",
     icon: ShieldAlert,
     title: "Segurança",
     description: "Painel de segurança, auditoria e monitorização",
   },
   {
+    need: "settings.trash",
     to: "/admin/lixeira",
     icon: Trash2,
     title: "Lixeira",
     description: "Recuperar itens eliminados nos últimos 30 dias",
   },
   {
+    need: "settings.bp_tools",
     to: "/admin/implantacao",
     icon: History,
     title: "Implantação",
     description: "Importar e reconciliar dados de eventos passados",
   },
   {
+    need: "settings.audit_log",
     to: "/admin/atividade",
     icon: Activity,
     title: "Atividade",
     description: "Tempo de utilização e secções mais usadas por utilizador",
   },
   {
+    need: "settings.audit_accounts",
     to: "/admin/auditoria-contas",
     icon: ClipboardCheck,
     title: "Auditoria Contas",
     description: "Análise IA de classificações no BP/Transações e gestão da numeração do Plano de Contas",
   },
   {
+    need: "settings.bp_tools",
     to: "/admin/reconciliacao-bp-tx",
     icon: Link2,
     title: "Reconciliação BP ↔ TX",
     description: "Resolver transações ambíguas, L2-only ou fora do BP, escrevendo a ligação direta às linhas do BP",
   },
   {
+    need: "settings.bp_tools",
     to: "/admin/formalidade",
     icon: Sparkles,
     title: "Auditoria Formalidade",
     description: "Analisa todos os BPs ativos e sugere o estado de formalidade com base nas transações reais",
   },
   {
+    need: "settings.notifications",
     to: "/admin/lembretes",
     icon: Bell,
     title: "Lembretes",
@@ -81,6 +92,7 @@ const adminCards = [
     description: "Lê os documentos anexos das transações agrupadas e deteta faturas diferentes agrupadas por erro",
   },
   {
+    need: "settings.integrations.ticketing",
     to: "/admin/sync-coala",
     icon: Cloud,
     title: "Sync Coala (Drive)",
@@ -117,6 +129,7 @@ const adminCards = [
     description: "Rever perguntas sem resposta ou com baixa confiança e acompanhar a cobertura do manual",
   },
   {
+    need: "settings.audit_log",
     to: "/admin/audit-downloads",
     icon: History,
     title: "Auditoria de Downloads",
@@ -128,9 +141,10 @@ const adminCards = [
 export default function AdminPanel() {
   const navigate = useNavigate();
   const { isPlatformAdmin } = useCompany();
+  const { hasPermission } = useAuth();
 
   const cards = [
-    ...adminCards,
+    ...adminCards.filter((c: { need?: string }) => !c.need || hasPermission(c.need)),
     ...(isPlatformAdmin
       ? [{
           to: "/admin/empresas",
