@@ -4,13 +4,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import ModuleSelector from "@/pages/ModuleSelector";
+import { moduleLanding } from "@/lib/access";
 
 /**
  * Decide aonde mandar o user após login com base nas permissões dele.
  * - Field staff / producer / viewer (director) → /operacao/campo (vista de campo mobile-first)
  * - Admin/Manager/platform_admin com CRM+ERP → ModuleSelector
- * - Só CRM → /audience/dashboard
- * - Só ERP → /erp
+ * - Um só módulo (chaves module.*) → directo; vários → ModuleSelector
  */
 export default function PostLoginRedirect() {
   const { user, permissions, role, loading } = useAuth();
@@ -57,34 +57,12 @@ export default function PostLoginRedirect() {
     }
   }
 
-  // content_manager → admin do MP CRM (edição de conteúdo)
-  if ((role as any) === "content_manager") {
-    return <Navigate to="/crm" replace />;
-  }
-
-  const hasCrmAccess =
-    permissions.some((p) => p.startsWith("crm.")) ||
-    role === "admin" ||
-    (role as any) === "platform_admin" ||
-    (role as any) === "marketing_manager" ||
-    (role as any) === "content_manager";
-
-  const hasErpAccess =
-    permissions.some((p) => !p.startsWith("crm.")) ||
-    role === "admin" ||
-    role === "manager" ||
-    (role as any) === "platform_admin" ||
-    role === "editor" ||
-    role === "viewer";
-
-  if (hasCrmAccess && !hasErpAccess) {
-    return <Navigate to="/audience/dashboard" replace />;
-  }
-  if (hasErpAccess && !hasCrmAccess) {
-    return <Navigate to="/erp" replace />;
-  }
-  if (!hasCrmAccess && !hasErpAccess) {
-    return <Navigate to="/erp" replace />;
+  // #311 F2b — destino pelas chaves module.*: uma só → directo; várias → seletor.
+  const dest = moduleLanding(String(role ?? ""), permissions ?? []);
+  if (dest === null) return <Navigate to="/modulos" replace />;
+  if (dest !== "/modulos") {
+    if (dest === "/erp" || dest === "/operacao/campo") return <Navigate to={dest} replace />;
+    return <Navigate to={dest} replace />;
   }
 
   return <ModuleSelector />;

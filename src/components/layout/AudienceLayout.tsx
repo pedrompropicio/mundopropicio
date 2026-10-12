@@ -22,9 +22,9 @@ function ThemeToggle() {
 }
 
 export function AudienceLayout() {
-  const { user, loading, role } = useAuth();
+  const { user, loading, role, hasPermission } = useAuth();
 
-  if (loading) {
+  if (loading || (user && role === null)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <p className="text-muted-foreground">A carregar…</p>
@@ -36,13 +36,10 @@ export function AudienceLayout() {
     return <Navigate to="/login" replace />;
   }
 
-  const allowed =
-    role === "admin" ||
-    (role as any) === "platform_admin" ||
-    (role as any) === "marketing_manager";
+  const allowed = hasPermission("module.audience");
 
   if (!allowed) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/modulos" replace />;
   }
 
   return (

@@ -22,9 +22,9 @@ function ThemeToggle() {
 }
 
 export function CrmLayout() {
-  const { user, loading, role, isAdmin } = useAuth();
+  const { user, loading, role, hasPermission } = useAuth();
 
-  if (loading) {
+  if (loading || (user && role === null)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <p className="text-muted-foreground">A carregar…</p>
@@ -36,11 +36,7 @@ export function CrmLayout() {
     return <Navigate to="/login" replace />;
   }
 
-  const canCrm =
-    isAdmin ||
-    (role as any) === "platform_admin" ||
-    (role as any) === "marketing_manager" ||
-    (role as any) === "content_manager";
+  const canCrm = hasPermission("module.crm");
 
   if (!canCrm) {
     return <Navigate to="/modulos" replace />;

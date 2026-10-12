@@ -119,3 +119,7 @@ export function countModules(role: string, perms: string[]): number {
   const a = accessByPermission(role, perms);
   return (["erp", "crm", "audience", "accounting", "partner_portal"] as const).filter((m) => a.has(m)).length;
 }
+
+export function isCamarimOnlyUser(role: string, perms: string[]): boolean {
+  return isCamarimOnly(role, (p) => perms.includes(p));
+}

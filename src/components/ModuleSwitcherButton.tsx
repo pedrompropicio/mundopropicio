@@ -1,25 +1,14 @@
 import { Grid3x3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { countModules } from "@/lib/access";
 
 export function ModuleSwitcherButton() {
   const navigate = useNavigate();
   const { permissions, role } = useAuth();
 
-  const hasCrm =
-    permissions.some((p) => p.startsWith("crm.")) ||
-    role === "admin" ||
-    (role as any) === "platform_admin" ||
-    (role as any) === "marketing_manager";
-  const hasErp =
-    permissions.some((p) => !p.startsWith("crm.")) ||
-    role === "admin" ||
-    role === "manager" ||
-    (role as any) === "platform_admin" ||
-    role === "editor" ||
-    role === "viewer";
-
-  if (!(hasCrm && hasErp)) return null;
+  // #311 F2b — só aparece com 2+ módulos (chaves module.*)
+  if (countModules(String(role ?? ""), permissions ?? []) < 2) return null;
 
   return (
     <button
