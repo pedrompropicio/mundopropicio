@@ -111,6 +111,12 @@ function ymd(d: Date): string {
 const STORY_METRICS = ["reach", "replies", "shares", "follows", "profile_visits", "views", "total_interactions", "reposts"];
 const NAV_KEEP = new Set(["tap_forward", "tap_back", "tap_exit", "swipe_forward"]);
 
+// Media inexistente (story apagado pelo artista): #100 subcode 33 ou "does not exist".
+function isMediaGone(body: any): boolean {
+  const e = body?.error;
+  return (e?.code === 100 && (e?.error_subcode === 33 || /does not exist|cannot be loaded/i.test(String(e?.message ?? "")))) || e?.code === 803;
+}
+
 function isNoData(body: any): boolean {
   return body?.error?.code === 10;
 }
@@ -137,6 +143,16 @@ async function runStories(req: Request, admin: any, masterKey: string, body: { a
     artist_id: body.artist_id ?? null,
   });
   const storiesIds: string[] = [];
+  const storiesArquivados: string[] = [];
+  const storiesRemovidos: Array<{ id: string; hora: string; motivo: string }> = [];
+  // Removidos registados em corridas anteriores (últimas 48 h) → não voltar a ler.
+  const removidosAntes = new Set<string>();
+  {
+    const { data: prev } = await admin.from("sync_runs").select("details")
+      .eq("function_name", "artist-instagram-sync-stories")
+      .gte("started_at", new Date(Date.now() - 48 * 3600_000).toISOString());
+    for (const r of prev ?? []) for (const x of (r as any)?.details?.stories_removidos ?? []) if (x?.id) removidosAntes.add(String(x.id));
+  }
   let apiCalls = 0, storiesLidos = 0, metricasGravadas = 0, semDados = 0, metaNaoSuportada = 0;
   const erros: string[] = [];
   const porLigacao: Array<Record<string, unknown>> = [];
@@ -176,6 +192,30 @@ async function runStories(req: Request, admin: any, masterKey: string, body: { a
       per.stories = list.length;
       // D-ERP184 adenda: rasto de leituras por story (sem DDL).
       for (const m of list) storiesIds.push(String(m.id));
+      // Stories de hora a hora: stories já conhecidos com < 24 h que não vieram
+      // em /stories (arquivados pela plataforma ou removidos pelo artista) são
+      // lidos pelo id. Removidos (media inexistente) ficam registados em
+      // sync_runs.details.stories_removidos e deixam de ser tentados.
+      const vistos = new Set(list.map((m) => String(m.id)));
+      const desde = new Date(Date.now() - 24 * 3600_000).toISOString();
+      const { data: conhecidos } = await admin.from("artist_content")
+        .select("external_id").eq("artist_id", conn.artist_id).eq("platform", PLATFORM)
+        .eq("content_type", "story").gte("published_at", desde);
+      const pendentes = (conhecidos ?? []).map((r: any) => String(r.external_id)).filter((id: string) => !vistos.has(id) && !removidosAntes.has(id));
+      for (const id of pendentes) {
+        const r = await graphGet(id, { fields: "id,media_type,media_product_type,permalink,timestamp,thumbnail_url,media_url" }, token, IG_GRAPH);
+        apiCalls++;
+        if (r.ok && r.body?.id) {
+          list.push(r.body);
+          storiesIds.push(id);
+          storiesArquivados.push(id);
+        } else if (isMediaGone(r.body)) {
+          storiesRemovidos.push({ id, hora: new Date().toISOString(), motivo: "removido_pelo_artista" });
+        } else {
+          erros.push(`story ${id} leitura por id: ${r.body?.error?.message ?? r.status}`);
+        }
+      }
+      per.stories_arquivados = list.length - (per.stories as number);
       if (!list.length || dryRun) { porLigacao.push(per); continue; }
       const rows = list.map((m) => ({
         company_id: conn.company_id, artist_id: conn.artist_id, platform: PLATFORM,
@@ -280,7 +320,7 @@ async function runStories(req: Request, admin: any, masterKey: string, body: { a
     }
     porLigacao.push(per);
   }
-  const details = { stories_lidos: storiesLidos, stories_ids: storiesIds, metricas_gravadas: metricasGravadas, sem_dados: semDados, meta_nao_suportada: metaNaoSuportada, erros: erros.length, ligacoes: porLigacao };
+  const details = { stories_lidos: storiesLidos, stories_ids: storiesIds, stories_arquivados: storiesArquivados, stories_removidos: storiesRemovidos, metricas_gravadas: metricasGravadas, sem_dados: semDados, meta_nao_suportada: metaNaoSuportada, erros: erros.length, ligacoes: porLigacao };
   await finishSyncRun(admin, runId, startedMs, {
     status: resolveStatus(metricasGravadas, erros.length),
     api_calls: apiCalls, rows_written: metricasGravadas, details,
