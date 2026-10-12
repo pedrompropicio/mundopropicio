@@ -813,6 +813,13 @@
       "when": 1791808892236,
       "tag": "0115_derp254_permissions_per_company",
       "breakpoints": true
+    },
+    {
+      "idx": 116,
+      "version": "7",
+      "when": 1791813925707,
+      "tag": "0116_derp255_crm_contacts_lists",
+      "breakpoints": true
     }
   ]
 }

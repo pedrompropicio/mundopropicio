@@ -19767,6 +19767,16 @@ export type Database = {
         Args: { _description?: string; _name: string; _value: string }
         Returns: string
       }
+      crm_audience_lists: {
+        Args: never
+        Returns: {
+          audience_id: string
+          captured_at: string
+          member_count: number
+          name: string
+          snapshot_id: string
+        }[]
+      }
       crm_auto_link_google_campaigns_to_events: {
         Args: { p_company_id: string }
         Returns: {
@@ -19798,6 +19808,13 @@ export type Database = {
           return_url: string
           user_id: string
           valid: boolean
+        }[]
+      }
+      crm_contact_sources: {
+        Args: never
+        Returns: {
+          n: number
+          source: string
         }[]
       }
       crm_get_meta_decrypted_token: {

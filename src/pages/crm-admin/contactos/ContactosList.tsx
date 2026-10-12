@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Search, Mail, MessageCircle, Trash2 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Search, Mail, MessageCircle, Trash2, Download, ChevronLeft, ChevronRight, ListFilter } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -38,8 +39,12 @@ import { useCompany } from "@/hooks/useCompany";
 import ContactDetailsSheet from "./ContactDetailsSheet";
 import { relativeFromNow } from "../lib/relativeTime";
 import { contactPrimaryLabel, contactSecondaryLabel } from "../lib/contactDisplay";
+import {
+  type TriState, type ContactFilters, CONTACTS_PAGE_SIZE, fetchContactsPage, exportContactsCsv,
+} from "./contactsQuery";
 
-type TriState = "all" | "yes" | "no";
+// pt-PT não agrupa 4 algarismos (6829); o pedido é "6.829" / "16.123".
+const fmt = (n: number) => String(Math.trunc(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 
 export default function ContactosList() {
   const qc = useQueryClient();
@@ -54,48 +59,91 @@ export default function ContactosList() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["crm-contactos-list", companyId],
+  const [searchParams, setSearchParams] = useSearchParams();
+  const listaId = searchParams.get("lista");
+  const [page, setPage] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // #308: listas (audiências) com o nº de membros do último snapshot — calculado na base.
+  const { data: lists } = useQuery({
+    queryKey: ["crm-contactos-lists", companyId],
     enabled: !!companyId,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("contacts")
-        .select("id, name, email, phone_e164, source, consent_email, consent_whatsapp, is_active, last_activity_at")
-        .eq("company_id", companyId)
-        .order("last_activity_at", { ascending: false })
-        .limit(1000);
+      const { data, error } = await (supabase as any).rpc("crm_audience_lists");
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as { audience_id: string; name: string; snapshot_id: string | null; member_count: number | null }[];
+    },
+  });
+  const currentList = (lists ?? []).find((l) => l.audience_id === listaId) ?? null;
+
+  // #308: origens distintas com contagem — da base, não dos contactos carregados.
+  const { data: sources } = useQuery({
+    queryKey: ["crm-contactos-sources", companyId],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("crm_contact_sources");
+      if (error) throw error;
+      return (data ?? []) as { source: string | null; n: number }[];
     },
   });
 
-  const sources = useMemo(() => {
-    const set = new Set<string>();
-    (data ?? []).forEach((c: any) => c.source && set.add(c.source));
-    return Array.from(set).sort();
-  }, [data]);
-
-  const rows = useMemo(() => {
-    return (data ?? []).filter((c: any) => {
-      if (search) {
-        const s = search.toLowerCase();
-        const hit =
-          c.email?.toLowerCase().includes(s) ||
-          c.name?.toLowerCase().includes(s) ||
-          c.phone_e164?.toLowerCase().includes(s);
-        if (!hit) return false;
+  const filters: ContactFilters | null = companyId
+    ? {
+        companyId,
+        search: debouncedSearch,
+        emailConsent,
+        waConsent,
+        active: activeFilter,
+        source: sourceFilter,
+        // Lista sem snapshot → filtro impossível (0 resultados), nunca "todos".
+        snapshotId: listaId ? (currentList?.snapshot_id ?? "00000000-0000-0000-0000-000000000000") : null,
       }
-      if (emailConsent !== "all" && c.consent_email !== (emailConsent === "yes")) return false;
-      if (waConsent !== "all" && c.consent_whatsapp !== (waConsent === "yes")) return false;
-      if (activeFilter !== "all" && c.is_active !== (activeFilter === "yes")) return false;
-      if (sourceFilter !== "all" && (c.source ?? "") !== sourceFilter) return false;
-      return true;
-    });
-  }, [data, search, emailConsent, waConsent, activeFilter, sourceFilter]);
+    : null;
+  const listsReady = !listaId || !!lists;
+
+  useEffect(() => {
+    setPage(0);
+  }, [debouncedSearch, emailConsent, waConsent, activeFilter, sourceFilter, listaId]);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["crm-contactos-list", filters, page],
+    enabled: !!filters && listsReady,
+    placeholderData: keepPreviousData,
+    queryFn: () => fetchContactsPage(filters!, page),
+  });
+  const rows = data?.rows ?? [];
+  const total = data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / CONTACTS_PAGE_SIZE));
 
   useEffect(() => {
     setChecked(new Set());
-  }, [search, emailConsent, waConsent, activeFilter, sourceFilter]);
+  }, [debouncedSearch, emailConsent, waConsent, activeFilter, sourceFilter, listaId, page]);
+
+  const setLista = (v: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (v === "all") next.delete("lista");
+    else next.set("lista", v);
+    setSearchParams(next, { replace: true });
+  };
+
+  const handleExport = async () => {
+    if (!filters) return;
+    setExporting(true);
+    try {
+      const n = await exportContactsCsv(filters, currentList?.name ?? "todos");
+      toast.success(`${fmt(n)} contacto(s) exportado(s).`);
+    } catch (e: any) {
+      toast.error(`Falha a exportar: ${e?.message ?? e}`);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const toggleOne = (id: string) =>
     setChecked((prev) => {
@@ -145,6 +193,7 @@ export default function ContactosList() {
         toast.error(`${r.failed} falha(s): ${r.errors.slice(0, 3).join(" · ")}`);
       }
       qc.invalidateQueries({ queryKey: ["crm-contactos-list"] });
+      qc.invalidateQueries({ queryKey: ["crm-contactos-sources"] });
       qc.invalidateQueries({ queryKey: ["crm-contactos-view"] });
       setChecked(new Set());
       setDeleteOpen(false);
@@ -167,7 +216,21 @@ export default function ContactosList() {
       </div>
 
       <Card className="p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-8 gap-2">
+          <Select value={listaId ?? "all"} onValueChange={setLista}>
+            <SelectTrigger aria-label="Lista" className="lg:col-span-2 border-primary/50 font-medium">
+              <ListFilter className="h-4 w-4 mr-1.5 shrink-0 text-primary" />
+              <SelectValue placeholder="Lista" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as listas</SelectItem>
+              {(lists ?? []).map((l) => (
+                <SelectItem key={l.audience_id} value={l.audience_id}>
+                  {l.name} ({l.snapshot_id ? fmt(l.member_count ?? 0) : "sem snapshot"})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="relative lg:col-span-2">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -205,8 +268,10 @@ export default function ContactosList() {
             <SelectTrigger><SelectValue placeholder="Source" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Source: todos</SelectItem>
-              {sources.map((s) => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
+              {(sources ?? []).map((s) => (
+                <SelectItem key={s.source ?? "__none__"} value={s.source ?? "__none__"}>
+                  {s.source ?? "(sem source)"} ({fmt(Number(s.n))})
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -275,7 +340,22 @@ export default function ContactosList() {
       </Card>
 
       <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">{rows.length} contactos</p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm font-medium" data-testid="contactos-total">{isLoading ? "A carregar…" : `${fmt(total)} contactos`}</p>
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting || total === 0}>
+            {exporting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Download className="h-4 w-4 mr-1.5" />}
+            Exportar CSV
+          </Button>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Button variant="ghost" size="icon" className="h-8 w-8" disabled={page === 0} onClick={() => setPage((p) => p - 1)} aria-label="Página anterior">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span>Página {page + 1} de {fmt(pageCount)}</span>
+            <Button variant="ghost" size="icon" className="h-8 w-8" disabled={page + 1 >= pageCount} onClick={() => setPage((p) => p + 1)} aria-label="Página seguinte">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
         {checkedCount > 0 && (
           <Button
             variant="destructive"
