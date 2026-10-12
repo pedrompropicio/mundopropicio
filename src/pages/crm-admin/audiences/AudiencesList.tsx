@@ -37,6 +37,18 @@ export default function AudiencesList() {
     },
   });
 
+  // #308: nº de membros e data do último snapshot de cada audiência (na base).
+  const { data: lastSnaps } = useQuery({
+    queryKey: ["crm-contactos-lists", companyId],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("crm_audience_lists");
+      if (error) throw error;
+      return (data ?? []) as { audience_id: string; snapshot_id: string | null; member_count: number | null; captured_at: string | null }[];
+    },
+  });
+  const snapByAudience = new Map((lastSnaps ?? []).map((l) => [l.audience_id, l]));
+
   const delMut = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await (supabase as any).from("audiences").delete().eq("id", id);
@@ -102,6 +114,8 @@ export default function AudiencesList() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Descrição</TableHead>
+                  <TableHead>Membros (último snapshot)</TableHead>
+                  <TableHead>Snapshot</TableHead>
                   <TableHead>Último preview</TableHead>
                   <TableHead>Visto há</TableHead>
                   <TableHead>Actualizada</TableHead>
@@ -110,7 +124,7 @@ export default function AudiencesList() {
               </TableHeader>
               <TableBody>
                 {isLoading && (
-                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">A carregar…</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">A carregar…</TableCell></TableRow>
                 )}
                 {rows.map((a: any) => (
                   <TableRow key={a.id}>
@@ -120,6 +134,19 @@ export default function AudiencesList() {
                       </Link>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{a.description ?? "—"}</TableCell>
+                    <TableCell className="text-sm">
+                      {snapByAudience.get(a.id)?.snapshot_id ? (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{(snapByAudience.get(a.id)?.member_count ?? 0).toLocaleString("pt-PT")}</span>
+                          <Link to={`/crm/contactos?lista=${a.id}`} className="text-xs text-emerald-600 hover:underline">Ver contactos</Link>
+                        </div>
+                      ) : "—"}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {snapByAudience.get(a.id)?.captured_at
+                        ? new Date(snapByAudience.get(a.id)!.captured_at!).toLocaleString("pt-PT", { timeZone: "Europe/Lisbon", dateStyle: "short", timeStyle: "short" })
+                        : "—"}
+                    </TableCell>
                     <TableCell className="text-sm">{a.last_preview_count?.toLocaleString("pt-PT") ?? "—"}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{relativeFromNow(a.last_previewed_at)}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{relativeFromNow(a.updated_at)}</TableCell>
