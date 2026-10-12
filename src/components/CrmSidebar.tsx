@@ -32,6 +32,7 @@ export function CrmSidebar() {
     { to: "/crm/eventos", icon: CalendarDays, label: "Eventos" },
     { to: "/crm/contactos", icon: Users, label: "Contactos" },
     { to: "/crm/leads", icon: Inbox, label: "Contactos & tráfego" },
+    { to: "/crm/clube-newgang", icon: Users, label: "Clube Newgang" },
     { to: "/crm/audiences", icon: Target, label: "Audiências" },
     { to: "/crm/blog", icon: FileText, label: "Blog" },
     { to: "/crm/paginas", icon: FilePen, label: "Páginas" },
