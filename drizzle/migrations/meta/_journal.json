@@ -827,6 +827,13 @@
       "when": 1791819554600,
       "tag": "0117_derp256_enqueue_email_batch",
       "breakpoints": true
+    },
+    {
+      "idx": 118,
+      "version": "7",
+      "when": 1791823787154,
+      "tag": "0118_derp237_artist_ads_budget_changes",
+      "breakpoints": true
     }
   ]
 }
