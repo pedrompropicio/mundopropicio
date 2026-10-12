@@ -35,6 +35,8 @@ Deno.serve(async (req) => {
 
   let b: any;
   try { b = await req.json(); } catch { return jsonResponse({ ok: false, error: "invalid_json" }, 400); }
+  // Só leitura: verifica permissões de escrita do token (sem escrever nada, sem expor o token).
+  if (b?.action === "check_permissions") return await checkPermissions(req, String(b?.connection_id ?? ""));
   const platform = b?.platform as Platform;
   const level = b?.level as Level;
   const externalId = String(b?.external_id ?? "").trim();
@@ -247,4 +249,38 @@ async function makeAdapter(admin: SupabaseClient, conn: any, platform: Platform,
       });
     },
   };
+}
+
+async function checkPermissions(req: Request, connectionId: string) {
+  if (!UUID.test(connectionId)) return jsonResponse({ ok: false, error: "invalid_input", fields: ["connection_id"] }, 400);
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+  const { data: conn } = await (admin as any).schema("crm").from("ad_platform_connections")
+    .select("id, company_id, platform, selected_ad_account_id, scopes").eq("id", connectionId).maybeSingle();
+  if (!conn) return jsonResponse({ ok: false, error: "ligacao_nao_encontrada" }, 404);
+  try { await assertCallerRoleInCompany(req, conn.company_id, ["admin"]); }
+  catch (e) { return jsonResponse({ ok: false, error: "sem_permissao", message: (e as Error).message }, 403); }
+  if (conn.platform === "meta") {
+    const { data: rows } = await (admin as any).rpc("crm_get_meta_decrypted_token", { p_connection_id: conn.id, p_master_key: MASTER_KEY });
+    const token = Array.isArray(rows) && rows[0]?.access_token;
+    if (!token) return jsonResponse({ ok: false, error: "token_meta_indecifravel" }, 422);
+    const d: any = await (await fetch(`${GRAPH}/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(token)}`)).json();
+    const acc: any = await (await fetch(`${GRAPH}/${conn.selected_ad_account_id}?fields=name,currency,account_status,user_tasks&access_token=${encodeURIComponent(token)}`)).json();
+    const scopes: string[] = d?.data?.scopes ?? [];
+    const gs = (d?.data?.granular_scopes ?? []).find((g: any) => g.scope === "ads_management");
+    return jsonResponse({ ok: true, platform: "meta", ad_account: conn.selected_ad_account_id,
+      token: { type: d?.data?.type ?? null, is_valid: d?.data?.is_valid ?? null, expires_at: d?.data?.expires_at ?? null, scopes, error: d?.error?.message ?? null },
+      ads_management: scopes.includes("ads_management"), ads_management_targets: gs?.target_ids ?? null,
+      account: { name: acc?.name ?? null, currency: acc?.currency ?? null, status: acc?.account_status ?? null, user_tasks: acc?.user_tasks ?? null, error: acc?.error?.message ?? null },
+      can_write: scopes.includes("ads_management") && Array.isArray(acc?.user_tasks) && (acc.user_tasks.includes("MANAGE") || acc.user_tasks.includes("ADVERTISE")) });
+  }
+  if (conn.platform === "tiktok") {
+    const host = tiktokHost();
+    const c = await loadTikTokConnection(admin, { connectionId: conn.id, masterKey: MASTER_KEY, exigirToken: true });
+    if (!c.ok || !host) return jsonResponse({ ok: false, error: c.ok ? "tiktok_host_em_falta" : c.error }, 422);
+    const info = await tiktokGET<any>(host, "advertiser/info/", { advertiser_ids: JSON.stringify([c.advertiserId]), fields: JSON.stringify(["name", "currency", "status", "role"]) } as any, c.accessToken!);
+    const it = ((info.data as any)?.list ?? [])[0] ?? null;
+    return jsonResponse({ ok: info.ok, platform: "tiktok", advertiser_id: c.advertiserId, stored_scopes: conn.scopes ?? null,
+      advertiser: it, error: info.ok ? null : info.message });
+  }
+  return jsonResponse({ ok: false, error: "so_meta_ou_tiktok" }, 422);
 }
