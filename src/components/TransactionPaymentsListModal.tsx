@@ -352,12 +352,13 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
   const backdrop = useBackdropClose(onClose);
 
   return (
-    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
-      <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
+    <OverlayLayer className="modal-safe-overlay fixed inset-0 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
+      <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 [--modal-height:85vh] [--modal-dynamic-height:85dvh] manual-modal-shell" onClick={(e) => e.stopPropagation()}>
+        <div className="manual-modal-header flex items-center justify-between">
           <h2 className="text-lg font-bold">Histórico de Pagamentos</h2>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
+        <div className="manual-modal-body space-y-4">
 
         <div className="space-y-1 text-sm">
           <p className="text-muted-foreground">{transaction.description}</p>
@@ -635,6 +636,8 @@ export function TransactionPaymentsListModal({ transaction, canApprove, eventCom
             ))}
           </div>
         )}
+      
+        </div>
       </div>
     </OverlayLayer>
   );

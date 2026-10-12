@@ -88,6 +88,8 @@ Regra: **nenhum componente define z-index de overlay à mão.** A ordem é dada 
 - Proibido: classes `z-[…]`/`z-50` em `DialogContent`, `SelectContent`, `PopoverContent`, overlays `fixed inset-0`, `overlayClassName`/`contentClassName` com z. Novo overlay manual = `<OverlayLayer>`.
 - Testes: `src/lib/__tests__/overlay-layer.test.tsx` (Dialog em overlay manual, AlertDialog em Dialog, Select em AlertDialog em overlay manual).
 
+**Modais em telemóvel: cabeçalho com X sempre fixo; altura em dvh; respeitar safe-area.** O cabeçalho fica fora do corpo com scroll, com fundo opaco e X com área de toque de 44×44. Usar fallback em vh. O fecho pelo fundo/Esc de Editar Transação pede confirmação se houver alterações por guardar e não fecha por baixo de outro diálogo ou do Manual. Estas regras não alteram a pilha de camadas.
+
 > **AVISO — `.glass` + `backdrop-filter` quebram `position: fixed`.**
 > O `.glass` usa `backdrop-blur`, e um `backdrop-filter != none` torna o elemento **containing block** dos descendentes `position: fixed`. Um modal `fixed` renderizado **INLINE** dentro de um cartão `.glass` ancora-se ao cartão e não ao viewport — o scrim cobre apenas o cartão e o conteúdo cai fora de vista ("tela preta"). **Nenhum z-index resolve isto.** Modais renderizados dentro de listas/cartões **TÊM de usar `createPortal` para `document.body`**.
 > Caso real: `TransactionDocumentsModal` invocado do BP (`EventForecast.tsx`, ForecastRow/OrphanBucketRow) dentro do cartão `.glass` — abria fora do ecrã. Contraste: `TransactionEditModal`, chamado da mesma linha, sempre funcionou porque porta para o `body`. Bónus: o portal também corrige o HTML inválido de um `<div>` irmão de `<tr>` dentro de `<tbody>`.

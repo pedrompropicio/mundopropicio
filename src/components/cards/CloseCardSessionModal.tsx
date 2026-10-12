@@ -413,9 +413,9 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
     "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50";
 
   return (
-    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
-      <div className="glass max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl p-6">
-        <div className="mb-4 flex items-center justify-between">
+    <OverlayLayer className="modal-safe-overlay fixed inset-0 flex items-center justify-center bg-black/60 p-4">
+      <div className="glass  w-full max-w-2xl manual-modal-shell rounded-xl p-6">
+        <div className="manual-modal-header mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Lock className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold">Fechar e integrar sessão de cartão</h2>
@@ -424,6 +424,7 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
             <X className="h-5 w-5" />
           </button>
         </div>
+        <div className="manual-modal-body">
 
         <div className="mb-4 flex items-center gap-2 text-xs">
           {["Resumo", "Linhas de BP", "Saldo", "Integrar"].map((label, i) => (
@@ -743,6 +744,8 @@ export function CloseCardSessionModal({ open, onOpenChange, session }: Props) {
             )}
           </>
         )}
+      
+        </div>
       </div>
 
       {pickPair && (

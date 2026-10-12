@@ -176,9 +176,9 @@ export function OpenCardSessionModal({
   if (!open) return null;
 
   return (
-    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
-      <div className="glass max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl p-6">
-        <div className="mb-4 flex items-center justify-between">
+    <OverlayLayer className="modal-safe-overlay fixed inset-0 flex items-center justify-center bg-black/60 p-4">
+      <div className="glass  w-full max-w-lg manual-modal-shell rounded-xl p-6">
+        <div className="manual-modal-header mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CreditCard className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold">Entregar cartão</h2>
@@ -187,6 +187,7 @@ export function OpenCardSessionModal({
             <X className="h-5 w-5" />
           </button>
         </div>
+        <div className="manual-modal-body">
 
         <form onKeyDown={blockImplicitSubmitOnEnter}
           onSubmit={(e) => {
@@ -350,6 +351,8 @@ export function OpenCardSessionModal({
             </button>
           </div>
         </form>
+      
+        </div>
       </div>
     </OverlayLayer>
   );

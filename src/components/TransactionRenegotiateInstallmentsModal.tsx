@@ -205,9 +205,9 @@ export function TransactionRenegotiateInstallmentsModal({
   });
 
   return createPortal(
-    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
-      <div className="glass w-full max-w-2xl rounded-xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-start justify-between gap-3">
+    <OverlayLayer className="modal-safe-overlay fixed inset-0 flex items-center justify-center bg-black/60 p-4">
+      <div className="glass w-full max-w-2xl rounded-xl p-5 space-y-4  manual-modal-shell">
+        <div className="manual-modal-header flex items-start justify-between gap-3">
           <div className="space-y-1">
             <h2 className="flex items-center gap-2 text-base font-bold">
               <Layers className="h-4 w-4 text-primary" /> Renegociar em parcelas
@@ -220,6 +220,7 @@ export function TransactionRenegotiateInstallmentsModal({
             <X className="h-5 w-5" />
           </button>
         </div>
+        <div className="manual-modal-body space-y-4">
 
         {!confirming ? (
           <>
@@ -315,6 +316,8 @@ export function TransactionRenegotiateInstallmentsModal({
             </div>
           </div>
         )}
+      
+        </div>
       </div>
     </OverlayLayer>,
     document.body,

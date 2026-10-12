@@ -4,7 +4,9 @@ import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { TransactionOffsetsBlock } from "@/components/TransactionOffsetsBlock";
 import { computeBudgetExcess, type BudgetExcessLine } from "@/lib/bp-budget-excess";
 import { isBpLinkAllowedForEvent, fetchWithBpEventIds } from "@/lib/bp-line-required";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useModalDismiss } from "@/hooks/useModalDismiss";
+import { DiscardModalChangesDialog } from "@/components/DiscardModalChangesDialog";
 import { fetchAdminWindowEvent, writeWithAdminCostOverride } from "@/lib/admin-window";
 import { AdminCostOverrideDialog } from "@/components/AdminCostOverrideDialog";
 import { createPortal } from "react-dom";
@@ -1243,18 +1245,38 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   const supplierOptions = suppliers.map((s: any) => ({ value: s.id, label: s.trade_name ? `${s.name} (${s.trade_name})` : s.name, searchText: s.trade_name ?? undefined }));
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
+  // O carregamento de vínculos não é uma edição. Fixar o estado anterior à
+  // primeira interação de edição, incluindo campos fora do objeto form.
+  const editingStarted = useRef(false);
+  const editSnapshot = JSON.stringify({
+    form, currency, originalAmount, fxRate, fxRateSource, childAdjustments,
+    partnerPaidDate, partnerPaidPartnerId, partnerPaidRemove, capitalPartnerId,
+    bpLineChoice, unlinkBpRequested,
+  });
+  const baseline = useRef(editSnapshot);
+  if (!editingStarted.current) baseline.current = editSnapshot;
+  const dismiss = useModalDismiss(editSnapshot !== baseline.current, onClose);
+  const beginEditing = (event: React.SyntheticEvent) => {
+    const target = event.target;
+    if (target instanceof Element && target.closest(
+      'input, textarea, select, [role="switch"], [role="checkbox"], [role="radio"], [role="combobox"], [role="option"]'
+    )) editingStarted.current = true;
+  };
+
   return createPortal(
-    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
-      <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-start justify-between gap-3">
+    <OverlayLayer ref={dismiss.overlayRef} {...dismiss.backdrop} className="modal-safe-overlay fixed inset-0 flex items-center justify-center bg-black/60 p-4">
+      <div role="dialog" aria-modal="true" aria-labelledby="transaction-edit-title" className="glass w-full max-w-lg rounded-xl p-6 space-y-4 manual-modal-shell"
+        onPointerDownCapture={beginEditing} onChangeCapture={beginEditing} onKeyDownCapture={beginEditing}>
+        <div className="manual-modal-header flex items-start justify-between gap-3">
           <div className="space-y-2">
-            <h2 className="text-lg font-bold">{isPaid ? (canApprove ? "Editar (Ajuste admin/gestora)" : "Editar (Liquidada)") : "Editar Transação"}</h2>
+            <h2 id="transaction-edit-title" className="text-lg font-bold">{isPaid ? (canApprove ? "Editar (Ajuste admin/gestora)" : "Editar (Liquidada)") : "Editar Transação"}</h2>
             <Button asChild size="sm" variant="outline" className="h-8 w-fit text-xs">
               <RouterLink to="/reembolsos">Abrir listas de reembolso</RouterLink>
             </Button>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
+          <Button type="button" variant="ghost" size="icon" aria-label="Fechar transação" onClick={dismiss.requestClose} className="h-11 w-11 shrink-0"><X className="h-5 w-5" /></Button>
         </div>
+        <div className="manual-modal-body space-y-4">
 
         <div className={`rounded-lg px-3 py-1.5 text-xs font-medium inline-flex ${
           isExpense ? "bg-warning/20 text-warning" : "bg-success/20 text-success"
@@ -2775,6 +2797,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
             }}
           />
         )}
+      
+        </div>
+        <DiscardModalChangesDialog open={dismiss.confirmDiscard} onOpenChange={dismiss.setConfirmDiscard} onDiscard={onClose} />
       </div>
     </OverlayLayer>,
     document.body
