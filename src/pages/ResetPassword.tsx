@@ -5,7 +5,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Music2 } from "lucide-react";
 import { PasswordStrengthIndicator, validatePassword } from "@/components/PasswordStrengthIndicator";
 
-type ResetStatus = "loading" | "ready" | "expired";
+type ResetStatus = "loading" | "ready-to-verify" | "ready" | "expired";
 
 function getErrorFromUrl() {
   const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
@@ -40,31 +40,19 @@ export default function ResetPassword() {
   const resolvedRef = useRef(false);
 
   useEffect(() => {
-    // Check for token_hash flow (direct link from invite email)
+    // Check for token_hash flow (direct link from invite email).
+    // Never verify automatically on mount: email link previews would consume the token.
     const tokenHash = searchParams.get("token_hash");
     const type = searchParams.get("type") || "recovery";
 
     if (tokenHash) {
       setIsTokenHashFlow(true);
-      // Verify the token hash directly with Supabase
-      supabase.auth.verifyOtp({
-        token_hash: tokenHash,
-        type: type as any,
-      }).then(({ data, error }) => {
-        if (error) {
-          setStatus("expired");
-          setStatusDetail(mapRecoveryError(error.message));
-        } else if (data.session) {
-          resolvedRef.current = true;
-          setStatus("ready");
-          setStatusDetail("Defina a sua senha para aceder à plataforma");
-        } else {
-          setStatus("expired");
-          setStatusDetail("Não foi possível validar o link. Solicite um novo convite.");
-        }
-        // Clean URL
-        window.history.replaceState({}, document.title, "/reset-password");
-      });
+      tokenHashRef.current = tokenHash;
+      tokenTypeRef.current = type;
+      // Clean URL
+      window.history.replaceState({}, document.title, "/reset-password");
+      setStatus("ready-to-verify");
+      setStatusDetail("Clique para continuar e definir a sua senha");
       return;
     }
 
