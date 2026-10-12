@@ -12555,6 +12555,33 @@ export type Database = {
           },
         ]
       }
+      permission_snapshot_311: {
+        Row: {
+          company_id: string | null
+          permission: string | null
+          role: string | null
+          snapshot: string
+          taken_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id?: string | null
+          permission?: string | null
+          role?: string | null
+          snapshot: string
+          taken_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string | null
+          permission?: string | null
+          role?: string | null
+          snapshot?: string
+          taken_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       portal_error_log: {
         Row: {
           boundary: string | null
