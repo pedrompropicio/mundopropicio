@@ -778,6 +778,13 @@
       "when": 1791755761383,
       "tag": "0110_derp251_event_trackers_revoke_anon",
       "breakpoints": true
+    },
+    {
+      "idx": 111,
+      "version": "7",
+      "when": 1791769134723,
+      "tag": "0111_derp252_clube_newgang_crm",
+      "breakpoints": true
     }
   ]
 }

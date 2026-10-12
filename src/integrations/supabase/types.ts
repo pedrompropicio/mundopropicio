@@ -18110,6 +18110,8 @@ export type Database = {
           session_tx: string
         }[]
       }
+      _clube_newgang_assert_access: { Args: never; Returns: undefined }
+      _clube_newgang_birth: { Args: { p_raw: Json }; Returns: string }
       _derive_paid_amount: { Args: { p_tx_id: string }; Returns: undefined }
       _paid_guard_is_exempt: {
         Args: { p: Database["public"]["Tables"]["transactions"]["Row"] }
@@ -19532,6 +19534,26 @@ export type Database = {
         }[]
       }
       clear_operation_key: { Args: { _key: string }; Returns: Json }
+      clube_newgang_list: {
+        Args: { p_limit?: number; p_offset?: number; p_search?: string }
+        Returns: {
+          birth_date: string
+          city: string
+          consent_email: boolean
+          consent_whatsapp: boolean
+          created_at: string
+          email: string
+          id: string
+          name: string
+          phone: string
+          postal_code: string
+          total_count: number
+          utm_campaign: string
+          utm_medium: string
+          utm_source: string
+        }[]
+      }
+      clube_newgang_summary: { Args: never; Returns: Json }
       coala_send_early_bird_batch: {
         Args: { p_dry_run?: boolean; p_limit?: number }
         Returns: Json
