@@ -1244,9 +1244,9 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
   return createPortal(
-    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
-      <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-start justify-between gap-3">
+    <OverlayLayer className="modal-safe-overlay fixed inset-0 flex items-center justify-center bg-black/60 p-4">
+      <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4  manual-modal-shell">
+        <div className="manual-modal-header flex items-start justify-between gap-3">
           <div className="space-y-2">
             <h2 className="text-lg font-bold">{isPaid ? (canApprove ? "Editar (Ajuste admin/gestora)" : "Editar (Liquidada)") : "Editar Transação"}</h2>
             <Button asChild size="sm" variant="outline" className="h-8 w-fit text-xs">
@@ -1255,6 +1255,7 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
           </div>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
+        <div className="manual-modal-body space-y-4">
 
         <div className={`rounded-lg px-3 py-1.5 text-xs font-medium inline-flex ${
           isExpense ? "bg-warning/20 text-warning" : "bg-success/20 text-success"
@@ -2775,6 +2776,8 @@ export function TransactionEditModal({ transaction, onClose, canApprove }: Props
             }}
           />
         )}
+      
+        </div>
       </div>
     </OverlayLayer>,
     document.body

@@ -232,9 +232,9 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
   if (!open || !item) return null;
 
   return (
-    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
-      <div className="glass max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl p-6">
-        <div className="mb-4 flex items-center justify-between">
+    <OverlayLayer className="modal-safe-overlay fixed inset-0 flex items-center justify-center bg-black/60 p-4">
+      <div className="glass  w-full max-w-lg manual-modal-shell rounded-xl p-6">
+        <div className="manual-modal-header mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold">Aprovar despesa</h2>
@@ -243,6 +243,7 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
             <X className="h-5 w-5" />
           </button>
         </div>
+        <div className="manual-modal-body">
 
         <div className="space-y-3">
           {previewUrl && (
@@ -366,6 +367,8 @@ export function ApproveCardItemModal({ open, onOpenChange, item, cardAccountId }
               {approve.isPending ? "A aprovar…" : "Aprovar item"}
             </button>
           </div>
+        </div>
+      
         </div>
       </div>
     </OverlayLayer>

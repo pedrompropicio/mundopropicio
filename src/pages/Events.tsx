@@ -528,14 +528,15 @@ export default function Events() {
 
       {/* Creation Form Modal */}
       {showForm && (
-        <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowForm(false)}>
-          <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
+        <OverlayLayer className="modal-safe-overlay fixed inset-0 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowForm(false)}>
+          <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4  manual-modal-shell" onClick={(e) => e.stopPropagation()}>
+            <div className="manual-modal-header flex items-center justify-between">
               <h2 className="text-lg font-bold">Novo Evento</h2>
               <button onClick={() => setShowForm(false)} className="rounded-lg p-1 hover:bg-secondary">
                 <X className="h-5 w-5" />
               </button>
             </div>
+        <div className="manual-modal-body space-y-4">
 
             <form onKeyDown={blockImplicitSubmitOnEnter} onSubmit={handleSubmit} className="space-y-4">
               {/* Event Type Selection */}
@@ -969,7 +970,9 @@ export default function Events() {
                 <p className="text-center text-xs text-destructive">Escolha a natureza do evento</p>
               )}
             </form>
-          </div>
+          
+        </div>
+      </div>
         </OverlayLayer>
       )}
 

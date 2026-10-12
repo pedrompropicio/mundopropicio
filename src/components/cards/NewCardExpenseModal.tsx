@@ -527,9 +527,9 @@ export function NewCardExpenseModal({
   const needsReason = !isLegacyEdit && existingDocCount + pendingDocs.length === 0;
 
   return (
-    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
-      <div className="glass max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl p-6">
-        <div className="mb-4 flex items-center justify-between">
+    <OverlayLayer className="modal-safe-overlay fixed inset-0 flex items-center justify-center bg-black/60 p-4">
+      <div className="glass  w-full max-w-lg manual-modal-shell rounded-xl p-6">
+        <div className="manual-modal-header mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Receipt className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold">
@@ -544,6 +544,7 @@ export function NewCardExpenseModal({
             <X className="h-5 w-5" />
           </button>
         </div>
+        <div className="manual-modal-body">
 
         {isLegacyEdit && completedEventBlocked && (
           <p className="mb-3 rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive">
@@ -718,6 +719,8 @@ export function NewCardExpenseModal({
             </button>
           </div>
         </form>
+      
+        </div>
       </div>
 
       {/* #112 — gate da linha de BP na edição da despesa directa antiga. */}

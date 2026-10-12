@@ -565,9 +565,9 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
 
 
   return (
-    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
-      <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between">
+    <OverlayLayer className="modal-safe-overlay fixed inset-0 flex items-center justify-center bg-black/60 p-4">
+      <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4  manual-modal-shell">
+        <div className="manual-modal-header flex items-center justify-between">
           <h2 className="text-lg font-bold flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
             Liquidação em Lote
@@ -579,6 +579,7 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
             <X className="h-5 w-5" />
           </button>
         </div>
+        <div className="manual-modal-body space-y-4">
 
         {partialInvoiceGroups.length > 0 && (
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-1">
@@ -888,6 +889,8 @@ export function BatchPaymentModal({ transactions: allTransactions, onClose, init
             </>
           )}
         </button>
+      
+        </div>
       </div>
     </OverlayLayer>
   );

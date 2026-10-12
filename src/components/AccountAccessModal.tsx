@@ -104,15 +104,16 @@ export default function AccountAccessModal({ accountId, accountName, onClose }: 
   const backdrop = useBackdropClose(onClose);
 
   return (
-    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
-      <div className="glass w-full max-w-md rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
+    <OverlayLayer className="modal-safe-overlay fixed inset-0 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
+      <div className="glass w-full max-w-md rounded-xl p-6 space-y-4  manual-modal-shell" onClick={(e) => e.stopPropagation()}>
+        <div className="manual-modal-header flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold">Acessos à Conta</h2>
             <p className="text-sm text-muted-foreground">{accountName}</p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
+        <div className="manual-modal-body space-y-4">
 
         <p className="text-xs text-muted-foreground">Admins e Gerentes veem todas as contas automaticamente. Aqui configuras o acesso para outros utilizadores.</p>
 
@@ -164,6 +165,8 @@ export default function AccountAccessModal({ accountId, accountName, onClose }: 
               );
             })
           )}
+        </div>
+      
         </div>
       </div>
     </OverlayLayer>

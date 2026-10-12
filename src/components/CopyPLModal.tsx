@@ -111,9 +111,9 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
   const backdrop = useBackdropClose(onClose);
 
   return (
-    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
-      <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
+    <OverlayLayer className="modal-safe-overlay fixed inset-0 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
+      <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4  manual-modal-shell" onClick={(e) => e.stopPropagation()}>
+        <div className="manual-modal-header flex items-center justify-between">
           <h2 className="text-lg font-bold flex items-center gap-2">
             <Copy className="h-5 w-5 text-primary" /> Copiar Business Plan
           </h2>
@@ -121,6 +121,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
             <X className="h-5 w-5" />
           </button>
         </div>
+        <div className="manual-modal-body space-y-4">
 
         <p className="text-xs text-muted-foreground">
           Copiar previsões de BP de outro evento para <span className="font-semibold text-foreground">{targetEventName}</span>
@@ -224,6 +225,8 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
             ? "A copiar…"
             : `Copiar ${sourceForecastCount} linhas de BP`}
         </button>
+      
+        </div>
       </div>
     </OverlayLayer>
   );

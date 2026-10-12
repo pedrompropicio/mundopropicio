@@ -688,12 +688,13 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
 
    return (
     <>
-      <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4">
-        <div className="glass w-full max-w-sm rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-          <div className="flex items-center justify-between">
+      <OverlayLayer className="modal-safe-overlay fixed inset-0 flex items-center justify-center bg-black/60 p-4">
+        <div className="glass w-full max-w-sm rounded-xl p-6 space-y-4  manual-modal-shell">
+          <div className="manual-modal-header flex items-center justify-between">
             <h2 className="text-lg font-bold">{modalTitle}</h2>
             <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
           </div>
+        <div className="manual-modal-body space-y-4">
 
           {invoiceGroupId && (openSiblings as any[]).length > 0 && (
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
@@ -1151,7 +1152,9 @@ export function TransactionPaymentModal({ transaction, onClose, onSettleGroup }:
               {paymentMutation.isPending ? "A processar…" : confirmLabel}
             </button>
           </div>
+        
         </div>
+      </div>
       </OverlayLayer>
 
       {showDocuments && (

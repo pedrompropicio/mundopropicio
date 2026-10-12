@@ -315,14 +315,15 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
   const backdrop = useBackdropClose(onClose);
 
   return (
-    <OverlayLayer className="fixed inset-0 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
-      <div className="glass w-full max-w-lg rounded-xl p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <OverlayLayer className="modal-safe-overlay fixed inset-0 flex items-center justify-center bg-black/60 p-4" {...backdrop}>
+      <div className="glass w-full max-w-lg rounded-xl p-5 space-y-4  manual-modal-shell" onClick={(e) => e.stopPropagation()}>
 
 
-        <div className="flex items-center justify-between">
+        <div className="manual-modal-header flex items-center justify-between">
           <h2 className="text-base font-bold">Editar Previsão Aprovada</h2>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
+        <div className="manual-modal-body space-y-4">
 
         {/* Description */}
         <div>
@@ -497,6 +498,8 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
             </div>
           </div>
         )}
+      
+        </div>
       </div>
     </OverlayLayer>
   );
