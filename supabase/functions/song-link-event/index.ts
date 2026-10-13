@@ -122,6 +122,16 @@ async function geoFor(admin: any, ipHash: string | null, ip: string, blitz = fal
     if (db) { geoCache.set(ipHash, { at: now, geo: db }); return { geo: db, src: "cache" }; }
   }
   if (!ip) return { geo: NUL, src: "none" };
+  // D-ERP263: base local DB-IP Lite City (só BR/PT) antes do ipinfo. O IP só vai como parâmetro; nunca se grava.
+  try {
+    const { data } = await admin.rpc("ip_city_lookup", { ip });
+    const r = Array.isArray(data) ? data[0] : data;
+    if (r?.country && r?.city) {
+      const g: Geo = { country: r.country, region: r.region ?? null, city: r.city };
+      await hashGeoPut(admin, ipHash, g).catch(() => {});
+      return { geo: g, src: "dbip" };
+    }
+  } catch { /* segue para o ipinfo */ }
   ipinfoCalls = ipinfoCalls.filter((t) => now - t < 60_000);
   const cap = blitz ? IPINFO_PER_MIN : IPINFO_PER_MIN - IPINFO_RESERVED_BLITZ;
   if (ipinfoCalls.length >= cap) return { geo: NUL, src: "quota" };

@@ -5791,3 +5791,14 @@ Backfill: 26/09–11/10, 6.400 linhas, 200 por país e por dia. 12/10 ainda dá 
 
 ### D-ERP262 — Chat dedicado `newgang-portal` (13/10/2026)
 Chat dedicado `newgang-portal` (tipo c, como o coala-portal). O portal newgangfestival.pt é um projeto Lovable separado, com vida até 25/03/2027; o chat passa a ser dono do site, da API newgang-portal, do Clube Newgang e do tracking do site. Google Ads/#62 continuam em audience-google; as campanhas Meta em audience-meta; as regras gerais de leads em crm-portal-e-leads.
+
+### D-ERP263 — Cidade das chegadas por base local DB-IP Lite City (13/10/2026) — ACEITE
+(Ficou D-ERP263 porque o D-ERP262 já é o chat `newgang-portal`.) Adenda 6 ao D-ERP234.
+- Contexto: a CDN do Portal (Lovable) só envia cf-ipcountry; o ipinfo tem a quota da conta esgotada (429 a tudo).
+- Base: DB-IP Lite City (CC BY 4.0, gratuita, uso comercial com atribuição). **Atribuição obrigatória "IP geolocation by DB-IP" (https://db-ip.com) em qualquer ecrã/relatório onde a cidade das chegadas seja mostrada.**
+- Migração 0132: `public.ip_city_ranges` (ip_from, ip_to inet, country, region, city, source_month), só BR e PT, IPv4+IPv6; RLS ligada, só service_role. Índice btree (ip_from DESC, source_month DESC); pesquisa `ip_from <= ip ORDER BY ip_from DESC LIMIT 1` e depois `ip_to >= ip` + mesma família (0,14 ms). `ip_city_lookup(inet)` SECURITY DEFINER (só service_role); `ip_city_ranges_swap(month)` (troca atómica: apaga os outros meses) e `ip_city_ranges_clear_month(month)`.
+- Carga: edge `dbip-city-sync` (verify_jwt, só service_role). O limite de ~2 s de CPU por pedido não chega para descomprimir 693 MB (tentativas por linha e por byte descomprimido falharam na 2.ª/6.ª parte). Escolha: **partes por HTTP Range com inflate próprio retomável em fronteira de bloco DEFLATE** (estado = offset comprimido + bit + janela 32 KB + resto de linha; ~8 MB descomprimidos por parte, ~83 partes, encadeadas pela própria função). Grava em lotes de 2.000; regista um só sync_run; troca no fim. Mês corrente, senão o anterior.
+- Cron 2197 `carreira-dbip-city-mensal`, `20 4 3 * *` (cron.schedule).
+- song-link-event: ordem cache ip_hash 24 h → `ip_city_lookup(client_ip)` → ipinfo (último recurso). Região/cidade só entram se o país coincidir; o país da CDN nunca muda. src = "cdn+dbip". O IP vai só como parâmetro; nunca é guardado em claro (a cache continua por ip_hash).
+- Backfill: impossível (não guardamos o IP); não se tenta.
+- Prova 13/10: 523.349 ranges de 2026-10 (BR v4 142.537, v6 340.966; PT v4 20.364, v6 19.482).
