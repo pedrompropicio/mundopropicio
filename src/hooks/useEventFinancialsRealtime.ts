@@ -52,7 +52,7 @@ export function useEventFinancialsRealtime(eventIds: (string | null | undefined)
         supabase.from("event_ticket_zones").select("id").in("event_id", ids),
         supabase.from("event_cache_configs").select("id").in("event_id", ids),
       ]);
-      return { zones: (z.data ?? []).map((r: any) => r.id as string), configs: (c.data ?? []).map((r: any) => r.id as string) };
+      return { zones: (z.data ?? []).map((r: { id: string }) => r.id), configs: (c.data ?? []).map((r: { id: string }) => r.id) };
     },
   });
   const subs = useMemo(() => eventFinancialSubs(ids, scope?.zones ?? [], scope?.configs ?? []), [ids, scope]);
