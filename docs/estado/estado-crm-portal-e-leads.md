@@ -25,6 +25,8 @@ A 24/09/2026 foi resolvido o incidente que punha o ecrã "Algo correu mal" a 100
 
 **Portal newgangfestival.pt — F1 ERP (13/10)** — base, API `newgang-portal`, origens e ecrã `/crm/sites/newgang` feitos; ver `docs/specs/portal-newgangfestival.md`. `event_lineups_public` passou a exigir revelação agendada com data pública passada. Sementeira aplicada a 13/10 (`supabase/manual/20261013_newgang_portal_seed.sql`, com backfill de 2 membros por confirmar); fluxo testado e limpo. Sem Publish.
 
+**Portal newgangfestival.pt — F2 ERP (13/10)** — origens do preview `--1a915f50-…lovable.app` e `newgang-fest-portal.lovable.app` (→ MP) em `newgang-portal`, `portal-track`, `crm-google-click-ingest`, `geo-lookup`; origem estranha → 403. Email automático "Confirma a tua entrada no Clube Newgang" a membros novos com source `formulario` (cron `newgang-club-welcome-5m`, 1 por membro). `request_access` com o mesmo visual. `next_reveal.id` no line-up. Testado com teste+ngmail e limpo. Sem Publish.
+
 **Risco registado:** a policy `lead_capture_public_insert` (anon insert em `lead_capture`) mantém-se; não foi alterada neste pedido.
 
 ## Próximo passo concreto

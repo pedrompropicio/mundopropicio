@@ -29,6 +29,12 @@ Geral · Line-up e revelações (LineupTab estendido + revelações + pré-visua
 ### Testes
 `src/test/newgang-portal.test.ts` (10).
 
+## F2 (13/10/2026)
+- **Origens**: preview `--1a915f50-55ca-4bb6-9abe-8f241c54647a.lovable.app` e `https://newgang-fest-portal.lovable.app` (→ empresa MP) em `newgang-portal`, `portal-track`, `crm-google-click-ingest` e `geo-lookup`. OPTIONS/POST: preview e Lovable 200/204; origem estranha 403 (também no OPTIONS do `newgang-portal`).
+- **Email de confirmação automático**: sem DDL. Cron `newgang-club-welcome-5m` (*/5, 288/dia) chama `newgang-portal` com `{action:"notify_pending"}` e a chave de serviço (sem Origin). Membros `source='formulario'`, por confirmar, criados há ≤ 7 dias; idempotente por membro (`email_send_log.template_name='newgang_club_welcome'`, `metadata.member_id`, message_id `ng-welcome-<member>`). Emite sessão `access` 30 dias (só hash). `importacao` e `confirmacao_1_clique` nunca recebem. Atraso máx. ≈ 10 min (lead_capture 5 min + este cron 5 min).
+- **Visual** (`newgang-portal/email.ts`): cabeçalho clube-email-header-v3, fundo verde escuro, botão verde, rodapé logo Newgang Produções + descadastro (`mpgestaoeventos.com/unsubscribe?token=` + List-Unsubscribe one-click). Usado em `newgang_club_welcome` e `newgang_club_access`.
+- **Line-up**: `next_reveal.id` = reveal_id para o palpite; `assertNoTotals` mantido.
+
 ## Por fazer
 - DML de sementeira aplicado em Live a 13/10/2026 (`supabase/manual/20261013_newgang_portal_seed.sql`): 1 site, 5 edições, 6 regras, 3 níveis, 4 faixas de prémios, 2 membros por confirmar (backfill). Fluxo completo testado (inscrição → link → +100/+150 idempotente) e dados de teste apagados.
 - Preencher o preview do projeto novo em `newgang-portal` e `portal-track`.
