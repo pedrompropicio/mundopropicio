@@ -280,9 +280,9 @@ DECLARE s uuid; c uuid; mid uuid; is_new boolean; BEGIN
       IF is_new THEN
         PERFORM net.http_post(
           url := 'https://sfohvvlqccmmebvjgibx.supabase.co/functions/v1/newgang-portal',
-          headers := jsonb_build_object('Content-Type','application/json','Authorization','Bearer '||
-            (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name='email_queue_service_role_key')),
-          body := jsonb_build_object('action','notify_pending','member_id',mid));
+          -- Sem segredo: a função só aceita member_id e só envia o welcome (uma vez) a membro por confirmar.
+          headers := jsonb_build_object('Content-Type','application/json'),
+          body := jsonb_build_object('action','notify_member','member_id',mid));
       END IF;
     EXCEPTION WHEN OTHERS THEN
       RAISE WARNING 'club_from_lead_capture notify: %', SQLERRM;
