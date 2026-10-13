@@ -48,3 +48,23 @@ describe("newgang-portal bundle", () => {
     expect(JSON.stringify(bundleFrom(p, now))).not.toContain("Secreto");
   });
 });
+
+import { regulationFrom, termsMeta } from "../../supabase/functions/newgang-portal/public";
+describe("newgang-portal regulamento", () => {
+  const draft = { version: 3, status: "rascunho", published_at: null, body_md: "RASCUNHO SECRETO" };
+  const v1 = { version: 1, status: "publicada", published_at: "2026-10-01T00:00:00Z", body_md: "v1" };
+  const v2 = { version: 2, status: "publicada", published_at: "2026-10-10T00:00:00Z", body_md: "v2" };
+  it("regulation devolve só a publicada mais recente; só rascunho = 404 (null)", () => {
+    expect(regulationFrom([v1, draft, v2])).toEqual({ version: 2, published_at: v2.published_at, body_md: "v2" });
+    expect(regulationFrom([draft])).toBeNull();
+    expect(regulationFrom(null)).toBeNull();
+  });
+  it("site/bundle: club.terms só com versão e data; rascunho nunca sai", () => {
+    const s = assemblePublic({ site: true }, { ...row, club_terms: [draft, v1] }, pub, null).site as any;
+    expect(s.club.terms).toEqual({ version: 1, published_at: v1.published_at });
+    expect(JSON.stringify(s)).not.toContain("RASCUNHO");
+    expect(JSON.stringify(s)).not.toContain("body_md");
+    expect(termsMeta([draft])).toBeNull();
+    expect(assemblePublic({ site: true }, row, pub, null).site).toMatchObject({ club: { terms: null } });
+  });
+});

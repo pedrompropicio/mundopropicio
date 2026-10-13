@@ -5023,6 +5023,8 @@ export type Database = {
           referred_by_member_id: string | null
           site_id: string
           source: string
+          terms_accepted_at: string | null
+          terms_version: number | null
           updated_at: string
         }
         Insert: {
@@ -5039,6 +5041,8 @@ export type Database = {
           referred_by_member_id?: string | null
           site_id: string
           source: string
+          terms_accepted_at?: string | null
+          terms_version?: number | null
           updated_at?: string
         }
         Update: {
@@ -5055,6 +5059,8 @@ export type Database = {
           referred_by_member_id?: string | null
           site_id?: string
           source?: string
+          terms_accepted_at?: string | null
+          terms_version?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -5250,6 +5256,70 @@ export type Database = {
           },
           {
             foreignKeyName: "club_rewards_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      club_terms: {
+        Row: {
+          body_md: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          published_at: string | null
+          published_by: string | null
+          site_id: string
+          status: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          body_md?: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          published_at?: string | null
+          published_by?: string | null
+          site_id: string
+          status?: string
+          updated_at?: string
+          version: number
+        }
+        Update: {
+          body_md?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          published_at?: string | null
+          published_by?: string | null
+          site_id?: string
+          status?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_terms_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_terms_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_terms_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "portal_sites_public"
@@ -20717,6 +20787,14 @@ export type Database = {
           points: number
           rank_pos: number
         }[]
+      }
+      club_record_terms: {
+        Args: { p_at: string; p_member: string; p_version: string }
+        Returns: boolean
+      }
+      club_terms_publish: {
+        Args: { p_body: string; p_site: string }
+        Returns: number
       }
       club_upsert_member: {
         Args: {

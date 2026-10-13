@@ -4,7 +4,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3.23.8";
 import { assertNoTotals, buildLineup, displayName } from "./lineup.ts";
-import { assemblePublic, bundleFrom, lineupFrom, type Want } from "./public.ts";
+import { assemblePublic, bundleFrom, lineupFrom, regulationFrom, termsMeta, type Want } from "./public.ts";
 import { clubEmail } from "./email.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
@@ -55,7 +55,7 @@ function clientIp(req: Request): string {
 }
 
 const Body = z.object({
-  action: z.enum(["bundle", "site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer", "notify_pending"]),
+  action: z.enum(["bundle", "regulation", "site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer", "notify_pending"]),
   token: z.string().min(20).max(200).optional(),
   email: z.string().email().max(254).optional(),
   reveal_id: z.string().uuid().optional(),
@@ -180,17 +180,18 @@ const timed = async <T>(t: Timer, k: string, p: PromiseLike<T>): Promise<T> => {
 async function loadSitePayload(site: any) {
   const ev = site.event_id;
   const none = Promise.resolve({ data: null });
-  const [{ data }, { data: t }, { data: evRow }, { data: em }, { data: lv }, { data: rl }] = await Promise.all([
+  const [{ data }, { data: t }, { data: evRow }, { data: em }, { data: lv }, { data: rl }, { data: tm }] = await Promise.all([
     sb.from("portal_sites_public").select("*").eq("id", site.id).maybeSingle(),
     ev ? sb.from("event_trackers").select("platform, tracker_id").eq("event_id", ev) : none,
     ev ? sb.from("events").select("ticketing_url").eq("id", ev).maybeSingle() : none,
     ev ? sb.from("event_marketing").select("ticket_lots").eq("event_id", ev).maybeSingle() : none,
     sb.from("club_levels").select("name, min_points, benefit").eq("site_id", site.id).order("min_points"),
     sb.from("club_point_rules").select("rule_key, label, points").eq("site_id", site.id).eq("active", true).order("points"),
+    sb.from("club_terms").select("version, published_at, status").eq("site_id", site.id).eq("status", "publicada").order("version", { ascending: false }).limit(1),
   ] as const) as any;
   const trackers: unknown[] = ev ? (t ?? []) : [];
   const ticketing: unknown = ev ? { url: evRow?.ticketing_url ?? null, lots: em?.ticket_lots ?? null } : null;
-  return { site: data, trackers, ticketing, club: { levels: lv ?? [], rules: rl ?? [] } };
+  return { site: data, trackers, ticketing, club: { levels: lv ?? [], rules: rl ?? [], terms: termsMeta(tm) } };
 }
 
 async function loadLineupRaw(site: any) {
@@ -215,7 +216,7 @@ const LINEUP_COLS = "id, reveal_id, artist_name, artist_image_url, artist_bio_pt
 async function loadPublic(want: Want) {
   const embed = [
     "id, event_id, brand_key, company_id",
-    want.site ? "club_levels(name, min_points, benefit), club_point_rules(rule_key, label, points, active)" : "",
+    want.site ? "club_levels(name, min_points, benefit), club_point_rules(rule_key, label, points, active), club_terms(version, published_at, status)" : "",
     `events(${[
       want.site ? "ticketing_url, event_trackers(platform, tracker_id)" : "",
       "event_marketing(ticket_lots, lineup_complete)",
@@ -286,6 +287,21 @@ Deno.serve(async (req) => {
     const ipHash = await sha256(clientIp(req) + ":ng");
     const { data: ok } = await sb.rpc("portal_rate_hit", { p_bucket: `ng:${body.action}:${ipHash}`, p_max: 20, p_window_seconds: 600 });
     if (ok === false) return json({ error: "rate_limited" }, 429);
+  }
+
+  // Regulamento publicado (rascunhos nunca saem).
+  if (body.action === "regulation") {
+    try {
+      const { data } = await timed(timer, "db", sb.from("portal_sites")
+        .select("id, club_terms(version, published_at, status, body_md)")
+        .eq("domain", SITE_DOMAIN).eq("active", true).maybeSingle()) as any;
+      if (!data) return json({ error: "site_not_configured" }, 503);
+      const r = regulationFrom(data.club_terms);
+      return r ? json(r) : json({ error: "not_found" }, 404);
+    } catch (e) {
+      console.error("newgang-portal regulation", (e as Error).message);
+      return json({ error: "internal" }, 500);
+    }
   }
 
   // Leituras públicas sem token: caminho rápido, sem getSite() à parte.

@@ -981,6 +981,13 @@
       "when": 1791916496881,
       "tag": "0139_0139_derp267_alert_notify_unsubscribe",
       "breakpoints": true
+    },
+    {
+      "idx": 140,
+      "version": "7",
+      "when": 1791929420327,
+      "tag": "0140_derp271_club_terms",
+      "breakpoints": true
     }
   ]
 }
