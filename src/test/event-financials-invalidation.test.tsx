@@ -8,11 +8,13 @@ const handlers: Array<() => void> = [];
 const removed: unknown[] = [];
 vi.mock("@/integrations/supabase/client", () => {
   const ch: any = { on: (_e: any, _f: any, cb: () => void) => { handlers.push(cb); return ch; }, subscribe: () => ch };
-  return { supabase: { channel: () => ch, removeChannel: (c: unknown) => removed.push(c) } };
+  const from = (t: string) => ({ select: () => ({ in: async () => ({ data: t === "event_ticket_zones" ? [{ id: "z1" }] : [{ id: "c1" }] }) }) });
+  return { supabase: { channel: () => ch, removeChannel: (c: unknown) => removed.push(c), from } };
 });
 
 import { invalidateEventFinancials, isEventFinancialKey, scheduleEventFinancialsInvalidation } from "@/lib/invalidate-event-financials";
 import { useEventFinancialsRealtime, eventFinancialSubs } from "@/hooks/useEventFinancialsRealtime";
+import { useInvalidateEventFinancials } from "@/hooks/useInvalidateEventFinancials";
 
 function seeded() {
   const qc = new QueryClient();
@@ -59,11 +61,39 @@ describe("invalidateEventFinancials", () => {
   });
 });
 
+describe("gravação direta (camarim, fecho de bilheteira, revisão de verbas)", () => {
+  it("useInvalidateEventFinancials invalida os cartões do evento", () => {
+    const qc = seeded();
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+    const { result } = renderHook(() => useInvalidateEventFinancials(), { wrapper });
+    act(() => { result.current(["m1"]); });
+    expect(stale(qc, ["event-cost-basis", "m1"])).toBe(true);
+    expect(stale(qc, ["bp-formula-sync", "m1"])).toBe(false);
+  });
+});
+
 describe("useEventFinancialsRealtime", () => {
   it("filtra pelos eventos (Master + subs) e inclui as tabelas pedidas", () => {
     const subs = eventFinancialSubs(["m1", "s1", null]);
     expect(subs.find((s) => s.table === "transactions")?.filter).toBe("event_id=in.(m1,s1)");
-    expect(subs.map((s) => s.table)).toEqual(expect.arrayContaining(["event_forecasts", "event_cache_configs", "ticket_sales"]));
+    expect(subs.map((s) => s.table)).toEqual(expect.arrayContaining(["event_forecasts", "event_cache_configs"]));
+  });
+  it("ticket_sales e deduções/escalões filtrados pelo evento (import de outro evento não chega)", () => {
+    const subs = eventFinancialSubs(["m1"], ["z1", "z2"], ["c1"]);
+    const ts = subs.filter((s) => s.table === "ticket_sales");
+    expect(ts.map((s) => s.event).sort()).toEqual(["INSERT", "UPDATE"]);
+    expect(ts.every((s) => s.filter === "zone_id=in.(z1,z2)")).toBe(true);
+    const ded = subs.filter((s) => s.table === "event_cache_deductions");
+    expect(ded.find((s) => s.event === "INSERT")?.filter).toBe("cache_config_id=eq.c1");
+    expect(ded.find((s) => s.event === "DELETE")?.filter).toBeUndefined();
+    // sem zonas/configs ainda conhecidas: não subscreve essas tabelas
+    expect(eventFinancialSubs(["m1"]).some((s) => s.table === "ticket_sales")).toBe(false);
+  });
+  it("mais de 100 zonas: ticket_sales fica sem filtro em vez de cortar zonas", () => {
+    const many = Array.from({ length: 101 }, (_, i) => `z${i}`);
+    const ts = eventFinancialSubs(["m1"], many).filter((s) => s.table === "ticket_sales");
+    expect(ts.length).toBe(2);
+    expect(ts.every((s) => !s.filter)).toBe(true);
   });
   it("evento Realtime dispara a invalidação com debounce e desliga ao sair", () => {
     vi.useFakeTimers();
