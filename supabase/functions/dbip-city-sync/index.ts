@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
       while (i !== -1) {
         const a = body2.lastIndexOf("\n", i) + 1; let b = body2.indexOf("\n", i); if (b === -1) b = body2.length;
         const f = parseCsv(body2.slice(a, b).replace(/\r$/, ""));
-        if (f[3] === "BR" || f[3] === "PT") rows.push({ ip_from: f[0], ip_to: f[1], country: f[3], region: f[4] || null, city: f[5] || null, source_month: sourceMonth });
+        if (f[3] === "BR" || f[3] === "PT") rows.push({ ip_from: f[0], ip_to: f[1], country: f[3], region: f[4] || null, city: f[5] || null, lat: f[6] ? Number(f[6]) : null, lon: f[7] ? Number(f[7]) : null, source_month: sourceMonth });
         i = body2.indexOf(mk, b);
       }
     }
