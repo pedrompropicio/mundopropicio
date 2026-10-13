@@ -974,6 +974,13 @@
       "when": 1791916007765,
       "tag": "0138_0138_derp267_artist_ads_balance_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 139,
+      "version": "7",
+      "when": 1791916496881,
+      "tag": "0139_0139_derp267_alert_notify_unsubscribe",
+      "breakpoints": true
     }
   ]
 }
