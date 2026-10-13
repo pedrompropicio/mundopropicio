@@ -20,6 +20,8 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
+  SelectLabel,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -127,8 +129,14 @@ export default function ContactosList() {
 
   const setLista = (v: string) => {
     const next = new URLSearchParams(searchParams);
-    if (v === "all") next.delete("lista");
-    else next.set("lista", v);
+    if (v.startsWith("src:")) {
+      next.delete("lista");
+      setSourceFilter(v.slice(4));
+    } else {
+      setSourceFilter("all");
+      if (v === "all") next.delete("lista");
+      else next.set("lista", v);
+    }
     setSearchParams(next, { replace: true });
   };
 
@@ -217,18 +225,33 @@ export default function ContactosList() {
 
       <Card className="p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-8 gap-2">
-          <Select value={listaId ?? "all"} onValueChange={setLista}>
+          <Select value={listaId ?? (sourceFilter !== "all" ? `src:${sourceFilter}` : "all")} onValueChange={setLista}>
             <SelectTrigger aria-label="Lista" className="lg:col-span-2 border-primary/50 font-medium">
               <ListFilter className="h-4 w-4 mr-1.5 shrink-0 text-primary" />
               <SelectValue placeholder="Lista" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas as listas</SelectItem>
-              {(lists ?? []).map((l) => (
-                <SelectItem key={l.audience_id} value={l.audience_id}>
-                  {l.name} ({l.snapshot_id ? fmt(l.member_count ?? 0) : "sem snapshot"})
-                </SelectItem>
-              ))}
+              {(lists ?? []).length > 0 && (
+                <SelectGroup>
+                  <SelectLabel>Audiências</SelectLabel>
+                  {(lists ?? []).map((l) => (
+                    <SelectItem key={l.audience_id} value={l.audience_id}>
+                      {l.name} ({l.snapshot_id ? fmt(l.member_count ?? 0) : "sem snapshot"})
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
+              {(sources ?? []).length > 0 && (
+                <SelectGroup>
+                  <SelectLabel>Por origem</SelectLabel>
+                  {(sources ?? []).map((s) => (
+                    <SelectItem key={s.source ?? "__none__"} value={`src:${s.source ?? "__none__"}`}>
+                      {s.source ?? "(sem origem)"} ({fmt(Number(s.n))})
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
             </SelectContent>
           </Select>
           <div className="relative lg:col-span-2">
@@ -262,17 +285,6 @@ export default function ContactosList() {
               <SelectItem value="all">Estado: todos</SelectItem>
               <SelectItem value="yes">Activo</SelectItem>
               <SelectItem value="no">Inactivo</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={sourceFilter} onValueChange={setSourceFilter}>
-            <SelectTrigger><SelectValue placeholder="Source" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Source: todos</SelectItem>
-              {(sources ?? []).map((s) => (
-                <SelectItem key={s.source ?? "__none__"} value={s.source ?? "__none__"}>
-                  {s.source ?? "(sem source)"} ({fmt(Number(s.n))})
-                </SelectItem>
-              ))}
             </SelectContent>
           </Select>
         </div>

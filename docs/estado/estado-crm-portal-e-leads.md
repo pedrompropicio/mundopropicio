@@ -43,3 +43,6 @@ Nada.
 - `docs/handoffs/` — analise-critica-portal-2026-08-12, plano-conversao-portal-2026-08-12
 
 
+
+## 13/10/2026 — D-ERP268
+Menu MP CRM: Clube/Site Newgang gated por company_features. Filtro de listas dos Contactos passa a incluir origens. Sementeira das chaves na MP pendente de OK.

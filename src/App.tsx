@@ -23,6 +23,8 @@ import { CompanyBrandingProvider } from "@/contexts/CompanyBrandingContext";
 import { HelpPanelProvider } from "@/contexts/HelpPanelContext";
 import HelpSidePanel from "@/components/help/HelpSidePanel";
 import HelpFloatingButton from "@/components/help/HelpFloatingButton";
+import { RequireFeature } from "@/components/RequireFeature";
+import { FEATURES } from "@/lib/features";
 import { ConfirmMetaActionProvider } from "@/components/crm/ConfirmMetaActionDialog";
 import { useCompany } from "@/hooks/useCompany";
 import { BrandedLogo } from "@/components/BrandedLogo";
@@ -629,9 +631,9 @@ function ProtectedLayout() {
               <Route path="/admin/invariantes" element={<InvariantMonitor />} />
               <Route path="/admin/invariantes-diarias" element={<Navigate to="/admin/invariantes" replace />} />
               <Route path="/admin/upload-coala-fotos" element={<UploadCoalaFotos />} />
-              <Route path="/admin/sync-health" element={<RequireAccess area="settings.integrations.ticketing"><SyncHealth /></RequireAccess>} />
-              <Route path="/admin/sync-coala" element={<RequireAccess area="settings.integrations.ticketing"><CoalaSync /></RequireAccess>} />
-              <Route path="/admin/fever-sync" element={<RequireAccess area="settings.integrations.ticketing"><FeverSync /></RequireAccess>} />
+              <Route path="/admin/sync-health" element={<RequireAccess area="settings.integrations.ticketing"><RequireFeature feature={FEATURES.SYNC_HEALTH}><SyncHealth /></RequireFeature></RequireAccess>} />
+              <Route path="/admin/sync-coala" element={<RequireAccess area="settings.integrations.ticketing"><RequireFeature feature={FEATURES.SYNC_COALA}><CoalaSync /></RequireFeature></RequireAccess>} />
+              <Route path="/admin/fever-sync" element={<RequireAccess area="settings.integrations.ticketing"><RequireFeature feature={FEATURES.SYNC_FEVER}><FeverSync /></RequireFeature></RequireAccess>} />
               <Route path="/admin/ticketline-sync" element={<RequireAccess area="settings.integrations.ticketing"><TicketlineSync /></RequireAccess>} />
               <Route path="/admin/bol-sync" element={<RequireAccess area="settings.integrations.ticketing"><BolSync /></RequireAccess>} />
               <Route path="/admin/notifications" element={<RequireAccess area="settings.notifications"><Notifications /></RequireAccess>} />
@@ -738,8 +740,8 @@ function App() {
                     <Route path="eventos/:eventId" element={<EventMarketingEditor />} />
                     <Route path="contactos" element={<ContactosList />} />
                     <Route path="leads" element={<LeadsList />} />
-                    <Route path="clube-newgang" element={<ClubeNewgang />} />
-                    <Route path="sites/newgang" element={<NewgangSite />} />
+                    <Route path="clube-newgang" element={<RequireFeature feature={FEATURES.CRM_CLUBE_NEWGANG} backTo="/crm"><ClubeNewgang /></RequireFeature>} />
+                    <Route path="sites/newgang" element={<RequireFeature feature={FEATURES.CRM_SITE_NEWGANG} backTo="/crm"><NewgangSite /></RequireFeature>} />
                     <Route path="audiences" element={<AudiencesList />} />
                     <Route path="audiences/novo" element={<AudienceNew />} />
                     <Route path="audiences/:id" element={<AudienceEditor />} />

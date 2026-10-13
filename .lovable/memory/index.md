@@ -240,3 +240,4 @@ Uma linha por tema, por frente: pergunta → ficheiros (mem://pasta/ficheiro). S
 - [Simulador curva histórica](mem://features/simulator-prior-curve) — "Usar histórico de…": prior_editions + evento-fonte, fallback à curva por defeito, só sugere
 - [Portal newgangfestival.pt](mem://features/portal-newgangfestival) — Projeto separado na mesma base; revelações com corte público/Clube, sem totais; história em tabela própria; Clube com link pessoal 30d e pontos idempotentes
 - [Alertas saldo/entrega ads](mem://features/artist-ads-balance-alerts) — D-ERP267: saldo 00/12 UTC, entrega 13/16/20 UTC, email abrir/resolver, RPC artist_ads_open_alerts
+- [Funções exclusivas por empresa](mem://features/company-exclusive-features) — Itens de marca gated por company_features; listas dos Contactos incluem origens
