@@ -35,6 +35,8 @@ function cors(o: string | null): Record<string, string> {
   };
 }
 
+const MOD_T0 = performance.now();
+let coldStart = true;
 const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
   auth: { persistSession: false },
 });
@@ -52,7 +54,7 @@ function clientIp(req: Request): string {
 }
 
 const Body = z.object({
-  action: z.enum(["site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer", "notify_pending"]),
+  action: z.enum(["bundle", "site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer", "notify_pending"]),
   token: z.string().min(20).max(200).optional(),
   email: z.string().email().max(254).optional(),
   reveal_id: z.string().uuid().optional(),
@@ -168,13 +170,65 @@ async function rankingFor(siteId: string, limit = 100) {
   return { rows, top: rows.slice(0, limit) };
 }
 
+// ---------- Leituras públicas (partilhadas por site/lineup/history/bundle) ----------
+type Timer = { mark: (k: string, ms: number) => void };
+const timed = async <T>(t: Timer, k: string, p: PromiseLike<T>): Promise<T> => {
+  const a = performance.now(); const r = await p; t.mark(k, performance.now() - a); return r;
+};
+
+async function loadSitePayload(site: any) {
+  const ev = site.event_id;
+  const none = Promise.resolve({ data: null });
+  const [{ data }, { data: t }, { data: evRow }, { data: em }, { data: lv }, { data: rl }] = await Promise.all([
+    sb.from("portal_sites_public").select("*").eq("id", site.id).maybeSingle(),
+    ev ? sb.from("event_trackers").select("platform, tracker_id").eq("event_id", ev) : none,
+    ev ? sb.from("events").select("ticketing_url").eq("id", ev).maybeSingle() : none,
+    ev ? sb.from("event_marketing").select("ticket_lots").eq("event_id", ev).maybeSingle() : none,
+    sb.from("club_levels").select("name, min_points, benefit").eq("site_id", site.id).order("min_points"),
+    sb.from("club_point_rules").select("rule_key, label, points").eq("site_id", site.id).eq("active", true).order("points"),
+  ] as const) as any;
+  const trackers: unknown[] = ev ? (t ?? []) : [];
+  const ticketing: unknown = ev ? { url: evRow?.ticketing_url ?? null, lots: em?.ticket_lots ?? null } : null;
+  return { site: data, trackers, ticketing, club: { levels: lv ?? [], rules: rl ?? [] } };
+}
+
+const EMPTY_LINEUP = { state: "expectativa", latest_reveal: null, confirmed: [], next_reveal: null };
+/** Dados crus do line-up (sem aplicar regras); as regras correm sempre por pedido em buildLineup. */
+async function loadLineupRaw(site: any) {
+  if (!site.event_id) return null;
+  const [{ data: reveals }, { data: acts }, { data: em }] = await Promise.all([
+    sb.from("event_lineup_reveals").select("id, club_at, public_at, clues, status").eq("event_id", site.event_id),
+    sb.from("event_lineups").select("id, reveal_id, artist_name, artist_image_url, artist_bio_pt, artist_bio_en, category, video_url, listen_url, display_order").eq("event_id", site.event_id).not("reveal_id", "is", null),
+    sb.from("event_marketing").select("lineup_complete").eq("event_id", site.event_id).maybeSingle(),
+  ]);
+  return { reveals: reveals ?? [], acts: acts ?? [], lineupComplete: !!em?.lineup_complete };
+}
+function lineupFrom(raw: Awaited<ReturnType<typeof loadLineupRaw>>, isMember: boolean) {
+  if (!raw) return EMPTY_LINEUP;
+  return buildLineup({ ...raw, now: new Date(), isMember });
+}
+
+async function loadHistoryPayload(site: any) {
+  const { data } = await sb.from("festival_editions_public").select("*").eq("brand_key", site.brand_key)
+    .order("year", { ascending: false }).order("sort");
+  return { editions: data ?? [] };
+}
+
 Deno.serve(async (req) => {
+  const T0 = performance.now();
+  const timings: Array<[string, number]> = [];
+  if (coldStart) { timings.push(["boot", T0 - MOD_T0]); coldStart = false; }
+  const timer: Timer = { mark: (k, ms) => timings.push([k, ms]) };
   const origin = req.headers.get("origin");
   const h = cors(origin);
   if (req.method === "OPTIONS") return new Response(originOk(origin) ? "ok" : "forbidden", { status: originOk(origin) ? 200 : 403, headers: h });
   const json = (b: unknown, status = 200) => {
     assertNoTotals(b);
-    return new Response(JSON.stringify(b), { status, headers: { ...h, "Content-Type": "application/json" } });
+    const st = [...timings, ["total", performance.now() - T0] as [string, number]]
+      .map(([k, ms]) => `${k};dur=${ms.toFixed(1)}`).join(", ");
+    return new Response(JSON.stringify(b), {
+      status, headers: { ...h, "Content-Type": "application/json", "Server-Timing": st, "Timing-Allow-Origin": "*" },
+    });
   };
   // Envio imediato (trigger da base via pg_net): sem Origin nem segredo. Só envia o welcome, uma única vez,
   // a um membro por confirmar do formulário criado há menos de 7 dias; a resposta não expõe dados.
@@ -214,46 +268,22 @@ Deno.serve(async (req) => {
     if (ok === false) return json({ error: "rate_limited" }, 429);
   }
 
-  const site = await getSite();
+  const site = await timed(timer, "getSite", getSite());
   if (!site) return json({ error: "site_not_configured" }, 503);
-  const member = await memberFromToken(site.id, body.token);
+  const member = body.action === "bundle" ? null : await timed(timer, "member", memberFromToken(site.id, body.token));
 
   try {
     switch (body.action) {
-      case "site": {
-        // Todas as leituras em paralelo; as do evento só se o site tiver event_id.
-        const ev = site.event_id;
-        const none = Promise.resolve({ data: null });
-        const [{ data }, { data: t }, { data: evRow }, { data: em }, { data: lv }, { data: rl }] = await Promise.all([
-          sb.from("portal_sites_public").select("*").eq("id", site.id).maybeSingle(),
-          // Trackers do evento associado ao site, sempre (independente de events.portal_visible).
-          ev ? sb.from("event_trackers").select("platform, tracker_id").eq("event_id", ev) : none,
-          ev ? sb.from("events").select("ticketing_url").eq("id", ev).maybeSingle() : none,
-          ev ? sb.from("event_marketing").select("ticket_lots").eq("event_id", ev).maybeSingle() : none,
-          // Montra pública do Clube: só configuração (níveis e regras de pontos), sem membros nem totais.
-          sb.from("club_levels").select("name, min_points, benefit").eq("site_id", site.id).order("min_points"),
-          sb.from("club_point_rules").select("rule_key, label, points").eq("site_id", site.id).eq("active", true).order("points"),
-        ] as const) as any;
-        const trackers: unknown[] = ev ? (t ?? []) : [];
-        const ticketing: unknown = ev ? { url: evRow?.ticketing_url ?? null, lots: em?.ticket_lots ?? null } : null;
-        return json({ site: data, trackers, ticketing, club: { levels: lv ?? [], rules: rl ?? [] } });
-      }
-      case "lineup": {
-        if (!site.event_id) return json({ state: "expectativa", latest_reveal: null, confirmed: [], next_reveal: null });
-        const [{ data: reveals }, { data: acts }, { data: em }] = await Promise.all([
-          sb.from("event_lineup_reveals").select("id, club_at, public_at, clues, status").eq("event_id", site.event_id),
-          sb.from("event_lineups").select("id, reveal_id, artist_name, artist_image_url, artist_bio_pt, artist_bio_en, category, video_url, listen_url, display_order").eq("event_id", site.event_id).not("reveal_id", "is", null),
-          sb.from("event_marketing").select("lineup_complete").eq("event_id", site.event_id).maybeSingle(),
-        ]);
-        return json(buildLineup({
-          reveals: reveals ?? [], acts: acts ?? [], now: new Date(), isMember: !!member?.confirmed_at,
-          lineupComplete: !!em?.lineup_complete,
-        }));
-      }
-      case "history": {
-        const { data } = await sb.from("festival_editions_public").select("*").eq("brand_key", site.brand_key)
-          .order("year", { ascending: false }).order("sort");
-        return json({ editions: data ?? [] });
+      case "site":
+        return json(await timed(timer, "db", loadSitePayload(site)));
+      case "lineup":
+        return json(lineupFrom(await timed(timer, "db", loadLineupRaw(site)), !!member?.confirmed_at));
+      case "history":
+        return json(await timed(timer, "db", loadHistoryPayload(site)));
+      case "bundle": {
+        // Tudo de uma vez; line-up sempre na versão pública (sem token).
+        const [s1, lr, hi] = await timed(timer, "db", Promise.all([loadSitePayload(site), loadLineupRaw(site), loadHistoryPayload(site)]));
+        return json({ site: s1, lineup: lineupFrom(lr, false), history: hi });
       }
       case "ranking": {
         const { rows, top } = await rankingFor(site.id, body.limit ?? 20);
