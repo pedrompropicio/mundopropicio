@@ -5780,3 +5780,11 @@ Ficam por enviar 25 leads com identificador: 14 partilham o gclid com outro lead
 Fonte: charts-spotify-com-service `/auth/v0/charts/regional-{br|pt}-daily/{data}`, com o Bearer web do S4A. Tabela `spotify_chart_daily` (PK country+chart_date+position, leitura para authenticated) e vista `v_artist_chart_gap` (security_invoker; a área songs chega por artist_song_metrics_daily). Migração 0131.
 Recolha: `spotify-charts-sync` (só service_role), D-1 + até 3 dias em falta, upsert pela PK, sync_runs, no_data quando o dia ainda não saiu (404). Cron 2193 `carreira-spotify-charts-2100`, `0 21 * * *`.
 Backfill: 26/09–11/10, 6.400 linhas, 200 por país e por dia. 12/10 ainda dá 404 e entra no cron. 11/10 confere: BR 227.582/156.510, PT 11.243/8.274.
+
+### D-ERP234 — adenda 5 (13/10/2026): região e cidade quando a CDN só traz o país
+- song-link-event: quando o país vem do client_geo e falta a região ou a cidade, completa-as primeiro pela cache por ip_hash (24 h) e depois pelo ipinfo, sempre em segundo plano (waitUntil). Só aceita a região e a cidade se o país for o mesmo; o país nunca é apagado nem substituído.
+- Quota do ipinfo: 20 pedidos/min por instância, 5 deles reservados às chegadas com utm_campaign blitz_; pausa de 15 min depois de um 429.
+- A cache por ip_hash só guarda geo com cidade, para que um país sozinho nunca apague uma cidade já guardada.
+- Novo log: `[song-link-event] geo {src: cdn|cdn_pais|cache|ipinfo|cdn+cache|cdn+ipinfo|…+quota, country, city, blitz}`.
+- Backfill desde 13/10 05:00: só por ip_hash (a tabela não guarda o IP, por isso não há ipinfo para trás). Recuperou 1 de 20 chegadas (0 de 8 blitz).
+- Prova a 13/10 05:55: o ipinfo responde 429 em todos os pedidos (a quota da conta está esgotada, não é o limite por minuto). A cidade só vai aparecer com uma cidade vinda da CDN ou com quota no ipinfo.
