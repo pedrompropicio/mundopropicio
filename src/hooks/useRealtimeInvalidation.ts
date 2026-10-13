@@ -5,6 +5,8 @@ export interface RealtimeSub {
   table: string;
   /** Filtro postgres_changes, ex.: "event_id=in.(a,b)". Sem filtro, o RLS limita o que chega. */
   filter?: string;
+  /** Tipo de alteração; omisso = todas. (DELETE não aceita filtro no Realtime.) */
+  event?: "*" | "INSERT" | "UPDATE" | "DELETE";
 }
 
 /** Filtro "col=in.(…)" ou "col=eq.x"; null se não houver ids. */
@@ -41,7 +43,7 @@ export function useRealtimeInvalidation(
     for (const s of subs) {
       ch = ch.on(
         "postgres_changes" as any,
-        { event: "*", schema: "public", table: s.table, ...(s.filter ? { filter: s.filter } : {}) },
+        { event: s.event ?? "*", schema: "public", table: s.table, ...(s.filter ? { filter: s.filter } : {}) },
         fire,
       );
     }
