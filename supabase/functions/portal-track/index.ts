@@ -14,10 +14,12 @@ const ALLOWED_ORIGINS = new Set<string>([
   "https://coalafestival.lovable.app",
   "https://newgangfestival.pt",
   "https://www.newgangfestival.pt",
+  "https://newgang-fest-portal.lovable.app",
 ]);
 const PORTAL_PREVIEW_SUFFIXES = [
   `--26b95793-17b6-478c-a6e8-745c0cfb7ed9.lovable.app`,
   `--bef9c59c-c2a4-453d-9aec-dae7d16c9171.lovable.app`,
+  `--1a915f50-55ca-4bb6-9abe-8f241c54647a.lovable.app`, // portal Newgang
 ];
 
 // #306 fase 1: company_id é do servidor, derivado do Origin validado — o corpo nunca o define.
@@ -31,11 +33,12 @@ const ORIGIN_COMPANY: Record<string, string> = {
   "https://coalafestival.lovable.app": COALA_COMPANY,
   "https://newgangfestival.pt": MP_COMPANY,
   "https://www.newgangfestival.pt": MP_COMPANY,
+  "https://newgang-fest-portal.lovable.app": MP_COMPANY,
 };
-// Pedro: preview do portal Newgang — acrescentar "--<projectId>.lovable.app" a PORTAL_PREVIEW_SUFFIXES e a PREVIEW_COMPANY (→ MP_COMPANY).
 const PREVIEW_COMPANY: Array<[string, string]> = [
   [`--26b95793-17b6-478c-a6e8-745c0cfb7ed9.lovable.app`, MP_COMPANY],
   [`--bef9c59c-c2a4-453d-9aec-dae7d16c9171.lovable.app`, COALA_COMPANY],
+  [`--1a915f50-55ca-4bb6-9abe-8f241c54647a.lovable.app`, MP_COMPANY],
 ];
 // Só lead_capture tem company_id (redirect_log não tem — verificado em information_schema, 11/10/2026).
 const TABLES_WITH_COMPANY = new Set<string>(["lead_capture"]);

@@ -4,12 +4,14 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3.23.8";
 import { assertNoTotals, buildLineup, displayName } from "./lineup.ts";
+import { clubEmail } from "./email.ts";
 
-// Pedro: preencher o preview do projeto novo (ex.: "--<projectId>.lovable.app").
-const PREVIEW_SUFFIXES: string[] = [];
+// Preview do projeto Lovable do portal (1a915f50-…).
+const PREVIEW_SUFFIXES: string[] = ["--1a915f50-55ca-4bb6-9abe-8f241c54647a.lovable.app"];
 const ALLOWED_ORIGINS = new Set<string>([
   "https://newgangfestival.pt",
   "https://www.newgangfestival.pt",
+  "https://newgang-fest-portal.lovable.app",
 ]);
 const SITE_DOMAIN = "newgangfestival.pt";
 const SENDER_DOMAIN = "news.newgangfestival.pt";
@@ -49,7 +51,7 @@ function clientIp(req: Request): string {
 }
 
 const Body = z.object({
-  action: z.enum(["site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer"]),
+  action: z.enum(["site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer", "notify_pending"]),
   token: z.string().min(20).max(200).optional(),
   email: z.string().email().max(254).optional(),
   reveal_id: z.string().uuid().optional(),
@@ -82,6 +84,86 @@ async function issueSession(siteId: string, memberId: string) {
   return { token, expires_at: expires };
 }
 
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+async function unsubscribeUrls(companyId: string, email: string) {
+  const { data: ex } = await sb.from("email_unsubscribe_tokens").select("token").eq("email", email).eq("company_id", companyId).maybeSingle();
+  let token = ex?.token as string | undefined;
+  if (!token) {
+    token = newToken();
+    await sb.from("email_unsubscribe_tokens").upsert({ token, email, company_id: companyId }, { onConflict: "email,company_id", ignoreDuplicates: true });
+    const { data: again } = await sb.from("email_unsubscribe_tokens").select("token").eq("email", email).eq("company_id", companyId).maybeSingle();
+    token = (again?.token as string) ?? token;
+  }
+  return {
+    page: `https://mpgestaoeventos.com/unsubscribe?token=${encodeURIComponent(token)}`,
+    oneClick: `${SUPABASE_URL}/functions/v1/handle-email-unsubscribe?token=${encodeURIComponent(token)}`,
+  };
+}
+
+/** Enfileira um email do Clube com link pessoal (sessão access de 30 dias; só o hash fica guardado). */
+async function sendClubLink(site: { id: string; company_id: string }, m: { id: string; first_name: string | null; email: string },
+  kind: "welcome" | "access", messageId: string) {
+  const email = m.email.trim().toLowerCase();
+  const { token } = await issueSession(site.id, m.id);
+  const link = `https://${SITE_DOMAIN}/clube/entrar?t=${encodeURIComponent(token)}`;
+  const greet = m.first_name ? `Olá ${m.first_name},` : "Olá,";
+  const unsub = await unsubscribeUrls(site.company_id, email);
+  const welcome = kind === "welcome";
+  const { html, text } = clubEmail({
+    greet,
+    lines: welcome
+      ? ["Falta só um clique para entrares no Clube Newgang. Confirma o teu email e ganha +100 pontos."]
+      : ["Entra na tua área do Clube Newgang com o botão abaixo."],
+    cta: welcome ? "Confirmar e entrar no Clube" : "Entrar no Clube",
+    link, note: `O link é pessoal e válido durante ${SESSION_DAYS} dias.`, unsubscribeUrl: unsub.page,
+  });
+  const label = welcome ? "newgang_club_welcome" : "newgang_club_access";
+  await sb.from("email_send_log").insert({
+    message_id: messageId, template_name: label, recipient_email: email, company_id: site.company_id, status: "pending",
+    metadata: { member_id: m.id },
+  });
+  await sb.rpc("enqueue_email", {
+    queue_name: "transactional_emails",
+    payload: {
+      message_id: messageId, company_id: site.company_id, to: email,
+      from: `Newgang Festival <clube@${SENDER_DOMAIN}>`, sender_domain: SENDER_DOMAIN,
+      subject: welcome ? "Confirma a tua entrada no Clube Newgang" : "O teu acesso ao Clube Newgang",
+      html, text, purpose: "transactional", label, idempotency_key: messageId,
+      unsubscribe_http_url: unsub.oneClick, queued_at: new Date().toISOString(),
+    },
+  });
+}
+
+/** Valida a chave do cron: igual à do ambiente ou aceite pela API como service_role (tabela só service_role). */
+async function isServiceRole(tok: string): Promise<boolean> {
+  if (tok === SERVICE_KEY) return true;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/club_member_sessions?select=id&limit=1`, { headers: { apikey: tok, Authorization: `Bearer ${tok}` } });
+    if (!r.ok) return false;
+    const payload = JSON.parse(atob(tok.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return payload?.role === "service_role";
+  } catch { return false; }
+}
+
+/** Cron (service_role): email de boas-vindas aos membros novos do formulário, uma vez por membro. */
+async function notifyPending(site: { id: string; company_id: string }) {
+  const since = new Date(Date.now() - 7 * 86400_000).toISOString();
+  const { data: members } = await sb.from("club_members").select("id, first_name, email")
+    .eq("site_id", site.id).eq("source", "formulario").is("confirmed_at", null).gte("created_at", since)
+    .order("created_at").limit(50);
+  let sent = 0;
+  for (const m of members ?? []) {
+    const { data: done } = await sb.from("email_send_log").select("id").eq("template_name", "newgang_club_welcome")
+      .eq("metadata->>member_id", m.id).limit(1);
+    if (done && done.length) continue;
+    try { await sendClubLink(site, m, "welcome", `ng-welcome-${m.id}`); sent++; }
+    catch (e) { console.error("notify_pending", m.id, (e as Error).message); }
+  }
+  return sent;
+}
+
 async function rankingFor(siteId: string, limit = 100) {
   const { data } = await sb.rpc("club_ranking", { p_site: siteId, p_limit: 100000 });
   const rows = (data ?? []) as Array<{ member_id: string; first_name: string | null; email: string; points: number; level_name: string | null; rank_pos: number }>;
@@ -91,11 +173,20 @@ async function rankingFor(siteId: string, limit = 100) {
 Deno.serve(async (req) => {
   const origin = req.headers.get("origin");
   const h = cors(origin);
-  if (req.method === "OPTIONS") return new Response("ok", { headers: h });
+  if (req.method === "OPTIONS") return new Response(originOk(origin) ? "ok" : "forbidden", { status: originOk(origin) ? 200 : 403, headers: h });
   const json = (b: unknown, status = 200) => {
     assertNoTotals(b);
     return new Response(JSON.stringify(b), { status, headers: { ...h, "Content-Type": "application/json" } });
   };
+  // Cron interno: sem Origin, só com a chave de serviço.
+  const auth = req.headers.get("authorization") ?? "";
+  if (!origin && req.method === "POST" && auth.startsWith("Bearer ") && await isServiceRole(auth.slice(7))) {
+    const b = await req.json().catch(() => ({}));
+    if (b?.action !== "notify_pending") return json({ error: "invalid" }, 400);
+    const site = await getSite();
+    if (!site) return json({ error: "site_not_configured" }, 503);
+    return json({ ok: true, sent: await notifyPending(site) });
+  }
   if (!originOk(origin)) return json({ error: "origin" }, 403);
   if (req.method !== "POST") return json({ error: "method" }, 405);
 
@@ -160,26 +251,8 @@ Deno.serve(async (req) => {
       case "request_access": {
         if (!body.email) return json({ error: "email" }, 400);
         const email = body.email.trim().toLowerCase();
-        const { data: m } = await sb.from("club_members").select("id, first_name").eq("site_id", site.id).ilike("email", email).maybeSingle();
-        if (m) {
-          const { token } = await issueSession(site.id, m.id);
-          const link = `https://${SITE_DOMAIN}/clube/entrar?t=${encodeURIComponent(token)}`;
-          const messageId = crypto.randomUUID();
-          const greet = m.first_name ? `Olá ${m.first_name},` : "Olá,";
-          await sb.from("email_send_log").insert({ message_id: messageId, template_name: "newgang_club_access", recipient_email: email, company_id: site.company_id, status: "pending" });
-          await sb.rpc("enqueue_email", {
-            queue_name: "transactional_emails",
-            payload: {
-              message_id: messageId, company_id: site.company_id, to: email,
-              from: `Newgang Festival <clube@${SENDER_DOMAIN}>`, sender_domain: SENDER_DOMAIN,
-              subject: "O teu acesso ao Clube Newgang",
-              html: `<p>${greet}</p><p>Entra na tua área do Clube Newgang:</p><p><a href="${link}">Entrar no Clube</a></p><p>O link é pessoal e válido durante ${SESSION_DAYS} dias.</p>`,
-              text: `${greet}\n\nEntra na tua área do Clube Newgang: ${link}\n\nO link é pessoal e válido durante ${SESSION_DAYS} dias.`,
-              purpose: "transactional", label: "newgang_club_access", idempotency_key: messageId,
-              queued_at: new Date().toISOString(),
-            },
-          });
-        }
+        const { data: m } = await sb.from("club_members").select("id, first_name, email").eq("site_id", site.id).ilike("email", email).maybeSingle();
+        if (m) await sendClubLink(site, { ...m, email }, "access", crypto.randomUUID());
         return json({ ok: true });
       }
       case "session": {

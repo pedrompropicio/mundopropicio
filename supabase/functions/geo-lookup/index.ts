@@ -20,11 +20,13 @@ const ALLOWED_ORIGINS = new Set<string>([
   "https://coalafestival.lovable.app",
   "https://newgangfestival.pt",
   "https://www.newgangfestival.pt",
+  "https://newgang-fest-portal.lovable.app",
 ]);
 
 const PORTAL_PREVIEW_SUFFIXES: string[] = [
   `--26b95793-17b6-478c-a6e8-745c0cfb7ed9.lovable.app`, // portal MP
   `--bef9c59c-c2a4-453d-9aec-dae7d16c9171.lovable.app`, // portal Coala
+  `--1a915f50-55ca-4bb6-9abe-8f241c54647a.lovable.app`, // portal Newgang
 ];
 
 function isOriginAllowed(origin: string | null): boolean {
