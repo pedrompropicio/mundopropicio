@@ -988,6 +988,13 @@
       "when": 1791929420327,
       "tag": "0140_derp271_club_terms",
       "breakpoints": true
+    },
+    {
+      "idx": 141,
+      "version": "7",
+      "when": 1791931279745,
+      "tag": "0141_derp272_club_missions",
+      "breakpoints": true
     }
   ]
 }

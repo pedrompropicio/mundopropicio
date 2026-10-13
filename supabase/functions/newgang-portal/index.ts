@@ -6,6 +6,7 @@ import { z } from "npm:zod@3.23.8";
 import { assertNoTotals, buildLineup, displayName } from "./lineup.ts";
 import { assemblePublic, bundleFrom, lineupFrom, regulationFrom, termsMeta, type Want } from "./public.ts";
 import { clubEmail } from "./email.ts";
+import { ASSET_BUCKET, PROOF_BUCKET, PROOF_EXT, missionsFrom, normalizeHandle, normalizeProofUrl } from "./missions.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 // Preview do projeto Lovable do portal (1a915f50-…).
@@ -55,15 +56,22 @@ function clientIp(req: Request): string {
 }
 
 const Body = z.object({
-  action: z.enum(["bundle", "regulation", "site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer", "notify_pending"]),
+  action: z.enum(["bundle", "regulation", "site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer", "notify_pending",
+    "missions", "mission_upload_url", "submit_mission", "profile"]),
   token: z.string().min(20).max(200).optional(),
   email: z.string().email().max(254).optional(),
   reveal_id: z.string().uuid().optional(),
   guess: z.string().trim().min(1).max(120).optional(),
   year: z.number().int().min(2023).max(2100).optional(),
   limit: z.number().int().min(1).max(100).optional(),
+  mission_id: z.string().uuid().optional(),
+  proof_url: z.string().trim().max(500).optional(),
+  proof_image_path: z.string().trim().max(300).optional(),
+  content_type: z.enum(["image/jpeg", "image/png", "image/webp"]).optional(),
+  instagram_handle: z.string().max(80).nullable().optional(),
+  tiktok_handle: z.string().max(80).nullable().optional(),
 });
-const WRITE_ACTIONS = new Set(["request_access", "guess", "attendance_claim", "confirm_buyer", "session"]);
+const WRITE_ACTIONS = new Set(["request_access", "guess", "attendance_claim", "confirm_buyer", "session", "mission_upload_url", "submit_mission", "profile"]);
 
 // Cache por instância (60 s): a configuração do site muda raramente; evita uma ida à base por pedido.
 const SITE_TTL_MS = 60_000;
@@ -161,6 +169,22 @@ async function notifyPending(site: { id: string; company_id: string }, memberId?
     catch (e) { console.error("notify_pending", m.id, (e as Error).message); }
   }
   return sent;
+}
+
+async function mySubmissions(memberId: string) {
+  const { data: subs } = await sb.from("club_mission_submissions")
+    .select("id, mission_id, status, reject_reason, created_at, club_missions(title, kind)")
+    .eq("member_id", memberId).order("created_at", { ascending: false }).limit(200);
+  const ids = (subs ?? []).map((x: any) => x.id);
+  const { data: pts } = ids.length
+    ? await sb.from("club_points").select("ref_id, points").eq("member_id", memberId).in("rule_key", ["mission", "mission_finalist", "mission_winner"]).in("ref_id", ids)
+    : { data: [] as any[] };
+  const by: Record<string, number> = {};
+  for (const p of pts ?? []) by[p.ref_id] = (by[p.ref_id] ?? 0) + p.points;
+  return (subs ?? []).map((x: any) => ({
+    mission_id: x.mission_id, mission_title: x.club_missions?.title ?? null, kind: x.club_missions?.kind ?? null,
+    status: x.status, reject_reason: x.reject_reason, points: by[x.id] ?? 0, submitted_at: x.created_at,
+  }));
 }
 
 const auth0 = (req: Request) => (req.headers.get("authorization") ?? "").startsWith("Bearer ");
@@ -304,6 +328,20 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Missões ativas dentro do prazo (sem contagens).
+  if (body.action === "missions") {
+    try {
+      const { data } = await timed(timer, "db", sb.from("portal_sites")
+        .select("id, club_missions(id, kind, title, description, network, points, proof_type, mention, hashtag, caption_suggestion, assets, starts_at, ends_at, status, sort, finalist_points, winner_points, judging_until)")
+        .eq("domain", SITE_DOMAIN).eq("active", true).eq("club_missions.status", "ativa").maybeSingle()) as any;
+      if (!data) return json({ error: "site_not_configured" }, 503);
+      return json(missionsFrom(data.club_missions, (p) => sb.storage.from(ASSET_BUCKET).getPublicUrl(p).data.publicUrl));
+    } catch (e) {
+      console.error("newgang-portal missions", (e as Error).message);
+      return json({ error: "internal" }, 500);
+    }
+  }
+
   // Leituras públicas sem token: caminho rápido, sem getSite() à parte.
   const PUBLIC = { site: { site: true }, history: { history: true }, lineup: { lineup: true },
     bundle: { site: true, lineup: true, history: true } } as Record<string, Parameters<typeof loadPublic>[0]>;
@@ -369,6 +407,8 @@ Deno.serve(async (req) => {
           levels: lv ?? [],
           invite_link: `https://${SITE_DOMAIN}/clube?ref=${member.referral_code}`,
           referral_code: member.referral_code,
+          instagram_handle: member.instagram_handle ?? null, tiktok_handle: member.tiktok_handle ?? null,
+          submissions: await mySubmissions(member.id),
         });
       }
       case "guess": {
@@ -386,6 +426,43 @@ Deno.serve(async (req) => {
         if (!body.year || body.year >= new Date().getFullYear() + 1) return json({ error: "year" }, 400);
         const { data: st } = await sb.rpc("club_claim_attendance", { p_member: member.id, p_year: body.year });
         return json({ status: st });
+      }
+      case "profile": {
+        if (!member?.confirmed_at) return json({ error: "no_session" }, 401);
+        let ig: string | null, tt: string | null;
+        try {
+          ig = body.instagram_handle === undefined ? member.instagram_handle : normalizeHandle(body.instagram_handle, "instagram");
+          tt = body.tiktok_handle === undefined ? member.tiktok_handle : normalizeHandle(body.tiktok_handle, "tiktok");
+        } catch { return json({ error: "handle" }, 400); }
+        const { error } = await sb.from("club_members").update({ instagram_handle: ig, tiktok_handle: tt, updated_at: new Date().toISOString() }).eq("id", member.id);
+        if (error) return json({ error: "handle" }, 400);
+        return json({ ok: true, instagram_handle: ig, tiktok_handle: tt });
+      }
+      case "mission_upload_url": {
+        if (!member?.confirmed_at) return json({ error: "no_session" }, 401);
+        const ext = PROOF_EXT[body.content_type ?? ""];
+        if (!ext) return json({ error: "content_type" }, 400);
+        const path = `${member.company_id}/${member.id}/${crypto.randomUUID()}.${ext}`;
+        const { data, error } = await sb.storage.from(PROOF_BUCKET).createSignedUploadUrl(path);
+        if (error || !data) return json({ error: "upload" }, 500);
+        return json({ path, upload_url: data.signedUrl, token: data.token, max_bytes: 5 * 1024 * 1024 });
+      }
+      case "submit_mission": {
+        if (!member?.confirmed_at) return json({ error: "no_session" }, 401);
+        if (!body.mission_id) return json({ error: "invalid" }, 400);
+        const url = body.proof_url ? normalizeProofUrl(body.proof_url) : null;
+        if (body.proof_url && !url) return json({ error: "url" }, 400);
+        const img = body.proof_image_path || null;
+        if (img) {
+          const dir = img.split("/").slice(0, -1).join("/"), file = img.split("/").pop()!;
+          const { data: objs } = await sb.storage.from(PROOF_BUCKET).list(dir, { search: file, limit: 1 });
+          if (!objs?.some((o: any) => o.name === file)) return json({ error: "image" }, 400);
+        }
+        const { data: r, error } = await sb.rpc("club_mission_submit", { p_member: member.id, p_mission: body.mission_id, p_url: url, p_image: img });
+        if (error) throw error;
+        const res = r as { status?: string; error?: string };
+        if (res.error) return json({ error: res.error }, res.error === "closed" || res.error === "already_submitted" || res.error === "duplicate" ? 409 : 400);
+        return json({ status: res.status });
       }
       case "confirm_buyer": {
         if (!body.token) return json({ error: "token" }, 400);
