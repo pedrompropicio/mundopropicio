@@ -5721,3 +5721,16 @@ Estado: aceite. DDL autorizado pelo Pedro e aplicado (drizzle 0118 + supabase/mi
 **Porquê não outra rubrica.** Na 2.6.08 Despesas Extras, havendo folga no previsto, a reclassificação sem linha de BP faz a folga absorver o custo e o resultado sobe em vez de reconhecer a despesa. Uma família 2.10 nova tocaria em tudo o que itera famílias nos relatórios, sem ganho.
 
 **Aplicação.** Só na empresa MP (7c858982-6ccd-47ca-bd65-e0dd3eebf01c); id da rubrica b0409a20-f072-45a1-8e9e-e3f537062347. Regra de lançamento, linha de BP por omissão e outras empresas: Issue #312.
+
+### D-ERP257 — Portal newgangfestival.pt em projeto separado, história própria e acesso de membro por link pessoal (13/10/2026)
+
+**Contexto.** O Newgang Festival vai ter portal próprio em newgangfestival.pt, num projeto Lovable separado ligado à mesma base (chave anon).
+
+**Decisão.**
+- O portal não tem regras de negócio: lê vistas públicas e chama a edge function `newgang-portal`; tudo se configura no MP CRM (`/crm/sites/newgang`, tabela `portal_sites`).
+- Line-up por revelações (`event_lineup_reveals`): atração só é pública com revelação agendada e data pública passada; membro do Clube vê a partir da data Clube. Nenhuma resposta pública devolve totais de atrações.
+- A história das edições vive em `festival_editions`, sem criar eventos no ERP para edições passadas.
+- O acesso à área do membro é por link pessoal enviado por email (token com hash, 30 dias), sem palavra-passe — o magic link do Auth não funciona entre projetos.
+- Os trackers do portal vêm do evento associado ao site, independentemente de `events.portal_visible`; `event_trackers_public` mantém-se para o portal MP.
+
+**Aplicação.** Migrações 0119/0120; spec em docs/specs/portal-newgangfestival.md.

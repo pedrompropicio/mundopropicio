@@ -109,3 +109,14 @@ Nota: nenhum Publish feito.
 - [x] Retirar alvos implícitos dos dois motores e do cliente new-design, actualizar memória e testar sem meta.
 - [x] Vitest antes 984/depois 999 passed, sem falhas; sintaxe das funções limpa, compilação automática OK; duas funções implantadas, sem DDL/DML/Publish.
 - [ ] Verificação tsgo explícita/CI — não executada nesta sessão; compilação automática não substitui essa prova.
+
+## Portal newgangfestival.pt — F1 ERP (aprovado 13/10/2026)
+- [x] A: segurança line-up (vista + RLS)
+- [x] B: revelações + colunas line-up + lineup_complete
+- [x] C: festival_editions (videos jsonb, cover_url), portal_sites + vistas
+- [x] D: Clube (membros, pontos, níveis, prémios, palpites, presenças, sessões 30d)
+- [ ] DML sementeira — à espera do OK do Pedro (proposta em supabase/manual)
+- [x] Edge newgang-portal (trackers do evento do site sempre; email real via news.newgangfestival.pt)
+- [x] Origens portal-track / geo-lookup / google-click-ingest
+- [x] Ecrãs /crm/sites/newgang (WebP 1600px, máx 20 fotos, vídeos YouTube/Instagram/Vimeo)
+- [x] Testes, spec, D-ERP (próximo livre), memória, estado

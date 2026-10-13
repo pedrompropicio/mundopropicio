@@ -1,6 +1,6 @@
 # ESTADO — MP CRM, Portal & Leads
 
-Atualizado: 2026-10-12 · Issues: #251, #252, #306, #308 · Fechadas: #253 (24/09), #254 (10/10) · Bloqueio: #62
+Atualizado: 2026-10-13 · Issues: #251, #252, #306, #308 · Portal Newgang F1 (D-ERP257) · Fechadas: #253 (24/09), #254 (10/10) · Bloqueio: #62
 
 ## Em que pé está
 Dois portais distintos, dois projetos Lovable, a mesma base Supabase:
@@ -22,6 +22,10 @@ A 24/09/2026 foi resolvido o incidente que punha o ecrã "Algo correu mal" a 100
 **Envios à lista Clube Newgang (12/10)** — `process-email-queue` encaminha `news.newgangfestival.pt` pelo Resend com o segredo `RESEND_API_KEY_NEWGANG` (deploy feito; segredo ainda por colar pelo Pedro). Migração `0117_derp256_enqueue_email_batch.sql`: `enqueue_email_batch(queue, payloads jsonb[], batch_size=5000, interval_minutes=50)` (só service_role) enfileira listas grandes em lotes com atraso pgmq, e o `queued_at` = momento visível, para o TTL de 60 min não expirar mensagens. Email de teste (from "Clube Newgang <clube@news.newgangfestival.pt>", purpose marketing, com unsubscribe) pendente do segredo e do domínio Verified no Resend.
 
 **Acompanhamento no MP CRM (#308, P1 até 02/11)** — construído a 12/10, aguarda Publish. Página `/crm/clube-newgang` no menu do MP CRM: cartões total/hoje/7 dias + barra da meta 15.000 até 02/11, agregados por dia/cidade/UTM/faixa etária (hora de Lisboa), tabela paginada com pesquisa e consentimentos, export CSV formato Fever da base completa. Migração `0111_derp252_clube_newgang_crm.sql`: RPCs SECURITY DEFINER `clube_newgang_summary` e `clube_newgang_list` (anon sem acesso; papéis admin/platform_admin/marketing_manager/content_manager; filtro à empresa ativa). Formato da data de nascimento confirmado AAAA-MM-DD (o portal valida antes de gravar no raw). Pendente: confirmar com a Fever se os consentimentos no CSV devem ser "sim"/"não" ou true/false.
+
+**Portal newgangfestival.pt — F1 ERP (13/10)** — base, API `newgang-portal`, origens e ecrã `/crm/sites/newgang` feitos; ver `docs/specs/portal-newgangfestival.md`. `event_lineups_public` passou a exigir revelação agendada com data pública passada. Sementeira (site, 5 edições, regras/níveis/prémios) proposta em `supabase/manual/20261013_newgang_portal_seed.PROPOSTA.sql`, por aplicar. Sem Publish.
+
+**Risco registado:** a policy `lead_capture_public_insert` (anon insert em `lead_capture`) mantém-se; não foi alterada neste pedido.
 
 ## Próximo passo concreto
 1. **Fase 4 da #306** — email de boas-vindas pelo Resend; texto a definir pelo Pedro.

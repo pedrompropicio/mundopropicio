@@ -21,7 +21,14 @@ interface LineupRow {
   performance_date: string | null;
   performance_time: string | null;
   display_order: number | null;
+  reveal_id: string | null;
+  category: string;
+  video_url: string | null;
+  listen_url: string | null;
 }
+
+type RevealOption = { id: string; label: string; public_at: string };
+const CATEGORY_LABEL: Record<string, string> = { headliner: "Headliner", atracao: "Atração", convidado: "Convidado" };
 
 type Draft = {
   artist_name: string;
@@ -32,6 +39,10 @@ type Draft = {
   performance_date: string;
   performance_time: string;
   display_order: number;
+  reveal_id: string;
+  category: string;
+  video_url: string;
+  listen_url: string;
 };
 
 const emptyDraft = (order: number): Draft => ({
@@ -43,6 +54,10 @@ const emptyDraft = (order: number): Draft => ({
   performance_date: "",
   performance_time: "",
   display_order: order,
+  reveal_id: "",
+  category: "atracao",
+  video_url: "",
+  listen_url: "",
 });
 
 export function LineupTab({
@@ -72,6 +87,21 @@ export function LineupTab({
     enabled: !!eventId,
   });
 
+  const reveals = useQuery({
+    queryKey: ["crm-event-lineup-reveals", eventId],
+    queryFn: async (): Promise<RevealOption[]> => {
+      const { data, error } = await (supabase as any)
+        .from("event_lineup_reveals")
+        .select("id, label, public_at")
+        .eq("event_id", eventId)
+        .order("public_at");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!eventId,
+  });
+  const revealOptions = reveals.data ?? [];
+
   const [newDraft, setNewDraft] = useState<Draft>(emptyDraft(0));
   const [editing, setEditing] = useState<Record<string, Draft>>({});
 
@@ -87,6 +117,10 @@ export function LineupTab({
         performance_date: r.performance_date ?? "",
         performance_time: r.performance_time ? String(r.performance_time).slice(0, 5) : "",
         display_order: r.display_order ?? 0,
+        reveal_id: r.reveal_id ?? "",
+        category: r.category ?? "atracao",
+        video_url: r.video_url ?? "",
+        listen_url: r.listen_url ?? "",
       },
     }));
   };
@@ -106,6 +140,10 @@ export function LineupTab({
     performance_date: d.performance_date || null,
     performance_time: d.performance_time || null,
     display_order: Number.isFinite(d.display_order) ? d.display_order : 0,
+    reveal_id: d.reveal_id || null,
+    category: d.category || "atracao",
+    video_url: d.video_url.trim() || null,
+    listen_url: d.listen_url.trim() || null,
   });
 
   const createMut = useMutation({
@@ -161,7 +199,7 @@ export function LineupTab({
       <div className="space-y-1">
         <h3 className="text-sm font-semibold">Line-up do evento</h3>
         <p className="text-xs text-muted-foreground">
-          Artistas mostrados na página pública. Ordem crescente por "Ordem".
+          Uma atração só aparece no portal depois da data pública da sua revelação agendada. Sem revelação, nunca é pública.
         </p>
       </div>
 
@@ -211,6 +249,7 @@ export function LineupTab({
                     draft={edit}
                     onChange={(d) => setEditing((s) => ({ ...s, [r.id]: d }))}
                     disabled={disabled}
+                    reveals={revealOptions}
                   />
                 ) : (
                   <div className="flex flex-wrap items-start gap-3 text-sm">
@@ -223,6 +262,12 @@ export function LineupTab({
                     )}
                     <div className="flex-1 space-y-1">
                       <p className="font-medium text-foreground">{r.artist_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {CATEGORY_LABEL[r.category] ?? r.category} ·{" "}
+                        {r.reveal_id
+                          ? `Revelação: ${revealOptions.find((o) => o.id === r.reveal_id)?.label ?? "—"}`
+                          : "Sem revelação (nunca é pública)"}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {[r.stage, r.performance_date, r.performance_time ? String(r.performance_time).slice(0, 5) : null]
                           .filter(Boolean)
@@ -263,7 +308,7 @@ export function LineupTab({
 
       <div className="space-y-3 rounded-md border border-dashed border-border p-3">
         <h4 className="text-sm font-semibold">Novo artista</h4>
-        <LineupForm draft={newDraft} onChange={setNewDraft} disabled={disabled} />
+        <LineupForm draft={newDraft} onChange={setNewDraft} disabled={disabled} reveals={revealOptions} />
         <div className="flex justify-end">
           <Button
             type="button"
@@ -284,10 +329,12 @@ function LineupForm({
   draft,
   onChange,
   disabled,
+  reveals = [],
 }: {
   draft: Draft;
   onChange: (d: Draft) => void;
   disabled: boolean;
+  reveals?: RevealOption[];
 }) {
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => onChange({ ...draft, [k]: v });
   return (
@@ -337,6 +384,41 @@ function LineupForm({
             disabled={disabled}
           />
         </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium">Categoria</Label>
+        <select
+          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          value={draft.category}
+          onChange={(e) => set("category", e.target.value)}
+          disabled={disabled}
+        >
+          <option value="headliner">Headliner</option>
+          <option value="atracao">Atração</option>
+          <option value="convidado">Convidado</option>
+        </select>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium">Revelação</Label>
+        <select
+          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          value={draft.reveal_id}
+          onChange={(e) => set("reveal_id", e.target.value)}
+          disabled={disabled}
+        >
+          <option value="">Sem revelação (não pública)</option>
+          {reveals.map((o) => (
+            <option key={o.id} value={o.id}>{o.label}</option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium">Vídeo (URL)</Label>
+        <Input type="url" value={draft.video_url} onChange={(e) => set("video_url", e.target.value)} placeholder="https://…" disabled={disabled} />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium">Link para ouvir</Label>
+        <Input type="url" value={draft.listen_url} onChange={(e) => set("listen_url", e.target.value)} placeholder="https://open.spotify.com/…" disabled={disabled} />
       </div>
       <div className="space-y-1.5 sm:max-w-[160px]">
         <Label className="text-sm font-medium">Ordem</Label>

@@ -12,6 +12,8 @@ const ALLOWED_ORIGINS = new Set<string>([
   "https://coalafestival.pt",
   "https://www.coalafestival.pt",
   "https://coalafestival.lovable.app",
+  "https://newgangfestival.pt",
+  "https://www.newgangfestival.pt",
 ]);
 const PORTAL_PREVIEW_SUFFIXES = [
   `--26b95793-17b6-478c-a6e8-745c0cfb7ed9.lovable.app`,
@@ -27,7 +29,10 @@ const ORIGIN_COMPANY: Record<string, string> = {
   "https://coalafestival.pt": COALA_COMPANY,
   "https://www.coalafestival.pt": COALA_COMPANY,
   "https://coalafestival.lovable.app": COALA_COMPANY,
+  "https://newgangfestival.pt": MP_COMPANY,
+  "https://www.newgangfestival.pt": MP_COMPANY,
 };
+// Pedro: preview do portal Newgang — acrescentar "--<projectId>.lovable.app" a PORTAL_PREVIEW_SUFFIXES e a PREVIEW_COMPANY (→ MP_COMPANY).
 const PREVIEW_COMPANY: Array<[string, string]> = [
   [`--26b95793-17b6-478c-a6e8-745c0cfb7ed9.lovable.app`, MP_COMPANY],
   [`--bef9c59c-c2a4-453d-9aec-dae7d16c9171.lovable.app`, COALA_COMPANY],
@@ -98,6 +103,15 @@ function pick(kind: string, p: any): Record<string, unknown> {
     } else if (typeof v === "string" || typeof v === "number") out[k] = String(v).slice(0, spec);
   }
   if (typeof out.client_event_id === "string" && !UUID_RE.test(out.client_event_id)) delete out.client_event_id;
+  // Portal Newgang (F1): referral_code e ttclid de topo ficam em raw (lead e redirect não têm colunas próprias).
+  if (kind === "lead") {
+    const extra: Record<string, string> = {};
+    for (const k of ["referral_code", "ttclid"]) {
+      const v = p[k];
+      if (typeof v === "string" && v.trim()) extra[k] = v.trim().slice(0, k === "ttclid" ? 500 : 32);
+    }
+    if (Object.keys(extra).length) out.raw = { ...((out.raw as Record<string, unknown>) ?? {}), ...extra };
+  }
   return out; // ip_inet / geo_* nunca vêm do corpo
 }
 
