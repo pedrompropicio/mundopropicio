@@ -5894,3 +5894,13 @@ Origem: TikTok BR do Litto (7689229625189138438) ficou com saldo 0 a 13/10 e est
 - API `newgang-portal`: ação pública `regulation` → `{version, published_at, body_md}` da publicada (404 se não houver); `site`/`bundle` trazem `club.terms = {version, published_at}` ou null, nunca o texto. Rascunhos nunca saem. assertNoTotals e Server-Timing mantêm-se.
 - CRM `/crm/sites/newgang` → Clube → "Regulamento": editor markdown com pré-visualização, "Guardar rascunho", "Publicar versão" (confirmação), histórico com quem publicou e membros que aceitaram cada versão.
 - Sementeira: v1 em rascunho (não publicada).
+
+## D-ERP272 — Clube Newgang — missões de criativos, fase 1 (13/10/2026)
+- `club_missions` (postar | desafio; rede instagram|tiktok|qualquer; prova link|imagem|link_ou_imagem; aprovação automática|manual — desafio sempre manual; criativos em `assets` jsonb; prazo; rascunho|ativa|encerrada; desafio com pontos de finalista/vencedor e prazo do júri).
+- `club_mission_submissions`: uma ativa por membro por missão (índice parcial, rejeitadas ficam no histórico); o mesmo link não serve a dois membros; `auto_approved` marca as aprovadas automaticamente (amostragem no CRM).
+- `club_members.instagram_handle` / `tiktok_handle` normalizados (sem @, minúsculas, formato validado).
+- Pontos pelo motor existente (`club_points`, UNIQUE member+rule+ref) via `club_award_fixed` com o valor da missão; `club_mission_sync_points` deriva os pontos do estado: aprovada → `mission`, finalista → + `mission_finalist`, vencedora → + `mission_winner`; reverter apaga os do estado perdido. ref_id = submissão.
+- Submissão só pela RPC `club_mission_submit` (service_role, chamada pela newgang-portal): valida membro confirmado, missão ativa no prazo, tipo de prova, rede pelo domínio, duplicados e caminho da imagem. Moderação pela RPC `club_mission_review` (portal_can_write, em lote, motivo obrigatório ao rejeitar).
+- Storage: `club-mission-assets` público (`<company_id>/<mission_id>/<uuid>.<ext>`, imagem 15 MB / vídeo 100 MB); `club-proofs` privado (`<company_id>/<member_id>/<uuid>.<ext>`, jpg/png/webp 5 MB; só service_role escreve por URL assinado de upload; CRM lê por URL assinado).
+- API: `missions` (pública, sem contagens), `mission_upload_url`, `submit_mission`, `profile` (com token); `me` inclui handles e submissões com pontos.
+- Fase 2 (não feita): deteção automática por Instagram Graph API e menções em stories.

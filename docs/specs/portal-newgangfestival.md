@@ -65,3 +65,11 @@ Campo vazio = chave removida do `content` (nunca se grava texto vazio); o site v
 - Gerido no CRM (separador Clube → Regulamento), publicado por versões; v1 em rascunho.
 - Ação pública `regulation` → `{ version, published_at, body_md }` (404 sem versão publicada). `site`/`bundle`: `club.terms = { version, published_at } | null`.
 - O formulário do site envia `raw.terms_version` (inteiro) com a versão aceite; só versões publicadas ficam gravadas no membro (`terms_version`, `terms_accepted_at`).
+
+## Missões de criativos — fase 1 (D-ERP272, 13/10/2026)
+- CRM: Clube → Missões (lista, editor, criativos, ativar/encerrar) e Fila de moderação (filtros missão/estado/rede, "aprovadas automaticamente", aprovar/rejeitar em lote, finalista/vencedora nos desafios).
+- API: `missions` → `{ missions: [{ id, kind, title, description, network, points, proof_type, mention, hashtag, caption_suggestion, assets:[{url,type,name}], ends_at, (desafio) finalist_points, winner_points, judging_until }] }`.
+- `mission_upload_url` {token, content_type} → `{ path, upload_url, token, max_bytes }` (o site faz PUT da imagem e depois envia `proof_image_path`).
+- `submit_mission` {token, mission_id, proof_url?, proof_image_path?} → `{ status: "aprovada" | "pendente" }` ou erro (`closed`, `duplicate`, `already_submitted`, `network`, `proof_link`, `proof_image`, `url`, `image`).
+- `profile` {token, instagram_handle?, tiktok_handle?}; `me` traz `instagram_handle`, `tiktok_handle`, `submissions[]` (mission_id, mission_title, kind, status, reject_reason, points, submitted_at).
+- Fase 2: deteção automática (Instagram Graph API, menções em stories) — por fazer.
