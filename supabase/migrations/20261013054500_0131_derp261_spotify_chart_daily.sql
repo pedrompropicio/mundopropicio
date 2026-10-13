@@ -43,3 +43,4 @@ select m.artist_id, m.song_id, m.country, m.metric_date chart_date,
   greatest(l.top100_streams - m.value, 0) gap_top100
 from m join lim l on l.country = m.country and l.chart_date = m.metric_date
 left join pos p on p.song_id = m.song_id and p.country = m.country and p.chart_date = m.metric_date;
+grant select on public.v_artist_chart_gap to authenticated;

@@ -797,3 +797,6 @@ verify_jwt = false
 [functions.artist-access-invite]
 # D-ERP259: gestão de utilizadores da app Gestão Artística; só admin do artista (artist_access_check).
 verify_jwt = true
+
+[functions.spotify-charts-sync]
+verify_jwt = true
