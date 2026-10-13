@@ -22,11 +22,11 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
-import { matchClickToLead, MATCH_WINDOW_DAYS, positiveConversionValue } from "../_shared/google-click-match.ts";
+import { MATCH_WINDOW_DAYS, pickClickForLeads, positiveConversionValue, type LeadForPick } from "../_shared/google-click-match.ts";
 
 import { fetchAllPagedQuery } from "../_shared/paging.ts";
 const MP_COMPANY_ID = "7c858982-6ccd-47ca-bd65-e0dd3eebf01c";
-const MAX_BATCH = 5000;
+const MAX_LEADS = 20000; // limite de segurança; se atingido → limit_reached:true
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,7 +67,7 @@ interface ClickRow {
 
 Deno.serve(async (req: Request): Promise<Response> => {
   console.log(
-    "[crm-google-lead-conversion-enqueue] BUILD_VERSION=lead-producer-v2-cronauth",
+    "[crm-google-lead-conversion-enqueue] BUILD_VERSION=lead-producer-v3-leads-first",
     new Date().toISOString(),
   );
   if (req.method === "OPTIONS") {
@@ -172,102 +172,76 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (!page || page.length < PAGE) break;
   }
 
-  const candidates: ClickRow[] = [];
-  for (let from = 0; candidates.length < MAX_BATCH; from += PAGE) {
-    const { data: page, error: clicksErr } = await admin
-      .schema("crm")
-      .from("google_click")
-      .select(
-        "id, lead_capture_id, client_event_id, gclid, gbraid, wbraid, captured_at, consent_granted",
-      )
-      .eq("company_id", MP_COMPANY_ID)
-      .eq("consent_granted", true)
-      .gte("captured_at", windowStart)
-      .or("gclid.not.is.null,gbraid.not.is.null,wbraid.not.is.null")
-      .order("captured_at", { ascending: true })
-      .order("id", { ascending: true })
-      .range(from, from + PAGE - 1);
-    if (clicksErr) {
-      return json({ error: "clicks_read_failed", detail: clicksErr.message }, 500);
-    }
-    candidates.push(...((page ?? []) as ClickRow[]));
-    if (!page || page.length < PAGE) break;
-  }
-
-  // 3a) Leads com identificador de clique guardado pelo portal (raw.gclid/gbraid/wbraid).
-  const leadByIdent = new Map<string, string>();
+  // 3) D-ERP260 (#62, regressão da D-ERP230): partir dos LEADS da janela de 90 dias,
+  //    paginados até ao fim, e só depois ir buscar os cliques que lhes casam.
+  //    A varredura antiga de cliques parava aos 5.000 mais antigos, sem aviso.
+  const allLeads: LeadForPick[] = [];
   for (let from = 0; ; from += PAGE) {
     const { data: page, error: lErr } = await admin
       .from("lead_capture")
-      .select("id, raw, created_at")
+      .select("id, client_event_id, raw, created_at")
       .eq("company_id", MP_COMPANY_ID)
-      .or("raw->>gclid.not.is.null,raw->>gbraid.not.is.null,raw->>wbraid.not.is.null")
+      .gte("created_at", windowStart)
+      .or("raw->>gclid.not.is.null,raw->>gbraid.not.is.null,raw->>wbraid.not.is.null,client_event_id.not.is.null")
       .order("created_at", { ascending: true })
       .order("id", { ascending: true })
       .range(from, from + PAGE - 1);
     if (lErr) return json({ error: "leads_read_failed", detail: lErr.message }, 500);
-    for (const l of (page ?? []) as Array<{ id: string; raw: Record<string, unknown> | null }>) {
-      for (const k of ["gclid", "gbraid", "wbraid"]) {
-        const v = l.raw?.[k];
-        if (typeof v === "string" && v.trim() && !leadByIdent.has(`${k}:${v.trim()}`)) {
-          leadByIdent.set(`${k}:${v.trim()}`, l.id); // o lead mais antigo ganha
-        }
-      }
-    }
+    allLeads.push(...((page ?? []) as LeadForPick[]));
     if (!page || page.length < PAGE) break;
   }
+  const leadsTotal = allLeads.length;
+  const limitReached = leadsTotal > MAX_LEADS;
+  const leads = limitReached ? allLeads.slice(leadsTotal - MAX_LEADS) : allLeads; // os mais recentes
+  const pending = leads.filter((l) => !alreadyEnqueued.has(l.id));
 
-  // 3b) Fallback por client_event_id, em blocos pequenos (URL do .in()).
-  const clientEventIds = Array.from(
-    new Set(candidates.filter((c) => !c.lead_capture_id && c.client_event_id).map((c) => c.client_event_id as string)),
-  );
-  const leadByClientEventId = new Map<string, string>();
-  for (let i = 0; i < clientEventIds.length; i += 100) {
-    const chunk = clientEventIds.slice(i, i + 100);
-    const { data: leads, error: leadsErr } = await fetchAllPagedQuery(admin
-      .from("lead_capture")
-      .select("id, client_event_id")
-      .eq("company_id", MP_COMPANY_ID)
-      .in("client_event_id", chunk));
-    if (leadsErr) return json({ error: "leads_read_failed", detail: leadsErr.message }, 500);
-    for (const l of (leads ?? []) as Array<{ id: string; client_event_id: string }>) {
-      if (l.client_event_id && !leadByClientEventId.has(l.client_event_id)) {
-        leadByClientEventId.set(l.client_event_id, l.id);
-      }
+  const clicksById = new Map<string, ClickRow>();
+  const CLICK_COLS = "id, lead_capture_id, client_event_id, gclid, gbraid, wbraid, captured_at, consent_granted";
+  async function fetchClicks(col: string, values: string[]): Promise<string | null> {
+    const uniq = Array.from(new Set(values.filter(Boolean)));
+    for (let i = 0; i < uniq.length; i += 100) {
+      const { data, error } = await fetchAllPagedQuery(admin
+        .schema("crm")
+        .from("google_click")
+        .select(CLICK_COLS)
+        .eq("company_id", MP_COMPANY_ID)
+        .eq("consent_granted", true)
+        .gte("captured_at", windowStart)
+        .or("gclid.not.is.null,gbraid.not.is.null,wbraid.not.is.null")
+        .in(col, uniq.slice(i, i + 100)));
+      if (error) return error.message;
+      for (const c of (data ?? []) as ClickRow[]) clicksById.set(c.id, c);
     }
+    return null;
   }
+  const identVals = (k: string) =>
+    pending.map((l) => (typeof l.raw?.[k] === "string" ? String(l.raw?.[k]).trim() : "")).filter(Boolean);
+  for (const [col, vals] of [
+    ["lead_capture_id", pending.map((l) => l.id)],
+    ["gclid", identVals("gclid")],
+    ["gbraid", identVals("gbraid")],
+    ["wbraid", identVals("wbraid")],
+    ["client_event_id", pending.map((l) => l.client_event_id ?? "")],
+  ] as Array<[string, string[]]>) {
+    const err = await fetchClicks(col, vals);
+    if (err) return json({ error: "clicks_read_failed", detail: err }, 500);
+  }
+
+  const { picks, skippedExisting, noClick } = pickClickForLeads(leads, Array.from(clicksById.values()), alreadyEnqueued);
 
   const errors: Array<{ google_click_id: string; reason: string }> = [];
   const rowsToInsert: Array<Record<string, unknown>> = [];
-  let skippedExisting = 0;
-  let noLead = 0;
   const byMethod: Record<string, number> = { lead_capture_id: 0, click_identifier: 0, client_event_id: 0 };
   const backfill: Array<{ clickId: string; leadId: string }> = [];
 
-  for (const c of candidates) {
-    const m = matchClickToLead(c, leadByIdent, leadByClientEventId);
-    if (!m) {
-      noLead++;
-      continue;
-    }
-    const orderId = m.leadId;
-    if (m.method !== "lead_capture_id") backfill.push({ clickId: c.id, leadId: orderId });
-    if (alreadyEnqueued.has(orderId)) {
-      skippedExisting++;
-      continue;
-    }
+  for (const { leadId: orderId, method, click: c } of picks) {
+    if (method !== "lead_capture_id") backfill.push({ clickId: c.id, leadId: orderId });
     const ident = c.gclid
       ? { gclid: c.gclid, gbraid: null, wbraid: null }
       : c.gbraid
       ? { gclid: null, gbraid: c.gbraid, wbraid: null }
-      : c.wbraid
-      ? { gclid: null, gbraid: null, wbraid: c.wbraid }
-      : null;
-    if (!ident) {
-      errors.push({ google_click_id: c.id, reason: "sem_identificador_clique" });
-      continue;
-    }
-    byMethod[m.method]++;
+      : { gclid: null, gbraid: null, wbraid: c.wbraid };
+    byMethod[method]++;
     rowsToInsert.push({
       company_id: MP_COMPANY_ID,
       conversion_action_ref: actionRef,
@@ -281,7 +255,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       order_id: orderId,
       conversion_datetime: c.captured_at,
       status: "pending",
-      raw: { match_method: m.method },
+      raw: { match_method: method },
     });
     alreadyEnqueued.add(orderId);
   }
@@ -325,8 +299,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   return json({
-    candidates: candidates.length,
-    no_lead: noLead,
+    leads_total: leadsTotal,
+    leads_considered: leads.length,
+    leads_processed: leads.length,
+    limit_reached: limitReached,
+    clicks_read: clicksById.size,
+    no_click: noClick,
     by_method: byMethod,
     window_days: MATCH_WINDOW_DAYS,
     enqueued,

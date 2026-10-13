@@ -5768,3 +5768,9 @@ Leitura = 'read' com área; escrita de tráfego, músicas e comparáveis = 'traf
 - Todas as vistas são security_invoker e herdam as bases.
 - Teste (viewer Litto overview+traffic, transacção anulada): lê Litto em artists/canais/métricas/crescimento e 5 alterações de orçamento; songs e content = 0; nunca outros artistas. Pedro lê tudo; tempos iguais à regra anterior.
 - Convite: redirectTo passa a https://app.socialartists.com.br/definir-senha.
+
+### D-ERP260 — #62 enqueue Google parte dos leads (regressão da D-ERP230) (13/10/2026)
+Problema: `crm-google-lead-conversion-enqueue` varria os cliques da janela por captured_at ascendente e parava aos 5.000 (MAX_BATCH). Com 10.004 cliques, nada depois de 09/09 era visto, e não havia nenhum aviso (ronda de 13/10: candidates 5000, no_lead 4757, enqueued 0).
+Decisão: partir dos LEADS MP da janela de 90 dias (com raw.gclid/gbraid/wbraid ou client_event_id), paginados até ao fim. Depois vão-se buscar só os cliques com consentimento que lhes casam (por lead_capture_id, identificador e client_event_id, em blocos de 100). A regra pura é `pickClickForLeads` em `_shared/google-click-match.ts`, com as regras de casamento inalteradas e o primeiro clique a ganhar. Mantém-se: dedupe por order_id = lead_capture.id, valor nulo, ação de portal_settings. Limite de segurança MAX_LEADS = 20.000; se for atingido, processa os mais recentes e a resposta traz `limit_reached:true`. A resposta passa a ter leads_total/leads_considered/no_click/clicks_read.
+Prova: 745 leads, 117 cliques lidos, 16 enfileirados (click_identifier) e 78 já existiam. Vitest: 5.001 cliques antigos + 1 recente → o recente é enfileirado (a lógica antiga perdia-o).
+Ficam por enviar 25 leads com identificador: 14 partilham o gclid com outro lead já enviado (um clique conta para um só lead), 10 têm clique sem consentimento e 1 não tem clique.
