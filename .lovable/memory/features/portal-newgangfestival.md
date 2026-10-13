@@ -28,3 +28,4 @@ type: feature
 - Early entry dos Lenda suspenso até validação com a MEO Arena.
 
 - D-ERP270: ação pública `bundle` = {site, lineup público, history}; leituras públicas sem token numa só ida à base (embeds); Server-Timing; cron `newgang-portal-quente` */4.
+- D-ERP271: regulamento em `club_terms` (rascunho|publicada, versões imutáveis, publicar via RPC `club_terms_publish`); ação pública `regulation` (404 sem publicada); `club.terms` só versão+data; aceitação em `club_members.terms_version/terms_accepted_at` só com versão publicada, inválida nunca bloqueia.

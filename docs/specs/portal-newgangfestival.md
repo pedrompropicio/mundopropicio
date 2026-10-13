@@ -60,3 +60,8 @@ Campo vazio = chave removida do `content` (nunca se grava texto vazio); o site v
 - Ação pública `bundle` → `{ site, lineup, history }` (lineup sempre público). O site pode trocar 3 pedidos por 1.
 - Leituras públicas sem token numa só ida à base; `Server-Timing` em todas as respostas.
 - Cron `newgang-portal-quente` (`*/4 * * * *`, 360/dia, Live via cron.schedule): `net.http_post` com `{action:"bundle"}` e Origin `https://newgangfestival.pt`.
+
+## Regulamento do Clube (D-ERP271, 13/10/2026)
+- Gerido no CRM (separador Clube → Regulamento), publicado por versões; v1 em rascunho.
+- Ação pública `regulation` → `{ version, published_at, body_md }` (404 sem versão publicada). `site`/`bundle`: `club.terms = { version, published_at } | null`.
+- O formulário do site envia `raw.terms_version` (inteiro) com a versão aceite; só versões publicadas ficam gravadas no membro (`terms_version`, `terms_accepted_at`).

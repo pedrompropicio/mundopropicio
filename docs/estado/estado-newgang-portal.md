@@ -1,6 +1,6 @@
 # ESTADO — newgang-portal (portal newgangfestival.pt)
 
-Atualizado: 2026-10-13 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-ERP270
+Atualizado: 2026-10-13 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-ERP270, D-ERP271
 
 ## Em que pé está (13/10)
 - newgangfestival.pt publicado; `/teste` removido.
@@ -9,6 +9,7 @@ Atualizado: 2026-10-13 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-E
 - Clube: níveis Gang (0) · Elite (500) · Lenda (1.500) com benefícios no CRM. A ação "site" devolve `club.levels` e `club.rules` (só configuração, sem totais).
 - `/meu-clube` sem sessão = montra do Clube, renderizada no servidor; com sessão guardada mostra "A carregar o teu Clube…" e depois o cartão do membro.
 - Desempenho: cache stale-while-revalidate no SSR do site (`site`/`history` 60 s, `lineup` público 15 s, com expiração forçada em `next_reveal.public_at`; nada com token entra na cache); Cache-Control nas rotas públicas e private/no-store em `/meu-clube` e `/clube/entrar`. Na `newgang-portal`, ação "site" com consultas em paralelo e `getSite()` em cache de 60 s por instância. TTFB medido em produção: 2–4,5 s → ~0,1 s (a 1.ª visita após arranque da instância continua lenta, ~4 s). Função: leituras públicas numa só ida à base, ação `bundle` e cron `newgang-portal-quente` (4 em 4 min) — D-ERP270; servidor ~0,16–0,25 s.
+- Regulamento do Clube (D-ERP271): gerido no CRM, publicado por versões; v1 em rascunho (ação `regulation` dá 404 até publicar). O site tem de mostrar o regulamento e enviar `raw.terms_version` na inscrição (trabalho no projeto do portal).
 - Membros do Clube: 2 (0 confirmados); revelações: 0 (consulta de 13/10, 19:38 UTC).
 
 ## A trabalhar agora
