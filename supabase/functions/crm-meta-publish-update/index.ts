@@ -203,7 +203,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Alonga a janela de um vitalício → conta como aumento de gasto.
   const alongaVitalicio = modoFinal === "vitalicio" && !!plan.end_time && !!endFinal &&
     new Date(endFinal).getTime() > new Date(plan.end_time).getTime();
-  const precisaAdmin = !!pedeOrc || alongaVitalicio || modoFinal !== modoAtual;
   // D-ERP259: plano de artista → gestor de tráfego do artista pode editar e mudar
   // orçamento (o teto é verificado no passo 7).
   const { error: roleErr } = await supabase.rpc("artist_access_check", {
