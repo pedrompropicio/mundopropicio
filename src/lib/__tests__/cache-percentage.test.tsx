@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import CachePercentageField from "@/components/CachePercentageField";
 import { parseAdjustedInput, parseCachePercentage, canEditCachePercentage } from "@/lib/cache-percentage";
-import { computeFinalAmount } from "@/lib/cache-calculations";
+import { resolvePercentageFromTiers, getCacheEffectiveAmount } from "@/lib/cache-pl-helper";
 
 describe("percentagem do artista", () => {
   it("editar grava ao sair do campo (não a cada tecla) e recalcula", () => {
@@ -16,8 +16,9 @@ describe("percentagem do artista", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave).toHaveBeenCalledWith(40);
     // recálculo: 40% de 10.000 com mínimo 1.000 → 4.000
-    expect(computeFinalAmount({ percentage: 40, minimum_guaranteed: 1000 } as any, 10000)).toBe(4000);
-    expect(computeFinalAmount({ percentage: 0, minimum_guaranteed: 1000 } as any, 10000)).toBe(1000);
+    const calc = (pct: number) => Math.max(1000, (10000 * resolvePercentageFromTiers({ percentage: pct, tiers: [] } as any, 0)) / 100);
+    expect(getCacheEffectiveAmount({ adjusted_amount: null }, calc(0))).toBe(1000);
+    expect(getCacheEffectiveAmount({ adjusted_amount: null }, calc(40))).toBe(4000);
   });
 
   it("Enter grava; fora de 0–100 recusa", () => {
@@ -47,5 +48,7 @@ describe("campo Ajustado", () => {
     expect(parseAdjustedInput("   ")).toBeNull();
     expect(parseAdjustedInput("0")).toBe(0);
     expect(parseAdjustedInput("-5")).toBeUndefined();
+    // NULL = sem ajuste → vale o calculado, nunca 0
+    expect(getCacheEffectiveAmount({ adjusted_amount: parseAdjustedInput("") }, 4000)).toBe(4000);
   });
 });
