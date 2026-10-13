@@ -55,3 +55,8 @@ Campo vazio = chave removida do `content` (nunca se grava texto vazio); o site v
 - portal_vip_welcome desligado para source clube_newgang (só newgang_club_welcome).
 - Envio imediato: club_from_lead_capture faz net.http_post (assíncrono, em bloco EXCEPTION) a newgang-portal action notify_member; cron newgang-club-welcome-5m fica como rede de segurança. Idempotente por message_id ng-welcome-<membro>. Teste: processada 03:50:00 → sent 03:50:08 (8 s). Migração 0129.
 - Descadastro dos emails Newgang: https://newgangfestival.pt/descadastrar?token=…; List-Unsubscribe um clique mantém handle-email-unsubscribe (CORS *).
+
+## Desempenho e ação "bundle" (D-ERP270, 13/10/2026)
+- Ação pública `bundle` → `{ site, lineup, history }` (lineup sempre público). O site pode trocar 3 pedidos por 1.
+- Leituras públicas sem token numa só ida à base; `Server-Timing` em todas as respostas.
+- Cron `newgang-portal-quente` (`*/4 * * * *`, 360/dia, Live via cron.schedule): `net.http_post` com `{action:"bundle"}` e Origin `https://newgangfestival.pt`.

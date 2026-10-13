@@ -5870,3 +5870,14 @@ Origem: TikTok BR do Litto (7689229625189138438) ficou com saldo 0 a 13/10 e est
 - Custo aceite: alterações no CRM do site podem demorar até 60 s a aparecer no portal; as revelações não esperam pela janela da cache.
 
 **Referências.** `docs/specs/portal-newgangfestival.md` e `docs/estado/estado-newgang-portal.md`.
+
+## D-ERP270 — Portal Newgang — leituras públicas numa só ida à base, ação "bundle" e cron quente (13/10/2026)
+
+**Decisão.**
+- `newgang-portal` responde com `Server-Timing` (boot, parse, getSite, member, db, total) em todas as respostas.
+- Leituras públicas sem token (`site`, `lineup`, `history`, nova `bundle`) correm numa só ida à base: `portal_sites` com o evento, trackers, `event_marketing`, revelações, line-up, níveis e regras embutidos (FKs), em paralelo com `portal_sites_public` e `festival_editions_public`. Sem `getSite()` à parte. Montagem pura em `supabase/functions/newgang-portal/public.ts`.
+- `bundle` devolve `{ site, lineup, history }` com os formatos de sempre; line-up sempre público. Passa pelo `assertNoTotals`. `lineup` com token mantém o caminho antigo (membro).
+- Cron `newgang-portal-quente` (`*/4 * * * *`, 360/dia) chama `bundle` com Origin `https://newgangfestival.pt`.
+- Regras de revelação e formatos inalterados.
+
+**Porquê.** A medição mostrou que cada ida à base custa ~150 ms a partir da função e que quase todos os pedidos arrancam instância nova (a cache de 60 s de `getSite()` quase nunca acerta). Antes: getSite ~150–400 ms + consultas ~140–450 ms (total servidor 300–780 ms). Depois: uma ida, total servidor ~155–250 ms (picos ~400 ms).
