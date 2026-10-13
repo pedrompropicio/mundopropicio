@@ -4667,6 +4667,9 @@ Implementação: trigger `trg_enforce_admin_window_event` (transactions), `trg_a
 - Migração Ivete (89a93e14): 4 despesas pagas pela conta da sessão; acerto 655d18a1 (765,85 € a pagar à Liliam) + perna conta c81440e3 (liquidada); custo do evento e linha a5f7b7b3 inalterados; conta a 0.
 - Why: sessões mistas geravam devolução e reembolso opostos em simultâneo; despesas do bolso ficavam por pagar fora de qualquer nota.
 
+
+**Adenda (13/10/2026, D-ERP264):** Não há limite para o gasto acima do adiantamento; o excesso é reembolsado no acerto. A regra (5) do ecrã da sessão (bloqueio por "Gasto via adiantamento… diferença muito grande") foi removida; no seu lugar o modal de integração mostra recebido (adiantamento + reforços − devoluções), gasto, saldo e "A MP reembolsa X € à gestora" / "A gestora devolve X €".
+
 ## D-ERP157 — Valor pago sem linha de pagamento: a base cria a linha; baixar à mão é recusado (02/10/2026)
 
 **Contexto.** A 02/10 havia 395 transações não isentas com `paid_amount > 0` e nenhuma linha `paid` em `transaction_payments` (MP 32 = 484.105,36 €; Coala 363). Os saldos batiam porque `_account_true_balance_*` lê `paid_amount`, mas qualquer evento que disparasse o sync (`_derive_paid_amount`) punha-as a 0 e o saldo mudava sozinho. Caminhos que gravam pago sem linha (02/10): `launch_from_bank_lines` (Lançar do banco); `TransferFormModal` (as 2 pernas); `QuickAdvanceModal`; `TicketOfficeAdvancesPanel`; `TicketOfficeSettlementModal` (carimbo do fecho ~l.595); `SponsorsImportModal`; `TransactionFormModal` (pai, sócio, irmã extra); `TransactionEditModal` (repartir/eliminar extra do sócio); `BankLineLaunchModal`; `NewCardExpenseModal`; edge `close-card-session`, `close-camarim-session` (itens de cartão), `apply-coala-bp`; triggers `sync_partner_aporte_mirror`, `sync_shared_cost_mirror`, `enforce_held_revenue_is_paid`; RPCs `create_settlement_transfer`, `card_load_on_out_paid`, `renegotiate_transaction_installments`.
@@ -5803,3 +5806,14 @@ Chat dedicado `newgang-portal` (tipo c, como o coala-portal). O portal newgangfe
 - Backfill: impossível (não guardamos o IP); não se tenta.
 - Prova 13/10: 523.349 ranges de 2026-10 (BR v4 142.537, v6 340.966; PT v4 20.364, v6 19.482).
 - Complemento (13/10, migração 0133): ip_city_ranges ganha lat/lon (numeric, do CSV DB-IP); ip_city_lookup devolve também lat/lon (song-link-event continua a gravar só região e cidade — coordenadas nunca vão para song_link_events). `ip_city_centroids()` (SECURITY DEFINER, authenticated) = média de lat/lon por país+região+cidade do mês mais recente. `v_song_link_blitz_targets` (alvos por prefixo: blitz_jp João Pessoa -7.1195,-34.8450; preparados blitz_for Fortaleza, blitz_arp Arapiraca, blitz_aju Aracaju, blitz_nat Natal, blitz_tou Touros) e `v_song_link_blitz_geo` (security_invoker): cada evento blitz_ com cidade, centroide e `dist_km_alvo` (haversine). Cidades fora de BR/PT (crawlers US/SE) ficam sem coordenadas. Prova: blitz_jp 1.674 eventos, 69 com cidade, 52 com coordenadas, 12 a ≤ 40 km.
+
+### D-ERP264 — Despesas de camarim seguem as regras de BP das transações; integração exige saldo nas linhas (13/10/2026)
+Origem: sessão SM Lisboa (0403d64e) — itens com verba "BP Master" numa sessão sem Master eram aceites e a integração caía em silêncio no BP local.
+- Item de camarim só aponta para uma linha de BP (`bp_forecast_id`) viva, da rubrica 2.6.04, do evento de destino: `master_common` → Master da sessão (sem recurso ao evento local); `local_city` → evento principal. Mesma regra das transações (`bp_tx_link_allowed`, como `trg_enforce_tx_forecast_same_event`).
+- Sem linha escolhida, o evento de destino `with_bp` tem de ter pelo menos uma linha 2.6.04; senão o item não grava e diz porquê. Talão misto não leva linha.
+- Defesa final na base: trigger `trg_enforce_camarim_item_bp_line` (BEFORE INSERT/UPDATE OF bp_forecast_id, bp_scope, event_id, session_id), migração 0134. Itens rejeitados não são verificados.
+- Formulário: seletor "Linha de BP" só com as linhas 2.6.04 do evento/âmbito; "Escolher na integração" = linha da sessão. Ficar acima do saldo da linha só dá aviso.
+- Integração (`close-camarim-session`): itens com linha própria usam essa linha, os restantes a linha da sessão; uma transação = uma linha de um único evento. Linha própria sem saldo (mesma conta das transações: approved/paid sem transitórias/excluídas/estornadas/ocultas) bloqueia ANTES de criar nada, com a linha e quanto falta; ajusta-se a verba no BP. A elevação no próprio modal continua só para a linha da sessão.
+- Removido o bloqueio do gasto acima do adiantamento (adenda ao D-ERP156).
+- Varredura Live 13/10: 0 itens com `bp_forecast_id` (de 49); 29 itens `master_common` em sessões sem Master, todos em sessões já integradas (Ivete 89a93e14: 14, 765,85 €; EDA Anitta 9d81140a: 15, 1.930,73 €). Não corrigidos.
+

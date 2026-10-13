@@ -50,7 +50,7 @@ Nada em curso.
 - **Portagens da Aquileia, 2,58 €, Coala 2026 encerrado:** excepção aceite, não se toca.
 - **Cartão 8363:** submeter os ~975 € da viagem do Ghanem antes de a sessão fechar.
 - **Sharlene `ba23d195`, 1.054,29 €:** pagar por lista para o Millennium.
-- **Seguros do Plenitude, 72,33 € e 65,65 €:** pagar por referência MB, numa lista nova.
+- **Seguros do Plenitude, 72,33 € e 65,65 €:** pagos a 09/10.
 - **Fornecedores parecidos:** rever os **50 pares** em `/admin/fornecedores-parecidos`.
 - **Pagamento à Sharlene de 08/04:** aviso **1.162,25 € vs 1.162,35 €**, a confirmar quando o extrato de abril entrar.
 
