@@ -167,11 +167,7 @@ export default function ReportDREEmpresarial() {
   });
 
   const ticketCategoryId = useMemo(
-    () => categories.find(
-      (c) => c.name.toLowerCase().includes("venda de bilhete") ||
-             c.name.toLowerCase().includes("bilhetes") ||
-             c.name.toLowerCase().includes("bilheteira")
-    )?.id ?? null,
+    () => findTicketCategoryId(categories),
     [categories]
   );
 

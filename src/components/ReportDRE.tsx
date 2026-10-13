@@ -501,9 +501,7 @@ export default function ReportDRE() {
     return out;
   }, [abZonesAll, abConfigsAll, realParticipantsByZoneId]);
 
-  const ticketCategoryId = categories.find(
-    (c) => c.name.toLowerCase().includes("venda de bilhete") || c.name.toLowerCase().includes("bilhetes") || c.name.toLowerCase().includes("bilheteira")
-  )?.id ?? null;
+  const ticketCategoryId = findTicketCategoryId(categories);
 
   const eventsWithTickets = events.filter((e) =>
     ticketZones.some((z) => z.event_id === e.id)

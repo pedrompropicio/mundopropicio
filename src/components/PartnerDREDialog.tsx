@@ -109,13 +109,7 @@ export default function PartnerDREDialog({ open, onOpenChange, eventId, eventNam
 
   const ticketCategoryId = useMemo(() => {
     if (!bundle) return null;
-    return (
-      bundle.categories.find((c: any) =>
-        c.name.toLowerCase().includes("venda de bilhete") ||
-        c.name.toLowerCase().includes("bilhetes") ||
-        c.name.toLowerCase().includes("bilheteira"),
-      )?.id ?? null
-    );
+    return findTicketCategoryId(bundle.categories);
   }, [bundle]);
 
   // Constrói uma lista de blocos: um DRE por cidade (sub-evento) + um resumo
