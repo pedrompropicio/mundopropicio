@@ -76,3 +76,6 @@ Campo vazio = chave removida do `content` (nunca se grava texto vazio); o site v
 
 ## Extrato de pontos no "me" (13/10/2026)
 "me" inclui `history`: movimentos de club_points do membro, mais recentes primeiro, máx. 100, cada um `{ at, points, label, detail }`. Labels pt-PT por regra (join_confirmed, friend_joined, friend_bought, promo_lot_purchase, guess_correct, attended_year, mission, mission_finalist, mission_winner); regras sem tradução usam club_point_rules.label; movimentos negativos = "Pontos anulados" (detail = motivo em ref_id). detail: amigo = primeiro nome + inicial do apelido (só amigos convidados pelo próprio, nunca email); missão = título; attended_year = ano. Com >100 movimentos, os mais antigos agregam-se numa linha "Movimentos anteriores" para a soma bater sempre com `points`. Código puro em supabase/functions/newgang-portal/history.ts.
+
+## Anulações de pontos (D-ERP273)
+Reversões nunca apagam: linha negativa rule_key 'void', ref '<regra>:<ref>', reason. Reaprovação = nova geração '<ref>#N'. history: "Pontos anulados" com detail = reason; submissions[].points soma gerações e anulações da submissão. CRM: "Pontos" no ranking e "Anular pontos" na fila (RPC club_points_void, motivo obrigatório).

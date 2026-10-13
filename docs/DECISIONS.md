@@ -5904,3 +5904,11 @@ Origem: TikTok BR do Litto (7689229625189138438) ficou com saldo 0 a 13/10 e est
 - Storage: `club-mission-assets` público (`<company_id>/<mission_id>/<uuid>.<ext>`, imagem 15 MB / vídeo 100 MB); `club-proofs` privado (`<company_id>/<member_id>/<uuid>.<ext>`, jpg/png/webp 5 MB; só service_role escreve por URL assinado de upload; CRM lê por URL assinado).
 - API: `missions` (pública, sem contagens), `mission_upload_url`, `submit_mission`, `profile` (com token); `me` inclui handles e submissões com pontos.
 - Fase 2 (não feita): deteção automática por Instagram Graph API e menções em stories.
+
+## D-ERP273 — Clube Newgang — anulações de pontos ficam no histórico (13/10/2026)
+- Nunca apagar linhas de club_points. Reverter (missão rejeitada depois de aprovada, finalista/vencedora retirados, palpite marcado errado, anulação manual por fraude) insere linha negativa: rule_key 'void', ref_id '<regra>:<ref original>', coluna reason. Idempotente pelo UNIQUE(member, rule, ref).
+- Reaprovar depois de anulado cria nova geração com ref '<ref>#N' (N = nº de gerações + 1): pontua uma vez e o histórico fica legível (+10, −10, +10).
+- Motor: club_points_active / club_points_set (estado desejado → gera ou anula); club_mission_sync_points e club_decide_guess usam-no. Anulação manual: RPC club_points_void(ids[], motivo) (portal_can_write, motivo obrigatório).
+- CRM: diálogo "Pontos" (ranking do Clube = ficha do membro) e "Anular pontos" na fila de moderação.
+- "me".history mostra "Pontos anulados" com detail = motivo; soma = points = ranking (o ranking soma todas as linhas).
+- Limite conhecido: uma anulação manual de fraude numa missão volta a pontuar se a submissão for re-moderada para um estado com pontos.

@@ -7,7 +7,7 @@ import { assertNoTotals, buildLineup, displayName } from "./lineup.ts";
 import { assemblePublic, bundleFrom, lineupFrom, regulationFrom, termsMeta, type Want } from "./public.ts";
 import { clubEmail } from "./email.ts";
 import { ASSET_BUCKET, PROOF_BUCKET, PROOF_EXT, missionsFrom, normalizeHandle, normalizeProofUrl, submitErrorStatus } from "./missions.ts";
-import { buildHistory } from "./history.ts";
+import { buildHistory, subjectRef } from "./history.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 // Preview do projeto Lovable do portal (1a915f50-…).
@@ -174,12 +174,12 @@ async function notifyPending(site: { id: string; company_id: string }, memberId?
 
 async function myHistory(siteId: string, memberId: string) {
   const [{ data: rows }, { data: rules }] = await Promise.all([
-    sb.from("club_points").select("rule_key, points, ref_id, created_at").eq("member_id", memberId).order("created_at", { ascending: false }).limit(5000),
+    sb.from("club_points").select("rule_key, points, ref_id, created_at, reason").eq("member_id", memberId).order("created_at", { ascending: false }).limit(5000),
     sb.from("club_point_rules").select("rule_key, label").eq("site_id", siteId),
   ]);
   const pts = (rows ?? []) as any[];
   const friendIds = [...new Set(pts.filter((r) => r.rule_key.startsWith("friend_") && r.ref_id).map((r) => r.ref_id))];
-  const subIds = [...new Set(pts.filter((r) => r.rule_key.startsWith("mission") && r.ref_id).map((r) => r.ref_id))];
+  const subIds = [...new Set(pts.filter((r) => r.rule_key.startsWith("mission") && r.ref_id).map((r) => subjectRef(r)))];
   const [{ data: friends }, { data: subs }] = await Promise.all([
     friendIds.length ? sb.from("club_members").select("id, first_name, referred_by_member_id").in("id", friendIds).eq("referred_by_member_id", memberId) : Promise.resolve({ data: [] as any[] }),
     subIds.length ? sb.from("club_mission_submissions").select("id, club_missions(title)").in("id", subIds).eq("member_id", memberId) : Promise.resolve({ data: [] as any[] }),
@@ -197,10 +197,10 @@ async function mySubmissions(memberId: string) {
     .eq("member_id", memberId).order("created_at", { ascending: false }).limit(200);
   const ids = (subs ?? []).map((x: any) => x.id);
   const { data: pts } = ids.length
-    ? await sb.from("club_points").select("ref_id, points").eq("member_id", memberId).in("rule_key", ["mission", "mission_finalist", "mission_winner"]).in("ref_id", ids)
+    ? await sb.from("club_points").select("rule_key, ref_id, points").eq("member_id", memberId).or("rule_key.like.mission%,and(rule_key.eq.void,ref_id.like.mission%)").limit(5000)
     : { data: [] as any[] };
   const by: Record<string, number> = {};
-  for (const p of pts ?? []) by[p.ref_id] = (by[p.ref_id] ?? 0) + p.points;
+  for (const p of (pts ?? []) as any[]) { const k = subjectRef(p); by[k] = (by[k] ?? 0) + p.points; }
   return (subs ?? []).map((x: any) => ({
     mission_id: x.mission_id, mission_title: x.club_missions?.title ?? null, kind: x.club_missions?.kind ?? null,
     status: x.status, reject_reason: x.reject_reason, points: by[x.id] ?? 0, submitted_at: x.created_at,

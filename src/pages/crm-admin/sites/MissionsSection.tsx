@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { MemberPointsDialog } from "./MemberPointsDialog";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const db = supabase as any;
@@ -236,6 +237,7 @@ function ModerationQueue({ siteId, missions }: { siteId: string; missions: Missi
   const [network, setNetwork] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [reject, setReject] = useState<string[] | null>(null);
+  const [pts, setPts] = useState<{ member: string; sub: string; title: string } | null>(null);
   const [reason, setReason] = useState("");
   const byId = useMemo(() => Object.fromEntries(missions.map((m) => [m.id, m])), [missions]);
 
@@ -243,7 +245,7 @@ function ModerationQueue({ siteId, missions }: { siteId: string; missions: Missi
     queryKey: ["club-mission-queue", siteId, mission, status, network],
     queryFn: async () => {
       let x = db.from("club_mission_submissions")
-        .select("id, mission_id, status, auto_approved, proof_url, proof_image_path, reject_reason, created_at, club_missions!inner(site_id, network, kind, title), club_members(email, first_name, instagram_handle, tiktok_handle)")
+        .select("id, mission_id, member_id, status, auto_approved, proof_url, proof_image_path, reject_reason, created_at, club_missions!inner(site_id, network, kind, title), club_members(email, first_name, instagram_handle, tiktok_handle)")
         .eq("club_missions.site_id", siteId).order("created_at", { ascending: true }).limit(300);
       if (mission) x = x.eq("mission_id", mission);
       if (network) x = x.eq("club_missions.network", network);
@@ -318,6 +320,7 @@ function ModerationQueue({ siteId, missions }: { siteId: string; missions: Missi
                     {r.status !== "rejeitada" && <Button size="sm" variant="ghost" onClick={() => setReject([r.id])}>Rejeitar</Button>}
                     {isChallenge && r.status !== "finalista" && r.status !== "rejeitada" && <Button size="sm" variant="ghost" onClick={() => review.mutate({ ids: [r.id], st: "finalista" })}>Finalista</Button>}
                     {isChallenge && r.status !== "vencedora" && r.status !== "rejeitada" && <Button size="sm" variant="ghost" onClick={() => review.mutate({ ids: [r.id], st: "vencedora" })}><Trophy className="mr-1 h-3 w-3" />Vencedora</Button>}
+                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setPts({ member: r.member_id, sub: r.id, title: mb.first_name || mb.email })}>Anular pontos</Button>
                   </td>
                 </tr>
               );
@@ -338,6 +341,7 @@ function ModerationQueue({ siteId, missions }: { siteId: string; missions: Missi
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {pts && <MemberPointsDialog memberId={pts.member} refFilter={pts.sub} title={pts.title} onClose={() => setPts(null)} />}
     </Card>
   );
 }

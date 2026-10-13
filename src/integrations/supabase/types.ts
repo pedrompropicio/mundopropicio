@@ -5343,6 +5343,7 @@ export type Database = {
           id: string
           member_id: string
           points: number
+          reason: string | null
           ref_id: string
           rule_key: string
         }
@@ -5352,6 +5353,7 @@ export type Database = {
           id?: string
           member_id: string
           points: number
+          reason?: string | null
           ref_id: string
           rule_key: string
         }
@@ -5361,6 +5363,7 @@ export type Database = {
           id?: string
           member_id?: string
           points?: number
+          reason?: string | null
           ref_id?: string
           rule_key?: string
         }
@@ -19454,6 +19457,13 @@ export type Database = {
           session_tx: string
         }[]
       }
+      _club_points_void_row: {
+        Args: {
+          p_reason: string
+          p_row: Database["public"]["Tables"]["club_points"]["Row"]
+        }
+        Returns: number
+      }
       _clube_newgang_assert_access: { Args: never; Returns: undefined }
       _clube_newgang_birth: { Args: { p_raw: Json }; Returns: string }
       _content_latest_metrics: {
@@ -20975,6 +20985,40 @@ export type Database = {
         Returns: Json
       }
       club_mission_sync_points: { Args: { p_sub: string }; Returns: undefined }
+      club_points_active: {
+        Args: { p_base: string; p_member: string; p_rule: string }
+        Returns: {
+          company_id: string
+          created_at: string
+          id: string
+          member_id: string
+          points: number
+          reason: string | null
+          ref_id: string
+          rule_key: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "club_points"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      club_points_set: {
+        Args: {
+          p_base: string
+          p_member: string
+          p_points: number
+          p_reason: string
+          p_rule: string
+          p_want: boolean
+        }
+        Returns: undefined
+      }
+      club_points_void: {
+        Args: { p_points: string[]; p_reason: string }
+        Returns: number
+      }
       club_ranking: {
         Args: { p_limit?: number; p_site: string }
         Returns: {
