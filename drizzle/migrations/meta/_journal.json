@@ -834,6 +834,13 @@
       "when": 1791823787154,
       "tag": "0118_derp237_artist_ads_budget_changes",
       "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1791856904560,
+      "tag": "0119_0119_newgang_lineup_reveals_security",
+      "breakpoints": true
     }
   ]
 }

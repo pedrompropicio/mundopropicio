@@ -7413,51 +7413,120 @@ export type Database = {
           },
         ]
       }
+      event_lineup_reveals: {
+        Row: {
+          club_at: string
+          clues: string[]
+          company_id: string
+          created_at: string
+          created_by: string | null
+          event_id: string
+          id: string
+          label: string
+          public_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          club_at: string
+          clues?: string[]
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          event_id: string
+          id?: string
+          label: string
+          public_at: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          club_at?: string
+          clues?: string[]
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          event_id?: string
+          id?: string
+          label?: string
+          public_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_lineup_reveals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_lineup_reveals_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_lineups: {
         Row: {
           artist_bio_en: string | null
           artist_bio_pt: string | null
           artist_image_url: string | null
           artist_name: string
+          category: string
           company_id: string
           created_at: string
           display_order: number
           event_id: string
           id: string
+          listen_url: string | null
           performance_date: string | null
           performance_time: string | null
+          reveal_id: string | null
           stage: string | null
           updated_at: string
+          video_url: string | null
         }
         Insert: {
           artist_bio_en?: string | null
           artist_bio_pt?: string | null
           artist_image_url?: string | null
           artist_name: string
+          category?: string
           company_id?: string
           created_at?: string
           display_order?: number
           event_id: string
           id?: string
+          listen_url?: string | null
           performance_date?: string | null
           performance_time?: string | null
+          reveal_id?: string | null
           stage?: string | null
           updated_at?: string
+          video_url?: string | null
         }
         Update: {
           artist_bio_en?: string | null
           artist_bio_pt?: string | null
           artist_image_url?: string | null
           artist_name?: string
+          category?: string
           company_id?: string
           created_at?: string
           display_order?: number
           event_id?: string
           id?: string
+          listen_url?: string | null
           performance_date?: string | null
           performance_time?: string | null
+          reveal_id?: string | null
           stage?: string | null
           updated_at?: string
+          video_url?: string | null
         }
         Relationships: [
           {
@@ -7472,6 +7541,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_lineups_reveal_id_fkey"
+            columns: ["reveal_id"]
+            isOneToOne: false
+            referencedRelation: "event_lineup_reveals"
             referencedColumns: ["id"]
           },
         ]
@@ -7496,6 +7572,7 @@ export type Database = {
           hook_en: string | null
           hook_es: string | null
           hook_pt: string | null
+          lineup_complete: boolean
           lots_locked: boolean
           meta_description_en: string | null
           meta_description_es: string | null
@@ -7541,6 +7618,7 @@ export type Database = {
           hook_en?: string | null
           hook_es?: string | null
           hook_pt?: string | null
+          lineup_complete?: boolean
           lots_locked?: boolean
           meta_description_en?: string | null
           meta_description_es?: string | null
@@ -7586,6 +7664,7 @@ export type Database = {
           hook_en?: string | null
           hook_es?: string | null
           hook_pt?: string | null
+          lineup_complete?: boolean
           lots_locked?: boolean
           meta_description_en?: string | null
           meta_description_es?: string | null
