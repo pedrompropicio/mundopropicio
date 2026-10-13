@@ -5755,3 +5755,16 @@ Leitura = 'read' com área; escrita de tráfego, músicas e comparáveis = 'traf
 2. (A) v_content_latest optimizada sem mexer em tabelas: migração 0127 (LATERAL, insuficiente: 8,9 s) substituída pela 0128 — função SECURITY DEFINER `_content_latest_metrics()` (só authenticated/service_role) que avalia o acesso uma vez por pedido, com o mesmo âmbito das políticas RESTRICTIVE; a vista mantém colunas e security_invoker. v_song_content beneficia automaticamente. Tempos (viewer de teste do Litto, transacção desfeita): v_content_latest 6,1 s só na contagem (timeout com select *) → 0,33 s; v_song_content timeout → 0,32 s. Viewer: 1.961 conteúdos / 61 músicas, 0 de outros artistas. Pedro: 2.381 conteúdos, soma de views 180.654.522 = cálculo original. Utilizador de teste removido (0 linhas).
 3. (A) Comparáveis ficam vazios para externos.
 4. Commit automático pelo Lovable; hashes indicados quando aparecerem.
+
+### D-ERP234 — adenda 4 (13/10/2026): geo das chegadas SSR
+- Causa: SSR não trazia cabeçalhos de geo; cada chegada chamava o ipinfo com o client_ip → 429 (quota esgotada). ip_geo_cache só cresceu 43 linhas de 11 a 13/10. Não era IP do servidor (ip_hash distintos ≈ 75 %).
+- Correção (song-link-event + _shared/geo.ts): 1) client_geo {country, region, city} no corpo SSR (cabeçalhos CDN do Portal); 2) cache por ip_hash 24 h em ip_geo_cache (chave "h:<ip_hash>", nunca o IP); 3) ipinfo só no fim, máx. 20/min por instância e pausa de 15 min após 429; tudo em background. Browser com o mesmo event_id preenche country/region/city se estiverem nulos.
+- Backfill por ip_hash (desde 10/10): 1.814 chegadas recuperadas (10/10 165, 11/10 619, 12/10 965, 13/10 65; BR 1.709, PT 105). O resto fica lacuna (sem coluna para marcar; não se inventa).
+- Pendente: Portal enviar client_geo; só então medir ≥ 95 %.
+
+### D-ERP259 — adenda 2 (13/10/2026): áreas por RLS
+- Migração 0130: artist_readable_ids_for(áreas[]) (SECURITY DEFINER, STABLE, avaliada uma vez por pedido) usa artist_access_ok(…,'read',área).
+- Sem área: artists, artist_aliases. overview OU channels: artist_channels, artist_metrics_daily, growth/momentum (o front usa estas métricas na Visão geral e em Canais). songs: artist_songs, identifiers, song_metrics_daily, song_reports, song_playlists, comparables, releases, release_metrics_daily. content: artist_content, content_metrics_daily, _content_latest_metrics. traffic: crm.artist_ads_budget_changes (GRANT SELECT a authenticated + RLS traffic).
+- Todas as vistas são security_invoker e herdam as bases.
+- Teste (viewer Litto overview+traffic, transacção anulada): lê Litto em artists/canais/métricas/crescimento e 5 alterações de orçamento; songs e content = 0; nunca outros artistas. Pedro lê tudo; tempos iguais à regra anterior.
+- Convite: redirectTo passa a https://app.socialartists.com.br/definir-senha.

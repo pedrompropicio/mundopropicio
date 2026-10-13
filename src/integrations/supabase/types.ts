@@ -20219,6 +20219,10 @@ export type Database = {
         }[]
       }
       artist_readable_ids: { Args: never; Returns: string[] }
+      artist_readable_ids_for: {
+        Args: { p_areas: string[] }
+        Returns: string[]
+      }
       artist_s4a_seed_code_consume: {
         Args: { p_code: string }
         Returns: {

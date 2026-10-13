@@ -111,12 +111,16 @@ async function cachePut(ip: string, g: Geo, tag: string): Promise<void> {
   }
 }
 
+// D-ERP234 adenda 4: depois de um 429 a instância deixa de chamar o ipinfo durante 15 min.
+let ipinfoBlockedUntil = 0;
+
 /** Resolve o IP (cache 30d → ipinfo). Nunca atira: em qualquer falha devolve nulls. */
 export async function lookupIpGeo(ip: string, opts: { timeoutMs?: number; tag?: string } = {}): Promise<Geo> {
   const tag = opts.tag ?? "geo";
   if (!ip || isPrivateOrInvalid(ip)) return NULL_GEO;
   const cached = await cacheGet(ip, tag);
   if (cached) return cached;
+  if (Date.now() < ipinfoBlockedUntil) return NULL_GEO; // 429 recente: não martelar
   const token = await getIpinfoToken();
   if (!token) {
     console.warn(`[${tag}] IPINFO_TOKEN indisponível — devolve nulls`);
@@ -127,6 +131,7 @@ export async function lookupIpGeo(ip: string, opts: { timeoutMs?: number; tag?: 
       opts.timeoutMs ? { signal: AbortSignal.timeout(opts.timeoutMs) } : undefined);
     if (!r.ok) {
       console.warn(`[${tag}] ipinfo non-ok`, r.status);
+      if (r.status === 429) ipinfoBlockedUntil = Date.now() + 15 * 60_000;
       return NULL_GEO; // erro HTTP (ex.: 429) não se guarda — volta a tentar
     }
     const j: any = await r.json();
