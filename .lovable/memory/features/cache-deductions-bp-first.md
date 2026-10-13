@@ -16,3 +16,7 @@ type: feature
 - O hash do useSyncCacheForecasts já inclui a percentagem. Ao invalidar ["event_cache_configs", eventId], o BP do módulo e o fecho são recalculados sem recarregar.
 - O gatilho update_event_cache_configs_updated_at mantém o updated_at datado (migração 0135).
 - Campo "Ajustado": se o campo ficar vazio e se carregar em Guardar, grava NULL (sem ajuste), tal como "Limpar". Um 0 escrito à mão conta como ajuste real.
+
+## Master OU subeventos (D-ERP265, 13/10/2026)
+- O cachê configura-se no Master ou nos subeventos, nunca nos dois. O gatilho trg_enforce_cache_config_master_or_children recusa a gravação (migração 0136).
+- O ecrã EventCacheConfig decide o âmbito com resolveCacheScope (src/lib/cache-scope.ts). No subevento com Master configurado, mostra o fecho da cidade a partir da configuração do Master. No Master com subeventos configurados, mostra só a lista desses subeventos.

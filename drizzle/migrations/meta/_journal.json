@@ -953,6 +953,13 @@
       "when": 1791911675014,
       "tag": "0135_event_cache_configs_updated_at_trigger",
       "breakpoints": true
+    },
+    {
+      "idx": 136,
+      "version": "7",
+      "when": 1791913175751,
+      "tag": "0136_cache_config_master_or_children",
+      "breakpoints": true
     }
   ]
 }

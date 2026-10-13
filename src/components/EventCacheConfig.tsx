@@ -9,6 +9,8 @@ import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import { Checkbox } from "@/components/ui/checkbox";
 import CachePercentageField from "@/components/CachePercentageField";
+import { Link } from "react-router-dom";
+import { resolveCacheScope } from "@/lib/cache-scope";
 import { Switch } from "@/components/ui/switch";
 import { sortByHierarchicalCode } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -23,6 +25,89 @@ interface Props {
   eventId: string;
   childEventIds?: string[];
   eventStatus?: string;
+  /** Vista de subevento: mostra só o fecho desta cidade a partir da configuração do Master. */
+  cityViewOf?: string;
+}
+
+/**
+ * D-ERP265 — Cachê no Master OU nos subeventos, nunca nos dois.
+ * Decide o âmbito antes de montar o ecrã de configuração.
+ */
+export function EventCacheConfig(props: Props) {
+  const { eventId } = props;
+  const { data: scope } = useQuery({
+    queryKey: ["cache-scope", eventId],
+    queryFn: async () => {
+      const { data: ev, error } = await supabase
+        .from("events").select("id, parent_event_id").eq("id", eventId).maybeSingle();
+      if (error) throw error;
+      const parentId = (ev as any)?.parent_event_id ?? null;
+      if (parentId) {
+        const [{ data: parent }, { count }, { data: siblings }] = await Promise.all([
+          supabase.from("events").select("id, name").eq("id", parentId).maybeSingle(),
+          supabase.from("event_cache_configs" as any).select("id", { count: "exact", head: true }).eq("event_id", parentId),
+          supabase.from("events").select("id").eq("parent_event_id", parentId),
+        ]);
+        return {
+          parentId, parentName: (parent as any)?.name ?? "",
+          parentConfigCount: count ?? 0,
+          siblingIds: (siblings ?? []).map((s: any) => s.id) as string[],
+          childrenWithConfig: [] as { id: string; name: string }[],
+        };
+      }
+      const { data: children } = await supabase.from("events").select("id, name").eq("parent_event_id", eventId);
+      const ids = (children ?? []).map((c: any) => c.id);
+      let withCfg: { id: string; name: string }[] = [];
+      if (ids.length > 0) {
+        const { data: cfgs } = await supabase.from("event_cache_configs" as any).select("event_id").in("event_id", ids);
+        const set = new Set((cfgs ?? []).map((c: any) => c.event_id));
+        withCfg = (children ?? []).filter((c: any) => set.has(c.id)) as any;
+      }
+      return { parentId: null, parentName: "", parentConfigCount: 0, siblingIds: [] as string[], childrenWithConfig: withCfg };
+    },
+  });
+
+  if (!scope) return <EventCacheConfigInner {...props} />;
+  const mode = resolveCacheScope({
+    parentEventId: scope.parentId,
+    parentConfigCount: scope.parentConfigCount,
+    childrenWithConfigCount: scope.childrenWithConfig.length,
+  });
+
+  if (mode === "master") {
+    return (
+      <div className="space-y-3">
+        <div className="glass rounded-xl px-4 py-3 text-xs text-muted-foreground">
+          Cachê configurado no Master{" "}
+          <Link to={`/eventos/${scope.parentId}`} className="font-semibold text-primary hover:underline">{scope.parentName}</Link>
+          . O fecho desta cidade usa essa configuração.
+        </div>
+        <EventCacheConfigInner
+          eventId={scope.parentId!}
+          childEventIds={scope.siblingIds}
+          eventStatus={props.eventStatus}
+          cityViewOf={eventId}
+        />
+      </div>
+    );
+  }
+  if (mode === "children") {
+    return (
+      <div className="glass rounded-xl p-5 text-xs text-muted-foreground space-y-1">
+        <p className="font-semibold text-foreground">Cachê configurado nos subeventos</p>
+        <p>
+          {scope.childrenWithConfig.map((c, i) => (
+            <span key={c.id}>
+              {i > 0 && ", "}
+              <Link to={`/eventos/${c.id}`} className="text-primary hover:underline">{c.name}</Link>
+            </span>
+          ))}
+          . Para configurar no Master, apaga primeiro as configurações dos subeventos.
+        </p>
+      </div>
+    );
+  }
+  return <EventCacheConfigInner {...props} />;
 }
 
 function TierAddForm({ onAdd }: { onAdd: (threshold: number, pct: number) => void }) {
@@ -73,7 +158,7 @@ function TierAddForm({ onAdd }: { onAdd: (threshold: number, pct: number) => voi
   );
 }
 
-export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props) {
+function EventCacheConfigInner({ eventId, childEventIds, eventStatus, cityViewOf }: Props) {
   const { isAdmin, isManager } = useAuth();
   const queryClient = useQueryClient();
   const isEventLocked = eventStatus === "completed";
@@ -550,13 +635,13 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
           <span className="text-xs text-muted-foreground">
             Total: <span className="font-mono font-bold text-foreground">{formatCurrency(totalCache)}</span>
           </span>
-          <button
+          {!cityViewOf && <button
             onClick={() => setShowAddForm(true)}
             disabled={showAddForm || !canEdit}
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" /> Adicionar Atração
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -716,7 +801,20 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
         <p className="text-center text-xs text-muted-foreground py-6">Nenhum cachê configurado para este evento.</p>
       ) : (
         <div className="space-y-2">
-          {cacheConfigs.map((config: any) => {
+          {cityViewOf && cacheConfigs.map((config: any) => (
+            <div key={config.id} className="rounded-lg border border-border overflow-hidden">
+              <div className="px-3 py-2 text-xs font-semibold">{config.artist_name}</div>
+              <CityCacheSettlementsPanel
+                config={config}
+                eventId={eventId}
+                childEventIds={[cityViewOf]}
+                resultsByCity={resultsByCity}
+                canEdit={canEdit}
+                eventStatus={eventStatus}
+              />
+            </div>
+          ))}
+          {!cityViewOf && cacheConfigs.map((config: any) => {
             const isVariable = config.cache_type === "variable";
             const isFinalized = !!config.is_finalized;
             const isExpanded = expandedId === config.id;
