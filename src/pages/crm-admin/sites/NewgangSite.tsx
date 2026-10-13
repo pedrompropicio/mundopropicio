@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Loader2, Plus, Save, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentCompanyId } from "@/hooks/useCompany";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,6 +21,8 @@ import {
   EditionVideo,
   MAX_EDITION_PHOTOS,
   toWebp,
+  uploadEditionPhotos,
+  EDITION_BUCKET,
 } from "@/lib/newgang-media";
 
 const SITE_DOMAIN = "newgangfestival.pt";
@@ -399,6 +402,7 @@ function move<T>(arr: T[], i: number, d: number): T[] {
 }
 
 function EditionCard({ e, site, onPatch, onDelete }: { e: Edition; site: Site; onPatch: (p: Partial<Edition>) => void; onDelete: () => void }) {
+  const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
   const [videoTitle, setVideoTitle] = useState("");
