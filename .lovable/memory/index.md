@@ -239,3 +239,4 @@ Uma linha por tema, por frente: pergunta → ficheiros (mem://pasta/ficheiro). S
 - [Security hardening 2026-05](mem://security/security-hardening-2026-05) — 4 fixes pós-multi-tenant aplicados em 2026-05-01 — suppliers viewer-leak, storage role checks, realtime auth, update-transaction role gate
 - [Simulador curva histórica](mem://features/simulator-prior-curve) — "Usar histórico de…": prior_editions + evento-fonte, fallback à curva por defeito, só sugere
 - [Portal newgangfestival.pt](mem://features/portal-newgangfestival) — Projeto separado na mesma base; revelações com corte público/Clube, sem totais; história em tabela própria; Clube com link pessoal 30d e pontos idempotentes
+- [Alertas saldo/entrega ads](mem://features/artist-ads-balance-alerts) — D-ERP267: saldo 00/12 UTC, entrega 13/16/20 UTC, email abrir/resolver, RPC artist_ads_open_alerts
