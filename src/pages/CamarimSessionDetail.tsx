@@ -265,12 +265,15 @@ export default function CamarimSessionDetail() {
     const refunds = funds
       .filter((f) => f.move_type === "refund")
       .reduce((a, b) => a + Number(b.amount ?? 0), 0);
+    const cashOnHand = advances - refunds - counted
+      .filter((i) => i.payment_origin === "advance")
+      .reduce((a, b) => a + Number(b.total_amount ?? 0), 0);
     const byScope = {
       master_common: counted.filter((i) => i.bp_scope === "master_common").reduce((a, b) => a + Number(b.total_amount ?? 0), 0),
       local_city: counted.filter((i) => i.bp_scope === "local_city").reduce((a, b) => a + Number(b.total_amount ?? 0), 0),
     };
     const pending = counted.filter((i) => i.status === "submitted" || i.status === "draft").length;
-    return { spent, advances, refunds, byScope, pending };
+    return { spent, advances, refunds, cashOnHand, byScope, pending };
   }, [items, funds]);
 
   // Itens mistos por dividir: bp_scope=mixed e ainda não divididos (status != split).

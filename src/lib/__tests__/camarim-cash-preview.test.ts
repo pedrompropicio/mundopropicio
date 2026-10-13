@@ -29,7 +29,7 @@ describe("Camarim — caixa em mão e reembolso", () => {
     expect(detail).toContain("settlementPreview.displayAmount");
     expect(detail).toContain("settlementPreview.label");
     expect(detail).toContain('settlementPreview.balance < 0 && "text-warning"');
-    expect(detail).not.toContain("totals.cashOnHand");
+    expect(detail).not.toContain("formatCurrency(totals.cashOnHand, session.currency)");
     expect(pdf).toContain("sessionCashPreview(advances, refunds, items)");
     expect(pdf).toContain("[cash.label, fmt(cash.displayAmount)]");
   });
