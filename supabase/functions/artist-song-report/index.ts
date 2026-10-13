@@ -29,6 +29,7 @@ import {
 import { deduceTriggerSource, finishSyncRun, startSyncRun } from "../_shared/sync-run.ts";
 
 const FUNCTION_NAME = "artist-song-report";
+import { assertArtistAccess, authenticateOnly } from "../_shared/artist-access.ts";
 const ROLES = ["admin", "platform_admin", "manager", "editor"];
 const MODEL = "google/gemini-2.5-flash";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -292,7 +293,7 @@ Deno.serve(async (req) => {
   let runId: string | null = null;
 
   try {
-    const caller = await authorize(req, admin, ROLES);
+    const caller = await authenticateOnly(req, admin); // D-ERP259: acesso decidido por artista
     if (!caller.allowed) return json({ error: "Forbidden" }, 403);
     const generatedBy = caller.isServiceRole ? "service_role" : (caller.userId ?? "desconhecido");
 
@@ -322,11 +323,9 @@ Deno.serve(async (req) => {
     if (built.notFound) return json({ error: "música não encontrada" }, 404);
     const { song, snapshot, periodStart, periodEnd } = built;
 
-    if (!caller.isServiceRole) {
-      const companyIds = await callerCompanyIds(admin, caller.userId!);
-      if (companyIds !== "all" && !companyIds.includes(song.company_id)) {
-        return json({ error: "Forbidden" }, 403);
-      }
+    {
+      const acc = await assertArtistAccess(req, song.artist_id, "traffic_write");
+      if (!acc.ok) return json({ error: acc.error }, acc.status);
     }
 
     if (dryRun) {

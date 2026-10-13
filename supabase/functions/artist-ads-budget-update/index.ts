@@ -8,6 +8,7 @@
 // escreve → volta a ler → grava antes/depois confirmados → devolve.
 // dry_run=true: lê e valida, não escreve na plataforma (o registo fica status='dry_run').
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { assertArtistAccess } from "../_shared/artist-access.ts";
 import { assertCallerRoleInCompany, isServiceRoleRequest, corsHeaders, jsonResponse } from "../_shared/multiTenant.ts";
 import { tiktokHost, tiktokPOST, tiktokGET, loadTikTokConnection } from "../_shared/tiktok-ads.ts";
 import { getGoogleAdsAccessToken, googleAdsPost, googleAdsSearch, mensagemErroGoogle, type GoogleAdsCtx } from "../_shared/google-ads.ts";
@@ -67,10 +68,11 @@ Deno.serve(async (req) => {
   if (conn.platform !== platform) return jsonResponse({ ok: false, error: "plataforma_diferente_da_ligacao" }, 422);
   if (!conn.artist_id) return jsonResponse({ ok: false, error: "ligacao_sem_artista" }, 422);
 
-  let ctx;
-  try { ctx = await assertCallerRoleInCompany(req, conn.company_id, ["admin"]); }
-  catch (e) { return jsonResponse({ ok: false, error: "sem_permissao", message: (e as Error).message }, 403); }
-  const userId = ctx.caller.id;
+  // D-ERP259: gestor de tráfego do artista (ou papel de tráfego na empresa) — o teto continua obrigatório.
+  const acc = await assertArtistAccess(req, conn.artist_id, "traffic_write");
+  if (!acc.ok) return jsonResponse({ ok: false, error: "sem_permissao", message: acc.error }, acc.status);
+  if (!acc.userId) return jsonResponse({ ok: false, error: "sem_permissao", message: "sessão de utilizador obrigatória" }, 403);
+  const userId = acc.userId;
 
   const accountCurrency = String(conn.selected_ad_account_currency ?? "").toUpperCase();
   if (accountCurrency && currency !== accountCurrency) {

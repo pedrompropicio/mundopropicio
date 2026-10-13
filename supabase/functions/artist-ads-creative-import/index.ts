@@ -111,7 +111,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!artist) return json({ error: "artista_nao_encontrado", mensagem: "Artista não encontrado." }, 404);
 
   // Papel de tráfego — a decisão é da RPC, na sessão do chamador.
-  const { error: roleErr } = await user.rpc("artist_ads_assert_write", { p_company_id: artist.company_id });
+  const { error: roleErr } = await user.rpc("artist_access_check", { p_artist_id: artistId, p_need: "traffic_write", p_area: null }) // D-ERP259;
   if (roleErr) {
     return json({ error: "sem_permissao", mensagem: roleErr.message }, 403);
   }
