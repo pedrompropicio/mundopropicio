@@ -5859,3 +5859,14 @@ Origem: TikTok BR do Litto (7689229625189138438) ficou com saldo 0 a 13/10 e est
 - Chaves novas: `crm-clube-newgang`, `crm-site-newgang` (sementeira na Mundo Propício pendente de OK).
 - Contactos: o seletor de listas junta "Audiências" e "Por origem" (source), genérico para qualquer empresa.
 - Dados já isolados por RLS RESTRICTIVE `row_belongs_to_current_company` — a mudança é só de interface.
+
+
+## D-ERP269 — Portal Newgang — contrato de textos, montra do Clube na API e cache SWR (13/10/2026)
+
+**Decisão.**
+- Textos do site vêm só de `portal_sites.content` (25 chaves); o site usa `text(site, key, fallback)` com fallback fixo se vazio.
+- A ação pública "site" da `newgang-portal` passa a expor `club.levels` e `club.rules` (configuração pública, sem membros nem totais).
+- Leituras públicas cacheadas: SSR do site com stale-while-revalidate (SWR), `site`/`history` 60 s e `lineup` público 15 s, com expiração forçada em `next_reveal.public_at`; `getSite()` 60 s por instância na função. Pedidos com token nunca são cacheados.
+- Custo aceite: alterações no CRM do site podem demorar até 60 s a aparecer no portal; as revelações não esperam pela janela da cache.
+
+**Referências.** `docs/specs/portal-newgangfestival.md` e `docs/estado/estado-newgang-portal.md`.

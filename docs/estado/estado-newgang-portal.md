@@ -1,24 +1,27 @@
 # ESTADO — newgang-portal (portal newgangfestival.pt)
 
-Atualizado: 2026-10-13 · Decisões: D-ERP256, D-ERP257, D-ERP262
+Atualizado: 2026-10-13 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269
 
-## Em que pé está
-- Site no ar em https://newgangfestival.pt (projeto Lovable `1a915f50-55ca-4bb6-9abe-8f241c54647a`), com a demo `/teste` para os sócios.
-- ERP F1+F2 publicado (D-ERP257): API `newgang-portal`, ecrã `/crm/sites/newgang`, Clube Newgang, email automático de confirmação.
-- Tracking testado ponta a ponta a 13/10: Meta Lead + CompleteRegistration com eventID; TikTok; GA4 `ng27_clube_inscricao` via GTM-KBWT46HF v2; conversão Google Ads 7838816133 "NG27 - Inscrição Clube".
-- Números (query de 13/10, 06:00 UTC): 1 site (`newgangfestival.pt`, ativo, GTM-KBWT46HF) ligado a "Newgang Festival 2027"; 5 edições na história; 2 membros do Clube (0 confirmados); 0 revelações (0 agendadas).
+## Em que pé está (13/10)
+- newgangfestival.pt publicado; `/teste` removido.
+- CRM `/crm/sites/newgang`: separador Geral com as 25 chaves de texto (contrato `text(site, key, fallback)` no site); 24 preenchidas em pt-PT (`ranking_prizes` vazio); og:image preenchida.
+- História (consulta de 13/10, 19:38 UTC): 2023 Lisboa 20 fotos + 1 vídeo; 2023 Porto 0 fotos + 1 vídeo (Summer Edition); 2024 Lisboa 20 fotos; 2025 Lisboa vazio; 2026 Lisboa 18 fotos + 1 vídeo. Upload de fotos no CRM corrigido (caminho `<company_id>/festival-editions/...`).
+- Clube: níveis Gang (0) · Elite (500) · Lenda (1.500) com benefícios no CRM. A ação "site" devolve `club.levels` e `club.rules` (só configuração, sem totais).
+- `/meu-clube` sem sessão = montra do Clube, renderizada no servidor; com sessão guardada mostra "A carregar o teu Clube…" e depois o cartão do membro.
+- Desempenho: cache stale-while-revalidate no SSR do site (`site`/`history` 60 s, `lineup` público 15 s, com expiração forçada em `next_reveal.public_at`; nada com token entra na cache); Cache-Control nas rotas públicas e private/no-store em `/meu-clube` e `/clube/entrar`. Na `newgang-portal`, ação "site" com consultas em paralelo e `getSite()` em cache de 60 s por instância. TTFB medido em produção: 2–4,5 s → ~0,1 s (a 1.ª visita após arranque da instância continua lenta, ~4 s).
+- Membros do Clube: 2 (0 confirmados); revelações: 0 (consulta de 13/10, 19:38 UTC).
 
 ## A trabalhar agora
 Nada.
 
 ## Próximo passo concreto
-1. Preencher no CRM o link da Fever (`events.ticketing_url` está vazio), os textos (`portal_sites.content` está vazio) e a og:image (`og_image_url` está vazio).
+1. Link da Fever no CRM (`events.ticketing_url` vazio).
 2. Primeira revelação do line-up.
-3. Remover `/teste` antes do lançamento.
+3. Alargar os benefícios dos níveis (ensaios dos artistas, meet & greet) — Pedro.
 
 ## Bloqueios
-- Fotos e aftermovies reais — Newgang Produções.
-- Textos dos prémios e dos níveis — Pedro.
+- Fotos 2023 Porto e 2025; aftermovies 2024 e 2025 — equipa/Newgang Produções.
+- Early entry dos Lenda no festival: suspenso até validação com a MEO Arena.
 - Plano Resend antes de 03/11 — plataforma-e-infra.
 
 ## Factos que não se reinvestigam
@@ -29,6 +32,8 @@ Nada.
 - O acesso ao Clube é por link pessoal (sem password).
 - Os ids de pixel nunca ficam no código: vêm do CRM (`portal_sites` / `event_trackers`).
 - Nas campanhas Google Newgang, a meta é só "NG27 - Inscrição Clube", para não contar a dobrar com o upload "offline (upload)".
+- Alterações no CRM do site demoram até 60 s a aparecer no portal (cache); as revelações não esperam (expiração em public_at).
+- Merch oficial é produto à venda, não prémio; membros têm acesso antecipado.
 
 ## Clube Newgang no portal MP (mundopropicio.com)
 Conteúdo movido de `estado-crm-portal-e-leads.md` a 13/10 (D-ERP262).

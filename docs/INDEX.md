@@ -34,6 +34,8 @@
 | Plataforma & Infra | `estado/estado-plataforma-e-infra.md` | `plataforma-e-infra` |
 | Financeiro & Tesouraria | `estado/estado-financeiro-e-tesouraria.md` | `financeiro-e-tesouraria` |
 
+**Portal dedicado Newgang:** estado em [`estado/estado-newgang-portal.md`](estado/estado-newgang-portal.md), chat `newgang-portal` (D-ERP262).
+
 **Um chat por frente. O nome do chat é o nome da frente.** Se um tema muda de frente a meio, muda-se de chat — não se continua no errado.
 
 ## Procedimentos
