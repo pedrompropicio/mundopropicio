@@ -1,7 +1,6 @@
--- D-ERP259 — PROPOSTA (NÃO APLICAR sem OK do Pedro)
+-- D-ERP259 fase 1 — aprovado pelo Pedro em 13/10/2026
 -- Utilizadores e permissões da app Gestão Artística.
 
--- 1) Atribuição utilizador ↔ artista
 CREATE TABLE public.artist_user_access (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id      uuid NOT NULL,
@@ -18,7 +17,6 @@ CREATE TABLE public.artist_user_access (
 CREATE INDEX artist_user_access_user_idx ON public.artist_user_access(user_id) WHERE revoked_at IS NULL;
 CREATE INDEX artist_user_access_artist_idx ON public.artist_user_access(artist_id) WHERE revoked_at IS NULL;
 
--- company_id é sempre o do artista (nunca vem do cliente)
 CREATE OR REPLACE FUNCTION public._artist_user_access_set_company()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -33,17 +31,12 @@ GRANT SELECT ON public.artist_user_access TO authenticated;
 GRANT ALL ON public.artist_user_access TO service_role;
 ALTER TABLE public.artist_user_access ENABLE ROW LEVEL SECURITY;
 
--- O próprio vê as suas atribuições; admin da empresa / platform_admin vêem todas da empresa.
 CREATE POLICY artist_user_access_select ON public.artist_user_access FOR SELECT TO authenticated
   USING (user_id = auth.uid()
          OR public.has_role(auth.uid(),'platform_admin'::app_role)
          OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid()
                     AND ur.company_id = artist_user_access.company_id AND ur.role = 'admin'));
--- Sem políticas de escrita: escreve-se só pelas RPCs artist_access_grant/revoke.
 
--- 2) Função central
--- p_need: 'read' | 'traffic_write' | 'admin'. p_area: NULL = qualquer área.
--- Devolve company_id do artista; RAISE 42501 se recusado.
 CREATE OR REPLACE FUNCTION public.artist_access_check(p_artist_id uuid, p_need text DEFAULT 'read', p_area text DEFAULT NULL)
 RETURNS uuid LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_uid uuid := auth.uid(); v_company uuid; v_role text; a record;
@@ -51,13 +44,11 @@ BEGIN
   IF p_need NOT IN ('read','traffic_write','admin') THEN RAISE EXCEPTION 'p_need inválido'; END IF;
   SELECT company_id INTO v_company FROM public.artists WHERE id = p_artist_id;
   IF v_company IS NULL THEN RAISE EXCEPTION 'artista inexistente ou sem empresa' USING ERRCODE='42501'; END IF;
-  -- Sem sessão: só service_role (cron/edge). Antes aceitava qualquer chamada sem uid.
   IF v_uid IS NULL THEN
-    IF coalesce(auth.role(),'') = 'service_role' OR current_user IN ('postgres','service_role') THEN RETURN v_company; END IF;
+    IF coalesce(auth.role(),'') = 'service_role' OR session_user IN ('postgres','supabase_admin') THEN RETURN v_company; END IF;
     RAISE EXCEPTION 'sessão obrigatória' USING ERRCODE='42501';
   END IF;
   IF public.has_role(v_uid,'platform_admin'::app_role) THEN RETURN v_company; END IF;
-  -- Papel de empresa (equipa interna): admin tudo; manager/marketing_manager tráfego; restantes leitura.
   SELECT CASE WHEN bool_or(role='admin') THEN 'admin'
               WHEN bool_or(role IN ('manager','marketing_manager')) THEN 'traffic'
               WHEN count(*) > 0 THEN 'read' END
@@ -65,11 +56,10 @@ BEGIN
   IF v_role = 'admin' THEN RETURN v_company; END IF;
   IF v_role = 'traffic' AND p_need IN ('read','traffic_write') THEN RETURN v_company; END IF;
   IF v_role = 'read' AND p_need = 'read' THEN RETURN v_company; END IF;
-  -- Atribuição por artista
   SELECT access_level, areas INTO a FROM public.artist_user_access
    WHERE user_id = v_uid AND artist_id = p_artist_id AND revoked_at IS NULL;
   IF FOUND THEN
-    IF p_need = 'read' AND (p_area IS NULL OR p_area = ANY(a.areas) OR a.access_level='traffic_manager' AND p_area='traffic') THEN RETURN v_company; END IF;
+    IF p_need = 'read' AND (p_area IS NULL OR p_area = ANY(a.areas) OR (a.access_level='traffic_manager' AND p_area='traffic')) THEN RETURN v_company; END IF;
     IF p_need = 'traffic_write' AND a.access_level = 'traffic_manager' THEN RETURN v_company; END IF;
   END IF;
   RAISE EXCEPTION 'sem acesso a este artista' USING ERRCODE='42501';
@@ -77,7 +67,6 @@ END $$;
 REVOKE ALL ON FUNCTION public.artist_access_check(uuid,text,text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.artist_access_check(uuid,text,text) TO authenticated, service_role;
 
--- Booleana para RLS/edge functions
 CREATE OR REPLACE FUNCTION public.artist_access_ok(p_artist_id uuid, p_need text DEFAULT 'read', p_area text DEFAULT NULL)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 BEGIN PERFORM public.artist_access_check(p_artist_id,p_need,p_area); RETURN true;
@@ -85,16 +74,10 @@ EXCEPTION WHEN insufficient_privilege THEN RETURN false; END $$;
 REVOKE ALL ON FUNCTION public.artist_access_ok(uuid,text,text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.artist_access_ok(uuid,text,text) TO authenticated, service_role;
 
--- 3) Compatibilidade: as asserções antigas passam a delegar (corpo novo, mesma assinatura)
 CREATE OR REPLACE FUNCTION public.artist_ads_assert_access(p_artist_id uuid)
 RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
 $$ SELECT public.artist_access_check(p_artist_id,'read',NULL) $$;
--- artist_ads_assert_write(company) e artist_ads_assert_cap_admin(company) recebem company_id,
--- não artista: ganham versões novas por artista e os chamadores passam a usá-las:
---   artist_ads_assert_write_artist(p_artist_id)  -> artist_access_check(p_artist_id,'traffic_write')
---   tetos/ligações/utilizadores                  -> artist_access_check(p_artist_id,'admin')
 
--- 4) Contrato para o front
 CREATE OR REPLACE FUNCTION public.my_artist_access()
 RETURNS TABLE(artist_id uuid, artist_name text, company_id uuid, access_level text, areas text[], source text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
@@ -120,8 +103,6 @@ $$;
 REVOKE ALL ON FUNCTION public.my_artist_access() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.my_artist_access() TO authenticated;
 
--- 5) Gestão (só admin da empresa do artista / platform_admin). Convite por email via edge function
---    artist-access-invite (service_role: inviteUserByEmail + chama a lógica abaixo).
 CREATE OR REPLACE FUNCTION public.artist_access_grant(p_user_id uuid, p_artist_id uuid, p_level text, p_areas text[])
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_id uuid;
@@ -145,9 +126,72 @@ REVOKE ALL ON FUNCTION public.artist_access_revoke(uuid,uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.artist_access_grant(uuid,uuid,text,text[]) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.artist_access_revoke(uuid,uuid) TO authenticated, service_role;
 
--- 6) RLS das tabelas artist_* (fase 2, migração separada): hoje SELECT true + RESTRICTIVE
---    user_has_company_access(company_id). Acrescentar RESTRICTIVE de SELECT:
---    USING (public.artist_access_ok(artist_id,'read'))  em artist_channels, artist_content,
---    artist_*_metrics_daily, artist_songs, artist_releases, artist_audience_demographics, ...
---    e alargar o RESTRICTIVE de empresa para aceitar quem tem atribuição (senão o artista/empresário,
---    sem papel na empresa, não lê nada directo).
+DO $do$
+DECLARE r record; f record; d text; d0 text;
+BEGIN
+  FOR r IN SELECT * FROM (VALUES
+    ('artist_ads_ads','read','traffic'),
+    ('artist_ads_alerts','read','traffic'),
+    ('artist_ads_breakdowns','read','traffic'),
+    ('artist_ads_budget_cap_get','read','traffic'),
+    ('artist_ads_campaign_goal_list','read','traffic'),
+    ('artist_ads_campaign_settings','read','traffic'),
+    ('artist_ads_campaigns','read','traffic'),
+    ('artist_ads_creatives','read','traffic'),
+    ('artist_ads_daily','read','traffic'),
+    ('artist_ads_period_report','read','traffic'),
+    ('artist_ads_plan_get','read','traffic'),
+    ('artist_ads_plan_list','read','traffic'),
+    ('artist_ads_promotable_posts','read','traffic'),
+    ('artist_ads_sync_status','read','traffic'),
+    ('artist_ads_investment_report','read','financial'),
+    ('artist_dashboard','read','overview'),
+    ('artist_top_videos_gain','read','channels'),
+    ('song_growth_summary','read','songs'),
+    ('artist_song_link_stats','read','songs'),
+    ('_artist_ads_investment_source','read',NULL),
+    ('_song_growth_summary_initial','read',NULL),
+    ('artist_ads_autolink_songs','traffic_write',NULL),
+    ('artist_ads_set_link_kind','traffic_write',NULL),
+    ('artist_ads_unlink_song','traffic_write',NULL),
+    ('artist_ads_campaign_goal_upsert','traffic_write',NULL),
+    ('artist_ads_plan_create','traffic_write',NULL),
+    ('artist_ads_plan_update','traffic_write',NULL),
+    ('artist_song_link_list','traffic_write',NULL),
+    ('artist_song_link_upsert','traffic_write',NULL)
+  ) v(fn, need, area) LOOP
+    FOR f IN SELECT p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+             WHERE n.nspname = 'public' AND p.proname = r.fn AND p.prokind = 'f' LOOP
+      d0 := pg_get_functiondef(f.oid);
+      d := regexp_replace(d0, 'public\.artist_ads_assert_access\(([^)]*)\)',
+             'public.artist_access_check(\1,' || quote_literal(r.need) || ',' || coalesce(quote_literal(r.area),'NULL') || ')', 'g');
+      d := regexp_replace(d, '\n\s*PERFORM public\.artist_ads_assert_write\(v_company\);', '', 'g');
+      IF d = d0 OR d ~ 'artist_ads_assert_' THEN RAISE EXCEPTION 'D-ERP259: reescrita falhou em %', r.fn; END IF;
+      EXECUTE d;
+    END LOOP;
+  END LOOP;
+
+  FOR r IN SELECT * FROM (VALUES
+    ('artist_ads_budget_cap_remove','DECLARE v_company uuid;','DECLARE v_company uuid; v_artist uuid;'),
+    ('artist_ads_budget_cap_remove','SELECT company_id INTO v_company FROM','SELECT company_id, artist_id INTO v_company, v_artist FROM'),
+    ('artist_ads_budget_cap_remove','PERFORM public.artist_ads_assert_cap_admin(v_company);','PERFORM public.artist_access_check(v_artist,''admin'',NULL);'),
+    ('artist_ads_budget_cap_set','PERFORM public.artist_ads_assert_cap_admin(v_conn.company_id);','PERFORM public.artist_access_check(v_conn.artist_id,''admin'',NULL);'),
+    ('artist_ads_connections','AND (auth.uid() IS NULL
+          OR public.user_has_company_access(a.company_id, ARRAY[''admin'',''manager'',''marketing_manager'']::public.app_role[]))','AND public.artist_access_ok(a.id,''read'',''traffic'')'),
+    ('artist_ads_link_song','IF v_uid IS NOT NULL AND NOT public.user_has_company_access(v_company, ARRAY[''admin'',''manager'',''marketing_manager'']::public.app_role[]) THEN','IF NOT public.artist_access_ok((SELECT s.artist_id FROM public.artist_songs s WHERE s.id = p_song_id),''traffic_write'',NULL) THEN'),
+    ('artist_ads_set_market_country','(v_uid IS NULL OR public.user_has_company_access(x.company_id, ARRAY[''admin'',''manager'',''marketing_manager'',''platform_admin'']::public.app_role[]))','public.artist_access_ok((SELECT pc.artist_id FROM crm.ad_platform_connections pc WHERE pc.id = x.connection_id),''traffic_write'',NULL)'),
+    ('artist_content_set_song','IF auth.uid() IS NOT NULL AND NOT public.user_has_company_access(v_old.company_id, ARRAY[''admin'',''manager'',''marketing_manager'']::public.app_role[]) THEN','IF NOT public.artist_access_ok(v_old.artist_id,''traffic_write'',NULL) THEN'),
+    ('artist_song_metric_set_manual','IF auth.uid() IS NOT NULL AND NOT public.user_has_company_access(v_song.company_id, ARRAY[''admin'',''manager'',''marketing_manager'']::public.app_role[]) THEN','IF NOT public.artist_access_ok(v_song.artist_id,''traffic_write'',NULL) THEN'),
+    ('artist_ads_unlinked_summary','PERFORM public._assert_row_company((SELECT company_id FROM public.artists WHERE id = p_artist_id), ''artist_ads_unlinked_summary'');','PERFORM public.artist_access_check(p_artist_id,''read'',''traffic'');')
+  ) v(fn, old, new) LOOP
+    FOR f IN SELECT p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+             WHERE n.nspname = 'public' AND p.proname = r.fn AND p.prokind = 'f' LOOP
+      d0 := pg_get_functiondef(f.oid);
+      IF position(r.old IN d0) = 0 THEN
+        IF position(r.new IN d0) > 0 THEN CONTINUE; END IF;
+        RAISE EXCEPTION 'D-ERP259: texto não encontrado em %', r.fn;
+      END IF;
+      EXECUTE replace(d0, r.old, r.new);
+    END LOOP;
+  END LOOP;
+END $do$;
