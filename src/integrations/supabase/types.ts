@@ -14644,6 +14644,45 @@ export type Database = {
           },
         ]
       }
+      spotify_chart_daily: {
+        Row: {
+          artists: Json
+          captured_at: string
+          chart_date: string
+          country: string
+          days_on_chart: number | null
+          position: number
+          prev_position: number | null
+          spotify_track_id: string
+          streams: number
+          track_name: string
+        }
+        Insert: {
+          artists?: Json
+          captured_at?: string
+          chart_date: string
+          country: string
+          days_on_chart?: number | null
+          position: number
+          prev_position?: number | null
+          spotify_track_id: string
+          streams: number
+          track_name: string
+        }
+        Update: {
+          artists?: Json
+          captured_at?: string
+          chart_date?: string
+          country?: string
+          days_on_chart?: number | null
+          position?: number
+          prev_position?: number | null
+          spotify_track_id?: string
+          streams?: number
+          track_name?: string
+        }
+        Relationships: []
+      }
       standalone_invoices: {
         Row: {
           company_id: string
@@ -17867,6 +17906,64 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_artist_chart_gap: {
+        Row: {
+          artist_best_position: number | null
+          artist_id: string | null
+          artist_streams_s4a: number | null
+          chart_date: string | null
+          country: string | null
+          gap_top100: number | null
+          gap_top200: number | null
+          song_id: string | null
+          top100_streams: number | null
+          top200_streams: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_song_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_benchmark_aligned"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_song_metrics_daily_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_song_metrics_daily_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "artist_songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_song_metrics_daily_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "artist_song_metrics_daily_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["song_id"]
           },
         ]
       }
