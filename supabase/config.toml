@@ -800,3 +800,6 @@ verify_jwt = true
 
 [functions.spotify-charts-sync]
 verify_jwt = true
+
+[functions.dbip-city-sync]
+verify_jwt = true
