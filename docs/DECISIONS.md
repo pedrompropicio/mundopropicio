@@ -5709,3 +5709,15 @@ Estado: aceite. DDL autorizado pelo Pedro e aplicado (drizzle 0118 + supabase/mi
   d) Meta 5000 BRL → refused acima_do_teto.
   e) Repetição do request_id de a) → idempotent_replay, sem nova linha.
 - Permissões: Meta token USER válido, sem expiração, com ads_management; conta "CA 1 - Litto Lins" com user_tasks MANAGE/ADVERTISE → pode escrever. TikTok advertiser STATUS_ENABLE, ROLE_ADVERTISER (BRL) → acesso de anunciante; a escrita só fica 100% provada no primeiro clique real.
+
+### D-ERP255 — Encargos bancários de evento: rubrica 2.6.15 com linha de BP (13/10/2026)
+
+**Contexto.** Na Anitta EDA 2026, 4 taxas de transferência (80,40 € c/IVA) estavam lançadas com o evento na 10.6.01 Taxas e Encargos Bancários — família 10, event_required = false, sem linhas de BP em nenhum evento. Entravam só como excedido: o card do evento (base "Previsto + excedido") contava-as e o fecho (linhas de BP) não, o que dava 80,40 € de diferença entre os dois.
+
+**Decisão.**
+- Encargos bancários que nascem de pagamentos de um evento são custo do evento e vivem em 2.6.15 — Encargos Bancários e Taxas de Transferência (sob 2.6 Operação, event_required = true). Taxas sem evento continuam em 10.6.01 (estrutura).
+- Mudar a rubrica não basta: a taxa entra no evento por uma linha de BP na 2.6.15 (formalidade fechado quando já está paga), respeitando a separação de IVA do documento bancário.
+
+**Porquê não outra rubrica.** Na 2.6.08 Despesas Extras, havendo folga no previsto, a reclassificação sem linha de BP faz a folga absorver o custo e o resultado sobe em vez de reconhecer a despesa. Uma família 2.10 nova tocaria em tudo o que itera famílias nos relatórios, sem ganho.
+
+**Aplicação.** Só na empresa MP (7c858982-6ccd-47ca-bd65-e0dd3eebf01c); id da rubrica b0409a20-f072-45a1-8e9e-e3f537062347. Regra de lançamento, linha de BP por omissão e outras empresas: Issue #312.
