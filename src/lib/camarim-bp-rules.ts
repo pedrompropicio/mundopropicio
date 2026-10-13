@@ -115,3 +115,25 @@ export function settlementPreview(received: number, spent: number) {
         : `A gestora devolve ${abs} €.`;
   return { received: round2(received), spent: round2(spent), balance, type, message };
 }
+
+/** A mesma conta-corrente para o modal, o cartão e o PDF (D-ERP156). */
+export function sessionCashPreview(
+  advances: number,
+  refunds: number,
+  items: Array<{ payment_origin: string; status: string; total_amount: number | null }>,
+) {
+  const advanceNet = advances - refunds;
+  const spentFromAdvance = items
+    .filter((i) => (i.payment_origin === "advance" || i.payment_origin === "out_of_pocket") && (i.status === "approved" || i.status === "integrated"))
+    .reduce((acc, i) => acc + Number(i.total_amount ?? 0), 0);
+  const settlement = settlementPreview(advanceNet, spentFromAdvance);
+  const reimbursement = settlement.balance < 0;
+  return {
+    ...settlement,
+    advanceNet,
+    spentFromAdvance,
+    label: reimbursement ? "A reembolsar" : "Caixa em mão",
+    displayAmount: Math.abs(settlement.balance),
+    note: reimbursement ? "Gasto acima do adiantamento" : null,
+  };
+}
