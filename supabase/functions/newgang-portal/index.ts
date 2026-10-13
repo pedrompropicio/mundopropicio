@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
   }
   // Cron interno: sem Origin, só com a chave de serviço.
   const auth = req.headers.get("authorization") ?? "";
-  if (!origin && req.method === "POST" && auth.startsWith("Bearer ") && await isServiceRole(auth.slice(7))) {
+  if (!origin && req.method === "POST" && auth.startsWith("Bearer ") && await isServiceRoleRequest(req)) {
     const b = await req.json().catch(() => ({}));
     if (b?.action !== "notify_pending") return json({ error: "invalid" }, 400);
     const site = await getSite();
