@@ -19,3 +19,4 @@ type: feature
 - Welcome sai logo após o processamento da inscrição (trigger → newgang-portal notify_member); cron 5 min = rede de segurança.
 - Link de descadastro dos emails Newgang: https://newgangfestival.pt/descadastrar?token=… (site novo chama handle-email-unsubscribe).
 - Fotos das edições: caminho `<company_id ativo>/festival-editions/<brand>/<ano>/<uuid>.webp` (1.º segmento = company_id, senão a policy recusa); falha nunca é muda (toast com a mensagem real).
+- notify_pending: service role decidida só por isServiceRoleRequest (nunca claim do payload); notify_member (trigger) fica sem segredo por desenho.
