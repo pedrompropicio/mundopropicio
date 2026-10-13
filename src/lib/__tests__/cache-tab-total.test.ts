@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { computeRealCacheResults } from "@/lib/real-cache-calc";
 import { computeTourCityCacheAmount } from "@/lib/tour-cache-sync";
-import { computeCacheTabAmount, cacheTabRevenue } from "@/lib/cache-tab-total";
+import { computeCacheTabAmount, cacheTabRevenue, cacheTabDeductionBreakdown } from "@/lib/cache-tab-total";
 
 // Caso Deive Leonardo (13/10/2026): 40%, mínimo 4.000 €, vendas reais por cidade.
 const config = { id: "C", artist_name: "Deive", cache_type: "variable", percentage: 40, minimum_guaranteed: 4000, fixed_deduction_percentage: 0, tiers: [] };
@@ -43,5 +43,16 @@ describe("separador Cachê — total sobre vendas reais", () => {
       .toBeCloseTo(resultsByCity.LIS[0].finalAmount + 5000, 2);
     expect(computeCacheTabAmount({ config, realResult: resultsByCity.LIS[0] })).toBe(resultsByCity.LIS[0].finalAmount);
     expect(computeCacheTabAmount({ config: { ...config, cache_type: "fixed", fixed_amount: 1234 } })).toBe(1234);
+  });
+});
+
+describe("separador Cachê — descontos do detalhe", () => {
+  it("descontos mostrados = Σ descontos usados no cálculo por cidade", () => {
+    const b = cacheTabDeductionBreakdown(config, null, resultsByCity, ["LIS", "BRA"]);
+    const used = resultsByCity.LIS[0].totalDeduction + resultsByCity.BRA[0].totalDeduction;
+    expect(b.totalDeduction).toBeCloseTo(used, 2);
+    expect(b.totalDeduction).toBeCloseTo(15000, 2);
+    expect(b.cities.map((c) => c.cityId)).toEqual(["LIS", "BRA"]);
+    expect(b.byCategory.K).toBeCloseTo(used, 2);
   });
 });
