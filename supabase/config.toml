@@ -806,3 +806,6 @@ verify_jwt = true
 
 [functions.artist-ads-balance-probe]
 verify_jwt = true
+
+[functions.artist-ads-balance-check]
+verify_jwt = true
