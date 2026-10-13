@@ -24,6 +24,7 @@ import {
   uploadEditionPhotos,
   EDITION_BUCKET,
 } from "@/lib/newgang-media";
+import { NEWGANG_CONTENT_GROUPS, cleanNewgangContent } from "@/lib/newgang-content";
 
 const SITE_DOMAIN = "newgangfestival.pt";
 const db = supabase as any;
