@@ -115,7 +115,7 @@ Nota: nenhum Publish feito.
 - [x] B: revelações + colunas line-up + lineup_complete
 - [x] C: festival_editions (videos jsonb, cover_url), portal_sites + vistas
 - [x] D: Clube (membros, pontos, níveis, prémios, palpites, presenças, sessões 30d)
-- [ ] DML sementeira — à espera do OK do Pedro (proposta em supabase/manual)
+- [x] DML sementeira aplicado 13/10 (supabase/manual/20261013_newgang_portal_seed.sql, incl. backfill); fluxo testado e dados de teste limpos
 - [x] Edge newgang-portal (trackers do evento do site sempre; email real via news.newgangfestival.pt)
 - [x] Origens portal-track / geo-lookup / google-click-ingest
 - [x] Ecrãs /crm/sites/newgang (WebP 1600px, máx 20 fotos, vídeos YouTube/Instagram/Vimeo)
