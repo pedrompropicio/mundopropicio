@@ -1,9 +1,9 @@
 // dbip-city-sync (D-ERP263) — carrega a DB-IP Lite City (CC BY 4.0, "IP geolocation by DB-IP",
 // https://db-ip.com) para public.ip_city_ranges, só BR e PT (IPv4+IPv6).
 // verify_jwt=true; só service_role. Gunzip em streaming, filtro linha a linha, lotes de 2.000.
-// Partes: cada chamada trata até PART_LINES linhas a partir de start_line (retoma por LINHA;
-// o gzip não se retoma a meio, por isso cada parte volta a descomprimir desde o início e só
-// conta as linhas anteriores sem as interpretar). No fim de uma parte chama-se a si própria
+// Partes: cada chamada trata ~64 MB descomprimidos a partir de start_line (= offset em BYTES do
+// ficheiro descomprimido, sempre no início de uma linha). O gzip não se retoma a meio: cada parte
+// volta a descomprimir desde o início mas salta o prefixo sem o descodificar nem procurar.
 // com o start_line seguinte. A última parte faz a troca atómica (ip_city_ranges_swap).
 // Corpo: {} → mês corrente (ou anterior se 404); {month:"YYYY-MM", start_line, run_id}.
 import { adminClient, corsHeaders, json } from "../_shared/artist-meta.ts";
