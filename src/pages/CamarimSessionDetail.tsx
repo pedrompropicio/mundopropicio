@@ -54,6 +54,7 @@ import { EditSessionModal } from "@/components/camarim/EditSessionModal";
 import { SplitItemModal } from "@/components/camarim/SplitItemModal";
 import { CamarimIntegrationSummary } from "@/components/camarim/CamarimIntegrationSummary";
 import { Split } from "lucide-react";
+import { useInvalidateEventFinancials } from "@/hooks/useInvalidateEventFinancials";
 
 interface SessionData {
   id: string;
@@ -107,6 +108,7 @@ interface FinAccount {
 }
 
 export default function CamarimSessionDetail() {
+  const invalidateFin = useInvalidateEventFinancials();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isAdmin, isManager, hasPermission, user } = useAuth();
@@ -176,6 +178,8 @@ export default function CamarimSessionDetail() {
     setAccounts((data ?? []) as FinAccount[]);
   };
 
+  // Gravação direta → cartões do evento atualizam sem esperar pelo Realtime (D-ERP266).
+  const refreshAfterWrite = () => { invalidateFin(); return load(); };
   const load = async () => {
     if (!id) return;
     setLoading(true);
@@ -300,7 +304,7 @@ export default function CamarimSessionDetail() {
       return;
     }
     toast({ title: status === "approved" ? "Item aprovado" : status === "rejected" ? "Item rejeitado" : "Atualizado" });
-    void load();
+    void refreshAfterWrite();
   };
 
   const updateSessionStatus = async (status: CamarimSessionStatus) => {
@@ -314,7 +318,7 @@ export default function CamarimSessionDetail() {
       return;
     }
     toast({ title: `Sessão ${SESSION_STATUS_LABELS[status]}` });
-    void load();
+    void refreshAfterWrite();
   };
 
   const approvedItems = useMemo(() => items.filter((i) => i.status === "approved"), [items]);
@@ -628,7 +632,7 @@ export default function CamarimSessionDetail() {
       setShowIntegrate(false);
       setParkedDecisions({});
       setServerSuggested(null);
-      void load();
+      void refreshAfterWrite();
     } catch (e: any) {
       console.error("[camarim-integrate] erro inesperado", e);
       setIntegrateError({ message: e?.message || "Erro inesperado ao integrar.", details: [] });
@@ -1103,7 +1107,7 @@ export default function CamarimSessionDetail() {
                   toast({ variant: "destructive", title: "Erro", description: error.message });
                 } else {
                   toast({ title: "Movimento eliminado" });
-                  await load();
+                  await refreshAfterWrite();
                 }
                 setDeletingFundId(null);
               }}

@@ -23,6 +23,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Lock } from "lucide-react";
 import { FundHolderPicker, type FundHolderValue } from "./FundHolderPicker";
+import { useInvalidateEventFinancials } from "@/hooks/useInvalidateEventFinancials";
 
 type SessionMode = "single_event" | "tour_consolidated" | "city_session";
 
@@ -46,6 +47,7 @@ interface EventOption {
 }
 
 export function EditSessionModal({ open, onOpenChange, sessionId, initial, onSaved }: Props) {
+  const invalidateFin = useInvalidateEventFinancials();
   const [title, setTitle] = useState(initial.title);
   const [budget, setBudget] = useState(String(initial.budget_amount ?? 0));
   const [notes, setNotes] = useState(initial.notes ?? "");
@@ -237,7 +239,7 @@ export function EditSessionModal({ open, onOpenChange, sessionId, initial, onSav
       }
 
       toast({ title: "Sessão atualizada" });
-      onSaved?.();
+      invalidateFin(); onSaved?.();
       onOpenChange(false);
     } catch (e: any) {
       console.error(e);
