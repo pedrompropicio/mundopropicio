@@ -121,14 +121,30 @@ function Field({ label, value, onChange, area }: { label: string; value: string;
   );
 }
 
-const CONTENT_KEYS: Array<[string, string]> = [
-  ["hero_title", "Hero — título"],
-  ["hero_subtitle", "Hero — subtítulo"],
-  ["club_text", "Clube — texto"],
-  ["benefits_text", "Benefícios"],
-  ["tickets_text", "Bilhetes — texto"],
-  ["rewards_text", "Prémios — texto"],
-];
+export function NewgangContentFields({ content, onChange }: { content: Record<string, string>; onChange: (k: string, v: string) => void }) {
+  return (
+    <div className="space-y-5">
+      {NEWGANG_CONTENT_GROUPS.map((g) => (
+        <section key={g.title} className="space-y-3">
+          <h3 className="text-sm font-semibold">{g.title}</h3>
+          <div className="grid gap-3 md:grid-cols-2">
+            {g.fields.map((f) => (
+              <div key={f.key} className={f.multiline ? "space-y-1.5 md:col-span-2" : "space-y-1.5"}>
+                <Label htmlFor={`ng-c-${f.key}`} className="text-sm">{f.label}</Label>
+                {f.multiline ? (
+                  <Textarea id={`ng-c-${f.key}`} name={f.key} rows={4} placeholder={f.placeholder} value={content[f.key] ?? ""} onChange={(e) => onChange(f.key, e.target.value)} />
+                ) : (
+                  <Input id={`ng-c-${f.key}`} name={f.key} placeholder={f.placeholder} value={content[f.key] ?? ""} onChange={(e) => onChange(f.key, e.target.value)} />
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+      <p className="text-xs text-muted-foreground">Campo vazio = o site mostra o texto por omissão (o que aparece a cinzento).</p>
+    </div>
+  );
+}
 const SITE_FIELDS: Array<[keyof Site, string]> = [
   ["gtm_container_id", "GTM container"],
   ["site_pixel_id", "Pixel do site"],
@@ -144,7 +160,7 @@ function GeneralTab({ site }: { site: Site }) {
   useEffect(() => setD(site), [site]);
   const save = useMutation({
     mutationFn: async () => {
-      const payload: Record<string, unknown> = { content: d.content ?? {}, updated_at: new Date().toISOString() };
+      const payload: Record<string, unknown> = { content: cleanNewgangContent(d.content), updated_at: new Date().toISOString() };
       for (const [k] of SITE_FIELDS) payload[k] = (d[k] as string)?.trim() || null;
       const { error } = await db.from("portal_sites").update(payload).eq("id", site.id);
       if (error) throw error;
@@ -164,11 +180,7 @@ function GeneralTab({ site }: { site: Site }) {
           <Field key={k} label={l} value={(d[k] as string) ?? ""} onChange={(v) => setD({ ...d, [k]: v })} />
         ))}
       </div>
-      <div className="grid gap-3 md:grid-cols-2">
-        {CONTENT_KEYS.map(([k, l]) => (
-          <Field key={k} area label={l} value={d.content?.[k] ?? ""} onChange={(v) => setC(k, v)} />
-        ))}
-      </div>
+      <NewgangContentFields content={d.content ?? {}} onChange={setC} />
       <div className="flex justify-end">
         <Button onClick={() => save.mutate()} disabled={save.isPending}>
           {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Guardar
