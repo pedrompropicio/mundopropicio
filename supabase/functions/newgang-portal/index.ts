@@ -5,6 +5,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3.23.8";
 import { assertNoTotals, buildLineup, displayName } from "./lineup.ts";
 import { clubEmail } from "./email.ts";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 // Preview do projeto Lovable do portal (1a915f50-…).
 const PREVIEW_SUFFIXES: string[] = ["--1a915f50-55ca-4bb6-9abe-8f241c54647a.lovable.app"];
@@ -85,7 +86,6 @@ async function issueSession(siteId: string, memberId: string) {
 }
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 async function unsubscribeUrls(companyId: string, email: string) {
   const { data: ex } = await sb.from("email_unsubscribe_tokens").select("token").eq("email", email).eq("company_id", companyId).maybeSingle();
@@ -136,16 +136,6 @@ async function sendClubLink(site: { id: string; company_id: string }, m: { id: s
   });
 }
 
-/** Valida a chave do cron: igual à do ambiente ou aceite pela API como service_role (tabela só service_role). */
-async function isServiceRole(tok: string): Promise<boolean> {
-  if (tok === SERVICE_KEY) return true;
-  try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/club_member_sessions?select=id&limit=1`, { headers: { apikey: tok, Authorization: `Bearer ${tok}` } });
-    if (!r.ok) return false;
-    const payload = JSON.parse(atob(tok.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-    return payload?.role === "service_role";
-  } catch { return false; }
-}
 
 /** Cron (service_role): email de boas-vindas aos membros novos do formulário, uma vez por membro. */
 async function notifyPending(site: { id: string; company_id: string }, memberId?: string) {
@@ -196,7 +186,7 @@ Deno.serve(async (req) => {
   }
   // Cron interno: sem Origin, só com a chave de serviço.
   const auth = req.headers.get("authorization") ?? "";
-  if (!origin && req.method === "POST" && auth.startsWith("Bearer ") && await isServiceRole(auth.slice(7))) {
+  if (!origin && req.method === "POST" && auth.startsWith("Bearer ") && await isServiceRoleRequest(req)) {
     const b = await req.json().catch(() => ({}));
     if (b?.action !== "notify_pending") return json({ error: "invalid" }, 400);
     const site = await getSite();
