@@ -29,6 +29,7 @@ import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import HelpTooltip from "@/components/HelpTooltip";
 import { SETTLEMENT_FORM_LABELS, type SettlementForm } from "@/lib/ticket-office-settlement-form";
 import { isSettlementEligibleTxn } from "@/lib/ticket-office-settlement-eligible";
+import { invalidateEventFinancials } from "@/lib/invalidate-event-financials";
 
 
 interface Props {
@@ -579,6 +580,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       queryClient.invalidateQueries({ queryKey: ["ticket_office_balances"] });
       queryClient.invalidateQueries({ queryKey: ["ticket_office_advances"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      invalidateEventFinancials(queryClient, [eventId]); // gravação direta (D-ERP266)
       onClose();
     } catch (err: any) {
       toast.error("Erro ao guardar fecho", { description: err.message });
