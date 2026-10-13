@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { missionsFrom, normalizeHandle, normalizeProofUrl, publicMission } from "../../supabase/functions/newgang-portal/missions";
+import { missionsFrom, normalizeHandle, normalizeProofUrl, publicMission, submitErrorStatus } from "../../supabase/functions/newgang-portal/missions";
 import { assertNoTotals } from "../../supabase/functions/newgang-portal/lineup";
 
 const pu = (p: string) => `https://cdn/${p}`;
@@ -41,5 +41,16 @@ describe("missões — normalização", () => {
     expect(normalizeProofUrl("https://www.Instagram.com/p/ABC/?igsh=1#x")).toBe("https://www.instagram.com/p/ABC");
     expect(normalizeProofUrl("https://youtube.com/watch?v=Q1&t=3")).toBe("https://youtube.com/watch?v=Q1");
     expect(normalizeProofUrl("javascript:alert(1)")).toBeNull();
+  });
+});
+
+describe("missões — estado HTTP dos erros da RPC", () => {
+  it("sessão inválida → 401 (não 400), como nas outras ações com token", () => {
+    expect(submitErrorStatus("no_session")).toBe(401);
+    expect(submitErrorStatus("closed")).toBe(409);
+    expect(submitErrorStatus("already_submitted")).toBe(409);
+    expect(submitErrorStatus("duplicate")).toBe(409);
+    expect(submitErrorStatus("url")).toBe(400);
+    expect(submitErrorStatus("proof_type")).toBe(400);
   });
 });
