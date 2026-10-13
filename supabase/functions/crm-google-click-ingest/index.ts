@@ -16,10 +16,12 @@ const ALLOWED_ORIGINS = new Set<string>([
   "https://propicio-stage-portal.lovable.app",
   "https://newgangfestival.pt",
   "https://www.newgangfestival.pt",
+  "https://newgang-fest-portal.lovable.app",
 ]);
 
 const PORTAL_PROJECT_ID = "26b95793-17b6-478c-a6e8-745c0cfb7ed9";
 const PORTAL_PREVIEW_SUFFIX = `--${PORTAL_PROJECT_ID}.lovable.app`;
+const NEWGANG_PREVIEW_SUFFIX = `--1a915f50-55ca-4bb6-9abe-8f241c54647a.lovable.app`;
 
 const DEFAULT_COMPANY_ID =
   Deno.env.get("PORTAL_DEFAULT_COMPANY_ID") ??
@@ -35,6 +37,7 @@ function isOriginAllowed(origin: string | null): boolean {
     const u = new URL(origin);
     if (u.protocol !== "https:") return false;
     if (u.hostname.endsWith(PORTAL_PREVIEW_SUFFIX)) return true;
+    if (u.hostname.endsWith(NEWGANG_PREVIEW_SUFFIX)) return true;
   } catch {
     return false;
   }
