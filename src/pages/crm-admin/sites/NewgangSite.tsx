@@ -25,6 +25,7 @@ import {
   EDITION_BUCKET,
 } from "@/lib/newgang-media";
 import { ClubTermsSection } from "./ClubTermsSection";
+import { MissionsSection } from "./MissionsSection";
 import { NEWGANG_CONTENT_GROUPS, cleanNewgangContent } from "@/lib/newgang-content";
 
 const SITE_DOMAIN = "newgangfestival.pt";
@@ -641,6 +642,7 @@ function ClubTab({ site }: { site: Site }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <ClubTermsSection siteId={site.id} companyId={site.company_id} />
+      <MissionsSection siteId={site.id} companyId={site.company_id} />
       <Card className="space-y-2 p-4">
         <h3 className="text-sm font-semibold">Regras de pontos</h3>
         <SimpleTable table="club_point_rules" siteId={site.id} companyId={site.company_id} order="rule_key"
