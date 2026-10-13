@@ -57,7 +57,7 @@ Cria chats com mensagem de arranque (`procedimentos/PROC-arranque-chat.md`), man
 | BP de um evento concreto | `bp-<evento>-<ano>` |
 | Fecho de um evento concreto | `fecho-<evento>-<ano>` |
 | Portal Coala | `coala-portal` |
-| Portal newgangfestival.pt, Clube Newgang, revelações do line-up, /crm/sites/newgang | `newgang-portal` |
+| Portal newgangfestival.pt, Clube Newgang, revelações do line-up, /crm/sites/newgang, Clube Newgang no portal MP (/crm/clube-newgang, export Fever) | `newgang-portal` |
 | Onde trato X / chat novo / arquivar | `gestao-de-chats` |
 | Email com fatura/cobrança/aviso do banco, lançar transação, desdobrar fatura, importar extrato e conciliar, anexar documento (operação, não regra) | `entrada-dados-erp` |
 

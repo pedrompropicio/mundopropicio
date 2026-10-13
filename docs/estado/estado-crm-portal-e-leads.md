@@ -1,6 +1,6 @@
 # ESTADO — MP CRM, Portal & Leads
 
-Atualizado: 2026-10-13 · Issues: #251, #252, #306, #308 · Portal Newgang F1 (D-ERP257) · Fechadas: #253 (24/09), #254 (10/10) · Bloqueio: #62
+Atualizado: 2026-10-13 · Issues: #251, #252 · Fechadas: #253 (24/09), #254 (10/10) · Bloqueio: #62
 
 ## Em que pé está
 Dois portais distintos, dois projetos Lovable, a mesma base Supabase:
@@ -12,26 +12,15 @@ A Early Bird 2027 do Coala está a captar em contínuo (`lead_capture`, origens 
 A 24/09/2026 foi resolvido o incidente que punha o ecrã "Algo correu mal" a 100% do tráfego pago da Meta (#253, fechada). A geolocalização do Coala passou a funcionar e o registo de erros de front está em produção.
 
 ## A trabalhar agora
-**Clube Newgang (#306, P0 até 19/10)** — fases 1–3 feitas e publicadas a 11/10.
+Nada.
 
-- **Página** `/pt/newgang-festival-2027/clube` em produção: standalone com a identidade do festival (logo oficial, Anton/Barlow Condensed); serve `mundopropicio.com` e será linkada de `newgang.pt`. Formulário: nome\*, email\*, telemóvel, e data de nascimento/cidade/código postal no `raw` de `lead_capture`. Fonte `clube_newgang`. Confirmação com partilha. Assinatura Newgang Produções + Mundo Propício + Fever.
-- **Captação** pela edge function `portal-track`, com `company_id` definido no servidor a partir do Origin já validado (fase 1 da #306) — linhas novas nunca nascem órfãs; fecha o caminho da #56 para a captação nova. Detalhe de IP/geo em `estado-plataforma-e-infra.md` e `.lovable/memory/features/ip-geo-cache.md`.
-- **Pixels:** Meta Lead (pixel do evento em `events.meta_pixel_id`); TikTok ViewContent + CompleteRegistration (pixel `DB5VO83C77U5NP31S1P0`, só com consentimento de marketing, `event_id` = `client_event_id`); GA4 `sign_up` `{event_slug, method}` no dataLayer.
-- **Trackers** lidos de `public.event_trackers_public` (D-ERP251), com fallback no Clube enquanto o evento estiver `portal_visible = false`. TikTok ViewContent/InitiateCheckout também nas páginas de evento com tracker — o InitiateCheckout leva o `client_event_id` da `portal-track`, para dedupe futura com a CAPI TikTok.
-
-**Envios à lista Clube Newgang (12/10)** — `process-email-queue` encaminha `news.newgangfestival.pt` pelo Resend com o segredo `RESEND_API_KEY_NEWGANG` (deploy feito; segredo ainda por colar pelo Pedro). Migração `0117_derp256_enqueue_email_batch.sql`: `enqueue_email_batch(queue, payloads jsonb[], batch_size=5000, interval_minutes=50)` (só service_role) enfileira listas grandes em lotes com atraso pgmq, e o `queued_at` = momento visível, para o TTL de 60 min não expirar mensagens. Email de teste (from "Clube Newgang <clube@news.newgangfestival.pt>", purpose marketing, com unsubscribe) pendente do segredo e do domínio Verified no Resend.
-
-**Acompanhamento no MP CRM (#308, P1 até 02/11)** — construído a 12/10, aguarda Publish. Página `/crm/clube-newgang` no menu do MP CRM: cartões total/hoje/7 dias + barra da meta 15.000 até 02/11, agregados por dia/cidade/UTM/faixa etária (hora de Lisboa), tabela paginada com pesquisa e consentimentos, export CSV formato Fever da base completa. Migração `0111_derp252_clube_newgang_crm.sql`: RPCs SECURITY DEFINER `clube_newgang_summary` e `clube_newgang_list` (anon sem acesso; papéis admin/platform_admin/marketing_manager/content_manager; filtro à empresa ativa). Formato da data de nascimento confirmado AAAA-MM-DD (o portal valida antes de gravar no raw). Pendente: confirmar com a Fever se os consentimentos no CSV devem ser "sim"/"não" ou true/false.
-
-**Portal newgangfestival.pt** — passou para o chat `newgang-portal` (estado em `docs/estado/estado-newgang-portal.md`).
+**Portal newgangfestival.pt e Clube Newgang (#306, #308, envios à lista)** — passaram para o chat `newgang-portal` (estado em `docs/estado/estado-newgang-portal.md`).
 
 **Risco registado:** a policy `lead_capture_public_insert` (anon insert em `lead_capture`) mantém-se; não foi alterada neste pedido.
 
 ## Próximo passo concreto
-1. **Fase 4 da #306** — email de boas-vindas pelo Resend; texto a definir pelo Pedro.
-2. **Pedro no ERP** — artes do evento + `portal_visible = true`: activa a página do evento, a vista de trackers e dispensa o fallback do pixel no Clube.
-3. **Audience — Google** — evento derivado `ng27_clube_inscricao` no GA4 e importação no Google Ads.
-4. **Publish do ERP** com a página #308 — e depois envios email/WhatsApp à lista (resto da linha P1 do quadro).
+1. **Pedro no ERP** — artes do evento + `portal_visible = true`: activa a página do evento, a vista de trackers e dispensa o fallback do pixel no Clube.
+2. **Audience — Google** — evento derivado `ng27_clube_inscricao` no GA4 e importação no Google Ads.
 
 ## Bloqueios
 - **#62** (frente Google) — os leads do CRM não alimentam o Google Ads.
