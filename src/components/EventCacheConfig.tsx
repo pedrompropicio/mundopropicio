@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import { Checkbox } from "@/components/ui/checkbox";
+import CachePercentageField from "@/components/CachePercentageField";
 import { Switch } from "@/components/ui/switch";
 import { sortByHierarchicalCode } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/searchable-select";

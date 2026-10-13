@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { parseAdjustedInput } from "@/lib/cache-percentage";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";

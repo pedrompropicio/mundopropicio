@@ -19,7 +19,7 @@ export default function CachePercentageField({ value, canEdit, isFinalized, clas
 
   const commit = () => {
     const parsed = parseCachePercentage(input);
-    if (!parsed.ok) {
+    if (parsed.ok === false) {
       onInvalid(parsed.error);
       setInput(String(value ?? 0));
       return;
