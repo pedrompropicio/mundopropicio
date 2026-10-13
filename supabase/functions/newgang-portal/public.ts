@@ -10,6 +10,23 @@ export function lineupFrom(raw: LineupRaw, isMember: boolean, now = new Date()) 
   return buildLineup({ ...raw, now, isMember });
 }
 
+/** Versão publicada mais recente; rascunhos nunca saem. */
+export function latestPublishedTerms(rows: any[] | null | undefined) {
+  const pub = (rows ?? []).filter((r: any) => r?.status === "publicada" && r.published_at)
+    .sort((a: any, b: any) => b.version - a.version);
+  return pub[0] ?? null;
+}
+/** club.terms no site/bundle: só versão e data, nunca o texto. */
+export function termsMeta(rows: any[] | null | undefined) {
+  const t = latestPublishedTerms(rows);
+  return t ? { version: t.version, published_at: t.published_at } : null;
+}
+/** Resposta da ação "regulation" (null = 404). */
+export function regulationFrom(rows: any[] | null | undefined) {
+  const t = latestPublishedTerms(rows);
+  return t ? { version: t.version, published_at: t.published_at, body_md: t.body_md } : null;
+}
+
 const one = (x: any) => (Array.isArray(x) ? x[0] ?? null : x ?? null);
 
 /** row = portal_sites com embeds; pubRows = portal_sites_public do domínio; eds = festival_editions_public. */
@@ -25,7 +42,7 @@ export function assemblePublic(want: Want, row: any, pubRows: any[] | null, eds:
       site: (pubRows ?? []).find((r: any) => r.id === row.id) ?? null,
       trackers: ev ? (ev.event_trackers ?? []) : [],
       ticketing: ev ? { url: ev.ticketing_url ?? null, lots: em?.ticket_lots ?? null } : null,
-      club: { levels, rules },
+      club: { levels, rules, terms: termsMeta(row.club_terms) },
     };
   }
   if (want.lineup) {
