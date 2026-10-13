@@ -85,7 +85,6 @@ async function issueSession(siteId: string, memberId: string) {
 }
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 async function unsubscribeUrls(companyId: string, email: string) {
   const { data: ex } = await sb.from("email_unsubscribe_tokens").select("token").eq("email", email).eq("company_id", companyId).maybeSingle();
