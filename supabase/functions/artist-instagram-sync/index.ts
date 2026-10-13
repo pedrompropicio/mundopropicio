@@ -200,7 +200,7 @@ async function runStories(req: Request, admin: any, masterKey: string, body: { a
       const desde = new Date(Date.now() - 24 * 3600_000).toISOString();
       const { data: conhecidos } = await admin.from("artist_content")
         .select("external_id").eq("artist_id", conn.artist_id).eq("platform", PLATFORM)
-        .eq("content_type", "story").gte("published_at", desde);
+        .eq("content_type", "story").gte("published_at", desde).limit(500);
       const pendentes = (conhecidos ?? []).map((r: any) => String(r.external_id)).filter((id: string) => !vistos.has(id) && !removidosAntes.has(id));
       for (const id of pendentes) {
         const r = await graphGet(id, { fields: "id,media_type,media_product_type,permalink,timestamp,thumbnail_url,media_url" }, token, IG_GRAPH);
