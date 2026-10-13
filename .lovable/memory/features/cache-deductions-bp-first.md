@@ -10,3 +10,9 @@ type: feature
 - Pendente: grelha /eventos (events-list-cache-impact.ts) ainda usa só transações.
 - #301 (2026-10-10): a linha de cachê das cidades no BP (useSyncCacheForecasts, ramo turnê) usa o mesmo núcleo do real — `computeTourCityCacheAmount` (src/lib/tour-cache-sync.ts) = computeRealCacheResults + cityDeductionSources + ocupação real da cidade (100 só no fallback sem vendas, com receita planeada). Escalões e ajustes/finalizações lidos da base, não do ecrã que chama. Prioridade settlement cidade > config > calculado; chão #240 mantido. Impacto em Live: só Deive Leonardo - Braga +3,22.
 - #301 A (2026-10-10): a deteção de alterações do recálculo inclui `masterDeductionFingerprint` — BP e despesas do Master só nas rubricas de dedução (valor, IVA, estado, estorno, flags). Mudança fora das deduções não dispara.
+
+## Percentagem editável e Ajustado vazio (13/10/2026)
+- A percentagem do artista (event_cache_configs.percentage) pode ser editada no painel de cada configuração variável (CachePercentageField). Quem a pode editar: canEdit; com a configuração finalizada fica bloqueada. Grava ao sair do campo ou com Enter, com validação 0–100.
+- O hash do useSyncCacheForecasts já inclui a percentagem. Ao invalidar ["event_cache_configs", eventId], o BP do módulo e o fecho são recalculados sem recarregar.
+- O gatilho update_event_cache_configs_updated_at mantém o updated_at datado (migração 0135).
+- Campo "Ajustado": se o campo ficar vazio e se carregar em Guardar, grava NULL (sem ajuste), tal como "Limpar". Um 0 escrito à mão conta como ajuste real.
