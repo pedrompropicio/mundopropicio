@@ -46,7 +46,7 @@ describe("newgang-portal lineup", () => {
     expect(run("2026-10-01T00:00:00Z", false).state).toBe("expectativa");
     const pub = run("2026-11-03T00:00:00Z", false);
     expect(pub.state).toBe("em_curso");
-    expect(pub.next_reveal).toEqual({ public_at: reveals[1].public_at, club_at: null, clues: ["pista R2"] });
+    expect(pub.next_reveal).toEqual({ id: reveals[1].id, public_at: reveals[1].public_at, club_at: null, clues: ["pista R2"] });
     expect(run("2026-11-03T00:00:00Z", true).next_reveal?.club_at).toBe(reveals[1].club_at);
     const done = run("2026-11-03T00:00:00Z", false, true);
     expect(done.state).toBe("completo");

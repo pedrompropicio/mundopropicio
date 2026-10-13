@@ -68,6 +68,7 @@ export function buildLineup(input: {
     confirmed,
     next_reveal: next && !lineupComplete
       ? {
+          id: next.id,
           public_at: next.public_at,
           club_at: isMember ? next.club_at : null,
           clues: next.clues ?? [],
