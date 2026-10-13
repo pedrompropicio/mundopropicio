@@ -946,6 +946,13 @@
       "when": 1791901668912,
       "tag": "0134_0134_camarim_item_bp_line_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 135,
+      "version": "7",
+      "when": 1791911675014,
+      "tag": "0135_event_cache_configs_updated_at_trigger",
+      "breakpoints": true
     }
   ]
 }
