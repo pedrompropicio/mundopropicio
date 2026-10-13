@@ -9,3 +9,4 @@
 - Campaign projections join by platform, account and external campaign ID, never by name, because campaign names are not unique.
 - Manual modals separate their header from the scrolling body and use shared viewport/safe-area styles; this keeps dismissal accessible without changing the overlay stack.
 - Arrival city/region comes from the local DB-IP ranges table (loaded monthly in resumable Range+inflate parts) before any paid IP API; edge CPU limits forbid one-shot decompression and visitor IPs must never be stored.
+- Camarim cash cards, integration previews and session PDFs share the pure session cash helper; this keeps amounts and reimbursement labels consistent without changing financial records.

@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { CamarimIntegrateBpSection, type CamarimBpSelection } from "@/components/camarim/CamarimIntegrateBpSection";
 import { parseIntegrateError, sessionBaseAmount } from "@/lib/camarim-integrate";
-import { lineShortfalls, shortfallMessage, type CamarimLineOption } from "@/lib/camarim-bp-rules";
+import { lineShortfalls, shortfallMessage, sessionCashPreview, type CamarimLineOption } from "@/lib/camarim-bp-rules";
 import { fetchCamarimLines } from "@/lib/camarim-bp-lines";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -326,16 +326,10 @@ export default function CamarimSessionDetail() {
 
   // Conta-corrente da administradora (D-ERP156): saldo = recebido − pago por ela
   // (adiantamento + bolso). > 0 ela devolve; < 0 a MP paga-lhe; 0 nada.
-  const settlementPreview = useMemo(() => {
-    const advanceNet = totals.advances - totals.refunds;
-    const spentFromAdvance = items
-      .filter((i) => (i.payment_origin === "advance" || i.payment_origin === "out_of_pocket") && (i.status === "approved" || i.status === "integrated"))
-      .reduce((acc, i) => acc + Number(i.total_amount ?? 0), 0);
-    const balance = +(advanceNet - spentFromAdvance).toFixed(2);
-    let type: "balanced" | "reinforcement" | "refund" = "balanced";
-    if (Math.abs(balance) >= 0.01) type = balance > 0 ? "refund" : "reinforcement";
-    return { advanceNet, spentFromAdvance, balance, type };
-  }, [items, totals]);
+  const settlementPreview = useMemo(
+    () => sessionCashPreview(totals.advances, totals.refunds, items),
+    [items, totals.advances, totals.refunds],
+  );
 
   // Resumo completo a apresentar para auditagem antes de integrar
   const integrationPreview = useMemo(() => {
@@ -832,10 +826,11 @@ export default function CamarimSessionDetail() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Caixa em mão</p>
-            <p className={cn("text-lg font-semibold", totals.cashOnHand < 0 && "text-destructive")}>
-              {formatCurrency(totals.cashOnHand, session.currency)}
+            <p className="text-xs text-muted-foreground">{settlementPreview.label}</p>
+            <p className={cn("text-lg font-semibold", settlementPreview.balance < 0 && "text-warning")}>
+              {formatCurrency(settlementPreview.displayAmount, session.currency)}
             </p>
+            {settlementPreview.note && <p className="mt-1 text-xs text-warning">{settlementPreview.note}</p>}
             <p className="mt-1 text-xs text-muted-foreground">
               Adiant.: {formatCurrency(totals.advances, session.currency)}
             </p>

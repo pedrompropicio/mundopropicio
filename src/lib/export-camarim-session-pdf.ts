@@ -7,6 +7,7 @@ const autoTable = (doc: jsPDF, opts: any) =>
   autoTableRaw(doc, { ...opts, head: sanitizePdfRows(opts.head), body: sanitizePdfRows(opts.body), foot: sanitizePdfRows(opts.foot) });
 import { supabase } from "@/integrations/supabase/client";
 import { formatDatePT } from "@/lib/utils";
+import { sessionCashPreview } from "@/lib/camarim-bp-rules";
 import {
   SESSION_STATUS_LABELS,
   SESSION_MODE_LABELS,
@@ -93,10 +94,7 @@ export async function exportCamarimSessionPdf(sessionId: string, generatedBy?: s
     (a, i) => a + (Number(i.base_amount ?? 0) || Number(i.total_amount ?? 0) - Number(i.iva_amount ?? 0)),
     0,
   );
-  const spentFromAdvance = items
-    .filter((i) => i.payment_origin === "advance")
-    .reduce((a, i) => a + Number(i.total_amount ?? 0), 0);
-  const cashOnHand = advances - refunds - spentFromAdvance;
+  const cash = sessionCashPreview(advances, refunds, items);
   const noDocCount = items.filter((i) => i.approved_without_document || i.has_document === false).length;
 
   const eventNames = eventLinks
@@ -149,7 +147,8 @@ export async function exportCamarimSessionPdf(sessionId: string, generatedBy?: s
       ["Base s/IVA", fmt(totalBase)],
       ["IVA total", fmt(totalIva)],
       ["Nº de contas / itens", String(items.length)],
-      ["Caixa em mão / troco", fmt(cashOnHand)],
+      [cash.label, fmt(cash.displayAmount)],
+      ...(cash.note ? [[cash.note, ""]] : []),
     ],
     styles: { fontSize: 9, cellPadding: 3 },
     headStyles: { fillColor: [30, 41, 59], textColor: 255, halign: "left" },
