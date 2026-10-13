@@ -54,3 +54,9 @@ A 24/09/2026 foi resolvido o incidente que punha o ecrã "Algo correu mal" a 100
 
 ## Onde ler mais
 - `docs/handoffs/` — analise-critica-portal-2026-08-12, plano-conversao-portal-2026-08-12
+
+
+## F2 respostas do Pedro (2026-10-13)
+- portal_vip_welcome desligado para source clube_newgang (só newgang_club_welcome).
+- Envio imediato: club_from_lead_capture faz net.http_post (assíncrono, em bloco EXCEPTION) a newgang-portal action notify_member; cron newgang-club-welcome-5m fica como rede de segurança. Idempotente por message_id ng-welcome-<membro>. Teste: processada 03:50:00 → sent 03:50:08 (8 s). Migração 0129.
+- Descadastro dos emails Newgang: https://newgangfestival.pt/descadastrar?token=…; List-Unsubscribe um clique mantém handle-email-unsubscribe (CORS *).

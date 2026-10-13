@@ -97,7 +97,7 @@ async function unsubscribeUrls(companyId: string, email: string) {
     token = (again?.token as string) ?? token;
   }
   return {
-    page: `https://mpgestaoeventos.com/unsubscribe?token=${encodeURIComponent(token)}`,
+    page: `https://${SITE_DOMAIN}/descadastrar?token=${encodeURIComponent(token)}`,
     oneClick: `${SUPABASE_URL}/functions/v1/handle-email-unsubscribe?token=${encodeURIComponent(token)}`,
   };
 }
@@ -148,11 +148,12 @@ async function isServiceRole(tok: string): Promise<boolean> {
 }
 
 /** Cron (service_role): email de boas-vindas aos membros novos do formulário, uma vez por membro. */
-async function notifyPending(site: { id: string; company_id: string }) {
+async function notifyPending(site: { id: string; company_id: string }, memberId?: string) {
   const since = new Date(Date.now() - 7 * 86400_000).toISOString();
-  const { data: members } = await sb.from("club_members").select("id, first_name, email")
-    .eq("site_id", site.id).eq("source", "formulario").is("confirmed_at", null).gte("created_at", since)
-    .order("created_at").limit(50);
+  let q = sb.from("club_members").select("id, first_name, email")
+    .eq("site_id", site.id).eq("source", "formulario").is("confirmed_at", null).gte("created_at", since);
+  if (memberId) q = q.eq("id", memberId);
+  const { data: members } = await q.order("created_at").limit(50);
   let sent = 0;
   for (const m of members ?? []) {
     const { data: done } = await sb.from("email_send_log").select("id").eq("template_name", "newgang_club_welcome")
@@ -163,6 +164,8 @@ async function notifyPending(site: { id: string; company_id: string }) {
   }
   return sent;
 }
+
+const auth0 = (req: Request) => (req.headers.get("authorization") ?? "").startsWith("Bearer ");
 
 async function rankingFor(siteId: string, limit = 100) {
   const { data } = await sb.rpc("club_ranking", { p_site: siteId, p_limit: 100000 });
@@ -178,6 +181,19 @@ Deno.serve(async (req) => {
     assertNoTotals(b);
     return new Response(JSON.stringify(b), { status, headers: { ...h, "Content-Type": "application/json" } });
   };
+  // Envio imediato (trigger da base via pg_net): sem Origin nem segredo. Só envia o welcome, uma única vez,
+  // a um membro por confirmar do formulário criado há menos de 7 dias; a resposta não expõe dados.
+  if (!origin && req.method === "POST" && !auth0(req)) {
+    const b = await req.clone().json().catch(() => ({}));
+    if (b?.action === "notify_member") {
+      const id = typeof b.member_id === "string" && /^[0-9a-f-]{36}$/i.test(b.member_id) ? b.member_id : null;
+      if (!id) return json({ error: "invalid" }, 400);
+      const site = await getSite();
+      if (!site) return json({ error: "site_not_configured" }, 503);
+      await notifyPending(site, id);
+      return json({ ok: true });
+    }
+  }
   // Cron interno: sem Origin, só com a chave de serviço.
   const auth = req.headers.get("authorization") ?? "";
   if (!origin && req.method === "POST" && auth.startsWith("Bearer ") && await isServiceRole(auth.slice(7))) {

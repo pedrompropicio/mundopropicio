@@ -41,3 +41,9 @@ Geral · Line-up e revelações (LineupTab estendido + revelações + pré-visua
 - Tokens `buyer_confirm` para o email aos compradores 2026 (envio fora de âmbito).
 - Pontos `friend_bought` / `promo_lot_purchase` dependem de importações Fever (fora de âmbito).
 - Publish do ERP (ecrãs).
+
+
+## F2 respostas do Pedro (2026-10-13)
+- portal_vip_welcome desligado para source clube_newgang (só newgang_club_welcome).
+- Envio imediato: club_from_lead_capture faz net.http_post (assíncrono, em bloco EXCEPTION) a newgang-portal action notify_member; cron newgang-club-welcome-5m fica como rede de segurança. Idempotente por message_id ng-welcome-<membro>. Teste: processada 03:50:00 → sent 03:50:08 (8 s). Migração 0129.
+- Descadastro dos emails Newgang: https://newgangfestival.pt/descadastrar?token=…; List-Unsubscribe um clique mantém handle-email-unsubscribe (CORS *).

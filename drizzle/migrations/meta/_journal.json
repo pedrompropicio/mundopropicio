@@ -904,6 +904,13 @@
       "when": 1791861929470,
       "tag": "0128_0128_derp259_content_latest_metrics_fn",
       "breakpoints": true
+    },
+    {
+      "idx": 129,
+      "version": "7",
+      "when": 1791863314796,
+      "tag": "0129_0129_newgang_f2_immediate_welcome",
+      "breakpoints": true
     }
   ]
 }
