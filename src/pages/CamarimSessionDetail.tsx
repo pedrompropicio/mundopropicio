@@ -479,7 +479,10 @@ export default function CamarimSessionDetail() {
       .eq("session_id", id as string);
     const primary = ((evRows ?? []) as any[]).find((e) => e.is_primary) ?? ((evRows ?? []) as any[])[0];
     // Mesma resolução da edge function: master_common → master_event_id; resto → primário.
-    const anyMaster = approvedItems.some((it: any) => it.bp_scope === "master_common");
+    // D-ERP264: itens com linha própria não usam a linha da sessão.
+    const sessionLineItems = approvedItems.filter((it: any) => !it.bp_forecast_id);
+    if (approvedItems.length > 0 && sessionLineItems.length === 0) return null;
+    const anyMaster = sessionLineItems.some((it: any) => it.bp_scope === "master_common");
     const eventId = ((anyMaster ? sess?.master_event_id : null) ?? primary?.event_id ?? sess?.master_event_id ?? null) as string | null;
     if (!eventId) return null;
 
