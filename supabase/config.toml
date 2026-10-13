@@ -788,7 +788,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.artist-ads-budget-update]
-# D-ERP237: só utilizadores (admin da empresa); recusa service role no código.
+# D-ERP237/D-ERP259: só utilizadores com traffic_write no artista; recusa service role no código.
 verify_jwt = true
 
 [functions.newgang-portal]
