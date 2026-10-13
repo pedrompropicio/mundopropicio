@@ -1,6 +1,7 @@
 import { ReductionObservationHost } from "@/components/bp/ReductionObservationHost";
 import { useEffect, useRef, useState } from "react";
-import { QueryClient, QueryClientProvider, useIsMutating, useQueryClient } from "@tanstack/react-query";
+import { MutationCache, QueryClient, QueryClientProvider, useIsMutating, useQueryClient } from "@tanstack/react-query";
+import { scheduleEventFinancialsInvalidation } from "@/lib/invalidate-event-financials";
 import { supabase as supabaseClient } from "@/integrations/supabase/client";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
@@ -242,7 +243,12 @@ function RouteFallback() {
 
 const FULL_WIDTH_ROUTES = ["/transacoes"];
 
-const queryClient = new QueryClient({
+// D-ERP266: qualquer mutação bem-sucedida agenda (debounce 1 s) a invalidação
+// central dos números do evento. Só queries ativas voltam a ler.
+const queryClient: QueryClient = new QueryClient({
+  mutationCache: new MutationCache({
+    onSuccess: () => scheduleEventFinancialsInvalidation(queryClient),
+  }),
   defaultOptions: {
     queries: {
       staleTime: 30_000,

@@ -8,6 +8,7 @@ import { fetchEventRealized } from "@/lib/event-revenue-basis";
 import { writeForecastAmount, ForecastBelowRealizedError } from "@/lib/forecast-amount";
 import { toast } from "@/hooks/use-toast";
 import { mustWrite } from "@/lib/must-write";
+import { invalidateEventFinancials } from "@/lib/invalidate-event-financials";
 
 /**
  * #263 / D-ERP149 — recálculo das linhas de BP com fórmula (padrão useSyncCacheForecasts).
@@ -124,6 +125,7 @@ export function useSyncFormulaForecasts({ eventId, isMaster, enabled = true }: {
       running.current = false;
       qc.invalidateQueries({ queryKey: ["event_forecasts"] });
       qc.invalidateQueries({ queryKey: ["bp-formula-sync", eventId] });
+      invalidateEventFinancials(qc, [eventId]);
     })();
   }, [q.data, eventId, qc]);
 

@@ -2,6 +2,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { moveToTrash } from "@/lib/trash";
+import { useEventFinancialsRealtime } from "@/hooks/useEventFinancialsRealtime";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -297,6 +298,9 @@ export default function EventDetail() {
   const rootSettlementIds = rootSettlementInfo?.rootIds;
   const settlementNameById = rootSettlementInfo?.nameById;
 
+
+  // D-ERP266: Realtime evento + Master + subeventos → invalidação central (debounce 1 s).
+  useEventFinancialsRealtime([id, event?.parent_event_id, ...subEvents.map((s: any) => s.id)]);
 
   // Data EFETIVA do evento (não a data genérica/criação de events.date):
   // max(events.date, event_dates, sub-eventos). Usada na detecção de fase dos cards.

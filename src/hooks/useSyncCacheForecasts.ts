@@ -9,6 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import { mustWrite } from "@/lib/must-write";
 import { computeTicketRevenueAndOccupancy, enrichCacheConfigs, filterRealCacheExpenses } from "@/lib/real-cache-calc";
 import { computeTourCityCacheAmount, masterDeductionFingerprint } from "@/lib/tour-cache-sync";
+import { invalidateEventFinancials } from "@/lib/invalidate-event-financials";
 
 /**
  * #240 (Q2): o amount das linhas cache_module vai por batch_update_event_forecasts
@@ -494,6 +495,7 @@ async function syncTourCacheForecasts(
     for (const eid of allTargetIds) {
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eid] });
     }
+    invalidateEventFinancials(queryClient, [...allTargetIds]);
   }
 }
 
@@ -631,6 +633,7 @@ async function syncSimpleCacheForecasts(
 
   if (changed) {
     queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+    invalidateEventFinancials(queryClient, [eventId]);
   }
 }
 

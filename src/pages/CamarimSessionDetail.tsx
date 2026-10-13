@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useRealtimeInvalidation } from "@/hooks/useRealtimeInvalidation";
 import { deleteStorageObject, deleteStorageObjects } from "@/lib/storage-delete";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -158,6 +159,13 @@ export default function CamarimSessionDetail() {
     void load();
     void loadAccounts();
   }, [id]);
+
+  // D-ERP266: alterações da sessão (outro utilizador, integração) recarregam o ecrã.
+  useRealtimeInvalidation(`camarim-${id}`, id ? [
+    { table: "camarim_sessions", filter: `id=eq.${id}` },
+    { table: "camarim_items", filter: `session_id=eq.${id}` },
+    { table: "camarim_fund_moves", filter: `session_id=eq.${id}` },
+  ] : [], () => { void load(); }, { enabled: !!id });
 
   const loadAccounts = async () => {
     const { data } = await supabase

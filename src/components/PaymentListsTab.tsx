@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from "react";
+import { useRealtimeInvalidation } from "@/hooks/useRealtimeInvalidation";
 import { listItemPhase, onlySettlingPayments, settledTxIdsFrom, SETTLEMENT_COLUMNS } from "@/lib/payment-settlement";
 import { OverlayLayer } from "@/components/ui/overlay-layer";
 import { OffsetLineNote } from "@/components/TransactionOffsetsBlock";
@@ -222,6 +223,15 @@ export default function PaymentListsTab() {
   const { isAdmin, isManager, user } = useAuth();
   const { company } = useCompany();
   const queryClient = useQueryClient();
+  // D-ERP266: listas e itens mudados noutro lado (aprovação, SEPA) → recarrega.
+  useRealtimeInvalidation("payment-lists", [
+    { table: "payment_lists" },
+    { table: "payment_list_items" },
+  ], () => {
+    queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+    queryClient.invalidateQueries({ queryKey: ["payment-list-items"] });
+    queryClient.invalidateQueries({ queryKey: ["payment-list"] });
+  });
 
   const [showCreate, setShowCreate] = useState(false);
   const [viewListId, setViewListId] = useState<string | null>(null);
