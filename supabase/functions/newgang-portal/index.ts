@@ -257,7 +257,9 @@ Deno.serve(async (req) => {
 
   let body: z.infer<typeof Body>;
   try {
+    const pa = performance.now();
     const p = Body.safeParse(await req.json());
+    timer.mark("parse", performance.now() - pa);
     if (!p.success) return json({ error: "invalid", fields: p.error.flatten().fieldErrors }, 400);
     body = p.data;
   } catch { return json({ error: "invalid_json" }, 400); }
