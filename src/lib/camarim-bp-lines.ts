@@ -15,7 +15,7 @@ export async function fetchCamarimLines(q: { ids?: string[]; eventId?: string })
     .eq("account_categories.code", "2.6.04");
   if (q.ids) sel = sel.in("id", q.ids);
   if (q.eventId) sel = sel.eq("event_id", q.eventId);
-  const { data, error } = await sel;
+  const { data, error } = await sel.order("id").limit(500);
   if (error) throw error;
   const lines = (data ?? []) as any[];
   if (lines.length === 0) return [];
