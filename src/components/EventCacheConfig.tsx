@@ -442,6 +442,25 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     },
   });
 
+  // Percentagem do artista (cachê variável) — editável enquanto não finalizada
+  const updatePercentageMutation = useMutation({
+    mutationFn: async ({ configId, value }: { configId: string; value: number }) => {
+      const { error } = await supabase
+        .from("event_cache_configs" as any)
+        .update({ percentage: value })
+        .eq("id", configId)
+        .eq("is_finalized", false);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+      toast({ title: "Percentagem do artista guardada" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao guardar percentagem", description: err.message, variant: "destructive" });
+    },
+  });
+
   // Update fixed deduction percentage
   const updateFixedDeductionMutation = useMutation({
     mutationFn: async ({ configId, value }: { configId: string; value: number }) => {
@@ -874,6 +893,14 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                           disabled={isFinalized}
                         />
                       </div>
+                      <CachePercentageField
+                        value={Number(config.percentage) || 0}
+                        canEdit={canEdit}
+                        isFinalized={isFinalized}
+                        className={inputClass}
+                        onSave={(value) => updatePercentageMutation.mutate({ configId: config.id, value })}
+                        onInvalid={(message) => toast({ title: "Percentagem inválida", description: message, variant: "destructive" })}
+                      />
                       <div className="space-y-1">
                         <label className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
                           <Percent className="h-3 w-3" /> Desc. Percentual Fixo
@@ -942,7 +969,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
 
                       {configTiers.length === 0 && (
                         <p className="text-[10px] text-muted-foreground italic">
-                          Sem faixas — será usado o percentual fixo ({Number(config.percentage) || 0}%) definido na criação.
+                          Sem faixas — será usada a percentagem do artista ({Number(config.percentage) || 0}%), editável acima.
                         </p>
                       )}
                     </div>
