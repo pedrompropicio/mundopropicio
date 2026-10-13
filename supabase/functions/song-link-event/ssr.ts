@@ -29,3 +29,11 @@ export function prefetchDetail(prefetch: boolean, purpose: unknown, ua: string):
   const text = typeof purpose === "string" ? purpose.trim() : "";
   return (text || bot || "prefetch").slice(0, 60);
 }
+/** D-ERP234 adenda 4: geo da CDN do Portal (cf-ipcountry/cf-region/cf-ipcity) no corpo SSR. */
+export function ssrClientGeo(v: unknown): { country: string | null; region: string | null; city: string | null } {
+  const o = v && typeof v === "object" ? v as Record<string, unknown> : {};
+  const t = (x: unknown, max: number) => typeof x === "string" && x.trim() ? x.trim().slice(0, max) : null;
+  const c = t(o.country, 8)?.toUpperCase() ?? null;
+  const country = c && /^[A-Z]{2}$/.test(c) && c !== "XX" && c !== "T1" ? c : null;
+  return { country, region: country ? t(o.region, 80) : null, city: country ? t(o.city, 120) : null };
+}

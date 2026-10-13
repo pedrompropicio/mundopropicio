@@ -87,16 +87,42 @@ async function getSecret(name: string): Promise<string | null> {
   return val;
 }
 
-// D-ERP159: geo por IP (ipinfo) quando os cabeçalhos não trazem país.
-// Cache em memória da instância por chave de hash (nunca o IP) durante 24 h.
+// D-ERP234 adenda 4: geo das chegadas sem depender do ipinfo pedido a pedido.
+// Ordem: cabeçalhos/client_geo → cache por ip_hash 24 h (public.ip_geo_cache, chave "h:<ip_hash>",
+// nunca o IP) → ipinfo (com limite em _shared/geo.ts). Corre em background; nunca bloqueia a gravação.
 const GEO_TTL_MS = 24 * 60 * 60 * 1000;
 const geoCache = new Map<string, { at: number; geo: Geo }>();
-async function geoFor(key: string, ip: string): Promise<Geo> {
+const IPINFO_PER_MIN = 20;
+let ipinfoCalls: number[] = [];
+// deno-lint-ignore no-explicit-any
+async function hashGeoGet(admin: any, ipHash: string): Promise<Geo | null> {
+  const { data } = await admin.from("ip_geo_cache").select("country, region, city, resolved_at")
+    .eq("ip", `h:${ipHash}`).maybeSingle();
+  if (!data?.country || Date.now() - Date.parse(data.resolved_at) >= GEO_TTL_MS) return null;
+  return { country: data.country, region: data.region, city: data.city };
+}
+// deno-lint-ignore no-explicit-any
+export async function hashGeoPut(admin: any, ipHash: string | null, g: Geo) {
+  if (!ipHash || !g.country) return;
+  geoCache.set(ipHash, { at: Date.now(), geo: g });
+  await admin.from("ip_geo_cache").upsert({ ip: `h:${ipHash}`, country: g.country, region: g.region, city: g.city,
+    resolved_at: new Date().toISOString() }, { onConflict: "ip" });
+}
+// deno-lint-ignore no-explicit-any
+async function geoFor(admin: any, ipHash: string | null, ip: string): Promise<Geo> {
   const now = Date.now();
-  const hit = geoCache.get(key);
-  if (hit && now - hit.at < GEO_TTL_MS) return hit.geo;
+  const NUL: Geo = { country: null, region: null, city: null };
+  if (ipHash) {
+    const hit = geoCache.get(ipHash);
+    if (hit && now - hit.at < GEO_TTL_MS) return hit.geo;
+    const db = await hashGeoGet(admin, ipHash).catch(() => null);
+    if (db) { geoCache.set(ipHash, { at: now, geo: db }); return db; }
+  }
+  ipinfoCalls = ipinfoCalls.filter((t) => now - t < 60_000);
+  if (ipinfoCalls.length >= IPINFO_PER_MIN) return NUL;
+  ipinfoCalls.push(now);
   const geo = await lookupIpGeo(ip, { timeoutMs: 3000, tag: "song-link-event" });
-  geoCache.set(key, { at: now, geo });
+  if (geo.country) await hashGeoPut(admin, ipHash, geo).catch(() => {});
   if (geoCache.size > 20000) {
     for (const [k, v] of geoCache) if (now - v.at >= GEO_TTL_MS) geoCache.delete(k);
   }
@@ -236,9 +262,10 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     if (error) return json({ ok: false, error: "erro_interno" }, 500, origin);
     return json({ ok: true, prefetch: true }, 200, origin);
   }
-  const hdrCountry = isSsr ? null : s(req.headers.get("cf-ipcountry") ?? req.headers.get("x-vercel-ip-country") ?? req.headers.get("x-country"), 8);
-  const hdrRegion = isSsr ? null : s(req.headers.get("cf-region") ?? req.headers.get("x-vercel-ip-country-region"), 80);
-  const hdrCity = isSsr ? null : s(req.headers.get("cf-ipcity") ?? req.headers.get("x-vercel-ip-city"), 120);
+  const cg = isSsr ? ssrClientGeo(body.client_geo) : null;
+  const hdrCountry = isSsr ? cg!.country : s(req.headers.get("cf-ipcountry") ?? req.headers.get("x-vercel-ip-country") ?? req.headers.get("x-country"), 8);
+  const hdrRegion = isSsr ? cg!.region : s(req.headers.get("cf-region") ?? req.headers.get("x-vercel-ip-country-region"), 80);
+  const hdrCity = isSsr ? cg!.city : s(req.headers.get("cf-ipcity") ?? req.headers.get("x-vercel-ip-city"), 120);
   const eventId = s(body?.event_id, 120);
   const pageUrl = s(body?.page_url, 2000);
   const destination = s(body?.destination, 60);
@@ -267,7 +294,7 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     let enriched = false;
     if (!isSsr && eventId) {
       const { data: row, error: rowErr } = await admin.from("song_link_events")
-        .select("id, origin, opened, destination, in_app_browser, device, os, mode, capi_fbp")
+        .select("id, origin, opened, destination, in_app_browser, device, os, mode, capi_fbp, country")
         .eq("event_id", eventId).eq("event", event).eq("link_id", link.id)
         .gte("created_at", "2026-10-10T00:00:00Z").order("created_at").limit(1).maybeSingle();
       if (rowErr) return json({ ok: false, error: "erro_interno" }, 500, origin);
@@ -282,6 +309,8 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
         else if (in_app_browser && !row.in_app_browser) patch.in_app_browser = in_app_browser;
         if (device) patch.device = device;
         if (os) patch.os = os;
+        // Adenda 4: país em falta na linha SSR → o do browser (com região/cidade).
+        if (!row.country && hdrCountry) { patch.country = hdrCountry; patch.region = hdrRegion; patch.city = hdrCity; }
       }
       if (!row) {
         // Adenda 3: event_id já usado mas sem linha deste link → nunca perder a chegada.
@@ -318,10 +347,11 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     let country = hdrCountry, region = hdrRegion, city = hdrCity;
     if (!country && ip) {
       try {
-        const g = await geoFor(rlKey, ip);
+        const g = await geoFor(admin, ipHash, ip);
         country = s(g.country, 8); region = s(g.region, 80); city = s(g.city, 120);
       } catch { /* fica null */ }
     }
+    else if (country) await hashGeoPut(admin, ipHash, { country, region, city }).catch(() => {});
     // CAPI
     // D-ERP171 adenda: destino "instagram" (seguir o artista) não é escuta → sem CAPI nem TikTok.
     const naoAplicavel = event === "choice" && (destination ?? "").toLowerCase() === "instagram";
