@@ -25,6 +25,7 @@ import {
   META_DIALOG_VERSION,
 } from "../_shared/artist-ads.ts";
 
+import { assertArtistAccess } from "../_shared/artist-access.ts";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
@@ -49,6 +50,7 @@ Deno.serve(async (req) => {
 
   const scope = await artistInCallerScope(admin, artistId, caller);
   if (!scope.ok) return json({ error: scope.error }, scope.status);
+  { const acc = await assertArtistAccess(req, artistId, "admin"); if (!acc.ok) return json({ error: acc.error }, acc.status); } // D-ERP259
   const artist = scope.artist;
 
   // D-ERP258: religar uma ligação concreta (por connection_id ou ad_account_id) — fica no state.

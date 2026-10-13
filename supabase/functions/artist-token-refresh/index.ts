@@ -17,6 +17,7 @@ import {
 } from "../_shared/artist-meta.ts";
 import { tiktokCreds, ttRefresh, ttScopeList } from "../_shared/artist-tiktok.ts";
 
+import { assertArtistAccess } from "../_shared/artist-access.ts";
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
 /** TikTok: renova com menos de 6 h de vida. */
@@ -55,6 +56,13 @@ Deno.serve(async (req) => {
 
   const { data: connections, error: cErr } = await q;
   if (cErr) return json({ error: cErr.message }, 500);
+  // D-ERP259: utilizador só renova ligações de artistas onde é admin.
+  if (!caller.isServiceRole) {
+    for (const c of connections ?? []) {
+      const acc = await assertArtistAccess(req, (c as { artist_id: string }).artist_id, "admin");
+      if (!acc.ok) return json({ error: acc.error }, acc.status);
+    }
+  }
 
   const now = Date.now();
   const results: Array<Record<string, unknown>> = [];
