@@ -3,12 +3,12 @@
 // POST { action: 'list', artist_id }
 // POST { action: 'invite', artist_id, email, access_level: 'viewer'|'traffic_manager', areas: string[] }
 // POST { action: 'revoke', artist_id, user_id }
-// Convite por email com redirectTo https://app.socialartists.com.br. Nunca devolve tokens.
+// Convite por email com redirectTo https://app.socialartists.com.br/definir-senha. Nunca devolve tokens.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { assertArtistAccess } from "../_shared/artist-access.ts";
 
-const REDIRECT = "https://app.socialartists.com.br";
+const REDIRECT = "https://app.socialartists.com.br/definir-senha";
 const AREAS = ["overview", "channels", "traffic", "financial", "reports", "songs", "content"];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
