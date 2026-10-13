@@ -136,6 +136,17 @@ async function sendClubLink(site: { id: string; company_id: string }, m: { id: s
   });
 }
 
+/** Valida a chave do cron: igual à do ambiente ou aceite pela API como service_role (tabela só service_role). */
+async function isServiceRole(tok: string): Promise<boolean> {
+  if (tok === SERVICE_KEY) return true;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/club_member_sessions?select=id&limit=1`, { headers: { apikey: tok, Authorization: `Bearer ${tok}` } });
+    if (!r.ok) return false;
+    const payload = JSON.parse(atob(tok.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return payload?.role === "service_role";
+  } catch { return false; }
+}
+
 /** Cron (service_role): email de boas-vindas aos membros novos do formulário, uma vez por membro. */
 async function notifyPending(site: { id: string; company_id: string }) {
   const since = new Date(Date.now() - 7 * 86400_000).toISOString();
@@ -169,7 +180,7 @@ Deno.serve(async (req) => {
   };
   // Cron interno: sem Origin, só com a chave de serviço.
   const auth = req.headers.get("authorization") ?? "";
-  if (!origin && req.method === "POST" && auth === `Bearer ${SERVICE_KEY}`) {
+  if (!origin && req.method === "POST" && auth.startsWith("Bearer ") && await isServiceRole(auth.slice(7))) {
     const b = await req.json().catch(() => ({}));
     if (b?.action !== "notify_pending") return json({ error: "invalid" }, 400);
     const site = await getSite();
