@@ -338,6 +338,14 @@ export default function BankReconciliation() {
     [statements, statementId],
   );
 
+  // D-ERP266: Realtime das linhas do extrato aberto → recarrega a conciliação.
+  useRealtimeInvalidation(`bank-recon-${currentStatement?.id ?? ""}`, currentStatement?.id ? [
+    { table: "bank_statement_lines", filter: `statement_id=eq.${currentStatement.id}` },
+  ] : [], () => {
+    queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).startsWith("bank-recon") });
+    queryClient.invalidateQueries({ queryKey: ["bank_line_documents_counts"] });
+  }, { enabled: !!currentStatement?.id });
+
   const { data: savedLines = [] } = useQuery({
     queryKey: ["bank-recon-lines", currentStatement?.id],
     enabled: !!currentStatement?.id,

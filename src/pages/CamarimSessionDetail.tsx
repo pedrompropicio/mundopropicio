@@ -159,6 +159,13 @@ export default function CamarimSessionDetail() {
     void loadAccounts();
   }, [id]);
 
+  // D-ERP266: alterações da sessão (outro utilizador, integração) recarregam o ecrã.
+  useRealtimeInvalidation(`camarim-${id}`, id ? [
+    { table: "camarim_sessions", filter: `id=eq.${id}` },
+    { table: "camarim_items", filter: `session_id=eq.${id}` },
+    { table: "camarim_fund_moves", filter: `session_id=eq.${id}` },
+  ] : [], () => { void load(); }, { enabled: !!id });
+
   const loadAccounts = async () => {
     const { data } = await supabase
       .from("financial_accounts")

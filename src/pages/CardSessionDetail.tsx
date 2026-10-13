@@ -55,6 +55,12 @@ export default function CardSessionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  // D-ERP266: Realtime da sessão → mesma invalidação das escritas do módulo.
+  useRealtimeInvalidation(`card-session-${id}`, id ? [
+    { table: "card_sessions", filter: `id=eq.${id}` },
+    { table: "card_session_items", filter: `session_id=eq.${id}` },
+    { table: "card_session_loads", filter: `session_id=eq.${id}` },
+  ] : [], () => invalidateCardSessionQueries(qc, id), { enabled: !!id });
   const { isAdmin, isManager, hasPermission, user } = useAuth();
   const canManage = isAdmin || isManager || hasPermission("card_manage");
   const canClose = isAdmin || isManager;
