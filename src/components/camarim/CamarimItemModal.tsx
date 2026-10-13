@@ -26,6 +26,11 @@ import { extractJpegFromDng, isDngFile } from "@/lib/dng-extract-preview";
 import { pdfFirstPageToJpeg } from "@/lib/pdf-first-page-to-jpeg";
 import { SplitItemModal } from "./SplitItemModal";
 import { mustWrite } from "@/lib/must-write";
+import { itemBpLineError, itemLineWarning, itemTargetEvent, type CamarimLineOption } from "@/lib/camarim-bp-rules";
+import { fetchCamarimLines } from "@/lib/camarim-bp-lines";
+import { lineLabel } from "@/lib/camarim-integrate";
+
+const LINE_AT_INTEGRATION = "__session_line__";
 
 interface Props {
   open: boolean;
@@ -53,6 +58,10 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   const [paymentOrigin, setPaymentOrigin] = useState<CamarimItemPaymentOrigin | null>(null);
   const [financialAccountId, setFinancialAccountId] = useState<string | null>(null);
   const [bpScope, setBpScope] = useState<CamarimItemBpScope>("master_common");
+  // D-ERP264: linha de BP do item (opcional; vazio = linha da sessão escolhida na integração).
+  const [bpForecastId, setBpForecastId] = useState<string | null>(null);
+  const [sessionCtx, setSessionCtx] = useState<{ masterEventId: string | null; primaryEventId: string | null } | null>(null);
+  const [bpTarget, setBpTarget] = useState<{ name: string | null; withBp: boolean; lines: CamarimLineOption[]; loading: boolean }>({ name: null, withBp: false, lines: [], loading: false });
   const [notes, setNotes] = useState("");
   const [hasDocument, setHasDocument] = useState(true);
   const [docIssueReason, setDocIssueReason] = useState("");
@@ -111,6 +120,61 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
 
   // (Categoria contabilística é fixa — 2.6.04 Camarins, aplicada no fecho da sessão.)
 
+  // D-ERP264: contexto da sessão (Master + evento principal); item novo sem Master nasce "BP Local".
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      const [{ data: sess }, { data: evs }] = await Promise.all([
+        supabase.from("camarim_sessions" as any).select("master_event_id").eq("id", sessionId).maybeSingle(),
+        supabase.from("camarim_session_events" as any).select("event_id,is_primary").eq("session_id", sessionId),
+      ]);
+      if (cancelled) return;
+      const arr = (evs ?? []) as any[];
+      const prim = arr.find((x) => x.is_primary) ?? arr[0];
+      const ctx = { masterEventId: ((sess as any)?.master_event_id ?? null) as string | null, primaryEventId: (prim?.event_id ?? null) as string | null };
+      setSessionCtx(ctx);
+      if (!itemId && !ctx.masterEventId) setBpScope((s) => (s === "master_common" ? "local_city" : s));
+    })();
+    return () => { cancelled = true; };
+  }, [open, sessionId, itemId]);
+
+  const bpTargetRes = sessionCtx ? itemTargetEvent(bpScope as any, sessionCtx) : { eventId: null, error: null };
+  useEffect(() => {
+    const evId = bpTargetRes.eventId;
+    if (!open || !evId) { setBpTarget({ name: null, withBp: false, lines: [], loading: false }); return; }
+    let cancelled = false;
+    setBpTarget((t) => ({ ...t, loading: true }));
+    (async () => {
+      try {
+        const [{ data: mode }, { data: ev }, lines] = await Promise.all([
+          supabase.rpc("event_budget_mode" as any, { _event_id: evId } as any),
+          supabase.from("events").select("name").eq("id", evId).maybeSingle(),
+          fetchCamarimLines({ eventId: evId }),
+        ]);
+        if (cancelled) return;
+        setBpTarget({ name: (ev as any)?.name ?? null, withBp: mode === "with_bp", lines, loading: false });
+      } catch (e) {
+        console.error("[camarim-item] linhas de BP", e);
+        if (!cancelled) setBpTarget({ name: null, withBp: false, lines: [], loading: false });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, bpTargetRes.eventId]);
+
+  const selectedBpLine = bpForecastId ? bpTarget.lines.find((l) => l.id === bpForecastId) ?? null : null;
+  const bpLineError = sessionCtx && !bpTarget.loading
+    ? itemBpLineError({
+        scope: bpScope as any,
+        target: bpTargetRes,
+        targetEventName: bpTarget.name,
+        withBp: bpTarget.withBp,
+        lines: bpTarget.lines,
+        selectedLine: bpScope === "mixed" ? null : bpForecastId ? (selectedBpLine ?? { id: bpForecastId, event_id: "__outro__" }) : null,
+      })
+    : null;
+  const bpLineWarning = itemLineWarning(selectedBpLine, Number(totalAmount || 0) - Number(ivaAmount || 0));
+
   const reset = () => {
     setSupplierName("");
     setServiceDescription("");
@@ -121,6 +185,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setPaymentOrigin(null);
     setFinancialAccountId(null);
     setBpScope("master_common");
+    setBpForecastId(null);
     setNotes("");
     setHasDocument(true);
     setDocIssueReason("");
@@ -215,6 +280,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setPaymentOrigin(it.payment_origin);
     setFinancialAccountId(it.financial_account_id ?? null);
     setBpScope(it.bp_scope);
+    setBpForecastId(it.bp_forecast_id ?? null);
     setNotes(it.notes ?? "");
     setHasDocument(it.has_document);
     setDocIssueReason(it.document_issue_reason ?? "");
@@ -431,6 +497,10 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       toast({ variant: "destructive", title: "Seleciona o cartão usado" });
       return;
     }
+    if (asStatus !== "rejected" && bpLineError) {
+      toast({ variant: "destructive", title: "Linha de BP", description: bpLineError });
+      return;
+    }
 
     // Pré-check de duplicados (mesma sessão + fornecedor + nº doc + total).
     if (!itemId && supplierName.trim() && docNumber.trim()) {
@@ -477,6 +547,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
         payment_origin: paymentOrigin,
         financial_account_id: paymentOrigin === "card" ? financialAccountId : null,
         bp_scope: bpScope,
+        bp_forecast_id: bpScope === "mixed" ? null : bpForecastId,
         notes: notes || null,
         has_document: hasDocument,
         document_issue_reason: hasDocument ? null : docIssueReason,
@@ -811,6 +882,28 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
                 </p>
               )}
             </div>
+            {bpScope !== "mixed" && (
+              <div className="space-y-1.5 sm:col-span-2" data-testid="camarim-item-bp-line">
+                <Label>Linha de BP (2.6.04 — Camarins{bpTarget.name ? ` · ${bpTarget.name}` : ""})</Label>
+                <Select
+                  value={bpForecastId ?? LINE_AT_INTEGRATION}
+                  onValueChange={(v) => setBpForecastId(v === LINE_AT_INTEGRATION ? null : v)}
+                  disabled={hasLockedSplitStructure || bpTarget.loading || !bpTargetRes.eventId}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={LINE_AT_INTEGRATION}>Escolher na integração (linha da sessão)</SelectItem>
+                    {bpTarget.lines.map((l) => (
+                      <SelectItem key={l.id} value={l.id}>
+                        {lineLabel(l)} — disponível {(l.amount - l.realized).toFixed(2)} €
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {bpLineError && <p className="text-[11px] text-destructive" data-testid="camarim-item-bp-error">{bpLineError}</p>}
+                {!bpLineError && bpLineWarning && <p className="text-[11px] text-amber-600 dark:text-amber-400">{bpLineWarning}</p>}
+              </div>
+            )}
             <div className="space-y-1.5 sm:col-span-2">
               <Label>
                 Tag analítica <span className="text-muted-foreground font-normal">(opcional)</span>
