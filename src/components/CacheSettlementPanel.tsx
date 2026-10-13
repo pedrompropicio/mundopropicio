@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { parseAdjustedInput } from "@/lib/cache-percentage";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -428,8 +429,14 @@ export function CacheSettlementPanel({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    const val = parseFloat(adjustedInput);
-                    if (isNaN(val) || val < 0) return;
+                    const val = parseAdjustedInput(adjustedInput);
+                    if (val === undefined) return;
+                    if (val === null) {
+                      // Campo vazio = sem ajuste (NULL), igual a "Limpar". Nunca grava 0.
+                      saveAdjustedMutation.mutate({ value: null, notes: null });
+                      setAdjustmentNotesInput("");
+                      return;
+                    }
                     if (adjustedDiffersFromCalculated && !adjustmentNotesInput.trim()) {
                       toast({
                         title: "Justificativa obrigatória",
