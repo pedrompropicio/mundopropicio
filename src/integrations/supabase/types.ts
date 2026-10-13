@@ -388,6 +388,7 @@ export type Database = {
           company_id: string
           connection_id: string
           day: string
+          days_left: number | null
           detected_at: string
           id: string
           kind: string
@@ -395,6 +396,7 @@ export type Database = {
           notified_at: string | null
           platform: string
           resolved_at: string | null
+          resolved_notified_at: string | null
           severity: string
         }
         Insert: {
@@ -403,6 +405,7 @@ export type Database = {
           company_id: string
           connection_id: string
           day: string
+          days_left?: number | null
           detected_at?: string
           id?: string
           kind: string
@@ -410,6 +413,7 @@ export type Database = {
           notified_at?: string | null
           platform: string
           resolved_at?: string | null
+          resolved_notified_at?: string | null
           severity: string
         }
         Update: {
@@ -418,6 +422,7 @@ export type Database = {
           company_id?: string
           connection_id?: string
           day?: string
+          days_left?: number | null
           detected_at?: string
           id?: string
           kind?: string
@@ -425,6 +430,7 @@ export type Database = {
           notified_at?: string | null
           platform?: string
           resolved_at?: string | null
+          resolved_notified_at?: string | null
           severity?: string
         }
         Relationships: [
@@ -19856,6 +19862,10 @@ export type Database = {
         Args: { p_artist_id: string }
         Returns: number
       }
+      artist_ads_balance_alerts_apply: {
+        Args: { p_alerts: Json; p_connections: string[]; p_scope: string }
+        Returns: Json
+      }
       artist_ads_breakdowns: {
         Args: {
           p_artist_id: string
@@ -20070,6 +20080,18 @@ export type Database = {
         Returns: number
       }
       artist_ads_norm: { Args: { p_text: string }; Returns: string }
+      artist_ads_open_alerts: {
+        Args: { p_artist_id: string }
+        Returns: {
+          account_id: string
+          days_left: number
+          detected_at: string
+          kind: string
+          message: string
+          platform: string
+          severity: string
+        }[]
+      }
       artist_ads_period_report: {
         Args: {
           p_artist_id: string
