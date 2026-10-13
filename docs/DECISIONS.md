@@ -5734,3 +5734,7 @@ Estado: aceite. DDL autorizado pelo Pedro e aplicado (drizzle 0118 + supabase/mi
 - Os trackers do portal vêm do evento associado ao site, independentemente de `events.portal_visible`; `event_trackers_public` mantém-se para o portal MP.
 
 **Aplicação.** Migrações 0119/0120; spec em docs/specs/portal-newgangfestival.md.
+
+### D-ERP258 — Religação Meta do artista por conta de anúncios (13/10/2026)
+
+**Decisão.** No OAuth Meta do artista, a ligação procura-se por (artista, meta, conta de anúncios) e reativa-se mesmo revoked (token novo, active, last_error NULL), mantendo id, teto e snapshots. Linha nova só se a conta não tiver nenhuma. Nunca se altera a ligação de outra conta (antes o token era regravado em todas). Com várias contas e sem alvo, nasce uma única ligação pendente de escolha; ao escolher uma conta que já tem ligação, a pendente funde-se nela. O start aceita connection_id/ad_account_id opcional para religar uma ligação concreta. artist_ads_sync_status devolve connection_id nas linhas TikTok. Migrações 0121/0122.
