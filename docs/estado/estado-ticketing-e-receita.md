@@ -1,12 +1,14 @@
 # ESTADO — Ticketing & Receita
 
-Atualizado: 2026-10-10 · #303 entregue parcialmente, permanece aberta · Issues: `agora` — · `a-seguir` #206 · `depois` #73, #78 · `bloqueada` #211 (transversal, plataforma-e-infra)
+Atualizado: 2026-10-13 · D-ERP239 (SM Porto: 120,00 repostos em ticket_sales) · #303 continua aberta · Issues: `agora` — · `a-seguir` #206 · `depois` #73, #78 · `bloqueada` #211 (transversal, plataforma-e-infra)
 
 ## Em vigor
 
 - **Apuramento Ticketline (D-ERP231).** `ticket_office_statements` e `ticket_office_statement_lines` distinguem direitos de eventos, faturas, acertos de sala, repasses e transitados. `statement_id` liga o fecho ao apuramento. Apuramentos 2558 e 3163 registados; o 3163 continua em rascunho, com PDF anexado e posição do documento −49.050,59. A soma fecha no total, mas a reconciliação linha a linha com o corte do PDF ainda falta.
 - **Fecho = DIREITO do evento (D-ERP232).** Bruto − deduções − retido pela sala − saldo de fatura pago pela bilheteira; nunca abate adiantamentos. Forma de liquidação derivada, com correcção manual justificada em campo próprio; ambas permanecem distinguíveis. Ajustes do bruto e do direito exigem justificação. Lista transversal e ficha do evento usam `get_ticket_office_settlements_overview`, isolada por empresa.
 - **Página da bilheteira (D-ERP233).** Dados · Liquidez · Vendas/Bilhetes · Fechos · Apuramentos. Histórico de adiantamentos dentro de Apuramentos; fora do modal de fecho. Retido em destaque, sem heurística dos 15%. Apuramentos mostram três cartões, diferença de calendário discreta e clicável apenas quando |diferença| >= 0,01, subtotais por tipo e significado da posição.
+- **Bilheteira vive em ticket_sales, nunca em transações (D-ERP239).** A base do cachê (`computeTicketRevenueAndOccupancy`), a ocupação, o reparto e o simulador lêem `ticket_sales` diretamente e não veem transações de receita. Lançar bilheteira como transação não entra em nenhum desses cálculos — e, se a rubrica não for 1.1.01, escapa à anti-duplicação (`isBilheteiraCategoryCode`) e conta duas vezes.
+- **Rubrica de bilheteira nos DRE é identificada pelo código 1.1.01 (D-ERP239).** Os quatro ecrãs de DRE usam `findTicketCategoryId` de `src/lib/ticket-category.ts` (código exato `1.1.01`, nunca o nome). O antigo `find` por nome podia escolher 2.6.07 "Comissão da ticketeira/bilheteiras" ou 2.6.13 "Controlo de acesso e staff de bilheteira" — ambas com "bilheteira" no nome e o select sem ORDER BY — e a receita de bilhetes contava duas vezes.
 - **Vigia de ticketing (D-ERP152/191/192/197).** Fonte do portal de Produtores = occupation.xlsx; PDF informativo. Crosscheck diário às 06:50 UTC: pelo menos 3 bilhetes E 1% da quantidade do portal, em duas leituras seguidas; evento não encontrado alerta logo. Série BOL valida pelo TOTAL do Mapa Diário ou pelo M2 da mesma corrida; se falhar, guarda `daily_debug`.
 - **Canal único da vigia:** indicador por empresa no Dashboard, sem email/WhatsApp/lembrete. `ticketing_sync_conditions()` alimenta `get_ticketing_sync_status()`: vermelho (a) falha persistente, (b) parado >6h, (d) captura horária parada, (f) 6 corridas BOL sem sucesso; âmbar (e) divergência e (g) PDF parado com xlsx a mexer; (c) import desligado é informativo. Cron 217 desactivado em definitivo.
 
@@ -15,6 +17,7 @@ Atualizado: 2026-10-10 · #303 entregue parcialmente, permanece aberta · Issues
 - **Cadeia de apuramento incompleta (#303):** Ivete Clareou 2026 e Henry&Klaus Porto têm fecho sem apuramento; Maiara e Maraisa Lisboa e Porto não têm nenhum dos dois. Obter os PDFs anteriores ao 3163, sem inventar ligações ou valores.
 - **Conciliação do 3163 contra o PDF (#303):** conferir linha a linha; a soma −49.050,59 já fecha, mas não prova equivalência documental.
 - **Fecho Deive Leonardo Braga:** permanece em draft, direito 20.384,11, ligado ao 3163; aguarda a confirmação do Pedro no ecrã.
+- **Par 10.3 do SM Porto (D-ERP239, em aberto):** os 2.315,00 retidos pela Super Bock Arena nunca saíram da conta da Ticketline, que fica inflacionada nesse valor (D-ERP237). Em Braga foi feito; no Porto não.
 
 ## Bloqueios
 
@@ -31,6 +34,11 @@ Atualizado: 2026-10-10 · #303 entregue parcialmente, permanece aberta · Issues
 - **Prova de isolamento ainda por fazer:** chamadas das edge functions corrigidas com sessão válida de outra empresa; testes de chave pública/token forjado não substituem essa prova.
 - **Noutras frentes, abertas:** #304 (rubrica 10.3) e #305 (invariante de caixa negativa). Fora do âmbito deste fecho documental.
 - **Ligação «ver apuramento»:** abrir o separador Apuramentos antes de saltar para a âncora continua por resolver.
+
+## Fechado a 13/10/2026
+
+- **D-ERP239 — Bilheteira local do SM Porto: 120,00 repostos em ticket_sales.** Em 10/10 foi inserida em `ticket_sales` uma linha manual de −3 bilhetes / −120,00 no lote Balcão 1 · Lote Promoc. do SM - Porto (id 1aeef96d), porque a Super Bock Arena reconhecia 2.195,00 de bilheteira local contra os 2.315,00 da Ticketline; a decisão de então foi valer o valor da sala. A 13/10 a sala reconheceu o erro e vai repassar os 120,00 à MP: a premissa da linha de acerto caiu e a linha foi apagada. A bilheteira do SM Porto volta a 5.213 bilhetes / 256.450,00, igual ao Mapa de Vendas do apuramento 3163. Fecho 1950c08e (confirmado): bruto 256.330,00 → 256.450,00, retido pela sala 2.195,00 → 2.315,00; direito inalterado em 226.454,85 — os 120,00 entram no bruto e saem no retido. Tentativa nesta sessão de criar a rubrica 1.1.05 "Bilheteira local (recebida da sala)" + transação de 120,00: revertida integralmente, ambas apagadas. Em aberto: o SM Porto não tem par 10.3 (ver "A trabalhar agora").
+- **Rubrica de bilheteira por código nos DRE (D-ERP239):** `src/lib/ticket-category.ts` (`TICKET_CATEGORY_CODE = "1.1.01"`, `findTicketCategoryId`) aplicado em `ReportDRE.tsx`, `ReportDREEmpresarial.tsx`, `PartnerDREDialog.tsx` e `ReportDREBrasil.tsx`; sem fallback por nome. Testes em `src/lib/__tests__/ticket-category.test.ts`.
 
 ## Fechado a 10/10/2026
 
@@ -90,6 +98,6 @@ Entregas da #303, sem fechar a issue:
 - `.lovable/memory/features/ticket-office-sales-scope.md` e `ticket-office-reconciliation.md` — fonte das vendas, saldo e âmbitos.
 - `.lovable/memory/features/settlement-transfer-pair.md` e `venue-retained-door-sales.md` — fluxo completo do fecho.
 - `.lovable/memory/features/ticketing-sync-health.md` e `ticketline-crosscheck.md` — vigia e conferência do portal.
-- `docs/DECISIONS.md` — D-ERP231/232/233 e D-ERP237 — Bilheteira local retida pela sala; GitHub #303 — cadeia e reconciliação ainda abertas.
-- Handoff desta sessão: `docs/handoffs/2026-10-10-ticketing-e-receita.md` (arquivo, não fonte de estado).
+- `docs/DECISIONS.md` — D-ERP231/232/233, D-ERP237 (bilheteira local retida pela sala) e D-ERP239 (SM Porto 120,00; rubrica por código 1.1.01); GitHub #303 — cadeia e reconciliação ainda abertas.
+- Handoff de 10/10: `docs/handoffs/2026-10-10-ticketing-e-receita.md` (arquivo, não fonte de estado).
 - Antes de diagnosticar, nomear a memória lida (D-ERP162); índice gerado por `scripts/gen-memory-index.mjs`.
