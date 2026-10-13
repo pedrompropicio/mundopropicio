@@ -64,53 +64,58 @@ Deno.serve(async (req) => {
 
   const reader = res.body!.pipeThrough(new DecompressionStream("gzip")).getReader();
   const dec = new TextDecoder();
-  let carry = ""; let lineNo = 0; let written = 0 + (Number(body?.rows_so_far) || 0); let partRows = 0;
+  const enc = new TextEncoder();
+  let carry = ""; let pos = 0; let written = 0 + (Number(body?.rows_so_far) || 0); let partRows = 0;
   let buf: Record<string, unknown>[] = []; let eof = false; let stoppedAt: number | null = null;
-  const NL = 10;
   const flush = async () => {
     if (!buf.length) return;
     const { error } = await admin.from("ip_city_ranges").insert(buf);
     if (error) throw new Error(`insert: ${error.message}`);
     written += buf.length; partRows += buf.length; buf = [];
   };
+  const take = (line: string) => {
+    const f = parseCsv(line);
+    if (f[3] === "BR" || f[3] === "PT") {
+      buf.push({ ip_from: f[0], ip_to: f[1], country: f[3], region: f[4] || null, city: f[5] || null, source_month: sourceMonth });
+    }
+  };
+  // Só procura os marcadores ",SA,BR," / ",EU,PT," (indexOf nativo); não parte o texto todo em linhas.
+  const scan = (text: string) => {
+    for (const mk of [",SA,BR,", ",EU,PT,"]) {
+      let i = text.indexOf(mk);
+      while (i !== -1) {
+        const a = text.lastIndexOf("\n", i) + 1; let b = text.indexOf("\n", i); if (b === -1) b = text.length;
+        take(text.slice(a, b));
+        i = text.indexOf(mk, b);
+      }
+    }
+  };
   try {
-    outer: while (true) {
+    while (true) {
       const { value, done } = await reader.read();
       if (done) { eof = true; break; }
-      // Antes do start_line: só contar quebras de linha nos bytes (sem descodificar).
-      let off = 0;
-      if (lineNo < startLine) {
-        let i = -1;
-        while (lineNo < startLine && (i = value.indexOf(NL, i + 1)) !== -1) lineNo++;
-        if (lineNo < startLine) continue;
-        off = i + 1;
-        carry = "";
-      }
-      const text = carry + dec.decode(value.subarray(off), { stream: true });
-      const lines = text.split("\n"); carry = lines.pop() ?? "";
-      for (const line of lines) {
-        lineNo++;
-        if (line.includes(",SA,BR,") || line.includes(",EU,PT,")) {
-          const f = parseCsv(line);
-          if (f[3] === "BR" || f[3] === "PT") {
-            buf.push({ ip_from: f[0], ip_to: f[1], country: f[3], region: f[4] || null, city: f[5] || null, source_month: sourceMonth });
-            if (buf.length >= BATCH) await flush();
-          }
-        }
-        if (lineNo - startLine >= PART_LINES || Date.now() - t0 > WALL_BUDGET_MS) { stoppedAt = lineNo; break outer; }
+      const chunkStart = pos; pos += value.length;
+      // Antes do start_byte: só descomprime, não descodifica nem procura.
+      if (pos <= startLine) continue;
+      const sub = chunkStart < startLine ? value.subarray(startLine - chunkStart) : value;
+      const text = carry + dec.decode(sub, { stream: true });
+      const nl = text.lastIndexOf("\n");
+      if (nl === -1) { carry = text; continue; }
+      carry = text.slice(nl + 1);
+      scan(text.slice(0, nl));
+      if (buf.length >= BATCH) await flush();
+      if (pos - startLine >= PART_BYTES || Date.now() - t0 > WALL_BUDGET_MS) {
+        stoppedAt = pos - enc.encode(carry).length; break; // início exacto da linha seguinte
       }
     }
-    if (eof && carry) {
-      lineNo++;
-      const f = parseCsv(carry);
-      if (f[3] === "BR" || f[3] === "PT") buf.push({ ip_from: f[0], ip_to: f[1], country: f[3], region: f[4] || null, city: f[5] || null, source_month: sourceMonth });
-    }
+    if (eof && carry) take(carry);
     await flush();
   } catch (e) {
     await reader.cancel().catch(() => {});
-    await finishSyncRun(admin, runId, runStarted, { status: "error", rows_written: written, details: { error: String(e).slice(0, 300), month, start_line: startLine, line: lineNo } });
-    return json({ ok: false, error: String(e).slice(0, 300), month, line: lineNo }, 500);
+    await finishSyncRun(admin, runId, runStarted, { status: "error", rows_written: written, details: { error: String(e).slice(0, 300), month, start_byte: startLine, byte: pos } });
+    return json({ ok: false, error: String(e).slice(0, 300), month, byte: pos }, 500);
   }
+  const lineNo = pos;
 
   if (!eof && stoppedAt != null) {
     await reader.cancel().catch(() => {});
