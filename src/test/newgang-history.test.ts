@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildHistory, HISTORY_LIMIT, shortName, VOID_LABEL } from "../../supabase/functions/newgang-portal/history";
+import { buildHistory, HISTORY_LIMIT, shortName, subjectRef, VOID_LABEL } from "../../supabase/functions/newgang-portal/history";
 
 const ME = "11111111-1111-1111-1111-111111111111";
 const FRIEND = "22222222-2222-2222-2222-222222222222";
@@ -46,5 +46,25 @@ describe("newgang history", () => {
     const r = buildHistory(ME, many);
     expect(r.length).toBe(HISTORY_LIMIT + 1);
     expect(sum(r)).toBe(1300);
+  });
+});
+
+describe("anulações D-ERP273", () => {
+  const S = "55555555-5555-5555-5555-555555555555";
+  // Aprovada → rejeitada (anulação) → reaprovada (geração #2): soma = ranking = 10.
+  const r = [
+    { rule_key: "mission", points: 10, ref_id: S, created_at: "2026-10-01T00:00:00Z" },
+    { rule_key: "void", points: -10, ref_id: `mission:${S}`, reason: "Link falso", created_at: "2026-10-02T00:00:00Z" },
+    { rule_key: "mission", points: 10, ref_id: `${S}#2`, created_at: "2026-10-03T00:00:00Z" },
+  ];
+  const h = buildHistory(ME, r, { missions: { [S]: "Cartaz" } });
+  it("linha negativa com motivo; reaprovar pontua uma vez; soma = ranking", () => {
+    expect(h.find((x) => x.label === VOID_LABEL)).toMatchObject({ points: -10, detail: "Link falso" });
+    expect(h.filter((x) => x.label === "Missão aprovada").map((x) => x.detail)).toEqual(["Cartaz", "Cartaz"]);
+    expect(sum(h)).toBe(r.reduce((s, x) => s + x.points, 0));
+    expect(sum(h)).toBe(10);
+  });
+  it("subjectRef junta gerações e anulações à submissão", () => {
+    expect(r.map(subjectRef)).toEqual([S, S, S]);
   });
 });

@@ -26,6 +26,7 @@ import {
 } from "@/lib/newgang-media";
 import { ClubTermsSection } from "./ClubTermsSection";
 import { MissionsSection } from "./MissionsSection";
+import { MemberPointsDialog } from "./MemberPointsDialog";
 import { NEWGANG_CONTENT_GROUPS, cleanNewgangContent } from "@/lib/newgang-content";
 
 const SITE_DOMAIN = "newgangfestival.pt";
@@ -583,6 +584,7 @@ function SimpleTable({ table, siteId, companyId, cols, order }: {
 
 function ClubTab({ site }: { site: Site }) {
   const qc = useQueryClient();
+  const [ficha, setFicha] = useState<{ id: string; title: string } | null>(null);
   const ranking = useQuery({
     queryKey: ["club-ranking", site.id],
     queryFn: async () => {
@@ -667,9 +669,11 @@ function ClubTab({ site }: { site: Site }) {
         {(ranking.data ?? []).map((r) => (
           <div key={r.member_id} className="flex justify-between text-sm">
             <span>{r.rank_pos}. {r.first_name ?? r.email}</span>
-            <span className="text-muted-foreground">{r.points} pts · {r.level_name ?? "—"}</span>
+            <span className="flex items-center gap-2 text-muted-foreground">{r.points} pts · {r.level_name ?? "—"}
+              <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => setFicha({ id: r.member_id, title: r.first_name ?? r.email })}>Pontos</Button></span>
           </div>
         ))}
+        {ficha && <MemberPointsDialog memberId={ficha.id} title={ficha.title} onClose={() => setFicha(null)} />}
       </Card>
       <Card className="space-y-2 p-4">
         <h3 className="text-sm font-semibold">Palpites a validar</h3>

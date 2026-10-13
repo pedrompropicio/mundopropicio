@@ -42,8 +42,8 @@ export function MemberPointsDialog({ memberId, title, refFilter, onClose }: { me
       toast.success(`${n} movimento(s) anulado(s)`);
       setPicked(new Set()); setReason("");
       qc.invalidateQueries({ queryKey: ["club_member_points", memberId] });
-      qc.invalidateQueries({ queryKey: ["newgang_ranking"] });
-      qc.invalidateQueries({ queryKey: ["club_mission_queue"] });
+      qc.invalidateQueries({ queryKey: ["club-ranking"] });
+      qc.invalidateQueries({ queryKey: ["club-mission-queue"] });
     },
     onError: (e: any) => toast.error(`Falha: ${e?.message ?? e}`),
   });
