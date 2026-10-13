@@ -203,15 +203,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Alonga a janela de um vitalício → conta como aumento de gasto.
   const alongaVitalicio = modoFinal === "vitalicio" && !!plan.end_time && !!endFinal &&
     new Date(endFinal).getTime() > new Date(plan.end_time).getTime();
-  const precisaAdmin = !!pedeOrc || alongaVitalicio || modoFinal !== modoAtual;
-  const guard = precisaAdmin ? "artist_ads_assert_cap_admin" : "artist_ads_assert_write";
-  const { error: roleErr } = await supabase.rpc(guard, { p_company_id: plan.company_id });
+  // D-ERP259: plano de artista → gestor de tráfego do artista pode editar e mudar
+  // orçamento (o teto é verificado no passo 7).
+  const { error: roleErr } = await supabase.rpc("artist_access_check", {
+    p_artist_id: plan.artist_id, p_need: "traffic_write", p_area: null,
+  });
   if (roleErr) {
     return recusa(
       "sem_permissao",
-      precisaAdmin
-        ? "Só um administrador pode alterar o orçamento ou alongar a janela desta campanha."
-        : "Sem permissão para editar campanhas desta conta de artista.",
+      "Sem permissão para editar campanhas deste artista.",
     );
   }
 

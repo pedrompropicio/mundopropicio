@@ -14,9 +14,9 @@ const CLIENT_IDS = /(req\.json\(\)|req\.text\(\)|searchParams|formData\(\))/;
 const ID_FIELD = /\b[a-z_]*(_id|Id|_ids|Ids)\b/;
 // Identidade: sessão de utilizador verificada, service role (chave/verificada no Auth ou
 // claim com verify_jwt=true), segredo partilhado, ou helper partilhado que faz isto.
-const USER_PATH = /(auth\.getUser\(|auth\.getClaims\(|authenticateAndResolveCompany\(|assertCallerRole(OnRow|InCompany)\(|authorize[A-Za-z]*\(|ensureDraft\()/;
+const USER_PATH = /(assertArtistAccess\(|auth\.getUser\(|auth\.getClaims\(|authenticateAndResolveCompany\(|assertCallerRole(OnRow|InCompany)\(|authorize[A-Za-z]*\(|ensureDraft\()/;
 const MACHINE_PATH = /(isServiceRoleRequest\(|role\s*[!=]==\s*["']service_role["']|["']service_role["']\s*[!=]==|SERVICE_ROLE_KEY"\)\s*\?\?\s*"\\u0000"\)|-secret["']|_SECRET["']\)|_TOKEN["']\)|LOVABLE_API_KEY|timingSafeEqual\(|!== `Bearer \$\{SERVICE_ROLE\}`|x-hub-signature|stripe-signature)/i;
-const COMPANY_GUARD = /(assertCallerRole(OnRow|InCompany)\(|authenticateAndResolveCompany\(|canAccessCompany\(|assertResourceCompan|userBelongsToCompany\(|current_company_id|row_belongs_to_current_company|activeCompanyId|active_company_id|\.eq\("company_id"|company_id !==|company_id ===|is_platform_admin|isServiceRoleRequest\(|authorize\()/;
+const COMPANY_GUARD = /(assertArtistAccess\(|assertCallerRole(OnRow|InCompany)\(|authenticateAndResolveCompany\(|canAccessCompany\(|assertResourceCompan|userBelongsToCompany\(|current_company_id|row_belongs_to_current_company|activeCompanyId|active_company_id|\.eq\("company_id"|company_id !==|company_id ===|is_platform_admin|isServiceRoleRequest\(|authorize\()/;
 
 const RLS_SESSION = /global:\s*\{\s*headers:\s*\{\s*Authorization/;
 

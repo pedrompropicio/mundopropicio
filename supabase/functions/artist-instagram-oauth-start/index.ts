@@ -21,6 +21,7 @@ import {
   json,
 } from "../_shared/artist-meta.ts";
 
+import { assertArtistAccess } from "../_shared/artist-access.ts";
 /** Scopes SÓ DE LEITURA. Nunca publicar, nunca mensagens, nunca anúncios. */
 const SCOPES = [
   "instagram_business_basic",
@@ -62,6 +63,7 @@ Deno.serve(async (req) => {
 
   if (chErr) return json({ error: chErr.message }, 500);
   if (!channel) return json({ error: "canal não encontrado" }, 404);
+  { const acc = await assertArtistAccess(req, channel.artist_id, "admin"); if (!acc.ok) return json({ error: acc.error }, acc.status); } // D-ERP259
   if (channel.platform !== "instagram") {
     return json({ error: "o canal não é de Instagram" }, 400);
   }

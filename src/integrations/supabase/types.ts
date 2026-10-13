@@ -2373,6 +2373,71 @@ export type Database = {
           },
         ]
       }
+      artist_user_access: {
+        Row: {
+          access_level: string
+          areas: string[]
+          artist_id: string
+          company_id: string
+          granted_at: string
+          granted_by: string | null
+          id: string
+          revoked_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_level: string
+          areas?: string[]
+          artist_id: string
+          company_id: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          revoked_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_level?: string
+          areas?: string[]
+          artist_id?: string
+          company_id?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          revoked_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_user_access_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artist_user_access_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_benchmark_aligned"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_user_access_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "artist_user_access_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       artists: {
         Row: {
           bio_en: string | null
@@ -19528,6 +19593,27 @@ export type Database = {
         }
         Returns: undefined
       }
+      artist_access_check: {
+        Args: { p_area?: string; p_artist_id: string; p_need?: string }
+        Returns: string
+      }
+      artist_access_grant: {
+        Args: {
+          p_areas: string[]
+          p_artist_id: string
+          p_level: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      artist_access_ok: {
+        Args: { p_area?: string; p_artist_id: string; p_need?: string }
+        Returns: boolean
+      }
+      artist_access_revoke: {
+        Args: { p_artist_id: string; p_user_id: string }
+        Returns: undefined
+      }
       artist_ads_ads: {
         Args: {
           p_artist_id: string
@@ -20123,6 +20209,7 @@ export type Database = {
           roster_type: string
         }[]
       }
+      artist_readable_ids: { Args: never; Returns: string[] }
       artist_s4a_seed_code_consume: {
         Args: { p_code: string }
         Returns: {
@@ -21349,6 +21436,17 @@ export type Database = {
           source_queue: string
         }
         Returns: number
+      }
+      my_artist_access: {
+        Args: never
+        Returns: {
+          access_level: string
+          areas: string[]
+          artist_id: string
+          artist_name: string
+          company_id: string
+          source: string
+        }[]
       }
       my_effective_permissions: {
         Args: { p_universe?: string[] }

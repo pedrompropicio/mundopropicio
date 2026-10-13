@@ -862,6 +862,34 @@
       "when": 1791858283173,
       "tag": "0122_0122_artist_ads_sync_status_connection_id",
       "breakpoints": true
+    },
+    {
+      "idx": 123,
+      "version": "7",
+      "when": 1791860601455,
+      "tag": "0123_0123_derp259_artist_user_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 124,
+      "version": "7",
+      "when": 1791860745691,
+      "tag": "0124_0124_derp259_ignore_default_user_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 125,
+      "version": "7",
+      "when": 1791861245409,
+      "tag": "0125_0125_derp259_artist_tables_rls_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 126,
+      "version": "7",
+      "when": 1791861407800,
+      "tag": "0126_0126_derp259_growth_momentum_scope",
+      "breakpoints": true
     }
   ]
 }

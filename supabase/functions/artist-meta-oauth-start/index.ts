@@ -17,6 +17,7 @@ import {
   redirectUri,
 } from "../_shared/artist-meta.ts";
 
+import { assertArtistAccess } from "../_shared/artist-access.ts";
 const SCOPES = [
   "instagram_basic",
   "instagram_manage_insights",
@@ -67,6 +68,7 @@ Deno.serve(async (req) => {
 
   if (chErr) return json({ error: chErr.message }, 500);
   if (!channel) return json({ error: "canal não encontrado" }, 404);
+  { const acc = await assertArtistAccess(req, channel.artist_id, "admin"); if (!acc.ok) return json({ error: acc.error }, acc.status); } // D-ERP259
   // D-ERP187: a ligação 'meta' vive no canal FACEBOOK do artista; a ligação
   // 'instagram' (Instagram Login) do canal instagram não é tocada.
   if (channel.platform !== "facebook") {

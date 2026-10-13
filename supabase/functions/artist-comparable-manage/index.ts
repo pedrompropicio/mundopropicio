@@ -31,6 +31,7 @@ import {
 import { invokeInternal } from "../_shared/internal-call.ts";
 
 const FUNCTION_NAME = "artist-comparable-manage";
+import { assertArtistAccess, authenticateOnly } from "../_shared/artist-access.ts";
 const ROLES = ["admin", "platform_admin", "manager", "editor"];
 const PLATFORMS = ["tiktok", "instagram", "youtube", "spotify"];
 const BLOCKS_PER_PLATFORM = 5; // 365 dias em blocos de 90 → 5 pedidos
@@ -57,7 +58,7 @@ Deno.serve(async (req) => {
   const admin = adminClient();
 
   try {
-    const caller = await authorize(req, admin, ROLES);
+    const caller = await authenticateOnly(req, admin); // D-ERP259: acesso decidido por artista
     if (!caller.allowed) return json({ error: "Forbidden" }, 403);
     const changedBy = caller.isServiceRole ? "service_role" : (caller.userId ?? "desconhecido");
 
@@ -90,11 +91,9 @@ Deno.serve(async (req) => {
     if (aErr) throw new Error(`artists: ${aErr.message}`);
     if (!artist) return json({ error: "artista não encontrado" }, 404);
 
-    if (!caller.isServiceRole) {
-      const companyIds = await callerCompanyIds(admin, caller.userId!);
-      if (companyIds !== "all" && !companyIds.includes(artist.company_id)) {
-        return json({ error: "Forbidden" }, 403);
-      }
+    {
+      const acc = await assertArtistAccess(req, artistId, "traffic_write");
+      if (!acc.ok) return json({ error: acc.error }, acc.status);
     }
 
     const { data: existing, error: exErr } = await admin

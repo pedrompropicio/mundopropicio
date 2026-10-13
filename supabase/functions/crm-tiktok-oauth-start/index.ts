@@ -8,6 +8,7 @@
 import { adminClient, authorize, callerCompanyIds, corsHeaders, json } from "../_shared/artist-meta.ts";
 import { ADS_ROLES } from "../_shared/artist-ads.ts";
 
+import { assertArtistAccess } from "../_shared/artist-access.ts";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 Deno.serve(async (req) => {
@@ -30,10 +31,11 @@ Deno.serve(async (req) => {
   if (!UUID_RE.test(connectionId)) return json({ error: "connection_id inválido" }, 400);
 
   const { data: conn, error } = await (admin as any).schema("crm").from("ad_platform_connections")
-    .select("id, company_id, platform").eq("id", connectionId).maybeSingle();
+    .select("id, company_id, platform, artist_id").eq("id", connectionId).maybeSingle();
   if (error) return json({ error: error.message }, 500);
   if (!conn) return json({ error: "ligação não encontrada" }, 404);
   if (conn.platform !== "tiktok") return json({ error: "a ligação não é TikTok" }, 400);
+  if (conn.artist_id) { const acc = await assertArtistAccess(req, conn.artist_id, "admin"); if (!acc.ok) return json({ error: acc.error }, acc.status); } // D-ERP259
 
   if (!caller.isServiceRole) {
     const companies = await callerCompanyIds(admin, caller.userId!);

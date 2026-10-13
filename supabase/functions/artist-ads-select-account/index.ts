@@ -15,6 +15,7 @@ import {
   loadAdsConnection,
 } from "../_shared/artist-ads.ts";
 
+import { assertArtistAccess } from "../_shared/artist-access.ts";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
@@ -41,6 +42,7 @@ Deno.serve(async (req) => {
 
   const scope = await artistInCallerScope(admin, conn.artist_id, caller);
   if (!scope.ok) return json({ error: scope.error }, scope.status);
+  { const acc = await assertArtistAccess(req, conn.artist_id, "admin"); if (!acc.ok) return json({ error: acc.error }, acc.status); } // D-ERP259
 
   const options = (conn.available_ad_accounts ?? []) as Array<
     { id?: string; account_id?: string; name?: string; currency?: string }

@@ -16,6 +16,7 @@ import {
 } from "../_shared/artist-meta.ts";
 import { tiktokCreds, ttRevoke } from "../_shared/artist-tiktok.ts";
 
+import { assertArtistAccess } from "../_shared/artist-access.ts";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
@@ -44,6 +45,7 @@ Deno.serve(async (req) => {
     .eq("id", channelId)
     .maybeSingle();
   if (!channel) return json({ error: "canal não encontrado" }, 404);
+  { const acc = await assertArtistAccess(req, channel.artist_id, "admin"); if (!acc.ok) return json({ error: acc.error }, acc.status); } // D-ERP259
 
   if (!caller.isServiceRole) {
     const companies = await callerCompanyIds(admin, caller.userId!);

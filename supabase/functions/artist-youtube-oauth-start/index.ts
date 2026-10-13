@@ -18,6 +18,7 @@ import {
 import { ADS_ROLES, artistInCallerScope } from "../_shared/artist-ads.ts";
 import { ytRedirectUri } from "../_shared/artist-youtube.ts";
 
+import { assertArtistAccess } from "../_shared/artist-access.ts";
 // D-ERP134 (01/10): só yt-analytics.readonly. Dados públicos do canal vêm pela
 // chave de API (YOUTUBE_PUBLIC_API_KEY), sem OAuth.
 export const YT_SCOPES = "https://www.googleapis.com/auth/yt-analytics.readonly";
@@ -46,6 +47,7 @@ Deno.serve(async (req) => {
 
   const scope = await artistInCallerScope(admin, artistId, caller);
   if (!scope.ok) return json({ error: scope.error }, scope.status);
+  { const acc = await assertArtistAccess(req, artistId, "admin"); if (!acc.ok) return json({ error: acc.error }, acc.status); } // D-ERP259
   const artist = scope.artist;
 
   const { data: channel } = await admin
