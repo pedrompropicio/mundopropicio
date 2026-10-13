@@ -32,3 +32,6 @@ Nada em execução. #62 (10/10, D-ERP230): casamento clique↔lead corrigido no 
 Antes escrevia em `raw`/`metrics` e o cron 242 (3h) apagava tudo. `artist_ads_daily` e
 `artist_ads_campaigns` lêem `coalesce(video_metrics->>'video_views', raw->>'video_views')`.
 Cron por criar em Live: `crm-google-video-metrics-3h`, `'20 */3 * * *'`, `{"days":7}`.
+
+## Enqueue de conversões de lead (13/10/2026, D-ERP260)
+O enqueue parte dos leads da janela de 90 dias, sem corte por volume de cliques; se o limite de 20.000 leads for atingido, a resposta diz `limit_reached:true`. A 13/10 enfileirou 16 (todos por identificador) e havia 78 já enviados. Ficam fora, por regra: 14 leads duplicados do mesmo gclid, 10 cliques sem consentimento e 1 lead sem clique.
