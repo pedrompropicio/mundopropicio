@@ -1,4 +1,4 @@
--- PROPOSTA de DML — Portal newgangfestival.pt (F1). NÃO APLICADO. Aguarda OK do Pedro.
+-- DML de sementeira — APLICADO em Live a 2026-10-13 com OK do Pedro (incl. passo 6).
 -- Empresa MP 7c858982-6ccd-47ca-bd65-e0dd3eebf01c · evento 407f43fc-790f-4ea7-8b2a-4162805dfb16.
 
 BEGIN;
@@ -41,12 +41,12 @@ WHERE s.domain = 'newgangfestival.pt';
 
 -- 6) OPCIONAL (decisão do Pedro): backfill das inscrições clube_newgang já processadas como membros
 --    NÃO confirmados (sem pontos até clicarem no link). Ordem de member_no = ordem de inscrição.
--- SELECT public.club_upsert_member(s.id, lc.email, split_part(coalesce(lc.name,''),' ',1), lc.phone,
---        (SELECT c.id FROM public.contacts c WHERE lower(trim(c.email)) = lower(trim(lc.email)) AND c.company_id = s.company_id LIMIT 1),
---        lc.raw->>'referral_code', 'importacao')
---   FROM public.lead_capture lc CROSS JOIN public.portal_sites s
---  WHERE s.domain = 'newgangfestival.pt' AND lc.source = 'clube_newgang' AND lc.processed AND lc.email IS NOT NULL
---    AND lc.company_id = s.company_id
---  ORDER BY lc.created_at;
+SELECT public.club_upsert_member(s.id, lc.email, split_part(coalesce(lc.name,''),' ',1), lc.phone,
+       (SELECT c.id FROM public.contacts c WHERE lower(trim(c.email)) = lower(trim(lc.email)) AND c.company_id = s.company_id LIMIT 1),
+       lc.raw->>'referral_code', 'importacao')
+  FROM public.lead_capture lc CROSS JOIN public.portal_sites s
+ WHERE s.domain = 'newgangfestival.pt' AND lc.source = 'clube_newgang' AND lc.processed AND lc.email IS NOT NULL
+   AND lc.company_id = s.company_id
+ ORDER BY lc.created_at;
 
 COMMIT;

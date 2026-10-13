@@ -30,7 +30,7 @@ Geral · Line-up e revelações (LineupTab estendido + revelações + pré-visua
 `src/test/newgang-portal.test.ts` (10).
 
 ## Por fazer
-- DML de sementeira: `supabase/manual/20261013_newgang_portal_seed.PROPOSTA.sql` — aguarda OK.
+- DML de sementeira aplicado em Live a 13/10/2026 (`supabase/manual/20261013_newgang_portal_seed.sql`): 1 site, 5 edições, 6 regras, 3 níveis, 4 faixas de prémios, 2 membros por confirmar (backfill). Fluxo completo testado (inscrição → link → +100/+150 idempotente) e dados de teste apagados.
 - Preencher o preview do projeto novo em `newgang-portal` e `portal-track`.
 - Tokens `buyer_confirm` para o email aos compradores 2026 (envio fora de âmbito).
 - Pontos `friend_bought` / `promo_lot_purchase` dependem de importações Fever (fora de âmbito).
