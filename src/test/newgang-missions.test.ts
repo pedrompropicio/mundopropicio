@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { missionsFrom, normalizeHandle, normalizeProofUrl, publicMission } from "../../supabase/functions/newgang-portal/missions";
+import { missionsFrom, normalizeHandle, normalizeProofUrl, publicMission, submitErrorStatus } from "../../supabase/functions/newgang-portal/missions";
 import { assertNoTotals } from "../../supabase/functions/newgang-portal/lineup";
 
 const pu = (p: string) => `https://cdn/${p}`;

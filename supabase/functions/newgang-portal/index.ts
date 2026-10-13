@@ -461,7 +461,7 @@ Deno.serve(async (req) => {
         const { data: r, error } = await sb.rpc("club_mission_submit", { p_member: member.id, p_mission: body.mission_id, p_url: url, p_image: img });
         if (error) throw error;
         const res = r as { status?: string; error?: string };
-        if (res.error) return json({ error: res.error }, res.error === "closed" || res.error === "already_submitted" || res.error === "duplicate" ? 409 : 400);
+        if (res.error) return json({ error: res.error }, submitErrorStatus(res.error));
         return json({ status: res.status });
       }
       case "confirm_buyer": {
