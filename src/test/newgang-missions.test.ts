@@ -43,3 +43,14 @@ describe("missões — normalização", () => {
     expect(normalizeProofUrl("javascript:alert(1)")).toBeNull();
   });
 });
+
+describe("missões — estado HTTP dos erros da RPC", () => {
+  it("sessão inválida → 401 (não 400), como nas outras ações com token", () => {
+    expect(submitErrorStatus("no_session")).toBe(401);
+    expect(submitErrorStatus("closed")).toBe(409);
+    expect(submitErrorStatus("already_submitted")).toBe(409);
+    expect(submitErrorStatus("duplicate")).toBe(409);
+    expect(submitErrorStatus("url")).toBe(400);
+    expect(submitErrorStatus("proof_type")).toBe(400);
+  });
+});
