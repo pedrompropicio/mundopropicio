@@ -11091,6 +11091,33 @@ export type Database = {
         }
         Relationships: []
       }
+      ip_city_ranges: {
+        Row: {
+          city: string | null
+          country: string
+          ip_from: unknown
+          ip_to: unknown
+          region: string | null
+          source_month: string
+        }
+        Insert: {
+          city?: string | null
+          country: string
+          ip_from: unknown
+          ip_to: unknown
+          region?: string | null
+          source_month: string
+        }
+        Update: {
+          city?: string | null
+          country?: string
+          ip_from?: unknown
+          ip_to?: unknown
+          region?: string | null
+          source_month?: string
+        }
+        Relationships: []
+      }
       ip_geo_cache: {
         Row: {
           city: string | null
@@ -21429,6 +21456,16 @@ export type Database = {
         }[]
       }
       help_sync_article: { Args: { _payload: Json }; Returns: Json }
+      ip_city_lookup: {
+        Args: { ip: unknown }
+        Returns: {
+          city: string
+          country: string
+          region: string
+        }[]
+      }
+      ip_city_ranges_clear_month: { Args: { _month: string }; Returns: number }
+      ip_city_ranges_swap: { Args: { _month: string }; Returns: number }
       is_platform_admin: { Args: { _user_id?: string }; Returns: boolean }
       is_public_portal_company: {
         Args: { _company_id: string }
