@@ -19,11 +19,14 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
+import { useCompanyFeatures } from "@/hooks/useCompanyFeatures";
+import { FEATURES } from "@/lib/features";
 
 export function CrmSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut, hasPermission } = useAuth();
+  const features = useCompanyFeatures();
   const [showChangePassword, setShowChangePassword] = useState(false);
 
   const items = [
@@ -31,8 +34,8 @@ export function CrmSidebar() {
     { to: "/crm/eventos", icon: CalendarDays, label: "Eventos" },
     { to: "/crm/contactos", icon: Users, label: "Contactos" },
     { to: "/crm/leads", icon: Inbox, label: "Contactos & tráfego" },
-    { to: "/crm/clube-newgang", icon: Users, label: "Clube Newgang" },
-    { to: "/crm/sites/newgang", icon: Globe, label: "Site Newgang" },
+    { to: "/crm/clube-newgang", icon: Users, label: "Clube Newgang", feature: FEATURES.CRM_CLUBE_NEWGANG },
+    { to: "/crm/sites/newgang", icon: Globe, label: "Site Newgang", feature: FEATURES.CRM_SITE_NEWGANG },
     { to: "/crm/audiences", icon: Target, label: "Audiências" },
     { to: "/crm/blog", icon: FileText, label: "Blog" },
     { need: "settings.portal", to: "/crm/paginas", icon: FilePen, label: "Páginas" },
@@ -64,7 +67,7 @@ export function CrmSidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 px-2 lg:px-3 w-full overflow-y-auto">
-        {items.filter((item: any) => !item.need || hasPermission(item.need)).map((item) => {
+        {items.filter((item: any) => (!item.need || hasPermission(item.need)) && (!item.feature || features.has(item.feature))).map((item) => {
           const active = isItemActive(item.to, item.end);
           return (
             <RouterNavLink
