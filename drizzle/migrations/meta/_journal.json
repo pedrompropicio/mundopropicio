@@ -897,6 +897,13 @@
       "when": 1791861881549,
       "tag": "0127_0127_derp259_content_views_perf",
       "breakpoints": true
+    },
+    {
+      "idx": 128,
+      "version": "7",
+      "when": 1791861929470,
+      "tag": "0128_0128_derp259_content_latest_metrics_fn",
+      "breakpoints": true
     }
   ]
 }

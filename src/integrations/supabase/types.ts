@@ -19046,6 +19046,15 @@ export type Database = {
       }
       _clube_newgang_assert_access: { Args: never; Returns: undefined }
       _clube_newgang_birth: { Args: { p_raw: Json }; Returns: string }
+      _content_latest_metrics: {
+        Args: never
+        Returns: {
+          content_id: string
+          metric: string
+          metric_date: string
+          value: number
+        }[]
+      }
       _derive_paid_amount: { Args: { p_tx_id: string }; Returns: undefined }
       _effective_permissions_for: {
         Args: { _company_id: string; _universe?: string[]; _user_id: string }
