@@ -5017,6 +5017,7 @@ export type Database = {
           email: string
           first_name: string | null
           id: string
+          instagram_handle: string | null
           member_no: number
           phone: string | null
           referral_code: string
@@ -5025,6 +5026,7 @@ export type Database = {
           source: string
           terms_accepted_at: string | null
           terms_version: number | null
+          tiktok_handle: string | null
           updated_at: string
         }
         Insert: {
@@ -5035,6 +5037,7 @@ export type Database = {
           email: string
           first_name?: string | null
           id?: string
+          instagram_handle?: string | null
           member_no: number
           phone?: string | null
           referral_code: string
@@ -5043,6 +5046,7 @@ export type Database = {
           source: string
           terms_accepted_at?: string | null
           terms_version?: number | null
+          tiktok_handle?: string | null
           updated_at?: string
         }
         Update: {
@@ -5053,6 +5057,7 @@ export type Database = {
           email?: string
           first_name?: string | null
           id?: string
+          instagram_handle?: string | null
           member_no?: number
           phone?: string | null
           referral_code?: string
@@ -5061,6 +5066,7 @@ export type Database = {
           source?: string
           terms_accepted_at?: string | null
           terms_version?: number | null
+          tiktok_handle?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -5101,6 +5107,176 @@ export type Database = {
           },
           {
             foreignKeyName: "club_members_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      club_mission_submissions: {
+        Row: {
+          auto_approved: boolean
+          company_id: string
+          created_at: string
+          id: string
+          member_id: string
+          mission_id: string
+          proof_image_path: string | null
+          proof_url: string | null
+          reject_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          auto_approved?: boolean
+          company_id: string
+          created_at?: string
+          id?: string
+          member_id: string
+          mission_id: string
+          proof_image_path?: string | null
+          proof_url?: string | null
+          reject_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          auto_approved?: boolean
+          company_id?: string
+          created_at?: string
+          id?: string
+          member_id?: string
+          mission_id?: string
+          proof_image_path?: string | null
+          proof_url?: string | null
+          reject_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_mission_submissions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_mission_submissions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "club_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_mission_submissions_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "club_missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      club_missions: {
+        Row: {
+          approval: string
+          assets: Json
+          caption_suggestion: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          ends_at: string | null
+          finalist_points: number | null
+          hashtag: string | null
+          id: string
+          judging_until: string | null
+          kind: string
+          mention: string | null
+          network: string
+          points: number
+          proof_type: string
+          site_id: string
+          sort: number
+          starts_at: string | null
+          status: string
+          title: string
+          updated_at: string
+          winner_points: number | null
+        }
+        Insert: {
+          approval?: string
+          assets?: Json
+          caption_suggestion?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          ends_at?: string | null
+          finalist_points?: number | null
+          hashtag?: string | null
+          id?: string
+          judging_until?: string | null
+          kind?: string
+          mention?: string | null
+          network?: string
+          points?: number
+          proof_type?: string
+          site_id: string
+          sort?: number
+          starts_at?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          winner_points?: number | null
+        }
+        Update: {
+          approval?: string
+          assets?: Json
+          caption_suggestion?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          ends_at?: string | null
+          finalist_points?: number | null
+          hashtag?: string | null
+          id?: string
+          judging_until?: string | null
+          kind?: string
+          mention?: string | null
+          network?: string
+          points?: number
+          proof_type?: string
+          site_id?: string
+          sort?: number
+          starts_at?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          winner_points?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_missions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_missions_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_missions_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "portal_sites_public"
@@ -20762,6 +20938,15 @@ export type Database = {
         Args: { p_member: string; p_ref: string; p_rule: string }
         Returns: number
       }
+      club_award_fixed: {
+        Args: {
+          p_member: string
+          p_points: number
+          p_ref: string
+          p_rule: string
+        }
+        Returns: number
+      }
       club_claim_attendance: {
         Args: { p_member: string; p_year: number }
         Returns: string
@@ -20776,6 +20961,20 @@ export type Database = {
         Returns: undefined
       }
       club_gen_referral_code: { Args: never; Returns: string }
+      club_mission_review: {
+        Args: { p_reason?: string; p_status: string; p_subs: string[] }
+        Returns: number
+      }
+      club_mission_submit: {
+        Args: {
+          p_image: string
+          p_member: string
+          p_mission: string
+          p_url: string
+        }
+        Returns: Json
+      }
+      club_mission_sync_points: { Args: { p_sub: string }; Returns: undefined }
       club_ranking: {
         Args: { p_limit?: number; p_site: string }
         Returns: {
