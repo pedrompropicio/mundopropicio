@@ -52,3 +52,13 @@ describe("D-ERP264 — regras de BP nos itens de camarim", () => {
     expect(settlementPreview(100, 100).type).toBe("balanced");
   });
 });
+
+describe("D-ERP264 — regra (5) removida do ecrã da sessão", () => {
+  it("CamarimSessionDetail já não bloqueia por gasto acima do adiantamento", async () => {
+    const fs = await import("node:fs");
+    const src = fs.readFileSync("src/pages/CamarimSessionDetail.tsx", "utf8");
+    expect(src).not.toMatch(/diferença muito grande/);
+    expect(src).not.toMatch(/advanceNet \* 0\.1/);
+    expect(src).toMatch(/lineShortfalls\(/);
+  });
+});
