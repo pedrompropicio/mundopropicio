@@ -5881,3 +5881,9 @@ Origem: TikTok BR do Litto (7689229625189138438) ficou com saldo 0 a 13/10 e est
 - Regras de revelação e formatos inalterados.
 
 **Porquê.** A medição mostrou que cada ida à base custa ~150 ms a partir da função e que quase todos os pedidos arrancam instância nova (a cache de 60 s de `getSite()` quase nunca acerta). Antes: getSite ~150–400 ms + consultas ~140–450 ms (total servidor 300–780 ms). Depois: uma ida, total servidor ~155–250 ms (picos ~400 ms).
+
+### Adenda D-ERP265 — Separador Cachê sobre vendas reais (13/10/2026)
+- **Problema.** O cabeçalho e o Total do separador Cachê usavam a lotação posta à venda (lotes × preço, ocupação 100%) e só o BP do Master nas deduções. No Master "Deive Leonardo": 109.207,55 € → 43.683,02 €, contra 58.532,08 € de vendas reais e 23.097,66 € nas linhas de BP cache_module.
+- **Decisão (Pedro).** O total do cachê é SEMPRE calculado sobre `ticket_sales`, em todos os eventos. Master de turnê: total = Σ cidades (cálculo real da cidade com BP da cidade + 1/N do Master, mínimo garantido cidade a cidade, settlement da cidade com prioridade) = linhas de BP cache_module = cartão Custos. A projeção com lotação esgotada só aparece como "Projeção 100% vendido: X €", nunca como total nem base de fecho/pagamento.
+- **Implementação.** `src/lib/cache-tab-total.ts` (`computeCacheTabAmount`, `cacheTabRevenue`) sobre `useRealCacheCalculation` (agora ligado em qualquer estado do evento). Teste `src/lib/__tests__/cache-tab-total.test.ts`.
+- **Impacto (Live).** Só 3 cachês variáveis, todos Master de turnê: Deive 43.683,02 → 23.097,66; Maiara e Maraísa e Simone Mendes também mostravam a projeção. Nenhum fecho nem pagamento usou a projeção (pagamentos 2.1.01 batem com o BP real).
