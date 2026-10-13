@@ -76,6 +76,11 @@ async function readBalance(c: Conn, tok: string): Promise<{ balance: number | nu
       raw[`balance_bc_${bc}`] = scrub(r);
       if (r.ok) {
         const row = (r.data?.advertiser_account_list ?? []).find((x: any) => String(x.advertiser_id) === adv);
+        // Portfolio PARTILHADO: o saldo vive no portfolio, o account_balance do anunciante fica 0 mesmo a gastar.
+        if (row && String(row.payment_portfolio_type ?? "").toUpperCase() === "SHARED") {
+          return { balance: null, source: "tiktok_portfolio_partilhado", raw,
+            ilegivelMsg: `Saldo TikTok ilegível: a conta usa o Payment Portfolio partilhado ${row.payment_portfolio_id ?? ""} (o saldo por anunciante vem 0)` };
+        }
         const v = row?.account_balance ?? row?.valid_account_balance ?? row?.cash_balance;
         if (v !== undefined && v !== null && Number.isFinite(Number(v))) return { balance: Number(v), source: "tiktok_bc_balance", raw };
       }
