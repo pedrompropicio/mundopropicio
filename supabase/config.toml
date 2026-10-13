@@ -803,3 +803,6 @@ verify_jwt = true
 
 [functions.dbip-city-sync]
 verify_jwt = true
+
+[functions.artist-ads-balance-probe]
+verify_jwt = true
