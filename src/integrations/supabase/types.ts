@@ -20209,6 +20209,7 @@ export type Database = {
           roster_type: string
         }[]
       }
+      artist_readable_ids: { Args: never; Returns: string[] }
       artist_s4a_seed_code_consume: {
         Args: { p_code: string }
         Returns: {
