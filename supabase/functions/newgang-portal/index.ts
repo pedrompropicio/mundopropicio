@@ -227,7 +227,12 @@ Deno.serve(async (req) => {
           const { data: em } = await sb.from("event_marketing").select("ticket_lots").eq("event_id", site.event_id).maybeSingle();
           ticketing = { url: ev?.ticketing_url ?? null, lots: em?.ticket_lots ?? null };
         }
-        return json({ site: data, trackers, ticketing });
+        // Montra pública do Clube: só configuração (níveis e regras de pontos), sem membros nem totais.
+        const [{ data: lv }, { data: rl }] = await Promise.all([
+          sb.from("club_levels").select("name, min_points, benefit").eq("site_id", site.id).order("min_points"),
+          sb.from("club_point_rules").select("rule_key, label, points").eq("site_id", site.id).eq("active", true).order("points"),
+        ]);
+        return json({ site: data, trackers, ticketing, club: { levels: lv ?? [], rules: rl ?? [] } });
       }
       case "lineup": {
         if (!site.event_id) return json({ state: "expectativa", latest_reveal: null, confirmed: [], next_reveal: null });
