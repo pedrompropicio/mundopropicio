@@ -65,7 +65,7 @@ export function inflatePart(inp: Uint8Array, startBit: number, win: Uint8Array, 
     const o2 = new Uint8Array(Math.max(out.length * 2, op + n)); o2.set(out.subarray(0, op)); out = o2;
   };
   const sym = (tb: Table) => {
-    need(tb.bits > bc ? Math.min(tb.bits, bc + 8 * Math.max(0, inp.length - pos)) || tb.bits : tb.bits);
+    need(tb.bits);
     const e = tb.t[bb & ((1 << tb.bits) - 1)];
     if (e < 0) throw new Error("inflate: código inválido");
     const l = e & 15; if (l > bc) need(l);
@@ -78,9 +78,9 @@ export function inflatePart(inp: Uint8Array, startBit: number, win: Uint8Array, 
     if (!inputIsEof && inp.length - (boundary >>> 3) < safeEnd) break;
     const fin = bits(1); const type = bits(2);
     if (type === 0) {
-      bb = 0; bc = 0; // alinhar ao byte (descarta o resto do byte)
-      // corrigir pos: os bits que estavam no buffer já foram descartados; voltar a calcular
-      need(32); const len = bb & 0xffff; bb = 0; bc = 0;
+      bits(bc & 7); pos -= bc >>> 3; bb = 0; bc = 0; // alinhar ao byte
+      if (pos + 4 > inp.length) throw new NeedMoreInput();
+      const len = inp[pos] | (inp[pos + 1] << 8); pos += 4;
       if (pos + len > inp.length) throw new NeedMoreInput();
       ensure(len); out.set(inp.subarray(pos, pos + len), op); op += len; pos += len;
     } else {
