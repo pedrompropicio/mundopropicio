@@ -214,6 +214,52 @@ async function loadHistoryPayload(site: any) {
   return { editions: data ?? [] };
 }
 
+// Leitura pública numa só ida à base: o site com o evento, o line-up e o Clube embutidos (FKs),
+// em paralelo com a vista pública do site e as edições. Mede-se ~1 ida (~150 ms) em vez de 2–3.
+const LINEUP_COLS = "id, reveal_id, artist_name, artist_image_url, artist_bio_pt, artist_bio_en, category, video_url, listen_url, display_order";
+async function loadPublic(want: { site?: boolean; lineup?: boolean; history?: boolean }) {
+  const embed = [
+    "id, event_id, brand_key, company_id",
+    want.site ? "club_levels(name, min_points, benefit), club_point_rules(rule_key, label, points, active)" : "",
+    `events(${[
+      want.site ? "ticketing_url, event_trackers(platform, tracker_id)" : "",
+      "event_marketing(ticket_lots, lineup_complete)",
+      want.lineup ? `event_lineup_reveals(id, club_at, public_at, clues, status), event_lineups(${LINEUP_COLS})` : "",
+    ].filter(Boolean).join(", ")})`,
+  ].filter(Boolean).join(", ");
+  const none = Promise.resolve({ data: null }) as any;
+  const [{ data: row }, { data: pubRows }, { data: eds }] = await Promise.all([
+    sb.from("portal_sites").select(embed).eq("domain", SITE_DOMAIN).eq("active", true).maybeSingle(),
+    want.site ? sb.from("portal_sites_public").select("*").eq("domain", SITE_DOMAIN) : none,
+    want.history ? sb.from("festival_editions_public").select("*").order("year", { ascending: false }).order("sort") : none,
+  ]) as any;
+  if (!row) return null;
+  const ev = row.event_id ? row.events : null;
+  const one = (x: any) => (Array.isArray(x) ? x[0] ?? null : x ?? null);
+  const em = ev ? one(ev.event_marketing) : null;
+  const out: { site?: unknown; lineupRaw?: Awaited<ReturnType<typeof loadLineupRaw>>; history?: unknown } = {};
+  if (want.site) {
+    const levels = [...(row.club_levels ?? [])].sort((a: any, b: any) => a.min_points - b.min_points);
+    const rules = (row.club_point_rules ?? []).filter((r: any) => r.active)
+      .sort((a: any, b: any) => a.points - b.points).map(({ active: _a, ...r }: any) => r);
+    out.site = {
+      site: (pubRows ?? []).find((r: any) => r.id === row.id) ?? null,
+      trackers: ev ? (ev.event_trackers ?? []) : [],
+      ticketing: ev ? { url: ev.ticketing_url ?? null, lots: em?.ticket_lots ?? null } : null,
+      club: { levels, rules },
+    };
+  }
+  if (want.lineup) {
+    out.lineupRaw = ev ? {
+      reveals: ev.event_lineup_reveals ?? [],
+      acts: (ev.event_lineups ?? []).filter((a: any) => a.reveal_id != null),
+      lineupComplete: !!em?.lineup_complete,
+    } : null;
+  }
+  if (want.history) out.history = { editions: (eds ?? []).filter((e: any) => e.brand_key === row.brand_key) };
+  return out;
+}
+
 Deno.serve(async (req) => {
   const T0 = performance.now();
   const timings: Array<[string, number]> = [];
@@ -268,6 +314,23 @@ Deno.serve(async (req) => {
     const ipHash = await sha256(clientIp(req) + ":ng");
     const { data: ok } = await sb.rpc("portal_rate_hit", { p_bucket: `ng:${body.action}:${ipHash}`, p_max: 20, p_window_seconds: 600 });
     if (ok === false) return json({ error: "rate_limited" }, 429);
+  }
+
+  // Leituras públicas sem token: caminho rápido, sem getSite() à parte.
+  const PUBLIC = { site: { site: true }, history: { history: true }, lineup: { lineup: true },
+    bundle: { site: true, lineup: true, history: true } } as Record<string, Parameters<typeof loadPublic>[0]>;
+  if (PUBLIC[body.action] && (body.action !== "lineup" || !body.token)) {
+    try {
+      const r = await timed(timer, "db", loadPublic(PUBLIC[body.action]));
+      if (!r) return json({ error: "site_not_configured" }, 503);
+      if (body.action === "site") return json(r.site);
+      if (body.action === "history") return json(r.history);
+      if (body.action === "lineup") return json(lineupFrom(r.lineupRaw!, false));
+      return json({ site: r.site, lineup: lineupFrom(r.lineupRaw!, false), history: r.history });
+    } catch (e) {
+      console.error("newgang-portal", body.action, (e as Error).message);
+      return json({ error: "internal" }, 500);
+    }
   }
 
   const site = await timed(timer, "getSite", getSite());
