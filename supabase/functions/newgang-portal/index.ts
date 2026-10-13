@@ -7,6 +7,7 @@ import { assertNoTotals, buildLineup, displayName } from "./lineup.ts";
 import { assemblePublic, bundleFrom, lineupFrom, regulationFrom, termsMeta, type Want } from "./public.ts";
 import { clubEmail } from "./email.ts";
 import { ASSET_BUCKET, PROOF_BUCKET, PROOF_EXT, missionsFrom, normalizeHandle, normalizeProofUrl, submitErrorStatus } from "./missions.ts";
+import { buildHistory } from "./history.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 // Preview do projeto Lovable do portal (1a915f50-…).
@@ -169,6 +170,25 @@ async function notifyPending(site: { id: string; company_id: string }, memberId?
     catch (e) { console.error("notify_pending", m.id, (e as Error).message); }
   }
   return sent;
+}
+
+async function myHistory(siteId: string, memberId: string) {
+  const [{ data: rows }, { data: rules }] = await Promise.all([
+    sb.from("club_points").select("rule_key, points, ref_id, created_at").eq("member_id", memberId).order("created_at", { ascending: false }).limit(5000),
+    sb.from("club_point_rules").select("rule_key, label").eq("site_id", siteId),
+  ]);
+  const pts = (rows ?? []) as any[];
+  const friendIds = [...new Set(pts.filter((r) => r.rule_key.startsWith("friend_") && r.ref_id).map((r) => r.ref_id))];
+  const subIds = [...new Set(pts.filter((r) => r.rule_key.startsWith("mission") && r.ref_id).map((r) => r.ref_id))];
+  const [{ data: friends }, { data: subs }] = await Promise.all([
+    friendIds.length ? sb.from("club_members").select("id, first_name, referred_by_member_id").in("id", friendIds).eq("referred_by_member_id", memberId) : Promise.resolve({ data: [] as any[] }),
+    subIds.length ? sb.from("club_mission_submissions").select("id, club_missions(title)").in("id", subIds).eq("member_id", memberId) : Promise.resolve({ data: [] as any[] }),
+  ]);
+  const missions: Record<string, string> = {};
+  for (const s of (subs ?? []) as any[]) if (s.club_missions?.title) missions[s.id] = s.club_missions.title;
+  const ruleLabels: Record<string, string> = {};
+  for (const r of (rules ?? []) as any[]) ruleLabels[r.rule_key] = r.label;
+  return buildHistory(memberId, pts, { ruleLabels, friends: (friends ?? []) as any[], missions });
 }
 
 async function mySubmissions(memberId: string) {
@@ -409,6 +429,7 @@ Deno.serve(async (req) => {
           referral_code: member.referral_code,
           instagram_handle: member.instagram_handle ?? null, tiktok_handle: member.tiktok_handle ?? null,
           submissions: await mySubmissions(member.id),
+          history: await myHistory(site.id, member.id),
         });
       }
       case "guess": {

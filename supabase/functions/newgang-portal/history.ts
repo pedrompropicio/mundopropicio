@@ -30,7 +30,8 @@ export function shortName(full: string | null | undefined): string | null {
   return w.length === 1 ? w[0] : `${w[0]} ${w[w.length - 1][0].toUpperCase()}.`;
 }
 
-export const isVoid = (r: PointRow) => r.points < 0 || /(^void|_void$|_anulad[oa]$)/.test(r.rule_key);
+// Anulação = movimento negativo (o ranking soma os valores tal como estão gravados).
+export const isVoid = (r: PointRow) => r.points < 0;
 
 export function buildHistory(
   memberId: string,
@@ -41,7 +42,7 @@ export function buildHistory(
   const sorted = [...rows].sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
   const item = (r: PointRow): HistoryItem => {
     const ref = r.ref_id ?? "";
-    if (isVoid(r)) return { at: r.created_at, points: -Math.abs(r.points), label: VOID_LABEL, detail: ref && !UUID.test(ref) ? ref : null };
+    if (isVoid(r)) return { at: r.created_at, points: r.points, label: VOID_LABEL, detail: ref && !UUID.test(ref) ? ref : null };
     let detail: string | null = null;
     if (r.rule_key.startsWith("friend_")) detail = shortName(friends.get(ref)?.first_name);
     else if (r.rule_key.startsWith("mission")) detail = opts.missions?.[ref] ?? null;
@@ -52,7 +53,7 @@ export function buildHistory(
   const rest = sorted.slice(HISTORY_LIMIT);
   if (rest.length) {
     // Garante soma do history = points do "me" mesmo com >100 movimentos.
-    const sum = rest.reduce((s, r) => s + (isVoid(r) ? -Math.abs(r.points) : r.points), 0);
+    const sum = rest.reduce((s, r) => s + r.points, 0);
     head.push({ at: rest[0].created_at, points: sum, label: OLDER_LABEL, detail: `${rest.length} movimentos` });
   }
   return head;
