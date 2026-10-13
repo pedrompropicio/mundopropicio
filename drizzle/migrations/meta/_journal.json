@@ -960,6 +960,13 @@
       "when": 1791913175751,
       "tag": "0136_cache_config_master_or_children",
       "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "7",
+      "when": 1791914907740,
+      "tag": "0137_realtime_event_financials",
+      "breakpoints": true
     }
   ]
 }
