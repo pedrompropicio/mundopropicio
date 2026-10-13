@@ -5853,3 +5853,9 @@ Origem: TikTok BR do Litto (7689229625189138438) ficou com saldo 0 a 13/10 e est
 - Leitura: `artist_ads_open_alerts(p_artist_id)` → kind, severity, platform, account_id, message, detected_at, days_left (só abertos; alta primeiro). Exige artist_access_check(...,'read','traffic').
 - Migrações 0138 e 0139. Simulação 13/10 TikTok BR: média 9–11/10 = 1.940,14; com saldo 0 → saldo_critico às 21:00 de 12/10; entrega com média 10–12/10 = 2.025,60 e gasto 0 → parada às 10:00 (esperado 844,00), 13:00 (1.097,20), 17:00 (1.434,80).
 - Adenda D-ERP266 (13/10/2026): confirmação gravação a gravação. Gravações diretas de camarim, do fecho da bilheteira e da revisão de verbas do fecho passam a chamar o helper no fim. A subscrição Realtime de ticket_sales (sem event_id) filtra por zone_id das zonas do evento e a de deduções/escalões por cache_config_id: um import de 3.418 linhas noutro evento (13/10) deixava de chegar a todos os detalhes de evento abertos da empresa. DELETE de ticket_sales não é subscrito (o Realtime não filtra DELETE e só traz o id); um re-import volta a inserir.
+
+## D-ERP268 — Funções exclusivas de uma marca por company_features (13/10/2026)
+- Itens de menu e rotas exclusivos de uma empresa (Clube Newgang, Site Newgang, Sync Coala/Fever/Health) só aparecem/abrem com a chave em `company_features`. Rota sem chave → "Não disponível nesta empresa" (`RequireFeature`).
+- Chaves novas: `crm-clube-newgang`, `crm-site-newgang` (sementeira na Mundo Propício pendente de OK).
+- Contactos: o seletor de listas junta "Audiências" e "Por origem" (source), genérico para qualquer empresa.
+- Dados já isolados por RLS RESTRICTIVE `row_belongs_to_current_company` — a mudança é só de interface.
