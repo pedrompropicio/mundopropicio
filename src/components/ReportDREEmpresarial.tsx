@@ -1,4 +1,5 @@
 import { EventNatureFilter } from "@/components/EventNatureFilter";
+import { findTicketCategoryId } from "@/lib/ticket-category";
 import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -167,11 +168,7 @@ export default function ReportDREEmpresarial() {
   });
 
   const ticketCategoryId = useMemo(
-    () => categories.find(
-      (c) => c.name.toLowerCase().includes("venda de bilhete") ||
-             c.name.toLowerCase().includes("bilhetes") ||
-             c.name.toLowerCase().includes("bilheteira")
-    )?.id ?? null,
+    () => findTicketCategoryId(categories),
     [categories]
   );
 
