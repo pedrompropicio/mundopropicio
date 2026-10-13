@@ -26,3 +26,5 @@ type: feature
 - Alterações no CRM do site podem demorar até 60 s a aparecer no portal (custo aceite); as revelações não esperam, com expiração em public_at.
 - Merch oficial é produto à venda, não prémio; membros têm acesso antecipado.
 - Early entry dos Lenda suspenso até validação com a MEO Arena.
+
+- D-ERP270: ação pública `bundle` = {site, lineup público, history}; leituras públicas sem token numa só ida à base (embeds); Server-Timing; cron `newgang-portal-quente` */4.
