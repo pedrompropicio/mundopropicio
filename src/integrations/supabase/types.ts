@@ -4843,6 +4843,131 @@ export type Database = {
           },
         ]
       }
+      club_crew_members: {
+        Row: {
+          company_id: string
+          crew_id: string
+          id: string
+          joined_at: string
+          member_id: string
+          site_id: string
+        }
+        Insert: {
+          company_id: string
+          crew_id: string
+          id?: string
+          joined_at?: string
+          member_id: string
+          site_id: string
+        }
+        Update: {
+          company_id?: string
+          crew_id?: string
+          id?: string
+          joined_at?: string
+          member_id?: string
+          site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_crew_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_crew_members_crew_id_fkey"
+            columns: ["crew_id"]
+            isOneToOne: false
+            referencedRelation: "club_crews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_crew_members_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "club_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_crew_members_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_crew_members_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      club_crews: {
+        Row: {
+          code: string
+          company_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          name: string
+          owner_member_id: string
+          site_id: string
+        }
+        Insert: {
+          code: string
+          company_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          owner_member_id: string
+          site_id: string
+        }
+        Update: {
+          code?: string
+          company_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          owner_member_id?: string
+          site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_crews_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_crews_owner_member_id_fkey"
+            columns: ["owner_member_id"]
+            isOneToOne: false
+            referencedRelation: "club_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_crews_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_crews_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       club_guesses: {
         Row: {
           company_id: string
@@ -5019,6 +5144,7 @@ export type Database = {
           id: string
           instagram_handle: string | null
           member_no: number
+          pending_crew_code: string | null
           phone: string | null
           referral_code: string
           referred_by_member_id: string | null
@@ -5039,6 +5165,7 @@ export type Database = {
           id?: string
           instagram_handle?: string | null
           member_no: number
+          pending_crew_code?: string | null
           phone?: string | null
           referral_code: string
           referred_by_member_id?: string | null
@@ -5059,6 +5186,7 @@ export type Database = {
           id?: string
           instagram_handle?: string | null
           member_no?: number
+          pending_crew_code?: string | null
           phone?: string | null
           referral_code?: string
           referred_by_member_id?: string | null
@@ -5290,6 +5418,8 @@ export type Database = {
           company_id: string
           id: string
           label: string | null
+          max_members: number | null
+          min_members: number | null
           points: number
           rule_key: string
           site_id: string
@@ -5299,6 +5429,8 @@ export type Database = {
           company_id: string
           id?: string
           label?: string | null
+          max_members?: number | null
+          min_members?: number | null
           points: number
           rule_key: string
           site_id: string
@@ -5308,6 +5440,8 @@ export type Database = {
           company_id?: string
           id?: string
           label?: string | null
+          max_members?: number | null
+          min_members?: number | null
           points?: number
           rule_key?: string
           site_id?: string
@@ -20962,6 +21096,25 @@ export type Database = {
         Returns: string
       }
       club_confirm_member: { Args: { p_member: string }; Returns: undefined }
+      club_crew_cfg: {
+        Args: { p_site: string }
+        Returns: Record<string, unknown>
+      }
+      club_crew_check: { Args: { p_crew: string }; Returns: undefined }
+      club_crew_create: {
+        Args: { p_member: string; p_name: string }
+        Returns: Json
+      }
+      club_crew_gen_code: { Args: never; Returns: string }
+      club_crew_join: {
+        Args: { p_code: string; p_member: string }
+        Returns: Json
+      }
+      club_crew_leave: {
+        Args: { p_member: string; p_new_owner?: string }
+        Returns: Json
+      }
+      club_crew_name_ok: { Args: { p: string }; Returns: boolean }
       club_decide_attendance: {
         Args: { p_claim: string; p_valid: boolean }
         Returns: undefined
