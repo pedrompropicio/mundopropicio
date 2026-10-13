@@ -5738,3 +5738,13 @@ Estado: aceite. DDL autorizado pelo Pedro e aplicado (drizzle 0118 + supabase/mi
 ### D-ERP258 — Religação Meta do artista por conta de anúncios (13/10/2026)
 
 **Decisão.** No OAuth Meta do artista, a ligação procura-se por (artista, meta, conta de anúncios) e reativa-se mesmo revoked (token novo, active, last_error NULL), mantendo id, teto e snapshots. Linha nova só se a conta não tiver nenhuma. Nunca se altera a ligação de outra conta (antes o token era regravado em todas). Com várias contas e sem alvo, nasce uma única ligação pendente de escolha; ao escolher uma conta que já tem ligação, a pendente funde-se nela. O start aceita connection_id/ad_account_id opcional para religar uma ligação concreta. artist_ads_sync_status devolve connection_id nas linhas TikTok. Migrações 0121/0122.
+
+### D-ERP259 — Utilizadores e permissões da app Gestão Artística (13/10/2026) — PROPOSTA
+
+**Estado.** Proposta; DDL por aprovar pelo Pedro. Nada aplicado.
+
+**Decisão proposta.** Nova tabela public.artist_user_access (utilizador × artista, nível viewer | traffic_manager, áreas por interruptor). Sem papéis novos em app_role: o nível vive na atribuição (mais simples e seguro: não mexe em role_permissions nem nas guardas do ERP). Função central public.artist_access_check(artista, 'read' | 'traffic_write' | 'admin', área) substitui artist_ads_assert_access/_write/_cap_admin em RPCs e edge functions. Papéis de empresa mantêm-se: platform_admin e admin = admin; manager/marketing_manager = tráfego; outros papéis da empresa = leitura. Artista/empresário = viewer só leitura nas áreas escolhidas. Gestor de tráfego = escreve campanhas, criativos, planos e orçamentos dentro do teto; nunca tetos, ligar/desligar contas nem utilizadores. RPC my_artist_access() para o front; artist_access_grant/revoke + edge function artist-access-invite para o ecrã de gestão.
+
+**Quem perde acesso.** Ninguém: a Social Artists (cb5b15cb) não tem nenhum user_roles; só o Pedro entra, como platform_admin.
+
+**Proposta SQL.** supabase/manual/20261013_derp259_artist_user_access.PROPOSTA.sql.
