@@ -5,6 +5,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3.23.8";
 import { assertNoTotals, buildLineup, displayName } from "./lineup.ts";
 import { clubEmail } from "./email.ts";
+import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 // Preview do projeto Lovable do portal (1a915f50-…).
 const PREVIEW_SUFFIXES: string[] = ["--1a915f50-55ca-4bb6-9abe-8f241c54647a.lovable.app"];
