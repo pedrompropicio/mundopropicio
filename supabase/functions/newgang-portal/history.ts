@@ -17,7 +17,7 @@ export const RULE_LABELS: Record<string, string> = {
 export const VOID_LABEL = "Pontos anulados";
 export const OLDER_LABEL = "Movimentos anteriores";
 
-export type PointRow = { rule_key: string; points: number; ref_id: string | null; created_at: string };
+export type PointRow = { rule_key: string; points: number; ref_id: string | null; created_at: string; reason?: string | null };
 export type Friend = { id: string; first_name: string | null; referred_by_member_id: string | null };
 export type HistoryItem = { at: string; points: number; label: string; detail: string | null };
 
@@ -31,6 +31,12 @@ export function shortName(full: string | null | undefined): string | null {
 }
 
 // Anulação = movimento negativo (o ranking soma os valores tal como estão gravados).
+/** Gerações de pontos após reaprovação: "<ref>#2" → "<ref>". */
+export const baseRef = (ref: string) => ref.replace(/#\d+$/, "");
+
+/** Ref base de uma linha (anulação "mission:<sub>#2" → "<sub>"). */
+export const subjectRef = (r: PointRow) => baseRef(r.rule_key === "void" ? (r.ref_id ?? "").replace(/^[^:]*:/, "") : (r.ref_id ?? ""));
+
 export const isVoid = (r: PointRow) => r.points < 0;
 
 export function buildHistory(
@@ -42,10 +48,10 @@ export function buildHistory(
   const sorted = [...rows].sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
   const item = (r: PointRow): HistoryItem => {
     const ref = r.ref_id ?? "";
-    if (isVoid(r)) return { at: r.created_at, points: r.points, label: VOID_LABEL, detail: ref && !UUID.test(ref) ? ref : null };
+    if (isVoid(r)) return { at: r.created_at, points: r.points, label: VOID_LABEL, detail: r.reason ?? (ref && !ref.includes(":") && !UUID.test(ref) ? ref : null) };
     let detail: string | null = null;
     if (r.rule_key.startsWith("friend_")) detail = shortName(friends.get(ref)?.first_name);
-    else if (r.rule_key.startsWith("mission")) detail = opts.missions?.[ref] ?? null;
+    else if (r.rule_key.startsWith("mission")) detail = opts.missions?.[baseRef(ref)] ?? null;
     else if (r.rule_key === "attended_year") detail = /^\d{4}$/.test(ref) ? ref : null;
     return { at: r.created_at, points: r.points, label: RULE_LABELS[r.rule_key] ?? opts.ruleLabels?.[r.rule_key] ?? r.rule_key, detail };
   };
