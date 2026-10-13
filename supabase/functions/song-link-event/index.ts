@@ -103,30 +103,35 @@ async function hashGeoGet(admin: any, ipHash: string): Promise<Geo | null> {
 }
 // deno-lint-ignore no-explicit-any
 async function hashGeoPut(admin: any, ipHash: string | null, g: Geo) {
-  if (!ipHash || !g.country) return;
+  // Adenda 5: só grava na cache geo completa (com cidade) — país sozinho apagaria a cidade já guardada.
+  if (!ipHash || !g.country || !g.city) return;
   geoCache.set(ipHash, { at: Date.now(), geo: g });
   await admin.from("ip_geo_cache").upsert({ ip: `h:${ipHash}`, country: g.country, region: g.region, city: g.city,
     resolved_at: new Date().toISOString() }, { onConflict: "ip" });
 }
+// Adenda 5: 5 dos 20 pedidos/min ficam reservados às chegadas blitz_.
+const IPINFO_RESERVED_BLITZ = 5;
 // deno-lint-ignore no-explicit-any
-async function geoFor(admin: any, ipHash: string | null, ip: string): Promise<Geo> {
+async function geoFor(admin: any, ipHash: string | null, ip: string, blitz = false): Promise<{ geo: Geo; src: string }> {
   const now = Date.now();
   const NUL: Geo = { country: null, region: null, city: null };
   if (ipHash) {
     const hit = geoCache.get(ipHash);
-    if (hit && now - hit.at < GEO_TTL_MS) return hit.geo;
+    if (hit && now - hit.at < GEO_TTL_MS) return { geo: hit.geo, src: "cache" };
     const db = await hashGeoGet(admin, ipHash).catch(() => null);
-    if (db) { geoCache.set(ipHash, { at: now, geo: db }); return db; }
+    if (db) { geoCache.set(ipHash, { at: now, geo: db }); return { geo: db, src: "cache" }; }
   }
+  if (!ip) return { geo: NUL, src: "none" };
   ipinfoCalls = ipinfoCalls.filter((t) => now - t < 60_000);
-  if (ipinfoCalls.length >= IPINFO_PER_MIN) return NUL;
+  const cap = blitz ? IPINFO_PER_MIN : IPINFO_PER_MIN - IPINFO_RESERVED_BLITZ;
+  if (ipinfoCalls.length >= cap) return { geo: NUL, src: "quota" };
   ipinfoCalls.push(now);
   const geo = await lookupIpGeo(ip, { timeoutMs: 3000, tag: "song-link-event" });
   if (geo.country) await hashGeoPut(admin, ipHash, geo).catch(() => {});
   if (geoCache.size > 20000) {
     for (const [k, v] of geoCache) if (now - v.at >= GEO_TTL_MS) geoCache.delete(k);
   }
-  return geo;
+  return { geo, src: geo.country ? "ipinfo" : "none" };
 }
 
 // Limite em memória da instância.
@@ -343,15 +348,24 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
   }
 
   const work = (async () => {
-    // Geo: cabeçalhos primeiro; senão ipinfo (3 s, falha → null). Nunca atrasa a resposta.
+    // Geo: CDN/cabeçalhos primeiro; depois cache ip_hash 24 h; depois ipinfo (limite). Nunca atrasa a resposta.
+    // Adenda 5: país da CDN sem região/cidade → completa, sem NUNCA substituir o país.
     let country = hdrCountry, region = hdrRegion, city = hdrCity;
-    if (!country && ip) {
+    let geoSrc = country ? (city ? "cdn" : "cdn_pais") : "none";
+    const blitz = (s(body.utm_campaign, 200) ?? "").toLowerCase().startsWith("blitz_");
+    if ((!country || !city) && (ip || ipHash)) {
       try {
-        const g = await geoFor(admin, ipHash, ip);
-        country = s(g.country, 8); region = s(g.region, 80); city = s(g.city, 120);
-      } catch { /* fica null */ }
+        const { geo: g, src } = await geoFor(admin, ipHash, ip ?? "", blitz);
+        if (!country && g.country) {
+          country = s(g.country, 8); region = s(g.region, 80); city = s(g.city, 120); geoSrc = src;
+        } else if (country && g.country && g.country.toUpperCase() === country.toUpperCase()) {
+          region = region ?? s(g.region, 80); city = city ?? s(g.city, 120);
+          if (g.city) geoSrc = `cdn+${src}`;
+        } else if (src === "quota") geoSrc += "+quota";
+      } catch { /* fica como está */ }
     }
-    else if (country) await hashGeoPut(admin, ipHash, { country, region, city }).catch(() => {});
+    if (country && city) await hashGeoPut(admin, ipHash, { country, region, city }).catch(() => {});
+    console.log("[song-link-event] geo " + JSON.stringify({ src: geoSrc, country, city: !!city, blitz }));
     // CAPI
     // D-ERP171 adenda: destino "instagram" (seguir o artista) não é escuta → sem CAPI nem TikTok.
     const naoAplicavel = event === "choice" && (destination ?? "").toLowerCase() === "instagram";
