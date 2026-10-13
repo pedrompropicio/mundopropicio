@@ -19907,6 +19907,7 @@ export type Database = {
           atrasado: boolean
           cadencia: string
           cadencia_minutos: number
+          connection_id: string
           escopo: string
           last_error: string
           last_sync_at: string
@@ -20673,6 +20674,15 @@ export type Database = {
       crm_meta_audiences_dashboard: { Args: never; Returns: Json }
       crm_meta_capi_dashboard: { Args: { p_days?: number }; Returns: Json }
       crm_rgpd_erase_contact: { Args: { p_contact_id: string }; Returns: Json }
+      crm_select_artist_meta_ad_account: {
+        Args: {
+          p_ad_account_id: string
+          p_currency: string
+          p_name: string
+          p_pending_id: string
+        }
+        Returns: string
+      }
       crm_tiktok_consume_oauth_state: {
         Args: { p_state_id: string }
         Returns: {

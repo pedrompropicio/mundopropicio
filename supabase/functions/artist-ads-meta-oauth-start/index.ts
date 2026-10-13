@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
   const caller = await authorize(req, admin, ADS_ROLES);
   if (!caller.allowed) return json({ error: caller.reason ?? "not authorized" }, 403);
 
-  let body: { artist_id?: string; return_url?: string };
+  let body: { artist_id?: string; return_url?: string; connection_id?: string; ad_account_id?: string };
   try {
     body = await req.json();
   } catch (_e) {
@@ -51,6 +51,19 @@ Deno.serve(async (req) => {
   if (!scope.ok) return json({ error: scope.error }, scope.status);
   const artist = scope.artist;
 
+  // D-ERP258: religar uma ligação concreta (por connection_id ou ad_account_id) — fica no state.
+  let targetConnectionId: string | null = null;
+  const wantConn = (body.connection_id ?? "").trim();
+  const wantAcc = (body.ad_account_id ?? "").trim();
+  if (wantConn || wantAcc) {
+    let q = (admin as any).schema("crm").from("ad_platform_connections").select("id")
+      .eq("company_id", artist.company_id).eq("artist_id", artist.id).eq("platform", "meta").eq("connection_scope", "artist");
+    q = wantConn ? q.eq("id", wantConn) : q.eq("selected_ad_account_id", wantAcc.startsWith("act_") ? wantAcc : `act_${wantAcc}`);
+    const { data: tc } = await q.maybeSingle();
+    if (!tc) return json({ error: "ligação não encontrada para este artista" }, 404);
+    targetConnectionId = tc.id;
+  }
+
   const appId = Deno.env.get("META_APP_ID");
   if (!appId) return json({ error: "META_APP_ID não configurado" }, 500);
 
@@ -66,6 +79,7 @@ Deno.serve(async (req) => {
       artist_id: artist.id,
       return_url: returnUrl,
       expires_at: expiresAt,
+      connection_id: targetConnectionId,
     })
     .select("id, expires_at")
     .single();
