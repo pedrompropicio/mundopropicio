@@ -47,6 +47,25 @@ Deno.serve(async (req) => {
     return json({ ok: true, artist_ext: ext, resultados: out });
   }
 
+  // Sonda de charts regionais (só GET a charts-spotify-com-service; nada gravado).
+  if (Array.isArray(body?.charts)) {
+    const out: unknown[] = [];
+    for (const p of body.charts.slice(0, 6)) {
+      if (typeof p !== "string" || !/^[a-z0-9-]+\/\d{4}-\d{2}-\d{2}$/.test(p)) continue;
+      let st = 0; let txt = ""; let hdrs: Record<string, string> = {};
+      try {
+        const r = await fetch(`https://charts-spotify-com-service.spotify.com/auth/v0/charts/${p}`, {
+          headers: { Authorization: `Bearer ${tok.accessToken}`, Accept: "application/json" },
+          signal: AbortSignal.timeout(20_000),
+        });
+        st = r.status; txt = await r.text();
+        hdrs = Object.fromEntries([...r.headers].filter(([k]) => /www-auth|content-type|x-/.test(k)));
+      } catch (_e) { /* */ }
+      out.push({ chart: p, status: st, headers: hdrs, body: txt.slice(0, body?.full ? 400000 : 1500) });
+    }
+    return json({ ok: true, resultados: out });
+  }
+
   let status = 0;
   let latest: unknown = null;
   try {
