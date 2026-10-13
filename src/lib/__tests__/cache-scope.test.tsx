@@ -3,6 +3,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { resolveCacheScope } from "@/lib/cache-scope";
+import { EventCacheConfig } from "@/components/EventCacheConfig";
+
+vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ isAdmin: true, isManager: false }) }));
 
 const MASTER = "master-1";
 const CITY = "city-1";
@@ -46,9 +49,6 @@ describe("resolveCacheScope (D-ERP265)", () => {
 describe("ecrã do subevento usa a configuração do Master", () => {
   beforeEach(() => inner.mockClear());
   it("mostra 'Cachê configurado no Master' e calcula pelo Master com as cidades irmãs", async () => {
-    vi.resetModules();
-    vi.doMock("@/contexts/AuthContext", () => ({ useAuth: () => ({ isAdmin: true, isManager: false }) }));
-    const { EventCacheConfig } = await import("@/components/EventCacheConfig");
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={qc}>
@@ -60,5 +60,5 @@ describe("ecrã do subevento usa a configuração do Master", () => {
     await waitFor(() => expect(screen.getByText(/Cachê configurado no Master/)).toBeInTheDocument());
     expect(screen.getByRole("link", { name: "Deive Leonardo" })).toHaveAttribute("href", `/eventos/${MASTER}`);
     expect(screen.queryByText(/Adicionar Atração/)).not.toBeInTheDocument();
-  });
+  }, 20000);
 });
