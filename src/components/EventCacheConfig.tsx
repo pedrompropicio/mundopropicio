@@ -23,6 +23,89 @@ interface Props {
   eventId: string;
   childEventIds?: string[];
   eventStatus?: string;
+  /** Vista de subevento: mostra só o fecho desta cidade a partir da configuração do Master. */
+  cityViewOf?: string;
+}
+
+/**
+ * D-ERP265 — Cachê no Master OU nos subeventos, nunca nos dois.
+ * Decide o âmbito antes de montar o ecrã de configuração.
+ */
+export function EventCacheConfig(props: Props) {
+  const { eventId } = props;
+  const { data: scope } = useQuery({
+    queryKey: ["cache-scope", eventId],
+    queryFn: async () => {
+      const { data: ev, error } = await supabase
+        .from("events").select("id, parent_event_id").eq("id", eventId).maybeSingle();
+      if (error) throw error;
+      const parentId = (ev as any)?.parent_event_id ?? null;
+      if (parentId) {
+        const [{ data: parent }, { count }, { data: siblings }] = await Promise.all([
+          supabase.from("events").select("id, name").eq("id", parentId).maybeSingle(),
+          supabase.from("event_cache_configs" as any).select("id", { count: "exact", head: true }).eq("event_id", parentId),
+          supabase.from("events").select("id").eq("parent_event_id", parentId),
+        ]);
+        return {
+          parentId, parentName: (parent as any)?.name ?? "",
+          parentConfigCount: count ?? 0,
+          siblingIds: (siblings ?? []).map((s: any) => s.id) as string[],
+          childrenWithConfig: [] as { id: string; name: string }[],
+        };
+      }
+      const { data: children } = await supabase.from("events").select("id, name").eq("parent_event_id", eventId);
+      const ids = (children ?? []).map((c: any) => c.id);
+      let withCfg: { id: string; name: string }[] = [];
+      if (ids.length > 0) {
+        const { data: cfgs } = await supabase.from("event_cache_configs" as any).select("event_id").in("event_id", ids);
+        const set = new Set((cfgs ?? []).map((c: any) => c.event_id));
+        withCfg = (children ?? []).filter((c: any) => set.has(c.id)) as any;
+      }
+      return { parentId: null, parentName: "", parentConfigCount: 0, siblingIds: [] as string[], childrenWithConfig: withCfg };
+    },
+  });
+
+  if (!scope) return <EventCacheConfigInner {...props} />;
+  const mode = resolveCacheScope({
+    parentEventId: scope.parentId,
+    parentConfigCount: scope.parentConfigCount,
+    childrenWithConfigCount: scope.childrenWithConfig.length,
+  });
+
+  if (mode === "master") {
+    return (
+      <div className="space-y-3">
+        <div className="glass rounded-xl px-4 py-3 text-xs text-muted-foreground">
+          Cachê configurado no Master{" "}
+          <Link to={`/eventos/${scope.parentId}`} className="font-semibold text-primary hover:underline">{scope.parentName}</Link>
+          . O fecho desta cidade usa essa configuração.
+        </div>
+        <EventCacheConfigInner
+          eventId={scope.parentId!}
+          childEventIds={scope.siblingIds}
+          eventStatus={props.eventStatus}
+          cityViewOf={eventId}
+        />
+      </div>
+    );
+  }
+  if (mode === "children") {
+    return (
+      <div className="glass rounded-xl p-5 text-xs text-muted-foreground space-y-1">
+        <p className="font-semibold text-foreground">Cachê configurado nos subeventos</p>
+        <p>
+          {scope.childrenWithConfig.map((c, i) => (
+            <span key={c.id}>
+              {i > 0 && ", "}
+              <Link to={`/eventos/${c.id}`} className="text-primary hover:underline">{c.name}</Link>
+            </span>
+          ))}
+          . Para configurar no Master, apaga primeiro as configurações dos subeventos.
+        </p>
+      </div>
+    );
+  }
+  return <EventCacheConfigInner {...props} />;
 }
 
 function TierAddForm({ onAdd }: { onAdd: (threshold: number, pct: number) => void }) {
