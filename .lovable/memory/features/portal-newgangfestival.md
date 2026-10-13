@@ -6,6 +6,7 @@ type: feature
 - Portal em projeto Lovable separado; só chama `newgang-portal` e `portal-track`. Configura-se em /crm/sites/newgang.
 - Atração só é pública com revelação `agendada` e `public_at` passado; membro vê a partir de `club_at`. Sem revelação = nunca pública.
 - Nenhuma resposta pública devolve totais ou contagens de atrações.
+- Ação `site` devolve `club` (montra pública do Clube): `levels` de `club_levels` por min_points e `rules` ativas de `club_point_rules` por points — só configuração, sem membros nem contagens (assertNoTotals mantém-se).
 - Trackers do portal vêm do evento de `portal_sites.event_id`, sempre; `portal_visible` só controla a listagem no portal MP.
 - Edições passadas em `festival_editions` (não criar eventos). 2023 sem data/line-up; o portal esconde campos vazios. Fotos WebP 1600 px, máx. 20, capa = cover_url ou 1.ª foto; vídeos só por link (youtube|instagram|vimeo), o 1.º é o aftermovie.
 - Acesso de membro por link pessoal por email (30 dias), sem palavra-passe. Pontos só depois de confirmar; razão idempotente. Concurso por mérito, sem sorteio.
