@@ -7,8 +7,7 @@ import { EventCacheConfig } from "@/components/EventCacheConfig";
 
 vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ isAdmin: true, isManager: false }) }));
 
-const MASTER = "master-1";
-const CITY = "city-1";
+const { MASTER, CITY } = vi.hoisted(() => ({ MASTER: "master-1", CITY: "city-1" }));
 
 const inner = vi.fn();
 
