@@ -841,6 +841,13 @@
       "when": 1791856904560,
       "tag": "0119_0119_newgang_lineup_reveals_security",
       "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1791857064622,
+      "tag": "0120_0120_newgang_portal_sites_editions_club",
+      "breakpoints": true
     }
   ]
 }
