@@ -11,7 +11,7 @@ import { deduceTriggerSource, finishSyncRun, startSyncRun } from "../_shared/syn
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 const FN = "dbip-city-sync";
-const PART_LINES = 2_000_000;
+const PART_BYTES = 64 * 1024 * 1024; // ~64 MB descomprimidos por parte (retoma por byte)
 const BATCH = 2000;
 const WALL_BUDGET_MS = 110_000;
 const url = (m: string) => `https://download.db-ip.com/free/dbip-city-lite-${m}.csv.gz`;
@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
       .then((r) => r.body?.cancel()).catch((e) => console.warn(`[${FN}] encadear falhou`, String(e)));
     // deno-lint-ignore no-explicit-any
     const ER = (globalThis as any).EdgeRuntime; if (ER) ER.waitUntil(p);
-    console.log(`[${FN}] parte ${month} linhas ${startLine}..${stoppedAt} +${partRows} (total ${written}) em ${Date.now() - t0} ms`);
+    console.log(`[${FN}] parte ${month} bytes ${startLine}..${stoppedAt} +${partRows} (total ${written}) em ${Date.now() - t0} ms`);
     return json({ ok: true, partial: true, month, start_line: startLine, next_line: stoppedAt, part_rows: partRows, rows_so_far: written });
   }
 
