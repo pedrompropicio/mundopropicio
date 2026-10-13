@@ -62,8 +62,13 @@ const Body = z.object({
 });
 const WRITE_ACTIONS = new Set(["request_access", "guess", "attendance_claim", "confirm_buyer", "session"]);
 
+// Cache por instância (60 s): a configuração do site muda raramente; evita uma ida à base por pedido.
+const SITE_TTL_MS = 60_000;
+let siteCache: { at: number; data: any } | null = null;
 async function getSite() {
+  if (siteCache && Date.now() - siteCache.at < SITE_TTL_MS) return siteCache.data;
   const { data } = await sb.from("portal_sites").select("*").eq("domain", SITE_DOMAIN).eq("active", true).maybeSingle();
+  if (data) siteCache = { at: Date.now(), data };
   return data;
 }
 
@@ -216,22 +221,21 @@ Deno.serve(async (req) => {
   try {
     switch (body.action) {
       case "site": {
-        const { data } = await sb.from("portal_sites_public").select("*").eq("id", site.id).maybeSingle();
-        let trackers: unknown[] = [];
-        let ticketing: unknown = null;
-        if (site.event_id) {
+        // Todas as leituras em paralelo; as do evento só se o site tiver event_id.
+        const ev = site.event_id;
+        const none = Promise.resolve({ data: null });
+        const [{ data }, { data: t }, { data: evRow }, { data: em }, { data: lv }, { data: rl }] = await Promise.all([
+          sb.from("portal_sites_public").select("*").eq("id", site.id).maybeSingle(),
           // Trackers do evento associado ao site, sempre (independente de events.portal_visible).
-          const { data: t } = await sb.from("event_trackers").select("platform, tracker_id").eq("event_id", site.event_id);
-          trackers = t ?? [];
-          const { data: ev } = await sb.from("events").select("ticketing_url").eq("id", site.event_id).maybeSingle();
-          const { data: em } = await sb.from("event_marketing").select("ticket_lots").eq("event_id", site.event_id).maybeSingle();
-          ticketing = { url: ev?.ticketing_url ?? null, lots: em?.ticket_lots ?? null };
-        }
-        // Montra pública do Clube: só configuração (níveis e regras de pontos), sem membros nem totais.
-        const [{ data: lv }, { data: rl }] = await Promise.all([
+          ev ? sb.from("event_trackers").select("platform, tracker_id").eq("event_id", ev) : none,
+          ev ? sb.from("events").select("ticketing_url").eq("id", ev).maybeSingle() : none,
+          ev ? sb.from("event_marketing").select("ticket_lots").eq("event_id", ev).maybeSingle() : none,
+          // Montra pública do Clube: só configuração (níveis e regras de pontos), sem membros nem totais.
           sb.from("club_levels").select("name, min_points, benefit").eq("site_id", site.id).order("min_points"),
           sb.from("club_point_rules").select("rule_key, label, points").eq("site_id", site.id).eq("active", true).order("points"),
-        ]);
+        ] as const) as any;
+        const trackers: unknown[] = ev ? (t ?? []) : [];
+        const ticketing: unknown = ev ? { url: evRow?.ticketing_url ?? null, lots: em?.ticket_lots ?? null } : null;
         return json({ site: data, trackers, ticketing, club: { levels: lv ?? [], rules: rl ?? [] } });
       }
       case "lineup": {
