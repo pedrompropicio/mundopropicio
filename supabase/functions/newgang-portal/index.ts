@@ -162,7 +162,7 @@ async function rankingFor(siteId: string, limit = 100) {
 Deno.serve(async (req) => {
   const origin = req.headers.get("origin");
   const h = cors(origin);
-  if (req.method === "OPTIONS") return new Response("ok", { headers: h });
+  if (req.method === "OPTIONS") return new Response(originOk(origin) ? "ok" : "forbidden", { status: originOk(origin) ? 200 : 403, headers: h });
   const json = (b: unknown, status = 200) => {
     assertNoTotals(b);
     return new Response(JSON.stringify(b), { status, headers: { ...h, "Content-Type": "application/json" } });
