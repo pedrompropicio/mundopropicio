@@ -9,6 +9,8 @@ import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import { Checkbox } from "@/components/ui/checkbox";
 import CachePercentageField from "@/components/CachePercentageField";
+import { Link } from "react-router-dom";
+import { resolveCacheScope } from "@/lib/cache-scope";
 import { Switch } from "@/components/ui/switch";
 import { sortByHierarchicalCode } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -156,7 +158,7 @@ function TierAddForm({ onAdd }: { onAdd: (threshold: number, pct: number) => voi
   );
 }
 
-export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props) {
+function EventCacheConfigInner({ eventId, childEventIds, eventStatus, cityViewOf }: Props) {
   const { isAdmin, isManager } = useAuth();
   const queryClient = useQueryClient();
   const isEventLocked = eventStatus === "completed";
@@ -633,13 +635,13 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
           <span className="text-xs text-muted-foreground">
             Total: <span className="font-mono font-bold text-foreground">{formatCurrency(totalCache)}</span>
           </span>
-          <button
+          {!cityViewOf && <button
             onClick={() => setShowAddForm(true)}
             disabled={showAddForm || !canEdit}
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" /> Adicionar Atração
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -799,7 +801,20 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
         <p className="text-center text-xs text-muted-foreground py-6">Nenhum cachê configurado para este evento.</p>
       ) : (
         <div className="space-y-2">
-          {cacheConfigs.map((config: any) => {
+          {cityViewOf && cacheConfigs.map((config: any) => (
+            <div key={config.id} className="rounded-lg border border-border overflow-hidden">
+              <div className="px-3 py-2 text-xs font-semibold">{config.artist_name}</div>
+              <CityCacheSettlementsPanel
+                config={config}
+                eventId={eventId}
+                childEventIds={[cityViewOf]}
+                resultsByCity={resultsByCity}
+                canEdit={canEdit}
+                eventStatus={eventStatus}
+              />
+            </div>
+          ))}
+          {!cityViewOf && cacheConfigs.map((config: any) => {
             const isVariable = config.cache_type === "variable";
             const isFinalized = !!config.is_finalized;
             const isExpanded = expandedId === config.id;
