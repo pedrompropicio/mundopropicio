@@ -25,3 +25,8 @@ type: feature
 - Total e cabeçalho do separador SEMPRE sobre ticket_sales (computeCacheTabAmount em src/lib/cache-tab-total.ts). Master de turnê = Σ cidades com mínimo por cidade e settlement da cidade = linhas BP cache_module = cartão Custos.
 - Lotes × preço só como "Projeção 100% vendido: X €" (referência; nunca total, fecho ou pagamento).
 - Ainda: no BP, cidade/evento sem vendas usa receita planeada (fallback do sync) — o separador mostra o real (0 → mínimo).
+
+## Detalhe da atração no Master de turnê (13/10/2026)
+- Os descontos mostrados na secção expandida (total, % fixo, valor por conta) = Σ dos descontos usados no cálculo de cada cidade (BP da cidade + 1/N do Master), via cacheTabDeductionBreakdown; quebra por cidade visível. Nenhum número do separador vem só do BP do Master.
+- BP de cidade/evento sem vendas continua a usar a receita planeada (decisão: planeamento).
+- Configuração (mínimo, %, faixas, categorias) continua editável.

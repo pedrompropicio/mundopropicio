@@ -19,7 +19,7 @@ import { CacheSettlementPanel } from "@/components/CacheSettlementPanel";
 import { CityCacheSettlementsPanel } from "@/components/CityCacheSettlementsPanel";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 import { useRealCacheCalculation } from "@/hooks/useRealCacheCalculation";
-import { computeCacheTabAmount, cacheTabRevenue } from "@/lib/cache-tab-total";
+import { computeCacheTabAmount, cacheTabRevenue, cacheTabDeductionBreakdown } from "@/lib/cache-tab-total";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
@@ -394,6 +394,15 @@ function EventCacheConfigInner({ eventId, childEventIds, eventStatus, cityViewOf
   });
 
   const isTour = (childEventIds?.length ?? 0) > 0;
+  const { data: cityNameMap = {} } = useQuery({
+    queryKey: ["cache_tab_city_names", childEventIds],
+    enabled: isTour,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase.from("events").select("id, name").in("id", childEventIds || []);
+      return Object.fromEntries((data || []).map((e: any) => [e.id, e.name])) as Record<string, string>;
+    },
+  });
 
   // Expense categories (level 3 only - detail accounts)
   const expenseDetailCategories = useMemo(() => {
@@ -839,9 +848,12 @@ function EventCacheConfigInner({ eventId, childEventIds, eventStatus, cityViewOf
             const hasTiers = configTiers.length > 0;
             const deductionCategoryIds = new Set(configDeductions.map((d: any) => d.category_id));
             const deductionBasisGross = (config.cache_deduction_basis || "net") === "gross";
-            const categoryDeduction = isVariable ? calculateDeductionAmount(config.id, deductionBasisGross) : 0;
-            const fixedPctDeduction = isVariable ? calculateFixedPctDeduction(config) : 0;
-            const totalDeduction = categoryDeduction + fixedPctDeduction;
+            // Descontos do detalhe = os usados no cálculo real (Σ cidades no Master de turnê).
+            const dedBreakdown = isVariable
+              ? cacheTabDeductionBreakdown(config, realCacheResults.find((r) => r.configId === config.id), resultsByCity, childEventIds)
+              : null;
+            const fixedPctDeduction = dedBreakdown?.fixedPctDeduction ?? 0;
+            const totalDeduction = dedBreakdown?.totalDeduction ?? 0;
             // Projeção com lotação esgotada (lotes × preço): só referência secundária.
             const projectionValue = isVariable ? calculateVariableCache(config) : 0;
             const displayValue = tabAmount(config);
@@ -1110,9 +1122,11 @@ function EventCacheConfigInner({ eventId, childEventIds, eventStatus, cityViewOf
                       <div className="max-h-48 overflow-y-auto space-y-1">
                         {expenseDetailCategories.map((cat) => {
                           const isChecked = deductionCategoryIds.has(cat.id);
-                          const forecastAmount = forecasts
-                            .filter((f) => f.type === "expense" && f.category_id === cat.id)
-                            .reduce((s, f) => s + Number(f.amount), 0);
+                          const forecastAmount = isChecked
+                            ? dedBreakdown?.byCategory[cat.id] ?? 0
+                            : forecasts
+                                .filter((f) => f.type === "expense" && f.category_id === cat.id)
+                                .reduce((s, f) => s + Number(f.amount), 0);
 
                           return (
                             <label
@@ -1153,6 +1167,20 @@ function EventCacheConfigInner({ eventId, childEventIds, eventStatus, cityViewOf
                         <span className="font-mono font-semibold text-warning">
                           − {formatCurrency(totalDeduction)}
                         </span>
+                      </div>
+                    )}
+                    {isTour && dedBreakdown && totalDeduction > 0 && (
+                      <div className="space-y-0.5 text-[11px]">
+                        <div className="text-muted-foreground">Por cidade (BP da cidade + 1/N do Master)</div>
+                        {dedBreakdown.cities.map((c) => (
+                          <div key={c.cityId} className="flex items-center justify-between">
+                            <span className="text-foreground">{cityNameMap[c.cityId] ?? "Cidade"}</span>
+                            <span className="font-mono text-muted-foreground">
+                              {c.fixedPctDeduction > 0 && `${formatCurrency(c.categoryDeduction)} + ${formatCurrency(c.fixedPctDeduction)} = `}
+                              − {formatCurrency(c.totalDeduction)}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
