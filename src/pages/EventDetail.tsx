@@ -2,6 +2,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { moveToTrash } from "@/lib/trash";
+import { useEventFinancialsRealtime } from "@/hooks/useEventFinancialsRealtime";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
