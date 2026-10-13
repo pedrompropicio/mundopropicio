@@ -883,6 +883,13 @@
       "when": 1791861245409,
       "tag": "0125_0125_derp259_artist_tables_rls_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 126,
+      "version": "7",
+      "when": 1791861407800,
+      "tag": "0126_0126_derp259_growth_momentum_scope",
+      "breakpoints": true
     }
   ]
 }
