@@ -1,0 +1,13 @@
+---
+name: Portal newgangfestival.pt
+description: Portal Newgang em projeto separado lê a mesma base; line-up por revelações, história própria, Clube com pontos e acesso por link pessoal
+type: feature
+---
+- Portal em projeto Lovable separado; só chama `newgang-portal` e `portal-track`. Configura-se em /crm/sites/newgang.
+- Atração só é pública com revelação `agendada` e `public_at` passado; membro vê a partir de `club_at`. Sem revelação = nunca pública.
+- Nenhuma resposta pública devolve totais ou contagens de atrações.
+- Trackers do portal vêm do evento de `portal_sites.event_id`, sempre; `portal_visible` só controla a listagem no portal MP.
+- Edições passadas em `festival_editions` (não criar eventos). 2023 sem data/line-up; o portal esconde campos vazios. Fotos WebP 1600 px, máx. 20, capa = cover_url ou 1.ª foto; vídeos só por link (youtube|instagram|vimeo), o 1.º é o aftermovie.
+- Acesso de membro por link pessoal por email (30 dias), sem palavra-passe. Pontos só depois de confirmar; razão idempotente. Concurso por mérito, sem sorteio.
+- Pontos: join_confirmed 100, friend_joined 150, friend_bought 300, promo_lot_purchase 500, guess_correct 50, attended_year 100. Níveis Fã 0, Gang 500, Lenda 1500.
+- Spec: docs/specs/portal-newgangfestival.md · D-ERP257.
