@@ -19,6 +19,7 @@ import { CacheSettlementPanel } from "@/components/CacheSettlementPanel";
 import { CityCacheSettlementsPanel } from "@/components/CityCacheSettlementsPanel";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 import { useRealCacheCalculation } from "@/hooks/useRealCacheCalculation";
+import { computeCacheTabAmount, cacheTabRevenue } from "@/lib/cache-tab-total";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 interface Props {
@@ -367,8 +368,30 @@ function EventCacheConfigInner({ eventId, childEventIds, eventStatus, cityViewOf
     enrichedConfigs,
     deductions,
     categories,
-    enrichedConfigs.length > 0 && (eventStatus === "active" || eventStatus === "completed"),
+    // Total do separador é SEMPRE sobre vendas reais, em qualquer estado do evento.
+    enrichedConfigs.length > 0,
   );
+
+  // Settlements por cidade (prioridade sobre o cálculo, igual às linhas de BP cache_module).
+  const { data: tabCitySettlements = [] } = useQuery({
+    queryKey: ["event_cache_city_settlements_tab", eventId, configIds.join(",")],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_cache_city_settlements" as any)
+        .select("cache_config_id, event_id, adjusted_amount, real_amount, is_finalized")
+        .in("cache_config_id", configIds);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: configIds.length > 0 && (childEventIds?.length ?? 0) > 0,
+  });
+  const tabAmount = (config: any) => computeCacheTabAmount({
+    config,
+    realResult: realCacheResults.find((r) => r.configId === config.id) ?? null,
+    resultsByCity,
+    childEventIds,
+    citySettlements: tabCitySettlements,
+  });
 
   const isTour = (childEventIds?.length ?? 0) > 0;
 
@@ -609,15 +632,8 @@ function EventCacheConfigInner({ eventId, childEventIds, eventStatus, cityViewOf
     addMutation.mutate();
   };
 
-  const totalCache = useMemo(() => {
-    return cacheConfigs.reduce((total: number, config: any) => {
-      if (config.cache_type === "fixed") {
-        return total + Number(config.fixed_amount);
-      } else {
-        return total + calculateVariableCache(config);
-      }
-    }, 0);
-  }, [cacheConfigs, ticketRevenueNet, ticketRevenueGross, forecasts, deductions]);
+  // Total = vendas reais (Σ cidades no Master de turnê). A projeção 100% nunca entra aqui.
+  const totalCache = cacheConfigs.reduce((total: number, config: any) => total + tabAmount(config), 0);
 
   const inputClass = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
 
@@ -826,10 +842,14 @@ function EventCacheConfigInner({ eventId, childEventIds, eventStatus, cityViewOf
             const categoryDeduction = isVariable ? calculateDeductionAmount(config.id, deductionBasisGross) : 0;
             const fixedPctDeduction = isVariable ? calculateFixedPctDeduction(config) : 0;
             const totalDeduction = categoryDeduction + fixedPctDeduction;
-            const variableValue = isVariable ? calculateVariableCache(config) : 0;
-            const displayValue = isVariable ? variableValue : Number(config.fixed_amount);
+            // Projeção com lotação esgotada (lotes × preço): só referência secundária.
+            const projectionValue = isVariable ? calculateVariableCache(config) : 0;
+            const displayValue = tabAmount(config);
             const minGuaranteed = Number(config.minimum_guaranteed) || 0;
-            const isUsingMinimum = isVariable && minGuaranteed > 0 && variableValue === minGuaranteed;
+            const realRow = realCacheResults.find((r) => r.configId === config.id);
+            const isUsingMinimum = isVariable && minGuaranteed > 0 && (isTour
+              ? (childEventIds ?? []).some((c) => resultsByCity[c]?.find((r) => r.configId === config.id)?.isUsingMinimum)
+              : !!realRow?.isUsingMinimum);
 
             return (
               <div key={config.id} className={`rounded-lg border bg-background overflow-hidden ${isFinalized ? "border-success/40" : "border-border"}`}>
@@ -871,15 +891,21 @@ function EventCacheConfigInner({ eventId, childEventIds, eventStatus, cityViewOf
                     </div>
                     {isVariable && (() => {
                       const basisIsGross = (config.cache_revenue_basis || "net") === "gross";
-                      const basisRevenue = basisIsGross ? ticketRevenueGross : ticketRevenueNet;
                       const basisLabel = basisIsGross ? "c/ IVA" : "s/ IVA";
+                      const real = cacheTabRevenue(config, realRow, resultsByCity, childEventIds);
                       return (
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          Receita {basisLabel} ({formatCurrency(basisRevenue)})
-                          {totalDeduction > 0 && ` − Descontos (${formatCurrency(totalDeduction)})`}
-                          {` = Base: ${formatCurrency(Math.max(0, basisRevenue - totalDeduction))}`}
-                          {minGuaranteed > 0 && ` · Mín: ${formatCurrency(minGuaranteed)}`}
-                        </p>
+                        <>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            Receita real {basisLabel} ({formatCurrency(real.revenue)})
+                            {real.deductions > 0 && ` − Descontos (${formatCurrency(real.deductions)})`}
+                            {` = Base: ${formatCurrency(Math.max(0, real.revenue - real.deductions))}`}
+                            {isTour && " · calculado por cidade"}
+                            {minGuaranteed > 0 && ` · Mín${isTour ? " por cidade" : ""}: ${formatCurrency(minGuaranteed)}`}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground/70">
+                            Projeção 100% vendido: {formatCurrency(projectionValue)} (receita {formatCurrency(basisIsGross ? ticketRevenueGross : ticketRevenueNet)}) · só referência
+                          </p>
+                        </>
                       );
                     })()}
                   </div>

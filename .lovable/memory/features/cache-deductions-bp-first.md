@@ -20,3 +20,8 @@ type: feature
 ## Master OU subeventos (D-ERP265, 13/10/2026)
 - O cachê configura-se no Master ou nos subeventos, nunca nos dois. O gatilho trg_enforce_cache_config_master_or_children recusa a gravação (migração 0136).
 - O ecrã EventCacheConfig decide o âmbito com resolveCacheScope (src/lib/cache-scope.ts). No subevento com Master configurado, mostra o fecho da cidade a partir da configuração do Master. No Master com subeventos configurados, mostra só a lista desses subeventos.
+
+## Separador Cachê = vendas reais (13/10/2026, adenda D-ERP265)
+- Total e cabeçalho do separador SEMPRE sobre ticket_sales (computeCacheTabAmount em src/lib/cache-tab-total.ts). Master de turnê = Σ cidades com mínimo por cidade e settlement da cidade = linhas BP cache_module = cartão Custos.
+- Lotes × preço só como "Projeção 100% vendido: X €" (referência; nunca total, fecho ou pagamento).
+- Ainda: no BP, cidade/evento sem vendas usa receita planeada (fallback do sync) — o separador mostra o real (0 → mínimo).
