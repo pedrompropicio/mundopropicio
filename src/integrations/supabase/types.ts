@@ -19907,6 +19907,7 @@ export type Database = {
           atrasado: boolean
           cadencia: string
           cadencia_minutos: number
+          connection_id: string
           escopo: string
           last_error: string
           last_sync_at: string
