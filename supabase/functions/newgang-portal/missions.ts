@@ -58,3 +58,10 @@ export function missionsFrom(rows: any[] | null, publicUrl: (p: string) => strin
       .map((m) => publicMission(m, publicUrl)),
   };
 }
+
+/** Estado HTTP de um erro devolvido pela RPC club_mission_submit: sessão inválida é 401, como nas outras ações com token. */
+export function submitErrorStatus(error: string): number {
+  if (error === "no_session") return 401;
+  if (error === "closed" || error === "already_submitted" || error === "duplicate") return 409;
+  return 400;
+}
