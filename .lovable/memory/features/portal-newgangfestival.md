@@ -10,7 +10,7 @@ type: feature
 - Trackers do portal vêm do evento de `portal_sites.event_id`, sempre; `portal_visible` só controla a listagem no portal MP.
 - Edições passadas em `festival_editions` (não criar eventos). 2023 sem data/line-up; o portal esconde campos vazios. Fotos WebP 1600 px, máx. 20, capa = cover_url ou 1.ª foto; vídeos só por link (youtube|instagram|vimeo), o 1.º é o aftermovie.
 - Acesso de membro por link pessoal por email (30 dias), sem palavra-passe. Pontos só depois de confirmar; razão idempotente. Concurso por mérito, sem sorteio.
-- Pontos: join_confirmed 100, friend_joined 150, friend_bought 300, promo_lot_purchase 500, guess_correct 50, attended_year 100. Níveis Fã 0, Gang 500, Lenda 1500.
+- Pontos: join_confirmed 100, friend_joined 150, friend_bought 300, promo_lot_purchase 500, guess_correct 50, attended_year 100. Níveis Gang 0, Elite 500, Lenda 1500.
 - Spec: docs/specs/portal-newgangfestival.md · D-ERP257.
 - Membro novo do formulário recebe automaticamente 1 email "Confirma a tua entrada no Clube Newgang" (link 30 dias); importação e confirmação 1 clique não recebem. Emails do Clube usam um só visual (cabeçalho v3, verde escuro, botão verde, rodapé Newgang Produções + descadastro).
 
@@ -21,3 +21,8 @@ type: feature
 - Link de descadastro dos emails Newgang: https://newgangfestival.pt/descadastrar?token=… (site novo chama handle-email-unsubscribe).
 - Fotos das edições: caminho `<company_id ativo>/festival-editions/<brand>/<ano>/<uuid>.webp` (1.º segmento = company_id, senão a policy recusa); falha nunca é muda (toast com a mensagem real).
 - notify_pending: service role decidida só por isServiceRoleRequest (nunca claim do payload); notify_member (trigger) fica sem segredo por desenho.
+
+## Fecho de 13/10/2026 — decisões do Pedro
+- Alterações no CRM do site podem demorar até 60 s a aparecer no portal (custo aceite); as revelações não esperam, com expiração em public_at.
+- Merch oficial é produto à venda, não prémio; membros têm acesso antecipado.
+- Early entry dos Lenda suspenso até validação com a MEO Arena.
