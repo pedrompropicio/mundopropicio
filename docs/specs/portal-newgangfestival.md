@@ -26,6 +26,13 @@ CORS: `https://newgangfestival.pt`, `https://www.newgangfestival.pt` + constante
 ### MP CRM `/crm/sites/newgang`
 Geral · Line-up e revelações (LineupTab estendido + revelações + pré-visualização público/membro + "Line-up completo") · História (fotos → WebP 1600 px no browser, bucket `portal-marketing-images` no caminho `<company_id da empresa ativa>/festival-editions/<brand_key>/<ano>/<uuid>.webp` — o 1.º segmento tem de ser o company_id por causa da policy `portal_marketing_images_insert`; upload em sequência pela ordem recebida, máx. 20 com aviso, 1.ª foto = capa quando `cover_url` vazio; falha no upload ou na gravação → toast com a mensagem real e o contador não sobe; ordenação, capa; vídeos por link) · Clube (regras, níveis, prémios, ranking, palpites com sugestão automática, "Eu estive lá") · Bilhetes · Tracking.
 
+**Textos do separador Geral (`portal_sites.content`)** — fonte: `API-CONTRACT.md` do projeto do site, secção "Textos (portal_sites.content)". 25 chaves, definidas em `src/lib/newgang-content.ts`, com o texto por omissão do site como placeholder:
+- Início: hero_date, hero_venue, club_description, club_cta, club_neon_title, club_neon_subtitle, history_teaser_title, benefit_1_title, benefit_1_description, benefit_2_title, benefit_2_description, benefit_3_title, benefit_3_description.
+- /clube: club_header, club_landing_description.
+- /bilhetes: tickets_title, tickets_subtitle, tickets_club_title, tickets_club_description, tickets_general_title, tickets_general_description, tickets_zones_title, tickets_zones_description, tickets_official_description.
+- /meu-clube: ranking_prizes (textarea, um prémio por linha; vazio ou "—" esconde o bloco).
+Campo vazio = chave removida do `content` (nunca se grava texto vazio); o site volta ao texto por omissão. Se o contrato do site mudar, atualizar a lista.
+
 ### Testes
 `src/test/newgang-portal.test.ts` (10).
 
