@@ -32,8 +32,10 @@ export function eventFinancialSubs(
       subs.push({ table, filter: cf, event: "INSERT" }, { table, filter: cf, event: "UPDATE" }, { table, event: "DELETE" });
     }
   }
-  const zf = realtimeIdFilter("zone_id", zoneIds);
-  if (zf) subs.push({ table: "ticket_sales", filter: zf, event: "INSERT" }, { table: "ticket_sales", filter: zf, event: "UPDATE" });
+  // Filtro Realtime aceita até 100 valores; acima disso fica sem filtro (o RLS limita à empresa).
+  const zf = new Set(zoneIds).size > 100 ? undefined : realtimeIdFilter("zone_id", zoneIds);
+  if (zf === undefined) subs.push({ table: "ticket_sales", event: "INSERT" }, { table: "ticket_sales", event: "UPDATE" });
+  else if (zf) subs.push({ table: "ticket_sales", filter: zf, event: "INSERT" }, { table: "ticket_sales", filter: zf, event: "UPDATE" });
   return subs;
 }
 
