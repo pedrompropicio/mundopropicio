@@ -18,6 +18,8 @@ const ALLOWED_ORIGINS = new Set<string>([
   "https://coalafestival.pt",
   "https://www.coalafestival.pt",
   "https://coalafestival.lovable.app",
+  "https://newgangfestival.pt",
+  "https://www.newgangfestival.pt",
 ]);
 
 const PORTAL_PREVIEW_SUFFIXES: string[] = [

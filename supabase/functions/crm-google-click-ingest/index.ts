@@ -14,6 +14,8 @@ const ALLOWED_ORIGINS = new Set<string>([
   "https://www.mundopropicio.com",
   "https://mundopropicio.com",
   "https://propicio-stage-portal.lovable.app",
+  "https://newgangfestival.pt",
+  "https://www.newgangfestival.pt",
 ]);
 
 const PORTAL_PROJECT_ID = "26b95793-17b6-478c-a6e8-745c0cfb7ed9";

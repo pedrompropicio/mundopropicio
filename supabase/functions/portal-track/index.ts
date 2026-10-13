@@ -12,6 +12,8 @@ const ALLOWED_ORIGINS = new Set<string>([
   "https://coalafestival.pt",
   "https://www.coalafestival.pt",
   "https://coalafestival.lovable.app",
+  "https://newgangfestival.pt",
+  "https://www.newgangfestival.pt",
 ]);
 const PORTAL_PREVIEW_SUFFIXES = [
   `--26b95793-17b6-478c-a6e8-745c0cfb7ed9.lovable.app`,
@@ -27,7 +29,11 @@ const ORIGIN_COMPANY: Record<string, string> = {
   "https://coalafestival.pt": COALA_COMPANY,
   "https://www.coalafestival.pt": COALA_COMPANY,
   "https://coalafestival.lovable.app": COALA_COMPANY,
+  "https://newgangfestival.pt": MP_COMPANY,
+  "https://www.newgangfestival.pt": MP_COMPANY,
 };
+// Pedro: preview do projeto Lovable do portal Newgang — preencher "--<projectId>.lovable.app" aqui e em PORTAL_PREVIEW_SUFFIXES.
+const NEWGANG_PREVIEW_SUFFIX: string | null = null;
 const PREVIEW_COMPANY: Array<[string, string]> = [
   [`--26b95793-17b6-478c-a6e8-745c0cfb7ed9.lovable.app`, MP_COMPANY],
   [`--bef9c59c-c2a4-453d-9aec-dae7d16c9171.lovable.app`, COALA_COMPANY],
