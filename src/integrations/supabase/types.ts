@@ -11097,6 +11097,8 @@ export type Database = {
           country: string
           ip_from: unknown
           ip_to: unknown
+          lat: number | null
+          lon: number | null
           region: string | null
           source_month: string
         }
@@ -11105,6 +11107,8 @@ export type Database = {
           country: string
           ip_from: unknown
           ip_to: unknown
+          lat?: number | null
+          lon?: number | null
           region?: string | null
           source_month: string
         }
@@ -11113,6 +11117,8 @@ export type Database = {
           country?: string
           ip_from?: unknown
           ip_to?: unknown
+          lat?: number | null
+          lon?: number | null
           region?: string | null
           source_month?: string
         }
@@ -18686,6 +18692,34 @@ export type Database = {
           },
         ]
       }
+      v_song_link_blitz_geo: {
+        Row: {
+          city: string | null
+          city_lat: number | null
+          city_lon: number | null
+          country: string | null
+          created_at: string | null
+          dist_km_alvo: number | null
+          event: string | null
+          id: string | null
+          prefix: string | null
+          region: string | null
+          target_city: string | null
+          target_state: string | null
+          utm_campaign: string | null
+        }
+        Relationships: []
+      }
+      v_song_link_blitz_targets: {
+        Row: {
+          prefix: string | null
+          target_city: string | null
+          target_lat: number | null
+          target_lon: number | null
+          target_state: string | null
+        }
+        Relationships: []
+      }
       v_song_metric_latest: {
         Row: {
           artist_id: string | null
@@ -21456,11 +21490,23 @@ export type Database = {
         }[]
       }
       help_sync_article: { Args: { _payload: Json }; Returns: Json }
+      ip_city_centroids: {
+        Args: never
+        Returns: {
+          city: string
+          country: string
+          lat: number
+          lon: number
+          region: string
+        }[]
+      }
       ip_city_lookup: {
         Args: { ip: unknown }
         Returns: {
           city: string
           country: string
+          lat: number
+          lon: number
           region: string
         }[]
       }
