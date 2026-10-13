@@ -12,3 +12,9 @@ type: feature
 - Pontos: join_confirmed 100, friend_joined 150, friend_bought 300, promo_lot_purchase 500, guess_correct 50, attended_year 100. Níveis Fã 0, Gang 500, Lenda 1500.
 - Spec: docs/specs/portal-newgangfestival.md · D-ERP257.
 - Membro novo do formulário recebe automaticamente 1 email "Confirma a tua entrada no Clube Newgang" (link 30 dias); importação e confirmação 1 clique não recebem. Emails do Clube usam um só visual (cabeçalho v3, verde escuro, botão verde, rodapé Newgang Produções + descadastro).
+
+
+## F2 (2026-10-13, decisões do Pedro)
+- Inscrição clube_newgang NÃO recebe portal_vip_welcome; só newgang_club_welcome.
+- Welcome sai logo após o processamento da inscrição (trigger → newgang-portal notify_member); cron 5 min = rede de segurança.
+- Link de descadastro dos emails Newgang: https://newgangfestival.pt/descadastrar?token=… (site novo chama handle-email-unsubscribe).
