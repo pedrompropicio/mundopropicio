@@ -15,11 +15,11 @@ import { gzipHeaderLen, inflatePart, NeedMoreInput } from "./inflate.ts";
 import { decodeBase64, encodeBase64 } from "jsr:@std/encoding@1/base64";
 
 const FN = "dbip-city-sync";
-const TARGET = 24 << 20;      // bytes descomprimidos por parte
+const TARGET = 8 << 20;       // bytes descomprimidos por parte
 const SLICE = 6 << 20;        // bytes comprimidos pedidos por parte (cresce se não chegar)
 const SAFE_END = 1 << 20;     // não começa um bloco a menos de 1 MB do fim do pedaço
 const BATCH = 2000;
-const MAX_PARTS = 80;
+const MAX_PARTS = 300;
 const url = (m: string) => `https://download.db-ip.com/free/dbip-city-lite-${m}.csv.gz`;
 const ym = (d: Date) => d.toISOString().slice(0, 7);
 

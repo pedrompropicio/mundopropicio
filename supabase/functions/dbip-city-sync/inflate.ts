@@ -58,11 +58,11 @@ export function inflatePart(inp: Uint8Array, startBit: number, win: Uint8Array, 
   };
   const bits = (n: number) => { need(n); const v = bb & ((1 << n) - 1); bb >>>= n; bc -= n; return v; };
   if (skip) bits(skip);
-  let out = new Uint8Array(win.length + target + (1 << 20));
+  let out = new Uint8Array(win.length + target + (2 << 20));
   out.set(win); let op = win.length;
   const ensure = (n: number) => {
     if (op + n <= out.length) return;
-    const o2 = new Uint8Array(Math.max(out.length * 2, op + n)); o2.set(out.subarray(0, op)); out = o2;
+    const o2 = new Uint8Array(Math.max(out.length + (4 << 20), op + n)); o2.set(out.subarray(0, op)); out = o2;
   };
   const sym = (tb: Table) => {
     need(tb.bits);
