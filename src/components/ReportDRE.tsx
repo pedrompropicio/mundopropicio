@@ -1,4 +1,5 @@
 import { fetchPartnerExtras, partnerExtraValue } from "@/lib/partner-extras";
+import { findTicketCategoryId } from "@/lib/ticket-category";
 import { EventNatureFilter } from "@/components/EventNatureFilter";
 import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
 import { useState, useMemo } from "react";

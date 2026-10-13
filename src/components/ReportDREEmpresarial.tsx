@@ -1,4 +1,5 @@
 import { EventNatureFilter } from "@/components/EventNatureFilter";
+import { findTicketCategoryId } from "@/lib/ticket-category";
 import { filterEventsByNature, eventNatureLabel, type EventNature } from "@/lib/event-nature";
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";

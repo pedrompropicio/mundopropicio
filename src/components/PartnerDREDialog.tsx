@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { findTicketCategoryId } from "@/lib/ticket-category";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
