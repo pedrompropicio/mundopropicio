@@ -41,11 +41,10 @@ export function useEventFinancialsRealtime(eventIds: (string | null | undefined)
   const qc = useQueryClient();
   const key = [...new Set(eventIds.filter(Boolean))].sort().join(",");
   const ids = useMemo(() => (key ? key.split(",") : []), [key]);
-  // Chave fora dos prefixos financeiros: não é refeita a cada invalidação.
   const { data: scope } = useQuery({
-    queryKey: ["rt-scope-event-fin", key],
+    queryKey: ["event_cache_rt_scope", key], // prefixo event_cache_: refaz-se com a invalidação (zonas/configs novas)
     enabled: !!key,
-    staleTime: 5 * 60_000,
+    staleTime: 60_000,
     queryFn: async () => {
       const [z, c] = await Promise.all([
         supabase.from("event_ticket_zones").select("id").in("event_id", ids),
