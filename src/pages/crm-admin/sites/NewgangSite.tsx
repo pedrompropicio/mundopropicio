@@ -407,24 +407,25 @@ function EditionCard({ e, site, onPatch, onDelete }: { e: Edition; site: Site; o
 
   const upload = async (files: FileList | null) => {
     if (!files?.length) return;
-    const room = MAX_EDITION_PHOTOS - photos.length;
-    if (room <= 0) return toast.error(`Máximo de ${MAX_EDITION_PHOTOS} fotos por edição.`);
-    const list = Array.from(files).slice(0, room);
-    if (files.length > room) toast.warning(`Só ${room} foto(s) cabem; as restantes foram ignoradas.`);
+    const list = Array.from(files); // ordem recebida
     setBusy(true);
     try {
-      const urls: string[] = [];
-      for (const f of list) {
-        const blob = await toWebp(f);
-        const path = `festival-editions/${site.brand_key}/${e.year}/${crypto.randomUUID()}.webp`;
-        const { error } = await supabase.storage.from("portal-marketing-images").upload(path, blob, { contentType: "image/webp" });
-        if (error) throw error;
-        urls.push(supabase.storage.from("portal-marketing-images").getPublicUrl(path).data.publicUrl);
-      }
-      onPatch({ gallery_urls: [...photos, ...urls] });
-      toast.success(`${urls.length} foto(s) carregada(s).`);
-    } catch (x) {
-      err(x);
+      const saved = await uploadEditionPhotos(list, { brandKey: site.brand_key, year: e.year, gallery: photos, coverUrl: e.cover_url }, {
+        companyId: getCurrentCompanyId,
+        convert: toWebp,
+        upload: (path, blob) => supabase.storage.from(EDITION_BUCKET).upload(path, blob, { contentType: "image/webp", upsert: false }),
+        publicUrl: (path) => supabase.storage.from(EDITION_BUCKET).getPublicUrl(path).data.publicUrl,
+        save: async (patch) => {
+          const { data, error } = await db.from("festival_editions")
+            .update({ ...patch, updated_at: new Date().toISOString() }).eq("id", e.id).select("id");
+          if (error) return { error };
+          if (!data?.length) return { error: { message: "nenhuma linha gravada (sem permissão ou edição inexistente)" } };
+          return { error: null };
+        },
+        newId: () => crypto.randomUUID(),
+        toast,
+      });
+      if (saved.length) await qc.invalidateQueries({ queryKey: ["festival-editions", site.brand_key] });
     } finally {
       setBusy(false);
     }
