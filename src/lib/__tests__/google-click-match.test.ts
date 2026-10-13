@@ -43,3 +43,37 @@ describe("#62 valor da conversão", () => {
     expect(positiveConversionValue({ value: 8 })).toBe(8);
   });
 });
+
+import { pickClickForLeads } from "../../../supabase/functions/_shared/google-click-match.ts";
+
+describe("#62 D-ERP260 partir dos leads", () => {
+  const mk = (i: number, o: Record<string, unknown> = {}) => ({
+    id: `c${String(i).padStart(6, "0")}`, captured_at: new Date(Date.UTC(2026, 7, 1) + i * 60000).toISOString(),
+    lead_capture_id: null, client_event_id: `orphan-${i}`, gclid: `OLD${i}`, gbraid: null, wbraid: null, ...o,
+  });
+  const old = Array.from({ length: 5001 }, (_, i) => mk(i));
+  const recent = mk(9999, { id: "recent", captured_at: "2026-10-12T10:00:00.000Z", gclid: "NEW1", client_event_id: "cei-new" });
+  const lead = { id: "lead-new", client_event_id: "cei-new", raw: { gclid: "NEW1" } };
+
+  it("defeito: >5.000 cliques antigos sem lead + 1 recente com lead → enfileira o recente", () => {
+    const r = pickClickForLeads([lead], [...old, recent], new Set());
+    expect(r.picks).toHaveLength(1);
+    expect(r.picks[0]).toMatchObject({ leadId: "lead-new", method: "click_identifier" });
+    expect(r.picks[0].click.id).toBe("recent");
+  });
+  it("controlo: a lógica antiga (5.000 mais antigos) perdia-o", () => {
+    const cut = [...old, recent].sort((a, b) => a.captured_at.localeCompare(b.captured_at)).slice(0, 5000);
+    expect(pickClickForLeads([lead], cut, new Set()).picks).toHaveLength(0);
+  });
+  it("prioridade e já enfileirado", () => {
+    const l2 = { id: "L2", client_event_id: "cei2", raw: null };
+    const r = pickClickForLeads([lead, l2],
+      [mk(1, { id: "a", lead_capture_id: "L2", client_event_id: null }), recent], new Set(["lead-new"]));
+    expect(r.skippedExisting).toBe(1);
+    expect(r.picks).toEqual([expect.objectContaining({ leadId: "L2", method: "lead_capture_id" })]);
+  });
+  it("clique sem identificador ignorado; lead sem clique conta", () => {
+    const r = pickClickForLeads([lead], [{ ...recent, gclid: null }], new Set());
+    expect(r.noClick).toBe(1);
+  });
+});
