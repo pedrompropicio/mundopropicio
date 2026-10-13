@@ -16,7 +16,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { lookupIpGeo, type Geo } from "../_shared/geo.ts";
-import { validSsrKey, prefetchDetail, ssrClientIp } from "./ssr.ts";
+import { validSsrKey, prefetchDetail, ssrClientIp, ssrClientGeo } from "./ssr.ts";
 
 const ALLOWED_ORIGINS = new Set<string>([
   "https://www.mundopropicio.com",
@@ -102,7 +102,7 @@ async function hashGeoGet(admin: any, ipHash: string): Promise<Geo | null> {
   return { country: data.country, region: data.region, city: data.city };
 }
 // deno-lint-ignore no-explicit-any
-export async function hashGeoPut(admin: any, ipHash: string | null, g: Geo) {
+async function hashGeoPut(admin: any, ipHash: string | null, g: Geo) {
   if (!ipHash || !g.country) return;
   geoCache.set(ipHash, { at: Date.now(), geo: g });
   await admin.from("ip_geo_cache").upsert({ ip: `h:${ipHash}`, country: g.country, region: g.region, city: g.city,
