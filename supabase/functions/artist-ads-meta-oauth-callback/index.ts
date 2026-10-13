@@ -60,6 +60,11 @@ Deno.serve(async (req) => {
 
   const admin = adminClient();
 
+  // D-ERP258: ligação-alvo pedida no start (lida antes de consumir o state).
+  const { data: stHint } = await (admin as any).schema("crm").from("oauth_states")
+    .select("connection_id").eq("id", state).maybeSingle();
+  const hintConnectionId: string | null = stHint?.connection_id ?? null;
+
   const { data: stateRows, error: stateErr } = await admin.rpc(
     "crm_consume_oauth_state",
     { p_state_id: state },
@@ -139,7 +144,18 @@ Deno.serve(async (req) => {
 
   if (accounts.length === 0) return fail(returnUrl, "no_ad_account");
 
-  const single = accounts.length === 1 ? accounts[0] : null;
+  // D-ERP258: conta-alvo = a da ligação pedida (se o utilizador lhe deu acesso), senão a única conta.
+  let target: (typeof accounts)[number] | null = accounts.length === 1 ? accounts[0] : null;
+  if (hintConnectionId) {
+    const { data: hc } = await (admin as any).schema("crm").from("ad_platform_connections")
+      .select("selected_ad_account_id, artist_id, company_id").eq("id", hintConnectionId).maybeSingle();
+    if (hc && hc.artist_id === st.artist_id && hc.company_id === st.company_id && hc.selected_ad_account_id) {
+      const m = accounts.find((a) => a.id === hc.selected_ad_account_id);
+      if (!m) return fail(returnUrl, "ad_account_not_granted");
+      target = m;
+    }
+  }
+  const single = target;
   const business = accounts.find((a) => a.business?.id)?.business ?? null;
 
   // 4) grava a ligação (token cifrado no servidor)
