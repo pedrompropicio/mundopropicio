@@ -210,6 +210,7 @@ const CrmDashboard = lazy(() => import("./pages/crm-admin/CrmDashboard"));
 const ContactosList = lazy(() => import("./pages/crm-admin/contactos/ContactosList"));
 const LeadsList = lazy(() => import("./pages/crm-admin/leads/LeadsList"));
 const ClubeNewgang = lazy(() => import("./pages/crm-admin/clube-newgang/ClubeNewgang"));
+const NewgangSite = lazy(() => import("./pages/crm-admin/sites/NewgangSite"));
 const AudiencesList = lazy(() => import("./pages/crm-admin/audiences/AudiencesList"));
 const AudienceNew = lazy(() => import("./pages/crm-admin/audiences/AudienceNew"));
 const AudienceEditor = lazy(() => import("./pages/crm-admin/audiences/AudienceEditor"));
@@ -732,6 +733,7 @@ function App() {
                     <Route path="contactos" element={<ContactosList />} />
                     <Route path="leads" element={<LeadsList />} />
                     <Route path="clube-newgang" element={<ClubeNewgang />} />
+                    <Route path="sites/newgang" element={<NewgangSite />} />
                     <Route path="audiences" element={<AudiencesList />} />
                     <Route path="audiences/novo" element={<AudienceNew />} />
                     <Route path="audiences/:id" element={<AudienceEditor />} />

@@ -14,8 +14,7 @@ import {
   ArrowLeft,
   KeyRound,
   LogOut,
-  Sparkles,
-} from "lucide-react";
+  Sparkles, Globe } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,6 +32,7 @@ export function CrmSidebar() {
     { to: "/crm/contactos", icon: Users, label: "Contactos" },
     { to: "/crm/leads", icon: Inbox, label: "Contactos & tráfego" },
     { to: "/crm/clube-newgang", icon: Users, label: "Clube Newgang" },
+    { to: "/crm/sites/newgang", icon: Globe, label: "Site Newgang" },
     { to: "/crm/audiences", icon: Target, label: "Audiências" },
     { to: "/crm/blog", icon: FileText, label: "Blog" },
     { need: "settings.portal", to: "/crm/paginas", icon: FilePen, label: "Páginas" },
