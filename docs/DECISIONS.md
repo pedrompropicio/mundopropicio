@@ -5749,3 +5749,9 @@ Leitura = 'read' com área; escrita de tráfego, músicas e comparáveis = 'traf
 **Resultados.** Matriz por papel 48/48 (viewer e traffic_manager do Litto + Pedro), com output em claude-outputs/2026-10-13-0315-derp259-testes-por-papel.md. Antes da fase 2, qualquer conta nova lia directamente todos os artistas (papel 'user'); depois, só os atribuídos. Ninguém perdeu acesso: a Social Artists não tem outros utilizadores com papel. Os editores (papel editor) passam a só ler: deixam de escrever músicas e comparáveis.
 
 **Limites conhecidos.** As áreas só se aplicam nas RPC; a leitura directa das tabelas não as distingue. v_artist_comparables fica vazia para externos (comparáveis são outros artistas). v_content_latest e v_song_content dão timeout a utilizadores sem papel na empresa (já acontecia antes).
+
+**Adenda (13/10/2026) — respostas às questões abertas.**
+1. (A) O front lê pelas RPC, que distinguem as áreas; a RLS fica por artista, sem áreas.
+2. (A) v_content_latest optimizada sem mexer em tabelas: migração 0127 (LATERAL, insuficiente: 8,9 s) substituída pela 0128 — função SECURITY DEFINER `_content_latest_metrics()` (só authenticated/service_role) que avalia o acesso uma vez por pedido, com o mesmo âmbito das políticas RESTRICTIVE; a vista mantém colunas e security_invoker. v_song_content beneficia automaticamente. Tempos (viewer de teste do Litto, transacção desfeita): v_content_latest 6,1 s só na contagem (timeout com select *) → 0,33 s; v_song_content timeout → 0,32 s. Viewer: 1.961 conteúdos / 61 músicas, 0 de outros artistas. Pedro: 2.381 conteúdos, soma de views 180.654.522 = cálculo original. Utilizador de teste removido (0 linhas).
+3. (A) Comparáveis ficam vazios para externos.
+4. Commit automático pelo Lovable; hashes indicados quando aparecerem.
