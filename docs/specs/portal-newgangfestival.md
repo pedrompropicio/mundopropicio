@@ -24,7 +24,7 @@ CORS: `https://newgangfestival.pt`, `https://www.newgangfestival.pt` + constante
 `portal-track` (→ MP; `referral_code` e `ttclid` de topo ficam em `raw`), `geo-lookup`, `crm-google-click-ingest` aceitam os dois domínios. `event_trackers_public` não foi alterada.
 
 ### MP CRM `/crm/sites/newgang`
-Geral · Line-up e revelações (LineupTab estendido + revelações + pré-visualização público/membro + "Line-up completo") · História (fotos → WebP 1600 px no browser, bucket `portal-marketing-images`, ordenação, capa; vídeos por link) · Clube (regras, níveis, prémios, ranking, palpites com sugestão automática, "Eu estive lá") · Bilhetes · Tracking.
+Geral · Line-up e revelações (LineupTab estendido + revelações + pré-visualização público/membro + "Line-up completo") · História (fotos → WebP 1600 px no browser, bucket `portal-marketing-images` no caminho `<company_id da empresa ativa>/festival-editions/<brand_key>/<ano>/<uuid>.webp` — o 1.º segmento tem de ser o company_id por causa da policy `portal_marketing_images_insert`; upload em sequência pela ordem recebida, máx. 20 com aviso, 1.ª foto = capa quando `cover_url` vazio; falha no upload ou na gravação → toast com a mensagem real e o contador não sobe; ordenação, capa; vídeos por link) · Clube (regras, níveis, prémios, ranking, palpites com sugestão automática, "Eu estive lá") · Bilhetes · Tracking.
 
 ### Testes
 `src/test/newgang-portal.test.ts` (10).
