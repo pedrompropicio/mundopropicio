@@ -50,3 +50,41 @@ export function cacheTabRevenue(
     deductions: rows.reduce((s, r) => s + r.totalDeduction, 0),
   };
 }
+
+export interface CityDeductionRow {
+  cityId: string;
+  categoryDeduction: number;
+  fixedPctDeduction: number;
+  totalDeduction: number;
+}
+
+/**
+ * Descontos mostrados no detalhe da atração (adenda D-ERP265, 13/10/2026).
+ * Master de turnê: Σ dos descontos usados no cálculo de cada cidade
+ * (BP da cidade + 1/N do Master — os mesmos RealCacheResult do total).
+ * Evento simples: descontos do cálculo real do evento.
+ */
+export function cacheTabDeductionBreakdown(
+  config: any,
+  realResult: RealCacheResult | null | undefined,
+  resultsByCity: Record<string, RealCacheResult[]> | undefined,
+  childEventIds: string[] | undefined,
+): { cities: CityDeductionRow[]; byCategory: Record<string, number>; categoryDeduction: number; fixedPctDeduction: number; totalDeduction: number } {
+  const children = childEventIds ?? [];
+  const pairs: Array<[string, RealCacheResult | undefined]> = children.length > 0
+    ? children.map((c) => [c, resultsByCity?.[c]?.find((x) => x.configId === config.id)])
+    : [["", realResult ?? undefined]];
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const byCategory: Record<string, number> = {};
+  const cities: CityDeductionRow[] = pairs.map(([cityId, r]) => {
+    for (const d of r?.deductionDetails ?? []) byCategory[d.categoryId] = r2((byCategory[d.categoryId] ?? 0) + d.amount);
+    return {
+      cityId,
+      categoryDeduction: r2(r?.realDeductionAmount ?? 0),
+      fixedPctDeduction: r2(r?.fixedPctDeduction ?? 0),
+      totalDeduction: r2(r?.totalDeduction ?? 0),
+    };
+  });
+  const sum = (k: keyof CityDeductionRow) => r2(cities.reduce((s, c) => s + (c[k] as number), 0));
+  return { cities, byCategory, categoryDeduction: sum("categoryDeduction"), fixedPctDeduction: sum("fixedPctDeduction"), totalDeduction: sum("totalDeduction") };
+}
