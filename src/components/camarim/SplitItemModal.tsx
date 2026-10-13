@@ -24,6 +24,7 @@ import { Loader2, Plus, Trash2, Split } from "lucide-react";
 import { formatCurrency } from "@/lib/camarim-helpers";
 import { cn } from "@/lib/utils";
 import { mustWrite } from "@/lib/must-write";
+import { useInvalidateEventFinancials } from "@/hooks/useInvalidateEventFinancials";
 
 interface ParentItem {
   id: string;
@@ -69,6 +70,7 @@ interface Props {
 }
 
 export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSaved }: Props) {
+  const invalidateFin = useInvalidateEventFinancials();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -244,7 +246,7 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
         .eq("id", itemId);
       if (updErr) throw updErr;
       toast({ title: "Talão revertido a Master único" });
-      onSaved?.();
+      invalidateFin(); onSaved?.();
       onOpenChange(false);
     } catch (e: any) {
       console.error(e);
@@ -337,7 +339,7 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
         title: existingChildrenCount > 0 ? "Talão redividido" : "Talão dividido",
         description: `${newChildren.length} linhas criadas.`,
       });
-      onSaved?.();
+      invalidateFin(); onSaved?.();
       onOpenChange(false);
     } catch (e: any) {
       console.error(e);

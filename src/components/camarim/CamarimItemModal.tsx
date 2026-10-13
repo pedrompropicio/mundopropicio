@@ -29,6 +29,7 @@ import { mustWrite } from "@/lib/must-write";
 import { itemBpLineError, itemLineWarning, itemTargetEvent, type CamarimLineOption } from "@/lib/camarim-bp-rules";
 import { fetchCamarimLines } from "@/lib/camarim-bp-lines";
 import { lineLabel } from "@/lib/camarim-integrate";
+import { useInvalidateEventFinancials } from "@/hooks/useInvalidateEventFinancials";
 
 const LINE_AT_INTEGRATION = "__session_line__";
 
@@ -44,6 +45,7 @@ interface Props {
 }
 
 export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, autoOpenCamera, onSaved }: Props) {
+  const invalidateFin = useInvalidateEventFinancials();
   const { user } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -257,7 +259,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       toast({
         title: childrenCount > 0 ? "Talão e linhas filhas eliminados" : "Lançamento eliminado",
       });
-      onSaved?.();
+      invalidateFin(); onSaved?.();
       onOpenChange(false);
     } catch (e: any) {
       console.error(e);
@@ -632,7 +634,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       }
 
       toast({ title: itemId ? "Item atualizado" : "Item registado" });
-      onSaved?.();
+      invalidateFin(); onSaved?.();
       if (opts?.thenSplit && savedId) {
         setSplitItemId(savedId);
         setSplitOpen(true);

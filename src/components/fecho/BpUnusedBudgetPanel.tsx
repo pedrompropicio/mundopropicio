@@ -25,6 +25,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { computeBpLineReview, vatLabel, type BpLineReviewRow } from "@/lib/event-cost-basis";
 import { hasResultBlockingFlags } from "@/lib/fecho-filters";
 import { type FechoBasis } from "@/hooks/useFechoBasis";
+import { invalidateEventFinancials } from "@/lib/invalidate-event-financials";
 
 interface Props {
   eventId: string;
@@ -376,6 +377,7 @@ export function BpUnusedBudgetPanel(props: Props) {
       toast.success(t.installment_group_id ? "Parcelas vinculadas à linha" : "Transação vinculada à linha");
       queryClient.invalidateQueries({ queryKey: ["bp-line-review-tx", eventId] });
       queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
+      invalidateEventFinancials(queryClient, [eventId]); // gravação direta (D-ERP266)
     } catch (e: any) {
       toast.error(e?.message ?? "Não foi possível vincular");
     } finally {
@@ -430,6 +432,7 @@ export function BpUnusedBudgetPanel(props: Props) {
       queryClient.invalidateQueries({ queryKey: ["bp-line-reviews", eventId] });
       queryClient.invalidateQueries({ queryKey: ["bp-line-review-forecasts", eventId] });
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      invalidateEventFinancials(queryClient, [eventId]); // gravação direta (D-ERP266)
     } catch (e: any) {
       toast.error(e?.message ?? "Não foi possível registar a decisão");
     } finally {

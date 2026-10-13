@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { FUND_MOVE_LABELS, formatCurrency, type CamarimFundMoveType } from "@/lib/camarim-helpers";
+import { useInvalidateEventFinancials } from "@/hooks/useInvalidateEventFinancials";
 
 interface Account {
   id: string;
@@ -58,6 +59,7 @@ export function CamarimFundMoveModal({
   allMoves = [],
   onSaved,
 }: Props) {
+  const invalidateFin = useInvalidateEventFinancials();
   const { user } = useAuth();
   const isEdit = !!existing;
   const [moveType, setMoveType] = useState<CamarimFundMoveType>("advance");
@@ -290,7 +292,7 @@ export function CamarimFundMoveModal({
             : undefined,
         });
       }
-      onSaved?.();
+      invalidateFin(); onSaved?.();
       onOpenChange(false);
     } catch (e: any) {
       toast({ variant: "destructive", title: "Erro", description: e.message });
