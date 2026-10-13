@@ -5788,3 +5788,6 @@ Backfill: 26/09–11/10, 6.400 linhas, 200 por país e por dia. 12/10 ainda dá 
 - Novo log: `[song-link-event] geo {src: cdn|cdn_pais|cache|ipinfo|cdn+cache|cdn+ipinfo|…+quota, country, city, blitz}`.
 - Backfill desde 13/10 05:00: só por ip_hash (a tabela não guarda o IP, por isso não há ipinfo para trás). Recuperou 1 de 20 chegadas (0 de 8 blitz).
 - Prova a 13/10 05:55: o ipinfo responde 429 em todos os pedidos (a quota da conta está esgotada, não é o limite por minuto). A cidade só vai aparecer com uma cidade vinda da CDN ou com quota no ipinfo.
+
+### D-ERP262 — Chat dedicado `newgang-portal` (13/10/2026)
+Chat dedicado `newgang-portal` (tipo c, como o coala-portal). O portal newgangfestival.pt é um projeto Lovable separado, com vida até 25/03/2027; o chat passa a ser dono do site, da API newgang-portal, do Clube Newgang e do tracking do site. Google Ads/#62 continuam em audience-google; as campanhas Meta em audience-meta; as regras gerais de leads em crm-portal-e-leads.

@@ -23,9 +23,7 @@ A 24/09/2026 foi resolvido o incidente que punha o ecrã "Algo correu mal" a 100
 
 **Acompanhamento no MP CRM (#308, P1 até 02/11)** — construído a 12/10, aguarda Publish. Página `/crm/clube-newgang` no menu do MP CRM: cartões total/hoje/7 dias + barra da meta 15.000 até 02/11, agregados por dia/cidade/UTM/faixa etária (hora de Lisboa), tabela paginada com pesquisa e consentimentos, export CSV formato Fever da base completa. Migração `0111_derp252_clube_newgang_crm.sql`: RPCs SECURITY DEFINER `clube_newgang_summary` e `clube_newgang_list` (anon sem acesso; papéis admin/platform_admin/marketing_manager/content_manager; filtro à empresa ativa). Formato da data de nascimento confirmado AAAA-MM-DD (o portal valida antes de gravar no raw). Pendente: confirmar com a Fever se os consentimentos no CSV devem ser "sim"/"não" ou true/false.
 
-**Portal newgangfestival.pt — F1 ERP (13/10)** — base, API `newgang-portal`, origens e ecrã `/crm/sites/newgang` feitos; ver `docs/specs/portal-newgangfestival.md`. `event_lineups_public` passou a exigir revelação agendada com data pública passada. Sementeira aplicada a 13/10 (`supabase/manual/20261013_newgang_portal_seed.sql`, com backfill de 2 membros por confirmar); fluxo testado e limpo. Sem Publish.
-
-**Portal newgangfestival.pt — F2 ERP (13/10)** — origens do preview `--1a915f50-…lovable.app` e `newgang-fest-portal.lovable.app` (→ MP) em `newgang-portal`, `portal-track`, `crm-google-click-ingest`, `geo-lookup`; origem estranha → 403. Email automático "Confirma a tua entrada no Clube Newgang" a membros novos com source `formulario` (cron `newgang-club-welcome-5m`, 1 por membro). `request_access` com o mesmo visual. `next_reveal.id` no line-up. Testado com teste+ngmail e limpo. Sem Publish.
+**Portal newgangfestival.pt** — passou para o chat `newgang-portal` (estado em `docs/estado/estado-newgang-portal.md`).
 
 **Risco registado:** a policy `lead_capture_public_insert` (anon insert em `lead_capture`) mantém-se; não foi alterada neste pedido.
 
@@ -56,7 +54,3 @@ A 24/09/2026 foi resolvido o incidente que punha o ecrã "Algo correu mal" a 100
 - `docs/handoffs/` — analise-critica-portal-2026-08-12, plano-conversao-portal-2026-08-12
 
 
-## F2 respostas do Pedro (2026-10-13)
-- portal_vip_welcome desligado para source clube_newgang (só newgang_club_welcome).
-- Envio imediato: club_from_lead_capture faz net.http_post (assíncrono, em bloco EXCEPTION) a newgang-portal action notify_member; cron newgang-club-welcome-5m fica como rede de segurança. Idempotente por message_id ng-welcome-<membro>. Teste: processada 03:50:00 → sent 03:50:08 (8 s). Migração 0129.
-- Descadastro dos emails Newgang: https://newgangfestival.pt/descadastrar?token=…; List-Unsubscribe um clique mantém handle-email-unsubscribe (CORS *).
