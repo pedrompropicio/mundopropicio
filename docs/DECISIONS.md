@@ -5774,3 +5774,9 @@ Problema: `crm-google-lead-conversion-enqueue` varria os cliques da janela por c
 Decisão: partir dos LEADS MP da janela de 90 dias (com raw.gclid/gbraid/wbraid ou client_event_id), paginados até ao fim. Depois vão-se buscar só os cliques com consentimento que lhes casam (por lead_capture_id, identificador e client_event_id, em blocos de 100). A regra pura é `pickClickForLeads` em `_shared/google-click-match.ts`, com as regras de casamento inalteradas e o primeiro clique a ganhar. Mantém-se: dedupe por order_id = lead_capture.id, valor nulo, ação de portal_settings. Limite de segurança MAX_LEADS = 20.000; se for atingido, processa os mais recentes e a resposta traz `limit_reached:true`. A resposta passa a ter leads_total/leads_considered/no_click/clicks_read.
 Prova: 745 leads, 117 cliques lidos, 16 enfileirados (click_identifier) e 78 já existiam. Vitest: 5.001 cliques antigos + 1 recente → o recente é enfileirado (a lógica antiga perdia-o).
 Ficam por enviar 25 leads com identificador: 14 partilham o gclid com outro lead já enviado (um clique conta para um só lead), 10 têm clique sem consentimento e 1 não tem clique.
+
+### D-ERP261 — Charts diários Spotify BR/PT e "Distância ao chart" (13/10/2026) — ACEITE
+(Ficou D-ERP261 porque o D-ERP260 já é o enqueue Google do #62.)
+Fonte: charts-spotify-com-service `/auth/v0/charts/regional-{br|pt}-daily/{data}`, com o Bearer web do S4A. Tabela `spotify_chart_daily` (PK country+chart_date+position, leitura para authenticated) e vista `v_artist_chart_gap` (security_invoker; a área songs chega por artist_song_metrics_daily). Migração 0131.
+Recolha: `spotify-charts-sync` (só service_role), D-1 + até 3 dias em falta, upsert pela PK, sync_runs, no_data quando o dia ainda não saiu (404). Cron 2193 `carreira-spotify-charts-2100`, `0 21 * * *`.
+Backfill: 26/09–11/10, 6.400 linhas, 200 por país e por dia. 12/10 ainda dá 404 e entra no cron. 11/10 confere: BR 227.582/156.510, PT 11.243/8.274.
