@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { CamarimIntegrateBpSection, type CamarimBpSelection } from "@/components/camarim/CamarimIntegrateBpSection";
 import { parseIntegrateError, sessionBaseAmount } from "@/lib/camarim-integrate";
+import { lineShortfalls, shortfallMessage, type CamarimLineOption } from "@/lib/camarim-bp-rules";
+import { fetchCamarimLines } from "@/lib/camarim-bp-lines";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -382,6 +384,21 @@ export default function CamarimSessionDetail() {
     };
   }, [approvedItems, accounts]);
 
+  // D-ERP264: linhas de BP escolhidas nos próprios itens + realizado (mesma conta das transações).
+  const [itemLines, setItemLines] = useState<CamarimLineOption[]>([]);
+  const itemLineIdsKey = useMemo(
+    () => [...new Set(approvedItems.map((i: any) => i.bp_forecast_id).filter(Boolean))].sort().join(","),
+    [approvedItems],
+  );
+  useEffect(() => {
+    const ids = itemLineIdsKey ? itemLineIdsKey.split(",") : [];
+    if (ids.length === 0) { setItemLines([]); return; }
+    let cancelled = false;
+    fetchCamarimLines({ ids }).then((l) => { if (!cancelled) setItemLines(l); })
+      .catch((e) => console.error("[camarim-integrate] linhas dos itens", e));
+    return () => { cancelled = true; };
+  }, [itemLineIdsKey]);
+
   // Bloqueios pré-integração: lista de problemas que impedem o fluxo
   const blockingIssues = useMemo(() => {
     const issues: string[] = [];
@@ -431,18 +448,9 @@ export default function CamarimSessionDetail() {
         issues.push(
           'O último movimento de adiantamento não tem conta financeira associada. Edita-o na aba "Fundos" e escolhe a conta de origem.',
         );
-      } else {
-        // (5) Incoerência grave: gasto via adiantamento muito superior ao líquido entregue
-        // Permitimos pequena diferença (até €50 ou 10%) que vira reforço automático no fecho.
-        // Acima disso exigimos registo explícito de reforço para evitar erro humano.
-        const overspend = spentFromAdvance - advanceNet;
-        const tolerance = Math.max(50, advanceNet * 0.1);
-        if (overspend > tolerance) {
-          issues.push(
-            `Gasto via adiantamento (${formatCurrency(spentFromAdvance, ccy)}) excede o líquido entregue (${formatCurrency(advanceNet, ccy)}) em ${formatCurrency(overspend, ccy)} — diferença muito grande. Regista um movimento de reforço na aba "Fundos" antes de integrar (ou corrige a origem dos itens).`,
-          );
-        }
       }
+      // D-ERP264: gastar acima do adiantamento nunca bloqueia (sem limite) — o
+      // excesso é reembolsado no acerto (D-ERP156, pré-visualização na conta-corrente).
     } else if (advanceFundMoves.length > 0 && advanceNet > 0) {
       // (6) Houve adiantamento entregue mas nenhum item aprovado o consumiu
       // → vai gerar uma devolução total. Avisamos como bloqueio leve para confirmação.
@@ -451,8 +459,11 @@ export default function CamarimSessionDetail() {
       );
     }
 
+    // (7) D-ERP264: linha de BP própria de itens sem saldo → ajustar a verba antes de integrar.
+    for (const sf of lineShortfalls(approvedItems as any[], itemLines)) issues.push(shortfallMessage(sf));
+
     return issues;
-  }, [approvedItems, funds, totals, session?.currency, administrator]);
+  }, [approvedItems, funds, totals, session?.currency, administrator, itemLines]);
 
 
 
@@ -468,7 +479,10 @@ export default function CamarimSessionDetail() {
       .eq("session_id", id as string);
     const primary = ((evRows ?? []) as any[]).find((e) => e.is_primary) ?? ((evRows ?? []) as any[])[0];
     // Mesma resolução da edge function: master_common → master_event_id; resto → primário.
-    const anyMaster = approvedItems.some((it: any) => it.bp_scope === "master_common");
+    // D-ERP264: itens com linha própria não usam a linha da sessão.
+    const sessionLineItems = approvedItems.filter((it: any) => !it.bp_forecast_id);
+    if (approvedItems.length > 0 && sessionLineItems.length === 0) return null;
+    const anyMaster = sessionLineItems.some((it: any) => it.bp_scope === "master_common");
     const eventId = ((anyMaster ? sess?.master_event_id : null) ?? primary?.event_id ?? sess?.master_event_id ?? null) as string | null;
     if (!eventId) return null;
 
@@ -1290,18 +1304,18 @@ export default function CamarimSessionDetail() {
                 <p className="text-sm font-medium">Conta-corrente da sessão{administrator ? ` — ${administrator.name}` : ""}</p>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div>Recebido: <strong className="tabular-nums">{formatCurrency(settlementPreview.advanceNet, session.currency)}</strong></div>
-                  <div>Pago por ela: <strong className="tabular-nums">{formatCurrency(settlementPreview.spentFromAdvance, session.currency)}</strong></div>
+                  <div>Gasto: <strong className="tabular-nums">{formatCurrency(settlementPreview.spentFromAdvance, session.currency)}</strong></div>
                   <div>Saldo: <strong className="tabular-nums">{formatCurrency(settlementPreview.balance, session.currency)}</strong></div>
                 </div>
                 {settlementPreview.type === "balanced" ? (
                   <p className="text-xs text-muted-foreground">Saldo zero — sem acerto.</p>
                 ) : settlementPreview.type === "reinforcement" ? (
-                  <p className="text-xs text-destructive">
-                    A MP paga-lhe <strong>{formatCurrency(Math.abs(settlementPreview.balance), session.currency)}</strong> — um único pagamento, que fica por pagar (lista de pagamentos ou banco).
+                  <p className="text-xs text-destructive" data-testid="camarim-acerto-msg">
+                    A MP reembolsa <strong>{formatCurrency(Math.abs(settlementPreview.balance), session.currency)}</strong> à gestora — um único pagamento (par 10.3 + pagamento), que fica por pagar (lista de pagamentos ou banco).
                   </p>
                 ) : (
-                  <p className="text-xs text-foreground">
-                    Ela devolve <strong>{formatCurrency(Math.abs(settlementPreview.balance), session.currency)}</strong> — um único recebimento, que fica por receber.
+                  <p className="text-xs text-foreground" data-testid="camarim-acerto-msg">
+                    A gestora devolve <strong>{formatCurrency(Math.abs(settlementPreview.balance), session.currency)}</strong> — um único recebimento, que fica por receber.
                   </p>
                 )}
                 <p className="text-[11px] text-muted-foreground">As despesas ficam pagas pela conta da sessão; não há reembolsos individuais.</p>
@@ -1382,7 +1396,7 @@ export default function CamarimSessionDetail() {
               sessionBase={sessionBaseAmount([
                 ...approvedItems,
                 ...parkedItems.filter((p) => parkedDecisions[p.id]?.decision === "approve_without_doc"),
-              ] as any[])}
+              ].filter((it: any) => !it.bp_forecast_id) as any[])}
               currency={session.currency ?? "EUR"}
               canRaise={canRaiseBudget}
               serverSuggested={serverSuggested}

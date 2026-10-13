@@ -250,9 +250,13 @@ Deno.serve(async (req) => {
     // linha em todas as transações poria a linha de um evento numa transação de
     // outro (viola a coerência da DR-2026-08-22). Recusamos até haver escolha de
     // linha por evento.
+    // D-ERP264: itens com linha de BP própria (bp_forecast_id) usam essa linha; a linha
+    // da sessão aplica-se só aos restantes.
+    const sessionLineItems = (items as any[]).filter((it) => !it.bp_forecast_id);
+    const ownLineItems = (items as any[]).filter((it) => !!it.bp_forecast_id);
     const targetEventIds = Array.from(
       new Set(
-        (items as any[])
+        sessionLineItems
           .map((it) =>
             it.bp_scope === "master_common"
               ? (session.master_event_id ?? primaryEventId)
@@ -328,7 +332,7 @@ Deno.serve(async (req) => {
       // Bases líquidas dos itens aprovados de DESPESA (as pernas do acerto de
       // adiantamento, 10.3, não levam linha e ficam de fora).
       const toApprove = round2(
-        (items as any[]).reduce(
+        sessionLineItems.reduce(
           (s, it) =>
             s + (Number(it.base_amount ?? 0) ||
               Number(it.total_amount ?? 0) - Number(it.iva_amount ?? 0)),
@@ -406,6 +410,53 @@ Deno.serve(async (req) => {
     }
 
 
+
+    // ===== D-ERP264 — linhas próprias dos itens: evento, rubrica e saldo =====
+    // Mesma regra de saldo das transações; sem saldo → bloqueia ANTES de criar nada
+    // (ajusta-se a verba no BP). Nunca liga uma transação a uma linha de outro evento.
+    if (ownLineItems.length > 0) {
+      const r2 = (n: number) => Math.round(n * 100) / 100;
+      const lineErrors: string[] = [];
+      const byLine = new Map<string, any[]>();
+      for (const it of ownLineItems) {
+        const arr = byLine.get(it.bp_forecast_id) ?? [];
+        arr.push(it);
+        byLine.set(it.bp_forecast_id, arr);
+      }
+      for (const [fid, its] of byLine) {
+        const { data: fc } = await adminClient
+          .from("event_forecasts")
+          .select("id,event_id,category_id,version_id,amount,description,specification")
+          .eq("id", fid)
+          .maybeSingle();
+        const label = fc
+          ? ([(fc as any).description, (fc as any).specification].filter(Boolean).join(" · ") || "(sem descrição)")
+          : fid;
+        if (!fc || (fc as any).version_id) { lineErrors.push(`Linha de BP ${label}: não existe no BP vivo.`); continue; }
+        const wrongEvent = its.some((it) => {
+          const ev = it.bp_scope === "master_common" ? session.master_event_id : (primaryEventId ?? session.master_event_id);
+          return ev !== (fc as any).event_id;
+        });
+        if (wrongEvent) { lineErrors.push(`Linha de BP "${label}": não pertence ao evento de destino dos itens.`); continue; }
+        if ((fc as any).category_id !== camarimCategoryId) { lineErrors.push(`Linha de BP "${label}": não é da rubrica 2.6.04 — Camarins.`); continue; }
+        const { data: rows } = await fetchAllPagedQuery(adminClient
+          .from("transactions")
+          .select("amount, is_transitory, exclude_from_result, reversed_at, is_hidden")
+          .eq("forecast_id", fid)
+          .in("status", ["approved", "paid"]));
+        const realized = r2(((rows ?? []) as any[])
+          .filter((r) => r.is_transitory !== true && r.exclude_from_result !== true && r.reversed_at == null && r.is_hidden !== true)
+          .reduce((a, r) => a + Number(r.amount ?? 0), 0));
+        const toApp = r2(its.reduce((a, it) => a + (Number(it.base_amount ?? 0) || Number(it.total_amount ?? 0) - Number(it.iva_amount ?? 0)), 0));
+        const over = r2(realized + toApp - Number((fc as any).amount ?? 0));
+        if (over > 0) {
+          lineErrors.push(`A linha de BP "${label}" não tem saldo para os itens desta sessão: faltam ${over.toFixed(2)} €. Ajusta a verba da linha no BP antes de integrar.`);
+        }
+      }
+      if (lineErrors.length > 0) {
+        return json({ error: "Há linhas de BP dos itens sem saldo ou incoerentes — nada foi integrado.", errors: lineErrors }, 422);
+      }
+    }
 
     // ===== Find advance financial account from latest fund_move =====
     // NOTA: esta é a conta de ORIGEM do adiantamento (o banco) — o banco JÁ pagou
@@ -543,6 +594,8 @@ Deno.serve(async (req) => {
       [
         r.eventId,
         (r.raw.bp_scope as string | null) ?? "",
+        // D-ERP264: uma transação = uma linha de BP (própria do item ou da sessão).
+        (r.raw.bp_forecast_id as string | null) ?? "",
         // D-ERP156: adiantamento e bolso da administradora são a MESMA conta-corrente
         // (ambos pagos pela conta da sessão) → agregam juntos por IVA.
         r.paymentOrigin === "card" ? "card" : "holder",
@@ -673,7 +726,7 @@ Deno.serve(async (req) => {
         is_reimbursement: false,
         reimbursement_to: null,
         company_id: sessionCompanyId, // service-role: current_company_id() returns NULL
-        forecast_id: sessionForecastId, // N:1 — todas as consolidadas da sessão na mesma linha
+        forecast_id: (first.raw.bp_forecast_id as string | null) ?? sessionForecastId, // D-ERP264: linha do item ou da sessão
       };
 
       if (txStatus === "paid") {
