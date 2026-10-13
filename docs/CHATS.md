@@ -17,9 +17,10 @@ Frente que fique longa demais **fecha com handoff** e abre `<frente> II`.
 | `bp-<evento>-<ano>` | do primeiro BP até o evento acontecer | Tours/masters: **um chat por master**, sub-eventos tratados lá dentro |
 | `fecho-<evento>-<ano>` | do evento até selar o fechamento | Corre `procedimentos/PROC-fecho-evento.md`; **todos** os fechamentos do evento no mesmo chat |
 
-### (c) `coala-portal`
+### (c) Portais de evento — `coala-portal` · `newgang-portal`
 
-Portal Coala.
+- `coala-portal` — Portal Coala.
+- `newgang-portal` — Portal newgangfestival.pt: site, API newgang-portal, Clube Newgang, line-up e revelações, história, emails e tracking do site.
 
 ### (d) `gestao-de-chats` — secretaria
 
@@ -56,12 +57,13 @@ Cria chats com mensagem de arranque (`procedimentos/PROC-arranque-chat.md`), man
 | BP de um evento concreto | `bp-<evento>-<ano>` |
 | Fecho de um evento concreto | `fecho-<evento>-<ano>` |
 | Portal Coala | `coala-portal` |
+| Portal newgangfestival.pt, Clube Newgang, revelações do line-up, /crm/sites/newgang | `newgang-portal` |
 | Onde trato X / chat novo / arquivar | `gestao-de-chats` |
 | Email com fatura/cobrança/aviso do banco, lançar transação, desdobrar fatura, importar extrato e conciliar, anexar documento (operação, não regra) | `entrada-dados-erp` |
 
 ## Estado a 15/09/2026
 
-**Abertos:** `fecho-e-socios` · `bp-verbas-e-rateio` · `vinculo-bp-transacoes` · `ticketing-e-receita` · `audience-meta` · `audience-google` · `crm-portal-e-leads` · `plataforma-e-infra` · `financeiro-e-tesouraria` · `gestao-de-chats` · `coala-portal` · `entrada-dados-erp` · `bp-coala-2027` · `bp-ghanem-2027` · `bp-deive-leonardo` · `fecho-anitta-2026` · `fecho-coala-2026` · `fecho-ivete-clareou-2026`
+**Abertos:** `fecho-e-socios` · `bp-verbas-e-rateio` · `vinculo-bp-transacoes` · `ticketing-e-receita` · `audience-meta` · `audience-google` · `crm-portal-e-leads` · `plataforma-e-infra` · `financeiro-e-tesouraria` · `gestao-de-chats` · `coala-portal` · `newgang-portal` (13/10/2026) · `entrada-dados-erp` · `bp-coala-2027` · `bp-ghanem-2027` · `bp-deive-leonardo` · `fecho-anitta-2026` · `fecho-coala-2026` · `fecho-ivete-clareou-2026`
 
 **Frentes ainda sem chat:** nenhuma — as 9 frentes estão todas abertas (16/09/2026).
 
@@ -72,4 +74,5 @@ Cria chats com mensagem de arranque (`procedimentos/PROC-arranque-chat.md`), man
 | Frente | `docs/estado/estado-<frente>.md` |
 | Evento em fecho | `docs/fechos/estado-<evento>-<ano>.md` |
 | Evento em BP | `docs/estado/estado-bp-<evento>-<ano>.md` |
+| `newgang-portal` | `docs/estado/estado-newgang-portal.md` |
 | Operação | sem estado próprio — usa `docs/estado/estado-financeiro-e-tesouraria.md` |
