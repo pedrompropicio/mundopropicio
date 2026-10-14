@@ -22201,6 +22201,17 @@ export type Database = {
           source: string
         }[]
       }
+      my_artist_companies: {
+        Args: never
+        Returns: {
+          display_name: string
+          id: string
+          logo_url: string
+          slug: string
+          status: string
+          theme_config: Json
+        }[]
+      }
       my_effective_permissions: {
         Args: { p_universe?: string[] }
         Returns: Json
