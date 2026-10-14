@@ -38,3 +38,8 @@ type: feature
 - Extras: turnê = todos os extras da configuração; cidade isolada = só os da cidade (event_id).
 - Escalões (14/10): cada cidade mostra os escalões da configuração com a referência = receita máxima da sala (Σ lotes × preço, base da config) e a receita equivalente de cada limiar; marca o escalão aplicado (% do cálculo real). Só referência — não entra no cálculo.
 - Escalão por ocupação (14/10, decisão do Pedro — opção A): o escalão aplicado escolhe-se pela ocupação em bilhetes (vendidos ÷ capacidade à venda), nunca pela receita. A receita máxima da sala nos escalões do relatório é só referência; promoções/cortesias podem atingir o escalão sem a receita correspondente.
+
+## Fecho do cachê é só manual (Pedro, 14/10/2026)
+- Congelar cachê (is_finalized/real_amount, incl. event_cache_city_settlements) só acontece quando um gestor/admin clica "Fechar cachê"; esse acto gera as transações de pagamento e a partir daí o valor não muda com receitas/despesas.
+- Nenhum script, sync ou correção pode gravar is_finalized=true. Até ao fecho, o cachê segue sempre os dados atuais.
+- Caso SM 2026: congelamento por script em 10/10 revertido a 14/10 (Lisboa e Porto reabertas).
