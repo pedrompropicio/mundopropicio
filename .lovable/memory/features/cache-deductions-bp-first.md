@@ -37,3 +37,4 @@ type: feature
 - Datas de evento sempre por formatDatePT (sem fuso). PDF: logo da empresa (fallback logo-horizontal), nome, Evento/Cidade/Local/Data por secção, texto saneado (pdf-text), rodapé "Gerado em" + "pág. x/y".
 - Extras: turnê = todos os extras da configuração; cidade isolada = só os da cidade (event_id).
 - Escalões (14/10): cada cidade mostra os escalões da configuração com a referência = receita máxima da sala (Σ lotes × preço, base da config) e a receita equivalente de cada limiar; marca o escalão aplicado (% do cálculo real). Só referência — não entra no cálculo.
+- Escalão por ocupação (14/10, decisão do Pedro — opção A): o escalão aplicado escolhe-se pela ocupação em bilhetes (vendidos ÷ capacidade à venda), nunca pela receita. A receita máxima da sala nos escalões do relatório é só referência; promoções/cortesias podem atingir o escalão sem a receita correspondente.
