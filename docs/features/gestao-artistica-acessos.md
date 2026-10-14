@@ -31,3 +31,12 @@ Contrato para o front (chat 3). Quem decide é sempre o servidor; o front só es
 - Ao abrir o convite, a pessoa define a senha e entra; a lista de artistas vem de `my_artist_access`.
 
 UI: escolher o artista, email, nível (Só leitura / Gestor de tráfego), interruptores de área (pelo menos 1). Mostrar a lista de utilizadores com o botão "Retirar acesso".
+
+## 4. Ver / Editar por área (D-ERP259 adenda, 14/10/2026)
+- Fonte de verdade: `artist_user_access.area_modes` = `{ <área>: "view" | "edit" }`. Área ausente = sem acesso.
+- `areas` e `access_level` continuam a ser preenchidos automaticamente (compatibilidade): `access_level = traffic_manager` só quando `traffic = edit`.
+- Ler no front: `rpc("my_artist_area_modes")` → `[{ artist_id, area_modes }]` (papéis do ERP: admin = tudo edit; manager/marketing = traffic edit; resto view).
+- Gravar: `artist-access-invite` `{ action:"invite", artist_id, email, area_modes }` (o formato antigo com access_level/areas continua aceite). `list` devolve `area_modes`.
+- Servidor: `artist_access_check(artist, 'write', <área>)` exige `edit` nessa área; `traffic_write` = `edit` em traffic.
+- Modelos no ecrã (só preenchem; cada área ajustável): Artista = tudo view; Empresário = tudo view; Gestor de tráfego = traffic edit + resto view.
+- Ligar/desligar contas, tetos e utilizadores continuam a exigir admin do artista.
