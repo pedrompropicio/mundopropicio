@@ -81,24 +81,36 @@ Deno.serve(async (req) => {
     const { data: art } = await admin.from("artists").select("company_id").eq("id", artistId).maybeSingle();
     if (!art) return json({ error: "artista não encontrado" }, 404);
 
+    const fullName = typeof b.full_name === "string" && b.full_name.trim() ? b.full_name.trim().slice(0, 200) : null;
     // Utilizador já existe?
-    const { data: prof } = await admin.from("profiles").select("id").ilike("email", email).maybeSingle();
+    const { data: prof } = await admin.from("profiles").select("id, full_name").ilike("email", email).maybeSingle();
     let userId = prof?.id as string | undefined;
     let invited = false;
+    let resent = false;
     if (!userId) {
       const { data: inv, error: invErr } = await admin.auth.admin.inviteUserByEmail(email, {
         redirectTo: REDIRECT,
-        data: { company_id: art.company_id, invited_for: "gestao_artistica" },
+        data: { company_id: art.company_id, invited_for: "gestao_artistica", ...(fullName ? { full_name: fullName } : {}) },
       });
-      if (invErr || !inv?.user) return json({ error: invErr?.message ?? "convite falhou" }, 500);
+      if (invErr || !inv?.user) return json({ error: "invite_failed", detail: invErr?.message ?? "convite falhou" }, 500);
       userId = inv.user.id;
       invited = true;
+    } else {
+      // Conta existe mas nunca entrou: reenviar link para definir a senha.
+      const { data: au } = await admin.auth.admin.getUserById(userId);
+      if (au?.user && !au.user.last_sign_in_at) {
+        const { error: rErr } = await admin.auth.resetPasswordForEmail(email, { redirectTo: REDIRECT });
+        resent = !rErr;
+      }
+    }
+    if (fullName && userId && !prof?.full_name) {
+      await admin.from("profiles").update({ full_name: fullName }).eq("id", userId);
     }
     const { data: id, error } = modes
       ? await user.rpc("artist_access_grant_modes", { p_user_id: userId, p_artist_id: artistId, p_area_modes: modes })
       : await user.rpc("artist_access_grant", { p_user_id: userId, p_artist_id: artistId, p_level: level, p_areas: areas });
     if (error) return json({ error: error.message }, error.code === "42501" ? 403 : 500);
-    return json({ ok: true, access_id: id, user_id: userId, invited });
+    return json({ ok: true, access_id: id, user_id: userId, invited, resent });
   }
 
   return json({ error: "action inválida (list|invite|revoke)" }, 400);
