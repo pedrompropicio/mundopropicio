@@ -14,7 +14,7 @@ import { enrichCacheConfigs } from "@/lib/real-cache-calc";
 import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import logoFallback from "@/assets/logo-horizontal.png";
 import {
-  groupEventsForCacheSelector, resolveReportBlocks, buildArtistCacheReport, formatEventDate,
+  groupEventsForCacheSelector, resolveReportBlocks, buildArtistCacheReport, formatEventDate, capacityRevenueByEvent,
   type ReportBlockSpec, type ArtistCacheReport, type ReportEvent,
 } from "@/lib/cache-report";
 import { exportArtistCachePdf, loadImageAsDataUrl, cityRowsFor, type EventMeta } from "@/lib/export-artist-cache-pdf";
@@ -235,14 +235,28 @@ function ReportBlockData({ spec, onReady }: { spec: ReportBlockSpec; onReady: (k
     },
   });
 
+  // Receita máxima da sala por evento (lotes × preço) — só referência dos escalões.
+  const capIds = [spec.holderId, ...spec.childIds];
+  const { data: capacityByEvent = {} } = useQuery({
+    queryKey: ["event_ticket_lots_cache_report", capIds.join(",")], enabled,
+    queryFn: async () => {
+      const { data: zones, error } = await supabase.from("event_ticket_zones").select("id, event_id").in("event_id", capIds);
+      if (error) throw error;
+      const zIds = (zones ?? []).map((z: any) => z.id);
+      if (zIds.length === 0) return {};
+      const { data: lots, error: e2 } = await fetchAllPagedQuery(supabase.from("event_ticket_lots").select("id, zone_id, quantity, price, iva_rate").in("zone_id", zIds));
+      if (e2) throw e2;
+      return capacityRevenueByEvent(zones ?? [], lots ?? []);
+    },
+  });
   const enriched = useMemo(() => enrichCacheConfigs(configs ?? [], tiers), [configs, tiers]);
   const { results, resultsByCity, isLoading } = useRealCacheCalculation(spec.holderId, spec.childIds, enriched, deductions, categories, enriched.length > 0);
 
   const reports = useMemo(() => enriched.map((config: any) => buildArtistCacheReport({
     config, spec,
     realResult: results.find((r) => r.configId === config.id),
-    resultsByCity, citySettlements, extras,
-  })), [enriched, spec, results, resultsByCity, citySettlements, extras]);
+    resultsByCity, citySettlements, extras, capacityByEvent,
+  })), [enriched, spec, results, resultsByCity, citySettlements, extras, capacityByEvent]);
 
   const ready = isFetched && (enriched.length === 0 || !isLoading);
   useEffect(() => { if (ready) onReady(blockKey(spec), reports); }, [ready, reports, spec, onReady]);
@@ -317,7 +331,7 @@ function CitySection({ meta, reports, closesWithNet, note }: { meta: EventMeta; 
                 </TableHeader>
                 <TableBody>
                   {rows.map(([label, value], i) => (
-                    <TableRow key={i} className={label === "Cachê da cidade" || label === "Cachê Fixo" ? "bg-primary/5 font-semibold" : ""}>
+                    <TableRow key={i} className={label === "Cachê da cidade" || label === "Cachê Fixo" ? "bg-primary/5 font-semibold" : label.startsWith("Escalões") ? "bg-muted/30 font-medium" : value.endsWith("aplicado") ? "font-semibold text-primary" : ""}>
                       <TableCell className={label.startsWith("  ") ? "pl-8 text-muted-foreground" : ""}>{label.trim()}</TableCell>
                       <TableCell className="text-right">{value}</TableCell>
                     </TableRow>
