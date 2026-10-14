@@ -8,6 +8,7 @@ D-ERP276. Três estados por email (empresa Coala): convidado (`coala_invites`), 
 
 - "Na lista" = vista `coala_list_members` (lead_capture Coala com email, exceto `diag_test`, ∪ convites confirmados). Usar SEMPRE esta vista; nunca filtrar por fonte.
 - `confirmar_lista(token, marketing_opt_in, locale)` pública e idempotente; fonte `coala_early_bird_invite`.
+- `estado_convite(token)` é a leitura pública da página /confirmar: devolve somente `{status}`, nunca email ou dados pessoais. Nulo/tamanho diferente de 64/inexistente na empresa Coala → `invalid`; status confirmed → `confirmed`; email na vista canónica → `on_list`; restante → `pending`. Todas as campanhas, incluindo testes. STABLE, SECURITY DEFINER, search_path public; EXECUTE anon/authenticated e PUBLIC revogado. Só leituras: nunca chamar confirmar_lista nem funções que escrevam.
 - Essa fonte NUNCA gera email (`trg_coala_lead_confirm` WHEN) nem conversão (`process_lead_captures_batch` salta antes de `leads`).
 - `coala_send_eb_invite_batch` / `coala_send_eb_open_alert`: dry run por defeito, sem escrita; `p_daily_cap` obrigatório no envio; `p_only_emails` para testes; só service_role.
 - Idioma: fever `Pt` → PT, resto → EN.

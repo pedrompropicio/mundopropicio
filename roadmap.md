@@ -1,5 +1,10 @@
 # Roadmap — épica #146 (e)
 
+## Coala — estado público do convite (D-ERP276)
+- [x] Criar e aplicar estado_convite só leitura, com grants anon/authenticated e PUBLIC revogado.
+- [x] Verificar estados Pedro/Fernanda/inválidos via HTTP anon e contagens imediatas antes/depois iguais.
+- [x] Registar D-ERP276, memória e output sem tokens; sem email ou Publish.
+
 ## Coala Early Bird — remetente e modelo PT (14/10/2026)
 - [x] Confirmar domínio marketing na Resend; aplicar remetente nas duas funções e modelo PT integral, preservando EN.
 - [x] Aceitar testes internos fora da base sem alterar as contagens; dry run Pedro em PT confirmado, zero convites/fila/logs do teste.
