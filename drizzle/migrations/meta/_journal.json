@@ -1037,6 +1037,13 @@
       "when": 1791998750574,
       "tag": "0147_derp259_area_modes_view_edit",
       "breakpoints": true
+    },
+    {
+      "idx": 148,
+      "version": "7",
+      "when": 1791998788932,
+      "tag": "0148_derp259_area_modes_legacy_sync",
+      "breakpoints": true
     }
   ]
 }
