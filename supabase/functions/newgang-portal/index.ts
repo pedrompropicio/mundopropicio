@@ -400,7 +400,27 @@ Deno.serve(async (req) => {
     if (!site) return json({ error: "site_not_configured" }, 503);
     try {
       if (b?.action === "wallet_sync") return json({ ok: true, ...(await walletSync()) });
-      if (b?.action === "wallet_issuer") return json({ issuer_id: await walletIssuer(GW.readSaKey(Deno.env.get("GOOGLE_WALLET_SA_KEY"))) });
+      // Aplicação pontual, exclusivamente service_role; não devolve chave, JWT ou save_url.
+      if (b?.action === "wallet_artwork_apply" && typeof b.member_id === "string" && /^[0-9a-f-]{36}$/i.test(b.member_id)) {
+        const sa = GW.readSaKey(Deno.env.get("GOOGLE_WALLET_SA_KEY"));
+        const issuer = await walletIssuer(sa);
+        const wm = await walletMember(site.id, b.member_id);
+        if (!wm) return json({ error: "no_member" }, 404);
+        await GW.patchClassLogo(sa, issuer);
+        await GW.patchObject(sa, GW.buildObject(issuer, wm));
+        const [clsResponse, objResponse] = await Promise.all([
+          GW.walletFetch(sa, `/loyaltyClass/${encodeURIComponent(GW.classId(issuer))}`),
+          GW.walletFetch(sa, `/loyaltyObject/${encodeURIComponent(GW.objectId(issuer, wm.id))}`),
+        ]);
+        if (!clsResponse.ok) throw new Error(`wallet_class_verify ${clsResponse.status} ${await clsResponse.text()}`);
+        if (!objResponse.ok) throw new Error(`wallet_object_verify ${objResponse.status} ${await objResponse.text()}`);
+        const cls = await clsResponse.json(), obj = await objResponse.json();
+        return json({ ok: true, member_no: wm.member_no, logo_matches: cls.programLogo?.sourceUri?.uri === GW.WALLET_ARTWORK_URLS.logo,
+          hero_matches: obj.heroImage?.sourceUri?.uri === GW.levelArtwork(wm.level).heroImage.sourceUri.uri,
+          color: obj.hexBackgroundColor, points: obj.loyaltyPoints?.balance?.int, level: obj.secondaryLoyaltyPoints?.balance?.string,
+          event_matches: obj.textModulesData?.some((t: { id: string; body: string }) => t.id === "evento" && t.body === GW.EVENT_LINE),
+          qr_matches: obj.barcode?.value === GW.barcodeValue(wm.member_no) });
+      }
       if (b?.action === "wallet_test_url" && typeof b.member_id === "string") return json({ save_url: await walletSave(site, b.member_id) });
     } catch (e) { console.error("wallet", (e as Error).message); return json({ error: "wallet", detail: (e as Error).message }, 502); }
     if (b?.action !== "notify_pending") return json({ error: "invalid" }, 400);

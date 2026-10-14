@@ -36,7 +36,8 @@ describe("google wallet", () => {
     ["Lenda", "hero-lenda-v1.png", "#050505"],
   ])("criativo de %s preserva pontos, nível e evento", (level, filename, color) => {
     const obj = GW.buildObject(ISS, { ...M, level }, { artworkReady: true });
-    expect(obj.heroImage?.sourceUri.uri).toBe(`https://example.invalid/newgang/wallet/${filename}`);
+    expect(decodeURIComponent(obj.heroImage?.sourceUri.uri ?? "")).toContain(`/newgang/wallet/${filename}`);
+    expect(new URL(obj.heroImage?.sourceUri.uri ?? "").hostname).not.toContain(".invalid");
     expect(obj.hexBackgroundColor).toBe(color);
     expect(obj.loyaltyPoints.balance.int).toBe(M.points);
     expect(obj.secondaryLoyaltyPoints.balance.string).toBe(level);
@@ -48,15 +49,13 @@ describe("google wallet", () => {
     expect(cls.programLogo.sourceUri.uri).toBe(GW.WALLET_ARTWORK_URLS.logo);
     expect(cls.linksModuleData).toEqual(GW.buildClass(ISS).linksModuleData);
   });
-  it("criativos provisórios não são enviados por defeito nem por PATCH da classe", async () => {
-    const obj = GW.buildObject(ISS, M);
+  it("flag desligada preserva o cartão anterior; flag ativa aplica imagens públicas", () => {
+    const obj = GW.buildObject(ISS, M, { artworkReady: false });
     expect(obj).not.toHaveProperty("heroImage");
     expect(obj).not.toHaveProperty("hexBackgroundColor");
-    expect(GW.buildClass(ISS).programLogo.sourceUri.uri).toBe(GW.LOGO);
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-    await expect(GW.patchClassLogo({ client_email: "unused", private_key: "unused" }, ISS)).rejects.toThrow("wallet_artwork_pending");
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(GW.buildClass(ISS, { artworkReady: false }).programLogo.sourceUri.uri).toBe(GW.LOGO);
+    expect(GW.WALLET_ARTWORK_READY).toBe(true);
+    expect(GW.buildObject(ISS, M).heroImage?.sourceUri.uri).toBe(GW.WALLET_ARTWORK_URLS.Elite);
   });
   it("nível desconhecido usa Gang sem alterar o nível mostrado", () => {
     const obj = GW.buildObject(ISS, { ...M, level: "Novo" }, { artworkReady: true });
@@ -80,6 +79,12 @@ describe("google wallet", () => {
     expect(body.loyaltyPoints.balance.int).toBe(650);
     expect(body.secondaryLoyaltyPoints.balance.string).toBe("Elite");
     expect(body).not.toHaveProperty("classId");
+    fetchMock.mockClear();
+    await GW.patchClassLogo({ client_email: "test@example.invalid", private_key: pem }, ISS);
+    const classCall = fetchMock.mock.calls[0] as unknown[] | undefined;
+    expect(classCall?.[0]).toBe(`${GW.WALLET_API}/loyaltyClass/${GW.classId(ISS)}`);
+    expect((classCall?.[1] as RequestInit | undefined)?.method).toBe("PATCH");
+    expect(JSON.parse(String((classCall?.[1] as RequestInit | undefined)?.body))).toEqual({ programLogo: GW.buildClass(ISS).programLogo, reviewStatus: "UNDER_REVIEW" });
   });
   it("JWT savetowallet RS256 verificável (chave gerada no teste)", async () => {
     const kp = await crypto.subtle.generateKey({ name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" }, true, ["sign", "verify"]);

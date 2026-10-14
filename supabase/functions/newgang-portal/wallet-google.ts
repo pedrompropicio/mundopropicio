@@ -9,14 +9,13 @@ export const EVENT_LINE = "Newgang Festival 2027 · 25/03/2027 · MEO Arena";
 export const LOGO = "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang/logo-newgang-producoes-branco.png";
 export const BG = "#0b1f14";
 
-// Provisórios: substituir por URLs públicos após receber e carregar as imagens do Pedro.
-// O domínio .invalid e a flag impedem aplicar criativos inexistentes por engano.
-export const WALLET_ARTWORK_READY = false;
+// PNG originais aprovados pelo Pedro; disponibilidade e SHA-256 verificados antes da ativação.
+export const WALLET_ARTWORK_READY = true;
 export const WALLET_ARTWORK_URLS = {
-  logo: "https://example.invalid/newgang/wallet/logo-quadrado-v1.png",
-  Gang: "https://example.invalid/newgang/wallet/hero-gang-v1.png",
-  Elite: "https://example.invalid/newgang/wallet/hero-elite-v1.png",
-  Lenda: "https://example.invalid/newgang/wallet/hero-lenda-v1.png",
+  logo: "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang%2Fwallet%2Flogo-quadrado-v1.png",
+  Gang: "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang%2Fwallet%2Fhero-gang-v1.png",
+  Elite: "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang%2Fwallet%2Fhero-elite-v1.png",
+  Lenda: "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang%2Fwallet%2Fhero-lenda-v1.png",
 } as const;
 export const WALLET_LEVEL_COLORS = { Gang: BG, Elite: "#170a2b", Lenda: "#050505" } as const;
 type ArtworkOptions = { artworkReady?: boolean };
@@ -148,14 +147,14 @@ export async function ensureClass(sa: SaKey, issuer: string, cls: ReturnType<typ
   if (!p.ok && p.status !== 409) throw new Error(`wallet_class_insert ${p.status} ${(await p.text()).slice(0, 300)}`);
 }
 
-/** Aplicação pontual do logo aprovado: só PATCH da classe existente, nunca POST. */
+/** PATCH da classe existente, nunca POST; a Google exige nova revisão ao alterar media. */
 export async function patchClassLogo(sa: SaKey, issuer: string) {
   if (!WALLET_ARTWORK_READY || new URL(WALLET_ARTWORK_URLS.logo).hostname.endsWith(".invalid")) {
     throw new Error("wallet_artwork_pending");
   }
   const { programLogo } = buildClass(issuer);
   const r = await walletFetch(sa, `/loyaltyClass/${encodeURIComponent(classId(issuer))}`, {
-    method: "PATCH", body: JSON.stringify({ programLogo }),
+    method: "PATCH", body: JSON.stringify({ programLogo, reviewStatus: "UNDER_REVIEW" }),
   });
   if (!r.ok) throw new Error(`wallet_class_patch ${r.status} ${(await r.text()).slice(0, 300)}`);
 }
