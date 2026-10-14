@@ -5640,6 +5640,60 @@ export type Database = {
           },
         ]
       }
+      club_wallet_passes: {
+        Row: {
+          company_id: string
+          id: string
+          last_error: string | null
+          last_level: string | null
+          last_points: number | null
+          member_id: string
+          object_id: string
+          platform: string
+          saved_at: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          id?: string
+          last_error?: string | null
+          last_level?: string | null
+          last_points?: number | null
+          member_id: string
+          object_id: string
+          platform: string
+          saved_at?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          id?: string
+          last_error?: string | null
+          last_level?: string | null
+          last_points?: number | null
+          member_id?: string
+          object_id?: string
+          platform?: string
+          saved_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_wallet_passes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_wallet_passes_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "club_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coala_ai_classification_suggestions: {
         Row: {
           ai_response_raw: Json
@@ -21203,6 +21257,16 @@ export type Database = {
           p_source: string
         }
         Returns: string
+      }
+      club_wallet_due: {
+        Args: { p_limit?: number }
+        Returns: {
+          level_name: string
+          member_id: string
+          pass_id: string
+          points: number
+          site_id: string
+        }[]
       }
       clube_newgang_list: {
         Args: { p_limit?: number; p_offset?: number; p_search?: string }
