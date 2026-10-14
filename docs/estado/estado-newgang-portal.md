@@ -52,6 +52,8 @@ Conteúdo movido de `estado-crm-portal-e-leads.md` a 13/10 (D-ERP262).
 
 - 13/10/2026 (D-ERP273): anulações de pontos ficam no histórico (linhas void com motivo, reaprovação = geração #N); botão "Anular pontos" no CRM. Função deployada; frontend por publicar.
 
+- 14/10/2026 (D-ERP274): Crews (criar/entrar/sair, crew completa = 4 confirmados → 200 pts a cada um, máx 6, link ?crew=). Função deployada; CRM Clube → Crews por publicar; ecrã no portal por fazer.
+
 ## Onde ler mais
 - `docs/specs/portal-newgangfestival.md`
 - `docs/handoffs/2026-10-13-newgang-portal.md`

@@ -5912,3 +5912,11 @@ Origem: TikTok BR do Litto (7689229625189138438) ficou com saldo 0 a 13/10 e est
 - CRM: diálogo "Pontos" (ranking do Clube = ficha do membro) e "Anular pontos" na fila de moderação.
 - "me".history mostra "Pontos anulados" com detail = motivo; soma = points = ranking (o ranking soma todas as linhas).
 - Limite conhecido: uma anulação manual de fraude numa missão volta a pontuar se a submissão for re-moderada para um estado com pontos.
+
+## D-ERP274 — Clube Newgang — Crews (14/10/2026)
+- club_crews (nome 2–30 com filtro de palavrões, código 6 caracteres sem ambíguos, dono, completed_at) + club_crew_members (UNIQUE site+membro: uma crew por membro por site).
+- Configuração na regra club_point_rules 'crew_complete' (points + min_members/max_members; omissão 200 / 4 / 6; regra inativa = 0 pontos).
+- Completa ao atingir o mínimo de membros CONFIRMADOS; cada confirmado recebe crew_complete uma vez (ref = crew_id), incluindo quem entra depois até ao máximo. Sair nunca retira pontos; fraude usa o void (D-ERP273).
+- Só membros confirmados criam/entram. Dono só sai transferindo (índice na lista do "me".crew) ou se ficar sozinho (crew apagada).
+- Link https://newgangfestival.pt/clube?crew=<code>: raw.crew_code do lead_capture guarda-se em club_members.pending_crew_code e aplica-se em club_confirm_member; erro = WARNING, nunca bloqueia. Padrinho por referral_code continua em paralelo.
+- API: crew_create, crew_join, crew_leave (com token); "me".crew com short_name, sem emails; history "Crew completa" com nome da crew.
