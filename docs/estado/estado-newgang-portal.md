@@ -54,6 +54,8 @@ Conteúdo movido de `estado-crm-portal-e-leads.md` a 13/10 (D-ERP262).
 
 - 14/10/2026 (D-ERP274): Crews (criar/entrar/sair, crew completa = 4 confirmados → 200 pts a cada um, máx 6, link ?crew=). Função deployada; CRM Clube → Crews por publicar; ecrã no portal por fazer.
 
+- 14/10/2026 (D-ERP275): Google Wallet fase 1 — função e cron prontos; BLOQUEADO no issuerId (GET /issuer vazio para a conta de serviço) → falta GOOGLE_WALLET_ISSUER_ID; depois gerar save_url de teste. Apple Wallet, publicação na Google e botão no portal por fazer.
+
 ## Onde ler mais
 - `docs/specs/portal-newgangfestival.md`
 - `docs/handoffs/2026-10-13-newgang-portal.md`

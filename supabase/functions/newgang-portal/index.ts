@@ -9,6 +9,7 @@ import { clubEmail } from "./email.ts";
 import { ASSET_BUCKET, PROOF_BUCKET, PROOF_EXT, missionsFrom, normalizeHandle, normalizeProofUrl, submitErrorStatus } from "./missions.ts";
 import { buildHistory, subjectRef } from "./history.ts";
 import { CREW_LINK, crewErrorStatus, crewView } from "./crews.ts";
+import * as GW from "./wallet-google.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 // Preview do projeto Lovable do portal (1a915f50-…).
@@ -59,7 +60,7 @@ function clientIp(req: Request): string {
 
 const Body = z.object({
   action: z.enum(["bundle", "regulation", "site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer", "notify_pending",
-    "missions", "mission_upload_url", "submit_mission", "profile", "crew_create", "crew_join", "crew_leave"]),
+    "missions", "mission_upload_url", "submit_mission", "profile", "crew_create", "crew_join", "crew_leave", "wallet_google"]),
   token: z.string().min(20).max(200).optional(),
   email: z.string().email().max(254).optional(),
   reveal_id: z.string().uuid().optional(),
@@ -76,7 +77,7 @@ const Body = z.object({
   code: z.string().trim().min(4).max(12).optional(),
   new_owner_short: z.number().int().min(0).max(20).optional(),
 });
-const WRITE_ACTIONS = new Set(["request_access", "guess", "attendance_claim", "confirm_buyer", "session", "mission_upload_url", "submit_mission", "profile", "crew_create", "crew_join", "crew_leave"]);
+const WRITE_ACTIONS = new Set(["request_access", "guess", "attendance_claim", "confirm_buyer", "session", "mission_upload_url", "submit_mission", "profile", "crew_create", "crew_join", "crew_leave", "wallet_google"]);
 
 // Cache por instância (60 s): a configuração do site muda raramente; evita uma ida à base por pedido.
 const SITE_TTL_MS = 60_000;
@@ -174,6 +175,69 @@ async function notifyPending(site: { id: string; company_id: string }, memberId?
     catch (e) { console.error("notify_pending", m.id, (e as Error).message); }
   }
   return sent;
+}
+
+// ---------- Google Wallet ----------
+let issuerCache: string | null = Deno.env.get("GOOGLE_WALLET_ISSUER_ID") || null;
+async function walletIssuer(sa: GW.SaKey): Promise<string> {
+  if (issuerCache) return issuerCache;
+  const r = await GW.walletFetch(sa, "/issuer");
+  if (!r.ok) throw new Error(`wallet_issuer ${r.status}`);
+  const j = await r.json();
+  const id = j?.resources?.[0]?.issuerId;
+  if (!id) throw new Error(`wallet_issuer_none ${JSON.stringify(j).slice(0, 300)}`);
+  return (issuerCache = String(id));
+}
+let classReady = false;
+async function walletMember(siteId: string, memberId: string, pts?: number, lvl?: string | null): Promise<GW.WalletMember | null> {
+  const { data: m } = await sb.from("club_members").select("id, member_no, first_name, confirmed_at").eq("id", memberId).maybeSingle();
+  if (!m?.confirmed_at) return null;
+  let points = pts, level = lvl;
+  if (points === undefined) {
+    const { data: rows } = await sb.from("club_points").select("points").eq("member_id", memberId).limit(10000);
+    points = ((rows ?? []) as any[]).reduce((s, r) => s + r.points, 0);
+    const { data: lv } = await sb.from("club_levels").select("name").eq("site_id", siteId).lte("min_points", points).order("min_points", { ascending: false }).limit(1);
+    level = (lv as any)?.[0]?.name ?? null;
+  }
+  const crew = await myCrew(siteId, memberId);
+  return { id: m.id, member_no: m.member_no, first_name: m.first_name, points: points!, level: level ?? null, crew: crew?.name ?? null };
+}
+async function walletSave(site: any, memberId: string): Promise<string | null> {
+  const sa = GW.readSaKey(Deno.env.get("GOOGLE_WALLET_SA_KEY"));
+  const issuer = await walletIssuer(sa);
+  const wm = await walletMember(site.id, memberId);
+  if (!wm) return null;
+  if (!classReady) { await GW.ensureClass(sa, issuer, GW.buildClass(issuer)); classReady = true; }
+  const obj = GW.buildObject(issuer, wm);
+  await GW.upsertObject(sa, obj);
+  await sb.from("club_wallet_passes").upsert({
+    company_id: site.company_id, member_id: memberId, platform: "google", object_id: obj.id,
+    last_points: wm.points, last_level: wm.level, last_error: null, updated_at: new Date().toISOString(),
+  }, { onConflict: "member_id,platform" });
+  const jwt = await GW.signJwt(GW.saveClaims(sa.client_email, obj.id), await GW.saSigner(sa));
+  return GW.saveUrl(jwt);
+}
+/** Cron: PATCH só aos passes cujo pontos/nível mudou. Erros ficam em last_error; nunca tocam nos pontos. */
+async function walletSync(limit = 200) {
+  const { data } = await sb.rpc("club_wallet_due", { p_limit: limit });
+  const due = (data ?? []) as Array<{ pass_id: string; member_id: string; site_id: string; points: number; level_name: string | null }>;
+  if (!due.length) return { due: 0, ok: 0, failed: 0 };
+  const sa = GW.readSaKey(Deno.env.get("GOOGLE_WALLET_SA_KEY"));
+  const issuer = await walletIssuer(sa);
+  let ok = 0, failed = 0;
+  for (const d of due) {
+    try {
+      const wm = await walletMember(d.site_id, d.member_id, Number(d.points), d.level_name);
+      if (!wm) continue;
+      await GW.patchObject(sa, GW.buildObject(issuer, wm));
+      await sb.from("club_wallet_passes").update({ last_points: wm.points, last_level: wm.level, last_error: null, updated_at: new Date().toISOString() }).eq("id", d.pass_id);
+      ok++;
+    } catch (e) {
+      failed++;
+      await sb.from("club_wallet_passes").update({ last_error: (e as Error).message.slice(0, 300), updated_at: new Date().toISOString() }).eq("id", d.pass_id);
+    }
+  }
+  return { due: due.length, ok, failed };
 }
 
 async function crewMembersOf(crewId: string) {
@@ -336,9 +400,14 @@ Deno.serve(async (req) => {
   const auth = req.headers.get("authorization") ?? "";
   if (!origin && req.method === "POST" && auth.startsWith("Bearer ") && await isServiceRoleRequest(req)) {
     const b = await req.json().catch(() => ({}));
-    if (b?.action !== "notify_pending") return json({ error: "invalid" }, 400);
     const site = await getSite();
     if (!site) return json({ error: "site_not_configured" }, 503);
+    try {
+      if (b?.action === "wallet_sync") return json({ ok: true, ...(await walletSync()) });
+      if (b?.action === "wallet_issuer") return json({ issuer_id: await walletIssuer(GW.readSaKey(Deno.env.get("GOOGLE_WALLET_SA_KEY"))) });
+      if (b?.action === "wallet_test_url" && typeof b.member_id === "string") return json({ save_url: await walletSave(site, b.member_id) });
+    } catch (e) { console.error("wallet", (e as Error).message); return json({ error: "wallet", detail: (e as Error).message }, 502); }
+    if (b?.action !== "notify_pending") return json({ error: "invalid" }, 400);
     return json({ ok: true, sent: await notifyPending(site) });
   }
   if (!originOk(origin)) return json({ error: "origin" }, 403);
@@ -474,6 +543,17 @@ Deno.serve(async (req) => {
         if (!body.year || body.year >= new Date().getFullYear() + 1) return json({ error: "year" }, 400);
         const { data: st } = await sb.rpc("club_claim_attendance", { p_member: member.id, p_year: body.year });
         return json({ status: st });
+      }
+      case "wallet_google": {
+        if (!member?.confirmed_at) return json({ error: "no_session" }, 401);
+        try {
+          const url = await walletSave(site, member.id);
+          if (!url) return json({ error: "no_session" }, 401);
+          return json({ save_url: url });
+        } catch (e) {
+          console.error("wallet_google", (e as Error).message);
+          return json({ error: "wallet_unavailable" }, 503);
+        }
       }
       case "crew_create":
       case "crew_join":

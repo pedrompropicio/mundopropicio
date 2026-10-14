@@ -27,6 +27,13 @@ export function MemberPointsDialog({ memberId, title, refFilter, onClose }: { me
       return (data ?? []) as Row[];
     },
   });
+  const wallet = useQuery({
+    queryKey: ["club_wallet_pass", memberId],
+    queryFn: async () => {
+      const { data } = await db.from("club_wallet_passes").select("saved_at").eq("member_id", memberId).eq("platform", "google").maybeSingle();
+      return (data ?? null) as { saved_at: string } | null;
+    },
+  });
   const all = q.data ?? [];
   const voided = new Set(all.filter((r) => r.rule_key === "void").map((r) => r.ref_id));
   const rows = refFilter ? all.filter((r) => subjectRef(r) === refFilter) : all;
@@ -51,6 +58,7 @@ export function MemberPointsDialog({ memberId, title, refFilter, onClose }: { me
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader><DialogTitle>Pontos — {title} · total {total}</DialogTitle></DialogHeader>
+        <p className="text-xs text-muted-foreground">Cartão Google Wallet: {wallet.data ? `guardado em ${new Date(wallet.data.saved_at).toLocaleString("pt-PT", { timeZone: "Europe/Lisbon" })}` : "não"}</p>
         <div className="max-h-[50vh] space-y-1 overflow-y-auto text-sm">
           {rows.length === 0 && <p className="text-muted-foreground">Sem movimentos.</p>}
           {rows.map((r) => (

@@ -1009,6 +1009,13 @@
       "when": 1791935974674,
       "tag": "0143_derp274_club_crews",
       "breakpoints": true
+    },
+    {
+      "idx": 144,
+      "version": "7",
+      "when": 1791939317499,
+      "tag": "0144_derp275_club_wallet_passes",
+      "breakpoints": true
     }
   ]
 }
