@@ -1086,6 +1086,13 @@
       "when": 1792014207809,
       "tag": "0154_coala_eb_news_pt_template_internal_tests",
       "breakpoints": true
+    },
+    {
+      "idx": 155,
+      "version": "7",
+      "when": 1792015957442,
+      "tag": "0155_coala_eb_en_template_separate_test_signature",
+      "breakpoints": true
     }
   ]
 }
