@@ -30,3 +30,9 @@ type: feature
 - Os descontos mostrados na secção expandida (total, % fixo, valor por conta) = Σ dos descontos usados no cálculo de cada cidade (BP da cidade + 1/N do Master), via cacheTabDeductionBreakdown; quebra por cidade visível. Nenhum número do separador vem só do BP do Master.
 - BP de cidade/evento sem vendas continua a usar a receita planeada (decisão: planeamento).
 - Configuração (mínimo, %, faixas, categorias) continua editável.
+
+## Relatório "Cachê do Artista" (14/10/2026, adenda D-ERP265)
+- /relatorios/cache-artista usa o MESMO núcleo da aba Cachê: useRealCacheCalculation + buildArtistCacheReport (src/lib/cache-report.ts) sobre computeCacheTabAmount/getCacheEffectiveAmount. Nenhuma fórmula própria; números batem ao cêntimo com a aba.
+- Seletor agrupa cidades por parent_event_id (nunca event_type); âmbito por resolveCacheScope (cidade com cachê no Master mostra a configuração do Master).
+- Datas de evento sempre por formatDatePT (sem fuso). PDF: logo da empresa (fallback logo-horizontal), nome, Evento/Cidade/Local/Data por secção, texto saneado (pdf-text), rodapé "Gerado em" + "pág. x/y".
+- Extras: turnê = todos os extras da configuração; cidade isolada = só os da cidade (event_id).
