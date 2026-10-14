@@ -21439,7 +21439,7 @@ export type Database = {
               p_daily_cap: number
               p_dry_run: boolean
               p_only_emails: string[]
-              p_test_emails?: string[]
+              p_test_emails: string[]
               p_test_locale?: string
             }
             Returns: Json
