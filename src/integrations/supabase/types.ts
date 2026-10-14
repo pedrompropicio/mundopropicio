@@ -20649,6 +20649,7 @@ export type Database = {
         Args: { p_artist_id: string }
         Returns: Json
       }
+      artist_assignment_company_ids: { Args: never; Returns: string[] }
       artist_audience_set_manual: {
         Args: {
           p_artist_id: string
