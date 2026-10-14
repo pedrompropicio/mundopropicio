@@ -2382,6 +2382,7 @@ export type Database = {
       artist_user_access: {
         Row: {
           access_level: string
+          area_modes: Json
           areas: string[]
           artist_id: string
           company_id: string
@@ -2393,6 +2394,7 @@ export type Database = {
         }
         Insert: {
           access_level: string
+          area_modes?: Json
           areas?: string[]
           artist_id: string
           company_id: string
@@ -2404,6 +2406,7 @@ export type Database = {
         }
         Update: {
           access_level?: string
+          area_modes?: Json
           areas?: string[]
           artist_id?: string
           company_id?: string
@@ -20223,6 +20226,10 @@ export type Database = {
         }
         Returns: string
       }
+      artist_access_grant_modes: {
+        Args: { p_area_modes: Json; p_artist_id: string; p_user_id: string }
+        Returns: string
+      }
       artist_access_ok: {
         Args: { p_area?: string; p_artist_id: string; p_need?: string }
         Returns: boolean
@@ -22200,6 +22207,13 @@ export type Database = {
           artist_name: string
           company_id: string
           source: string
+        }[]
+      }
+      my_artist_area_modes: {
+        Args: never
+        Returns: {
+          area_modes: Json
+          artist_id: string
         }[]
       }
       my_artist_companies: {
