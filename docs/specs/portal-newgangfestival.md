@@ -79,3 +79,6 @@ Campo vazio = chave removida do `content` (nunca se grava texto vazio); o site v
 
 ## Anulações de pontos (D-ERP273)
 Reversões nunca apagam: linha negativa rule_key 'void', ref '<regra>:<ref>', reason. Reaprovação = nova geração '<ref>#N'. history: "Pontos anulados" com detail = reason; submissions[].points soma gerações e anulações da submissão. CRM: "Pontos" no ranking e "Anular pontos" na fila (RPC club_points_void, motivo obrigatório).
+
+## Crews (D-ERP274)
+Ações com token (membro confirmado): `crew_create {name}` → {id,name,code,invite_link}; `crew_join {code}` (erros 404 crew_not_found, 409 crew_full/already_in_crew); `crew_leave {new_owner_short?}` (dono com membros → 409 owner_transfer; new_owner_short = índice em me.crew.members). `me.crew` = {name, code, invite_link, members:[{short_name, confirmed, is_owner}], min, max, completed} ou null. Link de convite `https://newgangfestival.pt/clube?crew=<code>` → o portal envia `raw.crew_code` na inscrição; entra na crew ao confirmar. history: "Crew completa" (detail = nome). CRM: Clube → Crews (lista, ficha, pesquisa, pontos e limites).

@@ -13,6 +13,7 @@ export const RULE_LABELS: Record<string, string> = {
   mission: "Missão aprovada",
   mission_finalist: "Finalista do desafio",
   mission_winner: "Vencedor do desafio",
+  crew_complete: "Crew completa",
 };
 export const VOID_LABEL = "Pontos anulados";
 export const OLDER_LABEL = "Movimentos anteriores";
@@ -42,7 +43,7 @@ export const isVoid = (r: PointRow) => r.points < 0;
 export function buildHistory(
   memberId: string,
   rows: PointRow[],
-  opts: { ruleLabels?: Record<string, string>; friends?: Friend[]; missions?: Record<string, string> } = {},
+  opts: { ruleLabels?: Record<string, string>; friends?: Friend[]; missions?: Record<string, string>; crews?: Record<string, string> } = {},
 ): HistoryItem[] {
   const friends = new Map((opts.friends ?? []).filter((f) => f.referred_by_member_id === memberId).map((f) => [f.id, f]));
   const sorted = [...rows].sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
@@ -52,6 +53,7 @@ export function buildHistory(
     let detail: string | null = null;
     if (r.rule_key.startsWith("friend_")) detail = shortName(friends.get(ref)?.first_name);
     else if (r.rule_key.startsWith("mission")) detail = opts.missions?.[baseRef(ref)] ?? null;
+    else if (r.rule_key === "crew_complete") detail = opts.crews?.[ref] ?? null;
     else if (r.rule_key === "attended_year") detail = /^\d{4}$/.test(ref) ? ref : null;
     return { at: r.created_at, points: r.points, label: RULE_LABELS[r.rule_key] ?? opts.ruleLabels?.[r.rule_key] ?? r.rule_key, detail };
   };

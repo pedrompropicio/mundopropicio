@@ -8,6 +8,7 @@ import { assemblePublic, bundleFrom, lineupFrom, regulationFrom, termsMeta, type
 import { clubEmail } from "./email.ts";
 import { ASSET_BUCKET, PROOF_BUCKET, PROOF_EXT, missionsFrom, normalizeHandle, normalizeProofUrl, submitErrorStatus } from "./missions.ts";
 import { buildHistory, subjectRef } from "./history.ts";
+import { CREW_LINK, crewErrorStatus, crewView } from "./crews.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 
 // Preview do projeto Lovable do portal (1a915f50-…).
@@ -58,7 +59,7 @@ function clientIp(req: Request): string {
 
 const Body = z.object({
   action: z.enum(["bundle", "regulation", "site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer", "notify_pending",
-    "missions", "mission_upload_url", "submit_mission", "profile"]),
+    "missions", "mission_upload_url", "submit_mission", "profile", "crew_create", "crew_join", "crew_leave"]),
   token: z.string().min(20).max(200).optional(),
   email: z.string().email().max(254).optional(),
   reveal_id: z.string().uuid().optional(),
@@ -71,8 +72,11 @@ const Body = z.object({
   content_type: z.enum(["image/jpeg", "image/png", "image/webp"]).optional(),
   instagram_handle: z.string().max(80).nullable().optional(),
   tiktok_handle: z.string().max(80).nullable().optional(),
+  name: z.string().trim().min(1).max(60).optional(),
+  code: z.string().trim().min(4).max(12).optional(),
+  new_owner_short: z.number().int().min(0).max(20).optional(),
 });
-const WRITE_ACTIONS = new Set(["request_access", "guess", "attendance_claim", "confirm_buyer", "session", "mission_upload_url", "submit_mission", "profile"]);
+const WRITE_ACTIONS = new Set(["request_access", "guess", "attendance_claim", "confirm_buyer", "session", "mission_upload_url", "submit_mission", "profile", "crew_create", "crew_join", "crew_leave"]);
 
 // Cache por instância (60 s): a configuração do site muda raramente; evita uma ida à base por pedido.
 const SITE_TTL_MS = 60_000;
@@ -172,6 +176,24 @@ async function notifyPending(site: { id: string; company_id: string }, memberId?
   return sent;
 }
 
+async function crewMembersOf(crewId: string) {
+  const { data } = await sb.from("club_crew_members").select("member_id, joined_at, club_members(first_name, confirmed_at)").eq("crew_id", crewId).order("joined_at");
+  return ((data ?? []) as any[]).map((x) => ({ member_id: x.member_id, joined_at: x.joined_at, first_name: x.club_members?.first_name ?? null, confirmed_at: x.club_members?.confirmed_at ?? null }));
+}
+
+async function myCrew(siteId: string, memberId: string) {
+  const { data: cm } = await sb.from("club_crew_members").select("crew_id").eq("site_id", siteId).eq("member_id", memberId).maybeSingle();
+  if (!cm) return null;
+  const [{ data: crew }, members, { data: cfg }] = await Promise.all([
+    sb.from("club_crews").select("id, name, code, owner_member_id, completed_at").eq("id", cm.crew_id).maybeSingle(),
+    crewMembersOf(cm.crew_id),
+    sb.rpc("club_crew_cfg", { p_site: siteId }),
+  ]);
+  if (!crew) return null;
+  const c = Array.isArray(cfg) ? cfg[0] : cfg;
+  return crewView(SITE_DOMAIN, crew as any, members, { min: c?.min_m ?? 4, max: c?.max_m ?? 6 });
+}
+
 async function myHistory(siteId: string, memberId: string) {
   const [{ data: rows }, { data: rules }] = await Promise.all([
     sb.from("club_points").select("rule_key, points, ref_id, created_at, reason").eq("member_id", memberId).order("created_at", { ascending: false }).limit(5000),
@@ -180,15 +202,19 @@ async function myHistory(siteId: string, memberId: string) {
   const pts = (rows ?? []) as any[];
   const friendIds = [...new Set(pts.filter((r) => r.rule_key.startsWith("friend_") && r.ref_id).map((r) => r.ref_id))];
   const subIds = [...new Set(pts.filter((r) => r.rule_key.startsWith("mission") && r.ref_id).map((r) => subjectRef(r)))];
-  const [{ data: friends }, { data: subs }] = await Promise.all([
+  const crewIds = [...new Set(pts.filter((r) => r.rule_key === "crew_complete" && r.ref_id).map((r) => r.ref_id))];
+  const [{ data: friends }, { data: subs }, { data: crewRows }] = await Promise.all([
     friendIds.length ? sb.from("club_members").select("id, first_name, referred_by_member_id").in("id", friendIds).eq("referred_by_member_id", memberId) : Promise.resolve({ data: [] as any[] }),
     subIds.length ? sb.from("club_mission_submissions").select("id, club_missions(title)").in("id", subIds).eq("member_id", memberId) : Promise.resolve({ data: [] as any[] }),
+    crewIds.length ? sb.from("club_crews").select("id, name").in("id", crewIds) : Promise.resolve({ data: [] as any[] }),
   ]);
+  const crews: Record<string, string> = {};
+  for (const c of (crewRows ?? []) as any[]) crews[c.id] = c.name;
   const missions: Record<string, string> = {};
   for (const s of (subs ?? []) as any[]) if (s.club_missions?.title) missions[s.id] = s.club_missions.title;
   const ruleLabels: Record<string, string> = {};
   for (const r of (rules ?? []) as any[]) ruleLabels[r.rule_key] = r.label;
-  return buildHistory(memberId, pts, { ruleLabels, friends: (friends ?? []) as any[], missions });
+  return buildHistory(memberId, pts, { ruleLabels, friends: (friends ?? []) as any[], missions, crews });
 }
 
 async function mySubmissions(memberId: string) {
@@ -430,6 +456,7 @@ Deno.serve(async (req) => {
           instagram_handle: member.instagram_handle ?? null, tiktok_handle: member.tiktok_handle ?? null,
           submissions: await mySubmissions(member.id),
           history: await myHistory(site.id, member.id),
+          crew: await myCrew(site.id, member.id),
         });
       }
       case "guess": {
@@ -447,6 +474,33 @@ Deno.serve(async (req) => {
         if (!body.year || body.year >= new Date().getFullYear() + 1) return json({ error: "year" }, 400);
         const { data: st } = await sb.rpc("club_claim_attendance", { p_member: member.id, p_year: body.year });
         return json({ status: st });
+      }
+      case "crew_create":
+      case "crew_join":
+      case "crew_leave": {
+        if (!member?.confirmed_at) return json({ error: "no_session" }, 401);
+        let r: any;
+        if (body.action === "crew_create") {
+          if (!body.name) return json({ error: "crew_name" }, 400);
+          r = await sb.rpc("club_crew_create", { p_member: member.id, p_name: body.name });
+        } else if (body.action === "crew_join") {
+          if (!body.code) return json({ error: "crew_not_found" }, 404);
+          r = await sb.rpc("club_crew_join", { p_member: member.id, p_code: body.code });
+        } else {
+          // Transferência: índice (0-based) na lista members do "me".crew — nunca ids de outros membros.
+          let newOwner: string | null = null;
+          if (body.new_owner_short !== undefined) {
+            const { data: cm } = await sb.from("club_crew_members").select("crew_id").eq("member_id", member.id).maybeSingle();
+            if (cm) newOwner = (await crewMembersOf(cm.crew_id))[body.new_owner_short]?.member_id ?? null;
+          }
+          r = await sb.rpc("club_crew_leave", { p_member: member.id, p_new_owner: newOwner });
+        }
+        if (r.error) return json({ error: "crew" }, 500);
+        const out = r.data ?? {};
+        if (out.error) return json({ error: out.error }, crewErrorStatus(out.error));
+        if (body.action === "crew_create") return json({ id: out.id, name: out.name, code: out.code, invite_link: CREW_LINK(SITE_DOMAIN, out.code) });
+        if (body.action === "crew_join") return json({ ok: true, crew: await myCrew(site.id, member.id) });
+        return json({ ok: true });
       }
       case "profile": {
         if (!member?.confirmed_at) return json({ error: "no_session" }, 401);
