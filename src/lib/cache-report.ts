@@ -4,6 +4,7 @@
  * sobre os RealCacheResult de useRealCacheCalculation. Nenhuma fórmula nova.
  */
 import { formatDatePT } from "@/lib/utils";
+import { formatCurrency } from "@/lib/mock-data";
 import { computeCacheTabAmount } from "@/lib/cache-tab-total";
 import { getCacheEffectiveAmount } from "@/lib/cache-pl-helper";
 import { resolveCacheScope, type CacheScope } from "@/lib/cache-scope";
@@ -132,7 +133,7 @@ export function tierReferenceRows(config: any, capacity: { gross: number; net: n
   if (config.cache_type !== "variable" || tiers.length === 0) return [];
   const gross = (config.cache_revenue_basis || "net") === "gross";
   const cap = capacity ? (gross ? capacity.gross : capacity.net) : null;
-  const fmt = (n: number) => n.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+  const fmt = formatCurrency;
   const rows: string[][] = [[`Escalões — referência: receita máxima da sala ${gross ? "(c/ IVA)" : "(s/ IVA)"}`, cap != null ? fmt(cap) : "-"]];
   let applied = -1;
   tiers.forEach((t: any, i: number) => { if (appliedPct != null && Number(t.percentage) === appliedPct) applied = i; });
