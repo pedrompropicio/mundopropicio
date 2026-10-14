@@ -178,15 +178,11 @@ async function notifyPending(site: { id: string; company_id: string }, memberId?
 }
 
 // ---------- Google Wallet ----------
-let issuerCache: string | null = Deno.env.get("GOOGLE_WALLET_ISSUER_ID") || null;
-async function walletIssuer(sa: GW.SaKey): Promise<string> {
-  if (issuerCache) return issuerCache;
-  const r = await GW.walletFetch(sa, "/issuer");
-  if (!r.ok) throw new Error(`wallet_issuer ${r.status}`);
-  const j = await r.json();
-  const id = j?.resources?.[0]?.issuerId;
-  if (!id) throw new Error(`wallet_issuer_none ${JSON.stringify(j).slice(0, 300)}`);
-  return (issuerCache = String(id));
+// issuerId vem do secret GOOGLE_WALLET_ISSUER_ID (GET /issuer devolve lista vazia para a conta de serviço).
+async function walletIssuer(_sa: GW.SaKey): Promise<string> {
+  const id = Deno.env.get("GOOGLE_WALLET_ISSUER_ID");
+  if (!id) throw new Error("wallet_issuer_not_configured");
+  return id;
 }
 let classReady = false;
 async function walletMember(siteId: string, memberId: string, pts?: number, lvl?: string | null): Promise<GW.WalletMember | null> {
