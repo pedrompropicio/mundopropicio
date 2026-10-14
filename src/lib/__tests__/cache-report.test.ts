@@ -83,9 +83,10 @@ describe("relatório — escalões com receita máxima da sala", () => {
   });
   it("cada escalão mostra a receita equivalente e marca o aplicado", () => {
     const rows = tierReferenceRows(cfg, { gross: 10600, net: 10000 }, 40);
-    expect(rows[0][1]).toBe("10.000,00 €");
-    expect(rows[1]).toEqual(["  ≥ 70% de ocupação (receita ≥ 7.000,00 €)", "40% · aplicado"]);
-    expect(rows[2]).toEqual(["  ≥ 85% de ocupação (receita ≥ 8.500,00 €)", "45%"]);
+    const n = (x: string[]) => x.map((v) => v.replace(/\s/g, " "));
+    expect(n(rows[0])[1]).toBe("10.000,00 €");
+    expect(n(rows[1])).toEqual(["  ≥ 70% de ocupação (receita ≥ 7.000,00 €)", "40% · aplicado"]);
+    expect(n(rows[2])).toEqual(["  ≥ 85% de ocupação (receita ≥ 8.500,00 €)", "45%"]);
   });
   it("sem escalões não acrescenta nada", () => expect(tierReferenceRows({ cache_type: "variable", tiers: [] }, null, 40)).toEqual([]));
 });
