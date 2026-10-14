@@ -1044,6 +1044,41 @@
       "when": 1791998788932,
       "tag": "0148_derp259_area_modes_legacy_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 149,
+      "version": "7",
+      "when": 1792012253374,
+      "tag": "0149_coala_eb_invite_a_structure",
+      "breakpoints": true
+    },
+    {
+      "idx": 150,
+      "version": "7",
+      "when": 1792012282929,
+      "tag": "0150_coala_eb_invite_b_confirmar_lista",
+      "breakpoints": true
+    },
+    {
+      "idx": 151,
+      "version": "7",
+      "when": 1792012375901,
+      "tag": "0151_coala_eb_invite_c_no_conversions",
+      "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1792012411044,
+      "tag": "0152_coala_eb_invite_d_invite_batch",
+      "breakpoints": true
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1792012451942,
+      "tag": "0153_coala_eb_invite_e_open_alert",
+      "breakpoints": true
     }
   ]
 }
