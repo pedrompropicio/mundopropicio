@@ -185,7 +185,7 @@ async function walletIssuer(sa: GW.SaKey): Promise<string> {
   if (!r.ok) throw new Error(`wallet_issuer ${r.status}`);
   const j = await r.json();
   const id = j?.resources?.[0]?.issuerId;
-  if (!id) throw new Error("wallet_issuer_none");
+  if (!id) throw new Error(`wallet_issuer_none ${JSON.stringify(j).slice(0, 300)}`);
   return (issuerCache = String(id));
 }
 let classReady = false;
