@@ -5927,3 +5927,10 @@ Origem: TikTok BR do Litto (7689229625189138438) ficou com saldo 0 a 13/10 e est
 - Atualização: cron `newgang-wallet-sync` */10 (144/dia) chama `wallet_sync` (service role) → RPC club_wallet_due devolve só passes com pontos/nível diferentes; PATCH em lote; erros ficam em last_error e nunca tocam nos pontos.
 - saved_at = primeira geração do link (a Google não avisa quando o membro guarda; callback fica para depois).
 - Credenciais: GOOGLE_WALLET_SA_KEY; issuerId em GOOGLE_WALLET_ISSUER_ID (GET /issuer devolve lista vazia para a conta de serviço com papel Desenvolvedor).
+
+### Adenda D-ERP275 — criativos por nível aprovados pelo Pedro (14/10/2026)
+- Mesma classe `newgang_clube_2027`: substituir apenas programLogo por PATCH com `logo-quadrado-v1.png` (660×660; Google recorta em círculo), sem criar outra classe.
+- heroImage por objeto (1032×336): Gang `hero-gang-v1.png` / #0b1f14; Elite `hero-elite-v1.png` / #170a2b; Lenda `hero-lenda-v1.png` / #050505. Manter pontos, nível, crew, evento e QR.
+- Imagens fornecidas pelo Pedro, em Storage público, pasta `newgang/wallet/`; URLs constantes no módulo Wallet. Nunca gerar alternativas nem aplicar URLs provisórios à Google.
+- `club_wallet_due` e `last_level` já detetam mudança de nível, mesmo sem mudar pontos (confirmado na base a 14/10); PATCH do objeto completo passa a incluir heroImage e hexBackgroundColor. Não precisa de migração.
+- Preparação com URLs `.invalid` e flag desativada; sem deploy nem PATCH enquanto faltarem as quatro imagens. Após upload, substituir URLs, ativar criativos, deploy, PATCH do logo da classe e reaplicar `wallet_test_url` ao membro nº 3; verificar leitura na Google e gravação do cartão. Sem Publish do frontend.

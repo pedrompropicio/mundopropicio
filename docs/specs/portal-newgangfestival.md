@@ -85,3 +85,11 @@ Ações com token (membro confirmado): `crew_create {name}` → {id,name,code,in
 
 ## Google Wallet (D-ERP275)
 Ação `wallet_google {token}` → `{ save_url }` (401 no_session; 503 wallet_unavailable se a Google falhar). O portal abre o save_url (botão "Adicionar à Google Wallet"). Classe `<issuer>.newgang_clube_2027`, objeto `<issuer>.ngclub_<member sem hífenes>`; pontos e nível atualizam sozinhos até 10 min depois (cron newgang-wallet-sync). Links da classe: /meu-clube e /clube/regulamento (confirmar caminho do regulamento no portal). Módulo puro: supabase/functions/newgang-portal/wallet-google.ts. Ações internas (service role): wallet_sync, wallet_test_url. Issuer ID: 3388000000023216419 (secret GOOGLE_WALLET_ISSUER_ID; o GET /issuer não o devolve para a conta de serviço).
+
+### Criativos por nível (adenda D-ERP275)
+- Receber do Pedro `hero-gang.png`, `hero-elite.png`, `hero-lenda.png` (1032×336) e `logo-quadrado.png` (660×660); upload sem transformação para Storage público em `newgang/wallet/`, nomes `hero-gang-v1.png`, `hero-elite-v1.png`, `hero-lenda-v1.png`, `logo-quadrado-v1.png`.
+- Constantes `WALLET_ARTWORK_URLS` provisórias (`https://example.invalid/newgang/wallet/...`); `WALLET_ARTWORK_READY=false` preserva o cartão atual até receber os ficheiros. Nunca enviar estes URLs à Google.
+- Classe existente: `patchClassLogo` envia só programLogo por PATCH (não cria classe). O logo é circular na Wallet.
+- Objeto: heroImage e hexBackgroundColor pelo nível atual — Gang #0b1f14, Elite #170a2b, Lenda #050505. Nível desconhecido usa criativo Gang, sem alterar o nível apresentado. Campos atuais mantidos.
+- `last_level` já existe; `club_wallet_due` seleciona alterações de pontos OU nível; sincronização grava o nível apenas após PATCH bem-sucedido. Sem migração. O mesmo `buildObject` é usado pelo cron e pela geração de save_url.
+- Após anexos: upload, URLs definitivos + flag ativa, deploy, PATCH da classe e `wallet_test_url` para membro nº 3. Ler classe/objeto na Google e validar o cartão com conta de teste (emissor em demo); o link anterior aponta ao mesmo objeto, podendo ser regenerado. Não confirmar visual novo antes desta prova.

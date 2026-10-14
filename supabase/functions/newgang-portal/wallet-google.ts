@@ -9,18 +9,41 @@ export const EVENT_LINE = "Newgang Festival 2027 · 25/03/2027 · MEO Arena";
 export const LOGO = "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang/logo-newgang-producoes-branco.png";
 export const BG = "#0b1f14";
 
+// Provisórios: substituir por URLs públicos após receber e carregar as imagens do Pedro.
+// O domínio .invalid e a flag impedem aplicar criativos inexistentes por engano.
+export const WALLET_ARTWORK_READY = false;
+export const WALLET_ARTWORK_URLS = {
+  logo: "https://example.invalid/newgang/wallet/logo-quadrado-v1.png",
+  Gang: "https://example.invalid/newgang/wallet/hero-gang-v1.png",
+  Elite: "https://example.invalid/newgang/wallet/hero-elite-v1.png",
+  Lenda: "https://example.invalid/newgang/wallet/hero-lenda-v1.png",
+} as const;
+export const WALLET_LEVEL_COLORS = { Gang: BG, Elite: "#170a2b", Lenda: "#050505" } as const;
+type ArtworkOptions = { artworkReady?: boolean };
+
+export function levelArtwork(level: string | null) {
+  const key = level === "Elite" || level === "Lenda" ? level : "Gang";
+  return {
+    heroImage: {
+      sourceUri: { uri: WALLET_ARTWORK_URLS[key] },
+      contentDescription: { defaultValue: { language: "pt-PT", value: `Clube Newgang · ${key}` } },
+    },
+    hexBackgroundColor: WALLET_LEVEL_COLORS[key],
+  };
+}
+
 export type SaKey = { client_email: string; private_key: string };
 
 export const classId = (issuer: string) => `${issuer}.${CLASS_SUFFIX}`;
 export const objectId = (issuer: string, memberId: string) => `${issuer}.ngclub_${memberId.replace(/-/g, "")}`;
 export const barcodeValue = (memberNo: number) => `NG-${memberNo}`;
 
-export function buildClass(issuer: string, o: { logo?: string | null; color?: string | null } = {}) {
+export function buildClass(issuer: string, o: { logo?: string | null; color?: string | null } & ArtworkOptions = {}) {
   return {
     id: classId(issuer),
     issuerName: "Newgang Festival",
     programName: "Clube Newgang",
-    programLogo: { sourceUri: { uri: o.logo || LOGO }, contentDescription: { defaultValue: { language: "pt-PT", value: "Newgang" } } },
+    programLogo: { sourceUri: { uri: o.logo || ((o.artworkReady ?? WALLET_ARTWORK_READY) ? WALLET_ARTWORK_URLS.logo : LOGO) }, contentDescription: { defaultValue: { language: "pt-PT", value: "Newgang" } } },
     hexBackgroundColor: o.color || BG,
     reviewStatus: "UNDER_REVIEW",
     countryCode: "PT",
@@ -35,7 +58,7 @@ export function buildClass(issuer: string, o: { logo?: string | null; color?: st
 
 export type WalletMember = { id: string; member_no: number; first_name: string | null; points: number; level: string | null; crew: string | null };
 
-export function buildObject(issuer: string, m: WalletMember) {
+export function buildObject(issuer: string, m: WalletMember, o: ArtworkOptions = {}) {
   const text: Array<{ id: string; header: string; body: string }> = [];
   if (m.crew) text.push({ id: "crew", header: "Crew", body: m.crew });
   text.push({ id: "evento", header: "Próximo evento", body: EVENT_LINE });
@@ -45,6 +68,7 @@ export function buildObject(issuer: string, m: WalletMember) {
     state: "ACTIVE",
     accountId: String(m.member_no),
     accountName: m.first_name || "Membro",
+    ...((o.artworkReady ?? WALLET_ARTWORK_READY) ? levelArtwork(m.level) : {}),
     loyaltyPoints: { label: "Pontos", balance: { int: Math.trunc(m.points) } },
     secondaryLoyaltyPoints: { label: "Nível", balance: { string: m.level || "—" } },
     textModulesData: text,
@@ -122,6 +146,18 @@ export async function ensureClass(sa: SaKey, issuer: string, cls: ReturnType<typ
   if (g.status !== 404) throw new Error(`wallet_class_get ${g.status} ${(await g.text()).slice(0, 300)}`);
   const p = await walletFetch(sa, "/loyaltyClass", { method: "POST", body: JSON.stringify(cls) });
   if (!p.ok && p.status !== 409) throw new Error(`wallet_class_insert ${p.status} ${(await p.text()).slice(0, 300)}`);
+}
+
+/** Aplicação pontual do logo aprovado: só PATCH da classe existente, nunca POST. */
+export async function patchClassLogo(sa: SaKey, issuer: string) {
+  if (!WALLET_ARTWORK_READY || new URL(WALLET_ARTWORK_URLS.logo).hostname.endsWith(".invalid")) {
+    throw new Error("wallet_artwork_pending");
+  }
+  const { programLogo } = buildClass(issuer);
+  const r = await walletFetch(sa, `/loyaltyClass/${encodeURIComponent(classId(issuer))}`, {
+    method: "PATCH", body: JSON.stringify({ programLogo }),
+  });
+  if (!r.ok) throw new Error(`wallet_class_patch ${r.status} ${(await r.text()).slice(0, 300)}`);
 }
 
 export async function upsertObject(sa: SaKey, obj: ReturnType<typeof buildObject>) {
