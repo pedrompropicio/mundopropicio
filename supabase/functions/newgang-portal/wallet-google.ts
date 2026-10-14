@@ -119,7 +119,7 @@ export async function walletFetch(sa: SaKey, path: string, init: RequestInit = {
 export async function ensureClass(sa: SaKey, issuer: string, cls: ReturnType<typeof buildClass>) {
   const g = await walletFetch(sa, `/loyaltyClass/${encodeURIComponent(cls.id)}`);
   if (g.ok) return;
-  if (g.status !== 404) throw new Error(`wallet_class_get ${g.status}`);
+  if (g.status !== 404) throw new Error(`wallet_class_get ${g.status} ${(await g.text()).slice(0, 300)}`);
   const p = await walletFetch(sa, "/loyaltyClass", { method: "POST", body: JSON.stringify(cls) });
   if (!p.ok && p.status !== 409) throw new Error(`wallet_class_insert ${p.status} ${(await p.text()).slice(0, 300)}`);
 }
