@@ -251,11 +251,18 @@ async function handleWebhook(req: Request): Promise<Response> {
     console.warn('Branding lookup failed', { email: payload.data.email, err })
   }
 
+  // A Gestão Artística (app.socialartists.com.br/definir-senha) define a senha por
+  // link, não por código. Sem o link, a recuperação pedida lá nunca grava senha.
+  const redirectHint = `${(payload.data as any).redirect_to ?? ''} ${payload.data.url ?? ''}`
+  const recoveryByLink =
+    emailType === 'recovery' && /definir-senha/.test(decodeURIComponent(redirectHint))
+
   const templateProps = {
     siteName: SITE_NAME,
     siteUrl: `https://${ROOT_DOMAIN}`,
     recipient: payload.data.email,
-    confirmationUrl: emailType === 'recovery' ? undefined : payload.data.url,
+    confirmationUrl:
+      emailType === 'recovery' ? (recoveryByLink ? payload.data.url : undefined) : payload.data.url,
     token: emailType === 'recovery' ? otpToken : payload.data.token,
     email: payload.data.email,
     newEmail: payload.data.new_email,

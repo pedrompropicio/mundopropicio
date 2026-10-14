@@ -4,6 +4,7 @@ import * as React from 'npm:react@18.3.1'
 
 import {
   Body,
+  Button,
   Container,
   Head,
   Heading,
@@ -16,11 +17,14 @@ import { BrandHeader, resolvePrimary, type BrandingProps } from './branding.tsx'
 interface RecoveryEmailProps extends BrandingProps {
   siteName: string
   token?: string
+  /** Só para apps que definem a senha por link (Gestão Artística). */
+  confirmationUrl?: string
 }
 
 export const RecoveryEmail = ({
   siteName,
   token,
+  confirmationUrl,
   brandName,
   brandLogoUrl,
   brandPrimaryColor,
@@ -30,16 +34,28 @@ export const RecoveryEmail = ({
   return (
     <Html lang="pt" dir="ltr">
       <Head />
-      <Preview>Código de recuperação de senha — {displayName}</Preview>
+      <Preview>Recuperação de senha — {displayName}</Preview>
       <Body style={main}>
         <Container style={container}>
           <BrandHeader brandLogoUrl={brandLogoUrl} brandName={displayName} />
           <Heading style={h1}>Recuperar senha</Heading>
-          <Text style={text}>
-            Recebemos um pedido para redefinir a sua senha em {displayName}. Use o
-            código abaixo para continuar na aplicação:
-          </Text>
-          {token ? (
+          {confirmationUrl ? (
+            <>
+              <Text style={text}>
+                Recebemos um pedido para redefinir a sua senha. Clique no botão
+                abaixo para definir uma nova senha:
+              </Text>
+              <Button style={{ ...button, backgroundColor: primary }} href={confirmationUrl}>
+                Definir nova senha
+              </Button>
+            </>
+          ) : (
+            <Text style={text}>
+              Recebemos um pedido para redefinir a sua senha em {displayName}. Use o
+              código abaixo para continuar na aplicação:
+            </Text>
+          )}
+          {token && !confirmationUrl ? (
             <Text style={{ ...codeStyle, color: primary }}>{token}</Text>
           ) : null}
           <Text style={footer}>
