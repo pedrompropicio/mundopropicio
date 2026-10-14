@@ -21425,14 +21425,25 @@ export type Database = {
         Args: { p_dry_run?: boolean; p_limit?: number }
         Returns: Json
       }
-      coala_send_eb_invite_batch: {
-        Args: {
-          p_daily_cap?: number
-          p_dry_run?: boolean
-          p_only_emails?: string[]
-        }
-        Returns: Json
-      }
+      coala_send_eb_invite_batch:
+        | {
+            Args: {
+              p_daily_cap?: number
+              p_dry_run?: boolean
+              p_only_emails?: string[]
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_daily_cap: number
+              p_dry_run: boolean
+              p_only_emails: string[]
+              p_test_emails?: string[]
+              p_test_locale?: string
+            }
+            Returns: Json
+          }
       coala_send_eb_open_alert: {
         Args: {
           p_daily_cap?: number
