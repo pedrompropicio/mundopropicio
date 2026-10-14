@@ -147,14 +147,14 @@ export async function ensureClass(sa: SaKey, issuer: string, cls: ReturnType<typ
   if (!p.ok && p.status !== 409) throw new Error(`wallet_class_insert ${p.status} ${(await p.text()).slice(0, 300)}`);
 }
 
-/** Aplicação pontual do logo aprovado: só PATCH da classe existente, nunca POST. */
+/** PATCH da classe existente, nunca POST; a Google exige nova revisão ao alterar media. */
 export async function patchClassLogo(sa: SaKey, issuer: string) {
   if (!WALLET_ARTWORK_READY || new URL(WALLET_ARTWORK_URLS.logo).hostname.endsWith(".invalid")) {
     throw new Error("wallet_artwork_pending");
   }
   const { programLogo } = buildClass(issuer);
   const r = await walletFetch(sa, `/loyaltyClass/${encodeURIComponent(classId(issuer))}`, {
-    method: "PATCH", body: JSON.stringify({ programLogo }),
+    method: "PATCH", body: JSON.stringify({ programLogo, reviewStatus: "UNDER_REVIEW" }),
   });
   if (!r.ok) throw new Error(`wallet_class_patch ${r.status} ${(await r.text()).slice(0, 300)}`);
 }

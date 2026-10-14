@@ -84,7 +84,7 @@ describe("google wallet", () => {
     const classCall = fetchMock.mock.calls[0] as unknown[] | undefined;
     expect(classCall?.[0]).toBe(`${GW.WALLET_API}/loyaltyClass/${GW.classId(ISS)}`);
     expect((classCall?.[1] as RequestInit | undefined)?.method).toBe("PATCH");
-    expect(JSON.parse(String((classCall?.[1] as RequestInit | undefined)?.body))).toEqual({ programLogo: GW.buildClass(ISS).programLogo });
+    expect(JSON.parse(String((classCall?.[1] as RequestInit | undefined)?.body))).toEqual({ programLogo: GW.buildClass(ISS).programLogo, reviewStatus: "UNDER_REVIEW" });
   });
   it("JWT savetowallet RS256 verificável (chave gerada no teste)", async () => {
     const kp = await crypto.subtle.generateKey({ name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" }, true, ["sign", "verify"]);
