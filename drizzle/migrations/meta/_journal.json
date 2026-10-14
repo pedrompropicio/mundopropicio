@@ -1093,6 +1093,13 @@
       "when": 1792015957442,
       "tag": "0155_coala_eb_en_template_separate_test_signature",
       "breakpoints": true
+    },
+    {
+      "idx": 156,
+      "version": "7",
+      "when": 1792016481391,
+      "tag": "0156_coala_eb_test_emails_required_compatibility",
+      "breakpoints": true
     }
   ]
 }
