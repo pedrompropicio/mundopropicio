@@ -1,7 +1,8 @@
 // artist-access-invite — D-ERP259. Gestão de utilizadores da app Gestão Artística.
 // Só admin da empresa do artista ou platform_admin (artist_access_check 'admin').
 // POST { action: 'list', artist_id }
-// POST { action: 'invite', artist_id, email, access_level: 'viewer'|'traffic_manager', areas: string[] }
+// POST { action: 'invite', artist_id, email, area_modes: { <área>: 'view'|'edit' } }  (novo, D-ERP259 adenda)
+// POST { action: 'invite', artist_id, email, access_level: 'viewer'|'traffic_manager', areas: string[] }  (antigo, compatível)
 // POST { action: 'revoke', artist_id, user_id }
 // Convite por email com redirectTo https://app.socialartists.com.br/definir-senha. Nunca devolve tokens.
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -37,7 +38,7 @@ Deno.serve(async (req) => {
 
   if (action === "list") {
     const { data, error } = await admin.from("artist_user_access")
-      .select("user_id, access_level, areas, granted_by, granted_at, revoked_at")
+      .select("user_id, access_level, areas, area_modes, granted_by, granted_at, revoked_at")
       .eq("artist_id", artistId).is("revoked_at", null).order("granted_at");
     if (error) return json({ error: error.message }, 500);
     const ids = (data ?? []).map((r) => r.user_id);
@@ -60,10 +61,21 @@ Deno.serve(async (req) => {
     const email = String(b.email ?? "").trim().toLowerCase();
     const level = String(b.access_level ?? "");
     const areas = Array.isArray(b.areas) ? b.areas.map(String) : [];
+    const rawModes = b.area_modes && typeof b.area_modes === "object" && !Array.isArray(b.area_modes)
+      ? (b.area_modes as Record<string, unknown>) : null;
+    const modes: Record<string, string> | null = rawModes
+      ? Object.fromEntries(Object.entries(rawModes).filter(([, v]) => v === "view" || v === "edit").map(([k, v]) => [k, String(v)]))
+      : null;
     const bad: string[] = [];
     if (!EMAIL.test(email) || email.length > 255) bad.push("email");
-    if (!["viewer", "traffic_manager"].includes(level)) bad.push("access_level");
-    if (areas.length === 0 || areas.some((a) => !AREAS.includes(a))) bad.push("areas");
+    if (modes) {
+      const keys = Object.keys(modes);
+      if (keys.length === 0 || keys.some((a) => !AREAS.includes(a))
+          || Object.keys(rawModes!).length !== keys.length) bad.push("area_modes");
+    } else {
+      if (!["viewer", "traffic_manager"].includes(level)) bad.push("access_level");
+      if (areas.length === 0 || areas.some((a) => !AREAS.includes(a))) bad.push("areas");
+    }
     if (bad.length) return json({ error: "invalid_input", fields: bad }, 400);
 
     const { data: art } = await admin.from("artists").select("company_id").eq("id", artistId).maybeSingle();
@@ -82,9 +94,9 @@ Deno.serve(async (req) => {
       userId = inv.user.id;
       invited = true;
     }
-    const { data: id, error } = await user.rpc("artist_access_grant", {
-      p_user_id: userId, p_artist_id: artistId, p_level: level, p_areas: areas,
-    });
+    const { data: id, error } = modes
+      ? await user.rpc("artist_access_grant_modes", { p_user_id: userId, p_artist_id: artistId, p_area_modes: modes })
+      : await user.rpc("artist_access_grant", { p_user_id: userId, p_artist_id: artistId, p_level: level, p_areas: areas });
     if (error) return json({ error: error.message }, error.code === "42501" ? 403 : 500);
     return json({ ok: true, access_id: id, user_id: userId, invited });
   }
