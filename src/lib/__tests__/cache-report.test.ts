@@ -72,3 +72,21 @@ describe("relatório — igualdade com a aba Cachê", () => {
     expect(rep.grossTotal).toBe(computeCacheTabAmount({ config, realResult: real }));
   });
 });
+
+import { tierReferenceRows, capacityRevenueByEvent } from "@/lib/cache-report";
+describe("relatório — escalões com receita máxima da sala", () => {
+  const cfg = { cache_type: "variable", cache_revenue_basis: "net", tiers: [{ occupancy_threshold: 85, percentage: 45 }, { occupancy_threshold: 70, percentage: 40 }] };
+  it("receita máxima = Σ lotes × preço por evento (s/ IVA)", () => {
+    const cap = capacityRevenueByEvent([{ id: "z", event_id: "L" }], [{ zone_id: "z", quantity: 100, price: 106, iva_rate: 6 }]);
+    expect(cap.L.gross).toBe(10600);
+    expect(cap.L.net).toBeCloseTo(10000, 6);
+  });
+  it("cada escalão mostra a receita equivalente e marca o aplicado", () => {
+    const rows = tierReferenceRows(cfg, { gross: 10600, net: 10000 }, 40);
+    const n = (x: string[]) => x.map((v) => v.replace(/\s/g, " "));
+    expect(n(rows[0])[1]).toBe("10.000,00 €");
+    expect(n(rows[1])).toEqual(["  ≥ 70% de ocupação (receita ≥ 7.000,00 €)", "40% · aplicado"]);
+    expect(n(rows[2])).toEqual(["  ≥ 85% de ocupação (receita ≥ 8.500,00 €)", "45%"]);
+  });
+  it("sem escalões não acrescenta nada", () => expect(tierReferenceRows({ cache_type: "variable", tiers: [] }, null, 40)).toEqual([]));
+});

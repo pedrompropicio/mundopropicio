@@ -36,3 +36,4 @@ type: feature
 - Seletor agrupa cidades por parent_event_id (nunca event_type); âmbito por resolveCacheScope (cidade com cachê no Master mostra a configuração do Master).
 - Datas de evento sempre por formatDatePT (sem fuso). PDF: logo da empresa (fallback logo-horizontal), nome, Evento/Cidade/Local/Data por secção, texto saneado (pdf-text), rodapé "Gerado em" + "pág. x/y".
 - Extras: turnê = todos os extras da configuração; cidade isolada = só os da cidade (event_id).
+- Escalões (14/10): cada cidade mostra os escalões da configuração com a referência = receita máxima da sala (Σ lotes × preço, base da config) e a receita equivalente de cada limiar; marca o escalão aplicado (% do cálculo real). Só referência — não entra no cálculo.

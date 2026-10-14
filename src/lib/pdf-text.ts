@@ -5,7 +5,8 @@
  * U+2013/U+2014 por hífen ASCII para uniformizar. Aplicar a TODO o texto que
  * entra no PDF, incluindo notas vindas da base.
  */
-export const sanitizePdfText = (text: string): string => String(text ?? "").replace(/[\u2212\u2013\u2014]/g, "-");
+export const sanitizePdfText = (text: string): string =>
+  String(text ?? "").replace(/[\u2212\u2013\u2014]/g, "-").replace(/\u2265/g, ">=").replace(/\u2264/g, "<=");
 
 const sanitizeCell = (c: unknown): unknown => (typeof c === "string" ? sanitizePdfText(c) : c);
 export const sanitizePdfRows = <T>(rows: T[][] | undefined): T[][] | undefined =>

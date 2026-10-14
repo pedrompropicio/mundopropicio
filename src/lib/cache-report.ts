@@ -4,6 +4,7 @@
  * sobre os RealCacheResult de useRealCacheCalculation. Nenhuma fórmula nova.
  */
 import { formatDatePT } from "@/lib/utils";
+import { formatCurrency } from "@/lib/mock-data";
 import { computeCacheTabAmount } from "@/lib/cache-tab-total";
 import { getCacheEffectiveAmount } from "@/lib/cache-pl-helper";
 import { resolveCacheScope, type CacheScope } from "@/lib/cache-scope";
@@ -107,6 +108,41 @@ export interface CityCacheRow {
   amount: number;
   extras: any[];
   extrasTotal: number;
+  /** Receita máxima da sala (lotes × preço) — referência dos escalões. */
+  capacityRevenue: { gross: number; net: number } | null;
+}
+
+/** Receita máxima por evento a partir dos lotes postos à venda (só referência). */
+export function capacityRevenueByEvent(zones: any[], lots: any[]): Record<string, { gross: number; net: number }> {
+  const zoneEvent = new Map(zones.map((z: any) => [z.id, z.event_id]));
+  const out: Record<string, { gross: number; net: number }> = {};
+  for (const l of lots) {
+    const ev = zoneEvent.get(l.zone_id);
+    if (!ev) continue;
+    const q = Number(l.quantity) || 0, price = Number(l.price) || 0, iva = Number(l.iva_rate ?? 6);
+    const o = (out[ev] ??= { gross: 0, net: 0 });
+    o.gross += q * price;
+    o.net += q * (price / (1 + iva / 100));
+  }
+  return out;
+}
+
+/** Linhas dos escalões: limiar de ocupação, receita equivalente na sala e % (marca o aplicado). */
+export function tierReferenceRows(config: any, capacity: { gross: number; net: number } | null, appliedPct: number | null): string[][] {
+  const tiers = [...(config.tiers ?? [])].sort((a: any, b: any) => a.occupancy_threshold - b.occupancy_threshold);
+  if (config.cache_type !== "variable" || tiers.length === 0) return [];
+  const gross = (config.cache_revenue_basis || "net") === "gross";
+  const cap = capacity ? (gross ? capacity.gross : capacity.net) : null;
+  const fmt = formatCurrency;
+  const rows: string[][] = [[`Escalões — referência: receita máxima da sala ${gross ? "(c/ IVA)" : "(s/ IVA)"}`, cap != null ? fmt(cap) : "-"]];
+  let applied = -1;
+  tiers.forEach((t: any, i: number) => { if (appliedPct != null && Number(t.percentage) === appliedPct) applied = i; });
+  tiers.forEach((t: any, i: number) => {
+    const thr = Number(t.occupancy_threshold);
+    const rev = cap != null ? ` (receita ≥ ${fmt(cap * thr / 100)})` : "";
+    rows.push([`  ≥ ${thr}% de ocupação${rev}`, `${Number(t.percentage)}%${i === applied ? " · aplicado" : ""}`]);
+  });
+  return rows;
 }
 
 export interface ArtistCacheReport {
@@ -129,7 +165,9 @@ export function buildArtistCacheReport(args: {
   resultsByCity: Record<string, RealCacheResult[]>;
   citySettlements: any[];
   extras: any[];
+  capacityByEvent?: Record<string, { gross: number; net: number }>;
 }): ArtistCacheReport {
+  const capOf = (id: string) => args.capacityByEvent?.[id] ?? null;
   const { config, spec } = args;
   const isVariable = config.cache_type === "variable";
   const cfgExtras = args.extras.filter((e) => e.cache_config_id === config.id);
@@ -140,7 +178,7 @@ export function buildArtistCacheReport(args: {
     const result = args.resultsByCity[cityId]?.find((r) => r.configId === config.id) ?? null;
     const settlement = args.citySettlements.find((s) => s.cache_config_id === config.id && s.event_id === cityId) ?? null;
     const ex = cfgExtras.filter((e) => e.event_id === cityId);
-    return { cityId, result, settlement, amount: getCacheEffectiveAmount(config, result?.finalAmount ?? 0, settlement), extras: ex, extrasTotal: sumEx(ex) };
+    return { cityId, result, settlement, amount: getCacheEffectiveAmount(config, result?.finalAmount ?? 0, settlement), extras: ex, extrasTotal: sumEx(ex), capacityRevenue: capOf(cityId) };
   };
 
   let cities: CityCacheRow[] = [];
@@ -158,7 +196,7 @@ export function buildArtistCacheReport(args: {
     }
   } else {
     grossTotal = computeCacheTabAmount({ config, realResult: args.realResult ?? null });
-    if (isVariable) cities = [{ cityId: spec.holderId, result: args.realResult ?? null, settlement: null, amount: grossTotal, extras: cfgExtras, extrasTotal: sumEx(cfgExtras) }];
+    if (isVariable) cities = [{ cityId: spec.holderId, result: args.realResult ?? null, settlement: null, amount: grossTotal, extras: cfgExtras, extrasTotal: sumEx(cfgExtras), capacityRevenue: capOf(spec.holderId) }];
     extras = cfgExtras;
   }
   const extrasTotal = sumEx(extras);
