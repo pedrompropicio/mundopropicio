@@ -5920,3 +5920,10 @@ Origem: TikTok BR do Litto (7689229625189138438) ficou com saldo 0 a 13/10 e est
 - Só membros confirmados criam/entram. Dono só sai transferindo (índice na lista do "me".crew) ou se ficar sozinho (crew apagada).
 - Link https://newgangfestival.pt/clube?crew=<code>: raw.crew_code do lead_capture guarda-se em club_members.pending_crew_code e aplica-se em club_confirm_member; erro = WARNING, nunca bloqueia. Padrinho por referral_code continua em paralelo.
 - API: crew_create, crew_join, crew_leave (com token); "me".crew com short_name, sem emails; history "Crew completa" com nome da crew.
+
+## D-ERP275 — Clube Newgang — cartão na Google Wallet, fase 1 (14/10/2026)
+- Passe Loyalty: classe única `<issuerId>.newgang_clube_2027` (criada se não existir, UNDER_REVIEW, logo dos emails do Clube, cor #0b1f14); objeto por membro `<issuerId>.ngclub_<member_id sem hífenes>` com accountId = member_no, pontos (soma de club_points com anulações), nível, crew, evento 2027 e QR "NG-<member_no>" (sem email nem token).
+- Ação `wallet_google` (token, membro confirmado) → save_url `https://pay.google.com/gp/v/save/<JWT RS256>`; club_wallet_passes (member+platform único; escrita só service_role).
+- Atualização: cron `newgang-wallet-sync` */10 (144/dia) chama `wallet_sync` (service role) → RPC club_wallet_due devolve só passes com pontos/nível diferentes; PATCH em lote; erros ficam em last_error e nunca tocam nos pontos.
+- saved_at = primeira geração do link (a Google não avisa quando o membro guarda; callback fica para depois).
+- Credenciais: GOOGLE_WALLET_SA_KEY; issuerId em GOOGLE_WALLET_ISSUER_ID (GET /issuer devolve lista vazia para a conta de serviço com papel Desenvolvedor).

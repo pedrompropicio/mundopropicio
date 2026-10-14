@@ -32,3 +32,4 @@ type: feature
 - D-ERP272: missões (`club_missions` + `club_mission_submissions`); pontos pelo motor `club_points` (rule_key mission / mission_finalist / mission_winner, ref = submissão) derivados do estado; desafio nunca automático; 1 submissão ativa por membro/missão; link não repete entre membros; provas em bucket privado `club-proofs`, criativos em `club-mission-assets`. Fase 2 (Graph API) por fazer.
 - D-ERP273: club_points nunca se apaga; reversão = linha 'void' negativa (ref '<regra>:<ref>', reason); reaprovação = ref '<ref>#N'; anulação manual via club_points_void.
 - D-ERP274: Crews — club_crews/club_crew_members; regra crew_complete (200, min 4 confirmados, máx 6); ref = crew; sair não retira pontos; link ?crew=<code> via raw.crew_code aplicado ao confirmar.
+- D-ERP275: Google Wallet Loyalty — classe <issuer>.newgang_clube_2027, objeto <issuer>.ngclub_<member>; QR NG-<member_no>; club_wallet_passes; cron newgang-wallet-sync */10 patcha só diferenças.
