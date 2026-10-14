@@ -21803,6 +21803,7 @@ export type Database = {
         }
         Returns: string
       }
+      estado_convite: { Args: { p_token: string }; Returns: Json }
       event_bp_evolution: {
         Args: { _event_id: string; _from?: string; _to?: string }
         Returns: Json
