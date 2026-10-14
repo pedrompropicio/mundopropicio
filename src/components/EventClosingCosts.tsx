@@ -167,6 +167,18 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
       };
       let costId = editingId;
       if (editingId) {
+        // Linha com fórmula automática (ex.: % da bilheteira): o recálculo repunha o valor
+        // e a edição manual "não gravava". Alterar o valor à mão passa a fixá-lo.
+        const current: any = costs.find((c: any) => c.id === editingId);
+        const hasFormula = current && current.formula_type && current.formula_type !== "fixed";
+        const amountChanged = current && Math.abs(Number(current.amount || 0) - amt) >= 0.005;
+        if (hasFormula && amountChanged) {
+          const ok = window.confirm(
+            "Esta linha é calculada automaticamente (fórmula sobre a bilheteira). " +
+            "Gravar um valor manual desliga a fórmula e o valor fica fixo. Continuar?",
+          );
+          if (!ok) throw new Error("Cancelado: o valor continua calculado pela fórmula.");
+        }
         const { error } = await supabase
           .from("event_forecasts")
           .update({
@@ -177,6 +189,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
             iva_rate: iva,
             formula_value: amt,
             master_forecast_id: bpForecastId || null,
+            ...(hasFormula && amountChanged ? { formula_type: "fixed" } : {}),
           })
           .eq("id", editingId);
         if (error) throw error;
