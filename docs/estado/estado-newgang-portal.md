@@ -15,7 +15,7 @@ Atualizado: 2026-10-14 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-E
 - Membros do Clube: 2 (0 confirmados); revelações: 0 (consulta de 13/10, 19:38 UTC).
 
 ## A trabalhar agora
-Criativos Google Wallet aplicados: quatro originais carregados e verificados, URLs ativos, função deployada. Classe existente e cartão de teste nº 3 atualizados e lidos na Google; 12/12 testes passaram. Pendentes: confirmação visual no dispositivo e decisão sobre cores (LoyaltyObject não suporta cor por membro).
+Criativos Google Wallet aplicados: quatro originais carregados e verificados, URLs ativos, função deployada. Classe existente e cartão de teste nº 3 atualizados e lidos na Google; 12/12 testes Wallet e suite completa 1.127 passed, 1 skipped, 11 todo, sem falhas. Pendentes: confirmação visual no dispositivo e decisão sobre cores (LoyaltyObject não suporta cor por membro).
 
 ## Próximo passo concreto
 1. Link da Fever no CRM (`events.ticketing_url` vazio).
