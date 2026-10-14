@@ -1100,6 +1100,13 @@
       "when": 1792016481391,
       "tag": "0156_coala_eb_test_emails_required_compatibility",
       "breakpoints": true
+    },
+    {
+      "idx": 157,
+      "version": "7",
+      "when": 1792017440036,
+      "tag": "0157_derp276_estado_convite",
+      "breakpoints": true
     }
   ]
 }
