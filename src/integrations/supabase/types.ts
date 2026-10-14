@@ -5864,6 +5864,125 @@ export type Database = {
           },
         ]
       }
+      coala_invites: {
+        Row: {
+          campaign: string
+          company_id: string
+          confirm_url: string
+          confirmed_at: string | null
+          email: string
+          id: string
+          locale: string
+          message_id: string
+          queued_at: string
+          status: string
+          token: string
+        }
+        Insert: {
+          campaign?: string
+          company_id?: string
+          confirm_url: string
+          confirmed_at?: string | null
+          email: string
+          id?: string
+          locale: string
+          message_id: string
+          queued_at?: string
+          status?: string
+          token: string
+        }
+        Update: {
+          campaign?: string
+          company_id?: string
+          confirm_url?: string
+          confirmed_at?: string | null
+          email?: string
+          id?: string
+          locale?: string
+          message_id?: string
+          queued_at?: string
+          status?: string
+          token?: string
+        }
+        Relationships: []
+      }
+      coala_list_consents: {
+        Row: {
+          company_id: string
+          created_at: string
+          email: string
+          id: string
+          invite_id: string | null
+          list_joined: boolean
+          locale: string | null
+          marketing_opt_in: boolean
+          method: string
+          text_version: string
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          email: string
+          id?: string
+          invite_id?: string | null
+          list_joined: boolean
+          locale?: string | null
+          marketing_opt_in: boolean
+          method: string
+          text_version: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+          invite_id?: string | null
+          list_joined?: boolean
+          locale?: string | null
+          marketing_opt_in?: boolean
+          method?: string
+          text_version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coala_list_consents_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "coala_invites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coala_send_runs: {
+        Row: {
+          company_id: string
+          created_at: string
+          daily_cap: number | null
+          details: Json | null
+          function_name: string
+          id: string
+          queued: number
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          daily_cap?: number | null
+          details?: Json | null
+          function_name: string
+          id?: string
+          queued?: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          daily_cap?: number | null
+          details?: Json | null
+          function_name?: string
+          id?: string
+          queued?: number
+        }
+        Relationships: []
+      }
       coala_supplier_category_map: {
         Row: {
           category_id: string
@@ -17852,6 +17971,12 @@ export type Database = {
         }
         Relationships: []
       }
+      coala_list_members: {
+        Row: {
+          email: string | null
+        }
+        Relationships: []
+      }
       crm_contactos: {
         Row: {
           company_id: string | null
@@ -21300,6 +21425,22 @@ export type Database = {
         Args: { p_dry_run?: boolean; p_limit?: number }
         Returns: Json
       }
+      coala_send_eb_invite_batch: {
+        Args: {
+          p_daily_cap?: number
+          p_dry_run?: boolean
+          p_only_emails?: string[]
+        }
+        Returns: Json
+      }
+      coala_send_eb_open_alert: {
+        Args: {
+          p_daily_cap?: number
+          p_dry_run?: boolean
+          p_only_emails?: string[]
+        }
+        Returns: Json
+      }
       coala_unsub_token: { Args: { p_email: string }; Returns: string }
       collect_event_benchmarks: { Args: { _event_id: string }; Returns: Json }
       compute_ticket_type_for_lot: {
@@ -21324,6 +21465,14 @@ export type Database = {
       confirm_ticket_office_statement: {
         Args: { p_statement_id: string }
         Returns: undefined
+      }
+      confirmar_lista: {
+        Args: {
+          p_locale?: string
+          p_marketing_opt_in: boolean
+          p_token: string
+        }
+        Returns: Json
       }
       consume_recovery_code: { Args: { _code_hash: string }; Returns: boolean }
       convert_transaction_to_partner_extra: {
