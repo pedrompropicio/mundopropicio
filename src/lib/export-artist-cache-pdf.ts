@@ -64,7 +64,7 @@ export async function exportArtistCachePdf(input: CachePdfInput) {
     if (input.logo) {
       const h = 12;
       const w = Math.min(50, (input.logo.w / input.logo.h) * h);
-      doc.addImage(input.logo.dataUrl, "PNG", m, y, w, h);
+      doc.addImage(input.logo.dataUrl, /image\/jpe?g/.test(input.logo.dataUrl) ? "JPEG" : "PNG", m, y, w, h);
     }
     doc.setFont("helvetica", "bold"); doc.setFontSize(10);
     doc.text(input.companyName, pageW - m, y + 5, { align: "right" });
