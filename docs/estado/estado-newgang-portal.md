@@ -15,7 +15,7 @@ Atualizado: 2026-10-14 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-E
 - Membros do Clube: 2 (0 confirmados); revelações: 0 (consulta de 13/10, 19:38 UTC).
 
 ## A trabalhar agora
-Criativos Google Wallet por nível: preparação local; aguarda as quatro imagens do Pedro antes de upload, deploy e PATCH na Google.
+Criativos Google Wallet por nível: preparação local concluída, 12/12 testes Wallet passaram e compilação automática OK; aguarda as quatro imagens do Pedro antes de upload, deploy e PATCH na Google.
 
 ## Próximo passo concreto
 1. Link da Fever no CRM (`events.ticketing_url` vazio).

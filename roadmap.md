@@ -3,7 +3,7 @@
 ## Google Wallet — criativos por nível (14/10/2026)
 - [x] Preparar constantes provisórias, lógica por nível e PATCH exclusivo do logo; preservar cartão atual até aos anexos.
 - [x] Confirmar na base `last_level` e seleção por pontos OU nível; sem migração necessária.
-- [ ] Validar testes e documentar a preparação.
+- [x] Validar testes e documentar a preparação: 12/12 testes Wallet passaram; compilação automática OK.
 - [ ] Upload público das quatro imagens, URLs definitivos, deploy e PATCH classe/membro nº 3; bloqueado pelos anexos do Pedro.
 - [ ] Confirmar novo criativo na Google e save_url; bloqueado pelos anexos do Pedro.
 
