@@ -1023,6 +1023,13 @@
       "when": 1791996113047,
       "tag": "0145_my_artist_companies",
       "breakpoints": true
+    },
+    {
+      "idx": 146,
+      "version": "7",
+      "when": 1791996862261,
+      "tag": "0146_artist_assignment_company_isolation",
+      "breakpoints": true
     }
   ]
 }
