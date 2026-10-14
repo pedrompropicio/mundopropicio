@@ -4,8 +4,10 @@
 - [x] Preparar constantes provisórias, lógica por nível e PATCH exclusivo do logo; preservar cartão atual até aos anexos.
 - [x] Confirmar na base `last_level` e seleção por pontos OU nível; sem migração necessária.
 - [x] Validar testes e documentar a preparação: 12/12 testes Wallet passaram; compilação automática OK.
-- [ ] Upload público das quatro imagens, URLs definitivos, deploy e PATCH classe/membro nº 3; bloqueado pelos anexos do Pedro.
-- [ ] Confirmar novo criativo na Google e save_url; bloqueado pelos anexos do Pedro.
+- [x] Upload público original (SHA-256 igual), URLs definitivos, deploy e PATCH classe/membro nº 3; GET Google confirma logo e hero, pontos, nível, evento e QR; 12/12 testes.
+- [x] Gerar novo save_url para nº 3: HTTP 200, pedido 202017; link anterior referencia o mesmo objeto.
+- [ ] Confirmar visual no dispositivo — depende do Pedro; só API Google verificada.
+- [ ] Decidir alternativa para cores por membro — LoyaltyObject ignora hexBackgroundColor; manter classe única até decisão do Pedro.
 
 ## PDF e datas dos fechos — 10/10/2026
 - [x] Sinais saneados no PDF, carimbo único em Lisboa e datas civis preservadas; 7 testes passaram e PDF inspeccionado sem sobreposições. Sem dados ou Publish.

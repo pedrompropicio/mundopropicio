@@ -15,7 +15,7 @@ Atualizado: 2026-10-14 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-E
 - Membros do Clube: 2 (0 confirmados); revelações: 0 (consulta de 13/10, 19:38 UTC).
 
 ## A trabalhar agora
-Criativos Google Wallet por nível: preparação local concluída, 12/12 testes Wallet passaram e compilação automática OK; aguarda as quatro imagens do Pedro antes de upload, deploy e PATCH na Google.
+Criativos Google Wallet aplicados: quatro originais carregados e verificados, URLs ativos, função deployada. Classe existente e cartão de teste nº 3 atualizados e lidos na Google; 12/12 testes passaram. Pendentes: confirmação visual no dispositivo e decisão sobre cores (LoyaltyObject não suporta cor por membro).
 
 ## Próximo passo concreto
 1. Link da Fever no CRM (`events.ticketing_url` vazio).
@@ -23,7 +23,7 @@ Criativos Google Wallet por nível: preparação local concluída, 12/12 testes 
 3. Alargar os benefícios dos níveis (ensaios dos artistas, meet & greet) — Pedro.
 
 ## Bloqueios
-- Wallet: faltam `hero-gang.png`, `hero-elite.png`, `hero-lenda.png` (1032×336) e `logo-quadrado.png` (660×660). URLs provisórios e flag desligada; cartão nº 3 ainda mantém o visual anterior, não foi reaplicado nem validado com criativo novo.
+- Wallet: Google ignora `hexBackgroundColor` em LoyaltyObject; só permite cor na classe Loyalty (única por decisão) ou em GenericObject. Não criadas classes alternativas. Confirmar no dispositivo o cartão nº 3; link anterior usa o mesmo objeto, novo link gerado HTTP 200 (pedido 202017).
 - Fotos 2023 Porto e 2025; aftermovies 2024 e 2025 — equipa/Newgang Produções.
 - Early entry dos Lenda no festival: suspenso até validação com a MEO Arena.
 - Plano Resend antes de 03/11 — plataforma-e-infra.
@@ -58,6 +58,6 @@ Conteúdo movido de `estado-crm-portal-e-leads.md` a 13/10 (D-ERP262).
 - 14/10/2026 (D-ERP275): Google Wallet fase 1 — função e cron prontos. Issuer ID 3388000000023216419 (secret GOOGLE_WALLET_ISSUER_ID; GET /issuer devolve vazio para a conta de serviço, por isso vem do secret; diagnóstico wallet_issuer retirado). Classe 3388000000023216419.newgang_clube_2027 e objeto do membro de teste nº 3 (wallet-teste@newgangfestival.pt, confirmado, 100 pts, Gang) criados sem erro; save_url de teste gerado (HTTP 200). Por fazer: Apple Wallet, publicação na Google (sair de demo) e botão no portal.
 
 ## Onde ler mais
-- 14/10/2026 (adenda D-ERP275): lógica local de hero/cor por Gang/Elite/Lenda e PATCH exclusivo do logo da classe preparados. `last_level` e `club_wallet_due` já cobrem alterações de nível (verificados na base); sem migração, dados alterados, chamadas à Google ou deploy nesta preparação. Falta: anexos → upload público versionado → ativar URLs → deploy → PATCH classe + membro nº 3 → validação Google. Estas alterações não precisam de Publish do frontend; botão no projeto do portal continua por implementar/publicar e sair de demo exige aprovação Google.
+- 14/10/2026, 02:02 UTC (adenda D-ERP275): PNG originais em `test-artifacts/newgang/wallet/`, HTTP 200 e SHA-256 idênticos. URLs ativos, função deployada; PATCH classe existente com programLogo + UNDER_REVIEW (exigência da Google após 400 no primeiro envio), objeto nº 3 com hero Gang. GET Google confirma logo/hero/100 pontos/Gang/evento/QR; cor por objeto ignorada (limitação oficial). Sync continua a selecionar pontos OU nível; sem migração ou alteração de pontos. Novo save_url HTTP 200 (pedido 202017). 12/12 testes passaram, compilação automática OK; CI remoto não verificado. Não precisa de Publish do frontend; botão no projeto do portal continua por implementar/publicar e sair de demo exige aprovação Google. Visual na Wallet ainda por confirmar no dispositivo do Pedro.
 - `docs/specs/portal-newgangfestival.md`
 - `docs/handoffs/2026-10-13-newgang-portal.md`

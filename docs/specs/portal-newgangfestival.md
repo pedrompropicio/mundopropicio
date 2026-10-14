@@ -88,8 +88,10 @@ Ação `wallet_google {token}` → `{ save_url }` (401 no_session; 503 wallet_un
 
 ### Criativos por nível (adenda D-ERP275)
 - Receber do Pedro `hero-gang.png`, `hero-elite.png`, `hero-lenda.png` (1032×336) e `logo-quadrado.png` (660×660); upload sem transformação para Storage público em `newgang/wallet/`, nomes `hero-gang-v1.png`, `hero-elite-v1.png`, `hero-lenda-v1.png`, `logo-quadrado-v1.png`.
-- Constantes `WALLET_ARTWORK_URLS` provisórias (`https://example.invalid/newgang/wallet/...`); `WALLET_ARTWORK_READY=false` preserva o cartão atual até receber os ficheiros. Nunca enviar estes URLs à Google.
-- Classe existente: `patchClassLogo` envia só programLogo por PATCH (não cria classe). O logo é circular na Wallet.
+- Constantes `WALLET_ARTWORK_URLS` definitivas no Storage público `test-artifacts/newgang/wallet/`; `WALLET_ARTWORK_READY=true`. Quatro originais recebidos e verificados (HTTP 200 + SHA-256). Nunca enviar URLs provisórios à Google.
+- Classe existente: `patchClassLogo` envia programLogo e `reviewStatus: UNDER_REVIEW` por PATCH (não cria classe). A Google exige revisão ao mudar o logo; sem ela devolve 400. O logo é circular na Wallet.
 - Objeto: heroImage e hexBackgroundColor pelo nível atual — Gang #0b1f14, Elite #170a2b, Lenda #050505. Nível desconhecido usa criativo Gang, sem alterar o nível apresentado. Campos atuais mantidos.
 - `last_level` já existe; `club_wallet_due` seleciona alterações de pontos OU nível; sincronização grava o nível apenas após PATCH bem-sucedido. Sem migração. O mesmo `buildObject` é usado pelo cron e pela geração de save_url.
-- Após anexos: upload, URLs definitivos + flag ativa, deploy, PATCH da classe e `wallet_test_url` para membro nº 3. Ler classe/objeto na Google e validar o cartão com conta de teste (emissor em demo); o link anterior aponta ao mesmo objeto, podendo ser regenerado. Não confirmar visual novo antes desta prova.
+- Aplicado: upload, URLs definitivos, deploy, PATCH da classe e objeto nº 3; GET Google confirma logo, hero Gang, 100 pontos, nível Gang, evento e QR. `wallet_test_url` gerou novo link HTTP 200 (pedido 202017). O link anterior aponta ao mesmo objeto. Visual no dispositivo ainda por confirmar; emissor em demo.
+- Limitação oficial: `LoyaltyObject` NÃO suporta `hexBackgroundColor` (campo ignorado no PATCH, ausente no GET); só `LoyaltyClass` ou `GenericObject`. Não prometer fundos distintos por membro na classe única. Manter a arquitetura decidida até autorização do Pedro para alternativa.
+- Ação interna `wallet_artwork_apply {member_id}` exige service_role, sem Origin: PATCH da classe existente + PATCH do objeto existente + leitura Google; devolve apenas verificações e campos não secretos, nunca chave ou save_url. Não altera pontos nem cria classes.
