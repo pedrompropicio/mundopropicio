@@ -14,3 +14,4 @@
 - Brand-exclusive menus and routes are gated by company_features keys (RequireFeature + sidebar filter), never by company name; keeps one codebase for every tenant.
 - Google Wallet artwork is resolved by the shared object builder; class-logo updates use a separate PATCH-only helper with UNDER_REVIEW. LoyaltyObject ignores hexBackgroundColor, so never claim per-object colors are applied or duplicate the established class without authorization.
 - The artist-cache report builds its numbers only through src/lib/cache-report.ts on top of the Cachê-tab core (useRealCacheCalculation + computeCacheTabAmount); a second formula would make the report and the tab disagree.
+- Coala invite test recipients are appended only after base counts and reuse the normal invitation path; this preserves buyer statistics and avoids a separate delivery implementation.

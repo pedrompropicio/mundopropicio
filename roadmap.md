@@ -1,5 +1,10 @@
 # Roadmap — épica #146 (e)
 
+## Coala Early Bird — remetente e modelo PT (14/10/2026)
+- [x] Confirmar domínio marketing na Resend; aplicar remetente nas duas funções e modelo PT integral, preservando EN.
+- [x] Aceitar testes internos fora da base sem alterar as contagens; dry run Pedro em PT confirmado, zero convites/fila/logs do teste.
+- [x] Guardar definições finais e output integral; sem envio real ou Publish.
+
 ## Google Wallet — criativos por nível (14/10/2026)
 - [x] Preparar constantes provisórias, lógica por nível e PATCH exclusivo do logo; preservar cartão atual até aos anexos.
 - [x] Confirmar na base `last_level` e seleção por pontos OU nível; sem migração necessária.
