@@ -96,7 +96,6 @@ export default function ReportArtistCache() {
     return resolveReportBlocks({ selection: { kind: option.kind, eventId: option.eventId }, events, configCounts });
   }, [option, configCounts, events]);
 
-  useEffect(() => { setBlockData({}); }, [selected]);
   const onBlockReady = useCallback((key: string, reports: ArtistCacheReport[]) => {
     setBlockData((prev) => (prev[key] === reports ? prev : { ...prev, [key]: reports }));
   }, []);
