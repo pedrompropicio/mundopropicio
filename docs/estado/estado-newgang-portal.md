@@ -54,7 +54,7 @@ Conteúdo movido de `estado-crm-portal-e-leads.md` a 13/10 (D-ERP262).
 
 - 14/10/2026 (D-ERP274): Crews (criar/entrar/sair, crew completa = 4 confirmados → 200 pts a cada um, máx 6, link ?crew=). Função deployada; CRM Clube → Crews por publicar; ecrã no portal por fazer.
 
-- 14/10/2026 (D-ERP275): Google Wallet fase 1 — função e cron prontos; BLOQUEADO no issuerId (GET /issuer vazio para a conta de serviço) → falta GOOGLE_WALLET_ISSUER_ID; depois gerar save_url de teste. Apple Wallet, publicação na Google e botão no portal por fazer.
+- 14/10/2026 (D-ERP275): Google Wallet fase 1 — função e cron prontos. Issuer ID 3388000000023216419 (secret GOOGLE_WALLET_ISSUER_ID; GET /issuer devolve vazio para a conta de serviço, por isso vem do secret; diagnóstico wallet_issuer retirado). Classe 3388000000023216419.newgang_clube_2027 e objeto do membro de teste nº 3 (wallet-teste@newgangfestival.pt, confirmado, 100 pts, Gang) criados sem erro; save_url de teste gerado (HTTP 200). Por fazer: Apple Wallet, publicação na Google (sair de demo) e botão no portal.
 
 ## Onde ler mais
 - `docs/specs/portal-newgangfestival.md`
