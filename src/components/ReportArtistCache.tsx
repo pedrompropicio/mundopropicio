@@ -238,7 +238,7 @@ function ReportBlockData({ spec, onReady }: { spec: ReportBlockSpec; onReady: (k
   // Receita máxima da sala por evento (lotes × preço) — só referência dos escalões.
   const capIds = [spec.holderId, ...spec.childIds];
   const { data: capacityByEvent = {} } = useQuery({
-    queryKey: ["event_ticket_lots_cache_report", capIds.join(",")], enabled,
+    queryKey: ["real-cache-report-capacity", capIds.join(",")], enabled,
     queryFn: async () => {
       const { data: zones, error } = await supabase.from("event_ticket_zones").select("id, event_id").in("event_id", capIds);
       if (error) throw error;
