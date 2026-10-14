@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
       ? await user.rpc("artist_access_grant_modes", { p_user_id: userId, p_artist_id: artistId, p_area_modes: modes })
       : await user.rpc("artist_access_grant", { p_user_id: userId, p_artist_id: artistId, p_level: level, p_areas: areas });
     if (error) return json({ error: error.message }, error.code === "42501" ? 403 : 500);
-    return json({ ok: true, access_id: id, user_id: userId, invited });
+    return json({ ok: true, access_id: id, user_id: userId, invited, resent });
   }
 
   return json({ error: "action inválida (list|invite|revoke)" }, 400);
