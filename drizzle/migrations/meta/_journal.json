@@ -1016,6 +1016,13 @@
       "when": 1791939317499,
       "tag": "0144_derp275_club_wallet_passes",
       "breakpoints": true
+    },
+    {
+      "idx": 145,
+      "version": "7",
+      "when": 1791996113047,
+      "tag": "0145_my_artist_companies",
+      "breakpoints": true
     }
   ]
 }
