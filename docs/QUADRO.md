@@ -21,7 +21,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| — | — | — | (vazio) | — | — |
+| #320 | ChatGPT · 0 Cowork | 0 - Cowork ChatGPT via Lovable | leads, filas/consumidores CAPI, process_leads_capi_batch, recuperação processing, consentimento e alertas; migrações e docs da frente 9 | 2026-10-15 21:46 UTC | 2026-10-15 21:46 UTC — execução autorizada; sem Publish/envios/retoma |
 
 ## 0 · Cowork (Claude)
 
