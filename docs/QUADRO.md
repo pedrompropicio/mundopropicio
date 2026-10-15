@@ -21,13 +21,15 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #320 | ChatGPT · 0 Cowork | 0 - Cowork ChatGPT via Lovable | leads, filas/consumidores CAPI, process_leads_capi_batch, recuperação processing, consentimento e alertas; migrações e docs da frente 9 | 2026-10-15 21:46 UTC | 2026-10-15 22:20 UTC — lacunas da verificação corrigidas (migrações 0164_issue320_capi_p1_gaps + 0165 espelho, D-ERP281, 4 edge functions, provas em docs/testes/issue320/); aguarda verificação independente; sem Publish/envios/retoma |
+| — | — | — | (vazio) | — | — |
 
 ## 0 · Cowork (Claude)
 
 _(sem pedidos)_
 
 ## 0 · Cowork (ChatGPT)
+
+- [ ] #320 — P1 CAPI implementado e suspenso; revisão de dados/código realizada. AGUARDA validação CI e logs brutos versionados antes do fecho integral. Agente reporta 1171 testes, tsgo/build aprovados; logs .txt citados devolvem 404. Issue permanece aberta, executor ChatGPT; reserva libertada ao fim da sessão, sem transferência. Retoma/Publish não autorizados. Commit técnico 9920f270. Efeito: ingestão para contactos também suspensa, registos guardados na origem.
 
 - [ ] de `newgang-portal` para 0 · Cowork (ChatGPT) (15/10/2026): **Clube Newgang — nomes dos níveis e dimensão das marcas.** Pedido do Pedro: Gang → Gang, Elite → Crew, Lenda → Goat; reduzir um pouco mais as marcas MP, Newgang Produções e Fever no rodapé. Proposta apresentada: redução adicional de 15%, mantendo proporções em computador e telemóvel. Pedro autorizou colocar este pedido no quadro; **este registo não constitui autorização de execução, DML, tarefa ao Lovable ou Publish**. Preparar âmbito e obter o Sim do Pedro na sessão do 0 antes de implementar. Confirmar impacto em CRM, API, portal e Wallet/criativos (nomes antigos), preservando pontos, limites e benefícios. Fontes lidas: `docs/estado/estado-newgang-portal.md`, `docs/specs/portal-newgangfestival.md`, `.lovable/memory/features/portal-newgangfestival.md`; portal `src/components/portal-member.tsx` e `portal-shell.tsx`. Projeto portal confirmado na spec: `1a915f50-55ca-4bb6-9abe-8f241c54647a`; evento `407f43fc-790f-4ea7-8b2a-4162805dfb16`. Aguardar disponibilidade do agente partilhado e respeitar a reserva #320.
 
