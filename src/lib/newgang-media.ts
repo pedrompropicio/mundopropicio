@@ -1,13 +1,13 @@
 // Media das edições do festival: vídeos só por link; fotos convertidas para WebP no browser.
 
-export type VideoProvider = "youtube" | "instagram" | "vimeo";
-export type EditionVideo = { url: string; provider: VideoProvider; title?: string | null };
+export type VideoProvider = "youtube" | "instagram" | "vimeo" | "upload";
+export type EditionVideo = { url: string; provider: VideoProvider; title?: string | null; poster_url?: string | null };
 
 export const MAX_EDITION_PHOTOS = 20;
 export const MAX_PHOTO_SIDE = 1600;
 
 /** Devolve o fornecedor do vídeo ou null se o URL não for YouTube, Instagram ou Vimeo. */
-export function detectVideoProvider(raw: string): VideoProvider | null {
+export function detectVideoProvider(raw: string): Exclude<VideoProvider, "upload"> | null {
   let u: URL;
   try {
     u = new URL(raw.trim());
@@ -114,4 +114,52 @@ export async function uploadEditionPhotos(
   if (failure) d.toast.error(failure);
   if (urls.length) d.toast.success(`${urls.length} foto(s) carregada(s).`);
   return urls;
+}
+
+// ---------- D-ERP277: vídeos enviados (provider "upload") ----------
+export const VIDEO_BUCKET = "festival-edition-videos";
+export const MAX_VIDEO_BYTES = 500 * 1024 * 1024;
+export const VIDEO_MIME_EXT: Record<string, string> = { "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov" };
+export const VIDEO_ACCEPT = Object.keys(VIDEO_MIME_EXT).join(",");
+
+/** Devolve a mensagem de erro (pt-PT) ou null se o ficheiro é aceite. */
+export function validateVideoFile(f: { type: string; size: number; name?: string }): string | null {
+  if (!VIDEO_MIME_EXT[f.type]) return `Tipo não suportado (${f.type || "desconhecido"}): só MP4, WebM ou MOV.`;
+  if (f.size <= 0) return "Ficheiro vazio.";
+  if (f.size > MAX_VIDEO_BYTES) return `Ficheiro com ${(f.size / 1048576).toFixed(0)} MB: o máximo é ${MAX_VIDEO_BYTES / 1048576} MB.`;
+  return null;
+}
+
+/** 1.º segmento = company_id (policy festival_edition_videos_insert). */
+export function editionVideoPath(companyId: string, brandKey: string, year: number, id: string, mime: string): string {
+  if (!companyId) throw new Error("Sem empresa ativa — não é possível enviar vídeos.");
+  const ext = VIDEO_MIME_EXT[mime];
+  if (!ext) throw new Error("Tipo de vídeo não suportado.");
+  return `${companyId}/festival-editions/${brandKey}/${year}/${id}.${ext}`;
+}
+
+/** Upload direto à API de Storage com progresso (supabase-js não expõe progresso). */
+export function uploadWithProgress(opts: {
+  baseUrl: string; apiKey: string; accessToken: string; bucket: string; path: string; file: Blob; contentType: string;
+  onProgress?: (pct: number) => void;
+}): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const p = opts.path.split("/").map(encodeURIComponent).join("/");
+    xhr.open("POST", `${opts.baseUrl}/storage/v1/object/${opts.bucket}/${p}`);
+    xhr.setRequestHeader("Authorization", `Bearer ${opts.accessToken}`);
+    xhr.setRequestHeader("apikey", opts.apiKey);
+    xhr.setRequestHeader("Content-Type", opts.contentType);
+    xhr.setRequestHeader("x-upsert", "false");
+    xhr.upload.onprogress = (e) => e.lengthComputable && opts.onProgress?.(Math.round((e.loaded / e.total) * 100));
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) return resolve();
+      let msg = xhr.responseText;
+      try { const j = JSON.parse(xhr.responseText); msg = j.message || j.error || msg; } catch { /* texto */ }
+      if (xhr.status === 413) msg = `Ficheiro maior do que o limite permitido (${msg})`;
+      reject(new Error(msg || `HTTP ${xhr.status}`));
+    };
+    xhr.onerror = () => reject(new Error("Falha de rede durante o envio."));
+    xhr.send(opts.file);
+  });
 }
