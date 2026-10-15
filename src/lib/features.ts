@@ -4,6 +4,7 @@ export const FEATURES = {
   SYNC_HEALTH: "sync-health",
   CRM_CLUBE_NEWGANG: "crm-clube-newgang",
   CRM_SITE_NEWGANG: "crm-site-newgang",
+  CRM_COALA_EB27: "crm-coala-eb27",
 } as const;
 
 export type FeatureKey = typeof FEATURES[keyof typeof FEATURES];
@@ -29,6 +30,10 @@ export const FEATURE_LABELS: Record<FeatureKey, { label: string; description: st
   "crm-site-newgang": {
     label: "MP CRM · Site Newgang",
     description: "Edição do site Newgang no MP CRM.",
+  },
+  "crm-coala-eb27": {
+    label: "MP CRM · Coala Early Bird 27",
+    description: "Lista dinâmica dos contactos na lista Early Bird 27 (vista coala_list_members).",
   },
 };
 
