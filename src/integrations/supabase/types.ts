@@ -21578,11 +21578,13 @@ export type Database = {
         Args: { _description?: string; _name: string; _value: string }
         Returns: string
       }
+      crm_audience_is_visible: { Args: { criterion: Json }; Returns: boolean }
       crm_audience_lists: {
         Args: never
         Returns: {
           audience_id: string
           captured_at: string
+          live_count: number
           member_count: number
           name: string
           snapshot_id: string
@@ -21628,6 +21630,30 @@ export type Database = {
           source: string
         }[]
       }
+      crm_contacts_by_audience: {
+        Args: {
+          p_active?: string
+          p_audience_id: string
+          p_email?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_source?: string
+          p_wa?: string
+        }
+        Returns: Json
+      }
+      crm_criterion_match: {
+        Args: {
+          c: Database["public"]["Tables"]["contacts"]["Row"]
+          criterion: Json
+        }
+        Returns: boolean
+      }
+      crm_filter_match: {
+        Args: { c: Database["public"]["Tables"]["contacts"]["Row"]; f: Json }
+        Returns: boolean
+      }
       crm_get_meta_decrypted_token: {
         Args: { p_connection_id: string; p_master_key: string }
         Returns: {
@@ -21643,6 +21669,7 @@ export type Database = {
           access_token: string
         }[]
       }
+      crm_has_feature: { Args: { p_key: string }; Returns: boolean }
       crm_meta_audience_collect_leads: {
         Args: { p_audience_id: string }
         Returns: {
