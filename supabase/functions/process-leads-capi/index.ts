@@ -21,6 +21,7 @@
 // verify_jwt = false (default Lovable): cron-only.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { classifyMetaResponse, interpretAlertRecorded, interpretDispatchAllowed, interpretGuard, type MetaOutcome } from "../_shared/capi-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -78,16 +79,12 @@ async function loadCapiToken(): Promise<string | null> {
   }
 }
 
-/**
- * POST directo ao Graph da Meta. Antes passava por capi-meta-events
- * (function-to-function), o que batia no rate limit do gateway edge
- * (RateLimitError) e marcava tudo como retry. Padrão igual ao portal_tick_*.
- */
-async function callCapi(pixelId: string, payload: Record<string, any>, accessToken: string): Promise<CapiResult> {
+/** POST directo ao Graph. Só chamado após guarda servidor (capi_guard_lead_dispatch). */
+async function callCapi(pixelId: string, payload: Record<string, any>, eventTime: number, accessToken: string): Promise<MetaOutcome> {
   const metaBody = {
     data: [{
-      event_name: payload.event_name,
-      event_time: payload.event_time ?? Math.floor(Date.now() / 1000),
+      event_name: "ViewContent",
+      event_time: eventTime,
       event_id: payload.event_id ?? undefined,
       event_source_url: payload.event_source_url ?? undefined,
       action_source: "website",
@@ -105,20 +102,9 @@ async function callCapi(pixelId: string, payload: Record<string, any>, accessTok
     const text = await r.text();
     let parsed: any = null;
     try { parsed = text ? JSON.parse(text) : null; } catch { /* não-JSON */ }
-
-    if (r.ok) return { ok: true };
-
-    const metaErr = parsed?.error;
-    if (r.status === 400 && metaErr?.error_subcode === 2804050) {
-      return { ok: false, final: true, detail: "insufficient_customer_data" };
-    }
-    return {
-      ok: false,
-      final: false,
-      detail: `meta_status=${r.status} ${metaErr?.message ?? text.slice(0, 200)}`.trim(),
-    };
+    return classifyMetaResponse(r.status, parsed, text.slice(0, 200));
   } catch (e) {
-    return { ok: false, final: false, detail: String(e) };
+    return { kind: "transient", detail: String(e) };
   }
 }
 
@@ -129,68 +115,41 @@ Deno.serve(async (req: Request): Promise<Response> => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // Recuperação de estados intermédios: 'processing' é um lock temporal.
-  // Se ficou preso (edge morreu a meio), passados 30 min volta a 'retry'.
+  // #320: interruptor persistente — também trava invocação directa.
+  {
+    const { data, error } = await supabase.rpc("capi_dispatch_allowed");
+    if (!interpretDispatchAllowed(data, error)) {
+      return json({ suspended: true, reason: error ? "dispatch_check_failed" : "capi_dispatch_control" }, 423);
+    }
+  }
+
+  // Recuperação de 'processing' via RPC (reaplica tipo/prazo/consentimento; nunca contorna).
+  const rec = await supabase.rpc("capi_recover_processing", { p_older_than_minutes: 30 });
+  if (rec.error) return json({ error: "recover_processing_failed", detail: rec.error.message }, 500);
+
   const accessToken = await loadCapiToken();
   if (!accessToken) return json({ error: "missing_capi_token" }, 500);
 
-  let recovered_stale = 0;
-  {
-    const cutoff = new Date(Date.now() - 30 * 60_000).toISOString();
-    const { data: stale, error: staleErr } = await supabase
-      .from("leads")
-      .update({ capi_status: "retry", capi_sent_at: null })
-      .eq("capi_status", "processing")
-      .lt("capi_sent_at", cutoff)
-      .select("id");
-    if (staleErr) console.warn("[process-leads-capi] recover stale falhou", staleErr.message);
-    else recovered_stale = stale?.length ?? 0;
-    if (recovered_stale > 0) console.log("[process-leads-capi] recuperados de processing:", recovered_stale);
-  }
-
   const t0 = Date.now();
-  let batches = 0;
-  let processed = 0;
-  let sent = 0;
-  let retried = 0;
-  let failed_final = 0;
-  let skipped_only_batches = 0;
-  let stop_reason: "drained" | "wall_time" | "max_batches" | "rpc_error" = "drained";
+  let batches = 0, processed = 0, sent = 0, retried = 0, failed_final = 0, blocked = 0;
+  let meta_access_alerts = 0, alert_failures = 0, status_update_failures = 0;
+  let stop_reason: "drained" | "wall_time" | "max_batches" = "drained";
+
+  const setStatus = async (leadId: string, patch: Record<string, unknown>) => {
+    const { error } = await supabase.from("leads").update(patch).eq("id", leadId).eq("capi_status", "processing");
+    if (error) { status_update_failures++; console.error("[process-leads-capi] update falhou", leadId, error.message); }
+  };
 
   while (true) {
     if (batches >= MAX_BATCHES) { stop_reason = "max_batches"; break; }
     if (Date.now() - t0 >= MAX_WALL_MS) { stop_reason = "wall_time"; break; }
 
-    const { data, error } = await supabase.rpc("process_leads_capi_batch", {
-      p_batch_size: BATCH_LIMIT,
-    });
-
-    if (error) {
-      console.error("[process-leads-capi] rpc falhou", error.message);
-      stop_reason = "rpc_error";
-      return json({
-        error: "rpc_failed",
-        detail: error.message,
-        batches, processed, sent, retried, failed_final,
-        wall_ms: Date.now() - t0,
-      }, 500);
-    }
+    const { data, error } = await supabase.rpc("process_leads_capi_batch", { p_batch_size: BATCH_LIMIT });
+    if (error) return json({ error: "rpc_failed", detail: error.message, batches, processed, sent }, 500);
 
     const items: any[] = Array.isArray(data) ? data : [];
     batches++;
-
-    if (items.length === 0) {
-      // A RPC pode consumir um batch inteiro só com skipped_old/skipped_no_pixel
-      // (marca e faz CONTINUE, sem devolver linhas). Nesse caso a fila NÃO está
-      // drenada — confirmar por contagem antes de parar.
-      const { count } = await supabase
-        .from("leads")
-        .select("id", { count: "exact", head: true })
-        .or("capi_status.is.null,capi_status.eq.retry");
-      if (!count || count === 0) { stop_reason = "drained"; break; }
-      skipped_only_batches++;
-      continue;
-    }
+    if (items.length === 0) { stop_reason = "drained"; break; }
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
@@ -198,53 +157,46 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const leadId = item?.lead_id;
       const pixelId = item?.pixel_id;
       const payload = item?.payload;
-      if (!leadId || !pixelId || !payload) continue;
+      if (!leadId || !pixelId || !payload) { blocked++; continue; }
 
-      const res = await callCapi(String(pixelId), payload, accessToken);
+      // Guarda servidor imediatamente antes do POST: tipo, prazo, consentimento, suspensão.
+      const g = await supabase.rpc("capi_guard_lead_dispatch", { p_lead_id: leadId, p_event_name: "ViewContent" });
+      const guard = interpretGuard(g.data, g.error);
+      if (!guard.allowed) {
+        blocked++;
+        await setStatus(leadId, { capi_status: "retry", capi_block_reason: `guard:${guard.reason}` });
+        if (guard.reason === "suspended") break;
+        continue;
+      }
 
-      if (res.ok) {
+      const res = await callCapi(String(pixelId), payload, guard.event_time!, accessToken);
+      if (res.kind === "ok") {
         sent++;
-        const { error: upErr } = await supabase
-          .from("leads")
-          .update({ capi_status: "sent" })
-          .eq("id", leadId);
-        if (upErr) console.warn("[process-leads-capi] update sent falhou", leadId, upErr.message);
-      } else if (res.final) {
+        await setStatus(leadId, { capi_status: "sent" });
+      } else if (res.kind === "meta_access") {
         failed_final++;
-        const { error: upErr } = await supabase
-          .from("leads")
-          .update({ capi_status: "error_insufficient_data" })
-          .eq("id", leadId);
-        if (upErr) console.warn("[process-leads-capi] update error_insufficient_data falhou", leadId, upErr.message);
-        console.warn("[process-leads-capi] Meta rejeitou definitivamente", leadId, res.detail);
+        const a = await supabase.rpc("capi_record_meta_error", {
+          p_lead_id: leadId, p_code: 100, p_subcode: 33, p_detail: res.detail, p_source: "process-leads-capi",
+        });
+        if (interpretAlertRecorded(a.data, a.error)) meta_access_alerts++;
+        else {
+          alert_failures++;
+          console.error("[process-leads-capi] alerta 100/33 NÃO registado", leadId, a.error?.message ?? "resposta inesperada");
+          await setStatus(leadId, { capi_status: "error_meta_access", capi_block_reason: "Meta 100/33 (alerta não registado)" });
+        }
+      } else if (res.kind === "insufficient") {
+        failed_final++;
+        await setStatus(leadId, { capi_status: "error_insufficient_data" });
       } else {
         retried++;
-        const { error: upErr } = await supabase
-          .from("leads")
-          .update({ capi_status: "retry", capi_sent_at: null })
-          .eq("id", leadId);
-        if (upErr) console.warn("[process-leads-capi] update retry falhou", leadId, upErr.message);
-        console.warn("[process-leads-capi] CAPI falhou (retry)", leadId, res.detail);
+        await setStatus(leadId, { capi_status: "retry", capi_sent_at: null });
       }
-
-      if (i < items.length - 1) {
-        await new Promise((r) => setTimeout(r, THROTTLE_MS));
-      }
+      if (i < items.length - 1) await new Promise((r) => setTimeout(r, THROTTLE_MS));
     }
-
-    // Throttle pequeno entre batches também
     await new Promise((r) => setTimeout(r, THROTTLE_MS));
   }
 
-  return json({
-    batches,
-    processed,
-    sent,
-    retried,
-    failed_final,
-    skipped_only_batches,
-    recovered_stale,
-    stop_reason,
-    wall_ms: Date.now() - t0,
-  });
+  const body = { batches, processed, sent, retried, failed_final, blocked, meta_access_alerts,
+    alert_failures, status_update_failures, recovered: rec.data, stop_reason, wall_ms: Date.now() - t0 };
+  return json(body, alert_failures > 0 || status_update_failures > 0 ? 500 : 200);
 });

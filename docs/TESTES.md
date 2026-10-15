@@ -87,3 +87,7 @@ _(sem testes em fila)_
 
 - **Utilizador de teste dedicado** na Mundo Propício, com papel próprio e credencial em segredo. Sem ele não há caminho Chromium nem bateria agendada. Pedido ao 0.
 - **Utilizador `accountant`** para o F5. Pedido ao Pedro.
+
+## #320 — CAPI P1 (2026-10-15)
+- `src/test/capi-p1-guard.test.ts` — 20 testes, fetch bloqueado (sem egress): 100/33, 2804050, transitório, guarda servidor (suspended, wrong_kind, expired, no_consent, no_identity, wrong_event, not_claimed, erro RPC, resposta inválida, event_time em falta), interruptor, alerta só conta se confirmado.
+- Provas Live e logs tsgo/vitest/build: `docs/testes/issue320/`. CI não confirmado.
