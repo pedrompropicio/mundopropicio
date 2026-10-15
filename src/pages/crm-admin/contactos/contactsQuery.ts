@@ -55,10 +55,14 @@ function csvCell(v: unknown): string {
 }
 
 /** Exporta o resultado filtrado completo (paginado no servidor), UTF-8. */
-export async function exportContactsCsv(f: ContactFilters, fileLabel: string): Promise<number> {
-  const { data, error } = await fetchAllPagedQuery(buildContactsQuery(f), { maxRows: 200000 });
-  if (error) throw error;
-  const rows = (data ?? []) as any[];
+export async function exportContactsCsv(f: ContactFilters, fileLabel: string, audienceId: string | null = null): Promise<number> {
+  let rows: any[];
+  if (audienceId) rows = await fetchAllAudienceRows(f, audienceId);
+  else {
+    const { data, error } = await fetchAllPagedQuery(buildContactsQuery(f), { maxRows: 200000 });
+    if (error) throw error;
+    rows = (data ?? []) as any[];
+  }
   const header = ["nome", "email", "telefone", "source", "consent_email", "consent_whatsapp", "estado", "ultima_actividade"];
   const lines = rows.map((c) =>
     [c.name, c.email, c.phone_e164, c.source, c.consent_email ? "sim" : "não", c.consent_whatsapp ? "sim" : "não",
@@ -74,4 +78,32 @@ export async function exportContactsCsv(f: ContactFilters, fileLabel: string): P
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
   return rows.length;
+}
+
+/** D-ERP277: audiência → critério atual avaliado na base (RPC paginada). */
+function audienceArgs(f: ContactFilters, audienceId: string, offset: number, limit: number) {
+  return {
+    p_audience_id: audienceId, p_search: sanitizeSearch(f.search) || null,
+    p_email: f.emailConsent, p_wa: f.waConsent, p_active: f.active, p_source: f.source,
+    p_offset: offset, p_limit: limit,
+  };
+}
+
+export async function fetchAudiencePage(f: ContactFilters, audienceId: string, page: number) {
+  const { data, error } = await (supabase as any).rpc(
+    "crm_contacts_by_audience", audienceArgs(f, audienceId, page * CONTACTS_PAGE_SIZE, CONTACTS_PAGE_SIZE));
+  if (error) throw error;
+  return { rows: (data?.rows ?? []) as any[], total: Number(data?.total ?? 0) };
+}
+
+export async function fetchAllAudienceRows(f: ContactFilters, audienceId: string): Promise<any[]> {
+  const out: any[] = [];
+  for (let off = 0; off < 200000; off += 1000) {
+    const { data, error } = await (supabase as any).rpc("crm_contacts_by_audience", audienceArgs(f, audienceId, off, 1000));
+    if (error) throw error;
+    const rows = (data?.rows ?? []) as any[];
+    out.push(...rows);
+    if (rows.length < 1000) break;
+  }
+  return out;
 }
