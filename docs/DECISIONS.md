@@ -5967,3 +5967,6 @@ Origem: TikTok BR do Litto (7689229625189138438) ficou com saldo 0 a 13/10 e est
 - Destinatários reais e amostra por `md5(email)` no convite e no alerta.
 - Perdidos = DLQ sem `sent`: reenvio `:r<n>` com o mesmo token/confirm_url; contagens da base iguais e campo `reenvio_pendente`. `ja_enviado` do alerta lê o log por email (base + `:r<n>`).
 - Índice `lead_capture_company_email_norm_idx (company_id, lower(btrim(email)))`.
+
+### D-ERP277 — Vídeos das edições Newgang: link ou ficheiro enviado (15/10/2026)
+**Contexto:** o YouTube bloqueia músicas de aftermovies por direitos. **Decisão:** `festival_editions.videos` aceita `provider:"upload"` `{provider,title,url,poster_url?}` ao lado dos links existentes (sem migração de dados). Bucket público `festival-edition-videos` (500 MB/ficheiro, mp4/webm/mov, 1.º segmento = company_id, escrita com os papéis do `portal-marketing-images`). Remover/substituir nunca apaga o ficheiro. A ação `history` expõe só `{provider,title,url,poster_url}` por vídeo. Envio com progresso por pedido direto à API de Storage (supabase-js não dá progresso). Migração 0159.

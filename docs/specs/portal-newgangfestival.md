@@ -95,3 +95,15 @@ Ação `wallet_google {token}` → `{ save_url }` (401 no_session; 503 wallet_un
 - Aplicado: upload, URLs definitivos, deploy, PATCH da classe e objeto nº 3; GET Google confirma logo, hero Gang, 100 pontos, nível Gang, evento e QR. `wallet_test_url` gerou novo link HTTP 200 (pedido 202017). O link anterior aponta ao mesmo objeto. Visual no dispositivo ainda por confirmar; emissor em demo.
 - Limitação oficial: `LoyaltyObject` NÃO suporta `hexBackgroundColor` (campo ignorado no PATCH, ausente no GET); só `LoyaltyClass` ou `GenericObject`. Não prometer fundos distintos por membro na classe única. Manter a arquitetura decidida até autorização do Pedro para alternativa.
 - Ação interna `wallet_artwork_apply {member_id}` exige service_role, sem Origin: PATCH da classe existente + PATCH do objeto existente + leitura Google; devolve apenas verificações e campos não secretos, nunca chave ou save_url. Não altera pontos nem cria classes.
+
+## Vídeos enviados nas edições (D-ERP277, 15/10/2026)
+Contrato público `history` (e `bundle.history`) — `editions[].videos[]`, por ordem (o 1.º é o principal):
+```
+{ "provider": "youtube" | "instagram" | "vimeo" | "upload",
+  "title": string | null,
+  "url": string,            // https; em "upload" = URL público do bucket festival-edition-videos
+  "poster_url": string | null }  // só relevante em "upload"; null → o site usa editions[].cover_url
+```
+Nenhum outro campo do jsonb sai na API (filtro em `supabase/functions/newgang-portal/videos.ts`); itens com provider desconhecido ou url não-https são omitidos. Os restantes campos da edição não mudaram.
+Storage: bucket público `festival-edition-videos`, 500 MB por ficheiro, mp4/webm/mov, caminho `<company_id>/festival-editions/newgang/<ano>/<uuid>.<ext>`; escrita = mesmos papéis do `portal-marketing-images`. Capas dos vídeos em `portal-marketing-images` (`.../poster-<uuid>.webp`).
+CRM (História): "Link do YouTube" ou "Enviar vídeo" (barra de progresso), título, capa opcional, substituir (ficheiro ou link), remover (só a referência; o ficheiro fica), ordenar.
