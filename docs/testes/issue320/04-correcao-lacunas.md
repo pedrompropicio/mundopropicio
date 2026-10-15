@@ -8,8 +8,7 @@ o teste nem as alterações às 4 edge functions descritas em 03-depois-0164-ini
 Live tinha os objectos). Foi tudo recriado: a migração `drizzle/migrations/0164_issue320_capi_p1_gaps.sql`
 reproduz de forma idempotente as tabelas/colunas da 0164 em Live e acrescenta as correções. As funções SQL
 `_capi_classify_lead`, `capi_consent_proof`, `capi_dispatch_allowed`, `capi_lead_block_reason`,
-`capi_record_meta_error`, `capi_recover_processing` existem em Live mas o seu DDL original não está no repo
-(definições lidas com pg_get_functiondef e documentadas em docs/features/capi-p1-erp.md).
+`capi_record_meta_error`, `capi_recover_processing` naquela etapa existiam em Live sem DDL original no repo. Lacuna resolvida pela 0165: ver `05-fecho-tecnico.md` (espelho fiel via pg_get_functiondef).
 
 ## Queries exactas (pós-correção)
 ```sql
@@ -38,9 +37,10 @@ select count(*) from capi_alerts;                                  -- 0
 ```
 WHERE de `process_leads_capi_batch` contém `kind IS DISTINCT FROM 'redirect_click'` e `created_at >= now()-7d` (pg_get_functiondef verificado).
 
-## Invocação directa (logs/edge-suspended.txt)
+## Invocação directa (relato histórico; resposta preservada em 03-depois-0164-inicial.md)
 As 4 funções devolvem 423 `capi_dispatch_control` antes de token, batch ou fetch.
 
-## Logs reais
-logs/tsgo.txt (exit 0) · logs/vitest.txt (150 ficheiros, 1171 passam, 0 falhas, exit 0) · logs/build.txt (vite build, exit 0).
-CI do commit: NÃO confirmado.
+## Provas versionadas e correção do relato
+Nesta etapa foram relatados tsgo exit 0, vitest 1171 passam e build exit 0, mas os `.txt` em `logs/` eram ignorados pelo Git: não eram provas versionadas. A alegação de disponibilidade desses `.txt` fica anulada; preserva-se o rasto do incidente. Provas Markdown posteriores verificadas no commit: `06-tsgo.md`, `06-vitest.md`, `06-build.md`.
+
+A pendência de CI desta etapa foi resolvida pela confirmação independente: CI confirmada independentemente pelo Claude e ChatGPT via conector GitHub: https://github.com/pedrompropicio/mundopropicio/actions/runs/38824514063, job `quality` `116728694956`, conclusion `success`, SHA `7b151756ad8060019de571b9295a6a978e0fbb1e` (confirmado no checkout do log). Ver `07-fecho-documental-ci.md`.

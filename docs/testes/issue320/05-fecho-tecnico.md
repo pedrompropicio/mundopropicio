@@ -34,5 +34,5 @@ has_function_privilege anon/authenticated/service_role: false/false/true nas 6. 
 - `capi_dispatch_allowed()` = `coalesce((SELECT NOT suspended … WHERE id=1), false)` → sem linha devolve `false` (fail-closed).
 - Journal: 0164_issue320_capi_p1_gaps e 0165_issue320_capi_p1_foundations_mirror a seguir à 0163; nenhuma migração alheia renumerada.
 
-## CI
-Não confirmado.
+## CI — pendência resolvida no fecho documental
+CI confirmada independentemente pelo Claude e ChatGPT via conector GitHub: https://github.com/pedrompropicio/mundopropicio/actions/runs/38824514063, job `quality` `116728694956`, conclusion `success`, SHA `7b151756ad8060019de571b9295a6a978e0fbb1e` (confirmado no checkout do log). Ver `07-fecho-documental-ci.md`. A referência anterior a CI pendente descrevia esta etapa histórica, não o estado atual.
