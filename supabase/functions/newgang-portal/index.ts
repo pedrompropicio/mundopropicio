@@ -337,7 +337,7 @@ async function loadLineupRaw(site: any) {
 async function loadHistoryPayload(site: any) {
   const { data } = await sb.from("festival_editions_public").select("*").eq("brand_key", site.brand_key)
     .order("year", { ascending: false }).order("sort");
-  return { editions: data ?? [] };
+  return { editions: publicEditions(data) };
 }
 
 // Leitura pública numa só ida à base: o site com o evento, o line-up e o Clube embutidos (FKs),
