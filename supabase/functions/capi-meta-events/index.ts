@@ -18,9 +18,7 @@ const corsHeaders = {
 
 const GRAPH_API_VERSION = "v25.0";
 
-const _CAPI_TOKEN_BOOT = Deno.env.get("META_CAPI_ACCESS_TOKEN");
-console.log("[capi-meta-events boot] env_token_present:", !!_CAPI_TOKEN_BOOT,
-            "env_token_len:", _CAPI_TOKEN_BOOT?.length ?? 0);
+console.log("[capi-meta-events boot] env_token_present:", !!Deno.env.get("META_CAPI_ACCESS_TOKEN"));
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -55,8 +53,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   let accessToken: string | null = Deno.env.get("META_CAPI_ACCESS_TOKEN") ?? null;
   let diag_rpc_http_status = 0;
-  let diag_rpc_body_len = 0;
-  let diag_rpc_body_preview = "";
+  let diag_fetch_failed = false;
 
   if (!accessToken) {
     try {
@@ -73,8 +70,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
       });
       diag_rpc_http_status = rpcResp.status;
       const rawText = await rpcResp.text();
-      diag_rpc_body_len = rawText.length;
-      diag_rpc_body_preview = rawText.slice(0, 80);
 
       if (rpcResp.ok && rawText) {
         let parsed: any = rawText;
@@ -87,23 +82,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
           accessToken = String((parsed as any).get_vault_secret);
         }
       }
-    } catch (e) {
-      diag_rpc_body_preview = `fetch_exception: ${String(e)}`;
+    } catch {
+      diag_fetch_failed = true;
     }
 
     if (!accessToken) {
+      // #320: diagnóstico seguro — só booleanos/estado HTTP, nunca fragmentos de segredo nem corpo do Vault.
       return json({
         error: "missing_capi_token",
-        diag: {
-          srk_present: !!srk,
-          srk_len: srk.length,
-          srk_prefix: srk.slice(0, 12),
-          supabase_url_present: !!supabaseUrl,
-          env_token_present: !!Deno.env.get("META_CAPI_ACCESS_TOKEN"),
-          rpc_http_status: diag_rpc_http_status,
-          rpc_body_len: diag_rpc_body_len,
-          rpc_body_preview: diag_rpc_body_preview,
-        },
+        diag: buildMissingTokenDiag({
+          srkPresent: !!srk,
+          supabaseUrlPresent: !!supabaseUrl,
+          envTokenPresent: !!Deno.env.get("META_CAPI_ACCESS_TOKEN"),
+          rpcHttpStatus: diag_rpc_http_status,
+          fetchFailed: diag_fetch_failed,
+        }),
       }, 500);
     }
   }

@@ -21,7 +21,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| — | — | — | (vazio) | — | — |
+| #320 | ChatGPT · 0 Cowork (via agente ERP) | 0 · Cowork (ChatGPT) | capi-meta-events (diagnóstico missing_capi_token), _shared/capi-guard.ts, src/test/capi-p1-guard.test.ts, docs/testes/issue320/ — sem SQL/dados/crons/Publish | 2026-10-15 23:30 | 2026-10-15 23:30 |
 
 ## 0 · Cowork (Claude)
 
