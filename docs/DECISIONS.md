@@ -6023,3 +6023,15 @@ Origem: TikTok BR do Litto (7689229625189138438) ficou com saldo 0 a 13/10 e est
 4. Está autorizada apenas a preparação do P1 do ERP para revisão. O P1 precede a correcção das permissões do dataset.
 
 **Estado.** Preparação; nenhuma implementação, envio ou reprocessamento autorizado. Frente dona: 9.
+
+---
+
+## D-ERP281 — P1 CAPI do ERP aplicado e suspenso (15/10/2026, Issue #320)
+
+**Decisão (Pedro, execução autorizada a 15/10/2026).**
+1. O envio CAPI do ERP fica atrás de um interruptor persistente (`capi_dispatch_control`), lido na BD e nas edge functions antes de qualquer outra acção; nasce e fica **suspenso**. Retomar exige acção manual dupla (interruptor + crons) por ordem do Pedro; não há retoma automática.
+2. Sem prova de consentimento marketing por interacção não há envio de nenhum evento. No P1 essa prova não existe, por isso tudo fica bloqueado; não se infere de cookies, fbc/fbp, email nem consentimento de newsletter, e não se fabrica consentimento retroactivo.
+3. `redirect_click` nunca gera ViewContent; pendentes > 7 dias expiram; Meta 100/33 é terminal com alerta persistente em `capi_alerts`; `processing` antigo passa pelas mesmas regras.
+4. Pendentes classificados sem reenvio e sem tocar em `sent`, identidades ou datas; valor anterior guardado em `capi_status_before`.
+
+**Porquê.** Executa D-ERP280 (P1). Ver `docs/features/capi-p1-erp.md`. Fora do âmbito: `song-link-event` e a captura de consentimento (P2/P3).
