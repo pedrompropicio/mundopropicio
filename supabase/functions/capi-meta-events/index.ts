@@ -8,7 +8,7 @@
 // verify_jwt = false (config.toml): invocada internamente sem JWT do gateway.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { classifyMetaResponse, interpretAlertRecorded, interpretDispatchAllowed, interpretGuard } from "../_shared/capi-guard.ts";
+import { buildMissingTokenDiag, classifyMetaResponse, interpretAlertRecorded, interpretDispatchAllowed, interpretGuard } from "../_shared/capi-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
