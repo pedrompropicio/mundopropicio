@@ -1,5 +1,6 @@
 // Montagem pura das leituras públicas (site / lineup / history / bundle), partilhada com os testes.
 import { buildLineup, type Act, type Reveal } from "./lineup.ts";
+import { publicEditions } from "./videos.ts";
 
 export type Want = { site?: boolean; lineup?: boolean; history?: boolean };
 export type LineupRaw = { reveals: Reveal[]; acts: Act[]; lineupComplete: boolean } | null;
