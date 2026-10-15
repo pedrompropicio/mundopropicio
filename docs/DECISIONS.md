@@ -5976,4 +5976,5 @@ Origem: TikTok BR do Litto (7689229625189138438) ficou com saldo 0 a 13/10 e est
 - Campo de critério `coala_list` = `eb2027`: membros = contactos Coala cujo email está em `coala_list_members` (lida via `crm_coala_list_set`, definer, só Coala com a chave `crm-coala-eb27`). Sem cópia de emails.
 - Audiência "Coala · Early Bird 27 — Na lista" na Coala; escondida e a 0 sem a chave.
 - `confirmar_lista` cria contacto só se não existir (source `coala_early_bird_invite`; `consent_email` = último `marketing_opt_in` em `coala_list_consents`, senão false). Entrar na lista nunca é consentimento de marketing. Contactos existentes intactos. Backfill de 4. Grants iguais.
-- Migrações 0160–0162.
+- Revisão (15/10/2026, 0163): consentimento do contacto novo = último `marketing_opt_in` em `coala_list_consents`; senão `consent_email` do `lead_capture` mais recente desse email na Coala; senão false (com `consent_email_at` = created_at desse lead_capture). A regra anterior ignorava o consentimento dado no formulário do portal. Corrigidos os 4 do backfill (vanyacds@sapo.pt, jds_pereira@hotmail.con — email com erro, não corrigido —, marcelebx@gmail.com, euricograca@gmail.com). Grants iguais.
+- Migrações 0160–0163.
