@@ -21612,6 +21612,7 @@ export type Database = {
           updated_count: number
         }[]
       }
+      crm_coala_list_set: { Args: never; Returns: Json }
       crm_consume_oauth_state: {
         Args: { p_state_id: string }
         Returns: {
@@ -21647,11 +21648,16 @@ export type Database = {
         Args: {
           c: Database["public"]["Tables"]["contacts"]["Row"]
           criterion: Json
+          p_coala: Json
         }
         Returns: boolean
       }
       crm_filter_match: {
-        Args: { c: Database["public"]["Tables"]["contacts"]["Row"]; f: Json }
+        Args: {
+          c: Database["public"]["Tables"]["contacts"]["Row"]
+          f: Json
+          p_coala: Json
+        }
         Returns: boolean
       }
       crm_get_meta_decrypted_token: {
