@@ -1,5 +1,6 @@
 // Montagem pura das leituras públicas (site / lineup / history / bundle), partilhada com os testes.
 import { buildLineup, type Act, type Reveal } from "./lineup.ts";
+import { publicEditions } from "./videos.ts";
 
 export type Want = { site?: boolean; lineup?: boolean; history?: boolean };
 export type LineupRaw = { reveals: Reveal[]; acts: Act[]; lineupComplete: boolean } | null;
@@ -52,7 +53,7 @@ export function assemblePublic(want: Want, row: any, pubRows: any[] | null, eds:
       lineupComplete: !!em?.lineup_complete,
     } : null;
   }
-  if (want.history) out.history = { editions: (eds ?? []).filter((e: any) => e.brand_key === row.brand_key) };
+  if (want.history) out.history = { editions: publicEditions((eds ?? []).filter((e: any) => e.brand_key === row.brand_key)) };
   return out;
 }
 

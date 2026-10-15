@@ -8,6 +8,7 @@ import { assemblePublic, bundleFrom, lineupFrom, regulationFrom, termsMeta, type
 import { clubEmail } from "./email.ts";
 import { ASSET_BUCKET, PROOF_BUCKET, PROOF_EXT, missionsFrom, normalizeHandle, normalizeProofUrl, submitErrorStatus } from "./missions.ts";
 import { buildHistory, subjectRef } from "./history.ts";
+import { publicEditions } from "./videos.ts";
 import { CREW_LINK, crewErrorStatus, crewView } from "./crews.ts";
 import * as GW from "./wallet-google.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
@@ -337,7 +338,7 @@ async function loadLineupRaw(site: any) {
 async function loadHistoryPayload(site: any) {
   const { data } = await sb.from("festival_editions_public").select("*").eq("brand_key", site.brand_key)
     .order("year", { ascending: false }).order("sort");
-  return { editions: data ?? [] };
+  return { editions: publicEditions(data) };
 }
 
 // Leitura pública numa só ida à base: o site com o evento, o line-up e o Clube embutidos (FKs),

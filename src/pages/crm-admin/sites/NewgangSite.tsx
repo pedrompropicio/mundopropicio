@@ -28,6 +28,7 @@ import { ClubTermsSection } from "./ClubTermsSection";
 import { MissionsSection } from "./MissionsSection";
 import { CrewsSection } from "./CrewsSection";
 import { MemberPointsDialog } from "./MemberPointsDialog";
+import { EditionVideos } from "./EditionVideos";
 import { NEWGANG_CONTENT_GROUPS, cleanNewgangContent } from "@/lib/newgang-content";
 
 const SITE_DOMAIN = "newgangfestival.pt";
@@ -502,22 +503,11 @@ function EditionCard({ e, site, onPatch, onDelete }: { e: Edition; site: Site; o
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label className="text-sm">Vídeos (o 1.º é o aftermovie principal)</Label>
-        {videos.map((v, i) => (
-          <div key={`${v.url}-${i}`} className="flex items-center gap-2 text-sm">
-            <Badge variant="outline">{v.provider}</Badge>
-            <a href={v.url} target="_blank" rel="noreferrer" className="flex-1 truncate underline">{v.title || v.url}</a>
-            <Button size="icon" variant="ghost" aria-label="Subir" onClick={() => onPatch({ videos: move(videos, i, -1) })}><ArrowUp className="h-3 w-3" /></Button>
-            <Button size="icon" variant="ghost" aria-label="Descer" onClick={() => onPatch({ videos: move(videos, i, 1) })}><ArrowDown className="h-3 w-3" /></Button>
-            <Button size="icon" variant="ghost" aria-label="Remover vídeo" onClick={() => onPatch({ videos: videos.filter((_, k) => k !== i) })}><Trash2 className="h-3 w-3 text-destructive" /></Button>
-          </div>
-        ))}
-        <div className="flex gap-2">
-          <Input placeholder="URL YouTube, Instagram ou Vimeo" value={videoUrl} onChange={(x) => setVideoUrl(x.target.value)} />
-          <Input placeholder="Título (opcional)" value={videoTitle} onChange={(x) => setVideoTitle(x.target.value)} className="max-w-[220px]" />
-          <Button variant="outline" onClick={addVideo}><Plus className="h-4 w-4" /></Button>
-        </div>
+      <EditionVideos videos={videos} year={e.year} brandKey={site.brand_key} onSave={(v) => onPatch({ videos: v })} />
+      <div className="flex gap-2">
+        <Input placeholder="URL YouTube, Instagram ou Vimeo" value={videoUrl} onChange={(x) => setVideoUrl(x.target.value)} />
+        <Input placeholder="Título (opcional)" value={videoTitle} onChange={(x) => setVideoTitle(x.target.value)} className="max-w-[220px]" />
+        <Button variant="outline" onClick={addVideo}><Plus className="h-4 w-4" /> Link do YouTube</Button>
       </div>
     </Card>
   );

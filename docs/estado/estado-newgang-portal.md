@@ -1,6 +1,6 @@
 # ESTADO — newgang-portal (portal newgangfestival.pt)
 
-Atualizado: 2026-10-14 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-ERP270, D-ERP271, D-ERP272, D-ERP273, D-ERP274, D-ERP275
+Atualizado: 2026-10-15 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-ERP270, D-ERP271, D-ERP272, D-ERP273, D-ERP274, D-ERP275, D-ERP277
 
 ## Em que pé está (13/10)
 - newgangfestival.pt publicado; `/teste` removido.
@@ -15,6 +15,8 @@ Atualizado: 2026-10-14 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-E
 - Membros do Clube: 2 (0 confirmados); revelações: 0 (consulta de 13/10, 19:38 UTC).
 
 ## A trabalhar agora
+Vídeos das edições por ficheiro (D-ERP277, 15/10): bucket, CRM e contrato `history` prontos; edge function newgang-portal e CRM por publicar; o site tem de tocar `provider:"upload"` (<video src=url poster=poster_url||cover_url>).
+
 Criativos Google Wallet aplicados: quatro originais carregados e verificados, URLs ativos, função deployada. Classe existente e cartão de teste nº 3 atualizados e lidos na Google; 12/12 testes Wallet e suite completa 1.127 passed, 1 skipped, 11 todo, sem falhas. Pendentes: confirmação visual no dispositivo e decisão sobre cores (LoyaltyObject não suporta cor por membro).
 
 ## Próximo passo concreto

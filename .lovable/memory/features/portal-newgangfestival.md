@@ -9,6 +9,7 @@ type: feature
 - Ação `site` devolve `club` (montra pública do Clube): `levels` de `club_levels` por min_points e `rules` ativas de `club_point_rules` por points — só configuração, sem membros nem contagens (assertNoTotals mantém-se).
 - Trackers do portal vêm do evento de `portal_sites.event_id`, sempre; `portal_visible` só controla a listagem no portal MP.
 - Edições passadas em `festival_editions` (não criar eventos). 2023 sem data/line-up; o portal esconde campos vazios. Fotos WebP 1600 px, máx. 20, capa = cover_url ou 1.ª foto; vídeos só por link (youtube|instagram|vimeo), o 1.º é o aftermovie.
+- D-ERP277: vídeos também por ficheiro (provider "upload", bucket festival-edition-videos 500 MB, mp4/webm/mov, path <company_id>/festival-editions/<brand>/<ano>/<uuid>.<ext>, poster_url opcional → fallback cover_url). Remover não apaga o ficheiro. API history só devolve {provider,title,url,poster_url}.
 - Acesso de membro por link pessoal por email (30 dias), sem palavra-passe. Pontos só depois de confirmar; razão idempotente. Concurso por mérito, sem sorteio.
 - Pontos: join_confirmed 100, friend_joined 150, friend_bought 300, promo_lot_purchase 500, guess_correct 50, attended_year 100. Níveis Gang 0, Elite 500, Lenda 1500.
 - Spec: docs/specs/portal-newgangfestival.md · D-ERP257.
