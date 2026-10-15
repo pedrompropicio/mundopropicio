@@ -1,6 +1,6 @@
 # INDEX — porta de entrada única
 
-> Se estás a começar uma sessão (humano ou Claude), **lê só este ficheiro e o `estado/` da frente em causa**. Mais nada.
+> Se estás a começar uma sessão (humano, Claude ou ChatGPT), **lê só este ficheiro, `docs/QUADRO.md` e o `estado/` da frente em causa**. Mais nada.
 
 ## Onde vive cada tipo de informação
 
@@ -13,30 +13,22 @@
 | **Arquitetura** | `docs/ARCHITECTURE.md` | *Como está montado?* | Vivo |
 | **Restrições** | `.lovable/memory/constraints/*.md` | *O que nunca se pode fazer?* | Vivo |
 | **Histórico** | `docs/handoffs/` | *O que aconteceu no dia X?* | **Morto** — arquivo, não se consulta para saber o estado |
-| **Mapa de chats** | `docs/CHATS.md` | *Onde trato este tema?* | Vivo — tipos de chat permitidos, tema→chat e estado dos chats abertos |
+| **Pedidos entre chats e reservas** | `docs/QUADRO.md` | *Quem me pediu o quê? Quem está a executar o quê?* | Vivo |
+| **Provas** | `docs/TESTES.md` | *Isto já foi visto a funcionar, e quando?* | Vivo |
+| **Mapa de chats** | `docs/CHATS.md` | *Onde trato este tema? Em que ferramenta?* | Vivo — tipos, numeração 0–11, tema→chat, modelo por chat, regra de partilha Claude ↔ ChatGPT |
 
 **Prioridade e trabalho em curso são coisas diferentes.** A prioridade vive na label da Issue (`P0`/`P1`/`P2`); o *estar em curso* vive na secção "A trabalhar agora" do `estado-<frente>.md`. Não existem labels de estado.
 
 
 **Regra de ouro:** informação com data no nome é arquivo. Informação sem data no nome é estado. Nunca se lê arquivo para saber onde estamos.
 
-## As 9 frentes
+## Os chats
 
-| Frente | Ficheiro | Chat com o mesmo nome |
-|---|---|---|
-| Fecho & Sócios | `estado/estado-fecho-e-socios.md` | `fecho-e-socios` |
-| BP, Verbas & Rateio | `estado/estado-bp-verbas-e-rateio.md` | `bp-verbas-e-rateio` |
-| Vínculo BP↔Transações | `estado/estado-vinculo-bp-transacoes.md` | `vinculo-bp-transacoes` |
-| Ticketing & Receita | `estado/estado-ticketing-e-receita.md` | `ticketing-e-receita` |
-| Audience — Meta | `estado/estado-audience-meta.md` | `audience-meta` |
-| Audience — Google | `estado/estado-audience-google.md` | `audience-google` |
-| CRM, Portal & Leads | `estado/estado-crm-portal-e-leads.md` | `crm-portal-e-leads` |
-| Plataforma & Infra | `estado/estado-plataforma-e-infra.md` | `plataforma-e-infra` |
-| Financeiro & Tesouraria | `estado/estado-financeiro-e-tesouraria.md` | `financeiro-e-tesouraria` |
+Numeração única 0–11, igual no Claude e no ChatGPT, mais `coala-portal`, `newgang-portal`, `gestao-de-chats` e os chats de evento. Tabela completa, modelos e ficheiros de estado em `docs/CHATS.md`. O 8 (Tráfego Pago) lê `estado-audience-meta.md` e `estado-audience-google.md` até os consolidar em `estado-trafego-pago.md`.
+
+**Um chat por frente. O número e o nome do chat são os de `CHATS.md`.** Se um tema muda de frente a meio, muda-se de chat.
 
 **Portal dedicado Newgang:** estado em [`estado/estado-newgang-portal.md`](estado/estado-newgang-portal.md), chat `newgang-portal` (D-ERP262).
-
-**Um chat por frente. O nome do chat é o nome da frente.** Se um tema muda de frente a meio, muda-se de chat — não se continua no errado.
 
 ## Procedimentos
 
@@ -47,7 +39,7 @@
 | Relatório semanal de tráfego pago × vendas | `procedimentos/PROC-relatorio-trafego-semanal.md` |
 | Captação de vendas Onebox (H&K Madrid) | `procedimentos/PROC-vendas-onebox-madrid.md` |
 | Custo partilhado com terceiros (rateio) | `procedimentos/PROC-rateio-dayoffs-turne.md` |
-| Arranque de chat (moldes de mensagem inicial + regra de fecho) | `procedimentos/PROC-arranque-chat.md` |
+| Arranque de chat (Bloco Comum, moldes por tipo, prompts em `docs/prompts/`) | `procedimentos/PROC-arranque-chat.md` |
 | Recuperação da plataforma num projeto Supabase novo | `procedimentos/PROC-recuperacao-plataforma.md` |
 
 ## Manual de Orientação (em construção)
@@ -117,9 +109,10 @@ Ler **D-ERP57** antes de mexer.
 ## Ritual de arranque (obrigatório, por esta ordem)
 
 1. Ler `docs/INDEX.md` (este ficheiro).
-2. Ler `docs/estado/estado-<frente>.md` da frente em causa.
-3. Ler as Issues abertas (`{"action":"list"}` na edge function `github-issues`). As labels reais são `P0`/`P1`/`P2` + módulo (`MP-ERP`, `MP-AUDIENCE`, `MP-CRM`, `transversal`). Não existem labels de estado — a lista do que está em curso é a secção "A trabalhar agora" do `estado-<frente>.md`.
-4. Só então agir. **Nunca diagnosticar antes de ler.**
+2. Ler `docs/QUADRO.md` — a tua secção e "Em execução agora".
+3. Ler `docs/estado/estado-<frente>.md` da frente em causa.
+4. Ler as Issues abertas. Labels reais: `P0`/`P1`/`P2` + módulo. Não existem labels de estado — o que está em curso vive em "A trabalhar agora" do `estado-<frente>.md` e em "Em execução agora" do `QUADRO.md`.
+5. Só então agir. **Nunca diagnosticar antes de ler.** Nenhum chat executa sem ser o executor designado pelo Pedro para a demanda (`docs/CHATS.md`).
 
 Se o tema toca num fluxo já implementado, procurar primeiro em `.lovable/memory/features/`. A hipótese por defeito é que **já existe**.
 
@@ -127,19 +120,22 @@ Se o tema toca num fluxo já implementado, procurar primeiro em `.lovable/memory
 
 **Antes de diagnosticar um fluxo já implementado, nomear o ficheiro de `.lovable/memory/features/` que foi lido.** Se não houver ficheiro, procurar no índice gerado `.lovable/memory/index.md` (secção "Por onde começar" e lista completa) antes de concluir que não existe. O índice é gerado por `node scripts/gen-memory-index.mjs` (D-ERP158).
 
-## Ritual de fecho (obrigatório)
+## Ritual de fecho (dentro da demanda autorizada)
+
+O fecho documental faz parte de toda a demanda que o Pedro autoriza (D-ERP278). Não é autorização autónoma para mudar regras, mapa de chats, procedimentos, código, dados ou configurações.
 
 1. Atualizar o `estado-<frente>.md` — reescrever, não acrescentar.
 2. Issues: abrir as novas, fechar as resolvidas, comentar as decisões.
-3. Decisão de arquitetura → entrada em `docs/DECISIONS.md`.
-4. Só se a sessão for longa e densa: handoff em `docs/handoffs/` (arquivo).
+3. Decisão efectivamente tomada → entrada em `docs/DECISIONS.md`.
+4. Linha de `docs/QUADRO.md` actualizada e reserva libertada.
+5. Só se a sessão for longa e densa: handoff em `docs/handoffs/` (arquivo).
 
 ## Identificadores fixos
 
 - Lovable ERP `ab7cf7e3-a5fc-4737-9cc1-2ba7cf43887f` · Portal/CRM `26b95793-17b6-478c-a6e8-745c0cfb7ed9`
 - Supabase Live `sfohvvlqccmmebvjgibx` · Repo `pedrompropicio/mundopropicio`
 - Company MP `7c858982-6ccd-47ca-bd65-e0dd3eebf01c`
-- Edge function de Issues: `github-issues` — parâmetro é **`number`**, não `issue_number`. PAT sem expiração desde 18/09/2026; prazos de segredos vivem em `secret_expirations` e no invariante `segredos_a_expirar_14d`.
+- Issues: no Claude pela edge function `github-issues` (parâmetro **`number`**, não `issue_number`); no ChatGPT pelo conector GitHub. Validade do PAT: **por confirmar** (este ficheiro dizia "sem expiração desde 18/09/2026"; as instruções do Projeto dizem "expira 09/10/2027") — prazos de segredos vivem em `secret_expirations` e no invariante `segredos_a_expirar_14d`.
 - Desde 16/09/2026 o contentor das sessões interativas do Claude alcança `sfohvvlqccmmebvjgibx.supabase.co` diretamente por HTTPS (allowlist de rede da organização); o caminho por `net.http_post` continua válido e é o de referência para tarefas agendadas até se confirmar que também o alcançam.
 
 ## Regra de base de dados que nunca se salta
@@ -174,3 +170,7 @@ O schema `public` é exposto pelo PostgREST: sem isto a função é chamável po
 **Desde 19/09/2026 (D-ERP97) os privilégios por omissão em `public` e `crm` já não dão `EXECUTE` a `anon` nem a `PUBLIC`** (`ALTER DEFAULT PRIVILEGES FOR ROLE postgres`), pelo que uma função nova nasce fechada a visitantes anónimos. Quem precisar de `anon` — só helpers usados dentro de políticas de RLS — faz `GRANT` explícito na própria migração. O invariante `secdef_abertas_a_anon` (warn, global, referência 15) vigia: conta as `SECURITY DEFINER` de `public`+`crm` executáveis por `anon` e dispara por desvio face à referência.
 
 **Nenhuma função de alerta pode ter `EXCEPTION WHEN OTHERS` mudo.** Se o aviso falha, tem de deixar rasto — linha em tabela, invariante, ou `RAISE` que não seja engolido. Um alerta que falha em silêncio é pior do que não ter alerta, porque dá a sensação de estar coberto. Foi exactamente isto que aconteceu ao `notify_sync_action_needed()`: corpo todo dentro de `EXCEPTION WHEN OTHERS THEN RAISE WARNING`, URL a apontar para o projeto de Test antigo, e ninguém soube durante meses (#211, eliminado a 18/09/2026).
+
+**DML em migrações.** Um UPDATE/INSERT/DELETE dentro de um ficheiro de migração corre uma vez, em Live, quando o agente aplica a migração; o Publish não o repete nem o transporta (base única, D2). Um backfill que falhe nesse momento refaz-se por `query_database`, autorizado. A frase antiga "DML em migração não chega a Live" está errada e não se usa.
+
+**Edge functions e segredos — pendente.** Quando uma edge function editada pelo agente entra em produção (na edição ou só no Publish) e se a rotação de segredos exige alteração cosmética + Publish são comportamentos **não confirmados** (ver `docs/CHATS.md` › pendentes). Até lá: assumir que uma tarefa ao agente pode afectar Live antes do Publish, e só dar uma função por actualizada depois do Publish e da verificação.
