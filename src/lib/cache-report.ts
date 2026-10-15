@@ -108,8 +108,8 @@ export interface CityCacheRow {
   amount: number;
   extras: any[];
   extrasTotal: number;
-  /** Receita máxima da sala (lotes × preço) — referência dos escalões. */
-  capacityRevenue: { gross: number; net: number } | null;
+  /** Receita máxima da sala (lotes × preço) + lotação/vendidos — referência dos escalões. */
+  capacityRevenue: { gross: number; net: number; seats?: number; sold?: number } | null;
 }
 
 /** Receita máxima por evento a partir dos lotes postos à venda (só referência). */
@@ -127,20 +127,59 @@ export function capacityRevenueByEvent(zones: any[], lots: any[]): Record<string
   return out;
 }
 
-/** Linhas dos escalões: limiar de ocupação, receita equivalente na sala e % (marca o aplicado). */
-export function tierReferenceRows(config: any, capacity: { gross: number; net: number } | null, appliedPct: number | null): string[][] {
+/** Referência dos escalões: bilhetes, valor da bilheteira ou ambos. */
+export type TierBasisMode = "tickets" | "revenue" | "both";
+export interface CapacityRef { gross: number; net: number; seats?: number; sold?: number }
+
+/** Lotação (Σ capacidade das zonas) e bilhetes vendidos por evento. */
+export function seatsAndSoldByEvent(zones: any[], sales: any[]): Record<string, { seats: number; sold: number }> {
+  const zoneEvent = new Map(zones.map((z: any) => [z.id, z.event_id]));
+  const out: Record<string, { seats: number; sold: number }> = {};
+  for (const z of zones) (out[z.event_id] ??= { seats: 0, sold: 0 }).seats += Number(z.total_capacity) || 0;
+  for (const s of sales) {
+    const ev = zoneEvent.get(s.zone_id);
+    if (ev) (out[ev] ??= { seats: 0, sold: 0 }).sold += Number(s.quantity) || 0;
+  }
+  return out;
+}
+
+const fmtPct = (n: number) => `${n.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+const fmtInt = (n: number) => Math.round(n).toLocaleString("pt-PT");
+
+/** Linhas dos escalões: limiar de ocupação, bilhetes e/ou receita equivalentes e % (marca o aplicado). */
+export function tierReferenceRows(config: any, capacity: CapacityRef | null, appliedPct: number | null, mode: TierBasisMode = "revenue", realRevenue?: number | null): string[][] {
   const tiers = [...(config.tiers ?? [])].sort((a: any, b: any) => a.occupancy_threshold - b.occupancy_threshold);
   if (config.cache_type !== "variable" || tiers.length === 0) return [];
   const gross = (config.cache_revenue_basis || "net") === "gross";
   const cap = capacity ? (gross ? capacity.gross : capacity.net) : null;
+  const seats = capacity?.seats ?? null;
+  const showT = mode !== "revenue", showR = mode !== "tickets";
   const fmt = formatCurrency;
-  const rows: string[][] = [[`Escalões — referência: receita máxima da sala ${gross ? "(c/ IVA)" : "(s/ IVA)"}`, cap != null ? fmt(cap) : "-"]];
+  const rows: string[][] = [];
+  if (showT) rows.push(["Escalões — referência: lotação da sala (bilhetes)", seats != null ? fmtInt(seats) : "-"]);
+  if (showR) rows.push([`Escalões — referência: receita máxima da sala ${gross ? "(c/ IVA)" : "(s/ IVA)"}`, cap != null ? fmt(cap) : "-"]);
+  const ticketPct = seats && capacity?.sold != null ? (capacity.sold / seats) * 100 : null;
+  const revPct = cap && realRevenue != null ? (realRevenue / cap) * 100 : null;
+  if (mode === "both") {
+    if (ticketPct != null) rows.push([`  Ocupação real: ${fmtInt(capacity!.sold!)} bilhetes`, fmtPct(ticketPct)]);
+    if (revPct != null) rows.push([`  Receita real face à máxima: ${fmt(realRevenue!)}`, fmtPct(revPct)]);
+  } else if (mode === "tickets" && ticketPct != null) {
+    rows.push([`  Ocupação real: ${fmtInt(capacity!.sold!)} bilhetes`, fmtPct(ticketPct)]);
+  } else if (mode === "revenue" && revPct != null) {
+    rows.push([`  Receita real face à máxima: ${fmt(realRevenue!)}`, fmtPct(revPct)]);
+  }
   let applied = -1;
   tiers.forEach((t: any, i: number) => { if (appliedPct != null && Number(t.percentage) === appliedPct) applied = i; });
+  let revReached = -1;
+  if (mode === "both" && revPct != null) tiers.forEach((t: any, i: number) => { if (revPct >= Number(t.occupancy_threshold)) revReached = i; });
   tiers.forEach((t: any, i: number) => {
     const thr = Number(t.occupancy_threshold);
-    const rev = cap != null ? ` (receita ≥ ${fmt(cap * thr / 100)})` : "";
-    rows.push([`  ≥ ${thr}% de ocupação${rev}`, `${Number(t.percentage)}%${i === applied ? " · aplicado" : ""}`]);
+    const parts: string[] = [];
+    if (showT && seats != null) parts.push(`≥ ${fmtInt(Math.ceil(seats * thr / 100))} bilhetes`);
+    if (showR && cap != null) parts.push(`receita ≥ ${fmt(cap * thr / 100)}`);
+    const extra = parts.length ? ` (${parts.join(" · ")})` : "";
+    const marks = [i === applied ? "aplicado" : "", i === revReached ? "atingido pela receita" : ""].filter(Boolean);
+    rows.push([`  ≥ ${thr}% de ocupação${extra}`, `${Number(t.percentage)}%${marks.length ? " · " + marks.join(" · ") : ""}`]);
   });
   return rows;
 }
