@@ -21284,11 +21284,19 @@ export type Database = {
         Returns: boolean
       }
       can_view_supplier_bank_data: { Args: never; Returns: boolean }
+      capi_classify_pending_blocked: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
       capi_consent_proof: {
         Args: { p_event_name: string; p_lead_id: string }
         Returns: boolean
       }
       capi_dispatch_allowed: { Args: never; Returns: boolean }
+      capi_guard_lead_dispatch: {
+        Args: { p_event_name: string; p_lead_id: string }
+        Returns: Json
+      }
       capi_lead_block_reason: { Args: { p_lead_id: string }; Returns: string }
       capi_record_meta_error: {
         Args: {
