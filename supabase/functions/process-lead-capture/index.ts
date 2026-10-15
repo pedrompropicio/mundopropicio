@@ -8,6 +8,7 @@
 // verify_jwt = false (config.toml): cron-only.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { consentProof, dispatchAllowed, suspendedResponse, type RpcFn } from "../_shared/capi-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,6 +46,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  const rpc: RpcFn = (fn, args) => supabase.rpc(fn, args ?? {}) as any;
+
+  // Issue #320: interruptor persistente antes de tocar na fila (cobre invocação directa).
+  if (!(await dispatchAllowed(rpc))) return suspendedResponse(corsHeaders);
 
   const { data, error } = await supabase.rpc("process_lead_captures_batch", {
     p_batch_size: BATCH_LIMIT,
@@ -59,11 +64,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
   let processed = 0;
   let errors = 0;
   let capi_failures = 0;
+  let blocked_no_consent = 0;
 
   for (const item of items) {
     processed++;
     if (item?.skip) {
       if (item.reason === "error") errors++;
+      continue;
+    }
+    // Issue #320: interruptor + prova de consentimento por interacção imediatamente antes do envio.
+    if (!(await dispatchAllowed(rpc)) || !(await consentProof(rpc, null, String(item?.event_name ?? "Lead")))) {
+      blocked_no_consent++;
       continue;
     }
     try {
@@ -74,5 +85,5 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
 
-  return json({ processed, errors, capi_failures });
+  return json({ processed, errors, capi_failures, blocked_no_consent });
 });

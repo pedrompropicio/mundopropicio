@@ -8,6 +8,7 @@
 // verify_jwt = false (config.toml): invocada internamente sem JWT do gateway.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { consentProof, dispatchAllowed, suspendedResponse, type RpcFn } from "../_shared/capi-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,6 +38,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     { auth: { persistSession: false } },
   );
+  const rpc: RpcFn = (fn, args) => supabase.rpc(fn, args ?? {}) as any;
+
+  // Issue #320: interruptor persistente primeiro — nem o token é lido se suspenso.
+  if (!(await dispatchAllowed(rpc))) return suspendedResponse(corsHeaders);
 
   // Token CAPI: ler do Vault (Deno.env não acede a secrets META_* neste projeto).
   // supabase.rpc() retorna [] silenciosamente neste projeto (PostgREST + sb_secret_* key)
@@ -88,7 +93,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
         diag: {
           srk_present: !!srk,
           srk_len: srk.length,
-          srk_prefix: srk.slice(0, 12),
           supabase_url_present: !!supabaseUrl,
           env_token_present: !!Deno.env.get("META_CAPI_ACCESS_TOKEN"),
           rpc_http_status: diag_rpc_http_status,
@@ -116,6 +120,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     custom_data,
     event_time,
   } = body ?? {};
+
+  // Issue #320: sem prova de consentimento por interacção não há envio (P1: nunca há).
+  const leadIdForConsent = typeof body?.lead_id === "string" ? body.lead_id : null;
+  if (!(await dispatchAllowed(rpc)) || !(await consentProof(rpc, leadIdForConsent, String(event_name ?? "")))) {
+    return json({ blocked: true, reason: "no_consent_proof_or_suspended" }, 403);
+  }
 
   if (!pixel_id || !event_name) {
     return json({ error: "missing_params", detail: "pixel_id e event_name são obrigatórios" }, 400);
