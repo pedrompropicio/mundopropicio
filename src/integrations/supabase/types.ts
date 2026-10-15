@@ -4343,6 +4343,69 @@ export type Database = {
           },
         ]
       }
+      capi_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          created_at: string
+          detail: string | null
+          id: string
+          kind: string
+          lead_id: string | null
+          meta_code: number | null
+          meta_subcode: number | null
+          source: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: string
+          kind: string
+          lead_id?: string | null
+          meta_code?: number | null
+          meta_subcode?: number | null
+          source: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: string
+          kind?: string
+          lead_id?: string | null
+          meta_code?: number | null
+          meta_subcode?: number | null
+          source?: string
+        }
+        Relationships: []
+      }
+      capi_dispatch_control: {
+        Row: {
+          id: number
+          reason: string | null
+          suspended: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: number
+          reason?: string | null
+          suspended?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: number
+          reason?: string | null
+          suspended?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       card_integrations: {
         Row: {
           company_id: string
@@ -11802,8 +11865,11 @@ export type Database = {
       }
       leads: {
         Row: {
+          capi_block_reason: string | null
+          capi_classified_at: string | null
           capi_sent_at: string | null
           capi_status: string | null
+          capi_status_before: string | null
           company_id: string
           contact_id: string | null
           created_at: string
@@ -11826,8 +11892,11 @@ export type Database = {
           utm_source: string | null
         }
         Insert: {
+          capi_block_reason?: string | null
+          capi_classified_at?: string | null
           capi_sent_at?: string | null
           capi_status?: string | null
+          capi_status_before?: string | null
           company_id: string
           contact_id?: string | null
           created_at?: string
@@ -11850,8 +11919,11 @@ export type Database = {
           utm_source?: string | null
         }
         Update: {
+          capi_block_reason?: string | null
+          capi_classified_at?: string | null
           capi_sent_at?: string | null
           capi_status?: string | null
+          capi_status_before?: string | null
           company_id?: string
           contact_id?: string | null
           created_at?: string
@@ -19773,6 +19845,7 @@ export type Database = {
           session_tx: string
         }[]
       }
+      _capi_classify_lead: { Args: { p_lead_id: string }; Returns: string }
       _club_points_void_row: {
         Args: {
           p_reason: string
@@ -21211,6 +21284,26 @@ export type Database = {
         Returns: boolean
       }
       can_view_supplier_bank_data: { Args: never; Returns: boolean }
+      capi_consent_proof: {
+        Args: { p_event_name: string; p_lead_id: string }
+        Returns: boolean
+      }
+      capi_dispatch_allowed: { Args: never; Returns: boolean }
+      capi_lead_block_reason: { Args: { p_lead_id: string }; Returns: string }
+      capi_record_meta_error: {
+        Args: {
+          p_code: number
+          p_detail: string
+          p_lead_id: string
+          p_source?: string
+          p_subcode: number
+        }
+        Returns: string
+      }
+      capi_recover_processing: {
+        Args: { p_older_than_minutes?: number }
+        Returns: Json
+      }
       check_admin_windows_contiguous: {
         Args: { p_company_id: string }
         Returns: undefined
