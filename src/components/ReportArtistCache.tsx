@@ -14,7 +14,7 @@ import { enrichCacheConfigs } from "@/lib/real-cache-calc";
 import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import logoFallback from "@/assets/logo-horizontal.png";
 import {
-  groupEventsForCacheSelector, resolveReportBlocks, buildArtistCacheReport, formatEventDate, capacityRevenueByEvent,
+  groupEventsForCacheSelector, resolveReportBlocks, buildArtistCacheReport, formatEventDate, capacityRevenueByEvent, seatsAndSoldByEvent, type TierBasisMode,
   type ReportBlockSpec, type ArtistCacheReport, type ReportEvent,
 } from "@/lib/cache-report";
 import { exportArtistCachePdf, loadImageAsDataUrl, cityRowsFor, type EventMeta } from "@/lib/export-artist-cache-pdf";
@@ -108,6 +108,8 @@ export default function ReportArtistCache() {
   // Resumo da turnê: só no âmbito "own" do Master (configuração no Master).
   const tourBlock = isTourAll && blocks.length === 1 && blocks[0].childIds.length > 0 ? blocks[0] : null;
 
+  const hasTiers = blocks.some((b) => (blockData[blockKey(b)] ?? []).some((r) => r.isVariable && (r.config.tiers ?? []).length > 0));
+
   const exportPdf = async () => {
     if (!option || !resolved) return;
     const logo = (logoUrl ? await loadImageAsDataUrl(logoUrl) : null) ?? (await loadImageAsDataUrl(logoFallback));
@@ -129,6 +131,7 @@ export default function ReportArtistCache() {
       logo,
       tourSummary: tourBlock ? { tourName: root?.name ?? "", reports: blockData[blockKey(tourBlock)] ?? [], meta } : undefined,
       sections,
+      tierMode,
       fileName: `cache-artista-${(root?.name ?? "evento").replace(/\s+/g, "_")}.pdf`,
     });
   };
@@ -148,6 +151,13 @@ export default function ReportArtistCache() {
             ))}
           </SelectContent>
         </Select>
+        {allReady && totalConfigs > 0 && hasTiers && (
+          <ToggleGroup type="single" size="sm" variant="outline" value={tierMode} onValueChange={(v) => v && setTierMode(v as TierBasisMode)} aria-label="Referência dos escalões">
+            <ToggleGroupItem value="tickets">Bilhetes</ToggleGroupItem>
+            <ToggleGroupItem value="revenue">Bilheteira</ToggleGroupItem>
+            <ToggleGroupItem value="both">Ambos</ToggleGroupItem>
+          </ToggleGroup>
+        )}
         {allReady && totalConfigs > 0 && (
           <Button variant="outline" size="sm" onClick={exportPdf} className="gap-1">
             <FileText className="h-4 w-4" /> PDF
@@ -176,7 +186,7 @@ export default function ReportArtistCache() {
         if (!reps || reps.length === 0) return null;
         const cityIds = b.childIds.length > 0 ? (b.onlyCityId ? [b.onlyCityId] : b.childIds) : [b.holderId];
         return cityIds.map((cid) => (
-          <CitySection key={`${blockKey(b)}:${cid}`} meta={metaOf(cid)} reports={reps} closesWithNet={!tourBlock}
+          <CitySection key={`${blockKey(b)}:${cid}`} meta={metaOf(cid)} reports={reps} closesWithNet={!tourBlock} tierMode={tierMode}
             note={b.onlyCityId ? `Cachê configurado no Master ${metaOf(b.holderId).name}.` : undefined} />
         ));
       })}
@@ -240,13 +250,19 @@ function ReportBlockData({ spec, onReady }: { spec: ReportBlockSpec; onReady: (k
   const { data: capacityByEvent = {} } = useQuery({
     queryKey: ["real-cache-report-capacity", capIds.join(",")], enabled,
     queryFn: async () => {
-      const { data: zones, error } = await supabase.from("event_ticket_zones").select("id, event_id").in("event_id", capIds);
+      const { data: zones, error } = await supabase.from("event_ticket_zones").select("id, event_id, total_capacity").in("event_id", capIds);
       if (error) throw error;
       const zIds = (zones ?? []).map((z: any) => z.id);
       if (zIds.length === 0) return {};
       const { data: lots, error: e2 } = await fetchAllPagedQuery(supabase.from("event_ticket_lots").select("id, zone_id, quantity, price, iva_rate").in("zone_id", zIds));
       if (e2) throw e2;
-      return capacityRevenueByEvent(zones ?? [], lots ?? []);
+      const { data: sales, error: e3 } = await fetchAllPagedQuery(supabase.from("ticket_sales" as any).select("zone_id, quantity").in("zone_id", zIds));
+      if (e3) throw e3;
+      const rev = capacityRevenueByEvent(zones ?? [], lots ?? []);
+      const ss = seatsAndSoldByEvent(zones ?? [], (sales ?? []) as any[]);
+      const out: Record<string, { gross: number; net: number; seats?: number; sold?: number }> = {};
+      for (const id of new Set([...Object.keys(rev), ...Object.keys(ss)])) out[id] = { gross: 0, net: 0, ...rev[id], ...ss[id] };
+      return out;
     },
   });
   const enriched = useMemo(() => enrichCacheConfigs(configs ?? [], tiers), [configs, tiers]);
@@ -297,7 +313,7 @@ function TourSummary({ reports, metaOf }: { reports: ArtistCacheReport[]; metaOf
   );
 }
 
-function CitySection({ meta, reports, closesWithNet, note }: { meta: EventMeta; reports: ArtistCacheReport[]; closesWithNet: boolean; note?: string }) {
+function CitySection({ meta, reports, closesWithNet, note, tierMode }: { meta: EventMeta; reports: ArtistCacheReport[]; closesWithNet: boolean; note?: string; tierMode: TierBasisMode }) {
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-border bg-muted/20 px-4 py-3 text-sm">
@@ -311,7 +327,7 @@ function CitySection({ meta, reports, closesWithNet, note }: { meta: EventMeta; 
       </div>
       {reports.map((rep) => {
         const city = rep.cities.find((c) => c.cityId === meta.id);
-        const rows = cityRowsFor(rep, meta.id);
+        const rows = cityRowsFor(rep, meta.id, tierMode);
         const extras = closesWithNet ? rep.extras : city?.extras ?? [];
         const extrasTotal = closesWithNet ? rep.extrasTotal : city?.extrasTotal ?? 0;
         return (
@@ -331,7 +347,7 @@ function CitySection({ meta, reports, closesWithNet, note }: { meta: EventMeta; 
                 </TableHeader>
                 <TableBody>
                   {rows.map(([label, value], i) => (
-                    <TableRow key={i} className={label === "Cachê da cidade" || label === "Cachê Fixo" ? "bg-primary/5 font-semibold" : label.startsWith("Escalões") ? "bg-muted/30 font-medium" : value.endsWith("aplicado") ? "font-semibold text-primary" : ""}>
+                    <TableRow key={i} className={label === "Cachê da cidade" || label === "Cachê Fixo" ? "bg-primary/5 font-semibold" : label.startsWith("Escalões") ? "bg-muted/30 font-medium" : /aplicado|atingido/.test(value) ? "font-semibold text-primary" : ""}>
                       <TableCell className={label.startsWith("  ") ? "pl-8 text-muted-foreground" : ""}>{label.trim()}</TableCell>
                       <TableCell className="text-right">{value}</TableCell>
                     </TableRow>

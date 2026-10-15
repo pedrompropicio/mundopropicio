@@ -2,7 +2,7 @@ import jsPDF from "jspdf";
 import autoTableRaw from "jspdf-autotable";
 import { sanitizePdfText, sanitizePdfRows } from "@/lib/pdf-text";
 import { formatCurrency } from "@/lib/mock-data";
-import { formatEventDate, tierReferenceRows, type ArtistCacheReport } from "@/lib/cache-report";
+import { formatEventDate, tierReferenceRows, type ArtistCacheReport, type TierBasisMode } from "@/lib/cache-report";
 
 // Todo o texto das tabelas passa pelo saneador (jsPDF/WinAnsi não tem U+2212).
 const autoTable = (doc: jsPDF, opts: any) =>
@@ -24,6 +24,8 @@ export interface CachePdfInput {
   /** Uma secção por cidade/evento. */
   sections: { meta: EventMeta; reports: ArtistCacheReport[] }[];
   fileName: string;
+  /** Referência dos escalões: bilhetes, bilheteira ou ambos. */
+  tierMode?: TierBasisMode;
 }
 
 const HEAD = { fillColor: [59, 130, 246] as [number, number, number], fontSize: 8 };
@@ -31,7 +33,7 @@ const BOLD = new Set(["CACHÊ LÍQUIDO A PAGAR", "Cachê da cidade", "Cachê Bru
 const isTierHeader = (t: string) => t.startsWith("Escalões");
 
 /** Linhas da tabela de UMA cidade para UM artista (mesmos números do ecrã). */
-export function cityRowsFor(report: ArtistCacheReport, cityId: string): string[][] {
+export function cityRowsFor(report: ArtistCacheReport, cityId: string, mode: TierBasisMode = "revenue"): string[][] {
   const rows: string[][] = [];
   const c = report.cities.find((x) => x.cityId === cityId);
   if (!report.isVariable) {
@@ -39,7 +41,7 @@ export function cityRowsFor(report: ArtistCacheReport, cityId: string): string[]
     return rows;
   }
   const r = c?.result;
-  rows.push(...tierReferenceRows(report.config, c?.capacityRevenue ?? null, r ? r.percentage : null));
+  rows.push(...tierReferenceRows(report.config, c?.capacityRevenue ?? null, r ? r.percentage : null, mode, r ? r.revenueBasis : null));
   rows.push([`Receita real de bilheteira (${r?.revenueBasisLabel || "-"})`, formatCurrency(r?.revenueBasis ?? 0)]);
   for (const d of r?.deductionDetails ?? []) rows.push([`  (-) ${d.categoryCode} ${d.categoryName}`, formatCurrency(-d.amount)]);
   if ((r?.fixedPctRate ?? 0) > 0) rows.push([`  (-) Dedução fixa (${r!.fixedPctRate}%)`, formatCurrency(-(r!.fixedPctDeduction))]);
@@ -93,7 +95,7 @@ export async function exportArtistCachePdf(input: CachePdfInput) {
     autoTable(doc, {
       startY: y, head: [["Descrição", "Valor"]], body: rows, theme: "striped",
       headStyles: HEAD, styles: { fontSize: 8 }, columnStyles: { 1: { halign: "right" } },
-      didParseCell: (d: any) => { if (BOLD.has(String(d.cell.raw)) || isTierHeader(String(d.cell.raw)) || String(d.cell.raw).endsWith("aplicado")) d.cell.styles.fontStyle = "bold"; },
+      didParseCell: (d: any) => { if (BOLD.has(String(d.cell.raw)) || isTierHeader(String(d.cell.raw)) || /aplicado|atingido/.test(String(d.cell.raw))) d.cell.styles.fontStyle = "bold"; },
     });
     return (doc as any).lastAutoTable.finalY + 8;
   };
@@ -137,7 +139,7 @@ export async function exportArtistCachePdf(input: CachePdfInput) {
       doc.text(`${rep.config.artist_name} · ${rep.isVariable ? "Variável" : "Fixo"}`, m, y); y += 4;
       doc.setFont("helvetica", "normal");
       const city = rep.cities.find((c) => c.cityId === sec.meta.id);
-      const rows = cityRowsFor(rep, sec.meta.id);
+      const rows = cityRowsFor(rep, sec.meta.id, input.tierMode);
       if (!input.tourSummary) {
         // Cidade isolada ou evento simples: fecha com extras e líquido.
         rows.push(...extrasRows(rep.extras, rep.extrasTotal));
