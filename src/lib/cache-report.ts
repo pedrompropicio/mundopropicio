@@ -144,7 +144,7 @@ export function seatsAndSoldByEvent(zones: any[], sales: any[]): Record<string, 
 }
 
 const fmtPct = (n: number) => `${n.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
-const fmtInt = (n: number) => Math.round(n).toLocaleString("pt-PT");
+const fmtInt = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 
 /** Linhas dos escalões: limiar de ocupação, bilhetes e/ou receita equivalentes e % (marca o aplicado). */
 export function tierReferenceRows(config: any, capacity: CapacityRef | null, appliedPct: number | null, mode: TierBasisMode = "revenue", realRevenue?: number | null): string[][] {
