@@ -3,7 +3,7 @@
 Sem Publish, sem retoma, sem pedidos à Meta. Interruptor `capi_dispatch_control.suspended=true`; crons 33/34/44/45 ausentes.
 
 ## Nota de rastreabilidade
-Na sessão desta correção, o repositório NÃO continha a migração 0164 inicial, o `_shared/capi-guard.ts`,
+Na sessão desta correção, o repositório não continha a migração 0164 inicial, o `_shared/capi-guard.ts`,
 o teste nem as alterações às 4 edge functions descritas em 03-depois-0164-inicial.md (o journal parava na 0163;
 Live tinha os objectos). Foi tudo recriado: a migração `drizzle/migrations/0164_issue320_capi_p1_gaps.sql`
 reproduz de forma idempotente as tabelas/colunas da 0164 em Live e acrescenta as correções. As funções SQL
@@ -23,9 +23,7 @@ sent_n=29550 sent_hash=6533a3e4f7bde10f68d4e6608c6a8fac leads_fields_hash=3b0b85
 por_status: sent 29550 · blocked_wrong_kind 6893 · skipped_old 4339 · skipped_no_pixel 3692 ·
 error_insufficient_data 1505 · expired 50 · blocked_no_consent 31
 ```
-Os hashes do baseline (02) usaram queries não registadas; não são comparáveis byte a byte com estes.
-Comparável: leads_total 46060 e sent 29550 iguais ao baseline. Estes hashes passam a ser a referência
-para a verificação seguinte (mesma query).
+Comparação com o baseline: ver 05-fecho-tecnico.md (queries originais re-executadas, iguais).
 
 ```sql
 -- estado e privilégios

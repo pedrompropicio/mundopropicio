@@ -1156,6 +1156,13 @@
       "when": 1792102320178,
       "tag": "0164_issue320_capi_p1_gaps",
       "breakpoints": true
+    },
+    {
+      "idx": 165,
+      "version": "7",
+      "when": 1792103021225,
+      "tag": "0165_issue320_capi_p1_foundations_mirror",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,6 @@
 # CAPI P1 no ERP — Issue #320 (por verificar independentemente)
 
-Provas versionadas: `docs/testes/issue320/` (01 crons antes + reversão, 02 baseline, 03 depois inicial, 04 correção de lacunas, logs/).
+Provas versionadas: `docs/testes/issue320/` (01 crons antes + reversão, 02 baseline, 03 depois inicial, 04 correção de lacunas, 05 fecho técnico, logs/). Decisão: D-ERP281. DDL: migrações 0164_issue320_capi_p1_gaps e 0165_issue320_capi_p1_foundations_mirror (espelho fiel das 6 funções-base).
 
 ## Estado
 - `capi_dispatch_control.suspended = true`; crons 33/34/44/45 removidos; **sem retoma automática**.

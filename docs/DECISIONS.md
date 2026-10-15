@@ -6023,3 +6023,14 @@ Origem: TikTok BR do Litto (7689229625189138438) ficou com saldo 0 a 13/10 e est
 4. Está autorizada apenas a preparação do P1 do ERP para revisão. O P1 precede a correcção das permissões do dataset.
 
 **Estado.** Preparação; nenhuma implementação, envio ou reprocessamento autorizado. Frente dona: 9.
+
+## D-ERP281 — CAPI P1 no ERP aplicado, por verificar (15/10/2026)
+
+**Decisão (Pedro, Issue #320, execução autorizada 15/10/2026).** Concretiza D-ERP280 no ERP:
+1. `redirect_click` nunca gera `ViewContent`: excluído na seleção SQL de `process_leads_capi_batch` e de novo imediatamente antes do POST; pendentes classificados por via técnica (`blocked_wrong_kind`), sem envio.
+2. Pendentes fora do prazo Meta de 7 dias passam a `expired`; nada é apagado; `sent`, identidades, datas e dados comerciais/financeiros preservados; sem reenvio histórico; tentativas `retry` não contam como envios aceites.
+3. Sem prova de consentimento de marketing por interação não há envio: `capi_consent_proof` devolve `false` até P2/P3; não se infere de newsletter, cookies, fbc/fbp ou email.
+4. Meta 100/33 é terminal (`error_meta_access`) com alerta persistente em `capi_alerts`, sem mensagens externas; falha do registo não é mascarada.
+5. Suspensão persistente `capi_dispatch_control` (fail-closed sem linha) trava cron, SQL e invocação directa; crons 33/34/44/45 removidos; **sem retoma automática**. Ticks SQL `portal_tick_*` desactivados de forma dura até haver tratamento de resposta.
+
+**Estado.** Aplicado em Live (migrações 0164_issue320_capi_p1_gaps e 0165_issue320_capi_p1_foundations_mirror, 4 edge functions); sem Publish; aguarda verificação independente do Pedro; CI não confirmado. Detalhe: `docs/features/capi-p1-erp.md`, provas `docs/testes/issue320/`. Frente dona: 9.

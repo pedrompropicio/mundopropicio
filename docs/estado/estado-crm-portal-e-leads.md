@@ -1,6 +1,6 @@
 # ESTADO — MP CRM, Portal & Leads
 
-Atualizado: 2026-10-13 · Issues: #251, #252 · Fechadas: #253 (24/09), #254 (10/10) · Bloqueio: #62
+Atualizado: 2026-10-15 · Issues: #251, #252, #320 (reservada, por verificar) · Fechadas: #253 (24/09), #254 (10/10) · Bloqueio: #62
 
 ## Em que pé está
 Dois portais distintos, dois projetos Lovable, a mesma base Supabase:
@@ -12,7 +12,7 @@ A Early Bird 2027 do Coala está a captar em contínuo (`lead_capture`, origens 
 A 24/09/2026 foi resolvido o incidente que punha o ecrã "Algo correu mal" a 100% do tráfego pago da Meta (#253, fechada). A geolocalização do Coala passou a funcionar e o registo de erros de front está em produção.
 
 ## A trabalhar agora
-Nada.
+**CAPI P1 no ERP (#320, D-ERP281)** — aplicado em Live, sem Publish, aguarda verificação independente do Pedro; CI não confirmado. Todos os envios CAPI do ERP estão suspensos (`capi_dispatch_control.suspended=true`, crons 33/34/44/45 removidos, ticks SQL desactivados) e não há retoma automática. Mesmo com o interruptor aberto nada sai: falta prova de consentimento por interação (P2/P3). Efeito colateral: a ingestão `lead_capture`/`redirect_log` → contacts/leads também está parada (dados guardados na origem). Detalhe em `docs/features/capi-p1-erp.md`; provas em `docs/testes/issue320/`.
 
 **Portal newgangfestival.pt e Clube Newgang (#306, #308, envios à lista)** — passaram para o chat `newgang-portal` (estado em `docs/estado/estado-newgang-portal.md`).
 
@@ -23,6 +23,7 @@ Nada.
 2. **Audience — Google** — evento derivado `ng27_clube_inscricao` no GA4 e importação no Google Ads.
 
 ## Bloqueios
+- **#320** — CAPI suspenso até verificação do Pedro e implementação de consentimento por interação (P2/P3).
 - **#62** (frente Google) — os leads do CRM não alimentam o Google Ads.
 
 ## Factos que não se reinvestigam
