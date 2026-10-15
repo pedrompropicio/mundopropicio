@@ -5978,3 +5978,48 @@ Origem: TikTok BR do Litto (7689229625189138438) ficou com saldo 0 a 13/10 e est
 - `confirmar_lista` cria contacto só se não existir (source `coala_early_bird_invite`; `consent_email` = último `marketing_opt_in` em `coala_list_consents`, senão false). Entrar na lista nunca é consentimento de marketing. Contactos existentes intactos. Backfill de 4. Grants iguais.
 - Revisão (15/10/2026, 0163): consentimento do contacto novo = último `marketing_opt_in` em `coala_list_consents`; senão `consent_email` do `lead_capture` mais recente desse email na Coala; senão false (com `consent_email_at` = created_at desse lead_capture). A regra anterior ignorava o consentimento dado no formulário do portal. Corrigidos os 4 do backfill (vanyacds@sapo.pt, jds_pereira@hotmail.con — email com erro, não corrigido —, marcelebx@gmail.com, euricograca@gmail.com). Grants iguais.
 - Migrações 0160–0163.
+
+---
+
+## D-ERP278 — Operação partilhada Claude ↔ ChatGPT (15/10/2026)
+
+**Decisão (Pedro, 15/10/2026).** A operação do MP Gestão Eventos corre em paralelo no Claude e no ChatGPT, com a mesma numeração de chats (0–11 + portais + secretaria + chats de evento), os mesmos prompts e o GitHub como fonte oficial comum.
+
+1. Existe um `0 - Cowork` em cada ferramenta. Nenhum é "o único".
+2. `docs/QUADRO.md` é a fonte oficial dos pedidos entre chats, com a secção "Em execução agora" (reservas). `docs/TESTES.md` é a fonte oficial dos casos, resultados, datas, versões e provas. Os Claude Docs anteriores são arquivo (quadro) ou interface auxiliar (testes), nunca segunda fonte.
+3. O Pedro designa um único executor por demanda (Claude ou ChatGPT, com ou sem agente Lovable), no campo `Executor atual` da Issue. Antes de executar, o executor regista a reserva e confirma a disponibilidade do agente. O outro lado revê por leitura. Conflito ou reserva aparentemente abandonada volta ao Pedro; não há transferência automática.
+4. Autorização documental: dentro de uma demanda autorizada, o executor faz a reserva inicial, actualizações de progresso, libertação da reserva, e o fecho documental correspondente — estado da frente, Issues (incl. comentários) e decisões efectivamente tomadas. Não abrange mudanças autónomas a regras, mapa de chats, procedimentos, código, dados ou configurações.
+5. O irreversível (DDL em Live, deploy, Publish, crons, DML em dados de eventos, `send_message` que altere a plataforma, envios à Meta, campanhas e orçamento) só pelo 0 do lado designado e só com "Sim" nessa sessão. Enquanto o comportamento de deploy das edge functions não estiver confirmado, uma tarefa ao agente conta como possível alteração a Live: a autorização antecede a tarefa.
+6. A identificação do modelo em execução só é exigida quando a ferramenta a expõe.
+7. Os chats de evento em curso ficam no lado onde já estão, salvo decisão do Pedro.
+8. Excepção única ao ponto 5: o interruptor "Publish automático em sessões agendadas" do `QUADRO.md`. Fica **DESLIGADO** desde 15/10/2026 até os dois lados conviverem sem conflitos; só o Pedro o liga, por comando expresso, e só para automação entre chats (o Operador do quadro a esgotar pedidos já preparados). Ligado, cobre apenas Publish/deploy do que está no quadro; DDL, OAuth, pagamentos, envios e apagar dados continuam fora de qualquer sessão agendada.
+
+**Porquê.** Dois lados a escrever na mesma base e no mesmo repo sem um executor designado produziriam reescritas cruzadas do mesmo `estado-<frente>.md` e tarefas simultâneas ao agente Lovable, que é um só. O GitHub é o único sítio que as duas ferramentas lêem e escrevem.
+
+**Substitui.** A regra "o 0 - Cowork é a única sessão que escreve nos docs e executa DDL/Publish" (`claude/chats-de-trabalho.md`, 19/09/2026) e o esquema de 9 frentes do `CHATS.md` de 15/09/2026. Mantém D-ERP262 (`newgang-portal`).
+
+**Pendentes técnicos registados.** Momento de deploy das edge functions; rotação de segredos; validade do PAT. Não se assume nenhum até verificação.
+
+---
+
+## D-ERP279 — Responsabilidades do 8 (Tráfego Pago) e do 9 (CRM, Portal e Leads) (15/10/2026)
+
+**Decisão (Pedro, 15/10/2026).**
+- **8 — Tráfego Pago**: planeamento, construção, configuração, acompanhamento, optimização e análise das campanhas Meta, Google Ads e TikTok, incluindo segmentação, públicos, criativos, orçamento e investimento × vendas. Define as necessidades de medição e valida o impacto das correcções de tracking nas campanhas.
+- **9 — CRM, Portal e Leads**: contactos, leads, portais, consentimento, Pixel/CAPI, atribuição e qualidade dos eventos, incluindo as filas e funções do ERP que suportam esses envios. Conduz as correcções de tracking. O plano actual do Portal MP/Ghanem fica no 9.
+- Os portais de evento (`coala-portal`, `newgang-portal`) tratam o tracking do próprio site; a infraestrutura de envio é do 9.
+- Publicar, activar ou alterar campanhas e orçamento exige autorização expressa do Pedro.
+
+**Porquê.** "Tracking" estava na tabela tema→chat de `audience-meta`; o 8 passou a ser a frente de campanhas e o tracking é infraestrutura do ERP, não de uma plataforma de anúncios.
+
+---
+
+## D-ERP280 — Decisões do plano CAPI (15/10/2026)
+
+**Decisão (Pedro, alinhado com o ChatGPT, 15/10/2026).**
+1. `InitiateCheckout` significa clique de saída do portal para a bilheteira; esse clique não gera também `ViewContent` pela via dos leads.
+2. Identificadores e eventos de marketing dependem de consentimento válido, registado por interacção, com tratamento da revogação.
+3. Preservar o histórico, impedir envios incorrectos, expirar eventos fora do prazo, bloquear falhas de acesso com alerta e não reenviar automaticamente o histórico.
+4. Está autorizada apenas a preparação do P1 do ERP para revisão. O P1 precede a correcção das permissões do dataset.
+
+**Estado.** Preparação; nenhuma implementação, envio ou reprocessamento autorizado. Frente dona: 9.

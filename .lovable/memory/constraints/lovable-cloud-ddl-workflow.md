@@ -45,9 +45,11 @@ O Publish propaga código, edge functions e frontend — **não objectos SQL**. 
 
 ### O que o Publish NÃO faz
 
-**O Publish propaga código, edge functions e frontend. Não propaga DML (dados) nem crons.**
+**O Publish propaga código e frontend. Não propaga DML (dados) nem crons.** Quando uma edge function editada pelo agente entra em produção (na edição ou só no Publish) está por confirmar — ver `docs/CHATS.md` › pendentes; até lá, uma tarefa ao agente conta como possível alteração a Live e só se dá a função por actualizada depois do Publish e da verificação.
 
 Um UPDATE/INSERT/DELETE dentro de um ficheiro de migration corre quando o agente aplica a migration em Live — e mais nada o volta a correr. Nenhum Publish o repete noutro sítio, porque não há outro sítio.
+
+Dito de outra forma: o DML da migração **chega** a Live, uma vez, nesse momento. A formulação "DML em migração não chega a Live", que circulou em notas de sessão, está errada e vinha do mundo Test → Live anterior à D2.
 
 Alterações a crons (`pg_cron`) seguem a mesma regra: aplicam-se em Live pelo agente e o Publish não as toca.
 
