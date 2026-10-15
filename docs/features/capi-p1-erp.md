@@ -23,3 +23,7 @@ Com os ticks/edge suspensos, a ingestão lead_capture/redirect_log → contacts/
 
 ## Reversão (manual, sem retoma)
 Ver `docs/testes/issue320/01-crons-antes-e-reversao.md`. Reabrir o interruptor não envia nada enquanto `capi_consent_proof` for `false`; os ticks SQL exigem migração nova.
+
+## Diagnóstico sem segredos (15/10/2026, 23:3x UTC)
+`capi-meta-events` deixou de devolver `srk_prefix`, `srk_len` e `rpc_body_preview` no `missing_capi_token`, e o log de arranque deixou de mostrar o comprimento do token. O diagnóstico vem de `buildMissingTokenDiag` (`_shared/capi-guard.ts`): só `srk_present`, `supabase_url_present`, `env_token_present`, `rpc_http_status`, `vault_fetch_failed`. Os outros 3 consumidores não tinham este padrão. Teste: `src/test/capi-diag-no-secrets.test.ts`, que também verifica o código-fonte dos 4. Função publicada de novo (deploy da edge function, sem Publish); o interruptor continua suspenso.
+Provas: `docs/testes/issue320/06-tsgo.md`, `06-vitest.md`, `06-build.md`. Os `.txt` em `logs/` são ignorados pelo `.gitignore` (regra `logs`), por isso não estão no Git; contam como provas só os `.md`.

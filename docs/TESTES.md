@@ -91,3 +91,5 @@ _(sem testes em fila)_
 ## #320 — CAPI P1 (2026-10-15)
 - `src/test/capi-p1-guard.test.ts` — 20 testes, fetch bloqueado (sem egress): 100/33, 2804050, transitório, guarda servidor (suspended, wrong_kind, expired, no_consent, no_identity, wrong_event, not_claimed, erro RPC, resposta inválida, event_time em falta), interruptor, alerta só conta se confirmado.
 - Provas Live e logs tsgo/vitest/build: `docs/testes/issue320/`. CI não confirmado.
+
+- #320 (15/10/2026): `src/test/capi-diag-no-secrets.test.ts`: o diagnóstico não expõe segredos nem o corpo do Vault. tsgo 0 · vitest 0 (151 ficheiros, 1177 testes passam) · build 0. Provas em `docs/testes/issue320/06-*.md`. CI: não confirmado (não há acesso a este repositório no GitHub a partir do agente).
