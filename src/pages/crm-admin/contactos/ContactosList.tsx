@@ -42,7 +42,7 @@ import ContactDetailsSheet from "./ContactDetailsSheet";
 import { relativeFromNow } from "../lib/relativeTime";
 import { contactPrimaryLabel, contactSecondaryLabel } from "../lib/contactDisplay";
 import {
-  type TriState, type ContactFilters, CONTACTS_PAGE_SIZE, fetchContactsPage, exportContactsCsv,
+  type TriState, type ContactFilters, CONTACTS_PAGE_SIZE, fetchContactsPage, fetchAudiencePage, exportContactsCsv,
 } from "./contactsQuery";
 
 // pt-PT não agrupa 4 algarismos (6829); o pedido é "6.829" / "16.123".
@@ -72,14 +72,14 @@ export default function ContactosList() {
     return () => clearTimeout(t);
   }, [search]);
 
-  // #308: listas (audiências) com o nº de membros do último snapshot — calculado na base.
+  // D-ERP277: listas (audiências) com a contagem atual pelo critério — calculada na base.
   const { data: lists } = useQuery({
     queryKey: ["crm-contactos-lists", companyId],
     enabled: !!companyId,
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("crm_audience_lists");
       if (error) throw error;
-      return (data ?? []) as { audience_id: string; name: string; snapshot_id: string | null; member_count: number | null }[];
+      return (data ?? []) as { audience_id: string; name: string; snapshot_id: string | null; member_count: number | null; live_count: number }[];
     },
   });
   const currentList = (lists ?? []).find((l) => l.audience_id === listaId) ?? null;
@@ -103,8 +103,8 @@ export default function ContactosList() {
         waConsent,
         active: activeFilter,
         source: sourceFilter,
-        // Lista sem snapshot → filtro impossível (0 resultados), nunca "todos".
-        snapshotId: listaId ? (currentList?.snapshot_id ?? "00000000-0000-0000-0000-000000000000") : null,
+        // D-ERP277: audiência filtra pelo critério atual (RPC), não pelo snapshot.
+        snapshotId: null,
       }
     : null;
   const listsReady = !listaId || !!lists;
@@ -114,10 +114,10 @@ export default function ContactosList() {
   }, [debouncedSearch, emailConsent, waConsent, activeFilter, sourceFilter, listaId]);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["crm-contactos-list", filters, page],
+    queryKey: ["crm-contactos-list", filters, listaId, page],
     enabled: !!filters && listsReady,
     placeholderData: keepPreviousData,
-    queryFn: () => fetchContactsPage(filters!, page),
+    queryFn: () => (listaId ? fetchAudiencePage(filters!, listaId, page) : fetchContactsPage(filters!, page)),
   });
   const rows = data?.rows ?? [];
   const total = data?.total ?? 0;
@@ -144,7 +144,7 @@ export default function ContactosList() {
     if (!filters) return;
     setExporting(true);
     try {
-      const n = await exportContactsCsv(filters, currentList?.name ?? "todos");
+      const n = await exportContactsCsv(filters, currentList?.name ?? "todos", listaId);
       toast.success(`${fmt(n)} contacto(s) exportado(s).`);
     } catch (e: any) {
       toast.error(`Falha a exportar: ${e?.message ?? e}`);
@@ -237,7 +237,7 @@ export default function ContactosList() {
                   <SelectLabel>Audiências</SelectLabel>
                   {(lists ?? []).map((l) => (
                     <SelectItem key={l.audience_id} value={l.audience_id}>
-                      {l.name} ({l.snapshot_id ? fmt(l.member_count ?? 0) : "sem snapshot"})
+                      {l.name} ({fmt(Number(l.live_count ?? 0))})
                     </SelectItem>
                   ))}
                 </SelectGroup>
