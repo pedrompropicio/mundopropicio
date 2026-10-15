@@ -47,3 +47,5 @@ A 24/09/2026 foi resolvido o incidente que punha o ecrã "Algo correu mal" a 100
 
 ## 13/10/2026 — D-ERP268
 Menu MP CRM: Clube/Site Newgang gated por company_features. Filtro de listas dos Contactos passa a incluir origens. Sementeira das chaves na MP pendente de OK.
+
+**15/10/2026 23:3x UTC (#320).** Diagnóstico de `capi-meta-events` sem fragmentos de segredos; edge function publicada de novo. Provas versionadas em `docs/testes/issue320/06-*.md`. Nada mudou em SQL, dados, crons ou interruptor. CI por confirmar.

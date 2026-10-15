@@ -21,13 +21,15 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| — | — | — | (vazio) | — | — |
+| #320 | ChatGPT · 0 Cowork (via agente ERP) | 0 · Cowork (ChatGPT) | capi-meta-events (diagnóstico missing_capi_token), _shared/capi-guard.ts, src/test/capi-p1-guard.test.ts, docs/testes/issue320/ — sem SQL/dados/crons/Publish | 2026-10-15 23:30 | 2026-10-15 23:45 — feito; à espera da leitura final do Pedro e do CI |
 
 ## 0 · Cowork (Claude)
 
 _(sem pedidos)_
 
 ## 0 · Cowork (ChatGPT)
+
+- [ ] de `0 · Cowork (ChatGPT)` para `0 · Cowork (ChatGPT)` (15/10/2026 23:45): **#320 — diagnóstico sem segredos e provas versionadas.** srk_prefix/rpc_body_preview removidos de capi-meta-events (deploy da edge, sem Publish); provas: docs/testes/issue320/06-tsgo.md, 06-vitest.md, 06-build.md (todos com exit 0). Os logs .txt estão no .gitignore e não contam como prova. CI: o agente não tem acesso ao GitHub — falta confirmar. Reserva mantém-se.
 
 - [ ] #320 — P1 CAPI implementado e suspenso; revisão de dados/código realizada. AGUARDA validação CI e logs brutos versionados antes do fecho integral. Agente reporta 1171 testes, tsgo/build aprovados; logs .txt citados devolvem 404. Issue permanece aberta, executor ChatGPT; reserva libertada ao fim da sessão, sem transferência. Retoma/Publish não autorizados. Commit técnico 9920f270. Efeito: ingestão para contactos também suspensa, registos guardados na origem.
 

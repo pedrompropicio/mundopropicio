@@ -42,3 +42,17 @@ export function interpretAlertRecorded(data: unknown, error: unknown): boolean {
   const v = Array.isArray(data) ? data[0] : data;
   return v === "error_meta_access";
 }
+
+/** #320: diagnóstico de token em falta — apenas booleanos e estado HTTP; nunca prefixos, comprimentos nem corpo do Vault. */
+export function buildMissingTokenDiag(i: {
+  srkPresent: boolean; supabaseUrlPresent: boolean; envTokenPresent: boolean;
+  rpcHttpStatus: number; fetchFailed: boolean;
+}) {
+  return {
+    srk_present: i.srkPresent === true,
+    supabase_url_present: i.supabaseUrlPresent === true,
+    env_token_present: i.envTokenPresent === true,
+    rpc_http_status: Number.isInteger(i.rpcHttpStatus) ? i.rpcHttpStatus : 0,
+    vault_fetch_failed: i.fetchFailed === true,
+  };
+}
