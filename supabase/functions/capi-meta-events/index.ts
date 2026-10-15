@@ -8,6 +8,7 @@
 // verify_jwt = false (config.toml): invocada internamente sem JWT do gateway.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { classifyMetaResponse, interpretAlertRecorded, interpretDispatchAllowed, interpretGuard } from "../_shared/capi-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,6 +38,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     { auth: { persistSession: false } },
   );
+
+  // #320: interruptor persistente — trava também invocação directa.
+  {
+    const { data, error } = await supabase.rpc("capi_dispatch_allowed");
+    if (!interpretDispatchAllowed(data, error)) {
+      return json({ suspended: true, reason: error ? "dispatch_check_failed" : "capi_dispatch_control" }, 423);
+    }
+  }
 
   // Token CAPI: ler do Vault (Deno.env não acede a secrets META_* neste projeto).
   // supabase.rpc() retorna [] silenciosamente neste projeto (PostgREST + sb_secret_* key)
@@ -107,25 +116,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: "invalid_json" }, 400);
   }
 
-  const {
-    pixel_id,
-    event_name,
-    event_id,
-    event_source_url,
-    user_data,
-    custom_data,
-    event_time,
-  } = body ?? {};
+  const { pixel_id, event_name, event_id, event_source_url, user_data, custom_data, lead_id } = body ?? {};
 
   if (!pixel_id || !event_name) {
     return json({ error: "missing_params", detail: "pixel_id e event_name são obrigatórios" }, 400);
   }
 
+  // #320: guarda servidor antes do POST. kind/data/evento do cliente são ignorados;
+  // sem lead válido (identidade/associação) → bloqueado. event_time vem do servidor.
+  const g = await supabase.rpc("capi_guard_lead_dispatch", {
+    p_lead_id: typeof lead_id === "string" && /^[0-9a-f-]{36}$/i.test(lead_id) ? lead_id : null,
+    p_event_name: String(event_name),
+  });
+  const guard = interpretGuard(g.data, g.error);
+  if (!guard.allowed) return json({ blocked: true, reason: guard.reason }, 403);
+  const event_time = guard.event_time!;
+
   const metaBody = {
     data: [
       {
         event_name,
-        event_time: typeof event_time === "number" ? event_time : Math.floor(Date.now() / 1000),
+        event_time,
         event_id: event_id ?? undefined,
         event_source_url: event_source_url ?? undefined,
         action_source: "website",
@@ -155,7 +166,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
       meta_response: metaResponse,
     }));
 
-    return json({ meta_status: r.status, meta_response: metaResponse }, r.ok ? 200 : 502);
+    const outcome = classifyMetaResponse(r.status, metaResponse, typeof text === "string" ? text.slice(0, 200) : "");
+    if (outcome.kind === "meta_access") {
+      const a = await supabase.rpc("capi_record_meta_error", {
+        p_lead_id: lead_id, p_code: 100, p_subcode: 33, p_detail: outcome.detail, p_source: "capi-meta-events",
+      });
+      const recorded = interpretAlertRecorded(a.data, a.error);
+      if (!recorded) console.error("[capi-meta-events] alerta 100/33 NÃO registado", a.error?.message ?? "resposta inesperada");
+      return json({ meta_status: r.status, terminal: true, kind: "meta_access_100_33", alert_recorded: recorded }, recorded ? 502 : 500);
+    }
+    return json({ meta_status: r.status, meta_response: metaResponse, outcome: outcome.kind }, r.ok ? 200 : 502);
   } catch (e) {
     console.error("[capi-meta-events] fetch threw", String(e));
     return json({ error: "capi_unreachable", detail: String(e) }, 502);
