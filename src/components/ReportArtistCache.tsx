@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Music, FileText, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 import { useRealCacheCalculation } from "@/hooks/useRealCacheCalculation";
 import { enrichCacheConfigs } from "@/lib/real-cache-calc";
@@ -27,6 +28,7 @@ type EventRow = ReportEvent & { city_id: string | null; venue_id: string | null 
  */
 export default function ReportArtistCache() {
   const [selected, setSelected] = useState<string>("");
+  const [tierMode, setTierMode] = useState<TierBasisMode>("both");
   const [blockData, setBlockData] = useState<Record<string, ArtistCacheReport[]>>({});
   const { logoUrl, displayName } = useCompanyBranding();
 

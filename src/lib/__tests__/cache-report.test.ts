@@ -90,3 +90,19 @@ describe("relatório — escalões com receita máxima da sala", () => {
   });
   it("sem escalões não acrescenta nada", () => expect(tierReferenceRows({ cache_type: "variable", tiers: [] }, null, 40)).toEqual([]));
 });
+
+describe("relatório — escalões por bilhetes / bilheteira / ambos", () => {
+  const cfg = { cache_type: "variable", cache_revenue_basis: "net", tiers: [{ occupancy_threshold: 70, percentage: 40 }] };
+  const cap = { gross: 10600, net: 10000, seats: 1000, sold: 694 };
+  const n = (r: string[][]) => r.map((x) => x.map((v) => v.replace(/\s/g, " ")));
+  it("bilhetes: lotação e limiar em bilhetes, sem receita", () => {
+    const rows = n(tierReferenceRows(cfg, cap, 40, "tickets", 6500));
+    expect(rows[0][1]).toBe("1.000");
+    expect(rows.at(-1)).toEqual(["  ≥ 70% de ocupação (≥ 700 bilhetes)", "40% · aplicado"]);
+    expect(rows.some((r) => r[0].includes("receita"))).toBe(false);
+  });
+  it("ambos: mostra os dois e marca o atingido pela receita", () => {
+    const rows = n(tierReferenceRows(cfg, cap, 40, "both", 7200));
+    expect(rows.at(-1)).toEqual(["  ≥ 70% de ocupação (≥ 700 bilhetes · receita ≥ 7.000,00 €)", "40% · aplicado · atingido pela receita"]);
+  });
+});
