@@ -28,6 +28,7 @@ import { ClubTermsSection } from "./ClubTermsSection";
 import { MissionsSection } from "./MissionsSection";
 import { CrewsSection } from "./CrewsSection";
 import { MemberPointsDialog } from "./MemberPointsDialog";
+import { EditionVideos } from "./EditionVideos";
 import { NEWGANG_CONTENT_GROUPS, cleanNewgangContent } from "@/lib/newgang-content";
 
 const SITE_DOMAIN = "newgangfestival.pt";
