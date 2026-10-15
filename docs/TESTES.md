@@ -66,6 +66,8 @@ _(sem testes em fila)_
 - [ ] **Ecrã: Nova Transação com evento pré-preenchido e diálogo de excepção** (#264). Só depois de o Coala estar configurado (já está, 11/10). Nova Transação no Coala, conta 10.x marcada, data ≥ 29/08/2026 → evento Coala 2027; trocar o evento abre pedido de excepção. Cancelar sem gravar.
 
 ### 7 · Fecho e Sócios · 8 · Tráfego Pago · 9 · CRM, Portal e Leads
+- [ ] **CAPI suspenso não envia nada (#320, D-ERP281).** Só leitura, sem ecrã: `public.capi_dispatch_control.suspended = true`; os 4 crons (33, 34, 44, 45) ausentes de `cron.job`; nenhum lead pendente (`capi_status` NULL/`retry`/`processing` = 0); hashes de `sent` iguais à baseline `b1738fd8ecdd96d7c54466ad7c81e112` (29.550 linhas). Prova do executor a 15/10 21:59 UTC em `claude-outputs/2026-10-15-2200-issue320-depois.md`; falta verificação independente do Pedro.
+- [ ] **Invocação directa das 4 funções de envio devolve 423** (#320). `process-leads-capi`, `process-lead-capture`, `process-redirect-log`, `capi-meta-events` → `{"suspended":true}` sem tocar na fila. Executor viu 423 nas 4 a 15/10.
 _(sem testes em fila)_
 
 ### 10 · Entrada de Dados
