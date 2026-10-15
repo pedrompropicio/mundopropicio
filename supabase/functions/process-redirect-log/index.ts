@@ -6,6 +6,7 @@
 // verify_jwt = false (config.toml): cron-only.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { interpretDispatchAllowed } from "../_shared/capi-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,6 +44,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  // #320: interruptor persistente verificado ANTES de consumir o batch.
+  // Lead/InitiateCheckout não têm guarda de tipo/prazo/consentimento por lead:
+  // capi-meta-events bloqueia-os sempre (wrong_event/no_identity) até P2/P3.
+  {
+    const { data, error } = await supabase.rpc("capi_dispatch_allowed");
+    if (!interpretDispatchAllowed(data, error)) {
+      return json({ suspended: true, reason: error ? "dispatch_check_failed" : "capi_dispatch_control" }, 423);
+    }
+  }
 
   const { data, error } = await supabase.rpc("process_redirect_logs_batch", {
     p_batch_size: BATCH_LIMIT,
