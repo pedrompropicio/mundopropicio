@@ -11814,6 +11814,9 @@ export type Database = {
           client_event_id: string | null
           company_id: string | null
           consent_email: boolean
+          consent_event_id: number | null
+          consent_portal: string | null
+          consent_subject_id: string | null
           consent_whatsapp: boolean
           created_at: string
           email: string | null
@@ -11842,6 +11845,9 @@ export type Database = {
           client_event_id?: string | null
           company_id?: string | null
           consent_email?: boolean
+          consent_event_id?: number | null
+          consent_portal?: string | null
+          consent_subject_id?: string | null
           consent_whatsapp?: boolean
           created_at?: string
           email?: string | null
@@ -11870,6 +11876,9 @@ export type Database = {
           client_event_id?: string | null
           company_id?: string | null
           consent_email?: boolean
+          consent_event_id?: number | null
+          consent_portal?: string | null
+          consent_subject_id?: string | null
           consent_whatsapp?: boolean
           created_at?: string
           email?: string | null
@@ -11904,6 +11913,9 @@ export type Database = {
           capi_status: string | null
           capi_status_before: string | null
           company_id: string
+          consent_event_id: number | null
+          consent_portal: string | null
+          consent_subject_id: string | null
           contact_id: string | null
           created_at: string
           event_id: string | null
@@ -11931,6 +11943,9 @@ export type Database = {
           capi_status?: string | null
           capi_status_before?: string | null
           company_id: string
+          consent_event_id?: number | null
+          consent_portal?: string | null
+          consent_subject_id?: string | null
           contact_id?: string | null
           created_at?: string
           event_id?: string | null
@@ -11958,6 +11973,9 @@ export type Database = {
           capi_status?: string | null
           capi_status_before?: string | null
           company_id?: string
+          consent_event_id?: number | null
+          consent_portal?: string | null
+          consent_subject_id?: string | null
           contact_id?: string | null
           created_at?: string
           event_id?: string | null
@@ -12033,6 +12051,116 @@ export type Database = {
           ip_address?: string | null
           success?: boolean
           verified?: boolean
+        }
+        Relationships: []
+      }
+      marketing_consent_events: {
+        Row: {
+          banner_version: string
+          client_decided_at: string | null
+          client_seq: number
+          company_id: string
+          id: number
+          idempotency_key: string
+          origin: string | null
+          path: string | null
+          policy_version: string
+          portal: string
+          purpose: string
+          server_received_at: string
+          state: string
+          subject_id: string
+        }
+        Insert: {
+          banner_version: string
+          client_decided_at?: string | null
+          client_seq: number
+          company_id: string
+          id?: never
+          idempotency_key: string
+          origin?: string | null
+          path?: string | null
+          policy_version: string
+          portal: string
+          purpose: string
+          server_received_at?: string
+          state: string
+          subject_id: string
+        }
+        Update: {
+          banner_version?: string
+          client_decided_at?: string | null
+          client_seq?: number
+          company_id?: string
+          id?: never
+          idempotency_key?: string
+          origin?: string | null
+          path?: string | null
+          policy_version?: string
+          portal?: string
+          purpose?: string
+          server_received_at?: string
+          state?: string
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_consent_events_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_consent_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_consent_policies: {
+        Row: {
+          created_at: string
+          policy_version: string
+          portal: string
+          ttl_days: number
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          created_at?: string
+          policy_version: string
+          portal: string
+          ttl_days: number
+          valid_from: string
+          valid_to?: string | null
+        }
+        Update: {
+          created_at?: string
+          policy_version?: string
+          portal?: string
+          ttl_days?: number
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Relationships: []
+      }
+      marketing_consent_subjects: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          portal: string
+          token_hash: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          portal: string
+          token_hash: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          portal?: string
+          token_hash?: string
         }
         Relationships: []
       }
@@ -14474,6 +14602,10 @@ export type Database = {
       redirect_log: {
         Row: {
           client_event_id: string | null
+          consent_company_id: string | null
+          consent_event_id: number | null
+          consent_portal: string | null
+          consent_subject_id: string | null
           created_at: string
           destination_url: string | null
           event_slug: string
@@ -14495,6 +14627,10 @@ export type Database = {
         }
         Insert: {
           client_event_id?: string | null
+          consent_company_id?: string | null
+          consent_event_id?: number | null
+          consent_portal?: string | null
+          consent_subject_id?: string | null
           created_at?: string
           destination_url?: string | null
           event_slug: string
@@ -14516,6 +14652,10 @@ export type Database = {
         }
         Update: {
           client_event_id?: string | null
+          consent_company_id?: string | null
+          consent_event_id?: number | null
+          consent_portal?: string | null
+          consent_subject_id?: string | null
           created_at?: string
           destination_url?: string | null
           event_slug?: string
@@ -22508,6 +22648,52 @@ export type Database = {
           previous_formalidade: Database["public"]["Enums"]["bp_formalidade"]
         }[]
       }
+      marketing_consent_bind: {
+        Args: { p_company: string; p_portal: string; p_token: string }
+        Returns: Json
+      }
+      marketing_consent_binding_valid: {
+        Args: {
+          p_captured_at: string
+          p_company: string
+          p_event: number
+          p_portal: string
+          p_subject: string
+        }
+        Returns: boolean
+      }
+      marketing_consent_effective: {
+        Args: { p_at: string; p_subject: string }
+        Returns: {
+          client_seq: number
+          event_id: number
+          expires_at: string
+          state: string
+          valid_grant: boolean
+        }[]
+      }
+      marketing_consent_record: {
+        Args: {
+          p_banner: string
+          p_client_at: string
+          p_company: string
+          p_idem: string
+          p_origin: string
+          p_path: string
+          p_policy: string
+          p_portal: string
+          p_purpose: string
+          p_seq: number
+          p_state: string
+          p_token: string
+        }
+        Returns: Json
+      }
+      marketing_consent_scope_ok: {
+        Args: { p_company: string; p_portal: string }
+        Returns: boolean
+      }
+      marketing_strip_meta_params: { Args: { p_url: string }; Returns: string }
       merge_forecasts_into_active_snapshot: {
         Args: { _event_id: string; _forecast_ids: string[] }
         Returns: {

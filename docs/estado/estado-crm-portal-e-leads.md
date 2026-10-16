@@ -16,7 +16,7 @@ A 24/09/2026 foi resolvido o incidente que punha o ecrã "Algo correu mal" a 100
 
 **CAPI P1 no ERP (#320, D-ERP281)** — aplicado em Live e validado independentemente; fecho documental autorizado pelo Pedro a 15/10/2026, 23:49 UTC. CI confirmada independentemente pelo Claude e ChatGPT via conector GitHub: https://github.com/pedrompropicio/mundopropicio/actions/runs/38824514063, job `quality` `116728694956`, conclusion `success`, SHA `7b151756ad8060019de571b9295a6a978e0fbb1e` (confirmado no checkout do log). Prova consolidada: `docs/testes/issue320/07-fecho-documental-ci.md`. Diagnóstico sensível removido confirmado por leitura; 11 corpos SQL repo × Live iguais, grants anon/authenticated false e service_role true; sent_n 29550 e hash `b1738fd8ecdd96d7c54466ad7c81e112` preservados. Isto fecha apenas P1, não o projeto CAPI.
 
-**CAPI continua suspenso:** `capi_dispatch_control.suspended=true`, crons 33/34/44/45 ausentes, ticks SQL desactivados, sem retoma automática. A ingestão `lead_capture` → contacts/leads foi retomada pela #321 (fora da CAPI, incluindo o Clube); `redirect_log` continua suspenso. Consentimento por interação P2/P3 e separação da ingestão ficaram fora do âmbito. Retoma depende de autorização própria; abrir o interruptor não basta enquanto `capi_consent_proof()` devolver false. Detalhe em `docs/features/capi-p1-erp.md`.
+**CAPI continua suspenso:** `capi_dispatch_control.suspended=true`, crons 33/34/44/45 ausentes, ticks SQL desactivados, sem retoma automática. A ingestão `lead_capture` → contacts/leads foi retomada pela #321 (fora da CAPI, incluindo o Clube); `redirect_log` continua suspenso. #320 e #321 estão fechadas. **#322 (em curso):** etapa ERP aplicada em Live a 16/10/2026 01:20 UTC — ledger de consentimento por interação, `portal-track kind=consent`, vínculo em lead_capture/redirect_log/leads e `capi_consent_proof` com validação dupla (ver `docs/features/consentimento-marketing-322.md`). Portais MP/Coala/Newgang ainda NÃO integrados, por isso nenhum registo novo tem prova. Retoma CAPI depende de autorização própria. Detalhe em `docs/features/capi-p1-erp.md`.
 
 **Portal newgangfestival.pt e Clube Newgang (#306, #308, envios à lista)** — passaram para o chat `newgang-portal` (estado em `docs/estado/estado-newgang-portal.md`).
 
@@ -27,7 +27,7 @@ A 24/09/2026 foi resolvido o incidente que punha o ecrã "Algo correu mal" a 100
 2. **Audience — Google** — evento derivado `ng27_clube_inscricao` no GA4 e importação no Google Ads.
 
 ## Bloqueios
-- **CAPI após P1** — suspenso; P2/P3 por implementar e retoma dependente de autorização própria. #320 validada; Pedro fecha a Issue pelo conector após a entrega.
+- **CAPI após P1** — suspenso. #322 ERP feito (aguarda verificação); faltam os 3 portais e guardas específicas Lead/InitiateCheckout antes de qualquer retoma.
 - **#62** (frente Google) — os leads do CRM não alimentam o Google Ads.
 
 ## Factos que não se reinvestigam
@@ -40,7 +40,7 @@ A 24/09/2026 foi resolvido o incidente que punha o ecrã "Algo correu mal" a 100
 - **Um Publish pode não assentar:** a 24/09 o primeiro Publish do Coala serviu HTML novo com os ficheiros JS a devolverem **503** (CSS a 200). O segundo resolveu. Confirmar sempre um Publish por dois sinais — o comportamento em produção e o registo — nunca por ter carregado no botão.
 - A `geo-lookup` tem allowlist de Origin. Até 24/09 só aceitava `mundopropicio.com`: o Coala levou 403 em silêncio e perdeu geolocalização em 920 captações de setembro, que não se recuperam.
 - O `SITE_URL` do Coala Portal ainda aponta para `coalafestival.lovable.app`: `canonical` e `og:url` errados (#251).
-- Atribuição cross-domain portal→Ticketline depende do cookie `_fbc` criado **antes** de atrasos de GTM/consent.
+- Atribuição cross-domain portal→bilheteira: `_fbc`/`_fbp`/`fbclid` só podem ser criados ou guardados **depois** de consentimento marketing confirmado pelo servidor (#322). A regra antiga ("criar `_fbc` antes do consentimento") fica anulada.
 - **Magic link cross-project não funciona** — o Lovable Auth sobrescreve `redirect_to` para o Published URL do projeto dono.
 - DNS de `mundopropicio.com` na Cloudflare (plano free); nameservers `bayan`/`ollie.ns.cloudflare.com`.
 

@@ -21,7 +21,7 @@ Provas versionadas: `docs/testes/issue320/` (01 crons antes + reversão, 02 base
 Fora de âmbito: `song-link-event` (envia Meta, não coberto pela #320).
 
 ## Efeito colateral
-Com os ticks/edge suspensos, a ingestão lead_capture/redirect_log → contacts/leads também está parada (dados guardados nas tabelas de origem). Não separado nesta tarefa.
+Histórico: na #320 a ingestão ficou parada. Atualização: a ingestão lead_capture → contacts/leads foi retomada pela #321 (fora da CAPI); redirect_log continua sem ingestão. `capi_consent_proof` foi substituída pela #322 (prova por interação; ver `consentimento-marketing-322.md`).
 
 ## Reversão (manual, sem retoma)
 Ver `docs/testes/issue320/01-crons-antes-e-reversao.md`. Reabrir o interruptor não envia nada enquanto `capi_consent_proof` for `false`; os ticks SQL exigem migração nova.
@@ -35,4 +35,4 @@ Provas: `docs/testes/issue320/06-tsgo.md`, `06-vitest.md`, `06-build.md`. Os `.t
 
 CI: tsgo, vitest, canário runtime verify_jwt e build verdes; 151 ficheiros aprovados + 1 skipped; 1177 testes aprovados + 1 skipped + 11 todo. Canário `crm-meta-create-purchase-audience` → `UNAUTHORIZED_LEGACY_JWT Invalid JWT [401]`: recusa esperada, não falha de qualidade. Confirmação fornecida pelo Pedro, verificada independentemente pelo Claude e ChatGPT; não se repetiram testes nem se investigou a CI nesta sessão.
 
-Os relatos anteriores de CI pendente e de `.txt` versionados ficam anulados pelo resultado consolidado em `docs/testes/issue320/07-fecho-documental-ci.md`. Provas válidas são os Markdown; os `.txt` ignorados não contam. Este fecho não alterou código, migrações, SQL, dados, fila, crons ou configurações e não fez deploy, Publish, pedidos à Meta, envios ou retoma. Publish automático permanece DESLIGADO. P2/P3 fora do âmbito; a ingestão continua suspensa e a retoma exige autorização própria.
+Os relatos anteriores de CI pendente e de `.txt` versionados ficam anulados pelo resultado consolidado em `docs/testes/issue320/07-fecho-documental-ci.md`. Provas válidas são os Markdown; os `.txt` ignorados não contam. Este fecho não alterou código, migrações, SQL, dados, fila, crons ou configurações e não fez deploy, Publish, pedidos à Meta, envios ou retoma. Publish automático permanece DESLIGADO. P2/P3 fora do âmbito da #320 (tratados na #322); a retoma exige autorização própria.
