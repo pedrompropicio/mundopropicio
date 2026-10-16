@@ -84,3 +84,28 @@ RESET ROLE;
 SELECT t.ok('330','Goat protected remains',(SELECT level_name='Goat' AND protected FROM club_member_level(t.m('lv1500@example.invalid'))));
 SELECT t.session('race@example.invalid');
 CREATE TABLE t.ledger330 AS SELECT id,points,event_id,ref_id FROM club_points;
+
+-- Guards that can fail: no guessed truths, no constant escalation, no completion reset.
+DO $$ DECLARE v uuid:=t.m('race@example.invalid'); BEGIN
+ BEGIN PERFORM club_award_fixed(v,'profile_complete',v::text,500); RAISE EXCEPTION 'accepted'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'profile_award_invalid' THEN RAISE; END IF; END;
+ PERFORM t.ok('330','award_fixed cannot bypass500',true);
+ BEGIN UPDATE club_member_profiles SET completed_at=NULL,award_event_id=NULL,award_id=NULL WHERE member_id=t.m('profile@example.invalid'); RAISE EXCEPTION 'accepted'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'profile_completion_immutable' THEN RAISE; END IF; END;
+ PERFORM t.ok('330','completion tombstone immutable',true);
+ BEGIN UPDATE club_point_rules SET points=500 WHERE rule_key='profile_complete'; RAISE EXCEPTION 'accepted'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'profile_rule_protected' THEN RAISE; END IF; END;
+ PERFORM t.ok('330','CRM constant protected500',true);
+ BEGIN INSERT INTO club_member_profiles(member_id,site_id,company_id) VALUES(t.m('race@example.invalid'),'00000000-0000-4000-8000-0000000000b2','00000000-0000-4000-8000-0000000000a1'); RAISE EXCEPTION 'accepted'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'profile_scope' THEN RAISE; END IF; END;
+ PERFORM t.ok('330','row member/site mismatch blocked',true);
+END $$;
+SELECT t.session('purpose@example.invalid');
+UPDATE club_member_sessions SET purpose='confirm' WHERE token_hash=md5('purpose@example.invalid');
+SELECT t.reject(md5('purpose@example.invalid'),t.payload(),'no_session');
+SELECT t.session('expired@example.invalid');
+UPDATE club_member_sessions SET expires_at=now()-interval '1 minute' WHERE token_hash=md5('expired@example.invalid');
+SELECT t.reject(md5('expired@example.invalid'),t.payload(),'no_session');
+SET ROLE anon;
+DO $$ BEGIN BEGIN PERFORM count(*) FROM club_member_profiles; RAISE EXCEPTION 'accepted'; EXCEPTION WHEN insufficient_privilege THEN NULL; END; PERFORM t.ok('330','anon no private profile read',true); END $$;
+RESET ROLE;
+-- Negative points + tier floors unchanged when profile credit is legitimate.
+SELECT t.session('negative330@example.invalid');
+SELECT t.seed(t.m('negative330@example.invalid'),-250);
+SELECT t.ok('330','negative points preserved add50',(t.call(md5('negative330@example.invalid'),t.payload())->>'awarded')::int=50 AND t.pts(t.m('negative330@example.invalid'))=-100);
