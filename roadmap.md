@@ -1,10 +1,11 @@
 # Roadmap — épica #146 (e)
 
 ## #327 — CRM e prévia de ativação (16/10/2026)
+- [x] Ativação expressamente autorizada às17:43 Fortaleza: CUTOVER exato uma vez; corrigir uma linha de prémios Lenda→Goat; verificar ledger/API e registar prova específica.
 - [x] Aplicar compatibilidade em todos os editores Clube; bloquear estados não verificados e valores ignorados pelo motor.
 - [x] Validar integração local antes/depois de configuração ativa, refetch, erros, troca de site e ranking canónico.
 - [x] Registar prévia Live só leitura, revisão CUTOVER/ROLLBACK, provas e passos futuros; sem ativação/Publish/deploy.
-- [ ] Confirmar CI do commit final e verificação pós-Publish ERP — aguarda commit automático e autorização de Pedro.
+- [x] Verificação pós-Publish ERP confirmada autenticada pelo Pedro às17:42 Fortaleza; hash/version.json indisponível não bloqueia a autorização expressa de ativação. CI documental desta entrega não confirmado.
 
 ## Coala — estado público do convite (D-ERP276)
 - [x] Criar e aplicar estado_convite só leitura, com grants anon/authenticated e PUBLIC revogado.
