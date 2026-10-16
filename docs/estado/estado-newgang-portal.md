@@ -23,6 +23,13 @@ Atualizado: 2026-10-16 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-E
 - Pedro determinou execução Lovable no próprio chat do Portal. Regra registada no QUADRO; consolidação em CHATS/DECISIONS/PROC aguarda reserva #323. Issue da demanda recusada por revisão automática.
 - Prova: docs/testes/newgang-niveis/01-wallet-crew-goat.md (Etapa 3). SQL PENDENTE já aplicado por ChatGPT: não reaplicar.
 
+## Plano de lançamento do Clube — segunda-feira 19/10/2026
+- Plano e documentação aprovados pelo Pedro; retomar na próxima sessão, sem implementação agora. Issue principal #324; #325 convite/Crew/instruções móveis; #326 bateria com membros fictícios e isolamento/egress bloqueado; #327 pontuações, conquistas e automação gradual.
+- Prioridade: missões simples verificáveis, instruções por toque e histórico/progresso. Redes sociais, compras indicadas e desafios entram só após checagem real e bateria validada. Pontuações/novos critérios ainda provisórios; não aplicar nem bloquear níveis com divulgação indisponível.
+- Próximo passo: fechar valores/regras de transição e isolamento dos testes; depois Pedro designa executor e autoriza âmbito concreto. Só há Live; nenhum utilizador fictício criado, nenhum ponto alterado, nenhum envio/OAuth/Publish realizado por este plano.
+- Verificação visual do Publish dos níveis: Pedro informou “Verificação ok” nesta sessão. GET direto do ambiente continuou 403; API Gang/Crew/Goat já confirmada independentemente. Visual Wallet no dispositivo não inferido desta confirmação.
+- Caso de indicação analisado por leitura: Crew com2 confirmados, bónus coletivo ainda não devido; inscrição do convidado sem vínculo de indicação. Solução geral em #325; eventual reparação individual depende de confirmação e SQL próprios. Dados pessoais não publicados nas Issues.
+
 ## A trabalhar agora
 Vídeos das edições por ficheiro (D-ERP277, 15/10): bucket, CRM e contrato `history` prontos; edge function newgang-portal e CRM por publicar; o site tem de tocar `provider:"upload"` (<video src=url poster=poster_url||cover_url>).
 
