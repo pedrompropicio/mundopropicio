@@ -5,7 +5,7 @@ import { CrewsSection } from "@/pages/crm-admin/sites/CrewsSection";
 import { SimpleTable, ClubTab } from "@/pages/crm-admin/sites/NewgangSite";
 import { MemoryRouter } from "react-router-dom";
 
-const fake = vi.hoisted(() => ({ config: null as any, configError: false, pending: null as null | Promise<any>, writes: [] as any[], calls: [] as any[] }));
+const fake = vi.hoisted(() => ({ config: null as any, configError: false, pending: null as null | Promise<any>, writes: [] as any[], profileRule: false, calls: [] as any[] }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   from: (table: string) => {
     const filters: Record<string, unknown> = {}; let write: any;
@@ -20,7 +20,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
           return Promise.resolve({ data: fake.config?.site_id === filters.site_id ? fake.config : null, error: fake.configError ? new Error("failed") : null }).then(resolve);
         }
         const row = table === "club_levels" ? { id: "level", name: "Goat", min_points: 1500, benefit: "benefit" }
-          : { id: "rule", rule_key: "crew_complete", label: "Crew", points: 200, min_members: 4, max_members: 6, active: true };
+          : { id: "rule", rule_key: fake.profileRule ? "profile_complete" : "crew_complete", label: fake.profileRule ? "Perfil" : "Crew", points: fake.profileRule ? 50 : 200, min_members: 4, max_members: 6, active: true };
         return Promise.resolve({ data: table === "club_point_rules" ? (filters.rule_key ? row : [row]) : table === "club_levels" ? [row] : [], error: null }).then(resolve);
       },
     }; return builder;
@@ -36,7 +36,7 @@ function mount(node: React.ReactNode) {
   const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}><MemoryRouter>{children}</MemoryRouter></QueryClientProvider>;
   return { ...render(node, { wrapper }), client };
 }
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); fake.config = null; fake.configError = false; fake.pending = null; fake.writes = []; fake.calls = []; });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); fake.config = null; fake.configError = false; fake.pending = null; fake.writes = []; fake.calls = []; fake.profileRule = false; });
 describe("#327 integration without network", () => {
   it("draft/sem ativa guarda 200; após ativação mostra 100 e grava só limites/ativa", async () => {
     const { client } = mount(<CrewsSection siteId="site-a" companyId="company" eventId="event-a" />);
@@ -92,5 +92,18 @@ describe("#327 integration without network", () => {
     mount(<ClubTab site={{ id: "site-a", event_id: "event-a", company_id: "company" } as any} />);
     await waitFor(() => expect(screen.getByText(/1500 pts · Goat/)).toBeInTheDocument());
     expect(fake.calls).toContainEqual({ fn: "club_ranking", args: { p_site: "site-a", p_limit: 20 } });
+  });
+});
+describe("#330 real CRM profile rule compatibility", () => {
+  it.each([null, config])("50 permanent only label editable before/after active config %s", async (cfg) => {
+    fake.profileRule = true; fake.config = cfg;
+    mount(<SimpleTable table="club_point_rules" siteId="site-a" companyId="company" eventId="event-a" order="rule_key" cols={[{k:"rule_key",l:"Chave"},{k:"points",l:"Pontos",num:true},{k:"label",l:"Rótulo"}]} />);
+    await waitFor(() => expect(screen.getByLabelText("Pontos")).toHaveValue(50));
+    expect(screen.getByLabelText("Pontos")).toBeDisabled(); expect(screen.getByLabelText("Chave")).toBeDisabled();
+    fireEvent.blur(screen.getByLabelText("Pontos"), {target:{value:"500"}});
+    await act(async () => { await Promise.resolve(); }); expect(fake.writes).toEqual([]);
+    expect(screen.getByRole("button",{name:"Remover"})).toBeDisabled();
+    fireEvent.blur(screen.getByLabelText("Rótulo"), {target:{value:"Meu perfil"}});
+    await waitFor(() => expect(fake.writes).toHaveLength(1)); expect(fake.writes[0].write).toEqual({label:"Meu perfil"});
   });
 });
