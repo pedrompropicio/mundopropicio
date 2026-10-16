@@ -1,4 +1,4 @@
-runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T17:57:08Z
+runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T17:57:21Z
 listen_addresses=
 aplicar 0119_0119_newgang_lineup_reveals_security.sql sha256=4e8d1c1410a377bb
 psql:/dev-server/drizzle/migrations/0119_0119_newgang_lineup_reveals_security.sql:2: NOTICE:  policy "event_lineups_authenticated_all" for relation "public.event_lineups" does not exist, skipping
@@ -10,4 +10,32 @@ aplicar 0143_derp274_club_crews.sql sha256=f774cf76485977fc
 aplicar 0144_derp275_club_wallet_passes.sql sha256=c5aeedb913c1fa55
 aplicar 0176_issue328_club_identity_crew_pending.sql sha256=f365deca51c8ef43
 == A) baseline vs Live pós-0176 (sem patch)
-guard327 base: FALHA _club_points_void_row (30 funções)
+guard327 base: OK (30 funções)
+acl baseline: club_award={postgres=X/postgres,service_role=X/postgres} club_award_fixed={postgres=X/postgres} club_confirm_member={postgres=X/postgres,service_role=X/postgres} club_ranking={postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} club_wallet_due={postgres=X/postgres,service_role=X/postgres}
+psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: net.http_post indisponível (3F000)
+psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: dblink não instalável (0A000)
+rollback gerado: 75debecc8ef3e149
+== B) legado (funções Live)
+                      ?column?                       
+-----------------------------------------------------
+ LEGADO_OK 54/12597/0d0a8f4e0fae59c5cb1681a1075da6b8
+(1 row)
+
+== C) carregar pendente sha256=bc7b0f8e0a5f31f5
+guard327 patch: OK (38 funções)
+acl _club_award_core: {postgres=X/postgres,service_role=X/postgres}
+acl club_award_purchase: {postgres=X/postgres,service_role=X/postgres}
+acl club_ranking: {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+psql:/dev-server/supabase/manual/20261016_issue327.PENDENTE.sql:17: NOTICE:  column "event_id" of relation "club_points" already exists, skipping
+psql:/dev-server/supabase/manual/20261016_issue327.PENDENTE.sql:39: NOTICE:  relation "club_points_config" already exists, skipping
+psql:/dev-server/supabase/manual/20261016_issue327.PENDENTE.sql:40: NOTICE:  relation "club_points_config_one_active" already exists, skipping
+psql:/dev-server/supabase/manual/20261016_issue327.PENDENTE.sql:52: NOTICE:  relation "club_level_floors" already exists, skipping
+psql:/dev-server/supabase/manual/20261016_issue327.PENDENTE.sql:64: NOTICE:  relation "club_points_cutover_log" already exists, skipping
+psql:/dev-server/supabase/manual/20261016_issue327.PENDENTE.sql:76: NOTICE:  relation "club_referral_events" already exists, skipping
+psql:/dev-server/supabase/manual/20261016_issue327.PENDENTE.sql:94: NOTICE:  relation "club_purchase_evidence" already exists, skipping
+pendente idempotente: 2.ª aplicação sem alterações
+== D) depois
+psql:/dev-server/scripts/club-sql-it/60_after327.sql:39: ERROR:  ASSERT FALHOU [cutover] club_points intacto no cutover (sem editar/apagar/recalcular) — <NULL>
+CONTEXT:  PL/pgSQL function t.ok(text,text,boolean,text) line 4 at RAISE
+SQL statement "SELECT t.ok('cutover','club_points intacto no cutover (sem editar/apagar/recalcular)', (SELECT count(*) FROM club_points WHERE event_id IS NULL) = (SELECT split_part(v,'/',1)::int FROM t.snap WHERE k='points'))"
+PL/pgSQL function inline_code_block line 8 at PERFORM

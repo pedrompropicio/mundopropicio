@@ -1,0 +1,110 @@
+{
+ "funcoes": {
+  "_club_active_cfg": {
+   "hash": "a2f9b7e894ab1c7d001c384ac57888e4",
+   "kind": "nova",
+   "live": null,
+   "verbatim": true
+  },
+  "_club_award_core": {
+   "hash": "3747e60ef7b173c6adf47127e109e555",
+   "kind": "nova",
+   "live": null,
+   "verbatim": true
+  },
+  "_club_points_void_row": "inalterada_igual_live",
+  "_club_rule_used": {
+   "hash": "650d604621b0edbb1618386564b22578",
+   "kind": "nova",
+   "live": null,
+   "verbatim": true
+  },
+  "club_award": {
+   "hash": "d6b7dc5b1a5ed66a2d1a3f1b11982784",
+   "kind": "alterada",
+   "live": "e149ac23e2cef6b4c08a4413b8e6767a",
+   "verbatim": true
+  },
+  "club_award_fixed": {
+   "hash": "fffa0236f0c3a6fefefcf350ca332fab",
+   "kind": "alterada",
+   "live": "ea8c1917a79095318c553c29e1efbdb0",
+   "verbatim": true
+  },
+  "club_award_purchase": {
+   "hash": "f0a6060d56150f136e2077db5ca43a0f",
+   "kind": "nova",
+   "live": null,
+   "verbatim": true
+  },
+  "club_claim_attendance": "inalterada_igual_live",
+  "club_confirm_member": {
+   "hash": "39258e34646dcde8c2a87ec1e8c018c9",
+   "kind": "alterada",
+   "live": "df3a12edd179829ba9233d71fc5816b7",
+   "verbatim": true
+  },
+  "club_crew_cfg": "inalterada_igual_live",
+  "club_crew_check": "inalterada_igual_live",
+  "club_crew_create": "inalterada_igual_live",
+  "club_crew_gen_code": "inalterada_igual_live",
+  "club_crew_join": "inalterada_igual_live",
+  "club_crew_leave": "inalterada_igual_live",
+  "club_crew_name_ok": "inalterada_igual_live",
+  "club_crew_pending": "inalterada_igual_live",
+  "club_decide_attendance": "inalterada_igual_live",
+  "club_decide_guess": "inalterada_igual_live",
+  "club_from_lead_capture": "inalterada_igual_live",
+  "club_gen_referral_code": "inalterada_igual_live",
+  "club_member_level": {
+   "hash": "fe07912fa2f624c07e26f9a179083d8c",
+   "kind": "nova",
+   "live": null,
+   "verbatim": true
+  },
+  "club_mission_review": "inalterada_igual_live",
+  "club_mission_submit": "inalterada_igual_live",
+  "club_mission_sync_points": "inalterada_igual_live",
+  "club_points_active": "inalterada_igual_live",
+  "club_points_cutover": {
+   "hash": "cff2a1558c83e91cf55a445a6a05bd0e",
+   "kind": "nova",
+   "live": null,
+   "verbatim": true
+  },
+  "club_points_set": "inalterada_igual_live",
+  "club_points_void": "inalterada_igual_live",
+  "club_purchase_revoke": {
+   "hash": "1faeda15455c4095873a4afbe8776074",
+   "kind": "nova",
+   "live": null,
+   "verbatim": true
+  },
+  "club_ranking": {
+   "hash": "ef026eb2cf406a4ff587a201b25496b6",
+   "kind": "alterada",
+   "live": "6c375b888b2a53efac322b7acb5d5873",
+   "verbatim": true
+  },
+  "club_record_terms": "inalterada_igual_live",
+  "club_referral_progress": {
+   "hash": "ce199ad29dea8f8f435a0b6c74332db7",
+   "kind": "nova",
+   "live": null,
+   "verbatim": true
+  },
+  "club_terms_publish": "inalterada_igual_live",
+  "club_upsert_member": "inalterada_igual_live",
+  "club_wallet_due": {
+   "hash": "e954ff158b30530a217c45b16797a89e",
+   "kind": "alterada",
+   "live": "a47c758acbfe4b6751b65c9e16f9e8af",
+   "verbatim": true
+  },
+  "club_welcome_mark": "nao_carregada_explicito",
+  "club_welcome_reserve": "nao_carregada_explicito"
+ },
+ "mode": "patch",
+ "ok": true,
+ "problemas": []
+}

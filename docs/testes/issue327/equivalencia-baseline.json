@@ -1,6 +1,6 @@
 {
  "funcoes": {
-  "_club_points_void_row": "DIFERENTE local=47fa1f050c97d1b37d41f74949e3ee5f live=None",
+  "_club_points_void_row": "igual",
   "club_award": "igual",
   "club_award_fixed": "igual",
   "club_claim_attendance": "igual",
@@ -32,8 +32,6 @@
   "club_welcome_reserve": "nao_carregada_explicito"
  },
  "mode": "base",
- "ok": false,
- "problemas": [
-  "_club_points_void_row"
- ]
+ "ok": true,
+ "problemas": []
 }
