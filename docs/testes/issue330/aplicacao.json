@@ -1,11 +1,11 @@
 {
-  "status": "blocked_before_write",
-  "source_head": "9a68f26437718ca22ba84f82d71c3a0bf573217d",
+  "status": "blocked_seed_channel_before_write",
+  "source_head": "7eeacc143b83ed405962bc13c73deb154b0a7831",
   "sql_sha256": "b19b09e32f6db9edb7c1fa3def1b9ec07bf1916d1ac1f5cac10a79e06e441cfd",
   "api_patch_sha256": "a5f1e0c028f3fcd1adfb05e91090f6ef6cd6886ad84412b47944ca3e230d06fb",
   "proposed_tool_payload_sha256": "0c7d4091b893bc8d4978472a3f50bf32f545961238ba72964f1d2e63a95fcb39",
   "proposed_change": "remove only outer BEGIN line3 and COMMIT line419; tool manages transaction",
-  "absence_guard_checked_at": "2026-10-16T23:18:25.142416+00:00",
+  "absence_guard_checked_at": "2026-10-16T23:21:53.426660+00:00",
   "new_tables_found": 0,
   "new_functions_found": 0,
   "new_index_found": false,
@@ -13,5 +13,10 @@
   "api_patch_applied": false,
   "deploy_executed": false,
   "publish_executed": false,
-  "full_prewrite_snapshot": "pending"
+  "full_prewrite_snapshot": "not collected: no write attempted; collect immediately before any future authorized write",
+  "normalization_authorized": true,
+  "normalized_sql_sha256": "0c7d4091b893bc8d4978472a3f50bf32f545961238ba72964f1d2e63a95fcb39",
+  "normalized_artifact": "supabase/manual/20261016_issue330.NORMALIZADO.sql",
+  "profile_credits": 0,
+  "blocker": "Canonical migration tool forbids seed INSERT; original lines 10-259 seed 249 countries, not an existing-data backfill. Exact approved normalized payload cannot be submitted under tool rules."
 }

@@ -1,22 +1,29 @@
-# #330 — aplicação infra/API: bloqueio de formato antes de escrita
+# #330 — retoma autorizada; bloqueio de seed do canal
 
-16/10/2026 23:18 UTC. Autorização: aplicar infra e API compatível; missão desativada, sem Publish.
+16/10/2026. HEAD local e GitHub main: `7eeacc143b83ed405962bc13c73deb154b0a7831`, iguais antes de qualquer edição.
 
-HEAD local e GitHub main conferidos: 9a68f26437718ca22ba84f82d71c3a0bf573217d.
+## Normalização autorizada e verificada
 
-SQL aprovado SHA256: b19b09e32f6db9edb7c1fa3def1b9ec07bf1916d1ac1f5cac10a79e06e441cfd.
-Patch API SHA256: a5f1e0c028f3fcd1adfb05e91090f6ef6cd6886ad84412b47944ca3e230d06fb.
+Original preservado: `supabase/manual/20261016_issue330.PENDENTE.sql`.
+SHA256: `b19b09e32f6db9edb7c1fa3def1b9ec07bf1916d1ac1f5cac10a79e06e441cfd`.
 
-Backend Lovable Cloud Live confirmado pelo canal de projeto. SELECT de guardas às23:18:25UTC: três tabelas, seis funções e índice330 ausentes. Nenhuma instalação anterior encontrada.
+Artefacto normalizado: `supabase/manual/20261016_issue330.NORMALIZADO.sql`.
+SHA256: `0c7d4091b893bc8d4978472a3f50bf32f545961238ba72964f1d2e63a95fcb39`.
 
-## Bloqueio
+Diff: `normalizacao-transacao.diff`, exatamente remoção de BEGIN exterior (linha 3) e COMMIT exterior (linha 419). BEGIN/END internos e todos os demais bytes preservados. Equivalência semântica sob transação única gerida pelo migrador; não é byte-identidade.
 
-O schema do canal autorizado lov_database--migration exige SQL SEM instruções de controlo de transação, pois o próprio migrador gere a transação. O ficheiro aprovado contém BEGIN na linha3 e COMMIT na linha419. Não foi submetido em formato incompatível; não foram removidos silenciosamente sob autorização de hash literal.
+## Guarda de ausência
 
-Normalização proposta: retirar SOMENTE essas duas linhas, mantendo todos os outros bytes/DDL/seed/grants/regras intactos, com transação gerida pelo canal canónico. SHA256 desse payload: 0c7d4091b893bc8d4978472a3f50bf32f545961238ba72964f1d2e63a95fcb39. Cópia apenas temporária; artefacto aprovado original intacto.
+SELECT Live às 23:21:53.426660 UTC: três tabelas ausentes, seis funções ausentes, índice ausente e zero créditos profile_complete. Não repetir aplicação anterior: nenhuma instalação encontrada.
 
-Aguardar confirmação dessa exceção ao envio literal. Alternativa: não aplicar. Não usar run_sql para DDL nem canal alternativo.
+## Bloqueio distinto do formato
 
-## Estado
+O contrato atual de `lov_database--migration` declara: “Never submit data changes: seeding, fixing, or deleting rows is not a migration — route INSERT, UPDATE, and DELETE through the database query tools instead.” Só admite backfill de dados existentes associado a mudança aditiva.
 
-Nenhuma migration executada/gerada, nenhum DDL/DML Live, patch API não aplicado e nenhuma edge deployada. Missão permanece indisponível; sem perfis/créditos criados por esta tarefa. Snapshot completo imediatamente antes da escrita, verificação ACL/core e smoke estão por executar após desbloqueio. Sem testes de escrita Live, envios, Wallet, OAuth, crons ou alterações322/323. CI anterior quality success informado pelo Pedro; nenhum resultado novo alegado.
+O ficheiro original nas linhas 10–259 contém INSERT de 249 países novos. É seed, não backfill de dados existentes. Portanto nem o payload normalizado aprovado pode ser submetido neste canal. A transação gerida pelo migrador está confirmada; o bloqueio é a proibição explícita do seed. Não houve tentativa de contornar o canal, nem DDL por run_sql.
+
+Solução proposta para revisão: retirar também o INSERT do payload de schema, aplicar apenas DDL/grants/funções numa transação canónica e depois semear os 249 países pelo canal DML autorizado, antes de conferir ACL e fazer deploy API. Isso muda mais bytes e separa schema+seed em duas transações; excede a normalização de apenas duas linhas agora aprovada. Alternativa para manter o payload exato numa transação única: adequação do canal pela plataforma.
+
+## Estado e limitações
+
+Nenhuma migração executada/gerada; nenhuma alteração Live, patch API aplicado, deploy ou Publish. Missão permanece indisponível. Snapshot completo/core/ACL antes/depois e smoke não executados porque a escrita não avançou. Nenhum resultado de testes ou CI novo alegado. WhatsApp e fluxo parental abaixo13 continuam fora do âmbito. CRM manual Publish e portal condicionado devem aguardar infra/API comprovadas; ativação permanece separada.
