@@ -30,6 +30,13 @@ Atualizado: 2026-10-16 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-E
 - Verificação visual do Publish dos níveis: Pedro informou “Verificação ok” nesta sessão. GET direto do ambiente continuou 403; API Gang/Crew/Goat já confirmada independentemente. Visual Wallet no dispositivo não inferido desta confirmação.
 - Caso de indicação analisado por leitura: Crew com2 confirmados, bónus coletivo ainda não devido; inscrição do convidado sem vínculo de indicação. Solução geral em #325; eventual reparação individual depende de confirmação e SQL próprios. Dados pessoais não publicados nas Issues.
 
+## Primeira etapa implementada — 16/10, sessão 12:02–12:41 Fortaleza
+- #325/#326 parciais: convite Crew+ref do membro que partilha, preservação do par mesmo sem localStorage, ajuda móvel por toque, fixtures locais e bloqueio de rede reforçado. Commit portal `4df23d3238d3219a78455d40b0ddb5914217c15f`. Sem Publish, alteração Live ou novas pontuações/níveis.
+- Provas versionadas lidas no commit:108 testes em14 ficheiros (baseline86), prova negativa do guard perante tentativa de rede com erro capturado. Leitura independente de código/diff e9 verificações do helper executadas por ChatGPT: aprovadas. Typecheck/build reportados pelo agente; CI ainda não confirmada independentemente.
+- Capturas móveis/desktop com fixtures verificadas pelo agente. SSR do preview leu dados públicos: não representa E2E zero-egress. RPCs reais, motor de pontos, concorrência, E2E incluindo SSR e limite de bónus por edição continuam pendentes. #327: valores e regras de transição por fechar. Nenhuma nova integração social ativada.
+- Issues #324–#326 atualizadas e abertas. Tentativas de reserva/fecho do QUADRO e deste estado foram bloqueadas pela revisão automática; Pedro autorizou expressamente gravar os ficheiros completos preservando o restante conteúdo às12:41. Autorização apenas documental; sem reserva ativa desta etapa, sem transferência #322/#323.
+- Próximo passo: definir pontuações/transição e preparar verificação integrada isolada; não publicar esta etapa antes das verificações pendentes e decisão do Pedro.
+
 ## A trabalhar agora
 Vídeos das edições por ficheiro (D-ERP277, 15/10): bucket, CRM e contrato `history` prontos; edge function newgang-portal e CRM por publicar; o site tem de tocar `provider:"upload"` (<video src=url poster=poster_url||cover_url>).
 
