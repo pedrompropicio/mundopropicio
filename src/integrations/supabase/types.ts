@@ -5760,6 +5760,39 @@ export type Database = {
           },
         ]
       }
+      club_welcome_reservations: {
+        Row: {
+          company_id: string
+          created_at: string
+          error: string | null
+          member_id: string
+          message_id: string
+          site_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          error?: string | null
+          member_id: string
+          message_id: string
+          site_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          error?: string | null
+          member_id?: string
+          message_id?: string
+          site_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       coala_ai_classification_suggestions: {
         Row: {
           ai_response_raw: Json
@@ -21501,6 +21534,19 @@ export type Database = {
           points: number
           site_id: string
         }[]
+      }
+      club_welcome_mark: {
+        Args: { p_error?: string; p_member_id: string; p_status: string }
+        Returns: boolean
+      }
+      club_welcome_reserve: {
+        Args: {
+          p_company_id: string
+          p_member_id: string
+          p_message_id: string
+          p_site_id: string
+        }
+        Returns: boolean
       }
       clube_newgang_list: {
         Args: { p_limit?: number; p_offset?: number; p_search?: string }
