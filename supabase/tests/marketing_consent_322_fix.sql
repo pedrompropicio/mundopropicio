@@ -91,7 +91,10 @@ BEGIN
   UPDATE public.marketing_consent_policies SET valid_to = clock_timestamp() WHERE portal = 'mp' AND policy_version = 't-ret';
   PERFORM pg_sleep(0.01);
   ASSERT public.marketing_consent_bind(mp,'mp',tok3,r->>'consent_receipt')->>'reason' = 'expired_or_policy', 'política retirada';
-  ASSERT public.marketing_consent_record(mp,'mp',tok3,'granted','meta_ads','t-ret','b1',2,NULL,gen_random_uuid(),'o','/',1)->>'error' = 'policy_invalid', 'grant política retirada';
+  -- (no mesmo DO now() é o início da transação; usa-se uma política já retirada antes dele)
+  INSERT INTO public.marketing_consent_policies VALUES ('mp','t-old', now()-interval '2 days', now()-interval '1 hour', 180, now()) ON CONFLICT DO NOTHING;
+  ASSERT public.marketing_consent_record(mp,'mp',tok3,'granted','meta_ads','t-old','b1',2,NULL,gen_random_uuid(),'o','/',1)->>'error' = 'policy_invalid', 'grant política retirada';
+  ASSERT public.marketing_consent_record(mp,'mp',tok3,'granted','meta_ads','desconhecida','b1',2,NULL,gen_random_uuid(),'o','/',1)->>'error' = 'policy_invalid', 'política desconhecida';
   -- deny/revoke aceites mesmo com política retirada e sem revisão
   ASSERT (public.marketing_consent_record(mp,'mp',tok3,'denied','meta_ads','t-ret','b1',3,NULL,gen_random_uuid(),'o','/',NULL)->>'ok')::boolean, 'deny conservador';
 
