@@ -102,3 +102,4 @@ _(sem testes em fila)_
 - Retoma contínua do Clube (0168/0169): `docs/testes/issue321/06-clube-continuo.md` (testes revertidos OK, vitest 12/12, tsgo 0).
 - Continuação Clube (2 casos): `docs/testes/issue321/04-clube-dois-casos.md`, `05-vitest-clube.md` (10 testes, exit 0); tsgo 0.
 - Welcome único sob concorrência (0170/0171 + newgang-portal): `docs/testes/issue321/07-welcome-unico-testes.md` (vitest 19/19, tsgo 0), `08-welcome-reserva-live.md`.
+- Fecho documental: `docs/testes/issue321/09-fecho-documental.md` — CI run 38831811638 success, SHA 2130204b…, Publish feito.

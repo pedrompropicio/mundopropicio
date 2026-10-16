@@ -1,6 +1,6 @@
 # ESTADO — MP CRM, Portal & Leads
 
-Atualizado: 2026-10-16 · Issues: #251, #252, #321 (em verificação), #320 (P1 validado; fecho documental autorizado; Pedro fecha a Issue) · Fechadas: #253 (24/09), #254 (10/10) · Bloqueio: #62
+Atualizado: 2026-10-16 · Issues: #251, #252, #321 (validada e publicada 16/10; Issue fechada pelo ChatGPT), #320 (P1 validado; fecho documental autorizado; Pedro fecha a Issue) · Fechadas: #253 (24/09), #254 (10/10) · Bloqueio: #62
 
 ## Em que pé está
 Dois portais distintos, dois projetos Lovable, a mesma base Supabase:
@@ -12,7 +12,7 @@ A Early Bird 2027 do Coala está a captar em contínuo (`lead_capture`, origens 
 A 24/09/2026 foi resolvido o incidente que punha o ecrã "Algo correu mal" a 100% do tráfego pago da Meta (#253, fechada). A geolocalização do Coala passou a funcionar e o registo de erros de front está em produção.
 
 ## A trabalhar agora
-**Ingestão de contactos #321 (D-ERP282)** — em Live desde 16/10: `crm_ingest_lead_captures` + cron 2398 (5 min), sem CAPI nem rede; leads `blocked_no_consent`. MP (portal) e Coala, e desde 16/10 00:38 também `clube_newgang` (MP) em contínuo (migrações 0168/0169): marcar processada dispara o fluxo normal do Clube (membro + email de confirmação uma vez). 2 casos Clube anteriores feitos por ID (0167). Fora de âmbito já não bloqueia o lote. Provas: `docs/testes/issue321/01-…`, `04-…`, `06-clube-continuo.md`. Email `sent` = aceite pelo envio, entrega não comprovada. Desde 16/10 ~00:55 o welcome tem reserva atómica por membro antes do envio (0170/0171; `08-welcome-reserva-live.md`) — fecha o risco de duplicado em concorrência. Aguarda verificação do Pedro.
+**Ingestão de contactos #321 (D-ERP282)** — em Live desde 16/10: `crm_ingest_lead_captures` + cron 2398 (5 min), sem CAPI nem rede; leads `blocked_no_consent`. MP (portal) e Coala, e desde 16/10 00:38 também `clube_newgang` (MP) em contínuo (migrações 0168/0169): marcar processada dispara o fluxo normal do Clube (membro + email de confirmação uma vez). 2 casos Clube anteriores feitos por ID (0167). Fora de âmbito já não bloqueia o lote. Provas: `docs/testes/issue321/01-…`, `04-…`, `06-clube-continuo.md`. Email `sent` = aceite pelo envio, entrega não comprovada. Desde 16/10 ~00:55 o welcome tem reserva atómica por membro antes do envio (0170/0171; `08-welcome-reserva-live.md`) — fecha o risco de duplicado em concorrência. Validada e publicada em 16/10 (CI run 38831811638, SHA 2130204b…; `09-fecho-documental.md`). Consentimento P2/P3 e retoma CAPI NÃO concluídos — proposta em `docs/features/proposta-p2-p3-consentimento.md` (não aprovada).
 
 **CAPI P1 no ERP (#320, D-ERP281)** — aplicado em Live e validado independentemente; fecho documental autorizado pelo Pedro a 15/10/2026, 23:49 UTC. CI confirmada independentemente pelo Claude e ChatGPT via conector GitHub: https://github.com/pedrompropicio/mundopropicio/actions/runs/38824514063, job `quality` `116728694956`, conclusion `success`, SHA `7b151756ad8060019de571b9295a6a978e0fbb1e` (confirmado no checkout do log). Prova consolidada: `docs/testes/issue320/07-fecho-documental-ci.md`. Diagnóstico sensível removido confirmado por leitura; 11 corpos SQL repo × Live iguais, grants anon/authenticated false e service_role true; sent_n 29550 e hash `b1738fd8ecdd96d7c54466ad7c81e112` preservados. Isto fecha apenas P1, não o projeto CAPI.
 
