@@ -12,7 +12,7 @@ before="$(cd "$FN" && sha256sum *.ts | sha256sum | cut -c1-64)"
 WT="$(mktemp -d /tmp/ng328wt.XXXXXX)"; trap 'rm -rf "$WT"' EXIT
 for f in $(git ls-tree -r --name-only HEAD "$FN" supabase/functions/_shared); do mkdir -p "$WT/$(dirname "$f")"; git show "HEAD:$f" > "$WT/$f"; done
 head_vs_tree="$(cd "$WT/$FN" && sha256sum *.ts | sha256sum | cut -c1-64)"
-export DENO_DIR="${DENO_DIR:-/tmp/deno-cache328}"
+export NO_COLOR=1; export DENO_DIR="${DENO_DIR:-/tmp/deno-cache328}"
 # Erros de tipos do HEAD sem patch (baseline) — o critério é "zero erros NOVOS".
 base_err="$(cd "$WT/$FN" && deno check --node-modules-dir=none index.ts 2>&1 | grep -oE 'TS[0-9]+ \[ERROR\]' | sort | tr '\n' ' ' || true)"
 ( cd "$WT" && patch -p1 --dry-run < "$PATCH" >/dev/null && patch -p1 < "$PATCH" >/dev/null )
