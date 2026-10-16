@@ -12,9 +12,9 @@ export const BG = "#0b1f14";
 // PNG originais aprovados pelo Pedro; disponibilidade e SHA-256 verificados antes da ativação.
 export const WALLET_ARTWORK_READY = true;
 // Renomeação Elite→Crew e Lenda→Goat: os PNG v1 mostram "ELITE"/"LENDA" no próprio desenho.
-// Os criativos novos (hero-crew-v1 / hero-goat-v1) ainda não existem; até lá esta flag fica false
-// e a renomeação em club_levels NÃO pode ser aplicada (ver docs/testes/newgang-niveis/).
-export const WALLET_RENAMED_ARTWORK_READY = false;
+// Criativos novos hero-crew-v1 / hero-goat-v1 aprovados pelo Pedro e carregados a 16/10 (SHA na prova);
+// legados Elite/Lenda continuam nos v1 antigos (ver docs/testes/newgang-niveis/).
+export const WALLET_RENAMED_ARTWORK_READY = true;
 const ART = "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang%2Fwallet%2F";
 export const WALLET_ARTWORK_URLS = {
   logo: `${ART}logo-quadrado-v1.png`,
