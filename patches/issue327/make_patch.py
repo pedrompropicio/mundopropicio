@@ -3,12 +3,15 @@ Não toca no código deployável. Uso: python3 patches/issue327/make_patch.py"""
 import os, subprocess, tempfile, shutil
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 FN = "supabase/functions/newgang-portal"
-src = subprocess.check_output(["git", "-C", ROOT, "show", f"HEAD:{FN}/index.ts"]).decode()
+src = subprocess.check_output(["git", "-C", ROOT, "show", f"{os.environ.get('BASE','HEAD')}:{FN}/index.ts"]).decode()
 s = src
 def rep(old, new):
     global s
     assert s.count(old) == 1, ("âncora não única/ausente", old[:80])
     s = s.replace(old, new)
+# #327 aplicação: as tabelas novas (ex.: club_legacy_consumption com site_id+event_id na PK) criam uma 2.ª relação
+# portal_sites↔events para o PostgREST; o embed tem de nomear a FK canónica.
+rep("    `events(${[", "    `events!portal_sites_event_id_fkey(${[")
 rep('import { PreSendError, sendWelcomeOnce } from "./welcome.ts";\n',
     'import { PreSendError, sendWelcomeOnce } from "./welcome.ts";\n'
     '// #327: leituras canónicas (nível com piso, conquistas, montra de regras) — mesma fonte para site, me, ranking e Wallet.\n'

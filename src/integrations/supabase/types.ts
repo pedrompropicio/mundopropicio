@@ -5092,6 +5092,167 @@ export type Database = {
           },
         ]
       }
+      club_legacy_consumption: {
+        Row: {
+          captured_at: string
+          company_id: string
+          config_id: string
+          event_id: string
+          first_at: string | null
+          last_at: string | null
+          member_id: string
+          points: number
+          rows_counted: number
+          rule_key: string
+          site_id: string
+        }
+        Insert: {
+          captured_at?: string
+          company_id: string
+          config_id: string
+          event_id: string
+          first_at?: string | null
+          last_at?: string | null
+          member_id: string
+          points: number
+          rows_counted: number
+          rule_key: string
+          site_id: string
+        }
+        Update: {
+          captured_at?: string
+          company_id?: string
+          config_id?: string
+          event_id?: string
+          first_at?: string | null
+          last_at?: string | null
+          member_id?: string
+          points?: number
+          rows_counted?: number
+          rule_key?: string
+          site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_legacy_consumption_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_legacy_consumption_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "club_points_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_legacy_consumption_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_legacy_consumption_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "club_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_legacy_consumption_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_legacy_consumption_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      club_level_floors: {
+        Row: {
+          captured_at: string
+          company_id: string
+          config_id: string
+          level_id: string
+          level_name: string
+          member_id: string
+          points_at_cutover: number
+          site_id: string
+        }
+        Insert: {
+          captured_at?: string
+          company_id: string
+          config_id: string
+          level_id: string
+          level_name: string
+          member_id: string
+          points_at_cutover: number
+          site_id: string
+        }
+        Update: {
+          captured_at?: string
+          company_id?: string
+          config_id?: string
+          level_id?: string
+          level_name?: string
+          member_id?: string
+          points_at_cutover?: number
+          site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_level_floors_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_level_floors_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "club_points_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_level_floors_level_id_fkey"
+            columns: ["level_id"]
+            isOneToOne: false
+            referencedRelation: "club_levels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_level_floors_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "club_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_level_floors_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_level_floors_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       club_levels: {
         Row: {
           benefit: string | null
@@ -5546,6 +5707,7 @@ export type Database = {
         Row: {
           company_id: string
           created_at: string
+          event_id: string | null
           id: string
           member_id: string
           points: number
@@ -5556,6 +5718,7 @@ export type Database = {
         Insert: {
           company_id: string
           created_at?: string
+          event_id?: string | null
           id?: string
           member_id: string
           points: number
@@ -5566,6 +5729,7 @@ export type Database = {
         Update: {
           company_id?: string
           created_at?: string
+          event_id?: string | null
           id?: string
           member_id?: string
           points?: number
@@ -5586,6 +5750,341 @@ export type Database = {
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "club_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      club_points_config: {
+        Row: {
+          company_id: string
+          created_at: string
+          crew_points: number
+          effective_at: string | null
+          event_id: string
+          id: string
+          join_points: number
+          legacy_counts: boolean
+          levels: Json
+          purchase_enabled: boolean
+          purchase_lots: string[]
+          purchase_points: number
+          referral_cap: number
+          referral_points: number
+          referral_void_frees_cap: boolean
+          site_id: string
+          status: string
+          version: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          crew_points: number
+          effective_at?: string | null
+          event_id: string
+          id?: string
+          join_points: number
+          legacy_counts?: boolean
+          levels: Json
+          purchase_enabled?: boolean
+          purchase_lots?: string[]
+          purchase_points: number
+          referral_cap: number
+          referral_points: number
+          referral_void_frees_cap?: boolean
+          site_id: string
+          status?: string
+          version: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          crew_points?: number
+          effective_at?: string | null
+          event_id?: string
+          id?: string
+          join_points?: number
+          legacy_counts?: boolean
+          levels?: Json
+          purchase_enabled?: boolean
+          purchase_lots?: string[]
+          purchase_points?: number
+          referral_cap?: number
+          referral_points?: number
+          referral_void_frees_cap?: boolean
+          site_id?: string
+          status?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_points_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_points_config_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_points_config_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_points_config_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      club_points_cutover_log: {
+        Row: {
+          company_id: string
+          config_id: string
+          done_at: string
+          floors_created: number
+          id: string
+          legacy_rows: number
+          levels_after: Json
+          levels_before: Json
+          members_total: number
+          rules_after: Json
+          rules_before: Json
+          site_event_id: string
+          site_id: string
+        }
+        Insert: {
+          company_id: string
+          config_id: string
+          done_at?: string
+          floors_created: number
+          id?: string
+          legacy_rows: number
+          levels_after: Json
+          levels_before: Json
+          members_total: number
+          rules_after: Json
+          rules_before: Json
+          site_event_id: string
+          site_id: string
+        }
+        Update: {
+          company_id?: string
+          config_id?: string
+          done_at?: string
+          floors_created?: number
+          id?: string
+          legacy_rows?: number
+          levels_after?: Json
+          levels_before?: Json
+          members_total?: number
+          rules_after?: Json
+          rules_before?: Json
+          site_event_id?: string
+          site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_points_cutover_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_points_cutover_log_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "club_points_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_points_cutover_log_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_points_cutover_log_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      club_purchase_evidence: {
+        Row: {
+          company_id: string
+          credited_ref: string | null
+          event_id: string
+          fingerprint: string
+          id: string
+          lot_ref: string
+          member_id: string
+          order_ref: string
+          site_id: string
+          source: string
+          status: string
+          status_reason: string | null
+          verified_at: string
+          verified_by: string | null
+        }
+        Insert: {
+          company_id: string
+          credited_ref?: string | null
+          event_id: string
+          fingerprint: string
+          id?: string
+          lot_ref: string
+          member_id: string
+          order_ref: string
+          site_id: string
+          source: string
+          status: string
+          status_reason?: string | null
+          verified_at?: string
+          verified_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          credited_ref?: string | null
+          event_id?: string
+          fingerprint?: string
+          id?: string
+          lot_ref?: string
+          member_id?: string
+          order_ref?: string
+          site_id?: string
+          source?: string
+          status?: string
+          status_reason?: string | null
+          verified_at?: string
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_purchase_evidence_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_purchase_evidence_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_purchase_evidence_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "club_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_purchase_evidence_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_purchase_evidence_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      club_referral_events: {
+        Row: {
+          company_id: string
+          created_at: string
+          credited_points: number
+          event_id: string | null
+          id: string
+          member_id: string
+          referee_id: string
+          site_id: string
+          source: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          credited_points?: number
+          event_id?: string | null
+          id?: string
+          member_id: string
+          referee_id: string
+          site_id: string
+          source?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          credited_points?: number
+          event_id?: string | null
+          id?: string
+          member_id?: string
+          referee_id?: string
+          site_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_referral_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_referral_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_referral_events_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "club_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_referral_events_referee_id_fkey"
+            columns: ["referee_id"]
+            isOneToOne: false
+            referencedRelation: "club_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_referral_events_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_referral_events_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites_public"
             referencedColumns: ["id"]
           },
         ]
@@ -20031,12 +20530,59 @@ export type Database = {
         }[]
       }
       _capi_classify_lead: { Args: { p_lead_id: string }; Returns: string }
+      _club_active_cfg: {
+        Args: { p_site: string }
+        Returns: {
+          company_id: string
+          created_at: string
+          crew_points: number
+          effective_at: string | null
+          event_id: string
+          id: string
+          join_points: number
+          legacy_counts: boolean
+          levels: Json
+          purchase_enabled: boolean
+          purchase_lots: string[]
+          purchase_points: number
+          referral_cap: number
+          referral_points: number
+          referral_void_frees_cap: boolean
+          site_id: string
+          status: string
+          version: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "club_points_config"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      _club_award_core: {
+        Args: {
+          p_evidence?: string
+          p_member: string
+          p_points: number
+          p_ref: string
+          p_rule: string
+        }
+        Returns: number
+      }
       _club_points_void_row: {
         Args: {
           p_reason: string
           p_row: Database["public"]["Tables"]["club_points"]["Row"]
         }
         Returns: number
+      }
+      _club_rule_used: {
+        Args: { p_cfg: string; p_member: string; p_rule: string }
+        Returns: number
+      }
+      _club_site_lock: {
+        Args: { p_exclusive: boolean; p_site: string }
+        Returns: undefined
       }
       _clube_newgang_assert_access: { Args: never; Returns: undefined }
       _clube_newgang_birth: { Args: { p_raw: Json }; Returns: string }
@@ -21564,6 +22110,7 @@ export type Database = {
         }
         Returns: number
       }
+      club_award_purchase: { Args: { p_evidence: string }; Returns: number }
       club_claim_attendance: {
         Args: { p_member: string; p_year: number }
         Returns: string
@@ -21601,6 +22148,16 @@ export type Database = {
         Returns: undefined
       }
       club_gen_referral_code: { Args: never; Returns: string }
+      club_member_level: {
+        Args: { p_member: string }
+        Returns: {
+          level_name: string
+          next_level_min: number
+          next_level_name: string
+          points: number
+          protected: boolean
+        }[]
+      }
       club_mission_review: {
         Args: { p_reason?: string; p_status: string; p_subs: string[] }
         Returns: number
@@ -21620,6 +22177,7 @@ export type Database = {
         Returns: {
           company_id: string
           created_at: string
+          event_id: string | null
           id: string
           member_id: string
           points: number
@@ -21634,6 +22192,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      club_points_cutover: {
+        Args: { p_config: string; p_expected_levels: Json }
+        Returns: Json
+      }
       club_points_set: {
         Args: {
           p_base: string
@@ -21647,6 +22209,10 @@ export type Database = {
       }
       club_points_void: {
         Args: { p_points: string[]; p_reason: string }
+        Returns: number
+      }
+      club_purchase_revoke: {
+        Args: { p_evidence: string; p_reason: string; p_status: string }
         Returns: number
       }
       club_ranking: {
@@ -21664,6 +22230,22 @@ export type Database = {
       club_record_terms: {
         Args: { p_at: string; p_member: string; p_version: string }
         Returns: boolean
+      }
+      club_referral_progress: { Args: { p_member: string }; Returns: Json }
+      club_rules_public: {
+        Args: { p_site: string }
+        Returns: {
+          active: boolean
+          available: boolean
+          cap: number
+          config_version: string
+          event_id: string
+          label: string
+          points: number
+          rule_key: string
+          scope: string
+          status: string
+        }[]
       }
       club_terms_publish: {
         Args: { p_body: string; p_site: string }

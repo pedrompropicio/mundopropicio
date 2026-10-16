@@ -14,6 +14,20 @@ import { crewPendingAction, memberByEmail, mePendingCrew, PENDING_OPS } from "./
 import * as GW from "./wallet-google.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import { PreSendError, sendWelcomeOnce } from "./welcome.ts";
+// #327: leituras canónicas (nível com piso, conquistas, montra de regras) — mesma fonte para site, me, ranking e Wallet.
+import { levelFromPoints, memberLevel, referralProgress, rulesPublic, type MemberLevel, type RulesView } from "./club-canon.ts";
+const rpc = (fn: string, a: Record<string, unknown>) => sb.rpc(fn, a) as any;
+// Fórmula antiga (soma + club_levels) — só usada se club_member_level estiver ausente (reversão SQL #327 já aplicada).
+async function legacyLevel(memberId: string, siteId: string): Promise<MemberLevel> {
+  const { data: rows, error: e1 } = await sb.from("club_points").select("points").eq("member_id", memberId).limit(10000);
+  if (e1) throw new Error("legacy points: " + e1.message);
+  const pts = ((rows ?? []) as any[]).reduce((s, r) => s + r.points, 0);
+  const { data: lv, error: e2 } = await sb.from("club_levels").select("name, min_points").eq("site_id", siteId);
+  if (e2) throw new Error("legacy levels: " + e2.message);
+  return levelFromPoints(pts, (lv ?? []) as any);
+}
+const legacyRules = (rl: unknown): RulesView => ({ rules: ((rl ?? []) as any[]).filter((r) => r.active)
+  .map((r) => ({ rule_key: r.rule_key, label: r.label, points: Number(r.points), cap: null, scope: null })), unavailable: [], edition: null, version: null });
 
 // Preview do projeto Lovable do portal (1a915f50-…).
 const PREVIEW_SUFFIXES: string[] = ["--1a915f50-55ca-4bb6-9abe-8f241c54647a.lovable.app"];
@@ -210,10 +224,10 @@ async function walletMember(siteId: string, memberId: string, pts?: number, lvl?
   if (!m?.confirmed_at) return null;
   let points = pts, level = lvl;
   if (points === undefined) {
-    const { data: rows } = await sb.from("club_points").select("points").eq("member_id", memberId).limit(10000);
-    points = ((rows ?? []) as any[]).reduce((s, r) => s + r.points, 0);
-    const { data: lv } = await sb.from("club_levels").select("name").eq("site_id", siteId).lte("min_points", points).order("min_points", { ascending: false }).limit(1);
-    level = (lv as any)?.[0]?.name ?? null;
+    // #327: nível canónico (pontos + piso do cutover); erro de RPC propaga (walletSave falha, walletSync grava last_error).
+    // Compatível com a reversão SQL: só se a RPC deixar de existir (PGRST202/42883) usa a fórmula antiga.
+    const lv = await memberLevel(rpc, memberId, { legacy: () => legacyLevel(memberId, siteId) });
+    points = lv.points; level = lv.level;
   }
   const crew = await myCrew(siteId, memberId);
   return { id: m.id, member_no: m.member_no, first_name: m.first_name, points: points!, level: level ?? null, crew: crew?.name ?? null };
@@ -341,7 +355,9 @@ async function loadSitePayload(site: any) {
   ] as const) as any;
   const trackers: unknown[] = ev ? (t ?? []) : [];
   const ticketing: unknown = ev ? { url: evRow?.ticketing_url ?? null, lots: em?.ticket_lots ?? null } : null;
-  return { site: data, trackers, ticketing, club: { levels: lv ?? [], rules: rl ?? [], terms: termsMeta(tm) } };
+  // #327: a montra usa club_rules_public (valores pagos agora + disponibilidade); club_point_rules cru só se a RPC estiver ausente (reversão).
+  const rv = await rulesPublic(rpc, site.id, async () => legacyRules(rl));
+  return { site: data, trackers, ticketing, club: { levels: lv ?? [], rules: rv.rules, rules_unavailable: rv.unavailable, terms: termsMeta(tm) } };
 }
 
 async function loadLineupRaw(site: any) {
@@ -367,7 +383,7 @@ async function loadPublic(want: Want) {
   const embed = [
     "id, event_id, brand_key, company_id",
     want.site ? "club_levels(name, min_points, benefit), club_point_rules(rule_key, label, points, active), club_terms(version, published_at, status)" : "",
-    `events(${[
+    `events!portal_sites_event_id_fkey(${[
       want.site ? "ticketing_url, event_trackers(platform, tracker_id)" : "",
       "event_marketing(ticket_lots, lineup_complete)",
       want.lineup ? `event_lineup_reveals(id, club_at, public_at, clues, status), event_lineups(${LINEUP_COLS})` : "",
@@ -380,7 +396,13 @@ async function loadPublic(want: Want) {
     want.history ? sb.from("festival_editions_public").select("*").order("year", { ascending: false }).order("sort") : none,
   ]) as any;
   if (!row) return null;
-  return assemblePublic(want, row, pubRows, eds);
+  const out = assemblePublic(want, row, pubRows, eds);
+  if (want.site && out.site) {
+    const club = (out.site as any).club;
+    const rv = await rulesPublic(rpc, row.id, async () => legacyRules(club.rules)); // #327: mesma montra canónica do payload "site"
+    club.rules = rv.rules; club.rules_unavailable = rv.unavailable;
+  }
+  return out;
 }
 
 Deno.serve(async (req) => {
@@ -553,9 +575,12 @@ Deno.serve(async (req) => {
         const { rows } = await rankingFor(site.id);
         const me = rows.find((r) => r.member_id === member.id);
         const { data: lv } = await sb.from("club_levels").select("name, min_points, benefit").eq("site_id", site.id).order("min_points");
+        const cl: MemberLevel = await memberLevel(rpc, member.id, { legacy: () => legacyLevel(member.id, site.id) }); // #327: nível/piso/próximo nível canónicos
         return json({
           first_name: member.first_name, member_no: member.member_no,
-          points: me?.points ?? 0, level: me?.level_name ?? null, rank: me?.rank_pos ?? null,
+          points: cl.points, level: cl.level, rank: me?.rank_pos ?? null,
+          level_protected: cl.protected, next_level: cl.next_level, next_level_min: cl.next_level_min,
+          referrals: await referralProgress(rpc, member.id),
           levels: lv ?? [],
           invite_link: `https://${SITE_DOMAIN}/clube?ref=${member.referral_code}`,
           referral_code: member.referral_code,

@@ -1240,6 +1240,20 @@
       "when": 1792170510169,
       "tag": "0176_issue328_club_identity_crew_pending",
       "breakpoints": true
+    },
+    {
+      "idx": 177,
+      "version": "7",
+      "when": 1792178401100,
+      "tag": "0177_issue327_club_points_core",
+      "breakpoints": true
+    },
+    {
+      "idx": 178,
+      "version": "7",
+      "when": 1792178497023,
+      "tag": "0178_issue327_cutover_verbatim_and_grants",
+      "breakpoints": true
     }
   ]
 }

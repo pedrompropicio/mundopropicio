@@ -1,4 +1,7 @@
--- #327 — NÚCLEO DE PONTOS (aprovado por Pedro 16/10/2026 14:45 Fortaleza). NÃO APLICADO EM LIVE.
+-- #327 — NÚCLEO DE PONTOS (aprovado por Pedro 16/10/2026 14:45 Fortaleza).
+-- ESTADO: APLICADO EM LIVE (infra) 16/10/2026 ~19:20 UTC como drizzle/migrations/0177 + 0178 (0178: corpo do cutover verbatim
+-- e REVOKE dos privilégios por omissão do schema — anon e escrita de authenticated — nas 6 tabelas novas).
+-- CUTOVER: PENDENTE (não executado; config 2027-v1 em draft). Ver docs/testes/issue327/aplicacao-infra.md.
 -- O FICHEIRO guardado aqui é inerte (fora de supabase/migrations e drizzle/migrations; nada o aplica sozinho).
 -- APLICÁ-LO MUDA O RUNTIME, mesmo sem cutover (ver docs/testes/issue327/README.md, "Impacto pré-cutover"):
 --   * substitui club_award, club_award_fixed, club_confirm_member, club_ranking, club_wallet_due;
