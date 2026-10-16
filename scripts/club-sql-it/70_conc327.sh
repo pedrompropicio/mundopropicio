@@ -23,7 +23,7 @@ race(){ local name="$1" n="$2" tbl="$3" tpl="$4" i fifo="$WD/ctl.$1"
 S='00000000-0000-4000-8000-0000000000a2'
 # Preparação (série): indicador com 8 créditos (600) e 3 indicados por confirmar; crew com 3 + 3 candidatos;
 # 4 provas válidas do mesmo membro; 6 membros a 450 pontos.
-q "UPDATE club_points_config SET purchase_enabled=true, purchase_lots='{EB1}' WHERE status='active';" >/dev/null
+q "UPDATE club_points_config SET purchase_enabled=true, purchase_lots='{EB1}' WHERE status='active' AND site_id='$S';" >/dev/null
 q "DO \$\$ DECLARE r uuid; i int; c jsonb; m uuid; BEGIN
   r := t.newc('cc_ref@example.invalid');
   FOR i IN 1..8 LOOP PERFORM t.newc('cc_f'||i||'@example.invalid', t.code(r)); END LOOP;
@@ -33,7 +33,7 @@ q "DO \$\$ DECLARE r uuid; i int; c jsonb; m uuid; BEGIN
   FOR i IN 4..7 LOOP PERFORM t.newc('cc_cw'||i||'@example.invalid'); END LOOP;
   m := t.newc('cc_buyer@example.invalid');
   FOR i IN 1..4 LOOP INSERT INTO club_purchase_evidence(company_id, site_id, event_id, member_id, source, order_ref, lot_ref, status, fingerprint)
-    SELECT company_id, site_id, event_id, m, 'fever_order', 'CC-'||i, 'EB1', 'valid', 'ccfp'||i FROM club_points_config WHERE status='active'; END LOOP;
+    SELECT company_id, site_id, event_id, m, 'fever_order', 'CC-'||i, 'EB1', 'valid', 'ccfp'||i FROM club_points_config WHERE status='active' AND site_id='$S'; END LOOP;
   FOR i IN 1..6 LOOP m := t.newc('cc_lv'||i||'@example.invalid'); PERFORM t.seed(m, 350); END LOOP;
 END \$\$;" >/dev/null
 check "preparação: indicador com 600" "t.rp('friend_joined', t.m('cc_ref@example.invalid')) = 600"
@@ -51,7 +51,7 @@ check "6 × 100 uma vez" "(SELECT count(*)||'/'||sum(p.points) FROM club_points 
 # 3) 4 provas válidas do mesmo membro em simultâneo → 1 crédito de 200.
 race purchase 4 public.club_purchase_evidence "SELECT public.club_award_purchase((SELECT id FROM public.club_purchase_evidence WHERE fingerprint='ccfp{i}'))"
 check "compra: 1 crédito por edição" "t.cnt('promo_lot_purchase', t.m('cc_buyer@example.invalid')) = 1 AND t.rp('promo_lot_purchase', t.m('cc_buyer@example.invalid')) = 200"
-q "UPDATE club_points_config SET purchase_enabled=false, purchase_lots='{}' WHERE status='active';" >/dev/null
+q "UPDATE club_points_config SET purchase_enabled=false, purchase_lots='{}' WHERE status='active' AND site_id='$S';" >/dev/null
 
 # 4) Cutover em corrida com créditos: 6 membros a 450 (100+350) recebem +50 enquanto corre um cutover (edição e3, mesmos níveis).
 q "INSERT INTO public.events(id, company_id, name) VALUES ('00000000-0000-4000-8000-0000000000e3','00000000-0000-4000-8000-0000000000a1','Edição 3');
