@@ -34,7 +34,15 @@ describe("wallet: níveis Gang/Crew/Goat com legados", () => {
     }
   });
 
-  it("flag dos criativos renomeados desligada por defeito (SQL bloqueado)", () => {
-    expect(GW.WALLET_RENAMED_ARTWORK_READY).toBe(false);
+  it("flag ativa: por defeito Crew/Goat usam os criativos novos; legados e ids/QR preservados", () => {
+    expect(GW.WALLET_RENAMED_ARTWORK_READY).toBe(true);
+    for (const [level, key] of [["Crew", "Crew"], ["Goat", "Goat"], ["Elite", "Elite"], ["Lenda", "Lenda"], ["Gang", "Gang"]] as const) {
+      const o = GW.buildObject(ISS, { ...M, level });
+      expect(o.heroImage!.sourceUri.uri).toBe(GW.WALLET_ARTWORK_URLS[key]);
+      expect(o.hexBackgroundColor).toBe(GW.WALLET_LEVEL_COLORS[key]);
+      expect(o).toMatchObject({ id: GW.objectId(ISS, M.id), classId: GW.classId(ISS), accountId: "42", barcode: { type: "QR_CODE", value: "NG-42" } });
+      expect(o.loyaltyPoints.balance.int).toBe(650);
+      expect(o.secondaryLoyaltyPoints.balance.string).toBe(level);
+    }
   });
 });
