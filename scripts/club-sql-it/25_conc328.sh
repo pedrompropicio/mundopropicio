@@ -56,6 +56,7 @@ race "ultima_vaga" 6 "SELECT public.club_confirm_member(id) FROM public.club_mem
 LV="(SELECT v::uuid FROM it.kv WHERE k='LV_crew')"
 check "ultima vaga: 0 erros" "$(errs ultima_vaga) = 0"
 check "6 candidatos confirmados, +100 cada uma vez" "(SELECT count(*) FROM public.club_members m WHERE m.email LIKE 'lvc_@example.invalid' AND m.confirmed_at IS NOT NULL AND (SELECT count(*) FROM public.club_points p WHERE p.member_id=m.id AND p.rule_key='join_confirmed')=1) = 6"
+q "SELECT 'dbg crew='||(SELECT count(*) FROM public.club_crew_members WHERE crew_id=$LV)||' st='||(SELECT string_agg(coalesce(pending_crew_status,'-'),',') FROM public.club_members WHERE email LIKE 'lvc_@example.invalid')"
 check "crew = 6 (max respeitado)" "(SELECT count(*) FROM public.club_crew_members WHERE crew_id=$LV) = 6"
 check "1 entrou e foi limpo" "(SELECT count(*) FROM public.club_members m JOIN public.club_crew_members c ON c.member_id=m.id WHERE m.email LIKE 'lvc_@example.invalid' AND m.pending_crew_code IS NULL AND m.pending_crew_status IS NULL) = 1"
 check "5 ficam crew_full com código preservado" "(SELECT count(*) FROM public.club_members WHERE email LIKE 'lvc_@example.invalid' AND pending_crew_status='crew_full' AND pending_crew_code IS NOT NULL) = 5"
