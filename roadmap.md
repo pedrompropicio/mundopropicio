@@ -1,7 +1,7 @@
 # Roadmap — épica #146 (e)
 
 ## #330 — missão de perfil (preparação inerte)
-- [ ] Aplicação infra/API autorizada 23:17 UTC — bloqueada antes de escrita: migration canónica exige remover BEGIN/COMMIT externos; confirmar exceção ao hash literal aprovado. Missão permanece desativada.
+- [ ] Aplicação infra/API autorizada e normalização de duas linhas confirmada — bloqueada: canal canónico proíbe seed de 249 países; separar DDL/seed exige adequação adicional do âmbito ou do canal. Nenhuma escrita/deploy; missão desativada.
 - [x] Revisão final: handler9/9, negativo exit1, CRM real43/43 e PostgreSQL59/59; prévia SQL sem execução.
 - [x] Inventariar perfil, idade, sessões e consentimentos; documentar dependências.
 - [x] Preparar SQL/RPC, reversão preservadora e patch API/CRM inerte sem tocar produção.

@@ -1,0 +1,14 @@
+--- PENDENTE.sql
++++ NORMALIZADO.sql
+@@ -1,6 +1,5 @@
+ -- #330 PENDENTE / INERTE. Não aplicar sem revisão e autorização concreta.
+ -- Perfil canónico do membro; raw de captação é histórico, nunca é reescrito nem promove crédito.
+-BEGIN;
+ CREATE TABLE public.club_profile_countries(code text PRIMARY KEY CHECK(code ~ '^[A-Z]{2}$'), name text NOT NULL);
+ REVOKE ALL ON public.club_profile_countries FROM PUBLIC, anon, authenticated;
+ GRANT ALL ON public.club_profile_countries TO service_role;
+@@ -416,4 +415,3 @@
+  END LOOP;
+ END $$;
+ -- Pas d'activation, pas de backfill, pas de nouveau crédit. Configuration absente = indisponible.
+-COMMIT;
