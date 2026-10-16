@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CrewsSection } from "@/pages/crm-admin/sites/CrewsSection";
 import { SimpleTable, ClubTab } from "@/pages/crm-admin/sites/NewgangSite";
 import { MemoryRouter } from "react-router-dom";
@@ -30,12 +30,13 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
 vi.mock("@/pages/crm-admin/sites/MissionsSection", () => ({ MissionsSection: () => null }));
 vi.mock("@/pages/crm-admin/sites/ClubTermsSection", () => ({ ClubTermsSection: () => null }));
 const config = { site_id: "site-a", event_id: "event-a", status: "active", version: "2027-v1", crew_points: 100, referral_points: 75, referral_cap: 750, join_points: 100, purchase_points: 200, purchase_enabled: false, levels: { Gang: 0, Crew: 750, Goat: 3000 } };
+beforeEach(() => { vi.stubGlobal("fetch", () => { throw new Error("#327 egress forbidden"); }); });
 function mount(node: React.ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}><MemoryRouter>{children}</MemoryRouter></QueryClientProvider>;
   return { ...render(node, { wrapper }), client };
 }
-afterEach(() => { cleanup(); fake.config = null; fake.configError = false; fake.pending = null; fake.writes = []; fake.calls = []; });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); fake.config = null; fake.configError = false; fake.pending = null; fake.writes = []; fake.calls = []; });
 describe("#327 integration without network", () => {
   it("draft/sem ativa guarda 200; após ativação mostra 100 e grava só limites/ativa", async () => {
     const { client } = mount(<CrewsSection siteId="site-a" companyId="company" eventId="event-a" />);
