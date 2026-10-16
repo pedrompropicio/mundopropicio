@@ -3,6 +3,7 @@ set -euo pipefail
 ROOT="$(pwd)"
 OUT="${1:-/tmp/issue330-handler}"
 mkdir -p "$OUT"
+test ! -d "$OUT/supabase" || { echo "Use a fresh output directory" >&2; exit 2; }
 cp -r supabase "$OUT/"
 patch -d "$OUT" -p1 < patches/issue330/newgang-portal.patch
 cp patches/issue330/handler{_test,-client}.ts "$OUT/supabase/functions/newgang-portal/"

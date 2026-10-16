@@ -4,6 +4,8 @@ BEGIN;
 CREATE TABLE public.club_profile_countries(code text PRIMARY KEY CHECK(code ~ '^[A-Z]{2}$'), name text NOT NULL);
 REVOKE ALL ON public.club_profile_countries FROM PUBLIC, anon, authenticated;
 GRANT ALL ON public.club_profile_countries TO service_role;
+-- PostgreSQL 17 ALL/default ACL may include MAINTAIN; not required by these RPCs.
+REVOKE MAINTAIN ON TABLE public.club_profile_countries FROM PUBLIC, anon, authenticated, service_role;
 ALTER TABLE public.club_profile_countries ENABLE ROW LEVEL SECURITY;
 INSERT INTO public.club_profile_countries(code,name) VALUES
 ('AD','Andorra'),
@@ -264,6 +266,8 @@ CREATE TABLE public.club_profile_settings(
 REVOKE ALL ON public.club_profile_settings FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.club_profile_settings TO authenticated;
 GRANT ALL ON public.club_profile_settings TO service_role;
+-- PostgreSQL 17 ALL/default ACL may include MAINTAIN; not required by these RPCs.
+REVOKE MAINTAIN ON TABLE public.club_profile_settings FROM PUBLIC, anon, authenticated, service_role;
 ALTER TABLE public.club_profile_settings ENABLE ROW LEVEL SECURITY;
 CREATE POLICY profile_settings_staff ON public.club_profile_settings FOR SELECT TO authenticated
  USING(public.portal_can_write() AND public.row_belongs_to_current_company(company_id));
@@ -282,6 +286,8 @@ CREATE TABLE public.club_member_profiles(
 REVOKE ALL ON public.club_member_profiles FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.club_member_profiles TO authenticated;
 GRANT ALL ON public.club_member_profiles TO service_role;
+-- PostgreSQL 17 ALL/default ACL may include MAINTAIN; not required by these RPCs.
+REVOKE MAINTAIN ON TABLE public.club_member_profiles FROM PUBLIC, anon, authenticated, service_role;
 ALTER TABLE public.club_member_profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY member_profile_staff ON public.club_member_profiles FOR SELECT TO authenticated
  USING(public.portal_can_write() AND public.row_belongs_to_current_company(company_id));
