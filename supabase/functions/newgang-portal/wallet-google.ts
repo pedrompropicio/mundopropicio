@@ -11,21 +11,49 @@ export const BG = "#0b1f14";
 
 // PNG originais aprovados pelo Pedro; disponibilidade e SHA-256 verificados antes da ativação.
 export const WALLET_ARTWORK_READY = true;
+// Renomeação Elite→Crew e Lenda→Goat: os PNG v1 mostram "ELITE"/"LENDA" no próprio desenho.
+// Os criativos novos (hero-crew-v1 / hero-goat-v1) ainda não existem; até lá esta flag fica false
+// e a renomeação em club_levels NÃO pode ser aplicada (ver docs/testes/newgang-niveis/).
+export const WALLET_RENAMED_ARTWORK_READY = false;
+const ART = "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang%2Fwallet%2F";
 export const WALLET_ARTWORK_URLS = {
-  logo: "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang%2Fwallet%2Flogo-quadrado-v1.png",
-  Gang: "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang%2Fwallet%2Fhero-gang-v1.png",
-  Elite: "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang%2Fwallet%2Fhero-elite-v1.png",
-  Lenda: "https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang%2Fwallet%2Fhero-lenda-v1.png",
+  logo: `${ART}logo-quadrado-v1.png`,
+  Gang: `${ART}hero-gang-v1.png`,
+  Elite: `${ART}hero-elite-v1.png`,
+  Lenda: `${ART}hero-lenda-v1.png`,
+  Crew: `${ART}hero-crew-v1.png`,
+  Goat: `${ART}hero-goat-v1.png`,
 } as const;
-export const WALLET_LEVEL_COLORS = { Gang: BG, Elite: "#170a2b", Lenda: "#050505" } as const;
-type ArtworkOptions = { artworkReady?: boolean };
+// Cor por escalão (não por nome): Crew herda a de Elite, Goat a de Lenda.
+export const WALLET_LEVEL_COLORS = { Gang: BG, Elite: "#170a2b", Lenda: "#050505", Crew: "#170a2b", Goat: "#050505" } as const;
+type ArtworkOptions = { artworkReady?: boolean; renamedArtworkReady?: boolean };
 
-export function levelArtwork(level: string | null) {
-  const key = level === "Elite" || level === "Lenda" ? level : "Gang";
+export type WalletTier = "gang" | "crew" | "goat";
+// Nomes antigos e novos aceites durante a transição; fonte canónica continua a ser club_levels.name.
+export function levelTier(level: string | null): WalletTier {
+  const n = (level ?? "").trim().toLowerCase();
+  if (n === "crew" || n === "elite") return "crew";
+  if (n === "goat" || n === "lenda") return "goat";
+  return "gang";
+}
+
+type ArtKey = keyof typeof WALLET_LEVEL_COLORS;
+export function levelArtKey(level: string | null, renamedReady = WALLET_RENAMED_ARTWORK_READY): ArtKey {
+  const n = (level ?? "").trim().toLowerCase();
+  const tier = levelTier(level);
+  if (tier === "gang") return "Gang";
+  const isNew = n === "crew" || n === "goat";
+  if (tier === "crew") return isNew && renamedReady ? "Crew" : "Elite";
+  return isNew && renamedReady ? "Goat" : "Lenda";
+}
+
+export function levelArtwork(level: string | null, renamedReady = WALLET_RENAMED_ARTWORK_READY) {
+  const key = levelArtKey(level, renamedReady);
+  const label = levelTier(level) === "gang" ? "Gang" : (level ?? "").trim() || key;
   return {
     heroImage: {
       sourceUri: { uri: WALLET_ARTWORK_URLS[key] },
-      contentDescription: { defaultValue: { language: "pt-PT", value: `Clube Newgang · ${key}` } },
+      contentDescription: { defaultValue: { language: "pt-PT", value: `Clube Newgang · ${label}` } },
     },
     hexBackgroundColor: WALLET_LEVEL_COLORS[key],
   };
@@ -67,7 +95,7 @@ export function buildObject(issuer: string, m: WalletMember, o: ArtworkOptions =
     state: "ACTIVE",
     accountId: String(m.member_no),
     accountName: m.first_name || "Membro",
-    ...((o.artworkReady ?? WALLET_ARTWORK_READY) ? levelArtwork(m.level) : {}),
+    ...((o.artworkReady ?? WALLET_ARTWORK_READY) ? levelArtwork(m.level, o.renamedArtworkReady ?? WALLET_RENAMED_ARTWORK_READY) : {}),
     loyaltyPoints: { label: "Pontos", balance: { int: Math.trunc(m.points) } },
     secondaryLoyaltyPoints: { label: "Nível", balance: { string: m.level || "—" } },
     textModulesData: text,
