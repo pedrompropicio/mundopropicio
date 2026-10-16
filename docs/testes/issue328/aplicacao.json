@@ -1,0 +1,10 @@
+{"data_utc":"2026-10-16T17:12Z","head_antes":"a63d54b676def0c55eca0430831082b51e7df0f8","migracao":"drizzle/migrations/0176_issue328_club_identity_crew_pending.sql",
+ "antes":{"hashes":{"club_upsert_member":"76fb3c63be8ce73f4fa408499599da1e","club_confirm_member":"eb8ce41b0a8b5c302488cc3242ab9598","club_from_lead_capture":"25201a26499f432c4b7e2ca6274935c2","club_crew_pending":null},"colunas_pending":["pending_crew_code"],"constraint":false,
+  "membros":23,"confirmados":15,"pending_code":0,"members_hash":"c4bf2d8fee21d582328fa5304d169169","points":"16/1650","points_hash":"7681d82f2cbfe7081a6059d7519dc2fe","crew_hash":"a47ae28572a8a44065de865b7b253d14"},
+ "depois":{"hashes":{"club_upsert_member":"6050fa75bb8eb33eada23ded1be64f74","club_confirm_member":"df3a12edd179829ba9233d71fc5816b7","club_from_lead_capture":"0e73d48a654ee1e3e39bd66f92bc3054","club_crew_pending":"04185aa10e84c6e44fc81ed90aa08f56"},"hashes_iguais_esperado":true,
+  "colunas_pending":["pending_crew_code","pending_crew_status","pending_crew_checked_at"],"constraint":"club_members_pending_crew_status_chk (crew_full,crew_not_found,already_in_crew,error)",
+  "membros":23,"confirmados":15,"pending_code":0,"members_hash":"c4bf2d8fee21d582328fa5304d169169","points":"16/1650","points_hash":"7681d82f2cbfe7081a6059d7519dc2fe","crew_hash":"a47ae28572a8a44065de865b7b253d14","trigger":"trg_club_from_lead_capture:O",
+  "has_function_privilege":{"todas_4_secdef":{"anon":false,"authenticated":false,"service_role":true}}},
+ "edge":{"funcao":"newgang-portal","deploy_utc":"2026-10-16T17:12Z","source_sha256":"f67c2bc7abc3bb64812014532e80d932fc49b909218e0182a9a2553b71b00a83","ts_agregado_sha256":"cf3b62dea00003a56231296809fd473c53619ebb9d0df58865d47565ef16d949"},
+ "smoke":{"site":200,"crew_pending_sem_token":401,"op_invalida":400},
+ "testes":{"deno_pending":"10/10 (--deny-net/env/run/write)","deno_check":"só os 2 erros baseline Wallet (TS2783/TS2785)","ilike_request_access":0,"tsgo":0,"vitest":"1254 passed, 1 skipped, exit 0"}}

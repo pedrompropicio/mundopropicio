@@ -1,4 +1,4 @@
--- #328 — PENDENTE. NÃO APLICADO EM LIVE. Aplicar só com "Sim" do Pedro, por migração versionada.
+-- #328 — APLICADO EM LIVE em 2026-10-16 via drizzle/migrations/0176_issue328_club_identity_crew_pending.sql. NÃO REAPLICAR (rasto: migração 0176).
 -- Âmbito: (1) inscrição idempotente/atómica por site+email normalizado; (2) telefone deixa de
 -- atribuir identidade; (3) Crew cheia/inválida na confirmação deixa pendência recuperável.
 -- Não altera pontos, regras (max 6 / min 4), bónus por edição (#327) nem dados existentes.
