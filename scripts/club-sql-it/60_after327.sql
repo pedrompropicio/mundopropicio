@@ -41,7 +41,7 @@ END $$;
 -- 3) Níveis canónicos com piso.
 DO $$ BEGIN
   PERFORM t.ok('niveis','500 → Crew protegido', (SELECT level_name||protected FROM club_member_level(t.m('lv500@example.invalid'))) = 'Crewtrue');
-  PERFORM t.ok('niveis','1499 → Crew protegido', (SELECT level_name||protected FROM club_member_level(t.m('lv1499@example.invalid'))) = 'Crewtrue');
+  PERFORM t.ok('niveis','1499 → Crew (por pontos ≥750; piso Crew igual)', (SELECT level_name||protected FROM club_member_level(t.m('lv1499@example.invalid'))) = 'Crewfalse');
   PERFORM t.ok('niveis','1500 → Goat protegido', (SELECT level_name||protected FROM club_member_level(t.m('lv1500@example.invalid'))) = 'Goattrue');
   PERFORM t.ok('niveis','2999 → Goat protegido', (SELECT level_name||protected FROM club_member_level(t.m('lv2999@example.invalid'))) = 'Goattrue');
   PERFORM t.ok('niveis','499 → Gang (sem piso)', (SELECT level_name||protected FROM club_member_level(t.m('lv499@example.invalid'))) = 'Gangfalse');
