@@ -1,0 +1,23 @@
+--- a/src/pages/crm-admin/sites/NewgangSite.tsx
++++ b/src/pages/crm-admin/sites/NewgangSite.tsx
+@@ -539,6 +539,7 @@
+         const latest = await activeCfg.refetch();
+         assertClubWrite(!latest.isError && latest.data !== undefined, latest.data ?? null, table, patch, !id);
+         const row = q.data?.find(r => r.id === id);
++        if (table === "club_point_rules" && row?.rule_key === "profile_complete" && Object.keys(patch).some(k => k !== "label")) throw new Error("Regra de perfil protegida; valor fixo por adesão.");
+         if (latest.data && table === "club_point_rules" && row && CONTROLLED_RULES.includes(row.rule_key) && "points" in patch)
+           throw new Error("Pontos definidos pela configuração ativa");
+       }
+@@ -577,10 +578,10 @@
+         })()}
+         <div className="flex flex-wrap gap-2">
+           {cols.map((c) => (
+-            <Input key={`${c.k}:${r[c.k]}:${activeCfg.data?.version ?? "legacy"}:${ready}`} className="min-w-0 flex-1 basis-28" type={c.num ? "number" : "text"} defaultValue={ready ? (table === "club_point_rules" && c.k === "points" ? ruleSource(activeCfg.data ?? null, r as { rule_key: string; points: number }, eventId).points : r[c.k] ?? "") : ""} disabled={c.ro || !ready || (guarded && !!activeCfg.data && (table === "club_levels" ? c.k !== "benefit" : c.k === "rule_key" || (c.k === "points" && CONTROLLED_RULES.includes(r.rule_key))))} aria-label={c.l}
++            <Input key={`${c.k}:${r[c.k]}:${activeCfg.data?.version ?? "legacy"}:${ready}`} className="min-w-0 flex-1 basis-28" type={c.num ? "number" : "text"} defaultValue={ready ? (table === "club_point_rules" && c.k === "points" ? ruleSource(activeCfg.data ?? null, r as { rule_key: string; points: number }, eventId).points : r[c.k] ?? "") : ""} disabled={c.ro || !ready || (table === "club_point_rules" && r.rule_key === "profile_complete" && c.k !== "label") || (guarded && !!activeCfg.data && (table === "club_levels" ? c.k !== "benefit" : c.k === "rule_key" || (c.k === "points" && CONTROLLED_RULES.includes(r.rule_key))))} aria-label={c.l}
+               onBlur={(e) => String(r[c.k] ?? "") !== e.target.value && save.mutate({ id: r.id, patch: { [c.k]: conv(c, e.target.value) } })} />
+           ))}
+-          <Button disabled={!ready || (guarded && !!activeCfg.data)} variant="ghost" size="icon" aria-label="Remover" onClick={() => confirm("Remover?") && del.mutate(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
++          <Button disabled={!ready || (table === "club_point_rules" && r.rule_key === "profile_complete") || (guarded && !!activeCfg.data)} variant="ghost" size="icon" aria-label="Remover" onClick={() => confirm("Remover?") && del.mutate(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+         </div>
+         </div>
+       ))}

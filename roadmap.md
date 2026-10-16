@@ -1,5 +1,14 @@
 # Roadmap — épica #146 (e)
 
+## #330 — missão de perfil (preparação inerte)
+- [x] Inventariar perfil, idade, sessões e consentimentos; documentar dependências.
+- [x] Preparar SQL/RPC, reversão preservadora e patch API/CRM inerte sem tocar produção.
+- [x] Testar PostgreSQL real isolado (57/57), concorrência, RLS, erros e regressões #327/#328; módulo API 8/8.
+- [x] Entregar contrato sequencial frontend, provas/hashes e âmbito exato de aplicação futura.
+- [ ] Adaptador WhatsApp — depende do contrato canónico em coordenação #9, sem alterar #322.
+- [ ] Fluxo parental verificável abaixo13 — depende de revisão/âmbito próprio; não simplificar adesão.
+- [ ] Aplicação/ativação futura — depende de revisão independente, CI final e autorização expressa.
+
 ## #327 — CRM e prévia de ativação (16/10/2026)
 - [x] Ativação expressamente autorizada às17:43 Fortaleza: CUTOVER exato uma vez; corrigir uma linha de prémios Lenda→Goat; verificar ledger/API e registar prova específica.
 - [x] Aplicar compatibilidade em todos os editores Clube; bloquear estados não verificados e valores ignorados pelo motor.

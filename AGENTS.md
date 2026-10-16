@@ -1,5 +1,7 @@
 # Architecture rules
 
+- Newgang demographic profile preparation uses a session-resolved member RPC and a separate permanent completion record; profile and canonical point credit commit atomically under site-before-member locks, so legacy capture snapshots and consent ledgers remain untouched.
+
 - Club CRM editors share the active-config query and fail-closed write policy; versioned points and level identities cannot be overwritten through legacy editors, while ranking delegates protected levels to the canonical RPC.
 
 - Ticket-office position cards use the canonical balance RPC for retained funds and the existing sales RPC plus canonical per-event balance helper for unapportioned events; this prevents confusing gross sales with receivable balances or truncating sales reads.
