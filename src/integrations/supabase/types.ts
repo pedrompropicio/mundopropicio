@@ -12060,6 +12060,7 @@ export type Database = {
           client_decided_at: string | null
           client_seq: number
           company_id: string
+          expected_revision: number | null
           id: number
           idempotency_key: string
           origin: string | null
@@ -12067,6 +12068,7 @@ export type Database = {
           policy_version: string
           portal: string
           purpose: string
+          revision: number | null
           server_received_at: string
           state: string
           subject_id: string
@@ -12076,6 +12078,7 @@ export type Database = {
           client_decided_at?: string | null
           client_seq: number
           company_id: string
+          expected_revision?: number | null
           id?: never
           idempotency_key: string
           origin?: string | null
@@ -12083,6 +12086,7 @@ export type Database = {
           policy_version: string
           portal: string
           purpose: string
+          revision?: number | null
           server_received_at?: string
           state: string
           subject_id: string
@@ -12092,6 +12096,7 @@ export type Database = {
           client_decided_at?: string | null
           client_seq?: number
           company_id?: string
+          expected_revision?: number | null
           id?: never
           idempotency_key?: string
           origin?: string | null
@@ -12099,6 +12104,7 @@ export type Database = {
           policy_version?: string
           portal?: string
           purpose?: string
+          revision?: number | null
           server_received_at?: string
           state?: string
           subject_id?: string
@@ -22649,7 +22655,12 @@ export type Database = {
         }[]
       }
       marketing_consent_bind: {
-        Args: { p_company: string; p_portal: string; p_token: string }
+        Args: {
+          p_company: string
+          p_portal: string
+          p_receipt: string
+          p_token: string
+        }
         Returns: Json
       }
       marketing_consent_binding_valid: {
@@ -22665,18 +22676,23 @@ export type Database = {
       marketing_consent_effective: {
         Args: { p_at: string; p_subject: string }
         Returns: {
-          client_seq: number
           event_id: number
           expires_at: string
+          revision: number
           state: string
           valid_grant: boolean
         }[]
+      }
+      marketing_consent_receipt: {
+        Args: { p_event: number; p_revision: number; p_token: string }
+        Returns: string
       }
       marketing_consent_record: {
         Args: {
           p_banner: string
           p_client_at: string
           p_company: string
+          p_expected_revision: number
           p_idem: string
           p_origin: string
           p_path: string
@@ -22693,6 +22709,10 @@ export type Database = {
         Args: { p_company: string; p_portal: string }
         Returns: boolean
       }
+      marketing_filter_qs: { Args: { p_qs: string }; Returns: string }
+      marketing_is_meta_key: { Args: { p: string }; Returns: boolean }
+      marketing_pct_decode_key: { Args: { p: string }; Returns: string }
+      marketing_strip_meta_json: { Args: { j: Json }; Returns: Json }
       marketing_strip_meta_params: { Args: { p_url: string }; Returns: string }
       merge_forecasts_into_active_snapshot: {
         Args: { _event_id: string; _forecast_ids: string[] }

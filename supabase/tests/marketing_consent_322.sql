@@ -1,3 +1,4 @@
+-- SUBSTITUÍDO pela correção #322 (0175): assinaturas antigas de record/bind já não existem. Usar marketing_consent_322_fix.sql.
 -- #322 — testes do ledger de consentimento. Corre num único DO que termina com RAISE (rollback total).
 -- Fixtures só em marketing_consent_* , leads (sem triggers de negócio além da cópia de vínculo) e redirect_log
 -- (só o guarda de consentimento). Nunca lead_capture (tem triggers de Clube/email). Sem rede.
