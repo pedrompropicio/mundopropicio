@@ -23,7 +23,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #328 | ChatGPT · newgang-portal | agente Lovable ERP, preparação e testes locais | inscrição idempotente, identidade por email e resultado recuperável de Crew cheia; sem aplicar SQL Live/deploy nesta etapa | 2026-10-16 16:07 UTC | autorizado por Pedro; preparar correções e prévia SQL, preservar #322/#323 |
+| #328 | ChatGPT · newgang-portal | agente Lovable ERP, artefactos pendentes e testes locais | SQL Clube e proposta trigger Crew, patch API em ficheiro inerte (sem editar edge deployável); testes locais | 2026-10-16 16:07 UTC | 16:19 revisão812c585: preparar lacunas membro confirmado/API; sem Live/deploy; preservar #322/#323/#321 |
 | #322 | 0 · Cowork (ChatGPT) | agente Lovable (ERP) | ERP: consentimento por interação (ledger marketing_consent_*), portal-track, capi_consent_proof/guardas, lead_capture/redirect_log/leads (colunas aditivas), docs; coordenação futura MP/Coala/Newgang (portais NÃO tocados nesta etapa) | 2026-10-16 01:12 | 2026-10-16 01:46 — ERP corrigido após verificação independente (0175 + portal-track), aguarda revisão; portais MP/Coala/Newgang pendentes |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
