@@ -118,9 +118,10 @@ say "== E) reversão sha256=$(sha256sum "$RB" | cut -c1-16)"
 "${PSQL[@]}" -tAc "CREATE TABLE t.lv_before AS SELECT m.id, m.site_id, x.level_name, (SELECT min_points FROM club_levels l WHERE l.site_id=m.site_id AND l.name=x.level_name) AS rank_min, x.protected FROM club_members m CROSS JOIN LATERAL club_member_level(m.id) x" >/dev/null
 say "canónico antes: Goat protegido=$("${PSQL[@]}" -tAc "SELECT level_name||'/'||protected FROM t.lv_before WHERE id=t.m('lv1500@example.invalid')") negativo=$("${PSQL[@]}" -tAc "SELECT coalesce(level_name,'(sem nível)')||'/'||t.pts(id) FROM t.lv_before WHERE id=t.m('rb_negativo@example.invalid')")"
 N0="$("${PSQL[@]}" -tAc "SELECT count(*)||'/'||sum(points) FROM club_points")"
-# Ordem: API revertida primeiro. Consumidor antigo (soma + club_levels, sem RPC) funciona com o patch SQL ainda aplicado:
+# Ordem ANTIGA (API primeiro) — só como controlo negativo: a fórmula antiga com o SQL #327 ainda aplicado rebaixa.
 OLDLV="$("${PSQL[@]}" -tAc "SELECT (SELECT name FROM club_levels l WHERE l.site_id=m.site_id AND l.min_points <= (SELECT coalesce(sum(points),0) FROM club_points WHERE member_id=m.id) ORDER BY min_points DESC LIMIT 1) FROM club_members m WHERE email='lv1500@example.invalid' AND site_id='00000000-0000-4000-8000-0000000000a2'")"
-say "consumidor antigo (sem RPC) com SQL #327 ainda aplicado: nível=$OLDLV"
+say "controlo negativo da ORDEM ANTIGA (API revertida antes do SQL): Goat protegido apareceria como $OLDLV → janela de rebaixamento; ordem segura = SQL primeiro sob API compat"
+[ "$OLDLV" != Goat ] || exit 18
 # Guarda: reversão aborta (nada muda) se alguém descesse de nível — controlo negativo com um membro cujos pontos caem abaixo do piso.
 "${PSQL[@]}" -tAc "INSERT INTO club_points(company_id, member_id, rule_key, points, ref_id) SELECT company_id, id, 'seed_fixture', -1400, 'rb_neg' FROM club_members WHERE email='lv1500@example.invalid' AND site_id='00000000-0000-4000-8000-0000000000a2'" >/dev/null
 if "${PSQL[@]}" -f "$RB" >>"$LOG" 2>&1; then say "ERRO: reversão devia abortar"; exit 10; fi
@@ -131,7 +132,7 @@ if "${PSQL[@]}" -f "$RB" >>"$LOG" 2>&1; then say "ERRO: reversão devia abortar"
 python3 "$HERE/compare327.py" base "$LIVE" "$TMP/h2.txt" "$OUT/equivalencia-pos-reversao.json" | tee -a "$LOG"
 # API compatível depois do SQL revertido: RPC ausente (42883) → fórmula antiga. Ninguém desce face ao canónico de antes.
 [ -z "$("${PSQL[@]}" -tAc "SELECT to_regprocedure('public.club_member_level(uuid)')")" ] && say "pós-reversão: club_member_level ausente → API compat usa fórmula antiga (só neste caso)" || exit 14
-DROPS="$("${PSQL[@]}" -tAc "WITH a AS (SELECT b.id, b.rank_min, (SELECT max(l.min_points) FROM club_levels l WHERE l.site_id=b.site_id AND l.min_points <= t.pts(b.id)) AS after_min FROM t.lv_before b) SELECT count(*) FROM a WHERE rank_min IS NOT NULL AND coalesce(after_min,-1) < rank_min")"
+DROPS="$("${PSQL[@]}" -tAc "WITH a AS (SELECT b.id, (SELECT l.min_points FROM club_levels l WHERE l.site_id=b.site_id AND l.name=b.level_name) AS need_min, (SELECT max(l.min_points) FROM club_levels l WHERE l.site_id=b.site_id AND l.min_points <= t.pts(b.id)) AS after_min FROM t.lv_before b WHERE b.level_name IS NOT NULL) SELECT count(*) FROM a WHERE coalesce(after_min,-1) < need_min")"
 [ "$DROPS" = 0 ] && say "nenhum membro desce na passagem RPC canónica → fórmula antiga: 0 descidas ($("${PSQL[@]}" -tAc "SELECT count(*) FROM t.lv_before") membros)" || { say "DESCIDAS: $DROPS"; exit 15; }
 [ "$("${PSQL[@]}" -tAc "SELECT (SELECT name FROM club_levels l WHERE l.site_id=m.site_id AND l.min_points <= t.pts(m.id) ORDER BY min_points DESC LIMIT 1) FROM club_members m WHERE id=t.m('lv1500@example.invalid')")" = Goat ] && say "Goat protegido (1500) continua Goat após reversão" || exit 16
 say "membro negativo após reversão: $("${PSQL[@]}" -tAc "SELECT coalesce((SELECT name FROM club_levels l WHERE l.site_id=m.site_id AND l.min_points <= t.pts(m.id) ORDER BY min_points DESC LIMIT 1),'(sem nível)')||'/'||t.pts(m.id) FROM club_members m WHERE id=t.m('rb_negativo@example.invalid')") (igual ao canónico antes)"

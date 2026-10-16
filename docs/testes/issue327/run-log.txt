@@ -1,4 +1,4 @@
-runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T19:08:04Z
+runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T19:08:25Z
 listen_addresses=
 aplicar 0119_0119_newgang_lineup_reveals_security.sql sha256=4e8d1c1410a377bb
 psql:/dev-server/drizzle/migrations/0119_0119_newgang_lineup_reveals_security.sql:2: NOTICE:  policy "event_lineups_authenticated_all" for relation "public.event_lineups" does not exist, skipping
@@ -24,7 +24,7 @@ rollback gerado: 2abcf6789597c33d
 == B) legado (funções Live)
                       ?column?                       
 -----------------------------------------------------
- LEGADO_OK 54/12597/671776baabf113f2598f2cd83e52585d
+ LEGADO_OK 54/12597/7c0d26390ad033f54ba3e72981f7fd52
 (1 row)
 
 == C) carregar pendente sha256=bcf12704d0f491e5
@@ -112,11 +112,22 @@ psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: dblin
 serial: 141/141
 == E) reversão sha256=2abcf6789597c33d
 canónico antes: Goat protegido=Goat/true negativo=(sem nível)/-150
-consumidor antigo (sem RPC) com SQL #327 ainda aplicado: nível=Crew
+controlo negativo da ORDEM ANTIGA (API revertida antes do SQL): Goat protegido apareceria como Crew → janela de rebaixamento; ordem segura = SQL primeiro sob API compat
 psql:/dev-server/supabase/manual/20261016_issue327.ROLLBACK.sql:161: ERROR:  rollback #327: 1 membro(s) desceriam de nível; abortado (nada mudou)
 CONTEXT:  PL/pgSQL function inline_code_block line 7 at RAISE
 reversão abortou com descida de nível; nada mudou (funções novas presentes)
 após aborto a RPC/API canónica continua a servir: Goat protegido com pontos abaixo do limiar
 guard327 base: OK (30 funções)
 pós-reversão: club_member_level ausente → API compat usa fórmula antiga (só neste caso)
-DESCIDAS: 16
+nenhum membro desce na passagem RPC canónica → fórmula antiga: 0 descidas (137 membros)
+Goat protegido (1500) continua Goat após reversão
+membro negativo após reversão: (sem nível)/-150 (igual ao canónico antes)
+reversão preserva créditos: 259/36739
+ACL das 5 funções = baseline
+níveis após reversão: {"Crew": 500, "Gang": 0, "Goat": 1500}
+regras visíveis após reversão: attended_year:100,crew_complete:200,friend_bought:300,friend_joined:150,guess_correct:50,join_confirmed:100,promo_lot_purchase:500
+regras A2/B2 = pré-patch
+crew_cfg após reversão: 200/4/6
+configs ativas após reversão: 0
+pisos/provas/contagens/retrato preservados: 54/9/67/36
+RESULTADO: TODOS OS ASSERTS PASSARAM
