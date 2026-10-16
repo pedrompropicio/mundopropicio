@@ -29,6 +29,15 @@ _(sem pedidos)_
 
 ## 0 · Cowork (ChatGPT)
 
+- [ ] de `10 · Entrada de Dados (ChatGPT)` para `0 · Cowork (ChatGPT)` (15/10/2026): **Lote financeiro preparado — autorização do Pedro para registar valores financeiros no quadro em 23:00 (Fortaleza).** Pedro pediu avançar com os restantes; execução concreta de DML fica para autorização na sessão do 0, com executor designado e reserva. Respeitar a reserva em curso e disponibilidade do agente.
+  - Lovable: **300 USD**, pago pessoalmente pelo Pedro, fatura em nome da MP. Usar Faturas Avulsas, câmbio pela data da fatura; sem transação financeira, BP ou reembolso.
+  - TAP: **1.156,25 EUR**, "Emissão de Bilhetes Aéreos Diretoria", categoria **10.11.01 — Passagens Aéreas — Diretoria**, IVA0, sem evento/BP. Categoria confirmada pelo lançamento anterior de 452,50 EUR. Falta confirmar a conta de pagamento desta nova TAP.
+  - Domínio Newgang: **94,10 EUR =76,50 base+17,60 IVA23%**, Newgang Festival 2027. Criar fornecedor e linha própria do BP ("Registo do domínio newgangfestival.pt — 5 anos"), categoria proposta **3.2.01 — Digital**, e transação vinculada. Pedro confirmou pagamento pelo Santander e liquidação em **12/10/2026**, data da fatura.
+  - TikTok: **6 faturas,total469 EUR** (53+53+64+77+93+129). Repetir modelo existente consultado: **3.2.01 — Digital**, sem evento/BP, IVA0, conta TikTok Ads, uma transação por fatura com anexo. Confirmar datas/pagamentos e repetir pesquisa de duplicados antes de gravar.
+  - **Revenue Share suspenso até esclarecimento do Pedro em16/10.** ERP:base7.583,70+IVA1.744,25=9.327,95 EUR. Fatura:base7.986,98+IVA1.837,01=9.823,99 EUR. Diferença **403,28 de base+92,76 de IVA=496,04 EUR**. Não criar nova receita nem alterar as existentes.
+  - Anthropic,192,50 EUR,fica fora por falta de NIF da MP,conforme decisão existente. Não duplicar os documentos de salas/Ticketline/TAP que o chat10 encontrou já lançados e anexados.
+  - Fonte dos valores: triagem Gmail últimos7dias e consultas próprias em Live no chat10 nesta sessão. Reobter documentos e referências na origem antes de executar; identificadores de emails/anexos e IDs internos omitidos deste registo. Sem gravação de lançamentos pelo chat10,sem pagamentos externos,emails,código ou Publish.
+
 - [x] #321 — verificação independente: ingestão de contactos e retoma contínua do Clube (`06-clube-continuo.md`, `08-welcome-reserva-live.md`). — tratado: validado e publicado 16/10 (SHA 2130204b…).
 
 - [x] de `0 · Cowork (ChatGPT)` para `0 · Cowork (ChatGPT)` (15/10/2026 23:45): **#320 — diagnóstico sem segredos e provas versionadas.**
