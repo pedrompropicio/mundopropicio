@@ -1,7 +1,30 @@
 {
  "_acl_live": "club_award/club_award_fixed/club_confirm_member/club_wallet_due/_club_points_void_row: postgres+service_role; club_ranking: +authenticated (lido em Live)",
+ "_acl_live_map": {
+  "club_award": [
+   "postgres",
+   "service_role"
+  ],
+  "club_award_fixed": [
+   "postgres",
+   "service_role"
+  ],
+  "club_confirm_member": [
+   "postgres",
+   "service_role"
+  ],
+  "club_ranking": [
+   "authenticated",
+   "postgres",
+   "service_role"
+  ],
+  "club_wallet_due": [
+   "postgres",
+   "service_role"
+  ]
+ },
  "_club_points_void_row": "47fa1f050c97d1b37d41f74949e3ee5f",
- "_source": "SELECT md5(pg_get_functiondef(oid)) FROM pg_proc (schema public, club_%) — Live pós-0176, 2026-10-16 ~17:50 UTC, só leitura, sem dados pessoais. Não substitui live-hashes.json (#326).",
+ "_source": "SELECT md5(pg_get_functiondef(oid)) FROM pg_proc (schema public, club_%) \u2014 Live p\u00f3s-0176, 2026-10-16 ~17:50 UTC, s\u00f3 leitura, sem dados pessoais. N\u00e3o substitui live-hashes.json (#326).",
  "club_award": "e149ac23e2cef6b4c08a4413b8e6767a",
  "club_award_fixed": "ea8c1917a79095318c553c29e1efbdb0",
  "club_claim_attendance": "105e4e37557675f6dc0d258ef7bce547",

@@ -78,7 +78,7 @@ check "B: Crew Y (T3) 4×90 da config nova" "(SELECT count(*)||'/'||sum(p.points
 check "B: e3-v1 retirada, e3-v2 ativa (uma só)" "(SELECT string_agg(version||':'||status, ',' ORDER BY version) FROM club_points_config WHERE site_id='$A' AND version LIKE 'e3-%') = 'e3-v1:retired,e3-v2:active' AND (SELECT count(*) FROM club_points_config WHERE site_id='$A' AND status='active') = 1"
 
 # C) Controlo negativo: sem o bloqueio de site (função trocada SÓ aqui), o cutover não espera por T1.
-q "SELECT pg_get_functiondef('public._club_site_lock(uuid,boolean)'::regprocedure)" > "$WD/lock.sql"
+{ q "SELECT pg_get_functiondef('public._club_site_lock(uuid,boolean)'::regprocedure)"; echo ";"; } > "$WD/lock.sql"
 q "CREATE OR REPLACE FUNCTION public._club_site_lock(p_site uuid, p_exclusive boolean) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS \$\$ BEGIN RETURN; END \$\$;" >/dev/null
 q "DO \$\$ DECLARE r uuid; BEGIN r := t.newc('ep_rc@example.invalid', NULL, '$C');
   PERFORM t.new('ep_fc1@example.invalid', t.code(r), '$C'); PERFORM t.new('ep_fc2@example.invalid', t.code(r), '$C');
