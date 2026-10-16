@@ -62,3 +62,7 @@ Verificação independente dos PNG públicos: HTTP 200, 1032×336 e SHA idêntic
 A function newgang-portal foi deployada pelo agente antes do DML (source_sha na Etapa 2); sem Publish frontend nem PATCH manual Google. Sync existente */10 deverá atualizar cartões cujo last_level difere; não verificado no dispositivo.
 
 Pendências explícitas: benefício Goat ainda diz “Tudo de Elite” (campo preservado pelo SQL aprovado); corrigir apenas referência para “Tudo de Crew” após autorização SQL própria. Consolidação da regra dos portais em CHATS/DECISIONS/PROC continua pendente da reserva #323. O SQL com sufixo PENDENTE foi aplicado por ChatGPT nesta etapa e NÃO deve ser reaplicado.
+
+
+## Etapa 4 — referência textual corrigida (16/10/2026 03:25 UTC)
+Pedro autorizou o SQL apresentado. Prévia Live confirmou Goat 1500 com “Tudo de Elite”; UPDATE restrito ao ID/site/Goat e prefixo antigo alterou 1 linha para “Tudo de Crew + acesso antecipado à merch oficial + prémios de topo do ranking”. SELECT independente confirmou os três níveis/limites e textos. Sem alterações funcionais dos benefícios, sem Publish. Esta etapa resolve a pendência textual da Etapa 3.
