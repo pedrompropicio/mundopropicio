@@ -1,4 +1,4 @@
-runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T17:57:46Z
+runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T17:57:55Z
 listen_addresses=
 aplicar 0119_0119_newgang_lineup_reveals_security.sql sha256=4e8d1c1410a377bb
 psql:/dev-server/drizzle/migrations/0119_0119_newgang_lineup_reveals_security.sql:2: NOTICE:  policy "event_lineups_authenticated_all" for relation "public.event_lineups" does not exist, skipping
@@ -18,7 +18,7 @@ rollback gerado: 75debecc8ef3e149
 == B) legado (funções Live)
                       ?column?                       
 -----------------------------------------------------
- LEGADO_OK 54/12597/57c2e3a2a17b246692d1b13730484e72
+ LEGADO_OK 54/12597/486d0b6042c166ccdf4d5a76ce6dff95
 (1 row)
 
 == C) carregar pendente sha256=bc7b0f8e0a5f31f5
@@ -35,9 +35,7 @@ psql:/dev-server/supabase/manual/20261016_issue327.PENDENTE.sql:76: NOTICE:  rel
 psql:/dev-server/supabase/manual/20261016_issue327.PENDENTE.sql:94: NOTICE:  relation "club_purchase_evidence" already exists, skipping
 pendente idempotente: 2.ª aplicação sem alterações
 == D) depois
-psql:/dev-server/scripts/club-sql-it/60_after327.sql:108: ERROR:  column reference "p" is ambiguous
-LINE 1: SELECT _club_points_void_row((SELECT p FROM club_points p WH...
-                                             ^
-DETAIL:  It could refer to either a PL/pgSQL variable or a table column.
-QUERY:  SELECT _club_points_void_row((SELECT p FROM club_points p WHERE member_id = r AND rule_key='friend_joined' ORDER BY created_at LIMIT 1), 'fixture: fraude')
-CONTEXT:  PL/pgSQL function inline_code_block line 28 at PERFORM
+psql:/dev-server/scripts/club-sql-it/60_after327.sql:140: ERROR:  ASSERT FALHOU [328] crew cheia na confirmação: código preservado + estado — <NULL>
+CONTEXT:  PL/pgSQL function t.ok(text,text,boolean,text) line 4 at RAISE
+SQL statement "SELECT t.ok('328','crew cheia na confirmação: código preservado + estado', (SELECT pending_crew_code = cd AND pending_crew_status = 'crew_full' FROM club_members WHERE id = m))"
+PL/pgSQL function inline_code_block line 27 at PERFORM

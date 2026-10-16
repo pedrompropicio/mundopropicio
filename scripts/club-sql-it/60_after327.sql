@@ -96,7 +96,7 @@ DO $$ DECLARE r uuid; i int; x uuid; p jsonb; BEGIN
   PERFORM club_confirm_member(x);
   PERFORM t.ok('indicacao','reconfirmação não credita ninguém', t.rp('friend_joined', t.m('novo1@example.invalid')) = 0 AND t.cnt('friend_joined', r) = 10);
   -- Anulação liberta espaço do teto (crédito anulado deixa de contar); nunca apaga.
-  PERFORM _club_points_void_row((SELECT p FROM club_points p WHERE member_id = r AND rule_key='friend_joined' ORDER BY created_at LIMIT 1), 'fixture: fraude');
+  PERFORM _club_points_void_row((SELECT q FROM club_points q WHERE q.member_id = r AND q.rule_key='friend_joined' ORDER BY q.created_at, q.id LIMIT 1), 'fixture: fraude');
   PERFORM t.ok('indicacao','após anulação: 675 ativos', t.rp('friend_joined', r) + coalesce((SELECT sum(points) FROM club_points WHERE member_id=r AND rule_key='void'),0) = 675);
   PERFORM t.newc('ref_f13@example.invalid', t.code(r));
   PERFORM t.ok('indicacao','novo amigo após anulação volta a 750 ativos', t.rp('friend_joined', r) + coalesce((SELECT sum(points) FROM club_points WHERE member_id=r AND rule_key='void'),0) = 750);
