@@ -36,3 +36,10 @@ Clear explícito: `profile_payload:{"op":"clear"}`. Preserva conclusão/recompen
 Bloqueio parental explica necessidade de fluxo verificável, sem afirmar adesão proibida ou consentimento já concedido. Validação não prova veracidade.
 
 Mobile: tooltip abre por toque/foco, pode fechar, corpo rolável e resumo no cartão; foco e leitura por teclado. Não renderizar cidade/país/nomes como HTML. Tratamento de loading/erro refetch não mantém dados de outro membro/sessão.
+## Adenda revisão final — isolamento de falhas (16/10/2026)
+
+Contrato additive compatível com parseProfile: em falha opcional `me.profile=null`, `profile_status="temporarily_unavailable"`, `profile_error="profile_state_unavailable"`. A UI existente que ignora perfil ausente continua válida; nunca fabricar campos ou points=0. Sem confirmação: profile=null/status=not_confirmed. Sessão rejeitada pela RPC: HTTP401/no_session, sem cartão privado na resposta.
+
+Em site/bundle: `club.profile_mission.available=false`, `points=null`, `status="error"`, `error="profile_config_unavailable"`. Config ausente/desativada é indisponivel, não erro; núcleo #327/#328 preservado. Códigos fixos não incluem SQL/PII/token. Leituras opcionais limitadas a1500ms, sem retry; não é deadline nem cancelamento para escrita.
+
+profile_confirm continua 500/409/401 conforme erro, sem ok/awarded falso nem retry automático. Rejeição da promessa produz500/profile_confirm_unavailable. Um timeout de transporte de escrita pode ter resultado desconhecido: reler estado, nunca prometer falha de commit ou desbloquear prémio; unicidade/atomicidade SQL permanecem autoritativas.

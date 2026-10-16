@@ -1,8 +1,16 @@
 {
-  "supabase/manual/20261016_issue330.PENDENTE.sql": "4525159d816d1fe32b1afba06570b23c16eab7ebe7e44016bd22d1e47de1339e",
-  "supabase/manual/20261016_issue330.ROLLBACK.sql": "80d8d1ab43cbb30d7b5a6f756bb2b1957907a537803c678ee92e11617f4dc15a",
-  "patches/issue330/newgang-portal.patch": "8a80431b35d6c313848aaa4926b906ca5172de0f40330db8d3f24a207d7ccefd",
+  "patches/issue330/countries.ts": "a76b85b27d03e53b67417cc46f33922c469bd316c9527ace3514a4d975614676",
+  "patches/issue330/profile.ts": "c924012ec473103e19bb6b02bb57806dc94b9df8fd8fad6563873c8a05fbf578",
+  "patches/issue330/newgang-portal.patch": "a5f1e0c028f3fcd1adfb05e91090f6ef6cd6886ad84412b47944ca3e230d06fb",
+  "patches/issue330/profile_test.ts": "d556056ab07328d9712a1d353ed059777dfabf448d1528fb254436bac8cd83cc",
   "patches/issue330/crm-profile-rule.patch": "ff350c0a77a00f40336f5cdaf9cd0fc9ea2125d600820fb418a66096ac746e4e",
-  "patches/issue330/profile.ts": "a1702e258b50c68217efcae3ec97adef560123225f8b7c231ce64746cc65add6",
-  "patches/issue330/countries.ts": "a76b85b27d03e53b67417cc46f33922c469bd316c9527ace3514a4d975614676"
+  "patches/issue330/handler_test.ts": "7558312e0037cbd9f95b2db87d8da5f3585ef294d83463dd84d05b045c50f2b4",
+  "patches/issue330/handler-client.ts": "3e63e944649b0d7e3fa8d4d2e217c62358d5fe23e03bef0ed22b2e92fdc673fe",
+  "patches/issue330/run-handler-tests.sh": "2ba1295df911b848c57af285138e8b959401635a6a18b553a1935bd9f1185de9",
+  "supabase/manual/20261016_issue330.PENDENTE.sql": "b19b09e32f6db9edb7c1fa3def1b9ec07bf1916d1ac1f5cac10a79e06e441cfd",
+  "supabase/manual/20261016_issue330.ROLLBACK.sql": "80d8d1ab43cbb30d7b5a6f756bb2b1957907a537803c678ee92e11617f4dc15a",
+  "src/pages/crm-admin/sites/NewgangSite.tsx": "3c62948c66b93cc09e91e11da521d2944c094d86964a839578d7b587086ac492",
+  "src/test/club-config-integration.test.tsx": "dba93614c0a75803d0c3e95bd9aea9f197a0262bd9c3eb55f16f78ae0e00bad9",
+  "scripts/club-profile-it/run.sh": "a9699ea60ef3fbc645511fec7d11380d4b18165104a867bb15d77954136e1480",
+  "scripts/club-profile-it/scenario.sql": "1048af3c71435ec574ce7944e3959143761f90051378fd85a31bf56c68b755c3"
 }

@@ -1,12 +1,12 @@
 # Roadmap — épica #146 (e)
 
 ## #330 — missão de perfil (preparação inerte)
-- [ ] Revisão final: isolar falhas opcionais no handler, testar controlo negativo e aplicar proteção CRM; produzir prévia SQL sem execução.
+- [x] Revisão final: handler9/9, negativo exit1, CRM real43/43 e PostgreSQL59/59; prévia SQL sem execução.
 - [x] Inventariar perfil, idade, sessões e consentimentos; documentar dependências.
 - [x] Preparar SQL/RPC, reversão preservadora e patch API/CRM inerte sem tocar produção.
 - [x] Testar PostgreSQL real isolado (57/57), concorrência, RLS, erros e regressões #327/#328; módulo API 8/8.
 - [x] Entregar contrato sequencial frontend, provas/hashes e âmbito exato de aplicação futura.
-- [ ] Adaptador WhatsApp — depende do contrato canónico em coordenação #9, sem alterar #322.
+- [ ] Adaptador WhatsApp — depende do contrato canónico em coordenação #322/#9, sem alterar #322.
 - [ ] Fluxo parental verificável abaixo13 — depende de revisão/âmbito próprio; não simplificar adesão.
 - [ ] Aplicação/ativação futura — depende de revisão independente, CI final e autorização expressa.
 
