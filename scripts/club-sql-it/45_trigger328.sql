@@ -21,7 +21,7 @@ DO $$ DECLARE r jsonb; f jsonb; f2 jsonb; a jsonb; b jsonb; o uuid; h uuid; z uu
   -- novo código também cheio substitui o par
   PERFORM pg_sleep(0.01);
   l := it.lc('tg.cheia@example.invalid', jsonb_build_object('crew_code', f2->>'code'));
-  PERFORM it.ok('trigger','novo convite cheio substitui código e renova checked_at', (SELECT pending_crew_code=f2->>'code' AND pending_crew_status='crew_full' AND pending_crew_checked_at>t FROM club_members WHERE id=h));
+  PERFORM it.ok('trigger','novo convite cheio substitui código (checked_at definido; now() é da transação)', (SELECT pending_crew_code=f2->>'code' AND pending_crew_status='crew_full' AND pending_crew_checked_at>=t FROM club_members WHERE id=h));
   -- inexistente com formato válido
   l := it.lc('tg.cheia@example.invalid', '{"crew_code":"ZZZZZZ"}');
   PERFORM it.ok('trigger','código inexistente => crew_not_found (substitui crew_full)', (SELECT pending_crew_code='ZZZZZZ' AND pending_crew_status='crew_not_found' FROM club_members WHERE id=h));
