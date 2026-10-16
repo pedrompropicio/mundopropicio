@@ -77,6 +77,7 @@ export function CrewsSection({ siteId, companyId, eventId = null }: { siteId: st
       <h3 className="text-sm font-semibold">Crews</h3>
       {!ready && <p role="status" className="text-sm text-muted-foreground">{activeCfg.isError || rule.isError ? "Não foi possível verificar a configuração do Clube." : "A verificar configuração do Clube…"}</p>}
       {ready && source.version && <p className="text-xs text-muted-foreground">{source.version} · {source.scope} · uma vez por membro. {source.available ? "" : "Edição sem configuração."}</p>}
+      {ready && activeCfg.data && (!cfg.active || (rule.data?.points ?? 200) <= 0) && <p className="text-xs text-muted-foreground">Crédito Crew suspenso pela regra atual: {cfg.active ? "valor de habilitação não positivo" : "regra inativa"}. Os limites do grupo continuam em vigor.</p>}
       <fieldset disabled={!ready || save.isPending || (!!activeCfg.data && !source.available)} className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:items-end">
         <div><Label className="text-xs">Pontos por membro</Label><Input aria-label="Pontos por membro" type="number" value={ready ? (source.editable ? cfg.points : source.points) : ""} disabled={!ready || !source.editable} readOnly={!source.editable} onChange={(e) => setCfg({ ...cfg, points: +e.target.value })} /></div>
         <div><Label className="text-xs">Mínimo confirmados</Label><Input type="number" value={cfg.min} onChange={(e) => setCfg({ ...cfg, min: +e.target.value })} /></div>
