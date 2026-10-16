@@ -1,6 +1,6 @@
 # ESTADO — MP CRM, Portal & Leads
 
-Atualizado: 2026-10-15 · Issues: #251, #252, #320 (P1 validado; fecho documental autorizado; Pedro fecha a Issue) · Fechadas: #253 (24/09), #254 (10/10) · Bloqueio: #62
+Atualizado: 2026-10-16 · Issues: #251, #252, #321 (em verificação), #320 (P1 validado; fecho documental autorizado; Pedro fecha a Issue) · Fechadas: #253 (24/09), #254 (10/10) · Bloqueio: #62
 
 ## Em que pé está
 Dois portais distintos, dois projetos Lovable, a mesma base Supabase:
@@ -12,9 +12,11 @@ A Early Bird 2027 do Coala está a captar em contínuo (`lead_capture`, origens 
 A 24/09/2026 foi resolvido o incidente que punha o ecrã "Algo correu mal" a 100% do tráfego pago da Meta (#253, fechada). A geolocalização do Coala passou a funcionar e o registo de erros de front está em produção.
 
 ## A trabalhar agora
+**Ingestão de contactos #321 (D-ERP282)** — aplicada em Live a 16/10: `crm_ingest_lead_captures` + cron 5 min, sem CAPI nem rede. 6 pendentes recuperados (MP 2, Coala 4), 0 contactos perdidos/duplicados, sent hash preservado. `clube_newgang` (2 pendentes) fica em quarentena até decisão (trigger do Clube envia email). Prova: `docs/testes/issue321/01-baseline-e-prova-live.md`. Aguarda verificação do Pedro.
+
 **CAPI P1 no ERP (#320, D-ERP281)** — aplicado em Live e validado independentemente; fecho documental autorizado pelo Pedro a 15/10/2026, 23:49 UTC. CI confirmada independentemente pelo Claude e ChatGPT via conector GitHub: https://github.com/pedrompropicio/mundopropicio/actions/runs/38824514063, job `quality` `116728694956`, conclusion `success`, SHA `7b151756ad8060019de571b9295a6a978e0fbb1e` (confirmado no checkout do log). Prova consolidada: `docs/testes/issue320/07-fecho-documental-ci.md`. Diagnóstico sensível removido confirmado por leitura; 11 corpos SQL repo × Live iguais, grants anon/authenticated false e service_role true; sent_n 29550 e hash `b1738fd8ecdd96d7c54466ad7c81e112` preservados. Isto fecha apenas P1, não o projeto CAPI.
 
-**CAPI continua suspenso:** `capi_dispatch_control.suspended=true`, crons 33/34/44/45 ausentes, ticks SQL desactivados, sem retoma automática. A ingestão `lead_capture`/`redirect_log` → contacts/leads também permanece suspensa, com dados guardados na origem. Consentimento por interação P2/P3 e separação da ingestão ficaram fora do âmbito. Retoma depende de autorização própria; abrir o interruptor não basta enquanto `capi_consent_proof()` devolver false. Detalhe em `docs/features/capi-p1-erp.md`.
+**CAPI continua suspenso:** `capi_dispatch_control.suspended=true`, crons 33/34/44/45 ausentes, ticks SQL desactivados, sem retoma automática. A ingestão `lead_capture` → contacts/leads foi retomada pela #321 (fora da CAPI, excepto Clube); `redirect_log` continua suspenso. Consentimento por interação P2/P3 e separação da ingestão ficaram fora do âmbito. Retoma depende de autorização própria; abrir o interruptor não basta enquanto `capi_consent_proof()` devolver false. Detalhe em `docs/features/capi-p1-erp.md`.
 
 **Portal newgangfestival.pt e Clube Newgang (#306, #308, envios à lista)** — passaram para o chat `newgang-portal` (estado em `docs/estado/estado-newgang-portal.md`).
 
