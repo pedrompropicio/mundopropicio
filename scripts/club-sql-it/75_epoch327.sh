@@ -89,5 +89,12 @@ phase C "SELECT club_points_cutover((SELECT id FROM club_points_config WHERE ver
 check "C: sem bloqueio, T1 grava valor da config antiga DEPOIS de a nova estar ativa (anomalia esperada)" "(SELECT points FROM club_points WHERE member_id=t.m('ep_rc@example.invalid','$C') AND rule_key='friend_joined' AND ref_id=t.m('ep_fc1@example.invalid','$C')::text) = 75"
 "${PSQL[@]}" -f "$WD/lock.sql" >/dev/null
 check "C: bloqueio reposto (corpo original)" "position('pg_advisory_xact_lock_shared' in pg_get_functiondef('public._club_site_lock(uuid,boolean)'::regprocedure)) > 0"
+# D) Config com zeros (inscrição 0, Crew 0, teto 0): nada creditado, sem erro (o motor não divide por nenhum valor).
+q "INSERT INTO club_points_config(company_id, site_id, version, event_id, status, join_points, referral_points, referral_cap, crew_points, purchase_points, levels)
+   VALUES ('00000000-0000-4000-8000-0000000000a1','$B','b2-zero','00000000-0000-4000-8000-0000000000e9','draft',0,75,0,0,0,'{\"Gang\":0,\"Crew\":750,\"Goat\":3000}');
+   SELECT club_points_cutover((SELECT id FROM club_points_config WHERE version='b2-zero'), '{\"Gang\":0,\"Crew\":750,\"Goat\":3000}');" >/dev/null
+q "DO \$\$ DECLARE r uuid; BEGIN r := t.newc('ep_z1@example.invalid', NULL, '$B'); PERFORM t.newc('ep_z2@example.invalid', t.code(r), '$B'); END \$\$;" >/dev/null
+check "D: config a zeros → inscrição 0 e indicação 0 (teto 0)" "t.pts(t.m('ep_z1@example.invalid','$B')) = 0 AND t.pts(t.m('ep_z2@example.invalid','$B')) = 0"
+check "D: montra mostra 0 (não promete valores antigos)" "(SELECT string_agg(rule_key||':'||points, ',' ORDER BY rule_key) FROM club_rules_public('$B') WHERE rule_key IN ('join_confirmed','crew_complete')) = 'crew_complete:0,join_confirmed:0'"
 save; rm -rf "$WD"
 echo "EPOCH327 $(grep -o '"asserts":[0-9]*' "$RES") $(grep -o '"falhados":[0-9]*' "$RES")"

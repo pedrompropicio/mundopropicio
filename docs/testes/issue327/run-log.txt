@@ -1,4 +1,4 @@
-runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T18:28:19Z
+runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T18:28:48Z
 listen_addresses=
 aplicar 0119_0119_newgang_lineup_reveals_security.sql sha256=4e8d1c1410a377bb
 psql:/dev-server/drizzle/migrations/0119_0119_newgang_lineup_reveals_security.sql:2: NOTICE:  policy "event_lineups_authenticated_all" for relation "public.event_lineups" does not exist, skipping
@@ -23,7 +23,7 @@ rollback gerado: f96da052f6a3f631
 == B) legado (funções Live)
                       ?column?                       
 -----------------------------------------------------
- LEGADO_OK 54/12597/80a5190dfc0f6246b6b81cc3d1895f29
+ LEGADO_OK 54/12597/6af2f32d08a81248c183021b23197fdf
 (1 row)
 
 == C) carregar pendente sha256=5f21e421738d82c5
@@ -90,7 +90,9 @@ epoch ok: B: e3-v1 retirada, e3-v2 ativa (uma só)
 epoch ok: C: controlo negativo reproduz a corrida
 epoch ok: C: sem bloqueio, T1 grava valor da config antiga DEPOIS de a nova estar ativa (anomalia esperada)
 epoch ok: C: bloqueio reposto (corpo original)
-EPOCH327 "asserts":16 "falhados":0
+epoch ok: D: config a zeros → inscrição 0 e indicação 0 (teto 0)
+epoch ok: D: montra mostra 0 (não promete valores antigos)
+EPOCH327 "asserts":18 "falhados":0
 psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: net.http_post indisponível (3F000)
 psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: dblink não instalável (0A000)
 serial: 141/141
@@ -107,5 +109,5 @@ regras visíveis após reversão: attended_year:100,crew_complete:200,friend_bou
 regras A2/B2 = pré-patch
 crew_cfg após reversão: 200/4/6
 configs ativas após reversão: 0
-pisos/provas/contagens/retrato preservados: 38/9/66/36
+pisos/provas/contagens/retrato preservados: 38/9/67/36
 RESULTADO: TODOS OS ASSERTS PASSARAM
