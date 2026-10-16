@@ -55,9 +55,4 @@ END $$;
 DO $$ DECLARE p uuid; BEGIN
   p := it.new('antes.preserva@example.invalid');
   UPDATE club_members SET pending_crew_code = 'ABCDEF' WHERE id = p;
-  INSERT INTO it.kv VALUES
-    ('points_sum', (SELECT coalesce(sum(points),0)::text FROM club_points)),
-    ('points_n', (SELECT count(*)::text FROM club_points)),
-    ('members_n', (SELECT count(*)::text FROM club_members)),
-    ('members_hash', (SELECT md5(string_agg(id::text||coalesce(email,'')||coalesce(phone,'')||coalesce(referred_by_member_id::text,'')||coalesce(pending_crew_code,''), ',' ORDER BY id)) FROM club_members));
 END $$;

@@ -66,6 +66,7 @@ say "== B) antes (defeitos reproduzidos)"
 "${PSQL[@]}" -f "$HERE/30_before328.sql" 2>&1 | tee -a "$LOG"
 OUT="$OUT" bash "$HERE/25_conc328.sh" "${PSQL[*]}" before 2>&1 | tee -a "$LOG"
 
+"${PSQL[@]}" -f "$HERE/35_snapshot328.sql" >>"$LOG" 2>&1
 # C) Patch local = SQL pendente verbatim; guard de proveniência.
 say "== C) carregar pendente sha256=$(sha256sum "$PEND" | cut -c1-16)"
 "${PSQL[@]}" -f "$PEND" >>"$LOG" 2>&1
