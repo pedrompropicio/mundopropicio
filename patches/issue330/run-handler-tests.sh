@@ -15,4 +15,4 @@ s=s.rstrip(); assert s.endswith('});');s=s[:-3]+'};\nexport const testPublicCach
 s=s.replace('Deno.env.get("SUPABASE_URL")!', '"https://example.invalid"').replace('Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!', '"fixture-no-secret"')
 (p/'handler-under-test.ts').write_text(s)
 PY
-deno test --no-check "$OUT/supabase/functions/newgang-portal/handler_test.ts"
+deno test --node-modules-dir=auto --no-check "$OUT/supabase/functions/newgang-portal/handler_test.ts"
