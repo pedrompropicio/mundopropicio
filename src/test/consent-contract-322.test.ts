@@ -154,13 +154,9 @@ describe("portal-track handler", () => {
     const { h } = mkDb({ insertResult: [{ consent_event_id: null }] });
     expect(await (await h(req(lead({ consent_token: TOK, consent_receipt: REC })))).json()).toEqual({ ok: true, marketing_bound: false });
   });
-  it("corrida real: revoke resolvido durante o bind (interleaving) → só conta o persistido", async () => {
-    let revoked = false;
-    const { h } = mkDb({ onBind: () => { revoked = true; }, insertResult: undefined });
-    // insert mock devolve corpo vazio (ex.: representação ilegível) → fail-closed
-    const [a] = await Promise.all([h(req(lead({ consent_token: TOK, consent_receipt: REC }))), Promise.resolve().then(() => { revoked = true; })]);
-    expect(revoked).toBe(true);
-    expect(await a.json()).toEqual({ ok: true, marketing_bound: false });
+  it("representação ilegível após insert → fail-closed", async () => {
+    const { h } = mkDb({ insertResult: undefined });
+    expect(await (await h(req(lead({ consent_token: TOK, consent_receipt: REC })))).json()).toEqual({ ok: true, marketing_bound: false });
   });
   it.each(["throw", 500] as const)("bind falha (%s): lead entra sem ids Meta", async (mode) => {
     const { h, calls } = mkDb({ bindFail: mode });
