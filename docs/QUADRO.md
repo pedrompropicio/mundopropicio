@@ -118,6 +118,8 @@ _(sem pedidos)_
 
 ## newgang-portal
 
+- [ ] 16/10 — **Retomar plano aprovado na próxima sessão: #324**, lançamento segunda19/10. Filhos #325 convite/Crew/instruções móveis, #326 bateria de testes fictícios com isolamento e egress bloqueado, #327 pontuações/conquistas/automação gradual. Hoje autorizada e concluída só documentação; antes de implementar fechar pontuações/transição, segurança dos testes e obter designação/autorização concreta. Sem reserva de agente nesta demanda. Ver estado-newgang-portal.md. Pedro confirmou verificação visual dos níveis ok; reparação individual de indicação continua pendente.
+
 - [x] 16/10 03:25 UTC — Pedro autorizou correção textual Goat; aplicada 1 linha de club_levels.benefit (“Tudo de Elite” → “Tudo de Crew”), verificada em Live. Limites Gang/Crew/Goat 0/500/1500 intactos. Pendência textual das entradas anteriores resolvida; reserva libertada. Sem Publish.
 
 - [x] 16/10 — nomes aplicados e verificados: Gang 0, Crew 500, Goat 1500 (SELECT+API HTTP200); artes aprovadas verificadas HTTP/SHA/visual e função Wallet deployada, flag true. IDs/limites/benefícios preservados. Prova Etapa 3 em docs/testes/newgang-niveis/01-wallet-crew-goat.md. Reserva libertada; #322/#323 preservadas. Pendentes: referência textual “Tudo de Elite” no benefício Goat, CI independente/visual produção/dispositivo Wallet, consolidação regra dos portais após #323. Nenhum Publish frontend nesta etapa.
