@@ -12,6 +12,7 @@ import { publicEditions } from "./videos.ts";
 import { CREW_LINK, crewErrorStatus, crewView } from "./crews.ts";
 import * as GW from "./wallet-google.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
+import { PreSendError, sendWelcomeOnce } from "./welcome.ts";
 
 // Preview do projeto Lovable do portal (1a915f50-…).
 const PREVIEW_SUFFIXES: string[] = ["--1a915f50-55ca-4bb6-9abe-8f241c54647a.lovable.app"];
@@ -125,29 +126,34 @@ async function unsubscribeUrls(companyId: string, email: string) {
   };
 }
 
-/** Enfileira um email do Clube com link pessoal (sessão access de 30 dias; só o hash fica guardado). */
+/** Enfileira um email do Clube com link pessoal (sessão access de 30 dias; só o hash fica guardado).
+ *  Erros antes do enfileiramento -> PreSendError; erro/incerteza no enfileiramento -> Error (resultado desconhecido). */
 async function sendClubLink(site: { id: string; company_id: string }, m: { id: string; first_name: string | null; email: string },
   kind: "welcome" | "access", messageId: string) {
   const email = m.email.trim().toLowerCase();
-  const { token } = await issueSession(site.id, m.id);
-  const link = `https://${SITE_DOMAIN}/clube/entrar?t=${encodeURIComponent(token)}`;
+  let html: string, text: string, unsub: { page: string; oneClick: string }, link: string;
+  try {
+    const { token } = await issueSession(site.id, m.id);
+    link = `https://${SITE_DOMAIN}/clube/entrar?t=${encodeURIComponent(token)}`;
+    unsub = await unsubscribeUrls(site.company_id, email);
+  } catch (e) { throw new PreSendError((e as Error).message); }
   const greet = m.first_name ? `Olá ${m.first_name},` : "Olá,";
-  const unsub = await unsubscribeUrls(site.company_id, email);
   const welcome = kind === "welcome";
-  const { html, text } = clubEmail({
+  ({ html, text } = clubEmail({
     greet,
     lines: welcome
       ? ["Falta só um clique para entrares no Clube Newgang. Confirma o teu email e ganha +100 pontos."]
       : ["Entra na tua área do Clube Newgang com o botão abaixo."],
     cta: welcome ? "Confirmar e entrar no Clube" : "Entrar no Clube",
     link, note: `O link é pessoal e válido durante ${SESSION_DAYS} dias.`, unsubscribeUrl: unsub.page,
-  });
+  }));
   const label = welcome ? "newgang_club_welcome" : "newgang_club_access";
-  await sb.from("email_send_log").insert({
+  const { error: logErr } = await sb.from("email_send_log").insert({
     message_id: messageId, template_name: label, recipient_email: email, company_id: site.company_id, status: "pending",
     metadata: { member_id: m.id },
   });
-  await sb.rpc("enqueue_email", {
+  if (logErr) throw new PreSendError(`email_send_log: ${logErr.message}`);
+  const { error: qErr } = await sb.rpc("enqueue_email", {
     queue_name: "transactional_emails",
     payload: {
       message_id: messageId, company_id: site.company_id, to: email,
@@ -157,10 +163,11 @@ async function sendClubLink(site: { id: string; company_id: string }, m: { id: s
       unsubscribe_http_url: unsub.oneClick, queued_at: new Date().toISOString(),
     },
   });
+  if (qErr) throw new Error(`enqueue_email: ${qErr.message}`);
 }
 
 
-/** Cron (service_role): email de boas-vindas aos membros novos do formulário, uma vez por membro. */
+/** Welcome aos membros novos do formulário: uma vez por membro, via reserva atómica (#321). */
 async function notifyPending(site: { id: string; company_id: string }, memberId?: string) {
   const since = new Date(Date.now() - 7 * 86400_000).toISOString();
   let q = sb.from("club_members").select("id, first_name, email")
@@ -169,11 +176,21 @@ async function notifyPending(site: { id: string; company_id: string }, memberId?
   const { data: members } = await q.order("created_at").limit(50);
   let sent = 0;
   for (const m of members ?? []) {
-    const { data: done } = await sb.from("email_send_log").select("id").eq("template_name", "newgang_club_welcome")
-      .eq("metadata->>member_id", m.id).limit(1);
-    if (done && done.length) continue;
-    try { await sendClubLink(site, m, "welcome", `ng-welcome-${m.id}`); sent++; }
-    catch (e) { console.error("notify_pending", m.id, (e as Error).message); }
+    const r = await sendWelcomeOnce({
+      reserve: async (id, mid) => {
+        const { data, error } = await sb.rpc("club_welcome_reserve",
+          { p_company_id: site.company_id, p_site_id: site.id, p_member_id: id, p_message_id: mid });
+        if (error) throw new Error(error.message);
+        return data === true;
+      },
+      mark: async (id, st, err) => {
+        const { error } = await sb.rpc("club_welcome_mark", { p_member_id: id, p_status: st, p_error: err ?? null });
+        if (error) throw new Error(error.message);
+      },
+      send: (_id, mid) => sendClubLink(site, m, "welcome", mid),
+      log: (msg, id, detail) => console.error(msg, id, detail ?? ""),
+    }, m.id);
+    if (r === "sent") sent++;
   }
   return sent;
 }
