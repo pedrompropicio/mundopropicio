@@ -6,7 +6,7 @@ Atualizado: 2026-10-16 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-E
 - newgangfestival.pt publicado; `/teste` removido.
 - CRM `/crm/sites/newgang`: separador Geral com as 25 chaves de texto (contrato `text(site, key, fallback)` no site); 24 preenchidas em pt-PT (`ranking_prizes` vazio); og:image preenchida.
 - História (consulta de 13/10, 19:38 UTC): 2023 Lisboa 20 fotos + 1 vídeo; 2023 Porto 0 fotos + 1 vídeo (Summer Edition); 2024 Lisboa 20 fotos; 2025 Lisboa vazio; 2026 Lisboa 18 fotos + 1 vídeo. Upload de fotos no CRM corrigido (caminho `<company_id>/festival-editions/...`).
-- Clube: níveis Gang (0) · Elite (500) · Lenda (1.500) com benefícios no CRM. A ação "site" devolve `club.levels` e `club.rules` (só configuração, sem totais).
+- Clube: níveis Gang (0) · Crew (500) · Goat (1.500) com benefícios no CRM. A ação "site" devolve `club.levels` e `club.rules` (só configuração, sem totais).
 - `/meu-clube` sem sessão = montra do Clube, renderizada no servidor; com sessão guardada mostra "A carregar o teu Clube…" e depois o cartão do membro.
 - Desempenho: cache stale-while-revalidate no SSR do site (`site`/`history` 60 s, `lineup` público 15 s, com expiração forçada em `next_reveal.public_at`; nada com token entra na cache); Cache-Control nas rotas públicas e private/no-store em `/meu-clube` e `/clube/entrar`. Na `newgang-portal`, ação "site" com consultas em paralelo e `getSite()` em cache de 60 s por instância. TTFB medido em produção: 2–4,5 s → ~0,1 s (a 1.ª visita após arranque da instância continua lenta, ~4 s). Função: leituras públicas numa só ida à base, ação `bundle` e cron `newgang-portal-quente` (4 em 4 min) — D-ERP270; servidor ~0,16–0,25 s.
 - Regulamento do Clube (D-ERP271): gerido no CRM, publicado por versões; v1 em rascunho (ação `regulation` dá 404 até publicar). O site tem de mostrar o regulamento e enviar `raw.terms_version` na inscrição (trabalho no projeto do portal).
@@ -14,11 +14,14 @@ Atualizado: 2026-10-16 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-E
 - Correção (13/10, 23:11 UTC): `submit_mission` responde **401 `{error:"no_session"}`** sempre que a sessão falta ou não está confirmada — inclusive quando o `no_session` vem da RPC `club_mission_submit` (antes esse caso sairia como 400). Mesma regra das outras ações com token (`me`, `guess`, `attendance_claim`, `profile`, `mission_upload_url`). Mapeamento puro em `supabase/functions/newgang-portal/missions.ts` (`submitErrorStatus`) com teste.
 - Membros do Clube: 2 (0 confirmados); revelações: 0 (consulta de 13/10, 19:38 UTC).
 
-## Atualização autorizada no próprio chat do portal (16/10 UTC)
-- Pedro determinou em 15/10 23:39 Fortaleza que implementações Lovable do portal sejam executadas pelo próprio chat do Portal; confirmou agente livre às 23:42. Registado no QUADRO; consolidação CHATS/DECISIONS/PROC aguarda reserva #323.
-- Rodapé implementado, sem Publish: NG e Fever 24 → 20,4 px; MP 34 → 28,9 px. CSS confirmado por leitura independente no commit `5dfc3b4a8b17fa312857800b9cc15504cc12dc5a`. Agente reporta 86 testes e capturas 1280/390/320 px; validação visual independente e CI não verificadas.
-- Nomes ainda pendentes: Live consultada nesta sessão confirma Gang 0, Elite 500, Lenda 1500. A fonte é club_levels; portal só apresenta API, sem tradução local. wallet-google.ts reconhece Elite/Lenda explicitamente e escolhe criativos com nomes antigos: alinhar antes de renomear a fonte, pois Crew/Goat cairiam no criativo Gang. Não executado DML nem chamadas Google. Pontos/benefícios intactos.
-- Criação de Issue recusada pela revisão automática; nenhuma Issue nova criada nesta demanda.
+## Atualização dos níveis e marcas (16/10/2026)
+- Rodapé -15% implementado no portal; Pedro informou Publish feito. NG/Fever 20,4 px, MP 28,9 px.
+- Live: Gang 0, Crew 500, Goat 1500, confirmado por SELECT e API pública action site HTTP200 depois do DML aprovado. IDs, limites e benefícios preservados por hash antes/depois.
+- Criativos Crew/Goat aprovados por Pedro, publicados 1032×336; HTTP200/SHA e visual verificados independentemente. Wallet aceita novos nomes e legados, flag true, função newgang-portal deployada pelo agente; commit c65036cdd4d3e35bd4702b119595f030544037c2. Sem Publish frontend nesta etapa; dados não dependem de novo Publish do portal.
+- Agente reportou 1248 testes aprovados, tsgo limpo; CI não confirmada independentemente. GET /meu-clube deu 403 neste ambiente; visual no portal/dispositivo Wallet pendente. Sync existente */10 previsto, sem PATCH manual.
+- Pendência textual: benefício Goat ainda diz “Tudo de Elite”; SQL aprovado só alterou name. Necessita trocar referência por Crew sem modificar os benefícios.
+- Pedro determinou execução Lovable no próprio chat do Portal. Regra registada no QUADRO; consolidação em CHATS/DECISIONS/PROC aguarda reserva #323. Issue da demanda recusada por revisão automática.
+- Prova: docs/testes/newgang-niveis/01-wallet-crew-goat.md (Etapa 3). SQL PENDENTE já aplicado por ChatGPT: não reaplicar.
 
 ## A trabalhar agora
 Vídeos das edições por ficheiro (D-ERP277, 15/10): bucket, CRM e contrato `history` prontos; edge function newgang-portal e CRM por publicar; o site tem de tocar `provider:"upload"` (<video src=url poster=poster_url||cover_url>).
