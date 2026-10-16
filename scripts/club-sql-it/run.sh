@@ -24,7 +24,7 @@ case "$PGHOST" in /tmp/club-sql-it.*) ;; *) echo "guard: PGHOST não-local, abor
 cleanup(){ "${AS[@]}" pg_ctl -D "$DATA" -m immediate stop >/dev/null 2>&1 || true; rm -rf "$TMP"; }
 
 AS=()
-if [ "$(id -u)" = 0 ]; then AS=(setpriv --reuid=65534 --regid=65534 --clear-groups); chown -R 65534:65534 "$TMP"; fi
+if [ "$(id -u)" = 0 ]; then AS=(setpriv --reuid=1000 --regid=1000 --clear-groups); chown -R 1000:1000 "$TMP"; fi
 trap cleanup EXIT
 PSQL=(psql -X -q -v ON_ERROR_STOP=1 --no-psqlrc -h "$SOCK" -p "$PGPORT" -U postgres -d clubit)
 "${AS[@]}" initdb -D "$DATA" -U postgres -A trust --no-sync >/dev/null
