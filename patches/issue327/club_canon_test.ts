@@ -73,7 +73,7 @@ Deno.test("compat: RPC ausente após SQL revertido → fórmula antiga; Goat 150
   const lv = await memberLevel(fake({ club_member_level: { data: null, error: { message: "Could not find the function", code: "PGRST202" } } }), "g", { legacy: async () => levelFromPoints(1500, LV) });
   eq([lv.level, lv.protected, lv.next_level], ["Goat", false, null], "legacy Goat");
 });
-Deno.test("compat: pontos negativos → nível mínimo (Gang no limiar 0? não: abaixo de 0 não há nível) e próximo = Gang", () => {
+Deno.test("compat: pontos negativos → sem nível abaixo de 0; próximo = Gang", () => {
   eq(levelFromPoints(-50, LV), { points: -50, level: null, protected: false, next_level: "Gang", next_level_min: 0 }, "negativo");
   eq(levelFromPoints(0, LV).level, "Gang", "zero");
 });
