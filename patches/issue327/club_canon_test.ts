@@ -2,7 +2,7 @@
 import { memberLevel, referralProgress, rulesPublic, rulesView, type Rpc } from "./club-canon.ts";
 import { buildObject } from "./wallet-google.ts";
 const eq = (a: unknown, b: unknown, m: string) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(m + ": " + JSON.stringify(a) + " != " + JSON.stringify(b)); };
-const fake = (map: Record<string, { data: unknown; error: { message: string } | null }>, calls: string[] = []): Rpc =>
+const fake = (map: Record<string, { data: unknown; error: { message: string; code?: string } | null }>, calls: string[] = []): Rpc =>
   (fn, args) => { calls.push(fn + ":" + JSON.stringify(args)); return Promise.resolve(map[fn] ?? { data: null, error: { message: "fn desconhecida" } }); };
 
 Deno.test("nível: erro de RPC é explícito (não cai para Gang/0)", async () => {
