@@ -1,3 +1,4 @@
+import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
