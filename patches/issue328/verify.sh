@@ -33,5 +33,5 @@ cat > "$OUT" <<EOF
  "permissoes_teste":"--deny-net --deny-env --deny-run --deny-write","wiring_refs_index":$wiring,"ilike_em_request_access":$ilike_req,
  "deno":"$(deno --version | head -1)"}
 EOF
-echo "$check_out" | tail -3; echo "$test_out" | tail -15; cat "$OUT"
+echo "$check_out" | grep -E "TS[0-9]|error:" | head -5; echo "$test_out" | tail -15; cat "$OUT"
 [ "$before" = "$after" ] && [ "$check" = 0 ] && [ "$tst" = 0 ] && [ "$ilike_req" = 0 ]
