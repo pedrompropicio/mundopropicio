@@ -21,7 +21,6 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| pendente | ChatGPT · newgang-portal | ChatGPT direto | club_levels.benefit Goat: só referência Elite → Crew, SQL aprovado | 2026-10-16 03:25 UTC | execução autorizada; sem agente/Publish |
 | #322 | 0 · Cowork (ChatGPT) | agente Lovable (ERP) | ERP: consentimento por interação (ledger marketing_consent_*), portal-track, capi_consent_proof/guardas, lead_capture/redirect_log/leads (colunas aditivas), docs; coordenação futura MP/Coala/Newgang (portais NÃO tocados nesta etapa) | 2026-10-16 01:12 | 2026-10-16 01:46 — ERP corrigido após verificação independente (0175 + portal-track), aguarda revisão; portais MP/Coala/Newgang pendentes |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
@@ -118,6 +117,8 @@ _(sem pedidos — as falhas de teste vêm por Issue; os pedidos de verificação
 _(sem pedidos)_
 
 ## newgang-portal
+
+- [x] 16/10 03:25 UTC — Pedro autorizou correção textual Goat; aplicada 1 linha de club_levels.benefit (“Tudo de Elite” → “Tudo de Crew”), verificada em Live. Limites Gang/Crew/Goat 0/500/1500 intactos. Pendência textual das entradas anteriores resolvida; reserva libertada. Sem Publish.
 
 - [x] 16/10 — nomes aplicados e verificados: Gang 0, Crew 500, Goat 1500 (SELECT+API HTTP200); artes aprovadas verificadas HTTP/SHA/visual e função Wallet deployada, flag true. IDs/limites/benefícios preservados. Prova Etapa 3 em docs/testes/newgang-niveis/01-wallet-crew-goat.md. Reserva libertada; #322/#323 preservadas. Pendentes: referência textual “Tudo de Elite” no benefício Goat, CI independente/visual produção/dispositivo Wallet, consolidação regra dos portais após #323. Nenhum Publish frontend nesta etapa.
 
