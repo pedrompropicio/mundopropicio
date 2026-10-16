@@ -53,14 +53,14 @@ race purchase 4 public.club_purchase_evidence "SELECT public.club_award_purchase
 check "compra: 1 crédito por edição" "t.cnt('promo_lot_purchase', t.m('cc_buyer@example.invalid')) = 1 AND t.rp('promo_lot_purchase', t.m('cc_buyer@example.invalid')) = 200"
 q "UPDATE club_points_config SET purchase_enabled=false, purchase_lots='{}' WHERE status='active';" >/dev/null
 
-# 4) Cutover em corrida com créditos: 6 membros a 450 recebem +50 enquanto corre um cutover (edição e3, mesmos níveis).
+# 4) Cutover em corrida com créditos: 6 membros a 450 (100+350) recebem +50 enquanto corre um cutover (edição e3, mesmos níveis).
 q "INSERT INTO public.events(id, company_id, name) VALUES ('00000000-0000-4000-8000-0000000000e3','00000000-0000-4000-8000-0000000000a1','Edição 3');
    INSERT INTO club_points_config(company_id, site_id, version, event_id, status, legacy_counts, join_points, referral_points, referral_cap, crew_points, purchase_points, levels)
    VALUES ('00000000-0000-4000-8000-0000000000a1','$S','e3-v1','00000000-0000-4000-8000-0000000000e3','draft',false,100,75,750,100,200,'{\"Gang\":0,\"Crew\":750,\"Goat\":3000}');
    UPDATE club_levels SET min_points = 500 WHERE site_id='$S' AND name='Crew';" >/dev/null
 race cutover 7 public.club_levels "SELECT CASE WHEN {i} = 7 THEN (public.club_points_cutover((SELECT id FROM public.club_points_config WHERE version='e3-v1'), '{\"Gang\":0,\"Crew\":500,\"Goat\":3000}'))::text ELSE public.club_award_fixed(t.m('cc_lv{i}@example.invalid'), 'guess_correct', 'race', 50)::text END FROM (SELECT count(*) FROM public.club_levels) x"
-check "nenhum crédito perdido (6 × 450)" "(SELECT count(*) FROM generate_series(1,6) i WHERE t.pts(t.m('cc_lv'||i||'@example.invalid')) = 450) = 6"
-check "piso só com retrato consistente (>=500 no retrato)" "NOT EXISTS (SELECT 1 FROM club_level_floors f JOIN club_points_config c ON c.id=f.config_id WHERE c.version='e3-v1' AND f.points_at_cutover < 500)"
+check "nenhum crédito perdido (6 × 500)" "(SELECT count(*) FROM generate_series(1,6) i WHERE t.pts(t.m('cc_lv'||i||'@example.invalid')) = 500) = 6"
+check "piso só com retrato consistente (>=500 no retrato)" "NOT EXISTS (SELECT 1 FROM club_level_floors f JOIN club_points_config c ON c.id=f.config_id WHERE c.version='e3-v1' AND f.points_at_cutover < 500) AND (SELECT count(*) FROM club_level_floors f JOIN club_points_config c ON c.id=f.config_id JOIN club_members m ON m.id=f.member_id WHERE c.version='e3-v1' AND m.email LIKE 'cc_lv%' AND f.points_at_cutover <> 500) = 0"
 check "cutover e3 ativo, um só ativo" "(SELECT count(*) FROM club_points_config WHERE site_id='$S' AND status='active') = 1 AND (SELECT status FROM club_points_config WHERE version='e3-v1') = 'active'"
 save; rm -rf "$WD"
 echo "CONC327 $(grep -o '"asserts":[0-9]*' "$RES") $(grep -o '"falhados":[0-9]*' "$RES")"
