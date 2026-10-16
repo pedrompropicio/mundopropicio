@@ -1,4 +1,9 @@
-# PROPOSTA NÃO APROVADA PARA IMPLEMENTAR — P2/P3 consentimento marketing por interação
+# PROPOSTA P2/P3 — APROVADA PARCIALMENTE (Issue #322): ERP IMPLEMENTADO, PORTAIS PENDENTES
+
+> Atualização 16/10/2026 01:20 UTC: o Pedro autorizou a #322. A etapa ERP está implementada e descrita em `docs/features/consentimento-marketing-322.md` (substitui o "modelo proposto" abaixo onde divergir: token opaco em vez de visitor_id em cookie, sem reclassificação retroativa). Os portais MP, Coala e Newgang continuam por alterar (uma etapa por projeto).
+> Lacunas confirmadas na leitura dos portais (MP e8a35e89, Coala 7d5a8343, Newgang 408904d1): PREHYDRATE_ATTRIBUTION/SiteLayout/leadContext criam `_fbc` e guardam click IDs antes da decisão; helpers metaPixel não validam consentimento na chamada nem revogam o SDK carregado; consent.tsx usa `logOnce` (só 1.ª decisão, sem vínculo); Coala só cookie local; Newgang `track.ts` envia fbc/fbp com analytics OU marketing. GTM com consent default denied não prova que todas as tags respeitem.
+> Regra: um cookie chamado "funcional" NÃO legitima um identificador de marketing antes da aceitação. O token de consentimento só é criado pelo servidor no momento da decisão.
+
 
 Data: 2026-10-16 · Estado: só leitura/proposta. Nada aplicado. Decisões de produto ficam com o Pedro.
 
