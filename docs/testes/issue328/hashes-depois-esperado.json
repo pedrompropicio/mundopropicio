@@ -1,0 +1,99 @@
+{
+ "ok": true,
+ "problemas": [],
+ "funcoes": {
+  "club_award": {
+   "live": "e149ac23e2cef6b4c08a4413b8e6767a",
+   "after_local": "e149ac23e2cef6b4c08a4413b8e6767a",
+   "kind": "inalterada",
+   "equal_live": true
+  },
+  "club_award_fixed": {
+   "live": "ea8c1917a79095318c553c29e1efbdb0",
+   "after_local": "ea8c1917a79095318c553c29e1efbdb0",
+   "kind": "inalterada",
+   "equal_live": true
+  },
+  "club_confirm_member": {
+   "live": "eb8ce41b0a8b5c302488cc3242ab9598",
+   "after_local": "df3a12edd179829ba9233d71fc5816b7",
+   "kind": "alterada_pelo_pendente",
+   "body_verbatim_no_pendente": true,
+   "differs_from_live": true
+  },
+  "club_crew_cfg": {
+   "live": "52e699a93a4b7665dce3491beb5dae69",
+   "after_local": "52e699a93a4b7665dce3491beb5dae69",
+   "kind": "inalterada",
+   "equal_live": true
+  },
+  "club_crew_check": {
+   "live": "0afed974ad263da716009096b22aa05b",
+   "after_local": "0afed974ad263da716009096b22aa05b",
+   "kind": "inalterada",
+   "equal_live": true
+  },
+  "club_crew_create": {
+   "live": "e4a23cfcc3666b6b11e567c45d9ace8c",
+   "after_local": "e4a23cfcc3666b6b11e567c45d9ace8c",
+   "kind": "inalterada",
+   "equal_live": true
+  },
+  "club_crew_gen_code": {
+   "live": "1071a31f33bd7185570ddb0b064ad7f2",
+   "after_local": "1071a31f33bd7185570ddb0b064ad7f2",
+   "kind": "inalterada",
+   "equal_live": true
+  },
+  "club_crew_join": {
+   "live": "7fb6380f40662610e8e4f05ff3f6df0f",
+   "after_local": "7fb6380f40662610e8e4f05ff3f6df0f",
+   "kind": "inalterada",
+   "equal_live": true
+  },
+  "club_crew_leave": {
+   "live": "59ed0619eb4a98fc6b393339f00659e9",
+   "after_local": "59ed0619eb4a98fc6b393339f00659e9",
+   "kind": "inalterada",
+   "equal_live": true
+  },
+  "club_crew_name_ok": {
+   "live": "bce9901133e6194b5adaef2346f0a4c5",
+   "after_local": "bce9901133e6194b5adaef2346f0a4c5",
+   "kind": "inalterada",
+   "equal_live": true
+  },
+  "club_crew_pending": {
+   "live": null,
+   "after_local": "6ee0d3d38f12067e0fce95f31bff4378",
+   "kind": "alterada_pelo_pendente",
+   "body_verbatim_no_pendente": true,
+   "differs_from_live": true
+  },
+  "club_from_lead_capture": {
+   "live": "25201a26499f432c4b7e2ca6274935c2",
+   "after_local": "25201a26499f432c4b7e2ca6274935c2",
+   "kind": "inalterada",
+   "equal_live": true
+  },
+  "club_gen_referral_code": {
+   "live": "74b44cf721e2d6eaff71ac3b06228a5f",
+   "after_local": "74b44cf721e2d6eaff71ac3b06228a5f",
+   "kind": "inalterada",
+   "equal_live": true
+  },
+  "club_record_terms": {
+   "live": "439f065bac949c8baeeb3f090ed5765f",
+   "after_local": "439f065bac949c8baeeb3f090ed5765f",
+   "kind": "inalterada",
+   "equal_live": true
+  },
+  "club_upsert_member": {
+   "live": "76fb3c63be8ce73f4fa408499599da1e",
+   "after_local": "6050fa75bb8eb33eada23ded1be64f74",
+   "kind": "alterada_pelo_pendente",
+   "body_verbatim_no_pendente": true,
+   "differs_from_live": true
+  }
+ }
+}
