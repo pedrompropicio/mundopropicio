@@ -1,3 +1,4 @@
+import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import { writeForecastAmount } from "@/lib/forecast-amount";
 import { recordUndo } from "@/lib/undo";
 import { showUndoToast } from "@/hooks/useUndoToast";
@@ -937,12 +938,12 @@ const descRef = useRef<HTMLInputElement>(null);
   );
 
   // Actual ticket sales: unit_price also includes IVA, extract net
-  const ticketActualRevenueGross = ticketSales.reduce((s: number, sl: any) => s + Number(sl.quantity) * Number(sl.unit_price), 0);
+  const ticketActualRevenueGross = ticketSales.reduce((s: number, sl: any) => s + ticketSaleRevenue(sl), 0);
   const ticketActualRevenueNet = ticketSales.reduce((s: number, sl: any) => {
     // Find the lot to get its IVA rate
     const lot = ticketLots.find((l) => l.id === sl.lot_id);
     const rate = Number((lot as any)?.iva_rate ?? 6);
-    return s + Number(sl.quantity) * (Number(sl.unit_price) / (1 + rate / 100));
+    return s + ticketSaleRevenue(sl) / (1 + rate / 100);
   }, 0);
   const ticketActualRevenue = ticketActualRevenueNet;
 

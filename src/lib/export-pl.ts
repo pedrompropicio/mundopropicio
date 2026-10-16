@@ -1,3 +1,4 @@
+import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import ExcelJS from "exceljs";
 import jsPDF from "jspdf";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
@@ -161,10 +162,9 @@ function buildPLForExport(
         zoneQty += qty;
         const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
         const lotSoldNet = lotSales.reduce((s: number, sl: any) => {
-          const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
-          return s + Number(sl.quantity) * saleNet;
+          return s + ticketSaleRevenue(sl) / (1 + ivaRate / 100);
         }, 0);
-        const lotSoldGross = lotSales.reduce((s: number, sl: any) => s + Number(sl.quantity) * Number(sl.unit_price), 0);
+        const lotSoldGross = lotSales.reduce((s: number, sl: any) => s + ticketSaleRevenue(sl), 0);
         const lotSoldIva = lotSoldGross - lotSoldNet;
         zoneActualNet += lotSoldNet;
         zoneActualIva += lotSoldIva;
