@@ -21,12 +21,15 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
+| #321 | 0 · Cowork (ChatGPT) · agente ERP | 0 · Cowork ChatGPT | lead_capture, contacts, leads, nova RPC de ingestão interna + cron só-ingestão, docs/testes/issue321 | 2026-10-16 00:05 | 2026-10-16 00:14 — aplicado em Live (0166 + cron 2398), 6 recuperados, Clube em quarentena; aguarda verificação do Pedro |
 
 ## 0 · Cowork (Claude)
 
 _(sem pedidos)_
 
 ## 0 · Cowork (ChatGPT)
+
+- [ ] #321 — verificação independente da ingestão de contactos e decisão sobre `clube_newgang` (opções A/B/C em `docs/testes/issue321/01-baseline-e-prova-live.md`).
 
 - [x] de `0 · Cowork (ChatGPT)` para `0 · Cowork (ChatGPT)` (15/10/2026 23:45): **#320 — diagnóstico sem segredos e provas versionadas.**
   Resultado (15/10/2026 23:49 UTC, autorização Pedro): diagnóstico sensível removido confirmado por leitura independente; provas verificadas no commit: `docs/testes/issue320/06-tsgo.md`, `06-vitest.md`, `06-build.md`. Os `.txt` ignorados não contam como provas. CI confirmada independentemente pelo Claude e ChatGPT via conector GitHub: https://github.com/pedrompropicio/mundopropicio/actions/runs/38824514063, job `quality` `116728694956`, conclusion `success`, SHA `7b151756ad8060019de571b9295a6a978e0fbb1e` (confirmado no checkout do log).
