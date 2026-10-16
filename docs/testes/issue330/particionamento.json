@@ -1,0 +1,12 @@
+{
+  "source_head": "260d2faf4c185779987c8b79cf45a9387d7f892f",
+  "insertion_byte_offset": 691,
+  "seed_bytes": 5402,
+  "recomposition": "DDL[:offset]+SEED+DDL[offset:] == NORMALIZADO byte-for-byte",
+  "equal": true,
+  "sha256": {
+    "DDL": "dc1cd03ceb633221888a34290163f27a444326fe12650b32580469871ec09a5c",
+    "SEED": "ad452be6537a4c256dc1625427af7471ec1449ae3973b34c4bb37699d836f8a9",
+    "NORMALIZADO": "0c7d4091b893bc8d4978472a3f50bf32f545961238ba72964f1d2e63a95fcb39"
+  }
+}
