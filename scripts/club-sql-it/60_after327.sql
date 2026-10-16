@@ -1,20 +1,33 @@
 -- #327 — Depois de carregar o pendente: (1) inerte antes do cutover; (2) cutover; (3) regras novas; (4) nova edição.
 \set ON_ERROR_STOP 1
--- 1) Pendente carregado: dados intactos, config em draft, motor com os valores atuais.
+-- 1) Pendente carregado (PRÉ-CUTOVER): dados intactos, config em draft, valores atuais; consumidores com a mesma saída.
+DO $$ BEGIN
+  PERFORM t.ok('pre_cutover','ranking igual ao pré-patch', (SELECT v FROM t.snap WHERE k='ranking') =
+     (SELECT md5(string_agg(member_id||':'||points||':'||coalesce(level_name,'-')||':'||rank_pos, ',' ORDER BY rank_pos, member_id)) FROM club_ranking('00000000-0000-4000-8000-0000000000a2', 100000)));
+  PERFORM t.ok('pre_cutover','wallet_due igual ao pré-patch', (SELECT v FROM t.snap WHERE k='wallet') =
+     (SELECT md5(string_agg(member_id||':'||points||':'||coalesce(level_name,'-'), ',' ORDER BY member_id)) FROM club_wallet_due(1000)));
+  PERFORM t.ok('pre_cutover','club_point_rules intactas', (SELECT v FROM t.snap WHERE k='rules') = (SELECT md5(string_agg(site_id||rule_key||points||active, ',' ORDER BY site_id, rule_key)) FROM club_point_rules));
+  PERFORM t.ok('pre_cutover','crew_cfg intacto (200/4/6)', (SELECT pts||'/'||min_m||'/'||max_m FROM club_crew_cfg('00000000-0000-4000-8000-0000000000a2')) = '200/4/6');
+  PERFORM t.ok('pre_cutover','montra = regras atuais; compra e friend_bought sem_integracao',
+     (SELECT string_agg(rule_key||':'||points||':'||status, ',' ORDER BY rule_key) FROM club_rules_public('00000000-0000-4000-8000-0000000000a2'))
+     = 'attended_year:100:ok,crew_complete:200:ok,friend_bought:300:sem_integracao,friend_joined:150:ok,guess_correct:50:ok,join_confirmed:100:ok,promo_lot_purchase:500:sem_integracao');
+  PERFORM t.ok('pre_cutover','sem retrato legado antes do cutover', (SELECT count(*) FROM club_legacy_consumption) = 0);
+END $$;
 DO $$ DECLARE a uuid; b uuid; BEGIN
-  PERFORM t.ok('inerte','club_points intacto', (SELECT v FROM t.snap WHERE k='points') =
+  PERFORM t.ok('pre_cutover','club_points intacto', (SELECT v FROM t.snap WHERE k='points') =
      (SELECT count(*)||'/'||sum(points)||'/'||md5(string_agg(id::text||member_id||rule_key||points||ref_id, ',' ORDER BY id)) FROM club_points));
-  PERFORM t.ok('inerte','membros intactos', (SELECT v FROM t.snap WHERE k='members') =
+  PERFORM t.ok('pre_cutover','membros intactos', (SELECT v FROM t.snap WHERE k='members') =
      (SELECT count(*)||'/'||md5(string_agg(id::text||coalesce(referred_by_member_id::text,'')||coalesce(confirmed_at::text,''), ',' ORDER BY id)) FROM club_members));
-  PERFORM t.ok('inerte','créditos antigos sem edição (NULL, sem inferência)', (SELECT count(*) FROM club_points WHERE event_id IS NOT NULL) = 0);
-  PERFORM t.ok('inerte','níveis inalterados', (SELECT jsonb_object_agg(name,min_points) FROM club_levels WHERE site_id='00000000-0000-4000-8000-0000000000a2') = '{"Gang":0,"Crew":500,"Goat":1500}');
-  PERFORM t.ok('inerte','sem config ativa', (SELECT count(*) FROM club_points_config WHERE status='active') = 0);
+  PERFORM t.ok('pre_cutover','créditos antigos sem edição (NULL, sem inferência)', (SELECT count(*) FROM club_points WHERE event_id IS NOT NULL) = 0);
+  PERFORM t.ok('pre_cutover','níveis inalterados', (SELECT jsonb_object_agg(name,min_points) FROM club_levels WHERE site_id='00000000-0000-4000-8000-0000000000a2') = '{"Gang":0,"Crew":500,"Goat":1500}');
+  PERFORM t.ok('pre_cutover','sem config ativa', (SELECT count(*) FROM club_points_config WHERE status='active') = 0);
   a := t.newc('pre1@example.invalid'); b := t.newc('pre2@example.invalid', t.code(a));
-  PERFORM t.ok('inerte','antes do cutover: inscrição 100 e indicação 150 (regra atual)', t.pts(b) = 100 AND t.rp('friend_joined', a) = 150);
-  PERFORM t.ok('inerte','antes do cutover: crédito novo já grava a edição do site', (SELECT bool_and(event_id = '00000000-0000-4000-8000-0000000000e1') FROM club_points WHERE member_id IN (a,b)));
-  PERFORM t.ok('inerte','compra genérica antes do cutover segue regra atual (sem chamadores reais)', public.club_award(a, 'promo_lot_purchase', 'x') = 500);
+  PERFORM t.ok('pre_cutover','antes do cutover: inscrição 100 e indicação 150 (regra atual)', t.pts(b) = 100 AND t.rp('friend_joined', a) = 150);
+  PERFORM t.ok('pre_cutover','antes do cutover: crédito novo já grava a edição do site', (SELECT bool_and(event_id = '00000000-0000-4000-8000-0000000000e1') FROM club_points WHERE member_id IN (a,b)));
+  PERFORM t.ok('pre_cutover','antes do cutover: confirmação já regista contagem de indicação', (SELECT count(*) FROM club_referral_events WHERE member_id = a AND referee_id = b AND event_id = '00000000-0000-4000-8000-0000000000e1' AND credited_points = 150) = 1);
+  PERFORM t.ok('pre_cutover','compra genérica antes do cutover segue regra atual (sem chamadores reais)', public.club_award(a, 'promo_lot_purchase', 'x') = 500);
   PERFORM _club_points_void_row((SELECT p FROM club_points p WHERE member_id = a AND rule_key='promo_lot_purchase'), 'fixture: anular teste');
-  PERFORM t.ok('inerte','nível canónico = nível por pontos antes do cutover', (SELECT level_name FROM club_member_level(t.m('lv500@example.invalid'))) = 'Crew');
+  PERFORM t.ok('pre_cutover','nível canónico = nível por pontos antes do cutover', (SELECT level_name FROM club_member_level(t.m('lv500@example.invalid'))) = 'Crew');
 END $$;
 
 -- Config da fixture (mesmos valores aprovados; evento fictício e1).
@@ -30,6 +43,21 @@ DO $$ DECLARE r jsonb; ok boolean := false; BEGIN
   PERFORM t.ok('cutover','recusa se os níveis atuais não forem os esperados', ok);
   r := club_points_cutover((SELECT id FROM club_points_config WHERE version='e1-v1'), '{"Gang":0,"Crew":500,"Goat":1500}');
   PERFORM t.ok('cutover','níveis novos 750/3000', (SELECT jsonb_object_agg(name,min_points) FROM club_levels WHERE site_id='00000000-0000-4000-8000-0000000000a2') = '{"Gang":0,"Crew":750,"Goat":3000}', r::text);
+  PERFORM t.ok('cutover','regras visíveis = motor (100/75/100/200); restantes intactas',
+     (SELECT string_agg(rule_key||':'||points, ',' ORDER BY rule_key) FROM club_point_rules WHERE site_id='00000000-0000-4000-8000-0000000000a2')
+     = 'attended_year:100,crew_complete:100,friend_bought:300,friend_joined:75,guess_correct:50,join_confirmed:100,promo_lot_purchase:200');
+  PERFORM t.ok('cutover','crew_cfg mostra 100 (min 4 / max 6)', (SELECT pts||'/'||min_m||'/'||max_m FROM club_crew_cfg('00000000-0000-4000-8000-0000000000a2')) = '100/4/6');
+  PERFORM t.ok('cutover','montra: indicação 75 teto 750; compra 200 indisponível (sem_integracao)',
+     (SELECT string_agg(rule_key||':'||points||':'||status||':'||coalesce(cap::text,'-'), ',' ORDER BY rule_key) FROM club_rules_public('00000000-0000-4000-8000-0000000000a2') WHERE rule_key IN ('friend_joined','promo_lot_purchase','friend_bought'))
+     = 'friend_bought:300:sem_integracao:-,friend_joined:75:ok:750,promo_lot_purchase:200:sem_integracao:-');
+  PERFORM t.ok('cutover','montra do outro site intacta', (SELECT string_agg(rule_key||':'||points, ',' ORDER BY rule_key) FROM club_rules_public('00000000-0000-4000-8000-0000000000b2') WHERE rule_key='friend_joined') = 'friend_joined:150');
+  PERFORM t.ok('cutover','retrato legado: legacy1 150 / legacy5 750 / legacy10 1500 / lcrew 200',
+     (SELECT string_agg(rule_key||'='||points, ',' ORDER BY rule_key) FROM club_legacy_consumption WHERE member_id = t.m('legacy10@example.invalid')) = 'friend_joined=1500,join_confirmed=100'
+     AND (SELECT points FROM club_legacy_consumption WHERE member_id = t.m('legacy1@example.invalid') AND rule_key='friend_joined') = 150
+     AND (SELECT points FROM club_legacy_consumption WHERE member_id = t.m('lcrew1@example.invalid') AND rule_key='crew_complete') = 200);
+  PERFORM t.ok('cutover','retrato legado só de créditos sem edição e com datas', NOT EXISTS (SELECT 1 FROM club_legacy_consumption WHERE first_at IS NULL OR event_id <> '00000000-0000-4000-8000-0000000000e1'));
+  PERFORM t.ok('cutover','contagem legada: indicados pré-patch registados (legacy5: 5)', (SELECT count(*) FROM club_referral_events WHERE member_id = t.m('legacy5@example.invalid') AND source='legacy_snapshot') = 5);
+  PERFORM t.ok('cutover','log guarda regras antes/depois', (SELECT (rules_before->'friend_joined'->>'points')||'/'||(rules_after->'friend_joined'->>'points') FROM club_points_cutover_log ORDER BY done_at DESC LIMIT 1) = '150/75');
   PERFORM t.ok('cutover','outro site intacto', (SELECT jsonb_object_agg(name,min_points) FROM club_levels WHERE site_id='00000000-0000-4000-8000-0000000000b2') = '{"Gang":0,"Crew":500,"Goat":1500}');
   PERFORM t.ok('cutover','club_points intacto no cutover (sem editar/apagar/recalcular)', NOT EXISTS (SELECT * FROM t.legacy EXCEPT SELECT id, member_id, rule_key, points, ref_id, created_at FROM club_points WHERE event_id IS NULL));
   ok := false;
@@ -99,7 +127,19 @@ DO $$ DECLARE r uuid; i int; x uuid; p jsonb; BEGIN
   PERFORM _club_points_void_row((SELECT q FROM club_points q WHERE q.member_id = r AND q.rule_key='friend_joined' ORDER BY q.created_at, q.id LIMIT 1), 'fixture: fraude');
   PERFORM t.ok('indicacao','após anulação: 675 ativos', t.rp('friend_joined', r) + coalesce((SELECT sum(points) FROM club_points WHERE member_id=r AND rule_key='void'),0) = 675);
   PERFORM t.newc('ref_f13@example.invalid', t.code(r));
-  PERFORM t.ok('indicacao','novo amigo após anulação volta a 750 ativos', t.rp('friend_joined', r) + coalesce((SELECT sum(points) FROM club_points WHERE member_id=r AND rule_key='void'),0) = 750);
+  PERFORM t.ok('indicacao','por omissão a anulação NÃO liberta o teto (proposta não aprovada)', t.rp('friend_joined', r) + coalesce((SELECT sum(points) FROM club_points WHERE member_id=r AND rule_key='void'),0) = 675);
+  UPDATE club_points_config SET referral_void_frees_cap = true WHERE version = 'e1-v1';
+  PERFORM t.newc('ref_f14@example.invalid', t.code(r));
+  PERFORM t.ok('indicacao','com referral_void_frees_cap=true volta a 750 ativos', t.rp('friend_joined', r) + coalesce((SELECT sum(points) FROM club_points WHERE member_id=r AND rule_key='void'),0) = 750);
+  UPDATE club_points_config SET referral_void_frees_cap = false WHERE version = 'e1-v1';
+  -- Conquistas: indicado com inscrição anulada deixa de contar; reaprovação (ref#2) volta a contar, sem duplicar.
+  x := t.m('ref_f2@example.invalid');
+  PERFORM t.ok('conquistas','antes: 14', (club_referral_progress(r)->>'confirmed_friends')::int = 14, club_referral_progress(r)::text);
+  PERFORM _club_points_void_row((SELECT q FROM club_points q WHERE q.member_id = x AND q.rule_key='join_confirmed'), 'fixture: inscrição anulada');
+  PERFORM t.ok('conquistas','inscrição anulada: 13', (club_referral_progress(r)->>'confirmed_friends')::int = 13);
+  PERFORM t.ok('conquistas','reaprovação ref#2 credita inscrição', club_award_fixed(x, 'join_confirmed', x::text || '#2', 100) = 100);
+  PERFORM t.ok('conquistas','reaprovado volta a contar: 14 (sem duplicar)', (club_referral_progress(r)->>'confirmed_friends')::int = 14);
+  PERFORM t.ok('conquistas','legado conta: legacy5 = 5 pré-patch + 1 novo', (club_referral_progress(t.m('legacy5@example.invalid'))->>'confirmed_friends')::int = 6);
   -- Outro site (sem config) mantém regra atual.
   x := t.newc('outro_ref@example.invalid', NULL, '00000000-0000-4000-8000-0000000000b2');
   PERFORM t.newc('outro_f@example.invalid', t.code(x), '00000000-0000-4000-8000-0000000000b2');
@@ -161,9 +201,18 @@ DO $$ DECLARE a uuid; b uuid; e1 uuid; e2 uuid; e3 uuid; e4 uuid; e5 uuid; ok bo
   PERFORM t.ok('compra','prova de outra edição → 0', club_award_purchase(e4) = 0);
   BEGIN
     INSERT INTO club_purchase_evidence(company_id, site_id, event_id, member_id, source, order_ref, lot_ref, status, fingerprint)
-      VALUES ('00000000-0000-4000-8000-0000000000a1','00000000-0000-4000-8000-0000000000a2','00000000-0000-4000-8000-0000000000e1', b, 'fever_order','ORD-1','EB1','valid','fp1');
+      VALUES ('00000000-0000-4000-8000-0000000000a1','00000000-0000-4000-8000-0000000000a2','00000000-0000-4000-8000-0000000000e1', b, 'fever_order',' ord-1 ','EB1','valid','fp1-outro');
   EXCEPTION WHEN unique_violation THEN ok := true; END;
-  PERFORM t.ok('compra','mesma encomenda para outro membro recusada (fingerprint)', ok);
+  PERFORM t.ok('compra','mesma encomenda com fingerprint diferente para outro membro recusada (fonte+edição+encomenda)', ok);
+  ok := false;
+  BEGIN
+    INSERT INTO club_purchase_evidence(company_id, site_id, event_id, member_id, source, order_ref, lot_ref, status, fingerprint)
+      VALUES ('00000000-0000-4000-8000-0000000000a1','00000000-0000-4000-8000-0000000000b2','00000000-0000-4000-8000-0000000000e1', b, 'fever_order','ORD-X','EB1','valid','fpx');
+  EXCEPTION WHEN raise_exception THEN ok := true; END;
+  PERFORM t.ok('compra','prova com membro de outro site recusada (coesão)', ok);
+  ok := false;
+  BEGIN PERFORM club_purchase_revoke(e1, NULL, 'x'); EXCEPTION WHEN invalid_parameter_value THEN ok := true; END;
+  PERFORM t.ok('compra','revoke com estado NULL dá erro antes do UPDATE', ok AND (SELECT status FROM club_purchase_evidence WHERE id = e1) = 'valid');
   PERFORM t.ok('compra','reembolso anula 1 linha', club_purchase_revoke(e1, 'refunded', 'fixture: reembolso') = 1);
   PERFORM t.ok('compra','reembolso: linha void, nada apagado', t.rp('promo_lot_purchase', a) = 200 AND t.rp('void', a) = -200);
   PERFORM t.ok('compra','prova reembolsada não credita', club_award_purchase(e1) = 0);
@@ -186,17 +235,29 @@ INSERT INTO club_points_config(company_id, site_id, version, event_id, status, l
   crew_points, purchase_points, purchase_enabled, purchase_lots, levels)
 VALUES ('00000000-0000-4000-8000-0000000000a1','00000000-0000-4000-8000-0000000000a2','e2-v1','00000000-0000-4000-8000-0000000000e2','draft',false,
   100,75,750,100,200,false,'{}','{"Gang":0,"Crew":750,"Goat":3000}');
-DO $$ DECLARE r uuid; before_e1 text; BEGIN
+DO $$ DECLARE r uuid; before_e1 text; ok boolean; BEGIN
   before_e1 := (SELECT count(*)||'/'||sum(points) FROM club_points WHERE event_id = '00000000-0000-4000-8000-0000000000e1');
   UPDATE portal_sites SET event_id = '00000000-0000-4000-8000-0000000000e2' WHERE id = '00000000-0000-4000-8000-0000000000a2';
+  -- Site já noutra edição mas a config ativa é a da edição 1: regras controladas falham fechadas (nada vai para e1).
+  r := t.newc('e2pre@example.invalid', t.code(t.m('ref@example.invalid')));
+  PERFORM t.ok('edicao','site mudou sem cutover: inscrição 0 e indicação 0', t.pts(r) = 0 AND NOT EXISTS (SELECT 1 FROM club_points WHERE rule_key='friend_joined' AND ref_id = r::text));
+  PERFORM t.ok('edicao','nada creditado à edição antiga depois da troca', (SELECT count(*)||'/'||sum(points) FROM club_points WHERE event_id = '00000000-0000-4000-8000-0000000000e1') = before_e1);
+  PERFORM t.ok('edicao','regra não controlada credita 50', club_award(r, 'guess_correct', 'e2g') = 50);
+  PERFORM t.ok('edicao','regra não controlada vai para a edição corrente (e2)', (SELECT event_id FROM club_points WHERE member_id = r AND rule_key='guess_correct') = '00000000-0000-4000-8000-0000000000e2');
+  PERFORM t.ok('edicao','montra: regras controladas edicao_sem_config', (SELECT count(*) FROM club_rules_public('00000000-0000-4000-8000-0000000000a2') WHERE status='edicao_sem_config') = 4);
+  INSERT INTO club_points_config(company_id, site_id, version, event_id, status, join_points, referral_points, referral_cap, crew_points, purchase_points, levels)
+    VALUES ('00000000-0000-4000-8000-0000000000a1','00000000-0000-4000-8000-0000000000a2','e1-v2','00000000-0000-4000-8000-0000000000e1','draft',100,75,750,100,200,'{"Gang":0,"Crew":750,"Goat":3000}');
+  ok := false; BEGIN PERFORM club_points_cutover((SELECT id FROM club_points_config WHERE version='e1-v2'), '{"Gang":0,"Crew":750,"Goat":3000}'); EXCEPTION WHEN raise_exception THEN ok := true; END;
+  PERFORM t.ok('edicao','cutover recusa config de edição diferente da do site', ok);
   PERFORM club_points_cutover((SELECT id FROM club_points_config WHERE version='e2-v1'), '{"Gang":0,"Crew":750,"Goat":3000}');
   PERFORM t.ok('edicao','créditos da edição 1 preservados após troca do site', (SELECT count(*)||'/'||sum(points) FROM club_points WHERE event_id = '00000000-0000-4000-8000-0000000000e1') = before_e1);
-  PERFORM t.ok('edicao','config e1 retirada, e2 ativa', (SELECT string_agg(version||':'||status, ',' ORDER BY version) FROM club_points_config WHERE site_id='00000000-0000-4000-8000-0000000000a2') = 'e1-v1:retired,e2-v1:active');
+  PERFORM t.ok('edicao','config e1 retirada, e2 ativa', (SELECT string_agg(version||':'||status, ',' ORDER BY version) FROM club_points_config WHERE site_id='00000000-0000-4000-8000-0000000000a2') = 'e1-v1:retired,e1-v2:draft,e2-v1:active');
   r := t.m('ref@example.invalid');
   PERFORM t.newc('e2f1@example.invalid', t.code(r));
   PERFORM t.ok('edicao','teto reinicia na edição 2 (+75)', (SELECT sum(points) FROM club_points WHERE member_id = r AND rule_key='friend_joined' AND event_id='00000000-0000-4000-8000-0000000000e2') = 75);
   PERFORM t.newc('e2f2@example.invalid', t.code(t.m('legacy10@example.invalid')));
   PERFORM t.ok('edicao','legado NULL não conta na edição 2', (SELECT sum(points) FROM club_points WHERE member_id = t.m('legacy10@example.invalid') AND event_id='00000000-0000-4000-8000-0000000000e2') = 75);
+  PERFORM t.ok('edicao','inscrição 1× por adesão: membro da e1 não recebe 2.º 100 na e2', club_award(t.m('novo1@example.invalid'), 'join_confirmed', t.m('novo1@example.invalid')::text) = 0);
   PERFORM t.ok('edicao','pisos mantidos', (SELECT level_name FROM club_member_level(t.m('lv500@example.invalid'))) = 'Crew');
 END $$;
 SELECT 'SERIAL327 ' || count(*) FILTER (WHERE ok) || '/' || count(*) FROM t.results;

@@ -76,3 +76,11 @@ INSERT INTO t.snap SELECT 'points', count(*)||'/'||sum(points)||'/'||md5(string_
 INSERT INTO t.snap SELECT 'members', count(*)||'/'||md5(string_agg(id::text||coalesce(referred_by_member_id::text,'')||coalesce(confirmed_at::text,''), ',' ORDER BY id)) FROM public.club_members;
 CREATE TABLE t.legacy AS SELECT id, member_id, rule_key, points, ref_id, created_at FROM public.club_points;
 SELECT 'LEGADO_OK ' || (SELECT v FROM t.snap WHERE k='points');
+-- Pré-patch: saídas dos consumidores para comparar depois de carregar o pendente (impacto pré-cutover).
+INSERT INTO public.club_wallet_passes(company_id, member_id, platform, object_id, last_points, last_level)
+SELECT company_id, id, 'google', 'obj.pre.'||member_no, 0, 'Gang' FROM public.club_members WHERE email IN ('lv1500@example.invalid','legacy5@example.invalid');
+INSERT INTO t.snap SELECT 'ranking', md5(string_agg(member_id||':'||points||':'||coalesce(level_name,'-')||':'||rank_pos, ',' ORDER BY rank_pos, member_id))
+  FROM public.club_ranking('00000000-0000-4000-8000-0000000000a2', 100000);
+INSERT INTO t.snap SELECT 'wallet', md5(string_agg(member_id||':'||points||':'||coalesce(level_name,'-'), ',' ORDER BY member_id)) FROM public.club_wallet_due(1000);
+INSERT INTO t.snap SELECT 'rules', md5(string_agg(site_id||rule_key||points||active, ',' ORDER BY site_id, rule_key)) FROM public.club_point_rules;
+INSERT INTO t.snap SELECT 'crewcfg', (SELECT pts||'/'||min_m||'/'||max_m FROM public.club_crew_cfg('00000000-0000-4000-8000-0000000000a2'));
