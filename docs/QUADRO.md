@@ -21,7 +21,6 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| pendente | ChatGPT · newgang-portal | agente Lovable do portal | nomes apresentados dos níveis e marcas do rodapé; sem tracking, ERP ou Live | 2026-10-16 02:44 UTC | Pedro confirmou agente livre; reserva limitada ao portal. Nova regra documental aguarda libertação de CHATS/DECISIONS pelo #323 |
 | #322 | 0 · Cowork (ChatGPT) | agente Lovable (ERP) | ERP: consentimento por interação (ledger marketing_consent_*), portal-track, capi_consent_proof/guardas, lead_capture/redirect_log/leads (colunas aditivas), docs; coordenação futura MP/Coala/Newgang (portais NÃO tocados nesta etapa) | 2026-10-16 01:12 | 2026-10-16 01:46 — ERP corrigido após verificação independente (0175 + portal-track), aguarda revisão; portais MP/Coala/Newgang pendentes |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
@@ -118,6 +117,8 @@ _(sem pedidos — as falhas de teste vêm por Issue; os pedidos de verificação
 _(sem pedidos)_
 
 ## newgang-portal
+
+- [ ] Resultado 16/10 UTC: rodapé -15% implementado no portal, CSS confirmado no commit `5dfc3b4a8b17fa312857800b9cc15504cc12dc5a`; sem Publish. Níveis pendentes de alinhamento canónico club_levels + wallet-google.ts/criativos (nomes novos atualmente caem no hero Gang). Nenhum DML/Google executado. Agente concluído e reserva desta tarefa libertada; #322/#323 preservadas. Regra de execução no próprio portal registada, consolidação documental pendente de #323. Issue nova recusada por revisão automática.
 
 - [ ] de `newgang-portal` para `newgang-portal` (15/10/2026 23:39 Fortaleza): **Pedro alterou expressamente a regra e autorizou avançar neste chat.** Implementações no agente Lovable do próprio portal passam a ser conduzidas pelo respetivo chat do Portal, sem passagem pelo 0-Cowork, mantendo autorização expressa, executor único, reserva, verificação e fecho documental. Aplicar a regra em CHATS.md, procedimento/prompts aplicáveis e DECISIONS.md quando libertos da reserva documental #323. Executor designado desta demanda: ChatGPT · newgang-portal. Atualizações autorizadas: Gang permanece Gang; Elite → Crew; Lenda → Goat; redução adicional proposta de 15% das marcas MP, NG e Fever no rodapé, mantendo proporções desktop/mobile. Confirmar impacto CRM/API/Wallet sem alterar pontos/limites/benefícios; não presumir autorização para DML de eventos ou chamadas externas Google Wallet. **Bloqueio de coordenação:** #322 reserva o agente partilhado e prevê trabalho no portal Newgang; #323 reserva CHATS/DECISIONS/PROC-arranque. Não transferir nem sobrepor reservas; Pedro deve resolver a ordem. get_project do portal às 02:42 UTC de 16/10: agentFinished=true, mas não liberta reservas. Pedido anterior ao 0 superado pela decisão desta sessão. Sem Publish autorizado.
 
