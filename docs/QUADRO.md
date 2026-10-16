@@ -21,7 +21,6 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| pendente | ChatGPT · newgang-portal | agente Lovable + ChatGPT | artes aprovadas Crew/Goat; wallet-google flag/compatibilidade; club_levels.name (2 linhas aprovadas); docs Newgang; sem consentimento/financeiro | 2026-10-16 03:14 UTC | Pedro aprovou artes e SQL; carregar/verificar e alinhar Wallet antes do DML |
 | #322 | 0 · Cowork (ChatGPT) | agente Lovable (ERP) | ERP: consentimento por interação (ledger marketing_consent_*), portal-track, capi_consent_proof/guardas, lead_capture/redirect_log/leads (colunas aditivas), docs; coordenação futura MP/Coala/Newgang (portais NÃO tocados nesta etapa) | 2026-10-16 01:12 | 2026-10-16 01:46 — ERP corrigido após verificação independente (0175 + portal-track), aguarda revisão; portais MP/Coala/Newgang pendentes |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
@@ -118,6 +117,8 @@ _(sem pedidos — as falhas de teste vêm por Issue; os pedidos de verificação
 _(sem pedidos)_
 
 ## newgang-portal
+
+- [x] 16/10 — nomes aplicados e verificados: Gang 0, Crew 500, Goat 1500 (SELECT+API HTTP200); artes aprovadas verificadas HTTP/SHA/visual e função Wallet deployada, flag true. IDs/limites/benefícios preservados. Prova Etapa 3 em docs/testes/newgang-niveis/01-wallet-crew-goat.md. Reserva libertada; #322/#323 preservadas. Pendentes: referência textual “Tudo de Elite” no benefício Goat, CI independente/visual produção/dispositivo Wallet, consolidação regra dos portais após #323. Nenhum Publish frontend nesta etapa.
 
 - [ ] 16/10 03:16 UTC — restante implementação preparada, commit `6da541493d14d66c1c2a9b67adc95ae79f15c9bb`: compatibilidade Crew/Elite e Goat/Lenda em wallet-google.ts, flag de novos criativos false; SQL guardado em `supabase/manual/20261016_newgang_niveis_crew_goat.PENDENTE.sql`, não aplicado. Código verificado independentemente; agente reporta 1248 testes aprovados e tsgo limpo; CI não verificada. Artes novas CREW/GOAT preparadas por imagegen e mostradas a Pedro; aguardam aprovação e carregamento. Não houve DML, deploy/Publish nem chamadas Google. Reserva desta etapa libertada após conclusão do agente; próxima etapa: aprovar artes, carregar/verificar, ativar compatibilidade e aplicar SQL só após prévia+Sim. #322/#323 intactas.
 
