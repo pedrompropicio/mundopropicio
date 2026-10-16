@@ -1,7 +1,7 @@
 # Roadmap — épica #146 (e)
 
 ## #330 — missão de perfil (preparação inerte)
-- [ ] Aplicação infra/API autorizada e normalização de duas linhas confirmada — bloqueada: canal canónico proíbe seed de 249 países; separar DDL/seed exige adequação adicional do âmbito ou do canal. Nenhuma escrita/deploy; missão desativada.
+- [x] Aplicação infra/API OFF: DDL0179 e seed249 verificados, ACL/core/ledger preservados; patch aprovado e deploy só newgang-portal; HTTP200/401 e testes aprovados, sem Publish.
 - [x] Revisão final: handler9/9, negativo exit1, CRM real43/43 e PostgreSQL59/59; prévia SQL sem execução.
 - [x] Inventariar perfil, idade, sessões e consentimentos; documentar dependências.
 - [x] Preparar SQL/RPC, reversão preservadora e patch API/CRM inerte sem tocar produção.
@@ -9,7 +9,7 @@
 - [x] Entregar contrato sequencial frontend, provas/hashes e âmbito exato de aplicação futura.
 - [ ] Adaptador WhatsApp — depende do contrato canónico em coordenação #322/#9, sem alterar #322.
 - [ ] Fluxo parental verificável abaixo13 — depende de revisão/âmbito próprio; não simplificar adesão.
-- [ ] Aplicação/ativação futura — depende de revisão independente, CI final e autorização expressa.
+- [ ] Publish manual ERP/portal condicional e ativação futura — dependem de revisão nossa e autorização expressa de habilitação; missão permaneceOFF.
 
 ## #327 — CRM e prévia de ativação (16/10/2026)
 - [x] Ativação expressamente autorizada às17:43 Fortaleza: CUTOVER exato uma vez; corrigir uma linha de prémios Lenda→Goat; verificar ledger/API e registar prova específica.

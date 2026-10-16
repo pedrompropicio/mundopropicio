@@ -1,22 +1,232 @@
 {
-  "status": "blocked_seed_channel_before_write",
-  "source_head": "7eeacc143b83ed405962bc13c73deb154b0a7831",
-  "sql_sha256": "b19b09e32f6db9edb7c1fa3def1b9ec07bf1916d1ac1f5cac10a79e06e441cfd",
-  "api_patch_sha256": "a5f1e0c028f3fcd1adfb05e91090f6ef6cd6886ad84412b47944ca3e230d06fb",
-  "proposed_tool_payload_sha256": "0c7d4091b893bc8d4978472a3f50bf32f545961238ba72964f1d2e63a95fcb39",
-  "proposed_change": "remove only outer BEGIN line3 and COMMIT line419; tool manages transaction",
-  "absence_guard_checked_at": "2026-10-16T23:21:53.426660+00:00",
-  "new_tables_found": 0,
-  "new_functions_found": 0,
-  "new_index_found": false,
-  "migration_executed": false,
-  "api_patch_applied": false,
-  "deploy_executed": false,
-  "publish_executed": false,
-  "full_prewrite_snapshot": "not collected: no write attempted; collect immediately before any future authorized write",
-  "normalization_authorized": true,
-  "normalized_sql_sha256": "0c7d4091b893bc8d4978472a3f50bf32f545961238ba72964f1d2e63a95fcb39",
-  "normalized_artifact": "supabase/manual/20261016_issue330.NORMALIZADO.sql",
-  "profile_credits": 0,
-  "blocker": "Canonical migration tool forbids seed INSERT; original lines 10-259 seed 249 countries, not an existing-data backfill. Exact approved normalized payload cannot be submitted under tool rules."
+  "status": "applied_infra_api_mission_off",
+  "source_head": "260d2faf4c185779987c8b79cf45a9387d7f892f",
+  "migration": "drizzle/migrations/0179_issue330_profile_infra_off.sql",
+  "migration_exact_ddl": true,
+  "partition": {
+    "source_head": "260d2faf4c185779987c8b79cf45a9387d7f892f",
+    "insertion_byte_offset": 691,
+    "seed_bytes": 5402,
+    "recomposition": "DDL[:offset]+SEED+DDL[offset:] == NORMALIZADO byte-for-byte",
+    "equal": true,
+    "sha256": {
+      "DDL": "dc1cd03ceb633221888a34290163f27a444326fe12650b32580469871ec09a5c",
+      "SEED": "ad452be6537a4c256dc1625427af7471ec1449ae3973b34c4bb37699d836f8a9",
+      "NORMALIZADO": "0c7d4091b893bc8d4978472a3f50bf32f545961238ba72964f1d2e63a95fcb39"
+    }
+  },
+  "original_sha256": "b19b09e32f6db9edb7c1fa3def1b9ec07bf1916d1ac1f5cac10a79e06e441cfd",
+  "patch_sha256": "a5f1e0c028f3fcd1adfb05e91090f6ef6cd6886ad84412b47944ca3e230d06fb",
+  "before": {
+    "checked_at": "2026-10-16T23:30:59.483285Z",
+    "members_count": 41,
+    "members_hash": "6f3208ea9cf0951b1560eaba921c8a84",
+    "ledger_count": 26,
+    "ledger_sum": 2650,
+    "ledger_hash": "72d13f51fcc162460e4b5baa9aeeaacc",
+    "crews_count": 3,
+    "crews_hash": "f8956715389ef7137ae0c384d53abd6b",
+    "rewards_hash": "0d26872f202f4b75007c5c02c08c406a",
+    "rules_hash": "54c0756667aaa304c782e49ded55e653",
+    "site_hash": "7e520d2178f41c4e4eb2446aec38b8f6",
+    "core17_definition_md5": {
+      "_club327_cohesion": "b5e714acf4607c75d19469a8ef832a6f",
+      "_club_active_cfg": "5c0c9429101a9544615b8bb5f0ac813a",
+      "_club_award_core": "013078923029cd796a6d6eab83533b48",
+      "_club_rule_used": "e7bcae342231a52bff5490ce7c8406e0",
+      "_club_site_lock": "74b2a06b7edd3ff957089d8c4da9ecff",
+      "club_award": "d6b7dc5b1a5ed66a2d1a3f1b11982784",
+      "club_award_fixed": "fffa0236f0c3a6fefefcf350ca332fab",
+      "club_award_purchase": "5d7ecd5f37cc954833acedc9df8556a8",
+      "club_confirm_member": "b7034289da1bd7347f3501574b5b36f8",
+      "club_crew_pending": "5476703bf9fa4b01a766f9d86b6ba960",
+      "club_member_level": "ce870321295623ca033330d56fd8a52c",
+      "club_points_cutover": "522f1b302373fd06f5622fa799d221e4",
+      "club_purchase_revoke": "b14ae9141ed319c4a83ea7b7c2ec0d86",
+      "club_ranking": "ef026eb2cf406a4ff587a201b25496b6",
+      "club_referral_progress": "5d66030c234c73053554ec1bef6adfa5",
+      "club_rules_public": "c90512519a68530dcbf42ab0bea0bb9d",
+      "club_wallet_due": "e954ff158b30530a217c45b16797a89e"
+    },
+    "absence": {
+      "tables": 0,
+      "functions": 0,
+      "credits": 0
+    },
+    "levels": {
+      "Gang": 0,
+      "Crew": 750,
+      "Goat": 3000
+    },
+    "config": {
+      "version": "2027-v1",
+      "active_count": 1,
+      "join": 100,
+      "referral": 75,
+      "cap": 750,
+      "crew": 100,
+      "purchase_enabled": false,
+      "void_frees_cap": false
+    }
+  },
+  "after": {
+    "checked_at": "2026-10-16T23:35:17.141856Z",
+    "members_count": 42,
+    "members_hash": "567659a678840772b1f1fdbde5f6083b",
+    "ledger_count": 26,
+    "ledger_sum": 2650,
+    "ledger_hash": "72d13f51fcc162460e4b5baa9aeeaacc",
+    "crews_count": 3,
+    "crews_hash": "f8956715389ef7137ae0c384d53abd6b",
+    "rewards_hash": "0d26872f202f4b75007c5c02c08c406a",
+    "rules_hash": "54c0756667aaa304c782e49ded55e653",
+    "site_hash": "7e520d2178f41c4e4eb2446aec38b8f6",
+    "core17_definition_md5": {
+      "_club327_cohesion": "b5e714acf4607c75d19469a8ef832a6f",
+      "_club_active_cfg": "5c0c9429101a9544615b8bb5f0ac813a",
+      "_club_award_core": "013078923029cd796a6d6eab83533b48",
+      "_club_rule_used": "e7bcae342231a52bff5490ce7c8406e0",
+      "_club_site_lock": "74b2a06b7edd3ff957089d8c4da9ecff",
+      "club_award": "d6b7dc5b1a5ed66a2d1a3f1b11982784",
+      "club_award_fixed": "fffa0236f0c3a6fefefcf350ca332fab",
+      "club_award_purchase": "5d7ecd5f37cc954833acedc9df8556a8",
+      "club_confirm_member": "b7034289da1bd7347f3501574b5b36f8",
+      "club_crew_pending": "5476703bf9fa4b01a766f9d86b6ba960",
+      "club_member_level": "ce870321295623ca033330d56fd8a52c",
+      "club_points_cutover": "522f1b302373fd06f5622fa799d221e4",
+      "club_purchase_revoke": "b14ae9141ed319c4a83ea7b7c2ec0d86",
+      "club_ranking": "ef026eb2cf406a4ff587a201b25496b6",
+      "club_referral_progress": "5d66030c234c73053554ec1bef6adfa5",
+      "club_rules_public": "c90512519a68530dcbf42ab0bea0bb9d",
+      "club_wallet_due": "e954ff158b30530a217c45b16797a89e"
+    },
+    "levels": {
+      "Gang": 0,
+      "Crew": 750,
+      "Goat": 3000
+    },
+    "config": {
+      "version": "2027-v1",
+      "active_count": 1,
+      "join": 100,
+      "referral": 75,
+      "cap": 750,
+      "crew": 100,
+      "purchase_enabled": false,
+      "void_frees_cap": false
+    },
+    "baseline_members_count": 41,
+    "baseline_members_hash": "6f3208ea9cf0951b1560eaba921c8a84",
+    "normal_new_members": 1,
+    "settings": 0,
+    "profiles": 0,
+    "profile_credits": 0,
+    "countries": 249,
+    "country_data_md5": "2a5e44e09535fd8e4c1b8063d43dcc77",
+    "floors": 0,
+    "cutovers": 1,
+    "core_acl_matching": 17
+  },
+  "function_body_md5": {
+    "_club330_profile_guard": "d519ab167bb11fbd4cdc4118e3451674",
+    "_club330_award_guard": "7be3e3eb7f8fa0b21e522d5d15011d3e",
+    "_club330_rule_guard": "d79e3bee0d7d25c210fe2aedf1459a2e",
+    "club_profile_state": "423e80faf546661e14363605fa322443",
+    "club_profile_confirm": "cbde07a63df4ab726c9272ab32e59218",
+    "club_profile_configure": "11221b0d064ed62beb97a5ba43954165"
+  },
+  "acl": {
+    "rls_all3": true,
+    "authenticated_select_only": [
+      "club_profile_settings",
+      "club_member_profiles"
+    ],
+    "staff_policy": "portal_can_write() AND row_belongs_to_current_company(company_id)",
+    "anon_all_privileges": false,
+    "maintain_anon_auth_service_all3": false,
+    "six_functions_anon_auth_execute": false,
+    "six_functions_service_execute": true,
+    "platform_managed_acl_note": "owner and platform sandbox roles exist; service-only refers to application-facing roles, not database owner/platform operators",
+    "global_default_privileges_changed": false,
+    "triggers_enabled": 4
+  },
+  "deploy": {
+    "function": "newgang-portal",
+    "source_sha256": "b3d7f56a823698fe810c5d986f32e34b4c8abe66e7f39e042fcedad69376b7ed",
+    "files": {
+      "supabase/functions/newgang-portal/club-canon.ts": "fc9da19f02ba2f9b2e6e7d42641ce9879631bfcebd396a8a8732c13e64fe462b",
+      "supabase/functions/newgang-portal/crews.ts": "7903ba53daa6bfd91ffdb69d3522a12dd3fdb3ac01460e8034ad38c1fa88fb74",
+      "supabase/functions/newgang-portal/email.ts": "036c43985fe6bb1dc3a3300776c3ca98fc93f13b8c2c8ae053de4408ec9b2f9f",
+      "supabase/functions/newgang-portal/lineup.ts": "b979508a3518456c966bc0d135c9bfe55e3e999ae72af1d25063826c3c69a838",
+      "supabase/functions/newgang-portal/missions.ts": "64d0b3f4b5d06c2a9a8a18b6604799176f93b50b6deb9e08bfd4e527538a273c",
+      "supabase/functions/newgang-portal/pending.ts": "661e11b12f3c9ff9d4ac1ba807c2cea37d81de0f018a205babd742f2527bcb72",
+      "supabase/functions/newgang-portal/pending_test.ts": "c2c1787a6c4f99e0952c27f2b89c201435d9be6b82ef02032fa8567cb527aa66",
+      "supabase/functions/newgang-portal/public.ts": "09197f24194ef7c064aa24921f273f91ae754f090ae3ceaa0945811fea1fae4a",
+      "supabase/functions/newgang-portal/videos.ts": "2629aa03f598afa1d3acf0c1a10548811f98e066a74bb018eb41cf03789a12f0",
+      "supabase/functions/newgang-portal/wallet-google.ts": "a2f25d0218cb19b89403fab50a67e8b66fc015860dee90758ac569be11dda076",
+      "supabase/functions/newgang-portal/welcome.ts": "e9968e926a8265d843266ed50af41dd81e2c6f0c474382ad990fd65794f10ae2",
+      "supabase/functions/newgang-portal/index.ts": "500ba1cdf75d170c6827f21cf50fe380dcda0402df2d8371b527df9e48f15d75",
+      "supabase/functions/newgang-portal/history.ts": "075efc867179915250d3b7047c4d78bbddc6aa037d83b60dbd3e2357939449db",
+      "supabase/functions/newgang-portal/profile.ts": "c924012ec473103e19bb6b02bb57806dc94b9df8fd8fad6563873c8a05fbf578",
+      "supabase/functions/newgang-portal/countries.ts": "a76b85b27d03e53b67417cc46f33922c469bd316c9527ace3514a4d975614676"
+    },
+    "live_smoke_verified": true
+  },
+  "seed_execution": {
+    "atomic_insert_transaction": true,
+    "correction_transaction": true,
+    "transcription_errors": {
+      "GW": [
+        "Guadalupe",
+        "Guiné-Bissau"
+      ],
+      "MR": [
+        "Martinica",
+        "Mauritânia"
+      ]
+    },
+    "initial_data_md5": "eb09d64b5a844bdd3d872a605840bee7",
+    "final_data_md5": "2a5e44e09535fd8e4c1b8063d43dcc77",
+    "correction_guarded_by_initial_hash_and_empty_profile_settings": true,
+    "note": "Original artefacts unchanged. Initial manually submitted seed differed in two names; detected and corrected before API patch/deploy. Do not claim initial execution byte-identical."
+  },
+  "tests": {
+    "postgres": {
+      "passed": 59,
+      "exit": 0
+    },
+    "handler": {
+      "passed": 9,
+      "exit": 0
+    },
+    "module": {
+      "passed": 8,
+      "exit": 0
+    },
+    "crm_integration": {
+      "passed": 7,
+      "exit": 0
+    },
+    "vitest_all": {
+      "passed": 1273,
+      "skipped": 1,
+      "todo": 11,
+      "exit": 0
+    },
+    "deno_check": {
+      "exit": 1,
+      "errors": "pre-existing TS2783/TS2785 wallet_sync; no new profile errors"
+    },
+    "build": "automatic build OK",
+    "ci_remote": "not verified; gh unavailable",
+    "tsgo": "not manually run; harness owns typechecks"
+  },
+  "smoke": "smoke-aplicacao.json",
+  "not_done": [
+    "mission activation",
+    "profile_confirm authenticated Live",
+    "Publish ERP/portal",
+    "email/Google/Wallet manual/OAuth/CAPI/consent/crons",
+    "global rollback"
+  ]
 }
