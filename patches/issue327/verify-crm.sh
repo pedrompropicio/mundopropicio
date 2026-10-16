@@ -10,7 +10,7 @@ WT="$(mktemp -d /tmp/crm327wt.XXXXXX)"; trap 'rm -rf "$WT"' EXIT
 git archive HEAD src tsconfig.json tsconfig.app.json tsconfig.node.json vite.config.ts vitest.config.ts package.json components.json tailwind.config.ts postcss.config.js | tar -x -C "$WT"
 ln -s "$ROOT/node_modules" "$WT/node_modules"
 ( cd "$WT" && patch -p1 --dry-run < "$PATCH" >/dev/null && patch -p1 < "$PATCH" >/dev/null )
-tsc_out="$(cd "$WT" && npx tsgo -p tsconfig.app.json --noEmit 2>&1)" && tsc=0 || tsc=$?
+tsc_out="$(cd "$WT" && tsgo -p tsconfig.app.json --noEmit 2>&1)" && tsc=0 || tsc=$?
 vt_out="$(cd "$WT" && npx vitest run src/lib/__tests__/club-crew-rule-source.test.ts 2>&1)" && vt=0 || vt=$?
 passed="$(echo "$vt_out" | grep -oE 'Tests +[0-9]+ passed' | grep -oE '[0-9]+' | head -1)"
 writes="$(grep -c 'crewRuleWrite(src, cfg)' "$WT/$F")"
