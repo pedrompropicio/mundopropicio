@@ -12,7 +12,7 @@ def rep(old, new):
 rep('import { PreSendError, sendWelcomeOnce } from "./welcome.ts";\n',
     'import { PreSendError, sendWelcomeOnce } from "./welcome.ts";\n'
     '// #327: leituras canónicas (nível com piso, conquistas, montra de regras) — mesma fonte para site, me, ranking e Wallet.\n'
-    'import { levelFromPoints, memberLevel, referralProgress, rulesPublic, type MemberLevel } from "./club-canon.ts";\n'
+    'import { levelFromPoints, memberLevel, referralProgress, rulesPublic, type MemberLevel, type RulesView } from "./club-canon.ts";\n'
     'const rpc = (fn: string, a: Record<string, unknown>) => sb.rpc(fn, a) as any;\n'
     '// Fórmula antiga (soma + club_levels) — só usada se club_member_level estiver ausente (reversão SQL #327 já aplicada).\n'
     'async function legacyLevel(memberId: string, siteId: string): Promise<MemberLevel> {\n'
@@ -22,7 +22,9 @@ rep('import { PreSendError, sendWelcomeOnce } from "./welcome.ts";\n',
     '  const { data: lv, error: e2 } = await sb.from("club_levels").select("name, min_points").eq("site_id", siteId);\n'
     '  if (e2) throw new Error("legacy levels: " + e2.message);\n'
     '  return levelFromPoints(pts, (lv ?? []) as any);\n'
-    '}\n')
+    '}\n'
+    'const legacyRules = (rl: unknown): RulesView => ({ rules: ((rl ?? []) as any[]).filter((r) => r.active)\n'
+    '  .map((r) => ({ rule_key: r.rule_key, label: r.label, points: Number(r.points), cap: null, scope: null })), unavailable: [], edition: null, version: null });\n')
 rep('''    const { data: rows } = await sb.from("club_points").select("points").eq("member_id", memberId).limit(10000);
     points = ((rows ?? []) as any[]).reduce((s, r) => s + r.points, 0);
     const { data: lv } = await sb.from("club_levels").select("name").eq("site_id", siteId).lte("min_points", points).order("min_points", { ascending: false }).limit(1);
@@ -33,15 +35,16 @@ rep('''    const { data: rows } = await sb.from("club_points").select("points").
     points = lv.points; level = lv.level;
 ''')
 rep('''  return { site: data, trackers, ticketing, club: { levels: lv ?? [], rules: rl ?? [], terms: termsMeta(tm) } };''',
-    '''  void rl; // #327: a montra usa club_rules_public (valores pagos agora + disponibilidade), não club_point_rules cru.
-  const rv = await rulesPublic(rpc, site.id);
+    '''  // #327: a montra usa club_rules_public (valores pagos agora + disponibilidade); club_point_rules cru só se a RPC estiver ausente (reversão).
+  const rv = await rulesPublic(rpc, site.id, async () => legacyRules(rl));
   return { site: data, trackers, ticketing, club: { levels: lv ?? [], rules: rv.rules, rules_unavailable: rv.unavailable, terms: termsMeta(tm) } };''')
 rep('''  if (!row) return null;
   return assemblePublic(want, row, pubRows, eds);''', '''  if (!row) return null;
   const out = assemblePublic(want, row, pubRows, eds);
   if (want.site && out.site) {
-    const rv = await rulesPublic(rpc, row.id); // #327: mesma montra canónica do payload "site"
-    const club = (out.site as any).club; club.rules = rv.rules; club.rules_unavailable = rv.unavailable;
+    const club = (out.site as any).club;
+    const rv = await rulesPublic(rpc, row.id, async () => legacyRules(club.rules)); // #327: mesma montra canónica do payload "site"
+    club.rules = rv.rules; club.rules_unavailable = rv.unavailable;
   }
   return out;''')
 rep('''        const { data: lv } = await sb.from("club_levels").select("name, min_points, benefit").eq("site_id", site.id).order("min_points");

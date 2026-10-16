@@ -49,3 +49,37 @@ Deno.test("montra: erro de RPC explícito; vazio → listas vazias", async () =>
   eq(msg, "club_rules_public: y", "erro");
   eq((await rulesPublic(fake({ club_rules_public: { data: [], error: null } }), "s")).rules, [], "vazio");
 });
+
+// ---- Compatibilidade de reversão (SQL revertido primeiro, API depois opcional) ----
+import { isMissingRpc, levelFromPoints } from "./club-canon.ts";
+const LV = [{ name: "Gang", min_points: 0 }, { name: "Crew", min_points: 500 }, { name: "Goat", min_points: 1500 }];
+Deno.test("compat: só PGRST202/42883 contam como RPC ausente", () => {
+  eq([isMissingRpc({ message: "x", code: "PGRST202" }), isMissingRpc({ message: "x", code: "42883" }), isMissingRpc({ message: "timeout", code: "57014" }),
+      isMissingRpc({ message: "Could not find the function" }), isMissingRpc(null)], [true, true, false, false, false], "missing");
+});
+Deno.test("compat: RPC existe → canónico (Goat protegido com 1500 sob limiar 3000), legacy NUNCA chamado", async () => {
+  let legacyCalls = 0;
+  const lv = await memberLevel(fake({ club_member_level: { data: [{ points: 1500, level_name: "Goat", protected: true, next_level_name: null, next_level_min: null }], error: null } }), "g",
+    { legacy: async () => { legacyCalls++; return levelFromPoints(1500, LV); } });
+  eq([lv.level, lv.protected, legacyCalls], ["Goat", true, 0], "canónico");
+});
+Deno.test("compat: erro genérico com legacy disponível continua erro explícito (sem fallback)", async () => {
+  let legacyCalls = 0, msg = "";
+  try { await memberLevel(fake({ club_member_level: { data: null, error: { message: "permission denied", code: "42501" } } }), "g", { legacy: async () => { legacyCalls++; return levelFromPoints(0, LV); } }); }
+  catch (e) { msg = (e as Error).message; }
+  eq([msg, legacyCalls], ["club_member_level: permission denied", 0], "sem fallback");
+});
+Deno.test("compat: RPC ausente após SQL revertido → fórmula antiga; Goat 1500 continua Goat", async () => {
+  const lv = await memberLevel(fake({ club_member_level: { data: null, error: { message: "Could not find the function", code: "PGRST202" } } }), "g", { legacy: async () => levelFromPoints(1500, LV) });
+  eq([lv.level, lv.protected, lv.next_level], ["Goat", false, null], "legacy Goat");
+});
+Deno.test("compat: pontos negativos → nível mínimo (Gang no limiar 0? não: abaixo de 0 não há nível) e próximo = Gang", () => {
+  eq(levelFromPoints(-50, LV), { points: -50, level: null, protected: false, next_level: "Gang", next_level_min: 0 }, "negativo");
+  eq(levelFromPoints(0, LV).level, "Gang", "zero");
+});
+Deno.test("compat: montra com RPC ausente usa regras cruas; com erro genérico falha", async () => {
+  const leg = async () => ({ rules: [{ rule_key: "join_confirmed", label: "J", points: 100, cap: null, scope: null }], unavailable: [], edition: null, version: null });
+  eq((await rulesPublic(fake({ club_rules_public: { data: null, error: { message: "nf", code: "42883" } } }), "s", leg)).rules.length, 1, "fallback");
+  let msg = ""; try { await rulesPublic(fake({ club_rules_public: { data: null, error: { message: "boom", code: "XX000" } } }), "s", leg); } catch (e) { msg = (e as Error).message; }
+  eq(msg, "club_rules_public: boom", "sem fallback");
+});
