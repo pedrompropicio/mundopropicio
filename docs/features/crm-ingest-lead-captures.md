@@ -11,3 +11,6 @@
 - Clube manual: `crm_ingest_clube_captures_by_ids(p_ids)` (0167), só por IDs explícitos autorizados; dispara o fluxo normal do Clube (membro + confirmação, dedupe por email_send_log). A retoma contínua é feita pela função principal.
 - Não substitui `process_lead_captures_batch` (mantida, suspensa). `redirect_log` fora (tráfego).
 - Teste: `supabase/tests/crm_ingest_lead_captures.sql` (revertido) + `src/test/crm-ingest-no-network.test.ts`.
+
+## Welcome do Clube — reserva atómica (16/10, 0170/0171)
+Antes de qualquer envio, `notifyPending` adquire `club_welcome_reserve` (PK por membro, escopo site/empresa). Só quem adquire envia; reserva nunca libertada sozinha (unknown/error_pre_send = recuperação manual). Membros com welcome já registado ficam `legacy_sent`. Prova: `docs/testes/issue321/08-welcome-reserva-live.md`.

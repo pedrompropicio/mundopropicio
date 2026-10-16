@@ -101,3 +101,4 @@ _(sem testes em fila)_
 - tsgo 0 · vitest 0 (152 ficheiros, 1183 testes passam) · build 0: `docs/testes/issue321/03-*.md`. CI 1.ª entrega: https://github.com/pedrompropicio/mundopropicio/actions/runs/38828429496 success, SHA 80dd1b42… (confirmada pelo Pedro).
 - Retoma contínua do Clube (0168/0169): `docs/testes/issue321/06-clube-continuo.md` (testes revertidos OK, vitest 12/12, tsgo 0).
 - Continuação Clube (2 casos): `docs/testes/issue321/04-clube-dois-casos.md`, `05-vitest-clube.md` (10 testes, exit 0); tsgo 0.
+- Welcome único sob concorrência (0170/0171 + newgang-portal): `docs/testes/issue321/07-welcome-unico-testes.md` (vitest 19/19, tsgo 0), `08-welcome-reserva-live.md`.
