@@ -1,4 +1,4 @@
-runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T18:28:01Z
+runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T18:28:09Z
 listen_addresses=
 aplicar 0119_0119_newgang_lineup_reveals_security.sql sha256=4e8d1c1410a377bb
 psql:/dev-server/drizzle/migrations/0119_0119_newgang_lineup_reveals_security.sql:2: NOTICE:  policy "event_lineups_authenticated_all" for relation "public.event_lineups" does not exist, skipping
@@ -23,7 +23,7 @@ rollback gerado: f96da052f6a3f631
 == B) legado (funções Live)
                       ?column?                       
 -----------------------------------------------------
- LEGADO_OK 54/12597/dca73df97281f7a8c8d4751c38462c76
+ LEGADO_OK 54/12597/ccfc4efcdf862fb1df0cefbfb15ea47e
 (1 row)
 
 == C) carregar pendente sha256=5f21e421738d82c5
@@ -50,7 +50,18 @@ psql:/dev-server/supabase/manual/20261016_issue327.PENDENTE.sql:126: NOTICE:  re
 psql:/dev-server/supabase/manual/20261016_issue327.PENDENTE.sql:127: NOTICE:  relation "club_referral_events_member_event_idx" already exists, skipping
 pendente idempotente: 2.ª aplicação sem alterações
 == D) depois
-psql:/dev-server/scripts/club-sql-it/60_after327.sql:262: ERROR:  ASSERT FALHOU [edicao] montra: regras controladas edicao_sem_config — <NULL>
-CONTEXT:  PL/pgSQL function t.ok(text,text,boolean,text) line 4 at RAISE
-SQL statement "SELECT t.ok('edicao','montra: regras controladas edicao_sem_config', (SELECT count(*) FROM club_rules_public('00000000-0000-4000-8000-0000000000a2') WHERE status='edicao_sem_config') = 3)"
-PL/pgSQL function inline_code_block line 10 at PERFORM
+     ?column?      
+-------------------
+ SERIAL327 113/113
+(1 row)
+
+   ?column?   
+--------------
+ RLS327 28/28
+(1 row)
+
+ERROR:  #327 coesão: membro fora do site/empresa (club_purchase_evidence)
+CONTEXT:  PL/pgSQL function _club327_cohesion() line 7 at RAISE
+SQL statement "INSERT INTO club_purchase_evidence(company_id, site_id, event_id, member_id, source, order_ref, lot_ref, status, fingerprint)
+    SELECT company_id, site_id, event_id, m, 'fever_order', 'CC-'||i, 'EB1', 'valid', 'ccfp'||i FROM club_points_config WHERE status='active'"
+PL/pgSQL function inline_code_block line 9 at SQL statement

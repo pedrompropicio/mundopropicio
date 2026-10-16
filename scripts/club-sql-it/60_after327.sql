@@ -244,7 +244,7 @@ DO $$ DECLARE r uuid; before_e1 text; ok boolean; BEGIN
   PERFORM t.ok('edicao','nada creditado à edição antiga depois da troca', (SELECT count(*)||'/'||sum(points) FROM club_points WHERE event_id = '00000000-0000-4000-8000-0000000000e1') = before_e1);
   PERFORM t.ok('edicao','regra não controlada credita 50', club_award(r, 'guess_correct', 'e2g') = 50);
   PERFORM t.ok('edicao','regra não controlada vai para a edição corrente (e2)', (SELECT event_id FROM club_points WHERE member_id = r AND rule_key='guess_correct') = '00000000-0000-4000-8000-0000000000e2');
-  PERFORM t.ok('edicao','montra: regras controladas edicao_sem_config', (SELECT count(*) FROM club_rules_public('00000000-0000-4000-8000-0000000000a2') WHERE status='edicao_sem_config') = 3);
+  PERFORM t.ok('edicao','montra: regras controladas edicao_sem_config', (SELECT count(*) FROM club_rules_public('00000000-0000-4000-8000-0000000000a2') WHERE status='edicao_sem_config') = 4);
   INSERT INTO club_points_config(company_id, site_id, version, event_id, status, join_points, referral_points, referral_cap, crew_points, purchase_points, levels)
     VALUES ('00000000-0000-4000-8000-0000000000a1','00000000-0000-4000-8000-0000000000a2','e1-v2','00000000-0000-4000-8000-0000000000e1','draft',100,75,750,100,200,'{"Gang":0,"Crew":750,"Goat":3000}');
   ok := false; BEGIN PERFORM club_points_cutover((SELECT id FROM club_points_config WHERE version='e1-v2'), '{"Gang":0,"Crew":750,"Goat":3000}'); EXCEPTION WHEN raise_exception THEN ok := true; END;
