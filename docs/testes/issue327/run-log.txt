@@ -1,4 +1,4 @@
-runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T18:28:48Z
+runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T19:08:04Z
 listen_addresses=
 aplicar 0119_0119_newgang_lineup_reveals_security.sql sha256=4e8d1c1410a377bb
 psql:/dev-server/drizzle/migrations/0119_0119_newgang_lineup_reveals_security.sql:2: NOTICE:  policy "event_lineups_authenticated_all" for relation "public.event_lineups" does not exist, skipping
@@ -9,24 +9,25 @@ aplicar 0142_derp273_club_points_void.sql sha256=6111185391186e25
 aplicar 0143_derp274_club_crews.sql sha256=f774cf76485977fc
 aplicar 0144_derp275_club_wallet_passes.sql sha256=c5aeedb913c1fa55
 aplicar 0176_issue328_club_identity_crew_pending.sql sha256=f365deca51c8ef43
+paridade ACL Live: e20a11ce660c0cf5 (club_award_fixed → service_role)
 == A) baseline vs Live pós-0176 (sem patch)
 guard327 base: OK (30 funções)
-acl baseline: club_award={postgres=X/postgres,service_role=X/postgres} club_award_fixed={postgres=X/postgres} club_confirm_member={postgres=X/postgres,service_role=X/postgres} club_ranking={postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} club_wallet_due={postgres=X/postgres,service_role=X/postgres}
+acl baseline: club_award={postgres=X/postgres,service_role=X/postgres} club_award_fixed={postgres=X/postgres,service_role=X/postgres} club_confirm_member={postgres=X/postgres,service_role=X/postgres} club_crew_pending={postgres=X/postgres,service_role=X/postgres} club_ranking={postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} club_wallet_due={postgres=X/postgres,service_role=X/postgres}
 acl vs Live club_award: local=postgres,service_role live=postgres,service_role -> IGUAL
-acl vs Live club_award_fixed: local=postgres live=postgres,service_role -> DRIFT (conhecido; não declarado igual)
+acl vs Live club_award_fixed: local=postgres,service_role live=postgres,service_role -> IGUAL
 acl vs Live club_confirm_member: local=postgres,service_role live=postgres,service_role -> IGUAL
 acl vs Live club_ranking: local=authenticated,postgres,service_role live=authenticated,postgres,service_role -> IGUAL
 acl vs Live club_wallet_due: local=postgres,service_role live=postgres,service_role -> IGUAL
 psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: net.http_post indisponível (3F000)
 psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: dblink não instalável (0A000)
-rollback gerado: f96da052f6a3f631
+rollback gerado: 2abcf6789597c33d
 == B) legado (funções Live)
                       ?column?                       
 -----------------------------------------------------
- LEGADO_OK 54/12597/6af2f32d08a81248c183021b23197fdf
+ LEGADO_OK 54/12597/671776baabf113f2598f2cd83e52585d
 (1 row)
 
-== C) carregar pendente sha256=5f21e421738d82c5
+== C) carregar pendente sha256=bcf12704d0f491e5
 psql:/dev-server/supabase/manual/20261016_issue327.PENDENTE.sql:166: NOTICE:  policy "club_points_config_select_staff" for relation "public.club_points_config" does not exist, skipping
 psql:/dev-server/supabase/manual/20261016_issue327.PENDENTE.sql:166: NOTICE:  policy "club_level_floors_select_staff" for relation "public.club_level_floors" does not exist, skipping
 psql:/dev-server/supabase/manual/20261016_issue327.PENDENTE.sql:166: NOTICE:  policy "club_points_cutover_log_select_staff" for relation "public.club_points_cutover_log" does not exist, skipping
@@ -93,21 +94,29 @@ epoch ok: C: bloqueio reposto (corpo original)
 epoch ok: D: config a zeros → inscrição 0 e indicação 0 (teto 0)
 epoch ok: D: montra mostra 0 (não promete valores antigos)
 EPOCH327 "asserts":18 "falhados":0
+pend ok: NEG: corpo 0176 carregado (FOR UPDATE antes do site)
+pend ok: NEG reproduz deadlock
+pend ok: NEG: consequência visível (cutover abortado OU retry perdido em estado 'error')
+pend ok: POS: corpo do pendente reposto (site antes do membro, FOR NO KEY UPDATE)
+pend ok: POS: sem deadlock nem erros
+pend ok: POS: cutover concluiu (a-pend ativa, uma só ativa)
+pend ok: POS: piso de X criado 1× com o retrato ANTES do retry (800, Crew)
+pend ok: POS: retry concluído depois do cutover (convite limpo, Crew com 4)
+pend ok: POS: crew_complete 1× por membro com o valor da config nova (4×80)
+pend ok: POS: 2.º retry idempotente (sem crédito/piso duplicado)
+pend ok: AUDIT: funções do Clube sem 'club_members ... FOR UPDATE' (só FOR NO KEY UPDATE após o site)
+pend ok: AUDIT: confirm/crew_pending/award_purchase/purchase_revoke pedem o site antes da linha
+PEND327 "asserts":12 "falhados":0
 psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: net.http_post indisponível (3F000)
 psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: dblink não instalável (0A000)
 serial: 141/141
-== E) reversão sha256=f96da052f6a3f631
+== E) reversão sha256=2abcf6789597c33d
+canónico antes: Goat protegido=Goat/true negativo=(sem nível)/-150
 consumidor antigo (sem RPC) com SQL #327 ainda aplicado: nível=Crew
-psql:/dev-server/supabase/manual/20261016_issue327.ROLLBACK.sql:127: ERROR:  rollback #327: 1 membro(s) desceriam de nível; abortado (nada mudou)
+psql:/dev-server/supabase/manual/20261016_issue327.ROLLBACK.sql:161: ERROR:  rollback #327: 1 membro(s) desceriam de nível; abortado (nada mudou)
 CONTEXT:  PL/pgSQL function inline_code_block line 7 at RAISE
 reversão abortou com descida de nível; nada mudou (funções novas presentes)
+após aborto a RPC/API canónica continua a servir: Goat protegido com pontos abaixo do limiar
 guard327 base: OK (30 funções)
-reversão preserva créditos: 243/34369
-ACL das 5 funções = baseline
-níveis após reversão: {"Crew": 500, "Gang": 0, "Goat": 1500}
-regras visíveis após reversão: attended_year:100,crew_complete:200,friend_bought:300,friend_joined:150,guess_correct:50,join_confirmed:100,promo_lot_purchase:500
-regras A2/B2 = pré-patch
-crew_cfg após reversão: 200/4/6
-configs ativas após reversão: 0
-pisos/provas/contagens/retrato preservados: 38/9/67/36
-RESULTADO: TODOS OS ASSERTS PASSARAM
+pós-reversão: club_member_level ausente → API compat usa fórmula antiga (só neste caso)
+DESCIDAS: 16
