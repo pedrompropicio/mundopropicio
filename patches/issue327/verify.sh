@@ -2,7 +2,7 @@
 # #327 — Verifica o patch INERTE da edge newgang-portal sem tocar no código deployável.
 # 1) checksum dos originais; 2) extrai HEAD para worktree temporária; 3) aplica o patch;
 # 4) deno check (tipos) + deno test --deny-net; 5) checksum dos originais de novo (têm de ser iguais).
-# Uso: bash patches/issue328/verify.sh [ficheiro_json_saida]
+# Uso: bash patches/issue327/verify.sh [ficheiro_json_saida]
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"; cd "$ROOT"
 OUT="${1:-$ROOT/docs/testes/issue327/edge-patch-results.json}"
@@ -16,22 +16,24 @@ export NO_COLOR=1; export DENO_DIR="${DENO_DIR:-/tmp/deno-cache327}"
 # Erros de tipos do HEAD sem patch (baseline) — o critério é "zero erros NOVOS".
 base_err="$(cd "$WT/$FN" && deno check --node-modules-dir=none index.ts 2>&1 | grep -oE 'TS[0-9]+ \[ERROR\]' | sort | tr '\n' ' ' || true)"
 ( cd "$WT" && patch -p1 --dry-run < "$PATCH" >/dev/null && patch -p1 < "$PATCH" >/dev/null )
-cp "$ROOT/patches/issue327/level_test.ts" "$WT/$FN/"
-check_out="$(cd "$WT/$FN" && deno check --node-modules-dir=none index.ts wallet-google.ts 2>&1)" || true
+cp "$ROOT/patches/issue327/club_canon_test.ts" "$WT/$FN/"
+cmp -s "$ROOT/patches/issue327/club-canon.ts" "$WT/$FN/club-canon.ts" || { echo "club-canon.ts do patch difere do módulo"; exit 6; }
+check_out="$(cd "$WT/$FN" && deno check --node-modules-dir=none index.ts wallet-google.ts club-canon.ts club_canon_test.ts 2>&1)" || true
 patch_err="$(echo "$check_out" | grep -oE 'TS[0-9]+ \[ERROR\]' | sort | tr '\n' ' ' || true)"
 [ "$patch_err" = "$base_err" ] && check=0 || check=1
-test_out="$(cd "$WT/$FN" && deno test --deny-net --deny-env --deny-run --deny-write level_test.ts 2>&1)" && tst=0 || tst=$?
+test_out="$(cd "$WT/$FN" && deno test --deny-net --deny-env --deny-run --deny-write club_canon_test.ts 2>&1)" && tst=0 || tst=$?
 passed="$(echo "$test_out" | grep -oE '[0-9]+ passed' | head -1 | cut -d' ' -f1)"; failed="$(echo "$test_out" | grep -oE '[0-9]+ failed' | head -1 | cut -d' ' -f1)"
 after="$(cd "$FN" && sha256sum *.ts | sha256sum | cut -c1-64)"
-wiring="$(grep -c 'club_member_level\|club_referral_progress' "$WT/$FN/index.ts")"
+wiring="$(grep -c 'memberLevel(rpc\|referralProgress(rpc\|rulesPublic(rpc' "$WT/$FN/index.ts")"
+legacy_level="$(grep -c 'from("club_levels").select("name").eq("site_id", siteId).lte' "$WT/$FN/index.ts" || true)"
 ilike_req="$(awk '/case "request_access"/,/case "session"/' "$WT/$FN/index.ts" | grep -c ilike || true)"
 cat > "$OUT" <<EOF
 {"patch_sha256":"$(sha256sum "$PATCH" | cut -c1-64)","patch_applies_to_HEAD":true,
  "originais_sha_agregado_antes":"$before","originais_sha_agregado_depois":"$after","originais_inalterados":$([ "$before" = "$after" ] && echo true || echo false),
  "HEAD_igual_arvore_local":$([ "$head_vs_tree" = "$before" ] && echo true || echo false),
  "deno_check_sem_erros_novos":$([ "$check" = 0 ] && echo true || echo false),"deno_check_erros_baseline_HEAD":"$base_err","deno_check_erros_com_patch":"$patch_err","deno_test_exit":$tst,"deno_test_passed":${passed:-0},"deno_test_failed":${failed:-0},
- "permissoes_teste":"--deny-net --deny-env --deny-run --deny-write","wiring_refs_index":$wiring,"ilike_em_request_access":$ilike_req,
+ "permissoes_teste":"--deny-net --deny-env --deny-run --deny-write","wiring_refs_index":$wiring,"ilike_em_request_access":$ilike_req,"calculo_nivel_inline_restante":$legacy_level,
  "deno":"$(deno --version | head -1)"}
 EOF
 echo "$check_out" | grep -E "TS[0-9]|error:" | head -5; echo "$test_out" | tail -15; cat "$OUT"
-[ "$before" = "$after" ] && [ "$check" = 0 ] && [ "$tst" = 0 ] && [ "$ilike_req" = 0 ]
+[ "$before" = "$after" ] && [ "$check" = 0 ] && [ "$tst" = 0 ] && [ "$ilike_req" = 0 ] && [ "$wiring" -ge 5 ] && [ "$legacy_level" = 0 ]
