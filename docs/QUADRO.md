@@ -21,6 +21,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
+| #321 | 0 · Cowork (ChatGPT) · agente ERP | 0 · Cowork ChatGPT | lead_capture, contacts, leads, nova RPC de ingestão interna + cron só-ingestão, docs/testes/issue321 | 2026-10-16 00:05 | 2026-10-16 00:05 — reserva registada, a inspeccionar |
 
 ## 0 · Cowork (Claude)
 
