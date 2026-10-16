@@ -279,9 +279,9 @@ export function TicketOfficeTicketingTab({ officeId, officeName }: Props) {
   const getLotSales = (lotId: string) => sales.filter((s) => s.lot_id === lotId);
   const getZoneOnlySales = (zoneId: string) => sales.filter((s) => s.zone_id === zoneId && !s.lot_id);
   const getLotSold = (lotId: string) => getLotSales(lotId).reduce((s, sale) => s + Number(sale.quantity), 0);
-  const getLotRevenue = (lotId: string) => getLotSales(lotId).reduce((s, sale) => s + Number(sale.quantity) * Number(sale.unit_price), 0);
+  const getLotRevenue = (lotId: string) => getLotSales(lotId).reduce((s, sale) => s + ticketSaleRevenue(sale), 0);
   const getZoneOnlySold = (zoneId: string) => getZoneOnlySales(zoneId).reduce((s, sale) => s + Number(sale.quantity), 0);
-  const getZoneOnlyRevenue = (zoneId: string) => getZoneOnlySales(zoneId).reduce((s, sale) => s + Number(sale.quantity) * Number(sale.unit_price), 0);
+  const getZoneOnlyRevenue = (zoneId: string) => getZoneOnlySales(zoneId).reduce((s, sale) => s + ticketSaleRevenue(sale), 0);
   const getZoneSold = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + getLotSold(l.id), 0) + getZoneOnlySold(zoneId);
   const getZoneCapacity = (zoneId: string) => {
     const lotsCap = getZoneLots(zoneId).reduce((s, l) => s + l.quantity, 0);
@@ -581,7 +581,7 @@ export function TicketOfficeTicketingTab({ officeId, officeName }: Props) {
                                         {sale.source === "import" ? "Importado" : "Manual"}
                                       </span>
                                       <span className="font-mono">{Number(sale.quantity).toLocaleString()} bilhetes</span>
-                                      <span className="font-mono text-success">{formatCurrency(Number(sale.quantity) * Number(sale.unit_price))}</span>
+                                      <span className="font-mono text-success">{formatCurrency(ticketSaleRevenue(sale))}</span>
                                       <div className="flex gap-1">
                                         <button onClick={() => openEditSale(sale)} className="rounded p-1 hover:bg-secondary" title="Editar"><Pencil className="h-3 w-3 text-muted-foreground" /></button>
                                         {isAdmin && (

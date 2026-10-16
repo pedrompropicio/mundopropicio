@@ -87,11 +87,11 @@ function buildDRE(
       .map((l) => l.id);
     const eventTicketSales = ticketSales.filter((s) => eventLotIds.includes(s.lot_id));
     // Prices include IVA (6% for tickets) — extract net and gross
-    const ticketGross = eventTicketSales.reduce((sum, s) => sum + Number(s.quantity) * Number(s.unit_price), 0);
+    const ticketGross = eventTicketSales.reduce((sum, s) => sum + ticketSaleRevenue(s), 0);
     const ticketNet = eventTicketSales.reduce((sum, s) => {
       const lot = ticketLots.find((l) => l.id === s.lot_id);
       const rate = Number((lot as any)?.iva_rate ?? 6);
-      return sum + Number(s.quantity) * (Number(s.unit_price) / (1 + rate / 100));
+      return sum + ticketSaleRevenue(s) / (1 + rate / 100);
     }, 0);
     ticketIncomeExIva = ticketNet;
     ticketIncomeIncIva = ticketGross;

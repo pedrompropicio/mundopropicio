@@ -88,13 +88,13 @@ function buildDREBrasil(
     const eventTicketSales = ticketSales.filter((s) => eventLotIds.includes(s.lot_id));
     // unit_price = preço de capa (c/IVA). Extrair IVA do lote (default 6% — bilhetes em PT).
     const ticketGross = eventTicketSales.reduce(
-      (sum, s) => sum + Number(s.quantity) * Number(s.unit_price),
+      (sum, s) => sum + ticketSaleRevenue(s),
       0
     );
     const ticketNet = eventTicketSales.reduce((sum, s) => {
       const lot = ticketLots.find((l: any) => l.id === s.lot_id);
       const rate = Number(lot?.iva_rate ?? 6);
-      return sum + Number(s.quantity) * (Number(s.unit_price) / (1 + rate / 100));
+      return sum + ticketSaleRevenue(s) / (1 + rate / 100);
     }, 0);
     ticketIncomeExIva = ticketNet;
     ticketIncomeIncIva = ticketGross;
