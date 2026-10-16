@@ -21,6 +21,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
+| #326 | ChatGPT · newgang-portal | agente Lovable ERP só testes locais | scripts/testes Clube com SQL real em base local descartável e fixtures; sem Live/funções negócio/consentimento | 2026-10-16 15:45 UTC | próxima etapa autorizada; agentes livres; Publish frontend informado por Pedro |
 | #322 | 0 · Cowork (ChatGPT) | agente Lovable (ERP) | ERP: consentimento por interação (ledger marketing_consent_*), portal-track, capi_consent_proof/guardas, lead_capture/redirect_log/leads (colunas aditivas), docs; coordenação futura MP/Coala/Newgang (portais NÃO tocados nesta etapa) | 2026-10-16 01:12 | 2026-10-16 01:46 — ERP corrigido após verificação independente (0175 + portal-track), aguarda revisão; portais MP/Coala/Newgang pendentes |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
