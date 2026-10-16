@@ -4,7 +4,7 @@
  import { clubEmail } from "./email.ts";
  import { ASSET_BUCKET, PROOF_BUCKET, PROOF_EXT, missionsFrom, normalizeHandle, normalizeProofUrl, submitErrorStatus } from "./missions.ts";
  import { buildHistory, subjectRef } from "./history.ts";
-+import { profileConfirm, profileState, profilePreferences, profileCountries, publicProfileRule } from "./profile.ts";
++import { profileConfirm, profileMe, profilePreferences, profileCountries, profileRuleRead } from "./profile.ts";
  import { publicEditions } from "./videos.ts";
  import { CREW_LINK, crewErrorStatus, crewView } from "./crews.ts";
  import { crewPendingAction, memberByEmail, mePendingCrew, PENDING_OPS } from "./pending.ts";
@@ -27,19 +27,17 @@
  
  // Cache por instância (60 s): a configuração do site muda raramente; evita uma ida à base por pedido.
  const SITE_TTL_MS = 60_000;
-@@ -341,6 +343,11 @@
+@@ -341,6 +343,9 @@
    const a = performance.now(); const r = await p; t.mark(k, performance.now() - a); return r;
  };
  
 +async function profileRule(siteId: string) {
-+  const { data, error } = await sb.from("club_profile_settings").select("enabled, version").eq("site_id", siteId).maybeSingle();
-+  if (error) throw new Error("profile_config_unavailable");
-+  return publicProfileRule(data);
++  return profileRuleRead(() => sb.from("club_profile_settings").select("enabled, version").eq("site_id", siteId).maybeSingle());
 +}
  async function loadSitePayload(site: any) {
    const ev = site.event_id;
    const none = Promise.resolve({ data: null });
-@@ -357,7 +364,7 @@
+@@ -357,7 +362,7 @@
    const ticketing: unknown = ev ? { url: evRow?.ticketing_url ?? null, lots: em?.ticket_lots ?? null } : null;
    // #327: a montra usa club_rules_public (valores pagos agora + disponibilidade); club_point_rules cru só se a RPC estiver ausente (reversão).
    const rv = await rulesPublic(rpc, site.id, async () => legacyRules(rl));
@@ -48,7 +46,7 @@
  }
  
  async function loadLineupRaw(site: any) {
-@@ -401,6 +408,7 @@
+@@ -401,6 +406,7 @@
      const club = (out.site as any).club;
      const rv = await rulesPublic(rpc, row.id, async () => legacyRules(club.rules)); // #327: mesma montra canónica do payload "site"
      club.rules = rv.rules; club.rules_unavailable = rv.unavailable;
@@ -56,7 +54,7 @@
    }
    return out;
  }
-@@ -474,7 +482,9 @@
+@@ -474,17 +480,23 @@
    let body: z.infer<typeof Body>;
    try {
      const pa = performance.now();
@@ -65,9 +63,10 @@
 +    if (["profile_confirm", "profile_preferences"].includes(raw?.action) && Object.keys(raw).some(k => !["action", "token", "profile_payload"].includes(k))) return json({ error: "profile_payload" }, 400);
 +    const p = Body.safeParse(raw);
      timer.mark("parse", performance.now() - pa);
++    if (!p.success && ["me", "profile_confirm", "profile_preferences"].includes(raw?.action) && typeof raw?.token === "string" && (raw.token.length < 20 || raw.token.length > 200)) return json({error:"no_session"},401);
      if (!p.success) return json({ error: "invalid", fields: p.error.flatten().fieldErrors }, 400);
      body = p.data;
-@@ -482,9 +492,12 @@
+   } catch { return json({ error: "invalid_json" }, 400); }
  
    if (WRITE_ACTIONS.has(body.action)) {
      const ipHash = await sha256(clientIp(req) + ":ng");
@@ -81,24 +80,32 @@
  
    // Regulamento publicado (rascunhos nunca saem).
    if (body.action === "regulation") {
-@@ -536,6 +549,8 @@
+@@ -536,6 +548,8 @@
    if (!site) return json({ error: "site_not_configured" }, 503);
    const member = body.action === "bundle" ? null : await timed(timer, "member", memberFromToken(site.id, body.token));
  
-+  if (["profile_confirm", "profile_preferences"].includes(body.action) && (!member || member.site_id !== site.id || member.company_id !== site.company_id)) return json({ error: "no_session" }, 401);
++  if (["me", "profile_confirm", "profile_preferences"].includes(body.action) && (!member || member.site_id !== site.id || member.company_id !== site.company_id)) return json({ error: "no_session" }, 401);
 +
    try {
      switch (body.action) {
        case "site":
-@@ -581,6 +596,7 @@
+@@ -576,11 +590,15 @@
+         const me = rows.find((r) => r.member_id === member.id);
+         const { data: lv } = await sb.from("club_levels").select("name, min_points, benefit").eq("site_id", site.id).order("min_points");
+         const cl: MemberLevel = await memberLevel(rpc, member.id, { legacy: () => legacyLevel(member.id, site.id) }); // #327: nível/piso/próximo nível canónicos
++        // RPC session rejection is authoritative; optional infrastructure errors alone are isolated.
++        const profileView = member.confirmed_at && body.token ? await profileMe(rpc, site.id, await sha256(body.token)) : {profile:null,profile_status:"not_confirmed"};
++        if(profileView.profile_status === "no_session") return json({error:"no_session"},401);
+         return json({
+           first_name: member.first_name, member_no: member.member_no,
            points: cl.points, level: cl.level, rank: me?.rank_pos ?? null,
            level_protected: cl.protected, next_level: cl.next_level, next_level_min: cl.next_level_min,
            referrals: await referralProgress(rpc, member.id),
-+          profile: member.confirmed_at && body.token ? await profileState(rpc, site.id, await sha256(body.token)) : null,
++          ...profileView,
            levels: lv ?? [],
            invite_link: `https://${SITE_DOMAIN}/clube?ref=${member.referral_code}`,
            referral_code: member.referral_code,
-@@ -650,6 +666,15 @@
+@@ -650,6 +668,15 @@
          const r = await crewPendingAction((fn, a) => sb.rpc(fn, a) as any, member, { op: body.op });
          return json(r.body, r.status);
        }
@@ -126,7 +133,7 @@
    friend_bought: "Um amigo comprou bilhete",
 --- /dev/null
 +++ b/supabase/functions/newgang-portal/profile.ts
-@@ -0,0 +1,29 @@
+@@ -0,0 +1,49 @@
 +// #330 module inerte, sans réseau propre. Identité dérivée de la session dans la RPC.
 +import { COUNTRIES } from "./countries.ts";
 +export type Rpc = (fn: string,args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: {message: string; code?: string | null} | null }>;
@@ -143,11 +150,31 @@
 + if(!data || typeof data!=="object") throw new Error("profile_state_empty");
 + return data;
 +}
++// Optional reads are isolated; authentication failures must escape the fallback.
++export const PROFILE_READ_TIMEOUT_MS = 1500;
++export async function optionalRead<T>(read: () => PromiseLike<T>): Promise<T> {
++ let timer: ReturnType<typeof setTimeout> | undefined;
++ try { return await Promise.race([Promise.resolve().then(read), new Promise<never>((_, reject) => { timer=setTimeout(()=>reject(new Error("profile_read_timeout")),PROFILE_READ_TIMEOUT_MS); })]); }
++ finally { if(timer !== undefined) clearTimeout(timer); }
++}
++export async function profileMe(rpc: Rpc,site: string,hash: string) {
++ try { return {profile:await optionalRead(()=>profileState(rpc,site,hash)),profile_status:"ok"}; }
++ catch(e) {
++  if(e instanceof Error && e.message === "no_session") return {profile:null,profile_status:"no_session"};
++  return {profile:null,profile_status:"temporarily_unavailable",profile_error:"profile_state_unavailable"};
++ }
++}
++export async function profileRuleRead(read: () => PromiseLike<{data: unknown;error: unknown}>) {
++ try { const {data,error}=await optionalRead(read); if(error) throw new Error("profile_config_unavailable"); return publicProfileRule(data); }
++ catch { return {...publicProfileRule(null),status:"error",error:"profile_config_unavailable"}; }
++}
 +export async function profileConfirm(rpc: Rpc,site: string,hash: string,payload: unknown) {
++ try {
 + const {data,error}=await rpc("club_profile_confirm",{p_site:site,p_session_hash:hash,p_payload:payload});
-+ if(error) return {status:profileError(error.message),body:{error:error.message}};
++ if(error) return {status:profileError(error.message),body:{error:profileError(error.message)===500?"profile_confirm_unavailable":error.message}};
 + if(!data || typeof data!=="object") return {status:500,body:{error:"profile_state_empty"}};
 + return {status:200,body:data};
++ } catch { return {status:500,body:{error:"profile_confirm_unavailable"}}; }
 +}
 +// Adapter WhatsApp bloqué: la preuve #322 ne couvre que meta_ads; aucune fausse préférence locale.
 +export function profilePreferences() { return {status:409,body:{error:"whatsapp_adapter_pending"}}; }

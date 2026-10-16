@@ -110,3 +110,7 @@ SELECT t.session('negative330@example.invalid');
 SELECT t.seed(t.m('negative330@example.invalid'),-250);
 SELECT t.ok('330','negative points preserved add50',(t.call(md5('negative330@example.invalid'),t.payload())->>'awarded')::int=50 AND t.pts(t.m('negative330@example.invalid'))=-100);
 SELECT t.ok('330','legacy rows unchanged',NOT EXISTS(SELECT id,member_id,rule_key,points,ref_id,created_at FROM t.legacy EXCEPT SELECT id,member_id,rule_key,points,ref_id,created_at FROM club_points));
+
+-- PostgreSQL 17: MAINTAIN is not needed by session/profile RPCs.
+SELECT t.ok('330','PG17 service_role MAINTAIN absent all3',(SELECT bool_and(NOT has_table_privilege('service_role',oid,'MAINTAIN')) FROM pg_class WHERE relnamespace='public'::regnamespace AND relname IN ('club_profile_countries','club_profile_settings','club_member_profiles')));
+SELECT t.ok('330','PG17 anon/auth MAINTAIN absent all3',(SELECT bool_and(NOT has_table_privilege('anon',oid,'MAINTAIN') AND NOT has_table_privilege('authenticated',oid,'MAINTAIN')) FROM pg_class WHERE relnamespace='public'::regnamespace AND relname IN ('club_profile_countries','club_profile_settings','club_member_profiles')));

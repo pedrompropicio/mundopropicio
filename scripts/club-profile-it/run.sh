@@ -57,6 +57,8 @@ for f in "${MIGRATIONS[@]}"; do "${PSQL[@]}" -f "$MIG/$f" >>"$LOG" 2>&1; done
 "${PSQL[@]}" -f "$CANON/50_legacy327.sql" >>"$LOG" 2>&1
 "${PSQL[@]}" -f "$ROOT/supabase/manual/20261016_issue327.PENDENTE.sql" >>"$LOG" 2>&1
 "${PSQL[@]}" -f "$CANON/05_egress.sql" >>"$LOG" 2>&1
+# Simulate hosted PG17 default ACL so explicit MAINTAIN revocation is actually exercised.
+"${PSQL[@]}" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT MAINTAIN ON TABLES TO service_role" >>"$LOG" 2>&1
 "${PSQL[@]}" -f "${CLUB330_SQL:-$ROOT/supabase/manual/20261016_issue330.PENDENTE.sql}" >>"$LOG" 2>&1
 "${PSQL[@]}" -f "$HERE/scenario.sql" >>"$LOG" 2>&1
 bash "$HERE/concurrency.sh" "${PSQL[*]}" >>"$LOG" 2>&1

@@ -52,3 +52,6 @@
 4. Aplicar/rever patch CRM numa fase autorizada antes de expor a regra. Frontend portal é tarefa sequencial, não implementada aqui.
 5. Ativação da missão só por `club_profile_configure(site,'profile-v1',true)` explicitamente autorizada, com site Newgang real resolvido por catálogo. Nenhum UPDATE manual da configuração. Sem mexer no CUTOVER 2027-v1.
 6. Se precisar desativar, reversão preservadora com janela/guardas e API compatível. Não apagar créditos/perfil/índice nem executar rollback global #327.
+## Adenda — revisão final 23:01 UTC
+
+Ver revisão-final-backend.md: isolamento integrado9/9; CRM real aplicado apenas compatibilidade, testes43/43; PostgreSQL59/59 com simulação default MAINTAIN PG17 e revogação explícita nas três tabelas. Patch API/history permanece inerte; fonte publicada não alterada. Substitui nesta entrega a indicação anterior de CRM ainda não aplicado. SQL sem alteração de regras/RLS/parental/WhatsApp; apenas controle explícito MAINTAIN no artefacto pendente. Nenhuma operação Live executada.
