@@ -6045,3 +6045,12 @@ Origem: TikTok BR do Litto (7689229625189138438) ficou com saldo 0 a 13/10 e est
 
 **Decisão (Pedro, Issue #322, execução autorizada 16/10/2026 01:07 UTC — etapa ERP).** Prova de consentimento Meta = decisão registada no ledger `marketing_consent_events` (append-only, só service_role), ligada a um sujeito com token opaco de 256 bits emitido pelo servidor e escopado a empresa+portal derivados do Origin. Interações só ficam com vínculo e identificadores Meta se o grant for válido no momento da captura; `capi_consent_proof` exige ainda validade atual e ausência de deny/revoke posterior; novo grant não é retroativo. Newsletter/WhatsApp, `consent_log`, fbc/fbp e `consent:true` não contam. CAPI continua suspensa. Detalhe: `docs/features/consentimento-marketing-322.md`. Portais pendentes.
 
+
+## D-ERP284 — Correção da prova de consentimento #322 após verificação independente (16/10/2026)
+- Ordem autoritativa = `revision` do servidor por sujeito (max+1 sob lock); `client_seq` passa a informativo. Grant exige `expected_revision` igual à revisão atual (senão 409 `revision_conflict`); deny/revoke sempre aceites. Revoke nunca devolve `marketing_allowed=true`.
+- Token do sujeito gerado pelo cliente (256 bits) e obrigatório; o servidor nunca cria sujeito sem token (retries e abas caem no mesmo sujeito).
+- Cada interação leva `consent_receipt` da decisão exata; recibo antigo nunca sobe para um grant novo; qualquer decisão posterior invalida interações anteriores.
+- Política tem de estar vigente na decisão e no momento avaliado.
+- Sanitização por parâmetro (consecutivos, percent-encoded, fragmento) e JSON `raw` recursivo, igual em TS e SQL.
+- Guarda de captura revalida sob lock partilhado por sujeito; `marketing_bound` = valor persistido. Retry por `client_event_id` não reinterpreta.
+- Migrações: 0174 (vazia por engano operacional), 0175 (efetiva).
