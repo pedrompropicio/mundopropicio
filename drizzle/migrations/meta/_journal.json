@@ -1191,6 +1191,13 @@
       "when": 1792111175455,
       "tag": "0169_issue321_crm_ingest_counters_on_success",
       "breakpoints": true
+    },
+    {
+      "idx": 170,
+      "version": "7",
+      "when": 1792111666431,
+      "tag": "0170_issue321_club_welcome_reservation",
+      "breakpoints": true
     }
   ]
 }
