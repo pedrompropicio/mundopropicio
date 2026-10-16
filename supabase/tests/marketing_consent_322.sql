@@ -49,9 +49,7 @@ BEGIN
   INSERT INTO public.leads (company_id, kind, source, created_at, meta, capi_status)
   VALUES (mp, 'event_interest', 't322', clock_timestamp(), '{}'::jsonb, 'blocked_no_consent') RETURNING id INTO lead;
   ASSERT (SELECT consent_event_id FROM public.leads WHERE id = lead) IS NULL, 'trigger leads limpa vínculo declarado';
-  ALTER TABLE public.leads DISABLE TRIGGER trg_leads_copy_consent_binding;
   UPDATE public.leads SET consent_subject_id = sub, consent_event_id = ev2, consent_portal = 'mp' WHERE id = lead;
-  ALTER TABLE public.leads ENABLE TRIGGER trg_leads_copy_consent_binding;
   ASSERT public.capi_consent_proof(lead,'ViewContent'), 'prova válida';
   ASSERT NOT public.capi_consent_proof(lead,'Purchase'), 'evento fora';
   ASSERT public.capi_lead_block_reason(lead) = 'suspended', 'CAPI continua suspensa';
