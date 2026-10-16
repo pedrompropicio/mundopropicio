@@ -123,7 +123,8 @@ DO $$ DECLARE a uuid := it.m('a@example.invalid'); b uuid := it.m('b@example.inv
   -- Dono
   PERFORM it.ok('dono','dono com membros sem novo dono => owner_transfer', club_crew_leave(a)->>'error' = 'owner_transfer');
   PERFORM it.ok('dono','novo dono fora da crew recusado', club_crew_leave(a, g)->>'error' = 'owner_transfer');
-  PERFORM it.ok('dono','transferência para B', (club_crew_leave(a, b)->>'ok')::boolean AND (SELECT owner_member_id FROM club_crews WHERE id=crew) = b);
+  r := club_crew_leave(a, b);
+  PERFORM it.ok('dono','transferência para B', (r->>'ok')::boolean AND (SELECT owner_member_id FROM club_crews WHERE id=crew) = b, r::text);
   PERFORM it.ok('dono','A saiu e mantém pontos', it.pts(a) = 450);
   -- Último a sair apaga a crew (pontos ficam).
   r := club_crew_create(g, 'Solo Gang');
