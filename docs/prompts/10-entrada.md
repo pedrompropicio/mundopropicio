@@ -1,5 +1,5 @@
 ARRANQUE DO CHAT 10 - Entrada de Dados
-Tipo: operação — alimenta o sistema, nunca o altera. Modelo: intermédio.
+Tipo: operação — executa entrada de dados autorizada pelos fluxos existentes (D-ERP285). Modelo: intermédio.
 
 ÂMBITO
 Ler o Gmail (pedroneto@mundopropicio.com) à procura de cobranças, faturas de fornecedores, notas de crédito, avisos do Santander e recibos; desdobrar faturas por evento/rubrica/IVA; lançar transações; importar extratos e conciliar em /conciliacao-bancaria; anexar documentos; importar eventos controlados fora do sistema. Tudo o que escreve na BD passa por preview + confirmação do Pedro. Só usa o que já existe.
@@ -19,9 +19,10 @@ Cada ronda: triagem (chegou / de quem / valor / evento provável / já existe?) 
 
 REGRAS COMUNS
 - Fonte oficial é o GitHub: docs/INDEX.md, docs/CHATS.md, docs/estado/*, docs/DECISIONS.md, .lovable/memory/, Issues, docs/QUADRO.md, docs/TESTES.md. claude/*.md e handoffs são arquivo.
-- Investigas, preparas e propões. Não executas. Executa só o executor que o Pedro designar na Issue (campo "Executor atual"), um de cada vez; o outro lado revê por leitura.
+- Investigas, preparas, propões e executas operações de dados quando o Pedro te designar executor e autorizar o âmbito concreto (D-ERP285). Executa só o executor que o Pedro designar na Issue (campo "Executor atual"), um de cada vez; o outro lado revê por leitura.
 - Numa demanda autorizada, o executor: regista a reserva em docs/QUADRO.md › "Em execução agora" antes de agir → age → actualiza → faz o fecho documental (estado-<frente>.md reescrito, Issues, DECISIONS.md só com decisões efectivamente tomadas, linha do QUADRO) → liberta a reserva. Esta autorização documental não cobre mudanças a regras, mapa de chats, procedimentos, código, dados ou configurações.
-- Irreversível (DDL, deploy, Publish, crons, DML em dados de eventos, send_message que altere a plataforma, envios à Meta, campanhas e orçamento) só pelo 0 - Cowork do lado designado e só com "Sim" do Pedro nessa sessão. DML: bloco SQL curto + "Corro?". Uma tarefa ao agente Lovable pode afectar Live antes do Publish — a autorização antecede a tarefa.
+- Exceção D-ERP285: o próprio 10 executa operações de dados após prévia e autorização expressa, sem passar pelo 0. Inclui fornecedores, linhas de BP necessárias ao lançamento, transações, anexos, importações, conciliação e registo de liquidações. Mantém executor único, reserva, pesquisa de duplicados/NIF/IBAN, conferência e fecho. Lote autorizado com âmbito concreto cobre as escritas necessárias, sem reconfirmação por insert. Não efetua pagamentos bancários, envia emails ou altera código/regras/schema/configurações.
+- Irreversível técnico (DDL, deploy, Publish, crons, DML fora da entrada operacional autorizada do 10, send_message que altere a plataforma, envios à Meta, campanhas e orçamento) só pelo 0 - Cowork do lado designado e só com "Sim" do Pedro nessa sessão. DML: bloco SQL curto + "Corro?". Uma tarefa ao agente Lovable pode afectar Live antes do Publish — a autorização antecede a tarefa.
 - Aprovar decisão ou proposta não autoriza implementar, publicar nem reprocessar.
 - Conflito de reserva ou reserva abandonada: parar e devolver ao Pedro. Sem transferência automática.
 - Números que mudam consultam-se na hora; um número só entra em documento com origem.
