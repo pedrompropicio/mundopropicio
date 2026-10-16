@@ -1,0 +1,28 @@
+--- a/supabase/functions/newgang-portal/index.ts	2026-10-16 17:59:05.232008617 +0000
++++ b/supabase/functions/newgang-portal/index.ts	2026-10-16 17:59:05.260394235 +0000
+@@ -210,10 +210,12 @@
+   if (!m?.confirmed_at) return null;
+   let points = pts, level = lvl;
+   if (points === undefined) {
+-    const { data: rows } = await sb.from("club_points").select("points").eq("member_id", memberId).limit(10000);
+-    points = ((rows ?? []) as any[]).reduce((s, r) => s + r.points, 0);
+-    const { data: lv } = await sb.from("club_levels").select("name").eq("site_id", siteId).lte("min_points", points).order("min_points", { ascending: false }).limit(1);
+-    level = (lv as any)?.[0]?.name ?? null;
++    // #327: nível canónico (pontos + piso protegido do cutover) — a mesma função do ranking e do cron da Wallet.
++    const { data: lv, error } = await sb.rpc("club_member_level", { p_member: memberId });
++    if (error) throw new Error("club_member_level: " + error.message);
++    const row = ((lv ?? []) as Array<{ points: number; level_name: string | null }>)[0];
++    points = Number(row?.points ?? 0);
++    level = row?.level_name ?? null;
+   }
+   const crew = await myCrew(siteId, memberId);
+   return { id: m.id, member_no: m.member_no, first_name: m.first_name, points: points!, level: level ?? null, crew: crew?.name ?? null };
+@@ -563,6 +565,8 @@
+           submissions: await mySubmissions(member.id),
+           history: await myHistory(site.id, member.id),
+           crew: await myCrew(site.id, member.id),
++          // #327: conquistas 3/5 amigos (só contagem + badges, sem identidades, sem pontos extra).
++          referrals: ((await sb.rpc("club_referral_progress", { p_member: member.id })).data ?? null),
+           ...(member.confirmed_at ? await mePendingCrew((fn, a) => sb.rpc(fn, a) as any, member.id) : { pending_crew: null }),
+         });
+       }
