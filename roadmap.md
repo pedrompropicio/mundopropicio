@@ -1,5 +1,11 @@
 # Roadmap — épica #146 (e)
 
+## #330 — missão de perfil (preparação inerte)
+- [ ] Inventariar perfil, idade, sessões e consentimentos; documentar dependências.
+- [ ] Preparar SQL/RPC, reversão preservadora e patch API inerte sem tocar produção.
+- [ ] Testar PostgreSQL real isolado, concorrência, RLS, erros e regressões #327/#328.
+- [ ] Entregar contrato sequencial frontend, provas/hashes e âmbito exato de aplicação futura.
+
 ## #327 — CRM e prévia de ativação (16/10/2026)
 - [x] Ativação expressamente autorizada às17:43 Fortaleza: CUTOVER exato uma vez; corrigir uma linha de prémios Lenda→Goat; verificar ledger/API e registar prova específica.
 - [x] Aplicar compatibilidade em todos os editores Clube; bloquear estados não verificados e valores ignorados pelo motor.
