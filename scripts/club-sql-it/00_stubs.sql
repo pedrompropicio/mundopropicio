@@ -26,3 +26,8 @@ CREATE TABLE public.fever_buyers (company_id uuid, edition_label text, email tex
 CREATE TABLE public.lead_capture (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), company_id uuid, source text, email text, name text, phone text,
   raw jsonb NOT NULL DEFAULT '{}'::jsonb, processed boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now());
+-- Storage: só para as policies de 0141 compilarem (buckets NÃO testados).
+CREATE SCHEMA storage;
+CREATE TABLE storage.objects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), bucket_id text, name text);
+CREATE FUNCTION storage.foldername(name text) RETURNS text[] LANGUAGE sql IMMUTABLE AS $$ SELECT string_to_array(name,'/') $$;
+CREATE FUNCTION public.current_company_id() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$;
