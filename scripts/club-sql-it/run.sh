@@ -66,6 +66,6 @@ python3 "$HERE/compare_hashes.py" "$HERE/live-hashes.json" "$TMP/local-hashes.tx
 "${PSQL[@]}" -tAc "SELECT json_agg(json_build_object('n',n,'phase',phase,'name',name,'ok',ok,'detail',detail) ORDER BY n) FROM it.results" > "$OUT/serial-results.json"
 
 # 6) Concorrência real (várias ligações + barreira por lock).
-bash "$HERE/20_concurrency.sh" "${PSQL[*]}" 2>&1 | tee -a "$LOG"
+OUT="$OUT" bash "$HERE/20_concurrency.sh" "${PSQL[*]}" 2>&1 | tee -a "$LOG"
 
 say "RESULTADO: TODOS OS ASSERTS PASSARAM"
