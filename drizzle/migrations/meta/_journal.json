@@ -1254,6 +1254,13 @@
       "when": 1792178497023,
       "tag": "0178_issue327_cutover_verbatim_and_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 179,
+      "version": "7",
+      "when": 1792193530655,
+      "tag": "0179_issue330_profile_infra_off",
+      "breakpoints": true
     }
   ]
 }
