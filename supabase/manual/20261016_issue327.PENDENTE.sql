@@ -137,7 +137,7 @@ DECLARE m record; cfg club_points_config; ev uuid; pts int := p_points; ref text
     ev := cfg.event_id;
     PERFORM pg_advisory_xact_lock(hashtext('club_award:'||p_member||':'||ev));
     IF p_rule = 'join_confirmed' THEN
-      pts := cfg.join_points; ref := p_ref || '@' || ev;
+      pts := cfg.join_points;  -- ref mantém-se (= membro): compatível com a reversão
       IF _club_rule_used(p_member, p_rule, ev, cfg.legacy_counts) > 0 THEN RETURN 0; END IF;
     ELSIF p_rule = 'friend_joined' THEN
       pts := cfg.referral_points;
