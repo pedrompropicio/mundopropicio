@@ -33,7 +33,7 @@ export default function ReportOccupancyRate() {
       const zoneIds = zones.map((z) => z.id);
       const sales = zoneIds.length
         ? await fetchAllPaged<any>((from, to) =>
-            supabase.from("ticket_sales").select("zone_id, quantity, unit_price, sale_date")
+            supabase.from("ticket_sales").select("zone_id, quantity, unit_price, total_value, sale_date")
               .in("zone_id", zoneIds).order("id", { ascending: true }).range(from, to))
         : [];
       const cutoffs = await fetchTicketlineCutoffs(ids);
@@ -56,7 +56,7 @@ export default function ReportOccupancyRate() {
       if (!eid || !keepTicketSaleRow(cutoffs, eid, s.sale_date)) return;
       const b = (base[eid] ??= { qty: 0, value: 0 });
       b.qty += Number(s.quantity ?? 0);
-      b.value += Number(s.quantity ?? 0) * Number(s.unit_price ?? 0);
+      b.value += ticketSaleRevenue(s);
     });
     return events
       .map((e) => {

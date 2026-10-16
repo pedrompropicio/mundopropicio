@@ -84,7 +84,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
       return await fetchAllPaged<any>((from, to) =>
         supabase
           .from("ticket_sales")
-          .select("zone_id, quantity, unit_price, financial_account_id, sale_date")
+          .select("zone_id, quantity, unit_price, total_value, financial_account_id, sale_date")
           .in("zone_id", zoneIds)
           .order("id", { ascending: true })
           .range(from, to),
@@ -163,7 +163,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
       if (officeId && s.financial_account_id && s.financial_account_id !== officeId) return;
       officeMatched.add(eventId);
       if (!keepTicketSaleRow(ticketlineCutoffs, eventId, s.sale_date)) return;
-      const lineTotal = s.quantity * Number(s.unit_price);
+      const lineTotal = ticketSaleRevenue(s);
       map[eventId].revenue += lineTotal;
       map[eventId].qty += s.quantity;
       // Track sale date range
