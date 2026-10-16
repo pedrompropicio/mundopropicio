@@ -52,3 +52,13 @@ newgang-wallet-levels + newgang-wallet-google: 26/26 (Crew/Goat → novos criati
 
 ## SQL
 supabase/manual/20261016_newgang_niveis_crew_goat.PENDENTE.sql — NÃO aplicado (SELECT 03:18 UTC confirma Elite/Lenda). Aplicação fica com ChatGPT após verificação. Depois de aplicado, o cron newgang-wallet-sync */10 aplica PATCH a quem tiver last_level diferente.
+
+
+## Etapa 3 — aplicação aprovada e verificação independente (16/10/2026)
+Pedro aprovou expressamente as duas artes e o SQL nesta sessão. ChatGPT aplicou a renomeação com guardas por site/ID/nome antigo/min_points e rollback se não fossem 2 linhas. Live depois: Gang 0, Crew 500, Goat 1500. Hash dos campos preservados (id/company/site/min_points/benefit) igual antes/depois: Gang b7063f3e3487a5edf795021b74827d84; Crew 2f22700bdf073f496d67c9daf4231e9a; Goat 10680970a16784dd7bfffe9d7fc2a701. Não houve alteração de pontos, IDs nem benefícios.
+
+Verificação independente dos PNG públicos: HTTP 200, 1032×336 e SHA idênticos aos da Etapa 2; visual inspecionado. Flag true confirmada por leitura do código. API pública action site, sem sessão: HTTP 200 e [(Gang,0),(Crew,500),(Goat,1500)]. GET direto de /meu-clube bloqueado por HTTP 403 neste ambiente: visual de produção e dispositivo Wallet não confirmados. Testes 26 Wallet/1248 suite e tsgo limpo reportados pelo agente; conector de workflows devolveu lista vazia (filtra PR), portanto CI deste commit não confirmada independentemente.
+
+A function newgang-portal foi deployada pelo agente antes do DML (source_sha na Etapa 2); sem Publish frontend nem PATCH manual Google. Sync existente */10 deverá atualizar cartões cujo last_level difere; não verificado no dispositivo.
+
+Pendências explícitas: benefício Goat ainda diz “Tudo de Elite” (campo preservado pelo SQL aprovado); corrigir apenas referência para “Tudo de Crew” após autorização SQL própria. Consolidação da regra dos portais em CHATS/DECISIONS/PROC continua pendente da reserva #323. O SQL com sufixo PENDENTE foi aplicado por ChatGPT nesta etapa e NÃO deve ser reaplicado.
