@@ -157,7 +157,7 @@ return async (req: Request): Promise<Response> => {
     const portal = portalForOrigin(origin);
     if (!company || !portal) return json({ ok: false, error: "origin_unscoped", marketing_allowed: false }, 403, origin);
     const d = parseConsentDecision(body.payload);
-    if (!d.ok) return json({ ok: false, error: d.error, marketing_allowed: false }, 400, origin);
+    if (d.ok === false) return json({ ok: false, error: d.error, marketing_allowed: false }, 400, origin);
     const v = d.value;
     let data: unknown = null; let httpOk = false;
     try {
