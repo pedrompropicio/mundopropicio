@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useClubActiveConfig } from "@/hooks/useClubActiveConfig";
+import { crewRuleWrite, ruleSource } from "@/lib/club-config-source";
 
 const db = supabase as any;
 const fmt = (v: string | null) => (v ? new Date(v).toLocaleString("pt-PT", { timeZone: "Europe/Lisbon" }) : "—");
@@ -18,7 +20,7 @@ type Crew = {
   club_crew_members: Array<{ member_id: string; joined_at: string; club_members: { first_name: string | null; email: string; confirmed_at: string | null } | null }>;
 };
 
-export function CrewsSection({ siteId, companyId }: { siteId: string; companyId: string }) {
+export function CrewsSection({ siteId, companyId, eventId = null }: { siteId: string; companyId: string; eventId?: string | null }) {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<Crew | null>(null);
@@ -40,20 +42,28 @@ export function CrewsSection({ siteId, companyId }: { siteId: string; companyId:
       return data as { id: string; points: number; min_members: number | null; max_members: number | null; active: boolean } | null;
     },
   });
+  const activeCfg = useClubActiveConfig(siteId);
+  const source = ruleSource(activeCfg.data ?? null, { rule_key: "crew_complete", points: rule.data?.points ?? 200 }, eventId);
+  const ready = activeCfg.ready && rule.isSuccess && !rule.isFetching && !rule.isError;
   const [cfg, setCfg] = useState({ points: 200, min: 4, max: 6, active: true });
   useEffect(() => {
-    if (rule.data) setCfg({ points: rule.data.points, min: rule.data.min_members ?? 4, max: rule.data.max_members ?? 6, active: rule.data.active });
-  }, [rule.data]);
+    setCfg({ points: rule.data?.points ?? 200, min: rule.data?.min_members ?? 4, max: rule.data?.max_members ?? 6, active: rule.data?.active ?? true });
+  }, [siteId, rule.data]);
   const save = useMutation({
     mutationFn: async () => {
       if (cfg.min < 2 || cfg.max < cfg.min || cfg.points < 0) throw new Error("Limites inválidos (mín ≥ 2, máx ≥ mín)");
-      const row = { points: cfg.points, min_members: cfg.min, max_members: cfg.max, active: cfg.active };
+      if (!ready) throw new Error("Configuração do Clube não verificada");
+      const latest = await activeCfg.refetch();
+      if (latest.isError || latest.data === undefined) throw new Error("Configuração do Clube não verificada");
+      if (latest.data && !rule.data) throw new Error("Regra Crew ausente: configuração inconsistente");
+      if (latest.data && latest.data.event_id !== eventId) throw new Error("Edição sem configuração ativa");
+      const row = crewRuleWrite(latest.data, cfg);
       const { error } = rule.data
-        ? await db.from("club_point_rules").update(row).eq("id", rule.data.id)
+        ? await db.from("club_point_rules").update(row).eq("id", rule.data.id).eq("site_id", siteId)
         : await db.from("club_point_rules").insert({ ...row, company_id: companyId, site_id: siteId, rule_key: "crew_complete", label: "Crew completa" });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Configuração guardada"); qc.invalidateQueries({ queryKey: ["club-crew-rule", siteId] }); },
+    onSuccess: () => { toast.success("Configuração guardada"); qc.invalidateQueries({ queryKey: ["club-crew-rule", siteId] }); qc.invalidateQueries({ queryKey: ["club-table", "club_point_rules", siteId] }); },
     onError: (e: any) => toast.error(`Falha: ${e?.message ?? e}`),
   });
   const list = useMemo(() => {
@@ -65,13 +75,16 @@ export function CrewsSection({ siteId, companyId }: { siteId: string; companyId:
   return (
     <Card className="space-y-3 p-4">
       <h3 className="text-sm font-semibold">Crews</h3>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:items-end">
-        <div><Label className="text-xs">Pontos por membro</Label><Input type="number" value={cfg.points} onChange={(e) => setCfg({ ...cfg, points: +e.target.value })} /></div>
+      {!ready && <p role="status" className="text-sm text-muted-foreground">{activeCfg.isError || rule.isError ? "Não foi possível verificar a configuração do Clube." : "A verificar configuração do Clube…"}</p>}
+      {ready && source.version && <p className="text-xs text-muted-foreground">{source.version} · {source.scope} · uma vez por membro. {source.available ? "" : "Edição sem configuração."}</p>}
+      {ready && activeCfg.data && (!cfg.active || (rule.data?.points ?? 200) <= 0) && <p className="text-xs text-muted-foreground">Crédito Crew suspenso pela regra atual: {cfg.active ? "valor de habilitação não positivo" : "regra inativa"}. Os limites do grupo continuam em vigor.</p>}
+      <fieldset disabled={!ready || save.isPending || (!!activeCfg.data && !source.available)} className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:items-end">
+        <div><Label className="text-xs">Pontos por membro</Label><Input aria-label="Pontos por membro" type="number" value={ready ? (source.editable ? cfg.points : source.points) : ""} disabled={!ready || !source.editable} readOnly={!source.editable} onChange={(e) => setCfg({ ...cfg, points: +e.target.value })} /></div>
         <div><Label className="text-xs">Mínimo confirmados</Label><Input type="number" value={cfg.min} onChange={(e) => setCfg({ ...cfg, min: +e.target.value })} /></div>
         <div><Label className="text-xs">Máximo membros</Label><Input type="number" value={cfg.max} onChange={(e) => setCfg({ ...cfg, max: +e.target.value })} /></div>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={cfg.active} onChange={(e) => setCfg({ ...cfg, active: e.target.checked })} /> Ativa</label>
         <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>Guardar</Button>
-      </div>
+      </fieldset>
       <Input placeholder="Pesquisar nome, código ou membro" value={q} onChange={(e) => setQ(e.target.value)} />
       {list.length === 0 ? <p className="text-sm text-muted-foreground">Sem crews.</p> : (
         <table className="w-full text-xs">
