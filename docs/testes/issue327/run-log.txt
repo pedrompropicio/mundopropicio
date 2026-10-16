@@ -1,4 +1,4 @@
-runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T17:56:51Z
+runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T17:57:08Z
 listen_addresses=
 aplicar 0119_0119_newgang_lineup_reveals_security.sql sha256=4e8d1c1410a377bb
 psql:/dev-server/drizzle/migrations/0119_0119_newgang_lineup_reveals_security.sql:2: NOTICE:  policy "event_lineups_authenticated_all" for relation "public.event_lineups" does not exist, skipping
