@@ -103,3 +103,4 @@ _(sem testes em fila)_
 - Continuação Clube (2 casos): `docs/testes/issue321/04-clube-dois-casos.md`, `05-vitest-clube.md` (10 testes, exit 0); tsgo 0.
 - Welcome único sob concorrência (0170/0171 + newgang-portal): `docs/testes/issue321/07-welcome-unico-testes.md` (vitest 19/19, tsgo 0), `08-welcome-reserva-live.md`.
 - Fecho documental: `docs/testes/issue321/09-fecho-documental.md` — CI run 38831811638 success, SHA 2130204b…, Publish feito.
+- #322 ERP (16/10/2026): `supabase/tests/marketing_consent_322.sql` (DO revertido, TEST322_OK) e `src/test/consent-contract-322.test.ts`; provas `docs/testes/issue322/`.
