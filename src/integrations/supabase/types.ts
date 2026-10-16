@@ -21777,6 +21777,10 @@ export type Database = {
         }[]
       }
       crm_has_feature: { Args: { p_key: string }; Returns: boolean }
+      crm_ingest_lead_captures: {
+        Args: { p_batch_size?: number; p_only_ids?: string[] }
+        Returns: Json
+      }
       crm_meta_audience_collect_leads: {
         Args: { p_audience_id: string }
         Returns: {
