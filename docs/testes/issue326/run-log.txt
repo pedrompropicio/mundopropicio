@@ -1,0 +1,52 @@
+runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T15:56:29Z
+listen_addresses=
+aplicar 0119_0119_newgang_lineup_reveals_security.sql sha256=4e8d1c1410a377bb
+psql:/dev-server/drizzle/migrations/0119_0119_newgang_lineup_reveals_security.sql:2: NOTICE:  policy "event_lineups_authenticated_all" for relation "public.event_lineups" does not exist, skipping
+aplicar 0120_0120_newgang_portal_sites_editions_club.sql sha256=2826b2e7d1780e36
+aplicar 0140_derp271_club_terms.sql sha256=ab63a67377f13e51
+aplicar 0141_derp272_club_missions.sql sha256=50b86f8be3575a48
+aplicar 0142_derp273_club_points_void.sql sha256=6111185391186e25
+aplicar 0143_derp274_club_crews.sql sha256=f774cf76485977fc
+hash club_award: IGUAL local=e149ac23e2cef6b4c08a4413b8e6767a live=e149ac23e2cef6b4c08a4413b8e6767a
+hash club_award_fixed: IGUAL local=ea8c1917a79095318c553c29e1efbdb0 live=ea8c1917a79095318c553c29e1efbdb0
+hash club_confirm_member: IGUAL local=eb8ce41b0a8b5c302488cc3242ab9598 live=eb8ce41b0a8b5c302488cc3242ab9598
+hash club_crew_cfg: IGUAL local=52e699a93a4b7665dce3491beb5dae69 live=52e699a93a4b7665dce3491beb5dae69
+hash club_crew_check: IGUAL local=0afed974ad263da716009096b22aa05b live=0afed974ad263da716009096b22aa05b
+hash club_crew_create: IGUAL local=e4a23cfcc3666b6b11e567c45d9ace8c live=e4a23cfcc3666b6b11e567c45d9ace8c
+hash club_crew_gen_code: IGUAL local=1071a31f33bd7185570ddb0b064ad7f2 live=1071a31f33bd7185570ddb0b064ad7f2
+hash club_crew_join: IGUAL local=7fb6380f40662610e8e4f05ff3f6df0f live=7fb6380f40662610e8e4f05ff3f6df0f
+hash club_crew_leave: IGUAL local=59ed0619eb4a98fc6b393339f00659e9 live=59ed0619eb4a98fc6b393339f00659e9
+hash club_crew_name_ok: IGUAL local=bce9901133e6194b5adaef2346f0a4c5 live=bce9901133e6194b5adaef2346f0a4c5
+hash club_upsert_member: IGUAL local=76fb3c63be8ce73f4fa408499599da1e live=76fb3c63be8ce73f4fa408499599da1e
+hash club_gen_referral_code: IGUAL local=74b44cf721e2d6eaff71ac3b06228a5f live=74b44cf721e2d6eaff71ac3b06228a5f
+hash club_from_lead_capture: IGUAL local=25201a26499f432c4b7e2ca6274935c2 live=25201a26499f432c4b7e2ca6274935c2
+hash club_record_terms: IGUAL local=439f065bac949c8baeeb3f090ed5765f live=439f065bac949c8baeeb3f090ed5765f
+equivalencia_scope: OK
+psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: net.http_post indisponível (3F000)
+psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: dblink não instalável (0A000)
+psql:/dev-server/scripts/club-sql-it/10_scenario.sql:176: WARNING:  club_from_lead_capture notify: schema "net" does not exist
+psql:/dev-server/scripts/club-sql-it/10_scenario.sql:176: WARNING:  club_from_lead_capture crew_code inválido
+psql:/dev-server/scripts/club-sql-it/10_scenario.sql:176: WARNING:  club_from_lead_capture notify: schema "net" does not exist
+psql:/dev-server/scripts/club-sql-it/10_scenario.sql:176: WARNING:  club_from_lead_capture notify: schema "net" does not exist
+psql:/dev-server/scripts/club-sql-it/10_scenario.sql:176: WARNING:  club_confirm_member crew: crew_full
+SERIAL_RESULT {"total" : 64, "passed" : 64}
+barreira lastslot: 6/6 workers bloqueados → soltar
+lastslot: entraram=1 crew_full=5
+conc ok: C1 última vaga: exatamente 1 entra
+conc ok: C1 crew fica com 6
+conc ok: C1 bónus exatamente 6 (uma vez cada)
+barreira quarto: 3/3 workers bloqueados → soltar
+conc ok: C2 três entram
+conc ok: C2 completa uma vez
+conc ok: C2 bónus 6 linhas, sem duplicados
+barreira retries: 8/8 workers bloqueados → soltar
+conc ok: C3 sem erros nas 8 confirmações
+conc ok: C3 join_confirmed 1×
+conc ok: C3 friend_joined 1× ao convidador
+barreira signup: 8/8 workers bloqueados → soltar
+signup: unique_violation em 7 de 8 ligações
+conc ok: C4 um só membro para o email
+conc ok: invariante: nenhuma crew > 6
+conc ok: invariante: sem pontos duplicados
+CONCURRENCY_RESULT 17 ok
+RESULTADO: TODOS OS ASSERTS PASSARAM
