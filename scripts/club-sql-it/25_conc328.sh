@@ -49,7 +49,7 @@ DO $$ DECLARE o uuid; r jsonb; BEGIN
   o := it.newc('lv0@example.invalid'); r := public.club_crew_create(o, 'Ultima Vaga');
   INSERT INTO it.kv VALUES ('LV_crew', r->>'id');
   FOR i IN 1..4 LOOP PERFORM public.club_crew_join(it.newc('lv'||i||'@example.invalid'), r->>'code'); END LOOP;
-  FOR i IN 1..6 LOOP UPDATE public.club_members SET pending_crew_code = r->>'code' WHERE id = it.new('lvc'||i||'@example.invalid'); END LOOP;
+  FOR i IN 1..6 LOOP o := it.new('lvc'||i||'@example.invalid'); UPDATE public.club_members SET pending_crew_code = r->>'code' WHERE id = o; END LOOP;
 END $$;
 SQL
 race "ultima_vaga" 6 "SELECT public.club_confirm_member(id) FROM public.club_members WHERE email='lvc{i}@example.invalid'"
