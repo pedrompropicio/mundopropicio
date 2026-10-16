@@ -1,0 +1,223 @@
+[
+  {
+    "action": "site",
+    "token_case": "absent",
+    "status": 200,
+    "expected": 200,
+    "ms": 914,
+    "private_keys": 0,
+    "ok": true,
+    "profile_mission": {
+      "rule_key": "profile_complete",
+      "label": "Completa o teu perfil",
+      "points": null,
+      "cap": 50,
+      "scope": "adesao",
+      "version": "profile-v1",
+      "available": false,
+      "status": "indisponivel"
+    },
+    "levels": [
+      {
+        "name": "Gang",
+        "min_points": 0
+      },
+      {
+        "name": "Crew",
+        "min_points": 750
+      },
+      {
+        "name": "Goat",
+        "min_points": 3000
+      }
+    ],
+    "rules": [
+      {
+        "key": "guess_correct",
+        "points": 50
+      },
+      {
+        "key": "friend_joined",
+        "points": 75
+      },
+      {
+        "key": "attended_year",
+        "points": 100
+      },
+      {
+        "key": "crew_complete",
+        "points": 100
+      },
+      {
+        "key": "join_confirmed",
+        "points": 100
+      }
+    ],
+    "purchases_off": true
+  },
+  {
+    "action": "bundle",
+    "token_case": "absent",
+    "status": 200,
+    "expected": 200,
+    "ms": 856,
+    "private_keys": 0,
+    "ok": true,
+    "profile_mission": {
+      "rule_key": "profile_complete",
+      "label": "Completa o teu perfil",
+      "points": null,
+      "cap": 50,
+      "scope": "adesao",
+      "version": "profile-v1",
+      "available": false,
+      "status": "indisponivel"
+    },
+    "levels": [
+      {
+        "name": "Gang",
+        "min_points": 0
+      },
+      {
+        "name": "Crew",
+        "min_points": 750
+      },
+      {
+        "name": "Goat",
+        "min_points": 3000
+      }
+    ],
+    "rules": [
+      {
+        "key": "guess_correct",
+        "points": 50
+      },
+      {
+        "key": "friend_joined",
+        "points": 75
+      },
+      {
+        "key": "attended_year",
+        "points": 100
+      },
+      {
+        "key": "crew_complete",
+        "points": 100
+      },
+      {
+        "key": "join_confirmed",
+        "points": 100
+      }
+    ],
+    "purchases_off": true
+  },
+  {
+    "action": "ranking",
+    "token_case": "absent",
+    "status": 200,
+    "expected": 200,
+    "ms": 915,
+    "private_keys": 0,
+    "ok": true
+  },
+  {
+    "action": "lineup",
+    "token_case": "absent",
+    "status": 200,
+    "expected": 200,
+    "ms": 414,
+    "private_keys": 0,
+    "ok": true
+  },
+  {
+    "action": "history",
+    "token_case": "absent",
+    "status": 200,
+    "expected": 200,
+    "ms": 565,
+    "private_keys": 0,
+    "ok": true
+  },
+  {
+    "action": "profile_countries",
+    "token_case": "absent",
+    "status": 200,
+    "expected": 200,
+    "ms": 232,
+    "private_keys": 0,
+    "ok": true,
+    "count": 249,
+    "version": "iso-3166-1-2026-10",
+    "shape": true
+  },
+  {
+    "action": "me",
+    "token_case": "absent",
+    "status": 401,
+    "expected": 401,
+    "ms": 355,
+    "private_keys": 0,
+    "ok": true,
+    "error": "no_session"
+  },
+  {
+    "action": "profile_confirm",
+    "token_case": "absent",
+    "status": 401,
+    "expected": 401,
+    "ms": 497,
+    "private_keys": 0,
+    "ok": true,
+    "error": "no_session"
+  },
+  {
+    "action": "me",
+    "token_case": "malformed_short",
+    "status": 401,
+    "expected": 401,
+    "ms": 235,
+    "private_keys": 0,
+    "ok": true,
+    "error": "no_session"
+  },
+  {
+    "action": "profile_confirm",
+    "token_case": "malformed_short",
+    "status": 401,
+    "expected": 401,
+    "ms": 265,
+    "private_keys": 0,
+    "ok": true,
+    "error": "no_session"
+  },
+  {
+    "action": "me",
+    "token_case": "invalid_long",
+    "status": 401,
+    "expected": 401,
+    "ms": 529,
+    "private_keys": 0,
+    "ok": true,
+    "error": "no_session"
+  },
+  {
+    "action": "profile_confirm",
+    "token_case": "invalid_long",
+    "status": 401,
+    "expected": 401,
+    "ms": 1051,
+    "private_keys": 0,
+    "ok": true,
+    "error": "no_session"
+  },
+  {
+    "action": "crew_pending",
+    "token_case": "absent",
+    "status": 401,
+    "expected": 401,
+    "ms": 517,
+    "private_keys": 0,
+    "ok": true,
+    "error": "no_session"
+  }
+]
