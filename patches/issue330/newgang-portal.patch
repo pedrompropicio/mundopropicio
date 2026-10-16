@@ -4,7 +4,7 @@
  import { clubEmail } from "./email.ts";
  import { ASSET_BUCKET, PROOF_BUCKET, PROOF_EXT, missionsFrom, normalizeHandle, normalizeProofUrl, submitErrorStatus } from "./missions.ts";
  import { buildHistory, subjectRef } from "./history.ts";
-+import { profileConfirm, profileState, profilePreferences, profileCountries } from "./profile.ts";
++import { profileConfirm, profileState, profilePreferences, profileCountries, publicProfileRule } from "./profile.ts";
  import { publicEditions } from "./videos.ts";
  import { CREW_LINK, crewErrorStatus, crewView } from "./crews.ts";
  import { crewPendingAction, memberByEmail, mePendingCrew, PENDING_OPS } from "./pending.ts";
@@ -27,7 +27,36 @@
  
  // Cache por instância (60 s): a configuração do site muda raramente; evita uma ida à base por pedido.
  const SITE_TTL_MS = 60_000;
-@@ -474,7 +476,9 @@
+@@ -341,6 +343,11 @@
+   const a = performance.now(); const r = await p; t.mark(k, performance.now() - a); return r;
+ };
+ 
++async function profileRule(siteId: string) {
++  const { data, error } = await sb.from("club_profile_settings").select("enabled, version").eq("site_id", siteId).maybeSingle();
++  if (error) throw new Error("profile_config_unavailable");
++  return publicProfileRule(data);
++}
+ async function loadSitePayload(site: any) {
+   const ev = site.event_id;
+   const none = Promise.resolve({ data: null });
+@@ -357,7 +364,7 @@
+   const ticketing: unknown = ev ? { url: evRow?.ticketing_url ?? null, lots: em?.ticket_lots ?? null } : null;
+   // #327: a montra usa club_rules_public (valores pagos agora + disponibilidade); club_point_rules cru só se a RPC estiver ausente (reversão).
+   const rv = await rulesPublic(rpc, site.id, async () => legacyRules(rl));
+-  return { site: data, trackers, ticketing, club: { levels: lv ?? [], rules: rv.rules, rules_unavailable: rv.unavailable, terms: termsMeta(tm) } };
++  return { site: data, trackers, ticketing, club: { levels: lv ?? [], rules: rv.rules, rules_unavailable: rv.unavailable, terms: termsMeta(tm), profile_mission: await profileRule(site.id) } };
+ }
+ 
+ async function loadLineupRaw(site: any) {
+@@ -401,6 +408,7 @@
+     const club = (out.site as any).club;
+     const rv = await rulesPublic(rpc, row.id, async () => legacyRules(club.rules)); // #327: mesma montra canónica do payload "site"
+     club.rules = rv.rules; club.rules_unavailable = rv.unavailable;
++    club.profile_mission = await profileRule(row.id);
+   }
+   return out;
+ }
+@@ -474,7 +482,9 @@
    let body: z.infer<typeof Body>;
    try {
      const pa = performance.now();
@@ -38,7 +67,7 @@
      timer.mark("parse", performance.now() - pa);
      if (!p.success) return json({ error: "invalid", fields: p.error.flatten().fieldErrors }, 400);
      body = p.data;
-@@ -482,9 +486,12 @@
+@@ -482,9 +492,12 @@
  
    if (WRITE_ACTIONS.has(body.action)) {
      const ipHash = await sha256(clientIp(req) + ":ng");
@@ -52,7 +81,16 @@
  
    // Regulamento publicado (rascunhos nunca saem).
    if (body.action === "regulation") {
-@@ -581,6 +588,7 @@
+@@ -536,6 +549,8 @@
+   if (!site) return json({ error: "site_not_configured" }, 503);
+   const member = body.action === "bundle" ? null : await timed(timer, "member", memberFromToken(site.id, body.token));
+ 
++  if (["profile_confirm", "profile_preferences"].includes(body.action) && (!member || member.site_id !== site.id || member.company_id !== site.company_id)) return json({ error: "no_session" }, 401);
++
+   try {
+     switch (body.action) {
+       case "site":
+@@ -581,6 +596,7 @@
            points: cl.points, level: cl.level, rank: me?.rank_pos ?? null,
            level_protected: cl.protected, next_level: cl.next_level, next_level_min: cl.next_level_min,
            referrals: await referralProgress(rpc, member.id),
@@ -60,7 +98,7 @@
            levels: lv ?? [],
            invite_link: `https://${SITE_DOMAIN}/clube?ref=${member.referral_code}`,
            referral_code: member.referral_code,
-@@ -650,6 +658,15 @@
+@@ -650,6 +666,15 @@
          const r = await crewPendingAction((fn, a) => sb.rpc(fn, a) as any, member, { op: body.op });
          return json(r.body, r.status);
        }

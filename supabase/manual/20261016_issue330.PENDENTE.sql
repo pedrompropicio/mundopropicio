@@ -334,7 +334,7 @@ CREATE FUNCTION public.club_profile_state(p_site uuid,p_session_hash text) RETUR
 DECLARE m record; p club_member_profiles; s club_profile_settings; n int; BEGIN
  SELECT cm.* INTO m FROM club_member_sessions x JOIN club_members cm ON cm.id=x.member_id
  JOIN portal_sites ps ON ps.id=cm.site_id AND ps.company_id=cm.company_id
- WHERE x.site_id=p_site AND cm.site_id=p_site AND x.token_hash=p_session_hash AND x.purpose='access' AND x.expires_at>now() AND cm.confirmed_at IS NOT NULL AND ps.active AND ps.brand_key='newgang';
+ WHERE x.site_id=p_site AND cm.site_id=p_site AND x.token_hash=p_session_hash AND x.purpose='access' AND x.expires_at>statement_timestamp() AND cm.confirmed_at IS NOT NULL AND ps.active AND ps.brand_key='newgang';
  IF NOT FOUND THEN RAISE EXCEPTION 'no_session'; END IF;
  SELECT * INTO p FROM club_member_profiles WHERE member_id=m.id;
  SELECT * INTO s FROM club_profile_settings WHERE site_id=p_site;
@@ -349,7 +349,7 @@ CREATE FUNCTION public.club_profile_confirm(p_site uuid,p_session_hash text,p_pa
 DECLARE m record; s club_profile_settings; p club_member_profiles; bd date; bc text; rc text; ct text; ev uuid; aid uuid; gained int:=0; BEGIN
  -- Identité résolue depuis la session; aucun member/company/event fourni par le client.
  SELECT cm.* INTO m FROM club_member_sessions x JOIN club_members cm ON cm.id=x.member_id JOIN portal_sites ps ON ps.id=cm.site_id AND ps.company_id=cm.company_id
- WHERE x.site_id=p_site AND cm.site_id=p_site AND x.token_hash=p_session_hash AND x.purpose='access' AND x.expires_at>now() AND cm.confirmed_at IS NOT NULL AND ps.active AND ps.brand_key='newgang';
+ WHERE x.site_id=p_site AND cm.site_id=p_site AND x.token_hash=p_session_hash AND x.purpose='access' AND x.expires_at>statement_timestamp() AND cm.confirmed_at IS NOT NULL AND ps.active AND ps.brand_key='newgang';
  IF NOT FOUND THEN RAISE EXCEPTION 'no_session'; END IF;
  IF jsonb_typeof(p_payload) IS DISTINCT FROM 'object' OR EXISTS(SELECT 1 FROM jsonb_object_keys(p_payload) k WHERE k NOT IN ('confirm','birth_date','birth_country','residence_country','city','phone','op')) THEN RAISE EXCEPTION 'profile_payload'; END IF;
  PERFORM _club_site_lock(p_site,false);
