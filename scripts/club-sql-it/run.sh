@@ -22,20 +22,29 @@ TMP="$(mktemp -d /tmp/club-sql-it.XXXXXX)"
 SOCK="$TMP/sock"; DATA="$TMP/data"; mkdir -p "$SOCK"
 export PGHOST="$SOCK" PGPORT=54326 PGUSER=postgres PGDATABASE=clubit
 case "$PGHOST" in /tmp/club-sql-it.*) ;; *) echo "guard: PGHOST não-local, abortar"; exit 2;; esac
-cleanup(){ "${AS[@]}" pg_ctl -D "$DATA" -m immediate stop >/dev/null 2>&1 || true; rm -rf "$TMP"; }
+cleanup(){ "${AS[@]}" "$TMP/pg/bin/pg_ctl" -D "$DATA" -m immediate stop >/dev/null 2>&1 || true; rm -rf "$TMP"; }
 
 AS=()
 if [ "$(id -u)" = 0 ]; then AS=(setpriv --reuid=1000 --regid=1000 --clear-groups); chown -R 1000:1000 "$TMP"; fi
 trap cleanup EXIT
+# Instalação privada: só plpgsql disponível (sem dblink/postgres_fdw/qualquer extensão), para que nenhuma
+# função da base consiga abrir ligações de rede. Binários originais ficam intactos.
+SRC="$(dirname "$(dirname "$(readlink -f "$(command -v postgres)")")")"
+PGP="$TMP/pg"; mkdir -p "$PGP/bin" "$PGP/share" "$PGP/lib"
+cp "$SRC/bin/postgres" "$SRC/bin/initdb" "$SRC/bin/pg_ctl" "$PGP/bin/"
+cp -r "$SRC/share/postgresql" "$PGP/share/"
+find "$PGP/share/postgresql/extension" -type f ! -name 'plpgsql*' -delete
+cp -r "$SRC/lib/." "$PGP/lib/"; rm -f "$PGP/lib/dblink.so" "$PGP/lib/postgres_fdw.so"
+[ "$(id -u)" = 0 ] && chown -R 1000:1000 "$TMP"
 PSQL=(psql -X -q -v ON_ERROR_STOP=1 --no-psqlrc -h "$SOCK" -p "$PGPORT" -U postgres -d clubit)
-"${AS[@]}" initdb -D "$DATA" -U postgres -A trust --no-sync >/dev/null
-"${AS[@]}" pg_ctl -D "$DATA" -l "$TMP/pg.log" -w -o "-c listen_addresses='' -c unix_socket_directories='$SOCK' -p $PGPORT -c fsync=off -c max_connections=40" start >/dev/null
+"${AS[@]}" "$PGP/bin/initdb" -D "$DATA" -U postgres -A trust --no-sync >/dev/null
+"${AS[@]}" "$PGP/bin/pg_ctl" -D "$DATA" -l "$TMP/pg.log" -w -o "-c listen_addresses='' -c unix_socket_directories='$SOCK' -p $PGPORT -c fsync=off -c max_connections=40" start >/dev/null
 psql -X -q -h "$SOCK" -p "$PGPORT" -U postgres -d postgres -c "CREATE DATABASE clubit" >/dev/null
 
 mkdir -p "$OUT"
 LOG="$OUT/run.log"; : > "$LOG"
 say(){ echo "$*" | tee -a "$LOG"; }
-say "runtime: $(postgres --version) · socket local (sem TCP) · $(date -u +%FT%TZ)"
+say "runtime: $("$PGP/bin/postgres" --version) · socket local (sem TCP) · $(date -u +%FT%TZ)"
 say "listen_addresses=$("${PSQL[@]}" -tAc "show listen_addresses")" 
 
 # 2) Schema: stubs de borda + migrações canónicas verbatim.

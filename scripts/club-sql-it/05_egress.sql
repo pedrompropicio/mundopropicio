@@ -6,7 +6,7 @@ DECLARE n int; BEGIN
   IF n <> 0 THEN RAISE EXCEPTION 'egress: há extensões instaladas (%)', n; END IF;
   SELECT count(*) INTO n FROM pg_namespace WHERE nspname IN ('net','cron','vault','extensions','supabase_functions');
   IF n <> 0 THEN RAISE EXCEPTION 'egress: schemas de rede/cron presentes'; END IF;
-  SELECT count(*) INTO n FROM pg_available_extensions WHERE name IN ('pg_net','http','pg_cron','supabase_vault');
+  SELECT count(*) INTO n FROM pg_available_extensions WHERE name <> 'plpgsql';
   IF n <> 0 THEN RAISE EXCEPTION 'egress: extensões de rede disponíveis para instalar (%)', n; END IF;
   IF current_setting('listen_addresses') <> '' THEN RAISE EXCEPTION 'egress: servidor aceita TCP'; END IF;
   -- Tentativa efetiva: a mesma chamada que o trigger do Clube faz tem de falhar.
