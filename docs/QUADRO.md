@@ -21,7 +21,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #321 | 0 · Cowork (ChatGPT) · agente ERP | 0 · Cowork ChatGPT | lead_capture, contacts, leads, nova RPC de ingestão interna + cron só-ingestão, docs/testes/issue321 | 2026-10-16 00:05 | 2026-10-16 00:14 — aplicado em Live (0166 + cron 2398), 6 recuperados, Clube em quarentena; aguarda verificação do Pedro |
+| #321 | 0 · Cowork (ChatGPT) · agente ERP | 0 · Cowork ChatGPT | 0166 + cron 2398; agora: 2 lead_capture clube_newgang por ID (3a46b0df…, 93520de1…), nova fn por IDs, club_members, email de confirmação normal do Clube (só estes 2) | 2026-10-16 00:05 | 2026-10-16 00:22 — continuação autorizada (Clube 2 casos) |
 
 ## 0 · Cowork (Claude)
 
