@@ -4,6 +4,7 @@
 export const HISTORY_LIMIT = 100;
 
 export const RULE_LABELS: Record<string, string> = {
+  profile_complete: "Completaste o teu perfil",
   join_confirmed: "Confirmaste a inscrição",
   friend_joined: "Um amigo entrou com o teu convite",
   friend_bought: "Um amigo comprou bilhete",

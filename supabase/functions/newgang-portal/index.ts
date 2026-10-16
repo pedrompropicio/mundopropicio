@@ -8,6 +8,7 @@ import { assemblePublic, bundleFrom, lineupFrom, regulationFrom, termsMeta, type
 import { clubEmail } from "./email.ts";
 import { ASSET_BUCKET, PROOF_BUCKET, PROOF_EXT, missionsFrom, normalizeHandle, normalizeProofUrl, submitErrorStatus } from "./missions.ts";
 import { buildHistory, subjectRef } from "./history.ts";
+import { profileConfirm, profileMe, profilePreferences, profileCountries, profileRuleRead } from "./profile.ts";
 import { publicEditions } from "./videos.ts";
 import { CREW_LINK, crewErrorStatus, crewView } from "./crews.ts";
 import { crewPendingAction, memberByEmail, mePendingCrew, PENDING_OPS } from "./pending.ts";
@@ -77,7 +78,8 @@ function clientIp(req: Request): string {
 
 const Body = z.object({
   action: z.enum(["bundle", "regulation", "site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer", "notify_pending",
-    "missions", "mission_upload_url", "submit_mission", "profile", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google"]),
+    "missions", "mission_upload_url", "submit_mission", "profile", "profile_confirm", "profile_preferences", "profile_countries", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google"]),
+  profile_payload: z.unknown().optional(),
   token: z.string().min(20).max(200).optional(),
   email: z.string().email().max(254).optional(),
   reveal_id: z.string().uuid().optional(),
@@ -95,7 +97,7 @@ const Body = z.object({
   new_owner_short: z.number().int().min(0).max(20).optional(),
   op: z.enum(PENDING_OPS).optional(),
 });
-const WRITE_ACTIONS = new Set(["request_access", "guess", "attendance_claim", "confirm_buyer", "session", "mission_upload_url", "submit_mission", "profile", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google"]);
+const WRITE_ACTIONS = new Set(["request_access", "guess", "attendance_claim", "confirm_buyer", "session", "mission_upload_url", "submit_mission", "profile", "profile_confirm", "profile_preferences", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google"]);
 
 // Cache por instância (60 s): a configuração do site muda raramente; evita uma ida à base por pedido.
 const SITE_TTL_MS = 60_000;
@@ -341,6 +343,9 @@ const timed = async <T>(t: Timer, k: string, p: PromiseLike<T>): Promise<T> => {
   const a = performance.now(); const r = await p; t.mark(k, performance.now() - a); return r;
 };
 
+async function profileRule(siteId: string) {
+  return profileRuleRead(() => sb.from("club_profile_settings").select("enabled, version").eq("site_id", siteId).maybeSingle());
+}
 async function loadSitePayload(site: any) {
   const ev = site.event_id;
   const none = Promise.resolve({ data: null });
@@ -357,7 +362,7 @@ async function loadSitePayload(site: any) {
   const ticketing: unknown = ev ? { url: evRow?.ticketing_url ?? null, lots: em?.ticket_lots ?? null } : null;
   // #327: a montra usa club_rules_public (valores pagos agora + disponibilidade); club_point_rules cru só se a RPC estiver ausente (reversão).
   const rv = await rulesPublic(rpc, site.id, async () => legacyRules(rl));
-  return { site: data, trackers, ticketing, club: { levels: lv ?? [], rules: rv.rules, rules_unavailable: rv.unavailable, terms: termsMeta(tm) } };
+  return { site: data, trackers, ticketing, club: { levels: lv ?? [], rules: rv.rules, rules_unavailable: rv.unavailable, terms: termsMeta(tm), profile_mission: await profileRule(site.id) } };
 }
 
 async function loadLineupRaw(site: any) {
@@ -401,6 +406,7 @@ async function loadPublic(want: Want) {
     const club = (out.site as any).club;
     const rv = await rulesPublic(rpc, row.id, async () => legacyRules(club.rules)); // #327: mesma montra canónica do payload "site"
     club.rules = rv.rules; club.rules_unavailable = rv.unavailable;
+    club.profile_mission = await profileRule(row.id);
   }
   return out;
 }
@@ -474,17 +480,23 @@ Deno.serve(async (req) => {
   let body: z.infer<typeof Body>;
   try {
     const pa = performance.now();
-    const p = Body.safeParse(await req.json());
+    const raw = await req.json();
+    if (["profile_confirm", "profile_preferences"].includes(raw?.action) && Object.keys(raw).some(k => !["action", "token", "profile_payload"].includes(k))) return json({ error: "profile_payload" }, 400);
+    const p = Body.safeParse(raw);
     timer.mark("parse", performance.now() - pa);
+    if (!p.success && ["me", "profile_confirm", "profile_preferences"].includes(raw?.action) && typeof raw?.token === "string" && (raw.token.length < 20 || raw.token.length > 200)) return json({error:"no_session"},401);
     if (!p.success) return json({ error: "invalid", fields: p.error.flatten().fieldErrors }, 400);
     body = p.data;
   } catch { return json({ error: "invalid_json" }, 400); }
 
   if (WRITE_ACTIONS.has(body.action)) {
     const ipHash = await sha256(clientIp(req) + ":ng");
-    const { data: ok } = await sb.rpc("portal_rate_hit", { p_bucket: `ng:${body.action}:${ipHash}`, p_max: 20, p_window_seconds: 600 });
+    const { data: ok, error: rateError } = await sb.rpc("portal_rate_hit", { p_bucket: `ng:${body.action}:${ipHash}`, p_max: 20, p_window_seconds: 600 });
+    if (["profile_confirm", "profile_preferences"].includes(body.action) && (rateError || typeof ok !== "boolean")) return json({ error: "rate_unavailable" }, 503);
     if (ok === false) return json({ error: "rate_limited" }, 429);
   }
+
+  if (body.action === "profile_countries") return json({ countries: profileCountries(), version: "iso-3166-1-2026-10" });
 
   // Regulamento publicado (rascunhos nunca saem).
   if (body.action === "regulation") {
@@ -536,6 +548,8 @@ Deno.serve(async (req) => {
   if (!site) return json({ error: "site_not_configured" }, 503);
   const member = body.action === "bundle" ? null : await timed(timer, "member", memberFromToken(site.id, body.token));
 
+  if (["me", "profile_confirm", "profile_preferences"].includes(body.action) && (!member || member.site_id !== site.id || member.company_id !== site.company_id)) return json({ error: "no_session" }, 401);
+
   try {
     switch (body.action) {
       case "site":
@@ -576,11 +590,15 @@ Deno.serve(async (req) => {
         const me = rows.find((r) => r.member_id === member.id);
         const { data: lv } = await sb.from("club_levels").select("name, min_points, benefit").eq("site_id", site.id).order("min_points");
         const cl: MemberLevel = await memberLevel(rpc, member.id, { legacy: () => legacyLevel(member.id, site.id) }); // #327: nível/piso/próximo nível canónicos
+        // RPC session rejection is authoritative; optional infrastructure errors alone are isolated.
+        const profileView = member.confirmed_at && body.token ? await profileMe(rpc, site.id, await sha256(body.token)) : {profile:null,profile_status:"not_confirmed"};
+        if(profileView.profile_status === "no_session") return json({error:"no_session"},401);
         return json({
           first_name: member.first_name, member_no: member.member_no,
           points: cl.points, level: cl.level, rank: me?.rank_pos ?? null,
           level_protected: cl.protected, next_level: cl.next_level, next_level_min: cl.next_level_min,
           referrals: await referralProgress(rpc, member.id),
+          ...profileView,
           levels: lv ?? [],
           invite_link: `https://${SITE_DOMAIN}/clube?ref=${member.referral_code}`,
           referral_code: member.referral_code,
@@ -649,6 +667,15 @@ Deno.serve(async (req) => {
         // #328: member vem do token da sessão; qualquer member_id no payload é ignorado (Body não o declara).
         const r = await crewPendingAction((fn, a) => sb.rpc(fn, a) as any, member, { op: body.op });
         return json(r.body, r.status);
+      }
+      case "profile_confirm": {
+        if (!member?.confirmed_at || !body.token) return json({ error: "no_session" }, 401);
+        const r = await profileConfirm(rpc, site.id, await sha256(body.token), body.profile_payload);
+        return json(r.body, r.status);
+      }
+      case "profile_preferences": {
+        if (!member?.confirmed_at) return json({ error: "no_session" }, 401);
+        const r = profilePreferences(); return json(r.body, r.status);
       }
       case "profile": {
         if (!member?.confirmed_at) return json({ error: "no_session" }, 401);
