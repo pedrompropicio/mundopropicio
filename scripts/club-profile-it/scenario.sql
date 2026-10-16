@@ -97,7 +97,7 @@ DO $$ DECLARE v uuid:=t.m('race@example.invalid'); BEGIN
  PERFORM t.ok('330','row member/site mismatch blocked',true);
 END $$;
 SELECT t.session('purpose@example.invalid');
-UPDATE club_member_sessions SET purpose='confirm' WHERE token_hash=md5('purpose@example.invalid');
+UPDATE club_member_sessions SET purpose='buyer_confirm' WHERE token_hash=md5('purpose@example.invalid');
 SELECT t.reject(md5('purpose@example.invalid'),t.payload(),'no_session');
 SELECT t.session('expired@example.invalid');
 UPDATE club_member_sessions SET expires_at=now()-interval '1 minute' WHERE token_hash=md5('expired@example.invalid');
@@ -109,3 +109,4 @@ RESET ROLE;
 SELECT t.session('negative330@example.invalid');
 SELECT t.seed(t.m('negative330@example.invalid'),-250);
 SELECT t.ok('330','negative points preserved add50',(t.call(md5('negative330@example.invalid'),t.payload())->>'awarded')::int=50 AND t.pts(t.m('negative330@example.invalid'))=-100);
+SELECT t.ok('330','legacy rows unchanged',NOT EXISTS(SELECT id,member_id,rule_key,points,ref_id,created_at FROM t.legacy EXCEPT SELECT id,member_id,rule_key,points,ref_id,created_at FROM club_points));
