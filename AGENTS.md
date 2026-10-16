@@ -1,6 +1,6 @@
 # Architecture rules
 
-- Newgang demographic profile preparation uses a session-resolved member RPC and a separate permanent completion record; profile and canonical point credit commit atomically under site-before-member locks, so legacy capture snapshots and consent ledgers remain untouched.
+- Newgang demographic profile preparation uses a session-resolved member RPC and a separate permanent completion record; profile and canonical point credit commit atomically under site-before-member locks, so legacy capture snapshots and consent ledgers remain untouched. Optional demographic reads must fail independently of core portal responses, but session rejection never falls back to member data.
 
 - Club CRM editors share the active-config query and fail-closed write policy; versioned points and level identities cannot be overwritten through legacy editors, while ranking delegates protected levels to the canonical RPC.
 
