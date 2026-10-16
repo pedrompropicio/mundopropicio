@@ -1,0 +1,105 @@
+diff -ruN a/src/lib/__tests__/club-crew-rule-source.test.ts b/src/lib/__tests__/club-crew-rule-source.test.ts
+--- a/src/lib/__tests__/club-crew-rule-source.test.ts	1970-01-01 00:00:00.000000000 +0000
++++ b/src/lib/__tests__/club-crew-rule-source.test.ts	2026-10-16 19:09:14.647171019 +0000
+@@ -0,0 +1,21 @@
++import { describe, expect, it } from "vitest";
++import { crewPointsSource, crewRuleWrite } from "../club-crew-rule-source";
++
++describe("#327 CRM Crew: origem dos pontos", () => {
++  it("config ativa: 100 só de leitura com versão 2027-v1, mesmo que a regra diga 200", () => {
++    const s = crewPointsSource({ version: "2027-v1", crew_points: 100, effective_at: "2026-10-16T00:00:00Z" }, { points: 200 });
++    expect(s).toEqual({ kind: "config", points: 100, version: "2027-v1", effective_at: "2026-10-16T00:00:00Z", editable: false });
++  });
++  it("config ativa: gravar não envia points (motor ignora-os)", () => {
++    const s = crewPointsSource({ version: "2027-v1", crew_points: 100, effective_at: null }, { points: 200 });
++    expect(crewRuleWrite(s, { points: 999, min: 4, max: 6, active: true })).toEqual({ min_members: 4, max_members: 6, active: true });
++  });
++  it("sem config ativa: regra continua editável e gravada com points", () => {
++    const s = crewPointsSource(null, { points: 200 });
++    expect(s).toEqual({ kind: "rule", points: 200, editable: true });
++    expect(crewRuleWrite(s, { points: 150, min: 4, max: 6, active: true })).toEqual({ min_members: 4, max_members: 6, active: true, points: 150 });
++  });
++  it("sem config nem regra: valor por omissão 200 editável", () => {
++    expect(crewPointsSource(null, null).points).toBe(200);
++  });
++});
+diff -ruN a/src/lib/club-crew-rule-source.ts b/src/lib/club-crew-rule-source.ts
+--- a/src/lib/club-crew-rule-source.ts	1970-01-01 00:00:00.000000000 +0000
++++ b/src/lib/club-crew-rule-source.ts	2026-10-16 19:09:14.644517228 +0000
+@@ -0,0 +1,19 @@
++// #327 — Origem dos pontos de "Crew completa" no CRM. Com config de pontos ATIVA, o motor paga config.crew_points
++// e ignora club_point_rules.points; o CRM mostra esse valor só de leitura com a versão de origem e não o grava.
++// Mínimo/máximo/ativa continuam em club_point_rules (o motor ainda os lê via club_crew_cfg).
++export type ActiveCfg = { version: string; crew_points: number; effective_at: string | null } | null;
++export type CrewRule = { points: number } | null;
++export type CrewPointsSource =
++  | { kind: "config"; points: number; version: string; effective_at: string | null; editable: false }
++  | { kind: "rule"; points: number; editable: true };
++
++export function crewPointsSource(cfg: ActiveCfg, rule: CrewRule, fallback = 200): CrewPointsSource {
++  if (cfg) return { kind: "config", points: Number(cfg.crew_points), version: cfg.version, effective_at: cfg.effective_at, editable: false };
++  return { kind: "rule", points: rule?.points ?? fallback, editable: true };
++}
++
++/** Linha a gravar em club_point_rules: sem `points` quando a config ativa manda (nunca escrever um valor que o motor ignora). */
++export function crewRuleWrite(src: CrewPointsSource, v: { points: number; min: number; max: number; active: boolean }) {
++  const base = { min_members: v.min, max_members: v.max, active: v.active };
++  return src.editable ? { ...base, points: v.points } : base;
++}
+diff -ruN a/src/pages/crm-admin/sites/CrewsSection.tsx b/src/pages/crm-admin/sites/CrewsSection.tsx
+--- a/src/pages/crm-admin/sites/CrewsSection.tsx	2026-10-16 19:09:14.637263984 +0000
++++ b/src/pages/crm-admin/sites/CrewsSection.tsx	2026-10-16 19:09:14.666577987 +0000
+@@ -8,6 +8,7 @@
+ import { Button } from "@/components/ui/button";
+ import { Badge } from "@/components/ui/badge";
+ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
++import { crewPointsSource, crewRuleWrite } from "@/lib/club-crew-rule-source";
+ 
+ const db = supabase as any;
+ const fmt = (v: string | null) => (v ? new Date(v).toLocaleString("pt-PT", { timeZone: "Europe/Lisbon" }) : "—");
+@@ -40,6 +41,17 @@
+       return data as { id: string; points: number; min_members: number | null; max_members: number | null; active: boolean } | null;
+     },
+   });
++  // #327: config de pontos ativa (versionada) manda nos pontos pagos; só leitura aqui.
++  const activeCfg = useQuery({
++    queryKey: ["club-points-config-active", siteId],
++    queryFn: async () => {
++      const { data, error } = await db.from("club_points_config").select("version, crew_points, effective_at")
++        .eq("site_id", siteId).eq("status", "active").order("effective_at", { ascending: false }).limit(1).maybeSingle();
++      if (error) throw error;
++      return (data ?? null) as { version: string; crew_points: number; effective_at: string | null } | null;
++    },
++  });
++  const src = crewPointsSource(activeCfg.data ?? null, rule.data ?? null);
+   const [cfg, setCfg] = useState({ points: 200, min: 4, max: 6, active: true });
+   useEffect(() => {
+     if (rule.data) setCfg({ points: rule.data.points, min: rule.data.min_members ?? 4, max: rule.data.max_members ?? 6, active: rule.data.active });
+@@ -47,10 +59,11 @@
+   const save = useMutation({
+     mutationFn: async () => {
+       if (cfg.min < 2 || cfg.max < cfg.min || cfg.points < 0) throw new Error("Limites inválidos (mín ≥ 2, máx ≥ mín)");
+-      const row = { points: cfg.points, min_members: cfg.min, max_members: cfg.max, active: cfg.active };
++      if (activeCfg.isLoading || activeCfg.isError) throw new Error("Configuração de pontos ainda não carregada");
++      const row = crewRuleWrite(src, cfg);
+       const { error } = rule.data
+         ? await db.from("club_point_rules").update(row).eq("id", rule.data.id)
+-        : await db.from("club_point_rules").insert({ ...row, company_id: companyId, site_id: siteId, rule_key: "crew_complete", label: "Crew completa" });
++        : await db.from("club_point_rules").insert({ points: cfg.points, ...row, company_id: companyId, site_id: siteId, rule_key: "crew_complete", label: "Crew completa" });
+       if (error) throw error;
+     },
+     onSuccess: () => { toast.success("Configuração guardada"); qc.invalidateQueries({ queryKey: ["club-crew-rule", siteId] }); },
+@@ -66,7 +79,12 @@
+     <Card className="space-y-3 p-4">
+       <h3 className="text-sm font-semibold">Crews</h3>
+       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:items-end">
+-        <div><Label className="text-xs">Pontos por membro</Label><Input type="number" value={cfg.points} onChange={(e) => setCfg({ ...cfg, points: +e.target.value })} /></div>
++        <div><Label className="text-xs">Pontos por membro</Label>
++          {src.editable
++            ? <Input type="number" value={cfg.points} onChange={(e) => setCfg({ ...cfg, points: +e.target.value })} />
++            : <><Input type="number" value={src.points} readOnly disabled />
++                <p className="mt-1 text-[11px] text-muted-foreground">Definido pela configuração {src.version}{src.effective_at ? ` (desde ${fmt(src.effective_at)})` : ""}. Só de leitura.</p></>}
++        </div>
+         <div><Label className="text-xs">Mínimo confirmados</Label><Input type="number" value={cfg.min} onChange={(e) => setCfg({ ...cfg, min: +e.target.value })} /></div>
+         <div><Label className="text-xs">Máximo membros</Label><Input type="number" value={cfg.max} onChange={(e) => setCfg({ ...cfg, max: +e.target.value })} /></div>
+         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={cfg.active} onChange={(e) => setCfg({ ...cfg, active: e.target.checked })} /> Ativa</label>
