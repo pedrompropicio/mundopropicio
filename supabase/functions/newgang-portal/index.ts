@@ -383,7 +383,7 @@ async function loadPublic(want: Want) {
   const embed = [
     "id, event_id, brand_key, company_id",
     want.site ? "club_levels(name, min_points, benefit), club_point_rules(rule_key, label, points, active), club_terms(version, published_at, status)" : "",
-    `events(${[
+    `events!portal_sites_event_id_fkey(${[
       want.site ? "ticketing_url, event_trackers(platform, tracker_id)" : "",
       "event_marketing(ticket_lots, lineup_complete)",
       want.lineup ? `event_lineup_reveals(id, club_at, public_at, clues, status), event_lineups(${LINEUP_COLS})` : "",
