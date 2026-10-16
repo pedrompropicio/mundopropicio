@@ -28,3 +28,24 @@ describe("#321 crm_ingest_lead_captures", () => {
     expect(sql).toMatch(/GRANT EXECUTE .* TO service_role/);
   });
 });
+
+const file2 = readdirSync(dir).find((f) => f.includes("issue321_crm_ingest_clube_by_ids"));
+const sql2 = (file2 ? readFileSync(join(dir, file2), "utf8") : "").replace(/--[^\n]*/g, "");
+describe("#321 crm_ingest_clube_captures_by_ids", () => {
+  it("existe, exige IDs explícitos e limita a 10", () => {
+    expect(file2).toBeTruthy();
+    expect(sql2).toMatch(/cardinality\(p_ids\) > 10/);
+  });
+  it("sem rede nem CAPI; leads bloqueados", () => {
+    expect(sql2).not.toMatch(/net\.http_post|pixel_id|event_name|capi_dispatch_control/i);
+    expect(sql2).toContain("'blocked_no_consent'");
+  });
+  it("não altera consentimentos de contacto existente", () => {
+    const upd = sql2.split("UPDATE public.contacts SET")[1]?.split("WHERE")[0] ?? "";
+    expect(upd).not.toMatch(/consent|source/);
+  });
+  it("só service_role executa", () => {
+    expect(sql2).toMatch(/GRANT EXECUTE .* TO service_role/);
+    expect(sql2).toMatch(/FROM PUBLIC, anon, authenticated/);
+  });
+});
