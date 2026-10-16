@@ -8,6 +8,7 @@
  * Fonte de verdade da regra: aqui. O hook passou a ser um wrapper de fetch.
  */
 import { resolvePercentageFromTiers, getCacheEffectiveAmount } from "@/lib/cache-pl-helper";
+import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import {
   computeOutsideBpExcess,
   isApprovedOperationalForecast,
@@ -100,10 +101,11 @@ export function computeTicketRevenueAndOccupancy(
   for (const sale of sales) {
     if (onlyEventId && zoneToEvent.get(sale.zone_id) !== onlyEventId) continue;
     const qty = Number(sale.quantity);
-    const price = Number(sale.unit_price);
+    // Regra única de receita: total_value da linha; fallback quantity × unit_price.
+    const lineGross = ticketSaleRevenue(sale);
     const ivaRate = lotIva.get(sale.lot_id) ?? 6;
-    gross += qty * price;
-    net += qty * (price / (1 + ivaRate / 100));
+    gross += lineGross;
+    net += lineGross / (1 + ivaRate / 100);
     sold += qty;
   }
   return {
