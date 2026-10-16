@@ -515,8 +515,8 @@ function EditionCard({ e, site, onPatch, onDelete }: { e: Edition; site: Site; o
   );
 }
 
-function SimpleTable({ table, siteId, companyId, cols, order }: {
-  table: string; siteId: string; companyId: string; order: string;
+export function SimpleTable({ table, siteId, companyId, cols, order, eventId = null }: {
+  table: string; siteId: string; companyId: string; order: string; eventId?: string | null;
   cols: Array<{ k: string; l: string; num?: boolean; ro?: boolean }>;
 }) {
   const qc = useQueryClient();
@@ -572,12 +572,12 @@ function SimpleTable({ table, siteId, companyId, cols, order }: {
       {(q.data ?? []).map((r) => (
         <div key={r.id} className="space-y-1">
         {table === "club_point_rules" && ready && (() => {
-          const src = ruleSource(activeCfg.data ?? null, r as { rule_key: string; points: number }, activeCfg.data?.event_id ?? null);
+          const src = ruleSource(activeCfg.data ?? null, r as { rule_key: string; points: number }, eventId);
           return <p className="text-xs text-muted-foreground">{src.version ? `${src.version} · ${src.scope}${src.cap !== null ? ` · teto ${src.cap}` : ""}` : "Regra atual"}{!src.available ? " · indisponível até integração verificável" : ""}</p>;
         })()}
         <div className="flex flex-wrap gap-2">
           {cols.map((c) => (
-            <Input key={`${c.k}:${r[c.k]}:${activeCfg.data?.version ?? "legacy"}`} className="min-w-0 flex-1 basis-28" type={c.num ? "number" : "text"} defaultValue={ready ? (table === "club_point_rules" && c.k === "points" ? ruleSource(activeCfg.data ?? null, r as { rule_key: string; points: number }, activeCfg.data?.event_id ?? null).points : r[c.k] ?? "") : ""} disabled={c.ro || !ready || (guarded && !!activeCfg.data && (table === "club_levels" ? c.k !== "benefit" : c.k === "rule_key" || (c.k === "points" && CONTROLLED_RULES.includes(r.rule_key))))} aria-label={c.l}
+            <Input key={`${c.k}:${r[c.k]}:${activeCfg.data?.version ?? "legacy"}:${ready}`} className="min-w-0 flex-1 basis-28" type={c.num ? "number" : "text"} defaultValue={ready ? (table === "club_point_rules" && c.k === "points" ? ruleSource(activeCfg.data ?? null, r as { rule_key: string; points: number }, eventId).points : r[c.k] ?? "") : ""} disabled={c.ro || !ready || (guarded && !!activeCfg.data && (table === "club_levels" ? c.k !== "benefit" : c.k === "rule_key" || (c.k === "points" && CONTROLLED_RULES.includes(r.rule_key))))} aria-label={c.l}
               onBlur={(e) => String(r[c.k] ?? "") !== e.target.value && save.mutate({ id: r.id, patch: { [c.k]: conv(c, e.target.value) } })} />
           ))}
           <Button disabled={!ready || (guarded && !!activeCfg.data)} variant="ghost" size="icon" aria-label="Remover" onClick={() => confirm("Remover?") && del.mutate(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -599,9 +599,9 @@ function SimpleTable({ table, siteId, companyId, cols, order }: {
   );
 }
 
-function ClubTab({ site }: { site: Site }) {
+export function ClubTab({ site }: { site: Site }) {
   const qc = useQueryClient();
-  const [ficha, setFicha] = useState<{ id: string; title: string } | null>(null);
+  const [ficha, setFicha] = useState<{ id: string; title: string; points: number } | null>(null);
   const ranking = useQuery({
     queryKey: ["club-ranking", site.id],
     queryFn: async () => {
@@ -665,7 +665,7 @@ function ClubTab({ site }: { site: Site }) {
       <CrewsSection key={site.id} siteId={site.id} companyId={site.company_id} eventId={site.event_id} />
       <Card className="space-y-2 p-4">
         <h3 className="text-sm font-semibold">Regras de pontos</h3>
-        <SimpleTable key={`rules:${site.id}`} table="club_point_rules" siteId={site.id} companyId={site.company_id} order="rule_key"
+        <SimpleTable key={`rules:${site.id}`} table="club_point_rules" siteId={site.id} companyId={site.company_id} eventId={site.event_id} order="rule_key"
           cols={[{ k: "rule_key", l: "Chave" }, { k: "label", l: "Descrição" }, { k: "points", l: "Pontos", num: true }]} />
       </Card>
       <Card className="space-y-2 p-4">
@@ -688,10 +688,10 @@ function ClubTab({ site }: { site: Site }) {
           <div key={r.member_id} className="flex justify-between text-sm">
             <span>{r.rank_pos}. {r.first_name ?? r.email}</span>
             <span className="flex items-center gap-2 text-muted-foreground">{r.points} pts · {r.level_name ?? "—"}
-              <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => setFicha({ id: r.member_id, title: r.first_name ?? r.email })}>Pontos</Button></span>
+              <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => setFicha({ id: r.member_id, title: r.first_name ?? r.email, points: r.points })}>Pontos</Button></span>
           </div>
         ))}
-        {ficha && <MemberPointsDialog memberId={ficha.id} title={ficha.title} onClose={() => setFicha(null)} />}
+        {ficha && <MemberPointsDialog memberId={ficha.id} title={ficha.title} points={ranking.data?.find(r => r.member_id === ficha.id)?.points ?? ficha.points} onClose={() => setFicha(null)} />}
       </Card>
       <Card className="space-y-2 p-4">
         <h3 className="text-sm font-semibold">Palpites a validar</h3>

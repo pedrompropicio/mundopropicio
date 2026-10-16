@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RULE_LABELS, VOID_LABEL, subjectRef } from "../../../../supabase/functions/newgang-portal/history";
+import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
 const db = supabase as any;
 export const FRAUD_REASONS = ["Conta falsa ou duplicada", "Email temporário", "Automatismo / bot", "Prova de outra pessoa"];
@@ -14,15 +15,15 @@ export const FRAUD_REASONS = ["Conta falsa ou duplicada", "Email temporário", "
 type Row = { id: string; rule_key: string; points: number; ref_id: string; reason: string | null; created_at: string };
 
 /** Extrato de pontos de um membro + "Anular pontos" (motivo obrigatório). refFilter limita às linhas de uma submissão. */
-export function MemberPointsDialog({ memberId, title, refFilter, onClose }: { memberId: string; title: string; refFilter?: string; onClose: () => void }) {
+export function MemberPointsDialog({ memberId, title, refFilter, points, onClose }: { memberId: string; title: string; refFilter?: string; points?: number; onClose: () => void }) {
   const qc = useQueryClient();
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [reason, setReason] = useState("");
   const q = useQuery({
     queryKey: ["club_member_points", memberId],
     queryFn: async () => {
-      const { data, error } = await db.from("club_points").select("id, rule_key, points, ref_id, reason, created_at")
-        .eq("member_id", memberId).order("created_at", { ascending: false }).limit(1000);
+      const { data, error } = await fetchAllPagedQuery<Row>(db.from("club_points").select("id, rule_key, points, ref_id, reason, created_at")
+        .eq("member_id", memberId).order("created_at", { ascending: false }), { maxRows: Number.MAX_SAFE_INTEGER });
       if (error) throw error;
       return (data ?? []) as Row[];
     },
@@ -37,7 +38,6 @@ export function MemberPointsDialog({ memberId, title, refFilter, onClose }: { me
   const all = q.data ?? [];
   const voided = new Set(all.filter((r) => r.rule_key === "void").map((r) => r.ref_id));
   const rows = refFilter ? all.filter((r) => subjectRef(r) === refFilter) : all;
-  const total = all.reduce((s, r) => s + r.points, 0);
   const canVoid = (r: Row) => r.rule_key !== "void" && r.points > 0 && !voided.has(`${r.rule_key}:${r.ref_id}`);
   const run = useMutation({
     mutationFn: async () => {
@@ -57,7 +57,7 @@ export function MemberPointsDialog({ memberId, title, refFilter, onClose }: { me
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl">
-        <DialogHeader><DialogTitle>Pontos — {title} · total {total}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Pontos — {title}{points !== undefined ? ` · total ${points}` : ""}</DialogTitle></DialogHeader>
         <p className="text-xs text-muted-foreground">Cartão Google Wallet: {wallet.data ? `guardado em ${new Date(wallet.data.saved_at).toLocaleString("pt-PT", { timeZone: "Europe/Lisbon" })}` : "não"}</p>
         <div className="max-h-[50vh] space-y-1 overflow-y-auto text-sm">
           {rows.length === 0 && <p className="text-muted-foreground">Sem movimentos.</p>}
