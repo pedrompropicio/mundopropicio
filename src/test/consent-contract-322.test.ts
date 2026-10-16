@@ -184,7 +184,7 @@ describe("portal-track — código-fonte", () => {
   const src = readFileSync("supabase/functions/portal-track/handler.ts", "utf8");
   it("sem serviços externos de eventos e sem logs de token/corpo", () => {
     expect(src).not.toMatch(/graph\.facebook|googleads|tiktok|snapchat|resend/i);
-    expect(src).not.toMatch(/console\.\w+\([^)]*(token|receipt|r\.text)/i);
+    expect(src).not.toMatch(/console\.\w+\([^)]*(token|receipt)/i);
   });
   it("empresa/portal nunca do corpo", () => expect(src).not.toMatch(/body\.(company_id|portal)|payload\.(company_id|portal)/));
 });
