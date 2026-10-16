@@ -26,3 +26,29 @@ hero-elite-v1.png (sha256 7aa31f54…) mostra "NÍVEL ELITE"; hero-lenda-v1.png 
 
 ## Testes
 src/test/newgang-wallet-levels.test.ts + newgang-wallet-google.test.ts: 26/26, sem rede. tsgo 0.
+
+---
+# Etapa 2 — criativos aprovados + ativação (16/10/2026 03:15–03:20 UTC)
+
+Pedro aprovou as duas artes anexadas (CREW roxa, GOAT verde/preta). Executor ChatGPT · newgang-portal.
+
+## Normalização
+Originais 2172×724 RGB com margens brancas (linhas 0–7 e 716–723). Recorte só dessas margens + 2 px, depois redimensionamento LANCZOS para 1032×336 (proporção 3,068 → 3,071). Conteúdo não redesenhado; inspeção visual feita.
+
+## Assets (bucket público test-artifacts; antes do upload os caminhos davam 400 = inexistentes)
+| ficheiro | HTTP | dimensões | sha256 |
+|---|---|---|---|
+| newgang/wallet/hero-crew-v1.png | 200 image/png | 1032×336 | 7f325be1e002034a5452dc1c514bb22532d0502bec513660cc7440bcd9fc81a4 |
+| newgang/wallet/hero-goat-v1.png | 200 image/png | 1032×336 | d4c03a453fea02b059fe486f43778ab35b627fb76a5e38991f8f47ee2d264ea9 |
+Legados intactos (SHA iguais à etapa 1): gang f8eb94e8…, elite 7aa31f54…, lenda 08fd8a8e….
+URL base: https://sfohvvlqccmmebvjgibx.supabase.co/storage/v1/object/public/test-artifacts/newgang%2Fwallet%2F<ficheiro>
+
+## Código e deploy
+WALLET_RENAMED_ARTWORK_READY=true. Deploy só de newgang-portal (source_sha256 43b4896feb1ba942ecc3ab4f5dd0406cbe8425a3d4e14d471bd427e6908689ce). Smoke: ação pública "site" 200, níveis Gang 0 / Elite 500 / Lenda 1500 (Live ainda com nomes antigos → cartões usam v1 legados, sem mudança visível).
+Sem Publish, sem PATCH/POST manual à Google, sem emails; consentimento/portal-track/CAPI/crons não tocados.
+
+## Testes
+newgang-wallet-levels + newgang-wallet-google: 26/26 (Crew/Goat → novos criativos, Elite/Lenda → v1, cores por escalão, id/classId/accountId/QR NG-42/pontos/nível preservados), sem rede. tsgo 0.
+
+## SQL
+supabase/manual/20261016_newgang_niveis_crew_goat.PENDENTE.sql — NÃO aplicado (SELECT 03:18 UTC confirma Elite/Lenda). Aplicação fica com ChatGPT após verificação. Depois de aplicado, o cron newgang-wallet-sync */10 aplica PATCH a quem tiver last_level diferente.
