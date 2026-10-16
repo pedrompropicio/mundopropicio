@@ -1,6 +1,6 @@
 diff -ruN a/supabase/functions/newgang-portal/club-canon.ts b/supabase/functions/newgang-portal/club-canon.ts
 --- a/supabase/functions/newgang-portal/club-canon.ts	1970-01-01 00:00:00.000000000 +0000
-+++ b/supabase/functions/newgang-portal/club-canon.ts	2026-10-16 19:05:19.413747224 +0000
++++ b/supabase/functions/newgang-portal/club-canon.ts	2026-10-16 19:27:14.979967456 +0000
 @@ -0,0 +1,76 @@
 +// #327 — Leituras canónicas do Clube (nível, conquistas, montra de regras). Módulo novo, sem rede própria:
 +// recebe a função rpc (sb.rpc) por injeção para poder ser testado sem base nem rede.
@@ -79,8 +79,8 @@ diff -ruN a/supabase/functions/newgang-portal/club-canon.ts b/supabase/functions
 +  return rulesView(data);
 +}
 diff -ruN a/supabase/functions/newgang-portal/index.ts b/supabase/functions/newgang-portal/index.ts
---- a/supabase/functions/newgang-portal/index.ts	2026-10-16 19:05:19.413053539 +0000
-+++ b/supabase/functions/newgang-portal/index.ts	2026-10-16 19:05:19.413174134 +0000
+--- a/supabase/functions/newgang-portal/index.ts	2026-10-16 19:27:14.979626652 +0000
++++ b/supabase/functions/newgang-portal/index.ts	2026-10-16 19:27:14.979719202 +0000
 @@ -14,6 +14,20 @@
  import * as GW from "./wallet-google.ts";
  import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
@@ -128,6 +128,15 @@ diff -ruN a/supabase/functions/newgang-portal/index.ts b/supabase/functions/newg
  }
  
  async function loadLineupRaw(site: any) {
+@@ -367,7 +383,7 @@
+   const embed = [
+     "id, event_id, brand_key, company_id",
+     want.site ? "club_levels(name, min_points, benefit), club_point_rules(rule_key, label, points, active), club_terms(version, published_at, status)" : "",
+-    `events(${[
++    `events!portal_sites_event_id_fkey(${[
+       want.site ? "ticketing_url, event_trackers(platform, tracker_id)" : "",
+       "event_marketing(ticket_lots, lineup_complete)",
+       want.lineup ? `event_lineup_reveals(id, club_at, public_at, clues, status), event_lineups(${LINEUP_COLS})` : "",
 @@ -380,7 +396,13 @@
      want.history ? sb.from("festival_editions_public").select("*").order("year", { ascending: false }).order("sort") : none,
    ]) as any;
