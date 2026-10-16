@@ -6,7 +6,7 @@ import { join } from "node:path";
 
 const dir = join(process.cwd(), "drizzle/migrations");
 const file = readdirSync(dir).find((f) => f.includes("issue321_crm_ingest_lead_captures"));
-const sql = file ? readFileSync(join(dir, file), "utf8") : "";
+const sql = (file ? readFileSync(join(dir, file), "utf8") : "").replace(/--[^\n]*/g, "");
 
 describe("#321 crm_ingest_lead_captures", () => {
   it("migração versionada existe", () => expect(file).toBeTruthy());
