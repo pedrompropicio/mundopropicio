@@ -1,0 +1,61 @@
+guard: SUPABASE_URL presente no ambiente → removido (valor não impresso)
+guard: SUPABASE_DB_URL presente no ambiente → removido (valor não impresso)
+guard: SUPABASE_SERVICE_ROLE_KEY presente no ambiente → removido (valor não impresso)
+runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T17:58:35Z
+listen_addresses=
+aplicar 0119_0119_newgang_lineup_reveals_security.sql sha256=4e8d1c1410a377bb
+aplicar 0120_0120_newgang_portal_sites_editions_club.sql sha256=2826b2e7d1780e36
+aplicar 0140_derp271_club_terms.sql sha256=ab63a67377f13e51
+aplicar 0141_derp272_club_missions.sql sha256=50b86f8be3575a48
+aplicar 0142_derp273_club_points_void.sql sha256=6111185391186e25
+aplicar 0143_derp274_club_crews.sql sha256=f774cf76485977fc
+aplicar 0144_derp275_club_wallet_passes.sql sha256=c5aeedb913c1fa55
+aplicar 0176_issue328_club_identity_crew_pending.sql sha256=f365deca51c8ef43
+== A) baseline vs Live pós-0176 (sem patch)
+guard327 base: OK (30 funções)
+acl baseline: club_award={postgres=X/postgres,service_role=X/postgres} club_award_fixed={postgres=X/postgres} club_confirm_member={postgres=X/postgres,service_role=X/postgres} club_ranking={postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} club_wallet_due={postgres=X/postgres,service_role=X/postgres}
+psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: net.http_post indisponível (3F000)
+psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: dblink não instalável (0A000)
+== B) legado (funções Live)
+                      ?column?                       
+-----------------------------------------------------
+ LEGADO_OK 54/12597/bff0a43822b0699cb2831a39852e97a9
+(1 row)
+
+== C) carregar pendente sha256=bc7b0f8e0a5f31f5
+guard327 patch: OK (38 funções)
+acl _club_award_core: {postgres=X/postgres,service_role=X/postgres}
+acl club_award_purchase: {postgres=X/postgres,service_role=X/postgres}
+acl club_ranking: {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+pendente idempotente: 2.ª aplicação sem alterações
+== D) depois
+    ?column?     
+-----------------
+ SERIAL327 83/83
+(1 row)
+
+conc ok: preparação: indicador com 600
+barreira refcap: 5/5 à espera → soltar
+conc ok: teto atómico: 750 com 10 créditos
+conc ok: contagem real 11 (sem duplicar retries)
+barreira crew: 4/4 à espera → soltar
+conc ok: crew com 6 (max)
+conc ok: 6 × 100 uma vez
+barreira purchase: 4/4 à espera → soltar
+conc ok: compra: 1 crédito por edição
+barreira cutover: 7/7 à espera → soltar
+conc ok: nenhum crédito perdido (6 × 500)
+conc ok: piso só com retrato consistente (>=500 no retrato)
+conc ok: cutover e3 ativo, um só ativo
+CONC327 "asserts":9 "falhados":0
+psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: net.http_post indisponível (3F000)
+psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: dblink não instalável (0A000)
+serial: 83/83
+== E) reversão sha256=75debecc8ef3e149
+guard327 base: OK (30 funções)
+reversão preserva créditos: 202/29249
+ACL das 5 funções = baseline
+níveis após reversão: {"Crew": 500, "Gang": 0, "Goat": 1500}
+configs ativas após reversão: 0
+pisos/provas/contagens preservados: 25/8/41
+RESULTADO: TODOS OS ASSERTS PASSARAM
