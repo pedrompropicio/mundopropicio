@@ -4,13 +4,13 @@
 -- O cutover só retrata créditos NULL do site; o retrato fica imutável em club_legacy_consumption (o ledger não muda).
 WITH s AS (SELECT ps.id, ps.event_id, ps.created_at AS site_created FROM portal_sites ps WHERE ps.id = 'f8ce23a5-a27a-4893-9b7a-d6337d84b168'),
 ev AS (SELECT e.id, e.name IS NOT NULL AS has_name FROM events e, s WHERE e.id = s.event_id),
-p AS (SELECT cp.rule_key, cp.points, cp.created_at, cp.event_id FROM club_points cp JOIN club_members cm ON cm.id = cp.member_id, s WHERE cm.site_id = s.id)
+p AS (SELECT cp.rule_key, cp.points, cp.created_at FROM club_points cp JOIN club_members cm ON cm.id = cp.member_id, s WHERE cm.site_id = s.id)
 SELECT
   (SELECT event_id FROM s) = '407f43fc-790f-4ea7-8b2a-4162805dfb16'::uuid                      AS site_aponta_2027,
   (SELECT count(*) FROM ev)                                                                       AS evento_existe,
   (SELECT count(*) FROM festival_editions fe WHERE fe.event_id = (SELECT event_id FROM s))        AS edicoes_ligadas_ao_evento,
   (SELECT min(site_created) FROM s)                                                               AS site_criado_em,
-  (SELECT min(created_at) FROM p)                                                                 AS 1o_credito,
+  (SELECT min(created_at) FROM p)                                                                 AS primeiro_credito,
   (SELECT max(created_at) FROM p)                                                                 AS ultimo_credito,
   (SELECT count(*) FROM p WHERE created_at < (SELECT site_created FROM s))                        AS creditos_antes_do_site,
   (SELECT jsonb_object_agg(rule_key, n) FROM (SELECT rule_key, count(*)||'/'||sum(points) n FROM p GROUP BY rule_key) x) AS por_regra,
