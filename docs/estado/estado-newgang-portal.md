@@ -1,6 +1,6 @@
 # ESTADO — newgang-portal (portal newgangfestival.pt)
 
-Atualizado: 2026-10-15 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-ERP270, D-ERP271, D-ERP272, D-ERP273, D-ERP274, D-ERP275, D-ERP277
+Atualizado: 2026-10-16 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-ERP270, D-ERP271, D-ERP272, D-ERP273, D-ERP274, D-ERP275, D-ERP277
 
 ## Em que pé está (13/10)
 - newgangfestival.pt publicado; `/teste` removido.
@@ -13,6 +13,12 @@ Atualizado: 2026-10-15 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-E
 - Missões de criativos fase 1 (D-ERP272): base, CRM (Missões + Fila de moderação) e API (`missions`, `mission_upload_url`, `submit_mission`, `profile`) prontos; 0 missões criadas. Falta o ecrã no site do portal. Fase 2 (Instagram Graph API) por fazer.
 - Correção (13/10, 23:11 UTC): `submit_mission` responde **401 `{error:"no_session"}`** sempre que a sessão falta ou não está confirmada — inclusive quando o `no_session` vem da RPC `club_mission_submit` (antes esse caso sairia como 400). Mesma regra das outras ações com token (`me`, `guess`, `attendance_claim`, `profile`, `mission_upload_url`). Mapeamento puro em `supabase/functions/newgang-portal/missions.ts` (`submitErrorStatus`) com teste.
 - Membros do Clube: 2 (0 confirmados); revelações: 0 (consulta de 13/10, 19:38 UTC).
+
+## Atualização autorizada no próprio chat do portal (16/10 UTC)
+- Pedro determinou em 15/10 23:39 Fortaleza que implementações Lovable do portal sejam executadas pelo próprio chat do Portal; confirmou agente livre às 23:42. Registado no QUADRO; consolidação CHATS/DECISIONS/PROC aguarda reserva #323.
+- Rodapé implementado, sem Publish: NG e Fever 24 → 20,4 px; MP 34 → 28,9 px. CSS confirmado por leitura independente no commit `5dfc3b4a8b17fa312857800b9cc15504cc12dc5a`. Agente reporta 86 testes e capturas 1280/390/320 px; validação visual independente e CI não verificadas.
+- Nomes ainda pendentes: Live consultada nesta sessão confirma Gang 0, Elite 500, Lenda 1500. A fonte é club_levels; portal só apresenta API, sem tradução local. wallet-google.ts reconhece Elite/Lenda explicitamente e escolhe criativos com nomes antigos: alinhar antes de renomear a fonte, pois Crew/Goat cairiam no criativo Gang. Não executado DML nem chamadas Google. Pontos/benefícios intactos.
+- Criação de Issue recusada pela revisão automática; nenhuma Issue nova criada nesta demanda.
 
 ## A trabalhar agora
 Vídeos das edições por ficheiro (D-ERP277, 15/10): bucket, CRM e contrato `history` prontos; edge function newgang-portal e CRM por publicar; o site tem de tocar `provider:"upload"` (<video src=url poster=poster_url||cover_url>).
