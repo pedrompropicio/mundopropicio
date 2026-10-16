@@ -52,7 +52,7 @@ say "listen_addresses=$("${PSQL[@]}" -tAc "show listen_addresses")"
 
 PEND="$ROOT/supabase/manual/20261016_issue327.PENDENTE.sql"; RB="$ROOT/supabase/manual/20261016_issue327.ROLLBACK.sql"
 LIVE="$HERE/live-hashes-327.json"
-hashes(){ "${PSQL[@]}" -tA -F' ' -c "SELECT p.proname, md5(pg_get_functiondef(p.oid)) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND (p.proname LIKE 'club\_%' OR p.proname LIKE '\_club\_%') ORDER BY 1"; }
+hashes(){ "${PSQL[@]}" -tA -F' ' -c "SELECT p.proname, md5(pg_get_functiondef(p.oid)) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND (p.proname LIKE 'club\_%' OR p.proname LIKE '\_club%') ORDER BY 1"; }
 CHANGED="'club_award','club_award_fixed','club_confirm_member','club_ranking','club_wallet_due'"
 
 # A) Baseline = migrações do repo até 0176; guard contra o snapshot Live pós-0176 ANTES do patch.
@@ -89,7 +89,7 @@ say "== B) legado (funções Live)"
 say "== C) carregar pendente sha256=$(sha256sum "$PEND" | cut -c1-16)"
 "${PSQL[@]}" -f "$PEND" >>"$LOG" 2>&1
 hashes > "$TMP/h1.txt"
-"${PSQL[@]}" -tAc "SELECT json_object_agg(proname, prosrc) FROM pg_proc WHERE pronamespace='public'::regnamespace AND (proname LIKE 'club\_%' OR proname LIKE '\_club\_%')" > "$TMP/bodies.json"
+"${PSQL[@]}" -tAc "SELECT json_object_agg(proname, prosrc) FROM pg_proc WHERE pronamespace='public'::regnamespace AND (proname LIKE 'club\_%' OR proname LIKE '\_club%')" > "$TMP/bodies.json"
 python3 "$HERE/compare327.py" patch "$LIVE" "$TMP/h1.txt" "$OUT/hashes-depois-esperado.json" "$PEND" "$TMP/bodies.json" | tee -a "$LOG"
 say "acl _club_award_core: $("${PSQL[@]}" -tAc "SELECT proacl::text FROM pg_proc WHERE proname='_club_award_core'")"
 say "acl club_award_purchase: $("${PSQL[@]}" -tAc "SELECT proacl::text FROM pg_proc WHERE proname='club_award_purchase'")"

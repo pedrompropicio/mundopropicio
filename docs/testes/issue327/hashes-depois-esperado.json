@@ -1,20 +1,32 @@
 {
  "funcoes": {
+  "_club327_cohesion": {
+   "hash": "b5e714acf4607c75d19469a8ef832a6f",
+   "kind": "nova",
+   "live": null,
+   "verbatim": true
+  },
   "_club_active_cfg": {
-   "hash": "a2f9b7e894ab1c7d001c384ac57888e4",
+   "hash": "5c0c9429101a9544615b8bb5f0ac813a",
    "kind": "nova",
    "live": null,
    "verbatim": true
   },
   "_club_award_core": {
-   "hash": "3747e60ef7b173c6adf47127e109e555",
+   "hash": "013078923029cd796a6d6eab83533b48",
    "kind": "nova",
    "live": null,
    "verbatim": true
   },
   "_club_points_void_row": "inalterada_igual_live",
   "_club_rule_used": {
-   "hash": "650d604621b0edbb1618386564b22578",
+   "hash": "e7bcae342231a52bff5490ce7c8406e0",
+   "kind": "nova",
+   "live": null,
+   "verbatim": true
+  },
+  "_club_site_lock": {
+   "hash": "74b2a06b7edd3ff957089d8c4da9ecff",
    "kind": "nova",
    "live": null,
    "verbatim": true
@@ -32,14 +44,14 @@
    "verbatim": true
   },
   "club_award_purchase": {
-   "hash": "f0a6060d56150f136e2077db5ca43a0f",
+   "hash": "5d7ecd5f37cc954833acedc9df8556a8",
    "kind": "nova",
    "live": null,
    "verbatim": true
   },
   "club_claim_attendance": "inalterada_igual_live",
   "club_confirm_member": {
-   "hash": "39258e34646dcde8c2a87ec1e8c018c9",
+   "hash": "b7034289da1bd7347f3501574b5b36f8",
    "kind": "alterada",
    "live": "df3a12edd179829ba9233d71fc5816b7",
    "verbatim": true
@@ -57,7 +69,7 @@
   "club_from_lead_capture": "inalterada_igual_live",
   "club_gen_referral_code": "inalterada_igual_live",
   "club_member_level": {
-   "hash": "fe07912fa2f624c07e26f9a179083d8c",
+   "hash": "ce870321295623ca033330d56fd8a52c",
    "kind": "nova",
    "live": null,
    "verbatim": true
@@ -67,7 +79,7 @@
   "club_mission_sync_points": "inalterada_igual_live",
   "club_points_active": "inalterada_igual_live",
   "club_points_cutover": {
-   "hash": "cff2a1558c83e91cf55a445a6a05bd0e",
+   "hash": "522f1b302373fd06f5622fa799d221e4",
    "kind": "nova",
    "live": null,
    "verbatim": true
@@ -75,7 +87,7 @@
   "club_points_set": "inalterada_igual_live",
   "club_points_void": "inalterada_igual_live",
   "club_purchase_revoke": {
-   "hash": "1faeda15455c4095873a4afbe8776074",
+   "hash": "8f3c602bec1004863cfbfc77af576d6a",
    "kind": "nova",
    "live": null,
    "verbatim": true
@@ -88,7 +100,13 @@
   },
   "club_record_terms": "inalterada_igual_live",
   "club_referral_progress": {
-   "hash": "ce199ad29dea8f8f435a0b6c74332db7",
+   "hash": "5d66030c234c73053554ec1bef6adfa5",
+   "kind": "nova",
+   "live": null,
+   "verbatim": true
+  },
+  "club_rules_public": {
+   "hash": "c90512519a68530dcbf42ab0bea0bb9d",
    "kind": "nova",
    "live": null,
    "verbatim": true

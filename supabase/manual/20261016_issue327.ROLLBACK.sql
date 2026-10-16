@@ -1,6 +1,17 @@
--- #327 — REVERSÃO (INERTE, NÃO APLICADA). Gerada a partir das funções do baseline local, cujo md5 = Live pós-0176.
--- Repõe as 5 funções alteradas verbatim, remove as funções novas, repõe os limiares de nível anteriores ao 1.º cutover
--- e retira configs. NÃO apaga créditos, pisos, provas, contagens nem colunas (ficam DEPRECATED).
+-- #327 — REVERSÃO (ficheiro inerte, NÃO APLICADA). Gerada das funções do baseline local, cujo md5 = Live pós-0176.
+-- Repõe as 5 funções alteradas verbatim, remove as funções novas, repõe limiares e as 4 regras visíveis de antes do
+-- 1.º cutover e retira configs. NÃO apaga créditos, pisos, provas, contagens nem colunas (ficam DEPRECATED).
+-- ORDEM: 1) reverter a API (edge newgang-portal para a versão sem club_member_level/club_rules_public/referrals);
+--        2) só depois correr este ficheiro. Com a API nova ainda ativa, as RPCs removidas aqui dariam erro explícito.
+-- Uma transação; aborta (nada muda) se o patch não estiver aplicado ou se algum membro descesse de nível.
+BEGIN;
+DO $rb$ BEGIN
+  IF to_regprocedure('public.club_member_level(uuid)') IS NULL OR to_regprocedure('public._club_award_core(uuid,text,text,integer,uuid)') IS NULL THEN
+    RAISE EXCEPTION 'rollback #327: o patch não está aplicado (funções novas ausentes)'; END IF;
+END $rb$;
+-- Retrato do nível canónico ANTES de reverter (para provar que ninguém desce).
+CREATE TEMP TABLE _rb327_lv ON COMMIT DROP AS
+  SELECT m.id, m.site_id, x.level_name FROM public.club_members m CROSS JOIN LATERAL public.club_member_level(m.id) x;
 CREATE OR REPLACE FUNCTION public.club_award(p_member uuid, p_rule text, p_ref text)
  RETURNS integer
  LANGUAGE plpgsql
@@ -97,21 +108,44 @@ AS $function$
 $function$
 ;
 
+-- Limiares e regras visíveis: os de antes do 1.º cutover de cada site (registo em club_points_cutover_log).
+UPDATE public.club_levels l SET min_points = (x.levels_before->>l.name)::int
+  FROM (SELECT DISTINCT ON (site_id) site_id, levels_before FROM public.club_points_cutover_log ORDER BY site_id, done_at) x
+ WHERE l.site_id = x.site_id AND x.levels_before ? l.name;
+UPDATE public.club_point_rules r SET points = (x.rules_before->r.rule_key->>'points')::int
+  FROM (SELECT DISTINCT ON (site_id) site_id, rules_before FROM public.club_points_cutover_log ORDER BY site_id, done_at) x
+ WHERE r.site_id = x.site_id AND x.rules_before ? r.rule_key
+   AND r.rule_key IN ('join_confirmed','friend_joined','crew_complete','promo_lot_purchase');
+-- Prova de compatibilidade: com a fórmula antiga (pontos + limiares repostos) ninguém fica abaixo do nível canónico anterior.
+DO $rb$ DECLARE n int; BEGIN
+  SELECT count(*) INTO n FROM _rb327_lv b
+    JOIN public.club_levels lb ON lb.site_id = b.site_id AND lb.name = b.level_name
+   WHERE coalesce((SELECT max(l.min_points) FROM public.club_levels l WHERE l.site_id = b.site_id
+                    AND l.min_points <= (SELECT coalesce(sum(points),0) FROM public.club_points WHERE member_id = b.id)), -1) < lb.min_points;
+  IF n > 0 AND coalesce(current_setting('club327.rollback_allow_level_drop', true), '') <> 'on' THEN
+    RAISE EXCEPTION 'rollback #327: % membro(s) desceriam de nível; abortado (nada mudou)', n; END IF;
+END $rb$;
+DO $rb$ DECLARE t text; BEGIN
+  FOREACH t IN ARRAY ARRAY['club_points_config','club_level_floors','club_points_cutover_log','club_legacy_consumption','club_referral_events','club_purchase_evidence'] LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', t||'_c327', t);
+  END LOOP;
+END $rb$;
 DROP FUNCTION IF EXISTS public.club_points_cutover(uuid, jsonb);
 DROP FUNCTION IF EXISTS public.club_referral_progress(uuid);
+DROP FUNCTION IF EXISTS public.club_rules_public(uuid);
 DROP FUNCTION IF EXISTS public.club_member_level(uuid);
 DROP FUNCTION IF EXISTS public.club_purchase_revoke(uuid, text, text);
 DROP FUNCTION IF EXISTS public.club_award_purchase(uuid);
 DROP FUNCTION IF EXISTS public._club_award_core(uuid, text, text, int, uuid);
-DROP FUNCTION IF EXISTS public._club_rule_used(uuid, text, uuid, boolean);
+DROP FUNCTION IF EXISTS public._club_rule_used(uuid, text, uuid);
 DROP FUNCTION IF EXISTS public._club_active_cfg(uuid);
--- Limiares de nível: os de antes do 1.º cutover de cada site (registo em club_points_cutover_log).
-UPDATE public.club_levels l SET min_points = (x.levels_before->>l.name)::int
-  FROM (SELECT DISTINCT ON (site_id) site_id, levels_before FROM public.club_points_cutover_log ORDER BY site_id, done_at) x
- WHERE l.site_id = x.site_id AND x.levels_before ? l.name;
+DROP FUNCTION IF EXISTS public._club_site_lock(uuid, boolean);
+DROP FUNCTION IF EXISTS public._club327_cohesion();
 UPDATE public.club_points_config SET status = 'retired' WHERE status <> 'retired';
 COMMENT ON TABLE public.club_points_config IS 'DEPRECATED (#327 revertido): sem efeito no motor.';
 COMMENT ON TABLE public.club_level_floors IS 'DEPRECATED (#327 revertido): pisos guardados só como histórico.';
+COMMENT ON TABLE public.club_legacy_consumption IS 'DEPRECATED (#327 revertido): retrato guardado só como histórico.';
 COMMENT ON TABLE public.club_referral_events IS 'DEPRECATED (#327 revertido): contagens guardadas só como histórico.';
 COMMENT ON TABLE public.club_purchase_evidence IS 'DEPRECATED (#327 revertido): provas guardadas só como histórico.';
 COMMENT ON COLUMN public.club_points.event_id IS 'DEPRECATED (#327 revertido): edição gravada nos créditos criados enquanto ativo.';
+COMMIT;
