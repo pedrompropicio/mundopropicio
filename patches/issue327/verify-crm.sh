@@ -7,7 +7,7 @@ OUT="${1:-$ROOT/docs/testes/issue327/crm-patch-results.json}"; PATCH="$ROOT/patc
 F=src/pages/crm-admin/sites/CrewsSection.tsx
 before="$(sha256sum "$F" | cut -c1-64)"
 WT="$(mktemp -d /tmp/crm327wt.XXXXXX)"; trap 'rm -rf "$WT"' EXIT
-git archive HEAD src supabase/functions $(git ls-tree --name-only HEAD shared) tsconfig.json tsconfig.app.json tsconfig.node.json vite.config.ts vitest.config.ts package.json components.json tailwind.config.ts postcss.config.js | tar -x -C "$WT"
+git archive HEAD src scripts supabase/functions $(git ls-tree --name-only HEAD shared) tsconfig.json tsconfig.app.json tsconfig.node.json vite.config.ts vitest.config.ts package.json components.json tailwind.config.ts postcss.config.js | tar -x -C "$WT"
 ln -s "$ROOT/node_modules" "$WT/node_modules"
 ( cd "$WT" && patch -p1 --dry-run < "$PATCH" >/dev/null && patch -p1 < "$PATCH" >/dev/null )
 tsc_out="$(cd "$WT" && tsgo -p tsconfig.app.json --noEmit 2>&1)" && tsc=0 || tsc=$?

@@ -48,7 +48,7 @@ diff -ruN a/src/lib/club-crew-rule-source.ts b/src/lib/club-crew-rule-source.ts
 +}
 diff -ruN a/src/pages/crm-admin/sites/CrewsSection.tsx b/src/pages/crm-admin/sites/CrewsSection.tsx
 --- a/src/pages/crm-admin/sites/CrewsSection.tsx	2026-10-16 19:09:14.637263984 +0000
-+++ b/src/pages/crm-admin/sites/CrewsSection.tsx	2026-10-16 19:09:29.081648284 +0000
++++ b/src/pages/crm-admin/sites/CrewsSection.tsx	2026-10-16 19:10:25.622897909 +0000
 @@ -8,6 +8,7 @@
  import { Button } from "@/components/ui/button";
  import { Badge } from "@/components/ui/badge";
@@ -95,7 +95,7 @@ diff -ruN a/src/pages/crm-admin/sites/CrewsSection.tsx b/src/pages/crm-admin/sit
        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:items-end">
 -        <div><Label className="text-xs">Pontos por membro</Label><Input type="number" value={cfg.points} onChange={(e) => setCfg({ ...cfg, points: +e.target.value })} /></div>
 +        <div><Label className="text-xs">Pontos por membro</Label>
-+          {src.editable
++          {src.kind === "rule"
 +            ? <Input type="number" value={cfg.points} onChange={(e) => setCfg({ ...cfg, points: +e.target.value })} />
 +            : <><Input type="number" value={src.points} readOnly disabled />
 +                <p className="mt-1 text-[11px] text-muted-foreground">Definido pela configuração {src.version}{src.effective_at ? ` (desde ${fmt(src.effective_at)})` : ""}. Só de leitura.</p></>}
