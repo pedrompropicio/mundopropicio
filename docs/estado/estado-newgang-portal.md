@@ -19,7 +19,7 @@ Atualizado: 2026-10-16 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-E
 - Live: Gang 0, Crew 500, Goat 1500, confirmado por SELECT e API pública action site HTTP200 depois do DML aprovado. IDs, limites e benefícios preservados por hash antes/depois.
 - Criativos Crew/Goat aprovados por Pedro, publicados 1032×336; HTTP200/SHA e visual verificados independentemente. Wallet aceita novos nomes e legados, flag true, função newgang-portal deployada pelo agente; commit c65036cdd4d3e35bd4702b119595f030544037c2. Sem Publish frontend nesta etapa; dados não dependem de novo Publish do portal.
 - Agente reportou 1248 testes aprovados, tsgo limpo; CI não confirmada independentemente. GET /meu-clube deu 403 neste ambiente; visual no portal/dispositivo Wallet pendente. Sync existente */10 previsto, sem PATCH manual.
-- Pendência textual: benefício Goat ainda diz “Tudo de Elite”; SQL aprovado só alterou name. Necessita trocar referência por Crew sem modificar os benefícios.
+- Referência textual do benefício Goat corrigida em Live após autorização específica de Pedro (16/10 00:24 Fortaleza): “Tudo de Crew + acesso antecipado à merch oficial + prémios de topo do ranking”. SELECT posterior confirma Gang/Crew/Goat e limites 0/500/1500; nenhum benefício funcional alterado.
 - Pedro determinou execução Lovable no próprio chat do Portal. Regra registada no QUADRO; consolidação em CHATS/DECISIONS/PROC aguarda reserva #323. Issue da demanda recusada por revisão automática.
 - Prova: docs/testes/newgang-niveis/01-wallet-crew-goat.md (Etapa 3). SQL PENDENTE já aplicado por ChatGPT: não reaplicar.
 
