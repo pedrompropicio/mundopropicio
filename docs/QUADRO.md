@@ -8,6 +8,8 @@ Só o Pedro muda esta linha, por comando expresso, e só para situações de aut
 
 ## Regras
 
+- **Autorização documental de Pedro, 16/10/2026 13:07 Fortaleza:** reserva, progresso e fecho documental de demandas autorizadas podem ser atualizados sem novo pedido de autorização por cada gravação. Para esta atualização, Pedro autorizou expressamente a substituição integral do QUADRO e do estado Newgang no repositório público `pedrompropicio/mundopropicio`, preservando o conteúdo existente das outras frentes. Ler a versão e SHA atuais, limitar o diff à demanda e não acrescentar dados pessoais, segredos ou dados financeiros alheios. Esta regra não desativa nem altera a revisão automática da plataforma; eventuais recusas continuam a ser reportadas. Alterações de negócio/dados mantêm autorização própria.
+
 - Cada pedido é uma linha `- [ ] de <chat X> para <chat Y> (<data>): …` escrita na secção do **destinatário**. Quem trata marca `[x]` e escreve o resultado por baixo, indentado, com data. Linhas tratadas não se apagam durante 30 dias; depois passam para o fim da secção, em "Tratados".
 - Este ficheiro regista; não activa nem notifica ninguém. Quem abre um chat lê a sua secção.
 - Números só com origem (query na hora, ficheiro, Issue). Nunca de memória.
@@ -21,7 +23,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #326 | ChatGPT · newgang-portal | agente Lovable ERP só testes locais | scripts/testes Clube com SQL real em base local descartável e fixtures; sem Live/funções negócio/consentimento | 2026-10-16 15:45 UTC | próxima etapa autorizada; agentes livres; Publish frontend informado por Pedro |
+| #328 | ChatGPT · newgang-portal | agente Lovable ERP, preparação e testes locais | inscrição idempotente, identidade por email e resultado recuperável de Crew cheia; sem aplicar SQL Live/deploy nesta etapa | 2026-10-16 16:07 UTC | autorizado por Pedro; preparar correções e prévia SQL, preservar #322/#323 |
 | #322 | 0 · Cowork (ChatGPT) | agente Lovable (ERP) | ERP: consentimento por interação (ledger marketing_consent_*), portal-track, capi_consent_proof/guardas, lead_capture/redirect_log/leads (colunas aditivas), docs; coordenação futura MP/Coala/Newgang (portais NÃO tocados nesta etapa) | 2026-10-16 01:12 | 2026-10-16 01:46 — ERP corrigido após verificação independente (0175 + portal-track), aguarda revisão; portais MP/Coala/Newgang pendentes |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
@@ -118,6 +120,8 @@ _(sem pedidos — as falhas de teste vêm por Issue; os pedidos de verificação
 _(sem pedidos)_
 
 ## newgang-portal
+
+- [x] 16/10 16:07 UTC — #326 etapa SQL local concluída e revista, commits c934f748…/ae49b380…;64 asserções seriais,17 registos concorrentes/barreiras,14 hashes equivalentes a Live. Sem alteração de produção. Falhas+soluções #328, bónus por edição #327. Pedro autorizou atualização integral destes documentos e avanço das correções; reserva #326 substituída por #328. Preparar/testar correções técnicas; SQL Live e deploy apenas após prévia concreta. Novas pontuações pendentes. #322/#323 preservadas.
 
 - [x] 16/10, sessão 12:02–12:41 Fortaleza — **#324/#325/#326: primeira etapa frontend/local implementada**, executor ChatGPT · newgang-portal via agente Lovable do portal. Commit `4df23d3238d3219a78455d40b0ddb5914217c15f`: convite Crew+ref de quem partilha, preservação do par sem storage, ajuda móvel e testes locais. Prova versionada108 testes/14 ficheiros;9 verificações independentes do helper aprovadas. Typecheck/build reportados pelo agente, CI não confirmada independentemente. Sem Publish, DML/DDL, pontuações/níveis novos ou alteração de consentimento. RPCs/pontos/concorrência/E2E incluindo SSR e decisão de pontuações #327 continuam pendentes; Issues abertas. Tentativas anteriores de gravar reserva/estado foram recusadas pela revisão automática; Pedro autorizou expressamente a substituição documental preservando o restante conteúdo às12:41. Etapa concluída, sem reserva ativa desta demanda; #322/#323 intactas. Progresso completo nas Issues #324–#326.
 
