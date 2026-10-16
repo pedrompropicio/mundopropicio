@@ -21,12 +21,14 @@ TMP="$(mktemp -d /tmp/club-sql-it.XXXXXX)"
 SOCK="$TMP/sock"; DATA="$TMP/data"; mkdir -p "$SOCK"
 export PGHOST="$SOCK" PGPORT=54326 PGUSER=postgres PGDATABASE=clubit
 case "$PGHOST" in /tmp/club-sql-it.*) ;; *) echo "guard: PGHOST não-local, abortar"; exit 2;; esac
-cleanup(){ pg_ctl -D "$DATA" -m immediate stop >/dev/null 2>&1 || true; rm -rf "$TMP"; }
-trap cleanup EXIT
+cleanup(){ "${AS[@]}" pg_ctl -D "$DATA" -m immediate stop >/dev/null 2>&1 || true; rm -rf "$TMP"; }
 
+AS=()
+if [ "$(id -u)" = 0 ]; then AS=(setpriv --reuid=65534 --regid=65534 --clear-groups); chown -R 65534:65534 "$TMP"; fi
+trap cleanup EXIT
 PSQL=(psql -X -q -v ON_ERROR_STOP=1 --no-psqlrc -h "$SOCK" -p "$PGPORT" -U postgres -d clubit)
-initdb -D "$DATA" -U postgres -A trust --no-sync >/dev/null
-pg_ctl -D "$DATA" -l "$TMP/pg.log" -w -o "-c listen_addresses='' -c unix_socket_directories='$SOCK' -p $PGPORT -c fsync=off -c max_connections=40" start >/dev/null
+"${AS[@]}" initdb -D "$DATA" -U postgres -A trust --no-sync >/dev/null
+"${AS[@]}" pg_ctl -D "$DATA" -l "$TMP/pg.log" -w -o "-c listen_addresses='' -c unix_socket_directories='$SOCK' -p $PGPORT -c fsync=off -c max_connections=40" start >/dev/null
 psql -X -q -h "$SOCK" -p "$PGPORT" -U postgres -d postgres -c "CREATE DATABASE clubit" >/dev/null
 
 mkdir -p "$OUT"
