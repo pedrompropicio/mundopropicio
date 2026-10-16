@@ -21,7 +21,6 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| pendente | ChatGPT · newgang-portal | agente Lovable (dependência ERP do portal) | wallet-google.ts, testes e documentação específica Newgang; plano SQL de renomeação sem aplicar; exclui consentimento #322 e docs reservados #323 | 2026-10-16 03:03 UTC | restante implementação autorizada por Pedro; agente confirmado livre |
 | #322 | 0 · Cowork (ChatGPT) | agente Lovable (ERP) | ERP: consentimento por interação (ledger marketing_consent_*), portal-track, capi_consent_proof/guardas, lead_capture/redirect_log/leads (colunas aditivas), docs; coordenação futura MP/Coala/Newgang (portais NÃO tocados nesta etapa) | 2026-10-16 01:12 | 2026-10-16 01:46 — ERP corrigido após verificação independente (0175 + portal-track), aguarda revisão; portais MP/Coala/Newgang pendentes |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
@@ -118,6 +117,8 @@ _(sem pedidos — as falhas de teste vêm por Issue; os pedidos de verificação
 _(sem pedidos)_
 
 ## newgang-portal
+
+- [ ] 16/10 03:16 UTC — restante implementação preparada, commit `6da541493d14d66c1c2a9b67adc95ae79f15c9bb`: compatibilidade Crew/Elite e Goat/Lenda em wallet-google.ts, flag de novos criativos false; SQL guardado em `supabase/manual/20261016_newgang_niveis_crew_goat.PENDENTE.sql`, não aplicado. Código verificado independentemente; agente reporta 1248 testes aprovados e tsgo limpo; CI não verificada. Artes novas CREW/GOAT preparadas por imagegen e mostradas a Pedro; aguardam aprovação e carregamento. Não houve DML, deploy/Publish nem chamadas Google. Reserva desta etapa libertada após conclusão do agente; próxima etapa: aprovar artes, carregar/verificar, ativar compatibilidade e aplicar SQL só após prévia+Sim. #322/#323 intactas.
 
 - [ ] Resultado 16/10 UTC: rodapé -15% implementado no portal, CSS confirmado no commit `5dfc3b4a8b17fa312857800b9cc15504cc12dc5a`; sem Publish. Níveis pendentes de alinhamento canónico club_levels + wallet-google.ts/criativos (nomes novos atualmente caem no hero Gang). Nenhum DML/Google executado. Agente concluído e reserva desta tarefa libertada; #322/#323 preservadas. Regra de execução no próprio portal registada, consolidação documental pendente de #323. Issue nova recusada por revisão automática.
 
