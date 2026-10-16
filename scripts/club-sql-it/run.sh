@@ -42,7 +42,7 @@ PSQL=(psql -X -q -v ON_ERROR_STOP=1 --no-psqlrc -h "$SOCK" -p "$PGPORT" -U postg
 psql -X -q -h "$SOCK" -p "$PGPORT" -U postgres -d postgres -c "CREATE DATABASE clubit" >/dev/null
 
 mkdir -p "$OUT"
-LOG="$OUT/run.log"; : > "$LOG"
+LOG="$OUT/run-log.txt"; : > "$LOG"
 say(){ echo "$*" | tee -a "$LOG"; }
 say "runtime: $("$PGP/bin/postgres" --version) · socket local (sem TCP) · $(date -u +%FT%TZ)"
 say "listen_addresses=$("${PSQL[@]}" -tAc "show listen_addresses")" 
