@@ -30,6 +30,11 @@ Atualizado: 2026-10-16 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-E
 - Verificação visual do Publish dos níveis: Pedro informou “Verificação ok” nesta sessão. GET direto do ambiente continuou 403; API Gang/Crew/Goat já confirmada independentemente. Visual Wallet no dispositivo não inferido desta confirmação.
 - Caso de indicação analisado por leitura: Crew com2 confirmados, bónus coletivo ainda não devido; inscrição do convidado sem vínculo de indicação. Solução geral em #325; eventual reparação individual depende de confirmação e SQL próprios. Dados pessoais não publicados nas Issues.
 
+## Etapa SQL local concluída — 16/10 16:00 UTC
+- Commits c934f74899bd09fc12435ab3777f1a618ecda4ee e ae49b380788c4cf6bc62ac3b30b08c35c711178f. PostgreSQL17.9 efémero, migrações reais e fixtures:64 asserções seriais e17 registos de concorrência/barreiras. Provas docs/testes/issue326/. Runner interrompe divergências de hash; negativos comprovados.
+- Revisão independente de código/provas e SELECT das14 hashes; execução PostgreSQL feita pelo agente, não repetida pelo ChatGPT. Sem escrita Live/efeitos externos. Falhas e soluções #328; repetição de bónus Crew #327. API/RLS/E2E incluindo SSR e CI pendentes; #326 permanece aberta.
+- Frontend anterior publicado segundo Pedro às12:43 Fortaleza; GET público403 neste ambiente impede confirmar versão independentemente. Autorização expressa de13:07 cobre republicação integral deste estado e QUADRO preservando restante conteúdo; não altera revisão automática da plataforma.
+
 ## Primeira etapa implementada — 16/10, sessão 12:02–12:41 Fortaleza
 - #325/#326 parciais: convite Crew+ref do membro que partilha, preservação do par mesmo sem localStorage, ajuda móvel por toque, fixtures locais e bloqueio de rede reforçado. Commit portal `4df23d3238d3219a78455d40b0ddb5914217c15f`. Sem Publish, alteração Live ou novas pontuações/níveis.
 - Provas versionadas lidas no commit:108 testes em14 ficheiros (baseline86), prova negativa do guard perante tentativa de rede com erro capturado. Leitura independente de código/diff e9 verificações do helper executadas por ChatGPT: aprovadas. Typecheck/build reportados pelo agente; CI ainda não confirmada independentemente.
@@ -38,6 +43,7 @@ Atualizado: 2026-10-16 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-E
 - Próximo passo: definir pontuações/transição e preparar verificação integrada isolada; não publicar esta etapa antes das verificações pendentes e decisão do Pedro.
 
 ## A trabalhar agora
+- #328: Pedro autorizou às13:07 Fortaleza preparar e testar as correções de inscrição concorrente, identidade por email e convite de Crew cheia. Executor ChatGPT · newgang-portal, agente ERP para backend local; sem aplicar SQL Live/deploy até apresentar prévia concreta. #322/#323 preservadas. Bónus por edição e novas pontuações #327 continuam decisão própria.
 Vídeos das edições por ficheiro (D-ERP277, 15/10): bucket, CRM e contrato `history` prontos; edge function newgang-portal e CRM por publicar; o site tem de tocar `provider:"upload"` (<video src=url poster=poster_url||cover_url>).
 
 Criativos Google Wallet aplicados: quatro originais carregados e verificados, URLs ativos, função deployada. Classe existente e cartão de teste nº 3 atualizados e lidos na Google; 12/12 testes Wallet e suite completa 1.127 passed, 1 skipped, 11 todo, sem falhas. Pendentes: confirmação visual no dispositivo e decisão sobre cores (LoyaltyObject não suporta cor por membro).
