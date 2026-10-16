@@ -30,6 +30,8 @@ import { CrewsSection } from "./CrewsSection";
 import { MemberPointsDialog } from "./MemberPointsDialog";
 import { EditionVideos } from "./EditionVideos";
 import { NEWGANG_CONTENT_GROUPS, cleanNewgangContent } from "@/lib/newgang-content";
+import { useClubActiveConfig } from "@/hooks/useClubActiveConfig";
+import { assertClubWrite, CONTROLLED_RULES, ruleSource } from "@/lib/club-config-source";
 
 const SITE_DOMAIN = "newgangfestival.pt";
 const db = supabase as any;
@@ -518,6 +520,8 @@ function SimpleTable({ table, siteId, companyId, cols, order }: {
   cols: Array<{ k: string; l: string; num?: boolean; ro?: boolean }>;
 }) {
   const qc = useQueryClient();
+  const activeCfg = useClubActiveConfig(siteId);
+  const guarded = table === "club_point_rules" || table === "club_levels";
   const key = ["club-table", table, siteId];
   const q = useQuery({
     queryKey: key,
@@ -527,38 +531,60 @@ function SimpleTable({ table, siteId, companyId, cols, order }: {
       return (data ?? []) as Record<string, any>[];
     },
   });
+  const ready = !guarded || (activeCfg.ready && q.isSuccess && !q.isFetching && !q.isError);
   const save = useMutation({
     mutationFn: async ({ id, patch }: { id?: string; patch: Record<string, unknown> }) => {
+      if (guarded) {
+        if (!ready) throw new Error("Configuração do Clube não verificada");
+        const latest = await activeCfg.refetch();
+        assertClubWrite(!latest.isError && latest.data !== undefined, latest.data ?? null, table, patch, !id);
+        const row = q.data?.find(r => r.id === id);
+        if (latest.data && table === "club_point_rules" && row && CONTROLLED_RULES.includes(row.rule_key) && "points" in patch)
+          throw new Error("Pontos definidos pela configuração ativa");
+      }
       const { error } = id
-        ? await db.from(table).update(patch).eq("id", id)
+        ? await db.from(table).update(patch).eq("id", id).eq("site_id", siteId)
         : await db.from(table).insert({ ...patch, site_id: siteId, company_id: companyId });
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: key }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: key }); qc.invalidateQueries({ queryKey: ["club-crew-rule", siteId] }); qc.invalidateQueries({ queryKey: ["club-ranking", siteId] }); },
     onError: err,
   });
   const del = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await db.from(table).delete().eq("id", id);
+      if (guarded) {
+        const latest = await activeCfg.refetch();
+        assertClubWrite(ready && !latest.isError && latest.data !== undefined, latest.data ?? null, table, {}, true);
+      }
+      const { error } = await db.from(table).delete().eq("id", id).eq("site_id", siteId);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: key }),
     onError: err,
   });
   const [nd, setNd] = useState<Record<string, string>>({});
+  useEffect(() => setNd({}), [siteId]);
   const conv = (c: { num?: boolean }, v: string) => (c.num ? (v === "" ? null : Number(v)) : v.trim() || null);
   return (
     <div className="space-y-2">
+      {!ready && <p role="status" className="text-sm text-muted-foreground">{activeCfg.isError || q.isError ? "Não foi possível verificar a configuração do Clube." : "A verificar configuração do Clube…"}</p>}
+      {guarded && ready && activeCfg.data && <p className="text-xs text-muted-foreground">{activeCfg.data.version} · edição ativa · {table === "club_levels" ? "Nomes e limiares protegidos; benefícios mantêm-se editáveis." : "Pontos versionados só de leitura."}</p>}
       {(q.data ?? []).map((r) => (
-        <div key={r.id} className="flex gap-2">
+        <div key={r.id} className="space-y-1">
+        {table === "club_point_rules" && ready && (() => {
+          const src = ruleSource(activeCfg.data ?? null, r as { rule_key: string; points: number }, activeCfg.data?.event_id ?? null);
+          return <p className="text-xs text-muted-foreground">{src.version ? `${src.version} · ${src.scope}${src.cap !== null ? ` · teto ${src.cap}` : ""}` : "Regra atual"}{!src.available ? " · indisponível até integração verificável" : ""}</p>;
+        })()}
+        <div className="flex flex-wrap gap-2">
           {cols.map((c) => (
-            <Input key={c.k} type={c.num ? "number" : "text"} defaultValue={r[c.k] ?? ""} disabled={c.ro} aria-label={c.l}
+            <Input key={`${c.k}:${r[c.k]}:${activeCfg.data?.version ?? "legacy"}`} className="min-w-0 flex-1 basis-28" type={c.num ? "number" : "text"} defaultValue={ready ? (table === "club_point_rules" && c.k === "points" ? ruleSource(activeCfg.data ?? null, r as { rule_key: string; points: number }, activeCfg.data?.event_id ?? null).points : r[c.k] ?? "") : ""} disabled={c.ro || !ready || (guarded && !!activeCfg.data && (table === "club_levels" ? c.k !== "benefit" : c.k === "rule_key" || (c.k === "points" && CONTROLLED_RULES.includes(r.rule_key))))} aria-label={c.l}
               onBlur={(e) => String(r[c.k] ?? "") !== e.target.value && save.mutate({ id: r.id, patch: { [c.k]: conv(c, e.target.value) } })} />
           ))}
-          <Button variant="ghost" size="icon" aria-label="Remover" onClick={() => confirm("Remover?") && del.mutate(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+          <Button disabled={!ready || (guarded && !!activeCfg.data)} variant="ghost" size="icon" aria-label="Remover" onClick={() => confirm("Remover?") && del.mutate(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+        </div>
         </div>
       ))}
-      <div className="flex gap-2">
+      <fieldset disabled={!ready || (guarded && !!activeCfg.data)} className="flex flex-wrap gap-2">
         {cols.map((c) => (
           <Input key={c.k} type={c.num ? "number" : "text"} placeholder={c.l} value={nd[c.k] ?? ""} onChange={(e) => setNd({ ...nd, [c.k]: e.target.value })} />
         ))}
@@ -568,7 +594,7 @@ function SimpleTable({ table, siteId, companyId, cols, order }: {
             cols.forEach((c) => (patch[c.k] = conv(c, nd[c.k] ?? "")));
             save.mutate({ patch }, { onSuccess: () => setNd({}) });
           }}><Plus className="h-4 w-4" /></Button>
-      </div>
+      </fieldset>
     </div>
   );
 }
@@ -636,15 +662,15 @@ function ClubTab({ site }: { site: Site }) {
     <div className="grid gap-4 lg:grid-cols-2">
       <ClubTermsSection siteId={site.id} companyId={site.company_id} />
       <MissionsSection siteId={site.id} companyId={site.company_id} />
-      <CrewsSection siteId={site.id} companyId={site.company_id} />
+      <CrewsSection key={site.id} siteId={site.id} companyId={site.company_id} eventId={site.event_id} />
       <Card className="space-y-2 p-4">
         <h3 className="text-sm font-semibold">Regras de pontos</h3>
-        <SimpleTable table="club_point_rules" siteId={site.id} companyId={site.company_id} order="rule_key"
+        <SimpleTable key={`rules:${site.id}`} table="club_point_rules" siteId={site.id} companyId={site.company_id} order="rule_key"
           cols={[{ k: "rule_key", l: "Chave" }, { k: "label", l: "Descrição" }, { k: "points", l: "Pontos", num: true }]} />
       </Card>
       <Card className="space-y-2 p-4">
         <h3 className="text-sm font-semibold">Níveis</h3>
-        <SimpleTable table="club_levels" siteId={site.id} companyId={site.company_id} order="min_points"
+        <SimpleTable key={`levels:${site.id}`} table="club_levels" siteId={site.id} companyId={site.company_id} order="min_points"
           cols={[{ k: "name", l: "Nome" }, { k: "min_points", l: "Mínimo", num: true }, { k: "benefit", l: "Benefício" }]} />
       </Card>
       <Card className="space-y-2 p-4 lg:col-span-2">
