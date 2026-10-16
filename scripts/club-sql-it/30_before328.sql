@@ -56,3 +56,19 @@ DO $$ DECLARE p uuid; BEGIN
   p := it.new('antes.preserva@example.invalid');
   UPDATE club_members SET pending_crew_code = 'ABCDEF' WHERE id = p;
 END $$;
+
+-- Defeito 4 (revisão 2): membro JÁ confirmado reenvia formulário com Crew cheia → código perdido sem rasto.
+CREATE FUNCTION it.lc(p_email text, p_raw jsonb) RETURNS uuid LANGUAGE plpgsql AS $$
+DECLARE i uuid; BEGIN
+  INSERT INTO public.lead_capture(company_id, source, email, name, raw)
+  VALUES ('00000000-0000-4000-8000-0000000000a1', 'clube_newgang', p_email, 'Teste IT', p_raw) RETURNING id INTO i;
+  UPDATE public.lead_capture SET processed = true WHERE id = i;  -- dispara trg_club_from_lead_capture (AFTER UPDATE OF processed)
+  RETURN i; END $$;
+DO $$ DECLARE r jsonb; h uuid; l uuid; BEGIN
+  r := it.full_crew('antes.tg');
+  h := it.newc('antes.tg.reenvio@example.invalid');
+  l := it.lc('antes.tg.reenvio@example.invalid', jsonb_build_object('crew_code', r->>'code'));
+  PERFORM it.ok('antes','DEFEITO 4 reproduzido: confirmado + crew cheia via formulário => sem crew e sem código guardado',
+    NOT EXISTS (SELECT 1 FROM club_crew_members WHERE member_id=h) AND (SELECT pending_crew_code IS NULL FROM club_members WHERE id=h));
+  PERFORM it.ok('antes','trigger não abortou: lead continua processed', (SELECT processed FROM lead_capture WHERE id=l));
+END $$;

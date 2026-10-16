@@ -81,6 +81,7 @@ cmp -s "$TMP/h1.txt" "$TMP/h1b.txt" && say "pendente idempotente: 2.ª aplicaç�
 # D) DEPOIS: correções.
 say "== D) depois"
 "${PSQL[@]}" -f "$HERE/40_after328.sql" 2>&1 | tee -a "$LOG"
+"${PSQL[@]}" -f "$HERE/45_trigger328.sql" 2>&1 | tee -a "$LOG"
 OUT="$OUT" bash "$HERE/25_conc328.sh" "${PSQL[*]}" after 2>&1 | tee -a "$LOG"
 "${PSQL[@]}" -f "$HERE/05_egress.sql" 2>&1 | tee -a "$LOG"
 "${PSQL[@]}" -tAc "SELECT json_agg(json_build_object('n',n,'phase',phase,'name',name,'ok',ok) ORDER BY n) FROM it.results" > "$OUT/serial-results.json"
