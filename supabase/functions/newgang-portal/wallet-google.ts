@@ -95,7 +95,7 @@ export function buildObject(issuer: string, m: WalletMember, o: ArtworkOptions =
     state: "ACTIVE",
     accountId: String(m.member_no),
     accountName: m.first_name || "Membro",
-    ...((o.artworkReady ?? WALLET_ARTWORK_READY) ? levelArtwork(m.level) : {}),
+    ...((o.artworkReady ?? WALLET_ARTWORK_READY) ? levelArtwork(m.level, o.renamedArtworkReady ?? WALLET_RENAMED_ARTWORK_READY) : {}),
     loyaltyPoints: { label: "Pontos", balance: { int: Math.trunc(m.points) } },
     secondaryLoyaltyPoints: { label: "Nível", balance: { string: m.level || "—" } },
     textModulesData: text,
