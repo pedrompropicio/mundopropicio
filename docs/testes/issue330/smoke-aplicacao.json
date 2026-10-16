@@ -4,7 +4,7 @@
     "token_case": "absent",
     "status": 200,
     "expected": 200,
-    "ms": 1731,
+    "ms": 914,
     "private_keys": 0,
     "ok": true,
     "profile_mission": {
@@ -60,9 +60,9 @@
     "token_case": "absent",
     "status": 200,
     "expected": 200,
-    "ms": 1867,
-    "private_keys": 5,
-    "ok": false,
+    "ms": 856,
+    "private_keys": 0,
+    "ok": true,
     "profile_mission": {
       "rule_key": "profile_complete",
       "label": "Completa o teu perfil",
@@ -116,7 +116,7 @@
     "token_case": "absent",
     "status": 200,
     "expected": 200,
-    "ms": 456,
+    "ms": 915,
     "private_keys": 0,
     "ok": true
   },
@@ -125,7 +125,7 @@
     "token_case": "absent",
     "status": 200,
     "expected": 200,
-    "ms": 575,
+    "ms": 414,
     "private_keys": 0,
     "ok": true
   },
@@ -134,16 +134,16 @@
     "token_case": "absent",
     "status": 200,
     "expected": 200,
-    "ms": 594,
-    "private_keys": 5,
-    "ok": false
+    "ms": 565,
+    "private_keys": 0,
+    "ok": true
   },
   {
     "action": "profile_countries",
     "token_case": "absent",
     "status": 200,
     "expected": 200,
-    "ms": 187,
+    "ms": 232,
     "private_keys": 0,
     "ok": true,
     "count": 249,
@@ -155,7 +155,7 @@
     "token_case": "absent",
     "status": 401,
     "expected": 401,
-    "ms": 612,
+    "ms": 355,
     "private_keys": 0,
     "ok": true,
     "error": "no_session"
@@ -165,7 +165,7 @@
     "token_case": "absent",
     "status": 401,
     "expected": 401,
-    "ms": 886,
+    "ms": 497,
     "private_keys": 0,
     "ok": true,
     "error": "no_session"
@@ -175,7 +175,7 @@
     "token_case": "malformed_short",
     "status": 401,
     "expected": 401,
-    "ms": 223,
+    "ms": 235,
     "private_keys": 0,
     "ok": true,
     "error": "no_session"
@@ -185,7 +185,7 @@
     "token_case": "malformed_short",
     "status": 401,
     "expected": 401,
-    "ms": 232,
+    "ms": 265,
     "private_keys": 0,
     "ok": true,
     "error": "no_session"
@@ -195,7 +195,7 @@
     "token_case": "invalid_long",
     "status": 401,
     "expected": 401,
-    "ms": 500,
+    "ms": 529,
     "private_keys": 0,
     "ok": true,
     "error": "no_session"
@@ -205,7 +205,7 @@
     "token_case": "invalid_long",
     "status": 401,
     "expected": 401,
-    "ms": 1043,
+    "ms": 1051,
     "private_keys": 0,
     "ok": true,
     "error": "no_session"
@@ -215,7 +215,7 @@
     "token_case": "absent",
     "status": 401,
     "expected": 401,
-    "ms": 985,
+    "ms": 517,
     "private_keys": 0,
     "ok": true,
     "error": "no_session"
