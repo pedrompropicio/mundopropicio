@@ -85,7 +85,9 @@ Nenhum.
 
 - Ivete Clareou 2026, SUPERSOUNDS: 509.260,99 / 819.061,27 / −309.800,28 —
   Portal igual ao ERP ao cêntimo.
-- Receita de bilheteira soma-se por `ticket_sales.total_value`.
+- Receita de bilheteira soma-se por `ticket_sales.total_value` (fallback
+  `quantity × unit_price` só se NULL) — regra única em todo o sistema via
+  `ticketSaleRevenue` (D-ERP286, 16/10/2026): cachê = card = fecho.
 - A relação utilizador ↔ sócio é N→1; escrita só pelas RPC
   `set_partner_portal_user` / `unset_partner_portal_user`.
 - `has_permission` depende de `current_company_id()` e devolve falsos negativos
