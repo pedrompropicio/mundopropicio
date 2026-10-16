@@ -6054,3 +6054,8 @@ Origem: TikTok BR do Litto (7689229625189138438) ficou com saldo 0 a 13/10 e est
 - Sanitização por parâmetro (consecutivos, percent-encoded, fragmento) e JSON `raw` recursivo, igual em TS e SQL.
 - Guarda de captura revalida sob lock partilhado por sujeito; `marketing_bound` = valor persistido. Retry por `client_event_id` não reinterpreta.
 - Migrações: 0174 (vazia por engano operacional), 0175 (efetiva).
+
+
+## D-ERP285 — Entrada de dados executada no próprio chat 10 (15/10/2026 Fortaleza; 16/10 UTC)
+
+**Decisão expressa do Pedro, #323.** O chat 10 passa a executar lançamentos operacionais pelos fluxos existentes após triagem, escolha, prévia dos registos/efeitos e autorização expressa. Inclui fornecedores, linhas de BP necessárias, transações, anexos, importações, conciliações e registo de liquidações. O 0 fica para implementações em código e alterações técnicas. Executor único na Issue, reserva, pesquisa de duplicados/NIF/IBAN, conferência e fecho documental mantidos. Autorização de lote com âmbito concreto cobre as escritas necessárias, sem pedir confirmação por cada insert. Não autoriza pagamentos bancários, emails, código, DDL, configurações, tarefas ao agente Lovable ou Publish pelo 10. A alteração substitui a exclusividade do 0 apenas para entrada operacional de dados. Aplicável nos dois lados, Claude e ChatGPT. Autorização desta sessão: lote Lovable/DNS.PT/TikTok/TAP conforme #323; revenue share e Anthropic excluídos.
