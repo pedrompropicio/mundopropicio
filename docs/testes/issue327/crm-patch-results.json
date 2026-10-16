@@ -1,0 +1,3 @@
+{"patch_sha256":"f1050a2961596542fc52ce9a42e033dc1169a49acd0a97bd0be85a45730e8f68","patch_applies_to_HEAD":true,"head":"ac8df06761df77796317faf1806ce3850dc2758e",
+ "original_sha_antes":"ef92175bc62b0e4a8451634c71c564dc23d07d44d642711e0ac57353e6999315","original_sha_depois":"ef92175bc62b0e4a8451634c71c564dc23d07d44d642711e0ac57353e6999315","original_inalterado":true,
+ "tsgo_exit":0,"vitest_exit":0,"vitest_passed":4,"gravacao_via_crewRuleWrite":1}

@@ -63,7 +63,12 @@
   "club_crew_join": "inalterada_igual_live",
   "club_crew_leave": "inalterada_igual_live",
   "club_crew_name_ok": "inalterada_igual_live",
-  "club_crew_pending": "inalterada_igual_live",
+  "club_crew_pending": {
+   "hash": "5476703bf9fa4b01a766f9d86b6ba960",
+   "kind": "alterada",
+   "live": "04185aa10e84c6e44fc81ed90aa08f56",
+   "verbatim": true
+  },
   "club_decide_attendance": "inalterada_igual_live",
   "club_decide_guess": "inalterada_igual_live",
   "club_from_lead_capture": "inalterada_igual_live",
@@ -87,7 +92,7 @@
   "club_points_set": "inalterada_igual_live",
   "club_points_void": "inalterada_igual_live",
   "club_purchase_revoke": {
-   "hash": "8f3c602bec1004863cfbfc77af576d6a",
+   "hash": "b14ae9141ed319c4a83ea7b7c2ec0d86",
    "kind": "nova",
    "live": null,
    "verbatim": true

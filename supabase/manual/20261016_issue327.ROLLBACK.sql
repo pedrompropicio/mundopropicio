@@ -1,8 +1,10 @@
 -- #327 — REVERSÃO (ficheiro inerte, NÃO APLICADA). Gerada das funções do baseline local, cujo md5 = Live pós-0176.
 -- Repõe as 5 funções alteradas verbatim, remove as funções novas, repõe limiares e as 4 regras visíveis de antes do
 -- 1.º cutover e retira configs. NÃO apaga créditos, pisos, provas, contagens nem colunas (ficam DEPRECATED).
--- ORDEM: 1) reverter a API (edge newgang-portal para a versão sem club_member_level/club_rules_public/referrals);
---        2) só depois correr este ficheiro. Com a API nova ainda ativa, as RPCs removidas aqui dariam erro explícito.
+-- ORDEM SEGURA (rev3): 1) API compatível já deployada (usa club_member_level enquanto existir; só cai para a fórmula
+--    antiga se a RPC estiver AUSENTE — PGRST202/42883, nunca em erros genéricos); 2) correr este ficheiro; 3) API antiga é opcional.
+--    Não depende de pausar o cron Wallet: antes do COMMIT a RPC serve o canónico; depois do COMMIT a fórmula antiga com os
+--    limiares repostos nunca fica abaixo do canónico (guarda abaixo). A ordem inversa (API antiga primeiro) rebaixa — proibida.
 -- Uma transação; aborta (nada muda) se o patch não estiver aplicado ou se algum membro descesse de nível.
 BEGIN;
 DO $rb$ BEGIN
@@ -67,6 +69,40 @@ DECLARE m record; j jsonb; st text; BEGIN
         pending_crew_checked_at = now() WHERE id = p_member;
     END IF;
   END IF;
+END $function$
+;
+CREATE OR REPLACE FUNCTION public.club_crew_pending(p_member uuid, p_action text DEFAULT 'status'::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE m record; j jsonb; st text; nm text; in_same boolean; in_any boolean; BEGIN
+  IF p_action IS NULL OR p_action NOT IN ('status','retry','dismiss') THEN RETURN jsonb_build_object('error','action'); END IF;
+  SELECT * INTO m FROM club_members WHERE id = p_member FOR UPDATE;
+  IF NOT FOUND OR m.confirmed_at IS NULL THEN RETURN jsonb_build_object('error','no_session'); END IF;
+  IF m.pending_crew_code IS NULL OR m.pending_crew_status IS NULL THEN RETURN jsonb_build_object('pending', NULL); END IF;
+  in_any := EXISTS (SELECT 1 FROM club_crew_members WHERE site_id = m.site_id AND member_id = p_member);
+  in_same := EXISTS (SELECT 1 FROM club_crew_members cm JOIN club_crews c ON c.id = cm.crew_id
+                     WHERE cm.site_id = m.site_id AND cm.member_id = p_member AND c.code = m.pending_crew_code);
+  IF p_action = 'dismiss' OR in_same OR (in_any AND m.pending_crew_status <> 'already_in_crew') THEN
+    UPDATE club_members SET pending_crew_code = NULL, pending_crew_status = NULL, pending_crew_checked_at = NULL WHERE id = p_member;
+    RETURN jsonb_build_object('pending', NULL);
+  END IF;
+  IF p_action = 'retry' THEN
+    BEGIN
+      j := club_crew_join(p_member, m.pending_crew_code);
+      st := j->>'error';
+    EXCEPTION WHEN OTHERS THEN RAISE WARNING 'club_crew_pending retry: %', SQLERRM; j := NULL; st := 'error'; END;
+    IF st IS NULL THEN
+      UPDATE club_members SET pending_crew_code = NULL, pending_crew_status = NULL, pending_crew_checked_at = NULL WHERE id = p_member;
+      RETURN jsonb_build_object('pending', NULL, 'crew_id', j->'crew_id');
+    END IF;
+    m.pending_crew_status := CASE WHEN st IN ('crew_full','crew_not_found','already_in_crew') THEN st ELSE 'error' END;
+    UPDATE club_members SET pending_crew_status = m.pending_crew_status, pending_crew_checked_at = now() WHERE id = p_member;
+  END IF;
+  SELECT name INTO nm FROM club_crews WHERE site_id = m.site_id AND code = m.pending_crew_code;
+  RETURN jsonb_build_object('pending', jsonb_build_object('status', m.pending_crew_status, 'code', m.pending_crew_code, 'crew_name', nm));
 END $function$
 ;
 CREATE OR REPLACE FUNCTION public.club_ranking(p_site uuid, p_limit integer DEFAULT 100)

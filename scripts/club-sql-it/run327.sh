@@ -53,12 +53,14 @@ say "listen_addresses=$("${PSQL[@]}" -tAc "show listen_addresses")"
 PEND="$ROOT/supabase/manual/20261016_issue327.PENDENTE.sql"; RB="$ROOT/supabase/manual/20261016_issue327.ROLLBACK.sql"
 LIVE="$HERE/live-hashes-327.json"
 hashes(){ "${PSQL[@]}" -tA -F' ' -c "SELECT p.proname, md5(pg_get_functiondef(p.oid)) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND (p.proname LIKE 'club\_%' OR p.proname LIKE '\_club%') ORDER BY 1"; }
-CHANGED="'club_award','club_award_fixed','club_confirm_member','club_ranking','club_wallet_due'"
+CHANGED="'club_award','club_award_fixed','club_confirm_member','club_crew_pending','club_ranking','club_wallet_due'"
 
 # A) Baseline = migrações do repo até 0176; guard contra o snapshot Live pós-0176 ANTES do patch.
 "${PSQL[@]}" -f "$HERE/00_stubs.sql" >>"$LOG" 2>&1
 for f in "${MIGRATIONS[@]}"; do say "aplicar $f sha256=$(sha256sum "$MIG/$f" | cut -c1-16)"; "${PSQL[@]}" -f "$MIG/$f" >>"$LOG" 2>&1; done
 hashes > "$TMP/h0.txt"
+say "paridade ACL Live: $(sha256sum "$HERE/06_acl_parity_live.sql" | cut -c1-16) (club_award_fixed → service_role)"
+"${PSQL[@]}" -f "$HERE/06_acl_parity_live.sql" >>"$LOG" 2>&1
 say "== A) baseline vs Live pós-0176 (sem patch)"
 python3 "$HERE/compare327.py" base "$LIVE" "$TMP/h0.txt" "$OUT/equivalencia-baseline.json" | tee -a "$LOG"
 ACL0="$("${PSQL[@]}" -tAc "SELECT string_agg(proname||'='||coalesce(proacl::text,'default'), ' ' ORDER BY proname) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ($CHANGED)")"; say "acl baseline: $ACL0"
@@ -103,23 +105,37 @@ say "== D) depois"
 "${PSQL[@]}" -f "$HERE/65_rls327.sql" 2>&1 | tee -a "$LOG"
 OUT="$OUT" bash "$HERE/70_conc327.sh" "${PSQL[*]}" 2>&1 | tee -a "$LOG"
 OUT="$OUT" bash "$HERE/75_epoch327.sh" "${PSQL[*]}" 2>&1 | tee -a "$LOG"
+OUT="$OUT" PEND_OLD="$MIG/0176_issue328_club_identity_crew_pending.sql" bash "$HERE/77_pending327.sh" "${PSQL[*]}" 2>&1 | tee -a "$LOG"
 "${PSQL[@]}" -f "$HERE/05_egress.sql" 2>&1 | tee -a "$LOG"
 "${PSQL[@]}" -tAc "SELECT json_agg(json_build_object('n',n,'phase',phase,'name',name,'ok',ok) ORDER BY n) FROM t.results" > "$OUT/serial-results.json"
 say "serial: $("${PSQL[@]}" -tAc "SELECT count(*) FILTER (WHERE ok)||'/'||count(*) FROM t.results")"
 
 # E) Reversão: funções = Live; créditos e histórico preservados; limiares anteriores ao 1.º cutover.
 say "== E) reversão sha256=$(sha256sum "$RB" | cut -c1-16)"
+# Membro com total negativo (inscrição anulada + acerto) — não pode bloquear nem descer.
+"${PSQL[@]}" -tAc "DO \$\$ DECLARE n uuid; BEGIN n := t.newc('rb_negativo@example.invalid');
+  INSERT INTO club_points(company_id, member_id, rule_key, points, ref_id) SELECT company_id, n, 'seed_fixture', -250, 'rb_negativo' FROM club_members WHERE id = n; END \$\$;" >/dev/null
+"${PSQL[@]}" -tAc "CREATE TABLE t.lv_before AS SELECT m.id, m.site_id, x.level_name, (SELECT min_points FROM club_levels l WHERE l.site_id=m.site_id AND l.name=x.level_name) AS rank_min, x.protected FROM club_members m CROSS JOIN LATERAL club_member_level(m.id) x" >/dev/null
+say "canónico antes: Goat protegido=$("${PSQL[@]}" -tAc "SELECT level_name||'/'||protected FROM t.lv_before WHERE id=t.m('lv1500@example.invalid')") negativo=$("${PSQL[@]}" -tAc "SELECT coalesce(level_name,'(sem nível)')||'/'||t.pts(id) FROM t.lv_before WHERE id=t.m('rb_negativo@example.invalid')")"
 N0="$("${PSQL[@]}" -tAc "SELECT count(*)||'/'||sum(points) FROM club_points")"
-# Ordem: API revertida primeiro. Consumidor antigo (soma + club_levels, sem RPC) funciona com o patch SQL ainda aplicado:
+# Ordem ANTIGA (API primeiro) — só como controlo negativo: a fórmula antiga com o SQL #327 ainda aplicado rebaixa.
 OLDLV="$("${PSQL[@]}" -tAc "SELECT (SELECT name FROM club_levels l WHERE l.site_id=m.site_id AND l.min_points <= (SELECT coalesce(sum(points),0) FROM club_points WHERE member_id=m.id) ORDER BY min_points DESC LIMIT 1) FROM club_members m WHERE email='lv1500@example.invalid' AND site_id='00000000-0000-4000-8000-0000000000a2'")"
-say "consumidor antigo (sem RPC) com SQL #327 ainda aplicado: nível=$OLDLV"
+say "controlo negativo da ORDEM ANTIGA (API revertida antes do SQL): Goat protegido apareceria como $OLDLV → janela de rebaixamento; ordem segura = SQL primeiro sob API compat"
+[ "$OLDLV" != Goat ] || exit 18
 # Guarda: reversão aborta (nada muda) se alguém descesse de nível — controlo negativo com um membro cujos pontos caem abaixo do piso.
 "${PSQL[@]}" -tAc "INSERT INTO club_points(company_id, member_id, rule_key, points, ref_id) SELECT company_id, id, 'seed_fixture', -1400, 'rb_neg' FROM club_members WHERE email='lv1500@example.invalid' AND site_id='00000000-0000-4000-8000-0000000000a2'" >/dev/null
 if "${PSQL[@]}" -f "$RB" >>"$LOG" 2>&1; then say "ERRO: reversão devia abortar"; exit 10; fi
 [ -n "$("${PSQL[@]}" -tAc "SELECT to_regprocedure('public.club_member_level(uuid)')")" ] && say "reversão abortou com descida de nível; nada mudou (funções novas presentes)" || exit 11
+[ "$("${PSQL[@]}" -tAc "SELECT level_name||'/'||protected FROM club_member_level(t.m('lv1500@example.invalid'))")" = "Goat/true" ] && say "após aborto a RPC/API canónica continua a servir: Goat protegido com pontos abaixo do limiar" || exit 17
 "${PSQL[@]}" -tAc "DELETE FROM club_points WHERE ref_id='rb_neg' AND rule_key='seed_fixture'" >/dev/null
 "${PSQL[@]}" -f "$RB" >>"$LOG" 2>&1; hashes > "$TMP/h2.txt"
 python3 "$HERE/compare327.py" base "$LIVE" "$TMP/h2.txt" "$OUT/equivalencia-pos-reversao.json" | tee -a "$LOG"
+# API compatível depois do SQL revertido: RPC ausente (42883) → fórmula antiga. Ninguém desce face ao canónico de antes.
+[ -z "$("${PSQL[@]}" -tAc "SELECT to_regprocedure('public.club_member_level(uuid)')")" ] && say "pós-reversão: club_member_level ausente → API compat usa fórmula antiga (só neste caso)" || exit 14
+DROPS="$("${PSQL[@]}" -tAc "WITH a AS (SELECT b.id, (SELECT l.min_points FROM club_levels l WHERE l.site_id=b.site_id AND l.name=b.level_name) AS need_min, (SELECT max(l.min_points) FROM club_levels l WHERE l.site_id=b.site_id AND l.min_points <= t.pts(b.id)) AS after_min FROM t.lv_before b WHERE b.level_name IS NOT NULL) SELECT count(*) FROM a WHERE coalesce(after_min,-1) < need_min")"
+[ "$DROPS" = 0 ] && say "nenhum membro desce na passagem RPC canónica → fórmula antiga: 0 descidas ($("${PSQL[@]}" -tAc "SELECT count(*) FROM t.lv_before") membros)" || { say "DESCIDAS: $DROPS"; exit 15; }
+[ "$("${PSQL[@]}" -tAc "SELECT (SELECT name FROM club_levels l WHERE l.site_id=m.site_id AND l.min_points <= t.pts(m.id) ORDER BY min_points DESC LIMIT 1) FROM club_members m WHERE id=t.m('lv1500@example.invalid')")" = Goat ] && say "Goat protegido (1500) continua Goat após reversão" || exit 16
+say "membro negativo após reversão: $("${PSQL[@]}" -tAc "SELECT coalesce((SELECT name FROM club_levels l WHERE l.site_id=m.site_id AND l.min_points <= t.pts(m.id) ORDER BY min_points DESC LIMIT 1),'(sem nível)')||'/'||t.pts(m.id) FROM club_members m WHERE id=t.m('rb_negativo@example.invalid')") (igual ao canónico antes)"
 [ "$N0" = "$("${PSQL[@]}" -tAc "SELECT count(*)||'/'||sum(points) FROM club_points")" ] && say "reversão preserva créditos: $N0" || exit 7
 [ "$ACL0" = "$("${PSQL[@]}" -tAc "SELECT string_agg(proname||'='||coalesce(proacl::text,'default'), ' ' ORDER BY proname) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ($CHANGED)")" ] && say "ACL das 5 funções = baseline" || { say "ACL diferente"; exit 9; }
 say "níveis após reversão: $("${PSQL[@]}" -tAc "SELECT jsonb_object_agg(name,min_points) FROM club_levels WHERE site_id='00000000-0000-4000-8000-0000000000a2'")"

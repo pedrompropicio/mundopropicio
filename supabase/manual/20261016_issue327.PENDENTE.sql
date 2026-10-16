@@ -305,12 +305,53 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE e record; r club_points; BEGIN
   IF p_status IS NULL OR p_status NOT IN ('refunded','cancelled') OR coalesce(btrim(p_reason),'') = '' THEN
     RAISE EXCEPTION 'club_purchase_revoke: estado/motivo inválido' USING ERRCODE = '22023'; END IF;
+  SELECT * INTO e FROM club_purchase_evidence WHERE id = p_evidence; IF NOT FOUND THEN RETURN 0; END IF;
+  PERFORM _club_site_lock(e.site_id, false);          -- ordem global: site → linha
   SELECT * INTO e FROM club_purchase_evidence WHERE id = p_evidence FOR UPDATE; IF NOT FOUND THEN RETURN 0; END IF;
   UPDATE club_purchase_evidence SET status = p_status, status_reason = p_reason WHERE id = p_evidence;
   IF e.credited_ref IS NULL THEN RETURN 0; END IF;
   SELECT * INTO r FROM club_points WHERE member_id = e.member_id AND rule_key = 'promo_lot_purchase' AND ref_id = e.credited_ref;
   RETURN _club_points_void_row(r, p_reason);
 END $$;
+
+-- Convite de Crew pendente (#328): corpo de 0176 preservado; ÚNICA alteração = bloqueio partilhado do site ANTES da
+-- linha do membro, e a linha passa a FOR NO KEY UPDATE (continua a serializar status/retry/dismiss do mesmo membro,
+-- mas já não conflitua com o KEY SHARE da FK de club_level_floors). Sem isto: retry segura o membro → crew_check →
+-- motor pede o site partilhado; o cutover segura o site exclusivo → INSERT do piso pede KEY SHARE do mesmo membro = ciclo.
+CREATE OR REPLACE FUNCTION public.club_crew_pending(p_member uuid, p_action text DEFAULT 'status') RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE m record; j jsonb; st text; nm text; in_same boolean; in_any boolean; s uuid; BEGIN
+  IF p_action IS NULL OR p_action NOT IN ('status','retry','dismiss') THEN RETURN jsonb_build_object('error','action'); END IF;
+  SELECT site_id INTO s FROM club_members WHERE id = p_member;
+  IF NOT FOUND THEN RETURN jsonb_build_object('error','no_session'); END IF;
+  PERFORM _club_site_lock(s, false);
+  SELECT * INTO m FROM club_members WHERE id = p_member FOR NO KEY UPDATE;
+  IF NOT FOUND OR m.confirmed_at IS NULL THEN RETURN jsonb_build_object('error','no_session'); END IF;
+  IF m.pending_crew_code IS NULL OR m.pending_crew_status IS NULL THEN RETURN jsonb_build_object('pending', NULL); END IF;
+  in_any := EXISTS (SELECT 1 FROM club_crew_members WHERE site_id = m.site_id AND member_id = p_member);
+  in_same := EXISTS (SELECT 1 FROM club_crew_members cm JOIN club_crews c ON c.id = cm.crew_id
+                     WHERE cm.site_id = m.site_id AND cm.member_id = p_member AND c.code = m.pending_crew_code);
+  IF p_action = 'dismiss' OR in_same OR (in_any AND m.pending_crew_status <> 'already_in_crew') THEN
+    UPDATE club_members SET pending_crew_code = NULL, pending_crew_status = NULL, pending_crew_checked_at = NULL WHERE id = p_member;
+    RETURN jsonb_build_object('pending', NULL);
+  END IF;
+  IF p_action = 'retry' THEN
+    BEGIN
+      j := club_crew_join(p_member, m.pending_crew_code);
+      st := j->>'error';
+    EXCEPTION WHEN OTHERS THEN RAISE WARNING 'club_crew_pending retry: %', SQLERRM; j := NULL; st := 'error'; END;
+    IF st IS NULL THEN
+      UPDATE club_members SET pending_crew_code = NULL, pending_crew_status = NULL, pending_crew_checked_at = NULL WHERE id = p_member;
+      RETURN jsonb_build_object('pending', NULL, 'crew_id', j->'crew_id');
+    END IF;
+    m.pending_crew_status := CASE WHEN st IN ('crew_full','crew_not_found','already_in_crew') THEN st ELSE 'error' END;
+    UPDATE club_members SET pending_crew_status = m.pending_crew_status, pending_crew_checked_at = now() WHERE id = p_member;
+  END IF;
+  SELECT name INTO nm FROM club_crews WHERE site_id = m.site_id AND code = m.pending_crew_code;
+  RETURN jsonb_build_object('pending', jsonb_build_object('status', m.pending_crew_status, 'code', m.pending_crew_code, 'crew_name', nm));
+END $$;
+REVOKE ALL ON FUNCTION public.club_crew_pending(uuid, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.club_crew_pending(uuid, text) TO service_role;
 
 -- 3) Nível canónico (API me/ranking/Wallet, CRM, cron Wallet) ----------------------------------------------------
 CREATE OR REPLACE FUNCTION public.club_member_level(p_member uuid)
@@ -478,8 +519,11 @@ DO $$ DECLARE f text; BEGIN
     EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO service_role', f);
   END LOOP;
 END $$;
--- Funções existentes (club_award, club_award_fixed, club_confirm_member, club_ranking, club_wallet_due): ACL atual mantida
--- (CREATE OR REPLACE não mexe em grants).
+-- Funções existentes (club_award, club_award_fixed, club_confirm_member, club_ranking, club_wallet_due, club_crew_pending):
+-- ACL atual mantida (CREATE OR REPLACE não mexe em grants).
+-- Paridade com Live: club_award_fixed tem EXECUTE para service_role em Live (0141 só fazia REVOKE). No-op em Live; alinha o repo.
+-- Não amplia anon/authenticated.
+GRANT EXECUTE ON FUNCTION public.club_award_fixed(uuid, text, text, int) TO service_role;
 
 -- 7) Configuração da edição Newgang 2027 em DRAFT (não muda valores até ao cutover) --------------------------------
 INSERT INTO public.club_points_config(company_id, site_id, version, event_id, status, legacy_counts,

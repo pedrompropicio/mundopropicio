@@ -1,10 +1,11 @@
 diff -ruN a/supabase/functions/newgang-portal/club-canon.ts b/supabase/functions/newgang-portal/club-canon.ts
 --- a/supabase/functions/newgang-portal/club-canon.ts	1970-01-01 00:00:00.000000000 +0000
-+++ b/supabase/functions/newgang-portal/club-canon.ts	2026-10-16 18:23:10.789960368 +0000
-@@ -0,0 +1,54 @@
++++ b/supabase/functions/newgang-portal/club-canon.ts	2026-10-16 19:05:19.413747224 +0000
+@@ -0,0 +1,76 @@
 +// #327 — Leituras canónicas do Clube (nível, conquistas, montra de regras). Módulo novo, sem rede própria:
 +// recebe a função rpc (sb.rpc) por injeção para poder ser testado sem base nem rede.
-+export type RpcResult = { data: unknown; error: { message: string } | null };
++export type RpcError = { message: string; code?: string | null };
++export type RpcResult = { data: unknown; error: RpcError | null };
 +export type Rpc = (fn: string, args: Record<string, unknown>) => PromiseLike<RpcResult>;
 +
 +export type MemberLevel = { points: number; level: string | null; protected: boolean; next_level: string | null; next_level_min: number | null };
@@ -12,11 +13,30 @@ diff -ruN a/supabase/functions/newgang-portal/club-canon.ts b/supabase/functions
 +export type PublicRule = { rule_key: string; label: string; points: number; cap: number | null; scope: string | null };
 +export type RulesView = { rules: PublicRule[]; unavailable: Array<{ rule_key: string; label: string; status: string }>; edition: string | null; version: string | null };
 +
-+/** Nível canónico (pontos + piso do cutover). Erro de RPC = erro explícito; linha vazia = membro sem pontos nem nível. */
-+export async function memberLevel(rpc: Rpc, memberId: string, cache?: Map<string, MemberLevel>): Promise<MemberLevel> {
++/** Compatibilidade de reversão: SÓ "função inexistente" (PostgREST PGRST202 / Postgres 42883) conta como RPC ausente.
++ *  Qualquer outro erro (rede, timeout, permissão, exceção SQL) continua a ser erro explícito — nunca cai para o cálculo antigo. */
++export function isMissingRpc(error: RpcError | null | undefined): boolean {
++  return !!error && (error.code === "PGRST202" || error.code === "42883");
++}
++export type LegacyLevel = { name: string; min_points: number };
++/** Fórmula antiga (soma + club_levels): usada apenas quando a RPC canónica deixou de existir (SQL revertido). */
++export function levelFromPoints(points: number, levels: LegacyLevel[]): MemberLevel {
++  const sorted = [...levels].sort((a, b) => a.min_points - b.min_points);
++  const cur = [...sorted].reverse().find((l) => l.min_points <= points) ?? null;
++  const nxt = sorted.find((l) => l.min_points > points) ?? null;
++  return { points, level: cur?.name ?? null, protected: false, next_level: nxt?.name ?? null, next_level_min: nxt?.min_points ?? null };
++}
++export type LevelOpts = { cache?: Map<string, MemberLevel>; legacy?: () => Promise<MemberLevel> };
++
++/** Nível canónico (pontos + piso do cutover). Erro de RPC = erro explícito; linha vazia = membro sem pontos nem nível.
++ *  Com `legacy`: se e só se a RPC estiver ausente (reversão SQL concluída), usa a fórmula antiga. */
++export async function memberLevel(rpc: Rpc, memberId: string, opts?: Map<string, MemberLevel> | LevelOpts): Promise<MemberLevel> {
++  const o: LevelOpts = opts instanceof Map ? { cache: opts } : (opts ?? {});
++  const cache = o.cache;
 +  const hit = cache?.get(memberId);
 +  if (hit) return hit;
 +  const { data, error } = await rpc("club_member_level", { p_member: memberId });
++  if (error && isMissingRpc(error) && o.legacy) { const l = await o.legacy(); cache?.set(memberId, l); return l; }
 +  if (error) throw new Error("club_member_level: " + error.message);
 +  const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null | undefined;
 +  const out: MemberLevel = {
@@ -32,6 +52,7 @@ diff -ruN a/supabase/functions/newgang-portal/club-canon.ts b/supabase/functions
 +
 +/** Conquistas 3/5: nunca devolve null em silêncio; em erro o UI recebe status "error". */
 +export async function referralProgress(rpc: Rpc, memberId: string): Promise<Referrals> {
++  // RPC ausente (reversão) ou qualquer erro → "error": o UI esconde as conquistas, nunca mostra 0 inventado.
 +  const { data, error } = await rpc("club_referral_progress", { p_member: memberId });
 +  const d = data as { confirmed_friends?: unknown; badges?: { friends_3?: unknown; friends_5?: unknown } } | null;
 +  if (error || !d || typeof d.confirmed_friends !== "number") return { status: "error" };
@@ -51,25 +72,37 @@ diff -ruN a/supabase/functions/newgang-portal/club-canon.ts b/supabase/functions
 +  return { rules, unavailable, edition: list[0]?.event_id ?? null, version: list[0]?.config_version ?? null };
 +}
 +
-+export async function rulesPublic(rpc: Rpc, siteId: string): Promise<RulesView> {
++export async function rulesPublic(rpc: Rpc, siteId: string, legacy?: () => Promise<RulesView>): Promise<RulesView> {
 +  const { data, error } = await rpc("club_rules_public", { p_site: siteId });
++  if (error && isMissingRpc(error) && legacy) return legacy();
 +  if (error) throw new Error("club_rules_public: " + error.message);
 +  return rulesView(data);
 +}
 diff -ruN a/supabase/functions/newgang-portal/index.ts b/supabase/functions/newgang-portal/index.ts
---- a/supabase/functions/newgang-portal/index.ts	2026-10-16 18:23:10.789218713 +0000
-+++ b/supabase/functions/newgang-portal/index.ts	2026-10-16 18:23:10.789332455 +0000
-@@ -14,6 +14,9 @@
+--- a/supabase/functions/newgang-portal/index.ts	2026-10-16 19:05:19.413053539 +0000
++++ b/supabase/functions/newgang-portal/index.ts	2026-10-16 19:05:19.413174134 +0000
+@@ -14,6 +14,20 @@
  import * as GW from "./wallet-google.ts";
  import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
  import { PreSendError, sendWelcomeOnce } from "./welcome.ts";
 +// #327: leituras canónicas (nível com piso, conquistas, montra de regras) — mesma fonte para site, me, ranking e Wallet.
-+import { memberLevel, referralProgress, rulesPublic, type MemberLevel } from "./club-canon.ts";
++import { levelFromPoints, memberLevel, referralProgress, rulesPublic, type MemberLevel, type RulesView } from "./club-canon.ts";
 +const rpc = (fn: string, a: Record<string, unknown>) => sb.rpc(fn, a) as any;
++// Fórmula antiga (soma + club_levels) — só usada se club_member_level estiver ausente (reversão SQL #327 já aplicada).
++async function legacyLevel(memberId: string, siteId: string): Promise<MemberLevel> {
++  const { data: rows, error: e1 } = await sb.from("club_points").select("points").eq("member_id", memberId).limit(10000);
++  if (e1) throw new Error("legacy points: " + e1.message);
++  const pts = ((rows ?? []) as any[]).reduce((s, r) => s + r.points, 0);
++  const { data: lv, error: e2 } = await sb.from("club_levels").select("name, min_points").eq("site_id", siteId);
++  if (e2) throw new Error("legacy levels: " + e2.message);
++  return levelFromPoints(pts, (lv ?? []) as any);
++}
++const legacyRules = (rl: unknown): RulesView => ({ rules: ((rl ?? []) as any[]).filter((r) => r.active)
++  .map((r) => ({ rule_key: r.rule_key, label: r.label, points: Number(r.points), cap: null, scope: null })), unavailable: [], edition: null, version: null });
  
  // Preview do projeto Lovable do portal (1a915f50-…).
  const PREVIEW_SUFFIXES: string[] = ["--1a915f50-55ca-4bb6-9abe-8f241c54647a.lovable.app"];
-@@ -210,10 +213,9 @@
+@@ -210,10 +224,10 @@
    if (!m?.confirmed_at) return null;
    let points = pts, level = lvl;
    if (points === undefined) {
@@ -78,41 +111,43 @@ diff -ruN a/supabase/functions/newgang-portal/index.ts b/supabase/functions/newg
 -    const { data: lv } = await sb.from("club_levels").select("name").eq("site_id", siteId).lte("min_points", points).order("min_points", { ascending: false }).limit(1);
 -    level = (lv as any)?.[0]?.name ?? null;
 +    // #327: nível canónico (pontos + piso do cutover); erro de RPC propaga (walletSave falha, walletSync grava last_error).
-+    const lv = await memberLevel(rpc, memberId);
++    // Compatível com a reversão SQL: só se a RPC deixar de existir (PGRST202/42883) usa a fórmula antiga.
++    const lv = await memberLevel(rpc, memberId, { legacy: () => legacyLevel(memberId, siteId) });
 +    points = lv.points; level = lv.level;
    }
    const crew = await myCrew(siteId, memberId);
    return { id: m.id, member_no: m.member_no, first_name: m.first_name, points: points!, level: level ?? null, crew: crew?.name ?? null };
-@@ -341,7 +343,9 @@
+@@ -341,7 +355,9 @@
    ] as const) as any;
    const trackers: unknown[] = ev ? (t ?? []) : [];
    const ticketing: unknown = ev ? { url: evRow?.ticketing_url ?? null, lots: em?.ticket_lots ?? null } : null;
 -  return { site: data, trackers, ticketing, club: { levels: lv ?? [], rules: rl ?? [], terms: termsMeta(tm) } };
-+  void rl; // #327: a montra usa club_rules_public (valores pagos agora + disponibilidade), não club_point_rules cru.
-+  const rv = await rulesPublic(rpc, site.id);
++  // #327: a montra usa club_rules_public (valores pagos agora + disponibilidade); club_point_rules cru só se a RPC estiver ausente (reversão).
++  const rv = await rulesPublic(rpc, site.id, async () => legacyRules(rl));
 +  return { site: data, trackers, ticketing, club: { levels: lv ?? [], rules: rv.rules, rules_unavailable: rv.unavailable, terms: termsMeta(tm) } };
  }
  
  async function loadLineupRaw(site: any) {
-@@ -380,7 +384,12 @@
+@@ -380,7 +396,13 @@
      want.history ? sb.from("festival_editions_public").select("*").order("year", { ascending: false }).order("sort") : none,
    ]) as any;
    if (!row) return null;
 -  return assemblePublic(want, row, pubRows, eds);
 +  const out = assemblePublic(want, row, pubRows, eds);
 +  if (want.site && out.site) {
-+    const rv = await rulesPublic(rpc, row.id); // #327: mesma montra canónica do payload "site"
-+    const club = (out.site as any).club; club.rules = rv.rules; club.rules_unavailable = rv.unavailable;
++    const club = (out.site as any).club;
++    const rv = await rulesPublic(rpc, row.id, async () => legacyRules(club.rules)); // #327: mesma montra canónica do payload "site"
++    club.rules = rv.rules; club.rules_unavailable = rv.unavailable;
 +  }
 +  return out;
  }
  
  Deno.serve(async (req) => {
-@@ -553,9 +562,12 @@
+@@ -553,9 +575,12 @@
          const { rows } = await rankingFor(site.id);
          const me = rows.find((r) => r.member_id === member.id);
          const { data: lv } = await sb.from("club_levels").select("name, min_points, benefit").eq("site_id", site.id).order("min_points");
-+        const cl: MemberLevel = await memberLevel(rpc, member.id); // #327: nível/piso/próximo nível canónicos
++        const cl: MemberLevel = await memberLevel(rpc, member.id, { legacy: () => legacyLevel(member.id, site.id) }); // #327: nível/piso/próximo nível canónicos
          return json({
            first_name: member.first_name, member_no: member.member_no,
 -          points: me?.points ?? 0, level: me?.level_name ?? null, rank: me?.rank_pos ?? null,
