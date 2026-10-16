@@ -1,0 +1,23 @@
+TS2783 [ERROR]: 'ok' is specified more than once, so this usage will be overwritten.
+TS2785 [ERROR]:     This spread always overwrites this property.
+error: Type checking failed.
+   0: anyhow::error::<impl core::convert::From<E> for anyhow::Error>::from
+Check pending_test.ts
+running 9 tests from ./pending_test.ts
+no_session sem membro e com membro não confirmado; RPC não chamada ... ok (0ms)
+op inválida/NULL/ausente → 400 action, RPC não chamada ... ok (0ms)
+membro A não opera B: member_id do payload é ignorado ... ok (0ms)
+status/retry/dismiss: forma da resposta, sem emails/tokens/ids ... ok (17ms)
+erros da RPC no corpo → HTTP ... ok (0ms)
+falha da RPC nunca é silenciosa: 500 + log (erro, exceção, resposta sem pending) ... ok (0ms)
+me.pending_crew: valor, null, e falha sinalizada ... ok (0ms)
+pendingFrom rejeita estados/códigos fora do contrato ... ok (0ms)
+request_access: '_' e '%' não casam outro email ... ok (0ms)
+
+ok | 9 passed | 0 failed (24ms)
+{"patch_sha256":"38a696613e83bdd72134e090d1613d304771aaa83aa335288f22665df69f8eca","patch_applies_to_HEAD":true,
+ "originais_sha_agregado_antes":"8ab37d57f25e43f1256b5c22bfdf7052f1195c3be4058e4c433ce5264145371f","originais_sha_agregado_depois":"8ab37d57f25e43f1256b5c22bfdf7052f1195c3be4058e4c433ce5264145371f","originais_inalterados":true,
+ "HEAD_igual_arvore_local":true,
+ "deno_check_sem_erros_novos":true,"deno_check_erros_baseline_HEAD":"TS2783 [ERROR] TS2785 [ERROR] ","deno_check_erros_com_patch":"TS2783 [ERROR] TS2785 [ERROR] ","deno_test_exit":0,"deno_test_passed":9,"deno_test_failed":0,
+ "permissoes_teste":"--deny-net --deny-env --deny-run --deny-write","wiring_refs_index":4,"ilike_em_request_access":0,
+ "deno":"deno 2.6.10 (stable, release, x86_64-unknown-linux-gnu)"}
