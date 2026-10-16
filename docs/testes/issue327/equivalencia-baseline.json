@@ -1,0 +1,39 @@
+{
+ "funcoes": {
+  "_club_points_void_row": "DIFERENTE local=47fa1f050c97d1b37d41f74949e3ee5f live=None",
+  "club_award": "igual",
+  "club_award_fixed": "igual",
+  "club_claim_attendance": "igual",
+  "club_confirm_member": "igual",
+  "club_crew_cfg": "igual",
+  "club_crew_check": "igual",
+  "club_crew_create": "igual",
+  "club_crew_gen_code": "igual",
+  "club_crew_join": "igual",
+  "club_crew_leave": "igual",
+  "club_crew_name_ok": "igual",
+  "club_crew_pending": "igual",
+  "club_decide_attendance": "igual",
+  "club_decide_guess": "igual",
+  "club_from_lead_capture": "igual",
+  "club_gen_referral_code": "igual",
+  "club_mission_review": "igual",
+  "club_mission_submit": "igual",
+  "club_mission_sync_points": "igual",
+  "club_points_active": "igual",
+  "club_points_set": "igual",
+  "club_points_void": "igual",
+  "club_ranking": "igual",
+  "club_record_terms": "igual",
+  "club_terms_publish": "igual",
+  "club_upsert_member": "igual",
+  "club_wallet_due": "igual",
+  "club_welcome_mark": "nao_carregada_explicito",
+  "club_welcome_reserve": "nao_carregada_explicito"
+ },
+ "mode": "base",
+ "ok": false,
+ "problemas": [
+  "_club_points_void_row"
+ ]
+}

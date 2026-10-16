@@ -1,0 +1,13 @@
+runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T17:56:51Z
+listen_addresses=
+aplicar 0119_0119_newgang_lineup_reveals_security.sql sha256=4e8d1c1410a377bb
+psql:/dev-server/drizzle/migrations/0119_0119_newgang_lineup_reveals_security.sql:2: NOTICE:  policy "event_lineups_authenticated_all" for relation "public.event_lineups" does not exist, skipping
+aplicar 0120_0120_newgang_portal_sites_editions_club.sql sha256=2826b2e7d1780e36
+aplicar 0140_derp271_club_terms.sql sha256=ab63a67377f13e51
+aplicar 0141_derp272_club_missions.sql sha256=50b86f8be3575a48
+aplicar 0142_derp273_club_points_void.sql sha256=6111185391186e25
+aplicar 0143_derp274_club_crews.sql sha256=f774cf76485977fc
+aplicar 0144_derp275_club_wallet_passes.sql sha256=c5aeedb913c1fa55
+aplicar 0176_issue328_club_identity_crew_pending.sql sha256=f365deca51c8ef43
+== A) baseline vs Live pós-0176 (sem patch)
+guard327 base: FALHA _club_points_void_row (30 funções)

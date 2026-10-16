@@ -61,6 +61,7 @@ for f in "${MIGRATIONS[@]}"; do say "aplicar $f sha256=$(sha256sum "$MIG/$f" | c
 hashes > "$TMP/h0.txt"
 say "== A) baseline vs Live pós-0176 (sem patch)"
 python3 "$HERE/compare327.py" base "$LIVE" "$TMP/h0.txt" "$OUT/equivalencia-baseline.json" | tee -a "$LOG"
+ACL0="$("${PSQL[@]}" -tAc "SELECT string_agg(proname||'='||coalesce(proacl::text,'default'), ' ' ORDER BY proname) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ($CHANGED)")"; say "acl baseline: $ACL0"
 "${PSQL[@]}" -f "$HERE/05_egress.sql" 2>&1 | tee -a "$LOG"
 if [ "${GEN_ROLLBACK:-0}" = 1 ]; then
   { echo "-- #327 — REVERSÃO (INERTE, NÃO APLICADA). Gerada a partir das funções do baseline local, cujo md5 = Live pós-0176."
@@ -101,6 +102,7 @@ N0="$("${PSQL[@]}" -tAc "SELECT count(*)||'/'||sum(points) FROM club_points")"
 "${PSQL[@]}" -f "$RB" >>"$LOG" 2>&1; hashes > "$TMP/h2.txt"
 python3 "$HERE/compare327.py" base "$LIVE" "$TMP/h2.txt" "$OUT/equivalencia-pos-reversao.json" | tee -a "$LOG"
 [ "$N0" = "$("${PSQL[@]}" -tAc "SELECT count(*)||'/'||sum(points) FROM club_points")" ] && say "reversão preserva créditos: $N0" || exit 7
+[ "$ACL0" = "$("${PSQL[@]}" -tAc "SELECT string_agg(proname||'='||coalesce(proacl::text,'default'), ' ' ORDER BY proname) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ($CHANGED)")" ] && say "ACL das 5 funções = baseline" || { say "ACL diferente"; exit 9; }
 say "níveis após reversão: $("${PSQL[@]}" -tAc "SELECT jsonb_object_agg(name,min_points) FROM club_levels WHERE site_id='00000000-0000-4000-8000-0000000000a2'")"
 [ "$("${PSQL[@]}" -tAc "SELECT jsonb_object_agg(name,min_points) = '{\"Gang\":0,\"Crew\":500,\"Goat\":1500}' FROM club_levels WHERE site_id='00000000-0000-4000-8000-0000000000a2'")" = t ] || exit 8
 say "configs ativas após reversão: $("${PSQL[@]}" -tAc "SELECT count(*) FROM club_points_config WHERE status='active'")"

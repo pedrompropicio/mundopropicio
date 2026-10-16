@@ -321,13 +321,13 @@ END $$;
 
 DO $$ DECLARE f text; BEGIN
   FOREACH f IN ARRAY ARRAY['_club_active_cfg(uuid)','_club_rule_used(uuid,text,uuid,boolean)','_club_award_core(uuid,text,text,int,uuid)',
-    'club_award(uuid,text,text)','club_award_fixed(uuid,text,text,int)','club_confirm_member(uuid)','club_award_purchase(uuid)',
-    'club_purchase_revoke(uuid,text,text)','club_member_level(uuid)','club_wallet_due(int)','club_referral_progress(uuid)','club_points_cutover(uuid,jsonb)'] LOOP
+    'club_award_purchase(uuid)','club_purchase_revoke(uuid,text,text)','club_member_level(uuid)','club_referral_progress(uuid)','club_points_cutover(uuid,jsonb)'] LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION public.%s FROM PUBLIC, anon, authenticated', f);
     EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO service_role', f);
   END LOOP;
 END $$;
--- club_ranking mantém o grant atual (authenticated, filtrado por portal_can_write dentro da função).
+-- Funções existentes (club_award, club_award_fixed, club_confirm_member, club_ranking, club_wallet_due): ACL atual mantida
+-- (CREATE OR REPLACE não mexe em grants), para a reversão ficar exata.
 
 -- 6) Configuração da edição Newgang 2027 em DRAFT (não muda nada até ao cutover) ----------------------------------
 INSERT INTO public.club_points_config(company_id, site_id, version, event_id, status, legacy_counts,
