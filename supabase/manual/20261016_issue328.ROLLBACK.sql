@@ -1,6 +1,6 @@
 -- #328 — REVERSÃO do 20261016_issue328.PENDENTE.sql. NÃO APLICADO. Só com "Sim" do Pedro.
 -- Repõe club_upsert_member (0120) e club_confirm_member (0143) VERBATIM (md5 = snapshot Live #326)
--- e remove a função nova. Colunas novas ficam (sem DROP: não apagar histórico), marcadas DEPRECATED.
+-- e club_from_lead_capture (0143) VERBATIM, e remove a função nova. A constraint de estado fica (sem DROP). Colunas novas ficam (sem DROP: não apagar histórico), marcadas DEPRECATED.
 -- Atenção: membros com pending_crew_status preenchido mantêm pending_crew_code; a função antiga não
 -- volta a tentar (já confirmados). Pontos e membros não são tocados.
 CREATE OR REPLACE FUNCTION public.club_upsert_member(p_site uuid, p_email text, p_first_name text, p_phone text,
@@ -45,6 +45,50 @@ DECLARE m record; j jsonb; BEGIN
     UPDATE club_members SET pending_crew_code = NULL WHERE id = p_member;
   END IF;
 END $$;
+
+-- Trigger de captura: verbatim de drizzle/migrations/0143 (md5 Live 25201a26499f432c4b7e2ca6274935c2).
+CREATE OR REPLACE FUNCTION public.club_from_lead_capture() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $function$
+DECLARE s uuid; c uuid; mid uuid; is_new boolean; cc text; BEGIN
+  IF NEW.source IS DISTINCT FROM 'clube_newgang' OR NEW.email IS NULL THEN RETURN NEW; END IF;
+  SELECT id INTO s FROM portal_sites WHERE brand_key = 'newgang' AND active AND company_id = NEW.company_id ORDER BY created_at LIMIT 1;
+  IF s IS NULL THEN RETURN NEW; END IF;
+  SELECT id INTO c FROM contacts WHERE lower(trim(email)) = lower(trim(NEW.email)) AND company_id = NEW.company_id LIMIT 1;
+  mid := club_upsert_member(s, NEW.email, split_part(coalesce(NEW.name,''),' ',1), NEW.phone, c, NEW.raw->>'referral_code', 'formulario');
+  IF mid IS NOT NULL AND NEW.raw ? 'terms_version' THEN
+    PERFORM club_record_terms(mid, NEW.raw->>'terms_version', NEW.created_at);
+  END IF;
+  IF mid IS NOT NULL AND coalesce(NEW.raw->>'crew_code','') <> '' THEN
+    BEGIN
+      cc := upper(trim(NEW.raw->>'crew_code'));
+      IF cc ~ '^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6,7}$' THEN
+        IF EXISTS (SELECT 1 FROM club_members WHERE id = mid AND confirmed_at IS NOT NULL) THEN
+          PERFORM club_crew_join(mid, cc);
+        ELSE
+          UPDATE club_members SET pending_crew_code = cc WHERE id = mid;
+        END IF;
+      ELSE RAISE WARNING 'club_from_lead_capture crew_code inválido'; END IF;
+    EXCEPTION WHEN OTHERS THEN RAISE WARNING 'club_from_lead_capture crew: %', SQLERRM; END;
+  END IF;
+  IF mid IS NOT NULL THEN
+    BEGIN
+      SELECT (source = 'formulario' AND confirmed_at IS NULL AND created_at > now() - interval '1 minute')
+        INTO is_new FROM club_members WHERE id = mid;
+      IF is_new THEN
+        PERFORM net.http_post(
+          url := 'https://sfohvvlqccmmebvjgibx.supabase.co/functions/v1/newgang-portal',
+          headers := jsonb_build_object('Content-Type','application/json'),
+          body := jsonb_build_object('action','notify_member','member_id',mid));
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'club_from_lead_capture notify: %', SQLERRM;
+    END;
+  END IF;
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'club_from_lead_capture: %', SQLERRM; RETURN NEW;
+END $function$;
+
 
 DROP FUNCTION IF EXISTS public.club_crew_pending(uuid, text);
 COMMENT ON COLUMN public.club_members.pending_crew_status IS 'DEPRECATED: #328 revertido.';

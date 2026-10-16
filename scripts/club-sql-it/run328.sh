@@ -71,7 +71,7 @@ OUT="$OUT" bash "$HERE/25_conc328.sh" "${PSQL[*]}" before 2>&1 | tee -a "$LOG"
 say "== C) carregar pendente sha256=$(sha256sum "$PEND" | cut -c1-16)"
 "${PSQL[@]}" -f "$PEND" >>"$LOG" 2>&1
 hashes > "$TMP/h1.txt"
-"${PSQL[@]}" -tAc "SELECT json_object_agg(proname, prosrc) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('club_upsert_member','club_confirm_member','club_crew_pending')" > "$TMP/bodies.json"
+"${PSQL[@]}" -tAc "SELECT json_object_agg(proname, prosrc) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('club_upsert_member','club_confirm_member','club_crew_pending','club_from_lead_capture')" > "$TMP/bodies.json"
 python3 "$HERE/compare_patch.py" "$HERE/live-hashes.json" "$TMP/h1.txt" "$PEND" "$TMP/bodies.json" "$OUT/hashes-depois-esperado.json" | tee -a "$LOG"
 say "acl club_crew_pending: $("${PSQL[@]}" -tAc "SELECT proacl::text FROM pg_proc WHERE proname='club_crew_pending'")"
 say "acl club_upsert_member: $("${PSQL[@]}" -tAc "SELECT proacl::text FROM pg_proc WHERE proname='club_upsert_member'")"

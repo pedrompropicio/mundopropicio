@@ -6,7 +6,7 @@ local = dict(l.split(" ", 1) for l in open(sys.argv[2]).read().splitlines() if l
 pending = open(sys.argv[3]).read()
 bodies = json.load(open(sys.argv[4]))  # {nome: prosrc}
 out = sys.argv[5]
-CHANGED = {"club_upsert_member", "club_confirm_member", "club_crew_pending"}
+CHANGED = {"club_upsert_member", "club_confirm_member", "club_crew_pending", "club_from_lead_capture"}
 SCOPE = ["club_award", "club_award_fixed", "club_confirm_member", "club_crew_cfg", "club_crew_check",
          "club_crew_create", "club_crew_gen_code", "club_crew_join", "club_crew_leave", "club_crew_name_ok",
          "club_upsert_member", "club_gen_referral_code", "club_from_lead_capture", "club_record_terms"]
