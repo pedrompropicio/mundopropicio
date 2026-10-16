@@ -4,6 +4,7 @@
 # Garantias: só socket Unix num diretório temporário (listen_addresses=''), sem TCP, sem extensões,
 # sem schema net/cron/vault; recusa correr se houver destino remoto no ambiente. Nada toca em Live.
 set -euo pipefail
+shopt -s inherit_errexit 2>/dev/null || true
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 OUT="${1:-$ROOT/docs/testes/issue326}"
@@ -53,6 +54,7 @@ python3 "$HERE/compare_hashes.py" "$HERE/live-hashes.json" "$TMP/local-hashes.tx
 
 # 5) Cenário serial com asserts.
 "${PSQL[@]}" -f "$HERE/10_scenario.sql" 2>&1 | tee -a "$LOG"
+"${PSQL[@]}" -tAc "SELECT json_agg(json_build_object('n',n,'phase',phase,'name',name,'ok',ok,'detail',detail) ORDER BY n) FROM it.results" > "$OUT/serial-results.json"
 
 # 6) Concorrência real (várias ligações + barreira por lock).
 bash "$HERE/20_concurrency.sh" "${PSQL[*]}" 2>&1 | tee -a "$LOG"
