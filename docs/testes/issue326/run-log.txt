@@ -1,4 +1,4 @@
-runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T15:56:29Z
+runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T15:59:37Z
 listen_addresses=
 aplicar 0119_0119_newgang_lineup_reveals_security.sql sha256=4e8d1c1410a377bb
 psql:/dev-server/drizzle/migrations/0119_0119_newgang_lineup_reveals_security.sql:2: NOTICE:  policy "event_lineups_authenticated_all" for relation "public.event_lineups" does not exist, skipping
@@ -22,6 +22,7 @@ hash club_gen_referral_code: IGUAL local=74b44cf721e2d6eaff71ac3b06228a5f live=7
 hash club_from_lead_capture: IGUAL local=25201a26499f432c4b7e2ca6274935c2 live=25201a26499f432c4b7e2ca6274935c2
 hash club_record_terms: IGUAL local=439f065bac949c8baeeb3f090ed5765f live=439f065bac949c8baeeb3f090ed5765f
 equivalencia_scope: OK
+in_scope_iguais: 14/14
 psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: net.http_post indisponível (3F000)
 psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: dblink não instalável (0A000)
 psql:/dev-server/scripts/club-sql-it/10_scenario.sql:176: WARNING:  club_from_lead_capture notify: schema "net" does not exist

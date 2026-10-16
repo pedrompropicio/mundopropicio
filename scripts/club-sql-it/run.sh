@@ -59,7 +59,7 @@ done
 
 # 3) Equivalência com Live (hashes md5 de pg_get_functiondef lidos por SELECT, sem dados pessoais).
 "${PSQL[@]}" -tA -F' ' -c "SELECT p.proname, md5(pg_get_functiondef(p.oid)) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname LIKE 'club\_%' ORDER BY 1" > "$TMP/local-hashes.txt"
-python3 "$HERE/compare_hashes.py" "$HERE/live-hashes.json" "$TMP/local-hashes.txt" "$OUT/equivalencia.json" | tee -a "$LOG"
+python3 "$HERE/compare_hashes.py" "${CLUB_IT_LIVE_HASHES:-$HERE/live-hashes.json}" "$TMP/local-hashes.txt" "$OUT/equivalencia.json" | tee -a "$LOG"
 
 # 4) Prova de egress bloqueado.
 "${PSQL[@]}" -f "$HERE/05_egress.sql" 2>&1 | tee -a "$LOG"
