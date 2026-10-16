@@ -1,0 +1,170 @@
+{
+ "club_award": {
+  "live": "e149ac23e2cef6b4c08a4413b8e6767a",
+  "local": "e149ac23e2cef6b4c08a4413b8e6767a",
+  "equal": true,
+  "in_scope": true
+ },
+ "club_award_fixed": {
+  "live": "ea8c1917a79095318c553c29e1efbdb0",
+  "local": "ea8c1917a79095318c553c29e1efbdb0",
+  "equal": true,
+  "in_scope": true
+ },
+ "club_claim_attendance": {
+  "live": "105e4e37557675f6dc0d258ef7bce547",
+  "local": "105e4e37557675f6dc0d258ef7bce547",
+  "equal": true,
+  "in_scope": false
+ },
+ "club_confirm_member": {
+  "live": "eb8ce41b0a8b5c302488cc3242ab9598",
+  "local": "eb8ce41b0a8b5c302488cc3242ab9598",
+  "equal": true,
+  "in_scope": true
+ },
+ "club_crew_cfg": {
+  "live": "52e699a93a4b7665dce3491beb5dae69",
+  "local": "52e699a93a4b7665dce3491beb5dae69",
+  "equal": true,
+  "in_scope": true
+ },
+ "club_crew_check": {
+  "live": "0afed974ad263da716009096b22aa05b",
+  "local": "0afed974ad263da716009096b22aa05b",
+  "equal": true,
+  "in_scope": true
+ },
+ "club_crew_create": {
+  "live": "e4a23cfcc3666b6b11e567c45d9ace8c",
+  "local": "e4a23cfcc3666b6b11e567c45d9ace8c",
+  "equal": true,
+  "in_scope": true
+ },
+ "club_crew_gen_code": {
+  "live": "1071a31f33bd7185570ddb0b064ad7f2",
+  "local": "1071a31f33bd7185570ddb0b064ad7f2",
+  "equal": true,
+  "in_scope": true
+ },
+ "club_crew_join": {
+  "live": "7fb6380f40662610e8e4f05ff3f6df0f",
+  "local": "7fb6380f40662610e8e4f05ff3f6df0f",
+  "equal": true,
+  "in_scope": true
+ },
+ "club_crew_leave": {
+  "live": "59ed0619eb4a98fc6b393339f00659e9",
+  "local": "59ed0619eb4a98fc6b393339f00659e9",
+  "equal": true,
+  "in_scope": true
+ },
+ "club_crew_name_ok": {
+  "live": "bce9901133e6194b5adaef2346f0a4c5",
+  "local": "bce9901133e6194b5adaef2346f0a4c5",
+  "equal": true,
+  "in_scope": true
+ },
+ "club_decide_attendance": {
+  "live": "191fa9f1becb35807958ef38ab9f32a3",
+  "local": "191fa9f1becb35807958ef38ab9f32a3",
+  "equal": true,
+  "in_scope": false
+ },
+ "club_decide_guess": {
+  "live": "a22521e75cd967dcf39f3edc3e60e384",
+  "local": "a22521e75cd967dcf39f3edc3e60e384",
+  "equal": true,
+  "in_scope": false
+ },
+ "club_from_lead_capture": {
+  "live": "25201a26499f432c4b7e2ca6274935c2",
+  "local": "25201a26499f432c4b7e2ca6274935c2",
+  "equal": true,
+  "in_scope": true
+ },
+ "club_gen_referral_code": {
+  "live": "74b44cf721e2d6eaff71ac3b06228a5f",
+  "local": "74b44cf721e2d6eaff71ac3b06228a5f",
+  "equal": true,
+  "in_scope": true
+ },
+ "club_mission_review": {
+  "live": "c8fcf508320c55bcc10aa833087d3436",
+  "local": "c8fcf508320c55bcc10aa833087d3436",
+  "equal": true,
+  "in_scope": false
+ },
+ "club_mission_submit": {
+  "live": "777337f2a0af1b0d73bbbd9c26ad460d",
+  "local": "777337f2a0af1b0d73bbbd9c26ad460d",
+  "equal": true,
+  "in_scope": false
+ },
+ "club_mission_sync_points": {
+  "live": "cc5e9951acb408292d4138f35c371532",
+  "local": "cc5e9951acb408292d4138f35c371532",
+  "equal": true,
+  "in_scope": false
+ },
+ "club_points_active": {
+  "live": "0bc0d02690e5fd5492816102c2fb234b",
+  "local": "0bc0d02690e5fd5492816102c2fb234b",
+  "equal": true,
+  "in_scope": false
+ },
+ "club_points_set": {
+  "live": "453dee734259749e61ff46576d39f8a7",
+  "local": "453dee734259749e61ff46576d39f8a7",
+  "equal": true,
+  "in_scope": false
+ },
+ "club_points_void": {
+  "live": "4aba0a299b2cb4d156342aeb09cb8aa6",
+  "local": "4aba0a299b2cb4d156342aeb09cb8aa6",
+  "equal": true,
+  "in_scope": false
+ },
+ "club_ranking": {
+  "live": "6c375b888b2a53efac322b7acb5d5873",
+  "local": "6c375b888b2a53efac322b7acb5d5873",
+  "equal": true,
+  "in_scope": false
+ },
+ "club_record_terms": {
+  "live": "439f065bac949c8baeeb3f090ed5765f",
+  "local": "439f065bac949c8baeeb3f090ed5765f",
+  "equal": true,
+  "in_scope": true
+ },
+ "club_terms_publish": {
+  "live": "6b668f4bddebbca37e2fff45465f9551",
+  "local": "6b668f4bddebbca37e2fff45465f9551",
+  "equal": true,
+  "in_scope": false
+ },
+ "club_upsert_member": {
+  "live": "76fb3c63be8ce73f4fa408499599da1e",
+  "local": "76fb3c63be8ce73f4fa408499599da1e",
+  "equal": true,
+  "in_scope": true
+ },
+ "club_wallet_due": {
+  "live": "a47c758acbfe4b6751b65c9e16f9e8af",
+  "local": null,
+  "equal": false,
+  "in_scope": false
+ },
+ "club_welcome_mark": {
+  "live": "54ab3bafe0515e71d5dfa4988c359e31",
+  "local": null,
+  "equal": false,
+  "in_scope": false
+ },
+ "club_welcome_reserve": {
+  "live": "0966b795a51305c2e685afacd9e5de19",
+  "local": null,
+  "equal": false,
+  "in_scope": false
+ }
+}
