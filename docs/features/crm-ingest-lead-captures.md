@@ -8,5 +8,6 @@
 - Lead novo: `meta.lead_capture_id` (idempotência), `created_at` original, `capi_status='blocked_no_consent'` → nunca seleccionado pela fila CAPI.
 - `coala_early_bird_invite`: contacto sim, lead não.
 - `clube_newgang` excluído: `trg_club_from_lead_capture` envia email ao marcar `processed`. Proposta em `docs/testes/issue321/01-baseline-e-prova-live.md`.
+- Clube manual: `crm_ingest_clube_captures_by_ids(p_ids)` (0167), só por IDs explícitos autorizados; dispara o fluxo normal do Clube (membro + confirmação, dedupe por email_send_log). Não há retoma contínua do Clube.
 - Não substitui `process_lead_captures_batch` (mantida, suspensa). `redirect_log` fora (tráfego).
 - Teste: `supabase/tests/crm_ingest_lead_captures.sql` (revertido) + `src/test/crm-ingest-no-network.test.ts`.

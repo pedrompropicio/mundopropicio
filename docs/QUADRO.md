@@ -21,7 +21,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #321 | 0 · Cowork (ChatGPT) · agente ERP | 0 · Cowork ChatGPT | 0166 + cron 2398; agora: 2 lead_capture clube_newgang por ID (3a46b0df…, 93520de1…), nova fn por IDs, club_members, email de confirmação normal do Clube (só estes 2) | 2026-10-16 00:05 | 2026-10-16 00:22 — continuação autorizada (Clube 2 casos) |
+| #321 | 0 · Cowork (ChatGPT) · agente ERP | 0 · Cowork ChatGPT | 0166 + cron 2398; agora: 2 lead_capture clube_newgang por ID (3a46b0df…, 93520de1…), nova fn por IDs, club_members, email de confirmação normal do Clube (só estes 2) | 2026-10-16 00:05 | 2026-10-16 00:23 — 2 casos Clube processados (1 pessoa, 1 membro, 1 email sent); aguarda verificação do Pedro |
 
 ## 0 · Cowork (Claude)
 
@@ -29,7 +29,7 @@ _(sem pedidos)_
 
 ## 0 · Cowork (ChatGPT)
 
-- [ ] #321 — verificação independente da ingestão de contactos e decisão sobre `clube_newgang` (opções A/B/C em `docs/testes/issue321/01-baseline-e-prova-live.md`).
+- [ ] #321 — verificação independente da ingestão de contactos; Clube: 2 casos autorizados feitos (`04-clube-dois-casos.md`), retoma contínua do Clube por decidir.
 
 - [x] de `0 · Cowork (ChatGPT)` para `0 · Cowork (ChatGPT)` (15/10/2026 23:45): **#320 — diagnóstico sem segredos e provas versionadas.**
   Resultado (15/10/2026 23:49 UTC, autorização Pedro): diagnóstico sensível removido confirmado por leitura independente; provas verificadas no commit: `docs/testes/issue320/06-tsgo.md`, `06-vitest.md`, `06-build.md`. Os `.txt` ignorados não contam como provas. CI confirmada independentemente pelo Claude e ChatGPT via conector GitHub: https://github.com/pedrompropicio/mundopropicio/actions/runs/38824514063, job `quality` `116728694956`, conclusion `success`, SHA `7b151756ad8060019de571b9295a6a978e0fbb1e` (confirmado no checkout do log).
