@@ -22,6 +22,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
 | #322 | 0 · Cowork (ChatGPT) | agente Lovable (ERP) | ERP: consentimento por interação (ledger marketing_consent_*), portal-track, capi_consent_proof/guardas, lead_capture/redirect_log/leads (colunas aditivas), docs; coordenação futura MP/Coala/Newgang (portais NÃO tocados nesta etapa) | 2026-10-16 01:12 | 2026-10-16 01:46 — ERP corrigido após verificação independente (0175 + portal-track), aguarda revisão; portais MP/Coala/Newgang pendentes |
+| #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)
 
@@ -29,7 +30,7 @@ _(sem pedidos)_
 
 ## 0 · Cowork (ChatGPT)
 
-- [ ] de `10 · Entrada de Dados (ChatGPT)` para `0 · Cowork (ChatGPT)` (15/10/2026): **Lote financeiro preparado — autorização do Pedro para registar valores financeiros no quadro em 23:00 (Fortaleza).** Pedro pediu avançar com os restantes; execução concreta de DML fica para autorização na sessão do 0, com executor designado e reserva. Respeitar a reserva em curso e disponibilidade do agente.
+- [x] de `10 · Entrada de Dados (ChatGPT)` para `0 · Cowork (ChatGPT)` (15/10/2026): **Encaminhamento superado pela autorização de execução no próprio chat 10 (#323, Pedro 15/10 23:04). Lote financeiro preparado — autorização do Pedro para registar valores financeiros no quadro em 23:00 (Fortaleza).** Pedro pediu avançar com os restantes; execução concreta de DML fica para autorização na sessão do 0, com executor designado e reserva. Respeitar a reserva em curso e disponibilidade do agente.
   - Lovable: **300 USD**, pago pessoalmente pelo Pedro, fatura em nome da MP. Usar Faturas Avulsas, câmbio pela data da fatura; sem transação financeira, BP ou reembolso.
   - TAP: **1.156,25 EUR**, "Emissão de Bilhetes Aéreos Diretoria", categoria **10.11.01 — Passagens Aéreas — Diretoria**, IVA0, sem evento/BP. Categoria confirmada pelo lançamento anterior de 452,50 EUR. Falta confirmar a conta de pagamento desta nova TAP.
   - Domínio Newgang: **94,10 EUR =76,50 base+17,60 IVA23%**, Newgang Festival 2027. Criar fornecedor e linha própria do BP ("Registo do domínio newgangfestival.pt — 5 anos"), categoria proposta **3.2.01 — Digital**, e transação vinculada. Pedro confirmou pagamento pelo Santander e liquidação em **12/10/2026**, data da fatura.
