@@ -1,4 +1,4 @@
-runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T17:58:04Z
+runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T17:58:19Z
 listen_addresses=
 aplicar 0119_0119_newgang_lineup_reveals_security.sql sha256=4e8d1c1410a377bb
 psql:/dev-server/drizzle/migrations/0119_0119_newgang_lineup_reveals_security.sql:2: NOTICE:  policy "event_lineups_authenticated_all" for relation "public.event_lineups" does not exist, skipping
@@ -18,7 +18,7 @@ rollback gerado: 75debecc8ef3e149
 == B) legado (funções Live)
                       ?column?                       
 -----------------------------------------------------
- LEGADO_OK 54/12597/f406ed9034bc845d9fd38c4591b1187f
+ LEGADO_OK 54/12597/6e404d572dd6ad2469f83d9054477310
 (1 row)
 
 == C) carregar pendente sha256=bc7b0f8e0a5f31f5
@@ -35,8 +35,33 @@ psql:/dev-server/supabase/manual/20261016_issue327.PENDENTE.sql:76: NOTICE:  rel
 psql:/dev-server/supabase/manual/20261016_issue327.PENDENTE.sql:94: NOTICE:  relation "club_purchase_evidence" already exists, skipping
 pendente idempotente: 2.ª aplicação sem alterações
 == D) depois
-psql:/dev-server/scripts/club-sql-it/60_after327.sql:173: ERROR:  ASSERT FALHOU [compra] reaprovação com prova válida → nova geração #2 — <NULL>
-CONTEXT:  PL/pgSQL function t.ok(text,text,boolean,text) line 4 at RAISE
-SQL statement "SELECT t.ok('compra','reaprovação com prova válida → nova geração #2', club_award_purchase(e2) = 200
-     AND EXISTS (SELECT 1 FROM club_points WHERE member_id = a AND rule_key='promo_lot_purchase' AND ref_id LIKE 'purchase@%#2'))"
-PL/pgSQL function inline_code_block line 27 at PERFORM
+    ?column?     
+-----------------
+ SERIAL327 83/83
+(1 row)
+
+conc ok: preparação: indicador com 600
+barreira refcap: 5/5 à espera → soltar
+conc ok: teto atómico: 750 com 10 créditos
+conc ok: contagem real 11 (sem duplicar retries)
+barreira crew: 4/4 à espera → soltar
+conc ok: crew com 6 (max)
+conc ok: 6 × 100 uma vez
+barreira purchase: 4/4 à espera → soltar
+conc ok: compra: 1 crédito por edição
+barreira cutover: 7/7 à espera → soltar
+conc ok: nenhum crédito perdido (6 × 500)
+conc ok: piso só com retrato consistente (>=500 no retrato)
+conc ok: cutover e3 ativo, um só ativo
+CONC327 "asserts":9 "falhados":0
+psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: net.http_post indisponível (3F000)
+psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: dblink não instalável (0A000)
+serial: 83/83
+== E) reversão sha256=75debecc8ef3e149
+guard327 base: OK (30 funções)
+reversão preserva créditos: 202/29249
+ACL das 5 funções = baseline
+níveis após reversão: {"Crew": 500, "Gang": 0, "Goat": 1500}
+configs ativas após reversão: 0
+pisos/provas/contagens preservados: 25/8/41
+RESULTADO: TODOS OS ASSERTS PASSARAM

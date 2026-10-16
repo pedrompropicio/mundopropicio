@@ -147,7 +147,8 @@ DO $$ DECLARE a uuid; b uuid; e1 uuid; e2 uuid; e3 uuid; e4 uuid; e5 uuid; ok bo
     VALUES ('00000000-0000-4000-8000-0000000000a1','00000000-0000-4000-8000-0000000000a2','00000000-0000-4000-8000-0000000000e1', a, 'fever_order','ORD-1','EB1','valid','fp1') RETURNING id INTO e1;
   PERFORM t.ok('compra','compra desligada na config → 0 (fail-closed)', club_award_purchase(e1) = 0);
   UPDATE club_points_config SET purchase_enabled = true, purchase_lots = '{EB1}' WHERE version = 'e1-v1';
-  PERFORM t.ok('compra','prova válida lote elegível → 200', club_award_purchase(e1) = 200 AND t.rp('promo_lot_purchase', a) = 200);
+  PERFORM t.ok('compra','prova válida lote elegível → 200', club_award_purchase(e1) = 200);
+  PERFORM t.ok('compra','crédito de compra = 200', t.rp('promo_lot_purchase', a) = 200);
   PERFORM t.ok('compra','repetição → 0', club_award_purchase(e1) = 0);
   INSERT INTO club_purchase_evidence(company_id, site_id, event_id, member_id, source, order_ref, lot_ref, status, fingerprint)
     VALUES ('00000000-0000-4000-8000-0000000000a1','00000000-0000-4000-8000-0000000000a2','00000000-0000-4000-8000-0000000000e1', a, 'fever_order','ORD-2','EB1','valid','fp2') RETURNING id INTO e2;
@@ -163,11 +164,11 @@ DO $$ DECLARE a uuid; b uuid; e1 uuid; e2 uuid; e3 uuid; e4 uuid; e5 uuid; ok bo
       VALUES ('00000000-0000-4000-8000-0000000000a1','00000000-0000-4000-8000-0000000000a2','00000000-0000-4000-8000-0000000000e1', b, 'fever_order','ORD-1','EB1','valid','fp1');
   EXCEPTION WHEN unique_violation THEN ok := true; END;
   PERFORM t.ok('compra','mesma encomenda para outro membro recusada (fingerprint)', ok);
-  PERFORM t.ok('compra','reembolso anula (linha void, nada apagado)', club_purchase_revoke(e1, 'refunded', 'fixture: reembolso') = 1
-     AND t.rp('promo_lot_purchase', a) = 200 AND t.rp('void', a) = -200);
+  PERFORM t.ok('compra','reembolso anula 1 linha', club_purchase_revoke(e1, 'refunded', 'fixture: reembolso') = 1);
+  PERFORM t.ok('compra','reembolso: linha void, nada apagado', t.rp('promo_lot_purchase', a) = 200 AND t.rp('void', a) = -200);
   PERFORM t.ok('compra','prova reembolsada não credita', club_award_purchase(e1) = 0);
-  PERFORM t.ok('compra','reaprovação com prova válida → nova geração #2', club_award_purchase(e2) = 200
-     AND EXISTS (SELECT 1 FROM club_points WHERE member_id = a AND rule_key='promo_lot_purchase' AND ref_id LIKE 'purchase@%#2'));
+  PERFORM t.ok('compra','reaprovação com prova válida → 200', club_award_purchase(e2) = 200);
+  PERFORM t.ok('compra','reaprovação grava nova geração #2', EXISTS (SELECT 1 FROM club_points WHERE member_id = a AND rule_key='promo_lot_purchase' AND ref_id LIKE 'purchase@%#2'));
   PERFORM t.ok('compra','revogar prova não creditada → 0', club_purchase_revoke(e3, 'cancelled', 'fixture') = 0);
   UPDATE club_points_config SET purchase_enabled = false, purchase_lots = '{}' WHERE version = 'e1-v1';
 END $$;
