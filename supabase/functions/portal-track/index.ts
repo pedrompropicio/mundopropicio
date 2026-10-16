@@ -4,6 +4,7 @@
 // Aceita text/plain (sendBeacon, sem preflight) e application/json.
 // verify_jwt = false (config.toml) — ABERTA por desenho.
 import { isPrivateOrInvalid, lookupIpGeo } from "../_shared/geo.ts";
+import { consentRecordResponse, interpretBind, parseConsentDecision, portalForOrigin, readConsentToken, stripMetaIdentifiers } from "../_shared/consent-contract.ts";
 
 const ALLOWED_ORIGINS = new Set<string>([
   "https://www.mundopropicio.com",
@@ -135,12 +136,37 @@ Deno.serve(async (req) => {
   let body: any;
   try { body = JSON.parse(await req.text()); } catch { return json({ ok: false, error: "invalid_json" }, 400, origin); }
   const kind = body?.kind;
-  if (kind !== "redirect" && kind !== "lead" && kind !== "song_link_client_fail") {
+  if (kind !== "redirect" && kind !== "lead" && kind !== "song_link_client_fail" && kind !== "consent") {
     return json({ ok: false, error: "unknown_kind" }, 400, origin);
   }
 
   const url = Deno.env.get("SUPABASE_URL")!;
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  // #322: decisão de consentimento marketing (Meta). Empresa e portal vêm do Origin; o corpo nunca os define.
+  if (kind === "consent") {
+    const company = companyForOrigin(origin);
+    const portal = portalForOrigin(origin);
+    if (!company || !portal) return json({ ok: false, error: "origin_unscoped", marketing_allowed: false }, 403, origin);
+    const d = parseConsentDecision(body.payload);
+    if (!d.ok) return json({ ok: false, error: d.error, marketing_allowed: false }, 400, origin);
+    const v = d.value;
+    let data: unknown = null; let httpOk = false;
+    try {
+      const r = await fetch(`${url}/rest/v1/rpc/marketing_consent_record`, {
+        method: "POST",
+        headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ p_company: company, p_portal: portal, p_token: v.subject_token, p_state: v.state, p_purpose: v.purpose,
+          p_policy: v.policy_version, p_banner: v.banner_version, p_seq: v.client_seq, p_client_at: v.client_decided_at,
+          p_idem: v.idempotency_key, p_origin: origin, p_path: v.path }),
+      });
+      httpOk = r.ok;
+      data = httpOk ? await r.json() : null;
+      if (!httpOk) console.error("[portal-track] consent rpc", r.status);
+    } catch (e) { console.error("[portal-track] consent rpc threw", String(e)); }
+    const out = consentRecordResponse(data, httpOk);
+    return json(out.body, out.status, origin);
+  }
 
   if (kind === "song_link_client_fail") {
     const p = body.payload && typeof body.payload === "object" ? body.payload : {};
@@ -173,10 +199,35 @@ Deno.serve(async (req) => {
     return json({ ok: true }, 200, origin);
   }
 
-  const row: Record<string, unknown> = pick(kind, body.payload);
+  let row: Record<string, unknown> = pick(kind, body.payload);
   if (TABLES_WITH_COMPANY.has(TABLE[kind])) {
     const company = companyForOrigin(origin);
     if (company) row.company_id = company;
+  }
+  // #322: vínculo à prova de consentimento. Sem prova válida (ou falha) o registo entra na mesma, sem identificadores Meta.
+  let marketingBound = false;
+  {
+    const company = companyForOrigin(origin);
+    const portal = portalForOrigin(origin);
+    const token = readConsentToken(body);
+    if (company && portal && token) {
+      try {
+        const r = await fetch(`${url}/rest/v1/rpc/marketing_consent_bind`, {
+          method: "POST",
+          headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ p_company: company, p_portal: portal, p_token: token }),
+        });
+        const b = interpretBind(r.ok ? await r.json() : null, r.ok);
+        if (b.proof) {
+          marketingBound = true;
+          row.consent_subject_id = b.subject_id;
+          row.consent_event_id = b.event_id;
+          row.consent_portal = portal;
+          if (kind === "redirect") row.consent_company_id = company;
+        }
+      } catch (e) { console.error("[portal-track] consent bind threw", String(e)); }
+    }
+    if (!marketingBound) row = stripMetaIdentifiers(row);
   }
   if (body.consent === true) {
     const ip = extractIp(req);
@@ -203,5 +254,5 @@ Deno.serve(async (req) => {
     console.error("[portal-track] insert threw", String(e));
     return json({ ok: false }, 500, origin);
   }
-  return json({ ok: true }, 200, origin);
+  return json({ ok: true, marketing_bound: marketingBound }, 200, origin);
 });
