@@ -1,4 +1,4 @@
-runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T17:58:19Z
+runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T17:58:35Z
 listen_addresses=
 aplicar 0119_0119_newgang_lineup_reveals_security.sql sha256=4e8d1c1410a377bb
 psql:/dev-server/drizzle/migrations/0119_0119_newgang_lineup_reveals_security.sql:2: NOTICE:  policy "event_lineups_authenticated_all" for relation "public.event_lineups" does not exist, skipping
@@ -14,11 +14,10 @@ guard327 base: OK (30 funções)
 acl baseline: club_award={postgres=X/postgres,service_role=X/postgres} club_award_fixed={postgres=X/postgres} club_confirm_member={postgres=X/postgres,service_role=X/postgres} club_ranking={postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} club_wallet_due={postgres=X/postgres,service_role=X/postgres}
 psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: net.http_post indisponível (3F000)
 psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: dblink não instalável (0A000)
-rollback gerado: 75debecc8ef3e149
 == B) legado (funções Live)
                       ?column?                       
 -----------------------------------------------------
- LEGADO_OK 54/12597/6e404d572dd6ad2469f83d9054477310
+ LEGADO_OK 54/12597/bff0a43822b0699cb2831a39852e97a9
 (1 row)
 
 == C) carregar pendente sha256=bc7b0f8e0a5f31f5
