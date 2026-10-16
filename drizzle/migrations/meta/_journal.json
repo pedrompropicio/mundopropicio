@@ -1205,6 +1205,13 @@
       "when": 1792111707750,
       "tag": "0171_issue321_club_welcome_reserve_fix_site_table",
       "breakpoints": true
+    },
+    {
+      "idx": 172,
+      "version": "7",
+      "when": 1792113233878,
+      "tag": "0172_issue322_marketing_consent_ledger",
+      "breakpoints": true
     }
   ]
 }
