@@ -10,6 +10,7 @@ import { ASSET_BUCKET, PROOF_BUCKET, PROOF_EXT, missionsFrom, normalizeHandle, n
 import { buildHistory, subjectRef } from "./history.ts";
 import { publicEditions } from "./videos.ts";
 import { CREW_LINK, crewErrorStatus, crewView } from "./crews.ts";
+import { crewPendingAction, memberByEmail, mePendingCrew, PENDING_OPS } from "./pending.ts";
 import * as GW from "./wallet-google.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import { PreSendError, sendWelcomeOnce } from "./welcome.ts";
@@ -62,7 +63,7 @@ function clientIp(req: Request): string {
 
 const Body = z.object({
   action: z.enum(["bundle", "regulation", "site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer", "notify_pending",
-    "missions", "mission_upload_url", "submit_mission", "profile", "crew_create", "crew_join", "crew_leave", "wallet_google"]),
+    "missions", "mission_upload_url", "submit_mission", "profile", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google"]),
   token: z.string().min(20).max(200).optional(),
   email: z.string().email().max(254).optional(),
   reveal_id: z.string().uuid().optional(),
@@ -78,8 +79,9 @@ const Body = z.object({
   name: z.string().trim().min(1).max(60).optional(),
   code: z.string().trim().min(4).max(12).optional(),
   new_owner_short: z.number().int().min(0).max(20).optional(),
+  op: z.enum(PENDING_OPS).optional(),
 });
-const WRITE_ACTIONS = new Set(["request_access", "guess", "attendance_claim", "confirm_buyer", "session", "mission_upload_url", "submit_mission", "profile", "crew_create", "crew_join", "crew_leave", "wallet_google"]);
+const WRITE_ACTIONS = new Set(["request_access", "guess", "attendance_claim", "confirm_buyer", "session", "mission_upload_url", "submit_mission", "profile", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google"]);
 
 // Cache por instância (60 s): a configuração do site muda raramente; evita uma ida à base por pedido.
 const SITE_TTL_MS = 60_000;
@@ -536,7 +538,8 @@ Deno.serve(async (req) => {
       case "request_access": {
         if (!body.email) return json({ error: "email" }, 400);
         const email = body.email.trim().toLowerCase();
-        const { data: m } = await sb.from("club_members").select("id, first_name, email").eq("site_id", site.id).ilike("email", email).maybeSingle();
+        // #328: comparação exata com o email normalizado (o operador anterior tratava '_' e '%' como coringas).
+        const { data: m } = await memberByEmail(() => sb.from("club_members").select("id, first_name, email") as any, site.id, email);
         if (m) await sendClubLink(site, { ...m, email }, "access", crypto.randomUUID());
         return json({ ok: true });
       }
@@ -560,6 +563,7 @@ Deno.serve(async (req) => {
           submissions: await mySubmissions(member.id),
           history: await myHistory(site.id, member.id),
           crew: await myCrew(site.id, member.id),
+          ...(member.confirmed_at ? await mePendingCrew((fn, a) => sb.rpc(fn, a) as any, member.id) : { pending_crew: null }),
         });
       }
       case "guess": {
@@ -615,6 +619,11 @@ Deno.serve(async (req) => {
         if (body.action === "crew_create") return json({ id: out.id, name: out.name, code: out.code, invite_link: CREW_LINK(SITE_DOMAIN, out.code) });
         if (body.action === "crew_join") return json({ ok: true, crew: await myCrew(site.id, member.id) });
         return json({ ok: true });
+      }
+      case "crew_pending": {
+        // #328: member vem do token da sessão; qualquer member_id no payload é ignorado (Body não o declara).
+        const r = await crewPendingAction((fn, a) => sb.rpc(fn, a) as any, member, { op: body.op });
+        return json(r.body, r.status);
       }
       case "profile": {
         if (!member?.confirmed_at) return json({ error: "no_session" }, 401);

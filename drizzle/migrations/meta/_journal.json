@@ -1233,6 +1233,13 @@
       "when": 1792114677777,
       "tag": "0175_issue322_consent_fix_apply",
       "breakpoints": true
+    },
+    {
+      "idx": 176,
+      "version": "7",
+      "when": 1792170510169,
+      "tag": "0176_issue328_club_identity_crew_pending",
+      "breakpoints": true
     }
   ]
 }

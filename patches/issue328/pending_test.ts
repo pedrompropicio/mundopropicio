@@ -108,3 +108,13 @@ Deno.test("request_access: '_' e '%' não casam outro email", async () => {
   assert(!t.ops.includes("ilike"));
   assertEquals(normalizeEmail("  Ab@C.Pt "), "ab@c.pt");
 });
+
+Deno.test("#328 revisão: pendência malformada não é sucesso (crew_pending 500, me unavailable)", async () => {
+  for (const bad of [{ status: "x", code: "Q9VT3F" }, { status: "crew_full", code: "a b" }, "lixo", 7, {}]) {
+    const m = rpcMock({ data: { pending: bad }, error: null });
+    assertEquals(await crewPendingAction(m.rpc, A, { op: "status" }, silent), { status: 500, body: { error: "crew_pending" } });
+    assertEquals(await mePendingCrew(m.rpc, A.id, silent), { pending_crew: null, pending_crew_error: "unavailable" });
+  }
+  const ok = rpcMock({ data: { pending: null }, error: null });
+  assertEquals(await mePendingCrew(ok.rpc, A.id, silent), { pending_crew: null });
+});
