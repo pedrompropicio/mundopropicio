@@ -34,7 +34,7 @@ BEGIN
 
   r1 := crm_ingest_lead_captures(50, ids);
   IF (r1->>'processed')::int <> 4 OR (r1->>'contacts_new')::int <> 3 OR (r1->>'leads_new')::int <> 3
-     OR (r1->>'invite_no_interaction')::int <> 1 OR (r1->>'quarantine')::int <> 3 OR (r1->>'errors')::int <> 0 THEN
+     OR (r1->>'invite_no_interaction')::int <> 1 OR (r1->>'quarantine')::int <> 2 OR (r1->>'errors')::int <> 1 THEN
     RAISE EXCEPTION 'FAIL contagens 1ª corrida: %', r1; END IF;
 
   -- consentimento existente preservado (recusa não promovida), origem preservada
@@ -58,8 +58,11 @@ BEGIN
   SELECT count(*) INTO v FROM leads WHERE meta->>'lead_capture_id'=c::text;
   IF v<>0 THEN RAISE EXCEPTION 'FAIL convite gerou interação'; END IF;
   -- clube / empresa desconhecida / ambíguo: não processados, com motivo
-  SELECT count(*) INTO v FROM lead_capture WHERE id IN (d,e,f) AND processed=false AND processing_error LIKE 'quarantine#321:%';
-  IF v<>3 THEN RAISE EXCEPTION 'FAIL quarentena (%)', v; END IF;
+  -- 0168: clube_newgang em âmbito; com triggers desligados não há membro -> erro, não processed
+  SELECT count(*) INTO v FROM lead_capture WHERE id = d AND processed=false AND processing_error LIKE 'clube#321:%';
+  IF v<>1 THEN RAISE EXCEPTION 'FAIL clube sem membro marcado processed'; END IF;
+  SELECT count(*) INTO v FROM lead_capture WHERE id IN (e,f) AND processed=false AND processing_error LIKE 'quarantine#321:%';
+  IF v<>2 THEN RAISE EXCEPTION 'FAIL quarentena (%)', v; END IF;
   SELECT count(*) INTO v FROM contacts WHERE email IN ('t321-club@example.invalid','t321-unk@example.invalid');
   IF v<>0 THEN RAISE EXCEPTION 'FAIL contacto criado fora do âmbito'; END IF;
 

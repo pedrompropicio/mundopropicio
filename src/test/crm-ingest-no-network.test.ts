@@ -5,7 +5,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const dir = join(process.cwd(), "drizzle/migrations");
-const file = readdirSync(dir).find((f) => f.includes("issue321_crm_ingest_lead_captures"));
+// Versão em vigor: a migração mais recente que redefine a função (0169).
+const file = readdirSync(dir).filter((f) => /issue321_crm_ingest_(lead_captures|clube_continuo|counters_on_success)/.test(f)).sort().pop();
 const sql = (file ? readFileSync(join(dir, file), "utf8") : "").replace(/--[^\n]*/g, "");
 
 describe("#321 crm_ingest_lead_captures", () => {
@@ -16,9 +17,18 @@ describe("#321 crm_ingest_lead_captures", () => {
   it("leads novos nascem bloqueados para CAPI", () => {
     expect(sql).toContain("'blocked_no_consent'");
   });
-  it("clube_newgang fora do âmbito e sem fallback para MP", () => {
-    expect(sql).not.toMatch(/'clube_newgang'\s*[,\]]/);
+  it("clube_newgang só em MP, sem fallback de empresa", () => {
+    expect(sql).toMatch(/MP_SOURCES[^;]*'clube_newgang'/);
+    expect(sql).not.toMatch(/COALA_SOURCES constant text\[\] := ARRAY\[[^\]]*'clube_newgang'/);
     expect(sql).not.toMatch(/COALESCE\(lc\.company_id/i);
+  });
+  it("clube: exige site Newgang, 1 por email por lote, sem membro reverte", () => {
+    expect(sql).toContain("brand_key = 'newgang'");
+    expect(sql).toContain("v_club_seen");
+    expect(sql).toContain("clube#321: membro não criado");
+  });
+  it("anti-starvation: fora de âmbito marcado fora do lote", () => {
+    expect(sql).toMatch(/WITH oos AS/);
   });
   it("convite Coala sem interação (D-ERP276)", () => {
     expect(sql).toContain("lc.source = 'coala_early_bird_invite'");

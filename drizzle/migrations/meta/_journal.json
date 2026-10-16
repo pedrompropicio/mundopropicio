@@ -1177,6 +1177,20 @@
       "when": 1792110028267,
       "tag": "0167_issue321_crm_ingest_clube_by_ids",
       "breakpoints": true
+    },
+    {
+      "idx": 168,
+      "version": "7",
+      "when": 1792111038079,
+      "tag": "0168_issue321_crm_ingest_clube_continuo",
+      "breakpoints": true
+    },
+    {
+      "idx": 169,
+      "version": "7",
+      "when": 1792111175455,
+      "tag": "0169_issue321_crm_ingest_counters_on_success",
+      "breakpoints": true
     }
   ]
 }
