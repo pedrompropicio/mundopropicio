@@ -15,7 +15,7 @@ check(){ # nome condição_sql
   echo "conc ok: $1"
 }
 race(){ # nome N sql_por_worker(usa {i})
-  local name="$1" n="$2" tpl="$3" fifo="$WD/ctl.$name" i
+  local name="$1" n="$2" tpl="$3" i; local fifo="$WD/ctl.$name"
   mkfifo "$fifo"
   "${PSQL[@]}" < "$fifo" > "$WD/ctl.$name.out" 2>&1 & local ctl=$!
   exec 9> "$fifo"
