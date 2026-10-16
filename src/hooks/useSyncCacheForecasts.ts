@@ -8,6 +8,7 @@ import { writeForecastAmount, ForecastBelowRealizedError } from "@/lib/forecast-
 import { toast } from "@/hooks/use-toast";
 import { mustWrite } from "@/lib/must-write";
 import { computeTicketRevenueAndOccupancy, enrichCacheConfigs, filterRealCacheExpenses } from "@/lib/real-cache-calc";
+import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 import { computeTourCityCacheAmount, masterDeductionFingerprint } from "@/lib/tour-cache-sync";
 import { invalidateEventFinancials } from "@/lib/invalidate-event-financials";
 
@@ -112,12 +113,12 @@ export function useSyncCacheForecasts({
       const agg = await fetchAllPaged<any>((from, to) =>
         supabase
           .from("ticket_sales")
-          .select("quantity, unit_price")
+          .select("quantity, unit_price, total_value")
           .in("zone_id", zoneIds)
           .order("id", { ascending: true })
           .range(from, to),
       );
-      const total = (agg ?? []).reduce((s: number, r: any) => s + Number(r.quantity) * Number(r.unit_price), 0);
+      const total = (agg ?? []).reduce((s: number, r: any) => s + ticketSaleRevenue(r), 0);
       return `${count}:${Math.round(total * 100)}`;
     },
     enabled: enabled && cacheConfigs.length > 0,
@@ -276,7 +277,7 @@ async function syncTourCacheForecasts(
         fetchAllPaged<any>((from, to) =>
           supabase
             .from("ticket_sales")
-            .select("zone_id, lot_id, quantity, unit_price")
+            .select("zone_id, lot_id, quantity, unit_price, total_value")
             .in("zone_id", zoneIds)
             .order("id", { ascending: true })
             .range(from, to),
@@ -314,11 +315,10 @@ async function syncTourCacheForecasts(
   for (const s of sales) {
     const eid = zoneToEvent.get(s.zone_id);
     if (!eid || !actualRevenueByChild[eid]) continue;
-    const qty = Number(s.quantity);
-    const price = Number(s.unit_price);
+    const lineGross = ticketSaleRevenue(s);
     const ivaRate = lotIvaMap.get(s.lot_id) ?? 6;
-    actualRevenueByChild[eid].gross += qty * price;
-    actualRevenueByChild[eid].net += qty * (price / (1 + ivaRate / 100));
+    actualRevenueByChild[eid].gross += lineGross;
+    actualRevenueByChild[eid].net += lineGross / (1 + ivaRate / 100);
   }
 
   // Use actual sales when available, fall back to planned
@@ -529,7 +529,7 @@ async function syncSimpleCacheForecasts(
       fetchAllPaged<any>((from, to) =>
         supabase
           .from("ticket_sales")
-          .select("lot_id, zone_id, quantity, unit_price")
+          .select("lot_id, zone_id, quantity, unit_price, total_value")
           .in("zone_id", zoneIds)
           .order("id", { ascending: true })
           .range(from, to),
@@ -547,11 +547,10 @@ async function syncSimpleCacheForecasts(
       let actualGross = 0;
       let actualNet = 0;
       for (const s of sales) {
-        const qty = Number(s.quantity);
-        const price = Number(s.unit_price);
+        const lineGross = ticketSaleRevenue(s);
         const ivaRate = lotIvaMap.get(s.lot_id) ?? 6;
-        actualGross += qty * price;
-        actualNet += qty * (price / (1 + ivaRate / 100));
+        actualGross += lineGross;
+        actualNet += lineGross / (1 + ivaRate / 100);
       }
       effectiveNet = actualNet;
       effectiveGross = actualGross;
