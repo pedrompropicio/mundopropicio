@@ -125,6 +125,7 @@ say "consumidor antigo (sem RPC) com SQL #327 ainda aplicado: nível=$OLDLV"
 "${PSQL[@]}" -tAc "INSERT INTO club_points(company_id, member_id, rule_key, points, ref_id) SELECT company_id, id, 'seed_fixture', -1400, 'rb_neg' FROM club_members WHERE email='lv1500@example.invalid' AND site_id='00000000-0000-4000-8000-0000000000a2'" >/dev/null
 if "${PSQL[@]}" -f "$RB" >>"$LOG" 2>&1; then say "ERRO: reversão devia abortar"; exit 10; fi
 [ -n "$("${PSQL[@]}" -tAc "SELECT to_regprocedure('public.club_member_level(uuid)')")" ] && say "reversão abortou com descida de nível; nada mudou (funções novas presentes)" || exit 11
+[ "$("${PSQL[@]}" -tAc "SELECT level_name||'/'||protected FROM club_member_level(t.m('lv1500@example.invalid'))")" = "Goat/true" ] && say "após aborto a RPC/API canónica continua a servir: Goat protegido com pontos abaixo do limiar" || exit 17
 "${PSQL[@]}" -tAc "DELETE FROM club_points WHERE ref_id='rb_neg' AND rule_key='seed_fixture'" >/dev/null
 "${PSQL[@]}" -f "$RB" >>"$LOG" 2>&1; hashes > "$TMP/h2.txt"
 python3 "$HERE/compare327.py" base "$LIVE" "$TMP/h2.txt" "$OUT/equivalencia-pos-reversao.json" | tee -a "$LOG"
