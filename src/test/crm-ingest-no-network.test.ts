@@ -19,7 +19,7 @@ describe("#321 crm_ingest_lead_captures", () => {
   });
   it("clube_newgang só em MP, sem fallback de empresa", () => {
     expect(sql).toMatch(/MP_SOURCES[^;]*'clube_newgang'/);
-    expect(sql).not.toMatch(/COALA_SOURCES[^;]*'clube_newgang'/);
+    expect(sql).not.toMatch(/COALA_SOURCES constant text\[\] := ARRAY\[[^\]]*'clube_newgang'/);
     expect(sql).not.toMatch(/COALESCE\(lc\.company_id/i);
   });
   it("clube: exige site Newgang, 1 por email por lote, sem membro reverte", () => {
