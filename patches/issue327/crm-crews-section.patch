@@ -48,7 +48,7 @@ diff -ruN a/src/lib/club-crew-rule-source.ts b/src/lib/club-crew-rule-source.ts
 +}
 diff -ruN a/src/pages/crm-admin/sites/CrewsSection.tsx b/src/pages/crm-admin/sites/CrewsSection.tsx
 --- a/src/pages/crm-admin/sites/CrewsSection.tsx	2026-10-16 19:09:14.637263984 +0000
-+++ b/src/pages/crm-admin/sites/CrewsSection.tsx	2026-10-16 19:09:14.666577987 +0000
++++ b/src/pages/crm-admin/sites/CrewsSection.tsx	2026-10-16 19:09:29.081648284 +0000
 @@ -8,6 +8,7 @@
  import { Button } from "@/components/ui/button";
  import { Badge } from "@/components/ui/badge";
@@ -85,7 +85,7 @@ diff -ruN a/src/pages/crm-admin/sites/CrewsSection.tsx b/src/pages/crm-admin/sit
        const { error } = rule.data
          ? await db.from("club_point_rules").update(row).eq("id", rule.data.id)
 -        : await db.from("club_point_rules").insert({ ...row, company_id: companyId, site_id: siteId, rule_key: "crew_complete", label: "Crew completa" });
-+        : await db.from("club_point_rules").insert({ points: cfg.points, ...row, company_id: companyId, site_id: siteId, rule_key: "crew_complete", label: "Crew completa" });
++        : await db.from("club_point_rules").insert({ points: src.editable ? cfg.points : src.points, ...row, company_id: companyId, site_id: siteId, rule_key: "crew_complete", label: "Crew completa" });
        if (error) throw error;
      },
      onSuccess: () => { toast.success("Configuração guardada"); qc.invalidateQueries({ queryKey: ["club-crew-rule", siteId] }); },
