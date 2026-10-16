@@ -74,4 +74,5 @@ DO $$ DECLARE l1 uuid; l5 uuid; l10 uuid; c uuid; i int; m uuid; j jsonb; BEGIN
 END $$;
 INSERT INTO t.snap SELECT 'points', count(*)||'/'||sum(points)||'/'||md5(string_agg(id::text||member_id||rule_key||points||ref_id, ',' ORDER BY id)) FROM public.club_points;
 INSERT INTO t.snap SELECT 'members', count(*)||'/'||md5(string_agg(id::text||coalesce(referred_by_member_id::text,'')||coalesce(confirmed_at::text,''), ',' ORDER BY id)) FROM public.club_members;
+CREATE TABLE t.legacy AS SELECT id, member_id, rule_key, points, ref_id, created_at FROM public.club_points;
 SELECT 'LEGADO_OK ' || (SELECT v FROM t.snap WHERE k='points');

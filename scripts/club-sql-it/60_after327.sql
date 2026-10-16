@@ -31,7 +31,7 @@ DO $$ DECLARE r jsonb; ok boolean := false; BEGIN
   r := club_points_cutover((SELECT id FROM club_points_config WHERE version='e1-v1'), '{"Gang":0,"Crew":500,"Goat":1500}');
   PERFORM t.ok('cutover','níveis novos 750/3000', (SELECT jsonb_object_agg(name,min_points) FROM club_levels WHERE site_id='00000000-0000-4000-8000-0000000000a2') = '{"Gang":0,"Crew":750,"Goat":3000}', r::text);
   PERFORM t.ok('cutover','outro site intacto', (SELECT jsonb_object_agg(name,min_points) FROM club_levels WHERE site_id='00000000-0000-4000-8000-0000000000b2') = '{"Gang":0,"Crew":500,"Goat":1500}');
-  PERFORM t.ok('cutover','club_points intacto no cutover (sem editar/apagar/recalcular)', (SELECT count(*) FROM club_points WHERE event_id IS NULL) = (SELECT split_part(v,'/',1)::int FROM t.snap WHERE k='points'));
+  PERFORM t.ok('cutover','club_points intacto no cutover (sem editar/apagar/recalcular)', NOT EXISTS (SELECT * FROM t.legacy EXCEPT SELECT id, member_id, rule_key, points, ref_id, created_at FROM club_points WHERE event_id IS NULL));
   ok := false;
   BEGIN PERFORM club_points_cutover((SELECT id FROM club_points_config WHERE version='e1-v1'), '{"Gang":0,"Crew":750,"Goat":3000}');
   EXCEPTION WHEN raise_exception THEN ok := true; END;
