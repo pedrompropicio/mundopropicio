@@ -1,5 +1,7 @@
--- ORDEM: 1) reverter a API (edge newgang-portal para a versão sem club_member_level/club_rules_public/referrals);
---        2) só depois correr este ficheiro. Com a API nova ainda ativa, as RPCs removidas aqui dariam erro explícito.
+-- ORDEM SEGURA (rev3): 1) API compatível já deployada (usa club_member_level enquanto existir; só cai para a fórmula
+--    antiga se a RPC estiver AUSENTE — PGRST202/42883, nunca em erros genéricos); 2) correr este ficheiro; 3) API antiga é opcional.
+--    Não depende de pausar o cron Wallet: antes do COMMIT a RPC serve o canónico; depois do COMMIT a fórmula antiga com os
+--    limiares repostos nunca fica abaixo do canónico (guarda abaixo). A ordem inversa (API antiga primeiro) rebaixa — proibida.
 -- Uma transação; aborta (nada muda) se o patch não estiver aplicado ou se algum membro descesse de nível.
 BEGIN;
 DO $rb$ BEGIN

@@ -1,8 +1,10 @@
 -- #327 — REVERSÃO (ficheiro inerte, NÃO APLICADA). Gerada das funções do baseline local, cujo md5 = Live pós-0176.
 -- Repõe as 5 funções alteradas verbatim, remove as funções novas, repõe limiares e as 4 regras visíveis de antes do
 -- 1.º cutover e retira configs. NÃO apaga créditos, pisos, provas, contagens nem colunas (ficam DEPRECATED).
--- ORDEM: 1) reverter a API (edge newgang-portal para a versão sem club_member_level/club_rules_public/referrals);
---        2) só depois correr este ficheiro. Com a API nova ainda ativa, as RPCs removidas aqui dariam erro explícito.
+-- ORDEM SEGURA (rev3): 1) API compatível já deployada (usa club_member_level enquanto existir; só cai para a fórmula
+--    antiga se a RPC estiver AUSENTE — PGRST202/42883, nunca em erros genéricos); 2) correr este ficheiro; 3) API antiga é opcional.
+--    Não depende de pausar o cron Wallet: antes do COMMIT a RPC serve o canónico; depois do COMMIT a fórmula antiga com os
+--    limiares repostos nunca fica abaixo do canónico (guarda abaixo). A ordem inversa (API antiga primeiro) rebaixa — proibida.
 -- Uma transação; aborta (nada muda) se o patch não estiver aplicado ou se algum membro descesse de nível.
 BEGIN;
 DO $rb$ BEGIN
