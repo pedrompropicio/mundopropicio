@@ -14,3 +14,6 @@
 
 ## Welcome do Clube — reserva atómica (16/10, 0170/0171)
 Antes de qualquer envio, `notifyPending` adquire `club_welcome_reserve` (PK por membro, escopo site/empresa). Só quem adquire envia; reserva nunca libertada sozinha (unknown/error_pre_send = recuperação manual). Membros com welcome já registado ficam `legacy_sent`. Prova: `docs/testes/issue321/08-welcome-reserva-live.md`.
+
+## Fecho (16/10)
+Validado e publicado (SHA 2130204b…). Retoma CAPI e P2/P3 fora; proposta não aprovada em `proposta-p2-p3-consentimento.md`.

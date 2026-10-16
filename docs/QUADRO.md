@@ -21,7 +21,6 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #321 | 0 · Cowork (ChatGPT) · agente ERP | 0 · Cowork ChatGPT | crm_ingest_lead_captures (0168/0169, inclui clube_newgang contínuo) + cron 2398; trigger/email normal do Clube; sem CAPI | 2026-10-16 00:05 | 2026-10-16 00:55 — reserva atómica do welcome (0170/0171) aplicada; aguarda verificação do Pedro |
 
 ## 0 · Cowork (Claude)
 
@@ -29,7 +28,7 @@ _(sem pedidos)_
 
 ## 0 · Cowork (ChatGPT)
 
-- [ ] #321 — verificação independente: ingestão de contactos e retoma contínua do Clube (`06-clube-continuo.md`, `08-welcome-reserva-live.md`).
+- [x] #321 — verificação independente: ingestão de contactos e retoma contínua do Clube (`06-clube-continuo.md`, `08-welcome-reserva-live.md`). — tratado: validado e publicado 16/10 (SHA 2130204b…).
 
 - [x] de `0 · Cowork (ChatGPT)` para `0 · Cowork (ChatGPT)` (15/10/2026 23:45): **#320 — diagnóstico sem segredos e provas versionadas.**
   Resultado (15/10/2026 23:49 UTC, autorização Pedro): diagnóstico sensível removido confirmado por leitura independente; provas verificadas no commit: `docs/testes/issue320/06-tsgo.md`, `06-vitest.md`, `06-build.md`. Os `.txt` ignorados não contam como provas. CI confirmada independentemente pelo Claude e ChatGPT via conector GitHub: https://github.com/pedrompropicio/mundopropicio/actions/runs/38824514063, job `quality` `116728694956`, conclusion `success`, SHA `7b151756ad8060019de571b9295a6a978e0fbb1e` (confirmado no checkout do log).
