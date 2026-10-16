@@ -48,6 +48,7 @@ export async function crewPendingAction(rpc: RpcFn, member: { id: string; confir
   if (typeof out.error === "string") return { status: pendingErrorStatus(out.error), body: { error: out.error } };
   if (!("pending" in out)) { log("newgang-portal crew_pending: resposta sem 'pending'"); return { status: 500, body: { error: "crew_pending" } }; }
   const pending = pendingFrom(out.pending);
+  if (out.pending !== null && pending === null) { log("newgang-portal crew_pending: pendência malformada"); return { status: 500, body: { error: "crew_pending" } }; }
   return { status: 200, body: { pending, joined: op === "retry" && out.pending === null && !!out.crew_id } };
 }
 
@@ -63,7 +64,12 @@ export async function mePendingCrew(rpc: RpcFn, memberId: string, log: (m: strin
       log(`newgang-portal me.pending_crew: ${r.error?.message ?? r.data?.error ?? "resposta inválida"}`);
       return { pending_crew: null, pending_crew_error: "unavailable" };
     }
-    return { pending_crew: pendingFrom(r.data.pending) };
+    const pv = pendingFrom(r.data.pending);
+    if (r.data.pending !== null && pv === null) {
+      log("newgang-portal me.pending_crew: pendência malformada");
+      return { pending_crew: null, pending_crew_error: "unavailable" };
+    }
+    return { pending_crew: pv };
   } catch (e) {
     log(`newgang-portal me.pending_crew: ${(e as Error).message}`);
     return { pending_crew: null, pending_crew_error: "unavailable" };
