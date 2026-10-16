@@ -8,7 +8,6 @@ p AS (SELECT cp.rule_key, cp.points, cp.created_at FROM club_points cp JOIN club
 SELECT
   (SELECT event_id FROM s) = '407f43fc-790f-4ea7-8b2a-4162805dfb16'::uuid                      AS site_aponta_2027,
   (SELECT count(*) FROM ev)                                                                       AS evento_existe,
-  (SELECT count(*) FROM festival_editions fe WHERE fe.event_id = (SELECT event_id FROM s))        AS edicoes_ligadas_ao_evento,
   (SELECT min(site_created) FROM s)                                                               AS site_criado_em,
   (SELECT min(created_at) FROM p)                                                                 AS primeiro_credito,
   (SELECT max(created_at) FROM p)                                                                 AS ultimo_credito,
