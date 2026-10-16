@@ -5210,7 +5210,9 @@ export type Database = {
           id: string
           instagram_handle: string | null
           member_no: number
+          pending_crew_checked_at: string | null
           pending_crew_code: string | null
+          pending_crew_status: string | null
           phone: string | null
           referral_code: string
           referred_by_member_id: string | null
@@ -5231,7 +5233,9 @@ export type Database = {
           id?: string
           instagram_handle?: string | null
           member_no: number
+          pending_crew_checked_at?: string | null
           pending_crew_code?: string | null
+          pending_crew_status?: string | null
           phone?: string | null
           referral_code: string
           referred_by_member_id?: string | null
@@ -5252,7 +5256,9 @@ export type Database = {
           id?: string
           instagram_handle?: string | null
           member_no?: number
+          pending_crew_checked_at?: string | null
           pending_crew_code?: string | null
+          pending_crew_status?: string | null
           phone?: string | null
           referral_code?: string
           referred_by_member_id?: string | null
@@ -21582,6 +21588,10 @@ export type Database = {
         Returns: Json
       }
       club_crew_name_ok: { Args: { p: string }; Returns: boolean }
+      club_crew_pending: {
+        Args: { p_action?: string; p_member: string }
+        Returns: Json
+      }
       club_decide_attendance: {
         Args: { p_claim: string; p_valid: boolean }
         Returns: undefined
