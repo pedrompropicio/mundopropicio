@@ -1,0 +1,4 @@
+{"date":"2026-10-16T15:59:18Z","positivo_exit":0,"positivo":"in_scope_iguais: 14/14",
+ "negativo_hash_alterado_exit":3,"negativo":"equivalencia_scope: DIFERENCAS club_crew_join",
+ "negativo_funcao_em_falta_exit":3,"faltou":"equivalencia_scope: DIFERENCAS club_award_fixed",
+ "pipefail_interrompe_exit":3,"snapshot_canonico_sha256_antes":"6addb7763b00b6797427e6ec6554c3692a1740054e6cdd3967970bb615398abd","snapshot_canonico_sha256_depois":"6addb7763b00b6797427e6ec6554c3692a1740054e6cdd3967970bb615398abd","ok":true}

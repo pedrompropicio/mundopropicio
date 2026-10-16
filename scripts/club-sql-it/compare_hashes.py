@@ -15,3 +15,6 @@ for f in SCOPE:
     print(f"hash {f}: {'IGUAL' if r.get('equal') else 'DIFERENTE'} local={r.get('local')} live={r.get('live')}")
 diff = [f for f in SCOPE if not res.get(f, {}).get("equal")]
 print("equivalencia_scope:", "OK" if not diff else "DIFERENCAS " + ",".join(diff))
+print(f"in_scope_iguais: {len(SCOPE) - len(diff)}/{len(SCOPE)}")
+if diff:
+    sys.exit(3)
