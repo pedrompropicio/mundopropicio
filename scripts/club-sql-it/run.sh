@@ -5,6 +5,9 @@
 # sem schema net/cron/vault; recusa correr se houver destino remoto no ambiente. Nada toca em Live.
 set -euo pipefail
 shopt -s inherit_errexit 2>/dev/null || true
+for b in postgres initdb pg_ctl psql python3 setpriv; do
+  command -v "$b" >/dev/null 2>&1 || { echo "pré-requisito em falta: $b (PostgreSQL 17 local com initdb/pg_ctl/psql, python3; nenhum serviço externo é usado)" >&2; exit 4; }
+done
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 OUT="${1:-$ROOT/docs/testes/issue326}"
