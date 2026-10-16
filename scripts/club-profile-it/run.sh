@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# #327 — baseline Live (pós-0176) → patch local #327 → cutover → reversão. Base local descartável.
-# Uso: bash scripts/club-sql-it/run327.sh [pasta_de_saida]
+# #330 — base canónica #327/#328 → missão inerte → concorrência → desativação preservadora.
+# Uso: bash scripts/club-profile-it/run.sh [pasta_de_saida]
 # Garantias: só socket Unix num diretório temporário (listen_addresses=''), sem TCP, sem extensões,
 # sem schema net/cron/vault; recusa correr se houver destino remoto no ambiente. Nada toca em Live.
 set -euo pipefail

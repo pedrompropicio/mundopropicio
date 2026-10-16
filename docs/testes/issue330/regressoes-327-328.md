@@ -1,0 +1,120 @@
+# Output integral local — #330
+
+```text
+guard: SUPABASE_URL presente no ambiente → removido (valor não impresso)
+guard: SUPABASE_DB_URL presente no ambiente → removido (valor não impresso)
+guard: SUPABASE_SERVICE_ROLE_KEY presente no ambiente → removido (valor não impresso)
+runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T22:37:39Z
+listen_addresses=
+aplicar 0119_0119_newgang_lineup_reveals_security.sql sha256=4e8d1c1410a377bb
+aplicar 0120_0120_newgang_portal_sites_editions_club.sql sha256=2826b2e7d1780e36
+aplicar 0140_derp271_club_terms.sql sha256=ab63a67377f13e51
+aplicar 0141_derp272_club_missions.sql sha256=50b86f8be3575a48
+aplicar 0142_derp273_club_points_void.sql sha256=6111185391186e25
+aplicar 0143_derp274_club_crews.sql sha256=f774cf76485977fc
+aplicar 0144_derp275_club_wallet_passes.sql sha256=c5aeedb913c1fa55
+aplicar 0176_issue328_club_identity_crew_pending.sql sha256=f365deca51c8ef43
+paridade ACL Live: e20a11ce660c0cf5 (club_award_fixed → service_role)
+== A) baseline vs Live pós-0176 (sem patch)
+guard327 base: OK (30 funções)
+acl baseline: club_award={postgres=X/postgres,service_role=X/postgres} club_award_fixed={postgres=X/postgres,service_role=X/postgres} club_confirm_member={postgres=X/postgres,service_role=X/postgres} club_crew_pending={postgres=X/postgres,service_role=X/postgres} club_ranking={postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres} club_wallet_due={postgres=X/postgres,service_role=X/postgres}
+acl vs Live club_award: local=postgres,service_role live=postgres,service_role -> IGUAL
+acl vs Live club_award_fixed: local=postgres,service_role live=postgres,service_role -> IGUAL
+acl vs Live club_confirm_member: local=postgres,service_role live=postgres,service_role -> IGUAL
+acl vs Live club_ranking: local=authenticated,postgres,service_role live=authenticated,postgres,service_role -> IGUAL
+acl vs Live club_wallet_due: local=postgres,service_role live=postgres,service_role -> IGUAL
+psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: net.http_post indisponível (3F000)
+psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: dblink não instalável (0A000)
+== B) legado (funções Live)
+                      ?column?                       
+-----------------------------------------------------
+ LEGADO_OK 54/12597/33487a0c21a35fa23b46cc5eb1a4b8e8
+(1 row)
+
+== C) carregar pendente sha256=8a13c674e5a3f23e
+guard327 patch: OK (41 funções)
+acl _club_award_core: {postgres=X/postgres,service_role=X/postgres}
+acl club_award_purchase: {postgres=X/postgres,service_role=X/postgres}
+acl club_ranking: {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+pendente idempotente: 2.ª aplicação sem alterações
+== D) depois
+     ?column?      
+-------------------
+ SERIAL327 113/113
+(1 row)
+
+   ?column?   
+--------------
+ RLS327 28/28
+(1 row)
+
+conc ok: preparação: indicador com 600
+barreira refcap: 5/5 à espera → soltar
+conc ok: teto atómico: 750 com 10 créditos
+conc ok: contagem real 11 (sem duplicar retries)
+barreira crew: 4/4 à espera → soltar
+conc ok: crew com 6 (max)
+conc ok: 6 × 100 uma vez
+barreira purchase: 4/4 à espera → soltar
+conc ok: compra: 1 crédito por edição
+barreira cutover: 7/7 à espera → soltar
+conc ok: nenhum crédito perdido (6 × 500)
+conc ok: piso só com retrato consistente (>=500 no retrato)
+conc ok: cutover e3 ativo, um só ativo
+CONC327 "asserts":9 "falhados":0
+epoch ok: A: 2 à espera com T1 aberto
+epoch ok: A: T1 (antes) pagou 150 da regra antiga
+epoch ok: A: T3 (depois) pagou 75 da config nova
+epoch ok: A: piso = retrato com o crédito de T1 (550 → Crew)
+epoch ok: A: total 625 e nível canónico Crew protegido
+epoch ok: B: config antiga ativa é e3-v1 (75/100)
+epoch ok: B: 2 à espera com T1 aberto
+epoch ok: B: T1 (antiga 75) recusado pelo teto (700+75>750)
+epoch ok: B: T3 (nova 50) cabe: 750 exatos na edição
+epoch ok: B: contagem real regista os 2 indicados
+epoch ok: B: Crew X (T1) 4×100 da config antiga
+epoch ok: B: Crew Y (T3) 4×90 da config nova
+epoch ok: B: e3-v1 retirada, e3-v2 ativa (uma só)
+epoch ok: C: controlo negativo reproduz a corrida
+epoch ok: C: sem bloqueio, T1 grava valor da config antiga DEPOIS de a nova estar ativa (anomalia esperada)
+epoch ok: C: bloqueio reposto (corpo original)
+epoch ok: D: config a zeros → inscrição 0 e indicação 0 (teto 0)
+epoch ok: D: montra mostra 0 (não promete valores antigos)
+EPOCH327 "asserts":18 "falhados":0
+pend ok: NEG: corpo 0176 carregado (FOR UPDATE antes do site)
+pend ok: NEG reproduz deadlock
+pend ok: NEG: consequência visível (cutover abortado OU retry perdido em estado 'error')
+pend ok: POS: corpo do pendente reposto (site antes do membro, FOR NO KEY UPDATE)
+pend ok: POS: sem deadlock nem erros
+pend ok: POS: cutover concluiu (a-pend ativa, uma só ativa)
+pend ok: POS: piso de X criado 1× com o retrato ANTES do retry (800, Crew)
+pend ok: POS: retry concluído depois do cutover (convite limpo, Crew com 4)
+pend ok: POS: crew_complete 1× por membro com o valor da config nova (4×80)
+pend ok: POS: 2.º retry idempotente (sem crédito/piso duplicado)
+pend ok: AUDIT: funções do Clube sem 'club_members ... FOR UPDATE' (só FOR NO KEY UPDATE após o site)
+pend ok: AUDIT: confirm/crew_pending/award_purchase/purchase_revoke pedem o site antes da linha
+PEND327 "asserts":12 "falhados":0
+psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: net.http_post indisponível (3F000)
+psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: dblink não instalável (0A000)
+serial: 141/141
+== E) reversão sha256=c7f18a0476747b79
+canónico antes: Goat protegido=Goat/true negativo=(sem nível)/-150
+controlo negativo da ORDEM ANTIGA (API revertida antes do SQL): Goat protegido apareceria como Crew → janela de rebaixamento; ordem segura = SQL primeiro sob API compat
+reversão abortou com descida de nível; nada mudou (funções novas presentes)
+após aborto a RPC/API canónica continua a servir: Goat protegido com pontos abaixo do limiar
+guard327 base: OK (30 funções)
+pós-reversão: club_member_level ausente → API compat usa fórmula antiga (só neste caso)
+nenhum membro desce na passagem RPC canónica → fórmula antiga: 0 descidas (137 membros)
+Goat protegido (1500) continua Goat após reversão
+membro negativo após reversão: (sem nível)/-150 (igual ao canónico antes)
+reversão preserva créditos: 259/36739
+ACL das 5 funções = baseline
+níveis após reversão: {"Crew": 500, "Gang": 0, "Goat": 1500}
+regras visíveis após reversão: attended_year:100,crew_complete:200,friend_bought:300,friend_joined:150,guess_correct:50,join_confirmed:100,promo_lot_purchase:500
+regras A2/B2 = pré-patch
+crew_cfg após reversão: 200/4/6
+configs ativas após reversão: 0
+pisos/provas/contagens/retrato preservados: 57/9/67/36
+RESULTADO: TODOS OS ASSERTS PASSARAM
+
+```

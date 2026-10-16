@@ -1,16 +1,14 @@
---- a/src/lib/club-config-source.ts
-+++ b/src/lib/club-config-source.ts
-@@ -28,6 +28,7 @@
- }
- export function assertClubWrite(ready: boolean, config: ClubConfig | null, table: string, patch: Record<string, unknown>, structural = false) {
-   if (!ready) throw new Error("Configuração do Clube não verificada. Tente novamente.");
-+  if (table === "club_point_rules" && ["points", "active", "rule_key"].some(k => k in patch) && patch.rule_key === "profile_complete") throw new Error("Regra de perfil protegida; configurada por RPC própria.");
-   if (!config) return;
-   if (structural || (table === "club_levels" && Object.keys(patch).some(k => k !== "benefit")))
-     throw new Error("Níveis e identidades preservados pela configuração ativa.");
 --- a/src/pages/crm-admin/sites/NewgangSite.tsx
 +++ b/src/pages/crm-admin/sites/NewgangSite.tsx
-@@ -577,10 +577,10 @@
+@@ -539,6 +539,7 @@
+         const latest = await activeCfg.refetch();
+         assertClubWrite(!latest.isError && latest.data !== undefined, latest.data ?? null, table, patch, !id);
+         const row = q.data?.find(r => r.id === id);
++        if (table === "club_point_rules" && row?.rule_key === "profile_complete" && Object.keys(patch).some(k => k !== "label")) throw new Error("Regra de perfil protegida; valor fixo por adesão.");
+         if (latest.data && table === "club_point_rules" && row && CONTROLLED_RULES.includes(row.rule_key) && "points" in patch)
+           throw new Error("Pontos definidos pela configuração ativa");
+       }
+@@ -577,10 +578,10 @@
          })()}
          <div className="flex flex-wrap gap-2">
            {cols.map((c) => (
