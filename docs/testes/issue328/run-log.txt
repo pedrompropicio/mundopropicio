@@ -1,4 +1,4 @@
-runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T16:15:30Z
+runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T16:30:29Z
 listen_addresses=
 aplicar 0119_0119_newgang_lineup_reveals_security.sql sha256=4e8d1c1410a377bb
 psql:/dev-server/drizzle/migrations/0119_0119_newgang_lineup_reveals_security.sql:2: NOTICE:  policy "event_lineups_authenticated_all" for relation "public.event_lineups" does not exist, skipping
@@ -31,7 +31,7 @@ psql:/dev-server/scripts/club-sql-it/30_before328.sql:52: WARNING:  club_confirm
 barreira email_before: 8/8 à espera → soltar
 conc before ok: 1 membro para o email
 conc before ok: DEFEITO 1 reproduzido: ligações com unique_violation (7/8)
-== C) carregar pendente sha256=fc9bc0458d3d12b3
+== C) carregar pendente sha256=e3895f1a2179cf69
 patch club_award inalterada True e149ac23e2cef6b4c08a4413b8e6767a
 patch club_award_fixed inalterada True ea8c1917a79095318c553c29e1efbdb0
 patch club_confirm_member alterada_pelo_pendente True df3a12edd179829ba9233d71fc5816b7
@@ -42,18 +42,21 @@ patch club_crew_gen_code inalterada True 1071a31f33bd7185570ddb0b064ad7f2
 patch club_crew_join inalterada True 7fb6380f40662610e8e4f05ff3f6df0f
 patch club_crew_leave inalterada True 59ed0619eb4a98fc6b393339f00659e9
 patch club_crew_name_ok inalterada True bce9901133e6194b5adaef2346f0a4c5
-patch club_crew_pending alterada_pelo_pendente True 6ee0d3d38f12067e0fce95f31bff4378
-patch club_from_lead_capture inalterada True 25201a26499f432c4b7e2ca6274935c2
+patch club_crew_pending alterada_pelo_pendente True 04185aa10e84c6e44fc81ed90aa08f56
+patch club_from_lead_capture alterada_pelo_pendente True 0e73d48a654ee1e3e39bd66f92bc3054
 patch club_gen_referral_code inalterada True 74b44cf721e2d6eaff71ac3b06228a5f
 patch club_record_terms inalterada True 439f065bac949c8baeeb3f090ed5765f
 patch club_upsert_member alterada_pelo_pendente True 6050fa75bb8eb33eada23ded1be64f74
 patch_guard: OK
 acl club_crew_pending: {postgres=X/postgres,service_role=X/postgres}
 acl club_upsert_member: {postgres=X/postgres,service_role=X/postgres}
-psql:/dev-server/supabase/manual/20261016_issue328.PENDENTE.sql:10: NOTICE:  column "pending_crew_status" of relation "club_members" already exists, skipping
-psql:/dev-server/supabase/manual/20261016_issue328.PENDENTE.sql:10: NOTICE:  column "pending_crew_checked_at" of relation "club_members" already exists, skipping
+psql:/dev-server/supabase/manual/20261016_issue328.PENDENTE.sql:14: NOTICE:  column "pending_crew_status" of relation "club_members" already exists, skipping
+psql:/dev-server/supabase/manual/20261016_issue328.PENDENTE.sql:14: NOTICE:  column "pending_crew_checked_at" of relation "club_members" already exists, skipping
 pendente idempotente: 2.ª aplicação sem alterações
 == D) depois
+psql:/dev-server/scripts/club-sql-it/45_trigger328.sql:65: WARNING:  club_from_lead_capture crew_code inválido
+psql:/dev-server/scripts/club-sql-it/45_trigger328.sql:65: WARNING:  club_from_lead_capture notify: schema "net" does not exist
+psql:/dev-server/scripts/club-sql-it/45_trigger328.sql:83: WARNING:  club_crew_pending retry: it boom
 barreira email_after: 8/8 à espera → soltar
 conc after ok: 1 membro para o email
 conc after ok: 0 erros nas 8 ligações
@@ -70,10 +73,17 @@ conc after ok: 1 entrou e foi limpo
 conc after ok: 5 ficam crew_full com código preservado
 barreira ultima_vaga_repete: 6/6 à espera → soltar
 conc after ok: reconfirmação simultânea: sem novas tentativas/duplicados
+barreira retry_status: 8/8 à espera → soltar
+conc after ok: retry/status/confirm: 0 erros
+conc after ok: membro entra exatamente uma vez
+conc after ok: crew = 6 (max respeitado)
+conc after ok: pendência limpa
+conc after ok: pontos: só os da crew (sem join/friend duplicados; crew_complete 1x por membro)
+conc after ok: sessões inalteradas
 psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: net.http_post indisponível (3F000)
 psql:/dev-server/scripts/club-sql-it/05_egress.sql:26: NOTICE:  EGRESS_OK: dblink não instalável (0A000)
-serial: 41/41
-== E) reversão sha256=7cd9c46c0db15d92
+serial: 67/67
+== E) reversão sha256=390429a6096ace53
 hash club_award: IGUAL local=e149ac23e2cef6b4c08a4413b8e6767a live=e149ac23e2cef6b4c08a4413b8e6767a
 hash club_award_fixed: IGUAL local=ea8c1917a79095318c553c29e1efbdb0 live=ea8c1917a79095318c553c29e1efbdb0
 hash club_confirm_member: IGUAL local=eb8ce41b0a8b5c302488cc3242ab9598 live=eb8ce41b0a8b5c302488cc3242ab9598
@@ -90,6 +100,6 @@ hash club_from_lead_capture: IGUAL local=25201a26499f432c4b7e2ca6274935c2 live=2
 hash club_record_terms: IGUAL local=439f065bac949c8baeeb3f090ed5765f live=439f065bac949c8baeeb3f090ed5765f
 equivalencia_scope: OK
 in_scope_iguais: 14/14
-reversão preserva créditos: 58/8150
+reversão preserva créditos: 115/16250
 colunas mantidas após reversão: pending_crew_checked_at,pending_crew_code,pending_crew_status
 RESULTADO: TODOS OS ASSERTS PASSARAM

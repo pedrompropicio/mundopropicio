@@ -65,16 +65,17 @@
   },
   "club_crew_pending": {
    "live": null,
-   "after_local": "6ee0d3d38f12067e0fce95f31bff4378",
+   "after_local": "04185aa10e84c6e44fc81ed90aa08f56",
    "kind": "alterada_pelo_pendente",
    "body_verbatim_no_pendente": true,
    "differs_from_live": true
   },
   "club_from_lead_capture": {
    "live": "25201a26499f432c4b7e2ca6274935c2",
-   "after_local": "25201a26499f432c4b7e2ca6274935c2",
-   "kind": "inalterada",
-   "equal_live": true
+   "after_local": "0e73d48a654ee1e3e39bd66f92bc3054",
+   "kind": "alterada_pelo_pendente",
+   "body_verbatim_no_pendente": true,
+   "differs_from_live": true
   },
   "club_gen_referral_code": {
    "live": "74b44cf721e2d6eaff71ac3b06228a5f",

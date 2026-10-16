@@ -1,1 +1,1 @@
-[{"phase":"before","name":"barreira email_before","waiting":8,"errors":7},{"phase":"before","name":"1 membro para o email","ok":true},{"phase":"before","name":"DEFEITO 1 reproduzido: ligações com unique_violation (7/8)","ok":true}]
+{"phase":"before","asserts":2,"asserts_falhados":0,"barreiras":1,"items":[{"phase":"before","name":"barreira email_before","waiting":8,"errors":7},{"phase":"before","name":"1 membro para o email","ok":true},{"phase":"before","name":"DEFEITO 1 reproduzido: ligações com unique_violation (7/8)","ok":true}]}
