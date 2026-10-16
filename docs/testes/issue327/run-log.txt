@@ -1,4 +1,4 @@
-runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T17:57:55Z
+runtime: postgres (PostgreSQL) 17.9 · socket local (sem TCP) · 2026-10-16T17:58:04Z
 listen_addresses=
 aplicar 0119_0119_newgang_lineup_reveals_security.sql sha256=4e8d1c1410a377bb
 psql:/dev-server/drizzle/migrations/0119_0119_newgang_lineup_reveals_security.sql:2: NOTICE:  policy "event_lineups_authenticated_all" for relation "public.event_lineups" does not exist, skipping
@@ -18,7 +18,7 @@ rollback gerado: 75debecc8ef3e149
 == B) legado (funções Live)
                       ?column?                       
 -----------------------------------------------------
- LEGADO_OK 54/12597/486d0b6042c166ccdf4d5a76ce6dff95
+ LEGADO_OK 54/12597/f406ed9034bc845d9fd38c4591b1187f
 (1 row)
 
 == C) carregar pendente sha256=bc7b0f8e0a5f31f5
@@ -35,7 +35,8 @@ psql:/dev-server/supabase/manual/20261016_issue327.PENDENTE.sql:76: NOTICE:  rel
 psql:/dev-server/supabase/manual/20261016_issue327.PENDENTE.sql:94: NOTICE:  relation "club_purchase_evidence" already exists, skipping
 pendente idempotente: 2.ª aplicação sem alterações
 == D) depois
-psql:/dev-server/scripts/club-sql-it/60_after327.sql:140: ERROR:  ASSERT FALHOU [328] crew cheia na confirmação: código preservado + estado — <NULL>
+psql:/dev-server/scripts/club-sql-it/60_after327.sql:173: ERROR:  ASSERT FALHOU [compra] reaprovação com prova válida → nova geração #2 — <NULL>
 CONTEXT:  PL/pgSQL function t.ok(text,text,boolean,text) line 4 at RAISE
-SQL statement "SELECT t.ok('328','crew cheia na confirmação: código preservado + estado', (SELECT pending_crew_code = cd AND pending_crew_status = 'crew_full' FROM club_members WHERE id = m))"
+SQL statement "SELECT t.ok('compra','reaprovação com prova válida → nova geração #2', club_award_purchase(e2) = 200
+     AND EXISTS (SELECT 1 FROM club_points WHERE member_id = a AND rule_key='promo_lot_purchase' AND ref_id LIKE 'purchase@%#2'))"
 PL/pgSQL function inline_code_block line 27 at PERFORM

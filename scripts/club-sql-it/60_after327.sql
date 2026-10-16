@@ -132,7 +132,7 @@ DO $$ DECLARE o uuid; c uuid; cd text; i int; m uuid; j jsonb; c2 uuid; BEGIN
   PERFORM club_crew_join(t.m('lcrew4@example.invalid'), j->>'code');
   PERFORM t.ok('crew','legado com 200 já consumiu o crédito único', t.rp('crew_complete', t.m('lcrew4@example.invalid')) = 200 AND t.cnt('crew_complete', t.m('lcrew4@example.invalid')) = 1);
   -- #328 sem regressão: código pendente com crew cheia preservado na confirmação.
-  m := t.new('cw_pend@example.invalid'); UPDATE club_members SET pending_crew_code = cd WHERE id = m;
+  cd := j->>'code'; m := t.new('cw_pend@example.invalid'); UPDATE club_members SET pending_crew_code = cd WHERE id = m;
   PERFORM club_confirm_member(m);
   PERFORM t.ok('328','crew cheia na confirmação: código preservado + estado', (SELECT pending_crew_code = cd AND pending_crew_status = 'crew_full' FROM club_members WHERE id = m));
   PERFORM t.ok('328','confirmação continua a dar inscrição', t.rp('join_confirmed', m) = 100);
