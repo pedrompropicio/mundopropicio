@@ -1,5 +1,5 @@
---- a/supabase/functions/newgang-portal/index.ts	2026-10-16 17:59:05.232008617 +0000
-+++ b/supabase/functions/newgang-portal/index.ts	2026-10-16 17:59:05.260394235 +0000
+--- a/supabase/functions/newgang-portal/index.ts
++++ b/supabase/functions/newgang-portal/index.ts
 @@ -210,10 +210,12 @@
    if (!m?.confirmed_at) return null;
    let points = pts, level = lvl;
