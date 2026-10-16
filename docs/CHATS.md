@@ -10,7 +10,7 @@ A operação corre em paralelo no Claude e no ChatGPT, com a mesma numeração e
 
 **O que o executor pode fazer dentro de uma demanda autorizada** (autorização documental, D-ERP278): registar a reserva em `QUADRO.md` › "Em execução agora", actualizar o progresso, libertar a reserva, e fazer o fecho documental correspondente — reescrever o `estado-<frente>.md`, abrir/fechar/comentar Issues, registar em `DECISIONS.md` decisões efectivamente tomadas. Não abrange mudanças autónomas a regras, a este mapa, a procedimentos, código, dados ou configurações.
 
-**O irreversível** — DDL em Live, deploy, Publish, crons, DML em dados de eventos, `send_message` que altere a plataforma, envios à Meta, campanhas e orçamento — só pelo `0 - Cowork` do lado designado e só com "Sim" do Pedro nessa sessão. Enquanto o comportamento de deploy das edge functions não estiver confirmado, assume-se que uma tarefa ao agente Lovable pode afectar Live antes do Publish: a autorização antecede a tarefa.
+**O irreversível** — DDL em Live, deploy, Publish, crons, DML técnico em dados de eventos (entrada operacional de dados é exceção do chat 10, conforme D-ERP285), `send_message` que altere a plataforma, envios à Meta, campanhas e orçamento — só pelo `0 - Cowork` do lado designado e só com "Sim" do Pedro nessa sessão. Enquanto o comportamento de deploy das edge functions não estiver confirmado, assume-se que uma tarefa ao agente Lovable pode afectar Live antes do Publish: a autorização antecede a tarefa.
 
 ## Os chats
 
@@ -48,7 +48,7 @@ Mensagens de arranque: `procedimentos/PROC-arranque-chat.md` e `docs/prompts/`. 
 
 **(d) `gestao-de-chats`.** Cria chats com mensagem de arranque, mantém este ficheiro (só por demanda autorizada), responde "onde trato X?" por este mapa.
 
-**(e) `10 - Entrada de Dados`.** Alimenta o ERP, nunca o altera: Gmail, faturas, extratos, conciliação, anexos. Tudo com preview + confirmação. Bug ou regra nova → Issue + 4.
+**(e) `10 - Entrada de Dados`.** Executa a entrada operacional de dados pelos fluxos existentes: Gmail/Drive, fornecedores, faturas, transações, linhas de BP necessárias ao lançamento, extratos, conciliação, liquidações registadas e anexos. Após prévia dos registos/efeitos e autorização expressa do Pedro, o próprio 10 pode ser o executor designado na Issue, sem passar pelo 0 (D-ERP285). Mantém reserva, pesquisa de duplicados/NIF/IBAN, conferência e fecho documental. Autorização de lote com âmbito explícito cobre as escritas necessárias desse lote, sem reconfirmação por cada insert. O 0 fica para código/alterações técnicas. O 10 não altera regras, código, schema/DDL, configurações, crons, deploy/Publish nem envia tarefas ao Lovable, emails ou pagamentos bancários. Bugs/regras novas → Issue + frente. Registar uma liquidação não é efetuar pagamento bancário.
 
 **(f) `11 - Testes`.** Corre baterias, marca resultados em `TESTES.md`, abre Issue quando falha. Não corrige, não dispara o agente, não escreve na base.
 
