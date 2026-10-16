@@ -12,19 +12,19 @@ BEGIN
   INSERT INTO public.marketing_consent_policies VALUES ('newgang','t-v1', now()-interval '400 days', NULL, 180, now()) ON CONFLICT DO NOTHING;
 
   -- validações fail-closed
-  ASSERT public.marketing_consent_record(mp,'coala',NULL,'granted','meta_ads','t-v1','b1',now_ms,gen_random_uuid(),'o','/')->>'error' = 'scope_invalid', 'tenant errado';
-  ASSERT public.marketing_consent_record(mp,'mp',NULL,'granted','analytics','t-v1','b1',now_ms,gen_random_uuid(),'o','/')->>'error' = 'purpose_invalid', 'só analytics';
-  ASSERT public.marketing_consent_record(mp,'mp',NULL,'granted','meta_ads','desconhecida','b1',now_ms,gen_random_uuid(),'o','/')->>'error' = 'policy_invalid', 'política inválida';
-  ASSERT public.marketing_consent_record(mp,'mp',NULL,'maybe','meta_ads','t-v1','b1',now_ms,gen_random_uuid(),'o','/')->>'error' = 'state_invalid', 'estado desconhecido';
-  ASSERT public.marketing_consent_record(mp,'mp',NULL,'granted','meta_ads','t-v1','b1',now_ms+999999,gen_random_uuid(),'o','/')->>'error' = 'seq_invalid', 'seq futuro';
-  ASSERT public.marketing_consent_record(mp,'mp',repeat('a',64),'granted','meta_ads','t-v1','b1',now_ms,gen_random_uuid(),'o','/')->>'error' = 'subject_invalid', 'recibo inventado';
+  ASSERT public.marketing_consent_record(mp,'coala',NULL,'granted','meta_ads','t-v1','b1',now_ms,NULL,gen_random_uuid(),'o','/')->>'error' = 'scope_invalid', 'tenant errado';
+  ASSERT public.marketing_consent_record(mp,'mp',NULL,'granted','analytics','t-v1','b1',now_ms,NULL,gen_random_uuid(),'o','/')->>'error' = 'purpose_invalid', 'só analytics';
+  ASSERT public.marketing_consent_record(mp,'mp',NULL,'granted','meta_ads','desconhecida','b1',now_ms,NULL,gen_random_uuid(),'o','/')->>'error' = 'policy_invalid', 'política inválida';
+  ASSERT public.marketing_consent_record(mp,'mp',NULL,'maybe','meta_ads','t-v1','b1',now_ms,NULL,gen_random_uuid(),'o','/')->>'error' = 'state_invalid', 'estado desconhecido';
+  ASSERT public.marketing_consent_record(mp,'mp',NULL,'granted','meta_ads','t-v1','b1',now_ms+999999,NULL,gen_random_uuid(),'o','/')->>'error' = 'seq_invalid', 'seq futuro';
+  ASSERT public.marketing_consent_record(mp,'mp',repeat('a',64),'granted','meta_ads','t-v1','b1',now_ms,NULL,gen_random_uuid(),'o','/')->>'error' = 'subject_invalid', 'recibo inventado';
 
   -- sem prova / cookie legado (token ausente ou mal formado)
   ASSERT (public.marketing_consent_bind(mp,'mp',NULL)->>'proof')::boolean = false, 'sem token';
   ASSERT (public.marketing_consent_bind(mp,'mp','fb.1.123.abc')->>'proof')::boolean = false, 'cookie _fbc legado não é prova';
 
   -- grant atual
-  r := public.marketing_consent_record(mp,'mp',NULL,'granted','meta_ads','t-v1','b1',now_ms-10,gen_random_uuid(),'o','/');
+  r := public.marketing_consent_record(mp,'mp',NULL,'granted','meta_ads','t-v1','b1',now_ms-10,NULL,gen_random_uuid(),'o','/');
   ASSERT (r->>'ok')::boolean AND (r->>'marketing_allowed')::boolean, 'grant';
   tok := r->>'subject_token'; ev := (r->>'decision_id')::bigint;
   ASSERT tok ~ '^[0-9a-f]{64}$', 'token opaco';
@@ -35,14 +35,14 @@ BEGIN
   -- portal errado (MP vs Newgang, mesma empresa) e tenant errado
   ASSERT (public.marketing_consent_bind(mp,'newgang',tok)->>'proof')::boolean = false, 'MP->Newgang';
   ASSERT (public.marketing_consent_bind(coala,'coala',tok)->>'proof')::boolean = false, 'MP->Coala';
-  ASSERT public.marketing_consent_record(mp,'newgang',tok,'revoked','meta_ads','t-v1','b1',now_ms,gen_random_uuid(),'o','/')->>'error' = 'subject_invalid', 'token MP no Newgang';
+  ASSERT public.marketing_consent_record(mp,'newgang',tok,'revoked','meta_ads','t-v1','b1',now_ms,NULL,gen_random_uuid(),'o','/')->>'error' = 'subject_invalid', 'token MP no Newgang';
 
   -- replay idempotente e conflito
-  r2 := public.marketing_consent_record(mp,'mp',tok,'granted','meta_ads','t-v1','b1',now_ms-5,'11111111-1111-1111-1111-111111111111','o','/');
+  r2 := public.marketing_consent_record(mp,'mp',tok,'granted','meta_ads','t-v1','b1',now_ms-5,NULL,'11111111-1111-1111-1111-111111111111','o','/');
   ev2 := (r2->>'decision_id')::bigint;
-  ASSERT (public.marketing_consent_record(mp,'mp',tok,'granted','meta_ads','t-v1','b1',now_ms-5,'11111111-1111-1111-1111-111111111111','o','/')->>'replay')::boolean, 'replay';
-  ASSERT public.marketing_consent_record(mp,'mp',tok,'revoked','meta_ads','t-v1','b1',now_ms-5,'11111111-1111-1111-1111-111111111111','o','/')->>'error' = 'idempotency_conflict', 'conflito idem';
-  ASSERT public.marketing_consent_record(mp,'mp',tok,'revoked','meta_ads','t-v1','b1',now_ms-5,gen_random_uuid(),'o','/')->>'error' = 'seq_conflict', 'seq repetido';
+  ASSERT (public.marketing_consent_record(mp,'mp',tok,'granted','meta_ads','t-v1','b1',now_ms-5,NULL,'11111111-1111-1111-1111-111111111111','o','/')->>'replay')::boolean, 'replay';
+  ASSERT public.marketing_consent_record(mp,'mp',tok,'revoked','meta_ads','t-v1','b1',now_ms-5,NULL,'11111111-1111-1111-1111-111111111111','o','/')->>'error' = 'idempotency_conflict', 'conflito idem';
+  ASSERT public.marketing_consent_record(mp,'mp',tok,'revoked','meta_ads','t-v1','b1',now_ms-5,NULL,gen_random_uuid(),'o','/')->>'error' = 'seq_conflict', 'seq repetido';
   ASSERT (SELECT count(*) FROM public.marketing_consent_events WHERE subject_id = sub) = 2, 'replay não duplica';
 
   -- lead com vínculo válido (fixture em leads; rollback no fim)
@@ -60,12 +60,12 @@ BEGIN
   UPDATE public.leads SET consent_event_id = ev2 WHERE id = lead;
 
   -- out-of-order: grant antigo (seq menor) chega depois de revoke → não vence
-  PERFORM public.marketing_consent_record(mp,'mp',tok,'revoked','meta_ads','t-v1','b1',now_ms-1,gen_random_uuid(),'o','/');
+  PERFORM public.marketing_consent_record(mp,'mp',tok,'revoked','meta_ads','t-v1','b1',now_ms-1,NULL,gen_random_uuid(),'o','/');
   ASSERT NOT public.capi_consent_proof(lead,'ViewContent'), 'revogação posterior bloqueia pendente';
-  r := public.marketing_consent_record(mp,'mp',tok,'granted','meta_ads','t-v1','b1',now_ms-3,gen_random_uuid(),'o','/');
+  r := public.marketing_consent_record(mp,'mp',tok,'granted','meta_ads','t-v1','b1',now_ms-3,NULL,gen_random_uuid(),'o','/');
   ASSERT (r->>'marketing_allowed')::boolean = false AND r->>'effective_state' = 'revoked', 'grant atrasado não vence revoke';
   -- regrant não retroativo
-  r := public.marketing_consent_record(mp,'mp',tok,'granted','meta_ads','t-v1','b1',now_ms,gen_random_uuid(),'o','/');
+  r := public.marketing_consent_record(mp,'mp',tok,'granted','meta_ads','t-v1','b1',now_ms,NULL,gen_random_uuid(),'o','/');
   ASSERT (r->>'marketing_allowed')::boolean, 'regrant ativo';
   ASSERT NOT public.capi_consent_proof(lead,'ViewContent'), 'regrant não recupera lead antigo';
 
@@ -75,7 +75,7 @@ BEGIN
   ASSERT ok, 'append-only';
 
   -- expiração: grant recebido há 200 dias com TTL 180
-  r := public.marketing_consent_record(mp,'newgang',NULL,'denied','meta_ads','t-v1','b1',now_ms-100,gen_random_uuid(),'o','/');
+  r := public.marketing_consent_record(mp,'newgang',NULL,'denied','meta_ads','t-v1','b1',now_ms-100,NULL,gen_random_uuid(),'o','/');
   tok_ng := r->>'subject_token';
   INSERT INTO public.marketing_consent_events (subject_id, company_id, portal, state, purpose, policy_version, banner_version, client_seq, server_received_at, idempotency_key)
   SELECT s.id, mp, 'newgang', 'granted', 'meta_ads', 't-v1', 'b1', now_ms-50, now()-interval '200 days', gen_random_uuid()
@@ -90,7 +90,7 @@ BEGIN
   ASSERT rl.fbc IS NULL AND rl.fbp IS NULL AND rl.consent_event_id IS NULL, 'anon não forja vínculo';
   ASSERT rl.referrer = 'https://x.pt/?utm_source=ig' AND rl.destination_url = 'https://bilh.pt/e?a=1', 'URLs sanitizadas: ' || rl.referrer || ' ' || rl.destination_url;
   -- service_role com vínculo válido mantém
-  r := public.marketing_consent_record(mp,'mp',NULL,'granted','meta_ads','t-v1','b1',now_ms,gen_random_uuid(),'o','/');
+  r := public.marketing_consent_record(mp,'mp',NULL,'granted','meta_ads','t-v1','b1',now_ms,NULL,gen_random_uuid(),'o','/');
   b := public.marketing_consent_bind(mp,'mp',r->>'subject_token');
   PERFORM set_config('request.jwt.claims', '{"role":"service_role"}', true);
   INSERT INTO public.redirect_log (event_slug, fbc, consent_subject_id, consent_event_id, consent_portal, consent_company_id)
