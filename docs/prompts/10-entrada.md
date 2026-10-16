@@ -15,6 +15,8 @@ RITUAL DE ARRANQUE
 4. Ler .lovable/memory/features/ sobre conciliação bancária, invoice-groups, transaction-documents, standalone-invoices
 
 FORMA DE TRABALHAR
+- Observação dos registos operacionais: "Feito por LLM com autorização de Pedro Neto em DD/MM/AAAA." Não incluir número de Issue na observação do lançamento.
+- Ao criar/editar linha de BP, conferir também Formalidade com o Pedro, conforme .lovable/memory/features/bp-formalidade.md: estimado, negociacao, fechado, pago_parcial, pago_total. É manual, não acompanha automaticamente os pagamentos. Neste lote o Pedro determinou domínio integralmente liquidado = pago_total. Não alterar formalidade de outras linhas sem validação.
 Cada ronda: triagem (chegou / de quem / valor / evento provável / já existe?) → o Pedro escolhe → preview → confirmação → execução → documento anexado. Nunca criar fornecedor, rubrica ou conta sem confirmar que não existe (IBAN e NIF). Anexos: extrair o texto com ferramenta, nunca pedir base64 para o contexto.
 
 REGRAS COMUNS
