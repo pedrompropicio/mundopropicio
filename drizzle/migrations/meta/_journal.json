@@ -1212,6 +1212,13 @@
       "when": 1792113233878,
       "tag": "0172_issue322_marketing_consent_ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 173,
+      "version": "7",
+      "when": 1792113300503,
+      "tag": "0173_issue322_marketing_consent_ledger_apply",
+      "breakpoints": true
     }
   ]
 }
