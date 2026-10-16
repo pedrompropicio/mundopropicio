@@ -76,13 +76,13 @@ DO $$ DECLARE o uuid; r jsonb; h uuid; BEGIN
 END $$;
 SQL
 OPS=(retry retry retry status status confirm confirm retry)
-TPL="SELECT CASE WHEN '{i}' IN ('6','7') THEN (public.club_confirm_member(id))::text ELSE public.club_crew_pending(id, (ARRAY['retry','retry','retry','status','status','x','x','retry'])[{i}])::text END FROM public.club_members WHERE email='rsm@example.invalid'"
+TPL="SELECT CASE WHEN '{i}' IN ('6','7') THEN (SELECT 'confirm' FROM public.club_confirm_member(id)) ELSE public.club_crew_pending(id, (ARRAY['retry','retry','retry','status','status','x','x','retry'])[{i}])::text END FROM public.club_members WHERE email='rsm@example.invalid'"
 race "retry_status" 8 "$TPL"
 RS="(SELECT v::uuid FROM it.kv WHERE k='RS_crew')"
 check "retry/status/confirm: 0 erros" "$(errs retry_status) = 0"
 check "membro entra exatamente uma vez" "(SELECT count(*) FROM public.club_crew_members WHERE member_id=(SELECT id FROM public.club_members WHERE email='rsm@example.invalid')) = 1"
 check "crew = 6 (max respeitado)" "(SELECT count(*) FROM public.club_crew_members WHERE crew_id=$RS) = 6"
 check "pendência limpa" "(SELECT pending_crew_code IS NULL AND pending_crew_status IS NULL FROM public.club_members WHERE email='rsm@example.invalid')"
-check "pontos: só os da crew (sem join/friend duplicados; crew_complete 1x por membro)" "(SELECT count(*) FROM public.club_points p JOIN public.club_members m ON m.id=p.member_id WHERE m.email LIKE 'rs%@example.invalid' AND p.rule_key='join_confirmed') = 6 AND NOT EXISTS (SELECT 1 FROM public.club_points WHERE rule_key='crew_complete' GROUP BY member_id, source_ref HAVING count(*)>1)"
+check "pontos: só os da crew (sem join/friend duplicados; crew_complete 1x por membro)" "(SELECT count(*) FROM public.club_points p JOIN public.club_members m ON m.id=p.member_id WHERE m.email LIKE 'rs%@example.invalid' AND p.rule_key='join_confirmed') = 6 AND NOT EXISTS (SELECT 1 FROM public.club_points WHERE rule_key='crew_complete' GROUP BY member_id, ref_id HAVING count(*)>1)"
 check "sessões inalteradas" "(SELECT count(*)::text FROM public.club_member_sessions) = (SELECT v FROM it.kv WHERE k='RS_sess')"
 save; rm -rf "$WD"
