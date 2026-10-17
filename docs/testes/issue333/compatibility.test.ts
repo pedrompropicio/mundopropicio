@@ -12,6 +12,7 @@ function world() {
   const candidate = (over: Record<string, unknown> = {}): Candidate => ({ ...expected, id: "i", storage_path: "A/existing", ...over });
   const store = {
     find: async () => rows,
+    get: async (id: string, company: string) => rows.find((r) => r.id === id && r.company_id === company) ?? null,
     read: async (path: string) => files.get(path) ?? null,
     upload: async (path: string, b: Uint8Array) => { if (uploadMode !== "missing") files.set(path, uploadMode === "corrupt" ? new Uint8Array([1]) : b); },
     insert: async (row: Expected & { storage_path: string }) => {
@@ -82,5 +83,9 @@ describe("#333 prepared ingest/storage compatibility", () => {
     const w=world();const e={...expected,currency,original_amount:100,fx_rate:0.92,fx_rate_source:"fixture fixing",total_amount:92};
     expect((await persistInvoice(w.store,e,bytes,"application/pdf","A/fx")).status).toBe(200);
     expect((await persistInvoice(w.store,e,bytes,"application/pdf","A/fx2")).body.reused).toBe(true);expect(w.inserts()).toBe(1);
+  });
+  it("legacy creation with optional null keys remains supported; incomplete existing never reused",async()=>{
+    const w=world();const e={...expected,supplier_nif:null,invoice_number:null,supplier_name:null,invoice_date:null,iva_amount:null,paid_by_partner_id:null,created_by:null};
+    const r=await persistInvoice(w.store,e,bytes,"application/pdf","A/incomplete");expect(r.status).toBe(200);expect(r.body.reused).toBe(false);
   });
 });

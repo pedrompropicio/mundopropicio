@@ -5,6 +5,7 @@ export type Store = {
   read(path: string): Promise<Uint8Array | null>;
   upload(path: string, bytes: Uint8Array, mime: string): Promise<void>;
   insert(row: Expected & { storage_path: string }): Promise<{ id: string; storage_path: string }>;
+  get(id: string, company: string): Promise<Candidate | null>;
 };
 export type Outcome = { status: number; body: Record<string, unknown> };
 const conflict = (): Outcome => ({ status: 409, body: { code: "invoice_conflict", error: "Fatura existente: documento ou dados divergentes/insuficientes. Conferência necessária.", reused: false } });
@@ -27,8 +28,8 @@ export async function persistInvoice(store: Store, expected: Expected, bytes: Ui
     try {
       const row = await store.insert({ ...expected, storage_path: path });
       // INSERT success is not final proof: read row and stored bytes back.
-      const checked = await check();
-      if (!checked || checked.status !== 200 || checked.body.id !== row.id) return unknown();
+      const checked = await store.get(row.id, expected.company_id);
+      if (!checked || checked.id !== row.id || checked.storage_path !== path || !await equivalent(checked, expected, bytes, store.read, false)) return unknown();
       return { status: 200, body: { ...row, reused: false, verified: true } };
     } catch (e) {
       // Never remove a candidate on rejection/unknown; no check-then-delete.

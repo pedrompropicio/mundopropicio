@@ -22,13 +22,15 @@ const exact = ["file_name", "supplier_name", "invoice_date", "currency", "fx_rat
 const numeric = ["total_amount", "iva_amount", "original_amount", "fx_rate"];
 const required = ["file_name", "supplier_name", "invoice_date", "currency", "total_amount", "iva_amount", "paid_by_partner_id", "created_by"];
 export async function equivalent(candidate: Candidate, expected: Expected, bytes: Uint8Array,
-  read: (path: string) => Promise<Uint8Array | null>): Promise<boolean> {
-  if (!sameIdentity(candidate, expected) || required.some((k) => expected[k] == null || expected[k] === "" || candidate[k] == null)) return false;
+  read: (path: string) => Promise<Uint8Array | null>, reuse = true): Promise<boolean> {
+  if (reuse && (!sameIdentity(candidate, expected) || required.some((k) => expected[k] == null || expected[k] === "" || candidate[k] == null))) return false;
+  if (!reuse && (candidate.company_id !== expected.company_id || candidate.supplier_nif !== expected.supplier_nif || candidate.invoice_number !== expected.invoice_number)) return false;
   if (exact.some((k) => (candidate[k] ?? null) !== (expected[k] ?? null))) return false;
   for (const k of numeric) {
     const a = candidate[k] ?? null, b = expected[k] ?? null;
     if (a === null || b === null) { if (a !== b) return false; }
-    else if (!Number.isFinite(Number(a)) || !Number.isFinite(Number(b)) || Number(a) !== Number(b)) return false;
+    else if (![a,b].every((v) => typeof v === "number" || (typeof v === "string" && v.trim() !== "" && /^-?\d+(\.\d+)?$/.test(v)))
+      || !Number.isFinite(Number(a)) || !Number.isFinite(Number(b)) || Number(a) !== Number(b)) return false;
   }
   // Both objects read now; no cached checksums or filename/size-only proof.
   const stored = await read(candidate.storage_path);
