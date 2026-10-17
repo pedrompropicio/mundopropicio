@@ -1,4 +1,5 @@
 # Architecture rules
+- Read scoped AGENTS.md before editing subdirectories.
 
 - Meta audience replacement uses a complete, paginated canonical collection and one ordered replacement session; failed batches stop before finalization, while dry runs never resolve tokens or invoke external delivery.
 - Audience source extensions remain branches of the canonical collector with unchanged signature and legacy branches; this keeps consent selection and existing integrations consistent.

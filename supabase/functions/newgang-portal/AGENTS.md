@@ -1,0 +1,2 @@
+# Newgang API architecture
+- Immediate capture inserts delegate their ID to the canonical ingest collector; welcome retries reacquire the same durable reservation only after proven pre-enqueue failure, while unknown remains blocked to prevent duplicate delivery.
