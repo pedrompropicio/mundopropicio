@@ -25,7 +25,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #322 | 0 · Cowork (ChatGPT) | agente Lovable (ERP) | ERP: consentimento por interação (ledger marketing_consent_*), portal-track, capi_consent_proof/guardas, lead_capture/redirect_log/leads (colunas aditivas), docs; coordenação futura MP/Coala/Newgang (portais NÃO tocados nesta etapa) | 2026-10-16 01:12 | 2026-10-16 01:46 — ERP corrigido após verificação independente (0175 + portal-track), aguarda revisão; portais MP/Coala/Newgang pendentes |
+| #332 | Claude · newgang-portal | agente Lovable ERP | ledger marketing_consent_*, funções do Clube, handle-email-unsubscribe, me, docs da frente (sem DECISIONS reservado #323) | 2026-10-17 03:50 | 2026-10-17 03:50 — consentimento por pessoa autorizado; HEADs alinhados 2b6bd5e2 |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)
@@ -123,6 +123,8 @@ _(sem pedidos — as falhas de teste vêm por Issue; os pedidos de verificação
 _(sem pedidos)_
 
 ## newgang-portal
+
+- [x] 17/10/2026 03:50 UTC — **Decisão expressa de Pedro: reserva #322 libertada; consentimento de anúncios do Newgang passa à #332**, executor agente Lovable ERP. Email-v3 separado dos anúncios-v1 por pessoa; sem Publish/envios/crons, sem alterar lista P_NG27_LISTA ou Reactivar no CRM. #323 preservada, incluindo DECISIONS; decisão registada aqui enquanto esse ficheiro estiver reservado.
 
 - [x] 17/10/2026 02:42 UTC — **#332 passo 4 Meta concluído** (Claude · newgang-portal, agente Lovable ERP, autorização Pedro): migração0181 ramo newgang_clube:v2, assinatura/Coala/genérico/ACL preservados; P_NG27_LISTA desativada, ligaçãoMP verificada, audience_id_metaNULL/replacetrue. Live02:37–02:38:46 registos evento,39 consent_emailtrue,0v2,0elegíveis; RPCautenticada200/0, syncdry_run400audience_not_linked_to_meta. PostgreSQLlocalNewgang+Coala/9filtros e Vitest1281 passaram; buildOK, CIbaselineverde/finalaguarda sincronização. Provas docs/testes/issue332/; Issuecomentada; reserva libertada. Sem Publish/deploy/cron/envioMeta/backfill; #322/#323 intactas. FaltaPublishportalv2,criar/ligarpúblico e autorização separada deativação/envio/cron; restante#332aberto.
 
