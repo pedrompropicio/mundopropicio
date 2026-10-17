@@ -25,7 +25,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Preparação local do protocolo persistente legado; apenas artefactos inertes/testes/provas próprios; #323 excluída | 2026-10-17 16:26 | 2026-10-17 20:30 — HEAD7be0095f=GitHub; decisões A–D aprovadas incorporadas; gate CLOSED-BY-DEFAULT no servidor; cópia isolada PG67/integrados38/entrada7/handler20/geral1334/build0 (provas18–19); pacote por etapas pronto, NÃO aplicado. Zero Live/deploy/Publish. #333 aberta/reservada; #323 intacta |
+| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Preparação local do protocolo persistente legado; apenas artefactos inertes/testes/provas próprios; #323 excluída | 2026-10-17 16:26 | 2026-10-17 20:30 — HEAD7be0095f=GitHub; decisões A–D aprovadas incorporadas; gate CLOSED-BY-DEFAULT no servidor; cópia isolada PG67/integrados38/entrada7/handler20/geral1334/build0 (provas18–19); pacote por etapas pronto, NÃO aplicado. 20:36 UTC — aplicação da estrutura PARADA no preflight: CORE PREPARED dá a authenticated 4 RPCs de escrita técnica sem gate (prova20); zero DDL/bucket/deploy/Publish. #333 aberta/reservada; #323 intacta |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)
