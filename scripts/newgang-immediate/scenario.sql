@@ -22,9 +22,7 @@ CREATE FUNCTION public.t332_assert(ok boolean,label text) RETURNS void LANGUAGE 
  BEGIN IF ok IS DISTINCT FROM true THEN RAISE EXCEPTION 'FAIL %',label; END IF; RAISE NOTICE 'PASS %',label; END $$;
 CREATE TEMP TABLE base_points AS SELECT md5(coalesce(string_agg(row_to_json(p)::text,'|' ORDER BY id),'')) h FROM club_points p;
 -- Use real member/processed trigger with no net schema: HTTP boundary deliberately unavailable.
-CREATE TRIGGER trg_club_from_lead_capture AFTER UPDATE OF processed ON public.lead_capture
- FOR EACH ROW WHEN (NEW.processed=true AND OLD.processed IS DISTINCT FROM true)
- EXECUTE FUNCTION public.club_from_lead_capture();
+-- trg_club_from_lead_capture already installed by canonical0120.
 DO $$
 DECLARE co uuid:='7c858982-6ccd-47ca-bd65-e0dd3eebf01c'; s uuid; m uuid; lc uuid; r jsonb;
 BEGIN
