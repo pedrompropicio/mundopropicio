@@ -15,5 +15,5 @@ Deno.test('incomplete or duplicate references never publish',async()=>{
  for(const cities of [response.cities.slice(1),response.cities.map((r:any)=>({...r,code:'0101'}))])ck((await createCitiesReader(async()=>({data:{...response,cities},error:null}))()).status===503);
 });
 Deno.test('PT unknown error preserved and no session stays401',async()=>{
- for(const [message,status] of [['city_unknown',400],['no_session',401]] as const){const result=await profileConfirm(async()=>({data:null,error:{message}}),'s','h',{});ck(result.status===status&&(result.body as {error?:string}).error===message);}
+ for(const [message,status] of [['country_invalid',400],['city_invalid',400],['city_unknown',400],['no_session',401]] as const){const result=await profileConfirm(async()=>({data:null,error:{message}}),'s','h',{});ck(result.status===status&&(result.body as {error?:string}).error===message);}
 });

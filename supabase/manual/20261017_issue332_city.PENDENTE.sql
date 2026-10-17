@@ -324,7 +324,7 @@ CREATE FUNCTION public.club_city_normalize(p_country text,p_city text) RETURNS t
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public,pg_catalog AS $$
 DECLARE city text; country text:=upper(btrim(p_country));
 BEGIN
- IF country IS NULL OR country='' THEN country:=NULL; END IF;
+ IF country IS NULL OR NOT EXISTS(SELECT 1 FROM public.club_profile_countries WHERE code=country) THEN RAISE EXCEPTION 'country_invalid'; END IF;
  IF p_city IS NULL OR btrim(p_city)='' THEN
    IF country IN ('PT','PORTUGAL') THEN RAISE EXCEPTION 'city_invalid'; END IF;
    RETURN NULL;
@@ -354,6 +354,8 @@ CREATE FUNCTION public._club332_city_profile() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_catalog AS $$
 BEGIN
  IF TG_OP='UPDATE' AND NEW.city IS NOT DISTINCT FROM OLD.city AND NEW.residence_country IS NOT DISTINCT FROM OLD.residence_country THEN RETURN NEW; END IF;
+ -- Empty/cleared demographic records remain allowed; they are never complete.
+ IF NEW.birth_date IS NULL AND NEW.birth_country IS NULL AND NEW.residence_country IS NULL AND NEW.city IS NULL THEN RETURN NEW; END IF;
  NEW.city:=public.club_city_normalize(NEW.residence_country,NEW.city);
  RETURN NEW;
 END $$;
@@ -373,7 +375,18 @@ BEGIN
  IF NEW.raw ? 'city' AND NEW.raw->'city'<>'null'::jsonb AND jsonb_typeof(NEW.raw->'city') IS DISTINCT FROM 'string' THEN RAISE EXCEPTION 'city_invalid'; END IF;
  city:=NEW.raw->>'city'; country:=NEW.raw->>'residence_country';
  -- Only explicit Portugal is required/validated. Missing country is never invented.
- canonical:=public.club_city_normalize(country,city);
+ IF upper(btrim(country))='PT' THEN
+  canonical:=public.club_city_normalize('PT',city);
+ ELSE
+  -- Capture is not a completed profile: never infer or require country here.
+  IF city IS NULL OR btrim(city)='' THEN canonical:=NULL;
+  ELSE
+   IF length(city)>500 OR city ~ '[<>[:cntrl:]]' THEN RAISE EXCEPTION 'city_invalid'; END IF;
+   canonical:=regexp_replace(btrim(normalize(city,NFC)),'[[:space:]]+',' ','g');
+   IF length(canonical) NOT BETWEEN 1 AND 120 THEN RAISE EXCEPTION 'city_invalid'; END IF;
+   canonical:=initcap(lower(canonical COLLATE pg_catalog."pg_c_utf8"));
+  END IF;
+ END IF;
  IF NEW.raw ? 'city' THEN NEW.raw:=jsonb_set(NEW.raw,'{city}',coalesce(to_jsonb(canonical),'null'::jsonb)); END IF;
  RETURN NEW;
 END $$;
@@ -408,9 +421,9 @@ DECLARE m record; s club_profile_settings; p club_member_profiles; bd date; bc t
  IF jsonb_typeof(p_payload->'birth_country') IS DISTINCT FROM 'string' THEN RAISE EXCEPTION 'country_invalid'; END IF;
  bc:=upper(btrim(p_payload->>'birth_country'));
  IF NOT EXISTS(SELECT 1 FROM club_profile_countries WHERE code=bc) THEN RAISE EXCEPTION 'country_invalid'; END IF;
- IF p_payload ? 'residence_country' AND p_payload->'residence_country'<>'null'::jsonb AND jsonb_typeof(p_payload->'residence_country') IS DISTINCT FROM 'string' THEN RAISE EXCEPTION 'country_invalid'; END IF;
+ IF jsonb_typeof(p_payload->'residence_country') IS DISTINCT FROM 'string' THEN RAISE EXCEPTION 'country_invalid'; END IF;
  rc:=nullif(upper(btrim(p_payload->>'residence_country')),'');
- IF rc IS NOT NULL AND NOT EXISTS(SELECT 1 FROM club_profile_countries WHERE code=rc) THEN RAISE EXCEPTION 'country_invalid'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM club_profile_countries WHERE code=rc) THEN RAISE EXCEPTION 'country_invalid'; END IF;
  IF p_payload ? 'city' AND p_payload->'city'<>'null'::jsonb AND jsonb_typeof(p_payload->'city') IS DISTINCT FROM 'string' THEN RAISE EXCEPTION 'city_invalid'; END IF;
  ct:=public.club_city_normalize(rc,p_payload->>'city');
  IF p_payload ? 'phone' AND p_payload->'phone'<>'null'::jsonb AND (jsonb_typeof(p_payload->'phone') IS DISTINCT FROM 'string' OR (p_payload->>'phone') !~ '^\+[1-9][0-9]{7,14}$') THEN RAISE EXCEPTION 'phone_invalid'; END IF;
@@ -498,7 +511,7 @@ END $$;
 REVOKE EXECUTE ON FUNCTION public.clube_newgang_list(text,int,int) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.clube_newgang_list(text,int,int) TO authenticated,service_role;
 
--- Keep complete/confirmation in sync for optional foreign residence fields.
+-- Residence country is mandatory; only foreign city is optional.
 CREATE OR REPLACE FUNCTION public.club_profile_state(p_site uuid,p_session_hash text) RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public AS $$
 DECLARE m record; p club_member_profiles; s club_profile_settings; n int; BEGIN
  SELECT cm.* INTO m FROM club_member_sessions x JOIN club_members cm ON cm.id=x.member_id
@@ -509,7 +522,7 @@ DECLARE m record; p club_member_profiles; s club_profile_settings; n int; BEGIN
  SELECT * INTO s FROM club_profile_settings WHERE site_id=p_site;
  SELECT coalesce(sum(points),0)::int INTO n FROM club_points WHERE member_id=m.id AND (rule_key='profile_complete' OR (rule_key='void' AND ref_id='profile_complete:'||m.id::text));
  RETURN jsonb_build_object('birth_date',p.birth_date,'birth_country',p.birth_country,'residence_country',p.residence_country,'city',p.city,'phone',m.phone,
-  'complete',p.birth_date IS NOT NULL AND p.birth_country IS NOT NULL AND (p.residence_country IS DISTINCT FROM 'PT' OR p.city IS NOT NULL),
+  'complete',p.birth_date IS NOT NULL AND p.birth_country IS NOT NULL AND p.residence_country IS NOT NULL AND (p.residence_country IS DISTINCT FROM 'PT' OR p.city IS NOT NULL),
   'completed_at',p.completed_at,'reward_claimed',p.completed_at IS NOT NULL,'eligible',coalesce(s.enabled,false) AND p.completed_at IS NULL,
   'available',coalesce(s.enabled,false),'points',n,'reward_points',50,'version',s.version,'scope','adesao','whatsapp',jsonb_build_object('status','adapter_pending','editable',false));
 END $$;

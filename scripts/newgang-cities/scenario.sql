@@ -1,5 +1,6 @@
 \set ON_ERROR_STOP 1
 CREATE FUNCTION t.cityck(n text,b boolean) RETURNS void LANGUAGE sql AS $$ SELECT t.ok('332city',n,b) $$;
+SELECT t.cityck('zero CAOP differences',(SELECT count(*)=0 FROM ((SELECT code,name,region FROM portugal_municipalities EXCEPT SELECT * FROM t.official_cities) UNION ALL (SELECT * FROM t.official_cities EXCEPT SELECT code,name,region FROM portugal_municipalities))d));
 SELECT t.cityck('308 official codes',(SELECT count(*)=308 FROM portugal_municipalities));
 SELECT t.cityck('278 mainland 19 Azores 11 Madeira',(SELECT count(*) FILTER(WHERE region='Continente')=278 AND count(*) FILTER(WHERE region='Açores')=19 AND count(*) FILTER(WHERE region='Madeira')=11 FROM portugal_municipalities));
 SELECT t.cityck('case accents spaces exact',club_city_normalize('PT','  S A N T A R E M ')='Santarém');
@@ -66,12 +67,20 @@ DO $$ BEGIN
 END $$;
 SELECT t.cityck('points unchanged by city and backfill',(SELECT count(*)=0 FROM ((SELECT id,points,ref_id FROM club_points EXCEPT SELECT * FROM t.city_points) UNION ALL (SELECT * FROM t.city_points EXCEPT SELECT id,points,ref_id FROM club_points)) z));
 
-SELECT t.cityck('foreign no country no city normalizes empty',club_city_normalize(NULL,NULL) IS NULL);
+DO $$ BEGIN
+ BEGIN PERFORM club_city_normalize(NULL,NULL); RAISE EXCEPTION 'accepted'; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'country_invalid' THEN RAISE; END IF; END;
+ PERFORM t.cityck('normalizer absent country rejected',true);
+ BEGIN PERFORM club_city_normalize('ZZ','Lisboa'); RAISE EXCEPTION 'accepted'; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'country_invalid' THEN RAISE; END IF; END;
+ PERFORM t.cityck('normalizer invalid country rejected',true);
+END $$;
 SELECT t.cityck('foreign named country empty city accepted',club_city_normalize('BR','') IS NULL);
-SELECT t.cityck('foreign arbitrary city without country free',club_city_normalize(NULL,'  metropolis   abroad ')= 'Metropolis Abroad');
+SELECT t.reject(md5('profile@example.invalid'),t.payload()-'residence_country','country_invalid');
 SELECT t.cityck('foreign profile absent city complete',(t.call(md5('profile@example.invalid'),(t.payload()-'city')||'{"residence_country":"BR"}')#>>'{profile,complete}')::boolean);
-SELECT t.cityck('foreign profile absent country and city complete',(t.call(md5('profile@example.invalid'),t.payload()-'city'-'residence_country')#>>'{profile,complete}')::boolean);
-SELECT t.cityck('foreign optional does not award again',(t.call(md5('profile@example.invalid'),t.payload()-'city'-'residence_country')->>'awarded')::int=0);
+SELECT t.reject(md5('profile@example.invalid'),t.payload()-'city'-'residence_country','country_invalid');
+SELECT t.reject(md5('profile@example.invalid'),t.payload()||'{"residence_country":null}','country_invalid');
+SELECT t.reject(md5('profile@example.invalid'),t.payload()||'{"residence_country":""}','country_invalid');
+SELECT t.reject(md5('profile@example.invalid'),t.payload()||'{"residence_country":"ZZ"}','country_invalid');
+SELECT t.cityck('foreign optional does not award again',(t.call(md5('profile@example.invalid'),(t.payload()-'city')||'{"residence_country":"BR"}')->>'awarded')::int=0);
 SELECT t.reject(md5('profile@example.invalid'),t.payload()-'city','city_invalid');
 INSERT INTO lead_capture(company_id,source,raw) VALUES('7c858982-6ccd-47ca-bd65-e0dd3eebf01c','clube_newgang','{}'),('7c858982-6ccd-47ca-bd65-e0dd3eebf01c','clube_newgang','{"residence_country":"BR","city":""}');
 SELECT t.cityck('foreign captures absent country city preserved',EXISTS(SELECT 1 FROM lead_capture WHERE source='clube_newgang' AND raw='{}'::jsonb));
@@ -79,4 +88,8 @@ DO $$ BEGIN
  BEGIN INSERT INTO lead_capture(company_id,source,raw) VALUES('7c858982-6ccd-47ca-bd65-e0dd3eebf01c','clube_newgang','{"residence_country":"PT"}'); RAISE EXCEPTION 'accepted'; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'city_invalid' THEN RAISE; END IF; END;
  PERFORM t.cityck('PT capture city mandatory',true);
 END $$;
+SELECT t.call(md5('profile@example.invalid'),t.payload()||'{"city":"Lisboa"}');
+
+SELECT t.call(md5('profile@example.invalid'),'{"op":"clear"}');
+SELECT t.cityck('clear never complete',NOT (t.state(md5('profile@example.invalid'))->>'complete')::boolean);
 SELECT t.call(md5('profile@example.invalid'),t.payload()||'{"city":"Lisboa"}');
