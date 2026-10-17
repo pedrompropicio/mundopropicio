@@ -25,7 +25,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Estrutura técnica aplicada; certificação authenticated/owner pendente; #323 excluída | 2026-10-17 16:26 | 2026-10-17 21:12 — Base778920c0 integrada; COREv2/ATTEMPTS oficiais0190/0191, registry192/193 e hashes exatos; bucket privado20MiB, settings/tabelas vazias. Corpos21/ACL/RLS/baselines conferidos; HTTP service gates42501, fixture técnica94B preservada. Negativos CORE authenticated/owner Live não disponíveis via executorSELECT; não alegar prova Auth. Prova22; sem patchativo/índice/deploy/Publish/financeiro. #333 aberta/reservada; #323 intacta |
+| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Etapa2: código integrado + deploy das 3 funções; gates fechados; certificação Live 28/28; #323 excluída | 2026-10-17 16:26 | 2026-10-17 21:40 — Base2a56a601; fluxos antigos em legacy_untracked; prova23; pendente DDL de capacidade/ativação/Publish (não autorizados) |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)

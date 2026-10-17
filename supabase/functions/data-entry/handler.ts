@@ -112,7 +112,7 @@ export function createHandler(d: Deps) {
         catch (e) { throw new SafeError(e instanceof RangeError ? e.message : "Pedido inválido", 413); }
         const contentType = req.headers.get("Content-Type");
         if (!contentType) throw new SafeError("Pedido inválido");
-        const form = await new Response(raw, { headers: { "Content-Type": contentType } }).formData();
+        const form = await new Response(new Uint8Array(raw).buffer, { headers: { "Content-Type": contentType } }).formData();
         if ([...form.keys()].some((k) => !["session_id", "file"].includes(k))) throw new SafeError("Campos não permitidos");
         const sessionId = id.parse(form.get("session_id"));
         const state = await load(sessionId);
@@ -147,7 +147,7 @@ export function createHandler(d: Deps) {
         if (!doc) throw new SafeError("Documento não encontrado", 404);
         const bytes = await d.storage.download("data-entry-staging", doc.path);
         if (!bytes || (await sha256(bytes)) !== doc.sha256) throw new SafeError("Documento indisponível ou alterado", 409);
-        return new Response(bytes, { headers: { ...d.cors, "Content-Type": doc.mime, "Content-Disposition": "attachment", "Cache-Control": "no-store" } });
+        return new Response(new Uint8Array(bytes).buffer, { headers: { ...d.cors, "Content-Type": doc.mime, "Content-Disposition": "attachment", "Cache-Control": "no-store" } });
       }
 
       // Read-only reconciliation, also used after execution. Never authorizes or commits.
@@ -178,8 +178,11 @@ export function createHandler(d: Deps) {
       const hash = await sha256(bytes);
       if (hash !== doc.sha256) throw new SafeError("Documento alterado", 409);
       const finalPath = finalDocumentPath(company, doc.id, hash, doc.mime);
+      await rpc("data_entry_attempt_333", {p_action:"prepare",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
+      await rpc("data_entry_attempt_333", {p_action:"authorize",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
+      await rpc("data_entry_attempt_333", {p_action:"begin",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
       await putVerified("standalone-invoices", finalPath, bytes, doc.mime, hash);
-      const commit = await d.userRpc(token, "data_entry_commit", { p_preview: preview.id, p_snapshot_hash: body.snapshot_hash });
+      const commit = await d.userRpc(token, "data_entry_attempt_333", {p_action:"commit",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
       if (commit.error) {
         if (DEFINITIVE.has(String(commit.error.code))) {
           // Shared by preview versions/concurrent requests: refusal is NOT ownership.

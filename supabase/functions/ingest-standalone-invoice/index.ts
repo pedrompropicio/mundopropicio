@@ -1,6 +1,9 @@
 // ingest-standalone-invoice — ingestão externa de faturas avulsas (#191–#193).
 // Regra absoluta: esta função escreve apenas em standalone_invoices e no bucket homónimo.
-import { trashStorageObject } from '../_shared/storage-trash.ts'
+import { documentType, validateDocument, readCapped, MAX_DOCUMENT_BYTES } from '../_shared/data-entry-core.ts'
+import { executeAttempt, documentHash, type Attempt } from '../_shared/standalone-attempt.ts'
+import { findStrongCandidates, persistInvoice } from '../_shared/standalone-compat.ts'
+import type { Candidate, Expected } from '../_shared/standalone-identity.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { z } from 'npm:zod@3.23.8'
 import { getEcbRate } from '../_shared/fx-rate.ts'
@@ -20,6 +23,7 @@ const EXT_BY_TYPE: Record<string, string> = {
 }
 
 const BodySchema = z.object({
+  attempt_id: z.string().uuid().optional(),
   origem: z.string().trim().url().optional(),
   conteudo_base64: z.string().trim().min(1).optional(),
   nome: z.string().trim().min(1).max(255),
@@ -131,22 +135,6 @@ Deno.serve(async (req) => {
   if (companyError) return json({ error: `Erro ao validar empresa: ${companyError.message}` }, 500)
   if (!company) return json({ error: 'Empresa não encontrada.' }, 404)
 
-  const canDedupe = Boolean(body.supplier_nif && body.invoice_number)
-  const findExisting = async () => {
-    if (!canDedupe) return null
-    const { data, error } = await admin.from('standalone_invoices')
-      .select('id, storage_path').eq('company_id', body.company_id)
-      .eq('supplier_nif', body.supplier_nif ?? '').eq('invoice_number', body.invoice_number ?? '').maybeSingle()
-    if (error) throw error
-    return data
-  }
-  try {
-    const existing = await findExisting()
-    if (existing) return json({ id: existing.id, storage_path: existing.storage_path, reused: true })
-  } catch (error) {
-    return json({ error: `Erro ao verificar duplicado: ${error instanceof Error ? error.message : String(error)}` }, 500)
-  }
-
   // (#195) Câmbio resolvido no servidor ANTES de qualquer download/upload: se o
   // BCE falhar, nada é gravado e nenhum objeto entra no bucket.
   let fxRate = body.fx_rate ?? null
@@ -168,6 +156,7 @@ Deno.serve(async (req) => {
   let bytes: Uint8Array
   if (body.conteudo_base64) {
     try {
+      if(body.conteudo_base64.length>4*Math.ceil(MAX_BYTES/3)+256)return json({error:'Documento superior ao limite'},413)
       const binary = atob(body.conteudo_base64.replace(/^data:[^;]+;base64,/, '').replace(/\s+/g, ''))
       bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
     } catch { return json({ error: 'conteudo_base64 não é base64 válido.' }, 400) }
@@ -181,46 +170,72 @@ Deno.serve(async (req) => {
     if ((response.headers.get('content-type') ?? '').toLowerCase().startsWith('text/html')) return json({ error: 'A origem devolveu HTML em vez do ficheiro.' }, 422)
     const declared = Number(response.headers.get('content-length') ?? 0)
     if (declared > MAX_BYTES) return json({ error: 'Ficheiro demasiado grande — máximo 20 MB.' }, 413)
-    bytes = new Uint8Array(await response.arrayBuffer())
+    try { bytes = await readCapped(response.body, MAX_BYTES) } catch { return json({error:"Documento superior ao limite"},413) }
   }
   if (bytes.byteLength === 0) return json({ error: 'Ficheiro vazio.' }, 422)
   if (bytes.byteLength > MAX_BYTES) return json({ error: 'Ficheiro demasiado grande — máximo 20 MB.' }, 413)
-  const contentType = detectType(bytes)
+  const contentType = documentType(bytes)
   if (!contentType) return json({ error: 'Tipo não suportado — aceites PDF, JPEG e PNG.' }, 415)
 
+  try { validateDocument(bytes, contentType) } catch { return json({error:'Documento inválido'},422) }
   const year = body.invoice_date?.slice(0, 4) ?? new Date().getUTCFullYear().toString()
   const path = `${body.company_id}/${year}/${safeBaseName(body.nome)}-${crypto.randomUUID()}.${EXT_BY_TYPE[contentType]}`
-  const { error: uploadError } = await admin.storage.from(BUCKET).upload(path, bytes, { contentType, upsert: false })
-  if (uploadError) return json({ error: `Falha no upload: ${uploadError.message}` }, 500)
-
-  const cleanup = async () => {
-    // #265: move para _trash e grava storage_deletion_log (nunca apaga em silêncio).
-    const r = await trashStorageObject(admin, {
-      bucket: BUCKET, path, reason: 'ingest-standalone-invoice: limpeza de insert falhado',
-      related_table: 'standalone_invoices', company_id: body.company_id,
-    })
-    if (!r.ok) console.error('[ingest-standalone-invoice] limpeza falhou', r.error)
-  }
-  const { data: inserted, error: insertError } = await admin.from('standalone_invoices').insert({
-    company_id: body.company_id, storage_path: path, file_name: body.nome,
+  const expected: Expected = {
+    company_id: body.company_id, file_name: body.nome,
     supplier_name: body.supplier_name || null, supplier_nif: body.supplier_nif || null,
     invoice_number: body.invoice_number || null, invoice_date: body.invoice_date || null,
     currency: body.currency, original_amount: body.original_amount ?? null,
     fx_rate: fxRate, fx_rate_source: fxRateSource,
     total_amount: totalAmount, iva_amount: body.iva_amount ?? null,
     notes: body.notes || null, paid_by_partner_id: body.paid_by_partner_id ?? null,
-    created_by: body.created_by ?? null, status: 'new',
-  }).select('id, storage_path').single()
-
-  if (insertError) {
-    await cleanup()
-    if (insertError.code === '23505' && canDedupe) {
-      try {
-        const existing = await findExisting()
-        if (existing) return json({ id: existing.id, storage_path: existing.storage_path, reused: true })
-      } catch { /* devolve o erro original */ }
-    }
-    return json({ error: `Falha ao gravar fatura: ${insertError.message}` }, 500)
+    created_by: body.created_by ?? null,
+  };
+  if (body.attempt_id) {
+    const envelope={payload:(({company_id,...payload})=>payload)(expected),document:{sha256:await documentHash(bytes),size_bytes:bytes.length,mime:contentType},effects:['ingest_create']};
+    const rpc=async(action:string,id:string|null,envelope:Record<string,unknown>|null,hash:string|null)=>{
+      const {data,error}=await admin.rpc('standalone_ingest_attempt_333',{p_company:body.company_id,p_action:action,p_id:id,p_envelope:envelope,p_hash:hash});
+      if(error)throw new Error('Tentativa recusada');return data as Attempt;
+    };
+    try {
+      const reserved=await rpc('prepare',body.attempt_id,envelope,null);
+      const out=await executeAttempt({rpc,
+        read:async p=>{const {data,error}=await admin.storage.from(BUCKET).download(p);return error||!data||data.size>MAX_BYTES?null:new Uint8Array(await data.arrayBuffer())},
+        upload:async(p,b,m)=>{const {error}=await admin.storage.from(BUCKET).upload(p,b,{contentType:m,upsert:false});if(error && !['409','Duplicate'].includes(String(error.statusCode??error.error)))throw Error('Upload recusado')},
+        verifyReceipt:async(p,b,m)=>{const {data,error}=await admin.storage.from(BUCKET).download(p);if(error||!data||data.size!==b.length||await documentHash(new Uint8Array(await data.arrayBuffer()))!==await documentHash(b))throw Error('Readback pendente');const r=await admin.rpc('data_entry_record_receipt',{p_bucket:BUCKET,p_path:p,p_sha:await documentHash(b),p_size:b.length,p_mime:m});if(r.error)throw Error('Recibo recusado')},
+      },reserved,bytes);
+      return json({attempt_id:reserved.id,status:out.status,result:out.attempt.result,reused:out.status==='conferido' && reserved.state==='completed',verified:out.status==='conferido'},out.status==='conferido'?200:409);
+    } catch {return json({code:'attempt_pending',error:'Conferência pendente. Não repitas.',reused:false},409)}
   }
-  return json({ id: inserted.id, storage_path: inserted.storage_path, reused: false })
+  const result = await persistInvoice({
+    find: (e) => findStrongCandidates(e, async (company, after, size) => {
+      let q = admin.from('standalone_invoices').select('*').eq('company_id', company)
+        .order('id', { ascending: true }).limit(size);
+      if (after) q = q.gt('id', after);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as Candidate[];
+    }),
+    read: async (p) => {
+      if (!p.startsWith(`${body.company_id}/`)) return null;
+      const { data, error } = await admin.storage.from(BUCKET).download(p);
+      if (error || !data || data.size > MAX_BYTES) return null;
+      return new Uint8Array(await data.arrayBuffer());
+    },
+    get: async (id, company) => {
+      const { data, error } = await admin.from('standalone_invoices').select('*').eq('id', id).eq('company_id', company).maybeSingle();
+      if (error) throw error;
+      return data as Candidate | null;
+    },
+    upload: async (p, b, mime) => {
+      const { error } = await admin.storage.from(BUCKET).upload(p, b, { contentType: mime, upsert: false });
+      if (error) throw error;
+    },
+    insert: async (row) => {
+      const { data, error } = await admin.from('standalone_invoices').insert({ ...row, status: 'new' })
+        .select('id,storage_path').single();
+      if (error) throw error;
+      return data;
+    },
+  }, expected, bytes, contentType, path);
+  return json({...result.body,attempt_coverage:"legacy_untracked"}, result.status);
 })

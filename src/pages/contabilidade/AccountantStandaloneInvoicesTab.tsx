@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/useCompany";
@@ -14,6 +14,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Loader2, Download, FileArchive, Undo2, CheckCircle2, FileText, Pencil, Trash2, AlertTriangle } from "lucide-react";
 import { signedCompanyUrl, downloadFromCompanyBucket, removeFromCompanyBucket } from "@/lib/storage";
 import { calculateStandaloneEur, isStandaloneInvoiceDuplicateError, parseStandaloneAmount, STANDALONE_INVOICE_CURRENCIES, validateStandaloneMonetaryFields, type StandaloneInvoiceCurrency } from "@/lib/standalone-invoices";
+
+import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt, attemptCapabilities } from "@/lib/standalone-attempt-client";
+import { StandaloneAttemptsPanel } from "@/components/standalone/StandaloneAttemptsPanel";
+import type { Attempt } from "@shared/standalone-attempt";
+import { lookupStandalone, standaloneWriteError } from "@/lib/standalone-identity-lookup";
 
 interface Row {
   id: string;
@@ -71,12 +76,20 @@ export function AccountantStandaloneInvoicesTab() {
   const [editing, setEditing] = useState<Row | null>(null);
   const [form, setForm] = useState({ supplier_name: "", supplier_nif: "", invoice_number: "", invoice_date: "", currency: "EUR" as StandaloneInvoiceCurrency, original_amount: "", fx_rate: "", fx_rate_source: "", paid_by_partner_id: "none", total_amount: "", iva_amount: "", notes: "" });
 
+  const [attempt, setAttempt] = useState<Attempt | null>(null);
+  const [resumeId,setResumeId]=useState("");
+  const [resumeHash,setResumeHash]=useState("");
+  const attemptGeneration=useRef(0);
+  const pendingKey = `standalone-edit-pending:${user?.id ?? "none"}:${companyId ?? "none"}:${editing?.id ?? "none"}`;
+  const [writePending, setWritePending] = useState(false);
   const canProcess = isAdmin || isAccountant;
   const canEdit = (r: Row) => isAdmin || r.created_by === user?.id;
   // Apagar: só enquanto "nova", por quem capturou ou admin/platform_admin.
   const canDelete = (r: Row) => r.status === "new" && (isAdmin || r.created_by === user?.id);
 
   const openEdit = (r: Row) => {
+    setWritePending(sessionStorage.getItem(`standalone-edit-pending:${user?.id ?? "none"}:${companyId ?? "none"}:${r.id}`) !== null);
+    setAttempt(null);
     setEditing(r);
     setForm({
       supplier_name: r.supplier_name ?? "",
@@ -94,21 +107,20 @@ export function AccountantStandaloneInvoicesTab() {
     });
   };
 
+  useEffect(()=>{attemptGeneration.current++;setAttempt(null);setResumeId("");setResumeHash("");setEditing(null);setWritePending(false);},[user?.id,companyId]);
   const saveEdit = useMutation({
     mutationFn: async () => {
-      if (!editing) return;
+      const writeGeneration=attemptGeneration.current;
+      if (!editing || writePending || sessionStorage.getItem(pendingKey) !== null) throw new Error("Conferência pendente");
       const monetaryError = validateStandaloneMonetaryFields(form.currency, form.original_amount, form.fx_rate, form.total_amount);
       if (monetaryError) throw Object.assign(new Error(monetaryError), { code: "INVALID_MONETARY_FIELDS" });
       if (form.supplier_nif.trim() && form.invoice_number.trim()) {
-        const { data: duplicate, error: duplicateError } = await (supabase as any).from("standalone_invoices")
-          .select("id").eq("company_id", companyId).eq("supplier_nif", form.supplier_nif.trim())
-          .eq("invoice_number", form.invoice_number.trim()).neq("id", editing.id).maybeSingle();
-        if (duplicateError) throw duplicateError;
+        const duplicate = await lookupStandalone(supabase, { company_id: companyId ?? "",
+          supplier_nif: form.supplier_nif.trim(), invoice_number: form.invoice_number.trim() }, editing.id);
         if (duplicate) throw Object.assign(new Error("Já existe uma fatura deste fornecedor com este número."), { code: "DUPLICATE_INVOICE" });
       }
-      const { error } = await (supabase as any)
-        .from("standalone_invoices")
-        .update({
+      if (!user || !companyId) throw new Error("Contexto inválido");
+      const payload = {file_name:editing.file_name,created_by:editing.created_by,
           supplier_name: form.supplier_name.trim() || null,
           supplier_nif: form.supplier_nif.trim() || null,
           invoice_number: form.invoice_number.trim() || null,
@@ -121,17 +133,38 @@ export function AccountantStandaloneInvoicesTab() {
           total_amount: parseStandaloneAmount(form.total_amount),
           iva_amount: parseStandaloneAmount(form.iva_amount),
           notes: form.notes.trim() || null,
-        })
-        .eq("id", editing.id);
-      if (error) throw error;
+      };
+      const context={user_id:user.id,company_id:companyId};
+      const tracked=(await attemptCapabilities(context))["accountant_edit"]===true;
+      if(writeGeneration!==attemptGeneration.current)return;
+      if(!tracked){
+        // legacy_untracked: edição direta anterior (RLS/permissões atuais), sem tentativa persistente.
+        const {file_name:_f,created_by:_c,...changes}=payload;
+        sessionStorage.setItem(pendingKey,"legacy_untracked");
+        const {error}=await (supabase as any).from("standalone_invoices").update(changes).eq("id",editing.id);
+        if(error)throw error;
+        return writeGeneration;
+      }
+      const { data: blob, error: downloadError } = await supabase.storage.from("standalone-invoices").download(editing.storage_path);
+      if (downloadError || !blob) throw new Error("Documento indisponível");
+      const file = new File([blob], editing.file_name, {type:blob.type});
+      const reserved=await prepareLegacyAttempt("accountant_edit",payload,file,context,editing as unknown as Record<string,unknown>);
+      if(writeGeneration!==attemptGeneration.current)return;
+      setAttempt(reserved);setResumeId(reserved.id);setResumeHash(reserved.hash); sessionStorage.setItem(pendingKey,JSON.stringify({id:reserved.id,hash:reserved.hash}));
+      const result=await executeLegacyAttempt("accountant_edit",reserved,file,context);
+      if(writeGeneration!==attemptGeneration.current)return;
+      if(result.status!=="conferido")throw new Error("Conferência pendente");
+      return writeGeneration;
     },
-    onSuccess: () => {
+    onSuccess: (completedGeneration) => {
+      if(completedGeneration!==attemptGeneration.current)return;
+      sessionStorage.removeItem(pendingKey);
       setEditing(null);
       qc.invalidateQueries({ queryKey: ["standalone-invoices"] });
       qc.invalidateQueries({ queryKey: ["standalone-invoice-months"] });
       toast({ title: "Fatura atualizada" });
     },
-    onError: (e: any) => toast({ title: e?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(e) ? "Fatura duplicada" : "Falhou", description: e?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(e) ? "Já existe uma fatura deste fornecedor com este número." : e.message, variant: "destructive" }),
+    onError: (e: any) => { if (sessionStorage.getItem(pendingKey) !== null) setWritePending(true); toast({ title: e?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(e) ? "Fatura duplicada" : "Falhou", description: e?.code === "INVALID_MONETARY_FIELDS" ? e.message : standaloneWriteError(e), variant: "destructive" }); },
   });
 
   /**
@@ -520,9 +553,20 @@ export function AccountantStandaloneInvoicesTab() {
               <Input id="ed-notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </div>
           </div>
+          {writePending && <AlertTriangle aria-label="Conferência pendente" />}
+          {user && companyId && <StandaloneAttemptsPanel key={`${user.id}:${companyId}`} operation="accountant_edit" context={{user_id:user.id,company_id:companyId}}
+            onSelect={(a)=>{setAttempt(null);setResumeId(a?.id??"");setResumeHash(a?.hash??"");}} />}
+          <Button variant="outline" disabled={!attempt&&(!resumeId||!resumeHash)} onClick={async()=>{
+            if(!user || !companyId)return;
+            const gen=attemptGeneration.current,ctx={user_id:user.id,company_id:companyId};
+            const out=await (attempt?checkLegacyAttempt("accountant_edit",attempt,ctx):resumeLegacyAttempt("accountant_edit",resumeId,resumeHash,ctx)).catch(()=>null);
+            if(gen!==attemptGeneration.current)return;
+            if(out?.status==="conferido"){setWritePending(false);setEditing(null);qc.invalidateQueries({queryKey:["standalone-invoices"]});}
+            else toast({title:"Conferência pendente"});
+          }}>Consultar tentativa</Button>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
-            <Button onClick={() => saveEdit.mutate()} disabled={saveEdit.isPending}>
+            <Button onClick={() => saveEdit.mutate()} disabled={saveEdit.isPending || writePending}>
               {saveEdit.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Guardar
             </Button>
           </DialogFooter>

@@ -41,7 +41,7 @@ Atualizado: 09/10/2026 (ritual de fecho da frente; inclui o trabalho do chat fin
 
 ## A trabalhar agora
 
-- **#333 — 17/10/2026 20:54 UTC — CORE v2 validado, aplicação estrutural pendente de integração#329**. Base ba663feb=GitHub, CI da base verde; autocommits locais próprios ainda não recebidos no GitHub. CORE v2 b60f9360 (derivado PREPARED9f8, nunca BASE4ee) fecha criação/session,note,add_document,prepare com preparation_validated independente de execute_validated; settings/helper internos fechados, sem linhas ativadoras. PG73/73 (67 regressões+6 novos), pgcrypto/2ligações/cópia sem credenciais, runner reproduzível. ATTEMPTS d4c80296 e14destinosBASE intactos. Preflight Live só leitura: objetos333/bucket ausentes, registryDrizzle confirmado, baselines/helpers e3contasbanidas/6objetosprova17 inalterados. Zero migrações/bucket/escritasfinanceiras/deploy/Publish nesta tarefa; aplicação já autorizada retoma após heads/receção/CI confirmados, sem nova decisão técnica. Prova21; #333 aberta/reservada; #323 intacta. DecisõesA–D permanecem aprovadas; deploy/UI/índiceglobal/ativação fora deste âmbito.
+- **#333 — 17/10/2026 21:40 UTC — estrutura (0190/0191) aplicada; código integrado e 3 funções implantadas com operações desligadas.** Scanner/edição/ingest continuam no caminho anterior (legacy_untracked). Nenhuma fatura/TX/BP criada. Prova: `docs/testes/issue333/23-etapa2-codigo-deploy-certificacao-live.md`.
 
 ## Em aberto, por decisão do Pedro
 

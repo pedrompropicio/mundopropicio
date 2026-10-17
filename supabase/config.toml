@@ -815,3 +815,7 @@ verify_jwt = true
 
 [functions.artist-ads-balance-check]
 verify_jwt = true
+
+# #333 candidate only; applied exclusively in disposable integration.
+[functions.standalone-attempt-333]
+verify_jwt = true
