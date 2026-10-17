@@ -8,7 +8,7 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
-- [x] Reparar memória/índice e testar suite completa1358 PASS/tsgo/build OK; CI remota a conferir pelo controlador.
+- [x] Reparar memória/índice e testar suite completa1359 PASS/tsgo/build OK; CI remota a conferir pelo controlador.
 - [x] Corrigir família/retorno/incerteza/paginação/contexto e testar interações sem egress.
 - [x] Retificar prova23 e entregar proposta de capacidade service-only, sem aplicação/deploy.
 - [x] Corrigir config/CORS/SQL/documento/descoberta owner, consolidar provas integrais e prévia futura; apenas inerte/cópia isolada.

@@ -14,7 +14,7 @@ Base recebida e observada: b4f32dfa7635f70d19e10ea0db31809417f22f2f. Janela/sinc
 
 ## Verificações locais atuais
 - Focados: 63 PASS em 5 ficheiros (UI8, cliente13, proposta3, DataEntryDialog13, compat26), mocks locais sem chamadas Live/providers.
-- Suite final completa: 168 ficheiros PASS, 1 skipped herdado; 1358 testes PASS, 1 skipped herdado, 11 todo herdados; zero falhas. Não foram criados skips nem alargadas guards.
+- Suite final completa: 168 ficheiros PASS, 1 skipped herdado; 1359 testes PASS, 1 skipped herdado, 11 todo herdados; zero falhas. Não foram criados skips nem alargadas guards.
 - tsgo final em cópia sem .env/.git/credenciais: exit0.
 - Vite build final nessa cópia: exit0; aviso de chunks grandes/PWA existente, sem erro. Build automático do preview: OK.
 - Logs integrais: prova25. CI anterior39071452602/job117509759278 vermelha conforme controlador; CI remota desta reparação NÃO verificada, a conferir pelo controlador.
