@@ -470,3 +470,9 @@ A amostra de cada infractor diz `tabela`, `bucket`, `file_url` e `linhas` — se
 **Pendência futura, não urgente:** retirar o INSERT `anon` de `redirect_log`/`lead_capture` quando a transição das SPAs em cache estiver completa. Até lá as duas portas coexistem — a da edge function, que escreve com IP e geo do servidor, e a directa do cliente, que escreve sem nenhum dos dois.
 
 Detalhe em `.lovable/memory/features/ip-geo-cache.md`.
+
+## #333 — estrutura técnica aplicada, operações desligadas (17/10/2026 21:12 UTC)
+
+Base integrada778920c0. Aplicação oficial COREv2/ATTEMPTS em0190/0191, registry real192/193, fontes byte a byte e21 corpos Live conferidos. Bucket data-entry-staging privado20971520 bytes; MIME não configurável pela API usada. RLS ligada e sem policies nas10 tabelas; settings/tabelas vazias; gates independentes desligados. ACL efetivas/gates internos fechados conforme SQL. HTTP service ingest recusa42501 em cinco ações; fixture técnica94B upload/readback conferida e preservada, anon sem visibilidade. Baselines financeiros/helpers/contas banidas/objetos17/policies inalterados. Sem código/UI/índiceglobal/config/deploy/Publish/ativação.
+
+Certificação parcial: CORE authenticated e owner-readonly Live pendentes; executor SELECT não suporta simulação canónica/transação controlada. Não alterar permissões nem criar Auth para contornar. Prova22: docs/testes/issue333/22-estrutura-aplicada-live-gates-fechados.md. CI da nova entrega ainda não confirmado; #333 aberta/reservada; #323 intacta. Próxima fase exige autorização própria.

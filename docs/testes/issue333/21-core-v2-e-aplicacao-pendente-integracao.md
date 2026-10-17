@@ -45,3 +45,5 @@ PENDENTE: duas migrações exatas CORE v2 → ATTEMPTS, bucket privado20MiB sem 
 ## Retoma já autorizada
 Após integração #329 e CI: revalidar heads/ausência/dependências/baselines, enviar CORE v2 e ATTEMPTS congelados byte a byte à ferramenta oficial, comparar arquivo de migração/registry/hash, criar bucket pelo Storage oficial e certificar com gates sem linhas. Não requer nova escolha técnica de Pedro. Falha parcial: parar e documentar aplicado versus pendente, sem rollback destrutivo.
 Deploy/UI/índice global/ativação continuam fora desta tarefa; autorização própria futura. Nenhuma questão financeira nova nem aceitação de bypass em aberto.
+## Retoma 21:12 UTC — estado superado pela prova22
+Integração confirmada em778920c0; COREv2/ATTEMPTS aplicados oficialmente (registry192/193), bucket privado20MiB criado, operações/settings desligadas. Certificação de corpos/ACL/baselines e HTTP service concluída; negativos authenticated/owner ainda não provados em Live. Ver22-estrutura-aplicada-live-gates-fechados.md. Nenhum deploy/Publish/financeiro.
