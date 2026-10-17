@@ -16,8 +16,9 @@
 - [x] Retoma 17:15: CI verify_jwt, guardas canónicas, validação estrita, handler injetável, UI real, PostgreSQL real 2 ligações.
 - [x] Correção 17:25: candidatos preservados, readback, conferência read-only, contexto UI/edições, comparação completa, proposta normalização e regressões locais; aguarda revisão independente.
 - [x] Preparação autorizada 17:46: inventário de escritores, política forte proposta, compatibilidade inerte, PostgreSQL36/compat26/handler20/regressões35/geral1334; nenhuma aplicação Live. Provas08/09; aguarda revisão.
-- [ ] Aplicar DDL/bucket/deploy após revisão das provas (bloqueio: revisão do Pedro/0).
+- [x] #333 corrigir/congelar CORE v2 e provar PG73/73; preparação/execução separadas; ATTEMPTS intacto.
+- [ ] #333 aplicar CORE v2+ATTEMPTS por registry oficial e bucket privado; bloqueio:#329 integração dos autocommits locais no GitHub ainda pendente, zero DDL iniciado. Certificação Live após aplicação.
 - [ ] Implementar núcleo upload privado, conversa documental, prévia servidor, autorização e execução tipada idempotente apenas para adapters validados.
-- [ ] Ativação bloqueada: rollout/reconciliação de clientes anteriores semID e intenção adicional, revisão política forte/IVA≤total, StorageACL real e autorização aplicação/índice/DDL/deploy; CI novo SHA aguarda propagação. Trava sessionStorage não prova exatamente-um global.
+- [ ] Ativação/deploy/UI/índice global aguardam autorização própria; decisões A–D já aprovadas e estrutura técnica já autorizada. CI novo SHA aguarda integração #329. Trava sessionStorage não prova exatamente-um global.
 - [x] Documentar efeitos Live inexistentes e limitações; manter Issue/reserva abertas para verificação.
 - [ ] Gmail/Drive/OAuth, conciliação, bilheteiras e demais adapters: bloqueados até validação/configuração próprias; sem Publish.

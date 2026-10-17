@@ -29,7 +29,6 @@ Nada aplicado. Sem migração, bucket, deploy, Publish, settings, fixtures ou da
 As 3 contas banidas e 6 objetos da prova 17 não foram tocados.
 
 ## Próximo passo proposto (não executado)
-Opção recomendada: patch SQL de CORE v2 que faz `data_entry_session/note/add_document/prepare`
-exigirem gate fechado-por-defeito (ex.: linha em data_entry_settings ou gate próprio) com 42501,
-re-testado em PG real (67 + novos negativos), novo sha256, e nova autorização para aplicar.
-Alternativa: Pedro aceita expressamente estas 4 escritas técnicas não financeiras sem gate.
+Superado pela retoma autorizada de Pedro às20:47 UTC: corrigir/testar/congelar CORE v2 e concluir a mesma aplicação estrutural, sem pedir aceitação de bypass nem nova autorização técnica.
+Correção local passou73/73 PG (67 anteriores+6 novos), preparação independente da execução; novo SHA b60f9360599f3204ce64c0eebd46350c73f07051ae3365e1dc043c14a3c1248e.
+Ver prova21: aplicação ainda não iniciada, aguardando integração do autocommit próprio conforme #329. O9f8 original nunca foi aplicado nem alegado como contendo estas guardas.

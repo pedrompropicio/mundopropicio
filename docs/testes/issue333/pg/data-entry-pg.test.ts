@@ -80,7 +80,7 @@ beforeAll(async () => {
   for (const [id,n,c,ac] of prof) await admin`insert into profiles values (${id},${n},${c},${ac})`;
   const roles: [string,string|null,string][] = [[U.M,A,"manager"],[U.MB,A,"manager"],[U.MB,B,"viewer"],[U.E,A,"editor"],[U.PA,null,"platform_admin"],[U.Z,A,"manager"],[U.P,A,"partner"],[U.Q,B,"partner"]];
   for (const [u,c,r] of roles) await admin`insert into user_roles(user_id,company_id,role) values (${u},${c},${r})`;
-  await admin`insert into data_entry_settings values (true,true)`;
+  await admin`insert into data_entry_settings(singleton,execute_validated,preparation_validated) values (true,true,true)`;
   // Injected failure point AFTER the invoice insert and BEFORE the audit row.
   await admin.unsafe(`create function public.t_fail() returns trigger language plpgsql as $$ begin if current_setting('test.fail_audit',true)='on' then raise exception 'injected'; end if; return new; end $$;
     create trigger t_fail before insert on public.data_entry_results for each row execute function public.t_fail();`);
@@ -121,6 +121,79 @@ describe("#333 grants e ACL", () => {
       has_table_privilege('authenticated','public.data_entry_results','SELECT') t, has_table_privilege('anon','public.data_entry_previews','SELECT') t2`;
     expect(r).toEqual({ a: false, s: true, act: false, t: false, t2: false });
     expect((await err(as(c1, U.M, (tx) => tx`select * from public.data_entry_sessions`)))?.code).toBe("42501");
+  });
+});
+
+describe("#333 CORE v2 preparation gate, independent of execution", () => {
+  const technicalCounts = async () => (await admin`select
+    (select count(*) from data_entry_sessions)::int sessions,
+    (select count(*) from data_entry_messages)::int messages,
+    (select count(*) from data_entry_documents)::int documents,
+    (select count(*) from data_entry_previews)::int previews,
+    (select count(*) from data_entry_results)::int results,
+    (select count(*) from standalone_invoices)::int invoices`)[0];
+  it.each([null, false])("absent/false preparation flag %s: four RPCs 42501, no technical writes; owner reads remain read-only", async (flag) => {
+    const p = await prepared(U.M, A, 'closed-'+randomUUID(), fields({invoice_number:'CLOSED-'+randomUUID()}));
+    const before = await technicalCounts();
+    if (flag === null) await admin`delete from data_entry_settings where singleton`;
+    else await admin`update data_entry_settings set preparation_validated=false,execute_validated=false where singleton`;
+    try {
+      const calls = [
+        () => rpc(c1,U.M,tx=>tx`select data_entry_session(null,null)`),
+        () => rpc(c1,U.M,tx=>tx`select data_entry_note(${p.sid},'not saved')`),
+        () => rpc(c1,U.M,tx=>tx`select data_entry_add_document(${p.sid},'f.pdf',${p.h},${p.size},'application/pdf')`),
+        () => rpc(c1,U.M,tx=>tx`select data_entry_prepare(${p.sid},${p.docId},${tx.json(fields())})`),
+      ];
+      for (const call of calls) expect((await err(call()))?.code).toBe('42501');
+      expect((await rpc(c2,U.M,tx=>tx`select data_entry_session(${p.sid},null) j`)).j.session.id).toBe(p.sid);
+      expect((await rpc(c2,U.M,tx=>tx`select data_entry_result_check(${p.preview.id}) j`)).j.ok).toBe(false);
+      expect((await err(rpc(c2,U.Z,tx=>tx`select data_entry_session(${p.sid},null)`)))?.code).toBe('42501');
+      expect((await err(rpc(c1,U.M,tx=>tx`select data_entry_commit(${p.preview.id},${p.preview.snapshot_hash})`)))?.code).toBe('42501');
+      expect(await technicalCounts()).toEqual(before);
+    } finally {
+      await admin`insert into data_entry_settings(singleton,execute_validated,preparation_validated) values (true,true,true)
+        on conflict(singleton) do update set execute_validated=true,preparation_validated=true`;
+    }
+  });
+  it('preparation=true execution=false: create/note/document/preview allowed, commit denied', async () => {
+    await admin`update data_entry_settings set preparation_validated=true,execute_validated=false where singleton`;
+    try {
+      const before=await technicalCounts();
+      const p=await prepared(U.M,A,'preview-only-'+randomUUID(),fields({invoice_number:'PREVIEW-'+randomUUID()}));
+      await rpc(c1,U.M,tx=>tx`select data_entry_note(${p.sid},'preview only')`);
+      expect((await err(rpc(c1,U.M,tx=>tx`select data_entry_commit(${p.preview.id},${p.preview.snapshot_hash})`)))?.code).toBe('42501');
+      const after=await technicalCounts();
+      expect(after).toEqual({...before,sessions:before.sessions+1,messages:before.messages+1,documents:before.documents+1,previews:before.previews+1});
+    } finally { await admin`update data_entry_settings set execute_validated=true where singleton`; }
+  });
+  it('preparation=false execution=true never permits any of the four preparation writes', async () => {
+    const p=await prepared(U.M,A,'exec-not-prep-'+randomUUID(),fields({invoice_number:'SEPARATE-'+randomUUID()}));
+    await admin`update data_entry_settings set preparation_validated=false where singleton`;
+    try {
+      for(const call of [()=>rpc(c1,U.M,tx=>tx`select data_entry_session()`),()=>rpc(c1,U.M,tx=>tx`select data_entry_note(${p.sid},'x')`),()=>rpc(c1,U.M,tx=>tx`select data_entry_add_document(${p.sid},'f.pdf',${p.h},${p.size},'application/pdf')`),()=>rpc(c1,U.M,tx=>tx`select data_entry_prepare(${p.sid},${p.docId},${tx.json(fields())})`)])
+        expect((await err(call()))?.code).toBe('42501');
+    } finally {await admin`update data_entry_settings set preparation_validated=true where singleton`;}
+  });
+  it('flags/internal helper closed to PUBLIC inheritance, anon, authenticated and service; no-auth denied', async () => {
+    for(const role of ['anon','authenticated','service_role']) {
+      const [r]=await admin`select has_function_privilege(${role},'data_entry_preparation_gate()','execute') gate,
+        has_table_privilege(${role},'data_entry_settings','select,insert,update,delete') flags`;
+      expect(r).toEqual({gate:false,flags:false});
+    }
+    expect((await err(as(c1,U.M,tx=>tx`update data_entry_settings set preparation_validated=true`)))?.code).toBe('42501');
+    expect((await err(as(c1,U.M,tx=>tx`select data_entry_preparation_gate()`)))?.code).toBe('42501');
+    expect((await err(admin`select data_entry_session()`))?.code).toBe('42501');
+  });
+  it('preparation closed while note waits on session lock: 42501 after wait and no note', async () => {
+    const sid=(await rpc(c1,U.M,tx=>tx`select data_entry_session() j`)).j.session.id;
+    let release=()=>{},entered=()=>{};const held=new Promise<void>(r=>{release=r}),ready=new Promise<void>(r=>{entered=r});
+    const holder=c2.begin(async tx=>{await tx`select id from data_entry_sessions where id=${sid} for update`;entered();await held;});
+    await ready;const write=err(rpc(c1,U.M,tx=>tx`select data_entry_note(${sid},'blocked after wait')`));
+    expect(await pending(write,100)).toBe(true);
+    await admin`update data_entry_settings set preparation_validated=false where singleton`;
+    release();await holder;
+    try{expect((await write)?.code).toBe('42501');expect(Number((await admin`select count(*) n from data_entry_messages where session_id=${sid}`)[0].n)).toBe(0);}
+    finally{await admin`update data_entry_settings set preparation_validated=true where singleton`;}
   });
 });
 

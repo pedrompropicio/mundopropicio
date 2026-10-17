@@ -109,7 +109,7 @@ it.each(['EUR','USD','BRL','GBP'])('real service SQL optional protocol preserves
  expect((await error(rpc(c1,'prepare',null,e,null,U,'ingest_create')))?.code).toBe('42501');
 });
 it('new assistant wrapper reuses exact canonical preview/commit in same SQL transaction and audit',async()=>{
- await db`insert into data_entry_settings values (true,true)`;
+ await db`insert into data_entry_settings(singleton,execute_validated,preparation_validated) values (true,true,true)`;
  const session=await as(c1,U,async tx=>(await tx`select data_entry_session() j`)[0].j);
  const path=`${C}/${session.session.id}/${hash}`;await db.begin(async tx=>{await tx`set local role service_role`;await tx`select data_entry_record_receipt('data-entry-staging',${path},${hash},3,'application/pdf')`});
  const doc=await as(c1,U,async tx=>(await tx`select data_entry_add_document(${session.session.id},'f.pdf',${hash},3,'application/pdf') j`)[0].j);
