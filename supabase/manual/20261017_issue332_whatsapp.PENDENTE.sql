@@ -18,16 +18,17 @@ REVOKE ALL ON public.club_member_whatsapp_consents FROM PUBLIC,anon,authenticate
 GRANT SELECT ON public.club_member_whatsapp_consents TO service_role;
 GRANT USAGE ON SEQUENCE public.club_member_whatsapp_consents_id_seq TO service_role;
 ALTER TABLE public.club_member_whatsapp_consents ENABLE ROW LEVEL SECURITY;
-COMMENT ON TABLE public.club_member_whatsapp_consents IS '#332 whatsapp: livro append-only; phone_fp=HMAC-SHA256(telefone, chave Vault club_whatsapp_hmac_key) na decisão; mudança de número invalida o grant até nova autorização.';
+COMMENT ON TABLE public.club_member_whatsapp_consents IS '#332 whatsapp: livro append-only; phone_fp=HMAC-SHA256(telefone, chave app_secrets club_whatsapp_hmac_key) na decisão; mudança de número invalida o grant até nova autorização.';
 
--- Impressão digital do número: HMAC-SHA256 com chave secreta no Vault (nunca em claro no livro, logs ou migrações).
+-- Impressão digital do número: HMAC-SHA256 com chave secreta em app_secrets (RLS sem grants: só SECURITY DEFINER lê;
+-- valor gerado dentro da base, nunca em claro no livro, logs, migrações ou chat).
 -- Interna: sem EXECUTE para qualquer role; só chamada pelas funções SECURITY DEFINER desta família.
 CREATE FUNCTION public._club332_whatsapp_fp(p_phone text) RETURNS text
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public,extensions,pg_catalog AS $$
 DECLARE k text;
 BEGIN
  IF p_phone IS NULL THEN RETURN NULL; END IF;
- SELECT decrypted_secret INTO k FROM vault.decrypted_secrets WHERE name='club_whatsapp_hmac_key' LIMIT 1;
+ SELECT value INTO k FROM public.app_secrets WHERE name='club_whatsapp_hmac_key';
  IF k IS NULL THEN RAISE EXCEPTION 'whatsapp_fp_unavailable'; END IF;
  RETURN encode(extensions.hmac(convert_to(p_phone,'UTF8'),convert_to(k,'UTF8'),'sha256'),'hex');
 END $$;
