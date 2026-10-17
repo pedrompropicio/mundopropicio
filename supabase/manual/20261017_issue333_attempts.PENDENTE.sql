@@ -51,7 +51,7 @@ BEGIN
   allowed:=ARRAY['supplier_name','supplier_nif','invoice_number','invoice_date','currency','original_amount','fx_rate','fx_rate_source','total_amount','iva_amount','paid_by_partner_id','notes','file_name','created_by'];
   FOR key IN SELECT jsonb_object_keys(payload) LOOP
    IF NOT key=ANY(allowed) THEN RAISE EXCEPTION '#333: Campo recusado' USING ERRCODE='22023'; END IF;
-   IF payload->key <> 'null'::jsonb AND jsonb_typeof(payload->key) <> CASE WHEN key IN ('original_amount','fx_rate','total_amount','iva_amount') THEN 'number' ELSE 'string' END THEN RAISE EXCEPTION '#333: Tipo inválido' USING ERRCODE='22023'; END IF;
+   IF payload->key <> 'null'::jsonb AND jsonb_typeof(payload->key) <> (CASE WHEN key IN ('original_amount','fx_rate','total_amount','iva_amount') THEN 'number' ELSE 'string' END) THEN RAISE EXCEPTION '#333: Tipo inválido' USING ERRCODE='22023'; END IF;
   END LOOP;
   IF payload->>'currency' IS NULL OR payload->>'currency' NOT IN ('EUR','USD','BRL','GBP') OR (p_operation='assistant_create' AND payload->>'currency'<>'EUR') THEN RAISE EXCEPTION '#333: Moeda inválida' USING ERRCODE='22023'; END IF;
   IF (payload->>'currency'<>'EUR' AND (payload->>'original_amount' IS NULL OR payload->>'fx_rate' IS NULL)) THEN RAISE EXCEPTION '#333: Câmbio não resolvido' USING ERRCODE='22023'; END IF;
