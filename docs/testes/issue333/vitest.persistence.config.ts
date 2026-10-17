@@ -1,2 +1,0 @@
-import {defineConfig} from "vitest/config";
-export default defineConfig({test:{environment:"node",include:["docs/testes/issue333/data-entry-persistence.test.ts"],testTimeout:30000,hookTimeout:30000}});
