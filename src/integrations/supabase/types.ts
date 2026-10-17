@@ -7769,6 +7769,351 @@ export type Database = {
           },
         ]
       }
+      data_entry_documents: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          mime: string
+          name: string
+          path: string
+          session_id: string
+          sha256: string
+          size_bytes: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          mime: string
+          name: string
+          path: string
+          session_id: string
+          sha256: string
+          size_bytes: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          mime?: string
+          name?: string
+          path?: string
+          session_id?: string
+          sha256?: string
+          size_bytes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_entry_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_entry_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "data_entry_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_entry_messages: {
+        Row: {
+          author_id: string
+          body: string
+          company_id: string
+          created_at: string
+          id: string
+          session_id: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          company_id: string
+          created_at?: string
+          id?: string
+          session_id: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_entry_messages_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_entry_messages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_entry_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "data_entry_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_entry_previews: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string
+          destination_id: string
+          document_id: string
+          id: string
+          operation: string
+          session_id: string
+          snapshot: Json
+          snapshot_hash: string
+          version: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by: string
+          destination_id?: string
+          document_id: string
+          id?: string
+          operation: string
+          session_id: string
+          snapshot: Json
+          snapshot_hash: string
+          version: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          destination_id?: string
+          document_id?: string
+          id?: string
+          operation?: string
+          session_id?: string
+          snapshot?: Json
+          snapshot_hash?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_entry_previews_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_entry_previews_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_entry_previews_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "data_entry_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_entry_previews_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "data_entry_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_entry_results: {
+        Row: {
+          approved_at: string
+          approved_by: string
+          approved_name: string
+          company_id: string
+          document_id: string
+          invoice_id: string
+          preview_id: string
+          result: Json
+          snapshot_hash: string
+        }
+        Insert: {
+          approved_at?: string
+          approved_by: string
+          approved_name: string
+          company_id: string
+          document_id: string
+          invoice_id: string
+          preview_id: string
+          result: Json
+          snapshot_hash: string
+        }
+        Update: {
+          approved_at?: string
+          approved_by?: string
+          approved_name?: string
+          company_id?: string
+          document_id?: string
+          invoice_id?: string
+          preview_id?: string
+          result?: Json
+          snapshot_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_entry_results_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_entry_results_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_entry_results_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: true
+            referencedRelation: "data_entry_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_entry_results_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: true
+            referencedRelation: "standalone_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_entry_results_preview_id_fkey"
+            columns: ["preview_id"]
+            isOneToOne: true
+            referencedRelation: "data_entry_previews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_entry_sessions: {
+        Row: {
+          company_id: string
+          created_at: string
+          event_id: string | null
+          id: string
+          owner_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          owner_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          owner_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_entry_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_entry_sessions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_entry_sessions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_entry_settings: {
+        Row: {
+          execute_validated: boolean
+          preparation_validated: boolean
+          singleton: boolean
+        }
+        Insert: {
+          execute_validated?: boolean
+          preparation_validated?: boolean
+          singleton?: boolean
+        }
+        Update: {
+          execute_validated?: boolean
+          preparation_validated?: boolean
+          singleton?: boolean
+        }
+        Relationships: []
+      }
+      data_entry_storage_receipts: {
+        Row: {
+          bucket: string
+          company_id: string
+          mime: string
+          path: string
+          sha256: string
+          size_bytes: number
+          verified_at: string
+        }
+        Insert: {
+          bucket: string
+          company_id: string
+          mime: string
+          path: string
+          sha256: string
+          size_bytes: number
+          verified_at?: string
+        }
+        Update: {
+          bucket?: string
+          company_id?: string
+          mime?: string
+          path?: string
+          sha256?: string
+          size_bytes?: number
+          verified_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_entry_storage_receipts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_download_audit: {
         Row: {
           bucket: string | null
@@ -23138,6 +23483,63 @@ export type Database = {
           event_id: string
           provider: string
         }[]
+      }
+      data_entry_actor: { Args: never; Returns: Record<string, unknown> }
+      data_entry_add_document: {
+        Args: {
+          p_mime: string
+          p_name: string
+          p_session: string
+          p_sha: string
+          p_size: number
+        }
+        Returns: Json
+      }
+      data_entry_commit: {
+        Args: { p_preview: string; p_snapshot_hash: string }
+        Returns: Json
+      }
+      data_entry_identity: { Args: { t: string }; Returns: string }
+      data_entry_norm: { Args: { t: string }; Returns: string }
+      data_entry_note: {
+        Args: { p_body: string; p_session: string }
+        Returns: string
+      }
+      data_entry_own_session: {
+        Args: { p_lock?: boolean; p_session: string }
+        Returns: {
+          company_id: string
+          created_at: string
+          event_id: string | null
+          id: string
+          owner_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "data_entry_sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      data_entry_preparation_gate: { Args: never; Returns: undefined }
+      data_entry_prepare: {
+        Args: { p_document: string; p_fields: Json; p_session: string }
+        Returns: Json
+      }
+      data_entry_record_receipt: {
+        Args: {
+          p_bucket: string
+          p_mime: string
+          p_path: string
+          p_sha: string
+          p_size: number
+        }
+        Returns: undefined
+      }
+      data_entry_result_check: { Args: { p_preview: string }; Returns: Json }
+      data_entry_session: {
+        Args: { p_event?: string; p_session?: string }
+        Returns: Json
       }
       delete_email: {
         Args: { message_id: number; queue_name: string }

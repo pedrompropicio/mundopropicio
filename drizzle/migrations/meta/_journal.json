@@ -1331,6 +1331,13 @@
       "when": 1792248224310,
       "tag": "0189_issue332_strict_newgang_audience",
       "breakpoints": true
+    },
+    {
+      "idx": 190,
+      "version": "7",
+      "when": 1792271326019,
+      "tag": "0190_issue333_core_v2_closed_structure",
+      "breakpoints": true
     }
   ]
 }
