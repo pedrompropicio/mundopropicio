@@ -6,7 +6,10 @@ INSERT INTO club_members(id,site_id,company_id,email,first_name,referral_code,co
  VALUES('33333333-0000-4000-8000-000000000002','33333333-0000-4000-8000-000000000001','7c858982-6ccd-47ca-bd65-e0dd3eebf01c','member@example.invalid','Fixture','F332',now());
 INSERT INTO club_member_sessions(site_id,member_id,token_hash,expires_at) VALUES('33333333-0000-4000-8000-000000000001','33333333-0000-4000-8000-000000000002','fixture-session',now()+interval '1 day');
 INSERT INTO club_member_profiles(member_id,site_id,company_id,birth_date) VALUES('33333333-0000-4000-8000-000000000002','33333333-0000-4000-8000-000000000001','7c858982-6ccd-47ca-bd65-e0dd3eebf01c','2000-01-01');
-CREATE FUNCTION t.pref(j jsonb) RETURNS jsonb LANGUAGE sql AS $$ SELECT club_profile_preferences('33333333-0000-4000-8000-000000000001','fixture-session',j) $$;
+CREATE FUNCTION t.pref(j jsonb) RETURNS jsonb LANGUAGE sql AS $$ SELECT club_profile_preferences('33333333-0000-4000-8000-000000000001','fixture-session',
+ CASE WHEN j ? 'expected_dates' THEN j ELSE j||jsonb_build_object('expected_dates',
+ CASE WHEN j->>'channel'='email' THEN jsonb_build_object('email',club_consent_state('33333333-0000-4000-8000-000000000001','fixture-session')#>'{email,date}')
+ ELSE (SELECT jsonb_object_agg(key,value->'date') FROM jsonb_each(club_consent_state('33333333-0000-4000-8000-000000000001','fixture-session')->'ads')) END) END) $$;
 CREATE FUNCTION t.consent() RETURNS jsonb LANGUAGE sql AS $$ SELECT club_consent_state('33333333-0000-4000-8000-000000000001','fixture-session') $$;
 CREATE FUNCTION t.ck(n text,b boolean) RETURNS void LANGUAGE sql AS $$ SELECT t.ok('332',n,b) $$;
 CREATE FUNCTION t.reject332(j jsonb,e text) RETURNS void LANGUAGE plpgsql AS $$ BEGIN

@@ -14,7 +14,8 @@ CREATE TABLE public.club_member_marketing_consents (
  UNIQUE(member_id,site_id,purpose,request_key)
 );
 REVOKE ALL ON public.club_member_marketing_consents FROM PUBLIC,anon,authenticated;
-GRANT SELECT,INSERT ON public.club_member_marketing_consents TO service_role;
+REVOKE ALL ON public.club_member_marketing_consents FROM service_role;
+GRANT SELECT ON public.club_member_marketing_consents TO service_role;
 ALTER TABLE public.club_member_marketing_consents ENABLE ROW LEVEL SECURITY;
 
 CREATE TABLE public.club_member_email_consents (
@@ -29,7 +30,8 @@ CREATE TABLE public.club_member_email_consents (
  idempotency_key uuid NOT NULL, UNIQUE(member_id,site_id,idempotency_key)
 );
 REVOKE ALL ON public.club_member_email_consents FROM PUBLIC,anon,authenticated;
-GRANT SELECT,INSERT ON public.club_member_email_consents TO service_role;
+REVOKE ALL ON public.club_member_email_consents FROM service_role;
+GRANT SELECT ON public.club_member_email_consents TO service_role;
 GRANT USAGE ON SEQUENCE public.club_member_email_consents_id_seq TO service_role;
 ALTER TABLE public.club_member_email_consents ENABLE ROW LEVEL SECURITY;
 
@@ -47,6 +49,8 @@ BEGIN
   IF e.subject_id IS DISTINCT FROM NEW.subject_id OR e.company_id IS DISTINCT FROM NEW.company_id
    OR e.portal IS DISTINCT FROM 'newgang' OR e.purpose IS DISTINCT FROM NEW.purpose
    OR e.banner_version IS DISTINCT FROM 'anuncios-v1' OR e.idempotency_key IS DISTINCT FROM NEW.request_key
+   OR e.state IS DISTINCT FROM NEW.request_payload->>'decision'
+   OR NOT EXISTS(SELECT 1 FROM public.marketing_consent_subjects s WHERE s.id=NEW.subject_id AND s.company_id=NEW.company_id AND s.portal='newgang')
    THEN RAISE EXCEPTION 'consent_scope'; END IF;
   IF EXISTS(SELECT 1 FROM public.club_member_marketing_consents l WHERE l.subject_id=NEW.subject_id
    AND (l.member_id<>NEW.member_id OR l.site_id<>NEW.site_id OR l.purpose<>NEW.purpose)) THEN RAISE EXCEPTION 'consent_scope'; END IF;
@@ -57,6 +61,10 @@ CREATE TRIGGER club332_marketing_history BEFORE INSERT OR UPDATE OR DELETE ON pu
  FOR EACH ROW EXECUTE FUNCTION public._club332_history_guard();
 CREATE TRIGGER club332_email_history BEFORE INSERT OR UPDATE OR DELETE ON public.club_member_email_consents
  FOR EACH ROW EXECUTE FUNCTION public._club332_history_guard();
+CREATE TRIGGER club332_marketing_no_truncate BEFORE TRUNCATE ON public.club_member_marketing_consents
+ FOR EACH STATEMENT EXECUTE FUNCTION public._club332_history_guard();
+CREATE TRIGGER club332_email_no_truncate BEFORE TRUNCATE ON public.club_member_email_consents
+ FOR EACH STATEMENT EXECUTE FUNCTION public._club332_history_guard();
 
 -- Authoritative session identity, shared by read and write RPCs. No browser member/company IDs.
 CREATE FUNCTION public._club332_session(p_site uuid,p_session_hash text) RETURNS uuid
@@ -150,14 +158,15 @@ BEGIN RETURN public._club332_state(public._club332_session(p_site,p_session_hash
 
 CREATE FUNCTION public.club_profile_preferences(p_site uuid,p_session_hash text,p_payload jsonb) RETURNS jsonb
  LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_catalog AS $$
-DECLARE m uuid; again uuid; decision text; k uuid; purposes text[]; bd date;
+DECLARE m uuid; again uuid; decision text; v_key uuid; purposes text[]; bd date;
+ current_state jsonb; prior_key boolean; expected jsonb; purpose_name text;
 BEGIN
  m:=public._club332_session(p_site,p_session_hash);
- IF jsonb_typeof(p_payload) IS DISTINCT FROM 'object' OR EXISTS(SELECT 1 FROM jsonb_object_keys(p_payload) k
- WHERE k NOT IN ('channel','version','granted','platforms','idempotency_key'))
+ IF jsonb_typeof(p_payload) IS DISTINCT FROM 'object' OR EXISTS(SELECT 1 FROM jsonb_object_keys(p_payload) fields(key)
+ WHERE fields.key NOT IN ('channel','version','granted','platforms','idempotency_key','expected_dates'))
  OR jsonb_typeof(p_payload->'granted') IS DISTINCT FROM 'boolean' THEN RAISE EXCEPTION 'consent_payload'; END IF;
- BEGIN k:=(p_payload->>'idempotency_key')::uuid; EXCEPTION WHEN OTHERS THEN RAISE EXCEPTION 'consent_payload'; END;
- IF k IS NULL THEN RAISE EXCEPTION 'consent_payload'; END IF;
+ BEGIN v_key:=(p_payload->>'idempotency_key')::uuid; EXCEPTION WHEN OTHERS THEN RAISE EXCEPTION 'consent_payload'; END;
+ IF v_key IS NULL THEN RAISE EXCEPTION 'consent_payload'; END IF;
  decision:=CASE WHEN (p_payload->>'granted')::boolean THEN 'granted' ELSE 'revoked' END;
  PERFORM public._club_site_lock(p_site,false);
  PERFORM 1 FROM public.club_members WHERE id=m FOR NO KEY UPDATE;
@@ -165,16 +174,32 @@ BEGIN
  IF again<>m THEN RAISE EXCEPTION 'no_session'; END IF;
  IF decision='granted' THEN
   SELECT birth_date INTO bd FROM public.club_member_profiles WHERE member_id=m AND site_id=p_site;
-  IF bd IS NOT NULL AND bd>((clock_timestamp() AT TIME ZONE 'Europe/Lisbon')::date-interval '13 years')::date THEN RAISE EXCEPTION 'parental_flow_required'; END IF;
+  -- No verified parental adapter: absence/clearing never bypasses a known age restriction.
+  IF bd IS NULL OR bd>((clock_timestamp() AT TIME ZONE 'Europe/Lisbon')::date-interval '13 years')::date THEN RAISE EXCEPTION 'parental_flow_required'; END IF;
  END IF;
  IF p_payload->>'channel'='email' THEN
   IF p_payload->>'version' IS DISTINCT FROM 'email-v3' OR p_payload ? 'platforms' THEN RAISE EXCEPTION 'consent_payload'; END IF;
-  PERFORM public._club332_email_append(m,p_site,decision,k,'club_session');
+  SELECT EXISTS(SELECT 1 FROM public.club_member_email_consents WHERE member_id=m AND site_id=p_site AND idempotency_key=v_key) INTO prior_key;
+  IF decision='granted' AND NOT prior_key THEN
+   current_state:=public._club332_state(m,p_site); expected:=p_payload->'expected_dates';
+   IF jsonb_typeof(expected) IS DISTINCT FROM 'object' OR NOT expected ? 'email'
+    OR expected->'email' IS DISTINCT FROM current_state#>'{email,date}' THEN RAISE EXCEPTION 'consent_revision_conflict'; END IF;
+  END IF;
+  PERFORM public._club332_email_append(m,p_site,decision,v_key,'club_session');
  ELSIF p_payload->>'channel'='ads' THEN
   IF p_payload->>'version' IS DISTINCT FROM 'anuncios-v1' OR jsonb_typeof(p_payload->'platforms') IS DISTINCT FROM 'array'
    OR EXISTS(SELECT 1 FROM jsonb_array_elements(p_payload->'platforms') v WHERE jsonb_typeof(v)<>'string') THEN RAISE EXCEPTION 'consent_payload'; END IF;
   SELECT array_agg(v) INTO purposes FROM jsonb_array_elements_text(p_payload->'platforms') v;
-  PERFORM public._club332_ads_append(m,p_site,decision,purposes,k,'club_session');
+  SELECT EXISTS(SELECT 1 FROM public.club_member_marketing_consents WHERE member_id=m AND site_id=p_site AND request_key=v_key) INTO prior_key;
+  IF decision='granted' AND NOT prior_key THEN
+   current_state:=public._club332_state(m,p_site); expected:=p_payload->'expected_dates';
+   IF jsonb_typeof(expected) IS DISTINCT FROM 'object' THEN RAISE EXCEPTION 'consent_revision_conflict'; END IF;
+   FOREACH purpose_name IN ARRAY purposes LOOP
+    IF NOT expected ? purpose_name OR expected->purpose_name IS DISTINCT FROM current_state#>ARRAY['ads',purpose_name,'date']
+     THEN RAISE EXCEPTION 'consent_revision_conflict'; END IF;
+   END LOOP;
+  END IF;
+  PERFORM public._club332_ads_append(m,p_site,decision,purposes,v_key,'club_session');
  ELSE RAISE EXCEPTION 'consent_payload'; END IF;
  RETURN jsonb_build_object('ok',true,'consents',public._club332_state(m,p_site));
 END $$;
@@ -187,11 +212,14 @@ BEGIN
  SELECT * INTO tok FROM public.email_unsubscribe_tokens WHERE token=p_token FOR UPDATE;
  IF NOT FOUND THEN RETURN jsonb_build_object('error','Invalid or expired token'); END IF;
  IF tok.used_at IS NOT NULL THEN RETURN jsonb_build_object('valid',false,'reason','already_unsubscribed'); END IF;
- -- Stable ordering for any sites sharing this verified unsubscribe identity; browser supplies no identity.
+ -- All site locks precede all member locks, including multi-site unsubscribe.
+ FOR m IN SELECT DISTINCT cm.site_id FROM public.club_members cm JOIN public.portal_sites s ON s.id=cm.site_id AND s.company_id=cm.company_id
+ WHERE cm.company_id=tok.company_id AND lower(btrim(cm.email))=lower(btrim(tok.email)) AND s.brand_key='newgang' ORDER BY cm.site_id LOOP
+  PERFORM public._club_site_lock(m.site_id,false);
+ END LOOP;
  FOR m IN SELECT cm.id,cm.site_id FROM public.club_members cm JOIN public.portal_sites s ON s.id=cm.site_id AND s.company_id=cm.company_id
  WHERE cm.company_id=tok.company_id AND lower(btrim(cm.email))=lower(btrim(tok.email)) AND s.brand_key='newgang'
  ORDER BY cm.site_id,cm.id LOOP
-  PERFORM public._club_site_lock(m.site_id,false);
   PERFORM 1 FROM public.club_members WHERE id=m.id FOR NO KEY UPDATE;
   PERFORM public._club332_email_append(m.id,m.site_id,'revoked',tok.id,'email_unsubscribe');
   PERFORM public._club332_ads_append(m.id,m.site_id,'revoked',ARRAY['meta_ads','tiktok_ads','google_ads'],tok.id,'email_unsubscribe');
@@ -209,6 +237,7 @@ CREATE FUNCTION public.club_marketing_binding_valid(p_member uuid,p_site uuid,p_
  WHERE l.member_id=p_member AND l.site_id=p_site AND l.purpose=p_purpose AND e.id=p_event AND e.state='granted'
  AND e.server_received_at<=p_captured_at AND e.banner_version='anuncios-v1'
  AND NOT EXISTS(SELECT 1 FROM public.marketing_consent_events n WHERE n.subject_id=e.subject_id AND n.revision>e.revision)
+ AND EXISTS(SELECT 1 FROM public.marketing_consent_effective(e.subject_id,p_captured_at) f WHERE f.event_id=e.id AND f.valid_grant)
  AND EXISTS(SELECT 1 FROM public.marketing_consent_effective(e.subject_id,clock_timestamp()) f WHERE f.event_id=e.id AND f.valid_grant)),false);
 $$;
 
@@ -217,6 +246,8 @@ DO $$ DECLARE f text; BEGIN
  '_club332_ads_append(uuid,uuid,text,text[],uuid,text)','_club332_state(uuid,uuid)','club_consent_state(uuid,text)',
  'club_profile_preferences(uuid,text,jsonb)','email_unsubscribe_atomic(text)','club_marketing_binding_valid(uuid,uuid,text,bigint,timestamptz)'] LOOP
  EXECUTE 'REVOKE EXECUTE ON FUNCTION public.'||f||' FROM PUBLIC,anon,authenticated';
- EXECUTE 'GRANT EXECUTE ON FUNCTION public.'||f||' TO service_role';
+ EXECUTE 'REVOKE EXECUTE ON FUNCTION public.'||f||' FROM service_role';
  END LOOP;
 END $$;
+GRANT EXECUTE ON FUNCTION public.club_consent_state(uuid,text),public.club_profile_preferences(uuid,text,jsonb),
+ public.email_unsubscribe_atomic(text),public.club_marketing_binding_valid(uuid,uuid,text,bigint,timestamptz) TO service_role;
