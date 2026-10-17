@@ -1,6 +1,8 @@
 # ESTADO — newgang-portal
 
-Atualizado: 17/10/2026 14:36 UTC. Frente: newgangfestival.pt.
+Atualizado: 17/10/2026 14:38 UTC. Frente: newgangfestival.pt.
+
+Sessão2: gate único por conteúdo às14:38:34UTC, remoto b6a37939d22d666d567ff159ea59f3e19ddcfb7f;1439ficheiros comparados,zero divergências/ficheiros não rastreados. CI e quality sem conclusion (null), portanto gate NÃO verde. Parado imediatamente,sem esperar. Nenhuma escritaLive,coletor,deploy,prova,backfill,limpeza ou Meta manual nesta sessão. Regra14:37 de Pedro substitui espera: próxima sessão começa pelo gate. Reservas mantidas,sem fecho.
 
 ## Em que pé está
 - #332 cidade/lista Fase B parcialmente aplicada e BLOQUEADA:0187 aplicada às14:16 após gate por conteúdo remoto0cff4790,1436ficheiros iguais,CI/quality success. País obrigatório e cinco nomes pedidos corrigidos; erro de transcrição novo em0208/1606/1607, confirmadoLive14:36:17. ReferênciaLive308/278+19+11 MAS três divergências, não usar como oficial validada. Reparação compacta com hash+assinatura308 preparada/testada41/41+61/61. Espera14:18–14:36 sem sincronização de0187/runner/reparação; gate falhou, sem nova escrita. Coletor estrito NÃO aplicado; nenhum deploy novo, testeLive, backfill, limpeza ou Meta manual. Prova: docs/testes/issue332/correcao-pais-20261017.md.
