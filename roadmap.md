@@ -8,6 +8,7 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
+- [ ] Validar patch completo em cópia isolada, corrigir artefactos inertes e entregar gates da próxima fase; sem Live.
 - [x] Gate inicial: HEAD c37d972053f1585e45e81ff9b70011d2a4f371a6 e ancestralidade 150a4a13; #323 preservada; reserva/pedido recebido no QUADRO.
 - [x] Auditar contratos/permissões e entregar plano técnico versionado com matriz de operações e dependências.
 - [x] Retoma 17:15: CI verify_jwt, guardas canónicas, validação estrita, handler injetável, UI real, PostgreSQL real 2 ligações.
