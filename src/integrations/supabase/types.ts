@@ -5600,6 +5600,74 @@ export type Database = {
           },
         ]
       }
+      club_member_whatsapp_consents: {
+        Row: {
+          company_id: string
+          decided_at: string
+          decision: string
+          id: number
+          idempotency_key: string
+          member_id: string
+          origin: string
+          phone_fp: string | null
+          site_id: string
+          version: string
+        }
+        Insert: {
+          company_id: string
+          decided_at?: string
+          decision: string
+          id?: never
+          idempotency_key: string
+          member_id: string
+          origin: string
+          phone_fp?: string | null
+          site_id: string
+          version: string
+        }
+        Update: {
+          company_id?: string
+          decided_at?: string
+          decision?: string
+          id?: never
+          idempotency_key?: string
+          member_id?: string
+          origin?: string
+          phone_fp?: string | null
+          site_id?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_member_whatsapp_consents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_member_whatsapp_consents_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "club_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_member_whatsapp_consents_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_member_whatsapp_consents_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       club_members: {
         Row: {
           company_id: string
@@ -20923,6 +20991,17 @@ export type Database = {
         Args: { p_member: string; p_site: string }
         Returns: Json
       }
+      _club332_whatsapp_append: {
+        Args: {
+          p_decision: string
+          p_key: string
+          p_member: string
+          p_origin: string
+          p_site: string
+        }
+        Returns: undefined
+      }
+      _club332_whatsapp_fp: { Args: { p_phone: string }; Returns: string }
       _clube_newgang_assert_access: { Args: never; Returns: undefined }
       _clube_newgang_birth: { Args: { p_raw: Json }; Returns: string }
       _content_latest_metrics: {

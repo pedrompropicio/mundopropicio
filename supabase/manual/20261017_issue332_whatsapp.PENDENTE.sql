@@ -10,7 +10,7 @@ CREATE TABLE public.club_member_whatsapp_consents (
  decision text NOT NULL CHECK (decision IN ('granted','revoked')),
  decided_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  origin text NOT NULL CHECK (origin IN ('club_session')),
- phone_fp text, -- sha256 hex do telefone no momento da decisão; nunca o número em claro
+ phone_fp text, -- HMAC-SHA256 hex do telefone no momento da decisão (chave no Vault); nunca o número em claro
  idempotency_key uuid NOT NULL,
  UNIQUE(member_id,site_id,idempotency_key)
 );
@@ -18,7 +18,21 @@ REVOKE ALL ON public.club_member_whatsapp_consents FROM PUBLIC,anon,authenticate
 GRANT SELECT ON public.club_member_whatsapp_consents TO service_role;
 GRANT USAGE ON SEQUENCE public.club_member_whatsapp_consents_id_seq TO service_role;
 ALTER TABLE public.club_member_whatsapp_consents ENABLE ROW LEVEL SECURITY;
-COMMENT ON TABLE public.club_member_whatsapp_consents IS '#332 whatsapp: livro append-only; phone_fp=sha256(telefone) na decisão; mudança de número invalida o grant até nova autorização.';
+COMMENT ON TABLE public.club_member_whatsapp_consents IS '#332 whatsapp: livro append-only; phone_fp=HMAC-SHA256(telefone, chave app_secrets club_whatsapp_hmac_key) na decisão; mudança de número invalida o grant até nova autorização.';
+
+-- Impressão digital do número: HMAC-SHA256 com chave secreta em app_secrets (RLS sem grants: só SECURITY DEFINER lê;
+-- valor gerado dentro da base, nunca em claro no livro, logs, migrações ou chat).
+-- Interna: sem EXECUTE para qualquer role; só chamada pelas funções SECURITY DEFINER desta família.
+CREATE FUNCTION public._club332_whatsapp_fp(p_phone text) RETURNS text
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public,extensions,pg_catalog AS $$
+DECLARE k text;
+BEGIN
+ IF p_phone IS NULL THEN RETURN NULL; END IF;
+ SELECT value INTO k FROM public.app_secrets WHERE name='club_whatsapp_hmac_key';
+ IF k IS NULL THEN RAISE EXCEPTION 'whatsapp_fp_unavailable'; END IF;
+ RETURN encode(extensions.hmac(convert_to(p_phone,'UTF8'),convert_to(k,'UTF8'),'sha256'),'hex');
+END $$;
+REVOKE EXECUTE ON FUNCTION public._club332_whatsapp_fp(text) FROM PUBLIC,anon,authenticated,service_role;
 
 -- Append-only: reutiliza o guarda da família #332 (ramo genérico valida membro/site/empresa Newgang).
 CREATE TRIGGER club332_whatsapp_history BEFORE INSERT OR UPDATE OR DELETE ON public.club_member_whatsapp_consents
@@ -38,7 +52,7 @@ BEGIN
  IF p_decision='granted' THEN
    IF ph IS NULL OR ph !~ '^\+[1-9][0-9]{7,14}$' THEN RAISE EXCEPTION 'whatsapp_no_phone'; END IF;
  END IF;
- fp:=CASE WHEN ph IS NOT NULL THEN encode(extensions.digest(ph,'sha256'),'hex') END;
+ fp:=public._club332_whatsapp_fp(ph);
  INSERT INTO public.club_member_whatsapp_consents(member_id,site_id,company_id,version,decision,origin,phone_fp,idempotency_key)
  VALUES(p_member,p_site,co,'whatsapp-v1',p_decision,p_origin,fp,p_key);
 END $$;
@@ -53,7 +67,7 @@ BEGIN
  SELECT decision,version,decided_at,phone_fp INTO wa FROM public.club_member_whatsapp_consents WHERE member_id=p_member AND site_id=p_site ORDER BY id DESC LIMIT 1;
  SELECT phone INTO cur_phone FROM public.club_members WHERE id=p_member AND site_id=p_site;
  wa_valid:= wa.decision='granted' AND cur_phone IS NOT NULL AND wa.phone_fp IS NOT NULL
-   AND wa.phone_fp=encode(extensions.digest(cur_phone,'sha256'),'hex');
+   AND wa.phone_fp=public._club332_whatsapp_fp(cur_phone);
  wa_masked:=CASE WHEN cur_phone IS NOT NULL AND length(cur_phone)>=6
    THEN left(cur_phone,4)||'•••••'||right(cur_phone,3) END;
  result:=jsonb_build_object(
