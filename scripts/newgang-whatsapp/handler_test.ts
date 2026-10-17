@@ -1,8 +1,8 @@
 import {handler} from './handler-under-test.ts';
 import {fake} from './handler-client.ts';
 function eq(a:unknown,b:unknown){if(JSON.stringify(a)!==JSON.stringify(b))throw new Error(`${JSON.stringify(a)} != ${JSON.stringify(b)}`);}
-const token='fixture-token';
-async function call(action:string,extra:Record<string,unknown>={}){const r=await handler(new Request('https://example.invalid',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action,token,...extra})}));return {status:r.status,body:await r.json()};}
+const token='fixture-access-token-000000000000';
+async function call(action:string,extra:Record<string,unknown>={}){const r=await handler(new Request('https://example.invalid',{method:'POST',headers:{origin:'https://newgangfestival.pt','content-type':'application/json'},body:JSON.stringify({action,token,...extra})}));return {status:r.status,body:await r.json()};}
 Deno.test('whatsapp grant sem telefone devolve 400 whatsapp_no_phone',async()=>{
  fake.member=true;fake.consentFailure='whatsapp_no_phone';
  const r=await call('profile_preferences',{preferences_payload:{channel:'whatsapp',version:'whatsapp-v1',granted:true,idempotency_key:'f1'}});
