@@ -1,7 +1,7 @@
 # Architecture rules
 - Read scoped AGENTS.md. Entry stays closed until real storage/uniqueness proofs. Preserve candidates; read-only checks compare SQL+bytes and canonical context. Keep legacy compatibility patches inert until reviewed; test all real destinations together in a credential-free disposable copy, not helper substitutes. Strong keys preserve separators; broad matches never prove reuse.
 
-- Meta audience replacement uses a complete, paginated canonical collection and one ordered replacement session; failed batches stop before finalization, while dry runs never resolve tokens or invoke external delivery.
+- Meta audience replacement uses complete paginated canonical data and one ordered replacement session; failed batches stop before finalization; dry runs never resolve tokens or deliver externally.
 - Audience branches preserve legacy behavior; person ads use current proof and email-only, numeric-only delivery to avoid leakage. Inert SQL stays in supabase/manual pending authorization.
 
 - Newgang demographic profile preparation uses a session-resolved member RPC and a separate permanent completion record; profile and canonical point credit commit atomically under site-before-member locks, so legacy capture snapshots and consent ledgers remain untouched. Optional demographic reads must fail independently of core portal responses, but session rejection never falls back to member data.
