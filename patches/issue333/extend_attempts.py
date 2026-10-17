@@ -61,6 +61,7 @@ def extend(changes, root):
     # Assistant still uses canonical commit, wrapped with persistent attempt + atomic audit.
     path='supabase/functions/data-entry/handler.ts'
     old=(root/path).read_text();s=old
+    s=s.replace('new Response(raw,', 'new Response(new Uint8Array(raw).buffer,').replace('new Response(bytes,', 'new Response(new Uint8Array(bytes).buffer,')
     s=s.replace('      await putVerified("standalone-invoices", finalPath, bytes, doc.mime, hash);', '''      await rpc("data_entry_attempt_333", {p_action:"prepare",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
       await rpc("data_entry_attempt_333", {p_action:"authorize",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
       await rpc("data_entry_attempt_333", {p_action:"begin",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
