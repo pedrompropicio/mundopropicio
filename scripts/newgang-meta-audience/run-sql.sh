@@ -15,7 +15,6 @@ P=(psql -X -v ON_ERROR_STOP=1 -h "$TMP/socket" -p 54329 -U postgres -d postgres)
 "${P[@]}" -f "$ROOT/docs/testes/coala-meta-eb27/legacy-collector.sql" >> "$OUT/sql-test.log" 2>&1
 "${P[@]}" -f "$ROOT/scripts/coala-meta-audience/legacy-snapshot.sql" >> "$OUT/sql-test.log" 2>&1
 "${P[@]}" -f "$ROOT/supabase/manual/20261017_coala_meta_eb27.sql" >> "$OUT/sql-test.log" 2>&1
-"${P[@]}" -f "$ROOT/scripts/coala-meta-audience/assertions.sql" >> "$OUT/sql-test.log" 2>&1
 "${P[@]}" -f "$ROOT/scripts/newgang-meta-audience/collector.sql" >> "$OUT/sql-test.log" 2>&1
 "${P[@]}" -f "$ROOT/scripts/coala-meta-audience/assertions.sql" >> "$OUT/sql-test.log" 2>&1
 "${P[@]}" -f "$ROOT/scripts/newgang-meta-audience/assertions.sql" >> "$OUT/sql-test.log" 2>&1
