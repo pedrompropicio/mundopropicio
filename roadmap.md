@@ -17,8 +17,9 @@
 - [x] Correção 17:25: candidatos preservados, readback, conferência read-only, contexto UI/edições, comparação completa, proposta normalização e regressões locais; aguarda revisão independente.
 - [x] Preparação autorizada 17:46: inventário de escritores, política forte proposta, compatibilidade inerte, PostgreSQL36/compat26/handler20/regressões35/geral1334; nenhuma aplicação Live. Provas08/09; aguarda revisão.
 - [x] #333 corrigir/congelar CORE v2 e provar PG73/73; preparação/execução separadas; ATTEMPTS intacto.
-- [ ] #333 aplicar CORE v2+ATTEMPTS por registry oficial e bucket privado; bloqueio:#329 integração dos autocommits locais no GitHub ainda pendente, zero DDL iniciado. Certificação Live após aplicação.
+- [x] #333 COREv2/ATTEMPTS aplicados por registry oficial192/193, bucket privado20MiB; hashes/corpos/ACL/baselines e HTTP service conferidos. Prova22.
+- [ ] #333 certificação CORE authenticated/owner Live: bloqueada por ausência de mecanismo oficial de contexto SQL controlado; sem alterar papéis/criar Auth/abrir gates.
 - [ ] Implementar núcleo upload privado, conversa documental, prévia servidor, autorização e execução tipada idempotente apenas para adapters validados.
-- [ ] Ativação/deploy/UI/índice global aguardam autorização própria; decisões A–D já aprovadas e estrutura técnica já autorizada. CI novo SHA aguarda integração #329. Trava sessionStorage não prova exatamente-um global.
+- [ ] Ativação/deploy/UI/índice global aguardam autorização própria; decisões A–D já aprovadas e estrutura técnica já autorizada. CI da nova entrega ainda por confirmar. Trava sessionStorage não prova exatamente-um global.
 - [x] Documentar efeitos Live inexistentes e limitações; manter Issue/reserva abertas para verificação.
 - [ ] Gmail/Drive/OAuth, conciliação, bilheteiras e demais adapters: bloqueados até validação/configuração próprias; sem Publish.
