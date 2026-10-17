@@ -15,7 +15,7 @@ const envelope=(over:Record<string,unknown>={})=>({payload:{file_name:'f.pdf',cr
 async function as(sql:postgres.Sql,uid:string,fn:(tx:postgres.TransactionSql)=>Promise<any>){return sql.begin(async tx=>{await tx`select set_config('request.jwt.claims',${JSON.stringify({sub:uid})},true)`;await tx`set local role authenticated`;return fn(tx)})}
 const rpc=(sql:postgres.Sql,action:string,id:string|null,e:any=null,h:string|null=null,uid=U,op='scanner_create')=>as(sql,uid,async tx=>(await tx`select public.standalone_attempt_333(${action},${id},${op},${e===null?null:tx.json(e)},${h}) j`)[0].j);
 async function receipt(a:any){await db.begin(async tx=>{await tx`set local role service_role`;await tx`select data_entry_record_receipt('standalone-invoices',${a.path},${hash},3,'application/pdf')`})}
-async function ready(e=envelope(),op='scanner_create'){let a=await rpc(c1,'prepare',randomUUID(),e,null,U,op);await receipt(a);a=await rpc(c1,'authorize',a.id,null,a.hash,U,op);return rpc(c1,'begin',a.id,null,a.hash,U,op)}
+async function ready(e:any=envelope(),op='scanner_create'){e={...e,effects:[op]};let a=await rpc(c1,'prepare',randomUUID(),e,null,U,op);await receipt(a);a=await rpc(c1,'authorize',a.id,null,a.hash,U,op);return rpc(c1,'begin',a.id,null,a.hash,U,op)}
 const error=async(p:Promise<any>)=>{try{await p;return null}catch(e){return e as {code:string;message:string}}};
 beforeAll(async()=>{
  execFileSync('chown',['65534:65534',dir]);pg('initdb',['-D',dir+'/data','-U','postgres','--auth=trust','-E','UTF8','--no-locale']);pg('pg_ctl',['-D',dir+'/data','-w','-l',dir+'/log','-o',`-k ${dir} -p ${port} -c listen_addresses=''`,'start']);
@@ -98,4 +98,23 @@ it('actual SQL + candidate transport + fake bytes: lost commit reconciles incomp
  const a=await rpc(c1,'prepare',null,envelope({notes:randomUUID()}));const files=new Map<string,Uint8Array>();let lost=true,uploads=0;
  const t:AttemptTransport={rpc:async(action,id,e,h)=>{const r=await rpc(c2,action,id,e,h);if(action==='commit'&&lost){lost=false;throw Error('lost after commit')}return r},upload:async(p,b)=>{uploads++;files.set(p,b)},read:async p=>files.get(p)??null,verifyReceipt:async p=>{expect(files.get(p)).toEqual(bytes);await receipt({...a,path:p})}};
  const out=await executeAttempt(t,a,bytes);expect(out.status).toBe('conferido');expect(uploads).toBe(1);const completed=await rpc(c1,'check',a.id,null,a.hash);await executeAttempt(t,completed,bytes);expect(uploads).toBe(1);files.set(a.path,new Uint8Array([4,5,6]));expect((await executeAttempt(t,completed,bytes)).status).toBe('pendente');expect(files.size).toBe(1);
+});
+it.each(['EUR','USD','BRL','GBP'])('real service SQL optional protocol preserves %s and technical principal',async currency=>{
+ const e={...envelope({currency,created_by:null,notes:randomUUID(),...(currency==='EUR'?{}:{original_amount:246,fx_rate:.5})}),effects:['ingest_create']};
+ const service=(action:string,id:string|null,envelope:any,h:string|null)=>db.begin(async tx=>{await tx`set local role service_role`;return (await tx`select standalone_ingest_attempt_333(${C},${action},${id},${envelope===null?null:tx.json(envelope)},${h}) j`)[0].j});
+ const a=await service('prepare',randomUUID(),e,null);await receipt(a);await service('authorize',a.id,null,a.hash);await service('begin',a.id,null,a.hash);const out=await service('commit',a.id,null,a.hash);
+ expect(out.result.currency).toBe(currency);expect(out.result.created_by).toBeNull();expect((await db`select principal from standalone_attempts_333 where id=${a.id}`)[0].principal).toBe('ingest_service');
+ expect((await error(rpc(c1,'prepare',null,e,null,U,'ingest_create')))?.code).toBe('42501');
+});
+it('new assistant wrapper reuses exact canonical preview/commit in same SQL transaction and audit',async()=>{
+ await db`insert into data_entry_settings values (true,true)`;
+ const session=await as(c1,U,async tx=>(await tx`select data_entry_session() j`)[0].j);
+ const path=`${C}/${session.session.id}/${hash}`;await db.begin(async tx=>{await tx`set local role service_role`;await tx`select data_entry_record_receipt('data-entry-staging',${path},${hash},3,'application/pdf')`});
+ const doc=await as(c1,U,async tx=>(await tx`select data_entry_add_document(${session.session.id},'f.pdf',${hash},3,'application/pdf') j`)[0].j);
+ const fields={supplier_name:'Fixture',supplier_nif:'PT00001',invoice_number:randomUUID(),invoice_date:'2026-10-17',currency:'EUR',total_amount:123,iva_amount:23,customer_nif:'PT001',paid_by_partner_id:U,notes:'fixture'};
+ const preview=await as(c1,U,async tx=>(await tx`select data_entry_prepare(${session.session.id},${doc.id},${tx.json(fields)}) j`)[0].j);
+ const call=(action:string)=>as(c2,U,async tx=>(await tx`select data_entry_attempt_333(${action},${preview.id},${preview.snapshot_hash}) j`)[0].j);
+ const a=await call('prepare');await receipt(a);await call('authorize');await call('begin');const out=await call('commit');expect(out.state).toBe('completed');expect(out.result.notes).toMatch(/Feito por LLM com autorização de Fixture/);
+ expect(Number((await db`select count(*) n from data_entry_results where preview_id=${preview.id}`)[0].n)).toBe(1);expect(Number((await db`select count(*) n from standalone_attempt_audit_333 where attempt_id=${a.id}`)[0].n)).toBe(1);
+ expect((await error(rpc(c1,'prepare',null,envelope(),null,U,'assistant_create')))?.code).toBe('42501');
 });
