@@ -5,8 +5,8 @@ ROOT="$(pwd)"; OUT="${1:-/tmp/issue332-whatsapp}"; mkdir -p "$OUT"
 python3 - "$ROOT" "$OUT" <<'PY'
 from pathlib import Path
 import sys
-root,out=map(Path,sys.argv[1:])
-s=(root/'scripts/newgang-person-consent/run.sh').read_text()
+root,out=sys.argv[1],sys.argv[2]; outp=Path(out)
+s=(Path(root)/'scripts/newgang-person-consent/run.sh').read_text()
 s=s.replace('OUT="${1:-/tmp/issue332-tests}"','OUT="'+out+'"')
 s=s.replace('HERE="$(cd "$(dirname "$0")" && pwd)"','HERE="'+root+'/scripts/club-profile-it"')
 needle='bash "$ROOT/scripts/newgang-person-consent/concurrency.sh" "${PSQL[*]}" "$OUT" >>"$LOG" 2>&1'
@@ -20,6 +20,6 @@ extra='\n'.join([
 # o ficheiro person-consent/run.sh tem o needle com chavetas duplas (f-string); normalizar
 s=s.replace('${{PSQL[*]}}','${PSQL[*]}')
 s=s.replace(needle,needle+'\n'+extra)
-(out/'runner.sh').write_text(s)
+(outp/'runner.sh').write_text(s)
 PY
 bash "$OUT/runner.sh" "$OUT"
