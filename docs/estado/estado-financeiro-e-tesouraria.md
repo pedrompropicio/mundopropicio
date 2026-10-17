@@ -41,7 +41,7 @@ Atualizado: 09/10/2026 (ritual de fecho da frente; inclui o trabalho do chat fin
 
 ## A trabalhar agora
 
-Nada em curso.
+- **#333 — Assistente de Entrada de Dados**, executor 0 · Cowork (ChatGPT), agente Lovable ERP. Correção 17/10/2026: candidato partilhado preservado, readback obrigatório, retoma read-only SQL+hash, UI isolada por utilizador/empresa e prévia invalidada por edição; 27 testes PostgreSQL real/duas ligações, 20 handler, 13 UI; suite geral 1308 passam. Provas `docs/testes/issue333/05-correcao-integridade-retoma.md`. Aguarda revisão independente; Issue/reserva mantidas. Upload/execução inativos, zero migração/bucket/deploy/Publish/efeitos Live. Unicidade global só proposta separada; storage real/ACL não provados. #323 integralmente preservada.
 
 ## Em aberto, por decisão do Pedro
 
