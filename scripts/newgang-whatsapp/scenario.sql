@@ -2,6 +2,10 @@
 -- #332 whatsapp: cenário local em PostgreSQL descartável, sem rede nem dados Live.
 -- Corre DEPOIS do cenário person-consent (membro 33333333-...-0002, sessão fixture-session, nascimento 2000-01-01).
 CREATE FUNCTION t.ckw(n text,b boolean) RETURNS void LANGUAGE sql AS $$ SELECT t.ok('332w',n,b) $$;
+-- t.pref do cenário #332 só calcula expected_dates para email/ads; aqui o CAS é sobre whatsapp.date.
+CREATE FUNCTION t.prefw(j jsonb) RETURNS jsonb LANGUAGE sql AS $$ SELECT club_profile_preferences('33333333-0000-4000-8000-000000000001','fixture-session',
+ CASE WHEN j ? 'expected_dates' OR (j->>'granted')::boolean=false THEN j
+ ELSE j||jsonb_build_object('expected_dates',jsonb_build_object('whatsapp',club_consent_state('33333333-0000-4000-8000-000000000001','fixture-session')#>'{whatsapp,date}')) END) $$;
 CREATE FUNCTION t.rejectw(j jsonb,e text) RETURNS void LANGUAGE plpgsql AS $$ BEGIN
  BEGIN PERFORM t.pref(j); RAISE EXCEPTION 'invalid_accepted'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>e THEN RAISE; END IF; END;
  PERFORM t.ckw(e,true); END $$;
