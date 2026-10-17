@@ -10,6 +10,7 @@ const userClient=(token:string)=>createClient(url,anon,{global:{headers:{Authori
 Deno.serve(createAttemptHandler({cors:attemptCors,
  user:async token=>{const {data,error}=await userClient(token).auth.getUser();return error?null:data.user},
  context:async token=>{const {data,error}=await userClient(token).rpc('my_effective_permissions',{p_universe:[]});return error?null:data},
+ list:async(token,operation,after)=>{const {data,error}=await userClient(token).rpc('standalone_attempt_list_333',{p_operation:operation,p_after:after});if(error)throw Error('Consulta recusada');return data},
  transport:(token,operation)=>({
   rpc:async(action,id,envelope,hash)=>{const {data,error}=await userClient(token).rpc('standalone_attempt_333',{p_action:action,p_id:id,p_operation:operation,p_envelope:envelope,p_hash:hash});if(error)throw Error('RPC recusado');return data as Attempt},
   upload:async(p,b,mime)=>{const {error}=await admin.storage.from('standalone-invoices').upload(p,b,{contentType:mime,upsert:false});if(error && !['409','Duplicate'].includes(String(error.statusCode??error.error)))throw Error('Upload não conferido')},
