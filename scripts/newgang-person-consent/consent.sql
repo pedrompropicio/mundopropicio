@@ -190,6 +190,9 @@ BEGIN
   IF p_payload->>'version' IS DISTINCT FROM 'anuncios-v1' OR jsonb_typeof(p_payload->'platforms') IS DISTINCT FROM 'array'
    OR EXISTS(SELECT 1 FROM jsonb_array_elements(p_payload->'platforms') v WHERE jsonb_typeof(v)<>'string') THEN RAISE EXCEPTION 'consent_payload'; END IF;
   SELECT array_agg(v) INTO purposes FROM jsonb_array_elements_text(p_payload->'platforms') v;
+  IF cardinality(purposes) IS NULL OR cardinality(purposes) NOT BETWEEN 1 AND 3
+   OR EXISTS(SELECT 1 FROM unnest(purposes) p WHERE p NOT IN ('meta_ads','tiktok_ads','google_ads'))
+   OR cardinality(purposes)<>(SELECT count(DISTINCT p) FROM unnest(purposes) p) THEN RAISE EXCEPTION 'consent_payload'; END IF;
   SELECT EXISTS(SELECT 1 FROM public.club_member_marketing_consents WHERE member_id=m AND site_id=p_site AND request_key=v_key) INTO prior_key;
   IF decision='granted' AND NOT prior_key THEN
    current_state:=public._club332_state(m,p_site); expected:=p_payload->'expected_dates';
