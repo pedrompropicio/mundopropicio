@@ -1,4 +1,5 @@
 import React from 'react';
+import { pdfFixture } from '../../../../src/test/fixtures/documents333';
 import {beforeEach,describe,it,expect,vi} from 'vitest';
 import {render,screen,fireEvent,waitFor,cleanup} from '@testing-library/react';
 import {MemoryRouter} from 'react-router-dom';
@@ -22,7 +23,7 @@ vi.mock('@/integrations/supabase/client',()=>({supabase:{from:(table:string)=>{
  }};return q;},functions:{invoke:()=>{throw Error('OCR forbidden')}}}}));
 function mount(el:React.ReactNode){const qc=new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}});return render(<MemoryRouter><QueryClientProvider client={qc}>{el}</QueryClientProvider></MemoryRouter>)}
 beforeEach(()=>{cleanup();sessionStorage.clear();f.rows=[];f.mode='';f.inserts=0;f.updates=0;f.uploads=0;f.role='admin';f.filters=[];f.toast.mockClear();vi.stubGlobal('fetch',()=>{throw Error('egress forbidden')})});
-async function capture(){const r=mount(<Scanner/>);const input=r.container.querySelector('input[type=file]');if(!input)throw Error('missing file input');fireEvent.change(input,{target:{files:[new File(['%PDF-fake'],'f.pdf',{type:'application/pdf'})]}});await screen.findByLabelText('Total (EUR)');fireEvent.change(screen.getByLabelText('Total (EUR)'),{target:{value:'123'}});return r;}
+async function capture(){const r=mount(<Scanner/>);const input=r.container.querySelector('input[type=file]');if(!input)throw Error('missing file input');fireEvent.change(input,{target:{files:[new File([pdfFixture('UI fictitious invoice')],'f.pdf',{type:'application/pdf'})]}});await screen.findByLabelText('Total (EUR)');fireEvent.change(screen.getByLabelText('Total (EUR)'),{target:{value:'123'}});return r;}
 const row=()=>({id:'0001',company_id:'C',storage_path:'C/f.pdf',file_name:'f.pdf',supplier_name:'Fixture',supplier_nif:'PT001',invoice_number:'FT1/23',invoice_date:'2026-10-17',currency:'EUR',original_amount:null,fx_rate:null,fx_rate_source:null,paid_by_partner_id:null,total_amount:123,iva_amount:23,notes:null,status:'new',created_by:'U',created_at:'2026-10-17T00:00:00Z'});
 describe('real patched scanner/editor + fake client; not RLS acceptance',()=>{
  it('scanner incomplete key lost response locks save/retake, survives remount; no blind retry',async()=>{f.mode='lost';const r=await capture();fireEvent.click(screen.getByRole('button',{name:'Guardar fatura'}));await waitFor(()=>expect(f.inserts).toBe(1));await waitFor(()=>expect(screen.getByRole('button',{name:'Guardar fatura'})).toBeDisabled());fireEvent.click(screen.getByRole('button',{name:'Guardar fatura'}));expect(f.inserts).toBe(1);expect(f.uploads).toBe(1);expect(screen.getByRole('button',{name:'Repetir'})).toBeDisabled();r.unmount();await capture();expect(screen.getByRole('button',{name:'Guardar fatura'})).toBeDisabled();expect(f.inserts).toBe(1)});

@@ -1,3 +1,4 @@
+import { pdfFixture } from "../../../../src/test/fixtures/documents333";
 import { beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
 const f=vi.hoisted(()=>({client:null as any,ecb:vi.fn()}));
 vi.mock("npm:@supabase/supabase-js@2",()=>({createClient:()=>f.client}));
@@ -8,7 +9,7 @@ import { webcrypto, randomUUID } from "node:crypto";
 let handler:(r:Request)=>Promise<Response>;
 const C="11111111-1111-4111-8111-111111111111",U="22222222-2222-4222-8222-222222222222";
 let rows:any[], objects:Map<string,Uint8Array>, uploads:number, inserts:number, mode:string, downloads:number;
-const bytes=new TextEncoder().encode("%PDF-1.4\nfixture\n%%EOF");
+const bytes=pdfFixture("integrated fictitious invoice");
 const base=()=>({company_id:C,nome:"f.pdf",conteudo_base64:btoa(String.fromCharCode(...bytes)),supplier_name:"Ficticio",supplier_nif:"PT001",invoice_number:"FT1/23",invoice_date:"2026-10-17",currency:"EUR",total_amount:123,iva_amount:23,notes:"nota",paid_by_partner_id:U,created_by:U});
 function query(table:string){let filters:any[]=[];let after="",limit=200,write:any=null;
  const q:any={select:()=>q,eq:(k:string,v:any)=>{filters.push([k,v]);return q},gt:(_:string,v:string)=>{after=v;return q},order:()=>q,limit:(n:number)=>{limit=n;return q},insert:(r:any)=>{write=r;return q},single:async()=>{

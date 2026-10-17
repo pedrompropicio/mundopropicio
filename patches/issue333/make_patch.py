@@ -1,5 +1,5 @@
 from pathlib import Path
-import difflib,hashlib,subprocess,tempfile
+import hashlib,subprocess,tempfile
 changes={}
 root=Path('/dev-server')
 def edit(p,fn):
@@ -12,8 +12,6 @@ def scanner(s):
  s=s.replace('    let uploadedPath: string | null = null;\n','    let writeStarted = false;\n')
  s=s.replace('  const [saved, setSaved] = useState(false);', '\n'.join(['  const [saved, setSaved] = useState(false);','  const pendingKey = `standalone-create-pending:${user?.id ?? "none"}:${companyId ?? "none"}`;','  const [writePending, setWritePending] = useState(() => sessionStorage.getItem(pendingKey) !== null);']))
  s=s.replace('    if (!file || !companyId) return;', '    if (!file || !companyId || writePending || sessionStorage.getItem(pendingKey) !== null) return;')
- s=s.replace('      const { data: up, error: upErr }', '      const { data: up, error: upErr }')
- marker='      const { data: up, error: upErr }'
  # Existing storage API has different destructuring; reserve immediately before upload.
  pos=s.index('      const up =') if '      const up =' in s else s.index('      const { data: up') if '      const { data: up' in s else s.index('      const { data, error: uploadError }') if '      const { data, error: uploadError }' in s else s.index('      const up =')
  s=s[:pos]+'      sessionStorage.setItem(pendingKey, path);\n      writeStarted = true;\n'+s[pos:]
