@@ -11,6 +11,8 @@ import postgres from "postgres";
 
 import { createHandler, type Deps } from "../../../../supabase/functions/data-entry/handler";
 import { pdfFixture } from "../../../../src/test/fixtures/documents333";
+import { persistInvoice, findStrongCandidates, type Store } from "../../../../patches/issue333/compat";
+import type { Candidate, Expected } from "../../../../patches/issue333/identity";
 vi.stubGlobal("fetch", () => { throw new Error("egress prohibited"); });
 
 const DIR = mkdtempSync("/tmp/pg333-");
@@ -394,11 +396,11 @@ describe("#333 EXACT proposed index on real compatible standalone table (local O
   });
   it("FT1/23 vs FT12/3 and AB-12 vs AB1-2 DISTINCT; no similarity identity",async()=>{
     for(const [a,b] of [['FT1/23','FT12/3'],['AB-12','AB1-2']]) {
-      const nif='PT'+randomUUID();await c1.begin(tx=>legacy(tx,nif,a));await c2.begin(tx=>legacy(tx,nif,b));
-      expect(Number((await admin`select count(*) n from standalone_invoices where supplier_nif=${nif}`)[0].n)).toBe(2);
-      // Real assistant prepare permits distinct reference; broad similarity never blocks.
-      const p=await prepared(U.M,A,'distinct-'+randomUUID(),fields({supplier_nif:nif,invoice_number:b+'X'}));
+      const nif='PT'+randomUUID();await c1.begin(tx=>legacy(tx,nif,a));
+      // Real assistant permits the ambiguous b itself, not an unrelated suffix.
+      const p=await prepared(U.M,A,'distinct-'+randomUUID(),fields({supplier_nif:nif,invoice_number:b}));
       expect((await rpc(c1,U.M,tx=>tx`select public.data_entry_commit(${p.preview.id},${p.preview.snapshot_hash}) j`)).j.invoice_id).toBeTruthy();
+      expect(Number((await admin`select count(*) n from standalone_invoices where supplier_nif=${nif}`)[0].n)).toBe(2);
     }
   });
   it("NULL/SPACE empty repeat; prefixes/zeros/separators/company independently preserved",async()=>{
@@ -417,5 +419,38 @@ describe("#333 EXACT proposed index on real compatible standalone table (local O
     try {expect(await pending(second)).toBe(true);}finally{release();}
     await first;await second;
     expect(Number((await admin`select count(*) n from standalone_invoices where public.data_entry_identity(invoice_number)=public.data_entry_identity(${num})`)[0].n)).toBe(1);
+  });
+  it("prepared real ingest adapter × PostgreSQL index + fake bytes: 23505/document conflict/unknown, preserved files",async()=>{
+    const bytes=pdfFixture();const files=new Map<string,Uint8Array>();let inject="race";let insertCount=0;
+    const num='INGEST-'+randomUUID();
+    const expected:Expected={company_id:A,supplier_nif:'PT001',invoice_number:num,file_name:'fixture.pdf',supplier_name:'Fornecedor Fictício',
+      invoice_date:'2026-10-17',currency:'EUR',original_amount:null,fx_rate:null,fx_rate_source:null,total_amount:123,iva_amount:23,notes:'nota',paid_by_partner_id:U.P,created_by:U.M};
+    const store:Store={
+      find:(e)=>findStrongCandidates(e,async(company,after,size)=>{
+        const rows=await admin`select * from standalone_invoices where company_id=${company} and (${after}::uuid is null or id>${after}::uuid) order by id limit ${size}`;
+        return rows.map((r)=>({...r,invoice_date:r.invoice_date?.toISOString?.().slice(0,10)??r.invoice_date})) as Candidate[];
+      }),
+      get:async(id,company)=>{const [r]=await admin`select * from standalone_invoices where id=${id} and company_id=${company}`;return r?{...r,invoice_date:r.invoice_date?.toISOString?.().slice(0,10)??r.invoice_date} as Candidate:null;},
+      read:async(p)=>files.get(p)??null,
+      upload:async(p,b)=>{files.set(p,b);},
+      insert:async(row)=>{
+        insertCount++;
+        if(inject==='race') {
+          const other={...row,supplier_nif:'pt001',invoice_number:num.toLowerCase(),storage_path:A+'/existing'};
+          files.set(other.storage_path,bytes);
+          await c2`insert into standalone_invoices ${c2(other)} returning id`;
+        }
+        const [r]=await c1`insert into standalone_invoices ${c1(row)} returning id,storage_path`;
+        if(inject==='unknown')throw new Error('lost committed response');
+        return r as {id:string;storage_path:string};
+      },
+    };
+    const r=await persistInvoice(store,expected,bytes,'application/pdf',A+'/candidate');
+    expect(r.status).toBe(200);expect(r.body.reused).toBe(true);expect(insertCount).toBe(1);expect(files.size).toBe(2);
+    expect((await persistInvoice(store,{...expected,total_amount:124},bytes,'application/pdf',A+'/never')).status).toBe(409);
+    inject='unknown';const next={...expected,invoice_number:num+'-UNKNOWN'};
+    expect((await persistInvoice(store,next,bytes,'application/pdf',A+'/unknown')).status).toBe(503);
+    expect((await persistInvoice(store,next,bytes,'application/pdf',A+'/retry')).body.reused).toBe(true);
+    expect(insertCount).toBe(2);expect(files.has(A+'/retry')).toBe(false);
   });
 });
