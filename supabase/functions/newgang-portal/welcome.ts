@@ -1,6 +1,6 @@
 // #321 — envio do welcome do Clube com reserva atómica ANTES de qualquer envio.
 // Só a execução que adquire a reserva (club_welcome_reserve) chama o envio; a reserva nunca é
-// libertada automaticamente. Falha antes do enfileiramento -> error_pre_send (seguro, recuperação manual);
+// libertada para resultados incertos. Falha comprovada antes de enfileirar -> error_pre_send (retry SQL limitado);
 // falha/timeout no enfileiramento -> unknown (resultado desconhecido, NÃO repetir).
 
 export class PreSendError extends Error {}
