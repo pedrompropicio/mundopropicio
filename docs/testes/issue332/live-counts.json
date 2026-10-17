@@ -1,0 +1,23 @@
+{
+  "observed_at": "2026-10-17T02:37:52.595635Z",
+  "event_records": 46,
+  "consent_email_true_records": 39,
+  "v2_records": 0,
+  "eligible_emails": 0,
+  "audience_name": "P_NG27_LISTA",
+  "enabled": false,
+  "audience_id_meta": null,
+  "function_body_md5": "759fde0d9791785f0ea2072a017cd8fa",
+  "acl": {
+    "anon_execute": false,
+    "authenticated_execute": true,
+    "service_role_execute": true
+  },
+  "authenticated_smoke": {
+    "collector_http": 200,
+    "eligible_emails": 0,
+    "sync_http": 400,
+    "sync_error": "audience_not_linked_to_meta",
+    "dry_run": true
+  }
+}
