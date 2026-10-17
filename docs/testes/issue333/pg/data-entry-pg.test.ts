@@ -330,28 +330,92 @@ describe("#333 handler + PostgreSQL real + storage fake: interleaving final part
 });
 
 
-describe("#333 proposition isolated normalized index (not canonical, never Live)", () => {
+describe("#333 EXACT proposed index on real compatible standalone table (local ONLY)", () => {
   beforeAll(async () => {
-    await admin.unsafe(`CREATE TABLE public.test333_normalized(company_id uuid, supplier_nif text, invoice_number text);
-      CREATE UNIQUE INDEX test333_normalized_key ON public.test333_normalized(company_id,
-      upper(regexp_replace(supplier_nif,'[^A-Za-z0-9]','','g')),upper(regexp_replace(invoice_number,'[^A-Za-z0-9]','','g')))
-      WHERE nullif(upper(regexp_replace(supplier_nif,'[^A-Za-z0-9]','','g')),'') IS NOT NULL
-        AND nullif(upper(regexp_replace(invoice_number,'[^A-Za-z0-9]','','g')),'') IS NOT NULL;`);
+    const source=readFileSync("patches/issue333/core.PENDENTE.sql","utf8");
+    const start=source.indexOf("CREATE FUNCTION public.data_entry_identity");
+    const end=source.indexOf("CREATE FUNCTION public.data_entry_result_check",start);
+    await admin.unsafe(source.slice(start,end).replaceAll("CREATE FUNCTION", "CREATE OR REPLACE FUNCTION"));
+    // Byte-for-byte proposal, including CONCURRENTLY, executed outside transaction locally.
+    await admin.unsafe(readFileSync("supabase/manual/20261017_issue333_normalized_uniqueness.PROPOSTA.sql","utf8"));
   });
-  it("NULL/empty keys repeat; independent companies and leading zeros/prefixes preserved", async () => {
-    for (let n=0;n<2;n++) await admin`insert into test333_normalized values (${A},null,'FT1'),(${A},'PT1',null),(${A},' - ','FT1')`;
-    await admin`insert into test333_normalized values (${A},'PT001','FT1'),(${B},'pt 001','ft1'),(${A},'001','FT1'),(${A},'PT01','FT1')`;
-    expect(Number((await admin`select count(*) n from test333_normalized`)[0].n)).toBe(10);
+  const legacy=async(tx:Tx,nif:string,num:string,company=A)=> {
+    await tx`set local role service_role`;
+    return tx`insert into standalone_invoices(company_id,storage_path,file_name,supplier_name,supplier_nif,invoice_number,invoice_date,currency,original_amount,fx_rate,fx_rate_source,total_amount,iva_amount,notes,paid_by_partner_id,created_by,status)
+      values (${company},${company+'/fixture/'+randomUUID()},'fixture.pdf','Fornecedor Fictício',${nif},${num},'2026-10-17','EUR',null,null,null,123,23,'nota',${U.P},${U.M},'new') returning id`;
+  };
+  it("index valid/ready; proposed strong function matches JS bytes with prefixes/separators/nonASCII",async()=>{
+    const r=(await admin`select indisvalid,indisready from pg_index where indexrelid='uq_standalone_invoice_normalized_333'::regclass`)[0];
+    expect(r).toEqual({indisvalid:true,indisready:true});
+    for(const input of [null,'','   ',' pt001 ','FT1/23','FT12/3','AB-12','AB1-2','\tpt01\t','áA']) {
+      const out=(await admin`select public.data_entry_identity(${input}) v`)[0].v;
+      expect(out).toBe(input===null?null:input.replace(/^ +| +$/g,'').replace(/[a-z]/g,(c)=>c.toUpperCase())||null);
+    }
   });
-  it.each([true,false])("legacy normalized spelling collision, legacy first=%s", async (legacyFirst) => {
-    const num='PROP-'+randomUUID(); let entered: () => void=()=>{}; let release: () => void=()=>{};
-    const waiting=new Promise<void>((r)=>{entered=r;}); const barrier=new Promise<void>((r)=>{release=r;});
-    const first=c1.begin(async (tx)=>{
-      await tx`insert into test333_normalized values (${A},${legacyFirst?'pt 500 111 222':'PT500111222'},${legacyFirst?num.toLowerCase():num})`;
-      entered(); await barrier;
-    }); await waiting;
-    const second=err(c2.begin((tx)=>tx`insert into test333_normalized values (${A},${legacyFirst?'PT500111222':'pt 500 111 222'},${legacyFirst?num:num.toLowerCase()})`));
-    expect(await pending(second)).toBe(true); release(); await first; expect((await second)?.code).toBe('23505');
-    expect(Number((await admin`select count(*) n from test333_normalized where upper(invoice_number)=upper(${num})`)[0].n)).toBe(1);
+  it.each([true,false])("assistant × adapted real legacy INSERT equivalent; legacy first=%s",async(legacyFirst)=>{
+    const num='STRONG-'+randomUUID();const p=await prepared(U.M,A,'strong-'+randomUUID(),fields({invoice_number:num}));
+    let entered:()=>void=()=>{},release:()=>void=()=>{};const ready=new Promise<void>(r=>{entered=r;});const barrier=new Promise<void>(r=>{release=r;});
+    const ours=(tx:Tx)=>tx`select public.data_entry_commit(${p.preview.id},${p.preview.snapshot_hash})`;
+    const first=legacyFirst?c1.begin(async(tx)=>{await legacy(tx,'pt500111222',' '+num.toLowerCase()+' ');entered();await barrier;})
+      :as(c1,U.M,async(tx)=>{await ours(tx);entered();await barrier;});
+    await ready;
+    const second=err(legacyFirst?as(c2,U.M,ours):c2.begin(tx=>legacy(tx,'pt500111222',' '+num.toLowerCase()+' ')));
+    try {expect(await pending(second)).toBe(true);} finally {release();}
+    await first;expect((await second)?.code).toBe('23505');
+    expect(Number((await admin`select count(*) n from standalone_invoices where public.data_entry_identity(invoice_number)=public.data_entry_identity(${num})`)[0].n)).toBe(1);
+    expect(Number((await admin`select count(*) n from data_entry_results where preview_id=${p.preview.id}`)[0].n)).toBe(legacyFirst?0:1);
+  });
+  it.each([true,false])("legacy × legacy INSERT both orders firstLower=%s",async(lower)=>{
+    const num='LEGACY-'+randomUUID();let entered:()=>void=()=>{},release:()=>void=()=>{};
+    const ready=new Promise<void>(r=>{entered=r;});const barrier=new Promise<void>(r=>{release=r;});
+    const first=c1.begin(async(tx)=>{await legacy(tx,lower?'pt001':'PT001',lower?' '+num.toLowerCase()+' ':num);entered();await barrier;});await ready;
+    const second=err(c2.begin(tx=>legacy(tx,lower?'PT001':'pt001',lower?num:' '+num.toLowerCase()+' ')));
+    try {expect(await pending(second)).toBe(true);} finally {release();}
+    await first;expect((await second)?.code).toBe('23505');
+  });
+  it("UPDATE metadata key collision rolls back fields, status and file reference",async()=>{
+    const num='EDIT-'+randomUUID();await c1.begin(tx=>legacy(tx,'PT001',num));
+    const row=(await c1.begin(tx=>legacy(tx,'PT001','OTHER-'+num)))[0];
+    const before=(await admin`select * from standalone_invoices where id=${row.id}`)[0];
+    const failure=await err(c2.begin(async(tx)=>{
+      await tx`set local role service_role`;
+      await tx`update standalone_invoices set supplier_nif='pt001',invoice_number=${' '+num.toLowerCase()+' '},notes='changed',status='processed' where id=${row.id}`;
+    }));expect(failure?.code).toBe('23505');
+    expect((await admin`select * from standalone_invoices where id=${row.id}`)[0]).toEqual(before);
+  });
+  it.each([true,false])("legacy INSERT × legacy UPDATE collision with barrier; insert first=%s",async(insertFirst)=>{
+    const num='UPDATE-RACE-'+randomUUID();const row=(await c1.begin(tx=>legacy(tx,'PT001','SOURCE-'+num)))[0];
+    const edit=async(tx:Tx)=>{await tx`set local role service_role`;return tx`update standalone_invoices set invoice_number=${' '+num.toLowerCase()+' '},supplier_nif='pt001' where id=${row.id}`;};
+    let entered:()=>void=()=>{},release:()=>void=()=>{};const ready=new Promise<void>(r=>{entered=r;});const barrier=new Promise<void>(r=>{release=r;});
+    const first=c1.begin(async(tx)=>{if(insertFirst)await legacy(tx,'PT001',num);else await edit(tx);entered();await barrier;});await ready;
+    const second=err(c2.begin(tx=>insertFirst?edit(tx):legacy(tx,'PT001',num)));
+    try {expect(await pending(second)).toBe(true);} finally {release();}
+    await first;expect((await second)?.code).toBe('23505');
+  });
+  it("FT1/23 vs FT12/3 and AB-12 vs AB1-2 DISTINCT; no similarity identity",async()=>{
+    for(const [a,b] of [['FT1/23','FT12/3'],['AB-12','AB1-2']]) {
+      const nif='PT'+randomUUID();await c1.begin(tx=>legacy(tx,nif,a));await c2.begin(tx=>legacy(tx,nif,b));
+      expect(Number((await admin`select count(*) n from standalone_invoices where supplier_nif=${nif}`)[0].n)).toBe(2);
+      // Real assistant prepare permits distinct reference; broad similarity never blocks.
+      const p=await prepared(U.M,A,'distinct-'+randomUUID(),fields({supplier_nif:nif,invoice_number:b+'X'}));
+      expect((await rpc(c1,U.M,tx=>tx`select public.data_entry_commit(${p.preview.id},${p.preview.snapshot_hash}) j`)).j.invoice_id).toBeTruthy();
+    }
+  });
+  it("NULL/SPACE empty repeat; prefixes/zeros/separators/company independently preserved",async()=>{
+    const num='NULL-'+randomUUID();
+    for(let n=0;n<2;n++)await admin`insert into standalone_invoices(company_id,storage_path,file_name,supplier_nif,invoice_number) values
+      (${A},'fixture','f',null,${num}),(${A},'fixture','f','   ',${num+n}),(${A},'fixture','f',${'INCOMPLETE-'+n},null)`;
+    for(const nif of ['PT001','001','PT01','PT 001','PT-001'])await c1.begin(tx=>legacy(tx,nif,num));
+    await c1.begin(tx=>legacy(tx,'PT001',num,B));
+    expect(Number((await admin`select count(*) n from standalone_invoices where invoice_number=${num}`)[0].n)).toBe(8);
+  });
+  it("strong duplicate 23505 failure rollback permits waiting competitor, no duplicate audit",async()=>{
+    const num='ROLL-STRONG-'+randomUUID();let entered:()=>void=()=>{},release:()=>void=()=>{};
+    const ready=new Promise<void>(r=>{entered=r;});const barrier=new Promise<void>(r=>{release=r;});
+    const first=err(c1.begin(async(tx)=>{await legacy(tx,'PT001',num);entered();await barrier;throw new Error('injected rollback');}));await ready;
+    const second=c2.begin(tx=>legacy(tx,'pt001',num.toLowerCase()));
+    try {expect(await pending(second)).toBe(true);}finally{release();}
+    await first;await second;
+    expect(Number((await admin`select count(*) n from standalone_invoices where public.data_entry_identity(invoice_number)=public.data_entry_identity(${num})`)[0].n)).toBe(1);
   });
 });
