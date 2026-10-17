@@ -19496,6 +19496,14 @@ export type Database = {
           },
         ]
       }
+      portugal_municipalities: {
+        Row: {
+          code: string | null
+          name: string | null
+          region: string | null
+        }
+        Relationships: []
+      }
       press_clippings_public: {
         Row: {
           company_id: string | null
@@ -22529,6 +22537,16 @@ export type Database = {
         Returns: number
       }
       club_award_purchase: { Args: { p_evidence: string }; Returns: number }
+      club_cities: { Args: never; Returns: Json }
+      club_city_display: {
+        Args: { p_city: string; p_country: string }
+        Returns: string
+      }
+      club_city_key: { Args: { p_city: string }; Returns: string }
+      club_city_normalize: {
+        Args: { p_city: string; p_country: string }
+        Returns: string
+      }
       club_claim_attendance: {
         Args: { p_member: string; p_year: number }
         Returns: string

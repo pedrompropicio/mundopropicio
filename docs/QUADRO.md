@@ -25,8 +25,8 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #332 cidade | newgang-portal | agente Lovable ERP, autorizado por Pedro | Fase A inerte: referência oficial concelhos PT, normalização/perfil/captura/summary, action cities, SQL de backfill não executado; sem migração/deploy/envios | 2026-10-17 12:31 | 2026-10-17 12:51 — Fase A pronta32/32+handler2/2; CAOP308/hash/método; aguardaSimB/paísportal/Lagoa; nenhum Live; #323 intacta |
-| #332 lista | newgang-portal | agente Lovable ERP, autorizado por Pedro | Fase A inerte após cidade: ramo newgang_clube:v2 por ledger meta_ads anuncios-v1 efetivo, phone=NULL, SQL/testes; lista e cron2499 intocados | 2026-10-17 12:41 | 2026-10-17 12:51 — Fase A pronta32/32SQL/1285Vitest; aguardaSimB/deploysync/cronativo; GitHub ancestral atrasado, revalidar antesLive |
+| #332 cidade | newgang-portal | agente Lovable ERP, autorizado por Pedro | Fase B parcial:0186 aplicada, cinco nomes divergentes detetados; correção bloqueada por gate; backfill/teste/deploy não executados | 2026-10-17 12:31 | 2026-10-17 13:25 — cd9b4faaCI verde antes0186; HEAD5078351e não sincronizado>20min; aguardagate, depois corrigir0204/0405–0408; reserva mantida; #323 intacta |
+| #332 lista | newgang-portal | agente Lovable ERP, autorizado por Pedro | Coletor estrito e deploysync autorizados mas NÃO aplicados; lista/cron2499 intocados; semMeta manual | 2026-10-17 12:41 | 2026-10-17 13:25 — LIST32/32+41/41+54/54 e12/12Vitest; bloqueioHEAD/CI após0186; provaLive/backfill/limpeza pendentes; reserva mantida |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)
