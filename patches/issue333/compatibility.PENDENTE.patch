@@ -41,6 +41,7 @@
 +  const hash = async (b: Uint8Array) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(b).buffer))).map((x) => x.toString(16).padStart(2, "0")).join("");
 +  return await hash(stored) === await hash(bytes);
 +}
+\ No newline at end of file
 --- /dev/null
 +++ b/supabase/functions/_shared/standalone-compat.ts
 @@ -0,0 +1,55 @@
@@ -99,6 +100,7 @@
 +    if (rows.length < 200) return matches;
 +  }
 +}
+\ No newline at end of file
 --- /dev/null
 +++ b/src/lib/standalone-identity-lookup.ts
 @@ -0,0 +1,18 @@
@@ -120,6 +122,7 @@
 +  e?.code === "23505" || e?.code === "DUPLICATE_INVOICE"
 +    ? "Esta identidade de fatura já existe. Confere o documento e os dados; nada foi reutilizado automaticamente."
 +    : "Resultado por confirmar. Confere a lista antes de tentar novamente.";
+\ No newline at end of file
 --- a/src/pages/StandaloneInvoiceScanner.tsx
 +++ b/src/pages/StandaloneInvoiceScanner.tsx
 @@ -19,7 +19,7 @@
@@ -172,15 +175,15 @@
      }
 --- a/src/pages/contabilidade/AccountantStandaloneInvoicesTab.tsx
 +++ b/src/pages/contabilidade/AccountantStandaloneInvoicesTab.tsx
-@@ -14,6 +14,8 @@
- import { Loader2, Download, FileArchive, Undo2, CheckCircle2, FileText, Pencil, Trash2, AlertTriangle } from "lucide-react";
+@@ -15,6 +15,8 @@
  import { signedCompanyUrl, downloadFromCompanyBucket, removeFromCompanyBucket } from "@/lib/storage";
  import { calculateStandaloneEur, isStandaloneInvoiceDuplicateError, parseStandaloneAmount, STANDALONE_INVOICE_CURRENCIES, validateStandaloneMonetaryFields, type StandaloneInvoiceCurrency } from "@/lib/standalone-invoices";
-+
-+import { lookupStandalone, standaloneWriteError } from "@/lib/standalone-identity-lookup";
  
++import { lookupStandalone, standaloneWriteError } from "@/lib/standalone-identity-lookup";
++
  interface Row {
    id: string;
+   storage_path: string;
 @@ -100,10 +102,8 @@
        const monetaryError = validateStandaloneMonetaryFields(form.currency, form.original_amount, form.fx_rate, form.total_amount);
        if (monetaryError) throw Object.assign(new Error(monetaryError), { code: "INVALID_MONETARY_FIELDS" });
@@ -276,6 +279,8 @@
 -    return json({ error: `Falha ao gravar fatura: ${insertError.message}` }, 500)
 -  }
 -  return json({ id: inserted.id, storage_path: inserted.storage_path, reused: false })
+-})
+\ No newline at end of file
 +    created_by: body.created_by ?? null,
 +  };
 +  const result = await persistInvoice({
@@ -310,21 +315,21 @@
 +    },
 +  }, expected, bytes, contentType, path);
 +  return json(result.body, result.status);
- })
++})
 --- a/supabase/manual/20261017_issue333_core.PENDENTE.sql
 +++ b/supabase/manual/20261017_issue333_core.PENDENTE.sql
-@@ -140,6 +140,11 @@
- CREATE FUNCTION public.data_entry_norm(t text) RETURNS text LANGUAGE sql IMMUTABLE SET search_path=public,pg_temp AS
+@@ -141,6 +141,11 @@
  $$ SELECT upper(regexp_replace(coalesce(t,''),'[^A-Za-z0-9]','','g')) $$;
  REVOKE ALL ON FUNCTION public.data_entry_norm(text) FROM PUBLIC, anon, authenticated;
-+
+ 
 +-- Same strong identity expression as global proposal; broad norm remains tax validation ONLY.
 +CREATE FUNCTION public.data_entry_identity(t text) RETURNS text LANGUAGE sql IMMUTABLE SET search_path=public,pg_temp AS
 +$$ SELECT nullif(translate(btrim(t,' '),'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ'),'') COLLATE "C" $$;
 +REVOKE ALL ON FUNCTION public.data_entry_identity(text) FROM PUBLIC, anon, authenticated;
- 
++
  CREATE FUNCTION public.data_entry_prepare(p_session uuid, p_document uuid, p_fields jsonb) RETURNS jsonb
  LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+ DECLARE s public.data_entry_sessions; d public.data_entry_documents; v public.data_entry_previews; a record;
 @@ -171,7 +176,7 @@
   IF payer_name IS NULL THEN RAISE EXCEPTION '#333: Confirma um pagador membro desta empresa' USING ERRCODE='22023'; END IF;
   SELECT tax_id INTO company_tax FROM public.companies WHERE id=s.company_id;
