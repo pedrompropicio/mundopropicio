@@ -27,7 +27,6 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 |---|---|---|---|---|---|
 | #322 | 0 · Cowork (ChatGPT) | agente Lovable (ERP) | ERP: consentimento por interação (ledger marketing_consent_*), portal-track, capi_consent_proof/guardas, lead_capture/redirect_log/leads (colunas aditivas), docs; coordenação futura MP/Coala/Newgang (portais NÃO tocados nesta etapa) | 2026-10-16 01:12 | 2026-10-16 01:46 — ERP corrigido após verificação independente (0175 + portal-track), aguarda revisão; portais MP/Coala/Newgang pendentes |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
-| #332 | Claude · newgang-portal | agente Lovable ERP | crm_meta_audience_collect_leads, public.meta_custom_audiences (1 linha), docs | 2026-10-17 02:35 UTC | HEADs 39417128 alinhados; autorização Pedro; sem Publish/cron/envio Meta; #322/#323 preservadas |
 
 ## 0 · Cowork (Claude)
 
@@ -124,6 +123,8 @@ _(sem pedidos — as falhas de teste vêm por Issue; os pedidos de verificação
 _(sem pedidos)_
 
 ## newgang-portal
+
+- [x] 17/10/2026 02:42 UTC — **#332 passo 4 Meta concluído** (Claude · newgang-portal, agente Lovable ERP, autorização Pedro): migração0181 ramo newgang_clube:v2, assinatura/Coala/genérico/ACL preservados; P_NG27_LISTA desativada, ligaçãoMP verificada, audience_id_metaNULL/replacetrue. Live02:37–02:38:46 registos evento,39 consent_emailtrue,0v2,0elegíveis; RPCautenticada200/0, syncdry_run400audience_not_linked_to_meta. PostgreSQLlocalNewgang+Coala/9filtros e Vitest1281 passaram; buildOK, CIbaselineverde/finalaguarda sincronização. Provas docs/testes/issue332/; Issuecomentada; reserva libertada. Sem Publish/deploy/cron/envioMeta/backfill; #322/#323 intactas. FaltaPublishportalv2,criar/ligarpúblico e autorização separada deativação/envio/cron; restante#332aberto.
 
 - [x] 17/10/2026 01:50 UTC — **Sessão encerrada por Pedro; agente libertado para Claude.** ERP `933cb4d1` e portal `0b37edbf` ambos `agentFinished=true`, sem tarefa pendente deste chat. Pedro confirmou Publish e teste real: editar perfil não repete os 50 pontos. Reserva antiga #328 deste executor retirada por já concluída; #322/#323 preservadas. Última UI: data DD/MM/AAAA, países PT/BR/ES no topo, releitura automática de me/ranking; provas na #330. Pendentes próprios: WhatsApp, fluxo parental, PDF e confirmação real da atualização automática noutra primeira conclusão; não executados neste fecho.
 
