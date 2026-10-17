@@ -13,7 +13,7 @@ import { consentMe, consentPreferences } from "./person-consent.ts";
 import { publicEditions } from "./videos.ts";
 import { CREW_LINK, crewErrorStatus, crewView } from "./crews.ts";
 import { crewPendingAction, memberByEmail, mePendingCrew, PENDING_OPS } from "./pending.ts";
-import { requestAccessAction } from "./request-access.ts";
+import { requestAccessAction, PENDING_WINDOW_MS } from "./request-access.ts";
 import * as GW from "./wallet-google.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import { PreSendError, sendWelcomeOnce } from "./welcome.ts";
@@ -124,9 +124,10 @@ async function memberFromToken(siteId: string, token?: string) {
 async function issueSession(siteId: string, memberId: string) {
   const token = newToken();
   const expires = new Date(Date.now() + SESSION_DAYS * 86400_000).toISOString();
-  await sb.from("club_member_sessions").insert({
+  const { error } = await sb.from("club_member_sessions").insert({
     site_id: siteId, member_id: memberId, token_hash: await sha256(token), purpose: "access", expires_at: expires,
   });
+  if (error) throw new PreSendError("session_insert_failed");
   return { token, expires_at: expires };
 }
 
@@ -160,14 +161,14 @@ async function sendClubLink(site: { id: string; company_id: string }, m: { id: s
   } catch (e) { throw new PreSendError((e as Error).message); }
   const greet = m.first_name ? `Olá ${m.first_name},` : "Olá,";
   const welcome = kind === "welcome";
-  ({ html, text } = clubEmail({
+  try { ({ html, text } = clubEmail({
     greet,
     lines: welcome
       ? ["Falta só um clique para entrares no Clube Newgang. Confirma o teu email e ganha +100 pontos."]
       : ["Entra na tua área do Clube Newgang com o botão abaixo."],
     cta: welcome ? "Confirmar e entrar no Clube" : "Entrar no Clube",
     link, note: `O link é pessoal e válido durante ${SESSION_DAYS} dias.`, unsubscribeUrl: unsub.page,
-  }));
+  })); } catch { throw new PreSendError("email_render_failed"); }
   const label = welcome ? "newgang_club_welcome" : "newgang_club_access";
   const { error: logErr } = await sb.from("email_send_log").insert({
     message_id: messageId, template_name: label, recipient_email: email, company_id: site.company_id, status: "pending",
@@ -582,7 +583,15 @@ Deno.serve(async (req) => {
         const r = await requestAccessAction(site.id, body.email,
           async (sid, email) => (await memberByEmail(() => sb.from("club_members").select("id, first_name, email") as any, sid, email)).data ?? null,
           async (m) => { try { await sendClubLink(site, m, "access", crypto.randomUUID()); } catch (e) { console.error("request_access send:", (e as Error).message); } },
-          (reason) => console.log(JSON.stringify({ action: "request_access", reason })));
+          (reason) => console.log(JSON.stringify({ action: "request_access", reason })),
+          async (sid, email) => {
+            const now = new Date();
+            const { data, error } = await sb.rpc("club_pending_capture_exists", {
+              p_site_id: sid, p_email: email,
+            });
+            if (error || typeof data !== "boolean") throw new Error("pending_lookup_unavailable");
+            return data;
+          });
         return json(r.body, r.status);
       }
       case "session": {
