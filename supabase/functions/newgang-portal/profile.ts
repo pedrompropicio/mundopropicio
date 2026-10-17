@@ -5,7 +5,7 @@ export const PROFILE_ACTIONS = ["profile_confirm", "profile_preferences"] as con
 export function profileError(message: string): number {
  if (message === "no_session") return 401;
  if (message === "parental_flow_required" || message === "profile_unavailable") return 409;
- if (["profile_payload","profile_confirmation_required","birth_date_invalid","country_invalid","city_invalid","phone_invalid"].includes(message)) return 400;
+ if (["profile_payload","profile_confirmation_required","birth_date_invalid","country_invalid","city_invalid","city_unknown","phone_invalid"].includes(message)) return 400;
  return 500;
 }
 export async function profileState(rpc: Rpc,site: string,hash: string) {

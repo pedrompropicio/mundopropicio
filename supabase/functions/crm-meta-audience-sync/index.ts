@@ -64,6 +64,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: "collect_leads_failed" }, 500);
   }
   const totalLocal = rows.length;
+  const emailOnly = aud.filters?.source === "newgang_clube:v2";
 
   if (dryRun) {
     return json({ ok: true, dry_run: true, total_records_local: totalLocal, replace: aud.filters?.replace === true });
@@ -104,7 +105,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const data: [string, string][] = [];
   for (const r of rows) {
     const e = normEmail(r.email);
-    const p = normPhone(r.phone);
+    const p = emailOnly ? "" : normPhone(r.phone);
     const eh = e ? await sha256(e) : "";
     const ph = p ? await sha256(p) : "";
     if (!eh && !ph) continue;
@@ -114,7 +115,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     data.push([eh, ph]);
   }
 
-  const { processed, totalMeta, lastResp, errors } = await sendUsers({ data, replace: aud.filters?.replace === true, dryRun, audienceId: aud.audience_id_meta, accessToken });
+  const { processed, totalMeta, lastResp, errors } = await sendUsers({ data, emailOnly, replace: aud.filters?.replace === true, dryRun, audienceId: aud.audience_id_meta, accessToken });
 
   const status = errors.length === 0 ? "ok" : (processed > 0 ? "partial" : "error");
   const errMsg = errors.length ? errors.slice(0, 3).join(" | ") : null;

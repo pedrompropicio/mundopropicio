@@ -14,6 +14,7 @@ import { publicEditions } from "./videos.ts";
 import { CREW_LINK, crewErrorStatus, crewView } from "./crews.ts";
 import { crewPendingAction, memberByEmail, mePendingCrew, PENDING_OPS } from "./pending.ts";
 import { requestAccessAction } from "./request-access.ts";
+import { createCitiesReader } from "./cities.ts";
 import * as GW from "./wallet-google.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import { PreSendError, sendWelcomeOnce } from "./welcome.ts";
@@ -80,7 +81,7 @@ function clientIp(req: Request): string {
 
 const Body = z.object({
   action: z.enum(["bundle", "regulation", "site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer", "notify_pending",
-    "missions", "mission_upload_url", "submit_mission", "profile", "profile_confirm", "profile_preferences", "profile_countries", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google"]),
+    "missions", "mission_upload_url", "submit_mission", "profile", "profile_confirm", "profile_preferences", "profile_countries", "cities", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google"]),
   profile_payload: z.unknown().optional(),
   preferences_payload: z.unknown().optional(),
   token: z.string().min(20).max(200).optional(),
@@ -104,6 +105,7 @@ const WRITE_ACTIONS = new Set(["request_access", "guess", "attendance_claim", "c
 
 // Cache por instância (60 s): a configuração do site muda raramente; evita uma ida à base por pedido.
 const SITE_TTL_MS = 60_000;
+const readCities = createCitiesReader(rpc);
 let siteCache: { at: number; data: any } | null = null;
 async function getSite() {
   if (siteCache && Date.now() - siteCache.at < SITE_TTL_MS) return siteCache.data;
@@ -505,6 +507,11 @@ Deno.serve(async (req) => {
   }
 
   if (body.action === "profile_countries") return json({ countries: profileCountries(), version: "iso-3166-1-2026-10" });
+
+  if (body.action === "cities") {
+    const result = await readCities();
+    return json(result.body, result.status);
+  }
 
   // Regulamento publicado (rascunhos nunca saem).
   if (body.action === "regulation") {
