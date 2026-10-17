@@ -19,7 +19,9 @@ import { AccountantStandaloneInvoicesTab } from "@/pages/contabilidade/Accountan
 import { DocumentScanStep } from "@/components/DocumentScanStep";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { removeFromCompanyBucket } from "@/lib/storage";
+import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt, listLegacyAttempts, type AttemptSummary } from "@/lib/standalone-attempt-client";
+import type { Attempt } from "@shared/standalone-attempt";
+import { lookupStandalone, standaloneWriteError } from "@/lib/standalone-identity-lookup";
 import {
   calculateStandaloneEur,
   isStandaloneInvoiceDuplicateError,
@@ -49,6 +51,12 @@ export default function StandaloneInvoiceScanner() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState<null | "convert" | "ocr" | "save">(null);
   const [saved, setSaved] = useState(false);
+  const [attempt, setAttempt] = useState<Attempt | null>(null);
+  const [attemptOptions,setAttemptOptions]=useState<AttemptSummary[]>([]);
+  const [resumeId, setResumeId] = useState("");
+  const [resumeHash, setResumeHash] = useState("");
+  const pendingKey = `standalone-create-pending:${user?.id ?? "none"}:${companyId ?? "none"}`;
+  const [writePending, setWritePending] = useState(() => sessionStorage.getItem(pendingKey) !== null);
 
   const [supplierName, setSupplierName] = useState("");
   const [supplierNif, setSupplierNif] = useState("");
@@ -118,6 +126,7 @@ export default function StandaloneInvoiceScanner() {
   }, [currency, invoiceDate]);
 
   const clearCapture = () => {
+    setAttempt(null);
     setFile(null);
     setScanCandidate(null);
     setPreviewUrl(null);
@@ -274,34 +283,24 @@ export default function StandaloneInvoiceScanner() {
 
 
   const save = async () => {
-    if (!file || !companyId) return;
+    if (!file || !companyId || writePending || sessionStorage.getItem(pendingKey) !== null) return;
     const monetaryError = validateStandaloneMonetaryFields(currency, originalAmount, fxRate, total);
     if (monetaryError) {
       toast({ title: "Confirma os valores", description: monetaryError, variant: "destructive" });
       return;
     }
+    const saveGeneration = generation.current;
     setBusy("save");
-    let uploadedPath: string | null = null;
+    let writeStarted = false;
     try {
       if (supplierNif.trim() && invoiceNumber.trim()) {
-        const { data: duplicate, error: duplicateError } = await (supabase as any).from("standalone_invoices")
-          .select("id").eq("company_id", companyId).eq("supplier_nif", supplierNif.trim())
-          .eq("invoice_number", invoiceNumber.trim()).maybeSingle();
-        if (duplicateError) throw duplicateError;
+        const duplicate = await lookupStandalone(supabase, { company_id: companyId,
+          supplier_nif: supplierNif.trim(), invoice_number: invoiceNumber.trim() });
         if (duplicate) throw Object.assign(new Error("Já existe uma fatura deste fornecedor com este número."), { code: "DUPLICATE_INVOICE" });
       }
-      const ext = (file.name.match(/\.[^.]+$/)?.[0] ?? ".jpg").toLowerCase();
-      const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
-      const up = await uploadToCompanyBucket("standalone-invoices", path, file, {
-        contentType: file.type || "application/octet-stream",
-        upsert: false,
-      });
-      if (up.error) throw up.error;
-      uploadedPath = up.path;
-
-      const { error } = await (supabase as any).from("standalone_invoices").insert({
-        company_id: companyId,
-        storage_path: up.path,
+      if (!user) throw new Error("Sessão inválida");
+      const context = { user_id: user.id, company_id: companyId };
+      const payload = {
         file_name: file.name,
         supplier_name: supplierName.trim() || null,
         supplier_nif: supplierNif.trim() || null,
@@ -315,25 +314,46 @@ export default function StandaloneInvoiceScanner() {
         iva_amount: parseStandaloneAmount(iva),
         paid_by_partner_id: paidBy === "none" ? null : paidBy,
         notes: notes.trim() || null,
-        status: "new",
-        created_by: user?.id ?? null,
-      });
-      if (error) throw error;
+        created_by: user.id,
+      };
+      const reserved = await prepareLegacyAttempt("scanner_create", payload, file, context);
+      if (saveGeneration !== generation.current) return;
+      setAttempt(reserved);
+      setResumeId(reserved.id); setResumeHash(reserved.hash);
+      sessionStorage.setItem(pendingKey, JSON.stringify({ id: reserved.id, hash: reserved.hash }));
+      writeStarted = true;
+      const outcome = await executeLegacyAttempt("scanner_create", reserved, file, context);
+      if (outcome.status !== "conferido") throw new Error("Conferência pendente");
 
+      if (saveGeneration !== generation.current) return;
+      sessionStorage.removeItem(pendingKey);
       setSaved(true);
       toast({ title: "Fatura guardada", description: "Disponível no portal da contabilidade." });
     } catch (err: any) {
-      if (uploadedPath) {
-        const { error: cleanupErr } = await removeFromCompanyBucket("standalone-invoices", [uploadedPath], "limpeza de upload falhado");
-        if (cleanupErr) console.error("[scanner] limpeza falhou", cleanupErr);
-      }
+      // Never remove an object on an uncertain INSERT response. Keep private for review.
+      if (saveGeneration !== generation.current) return;
+      if (writeStarted) setWritePending(true);
       const duplicate = err?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(err);
-      toast({ title: duplicate ? "Fatura duplicada" : "Não foi possível guardar", description: duplicate ? "Já existe uma fatura deste fornecedor com este número." : err.message, variant: "destructive" });
+      toast({ title: duplicate ? "Fatura duplicada" : "Não foi possível guardar", description: standaloneWriteError(err), variant: "destructive" });
     } finally {
-      setBusy(null);
+      if(saveGeneration===generation.current)setBusy(null);
     }
   };
 
+  const generation = useRef(0);
+  useEffect(() => { generation.current += 1; setAttempt(null); setResumeId(""); setResumeHash(""); setAttemptOptions([]); setWritePending(false); reset(); }, [user?.id, companyId]);
+  const reconcile = async () => {
+    if (!user || !companyId) return;
+    const current = generation.current; setBusy("save");
+    try {
+      const context = {user_id:user.id,company_id:companyId};
+      const out = attempt ? await checkLegacyAttempt("scanner_create",attempt,context) : await resumeLegacyAttempt("scanner_create",resumeId,resumeHash,context);
+      if (current !== generation.current) return;
+      if (out.status === "conferido") { setSaved(true); setWritePending(false); sessionStorage.removeItem(pendingKey); }
+      else { setWritePending(true); toast({title:"Conferência pendente"}); }
+    } catch { if (current === generation.current) toast({title:"Conferência pendente"}); }
+    finally { if (current === generation.current) setBusy(null); }
+  };
   const [tab, setTab] = useState("scan");
 
   return (
@@ -354,6 +374,12 @@ export default function StandaloneInvoiceScanner() {
         </div>
       </div>
 
+      {writePending && <Alert><AlertDescription>Resultado por confirmar. A captura está bloqueada; confere a lista antes de qualquer nova gravação.</AlertDescription></Alert>}
+      <div className="space-y-2">
+        <Button variant="outline" onClick={async()=>{if(!user||!companyId)return;const gen=generation.current,ctx={user_id:user.id,company_id:companyId};const all:AttemptSummary[]=[];let after:string|null=null;try{do{const page=await listLegacyAttempts("scanner_create",ctx,after);if(gen!==generation.current)return;all.push(...page.items);after=page.next;}while(after);setAttemptOptions(all);}catch{if(gen===generation.current)toast({title:"Consulta indisponível"});}}}>Procurar tentativas</Button>
+        <select aria-label="Tentativa a consultar" value={resumeId} onChange={e=>{const selected=attemptOptions.find(a=>a.id===e.target.value);setAttempt(null);setResumeId(selected?.id??"");setResumeHash(selected?.hash??"");}}><option value="">Selecionar tentativa</option>{attemptOptions.map(a=><option key={a.id} value={a.id}>{a.name} — {a.reference??"Sem número"} — {a.state} — {a.created_at}</option>)}</select>
+        <Button variant="outline" onClick={reconcile} disabled={busy!==null || (!attempt && (!resumeId || !resumeHash))}>Consultar tentativa</Button>
+      </div>
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="w-full">
           <TabsTrigger value="scan" className="flex-1">Escanear</TabsTrigger>
@@ -410,7 +436,7 @@ export default function StandaloneInvoiceScanner() {
             <Button
               className="w-full h-16 text-base"
               onClick={() => cameraRef.current?.click()}
-              disabled={busy !== null}
+              disabled={busy !== null || writePending}
             >
               <Camera className="h-6 w-6 mr-2" /> Tirar foto
             </Button>
@@ -418,7 +444,7 @@ export default function StandaloneInvoiceScanner() {
               variant="outline"
               className="w-full h-12"
               onClick={() => fileRef.current?.click()}
-              disabled={busy !== null}
+              disabled={busy !== null || writePending}
             >
               <Upload className="h-4 w-4 mr-2" /> Escolher ficheiro
             </Button>
@@ -521,14 +547,14 @@ export default function StandaloneInvoiceScanner() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Button className="w-full h-14 text-base" onClick={save} disabled={busy !== null}>
+                  <Button className="w-full h-14 text-base" onClick={save} disabled={busy !== null || writePending}>
                     {busy === "save" ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Check className="h-5 w-5 mr-2" />}
                     Guardar fatura
                   </Button>
-                  <Button variant="outline" className="w-full h-12" onClick={retake} disabled={busy !== null}>
+                  <Button variant="outline" className="w-full h-12" onClick={retake} disabled={busy !== null || writePending}>
                     <RefreshCw className="h-4 w-4 mr-2" /> Repetir
                   </Button>
-                  <Button variant="ghost" className="w-full text-muted-foreground" onClick={dismiss} disabled={busy !== null}>
+                  <Button variant="ghost" className="w-full text-muted-foreground" onClick={dismiss} disabled={busy !== null || writePending}>
                     <X className="h-4 w-4 mr-2" /> Dispensar
                   </Button>
                 </div>
