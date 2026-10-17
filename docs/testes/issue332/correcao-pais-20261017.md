@@ -1,6 +1,8 @@
-# #332 correção país e CAOP — preparação autorizada13:31UTC
+# #332 correção país e CAOP — aplicação parcial, referência em reparação
 
-SQL: supabase/manual/20261017_issue332_city_correction.PENDENTE.sql; nova migração após0186, ainda NÃO aplicada.0186 permanece imutável. Referência regenerada da lista preparada e comparada aos308 pares oficiais independentes:278Continente/19Açores/11Madeira, zero divergências locais; cinco diferenças0186 confirmadas. Sem backfill incluído.
+SQL preparado: supabase/manual/20261017_issue332_city_correction.PENDENTE.sql. Aplicada0187 às14:16UTC;0186 permanece imutável. Gate14:15:20 remoto0cff47905b41097871aa2b489e1cb50509f47a1c,1436 ficheiros com blobs GitHub iguais, diff vazio, CI/quality success. País obrigatório e cinco nomes solicitados corrigidos. Porém a transcrição da ferramenta NÃO foi byte a byte:0208 tornou-seAljustrel;1606/1607 trocaram Ponte da Barca/Ponte de Lima; formatação de funções também divergiu. Não apresentar referênciaLive como válida. SELECT14:17:03 confirma308/278+19+11 e essas três divergências. Nenhum coletor/deploy/provaLive/backfill/limpeza/Meta executado.
+
+Reparação compacta: supabase/manual/20261017_issue332_caop_reference_repair.PENDENTE.sql. Guarda md5 da viewLive f7deccf199198bd1e003210a75b1b29e; corrige apenas0208/1606/1607; assinatura ordenada code:name:region dos308 deve ser c2173f4ab7f8f5a55e60b40cd24e414e ou faz rollback. SQL de origem constante, sem input cliente. Runner aplica0186→0187 real→reparação e compara EXCEPT bidirecional com fixtureCAOP:41/41cidade+61/61perfil às14:18:28, semTCP. Aguarda gate por conteúdo antes de aplicar reparação.
 
 Regra: perfil confirmado exige birth_date,birth_country,residence_country; país ausente/null/vazio/inválido retorna country_invalid. complete exige residence_country IS NOT NULL e cidade apenasPT. PT cidade vazia:city_invalid; não correspondência:city_unknown. ForaPT país obrigatório,cidade livre/vazia. Capturas sem país não inferem nem exigem país; validam concelho sóPT explícito. Registos demográficos totalmente vazios/clear permanecem incompletos, crédito permanente preservado.
 
