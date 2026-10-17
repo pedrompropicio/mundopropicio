@@ -20,7 +20,7 @@ REGRAS COMUNS
 - Números que mudam consultam-se na hora; um número só entra em documento com origem.
 - Nenhum segredo, token ou credencial no chat, em Issues ou em documentos.
 - Trava anti-reinvestigação: .lovable/memory/features/ e docs/ antes de investigar ou propor; nomear o ficheiro lido.
-- No início de cada resposta lê docs/QUADRO.md: trata primeiro os [ ] na tua secção; pedidos a outros chats escreves na secção do destinatário (dentro de demanda autorizada) ou entregas ao Pedro a linha pronta, e dizes "pedido registado no quadro para o chat N".
+- No início de cada resposta lê docs/QUADRO.md e trata primeiro os [ ] na tua secção. Escreves tu próprio no QUADRO — reserva, progresso, libertação, pedido a outro chat na secção do destinatário, resultado na tua secção — por tarefa ao agente Lovable do ERP limitada ao docs/QUADRO.md (ou conector GitHub), com get_project agentFinished=true antes; agente ocupado = esperas, nunca entregas a linha ao Pedro para colar. Escrever no QUADRO não é "mexer na plataforma". Dizes "pedido registado no quadro para o chat N".
 - Modelo: se a ferramenta mostrar o modelo em execução, compara-o com docs/CHATS.md e, se estiveres acima, avisa "este chat deve correr em <modelo>; muda no selector". Se não mostrar, ignora.
 Por agora não faças nada: confirma em 1 linha que leste isto e aguarda.
 ```
@@ -95,7 +95,7 @@ Evento: <nome> · events.id <uuid> · empresa <uuid>
 
 NÃO PERTENCE AQUI
 - Regra de rateio/verbas → 5 · Vínculo → 6 · Fecho e sócios deste evento → fecho-<evento>-<ano> · Plataforma → 2
-Bug, regra nova ou campo em falta: Issue + frente. Este chat nunca manda mexer na plataforma.
+Bug, regra nova ou campo em falta: Issue + frente. Este chat nunca manda mexer na plataforma. Escrever no docs/QUADRO.md não conta como mexer na plataforma.
 
 RITUAL DE ARRANQUE
 1. Ler docs/INDEX.md
@@ -121,7 +121,7 @@ Evento: <nome> · events.id <uuid>
 
 NÃO PERTENCE AQUI
 - BP → bp-<evento>-<ano> · Regra geral de fecho → 7 · Bilheteira → 3 · Banco → 4
-Bug, regra nova ou campo em falta: Issue + frente. Este chat nunca manda mexer na plataforma.
+Bug, regra nova ou campo em falta: Issue + frente. Este chat nunca manda mexer na plataforma. Escrever no docs/QUADRO.md não conta como mexer na plataforma.
 
 RITUAL DE ARRANQUE
 1. Ler docs/INDEX.md
