@@ -334,7 +334,9 @@ describe("#333 handler + PostgreSQL real + storage fake: interleaving final part
 
 describe("#333 EXACT proposed index on real compatible standalone table (local ONLY)", () => {
   beforeAll(async () => {
-    const source=readFileSync("supabase/manual/20261017_issue333_core.PENDENTE.sql","utf8");
+    const activeSource=readFileSync("supabase/manual/20261017_issue333_core.PENDENTE.sql","utf8");
+    // Main-tree helper validation remains inert; isolated runner executes the complete patched core at setup.
+    const source=activeSource.includes("CREATE FUNCTION public.data_entry_identity") ? activeSource : readFileSync("patches/issue333/core.PENDENTE.sql","utf8");
     const start=source.indexOf("CREATE FUNCTION public.data_entry_identity");
     const end=source.indexOf("CREATE FUNCTION public.data_entry_result_check",start);
     if (start >= 0 && end > start) await admin.unsafe(source.slice(start,end).replaceAll("CREATE FUNCTION", "CREATE OR REPLACE FUNCTION"));
