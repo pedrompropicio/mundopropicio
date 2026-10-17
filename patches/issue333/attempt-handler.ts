@@ -7,6 +7,7 @@ const schema=z.discriminatedUnion('action',[
  z.object({action:z.literal('list'),operation:z.enum(['scanner_create','accountant_edit']),after:uuid.nullable()}).strict(),
  z.object({action:z.literal('prepare'),operation:z.enum(['scanner_create','accountant_edit']),id:uuid.nullable(),envelope:z.record(z.unknown())}).strict(),
  z.object({action:z.literal('execute'),operation:z.enum(['scanner_create','accountant_edit']),id:uuid,hash:z.string().regex(/^[a-f0-9]{64}$/),conteudo_base64:z.string().max(28000000)}).strict(),
+ z.object({action:z.literal('confirm_new_intent'),operation:z.literal('scanner_create'),id:uuid,hash:z.string().regex(/^[a-f0-9]{64}$/),confirm:z.literal(true)}).strict(),
  z.object({action:z.literal('check'),operation:z.enum(['scanner_create','accountant_edit']),id:uuid,hash:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),
 ]);
 export type HandlerDeps = {
@@ -35,6 +36,8 @@ export function createAttemptHandler(d:HandlerDeps) {
    const t=d.transport(token,body.operation);
    if(body.action==='list'){if(!d.list)return reply({error:'Consulta indisponível'},409);return reply(await d.list(token,body.operation,body.after));}
    if(body.action==='prepare')return reply(await t.rpc('prepare',body.id,body.envelope,null));
+   // C: typed owner confirmation; server derives owner/company and refuses unknown/strong duplicate.
+   if(body.action==='confirm_new_intent')return reply(await t.rpc('confirm_new_intent',body.id,null,body.hash));
    const a:Attempt=await t.rpc('check',body.id,null,body.hash);
    if(a.hash!==body.hash || a.id!==body.id)return reply({error:'Tentativa divergente'},409);
    if(body.action==='check')return reply(await checkAttempt(t,a));
@@ -43,6 +46,7 @@ export function createAttemptHandler(d:HandlerDeps) {
    if(binary.length>MAX_DOCUMENT_BYTES)return reply({error:'Documento demasiado grande'},413);
    const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
    try{validateDocument(bytes,a.document.mime)}catch{return reply({error:'Documento incompleto ou incompatível'},422)}
+   if((a as {state:string}).state==='review')return reply({status:'revisao',reason:(a as {review_reason?:string}).review_reason??null},409);
    const out=await executeAttempt(t,a,bytes);
    return reply(out,out.status==='conferido'?200:409);
   }catch{return reply({error:'Conferência pendente. Não repitas uma gravação.',status:'pendente'},409)}

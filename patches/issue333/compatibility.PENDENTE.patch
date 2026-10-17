@@ -630,7 +630,7 @@
 +  result: Record<string, unknown>|null; current: Record<string, unknown>|null; record_ok: boolean;
 +  document: { sha256: string; size_bytes: number; mime: string } };
 +export type AttemptTransport = {
-+  rpc(action: 'prepare'|'authorize'|'begin'|'commit'|'check', id: string|null, envelope: Record<string, unknown>|null, hash: string|null): Promise<Attempt>;
++  rpc(action: 'prepare'|'authorize'|'begin'|'commit'|'check'|'confirm_new_intent', id: string|null, envelope: Record<string, unknown>|null, hash: string|null): Promise<Attempt>;
 +  upload(path: string, bytes: Uint8Array, mime: string): Promise<void>;
 +  /** Must read stored bytes and issue service-only receipt, never trust browser checksum. */
 +  verifyReceipt(path: string, bytes: Uint8Array, mime: string): Promise<void>;
@@ -669,7 +669,7 @@
 \ No newline at end of file
 --- /dev/null
 +++ b/src/lib/standalone-attempt-client.ts
-@@ -0,0 +1,31 @@
+@@ -0,0 +1,34 @@
 +/** Proposed browser adapter. No local storage authority and no direct mutations. */
 +import { supabase } from '@/integrations/supabase/client';
 +import { documentHash, type Attempt } from '@shared/standalone-attempt';
@@ -697,13 +697,16 @@
 +export async function resumeLegacyAttempt(operation:string,id:string,hash:string,context:Context) {
 + return attemptRequest({action:'check',operation,id,hash},context);
 +}
-+export type AttemptSummary={id:string;hash:string;state:string;name:string;reference:string|null;created_at:string};
++export type AttemptSummary={id:string;hash:string;state:string;review_reason?:string|null;intent_seq?:number;name:string;reference:string|null;created_at:string};
 +export async function listLegacyAttempts(operation:string,context:Context,after:string|null=null):Promise<{items:AttemptSummary[];next:string|null}> {
 + return attemptRequest({action:'list',operation,after},context);
 +}
++/** C: explicit, typed additional intent over a completed attempt; never for unknown/review results. */
++export const confirmNewIntent=(a:Pick<Attempt,'id'|'hash'>,context:Context)=>attemptRequest({action:'confirm_new_intent',operation:'scanner_create',id:a.id,hash:a.hash,confirm:true},context);
++export const reviewMessage=(reason:string|null|undefined)=>reason==='iva_exceeds_total'?'IVA superior ao total: suspenso para revisão, nada gravado.':reason==='strong_duplicate'?'Já existe uma fatura com o mesmo NIF e número: suspenso para revisão.':reason==='before_changed'?'A fatura mudou entretanto: suspenso para revisão.':'Suspenso para revisão.';
 --- /dev/null
 +++ b/supabase/functions/standalone-attempt-333/handler.ts
-@@ -0,0 +1,50 @@
+@@ -0,0 +1,54 @@
 +/** Proposed NEW handler; never deployed. All identity and SQL calls are injected. */
 +import { validateDocument, MAX_DOCUMENT_BYTES } from '../data-entry/core.ts';
 +import { z } from 'npm:zod@3.23.8';
@@ -713,6 +716,7 @@
 + z.object({action:z.literal('list'),operation:z.enum(['scanner_create','accountant_edit']),after:uuid.nullable()}).strict(),
 + z.object({action:z.literal('prepare'),operation:z.enum(['scanner_create','accountant_edit']),id:uuid.nullable(),envelope:z.record(z.unknown())}).strict(),
 + z.object({action:z.literal('execute'),operation:z.enum(['scanner_create','accountant_edit']),id:uuid,hash:z.string().regex(/^[a-f0-9]{64}$/),conteudo_base64:z.string().max(28000000)}).strict(),
++ z.object({action:z.literal('confirm_new_intent'),operation:z.literal('scanner_create'),id:uuid,hash:z.string().regex(/^[a-f0-9]{64}$/),confirm:z.literal(true)}).strict(),
 + z.object({action:z.literal('check'),operation:z.enum(['scanner_create','accountant_edit']),id:uuid,hash:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),
 +]);
 +export type HandlerDeps = {
@@ -741,6 +745,8 @@
 +   const t=d.transport(token,body.operation);
 +   if(body.action==='list'){if(!d.list)return reply({error:'Consulta indisponível'},409);return reply(await d.list(token,body.operation,body.after));}
 +   if(body.action==='prepare')return reply(await t.rpc('prepare',body.id,body.envelope,null));
++   // C: typed owner confirmation; server derives owner/company and refuses unknown/strong duplicate.
++   if(body.action==='confirm_new_intent')return reply(await t.rpc('confirm_new_intent',body.id,null,body.hash));
 +   const a:Attempt=await t.rpc('check',body.id,null,body.hash);
 +   if(a.hash!==body.hash || a.id!==body.id)return reply({error:'Tentativa divergente'},409);
 +   if(body.action==='check')return reply(await checkAttempt(t,a));
@@ -749,6 +755,7 @@
 +   if(binary.length>MAX_DOCUMENT_BYTES)return reply({error:'Documento demasiado grande'},413);
 +   const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
 +   try{validateDocument(bytes,a.document.mime)}catch{return reply({error:'Documento incompleto ou incompatível'},422)}
++   if((a as {state:string}).state==='review')return reply({status:'revisao',reason:(a as {review_reason?:string}).review_reason??null},409);
 +   const out=await executeAttempt(t,a,bytes);
 +   return reply(out,out.status==='conferido'?200:409);
 +  }catch{return reply({error:'Conferência pendente. Não repitas uma gravação.',status:'pendente'},409)}
