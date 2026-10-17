@@ -1,9 +1,9 @@
 \set ON_ERROR_STOP 1
 -- MP identity is a fixed synthetic company only, no Live members ever used.
 INSERT INTO companies(id,name) VALUES('7c858982-6ccd-47ca-bd65-e0dd3eebf01c','Fixture MP');
-INSERT INTO portal_sites(id,company_id,brand_key,domain,name) VALUES('33333333-0000-4000-8000-000000000001','7c858982-6ccd-47ca-bd65-e0dd3eebf01c','newgang','fixture.invalid','Fixture');
-INSERT INTO club_members(id,site_id,company_id,email,first_name,referral_code,confirmed_at)
- VALUES('33333333-0000-4000-8000-000000000002','33333333-0000-4000-8000-000000000001','7c858982-6ccd-47ca-bd65-e0dd3eebf01c','member@example.invalid','Fixture','F332',now());
+INSERT INTO portal_sites(id,company_id,brand_key,domain) VALUES('33333333-0000-4000-8000-000000000001','7c858982-6ccd-47ca-bd65-e0dd3eebf01c','newgang','fixture.invalid');
+INSERT INTO club_members(id,site_id,company_id,email,first_name,referral_code,confirmed_at,member_no,source)
+ VALUES('33333333-0000-4000-8000-000000000002','33333333-0000-4000-8000-000000000001','7c858982-6ccd-47ca-bd65-e0dd3eebf01c','member@example.invalid','Fixture','F332',now(),1,'formulario');
 INSERT INTO club_member_sessions(site_id,member_id,token_hash,expires_at) VALUES('33333333-0000-4000-8000-000000000001','33333333-0000-4000-8000-000000000002','fixture-session',now()+interval '1 day');
 INSERT INTO club_member_profiles(member_id,site_id,company_id,birth_date) VALUES('33333333-0000-4000-8000-000000000002','33333333-0000-4000-8000-000000000001','7c858982-6ccd-47ca-bd65-e0dd3eebf01c','2000-01-01');
 CREATE FUNCTION t.pref(j jsonb) RETURNS jsonb LANGUAGE sql AS $$ SELECT club_profile_preferences('33333333-0000-4000-8000-000000000001','fixture-session',
