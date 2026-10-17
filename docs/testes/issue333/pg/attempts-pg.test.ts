@@ -159,7 +159,7 @@ it.each([null,false])('gate %s: zero reservations/financial writes via browser a
 });
 it('gate closed while commit waits on row lock: no effect after the wait',async()=>{
  const a=await ready(envelope({notes:randomUUID()}));let release=()=>{};const hold=new Promise<void>(r=>{release=r});
- const locker=db.begin(async tx=>{await tx`select 1 from standalone_attempts_333 where id=${a.id} for update`;await hold});
+ const locker=c2.begin(async tx=>{await tx`select 1 from standalone_attempts_333 where id=${a.id} for update`;await hold});
  await new Promise(r=>setTimeout(r,50));const pending=error(rpc(c1,'commit',a.id,null,a.hash));await new Promise(r=>setTimeout(r,100));
  await gate('scanner_create',false);release();await locker;
  try{expect((await pending)?.code).toBe('42501');expect(Number((await db`select count(*) n from standalone_invoices where id=${a.destination_id}`)[0].n)).toBe(0)}finally{await gate('scanner_create',true)}
