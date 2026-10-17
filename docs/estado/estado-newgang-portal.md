@@ -3,6 +3,8 @@
 Atualizado: 17/10/2026. Frente: newgangfestival.pt.
 
 ## Em que pé está
+- #332 consentimento por pessoa aplicado pela0182 e APIs Newgang/descadastro deployadas. Email-v3 separado; anúncios-v1 referenciam ledger#322 por membro/site/finalidade. me só estado/versão/data; CAS bloqueia grant atrasado; unsubscribe atómico. Provas docs/testes/issue332/consentimento-pessoa.md e contrato docs/features/newgang-consentimento-pessoa-332.md.
+- Nenhum crédito/consentimento retroativo. 40/40 SQL,17/17 handler,1281 Vitest; smoke200/401/404. Portal separado não alterado. WhatsApp adapter_pending; parental verificável pendente; nascimento ausente bloqueia grants. P_NG27_LISTA/Reactivar/coletor antigo intactos e exigem decisão separada antes de entrega.
 - #332 passo 4 Meta: ramo newgang_clube:v2 aplicado pela migração0181 e verificado em Live; Coala/genérico e assinatura preservados.
 - P_NG27_LISTA registada na ligação MP indicada e verificada; enabled=false, audience_id_meta=NULL, replace=true. HTTP400 audience_not_linked_to_meta confirmado com dry_run=true; nenhum envio.
 - SELECT17/10 às02:37–02:38UTC: 46 registos MP do evento,39 consent_email=true,0 versão clube-newgang-v2,0 emails elegíveis. RPC autenticada HTTP200 confirmou0. Números desta execução, reconsultar antes de ativar.
@@ -18,7 +20,7 @@ Atualizado: 17/10/2026. Frente: newgangfestival.pt.
 - Portal publicado segundo Pedro; esta tarefa não altera nem confirma nova versão do portal. Artes Wallet aprovadas e compatibilidade Gang/Crew/Goat existentes; visual no dispositivo pendente.
 
 ## A trabalhar agora
-Nenhuma reserva ativa deste executor. #332 permanece aberta para as restantes etapas/plataformas.
+Fecho da etapa backend por pessoa; #332 permanece aberta para portal, política jurídica, integração de elegibilidade e plataformas. Reserva libertada após documentação. Comentário Issue e CI final ainda não confirmados.
 
 ## Próximos passos
 - Pedro publicar portal com consent_text_version clube-newgang-v2 e criar/ligar público Meta; depois reconsultar elegibilidade e autorizar separadamente ativação/envio/cron. Não assumir newsletter/bandeira cookies como consentimento de partilha da lista.
