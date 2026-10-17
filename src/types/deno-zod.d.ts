@@ -1,0 +1,5 @@
+// Edge handlers imported by local tests use Deno's versioned npm specifier.
+// Preserve the actual Zod types rather than replacing the validator with any.
+declare module 'npm:zod@3.23.8' {
+ export { z } from 'zod';
+}
