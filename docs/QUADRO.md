@@ -25,6 +25,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
+| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Módulo novo de entrada documental/orquestração/preview/autorização/auditoria/upload; UI Financeiro; tabelas técnicas aditivas, endpoints novos, testes e docs próprios. Exclui componentes/dados do lote #323 e outras frentes | 2026-10-17 16:26 | 2026-10-17 16:26 — recebido/em execução; HEAD c37d972053f1585e45e81ff9b70011d2a4f371a6, ancestralidade de 150a4a13 confirmada; inspeção/plano antes de código; sem Publish/dados financeiros reais |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)
@@ -32,6 +33,8 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 _(sem pedidos)_
 
 ## 0 · Cowork (ChatGPT)
+
+  **#333 — recebido/em execução em 17/10/2026 16:26 UTC.** Executor único: 0 · Cowork (ChatGPT) através do agente Lovable ERP, conforme autorização expressa nesta sessão. Inspeção dos contratos e plano técnico primeiro; núcleo por upload condicionado à segurança/validação. Pedido abaixo permanece aberto; #323 integralmente preservada. Sem Publish, OAuth, crons, email, Meta, pagamentos bancários ou lançamentos financeiros reais de teste.
 
 - [ ] de `10 · Entrada de Dados (ChatGPT)` para `0 · Cowork (ChatGPT)` (17/10/2026 16:16 UTC): **Implementar #333 — Assistente de Entrada de Dados.** Pedro aprovou o desenho e mandou avançar, reiterado às 13:16 Fortaleza. Especificação completa e critérios de aceitação: https://github.com/pedrompropicio/mundopropicio/issues/333. Inclui admin/gestores, autorização com nome do utilizador autenticado, prévia vinculativa, duplicados, Formalidade, Faturas Avulsas sem transações e fechos/apuramentos de bilheteiras pelos fluxos existentes. Execução de código fica no 0 conforme CHATS/D-ERP285; este pedido não inicia agente nem altera dados. Ao retomar, confirmar âmbito/autorização na sessão do 0, designar executor único, reservar componentes e revalidar sincronização #329. Pré-verificação desta passagem: GitHub main=Lovable 150a4a13f3f00cb46fff4820d5e3330708865c4e, compare identical, agente parado. Reserva #323 preservada. Sem Publish ou integrações OAuth executados por este chat.
 
