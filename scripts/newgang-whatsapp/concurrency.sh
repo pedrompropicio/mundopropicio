@@ -12,3 +12,5 @@ done
 wait
 N=$("${PSQL[@]}" -tAc "SELECT count(*) FROM club_member_whatsapp_consents WHERE idempotency_key='33333333-0000-4000-8000-000000000030'")
 "${PSQL[@]}" -c "SELECT t.ok('332w','concurrent same key single row','$N'::int=1)"
+# Limpeza do stub local: o schema vault e os stubs hmac são só de teste e não podem chegar à verificação de egress.
+"${PSQL[@]}" -c "DROP SCHEMA vault CASCADE; DROP FUNCTION extensions.hmac(bytea,bytea,text); DROP FUNCTION extensions.hmac(text,text,text);" >/dev/null
