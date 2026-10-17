@@ -13,6 +13,7 @@ import { consentMe, consentPreferences } from "./person-consent.ts";
 import { publicEditions } from "./videos.ts";
 import { CREW_LINK, crewErrorStatus, crewView } from "./crews.ts";
 import { crewPendingAction, memberByEmail, mePendingCrew, PENDING_OPS } from "./pending.ts";
+import { requestAccessAction } from "./request-access.ts";
 import * as GW from "./wallet-google.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import { PreSendError, sendWelcomeOnce } from "./welcome.ts";
@@ -495,7 +496,10 @@ Deno.serve(async (req) => {
     const ipHash = await sha256(clientIp(req) + ":ng");
     const { data: ok, error: rateError } = await sb.rpc("portal_rate_hit", { p_bucket: `ng:${body.action}:${ipHash}`, p_max: 20, p_window_seconds: 600 });
     if (["profile_confirm", "profile_preferences"].includes(body.action) && (rateError || typeof ok !== "boolean")) return json({ error: "rate_unavailable" }, 503);
-    if (ok === false) return json({ error: "rate_limited" }, 429);
+    if (ok === false) {
+      if (body.action === "request_access") console.log(JSON.stringify({ action: "request_access", reason: "limitado", ip_hash: ipHash.slice(0, 12) }));
+      return json({ error: "rate_limited" }, 429);
+    }
   }
 
   if (body.action === "profile_countries") return json({ countries: profileCountries(), version: "iso-3166-1-2026-10" });
@@ -574,12 +578,12 @@ Deno.serve(async (req) => {
         });
       }
       case "request_access": {
-        if (!body.email) return json({ error: "email" }, 400);
-        const email = body.email.trim().toLowerCase();
-        // #328: comparação exata com o email normalizado (o operador anterior tratava '_' e '%' como coringas).
-        const { data: m } = await memberByEmail(() => sb.from("club_members").select("id, first_name, email") as any, site.id, email);
-        if (m) await sendClubLink(site, { ...m, email }, "access", crypto.randomUUID());
-        return json({ ok: true });
+        // #328: comparação exata com email normalizado. #332: resposta diferencia sent vs not_member, com log por motivo.
+        const r = await requestAccessAction(site.id, body.email,
+          async (sid, email) => (await memberByEmail(() => sb.from("club_members").select("id, first_name, email") as any, sid, email)).data ?? null,
+          async (m) => { try { await sendClubLink(site, m, "access", crypto.randomUUID()); } catch (e) { console.error("request_access send:", (e as Error).message); } },
+          (reason) => console.log(JSON.stringify({ action: "request_access", reason })));
+        return json(r.body, r.status);
       }
       case "session": {
         if (!member) return json({ valid: false });
