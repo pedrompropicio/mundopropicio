@@ -1,5 +1,5 @@
 /** Proposed NEW handler; never deployed. All identity and SQL calls are injected. */
-import { validateDocument, MAX_DOCUMENT_BYTES } from '../data-entry/core.ts';
+import { validateDocument, MAX_DOCUMENT_BYTES } from '../_shared/data-entry-core.ts';
 import { z } from 'npm:zod@3.23.8';
 import { executeAttempt, checkAttempt, type Attempt, type AttemptTransport } from '../_shared/standalone-attempt.ts';
 const uuid=z.string().uuid();

@@ -1,6 +1,6 @@
 // ingest-standalone-invoice — ingestão externa de faturas avulsas (#191–#193).
 // Regra absoluta: esta função escreve apenas em standalone_invoices e no bucket homónimo.
-import { documentType, validateDocument, readCapped, MAX_DOCUMENT_BYTES } from '../data-entry/core.ts'
+import { documentType, validateDocument, readCapped, MAX_DOCUMENT_BYTES } from '../_shared/data-entry-core.ts'
 import { executeAttempt, documentHash, type Attempt } from '../_shared/standalone-attempt.ts'
 import { findStrongCandidates, persistInvoice } from '../_shared/standalone-compat.ts'
 import type { Candidate, Expected } from '../_shared/standalone-identity.ts'
