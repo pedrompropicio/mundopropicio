@@ -1,5 +1,9 @@
 # #332 — cidade/lista
-- [ ] Sessão3: gate VERDE14:40:58UTC remoto472fdccd,CI/quality success b6a37939,diff aplicável vazio1439ficheiros. Bloqueio diferente: ferramenta de migração exige query textual e não oferece envio programático de ficheiro; CLI só diagnóstico. SQL não enviado para respeitar proibição de retranscrição. Reparação/coletor/deploy/prova continuam pendentes;reservas mantidas.
+- [x] Reparação0188 aplicada:308/278+19+11,assinaturaCAOPc2173f4ab7f8f5a55e60b40cd24e414e igual fixture;texto1471byteshash59a3f900…9d2f,migração ferramenta acrescentou1LF sem outra diferença.
+- [x] Coletor0189 aplicado igual SQL original+1LF;deploy somente newgang-portal ecrm-meta-audience-sync.
+- [x] ProvaLiveRPC membroteste:país/cidade,50uma vez,estrangeirosemcidade,legadoexcluído,grantincluídoemail-only,revoke/descadastroexcluídos. Primeiro teste única transação rollback(statement_timestamp);repetido pedidos separados passou. Interface portal separada NÃO verificada.
+- [ ] Backfill e limpeza dependem de doisSim separados;SQL preparado paraPedro;reservas/fecho mantidos.
+- [x] Bloqueioenvio sessão3 superado porA dePedro14:42;aplicação/prova acima.
 - [ ] Sessão2 14:38:34UTC: gate único remoto b6a37939d22d666d567ff159ea59f3e19ddcfb7f;1439ficheiros iguais,zero divergências; CI e quality ainda sem conclusion. PARADO sem espera e sem escritaLive/deploy/prova. Retomar próxima sessão com gate; reservas mantidas.
 - [x] Cidade: CAOP308, normalização/cities/CRM, backfill inerte, SQL32/32+handler2/2+unit4/4.
 - [x] Lista: reserva separada, coletor estrito/phoneNULL/email-only, SQL32/32 com concorrência e legados; regressões e1285Vitest.
@@ -8,8 +12,8 @@
 - [x] Gate inicial Fase B: cd9b4faa Lovable=remoto; CI/quality success13:02UTC. SELECT elegibilidade12:59:42:63membros/3emails.
 - [x] Gate por conteúdo aprovado14:14: remoto0cff4790;1436 ficheiros byte a byte iguais, diff vazio, CI/quality success.
 - [x] Aplicada0187: país obrigatório e cinco nomes pedidos corrigidos.
-- [ ] Reparar três novos erros de transcrição0187:0208 e1606/1607. SQL compacto com guarda hash e assinatura308testado41/41+61/61; BLOQUEADO14:36 após>15min:0187/metadados/runner/reparação divergem doGitHub0cff4790. Nenhuma nova escritaLive atégate.
-- [ ] Aplicar coletor estrito e deploy portal+sync após correção/verificação/gate; nenhuma dessas operações executada.
-- [ ] Prova Live membro teste sem Meta manual; SELECTs, SQL backfill/limpeza apresentados separadamente para Sim.
+- [x] Reparar três nomes0188 evalidarCAOP.
+- [x] Aplicarcoletor0189/deploy2funções.
+- [x] ProvaLiveRPCsemMeta manual;doisSQLapresentados.
 - [ ] Fecho documental/reservas após aplicação/prova/limpeza; #323 preservada.
 - [x] Pré-verificação inicial HEAD063db408 igual GitHub; workflowCI/quality success para esse SHA.

@@ -25,8 +25,8 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #332 cidade | newgang-portal | agente Lovable ERP, autorizado por Pedro | Fase B parcial:0187 aplicada;reparação0208/1606/1607 aguarda envio programático suportado | 2026-10-17 12:31 | 2026-10-17 sessão3 — gateVERDE472fdccd/CIb6a37939,1439iguais;ferramenta migração só query textual,sem envioficheiro;SQLnão enviado;reserva mantida;#323 intacta |
-| #332 lista | newgang-portal | agente Lovable ERP, autorizado por Pedro | Coletor estrito e deploysync autorizados mas NÃO aplicados; lista/cron2499 intocados; semMeta manual | 2026-10-17 12:41 | 2026-10-17 sessão3 — gateverde,mas reparação bloqueada envio programático;nenhum coletor/deploy/provaLive/backfill/limpeza;reserva mantida |
+| #332 cidade | newgang-portal | agente Lovable ERP, autorizado por Pedro | Reparação0188aplicada308/278+19+11assinaturaCAOPigual;provaLiveRPCpaís/cidadepassou | 2026-10-17 12:31 | 2026-10-17 14:48 — aguardaSimbackfill/limpeza;semfecho,reserva mantida;#323intacta;UIportalnãoverificada |
+| #332 lista | newgang-portal | agente Lovable ERP, autorizado por Pedro | Coletor0189aplicado;deployportal+sync;provaLivegrant/revoke/descadastro/legadopassou;semMeta manual | 2026-10-17 12:41 | 2026-10-17 14:48 — lista/cron2499intocados;teste revogado/suprimido;aguardaSimlimpeza;reserva mantida |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)
