@@ -25,7 +25,6 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #328 | ChatGPT · newgang-portal | agente Lovable portal dedicado | UI pendência Crew, API client e testes locais sobre contrato backend preparado; sem Live/deploy/Publish | 2026-10-16 16:07 UTC | 16:43 sincronização ERP8c22430 confirmada; pacote backend revisto, frontend autorizado, preservar #322/#323 |
 | #322 | 0 · Cowork (ChatGPT) | agente Lovable (ERP) | ERP: consentimento por interação (ledger marketing_consent_*), portal-track, capi_consent_proof/guardas, lead_capture/redirect_log/leads (colunas aditivas), docs; coordenação futura MP/Coala/Newgang (portais NÃO tocados nesta etapa) | 2026-10-16 01:12 | 2026-10-16 01:46 — ERP corrigido após verificação independente (0175 + portal-track), aguarda revisão; portais MP/Coala/Newgang pendentes |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
@@ -124,6 +123,8 @@ _(sem pedidos — as falhas de teste vêm por Issue; os pedidos de verificação
 _(sem pedidos)_
 
 ## newgang-portal
+
+- [x] 17/10/2026 01:50 UTC — **Sessão encerrada por Pedro; agente libertado para Claude.** ERP `933cb4d1` e portal `0b37edbf` ambos `agentFinished=true`, sem tarefa pendente deste chat. Pedro confirmou Publish e teste real: editar perfil não repete os 50 pontos. Reserva antiga #328 deste executor retirada por já concluída; #322/#323 preservadas. Última UI: data DD/MM/AAAA, países PT/BR/ES no topo, releitura automática de me/ranking; provas na #330. Pendentes próprios: WhatsApp, fluxo parental, PDF e confirmação real da atualização automática noutra primeira conclusão; não executados neste fecho.
 
 - [x] 17/10/2026 01:20 UTC — **#330 profile-v1 ativada** (ChatGPT, autorização específica Pedro): configuração50ON; SQL59/59, handler9/9, CRM7/7; site/bundle200 availabletrue/points50, países249, tokeninválido401. Transação/site-lock: ledger27/2750/hash10ec45aea047074dfbda903436e7edf4 preservado, perfis/créditos330zero. Provas docs/testes/issue330/ativacao-profile-v1.md/json. Sem código/deploy/Publish/envios; WhatsAppadapter_pending e parental<13bloqueado. SemE2EautenticadoLive. Reserva#330libertada; #322/#323/#332 preservadas.
 
