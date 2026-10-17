@@ -590,7 +590,116 @@
 +})
 --- a/supabase/manual/20261017_issue333_core.PENDENTE.sql
 +++ b/supabase/manual/20261017_issue333_core.PENDENTE.sql
-@@ -141,6 +141,11 @@
+@@ -2,52 +2,75 @@
+ -- Provas: docs/testes/issue333/04-retoma-postgres-real-e-ui.md
+ -- Identidade/empresa/papel: auth.uid() + public.current_company_id() + public._effective_permissions_for()
+ -- (helpers canónicos, não alterados). Nenhuma tabela técnica é acessível directamente por authenticated.
+--- Execução fechada por data_entry_settings.execute_validated (sem linha = indisponível).
++-- CORE v2: preparação e execução separadas, fechadas por defeito (sem linhas).
+ -- Moeda: só EUR nesta versão (câmbio exige fonte servidor congelada — pendente).
+ 
+ CREATE TABLE public.data_entry_sessions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), company_id uuid NOT NULL REFERENCES public.companies(id),
+  owner_id uuid NOT NULL REFERENCES public.profiles(id), event_id uuid REFERENCES public.events(id), created_at timestamptz NOT NULL DEFAULT now()
+ );
++REVOKE ALL ON public.data_entry_sessions FROM PUBLIC, anon, authenticated;
++GRANT ALL ON public.data_entry_sessions TO service_role;
++ALTER TABLE public.data_entry_sessions ENABLE ROW LEVEL SECURITY;
+ CREATE TABLE public.data_entry_storage_receipts (
+  bucket text NOT NULL CHECK(bucket IN ('data-entry-staging','standalone-invoices')), path text NOT NULL,
+  company_id uuid NOT NULL REFERENCES public.companies(id), sha256 text NOT NULL CHECK(sha256 ~ '^[a-f0-9]{64}$'),
+  size_bytes integer NOT NULL CHECK(size_bytes BETWEEN 1 AND 20971520), mime text NOT NULL CHECK(mime IN ('application/pdf','image/jpeg','image/png')),
+  verified_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(bucket,path)
+ );
++REVOKE ALL ON public.data_entry_storage_receipts FROM PUBLIC, anon, authenticated;
++GRANT ALL ON public.data_entry_storage_receipts TO service_role;
++ALTER TABLE public.data_entry_storage_receipts ENABLE ROW LEVEL SECURITY;
+ CREATE TABLE public.data_entry_documents (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), session_id uuid NOT NULL REFERENCES public.data_entry_sessions(id), company_id uuid NOT NULL REFERENCES public.companies(id),
+  name text NOT NULL CHECK(length(name) BETWEEN 1 AND 255), path text NOT NULL UNIQUE,
+  sha256 text NOT NULL CHECK(sha256 ~ '^[a-f0-9]{64}$'), size_bytes integer NOT NULL CHECK(size_bytes BETWEEN 1 AND 20971520),
+  mime text NOT NULL CHECK(mime IN ('application/pdf','image/jpeg','image/png')), created_at timestamptz NOT NULL DEFAULT now(), UNIQUE(session_id,sha256)
+ );
++REVOKE ALL ON public.data_entry_documents FROM PUBLIC, anon, authenticated;
++GRANT ALL ON public.data_entry_documents TO service_role;
++ALTER TABLE public.data_entry_documents ENABLE ROW LEVEL SECURITY;
+ CREATE TABLE public.data_entry_messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), session_id uuid NOT NULL REFERENCES public.data_entry_sessions(id),
+  company_id uuid NOT NULL REFERENCES public.companies(id), author_id uuid NOT NULL REFERENCES public.profiles(id),
+  body text NOT NULL CHECK(length(body) BETWEEN 1 AND 4000), created_at timestamptz NOT NULL DEFAULT now()
+ );
++REVOKE ALL ON public.data_entry_messages FROM PUBLIC, anon, authenticated;
++GRANT ALL ON public.data_entry_messages TO service_role;
++ALTER TABLE public.data_entry_messages ENABLE ROW LEVEL SECURITY;
+ CREATE TABLE public.data_entry_previews (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), session_id uuid NOT NULL REFERENCES public.data_entry_sessions(id), company_id uuid NOT NULL REFERENCES public.companies(id),
+  document_id uuid NOT NULL REFERENCES public.data_entry_documents(id), version integer NOT NULL, created_by uuid NOT NULL REFERENCES public.profiles(id),
+  operation text NOT NULL CHECK(operation='standalone_invoice_v1'), snapshot jsonb NOT NULL, snapshot_hash text NOT NULL CHECK(snapshot_hash ~ '^[a-f0-9]{64}$'),
+  destination_id uuid NOT NULL DEFAULT gen_random_uuid(), created_at timestamptz NOT NULL DEFAULT now(), UNIQUE(session_id,version)
+ );
++REVOKE ALL ON public.data_entry_previews FROM PUBLIC, anon, authenticated;
++GRANT ALL ON public.data_entry_previews TO service_role;
++ALTER TABLE public.data_entry_previews ENABLE ROW LEVEL SECURITY;
+ CREATE TABLE public.data_entry_results (
+  preview_id uuid PRIMARY KEY REFERENCES public.data_entry_previews(id), company_id uuid NOT NULL REFERENCES public.companies(id),
+  document_id uuid NOT NULL UNIQUE REFERENCES public.data_entry_documents(id), invoice_id uuid NOT NULL UNIQUE REFERENCES public.standalone_invoices(id),
+  approved_by uuid NOT NULL REFERENCES public.profiles(id), approved_name text NOT NULL, approved_at timestamptz NOT NULL DEFAULT now(),
+  snapshot_hash text NOT NULL, result jsonb NOT NULL
+ );
++REVOKE ALL ON public.data_entry_results FROM PUBLIC, anon, authenticated;
++GRANT ALL ON public.data_entry_results TO service_role;
++ALTER TABLE public.data_entry_results ENABLE ROW LEVEL SECURITY;
+ CREATE TABLE public.data_entry_settings (
+- singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton), execute_validated boolean NOT NULL DEFAULT false
++ singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton), execute_validated boolean NOT NULL DEFAULT false,
++ preparation_validated boolean NOT NULL DEFAULT false
+ );
+--- No configuration row: execution unavailable by default.
+-DO $g$ DECLARE t text; BEGIN
+- FOREACH t IN ARRAY ARRAY['data_entry_sessions','data_entry_storage_receipts','data_entry_documents','data_entry_messages','data_entry_previews','data_entry_results','data_entry_settings'] LOOP
+-  EXECUTE format('REVOKE ALL ON public.%I FROM PUBLIC, anon, authenticated', t);
+-  EXECUTE format('GRANT ALL ON public.%I TO service_role', t);
+-  EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+- END LOOP; END $g$;
++-- Configuration is owner-managed only, including no service-role access. No activation rows.
++REVOKE ALL ON public.data_entry_settings FROM PUBLIC, anon, authenticated, service_role;
++ALTER TABLE public.data_entry_settings ENABLE ROW LEVEL SECURITY;
++CREATE FUNCTION public.data_entry_preparation_gate() RETURNS void
++LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=public,pg_temp AS $$
++BEGIN
++ IF NOT coalesce((SELECT preparation_validated FROM public.data_entry_settings WHERE singleton),false) THEN
++  RAISE EXCEPTION '#333: Preparação não validada; indisponível' USING ERRCODE='42501';
++ END IF;
++END $$;
++REVOKE ALL ON FUNCTION public.data_entry_preparation_gate() FROM PUBLIC, anon, authenticated, service_role;
+ CREATE INDEX data_entry_sessions_owner ON public.data_entry_sessions(company_id,owner_id,created_at DESC);
+ CREATE INDEX data_entry_messages_session ON public.data_entry_messages(session_id,created_at,id);
+ CREATE INDEX data_entry_previews_session ON public.data_entry_previews(session_id,version DESC);
+@@ -97,6 +120,7 @@
+ BEGIN
+  a := public.data_entry_actor();
+  IF p_session IS NULL THEN
++  PERFORM public.data_entry_preparation_gate();
+   IF p_event IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.events WHERE id=p_event AND company_id=a.company) THEN RAISE EXCEPTION '#333: Evento de outra empresa' USING ERRCODE='42501'; END IF;
+   INSERT INTO public.data_entry_sessions(company_id,owner_id,event_id) VALUES(a.company,a.uid,p_event) RETURNING * INTO v;
+  ELSE v := public.data_entry_own_session(p_session); END IF;
+@@ -116,6 +140,7 @@
+ DECLARE v public.data_entry_sessions; existing uuid; r uuid; p text;
+ BEGIN
+  v := public.data_entry_own_session(p_session, true);
++ PERFORM public.data_entry_preparation_gate();
+  p := v.company_id::text||'/'||v.id::text||'/'||p_sha;
+  IF NOT EXISTS(SELECT 1 FROM public.data_entry_storage_receipts WHERE bucket='data-entry-staging' AND path=p AND company_id=v.company_id AND sha256=p_sha AND size_bytes=p_size AND mime=p_mime) THEN
+   RAISE EXCEPTION '#333: Documento não conferido no armazenamento' USING ERRCODE='42501'; END IF;
+@@ -131,6 +156,7 @@
+ DECLARE v public.data_entry_sessions; r uuid;
+ BEGIN
+  v := public.data_entry_own_session(p_session, true);
++ PERFORM public.data_entry_preparation_gate();
+  IF p_body IS NULL OR length(btrim(p_body)) NOT BETWEEN 1 AND 4000 THEN RAISE EXCEPTION '#333: Nota inválida' USING ERRCODE='22023'; END IF;
+  IF (SELECT count(*) FROM public.data_entry_messages WHERE session_id=v.id)>=200 THEN RAISE EXCEPTION '#333: Limite de notas do lote' USING ERRCODE='P0001'; END IF;
+  INSERT INTO public.data_entry_messages(session_id,company_id,author_id,body) VALUES(v.id,v.company_id,auth.uid(),btrim(p_body)) RETURNING id INTO r;
+@@ -141,6 +167,11 @@
  $$ SELECT upper(regexp_replace(coalesce(t,''),'[^A-Za-z0-9]','','g')) $$;
  REVOKE ALL ON FUNCTION public.data_entry_norm(text) FROM PUBLIC, anon, authenticated;
  
@@ -602,7 +711,15 @@
  CREATE FUNCTION public.data_entry_prepare(p_session uuid, p_document uuid, p_fields jsonb) RETURNS jsonb
  LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
  DECLARE s public.data_entry_sessions; d public.data_entry_documents; v public.data_entry_previews; a record;
-@@ -171,7 +176,7 @@
+@@ -149,6 +180,7 @@
+ BEGIN
+  a := public.data_entry_actor();
+  s := public.data_entry_own_session(p_session, true);
++ PERFORM public.data_entry_preparation_gate();
+  SELECT * INTO d FROM public.data_entry_documents WHERE id=p_document AND session_id=s.id;
+  IF d.id IS NULL THEN RAISE EXCEPTION '#333: Documento inválido' USING ERRCODE='22023'; END IF;
+  IF EXISTS(SELECT 1 FROM public.data_entry_results WHERE document_id=d.id) THEN RAISE EXCEPTION '#333: Documento já registado; consulta o resultado' USING ERRCODE='23505'; END IF;
+@@ -171,7 +203,7 @@
   IF payer_name IS NULL THEN RAISE EXCEPTION '#333: Confirma um pagador membro desta empresa' USING ERRCODE='22023'; END IF;
   SELECT tax_id INTO company_tax FROM public.companies WHERE id=s.company_id;
   IF public.data_entry_norm(company_tax)='' OR public.data_entry_norm(company_tax)<>public.data_entry_norm(p_fields->>'customer_nif') THEN RAISE EXCEPTION '#333: NIF do destinatário não corresponde à empresa' USING ERRCODE='22023'; END IF;
@@ -611,7 +728,7 @@
    RAISE EXCEPTION '#333: Fatura já existe no ERP; nenhuma nova ação' USING ERRCODE='23505'; END IF;
   SELECT coalesce(max(version),0)+1 INTO n FROM public.data_entry_previews WHERE session_id=s.id;
   snap := jsonb_build_object('schema_version',2,'operation','standalone_invoice_v1','company_id',s.company_id,'company_tax',company_tax,'event_id',s.event_id,
-@@ -210,8 +215,8 @@
+@@ -210,8 +242,8 @@
    OR NOT EXISTS(SELECT 1 FROM public.user_roles WHERE user_id=(f->>'paid_by_partner_id')::uuid AND company_id=s.company_id) THEN
    RAISE EXCEPTION '#333: Dados do ERP mudaram; prepara nova prévia' USING ERRCODE='40001'; END IF;
   -- Serialises #333 executors; legacy writers are guarded only by the canonical unique index (exact spelling).
@@ -622,6 +739,15 @@
    RAISE EXCEPTION '#333: Fatura já existe no ERP; nenhuma nova ação' USING ERRCODE='23505'; END IF;
   mark := 'Feito por LLM com autorização de '||a.actor_name||' em '||to_char(now_ts AT TIME ZONE 'Europe/Lisbon','DD/MM/YYYY')||'.';
   INSERT INTO public.standalone_invoices(id,company_id,storage_path,file_name,supplier_name,supplier_nif,invoice_number,invoice_date,currency,original_amount,fx_rate,fx_rate_source,total_amount,iva_amount,paid_by_partner_id,notes,status,created_by)
+@@ -266,7 +298,7 @@
+ DO $g$ DECLARE fn text; BEGIN
+  FOREACH fn IN ARRAY ARRAY['data_entry_session(uuid,uuid)','data_entry_add_document(uuid,text,text,integer,text)','data_entry_note(uuid,text)',
+   'data_entry_prepare(uuid,uuid,jsonb)','data_entry_commit(uuid,text)','data_entry_result_check(uuid)'] LOOP
+-  EXECUTE format('REVOKE ALL ON FUNCTION public.%s FROM PUBLIC, anon', fn);
++  EXECUTE format('REVOKE ALL ON FUNCTION public.%s FROM PUBLIC, anon, service_role', fn);
+   EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO authenticated', fn);
+  END LOOP; END $g$;
+ 
 --- /dev/null
 +++ b/supabase/functions/_shared/standalone-attempt.ts
 @@ -0,0 +1,41 @@
