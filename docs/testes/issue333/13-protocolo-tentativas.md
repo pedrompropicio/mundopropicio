@@ -29,3 +29,12 @@ RPCs tipados/whitelist, sem SQL genérico. Tabelas fechadas; grants service-only
 ## Provas exigidas
 
 SQL real PostgreSQL descartável/pgcrypto/duas ligações; UI/endpoint patchados juntos com Auth/FX/storage fakes. Helpers não substituem estas provas. Storage fake não prova ACL Cloud; versões runtime/npm Cloud pendentes. Sem rede externa/credenciais/objetos Live/deploy/Publish.
+## Correção final local (19:20 UTC; código e provas novas em14–16)
+
+- Configuração da função nova apenas no PATCH e cópia; todos os blocos anteriores preservados. 14 destinos BASE/PREPARED conferidos.
+- Entrada real declara os dois headers de contexto; Chromium fez OPTIONS→POST entre origens locais. Não constitui prova de gateway/ACL Cloud.
+- RPC exige total EUR, preserva metadados/NIF/número/data/pagador opcionais legados, valida tipos/limites/data e identidade/pagador da empresa. Revalida pagador após prepare. Ingestão preserva tolerância FX±0,01; scanner/edição mantêm total editável (igualdade não é regra canónica destes dois).
+- IVA≤total é guarda candidata explícita; o contrato legado não a verifica uniformemente. Aprovação coordenada desta guarda antes de rollout, sem alterar fontes ativos nesta etapa.
+- Estrutura documental validada pelo parser limitado existente core.ts antes de upload/recibo. Parser estrutural mínimo, não garantia de renderização completa, antivírus ou ausência universal de polyglots.
+- Descoberta owner+empresa+operação paginada no servidor, sem copiar ID/hash; hash fica interno. Consulta entre ligações SQL e novo ecrã sem storage local comprovadas. Resposta tardia de empresa anterior descartada.
+- Provas finais: integrados38, entrada/preflight7, PostgreSQL60, handler20, geral1334; tsgo/Deno/build exit0. 1skip/11todo preexistentes. Nenhum destino ativo alterado/Live acessado.

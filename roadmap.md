@@ -8,7 +8,8 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
-- [ ] Preparar protocolo persistente legado compatível com chaves incompletas, SQL manual/patch inerte e testes integrados locais; sem aplicação principal/Live.
+- [x] Corrigir config/CORS/SQL/documento/descoberta owner, consolidar provas integrais e prévia futura; apenas inerte/cópia isolada.
+- [x] Preparar protocolo persistente legado compatível com chaves incompletas, SQL manual/patch inerte e testes integrados locais; sem aplicação principal/Live.
 - [x] Validar patch completo em cópia isolada, corrigir artefactos inertes e entregar gates da próxima fase; integrados31/PG36/handler20/geral1334, tsgo/Deno/build OK; sem Live. Provas10–12.
 - [x] Gate inicial: HEAD c37d972053f1585e45e81ff9b70011d2a4f371a6 e ancestralidade 150a4a13; #323 preservada; reserva/pedido recebido no QUADRO.
 - [x] Auditar contratos/permissões e entregar plano técnico versionado com matriz de operações e dependências.
@@ -17,6 +18,6 @@
 - [x] Preparação autorizada 17:46: inventário de escritores, política forte proposta, compatibilidade inerte, PostgreSQL36/compat26/handler20/regressões35/geral1334; nenhuma aplicação Live. Provas08/09; aguarda revisão.
 - [ ] Aplicar DDL/bucket/deploy após revisão das provas (bloqueio: revisão do Pedro/0).
 - [ ] Implementar núcleo upload privado, conversa documental, prévia servidor, autorização e execução tipada idempotente apenas para adapters validados.
-- [ ] Ativação bloqueada: retoma/claim global legado com chave incompleta, revisão política forte, StorageACL real e autorização aplicação/índice/DDL/deploy; CI novo SHA aguarda propagação. Trava sessionStorage não prova exatamente-um global.
+- [ ] Ativação bloqueada: rollout/reconciliação de clientes anteriores semID e intenção adicional, revisão política forte/IVA≤total, StorageACL real e autorização aplicação/índice/DDL/deploy; CI novo SHA aguarda propagação. Trava sessionStorage não prova exatamente-um global.
 - [x] Documentar efeitos Live inexistentes e limitações; manter Issue/reserva abertas para verificação.
 - [ ] Gmail/Drive/OAuth, conciliação, bilheteiras e demais adapters: bloqueados até validação/configuração próprias; sem Publish.

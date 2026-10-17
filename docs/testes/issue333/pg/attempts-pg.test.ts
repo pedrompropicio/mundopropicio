@@ -118,3 +118,27 @@ it('new assistant wrapper reuses exact canonical preview/commit in same SQL tran
  expect(Number((await db`select count(*) n from data_entry_results where preview_id=${preview.id}`)[0].n)).toBe(1);expect(Number((await db`select count(*) n from standalone_attempt_audit_333 where attempt_id=${a.id}`)[0].n)).toBe(1);
  expect((await error(rpc(c1,'prepare',null,envelope(),null,U,'assistant_create')))?.code).toBe('42501');
 });
+it.each([null,undefined])('direct RPC rejects missing/null total %s before persistent reservation',async total=>{
+ const e=envelope({total_amount:total,notes:randomUUID()});if(total===undefined)delete e.payload.total_amount;
+ expect((await error(rpc(c1,'prepare',randomUUID(),e)))?.code).toBe('22023');
+});
+it('direct RPC rejects VAT above total, foreign payer/author and invalid civil date',async()=>{
+ for(const over of [{iva_amount:124},{paid_by_partner_id:W},{created_by:W},{invoice_date:'2026-02-30'}])expect(await error(rpc(c1,'prepare',randomUUID(),envelope(over)))).not.toBeNull();
+});
+it('service RPC enforces existing ingest FX tolerance but scanner total remains editable',async()=>{
+ const e={...envelope({currency:'USD',original_amount:246,fx_rate:.5,total_amount:124,created_by:null}),effects:['ingest_create']};
+ const result=await error(db.begin(async tx=>{await tx`set local role service_role`;return tx`select standalone_ingest_attempt_333(${C},'prepare',${randomUUID()},${tx.json(e)},null)`}));expect(result?.code).toBe('22023');
+ expect((await rpc(c1,'prepare',null,envelope({currency:'USD',original_amount:246,fx_rate:.5,total_amount:124}))).state).toBe('prepare');
+});
+it('owner discovery across connections works without hash; foreign tenant/owner excluded and grants closed',async()=>{
+ const a=await rpc(c1,'prepare',randomUUID(),envelope({notes:randomUUID()}));
+ const list=await as(c2,U,async tx=>(await tx`select standalone_attempt_list_333('scanner_create',null) j`)[0].j);
+ expect(list.items.some((r:any)=>r.id===a.id&&r.hash===a.hash&&r.name==='f.pdf')).toBe(true);
+ for(const user of [V,W]){const foreign=await as(c2,user,async tx=>(await tx`select standalone_attempt_list_333('scanner_create',null) j`)[0].j);expect(foreign.items.some((r:any)=>r.id===a.id)).toBe(false)}
+ const [g]=await db`select has_function_privilege('anon','standalone_attempt_list_333(text,uuid)','execute') a,has_function_privilege('service_role','standalone_attempt_list_333(text,uuid)','execute') s`;expect(g).toEqual({a:false,s:false});
+});
+it('payer membership revalidated after preparation before any commit',async()=>{
+ const P=randomUUID();await db`insert into auth.users values (${P})`;await db`insert into profiles values (${P},'Payer fixture',${C},${C})`;await db`insert into user_roles(user_id,company_id,role) values (${P},${C},'user')`;
+ const a=await rpc(c1,'prepare',null,envelope({paid_by_partner_id:P,notes:randomUUID()}));await db`delete from user_roles where user_id=${P}`;
+ expect((await error(rpc(c2,'authorize',a.id,null,a.hash)))?.code).toBe('42501');expect((await db`select state from standalone_attempts_333 where id=${a.id}`)[0].state).toBe('prepare');
+});

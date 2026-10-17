@@ -8,11 +8,14 @@ def extend(changes, root):
     add('src/lib/standalone-attempt-client.ts','patches/issue333/attempt-client.ts')
     add('supabase/functions/standalone-attempt-333/handler.ts','patches/issue333/attempt-handler.ts',lambda s:s.replace("'./standalone-attempt.ts'","'../_shared/standalone-attempt.ts'"))
     add('supabase/functions/standalone-attempt-333/index.ts','patches/issue333/attempt-index.ts')
+    config='supabase/config.toml'
+    config_base=(root/config).read_text()
+    changes[config]=(config_base,config_base+"\n# #333 candidate only; applied exclusively in disposable integration.\n[functions.standalone-attempt-333]\nverify_jwt = true\n")
     # SQL is a proposed NEW destination; stays outside migrations in both trees.
     add('supabase/manual/20261017_issue333_attempts.PENDENTE.sql','supabase/manual/20261017_issue333_attempts.PENDENTE.sql')
     path='src/pages/StandaloneInvoiceScanner.tsx';old,s=changes[path]
-    s=s.replace('import { lookupStandalone, standaloneWriteError }','import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt } from "@/lib/standalone-attempt-client";\nimport type { Attempt } from "@shared/standalone-attempt";\nimport { lookupStandalone, standaloneWriteError }')
-    s=s.replace('  const pendingKey =', '  const [attempt, setAttempt] = useState<Attempt | null>(null);\n  const [resumeId, setResumeId] = useState("");\n  const [resumeHash, setResumeHash] = useState("");\n  const pendingKey =')
+    s=s.replace('import { lookupStandalone, standaloneWriteError }','import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt, listLegacyAttempts, type AttemptSummary } from "@/lib/standalone-attempt-client";\nimport type { Attempt } from "@shared/standalone-attempt";\nimport { lookupStandalone, standaloneWriteError }')
+    s=s.replace('  const pendingKey =', '  const [attempt, setAttempt] = useState<Attempt | null>(null);\n  const [attemptOptions,setAttemptOptions]=useState<AttemptSummary[]>([]);\n  const [resumeId, setResumeId] = useState("");\n  const [resumeHash, setResumeHash] = useState("");\n  const pendingKey =')
     s=s.replace('    setFile(null);\n    setScanCandidate(null);','    setAttempt(null);\n    setFile(null);\n    setScanCandidate(null);',1)
     start=s.index('      const ext =',s.index('  const save ='));end=s.index('      if (error) throw error;',start)+len('      if (error) throw error;')
     block=s[start:end];payload=block[block.index('        supplier_name:'):block.index('        status:')]
@@ -32,7 +35,7 @@ def extend(changes, root):
     s=s[:start]+replacement+s[end:]
     marker='  const [tab, setTab] = useState("scan");'
     s=s.replace(marker,'''  const generation = useRef(0);
-  useEffect(() => { generation.current += 1; setAttempt(null); setResumeId(""); setResumeHash(""); setWritePending(false); reset(); }, [user?.id, companyId]);
+  useEffect(() => { generation.current += 1; setAttempt(null); setResumeId(""); setResumeHash(""); setAttemptOptions([]); setWritePending(false); reset(); }, [user?.id, companyId]);
   const reconcile = async () => {
     if (!user || !companyId) return;
     const current = generation.current; setBusy("save");
@@ -47,8 +50,8 @@ def extend(changes, root):
   };
 '''+marker)
     s=s.replace('      <Tabs value={tab}', '''      <div className="space-y-2">
-        <Input aria-label="ID da tentativa" value={resumeId} onChange={e=>setResumeId(e.target.value)} />
-        <Input aria-label="Hash da tentativa" value={resumeHash} onChange={e=>setResumeHash(e.target.value)} />
+        <Button variant="outline" onClick={async()=>{if(!user||!companyId)return;const gen=generation.current,ctx={user_id:user.id,company_id:companyId};const all:AttemptSummary[]=[];let after:string|null=null;try{do{const page=await listLegacyAttempts("scanner_create",ctx,after);if(gen!==generation.current)return;all.push(...page.items);after=page.next;}while(after);setAttemptOptions(all);}catch{if(gen===generation.current)toast({title:"Consulta indisponível"});}}}>Procurar tentativas</Button>
+        <select aria-label="Tentativa a consultar" value={resumeId} onChange={e=>{const selected=attemptOptions.find(a=>a.id===e.target.value);setAttempt(null);setResumeId(selected?.id??"");setResumeHash(selected?.hash??"");}}><option value="">Selecionar tentativa</option>{attemptOptions.map(a=><option key={a.id} value={a.id}>{a.name} — {a.reference??"Sem número"} — {a.state} — {a.created_at}</option>)}</select>
         <Button variant="outline" onClick={reconcile} disabled={busy!==null || (!attempt && (!resumeId || !resumeHash))}>Consultar tentativa</Button>
       </div>
       <Tabs value={tab}''')
@@ -57,6 +60,8 @@ def extend(changes, root):
     s=s.replace('      setAttempt(reserved);','      if (saveGeneration !== generation.current) return;\n      setAttempt(reserved);')
     s=s.replace('      sessionStorage.removeItem(pendingKey);\n      setSaved(true);','      if (saveGeneration !== generation.current) return;\n      sessionStorage.removeItem(pendingKey);\n      setSaved(true);')
     s=s.replace('      if (writeStarted) setWritePending(true);','      if (saveGeneration !== generation.current) return;\n      if (writeStarted) setWritePending(true);')
+    save_start=s.index('  const save =')
+    s=s[:save_start]+s[save_start:].replace('      setBusy(null);\n    }\n  };', '      if(saveGeneration===generation.current)setBusy(null);\n    }\n  };',1)
     changes[path]=(old,s)
     # Assistant still uses canonical commit, wrapped with persistent attempt + atomic audit.
     path='supabase/functions/data-entry/handler.ts'
@@ -70,10 +75,10 @@ def extend(changes, root):
     changes[path]=(old,s)
     path='src/pages/contabilidade/AccountantStandaloneInvoicesTab.tsx';old,s=changes[path]
     s=s.replace('import { lookupStandalone, standaloneWriteError }','import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt } from "@/lib/standalone-attempt-client";\nimport type { Attempt } from "@shared/standalone-attempt";\nimport { lookupStandalone, standaloneWriteError }')
-    s=s.replace('  const pendingKey =','  const [attempt, setAttempt] = useState<Attempt | null>(null);\n  const [resumeId,setResumeId]=useState("");\n  const [resumeHash,setResumeHash]=useState("");\n  const attemptGeneration=useRef(0);\n  const pendingKey =')
-    s=s.replace('checkLegacyAttempt }', 'checkLegacyAttempt, resumeLegacyAttempt }')
+    s=s.replace('  const pendingKey =','  const [attempt, setAttempt] = useState<Attempt | null>(null);\n  const [attemptOptions,setAttemptOptions]=useState<AttemptSummary[]>([]);\n  const [resumeId,setResumeId]=useState("");\n  const [resumeHash,setResumeHash]=useState("");\n  const attemptGeneration=useRef(0);\n  const pendingKey =')
+    s=s.replace('checkLegacyAttempt }', 'checkLegacyAttempt, resumeLegacyAttempt, listLegacyAttempts, type AttemptSummary }')
     s=s.replace('import { useMemo, useState }', 'import { useMemo, useState, useRef, useEffect }',1)
-    s=s.replace('  const saveEdit = useMutation({', '  useEffect(()=>{attemptGeneration.current++;setAttempt(null);setResumeId("");setResumeHash("");setEditing(null);setWritePending(false);},[user?.id,companyId]);\n  const saveEdit = useMutation({')
+    s=s.replace('  const saveEdit = useMutation({', '  useEffect(()=>{attemptGeneration.current++;setAttempt(null);setResumeId("");setResumeHash("");setAttemptOptions([]);setEditing(null);setWritePending(false);},[user?.id,companyId]);\n  const saveEdit = useMutation({')
     s=s.replace('    mutationFn: async () => {', '    mutationFn: async () => {\n      const writeGeneration=attemptGeneration.current;',1)
     start=s.index('      sessionStorage.setItem(pendingKey, "pending");');end=s.index('      if (error) throw error;',start)+len('      if (error) throw error;')
     block=s[start:end];payload=block[block.index('          supplier_name:'):block.index('        })')]
@@ -93,8 +98,8 @@ def extend(changes, root):
       return writeGeneration;'''+s[end:]
     s=s.replace('    onSuccess: () => {', '    onSuccess: (completedGeneration) => {\n      if(completedGeneration!==attemptGeneration.current)return;',1)
     s=s.replace('    setEditing(r);','    setAttempt(null);\n    setEditing(r);',1)
-    s=s.replace('          <DialogFooter>', '''          <Input aria-label="ID da tentativa de edição" value={resumeId} onChange={e=>setResumeId(e.target.value)} />
-          <Input aria-label="Hash da tentativa de edição" value={resumeHash} onChange={e=>setResumeHash(e.target.value)} />
+    s=s.replace('          <DialogFooter>', '''          <Button variant="outline" onClick={async()=>{if(!user||!companyId)return;const gen=attemptGeneration.current,ctx={user_id:user.id,company_id:companyId};const all:AttemptSummary[]=[];let after:string|null=null;try{do{const page=await listLegacyAttempts("accountant_edit",ctx,after);if(gen!==attemptGeneration.current)return;all.push(...page.items);after=page.next;}while(after);setAttemptOptions(all);}catch{if(gen===attemptGeneration.current)toast({title:"Consulta indisponível"});}}}>Procurar tentativas de edição</Button>
+          <select aria-label="Tentativa de edição a consultar" value={resumeId} onChange={e=>{const selected=attemptOptions.find(a=>a.id===e.target.value);setAttempt(null);setResumeId(selected?.id??"");setResumeHash(selected?.hash??"");}}><option value="">Selecionar tentativa</option>{attemptOptions.map(a=><option key={a.id} value={a.id}>{a.name} — {a.reference??"Sem número"} — {a.state} — {a.created_at}</option>)}</select>
           <Button variant="outline" disabled={!attempt&&(!resumeId||!resumeHash)} onClick={async()=>{
             if(!user || !companyId)return;
             const gen=attemptGeneration.current,ctx={user_id:user.id,company_id:companyId};
@@ -108,7 +113,12 @@ def extend(changes, root):
     # Optional attempt ID on existing ingestion; absent remains untracked, never falsely global.
     path='supabase/functions/ingest-standalone-invoice/index.ts';old,s=changes[path]
     s=s.replace("import { findStrongCandidates", "import { executeAttempt, documentHash, type Attempt } from '../_shared/standalone-attempt.ts'\nimport { findStrongCandidates")
+    s=s.replace("import { executeAttempt, documentHash", "import { documentType, validateDocument, readCapped, MAX_DOCUMENT_BYTES } from '../data-entry/core.ts'\nimport { executeAttempt, documentHash")
     s=s.replace('const BodySchema = z.object({','const BodySchema = z.object({\n  attempt_id: z.string().uuid().optional(),')
+    s=s.replace('    bytes = new Uint8Array(await response.arrayBuffer())', '    try { bytes = await readCapped(response.body, MAX_BYTES) } catch { return json({error:"Documento superior ao limite"},413) }')
+    s=s.replace("      const binary = atob(", "      if(body.conteudo_base64.length>4*Math.ceil(MAX_BYTES/3)+256)return json({error:'Documento superior ao limite'},413)\n      const binary = atob(")
+    s=s.replace('  const contentType = detectType(bytes)', '  const contentType = documentType(bytes)')
+    s=s.replace("  const year =", "  try { validateDocument(bytes, contentType) } catch { return json({error:'Documento inválido'},422) }\n  const year =")
     marker='  const result = await persistInvoice({'
     s=s.replace(marker,'''  if (body.attempt_id) {
     const envelope={payload:(({company_id,...payload})=>payload)(expected),document:{sha256:await documentHash(bytes),size_bytes:bytes.length,mime:contentType},effects:['ingest_create']};
