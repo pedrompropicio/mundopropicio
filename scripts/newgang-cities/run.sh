@@ -18,7 +18,8 @@ s=s[:s.index(needle)]+'''
 "${PSQL[@]}" -f "$ROOT/drizzle/migrations/0186_issue332_city_contract.sql" >>"$LOG" 2>&1
 "${PSQL[@]}" -c "CREATE FUNCTION _clube_newgang_assert_access() RETURNS void LANGUAGE sql AS \$$ SELECT \$$; CREATE FUNCTION _clube_newgang_birth(j jsonb) RETURNS date LANGUAGE sql AS \$$ SELECT (j->>'birth_date')::date \$$;" >>"$LOG" 2>&1
 "${PSQL[@]}" -f "$OUT/official.sql" >>"$LOG" 2>&1
-"${PSQL[@]}" -f "$ROOT/supabase/manual/20261017_issue332_city_correction.PENDENTE.sql" >>"$LOG" 2>&1
+"${PSQL[@]}" -f "$ROOT/drizzle/migrations/0187_issue332_city_correction.sql" >>"$LOG" 2>&1
+"${PSQL[@]}" -f "$ROOT/supabase/manual/20261017_issue332_caop_reference_repair.PENDENTE.sql" >>"$LOG" 2>&1
 "${PSQL[@]}" -f "$ROOT/scripts/newgang-cities/scenario.sql" >>"$LOG" 2>&1
 bash "$ROOT/scripts/newgang-cities/concurrency.sh" "${PSQL[*]}" "$OUT" >>"$LOG" 2>&1
 "${PSQL[@]}" -f "$CANON/05_egress.sql" >>"$LOG" 2>&1

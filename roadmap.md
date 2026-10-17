@@ -4,7 +4,9 @@
 - [x] Provas/estado/questões/relatório; sincronização consultada, GitHub ancestral mas confirmação final pendente.
 - [x] Correção local autorizada13:31: país obrigatório/só cidade estrangeira opcional; SQL/testes/docs corrigidos,308CAOPzero diferenças local;41/41+61/61+3/3+4/4+1287Vitest.
 - [x] Gate inicial Fase B: cd9b4faa Lovable=remoto; CI/quality success13:02UTC. SELECT elegibilidade12:59:42:63membros/3emails.
-- [ ] Corrigir referência0186: cinco nomes divergiram na transcrição aplicada. BLOQUEADO14:08 após>31min: HEAD58414c83 não sincronizado com remoto6c5bbe2c; sem CI SHAatual. Nenhuma nova escrita Live permitida até gate confirmado.
+- [x] Gate por conteúdo aprovado14:14: remoto0cff4790;1436 ficheiros byte a byte iguais, diff vazio, CI/quality success.
+- [x] Aplicada0187: país obrigatório e cinco nomes pedidos corrigidos.
+- [ ] Reparar três novos erros de transcrição0187:0208 e1606/1607. SQL compacto com guarda hash e assinatura308testado41/41+61/61; BLOQUEADO14:36 após>15min:0187/metadados/runner/reparação divergem doGitHub0cff4790. Nenhuma nova escritaLive atégate.
 - [ ] Aplicar coletor estrito e deploy portal+sync após correção/verificação/gate; nenhuma dessas operações executada.
 - [ ] Prova Live membro teste sem Meta manual; SELECTs, SQL backfill/limpeza apresentados separadamente para Sim.
 - [ ] Fecho documental/reservas após aplicação/prova/limpeza; #323 preservada.
