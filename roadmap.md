@@ -8,8 +8,8 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
-- [ ] Corrigir config/CORS/SQL/documento/descoberta owner, consolidar provas integrais e prévia futura; apenas inerte/cópia isolada.
-- [ ] Preparar protocolo persistente legado compatível com chaves incompletas, SQL manual/patch inerte e testes integrados locais; sem aplicação principal/Live.
+- [x] Corrigir config/CORS/SQL/documento/descoberta owner, consolidar provas integrais e prévia futura; apenas inerte/cópia isolada.
+- [x] Preparar protocolo persistente legado compatível com chaves incompletas, SQL manual/patch inerte e testes integrados locais; sem aplicação principal/Live.
 - [x] Validar patch completo em cópia isolada, corrigir artefactos inertes e entregar gates da próxima fase; integrados31/PG36/handler20/geral1334, tsgo/Deno/build OK; sem Live. Provas10–12.
 - [x] Gate inicial: HEAD c37d972053f1585e45e81ff9b70011d2a4f371a6 e ancestralidade 150a4a13; #323 preservada; reserva/pedido recebido no QUADRO.
 - [x] Auditar contratos/permissões e entregar plano técnico versionado com matriz de operações e dependências.
