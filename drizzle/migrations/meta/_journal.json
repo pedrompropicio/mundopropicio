@@ -1289,6 +1289,13 @@
       "when": 1792232593802,
       "tag": "0183_issue332_consent_signup_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 184,
+      "version": "7",
+      "when": 1792236477889,
+      "tag": "0184_issue332_immediate_welcome",
+      "breakpoints": true
     }
   ]
 }
