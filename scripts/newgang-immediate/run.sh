@@ -11,6 +11,7 @@ s=s.replace('HERE="$(cd "$(dirname "$0")" && pwd)"',f'HERE="{root}/scripts/club-
 s=s.replace('ROOT="$(cd "$HERE/../.." && pwd)"',f'ROOT="{root}"')
 s+='''
 "${PSQL[@]}" -f "$ROOT/scripts/newgang-immediate/scenario.sql" >>"$LOG" 2>&1
+bash "$ROOT/scripts/newgang-immediate/concurrency.sh" "${PSQL[*]}" "$OUT" >>"$LOG" 2>&1
 say "RESULTADO #332 imediato: OK (SQL local, sem rede)"
 '''
 (out/'runner.sh').write_text(s)
