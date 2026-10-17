@@ -2,6 +2,7 @@ import { optionalRead, type Rpc } from "./profile.ts";
 export const CONSENT_TEXTS = {
  email: { version: "email-v3", text: "Aceito receber por email as novidades do Newgang Festival e do Clube Newgang, da Mundo Propício. Posso retirar a autorização a qualquer momento." },
  ads: { version: "anuncios-v1", text: "Autorizo a Mundo Propício a usar o meu email para anúncios no Meta, TikTok e Google. Posso retirar a qualquer momento." },
+ whatsapp: { version: "whatsapp-v1", text: "Aceito receber novidades da Mundo Propício no WhatsApp. Posso retirar a qualquer momento." },
 };
 export async function consentMe(rpc: Rpc, site: string, hash: string) {
  try {
@@ -17,7 +18,7 @@ export async function consentPreferences(rpc: Rpc, site: string, hash: string, p
  try {
   const {data,error}=await rpc("club_profile_preferences",{p_site:site,p_session_hash:hash,p_payload:payload});
   if(error) {
-   const status=error.message==="no_session"?401:error.message==="consent_payload"?400:
+   const status=error.message==="no_session"?401:["consent_payload","whatsapp_no_phone"].includes(error.message)?400:
     ["parental_flow_required","consent_policy_unavailable","idempotency_conflict","consent_revision_conflict"].includes(error.message)?409:503;
    return {status,body:{error:status===503?"consent_unavailable":error.message}};
   }
