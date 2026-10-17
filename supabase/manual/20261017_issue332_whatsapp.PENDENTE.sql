@@ -29,7 +29,7 @@ BEGIN
  IF p_phone IS NULL THEN RETURN NULL; END IF;
  SELECT decrypted_secret INTO k FROM vault.decrypted_secrets WHERE name='club_whatsapp_hmac_key' LIMIT 1;
  IF k IS NULL THEN RAISE EXCEPTION 'whatsapp_fp_unavailable'; END IF;
- RETURN encode(extensions.hmac(p_phone,k,'sha256'),'hex');
+ RETURN encode(extensions.hmac(convert_to(p_phone,'UTF8'),convert_to(k,'UTF8'),'sha256'),'hex');
 END $$;
 REVOKE EXECUTE ON FUNCTION public._club332_whatsapp_fp(text) FROM PUBLIC,anon,authenticated,service_role;
 
