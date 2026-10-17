@@ -8,6 +8,9 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
+- [ ] Validar SQL exata do leitor em PostgreSQL descartável real; aplicar única migração oficial apenas após PASS.
+- [ ] Integrar/testar leitor service-only e implantar somente standalone-attempt-333, mantendo gates fechados.
+- [ ] Conferir registry/corpo/ACL/baselines separados/negativas Live e entregar prova, estado e pendências.
 - [x] Reparar memória/índice e testar suite completa1359 PASS/tsgo/build OK; CI remota a conferir pelo controlador.
 - [x] Corrigir família/retorno/incerteza/paginação/contexto e testar interações sem egress.
 - [x] Retificar prova23 e entregar proposta de capacidade service-only, sem aplicação/deploy.
