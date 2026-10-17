@@ -1,7 +1,8 @@
 -- #332 imediato: DDL apenas, sem backfill/envios; cron existente preservado.
 ALTER TABLE public.club_welcome_reservations
  ADD COLUMN attempt_count integer NOT NULL DEFAULT 1,
- ADD COLUMN next_attempt_at timestamptz;
+ ADD COLUMN next_attempt_at timestamptz,
+ ADD COLUMN retry_safe boolean NOT NULL DEFAULT false;
 
 CREATE OR REPLACE FUNCTION public.club_welcome_reserve(p_company_id uuid, p_site_id uuid, p_member_id uuid, p_message_id text)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
@@ -23,7 +24,7 @@ BEGIN
     VALUES(p_member_id,p_site_id,p_company_id,p_message_id)
   ON CONFLICT(member_id) DO UPDATE SET status='reserved',attempt_count=r.attempt_count+1,
     next_attempt_at=NULL,updated_at=clock_timestamp()
-  WHERE r.status='error_pre_send' AND r.attempt_count<3
+  WHERE r.status='error_pre_send' AND r.retry_safe AND r.attempt_count<3
     AND r.site_id=p_site_id AND r.company_id=p_company_id AND r.message_id=p_message_id
     AND coalesce(r.next_attempt_at,r.updated_at+interval '5 minutes')<=clock_timestamp()
   RETURNING true INTO v_ok;
@@ -36,6 +37,7 @@ DECLARE n integer;
 BEGIN
   IF p_status NOT IN ('enqueued','error_pre_send','unknown') OR p_status IS NULL THEN RAISE EXCEPTION 'invalid status'; END IF;
   UPDATE public.club_welcome_reservations SET status=p_status,error=left(p_error,300),updated_at=clock_timestamp(),
+    retry_safe=(p_status='error_pre_send'),
     next_attempt_at=CASE WHEN p_status='error_pre_send' AND attempt_count<3 THEN clock_timestamp()+interval '5 minutes' END
   WHERE member_id=p_member_id AND (status='reserved' OR (status='unknown' AND p_status='enqueued'));
   GET DIAGNOSTICS n=ROW_COUNT;

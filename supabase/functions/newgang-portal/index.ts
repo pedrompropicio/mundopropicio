@@ -13,7 +13,7 @@ import { consentMe, consentPreferences } from "./person-consent.ts";
 import { publicEditions } from "./videos.ts";
 import { CREW_LINK, crewErrorStatus, crewView } from "./crews.ts";
 import { crewPendingAction, memberByEmail, mePendingCrew, PENDING_OPS } from "./pending.ts";
-import { requestAccessAction, PENDING_WINDOW_MS } from "./request-access.ts";
+import { requestAccessAction } from "./request-access.ts";
 import * as GW from "./wallet-google.ts";
 import { isServiceRoleRequest } from "../_shared/multiTenant.ts";
 import { PreSendError, sendWelcomeOnce } from "./welcome.ts";
@@ -585,7 +585,6 @@ Deno.serve(async (req) => {
           async (m) => { try { await sendClubLink(site, m, "access", crypto.randomUUID()); } catch (e) { console.error("request_access send:", (e as Error).message); } },
           (reason) => console.log(JSON.stringify({ action: "request_access", reason })),
           async (sid, email) => {
-            const now = new Date();
             const { data, error } = await sb.rpc("club_pending_capture_exists", {
               p_site_id: sid, p_email: email,
             });
