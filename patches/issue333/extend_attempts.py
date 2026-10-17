@@ -60,7 +60,8 @@ def extend(changes, root):
     s=s.replace('      setAttempt(reserved);','      if (saveGeneration !== generation.current) return;\n      setAttempt(reserved);')
     s=s.replace('      sessionStorage.removeItem(pendingKey);\n      setSaved(true);','      if (saveGeneration !== generation.current) return;\n      sessionStorage.removeItem(pendingKey);\n      setSaved(true);')
     s=s.replace('      if (writeStarted) setWritePending(true);','      if (saveGeneration !== generation.current) return;\n      if (writeStarted) setWritePending(true);')
-    s=s.replace('      setBusy(null);\n    }\n  };', '      if(saveGeneration===generation.current)setBusy(null);\n    }\n  };',1)
+    save_start=s.index('  const save =')
+    s=s[:save_start]+s[save_start:].replace('      setBusy(null);\n    }\n  };', '      if(saveGeneration===generation.current)setBusy(null);\n    }\n  };',1)
     changes[path]=(old,s)
     # Assistant still uses canonical commit, wrapped with persistent attempt + atomic audit.
     path='supabase/functions/data-entry/handler.ts'
