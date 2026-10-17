@@ -1,7 +1,7 @@
 import {handler} from './handler-under-test.ts';
 import {fake} from './handler-client.ts';
 function eq(a:unknown,b:unknown){if(JSON.stringify(a)!==JSON.stringify(b))throw new Error(`${JSON.stringify(a)} != ${JSON.stringify(b)}`);}
-async function call(action:string,email?:string){const r=await handler(new Request('https://example.invalid',{method:'POST',headers:{origin:'https://newgangfestival.pt','content-type':'application/json'},body:JSON.stringify({action,email,member_id:'m'})}));return {status:r.status,body:await r.json()};}
+async function call(action:string,email?:string){const r=await handler(new Request('https://example.invalid',{method:'POST',headers:action==='notify_member'?{'content-type':'application/json'}:{origin:'https://newgangfestival.pt','content-type':'application/json'},body:JSON.stringify({action,email,member_id:'33333333-3333-4333-8333-333333333333'})}));return {status:r.status,body:await r.json()};}
 function reset(){Object.assign(fake,{rateCalls:0,sessions:0,enqueues:0,accessMember:true,pending:false,reserved:false,preFail:false,queueFail:false,markStatus:''});}
 Deno.test('real handler normalized member sent/session/enqueue',async()=>{reset();eq(await call('request_access',' FIXTURE@EXAMPLE.INVALID '),{status:200,body:{ok:true,status:'sent'}});eq(fake.sessions,1);eq(fake.enqueues,1);});
 Deno.test('real handler not_member has no session/no queue',async()=>{reset();fake.accessMember=false;eq(await call('request_access','nobody@example.invalid'),{status:200,body:{ok:true,status:'not_member'}});eq([fake.sessions,fake.enqueues],[0,0]);});

@@ -1,6 +1,6 @@
 // newgang-portal — API pública do portal newgangfestival.pt (projeto Lovable separado).
 // verify_jwt = false: ABERTA por desenho. Usa service_role no servidor; o portal nunca escreve direto.
-// Regras: nenhuma resposta devolve totais de atrações; request_access responde igual exista ou não o email.
+// Regras: nenhuma resposta devolve totais de atrações; request_access só devolve sent/pending/not_member.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3.23.8";
 import { assertNoTotals, buildLineup, displayName } from "./lineup.ts";
@@ -485,6 +485,7 @@ Deno.serve(async (req) => {
   try {
     const pa = performance.now();
     const raw = await req.json();
+    if (raw?.action === "request_access" && typeof raw.email === "string") raw.email = raw.email.trim().toLowerCase();
     if (["profile_confirm", "profile_preferences"].includes(raw?.action) && Object.keys(raw).some(k => !["action", "token", "profile_payload", "preferences_payload"].includes(k))) return json({ error: "profile_payload" }, 400);
     const p = Body.safeParse(raw);
     timer.mark("parse", performance.now() - pa);
