@@ -1296,6 +1296,13 @@
       "when": 1792236477889,
       "tag": "0184_issue332_immediate_welcome",
       "breakpoints": true
+    },
+    {
+      "idx": 185,
+      "version": "7",
+      "when": 1792238357836,
+      "tag": "0185_issue332_whatsapp_consent",
+      "breakpoints": true
     }
   ]
 }
