@@ -88,9 +88,9 @@ it('UPDATE response lost after commit retains result/audit; altered metadata pro
  expect((await rpc(c2,'check',edit.id,null,edit.hash,U,'accountant_edit')).record_ok).toBe(false);
  expect(Number((await db`select count(*) n from standalone_attempt_audit_333 where attempt_id=${edit.id}`)[0].n)).toBe(1);
 });
-it('other legacy writer collision 23505 leaves attempt reserved and referenced object untouched',async()=>{
+it('D: existing legacy row with same strong key -> review (no 23505 nor success), leaves attempt reserved and referenced object untouched',async()=>{
  const num=randomUUID(),a=await ready(envelope({supplier_nif:'PT001',invoice_number:num,notes:randomUUID()}));await db`insert into standalone_invoices(company_id,storage_path,file_name,supplier_nif,invoice_number) values (${C},'referenced','old.pdf','PT001',${num})`;
- expect((await error(rpc(c2,'commit',a.id,null,a.hash)))?.code).toBe('23505');expect((await rpc(c2,'check',a.id,null,a.hash)).state).toBe('inprogress');expect((await db`select storage_path from standalone_invoices where invoice_number=${num}`)[0].storage_path).toBe('referenced');
+ expect((await rpc(c2,'commit',a.id,null,a.hash)).review_reason).toBe('strong_duplicate');expect((await rpc(c2,'check',a.id,null,a.hash)).state).toBe('review');expect((await db`select storage_path from standalone_invoices where invoice_number=${num}`)[0].storage_path).toBe('referenced');
 });
 it('SQL monotonicity enforced; immutable audit and identity; no financial writes',async()=>{
  const a=await ready(envelope({notes:randomUUID()}));expect((await error(db`update standalone_attempts_333 set state='prepare' where id=${a.id}`))?.message).toBe('#333: Transição recusada');expect((await error(db`delete from standalone_attempts_333 where id=${a.id}`))?.message).toBe('#333: Candidato preservado');
