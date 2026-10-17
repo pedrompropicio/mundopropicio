@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect, useRef, type ReactNode } from "react";
+import { useState, useMemo, useEffect, useRef, lazy, Suspense, type ReactNode } from "react";
+const DataEntryDialog = lazy(() => import("@/components/data-entry/DataEntryDialog"));
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
@@ -117,6 +118,7 @@ export default function Transactions() {
   const [sortMode, setSortMode] = useState<"due_date" | "category">("due_date");
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
+  const [showDataEntry, setShowDataEntry] = useState(false);
   const canApprove = hasPermission("approve_transactions");
   const navigate = useNavigate();
   const location = useLocation();
@@ -1445,6 +1447,21 @@ export default function Transactions() {
           </button>
           {(isAdmin || isManager || hasPermission("manage_ticket_offices")) && (
             <TicketOfficeSettlementLauncher />
+          )}
+          {(isAdmin || isManager) && (
+            <button
+              onClick={() => setShowDataEntry(true)}
+              className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
+              title="Assistente de Entrada de Dados (#333)"
+            >
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Assistente</span>
+            </button>
+          )}
+          {showDataEntry && (
+            <Suspense fallback={null}>
+              <DataEntryDialog open={showDataEntry} onOpenChange={setShowDataEntry} />
+            </Suspense>
           )}
           <button
             onClick={() => setShowForm(true)}

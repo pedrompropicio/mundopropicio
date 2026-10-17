@@ -385,6 +385,12 @@ verify_jwt = true
 [functions.create-user]
 verify_jwt = true
 
+# #333 Assistente de Entrada de Dados: só utilizadores autenticados; o código
+# valida ainda auth.getUser, current_company_id e permissões efectivas.
+[functions.data-entry]
+verify_jwt = true
+
+
 [functions.crm-assisted-assembly-compute]
 verify_jwt = true
 
