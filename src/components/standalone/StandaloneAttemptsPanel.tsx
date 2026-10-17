@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { onActiveCompanyChanged } from "@/lib/permissions";
 import { listLegacyAttempts, confirmNewIntent, attemptRequest, canConfirmNewIntent, latestInFamily, reviewMessage, type AttemptSummary, type Context } from "@/lib/standalone-attempt-client";
 
 const STATE_LABEL: Record<string, string> = {
@@ -31,6 +32,7 @@ export function StandaloneAttemptsPanel({ operation, context, onSelect, onBlocke
   const selectRef = useRef(onSelect); selectRef.current = onSelect;
   const blockedRef = useRef(onBlocked); blockedRef.current = onBlocked;
   const active = (g: number, s: string) => g === gen.current && s === liveScope.current;
+  useEffect(() => onActiveCompanyChanged(() => {gen.current++; setItems(null); setSelected(""); setComplete(false); setNext(null); setConfirming(false); setBusy(false); selectRef.current(null);}), []);
 
   useEffect(() => {
     gen.current++; flight.current = false; cursors.current.clear();

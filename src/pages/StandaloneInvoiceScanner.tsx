@@ -23,6 +23,7 @@ import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeL
 import { StandaloneAttemptsPanel } from "@/components/standalone/StandaloneAttemptsPanel";
 import type { Attempt } from "@shared/standalone-attempt";
 import { lookupStandalone, standaloneWriteError } from "@/lib/standalone-identity-lookup";
+import { onActiveCompanyChanged } from "@/lib/permissions";
 import {
   calculateStandaloneEur,
   isStandaloneInvoiceDuplicateError,
@@ -369,6 +370,7 @@ export default function StandaloneInvoiceScanner() {
   };
 
   const generation = useRef(0);
+  useEffect(()=>onActiveCompanyChanged(()=>{generation.current++;setBusy(null);setAttempt(null);setResumeId("");setResumeHash("");setWritePending(true);reservation.current=true;}),[]);
   useEffect(() => { generation.current += 1; saving.current=false; reservation.current=sessionStorage.getItem(pendingKey)!==null; setAttempt(null); setResumeId(""); setResumeHash(""); setReview(null); setWritePending(reservation.current); setBusy(null); reset(); }, [user?.id, companyId]);
   const reconcile = async () => {
     if (!user || !companyId) return;

@@ -19,6 +19,7 @@ import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeL
 import { StandaloneAttemptsPanel } from "@/components/standalone/StandaloneAttemptsPanel";
 import type { Attempt } from "@shared/standalone-attempt";
 import { lookupStandalone, standaloneWriteError } from "@/lib/standalone-identity-lookup";
+import { onActiveCompanyChanged } from "@/lib/permissions";
 
 interface Row {
   id: string;
@@ -116,6 +117,7 @@ export function AccountantStandaloneInvoicesTab() {
   };
 
   useEffect(()=>{attemptGeneration.current++;saving.current=false;reservation.current=false;setAttempt(null);setResumeId("");setResumeHash("");setEditing(null);setWritePending(false);},[user?.id,companyId]);
+  useEffect(()=>onActiveCompanyChanged(()=>{attemptGeneration.current++;setEditing(null);setAttempt(null);setResumeId("");setResumeHash("");}),[]);
   const saveEdit = useMutation({
     mutationFn: async () => {
       const writeGeneration=attemptGeneration.current;

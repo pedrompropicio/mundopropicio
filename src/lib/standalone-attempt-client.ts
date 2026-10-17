@@ -1,18 +1,24 @@
 /** Browser adapter. No local storage authority and no direct mutations. */
 import { supabase } from '@/integrations/supabase/client';
 import { documentHash, type Attempt } from '@shared/standalone-attempt';
+import { ACTIVE_COMPANY_CHANGED_EVENT } from '@/lib/permissions';
+let contextEpoch=0;
+if(typeof window!=='undefined')window.addEventListener(ACTIVE_COMPANY_CHANGED_EVENT,()=>{contextEpoch++});
 export type Context={user_id:string;company_id:string};
 export class AttemptContextError extends Error {}
 export async function assertAttemptContext(context:Context) {
+ const epoch=contextEpoch;
  const session=await supabase.auth.getSession();const token=session.data.session?.access_token;
  if(!token || session.data.session?.user.id!==context.user_id)throw new AttemptContextError('Contexto alterado');
  const eff=await supabase.rpc('my_effective_permissions',{p_universe:[]});
  if(eff.error || (eff.data as {company_id?:string}|null)?.company_id!==context.company_id)throw new AttemptContextError('Contexto alterado');
  const fresh=await supabase.auth.getSession();
- if(fresh.data.session?.user.id!==context.user_id)throw new AttemptContextError('Contexto alterado');
+ if(fresh.data.session?.user.id!==context.user_id || epoch!==contextEpoch)throw new AttemptContextError('Contexto alterado');
 }
 export async function attemptRequest(body:Record<string,unknown>,context:Context) {
+ const epoch=contextEpoch;
  await assertAttemptContext(context);
+ if(epoch!==contextEpoch)throw new AttemptContextError('Contexto alterado');
  const {data,error}=await supabase.functions.invoke('standalone-attempt-333',{body,headers:{'X-Attempt-User':context.user_id,'X-Attempt-Company':context.company_id}});
  await assertAttemptContext(context);
  if(error || !data)throw new Error('Resultado por confirmar. Consulta a tentativa; não repitas.');
@@ -61,10 +67,11 @@ export const latestInFamily=(a:AttemptSummary,items:AttemptSummary[],complete:bo
 };
 /** An existing reservation never falls back to a legacy write, even on endpoint failure. */
 export async function resolveAttemptRoute(operation:keyof AttemptCapabilities,context:Context,reserved:boolean,isCurrent:()=>boolean) {
+ const epoch=contextEpoch;
  if(reserved)throw new Error('Consulta a tentativa reservada; não inicies outra gravação');
  const capabilities=await attemptCapabilities(context);
- if(!isCurrent())throw new AttemptContextError('Contexto alterado');
+ if(!isCurrent() || epoch!==contextEpoch)throw new AttemptContextError('Contexto alterado');
  await assertAttemptContext(context);
- if(!isCurrent())throw new AttemptContextError('Contexto alterado');
+ if(!isCurrent() || epoch!==contextEpoch)throw new AttemptContextError('Contexto alterado');
  return capabilities[operation] ? 'tracked' : 'legacy_untracked';
 }
