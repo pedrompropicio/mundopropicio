@@ -1,8 +1,10 @@
 # ESTADO — newgang-portal
 
-Atualizado: 17/10/2026 12:10 UTC. Frente: newgangfestival.pt.
+Atualizado: 17/10/2026 12:51 UTC. Frente: newgangfestival.pt.
 
 ## Em que pé está
+- #332 cidade/lista FASE A preparada, NÃO aplicada: CAOP308/hash/método, normalização servidor/cities/CRM/backfill inerte; ramo atual anúncios-v1 por pessoa email-only. SQL32/32 cidade e32/32 lista;1285Vitest; nenhum deploy/DML/DDL/sync/cron/Publish. Provas cidade-fase-a.md/lista-fase-a.md. Fase B aguarda novo Sim e resolver deploysync/cronativo/paísportal/Lagoa nominal.
+
 - #332 whatsapp APLICADO e FECHADO (17/10 12:10 UTC): migração 0185 + deploy só `newgang-portal`.
   Canal `whatsapp` (versão whatsapp-v1) no ledger append-only, ligado ao número do perfil por
   HMAC-SHA256 (chave em `app_secrets`, RLS sem grants, nunca exibida); sem número em claro no livro.
@@ -19,7 +21,7 @@ Atualizado: 17/10/2026 12:10 UTC. Frente: newgangfestival.pt.
   ledger #322 por membro/site/finalidade; backfill 47 linhas, 0 duplicadas. Provas:
   consentimento-pessoa.md e aplicacao-signup-backfill.md.
 - #332 passo 4 Meta: ramo newgang_clube:v2 (migração 0181) verificado em Live; P_NG27_LISTA
-  enabled=false, audience_id_meta=NULL, replace=true; nenhum envio.
+  histórico02:42 enabled=false/ligaçãoNULL; SELECT12:45 agora enabled=true/linked/replace, cron2499 ativo, last04:35ok/1local. Alterações externas posteriores, não feitas nesta Fase A.
 
 ## Outras frentes preservadas
 - #327: configuração 2027-v1 ativa; inscrição 100, indicação 75/cap 750, Crew 100; níveis Gang 0/Crew 750/Goat 3000; compras indisponíveis; direitos adquiridos preservados.
@@ -28,14 +30,14 @@ Atualizado: 17/10/2026 12:10 UTC. Frente: newgangfestival.pt.
 - Portal separado não alterado; Publish por Pedro. Artes Wallet aprovadas; visual no dispositivo pendente.
 
 ## A trabalhar agora
-Nada em execução. Reserva #332 whatsapp libertada.
+Preparação encerrada; reservas #332 cidade e #332 lista aguardam decisão Fase B (sem execução Live). Reserva WhatsApp permanece libertada.
 
 ## Próximos passos
 - Portal separado: caixa WhatsApp (marcada só se granted E valid_for_current_number=true; versão visível);
   caixa email marcada para granted de qualquer versão; estados pending do request_access; Publish por Pedro.
 - Texto whatsapp-v1 aguarda validação jurídica antes de qualquer Publish.
 - Descadastro/«PARAR» por WhatsApp: modelo preparado, sem envios nem webhooks (a implementar quando decidido).
-- Pedro publicar portal com consent_text_version clube-newgang-v2 e criar/ligar público Meta; depois reconsultar elegibilidade e autorizar separadamente ativação/envio/cron.
+- Lista já ligada/ativa por outra frente: confirmar riscos e autorização Fase B em docs/questoes-332-cidade-lista-fase-a.md; nunca contar consentimento emailv2 como anúncios.
 - TikTok/Google, pixels e restante #332 fora desta etapa; coordenar #322 sem sobrepor.
 - Pendências anteriores: fluxo parental verificável, PDF na primeira conclusão de perfil, link Fever, primeira revelação, fotos/aftermovies, benefícios a decidir. Early entry suspenso até validação MEO Arena.
 

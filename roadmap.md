@@ -1,15 +1,6 @@
-# #332 — cidade e lista (Fase A)
-- [ ] Cidade: referência CAOP 308, normalização servidor e cities, summary, backfill inerte, testes locais.
-- [ ] Lista: reserva própria após cidade; coletor estrito com phone=NULL, contagens e testes reais/concorrência.
-- [ ] Provas/contratos, sincronização final e relatório; aplicação/deploy/backfills/E2E Live aguardam Sim Fase B.
-- [x] Consentimento/imediato/WhatsApp anteriores fechados; tarefas históricas abaixo superadas pelos fechos em docs/testes/issue332/.
-- [ ] #332 imediato: ingestão canónica na inserção e retry pré-fila limitado; unknown manual.
-- [ ] request_access pending 30min; testes SQL/Deno/Vitest e aplicação/deploy.
-- [ ] Prova ponta a ponta @mundopropicio.com; tempos/pontos; limpeza aguarda Sim Pedro.
-- [x] HEADs e contratos lidos; reserva #322 transferida por Pedro, #323 preservada.
-- [x] Extensão aditiva do ledger, ligação membro e histórico email-v3; RPCs de sessão e descadastro atómico.
-- [x] API profile_preferences e me; pontos, perfil, MP/Coala e lista existentes preservados.
-- [x] Testes locais, regressões e aplicação/verificação em Live sem dados fictícios ou envios.
-- [x] Documentação e libertação da reserva.
-- [ ] Comentário #332 — bloqueado por ausência de conexão GitHub acessível.
-- [ ] CI GitHub final — aguarda sincronização do último commit.
+# #332 — cidade/lista
+- [x] Cidade: CAOP308, normalização/cities/CRM, backfill inerte, SQL32/32+handler2/2+unit4/4.
+- [x] Lista: reserva separada, coletor estrito/phoneNULL/email-only, SQL32/32 com concorrência e legados; regressões e1285Vitest.
+- [x] Provas/estado/questões/relatório; sincronização consultada, GitHub ancestral mas confirmação final pendente.
+- [ ] Fase B — bloqueada até Sim e decisões de deploysync/cronativo/paísportal/Lagoa; revalidar HEAD/CI antes de Live.
+- [ ] GitHub CI/sincronização final — dependem do serviço de sincronização, não confirmados.
