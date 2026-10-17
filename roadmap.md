@@ -3,7 +3,9 @@
 - [x] Lista: reserva separada, coletor estrito/phoneNULL/email-only, SQL32/32 com concorrência e legados; regressões e1285Vitest.
 - [x] Provas/estado/questões/relatório; sincronização consultada, GitHub ancestral mas confirmação final pendente.
 - [x] Estrangeiro opcional ajustado localmente; CITY40/40 e regressão33056/56. Nenhuma aplicação Live.
-- [ ] Fase B autorizada12:55 — PARADA12:57: HEAD7081755e local ainda não sincronizado com GitHub063db408; CI ausente para SHAatual. Não aplicar/deploy/testeLive antes de confirmar.
+- [x] Gate inicial Fase B: cd9b4faa Lovable=remoto; CI/quality success13:02UTC. SELECT elegibilidade12:59:42:63membros/3emails.
+- [ ] Corrigir referência0186: cinco nomes divergiram na transcrição aplicada. BLOQUEADO13:25 após>20min: HEAD5078351e não sincronizado com remotocd9b4faa; sem CI SHAatual. Nenhuma nova escrita Live permitida até gate confirmado.
+- [ ] Aplicar coletor estrito e deploy portal+sync após correção/verificação/gate; nenhuma dessas operações executada.
 - [ ] Prova Live membro teste sem Meta manual; SELECTs, SQL backfill/limpeza apresentados separadamente para Sim.
 - [ ] Fecho documental/reservas após aplicação/prova/limpeza; #323 preservada.
 - [x] Pré-verificação inicial HEAD063db408 igual GitHub; workflowCI/quality success para esse SHA.
