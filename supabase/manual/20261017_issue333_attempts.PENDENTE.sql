@@ -43,11 +43,13 @@ BEGIN
  IF p_action NOT IN ('prepare','authorize','begin','commit','check') OR p_action IS NULL THEN RAISE EXCEPTION '#333: Ação recusada' USING ERRCODE='22023'; END IF;
  IF p_action='prepare' THEN
   IF jsonb_typeof(p_envelope) IS DISTINCT FROM 'object' OR
-    (p_envelope - ARRAY['payload','document','effects','target','before']) <> '{}'::jsonb OR
+    (p_envelope - ARRAY['payload','document','effects','target','before','preview_id','snapshot_hash']) <> '{}'::jsonb OR
     jsonb_typeof(p_envelope->'payload') IS DISTINCT FROM 'object' OR
     jsonb_typeof(p_envelope->'effects') IS DISTINCT FROM 'array' OR
     jsonb_typeof(p_envelope->'document') IS DISTINCT FROM 'object' THEN RAISE EXCEPTION '#333: Envelope inválido' USING ERRCODE='22023'; END IF;
   payload:=p_envelope->'payload';
+  IF p_operation<>'assistant_create' AND (p_envelope ? 'preview_id' OR p_envelope ? 'snapshot_hash') THEN RAISE EXCEPTION '#333: Prévia recusada' USING ERRCODE='22023'; END IF;
+  IF p_envelope->'effects' <> jsonb_build_array(p_operation) AND p_operation<>'assistant_create' THEN RAISE EXCEPTION '#333: Efeitos divergentes' USING ERRCODE='22023'; END IF;
   allowed:=ARRAY['supplier_name','supplier_nif','invoice_number','invoice_date','currency','original_amount','fx_rate','fx_rate_source','total_amount','iva_amount','paid_by_partner_id','notes','file_name','created_by'];
   FOR key IN SELECT jsonb_object_keys(payload) LOOP
    IF NOT key=ANY(allowed) THEN RAISE EXCEPTION '#333: Campo recusado' USING ERRCODE='22023'; END IF;
@@ -86,8 +88,8 @@ BEGIN
    new_id:=coalesce(p_id,gen_random_uuid());
    ext:=CASE p_envelope->'document'->>'mime' WHEN 'application/pdf' THEN '.pdf' WHEN 'image/png' THEN '.png' ELSE '.jpg' END;
    INSERT INTO public.standalone_attempts_333(id,company_id,principal,operation,envelope,envelope_hash,destination_id,path)
-   VALUES(new_id,c,principal_value,p_operation,p_envelope,h,CASE WHEN p_operation='accountant_edit' THEN inv.id ELSE gen_random_uuid() END,
-    CASE WHEN p_operation='accountant_edit' THEN inv.storage_path ELSE c::text||'/attempt333/'||new_id::text||'/'||(p_envelope->'document'->>'sha256')||ext END) RETURNING * INTO v;
+   VALUES(new_id,c,principal_value,p_operation,p_envelope,h,CASE WHEN p_operation='accountant_edit' THEN inv.id WHEN p_operation='assistant_create' THEN (SELECT destination_id FROM data_entry_previews WHERE id=(p_envelope->>'preview_id')::uuid) ELSE gen_random_uuid() END,
+    CASE WHEN p_operation='accountant_edit' THEN inv.storage_path WHEN p_operation='assistant_create' THEN c::text||'/assistant333/'||(SELECT document_id::text FROM data_entry_previews WHERE id=(p_envelope->>'preview_id')::uuid)||'/'||(p_envelope->'document'->>'sha256')||ext ELSE c::text||'/attempt333/'||new_id::text||'/'||(p_envelope->'document'->>'sha256')||ext END) RETURNING * INTO v;
   END IF;
  ELSE
   SELECT * INTO v FROM public.standalone_attempts_333 WHERE id=p_id FOR UPDATE;
@@ -109,7 +111,11 @@ BEGIN
     IF p_operation<>'accountant_edit' AND EXISTS(SELECT 1 FROM public.standalone_invoices WHERE id=v.destination_id) THEN RAISE EXCEPTION '#333: Destino ocupado sem auditoria' USING ERRCODE='40001'; END IF;
     -- Full row conversion validates UUID/date fields; only whitelisted fields are mutable.
     inv:=jsonb_populate_record(NULL::public.standalone_invoices,payload);
-    IF p_operation='accountant_edit' THEN
+    IF p_operation='assistant_create' THEN
+     -- Existing strict snapshot/role/settings/ERP validation + financial mutation preserved.
+     PERFORM public.data_entry_commit((v.envelope->>'preview_id')::uuid,v.envelope->>'snapshot_hash');
+     SELECT to_jsonb(i.*) INTO result_row FROM public.standalone_invoices i WHERE i.id=v.destination_id AND i.company_id=c;
+    ELSIF p_operation='accountant_edit' THEN
      UPDATE public.standalone_invoices SET supplier_name=inv.supplier_name,supplier_nif=inv.supplier_nif,invoice_number=inv.invoice_number,invoice_date=inv.invoice_date,
       currency=inv.currency,original_amount=inv.original_amount,fx_rate=inv.fx_rate,fx_rate_source=inv.fx_rate_source,total_amount=inv.total_amount,iva_amount=inv.iva_amount,
       paid_by_partner_id=inv.paid_by_partner_id,notes=inv.notes WHERE id=v.destination_id AND company_id=c RETURNING to_jsonb(standalone_invoices.*) INTO result_row;
@@ -131,8 +137,11 @@ END $$;
 REVOKE ALL ON FUNCTION public.standalone_attempt_internal_333(text,uuid,text,jsonb,text,uuid,boolean) FROM PUBLIC,anon,authenticated,service_role;
 
 CREATE FUNCTION public.standalone_attempt_333(p_action text,p_id uuid,p_operation text,p_envelope jsonb,p_hash text)
-RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$
- SELECT public.standalone_attempt_internal_333(p_action,p_id,p_operation,p_envelope,p_hash,NULL,false)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+BEGIN
+ IF p_operation NOT IN ('scanner_create','accountant_edit') OR p_operation IS NULL THEN RAISE EXCEPTION '#333: Operação recusada' USING ERRCODE='42501'; END IF;
+ RETURN public.standalone_attempt_internal_333(p_action,p_id,p_operation,p_envelope,p_hash,NULL,false);
+END
 $$;
 REVOKE ALL ON FUNCTION public.standalone_attempt_333(text,uuid,text,jsonb,text) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION public.standalone_attempt_333(text,uuid,text,jsonb,text) TO authenticated;
@@ -142,6 +151,27 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$
 $$;
 REVOKE ALL ON FUNCTION public.standalone_ingest_attempt_333(uuid,text,uuid,jsonb,text) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION public.standalone_ingest_attempt_333(uuid,text,uuid,jsonb,text) TO service_role;
+
+-- Separate assistant wrapper: envelope/identity/effects derived from immutable server preview.
+CREATE FUNCTION public.data_entry_attempt_333(p_action text,p_preview uuid,p_snapshot_hash text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE p public.data_entry_previews; s public.data_entry_sessions; d public.data_entry_documents; e jsonb; h text; a public.standalone_attempts_333;
+BEGIN
+ SELECT * INTO p FROM public.data_entry_previews WHERE id=p_preview;
+ IF p.id IS NULL THEN RAISE EXCEPTION '#333: Prévia indisponível' USING ERRCODE='42501'; END IF;
+ s:=public.data_entry_own_session(p.session_id,true);
+ IF p_snapshot_hash IS DISTINCT FROM p.snapshot_hash THEN RAISE EXCEPTION '#333: Prévia divergente' USING ERRCODE='40001'; END IF;
+ SELECT * INTO d FROM public.data_entry_documents WHERE id=p.document_id AND company_id=s.company_id;
+ e:=jsonb_build_object('payload',(p.snapshot->'fields'-'customer_nif')||jsonb_build_object('file_name',d.name,'created_by',auth.uid()),
+  'document',jsonb_build_object('sha256',d.sha256,'size_bytes',d.size_bytes,'mime',d.mime),'effects',p.snapshot->'effects','preview_id',p.id,'snapshot_hash',p.snapshot_hash);
+ h:=encode(extensions.digest(convert_to(e::text,'UTF8'),'sha256'),'hex');
+ IF p_action='prepare' THEN RETURN public.standalone_attempt_internal_333('prepare',NULL,'assistant_create',e,NULL,NULL,false); END IF;
+ SELECT * INTO a FROM public.standalone_attempts_333 WHERE company_id=s.company_id AND principal=auth.uid()::text AND operation='assistant_create' AND envelope_hash=h;
+ IF a.id IS NULL THEN RAISE EXCEPTION '#333: Reserva antes do upload obrigatória' USING ERRCODE='42501'; END IF;
+ RETURN public.standalone_attempt_internal_333(p_action,a.id,'assistant_create',NULL,h,NULL,false);
+END $$;
+REVOKE ALL ON FUNCTION public.data_entry_attempt_333(text,uuid,text) FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.data_entry_attempt_333(text,uuid,text) TO authenticated;
 
 CREATE FUNCTION public.standalone_attempt_guard_333() RETURNS trigger LANGUAGE plpgsql SET search_path=public,pg_temp AS $$
 BEGIN

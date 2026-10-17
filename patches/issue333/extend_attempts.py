@@ -58,6 +58,15 @@ def extend(changes, root):
     s=s.replace('      sessionStorage.removeItem(pendingKey);\n      setSaved(true);','      if (saveGeneration !== generation.current) return;\n      sessionStorage.removeItem(pendingKey);\n      setSaved(true);')
     s=s.replace('      if (writeStarted) setWritePending(true);','      if (saveGeneration !== generation.current) return;\n      if (writeStarted) setWritePending(true);')
     changes[path]=(old,s)
+    # Assistant still uses canonical commit, wrapped with persistent attempt + atomic audit.
+    path='supabase/functions/data-entry/handler.ts'
+    old=(root/path).read_text();s=old
+    s=s.replace('      await putVerified("standalone-invoices", finalPath, bytes, doc.mime, hash);', '''      await rpc("data_entry_attempt_333", {p_action:"prepare",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
+      await rpc("data_entry_attempt_333", {p_action:"authorize",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
+      await rpc("data_entry_attempt_333", {p_action:"begin",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
+      await putVerified("standalone-invoices", finalPath, bytes, doc.mime, hash);''')
+    s=s.replace('const commit = await d.userRpc(token, "data_entry_commit", { p_preview: preview.id, p_snapshot_hash: body.snapshot_hash });','const commit = await d.userRpc(token, "data_entry_attempt_333", {p_action:"commit",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});')
+    changes[path]=(old,s)
     path='src/pages/contabilidade/AccountantStandaloneInvoicesTab.tsx';old,s=changes[path]
     s=s.replace('import { lookupStandalone, standaloneWriteError }','import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt } from "@/lib/standalone-attempt-client";\nimport type { Attempt } from "@shared/standalone-attempt";\nimport { lookupStandalone, standaloneWriteError }')
     s=s.replace('  const pendingKey =','  const [attempt, setAttempt] = useState<Attempt | null>(null);\n  const pendingKey =')
