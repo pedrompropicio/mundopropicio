@@ -2,33 +2,37 @@
 
 ## Definição e impacto
 
-`supabase/manual/20261017_issue333_normalized_uniqueness.PROPOSTA.sql` adicionaria um segundo índice, preservando o exato. Igualdade por empresa + NIF + número em maiúsculas ASCII, sem pontuação/espaços. Prefixos de país e zeros mantidos; NULL/normalizado vazio não identificam fatura e ficam excluídos. Não é deduplicação por semelhança.
+PROPOSTA REVISTA 17/10/2026: `supabase/manual/20261017_issue333_normalized_uniqueness.PROPOSTA.sql` adicionaria um segundo índice, preservando o exato. Igualdade por empresa + NIF + número com APENAS trim ASCII SPACE exterior e conversão ASCII a-z→A-Z. Collation C explícita. Todos os separadores internos, pontuação, prefixos, zeros e não-ASCII preservados. NULL/vazio após trim fora do índice. Política proposta para revisão, não aplicada nem decisão comercial fechada.
 
-Isto altera TODOS os escritores de `standalone_invoices`: scanner, ingestão legada, assistente e edição. Inserts/updates com variação apenas de caixa/separadores passariam a receber 23505. O helper do scanner reconhece 23505; a ingestão legada pode precisar de uma conferência explícita de duplicado em vez de erro genérico. Não transformar o conflito em sucesso/reused sem comparar documento e metadados. Nenhum escritor, trigger ou índice global foi alterado nesta tarefa.
+Exemplos: ` ft1/23 ` = `FT1/23`; `FT1/23` distinto de `FT12/3`; `AB-12` distinto de `AB1-2`; `FT01/23` distinto de `FT1/23`; `PT001` distinto de `001`, `PT01`, `PT 001` e `PT-001`. Tabs, NBSP e acentos não são colapsados. `FT1/23`/`FT12/3` e `AB-12`/`AB1-2` dão sinal amplo ambíguo, NUNCA bloqueio automático/reused. A normalização destrutiva anterior foi rejeitada como identidade.
+
+Isto altera todos os INSERT/UPDATE de chaves, inclusive acesso direto futuro. Caixa ASCII e espaços exteriores equivalentes passariam a 23505. Número sem significado conhecido: preservar literalmente, não inferir formato de fornecedor. Compatibilidade preparada em `patches/issue333/compatibility.PENDENTE.patch`, não aplicada: definição partilhada banco/#333/scanner/ingestão/edição, mensagens seguras, reused só com identidade forte + metadados completos + bytes SHA256. Campos insuficientes/divergentes → 409. INSERT novo com campos opcionais continua permitido conforme legado; insuficiência não vira equivalência. EUR/USD/BRL/GBP legadas preservadas; #333 só EUR.
 
 ## Levantamento somente SELECT
 
-17/10/2026, consulta agregada do agente: 0 grupos de conflito normalizado; 32 chaves incompletas. Catálogo: sessions ausente, commit ausente, 0 buckets staging. Zero grupos agora NÃO autoriza ativação e não protege inserts futuros. Nenhum NIF, nome, ID de fatura ou documento incluído nesta prova.
+Levantamento ANTERIOR, política ampla: 0 grupos e 32 chaves incompletas (prova05). NÃO é preflight da política forte atual. Nenhuma consulta Live nesta continuação. Catálogo ausente informado pela revisão do Pedro; não reconsultado. Antes de janela autorizada repetir SELECT agregado abaixo e revisão privada; nunca publicar linhas pessoais/documentos.
 
 ```sql
 SELECT count(*) AS conflict_groups FROM (
- SELECT company_id, upper(regexp_replace(supplier_nif,'[^A-Za-z0-9]','','g')),
- upper(regexp_replace(invoice_number,'[^A-Za-z0-9]','','g'))
+ SELECT company_id,
+ translate(btrim(supplier_nif,' '),'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ') COLLATE "C",
+ translate(btrim(invoice_number,' '),'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ') COLLATE "C"
  FROM public.standalone_invoices
- WHERE nullif(upper(regexp_replace(supplier_nif,'[^A-Za-z0-9]','','g')),'') IS NOT NULL
- AND nullif(upper(regexp_replace(invoice_number,'[^A-Za-z0-9]','','g')),'') IS NOT NULL
+ WHERE nullif(btrim(supplier_nif,' '),'') IS NOT NULL
+ AND nullif(btrim(invoice_number,' '),'') IS NOT NULL
  GROUP BY 1,2,3 HAVING count(*)>1
 ) x;
 ```
 
 ## Rollout seguro, pendente
 
-1. Autorização explícita da mudança global e coordenação com #323. Upload/execute continuam fechados.
-2. Inventariar escritores/edições, testar 23505 e apresentação de divergência; repetir SELECT privado imediatamente antes da janela.
-3. Se surgir conflito: suspender rollout e rever individualmente com Pedro. Sem apagar/mesclar/backfill implícito.
-4. Migração tracked própria; execução CONCURRENTLY fora de transação; verificar índice válido, grants inalterados e regressões em escritores legados antes de eventual ativação #333.
-5. Falha: não ativar. Inspecionar índice inválido e só remover esse índice com autorização. Rollback DROP INDEX CONCURRENTLY; manter índice exato, dados e auditoria intactos. Rollback implica #333 fechada por regressar a janela de duplicação.
+1. Rever política forte (caixa ASCII/exterior trim) e patches/contratos; autorização futura de aplicação separada, coordenação com reserva operacional #323. Nada executado agora.
+2. Compatibilidade PRIMEIRO: validar hashes base/prepared, aplicar patch em janela autorizada, testes e deploy/publicação especificamente autorizados. Confirmar clientes atualizados/sem sessões antigas antes do índice. Conservação de candidatos privados em erro/unknown; sem cron.
+3. Preflight agregado imediato, catálogo/definição do índice exato e contagem de chaves incompletas, backups/restore aprovados. Qualquer conflito forte → parar/rever privadamente com Pedro; zero merge/delete/backfill. Sinal amplo separado sem bloquear distintas.
+4. Com escritores coordenados, índice EXATO PROPOSTO CONCURRENTLY fora de transação, por mecanismo de aplicação autorizado; SQL manual fora de migrações autoaplicadas nesta etapa. Falha/cancelamento pode deixar índice inválido; verificar pg_index.indisvalid/indisready e pg_get_indexdef. Não usar IF NOT EXISTS para esconder índice inválido.
+5. Validar grants/RLS/índice exato anteriores intactos, 23505 em INSERT/UPDATE e comportamento de todos os clientes. #333 permanece fechado até prova Cloud real, SQL/RPC próprios e auditoria/retoma revisados; índice sozinho NÃO autoriza ativação.
+6. Falha/rollback: manter #333 fechado, conservar compatibilidade segura; inspecionar índice inválido e remover SOMENTE o índice proposto, com autorização (`DROP INDEX CONCURRENTLY public.uq_standalone_invoice_normalized_333`). Não apagar dados/anexos para fazê-lo caber. Retorno sem índice reinstaura janela equivalente — não ativar.
 
 ## Provas locais
 
-PostgreSQL real descartável, duas ligações: tabela fictícia independente com a mesma expressão; legado/novo em ambas as ordens bloqueados por 23505, NULL/vazio repetidos permitidos e empresas distintas independentes. O índice canónico da fixture #333 continua intacto, incluindo o teste que comprova a limitação atual.
+36/36 PostgreSQL real descartável, pgcrypto, duas ligações: SQL proposta byte a byte CONCURRENTLY na própria tabela standalone_invoices compatível (não só tabela ilustrativa), #333 preparado×legado ambas ordens; legado×legado; INSERT×UPDATE; rollback; NULL/vazios/prefixos/zeros; ambíguas distintas; adapter ingest preparado + storage falso + 23505/unknown. Fonte core com política forte em `patches/issue333/core.PENDENTE.sql`; core anterior não foi aplicado/modificado em Live. 26/26 compatibilidade fake; 20/20 handler; 35 regressões (inclui13 UI); geral1334. Prova08 e outputs09. Cloud ACL/storage e corpos Live não provados.

@@ -1,0 +1,352 @@
+--- /dev/null
++++ b/supabase/functions/_shared/standalone-identity.ts
+@@ -0,0 +1,40 @@
++/** INERT #333 proposal. Not imported by deployed application/functions. */
++export const strongPart = (value: string | null | undefined): string | null => {
++  if (value == null) return null;
++  const text = value.replace(/^ +| +$/g, "").replace(/[a-z]/g, (c) => c.toUpperCase());
++  return text === "" ? null : text;
++};
++export type Identity = { company_id: string; supplier_nif: string | null; invoice_number: string | null };
++export function sameIdentity(a: Identity, b: Identity): boolean {
++  const nif = strongPart(a.supplier_nif), number = strongPart(a.invoice_number);
++  return nif !== null && number !== null && a.company_id === b.company_id
++    && nif === strongPart(b.supplier_nif) && number === strongPart(b.invoice_number);
++}
++/** Review signal ONLY; never use for lookup/reused/index/automatic conflict. */
++export const broadPart = (text: string | null) => text?.replace(/[^A-Za-z0-9]/g, "").toUpperCase() || null;
++export const ambiguousIdentity = (a: Identity, b: Identity) => !sameIdentity(a, b)
++  && a.company_id === b.company_id && broadPart(a.supplier_nif) !== null && broadPart(a.invoice_number) !== null
++  && broadPart(a.supplier_nif) === broadPart(b.supplier_nif) && broadPart(a.invoice_number) === broadPart(b.invoice_number);
++
++export type Candidate = Identity & Record<string, unknown> & { id: string; storage_path: string };
++export type Expected = Identity & Record<string, unknown>;
++const exact = ["file_name", "supplier_name", "invoice_date", "currency", "fx_rate_source", "notes", "paid_by_partner_id", "created_by"];
++const numeric = ["total_amount", "iva_amount", "original_amount", "fx_rate"];
++const required = ["file_name", "supplier_name", "invoice_date", "currency", "total_amount", "iva_amount", "paid_by_partner_id", "created_by"];
++export async function equivalent(candidate: Candidate, expected: Expected, bytes: Uint8Array,
++  read: (path: string) => Promise<Uint8Array | null>, reuse = true): Promise<boolean> {
++  if (reuse && (!sameIdentity(candidate, expected) || required.some((k) => expected[k] == null || expected[k] === "" || candidate[k] == null))) return false;
++  if (!reuse && (candidate.company_id !== expected.company_id || candidate.supplier_nif !== expected.supplier_nif || candidate.invoice_number !== expected.invoice_number)) return false;
++  if (exact.some((k) => (candidate[k] ?? null) !== (expected[k] ?? null))) return false;
++  for (const k of numeric) {
++    const a = candidate[k] ?? null, b = expected[k] ?? null;
++    if (a === null || b === null) { if (a !== b) return false; }
++    else if (![a,b].every((v) => typeof v === "number" || (typeof v === "string" && v.trim() !== "" && /^-?\d+(\.\d+)?$/.test(v)))
++      || !Number.isFinite(Number(a)) || !Number.isFinite(Number(b)) || Number(a) !== Number(b)) return false;
++  }
++  // Both objects read now; no cached checksums or filename/size-only proof.
++  const stored = await read(candidate.storage_path);
++  if (!stored || stored.length !== bytes.length || bytes.length === 0) return false;
++  const hash = async (b: Uint8Array) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(b).buffer))).map((x) => x.toString(16).padStart(2, "0")).join("");
++  return await hash(stored) === await hash(bytes);
++}
+\ No newline at end of file
+--- /dev/null
++++ b/supabase/functions/_shared/standalone-compat.ts
+@@ -0,0 +1,55 @@
++/** INERT prepared ingest adapter: inject existing auth/tenant/FX/validation externally. */
++import { equivalent, sameIdentity, type Candidate, type Expected } from "./standalone-identity.ts";
++export type Store = {
++  find(expected: Expected): Promise<Candidate[]>;
++  read(path: string): Promise<Uint8Array | null>;
++  upload(path: string, bytes: Uint8Array, mime: string): Promise<void>;
++  insert(row: Expected & { storage_path: string }): Promise<{ id: string; storage_path: string }>;
++  get(id: string, company: string): Promise<Candidate | null>;
++};
++export type Outcome = { status: number; body: Record<string, unknown> };
++const conflict = (): Outcome => ({ status: 409, body: { code: "invoice_conflict", error: "Fatura existente: documento ou dados divergentes/insuficientes. Conferência necessária.", reused: false } });
++const unknown = (): Outcome => ({ status: 503, body: { code: "result_unknown", error: "Resultado por confirmar. Não repitas; confere a fatura existente.", reused: false } });
++export async function persistInvoice(store: Store, expected: Expected, bytes: Uint8Array, mime: string, path: string): Promise<Outcome> {
++  const check = async (): Promise<Outcome | null> => {
++    const candidates = (await store.find(expected)).filter((c) => sameIdentity(c, expected));
++    if (candidates.length === 0) return null;
++    if (candidates.length !== 1) return conflict();
++    const row = candidates[0];
++    if (!row || !await equivalent(row, expected, bytes, store.read)) return conflict();
++    return { status: 200, body: { id: row.id, storage_path: row.storage_path, reused: true, verified: true } };
++  };
++  try {
++    const prior = await check(); if (prior) return prior;
++    await store.upload(path, bytes, mime);
++    const stored = await store.read(path);
++    if (!stored || stored.length !== bytes.length || stored.some((b, i) => b !== bytes[i]))
++      return { status: 409, body: { code: "storage_unverified", error: "Documento não conferido; nada foi autorizado.", reused: false } };
++    try {
++      const row = await store.insert({ ...expected, storage_path: path });
++      // INSERT success is not final proof: read row and stored bytes back.
++      const checked = await store.get(row.id, expected.company_id);
++      if (!checked || checked.id !== row.id || checked.storage_path !== path || !await equivalent(checked, expected, bytes, store.read, false)) return unknown();
++      return { status: 200, body: { ...row, reused: false, verified: true } };
++    } catch (e) {
++      // Never remove a candidate on rejection/unknown; no check-then-delete.
++      if (typeof e === "object" && e !== null && "code" in e && e.code === "23505") return await check() ?? conflict();
++      return unknown();
++    }
++  } catch { return unknown(); }
++}
++
++/** Complete keyset collection for strong lookup, not a silently truncated maybeSingle. */
++export async function findStrongCandidates(expected: Expected,
++  page: (company: string, after: string | null, size: number) => Promise<Candidate[]>): Promise<Candidate[]> {
++  const matches: Candidate[] = []; let after: string | null = null;
++  for (;;) {
++    const rows = await page(expected.company_id, after, 200);
++    for (const row of rows) {
++      if (row.company_id !== expected.company_id || (after !== null && row.id <= after)) throw new Error("invalid collection");
++      if (sameIdentity(row, expected)) matches.push(row);
++      after = row.id;
++    }
++    if (rows.length < 200) return matches;
++  }
++}
+\ No newline at end of file
+--- /dev/null
++++ b/src/lib/standalone-identity-lookup.ts
+@@ -0,0 +1,18 @@
++/** Prepared destination: src/lib/standalone-identity-lookup.ts. Not wired yet. */
++import { findStrongCandidates } from "@shared/standalone-compat";
++import type { Candidate, Expected } from "@shared/standalone-identity";
++export async function lookupStandalone(client: { from(table: string): any }, expected: Expected, exclude?: string) {
++  const rows = await findStrongCandidates(expected, async (company, after, size) => {
++    let q = client.from("standalone_invoices").select("id,company_id,supplier_nif,invoice_number")
++      .eq("company_id", company).order("id", { ascending: true }).limit(size);
++    if (after) q = q.gt("id", after);
++    const { data, error } = await q;
++    if (error) throw error;
++    return (data ?? []) as Candidate[];
++  });
++  return rows.some((r) => r.id !== exclude);
++}
++export const standaloneWriteError = (e: { code?: string } | null | undefined) =>
++  e?.code === "23505" || e?.code === "DUPLICATE_INVOICE"
++    ? "Esta identidade de fatura já existe. Confere o documento e os dados; nada foi reutilizado automaticamente."
++    : "Resultado por confirmar. Confere a lista antes de tentar novamente.";
+\ No newline at end of file
+--- a/src/pages/StandaloneInvoiceScanner.tsx
++++ b/src/pages/StandaloneInvoiceScanner.tsx
+@@ -19,7 +19,7 @@
+ import { DocumentScanStep } from "@/components/DocumentScanStep";
+ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+ import { Alert, AlertDescription } from "@/components/ui/alert";
+-import { removeFromCompanyBucket } from "@/lib/storage";
++import { lookupStandalone, standaloneWriteError } from "@/lib/standalone-identity-lookup";
+ import {
+   calculateStandaloneEur,
+   isStandaloneInvoiceDuplicateError,
+@@ -281,13 +281,10 @@
+       return;
+     }
+     setBusy("save");
+-    let uploadedPath: string | null = null;
+     try {
+       if (supplierNif.trim() && invoiceNumber.trim()) {
+-        const { data: duplicate, error: duplicateError } = await (supabase as any).from("standalone_invoices")
+-          .select("id").eq("company_id", companyId).eq("supplier_nif", supplierNif.trim())
+-          .eq("invoice_number", invoiceNumber.trim()).maybeSingle();
+-        if (duplicateError) throw duplicateError;
++        const duplicate = await lookupStandalone(supabase, { company_id: companyId,
++          supplier_nif: supplierNif.trim(), invoice_number: invoiceNumber.trim() });
+         if (duplicate) throw Object.assign(new Error("Já existe uma fatura deste fornecedor com este número."), { code: "DUPLICATE_INVOICE" });
+       }
+       const ext = (file.name.match(/\.[^.]+$/)?.[0] ?? ".jpg").toLowerCase();
+@@ -297,7 +294,6 @@
+         upsert: false,
+       });
+       if (up.error) throw up.error;
+-      uploadedPath = up.path;
+ 
+       const { error } = await (supabase as any).from("standalone_invoices").insert({
+         company_id: companyId,
+@@ -323,12 +319,9 @@
+       setSaved(true);
+       toast({ title: "Fatura guardada", description: "Disponível no portal da contabilidade." });
+     } catch (err: any) {
+-      if (uploadedPath) {
+-        const { error: cleanupErr } = await removeFromCompanyBucket("standalone-invoices", [uploadedPath], "limpeza de upload falhado");
+-        if (cleanupErr) console.error("[scanner] limpeza falhou", cleanupErr);
+-      }
++      // Never remove an object on an uncertain INSERT response. Keep private for review.
+       const duplicate = err?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(err);
+-      toast({ title: duplicate ? "Fatura duplicada" : "Não foi possível guardar", description: duplicate ? "Já existe uma fatura deste fornecedor com este número." : err.message, variant: "destructive" });
++      toast({ title: duplicate ? "Fatura duplicada" : "Não foi possível guardar", description: standaloneWriteError(err), variant: "destructive" });
+     } finally {
+       setBusy(null);
+     }
+--- a/src/pages/contabilidade/AccountantStandaloneInvoicesTab.tsx
++++ b/src/pages/contabilidade/AccountantStandaloneInvoicesTab.tsx
+@@ -15,6 +15,8 @@
+ import { signedCompanyUrl, downloadFromCompanyBucket, removeFromCompanyBucket } from "@/lib/storage";
+ import { calculateStandaloneEur, isStandaloneInvoiceDuplicateError, parseStandaloneAmount, STANDALONE_INVOICE_CURRENCIES, validateStandaloneMonetaryFields, type StandaloneInvoiceCurrency } from "@/lib/standalone-invoices";
+ 
++import { lookupStandalone, standaloneWriteError } from "@/lib/standalone-identity-lookup";
++
+ interface Row {
+   id: string;
+   storage_path: string;
+@@ -100,10 +102,8 @@
+       const monetaryError = validateStandaloneMonetaryFields(form.currency, form.original_amount, form.fx_rate, form.total_amount);
+       if (monetaryError) throw Object.assign(new Error(monetaryError), { code: "INVALID_MONETARY_FIELDS" });
+       if (form.supplier_nif.trim() && form.invoice_number.trim()) {
+-        const { data: duplicate, error: duplicateError } = await (supabase as any).from("standalone_invoices")
+-          .select("id").eq("company_id", companyId).eq("supplier_nif", form.supplier_nif.trim())
+-          .eq("invoice_number", form.invoice_number.trim()).neq("id", editing.id).maybeSingle();
+-        if (duplicateError) throw duplicateError;
++        const duplicate = await lookupStandalone(supabase, { company_id: companyId ?? "",
++          supplier_nif: form.supplier_nif.trim(), invoice_number: form.invoice_number.trim() }, editing.id);
+         if (duplicate) throw Object.assign(new Error("Já existe uma fatura deste fornecedor com este número."), { code: "DUPLICATE_INVOICE" });
+       }
+       const { error } = await (supabase as any)
+@@ -131,7 +131,7 @@
+       qc.invalidateQueries({ queryKey: ["standalone-invoice-months"] });
+       toast({ title: "Fatura atualizada" });
+     },
+-    onError: (e: any) => toast({ title: e?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(e) ? "Fatura duplicada" : "Falhou", description: e?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(e) ? "Já existe uma fatura deste fornecedor com este número." : e.message, variant: "destructive" }),
++    onError: (e: any) => toast({ title: e?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(e) ? "Fatura duplicada" : "Falhou", description: e?.code === "INVALID_MONETARY_FIELDS" ? e.message : standaloneWriteError(e), variant: "destructive" }),
+   });
+ 
+   /**
+--- a/supabase/functions/ingest-standalone-invoice/index.ts
++++ b/supabase/functions/ingest-standalone-invoice/index.ts
+@@ -1,6 +1,7 @@
+ // ingest-standalone-invoice — ingestão externa de faturas avulsas (#191–#193).
+ // Regra absoluta: esta função escreve apenas em standalone_invoices e no bucket homónimo.
+-import { trashStorageObject } from '../_shared/storage-trash.ts'
++import { findStrongCandidates, persistInvoice } from '../_shared/standalone-compat.ts'
++import type { Candidate, Expected } from '../_shared/standalone-identity.ts'
+ import { createClient } from 'npm:@supabase/supabase-js@2'
+ import { z } from 'npm:zod@3.23.8'
+ import { getEcbRate } from '../_shared/fx-rate.ts'
+@@ -131,22 +132,6 @@
+   if (companyError) return json({ error: `Erro ao validar empresa: ${companyError.message}` }, 500)
+   if (!company) return json({ error: 'Empresa não encontrada.' }, 404)
+ 
+-  const canDedupe = Boolean(body.supplier_nif && body.invoice_number)
+-  const findExisting = async () => {
+-    if (!canDedupe) return null
+-    const { data, error } = await admin.from('standalone_invoices')
+-      .select('id, storage_path').eq('company_id', body.company_id)
+-      .eq('supplier_nif', body.supplier_nif ?? '').eq('invoice_number', body.invoice_number ?? '').maybeSingle()
+-    if (error) throw error
+-    return data
+-  }
+-  try {
+-    const existing = await findExisting()
+-    if (existing) return json({ id: existing.id, storage_path: existing.storage_path, reused: true })
+-  } catch (error) {
+-    return json({ error: `Erro ao verificar duplicado: ${error instanceof Error ? error.message : String(error)}` }, 500)
+-  }
+-
+   // (#195) Câmbio resolvido no servidor ANTES de qualquer download/upload: se o
+   // BCE falhar, nada é gravado e nenhum objeto entra no bucket.
+   let fxRate = body.fx_rate ?? null
+@@ -190,37 +175,46 @@
+ 
+   const year = body.invoice_date?.slice(0, 4) ?? new Date().getUTCFullYear().toString()
+   const path = `${body.company_id}/${year}/${safeBaseName(body.nome)}-${crypto.randomUUID()}.${EXT_BY_TYPE[contentType]}`
+-  const { error: uploadError } = await admin.storage.from(BUCKET).upload(path, bytes, { contentType, upsert: false })
+-  if (uploadError) return json({ error: `Falha no upload: ${uploadError.message}` }, 500)
+-
+-  const cleanup = async () => {
+-    // #265: move para _trash e grava storage_deletion_log (nunca apaga em silêncio).
+-    const r = await trashStorageObject(admin, {
+-      bucket: BUCKET, path, reason: 'ingest-standalone-invoice: limpeza de insert falhado',
+-      related_table: 'standalone_invoices', company_id: body.company_id,
+-    })
+-    if (!r.ok) console.error('[ingest-standalone-invoice] limpeza falhou', r.error)
+-  }
+-  const { data: inserted, error: insertError } = await admin.from('standalone_invoices').insert({
+-    company_id: body.company_id, storage_path: path, file_name: body.nome,
++  const expected: Expected = {
++    company_id: body.company_id, file_name: body.nome,
+     supplier_name: body.supplier_name || null, supplier_nif: body.supplier_nif || null,
+     invoice_number: body.invoice_number || null, invoice_date: body.invoice_date || null,
+     currency: body.currency, original_amount: body.original_amount ?? null,
+     fx_rate: fxRate, fx_rate_source: fxRateSource,
+     total_amount: totalAmount, iva_amount: body.iva_amount ?? null,
+     notes: body.notes || null, paid_by_partner_id: body.paid_by_partner_id ?? null,
+-    created_by: body.created_by ?? null, status: 'new',
+-  }).select('id, storage_path').single()
+-
+-  if (insertError) {
+-    await cleanup()
+-    if (insertError.code === '23505' && canDedupe) {
+-      try {
+-        const existing = await findExisting()
+-        if (existing) return json({ id: existing.id, storage_path: existing.storage_path, reused: true })
+-      } catch { /* devolve o erro original */ }
+-    }
+-    return json({ error: `Falha ao gravar fatura: ${insertError.message}` }, 500)
+-  }
+-  return json({ id: inserted.id, storage_path: inserted.storage_path, reused: false })
+-})
+\ No newline at end of file
++    created_by: body.created_by ?? null,
++  };
++  const result = await persistInvoice({
++    find: (e) => findStrongCandidates(e, async (company, after, size) => {
++      let q = admin.from('standalone_invoices').select('*').eq('company_id', company)
++        .order('id', { ascending: true }).limit(size);
++      if (after) q = q.gt('id', after);
++      const { data, error } = await q;
++      if (error) throw error;
++      return (data ?? []) as Candidate[];
++    }),
++    read: async (p) => {
++      if (!p.startsWith(`${body.company_id}/`)) return null;
++      const { data, error } = await admin.storage.from(BUCKET).download(p);
++      if (error || !data || data.size > MAX_BYTES) return null;
++      return new Uint8Array(await data.arrayBuffer());
++    },
++    get: async (id, company) => {
++      const { data, error } = await admin.from('standalone_invoices').select('*').eq('id', id).eq('company_id', company).maybeSingle();
++      if (error) throw error;
++      return data as Candidate | null;
++    },
++    upload: async (p, b, mime) => {
++      const { error } = await admin.storage.from(BUCKET).upload(p, b, { contentType: mime, upsert: false });
++      if (error) throw error;
++    },
++    insert: async (row) => {
++      const { data, error } = await admin.from('standalone_invoices').insert({ ...row, status: 'new' })
++        .select('id,storage_path').single();
++      if (error) throw error;
++      return data;
++    },
++  }, expected, bytes, contentType, path);
++  return json(result.body, result.status);
++})
+--- a/supabase/manual/20261017_issue333_core.PENDENTE.sql
++++ b/supabase/manual/20261017_issue333_core.PENDENTE.sql
+@@ -141,6 +141,11 @@
+ $$ SELECT upper(regexp_replace(coalesce(t,''),'[^A-Za-z0-9]','','g')) $$;
+ REVOKE ALL ON FUNCTION public.data_entry_norm(text) FROM PUBLIC, anon, authenticated;
+ 
++-- Same strong identity expression as global proposal; broad norm remains tax validation ONLY.
++CREATE FUNCTION public.data_entry_identity(t text) RETURNS text LANGUAGE sql IMMUTABLE SET search_path=public,pg_temp AS
++$$ SELECT nullif(translate(btrim(t,' '),'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ'),'') COLLATE "C" $$;
++REVOKE ALL ON FUNCTION public.data_entry_identity(text) FROM PUBLIC, anon, authenticated;
++
+ CREATE FUNCTION public.data_entry_prepare(p_session uuid, p_document uuid, p_fields jsonb) RETURNS jsonb
+ LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+ DECLARE s public.data_entry_sessions; d public.data_entry_documents; v public.data_entry_previews; a record;
+@@ -171,7 +176,7 @@
+  IF payer_name IS NULL THEN RAISE EXCEPTION '#333: Confirma um pagador membro desta empresa' USING ERRCODE='22023'; END IF;
+  SELECT tax_id INTO company_tax FROM public.companies WHERE id=s.company_id;
+  IF public.data_entry_norm(company_tax)='' OR public.data_entry_norm(company_tax)<>public.data_entry_norm(p_fields->>'customer_nif') THEN RAISE EXCEPTION '#333: NIF do destinatário não corresponde à empresa' USING ERRCODE='22023'; END IF;
+- IF EXISTS(SELECT 1 FROM public.standalone_invoices WHERE company_id=s.company_id AND public.data_entry_norm(supplier_nif)=public.data_entry_norm(p_fields->>'supplier_nif') AND public.data_entry_norm(invoice_number)=public.data_entry_norm(p_fields->>'invoice_number')) THEN
++ IF EXISTS(SELECT 1 FROM public.standalone_invoices WHERE company_id=s.company_id AND public.data_entry_identity(supplier_nif)=public.data_entry_identity(p_fields->>'supplier_nif') AND public.data_entry_identity(invoice_number)=public.data_entry_identity(p_fields->>'invoice_number')) THEN
+   RAISE EXCEPTION '#333: Fatura já existe no ERP; nenhuma nova ação' USING ERRCODE='23505'; END IF;
+  SELECT coalesce(max(version),0)+1 INTO n FROM public.data_entry_previews WHERE session_id=s.id;
+  snap := jsonb_build_object('schema_version',2,'operation','standalone_invoice_v1','company_id',s.company_id,'company_tax',company_tax,'event_id',s.event_id,
+@@ -210,8 +215,8 @@
+   OR NOT EXISTS(SELECT 1 FROM public.user_roles WHERE user_id=(f->>'paid_by_partner_id')::uuid AND company_id=s.company_id) THEN
+   RAISE EXCEPTION '#333: Dados do ERP mudaram; prepara nova prévia' USING ERRCODE='40001'; END IF;
+  -- Serialises #333 executors; legacy writers are guarded only by the canonical unique index (exact spelling).
+- PERFORM pg_advisory_xact_lock(hashtextextended(s.company_id::text||'|'||public.data_entry_norm(f->>'supplier_nif')||'|'||public.data_entry_norm(f->>'invoice_number'),333));
+- IF EXISTS(SELECT 1 FROM public.standalone_invoices WHERE company_id=s.company_id AND public.data_entry_norm(supplier_nif)=public.data_entry_norm(f->>'supplier_nif') AND public.data_entry_norm(invoice_number)=public.data_entry_norm(f->>'invoice_number')) THEN
++ PERFORM pg_advisory_xact_lock(hashtextextended(s.company_id::text||'|'||public.data_entry_identity(f->>'supplier_nif')||'|'||public.data_entry_identity(f->>'invoice_number'),333));
++ IF EXISTS(SELECT 1 FROM public.standalone_invoices WHERE company_id=s.company_id AND public.data_entry_identity(supplier_nif)=public.data_entry_identity(f->>'supplier_nif') AND public.data_entry_identity(invoice_number)=public.data_entry_identity(f->>'invoice_number')) THEN
+   RAISE EXCEPTION '#333: Fatura já existe no ERP; nenhuma nova ação' USING ERRCODE='23505'; END IF;
+  mark := 'Feito por LLM com autorização de '||a.actor_name||' em '||to_char(now_ts AT TIME ZONE 'Europe/Lisbon','DD/MM/YYYY')||'.';
+  INSERT INTO public.standalone_invoices(id,company_id,storage_path,file_name,supplier_name,supplier_nif,invoice_number,invoice_date,currency,original_amount,fx_rate,fx_rate_source,total_amount,iva_amount,paid_by_partner_id,notes,status,created_by)
