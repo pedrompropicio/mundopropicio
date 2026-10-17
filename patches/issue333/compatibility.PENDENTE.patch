@@ -630,7 +630,7 @@
 +  result: Record<string, unknown>|null; current: Record<string, unknown>|null; record_ok: boolean;
 +  document: { sha256: string; size_bytes: number; mime: string } };
 +export type AttemptTransport = {
-+  rpc(action: 'prepare'|'authorize'|'begin'|'commit'|'check', id: string|null, envelope: Record<string, unknown>|null, hash: string|null): Promise<Attempt>;
++  rpc(action: 'prepare'|'authorize'|'begin'|'commit'|'check'|'confirm_new_intent', id: string|null, envelope: Record<string, unknown>|null, hash: string|null): Promise<Attempt>;
 +  upload(path: string, bytes: Uint8Array, mime: string): Promise<void>;
 +  /** Must read stored bytes and issue service-only receipt, never trust browser checksum. */
 +  verifyReceipt(path: string, bytes: Uint8Array, mime: string): Promise<void>;
