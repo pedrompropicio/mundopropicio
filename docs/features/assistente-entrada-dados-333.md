@@ -2,6 +2,8 @@
 
 Estado: núcleo local por upload/UI implementado e corrigido; indisponível em Live. Provas atuais: `docs/testes/issue333/05-correcao-integridade-retoma.md` e `06-proposta-unicidade-normalizada.md`. Nenhuma migração/bucket/deploy/Publish. Upload hardcoded false; execute sem configuração. Ativação bloqueada por unicidade normalizada legada e storage real. Issue/reserva abertas. Executor único: 0 · Cowork (ChatGPT), agente Lovable ERP; #323 intacta.
 
+Continuação autorizada 17/10/2026 17:46UTC: compatibilidade dos fluxos antigos preparada exclusivamente em `patches/issue333/compatibility.PENDENTE.patch`, NÃO aplicada. Inventário/provas08/09; política forte proposta trim SPACE exterior/caixa ASCII preserva separadores/prefixos/zeros, sinal amplo só revisão. 23505 sem falso reused; equivalência exige metadados/bytes, unknown sem remoção/retry. PostgreSQL36/compat26/handler20/UI13/geral1334. Nenhum escritor Live alterado; revisão/autorizações de aplicação e storage real pendentes.
+
 ## Sincronização e âmbito
 
 - HEAD inicial real: `c37d972053f1585e45e81ff9b70011d2a4f371a6`.

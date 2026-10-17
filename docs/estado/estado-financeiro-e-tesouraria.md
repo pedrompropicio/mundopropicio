@@ -41,7 +41,7 @@ Atualizado: 09/10/2026 (ritual de fecho da frente; inclui o trabalho do chat fin
 
 ## A trabalhar agora
 
-- **#333 — Assistente de Entrada de Dados**, executor 0 · Cowork (ChatGPT), agente Lovable ERP. Correção 17/10/2026: candidato partilhado preservado, readback obrigatório, retoma read-only SQL+hash, UI isolada por utilizador/empresa e prévia invalidada por edição; 27 testes PostgreSQL real/duas ligações, 20 handler, 13 UI; suite geral 1308 passam. Provas `docs/testes/issue333/05-correcao-integridade-retoma.md`. Aguarda revisão independente; Issue/reserva mantidas. Upload/execução inativos, zero migração/bucket/deploy/Publish/efeitos Live. Unicidade global só proposta separada; storage real/ACL não provados. #323 integralmente preservada.
+- **#333 — Assistente de Entrada de Dados**, executor 0 · Cowork (ChatGPT), agente Lovable ERP. Preparação autorizada 17/10/2026: inventário completo dos escritores, política forte proposta sem apagar separadores/prefixos/zeros, patch de compatibilidade INERTE scanner/edição/ingest/#333. Provas08/09 em `docs/testes/issue333/`; PostgreSQL36/compat26/handler20/regressões35 (UI13), geral1334 passam; harness build OK. Nada aplicado: fonte Live preservada; upload/execute false, sem linha configuração. Revisão política/patch/CI novo SHA e futura autorização aplicação, storageACL real pendentes. Issue/reserva mantidas; #323 dados/docs intactos. Zero Live/DDL/DML/bucket/deploy/Publish/config/envios.
 
 ## Em aberto, por decisão do Pedro
 

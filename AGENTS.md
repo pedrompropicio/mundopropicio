@@ -1,5 +1,5 @@
 # Architecture rules
-- Read scoped AGENTS.md. Documentary entry stays closed pending real storage/legacy uniqueness proofs. Never delete shared candidates on failure; read-only checks compare SQL+bytes, original/current state. Canonical user/company request expectations and UI generations prevent stale-context effects.
+- Read scoped AGENTS.md. Entry stays closed pending real storage/uniqueness proofs. Preserve candidates; read-only checks compare SQL+bytes and canonical context. Legacy compatibility stays in inert patches until reviewed; strong keys preserve separators, broad matches never prove reuse.
 
 - Meta audience replacement uses a complete, paginated canonical collection and one ordered replacement session; failed batches stop before finalization, while dry runs never resolve tokens or invoke external delivery.
 - Audience branches preserve legacy behavior; person ads use current proof and email-only, numeric-only delivery to avoid leakage. Inert SQL stays in supabase/manual pending authorization.
