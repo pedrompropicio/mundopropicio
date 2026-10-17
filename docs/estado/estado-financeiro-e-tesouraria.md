@@ -41,7 +41,7 @@ Atualizado: 09/10/2026 (ritual de fecho da frente; inclui o trabalho do chat fin
 
 ## A trabalhar agora
 
-- **#333 — Assistente de Entrada de Dados**, executor 0 · Cowork (ChatGPT), agente Lovable ERP. Preparação autorizada 17/10/2026: inventário completo dos escritores, política forte proposta sem apagar separadores/prefixos/zeros, patch de compatibilidade INERTE scanner/edição/ingest/#333. Provas08/09 em `docs/testes/issue333/`; PostgreSQL36/compat26/handler20/regressões35 (UI13), geral1334 passam; harness build OK. Nada aplicado: fonte Live preservada; upload/execute false, sem linha configuração. Revisão política/patch/CI novo SHA e futura autorização aplicação, storageACL real pendentes. Issue/reserva mantidas; #323 dados/docs intactos. Zero Live/DDL/DML/bucket/deploy/Publish/config/envios.
+- **#333 — Assistente de Entrada de Dados**, executor 0 · Cowork (ChatGPT), agente Lovable ERP. Sete destinos REAIS aplicados juntos APENAS em cópia descartável da base12dd324e: hashes7+7, tsgo/Deno offline/build OK, integrados31 (endpoint22/UI9), PostgreSQL36 pgcrypto/2conexões/core+índice exatos, handler20, geral1334 (1skip/11todo existentes). Provas10/11 e prévia próxima fase12. Patch inerte corrigido bloqueia repetição unknown local; sessionStorage NÃO é claim global, chaves incompletas/retoma persistente legada continuam gate. Política forte/StorageACL real/runtime versões/CI novo SHA e autorização de aplicação pendentes. Fontes ativos scanner/edição/ingest/core intactos, upload/execute false. Issue/reserva mantidas; #323 intacta. ZERO Live/DDL/DML/bucket/deploy/Publish/config/envios.
 
 ## Em aberto, por decisão do Pedro
 
