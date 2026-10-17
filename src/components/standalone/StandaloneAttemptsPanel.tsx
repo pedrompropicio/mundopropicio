@@ -38,7 +38,7 @@ export function StandaloneAttemptsPanel({ operation, context, onSelect, onBlocke
     let saved: AttemptSummary | null = null;
     try { saved = JSON.parse(sessionStorage.getItem(key) ?? "null"); } catch { /* Invalid marker stays blocking, not authority. */ }
     setUncertain(saved); selectRef.current(null);
-    blockedRef.current(sessionStorage.getItem(key) !== null);
+    blockedRef.current?.(sessionStorage.getItem(key) !== null);
     return () => { gen.current++; };
   }, [scope, key]);
 
@@ -64,7 +64,7 @@ export function StandaloneAttemptsPanel({ operation, context, onSelect, onBlocke
   const confirm = async () => {
     if (!current || !allowNew || flight.current) return;
     const g = gen.current, s = scope, original = current;
-    flight.current = true; setBusy(true); blockedRef.current(true);
+    flight.current = true; setBusy(true); blockedRef.current?.(true);
     // Persist before request: a lost response or remount is not permission to repeat.
     sessionStorage.setItem(key, JSON.stringify(original)); setUncertain(original);
     try {
@@ -75,7 +75,7 @@ export function StandaloneAttemptsPanel({ operation, context, onSelect, onBlocke
       sessionStorage.removeItem(key); setUncertain(null); setConfirming(false);
       setMessage("Nova intenção técnica confirmada. A fatura não foi gravada.");
       // Selected reservation remains read-only in the parent; no previous payload is reused.
-      blockedRef.current(false);
+      blockedRef.current?.(false);
     } catch {
       if (active(g, s)) { setConfirming(false); setMessage("Resultado por confirmar. Consulta a intenção; não repitas a confirmação."); }
     } finally { if (active(g, s)) { flight.current = false; setBusy(false); } }
@@ -93,7 +93,7 @@ export function StandaloneAttemptsPanel({ operation, context, onSelect, onBlocke
         if (!active(g, s)) return;
         if (out.attempt?.prior_attempt_id === original.id && out.attempt?.hash === original.hash && out.attempt?.intent_seq === candidate.intent_seq) {
           setSelected(candidate.id); selectRef.current(candidate); sessionStorage.removeItem(key); setUncertain(null);
-          blockedRef.current(false); setMessage("Intenção técnica encontrada e conferida. Nenhuma execução foi iniciada."); return;
+          blockedRef.current?.(false); setMessage("Intenção técnica encontrada e conferida. Nenhuma execução foi iniciada."); return;
         }
       }
       setMessage("Intenção ainda por confirmar. Carrega as páginas disponíveis e consulta novamente; não repitas a confirmação.");
