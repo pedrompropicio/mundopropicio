@@ -2,9 +2,9 @@
 - [x] Cidade: CAOP308, normalização/cities/CRM, backfill inerte, SQL32/32+handler2/2+unit4/4.
 - [x] Lista: reserva separada, coletor estrito/phoneNULL/email-only, SQL32/32 com concorrência e legados; regressões e1285Vitest.
 - [x] Provas/estado/questões/relatório; sincronização consultada, GitHub ancestral mas confirmação final pendente.
-- [ ] Correção autorizada13:31: país obrigatório, só cidade estrangeira opcional; corrigir SQL/código/testes/docs e verificar308CAOP.
+- [x] Correção local autorizada13:31: país obrigatório/só cidade estrangeira opcional; SQL/testes/docs corrigidos,308CAOPzero diferenças local;41/41+61/61+3/3+4/4+1287Vitest.
 - [x] Gate inicial Fase B: cd9b4faa Lovable=remoto; CI/quality success13:02UTC. SELECT elegibilidade12:59:42:63membros/3emails.
-- [ ] Corrigir referência0186: cinco nomes divergiram na transcrição aplicada. BLOQUEADO13:25 após>20min: HEAD5078351e não sincronizado com remotocd9b4faa; sem CI SHAatual. Nenhuma nova escrita Live permitida até gate confirmado.
+- [ ] Corrigir referência0186: cinco nomes divergiram na transcrição aplicada. BLOQUEADO14:08 após>31min: HEAD58414c83 não sincronizado com remoto6c5bbe2c; sem CI SHAatual. Nenhuma nova escrita Live permitida até gate confirmado.
 - [ ] Aplicar coletor estrito e deploy portal+sync após correção/verificação/gate; nenhuma dessas operações executada.
 - [ ] Prova Live membro teste sem Meta manual; SELECTs, SQL backfill/limpeza apresentados separadamente para Sim.
 - [ ] Fecho documental/reservas após aplicação/prova/limpeza; #323 preservada.

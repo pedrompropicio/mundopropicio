@@ -1,6 +1,6 @@
 # ESTADO — newgang-portal
 
-Atualizado: 17/10/2026 13:25 UTC. Frente: newgangfestival.pt.
+Atualizado: 17/10/2026 14:09 UTC. Frente: newgangfestival.pt.
 
 ## Em que pé está
 - #332 cidade/lista Fase B parcialmente aplicada e BLOQUEADA: gate inicial cd9b4faa sincronizado/CI+quality success13:02UTC; migração0186 cidade aplicada. Verificação encontrou cinco nomes divergentes na referência literal aplicada (0204,0405–0408); correção ainda NÃO aplicada por bloqueio HEAD/CI. Não usar a nova lista no portal antes da correção. Coletor estrito NÃO aplicado; nenhum deploy novo, teste Live, backfill, limpeza ou sync Meta manual. HEAD5078351e local não sincronizado com remotocd9b4faa após>20min. Prova: docs/testes/issue332/fase-b-20261017-gate.md.
@@ -30,7 +30,7 @@ Atualizado: 17/10/2026 13:25 UTC. Frente: newgangfestival.pt.
 - Portal separado não alterado; Publish por Pedro. Artes Wallet aprovadas; visual no dispositivo pendente.
 
 ## A trabalhar agora
-Fase B parada por sincronização/CI após aplicação0186. Reservas cidade/lista mantidas até correção/provas/SQLs de autorização. Reserva WhatsApp permanece libertada.
+Fase B parada após espera>31min13:36–14:08: correção local preparada/testada41/41cidade+61/61perfil+3/3handler+4/4Deno+1287Vitest, mas não aplicada. HEAD58414c83≠GitHub6c5bbe2c; semCIquality atual.0186 mantém país indevidamente opcional e cinco nomes errados. Prova: docs/testes/issue332/correcao-pais-20261017.md. Reservas cidade/lista mantidas até correção/provas/SQLs de autorização. Reserva WhatsApp permanece libertada.
 
 ## Próximos passos
 - Portal separado: caixa WhatsApp (marcada só se granted E valid_for_current_number=true; versão visível);
