@@ -25,6 +25,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
+| #332 cidade | newgang-portal | agente Lovable ERP, autorizado por Pedro | Fase A inerte: referência oficial concelhos PT, normalização/perfil/captura/summary, action cities, SQL de backfill não executado; sem migração/deploy/envios | 2026-10-17 12:31 | 2026-10-17 12:31 — HEADs iguais f5c0e386; leitura prévia e validação da fonte oficial; #323 intacta |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)
