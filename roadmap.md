@@ -1,5 +1,10 @@
 # Roadmap — épica #146 (e)
 
+## Coala EB27 — audiência Meta
+- [ ] Acrescentar fonte canónica e acesso de serviço seguro por migração registada.
+- [ ] Implementar substituição completa e simulação por defeito; sem chamadas Meta nesta tarefa.
+- [ ] Validar SQL/API/regressões e entregar INSERT desativado/contagem; não alterar crons nem Publish.
+
 ## #330 — missão de perfil (preparação inerte)
 - [x] Aplicação infra/API OFF: DDL0179 e seed249 verificados, ACL/core/ledger preservados; patch aprovado e deploy só newgang-portal; HTTP200/401 e testes aprovados, sem Publish.
 - [x] Revisão final: handler9/9, negativo exit1, CRM real43/43 e PostgreSQL59/59; prévia SQL sem execução.
