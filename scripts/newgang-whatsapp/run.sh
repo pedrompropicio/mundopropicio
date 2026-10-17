@@ -9,6 +9,7 @@ root,out=sys.argv[1],sys.argv[2]; outp=Path(out)
 s=(Path(root)/'scripts/newgang-person-consent/run.sh').read_text()
 s=s.replace('OUT="${1:-/tmp/issue332-tests}"','OUT="'+out+'"')
 s=s.replace('HERE="$(cd "$(dirname "$0")" && pwd)"','HERE="'+root+'/scripts/club-profile-it"')
+s=s.replace('${{PSQL[*]}}','${PSQL[*]}')
 needle='bash "$ROOT/scripts/newgang-person-consent/concurrency.sh" "${PSQL[*]}" "$OUT" >>"$LOG" 2>&1'
 assert needle in s, 'needle nao encontrado'
 extra='\n'.join([
@@ -17,8 +18,6 @@ extra='\n'.join([
  'bash "$ROOT/scripts/newgang-whatsapp/concurrency.sh" "${PSQL[*]}" "$OUT" >>"$LOG" 2>&1',
  'say "ASSERTS332W: $("${PSQL[@]}" -tAc "SELECT count(*) FILTER(WHERE ok)||\'/\'||count(*) FROM t.results WHERE phase=\'332w\'")"',
 ])
-# o ficheiro person-consent/run.sh tem o needle com chavetas duplas (f-string); normalizar
-s=s.replace('${{PSQL[*]}}','${PSQL[*]}')
 s=s.replace(needle,needle+'\n'+extra)
 (outp/'runner.sh').write_text(s)
 PY
