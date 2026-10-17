@@ -24,6 +24,7 @@ DO $$ DECLARE actual jsonb; BEGIN
  UPDATE meta_custom_audiences SET company_id='7c858982-6ccd-47ca-bd65-e0dd3eebf01c' WHERE id='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
  PERFORM set_config('request.jwt.claims','{"role":"authenticated"}',true);
  PERFORM set_config('test.uid','11111111-1111-1111-1111-111111111111',true);
+ PERFORM set_config('test.admin','true',true);
  PERFORM set_config('test.company','7c858982-6ccd-47ca-bd65-e0dd3eebf01c',true);
  IF (SELECT count(*) FROM crm_meta_audience_collect_leads('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb')) <> 1 THEN RAISE EXCEPTION 'authorized admin failed'; END IF;
  PERFORM set_config('test.company','7d831e59-6e82-427b-95a0-64904aae5dd2',true);
