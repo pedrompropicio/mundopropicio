@@ -8,10 +8,10 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
-- [ ] Validar SQL exata do leitor em PostgreSQL descartável real; aplicar única migração oficial apenas após PASS.
-- [ ] Integrar/testar leitor service-only e implantar somente standalone-attempt-333, mantendo gates fechados.
-- [ ] Conferir registry/corpo/ACL/baselines separados/negativas Live e entregar prova, estado e pendências.
-- [x] Reparar memória/índice e testar suite completa1359 PASS/tsgo/build OK; CI remota a conferir pelo controlador.
+- [x] Validar SQL exata do leitor em PostgreSQL descartável real;0192 aplicada oficialmente/registry194/hash exato.
+- [x] Integrar/testar leitor service-only; deploy só standalone-attempt-333, versão7 observada, gates fechados.
+- [x] Conferir registry/corpo/ACL/baselines separados/negativas Live e entregar prova26/27, estado e pendências.
+- [x] Reparar memória/índice e testar suite completa1359 PASS/tsgo/build OK; CI39073230691 success confirmado independentemente pelo controlador.
 - [x] Corrigir família/retorno/incerteza/paginação/contexto e testar interações sem egress.
 - [x] Retificar prova23 e entregar proposta de capacidade service-only, sem aplicação/deploy.
 - [x] Corrigir config/CORS/SQL/documento/descoberta owner, consolidar provas integrais e prévia futura; apenas inerte/cópia isolada.
@@ -26,6 +26,6 @@
 - [x] #333 COREv2/ATTEMPTS aplicados por registry oficial192/193, bucket privado20MiB; hashes/corpos/ACL/baselines e HTTP service conferidos. Prova22.
 - [x] #333 negativas authenticated/owner RPC etapa2 reportadas; não aceitação E2E/isolamento alheio; prova23 retificada.
 - [ ] Implementar núcleo upload privado, conversa documental, prévia servidor, autorização e execução tipada idempotente apenas para adapters validados.
-- [ ] Ativação/piloto/índice global/Publish aguardam autorização própria; capacidade service-only apenas proposta inerte. CI remota/revisão independente pendentes do controlador. Trava sessionStorage não prova exatamente-um global.
+- [ ] Ativação/piloto/índice global/Publish aguardam autorização própria; leitor seguro aplicado sem ativação. Aceitação autenticada Cloud e CI desta entrega pendentes; não criar sessão sem autorização. Trava sessionStorage não prova exatamente-um global.
 - [x] Documentar efeitos Live inexistentes e limitações; manter Issue/reserva abertas para verificação.
 - [ ] Gmail/Drive/OAuth, conciliação, bilheteiras e demais adapters: bloqueados até validação/configuração próprias; sem Publish.
