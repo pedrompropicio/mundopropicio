@@ -6568,31 +6568,40 @@ export type Database = {
       }
       club_welcome_reservations: {
         Row: {
+          attempt_count: number
           company_id: string
           created_at: string
           error: string | null
           member_id: string
           message_id: string
+          next_attempt_at: string | null
+          retry_safe: boolean
           site_id: string
           status: string
           updated_at: string
         }
         Insert: {
+          attempt_count?: number
           company_id: string
           created_at?: string
           error?: string | null
           member_id: string
           message_id: string
+          next_attempt_at?: string | null
+          retry_safe?: boolean
           site_id: string
           status?: string
           updated_at?: string
         }
         Update: {
+          attempt_count?: number
           company_id?: string
           created_at?: string
           error?: string | null
           member_id?: string
           message_id?: string
+          next_attempt_at?: string | null
+          retry_safe?: boolean
           site_id?: string
           status?: string
           updated_at?: string
@@ -22516,6 +22525,10 @@ export type Database = {
         Returns: Json
       }
       club_mission_sync_points: { Args: { p_sub: string }; Returns: undefined }
+      club_pending_capture_exists: {
+        Args: { p_email: string; p_site_id: string }
+        Returns: boolean
+      }
       club_points_active: {
         Args: { p_base: string; p_member: string; p_rule: string }
         Returns: {
