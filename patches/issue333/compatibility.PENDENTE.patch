@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/supabase/functions/_shared/standalone-identity.ts
-@@ -0,0 +1,38 @@
+@@ -0,0 +1,40 @@
 +/** INERT #333 proposal. Not imported by deployed application/functions. */
 +export const strongPart = (value: string | null | undefined): string | null => {
 +  if (value == null) return null;
@@ -25,22 +25,25 @@
 +const numeric = ["total_amount", "iva_amount", "original_amount", "fx_rate"];
 +const required = ["file_name", "supplier_name", "invoice_date", "currency", "total_amount", "iva_amount", "paid_by_partner_id", "created_by"];
 +export async function equivalent(candidate: Candidate, expected: Expected, bytes: Uint8Array,
-+  read: (path: string) => Promise<Uint8Array | null>): Promise<boolean> {
-+  if (!sameIdentity(candidate, expected) || required.some((k) => expected[k] == null || expected[k] === "" || candidate[k] == null)) return false;
++  read: (path: string) => Promise<Uint8Array | null>, reuse = true): Promise<boolean> {
++  if (reuse && (!sameIdentity(candidate, expected) || required.some((k) => expected[k] == null || expected[k] === "" || candidate[k] == null))) return false;
++  if (!reuse && (candidate.company_id !== expected.company_id || candidate.supplier_nif !== expected.supplier_nif || candidate.invoice_number !== expected.invoice_number)) return false;
 +  if (exact.some((k) => (candidate[k] ?? null) !== (expected[k] ?? null))) return false;
 +  for (const k of numeric) {
 +    const a = candidate[k] ?? null, b = expected[k] ?? null;
 +    if (a === null || b === null) { if (a !== b) return false; }
-+    else if (!Number.isFinite(Number(a)) || !Number.isFinite(Number(b)) || Number(a) !== Number(b)) return false;
++    else if (![a,b].every((v) => typeof v === "number" || (typeof v === "string" && v.trim() !== "" && /^-?\d+(\.\d+)?$/.test(v)))
++      || !Number.isFinite(Number(a)) || !Number.isFinite(Number(b)) || Number(a) !== Number(b)) return false;
 +  }
 +  // Both objects read now; no cached checksums or filename/size-only proof.
 +  const stored = await read(candidate.storage_path);
 +  if (!stored || stored.length !== bytes.length || bytes.length === 0) return false;
 +  const hash = async (b: Uint8Array) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", b))).map((x) => x.toString(16).padStart(2, "0")).join("");
 +  return await hash(stored) === await hash(bytes);
-+}--- /dev/null
++}
+--- /dev/null
 +++ b/supabase/functions/_shared/standalone-compat.ts
-@@ -0,0 +1,54 @@
+@@ -0,0 +1,55 @@
 +/** INERT prepared ingest adapter: inject existing auth/tenant/FX/validation externally. */
 +import { equivalent, sameIdentity, type Candidate, type Expected } from "./standalone-identity.ts";
 +export type Store = {
@@ -48,6 +51,7 @@
 +  read(path: string): Promise<Uint8Array | null>;
 +  upload(path: string, bytes: Uint8Array, mime: string): Promise<void>;
 +  insert(row: Expected & { storage_path: string }): Promise<{ id: string; storage_path: string }>;
++  get(id: string, company: string): Promise<Candidate | null>;
 +};
 +export type Outcome = { status: number; body: Record<string, unknown> };
 +const conflict = (): Outcome => ({ status: 409, body: { code: "invoice_conflict", error: "Fatura existente: documento ou dados divergentes/insuficientes. Conferência necessária.", reused: false } });
@@ -70,8 +74,8 @@
 +    try {
 +      const row = await store.insert({ ...expected, storage_path: path });
 +      // INSERT success is not final proof: read row and stored bytes back.
-+      const checked = await check();
-+      if (!checked || checked.status !== 200 || checked.body.id !== row.id) return unknown();
++      const checked = await store.get(row.id, expected.company_id);
++      if (!checked || checked.id !== row.id || checked.storage_path !== path || !await equivalent(checked, expected, bytes, store.read, false)) return unknown();
 +      return { status: 200, body: { ...row, reused: false, verified: true } };
 +    } catch (e) {
 +      // Never remove a candidate on rejection/unknown; no check-then-delete.
@@ -94,7 +98,8 @@
 +    }
 +    if (rows.length < 200) return matches;
 +  }
-+}--- /dev/null
++}
+--- /dev/null
 +++ b/src/lib/standalone-identity-lookup.ts
 @@ -0,0 +1,18 @@
 +/** Prepared destination: src/lib/standalone-identity-lookup.ts. Not wired yet. */
@@ -114,7 +119,8 @@
 +export const standaloneWriteError = (e: { code?: string } | null | undefined) =>
 +  e?.code === "23505" || e?.code === "DUPLICATE_INVOICE"
 +    ? "Esta identidade de fatura já existe. Confere o documento e os dados; nada foi reutilizado automaticamente."
-+    : "Resultado por confirmar. Confere a lista antes de tentar novamente.";--- a/src/pages/StandaloneInvoiceScanner.tsx
++    : "Resultado por confirmar. Confere a lista antes de tentar novamente.";
+--- a/src/pages/StandaloneInvoiceScanner.tsx
 +++ b/src/pages/StandaloneInvoiceScanner.tsx
 @@ -19,7 +19,7 @@
  import { DocumentScanStep } from "@/components/DocumentScanStep";
@@ -231,7 +237,7 @@
    // (#195) Câmbio resolvido no servidor ANTES de qualquer download/upload: se o
    // BCE falhar, nada é gravado e nenhum objeto entra no bucket.
    let fxRate = body.fx_rate ?? null
-@@ -190,37 +175,41 @@
+@@ -190,37 +175,46 @@
  
    const year = body.invoice_date?.slice(0, 4) ?? new Date().getUTCFullYear().toString()
    const path = `${body.company_id}/${year}/${safeBaseName(body.nome)}-${crypto.randomUUID()}.${EXT_BY_TYPE[contentType]}`
@@ -270,7 +276,7 @@
 -    return json({ error: `Falha ao gravar fatura: ${insertError.message}` }, 500)
 -  }
 -  return json({ id: inserted.id, storage_path: inserted.storage_path, reused: false })
--})+    created_by: body.created_by ?? null,
++    created_by: body.created_by ?? null,
 +  };
 +  const result = await persistInvoice({
 +    find: (e) => findStrongCandidates(e, async (company, after, size) => {
@@ -287,6 +293,11 @@
 +      if (error || !data || data.size > MAX_BYTES) return null;
 +      return new Uint8Array(await data.arrayBuffer());
 +    },
++    get: async (id, company) => {
++      const { data, error } = await admin.from('standalone_invoices').select('*').eq('id', id).eq('company_id', company).maybeSingle();
++      if (error) throw error;
++      return data as Candidate | null;
++    },
 +    upload: async (p, b, mime) => {
 +      const { error } = await admin.storage.from(BUCKET).upload(p, b, { contentType: mime, upsert: false });
 +      if (error) throw error;
@@ -299,7 +310,7 @@
 +    },
 +  }, expected, bytes, contentType, path);
 +  return json(result.body, result.status);
-+})
+ })
 --- a/supabase/manual/20261017_issue333_core.PENDENTE.sql
 +++ b/supabase/manual/20261017_issue333_core.PENDENTE.sql
 @@ -140,6 +140,11 @@
