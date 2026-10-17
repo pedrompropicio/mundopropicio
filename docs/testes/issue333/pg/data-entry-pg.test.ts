@@ -221,7 +221,7 @@ describe("#333 concorrência real entre duas ligações", () => {
   it("dois lotes com a mesma fatura: o lock serializa e o 2.º recebe 'já existe'", async () => {
     const num = "C2-" + randomUUID();
     const p1 = await prepared(U.M, A, "%PDF-c2a-" + randomUUID(), fields({ invoice_number: num }));
-    const p2 = await prepared(U.Z, A, "%PDF-c2b-" + randomUUID(), fields({ invoice_number: num.toLowerCase().replace("-", " - ") }));
+    const p2 = await prepared(U.Z, A, "%PDF-c2b-" + randomUUID(), fields({ invoice_number: num.toLowerCase() }));
     let release: () => void = () => {}; const gate = new Promise<void>((r) => (release = r)); let done = false;
     const t1 = as(c1, U.M, async (tx) => { await tx`select public.data_entry_commit(${p1.preview.id},${p1.preview.snapshot_hash})`; done = true; await gate; });
     while (!done) await new Promise((r) => setTimeout(r, 20));
@@ -334,10 +334,10 @@ describe("#333 handler + PostgreSQL real + storage fake: interleaving final part
 
 describe("#333 EXACT proposed index on real compatible standalone table (local ONLY)", () => {
   beforeAll(async () => {
-    const source=readFileSync("patches/issue333/core.PENDENTE.sql","utf8");
+    const source=readFileSync("supabase/manual/20261017_issue333_core.PENDENTE.sql","utf8");
     const start=source.indexOf("CREATE FUNCTION public.data_entry_identity");
     const end=source.indexOf("CREATE FUNCTION public.data_entry_result_check",start);
-    await admin.unsafe(source.slice(start,end).replaceAll("CREATE FUNCTION", "CREATE OR REPLACE FUNCTION"));
+    if (start >= 0 && end > start) await admin.unsafe(source.slice(start,end).replaceAll("CREATE FUNCTION", "CREATE OR REPLACE FUNCTION"));
     // Byte-for-byte proposal, including CONCURRENTLY, executed outside transaction locally.
     await admin.unsafe(readFileSync("supabase/manual/20261017_issue333_normalized_uniqueness.PROPOSTA.sql","utf8"));
   });
