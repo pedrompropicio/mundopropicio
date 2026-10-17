@@ -25,7 +25,6 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #332 | Claude · newgang-portal | agente Lovable ERP | ledger marketing_consent_*, funções do Clube, handle-email-unsubscribe, me, docs da frente (sem DECISIONS reservado #323) | 2026-10-17 03:50 | 2026-10-17 03:50 — consentimento por pessoa autorizado; HEADs alinhados 2b6bd5e2 |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)
@@ -123,6 +122,8 @@ _(sem pedidos — as falhas de teste vêm por Issue; os pedidos de verificação
 _(sem pedidos)_
 
 ## newgang-portal
+
+- [x] 17/10/2026 04:10 UTC — **#332 consentimento por pessoa: backend concluído**, executor agente Lovable ERP; HEAD inicial igual GitHub/Lovable7e950672 e ancestralidadeexit0. Migração0182, email-v3 independente, referências anúncios-v1 no ledger322; RPCs sessão/CAS/me privado; descadastro email+anúncios+supressão+token atómico. Deploy só newgang-portal/handle-email-unsubscribe; SQL40/40,handler17/17,Vitest1281; ledger31/3075/hashb138bae60762cb68157209ac97c1a199 preservado; novos históricos0/0. Provas docs/testes/issue332/consentimento-pessoa.md; contrato docs/features/newgang-consentimento-pessoa-332.md. Reserva332libertada no fecho; #323/DECISIONS intactos. Sem Publish/envios/crons/portal-track/CAPI/P_NG27_LISTA/Reactivar. Pendentes: portal separado, parental/WhatsApp, política jurídica, coletor por pessoa e autorização de entregas; comentárioIssue indisponível por falta de conexãoGitHub, CIfinal não confirmado.
 
 - [x] 17/10/2026 03:50 UTC — **Decisão expressa de Pedro: reserva #322 libertada; consentimento de anúncios do Newgang passa à #332**, executor agente Lovable ERP. Email-v3 separado dos anúncios-v1 por pessoa; sem Publish/envios/crons, sem alterar lista P_NG27_LISTA ou Reactivar no CRM. #323 preservada, incluindo DECISIONS; decisão registada aqui enquanto esse ficheiro estiver reservado.
 

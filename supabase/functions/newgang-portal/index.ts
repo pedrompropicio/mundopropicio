@@ -9,6 +9,7 @@ import { clubEmail } from "./email.ts";
 import { ASSET_BUCKET, PROOF_BUCKET, PROOF_EXT, missionsFrom, normalizeHandle, normalizeProofUrl, submitErrorStatus } from "./missions.ts";
 import { buildHistory, subjectRef } from "./history.ts";
 import { profileConfirm, profileMe, profilePreferences, profileCountries, profileRuleRead } from "./profile.ts";
+import { consentMe, consentPreferences } from "./person-consent.ts";
 import { publicEditions } from "./videos.ts";
 import { CREW_LINK, crewErrorStatus, crewView } from "./crews.ts";
 import { crewPendingAction, memberByEmail, mePendingCrew, PENDING_OPS } from "./pending.ts";
@@ -80,6 +81,7 @@ const Body = z.object({
   action: z.enum(["bundle", "regulation", "site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer", "notify_pending",
     "missions", "mission_upload_url", "submit_mission", "profile", "profile_confirm", "profile_preferences", "profile_countries", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google"]),
   profile_payload: z.unknown().optional(),
+  preferences_payload: z.unknown().optional(),
   token: z.string().min(20).max(200).optional(),
   email: z.string().email().max(254).optional(),
   reveal_id: z.string().uuid().optional(),
@@ -481,7 +483,7 @@ Deno.serve(async (req) => {
   try {
     const pa = performance.now();
     const raw = await req.json();
-    if (["profile_confirm", "profile_preferences"].includes(raw?.action) && Object.keys(raw).some(k => !["action", "token", "profile_payload"].includes(k))) return json({ error: "profile_payload" }, 400);
+    if (["profile_confirm", "profile_preferences"].includes(raw?.action) && Object.keys(raw).some(k => !["action", "token", "profile_payload", "preferences_payload"].includes(k))) return json({ error: "profile_payload" }, 400);
     const p = Body.safeParse(raw);
     timer.mark("parse", performance.now() - pa);
     if (!p.success && ["me", "profile_confirm", "profile_preferences"].includes(raw?.action) && typeof raw?.token === "string" && (raw.token.length < 20 || raw.token.length > 200)) return json({error:"no_session"},401);
@@ -593,12 +595,15 @@ Deno.serve(async (req) => {
         // RPC session rejection is authoritative; optional infrastructure errors alone are isolated.
         const profileView = member.confirmed_at && body.token ? await profileMe(rpc, site.id, await sha256(body.token)) : {profile:null,profile_status:"not_confirmed"};
         if(profileView.profile_status === "no_session") return json({error:"no_session"},401);
+        const consentView = member.confirmed_at && body.token ? await consentMe(rpc, site.id, await sha256(body.token)) : {consents:null,consents_status:"not_confirmed"};
+        if(consentView.consents_status === "no_session") return json({error:"no_session"},401);
         return json({
           first_name: member.first_name, member_no: member.member_no,
           points: cl.points, level: cl.level, rank: me?.rank_pos ?? null,
           level_protected: cl.protected, next_level: cl.next_level, next_level_min: cl.next_level_min,
           referrals: await referralProgress(rpc, member.id),
           ...profileView,
+          ...consentView,
           levels: lv ?? [],
           invite_link: `https://${SITE_DOMAIN}/clube?ref=${member.referral_code}`,
           referral_code: member.referral_code,
@@ -674,8 +679,11 @@ Deno.serve(async (req) => {
         return json(r.body, r.status);
       }
       case "profile_preferences": {
-        if (!member?.confirmed_at) return json({ error: "no_session" }, 401);
-        const r = profilePreferences(); return json(r.body, r.status);
+        if (!member?.confirmed_at || !body.token) return json({ error: "no_session" }, 401);
+        const r = body.preferences_payload
+          ? await consentPreferences(rpc, site.id, await sha256(body.token), body.preferences_payload)
+          : profilePreferences();
+        return json(r.body, r.status);
       }
       case "profile": {
         if (!member?.confirmed_at) return json({ error: "no_session" }, 401);

@@ -1275,6 +1275,13 @@
       "when": 1792204649706,
       "tag": "0181_issue332_newgang_meta_audience_source",
       "breakpoints": true
+    },
+    {
+      "idx": 182,
+      "version": "7",
+      "when": 1792209965811,
+      "tag": "0182_issue332_member_consent",
+      "breakpoints": true
     }
   ]
 }

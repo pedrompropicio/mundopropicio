@@ -5302,6 +5302,147 @@ export type Database = {
           },
         ]
       }
+      club_member_email_consents: {
+        Row: {
+          company_id: string
+          decided_at: string
+          decision: string
+          id: number
+          idempotency_key: string
+          member_id: string
+          origin: string
+          site_id: string
+          version: string
+        }
+        Insert: {
+          company_id: string
+          decided_at?: string
+          decision: string
+          id?: never
+          idempotency_key: string
+          member_id: string
+          origin: string
+          site_id: string
+          version: string
+        }
+        Update: {
+          company_id?: string
+          decided_at?: string
+          decision?: string
+          id?: never
+          idempotency_key?: string
+          member_id?: string
+          origin?: string
+          site_id?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_member_email_consents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_member_email_consents_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "club_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_member_email_consents_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_member_email_consents_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      club_member_marketing_consents: {
+        Row: {
+          company_id: string
+          event_id: number
+          member_id: string
+          purpose: string
+          request_key: string
+          request_payload: Json
+          site_id: string
+          subject_id: string
+        }
+        Insert: {
+          company_id: string
+          event_id: number
+          member_id: string
+          purpose: string
+          request_key: string
+          request_payload: Json
+          site_id: string
+          subject_id: string
+        }
+        Update: {
+          company_id?: string
+          event_id?: number
+          member_id?: string
+          purpose?: string
+          request_key?: string
+          request_payload?: Json
+          site_id?: string
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_member_marketing_consents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_member_marketing_consents_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "marketing_consent_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_member_marketing_consents_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "club_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_member_marketing_consents_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_member_marketing_consents_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sites_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_member_marketing_consents_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_consent_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       club_member_profiles: {
         Row: {
           award_event_id: string | null
@@ -20744,6 +20885,35 @@ export type Database = {
         Args: { p_exclusive: boolean; p_site: string }
         Returns: undefined
       }
+      _club332_ads_append: {
+        Args: {
+          p_decision: string
+          p_key: string
+          p_member: string
+          p_origin: string
+          p_purposes: string[]
+          p_site: string
+        }
+        Returns: undefined
+      }
+      _club332_email_append: {
+        Args: {
+          p_decision: string
+          p_key: string
+          p_member: string
+          p_origin: string
+          p_site: string
+        }
+        Returns: undefined
+      }
+      _club332_session: {
+        Args: { p_session_hash: string; p_site: string }
+        Returns: string
+      }
+      _club332_state: {
+        Args: { p_member: string; p_site: string }
+        Returns: Json
+      }
       _clube_newgang_assert_access: { Args: never; Returns: undefined }
       _clube_newgang_birth: { Args: { p_raw: Json }; Returns: string }
       _content_latest_metrics: {
@@ -22276,6 +22446,10 @@ export type Database = {
         Returns: string
       }
       club_confirm_member: { Args: { p_member: string }; Returns: undefined }
+      club_consent_state: {
+        Args: { p_session_hash: string; p_site: string }
+        Returns: Json
+      }
       club_crew_cfg: {
         Args: { p_site: string }
         Returns: Record<string, unknown>
@@ -22308,6 +22482,16 @@ export type Database = {
         Returns: undefined
       }
       club_gen_referral_code: { Args: never; Returns: string }
+      club_marketing_binding_valid: {
+        Args: {
+          p_captured_at: string
+          p_event: number
+          p_member: string
+          p_purpose: string
+          p_site: string
+        }
+        Returns: boolean
+      }
       club_member_level: {
         Args: { p_member: string }
         Returns: {
@@ -22376,6 +22560,10 @@ export type Database = {
         Returns: undefined
       }
       club_profile_confirm: {
+        Args: { p_payload: Json; p_session_hash: string; p_site: string }
+        Returns: Json
+      }
+      club_profile_preferences: {
         Args: { p_payload: Json; p_session_hash: string; p_site: string }
         Returns: Json
       }
@@ -22871,6 +23059,7 @@ export type Database = {
         Returns: undefined
       }
       email_queue_dispatch: { Args: never; Returns: undefined }
+      email_unsubscribe_atomic: { Args: { p_token: string }; Returns: Json }
       enqueue_email:
         | { Args: { payload: Json; queue_name: string }; Returns: number }
         | {
