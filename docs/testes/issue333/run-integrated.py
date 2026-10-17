@@ -2,7 +2,7 @@
 Usage: python3 docs/testes/issue333/run-integrated.py --base <reviewed SHA> --tsgo <cached binary> --deno <cached binary>
 """
 from pathlib import Path
-import argparse, hashlib, io, json, os, shutil, subprocess, tarfile, tempfile
+import argparse, hashlib, io, json, os, shutil, subprocess, tarfile, tempfile, sys
 p=argparse.ArgumentParser();p.add_argument('--base',required=True);p.add_argument('--tsgo',required=True);p.add_argument('--deno',required=True);a=p.parse_args()
 repo=Path.cwd();out=Path(tempfile.mkdtemp(prefix='issue333-integrated-'));root=out/'tree';root.mkdir()
 raw=subprocess.check_output(['git','archive',a.base])
@@ -24,7 +24,7 @@ def verify(kind):
             file=root/path;actual=hashlib.sha256(file.read_bytes() if file.exists() else b'').hexdigest()
             if actual!=digest:raise RuntimeError('Hash mismatch '+kind+' '+path)
 verify('BASE')
-env={'PATH':'/bin:/usr/bin','HOME':str(out/'home'),'TMPDIR':'/tmp','NODE_ENV':'test','CI':'true','VITE_SUPABASE_URL':'http://127.0.0.1:9','VITE_SUPABASE_PUBLISHABLE_KEY':'fixture-not-a-key'}
+env={'PATH':'/bin:/usr/bin','HOME':str(out/'home'),'TMPDIR':'/tmp','NODE_ENV':'test','CI':'true','VITE_SUPABASE_URL':'http://127.0.0.1:9','VITE_SUPABASE_PUBLISHABLE_KEY':'fixture-not-a-key','ISSUE333_PYTHON':sys.executable,'PLAYWRIGHT_BROWSERS_PATH':os.environ.get('PLAYWRIGHT_BROWSERS_PATH','')}
 def run(name,args):
     proc=subprocess.run(args,cwd=root,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=600)
     (out/(name+'.log')).write_text('COMMAND: '+' '.join(map(str,args))+'\n'+proc.stdout+'\nEXIT: '+str(proc.returncode)+'\n')
