@@ -1,4 +1,8 @@
 # #332 — cidade/lista
+- [x] Reparação0188 aplicada:308/278+19+11,assinaturaCAOPc2173f4ab7f8f5a55e60b40cd24e414e igual fixture;texto1471byteshash59a3f900…9d2f,migração ferramenta acrescentou1LF sem outra diferença.
+- [x] Coletor0189 aplicado igual SQL original+1LF;deploy somente newgang-portal ecrm-meta-audience-sync.
+- [x] ProvaLiveRPC membroteste:país/cidade,50uma vez,estrangeirosemcidade,legadoexcluído,grantincluídoemail-only,revoke/descadastroexcluídos. Primeiro teste única transação rollback(statement_timestamp);repetido pedidos separados passou. Interface portal separada NÃO verificada.
+- [ ] Backfill e limpeza dependem de doisSim separados;SQL preparado paraPedro;reservas/fecho mantidos.
 - [ ] Sessão3: gate VERDE14:40:58UTC remoto472fdccd,CI/quality success b6a37939,diff aplicável vazio1439ficheiros. Bloqueio diferente: ferramenta de migração exige query textual e não oferece envio programático de ficheiro; CLI só diagnóstico. SQL não enviado para respeitar proibição de retranscrição. Reparação/coletor/deploy/prova continuam pendentes;reservas mantidas.
 - [ ] Sessão2 14:38:34UTC: gate único remoto b6a37939d22d666d567ff159ea59f3e19ddcfb7f;1439ficheiros iguais,zero divergências; CI e quality ainda sem conclusion. PARADO sem espera e sem escritaLive/deploy/prova. Retomar próxima sessão com gate; reservas mantidas.
 - [x] Cidade: CAOP308, normalização/cities/CRM, backfill inerte, SQL32/32+handler2/2+unit4/4.
