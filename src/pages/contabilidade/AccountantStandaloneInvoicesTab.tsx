@@ -571,7 +571,7 @@ export function AccountantStandaloneInvoicesTab() {
           {writePending && <AlertTriangle aria-label="Conferência pendente" />}
           {user && companyId && <StandaloneAttemptsPanel key={`${user.id}:${companyId}`} operation="accountant_edit" context={{user_id:user.id,company_id:companyId}}
             onBlocked={(blocked)=>{if(blocked){reservation.current=true;setWritePending(true);}}}
-            onSelect={(a)=>{if(a){reservation.current=true;setWritePending(true);}setAttempt(null);setResumeId(a?.id??"");setResumeHash(a?.hash??"");}} />}
+            onSelect={(a)=>{attemptGeneration.current++;if(a){reservation.current=true;setWritePending(true);sessionStorage.setItem(pendingKey,JSON.stringify({id:a.id,hash:a.hash}));}setAttempt(null);setResumeId(a?.id??"");setResumeHash(a?.hash??"");}} />}
           <Button variant="outline" disabled={!attempt&&(!resumeId||!resumeHash)} onClick={async()=>{
             if(!user || !companyId)return;
             const gen=attemptGeneration.current,ctx={user_id:user.id,company_id:companyId};

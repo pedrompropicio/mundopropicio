@@ -407,7 +407,7 @@ export default function StandaloneInvoiceScanner() {
         {review && <Alert><AlertDescription>{review}</AlertDescription></Alert>}
         {user && companyId && <StandaloneAttemptsPanel operation="scanner_create" context={{ user_id: user.id, company_id: companyId }}
           onBlocked={(blocked)=>{if(blocked){reservation.current=true;setWritePending(true);}}}
-          onSelect={(a) => { if(a){reservation.current=true;setWritePending(true);} setAttempt(null); setResumeId(a?.id ?? ""); setResumeHash(a?.hash ?? ""); }} />}
+          onSelect={(a) => { generation.current++; if(a){reservation.current=true;setWritePending(true);sessionStorage.setItem(pendingKey,JSON.stringify({id:a.id,hash:a.hash}));} setAttempt(null); setResumeId(a?.id ?? ""); setResumeHash(a?.hash ?? ""); }} />}
         <Button variant="outline" onClick={reconcile} disabled={busy!==null || (!attempt && (!resumeId || !resumeHash))}>Consultar tentativa</Button>
       </div>
       <Tabs value={tab} onValueChange={setTab}>
