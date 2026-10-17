@@ -1,9 +1,9 @@
 # ESTADO — newgang-portal
 
-Atualizado: 17/10/2026 14:09 UTC. Frente: newgangfestival.pt.
+Atualizado: 17/10/2026 14:36 UTC. Frente: newgangfestival.pt.
 
 ## Em que pé está
-- #332 cidade/lista Fase B parcialmente aplicada e BLOQUEADA: gate inicial cd9b4faa sincronizado/CI+quality success13:02UTC; migração0186 cidade aplicada. Verificação encontrou cinco nomes divergentes na referência literal aplicada (0204,0405–0408); correção ainda NÃO aplicada por bloqueio HEAD/CI. Não usar a nova lista no portal antes da correção. Coletor estrito NÃO aplicado; nenhum deploy novo, teste Live, backfill, limpeza ou sync Meta manual. HEAD5078351e local não sincronizado com remotocd9b4faa após>20min. Prova: docs/testes/issue332/fase-b-20261017-gate.md.
+- #332 cidade/lista Fase B parcialmente aplicada e BLOQUEADA:0187 aplicada às14:16 após gate por conteúdo remoto0cff4790,1436ficheiros iguais,CI/quality success. País obrigatório e cinco nomes pedidos corrigidos; erro de transcrição novo em0208/1606/1607, confirmadoLive14:36:17. ReferênciaLive308/278+19+11 MAS três divergências, não usar como oficial validada. Reparação compacta com hash+assinatura308 preparada/testada41/41+61/61. Espera14:18–14:36 sem sincronização de0187/runner/reparação; gate falhou, sem nova escrita. Coletor estrito NÃO aplicado; nenhum deploy novo, testeLive, backfill, limpeza ou Meta manual. Prova: docs/testes/issue332/correcao-pais-20261017.md.
 - Contrato autorizado: cidade obrigatória/308concelhos só residênciaPT; país de residência obrigatório em todos os perfis; estrangeiro dispensa só cidade; cidade livre/vazia, sem inferir país. Nascimento/país nascimento/parental mantidos. Lagoa nominal, portal-track intocado. Autorizações cidade/lista e deploy somente portal+sync mantidas; backfill/limpeza requerem SQL+Sim separados.
 
 - #332 whatsapp APLICADO e FECHADO (17/10 12:10 UTC): migração 0185 + deploy só `newgang-portal`.
@@ -30,14 +30,14 @@ Atualizado: 17/10/2026 14:09 UTC. Frente: newgangfestival.pt.
 - Portal separado não alterado; Publish por Pedro. Artes Wallet aprovadas; visual no dispositivo pendente.
 
 ## A trabalhar agora
-Fase B parada após espera>31min13:36–14:08: correção local preparada/testada41/41cidade+61/61perfil+3/3handler+4/4Deno+1287Vitest, mas não aplicada. HEAD58414c83≠GitHub6c5bbe2c; semCIquality atual.0186 mantém país indevidamente opcional e cinco nomes errados. Prova: docs/testes/issue332/correcao-pais-20261017.md. Reservas cidade/lista mantidas até correção/provas/SQLs de autorização. Reserva WhatsApp permanece libertada.
+Fase B parada14:36: gate por conteúdo não confirmou reparação após>15min. Remoto0cff4790 mantémCI/qualitysuccess, mas0187,metadadosDrizzle,runner eSQLreparação ainda não constam byte a byte. País obrigatório já aplicado; três nomes aguardam reparação. Testes atuais41/41cidade+61/61perfil+3/3handler+4/4Deno+6/6Vitest focados; suite anterior1287pass. Reservas cidade/lista mantidas; nenhuma reserva libertada nesta retoma.
 
 ## Próximos passos
 - Portal separado: caixa WhatsApp (marcada só se granted E valid_for_current_number=true; versão visível);
   caixa email marcada para granted de qualquer versão; estados pending do request_access; Publish por Pedro.
 - Texto whatsapp-v1 aguarda validação jurídica antes de qualquer Publish.
 - Descadastro/«PARAR» por WhatsApp: modelo preparado, sem envios nem webhooks (a implementar quando decidido).
-- Retomar após gate HEAD/CI: corrigir0186, aplicar coletor estrito, deploy somente portal+sync, prova Live e apresentar doisSQLs/Corro?. Nunca contar emailv2 como anúncios nem syncMeta manual.
+- Retomar após gate por conteúdo/CI: reparar três nomes0187, provar308semdivergências, aplicar coletor estrito, deploy somente portal+sync, provaLive e apresentar doisSQLs/Corro?. Nunca contar emailv2 como anúncios nem syncMeta manual.
 - TikTok/Google, pixels e restante #332 fora desta etapa; coordenar #322 sem sobrepor.
 - Pendências anteriores: fluxo parental verificável, PDF na primeira conclusão de perfil, link Fever, primeira revelação, fotos/aftermovies, benefícios a decidir. Early entry suspenso até validação MEO Arena.
 
