@@ -1303,6 +1303,13 @@
       "when": 1792238357836,
       "tag": "0185_issue332_whatsapp_consent",
       "breakpoints": true
+    },
+    {
+      "idx": 186,
+      "version": "7",
+      "when": 1792242222649,
+      "tag": "0186_issue332_city_contract",
+      "breakpoints": true
     }
   ]
 }
