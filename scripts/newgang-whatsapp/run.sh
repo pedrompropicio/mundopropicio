@@ -21,6 +21,6 @@ extra='\n'.join([
  'say "ASSERTS332W: $("${{PSQL[@]}}" -tAc "SELECT count(*) FILTER(WHERE ok)||\'/\'||count(*) FROM t.results WHERE phase=\'332w\'")"',
 ])
 s=s.replace(needle,needle+'\n'+extra)
-(outp/'runner.sh').write_text(s)
+(outp/'runner-w.sh').write_text(s)
 PY
-bash "$OUT/runner.sh" "$OUT"
+bash "$OUT/runner-w.sh" "$OUT"
