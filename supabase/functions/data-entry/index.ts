@@ -10,9 +10,9 @@ const admin = createClient(url, service, opts);
 const asUser = (token: string) => createClient(url, anon, { ...opts, global: { headers: { Authorization: `Bearer ${token}` } } });
 
 Deno.serve(createHandler({
-  cors: corsHeaders,
+  cors: { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"]}, x-data-entry-user, x-data-entry-company` },
   // Closed until the #333 technical migration, private bucket and proofs are reviewed.
-  uploadEnabled: Deno.env.get("DATA_ENTRY_UPLOAD_ENABLED") === "true",
+  uploadEnabled: false, // Reviewed activation required; no environment flag bypass.
   async getUser(token) {
     const { data, error } = await admin.auth.getUser(token);
     return error || !data.user ? null : { id: data.user.id };
@@ -36,6 +36,5 @@ Deno.serve(createHandler({
       const { data, error } = await admin.storage.from(bucket).download(path);
       return error || !data ? null : new Uint8Array(await data.arrayBuffer());
     },
-    async remove(bucket: Bucket, path) { await admin.storage.from(bucket).remove([path]); },
   },
 }));
