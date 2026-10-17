@@ -1,0 +1,98 @@
+{
+  "baseline": "b764d45b96d6500bff6848ba3ff9cf3d88102733",
+  "verified_after": "2026-10-17T01:20:03.453846Z",
+  "config": {
+    "version": "profile-v1",
+    "enabled": true,
+    "points": 50
+  },
+  "ledger_before_after": {
+    "rows": 27,
+    "points": 2750,
+    "md5": "10ec45aea047074dfbda903436e7edf4"
+  },
+  "profiles_before_after": 0,
+  "profile_credits_before_after": 0,
+  "function_body_md5": {
+    "_club330_profile_guard": "d519ab167bb11fbd4cdc4118e3451674",
+    "_club330_award_guard": "7be3e3eb7f8fa0b21e522d5d15011d3e",
+    "_club330_rule_guard": "d79e3bee0d7d25c210fe2aedf1459a2e",
+    "club_profile_state": "423e80faf546661e14363605fa322443",
+    "club_profile_confirm": "cbde07a63df4ab726c9272ab32e59218",
+    "club_profile_configure": "11221b0d064ed62beb97a5ba43954165"
+  },
+  "tests": {
+    "postgres": {
+      "passed": 59,
+      "exit": 0
+    },
+    "handler": {
+      "passed": 9,
+      "exit": 0
+    },
+    "crm": {
+      "passed": 7,
+      "exit": 0
+    }
+  },
+  "ci_baseline": {
+    "run": 38990011401,
+    "conclusion": "success"
+  },
+  "smoke": [
+    {
+      "action": "site",
+      "status": 200,
+      "ms": 2159,
+      "mission": {
+        "rule_key": "profile_complete",
+        "label": "Completa o teu perfil",
+        "points": 50,
+        "cap": 50,
+        "scope": "adesao",
+        "version": "profile-v1",
+        "available": true,
+        "status": "ok"
+      }
+    },
+    {
+      "action": "bundle",
+      "status": 200,
+      "ms": 1265,
+      "mission": {
+        "rule_key": "profile_complete",
+        "label": "Completa o teu perfil",
+        "points": 50,
+        "cap": 50,
+        "scope": "adesao",
+        "version": "profile-v1",
+        "available": true,
+        "status": "ok"
+      }
+    },
+    {
+      "action": "profile_countries",
+      "status": 200,
+      "ms": 226,
+      "count": 249
+    },
+    {
+      "action": "me",
+      "status": 401,
+      "ms": 851,
+      "error": "no_session"
+    },
+    {
+      "action": "profile_confirm",
+      "status": 401,
+      "ms": 1218,
+      "error": "no_session"
+    }
+  ],
+  "limits": [
+    "No authenticated Live E2E",
+    "WhatsApp adapter_pending",
+    "Below13 parental_flow_required",
+    "No code/deploy/Publish in this task"
+  ]
+}
