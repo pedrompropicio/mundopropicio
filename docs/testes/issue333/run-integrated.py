@@ -41,7 +41,7 @@ handler_test.write_text(handler_test.read_text().replace('      if (name === "da
 (root/'deno-isolated.json').write_text(json.dumps({'nodeModulesDir':'manual','imports':{'npm:@supabase/supabase-js@2':'./node_modules/@supabase/supabase-js/dist/module/index.d.ts','npm:zod@3.23.8':'./node_modules/zod/index.d.ts'},'compilerOptions':{'strict':False}}))
 (root/'vitest.offline.config.ts').write_text('import config from "./vitest.config"; import {defineConfig} from "vitest/config"; export default defineConfig({...config,test:{...config.test,setupFiles:["src/test/setup.ts","docs/testes/issue333/integrated/deny-egress.ts"]}});')
 run('tsgo',[a.tsgo,'-p','tsconfig.app.json','--noEmit'])
-run('deno',[a.deno,'check','--no-remote','--config','deno-isolated.json','supabase/functions/ingest-standalone-invoice/index.ts','supabase/functions/_shared/standalone-compat.ts','supabase/functions/standalone-attempt-333/handler.ts','supabase/functions/standalone-attempt-333/index.ts'])
+run('deno',[a.deno,'check','--no-remote','--config','deno-isolated.json','supabase/functions/ingest-standalone-invoice/index.ts','supabase/functions/_shared/standalone-compat.ts','supabase/functions/standalone-attempt-333/handler.ts','supabase/functions/standalone-attempt-333/index.ts','supabase/functions/data-entry/handler.ts'])
 for name,config in [('integrated','docs/testes/issue333/vitest.integrated.config.ts'),('pg','docs/testes/issue333/vitest.pg.config.ts'),('handler','docs/testes/issue333/vitest.handler.config.ts'),('general','vitest.offline.config.ts')]:
     run(name,[str(repo/'node_modules/.bin/vitest'),'run','--config',config])
 run('build',[str(repo/'node_modules/.bin/vite'),'build'])
