@@ -1,4 +1,8 @@
-# #332 — consentimento por pessoa
+# #332 — cidade e lista (Fase A)
+- [ ] Cidade: referência CAOP 308, normalização servidor e cities, summary, backfill inerte, testes locais.
+- [ ] Lista: reserva própria após cidade; coletor estrito com phone=NULL, contagens e testes reais/concorrência.
+- [ ] Provas/contratos, sincronização final e relatório; aplicação/deploy/backfills/E2E Live aguardam Sim Fase B.
+- [x] Consentimento/imediato/WhatsApp anteriores fechados; tarefas históricas abaixo superadas pelos fechos em docs/testes/issue332/.
 - [ ] #332 imediato: ingestão canónica na inserção e retry pré-fila limitado; unknown manual.
 - [ ] request_access pending 30min; testes SQL/Deno/Vitest e aplicação/deploy.
 - [ ] Prova ponta a ponta @mundopropicio.com; tempos/pontos; limpeza aguarda Sim Pedro.

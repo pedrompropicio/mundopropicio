@@ -15,6 +15,7 @@ export async function collectAllLeads(query: (from: number, to: number) => Promi
 export async function sendUsers(options: {
   data: HashPair[]; replace: boolean; dryRun?: boolean; audienceId: string;
   accessToken: string; fetcher?: typeof fetch; batchSize?: number; sessionId?: number;
+  emailOnly?: boolean;
 }) {
   if (options.dryRun !== false) return { processed: 0, errors: [] as string[], lastResp: null, totalMeta: undefined };
   const size = options.batchSize ?? 10000;
@@ -29,7 +30,9 @@ export async function sendUsers(options: {
   for (let batch = 0; batch < batches; batch++) {
     const chunk = options.data.slice(batch * size, (batch + 1) * size);
     const params = new URLSearchParams({
-      payload: JSON.stringify({ schema: ["EMAIL_SHA256", "PHONE_SHA256"], data: chunk }),
+      payload: JSON.stringify(options.emailOnly
+        ? { schema: ["EMAIL_SHA256"], data: chunk.map(([email]) => [email]) }
+        : { schema: ["EMAIL_SHA256", "PHONE_SHA256"], data: chunk }),
       access_token: options.accessToken,
     });
     if (options.replace) params.set("session", JSON.stringify({
@@ -38,12 +41,18 @@ export async function sendUsers(options: {
     }));
     try {
       const response = await fetcher(`https://graph.facebook.com/v19.0/${options.audienceId}/${options.replace ? "usersreplace" : "users"}`, { method: "POST", body: params });
-      lastResp = await response.json();
-      if (!response.ok || lastResp?.error) throw new Error(lastResp?.error?.message ?? `HTTP ${response.status}`);
+      const rawResponse = await response.json();
+      if (options.emailOnly) {
+        lastResp = {};
+        for (const key of ["num_received", "num_invalid_entries", "audience_approximate_count"]) {
+          if (typeof rawResponse?.[key] === "number") lastResp[key] = rawResponse[key];
+        }
+      } else lastResp = rawResponse;
+      if (!response.ok || rawResponse?.error) throw new Error(options.emailOnly ? `meta_batch_failed_http_${response.status}` : rawResponse?.error?.message ?? `HTTP ${response.status}`);
       processed += lastResp?.num_received ?? chunk.length;
       if (typeof lastResp?.audience_approximate_count === "number") totalMeta = lastResp.audience_approximate_count;
     } catch (error) {
-      errors.push(`batch ${batch + 1}: ${String(error)}`);
+      errors.push(`batch ${batch + 1}: ${options.emailOnly ? "meta_delivery_failed" : String(error)}`);
       // Never finalize an incomplete replacement, or retry a session with an unknown outcome.
       if (options.replace) break;
     }

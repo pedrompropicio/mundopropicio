@@ -1,0 +1,498 @@
+-- #332 cidade — FASE A INERTE. Future canonical migration (number assigned at application).
+-- CAOP2025 DGT, 308 codes (278/19/11). No backfill or changes to points/consents/crons.
+CREATE VIEW public.portugal_municipalities WITH (security_invoker=true) AS
+SELECT code,name,region FROM (VALUES
+('0101','Águeda','Continente'),
+('0102','Albergaria-a-Velha','Continente'),
+('0103','Anadia','Continente'),
+('0104','Arouca','Continente'),
+('0105','Aveiro','Continente'),
+('0106','Castelo de Paiva','Continente'),
+('0107','Espinho','Continente'),
+('0108','Estarreja','Continente'),
+('0109','Santa Maria da Feira','Continente'),
+('0110','Ílhavo','Continente'),
+('0111','Mealhada','Continente'),
+('0112','Murtosa','Continente'),
+('0113','Oliveira de Azeméis','Continente'),
+('0114','Oliveira do Bairro','Continente'),
+('0115','Ovar','Continente'),
+('0116','São João da Madeira','Continente'),
+('0117','Sever do Vouga','Continente'),
+('0118','Vagos','Continente'),
+('0119','Vale de Cambra','Continente'),
+('0201','Aljustrel','Continente'),
+('0202','Almodôvar','Continente'),
+('0203','Alvito','Continente'),
+('0204','Barrancos','Continente'),
+('0205','Beja','Continente'),
+('0206','Castro Verde','Continente'),
+('0207','Cuba','Continente'),
+('0208','Ferreira do Alentejo','Continente'),
+('0209','Mértola','Continente'),
+('0210','Moura','Continente'),
+('0211','Odemira','Continente'),
+('0212','Ourique','Continente'),
+('0213','Serpa','Continente'),
+('0214','Vidigueira','Continente'),
+('0301','Amares','Continente'),
+('0302','Barcelos','Continente'),
+('0303','Braga','Continente'),
+('0304','Cabeceiras de Basto','Continente'),
+('0305','Celorico de Basto','Continente'),
+('0306','Esposende','Continente'),
+('0307','Fafe','Continente'),
+('0308','Guimarães','Continente'),
+('0309','Póvoa de Lanhoso','Continente'),
+('0310','Terras de Bouro','Continente'),
+('0311','Vieira do Minho','Continente'),
+('0312','Vila Nova de Famalicão','Continente'),
+('0313','Vila Verde','Continente'),
+('0314','Vizela','Continente'),
+('0401','Alfândega da Fé','Continente'),
+('0402','Bragança','Continente'),
+('0403','Carrazeda de Ansiães','Continente'),
+('0404','Freixo de Espada à Cinta','Continente'),
+('0405','Macedo de Cavaleiros','Continente'),
+('0406','Miranda do Douro','Continente'),
+('0407','Mirandela','Continente'),
+('0408','Mogadouro','Continente'),
+('0409','Torre de Moncorvo','Continente'),
+('0410','Vila Flor','Continente'),
+('0411','Vimioso','Continente'),
+('0412','Vinhais','Continente'),
+('0501','Belmonte','Continente'),
+('0502','Castelo Branco','Continente'),
+('0503','Covilhã','Continente'),
+('0504','Fundão','Continente'),
+('0505','Idanha-a-Nova','Continente'),
+('0506','Oleiros','Continente'),
+('0507','Penamacor','Continente'),
+('0508','Proença-a-Nova','Continente'),
+('0509','Sertã','Continente'),
+('0510','Vila de Rei','Continente'),
+('0511','Vila Velha de Ródão','Continente'),
+('0601','Arganil','Continente'),
+('0602','Cantanhede','Continente'),
+('0603','Coimbra','Continente'),
+('0604','Condeixa-a-Nova','Continente'),
+('0605','Figueira da Foz','Continente'),
+('0606','Góis','Continente'),
+('0607','Lousã','Continente'),
+('0608','Mira','Continente'),
+('0609','Miranda do Corvo','Continente'),
+('0610','Montemor-o-Velho','Continente'),
+('0611','Oliveira do Hospital','Continente'),
+('0612','Pampilhosa da Serra','Continente'),
+('0613','Penacova','Continente'),
+('0614','Penela','Continente'),
+('0615','Soure','Continente'),
+('0616','Tábua','Continente'),
+('0617','Vila Nova de Poiares','Continente'),
+('0701','Alandroal','Continente'),
+('0702','Arraiolos','Continente'),
+('0703','Borba','Continente'),
+('0704','Estremoz','Continente'),
+('0705','Évora','Continente'),
+('0706','Montemor-o-Novo','Continente'),
+('0707','Mora','Continente'),
+('0708','Mourão','Continente'),
+('0709','Portel','Continente'),
+('0710','Redondo','Continente'),
+('0711','Reguengos de Monsaraz','Continente'),
+('0712','Vendas Novas','Continente'),
+('0713','Viana do Alentejo','Continente'),
+('0714','Vila Viçosa','Continente'),
+('0801','Albufeira','Continente'),
+('0802','Alcoutim','Continente'),
+('0803','Aljezur','Continente'),
+('0804','Castro Marim','Continente'),
+('0805','Faro','Continente'),
+('0806','Lagoa','Continente'),
+('0807','Lagos','Continente'),
+('0808','Loulé','Continente'),
+('0809','Monchique','Continente'),
+('0810','Olhão','Continente'),
+('0811','Portimão','Continente'),
+('0812','São Brás de Alportel','Continente'),
+('0813','Silves','Continente'),
+('0814','Tavira','Continente'),
+('0815','Vila do Bispo','Continente'),
+('0816','Vila Real de Santo António','Continente'),
+('0901','Aguiar da Beira','Continente'),
+('0902','Almeida','Continente'),
+('0903','Celorico da Beira','Continente'),
+('0904','Figueira de Castelo Rodrigo','Continente'),
+('0905','Fornos de Algodres','Continente'),
+('0906','Gouveia','Continente'),
+('0907','Guarda','Continente'),
+('0908','Manteigas','Continente'),
+('0909','Mêda','Continente'),
+('0910','Pinhel','Continente'),
+('0911','Sabugal','Continente'),
+('0912','Seia','Continente'),
+('0913','Trancoso','Continente'),
+('0914','Vila Nova de Foz Côa','Continente'),
+('1001','Alcobaça','Continente'),
+('1002','Alvaiázere','Continente'),
+('1003','Ansião','Continente'),
+('1004','Batalha','Continente'),
+('1005','Bombarral','Continente'),
+('1006','Caldas da Rainha','Continente'),
+('1007','Castanheira de Pêra','Continente'),
+('1008','Figueiró dos Vinhos','Continente'),
+('1009','Leiria','Continente'),
+('1010','Marinha Grande','Continente'),
+('1011','Nazaré','Continente'),
+('1012','Óbidos','Continente'),
+('1013','Pedrógão Grande','Continente'),
+('1014','Peniche','Continente'),
+('1015','Pombal','Continente'),
+('1016','Porto de Mós','Continente'),
+('1101','Alenquer','Continente'),
+('1102','Arruda dos Vinhos','Continente'),
+('1103','Azambuja','Continente'),
+('1104','Cadaval','Continente'),
+('1105','Cascais','Continente'),
+('1106','Lisboa','Continente'),
+('1107','Loures','Continente'),
+('1108','Lourinhã','Continente'),
+('1109','Mafra','Continente'),
+('1110','Oeiras','Continente'),
+('1111','Sintra','Continente'),
+('1112','Sobral de Monte Agraço','Continente'),
+('1113','Torres Vedras','Continente'),
+('1114','Vila Franca de Xira','Continente'),
+('1115','Amadora','Continente'),
+('1116','Odivelas','Continente'),
+('1201','Alter do Chão','Continente'),
+('1202','Arronches','Continente'),
+('1203','Avis','Continente'),
+('1204','Campo Maior','Continente'),
+('1205','Castelo de Vide','Continente'),
+('1206','Crato','Continente'),
+('1207','Elvas','Continente'),
+('1208','Fronteira','Continente'),
+('1209','Gavião','Continente'),
+('1210','Marvão','Continente'),
+('1211','Monforte','Continente'),
+('1212','Nisa','Continente'),
+('1213','Ponte de Sor','Continente'),
+('1214','Portalegre','Continente'),
+('1215','Sousel','Continente'),
+('1301','Amarante','Continente'),
+('1302','Baião','Continente'),
+('1303','Felgueiras','Continente'),
+('1304','Gondomar','Continente'),
+('1305','Lousada','Continente'),
+('1306','Maia','Continente'),
+('1307','Marco de Canaveses','Continente'),
+('1308','Matosinhos','Continente'),
+('1309','Paços de Ferreira','Continente'),
+('1310','Paredes','Continente'),
+('1311','Penafiel','Continente'),
+('1312','Porto','Continente'),
+('1313','Póvoa de Varzim','Continente'),
+('1314','Santo Tirso','Continente'),
+('1315','Valongo','Continente'),
+('1316','Vila do Conde','Continente'),
+('1317','Vila Nova de Gaia','Continente'),
+('1318','Trofa','Continente'),
+('1401','Abrantes','Continente'),
+('1402','Alcanena','Continente'),
+('1403','Almeirim','Continente'),
+('1404','Alpiarça','Continente'),
+('1405','Benavente','Continente'),
+('1406','Cartaxo','Continente'),
+('1407','Chamusca','Continente'),
+('1408','Constância','Continente'),
+('1409','Coruche','Continente'),
+('1410','Entroncamento','Continente'),
+('1411','Ferreira do Zêzere','Continente'),
+('1412','Golegã','Continente'),
+('1413','Mação','Continente'),
+('1414','Rio Maior','Continente'),
+('1415','Salvaterra de Magos','Continente'),
+('1416','Santarém','Continente'),
+('1417','Sardoal','Continente'),
+('1418','Tomar','Continente'),
+('1419','Torres Novas','Continente'),
+('1420','Vila Nova da Barquinha','Continente'),
+('1421','Ourém','Continente'),
+('1501','Alcácer do Sal','Continente'),
+('1502','Alcochete','Continente'),
+('1503','Almada','Continente'),
+('1504','Barreiro','Continente'),
+('1505','Grândola','Continente'),
+('1506','Moita','Continente'),
+('1507','Montijo','Continente'),
+('1508','Palmela','Continente'),
+('1509','Santiago do Cacém','Continente'),
+('1510','Seixal','Continente'),
+('1511','Sesimbra','Continente'),
+('1512','Setúbal','Continente'),
+('1513','Sines','Continente'),
+('1601','Arcos de Valdevez','Continente'),
+('1602','Caminha','Continente'),
+('1603','Melgaço','Continente'),
+('1604','Monção','Continente'),
+('1605','Paredes de Coura','Continente'),
+('1606','Ponte da Barca','Continente'),
+('1607','Ponte de Lima','Continente'),
+('1608','Valença','Continente'),
+('1609','Viana do Castelo','Continente'),
+('1610','Vila Nova de Cerveira','Continente'),
+('1701','Alijó','Continente'),
+('1702','Boticas','Continente'),
+('1703','Chaves','Continente'),
+('1704','Mesão Frio','Continente'),
+('1705','Mondim de Basto','Continente'),
+('1706','Montalegre','Continente'),
+('1707','Murça','Continente'),
+('1708','Peso da Régua','Continente'),
+('1709','Ribeira de Pena','Continente'),
+('1710','Sabrosa','Continente'),
+('1711','Santa Marta de Penaguião','Continente'),
+('1712','Valpaços','Continente'),
+('1713','Vila Pouca de Aguiar','Continente'),
+('1714','Vila Real','Continente'),
+('1801','Armamar','Continente'),
+('1802','Carregal do Sal','Continente'),
+('1803','Castro Daire','Continente'),
+('1804','Cinfães','Continente'),
+('1805','Lamego','Continente'),
+('1806','Mangualde','Continente'),
+('1807','Moimenta da Beira','Continente'),
+('1808','Mortágua','Continente'),
+('1809','Nelas','Continente'),
+('1810','Oliveira de Frades','Continente'),
+('1811','Penalva do Castelo','Continente'),
+('1812','Penedono','Continente'),
+('1813','Resende','Continente'),
+('1814','Santa Comba Dão','Continente'),
+('1815','São João da Pesqueira','Continente'),
+('1816','São Pedro do Sul','Continente'),
+('1817','Sátão','Continente'),
+('1818','Sernancelhe','Continente'),
+('1819','Tabuaço','Continente'),
+('1820','Tarouca','Continente'),
+('1821','Tondela','Continente'),
+('1822','Vila Nova de Paiva','Continente'),
+('1823','Viseu','Continente'),
+('1824','Vouzela','Continente'),
+('3101','Calheta','Madeira'),
+('3102','Câmara de Lobos','Madeira'),
+('3103','Funchal','Madeira'),
+('3104','Machico','Madeira'),
+('3105','Ponta do Sol','Madeira'),
+('3106','Porto Moniz','Madeira'),
+('3107','Ribeira Brava','Madeira'),
+('3108','Santa Cruz','Madeira'),
+('3109','Santana','Madeira'),
+('3110','São Vicente','Madeira'),
+('3201','Porto Santo','Madeira'),
+('4101','Vila do Porto','Açores'),
+('4201','Lagoa','Açores'),
+('4202','Nordeste','Açores'),
+('4203','Ponta Delgada','Açores'),
+('4204','Povoação','Açores'),
+('4205','Ribeira Grande','Açores'),
+('4206','Vila Franca do Campo','Açores'),
+('4301','Angra do Heroísmo','Açores'),
+('4302','Praia da Vitória','Açores'),
+('4401','Santa Cruz da Graciosa','Açores'),
+('4501','Calheta de São Jorge','Açores'),
+('4502','Velas','Açores'),
+('4601','Lajes do Pico','Açores'),
+('4602','Madalena','Açores'),
+('4603','São Roque do Pico','Açores'),
+('4701','Horta','Açores'),
+('4801','Lajes das Flores','Açores'),
+('4802','Santa Cruz das Flores','Açores'),
+('4901','Corvo','Açores')) AS official(code,name,region);
+GRANT SELECT ON public.portugal_municipalities TO anon,authenticated,service_role;
+REVOKE INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER ON public.portugal_municipalities FROM PUBLIC,anon,authenticated,service_role;
+COMMENT ON VIEW public.portugal_municipalities IS 'CAOP2025 DGT; official dtmn/municipio; static VALUES reference (308), no PII or seed DML.';
+
+
+CREATE FUNCTION public.club_city_key(p_city text) RETURNS text
+LANGUAGE sql IMMUTABLE SET search_path=public,pg_catalog AS $$
+ SELECT regexp_replace(translate(lower(normalize(coalesce(p_city,''),NFC) COLLATE pg_catalog."pg_c_utf8"),
+ 'áàâãäåéèêëíìîïóòôõöúùûüçñýÿ','aaaaaaeeeeiiiiooooouuuucnyy'),'[[:space:]]','','g')
+$$;
+CREATE FUNCTION public.club_city_normalize(p_country text,p_city text) RETURNS text
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public,pg_catalog AS $$
+DECLARE city text; country text:=upper(btrim(p_country));
+BEGIN
+ IF p_city IS NULL OR length(p_city)>500 OR p_city ~ '[<>[:cntrl:]]' THEN RAISE EXCEPTION 'city_invalid'; END IF;
+ city:=regexp_replace(btrim(normalize(p_city,NFC)),'[[:space:]]+',' ','g');
+ IF length(city) NOT BETWEEN 1 AND 120 THEN RAISE EXCEPTION 'city_invalid'; END IF;
+ IF country IS NULL OR country='' THEN RAISE EXCEPTION 'country_invalid'; END IF;
+ IF country IN ('PT','PORTUGAL') THEN
+   SELECT min(name) INTO city FROM public.portugal_municipalities WHERE public.club_city_key(name)=public.club_city_key(p_city);
+   IF city IS NULL THEN RAISE EXCEPTION 'city_unknown'; END IF;
+ ELSE
+   IF NOT EXISTS(SELECT 1 FROM public.club_profile_countries WHERE code=country) THEN RAISE EXCEPTION 'country_invalid'; END IF;
+   city:=initcap(lower(city COLLATE pg_catalog."pg_c_utf8"));
+ END IF;
+ RETURN city;
+END $$;
+CREATE FUNCTION public.club_cities() RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_catalog AS $$
+ SELECT jsonb_build_object('country','PT','version','caop-2025','cities',
+ jsonb_agg(jsonb_build_object('code',code,'name',name,'region',region) ORDER BY name,code)) FROM public.portugal_municipalities
+$$;
+-- Public read; has no member or session data. No write permission granted.
+REVOKE EXECUTE ON FUNCTION public.club_city_key(text),public.club_city_normalize(text,text),public.club_cities() FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.club_city_key(text) TO anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.club_cities() TO service_role;
+-- Guards enforce all profile writers, without revalidating legacy city on unrelated updates.
+CREATE FUNCTION public._club332_city_profile() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_catalog AS $$
+BEGIN
+ IF NEW.city IS NULL THEN RETURN NEW; END IF;
+ IF TG_OP='UPDATE' AND NEW.city IS NOT DISTINCT FROM OLD.city AND NEW.residence_country IS NOT DISTINCT FROM OLD.residence_country THEN RETURN NEW; END IF;
+ NEW.city:=public.club_city_normalize(NEW.residence_country,NEW.city);
+ RETURN NEW;
+END $$;
+CREATE TRIGGER club332_city_profile BEFORE INSERT OR UPDATE OF city,residence_country ON public.club_member_profiles
+ FOR EACH ROW EXECUTE FUNCTION public._club332_city_profile();
+-- No consent/processing logic is replaced. Only city changes in Club captures are validated.
+CREATE FUNCTION public._club332_city_capture() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_catalog AS $$
+DECLARE country text; city text; canonical text;
+BEGIN
+ IF NEW.source IS DISTINCT FROM 'clube_newgang' OR NEW.company_id IS DISTINCT FROM '7c858982-6ccd-47ca-bd65-e0dd3eebf01c'::uuid THEN RETURN NEW; END IF;
+ IF TG_OP='UPDATE' AND NEW.company_id IS NOT DISTINCT FROM OLD.company_id AND NEW.source IS NOT DISTINCT FROM OLD.source AND NEW.raw->'city' IS NOT DISTINCT FROM OLD.raw->'city'
+   AND NEW.raw->'residence_country' IS NOT DISTINCT FROM OLD.raw->'residence_country' THEN RETURN NEW; END IF;
+ IF NEW.raw->'city' IS NULL OR NEW.raw->'city'='null'::jsonb THEN RETURN NEW; END IF;
+ IF jsonb_typeof(NEW.raw->'city') IS DISTINCT FROM 'string' THEN RAISE EXCEPTION 'city_invalid'; END IF;
+ city:=NEW.raw->>'city'; country:=NEW.raw->>'residence_country';
+ -- Historical portal captures have no residence_country. Exact official names can be
+ -- canonicalized without inventing a country; other inputs need an explicit country.
+ IF nullif(btrim(country),'') IS NULL THEN
+   SELECT min(name) INTO canonical FROM public.portugal_municipalities WHERE public.club_city_key(name)=public.club_city_key(city);
+   IF canonical IS NULL THEN RAISE EXCEPTION 'country_invalid'; END IF;
+   canonical:=public.club_city_normalize('PT',city);
+ ELSE canonical:=public.club_city_normalize(country,city); END IF;
+ NEW.raw:=jsonb_set(NEW.raw,'{city}',to_jsonb(canonical));
+ RETURN NEW;
+END $$;
+CREATE TRIGGER club332_city_capture BEFORE INSERT OR UPDATE OF raw,source,company_id ON public.lead_capture
+ FOR EACH ROW EXECUTE FUNCTION public._club332_city_capture();
+REVOKE EXECUTE ON FUNCTION public._club332_city_profile(),public._club332_city_capture() FROM PUBLIC,anon,authenticated,service_role;
+CREATE OR REPLACE FUNCTION public.club_profile_confirm(p_site uuid,p_session_hash text,p_payload jsonb) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE m record; s club_profile_settings; p club_member_profiles; bd date; bc text; rc text; ct text; ev uuid; aid uuid; gained int:=0; BEGIN
+ -- Identité résolue depuis la session; aucun member/company/event fourni par le client.
+ SELECT cm.* INTO m FROM club_member_sessions x JOIN club_members cm ON cm.id=x.member_id JOIN portal_sites ps ON ps.id=cm.site_id AND ps.company_id=cm.company_id
+ WHERE x.site_id=p_site AND cm.site_id=p_site AND x.token_hash=p_session_hash AND x.purpose='access' AND x.expires_at>statement_timestamp() AND cm.confirmed_at IS NOT NULL AND ps.active AND ps.brand_key='newgang';
+ IF NOT FOUND THEN RAISE EXCEPTION 'no_session'; END IF;
+ IF jsonb_typeof(p_payload) IS DISTINCT FROM 'object' OR EXISTS(SELECT 1 FROM jsonb_object_keys(p_payload) k WHERE k NOT IN ('confirm','birth_date','birth_country','residence_country','city','phone','op')) THEN RAISE EXCEPTION 'profile_payload'; END IF;
+ PERFORM _club_site_lock(p_site,false);
+ -- Le cutover ne peut plus attendre le site en tenant un KEY SHARE du membre.
+ PERFORM 1 FROM club_members WHERE id=m.id FOR NO KEY UPDATE;
+ -- Revalider une session expirée pendant l'attente.
+ IF NOT EXISTS(SELECT 1 FROM club_member_sessions WHERE token_hash=p_session_hash AND site_id=p_site AND member_id=m.id AND purpose='access' AND expires_at>clock_timestamp()) THEN RAISE EXCEPTION 'no_session'; END IF;
+ SELECT * INTO p FROM club_member_profiles WHERE member_id=m.id;
+ SELECT * INTO s FROM club_profile_settings WHERE site_id=p_site AND company_id=m.company_id;
+ IF p_payload->>'op'='clear' THEN
+  IF p_payload<>jsonb_build_object('op','clear') THEN RAISE EXCEPTION 'profile_payload'; END IF;
+  UPDATE club_member_profiles SET birth_date=NULL,birth_country=NULL,residence_country=NULL,city=NULL,updated_at=now() WHERE member_id=m.id;
+  RETURN jsonb_build_object('ok',true,'awarded',0,'profile',club_profile_state(p_site,p_session_hash));
+ END IF;
+ IF p_payload ? 'op' OR p_payload->'confirm' IS DISTINCT FROM 'true'::jsonb THEN RAISE EXCEPTION 'profile_confirmation_required'; END IF;
+ IF jsonb_typeof(p_payload->'birth_date') IS DISTINCT FROM 'string' OR (p_payload->>'birth_date') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN RAISE EXCEPTION 'birth_date_invalid'; END IF;
+ BEGIN bd:=(p_payload->>'birth_date')::date; EXCEPTION WHEN OTHERS THEN RAISE EXCEPTION 'birth_date_invalid'; END;
+ IF NOT isfinite(bd) OR bd>(now() AT TIME ZONE 'Europe/Lisbon')::date THEN RAISE EXCEPTION 'birth_date_invalid'; END IF;
+ -- Dépendance réelle: aucune preuve parentale vérifiable trouvée. Pas de faux booléen ni interdiction <18.
+ IF bd>((now() AT TIME ZONE 'Europe/Lisbon')::date-interval '13 years')::date THEN RAISE EXCEPTION 'parental_flow_required'; END IF;
+ IF jsonb_typeof(p_payload->'birth_country') IS DISTINCT FROM 'string' OR jsonb_typeof(p_payload->'residence_country') IS DISTINCT FROM 'string' THEN RAISE EXCEPTION 'country_invalid'; END IF;
+ bc:=upper(btrim(p_payload->>'birth_country')); rc:=upper(btrim(p_payload->>'residence_country'));
+ IF NOT EXISTS(SELECT 1 FROM club_profile_countries WHERE code=bc) OR NOT EXISTS(SELECT 1 FROM club_profile_countries WHERE code=rc) THEN RAISE EXCEPTION 'country_invalid'; END IF;
+ IF jsonb_typeof(p_payload->'city') IS DISTINCT FROM 'string' THEN RAISE EXCEPTION 'city_invalid'; END IF;
+ ct:=public.club_city_normalize(rc,p_payload->>'city');
+ IF length(ct) NOT BETWEEN 1 AND 120 OR ct ~ '[<>[:cntrl:]]' THEN RAISE EXCEPTION 'city_invalid'; END IF;
+ IF p_payload ? 'phone' AND p_payload->'phone'<>'null'::jsonb AND (jsonb_typeof(p_payload->'phone') IS DISTINCT FROM 'string' OR (p_payload->>'phone') !~ '^\+[1-9][0-9]{7,14}$') THEN RAISE EXCEPTION 'phone_invalid'; END IF;
+ IF NOT coalesce(s.enabled,false) THEN RAISE EXCEPTION 'profile_unavailable'; END IF;
+ SELECT event_id INTO ev FROM portal_sites WHERE id=p_site AND company_id=m.company_id;
+ IF ev IS NULL OR NOT EXISTS(SELECT 1 FROM events WHERE id=ev AND company_id=m.company_id) THEN RAISE EXCEPTION 'profile_event_invalid'; END IF;
+ INSERT INTO club_member_profiles(member_id,site_id,company_id,birth_date,birth_country,residence_country,city)
+ VALUES(m.id,p_site,m.company_id,bd,bc,rc,ct) ON CONFLICT(member_id) DO UPDATE SET birth_date=EXCLUDED.birth_date,birth_country=EXCLUDED.birth_country,residence_country=EXCLUDED.residence_country,city=EXCLUDED.city,updated_at=now();
+ IF p_payload ? 'phone' THEN UPDATE club_members SET phone=p_payload->>'phone',updated_at=now() WHERE id=m.id; END IF;
+ IF p.completed_at IS NULL THEN
+  UPDATE club_member_profiles SET completed_at=now(),award_event_id=ev WHERE member_id=m.id;
+  gained:=_club_award_core(m.id,'profile_complete',m.id::text,50,NULL);
+  IF gained<>50 THEN RAISE EXCEPTION 'profile_credit_failed'; END IF;
+  SELECT id INTO aid FROM club_points WHERE member_id=m.id AND rule_key='profile_complete';
+  UPDATE club_member_profiles SET award_id=aid WHERE member_id=m.id;
+ END IF;
+ RETURN jsonb_build_object('ok',true,'awarded',gained,'profile',club_profile_state(p_site,p_session_hash));
+END $$;
+REVOKE EXECUTE ON FUNCTION public.club_profile_confirm(uuid,text,jsonb) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.club_profile_confirm(uuid,text,jsonb) TO service_role;
+-- Historical display is tolerant: exact municipality match only, unknown remains raw.
+CREATE FUNCTION public.club_city_display(p_country text,p_city text) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_catalog AS $$
+ SELECT CASE WHEN upper(coalesce(nullif(btrim(p_country),''),'PT')) IN ('PT','PORTUGAL')
+ THEN coalesce((SELECT min(name) FROM public.portugal_municipalities WHERE public.club_city_key(name)=public.club_city_key(p_city)),nullif(btrim(p_city),''))
+ ELSE nullif(btrim(p_city),'') END
+$$;
+REVOKE EXECUTE ON FUNCTION public.club_city_display(text,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.club_city_display(text,text) TO service_role;
+CREATE OR REPLACE FUNCTION public.clube_newgang_summary()
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE v jsonb; v_today date := (now() AT TIME ZONE 'Europe/Lisbon')::date;
+BEGIN
+  PERFORM public._clube_newgang_assert_access();
+  WITH b AS (
+    SELECT (created_at AT TIME ZONE 'Europe/Lisbon')::date AS d,
+           public.club_city_display(raw->>'residence_country',raw->>'city') AS city,
+           coalesce(nullif(utm_source,''),'(direto)') || ' / ' || coalesce(nullif(utm_medium,''),'—') || ' / ' || coalesce(nullif(utm_campaign,''),'—') AS utm,
+           public._clube_newgang_birth(raw) AS bd
+    FROM public.lead_capture
+    WHERE source = 'clube_newgang' AND public.row_belongs_to_current_company(company_id)
+  ), a AS (
+    SELECT *, CASE WHEN bd IS NULL THEN 'sem data'
+      ELSE CASE
+        WHEN extract(year FROM age(v_today, bd)) < 18 THEN '<18'
+        WHEN extract(year FROM age(v_today, bd)) < 25 THEN '18–24'
+        WHEN extract(year FROM age(v_today, bd)) < 35 THEN '25–34'
+        WHEN extract(year FROM age(v_today, bd)) < 45 THEN '35–44'
+        ELSE '45+' END END AS faixa
+    FROM b
+  )
+  SELECT jsonb_build_object(
+    'total', (SELECT count(*) FROM a),
+    'today', (SELECT count(*) FROM a WHERE d = v_today),
+    'last7', (SELECT count(*) FROM a WHERE d > v_today - 7),
+    'by_day', coalesce((SELECT jsonb_agg(jsonb_build_object('d', d, 'n', n) ORDER BY d) FROM (SELECT d, count(*) n FROM a GROUP BY d) x), '[]'::jsonb),
+    'by_city', coalesce((SELECT jsonb_agg(jsonb_build_object('k', k, 'n', n) ORDER BY n DESC, k) FROM (SELECT coalesce(min(city),'(sem cidade)') k, count(*) n FROM a GROUP BY public.club_city_key(city) ORDER BY 2 DESC, 1 LIMIT 10) x), '[]'::jsonb),
+    'by_utm', coalesce((SELECT jsonb_agg(jsonb_build_object('k', utm, 'n', n) ORDER BY n DESC, utm) FROM (SELECT utm, count(*) n FROM a GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 20) x), '[]'::jsonb),
+    'by_age', (SELECT jsonb_agg(jsonb_build_object('k', f, 'n', (SELECT count(*) FROM a WHERE faixa = f)) ORDER BY o)
+               FROM unnest(ARRAY['<18','18–24','25–34','35–44','45+','sem data']) WITH ORDINALITY AS t(f, o))
+  ) INTO v;
+  RETURN v;
+END $$;
+
+REVOKE EXECUTE ON FUNCTION public.clube_newgang_summary() FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.clube_newgang_summary() TO authenticated,service_role;
+CREATE OR REPLACE FUNCTION public.clube_newgang_list(p_search text DEFAULT NULL, p_limit int DEFAULT 50, p_offset int DEFAULT 0)
+RETURNS TABLE (id uuid, name text, email text, phone text, birth_date text, city text, postal_code text,
+  consent_email boolean, consent_whatsapp boolean, utm_source text, utm_medium text, utm_campaign text,
+  created_at timestamptz, total_count bigint)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  PERFORM public._clube_newgang_assert_access();
+  RETURN QUERY
+  SELECT l.id, l.name, l.email, l.phone, l.raw->>'birth_date', public.club_city_display(l.raw->>'residence_country',l.raw->>'city'), l.raw->>'postal_code',
+    l.consent_email, l.consent_whatsapp, l.utm_source, l.utm_medium, l.utm_campaign, l.created_at,
+    count(*) OVER ()
+  FROM public.lead_capture l
+  WHERE l.source = 'clube_newgang' AND public.row_belongs_to_current_company(l.company_id)
+    AND (coalesce(trim(p_search),'') = '' OR l.name ILIKE '%'||trim(p_search)||'%' OR l.email ILIKE '%'||trim(p_search)||'%')
+  ORDER BY l.created_at DESC, l.id
+  LIMIT least(greatest(coalesce(p_limit,50),1),1000) OFFSET greatest(coalesce(p_offset,0),0);
+END $$;
+
+REVOKE EXECUTE ON FUNCTION public.clube_newgang_list(text,int,int) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.clube_newgang_list(text,int,int) TO authenticated,service_role;
