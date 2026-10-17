@@ -71,9 +71,9 @@ def extend(changes, root):
     s=s.replace('import { lookupStandalone, standaloneWriteError }','import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt } from "@/lib/standalone-attempt-client";\nimport type { Attempt } from "@shared/standalone-attempt";\nimport { lookupStandalone, standaloneWriteError }')
     s=s.replace('  const pendingKey =','  const [attempt, setAttempt] = useState<Attempt | null>(null);\n  const [resumeId,setResumeId]=useState("");\n  const [resumeHash,setResumeHash]=useState("");\n  const attemptGeneration=useRef(0);\n  const pendingKey =')
     s=s.replace('checkLegacyAttempt }', 'checkLegacyAttempt, resumeLegacyAttempt }')
-    s=s.replace('useState,', 'useState, useRef,',1) if 'useRef' not in s.split('\n')[0] else s
-    s=s.replace('  const saveEdit = async', '  useEffect(()=>{attemptGeneration.current++;setAttempt(null);setResumeId("");setResumeHash("");setEditing(null);setWritePending(false);},[user?.id,companyId]);\n  const saveEdit = async')
-    s=s.replace('    setSaving(true);', '    const writeGeneration=attemptGeneration.current;\n    setSaving(true);',1)
+    s=s.replace('import { useMemo, useState }', 'import { useMemo, useState, useRef }',1)
+    s=s.replace('  const saveEdit = useMutation({', '  useEffect(()=>{attemptGeneration.current++;setAttempt(null);setResumeId("");setResumeHash("");setEditing(null);setWritePending(false);},[user?.id,companyId]);\n  const saveEdit = useMutation({')
+    s=s.replace('    mutationFn: async () => {', '    mutationFn: async () => {\n      const writeGeneration=attemptGeneration.current;',1)
     start=s.index('      sessionStorage.setItem(pendingKey, "pending");');end=s.index('      if (error) throw error;',start)+len('      if (error) throw error;')
     block=s[start:end];payload=block[block.index('          supplier_name:'):block.index('        })')]
     s=s[:start]+'''      if (!user || !companyId) throw new Error("Contexto inválido");
@@ -88,8 +88,9 @@ def extend(changes, root):
       setAttempt(reserved);setResumeId(reserved.id);setResumeHash(reserved.hash); sessionStorage.setItem(pendingKey,JSON.stringify({id:reserved.id,hash:reserved.hash}));
       const result=await executeLegacyAttempt("accountant_edit",reserved,file,context);
       if(writeGeneration!==attemptGeneration.current)return;
-      if(result.status!=="conferido")throw new Error("Conferência pendente");'''+s[end:]
-    s=s.replace('      setWritePending(true);','      if(writeGeneration!==attemptGeneration.current)return;\n      setWritePending(true);',1)
+      if(result.status!=="conferido")throw new Error("Conferência pendente");
+      return writeGeneration;'''+s[end:]
+    s=s.replace('    onSuccess: () => {', '    onSuccess: (completedGeneration) => {\n      if(completedGeneration!==attemptGeneration.current)return;',1)
     s=s.replace('    setEditing(r);','    setAttempt(null);\n    setEditing(r);',1)
     s=s.replace('          <DialogFooter>', '''          <Input aria-label="ID da tentativa de edição" value={resumeId} onChange={e=>setResumeId(e.target.value)} />
           <Input aria-label="Hash da tentativa de edição" value={resumeHash} onChange={e=>setResumeHash(e.target.value)} />
