@@ -32,3 +32,13 @@ export async function listLegacyAttempts(operation:string,context:Context,after:
 /** C: explicit, typed additional intent over a completed attempt; never for unknown/review results. */
 export const confirmNewIntent=(a:Pick<Attempt,'id'|'hash'>,context:Context)=>attemptRequest({action:'confirm_new_intent',operation:'scanner_create',id:a.id,hash:a.hash,confirm:true},context);
 export const reviewMessage=(reason:string|null|undefined)=>reason==='iva_exceeds_total'?'IVA superior ao total: suspenso para revisão, nada gravado.':reason==='strong_duplicate'?'Já existe uma fatura com o mesmo NIF e número: suspenso para revisão.':reason==='before_changed'?'A fatura mudou entretanto: suspenso para revisão.':'Suspenso para revisão.';
+export type AttemptCapabilities=Record<'scanner_create'|'accountant_edit',boolean>;
+const CLOSED:AttemptCapabilities={scanner_create:false,accountant_edit:false};
+/** Capacidade canónica decidida pelo servidor; qualquer falha/ausência => ramo legacy_untracked. */
+export async function attemptCapabilities(context:Context):Promise<AttemptCapabilities> {
+ try{const r=await attemptRequest({action:'capabilities'},context) as {capabilities?:Partial<AttemptCapabilities>};
+  return {scanner_create:r?.capabilities?.scanner_create===true,accountant_edit:r?.capabilities?.accountant_edit===true};}
+ catch{return CLOSED}
+}
+/** C: só tentativa concluída e mais recente do owner pode receber nova intenção. */
+export const canConfirmNewIntent=(a:Pick<AttemptSummary,'state'>,latest:boolean)=>latest && a.state==='completed';

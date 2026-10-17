@@ -8,6 +8,8 @@ const url=Deno.env.get('SUPABASE_URL')??'',key=Deno.env.get('SUPABASE_SERVICE_RO
 const admin=createClient(url,key);
 const userClient=(token:string)=>createClient(url,anon,{global:{headers:{Authorization:`Bearer ${token}`}}});
 Deno.serve(createAttemptHandler({cors:attemptCors,
+  // No server-readable gate exists (gate fn revoked from every role): stays closed until a reviewed DDL adds one.
+  capabilities:async()=>({scanner_create:false,accountant_edit:false}),
  user:async token=>{const {data,error}=await userClient(token).auth.getUser();return error?null:data.user},
  context:async token=>{const {data,error}=await userClient(token).rpc('my_effective_permissions',{p_universe:[]});return error?null:data},
  list:async(token,operation,after)=>{const {data,error}=await userClient(token).rpc('standalone_attempt_list_333',{p_operation:operation,p_after:after});if(error)throw Error('Consulta recusada');return data},

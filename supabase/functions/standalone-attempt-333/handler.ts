@@ -4,6 +4,7 @@ import { z } from 'npm:zod@3.23.8';
 import { executeAttempt, checkAttempt, type Attempt, type AttemptTransport } from '../_shared/standalone-attempt.ts';
 const uuid=z.string().uuid();
 const schema=z.discriminatedUnion('action',[
+ z.object({action:z.literal('capabilities')}).strict(),
  z.object({action:z.literal('list'),operation:z.enum(['scanner_create','accountant_edit']),after:uuid.nullable()}).strict(),
  z.object({action:z.literal('prepare'),operation:z.enum(['scanner_create','accountant_edit']),id:uuid.nullable(),envelope:z.record(z.unknown())}).strict(),
  z.object({action:z.literal('execute'),operation:z.enum(['scanner_create','accountant_edit']),id:uuid,hash:z.string().regex(/^[a-f0-9]{64}$/),conteudo_base64:z.string().max(28000000)}).strict(),
@@ -16,6 +17,8 @@ export type HandlerDeps = {
  transport(token:string,operation:string):AttemptTransport;
  cors:Record<string,string>;
  list?(token:string,operation:string,after:string|null):Promise<unknown>;
+ /** Server-side canonical capability; absent => closed. Never client-controlled. */
+ capabilities?():Promise<Record<'scanner_create'|'accountant_edit',boolean>>;
 };
 export function createAttemptHandler(d:HandlerDeps) {
  return async(req:Request)=>{
@@ -33,6 +36,7 @@ export function createAttemptHandler(d:HandlerDeps) {
    for(;;){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>28100000){await reader.cancel();return reply({error:'Pedido demasiado grande'},413)}chunks.push(part.value)}
    const raw=new Uint8Array(size);let offset=0;for(const chunk of chunks){raw.set(chunk,offset);offset+=chunk.length}
    const body=schema.parse(JSON.parse(new TextDecoder().decode(raw)));
+   if(body.action==='capabilities'){const c=d.capabilities?await d.capabilities().catch(()=>null):null;return reply({capabilities:{scanner_create:c?.scanner_create===true,accountant_edit:c?.accountant_edit===true}})}
    const t=d.transport(token,body.operation);
    if(body.action==='list'){if(!d.list)return reply({error:'Consulta indisponível'},409);return reply(await d.list(token,body.operation,body.after));}
    if(body.action==='prepare')return reply(await t.rpc('prepare',body.id,body.envelope,null));
