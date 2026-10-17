@@ -1,6 +1,6 @@
 # #333 — Assistente de Entrada de Dados: plano técnico e dependências
 
-Estado: plano aprovado; contratos puros, executor experimental desativado e SQL inerte preparados. Núcleo funcional NÃO entregue: auditoria encontrou bloqueios antes de migração/deploy/UI. Issue aberta. Executor: 0 · Cowork (ChatGPT) através do agente Lovable ERP. Sem lançamentos financeiros reais de teste.
+Estado: núcleo local por upload/UI implementado e corrigido; indisponível em Live. Provas atuais: `docs/testes/issue333/05-correcao-integridade-retoma.md` e `06-proposta-unicidade-normalizada.md`. Nenhuma migração/bucket/deploy/Publish. Upload hardcoded false; execute sem configuração. Ativação bloqueada por unicidade normalizada legada e storage real. Issue/reserva abertas. Executor único: 0 · Cowork (ChatGPT), agente Lovable ERP; #323 intacta.
 
 ## Sincronização e âmbito
 
@@ -71,7 +71,7 @@ Estado: plano aprovado; contratos puros, executor experimental desativado e SQL 
 - Só aplicar migração/deploy novos após testes isolados; SQL do ficheiro enviado byte a byte/hash. SELECT Live de catálogo/ACL/RLS/bucket/corpos, nenhuma fixture financeira em Live. SECDEF revoga PUBLIC/anon/authenticated; internas service_role apenas; RPCs de sessão explicitamente autenticadas e tenant-bound. Verificar has_function_privilege.
 - Fecho próprio no QUADRO, feature memory, roadmap e estado financeiro apenas diff da #333, sem disputar #323. Issue e reserva ficam aguardando verificação/integrações. Reportar SHA real e integração/receção quando disponível, nunca presumir commit futuro. Publish necessário para UI, não executar.
 
-## Bloqueios concretos encontrados
+## Bloqueios concretos encontrados (histórico da primeira proposta)
 
 ### Auditoria da proposta executável — 17/10/2026 16:44 UTC
 

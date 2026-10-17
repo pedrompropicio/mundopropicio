@@ -11,7 +11,7 @@ vi.stubGlobal("fetch", () => { throw new Error("egress proibido"); });
 type Obj = { bytes: Uint8Array };
 function world(opts: { role?: string; execute?: boolean; upload?: boolean } = {}) {
   const store = new Map<string, Obj>(); const calls: string[] = []; const receipts: string[] = [];
-  let failUploadOnce = false; let commitError: { code?: string; message?: string } | null = null; let committed = false;
+  let failUploadOnce = false; let commitError: { code?: string; message?: string } | null = null; let committed = false; let corruptBucket: Bucket | null = null; let missingBucket: Bucket | null = null; let beforeCommit: (() => Promise<void>) | null = null; let commitCount = 0;
   const doc = { id: D, sha256: "", mime: "application/pdf", path: "", name: "f.pdf" };
   const state = () => ({ session: { id: S, company_id: C }, company: { id: C }, documents: doc.sha256 ? [doc] : [],
     preview: doc.sha256 ? { id: P, snapshot_hash: HASH, document_id: D } : null,
@@ -24,8 +24,8 @@ function world(opts: { role?: string; execute?: boolean; upload?: boolean } = {}
       if (name === "my_effective_permissions") return { data: { role: opts.role ?? "manager", company_id: C }, error: null };
       if (name === "data_entry_session") return { data: state(), error: null };
       if (name === "data_entry_add_document") { doc.sha256 = String(args.p_sha); doc.path = `${C}/${S}/${args.p_sha}`; return { data: { id: D, reused: false }, error: null }; }
-      if (name === "data_entry_commit") { if (commitError) return { data: null, error: commitError }; committed = true; return { data: { invoice_id: "i" }, error: null }; }
-      if (name === "data_entry_result_check") return { data: { ok: true, result: { invoice_id: "i" }, path: `${C}/assistant333/${D}/${doc.sha256}.pdf`, sha256: doc.sha256 }, error: null };
+      if (name === "data_entry_commit") { if (beforeCommit) await beforeCommit(); if (commitError) return { data: null, error: commitError }; committed = true; commitCount += 1; return { data: { invoice_id: "i" }, error: null }; }
+      if (name === "data_entry_result_check") return { data: { ok: true, result: committed ? { invoice_id: "i" } : null, path: `${C}/assistant333/${D}/${doc.sha256}.pdf`, sha256: doc.sha256 }, error: null };
       if (name === "data_entry_prepare") return { data: { id: P }, error: null };
       return { data: null, error: { code: "XX000", message: "internal secret detail" } };
     },
@@ -35,13 +35,12 @@ function world(opts: { role?: string; execute?: boolean; upload?: boolean } = {}
         calls.push(`upload:${b}`);
         if (failUploadOnce) { failUploadOnce = false; store.set(`${b}/${p}`, { bytes }); throw new Error("crash after persist"); }
         if (store.has(`${b}/${p}`)) return { error: { conflict: true } };
-        store.set(`${b}/${p}`, { bytes }); return { error: null };
+        if (b !== missingBucket) store.set(`${b}/${p}`, { bytes: b === corruptBucket ? pdfFixture("corrupted") : bytes }); return { error: null };
       },
       async download(b, p) { return store.get(`${b}/${p}`)?.bytes ?? null; },
-      async remove(b, p) { calls.push(`remove:${b}`); store.delete(`${b}/${p}`); },
     },
   };
-  return { handle: createHandler(deps), store, calls, receipts, crashNextUpload: () => (failUploadOnce = true), setCommitError: (e: typeof commitError) => (commitError = e), doc };
+  return { deps, setBeforeCommit: (fn: (() => Promise<void>) | null) => (beforeCommit = fn), commits: () => commitCount, markCommitted: () => (committed = true), corrupt: (b: Bucket) => (corruptBucket = b), missing: (b: Bucket) => (missingBucket = b), handle: createHandler(deps), store, calls, receipts, crashNextUpload: () => (failUploadOnce = true), setCommitError: (e: typeof commitError) => (commitError = e), doc };
 }
 const json = (body: unknown, token = "good") => new Request("http://x/", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
 const upload = (bytes: Uint8Array, mime = "application/pdf", extra?: Record<string, string>) => {
@@ -103,23 +102,71 @@ describe("#333 handler", () => {
     expect(r.status).toBe(200); expect((await r.json()).status).toBe("conferido");
     expect([...w.store.keys()].filter((k) => k.startsWith("standalone-invoices")).length).toBe(1);
   });
-  it("recusa definitiva no commit: cópia final removida, mensagem só do #333", async () => {
+  it("recusa definitiva no commit: candidato privado mantido, mensagem só do #333", async () => {
     await w.handle(upload(pdfFixture()));
     w.setCommitError({ code: "23505", message: "#333: Fatura já existe no ERP; nenhuma nova ação" });
     const r = await w.handle(exec());
-    expect(r.status).toBe(409); expect((await r.json()).error).toBe("Fatura já existe no ERP; nenhuma nova ação");
-    expect([...w.store.keys()].some((k) => k.startsWith("standalone-invoices"))).toBe(false);
+    expect(r.status).toBe(409); expect((await r.json()).status).toBe("por_confirmar");
+    expect([...w.store.keys()].some((k) => k.startsWith("standalone-invoices"))).toBe(true);
   });
   it("resultado desconhecido: mantém a cópia, pede retoma; a retoma confere (não repete commit)", async () => {
     await w.handle(upload(pdfFixture()));
     w.setCommitError({ code: "08006", message: "connection lost" });
     const r = await w.handle(exec());
     expect(r.status).toBe(503); expect((await r.json()).status).toBe("por_confirmar");
-    w.setCommitError(null); await w.handle(exec());
+    w.setCommitError(null); w.markCommitted();
     const commits = w.calls.filter((c) => c === "data_entry_commit").length;
-    const again = await w.handle(exec());
+    const again = await w.handle(json({ action: "check", session_id: S, preview_id: P }));
     expect((await again.json()).status).toBe("conferido");
     expect(w.calls.filter((c) => c === "data_entry_commit").length).toBe(commits);
+  });
+  it.each(["missing", "corrupt"] as const)("upload200 %s: sem recibo nem registo", async (mode) => {
+    w[mode]("data-entry-staging");
+    expect((await w.handle(upload(pdfFixture()))).status).toBe(409);
+    expect(w.receipts).toHaveLength(0); expect(w.calls).not.toContain("data_entry_add_document");
+  });
+  it.each(["missing", "corrupt"] as const)("final upload200 %s: sem recibo final nem commit", async (mode) => {
+    await w.handle(upload(pdfFixture())); w[mode]("standalone-invoices");
+    expect((await w.handle(exec())).status).toBe(409);
+    expect(w.receipts.filter((x) => x.startsWith("standalone-invoices"))).toHaveLength(0);
+    expect(w.commits()).toBe(0);
+  });
+  it.each(["40001", "08006"])("barreira P1/P2: falha %s nunca remove bytes comprometidos por P2", async (code) => {
+    await w.handle(upload(pdfFixture()));
+    let entered: () => void = () => {}; let release: () => void = () => {};
+    const waiting = new Promise<void>((r) => { entered = r; }); const barrier = new Promise<void>((r) => { release = r; });
+    const original = w.deps.userRpc; let first = true;
+    w.deps.userRpc = async (token, name, args) => {
+      if (name === "data_entry_commit" && first) {
+        first = false; entered(); await barrier;
+        return { data: null, error: { code, message: "#333: Prévia alterada" } };
+      }
+      return original(token, name, args);
+    };
+    const p1 = w.handle(exec()); await waiting;
+    expect((await w.handle(exec())).status).toBe(200);
+    release(); expect((await (await p1).json()).status).toBe("por_confirmar");
+    const final = [...w.store.entries()].find(([k]) => k.startsWith("standalone-invoices"));
+    expect(final?.[1].bytes).toEqual(pdfFixture()); expect(w.commits()).toBe(1);
+    const check = await w.handle(json({ action: "check", session_id: S, preview_id: P }));
+    expect((await check.json()).status).toBe("conferido"); expect(w.commits()).toBe(1);
+  });
+  it("check sem resultado é por confirmar e não repete commit; ID fora do lote recusado", async () => {
+    await w.handle(upload(pdfFixture()));
+    const r = await w.handle(json({ action: "check", session_id: S, preview_id: P }));
+    expect((await r.json()).status).toBe("por_confirmar"); expect(w.commits()).toBe(0);
+    expect((await w.handle(json({ action: "check", session_id: S, preview_id: D }))).status).toBe(403);
+  });
+  it("check detecta bytes perdidos/corrompidos sem commit; contexto obsoleto recusado", async () => {
+    await w.handle(upload(pdfFixture())); await w.handle(exec());
+    const key = [...w.store.keys()].find((k) => k.startsWith("standalone-invoices"));
+    if (!key) throw new Error("missing fixture"); w.store.delete(key);
+    expect((await (await w.handle(json({ action: "check", session_id: S, preview_id: P }))).json()).status).toBe("conferencia_pendente");
+    w.store.set(key, { bytes: pdfFixture("other") });
+    expect((await (await w.handle(json({ action: "check", session_id: S, preview_id: P }))).json()).status).toBe("conferencia_pendente");
+    expect(w.commits()).toBe(1);
+    const req = json({ action: "status" }); req.headers.set("X-Data-Entry-Company", D);
+    expect((await w.handle(req)).status).toBe(409);
   });
   it("erros internos nunca chegam ao utilizador; prévia com valor em texto é recusada antes do servidor", async () => {
     const r = await w.handle(json({ action: "preview", session_id: S, document_id: D, fields: { total_amount: "1" } }));

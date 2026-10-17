@@ -1,5 +1,5 @@
 -- #333 Assistente de Entrada de Dados — migração técnica ADITIVA. PENDENTE: NÃO aplicar.
--- Provas: docs/testes/issue333/04-postgres-real-duas-conexoes.md
+-- Provas: docs/testes/issue333/04-retoma-postgres-real-e-ui.md
 -- Identidade/empresa/papel: auth.uid() + public.current_company_id() + public._effective_permissions_for()
 -- (helpers canónicos, não alterados). Nenhuma tabela técnica é acessível directamente por authenticated.
 -- Execução fechada por data_entry_settings.execute_validated (sem linha = indisponível).
@@ -215,7 +215,7 @@ BEGIN
   RAISE EXCEPTION '#333: Fatura já existe no ERP; nenhuma nova ação' USING ERRCODE='23505'; END IF;
  mark := 'Feito por LLM com autorização de '||a.actor_name||' em '||to_char(now_ts AT TIME ZONE 'Europe/Lisbon','DD/MM/YYYY')||'.';
  INSERT INTO public.standalone_invoices(id,company_id,storage_path,file_name,supplier_name,supplier_nif,invoice_number,invoice_date,currency,original_amount,fx_rate,fx_rate_source,total_amount,iva_amount,paid_by_partner_id,notes,status,created_by)
- VALUES(v.destination_id,s.company_id,final_path,d.name,f->>'supplier_name',f->>'supplier_nif',f->>'invoice_number',(f->>'invoice_date')::date,'EUR',NULL,NULL,NULL,(f->>'total_amount')::numeric,(f->>'iva_amount')::numeric,(f->>'paid_by_partner_id')::uuid,concat_ws(E'\n',nullif(btrim(f->>'notes'),''),mark),'new',a.uid);
+ VALUES(v.destination_id,s.company_id,final_path,d.name,f->>'supplier_name',f->>'supplier_nif',f->>'invoice_number',(f->>'invoice_date')::date,'EUR',NULL,NULL,NULL,(f->>'total_amount')::numeric,(f->>'iva_amount')::numeric,(f->>'paid_by_partner_id')::uuid,concat_ws(E'\n',nullif(f->>'notes',''),mark),'new',a.uid);
  output := jsonb_build_object('invoice_id',v.destination_id,'preview_id',v.id,'document_id',d.id,'path',final_path,'sha256',d.sha256,'status','new',
   'total_amount',(f->>'total_amount')::numeric,'iva_amount',(f->>'iva_amount')::numeric,'invoice_date',f->>'invoice_date','supplier_nif',f->>'supplier_nif','invoice_number',f->>'invoice_number',
   'approved_by',a.uid,'approved_name',a.actor_name,'approved_at',now_ts,'observation',mark);
@@ -232,12 +232,33 @@ BEGIN
  SELECT * INTO v FROM public.data_entry_previews WHERE id=p_preview;
  PERFORM public.data_entry_own_session(v.session_id);
  SELECT * INTO r FROM public.data_entry_results WHERE preview_id=p_preview;
- IF r.preview_id IS NULL THEN RAISE EXCEPTION '#333: Sem resultado para esta prévia' USING ERRCODE='P0001'; END IF;
+ IF r.preview_id IS NULL THEN RETURN jsonb_build_object('ok',false,'result',NULL,'persisted',NULL); END IF;
  SELECT * INTO i FROM public.standalone_invoices WHERE id=r.invoice_id AND company_id=r.company_id;
  f := v.snapshot->'fields';
- ok := i.id IS NOT NULL AND i.storage_path=r.result->>'path' AND i.total_amount=(f->>'total_amount')::numeric AND i.iva_amount=(f->>'iva_amount')::numeric
-  AND i.invoice_date=(f->>'invoice_date')::date AND i.supplier_nif=f->>'supplier_nif' AND i.invoice_number=f->>'invoice_number' AND i.currency='EUR'
-  AND i.paid_by_partner_id=(f->>'paid_by_partner_id')::uuid AND i.created_by=r.approved_by AND position(r.result->>'observation' in coalesce(i.notes,''))>0;
+ ok := coalesce(i.id IS NOT NULL
+  AND r.company_id=v.company_id AND r.document_id=v.document_id AND r.invoice_id=v.destination_id
+  AND r.approved_by=v.created_by AND r.snapshot_hash=v.snapshot_hash
+  AND v.snapshot_hash=encode(extensions.digest(convert_to(v.snapshot::text,'UTF8'),'sha256'),'hex')
+  AND r.result->>'preview_id'=v.id::text AND r.result->>'document_id'=v.document_id::text
+  AND r.result->>'invoice_id'=i.id::text AND r.result->>'approved_by'=r.approved_by::text
+  AND r.result->>'approved_name'=r.approved_name AND (r.result->>'approved_at')::timestamptz=r.approved_at
+  AND r.result->>'sha256'=v.snapshot->'document'->>'sha256'
+  AND r.result->>'path'=v.company_id::text||'/assistant333/'||v.document_id::text||'/'||
+    (v.snapshot->'document'->>'sha256')||(CASE v.snapshot->'document'->>'mime' WHEN 'application/pdf' THEN '.pdf' WHEN 'image/jpeg' THEN '.jpg' ELSE '.png' END)
+  AND r.result->>'observation'='Feito por LLM com autorização de '||r.approved_name||' em '||to_char(r.approved_at AT TIME ZONE 'Europe/Lisbon','DD/MM/YYYY')||'.'
+  AND i.company_id=v.company_id AND i.storage_path=r.result->>'path'
+  AND i.file_name=v.snapshot->'document'->>'name' AND i.supplier_name=f->>'supplier_name'
+  AND i.total_amount=(f->>'total_amount')::numeric AND i.iva_amount=(f->>'iva_amount')::numeric
+  AND i.invoice_date=(f->>'invoice_date')::date AND i.supplier_nif=f->>'supplier_nif' AND i.invoice_number=f->>'invoice_number'
+  AND i.currency='EUR' AND i.original_amount IS NULL AND i.fx_rate IS NULL AND i.fx_rate_source IS NULL
+  AND i.paid_by_partner_id=(f->>'paid_by_partner_id')::uuid AND i.created_by=r.approved_by
+  AND i.notes=concat_ws(E'\n',nullif(f->>'notes',''),r.result->>'observation')
+  AND EXISTS(SELECT 1 FROM public.data_entry_documents d WHERE d.id=v.document_id AND d.session_id=v.session_id
+    AND d.company_id=v.company_id AND d.sha256=v.snapshot->'document'->>'sha256' AND d.name=i.file_name)
+  AND EXISTS(SELECT 1 FROM public.data_entry_storage_receipts sr WHERE sr.bucket='standalone-invoices'
+    AND sr.path=i.storage_path AND sr.company_id=i.company_id AND sr.sha256=r.result->>'sha256'
+    AND sr.size_bytes=(v.snapshot->'document'->>'size_bytes')::integer AND sr.mime=v.snapshot->'document'->>'mime'),false);
+ -- Status is mutable in the legacy processing flow: return it separately, never rewrite it.
  RETURN jsonb_build_object('ok',ok,'result',r.result,'path',r.result->>'path','sha256',r.result->>'sha256',
   'persisted',CASE WHEN i.id IS NULL THEN NULL ELSE jsonb_build_object('id',i.id,'status',i.status,'total_amount',i.total_amount,'invoice_date',i.invoice_date,'storage_path',i.storage_path) END);
 END $$;

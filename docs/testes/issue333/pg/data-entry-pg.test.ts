@@ -2,12 +2,16 @@
  * #333 — PostgreSQL 17 real, descartável, com pgcrypto real e DUAS ligações independentes.
  * Sem rede: o servidor escuta só num socket Unix em /tmp. Nunca toca Live.
  */
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import postgres from "postgres";
+
+import { createHandler, type Deps } from "../../../../supabase/functions/data-entry/handler";
+import { pdfFixture } from "../../../../src/test/fixtures/documents333";
+vi.stubGlobal("fetch", () => { throw new Error("egress prohibited"); });
 
 const DIR = mkdtempSync("/tmp/pg333-");
 const DATA = path.join(DIR, "data");
@@ -28,7 +32,9 @@ async function as<T>(sql: postgres.Sql, uid: string, fn: (tx: Tx) => Promise<T>)
   }) as Promise<T>;
 }
 const rpc = async (sql: postgres.Sql, uid: string, q: (tx: Tx) => postgres.PendingQuery<postgres.Row[]>) =>
-  (await as(sql, uid, async (tx) => (await q(tx))[0]))!;
+  (await as(sql, uid, async (tx) => {
+    const row = (await q(tx))[0]; if (!row) throw new Error("Missing SQL fixture row"); return row;
+  }));
 async function receipt(bucket: string, p: string, h: string, size: number, mime: string) {
   await admin.begin(async (tx) => { await tx`set local role service_role`; await tx`select public.data_entry_record_receipt(${bucket},${p},${h},${size},${mime})`; });
 }
@@ -170,6 +176,27 @@ describe("#333 execução, autorização e conferência", () => {
     await admin`update standalone_invoices set total_amount=999 where id=${out.invoice_id}`;
     expect((await rpc(c1, U.M, (tx) => tx`select public.data_entry_result_check(${p.preview.id}) j`)).j.ok).toBe(false);
   });
+  it("conferência completa detecta cada campo prometido; estado processado legítimo é atual separado", async () => {
+    const p = await prepared(U.M, A, "%PDF-full-" + randomUUID(), fields({ invoice_number: "FULL-" + randomUUID(), notes: "  nota exata  " }));
+    const out = (await rpc(c1, U.M, (tx) => tx`select public.data_entry_commit(${p.preview.id},${p.preview.snapshot_hash}) j`)).j;
+    for (const [column, value] of Object.entries({ supplier_name: "Changed", file_name: "other.pdf", notes: out.observation,
+      currency: "USD", original_amount: 1, fx_rate: 1, fx_rate_source: "client", supplier_nif: "PT999999999",
+      invoice_number: "changed", created_by: U.Z, paid_by_partner_id: U.Z, storage_path: "other", company_id: B })) {
+      await admin.begin(async (tx) => {
+        if (column === "currency") await tx`update standalone_invoices set original_amount=1,fx_rate=1 where id=${out.invoice_id}`;
+        await tx`update standalone_invoices set ${tx(column)}=${value} where id=${out.invoice_id}`;
+        await tx`select set_config('request.jwt.claims', ${JSON.stringify({ sub: U.M, role: "authenticated" })}, true)`;
+        const [r] = await tx`select public.data_entry_result_check(${p.preview.id}) j`;
+        expect([column, r.j.ok]).toEqual([column, false]);
+        throw new Error("rollback mutation");
+      }).catch((e) => { if (e.message !== "rollback mutation") throw e; });
+    }
+    await admin`update standalone_invoices set status='processed',processed_by=${U.Z},processed_at=now() where id=${out.invoice_id}`;
+    const check = (await rpc(c1, U.M, (tx) => tx`select public.data_entry_result_check(${p.preview.id}) j`)).j;
+    expect(check.ok).toBe(true); expect(check.result.status).toBe("new"); expect(check.persisted.status).toBe("processed");
+    const empty = await prepared(U.M,A,"no-result-"+randomUUID(),fields({ invoice_number:"EMPTY-"+randomUUID() }));
+    expect((await rpc(c1, U.M, (tx) => tx`select public.data_entry_result_check(${empty.preview.id}) j`)).j.result).toBeNull();
+  });
   it("tabelas financeiras proibidas ficam intactas (triggers fariam falhar qualquer escrita)", async () => {
     const [r] = await admin`select (select count(*) from transactions)+(select count(*) from event_forecasts)+(select count(*) from financial_accounts)+(select count(*) from reimbursements)+(select count(*) from payment_lists)+(select count(*) from transaction_payments) n`;
     expect(Number(r.n)).toBe(0);
@@ -180,7 +207,7 @@ describe("#333 concorrência real entre duas ligações", () => {
   it("mesmo lote/documento em duas ligações: a 2.ª espera e devolve o MESMO resultado; 1 avulsa", async () => {
     const num = "C1-" + randomUUID();
     const p = await prepared(U.M, A, "%PDF-c1-" + randomUUID(), fields({ invoice_number: num }));
-    let release!: () => void; const gate = new Promise<void>((r) => (release = r)); let first: any;
+    let release: () => void = () => {}; const gate = new Promise<void>((r) => (release = r)); let first: any;
     const t1 = as(c1, U.M, async (tx) => { first = (await tx`select public.data_entry_commit(${p.preview.id},${p.preview.snapshot_hash}) j`)[0].j; await gate; });
     while (!first) await new Promise((r) => setTimeout(r, 20));
     const t2 = as(c2, U.M, async (tx) => (await tx`select public.data_entry_commit(${p.preview.id},${p.preview.snapshot_hash}) j`)[0].j);
@@ -193,7 +220,7 @@ describe("#333 concorrência real entre duas ligações", () => {
     const num = "C2-" + randomUUID();
     const p1 = await prepared(U.M, A, "%PDF-c2a-" + randomUUID(), fields({ invoice_number: num }));
     const p2 = await prepared(U.Z, A, "%PDF-c2b-" + randomUUID(), fields({ invoice_number: num.toLowerCase().replace("-", " - ") }));
-    let release!: () => void; const gate = new Promise<void>((r) => (release = r)); let done = false;
+    let release: () => void = () => {}; const gate = new Promise<void>((r) => (release = r)); let done = false;
     const t1 = as(c1, U.M, async (tx) => { await tx`select public.data_entry_commit(${p1.preview.id},${p1.preview.snapshot_hash})`; done = true; await gate; });
     while (!done) await new Promise((r) => setTimeout(r, 20));
     const t2 = err(as(c2, U.Z, (tx) => tx`select public.data_entry_commit(${p2.preview.id},${p2.preview.snapshot_hash})`));
@@ -205,7 +232,7 @@ describe("#333 concorrência real entre duas ligações", () => {
     for (const legacyFirst of [false, true]) {
       const num = `L${legacyFirst ? 1 : 0}-` + randomUUID();
       const p = await prepared(U.M, A, "%PDF-leg-" + randomUUID(), fields({ invoice_number: num }));
-      let release!: () => void; const gate = new Promise<void>((r) => (release = r)); let held = false;
+      let release: () => void = () => {}; const gate = new Promise<void>((r) => (release = r)); let held = false;
       const legacy = (tx: Tx) => tx`insert into standalone_invoices(company_id,storage_path,file_name,supplier_nif,invoice_number) values (${A},'x','x','PT500111222',${num})`;
       const ours = (tx: Tx) => tx`select public.data_entry_commit(${p.preview.id},${p.preview.snapshot_hash})`;
       const holder = legacyFirst ? admin.begin(async (tx) => { await legacy(tx); held = true; await gate; })
@@ -222,7 +249,7 @@ describe("#333 concorrência real entre duas ligações", () => {
   it("LIMITAÇÃO comprovada: legado com grafia normalizada diferente NÃO é bloqueado pelo índice actual", async () => {
     const num = "LV-" + randomUUID();
     const p = await prepared(U.M, A, "%PDF-lv-" + randomUUID(), fields({ invoice_number: num }));
-    let release!: () => void; const gate = new Promise<void>((r) => (release = r)); let held = false;
+    let release: () => void = () => {}; const gate = new Promise<void>((r) => (release = r)); let held = false;
     const holder = as(c1, U.M, async (tx) => { await tx`select public.data_entry_commit(${p.preview.id},${p.preview.snapshot_hash})`; held = true; await gate; });
     while (!held) await new Promise((r) => setTimeout(r, 20));
     const legacy = c2.begin((tx) => tx`insert into standalone_invoices(company_id,storage_path,file_name,supplier_nif,invoice_number) values (${A},'x','x','pt 500 111 222',${num.toLowerCase()})`);
@@ -253,5 +280,78 @@ describe("#333 falhas, rollback e retoma", () => {
   it("registos técnicos são imutáveis", async () => {
     expect((await err(admin`update data_entry_previews set version=99`))?.message).toMatch(/imutável/);
     expect((await err(admin`delete from data_entry_storage_receipts`))?.message).toMatch(/imutável/);
+  });
+});
+
+
+describe("#333 handler + PostgreSQL real + storage fake: interleaving final partilhado", () => {
+  it.each(["40001", "08006"])("P1 suspenso, P2 nova versão COMMIT, P1 %s: bytes e 1 avulsa/auditoria intactos", async (failure) => {
+    const bytes = pdfFixture(); const h = sha(Buffer.from(bytes));
+    const sid = (await rpc(c1,U.M,(tx) => tx`select public.data_entry_session() j`)).j.session.id;
+    await receipt("data-entry-staging",`${A}/${sid}/${h}`,h,bytes.length,"application/pdf");
+    const did = (await rpc(c1,U.M,(tx) => tx`select public.data_entry_add_document(${sid},'f.pdf',${h},${bytes.length},'application/pdf') j`)).j.id;
+    const f = fields({ invoice_number: "BARRIER-"+randomUUID() });
+    const p1 = (await rpc(c1,U.M,(tx) => tx`select public.data_entry_prepare(${sid},${did},${tx.json(f)}) j`)).j;
+    const store = new Map<string,Uint8Array>([[`data-entry-staging/${A}/${sid}/${h}`,bytes]]);
+    let release: () => void = () => {}; let entered: () => void = () => {};
+    const barrier = new Promise<void>((r) => { release=r; }); const waiting = new Promise<void>((r) => { entered=r; });
+    const deps: Deps = {
+      getUser: async () => ({id:U.M}), cors:{}, uploadEnabled:true,
+      async userRpc(token,name,args) {
+        const sql = token === "p1" ? c1 : c2;
+        if(name === "my_effective_permissions") return {data:{role:"manager",company_id:A},error:null};
+        if(name === "data_entry_commit" && token === "p1") { entered(); await barrier; if(failure === "08006") return {data:null,error:{code:failure,message:"connection lost"}}; }
+        try {
+          const row = await rpc(sql,U.M,(tx) => {
+            if(name === "data_entry_session") return tx`select public.data_entry_session(${args.p_session},null) j`;
+            if(name === "data_entry_commit") return tx`select public.data_entry_commit(${args.p_preview},${args.p_snapshot_hash}) j`;
+            if(name === "data_entry_result_check") return tx`select public.data_entry_result_check(${args.p_preview}) j`;
+            throw new Error("unlisted RPC");
+          }); return {data:row.j,error:null};
+        } catch(e) { const x=e as {code:string;message:string}; return {data:null,error:{code:x.code,message:x.message}}; }
+      },
+      async recordReceipt(b,p,h,n,m) { await receipt(b,p,h,n,m); return {data:null,error:null}; },
+      storage: {
+        async upload(b,p,value) { const k=`${b}/${p}`; if(store.has(k)) return {error:{conflict:true}}; store.set(k,value); return {error:null}; },
+        async download(b,p) { return store.get(`${b}/${p}`) ?? null; },
+      },
+    };
+    const handle=createHandler(deps);
+    const request=(token:string,p:any,action="execute") => new Request("http://fixture/",{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify(action==="check" ? {action,session_id:sid,preview_id:p.id} : {action,session_id:sid,preview_id:p.id,snapshot_hash:p.snapshot_hash,authorize:true})});
+    const first=handle(request("p1",p1)); await waiting;
+    const p2=(await rpc(c2,U.M,(tx) => tx`select public.data_entry_prepare(${sid},${did},${tx.json({...f,notes:"version2"})}) j`)).j;
+    expect((await (await handle(request("p2",p2))).json()).status).toBe("conferido");
+    release(); expect((await (await first).json()).status).toBe("por_confirmar");
+    expect(store.get(`standalone-invoices/${A}/assistant333/${did}/${h}.pdf`)).toEqual(bytes);
+    expect(Number((await admin`select count(*) n from standalone_invoices where invoice_number=${f.invoice_number}`)[0].n)).toBe(1);
+    expect(Number((await admin`select count(*) n from data_entry_results where document_id=${did}`)[0].n)).toBe(1);
+    expect((await (await handle(request("p2",p2,"check"))).json()).status).toBe("conferido");
+  });
+});
+
+
+describe("#333 proposition isolated normalized index (not canonical, never Live)", () => {
+  beforeAll(async () => {
+    await admin.unsafe(`CREATE TABLE public.test333_normalized(company_id uuid, supplier_nif text, invoice_number text);
+      CREATE UNIQUE INDEX test333_normalized_key ON public.test333_normalized(company_id,
+      upper(regexp_replace(supplier_nif,'[^A-Za-z0-9]','','g')),upper(regexp_replace(invoice_number,'[^A-Za-z0-9]','','g')))
+      WHERE nullif(upper(regexp_replace(supplier_nif,'[^A-Za-z0-9]','','g')),'') IS NOT NULL
+        AND nullif(upper(regexp_replace(invoice_number,'[^A-Za-z0-9]','','g')),'') IS NOT NULL;`);
+  });
+  it("NULL/empty keys repeat; independent companies and leading zeros/prefixes preserved", async () => {
+    for (let n=0;n<2;n++) await admin`insert into test333_normalized values (${A},null,'FT1'),(${A},'PT1',null),(${A},' - ','FT1')`;
+    await admin`insert into test333_normalized values (${A},'PT001','FT1'),(${B},'pt 001','ft1'),(${A},'001','FT1'),(${A},'PT01','FT1')`;
+    expect(Number((await admin`select count(*) n from test333_normalized`)[0].n)).toBe(10);
+  });
+  it.each([true,false])("legacy normalized spelling collision, legacy first=%s", async (legacyFirst) => {
+    const num='PROP-'+randomUUID(); let entered: () => void=()=>{}; let release: () => void=()=>{};
+    const waiting=new Promise<void>((r)=>{entered=r;}); const barrier=new Promise<void>((r)=>{release=r;});
+    const first=c1.begin(async (tx)=>{
+      await tx`insert into test333_normalized values (${A},${legacyFirst?'pt 500 111 222':'PT500111222'},${legacyFirst?num.toLowerCase():num})`;
+      entered(); await barrier;
+    }); await waiting;
+    const second=err(c2.begin((tx)=>tx`insert into test333_normalized values (${A},${legacyFirst?'PT500111222':'pt 500 111 222'},${legacyFirst?num:num.toLowerCase()})`));
+    expect(await pending(second)).toBe(true); release(); await first; expect((await second)?.code).toBe('23505');
+    expect(Number((await admin`select count(*) n from test333_normalized where upper(invoice_number)=upper(${num})`)[0].n)).toBe(1);
   });
 });
