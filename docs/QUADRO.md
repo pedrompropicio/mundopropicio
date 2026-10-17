@@ -25,7 +25,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Núcleo #333 e preparação inerte de compatibilidade dos escritores de avulsas/proposta global/testes/docs próprios; exclui dados e documentos reservados #323 | 2026-10-17 16:26 | 2026-10-17 17:56 — preparação entregue à revisão: patch INERTE7destinos, política forte proposta sem remover separadores, inventário08/outputs09; PostgreSQL36/compat26/handler20/regressões35/geral1334, build automático OK. Nenhum escritor Live editado; zero Live/DDL/DML/bucket/deploy/Publish; upload/execute false. Reserva mantida; #323 intacta; CI/sincronização final aguardam verificação |
+| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Validação dos 7 destinos em cópia isolada; artefactos inertes/testes/provas próprios; #323 excluída | 2026-10-17 16:26 | 2026-10-17 18:29 — patch aplicado só em cópia limpa, hashes7+7; tsgo/Deno/build OK, integrados31/PG36/handler20/geral1334. Provas10–12; retoma global legado/StorageACL/CI final pendentes. ZERO aplicação principal/Live; reserva mantida |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)
@@ -33,6 +33,8 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 _(sem pedidos)_
 
 ## 0 · Cowork (ChatGPT)
+
+  - **17/10/2026 18:29 UTC — validação isolada entregue, NÃO ativação:** provas10/11, próxima fase12; destinos reais juntos, patch corrigido, integrados31/PG36/handler20/geral1334, tsgo/Deno/build OK. SHA técnico observado4916e71a; remoto ainda base12dd324e ancestral, CI final pendente. Retoma global legada/StorageACL bloqueiam; #333 aberta/reservada e #323 intacta.
 
   **#333 — recebido/em execução em 17/10/2026 16:26 UTC.** Executor único: 0 · Cowork (ChatGPT) através do agente Lovable ERP, conforme autorização expressa nesta sessão. Inspeção dos contratos e plano técnico primeiro; núcleo por upload condicionado à segurança/validação. Pedido abaixo permanece aberto; #323 integralmente preservada. Sem Publish, OAuth, crons, email, Meta, pagamentos bancários ou lançamentos financeiros reais de teste.
   - **17/10/2026 16:46 UTC — entrega parcial BLOQUEADA, não concluída:** plano aprovado/versionado; 6 contratos novos + 10 regressões existentes e 6 provas PostgreSQL embebidas. Estas não provam conexões independentes nem storage/triggers canónicas. SQL manual/PENDENTE e executor RELEASE=false; zero migrações, buckets, deploys ou efeitos Live. Auditoria: guard/overrides/tenant, concorrência legada, tipos/FX e integridade documental; revisão em `docs/testes/issue333/02-nucleo-isolado-e-bloqueios.md`. UI/OpenAI e integrações não entregues; reserva #333 mantida para verificação/retoma. #323 intacta.

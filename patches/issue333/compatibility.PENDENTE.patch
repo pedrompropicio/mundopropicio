@@ -134,11 +134,29 @@
  import {
    calculateStandaloneEur,
    isStandaloneInvoiceDuplicateError,
-@@ -281,13 +281,10 @@
+@@ -49,6 +49,8 @@
+   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+   const [busy, setBusy] = useState<null | "convert" | "ocr" | "save">(null);
+   const [saved, setSaved] = useState(false);
++  const pendingKey = `standalone-create-pending:${user?.id ?? "none"}:${companyId ?? "none"}`;
++  const [writePending, setWritePending] = useState(() => sessionStorage.getItem(pendingKey) !== null);
+ 
+   const [supplierName, setSupplierName] = useState("");
+   const [supplierNif, setSupplierNif] = useState("");
+@@ -274,30 +276,29 @@
+ 
+ 
+   const save = async () => {
+-    if (!file || !companyId) return;
++    if (!file || !companyId || writePending || sessionStorage.getItem(pendingKey) !== null) return;
+     const monetaryError = validateStandaloneMonetaryFields(currency, originalAmount, fxRate, total);
+     if (monetaryError) {
+       toast({ title: "Confirma os valores", description: monetaryError, variant: "destructive" });
        return;
      }
      setBusy("save");
 -    let uploadedPath: string | null = null;
++    let writeStarted = false;
      try {
        if (supplierNif.trim() && invoiceNumber.trim()) {
 -        const { data: duplicate, error: duplicateError } = await (supabase as any).from("standalone_invoices")
@@ -150,7 +168,11 @@
          if (duplicate) throw Object.assign(new Error("Já existe uma fatura deste fornecedor com este número."), { code: "DUPLICATE_INVOICE" });
        }
        const ext = (file.name.match(/\.[^.]+$/)?.[0] ?? ".jpg").toLowerCase();
-@@ -297,7 +294,6 @@
+       const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
++      sessionStorage.setItem(pendingKey, path);
++      writeStarted = true;
+       const up = await uploadToCompanyBucket("standalone-invoices", path, file, {
+         contentType: file.type || "application/octet-stream",
          upsert: false,
        });
        if (up.error) throw up.error;
@@ -158,7 +180,11 @@
  
        const { error } = await (supabase as any).from("standalone_invoices").insert({
          company_id: companyId,
-@@ -323,12 +319,9 @@
+@@ -320,15 +321,14 @@
+       });
+       if (error) throw error;
+ 
++      sessionStorage.removeItem(pendingKey);
        setSaved(true);
        toast({ title: "Fatura guardada", description: "Disponível no portal da contabilidade." });
      } catch (err: any) {
@@ -167,12 +193,57 @@
 -        if (cleanupErr) console.error("[scanner] limpeza falhou", cleanupErr);
 -      }
 +      // Never remove an object on an uncertain INSERT response. Keep private for review.
++      if (writeStarted) setWritePending(true);
        const duplicate = err?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(err);
 -      toast({ title: duplicate ? "Fatura duplicada" : "Não foi possível guardar", description: duplicate ? "Já existe uma fatura deste fornecedor com este número." : err.message, variant: "destructive" });
 +      toast({ title: duplicate ? "Fatura duplicada" : "Não foi possível guardar", description: standaloneWriteError(err), variant: "destructive" });
      } finally {
        setBusy(null);
      }
+@@ -354,6 +354,7 @@
+         </div>
+       </div>
+ 
++      {writePending && <Alert><AlertDescription>Resultado por confirmar. A captura está bloqueada; confere a lista antes de qualquer nova gravação.</AlertDescription></Alert>}
+       <Tabs value={tab} onValueChange={setTab}>
+         <TabsList className="w-full">
+           <TabsTrigger value="scan" className="flex-1">Escanear</TabsTrigger>
+@@ -410,7 +411,7 @@
+             <Button
+               className="w-full h-16 text-base"
+               onClick={() => cameraRef.current?.click()}
+-              disabled={busy !== null}
++              disabled={busy !== null || writePending}
+             >
+               <Camera className="h-6 w-6 mr-2" /> Tirar foto
+             </Button>
+@@ -418,7 +419,7 @@
+               variant="outline"
+               className="w-full h-12"
+               onClick={() => fileRef.current?.click()}
+-              disabled={busy !== null}
++              disabled={busy !== null || writePending}
+             >
+               <Upload className="h-4 w-4 mr-2" /> Escolher ficheiro
+             </Button>
+@@ -521,14 +522,14 @@
+                 </div>
+ 
+                 <div className="grid gap-2">
+-                  <Button className="w-full h-14 text-base" onClick={save} disabled={busy !== null}>
++                  <Button className="w-full h-14 text-base" onClick={save} disabled={busy !== null || writePending}>
+                     {busy === "save" ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Check className="h-5 w-5 mr-2" />}
+                     Guardar fatura
+                   </Button>
+-                  <Button variant="outline" className="w-full h-12" onClick={retake} disabled={busy !== null}>
++                  <Button variant="outline" className="w-full h-12" onClick={retake} disabled={busy !== null || writePending}>
+                     <RefreshCw className="h-4 w-4 mr-2" /> Repetir
+                   </Button>
+-                  <Button variant="ghost" className="w-full text-muted-foreground" onClick={dismiss} disabled={busy !== null}>
++                  <Button variant="ghost" className="w-full text-muted-foreground" onClick={dismiss} disabled={busy !== null || writePending}>
+                     <X className="h-4 w-4 mr-2" /> Dispensar
+                   </Button>
+                 </div>
 --- a/src/pages/contabilidade/AccountantStandaloneInvoicesTab.tsx
 +++ b/src/pages/contabilidade/AccountantStandaloneInvoicesTab.tsx
 @@ -15,6 +15,8 @@
@@ -184,7 +255,28 @@
  interface Row {
    id: string;
    storage_path: string;
-@@ -100,10 +102,8 @@
+@@ -71,12 +73,15 @@
+   const [editing, setEditing] = useState<Row | null>(null);
+   const [form, setForm] = useState({ supplier_name: "", supplier_nif: "", invoice_number: "", invoice_date: "", currency: "EUR" as StandaloneInvoiceCurrency, original_amount: "", fx_rate: "", fx_rate_source: "", paid_by_partner_id: "none", total_amount: "", iva_amount: "", notes: "" });
+ 
++  const pendingKey = `standalone-edit-pending:${user?.id ?? "none"}:${companyId ?? "none"}:${editing?.id ?? "none"}`;
++  const [writePending, setWritePending] = useState(false);
+   const canProcess = isAdmin || isAccountant;
+   const canEdit = (r: Row) => isAdmin || r.created_by === user?.id;
+   // Apagar: só enquanto "nova", por quem capturou ou admin/platform_admin.
+   const canDelete = (r: Row) => r.status === "new" && (isAdmin || r.created_by === user?.id);
+ 
+   const openEdit = (r: Row) => {
++    setWritePending(sessionStorage.getItem(`standalone-edit-pending:${user?.id ?? "none"}:${companyId ?? "none"}:${r.id}`) !== null);
+     setEditing(r);
+     setForm({
+       supplier_name: r.supplier_name ?? "",
+@@ -96,16 +101,15 @@
+ 
+   const saveEdit = useMutation({
+     mutationFn: async () => {
+-      if (!editing) return;
++      if (!editing || writePending || sessionStorage.getItem(pendingKey) !== null) throw new Error("Conferência pendente");
        const monetaryError = validateStandaloneMonetaryFields(form.currency, form.original_amount, form.fx_rate, form.total_amount);
        if (monetaryError) throw Object.assign(new Error(monetaryError), { code: "INVALID_MONETARY_FIELDS" });
        if (form.supplier_nif.trim() && form.invoice_number.trim()) {
@@ -196,16 +288,37 @@
 +          supplier_nif: form.supplier_nif.trim(), invoice_number: form.invoice_number.trim() }, editing.id);
          if (duplicate) throw Object.assign(new Error("Já existe uma fatura deste fornecedor com este número."), { code: "DUPLICATE_INVOICE" });
        }
++      sessionStorage.setItem(pendingKey, "pending");
        const { error } = await (supabase as any)
-@@ -131,7 +131,7 @@
+         .from("standalone_invoices")
+         .update({
+@@ -126,12 +130,13 @@
+       if (error) throw error;
+     },
+     onSuccess: () => {
++      sessionStorage.removeItem(pendingKey);
+       setEditing(null);
+       qc.invalidateQueries({ queryKey: ["standalone-invoices"] });
        qc.invalidateQueries({ queryKey: ["standalone-invoice-months"] });
        toast({ title: "Fatura atualizada" });
      },
 -    onError: (e: any) => toast({ title: e?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(e) ? "Fatura duplicada" : "Falhou", description: e?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(e) ? "Já existe uma fatura deste fornecedor com este número." : e.message, variant: "destructive" }),
-+    onError: (e: any) => toast({ title: e?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(e) ? "Fatura duplicada" : "Falhou", description: e?.code === "INVALID_MONETARY_FIELDS" ? e.message : standaloneWriteError(e), variant: "destructive" }),
++    onError: (e: any) => { if (sessionStorage.getItem(pendingKey) !== null) setWritePending(true); toast({ title: e?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(e) ? "Fatura duplicada" : "Falhou", description: e?.code === "INVALID_MONETARY_FIELDS" ? e.message : standaloneWriteError(e), variant: "destructive" }); },
    });
  
    /**
+@@ -520,9 +525,10 @@
+               <Input id="ed-notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+             </div>
+           </div>
++          {writePending && <AlertTriangle aria-label="Conferência pendente" />}
+           <DialogFooter>
+             <Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
+-            <Button onClick={() => saveEdit.mutate()} disabled={saveEdit.isPending}>
++            <Button onClick={() => saveEdit.mutate()} disabled={saveEdit.isPending || writePending}>
+               {saveEdit.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Guardar
+             </Button>
+           </DialogFooter>
 --- a/supabase/functions/ingest-standalone-invoice/index.ts
 +++ b/supabase/functions/ingest-standalone-invoice/index.ts
 @@ -1,6 +1,7 @@
