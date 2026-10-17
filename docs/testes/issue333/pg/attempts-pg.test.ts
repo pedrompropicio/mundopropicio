@@ -23,6 +23,8 @@ beforeAll(async()=>{
  for(const file of ['docs/testes/issue333/pg/fixture.sql','supabase/manual/20261017_issue333_core.PENDENTE.sql','supabase/manual/20261017_issue333_attempts.PENDENTE.sql'])await db.unsafe(readFileSync(file,'utf8'));
  await db`insert into companies values (${C},'Fixture C','PT001','active'),(${D},'Fixture D','PT002','active')`;
  for(const [id,c,r] of [[U,C,'manager'],[V,C,'viewer'],[W,D,'manager']]){await db`insert into auth.users values (${id})`;await db`insert into profiles values (${id},'Fixture',${c},${c})`;await db`insert into user_roles(user_id,company_id,role) values (${id},${c},${r})`}
+ // Local fixture ONLY: activation rows exist nowhere else (SQL has no activating line).
+ await db`insert into standalone_attempt_settings_333(operation,enabled) values ('scanner_create',true),('accountant_edit',true),('ingest_create',true),('assistant_create',true)`;
  await db.unsafe(`create function attempt_fail() returns trigger language plpgsql as $$ begin if current_setting('test.fail_audit',true)='on' then raise exception 'injected audit failure'; end if; return new; end $$;create trigger attempt_fail before insert on standalone_attempt_audit_333 for each row execute function attempt_fail();`);
 },60000);
 afterAll(async()=>{await Promise.all([db?.end(),c1?.end(),c2?.end()]);pg('pg_ctl',['-D',dir+'/data','-m','immediate','stop'])});
@@ -123,7 +125,7 @@ it.each([null,undefined])('direct RPC rejects missing/null total %s before persi
  expect((await error(rpc(c1,'prepare',randomUUID(),e)))?.code).toBe('22023');
 });
 it('direct RPC rejects VAT above total, foreign payer/author and invalid civil date',async()=>{
- for(const over of [{iva_amount:124},{paid_by_partner_id:W},{created_by:W},{invoice_date:'2026-02-30'}])expect(await error(rpc(c1,'prepare',randomUUID(),envelope(over)))).not.toBeNull();
+ for(const over of [{paid_by_partner_id:W},{created_by:W},{invoice_date:'2026-02-30'}])expect(await error(rpc(c1,'prepare',randomUUID(),envelope(over)))).not.toBeNull();
 });
 it('service RPC enforces existing ingest FX tolerance but scanner total remains editable',async()=>{
  const e={...envelope({currency:'USD',original_amount:246,fx_rate:.5,total_amount:124,created_by:null}),effects:['ingest_create']};
@@ -141,4 +143,53 @@ it('payer membership revalidated after preparation before any commit',async()=>{
  const P=randomUUID();await db`insert into auth.users values (${P})`;await db`insert into profiles values (${P},'Payer fixture',${C},${C})`;await db`insert into user_roles(user_id,company_id,role) values (${P},${C},'user')`;
  const a=await rpc(c1,'prepare',null,envelope({paid_by_partner_id:P,notes:randomUUID()}));await db`delete from user_roles where user_id=${P}`;
  expect((await error(rpc(c2,'authorize',a.id,null,a.hash)))?.code).toBe('42501');expect((await db`select state from standalone_attempts_333 where id=${a.id}`)[0].state).toBe('prepare');
+});
+
+const gate=(op:string,on:boolean|null)=>on===null?db`delete from standalone_attempt_settings_333 where operation=${op}`:db`insert into standalone_attempt_settings_333(operation,enabled) values (${op},${on}) on conflict (operation) do update set enabled=excluded.enabled`;
+const counts=async()=>Number((await db`select (select count(*) from standalone_invoices)+(select count(*) from standalone_attempts_333)+(select count(*) from standalone_attempt_audit_333) n`)[0].n);
+it.each([null,false])('gate %s: zero reservations/financial writes via browser and service wrapper; check still read-only',async state=>{
+ const a=await ready(envelope({notes:randomUUID()}));const before=await counts();await gate('scanner_create',state);await gate('ingest_create',state);
+ try{
+  expect((await error(rpc(c1,'prepare',randomUUID(),envelope({notes:randomUUID()}))))?.code).toBe('42501');
+  expect((await error(rpc(c1,'commit',a.id,null,a.hash)))?.code).toBe('42501');
+  const e={...envelope({created_by:null,notes:randomUUID()}),effects:['ingest_create']};
+  expect((await error(db.begin(async tx=>{await tx`set local role service_role`;return tx`select standalone_ingest_attempt_333(${C},'prepare',${randomUUID()},${tx.json(e)},null)`})))?.code).toBe('42501');
+  expect((await rpc(c2,'check',a.id,null,a.hash)).state).toBe('inprogress');expect(await counts()).toBe(before);
+ }finally{await gate('scanner_create',true);await gate('ingest_create',true)}
+});
+it('gate closed while commit waits on row lock: no effect after the wait',async()=>{
+ const a=await ready(envelope({notes:randomUUID()}));let release=()=>{};const hold=new Promise<void>(r=>{release=r});
+ const locker=db.begin(async tx=>{await tx`select 1 from standalone_attempts_333 where id=${a.id} for update`;await hold});
+ await new Promise(r=>setTimeout(r,50));const pending=error(rpc(c1,'commit',a.id,null,a.hash));await new Promise(r=>setTimeout(r,100));
+ await gate('scanner_create',false);release();await locker;
+ try{expect((await pending)?.code).toBe('42501');expect(Number((await db`select count(*) n from standalone_invoices where id=${a.destination_id}`)[0].n)).toBe(0)}finally{await gate('scanner_create',true)}
+});
+it('client has no privilege on settings/gate; authenticated cannot elevate',async()=>{
+ expect((await error(as(c1,U,tx=>tx`update standalone_attempt_settings_333 set enabled=true`)))?.code).toBe('42501');
+ expect((await error(as(c1,U,tx=>tx`select standalone_attempt_gate_333('scanner_create')`)))?.code).toBe('42501');
+ const [g]=await db`select has_table_privilege('authenticated','standalone_attempt_settings_333','update') a,has_table_privilege('service_role','standalone_attempt_settings_333','update') s,has_function_privilege('anon','standalone_attempt_gate_333(text)','execute') n`;expect(g).toEqual({a:false,s:false,n:false});
+});
+it('A: VAT above total persists technical review only; authorize/commit produce no financial write',async()=>{
+ const a=await rpc(c1,'prepare',randomUUID(),envelope({iva_amount:124,notes:randomUUID()}));expect([a.state,a.review_reason]).toEqual(['review','iva_exceeds_total']);
+ await receipt(a);await rpc(c1,'authorize',a.id,null,a.hash);await rpc(c1,'begin',a.id,null,a.hash);const out=await rpc(c1,'commit',a.id,null,a.hash);
+ expect(out.state).toBe('review');expect(Number((await db`select count(*) n from standalone_invoices where id=${a.destination_id}`)[0].n)).toBe(0);
+ const ok=await ready(envelope({notes:randomUUID()}));expect((await rpc(c1,'commit',ok.id,null,ok.hash)).state).toBe('completed');
+});
+it('C: new UUID is retry; typed confirmation only after completed, owner-only, never over unknown nor strong duplicate',async()=>{
+ const e=envelope({notes:randomUUID()}),a=await ready(e);
+ expect((await error(rpc(c1,'confirm_new_intent',a.id,null,a.hash)))?.code).toBe('40001');
+ await rpc(c1,'commit',a.id,null,a.hash);expect((await rpc(c2,'prepare',randomUUID(),e)).id).toBe(a.id);
+ expect((await error(rpc(c2,'confirm_new_intent',a.id,null,a.hash,V)))?.code).toBe('42501');
+ const n=await rpc(c2,'confirm_new_intent',a.id,null,a.hash);expect([n.intent_seq,n.prior_attempt_id,n.state]).toEqual([2,a.id,'prepare']);expect(n.destination_id).not.toBe(a.destination_id);
+ expect((await rpc(c1,'prepare',randomUUID(),e)).id).toBe(n.id);
+ expect((await error(rpc(c1,'confirm_new_intent',a.id,null,a.hash)))?.code).toBe('40001');
+ const s=await ready(envelope({supplier_nif:'PT9',invoice_number:randomUUID(),notes:randomUUID()}));await rpc(c1,'commit',s.id,null,s.hash);
+ expect((await error(rpc(c1,'confirm_new_intent',s.id,null,s.hash)))?.code).toBe('23505');
+});
+it('D: strong key equal under ASCII case/outer SPACE -> review; slash/hyphen/zeros/prefix distinct; NULL keys optional',async()=>{
+ const num='ft1/23-'+randomUUID().slice(0,6);const first=await ready(envelope({supplier_nif:'pt500',invoice_number:num,notes:randomUUID()}));await rpc(c1,'commit',first.id,null,first.hash);
+ const same=await ready(envelope({supplier_nif:' PT500 ',invoice_number:'  '+num.toUpperCase(),notes:randomUUID()}));const r=await rpc(c1,'commit',same.id,null,same.hash);expect([r.state,r.review_reason]).toEqual(['review','strong_duplicate']);
+ for(const other of [num.replace('1/23','12/3'),num.replace('/','-'),'0'+num,'X'+num]){const d=await ready(envelope({supplier_nif:'PT500',invoice_number:other,notes:randomUUID()}));expect((await rpc(c1,'commit',d.id,null,d.hash)).state).toBe('completed')}
+ const [k]=await db`select standalone_strong_key_333(' ab-01/é ') a,standalone_strong_key_333('   ') b`;expect(k).toEqual({a:'AB-01/é',b:null});
+ for(const o of [{supplier_nif:null,invoice_number:null},{supplier_nif:'',invoice_number:''}]){const d=await ready(envelope({...o,notes:randomUUID()}));expect((await rpc(c1,'commit',d.id,null,d.hash)).state).toBe('completed')}
 });

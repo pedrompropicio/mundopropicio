@@ -25,7 +25,10 @@ export const checkLegacyAttempt=(operation:string,a:Attempt,context:Context)=>at
 export async function resumeLegacyAttempt(operation:string,id:string,hash:string,context:Context) {
  return attemptRequest({action:'check',operation,id,hash},context);
 }
-export type AttemptSummary={id:string;hash:string;state:string;name:string;reference:string|null;created_at:string};
+export type AttemptSummary={id:string;hash:string;state:string;review_reason?:string|null;intent_seq?:number;name:string;reference:string|null;created_at:string};
 export async function listLegacyAttempts(operation:string,context:Context,after:string|null=null):Promise<{items:AttemptSummary[];next:string|null}> {
  return attemptRequest({action:'list',operation,after},context);
 }
+/** C: explicit, typed additional intent over a completed attempt; never for unknown/review results. */
+export const confirmNewIntent=(a:Pick<Attempt,'id'|'hash'>,context:Context)=>attemptRequest({action:'confirm_new_intent',operation:'scanner_create',id:a.id,hash:a.hash,confirm:true},context);
+export const reviewMessage=(reason:string|null|undefined)=>reason==='iva_exceeds_total'?'IVA superior ao total: suspenso para revisão, nada gravado.':reason==='strong_duplicate'?'Já existe uma fatura com o mesmo NIF e número: suspenso para revisão.':reason==='before_changed'?'A fatura mudou entretanto: suspenso para revisão.':'Suspenso para revisão.';
