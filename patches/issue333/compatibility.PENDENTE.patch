@@ -720,3 +720,18 @@
 + })
 +}));
 \ No newline at end of file
+--- a/supabase/functions/data-entry/handler.ts
++++ b/supabase/functions/data-entry/handler.ts
+@@ -178,8 +178,11 @@
+       const hash = await sha256(bytes);
+       if (hash !== doc.sha256) throw new SafeError("Documento alterado", 409);
+       const finalPath = finalDocumentPath(company, doc.id, hash, doc.mime);
++      await rpc("data_entry_attempt_333", {p_action:"prepare",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
++      await rpc("data_entry_attempt_333", {p_action:"authorize",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
++      await rpc("data_entry_attempt_333", {p_action:"begin",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
+       await putVerified("standalone-invoices", finalPath, bytes, doc.mime, hash);
+-      const commit = await d.userRpc(token, "data_entry_commit", { p_preview: preview.id, p_snapshot_hash: body.snapshot_hash });
++      const commit = await d.userRpc(token, "data_entry_attempt_333", {p_action:"commit",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
+       if (commit.error) {
+         if (DEFINITIVE.has(String(commit.error.code))) {
+           // Shared by preview versions/concurrent requests: refusal is NOT ownership.
