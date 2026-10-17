@@ -4,6 +4,8 @@ Estado: núcleo local por upload/UI implementado e corrigido; indisponível em L
 
 Continuação autorizada 17/10/2026 17:46UTC: compatibilidade dos fluxos antigos preparada exclusivamente em `patches/issue333/compatibility.PENDENTE.patch`, NÃO aplicada. Inventário/provas08/09; política forte proposta trim SPACE exterior/caixa ASCII preserva separadores/prefixos/zeros, sinal amplo só revisão. 23505 sem falso reused; equivalência exige metadados/bytes, unknown sem remoção/retry. PostgreSQL36/compat26/handler20/UI13/geral1334. Nenhum escritor Live alterado; revisão/autorizações de aplicação e storage real pendentes.
 
+Continuação de validação completa: sete destinos REAIS aplicados somente em cópia descartável, recompilação tsgo/Deno/build exit0; integrados31/PG36/handler20/geral1334. Provas10/11 e prévia12. Unknown bloqueado localmente por user+empresa/ID, sem remoção/retry; trava navegador não prova claim global nem desbloqueio reconciliado. Chave incompleta/retoma legada persistente/StorageACL/runtime versões/CI final continuam pendentes. Nada aplicado à árvore principal/Live.
+
 ## Sincronização e âmbito
 
 - HEAD inicial real: `c37d972053f1585e45e81ff9b70011d2a4f371a6`.

@@ -23,14 +23,14 @@ PostgreSQL: `beforeAll` aplica byte a byte o core REAL patchado completo; índic
 
 - tsgo completo `tsconfig.app.json` exit0; aliases @shared e assinaturas dos componentes compilados.
 - Vite build real com configuração original, exit0 (343 precache entries); avisos de chunks >500k preexistentes, sem relaxar limiares. Sem deployhooks.
-- Deno2.6.10 `check --no-remote`: index ingest e shared transitivos exit0. Import map APENAS isolado aponta npm imports para `.d.ts` dos pacotes locais reais (`@supabase`2.99.2, Zod instalado), sem rede. Não prova versão exata npm2/Zod3.23.8 resolvida em runtime Cloud nem deploy; pendente comparar lock/resolução antes de aplicação. Não alegar que tsconfig.app cobre Deno.
-- Integrados29/29 (endpoint22 + UI7), com documentos fictícios existentes completos.
+- Deno2.6.10 `check --no-remote`: index ingest e shared transitivos exit0. Import map APENAS isolado aponta npm imports para `.d.ts` dos pacotes locais reais (`@supabase` versão local instalada, Zod instalado), sem rede. Não prova versão exata npm2/Zod3.23.8 resolvida em runtime Cloud nem deploy; pendente comparar lock/resolução antes de aplicação. Não alegar que tsconfig.app cobre Deno.
+- Integrados31/31 (endpoint22 + UI9), com documentos fictícios existentes completos.
 - PostgreSQL36/36, pgcrypto/duas conexões; novo×legado/legado×legado ambas ordens, INSERT×UPDATE, rollback23505, auditoria/bytes desconhecidos preservados.
 - Handler #33320/20 sobre destinos originais integrados; nenhum recurso ativado.
 - Suíte geral integrada1334 passam,1 skip/11todo preexistentes; nenhuma adição de skip. Última execução com fetch externo bloqueado.
 - Harness da árvore principal: build OK observado18:18:23UTC; NÃO substitui as provas isoladas acima.
 
-Outputs integrais/commands/exits em11; manifesto em `patches/issue333/base-sha256.txt`. Primeira rodada integrada falhou por setup globals/Blob jsdom e falha REAL de setWritePending omitido no gerador; corrigida e repetida29/29. Primeira suíte geral sem URL fictícia falhou14 suites por client config; ambiente fictício corrigido, sem config ERP alterada. Rodada PG inicial atingiu timeout depois de expectativa antiga destrutiva (`" - "` ≠ `"-"`): corrigida para caixa ASCII equivalente, sem ampliar identidade. Run final36/36; servidor órfão local interrompido, nunca storage removido.
+Outputs integrais/commands/exits em11; manifesto em `patches/issue333/base-sha256.txt`. Primeira rodada integrada falhou por setup globals/Blob jsdom e falha REAL de setWritePending omitido no gerador; corrigida e repetida29/29. Primeira suíte geral sem URL fictícia falhou14 suites por client config; ambiente fictício corrigido, sem config ERP alterada. Rodada PG inicial atingiu timeout depois de expectativa antiga destrutiva (`" - "` ≠ `"-"`): corrigida para caixa ASCII equivalente, sem ampliar identidade. Reprodução FINAL completa com runner versionado em segunda cópia limpa: apply/tsgo/Deno/31integrados/36PG/20handler/1334geral/build exit0; hashes7+7 novamente conferidos. Run final36/36; servidor órfão local interrompido, nunca storage removido.
 
 ## Correção frontend e limites — não exatamente-um global
 
@@ -45,3 +45,7 @@ Core preparado: `9f8baeea0a19931c6b591aaf8f65d2429845bacd0c2a66004ef24b0501d8c3e
 Índice proposto: `e6d85d294eefb9b764a2a1cb81469398f43e3c8cc7cf6900ead3acbe52cf39ab`.
 
 A árvore principal mantém scanner/editor/ingest/core iguais aos hashesBASE. Só patch/gerador/testes/provas/docs próprios voltaram ao repo. ZERO Live/SELECTLive/DDL/DML/bucket/deploy/Publish/crons/config/segredos/OAuth/providers/OCR/IA/Meta/email/banco. Nenhum push/commit na cópia; metadados main são geridos pelo harness. SHA final/CI novo dependem da propagação, não inferidos da CIbase.
+
+## Metadados observados ao fecho
+
+18:29:31UTC: HEAD técnico local `4916e71a278ef4127625f811d611bc94486be0dc`, GitHub main ainda base12dd324e, ancestralidade base→HEAD exit0. Avanços locais foram commits automáticos desta própria execução; sem divergência exclusiva/outro escritor detectado. Propagação ao GitHub e CI deste HEAD pendentes; SHA documental final gerido pelo harness não conhecido antes do fecho. Não reportar CIbase como CI nova.

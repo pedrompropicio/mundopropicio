@@ -2100,3 +2100,809 @@ EXIT: 0
 
 ```
 
+
+# Reprodução FINAL numa segunda cópia limpa
+
+Comando: `python3 docs/testes/issue333/run-integrated.py --base 12dd324ea4c7ee2d9f1d3e61543a2d06cf8633e8 --tsgo <binário cached registado> --deno <binário cached registado>`. Outputs abaixo sem truncamento.
+
+## FINAL apply
+
+```text
+COMMAND: patch --batch --forward -p1 -i /dev-server/patches/issue333/compatibility.PENDENTE.patch
+patching file supabase/functions/_shared/standalone-identity.ts
+patching file supabase/functions/_shared/standalone-compat.ts
+patching file src/lib/standalone-identity-lookup.ts
+patching file src/pages/StandaloneInvoiceScanner.tsx
+patching file src/pages/contabilidade/AccountantStandaloneInvoicesTab.tsx
+patching file supabase/functions/ingest-standalone-invoice/index.ts
+patching file supabase/manual/20261017_issue333_core.PENDENTE.sql
+
+EXIT: 0
+
+```
+
+## FINAL tsgo
+
+```text
+COMMAND: /root/.bun/install/cache/@typescript/native-preview-linux-x64/7.0.0-9b4cac1d418d8402@@@1/lib/tsgo -p tsconfig.app.json --noEmit
+
+EXIT: 0
+
+```
+
+## FINAL deno
+
+```text
+COMMAND: /nix/store/xxa0s0pixj84ail4ngll2y9zg8y7lmap-deno-2.6.10/bin/deno check --no-remote --config deno-isolated.json supabase/functions/ingest-standalone-invoice/index.ts supabase/functions/_shared/standalone-compat.ts
+[0m[32mCheck[0m supabase/functions/ingest-standalone-invoice/index.ts
+[0m[32mCheck[0m supabase/functions/_shared/standalone-compat.ts
+
+EXIT: 0
+
+```
+
+## FINAL integrated
+
+```text
+COMMAND: /dev-server/node_modules/.bin/vitest run --config docs/testes/issue333/vitest.integrated.config.ts
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90m/tmp/issue333-integrated-d21oqnw0/tree[39m
+
+ [32m✓[39m docs/testes/issue333/integrated/endpoint.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 203[2mms[22m[39m
+[90mstderr[2m | docs/testes/issue333/integrated/ui.test.tsx[2m > [22m[2mreal patched scanner/editor + fake client; not RLS acceptance[2m > [22m[2mscanner incomplete key lost response locks save/retake, survives remount; no blind retry
+[22m[39m⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+[90mstderr[2m | docs/testes/issue333/integrated/ui.test.tsx[2m > [22m[2mreal patched scanner/editor + fake client; not RLS acceptance[2m > [22m[2meditor own-ID exclusion allows update; lost response blocks repeat and keeps file
+[22m[39mWarning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+[90mstderr[2m | docs/testes/issue333/integrated/ui.test.tsx[2m > [22m[2mreal patched scanner/editor + fake client; not RLS acceptance[2m > [22m[2meditor 23505 is not a success and cannot repeat UPDATE
+[22m[39mWarning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+ [32m✓[39m docs/testes/issue333/integrated/ui.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 1442[2mms[22m[39m
+   [33m[2m✓[22m[39m real patched scanner/editor + fake client; not RLS acceptance[2m > [22mscanner incomplete key lost response locks save/retake, survives remount; no blind retry [33m 548[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m31 passed[39m[22m[90m (31)[39m
+[2m   Start at [22m 18:27:02
+[2m   Duration [22m 4.66s[2m (transform 514ms, setup 311ms, collect 1.12s, tests 1.65s, environment 1.77s, prepare 1.34s)[22m
+
+
+EXIT: 0
+
+```
+
+## FINAL pg
+
+```text
+COMMAND: /dev-server/node_modules/.bin/vitest run --config docs/testes/issue333/vitest.pg.config.ts
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90m/tmp/issue333-integrated-d21oqnw0/tree[39m
+
+ [32m✓[39m docs/testes/issue333/pg/data-entry-pg.test.ts [2m([22m[2m36 tests[22m[2m)[22m[33m 8104[2mms[22m[39m
+   [33m[2m✓[22m[39m #333 concorrência real entre duas ligações[2m > [22mmesmo lote/documento em duas ligações: a 2.ª espera e devolve o MESMO resultado; 1 avulsa [33m 442[2mms[22m[39m
+   [33m[2m✓[22m[39m #333 concorrência real entre duas ligações[2m > [22mdois lotes com a mesma fatura: o lock serializa e o 2.º recebe 'já existe' [33m 455[2mms[22m[39m
+   [33m[2m✓[22m[39m #333 concorrência real entre duas ligações[2m > [22mescritor legado com a MESMA grafia: o índice canónico bloqueia o 2.º (qualquer ordem) [33m 885[2mms[22m[39m
+   [33m[2m✓[22m[39m #333 EXACT proposed index on real compatible standalone table (local ONLY)[2m > [22massistant × adapted real legacy INSERT equivalent; legacy first=true [33m 426[2mms[22m[39m
+   [33m[2m✓[22m[39m #333 EXACT proposed index on real compatible standalone table (local ONLY)[2m > [22massistant × adapted real legacy INSERT equivalent; legacy first=false [33m 427[2mms[22m[39m
+   [33m[2m✓[22m[39m #333 EXACT proposed index on real compatible standalone table (local ONLY)[2m > [22mlegacy × legacy INSERT both orders firstLower=true [33m 408[2mms[22m[39m
+   [33m[2m✓[22m[39m #333 EXACT proposed index on real compatible standalone table (local ONLY)[2m > [22mlegacy × legacy INSERT both orders firstLower=false [33m 404[2mms[22m[39m
+   [33m[2m✓[22m[39m #333 EXACT proposed index on real compatible standalone table (local ONLY)[2m > [22mlegacy INSERT × legacy UPDATE collision with barrier; insert first=true [33m 408[2mms[22m[39m
+   [33m[2m✓[22m[39m #333 EXACT proposed index on real compatible standalone table (local ONLY)[2m > [22mlegacy INSERT × legacy UPDATE collision with barrier; insert first=false [33m 409[2mms[22m[39m
+   [33m[2m✓[22m[39m #333 EXACT proposed index on real compatible standalone table (local ONLY)[2m > [22mstrong duplicate 23505 failure rollback permits waiting competitor, no duplicate audit [33m 407[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m36 passed[39m[22m[90m (36)[39m
+[2m   Start at [22m 18:27:08
+[2m   Duration [22m 9.08s[2m (transform 185ms, setup 0ms, collect 240ms, tests 8.10s, environment 0ms, prepare 98ms)[22m
+
+
+EXIT: 0
+
+```
+
+## FINAL handler
+
+```text
+COMMAND: /dev-server/node_modules/.bin/vitest run --config docs/testes/issue333/vitest.handler.config.ts
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90m/tmp/issue333-integrated-d21oqnw0/tree[39m
+
+ [32m✓[39m docs/testes/issue333/handler/handler.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 121[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m20 passed[39m[22m[90m (20)[39m
+[2m   Start at [22m 18:27:18
+[2m   Duration [22m 1.52s[2m (transform 160ms, setup 0ms, collect 177ms, tests 121ms, environment 0ms, prepare 719ms)[22m
+
+
+EXIT: 0
+
+```
+
+## FINAL general
+
+```text
+COMMAND: /dev-server/node_modules/.bin/vitest run --config vitest.offline.config.ts
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90m/tmp/issue333-integrated-d21oqnw0/tree[39m
+
+ [32m✓[39m src/test/newgang-wallet-google.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 222[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/postgrest-row-limit.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 390[2mms[22m[39m
+   [33m[2m✓[22m[39m barreira dos 1.000 registos do PostgREST[2m > [22m[Issue #289] nenhuma leitura de tabela grande sem paginação [33m 386[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/postgrest-embeds.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 401[2mms[22m[39m
+   [33m[2m✓[22m[39m embeds do PostgREST em pares com FK duplicada[2m > [22m[Issue #288] nenhum embed ambíguo sem a FK nomeada [33m 393[2mms[22m[39m
+ [32m✓[39m src/test/coala-meta-audience-handler.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 246[2mms[22m[39m
+ [32m✓[39m src/test/campaign-design-optional-roas.test.ts [2m([22m[2m15 tests[22m[2m)[22m[33m 305[2mms[22m[39m
+ [32m✓[39m src/test/forecast-attachment-counts.test.tsx [2m([22m[2m1 test[22m[2m)[22m[33m 491[2mms[22m[39m
+   [33m[2m✓[22m[39m anexos do BP — uma leitura por evento (#269)[2m > [22m361 linhas → 1 pedido a event_forecast_attachments [33m 487[2mms[22m[39m
+[90mstderr[2m | src/pages/__tests__/ResetPassword.test.tsx[2m > [22m[2mResetPassword — token_hash flow[2m > [22m[2m(a) não chama verifyOtp ao montar; só ao clicar Continuar
+[22m[39m⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ [32m✓[39m src/lib/__tests__/storage-multi-tenant.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 1107[2mms[22m[39m
+   [33m[2m✓[22m[39m multi-tenant storage helpers[2m > [22museSetActiveCompany limpa a cache do storage[2m > [22mdepois da troca, withCompanyPath prefixa com a empresa nova [33m 1079[2mms[22m[39m
+ [32m✓[39m src/pages/__tests__/ResetPassword.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 281[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/document-detect.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 2064[2mms[22m[39m
+   [33m[2m✓[22m[39m detectDocumentQuad[2m > [22mdeteta A4 rodado 12°, centrado com erro < 3% [33m 666[2mms[22m[39m
+   [33m[2m✓[22m[39m detectDocumentQuad[2m > [22mdeteta A4 rodado -18°, à esquerda com erro < 3% [33m 421[2mms[22m[39m
+   [33m[2m✓[22m[39m detectDocumentQuad[2m > [22mdeteta A4 rodado 20°, canto sup. dir. com erro < 3% [33m 385[2mms[22m[39m
+   [33m[2m✓[22m[39m detectDocumentQuad[2m > [22mdeteta A4 rodado 6°, grande com erro < 3% [33m 366[2mms[22m[39m
+[90mstderr[2m | src/components/data-entry/__tests__/DataEntryDialog.test.tsx[2m > [22m[2m#333 DataEntryDialog[2m > [22m[2mendpoint ausente: mostra indisponível e não oferece ações
+[22m[39m⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+[90mstderr[2m | src/test/mobile-modal-dismiss.test.tsx[2m > [22m[2mFecho de modais no telemóvel[2m > [22m[2mEsc não fecha o modal sob outra janela
+[22m[39mWarning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+[90mstderr[2m | src/test/mobile-modal-dismiss.test.tsx[2m > [22m[2mFecho de modais no telemóvel[2m > [22m[2mDialog separa cabeçalho e corpo e mantém o X fora do scroll
+[22m[39mWarning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+ [32m✓[39m src/test/mobile-modal-dismiss.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 378[2mms[22m[39m
+[90mstderr[2m | src/lib/__tests__/overlay-layer.test.tsx[2m > [22m[2mpilha de camadas — aninhamentos reais[2m > [22m[2mDialog dentro de overlay manual fica por cima
+[22m[39mWarning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+[90mstderr[2m | src/lib/__tests__/overlay-layer.test.tsx[2m > [22m[2mpilha de camadas — aninhamentos reais[2m > [22m[2mAlertDialog dentro de Dialog fica por cima
+[22m[39mWarning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+`AlertDialogContent` requires a description for the component to be accessible for screen reader users.
+
+You can add a description to the `AlertDialogContent` by passing a `AlertDialogDescription` component as a child, which also benefits sighted users by adding visible context to the dialog.
+
+Alternatively, you can use your own component as a description by assigning it an `id` and passing the same value to the `aria-describedby` prop in `AlertDialogContent`. If the description is confusing or duplicative for sighted users, you can use the `@radix-ui/react-visually-hidden` primitive as a wrapper around your description component.
+
+For more information, see https://radix-ui.com/primitives/docs/components/alert-dialog
+Warning: Missing `Description` or `aria-describedby={undefined}` for {AlertDialogContent}.
+
+[90mstderr[2m | src/lib/__tests__/overlay-layer.test.tsx[2m > [22m[2mpilha de camadas — aninhamentos reais[2m > [22m[2mSelect dentro de AlertDialog dentro de overlay manual fica por cima de tudo
+[22m[39m`AlertDialogContent` requires a description for the component to be accessible for screen reader users.
+
+You can add a description to the `AlertDialogContent` by passing a `AlertDialogDescription` component as a child, which also benefits sighted users by adding visible context to the dialog.
+
+Alternatively, you can use your own component as a description by assigning it an `id` and passing the same value to the `aria-describedby` prop in `AlertDialogContent`. If the description is confusing or duplicative for sighted users, you can use the `@radix-ui/react-visually-hidden` primitive as a wrapper around your description component.
+
+For more information, see https://radix-ui.com/primitives/docs/components/alert-dialog
+Warning: Missing `Description` or `aria-describedby={undefined}` for {AlertDialogContent}.
+
+ [32m✓[39m src/lib/__tests__/overlay-layer.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 552[2mms[22m[39m
+   [33m[2m✓[22m[39m pilha de camadas — aninhamentos reais[2m > [22m#260 classificação acima da Nova Transação recebe foco e confirma escolha [33m 389[2mms[22m[39m
+[90mstderr[2m | src/test/club-config-integration.test.tsx[2m > [22m[2m#327 integration without network[2m > [22m[2mdraft/sem ativa guarda 200; após ativação mostra 100 e grava só limites/ativa
+[22m[39m⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+[90mstderr[2m | src/components/__tests__/EventABTab.test.tsx[2m > [22m[2mEventABTab — UI smoke tests[2m > [22m[2mrenderiza sem crashar e mostra labels/inputs das zonas
+[22m[39mWarning: Input contains an input of type undefined with both value and defaultValue props. Input elements must be either controlled or uncontrolled (specify either the value prop, or the defaultValue prop, but not both). Decide between using a controlled or uncontrolled input element and remove one of these props. More info: https://reactjs.org/link/controlled-components
+    at input
+    at /tmp/issue333-integrated-d21oqnw0/tree/src/components/ui/input.tsx:8:6
+    at div
+    at div
+    at /tmp/issue333-integrated-d21oqnw0/tree/src/components/ui/card.tsx:38:6
+    at div
+    at /tmp/issue333-integrated-d21oqnw0/tree/src/components/ui/card.tsx:7:50
+    at div
+    at EventABTab (/tmp/issue333-integrated-d21oqnw0/tree/src/components/EventABTab.tsx:151:23)
+    at QueryClientProvider (file:///dev-server/node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js:20:3)
+    at Router (/dev-server/node_modules/react-router/dist/umd/react-router.development.js:1207:17)
+    at MemoryRouter (/dev-server/node_modules/react-router/dist/umd/react-router.development.js:1101:7)
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ [32m✓[39m src/components/__tests__/EventABTab.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 743[2mms[22m[39m
+   [33m[2m✓[22m[39m EventABTab — UI smoke tests[2m > [22mrenderiza sem crashar e mostra labels/inputs das zonas [33m 512[2mms[22m[39m
+ [32m✓[39m src/test/club-config-integration.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 1062[2mms[22m[39m
+   [33m[2m✓[22m[39m #327 integration without network[2m > [22mdraft/sem ativa guarda 200; após ativação mostra 100 e grava só limites/ativa [33m 546[2mms[22m[39m
+ [32m✓[39m src/test/event-financial-card-render-loop.test.tsx [2m([22m[2m1 test[22m[2m)[22m[33m 1219[2mms[22m[39m
+   [33m[2m✓[22m[39m EventFinancialCard — sem ciclo de redesenho (#269)[2m > [22mchama onEbitdaParcelsChange uma única vez com queries vazias [33m 1216[2mms[22m[39m
+ [32m✓[39m src/components/data-entry/__tests__/DataEntryDialog.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 3870[2mms[22m[39m
+   [33m[2m✓[22m[39m #333 DataEntryDialog[2m > [22mexecução não validada: prévia visível, botão desativado mesmo após confirmação [33m 446[2mms[22m[39m
+   [33m[2m✓[22m[39m #333 DataEntryDialog[2m > [22mexecução validada: exige confirmação explícita e mostra a conferência com a observação [33m 338[2mms[22m[39m
+   [33m[2m✓[22m[39m #333 DataEntryDialog[2m > [22meditar depois da prévia exige nova prévia/hash antes de executar [33m 522[2mms[22m[39m
+   [33m[2m✓[22m[39m #333 DataEntryDialog[2m > [22mretoma nunca declara sucesso por cache; repõe campos, lê check, sem commit [33m 388[2mms[22m[39m
+   [33m[2m✓[22m[39m #333 DataEntryDialog[2m > [22mexecução tardia após close não mostra sucesso e retoma só confere [33m 472[2mms[22m[39m
+   [33m[2m✓[22m[39m #333 DataEntryDialog[2m > [22mexecução tardia após company não mostra sucesso e retoma só confere [33m 338[2mms[22m[39m
+   [33m[2m✓[22m[39m #333 DataEntryDialog[2m > [22mresposta tardia de upload após contexto alterado é descartada [33m 326[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/no-direct-transaction-document-remove.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 123[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/tickets-v2-properties.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 85[2mms[22m[39m
+[90mstderr[2m | src/lib/__tests__/permissions-guards-f2b.test.tsx[2m > [22m[2m#311 F2b — guardas por permissão[2m > [22m[2mmanager com excepção module.crm entra em /crm e vê o cartão CRM activo
+[22m[39m⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ [32m✓[39m src/lib/__tests__/permissions-guards-f2b.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 148[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/LinkBpLineDialog-layer.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 161[2mms[22m[39m
+ [32m✓[39m src/test/ticket-office-statement-documents.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 176[2mms[22m[39m
+[90mstderr[2m | src/test/require-feature.test.tsx[2m > [22m[2mvisibilidade por company_features[2m > [22m[2mrota bloqueada sem a chave
+[22m[39m⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ [32m✓[39m src/test/require-feature.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 119[2mms[22m[39m
+[90mstderr[2m | src/components/TicketOfficePositionCards.test.tsx[2m > [22m[2mTicketOfficePositionCards — observação condicional[2m > [22m[2momite observação abaixo de um cêntimo: 0
+[22m[39mWarning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/dev-server/node_modules/react-router/dist/umd/react-router.development.js:1101:7)
+
+[90mstderr[2m | src/components/TicketOfficePositionCards.test.tsx[2m > [22m[2mTicketOfficePositionCards — observação condicional[2m > [22m[2momite observação abaixo de um cêntimo: 0.009
+[22m[39mWarning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/dev-server/node_modules/react-router/dist/umd/react-router.development.js:1101:7)
+
+[90mstderr[2m | src/components/TicketOfficePositionCards.test.tsx[2m > [22m[2mTicketOfficePositionCards — observação condicional[2m > [22m[2momite observação abaixo de um cêntimo: -0.009
+[22m[39mWarning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/dev-server/node_modules/react-router/dist/umd/react-router.development.js:1101:7)
+
+[90mstderr[2m | src/components/TicketOfficePositionCards.test.tsx[2m > [22m[2mTicketOfficePositionCards — observação condicional[2m > [22m[2mpreserva observação a partir de um cêntimo: 0.01
+[22m[39mWarning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/dev-server/node_modules/react-router/dist/umd/react-router.development.js:1101:7)
+
+[90mstderr[2m | src/components/TicketOfficePositionCards.test.tsx[2m > [22m[2mTicketOfficePositionCards — observação condicional[2m > [22m[2mpreserva observação a partir de um cêntimo: -0.01
+[22m[39mWarning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/dev-server/node_modules/react-router/dist/umd/react-router.development.js:1101:7)
+
+[90mstderr[2m | src/components/TicketOfficePositionCards.test.tsx[2m > [22m[2mTicketOfficePositionCards — observação condicional[2m > [22m[2mpreserva observação a partir de um cêntimo: 265
+[22m[39mWarning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/dev-server/node_modules/react-router/dist/umd/react-router.development.js:1101:7)
+
+[90mstderr[2m | src/components/TicketOfficePositionCards.test.tsx[2m > [22m[2mTicketOfficePositionCards — observação condicional[2m > [22m[2mpreserva observação a partir de um cêntimo: -265
+[22m[39mWarning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/dev-server/node_modules/react-router/dist/umd/react-router.development.js:1101:7)
+
+ [32m✓[39m src/components/TicketOfficePositionCards.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/cache-percentage.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 103[2mms[22m[39m
+ [32m✓[39m src/test/ticket-office-settlement-pdf.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 64[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/partner-statement-doc.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 78[2mms[22m[39m
+ [32m✓[39m src/test/ticket-office-settlement-view.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 78[2mms[22m[39m
+[90mstderr[2m | src/test/consent-contract-322.test.ts[2m > [22m[2mportal-track handler[2m > [22m[2mconsent: timeout da RPC → 503 bloqueado
+[22m[39m[portal-track] consent rpc threw Error: timeout
+
+[90mstderr[2m | src/test/consent-contract-322.test.ts[2m > [22m[2mportal-track handler[2m > [22m[2mbind falha (throw): lead entra sem ids Meta
+[22m[39m[portal-track] consent bind threw Error: timeout
+
+[90mstderr[2m | src/test/consent-contract-322.test.ts[2m > [22m[2mportal-track handler[2m > [22m[2minsert falha → 500 (sem falso sucesso)
+[22m[39m[portal-track] insert lead_capture [33m500[39m
+
+ [32m✓[39m src/test/consent-contract-322.test.ts [2m([22m[2m38 tests[22m[2m)[22m[32m 79[2mms[22m[39m
+ [32m✓[39m src/test/newgang-content.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 131[2mms[22m[39m
+ [32m✓[39m src/test/similar-suppliers-notice.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 84[2mms[22m[39m
+ [32m✓[39m src/test/camarim-session-pdf-sanitize.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 48[2mms[22m[39m
+ [32m✓[39m src/test/edge-fn-guard.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 86[2mms[22m[39m
+ [32m✓[39m src/test/standalone-compat-prepared.test.ts [2m([22m[2m26 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+[90mstderr[2m | src/lib/__tests__/cache-scope.test.tsx[2m > [22m[2mecrã do subevento usa a configuração do Master[2m > [22m[2mmostra 'Cachê configurado no Master' e calcula pelo Master com as cidades irmãs
+[22m[39m⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ [32m✓[39m src/lib/__tests__/cache-scope.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 221[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/EventStatusBadge.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 60[2mms[22m[39m
+ [32m✓[39m src/test/approve-lock-and-core.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 52[2mms[22m[39m
+ [32m✓[39m src/test/ticket-office-settlement-card-date.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 144[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/StatCard.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 75[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/help-manual-parser.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/bp-formula.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+ [32m✓[39m src/test/event-financials-invalidation.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 50[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/combo-capacity.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+ [32m✓[39m src/test/coala-meta-audience-sync.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/split-adjustment.test.ts [2m([22m[2m37 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/test/transaction-duplicate-check.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/google-click-match.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 38[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/event-settlement-engine.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 34[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/cache-report.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 40[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/postgrest-large-tables-mirror.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m src/test/bol-m2-parser.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/ads-tour-split.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/data-entry-contract.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32m✓[39m src/test/song-link-ssr.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m src/test/newgang-portal.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 34[2mms[22m[39m
+ [32m✓[39m src/test/newgang-welcome-once.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m src/test/newgang-wallet-levels.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/lib/cost-center-map.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/tickets-v2-read-layer.test.ts [2m([22m[2m28 tests[22m[2m | [22m[33m7 skipped[39m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/test/supplier-similarity.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/transitory-transactions.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/forecast-boost.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/ticket-office-effective-open.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/test/newgang-edition-videos.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/bp-version-multi-diff.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m src/test/newgang-missions.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/statement-grouping.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/utils.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/ticket-office-settlement-calc.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/zone-price-turns.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/test/newgang-edition-photos.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/event-ab-full-suite.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/bp-line-review.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/event-partner-mirror.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/club-config-source.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/validations.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/test/capi-diag-no-secrets.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/multi-day-ticketing.test.ts [2m([22m[2m25 tests[22m[2m | [22m[33m4 skipped[39m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/event-simulator-calc.test.ts [2m([22m[2m35 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/test/operation-key-domain.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/test/newgang-strict-audience-delivery.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/event-cost-basis-tour.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/cache-tab-total.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/test/capi-p1-guard.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/event-ab-calc.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/bp-tx-matching.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/ticket-revenue-single-rule.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/overhead-proration.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/event-cost-basis.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/dre-nature-divergence.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/test/derp248-tiktok-event-trackers.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/iva.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/test/newgang-portal-bundle.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/partner-extras-union-148.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/permissions-per-company.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/fecho-preconditions.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/ticket-office-reconciliation.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/partner-disbursement.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/event-simulator-ab-scale.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/account-balance-settling.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/supplier-credits.test.ts [2m([22m[2m34 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/test/bol-daily-parser.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/settlement-participants.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/test/ticketline-import-format-transition.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/standalone-invoices.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/test/check-deploy.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/event-revenue-basis.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/refund-grouping.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/camarim-bp-rules.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/report-event-cost.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/zone-capacities.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/simulator-prior-curve.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/tour-cache-sync.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/lib/sepa/bank-execution.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/partner-settlement-internal-report.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/ticket-office-position.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/settlement-revenue.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/payment-settlement.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/test/silent-writes.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/combo-gating.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/forecast-undo.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/settlement-seal.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/camarim-integrate.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/income-tax-out-of-event-result.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/ebitda.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/test/crm-ingest-no-network.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/bp-installments.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+[90mstdout[2m | src/lib/__tests__/card-session-theoretical.test.ts[2m > [22m[2m#275 saldo teórico da sessão = fecho[2m > [22m[2msem override e com transação carimbada anterior à abertura: teórico = saldo da conta − itens por integrar
+[22m[39m[#275] teórico = 636.68 esperado = 636.68
+
+ [32m✓[39m src/lib/__tests__/card-session-theoretical.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/test/payment-method-domain.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/permissions.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/camarim-cash-preview.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/partner-rebill-vat.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/zone-price-elasticity.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/creative-media.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/PasswordStrengthIndicator.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/test/newgang-history.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/event-nature.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/real-cache-deductions.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/bp-planilha-version.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/test/crm-audience-live-count.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/settlement-doc-text.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/pl-category-matching.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/settlement-perimeter.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/test/newgang-profile-country.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/test/partner-statement-cards.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/ticket-category.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/lib/crm/creativeReelsCheck.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/master-adopted-expense-proration.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/test/transaction-edit-modal-operation-key.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/test/payment-list-revalidate.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/event-ab-rounding.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/test/newgang-crews.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/test/coala-centro-custo-norm.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/test/memory-index.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/forecast-edit-diff.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/partner-extras-kind.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/session-copy.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/test/contactos-list-paging.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/event-realized.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/permissions-guards-proof.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/test/ticket-office-settlement-eligible.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/accountant-account-filter.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/audit.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/zone-on-sale.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/test/example.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/bp-line-required.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [2m[90m↓[39m[22m src/test/partner-statement-edge.test.ts [2m([22m[2m1 test[22m[2m | [22m[33m1 skipped[39m[2m)[22m
+ [32m✓[39m src/test/format-integer-conversions.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m165 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (166)[39m
+[2m      Tests [22m [1m[32m1334 passed[39m[22m[2m | [22m[33m1 skipped[39m[2m | [22m[90m11 todo[39m[90m (1346)[39m
+[2m   Start at [22m 18:27:20
+[2m   Duration [22m 72.92s[2m (transform 10.41s, setup 131.68s, collect 117.04s, tests 17.16s, environment 607.21s, prepare 106.53s)[22m
+
+
+EXIT: 0
+
+```
+
+## FINAL build
+
+```text
+COMMAND: /dev-server/node_modules/.bin/vite build
+[36mvite v5.4.19 [32mbuilding for production...[36m[39m
+transforming...
+Browserslist: browsers data (caniuse-lite) is 7 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[32m✓[39m 6218 modules transformed.
+rendering chunks...
+[1m[33m[plugin:vite:reporter][39m[22m [33m[plugin vite:reporter] 
+(!) /tmp/issue333-integrated-d21oqnw0/tree/src/lib/storage.ts is dynamically imported by /tmp/issue333-integrated-d21oqnw0/tree/src/contexts/AuthContext.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/contexts/AuthContext.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/hooks/useCompany.ts but also statically imported by /tmp/issue333-integrated-d21oqnw0/tree/src/components/BPNotesAttachmentsModal.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/components/CacheExtrasPanel.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/components/EntityDocumentsSection.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/components/EventABAttachmentsSection.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/components/EventClosingCosts.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/components/EventForecast.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/components/PartnerExtrasPanel.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/components/PaymentListReceipts.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/components/SupplierCreditsPanel.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/components/TicketOfficeSettlementModal.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/components/TransactionDocumentsModal.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/components/TransactionFormModal.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/components/bank/BankLineDocumentsDialog.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/components/camarim/CamarimItemAttachmentButton.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/components/camarim/CamarimItemModal.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/components/cards/NewCardExpenseModal.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/components/supplier-credits/NewSupplierCreditModal.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/components/supplier-credits/SupplierCreditsTab.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/pages/BankReconciliation.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/pages/EventImplementations.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/pages/PartnerEventDetail.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/pages/StandaloneInvoiceScanner.tsx, /tmp/issue333-integrated-d21oqnw0/tree/src/pages/contabilidade/AccountantStandaloneInvoicesTab.tsx, dynamic import will not move module into another chunk.
+[39m
+[bundle] inicial estático: 5156275 bytes
+computing gzip size...
+[2mdist/[22m[32mmanifest.webmanifest                                    [39m[1m[2m    0.47 kB[22m[1m[22m
+[2mdist/[22m[32mindex.html                                              [39m[1m[2m    3.95 kB[22m[1m[22m[2m │ gzip:   1.29 kB[22m
+[2mdist/[22m[2massets/[22m[32mlogo-horizontal-mvVEptKs.png                     [39m[1m[2m   45.85 kB[22m[1m[22m
+[2mdist/[22m[32mbundle-report.json                                      [39m[1m[2m  810.15 kB[22m[1m[22m[2m │ gzip:  76.90 kB[22m
+[2mdist/[22m[2massets/[22m[32mtransaction-lifecycle-DuCcaQBZ.jpg               [39m[1m[2m1,175.46 kB[22m[1m[22m
+[2mdist/[22m[2massets/[22m[32mevent-lifecycle-CvV3N1nA.jpg                     [39m[1m[2m1,221.66 kB[22m[1m[22m
+[2mdist/[22m[2massets/[22m[32mpdf.worker.min-iDqQPrd3.mjs                      [39m[1m[2m1,232.30 kB[22m[1m[22m
+[2mdist/[22m[2massets/[22m[32muser-roles-CevPcr3I.jpg                          [39m[1m[2m1,241.98 kB[22m[1m[22m
+[2mdist/[22m[2massets/[22m[32maccounts-flow-BVCUzNuB.jpg                       [39m[1m[2m1,252.59 kB[22m[1m[22m
+[2mdist/[22m[2massets/[22m[32mbp-workflow-EJGerC2n.jpg                         [39m[1m[2m1,332.07 kB[22m[1m[22m
+[2mdist/[22m[2massets/[22m[35mStrategyPrint-CymDZpv5.css                       [39m[1m[2m    3.64 kB[22m[1m[22m[2m │ gzip:   1.24 kB[22m
+[2mdist/[22m[2massets/[22m[35mAudiencePrint-CdEbyEIQ.css                       [39m[1m[2m    5.16 kB[22m[1m[22m[2m │ gzip:   1.48 kB[22m
+[2mdist/[22m[2massets/[22m[35mindex-CUszSXa7.css                               [39m[1m[2m  171.29 kB[22m[1m[22m[2m │ gzip:  27.24 kB[22m
+[2mdist/[22m[2massets/[22m[35mvendor-handsontable-8wq-FOPh.css                 [39m[1m[2m  182.11 kB[22m[1m[22m[2m │ gzip:  21.62 kB[22m
+[2mdist/[22m[2massets/[22m[36msubDays-BR8n3PdH.js                              [39m[1m[2m    0.09 kB[22m[1m[22m[2m │ gzip:   0.10 kB[22m
+[2mdist/[22m[2massets/[22m[36mdifferenceInMilliseconds-LLbDEX0K.js             [39m[1m[2m    0.12 kB[22m[1m[22m[2m │ gzip:   0.13 kB[22m
+[2mdist/[22m[2massets/[22m[36moperacao-labels-Cq-Qt5BS.js                      [39m[1m[2m    0.13 kB[22m[1m[22m[2m │ gzip:   0.12 kB[22m
+[2mdist/[22m[2massets/[22m[36museDisplayCurrency-D0KTc8Fo.js                   [39m[1m[2m    0.15 kB[22m[1m[22m[2m │ gzip:   0.15 kB[22m
+[2mdist/[22m[2massets/[22m[36mstartOfMonth-CKCw-RWI.js                         [39m[1m[2m    0.15 kB[22m[1m[22m[2m │ gzip:   0.15 kB[22m
+[2mdist/[22m[2massets/[22m[36mconstants-uO0lGu32.js                            [39m[1m[2m    0.16 kB[22m[1m[22m[2m │ gzip:   0.15 kB[22m
+[2mdist/[22m[2massets/[22m[36mbp-category-constraint-B8MCXqQh.js               [39m[1m[2m    0.19 kB[22m[1m[22m[2m │ gzip:   0.15 kB[22m
+[2mdist/[22m[2massets/[22m[36mdifferenceInCalendarMonths-B7vAcVWO.js           [39m[1m[2m    0.19 kB[22m[1m[22m[2m │ gzip:   0.17 kB[22m
+[2mdist/[22m[2massets/[22m[36mendOfMonth-Bz2Gx-N-.js                           [39m[1m[2m    0.20 kB[22m[1m[22m[2m │ gzip:   0.18 kB[22m
+[2mdist/[22m[2massets/[22m[36museDebouncedValue-BRJMxObC.js                    [39m[1m[2m    0.20 kB[22m[1m[22m[2m │ gzip:   0.17 kB[22m
+[2mdist/[22m[2massets/[22m[36mpdf-text-CRO-dKNy.js                             [39m[1m[2m    0.20 kB[22m[1m[22m[2m │ gzip:   0.17 kB[22m
+[2mdist/[22m[2massets/[22m[36maddDays-CklYSQT6.js                              [39m[1m[2m    0.21 kB[22m[1m[22m[2m │ gzip:   0.19 kB[22m
+[2mdist/[22m[2massets/[22m[36mcountry-BQyONak0.js                              [39m[1m[2m    0.23 kB[22m[1m[22m[2m │ gzip:   0.19 kB[22m
+[2mdist/[22m[2massets/[22m[36mslug-Bzks-5QT.js                                 [39m[1m[2m    0.23 kB[22m[1m[22m[2m │ gzip:   0.19 kB[22m
+[2mdist/[22m[2massets/[22m[36mrateio-children-CukInAMc.js                      [39m[1m[2m    0.24 kB[22m[1m[22m[2m │ gzip:   0.16 kB[22m
+[2mdist/[22m[2massets/[22m[36mdifferenceInCalendarDays-CZO_y_Bc.js             [39m[1m[2m    0.24 kB[22m[1m[22m[2m │ gzip:   0.20 kB[22m
+[2mdist/[22m[2massets/[22m[36mmust-write-D6vQQ_6o.js                           [39m[1m[2m    0.28 kB[22m[1m[22m[2m │ gzip:   0.23 kB[22m
+[2mdist/[22m[2massets/[22m[36meachDayOfInterval-BuSrMpJD.js                    [39m[1m[2m    0.30 kB[22m[1m[22m[2m │ gzip:   0.23 kB[22m
+[2mdist/[22m[2massets/[22m[36mbackdropClose-D_wd_DtF.js                        [39m[1m[2m    0.30 kB[22m[1m[22m[2m │ gzip:   0.21 kB[22m
+[2mdist/[22m[2massets/[22m[36mrelativeTime-CufnskKF.js                         [39m[1m[2m    0.30 kB[22m[1m[22m[2m │ gzip:   0.22 kB[22m
+[2mdist/[22m[2massets/[22m[36mskeleton-C6FbkqAg.js                             [39m[1m[2m    0.34 kB[22m[1m[22m[2m │ gzip:   0.27 kB[22m
+[2mdist/[22m[2massets/[22m[36maddMonths-Dsh0EBap.js                            [39m[1m[2m    0.35 kB[22m[1m[22m[2m │ gzip:   0.25 kB[22m
+[2mdist/[22m[2massets/[22m[36mstrategy-status-if_xUdsk.js                      [39m[1m[2m    0.41 kB[22m[1m[22m[2m │ gzip:   0.24 kB[22m
+[2mdist/[22m[2massets/[22m[36mform-enter-guard-TC9TB5Pp.js                     [39m[1m[2m    0.43 kB[22m[1m[22m[2m │ gzip:   0.32 kB[22m
+[2mdist/[22m[2massets/[22m[36mtraction-C6TeXKI5.js                             [39m[1m[2m    0.45 kB[22m[1m[22m[2m │ gzip:   0.30 kB[22m
+[2mdist/[22m[2massets/[22m[36mstring-similarity-B7WDu-Mk.js                    [39m[1m[2m    0.45 kB[22m[1m[22m[2m │ gzip:   0.31 kB[22m
+[2mdist/[22m[2massets/[22m[36mcreative-media-DKNTK8AD.js                       [39m[1m[2m    0.50 kB[22m[1m[22m[2m │ gzip:   0.31 kB[22m
+[2mdist/[22m[2massets/[22m[36moverlay-layer-CHJIw3U7.js                        [39m[1m[2m    0.51 kB[22m[1m[22m[2m │ gzip:   0.37 kB[22m
+[2mdist/[22m[2massets/[22m[36mseparator-DOV7D_8o.js                            [39m[1m[2m    0.54 kB[22m[1m[22m[2m │ gzip:   0.37 kB[22m
+[2mdist/[22m[2massets/[22m[36mdifferenceInDays-ChvF9Jc3.js                     [39m[1m[2m    0.54 kB[22m[1m[22m[2m │ gzip:   0.32 kB[22m
+[2mdist/[22m[2massets/[22m[36mbudget-mode-aFrAkR2g.js                          [39m[1m[2m    0.56 kB[22m[1m[22m[2m │ gzip:   0.40 kB[22m
+[2mdist/[22m[2massets/[22m[36museMyLeadFrenteIds-BC1tEwBh.js                   [39m[1m[2m    0.56 kB[22m[1m[22m[2m │ gzip:   0.38 kB[22m
+[2mdist/[22m[2massets/[22m[36mgetTimezoneOffsetInMilliseconds-CEhzTjz1.js      [39m[1m[2m    0.58 kB[22m[1m[22m[2m │ gzip:   0.34 kB[22m
+[2mdist/[22m[2massets/[22m[36maudience-pdf-RQfvkLkz.js                         [39m[1m[2m    0.64 kB[22m[1m[22m[2m │ gzip:   0.41 kB[22m
+[2mdist/[22m[2massets/[22m[36mevent-nature-BSQ-ezBD.js                         [39m[1m[2m    0.78 kB[22m[1m[22m[2m │ gzip:   0.45 kB[22m
+[2mdist/[22m[2massets/[22m[36museRealtimeInvalidation-58XnSM6R.js              [39m[1m[2m    0.78 kB[22m[1m[22m[2m │ gzip:   0.51 kB[22m
+[2mdist/[22m[2massets/[22m[36mPriorityBadge-BxoG0tPV.js                        [39m[1m[2m    0.81 kB[22m[1m[22m[2m │ gzip:   0.52 kB[22m
+[2mdist/[22m[2massets/[22m[36museOperacaoFilters-CTkRwTaA.js                   [39m[1m[2m    0.81 kB[22m[1m[22m[2m │ gzip:   0.49 kB[22m
+[2mdist/[22m[2massets/[22m[36mIbanWarning-CcgMrUoS.js                          [39m[1m[2m    0.82 kB[22m[1m[22m[2m │ gzip:   0.43 kB[22m
+[2mdist/[22m[2massets/[22m[36madmin-window-De4pLN9Z.js                         [39m[1m[2m    0.85 kB[22m[1m[22m[2m │ gzip:   0.50 kB[22m
+[2mdist/[22m[2massets/[22m[36mcard-account-balance-D39A3hud.js                 [39m[1m[2m    0.92 kB[22m[1m[22m[2m │ gzip:   0.53 kB[22m
+[2mdist/[22m[2massets/[22m[36maccount-balance-rpc-MwBFuQ5A.js                  [39m[1m[2m    0.93 kB[22m[1m[22m[2m │ gzip:   0.49 kB[22m
+[2mdist/[22m[2massets/[22m[36mcircuit-account-BiW07jTP.js                      [39m[1m[2m    0.94 kB[22m[1m[22m[2m │ gzip:   0.58 kB[22m
+[2mdist/[22m[2massets/[22m[36msupplier-credits-CuWbk8ac.js                     [39m[1m[2m    0.98 kB[22m[1m[22m[2m │ gzip:   0.56 kB[22m
+[2mdist/[22m[2massets/[22m[36mmoney-input-DcGH6rDr.js                          [39m[1m[2m    1.02 kB[22m[1m[22m[2m │ gzip:   0.61 kB[22m
+[2mdist/[22m[2massets/[22m[36mapp-badge--XkrIX2g.js                            [39m[1m[2m    1.04 kB[22m[1m[22m[2m │ gzip:   0.51 kB[22m
+[2mdist/[22m[2massets/[22m[36mbank-link-date-DcRav5qG.js                       [39m[1m[2m    1.05 kB[22m[1m[22m[2m │ gzip:   0.53 kB[22m
+[2mdist/[22m[2massets/[22m[36mavatar-BOHQkWME.js                               [39m[1m[2m    1.07 kB[22m[1m[22m[2m │ gzip:   0.44 kB[22m
+[2mdist/[22m[2massets/[22m[36mPhaseBadge-CXCz2dVX.js                           [39m[1m[2m    1.20 kB[22m[1m[22m[2m │ gzip:   0.66 kB[22m
+[2mdist/[22m[2massets/[22m[36mzone-capacities-CnMK4YKR.js                      [39m[1m[2m    1.22 kB[22m[1m[22m[2m │ gzip:   0.56 kB[22m
+[2mdist/[22m[2massets/[22m[36mStaffList-K8M9Y1RC.js                            [39m[1m[2m    1.22 kB[22m[1m[22m[2m │ gzip:   0.54 kB[22m
+[2mdist/[22m[2massets/[22m[36mIvaRateSelect-BepmNZXz.js                        [39m[1m[2m    1.27 kB[22m[1m[22m[2m │ gzip:   0.61 kB[22m
+[2mdist/[22m[2massets/[22m[36mcard-session-helpers-DO9YBYwi.js                 [39m[1m[2m    1.31 kB[22m[1m[22m[2m │ gzip:   0.65 kB[22m
+[2mdist/[22m[2massets/[22m[36malert-pCGrvH41.js                                [39m[1m[2m    1.34 kB[22m[1m[22m[2m │ gzip:   0.59 kB[22m
+[2mdist/[22m[2massets/[22m[36maccount-balance-Bcwu5tPc.js                      [39m[1m[2m    1.36 kB[22m[1m[22m[2m │ gzip:   0.69 kB[22m
+[2mdist/[22m[2massets/[22m[36mOperacaoStatusBadge-Dz7Nm2CY.js                  [39m[1m[2m    1.36 kB[22m[1m[22m[2m │ gzip:   0.62 kB[22m
+[2mdist/[22m[2massets/[22m[36mcurrency-DvXZV_Ot.js                             [39m[1m[2m    1.43 kB[22m[1m[22m[2m │ gzip:   0.74 kB[22m
+[2mdist/[22m[2massets/[22m[36maccountant-reviews-D4fja3It.js                   [39m[1m[2m    1.46 kB[22m[1m[22m[2m │ gzip:   0.60 kB[22m
+[2mdist/[22m[2massets/[22m[36msupplier-bank-FADNDD3W.js                        [39m[1m[2m    1.51 kB[22m[1m[22m[2m │ gzip:   0.70 kB[22m
+[2mdist/[22m[2massets/[22m[36mbp-line-relink-3J4Y_UWi.js                       [39m[1m[2m    1.52 kB[22m[1m[22m[2m │ gzip:   0.58 kB[22m
+[2mdist/[22m[2massets/[22m[36mscroll-area-BKZ_1Pny.js                          [39m[1m[2m    1.66 kB[22m[1m[22m[2m │ gzip:   0.57 kB[22m
+[2mdist/[22m[2massets/[22m[36mcapital-branch-CJwzxRyH.js                       [39m[1m[2m    1.67 kB[22m[1m[22m[2m │ gzip:   0.78 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportArtistCachePage-CBi9_6DE.js                [39m[1m[2m    1.70 kB[22m[1m[22m[2m │ gzip:   0.63 kB[22m
+[2mdist/[22m[2massets/[22m[36mebitda-xxO3CNdE.js                               [39m[1m[2m    1.74 kB[22m[1m[22m[2m │ gzip:   0.76 kB[22m
+[2mdist/[22m[2massets/[22m[36mcamarim-helpers-M1Vn5iD-.js                      [39m[1m[2m    1.76 kB[22m[1m[22m[2m │ gzip:   0.78 kB[22m
+[2mdist/[22m[2massets/[22m[36miban-BYOybSCJ.js                                 [39m[1m[2m    1.79 kB[22m[1m[22m[2m │ gzip:   0.95 kB[22m
+[2mdist/[22m[2massets/[22m[36maccordion-DLXhjUMj.js                            [39m[1m[2m    1.82 kB[22m[1m[22m[2m │ gzip:   0.65 kB[22m
+[2mdist/[22m[2massets/[22m[36minvoice-ocr-prepare-CcJft9v3.js                  [39m[1m[2m    1.85 kB[22m[1m[22m[2m │ gzip:   1.02 kB[22m
+[2mdist/[22m[2massets/[22m[36mbp-line-required-DugrP_ns.js                     [39m[1m[2m    1.88 kB[22m[1m[22m[2m │ gzip:   0.76 kB[22m
+[2mdist/[22m[2massets/[22m[36mEventNatureFilter-CyMDftQj.js                    [39m[1m[2m    1.95 kB[22m[1m[22m[2m │ gzip:   0.73 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportAccountingExportPage-DzP_VO3f.js           [39m[1m[2m    2.00 kB[22m[1m[22m[2m │ gzip:   0.75 kB[22m
+[2mdist/[22m[2massets/[22m[36mdashboard-format-GnqOyAs1.js                     [39m[1m[2m    2.00 kB[22m[1m[22m[2m │ gzip:   0.92 kB[22m
+[2mdist/[22m[2massets/[22m[36msettlement-participants-B__wesEm.js              [39m[1m[2m    2.01 kB[22m[1m[22m[2m │ gzip:   0.79 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportDocumentPendenciesPage-CgTTKcNk.js         [39m[1m[2m    2.02 kB[22m[1m[22m[2m │ gzip:   0.75 kB[22m
+[2mdist/[22m[2massets/[22m[36mtoggle-group-BcHF-qIi.js                         [39m[1m[2m    2.03 kB[22m[1m[22m[2m │ gzip:   0.79 kB[22m
+[2mdist/[22m[2massets/[22m[36mMirrorAporteNotice-DMfZOebM.js                   [39m[1m[2m    2.08 kB[22m[1m[22m[2m │ gzip:   0.90 kB[22m
+[2mdist/[22m[2massets/[22m[36mevent-ab-calc-BxWHlvfV.js                        [39m[1m[2m    2.10 kB[22m[1m[22m[2m │ gzip:   0.74 kB[22m
+[2mdist/[22m[2massets/[22m[36mFeatureNotEnabledCard-F6M2NpD6.js                [39m[1m[2m    2.13 kB[22m[1m[22m[2m │ gzip:   0.65 kB[22m
+[2mdist/[22m[2massets/[22m[36mFrenteLeadsAvatars-xwmbZkBR.js                   [39m[1m[2m    2.25 kB[22m[1m[22m[2m │ gzip:   0.88 kB[22m
+[2mdist/[22m[2massets/[22m[36mticket-office-reconciliation-D6v1AJQS.js         [39m[1m[2m    2.25 kB[22m[1m[22m[2m │ gzip:   1.05 kB[22m
+[2mdist/[22m[2massets/[22m[36museUserPreferences-WM3jnlrw.js                   [39m[1m[2m    2.30 kB[22m[1m[22m[2m │ gzip:   0.70 kB[22m
+[2mdist/[22m[2massets/[22m[36mformatDistanceToNow-CgGNwkFO.js                  [39m[1m[2m    2.32 kB[22m[1m[22m[2m │ gzip:   0.98 kB[22m
+[2mdist/[22m[2massets/[22m[36mpartner-extras-CwlPLR4R.js                       [39m[1m[2m    2.32 kB[22m[1m[22m[2m │ gzip:   0.97 kB[22m
+[2mdist/[22m[2massets/[22m[36mbp-tx-matching-BHd1Ixbn.js                       [39m[1m[2m    2.38 kB[22m[1m[22m[2m │ gzip:   0.97 kB[22m
+[2mdist/[22m[2massets/[22m[36museEventIvaRates-Ctl-7s1b.js                     [39m[1m[2m    2.68 kB[22m[1m[22m[2m │ gzip:   1.15 kB[22m
+[2mdist/[22m[2massets/[22m[36mparseISO-Cr0H38in.js                             [39m[1m[2m    2.70 kB[22m[1m[22m[2m │ gzip:   1.19 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportCostSourceToggle-NrugWKHo.js               [39m[1m[2m    2.93 kB[22m[1m[22m[2m │ gzip:   1.07 kB[22m
+[2mdist/[22m[2massets/[22m[36m_LegalLayout-BqC05EW-.js                         [39m[1m[2m    3.08 kB[22m[1m[22m[2m │ gzip:   0.69 kB[22m
+[2mdist/[22m[2massets/[22m[36mreal-cache-calc-B5V7RXhT.js                      [39m[1m[2m    3.25 kB[22m[1m[22m[2m │ gzip:   1.48 kB[22m
+[2mdist/[22m[2massets/[22m[36mdate-picker-BtAom9KK.js                          [39m[1m[2m    3.32 kB[22m[1m[22m[2m │ gzip:   1.25 kB[22m
+[2mdist/[22m[2massets/[22m[36mAcceptInvite-BSw92qze.js                         [39m[1m[2m    3.86 kB[22m[1m[22m[2m │ gzip:   1.17 kB[22m
+[2mdist/[22m[2massets/[22m[36mEtapaAssigneeAvatars-BYEDOpQy.js                 [39m[1m[2m    3.89 kB[22m[1m[22m[2m │ gzip:   1.00 kB[22m
+[2mdist/[22m[2massets/[22m[36mAdAccounts-BmzmPmso.js                           [39m[1m[2m    3.95 kB[22m[1m[22m[2m │ gzip:   0.98 kB[22m
+[2mdist/[22m[2massets/[22m[36mcache-tab-total-CtxOYSW7.js                      [39m[1m[2m    4.35 kB[22m[1m[22m[2m │ gzip:   1.67 kB[22m
+[2mdist/[22m[2massets/[22m[36mcsv-export-Bp8nlkXR.js                           [39m[1m[2m    4.39 kB[22m[1m[22m[2m │ gzip:   1.57 kB[22m
+[2mdist/[22m[2massets/[22m[36mNewStaffDialog-Dea1VtNa.js                       [39m[1m[2m    4.45 kB[22m[1m[22m[2m │ gzip:   1.20 kB[22m
+[2mdist/[22m[2massets/[22m[36mStatCard-ChDoPR7o.js                             [39m[1m[2m    4.47 kB[22m[1m[22m[2m │ gzip:   1.06 kB[22m
+[2mdist/[22m[2massets/[22m[36mImageUploader-Be1t4pYp.js                        [39m[1m[2m    4.73 kB[22m[1m[22m[2m │ gzip:   1.49 kB[22m
+[2mdist/[22m[2massets/[22m[36museScenarioForecasts-BCWUEjkl.js                 [39m[1m[2m    4.86 kB[22m[1m[22m[2m │ gzip:   1.44 kB[22m
+[2mdist/[22m[2massets/[22m[36mAudienceNew-BAKpE23m.js                          [39m[1m[2m    4.88 kB[22m[1m[22m[2m │ gzip:   1.26 kB[22m
+[2mdist/[22m[2massets/[22m[36mexport-ticket-office-settlement-pdf-P7FO_IKb.js  [39m[1m[2m    5.00 kB[22m[1m[22m[2m │ gzip:   2.29 kB[22m
+[2mdist/[22m[2massets/[22m[36mMeusChamados-CAEmP1el.js                         [39m[1m[2m    5.31 kB[22m[1m[22m[2m │ gzip:   1.56 kB[22m
+[2mdist/[22m[2massets/[22m[36minvoice-group-B-hoxT6D.js                        [39m[1m[2m    5.43 kB[22m[1m[22m[2m │ gzip:   1.76 kB[22m
+[2mdist/[22m[2massets/[22m[36mUserSettings-CHS6QfU-.js                         [39m[1m[2m    5.53 kB[22m[1m[22m[2m │ gzip:   1.67 kB[22m
+[2mdist/[22m[2massets/[22m[36mSimilarSuppliersNotice-ST-n1TDt.js               [39m[1m[2m    5.66 kB[22m[1m[22m[2m │ gzip:   1.83 kB[22m
+[2mdist/[22m[2massets/[22m[36mpt-BR-Dh5EWHbw.js                                [39m[1m[2m    5.85 kB[22m[1m[22m[2m │ gzip:   2.10 kB[22m
+[2mdist/[22m[2massets/[22m[36mpt-B3dxR9FF.js                                   [39m[1m[2m    5.97 kB[22m[1m[22m[2m │ gzip:   2.02 kB[22m
+[2mdist/[22m[2massets/[22m[36mSupplierBankDetails-Cr8aECJQ.js                  [39m[1m[2m    6.14 kB[22m[1m[22m[2m │ gzip:   1.19 kB[22m
+[2mdist/[22m[2massets/[22m[36mparse-ticketline-zone-xlsx-BcBXDVLy.js           [39m[1m[2m    6.86 kB[22m[1m[22m[2m │ gzip:   2.59 kB[22m
+[2mdist/[22m[2massets/[22m[36mOperacaoHome-D9uPNppn.js                         [39m[1m[2m    7.07 kB[22m[1m[22m[2m │ gzip:   1.92 kB[22m
+[2mdist/[22m[2massets/[22m[36men-US-CpWK9ySR.js                                [39m[1m[2m    7.19 kB[22m[1m[22m[2m │ gzip:   2.47 kB[22m
+[2mdist/[22m[2massets/[22m[36mchart-BGNI1Bz7.js                                [39m[1m[2m    7.28 kB[22m[1m[22m[2m │ gzip:   2.18 kB[22m
+[2mdist/[22m[2massets/[22m[36mChamadoNovo-B-qoFxua.js                          [39m[1m[2m    7.46 kB[22m[1m[22m[2m │ gzip:   1.84 kB[22m
+[2mdist/[22m[2massets/[22m[36museBPVersions-ClrxhJ1Z.js                        [39m[1m[2m    7.53 kB[22m[1m[22m[2m │ gzip:   1.77 kB[22m
+[2mdist/[22m[2massets/[22m[36mMinhasTarefas-5STQvljO.js                        [39m[1m[2m    7.69 kB[22m[1m[22m[2m │ gzip:   2.16 kB[22m
+[2mdist/[22m[2massets/[22m[36mDiagnosisTest-Y0rF_nWQ.js                        [39m[1m[2m    7.99 kB[22m[1m[22m[2m │ gzip:   1.58 kB[22m
+[2mdist/[22m[2massets/[22m[36mIbanDuplicates-Di-RVok5.js                       [39m[1m[2m    8.12 kB[22m[1m[22m[2m │ gzip:   2.04 kB[22m
+[2mdist/[22m[2massets/[22m[36mFrentesPanel-D4F01aOe.js                         [39m[1m[2m    8.23 kB[22m[1m[22m[2m │ gzip:   2.07 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportSalesComparisonPage-B-Bf3Mih.js            [39m[1m[2m    8.36 kB[22m[1m[22m[2m │ gzip:   2.17 kB[22m
+[2mdist/[22m[2massets/[22m[36mevent-format-Cf4toSL7.js                         [39m[1m[2m    8.46 kB[22m[1m[22m[2m │ gzip:   2.52 kB[22m
+[2mdist/[22m[2massets/[22m[36mSimilarSuppliersReview-E-TSNI2x.js               [39m[1m[2m    8.46 kB[22m[1m[22m[2m │ gzip:   1.98 kB[22m
+[2mdist/[22m[2massets/[22m[36mAtividade-CLDrNb64.js                            [39m[1m[2m    8.54 kB[22m[1m[22m[2m │ gzip:   2.33 kB[22m
+[2mdist/[22m[2massets/[22m[36mOperacaoListShell-FjOQR21V.js                    [39m[1m[2m    8.85 kB[22m[1m[22m[2m │ gzip:   2.22 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportSalesCurvePage-4tPwwt7-.js                 [39m[1m[2m    8.91 kB[22m[1m[22m[2m │ gzip:   2.14 kB[22m
+[2mdist/[22m[2massets/[22m[36mStrategies-CbRBvLIT.js                           [39m[1m[2m    9.09 kB[22m[1m[22m[2m │ gzip:   2.14 kB[22m
+[2mdist/[22m[2massets/[22m[36mUploadCoalaFotos-i3I2TvzM.js                     [39m[1m[2m    9.14 kB[22m[1m[22m[2m │ gzip:   2.11 kB[22m
+[2mdist/[22m[2massets/[22m[36mimport-pl-xlsx-CYbR34Id.js                       [39m[1m[2m    9.39 kB[22m[1m[22m[2m │ gzip:   4.03 kB[22m
+[2mdist/[22m[2massets/[22m[36mFieldStaffSection-BCovktvi.js                    [39m[1m[2m    9.58 kB[22m[1m[22m[2m │ gzip:   2.15 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportAgingPage-BaPRwE3a.js                      [39m[1m[2m    9.67 kB[22m[1m[22m[2m │ gzip:   2.15 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportAccountCategoriesPage-CVJFVxQ-.js          [39m[1m[2m    9.81 kB[22m[1m[22m[2m │ gzip:   2.18 kB[22m
+[2mdist/[22m[2massets/[22m[36mFundHolderPicker-BplWvRIm.js                     [39m[1m[2m    9.82 kB[22m[1m[22m[2m │ gzip:   1.97 kB[22m
+[2mdist/[22m[2massets/[22m[36museEventABScenarios-DQ-M8MuF.js                  [39m[1m[2m   10.09 kB[22m[1m[22m[2m │ gzip:   3.72 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportRevenueMixPage-C7M9jpZK.js                 [39m[1m[2m   10.20 kB[22m[1m[22m[2m │ gzip:   2.16 kB[22m
+[2mdist/[22m[2massets/[22m[36mBankLineDocumentsDialog-oO_4HL78.js              [39m[1m[2m   10.40 kB[22m[1m[22m[2m │ gzip:   2.74 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportMonthlyEvolutionPage-SZ1FqW6b.js           [39m[1m[2m   10.45 kB[22m[1m[22m[2m │ gzip:   2.11 kB[22m
+[2mdist/[22m[2massets/[22m[36mAuditDownloads-BKZC76UW.js                       [39m[1m[2m   10.80 kB[22m[1m[22m[2m │ gzip:   2.19 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportOccupancyRatePage-BIiaoYEO.js              [39m[1m[2m   10.82 kB[22m[1m[22m[2m │ gzip:   2.31 kB[22m
+[2mdist/[22m[2massets/[22m[36museCitySimulator-Df-HbqVk.js                     [39m[1m[2m   10.99 kB[22m[1m[22m[2m │ gzip:   3.61 kB[22m
+[2mdist/[22m[2massets/[22m[36mCreatives-i8yFYfAa.js                            [39m[1m[2m   11.15 kB[22m[1m[22m[2m │ gzip:   2.37 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportBudgetDeviationPage-WH8QS2tz.js            [39m[1m[2m   11.40 kB[22m[1m[22m[2m │ gzip:   2.57 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportTreasuryProjectionPage-CVD0exO2.js         [39m[1m[2m   11.42 kB[22m[1m[22m[2m │ gzip:   2.52 kB[22m
+[2mdist/[22m[2massets/[22m[36mUserActivityLog-D_cJsXns.js                      [39m[1m[2m   11.49 kB[22m[1m[22m[2m │ gzip:   2.45 kB[22m
+[2mdist/[22m[2massets/[22m[36mCardItemDocumentsField-CdetE-_j.js               [39m[1m[2m   11.67 kB[22m[1m[22m[2m │ gzip:   2.99 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportSupplierConcentrationPage-C2SvoU6L.js      [39m[1m[2m   11.78 kB[22m[1m[22m[2m │ gzip:   2.27 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportSuppliersPage-DKVp-_Kv.js                  [39m[1m[2m   12.07 kB[22m[1m[22m[2m │ gzip:   2.55 kB[22m
+[2mdist/[22m[2massets/[22m[36mLinkBpLineDialog-DKkZMlus.js                     [39m[1m[2m   12.12 kB[22m[1m[22m[2m │ gzip:   2.65 kB[22m
+[2mdist/[22m[2massets/[22m[36mManualGaps-DcB0rs6c.js                           [39m[1m[2m   12.15 kB[22m[1m[22m[2m │ gzip:   2.62 kB[22m
+[2mdist/[22m[2massets/[22m[36mBlogList-DU3lC9Q3.js                             [39m[1m[2m   12.18 kB[22m[1m[22m[2m │ gzip:   2.21 kB[22m
+[2mdist/[22m[2massets/[22m[36mAdminPanel-SdnB_ax2.js                           [39m[1m[2m   12.30 kB[22m[1m[22m[2m │ gzip:   3.62 kB[22m
+[2mdist/[22m[2massets/[22m[36mChamadoDetail-t9M7ne4r.js                        [39m[1m[2m   12.34 kB[22m[1m[22m[2m │ gzip:   2.85 kB[22m
+[2mdist/[22m[2massets/[22m[36mOnboarding-BZEcRXLN.js                           [39m[1m[2m   12.52 kB[22m[1m[22m[2m │ gzip:   2.82 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportProfitabilityPage-D12Bozie.js              [39m[1m[2m   12.58 kB[22m[1m[22m[2m │ gzip:   2.93 kB[22m
+[2mdist/[22m[2massets/[22m[36mCrmDashboard-BWzF0qeV.js                         [39m[1m[2m   12.62 kB[22m[1m[22m[2m │ gzip:   2.97 kB[22m
+[2mdist/[22m[2massets/[22m[36mGoogleAdsAdmin-Dv3Q_TdO.js                       [39m[1m[2m   13.00 kB[22m[1m[22m[2m │ gzip:   2.43 kB[22m
+[2mdist/[22m[2massets/[22m[36mformat-CGtoj5si.js                               [39m[1m[2m   13.04 kB[22m[1m[22m[2m │ gzip:   3.48 kB[22m
+[2mdist/[22m[2massets/[22m[36mPaginasList-amLHFQvG.js                          [39m[1m[2m   13.32 kB[22m[1m[22m[2m │ gzip:   2.60 kB[22m
+[2mdist/[22m[2massets/[22m[36mEditCampaignPopover-S1buYmg1.js                  [39m[1m[2m   13.56 kB[22m[1m[22m[2m │ gzip:   3.25 kB[22m
+[2mdist/[22m[2massets/[22m[36mReminders-DIaqY0yM.js                            [39m[1m[2m   13.69 kB[22m[1m[22m[2m │ gzip:   2.91 kB[22m
+[2mdist/[22m[2massets/[22m[36mSyncHealth-B6mdnBvH.js                           [39m[1m[2m   13.93 kB[22m[1m[22m[2m │ gzip:   2.43 kB[22m
+[2mdist/[22m[2massets/[22m[36mEndossarEventoPage-Zo8rXy_I.js                   [39m[1m[2m   14.00 kB[22m[1m[22m[2m │ gzip:   2.95 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportPendencyIndexPage-CF3CiY4A.js              [39m[1m[2m   14.14 kB[22m[1m[22m[2m │ gzip:   2.14 kB[22m
+[2mdist/[22m[2massets/[22m[36mAudiencesList-Dats2QA3.js                        [39m[1m[2m   14.30 kB[22m[1m[22m[2m │ gzip:   2.75 kB[22m
+[2mdist/[22m[2massets/[22m[36mCategoryFormModal-DKdB9LKI.js                    [39m[1m[2m   14.41 kB[22m[1m[22m[2m │ gzip:   3.23 kB[22m
+[2mdist/[22m[2massets/[22m[36mAudiencePreviewCount-DzsCyCUK.js                 [39m[1m[2m   14.54 kB[22m[1m[22m[2m │ gzip:   3.65 kB[22m
+[2mdist/[22m[2massets/[22m[36mEndorsementEditor-DtyCbW9D.js                    [39m[1m[2m   14.58 kB[22m[1m[22m[2m │ gzip:   2.76 kB[22m
+[2mdist/[22m[2massets/[22m[36mAudienceEditor-B5H9K3IR.js                       [39m[1m[2m   15.01 kB[22m[1m[22m[2m │ gzip:   2.82 kB[22m
+[2mdist/[22m[2massets/[22m[36mTrash-sDcUa7Ij.js                                [39m[1m[2m   15.24 kB[22m[1m[22m[2m │ gzip:   3.14 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportPartnerExpensesPage-BtybkPno.js            [39m[1m[2m   15.29 kB[22m[1m[22m[2m │ gzip:   3.12 kB[22m
+[2mdist/[22m[2massets/[22m[36mNewEventoPage-C-2exZsG.js                        [39m[1m[2m   15.35 kB[22m[1m[22m[2m │ gzip:   2.69 kB[22m
+[2mdist/[22m[2massets/[22m[36mChamadosList-4Uqqb_T_.js                         [39m[1m[2m   15.69 kB[22m[1m[22m[2m │ gzip:   4.06 kB[22m
+[2mdist/[22m[2massets/[22m[36mContactDetailsSheet-rkoO---e.js                  [39m[1m[2m   15.85 kB[22m[1m[22m[2m │ gzip:   2.68 kB[22m
+[2mdist/[22m[2massets/[22m[36mSalesBI-v3n8Za5l.js                              [39m[1m[2m   15.85 kB[22m[1m[22m[2m │ gzip:   3.88 kB[22m
+[2mdist/[22m[2massets/[22m[36mAccountantPendencies-e1zAoJMn.js                 [39m[1m[2m   15.92 kB[22m[1m[22m[2m │ gzip:   3.38 kB[22m
+[2mdist/[22m[2massets/[22m[36mInvoiceGroupAudit-Bzjl1TEm.js                    [39m[1m[2m   16.04 kB[22m[1m[22m[2m │ gzip:   3.20 kB[22m
+[2mdist/[22m[2massets/[22m[36mRlsLegacyAudit-C_5XZmIN.js                       [39m[1m[2m   16.21 kB[22m[1m[22m[2m │ gzip:   2.80 kB[22m
+[2mdist/[22m[2massets/[22m[36mRaiseBudgetDialog-BLaNpFZJ.js                    [39m[1m[2m   16.39 kB[22m[1m[22m[2m │ gzip:   3.48 kB[22m
+[2mdist/[22m[2massets/[22m[36mEditFrenteSheet-DsiNA8g_.js                      [39m[1m[2m   16.42 kB[22m[1m[22m[2m │ gzip:   3.44 kB[22m
+[2mdist/[22m[2massets/[22m[36mPaginaEditor-X1AsEWIr.js                         [39m[1m[2m   16.92 kB[22m[1m[22m[2m │ gzip:   3.24 kB[22m
+[2mdist/[22m[2massets/[22m[36mSupplierTransactions-Dx90T_CQ.js                 [39m[1m[2m   17.35 kB[22m[1m[22m[2m │ gzip:   3.59 kB[22m
+[2mdist/[22m[2massets/[22m[36mStrategyNew-BIE6_dhn.js                          [39m[1m[2m   17.39 kB[22m[1m[22m[2m │ gzip:   4.00 kB[22m
+[2mdist/[22m[2massets/[22m[36mPurchaseAudienceCard-BGf9SSY3.js                 [39m[1m[2m   17.62 kB[22m[1m[22m[2m │ gzip:   3.35 kB[22m
+[2mdist/[22m[2massets/[22m[36mSetup-CT1CWwBL.js                                [39m[1m[2m   17.80 kB[22m[1m[22m[2m │ gzip:   4.13 kB[22m
+[2mdist/[22m[2massets/[22m[36mPessoaDetail-DexWiqA5.js                         [39m[1m[2m   18.18 kB[22m[1m[22m[2m │ gzip:   3.53 kB[22m
+[2mdist/[22m[2massets/[22m[36mibantools--sXKtUqI.js                            [39m[1m[2m   18.29 kB[22m[1m[22m[2m │ gzip:   3.82 kB[22m
+[2mdist/[22m[2massets/[22m[36mInvariantMonitor-D1ffsxfS.js                     [39m[1m[2m   18.90 kB[22m[1m[22m[2m │ gzip:   3.35 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportDREEmpresarialPage-DWsWypMt.js             [39m[1m[2m   19.17 kB[22m[1m[22m[2m │ gzip:   5.01 kB[22m
+[2mdist/[22m[2massets/[22m[36mClubeNewgang-C3T0siuq.js                         [39m[1m[2m   19.18 kB[22m[1m[22m[2m │ gzip:   3.16 kB[22m
+[2mdist/[22m[2massets/[22m[36mTerms-CYxOOIoM.js                                [39m[1m[2m   19.48 kB[22m[1m[22m[2m │ gzip:   2.98 kB[22m
+[2mdist/[22m[2massets/[22m[36mAbout-DcXbR7zw.js                                [39m[1m[2m   19.79 kB[22m[1m[22m[2m │ gzip:   2.88 kB[22m
+[2mdist/[22m[2massets/[22m[36mAccountCategories-D76f11pK.js                    [39m[1m[2m   19.94 kB[22m[1m[22m[2m │ gzip:   3.77 kB[22m
+[2mdist/[22m[2massets/[22m[36mNotifications-Cs3_GMOc.js                        [39m[1m[2m   20.05 kB[22m[1m[22m[2m │ gzip:   2.59 kB[22m
+[2mdist/[22m[2massets/[22m[36mQuotations-DANOOnuv.js                           [39m[1m[2m   20.40 kB[22m[1m[22m[2m │ gzip:   3.82 kB[22m
+[2mdist/[22m[2massets/[22m[36mEventImplementations-Bw-HtvzQ.js                 [39m[1m[2m   20.52 kB[22m[1m[22m[2m │ gzip:   3.92 kB[22m
+[2mdist/[22m[2massets/[22m[36mVideosList-CYhXTYg5.js                           [39m[1m[2m   20.74 kB[22m[1m[22m[2m │ gzip:   4.07 kB[22m
+[2mdist/[22m[2massets/[22m[36mBlogEditor-CTZMybhx.js                           [39m[1m[2m   20.75 kB[22m[1m[22m[2m │ gzip:   3.86 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportPartnerSettlementPage-D5Fq7o3T.js          [39m[1m[2m   21.01 kB[22m[1m[22m[2m │ gzip:   3.90 kB[22m
+[2mdist/[22m[2massets/[22m[36mPressList-B849QUaY.js                            [39m[1m[2m   21.98 kB[22m[1m[22m[2m │ gzip:   4.32 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportDocumentPendencies-DHAsqEWn.js             [39m[1m[2m   22.30 kB[22m[1m[22m[2m │ gzip:   3.74 kB[22m
+[2mdist/[22m[2massets/[22m[36mparse-B9BIfq30.js                                [39m[1m[2m   22.36 kB[22m[1m[22m[2m │ gzip:   4.64 kB[22m
+[2mdist/[22m[2massets/[22m[36mDuelView-FXAyeJC0.js                             [39m[1m[2m   22.40 kB[22m[1m[22m[2m │ gzip:   4.80 kB[22m
+[2mdist/[22m[2massets/[22m[36mPortalSettings-CAob2F_x.js                       [39m[1m[2m   22.72 kB[22m[1m[22m[2m │ gzip:   4.15 kB[22m
+[2mdist/[22m[2massets/[22m[36mFrenteDetail-I6Pvynih.js                         [39m[1m[2m   22.92 kB[22m[1m[22m[2m │ gzip:   4.56 kB[22m
+[2mdist/[22m[2massets/[22m[36mEventosList-CO36m_24.js                          [39m[1m[2m   23.57 kB[22m[1m[22m[2m │ gzip:   3.78 kB[22m
+[2mdist/[22m[2massets/[22m[36mCamarimEquipa-BRqzY6wH.js                        [39m[1m[2m   23.75 kB[22m[1m[22m[2m │ gzip:   4.97 kB[22m
+[2mdist/[22m[2massets/[22m[36mStrategyNewDesign-O-BQT7gl.js                    [39m[1m[2m   24.12 kB[22m[1m[22m[2m │ gzip:   4.98 kB[22m
+[2mdist/[22m[2massets/[22m[36mCreativeNew-DzPduw5a.js                          [39m[1m[2m   24.82 kB[22m[1m[22m[2m │ gzip:   5.42 kB[22m
+[2mdist/[22m[2massets/[22m[36mCampoView-CeHmVeqC.js                            [39m[1m[2m   24.94 kB[22m[1m[22m[2m │ gzip:   5.29 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportCashFlowPage-YWFS2SF5.js                   [39m[1m[2m   25.27 kB[22m[1m[22m[2m │ gzip:   4.51 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportIvaAuditPage-DFGdHCHW.js                   [39m[1m[2m   25.61 kB[22m[1m[22m[2m │ gzip:   4.82 kB[22m
+[2mdist/[22m[2massets/[22m[36mpurify.es-8E279hYE.js                            [39m[1m[2m   25.61 kB[22m[1m[22m[2m │ gzip:   9.67 kB[22m
+[2mdist/[22m[2massets/[22m[36mStrategyPrint-BqM1JsxU.js                        [39m[1m[2m   25.70 kB[22m[1m[22m[2m │ gzip:   3.73 kB[22m
+[2mdist/[22m[2massets/[22m[36mCustomerMatchUpload-BAKVX8PY.js                  [39m[1m[2m   25.94 kB[22m[1m[22m[2m │ gzip:   4.15 kB[22m
+[2mdist/[22m[2massets/[22m[36mStrategyPlanCard-CnuMITeb.js                     [39m[1m[2m   26.30 kB[22m[1m[22m[2m │ gzip:   4.19 kB[22m
+[2mdist/[22m[2massets/[22m[36mEventTrackersCard-BHUAudN2.js                    [39m[1m[2m   26.44 kB[22m[1m[22m[2m │ gzip:   4.40 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportDailySalesPage-DldOO6lO.js                 [39m[1m[2m   26.77 kB[22m[1m[22m[2m │ gzip:   5.41 kB[22m
+[2mdist/[22m[2massets/[22m[36mCardSessions-Cuj8VeXt.js                         [39m[1m[2m   27.03 kB[22m[1m[22m[2m │ gzip:   5.39 kB[22m
+[2mdist/[22m[2massets/[22m[36mEtapasList-D_b67e5D.js                           [39m[1m[2m   27.80 kB[22m[1m[22m[2m │ gzip:   6.96 kB[22m
+[2mdist/[22m[2massets/[22m[36mReconciliacaoBpTx-DO70ezXg.js                    [39m[1m[2m   27.82 kB[22m[1m[22m[2m │ gzip:   5.28 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportAccountingExport-CoAivu4I.js               [39m[1m[2m   28.66 kB[22m[1m[22m[2m │ gzip:   5.05 kB[22m
+[2mdist/[22m[2massets/[22m[36mCampaignFromScratch-CpXNedvm.js                  [39m[1m[2m   28.91 kB[22m[1m[22m[2m │ gzip:   5.26 kB[22m
+[2mdist/[22m[2massets/[22m[36mPixels-Cqav10rW.js                               [39m[1m[2m   29.51 kB[22m[1m[22m[2m │ gzip:   4.43 kB[22m
+[2mdist/[22m[2massets/[22m[36mRecurringTransactions-HFN7tJ0G.js                [39m[1m[2m   29.69 kB[22m[1m[22m[2m │ gzip:   5.05 kB[22m
+[2mdist/[22m[2massets/[22m[36mContactosList-Tj3tNhs_.js                        [39m[1m[2m   30.16 kB[22m[1m[22m[2m │ gzip:   5.79 kB[22m
+[2mdist/[22m[2massets/[22m[36mevent-revenue-basis-tZSNXdO1.js                  [39m[1m[2m   30.57 kB[22m[1m[22m[2m │ gzip:  10.48 kB[22m
+[2mdist/[22m[2massets/[22m[36mUserManagement-_qz2rV0G.js                       [39m[1m[2m   30.94 kB[22m[1m[22m[2m │ gzip:   6.25 kB[22m
+[2mdist/[22m[2massets/[22m[36mConnections-DI-33ra3.js                          [39m[1m[2m   31.08 kB[22m[1m[22m[2m │ gzip:   6.43 kB[22m
+[2mdist/[22m[2massets/[22m[36mFormalidadeAudit-DezBa_rU.js                     [39m[1m[2m   31.63 kB[22m[1m[22m[2m │ gzip:   5.57 kB[22m
+[2mdist/[22m[2massets/[22m[36mDataEntryDialog-CSjnYUCU.js                      [39m[1m[2m   31.97 kB[22m[1m[22m[2m │ gzip:   6.25 kB[22m
+[2mdist/[22m[2massets/[22m[36mLeadsList-CjdKRXcq.js                            [39m[1m[2m   32.09 kB[22m[1m[22m[2m │ gzip:   5.02 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportArtistCache-r_q2D7Xj.js                    [39m[1m[2m   32.80 kB[22m[1m[22m[2m │ gzip:   8.51 kB[22m
+[2mdist/[22m[2massets/[22m[36mInsights-CRoLPWVz.js                             [39m[1m[2m   33.23 kB[22m[1m[22m[2m │ gzip:   4.81 kB[22m
+[2mdist/[22m[2massets/[22m[36mCartaoEquipa-DTfr9qj2.js                         [39m[1m[2m   33.44 kB[22m[1m[22m[2m │ gzip:   7.48 kB[22m
+[2mdist/[22m[2massets/[22m[36mBolSync-CATFMzym.js                              [39m[1m[2m   33.53 kB[22m[1m[22m[2m │ gzip:   5.30 kB[22m
+[2mdist/[22m[2massets/[22m[36mMetaCapiMonitor-DSVd6cyM.js                      [39m[1m[2m   33.56 kB[22m[1m[22m[2m │ gzip:   4.33 kB[22m
+[2mdist/[22m[2massets/[22m[36mBatchPaymentModal-2aFdiyEO.js                    [39m[1m[2m   33.67 kB[22m[1m[22m[2m │ gzip:   8.38 kB[22m
+[2mdist/[22m[2massets/[22m[36mEtapaSuppliersPanel-CNU0EG5w.js                  [39m[1m[2m   33.97 kB[22m[1m[22m[2m │ gzip:   4.51 kB[22m
+[2mdist/[22m[2massets/[22m[36mIvaManagement-BLjYK_5a.js                        [39m[1m[2m   34.72 kB[22m[1m[22m[2m │ gzip:   5.30 kB[22m
+[2mdist/[22m[2massets/[22m[36mcalendar-CspDaunq.js                             [39m[1m[2m   35.03 kB[22m[1m[22m[2m │ gzip:  11.08 kB[22m
+[2mdist/[22m[2massets/[22m[36mPrivacy-B8Jce246.js                              [39m[1m[2m   35.05 kB[22m[1m[22m[2m │ gzip:   4.93 kB[22m
+[2mdist/[22m[2massets/[22m[36mSalesBIDetail-BPXTjL3O.js                        [39m[1m[2m   35.06 kB[22m[1m[22m[2m │ gzip:   8.16 kB[22m
+[2mdist/[22m[2massets/[22m[36mAccountantStandaloneInvoicesTab-DdqEEzsi.js      [39m[1m[2m   36.00 kB[22m[1m[22m[2m │ gzip:   6.97 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportForecastPayablesPage-B0UBFm78.js           [39m[1m[2m   36.34 kB[22m[1m[22m[2m │ gzip:   5.74 kB[22m
+[2mdist/[22m[2massets/[22m[36mTicketlineSync-DTFNbc-q.js                       [39m[1m[2m   36.61 kB[22m[1m[22m[2m │ gzip:   5.87 kB[22m
+[2mdist/[22m[2massets/[22m[36mFunnelTest-DvcREGPi.js                           [39m[1m[2m   37.14 kB[22m[1m[22m[2m │ gzip:   7.54 kB[22m
+[2mdist/[22m[2massets/[22m[36mTransactionDocumentsModal-CIfWTM12.js            [39m[1m[2m   38.04 kB[22m[1m[22m[2m │ gzip:   7.91 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportContasPagarPage-DQlVN0PU.js                [39m[1m[2m   38.10 kB[22m[1m[22m[2m │ gzip:   6.78 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportDREBrasilPage-C79325hB.js                  [39m[1m[2m   38.35 kB[22m[1m[22m[2m │ gzip:   7.39 kB[22m
+[2mdist/[22m[2massets/[22m[36mAudit-gdMaWnIC.js                                [39m[1m[2m   39.28 kB[22m[1m[22m[2m │ gzip:   6.64 kB[22m
+[2mdist/[22m[2massets/[22m[36mDashboard-BBgzpfmJ.js                            [39m[1m[2m   39.53 kB[22m[1m[22m[2m │ gzip:   7.65 kB[22m
+[2mdist/[22m[2massets/[22m[36mBPPlanilha-BphjAnWZ.js                           [39m[1m[2m   39.96 kB[22m[1m[22m[2m │ gzip:  11.60 kB[22m
+[2mdist/[22m[2massets/[22m[36mHelpCenter-fqe7XQAN.js                           [39m[1m[2m   40.13 kB[22m[1m[22m[2m │ gzip:  12.09 kB[22m
+[2mdist/[22m[2massets/[22m[36mCompanies-DVmsIQD1.js                            [39m[1m[2m   41.85 kB[22m[1m[22m[2m │ gzip:   6.11 kB[22m
+[2mdist/[22m[2massets/[22m[36mmarked.esm-DiRRsLPS.js                           [39m[1m[2m   42.33 kB[22m[1m[22m[2m │ gzip:  12.79 kB[22m
+[2mdist/[22m[2massets/[22m[36mFrenteManage-DIv_ybXf.js                         [39m[1m[2m   43.11 kB[22m[1m[22m[2m │ gzip:   6.97 kB[22m
+[2mdist/[22m[2massets/[22m[36mMetaAudiencesList-BY1GFusz.js                    [39m[1m[2m   43.38 kB[22m[1m[22m[2m │ gzip:   6.49 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportDREPage-C69rkKxE.js                        [39m[1m[2m   44.48 kB[22m[1m[22m[2m │ gzip:   8.63 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportMovementReconciliationPage-Dd38u7o3.js     [39m[1m[2m   44.80 kB[22m[1m[22m[2m │ gzip:   7.87 kB[22m
+[2mdist/[22m[2massets/[22m[36mTicketOfficeSettlementsOverview-CvObL0iS.js      [39m[1m[2m   45.49 kB[22m[1m[22m[2m │ gzip:   7.10 kB[22m
+[2mdist/[22m[2massets/[22m[36msortable.esm-CvbFPBOB.js                         [39m[1m[2m   45.88 kB[22m[1m[22m[2m │ gzip:  15.28 kB[22m
+[2mdist/[22m[2massets/[22m[36mFeverSync-DG5fXEs3.js                            [39m[1m[2m   46.58 kB[22m[1m[22m[2m │ gzip:   8.40 kB[22m
+[2mdist/[22m[2massets/[22m[36mCamarim-BertOBxM.js                              [39m[1m[2m   46.64 kB[22m[1m[22m[2m │ gzip:   7.36 kB[22m
+[2mdist/[22m[2massets/[22m[36mStandaloneInvoiceScanner-CnaK8OFM.js             [39m[1m[2m   47.08 kB[22m[1m[22m[2m │ gzip:  11.20 kB[22m
+[2mdist/[22m[2massets/[22m[36mSecurityDashboard-hMhhEeO7.js                    [39m[1m[2m   47.37 kB[22m[1m[22m[2m │ gzip:   6.89 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportBPTransactionsPage-CEQThBZF.js             [39m[1m[2m   48.18 kB[22m[1m[22m[2m │ gzip:   8.89 kB[22m
+[2mdist/[22m[2massets/[22m[36mEquipaView-EY7P6xCM.js                           [39m[1m[2m   48.30 kB[22m[1m[22m[2m │ gzip:   8.15 kB[22m
+[2mdist/[22m[2massets/[22m[36mZonasList-rplVBF0X.js                            [39m[1m[2m   51.74 kB[22m[1m[22m[2m │ gzip:  10.06 kB[22m
+[2mdist/[22m[2massets/[22m[36mDatabaseBackups-B9Mj0NM7.js                      [39m[1m[2m   51.79 kB[22m[1m[22m[2m │ gzip:   8.63 kB[22m
+[2mdist/[22m[2massets/[22m[36mEtapaDetail-Csby4WqX.js                          [39m[1m[2m   51.87 kB[22m[1m[22m[2m │ gzip:   9.16 kB[22m
+[2mdist/[22m[2massets/[22m[36mEventSimulatorDemo-CzUeZiki.js                   [39m[1m[2m   52.26 kB[22m[1m[22m[2m │ gzip:   6.36 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportPLPage-Dzme0RiM.js                         [39m[1m[2m   53.54 kB[22m[1m[22m[2m │ gzip:  10.35 kB[22m
+[2mdist/[22m[2massets/[22m[36mStrategyRedesign-JoyPuqJy.js                     [39m[1m[2m   53.88 kB[22m[1m[22m[2m │ gzip:   8.08 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportBankStatementPage-BOxbu66q.js              [39m[1m[2m   54.00 kB[22m[1m[22m[2m │ gzip:  10.23 kB[22m
+[2mdist/[22m[2massets/[22m[36mCreativeView-BAZUbbK7.js                         [39m[1m[2m   54.64 kB[22m[1m[22m[2m │ gzip:   8.07 kB[22m
+[2mdist/[22m[2massets/[22m[36mAudienceGoogleAds-HTX4aIrR.js                    [39m[1m[2m   57.26 kB[22m[1m[22m[2m │ gzip:  10.03 kB[22m
+[2mdist/[22m[2massets/[22m[36mReimbursements-Ble8O9NH.js                       [39m[1m[2m   61.08 kB[22m[1m[22m[2m │ gzip:  11.30 kB[22m
+[2mdist/[22m[2massets/[22m[36mRegistroFeed-CRnZ7TZc.js                         [39m[1m[2m   66.87 kB[22m[1m[22m[2m │ gzip:  10.96 kB[22m
+[2mdist/[22m[2massets/[22m[36mAdsInvoices-Dfx2Tkjn.js                          [39m[1m[2m   68.76 kB[22m[1m[22m[2m │ gzip:  11.71 kB[22m
+[2mdist/[22m[2massets/[22m[36mEvents-BKvH6KG0.js                               [39m[1m[2m   69.16 kB[22m[1m[22m[2m │ gzip:  11.98 kB[22m
+[2mdist/[22m[2massets/[22m[36mManualSync-c4A77Xzb.js                           [39m[1m[2m   69.44 kB[22m[1m[22m[2m │ gzip:  22.05 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportTicketOfficeAuditPage-C_rt5Dgh.js          [39m[1m[2m   70.30 kB[22m[1m[22m[2m │ gzip:  11.52 kB[22m
+[2mdist/[22m[2massets/[22m[36mCamarimItemAttachmentButton-BplGolZT.js          [39m[1m[2m   70.39 kB[22m[1m[22m[2m │ gzip:  15.80 kB[22m
+[2mdist/[22m[2massets/[22m[36mEventCalendar-DS5UnX9E.js                        [39m[1m[2m   70.98 kB[22m[1m[22m[2m │ gzip:  11.76 kB[22m
+[2mdist/[22m[2massets/[22m[36mSalesBIEvent-CWtEEOug.js                         [39m[1m[2m   71.46 kB[22m[1m[22m[2m │ gzip:  12.43 kB[22m
+[2mdist/[22m[2massets/[22m[36mTicketOfficeSettlementModal-Bdlc-g70.js          [39m[1m[2m   77.07 kB[22m[1m[22m[2m │ gzip:  13.48 kB[22m
+[2mdist/[22m[2massets/[22m[36mSuppliers-B1G2_n8m.js                            [39m[1m[2m   79.99 kB[22m[1m[22m[2m │ gzip:  12.25 kB[22m
+[2mdist/[22m[2massets/[22m[36minstallment-guard-BUW-6b4l.js                    [39m[1m[2m   84.56 kB[22m[1m[22m[2m │ gzip:  15.17 kB[22m
+[2mdist/[22m[2massets/[22m[36mSupplierFormModal-DT4fiW6D.js                    [39m[1m[2m   86.06 kB[22m[1m[22m[2m │ gzip:  18.67 kB[22m
+[2mdist/[22m[2massets/[22m[36mAccountantHome-BUQvbu17.js                       [39m[1m[2m   86.51 kB[22m[1m[22m[2m │ gzip:  13.13 kB[22m
+[2mdist/[22m[2massets/[22m[36mEventHub-ILZvbm8n.js                             [39m[1m[2m   86.77 kB[22m[1m[22m[2m │ gzip:  13.90 kB[22m
+[2mdist/[22m[2massets/[22m[36mCoalaSync-DKVUOG-z.js                            [39m[1m[2m   89.50 kB[22m[1m[22m[2m │ gzip:  15.16 kB[22m
+[2mdist/[22m[2massets/[22m[36mAudiencePrint-BC7CSjzo.js                        [39m[1m[2m   89.94 kB[22m[1m[22m[2m │ gzip:  11.04 kB[22m
+[2mdist/[22m[2massets/[22m[36mAuditoriaContas-BcaecjYu.js                      [39m[1m[2m   94.02 kB[22m[1m[22m[2m │ gzip:  16.86 kB[22m
+[2mdist/[22m[2massets/[22m[36mjszip.min-CnBbpjIO.js                            [39m[1m[2m   97.24 kB[22m[1m[22m[2m │ gzip:  30.05 kB[22m
+[2mdist/[22m[2massets/[22m[36mFinancialAccounts-Cs45M2ww.js                    [39m[1m[2m  119.31 kB[22m[1m[22m[2m │ gzip:  18.27 kB[22m
+[2mdist/[22m[2massets/[22m[36mStrategyView-928rwbnS.js                         [39m[1m[2m  124.91 kB[22m[1m[22m[2m │ gzip:  19.05 kB[22m
+[2mdist/[22m[2massets/[22m[36mEventMarketingEditor-DMjAIP6t.js                 [39m[1m[2m  127.70 kB[22m[1m[22m[2m │ gzip:  18.26 kB[22m
+[2mdist/[22m[2massets/[22m[36mCamarimSessionDetail-IcBMQIt-.js                 [39m[1m[2m  135.07 kB[22m[1m[22m[2m │ gzip:  23.54 kB[22m
+[2mdist/[22m[2massets/[22m[36mBankReconciliation-C6Yit9y9.js                   [39m[1m[2m  136.96 kB[22m[1m[22m[2m │ gzip:  26.82 kB[22m
+[2mdist/[22m[2massets/[22m[36mCardSessionDetail-CUtpYYtO.js                    [39m[1m[2m  150.04 kB[22m[1m[22m[2m │ gzip:  27.50 kB[22m
+[2mdist/[22m[2massets/[22m[36mindex.es-DmsDyuHC.js                             [39m[1m[2m  150.74 kB[22m[1m[22m[2m │ gzip:  51.38 kB[22m
+[2mdist/[22m[2massets/[22m[36mNewgangSite-Ccr1LBup.js                          [39m[1m[2m  154.45 kB[22m[1m[22m[2m │ gzip:  26.70 kB[22m
+[2mdist/[22m[2massets/[22m[36mhtml2canvas.esm-CBrSDip1.js                      [39m[1m[2m  201.42 kB[22m[1m[22m[2m │ gzip:  47.70 kB[22m
+[2mdist/[22m[2massets/[22m[36mticket-office-settlement-form-msj7OvTi.js        [39m[1m[2m  203.09 kB[22m[1m[22m[2m │ gzip:  40.73 kB[22m
+[2mdist/[22m[2massets/[22m[36mReportPaymentListsPage-CBm-TlMU.js               [39m[1m[2m  203.13 kB[22m[1m[22m[2m │ gzip:  39.53 kB[22m
+[2mdist/[22m[2massets/[22m[36mvendor-supabase-3MT7AzyV.js                      [39m[1m[2m  209.56 kB[22m[1m[22m[2m │ gzip:  54.23 kB[22m
+[2mdist/[22m[2massets/[22m[36mEventImplementationDetail-Dtlkqers.js            [39m[1m[2m  228.98 kB[22m[1m[22m[2m │ gzip:  36.32 kB[22m
+[2mdist/[22m[2massets/[22m[36mCampaigns-DwyYyvOC.js                            [39m[1m[2m  247.47 kB[22m[1m[22m[2m │ gzip:  42.77 kB[22m
+[2mdist/[22m[2massets/[22m[36mTransactions-B8Xmo1Rk.js                         [39m[1m[2m  265.63 kB[22m[1m[22m[2m │ gzip:  46.66 kB[22m
+[2mdist/[22m[2massets/[22m[36mEventSimulator-CpRLKAOf.js                       [39m[1m[2m  291.98 kB[22m[1m[22m[2m │ gzip:  46.27 kB[22m
+[2mdist/[22m[2massets/[22m[36mTicketOffices-f0sh7Td8.js                        [39m[1m[2m  323.04 kB[22m[1m[22m[2m │ gzip:  53.36 kB[22m
+[2mdist/[22m[2massets/[22m[36mTransactionEditModal-Cv7u1hNP.js                 [39m[1m[2m  351.19 kB[22m[1m[22m[2m │ gzip:  59.72 kB[22m
+[2mdist/[22m[2massets/[22m[36mvendor-pdf-Cg0OIXZi.js                           [39m[1m[2m  421.80 kB[22m[1m[22m[2m │ gzip: 137.18 kB[22m
+[2mdist/[22m[2massets/[22m[36mvendor-react-KQt1rZym.js                         [39m[1m[2m  438.02 kB[22m[1m[22m[2m │ gzip: 134.70 kB[22m
+[2mdist/[22m[2massets/[22m[36mCampaignView-DHf-KtvF.js                         [39m[1m[2m  445.72 kB[22m[1m[22m[2m │ gzip:  72.96 kB[22m
+[2mdist/[22m[2massets/[22m[36mvendor-charts-CvYs9c1O.js                        [39m[1m[2m  448.41 kB[22m[1m[22m[2m │ gzip: 119.60 kB[22m
+[2mdist/[22m[2massets/[22m[36mpdf-first-page-to-jpeg-M5CLsCvW.js               [39m[1m[2m  458.53 kB[22m[1m[22m[2m │ gzip: 135.85 kB[22m
+[2mdist/[22m[2massets/[22m[36mEventForecast-B2pX28S2.js                        [39m[1m[33m  758.89 kB[39m[22m[2m │ gzip: 129.08 kB[22m
+[2mdist/[22m[2massets/[22m[36mvendor-ui-DC4k8uTt.js                            [39m[1m[33m1,068.27 kB[39m[22m[2m │ gzip: 220.41 kB[22m
+[2mdist/[22m[2massets/[22m[36mEventDetail-qCRwwocN.js                          [39m[1m[33m1,096.98 kB[39m[22m[2m │ gzip: 185.03 kB[22m
+[2mdist/[22m[2massets/[22m[36mindex-B7LrMp7v.js                                [39m[1m[33m1,215.39 kB[39m[22m[2m │ gzip: 265.63 kB[22m
+[2mdist/[22m[2massets/[22m[36mheic2any-BcfgmVBS.js                             [39m[1m[33m1,352.85 kB[39m[22m[2m │ gzip: 341.38 kB[22m
+[2mdist/[22m[2massets/[22m[36mvendor-xlsx-CIt_8dee.js                          [39m[1m[33m1,369.76 kB[39m[22m[2m │ gzip: 412.26 kB[22m
+[2mdist/[22m[2massets/[22m[36mvendor-handsontable-CE0eIcQY.js                  [39m[1m[33m1,918.23 kB[39m[22m[2m │ gzip: 457.52 kB[22m
+[2mdist/[22m[2massets/[22m[36mheic-to-lXPrQE7P.js                              [39m[1m[33m2,995.46 kB[39m[22m[2m │ gzip: 736.99 kB[22m
+[33m
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[32m✓ built in 49.01s[39m
+
+PWA v1.3.0
+mode      generateSW
+precache  343 entries (24395.57 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-52dea471.js
+
+EXIT: 0
+
+```
+
