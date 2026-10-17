@@ -1,9 +1,10 @@
 # Roadmap — épica #146 (e)
 
 ## Coala EB27 — audiência Meta
-- [ ] Acrescentar fonte canónica e acesso de serviço seguro por migração registada.
-- [ ] Implementar substituição completa e simulação por defeito; sem chamadas Meta nesta tarefa.
-- [ ] Validar SQL/API/regressões e entregar INSERT desativado/contagem; não alterar crons nem Publish.
+- [x] Fonte canónica/acesso de serviço: migração0180, ACL/body hash verificados.
+- [x] Substituição/simulação por defeito; deploy só sync, zero chamadas Meta.
+- [x] SQL/API/regressões verdes e INSERT desativado/contagem1877 entregues; sem crons/Publish.
+- [ ] Inserção/envio/cron — aguardam autorização separada; validar consentimento Meta e caso zero elegíveis antes de envio.
 
 ## #330 — missão de perfil (preparação inerte)
 - [x] Aplicação infra/API OFF: DDL0179 e seed249 verificados, ACL/core/ledger preservados; patch aprovado e deploy só newgang-portal; HTTP200/401 e testes aprovados, sem Publish.
