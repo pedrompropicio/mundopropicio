@@ -306,6 +306,12 @@
                  </div>
 --- a/src/pages/contabilidade/AccountantStandaloneInvoicesTab.tsx
 +++ b/src/pages/contabilidade/AccountantStandaloneInvoicesTab.tsx
+@@ -1,4 +1,4 @@
+-import { useMemo, useState } from "react";
++import { useMemo, useState, useRef } from "react";
+ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+ import { supabase } from "@/integrations/supabase/client";
+ import { useCompany } from "@/hooks/useCompany";
 @@ -15,6 +15,10 @@
  import { signedCompanyUrl, downloadFromCompanyBucket, removeFromCompanyBucket } from "@/lib/storage";
  import { calculateStandaloneEur, isStandaloneInvoiceDuplicateError, parseStandaloneAmount, STANDALONE_INVOICE_CURRENCIES, validateStandaloneMonetaryFields, type StandaloneInvoiceCurrency } from "@/lib/standalone-invoices";
@@ -338,11 +344,15 @@
      setEditing(r);
      setForm({
        supplier_name: r.supplier_name ?? "",
-@@ -96,19 +108,19 @@
+@@ -94,21 +106,23 @@
+     });
+   };
  
++  useEffect(()=>{attemptGeneration.current++;setAttempt(null);setResumeId("");setResumeHash("");setEditing(null);setWritePending(false);},[user?.id,companyId]);
    const saveEdit = useMutation({
      mutationFn: async () => {
 -      if (!editing) return;
++      const writeGeneration=attemptGeneration.current;
 +      if (!editing || writePending || sessionStorage.getItem(pendingKey) !== null) throw new Error("Conferência pendente");
        const monetaryError = validateStandaloneMonetaryFields(form.currency, form.original_amount, form.fx_rate, form.total_amount);
        if (monetaryError) throw Object.assign(new Error(monetaryError), { code: "INVALID_MONETARY_FIELDS" });
@@ -366,7 +376,7 @@
            supplier_name: form.supplier_name.trim() || null,
            supplier_nif: form.supplier_nif.trim() || null,
            invoice_number: form.invoice_number.trim() || null,
-@@ -121,17 +133,23 @@
+@@ -121,17 +135,25 @@
            total_amount: parseStandaloneAmount(form.total_amount),
            iva_amount: parseStandaloneAmount(form.iva_amount),
            notes: form.notes.trim() || null,
@@ -381,8 +391,11 @@
 +      const result=await executeLegacyAttempt("accountant_edit",reserved,file,context);
 +      if(writeGeneration!==attemptGeneration.current)return;
 +      if(result.status!=="conferido")throw new Error("Conferência pendente");
++      return writeGeneration;
      },
-     onSuccess: () => {
+-    onSuccess: () => {
++    onSuccess: (completedGeneration) => {
++      if(completedGeneration!==attemptGeneration.current)return;
 +      sessionStorage.removeItem(pendingKey);
        setEditing(null);
        qc.invalidateQueries({ queryKey: ["standalone-invoices"] });
@@ -394,7 +407,7 @@
    });
  
    /**
-@@ -520,9 +538,20 @@
+@@ -520,9 +542,20 @@
                <Input id="ed-notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
              </div>
            </div>
