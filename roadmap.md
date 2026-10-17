@@ -1,4 +1,5 @@
 # #332 — cidade/lista
+- [ ] Sessão3: gate VERDE14:40:58UTC remoto472fdccd,CI/quality success b6a37939,diff aplicável vazio1439ficheiros. Bloqueio diferente: ferramenta de migração exige query textual e não oferece envio programático de ficheiro; CLI só diagnóstico. SQL não enviado para respeitar proibição de retranscrição. Reparação/coletor/deploy/prova continuam pendentes;reservas mantidas.
 - [ ] Sessão2 14:38:34UTC: gate único remoto b6a37939d22d666d567ff159ea59f3e19ddcfb7f;1439ficheiros iguais,zero divergências; CI e quality ainda sem conclusion. PARADO sem espera e sem escritaLive/deploy/prova. Retomar próxima sessão com gate; reservas mantidas.
 - [x] Cidade: CAOP308, normalização/cities/CRM, backfill inerte, SQL32/32+handler2/2+unit4/4.
 - [x] Lista: reserva separada, coletor estrito/phoneNULL/email-only, SQL32/32 com concorrência e legados; regressões e1285Vitest.
