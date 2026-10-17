@@ -55,4 +55,7 @@ export async function attemptCapabilities(context:Context):Promise<AttemptCapabi
 /** C: só tentativa concluída e mais recente do owner pode receber nova intenção. */
 export const canConfirmNewIntent=(a:Pick<AttemptSummary,'state'>,latest:boolean)=>latest && a.state==='completed';
 /** No timestamps or UUID ordering establish latest. Incomplete pages cannot prove it. */
-export const latestInFamily=(a:AttemptSummary,items:AttemptSummary[],complete:boolean)=>complete && Number.isInteger(a.intent_seq) && !items.some(b=>b.hash===a.hash && (b.intent_seq===undefined || b.intent_seq>a.intent_seq!));
+export const latestInFamily=(a:AttemptSummary,items:AttemptSummary[],complete:boolean)=>{
+ const seq=a.intent_seq;
+ return complete && seq!==undefined && Number.isInteger(seq) && !items.some(b=>b.hash===a.hash && (b.intent_seq===undefined || b.intent_seq>seq));
+};
