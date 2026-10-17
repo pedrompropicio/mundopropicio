@@ -69,7 +69,11 @@ def extend(changes, root):
     changes[path]=(old,s)
     path='src/pages/contabilidade/AccountantStandaloneInvoicesTab.tsx';old,s=changes[path]
     s=s.replace('import { lookupStandalone, standaloneWriteError }','import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt } from "@/lib/standalone-attempt-client";\nimport type { Attempt } from "@shared/standalone-attempt";\nimport { lookupStandalone, standaloneWriteError }')
-    s=s.replace('  const pendingKey =','  const [attempt, setAttempt] = useState<Attempt | null>(null);\n  const pendingKey =')
+    s=s.replace('  const pendingKey =','  const [attempt, setAttempt] = useState<Attempt | null>(null);\n  const [resumeId,setResumeId]=useState("");\n  const [resumeHash,setResumeHash]=useState("");\n  const attemptGeneration=useRef(0);\n  const pendingKey =')
+    s=s.replace('checkLegacyAttempt }', 'checkLegacyAttempt, resumeLegacyAttempt }')
+    s=s.replace('useState,', 'useState, useRef,',1) if 'useRef' not in s.split('\n')[0] else s
+    s=s.replace('  const saveEdit = async', '  useEffect(()=>{attemptGeneration.current++;setAttempt(null);setResumeId("");setResumeHash("");setEditing(null);setWritePending(false);},[user?.id,companyId]);\n  const saveEdit = async')
+    s=s.replace('    setSaving(true);', '    const writeGeneration=attemptGeneration.current;\n    setSaving(true);',1)
     start=s.index('      sessionStorage.setItem(pendingKey, "pending");');end=s.index('      if (error) throw error;',start)+len('      if (error) throw error;')
     block=s[start:end];payload=block[block.index('          supplier_name:'):block.index('        })')]
     s=s[:start]+'''      if (!user || !companyId) throw new Error("Contexto inválido");
@@ -80,16 +84,23 @@ def extend(changes, root):
 '''+payload+'''      };
       const context={user_id:user.id,company_id:companyId};
       const reserved=await prepareLegacyAttempt("accountant_edit",payload,file,context,editing as unknown as Record<string,unknown>);
-      setAttempt(reserved); sessionStorage.setItem(pendingKey,JSON.stringify({id:reserved.id,hash:reserved.hash}));
+      if(writeGeneration!==attemptGeneration.current)return;
+      setAttempt(reserved);setResumeId(reserved.id);setResumeHash(reserved.hash); sessionStorage.setItem(pendingKey,JSON.stringify({id:reserved.id,hash:reserved.hash}));
       const result=await executeLegacyAttempt("accountant_edit",reserved,file,context);
+      if(writeGeneration!==attemptGeneration.current)return;
       if(result.status!=="conferido")throw new Error("Conferência pendente");'''+s[end:]
+    s=s.replace('      setWritePending(true);','      if(writeGeneration!==attemptGeneration.current)return;\n      setWritePending(true);',1)
     s=s.replace('    setEditing(r);','    setAttempt(null);\n    setEditing(r);',1)
-    s=s.replace('          <DialogFooter>', '''          {attempt && <Button variant="outline" onClick={async()=>{
+    s=s.replace('          <DialogFooter>', '''          <Input aria-label="ID da tentativa de edição" value={resumeId} onChange={e=>setResumeId(e.target.value)} />
+          <Input aria-label="Hash da tentativa de edição" value={resumeHash} onChange={e=>setResumeHash(e.target.value)} />
+          <Button variant="outline" disabled={!attempt&&(!resumeId||!resumeHash)} onClick={async()=>{
             if(!user || !companyId)return;
-            const out=await checkLegacyAttempt("accountant_edit",attempt,{user_id:user.id,company_id:companyId}).catch(()=>null);
+            const gen=attemptGeneration.current,ctx={user_id:user.id,company_id:companyId};
+            const out=await (attempt?checkLegacyAttempt("accountant_edit",attempt,ctx):resumeLegacyAttempt("accountant_edit",resumeId,resumeHash,ctx)).catch(()=>null);
+            if(gen!==attemptGeneration.current)return;
             if(out?.status==="conferido"){setWritePending(false);setEditing(null);qc.invalidateQueries({queryKey:["standalone-invoices"]});}
             else toast({title:"Conferência pendente"});
-          }}>Consultar tentativa</Button>}
+          }}>Consultar tentativa</Button>
           <DialogFooter>''')
     changes[path]=(old,s)
     # Optional attempt ID on existing ingestion; absent remains untracked, never falsely global.
