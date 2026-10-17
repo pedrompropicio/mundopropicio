@@ -15,7 +15,7 @@ Só o Pedro muda esta linha, por comando expresso, e só para situações de aut
 - Cada pedido é uma linha `- [ ] de <chat X> para <chat Y> (<data>): …` escrita na secção do **destinatário**. Quem trata marca `[x]` e escreve o resultado por baixo, indentado, com data. Linhas tratadas não se apagam durante 30 dias; depois passam para o fim da secção, em "Tratados".
 - Este ficheiro regista; não activa nem notifica ninguém. Quem abre um chat lê a sua secção.
 - Números só com origem (query na hora, ficheiro, Issue). Nunca de memória.
-- Escrever aqui é acto documental: só dentro de uma demanda autorizada pelo Pedro, ou como linha pronta para o Pedro colar. Sem demanda autorizada, o chat entrega a linha ao Pedro.
+- **Qualquer chat escreve aqui as suas próprias linhas** (reserva, progresso, libertação, pedido a outro chat na secção do destinatário, resultado na sua secção), em qualquer ferramenta, sem passar pelo 0 nem pelo Pedro — D-ERP278 ponto 9, 17/10/2026. Mecanismo: tarefa ao agente Lovable do ERP limitada ao docs/QUADRO.md (ou conector GitHub), diff só com as linhas do próprio chat, sem código; `get_project` com `agentFinished = true` antes; agente ocupado = esperar, nunca entregar a linha ao Pedro para colar. Escrever no QUADRO não é "mexer na plataforma". A #329 (um escritor de cada vez) aplica-se.
 - Antes de qualquer `send_message` ao agente Lovable: ler "Em execução agora" e confirmar por `get_project` que `agentFinished` é `true`. O agente é um só, partilhado pelos dois lados.
 - Nenhuma sessão agendada faz DDL em Live, OAuth, pagamentos, envios de email/mensagens, envios à Meta ou apaga dados — nunca, com o interruptor em qualquer posição. Publish e deploy só com o interruptor LIGADO. O resto deixa `AGUARDA PEDRO` com o passo pronto.
 
@@ -28,7 +28,6 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 | #328 | ChatGPT · newgang-portal | agente Lovable portal dedicado | UI pendência Crew, API client e testes locais sobre contrato backend preparado; sem Live/deploy/Publish | 2026-10-16 16:07 UTC | 16:43 sincronização ERP8c22430 confirmada; pacote backend revisto, frontend autorizado, preservar #322/#323 |
 | #322 | 0 · Cowork (ChatGPT) | agente Lovable (ERP) | ERP: consentimento por interação (ledger marketing_consent_*), portal-track, capi_consent_proof/guardas, lead_capture/redirect_log/leads (colunas aditivas), docs; coordenação futura MP/Coala/Newgang (portais NÃO tocados nesta etapa) | 2026-10-16 01:12 | 2026-10-16 01:46 — ERP corrigido após verificação independente (0175 + portal-track), aguarda revisão; portais MP/Coala/Newgang pendentes |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
-| #332/Coala | 0 · Cowork (Claude) | agente Lovable Coala Portal | portal Coala: metaPixel.ts, sitePixelEvents.ts (novo), useCoalaLead.ts, EarlyBirdConfirm.tsx, landing; sem BD/Live/Publish | 2026-10-17 | aguarda relatório do agente |
 
 ## 0 · Cowork (Claude)
 
@@ -120,9 +119,13 @@ _(sem pedidos — as falhas de teste vêm por Issue; os pedidos de verificação
 
 ## coala-portal
 
+- [x] 17/10/2026 — **Coala EB27 / audiências concluído** (Claude, com Sim do Pedro): público Meta P_EB27_LISTA criado (52521842310116, 1.876 linhas); pixel do site Coala definido (dataset 1142136723579970); portal Coala commit 315106c8 publicado (Lead, CompleteRegistration, ViewContent só com consentimento); ERP commit 1f34284b (regra de recolha EB27 + sync replace; `meta_custom_audiences` 6fe063a2…, enabled=true; envio real 1.877 ok); cron `coala-eb27-audience-sync` jobid 2494, diário 04:30 UTC. Outras audiências Meta não tocadas. Pendente: (1) Pedro testar coalafestival.pt (aceitar cookies de marketing, pedir convite com email fora da lista) para confirmar os eventos no Events Manager; (2) após 18/10 04:30 UTC verificar `meta_audience_sync_log` e o tamanho do público; (3) decisão do Pedro sobre o texto de consentimento eb2027-v1, que não menciona Meta/publicidade; (4) audiências por evento, exclusão da lista nas campanhas de aquisição, lookalike 1% PT; (5) fecho documental em estado-coala-portal.md e DECISIONS.md — fica com o coala-portal, que a partir de hoje escreve aqui directamente.
+
 _(sem pedidos)_
 
 ## newgang-portal
+
+- [ ] de `coala-portal` para `newgang-portal` (17/10/2026): **Issue #332 — audiências Meta, TikTok e Google a partir dos cadastros do portal Newgang, no modelo do Coala EB27.** Referência pronta no Coala (17/10): público Meta P_EB27_LISTA (ID 52521842310116, 1.876 linhas) com sync diário em modo replace (cron `coala-eb27-audience-sync`, 04:30 UTC, linha `meta_custom_audiences` 6fe063a2…); pixel do site com eventos Lead, CompleteRegistration e ViewContent só com consentimento de marketing (portal Coala commit 315106c8); regra de recolha EB27 no ERP (commit 1f34284b). Executor: a designar pelo Pedro. Antes de assumir: confirmar que o pixel das campanhas Newgang alimenta o site próprio e não só a Fever; CAPI (#320) e consentimento por interacção (#322) não se tocam.
 
 - [x] 16/10 16:07 UTC — #326 etapa SQL local concluída e revista, commits c934f748…/ae49b380…;64 asserções seriais,17 registos concorrentes/barreiras,14 hashes equivalentes a Live. Sem alteração de produção. Falhas+soluções #328, bónus por edição #327. Pedro autorizou atualização integral destes documentos e avanço das correções; reserva #326 substituída por #328. Preparar/testar correções técnicas; SQL Live e deploy apenas após prévia concreta. Novas pontuações pendentes. #322/#323 preservadas.
 
