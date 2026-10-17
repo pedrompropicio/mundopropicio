@@ -113,6 +113,8 @@ edit('src/pages/StandaloneInvoiceScanner.tsx',scanner)
 edit('src/pages/contabilidade/AccountantStandaloneInvoicesTab.tsx',accountant)
 edit('supabase/functions/ingest-standalone-invoice/index.ts',ingest)
 edit('supabase/manual/20261017_issue333_core.PENDENTE.sql',core)
+from extend_attempts import extend
+extend(changes,root)
 parts=[]; manifest=[]
 for p,(old,new) in changes.items():
  with tempfile.TemporaryDirectory(dir='/tmp') as td:
