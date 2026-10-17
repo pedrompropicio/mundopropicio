@@ -15,7 +15,8 @@ import { Loader2, Download, FileArchive, Undo2, CheckCircle2, FileText, Pencil, 
 import { signedCompanyUrl, downloadFromCompanyBucket, removeFromCompanyBucket } from "@/lib/storage";
 import { calculateStandaloneEur, isStandaloneInvoiceDuplicateError, parseStandaloneAmount, STANDALONE_INVOICE_CURRENCIES, validateStandaloneMonetaryFields, type StandaloneInvoiceCurrency } from "@/lib/standalone-invoices";
 
-import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt, listLegacyAttempts, type AttemptSummary } from "@/lib/standalone-attempt-client";
+import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt, attemptCapabilities } from "@/lib/standalone-attempt-client";
+import { StandaloneAttemptsPanel } from "@/components/standalone/StandaloneAttemptsPanel";
 import type { Attempt } from "@shared/standalone-attempt";
 import { lookupStandalone, standaloneWriteError } from "@/lib/standalone-identity-lookup";
 
@@ -76,7 +77,6 @@ export function AccountantStandaloneInvoicesTab() {
   const [form, setForm] = useState({ supplier_name: "", supplier_nif: "", invoice_number: "", invoice_date: "", currency: "EUR" as StandaloneInvoiceCurrency, original_amount: "", fx_rate: "", fx_rate_source: "", paid_by_partner_id: "none", total_amount: "", iva_amount: "", notes: "" });
 
   const [attempt, setAttempt] = useState<Attempt | null>(null);
-  const [attemptOptions,setAttemptOptions]=useState<AttemptSummary[]>([]);
   const [resumeId,setResumeId]=useState("");
   const [resumeHash,setResumeHash]=useState("");
   const attemptGeneration=useRef(0);
@@ -107,7 +107,7 @@ export function AccountantStandaloneInvoicesTab() {
     });
   };
 
-  useEffect(()=>{attemptGeneration.current++;setAttempt(null);setResumeId("");setResumeHash("");setAttemptOptions([]);setEditing(null);setWritePending(false);},[user?.id,companyId]);
+  useEffect(()=>{attemptGeneration.current++;setAttempt(null);setResumeId("");setResumeHash("");setEditing(null);setWritePending(false);},[user?.id,companyId]);
   const saveEdit = useMutation({
     mutationFn: async () => {
       const writeGeneration=attemptGeneration.current;
@@ -120,9 +120,6 @@ export function AccountantStandaloneInvoicesTab() {
         if (duplicate) throw Object.assign(new Error("Já existe uma fatura deste fornecedor com este número."), { code: "DUPLICATE_INVOICE" });
       }
       if (!user || !companyId) throw new Error("Contexto inválido");
-      const { data: blob, error: downloadError } = await supabase.storage.from("standalone-invoices").download(editing.storage_path);
-      if (downloadError || !blob) throw new Error("Documento indisponível");
-      const file = new File([blob], editing.file_name, {type:blob.type});
       const payload = {file_name:editing.file_name,created_by:editing.created_by,
           supplier_name: form.supplier_name.trim() || null,
           supplier_nif: form.supplier_nif.trim() || null,
@@ -138,6 +135,19 @@ export function AccountantStandaloneInvoicesTab() {
           notes: form.notes.trim() || null,
       };
       const context={user_id:user.id,company_id:companyId};
+      const tracked=(await attemptCapabilities(context))["accountant_edit"]===true;
+      if(writeGeneration!==attemptGeneration.current)return;
+      if(!tracked){
+        // legacy_untracked: edição direta anterior (RLS/permissões atuais), sem tentativa persistente.
+        const {file_name:_f,created_by:_c,...changes}=payload;
+        sessionStorage.setItem(pendingKey,"legacy_untracked");
+        const {error}=await (supabase as any).from("standalone_invoices").update(changes).eq("id",editing.id);
+        if(error)throw error;
+        return writeGeneration;
+      }
+      const { data: blob, error: downloadError } = await supabase.storage.from("standalone-invoices").download(editing.storage_path);
+      if (downloadError || !blob) throw new Error("Documento indisponível");
+      const file = new File([blob], editing.file_name, {type:blob.type});
       const reserved=await prepareLegacyAttempt("accountant_edit",payload,file,context,editing as unknown as Record<string,unknown>);
       if(writeGeneration!==attemptGeneration.current)return;
       setAttempt(reserved);setResumeId(reserved.id);setResumeHash(reserved.hash); sessionStorage.setItem(pendingKey,JSON.stringify({id:reserved.id,hash:reserved.hash}));
@@ -544,8 +554,8 @@ export function AccountantStandaloneInvoicesTab() {
             </div>
           </div>
           {writePending && <AlertTriangle aria-label="Conferência pendente" />}
-          <Button variant="outline" onClick={async()=>{if(!user||!companyId)return;const gen=attemptGeneration.current,ctx={user_id:user.id,company_id:companyId};const all:AttemptSummary[]=[];let after:string|null=null;try{do{const page=await listLegacyAttempts("accountant_edit",ctx,after);if(gen!==attemptGeneration.current)return;all.push(...page.items);after=page.next;}while(after);setAttemptOptions(all);}catch{if(gen===attemptGeneration.current)toast({title:"Consulta indisponível"});}}}>Procurar tentativas de edição</Button>
-          <select aria-label="Tentativa de edição a consultar" value={resumeId} onChange={e=>{const selected=attemptOptions.find(a=>a.id===e.target.value);setAttempt(null);setResumeId(selected?.id??"");setResumeHash(selected?.hash??"");}}><option value="">Selecionar tentativa</option>{attemptOptions.map(a=><option key={a.id} value={a.id}>{a.name} — {a.reference??"Sem número"} — {a.state} — {a.created_at}</option>)}</select>
+          {user && companyId && <StandaloneAttemptsPanel key={`${user.id}:${companyId}`} operation="accountant_edit" context={{user_id:user.id,company_id:companyId}}
+            onSelect={(a)=>{setAttempt(null);setResumeId(a?.id??"");setResumeHash(a?.hash??"");}} />}
           <Button variant="outline" disabled={!attempt&&(!resumeId||!resumeHash)} onClick={async()=>{
             if(!user || !companyId)return;
             const gen=attemptGeneration.current,ctx={user_id:user.id,company_id:companyId};
