@@ -362,7 +362,10 @@ CREATE FUNCTION public._club332_city_capture() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_catalog AS $$
 DECLARE country text; city text; canonical text;
 BEGIN
- IF NEW.source IS DISTINCT FROM 'clube_newgang' OR NEW.company_id IS DISTINCT FROM '7c858982-6ccd-47ca-bd65-e0dd3eebf01c'::uuid THEN RETURN NEW; END IF;
+ IF NEW.source IS DISTINCT FROM 'clube_newgang' OR NEW.company_id IS DISTINCT FROM '7c858982-6ccd-47ca-bd65-e0dd3eebf01c'::uuid THEN
+   IF TG_OP='INSERT' THEN RETURN NEW; END IF;
+   IF OLD.source IS DISTINCT FROM 'clube_newgang' OR OLD.company_id IS DISTINCT FROM '7c858982-6ccd-47ca-bd65-e0dd3eebf01c'::uuid THEN RETURN NEW; END IF;
+ END IF;
  IF TG_OP='UPDATE' AND NEW.company_id IS NOT DISTINCT FROM OLD.company_id AND NEW.source IS NOT DISTINCT FROM OLD.source AND NEW.raw->'city' IS NOT DISTINCT FROM OLD.raw->'city'
    AND NEW.raw->'residence_country' IS NOT DISTINCT FROM OLD.raw->'residence_country' THEN RETURN NEW; END IF;
  IF NEW.raw->'city' IS NULL OR NEW.raw->'city'='null'::jsonb THEN RETURN NEW; END IF;

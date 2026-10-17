@@ -2,7 +2,7 @@
 - Read scoped AGENTS.md before editing subdirectories.
 
 - Meta audience replacement uses a complete, paginated canonical collection and one ordered replacement session; failed batches stop before finalization, while dry runs never resolve tokens or invoke external delivery.
-- Audience sources stay canonical collector branches with unchanged signature and legacy behavior. Inert SQL stays in supabase/manual until authorized canonical migration.
+- Audience branches preserve legacy behavior; person ads use current proof and email-only, numeric-only delivery to avoid leakage. Inert SQL stays in supabase/manual pending authorization.
 
 - Newgang demographic profile preparation uses a session-resolved member RPC and a separate permanent completion record; profile and canonical point credit commit atomically under site-before-member locks, so legacy capture snapshots and consent ledgers remain untouched. Optional demographic reads must fail independently of core portal responses, but session rejection never falls back to member data.
 

@@ -57,4 +57,11 @@ CREATE TABLE t.backfill_once AS SELECT id,raw FROM lead_capture;
 \i supabase/manual/20261017_issue332_city.BACKFILL.PENDENTE.sql
 SELECT t.cityck('backfill idempotent',(SELECT count(*)=0 FROM ((SELECT id,raw FROM lead_capture EXCEPT SELECT * FROM t.backfill_once) UNION ALL (SELECT * FROM t.backfill_once EXCEPT SELECT id,raw FROM lead_capture)) z));
 SELECT t.cityck('backfill does not infer country',(SELECT bool_and(l.raw->>'residence_country' IS NOT DISTINCT FROM b.raw->>'residence_country') FROM lead_capture l JOIN t.backfill_before b USING(id)));
+DO $$ BEGIN
+ BEGIN
+ UPDATE lead_capture SET source='other',raw='{"city":"Caacais","residence_country":"PT"}' WHERE source='clube_newgang' AND raw->>'city'='Caacais';
+ RAISE EXCEPTION 'guard bypass accepted';
+ EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'city_unknown' THEN RAISE; END IF; END;
+ PERFORM t.cityck('scope transition cannot bypass city guard',true);
+END $$;
 SELECT t.cityck('points unchanged by city and backfill',(SELECT count(*)=0 FROM ((SELECT id,points,ref_id FROM club_points EXCEPT SELECT * FROM t.city_points) UNION ALL (SELECT * FROM t.city_points EXCEPT SELECT id,points,ref_id FROM club_points)) z));
