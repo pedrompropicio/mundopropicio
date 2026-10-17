@@ -22,7 +22,7 @@ Nota de ambiente: o sandbox novo não tinha o uid 65534 em /etc/passwd; acrescen
 
 ## Hashes
 - attempts.PENDENTE.sql d4c8029637361010c24d48801a0176181e7e5684706f3123436da0a04822b2e0
-- core.PENDENTE.sql 4eeff2dfcf487f9ea211a0434d18a4a062c69e2a666744aa4954537ce592f8a3
+- core: fonte PREPARED `patches/issue333/core.PENDENTE.sql` 9f8baeea0a19931c6b591aaf8f65d2429845bacd0c2a66004ef24b0501d8c3ef (correção 17/10 20:36 UTC: o hash 4eeff2df… citado antes é o BASE antigo `supabase/manual/20261017_issue333_core.PENDENTE.sql`, com normalização destrutiva — NÃO é fonte para Live)
 - normalized_uniqueness.PROPOSTA.sql e6d85d294eefb9b764a2a1cb81469398f43e3c8cc7cf6900ead3acbe52cf39ab
 - compatibility.PENDENTE.patch ac459d3c0c270d26f7c627ce113e937e29667cf99876b794f73530a8b4e74961
 - base-sha256.txt (manifesto BASE/PREPARED, 14 destinos) d9013090497ef121946ffb6d68da83b03efd0e460b0fde1e14798ee673ac6c8f
