@@ -9,7 +9,7 @@ root,out=map(Path,sys.argv[1:])
 s=(root/'scripts/newgang-person-consent/run.sh').read_text()
 s=s.replace('OUT="${1:-/tmp/issue332-tests}"',f'OUT="{out}"')
 s=s.replace('HERE="$(cd "$(dirname "$0")" && pwd)"',f'HERE="{root}/scripts/club-profile-it"')
-needle='bash "$ROOT/scripts/newgang-person-consent/concurrency.sh" "${PSQL[*]}" "$OUT" >>"$LOG" 2>&1'
+needle='bash "$ROOT/scripts/newgang-person-consent/concurrency.sh" "${{PSQL[*]}}" "$OUT" >>"$LOG" 2>&1'
 add=needle+f'''
 "${{PSQL[@]}}" -f "$ROOT/supabase/manual/20261017_issue332_whatsapp.PENDENTE.sql" >>"$LOG" 2>&1
 "${{PSQL[@]}}" -f "$ROOT/scripts/newgang-whatsapp/scenario.sql" >>"$LOG" 2>&1
