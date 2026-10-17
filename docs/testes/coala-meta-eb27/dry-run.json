@@ -1,0 +1,10 @@
+{
+  "dry_run": true,
+  "external_calls": 0,
+  "method": "SELECT aggregate of exact Coala collector branch; no audience row inserted",
+  "observed_at": "2026-10-17T00:55:55.513887Z",
+  "list_members": 1888,
+  "eligible": 1877,
+  "rpc_live_execution": false,
+  "reason": "No Coala audience rows exist; INSERT deliberately pending separate authorization"
+}
