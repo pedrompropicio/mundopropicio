@@ -24,6 +24,7 @@ export function StandaloneAttemptsPanel({ operation, context, onSelect, onBlocke
   const [next, setNext] = useState<string | null>(null);
   const [complete, setComplete] = useState(false);
   const [uncertain, setUncertain] = useState<AttemptSummary | null>(null);
+  const [pending, setPending] = useState(false);
   const gen = useRef(0);
   const flight = useRef(false);
   const cursors = useRef(new Set<string>());
@@ -39,7 +40,7 @@ export function StandaloneAttemptsPanel({ operation, context, onSelect, onBlocke
     setItems(null); setSelected(""); setMessage(null); setConfirming(false); setBusy(false); setNext(null); setComplete(false);
     let saved: AttemptSummary | null = null;
     try { saved = JSON.parse(sessionStorage.getItem(key) ?? "null"); } catch { /* Invalid marker stays blocking, not authority. */ }
-    setUncertain(saved); selectRef.current(null);
+    setUncertain(saved); setPending(sessionStorage.getItem(key) !== null); selectRef.current(null);
     blockedRef.current?.(sessionStorage.getItem(key) !== null);
     return () => { gen.current++; };
   }, [scope, key]);
@@ -61,20 +62,20 @@ export function StandaloneAttemptsPanel({ operation, context, onSelect, onBlocke
     finally { if (active(g, s)) { flight.current = false; setBusy(false); } }
   };
   const current = items?.find(a => a.id === selected) ?? null;
-  const allowNew = operation === "scanner_create" && current !== null && !uncertain && canConfirmNewIntent(current, latestInFamily(current, items ?? [], complete));
+  const allowNew = operation === "scanner_create" && current !== null && !pending && canConfirmNewIntent(current, latestInFamily(current, items ?? [], complete));
 
   const confirm = async () => {
     if (!current || !allowNew || flight.current) return;
     const g = gen.current, s = scope, original = current;
     flight.current = true; setBusy(true); blockedRef.current?.(true);
     // Persist before request: a lost response or remount is not permission to repeat.
-    sessionStorage.setItem(key, JSON.stringify(original)); setUncertain(original);
+    sessionStorage.setItem(key, JSON.stringify(original)); setUncertain(original); setPending(true);
     try {
       const created = await confirmNewIntent(original, context);
       if (!active(g, s)) return;
       setItems(prev => [...(prev ?? []).filter(a => a.id !== created.id), created]);
       setSelected(created.id); selectRef.current(created);
-      sessionStorage.removeItem(key); setUncertain(null); setConfirming(false);
+      sessionStorage.removeItem(key); setUncertain(null); setPending(false); setConfirming(false);
       setMessage("Nova intenção técnica confirmada. A fatura não foi gravada.");
       // Selected reservation remains read-only in the parent; no previous payload is reused.
       blockedRef.current?.(false);
@@ -94,7 +95,7 @@ export function StandaloneAttemptsPanel({ operation, context, onSelect, onBlocke
         const out = await attemptRequest({ action: "check", operation, id: candidate.id, hash: candidate.hash }, context);
         if (!active(g, s)) return;
         if (out.attempt?.prior_attempt_id === original.id && out.attempt?.hash === original.hash && out.attempt?.intent_seq === candidate.intent_seq) {
-          setSelected(candidate.id); selectRef.current(candidate); sessionStorage.removeItem(key); setUncertain(null);
+          setSelected(candidate.id); selectRef.current(candidate); sessionStorage.removeItem(key); setUncertain(null); setPending(false);
           blockedRef.current?.(false); setMessage("Intenção técnica encontrada e conferida. Nenhuma execução foi iniciada."); return;
         }
       }
@@ -111,8 +112,8 @@ export function StandaloneAttemptsPanel({ operation, context, onSelect, onBlocke
         {next && <Button variant="outline" size="sm" onClick={() => load(true)} disabled={busy}>Carregar mais</Button>}
       </div>
       {items && items.length > 0 && (
-        <select aria-label="Tentativa a consultar" disabled={busy || uncertain !== null} className="w-full rounded-md border border-input bg-background p-2 text-sm" value={selected}
-          onChange={(e) => { if (flight.current || uncertain) return; setSelected(e.target.value); setConfirming(false); selectRef.current(items.find(a => a.id === e.target.value) ?? null); }}>
+        <select aria-label="Tentativa a consultar" disabled={busy || pending} className="w-full rounded-md border border-input bg-background p-2 text-sm" value={selected}
+          onChange={(e) => { if (flight.current || pending) return; setSelected(e.target.value); setConfirming(false); selectRef.current(items.find(a => a.id === e.target.value) ?? null); }}>
           <option value="">Selecionar tentativa</option>
           {items.map(a => <option key={a.id} value={a.id}>{a.name} — {a.reference ?? "Sem número"} — {STATE_LABEL[a.state] ?? a.state} — {fmt(a.created_at)}</option>)}
         </select>
