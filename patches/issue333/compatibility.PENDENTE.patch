@@ -157,6 +157,15 @@
      setFile(null);
      setScanCandidate(null);
      setPreviewUrl(null);
+@@ -242,7 +251,7 @@
+         variant: "destructive",
+       });
+     } finally {
+-      setBusy(null);
++      if(saveGeneration===generation.current)setBusy(null);
+     }
+   };
+ 
 @@ -274,34 +283,24 @@
  
  
