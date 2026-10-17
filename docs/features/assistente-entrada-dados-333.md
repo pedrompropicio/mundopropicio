@@ -1,6 +1,6 @@
 # #333 — Assistente de Entrada de Dados: plano técnico e dependências
 
-Estado: plano preparado; implementação ainda não iniciada. Issue aberta. Executor: 0 · Cowork (ChatGPT) através do agente Lovable ERP. Autorização de implementação recebida em 17/10/2026; sem autorização para lançamentos financeiros reais de teste.
+Estado: plano aprovado; contratos puros, executor experimental desativado e SQL inerte preparados. Núcleo funcional NÃO entregue: auditoria encontrou bloqueios antes de migração/deploy/UI. Issue aberta. Executor: 0 · Cowork (ChatGPT) através do agente Lovable ERP. Sem lançamentos financeiros reais de teste.
 
 ## Sincronização e âmbito
 
@@ -72,6 +72,19 @@ Estado: plano preparado; implementação ainda não iniciada. Issue aberta. Exec
 - Fecho próprio no QUADRO, feature memory, roadmap e estado financeiro apenas diff da #333, sem disputar #323. Issue e reserva ficam aguardando verificação/integrações. Reportar SHA real e integração/receção quando disponível, nunca presumir commit futuro. Publish necessário para UI, não executar.
 
 ## Bloqueios concretos encontrados
+
+### Auditoria da proposta executável — 17/10/2026 16:44 UTC
+
+Ficheiros preparados: `supabase/functions/data-entry/core.ts`, `index.ts` (RELEASE upload/execute/analysis=false), `supabase/manual/20261017_issue333_core.PENDENTE.sql` (NÃO aplicar), contratos Vitest e prova PostgreSQL embebida em `docs/testes/issue333/`.
+
+Bloqueios que impedem disponibilidade segura nesta entrega:
+- Guard SQL usa coalesce do perfil, não a resolução canónica completa da empresa ativa; necessita resolução/lock compatível e prova de overrides negados. Papel por si só não prova permissões de cada ação.
+- Lock cooperativo de #333 não cobre inserts concorrentes legados. Índice canónico e normalização/NIF/ref devem proteger o mesmo domínio sem alterar o modelo global ou os componentes/dados reservados de #323. Não habilitar por inferência.
+- Proposta SQL aceita FX declarado e tipos JSON insuficientemente estritos; endpoint limita a EUR, mas a função proposta também precisa de bloquear moeda externa até fixing canónico congelado e comprovado.
+- Magic bytes identificam formato, mas não provam integridade/parser de PDF/imagem completo; prévias não podem aceitar assinatura truncada.
+- PostgreSQL embebido prova transação/retoma sequencial e pedidos em fila, NÃO duas conexões independentes. Usa fixtures fictícias, índice de fixture, digest substituto e nenhuma trigger canónica/rede. Não prova crash de storage, corrida com legado, rollback injetado após insert ou ausência de efeitos de triggers reais.
+
+Decisão técnica de segurança: nenhuma migração aplicada, bucket criado, endpoint deployado, configuração ativada ou UI de sucesso/mock adicionada. Execução desativada no endpoint e por configuração ausente no SQL. Não alterar #323 para contornar bloqueios; revisão de contratos dessa superfície é dependência de coordenação. Provas/limites: `docs/testes/issue333/02-nucleo-isolado-e-bloqueios.md`. Publish só após núcleo validado; NÃO executar agora.
 
 - Legacy ingest de anexos não tem idempotência por conteúdo nem commit grupo+linhas atómico; não habilitar esse efeito por wrapper.
 - Legacy ingest de avulsa não vincula aprovação/resultado/auditoria na mesma transação e pode reutilizar documento divergente; precisa adapter fechado aditivo, sem alterar legado.
