@@ -744,6 +744,24 @@
 \ No newline at end of file
 --- a/supabase/functions/data-entry/handler.ts
 +++ b/supabase/functions/data-entry/handler.ts
+@@ -112,7 +112,7 @@
+         catch (e) { throw new SafeError(e instanceof RangeError ? e.message : "Pedido inválido", 413); }
+         const contentType = req.headers.get("Content-Type");
+         if (!contentType) throw new SafeError("Pedido inválido");
+-        const form = await new Response(raw, { headers: { "Content-Type": contentType } }).formData();
++        const form = await new Response(new Uint8Array(raw).buffer, { headers: { "Content-Type": contentType } }).formData();
+         if ([...form.keys()].some((k) => !["session_id", "file"].includes(k))) throw new SafeError("Campos não permitidos");
+         const sessionId = id.parse(form.get("session_id"));
+         const state = await load(sessionId);
+@@ -147,7 +147,7 @@
+         if (!doc) throw new SafeError("Documento não encontrado", 404);
+         const bytes = await d.storage.download("data-entry-staging", doc.path);
+         if (!bytes || (await sha256(bytes)) !== doc.sha256) throw new SafeError("Documento indisponível ou alterado", 409);
+-        return new Response(bytes, { headers: { ...d.cors, "Content-Type": doc.mime, "Content-Disposition": "attachment", "Cache-Control": "no-store" } });
++        return new Response(new Uint8Array(bytes).buffer, { headers: { ...d.cors, "Content-Type": doc.mime, "Content-Disposition": "attachment", "Cache-Control": "no-store" } });
+       }
+ 
+       // Read-only reconciliation, also used after execution. Never authorizes or commits.
 @@ -178,8 +178,11 @@
        const hash = await sha256(bytes);
        if (hash !== doc.sha256) throw new SafeError("Documento alterado", 409);
