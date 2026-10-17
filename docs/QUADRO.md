@@ -25,7 +25,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Validação dos 7 destinos em cópia isolada; artefactos inertes/testes/provas próprios; #323 excluída | 2026-10-17 16:26 | 2026-10-17 18:29 — patch aplicado só em cópia limpa, hashes7+7; tsgo/Deno/build OK, integrados31/PG36/handler20/geral1334. Provas10–12; retoma global legado/StorageACL/CI final pendentes. ZERO aplicação principal/Live; reserva mantida |
+| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Preparação local do protocolo persistente legado; apenas artefactos inertes/testes/provas próprios; #323 excluída | 2026-10-17 16:26 | 2026-10-17 18:49 — base5ac214e5 local=GitHub; último Lovable b099f81a ancestral exit0, checkout limpo. Reserva mantida; sem subagentes/escritor paralelo. Nenhuma aplicação principal/Live |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)

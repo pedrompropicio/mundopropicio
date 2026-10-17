@@ -14,6 +14,8 @@ with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
 (root/'node_modules').symlink_to(repo/'node_modules',target_is_directory=True)
 # Only inert test artefacts are copied from the executing checkout; real destinations come from archive+patch.
 shutil.copytree(repo/'docs/testes/issue333',root/'docs/testes/issue333',dirs_exist_ok=True)
+shutil.copytree(repo/'patches/issue333',root/'patches/issue333',dirs_exist_ok=True)
+shutil.copy2(repo/'supabase/manual/20261017_issue333_attempts.PENDENTE.sql',root/'supabase/manual/20261017_issue333_attempts.PENDENTE.sql')
 manifest=(repo/'patches/issue333/base-sha256.txt').read_text().splitlines()
 def verify(kind):
     for line in manifest:
@@ -31,10 +33,15 @@ def run(name,args):
 run('apply',['patch','--batch','--forward','-p1','-i',str(repo/'patches/issue333/compatibility.PENDENTE.patch')]);verify('PREPARED')
 pg=root/'docs/testes/issue333/pg/data-entry-pg.test.ts'
 pg.write_text(pg.read_text().replace('"../../../../patches/issue333/compat"','"../../../../supabase/functions/_shared/standalone-compat"').replace('"../../../../patches/issue333/identity"','"../../../../supabase/functions/_shared/standalone-identity"'))
+# Existing canonical-handler regressions execute the real new wrapper; barrier is at commit only.
+pg.write_text(pg.read_text().replace('if(name === "data_entry_commit" && token === "p1")', 'if(name === "data_entry_attempt_333" && args.p_action === "commit" && token === "p1")').replace('if(name === "data_entry_commit") return tx`select public.data_entry_commit(${args.p_preview},${args.p_snapshot_hash}) j`;', 'if(name === "data_entry_attempt_333") return tx`select public.data_entry_attempt_333(${args.p_action},${args.p_preview},${args.p_snapshot_hash}) j`;'))
+pg.write_text(pg.read_text().replace('await admin.unsafe(readFileSync("supabase/manual/20261017_issue333_core.PENDENTE.sql", "utf8"));','await admin.unsafe(readFileSync("supabase/manual/20261017_issue333_core.PENDENTE.sql", "utf8"));\n  await admin.unsafe(readFileSync("supabase/manual/20261017_issue333_attempts.PENDENTE.sql", "utf8"));'))
+handler_test=root/'docs/testes/issue333/handler/handler.test.ts'
+handler_test.write_text(handler_test.read_text().replace('      if (name === "data_entry_commit")', '      if (name === "data_entry_attempt_333" && args.p_action !== "commit") return {data:{id:"attempt"},error:null};\n      if (name === "data_entry_commit" || (name === "data_entry_attempt_333" && args.p_action === "commit"))').replace('if (name === "data_entry_commit" && first)', 'if ((name === "data_entry_commit" || (name === "data_entry_attempt_333" && args.p_action === "commit")) && first)'))
 (root/'deno-isolated.json').write_text(json.dumps({'nodeModulesDir':'manual','imports':{'npm:@supabase/supabase-js@2':'./node_modules/@supabase/supabase-js/dist/module/index.d.ts','npm:zod@3.23.8':'./node_modules/zod/index.d.ts'},'compilerOptions':{'strict':False}}))
 (root/'vitest.offline.config.ts').write_text('import config from "./vitest.config"; import {defineConfig} from "vitest/config"; export default defineConfig({...config,test:{...config.test,setupFiles:["src/test/setup.ts","docs/testes/issue333/integrated/deny-egress.ts"]}});')
 run('tsgo',[a.tsgo,'-p','tsconfig.app.json','--noEmit'])
-run('deno',[a.deno,'check','--no-remote','--config','deno-isolated.json','supabase/functions/ingest-standalone-invoice/index.ts','supabase/functions/_shared/standalone-compat.ts'])
+run('deno',[a.deno,'check','--no-remote','--config','deno-isolated.json','supabase/functions/ingest-standalone-invoice/index.ts','supabase/functions/_shared/standalone-compat.ts','supabase/functions/standalone-attempt-333/handler.ts','supabase/functions/standalone-attempt-333/index.ts','supabase/functions/data-entry/handler.ts'])
 for name,config in [('integrated','docs/testes/issue333/vitest.integrated.config.ts'),('pg','docs/testes/issue333/vitest.pg.config.ts'),('handler','docs/testes/issue333/vitest.handler.config.ts'),('general','vitest.offline.config.ts')]:
     run(name,[str(repo/'node_modules/.bin/vitest'),'run','--config',config])
 run('build',[str(repo/'node_modules/.bin/vite'),'build'])

@@ -125,25 +125,38 @@
 \ No newline at end of file
 --- a/src/pages/StandaloneInvoiceScanner.tsx
 +++ b/src/pages/StandaloneInvoiceScanner.tsx
-@@ -19,7 +19,7 @@
+@@ -19,7 +19,9 @@
  import { DocumentScanStep } from "@/components/DocumentScanStep";
  import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
  import { Alert, AlertDescription } from "@/components/ui/alert";
 -import { removeFromCompanyBucket } from "@/lib/storage";
++import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt } from "@/lib/standalone-attempt-client";
++import type { Attempt } from "@shared/standalone-attempt";
 +import { lookupStandalone, standaloneWriteError } from "@/lib/standalone-identity-lookup";
  import {
    calculateStandaloneEur,
    isStandaloneInvoiceDuplicateError,
-@@ -49,6 +49,8 @@
+@@ -49,6 +51,11 @@
    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
    const [busy, setBusy] = useState<null | "convert" | "ocr" | "save">(null);
    const [saved, setSaved] = useState(false);
++  const [attempt, setAttempt] = useState<Attempt | null>(null);
++  const [resumeId, setResumeId] = useState("");
++  const [resumeHash, setResumeHash] = useState("");
 +  const pendingKey = `standalone-create-pending:${user?.id ?? "none"}:${companyId ?? "none"}`;
 +  const [writePending, setWritePending] = useState(() => sessionStorage.getItem(pendingKey) !== null);
  
    const [supplierName, setSupplierName] = useState("");
    const [supplierNif, setSupplierNif] = useState("");
-@@ -274,30 +276,29 @@
+@@ -118,6 +125,7 @@
+   }, [currency, invoiceDate]);
+ 
+   const clearCapture = () => {
++    setAttempt(null);
+     setFile(null);
+     setScanCandidate(null);
+     setPreviewUrl(null);
+@@ -274,34 +282,24 @@
  
  
    const save = async () => {
@@ -154,6 +167,7 @@
        toast({ title: "Confirma os valores", description: monetaryError, variant: "destructive" });
        return;
      }
++    const saveGeneration = generation.current;
      setBusy("save");
 -    let uploadedPath: string | null = null;
 +    let writeStarted = false;
@@ -167,23 +181,44 @@
 +          supplier_nif: supplierNif.trim(), invoice_number: invoiceNumber.trim() });
          if (duplicate) throw Object.assign(new Error("Já existe uma fatura deste fornecedor com este número."), { code: "DUPLICATE_INVOICE" });
        }
-       const ext = (file.name.match(/\.[^.]+$/)?.[0] ?? ".jpg").toLowerCase();
-       const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
-+      sessionStorage.setItem(pendingKey, path);
-+      writeStarted = true;
-       const up = await uploadToCompanyBucket("standalone-invoices", path, file, {
-         contentType: file.type || "application/octet-stream",
-         upsert: false,
-       });
-       if (up.error) throw up.error;
+-      const ext = (file.name.match(/\.[^.]+$/)?.[0] ?? ".jpg").toLowerCase();
+-      const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+-      const up = await uploadToCompanyBucket("standalone-invoices", path, file, {
+-        contentType: file.type || "application/octet-stream",
+-        upsert: false,
+-      });
+-      if (up.error) throw up.error;
 -      uploadedPath = up.path;
+-
+-      const { error } = await (supabase as any).from("standalone_invoices").insert({
+-        company_id: companyId,
+-        storage_path: up.path,
++      if (!user) throw new Error("Sessão inválida");
++      const context = { user_id: user.id, company_id: companyId };
++      const payload = {
+         file_name: file.name,
+         supplier_name: supplierName.trim() || null,
+         supplier_nif: supplierNif.trim() || null,
+@@ -315,25 +313,46 @@
+         iva_amount: parseStandaloneAmount(iva),
+         paid_by_partner_id: paidBy === "none" ? null : paidBy,
+         notes: notes.trim() || null,
+-        status: "new",
+-        created_by: user?.id ?? null,
+-      });
+-      if (error) throw error;
++        created_by: user.id,
++      };
++      const reserved = await prepareLegacyAttempt("scanner_create", payload, file, context);
++      if (saveGeneration !== generation.current) return;
++      setAttempt(reserved);
++      setResumeId(reserved.id); setResumeHash(reserved.hash);
++      sessionStorage.setItem(pendingKey, JSON.stringify({ id: reserved.id, hash: reserved.hash }));
++      writeStarted = true;
++      const outcome = await executeLegacyAttempt("scanner_create", reserved, file, context);
++      if (outcome.status !== "conferido") throw new Error("Conferência pendente");
  
-       const { error } = await (supabase as any).from("standalone_invoices").insert({
-         company_id: companyId,
-@@ -320,15 +321,14 @@
-       });
-       if (error) throw error;
- 
++      if (saveGeneration !== generation.current) return;
 +      sessionStorage.removeItem(pendingKey);
        setSaved(true);
        toast({ title: "Fatura guardada", description: "Disponível no portal da contabilidade." });
@@ -193,6 +228,7 @@
 -        if (cleanupErr) console.error("[scanner] limpeza falhou", cleanupErr);
 -      }
 +      // Never remove an object on an uncertain INSERT response. Keep private for review.
++      if (saveGeneration !== generation.current) return;
 +      if (writeStarted) setWritePending(true);
        const duplicate = err?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(err);
 -      toast({ title: duplicate ? "Fatura duplicada" : "Não foi possível guardar", description: duplicate ? "Já existe uma fatura deste fornecedor com este número." : err.message, variant: "destructive" });
@@ -200,15 +236,39 @@
      } finally {
        setBusy(null);
      }
-@@ -354,6 +354,7 @@
+   };
+ 
++  const generation = useRef(0);
++  useEffect(() => { generation.current += 1; setAttempt(null); setResumeId(""); setResumeHash(""); setWritePending(false); reset(); }, [user?.id, companyId]);
++  const reconcile = async () => {
++    if (!user || !companyId) return;
++    const current = generation.current; setBusy("save");
++    try {
++      const context = {user_id:user.id,company_id:companyId};
++      const out = attempt ? await checkLegacyAttempt("scanner_create",attempt,context) : await resumeLegacyAttempt("scanner_create",resumeId,resumeHash,context);
++      if (current !== generation.current) return;
++      if (out.status === "conferido") { setSaved(true); setWritePending(false); sessionStorage.removeItem(pendingKey); }
++      else { setWritePending(true); toast({title:"Conferência pendente"}); }
++    } catch { if (current === generation.current) toast({title:"Conferência pendente"}); }
++    finally { if (current === generation.current) setBusy(null); }
++  };
+   const [tab, setTab] = useState("scan");
+ 
+   return (
+@@ -354,6 +373,12 @@
          </div>
        </div>
  
 +      {writePending && <Alert><AlertDescription>Resultado por confirmar. A captura está bloqueada; confere a lista antes de qualquer nova gravação.</AlertDescription></Alert>}
++      <div className="space-y-2">
++        <Input aria-label="ID da tentativa" value={resumeId} onChange={e=>setResumeId(e.target.value)} />
++        <Input aria-label="Hash da tentativa" value={resumeHash} onChange={e=>setResumeHash(e.target.value)} />
++        <Button variant="outline" onClick={reconcile} disabled={busy!==null || (!attempt && (!resumeId || !resumeHash))}>Consultar tentativa</Button>
++      </div>
        <Tabs value={tab} onValueChange={setTab}>
          <TabsList className="w-full">
            <TabsTrigger value="scan" className="flex-1">Escanear</TabsTrigger>
-@@ -410,7 +411,7 @@
+@@ -410,7 +435,7 @@
              <Button
                className="w-full h-16 text-base"
                onClick={() => cameraRef.current?.click()}
@@ -217,7 +277,7 @@
              >
                <Camera className="h-6 w-6 mr-2" /> Tirar foto
              </Button>
-@@ -418,7 +419,7 @@
+@@ -418,7 +443,7 @@
                variant="outline"
                className="w-full h-12"
                onClick={() => fileRef.current?.click()}
@@ -226,7 +286,7 @@
              >
                <Upload className="h-4 w-4 mr-2" /> Escolher ficheiro
              </Button>
-@@ -521,14 +522,14 @@
+@@ -521,14 +546,14 @@
                  </div>
  
                  <div className="grid gap-2">
@@ -246,19 +306,31 @@
                  </div>
 --- a/src/pages/contabilidade/AccountantStandaloneInvoicesTab.tsx
 +++ b/src/pages/contabilidade/AccountantStandaloneInvoicesTab.tsx
-@@ -15,6 +15,8 @@
+@@ -1,4 +1,4 @@
+-import { useMemo, useState } from "react";
++import { useMemo, useState, useRef, useEffect } from "react";
+ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+ import { supabase } from "@/integrations/supabase/client";
+ import { useCompany } from "@/hooks/useCompany";
+@@ -15,6 +15,10 @@
  import { signedCompanyUrl, downloadFromCompanyBucket, removeFromCompanyBucket } from "@/lib/storage";
  import { calculateStandaloneEur, isStandaloneInvoiceDuplicateError, parseStandaloneAmount, STANDALONE_INVOICE_CURRENCIES, validateStandaloneMonetaryFields, type StandaloneInvoiceCurrency } from "@/lib/standalone-invoices";
  
++import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt } from "@/lib/standalone-attempt-client";
++import type { Attempt } from "@shared/standalone-attempt";
 +import { lookupStandalone, standaloneWriteError } from "@/lib/standalone-identity-lookup";
 +
  interface Row {
    id: string;
    storage_path: string;
-@@ -71,12 +73,15 @@
+@@ -71,12 +75,20 @@
    const [editing, setEditing] = useState<Row | null>(null);
    const [form, setForm] = useState({ supplier_name: "", supplier_nif: "", invoice_number: "", invoice_date: "", currency: "EUR" as StandaloneInvoiceCurrency, original_amount: "", fx_rate: "", fx_rate_source: "", paid_by_partner_id: "none", total_amount: "", iva_amount: "", notes: "" });
  
++  const [attempt, setAttempt] = useState<Attempt | null>(null);
++  const [resumeId,setResumeId]=useState("");
++  const [resumeHash,setResumeHash]=useState("");
++  const attemptGeneration=useRef(0);
 +  const pendingKey = `standalone-edit-pending:${user?.id ?? "none"}:${companyId ?? "none"}:${editing?.id ?? "none"}`;
 +  const [writePending, setWritePending] = useState(false);
    const canProcess = isAdmin || isAccountant;
@@ -268,14 +340,19 @@
  
    const openEdit = (r: Row) => {
 +    setWritePending(sessionStorage.getItem(`standalone-edit-pending:${user?.id ?? "none"}:${companyId ?? "none"}:${r.id}`) !== null);
++    setAttempt(null);
      setEditing(r);
      setForm({
        supplier_name: r.supplier_name ?? "",
-@@ -96,16 +101,15 @@
+@@ -94,21 +106,23 @@
+     });
+   };
  
++  useEffect(()=>{attemptGeneration.current++;setAttempt(null);setResumeId("");setResumeHash("");setEditing(null);setWritePending(false);},[user?.id,companyId]);
    const saveEdit = useMutation({
      mutationFn: async () => {
 -      if (!editing) return;
++      const writeGeneration=attemptGeneration.current;
 +      if (!editing || writePending || sessionStorage.getItem(pendingKey) !== null) throw new Error("Conferência pendente");
        const monetaryError = validateStandaloneMonetaryFields(form.currency, form.original_amount, form.fx_rate, form.total_amount);
        if (monetaryError) throw Object.assign(new Error(monetaryError), { code: "INVALID_MONETARY_FIELDS" });
@@ -288,14 +365,37 @@
 +          supplier_nif: form.supplier_nif.trim(), invoice_number: form.invoice_number.trim() }, editing.id);
          if (duplicate) throw Object.assign(new Error("Já existe uma fatura deste fornecedor com este número."), { code: "DUPLICATE_INVOICE" });
        }
-+      sessionStorage.setItem(pendingKey, "pending");
-       const { error } = await (supabase as any)
-         .from("standalone_invoices")
-         .update({
-@@ -126,12 +130,13 @@
-       if (error) throw error;
+-      const { error } = await (supabase as any)
+-        .from("standalone_invoices")
+-        .update({
++      if (!user || !companyId) throw new Error("Contexto inválido");
++      const { data: blob, error: downloadError } = await supabase.storage.from("standalone-invoices").download(editing.storage_path);
++      if (downloadError || !blob) throw new Error("Documento indisponível");
++      const file = new File([blob], editing.file_name, {type:blob.type});
++      const payload = {file_name:editing.file_name,created_by:editing.created_by,
+           supplier_name: form.supplier_name.trim() || null,
+           supplier_nif: form.supplier_nif.trim() || null,
+           invoice_number: form.invoice_number.trim() || null,
+@@ -121,17 +135,25 @@
+           total_amount: parseStandaloneAmount(form.total_amount),
+           iva_amount: parseStandaloneAmount(form.iva_amount),
+           notes: form.notes.trim() || null,
+-        })
+-        .eq("id", editing.id);
+-      if (error) throw error;
++      };
++      const context={user_id:user.id,company_id:companyId};
++      const reserved=await prepareLegacyAttempt("accountant_edit",payload,file,context,editing as unknown as Record<string,unknown>);
++      if(writeGeneration!==attemptGeneration.current)return;
++      setAttempt(reserved);setResumeId(reserved.id);setResumeHash(reserved.hash); sessionStorage.setItem(pendingKey,JSON.stringify({id:reserved.id,hash:reserved.hash}));
++      const result=await executeLegacyAttempt("accountant_edit",reserved,file,context);
++      if(writeGeneration!==attemptGeneration.current)return;
++      if(result.status!=="conferido")throw new Error("Conferência pendente");
++      return writeGeneration;
      },
-     onSuccess: () => {
+-    onSuccess: () => {
++    onSuccess: (completedGeneration) => {
++      if(completedGeneration!==attemptGeneration.current)return;
 +      sessionStorage.removeItem(pendingKey);
        setEditing(null);
        qc.invalidateQueries({ queryKey: ["standalone-invoices"] });
@@ -307,11 +407,21 @@
    });
  
    /**
-@@ -520,9 +525,10 @@
+@@ -520,9 +542,20 @@
                <Input id="ed-notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
              </div>
            </div>
 +          {writePending && <AlertTriangle aria-label="Conferência pendente" />}
++          <Input aria-label="ID da tentativa de edição" value={resumeId} onChange={e=>setResumeId(e.target.value)} />
++          <Input aria-label="Hash da tentativa de edição" value={resumeHash} onChange={e=>setResumeHash(e.target.value)} />
++          <Button variant="outline" disabled={!attempt&&(!resumeId||!resumeHash)} onClick={async()=>{
++            if(!user || !companyId)return;
++            const gen=attemptGeneration.current,ctx={user_id:user.id,company_id:companyId};
++            const out=await (attempt?checkLegacyAttempt("accountant_edit",attempt,ctx):resumeLegacyAttempt("accountant_edit",resumeId,resumeHash,ctx)).catch(()=>null);
++            if(gen!==attemptGeneration.current)return;
++            if(out?.status==="conferido"){setWritePending(false);setEditing(null);qc.invalidateQueries({queryKey:["standalone-invoices"]});}
++            else toast({title:"Conferência pendente"});
++          }}>Consultar tentativa</Button>
            <DialogFooter>
              <Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
 -            <Button onClick={() => saveEdit.mutate()} disabled={saveEdit.isPending}>
@@ -321,16 +431,25 @@
            </DialogFooter>
 --- a/supabase/functions/ingest-standalone-invoice/index.ts
 +++ b/supabase/functions/ingest-standalone-invoice/index.ts
-@@ -1,6 +1,7 @@
+@@ -1,6 +1,8 @@
  // ingest-standalone-invoice — ingestão externa de faturas avulsas (#191–#193).
  // Regra absoluta: esta função escreve apenas em standalone_invoices e no bucket homónimo.
 -import { trashStorageObject } from '../_shared/storage-trash.ts'
++import { executeAttempt, documentHash, type Attempt } from '../_shared/standalone-attempt.ts'
 +import { findStrongCandidates, persistInvoice } from '../_shared/standalone-compat.ts'
 +import type { Candidate, Expected } from '../_shared/standalone-identity.ts'
  import { createClient } from 'npm:@supabase/supabase-js@2'
  import { z } from 'npm:zod@3.23.8'
  import { getEcbRate } from '../_shared/fx-rate.ts'
-@@ -131,22 +132,6 @@
+@@ -20,6 +22,7 @@
+ }
+ 
+ const BodySchema = z.object({
++  attempt_id: z.string().uuid().optional(),
+   origem: z.string().trim().url().optional(),
+   conteudo_base64: z.string().trim().min(1).optional(),
+   nome: z.string().trim().min(1).max(255),
+@@ -131,22 +134,6 @@
    if (companyError) return json({ error: `Erro ao validar empresa: ${companyError.message}` }, 500)
    if (!company) return json({ error: 'Empresa não encontrada.' }, 404)
  
@@ -353,7 +472,7 @@
    // (#195) Câmbio resolvido no servidor ANTES de qualquer download/upload: se o
    // BCE falhar, nada é gravado e nenhum objeto entra no bucket.
    let fxRate = body.fx_rate ?? null
-@@ -190,37 +175,46 @@
+@@ -190,37 +177,62 @@
  
    const year = body.invoice_date?.slice(0, 4) ?? new Date().getUTCFullYear().toString()
    const path = `${body.company_id}/${year}/${safeBaseName(body.nome)}-${crypto.randomUUID()}.${EXT_BY_TYPE[contentType]}`
@@ -396,6 +515,22 @@
 \ No newline at end of file
 +    created_by: body.created_by ?? null,
 +  };
++  if (body.attempt_id) {
++    const envelope={payload:(({company_id,...payload})=>payload)(expected),document:{sha256:await documentHash(bytes),size_bytes:bytes.length,mime:contentType},effects:['ingest_create']};
++    const rpc=async(action:string,id:string|null,envelope:Record<string,unknown>|null,hash:string|null)=>{
++      const {data,error}=await admin.rpc('standalone_ingest_attempt_333',{p_company:body.company_id,p_action:action,p_id:id,p_envelope:envelope,p_hash:hash});
++      if(error)throw new Error('Tentativa recusada');return data as Attempt;
++    };
++    try {
++      const reserved=await rpc('prepare',body.attempt_id,envelope,null);
++      const out=await executeAttempt({rpc,
++        read:async p=>{const {data,error}=await admin.storage.from(BUCKET).download(p);return error||!data||data.size>MAX_BYTES?null:new Uint8Array(await data.arrayBuffer())},
++        upload:async(p,b,m)=>{const {error}=await admin.storage.from(BUCKET).upload(p,b,{contentType:m,upsert:false});if(error && !['409','Duplicate'].includes(String(error.statusCode??error.error)))throw Error('Upload recusado')},
++        verifyReceipt:async(p,b,m)=>{const {data,error}=await admin.storage.from(BUCKET).download(p);if(error||!data||data.size!==b.length||await documentHash(new Uint8Array(await data.arrayBuffer()))!==await documentHash(b))throw Error('Readback pendente');const r=await admin.rpc('data_entry_record_receipt',{p_bucket:BUCKET,p_path:p,p_sha:await documentHash(b),p_size:b.length,p_mime:m});if(r.error)throw Error('Recibo recusado')},
++      },reserved,bytes);
++      return json({attempt_id:reserved.id,status:out.status,result:out.attempt.result,reused:out.status==='conferido' && reserved.state==='completed',verified:out.status==='conferido'},out.status==='conferido'?200:409);
++    } catch {return json({code:'attempt_pending',error:'Conferência pendente. Não repitas.',reused:false},409)}
++  }
 +  const result = await persistInvoice({
 +    find: (e) => findStrongCandidates(e, async (company, after, size) => {
 +      let q = admin.from('standalone_invoices').select('*').eq('company_id', company)
@@ -427,7 +562,7 @@
 +      return data;
 +    },
 +  }, expected, bytes, contentType, path);
-+  return json(result.body, result.status);
++  return json({...result.body,attempt_coverage:"legacy_untracked"}, result.status);
 +})
 --- a/supabase/manual/20261017_issue333_core.PENDENTE.sql
 +++ b/supabase/manual/20261017_issue333_core.PENDENTE.sql
@@ -463,3 +598,180 @@
    RAISE EXCEPTION '#333: Fatura já existe no ERP; nenhuma nova ação' USING ERRCODE='23505'; END IF;
   mark := 'Feito por LLM com autorização de '||a.actor_name||' em '||to_char(now_ts AT TIME ZONE 'Europe/Lisbon','DD/MM/YYYY')||'.';
   INSERT INTO public.standalone_invoices(id,company_id,storage_path,file_name,supplier_name,supplier_nif,invoice_number,invoice_date,currency,original_amount,fx_rate,fx_rate_source,total_amount,iva_amount,paid_by_partner_id,notes,status,created_by)
+--- /dev/null
++++ b/supabase/functions/_shared/standalone-attempt.ts
+@@ -0,0 +1,41 @@
++/** Candidate only. Transport must execute reviewed typed RPCs with canonical identity. */
++export type Attempt = { id: string; hash: string; state: 'prepare'|'authorized'|'inprogress'|'completed'|'review'; path: string;
++  result: Record<string, unknown>|null; current: Record<string, unknown>|null; record_ok: boolean;
++  document: { sha256: string; size_bytes: number; mime: string } };
++export type AttemptTransport = {
++  rpc(action: 'prepare'|'authorize'|'begin'|'commit'|'check', id: string|null, envelope: Record<string, unknown>|null, hash: string|null): Promise<Attempt>;
++  upload(path: string, bytes: Uint8Array, mime: string): Promise<void>;
++  /** Must read stored bytes and issue service-only receipt, never trust browser checksum. */
++  verifyReceipt(path: string, bytes: Uint8Array, mime: string): Promise<void>;
++  read(path: string): Promise<Uint8Array|null>;
++};
++export async function documentHash(bytes: Uint8Array): Promise<string> {
++  return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new Uint8Array(bytes).buffer))).map(x=>x.toString(16).padStart(2,'0')).join('');
++}
++export async function checkAttempt(t: AttemptTransport, a: Attempt): Promise<{status:'conferido'|'pendente';attempt:Attempt}> {
++  const current=await t.rpc('check',a.id,null,a.hash);
++  if(current.id!==a.id || current.hash!==a.hash) throw new Error('Tentativa divergente');
++  const stored=current.state==='completed'?await t.read(current.path):null;
++  const ok=current.record_ok && stored!==null && stored.length===current.document.size_bytes && await documentHash(stored)===current.document.sha256;
++  return {status:ok?'conferido':'pendente',attempt:current};
++}
++/** No automatic retries. Same-ID recovery goes through SQL proof under the attempt lock. */
++export async function executeAttempt(t: AttemptTransport, a: Attempt, bytes: Uint8Array) {
++  if(bytes.length!==a.document.size_bytes || await documentHash(bytes)!==a.document.sha256) throw new Error('Documento divergente');
++  if(a.state==='completed') return checkAttempt(t,a);
++  if(a.state==='review') return {status:'pendente' as const,attempt:a};
++  try {
++    let claim=await t.rpc('authorize',a.id,null,a.hash);
++    if(claim.id!==a.id || claim.hash!==a.hash || !['authorized','inprogress','completed'].includes(claim.state)) throw new Error('Reserva não autorizada');
++    if(claim.state==='completed') return checkAttempt(t,claim);
++    // Authorized persistent reservation precedes every upload, including retry conflicts.
++    await t.upload(claim.path,bytes,claim.document.mime);
++    await t.verifyReceipt(claim.path,bytes,claim.document.mime);
++    claim=await t.rpc('begin',claim.id,null,claim.hash);
++    await t.rpc('commit',claim.id,null,claim.hash);
++    return await checkAttempt(t,claim);
++  } catch {
++    // A transport failure is not rollback. Check only; never blind replay/delete.
++    try { return await checkAttempt(t,a); } catch { return {status:'pendente' as const,attempt:a}; }
++  }
++}
+\ No newline at end of file
+--- /dev/null
++++ b/src/lib/standalone-attempt-client.ts
+@@ -0,0 +1,27 @@
++/** Proposed browser adapter. No local storage authority and no direct mutations. */
++import { supabase } from '@/integrations/supabase/client';
++import { documentHash, type Attempt } from '@shared/standalone-attempt';
++export type Context={user_id:string;company_id:string};
++export async function attemptRequest(body:Record<string,unknown>,context:Context) {
++ const session=await supabase.auth.getSession();const token=session.data.session?.access_token;
++ if(!token || session.data.session?.user.id!==context.user_id)throw new Error('Contexto alterado');
++ const eff=await supabase.rpc('my_effective_permissions',{p_universe:[]});
++ if(eff.error || (eff.data as {company_id?:string}|null)?.company_id!==context.company_id)throw new Error('Contexto alterado');
++ const {data,error}=await supabase.functions.invoke('standalone-attempt-333',{body,headers:{'X-Attempt-User':context.user_id,'X-Attempt-Company':context.company_id}});
++ if(error || !data)throw new Error('Resultado por confirmar. Consulta a tentativa; não repitas.');
++ return data;
++}
++export async function prepareLegacyAttempt(operation:'scanner_create'|'accountant_edit',payload:Record<string,unknown>,file:File,context:Context,before?:Record<string,unknown>,id?:string):Promise<Attempt> {
++ const bytes=new Uint8Array(await file.arrayBuffer());
++ const envelope={payload,document:{sha256:await documentHash(bytes),size_bytes:bytes.length,mime:file.type},effects:[operation],...(before?{target:before.id,before}:{})};
++ return attemptRequest({action:'prepare',operation,id:id??null,envelope},context);
++}
++export async function executeLegacyAttempt(operation:string,a:Attempt,file:File,context:Context) {
++ const bytes=new Uint8Array(await file.arrayBuffer());let binary='';for(const byte of bytes)binary+=String.fromCharCode(byte);
++ return attemptRequest({action:'execute',operation,id:a.id,hash:a.hash,conteudo_base64:btoa(binary)},context);
++}
++export const checkLegacyAttempt=(operation:string,a:Attempt,context:Context)=>attemptRequest({action:'check',operation,id:a.id,hash:a.hash},context);
++/** Retoma independente da memória local: ID/hash dados pelo servidor e owner canónico. */
++export async function resumeLegacyAttempt(operation:string,id:string,hash:string,context:Context) {
++ return attemptRequest({action:'check',operation,id,hash},context);
++}
+\ No newline at end of file
+--- /dev/null
++++ b/supabase/functions/standalone-attempt-333/handler.ts
+@@ -0,0 +1,42 @@
++/** Proposed NEW handler; never deployed. All identity and SQL calls are injected. */
++import { z } from 'npm:zod@3.23.8';
++import { executeAttempt, checkAttempt, type Attempt, type AttemptTransport } from '../_shared/standalone-attempt.ts';
++const uuid=z.string().uuid();
++const schema=z.discriminatedUnion('action',[
++ z.object({action:z.literal('prepare'),operation:z.enum(['scanner_create','accountant_edit']),id:uuid.nullable(),envelope:z.record(z.unknown())}).strict(),
++ z.object({action:z.literal('execute'),operation:z.enum(['scanner_create','accountant_edit']),id:uuid,hash:z.string().regex(/^[a-f0-9]{64}$/),conteudo_base64:z.string().max(28000000)}).strict(),
++ z.object({action:z.literal('check'),operation:z.enum(['scanner_create','accountant_edit']),id:uuid,hash:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),
++]);
++export type HandlerDeps = {
++ user(token:string):Promise<{id:string}|null>;
++ context(token:string):Promise<{company_id:string}|null>;
++ transport(token:string,operation:string):AttemptTransport;
++ cors:Record<string,string>;
++};
++export function createAttemptHandler(d:HandlerDeps) {
++ return async(req:Request)=>{
++  const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...d.cors,'Content-Type':'application/json'}});
++  if(req.method==='OPTIONS')return reply({});
++  if(req.method!=='POST')return reply({error:'Método recusado'},405);
++  try {
++   const token=req.headers.get('Authorization')?.replace(/^Bearer /,'');
++   if(!token)return reply({error:'Inicia sessão'},401);
++   const user=await d.user(token);if(!user)return reply({error:'Sessão inválida'},401);
++   const context=await d.context(token);if(!context)return reply({error:'Empresa indisponível'},403);
++   if(req.headers.get('X-Attempt-User')!==user.id || req.headers.get('X-Attempt-Company')!==context.company_id)return reply({error:'Contexto alterado'},409);
++   const reader=req.body?.getReader();if(!reader)return reply({error:'Pedido vazio'},400);
++   const chunks:Uint8Array[]=[];let size=0;
++   for(;;){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>28100000){await reader.cancel();return reply({error:'Pedido demasiado grande'},413)}chunks.push(part.value)}
++   const raw=new Uint8Array(size);let offset=0;for(const chunk of chunks){raw.set(chunk,offset);offset+=chunk.length}
++   const body=schema.parse(JSON.parse(new TextDecoder().decode(raw)));
++   const t=d.transport(token,body.operation);
++   if(body.action==='prepare')return reply(await t.rpc('prepare',body.id,body.envelope,null));
++   const a:Attempt=await t.rpc('check',body.id,null,body.hash);
++   if(a.hash!==body.hash || a.id!==body.id)return reply({error:'Tentativa divergente'},409);
++   if(body.action==='check')return reply(await checkAttempt(t,a));
++   const binary=atob(body.conteudo_base64);const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
++   const out=await executeAttempt(t,a,bytes);
++   return reply(out,out.status==='conferido'?200:409);
++  }catch{return reply({error:'Conferência pendente. Não repitas uma gravação.',status:'pendente'},409)}
++ };
++}
+\ No newline at end of file
+--- /dev/null
++++ b/supabase/functions/standalone-attempt-333/index.ts
+@@ -0,0 +1,18 @@
++/** Proposed NEW edge entrypoint. Not deployed/configured; requires explicit future approval. */
++import {createClient} from 'npm:@supabase/supabase-js@2';
++import {corsHeaders} from 'npm:@supabase/supabase-js@2/cors';
++import {createAttemptHandler} from './handler.ts';
++import {documentHash,type Attempt} from '../_shared/standalone-attempt.ts';
++const url=Deno.env.get('SUPABASE_URL')??'',key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')??'',anon=Deno.env.get('SUPABASE_ANON_KEY')??'';
++const admin=createClient(url,key);
++const userClient=(token:string)=>createClient(url,anon,{global:{headers:{Authorization:`Bearer ${token}`}}});
++Deno.serve(createAttemptHandler({cors:corsHeaders,
++ user:async token=>{const {data,error}=await userClient(token).auth.getUser();return error?null:data.user},
++ context:async token=>{const {data,error}=await userClient(token).rpc('my_effective_permissions',{p_universe:[]});return error?null:data},
++ transport:(token,operation)=>({
++  rpc:async(action,id,envelope,hash)=>{const {data,error}=await userClient(token).rpc('standalone_attempt_333',{p_action:action,p_id:id,p_operation:operation,p_envelope:envelope,p_hash:hash});if(error)throw Error('RPC recusado');return data as Attempt},
++  upload:async(p,b,mime)=>{const {error}=await admin.storage.from('standalone-invoices').upload(p,b,{contentType:mime,upsert:false});if(error && !['409','Duplicate'].includes(String(error.statusCode??error.error)))throw Error('Upload não conferido')},
++  read:async p=>{const {data,error}=await admin.storage.from('standalone-invoices').download(p);if(error||!data||data.size>20971520)return null;return new Uint8Array(await data.arrayBuffer())},
++  verifyReceipt:async(p,b,mime)=>{const {data,error}=await admin.storage.from('standalone-invoices').download(p);if(error||!data||data.size!==b.length)throw Error('Readback pendente');const actual=new Uint8Array(await data.arrayBuffer());const hash=await documentHash(b);if(await documentHash(actual)!==hash)throw Error('Readback divergente');const r=await admin.rpc('data_entry_record_receipt',{p_bucket:'standalone-invoices',p_path:p,p_sha:hash,p_size:b.length,p_mime:mime});if(r.error)throw Error('Recibo recusado')},
++ })
++}));
+\ No newline at end of file
+--- a/supabase/functions/data-entry/handler.ts
++++ b/supabase/functions/data-entry/handler.ts
+@@ -112,7 +112,7 @@
+         catch (e) { throw new SafeError(e instanceof RangeError ? e.message : "Pedido inválido", 413); }
+         const contentType = req.headers.get("Content-Type");
+         if (!contentType) throw new SafeError("Pedido inválido");
+-        const form = await new Response(raw, { headers: { "Content-Type": contentType } }).formData();
++        const form = await new Response(new Uint8Array(raw).buffer, { headers: { "Content-Type": contentType } }).formData();
+         if ([...form.keys()].some((k) => !["session_id", "file"].includes(k))) throw new SafeError("Campos não permitidos");
+         const sessionId = id.parse(form.get("session_id"));
+         const state = await load(sessionId);
+@@ -147,7 +147,7 @@
+         if (!doc) throw new SafeError("Documento não encontrado", 404);
+         const bytes = await d.storage.download("data-entry-staging", doc.path);
+         if (!bytes || (await sha256(bytes)) !== doc.sha256) throw new SafeError("Documento indisponível ou alterado", 409);
+-        return new Response(bytes, { headers: { ...d.cors, "Content-Type": doc.mime, "Content-Disposition": "attachment", "Cache-Control": "no-store" } });
++        return new Response(new Uint8Array(bytes).buffer, { headers: { ...d.cors, "Content-Type": doc.mime, "Content-Disposition": "attachment", "Cache-Control": "no-store" } });
+       }
+ 
+       // Read-only reconciliation, also used after execution. Never authorizes or commits.
+@@ -178,8 +178,11 @@
+       const hash = await sha256(bytes);
+       if (hash !== doc.sha256) throw new SafeError("Documento alterado", 409);
+       const finalPath = finalDocumentPath(company, doc.id, hash, doc.mime);
++      await rpc("data_entry_attempt_333", {p_action:"prepare",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
++      await rpc("data_entry_attempt_333", {p_action:"authorize",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
++      await rpc("data_entry_attempt_333", {p_action:"begin",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
+       await putVerified("standalone-invoices", finalPath, bytes, doc.mime, hash);
+-      const commit = await d.userRpc(token, "data_entry_commit", { p_preview: preview.id, p_snapshot_hash: body.snapshot_hash });
++      const commit = await d.userRpc(token, "data_entry_attempt_333", {p_action:"commit",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
+       if (commit.error) {
+         if (DEFINITIVE.has(String(commit.error.code))) {
+           // Shared by preview versions/concurrent requests: refusal is NOT ownership.
