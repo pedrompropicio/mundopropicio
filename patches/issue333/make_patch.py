@@ -98,17 +98,8 @@ def ingest(s):
 '''
  return s
 def core(s):
- marker='CREATE FUNCTION public.data_entry_prepare'
- s=s.replace(marker,'''-- Same strong identity expression as global proposal; broad norm remains tax validation ONLY.
-CREATE FUNCTION public.data_entry_identity(t text) RETURNS text LANGUAGE sql IMMUTABLE SET search_path=public,pg_temp AS
-$$ SELECT nullif(translate(btrim(t,' '),'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ'),'') COLLATE "C" $$;
-REVOKE ALL ON FUNCTION public.data_entry_identity(text) FROM PUBLIC, anon, authenticated;
-
-'''+marker)
- for field in ['supplier_nif','invoice_number']:
-  s=s.replace('public.data_entry_norm('+field+')=public.data_entry_norm(', 'public.data_entry_identity('+field+')=public.data_entry_identity(')
- s=s.replace("public.data_entry_norm(f->>'supplier_nif')||'|'||public.data_entry_norm(f->>'invoice_number')", "public.data_entry_identity(f->>'supplier_nif')||'|'||public.data_entry_identity(f->>'invoice_number')")
- return s
+ # Reviewed PREPARED is the source; never reconstruct from the destructive legacy BASE.
+ return (root/'patches/issue333/core.PENDENTE.sql').read_text()
 edit('src/pages/StandaloneInvoiceScanner.tsx',scanner)
 edit('src/pages/contabilidade/AccountantStandaloneInvoicesTab.tsx',accountant)
 edit('supabase/functions/ingest-standalone-invoice/index.ts',ingest)

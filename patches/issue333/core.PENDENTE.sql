@@ -2,52 +2,75 @@
 -- Provas: docs/testes/issue333/04-retoma-postgres-real-e-ui.md
 -- Identidade/empresa/papel: auth.uid() + public.current_company_id() + public._effective_permissions_for()
 -- (helpers canónicos, não alterados). Nenhuma tabela técnica é acessível directamente por authenticated.
--- Execução fechada por data_entry_settings.execute_validated (sem linha = indisponível).
+-- CORE v2: preparação e execução separadas, fechadas por defeito (sem linhas).
 -- Moeda: só EUR nesta versão (câmbio exige fonte servidor congelada — pendente).
 
 CREATE TABLE public.data_entry_sessions (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), company_id uuid NOT NULL REFERENCES public.companies(id),
  owner_id uuid NOT NULL REFERENCES public.profiles(id), event_id uuid REFERENCES public.events(id), created_at timestamptz NOT NULL DEFAULT now()
 );
+REVOKE ALL ON public.data_entry_sessions FROM PUBLIC, anon, authenticated;
+GRANT ALL ON public.data_entry_sessions TO service_role;
+ALTER TABLE public.data_entry_sessions ENABLE ROW LEVEL SECURITY;
 CREATE TABLE public.data_entry_storage_receipts (
  bucket text NOT NULL CHECK(bucket IN ('data-entry-staging','standalone-invoices')), path text NOT NULL,
  company_id uuid NOT NULL REFERENCES public.companies(id), sha256 text NOT NULL CHECK(sha256 ~ '^[a-f0-9]{64}$'),
  size_bytes integer NOT NULL CHECK(size_bytes BETWEEN 1 AND 20971520), mime text NOT NULL CHECK(mime IN ('application/pdf','image/jpeg','image/png')),
  verified_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(bucket,path)
 );
+REVOKE ALL ON public.data_entry_storage_receipts FROM PUBLIC, anon, authenticated;
+GRANT ALL ON public.data_entry_storage_receipts TO service_role;
+ALTER TABLE public.data_entry_storage_receipts ENABLE ROW LEVEL SECURITY;
 CREATE TABLE public.data_entry_documents (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), session_id uuid NOT NULL REFERENCES public.data_entry_sessions(id), company_id uuid NOT NULL REFERENCES public.companies(id),
  name text NOT NULL CHECK(length(name) BETWEEN 1 AND 255), path text NOT NULL UNIQUE,
  sha256 text NOT NULL CHECK(sha256 ~ '^[a-f0-9]{64}$'), size_bytes integer NOT NULL CHECK(size_bytes BETWEEN 1 AND 20971520),
  mime text NOT NULL CHECK(mime IN ('application/pdf','image/jpeg','image/png')), created_at timestamptz NOT NULL DEFAULT now(), UNIQUE(session_id,sha256)
 );
+REVOKE ALL ON public.data_entry_documents FROM PUBLIC, anon, authenticated;
+GRANT ALL ON public.data_entry_documents TO service_role;
+ALTER TABLE public.data_entry_documents ENABLE ROW LEVEL SECURITY;
 CREATE TABLE public.data_entry_messages (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), session_id uuid NOT NULL REFERENCES public.data_entry_sessions(id),
  company_id uuid NOT NULL REFERENCES public.companies(id), author_id uuid NOT NULL REFERENCES public.profiles(id),
  body text NOT NULL CHECK(length(body) BETWEEN 1 AND 4000), created_at timestamptz NOT NULL DEFAULT now()
 );
+REVOKE ALL ON public.data_entry_messages FROM PUBLIC, anon, authenticated;
+GRANT ALL ON public.data_entry_messages TO service_role;
+ALTER TABLE public.data_entry_messages ENABLE ROW LEVEL SECURITY;
 CREATE TABLE public.data_entry_previews (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), session_id uuid NOT NULL REFERENCES public.data_entry_sessions(id), company_id uuid NOT NULL REFERENCES public.companies(id),
  document_id uuid NOT NULL REFERENCES public.data_entry_documents(id), version integer NOT NULL, created_by uuid NOT NULL REFERENCES public.profiles(id),
  operation text NOT NULL CHECK(operation='standalone_invoice_v1'), snapshot jsonb NOT NULL, snapshot_hash text NOT NULL CHECK(snapshot_hash ~ '^[a-f0-9]{64}$'),
  destination_id uuid NOT NULL DEFAULT gen_random_uuid(), created_at timestamptz NOT NULL DEFAULT now(), UNIQUE(session_id,version)
 );
+REVOKE ALL ON public.data_entry_previews FROM PUBLIC, anon, authenticated;
+GRANT ALL ON public.data_entry_previews TO service_role;
+ALTER TABLE public.data_entry_previews ENABLE ROW LEVEL SECURITY;
 CREATE TABLE public.data_entry_results (
  preview_id uuid PRIMARY KEY REFERENCES public.data_entry_previews(id), company_id uuid NOT NULL REFERENCES public.companies(id),
  document_id uuid NOT NULL UNIQUE REFERENCES public.data_entry_documents(id), invoice_id uuid NOT NULL UNIQUE REFERENCES public.standalone_invoices(id),
  approved_by uuid NOT NULL REFERENCES public.profiles(id), approved_name text NOT NULL, approved_at timestamptz NOT NULL DEFAULT now(),
  snapshot_hash text NOT NULL, result jsonb NOT NULL
 );
+REVOKE ALL ON public.data_entry_results FROM PUBLIC, anon, authenticated;
+GRANT ALL ON public.data_entry_results TO service_role;
+ALTER TABLE public.data_entry_results ENABLE ROW LEVEL SECURITY;
 CREATE TABLE public.data_entry_settings (
- singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton), execute_validated boolean NOT NULL DEFAULT false
+ singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton), execute_validated boolean NOT NULL DEFAULT false,
+ preparation_validated boolean NOT NULL DEFAULT false
 );
--- No configuration row: execution unavailable by default.
-DO $g$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['data_entry_sessions','data_entry_storage_receipts','data_entry_documents','data_entry_messages','data_entry_previews','data_entry_results','data_entry_settings'] LOOP
-  EXECUTE format('REVOKE ALL ON public.%I FROM PUBLIC, anon, authenticated', t);
-  EXECUTE format('GRANT ALL ON public.%I TO service_role', t);
-  EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
- END LOOP; END $g$;
+-- Configuration is owner-managed only, including no service-role access. No activation rows.
+REVOKE ALL ON public.data_entry_settings FROM PUBLIC, anon, authenticated, service_role;
+ALTER TABLE public.data_entry_settings ENABLE ROW LEVEL SECURITY;
+CREATE FUNCTION public.data_entry_preparation_gate() RETURNS void
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=public,pg_temp AS $$
+BEGIN
+ IF NOT coalesce((SELECT preparation_validated FROM public.data_entry_settings WHERE singleton),false) THEN
+  RAISE EXCEPTION '#333: Preparação não validada; indisponível' USING ERRCODE='42501';
+ END IF;
+END $$;
+REVOKE ALL ON FUNCTION public.data_entry_preparation_gate() FROM PUBLIC, anon, authenticated, service_role;
 CREATE INDEX data_entry_sessions_owner ON public.data_entry_sessions(company_id,owner_id,created_at DESC);
 CREATE INDEX data_entry_messages_session ON public.data_entry_messages(session_id,created_at,id);
 CREATE INDEX data_entry_previews_session ON public.data_entry_previews(session_id,version DESC);
@@ -97,6 +120,7 @@ DECLARE a record; v public.data_entry_sessions;
 BEGIN
  a := public.data_entry_actor();
  IF p_session IS NULL THEN
+  PERFORM public.data_entry_preparation_gate();
   IF p_event IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.events WHERE id=p_event AND company_id=a.company) THEN RAISE EXCEPTION '#333: Evento de outra empresa' USING ERRCODE='42501'; END IF;
   INSERT INTO public.data_entry_sessions(company_id,owner_id,event_id) VALUES(a.company,a.uid,p_event) RETURNING * INTO v;
  ELSE v := public.data_entry_own_session(p_session); END IF;
@@ -116,6 +140,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
 DECLARE v public.data_entry_sessions; existing uuid; r uuid; p text;
 BEGIN
  v := public.data_entry_own_session(p_session, true);
+ PERFORM public.data_entry_preparation_gate();
  p := v.company_id::text||'/'||v.id::text||'/'||p_sha;
  IF NOT EXISTS(SELECT 1 FROM public.data_entry_storage_receipts WHERE bucket='data-entry-staging' AND path=p AND company_id=v.company_id AND sha256=p_sha AND size_bytes=p_size AND mime=p_mime) THEN
   RAISE EXCEPTION '#333: Documento não conferido no armazenamento' USING ERRCODE='42501'; END IF;
@@ -131,6 +156,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
 DECLARE v public.data_entry_sessions; r uuid;
 BEGIN
  v := public.data_entry_own_session(p_session, true);
+ PERFORM public.data_entry_preparation_gate();
  IF p_body IS NULL OR length(btrim(p_body)) NOT BETWEEN 1 AND 4000 THEN RAISE EXCEPTION '#333: Nota inválida' USING ERRCODE='22023'; END IF;
  IF (SELECT count(*) FROM public.data_entry_messages WHERE session_id=v.id)>=200 THEN RAISE EXCEPTION '#333: Limite de notas do lote' USING ERRCODE='P0001'; END IF;
  INSERT INTO public.data_entry_messages(session_id,company_id,author_id,body) VALUES(v.id,v.company_id,auth.uid(),btrim(p_body)) RETURNING id INTO r;
@@ -154,6 +180,7 @@ DECLARE s public.data_entry_sessions; d public.data_entry_documents; v public.da
 BEGIN
  a := public.data_entry_actor();
  s := public.data_entry_own_session(p_session, true);
+ PERFORM public.data_entry_preparation_gate();
  SELECT * INTO d FROM public.data_entry_documents WHERE id=p_document AND session_id=s.id;
  IF d.id IS NULL THEN RAISE EXCEPTION '#333: Documento inválido' USING ERRCODE='22023'; END IF;
  IF EXISTS(SELECT 1 FROM public.data_entry_results WHERE document_id=d.id) THEN RAISE EXCEPTION '#333: Documento já registado; consulta o resultado' USING ERRCODE='23505'; END IF;
@@ -271,7 +298,7 @@ END $$;
 DO $g$ DECLARE fn text; BEGIN
  FOREACH fn IN ARRAY ARRAY['data_entry_session(uuid,uuid)','data_entry_add_document(uuid,text,text,integer,text)','data_entry_note(uuid,text)',
   'data_entry_prepare(uuid,uuid,jsonb)','data_entry_commit(uuid,text)','data_entry_result_check(uuid)'] LOOP
-  EXECUTE format('REVOKE ALL ON FUNCTION public.%s FROM PUBLIC, anon', fn);
+  EXECUTE format('REVOKE ALL ON FUNCTION public.%s FROM PUBLIC, anon, service_role', fn);
   EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO authenticated', fn);
  END LOOP; END $g$;
 

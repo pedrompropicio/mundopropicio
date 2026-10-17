@@ -16,7 +16,7 @@
 - [x] Retoma 17:15: CI verify_jwt, guardas canónicas, validação estrita, handler injetável, UI real, PostgreSQL real 2 ligações.
 - [x] Correção 17:25: candidatos preservados, readback, conferência read-only, contexto UI/edições, comparação completa, proposta normalização e regressões locais; aguarda revisão independente.
 - [x] Preparação autorizada 17:46: inventário de escritores, política forte proposta, compatibilidade inerte, PostgreSQL36/compat26/handler20/regressões35/geral1334; nenhuma aplicação Live. Provas08/09; aguarda revisão.
-- [ ] Aplicar DDL/bucket/deploy após revisão das provas (bloqueio: revisão do Pedro/0).
+- [ ] #333 estrutura autorizada: corrigir/congelar CORE v2, provar PG real, aplicar CORE+ATTEMPTS por registry oficial e bucket privado; zero ativação/deploy/Publish.
 - [ ] Implementar núcleo upload privado, conversa documental, prévia servidor, autorização e execução tipada idempotente apenas para adapters validados.
 - [ ] Ativação bloqueada: rollout/reconciliação de clientes anteriores semID e intenção adicional, revisão política forte/IVA≤total, StorageACL real e autorização aplicação/índice/DDL/deploy; CI novo SHA aguarda propagação. Trava sessionStorage não prova exatamente-um global.
 - [x] Documentar efeitos Live inexistentes e limitações; manter Issue/reserva abertas para verificação.
