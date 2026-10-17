@@ -1,0 +1,4 @@
+# #333 inert preparation
+- Keep candidate sources here and generate a patch for disposable integration only; this prevents editing active ERP writers before authorization.
+- Attempt identity is a server-derived envelope scoped to canonical principal/company/operation; a fresh client UUID is not evidence of a fresh business intention.
+- Mutation, attempt completion and audit share one SQL transaction and one attempt lock; transport uncertainty never authorizes an unreserved mutation.
