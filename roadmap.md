@@ -1,4 +1,7 @@
 # #332 — consentimento por pessoa
+- [ ] #332 imediato: ingestão canónica na inserção e retry pré-fila limitado; unknown manual.
+- [ ] request_access pending 30min; testes SQL/Deno/Vitest e aplicação/deploy.
+- [ ] Prova ponta a ponta @mundopropicio.com; tempos/pontos; limpeza aguarda Sim Pedro.
 - [x] HEADs e contratos lidos; reserva #322 transferida por Pedro, #323 preservada.
 - [x] Extensão aditiva do ledger, ligação membro e histórico email-v3; RPCs de sessão e descadastro atómico.
 - [x] API profile_preferences e me; pontos, perfil, MP/Coala e lista existentes preservados.
