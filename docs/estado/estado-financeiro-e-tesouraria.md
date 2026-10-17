@@ -41,7 +41,7 @@ Atualizado: 09/10/2026 (ritual de fecho da frente; inclui o trabalho do chat fin
 
 ## A trabalhar agora
 
-- **#333 — 17/10/2026 21:40 UTC — estrutura (0190/0191) aplicada; código integrado e 3 funções implantadas com operações desligadas.** Scanner/edição/ingest continuam no caminho anterior (legacy_untracked). Nenhuma fatura/TX/BP criada. Prova: `docs/testes/issue333/23-etapa2-codigo-deploy-certificacao-live.md`.
+- **#333 — reparação etapa2, 17/10/2026: operações desligadas; código/UI sob revisão, não aceitação completa.** Memória/índice, intenções/paginação/contexto corrigidos localmente;1359 PASS, tsgo/build OK em cópia sem credenciais; CI remota aguarda controlador. Prova23 retificada: baseline agregado não certifica igualdade financeira por conteúdo. Nenhuma operação Live/deploy/DDL nesta reparação; #323 preservada; Issue/reserva abertas. Prova24 em `docs/testes/issue333/24-reparacao-etapa2-ci-ui-provas.md`.
 
 ## Em aberto, por decisão do Pedro
 

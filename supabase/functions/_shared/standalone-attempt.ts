@@ -1,4 +1,4 @@
-/** Candidate only. Transport must execute reviewed typed RPCs with canonical identity. */
+/** Shared attempt protocol. Transport executes reviewed typed RPCs with canonical identity. */
 export type Attempt = { id: string; hash: string; state: 'prepare'|'authorized'|'inprogress'|'completed'|'review'; path: string;
   result: Record<string, unknown>|null; current: Record<string, unknown>|null; record_ok: boolean;
   document: { sha256: string; size_bytes: number; mime: string } };
