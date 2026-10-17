@@ -15,7 +15,7 @@ import { Loader2, Download, FileArchive, Undo2, CheckCircle2, FileText, Pencil, 
 import { signedCompanyUrl, downloadFromCompanyBucket, removeFromCompanyBucket } from "@/lib/storage";
 import { calculateStandaloneEur, isStandaloneInvoiceDuplicateError, parseStandaloneAmount, STANDALONE_INVOICE_CURRENCIES, validateStandaloneMonetaryFields, type StandaloneInvoiceCurrency } from "@/lib/standalone-invoices";
 
-import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt, attemptCapabilities } from "@/lib/standalone-attempt-client";
+import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt, resolveAttemptRoute } from "@/lib/standalone-attempt-client";
 import { StandaloneAttemptsPanel } from "@/components/standalone/StandaloneAttemptsPanel";
 import type { Attempt } from "@shared/standalone-attempt";
 import { lookupStandalone, standaloneWriteError } from "@/lib/standalone-identity-lookup";
@@ -82,12 +82,20 @@ export function AccountantStandaloneInvoicesTab() {
   const attemptGeneration=useRef(0);
   const pendingKey = `standalone-edit-pending:${user?.id ?? "none"}:${companyId ?? "none"}:${editing?.id ?? "none"}`;
   const [writePending, setWritePending] = useState(false);
+  const scope=`${user?.id}:${companyId}`;
+  const liveScope=useRef(scope);liveScope.current=scope;
+  const reservation=useRef(false);
+  const saving=useRef(false);
   const canProcess = isAdmin || isAccountant;
   const canEdit = (r: Row) => isAdmin || r.created_by === user?.id;
   // Apagar: só enquanto "nova", por quem capturou ou admin/platform_admin.
   const canDelete = (r: Row) => r.status === "new" && (isAdmin || r.created_by === user?.id);
 
   const openEdit = (r: Row) => {
+    if(saving.current)return;
+    attemptGeneration.current++;
+    reservation.current=sessionStorage.getItem(`standalone-edit-pending:${user?.id ?? "none"}:${companyId ?? "none"}:${r.id}`)!==null;
+    setResumeId("");setResumeHash("");
     setWritePending(sessionStorage.getItem(`standalone-edit-pending:${user?.id ?? "none"}:${companyId ?? "none"}:${r.id}`) !== null);
     setAttempt(null);
     setEditing(r);
@@ -107,13 +115,17 @@ export function AccountantStandaloneInvoicesTab() {
     });
   };
 
-  useEffect(()=>{attemptGeneration.current++;setAttempt(null);setResumeId("");setResumeHash("");setEditing(null);setWritePending(false);},[user?.id,companyId]);
+  useEffect(()=>{attemptGeneration.current++;saving.current=false;reservation.current=false;setAttempt(null);setResumeId("");setResumeHash("");setEditing(null);setWritePending(false);},[user?.id,companyId]);
   const saveEdit = useMutation({
     mutationFn: async () => {
       const writeGeneration=attemptGeneration.current;
-      if (!editing || writePending || sessionStorage.getItem(pendingKey) !== null) throw new Error("Conferência pendente");
+      const writeScope=scope;
+      const isCurrent=()=>writeGeneration===attemptGeneration.current && writeScope===liveScope.current;
+      if (!editing || saving.current || reservation.current || attempt || resumeId || writePending || sessionStorage.getItem(pendingKey) !== null) throw new Error("Conferência pendente");
       const monetaryError = validateStandaloneMonetaryFields(form.currency, form.original_amount, form.fx_rate, form.total_amount);
       if (monetaryError) throw Object.assign(new Error(monetaryError), { code: "INVALID_MONETARY_FIELDS" });
+      saving.current=true;
+      try {
       if (form.supplier_nif.trim() && form.invoice_number.trim()) {
         const duplicate = await lookupStandalone(supabase, { company_id: companyId ?? "",
           supplier_nif: form.supplier_nif.trim(), invoice_number: form.invoice_number.trim() }, editing.id);
@@ -135,8 +147,8 @@ export function AccountantStandaloneInvoicesTab() {
           notes: form.notes.trim() || null,
       };
       const context={user_id:user.id,company_id:companyId};
-      const tracked=(await attemptCapabilities(context))["accountant_edit"]===true;
-      if(writeGeneration!==attemptGeneration.current)return;
+      const tracked=await resolveAttemptRoute("accountant_edit",context,reservation.current,isCurrent)==="tracked";
+      if(!isCurrent())return;
       if(!tracked){
         // legacy_untracked: edição direta anterior (RLS/permissões atuais), sem tentativa persistente.
         const {file_name:_f,created_by:_c,...changes}=payload;
@@ -147,14 +159,17 @@ export function AccountantStandaloneInvoicesTab() {
       }
       const { data: blob, error: downloadError } = await supabase.storage.from("standalone-invoices").download(editing.storage_path);
       if (downloadError || !blob) throw new Error("Documento indisponível");
+      if(!isCurrent())return;
       const file = new File([blob], editing.file_name, {type:blob.type});
+      reservation.current=true;sessionStorage.setItem(pendingKey,"preparing");
       const reserved=await prepareLegacyAttempt("accountant_edit",payload,file,context,editing as unknown as Record<string,unknown>);
-      if(writeGeneration!==attemptGeneration.current)return;
+      if(!isCurrent())return;
       setAttempt(reserved);setResumeId(reserved.id);setResumeHash(reserved.hash); sessionStorage.setItem(pendingKey,JSON.stringify({id:reserved.id,hash:reserved.hash}));
       const result=await executeLegacyAttempt("accountant_edit",reserved,file,context);
-      if(writeGeneration!==attemptGeneration.current)return;
+      if(!isCurrent())return;
       if(result.status!=="conferido")throw new Error("Conferência pendente");
       return writeGeneration;
+      } catch(e){if(!isCurrent())return;throw e;} finally{if(isCurrent())saving.current=false;}
     },
     onSuccess: (completedGeneration) => {
       if(completedGeneration!==attemptGeneration.current)return;
@@ -555,7 +570,8 @@ export function AccountantStandaloneInvoicesTab() {
           </div>
           {writePending && <AlertTriangle aria-label="Conferência pendente" />}
           {user && companyId && <StandaloneAttemptsPanel key={`${user.id}:${companyId}`} operation="accountant_edit" context={{user_id:user.id,company_id:companyId}}
-            onSelect={(a)=>{setAttempt(null);setResumeId(a?.id??"");setResumeHash(a?.hash??"");}} />}
+            onBlocked={(blocked)=>{if(blocked){reservation.current=true;setWritePending(true);}}}
+            onSelect={(a)=>{if(a){reservation.current=true;setWritePending(true);}setAttempt(null);setResumeId(a?.id??"");setResumeHash(a?.hash??"");}} />}
           <Button variant="outline" disabled={!attempt&&(!resumeId||!resumeHash)} onClick={async()=>{
             if(!user || !companyId)return;
             const gen=attemptGeneration.current,ctx={user_id:user.id,company_id:companyId};
@@ -565,7 +581,7 @@ export function AccountantStandaloneInvoicesTab() {
             else toast({title:"Conferência pendente"});
           }}>Consultar tentativa</Button>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
+            <Button variant="outline" disabled={saveEdit.isPending} onClick={() => {attemptGeneration.current++;setEditing(null);}}>Cancelar</Button>
             <Button onClick={() => saveEdit.mutate()} disabled={saveEdit.isPending || writePending}>
               {saveEdit.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Guardar
             </Button>

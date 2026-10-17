@@ -59,3 +59,12 @@ export const latestInFamily=(a:AttemptSummary,items:AttemptSummary[],complete:bo
  const seq=a.intent_seq;
  return complete && seq!==undefined && Number.isInteger(seq) && !items.some(b=>b.hash===a.hash && (b.intent_seq===undefined || b.intent_seq>seq));
 };
+/** An existing reservation never falls back to a legacy write, even on endpoint failure. */
+export async function resolveAttemptRoute(operation:keyof AttemptCapabilities,context:Context,reserved:boolean,isCurrent:()=>boolean) {
+ if(reserved)throw new Error('Consulta a tentativa reservada; não inicies outra gravação');
+ const capabilities=await attemptCapabilities(context);
+ if(!isCurrent())throw new AttemptContextError('Contexto alterado');
+ await assertAttemptContext(context);
+ if(!isCurrent())throw new AttemptContextError('Contexto alterado');
+ return capabilities[operation] ? 'tracked' : 'legacy_untracked';
+}

@@ -19,7 +19,7 @@ import { AccountantStandaloneInvoicesTab } from "@/pages/contabilidade/Accountan
 import { DocumentScanStep } from "@/components/DocumentScanStep";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt, attemptCapabilities, reviewMessage } from "@/lib/standalone-attempt-client";
+import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt, resolveAttemptRoute, assertAttemptContext, reviewMessage } from "@/lib/standalone-attempt-client";
 import { StandaloneAttemptsPanel } from "@/components/standalone/StandaloneAttemptsPanel";
 import type { Attempt } from "@shared/standalone-attempt";
 import { lookupStandalone, standaloneWriteError } from "@/lib/standalone-identity-lookup";
@@ -58,6 +58,10 @@ export default function StandaloneInvoiceScanner() {
   const [resumeHash, setResumeHash] = useState("");
   const pendingKey = `standalone-create-pending:${user?.id ?? "none"}:${companyId ?? "none"}`;
   const [writePending, setWritePending] = useState(() => sessionStorage.getItem(pendingKey) !== null);
+  const scope = `${user?.id}:${companyId}`;
+  const liveScope = useRef(scope); liveScope.current = scope;
+  const reservation = useRef(false);
+  const saving = useRef(false);
 
   const [supplierName, setSupplierName] = useState("");
   const [supplierNif, setSupplierNif] = useState("");
@@ -284,13 +288,16 @@ export default function StandaloneInvoiceScanner() {
 
 
   const save = async () => {
-    if (!file || !companyId || writePending || sessionStorage.getItem(pendingKey) !== null) return;
+    if (!file || !companyId || saving.current || reservation.current || attempt || resumeId || writePending || sessionStorage.getItem(pendingKey) !== null) return;
     const monetaryError = validateStandaloneMonetaryFields(currency, originalAmount, fxRate, total);
     if (monetaryError) {
       toast({ title: "Confirma os valores", description: monetaryError, variant: "destructive" });
       return;
     }
     const saveGeneration = generation.current;
+    const saveScope = scope;
+    const isCurrent = () => saveGeneration === generation.current && saveScope === liveScope.current;
+    saving.current = true;
     setBusy("save");
     let writeStarted = false;
     try {
@@ -317,8 +324,8 @@ export default function StandaloneInvoiceScanner() {
         notes: notes.trim() || null,
         created_by: user.id,
       };
-      const tracked = (await attemptCapabilities(context))["scanner_create"] === true;
-      if (saveGeneration !== generation.current) return;
+      const tracked = await resolveAttemptRoute("scanner_create", context, reservation.current, isCurrent) === "tracked";
+      if (!isCurrent()) return;
       if (!tracked) {
         // legacy_untracked: caminho anterior, sem tentativa persistente nem idempotência global.
         const ext = (file.name.match(/\.[^.]+$/)?.[0] ?? ".jpg").toLowerCase();
@@ -327,11 +334,16 @@ export default function StandaloneInvoiceScanner() {
         writeStarted = true;
         const up = await uploadToCompanyBucket("standalone-invoices", path, file, { contentType: file.type || "application/octet-stream", upsert: false });
         if (up.error) throw up.error;
+        await assertAttemptContext(context);
+        if (!isCurrent()) return;
         const { error } = await (supabase as any).from("standalone_invoices").insert({ company_id: companyId, storage_path: up.path, ...payload, status: "new" });
         if (error) throw error;
       } else {
+        reservation.current = true;
+        sessionStorage.setItem(pendingKey, "preparing");
+        writeStarted = true;
         const reserved = await prepareLegacyAttempt("scanner_create", payload, file, context);
-        if (saveGeneration !== generation.current) return;
+        if (!isCurrent()) return;
         setAttempt(reserved);
         setResumeId(reserved.id); setResumeHash(reserved.hash);
         sessionStorage.setItem(pendingKey, JSON.stringify({ id: reserved.id, hash: reserved.hash }));
@@ -341,30 +353,30 @@ export default function StandaloneInvoiceScanner() {
         if (outcome.status !== "conferido") throw new Error("Conferência pendente");
       }
 
-      if (saveGeneration !== generation.current) return;
+      if (!isCurrent()) return;
       sessionStorage.removeItem(pendingKey);
       setSaved(true);
       toast({ title: "Fatura guardada", description: "Disponível no portal da contabilidade." });
     } catch (err: any) {
       // Never remove an object on an uncertain INSERT response. Keep private for review.
-      if (saveGeneration !== generation.current) return;
+      if (!isCurrent()) return;
       if (writeStarted) setWritePending(true);
       const duplicate = err?.code === "DUPLICATE_INVOICE" || isStandaloneInvoiceDuplicateError(err);
       toast({ title: duplicate ? "Fatura duplicada" : "Não foi possível guardar", description: standaloneWriteError(err), variant: "destructive" });
     } finally {
-      if(saveGeneration===generation.current)setBusy(null);
+      if(isCurrent()){saving.current=false;setBusy(null);}
     }
   };
 
   const generation = useRef(0);
-  useEffect(() => { generation.current += 1; setAttempt(null); setResumeId(""); setResumeHash(""); setReview(null); setWritePending(false); reset(); }, [user?.id, companyId]);
+  useEffect(() => { generation.current += 1; saving.current=false; reservation.current=sessionStorage.getItem(pendingKey)!==null; setAttempt(null); setResumeId(""); setResumeHash(""); setReview(null); setWritePending(reservation.current); setBusy(null); reset(); }, [user?.id, companyId]);
   const reconcile = async () => {
     if (!user || !companyId) return;
-    const current = generation.current; setBusy("save");
+    const current = generation.current, reconcileScope=scope; setBusy("save");
     try {
       const context = {user_id:user.id,company_id:companyId};
       const out = attempt ? await checkLegacyAttempt("scanner_create",attempt,context) : await resumeLegacyAttempt("scanner_create",resumeId,resumeHash,context);
-      if (current !== generation.current) return;
+      if (current !== generation.current || reconcileScope!==liveScope.current) return;
       if (out.status === "conferido") { setSaved(true); setWritePending(false); sessionStorage.removeItem(pendingKey); }
       else { setWritePending(true); toast({title:"Conferência pendente"}); }
     } catch { if (current === generation.current) toast({title:"Conferência pendente"}); }
@@ -393,8 +405,9 @@ export default function StandaloneInvoiceScanner() {
       {writePending && <Alert><AlertDescription>Resultado por confirmar. A captura está bloqueada; confere a lista antes de qualquer nova gravação.</AlertDescription></Alert>}
       <div className="space-y-2">
         {review && <Alert><AlertDescription>{review}</AlertDescription></Alert>}
-        {user && companyId && <StandaloneAttemptsPanel key={`${user.id}:${companyId}`} operation="scanner_create" context={{ user_id: user.id, company_id: companyId }}
-          onSelect={(a) => { setAttempt(null); setResumeId(a?.id ?? ""); setResumeHash(a?.hash ?? ""); }} />}
+        {user && companyId && <StandaloneAttemptsPanel operation="scanner_create" context={{ user_id: user.id, company_id: companyId }}
+          onBlocked={(blocked)=>{if(blocked){reservation.current=true;setWritePending(true);}}}
+          onSelect={(a) => { if(a){reservation.current=true;setWritePending(true);} setAttempt(null); setResumeId(a?.id ?? ""); setResumeHash(a?.hash ?? ""); }} />}
         <Button variant="outline" onClick={reconcile} disabled={busy!==null || (!attempt && (!resumeId || !resumeHash))}>Consultar tentativa</Button>
       </div>
       <Tabs value={tab} onValueChange={setTab}>
