@@ -4,7 +4,7 @@ Atualizado: 17/10/2026 13:25 UTC. Frente: newgangfestival.pt.
 
 ## Em que pé está
 - #332 cidade/lista Fase B parcialmente aplicada e BLOQUEADA: gate inicial cd9b4faa sincronizado/CI+quality success13:02UTC; migração0186 cidade aplicada. Verificação encontrou cinco nomes divergentes na referência literal aplicada (0204,0405–0408); correção ainda NÃO aplicada por bloqueio HEAD/CI. Não usar a nova lista no portal antes da correção. Coletor estrito NÃO aplicado; nenhum deploy novo, teste Live, backfill, limpeza ou sync Meta manual. HEAD5078351e local não sincronizado com remotocd9b4faa após>20min. Prova: docs/testes/issue332/fase-b-20261017-gate.md.
-- Contrato autorizado: cidade obrigatória/308concelhos só residênciaPT; estrangeiro não exige residência/cidade; cidade livre/vazia, sem inferir país. Nascimento/país nascimento/parental mantidos. Lagoa nominal, portal-track intocado. Autorizações cidade/lista e deploy somente portal+sync mantidas; backfill/limpeza requerem SQL+Sim separados.
+- Contrato autorizado: cidade obrigatória/308concelhos só residênciaPT; país de residência obrigatório em todos os perfis; estrangeiro dispensa só cidade; cidade livre/vazia, sem inferir país. Nascimento/país nascimento/parental mantidos. Lagoa nominal, portal-track intocado. Autorizações cidade/lista e deploy somente portal+sync mantidas; backfill/limpeza requerem SQL+Sim separados.
 
 - #332 whatsapp APLICADO e FECHADO (17/10 12:10 UTC): migração 0185 + deploy só `newgang-portal`.
   Canal `whatsapp` (versão whatsapp-v1) no ledger append-only, ligado ao número do perfil por

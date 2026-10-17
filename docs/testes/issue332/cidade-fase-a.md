@@ -10,9 +10,9 @@ Método: extrair ZIPs; abrir 4 GeoPackages em SQLite read-only (Continente, Aço
 ## Contrato e segurança
 - SQL inerte: supabase/manual/20261017_issue332_city.PENDENTE.sql. Referência é VIEW literal VALUES, pública sem dados pessoais, não tabela semeada nem DML em migração. Aplicação futura só pela ferramenta canónica, com número atribuído nessa altura.
 - club_city_key: NFC, Unicode lower, acentos removidos, todos os espaços removidos. Correspondência EXATA: sem fuzzy nem bairros→concelho.
-- profile_confirm mantém ação, sessão, locks, confirmação e crédito canónicos; city_normalize PT retorna nome oficial ou city_unknown. Estrangeiro usa country ISO explícito, trim/espaços únicos/initcap. Guarda trigger cobre escritores diretos de perfil. Pontos/consentimentos não mudam.
+- profile_confirm mantém ação, sessão, locks, confirmação e crédito canónicos; city_normalize PT retorna nome oficial ou city_unknown. Perfil exige birth_date, birth_country e residence_country válidos (country_invalid para país ausente/inválido); estrangeiro dispensa apenas cidade e usa country ISO explícito, trim/espaços únicos/initcap. Guarda trigger cobre escritores diretos de perfil. Pontos/consentimentos não mudam.
 - action cities sem sessão, Origin permitido: {country:"PT",version:"caop-2025",cities:[{code,name,region}]}; 308, TTL instância60s, timeout1500ms, falha503 cities_unavailable, só projeção allowlist, nunca perfil ou consentimentos na cache.
-- Captura MP/source clube_newgang: BEFORE INSERT/UPDATE cidade valida antes de ingestão. residence_country PT desconhecido falha city_unknown; estrangeiro exige ISO. Sem país, só nome oficial exato é compatível; desconhecido falha country_invalid, sem inventar país. As capturas do inventário inicial não tinham país: portal separado terá de o enviar para novas cidades estrangeiras. portal-track não alterado/deployado: erro PostgreSQL é city_unknown mas seu wrapper legado HTTP devolve500 ok:false; comunicação detalhada neste wrapper requer etapa separada autorizada.
+- Captura MP/source clube_newgang: BEFORE INSERT/UPDATE cidade valida antes de ingestão. residence_country PT desconhecido falha city_unknown; captura não é confirmação de perfil: sem país não infere país nem valida concelho; só residência explicitamente PT valida concelho. Fora de PT cidade livre/vazia. As capturas do inventário inicial não tinham país: portal separado terá de o enviar para novas cidades estrangeiras. portal-track não alterado/deployado: erro PostgreSQL é city_unknown mas seu wrapper legado HTTP devolve500 ok:false; comunicação detalhada neste wrapper requer etapa separada autorizada.
 - Summary e lista 0111 projetam nomes históricos correspondentes sem reescrever raw. Desconhecidos preservados distintamente. Lagoa tem dois códigos (Continente/Açores), mesmo nome: action cities preserva ambos; campo cidade é nominal, sem inventar código/região; summary combina o mesmo nome.
 
 ## Backfill EXATO (não executado em Live)
@@ -25,3 +25,5 @@ Deno handler real cities2/2; cities_test.ts4/4: cache, projeção sem dados extr
 Nenhuma migração/deploy/backfill Live/envio/cron/sync/Publish executados.
 
 Última repetição inclui oito profile_confirm concorrentes: cidade canónica e único crédito50; transição de source/company não contorna guarda. Portal-track não alterado.
+
+Correção13:31: a versão0186 tornou país opcional indevidamente; SQLpendente corrigido e nova migração de correção preparada. Provas anteriores40/40 não validam a regra corrigida.
