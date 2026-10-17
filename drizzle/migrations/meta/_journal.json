@@ -1324,6 +1324,13 @@
       "when": 1792248163990,
       "tag": "0188_issue332_caop_reference_repair",
       "breakpoints": true
+    },
+    {
+      "idx": 189,
+      "version": "7",
+      "when": 1792248224310,
+      "tag": "0189_issue332_strict_newgang_audience",
+      "breakpoints": true
     }
   ]
 }
