@@ -21,16 +21,21 @@ export async function attemptRequest(body:Record<string,unknown>,context:Context
  if(epoch!==contextEpoch)throw new AttemptContextError('Contexto alterado');
  const {data,error}=await supabase.functions.invoke('standalone-attempt-333',{body,headers:{'X-Attempt-User':context.user_id,'X-Attempt-Company':context.company_id}});
  await assertAttemptContext(context);
+ if(epoch!==contextEpoch)throw new AttemptContextError('Contexto alterado');
  if(error || !data)throw new Error('Resultado por confirmar. Consulta a tentativa; não repitas.');
  return data;
 }
 export async function prepareLegacyAttempt(operation:'scanner_create'|'accountant_edit',payload:Record<string,unknown>,file:File,context:Context,before?:Record<string,unknown>,id?:string):Promise<Attempt> {
+ if(file.size>20971520)throw new Error('Documento demasiado grande');
  const bytes=new Uint8Array(await file.arrayBuffer());
  const envelope={payload,document:{sha256:await documentHash(bytes),size_bytes:bytes.length,mime:file.type},effects:[operation],...(before?{target:before.id,before}:{})};
  return attemptRequest({action:'prepare',operation,id:id??null,envelope},context);
 }
 export async function executeLegacyAttempt(operation:string,a:Attempt,file:File,context:Context) {
- const bytes=new Uint8Array(await file.arrayBuffer());let binary='';for(const byte of bytes)binary+=String.fromCharCode(byte);
+ if(file.size>20971520 || file.size!==a.document.size_bytes || file.type!==a.document.mime)throw new Error('Documento divergente');
+ const bytes=new Uint8Array(await file.arrayBuffer());
+ if(await documentHash(bytes)!==a.document.sha256)throw new Error('Documento divergente');
+ let binary='';for(const byte of bytes)binary+=String.fromCharCode(byte);
  return attemptRequest({action:'execute',operation,id:a.id,hash:a.hash,conteudo_base64:btoa(binary)},context);
 }
 export const checkLegacyAttempt=(operation:string,a:Attempt,context:Context)=>attemptRequest({action:'check',operation,id:a.id,hash:a.hash},context);

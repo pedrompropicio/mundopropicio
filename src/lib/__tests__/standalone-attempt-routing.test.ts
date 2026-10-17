@@ -1,11 +1,13 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 const mocks=vi.hoisted(()=>({user:'u1',company:'c1',session:vi.fn(),rpc:vi.fn(),invoke:vi.fn()}));
 vi.mock('@/integrations/supabase/client',()=>({supabase:{auth:{getSession:mocks.session},rpc:mocks.rpc,functions:{invoke:mocks.invoke}}}));
-import { attemptCapabilities, canConfirmNewIntent, confirmNewIntent, latestInFamily, resolveAttemptRoute } from '@/lib/standalone-attempt-client';
+import { attemptCapabilities, canConfirmNewIntent, confirmNewIntent, latestInFamily, resolveAttemptRoute, executeLegacyAttempt } from '@/lib/standalone-attempt-client';
 const context={user_id:'u1',company_id:'c1'};
 const a={id:'old',hash:'a'.repeat(64),intent_seq:1,state:'completed',name:'fixture.pdf',reference:'FT1',created_at:'2026-10-17'};
 beforeEach(()=>{vi.clearAllMocks();mocks.user='u1';mocks.company='c1';mocks.session.mockImplementation(async()=>({data:{session:{access_token:'mock-only',user:{id:mocks.user}}}}));mocks.rpc.mockImplementation(async()=>({data:{company_id:mocks.company},error:null}));mocks.invoke.mockResolvedValue({data:null,error:new Error('offline')});});
 describe('#333 routing',()=>{
+ it('company event during await rejects even before canonical RPC refresh',async()=>{mocks.invoke.mockImplementation(async()=>{window.dispatchEvent(new CustomEvent('mp:active-company-changed',{detail:{companyId:'c2'}}));return {data:{capabilities:{scanner_create:false}},error:null};});await expect(resolveAttemptRoute('scanner_create',context,false,()=>true)).rejects.toThrow('Contexto alterado');});
+ it('execution refuses bytes/size not bound to reserved document before network',async()=>{await expect(executeLegacyAttempt('scanner_create',{...a,state:'prepare',path:'fixture',result:null,current:null,record_ok:false,document:{size_bytes:1,mime:'application/pdf',sha256:a.hash}},new File(['different'],'fixture.pdf',{type:'application/pdf'}),context)).rejects.toThrow('Documento divergente');expect(mocks.invoke).not.toHaveBeenCalled();});
  it('offline capability retains legacy only for valid canonical context',async()=>{expect(await attemptCapabilities(context)).toEqual({scanner_create:false,accountant_edit:false});expect(await resolveAttemptRoute('scanner_create',context,false,()=>true)).toBe('legacy_untracked');});
  it('divergent context throws instead of authorizing legacy writer',async()=>{await expect(attemptCapabilities({...context,user_id:'outro'})).rejects.toThrow('Contexto alterado');});
  it('reserved attempt never consults capabilities or falls back',async()=>{await expect(resolveAttemptRoute('scanner_create',context,true,()=>true)).rejects.toThrow('reservada');expect(mocks.invoke).not.toHaveBeenCalled();});
