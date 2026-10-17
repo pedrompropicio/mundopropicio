@@ -1,5 +1,5 @@
 -- Isolated PG17: actual reservation/pending/trigger SQL; collector tested separately below.
-CREATE TABLE public.email_send_log(template_name text,metadata jsonb,status text);
+CREATE TABLE public.email_send_log(template_name text,metadata jsonb,status text,company_id uuid,message_id text,created_at timestamptz DEFAULT now());
 \ir ../../drizzle/migrations/0170_issue321_club_welcome_reservation.sql
 \ir ../../drizzle/migrations/0171_issue321_club_welcome_reserve_fix_site_table.sql
 \ir ../../drizzle/migrations/0169_issue321_crm_ingest_counters_on_success.sql
