@@ -22,14 +22,14 @@ Nota de ambiente: o sandbox novo não tinha o uid 65534 em /etc/passwd; acrescen
 
 ## Hashes
 - attempts.PENDENTE.sql d4c8029637361010c24d48801a0176181e7e5684706f3123436da0a04822b2e0
-- core: fonte PREPARED `patches/issue333/core.PENDENTE.sql` 9f8baeea0a19931c6b591aaf8f65d2429845bacd0c2a66004ef24b0501d8c3ef (correção 17/10 20:36 UTC: o hash 4eeff2df… citado antes é o BASE antigo `supabase/manual/20261017_issue333_core.PENDENTE.sql`, com normalização destrutiva — NÃO é fonte para Live)
+- core: fonte PREPARED v2 `patches/issue333/core.PENDENTE.sql` b60f9360599f3204ce64c0eebd46350c73f07051ae3365e1dc043c14a3c1248e, validada PG73 na prova21. Deriva do PREPARED 9f8baeea0a19931c6b591aaf8f65d2429845bacd0c2a66004ef24b0501d8c3ef, que NÃO tinha gate nas 4 escritas core (prova20). BASE 4eeff2df… permanece inerte, nunca fonte Live.
 - normalized_uniqueness.PROPOSTA.sql e6d85d294eefb9b764a2a1cb81469398f43e3c8cc7cf6900ead3acbe52cf39ab
-- compatibility.PENDENTE.patch ac459d3c0c270d26f7c627ce113e937e29667cf99876b794f73530a8b4e74961
-- base-sha256.txt (manifesto BASE/PREPARED, 14 destinos) d9013090497ef121946ffb6d68da83b03efd0e460b0fde1e14798ee673ac6c8f
+- compatibility.PENDENTE.patch eac7fe0daa345324cd757fb776f00fb1fb3ae1ced0c84dc6734d09d8aac1c51c
+- base-sha256.txt (manifesto BASE/PREPARED, 14 destinos) 93f5723e60006d1bd9fd983eae1766fec447370cb563c92c0e2434414aae530e
 
 ## Pacote para autorização futura (NÃO executado) — ordem
 1. Preflight read-only Live: HEAD=GitHub; corpos/grants atuais; zero grupos de conflito forte (agregado, sem PII); ausência dos objetos 333.
-2. Migração tracked 1: core.PENDENTE (sessões/prévias/recibos/commit, `data_entry_settings` sem linha).
+2. Migração tracked 1: CORE v2 congelado (sessões/prévias/recibos/commit, preparation_validated e execute_validated independentes, `data_entry_settings` sem linha e sem grants ao cliente/service). Autorizada a estrutura em17/10 17:31 Fortaleza; retoma depende da integração #329, não de nova escolha técnica.
 3. Migração tracked 2: attempts.PENDENTE (tabelas, settings sem linha, gate, chave forte, RPCs, triggers, list).
 4. Verificação: `has_function_privilege` (internal/gate: ninguém; browser/list: authenticated; ingest: service_role), tabelas fechadas, corpos repo×Live, zero linhas settings ⇒ todas as mutações 42501.
 5. Bucket `data-entry-staging` privado (ferramenta de storage) + políticas; prova alvo = matriz 17 repetida nesse bucket com execução ainda fechada.
