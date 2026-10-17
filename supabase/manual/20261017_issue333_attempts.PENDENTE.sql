@@ -162,7 +162,7 @@ BEGIN
  s:=public.data_entry_own_session(p.session_id,true);
  IF p_snapshot_hash IS DISTINCT FROM p.snapshot_hash THEN RAISE EXCEPTION '#333: Prévia divergente' USING ERRCODE='40001'; END IF;
  SELECT * INTO d FROM public.data_entry_documents WHERE id=p.document_id AND company_id=s.company_id;
- e:=jsonb_build_object('payload',(p.snapshot->'fields'-'customer_nif')||jsonb_build_object('file_name',d.name,'created_by',auth.uid()),
+ e:=jsonb_build_object('payload',((p.snapshot->'fields')-'customer_nif'::text)||jsonb_build_object('file_name',d.name,'created_by',auth.uid()),
   'document',jsonb_build_object('sha256',d.sha256,'size_bytes',d.size_bytes,'mime',d.mime),'effects',p.snapshot->'effects','preview_id',p.id,'snapshot_hash',p.snapshot_hash);
  h:=encode(extensions.digest(convert_to(e::text,'UTF8'),'sha256'),'hex');
  IF p_action='prepare' THEN RETURN public.standalone_attempt_internal_333('prepare',NULL,'assistant_create',e,NULL,NULL,false); END IF;
