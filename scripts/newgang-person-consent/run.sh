@@ -16,7 +16,7 @@ s=s[:s.index(needle)]+f'''
 "${{PSQL[@]}}" -f "$ROOT/scripts/newgang-person-consent/consent.sql" >>"$LOG" 2>&1
 "${{PSQL[@]}}" -f "$ROOT/scripts/newgang-person-consent/scenario.sql" >>"$LOG" 2>&1
 bash "$ROOT/scripts/newgang-person-consent/concurrency.sh" "${{PSQL[*]}}" "$OUT" >>"$LOG" 2>&1
-"${{PSQL[@]}}" -f "$CANON/05_egress.sql" >>"$LOG" 2>&1
+"${{PSQL[@]}}" -f "{out}/egress.sql" >>"$LOG" 2>&1
 "${{PSQL[@]}}" -tAc "SELECT json_agg(json_build_object('name',name,'ok',ok) ORDER BY n) FROM t.results WHERE phase='332'" > "$OUT/results.json"
 say "ASSERTS332: $("${{PSQL[@]}}" -tAc "SELECT count(*) FILTER(WHERE ok)||'/'||count(*) FROM t.results WHERE phase='332'")"
 say "REGRESSAO330: $("${{PSQL[@]}}" -tAc "SELECT count(*) FILTER(WHERE ok)||'/'||count(*) FROM t.results WHERE phase='330'")"
@@ -25,5 +25,8 @@ say "REGRESSAO330: $("${{PSQL[@]}}" -tAc "SELECT count(*) FILTER(WHERE ok)||'/'|
 real=(root/'drizzle/migrations/0175_issue322_consent_fix_apply.sql').read_text()
 a=real.index('CREATE FUNCTION public.marketing_consent_effective');b=real.index('CREATE OR REPLACE FUNCTION public.marketing_consent_receipt',a)
 (out/'effective.sql').write_text(real[a:b])
+egress=(root/'scripts/club-sql-it/05_egress.sql').read_text().replace("'vault','extensions','supabase_functions'","'vault','supabase_functions'")
+# Our extensions schema contains SQL-only crypto boundary stubs, not installed extensions.
+(out/'egress.sql').write_text(egress)
 PY
 bash "$OUT/runner.sh" "$OUT"
