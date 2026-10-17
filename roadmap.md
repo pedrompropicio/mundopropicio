@@ -12,6 +12,7 @@
 - [x] Auditar contratos/permissões e entregar plano técnico versionado com matriz de operações e dependências.
 - [x] Retoma 17:15: CI verify_jwt, guardas canónicas, validação estrita, handler injetável, UI real, PostgreSQL real 2 ligações.
 - [x] Correção 17:25: candidatos preservados, readback, conferência read-only, contexto UI/edições, comparação completa, proposta normalização e regressões locais; aguarda revisão independente.
+- [ ] Preparação autorizada 17:46: inventário de escritores, política forte sem remover separadores, compatibilidade inerte e PostgreSQL/handlers locais; nenhuma aplicação Live.
 - [ ] Aplicar DDL/bucket/deploy após revisão das provas (bloqueio: revisão do Pedro/0).
 - [ ] Implementar núcleo upload privado, conversa documental, prévia servidor, autorização e execução tipada idempotente apenas para adapters validados.
 - [ ] Ativação bloqueada: unicidade normalizada legada (proposta global não autorizada), storage/ACL real não provados; 27 PostgreSQL real/2 ligações + 20 handler fake aprovados. Sem efeitos Live.
