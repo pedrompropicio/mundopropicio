@@ -1,20 +1,19 @@
 # ESTADO — newgang-portal (portal newgangfestival.pt)
 
-Atualizado: 2026-10-16 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-ERP270, D-ERP271, D-ERP272, D-ERP273, D-ERP274, D-ERP275, D-ERP277
+Atualizado: 2026-10-17 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-ERP270, D-ERP271, D-ERP272, D-ERP273, D-ERP274, D-ERP275, D-ERP277
 
-## Em que pé está (13/10)
-- newgangfestival.pt publicado; `/teste` removido.
-- CRM `/crm/sites/newgang`: separador Geral com as 25 chaves de texto (contrato `text(site, key, fallback)` no site); 24 preenchidas em pt-PT (`ranking_prizes` vazio); og:image preenchida.
-- História (consulta de 13/10, 19:38 UTC): 2023 Lisboa 20 fotos + 1 vídeo; 2023 Porto 0 fotos + 1 vídeo (Summer Edition); 2024 Lisboa 20 fotos; 2025 Lisboa vazio; 2026 Lisboa 18 fotos + 1 vídeo. Upload de fotos no CRM corrigido (caminho `<company_id>/festival-editions/...`).
-- Clube: níveis Gang (0) · Crew (500) · Goat (1.500) com benefícios no CRM. A ação "site" devolve `club.levels` e `club.rules` (só configuração, sem totais).
-- `/meu-clube` sem sessão = montra do Clube, renderizada no servidor; com sessão guardada mostra "A carregar o teu Clube…" e depois o cartão do membro.
-- Desempenho: cache stale-while-revalidate no SSR do site (`site`/`history` 60 s, `lineup` público 15 s, com expiração forçada em `next_reveal.public_at`; nada com token entra na cache); Cache-Control nas rotas públicas e private/no-store em `/meu-clube` e `/clube/entrar`. Na `newgang-portal`, ação "site" com consultas em paralelo e `getSite()` em cache de 60 s por instância. TTFB medido em produção: 2–4,5 s → ~0,1 s (a 1.ª visita após arranque da instância continua lenta, ~4 s). Função: leituras públicas numa só ida à base, ação `bundle` e cron `newgang-portal-quente` (4 em 4 min) — D-ERP270; servidor ~0,16–0,25 s.
-- Regulamento do Clube (D-ERP271): gerido no CRM, publicado por versões; v1 em rascunho (ação `regulation` dá 404 até publicar). O site tem de mostrar o regulamento e enviar `raw.terms_version` na inscrição (trabalho no projeto do portal).
-- Missões de criativos fase 1 (D-ERP272): base, CRM (Missões + Fila de moderação) e API (`missions`, `mission_upload_url`, `submit_mission`, `profile`) prontos; 0 missões criadas. Falta o ecrã no site do portal. Fase 2 (Instagram Graph API) por fazer.
-- Correção (13/10, 23:11 UTC): `submit_mission` responde **401 `{error:"no_session"}`** sempre que a sessão falta ou não está confirmada — inclusive quando o `no_session` vem da RPC `club_mission_submit` (antes esse caso sairia como 400). Mesma regra das outras ações com token (`me`, `guess`, `attendance_claim`, `profile`, `mission_upload_url`). Mapeamento puro em `supabase/functions/newgang-portal/missions.ts` (`submitErrorStatus`) com teste.
-- Membros do Clube: 2 (0 confirmados); revelações: 0 (consulta de 13/10, 19:38 UTC).
+## Em que pé está
+- Portal newgangfestival.pt publicado; versão6fb61d2 confirmada pelo Pedro nesta sessão.
+- #327: configuração2027-v1 ativa confirmada porSELECT17/10: inscrição100, indicação75/cap750, Crew100, níveisGang0/Crew750/Goat3000, comprasindisponíveis; direitosadquiridospreservados.
+- #328: correções identidade/concorrência/pendênciaCrew aplicadas anteriormente; não alteradas nesta tarefa.
+- #330: profile-v1 ATIVADA por autorizaçãoespecíficaPedro. SELECT17/10 às01:20:03UTC: enabledtrue/50; site/bundleHTTP200 availabletrue/points50; countries249. Crédito apenasna confirmação explícita futura,1×adesão/site.
+- Ativação não criouperfil ou retrocrédito: snapshotsna mesma transação/site-lock preservaramledger27/2750/hash10ec45aea047074dfbda903436e7edf4, perfis0/créditos330zero. São números dessa execução, não contagens permanentes.
+- PostgreSQLlocal59/59, handlerreal9/9, CRM7/7 nesta sessão; CIbaselineb764d45bsuccess. SemE2EautenticadoLive nemPublish/deploy/códigoalterado nesta ativação.
+- WhatsAppadapter_pending; abaixo13 parental_flow_required, sempersistênciaparcial. Nenhumconsentimentoinventado oualteração#322/CAPI/portal-track.
+- Provasatuais: docs/testes/issue330/ativacao-profile-v1.md e.json; infraestrutura0179 e seed249 não reaplicados.
+- Cachepública e leiturasopcionaisperfil mantêm isolamento; dadosprivadossóme. Falhasopcionaisnão transformam401emfallback.
 
-## Atualização dos níveis e marcas (16/10/2026)
+## Histórico — atualização dos níveis e marcas (16/10/2026)
 - Rodapé -15% implementado no portal; Pedro informou Publish feito. NG/Fever 20,4 px, MP 28,9 px.
 - Live: Gang 0, Crew 500, Goat 1500, confirmado por SELECT e API pública action site HTTP200 depois do DML aprovado. IDs, limites e benefícios preservados por hash antes/depois.
 - Criativos Crew/Goat aprovados por Pedro, publicados 1032×336; HTTP200/SHA e visual verificados independentemente. Wallet aceita novos nomes e legados, flag true, função newgang-portal deployada pelo agente; commit c65036cdd4d3e35bd4702b119595f030544037c2. Sem Publish frontend nesta etapa; dados não dependem de novo Publish do portal.
@@ -23,7 +22,7 @@ Atualizado: 2026-10-16 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-E
 - Pedro determinou execução Lovable no próprio chat do Portal. Regra registada no QUADRO; consolidação em CHATS/DECISIONS/PROC aguarda reserva #323. Issue da demanda recusada por revisão automática.
 - Prova: docs/testes/newgang-niveis/01-wallet-crew-goat.md (Etapa 3). SQL PENDENTE já aplicado por ChatGPT: não reaplicar.
 
-## Plano de lançamento do Clube — segunda-feira 19/10/2026
+## Histórico — plano de lançamento do Clube — segunda-feira 19/10/2026
 - Plano e documentação aprovados pelo Pedro; retomar na próxima sessão, sem implementação agora. Issue principal #324; #325 convite/Crew/instruções móveis; #326 bateria com membros fictícios e isolamento/egress bloqueado; #327 pontuações, conquistas e automação gradual.
 - Prioridade: missões simples verificáveis, instruções por toque e histórico/progresso. Redes sociais, compras indicadas e desafios entram só após checagem real e bateria validada. Pontuações/novos critérios ainda provisórios; não aplicar nem bloquear níveis com divulgação indisponível.
 - Próximo passo: fechar valores/regras de transição e isolamento dos testes; depois Pedro designa executor e autoriza âmbito concreto. Só há Live; nenhum utilizador fictício criado, nenhum ponto alterado, nenhum envio/OAuth/Publish realizado por este plano.
@@ -43,7 +42,9 @@ Atualizado: 2026-10-16 · Decisões: D-ERP256, D-ERP257, D-ERP262, D-ERP269, D-E
 - Próximo passo: definir pontuações/transição e preparar verificação integrada isolada; não publicar esta etapa antes das verificações pendentes e decisão do Pedro.
 
 ## A trabalhar agora
-- #328: Pedro autorizou às13:07 Fortaleza preparar e testar as correções de inscrição concorrente, identidade por email e convite de Crew cheia. Executor ChatGPT · newgang-portal, agente ERP para backend local; sem aplicar SQL Live/deploy até apresentar prévia concreta. #322/#323 preservadas. Bónus por edição e novas pontuações #327 continuam decisão própria.
+- Nenhuma execução ativa #330: configuração ativada/verificada, reserva libertada. A confirmação real de perfil pelo membro não foi testada emLive nesta tarefa.
+- #332 audiênciasNewgang: pedido recebido noQUADRO, executor a designar; não assumido nem executado.
+
 Vídeos das edições por ficheiro (D-ERP277, 15/10): bucket, CRM e contrato `history` prontos; edge function newgang-portal e CRM por publicar; o site tem de tocar `provider:"upload"` (<video src=url poster=poster_url||cover_url>).
 
 Criativos Google Wallet aplicados: quatro originais carregados e verificados, URLs ativos, função deployada. Classe existente e cartão de teste nº 3 atualizados e lidos na Google; 12/12 testes Wallet e suite completa 1.127 passed, 1 skipped, 11 todo, sem falhas. Pendentes: confirmação visual no dispositivo e decisão sobre cores (LoyaltyObject não suporta cor por membro).

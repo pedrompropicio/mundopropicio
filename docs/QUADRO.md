@@ -28,7 +28,6 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 | #328 | ChatGPT · newgang-portal | agente Lovable portal dedicado | UI pendência Crew, API client e testes locais sobre contrato backend preparado; sem Live/deploy/Publish | 2026-10-16 16:07 UTC | 16:43 sincronização ERP8c22430 confirmada; pacote backend revisto, frontend autorizado, preservar #322/#323 |
 | #322 | 0 · Cowork (ChatGPT) | agente Lovable (ERP) | ERP: consentimento por interação (ledger marketing_consent_*), portal-track, capi_consent_proof/guardas, lead_capture/redirect_log/leads (colunas aditivas), docs; coordenação futura MP/Coala/Newgang (portais NÃO tocados nesta etapa) | 2026-10-16 01:12 | 2026-10-16 01:46 — ERP corrigido após verificação independente (0175 + portal-track), aguarda revisão; portais MP/Coala/Newgang pendentes |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
-| #330 | ChatGPT · newgang-portal | agente Lovable ERP | verificar guards/testes locais e ativar club_profile_configure profile-v1; provas/estado/linhas próprias QUADRO; sem portal/Publish/envios | 2026-10-17 01:18 UTC | autorização expressa Pedro; HEAD b764d45b confirmado; preservar #322/#323/#332 |
 
 ## 0 · Cowork (Claude)
 
@@ -125,6 +124,8 @@ _(sem pedidos — as falhas de teste vêm por Issue; os pedidos de verificação
 _(sem pedidos)_
 
 ## newgang-portal
+
+- [x] 17/10/2026 01:20 UTC — **#330 profile-v1 ativada** (ChatGPT, autorização específica Pedro): configuração50ON; SQL59/59, handler9/9, CRM7/7; site/bundle200 availabletrue/points50, países249, tokeninválido401. Transação/site-lock: ledger27/2750/hash10ec45aea047074dfbda903436e7edf4 preservado, perfis/créditos330zero. Provas docs/testes/issue330/ativacao-profile-v1.md/json. Sem código/deploy/Publish/envios; WhatsAppadapter_pending e parental<13bloqueado. SemE2EautenticadoLive. Reserva#330libertada; #322/#323/#332 preservadas.
 
 - [ ] de `coala-portal` para `newgang-portal` (17/10/2026): **Issue #332 — audiências Meta, TikTok e Google a partir dos cadastros do portal Newgang, no modelo do Coala EB27.** Referência pronta no Coala (17/10): público Meta P_EB27_LISTA (ID 52521842310116, 1.876 linhas) com sync diário em modo replace (cron `coala-eb27-audience-sync`, 04:30 UTC, linha `meta_custom_audiences` 6fe063a2…); pixel do site com eventos Lead, CompleteRegistration e ViewContent só com consentimento de marketing (portal Coala commit 315106c8); regra de recolha EB27 no ERP (commit 1f34284b). Executor: a designar pelo Pedro. Antes de assumir: confirmar que o pixel das campanhas Newgang alimenta o site próprio e não só a Fever; CAPI (#320) e consentimento por interacção (#322) não se tocam.
 
