@@ -24971,6 +24971,7 @@ export type Database = {
         }
         Returns: Json
       }
+      standalone_attempt_capability_333: { Args: never; Returns: Json }
       standalone_attempt_gate_333: {
         Args: { p_operation: string }
         Returns: boolean
