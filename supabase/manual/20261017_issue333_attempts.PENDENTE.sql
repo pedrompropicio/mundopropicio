@@ -61,7 +61,7 @@ BEGIN
   IF length(coalesce(payload->>'notes',''))>2000 OR length(coalesce(payload->>'file_name','')) NOT BETWEEN 1 AND 255 THEN RAISE EXCEPTION '#333: Texto inválido' USING ERRCODE='22023'; END IF;
   IF payload->>'invoice_date' IS NOT NULL AND (payload->>'invoice_date' !~ '^\d{4}-\d{2}-\d{2}$' OR to_char((payload->>'invoice_date')::date,'YYYY-MM-DD')<>payload->>'invoice_date') THEN RAISE EXCEPTION '#333: Data inválida' USING ERRCODE='22023'; END IF;
   IF NOT p_service AND p_operation<>'accountant_edit' AND payload->>'created_by' IS DISTINCT FROM u::text THEN RAISE EXCEPTION '#333: Autor inválido' USING ERRCODE='42501'; END IF;
-  IF (p_envelope->'document' - ARRAY['sha256','size_bytes','mime'])<>'{}'::jsonb OR jsonb_typeof(p_envelope->'document'->'sha256') IS DISTINCT FROM 'string' OR
+  IF ((p_envelope->'document') - ARRAY['sha256','size_bytes','mime'])<>'{}'::jsonb OR jsonb_typeof(p_envelope->'document'->'sha256') IS DISTINCT FROM 'string' OR
     coalesce(p_envelope->'document'->>'sha256','') !~ '^[a-f0-9]{64}$' OR
     jsonb_typeof(p_envelope->'document'->'size_bytes') IS DISTINCT FROM 'number' OR
     (p_envelope->'document'->>'size_bytes')::numeric NOT BETWEEN 1 AND 20971520 OR
