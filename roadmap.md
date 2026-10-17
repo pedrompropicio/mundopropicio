@@ -8,9 +8,9 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
-- [ ] Reparar memória/índice e testar suite completa; CI remota a conferir pelo controlador.
-- [ ] Corrigir família/retorno/incerteza/paginação/contexto e testar interações sem egress.
-- [ ] Retificar prova23 e entregar proposta de capacidade service-only, sem aplicação/deploy.
+- [x] Reparar memória/índice e testar suite completa1358 PASS/tsgo/build OK; CI remota a conferir pelo controlador.
+- [x] Corrigir família/retorno/incerteza/paginação/contexto e testar interações sem egress.
+- [x] Retificar prova23 e entregar proposta de capacidade service-only, sem aplicação/deploy.
 - [x] Corrigir config/CORS/SQL/documento/descoberta owner, consolidar provas integrais e prévia futura; apenas inerte/cópia isolada.
 - [x] Preparar protocolo persistente legado compatível com chaves incompletas, SQL manual/patch inerte e testes integrados locais; sem aplicação principal/Live.
 - [x] Validar patch completo em cópia isolada, corrigir artefactos inertes e entregar gates da próxima fase; integrados31/PG36/handler20/geral1334, tsgo/Deno/build OK; sem Live. Provas10–12.
@@ -21,8 +21,8 @@
 - [x] Preparação autorizada 17:46: inventário de escritores, política forte proposta, compatibilidade inerte, PostgreSQL36/compat26/handler20/regressões35/geral1334; nenhuma aplicação Live. Provas08/09; aguarda revisão.
 - [x] #333 corrigir/congelar CORE v2 e provar PG73/73; preparação/execução separadas; ATTEMPTS intacto.
 - [x] #333 COREv2/ATTEMPTS aplicados por registry oficial192/193, bucket privado20MiB; hashes/corpos/ACL/baselines e HTTP service conferidos. Prova22.
-- [ ] #333 certificação CORE authenticated/owner Live: bloqueada por ausência de mecanismo oficial de contexto SQL controlado; sem alterar papéis/criar Auth/abrir gates.
+- [x] #333 negativas authenticated/owner RPC etapa2 reportadas; não aceitação E2E/isolamento alheio; prova23 retificada.
 - [ ] Implementar núcleo upload privado, conversa documental, prévia servidor, autorização e execução tipada idempotente apenas para adapters validados.
-- [ ] Ativação/deploy/UI/índice global aguardam autorização própria; decisões A–D já aprovadas e estrutura técnica já autorizada. CI da nova entrega ainda por confirmar. Trava sessionStorage não prova exatamente-um global.
+- [ ] Ativação/piloto/índice global/Publish aguardam autorização própria; capacidade service-only apenas proposta inerte. CI remota/revisão independente pendentes do controlador. Trava sessionStorage não prova exatamente-um global.
 - [x] Documentar efeitos Live inexistentes e limitações; manter Issue/reserva abertas para verificação.
 - [ ] Gmail/Drive/OAuth, conciliação, bilheteiras e demais adapters: bloqueados até validação/configuração próprias; sem Publish.
