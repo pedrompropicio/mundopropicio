@@ -23,7 +23,7 @@ Atualizado: 17/10/2026 14:53 UTC. Frente: newgangfestival.pt.
 ### Cidades hoje (somente leitura)
 - Gráfico CRM lê clube_newgang_summary; tabela/CSV lê clube_newgang_list. Ambos usam club_city_display. Captura sem residence_country recebe fallback PT apenas para apresentação; não grava nem infere país no cadastro.
 - Summary agrupa por club_city_key (sem maiúsculas/acentos/espaços). lisboa/Lisboa → Lisboa20; Santarem/Santarém → Santarém2. Exato oficial é apresentado canónico; localidades/erros sem correspondência ficam livres, nunca aproximados a concelhos.
-- Consulta equivalente à definição Live (a invocação direta do RPC pela ferramenta read-only foi recusada por permissões): sem cidade40; Lisboa20; Seixal3; Almada/Santarém/Sintra2 cada; Barreiro/Caacais/cacem são marcos/Cascais/Castelo Branco/fazendas de almeirim/Lavradio/Montijo/Porto/Queluz/São Paulo/Sesimbra/Tomae/Torres Novas1 cada. Todas93 capturas sem país de residência.
+- Consulta equivalente à definição Live (a invocação direta do RPC pela ferramenta read-only foi recusada por permissões): sem cidade40; Lisboa20; Seixal3; Almada/Santarém/Sintra2 cada; Barreiro/Caacais/cacem são marcos/Cascais/Castelo Branco/fazendas de almeirim/Lavradio/Montijo/Porto/Queluz/São Paulo/Sesimbra/Tomae/Torres Novas1 cada. Todas83 capturas sem país de residência.
 - Top10 do gráfico termina em Cascais; Castelo Branco e fazendas de almeirim estão fora do top10 por ordenação, não excluídos. cacem são marcos e fazendas de almeirim não são convertidos em Sintra/Almeirim. Backfill não necessário para unir diferenças de caixa/acento no resumo e não autorizado para alterar histórico.
 
 ## Contrato final para o site
