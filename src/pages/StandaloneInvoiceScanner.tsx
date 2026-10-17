@@ -19,7 +19,8 @@ import { AccountantStandaloneInvoicesTab } from "@/pages/contabilidade/Accountan
 import { DocumentScanStep } from "@/components/DocumentScanStep";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt, listLegacyAttempts, type AttemptSummary } from "@/lib/standalone-attempt-client";
+import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt, attemptCapabilities, reviewMessage } from "@/lib/standalone-attempt-client";
+import { StandaloneAttemptsPanel } from "@/components/standalone/StandaloneAttemptsPanel";
 import type { Attempt } from "@shared/standalone-attempt";
 import { lookupStandalone, standaloneWriteError } from "@/lib/standalone-identity-lookup";
 import {
@@ -52,7 +53,7 @@ export default function StandaloneInvoiceScanner() {
   const [busy, setBusy] = useState<null | "convert" | "ocr" | "save">(null);
   const [saved, setSaved] = useState(false);
   const [attempt, setAttempt] = useState<Attempt | null>(null);
-  const [attemptOptions,setAttemptOptions]=useState<AttemptSummary[]>([]);
+  const [review, setReview] = useState<string | null>(null);
   const [resumeId, setResumeId] = useState("");
   const [resumeHash, setResumeHash] = useState("");
   const pendingKey = `standalone-create-pending:${user?.id ?? "none"}:${companyId ?? "none"}`;
@@ -316,14 +317,29 @@ export default function StandaloneInvoiceScanner() {
         notes: notes.trim() || null,
         created_by: user.id,
       };
-      const reserved = await prepareLegacyAttempt("scanner_create", payload, file, context);
+      const tracked = (await attemptCapabilities(context))["scanner_create"] === true;
       if (saveGeneration !== generation.current) return;
-      setAttempt(reserved);
-      setResumeId(reserved.id); setResumeHash(reserved.hash);
-      sessionStorage.setItem(pendingKey, JSON.stringify({ id: reserved.id, hash: reserved.hash }));
-      writeStarted = true;
-      const outcome = await executeLegacyAttempt("scanner_create", reserved, file, context);
-      if (outcome.status !== "conferido") throw new Error("Conferência pendente");
+      if (!tracked) {
+        // legacy_untracked: caminho anterior, sem tentativa persistente nem idempotência global.
+        const ext = (file.name.match(/\.[^.]+$/)?.[0] ?? ".jpg").toLowerCase();
+        const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+        sessionStorage.setItem(pendingKey, "legacy_untracked");
+        writeStarted = true;
+        const up = await uploadToCompanyBucket("standalone-invoices", path, file, { contentType: file.type || "application/octet-stream", upsert: false });
+        if (up.error) throw up.error;
+        const { error } = await (supabase as any).from("standalone_invoices").insert({ company_id: companyId, storage_path: up.path, ...payload, status: "new" });
+        if (error) throw error;
+      } else {
+        const reserved = await prepareLegacyAttempt("scanner_create", payload, file, context);
+        if (saveGeneration !== generation.current) return;
+        setAttempt(reserved);
+        setResumeId(reserved.id); setResumeHash(reserved.hash);
+        sessionStorage.setItem(pendingKey, JSON.stringify({ id: reserved.id, hash: reserved.hash }));
+        writeStarted = true;
+        if (reserved.state === "review") { setReview(reviewMessage((reserved as { review_reason?: string }).review_reason)); throw new Error("Suspenso para revisão"); }
+        const outcome = await executeLegacyAttempt("scanner_create", reserved, file, context);
+        if (outcome.status !== "conferido") throw new Error("Conferência pendente");
+      }
 
       if (saveGeneration !== generation.current) return;
       sessionStorage.removeItem(pendingKey);
@@ -341,7 +357,7 @@ export default function StandaloneInvoiceScanner() {
   };
 
   const generation = useRef(0);
-  useEffect(() => { generation.current += 1; setAttempt(null); setResumeId(""); setResumeHash(""); setAttemptOptions([]); setWritePending(false); reset(); }, [user?.id, companyId]);
+  useEffect(() => { generation.current += 1; setAttempt(null); setResumeId(""); setResumeHash(""); setReview(null); setWritePending(false); reset(); }, [user?.id, companyId]);
   const reconcile = async () => {
     if (!user || !companyId) return;
     const current = generation.current; setBusy("save");
@@ -376,8 +392,9 @@ export default function StandaloneInvoiceScanner() {
 
       {writePending && <Alert><AlertDescription>Resultado por confirmar. A captura está bloqueada; confere a lista antes de qualquer nova gravação.</AlertDescription></Alert>}
       <div className="space-y-2">
-        <Button variant="outline" onClick={async()=>{if(!user||!companyId)return;const gen=generation.current,ctx={user_id:user.id,company_id:companyId};const all:AttemptSummary[]=[];let after:string|null=null;try{do{const page=await listLegacyAttempts("scanner_create",ctx,after);if(gen!==generation.current)return;all.push(...page.items);after=page.next;}while(after);setAttemptOptions(all);}catch{if(gen===generation.current)toast({title:"Consulta indisponível"});}}}>Procurar tentativas</Button>
-        <select aria-label="Tentativa a consultar" value={resumeId} onChange={e=>{const selected=attemptOptions.find(a=>a.id===e.target.value);setAttempt(null);setResumeId(selected?.id??"");setResumeHash(selected?.hash??"");}}><option value="">Selecionar tentativa</option>{attemptOptions.map(a=><option key={a.id} value={a.id}>{a.name} — {a.reference??"Sem número"} — {a.state} — {a.created_at}</option>)}</select>
+        {review && <Alert><AlertDescription>{review}</AlertDescription></Alert>}
+        {user && companyId && <StandaloneAttemptsPanel key={`${user.id}:${companyId}`} operation="scanner_create" context={{ user_id: user.id, company_id: companyId }}
+          onSelect={(a) => { setAttempt(null); setResumeId(a?.id ?? ""); setResumeHash(a?.hash ?? ""); }} />}
         <Button variant="outline" onClick={reconcile} disabled={busy!==null || (!attempt && (!resumeId || !resumeHash))}>Consultar tentativa</Button>
       </div>
       <Tabs value={tab} onValueChange={setTab}>
