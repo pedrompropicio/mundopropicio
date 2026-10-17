@@ -40,7 +40,7 @@ SELECT t.cityck('capture metadata unchanged',(SELECT raw->>'other'='preserved' F
 INSERT INTO lead_capture(company_id,source,raw) VALUES('7c858982-6ccd-47ca-bd65-e0dd3eebf01c','other','{"city":"Caacais"}');
 SELECT t.cityck('non Club capture unaffected',(SELECT raw->>'city'='Caacais' FROM lead_capture WHERE source='other'));
 INSERT INTO lead_capture(company_id,source,raw) VALUES('7c858982-6ccd-47ca-bd65-e0dd3eebf01c','clube_newgang','{"city":"lisBOA"}');
-SELECT t.cityck('legacy compatible exact city without country',(SELECT raw->>'city'='Lisboa' FROM lead_capture WHERE raw->>'city'='Lisboa'));
+SELECT t.cityck('foreign city without country stays free',(SELECT raw->>'city'='Lisboa' FROM lead_capture WHERE raw->>'city'='Lisboa'));
 SELECT t.cityck('anon reference read not mutate',has_table_privilege('anon','portugal_municipalities','SELECT') AND NOT has_table_privilege('anon','portugal_municipalities','UPDATE') AND NOT has_table_privilege('service_role','portugal_municipalities','INSERT'));
 SELECT t.cityck('session RPC ACL retained',NOT has_function_privilege('anon','club_profile_confirm(uuid,text,jsonb)','EXECUTE') AND has_function_privilege('service_role','club_profile_confirm(uuid,text,jsonb)','EXECUTE'));
 
@@ -65,3 +65,18 @@ DO $$ BEGIN
  PERFORM t.cityck('scope transition cannot bypass city guard',true);
 END $$;
 SELECT t.cityck('points unchanged by city and backfill',(SELECT count(*)=0 FROM ((SELECT id,points,ref_id FROM club_points EXCEPT SELECT * FROM t.city_points) UNION ALL (SELECT * FROM t.city_points EXCEPT SELECT id,points,ref_id FROM club_points)) z));
+
+SELECT t.cityck('foreign no country no city normalizes empty',club_city_normalize(NULL,NULL) IS NULL);
+SELECT t.cityck('foreign named country empty city accepted',club_city_normalize('BR','') IS NULL);
+SELECT t.cityck('foreign arbitrary city without country free',club_city_normalize(NULL,'  metropolis   abroad ')= 'Metropolis Abroad');
+SELECT t.cityck('foreign profile absent city complete',(t.call(md5('profile@example.invalid'),(t.payload()-'city')||'{"residence_country":"BR"}')#>>'{profile,complete}')::boolean);
+SELECT t.cityck('foreign profile absent country and city complete',(t.call(md5('profile@example.invalid'),t.payload()-'city'-'residence_country')#>>'{profile,complete}')::boolean);
+SELECT t.cityck('foreign optional does not award again',(t.call(md5('profile@example.invalid'),t.payload()-'city'-'residence_country')->>'awarded')::int=0);
+SELECT t.reject(md5('profile@example.invalid'),t.payload()-'city','city_invalid');
+INSERT INTO lead_capture(company_id,source,raw) VALUES('7c858982-6ccd-47ca-bd65-e0dd3eebf01c','clube_newgang','{}'),('7c858982-6ccd-47ca-bd65-e0dd3eebf01c','clube_newgang','{"residence_country":"BR","city":""}');
+SELECT t.cityck('foreign captures absent country city preserved',EXISTS(SELECT 1 FROM lead_capture WHERE source='clube_newgang' AND raw='{}'::jsonb));
+DO $$ BEGIN
+ BEGIN INSERT INTO lead_capture(company_id,source,raw) VALUES('7c858982-6ccd-47ca-bd65-e0dd3eebf01c','clube_newgang','{"residence_country":"PT"}'); RAISE EXCEPTION 'accepted'; EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'city_invalid' THEN RAISE; END IF; END;
+ PERFORM t.cityck('PT capture city mandatory',true);
+END $$;
+SELECT t.call(md5('profile@example.invalid'),t.payload()||'{"city":"Lisboa"}');
