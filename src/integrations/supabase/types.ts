@@ -16760,6 +16760,137 @@ export type Database = {
         }
         Relationships: []
       }
+      standalone_attempt_audit_333: {
+        Row: {
+          attempt_id: string
+          company_id: string
+          completed_at: string
+          envelope_hash: string
+          principal: string
+          result: Json
+        }
+        Insert: {
+          attempt_id: string
+          company_id: string
+          completed_at?: string
+          envelope_hash: string
+          principal: string
+          result: Json
+        }
+        Update: {
+          attempt_id?: string
+          company_id?: string
+          completed_at?: string
+          envelope_hash?: string
+          principal?: string
+          result?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "standalone_attempt_audit_333_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: true
+            referencedRelation: "standalone_attempts_333"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      standalone_attempt_settings_333: {
+        Row: {
+          enabled: boolean
+          operation: string
+          reviewed_note: string | null
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          operation: string
+          reviewed_note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          operation?: string
+          reviewed_note?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      standalone_attempts_333: {
+        Row: {
+          company_id: string
+          completed_at: string | null
+          created_at: string
+          destination_id: string
+          envelope: Json
+          envelope_hash: string
+          id: string
+          intent_confirmation_hash: string | null
+          intent_confirmed_at: string | null
+          intent_seq: number
+          operation: string
+          original_result: Json | null
+          path: string
+          principal: string
+          prior_attempt_id: string | null
+          review_reason: string | null
+          state: string
+        }
+        Insert: {
+          company_id: string
+          completed_at?: string | null
+          created_at?: string
+          destination_id: string
+          envelope: Json
+          envelope_hash: string
+          id?: string
+          intent_confirmation_hash?: string | null
+          intent_confirmed_at?: string | null
+          intent_seq?: number
+          operation: string
+          original_result?: Json | null
+          path: string
+          principal: string
+          prior_attempt_id?: string | null
+          review_reason?: string | null
+          state?: string
+        }
+        Update: {
+          company_id?: string
+          completed_at?: string | null
+          created_at?: string
+          destination_id?: string
+          envelope?: Json
+          envelope_hash?: string
+          id?: string
+          intent_confirmation_hash?: string | null
+          intent_confirmed_at?: string | null
+          intent_seq?: number
+          operation?: string
+          original_result?: Json | null
+          path?: string
+          principal?: string
+          prior_attempt_id?: string | null
+          review_reason?: string | null
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "standalone_attempts_333_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "standalone_attempts_333_prior_attempt_id_fkey"
+            columns: ["prior_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "standalone_attempts_333"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       standalone_invoices: {
         Row: {
           company_id: string
@@ -23495,6 +23626,10 @@ export type Database = {
         }
         Returns: Json
       }
+      data_entry_attempt_333: {
+        Args: { p_action: string; p_preview: string; p_snapshot_hash: string }
+        Returns: Json
+      }
       data_entry_commit: {
         Args: { p_preview: string; p_snapshot_hash: string }
         Returns: Json
@@ -24826,6 +24961,47 @@ export type Database = {
         Args: { p_changed_by: string; p_lines: Json; p_transaction_id: string }
         Returns: string
       }
+      standalone_attempt_333: {
+        Args: {
+          p_action: string
+          p_envelope: Json
+          p_hash: string
+          p_id: string
+          p_operation: string
+        }
+        Returns: Json
+      }
+      standalone_attempt_gate_333: {
+        Args: { p_operation: string }
+        Returns: boolean
+      }
+      standalone_attempt_internal_333: {
+        Args: {
+          p_action: string
+          p_company: string
+          p_envelope: Json
+          p_hash: string
+          p_id: string
+          p_operation: string
+          p_service: boolean
+        }
+        Returns: Json
+      }
+      standalone_attempt_list_333: {
+        Args: { p_after?: string; p_operation: string }
+        Returns: Json
+      }
+      standalone_ingest_attempt_333: {
+        Args: {
+          p_action: string
+          p_company: string
+          p_envelope: Json
+          p_hash: string
+          p_id: string
+        }
+        Returns: Json
+      }
+      standalone_strong_key_333: { Args: { p: string }; Returns: string }
       storage_path_belongs_to_current_company: {
         Args: { _name: string }
         Returns: boolean

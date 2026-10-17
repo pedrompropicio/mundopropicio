@@ -1338,6 +1338,13 @@
       "when": 1792271326019,
       "tag": "0190_issue333_core_v2_closed_structure",
       "breakpoints": true
+    },
+    {
+      "idx": 191,
+      "version": "7",
+      "when": 1792271412790,
+      "tag": "0191_issue333_attempts_closed_structure",
+      "breakpoints": true
     }
   ]
 }
