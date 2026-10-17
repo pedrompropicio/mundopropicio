@@ -25,8 +25,6 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #332 cidade | newgang-portal | agente Lovable ERP, autorizado por Pedro | Reparação0188aplicada308/278+19+11assinaturaCAOPigual;provaLiveRPCpaís/cidadepassou | 2026-10-17 12:31 | 2026-10-17 14:48 — aguardaSimbackfill/limpeza;semfecho,reserva mantida;#323intacta;UIportalnãoverificada |
-| #332 lista | newgang-portal | agente Lovable ERP, autorizado por Pedro | Coletor0189aplicado;deployportal+sync;provaLivegrant/revoke/descadastro/legadopassou;semMeta manual | 2026-10-17 12:41 | 2026-10-17 14:48 — lista/cron2499intocados;teste revogado/suprimido;aguardaSimlimpeza;reserva mantida |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)
@@ -171,3 +169,5 @@ _(sem pedidos)_
 
 ### fecho-anitta-2026 · bp-coala-2027 · bp-ghanem-2027 · bp-newgang-2027
 _(sem pedidos)_
+
+- [x] 17/10/2026 14:53 UTC — #332 cidade/lista: 0186–0189 aplicadas e correções CAOP verificadas, coletor estrito/deploys/prova Live concluídos. Corro2 limpeza executado: zero nas19 tabelas; membros64→63 (reais63 intactos), pontos58/5250 antes=depois. Backfill NÃO autorizado/NÃO executado. Cidades agrupadas por caixa/acento inclusive sem país na apresentação; localidades desconhecidas preservadas. Reservas cidade/lista libertadas; #323 intacta. Estado reescrito; prova claude-outputs/20261017-1453-issue332-limpeza-leituras.md.

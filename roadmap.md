@@ -1,19 +1,8 @@
 # #332 — cidade/lista
-- [x] Reparação0188 aplicada:308/278+19+11,assinaturaCAOPc2173f4ab7f8f5a55e60b40cd24e414e igual fixture;texto1471byteshash59a3f900…9d2f,migração ferramenta acrescentou1LF sem outra diferença.
-- [x] Coletor0189 aplicado igual SQL original+1LF;deploy somente newgang-portal ecrm-meta-audience-sync.
-- [x] ProvaLiveRPC membroteste:país/cidade,50uma vez,estrangeirosemcidade,legadoexcluído,grantincluídoemail-only,revoke/descadastroexcluídos. Primeiro teste única transação rollback(statement_timestamp);repetido pedidos separados passou. Interface portal separada NÃO verificada.
-- [ ] Backfill e limpeza dependem de doisSim separados;SQL preparado paraPedro;reservas/fecho mantidos.
-- [x] Bloqueioenvio sessão3 superado porA dePedro14:42;aplicação/prova acima.
-- [ ] Sessão2 14:38:34UTC: gate único remoto b6a37939d22d666d567ff159ea59f3e19ddcfb7f;1439ficheiros iguais,zero divergências; CI e quality ainda sem conclusion. PARADO sem espera e sem escritaLive/deploy/prova. Retomar próxima sessão com gate; reservas mantidas.
-- [x] Cidade: CAOP308, normalização/cities/CRM, backfill inerte, SQL32/32+handler2/2+unit4/4.
-- [x] Lista: reserva separada, coletor estrito/phoneNULL/email-only, SQL32/32 com concorrência e legados; regressões e1285Vitest.
-- [x] Provas/estado/questões/relatório; sincronização consultada, GitHub ancestral mas confirmação final pendente.
-- [x] Correção local autorizada13:31: país obrigatório/só cidade estrangeira opcional; SQL/testes/docs corrigidos,308CAOPzero diferenças local;41/41+61/61+3/3+4/4+1287Vitest.
-- [x] Gate inicial Fase B: cd9b4faa Lovable=remoto; CI/quality success13:02UTC. SELECT elegibilidade12:59:42:63membros/3emails.
-- [x] Gate por conteúdo aprovado14:14: remoto0cff4790;1436 ficheiros byte a byte iguais, diff vazio, CI/quality success.
-- [x] Aplicada0187: país obrigatório e cinco nomes pedidos corrigidos.
-- [x] Reparar três nomes0188 evalidarCAOP.
-- [x] Aplicarcoletor0189/deploy2funções.
-- [x] ProvaLiveRPCsemMeta manual;doisSQLapresentados.
-- [ ] Fecho documental/reservas após aplicação/prova/limpeza; #323 preservada.
-- [x] Pré-verificação inicial HEAD063db408 igual GitHub; workflowCI/quality success para esse SHA.
+- [x] 0186–0189 aplicadas; CAOP308/278+19+11 sem divergências.
+- [x] Coletor estrito e deploy apenas newgang-portal + crm-meta-audience-sync; sem Meta manual.
+- [x] Prova Live RPC de perfil/consentimento/descadastro.
+- [x] Corro2 autorizado: limpeza SQL exato, zero19tabelas; pontos reais58/5250 preservados.
+- [x] Leitura cidades: variantes unidas sem backfill; localidades desconhecidas livres.
+- [x] Fecho estado/QUADRO e libertação reservas; #323 preservada.
+- [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
