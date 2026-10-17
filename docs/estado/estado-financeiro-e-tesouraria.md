@@ -41,7 +41,7 @@ Atualizado: 09/10/2026 (ritual de fecho da frente; inclui o trabalho do chat fin
 
 ## A trabalhar agora
 
-- **#333 — reparação etapa2, 17/10/2026: operações desligadas; código/UI sob revisão, não aceitação completa.** Memória/índice, intenções/paginação/contexto corrigidos localmente;1359 PASS, tsgo/build OK em cópia sem credenciais; CI remota aguarda controlador. Prova23 retificada: baseline agregado não certifica igualdade financeira por conteúdo. Nenhuma operação Live/deploy/DDL nesta reparação; #323 preservada; Issue/reserva abertas. Prova24 em `docs/testes/issue333/24-reparacao-etapa2-ci-ui-provas.md`.
+- **#333 — leitor seguro aplicado, 17/10/2026: operações desligadas; não aceitação completa.** CI da reparação39073230691 success confirmado independentemente pelo controlador. Nova0192/registry194, SQL exata, leitor service-only; deploy só standalone-attempt-333, versão7 observada; service false/false, recusas anon e CORS intactos.1368 testes PASS; build automático OK. Baselines financeiros por conteúdo separados de roles e componentes técnicos iguais antes/depois; sem faturas/efeitos financeiros/fixtures/ativação/Publish. Endpoint autenticado e aceitação seguinte pendentes; #323 preservada; Issue/reserva abertas. Prova26 em `docs/testes/issue333/26-leitor-capacidades-aplicado.md`.
 
 ## Em aberto, por decisão do Pedro
 
