@@ -168,11 +168,12 @@ export default function DataEntryDialog({ open, onOpenChange, adapter = edgeData
       <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle>Assistente de Entrada de Dados</DialogTitle>
-          <DialogDescription className="flex flex-wrap gap-1.5 pt-1">
+          <DialogDescription>Documento → dados confirmados → prévia → autorização expressa → conferência.</DialogDescription>
+          <div className="flex flex-wrap gap-1.5 pt-1">
             <Badge variant="outline">Empresa: {state?.company.name ?? "—"}</Badge>
             <Badge variant="outline">Evento: {state?.event?.name ?? "nenhum"}</Badge>
             <Badge variant={unavailable ? "destructive" : "secondary"}>Estado: {stateLabel}</Badge>
-          </DialogDescription>
+          </div>
         </DialogHeader>
         {unavailable ? (
           <div className="space-y-3 text-sm">
