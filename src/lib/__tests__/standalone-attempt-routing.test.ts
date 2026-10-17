@@ -1,21 +1,20 @@
-import { describe, it, expect, vi } from "vitest";
-vi.mock("@/integrations/supabase/client", () => ({ supabase: {
-  auth: { getSession: async () => ({ data: { session: { access_token: "t", user: { id: "u1" } } } }) },
-  rpc: async () => ({ data: { company_id: "c1" }, error: null }),
-  functions: { invoke: vi.fn(async () => ({ data: null, error: new Error("offline") })) },
-} }));
-import { attemptCapabilities, canConfirmNewIntent } from "@/lib/standalone-attempt-client";
-
-describe("#333 routing", () => {
-  it("falha/ausência do endpoint mantém ramo legacy (capacidade fechada)", async () => {
-    expect(await attemptCapabilities({ user_id: "u1", company_id: "c1" })).toEqual({ scanner_create: false, accountant_edit: false });
-  });
-  it("contexto divergente nunca abre capacidade", async () => {
-    expect(await attemptCapabilities({ user_id: "outro", company_id: "c1" })).toEqual({ scanner_create: false, accountant_edit: false });
-  });
-  it("nova intenção só para tentativa concluída e mais recente", () => {
-    expect(canConfirmNewIntent({ state: "completed" }, true)).toBe(true);
-    expect(canConfirmNewIntent({ state: "completed" }, false)).toBe(false);
-    for (const s of ["prepare", "authorized", "inprogress", "review"]) expect(canConfirmNewIntent({ state: s }, true)).toBe(false);
-  });
+import { beforeEach, describe, it, expect, vi } from 'vitest';
+const mocks=vi.hoisted(()=>({user:'u1',company:'c1',session:vi.fn(),rpc:vi.fn(),invoke:vi.fn()}));
+vi.mock('@/integrations/supabase/client',()=>({supabase:{auth:{getSession:mocks.session},rpc:mocks.rpc,functions:{invoke:mocks.invoke}}}));
+import { attemptCapabilities, canConfirmNewIntent, confirmNewIntent, latestInFamily, resolveAttemptRoute } from '@/lib/standalone-attempt-client';
+const context={user_id:'u1',company_id:'c1'};
+const a={id:'old',hash:'a'.repeat(64),intent_seq:1,state:'completed',name:'fixture.pdf',reference:'FT1',created_at:'2026-10-17'};
+beforeEach(()=>{vi.clearAllMocks();mocks.user='u1';mocks.company='c1';mocks.session.mockImplementation(async()=>({data:{session:{access_token:'mock-only',user:{id:mocks.user}}}}));mocks.rpc.mockImplementation(async()=>({data:{company_id:mocks.company},error:null}));mocks.invoke.mockResolvedValue({data:null,error:new Error('offline')});});
+describe('#333 routing',()=>{
+ it('offline capability retains legacy only for valid canonical context',async()=>{expect(await attemptCapabilities(context)).toEqual({scanner_create:false,accountant_edit:false});expect(await resolveAttemptRoute('scanner_create',context,false,()=>true)).toBe('legacy_untracked');});
+ it('divergent context throws instead of authorizing legacy writer',async()=>{await expect(attemptCapabilities({...context,user_id:'outro'})).rejects.toThrow('Contexto alterado');});
+ it('reserved attempt never consults capabilities or falls back',async()=>{await expect(resolveAttemptRoute('scanner_create',context,true,()=>true)).rejects.toThrow('reservada');expect(mocks.invoke).not.toHaveBeenCalled();});
+ it('company changed during capability await rejects stale result',async()=>{mocks.invoke.mockImplementation(async()=>{mocks.company='c2';return {data:{capabilities:{scanner_create:false}},error:null};});await expect(resolveAttemptRoute('scanner_create',context,false,()=>true)).rejects.toThrow('Contexto alterado');});
+ it('auth changed during capability await rejects stale result',async()=>{mocks.invoke.mockImplementation(async()=>{mocks.user='u2';return {data:{capabilities:{scanner_create:false}},error:null};});await expect(resolveAttemptRoute('scanner_create',context,false,()=>true)).rejects.toThrow('Contexto alterado');});
+ it('selection/context generation changed during await cannot choose legacy',async()=>{let current=true;mocks.invoke.mockImplementation(async()=>{current=false;return {data:{capabilities:{scanner_create:false}},error:null};});await expect(resolveAttemptRoute('accountant_edit',context,false,()=>current)).rejects.toThrow('Contexto alterado');});
+ it('confirmed response must link new id and same envelope/sequence to old attempt',async()=>{const returned={id:'new',hash:a.hash,intent_seq:2,state:'prepare',prior_attempt_id:a.id};mocks.invoke.mockResolvedValue({data:returned,error:null});expect(await confirmNewIntent(a,context)).toEqual({...a,...returned});expect(mocks.invoke).toHaveBeenCalledWith('standalone-attempt-333',expect.objectContaining({body:{action:'confirm_new_intent',operation:'scanner_create',id:'old',hash:a.hash,confirm:true}}));});
+ it('mismatched returned envelope never declares confirmation',async()=>{mocks.invoke.mockResolvedValue({data:{id:'new',hash:'b'.repeat(64),intent_seq:2,state:'prepare',prior_attempt_id:a.id},error:null});await expect(confirmNewIntent(a,context)).rejects.toThrow('Intenção por confirmar');});
+ it('lost confirmation response is uncertain; no automatic resend',async()=>{await expect(confirmNewIntent(a,context)).rejects.toThrow('Resultado por confirmar');expect(mocks.invoke).toHaveBeenCalledTimes(1);});
+ it('latest is per family/sequence and requires complete pages',()=>{expect(latestInFamily(a,[a,{...a,id:'other',hash:'other',intent_seq:5}],true)).toBe(true);expect(latestInFamily(a,[a,{...a,id:'new',intent_seq:2}],true)).toBe(false);expect(latestInFamily(a,[a],false)).toBe(false);});
+ it('only completed latest attempt can confirm',()=>{expect(canConfirmNewIntent({state:'completed'},true)).toBe(true);expect(canConfirmNewIntent({state:'completed'},false)).toBe(false);for(const s of ['prepare','authorized','inprogress','review'])expect(canConfirmNewIntent({state:s},true)).toBe(false);});
 });
