@@ -25,7 +25,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Leitor de capacidades aplicado/implantado + testes autenticados/isolamento Live 37/37 PASS; aceitação ponta-a-ponta pendente; sem ativação/Publish; #323 excluída | 2026-10-17 16:26 | 2026-10-17 — Base7d61108; 4 contas fictícias (.invalid, banidas no fim) + 1 sessão técnica; capabilities false/false, forjados 409, anon 401, RPCs/gates 42501, owner read-only OK, isolamento empresa/owner/papel confirmado, storage sem visibilidade; baselines financeiros/ACL/storage iguais; provas28/29; Issue/reserva abertas |
+| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Ensaio completo isolado dos destinos integrados: UI/clientes/handlers/SQL0190–0192/bytes locais; concorrência e recuperação; sem acesso Live/deploy/Publish; #323 excluída | 2026-10-17 16:26 | 2026-10-17 23:29 UTC — HEAD a3d3689352790e5684a417d8c1eedeb684c1429f recebido igual à base do controlador; CI39078373274 success confirmado pelo controlador; executor único sem subagentes; operações Live mantidas desligadas; Issue/reserva abertas |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)

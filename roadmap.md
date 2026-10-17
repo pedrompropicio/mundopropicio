@@ -8,6 +8,7 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
+- [ ] Ensaio autorizado23:29: destinos integrados do HEAD em cópia sem credenciais, SQL0190–0192 exatas, PostgreSQL/bytes reais e fronteiras externas locais; concorrência/recuperação/UI e prova de limites, sem Live.
 - [x] Validar SQL exata do leitor em PostgreSQL descartável real;0192 aplicada oficialmente/registry194/hash exato.
 - [x] Integrar/testar leitor service-only; deploy só standalone-attempt-333, versão7 observada, gates fechados.
 - [x] Conferir registry/corpo/ACL/baselines separados/negativas Live e entregar prova26/27, estado e pendências.
