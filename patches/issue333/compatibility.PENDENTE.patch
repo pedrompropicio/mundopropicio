@@ -310,18 +310,21 @@
  import { signedCompanyUrl, downloadFromCompanyBucket, removeFromCompanyBucket } from "@/lib/storage";
  import { calculateStandaloneEur, isStandaloneInvoiceDuplicateError, parseStandaloneAmount, STANDALONE_INVOICE_CURRENCIES, validateStandaloneMonetaryFields, type StandaloneInvoiceCurrency } from "@/lib/standalone-invoices";
  
-+import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt } from "@/lib/standalone-attempt-client";
++import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt } from "@/lib/standalone-attempt-client";
 +import type { Attempt } from "@shared/standalone-attempt";
 +import { lookupStandalone, standaloneWriteError } from "@/lib/standalone-identity-lookup";
 +
  interface Row {
    id: string;
    storage_path: string;
-@@ -71,12 +75,17 @@
+@@ -71,12 +75,20 @@
    const [editing, setEditing] = useState<Row | null>(null);
    const [form, setForm] = useState({ supplier_name: "", supplier_nif: "", invoice_number: "", invoice_date: "", currency: "EUR" as StandaloneInvoiceCurrency, original_amount: "", fx_rate: "", fx_rate_source: "", paid_by_partner_id: "none", total_amount: "", iva_amount: "", notes: "" });
  
 +  const [attempt, setAttempt] = useState<Attempt | null>(null);
++  const [resumeId,setResumeId]=useState("");
++  const [resumeHash,setResumeHash]=useState("");
++  const attemptGeneration=useRef(0);
 +  const pendingKey = `standalone-edit-pending:${user?.id ?? "none"}:${companyId ?? "none"}:${editing?.id ?? "none"}`;
 +  const [writePending, setWritePending] = useState(false);
    const canProcess = isAdmin || isAccountant;
@@ -335,7 +338,7 @@
      setEditing(r);
      setForm({
        supplier_name: r.supplier_name ?? "",
-@@ -96,19 +105,19 @@
+@@ -96,19 +108,19 @@
  
    const saveEdit = useMutation({
      mutationFn: async () => {
@@ -363,7 +366,7 @@
            supplier_name: form.supplier_name.trim() || null,
            supplier_nif: form.supplier_nif.trim() || null,
            invoice_number: form.invoice_number.trim() || null,
-@@ -121,17 +130,21 @@
+@@ -121,17 +133,23 @@
            total_amount: parseStandaloneAmount(form.total_amount),
            iva_amount: parseStandaloneAmount(form.iva_amount),
            notes: form.notes.trim() || null,
@@ -373,8 +376,10 @@
 +      };
 +      const context={user_id:user.id,company_id:companyId};
 +      const reserved=await prepareLegacyAttempt("accountant_edit",payload,file,context,editing as unknown as Record<string,unknown>);
-+      setAttempt(reserved); sessionStorage.setItem(pendingKey,JSON.stringify({id:reserved.id,hash:reserved.hash}));
++      if(writeGeneration!==attemptGeneration.current)return;
++      setAttempt(reserved);setResumeId(reserved.id);setResumeHash(reserved.hash); sessionStorage.setItem(pendingKey,JSON.stringify({id:reserved.id,hash:reserved.hash}));
 +      const result=await executeLegacyAttempt("accountant_edit",reserved,file,context);
++      if(writeGeneration!==attemptGeneration.current)return;
 +      if(result.status!=="conferido")throw new Error("Conferência pendente");
      },
      onSuccess: () => {
@@ -389,17 +394,21 @@
    });
  
    /**
-@@ -520,9 +533,16 @@
+@@ -520,9 +538,20 @@
                <Input id="ed-notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
              </div>
            </div>
 +          {writePending && <AlertTriangle aria-label="Conferência pendente" />}
-+          {attempt && <Button variant="outline" onClick={async()=>{
++          <Input aria-label="ID da tentativa de edição" value={resumeId} onChange={e=>setResumeId(e.target.value)} />
++          <Input aria-label="Hash da tentativa de edição" value={resumeHash} onChange={e=>setResumeHash(e.target.value)} />
++          <Button variant="outline" disabled={!attempt&&(!resumeId||!resumeHash)} onClick={async()=>{
 +            if(!user || !companyId)return;
-+            const out=await checkLegacyAttempt("accountant_edit",attempt,{user_id:user.id,company_id:companyId}).catch(()=>null);
++            const gen=attemptGeneration.current,ctx={user_id:user.id,company_id:companyId};
++            const out=await (attempt?checkLegacyAttempt("accountant_edit",attempt,ctx):resumeLegacyAttempt("accountant_edit",resumeId,resumeHash,ctx)).catch(()=>null);
++            if(gen!==attemptGeneration.current)return;
 +            if(out?.status==="conferido"){setWritePending(false);setEditing(null);qc.invalidateQueries({queryKey:["standalone-invoices"]});}
 +            else toast({title:"Conferência pendente"});
-+          }}>Consultar tentativa</Button>}
++          }}>Consultar tentativa</Button>
            <DialogFooter>
              <Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
 -            <Button onClick={() => saveEdit.mutate()} disabled={saveEdit.isPending}>
