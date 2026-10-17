@@ -1,6 +1,8 @@
 # ESTADO — newgang-portal
 
-Atualizado: 17/10/2026 14:38 UTC. Frente: newgangfestival.pt.
+Atualizado: 17/10/2026 sessão3. Frente: newgangfestival.pt.
+
+Sessão3: gate VERDE14:40:58UTC,remoto472fdccdc2cb5dec36be51ed66f8a6d32f6aed4e,CI/quality success de b6a37939d22d666d567ff159ea59f3e19ddcfb7f;1439ficheiros iguais e diff aplicável entre commits vazio. Bloqueio de execução: ferramenta de migração só aceita query textual,não tem parâmetro ficheiro;CLI disponível só diagnóstico,sem migração programática. Não enviadoSQL para cumprir regra sem retranscrição. Hash ficheiro reparação59a3f900c48c53fec17cd223043146f425c382e02c5a2e61bc54b16663129d2f;1471bytes. Nenhuma escritaLive/coletor/deploy/prova/backfill/limpeza/Meta manual. Reservas mantidas,sem fecho.
 
 Sessão2: gate único por conteúdo às14:38:34UTC, remoto b6a37939d22d666d567ff159ea59f3e19ddcfb7f;1439ficheiros comparados,zero divergências/ficheiros não rastreados. CI e quality sem conclusion (null), portanto gate NÃO verde. Parado imediatamente,sem esperar. Nenhuma escritaLive,coletor,deploy,prova,backfill,limpeza ou Meta manual nesta sessão. Regra14:37 de Pedro substitui espera: próxima sessão começa pelo gate. Reservas mantidas,sem fecho.
 
