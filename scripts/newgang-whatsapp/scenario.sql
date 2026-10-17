@@ -7,7 +7,7 @@ CREATE FUNCTION t.prefw(j jsonb) RETURNS jsonb LANGUAGE sql AS $$ SELECT club_pr
  CASE WHEN j ? 'expected_dates' OR (j->>'granted')::boolean=false THEN j
  ELSE j||jsonb_build_object('expected_dates',jsonb_build_object('whatsapp',club_consent_state('33333333-0000-4000-8000-000000000001','fixture-session')#>'{whatsapp,date}')) END) $$;
 CREATE FUNCTION t.rejectw(j jsonb,e text) RETURNS void LANGUAGE plpgsql AS $$ BEGIN
- BEGIN PERFORM t.pref(j); RAISE EXCEPTION 'invalid_accepted'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>e THEN RAISE; END IF; END;
+ BEGIN PERFORM CASE WHEN j->>'channel'='whatsapp' THEN t.prefw(j) ELSE t.pref(j) END; RAISE EXCEPTION 'invalid_accepted'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>e THEN RAISE; END IF; END;
  PERFORM t.ckw(e,true); END $$;
 
 -- 1. estado inicial desconhecido, sem número
@@ -17,13 +17,13 @@ SELECT t.rejectw('{"channel":"whatsapp","version":"whatsapp-v1","granted":true,"
 SELECT t.ckw('no row after no_phone',(SELECT count(*)=0 FROM club_member_whatsapp_consents));
 -- 3. guardar telefone válido no perfil e conceder
 UPDATE club_members SET phone='+351912345678' WHERE id='33333333-0000-4000-8000-000000000002';
-SELECT t.pref('{"channel":"whatsapp","version":"whatsapp-v1","granted":true,"idempotency_key":"33333333-0000-4000-8000-000000000021"}');
+SELECT t.prefw('{"channel":"whatsapp","version":"whatsapp-v1","granted":true,"idempotency_key":"33333333-0000-4000-8000-000000000021"}');
 SELECT t.ckw('granted with phone',t.consent()#>>'{whatsapp,state}'='granted' AND (t.consent()#>'{whatsapp,valid_for_current_number}')::boolean=true);
 SELECT t.ckw('version stored',t.consent()#>>'{whatsapp,version}'='whatsapp-v1');
 SELECT t.ckw('masked only',t.consent()#>>'{whatsapp,number_masked}'='+351•••••678' AND t.consent()::text NOT LIKE '%912345678%');
 SELECT t.ckw('fingerprint not plaintext',(SELECT phone_fp<>'+351912345678' AND length(phone_fp)=64 FROM club_member_whatsapp_consents));
 -- 4. retry mesmo UUID não duplica
-SELECT t.pref('{"channel":"whatsapp","version":"whatsapp-v1","granted":true,"idempotency_key":"33333333-0000-4000-8000-000000000021"}');
+SELECT t.prefw('{"channel":"whatsapp","version":"whatsapp-v1","granted":true,"idempotency_key":"33333333-0000-4000-8000-000000000021"}');
 SELECT t.ckw('retry once',(SELECT count(*)=1 FROM club_member_whatsapp_consents));
 -- 5. mesmo UUID com decisão diferente -> conflito
 SELECT t.rejectw('{"channel":"whatsapp","version":"whatsapp-v1","granted":false,"idempotency_key":"33333333-0000-4000-8000-000000000021"}','idempotency_conflict');
@@ -31,14 +31,14 @@ SELECT t.rejectw('{"channel":"whatsapp","version":"whatsapp-v1","granted":false,
 UPDATE club_members SET phone='+351900000999' WHERE id='33333333-0000-4000-8000-000000000002';
 SELECT t.ckw('number change invalidates',t.consent()#>>'{whatsapp,state}'='granted' AND (t.consent()#>'{whatsapp,valid_for_current_number}')::boolean=false);
 -- 7. nova autorização no número novo revalida
-SELECT t.pref('{"channel":"whatsapp","version":"whatsapp-v1","granted":true,"idempotency_key":"33333333-0000-4000-8000-000000000022"}');
+SELECT t.prefw('{"channel":"whatsapp","version":"whatsapp-v1","granted":true,"idempotency_key":"33333333-0000-4000-8000-000000000022"}');
 SELECT t.ckw('regrant revalidates',(t.consent()#>'{whatsapp,valid_for_current_number}')::boolean=true);
 -- 8. revoke nunca exige número (mesmo sem telefone)
 UPDATE club_members SET phone=NULL WHERE id='33333333-0000-4000-8000-000000000002';
-SELECT t.pref('{"channel":"whatsapp","version":"whatsapp-v1","granted":false,"idempotency_key":"33333333-0000-4000-8000-000000000023"}');
+SELECT t.prefw('{"channel":"whatsapp","version":"whatsapp-v1","granted":false,"idempotency_key":"33333333-0000-4000-8000-000000000023"}');
 SELECT t.ckw('revoke without phone',t.consent()#>>'{whatsapp,state}'='revoked');
 -- 9. grant antigo em retry nunca reabre revogação
-SELECT t.pref('{"channel":"whatsapp","version":"whatsapp-v1","granted":true,"idempotency_key":"33333333-0000-4000-8000-000000000022"}');
+SELECT t.prefw('{"channel":"whatsapp","version":"whatsapp-v1","granted":true,"idempotency_key":"33333333-0000-4000-8000-000000000022"}');
 SELECT t.ckw('old grant never reopens',t.consent()#>>'{whatsapp,state}'='revoked');
 -- 10. CAS: grant com expected_dates errado -> conflito
 SELECT t.rejectw('{"channel":"whatsapp","version":"whatsapp-v1","granted":true,"expected_dates":{"whatsapp":null},"idempotency_key":"33333333-0000-4000-8000-000000000024"}','consent_revision_conflict');
