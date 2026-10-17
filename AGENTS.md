@@ -1,5 +1,5 @@
 # Architecture rules
-- Read scoped AGENTS.md. Entry stays closed pending real storage/uniqueness proofs. Preserve candidates; read-only checks compare SQL+bytes and canonical context. Legacy compatibility stays in inert patches until reviewed; validate all real destinations together in a credential-free disposable copy, never substitute prepared helper imports. Strong keys preserve separators, broad matches never prove reuse.
+- Read scoped AGENTS.md. Entry stays closed until real storage/uniqueness proofs. Preserve candidates; read-only checks compare SQL+bytes and canonical context. Keep legacy compatibility patches inert until reviewed; test all real destinations together in a credential-free disposable copy, not helper substitutes. Strong keys preserve separators; broad matches never prove reuse.
 
 - Meta audience replacement uses a complete, paginated canonical collection and one ordered replacement session; failed batches stop before finalization, while dry runs never resolve tokens or invoke external delivery.
 - Audience branches preserve legacy behavior; person ads use current proof and email-only, numeric-only delivery to avoid leakage. Inert SQL stays in supabase/manual pending authorization.
@@ -8,13 +8,13 @@
 
 - Club CRM editors share the active-config query and fail-closed write policy; versioned points and level identities cannot be overwritten through legacy editors, while ranking delegates protected levels to the canonical RPC.
 
-- Ticket-office position cards use the canonical balance RPC for retained funds and the existing sales RPC plus canonical per-event balance helper for unapportioned events; this prevents confusing gross sales with receivable balances or truncating sales reads.
+- Ticket-office cards use canonical balance RPC for retained funds, existing sales RPC plus canonical per-event balance helper for unapportioned events; avoid gross-sales/receivable confusion and truncated reads.
 - Statement summaries aggregate existing signed lines by type without changing financial records; the display must not create settlement movements.
 - Smart-link events use a service-role-only atomic claim RPC before external delivery; the partial unique index prevents concurrent browser/SSR duplicates without removing historical records.
 - Authenticated smart-link SSR treats unusable visitor IP as absent, never falls back to infrastructure IP or a shared no-IP rate quota; arrivals must survive missing metadata without inventing attribution.
 - Growth summaries delegate omitted comparison periods to the private legacy implementation to preserve the complete prior JSON contract.
 - Investment source projections reuse the canonical report's spend/classification CTEs without modifying that report; any future canonical change must regenerate and regression-test the projection to prevent drift.
-- Campaign projections join by platform, account and external campaign ID, never by name, because campaign names are not unique.
+- Campaign projections join by platform, account and external campaign ID, never nonunique names.
 - Manual modals separate their header from the scrolling body and use shared viewport/safe-area styles; this keeps dismissal accessible without changing the overlay stack.
 - Arrival geo uses local DB-IP before paid APIs; monthly Range+inflate parts avoid edge CPU limits. Never store visitor IPs.
 - Camarim cash cards, integration previews and session PDFs share the pure session cash helper; this keeps amounts and reimbursement labels consistent without changing financial records.
