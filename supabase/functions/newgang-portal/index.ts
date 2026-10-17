@@ -81,6 +81,7 @@ const Body = z.object({
   action: z.enum(["bundle", "regulation", "site", "lineup", "history", "ranking", "request_access", "session", "me", "guess", "attendance_claim", "confirm_buyer", "notify_pending",
     "missions", "mission_upload_url", "submit_mission", "profile", "profile_confirm", "profile_preferences", "profile_countries", "crew_create", "crew_join", "crew_leave", "crew_pending", "wallet_google"]),
   profile_payload: z.unknown().optional(),
+  preferences_payload: z.unknown().optional(),
   token: z.string().min(20).max(200).optional(),
   email: z.string().email().max(254).optional(),
   reveal_id: z.string().uuid().optional(),
@@ -482,7 +483,7 @@ Deno.serve(async (req) => {
   try {
     const pa = performance.now();
     const raw = await req.json();
-    if (["profile_confirm", "profile_preferences"].includes(raw?.action) && Object.keys(raw).some(k => !["action", "token", "profile_payload"].includes(k))) return json({ error: "profile_payload" }, 400);
+    if (["profile_confirm", "profile_preferences"].includes(raw?.action) && Object.keys(raw).some(k => !["action", "token", "profile_payload", "preferences_payload"].includes(k))) return json({ error: "profile_payload" }, 400);
     const p = Body.safeParse(raw);
     timer.mark("parse", performance.now() - pa);
     if (!p.success && ["me", "profile_confirm", "profile_preferences"].includes(raw?.action) && typeof raw?.token === "string" && (raw.token.length < 20 || raw.token.length > 200)) return json({error:"no_session"},401);

@@ -142,11 +142,12 @@ DECLARE result jsonb; ads jsonb; em record;
 BEGIN
  SELECT decision,version,decided_at INTO em FROM public.club_member_email_consents
  WHERE member_id=p_member AND site_id=p_site ORDER BY id DESC LIMIT 1;
- SELECT jsonb_object_agg(p.purpose,jsonb_build_object('state',coalesce(e.state,'unknown'),
+ SELECT jsonb_object_agg(p.purpose,jsonb_build_object('state',CASE WHEN e.state='granted' AND NOT coalesce(e.valid_grant,false) THEN 'expired' ELSE coalesce(e.state,'unknown') END,
   'version',e.banner_version,'date',e.server_received_at)) INTO ads
  FROM unnest(ARRAY['meta_ads','tiktok_ads','google_ads']) p(purpose)
- LEFT JOIN LATERAL (SELECT ev.state,ev.banner_version,ev.server_received_at FROM public.club_member_marketing_consents l
+ LEFT JOIN LATERAL (SELECT ev.state,ev.banner_version,ev.server_received_at,f.valid_grant FROM public.club_member_marketing_consents l
  JOIN public.marketing_consent_events ev ON ev.id=l.event_id
+ LEFT JOIN LATERAL public.marketing_consent_effective(ev.subject_id,clock_timestamp()) f ON f.event_id=ev.id
  WHERE l.member_id=p_member AND l.site_id=p_site AND l.purpose=p.purpose ORDER BY ev.revision DESC,ev.id DESC LIMIT 1) e ON true;
  result:=jsonb_build_object('email',jsonb_build_object('state',coalesce(em.decision,'unknown'),'version',em.version,'date',em.decided_at),'ads',ads);
  RETURN result;

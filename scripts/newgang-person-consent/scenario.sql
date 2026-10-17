@@ -33,6 +33,7 @@ SELECT t.ck('revoke only meta',t.consent()#>>'{ads,meta_ads,state}'='revoked' AN
 SELECT t.ck('later revoke invalidates binding',NOT club_marketing_binding_valid('33333333-0000-4000-8000-000000000002','33333333-0000-4000-8000-000000000001','meta_ads',(SELECT event_id FROM t.capture),(SELECT at FROM t.capture)));
 SELECT t.pref('{"channel":"ads","version":"anuncios-v1","granted":true,"platforms":["meta_ads","tiktok_ads","google_ads"],"idempotency_key":"33333333-0000-4000-8000-000000000011"}');
 SELECT t.ck('old grant retry never reopens',t.consent()#>>'{ads,meta_ads,state}'='revoked');
+SELECT t.reject332('{"channel":"ads","version":"anuncios-v1","granted":true,"platforms":["meta_ads"],"expected_dates":{"meta_ads":null},"idempotency_key":"33333333-0000-4000-8000-000000000099"}','consent_revision_conflict');
 SELECT t.pref('{"channel":"ads","version":"anuncios-v1","granted":true,"platforms":["meta_ads"],"idempotency_key":"33333333-0000-4000-8000-000000000013"}');
 SELECT t.ck('regrant never legitimises old capture',NOT club_marketing_binding_valid('33333333-0000-4000-8000-000000000002','33333333-0000-4000-8000-000000000001','meta_ads',(SELECT event_id FROM t.capture),(SELECT at FROM t.capture)));
 SELECT t.reject332('{"channel":"email","version":"v2","granted":true,"idempotency_key":"33333333-0000-4000-8000-000000000014"}','consent_payload');
@@ -44,6 +45,9 @@ UPDATE club_member_profiles SET birth_date=current_date-interval '12 years' WHER
 SELECT t.reject332('{"channel":"email","version":"email-v3","granted":true,"idempotency_key":"33333333-0000-4000-8000-000000000014"}','parental_flow_required');
 SELECT t.pref('{"channel":"ads","version":"anuncios-v1","granted":false,"platforms":["meta_ads","tiktok_ads","google_ads"],"idempotency_key":"33333333-0000-4000-8000-000000000015"}');
 SELECT t.ck('under13 revoke permitted',t.consent()#>>'{ads,meta_ads,state}'='revoked');
+UPDATE club_member_profiles SET birth_date='2000-01-01' WHERE member_id='33333333-0000-4000-8000-000000000002';
+UPDATE club_member_profiles SET birth_date=NULL WHERE member_id='33333333-0000-4000-8000-000000000002';
+SELECT t.reject332('{"channel":"email","version":"email-v3","granted":true,"idempotency_key":"33333333-0000-4000-8000-000000000014"}','parental_flow_required');
 UPDATE club_member_profiles SET birth_date='2000-01-01' WHERE member_id='33333333-0000-4000-8000-000000000002';
 SELECT t.ck('state contains no tokens',t.consent()::text !~ '(token|subject|receipt|email_address|phone|member_id)');
 SELECT t.ck('anon cannot call',NOT has_function_privilege('anon','club_profile_preferences(uuid,text,jsonb)','EXECUTE'));
@@ -65,6 +69,7 @@ SELECT t.ck('unsubscribe retry',email_unsubscribe_atomic('fixture-unsubscribe')-
 SELECT t.ck('invalid unsubscribe',email_unsubscribe_atomic('invalid')->>'error'='Invalid or expired token');
 INSERT INTO email_unsubscribe_tokens(token,email,company_id) VALUES('coala-fixture','coala@example.invalid','00000000-0000-4000-8000-0000000000a1');
 SELECT t.ck('coala suppression preserved',email_unsubscribe_atomic('coala-fixture')->>'success'='true');
+SELECT t.reject332('{"channel":"email","version":"email-v3","granted":true,"expected_dates":{"email":null},"idempotency_key":"33333333-0000-4000-8000-000000000098"}','consent_revision_conflict');
 DO $$ BEGIN
  BEGIN PERFORM club_consent_state('33333333-0000-4000-8000-000000000001','invalid'); RAISE EXCEPTION 'invalid_accepted'; EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'no_session' THEN RAISE; END IF; END;
  PERFORM t.ck('invalid session',true);
