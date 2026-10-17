@@ -218,11 +218,11 @@ BEGIN
  IF tok.used_at IS NOT NULL THEN RETURN jsonb_build_object('valid',false,'reason','already_unsubscribed'); END IF;
  -- All site locks precede all member locks, including multi-site unsubscribe.
  FOR m IN SELECT DISTINCT cm.site_id FROM public.club_members cm JOIN public.portal_sites s ON s.id=cm.site_id AND s.company_id=cm.company_id
- WHERE cm.company_id=tok.company_id AND lower(btrim(cm.email))=lower(btrim(tok.email)) AND s.brand_key='newgang' ORDER BY cm.site_id LOOP
+ WHERE (tok.company_id IS NULL OR cm.company_id=tok.company_id) AND lower(btrim(cm.email))=lower(btrim(tok.email)) AND s.brand_key='newgang' ORDER BY cm.site_id LOOP
   PERFORM public._club_site_lock(m.site_id,false);
  END LOOP;
  FOR m IN SELECT cm.id,cm.site_id FROM public.club_members cm JOIN public.portal_sites s ON s.id=cm.site_id AND s.company_id=cm.company_id
- WHERE cm.company_id=tok.company_id AND lower(btrim(cm.email))=lower(btrim(tok.email)) AND s.brand_key='newgang'
+ WHERE (tok.company_id IS NULL OR cm.company_id=tok.company_id) AND lower(btrim(cm.email))=lower(btrim(tok.email)) AND s.brand_key='newgang'
  ORDER BY cm.site_id,cm.id LOOP
   PERFORM 1 FROM public.club_members WHERE id=m.id FOR NO KEY UPDATE;
   PERFORM public._club332_email_append(m.id,m.site_id,'revoked',tok.id,'email_unsubscribe');
