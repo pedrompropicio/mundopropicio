@@ -35,6 +35,6 @@ export async function equivalent(candidate: Candidate, expected: Expected, bytes
   // Both objects read now; no cached checksums or filename/size-only proof.
   const stored = await read(candidate.storage_path);
   if (!stored || stored.length !== bytes.length || bytes.length === 0) return false;
-  const hash = async (b: Uint8Array) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", b))).map((x) => x.toString(16).padStart(2, "0")).join("");
+  const hash = async (b: Uint8Array) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(b).buffer))).map((x) => x.toString(16).padStart(2, "0")).join("");
   return await hash(stored) === await hash(bytes);
 }
