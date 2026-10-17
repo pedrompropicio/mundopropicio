@@ -28,6 +28,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 | #328 | ChatGPT · newgang-portal | agente Lovable portal dedicado | UI pendência Crew, API client e testes locais sobre contrato backend preparado; sem Live/deploy/Publish | 2026-10-16 16:07 UTC | 16:43 sincronização ERP8c22430 confirmada; pacote backend revisto, frontend autorizado, preservar #322/#323 |
 | #322 | 0 · Cowork (ChatGPT) | agente Lovable (ERP) | ERP: consentimento por interação (ledger marketing_consent_*), portal-track, capi_consent_proof/guardas, lead_capture/redirect_log/leads (colunas aditivas), docs; coordenação futura MP/Coala/Newgang (portais NÃO tocados nesta etapa) | 2026-10-16 01:12 | 2026-10-16 01:46 — ERP corrigido após verificação independente (0175 + portal-track), aguarda revisão; portais MP/Coala/Newgang pendentes |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
+| #330 | ChatGPT · newgang-portal | agente Lovable ERP | verificar guards/testes locais e ativar club_profile_configure profile-v1; provas/estado/linhas próprias QUADRO; sem portal/Publish/envios | 2026-10-17 01:18 UTC | autorização expressa Pedro; HEAD b764d45b confirmado; preservar #322/#323/#332 |
 
 ## 0 · Cowork (Claude)
 
