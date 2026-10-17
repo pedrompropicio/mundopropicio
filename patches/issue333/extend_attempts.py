@@ -71,7 +71,7 @@ def extend(changes, root):
     s=s.replace('import { lookupStandalone, standaloneWriteError }','import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt } from "@/lib/standalone-attempt-client";\nimport type { Attempt } from "@shared/standalone-attempt";\nimport { lookupStandalone, standaloneWriteError }')
     s=s.replace('  const pendingKey =','  const [attempt, setAttempt] = useState<Attempt | null>(null);\n  const [resumeId,setResumeId]=useState("");\n  const [resumeHash,setResumeHash]=useState("");\n  const attemptGeneration=useRef(0);\n  const pendingKey =')
     s=s.replace('checkLegacyAttempt }', 'checkLegacyAttempt, resumeLegacyAttempt }')
-    s=s.replace('import { useMemo, useState }', 'import { useMemo, useState, useRef }',1)
+    s=s.replace('import { useMemo, useState }', 'import { useMemo, useState, useRef, useEffect }',1)
     s=s.replace('  const saveEdit = useMutation({', '  useEffect(()=>{attemptGeneration.current++;setAttempt(null);setResumeId("");setResumeHash("");setEditing(null);setWritePending(false);},[user?.id,companyId]);\n  const saveEdit = useMutation({')
     s=s.replace('    mutationFn: async () => {', '    mutationFn: async () => {\n      const writeGeneration=attemptGeneration.current;',1)
     start=s.index('      sessionStorage.setItem(pendingKey, "pending");');end=s.index('      if (error) throw error;',start)+len('      if (error) throw error;')
