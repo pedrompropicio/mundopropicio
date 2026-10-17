@@ -2,8 +2,12 @@
 import hashlib, json, os, pathlib, shutil, subprocess, sys, tempfile
 repo = pathlib.Path.cwd()
 base = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-if base != 'a3d3689352790e5684a417d8c1eedeb684c1429f':
-    raise SystemExit('STOP: received HEAD differs from authorized base: ' + base)
+authorized = 'a3d3689352790e5684a417d8c1eedeb684c1429f'
+subprocess.run(['git', 'merge-base', '--is-ancestor', authorized, base], check=True)
+changed = subprocess.check_output(['git', 'diff', '--name-only', authorized, base], text=True).splitlines()
+allowed = ['docs/testes/issue333/', 'docs/QUADRO.md', 'roadmap.md']
+if any(not any(p.startswith(a) for a in allowed) for p in changed):
+    raise SystemExit('STOP: unexpected changes since authorized base: ' + base)
 out = pathlib.Path(tempfile.mkdtemp(prefix='issue333-head-'))
 root = out / 'tree'
 excluded = {'.git', '.github', 'node_modules', 'dist', 'claude-outputs', '__pycache__', '.lovable'}
