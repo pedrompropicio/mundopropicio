@@ -18,6 +18,6 @@
 - [x] Preparação autorizada 17:46: inventário de escritores, política forte proposta, compatibilidade inerte, PostgreSQL36/compat26/handler20/regressões35/geral1334; nenhuma aplicação Live. Provas08/09; aguarda revisão.
 - [ ] Aplicar DDL/bucket/deploy após revisão das provas (bloqueio: revisão do Pedro/0).
 - [ ] Implementar núcleo upload privado, conversa documental, prévia servidor, autorização e execução tipada idempotente apenas para adapters validados.
-- [ ] Ativação bloqueada: retoma/claim global legado com chave incompleta, revisão política forte, StorageACL real e autorização aplicação/índice/DDL/deploy; CI novo SHA aguarda propagação. Trava sessionStorage não prova exatamente-um global.
+- [ ] Ativação bloqueada: rollout/reconciliação de clientes anteriores semID e intenção adicional, revisão política forte/IVA≤total, StorageACL real e autorização aplicação/índice/DDL/deploy; CI novo SHA aguarda propagação. Trava sessionStorage não prova exatamente-um global.
 - [x] Documentar efeitos Live inexistentes e limitações; manter Issue/reserva abertas para verificação.
 - [ ] Gmail/Drive/OAuth, conciliação, bilheteiras e demais adapters: bloqueados até validação/configuração próprias; sem Publish.
