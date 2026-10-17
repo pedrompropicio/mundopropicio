@@ -52,6 +52,9 @@ describe("#333 PostgreSQL persistent orchestration (no network/business triggers
   const v1=await scalar("SELECT data_entry_prepare($1,$2,$3,$4) AS v",[U,session,D,JSON.stringify(fields)]);
   const v2=await scalar("SELECT data_entry_prepare($1,$2,$3,$4) AS v",[U,session,D,JSON.stringify({...fields,notes:"Nova nota"})]);
   const path=`${A}/assistant333/${D}/${hash}.pdf`;
+  await expect(scalar("SELECT data_entry_commit($1,$2,$3,$4) AS v",[U,v2.id,hash,path])).rejects.toThrow("Execução não validada");
+  // Explicit isolated fixture-only activation; no configuration writes in Live.
+  await db.exec("INSERT INTO data_entry_settings(singleton,execute_validated) VALUES(true,true)");
   await expect(db.query("UPDATE data_entry_previews SET snapshot='{}' WHERE id=$1",[v1.id])).rejects.toThrow("imutável");
   await expect(scalar("SELECT data_entry_commit($1,$2,$3,$4) AS v",[U,v1.id,hash,path])).rejects.toThrow("Prévia alterada");
   await expect(scalar("SELECT data_entry_commit($1,$2,$3,$4) AS v",[U,v2.id,"b".repeat(64),path])).rejects.toThrow("Documento alterado");

@@ -1,4 +1,5 @@
--- #333 additive module. Apply only after local persistence tests.
+-- #333 experimental proposal ONLY. Not deploy-ready; do not apply.
+-- Audit blockers: docs/testes/issue333/02-nucleo-isolado-e-bloqueios.md.
 CREATE TABLE public.data_entry_sessions (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), company_id uuid NOT NULL REFERENCES public.companies(id),
  owner_id uuid NOT NULL REFERENCES public.profiles(id), event_id uuid REFERENCES public.events(id), created_at timestamptz NOT NULL DEFAULT now()
@@ -44,6 +45,14 @@ ALTER TABLE public.data_entry_results ENABLE ROW LEVEL SECURITY;
 CREATE INDEX data_entry_sessions_owner ON public.data_entry_sessions(company_id,owner_id,created_at DESC);
 CREATE INDEX data_entry_messages_session ON public.data_entry_messages(session_id,created_at,id);
 CREATE INDEX data_entry_previews_session ON public.data_entry_previews(session_id,version DESC);
+
+CREATE TABLE public.data_entry_settings (
+ singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton), execute_validated boolean NOT NULL DEFAULT false
+);
+GRANT ALL ON public.data_entry_settings TO service_role;
+REVOKE ALL ON public.data_entry_settings FROM PUBLIC,anon,authenticated;
+ALTER TABLE public.data_entry_settings ENABLE ROW LEVEL SECURITY;
+-- No enabled configuration row. Execution is unavailable by default.
 
 CREATE FUNCTION public.data_entry_assert(p_user uuid,p_company uuid) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
@@ -161,6 +170,7 @@ BEGIN
  author_name:=public.data_entry_assert(p_user,s.company_id);
  SELECT * INTO r FROM public.data_entry_results WHERE preview_id=v.id;
  IF r.preview_id IS NOT NULL THEN RETURN r.result; END IF;
+ IF NOT coalesce((SELECT execute_validated FROM public.data_entry_settings WHERE singleton),false) THEN RAISE EXCEPTION 'Execução não validada; indisponível' USING ERRCODE='42501'; END IF;
  IF v.version<>(SELECT max(version) FROM public.data_entry_previews WHERE session_id=s.id) THEN RAISE EXCEPTION 'Prévia alterada; autoriza a versão atual' USING ERRCODE='40001'; END IF;
  SELECT * INTO d FROM public.data_entry_documents WHERE id=v.document_id FOR SHARE;
  IF v.snapshot->'document' IS DISTINCT FROM to_jsonb(d) OR p_verified_sha IS DISTINCT FROM d.sha256 OR p_final_path IS DISTINCT FROM (s.company_id::text||'/assistant333/'||d.id::text||'/'||d.sha256||(CASE d.mime WHEN 'application/pdf' THEN '.pdf' WHEN 'image/jpeg' THEN '.jpg' ELSE '.png' END)) THEN RAISE EXCEPTION 'Documento alterado'; END IF;
