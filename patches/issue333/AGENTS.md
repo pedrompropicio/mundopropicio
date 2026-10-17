@@ -4,3 +4,4 @@
 - Mutation, attempt completion and audit share one SQL transaction and one attempt lock; transport uncertainty never authorizes an unreserved mutation.
 - Owner discovery uses a typed paginated session RPC; candidate configuration belongs only in the inert patch, so integration guards run without activating ERP endpoints.
 - Generate CORE from the reviewed PREPARED artifact, with independent server-owned preparation and execution gates; reconstructing from legacy BASE would lose reviewed identity and guards.
+- Tracked-attempt routing obeys only the server capabilities answer; failure/absence keeps legacy_untracked so closed gates never break writers.
