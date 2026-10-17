@@ -30,7 +30,10 @@ Erros: `whatsapp_no_phone` (400), `consent_payload` (400), `parental_flow_requir
 - Handler real whatsapp: 4/4. Regressão handler #332: 17/17. Vitest: 1281 passed / 1 skipped / 11 todo.
 
 ## Riscos / decisões
-- `phone_fp` sem salt (sha256 simples, padrão contacts); número é enumerável por força bruta — aceite por coerência com o padrão do projeto; se se quiser salt, decidir antes da Fase B.
+- ~~`phone_fp` sem salt~~ → DECIDIDO na Fase B (Pedro, 17/10): `phone_fp` = HMAC-SHA256 com chave
+  secreta do lado do servidor. A chave vive em `app_secrets` (nome `club_whatsapp_hmac_key`; RLS sem
+  grants, só SECURITY DEFINER lê; valor gerado dentro da base, nunca exibido). O Vault foi a primeira
+  opção mas o canal canónico de migrações não permite lê-lo. Ver whatsapp-aplicacao.md.
 - `number_masked` mostra os 4 primeiros e 3 últimos dígitos do número ATUAL do perfil (não do consentimento).
 - Descadastro/«PARAR» por WhatsApp: modelo preparado (origin extensível), sem envios nem webhooks — documentado, não implementado.
 - Sem backfill: ninguém tem consentimento WhatsApp histórico; todos começam `unknown`.
