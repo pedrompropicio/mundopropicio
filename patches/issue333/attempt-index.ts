@@ -2,11 +2,12 @@
 import {createClient} from 'npm:@supabase/supabase-js@2';
 import {corsHeaders} from 'npm:@supabase/supabase-js@2/cors';
 import {createAttemptHandler} from './handler.ts';
+export const attemptCors = {...corsHeaders, 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-attempt-user, x-attempt-company', 'Access-Control-Allow-Methods': 'POST, OPTIONS'};
 import {documentHash,type Attempt} from '../_shared/standalone-attempt.ts';
 const url=Deno.env.get('SUPABASE_URL')??'',key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')??'',anon=Deno.env.get('SUPABASE_ANON_KEY')??'';
 const admin=createClient(url,key);
 const userClient=(token:string)=>createClient(url,anon,{global:{headers:{Authorization:`Bearer ${token}`}}});
-Deno.serve(createAttemptHandler({cors:corsHeaders,
+Deno.serve(createAttemptHandler({cors:attemptCors,
  user:async token=>{const {data,error}=await userClient(token).auth.getUser();return error?null:data.user},
  context:async token=>{const {data,error}=await userClient(token).rpc('my_effective_permissions',{p_universe:[]});return error?null:data},
  transport:(token,operation)=>({

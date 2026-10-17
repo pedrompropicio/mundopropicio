@@ -1,8 +1,10 @@
 /** Proposed NEW handler; never deployed. All identity and SQL calls are injected. */
+import { validateDocument, MAX_DOCUMENT_BYTES } from '../data-entry/core.ts';
 import { z } from 'npm:zod@3.23.8';
 import { executeAttempt, checkAttempt, type Attempt, type AttemptTransport } from './standalone-attempt.ts';
 const uuid=z.string().uuid();
 const schema=z.discriminatedUnion('action',[
+ z.object({action:z.literal('list'),operation:z.enum(['scanner_create','accountant_edit']),after:uuid.nullable()}).strict(),
  z.object({action:z.literal('prepare'),operation:z.enum(['scanner_create','accountant_edit']),id:uuid.nullable(),envelope:z.record(z.unknown())}).strict(),
  z.object({action:z.literal('execute'),operation:z.enum(['scanner_create','accountant_edit']),id:uuid,hash:z.string().regex(/^[a-f0-9]{64}$/),conteudo_base64:z.string().max(28000000)}).strict(),
  z.object({action:z.literal('check'),operation:z.enum(['scanner_create','accountant_edit']),id:uuid,hash:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),
@@ -12,6 +14,7 @@ export type HandlerDeps = {
  context(token:string):Promise<{company_id:string}|null>;
  transport(token:string,operation:string):AttemptTransport;
  cors:Record<string,string>;
+ list?(token:string,operation:string,after:string|null):Promise<unknown>;
 };
 export function createAttemptHandler(d:HandlerDeps) {
  return async(req:Request)=>{
@@ -30,11 +33,16 @@ export function createAttemptHandler(d:HandlerDeps) {
    const raw=new Uint8Array(size);let offset=0;for(const chunk of chunks){raw.set(chunk,offset);offset+=chunk.length}
    const body=schema.parse(JSON.parse(new TextDecoder().decode(raw)));
    const t=d.transport(token,body.operation);
+   if(body.action==='list'){if(!d.list)return reply({error:'Consulta indisponível'},409);return reply(await d.list(token,body.operation,body.after));}
    if(body.action==='prepare')return reply(await t.rpc('prepare',body.id,body.envelope,null));
    const a:Attempt=await t.rpc('check',body.id,null,body.hash);
    if(a.hash!==body.hash || a.id!==body.id)return reply({error:'Tentativa divergente'},409);
    if(body.action==='check')return reply(await checkAttempt(t,a));
-   const binary=atob(body.conteudo_base64);const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
+   if(body.conteudo_base64.length>4*Math.ceil(MAX_DOCUMENT_BYTES/3))return reply({error:'Documento demasiado grande'},413);
+   const binary=atob(body.conteudo_base64);
+   if(binary.length>MAX_DOCUMENT_BYTES)return reply({error:'Documento demasiado grande'},413);
+   const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
+   try{validateDocument(bytes,a.document.mime)}catch{return reply({error:'Documento incompleto ou incompatível'},422)}
    const out=await executeAttempt(t,a,bytes);
    return reply(out,out.status==='conferido'?200:409);
   }catch{return reply({error:'Conferência pendente. Não repitas uma gravação.',status:'pendente'},409)}

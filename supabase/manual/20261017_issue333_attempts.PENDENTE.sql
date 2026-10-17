@@ -60,6 +60,14 @@ BEGIN
   FOR key IN SELECT unnest(ARRAY['original_amount','fx_rate','total_amount','iva_amount']) LOOP
    IF payload->>key IS NOT NULL AND ((payload->>key)::numeric<0 OR (key IN ('total_amount','iva_amount','original_amount') AND round((payload->>key)::numeric,2)<>(payload->>key)::numeric) OR (key='fx_rate' AND (payload->>key)::numeric<=0)) THEN RAISE EXCEPTION '#333: Valor inválido' USING ERRCODE='22023'; END IF;
   END LOOP;
+  -- Existing total EUR requirement, nullable legacy metadata, and ingest ±0.01 FX contract.
+  IF payload->>'total_amount' IS NULL THEN RAISE EXCEPTION '#333: Total EUR obrigatório' USING ERRCODE='22023'; END IF;
+  IF payload->>'iva_amount' IS NOT NULL AND (payload->>'iva_amount')::numeric>(payload->>'total_amount')::numeric THEN RAISE EXCEPTION '#333: IVA superior ao total' USING ERRCODE='22023'; END IF;
+  IF p_operation='ingest_create' AND payload->>'currency'<>'EUR' AND abs(round((payload->>'original_amount')::numeric*(payload->>'fx_rate')::numeric,2)-(payload->>'total_amount')::numeric)>0.01 THEN RAISE EXCEPTION '#333: Contravalor divergente' USING ERRCODE='22023'; END IF;
+  -- Scanner/editor totals remain editable; no new equality rule is imposed on those contracts.
+  IF length(coalesce(payload->>'supplier_name',''))>255 OR length(coalesce(payload->>'supplier_nif',''))>32 OR length(coalesce(payload->>'invoice_number',''))>100 OR length(coalesce(payload->>'fx_rate_source',''))>100 THEN RAISE EXCEPTION '#333: Texto demasiado longo' USING ERRCODE='22023'; END IF;
+  IF payload->>'paid_by_partner_id' IS NOT NULL AND (payload->>'paid_by_partner_id' !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' OR NOT EXISTS(SELECT 1 FROM public.profiles pr JOIN public.user_roles ur ON ur.user_id=pr.id WHERE pr.id=(payload->>'paid_by_partner_id')::uuid AND ur.company_id=c)) THEN RAISE EXCEPTION '#333: Pagador fora da empresa' USING ERRCODE='42501'; END IF;
+  IF payload->>'created_by' IS NOT NULL AND (payload->>'created_by' !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' OR NOT EXISTS(SELECT 1 FROM public.user_roles WHERE user_id=(payload->>'created_by')::uuid AND company_id=c)) THEN RAISE EXCEPTION '#333: Autor fora da empresa' USING ERRCODE='42501'; END IF;
   IF length(coalesce(payload->>'notes',''))>2000 OR length(coalesce(payload->>'file_name','')) NOT BETWEEN 1 AND 255 THEN RAISE EXCEPTION '#333: Texto inválido' USING ERRCODE='22023'; END IF;
   IF payload->>'invoice_date' IS NOT NULL AND (payload->>'invoice_date' !~ '^\d{4}-\d{2}-\d{2}$' OR to_char((payload->>'invoice_date')::date,'YYYY-MM-DD')<>payload->>'invoice_date') THEN RAISE EXCEPTION '#333: Data inválida' USING ERRCODE='22023'; END IF;
   IF NOT p_service AND p_operation<>'accountant_edit' AND payload->>'created_by' IS DISTINCT FROM u::text THEN RAISE EXCEPTION '#333: Autor inválido' USING ERRCODE='42501'; END IF;
@@ -100,6 +108,7 @@ BEGIN
    SELECT * INTO inv FROM public.standalone_invoices WHERE id=v.destination_id AND company_id=c FOR UPDATE;
    IF inv.id IS NULL OR (coalesce(role_value,'') NOT IN ('admin','platform_admin','accountant') AND inv.created_by IS DISTINCT FROM u) THEN RAISE EXCEPTION '#333: Edição recusada' USING ERRCODE='42501'; END IF;
   END IF;
+  IF payload->>'paid_by_partner_id' IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.user_roles WHERE user_id=(payload->>'paid_by_partner_id')::uuid AND company_id=c) THEN RAISE EXCEPTION '#333: Pagador fora da empresa' USING ERRCODE='42501'; END IF;
   IF p_action='authorize' AND v.state='prepare' THEN UPDATE public.standalone_attempts_333 SET state='authorized' WHERE id=v.id RETURNING * INTO v; END IF;
   IF p_action='begin' AND v.state='authorized' THEN UPDATE public.standalone_attempts_333 SET state='inprogress' WHERE id=v.id RETURNING * INTO v; END IF;
   IF p_action='commit' AND v.state<>'completed' THEN
@@ -184,3 +193,16 @@ END $$;
 REVOKE ALL ON FUNCTION public.standalone_attempt_guard_333() FROM PUBLIC,anon,authenticated,service_role;
 CREATE TRIGGER standalone_attempt_guard_333 BEFORE UPDATE OR DELETE ON public.standalone_attempts_333 FOR EACH ROW EXECUTE FUNCTION public.standalone_attempt_guard_333();
 CREATE TRIGGER standalone_attempt_audit_immutable_333 BEFORE UPDATE OR DELETE ON public.standalone_attempt_audit_333 FOR EACH ROW EXECUTE FUNCTION public.data_entry_immutable();
+-- Owner-only discovery: typed operation + keyset cursor, never arbitrary SQL or foreign principals.
+CREATE FUNCTION public.standalone_attempt_list_333(p_operation text,p_after uuid DEFAULT NULL)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE u uuid:=auth.uid(); c uuid:=public.current_company_id(); items jsonb; next_id uuid;
+BEGIN
+ IF u IS NULL OR c IS NULL OR p_operation IS NULL OR p_operation NOT IN ('scanner_create','accountant_edit') OR NOT EXISTS(SELECT 1 FROM public.companies WHERE id=c AND status='active') THEN RAISE EXCEPTION '#333: Consulta recusada' USING ERRCODE='42501'; END IF;
+ -- Same owner/company only; no delegated access, including for platform administrators.
+ WITH page AS (SELECT id,envelope_hash,state,envelope,created_at FROM public.standalone_attempts_333 WHERE company_id=c AND principal=u::text AND operation=p_operation AND (p_after IS NULL OR id>p_after) ORDER BY id LIMIT 51), visible AS (SELECT * FROM page ORDER BY id LIMIT 50)
+ SELECT coalesce(jsonb_agg(jsonb_build_object('id',id,'hash',envelope_hash,'state',state,'name',envelope->'payload'->>'file_name','reference',envelope->'payload'->>'invoice_number','created_at',created_at) ORDER BY id),'[]'::jsonb),CASE WHEN (SELECT count(*) FROM page)>50 THEN (SELECT id FROM visible ORDER BY id DESC LIMIT 1) ELSE NULL END INTO items,next_id FROM visible;
+ RETURN jsonb_build_object('items',items,'next',next_id);
+END $$;
+REVOKE ALL ON FUNCTION public.standalone_attempt_list_333(text,uuid) FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.standalone_attempt_list_333(text,uuid) TO authenticated;

@@ -130,17 +130,18 @@
  import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
  import { Alert, AlertDescription } from "@/components/ui/alert";
 -import { removeFromCompanyBucket } from "@/lib/storage";
-+import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt } from "@/lib/standalone-attempt-client";
++import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt, listLegacyAttempts, type AttemptSummary } from "@/lib/standalone-attempt-client";
 +import type { Attempt } from "@shared/standalone-attempt";
 +import { lookupStandalone, standaloneWriteError } from "@/lib/standalone-identity-lookup";
  import {
    calculateStandaloneEur,
    isStandaloneInvoiceDuplicateError,
-@@ -49,6 +51,11 @@
+@@ -49,6 +51,12 @@
    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
    const [busy, setBusy] = useState<null | "convert" | "ocr" | "save">(null);
    const [saved, setSaved] = useState(false);
 +  const [attempt, setAttempt] = useState<Attempt | null>(null);
++  const [attemptOptions,setAttemptOptions]=useState<AttemptSummary[]>([]);
 +  const [resumeId, setResumeId] = useState("");
 +  const [resumeHash, setResumeHash] = useState("");
 +  const pendingKey = `standalone-create-pending:${user?.id ?? "none"}:${companyId ?? "none"}`;
@@ -148,7 +149,7 @@
  
    const [supplierName, setSupplierName] = useState("");
    const [supplierNif, setSupplierNif] = useState("");
-@@ -118,6 +125,7 @@
+@@ -118,6 +126,7 @@
    }, [currency, invoiceDate]);
  
    const clearCapture = () => {
@@ -156,7 +157,7 @@
      setFile(null);
      setScanCandidate(null);
      setPreviewUrl(null);
-@@ -274,34 +282,24 @@
+@@ -274,34 +283,24 @@
  
  
    const save = async () => {
@@ -199,7 +200,7 @@
          file_name: file.name,
          supplier_name: supplierName.trim() || null,
          supplier_nif: supplierNif.trim() || null,
-@@ -315,25 +313,46 @@
+@@ -315,25 +314,46 @@
          iva_amount: parseStandaloneAmount(iva),
          paid_by_partner_id: paidBy === "none" ? null : paidBy,
          notes: notes.trim() || null,
@@ -239,7 +240,7 @@
    };
  
 +  const generation = useRef(0);
-+  useEffect(() => { generation.current += 1; setAttempt(null); setResumeId(""); setResumeHash(""); setWritePending(false); reset(); }, [user?.id, companyId]);
++  useEffect(() => { generation.current += 1; setAttempt(null); setResumeId(""); setResumeHash(""); setAttemptOptions([]); setWritePending(false); reset(); }, [user?.id, companyId]);
 +  const reconcile = async () => {
 +    if (!user || !companyId) return;
 +    const current = generation.current; setBusy("save");
@@ -255,20 +256,20 @@
    const [tab, setTab] = useState("scan");
  
    return (
-@@ -354,6 +373,12 @@
+@@ -354,6 +374,12 @@
          </div>
        </div>
  
 +      {writePending && <Alert><AlertDescription>Resultado por confirmar. A captura está bloqueada; confere a lista antes de qualquer nova gravação.</AlertDescription></Alert>}
 +      <div className="space-y-2">
-+        <Input aria-label="ID da tentativa" value={resumeId} onChange={e=>setResumeId(e.target.value)} />
-+        <Input aria-label="Hash da tentativa" value={resumeHash} onChange={e=>setResumeHash(e.target.value)} />
++        <Button variant="outline" onClick={async()=>{if(!user||!companyId)return;const gen=generation.current,ctx={user_id:user.id,company_id:companyId};const all:AttemptSummary[]=[];let after:string|null=null;try{do{const page=await listLegacyAttempts("scanner_create",ctx,after);if(gen!==generation.current)return;all.push(...page.items);after=page.next;}while(after);setAttemptOptions(all);}catch{if(gen===generation.current)toast({title:"Consulta indisponível"});}}}>Procurar tentativas</Button>
++        <select aria-label="Tentativa a consultar" value={resumeId} onChange={e=>{const selected=attemptOptions.find(a=>a.id===e.target.value);setAttempt(null);setResumeId(selected?.id??"");setResumeHash(selected?.hash??"");}}><option value="">Selecionar tentativa</option>{attemptOptions.map(a=><option key={a.id} value={a.id}>{a.name} — {a.reference??"Sem número"} — {a.state} — {a.created_at}</option>)}</select>
 +        <Button variant="outline" onClick={reconcile} disabled={busy!==null || (!attempt && (!resumeId || !resumeHash))}>Consultar tentativa</Button>
 +      </div>
        <Tabs value={tab} onValueChange={setTab}>
          <TabsList className="w-full">
            <TabsTrigger value="scan" className="flex-1">Escanear</TabsTrigger>
-@@ -410,7 +435,7 @@
+@@ -410,7 +436,7 @@
              <Button
                className="w-full h-16 text-base"
                onClick={() => cameraRef.current?.click()}
@@ -277,7 +278,7 @@
              >
                <Camera className="h-6 w-6 mr-2" /> Tirar foto
              </Button>
-@@ -418,7 +443,7 @@
+@@ -418,7 +444,7 @@
                variant="outline"
                className="w-full h-12"
                onClick={() => fileRef.current?.click()}
@@ -286,7 +287,7 @@
              >
                <Upload className="h-4 w-4 mr-2" /> Escolher ficheiro
              </Button>
-@@ -521,14 +546,14 @@
+@@ -521,14 +547,14 @@
                  </div>
  
                  <div className="grid gap-2">
@@ -316,18 +317,19 @@
  import { signedCompanyUrl, downloadFromCompanyBucket, removeFromCompanyBucket } from "@/lib/storage";
  import { calculateStandaloneEur, isStandaloneInvoiceDuplicateError, parseStandaloneAmount, STANDALONE_INVOICE_CURRENCIES, validateStandaloneMonetaryFields, type StandaloneInvoiceCurrency } from "@/lib/standalone-invoices";
  
-+import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt } from "@/lib/standalone-attempt-client";
++import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt, listLegacyAttempts, type AttemptSummary } from "@/lib/standalone-attempt-client";
 +import type { Attempt } from "@shared/standalone-attempt";
 +import { lookupStandalone, standaloneWriteError } from "@/lib/standalone-identity-lookup";
 +
  interface Row {
    id: string;
    storage_path: string;
-@@ -71,12 +75,20 @@
+@@ -71,12 +75,21 @@
    const [editing, setEditing] = useState<Row | null>(null);
    const [form, setForm] = useState({ supplier_name: "", supplier_nif: "", invoice_number: "", invoice_date: "", currency: "EUR" as StandaloneInvoiceCurrency, original_amount: "", fx_rate: "", fx_rate_source: "", paid_by_partner_id: "none", total_amount: "", iva_amount: "", notes: "" });
  
 +  const [attempt, setAttempt] = useState<Attempt | null>(null);
++  const [attemptOptions,setAttemptOptions]=useState<AttemptSummary[]>([]);
 +  const [resumeId,setResumeId]=useState("");
 +  const [resumeHash,setResumeHash]=useState("");
 +  const attemptGeneration=useRef(0);
@@ -344,11 +346,11 @@
      setEditing(r);
      setForm({
        supplier_name: r.supplier_name ?? "",
-@@ -94,21 +106,23 @@
+@@ -94,21 +107,23 @@
      });
    };
  
-+  useEffect(()=>{attemptGeneration.current++;setAttempt(null);setResumeId("");setResumeHash("");setEditing(null);setWritePending(false);},[user?.id,companyId]);
++  useEffect(()=>{attemptGeneration.current++;setAttempt(null);setResumeId("");setResumeHash("");setAttemptOptions([]);setEditing(null);setWritePending(false);},[user?.id,companyId]);
    const saveEdit = useMutation({
      mutationFn: async () => {
 -      if (!editing) return;
@@ -376,7 +378,7 @@
            supplier_name: form.supplier_name.trim() || null,
            supplier_nif: form.supplier_nif.trim() || null,
            invoice_number: form.invoice_number.trim() || null,
-@@ -121,17 +135,25 @@
+@@ -121,17 +136,25 @@
            total_amount: parseStandaloneAmount(form.total_amount),
            iva_amount: parseStandaloneAmount(form.iva_amount),
            notes: form.notes.trim() || null,
@@ -407,13 +409,13 @@
    });
  
    /**
-@@ -520,9 +542,20 @@
+@@ -520,9 +543,20 @@
                <Input id="ed-notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
              </div>
            </div>
 +          {writePending && <AlertTriangle aria-label="Conferência pendente" />}
-+          <Input aria-label="ID da tentativa de edição" value={resumeId} onChange={e=>setResumeId(e.target.value)} />
-+          <Input aria-label="Hash da tentativa de edição" value={resumeHash} onChange={e=>setResumeHash(e.target.value)} />
++          <Button variant="outline" onClick={async()=>{if(!user||!companyId)return;const gen=attemptGeneration.current,ctx={user_id:user.id,company_id:companyId};const all:AttemptSummary[]=[];let after:string|null=null;try{do{const page=await listLegacyAttempts("accountant_edit",ctx,after);if(gen!==attemptGeneration.current)return;all.push(...page.items);after=page.next;}while(after);setAttemptOptions(all);}catch{if(gen===attemptGeneration.current)toast({title:"Consulta indisponível"});}}}>Procurar tentativas de edição</Button>
++          <select aria-label="Tentativa de edição a consultar" value={resumeId} onChange={e=>{const selected=attemptOptions.find(a=>a.id===e.target.value);setAttempt(null);setResumeId(selected?.id??"");setResumeHash(selected?.hash??"");}}><option value="">Selecionar tentativa</option>{attemptOptions.map(a=><option key={a.id} value={a.id}>{a.name} — {a.reference??"Sem número"} — {a.state} — {a.created_at}</option>)}</select>
 +          <Button variant="outline" disabled={!attempt&&(!resumeId||!resumeHash)} onClick={async()=>{
 +            if(!user || !companyId)return;
 +            const gen=attemptGeneration.current,ctx={user_id:user.id,company_id:companyId};
@@ -431,17 +433,18 @@
            </DialogFooter>
 --- a/supabase/functions/ingest-standalone-invoice/index.ts
 +++ b/supabase/functions/ingest-standalone-invoice/index.ts
-@@ -1,6 +1,8 @@
+@@ -1,6 +1,9 @@
  // ingest-standalone-invoice — ingestão externa de faturas avulsas (#191–#193).
  // Regra absoluta: esta função escreve apenas em standalone_invoices e no bucket homónimo.
 -import { trashStorageObject } from '../_shared/storage-trash.ts'
++import { documentType, validateDocument, readCapped, MAX_DOCUMENT_BYTES } from '../data-entry/core.ts'
 +import { executeAttempt, documentHash, type Attempt } from '../_shared/standalone-attempt.ts'
 +import { findStrongCandidates, persistInvoice } from '../_shared/standalone-compat.ts'
 +import type { Candidate, Expected } from '../_shared/standalone-identity.ts'
  import { createClient } from 'npm:@supabase/supabase-js@2'
  import { z } from 'npm:zod@3.23.8'
  import { getEcbRate } from '../_shared/fx-rate.ts'
-@@ -20,6 +22,7 @@
+@@ -20,6 +23,7 @@
  }
  
  const BodySchema = z.object({
@@ -449,7 +452,7 @@
    origem: z.string().trim().url().optional(),
    conteudo_base64: z.string().trim().min(1).optional(),
    nome: z.string().trim().min(1).max(255),
-@@ -131,22 +134,6 @@
+@@ -131,22 +135,6 @@
    if (companyError) return json({ error: `Erro ao validar empresa: ${companyError.message}` }, 500)
    if (!company) return json({ error: 'Empresa não encontrada.' }, 404)
  
@@ -472,8 +475,28 @@
    // (#195) Câmbio resolvido no servidor ANTES de qualquer download/upload: se o
    // BCE falhar, nada é gravado e nenhum objeto entra no bucket.
    let fxRate = body.fx_rate ?? null
-@@ -190,37 +177,62 @@
+@@ -168,6 +156,7 @@
+   let bytes: Uint8Array
+   if (body.conteudo_base64) {
+     try {
++      if(body.conteudo_base64.length>4*Math.ceil(MAX_BYTES/3)+256)return json({error:'Documento superior ao limite'},413)
+       const binary = atob(body.conteudo_base64.replace(/^data:[^;]+;base64,/, '').replace(/\s+/g, ''))
+       bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+     } catch { return json({ error: 'conteudo_base64 não é base64 válido.' }, 400) }
+@@ -181,46 +170,72 @@
+     if ((response.headers.get('content-type') ?? '').toLowerCase().startsWith('text/html')) return json({ error: 'A origem devolveu HTML em vez do ficheiro.' }, 422)
+     const declared = Number(response.headers.get('content-length') ?? 0)
+     if (declared > MAX_BYTES) return json({ error: 'Ficheiro demasiado grande — máximo 20 MB.' }, 413)
+-    bytes = new Uint8Array(await response.arrayBuffer())
++    try { bytes = await readCapped(response.body, MAX_BYTES) } catch { return json({error:"Documento superior ao limite"},413) }
+   }
+   if (bytes.byteLength === 0) return json({ error: 'Ficheiro vazio.' }, 422)
+   if (bytes.byteLength > MAX_BYTES) return json({ error: 'Ficheiro demasiado grande — máximo 20 MB.' }, 413)
+-  const contentType = detectType(bytes)
++  const contentType = documentType(bytes)
+   if (!contentType) return json({ error: 'Tipo não suportado — aceites PDF, JPEG e PNG.' }, 415)
  
++  try { validateDocument(bytes, contentType) } catch { return json({error:'Documento inválido'},422) }
    const year = body.invoice_date?.slice(0, 4) ?? new Date().getUTCFullYear().toString()
    const path = `${body.company_id}/${year}/${safeBaseName(body.nome)}-${crypto.randomUUID()}.${EXT_BY_TYPE[contentType]}`
 -  const { error: uploadError } = await admin.storage.from(BUCKET).upload(path, bytes, { contentType, upsert: false })
@@ -645,7 +668,7 @@
 \ No newline at end of file
 --- /dev/null
 +++ b/src/lib/standalone-attempt-client.ts
-@@ -0,0 +1,27 @@
+@@ -0,0 +1,31 @@
 +/** Proposed browser adapter. No local storage authority and no direct mutations. */
 +import { supabase } from '@/integrations/supabase/client';
 +import { documentHash, type Attempt } from '@shared/standalone-attempt';
@@ -673,15 +696,20 @@
 +export async function resumeLegacyAttempt(operation:string,id:string,hash:string,context:Context) {
 + return attemptRequest({action:'check',operation,id,hash},context);
 +}
-\ No newline at end of file
++export type AttemptSummary={id:string;hash:string;state:string;name:string;reference:string|null;created_at:string};
++export async function listLegacyAttempts(operation:string,context:Context,after:string|null=null):Promise<{items:AttemptSummary[];next:string|null}> {
++ return attemptRequest({action:'list',operation,after},context);
++}
 --- /dev/null
 +++ b/supabase/functions/standalone-attempt-333/handler.ts
-@@ -0,0 +1,42 @@
+@@ -0,0 +1,50 @@
 +/** Proposed NEW handler; never deployed. All identity and SQL calls are injected. */
++import { validateDocument, MAX_DOCUMENT_BYTES } from '../data-entry/core.ts';
 +import { z } from 'npm:zod@3.23.8';
 +import { executeAttempt, checkAttempt, type Attempt, type AttemptTransport } from '../_shared/standalone-attempt.ts';
 +const uuid=z.string().uuid();
 +const schema=z.discriminatedUnion('action',[
++ z.object({action:z.literal('list'),operation:z.enum(['scanner_create','accountant_edit']),after:uuid.nullable()}).strict(),
 + z.object({action:z.literal('prepare'),operation:z.enum(['scanner_create','accountant_edit']),id:uuid.nullable(),envelope:z.record(z.unknown())}).strict(),
 + z.object({action:z.literal('execute'),operation:z.enum(['scanner_create','accountant_edit']),id:uuid,hash:z.string().regex(/^[a-f0-9]{64}$/),conteudo_base64:z.string().max(28000000)}).strict(),
 + z.object({action:z.literal('check'),operation:z.enum(['scanner_create','accountant_edit']),id:uuid,hash:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),
@@ -691,6 +719,7 @@
 + context(token:string):Promise<{company_id:string}|null>;
 + transport(token:string,operation:string):AttemptTransport;
 + cors:Record<string,string>;
++ list?(token:string,operation:string,after:string|null):Promise<unknown>;
 +};
 +export function createAttemptHandler(d:HandlerDeps) {
 + return async(req:Request)=>{
@@ -709,11 +738,16 @@
 +   const raw=new Uint8Array(size);let offset=0;for(const chunk of chunks){raw.set(chunk,offset);offset+=chunk.length}
 +   const body=schema.parse(JSON.parse(new TextDecoder().decode(raw)));
 +   const t=d.transport(token,body.operation);
++   if(body.action==='list'){if(!d.list)return reply({error:'Consulta indisponível'},409);return reply(await d.list(token,body.operation,body.after));}
 +   if(body.action==='prepare')return reply(await t.rpc('prepare',body.id,body.envelope,null));
 +   const a:Attempt=await t.rpc('check',body.id,null,body.hash);
 +   if(a.hash!==body.hash || a.id!==body.id)return reply({error:'Tentativa divergente'},409);
 +   if(body.action==='check')return reply(await checkAttempt(t,a));
-+   const binary=atob(body.conteudo_base64);const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
++   if(body.conteudo_base64.length>4*Math.ceil(MAX_DOCUMENT_BYTES/3))return reply({error:'Documento demasiado grande'},413);
++   const binary=atob(body.conteudo_base64);
++   if(binary.length>MAX_DOCUMENT_BYTES)return reply({error:'Documento demasiado grande'},413);
++   const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
++   try{validateDocument(bytes,a.document.mime)}catch{return reply({error:'Documento incompleto ou incompatível'},422)}
 +   const out=await executeAttempt(t,a,bytes);
 +   return reply(out,out.status==='conferido'?200:409);
 +  }catch{return reply({error:'Conferência pendente. Não repitas uma gravação.',status:'pendente'},409)}
@@ -722,16 +756,17 @@
 \ No newline at end of file
 --- /dev/null
 +++ b/supabase/functions/standalone-attempt-333/index.ts
-@@ -0,0 +1,18 @@
+@@ -0,0 +1,19 @@
 +/** Proposed NEW edge entrypoint. Not deployed/configured; requires explicit future approval. */
 +import {createClient} from 'npm:@supabase/supabase-js@2';
 +import {corsHeaders} from 'npm:@supabase/supabase-js@2/cors';
 +import {createAttemptHandler} from './handler.ts';
++export const attemptCors = {...corsHeaders, 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-attempt-user, x-attempt-company', 'Access-Control-Allow-Methods': 'POST, OPTIONS'};
 +import {documentHash,type Attempt} from '../_shared/standalone-attempt.ts';
 +const url=Deno.env.get('SUPABASE_URL')??'',key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')??'',anon=Deno.env.get('SUPABASE_ANON_KEY')??'';
 +const admin=createClient(url,key);
 +const userClient=(token:string)=>createClient(url,anon,{global:{headers:{Authorization:`Bearer ${token}`}}});
-+Deno.serve(createAttemptHandler({cors:corsHeaders,
++Deno.serve(createAttemptHandler({cors:attemptCors,
 + user:async token=>{const {data,error}=await userClient(token).auth.getUser();return error?null:data.user},
 + context:async token=>{const {data,error}=await userClient(token).rpc('my_effective_permissions',{p_universe:[]});return error?null:data},
 + transport:(token,operation)=>({
@@ -742,6 +777,16 @@
 + })
 +}));
 \ No newline at end of file
+--- a/supabase/config.toml
++++ b/supabase/config.toml
+@@ -815,3 +815,7 @@
+ 
+ [functions.artist-ads-balance-check]
+ verify_jwt = true
++
++# #333 candidate only; applied exclusively in disposable integration.
++[functions.standalone-attempt-333]
++verify_jwt = true
 --- a/supabase/functions/data-entry/handler.ts
 +++ b/supabase/functions/data-entry/handler.ts
 @@ -112,7 +112,7 @@

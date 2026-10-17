@@ -25,3 +25,7 @@ export const checkLegacyAttempt=(operation:string,a:Attempt,context:Context)=>at
 export async function resumeLegacyAttempt(operation:string,id:string,hash:string,context:Context) {
  return attemptRequest({action:'check',operation,id,hash},context);
 }
+export type AttemptSummary={id:string;hash:string;state:string;name:string;reference:string|null;created_at:string};
+export async function listLegacyAttempts(operation:string,context:Context,after:string|null=null):Promise<{items:AttemptSummary[];next:string|null}> {
+ return attemptRequest({action:'list',operation,after},context);
+}
