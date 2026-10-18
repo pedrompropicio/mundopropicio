@@ -44,6 +44,8 @@ it('connected AuthHTTP + official SELECT spool + same Chromium probe/preflight/e
  await db`create table auth.sessions(user_id uuid)`;
  for(const f of ['log_table_change.live.sql','set_company_id_on_insert.live.sql'])await db.unsafe(readFileSync('docs/testes/issue333/pilot8/preflight56/sources/'+f,'utf8'));
  await db`delete from user_roles where user_id<>${U}`;
+ await db`alter table user_roles alter column id drop default`;
+ await db`alter table user_roles alter column id type uuid using md5(id::text)::uuid`;
  const {AuthAdmin57,OfficialSelectBridge,exactPdf57,chromiumDriver57}=await import('../pilot8/private-cloud57');
  const {connectedDriver58}=await import('../pilot8/run-cloud57');
  const {checkpoint66,PrivateStore66,artifactHash66}=await import('../pilot8/checkpoint66');
@@ -97,8 +99,6 @@ it('connected AuthHTTP + official SELECT spool + same Chromium probe/preflight/e
  expect((await checkpoint66('prepare',driver,artifact,store)).checkpoint).toBe('await_activation');
  // Local controller writes BETWEEN completed invocations, never while a SELECT is waiting.
  await db`update user_roles set role='manager' where id=${roleId}`;await notify({controller_prepare:true});
- // Local-only diagnostics: no credentials in these SELECT/gate errors.
- const validate=driver.validateCheckpoint;driver.validateCheckpoint=async(...args)=>{try{await validate(...args)}catch(e){console.error('LOCAL66 gate:',e);throw e}};
  expect((await checkpoint66('execute',driver,artifact,new PrivateStore66(store.directory))).checkpoint).toBe('await_revocation');
  await notify({controller_revoke_exact_two:true});
  expect((await checkpoint66('finish',driver,artifact,new PrivateStore66(store.directory))).checkpoint).toBe('complete');
