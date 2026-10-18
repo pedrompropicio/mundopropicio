@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "id": "proof71-metadata-0001",
+  "query": "SELECT (SELECT coalesce(jsonb_agg(relation||'.'||column_name ORDER BY relation,column_name),'[]'::jsonb) incompatibilities FROM (VALUES ('auth.users','id'),('auth.users','email'),('auth.users','raw_user_meta_data'),('auth.users','last_sign_in_at'),('auth.users','banned_until'),('auth.users','created_at'),('auth.sessions','user_id'),('public.transactions','id'),('public.event_forecasts','id'),('public.financial_accounts','id'),('public.transaction_payments','id'),('public.reimbursement_notes','id'),('public.reimbursement_notes','payment_transaction_id'),('public.reimbursement_notes','total_amount'),('public.reimbursement_notes','status'),('public.reimbursement_notes','company_id'),('public.reimbursement_note_items','id'),('public.reimbursement_note_items','reimbursement_note_id'),('public.reimbursement_note_items','transaction_id'),('public.reimbursement_note_items','company_id'),('public.payment_lists','id'),('public.data_entry_sessions','id'),('public.data_entry_sessions','owner_id'),('public.data_entry_documents','id'),('public.data_entry_documents','session_id'),('public.data_entry_documents','path'),('public.data_entry_previews','id'),('public.data_entry_previews','session_id'),('public.data_entry_results','approved_by'),('public.standalone_invoices','created_by'),('public.standalone_invoices','storage_path'),('public.standalone_invoices','invoice_number'),('public.standalone_invoices','currency'),('public.standalone_invoices','total_amount'),('public.standalone_invoices','iva_amount'),('public.standalone_invoices','paid_by_partner_id'),('public.standalone_invoices','notes'),('public.standalone_attempts_333','id'),('public.standalone_attempts_333','principal'),('public.standalone_attempt_audit_333','attempt_id'),('public.data_entry_storage_receipts','path'),('public.data_entry_settings','preparation_validated'),('public.data_entry_settings','execute_validated'),('public.standalone_attempt_settings_333','enabled'),('public.data_entry_pilot8_allowlist','owner_id'),('public.data_entry_pilot8_allowlist','company_id'),('public.data_entry_pilot8_allowlist','operation'),('public.data_entry_pilot8_allowlist','enabled'),('public.data_entry_pilot8_allowlist','expires_at'),('public.data_entry_pilot8_allowlist','reviewed_note'),('public.profiles','id'),('public.profiles','company_id'),('public.profiles','active_company_id'),('public.profiles','full_name'),('public.user_roles','id'),('public.user_roles','user_id'),('public.user_roles','company_id'),('public.user_roles','role'),('public.companies','id'),('public.companies','tax_id'),('public.companies','status'),('pg_catalog.pg_proc','oid'),('pg_catalog.pg_proc','prosrc'),('pg_catalog.pg_proc','proacl'),('pg_catalog.pg_proc','proconfig'),('pg_catalog.pg_proc','proowner'),('pg_catalog.pg_proc','pronamespace'),('pg_catalog.pg_proc','proname')) required(relation,column_name) WHERE NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid=to_regclass(required.relation) AND a.attname=required.column_name AND a.attnum>0 AND NOT a.attisdropped)) incompatibilities, (SELECT jsonb_object_agg(oid::regprocedure::text,md5(prosrc)) FROM pg_proc WHERE oid IN (to_regprocedure('current_company_id()'),to_regprocedure('log_table_change()'),to_regprocedure('set_company_id_on_insert()'),to_regprocedure('auth.uid()'),to_regprocedure('data_entry_pilot8_gate(text)'))) sources, (SELECT count(*)::integer FROM public.data_entry_pilot8_allowlist WHERE enabled) active_allowlist",
+  "fingerprint": "86990cf6ad3d313471a0c133e5edad9571155e93c7ba55077a9e230dbf568d2e",
+  "maxBytes": 65536,
+  "expectedKeys": [
+    "incompatibilities",
+    "sources",
+    "active_allowlist"
+  ],
+  "status": "pending",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "incompatibilities": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "sources": {
+        "type": "object",
+        "properties": {
+          "current_company_id()": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "log_table_change()": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "set_company_id_on_insert()": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "auth.uid()": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "data_entry_pilot8_gate(text)": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          }
+        }
+      },
+      "active_allowlist": {
+        "type": "number",
+        "integer": true,
+        "minimum": 0
+      }
+    }
+  },
+  "estimatedEnvelopeBytes": 16384,
+  "queryBytes": 3463
+}
