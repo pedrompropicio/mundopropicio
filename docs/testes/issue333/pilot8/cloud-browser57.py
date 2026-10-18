@@ -44,17 +44,22 @@ async def main():
                     if action=='execute':
                         if execute_count:await r.abort();raise Exception('Unexpected additional execute')
                         execute_count=2;latest.update(body)
-                        responses=await asyncio.gather(context.request.post(url,data=body,headers=req.headers,timeout=20000),context.request.post(url,data=body,headers=req.headers,timeout=20000))
-                        # Local variables only; both statuses AND sanitized bodies preserved.
-                        statuses=[x.status for x in responses]
-                        bodies=[]
+                        # return_exceptions=True: a partial failure must not lose the
+                        # response that WAS observed. Failed leg recorded sanitized
+                        # (exception type only); no response is ever invented.
+                        responses=await asyncio.gather(context.request.post(url,data=body,headers=req.headers,timeout=20000),context.request.post(url,data=body,headers=req.headers,timeout=20000),return_exceptions=True)
+                        statuses=[];bodies=[];ok=[]
                         for x in responses:
+                            if isinstance(x,Exception):
+                                statuses.append(None);bodies.append({'transport_failure':type(x).__name__});continue
+                            statuses.append(x.status);ok.append(x)
                             try:
                                 b=await x.json()
                                 bodies.append({k:b.get(k) for k in ('status','error') if k in b})
                             except Exception:bodies.append(None)
                         evidence['pair_statuses']=statuses;evidence['pair_bodies']=bodies
-                        response=next((x for x in responses if x.status==200),responses[0])
+                        if not ok:raise Exception('Both execute requests failed at transport')
+                        response=next((x for x in ok if x.status==200),ok[0])
                         await r.fulfill(response=response);return
                 else:calls.append('upload')
                 await r.continue_();return

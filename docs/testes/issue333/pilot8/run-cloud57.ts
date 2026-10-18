@@ -11,7 +11,7 @@ const DIR='/tmp/browser/issue333-pilot57';
 let bridge:OfficialSelectBridge;
 const q=(v:string)=>"'"+v.replace(/'/g,"''")+"'";
 async function select(query:string,expectedKeys?:string[]){const x=await bridge.select(query,expectedKeys);return x;}
-export function connectedDriver58(options:{artifact:Awaited<ReturnType<typeof exactPdf57>>;auth:AuthAdmin57;select:(query:string)=>Promise<any>;url:string;service:string;pub:string;directory:string;notify?:(message:unknown)=>void;browserOptions?:Record<string,unknown>;expectedSources?:Record<string,string>}) {
+export function connectedDriver58(options:{artifact:Awaited<ReturnType<typeof exactPdf57>>;auth:AuthAdmin57;select:(query:string,expectedKeys?:string[])=>Promise<any>;url:string;service:string;pub:string;directory:string;notify?:(message:unknown)=>void;browserOptions?:Record<string,unknown>;expectedSources?:Record<string,string>}) {
  const {artifact,auth,select,url,service,pub,directory:DIR,browserOptions={},expectedSources}=options;
  const MARKER57=artifact.marker,COMPANY57=artifact.company,SHA57=artifact.sha256;
  const notify=options.notify??((message:unknown)=>console.log(JSON.stringify(message)));
@@ -21,7 +21,7 @@ export function connectedDriver58(options:{artifact:Awaited<ReturnType<typeof ex
   preflightReadOnly:async()=>{
    const metadata=await select(metadataSQL(),['incompatibilities']);
    if(metadata.incompatibilities.length)throw Error('Driver schema incompatibilities: '+metadata.incompatibilities.join(', '));
-   const r=await select(`SELECT jsonb_build_object('marker',(SELECT count(*) FROM auth.users WHERE email=${q(MARKER57+'@fixture.invalid')} OR raw_user_meta_data->>'fixture_marker'=${q(MARKER57)}),'reference',(SELECT count(*) FROM standalone_invoices WHERE invoice_number=${q(artifact.reference)}),'allowlist',(SELECT count(*) FROM data_entry_pilot8_allowlist),'core',(SELECT count(*) FROM data_entry_settings WHERE preparation_validated OR execute_validated),'attempt',(SELECT count(*) FROM standalone_attempt_settings_333 WHERE enabled),'sources',(SELECT jsonb_object_agg(oid::regprocedure::text,md5(prosrc)) FROM pg_proc WHERE oid IN ('current_company_id()'::regprocedure,'log_table_change()'::regprocedure,'set_company_id_on_insert()'::regprocedure,'auth.uid()'::regprocedure,'data_entry_pilot8_gate(text)'::regprocedure)) preflight`,['preflight']);
+   const r=await select(`SELECT jsonb_build_object('marker',(SELECT count(*) FROM auth.users WHERE email=${q(MARKER57+'@fixture.invalid')} OR raw_user_meta_data->>'fixture_marker'=${q(MARKER57)}),'reference',(SELECT count(*) FROM standalone_invoices WHERE invoice_number=${q(artifact.reference)}),'allowlist',(SELECT count(*) FROM data_entry_pilot8_allowlist),'core',(SELECT count(*) FROM data_entry_settings WHERE preparation_validated OR execute_validated),'attempt',(SELECT count(*) FROM standalone_attempt_settings_333 WHERE enabled),'sources',(SELECT jsonb_object_agg(oid::regprocedure::text,md5(prosrc)) FROM pg_proc WHERE oid IN ('current_company_id()'::regprocedure,'log_table_change()'::regprocedure,'set_company_id_on_insert()'::regprocedure,'auth.uid()'::regprocedure,'data_entry_pilot8_gate(text)'::regprocedure))) preflight`,['preflight']);
    const p=r.preflight;const expected=expectedSources??{'current_company_id()':'f857f027a44e858399e895d702af7ad0','log_table_change()':'9509fe109550c9e0367fcbe4ffc661c5','set_company_id_on_insert()':'949120b4d6c08f0c8707f63d28708d96','auth.uid()':'cdef18c69c4f4cbbced2eaf81e628b49','data_entry_pilot8_gate(text)':'1e066a6df3637c8d5c8f99f00a255d33'};
    before=(await select(baselineSQL(),['baseline'])).baseline;
    const repeated=(await select(baselineSQL(),['baseline'])).baseline;
@@ -61,7 +61,7 @@ export function connectedDriver58(options:{artifact:Awaited<ReturnType<typeof ex
 }
 async function main() {
  bridge=await OfficialSelectBridge.fresh();
- console.log(JSON.stringify({official_select_directory:bridge.relayDirectory,response_contract:'{id, data: official row array}',controller_writes:'separate reviewed query_database; never this relay'}));
+ console.log(JSON.stringify({official_select_directory:bridge.relayDirectory,response_contract:'{id, fingerprint: sha256(query), data: official row array}',controller_writes:'separate reviewed query_database; never this relay'}));
  const artifact=await exactPdf57(DIR+'/pilot8-fiction.pdf');
  const url=process.env.SUPABASE_URL,service=process.env.SUPABASE_SERVICE_ROLE_KEY,pub=process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
  if(!url||!service||!pub)throw Error('Private AuthAdmin environment absent');

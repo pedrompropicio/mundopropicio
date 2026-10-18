@@ -11,3 +11,15 @@ it('five-minute readiness timeout never logs in or creates replacement, still ba
 it('invalid PDF forbids account and password creation',async()=>{const h=harness();h.driver.validatePdf=async()=>{throw Error('invalid PDF')};await expect(runFuturePilot(h.driver,artifact,'PEDRO_AUTHORIZED_SINGLE_PILOT8')).rejects.toThrow('invalid PDF');expect(h.calls).toEqual([])});
 it('uncertain execute never retries; independent logout failure still bans and verifies sessions',async()=>{const h=harness();let executions=0;h.driver.chromium=async()=>{executions++;throw Error('uncertain')};h.driver.logoutGlobal=async()=>{h.calls.push('logout');throw Error('logout')};await expect(runFuturePilot(h.driver,artifact,'PEDRO_AUTHORIZED_SINGLE_PILOT8')).rejects.toThrow('Cleanup proof incomplete');expect(executions).toBe(1);expect(h.calls.slice(-3)).toEqual(['logout','ban','sessions'])});
 it('without separate future authorization performs no action',async()=>{const h=harness();await expect(runFuturePilot(h.driver,artifact,'PREFLIGHT_ONLY')).rejects.toThrow('authorization');expect(h.calls).toEqual([])});
+it('logout AND ban failures both surface in cleanup error; sessions verification still runs independently',async()=>{
+ const h=harness();
+ h.driver.logoutGlobal=async()=>{h.calls.push('logout');throw Error('logout')};
+ h.driver.banOnlyCreatedUser=async()=>{h.calls.push('ban');throw Error('ban')};
+ await expect(runFuturePilot(h.driver,artifact,'PEDRO_AUTHORIZED_SINGLE_PILOT8')).rejects.toThrow('Cleanup proof incomplete: global_logout,ban_created_user');
+ expect(h.calls).toContain('sessions');
+});
+it('sessions verification failure alone blocks completion even with clean logout and ban',async()=>{
+ const h=harness();
+ h.driver.readSessionCount=async()=>{h.calls.push('sessions');return 1};
+ await expect(runFuturePilot(h.driver,artifact,'PEDRO_AUTHORIZED_SINGLE_PILOT8')).rejects.toThrow('Cleanup proof incomplete: sessions_zero');
+});
