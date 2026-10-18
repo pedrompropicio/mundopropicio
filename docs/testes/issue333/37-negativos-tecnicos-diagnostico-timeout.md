@@ -58,7 +58,7 @@ PG17 local: second connection row lock after error | 0 | PASS
 ```
 
 ## Falha concreta de fixture: execute endpoint
-O documento técnico enviado tinha 37 bytes, cabeçalho PDF e EOF, mas não continha objeto/startxref nem o mínimo de64 bytes do validador. O endpoint devolveu422 antes de authorize. A premissa do runner “valid PDF” estava errada; FAIL conservado no output, não tratado como recusa de gate. Não é falha demonstrada de produto. A conta foi encerrada somente depois de todos os grupos independentes e do diagnóstico.
+O documento técnico enviado tinha 39 bytes (comprimento recontado dos bytes exatos), cabeçalho PDF e EOF, mas não continha objeto/startxref nem o mínimo de64 bytes do validador. O endpoint devolveu422 antes de authorize. A premissa do runner “valid PDF” estava errada; FAIL conservado no output, não tratado como recusa de gate. Não é falha demonstrada de produto. A conta foi encerrada somente depois de todos os grupos independentes e do diagnóstico.
 
 Authorize/begin/commit via RPC deram403/42501 com mensagem de operação não ativada. Prepare e confirm endpoint deram409, acompanhados de gate42501 nos RPCs correspondentes. Não são schema400. Confirm foi construído com schema válido e reserva prepare: o gate recusa antes da condição completed, não prova confirmação positiva. Execute ponta-a-ponta até ao gate permanece NÃO PROVADO por esta fixture. Alteração mínima do ensaio: usar PDF técnico com objeto/startxref/EOF e comprimento>=64, vinculado na reserva desde a criação; não alterar o validador nem a reserva imutável. Sem nova conta ou reenvio efetuado nesta tarefa após o finally.
 
