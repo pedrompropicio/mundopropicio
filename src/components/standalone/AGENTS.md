@@ -1,5 +1,5 @@
 # Attempt discovery and confirmation
 - Discovery loads one bounded page per user action; only complete canonical family sequences can establish local latest, because clocks and UUIDs do not establish intention order.
 - Persist confirmation uncertainty before sending; recover by read-only server checks and never resend automatically, because lost responses can have committed technical intentions.
-- Discovery never executes or reuses previous form fields; a separate explicit reservation authorization checks prepared state and original bytes through the typed endpoint, because new intent alone is not authorization of effects.
+- Discovery never executes or reuses previous form fields. Prepared scanner reservations use a separate explicit execution control through the typed attempt client, checking prepared state and original bytes; discovery/new intent cannot authorize effects, and uncertain states remain read-only.
 - Invalidate asynchronous results on principal/company/operation changes; existing reservations never fall back to legacy writers, because capability failure is not authorization.

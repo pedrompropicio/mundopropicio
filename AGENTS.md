@@ -1,5 +1,5 @@
 # Architecture rules
-- Read subdirectory AGENTS.md rules. Entry stays closed until storage/uniqueness proofs. Preserve candidates; checks compare SQL+bytes and canonical context. Keep legacy patches inert until reviewed; test real destinations together in a credential-free copy. Strong keys preserve separators; broad matches never prove reuse.
+- Read subdirectory AGENTS.md before edits. Entry stays closed until storage/uniqueness proofs. Preserve candidates; compare SQL+bytes and canonical context. Keep legacy patches inert until reviewed; test real destinations in a credential-free copy. Strong keys preserve separators; broad matches never prove reuse.
 
 - Meta audience replacement uses complete paginated canonical data and one ordered replacement session; failed batches stop before finalization; dry runs never resolve tokens or deliver externally.
 - Audience branches preserve legacy behavior; person ads use current proof and email-only, numeric-only delivery to avoid leakage. Inert SQL stays in supabase/manual pending authorization.
@@ -28,4 +28,3 @@
 - Person advertising consent links session-resolved Club members to the existing marketing ledger through immutable references, with separate purpose subjects and an independent email history; unsubscribe commits revocation, suppression and token claim together to avoid partial withdrawal.
 - Edge fns share code only via `_shared/` (no cross-function imports).
 
-- Prepared scanner reservations use a separate explicit execution control through the typed attempt client; discovery cannot authorize effects, and uncertain states remain read-only.
