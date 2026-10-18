@@ -21,6 +21,7 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
+- [ ] Tarefa77: reproduzir localmente Novo lote/upload/edição com React real em Chromium e WebKit se disponível; corrigir somente causa comprovada e validar interação. Piloto76 parcial segundo controller: sessão1/documento1/fatura0, duas permissões revogadas; preservar baseline e histórico, sem Cloudwrites.
 - [x] Tarefa75: modo existing-user isolado/cleanup exato/histórico e sessões preservados;22testesPASS/tipos0/buildOK. Diagnóstico corrigido: Pedro alterou pessoalmente para manager, revalidado oficialmente; sem promoção pelo agente.
 - [x] Prova73: manifesto sanitizado, SQL novo inerte/renderer/30PG,9bundles por etapa/39testes/tipos0; zero piloto/escritas Cloud.
 - [ ] Piloto existing-user75: manager MP revalidado; Pedro confirmou login no próprio preview. manual76: SQL inertes + PDF exato + baseline.request.json entregues; controller deve capturar baseline oficial integral antes da ativação. Zero Cloudwrites. UI não suporta segunda execução da mesma prévia; fase8 PARCIAL.
