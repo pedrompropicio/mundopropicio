@@ -21,10 +21,11 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
-- [x] Tarefa77: investigação de edição cancelada por Pedro (campos editáveis, botão aguardava preenchimento); produto intacto. Conferência oficial somente leitura: sessão1/documento1/hashPDFigual/prévia1/resultado1/faturaFICTICIO1; duas permissões existentes desativadas. Correspondência exata nota/expiry76 não confirmada. Sem execução pelo agente; fase8 parcial.
+- [x] Tarefa77/78: investigação cancelada (campos funcionais); teste manual76 operacional APROVADO, produto intacto. Divergência expires esclarecida: controller renovou mesmas duas permissões e revogou-as; não retry. Comparação automática financeira/configuração preservada; prova78/checklist/estado atualizados, reserva libertada.
 - [x] Tarefa75: modo existing-user isolado/cleanup exato/histórico e sessões preservados;22testesPASS/tipos0/buildOK. Diagnóstico corrigido: Pedro alterou pessoalmente para manager, revalidado oficialmente; sem promoção pelo agente.
 - [x] Prova73: manifesto sanitizado, SQL novo inerte/renderer/30PG,9bundles por etapa/39testes/tipos0; zero piloto/escritas Cloud.
-- [ ] Piloto existing-user75/manual76: controller informou baseline capturada e ativação/revogação; evidência preservada, sem alegar consumo pelo receiver. Conferência77 mostra uma fatura/resultado existentes; download/check pós-revogação e comparação integral continuam não verificados pelo agente. Sem repetir execução; fase8 PARCIAL.
+- [x] Piloto existing-user75/manual76 operacional: upload→prévia→autorização→execução→conferência APROVADO;1fatura EUR0/IVA0/1resultado. Controller comparou7relações financeiras count/hash e18funções ACL/source/owner iguais; envelopes preservados por ele, não transcritos pelo agente; conta/sessões históricas intactas.
+- [ ] Aceitação ampliada fase8PARCIAL: evidência de check iniciado APÓS revogação, executeHTTP simultâneo sobre mesma prévia e download separado/SHA, ou decisão expressa de dispensa desses critérios. Não repetir piloto para reconhecer sucesso manual. Fases9–18 não executadas; próximo produto útil proposto: análise documental com sugestões/proveniência e revisão humana, sem execução automática.
 - [x] Prova72:3envelopes reais consumidos em ordem, bytes/hash exatos e snapshots iguais; manifesto privado novo sem conta e plano condicional,51testesPASS.
 - [x] Cenário criação/AuthAdmin após72 substituído explicitamente pelo existing-user75; artefactos anteriores preservados, contas59/63 não reutilizáveis.
 - [x] Prova71: transporte finito integrado;58 seletivos+1PG/React/Chromium PASS, tipos0; bundle real sem identidade entregue, zero Cloud, fase8 PARCIAL.
