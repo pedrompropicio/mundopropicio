@@ -9,7 +9,7 @@
 
 # #333 — Assistente de Entrada de Dados
 - [x] Executar runner HEAD isolado:23/44/31/7 PASS,geral1373,tsgo/Deno/build0;provas30/31,0Live; NÃO aceitação completa.
-- [ ] Completar aceitação local: Chromium React e injeções authorize/begin/confirm-recovery/contexto; cobertura parcial documentada prova30.
+- [x] Completar casos locais bloqueantes: React Chromium Assistant/scanner/editor/reserva, authorize/begin/confirm-recovery/Auth/empresa;prova32. Cloud não testado.
 - [ ] Confirmar CI final e HEAD/sincronização com controlador após autocommit.
 - [x] Validar SQL exata do leitor em PostgreSQL descartável real;0192 aplicada oficialmente/registry194/hash exato.
 - [x] Integrar/testar leitor service-only; deploy só standalone-attempt-333, versão7 observada, gates fechados.
