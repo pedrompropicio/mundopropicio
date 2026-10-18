@@ -16,6 +16,11 @@ CREATE TABLE public.data_entry_pilot8_allowlist (
 -- Owner-managed only; no Data API actor (including service) manages activation.
 GRANT ALL ON public.data_entry_pilot8_allowlist TO postgres;
 REVOKE ALL ON public.data_entry_pilot8_allowlist FROM PUBLIC,anon,authenticated,service_role;
+DO $acl$ DECLARE g text; BEGIN
+ FOR g IN SELECT DISTINCT r.rolname FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a JOIN pg_roles r ON r.oid=a.grantee WHERE c.oid='public.data_entry_pilot8_allowlist'::regclass AND a.grantee<>c.relowner LOOP
+  EXECUTE format('REVOKE ALL ON TABLE public.data_entry_pilot8_allowlist FROM %I',g);
+ END LOOP;
+END $acl$;
 ALTER TABLE public.data_entry_pilot8_allowlist ENABLE ROW LEVEL SECURITY;
 -- No policies: no browser/service access, same as existing settings.
 CREATE FUNCTION public.data_entry_pilot8_gate(p_operation text) RETURNS boolean
@@ -23,12 +28,16 @@ LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=public,pg_temp AS $$
 DECLARE u uuid:=auth.uid(); c uuid:=public.current_company_id(); r text; permitted boolean:=false;
 BEGIN
  IF u IS NULL OR c IS NULL OR p_operation NOT IN ('preparation','assistant_create') OR p_operation IS NULL THEN RETURN false; END IF;
+ PERFORM 1 FROM public.profiles WHERE id=u FOR SHARE;
+ PERFORM 1 FROM public.user_roles WHERE user_id=u ORDER BY id FOR SHARE;
+ PERFORM 1 FROM public.companies WHERE id=c FOR SHARE;
+ IF public.current_company_id() IS DISTINCT FROM c THEN RETURN false; END IF;
  r:=public._effective_permissions_for(u,c,'{}'::text[])->>'role';
  IF coalesce(r,'') NOT IN ('admin','platform_admin','manager') OR NOT EXISTS(SELECT 1 FROM public.companies WHERE id=c AND status='active') THEN RETURN false; END IF;
  -- Shared lock prevents concurrent revocation overtaking this transaction's effect.
- SELECT enabled AND expires_at>clock_timestamp() INTO permitted
+ SELECT enabled INTO permitted
  FROM public.data_entry_pilot8_allowlist WHERE owner_id=u AND company_id=c AND operation=p_operation FOR SHARE;
- RETURN coalesce(permitted,false);
+ RETURN coalesce(permitted,false) AND EXISTS(SELECT 1 FROM public.data_entry_pilot8_allowlist WHERE owner_id=u AND company_id=c AND operation=p_operation AND enabled AND expires_at>clock_timestamp());
 END $$;
 REVOKE ALL ON FUNCTION public.data_entry_pilot8_gate(text) FROM PUBLIC,anon,authenticated,service_role;
 CREATE FUNCTION public.data_entry_pilot8_capabilities() RETURNS jsonb
@@ -96,6 +105,9 @@ BEGIN
   RAISE EXCEPTION '#333: Dados do ERP mudaram; prepara nova prévia' USING ERRCODE='40001'; END IF;
  -- Serialises #333 executors; legacy writers are guarded only by the canonical unique index (exact spelling).
  PERFORM pg_advisory_xact_lock(hashtextextended(s.company_id::text||'|'||public.data_entry_identity(f->>'supplier_nif')||'|'||public.data_entry_identity(f->>'invoice_number'),333));
+ -- Revalidate after potentially waiting for the identity lock; expiration cannot authorize INSERT.
+ a := public.data_entry_actor();
+ IF a.company IS DISTINCT FROM s.company_id OR NOT public.data_entry_pilot8_gate('assistant_create') THEN RAISE EXCEPTION '#333: Piloto indisponível' USING ERRCODE='42501'; END IF;
  IF EXISTS(SELECT 1 FROM public.standalone_invoices WHERE company_id=s.company_id AND public.data_entry_identity(supplier_nif)=public.data_entry_identity(f->>'supplier_nif') AND public.data_entry_identity(invoice_number)=public.data_entry_identity(f->>'invoice_number')) THEN
   RAISE EXCEPTION '#333: Fatura já existe no ERP; nenhuma nova ação' USING ERRCODE='23505'; END IF;
  mark := 'Feito por LLM com autorização de '||a.actor_name||' em '||to_char(now_ts AT TIME ZONE 'Europe/Lisbon','DD/MM/YYYY')||'.';
@@ -112,4 +124,57 @@ END $$;
 CREATE OR REPLACE FUNCTION public.standalone_attempt_gate_333(p_operation text) RETURNS boolean LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=public,pg_temp AS $$
  SELECT p_operation='assistant_create' AND public.data_entry_pilot8_gate(p_operation)
 $$;
+DO $guard$ BEGIN
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.data_entry_record_receipt(text,text,text,integer,text)'::regprocedure) IS DISTINCT FROM 'f7c560f3f7c22ffca897101b1d96c5d5' THEN RAISE EXCEPTION 'pilot8 receipt source changed' USING ERRCODE='55000'; END IF;
+END $guard$;
+CREATE FUNCTION public.data_entry_pilot8_receipt(p_owner uuid,p_company uuid,p_session uuid,p_bucket text,p_path text,p_sha text,p_size integer,p_mime text) RETURNS void
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE s public.data_entry_sessions; d public.data_entry_documents; op text; permitted boolean; c uuid; pr public.profiles; pa boolean;
+BEGIN
+ IF p_owner IS NULL OR p_company IS NULL THEN RAISE EXCEPTION '#333: Contexto inválido' USING ERRCODE='42501'; END IF;
+ SELECT * INTO pr FROM public.profiles WHERE id=p_owner;
+ pa := public.is_platform_admin(p_owner);
+ IF pr.active_company_id IS NOT NULL AND (pa OR EXISTS(SELECT 1 FROM public.user_roles WHERE user_id=p_owner AND company_id=pr.active_company_id)) THEN c:=pr.active_company_id;
+ ELSIF pr.company_id IS NOT NULL AND (pa OR EXISTS(SELECT 1 FROM public.user_roles WHERE user_id=p_owner AND company_id=pr.company_id)) THEN c:=pr.company_id;
+ ELSE SELECT ur.company_id INTO c FROM public.user_roles ur JOIN public.companies co ON co.id=ur.company_id WHERE ur.user_id=p_owner AND co.status='active' ORDER BY ur.id LIMIT 1; END IF;
+ IF c IS DISTINCT FROM p_company OR coalesce(public._effective_permissions_for(p_owner,c,'{}'::text[])->>'role','') NOT IN ('admin','platform_admin','manager') OR NOT EXISTS(SELECT 1 FROM public.companies WHERE id=c AND status='active') THEN RAISE EXCEPTION '#333: Contexto alterado' USING ERRCODE='42501'; END IF;
+ SELECT * INTO s FROM public.data_entry_sessions WHERE id=p_session AND owner_id=p_owner AND company_id=c FOR UPDATE;
+ IF s.id IS NULL THEN RAISE EXCEPTION '#333: Lote indisponível' USING ERRCODE='42501'; END IF;
+ PERFORM 1 FROM public.profiles WHERE id=p_owner FOR SHARE;
+ PERFORM 1 FROM public.user_roles WHERE user_id=p_owner ORDER BY id FOR SHARE;
+ PERFORM 1 FROM public.companies WHERE id=c FOR SHARE;
+ IF coalesce(public._effective_permissions_for(p_owner,c,'{}'::text[])->>'role','') NOT IN ('admin','platform_admin','manager') OR NOT EXISTS(SELECT 1 FROM public.companies WHERE id=c AND status='active') THEN RAISE EXCEPTION '#333: Contexto alterado' USING ERRCODE='42501'; END IF;
+ SELECT * INTO pr FROM public.profiles WHERE id=p_owner;
+ pa := public.is_platform_admin(p_owner);
+ IF pr.active_company_id IS NOT NULL AND (pa OR EXISTS(SELECT 1 FROM public.user_roles WHERE user_id=p_owner AND company_id=pr.active_company_id)) THEN c:=pr.active_company_id;
+ ELSIF pr.company_id IS NOT NULL AND (pa OR EXISTS(SELECT 1 FROM public.user_roles WHERE user_id=p_owner AND company_id=pr.company_id)) THEN c:=pr.company_id;
+ ELSE SELECT ur.company_id INTO c FROM public.user_roles ur JOIN public.companies co ON co.id=ur.company_id WHERE ur.user_id=p_owner AND co.status='active' ORDER BY ur.id LIMIT 1; END IF;
+ IF c IS DISTINCT FROM p_company THEN RAISE EXCEPTION '#333: Contexto alterado' USING ERRCODE='42501'; END IF;
+ IF p_bucket='data-entry-staging' THEN
+  op := 'preparation';
+  IF p_path IS DISTINCT FROM s.company_id::text||'/'||s.id::text||'/'||p_sha THEN
+   RAISE EXCEPTION '#333: Caminho inválido' USING ERRCODE='22023'; END IF;
+ ELSIF p_bucket='standalone-invoices' THEN
+  op := 'assistant_create';
+  SELECT * INTO d FROM public.data_entry_documents WHERE session_id=s.id AND sha256=p_sha AND size_bytes=p_size AND mime=p_mime;
+  IF d.id IS NULL OR p_path IS DISTINCT FROM s.company_id::text||'/assistant333/'||d.id::text||'/'||d.sha256||
+   (CASE d.mime WHEN 'application/pdf' THEN '.pdf' WHEN 'image/jpeg' THEN '.jpg' ELSE '.png' END) THEN
+   RAISE EXCEPTION '#333: Documento inválido' USING ERRCODE='22023'; END IF;
+ ELSE RAISE EXCEPTION '#333: Destino inválido' USING ERRCODE='22023'; END IF;
+ SELECT enabled INTO permitted FROM public.data_entry_pilot8_allowlist WHERE owner_id=p_owner AND company_id=c AND operation=op FOR SHARE;
+ IF NOT coalesce(permitted,false) OR NOT EXISTS(SELECT 1 FROM public.data_entry_pilot8_allowlist WHERE owner_id=p_owner AND company_id=c AND operation=op AND enabled AND expires_at>clock_timestamp()) THEN RAISE EXCEPTION '#333: Piloto indisponível' USING ERRCODE='42501'; END IF;
+ PERFORM public.data_entry_record_receipt(p_bucket,p_path,p_sha,p_size,p_mime);
+END $$;
+REVOKE ALL ON FUNCTION public.data_entry_pilot8_receipt(uuid,uuid,uuid,text,text,text,integer,text) FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.data_entry_pilot8_receipt(uuid,uuid,uuid,text,text,text,integer,text) TO service_role;
+-- New objects must not inherit executor/default grants; existing functions keep actual ACL intact.
+DO $acl$ DECLARE f record; g text; BEGIN
+ FOR f IN SELECT oid,oid::regprocedure::text signature,proowner FROM pg_proc WHERE oid IN ('public.data_entry_pilot8_gate(text)'::regprocedure,'public.data_entry_pilot8_capabilities()'::regprocedure,'public.data_entry_pilot8_receipt(uuid,uuid,uuid,text,text,text,integer,text)'::regprocedure) LOOP
+  FOR g IN SELECT DISTINCT r.rolname FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a JOIN pg_roles r ON r.oid=a.grantee WHERE p.oid=f.oid AND a.grantee<>f.proowner LOOP
+   EXECUTE format('REVOKE ALL ON FUNCTION %s FROM %I',f.signature,g);
+  END LOOP;
+ END LOOP;
+END $acl$;
+GRANT EXECUTE ON FUNCTION public.data_entry_pilot8_capabilities() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.data_entry_pilot8_receipt(uuid,uuid,uuid,text,text,text,integer,text) TO service_role;
 COMMIT;

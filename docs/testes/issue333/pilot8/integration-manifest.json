@@ -1,0 +1,78 @@
+{
+  "base": "e50cb4490619f14966c81c41357e405312b44ef2",
+  "cloud_applied": false,
+  "observed_utc": "2026-10-18T05:55:53Z",
+  "source_md5": {
+    "data_entry_preparation_gate": "c5da8e899cc40981052eb49dff25a1df",
+    "data_entry_session": "1e53066070f9af824100b3093b613a06",
+    "data_entry_commit": "2d8adf45d14f6a6f29b182678dc5e507",
+    "standalone_attempt_gate_333": "bf40deac999b96d6f755a1d7aac37a8f",
+    "data_entry_record_receipt": "f7c560f3f7c22ffca897101b1d96c5d5"
+  },
+  "effective_execute": {
+    "data_entry_commit": [
+      false,
+      true,
+      false
+    ],
+    "data_entry_preparation_gate": [
+      false,
+      false,
+      false
+    ],
+    "data_entry_session": [
+      false,
+      true,
+      false
+    ],
+    "standalone_attempt_gate_333": [
+      false,
+      false,
+      false
+    ],
+    "data_entry_record_receipt": [
+      false,
+      false,
+      true
+    ]
+  },
+  "execute_order": [
+    "anon",
+    "authenticated",
+    "service_role"
+  ],
+  "owner": "postgres",
+  "search_path": [
+    "public",
+    "pg_temp"
+  ],
+  "global_open_rows": 0,
+  "allowlist_absent": true,
+  "capability_absent": true,
+  "sha256": {
+    "supabase/functions/data-entry/handler.ts": "3cb32823d90fa8089f2d2cc78355d7f110da7449d2eecac32fc51aed45e5802b",
+    "supabase/functions/data-entry/index.ts": "6e437f713feef328faa98d9073c92cad8eb8c37366620b8b8d248b7e10dc1d93",
+    "supabase/manual/20261018_issue333_pilot8_allowlist.PENDENTE.sql": "ed445516276c1355c264e4a43e38fdde153f51602e8b767b29d6b44a37fd48c2",
+    "supabase/manual/20261018_issue333_pilot8_rollback.PENDENTE.sql": "41c5e05232422241a6baf698c84b96bb03ff23790e259851f7ede8b8e5e32973",
+    "docs/testes/issue333/pg/pilot8-inert.test.ts": "f596d67e5448748be42ed96f56fb6b23383e9818d12730236592eff4855c26d0",
+    "src/test/data-entry-pilot8.test.ts": "2b6aae37d965561b6bd6075d372fdbf8da9368376729f24ad7a3c639e316514a",
+    "src/types/deno-zod.d.ts": "5f02ad54871e7368019400838d4c8fd99a1b9ddd688d205a46baae415e990c2a",
+    "vitest.config.ts": "b00c145313cb0c3bd55727b334c6b2ca7d21291630e1cbc05e35e7d3ac9c83dc"
+  },
+  "receipt_boundary": "service-role-only scoped receipt; verified Auth and canonical context at each storage effect",
+  "local_pg_cases": 17,
+  "phase6": "completed",
+  "phase7": "pending reviewed Cloud application",
+  "phase8": "not executed",
+  "source_snapshot_note": "normalized CREATE header; prosrc bytes verified against current Live SELECT",
+  "default_acl_read_utc": "2026-10-18T05:56:12Z",
+  "default_acl_handling": "strip all nonowner inherited grants on NEW table/functions only; preserve existing ACL including executor",
+  "base_ci": {
+    "id": 39101163191,
+    "status": "completed",
+    "conclusion": "success",
+    "sha": "e50cb4490619f14966c81c41357e405312b44ef2"
+  },
+  "current_ci": "not yet observed for final candidate",
+  "generated_utc": "2026-10-18T05:57:28.568985+00:00"
+}

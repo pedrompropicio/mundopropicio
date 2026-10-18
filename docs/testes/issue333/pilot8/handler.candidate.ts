@@ -18,6 +18,7 @@ export interface Deps {
   userRpc(token: string, name: string, args: Record<string, unknown>): Promise<RpcResult>;
   /** Service-role RPC limited to data_entry_record_receipt. */
   recordReceipt(bucket: Bucket, path: string, sha: string, size: number, mime: DocumentType): Promise<RpcResult>;
+  scopedReceipt?(owner: string, company: string, session: string, bucket: Bucket, path: string, sha: string, size: number, mime: DocumentType): Promise<RpcResult>;
   storage: {
     upload(bucket: Bucket, path: string, bytes: Uint8Array, mime: string): Promise<{ error: null | { conflict: boolean } }>;
     download(bucket: Bucket, path: string): Promise<Uint8Array | null>;
@@ -73,16 +74,17 @@ export function createHandler(d: Deps) {
     new Response(JSON.stringify(body), { status, headers: { ...d.cors, "Content-Type": "application/json" } });
 
   /** Puts bytes at a deterministic path; an existing object is accepted only with identical bytes. */
-  async function putVerified(bucket: Bucket, path: string, bytes: Uint8Array, mime: DocumentType, hash: string, guard?: () => Promise<void>) {
+  async function putVerified(bucket: Bucket, path: string, bytes: Uint8Array, mime: DocumentType, hash: string, guard?: () => Promise<void>, receipt?: () => Promise<RpcResult>) {
     if (guard) await guard();
     const up = await d.storage.upload(bucket, path, bytes, mime);
     if (up.error && !up.error.conflict) throw new SafeError("Armazenamento não conferido; nada foi registado.", 409);
     // HTTP success is not evidence of stored bytes. Read back success AND conflict.
+    if (guard) await guard();
     const existing = await d.storage.download(bucket, path);
     if (!existing || existing.length !== bytes.length || (await sha256(existing)) !== hash)
       throw new SafeError("Armazenamento não conferido; nada foi registado.", 409);
     if (guard) await guard();
-    const r = await d.recordReceipt(bucket, path, hash, bytes.length, mime);
+    const r = receipt ? await receipt() : await d.recordReceipt(bucket, path, hash, bytes.length, mime);
     if (r.error) throw fromDb(r.error);
   }
 
@@ -108,16 +110,41 @@ export function createHandler(d: Deps) {
         || (req.headers.has("X-Data-Entry-Company") && req.headers.get("X-Data-Entry-Company") !== company))
         throw new SafeError("Contexto alterado; reabre o assistente na empresa atual.", 409);
       const load = (session: string) => rpc<State>("data_entry_session", { p_session: session, p_event: null });
-      const pilot = d.pilotScoped ? await rpc<{preparation:boolean;execute:boolean}>("data_entry_pilot8_capabilities", {}) : null;
+      const canonicalStorageContext = async () => {
+        const currentUser = await d.getUser(token);
+        if (!currentUser || currentUser.id !== user.id) throw new SafeError("Sessão inválida", 401);
+        const current = await rpc<{ role?: string; company_id?: string }>("my_effective_permissions", { p_universe: [] });
+        if (current?.company_id !== company || !allowedRole(current?.role))
+          throw new SafeError("Contexto alterado; candidato preservado.", 403);
+      };
+      const capabilities = async () => {
+        const response = await d.userRpc(token, "data_entry_pilot8_capabilities", {});
+        if (response.error) {
+          // Missing SQL/network is unavailable, never a global flag or service-role fallback.
+          if (response.error.code === "42501") throw fromDb(response.error);
+          return { preparation: false, execute: false, unavailable: true };
+        }
+        const parsed = z.object({ preparation: z.boolean(), execute: z.boolean() }).safeParse(response.data);
+        return parsed.success ? { ...parsed.data, unavailable: false }
+          : { preparation: false, execute: false, unavailable: true };
+      };
+      const pilot = d.pilotScoped ? await capabilities() : null;
       const uploadEnabled = d.pilotScoped ? pilot?.preparation === true : d.uploadEnabled;
       const revalidateStorage = async (bucket: Bucket) => {
         if (!d.pilotScoped) return;
-        const current = await rpc<{preparation:boolean;execute:boolean}>("data_entry_pilot8_capabilities", {});
-        if (!(bucket === "data-entry-staging" ? current.preparation : current.execute)) throw new SafeError("Piloto indisponível; candidato preservado.",403);
+        await canonicalStorageContext();
+        const current = await capabilities();
+        if (current.unavailable) throw new SafeError("Piloto indisponível; candidato preservado.", 503);
+        if (!(bucket === "data-entry-staging" ? current.preparation : current.execute))
+          throw new SafeError("Piloto indisponível; candidato preservado.", 403);
       };
-      const putScoped = async (bucket: Bucket, path: string, bytes: Uint8Array, mime: DocumentType, hash: string) => {
-        await revalidateStorage(bucket);
-        await putVerified(bucket,path,bytes,mime,hash,()=>revalidateStorage(bucket));
+      const putScoped = async (session: string, bucket: Bucket, path: string, bytes: Uint8Array, mime: DocumentType, hash: string) => {
+        await putVerified(bucket, path, bytes, mime, hash, () => revalidateStorage(bucket),
+          d.pilotScoped ? async () => {
+            await canonicalStorageContext();
+            if (!d.scopedReceipt) throw new SafeError("Piloto indisponível; candidato preservado.", 503);
+            return d.scopedReceipt(user.id, company, session, bucket, path, hash, bytes.length, mime);
+          } : undefined);
       };
 
       if (req.headers.get("Content-Type")?.startsWith("multipart/form-data")) {
@@ -139,7 +166,7 @@ export function createHandler(d: Deps) {
         try { mime = validateDocument(bytes, file.type); } catch (e) { throw new SafeError((e as Error).message, 422); }
         const hash = await sha256(bytes);
         const path = stagingPath(company, sessionId, hash);
-        await putScoped("data-entry-staging", path, bytes, mime, hash);
+        await putScoped(sessionId, "data-entry-staging", path, bytes, mime, hash);
         const name = file.name.replace(/[\x00-\x1f\x7f]/g, "").trim().slice(0, 255) || "documento";
         return reply(await rpc("data_entry_add_document", { p_session: sessionId, p_name: name, p_sha: hash, p_size: bytes.length, p_mime: mime }));
       }
@@ -149,7 +176,7 @@ export function createHandler(d: Deps) {
       const text = new TextDecoder().decode(await readCapped(req.body, 16000).catch(() => { throw new SafeError("Pedido demasiado grande", 413); }));
       const body = commandSchema.parse(JSON.parse(text));
       if (body.action === "status") {
-        return reply({ user_id: user.id, role: eff.role, company_id: company, capabilities: { upload: uploadEnabled, analysis: false, gmail: false, drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
+        return reply({ user_id: user.id, role: eff.role, company_id: company, capabilities: { upload: uploadEnabled, ...(pilot?.unavailable ? { unavailable: true } : {}), analysis: false, gmail: false, drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
       }
       if (!uploadEnabled && !(d.pilotScoped && (body.action === "check" || body.action === "document" || (body.action === "session" && body.session_id)))) throw new SafeError("Assistente ainda não ativado neste ambiente. Nada foi guardado.", 503);
       if (body.action === "session") return reply(await rpc("data_entry_session", { p_session: body.session_id ?? null, p_event: body.event_id ?? null }));
@@ -160,6 +187,7 @@ export function createHandler(d: Deps) {
       if (body.action === "document") {
         const doc = state.documents.find((x) => x.id === body.document_id);
         if (!doc) throw new SafeError("Documento não encontrado", 404);
+        if (d.pilotScoped) { await canonicalStorageContext(); await load(body.session_id); }
         const bytes = await d.storage.download("data-entry-staging", doc.path);
         if (!bytes || (await sha256(bytes)) !== doc.sha256) throw new SafeError("Documento indisponível ou alterado", 409);
         return new Response(new Uint8Array(bytes).buffer, { headers: { ...d.cors, "Content-Type": doc.mime, "Content-Disposition": "attachment", "Cache-Control": "no-store" } });
@@ -169,6 +197,7 @@ export function createHandler(d: Deps) {
       const conferir = async (previewId: string) => {
         const check = await rpc<{ ok: boolean; result: Record<string, unknown> | null; path: string; sha256: string; persisted: Record<string, unknown> | null }>("data_entry_result_check", { p_preview: previewId });
         if (!check.result) return reply({ status: "por_confirmar", error: "Sem resultado confirmado. Não faças novo lançamento; confere novamente este lote." }, 409);
+        if (d.pilotScoped) { await canonicalStorageContext(); await load(body.session_id); }
         const stored = await d.storage.download("standalone-invoices", check.path);
         const fileOk = !!stored && (await sha256(stored)) === check.sha256;
         if (!check.ok || !fileOk) return reply({ status: "conferencia_pendente", error: "Registo encontrado mas a conferência falhou. Não repitas; consulta o lote.", result: check.result, persisted: check.persisted, file_ok: fileOk }, 409);
@@ -187,6 +216,7 @@ export function createHandler(d: Deps) {
       if (!preview || preview.id !== body.preview_id || preview.snapshot_hash !== body.snapshot_hash) throw new SafeError("Prévia alterada; revê e autoriza novamente", 409);
       const doc = state.documents.find((x) => x.id === preview.document_id);
       if (!doc) throw new SafeError("Documento indisponível", 409);
+      if (d.pilotScoped) await revalidateStorage("standalone-invoices");
       const bytes = await d.storage.download("data-entry-staging", doc.path);
       if (!bytes) throw new SafeError("Documento indisponível", 503);
       validateDocument(bytes, doc.mime);
@@ -196,7 +226,7 @@ export function createHandler(d: Deps) {
       await rpc("data_entry_attempt_333", {p_action:"prepare",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
       await rpc("data_entry_attempt_333", {p_action:"authorize",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
       await rpc("data_entry_attempt_333", {p_action:"begin",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
-      await putScoped("standalone-invoices", finalPath, bytes, doc.mime, hash);
+      await putScoped(body.session_id, "standalone-invoices", finalPath, bytes, doc.mime, hash);
       const commit = await d.userRpc(token, "data_entry_attempt_333", {p_action:"commit",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
       if (commit.error) {
         if (DEFINITIVE.has(String(commit.error.code))) {

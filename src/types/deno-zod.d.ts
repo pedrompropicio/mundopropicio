@@ -3,3 +3,6 @@
 declare module 'npm:zod@3.23.8' {
  export { z } from 'zod';
 }
+declare module 'npm:zod@3' {
+ export { z } from 'zod';
+}

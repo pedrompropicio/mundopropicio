@@ -8,3 +8,14 @@
    uploadEnabled: false, // Reviewed activation required; no environment flag bypass.
    async getUser(token) {
      const { data, error } = await admin.auth.getUser(token);
+@@ -19,6 +20,10 @@
+   },
+   async userRpc(token, name, args) {
+     const { data, error } = await asUser(token).rpc(name, args);
++    return { data, error: error ? { code: error.code, message: error.message } : null };
++  },
++  async scopedReceipt(owner, company, session, bucket, path, sha, size, mime) {
++    const { data, error } = await admin.rpc("data_entry_pilot8_receipt", { p_owner: owner, p_company: company, p_session: session, p_bucket: bucket, p_path: path, p_sha: sha, p_size: size, p_mime: mime });
+     return { data, error: error ? { code: error.code, message: error.message } : null };
+   },
+   async recordReceipt(bucket, path, sha, size, mime) {
