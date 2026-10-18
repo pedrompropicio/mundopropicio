@@ -2,7 +2,7 @@
 import {mkdir,readFile,writeFile,rename,stat,open,unlink} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import type {Artifact,PilotDriver} from './future-runner';
-export type Identity66={id:string;createdAt:string};
+export type Identity66={id:string;createdAt:string;roleId:string;fullName:string};
 export type Phase66='identity_reviewed'|'await_activation'|'executing'|'await_revocation'|'checking'|'complete'|'aborted';
 export type State66={version:1;phase:Phase66;identity:Identity66;artifactHash:string;context?:unknown;failure?:string;pending:string[];actions:Record<string,string>};
 export interface Store66 {load():Promise<State66>;save(state:State66):Promise<void>;lock():Promise<()=>Promise<void>>;getSecret(kind:'password'|'token'):Promise<string>;putToken(token:string):Promise<void>;eraseSecrets():Promise<void>}
