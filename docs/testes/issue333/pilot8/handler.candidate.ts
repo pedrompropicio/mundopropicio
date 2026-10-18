@@ -149,7 +149,7 @@ export function createHandler(d: Deps) {
       if (body.action === "status") {
         return reply({ user_id: user.id, role: eff.role, company_id: company, capabilities: { upload: uploadEnabled, analysis: false, gmail: false, drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
       }
-      if (!uploadEnabled) throw new SafeError("Assistente ainda não ativado neste ambiente. Nada foi guardado.", 503);
+      if (!uploadEnabled && !(d.pilotScoped && (body.action === "check" || body.action === "document" || (body.action === "session" && body.session_id)))) throw new SafeError("Assistente ainda não ativado neste ambiente. Nada foi guardado.", 503);
       if (body.action === "session") return reply(await rpc("data_entry_session", { p_session: body.session_id ?? null, p_event: body.event_id ?? null }));
       const state = await load(body.session_id);
       if (state.company.id !== company) throw new SafeError("Lote de outra empresa", 403);
