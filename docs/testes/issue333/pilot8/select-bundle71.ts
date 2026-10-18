@@ -7,7 +7,7 @@ const md5:SchemaNode71={type:'string',pattern:'^[a-f0-9]{32}$'};
 const obj=(properties:Record<string,SchemaNode71>):SchemaNode71=>({type:'object',properties});
 const arr=(items:SchemaNode71):SchemaNode71=>({type:'array',items});
 // SQL normalizes optional catalog fields only, never PostgreSQL numeric business values.
-export const baselineSchema71=obj({data:arr(obj({name:str,n:num,h:md5})),config:arr(obj({signature:str,source:md5,proacl:nullable(str),proconfig:nullable(arr(str)),proowner:num})),core_open:num,attempt_open:num,allowlist_count:num});
+export const baselineSchema71=obj({data:arr(obj({name:str,n:num,h:md5})),config:arr(obj({signature:str,source:md5,proacl:nullable(str),proconfig:nullable(arr(str)),proowner:{type:'union',options:[num,{type:'string',pattern:'^[0-9]+$'}]}})),core_open:num,attempt_open:num,allowlist_count:num});
 export function globalBaselineSQL71(){
  // No sentinel owner or exclusion: retain every historic artifact, including NULL owners.
  const branches=[...financial,...protectedTables].map(t=>`SELECT '${t}' name,count(*) n,md5(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY to_jsonb(t)::text),'')) h FROM public.${t} t`);
