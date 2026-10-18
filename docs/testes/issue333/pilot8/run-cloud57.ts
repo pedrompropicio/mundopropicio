@@ -3,7 +3,7 @@
  */
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
-import {runFuturePilot,type PilotDriver} from './future-runner';
+import {runFuturePilot,resumeExistingPilot,type PilotDriver} from './future-runner';
 import {financial,baselineSQL,metadataSQL,compareBaselines} from './baseline58';
 import {AuthAdmin57,OfficialSelectBridge,exactPdf57,chromiumDriver57,privateSecret57,MARKER57,COMPANY57,SHA57} from './private-cloud57';
 
@@ -29,6 +29,17 @@ export function connectedDriver58(options:{artifact:Awaited<ReturnType<typeof ex
    await writeFile(DIR+'/preflight-comparison.json',JSON.stringify(comparison),{mode:0o600});
    if(comparison.changedRelations.length||comparison.configChanged)throw Error('Concurrent baseline changes; stop before account');await writeFile(DIR+'/before.json',JSON.stringify(before),{mode:0o600});
    return {markerAbsent:p.marker===0,referenceAbsent:p.reference===0,sourcesExact:Object.entries(expected).every(([k,v])=>p.sources[k]===v),globalsClosed:p.core===0&&p.attempt===0,allowlistCount:p.allowlist};
+  },
+  preflightResume:async(owner)=>{
+   const metadata=await select(metadataSQL(),['incompatibilities']);
+   if(metadata.incompatibilities.length)throw Error('Driver schema incompatibilities: '+metadata.incompatibilities.join(', '));
+   const r=await select(`SELECT jsonb_build_object('users',(SELECT count(*) FROM auth.users WHERE email=${q(MARKER57+'@fixture.invalid')} OR raw_user_meta_data->>'fixture_marker'=${q(MARKER57)}),'exact',(SELECT count(*) FROM auth.users u JOIN profiles p ON p.id=u.id WHERE u.id=${q(owner.id)}::uuid AND u.email=${q(MARKER57+'@fixture.invalid')} AND u.created_at=${q(owner.createdAt)}::timestamptz AND u.email_confirmed_at IS NOT NULL AND u.raw_user_meta_data->>'fixture_marker'=${q(MARKER57)} AND u.raw_user_meta_data->>'company_id'=${q(COMPANY57)} AND u.raw_user_meta_data->>'pilot_pdf_sha256'=${q(SHA57)} AND u.raw_user_meta_data->>'pilot_pdf_size'=${q(String(artifact.size))} AND u.raw_user_meta_data->>'pilot_pdf_mime'='application/pdf' AND p.company_id=${q(COMPANY57)}::uuid AND (p.active_company_id IS NULL OR p.active_company_id=${q(COMPANY57)}::uuid) AND (SELECT count(*) FROM user_roles WHERE user_id=u.id)=1 AND EXISTS(SELECT 1 FROM user_roles WHERE user_id=u.id AND company_id=${q(COMPANY57)}::uuid AND role='user')),'signed',(SELECT count(*) FROM auth.users WHERE id=${q(owner.id)}::uuid AND (last_sign_in_at IS NOT NULL OR banned_until IS NOT NULL)),'sessions',(SELECT count(*) FROM auth.sessions WHERE user_id=${q(owner.id)}::uuid),'reference',(SELECT count(*) FROM standalone_invoices WHERE invoice_number=${q(artifact.reference)}),'active',(SELECT count(*) FROM data_entry_pilot8_allowlist WHERE enabled),'core',(SELECT count(*) FROM data_entry_settings WHERE preparation_validated OR execute_validated),'attempt',(SELECT count(*) FROM standalone_attempt_settings_333 WHERE enabled),'sources',(SELECT jsonb_object_agg(oid::regprocedure::text,md5(prosrc)) FROM pg_proc WHERE oid IN ('current_company_id()'::regprocedure,'log_table_change()'::regprocedure,'set_company_id_on_insert()'::regprocedure,'auth.uid()'::regprocedure,'data_entry_pilot8_gate(text)'::regprocedure))) resume`,['resume']);
+   const p=r.resume;const expected=expectedSources??{'current_company_id()':'f857f027a44e858399e895d702af7ad0','log_table_change()':'9509fe109550c9e0367fcbe4ffc661c5','set_company_id_on_insert()':'949120b4d6c08f0c8707f63d28708d96','auth.uid()':'cdef18c69c4f4cbbced2eaf81e628b49','data_entry_pilot8_gate(text)':'1e066a6df3637c8d5c8f99f00a255d33'};
+   before=(await select(baselineSQL(),['baseline'])).baseline;const repeated=(await select(baselineSQL(),['baseline'])).baseline;const comparison=compareBaselines(before,repeated);
+   await writeFile(DIR+'/preflight-comparison.json',JSON.stringify(comparison),{mode:0o600});
+   if(comparison.changedRelations.length||comparison.configChanged)throw Error('Concurrent baseline changes; stop before login');await writeFile(DIR+'/before.json',JSON.stringify(before),{mode:0o600});
+   identity=owner.id; // ban guard binds to the reviewed identity; createUser is never called on resume.
+   return {identityExact:p.users===1&&p.exact===1,referenceAbsent:p.reference===0,sourcesExact:Object.entries(expected).every(([k,v])=>p.sources[k]===v),globalsClosed:p.core===0&&p.attempt===0,activeAllowlist:p.active,sessions:p.sessions,neverSignedIn:p.signed===0};
   },
   createUser:async input=>{const u=await auth.create(input);identity=u.id;return {id:u.id,createdAt:u.created_at}},
   notifyController:async(owner)=>{notify({controller_prepare:true,identity_discovery:'controller SELECT by reviewed marker',pdf_sha256:SHA57,size:artifact.size,mime:'application/pdf',invoice_number:artifact.reference,no_login:true});},
@@ -69,8 +80,15 @@ async function main() {
  await auth.readProbe();
  await chromiumDriver57('docs/testes/issue333/pilot8/cloud-browser57.py',{mode:'probe',output:DIR,cloud_url:url});
  const driver=connectedDriver58({artifact,auth,select,url,service,pub,directory:DIR});
- if(!process.argv.includes('--authorized-single-pilot57')&&!process.argv.includes('--preflight-only')){console.log(JSON.stringify({ready:'AuthAdmin/read-only/PDF/Chromium probe',accountCreated:false}));return;}
+ if(!process.argv.includes('--authorized-single-pilot57')&&!process.argv.includes('--preflight-only')&&!process.argv.includes('--resume-identity63')){console.log(JSON.stringify({ready:'AuthAdmin/read-only/PDF/Chromium probe',accountCreated:false}));return;}
  if(process.argv.includes('--preflight-only')){console.log(JSON.stringify({preflight:await driver.preflightReadOnly(artifact),accountCreated:false}));return;}
+ if(process.argv.includes('--resume-identity63')){
+  // prova64: SAME reviewed identity; private state/secret from /tmp 0600 only; never printed; no createUser.
+  const state=JSON.parse(await readFile('/tmp/issue333-63/state.json','utf8'));const password=(await readFile('/tmp/issue333-63/secret','utf8')).trim();
+  if(state.phase!=='created_checkpoint'||state.no_login!==true)throw Error('Private state drift; ban only and stop');
+  const result=await resumeExistingPilot(driver,artifact,{id:state.owner_id,createdAt:state.created_at},password,'PEDRO_AUTHORIZED_SINGLE_PILOT8_RESUME63');console.log(JSON.stringify(result));return;
+ }
+ if(!process.argv.includes('--authorized-single-pilot57'))return;
  const result=await runFuturePilot(driver,artifact,'PEDRO_AUTHORIZED_SINGLE_PILOT8');console.log(JSON.stringify(result));
 }
 if(import.meta.main) main().catch(async(error)=>{await mkdir(DIR,{recursive:true,mode:0o700});const reason=error instanceof Error&&(/schema incompatibilities|Concurrent baseline|environment absent|PDF|Official SELECT|Chromium private/.test(error.message))?error.message:'Private driver stopped; read-only recovery only';await writeFile(DIR+'/stopped.json',JSON.stringify({reason}),{mode:0o600});console.log(JSON.stringify({pilot_stopped:true,repeat_forbidden:true,see_sanitized_evidence:true}));process.exitCode=1});
