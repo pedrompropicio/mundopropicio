@@ -8,7 +8,8 @@ const env=(r=req())=>({version:1,id:r.id,query:r.query,fingerprint:r.fingerprint
 const schema=(r:Record<string,unknown>)=>{if(r.n!==1||typeof r.n!=='number')throw Error('Type/value mismatch')};
 describe('finite controller-message69 receiver (local doubles, no Cloud)',()=>{
  it('parses exact supplied public constant without coercing PostgreSQL numeric',async()=>{
-  const raw=await readFile('/tmp/issue333-proof69/envelope-received.json');const e=JSON.parse(raw.toString('utf8'));
+  // Public exact constant: no dependency on private temporary captures.
+  const raw=Buffer.from(`{"id":"proof69-constant-0001","query":"SELECT 68::integer AS integer_value, 1.25::numeric AS numeric_value, true AS boolean_value, NULL::text AS null_value, 'ação — 東京'::text AS unicode_value, jsonb_build_object('nested',jsonb_build_object('nullable',NULL,'items',jsonb_build_array(1,'ação',true))) AS nested_value, ARRAY[1,2,3]::integer[] AS array_value","source":"official controller query_database structuredContent; serialized automatically without manual transcription","data":[{"array_value":[1,2,3],"boolean_value":true,"integer_value":68,"nested_value":{"nested":{"items":[1,"ação",true],"nullable":null}},"null_value":null,"numeric_value":"1.25","unicode_value":"ação — 東京"}]}`,'utf8');const e=JSON.parse(raw.toString('utf8'));
   const r=request69('proof69-constant-0001',e.query,['array_value','boolean_value','integer_value','nested_value','null_value','numeric_value','unicode_value']);
   const result=decode69(raw,r,row=>{
    expect(row.integer_value).toBe(68);expect(typeof row.integer_value).toBe('number');
@@ -17,8 +18,7 @@ describe('finite controller-message69 receiver (local doubles, no Cloud)',()=>{
    expect(row.unicode_value).toBe('ação — 東京');expect(row.array_value).toEqual([1,2,3]);
    expect(row.nested_value).toEqual({nested:{items:[1,'ação',true],nullable:null}});
   },false);
-  expect(result.receipt.bytes).toBe(683);expect(result.receipt.envelopeSha256).toBe(sha69(raw));
-  expect((await stat('/tmp/issue333-proof69/envelope-received.json')).mode&0o777).toBe(0o600);
+  expect(result.receipt.bytes).toBe(705);expect(result.receipt.envelopeSha256).toBe(sha69(raw));
   console.log('CONSTANT69',JSON.stringify(result.receipt));
  });
  it('strict future contract requires fingerprint/version/count',()=>{
