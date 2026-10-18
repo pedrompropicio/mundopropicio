@@ -1,6 +1,6 @@
 WITH desired AS (
  SELECT c.*,w.decision,w.decided_at FROM public.contacts c
- CROSS JOIN LATERAL public._crm_whatsapp_latest(c.id,c.company_id) w
+ CROSS JOIN LATERAL (SELECT w.decision,w.decided_at FROM public.club_members m JOIN public.club_member_whatsapp_consents w ON w.member_id=m.id AND w.site_id=m.site_id AND w.company_id=m.company_id WHERE m.contact_id=c.id AND m.company_id=c.company_id AND w.version='whatsapp-v1' ORDER BY w.id DESC LIMIT 1) w
  WHERE c.company_id='7c858982-6ccd-47ca-bd65-e0dd3eebf01c'
 )
 SELECT 'club_profile_whatsapp-v1' AS origin,count(*) AS contacts,
