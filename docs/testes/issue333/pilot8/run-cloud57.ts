@@ -1,0 +1,65 @@
+/** Authorized sole pilot CLI. No effects unless --authorized-single-pilot57 supplied.
+ * Official read_query relay requires the executing agent; no SQL executed from shell.
+ */
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {runFuturePilot,type PilotDriver} from './future-runner';
+import {AuthAdmin57,OfficialSelectBridge,exactPdf57,chromiumDriver57,privateSecret57,MARKER57,COMPANY57,SHA57} from './private-cloud57';
+
+const DIR='/tmp/browser/issue333-pilot57',bridge=new OfficialSelectBridge(DIR+'/select',60000);
+const q=(v:string)=>"'"+v.replaceAll("'","''")+"'";
+const financial=['transactions','event_forecasts','financial_accounts','transaction_payments','reimbursements','payment_lists'];
+const protectedTables=['data_entry_sessions','data_entry_documents','data_entry_previews','data_entry_results','standalone_invoices','standalone_attempts_333','standalone_attempt_audit_333','data_entry_storage_receipts'];
+function baselineSQL(owner?:string) {
+ const scope=owner?q(owner):"'00000000-0000-0000-0000-000000000000'";
+ const filters:Record<string,string>={data_entry_sessions:`owner_id<>${scope}::uuid`,data_entry_documents:`session_id NOT IN (SELECT id FROM public.data_entry_sessions WHERE owner_id=${scope}::uuid)`,data_entry_previews:`session_id NOT IN (SELECT id FROM public.data_entry_sessions WHERE owner_id=${scope}::uuid)`,data_entry_results:`approved_by<>${scope}::uuid`,standalone_invoices:`created_by IS DISTINCT FROM ${scope}::uuid`,standalone_attempts_333:`principal<>${scope}`,standalone_attempt_audit_333:`attempt_id NOT IN (SELECT id FROM public.standalone_attempts_333 WHERE principal=${scope})`,data_entry_storage_receipts:`storage_path NOT IN (SELECT storage_path FROM public.data_entry_documents WHERE session_id IN (SELECT id FROM public.data_entry_sessions WHERE owner_id=${scope}::uuid)) AND storage_path NOT IN (SELECT storage_path FROM public.standalone_invoices WHERE created_by=${scope}::uuid)`};
+ const branches=[...financial,...protectedTables].map(t=>`SELECT '${t}' name,count(*) n,md5(coalesce(string_agg(to_jsonb(t)::text,E'\\n' ORDER BY to_jsonb(t)::text),'')) h FROM public.${t} t${filters[t]?' WHERE '+filters[t]:''}`);
+ return `SELECT jsonb_build_object('data',(SELECT jsonb_agg(x ORDER BY name) FROM (${branches.join(' UNION ALL ')}) x),'config',(SELECT jsonb_agg(x ORDER BY signature) FROM (SELECT oid::regprocedure::text signature,md5(prosrc) source,proacl::text,proconfig,proowner FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname LIKE 'data_entry%') x),'core_open',(SELECT count(*) FROM data_entry_settings WHERE preparation_validated OR execute_validated),'attempt_open',(SELECT count(*) FROM standalone_attempt_settings_333 WHERE enabled)) baseline`;
+}
+async function select(query:string){const x=await bridge.select(query);return x;}
+async function main() {
+ const artifact=await exactPdf57(DIR+'/pilot8-fiction.pdf');
+ const url=process.env.SUPABASE_URL,service=process.env.SUPABASE_SERVICE_ROLE_KEY,pub=process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+ if(!url||!service||!pub)throw Error('Private AuthAdmin environment absent');
+ const auth=new AuthAdmin57(url,service,pub);let session:any;let before:any;let identity:string|undefined;let last:any;
+ await auth.readProbe();
+ await chromiumDriver57('docs/testes/issue333/pilot8/cloud-browser57.py',{mode:'probe',output:DIR,cloud_url:url});
+ if(!process.argv.includes('--authorized-single-pilot57')){console.log(JSON.stringify({ready:'AuthAdmin/read-only/PDF/Chromium probe',accountCreated:false}));return;}
+ const driver:PilotDriver={
+  validatePdf:async()=>{await exactPdf57(DIR+'/pilot8-fiction.pdf')},
+  preflightReadOnly:async()=>{
+   const r=await select(`SELECT jsonb_build_object('marker',(SELECT count(*) FROM auth.users WHERE email=${q(MARKER57+'@fixture.invalid')} OR raw_user_meta_data->>'fixture_marker'=${q(MARKER57)}),'reference',(SELECT count(*) FROM standalone_invoices WHERE invoice_number=${q(artifact.reference)}),'allowlist',(SELECT count(*) FROM data_entry_pilot8_allowlist),'core',(SELECT count(*) FROM data_entry_settings WHERE preparation_validated OR execute_validated),'attempt',(SELECT count(*) FROM standalone_attempt_settings_333 WHERE enabled),'sources',(SELECT jsonb_object_agg(oid::regprocedure::text,md5(prosrc)) FROM pg_proc WHERE oid IN ('current_company_id()'::regprocedure,'log_table_change()'::regprocedure,'set_company_id_on_insert()'::regprocedure,'auth.uid()'::regprocedure,'data_entry_pilot8_gate(text)'::regprocedure))) preflight`);
+   const p=r.preflight;const expected={'current_company_id()':'f857f027a44e858399e895d702af7ad0','log_table_change()':'9509fe109550c9e0367fcbe4ffc661c5','set_company_id_on_insert()':'949120b4d6c08f0c8707f63d28708d96','auth.uid()':'cdef18c69c4f4cbbced2eaf81e628b49','data_entry_pilot8_gate(text)':'1e066a6df3637c8d5c8f99f00a255d33'};
+   before=(await select(baselineSQL())).baseline;await writeFile(DIR+'/before.json',JSON.stringify(before),{mode:0o600});
+   return {markerAbsent:p.marker===0,referenceAbsent:p.reference===0,sourcesExact:Object.entries(expected).every(([k,v])=>p.sources[k]===v),globalsClosed:p.core===0&&p.attempt===0,allowlistCount:p.allowlist};
+  },
+  createUser:async input=>{const u=await auth.create(input);identity=u.id;return {id:u.id,createdAt:u.created_at}},
+  notifyController:async(owner)=>{console.log(JSON.stringify({controller_prepare:true,owner:owner.id,created_at:owner.createdAt,marker:MARKER57,company:COMPANY57,pdf_sha256:SHA57,size:1517,mime:'application/pdf',invoice_number:artifact.reference,no_login:true}));},
+  readReady:async(owner)=>{
+   const r=await select(`SELECT jsonb_build_object('owner',u.id,'company',p.company_id,'active',p.active_company_id,'marker',u.raw_user_meta_data->>'fixture_marker','sha',u.raw_user_meta_data->>'pilot_pdf_sha256','size',u.raw_user_meta_data->>'pilot_pdf_size','mime',u.raw_user_meta_data->>'pilot_pdf_mime','last_login',u.last_sign_in_at,'ban',u.banned_until,'sessions',(SELECT count(*) FROM auth.sessions WHERE user_id=u.id),'role',(SELECT role FROM user_roles WHERE user_id=u.id AND company_id=${q(COMPANY57)}::uuid),'rows',(SELECT jsonb_agg(to_jsonb(a)) FROM data_entry_pilot8_allowlist a WHERE owner_id=u.id AND company_id=${q(COMPANY57)}::uuid),'global',(SELECT count(*) FROM data_entry_settings WHERE preparation_validated OR execute_validated)+(SELECT count(*) FROM standalone_attempt_settings_333 WHERE enabled),'name',p.full_name,'tax',(SELECT tax_id FROM companies WHERE id=${q(COMPANY57)}::uuid)) readiness FROM auth.users u JOIN profiles p ON p.id=u.id WHERE u.id=${q(owner.id)}::uuid AND u.email=${q(MARKER57+'@fixture.invalid')}`);
+   const x=r.readiness;if(!x)return null;if(x.sha!==SHA57||x.size!=='1517'||x.mime!=='application/pdf'||x.last_login!==null||x.ban!==null)throw Error('Fixture PDF/provenance readiness drift');
+   const rows=x.rows??[];const enabled=(op:string)=>rows.length===2&&rows.some((a:any)=>a.operation===op&&a.enabled&&a.reviewed_note===`FICTITIOUS one PDF; ${MARKER57}; SHA256=${SHA57}`&&Date.parse(a.expires_at)>Date.now());
+   last={...last,actor_name:x.name,tax_id:x.tax};
+   return {owner:x.owner,company:x.company,marker:x.marker,role:x.role,sessionCount:x.sessions,activeCompany:x.active,canonicalCompany:x.company===COMPANY57&&(x.active===null||x.active===COMPANY57)?COMPANY57:'REFUSED',preparation:enabled('preparation'),assistantCreate:enabled('assistant_create'),globalOpen:x.global!==0,expiresAt:Math.min(...rows.map((a:any)=>Date.parse(a.expires_at)))};
+  },
+  login:async(email,password)=>{session=await auth.login(email,password);return {owner:session.user.id,token:session.access_token}},
+  chromium:async(owner)=>{
+   const result=await chromiumDriver57('docs/testes/issue333/pilot8/cloud-browser57.py',{mode:'execute',output:DIR,cloud_url:url,public_key:pub,owner:owner.id,company:COMPANY57,reference:artifact.reference,pdf:DIR+'/pilot8-fiction.pdf',storage_key:'sb-'+new URL(url).hostname.split('.')[0]+'-auth-token',session,actor_name:last.actor_name,tax_id:last.tax_id});last={...last,...result};
+   const fact=(await select(`SELECT jsonb_build_object('sessions',(SELECT count(*) FROM data_entry_sessions WHERE owner_id=${q(owner.id)}::uuid),'documents',(SELECT count(*) FROM data_entry_documents WHERE session_id IN (SELECT id FROM data_entry_sessions WHERE owner_id=${q(owner.id)}::uuid)),'previews',(SELECT count(*) FROM data_entry_previews WHERE session_id IN (SELECT id FROM data_entry_sessions WHERE owner_id=${q(owner.id)}::uuid)),'invoices',(SELECT count(*) FROM standalone_invoices WHERE created_by=${q(owner.id)}::uuid),'results',(SELECT count(*) FROM data_entry_results WHERE approved_by=${q(owner.id)}::uuid),'invoice',(SELECT to_jsonb(i) FROM standalone_invoices i WHERE created_by=${q(owner.id)}::uuid LIMIT 1)) fact`)).fact;
+   const i=fact.invoice;if(!i||i.currency!=='EUR'||Number(i.total_amount)!==0||Number(i.iva_amount)!==0||i.invoice_number!==artifact.reference||i.paid_by_partner_id!==owner.id||i.created_by!==owner.id||!i.notes.includes('Feito por LLM com autorização de '+last.actor_name))throw Error('Fixture invoice metadata mismatch');
+   const download=await fetch(url+'/storage/v1/object/authenticated/standalone-invoices/'+i.storage_path,{headers:{apikey:pub,Authorization:'Bearer '+service}});if(!download.ok)throw Error('Fixture download failed');const bytes=new Uint8Array(await download.arrayBuffer());if(bytes.length!==1517)throw Error('Fixture download size mismatch');
+   const after=(await select(baselineSQL(owner.id))).baseline;const unchanged=JSON.stringify(before.data.filter((x:any)=>financial.includes(x.name)))===JSON.stringify(after.data.filter((x:any)=>financial.includes(x.name)));
+   await writeFile(DIR+'/fixture-fact.json',JSON.stringify({fact,sha256:createHash('sha256').update(bytes).digest('hex')}),{mode:0o600});
+   return {sessions:fact.sessions,documents:fact.documents,previews:fact.previews,executeRequests:result.executeRequests,invoices:fact.invoices,results:fact.results,financialEffects:unchanged?0:1,downloadedSha:createHash('sha256').update(bytes).digest('hex'),approvedOwner:i.created_by,approvedNameFromServer:true,reopenedCheckOk:result.reopenedCheckOk};
+  },
+  requestRevocation:async owner=>{console.log(JSON.stringify({controller_revoke_exact_two:true,owner:owner.id,marker:MARKER57,sha256:SHA57}));const end=Date.now()+120000;while(Date.now()<end){const r=await driver.readRevoked(owner,artifact);if(r.count===2&&r.disabled===2)return;await new Promise(r=>setTimeout(r,1000));}throw Error('Controller exclusive revocation not observed');},
+  readRevoked:async owner=>{const r=await select(`SELECT jsonb_build_object('count',count(*),'disabled',count(*) FILTER(WHERE NOT enabled)) revoked FROM data_entry_pilot8_allowlist WHERE owner_id=${q(owner.id)}::uuid AND company_id=${q(COMPANY57)}::uuid AND reviewed_note=${q(`FICTITIOUS one PDF; ${MARKER57}; SHA256=${SHA57}`)}`);return r.revoked;},
+  checkReadOnly:async(owner,token)=>{const r=await fetch(url+'/functions/v1/data-entry',{method:'POST',headers:{apikey:pub,Authorization:'Bearer '+token,'Content-Type':'application/json','X-Data-Entry-User':owner.id,'X-Data-Entry-Company':COMPANY57},body:JSON.stringify({action:'check',session_id:last.latest.session_id,preview_id:last.latest.preview_id})});const body=await r.json();await writeFile(DIR+'/revoked-check.json',JSON.stringify({http:r.status,body}),{mode:0o600});return {ok:r.status===200&&body.status==='conferido',extraWrites:0};},
+  logoutGlobal:async token=>{await auth.logout(token)},banOnlyCreatedUser:async owner=>{if(owner!==identity)throw Error('Ban identity drift');await auth.ban(owner)},
+  readSessionCount:async owner=>(await select(`SELECT count(*)::int n FROM auth.sessions WHERE user_id=${q(owner)}::uuid`)).n,
+  finalBaselines:async owner=>{const after=(await select(baselineSQL(owner.id))).baseline;await writeFile(DIR+'/after.json',JSON.stringify(after),{mode:0o600});return {financialUnchanged:JSON.stringify(before.data.filter((x:any)=>financial.includes(x.name)))===JSON.stringify(after.data.filter((x:any)=>financial.includes(x.name))),priorCandidatesPreserved:JSON.stringify(before.data)===JSON.stringify(after.data),globalsClosed:after.core_open===0&&after.attempt_open===0&&JSON.stringify(before.config)===JSON.stringify(after.config)};},
+  now:()=>Date.now(),wait:ms=>new Promise(r=>setTimeout(r,ms)),secret:privateSecret57,
+ };
+ const result=await runFuturePilot(driver,artifact,'PEDRO_AUTHORIZED_SINGLE_PILOT8');console.log(JSON.stringify(result));
+}
+main().catch(()=>{console.log(JSON.stringify({pilot_stopped:true,repeat_forbidden:true,see_sanitized_evidence:true}));process.exitCode=1});

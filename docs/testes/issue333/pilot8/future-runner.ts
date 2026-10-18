@@ -8,7 +8,7 @@ type Ready = { owner: string; company: string; marker: string; role: string; ses
 export interface PilotDriver {
   validatePdf(artifact: Artifact): Promise<void>;
   preflightReadOnly(artifact: Artifact): Promise<{ markerAbsent: boolean; referenceAbsent: boolean; sourcesExact: boolean; globalsClosed: boolean; allowlistCount: number }>;
-  createUser(input: { email: string; password: string; email_confirm: true; metadata: { fixture_marker: string; company_id: string; full_name: string } }): Promise<Identity>;
+  createUser(input: { email: string; password: string; email_confirm: true; metadata: { fixture_marker: string; company_id: string; full_name: string; pilot_pdf_sha256?: string; pilot_pdf_size?: number; pilot_pdf_mime?: string } }): Promise<Identity>;
   readReady(owner: Identity, artifact: Artifact): Promise<Ready | null>;
   notifyController(identity: Identity, artifact: Artifact): Promise<void>;
   login(email: string, password: string): Promise<{ owner: string; token: string }>;
@@ -37,7 +37,7 @@ export async function runFuturePilot(driver: PilotDriver, artifact: Artifact, au
   const cleanupErrors: string[] = [];
   try {
     owner = await driver.createUser({ email: artifact.marker+'@fixture.invalid', password, email_confirm: true,
-      metadata: { fixture_marker: artifact.marker, company_id: artifact.company, full_name: 'Membro Fictício Piloto8' } });
+      metadata: { fixture_marker: artifact.marker, company_id: artifact.company, full_name: 'Membro Fictício Piloto8', pilot_pdf_sha256:artifact.sha256,pilot_pdf_size:artifact.size,pilot_pdf_mime:artifact.mime } });
     await driver.notifyController(owner, artifact); // IDs/created_at only; never password/JWT.
     const deadline=driver.now()+300_000;
     let ready=false;
