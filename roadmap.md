@@ -1,3 +1,8 @@
+# AJ16 / AJ14 — leituras deduplicadas e sinal app_open
+- [ ] AJ16: confirmar distribuição ttclid/in_app e contagem rs-tt 11–17/10; criar vista security_invoker sem mudar tabelas ou consumidores; provar dados e listar leitores atuais.
+- [ ] AJ14: entregar apenas proposta, DDL exato inerte e falsos positivos/medição; sem aplicação/deploy/envios.
+- [ ] Choice anterior continua à espera de autorização DDL/diff e códigos de teste; não repetir nem aplicar implicitamente.
+
 # Smart link — diagnóstico de toque iOS
 - [x] 0194 aplicada com os dez kinds; portal-track validado, 80 testes relevantes PASS.
 - [x] Deploy portal-track, dois POST200 teste_chat2, leitura e limpeza só IDs206460/206461; remanescentes0; adenda D-ERP234; sem Publish.
