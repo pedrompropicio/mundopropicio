@@ -1,0 +1,55 @@
+[
+  {
+    "action": "status"
+  },
+  {
+    "action": "session"
+  },
+  {
+    "action": "session",
+    "session_id": "b87f7019-c498-4461-967f-7621727d7c80"
+  },
+  {
+    "action": "preview",
+    "session_id": "b87f7019-c498-4461-967f-7621727d7c80",
+    "document_id": "0a306154-139b-4f69-93bc-4fd1adf89ae2",
+    "fields": {
+      "supplier_name": "FICTICIO PILOTO8",
+      "supplier_nif": "PT000000000",
+      "invoice_number": "FICTICIO-PREFLIGHT56",
+      "invoice_date": "2026-10-18",
+      "currency": "EUR",
+      "total_amount": 0,
+      "iva_amount": 0,
+      "customer_nif": "PT500000001",
+      "paid_by_partner_id": "22222222-2222-4222-8222-222222222222",
+      "notes": ""
+    }
+  },
+  {
+    "action": "session",
+    "session_id": "b87f7019-c498-4461-967f-7621727d7c80"
+  },
+  {
+    "action": "status"
+  },
+  {
+    "action": "execute",
+    "session_id": "b87f7019-c498-4461-967f-7621727d7c80",
+    "preview_id": "b12d0ae5-1255-4881-9141-a9e672d65e7f",
+    "snapshot_hash": "16ee6755b702d8a6affb985075cb6a8c18b8f81c059adb5b28c31634d892d108",
+    "authorize": true
+  },
+  {
+    "action": "status"
+  },
+  {
+    "action": "session",
+    "session_id": "b87f7019-c498-4461-967f-7621727d7c80"
+  },
+  {
+    "action": "check",
+    "session_id": "b87f7019-c498-4461-967f-7621727d7c80",
+    "preview_id": "b12d0ae5-1255-4881-9141-a9e672d65e7f"
+  }
+]
