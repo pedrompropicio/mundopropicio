@@ -10,7 +10,8 @@
 # #333 — Assistente de Entrada de Dados
 - [x] Preparar candidato mínimo hash-check42501, manifesto/diff/rollback e PG17 real antes/depois/duas conexões/ACL/dados + handler real simulado; sem aplicação Live.
 - [x] Entregar prova41 consolidada/diff/manifesto/rollback e planoLive finito;22PG/3handler/6HTTPlocalPASS,zeroCloud.
-- [ ] Aplicar hash-check oficial após baseline/ACL/sourceguard e provar UMAconta/reserva/RPC+endpoint negativos conforme autorização específica Pedro18/10 02:33UTC;semativação/fase6inteira.
+- [x] 0193hashcheckoficial aplicada/MD5candidato/ACLbaselineiguais.
+- [ ] ProvaRPC/endpoint bloqueadauser_roles;UMAcontabanida/sessions0/zeroreserva/hashrequest;aguarda revisão do canalfixture/decisão explícita,semnova rodada automática.
 - [x] Executar runner HEAD isolado:23/44/31/7 PASS,geral1373,tsgo/Deno/build0;provas30/31,0Live; NÃO aceitação completa.
 - [x] Completar casos locais bloqueantes: React Chromium Assistant/scanner/editor/reserva, authorize/begin/confirm-recovery/Auth/empresa;prova32. Cloud não testado.
 - [x] CI39083572592 anterior success/HEAD41ecefab recebidos pelo controlador; janela cumprida.

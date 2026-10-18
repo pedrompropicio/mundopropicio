@@ -1,0 +1,15 @@
+# #333 — Prova43: aplicação Live PASS; prova autenticada BLOQUEADA
+
+2026-10-18 02:38:26UTC. Autorização específicaPedro02:33UTC após revisão41;base76cf6bfadd38344a0433b6bcf43f029e192d7132/ancestralidade0/CI39089960478success/Issueaberta. SHAobservado3f714b80baa4d162a679fea426502cccae786c9b;#323/DECISIONSintactas.
+
+Aplicaçãooficial `drizzle/migrations/0193_issue333_hash_check_validation_classification.sql`,bytesexatos candidato/SHA256fd2e8d8de5e048f791d13079c3b81b6f1555e21c760951b2f7a75166f8480595. Manifesto41PASS;MD5Live91f7e9690436c59666c800fb63eb344c→b748a720b4cb1f988a927b5577e511dd. OID/owner/ACL/config/SECDEF/volatilidade/args/retorno/linguagem iguais;internalEXECUTEanon/auth/servicefalsefalsefalse. Demais funções/wrapper iguais.0191intacta;journal só ferramentaoficial;rollbacknão necessário/aplicado,guardado para NOVAmigraçãooficial emdesvio.
+
+UMAconta nova.invalid AuthAdmincreateUser/email_confirmtrue,semenvioemail/invite/magiclink;senha aleatória sómemória. Preparar editor/contexto numaúnicatransaçãoSQL falhou: ERROR: permission denied for table user_roles. Transaçãoabortada,semGRANT/contorno. Runnerparou/finallyban200/SELECToficialsessions0. Semlogin/JWT:logoutglobal nãoaplicável. ZEROreserva/requests hashRPCouendpoint;latênciasnão disponíveis. CriaçãocontaPASS;preparaçãoidentidadeFAIL;requestsNÃOEXECUTADOS/BLOQUEADOS,não timeoutINCONCLUSIVO. Não reabrirconta/nova rodada.
+
+21gruposbaselinecount/hashdados/ACL/RLS/policiesiguais antes/depois excluindo sófixture nova:financeiro5tabelas/standalone_invoices/CORE6/receipts/2settings/attempts/audit/profiles/user_roles/funçõespublic/relaçõespublicauthstorage/policies. Authanteriores61count/hashigual;Storage20650objects/34bucketscount/hashiguais. authpsql recusadoantesmigração;leituraoficialcompletou baselinessemGRANT. Scripts/IDs/baselinesprivados só/tmp;outputs44sanitizados.
+
+SettingsCORE0/attempt0;readerservicecapabilitiesfalsefalse. Fixtureshistóricas preservadas;zero fatura/transação/BP/pagamento/upload/audit/receipt/flags/deploy/Publish. Banidanova1/sessions0.
+
+PG17realdescartável22PASS/handlerrealtransportesimulado3PASS/tsgo0. NãoCloud. CI39089960478baseverde;CIfinalpendente;buildautomático conferirnofecho,semmanual. Aplicação verificada NÃOprovaHTTP/fase6inteira/causantiga/ativação. Issue/reservaabertas.
+
+Próximo passo:controlador rever canaloficial para papel/contexto/fixture EXCLUSIVOS antesdepedirretomada. SemampliarACLglobais;retomadacomconta exige decisão explícitaPedro,nãorodadaautomática. Alternativa:manteraplicaçãovalidada/provaHTTPpendente. Não rollback porfalhafixture semdesviofunção.
