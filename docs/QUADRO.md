@@ -116,6 +116,8 @@ _(sem pedidos)_
 
 ## 9 · CRM, Portal e Leads
 
+- [x] 18/10/2026 — ERP backfill/telefone autorizado:0198aplicada;67perfiltrue/0revogadostrue;62telefonescopiados/65elegíveis/2conflitos preservados(membros56,283);1444VitestPASS/buildOK. Prova telefone-backfill-entrega.md. Reserva libertada;semPublish/portal/pontos/envios. CI final/sincronização pendentes.
+
 - [x] 18/10/2026 — CRM Newgang lista/WhatsApp (Lovable ERP, Pedro autorizou):0196/0197aplicadas,344pessoas/411capturas/0duplicados;origem/última decisão/eligibilidade,17SQL+1435VitestPASS/UIautenticada/buildOK. Prova docs/testes/newgang-crm-whatsapp/entrega.md. Reserva libertada; backfill NÃO executado (62ativações/65ajustes,aguarda Sim e preview nova). SemPublish/deploy/crons/envios/Meta/portal/pontos. CI final/sincronização não observadas. #323 preservada.
 
 

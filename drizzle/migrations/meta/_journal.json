@@ -1387,6 +1387,13 @@
       "when": 1792331592642,
       "tag": "0197_newgang_crm_eligibility_projection",
       "breakpoints": true
+    },
+    {
+      "idx": 198,
+      "version": "7",
+      "when": 1792332458976,
+      "tag": "0198_newgang_whatsapp_phone_projection",
+      "breakpoints": true
     }
   ]
 }

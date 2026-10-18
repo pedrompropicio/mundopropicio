@@ -29,4 +29,4 @@
 - Edge functions share only via `_shared/`; no cross-function imports.
 
 
-- CRM WhatsApp exports and audience filters use crm_whatsapp_eligible and its security-invoker projections; canonical member decisions override legacy ingestion so revocation and phone changes cannot leak delivery numbers.
+- CRM WhatsApp uses crm_whatsapp_eligible/invoker views. Ledger/member-phone triggers share a contact-locked projection; matching-fingerprint phones only fill empty contacts, preventing revocation leaks and overwrites.

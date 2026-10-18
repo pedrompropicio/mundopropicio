@@ -70,3 +70,51 @@ describe.sequential('Canonical SQL WhatsApp projection',()=>{
  it('explicit backfill is idempotent and can roll back locally',async()=>{const before=await scalar(`SELECT consent_whatsapp FROM contacts WHERE id='${contact}'`);await db.exec('BEGIN');await db.exec(`WITH desired AS (SELECT c.id,w.decision,w.decided_at FROM contacts c CROSS JOIN LATERAL _crm_whatsapp_latest(c.id,c.company_id) w) UPDATE contacts c SET consent_whatsapp=d.decision='granted',consent_whatsapp_at=CASE WHEN d.decision='granted' THEN d.decided_at END,consent_whatsapp_source='club_profile_whatsapp-v1' FROM desired d WHERE c.id=d.id`);expect((await scalar(`SELECT consent_whatsapp FROM contacts WHERE id='${contact}'`)).consent_whatsapp).toBe(true);await db.exec('ROLLBACK');expect(await scalar(`SELECT consent_whatsapp FROM contacts WHERE id='${contact}'`)).toEqual(before)});
 
 });
+
+describe.sequential('Canonical member phone projection',()=>{
+ beforeAll(async()=>{
+  const sql=readFileSync('supabase/manual/20261018_newgang_whatsapp_phone_projection.sql','utf8').replace(/DO \$\$ BEGIN[\s\S]*?END \$\$;/,'');
+  await db.exec(sql);
+ });
+ it('grant fills an empty contact with the matching E164 phone',async()=>{
+  await db.exec(`UPDATE contacts SET phone_e164=NULL WHERE id='${contact}'; UPDATE club_members SET phone='+351912345678' WHERE id='${member}'`);
+  await decision('granted');
+  expect(await scalar(`SELECT phone_e164,crm_whatsapp_eligible(id) ok FROM contacts WHERE id='${contact}'`)).toEqual({phone_e164:'+351912345678',ok:true});
+ });
+ it('filled different phone is preserved and ineligible',async()=>{
+  await db.exec(`UPDATE contacts SET phone_e164='+351912345671' WHERE id='${contact}'`);
+  await decision('granted');
+  expect(await scalar(`SELECT phone_e164,crm_whatsapp_eligible(id) ok FROM contacts WHERE id='${contact}'`)).toEqual({phone_e164:'+351912345671',ok:false});
+ });
+ it('changed member phone requires matching fingerprint before copying',async()=>{
+  await db.exec(`UPDATE contacts SET phone_e164=NULL WHERE id='${contact}'; UPDATE club_members SET phone='+351912345677' WHERE id='${member}'`);
+  expect((await scalar(`SELECT phone_e164 FROM contacts WHERE id='${contact}'`)).phone_e164).toBeNull();
+  await db.exec(`INSERT INTO club_member_whatsapp_consents(member_id,site_id,company_id,decision,phone_fp) VALUES('${member}','${site}','${company}','granted','fp:+351912345677')`);
+  expect((await scalar(`SELECT phone_e164 FROM contacts WHERE id='${contact}'`)).phone_e164).toBe('+351912345677');
+ });
+ it('revocation keeps contact phone and removes eligibility',async()=>{
+  await decision('revoked');
+  expect(await scalar(`SELECT phone_e164,consent_whatsapp,crm_whatsapp_eligible(id) ok FROM contacts WHERE id='${contact}'`)).toEqual({phone_e164:'+351912345677',consent_whatsapp:false,ok:false});
+ });
+ it('member without linked contact never writes a contact',async()=>{
+  const before=await scalar('SELECT count(*) n FROM contacts');
+  await db.exec(`INSERT INTO club_members(id,company_id,site_id,phone) VALUES('30000000-0000-0000-0000-000000000005','${company}','${site}','+351912345674'); UPDATE club_members SET phone='+351912345673' WHERE id='30000000-0000-0000-0000-000000000005'`);
+  expect(await scalar('SELECT count(*) n FROM contacts')).toEqual(before);
+ });
+ it('invalid E164 grant never copies a phone',async()=>{
+  await db.exec(`UPDATE contacts SET phone_e164=NULL WHERE id='${contact}'; UPDATE club_members SET phone='912345678' WHERE id='${member}'; INSERT INTO club_member_whatsapp_consents(member_id,site_id,company_id,decision,phone_fp) VALUES('${member}','${site}','${company}','granted','fp:912345678')`);
+  expect((await scalar(`SELECT phone_e164 FROM contacts WHERE id='${contact}'`)).phone_e164).toBeNull();
+ });
+ it('member phone update projects an already matching grant',async()=>{
+  await db.exec(`INSERT INTO club_member_whatsapp_consents(member_id,site_id,company_id,decision,phone_fp) VALUES('${member}','${site}','${company}','granted','fp:+351912345676'); UPDATE club_members SET phone='+351912345676' WHERE id='${member}'`);
+  expect((await scalar(`SELECT phone_e164 FROM contacts WHERE id='${contact}'`)).phone_e164).toBe('+351912345676');
+ });
+ it('repeated grant is idempotent for the phone',async()=>{
+  await db.exec(`INSERT INTO club_member_whatsapp_consents(member_id,site_id,company_id,decision,phone_fp) VALUES('${member}','${site}','${company}','granted','fp:+351912345676')`);
+  expect((await scalar(`SELECT phone_e164 FROM contacts WHERE id='${contact}'`)).phone_e164).toBe('+351912345676');
+ });
+ it('phone owned by another contact is not copied',async()=>{
+  await db.exec(`CREATE UNIQUE INDEX fixture_contact_phone ON contacts(company_id,phone_e164) WHERE phone_e164 IS NOT NULL; UPDATE contacts SET phone_e164=NULL WHERE id='${contact}'; UPDATE club_members SET phone='+351912345670' WHERE id='${member}'; INSERT INTO club_member_whatsapp_consents(member_id,site_id,company_id,decision,phone_fp) VALUES('${member}','${site}','${company}','granted','fp:+351912345670')`);
+  expect((await scalar(`SELECT phone_e164 FROM contacts WHERE id='${contact}'`)).phone_e164).toBeNull();
+ });
+});
