@@ -2,7 +2,7 @@
  * SELECTs are relayed to the executing agent's official read_query tool via /tmp files.
  * The bridge never runs psql, generic SQL RPC, role/profile/allowlist writes or settings changes.
  */
-import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, stat, mkdtemp } from 'node:fs/promises';
 import { randomBytes, createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import type { Artifact, PilotDriver } from './future-runner';
@@ -16,6 +16,9 @@ export class OfficialSelectBridge {
   constructor(private directory:string, private deadlineMs=20000) {
     if(!directory.startsWith('/tmp/')) throw Error('Private bridge requires /tmp');
   }
+  static async fresh(root='/tmp/issue333-select58-', deadlineMs=60000) {
+    return new OfficialSelectBridge(await mkdtemp(root),deadlineMs);
+  }
   async select(query:string):Promise<any> {
     if(!/^SELECT\b/i.test(query.trim()) || /\b(INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|GRANT|REVOKE|set_config|pg_sleep)\b/i.test(query)) throw Error('SELECT-only bridge refused');
     await mkdir(this.directory,{recursive:true,mode:0o700});
@@ -23,7 +26,7 @@ export class OfficialSelectBridge {
     await writeFile(`${this.directory}/${id}.request.json`,JSON.stringify({id,query}),{mode:0o600,flag:'wx'});
     const end=Date.now()+this.deadlineMs;
     while(Date.now()<end) {
-      try { const data=JSON.parse(await readFile(`${this.directory}/${id}.response.json`,'utf8'));if(data.error)throw Error('Official SELECT refused');return data; }
+      try { const data=JSON.parse(await readFile(`${this.directory}/${id}.response.json`,'utf8'));if(data.error)throw Error('Official SELECT refused');if(data.id!==undefined&&data.id!==id)throw Error('Official SELECT response identity mismatch');const payload=data.data??data;return Array.isArray(payload)?payload[0]:payload; }
       catch(e) { if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e; }
       await new Promise(r=>setTimeout(r,200));
     }
@@ -63,7 +66,7 @@ export async function chromiumDriver57(script:string,input:unknown):Promise<any>
     let stdout='';child.stdout.on('data',x=>{stdout+=x});
     // Never print exception/transport stderr: may contain Authorization values.
     child.stderr.resume();child.on('error',()=>reject(Error('Chromium driver not executable')));
-    child.on('exit',code=>{if(code!==0)return reject(Error('Chromium private worker failed; read-only recovery only'));try{resolve(JSON.parse(stdout))}catch{reject(Error('Chromium evidence contract invalid'))}});
+    child.on('exit',code=>{if(code!==0){let stage='unknown';try{stage=JSON.parse(stdout).stage??stage}catch{}return reject(Error('Chromium private worker failed at '+stage+'; read-only recovery only'));}try{resolve(JSON.parse(stdout))}catch{reject(Error('Chromium evidence contract invalid'))}});
     child.stdin.end(JSON.stringify(input));
   });
 }
