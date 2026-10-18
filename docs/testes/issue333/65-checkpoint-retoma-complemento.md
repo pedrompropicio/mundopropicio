@@ -27,3 +27,28 @@ Próximo: controller confirma ativação; executor serve readiness oficial e con
 - Reserva de execução#333 libertada; Issue continua aberta: fases1–7 concluídas,8PARCIAL,9–18pendentes. Produto, #323, DECISIONS e fixture59 intactos. Sem DDL/deploy/Publish.
 
 Limite técnico concreto: a espera humana de5min não protege um SELECT pendente de60s. Qualquer futura correção do executor deve ser local/isolada, com teste dinâmico dessa coordenação, antes de considerar outro piloto. Não implementada nesta tarefa.
+
+## Adenda controller e evidência temporal — 17:45 UTC
+
+Proveniência: atualização expressa do controller nesta conversa (não nova execução).
+SELECT do controller às17:43:51UTC encontrou conta63 já banida, last_sign_inNULL, sessões0/faturas0, mas duas permissões ainda enabled. Controller aplicou `revoke.INERTE.sql62` renderizado para owner63+empresa+marcador+SHA exatos, transação com sucesso. SELECT independente posterior do controller confirmou active0/sessions0/bannedtrue/last_sign_inNULL/invoices0. Compatível com o SELECT final do executor já registado acima. Revogação foi do controller, não do runner.
+
+Evidência local preservada: `process65.log`, `stopped.json`, requests/responses originais e `relay-termination65.json` privado sanitizado. Horários UTC medidos pelo mtime original dos ficheiros:
+
+```text
+0005.request (readiness): 17:41:47.821
+0005.response: AUSENTE
+0006.request (finally/readRevoked): 17:42:47.899
+Intervalo 0005 → 0006: 60078.034 ms
+0007.request (sessões após tentativa independente de ban): 17:43:48.308
+0006.response: 17:43:52.386 — após 64487.700 ms; chegou DEPOIS de 0007
+0007.response: 17:44:02.833
+0008.request (baseline final): 17:44:02.983
+0008.response: 17:44:31.445
+process65.log: pilot_stopped=true, repeat_forbidden=true
+stopped.json: Private driver stopped; read-only recovery only
+```
+
+Causa técnica sustentada pela sequência real e código: deadline individual60000ms do relay encerrou `readReady` sem resposta0005; a exceção atravessou a espera externa300000ms e entrou no finally aos60.078s. Também expirou a primeira leitura de revogação0006, antes de a resposta tardia chegar, razão de a revogação não ser comprovada pelo runner. Não foi expiração dos10min de permissões nem falha de login/HTTP. Limite: o log sanitizado NÃO contém stack/erro original; a cadeia acima é demonstrada pelos tempos+fluxo do código, não por uma mensagem de exceção recuperada. Não inventar o erro bruto.
+
+Encerramento local confirmado às17:45:32UTC: PID37027 ausente; relay é uma pasta de spool, sem serviço autónomo. Marcado `CLOSED.json`, sem servir novos pedidos, apagar provas ou reiniciar processo. Senha já removida, estado privado bloqueia retoma. Nenhuma escrita Cloud nesta adenda. Fase8 seguePARCIAL; não há cleanup pendente.
