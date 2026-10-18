@@ -1,6 +1,7 @@
+// @vitest-environment node
 import {it,expect} from 'vitest';
 import {mkdtemp,readFile,writeFile,readdir} from 'node:fs/promises';
-import {checkpoint66,PrivateStore66,artifactHash66,type Driver66,type State66} from '../../docs/testes/issue333/pilot8/checkpoint66';
+import {checkpoint66,PrivateStore66,artifactHash66,type Driver66} from '../../docs/testes/issue333/pilot8/checkpoint66';
 import {OfficialSelect66} from '../../docs/testes/issue333/pilot8/official-select66';
 import type {Artifact} from '../../docs/testes/issue333/pilot8/future-runner';
 import {PGlite} from '@electric-sql/pglite';
