@@ -32,20 +32,40 @@ export function decode69(raw:Uint8Array,r:Request69,validateRow:(row:Record69)=>
 export class ControllerMessage69 {
  constructor(readonly directory:string){if(!directory.startsWith('/tmp/'))throw Error('Private /tmp directory required')}
  private async atomic(path:string,data:string|Uint8Array){const t=path+'.tmp';await writeFile(t,data,{mode:0o600,flag:'wx'});await rename(t,path)}
- async prepare(r:Request69){await mkdir(this.directory,{recursive:true,mode:0o700});const file=await open(`${this.directory}/${r.id}.request.json`,'wx',0o600);try{await file.writeFile(JSON.stringify(r))}finally{await file.close()}}
+ async prepare(r:Request69){
+  const fresh=request69(r.id,r.query,r.expectedKeys);
+  if(JSON.stringify(r)!==JSON.stringify(fresh))throw Error('Fresh request contract required');
+  await mkdir(this.directory,{recursive:true,mode:0o700});
+  const active=await open(`${this.directory}/active.json`,'wx',0o600);
+  try{await active.writeFile(JSON.stringify({id:r.id,fingerprint:r.fingerprint}))}finally{await active.close()}
+  const file=await open(`${this.directory}/${r.id}.request.json`,'wx',0o600);try{await file.writeFile(JSON.stringify(r))}finally{await file.close()}
+ }
  async receive(id:string,raw:Uint8Array,validateRow:(row:Record69)=>void){
   if(!/^[A-Za-z0-9_-]{1,80}$/.test(id))throw Error('Request id refused');
   const p=`${this.directory}/${id}`;const lock=await open(p+'.lock','wx',0o600);
   try{
+   const active=JSON.parse(await readFile(`${this.directory}/active.json`,'utf8')) as {id:string;fingerprint:string};
+   if(active.id!==id)throw Error('Out of order response refused');
    const info=await stat(p+'.request.json');if((info.mode&0o777)!==0o600)throw Error('Private request permissions required');
    const r=JSON.parse(await readFile(p+'.request.json','utf8')) as Request69;
-   if(r.id!==id)throw Error('Stored request mismatch');
+   if(r.id!==id||active.fingerprint!==r.fingerprint||r.version!==1||r.maxBytes!==MAX_MESSAGE69)throw Error('Stored request mismatch');
    const result=decode69(raw,r,validateRow,true);
    // Original UTF8 bytes, not JSON.stringify(data). Evidence committed before consumption.
    await this.atomic(p+'.raw.json',raw);
    await this.atomic(p+'.receipt.json',JSON.stringify(result.receipt));
    await this.atomic(p+'.request.json',JSON.stringify({...r,status:'consumed'}));
+   await unlink(`${this.directory}/active.json`);
    return result;
+  }finally{await lock.close();await unlink(p+'.lock')}
+ }
+ async cancel(id:string){
+  if(!/^[A-Za-z0-9_-]{1,80}$/.test(id))throw Error('Request id refused');
+  const p=`${this.directory}/${id}`;const lock=await open(p+'.lock','wx',0o600);
+  try{
+   const active=JSON.parse(await readFile(`${this.directory}/active.json`,'utf8')) as {id:string};
+   const r=JSON.parse(await readFile(p+'.request.json','utf8')) as Request69;
+   if(active.id!==id||r.status!=='pending')throw Error('Cancellation refused');
+   await this.atomic(p+'.request.json',JSON.stringify({...r,status:'cancelled'}));await unlink(`${this.directory}/active.json`);
   }finally{await lock.close();await unlink(p+'.lock')}
  }
 }
