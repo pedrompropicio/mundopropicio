@@ -1,3 +1,9 @@
+# AJ16 / AJ14 — leituras deduplicadas e sinal app_open
+- [x] AJ16 primeiro SELECT: Fortaleza136905/106068, diferente do auditor; ttclid sem UA cru, in_appNULL não prova Pangle; percentagens candidatas por dia guardadas em docs/questoes-aj16-aj14-20261018.md.
+- [ ] AJ16: criar/testar vista security_invoker sem mudar tabelas, grants base ou consumidores; inventário iniciado. Aguarda resposta ao primeiro passo conforme protocolo do Pedro.
+- [ ] AJ14: entregar apenas proposta, DDL exato inerte e falsos positivos/medição; sem aplicação/deploy/envios.
+- [ ] Choice anterior continua à espera de autorização DDL/diff e códigos de teste; não repetir nem aplicar implicitamente.
+
 # Smart link — diagnóstico de toque iOS
 - [x] 0194 aplicada com os dez kinds; portal-track validado, 80 testes relevantes PASS.
 - [x] Deploy portal-track, dois POST200 teste_chat2, leitura e limpeza só IDs206460/206461; remanescentes0; adenda D-ERP234; sem Publish.
