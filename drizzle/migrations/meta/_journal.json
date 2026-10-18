@@ -1373,6 +1373,13 @@
       "when": 1792303959108,
       "tag": "0195_issue333_pilot8_scoped_closed_structure",
       "breakpoints": true
+    },
+    {
+      "idx": 196,
+      "version": "7",
+      "when": 1792331450577,
+      "tag": "0196_newgang_crm_members_whatsapp",
+      "breakpoints": true
     }
   ]
 }
