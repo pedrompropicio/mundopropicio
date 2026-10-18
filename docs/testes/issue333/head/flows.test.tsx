@@ -396,14 +396,16 @@ it('Proof32 React Chromium journeys through production pages/clients/handlers/PG
   }catch(e){res.statusCode=500;res.end(JSON.stringify({error:String(e)}))}});
   await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));const addr=server.address();if(!addr||typeof addr==='string')throw Error('Local server absent');
   const prior=await attempt(c1,'prepare',null,envelope({supplier_name:'Proof32 original owner envelope',notes:'confirmed reserved data'}));await executeAttempt(transport(),prior,bytes);
+  const authPrior=await attempt(c1,'prepare',null,envelope({supplier_name:'Proof32 auth confirmation envelope'}));await executeAttempt(transport(),authPrior,bytes);
   const baseInvoiceCount=Number((await db`select count(*) n from standalone_invoices`)[0].n);
   writeFileSync(process.env.ISSUE333_EVIDENCE+'/browser-fixture.pdf',bytes);
   try{vi.stubGlobal('fetch',nativeFetch);
-    const output=await promisify(execFile)(process.env.ISSUE333_PYTHON??'python3',['docs/testes/issue333/head/react-journeys.py',String(addr.port),prior.id,process.env.ISSUE333_EVIDENCE??'/tmp'],{env:{PATH:'/bin:/usr/bin',HOME:'/tmp',PLAYWRIGHT_BROWSERS_PATH:process.env.PLAYWRIGHT_BROWSERS_PATH},timeout:220000,maxBuffer:2000000});
+    const output=await promisify(execFile)(process.env.ISSUE333_PYTHON??'python3',['docs/testes/issue333/head/react-journeys.py',String(addr.port),prior.id,process.env.ISSUE333_EVIDENCE??'/tmp',authPrior.id],{env:{PATH:'/bin:/usr/bin',HOME:'/tmp',PLAYWRIGHT_BROWSERS_PATH:process.env.PLAYWRIGHT_BROWSERS_PATH},timeout:220000,maxBuffer:2000000});
     writeFileSync(process.env.ISSUE333_EVIDENCE+'/react-chromium.log',output.stdout+output.stderr);console.log(output.stdout);
     expect(Number((await db`select count(*) n from standalone_invoices`)[0].n)).toBe(baseInvoiceCount+3);
     const family=await db`select id,state,prior_attempt_id from standalone_attempts_333 where envelope_hash=${prior.hash}`;expect(family.length).toBe(2);expect(family.every(a=>a.state==='completed')).toBe(true);
-    expect(calls.filter(c=>c.action==='confirm_new_intent').length).toBe(1);
+    expect(calls.filter(c=>c.action==='confirm_new_intent').length).toBe(2);
+    const authFamily=await db`select state from standalone_attempts_333 where envelope_hash=${authPrior.hash}`;expect(authFamily.map(x=>x.state).sort()).toEqual(['completed','prepare']);
     expect(Number((await db`select count(*) n from standalone_attempt_audit_333 where result->>'notes'='Proof32 metadata changed'`)[0].n)).toBe(1);
     for(const row of await db`select path,envelope from standalone_attempts_333 where envelope->'payload'->>'supplier_name' like 'Proof32%' and id in (select attempt_id from standalone_attempt_audit_333)`){const actual=await read('standalone-invoices',row.path);if(actual)expect(sha(actual)).toBe(row.envelope.document.sha256)}
     expect(Number((await db`select (select count(*) from transactions)+(select count(*) from event_forecasts)+(select count(*) from transaction_payments)+(select count(*) from financial_accounts)+(select count(*) from reimbursements) n`)[0].n)).toBe(0);

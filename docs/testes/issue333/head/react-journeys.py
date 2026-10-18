@@ -87,6 +87,22 @@ async def main():
   await page.get_by_role('button',name='Autorizar execução da reserva preparada',exact=True).click();await page.get_by_text('Fatura guardada.',exact=True).wait_for();await shot('32-new-intent-checked')
   calls=(await observed())['calls'];assert sum(c.get('action')=='confirm_new_intent' for c in calls)==1
   print('PASS lost confirmation/company change -> owner discovery/read-only linkage -> visible bound envelope/original bytes -> explicit reserved execution once')
+  await page.goto(url+'/scanner-faturas');await page.get_by_role('button',name='Procurar as minhas tentativas',exact=True).click()
+  await page.get_by_label('Tentativa a consultar',exact=True).wait_for()
+  for _ in range(20):
+   more=page.get_by_role('button',name='Carregar mais',exact=True)
+   if not await more.count(): break
+   count=await page.get_by_label('Tentativa a consultar').locator('option').count();await more.click()
+   await page.wait_for_function('(n)=>Array.from(document.querySelectorAll("select")).find(e=>e.getAttribute("aria-label")==="Tentativa a consultar").options.length>n',arg=count)
+  else: raise AssertionError('pagination did not finish')
+  await page.get_by_label('Tentativa a consultar',exact=True).select_option(sys.argv[4])
+  await page.get_by_role('button',name='Registar outra fatura com os mesmos dados…',exact=True).click();await control('confirm_new_intent',True)
+  before=len((await observed())['calls'])
+  await page.get_by_role('button',name='Confirmar nova fatura',exact=True).click();await entered()
+  await page.evaluate('window.localContext("44444444-4444-4444-8444-444444444444","11111111-1111-4111-8111-111111111111")');await control(release=True);await page.wait_for_timeout(300)
+  after=(await observed())['calls'][before:];assert not any(c.get('action')=='execute' for c in after),after
+  assert await page.get_by_text('Fatura guardada.',exact=True).count()==0
+  await shot('32-context-confirm-auth');print('PASS pending confirmation Auth invalidates stale result; one prepared destination, no execution/reconfirm')
   assert not blocked,blocked
   assert not errors,errors
   (root/'react-browser-observed.json').write_text(json.dumps({'blocked':blocked,'pageerrors':errors,'calls':calls,'cloud_tested':False},indent=2))
