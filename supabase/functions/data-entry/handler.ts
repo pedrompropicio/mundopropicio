@@ -27,6 +27,9 @@ export interface Deps {
   uploadEnabled: boolean;
   /** Pilot candidate only: canonical caller JWT capability, never request flags. */
   pilotScoped?: boolean;
+  /** Independent phase10 gate; no upload/execute flag can enable provider calls. */
+  analysisEnabled?: boolean;
+  analysis?(req: Request, input: { session: string; document: string; message: string; history: { role: "user" | "assistant"; text: string }[] }, scope: { user: string; company: string; role: string }): Promise<Response>;
   cors: Record<string, string>;
 }
 
@@ -52,6 +55,7 @@ export const commandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("execute"), session_id: id, preview_id: id, snapshot_hash: z.string().regex(/^[a-f0-9]{64}$/), authorize: z.literal(true) }).strict(),
   z.object({ action: z.literal("check"), session_id: id, preview_id: id }).strict(),
   z.object({ action: z.literal("document"), session_id: id, document_id: id }).strict(),
+  z.object({ action: z.literal("analyze"), session_id: id, document_id: id, message: z.string(), history: z.array(z.object({ role: z.enum(["user", "assistant"]), text: z.string() }).strict()) }).strict(),
 ]);
 
 class SafeError extends Error { constructor(message: string, readonly status = 400) { super(message); } }
@@ -176,12 +180,16 @@ export function createHandler(d: Deps) {
       const text = new TextDecoder().decode(await readCapped(req.body, 16000).catch(() => { throw new SafeError("Pedido demasiado grande", 413); }));
       const body = commandSchema.parse(JSON.parse(text));
       if (body.action === "status") {
-        return reply({ user_id: user.id, role: eff.role, company_id: company, capabilities: { upload: uploadEnabled, ...(pilot?.unavailable ? { unavailable: true } : {}), analysis: false, gmail: false, drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
+        return reply({ user_id: user.id, role: eff.role, company_id: company, capabilities: { upload: uploadEnabled, ...(pilot?.unavailable ? { unavailable: true } : {}), analysis: d.analysisEnabled === true && uploadEnabled && !!d.analysis, gmail: false, drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
       }
       if (!uploadEnabled && !(d.pilotScoped && (body.action === "check" || body.action === "document" || (body.action === "session" && body.session_id)))) throw new SafeError("Assistente ainda não ativado neste ambiente. Nada foi guardado.", 503);
       if (body.action === "session") return reply(await rpc("data_entry_session", { p_session: body.session_id ?? null, p_event: body.event_id ?? null }));
       const state = await load(body.session_id);
       if (state.company.id !== company) throw new SafeError("Lote de outra empresa", 403);
+      if (body.action === "analyze") {
+        if (!d.analysisEnabled || !d.analysis) throw new SafeError("Análise documental ainda não ativada. Revê os campos manualmente.", 503);
+        return await d.analysis(req, { session: body.session_id, document: body.document_id, message: body.message, history: body.history.map((t) => ({ role: t.role as "user" | "assistant", text: t.text as string })) }, { user: user.id, company, role: eff.role ?? "" });
+      }
       if (body.action === "note") return reply({ id: await rpc("data_entry_note", { p_session: body.session_id, p_body: body.body }) });
       if (body.action === "preview") return reply(await rpc("data_entry_prepare", { p_session: body.session_id, p_document: body.document_id, p_fields: body.fields }));
       if (body.action === "document") {

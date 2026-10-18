@@ -27,7 +27,6 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Tarefa85: análise documental/conversa fase10; src/components/data-entry, src/lib/data-entry-client, módulos próprios333 e prova85; sem tocar componentes323 | 2026-10-18 23:38 | HEAD c23ad739 e CI401 quality SUCCESS confirmados por Pedro; plano específico em preparação; gates fechados, testes só locais, limpeza manual adiada; sem Cloudwrites/deploy/Publish |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)
@@ -36,6 +35,7 @@ _(sem pedidos)_
 
 ## 0 · Cowork (ChatGPT)
 
+  - **18/10/2026 — tarefa85 entregue, NÃO disponibilização:** código análise/conversa/revisão humana fase10 preparado;52testes locaisPASS e harnessbuildOK; upload/analysis/provider fechados, zeroCloudwrites/chamadaspagas/deploy/Publish.1–7done/8PARCIAL/9não liberada/10configuração+validação externa+pausa durável pendentes/11–18pendentes. RegraPedro: agente não cria dados/arquivos fictíciosERP; limpeza81/83 concluída pelo controller, resíduosAuth/Storage adiados manualmente. Prova85 sanitizada própria, sem UUID/PII;#323/DECISIONS e testes70/worker60 preservados. Reserva333 libertada; controller confirmaCIqualityVERDE do SHA integrado atual ANTES próximo dispatch não corretivo/Publish, CI401 inicial não certifica esta entrega.
   - **17/10/2026 18:29 UTC — validação isolada entregue, NÃO ativação:** provas10/11, próxima fase12; destinos reais juntos, patch corrigido, integrados31/PG36/handler20/geral1334, tsgo/Deno/build OK. SHA técnico observado4916e71a; remoto ainda base12dd324e ancestral, CI final pendente. Retoma global legada/StorageACL bloqueiam; #333 aberta/reservada e #323 intacta.
 
   **#333 — recebido/em execução em 17/10/2026 16:26 UTC.** Executor único: 0 · Cowork (ChatGPT) através do agente Lovable ERP, conforme autorização expressa nesta sessão. Inspeção dos contratos e plano técnico primeiro; núcleo por upload condicionado à segurança/validação. Pedido abaixo permanece aberto; #323 integralmente preservada. Sem Publish, OAuth, crons, email, Meta, pagamentos bancários ou lançamentos financeiros reais de teste.

@@ -1,6 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createHandler, type Bucket } from "./handler.ts";
+import { analyzeDocument, type AnalysisState } from "./analysis-service.ts";
+import { analysisStream } from "./analysis-stream.ts";
+import { generateDocumentAnalysis } from "../_shared/issue333-ai/provider.ts";
+import { AnalysisError } from "../_shared/data-entry-analysis.ts";
 
 const url = Deno.env.get("SUPABASE_URL") ?? "";
 const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -8,12 +12,38 @@ const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const opts = { auth: { persistSession: false, autoRefreshToken: false } };
 const admin = createClient(url, service, opts);
 const asUser = (token: string) => createClient(url, anon, { ...opts, global: { headers: { Authorization: `Bearer ${token}` } } });
+const ANALYSIS_ENABLED = false;
+// No durable provider-denial/pause ledger configured for #333 yet. Never infer readiness from a key.
+const ANALYSIS_PROVIDER_REVIEWED = false;
 
 Deno.serve(createHandler({
   cors: { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"]}, x-data-entry-user, x-data-entry-company` },
   // Closed until the #333 technical migration, private bucket and proofs are reviewed.
   pilotScoped: true, // Exact owner/company capability; SQL gates revalidate effects.
   uploadEnabled: false, // Reviewed activation required; no environment flag bypass.
+  analysisEnabled: ANALYSIS_ENABLED && ANALYSIS_PROVIDER_REVIEWED,
+  async analysis(req, input) {
+    if (!ANALYSIS_ENABLED || !ANALYSIS_PROVIDER_REVIEWED) return new Response(JSON.stringify({ error: "Análise indisponível: configuração e validação pendentes." }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const token = req.headers.get("Authorization")?.slice(7) ?? "";
+    const client = asUser(token);
+    return analysisStream(req, corsHeaders, () => analyzeDocument({
+      enabled: ANALYSIS_ENABLED, providerReady: ANALYSIS_PROVIDER_REVIEWED,
+      async scope() {
+        const verified = await admin.auth.getUser(token);
+        const effective = await client.rpc("my_effective_permissions", { p_universe: [] });
+        const capability = await client.rpc("data_entry_pilot8_capabilities", {});
+        if (verified.error || !verified.data.user || effective.error || capability.error) throw new AnalysisError("Sessão ou permissões indisponíveis.", 403);
+        return { user: verified.data.user.id, company: effective.data?.company_id, role: effective.data?.role, preparation: capability.data?.preparation === true };
+      },
+      async load(session) {
+        const response = await client.rpc("data_entry_session", { p_session: session, p_event: null });
+        if (response.error || !response.data) throw new AnalysisError("Lote indisponível nesta sessão.", 403);
+        return response.data as AnalysisState;
+      },
+      async download(path) { const r = await admin.storage.from("data-entry-staging").download(path); return r.error || !r.data ? null : new Uint8Array(await r.data.arrayBuffer()); },
+      generate: (data) => generateDocumentAnalysis(req, data, Deno.env.get("LOVABLE_API_KEY") ?? ""),
+    }, { ...input, signal: req.signal }));
+  },
   async getUser(token) {
     const { data, error } = await admin.auth.getUser(token);
     return error || !data.user ? null : { id: data.user.id };

@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useIsMobile } from "@/hooks/use-mobile";
+import DocumentAnalysisPanel from "./DocumentAnalysisPanel";
+import { applyAnalysisCandidate } from "@/lib/data-entry-analysis";
 import {
   edgeDataEntryAdapter, parseAmount, DataEntryError,
   type DataEntryContext, type DataEntryAdapter, type DataEntryFields, type DataEntryState, type ExecuteOutcome,
@@ -42,6 +44,8 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
   const [confirmed, setConfirmed] = useState(false);
   const [previewValid, setPreviewValid] = useState(false);
   const [outcome, setOutcome] = useState<ExecuteOutcome | null>(null);
+  const [analysisEnabled, setAnalysisEnabled] = useState(false);
+  const [analysisBusy, setAnalysisBusy] = useState(false);
   const generation = useRef(0);
   const inFlight = useRef(false);
   useLayoutEffect(() => () => { generation.current += 1; }, []);
@@ -54,13 +58,14 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
       if (s.user_id !== userId) { setUnavailable("Sessão alterada; reabre o assistente."); return; }
       if (!s.capabilities.upload) { setUnavailable("O envio de documentos ainda não foi ativado neste ambiente. Nada foi guardado nem lançado."); return; }
       const c = { user_id: s.user_id, company_id: s.company_id };
+      setAnalysisEnabled(s.capabilities.analysis === true);
       setContext(c); setResumeId(localStorage.getItem(lastKey(c)));
     }).catch((e) => { if (gen === generation.current) setUnavailable(e instanceof DataEntryError ? e.message : "O assistente está indisponível."); });
     return () => { generation.current += 1; };
   }, [open, adapter, userId, resolving]);
 
   const run = async (label: string, fn: (valid: () => boolean, c: DataEntryContext) => Promise<void>) => {
-    if (!context || inFlight.current) return;
+    if (!context || inFlight.current || analysisBusy) return;
     const gen = generation.current;
     const valid = () => gen === generation.current;
     inFlight.current = true; setBusy(label); setError(null);
@@ -111,7 +116,7 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
   const input = "w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
   const executed = !!outcome?.result && outcome.status === "conferido";
   const boundFields = !!fields && !!preview && Object.keys(fields).every((k) => fields[k as keyof DataEntryFields] === preview.snapshot.fields[k as keyof DataEntryFields]);
-  const canExecute = !!context && !!state?.capabilities.execute && !!preview && previewValid && boundFields && confirmed && !outcome && !busy;
+  const canExecute = !!context && !!state?.capabilities.execute && !!preview && previewValid && boundFields && confirmed && !outcome && !busy && !analysisBusy;
 
   const documents = (
     <section aria-label="Documento" className="space-y-3">
@@ -139,6 +144,9 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
           <div className="text-muted-foreground font-mono break-all">SHA-256 {doc.sha256.slice(0, 16)}…</div>
         </div>
       )}
+      {doc && state && context && <DocumentAnalysisPanel key={`${state.session.id}:${doc.id}:${doc.sha256}`} adapter={adapter} context={context} sessionId={state.session.id} doc={doc} enabled={analysisEnabled} locked={!!busy || !!outcome || executed} onBusy={setAnalysisBusy} onCandidate={(candidate) => {
+        setForm((f) => applyAnalysisCandidate(f, candidate)); setConfirmed(false); setPreviewValid(false);
+      }} />}
     </section>
   );
 
@@ -163,7 +171,7 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
         <label className="text-xs space-y-1 sm:col-span-2"><span>Nota (opcional)</span><textarea maxLength={2000} rows={2} className={input} value={form.notes} onChange={set("notes")} disabled={!doc || executed || !!outcome || !!busy} /></label>
       </div>
       {state?.company.tax_id && <p className="text-xs text-muted-foreground">NIF da empresa no ERP: {state.company.tax_id}. O servidor recusa se o destinatário for outro.</p>}
-      <Button size="sm" disabled={!doc || !fields || !!busy || !!outcome} onClick={() => {
+      <Button size="sm" disabled={!doc || !fields || !!busy || !!outcome || analysisBusy} onClick={() => {
         if (!doc || !fields || !state) return;
         void run("prévia", async (valid, c) => {
           await adapter.preview(state.session.id, doc.id, fields, c); if (!valid()) return;

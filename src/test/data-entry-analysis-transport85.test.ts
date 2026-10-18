@@ -1,0 +1,14 @@
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { edgeDataEntryAdapter } from "@/lib/data-entry-client";
+vi.mock("@/integrations/supabase/client", () => ({ supabase: { auth: { getSession: async () => ({ data: { session: { access_token: "hermetic-local-only-not-a-token" } } }) } } }));
+const context = { user_id: "local-user", company_id: "local-company" };
+const report = { document_id: "local-doc", document_sha256: "a".repeat(64), company_id: context.company_id, answer: "Revisão necessária.", candidates: [], warnings: [], erp: { company_tax: null } };
+const sse = (...chunks: unknown[]) => new Response(chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join("") + "data: [DONE]\n\n", { headers: { "Content-Type": "text/event-stream", "x-vercel-ai-ui-message-stream": "v1" } });
+const run = () => edgeDataEntryAdapter.analyze?.("local-session", "local-doc", "Extrai", [], context, new AbortController().signal);
+afterEach(() => vi.unstubAllGlobals());
+describe("#333 hermetic SDK stream transport", () => {
+  it("posts exact scoped command and consumes validated SSE report", async () => { const fetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => sse({ type: "start", messageId: "msg-local" }, { type: "data-analysis", data: report }, { type: "finish" })); vi.stubGlobal("fetch", fetch); expect(await run()).toEqual(report); const init = fetch.mock.calls[0]?.[1] as RequestInit | undefined; expect(JSON.parse(String(init?.body))).toEqual({ action: "analyze", session_id: "local-session", document_id: "local-doc", message: "Extrai", history: [] }); expect(new Headers(init?.headers).get("X-Data-Entry-Company")).toBe("local-company"); });
+  it("terminal HTTP denial keeps status and safe message, zero retry", async () => { const fetch = vi.fn(async () => new Response(JSON.stringify({ error: "Acesso não autorizado." }), { status: 403 })); vi.stubGlobal("fetch", fetch); await expect(run()).rejects.toMatchObject({ status: 403, message: "Acesso não autorizado." }); expect(fetch).toHaveBeenCalledTimes(1); });
+  it("terminal streamed denial is not converted into success", async () => { vi.stubGlobal("fetch", vi.fn(async () => sse({ type: "start", messageId: "msg-local" }, { type: "data-analysis-error", data: { status: 403, message: "Serviço bloqueado." } }, { type: "error", errorText: "Serviço bloqueado." }))); await expect(run()).rejects.toMatchObject({ status: 403, message: "Serviço bloqueado." }); });
+  it("successful empty stream is failure, not fabricated result", async () => { vi.stubGlobal("fetch", vi.fn(async () => sse({ type: "start", messageId: "msg-local" }, { type: "finish" }))); await expect(run()).rejects.toMatchObject({ status: 422 }); });
+});

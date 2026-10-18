@@ -4,6 +4,8 @@
  * se o endpoint não existir ou recusar, a UI mostra indisponível.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { DefaultChatTransport, readUIMessageStream } from "ai";
+import { parseAnalysisReport, type AnalysisReport, type AnalysisTurn } from "@/lib/data-entry-analysis";
 
 export type DataEntryFields = {
   supplier_name: string; supplier_nif: string; invoice_number: string; invoice_date: string;
@@ -40,6 +42,7 @@ export interface DataEntryAdapter {
   preview(sessionId: string, documentId: string, fields: DataEntryFields, context?: DataEntryContext): Promise<DataEntryPreview>;
   execute(sessionId: string, previewId: string, snapshotHash: string, context?: DataEntryContext): Promise<ExecuteOutcome>;
   check(sessionId: string, previewId: string, context?: DataEntryContext): Promise<ExecuteOutcome>;
+  analyze?(sessionId: string, documentId: string, message: string, history: AnalysisTurn[], context: DataEntryContext, signal: AbortSignal): Promise<AnalysisReport>;
 }
 
 const UNAVAILABLE = "O assistente ainda não está ativo neste ambiente. Nada foi guardado nem lançado.";
@@ -72,6 +75,32 @@ export const edgeDataEntryAdapter: DataEntryAdapter = {
   preview: (sessionId, documentId, fields, context) => call(JSON.stringify({ action: "preview", session_id: sessionId, document_id: documentId, fields }), true, context),
   execute: (sessionId, previewId, snapshotHash, context) => call(JSON.stringify({ action: "execute", session_id: sessionId, preview_id: previewId, snapshot_hash: snapshotHash, authorize: true }), true, context),
   check: (sessionId, previewId, context) => call(JSON.stringify({ action: "check", session_id: sessionId, preview_id: previewId }), true, context),
+  async analyze(sessionId, documentId, message, history, context, signal) {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.access_token) throw new DataEntryError("Inicia sessão para continuar.", 401);
+    const transport = new DefaultChatTransport({
+      api: endpoint(), headers: { Authorization: `Bearer ${data.session.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, "X-Data-Entry-User": context.user_id, "X-Data-Entry-Company": context.company_id },
+      prepareSendMessagesRequest: () => ({ body: { action: "analyze", session_id: sessionId, document_id: documentId, message, history } }),
+      fetch: async (input, init) => {
+        const res = await fetch(input, init);
+        if (!res.ok) { const error = await res.json().catch(() => null); throw new DataEntryError(typeof error?.error === "string" ? error.error : "Análise indisponível.", res.status); }
+        return res;
+      },
+    });
+    const stream = await transport.sendMessages({ trigger: "submit-message", chatId: sessionId, messageId: undefined, messages: [], abortSignal: signal });
+    let result: AnalysisReport | null = null;
+    for await (const msg of readUIMessageStream({ stream, terminateOnError: true })) {
+      for (const part of msg.parts) {
+        if (part.type === "data-analysis-error") {
+          const e = part.data as { status?: number; message?: string };
+          throw new DataEntryError(e.message ?? "Análise interrompida.", e.status ?? 503);
+        }
+        if (part.type === "data-analysis") result = parseAnalysisReport(part.data);
+      }
+    }
+    if (!result || signal.aborted) throw new DataEntryError(signal.aborted ? "Análise cancelada." : "A análise terminou sem dados válidos.", signal.aborted ? 499 : 422);
+    return result;
+  },
 };
 
 /** Converts a pt-PT amount ("1.234,56" or "1234.56") to a number with cents, or null. */
