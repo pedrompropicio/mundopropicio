@@ -10,7 +10,7 @@ import { validateDocument } from '../../../../supabase/functions/_shared/data-en
 
 /** Fixture identity is parameterized: a fresh exclusive marker per pilot run, never reused.
  * PILOT8_MARKER must match ^issue333-pilot8-[a-f0-9]{32}$; the old pilot59 marker is refused. */
-const RETIRED_MARKERS=new Set(['issue333-pilot8-916bd3976502472ab18f39ea0adf7589']);
+const RETIRED_MARKERS=new Set(['issue333-pilot8-916bd3976502472ab18f39ea0adf7589','issue333-pilot8-11af044ae28127538fe8cc06be67541a']);
 export function resolveMarker57():string {
   const m=process.env.PILOT8_MARKER??'';
   if(!/^issue333-pilot8-[a-f0-9]{32}$/.test(m)) throw Error('PILOT8_MARKER missing or malformed; stop before account');

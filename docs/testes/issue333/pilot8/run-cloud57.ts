@@ -1,22 +1,34 @@
-/** Authorized sole pilot CLI. No effects unless --authorized-single-pilot57 supplied.
+/** Checkpoint-only test CLI. Continuous pilot/resume63 flags are retired.
  * Official read_query relay requires the executing agent; no SQL executed from shell.
  */
-import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {writeFile,mkdir} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
-import {runFuturePilot,resumeExistingPilot,type PilotDriver} from './future-runner';
 import {financial,baselineSQL,metadataSQL,compareBaselines} from './baseline58';
-import {AuthAdmin57,OfficialSelectBridge,exactPdf57,chromiumDriver57,privateSecret57,MARKER57,COMPANY57,SHA57} from './private-cloud57';
+import {AuthAdmin57,exactPdf57,chromiumDriver57,privateSecret57} from './private-cloud57';
+import {checkpoint66,PrivateStore66,type Driver66} from './checkpoint66';
+import {OfficialSelect66} from './official-select66';
 
 const DIR='/tmp/browser/issue333-pilot57';
-let bridge:OfficialSelectBridge;
 const q=(v:string)=>"'"+v.replace(/'/g,"''")+"'";
-async function select(query:string,expectedKeys?:string[]){const x=await bridge.select(query,expectedKeys);return x;}
 export function connectedDriver58(options:{artifact:Awaited<ReturnType<typeof exactPdf57>>;auth:AuthAdmin57;select:(query:string,expectedKeys?:string[])=>Promise<any>;url:string;service:string;pub:string;directory:string;notify?:(message:unknown)=>void;browserOptions?:Record<string,unknown>;expectedSources?:Record<string,string>}) {
  const {artifact,auth,select,url,service,pub,directory:DIR,browserOptions={},expectedSources}=options;
  const MARKER57=artifact.marker,COMPANY57=artifact.company,SHA57=artifact.sha256;
  const notify=options.notify??((message:unknown)=>console.log(JSON.stringify(message)));
  let session:any,before:any,identity:string|undefined,last:any;
- const driver:PilotDriver={
+ const driver:Driver66={
+  bindIdentity:owner=>{identity=owner.id},
+  exportContext:()=>({before,last}),
+  importContext:context=>{const c=context as {before:unknown;last:unknown};before=c.before;last=c.last;},
+  validateCheckpoint:async(owner,a,phase)=>{
+   const md=await select(metadataSQL(),['incompatibilities']);if(md.incompatibilities.length)throw Error('Checkpoint schema drift');
+   const sources=(await select(`SELECT jsonb_object_agg(oid::regprocedure::text,md5(prosrc)) sources FROM pg_proc WHERE oid IN ('current_company_id()'::regprocedure,'log_table_change()'::regprocedure,'set_company_id_on_insert()'::regprocedure,'auth.uid()'::regprocedure,'data_entry_pilot8_gate(text)'::regprocedure)`,['sources'])).sources;
+   const expected=expectedSources??{'current_company_id()':'f857f027a44e858399e895d702af7ad0','log_table_change()':'9509fe109550c9e0367fcbe4ffc661c5','set_company_id_on_insert()':'949120b4d6c08f0c8707f63d28708d96','auth.uid()':'cdef18c69c4f4cbbced2eaf81e628b49','data_entry_pilot8_gate(text)':'1e066a6df3637c8d5c8f99f00a255d33'};
+   if(!sources||!Object.entries(expected).every(([k,v])=>sources[k]===v))throw Error('Checkpoint source guard drift');
+   const r=(await select(`SELECT jsonb_build_object('exact',(SELECT count(*) FROM auth.users u JOIN profiles p ON p.id=u.id JOIN user_roles ur ON ur.user_id=u.id WHERE u.id=${q(owner.id)}::uuid AND u.created_at=${q(owner.createdAt)}::timestamptz AND u.email=${q(a.marker+'@fixture.invalid')} AND u.email_confirmed_at IS NOT NULL AND u.banned_until IS NULL AND u.raw_user_meta_data->>'fixture_marker'=${q(a.marker)} AND u.raw_user_meta_data->>'company_id'=${q(a.company)} AND u.raw_user_meta_data->>'full_name'=${q(owner.fullName)} AND u.raw_user_meta_data->>'pilot_pdf_sha256'=${q(a.sha256)} AND u.raw_user_meta_data->>'pilot_pdf_size'=${q(String(a.size))} AND u.raw_user_meta_data->>'pilot_pdf_mime'=${q(a.mime)} AND p.full_name=${q(owner.fullName)} AND p.company_id=${q(a.company)}::uuid AND (p.active_company_id IS NULL OR p.active_company_id=${q(a.company)}::uuid) AND ur.id=${q(owner.roleId)}::uuid AND ur.company_id=${q(a.company)}::uuid AND ur.role='manager' AND (SELECT count(*) FROM user_roles WHERE user_id=u.id)=1 ${phase==='activated'?'AND u.last_sign_in_at IS NULL AND NOT EXISTS(SELECT 1 FROM auth.sessions WHERE user_id=u.id)':''}),'users',(SELECT count(*) FROM auth.users WHERE email=${q(a.marker+'@fixture.invalid')} OR raw_user_meta_data->>'fixture_marker'=${q(a.marker)}),'rows',(SELECT count(*) FROM data_entry_pilot8_allowlist WHERE owner_id=${q(owner.id)}::uuid AND company_id=${q(a.company)}::uuid AND reviewed_note=${q(`FICTITIOUS one PDF; ${a.marker}; SHA256=${a.sha256}`)} AND operation IN ('preparation','assistant_create') AND ${phase==='activated'?'enabled AND expires_at>clock_timestamp() AND expires_at<=clock_timestamp()+interval \'10 minutes\'':'NOT enabled'}),'global_active',(SELECT count(*) FROM data_entry_pilot8_allowlist WHERE enabled),'invoices',(SELECT count(*) FROM standalone_invoices WHERE created_by=${q(owner.id)}::uuid OR invoice_number=${q(a.reference)})) checkpoint`,['checkpoint'])).checkpoint;
+   if(r.exact!==1||r.users!==1||r.rows!==2||r.global_active!==(phase==='activated'?2:0)||r.invoices!==(phase==='activated'?0:1))throw Error('Checkpoint identity/permission/reference drift');
+   const current=(await select(baselineSQL(owner.id),['baseline'])).baseline;const c=compareBaselines(before,current);
+   if(c.changedRelations.length||c.configChanged||!c.globalsClosed)throw Error('Checkpoint baseline/source drift');
+  },
   validatePdf:async()=>{await exactPdf57(DIR+'/pilot8-fiction.pdf')},
   preflightReadOnly:async()=>{
    const metadata=await select(metadataSQL(),['incompatibilities']);
@@ -60,7 +72,7 @@ export function connectedDriver58(options:{artifact:Awaited<ReturnType<typeof ex
    await writeFile(DIR+'/fixture-fact.json',JSON.stringify({fact,sha256:createHash('sha256').update(bytes).digest('hex')}),{mode:0o600});
    return {sessions:fact.sessions,documents:fact.documents,previews:fact.previews,executeRequests:result.executeRequests,invoices:fact.invoices,results:fact.results,financialEffects:unchanged?0:1,downloadedSha:createHash('sha256').update(bytes).digest('hex'),approvedOwner:i.created_by,approvedNameFromServer:true,reopenedCheckOk:result.reopenedCheckOk};
   },
-  requestRevocation:async owner=>{notify({controller_revoke_exact_two:true,identity_discovery:'controller SELECT by reviewed marker',sha256:SHA57});const end=Date.now()+120000;while(Date.now()<end){const r=await driver.readRevoked(owner,artifact);if(r.count===2&&r.disabled===2)return;await new Promise(r=>setTimeout(r,1000));}throw Error('Controller exclusive revocation not observed');},
+  requestRevocation:async owner=>{notify({controller_revoke_exact_two:true,identity_discovery:'controller SELECT by reviewed marker',sha256:SHA57});},
   readRevoked:async owner=>{const r=await select(`SELECT jsonb_build_object('count',count(*),'disabled',count(*) FILTER(WHERE NOT enabled)) revoked FROM data_entry_pilot8_allowlist WHERE owner_id=${q(owner.id)}::uuid AND company_id=${q(COMPANY57)}::uuid AND reviewed_note=${q(`FICTITIOUS one PDF; ${MARKER57}; SHA256=${SHA57}`)}`,['revoked']);return r.revoked;},
   checkReadOnly:async(owner,token)=>{const prior=(await select(baselineSQL(),['baseline'])).baseline;const r=await fetch(url+'/functions/v1/data-entry',{method:'POST',headers:{apikey:pub,Authorization:'Bearer '+token,'Content-Type':'application/json','X-Data-Entry-User':owner.id,'X-Data-Entry-Company':COMPANY57},body:JSON.stringify({action:'check',session_id:last.latest.session_id,preview_id:last.latest.preview_id})});const body=await r.json();await writeFile(DIR+'/revoked-check.json',JSON.stringify({http:r.status,body}),{mode:0o600});const after=(await select(baselineSQL(),['baseline'])).baseline;const diff=compareBaselines(prior,after);return {ok:r.status===200&&body.status==='conferido',extraWrites:diff.changedRelations.length+(diff.configChanged?1:0)};},
   logoutGlobal:async token=>{await auth.logout(token)},banOnlyCreatedUser:async owner=>{if(owner!==identity)throw Error('Ban identity drift');await auth.ban(owner)},
@@ -71,24 +83,17 @@ export function connectedDriver58(options:{artifact:Awaited<ReturnType<typeof ex
  return driver;
 }
 async function main() {
- bridge=await OfficialSelectBridge.fresh();
- console.log(JSON.stringify({official_select_directory:bridge.relayDirectory,response_contract:'{id, fingerprint: sha256(query), data: official row array}',controller_writes:'separate reviewed query_database; never this relay'}));
- const artifact=await exactPdf57(DIR+'/pilot8-fiction.pdf');
+ const mode=process.argv.find(x=>x.startsWith('--checkpoint66='))?.split('=')[1];
+ if(!mode||!['prepare','execute','finish','cleanup'].includes(mode))throw Error('Continuous pilot retired; explicit checkpoint66 stage required, never resume63');
+ if(process.env.PILOT8_AUTHORIZATION!==`PEDRO_AUTHORIZED_CHECKPOINT66_${mode.toUpperCase()}`)throw Error('Separate reviewed authorization for exact checkpoint stage required');
+ const directory=process.env.PILOT8_PRIVATE_DIRECTORY;
+ if(!directory?.startsWith('/tmp/'))throw Error('Reviewed private checkpoint directory required');
+ const official=new OfficialSelect66(directory+'/select');
+ const artifact=await exactPdf57(directory+'/pilot8-fiction.pdf');
  const url=process.env.SUPABASE_URL,service=process.env.SUPABASE_SERVICE_ROLE_KEY,pub=process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
  if(!url||!service||!pub)throw Error('Private AuthAdmin environment absent');
  const auth=new AuthAdmin57(url,service,pub);
- await auth.readProbe();
- await chromiumDriver57('docs/testes/issue333/pilot8/cloud-browser57.py',{mode:'probe',output:DIR,cloud_url:url});
- const driver=connectedDriver58({artifact,auth,select,url,service,pub,directory:DIR});
- if(!process.argv.includes('--authorized-single-pilot57')&&!process.argv.includes('--preflight-only')&&!process.argv.includes('--resume-identity63')){console.log(JSON.stringify({ready:'AuthAdmin/read-only/PDF/Chromium probe',accountCreated:false}));return;}
- if(process.argv.includes('--preflight-only')){console.log(JSON.stringify({preflight:await driver.preflightReadOnly(artifact),accountCreated:false}));return;}
- if(process.argv.includes('--resume-identity63')){
-  // prova64: SAME reviewed identity; private state/secret from /tmp 0600 only; never printed; no createUser.
-  const state=JSON.parse(await readFile('/tmp/issue333-63/state.json','utf8'));const password=(await readFile('/tmp/issue333-63/secret','utf8')).trim();
-  if(state.phase!=='created_checkpoint'||state.no_login!==true)throw Error('Private state drift; ban only and stop');
-  const result=await resumeExistingPilot(driver,artifact,{id:state.owner_id,createdAt:state.created_at},password,'PEDRO_AUTHORIZED_SINGLE_PILOT8_RESUME63');console.log(JSON.stringify(result));return;
- }
- if(!process.argv.includes('--authorized-single-pilot57'))return;
- const result=await runFuturePilot(driver,artifact,'PEDRO_AUTHORIZED_SINGLE_PILOT8');console.log(JSON.stringify(result));
+ const driver=connectedDriver58({artifact,auth,select:(query,keys)=>official.select(query,keys),url,service,pub,directory});
+ const result=await checkpoint66(mode as 'prepare'|'execute'|'finish'|'cleanup',driver,artifact,new PrivateStore66(directory));console.log(JSON.stringify(result));
 }
 if(import.meta.main) main().catch(async(error)=>{await mkdir(DIR,{recursive:true,mode:0o700});const reason=error instanceof Error&&(/schema incompatibilities|Concurrent baseline|environment absent|PDF|Official SELECT|Chromium private/.test(error.message))?error.message:'Private driver stopped; read-only recovery only';await writeFile(DIR+'/stopped.json',JSON.stringify({reason}),{mode:0o600});console.log(JSON.stringify({pilot_stopped:true,repeat_forbidden:true,see_sanitized_evidence:true}));process.exitCode=1});

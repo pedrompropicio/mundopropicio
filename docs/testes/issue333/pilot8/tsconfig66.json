@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "ESNext", "moduleResolution": "Bundler",
+    "strict": true, "skipLibCheck": true, "noEmit": true,
+    "allowImportingTsExtensions": true, "types": ["node"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "paths": {"npm:zod@3": ["../../../../node_modules/zod"]}
+  },
+  "include": ["checkpoint66.ts", "official-select66.ts", "run-cloud57.ts", "private-cloud57.ts", "future-runner.ts", "baseline58.ts"]
+}
