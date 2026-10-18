@@ -1,6 +1,6 @@
 ---
 name: Assistente de Entrada de Dados
-description: Gates fechados, prévia de reserva vinculada e recuperação estritamente read-only
+description: Gates fechados, snapshot vinculado, labels opcionais sem fuga tenant e recuperação read-only
 type: feature
 ---
 
@@ -17,3 +17,5 @@ Ensaios locais autorizados não abrem operações Live. Reserva preparada só ex
 
 
 A autorização da reserva mostra dados legíveis do envelope confirmado no servidor, vinculados ao owner/empresa/operação/hash; não usa o formulário antigo. Tentativas authorized/inprogress só permitem conferência read-only, nunca novo upload/begin/commit. Provas locais Chromium não autorizam deploy/ativação/piloto/Publish e não substituem Cloud.
+
+Labels de snapshot são opcionais: erro/coluna ausente nunca perde o envelope nem inventa nomes. Label de pagador só após membership canónica na empresa verificada; ID do envelope nunca autoriza revelar nome de outra empresa. Deploy de leitura com gates fechados não autoriza faturas, piloto ou Publish; piloto futuro exige isolamento efetivo por owner/empresa além do gate por operação.
