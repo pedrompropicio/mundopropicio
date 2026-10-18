@@ -66,8 +66,8 @@
 - [ ] Gmail/Drive/OAuth, conciliação, bilheteiras e demais adapters: bloqueados até validação/configuração próprias; sem Publish.
 
 # CRM Newgang — membros e WhatsApp (18/10/2026)
-- [ ] Lista/summary por email, submissões e vínculo do membro.
-- [ ] Projeção canónica WhatsApp, origem e elegibilidade; consumidores CRM.
-- [ ] Testes SQL/UI, migração oficial e verificações Live.
-- [ ] Pré-visualização e UPDATE inerte do backfill (aguarda Sim de Pedro).
-- [ ] Fecho do estado, provas e libertação da reserva.
+- [x] Lista/summary por email, submissões e vínculo do membro.
+- [x] Projeção canónica WhatsApp, origem e elegibilidade; consumidores CRM.
+- [x] Testes SQL/UI, migrações oficiais0196/0197 e verificações Live.
+- [ ] Backfill perfil→CRM: preview62ativações/65ajustes; aguarda Sim específico de Pedro, renovar preview antes.
+- [x] Fecho estado/provas e libertação da reserva.
