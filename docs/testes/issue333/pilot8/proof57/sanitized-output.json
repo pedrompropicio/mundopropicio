@@ -1,0 +1,38 @@
+{
+  "head": "626fc682cecb43407a69c0b56e0711abd69b797b",
+  "ci": {
+    "id": 39104225310,
+    "status": "completed",
+    "conclusion": "success"
+  },
+  "pdf": {
+    "sha256": "8ae66f6a452934a1f43a5d9fb2c5f22fef7e407e4d2f1b8db53f03d75794798f",
+    "size": 1517,
+    "mime": "application/pdf",
+    "mode": "0600",
+    "head_validateDocument": "application/pdf",
+    "pdfinfo": "PASS"
+  },
+  "AuthAdmin_read_only_http": 200,
+  "Chromium_probe": {
+    "page_loaded": true,
+    "cloud_writes": 0,
+    "errors": []
+  },
+  "driver_tests": {
+    "passed": 8
+  },
+  "official_baseline_error": {
+    "code": "42P01",
+    "relation": "public.reimbursements",
+    "account_created": false
+  },
+  "final_SELECT": {
+    "marker_count": 0,
+    "allowlist_count": 0,
+    "fixture_invoice_count": 0,
+    "core_open": 0,
+    "attempt_open": 0
+  },
+  "cloud_pilot_executed": false
+}
