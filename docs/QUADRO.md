@@ -25,7 +25,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Prova37: concluir listagem/gates/tabelas/Storage antes de investigar timeout; uma nova conta fictícia autorizada; código/SQL/permissões Live só leitura; #323 excluída | 2026-10-17 16:26 | 2026-10-18 01:44 UTC — HEAD148fdb0 confirmado, ancestralidade/checkout limpo, CI39086983574 confirmado pelo controlador; intervalo restante dispensado expressamente; sem ativação/faturas/deploy/Publish; reserva aberta |
+| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Provas37/38:39Live=36PASS/1FAILfixtureexecute422/2timeouts;PG17local6PASS;causaCloudnão demonstrada;22baselines iguais;#323 excluída | 2026-10-17 16:26 | 2026-10-18 01:50:46 UTC — uma conta nova banida/logout/sessions0;gatesfalse/false;semfaturas/SQL/config/deploy/Publish;revisão/executePDFválido/traceinfra pendentes;reserva aberta |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)

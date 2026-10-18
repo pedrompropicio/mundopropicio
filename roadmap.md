@@ -12,7 +12,9 @@
 - [x] Completar casos locais bloqueantes: React Chromium Assistant/scanner/editor/reserva, authorize/begin/confirm-recovery/Auth/empresa;prova32. Cloud não testado.
 - [x] CI39083572592 anterior success/HEAD41ecefab recebidos pelo controlador; janela cumprida.
 - [x] Deploy só standalone-attempt-333/snapshot seguro;35 testes/Deno PASS;prova34/35, gates fechados.
-- [ ] Completar negativos Live interrompidos por timeout: limite3 contas consumido/banidas; precisa nova sessão técnica autorizada, sem desbloquear antigas.
+- [x] Tentar todos os grupos independentes Live antes dos timeouts; prova37:36PASS/1FAILfixtureexecute422/2INCONCLUSIVO;uma conta nova banida/sessions0,22baselines iguais.
+- [ ] Execute endpoint com PDF válido até gate não comprovado; futura prova técnica depende de autorização própria, sem reabrir contas.
+- [ ] Causa timeout Cloud40001 não demonstrada;PG17local imediato/fonte igual. Trace infraestrutura indisponível, proposta INERTE na prova37.
 - [ ] CI nova e sincronização final ao controlador.
 - [x] Validar SQL exata do leitor em PostgreSQL descartável real;0192 aplicada oficialmente/registry194/hash exato.
 - [x] Integrar/testar leitor service-only; deploy só standalone-attempt-333, versão7 observada, gates fechados.
