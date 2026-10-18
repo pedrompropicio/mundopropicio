@@ -1,5 +1,7 @@
 # #333 — tarefa77 cancelada; conferência somente leitura
 
+**Atualização78:** teste manual operacional APROVADO segundo Pedro/controller; ver `78-fecho-manual76.md`. Controller renovou as mesmas duas permissões durante o teste (nova expiração20:28:32UTC) e revogou-as explicitamente. Por isso o filtro77 pelo primeiro expires não coincidia: divergência explicada, sem motivo de retry. Comparação automática financeira/configuração confirmada pelo controller; lacunas específicas ampliadas preservadas. O restante texto abaixo regista o conhecimento histórico da conferência77, não novas pendências de repetição manual.
+
 Pedro rejeitou o plano de investigação: os campos eram editáveis e o botão aguardava preenchimento. Não foi demonstrado bug Safari. Nenhuma alteração de produto, regressão nova ou ensaio Chromium/WebKit foi executado; análise delegada apenas de leitura não constitui reprodução.
 
 ## Observação oficial atual
