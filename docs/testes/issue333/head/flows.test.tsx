@@ -199,7 +199,8 @@ it('scanner discovery -> explicit new intention -> original file -> real client/
   const newId=(select as HTMLSelectElement).value;expect(newId).not.toBe(original.id);
   fireEvent.change(screen.getByLabelText('Documento original da reserva'),{target:{files:[new NodeFile([bytes],'synthetic.pdf',{type:'application/pdf'})]}});
   const before=Number((await db`select count(*) n from standalone_invoices`)[0].n);
-  const button=screen.getByRole('button',{name:'Autorizar execução da reserva preparada'});fireEvent.click(button);fireEvent.click(button);
+  await screen.findByRole('region',{name:'Dados confirmados da reserva'});
+  const button=screen.getByRole('button',{name:'Autorizar execução da reserva preparada'});await waitFor(()=>expect(button).not.toBeDisabled());fireEvent.click(button);fireEvent.click(button);
   await screen.findByText('Fatura guardada.');
   expect(Number((await db`select count(*) n from standalone_invoices`)[0].n)).toBe(before+1);
   expect((await attempt(c1,'check',newId,null,original.hash)).record_ok).toBe(true);

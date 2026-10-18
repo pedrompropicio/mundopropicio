@@ -58,7 +58,14 @@ async def main():
   print('PASS actual React scanner capture/manual/save -> checked SQL')
   await page.goto(url+'/edit');await page.get_by_role('button',name='Editar',exact=True).first.click();await page.get_by_label('Nota',exact=True).fill('Proof32 metadata changed');await page.get_by_role('button',name='Guardar',exact=True).click();await page.get_by_role('heading',name='Editar fatura avulsa',exact=True).wait_for(state='hidden');await shot('32-editor-checked');print('PASS React accountant editor metadata -> SQL/audit/unchanged bytes')
   await page.goto(url+'/scanner-faturas');await page.get_by_role('button',name='Procurar as minhas tentativas',exact=True).click()
-  while await page.get_by_role('button',name='Carregar mais',exact=True).count(): await page.get_by_role('button',name='Carregar mais',exact=True).click()
+  await page.get_by_label('Tentativa a consultar',exact=True).wait_for()
+  for _ in range(20):
+   more=page.get_by_role('button',name='Carregar mais',exact=True)
+   if not await more.count(): break
+   count=await page.get_by_label('Tentativa a consultar').locator('option').count()
+   await more.click()
+   await page.wait_for_function('(n)=>document.querySelectorAll("select[aria-label=\"Tentativa a consultar\"] option").length>n',arg=count)
+  else: raise AssertionError('pagination did not finish')
   await page.get_by_label('Tentativa a consultar',exact=True).select_option(prior)
   await page.get_by_role('button',name='Registar outra fatura com os mesmos dados…',exact=True).click();await control('confirm_new_intent',True)
   await page.get_by_role('button',name='Confirmar nova fatura',exact=True).click();await entered()
@@ -66,7 +73,14 @@ async def main():
   assert await page.get_by_text('Fatura guardada.',exact=True).count()==0
   await page.evaluate('window.localContext("22222222-2222-4222-8222-222222222222","11111111-1111-4111-8111-111111111111")')
   await page.goto(url+'/scanner-faturas');await page.get_by_role('button',name='Procurar as minhas tentativas',exact=True).click()
-  while await page.get_by_role('button',name='Carregar mais',exact=True).count(): await page.get_by_role('button',name='Carregar mais',exact=True).click()
+  await page.get_by_label('Tentativa a consultar',exact=True).wait_for()
+  for _ in range(20):
+   more=page.get_by_role('button',name='Carregar mais',exact=True)
+   if not await more.count(): break
+   count=await page.get_by_label('Tentativa a consultar').locator('option').count()
+   await more.click()
+   await page.wait_for_function('(n)=>document.querySelectorAll("select[aria-label=\"Tentativa a consultar\"] option").length>n',arg=count)
+  else: raise AssertionError('pagination did not finish')
   await page.get_by_role('button',name='Conferir intenção pendente',exact=True).click();await page.get_by_text('Intenção técnica encontrada e conferida. Nenhuma execução foi iniciada.',exact=True).wait_for()
   snapshot=page.get_by_role('region',name='Dados confirmados da reserva');await snapshot.wait_for();assert 'Proof32 original owner envelope' in await snapshot.inner_text();assert '123' in await snapshot.inner_text();assert 'Sem transação' in await snapshot.inner_text();await shot('32-reserved-envelope')
   await page.get_by_label('Documento original da reserva',exact=True).set_input_files(root/'browser-fixture.pdf')
