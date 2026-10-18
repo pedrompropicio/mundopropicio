@@ -1,0 +1,75 @@
+{
+  "postgres": "17.9",
+  "live_touched": false,
+  "tests": [
+    {
+      "test": "canonical source and ACL unchanged",
+      "status": "PASS"
+    },
+    {
+      "test": "first choice claimed",
+      "status": "PASS"
+    },
+    {
+      "test": "same destination new UUID duplicate",
+      "status": "PASS"
+    },
+    {
+      "test": "identity and campaign server derived",
+      "status": "PASS"
+    },
+    {
+      "test": "two connections one winner",
+      "status": "PASS"
+    },
+    {
+      "test": "exactly two destinations accepted",
+      "status": "PASS"
+    },
+    {
+      "test": "unknown arrival",
+      "status": "PASS"
+    },
+    {
+      "test": "unknown destination",
+      "status": "PASS"
+    },
+    {
+      "test": "malformed ID",
+      "status": "PASS"
+    },
+    {
+      "test": "browser not SSR",
+      "status": "PASS"
+    },
+    {
+      "test": "two hour boundary",
+      "status": "PASS"
+    },
+    {
+      "test": "future arrival",
+      "status": "PASS"
+    },
+    {
+      "test": "other company",
+      "status": "PASS"
+    },
+    {
+      "test": "other link",
+      "status": "PASS"
+    },
+    {
+      "test": "anon cannot execute",
+      "status": "PASS"
+    },
+    {
+      "test": "authenticated cannot execute",
+      "status": "PASS"
+    },
+    {
+      "test": "rollback preserves counts",
+      "status": "PASS"
+    }
+  ],
+  "guard_note": "SQL body tested; guard adapted to local tracked-function formatting, Live expected MD5 unchanged in inert file."
+}

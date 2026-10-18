@@ -1,0 +1,86 @@
+--- a/supabase/functions/song-link-event/index.ts
++++ b/supabase/functions/song-link-event/index.ts
+@@ -191,7 +191,7 @@
+ }
+ 
+ Deno.serve(async (req: Request): Promise<Response> => {
+-  const ctx = { slug: null as string | null, ua: req.headers.get("user-agent") ?? "" };
++  const ctx = { slug: null as string | null, event: null as string | null, ua: req.headers.get("user-agent") ?? "" };
+   const isSsrReq = req.headers.get("x-song-link-ssr-key") !== null;
+   const res = await handle(req, ctx);
+   if (req.method === "POST") {
+@@ -202,12 +202,13 @@
+         : j?.recovered ? "recovered" : j?.duplicate ? "duplicate" : `${res.status}:novo`;
+     } catch { /* sem corpo */ }
+     console.log("[song-link-event] req " + JSON.stringify({ slug: ctx.slug, via: isSsrReq ? "ssr" : "browser",
+-      outcome, ua: uaFamily(ctx.ua), origin_hdr: req.headers.get("origin") ? "sim" : "nao" }));
++      event: ctx.event, outcome, ua: uaFamily(ctx.ua), os: parseUA(ctx.ua).os,
++      origin_hdr: req.headers.has("origin") ? "sim" : "nao", referer_hdr: req.headers.has("referer") ? "sim" : "nao" }));
+   }
+   return res;
+ });
+ 
+-async function handle(req: Request, ctx: { slug: string | null; ua: string }): Promise<Response> {
++async function handle(req: Request, ctx: { slug: string | null; event: string | null; ua: string }): Promise<Response> {
+   const origin = req.headers.get("origin");
+   if (req.method === "OPTIONS") {
+     if (!origin || !ALLOWED_ORIGINS.has(origin)) return json({ ok: false, error: "forbidden_origin" }, 403, origin);
+@@ -222,7 +223,9 @@
+   let refOrigin: string | null = null;
+   try { refOrigin = new URL(req.headers.get("referer") ?? "").origin; } catch { /* sem referer */ }
+   const browserOk = (!!origin && ALLOWED_ORIGINS.has(origin)) || (!origin && !!refOrigin && ALLOWED_ORIGINS.has(refOrigin));
+-  if (!isSsr && !browserOk) return json({ ok: false, error: "forbidden_origin" }, 403, origin);
++  const noBrowserHeaders = !req.headers.has("origin") && !req.headers.has("referer");
++  // Defer only truly headerless POSTs; an invalid present header never gets a fallback.
++  // Validate POST body before logging event; origin denial still precedes any database access.
+   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405, origin);
+ 
+   let body: any;
+@@ -239,6 +242,22 @@
+   const slug = s(body?.slug, 120)?.toLowerCase() ?? null;
+   const event = body?.event;
+   ctx.slug = slug;
++  ctx.event = event === "arrival" || event === "choice" ? event : null;
++  if (!isSsr && !browserOk && !noBrowserHeaders) return json({ ok: false, error: "forbidden_origin" }, 403, origin);
++  const arrivalEventId = s(body.arrival_event_id, 120)?.toLowerCase() ?? null;
++  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
++  const linkedChoice = event === "choice" && arrivalEventId !== null;
++  if (!isSsr && !browserOk && !(noBrowserHeaders && linkedChoice && uuid.test(arrivalEventId ?? "") && body.prefetch !== true)) {
++    return json({ ok: false, error: "forbidden_origin" }, 403, origin);
++  }
++  // Final Portal contract: every choice is linked, including allowed-origin requests.
++  if (event === "choice" && !linkedChoice) return json({ ok: false, error: "invalid_choice" }, 400, origin);
++  if (linkedChoice && (!uuid.test(arrivalEventId ?? "") || !uuid.test(body.event_id ?? ""))) {
++    return json({ ok: false, error: "invalid_choice" }, 400, origin);
++  }
++  if (linkedChoice && prefetchDetail(body.prefetch === true, body.purpose, ctx.ua) !== null) {
++    return json({ ok: false, error: "invalid_choice" }, 400, origin);
++  }
+   if (!slug || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) return json({ ok: false, error: "slug_invalido" }, 400, origin);
+   if (event !== "arrival" && event !== "choice") return json({ ok: false, error: "event_invalido" }, 400, origin);
+   const opened = body?.opened === "app" || body?.opened === "web" ? body.opened : null;
+@@ -288,7 +307,8 @@
+   const ttTest = typeof body?.tiktok_test_event_code === "string" && TEST_CODE_RE.test(body.tiktok_test_event_code) ? body.tiktok_test_event_code : null;
+ 
+   // D-ERP234: atomic INSERT ON CONFLICT happens before any external delivery.
+-  const { data: claimedId, error: claimError } = await admin.rpc("song_link_event_claim", { p_payload: {
++  const { data: claimedId, error: claimError } = await admin.rpc(linkedChoice ? "song_link_choice_claim" : "song_link_event_claim", { p_payload: {
++    ...(linkedChoice ? { arrival_event_id: arrivalEventId } : {}),
+     link_id: link.id, company_id: link.company_id, artist_id: link.artist_id, song_id: link.song_id,
+     event, mode: s(body.mode, 30), destination, opened, event_id: eventId,
+     utm_source: s(body.utm_source, 200), utm_medium: s(body.utm_medium, 200),
+@@ -298,10 +318,14 @@
+     ip_hash: ipHash, origin: isSsr ? "ssr" : "browser",
+   }});
+   if (claimError) {
++    if (linkedChoice && claimError.code === "42501") return json({ ok: false, error: "invalid_arrival" }, 403, origin);
++    if (linkedChoice && claimError.code === "22023") return json({ ok: false, error: "invalid_choice" }, 400, origin);
+     console.warn("[song-link-event] claim falhou", claimError.message);
+     return json({ ok: false, error: "erro_interno" }, 500, origin);
+   }
+   if (!claimedId) {
++    // A linked choice never enters arrival enrichment/recovery or re-delivery.
++    if (linkedChoice) return json({ ok: true, duplicate: true }, 200, origin);
+     // D-ERP234 adenda 2: browser após SSR enriquece a linha SSR (opened, destination,
+     // in_app_browser, device, os, mode). Nunca mexe em event_id, origin, created_at,
+     // ip_hash, geo nem utm. Sem nova entrega externa: a arrival (ViewContent) já foi

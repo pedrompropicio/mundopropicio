@@ -1,0 +1,11 @@
+
+ RUN  v3.2.7 /dev-server
+
+ ✓ src/test/song-link-ssr.test.ts (24 tests) 21ms
+ ✓ src/test/portal-track-diag.test.ts (18 tests) 30ms
+
+ Test Files  2 passed (2)
+      Tests  42 passed (42)
+   Start at  03:51:06
+   Duration  2.21s (transform 142ms, setup 262ms, collect 157ms, tests 51ms, environment 1.64s, prepare 1.11s)
+
