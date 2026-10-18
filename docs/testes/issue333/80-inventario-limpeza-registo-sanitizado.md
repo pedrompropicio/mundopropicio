@@ -42,6 +42,8 @@ Catálogo FK122definições; MD5 `b580deb4860bd7824b428a4f528ecdf0`. PaisAuth/pr
 
 `claude-outputs/issue333-cleanup80/` — gitignored, ficheiros0600; manifesto45KB, abaixo de64KiB. Não contém senhas/tokens/URLs assinados. É transcrição técnica tipada dos campos mínimos do leitor oficial, NÃO envelope bruto nem prova de entrega upstream. SHA local garante integridade do ficheiro; controller deve reler os SELECTs e comparar antes de executar.
 
+SHA256 do manifesto privado: `a2fa975c0ab6ee1cf8f3fd221692f558304a7ec98dbe0d003c9b84b06b1d851f`. MD5 do conjunto dos11UUIDsStorage: `04d2a78a264674806e8125531bbfb1d2`; só integridade deIDs, não download debytes80.
+
 - `manifest.private.json`: IDs/proveniência/exclusões/vínculos/efeitos/counts e hashes.
 - `SHA256SUMS`: hashes dos ficheiros privados.
 - `01-dry-run.SELECT-only.sql` e `05-postconditions.SELECT-only.sql`: apenas SELECTs independentes; sem DO/temp/locks/configuração/mutações. Instruções para leitor oficial, não CLI/psql.
