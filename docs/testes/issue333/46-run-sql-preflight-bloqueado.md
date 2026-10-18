@@ -12,7 +12,7 @@ Change data in the Supabase database with a SQL query that only inserts, updates
 
 A consulta ao catálogo de conhecimento não encontrou documentação adicional que suporte SELECT neste mesmo canal. O facto de o argumento `query` ser uma string não documenta suporte a SELECT. A descrição de `auth.uid()` NULL é contrato documental, NÃO observação runtime.
 
-O pedido de Pedro determina parar se SELECT não for suportado/documentado. Portanto não executei SELECT por run_sql nem substituí o canal por read_query, psql, Data API ou sessão administrativa. Também não usei SET ROLE, escrita inócua, RPC/helper, GRANT ou autenticação como contorno.
+A condição técnica do controlador naquele pedido determinava parar se SELECT não fosse suportado/documentado; não era uma nova regra de Pedro. Portanto não executei SELECT por run_sql nem substituí o canal por read_query, psql, Data API ou sessão administrativa. Também não usei SET ROLE, escrita inócua, RPC/helper, GRANT ou autenticação como contorno.
 
 ## Matriz de evidência
 
@@ -49,6 +49,6 @@ Consulta pública efetiva: CI39090966400 `completed/success`, SHA `f55385511195e
 
 Nenhum produto, regra, AGENTS, SQL aplicado, ACL, configuração ou dado alterado. Sem testes Cloud, conta nova, upload, fatura, efeitos financeiros, deploy ou Publish. Fase6 e os dois HTTP continuam pendentes; causa do timeout antigo não demonstrada.
 
-## Próximo passo técnico concreto
+## Retificação e desbloqueio pelo controlador (18/10/2026 02:51UTC)
 
-Controlador verificar com a plataforma se existe suporte documentado a SELECT no próprio run_sql (ou uma capacidade oficial de preflight desse mesmo executor). Sem esse suporte, manter o roteiro bloqueado e não consumir outra conta. Não pedir token de Pedro, não promover sessão e não recomendar rodada automática. Quando houver prova documental do canal, poderá ser retomado exclusivamente o preflight; só depois preparar e validar o SQL completo/runner. Nenhuma decisão de negócio nova.
+A condição SELECT no run_sql era do controlador, não uma regra nova de Pedro. O controlador comunicou observação real no seu conector Lovable query_database: current_user=postgres; UPDATE user_roles=true; INSERT standalone_attempts_333=true. Nenhum dado alterado nesse preflight. Esta observação pertence ao canal do controlador e não ao run_sql/agente; não foi repetida pelo agente. O requisito anterior foi retirado. Preparação integral local/inertizada na prova47 para execução futura pelo controlador, sem investigar novamente run_sql nem alterar grants. Nenhuma decisão de negócio nova.
