@@ -1,7 +1,7 @@
 # ESTADO — Plataforma & Infra
 
-## #333 — prova67 transporte oficial BLOQUEADO (18/10/2026)
-SELECT constante via read_query funcionou; retorno textual map[…], sem JSON cru/ficheiro capturável. Captura integral automática não comprovada; paragem antes de metadados/preflight/baseline, sem parsing/transcrição manual/CLI alternativo/psql. Driver66 continua validado só localmente; sem alteração de código/produto ou writes Cloud. Contas59/63 encerradas preservadas; fases1–7feitas,8PARCIAL,9–18pendentes. Requer mecanismo oficial de captura JSON integral; ver docs/testes/issue333/67-validacao-transporte-oficial-bloqueada.md. #323/DECISIONS preservados.
+## #333 — prova68 CLI existe; validação bloqueada por canal (18/10/2026)
+Help oficial instalado confirma upstream readonly/SELECT/stdout JSON integral e sessão gateway provisionada; documentação capturada0600 automaticamente. Nenhuma consulta CLI: instrução superior vigente exige ferramentas read_query para inspeção da base. Não alegar CLI inexistente nem recusa runtime. Constante/sintético/metadados por CLI não validados; sem código/produto/writes/piloto. Contas59/63 encerradas; fases1–7feitas,8PARCIAL,9–18pendentes. Ver docs/testes/issue333/68-cli-oficial-capacidade-e-restricao.md. #323/DECISIONS preservados.
 
 Atualizado 2026-10-10 · Issues #256, #269, #213, #265, #268, #186, #202, #204, #206, #83, #57 · a-seguir #96, #61. Fechadas a 18/09: #211, #203, #15. Fechada a 10/10: #254 (geo por IP — ver secção própria no fim).
 Última verificação deste lote: 09/10/2026 — #244 sem falhas herdadas; #231 splitting já existente e prova de SHA acrescentada; #61 bloqueada por falta dos ficheiros reais para comparação. Sem Publish.
