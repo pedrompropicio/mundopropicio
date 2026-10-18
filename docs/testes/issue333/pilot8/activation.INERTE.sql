@@ -1,31 +1,85 @@
--- INERTE controller template; review AND separate future activation authorization required.
--- Render literals ONLY in DECLARE assignments, never global text replacement/comments.
+-- INERTE. Controller query_database ONLY after independent review/future authorization.
+-- Render ONLY the JSON literal assigned to p in DECLARE. No credentials in parameters.
 BEGIN;
 DO $pilot$ DECLARE
- u uuid := '__OWNER_UUID__'; c uuid := '__COMPANY_UUID__';
- marker text := '__NEW_FIXTURE_MARKER__'; email_value text := '__NEW_FIXTURE_EMAIL__';
- n integer;
+ p jsonb := '__PARAMETERS_JSON__'::jsonb;
+ u uuid := (p->>'owner_id')::uuid; c uuid := (p->>'company_id')::uuid;
+ r uuid := (p->>'role_id')::uuid; n integer; audit_before bigint;
+ au auth.users; pr public.profiles; ur public.user_roles;
+ prior_sub text; prior_claims text; canonical uuid; expiry timestamptz;
 BEGIN
- IF u IS NULL OR c IS NULL OR marker NOT LIKE 'issue333-pilot8-%' OR email_value NOT LIKE '%@fixture.invalid' THEN RAISE EXCEPTION 'invalid pilot parameters'; END IF;
- IF NOT EXISTS(SELECT 1 FROM auth.users au JOIN profiles pr ON pr.id=au.id
- WHERE au.id=u AND au.email=email_value AND au.raw_user_meta_data->>'fixture_marker'=marker
- AND au.raw_user_meta_data->>'company_id'=c::text AND au.created_at>clock_timestamp()-interval '10 minutes'
- AND au.email_confirmed_at IS NOT NULL AND au.last_sign_in_at IS NULL
- AND (au.banned_until IS NULL OR au.banned_until<clock_timestamp())
- AND pr.company_id=c AND pr.active_company_id IS NOT DISTINCT FROM c
- AND nullif(btrim(pr.full_name),'') IS NOT NULL) THEN RAISE EXCEPTION 'new fixture provenance/context failed'; END IF;
- IF (SELECT count(*) FROM user_roles WHERE user_id=u)<>1 OR NOT EXISTS(SELECT 1 FROM user_roles WHERE user_id=u AND company_id=c AND role='manager') THEN RAISE EXCEPTION 'exclusive manager membership required'; END IF;
- IF EXISTS(SELECT 1 FROM data_entry_settings WHERE execute_validated OR preparation_validated)
- OR EXISTS(SELECT 1 FROM standalone_attempt_settings_333 WHERE enabled) THEN RAISE EXCEPTION 'global gates must remain closed'; END IF;
- IF EXISTS(SELECT 1 FROM data_entry_pilot8_allowlist WHERE enabled AND expires_at>clock_timestamp())
- OR EXISTS(SELECT 1 FROM data_entry_sessions WHERE owner_id=u)
- OR EXISTS(SELECT 1 FROM standalone_attempts_333 WHERE principal=u::text)
- OR EXISTS(SELECT 1 FROM standalone_invoices WHERE created_by=u) THEN RAISE EXCEPTION 'fresh single pilot required'; END IF;
- INSERT INTO data_entry_pilot8_allowlist(owner_id,company_id,operation,enabled,expires_at,reviewed_note)
- SELECT u,c,op,true,clock_timestamp()+interval '10 minutes','FICTITIOUS pilot8 reviewed; one document only'
+ IF u IS NULL OR c IS NULL OR r IS NULL OR
+ coalesce(p->>'fixture_marker','') !~ '^issue333-pilot8-[a-f0-9]{32}$' OR
+ coalesce(p->>'email','') !~ '^issue333-pilot8-[a-f0-9]{32}@fixture\.invalid$' OR
+ p->>'email' IS DISTINCT FROM (p->>'fixture_marker')||'@fixture.invalid' OR
+ coalesce(p->>'document_sha256','') !~ '^[a-f0-9]{64}$' OR
+ (p->>'document_size')::integer NOT BETWEEN 64 AND 20971520 OR
+ p->>'document_mime' IS DISTINCT FROM 'application/pdf' OR
+ p->>'invoice_number' IS DISTINCT FROM 'FICTICIO-'||(p->>'fixture_marker') OR
+ p->>'created_at' IS NULL OR p->>'window_start' IS NULL OR p->>'window_end' IS NULL OR
+ (p->>'window_end')::timestamptz <= (p->>'window_start')::timestamptz OR
+ (p->>'window_end')::timestamptz-(p->>'window_start')::timestamptz > interval '10 minutes' OR
+ clock_timestamp() NOT BETWEEN (p->>'window_start')::timestamptz AND (p->>'window_end')::timestamptz
+ THEN RAISE EXCEPTION 'pilot8 parameters/window refused' USING ERRCODE='22023'; END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.current_company_id()'::regprocedure) IS DISTINCT FROM 'f857f027a44e858399e895d702af7ad0' OR
+ (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.log_table_change()'::regprocedure) IS DISTINCT FROM '9509fe109550c9e0367fcbe4ffc661c5' OR
+ (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.set_company_id_on_insert()'::regprocedure) IS DISTINCT FROM '949120b4d6c08f0c8707f63d28708d96' OR
+ (SELECT md5(prosrc) FROM pg_proc WHERE oid='auth.uid()'::regprocedure) IS DISTINCT FROM 'cdef18c69c4f4cbbced2eaf81e628b49' OR
+ (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.data_entry_pilot8_gate(text)'::regprocedure) IS DISTINCT FROM '1e066a6df3637c8d5c8f99f00a255d33' OR
+ NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='public.user_roles'::regclass AND tgname='audit_user_roles_changes' AND tgfoid='public.log_table_change()'::regprocedure AND tgenabled='O' AND tgtype=29 AND NOT tgisinternal) OR
+ NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='public.user_roles'::regclass AND tgname='trg_set_company_id' AND tgfoid='public.set_company_id_on_insert()'::regprocedure AND tgenabled='O' AND tgtype=7 AND NOT tgisinternal)
+ THEN RAISE EXCEPTION 'pilot8 source/trigger drift' USING ERRCODE='55000'; END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('issue333-pilot8-controller',3338));
+ SELECT * INTO au FROM auth.users WHERE id=u FOR UPDATE;
+ SELECT * INTO pr FROM public.profiles WHERE id=u FOR UPDATE;
+ PERFORM id FROM public.user_roles WHERE user_id=u ORDER BY id FOR UPDATE;
+ SELECT * INTO ur FROM public.user_roles WHERE id=r AND user_id=u AND company_id=c AND role='user';
+ PERFORM 1 FROM public.companies WHERE id=c AND status='active' FOR SHARE;
+ IF NOT FOUND OR au.id IS NULL OR pr.id IS NULL OR ur.id IS NULL OR
+ au.email IS DISTINCT FROM p->>'email' OR au.created_at IS DISTINCT FROM (p->>'created_at')::timestamptz OR
+ au.created_at NOT BETWEEN (p->>'window_start')::timestamptz AND (p->>'window_end')::timestamptz OR
+ au.email_confirmed_at IS NULL OR au.last_sign_in_at IS NOT NULL OR au.banned_until IS NOT NULL OR
+ au.raw_user_meta_data->>'fixture_marker' IS DISTINCT FROM p->>'fixture_marker' OR
+ au.raw_user_meta_data->>'company_id' IS DISTINCT FROM c::text OR
+ pr.company_id IS DISTINCT FROM c OR (pr.active_company_id IS NOT NULL AND pr.active_company_id IS DISTINCT FROM c) OR
+ nullif(btrim(pr.full_name),'') IS NULL OR
+ (SELECT count(*) FROM public.user_roles WHERE user_id=u)<>1 OR
+ EXISTS(SELECT 1 FROM auth.sessions WHERE user_id=u) OR
+ EXISTS(SELECT 1 FROM public.data_entry_sessions WHERE owner_id=u) OR
+ EXISTS(SELECT 1 FROM public.standalone_attempts_333 WHERE principal=u::text) OR
+ EXISTS(SELECT 1 FROM public.standalone_invoices WHERE created_by=u OR (company_id=c AND invoice_number=p->>'invoice_number')) OR
+ EXISTS(SELECT 1 FROM public.data_entry_results WHERE approved_by=u) OR
+ EXISTS(SELECT 1 FROM public.data_entry_pilot8_allowlist) OR
+ EXISTS(SELECT 1 FROM public.data_entry_settings WHERE execute_validated OR preparation_validated) OR
+ EXISTS(SELECT 1 FROM public.standalone_attempt_settings_333 WHERE enabled)
+ THEN RAISE EXCEPTION 'pilot8 fresh identity/context/closed flags refused' USING ERRCODE='42501'; END IF;
+ -- Evaluate the REAL canonical resolver without login, profile writes or an admin session.
+ -- These local claims are only context for this SELECT, never authentication proof.
+ prior_sub:=current_setting('request.jwt.claim.sub',true); prior_claims:=current_setting('request.jwt.claims',true);
+ PERFORM set_config('request.jwt.claim.sub',u::text,true);
+ PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',u)::text,true);
+ canonical:=public.current_company_id();
+ PERFORM set_config('request.jwt.claim.sub',coalesce(prior_sub,''),true);
+ PERFORM set_config('request.jwt.claims',coalesce(prior_claims,''),true);
+ IF canonical IS DISTINCT FROM c THEN RAISE EXCEPTION 'pilot8 canonical company refused' USING ERRCODE='42501'; END IF;
+ SELECT count(*) INTO audit_before FROM public.system_audit_log WHERE entity_type='user_roles' AND entity_id=r::text;
+ UPDATE public.user_roles SET role='manager'::public.app_role WHERE id=r AND user_id=u AND company_id=c AND role='user'::public.app_role;
+ GET DIAGNOSTICS n=ROW_COUNT;
+ IF n<>1 THEN RAISE EXCEPTION 'pilot8 role ROW_COUNT != 1' USING ERRCODE='55000'; END IF;
+ IF (SELECT count(*) FROM public.system_audit_log WHERE entity_type='user_roles' AND entity_id=r::text)<>audit_before+1 OR
+ NOT EXISTS(SELECT 1 FROM public.system_audit_log WHERE entity_type='user_roles' AND entity_id=r::text AND action='update' AND company_id=c
+ AND changed_by=coalesce(auth.uid()::text,'system') AND metadata=jsonb_build_object('schema','public','op','UPDATE')
+ AND old_data=to_jsonb(ur) AND new_data=to_jsonb(ur)||jsonb_build_object('role','manager'))
+ THEN RAISE EXCEPTION 'pilot8 real role audit missing' USING ERRCODE='55000'; END IF;
+ expiry:=clock_timestamp()+interval '10 minutes';
+ INSERT INTO public.data_entry_pilot8_allowlist(owner_id,company_id,operation,enabled,expires_at,reviewed_note)
+ SELECT u,c,op,true,expiry,'FICTITIOUS one PDF; '||(p->>'fixture_marker')||'; SHA256='||(p->>'document_sha256')
  FROM unnest(ARRAY['preparation','assistant_create']) op;
- GET DIAGNOSTICS n=ROW_COUNT; IF n<>2 THEN RAISE EXCEPTION 'activation rowcount'; END IF;
+ GET DIAGNOSTICS n=ROW_COUNT;
+ IF n<>2 OR (SELECT count(*) FROM public.data_entry_pilot8_allowlist WHERE owner_id=u AND company_id=c AND enabled AND expires_at=expiry)<>2
+ THEN RAISE EXCEPTION 'pilot8 allowlist ROW_COUNT != 2' USING ERRCODE='55000'; END IF;
+ IF EXISTS(SELECT 1 FROM auth.sessions WHERE user_id=u) OR EXISTS(SELECT 1 FROM public.data_entry_settings WHERE execute_validated OR preparation_validated)
+ OR EXISTS(SELECT 1 FROM public.standalone_attempt_settings_333 WHERE enabled)
+ THEN RAISE EXCEPTION 'pilot8 final closed flags/session guard' USING ERRCODE='55000'; END IF;
 END $pilot$;
 COMMIT;
--- End pilot: reviewed exclusive UPDATE enabled=false WHERE owner_id/company_id match; keep rows/objects/evidence.
--- Auth finally: global logout, ban only future fixture, SELECT sessions=0. No DELETE or global settings write.

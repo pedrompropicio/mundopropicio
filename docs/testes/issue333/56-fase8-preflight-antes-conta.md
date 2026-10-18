@@ -1,0 +1,23 @@
+# #333 fase8 — preflight antes da conta
+
+Base recebida5baa8ebeedba0027b42b38410c4cf2740b8d2051. CI39103374138 completed/success confirmado por API. Fase7 CONCLUÍDA pelo controlador; fase8 não executada Cloud.
+
+## Entrega concreta
+- PDF fictício mínimo `pilot8/preflight56/evidence/pilot8-fiction.pdf`:1517bytes, SHA256 `8ae66f6a452934a1f43a5d9fb2c5f22fef7e407e4d2f1b8db53f03d75794798f`, application/pdf. Original /tmp/browser/issue333-preflight56/pilot8-fiction.pdf 0600; bytes idênticos à cópia de prova. pdfinfo+validateDocument importado HEAD PASS. Inspeção visual via render Poppler: nenhum corte/sobreposição/glifo defeituoso encontrado. PDF skill orientou geração/QA.
+- `pilot8/activation.INERTE.sql`: integral transacional, source guards5MD5/2triggers, proveniência identidade nova/created_at exato/marker/company/email/semLogin/semBan/sessions0/semhistórico/flagsfechadas. Atualiza apenas roleuser→manager ROW_COUNT1 com auditoria real old/new/company/actor; insere apenas2allowlistrows preparation+assistant_create expirando600s.
+- Canonização REAL current_company_id: SELECT com claims locais temporários, restaurados antes UPDATE/audit; não é login/autenticação, não escreve profile. PerfilNULLactive+companymembership correto passa; active/empresa/membership divergentes recusados.
+- `render-private.py`: só assignment JSON DECLARE; ficheiro saída /tmp0600/O_EXCL, sem rede/credenciais/execução. `revoke.INERTE.sql`: UPDATE enabledfalse só2rows por owner/company/marker/SHA, ROW_COUNT2, semDELETE.
+- `future-runner.ts`: orquestração tipada sem efeitos ao importar, validaPDF antes secret/create, uma identidade, espera readiness300s semlogin, mesma conta, uma sessão/PDF/prévia, duasexecuções coordenadas, downloadSHA/metadados/nome servidor, retoma/check/revogação exclusiva/finally independente logout/ban/sessions0/baselines. NÃO inclui bridge Cloud concreto AuthAdmin/SELECT/React autenticado; só drivers locais/simulados foram exercitados. Não afirmar execução pronta sem ligar drivers privados sob autorização posterior.
+
+## Provas locais verificadas
+`python3 docs/testes/issue333/pilot8/run-preflight.py` exit0:23PG activation/guardas/audit/rollback+17PG concorrência/expiração+1Chromium real React, total41PASS. SQL0190–0195 reais; PG17/pgcrypto/socket, duas conexões. Sourcesaudit/current_company/triggercompany/auth.uid atuais reproduzidas com MD5assertivo; nenhum schema Cloud modificado.
+React real + handler atual pilotScopedtrue/uploadEnabledfalse: prévia vinculativa/EUR0/IVA0/pagadorowner/nome servidor/autorização checkbox; duplo clique UI e transporte deliberadamente duplica uma única requisição execute em2conexões MESMAPRÉVIA. No máximo1invoice/result/attemptaudit;1session/document/preview; bytes downloadSHA/size iguais;0TX/BP/contas/pagamentos/reembolsos/listas. Reabertura pré-revogação via UI PASS; check pós-revogação via handler read-only PASS/0upload adicional. UI atual não monta retoma após uploadfalse no status: limite explicitado, não corrigido nesta tarefa.
+Vitest geral1411PASS/1skip/11todo preexistentes (base1406). Novos5tests da orquestração: PDFantesconta, readiness5min, semsubstituição, finally independente, autorizaçãoausente. Build automático OK observado; não correr build/typecheck manual na árvore principal. CI final não observada nesta entrega, ao controlador.
+Falhas do ensaio corrigidas: PATHPython ausente; fixture janela11min em vez10; INSERTsettings semcolunas; descobertaVite de páginas alheias causava exporterrors; restringida entrada React do ensaio. noDiscovery impediu React, substituído por entries explícitos. Versão final41PASS sem erros, só aviso Browserslist preexistente. Produto não alterado.
+
+## Fontes e limites Cloud
+SELECT atual confirmou auth.uid cdef18c69c4f4cbbced2eaf81e628b49/current_company f857f027a44e858399e895d702af7ad0/audit9509fe109550c9e0367fcbe4ffc661c5/set_company949120b4d6c08f0c8707f63d28708d96/gate1e066a6df3637c8d5c8f99f00a255d33; triggersroleaudit29/setcompany7 enabledO. Fontes congeladas `pilot8/preflight56/sources/`.
+SELECT final allowlist0/globalscore0/globalsattempt0, audit/currentcompanyMD5 iguais. Sem conta/login/allowlistDML/upload/fatura/DDL/deploy/Publish/email/Meta/crons/financeiro Cloud. Sem sessãoadminreal, passwords/JWT partilhados, subagentes ou automação. Artefactos anteriores preservados/#323/DECISIONS/AGENTS/0194/portal-track intactos.
+
+## Próximo comando único para controlador
+Rever o diff `git diff -- docs/testes/issue333/pilot8/activation.INERTE.sql` e prova56/manifesto, confirmar CI final; decidir execução única futura e ligação privada dos drivers AuthAdmin/SELECT/Chromium. Não criar conta enquanto drivers não estiverem concretamente ligados e artefactos conferidos. Não executar SQL agora.
