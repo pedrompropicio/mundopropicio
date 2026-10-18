@@ -45,3 +45,6 @@ Seleção de nova intenção no scanner permanecia travada sem caminho de autori
 
 ## Proposta única seguinte (não executada)
 Continuar apenas local: completar Chromium React real e injeções authorize/begin/confirm-recovery+context epochs com o mesmo runner,SQL congelado e0Live. Critério:matrizcada caso/estado/efeito+bytes+audit,logs/exit0 e CI final;somente depois discutir eventual passoCloud com autorização própria. Não executarPublish/piloto/índice/deploy.
+
+## Verificação pós-documentação
+Runner novamente exit0 em `/tmp/issue333-head-khe0tt9m`, mesmas contagens, memória193ficheiros/frontmatter+índice regular PASS. Manifestos/snapshot/result emprova30/post-docs;logs anexados integralmente em31. CI consultada por leitura:HEAD adc01e358e56f45b9464673a3b970c6c0cac11fa,HTTP 200,runs 0;não declarar CIverde sem run success do commitfinal. SQL0190–0192/config/functions/CHATS/DECISIONS byte-iguais à baseautorizada.
