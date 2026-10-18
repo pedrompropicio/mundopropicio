@@ -73,13 +73,15 @@ export function createHandler(d: Deps) {
     new Response(JSON.stringify(body), { status, headers: { ...d.cors, "Content-Type": "application/json" } });
 
   /** Puts bytes at a deterministic path; an existing object is accepted only with identical bytes. */
-  async function putVerified(bucket: Bucket, path: string, bytes: Uint8Array, mime: DocumentType, hash: string) {
+  async function putVerified(bucket: Bucket, path: string, bytes: Uint8Array, mime: DocumentType, hash: string, guard?: () => Promise<void>) {
+    if (guard) await guard();
     const up = await d.storage.upload(bucket, path, bytes, mime);
     if (up.error && !up.error.conflict) throw new SafeError("Armazenamento não conferido; nada foi registado.", 409);
     // HTTP success is not evidence of stored bytes. Read back success AND conflict.
     const existing = await d.storage.download(bucket, path);
     if (!existing || existing.length !== bytes.length || (await sha256(existing)) !== hash)
       throw new SafeError("Armazenamento não conferido; nada foi registado.", 409);
+    if (guard) await guard();
     const r = await d.recordReceipt(bucket, path, hash, bytes.length, mime);
     if (r.error) throw fromDb(r.error);
   }
@@ -115,7 +117,7 @@ export function createHandler(d: Deps) {
       };
       const putScoped = async (bucket: Bucket, path: string, bytes: Uint8Array, mime: DocumentType, hash: string) => {
         await revalidateStorage(bucket);
-        await putVerified(bucket,path,bytes,mime,hash);
+        await putVerified(bucket,path,bytes,mime,hash,()=>revalidateStorage(bucket));
       };
 
       if (req.headers.get("Content-Type")?.startsWith("multipart/form-data")) {
