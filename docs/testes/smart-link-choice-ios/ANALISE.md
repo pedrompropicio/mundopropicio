@@ -77,6 +77,11 @@ Só após OK: migração oficial, aplicação e deploy coordenados com Portal, n
 
 ## Prova real obrigatória — pendente, não confundir com simulação
 
+Validação local adicional 18/10: check-delivery.ts PASS para sucesso simulado e duplicado,
+com ListenClick/ClickButton, event_id inalterado, arrival_event_id, dois códigos fictícios locais,
+ambos os status enviado no transporte fake e zero nova entrega no duplicado. Oito negativos anteriores PASS.
+Isto comprova o contrato do candidato, NÃO aceitação real Meta/TikTok. Nenhum código da função ativa mudou.
+
 Pré-condições: OK explícito para DDL/diff/deploy; slug real ativo com ambos os pixels e tokens existentes;
 códigos reais de teste Meta e TikTok fornecidos por Pedro, sem inventar códigos; chegada SSR real do mesmo slug com <2 h.
 Não fabricar a chegada por INSERT. Não configurar pixels/tokens nem modificar dados do link para fazer a prova passar.
