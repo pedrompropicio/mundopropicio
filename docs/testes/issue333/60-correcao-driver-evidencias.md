@@ -65,3 +65,15 @@ real. Sem nova conta sem essa autorização.
 Fases 1–7 concluídas (inalteradas). Fase8: PARCIAL (piloto59 executado com
 certificação parcial; driver corrigido nesta prova60; reexecução pendente de
 autorização). Fases 9–18 pendentes.
+
+## Errata (prova61, 2026-10-18 ~16:26 UTC)
+
+A secção "Cobertura comprovada" desta prova60 classificou como comprovadas a
+persistência atómica de evidência, a captura do par HTTP e a sanitização de erro
+do worker — mas os dois testes desses pontos eram ESTÁTICOS (liam o código do
+worker). Essa classificação estava excessiva e é aqui corrigida: na prova60
+essas propriedades estavam apenas verificadas estaticamente. A comprovação
+dinâmica (Chromium real + doubles isolados, falha antes/depois do par HTTP,
+falha parcial do par, guarda pós-par) foi entregue na prova61. Também o SQL do
+preflight e a tipagem do driver não estavam validados por execução/typecheck
+explícito na prova60 — corrigido na prova61.
