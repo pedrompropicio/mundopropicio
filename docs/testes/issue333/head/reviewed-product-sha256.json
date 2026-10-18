@@ -1,11 +1,14 @@
 {
   "src/pages/StandaloneInvoiceScanner.tsx": "38bdc312179660f91db36d6867466d89b9ddd9acfd5e7e0257b20c74a67e8f61",
-  "src/components/standalone/StandaloneReservedExecution.tsx": "b8a53ea390bd3776caddff41e8d1cca95838852cc741ca887e021401e5f70541",
-  "src/components/standalone/AGENTS.md": "6572e0983502e7e8f04844243db6ae24ace297e39d8218ee3e89513de75afc4f",
-  "src/components/standalone/__tests__/StandaloneReservedExecution.test.tsx": "b550c102d4b8145329794156ac044bf9e6f5686e99d3c902fbeb1fe1b32e9cd5",
-  "AGENTS.md": "26f5583f13965ddb0cffffcf3ec869dc3a7a743c6b62280526cc6370ebdc65c3",
+  "src/components/standalone/StandaloneReservedExecution.tsx": "52e6207d1eb3c52422081b9999eef6c7886a84022e97c686582465e5f9cd24c8",
+  "src/components/standalone/AGENTS.md": "4e3cbe139e85053d3f903f1dfd7e66881d71e883124cfc32fe98cacbdad27ca9",
+  "src/components/standalone/__tests__/StandaloneReservedExecution.test.tsx": "8f317f8cd879d0118c238ede831a286e1d007259b7f90de5cd6e18b00671ec1e",
+  "AGENTS.md": "43b85c0df8042a1ac52e157868b2994239d77c95b9b7abf5eea241f1752a590b",
   "docs/estado/estado-plataforma-e-infra.md": "4cb7027dfba096f56b5816adee5a48f2a4ffbbf3652e52045908456f88c36233",
   ".lovable/memory/features/document-entry-assistant.md": "a8896eefad4a41fc7cea4dabba35b69e1d96e6dcf13bac556955708a2acaf6d0",
   ".lovable/memory/index.md": "940bbfc6ca2c27d02fa49249a58e15617782061edf66d642dc08d978b24db363",
-  "docs/questoes-issue333-ensaio-head-30.md": "e31518c5773c86877278da5232c023c0c95a27133c7b73b6a3da5570614157dd"
+  "docs/questoes-issue333-ensaio-head-30.md": "e31518c5773c86877278da5232c023c0c95a27133c7b73b6a3da5570614157dd",
+  "supabase/functions/standalone-attempt-333/handler.ts": "29637a9e2300b196880b0c00e23913a532c41906390811397fc192b6f071b4fa",
+  "supabase/functions/_shared/standalone-attempt.ts": "caf78fc512bd5de5904b634dc81366f07a45979d08c2cff8ecf92c97e4911e9b",
+  "supabase/functions/standalone-attempt-333/index.ts": "264c579060eb50826bc0403deb06743e08beb24de40ecba6a9a756f10f3e467b"
 }
