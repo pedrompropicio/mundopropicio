@@ -15,6 +15,7 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
       "@shared": path.resolve(__dirname, "./supabase/functions/_shared"),
       "npm:zod@3.23.8": "zod",
+      "npm:zod@3": "zod",
     },
   },
 });
