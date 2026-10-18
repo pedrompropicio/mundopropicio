@@ -70,3 +70,14 @@ END $function$;
 CREATE OR REPLACE FUNCTION public.standalone_attempt_gate_333(p_operation text) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_temp AS $function$
  SELECT coalesce((SELECT enabled FROM public.standalone_attempt_settings_333 WHERE operation=p_operation),false)
 $function$;
+
+CREATE OR REPLACE FUNCTION public.data_entry_record_receipt(p_bucket text, p_path text, p_sha text, p_size integer, p_mime text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE c uuid; r public.data_entry_storage_receipts;
+BEGIN
+ IF p_path !~ '^[0-9a-f-]{36}/' THEN RAISE EXCEPTION '#333: Caminho inválido' USING ERRCODE='22023'; END IF;
+ c := split_part(p_path,'/',1)::uuid;
+ INSERT INTO public.data_entry_storage_receipts(bucket,path,company_id,sha256,size_bytes,mime) VALUES(p_bucket,p_path,c,p_sha,p_size,p_mime) ON CONFLICT DO NOTHING;
+ SELECT * INTO r FROM public.data_entry_storage_receipts WHERE bucket=p_bucket AND path=p_path;
+ IF r.sha256<>p_sha OR r.size_bytes<>p_size OR r.mime<>p_mime THEN RAISE EXCEPTION '#333: Objeto já registado com outro conteúdo' USING ERRCODE='23505'; END IF;
+END $$;
