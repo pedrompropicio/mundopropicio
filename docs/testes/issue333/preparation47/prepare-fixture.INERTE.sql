@@ -30,7 +30,9 @@ BEGIN
  IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.standalone_attempt_internal_333(text,uuid,text,jsonb,text,uuid,boolean)'::regprocedure)
     IS DISTINCT FROM 'b748a720b4cb1f988a927b5577e511dd' OR
     (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.log_table_change()'::regprocedure)
-    IS DISTINCT FROM '68eb6557eb78e71984b5fb65fae9752e' OR
+    IS DISTINCT FROM '9509fe109550c9e0367fcbe4ffc661c5' OR
+    (SELECT md5(prosrc) FROM pg_proc WHERE oid='public.current_company_id()'::regprocedure) IS DISTINCT FROM 'f857f027a44e858399e895d702af7ad0' OR
+    (SELECT md5(prosrc) FROM pg_proc WHERE oid='auth.uid()'::regprocedure) IS DISTINCT FROM 'cdef18c69c4f4cbbced2eaf81e628b49' OR
     NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='public.user_roles'::regclass AND tgname='audit_user_roles_changes'
       AND tgfoid='public.log_table_change()'::regprocedure AND tgenabled='O' AND tgtype=29 AND NOT tgisinternal)
  THEN RAISE EXCEPTION 'fixture333 exact source/audit trigger refused' USING ERRCODE='55000'; END IF;
@@ -70,7 +72,9 @@ BEGIN
  IF n<>1 THEN RAISE EXCEPTION 'fixture333 role rowcount != 1' USING ERRCODE='55000'; END IF;
  IF (SELECT count(*) FROM public.system_audit_log WHERE entity_type='user_roles' AND entity_id=r::text)<>audit_before+1 OR
     NOT EXISTS(SELECT 1 FROM public.system_audit_log WHERE entity_type='user_roles' AND entity_id=r::text
-      AND action='update' AND old_data=to_jsonb(ur) AND new_data=to_jsonb(ur)||jsonb_build_object('role','editor'))
+      AND action='update' AND company_id=c
+      AND changed_by=coalesce(auth.uid()::text,'system')
+      AND metadata=jsonb_build_object('schema','public','op','UPDATE') AND old_data=to_jsonb(ur) AND new_data=to_jsonb(ur)||jsonb_build_object('role','editor'))
  THEN RAISE EXCEPTION 'fixture333 administrative audit missing' USING ERRCODE='55000'; END IF;
  INSERT INTO public.standalone_attempts_333
   (id,company_id,principal,operation,envelope,envelope_hash,state,review_reason,intent_seq,
