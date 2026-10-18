@@ -86,6 +86,10 @@ const json = (b: unknown, s: number, o: string | null) =>
 // song_link_client_fail: aviso anónimo do Portal quando o browser falha a confirmar
 // a chegada (D-ERP234 adenda 3). Grava em song_link_diag, sem IP nem UA completo.
 const CLIENT_FAIL_REASONS = new Set(["send_failed", "left_before_confirm"]);
+const DIAG_KINDS = new Set([
+  "shown", "tap_button", "tap_other", "hidden", "visible", "pagehide", "redirect", "prefetch",
+  "feedback_shown", "tap_repeat_blocked",
+]);
 
 const FIELDS: Record<string, Record<string, number | "bool" | "json">> = {
   redirect: {
@@ -144,7 +148,7 @@ return async (req: Request): Promise<Response> => {
   let body: any;
   try { body = JSON.parse(await req.text()); } catch { return json({ ok: false, error: "invalid_json" }, 400, origin); }
   const kind = body?.kind;
-  if (kind !== "redirect" && kind !== "lead" && kind !== "song_link_client_fail" && kind !== "consent") {
+  if (kind !== "redirect" && kind !== "lead" && kind !== "song_link_client_fail" && kind !== "consent" && kind !== "diag" && kind !== "song_link_diag") {
     return json({ ok: false, error: "unknown_kind" }, 400, origin);
   }
 
@@ -174,6 +178,37 @@ return async (req: Request): Promise<Response> => {
     } catch (e) { console.error("[portal-track] consent rpc threw", String(e)); }
     const out = consentRecordResponse(data, httpOk);
     return json(out.body, out.status, origin);
+  }
+
+  if (kind === "diag" || kind === "song_link_diag") {
+    const p = body.payload && typeof body.payload === "object" ? body.payload : {};
+    const slug = typeof p.slug === "string" ? p.slug.trim().slice(0, 80) : "";
+    if (!slug || !DIAG_KINDS.has(p.kind) ||
+        (p.ms != null && (!Number.isInteger(p.ms) || p.ms < 0 || p.ms > 86400000)) ||
+        (p.in_app != null && !["tiktok", "instagram", "facebook", "other"].includes(p.in_app)) ||
+        (p.arrival_event_id != null && (typeof p.arrival_event_id !== "string" || !UUID_RE.test(p.arrival_event_id)))) {
+      return json({ ok: false, error: "invalid_payload" }, 400, origin);
+    }
+    const row = {
+      kind: p.kind, slug, ms: p.ms ?? null,
+      in_app: typeof p.in_app === "string" ? p.in_app.slice(0, 40) : null,
+      detail: typeof p.detail === "string" ? p.detail.slice(0, 60) : null,
+      arrival_event_id: p.arrival_event_id ?? null,
+    };
+    try {
+      const r = await fetch(`${url}/rest/v1/song_link_diag`, {
+        method: "POST",
+        headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify(row),
+      });
+      if (!r.ok) {
+        console.error("[portal-track] insert diag", r.status);
+        return json({ ok: false }, 500, origin);
+      }
+    } catch {
+      return json({ ok: false }, 500, origin);
+    }
+    return json({ ok: true }, 200, origin);
   }
 
   if (kind === "song_link_client_fail") {

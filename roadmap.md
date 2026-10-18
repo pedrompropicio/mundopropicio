@@ -1,3 +1,7 @@
+# Smart link — diagnóstico de toque iOS
+- [x] 0194 aplicada com os dez kinds; portal-track validado, 80 testes relevantes PASS.
+- [x] Deploy portal-track, dois POST200 teste_chat2, leitura e limpeza só IDs206460/206461; remanescentes0; adenda D-ERP234; sem Publish.
+
 # #332 — cidade/lista
 - [x] 0186–0189 aplicadas; CAOP308/278+19+11 sem divergências.
 - [x] Coletor estrito e deploy apenas newgang-portal + crm-meta-audience-sync; sem Meta manual.

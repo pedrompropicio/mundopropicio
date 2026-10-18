@@ -83,6 +83,8 @@ _(sem pedidos)_
 
 ## 2 · Plataforma e Infra
 
+- [x] 18/10/2026 03:40 UTC — D-ERP234 iOS (autorização direta Pedro): 0194 aplicada, deploy portal-track, feedback_shown/tap_repeat_blocked comprovados POST200 + leitura; apagadas só linhas206460/206461, remanescentes0; 80testesPASS/buildOK. Adenda DECISIONS e prova docs/testes/smart-link-ios-20261018.md; sem Publish. Reserva libertada.
+
 - [ ] de 0 para 2 (20/09/2026): **Issue #194 — Manual de Orientação.** Capítulo `docs/manual/fecho-do-evento.md` escrito (commit 83f55d29, 9 blocos ajuda, 2 SVG, 1 ⚠️), não sincronizado nem publicado. AGUARDA PEDRO: ler e responder às 4 dúvidas na Issue; depois Publish → Administração › Sincronizar manual → ligar tooltips → retirar o capítulo antigo.
 
 ## 3 · Ticketing e Receita
