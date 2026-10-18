@@ -1,0 +1,3411 @@
+# #333 — Outputs integrais não sensíveis prova34
+
+Fonte submetida674dcfb3d9d989a2bec5cd7b25ca1f93668ee700a291652dac2afdf38f0666be; deploy oficial somente standalone-attempt-333 confirmou sucesso. Identificadores host Cloud removidos dos tracebacks; nenhum segredo/PII/ID de fixture exportado.
+
+## first-failure.log
+```text
+
+ RUN  v3.2.7 /dev-server
+
+ ✓ src/lib/__tests__/standalone-capabilities.test.ts (9 tests) 18ms
+ ✓ src/components/standalone/__tests__/StandaloneReservedExecution.test.tsx (9 tests) 248ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/__tests__/standalone-snapshot.test.ts [ src/lib/__tests__/standalone-snapshot.test.ts ]
+Error: Transform failed with 1 error:
+/dev-server/src/lib/__tests__/standalone-snapshot.test.ts:5:655: ERROR: Expected "}" but found ";"
+  Plugin: vite:esbuild
+  File: /dev-server/src/lib/__tests__/standalone-snapshot.test.ts:5:655
+  
+  Expected "}" but found ";"
+  3  |  function fixture(member=false,optionalError=false,missing=false){
+  4  |   const calls:Array<{table:string;filters:Record<string,string>}> = [];
+  5  |   const admin={from(table:string){const filters:Record<string,string>={};const chain={select(){return chain},eq(k:string,v:string){filters[k]=v;return chain},limit(){return chain},async maybeSingle(){calls.push({table,filters});if(table==='standalone_attempts_333')return {data:missing?null:{id:'a',principal:'owner',company_id:'co',operation:'scanner_create',envelope_hash:'hash',envelope:{payload:{paid_by_partner_id:'foreign'}}},error:null};if(table==='user_roles')return {data:member?{user_id:'foreign'}:null,error:null};return {data:optionalError?null:{full_name:'allowed',display_name:'company'},error:optionalError?Error('column unavailable'):null}};return chain}};
+     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ^
+  6  |   return {admin,calls};
+  7  |  }
+  
+ ❯ failureErrorWithLog node_modules/vite/node_modules/esbuild/lib/main.js:1472:15
+ ❯ node_modules/vite/node_modules/esbuild/lib/main.js:755:50
+ ❯ responseCallbacks.<computed> node_modules/vite/node_modules/esbuild/lib/main.js:622:9
+ ❯ handleIncomingPacket node_modules/vite/node_modules/esbuild/lib/main.js:677:12
+ ❯ Socket.readFromStdout node_modules/vite/node_modules/esbuild/lib/main.js:600:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  18 passed (18)
+   Start at  01:10:57
+   Duration  3.30s (transform 225ms, setup 456ms, collect 556ms, tests 266ms, environment 2.74s, prepare 2.04s)
+
+
+```
+
+## local-tests.log
+```text
+
+ RUN  v3.2.7 /dev-server
+
+ ✓ src/lib/__tests__/standalone-snapshot.test.ts (4 tests) 10ms
+ ✓ src/lib/__tests__/standalone-capabilities.test.ts (9 tests) 36ms
+ ✓ src/components/standalone/__tests__/StandaloneReservedExecution.test.tsx (9 tests) 425ms
+
+ Test Files  3 passed (3)
+      Tests  22 passed (22)
+   Start at  01:11:35
+   Duration  5.43s (transform 564ms, setup 992ms, collect 1.36s, tests 472ms, environment 5.06s, prepare 843ms)
+
+
+```
+
+## deno-check.log
+```text
+[0m[1m[31merror[0m: Could not find a matching package for 'npm:zod@3.23.8' in the node_modules directory. Ensure you have all your JSR and npm dependencies listed in your deno.json or package.json, then run `deno install`. Alternatively, turn on auto-install by specifying `"nodeModulesDir": "auto"` in your deno.json file.
+    at [0m[36mfile:///dev-server/supabase/functions/standalone-attempt-333/handler.ts[0m:[0m[33m3[0m:[0m[33m19[0m
+
+Stack backtrace:
+   0: anyhow::error::<impl core::convert::From<E> for anyhow::Error>::from
+   1: <core::result::Result<T,F> as core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible,E>>>::from_residual
+   2: deno::graph_container::MainModuleGraphContainer::check_specifiers::{{closure}}
+   3: deno::spawn_subcommand::{{closure}}
+   4: tokio::runtime::task::raw::poll
+   5: deno::main
+   6: std::sys::backtrace::__rust_begin_short_backtrace
+   7: main
+   8: __libc_start_call_main
+   9: __libc_start_main@@GLIBC_2.34
+  10: _start
+
+```
+
+## deno-final.log
+```text
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@dnd-kit%2fcore
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@dnd-kit%2fsortable
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@dnd-kit%2futilities
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@electric-sql%2fpglite
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@eslint%2fjs
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@handsontable%2freact-wrapper
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@hookform%2fresolvers
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@playwright%2ftest
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-accordion
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-alert-dialog
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-aspect-ratio
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-avatar
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-checkbox
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-collapsible
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-context
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-context-menu
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-dialog
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-dropdown-menu
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-hover-card
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-label
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-menubar
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-navigation-menu
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-popover
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-primitive
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-progress
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-radio-group
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-scroll-area
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-select
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-separator
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-slider
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-slot
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-switch
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-tabs
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-toast
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-toggle
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-toggle-group
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-tooltip
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@supabase%2fsupabase-js
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@tailwindcss%2ftypography
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@tanstack%2freact-query
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@tanstack%2freact-table
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@tanstack%2freact-virtual
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@testing-library%2fdom
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@testing-library%2fjest-dom
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@testing-library%2freact
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fnode
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2freact
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2freact-dom
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2ftesting-library__jest-dom
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vitejs%2fplugin-react
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/autoprefixer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/class-variance-authority
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/clsx
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/cmdk
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/date-fns
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/drizzle-kit
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/drizzle-orm
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/embla-carousel-react
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/eslint
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/eslint-plugin-react-hooks
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/eslint-plugin-react-refresh
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/exceljs
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/globals
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/handsontable
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/heic-to
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/heic2any
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/html2canvas
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/hyperformula
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ibantools
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/input-otp
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jsdom
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jspdf
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jspdf-autotable
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jszip
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lovable-tagger
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lucide-react
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/marked
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/next-themes
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/pdfjs-dist
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/postcss
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/postgres
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-day-picker
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-dom
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-hook-form
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-markdown
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-resizable-panels
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-router-dom
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/recharts
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/remark-gfm
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/sonner
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tailwind-merge
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tailwindcss
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tailwindcss-animate
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/typescript
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/typescript-eslint
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/vaul
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/vite
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/vite-plugin-pwa
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/vitest
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-window
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/xlsx
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/zod
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@dnd-kit%2faccessibility
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tslib
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/playwright
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2fprimitive
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-collection
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-compose-refs
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-direction
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-id
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-use-controllable-state
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-use-callback-ref
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-use-is-hydrated
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-use-layout-effect
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-presence
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-use-size
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-menu
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-dismissable-layer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-focus-guards
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-focus-scope
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-portal
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/aria-hidden
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-remove-scroll
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-popper
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-roving-focus
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-use-previous
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-visually-hidden
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2fnumber
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@opentelemetry%2fapi
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@supabase%2fauth-js
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@supabase%2ffunctions-js
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@supabase%2fpostgrest-js
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@supabase%2frealtime-js
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@supabase%2fstorage-js
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/postcss-selector-parser
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@tanstack%2fquery-core
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@tanstack%2ftable-core
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@tanstack%2fvirtual-core
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fcode-frame
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fruntime
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2faria-query
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/aria-query
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/dom-accessibility-api
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lz-string
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/picocolors
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/pretty-format
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@adobe%2fcss-tools
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/css.escape
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/redent
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/undici-types
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fprop-types
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/csstype
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fcore
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-react-jsx-self
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-react-jsx-source
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rolldown%2fpluginutils
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fbabel__core
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-refresh
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/browserslist
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/caniuse-lite
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fraction.js
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/postcss-value-parser
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@drizzle-team%2fbrocli
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild-kit%2fesm-loader
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/esbuild
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tsx
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@aws-sdk%2fclient-rds-data
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@cloudflare%2fworkers-types
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@libsql%2fclient
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@libsql%2fclient-wasm
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@neondatabase%2fserverless
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@netlify%2fdb
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@op-engineering%2fop-sqlite
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@planetscale%2fdatabase
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@prisma%2fclient
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@tidbcloud%2fserverless
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fbetter-sqlite3
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fpg
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fsql.js
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@upstash%2fredis
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vercel%2fpostgres
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@xata.io%2fclient
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/better-sqlite3
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/bun-types
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/expo-sqlite
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/gel
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/knex
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/kysely
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mysql2
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/pg
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/sql.js
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/sqlite3
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/embla-carousel
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/embla-carousel-reactive-utils
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@eslint-community%2feslint-utils
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@eslint-community%2fregexpp
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@eslint%2fconfig-array
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@eslint%2fconfig-helpers
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@eslint%2fcore
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@eslint%2feslintrc
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@eslint%2fplugin-kit
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@humanfs%2fnode
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@humanwhocodes%2fmodule-importer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@humanwhocodes%2fretry
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2festree
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ajv
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/chalk
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/cross-spawn
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/debug
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/escape-string-regexp
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/eslint-scope
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/eslint-visitor-keys
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/espree
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/esquery
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/esutils
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fast-deep-equal
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/file-entry-cache
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/find-up
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/glob-parent
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ignore
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/imurmurhash
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-glob
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jiti
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/json-stable-stringify-without-jsonify
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.merge
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/minimatch
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/natural-compare
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/optionator
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/archiver
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/dayjs
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fast-csv
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/readable-stream
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/saxes
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tmp
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unzipper
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/uuid
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/css-line-break
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/text-segmentation
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/chevrotain
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tiny-emitter
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/abab
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/acorn
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/acorn-globals
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/canvas
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/cssom
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/cssstyle
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/data-urls
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/decimal.js
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/domexception
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/escodegen
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/form-data
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/html-encoding-sniffer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/http-proxy-agent
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/https-proxy-agent
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-potential-custom-element-name
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/nwsapi
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/parse5
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/symbol-tree
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tough-cookie
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/w3c-xmlserializer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/webidl-conversions
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/whatwg-encoding
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/whatwg-mimetype
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/whatwg-url
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ws
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/xml-name-validator
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/canvg
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/core-js
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/dompurify
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fast-png
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fflate
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lie
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/pako
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/setimmediate
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@napi-rs%2fcanvas
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/nanoid
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/source-map-js
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/loose-envify
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/scheduler
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fhast
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fmdast
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/devlop
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/hast-util-to-jsx-runtime
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/html-url-attributes
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-to-hast
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/remark-parse
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/remark-rehype
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unified
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unist-util-visit
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/vfile
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@remix-run%2frouter
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-router
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/eventemitter3
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-is
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-smooth
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/recharts-scale
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tiny-invariant
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/victory-vendor
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-gfm
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-extension-gfm
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/remark-stringify
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@alloc%2fquick-lru
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/arg
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/chokidar
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/didyoumean
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/dlv
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fast-glob
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lilconfig
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromatch
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/normalize-path
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/object-hash
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/postcss-import
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/postcss-js
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/postcss-load-config
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/postcss-nested
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/resolve
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/sucrase
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint%2feslint-plugin
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint%2fparser
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint%2ftypescript-estree
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint%2futils
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fsevents
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/less
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lightningcss
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/rollup
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/sass
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/sass-embedded
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/stylus
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/sugarss
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/terser
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vite-pwa%2fassets-generator
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/pretty-bytes
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tinyglobby
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-build
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@edge-runtime%2fvm
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fchai
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fdebug
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vitest%2fbrowser
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vitest%2fexpect
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vitest%2fmocker
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vitest%2fpretty-format
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vitest%2frunner
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vitest%2fsnapshot
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vitest%2fspy
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vitest%2fui
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vitest%2futils
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/chai
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/expect-type
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/happy-dom
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/magic-string
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/pathe
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/picomatch
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/std-env
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tinybench
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tinyexec
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tinypool
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tinyrainbow
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/vite-node
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/why-is-node-running
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2ftrusted-types
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-core
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/adler-32
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/cfb
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/codepage
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/crc-32
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ssf
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/wmf
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/word
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/playwright-core
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-use-effect-event
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-remove-scroll-bar
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-style-singleton
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/use-callback-ref
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/use-sidecar
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@floating-ui%2freact-dom
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-arrow
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2freact-use-rect
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui%2frect
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@supabase%2fphoenix
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/iceberg-js
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/cssesc
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/util-deprecate
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelper-validator-identifier
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/js-tokens
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/dequal
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ansi-regex
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ansi-styles
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/indent-string
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/strip-indent
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fgenerator
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelper-compilation-targets
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelper-module-transforms
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelpers
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fparser
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2ftemplate
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2ftraverse
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2ftypes
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@jridgewell%2fremapping
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/convert-source-map
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/gensync
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/json5
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/semver
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelper-plugin-utils
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fbabel__generator
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fbabel__template
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fbabel__traverse
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/baseline-browser-mapping
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/electron-to-chromium
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/node-releases
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/update-browserslist-db
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild-kit%2fcore-utils
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/get-tsconfig
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2faix-ppc64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2fandroid-arm
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2fandroid-arm64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2fandroid-x64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2fdarwin-arm64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2fdarwin-x64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2ffreebsd-arm64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2ffreebsd-x64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2flinux-arm
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2flinux-arm64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2flinux-ia32
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2flinux-loong64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2flinux-mips64el
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2flinux-ppc64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2flinux-riscv64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2flinux-s390x
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2flinux-x64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2fnetbsd-arm64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2fnetbsd-x64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2fopenbsd-arm64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2fopenbsd-x64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2fopenharmony-arm64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2fsunos-x64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2fwin32-arm64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2fwin32-ia32
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild%2fwin32-x64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@eslint%2fobject-schema
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fjson-schema
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/import-fresh
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/js-yaml
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/strip-json-comments
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/levn
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@humanfs%2fcore
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@humanfs%2ftypes
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fast-json-stable-stringify
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/json-schema-traverse
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/uri-js
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/supports-color
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/path-key
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/shebang-command
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/which
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ms
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/esrecurse
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/estraverse
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/acorn-jsx
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/flat-cache
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/locate-path
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/path-exists
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-extglob
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/brace-expansion
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/deep-is
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fast-levenshtein
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/prelude-ls
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/type-check
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/word-wrap
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/archiver-utils
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/async
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/buffer-crc32
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/readdir-glob
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tar-stream
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/zip-stream
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@fast-csv%2fformat
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@fast-csv%2fparse
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/inherits
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/string_decoder
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/xmlchars
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/big-integer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/binary
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/bluebird
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/buffer-indexof-polyfill
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/duplexer2
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fstream
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/graceful-fs
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/listenercount
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/utrie
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/regexp-to-ast
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/acorn-walk
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/esprima
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/source-map
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/asynckit
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/combined-stream
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/es-set-tostringtag
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/hasown
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mime-types
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@tootallnate%2fonce
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/agent-base
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/entities
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/psl
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/punycode
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/universalify
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/url-parse
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/iconv-lite
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tr46
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/bufferutil
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/utf-8-validate
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fraf
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/raf
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/regenerator-runtime
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/rgbcolor
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/stackblur-canvas
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/svg-pathdata
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fpako
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/iobuffer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/immediate
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/core-util-is
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/isarray
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/process-nextick-args
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/safe-buffer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@napi-rs%2fcanvas-android-arm64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@napi-rs%2fcanvas-darwin-arm64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@napi-rs%2fcanvas-darwin-x64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@napi-rs%2fcanvas-linux-arm-gnueabihf
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@napi-rs%2fcanvas-linux-arm64-gnu
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@napi-rs%2fcanvas-linux-arm64-musl
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@napi-rs%2fcanvas-linux-riscv64-gnu
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@napi-rs%2fcanvas-linux-x64-gnu
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@napi-rs%2fcanvas-linux-x64-musl
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@napi-rs%2fcanvas-win32-arm64-msvc
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@napi-rs%2fcanvas-win32-x64-msvc
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2funist
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/comma-separated-tokens
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/estree-util-is-identifier-name
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/hast-util-whitespace
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-mdx-expression
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-mdx-jsx
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-mdxjs-esm
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/property-information
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/space-separated-tokens
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/style-to-js
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unist-util-position
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/vfile-message
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@ungap%2fstructured-clone
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-sanitize-uri
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/trim-lines
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-from-markdown
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-types
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/bail
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/extend
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-plain-obj
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/trough
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unist-util-is
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unist-util-visit-parents
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fast-equals
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/prop-types
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-transition-group
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/decimal.js-light
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fd3-array
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fd3-ease
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fd3-interpolate
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fd3-scale
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fd3-shape
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fd3-time
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fd3-timer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-array
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-ease
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-interpolate
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-scale
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-shape
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-time
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-timer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-gfm-autolink-literal
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-gfm-footnote
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-gfm-strikethrough
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-gfm-table
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-gfm-task-list-item
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-to-markdown
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-extension-gfm-autolink-literal
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-extension-gfm-footnote
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-extension-gfm-strikethrough
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-extension-gfm-table
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-extension-gfm-tagfilter
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-extension-gfm-task-list-item
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-combine-extensions
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/anymatch
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/braces
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-binary-path
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/readdirp
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@nodelib%2ffs.stat
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@nodelib%2ffs.walk
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/merge2
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/read-cache
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/camelcase-css
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/yaml
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/es-errors
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-core-module
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/path-parse
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/supports-preserve-symlinks-flag
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@jridgewell%2fgen-mapping
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/commander
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lines-and-columns
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/pirates
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ts-interface-checker
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint%2fscope-manager
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint%2ftype-utils
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint%2fvisitor-keys
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ts-api-utils
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint%2ftypes
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint%2fproject-service
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint%2ftsconfig-utils
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@napi-rs%2flzma-linux-x64-gnu
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-android-arm-eabi
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-android-arm64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-darwin-arm64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-darwin-x64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-freebsd-arm64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-freebsd-x64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-linux-arm-gnueabihf
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-linux-arm-musleabihf
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-linux-arm64-gnu
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-linux-arm64-musl
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-linux-loong64-gnu
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-linux-loong64-musl
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-linux-ppc64-gnu
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-linux-ppc64-musl
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-linux-riscv64-gnu
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-linux-riscv64-musl
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-linux-s390x-gnu
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-linux-x64-gnu
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-linux-x64-musl
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-openbsd-x64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-openharmony-arm64
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-win32-arm64-msvc
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-win32-ia32-msvc
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-win32-x64-gnu
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2frollup-win32-x64-msvc
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fdir
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@apideck%2fbetter-ajv-errors
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fpreset-env
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2fplugin-babel
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2fplugin-node-resolve
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2fplugin-replace
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2fplugin-terser
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@trickfilm400%2frollup-plugin-off-main-thread
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/common-tags
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/eta
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fs-extra
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/glob
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/stringify-object
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/strip-comments
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tempy
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/upath
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-background-sync
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-broadcast-update
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-cacheable-response
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-expiration
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-google-analytics
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-navigation-preload
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-precaching
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-range-requests
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-recipes
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-routing
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-strategies
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-streams
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-sw
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fdeep-eql
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/assertion-error
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/estree-walker
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/msw
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/strip-literal
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tinyspy
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/loupe
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/check-error
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/deep-eql
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/pathval
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@jridgewell%2fsourcemap-codec
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/cac
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/es-module-lexer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/siginfo
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/stackback
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/frac
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/get-nonce
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/detect-node-es
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@floating-ui%2fdom
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/min-indent
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@jridgewell%2ftrace-mapping
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jsesc
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fcompat-data
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelper-validator-option
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lru-cache
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelper-module-imports
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelper-globals
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelper-string-parser
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/escalade
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/source-map-support
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/resolve-pkg-maps
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/parent-module
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/resolve-from
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/argparse
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/color-convert
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/has-flag
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/shebang-regex
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/isexe
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/flatted
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/keyv
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/p-locate
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/balanced-match
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/concat-map
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lazystream
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.defaults
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.difference
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.flatten
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.isplainobject
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.union
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/bl
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/end-of-stream
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fs-constants
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/compress-commons
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.escaperegexp
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.isboolean
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.isequal
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.isfunction
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.isnil
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.groupby
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.isundefined
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.uniq
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/buffers
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/chainsaw
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mkdirp
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/rimraf
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/base64-arraybuffer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/delayed-stream
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/get-intrinsic
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/has-tostringtag
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/function-bind
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mime-db
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/querystringify
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/requires-port
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/safer-buffer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/performance-now
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2festree-jsx
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ccount
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/parse-entities
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/stringify-entities
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unist-util-stringify-position
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/style-to-object
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-character
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-encode
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-symbol
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/decode-named-character-reference
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-to-string
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-decode-numeric-character-reference
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-decode-string
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-normalize-identifier
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/object-assign
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/dom-helpers
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fd3-color
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fd3-path
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/internmap
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-color
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-format
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-time-format
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-path
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-find-and-replace
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/markdown-table
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/longest-streak
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-phrasing
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-classify-character
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-html-tag-name
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/zwitch
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-core-commonmark
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-factory-space
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-chunked
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-resolve-all
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fill-range
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/binary-extensions
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@nodelib%2ffs.scandir
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fastq
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/any-promise
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/thenify-all
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jsonpointer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/leven
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-bugfix-firefox-class-in-computed-class-key
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-bugfix-safari-class-field-initializer-scope
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-bugfix-safari-id-destructuring-collision-in-function-expression
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-bugfix-safari-rest-destructuring-rhs-array
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-bugfix-v8-spread-parameters-in-optional-chaining
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-bugfix-v8-static-class-fields-redefine-readonly
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-proposal-private-property-in-object
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-syntax-import-assertions
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-syntax-import-attributes
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-syntax-unicode-sets-regex
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-arrow-functions
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-async-generator-functions
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-async-to-generator
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-block-scoped-functions
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-block-scoping
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-class-properties
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-class-static-block
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-classes
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-computed-properties
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-destructuring
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-dotall-regex
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-duplicate-keys
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-duplicate-named-capturing-groups-regex
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-dynamic-import
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-explicit-resource-management
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-exponentiation-operator
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-export-namespace-from
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-for-of
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-function-name
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-json-strings
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-literals
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-logical-assignment-operators
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-member-expression-literals
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-modules-amd
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-modules-commonjs
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-modules-systemjs
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-modules-umd
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-named-capturing-groups-regex
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-new-target
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-nullish-coalescing-operator
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-numeric-separator
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-object-rest-spread
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-object-super
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-optional-catch-binding
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-optional-chaining
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-parameters
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-private-methods
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-private-property-in-object
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-property-literals
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-regenerator
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-regexp-modifiers
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-reserved-words
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-shorthand-properties
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-spread
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-sticky-regex
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-template-literals
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-typeof-symbol
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-unicode-escapes
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-unicode-property-regex
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-unicode-regex
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fplugin-transform-unicode-sets-regex
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fpreset-modules
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/babel-plugin-polyfill-corejs2
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/babel-plugin-polyfill-corejs3
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/babel-plugin-polyfill-regenerator
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/core-js-compat
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup%2fpluginutils
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fresolve
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/deepmerge
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-module
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/serialize-javascript
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/smob
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ejs
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/string.prototype.matchall
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fast-uri
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/require-from-string
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/at-least-node
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jsonfile
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/foreground-child
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jackspeak
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/minipass
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/package-json-from-dist
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/path-scurry
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/get-own-enumerable-property-symbols
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-obj
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-regexp
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-stream
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/temp-dir
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/type-fest
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unique-string
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/idb
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@floating-ui%2fcore
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@floating-ui%2futils
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@jridgewell%2fresolve-uri
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/yallist
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/buffer-from
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/callsites
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/color-name
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/json-buffer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/p-limit
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fs.realpath
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/inflight
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/once
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/path-is-absolute
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/buffer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/crc32-stream
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/traverse
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/minimist
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/call-bind-apply-helpers
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/es-define-property
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/es-object-atoms
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/get-proto
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/gopd
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/has-symbols
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/math-intrinsics
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/character-entities-legacy
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/character-reference-invalid
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-alphanumerical
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-decimal
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-hexadecimal
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/character-entities-html4
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/inline-style-parser
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/character-entities
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-edit-map
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-subtokenize
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-factory-destination
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-factory-label
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-factory-title
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-factory-whitespace
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/to-regex-range
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/run-parallel
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/reusify
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/thenify
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelper-skip-transparent-expression-wrappers
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelper-create-regexp-features-plugin
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelper-remap-async-to-generator
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelper-create-class-features-plugin
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelper-annotate-as-pure
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelper-replace-supers
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelper-define-polyfill-provider
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@jridgewell%2fsource-map
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jake
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/call-bind
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/call-bound
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/define-properties
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/es-abstract
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/internal-slot
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/regexp.prototype.flags
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/set-function-name
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/side-channel
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/signal-exit
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@isaacs%2fcliui
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/crypto-random-string
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/yocto-queue
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/wrappy
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/base64-js
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ieee754
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/define-data-property
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/es-to-primitive
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/typedarray.prototype.slice
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/which-typed-array
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/dunder-proto
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-alphabetical
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types%2fms
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-number
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/queue-microtask
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/regexpu-core
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelper-wrap-function
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelper-member-expression-to-functions
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel%2fhelper-optimise-call-expression
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.debounce
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/filelist
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/set-function-length
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/has-property-descriptors
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/object-keys
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/array-buffer-byte-length
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/arraybuffer.prototype.slice
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/available-typed-arrays
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/data-view-buffer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/data-view-byte-length
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/data-view-byte-offset
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/function.prototype.name
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/get-symbol-description
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/globalthis
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/has-proto
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-array-buffer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-callable
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-data-view
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-negative-zero
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-regex
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-set
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-shared-array-buffer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-string
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-typed-array
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-weakref
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/object-inspect
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/object.assign
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/own-keys
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/safe-array-concat
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/safe-push-apply
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/safe-regex-test
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/set-proto
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/stop-iteration-iterator
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/string.prototype.trim
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/string.prototype.trimend
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/string.prototype.trimstart
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/typed-array-buffer
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/typed-array-byte-length
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/typed-array-byte-offset
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/typed-array-length
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unbox-primitive
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/functions-have-names
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/side-channel-list
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/side-channel-map
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/side-channel-weakmap
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/es-abstract-get
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-date-object
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-symbol
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/for-each
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/regenerate
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/regenerate-unicode-properties
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/regjsgen
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/regjsparser
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unicode-match-property-ecmascript
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unicode-match-property-value-ecmascript
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/possible-typed-array-names
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-document.all
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/reflect.getprototypeof
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/has-bigints
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/which-boxed-primitive
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unicode-canonical-property-names-ecmascript
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unicode-property-aliases-ecmascript
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/which-builtin-type
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-bigint
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-boolean-object
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-number-object
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-async-function
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-finalizationregistry
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-generator-function
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/which-collection
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/async-function
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/generator-function
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-map
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-weakmap
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-weakset
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@handsontable/react-wrapper/-/react-wrapper-18.1.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-dialog/-/react-dialog-1.3.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/marked/-/marked-18.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/testing-library__jest-dom/-/testing-library__jest-dom-6.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@supabase/supabase-js/-/supabase-js-2.118.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/clsx/-/clsx-2.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-hook-form/-/react-hook-form-7.90.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-hover-card/-/react-hover-card-1.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-label/-/react-label-2.1.17.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/drizzle-kit/-/drizzle-kit-0.31.11.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/heic2any/-/heic2any-0.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/zod/-/zod-3.25.76.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-separator/-/react-separator-1.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-aspect-ratio/-/react-aspect-ratio-1.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-context/-/react-context-1.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@tanstack/react-table/-/react-table-8.21.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/class-variance-authority/-/class-variance-authority-0.7.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-toggle/-/react-toggle-1.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/eslint/-/eslint-9.39.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/cmdk/-/cmdk-1.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-menubar/-/react-menubar-1.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-toast/-/react-toast-1.3.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-popover/-/react-popover-1.3.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/eslint-plugin-react-refresh/-/eslint-plugin-react-refresh-0.4.26.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/next-themes/-/next-themes-0.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/embla-carousel-react/-/embla-carousel-react-8.6.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-switch/-/react-switch-1.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/vaul/-/vaul-0.9.9.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-markdown/-/react-markdown-10.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/postcss/-/postcss-8.5.30.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/react/-/react-18.3.31.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/pdfjs-dist/-/pdfjs-dist-5.7.284.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@dnd-kit/core/-/core-6.3.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@hookform/resolvers/-/resolvers-3.10.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tailwindcss/-/tailwindcss-3.4.19.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-toggle-group/-/react-toggle-group-1.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-navigation-menu/-/react-navigation-menu-1.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-collapsible/-/react-collapsible-1.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-resizable-panels/-/react-resizable-panels-2.1.9.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vitejs/plugin-react/-/plugin-react-4.7.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-alert-dialog/-/react-alert-dialog-1.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jsdom/-/jsdom-20.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/autoprefixer/-/autoprefixer-10.6.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@testing-library/dom/-/dom-10.4.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/handsontable/-/handsontable-18.1.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-scroll-area/-/react-scroll-area-1.4.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@electric-sql/pglite/-/pglite-0.5.10.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/heic-to/-/heic-to-1.6.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-tooltip/-/react-tooltip-1.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/exceljs/-/exceljs-4.4.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lucide-react/-/lucide-react-0.577.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-radio-group/-/react-radio-group-1.5.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/drizzle-orm/-/drizzle-orm-0.45.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/remark-gfm/-/remark-gfm-4.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-slider/-/react-slider-1.6.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/date-fns/-/date-fns-3.6.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/recharts/-/recharts-2.15.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/input-otp/-/input-otp-1.5.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ibantools/-/ibantools-4.5.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tailwind-merge/-/tailwind-merge-2.6.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@eslint/js/-/js-9.39.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/postgres/-/postgres-3.4.9.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react/-/react-18.3.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@tailwindcss/typography/-/typography-0.5.20.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-dropdown-menu/-/react-dropdown-menu-2.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@testing-library/jest-dom/-/jest-dom-6.10.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@dnd-kit/utilities/-/utilities-3.2.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/typescript/-/typescript-5.9.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/react-dom/-/react-dom-18.3.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/globals/-/globals-15.15.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-progress/-/react-progress-1.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-context-menu/-/react-context-menu-2.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/node/-/node-22.20.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-primitive/-/react-primitive-2.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/hyperformula/-/hyperformula-3.5.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-router-dom/-/react-router-dom-6.30.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@playwright/test/-/test-1.64.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-window/-/workbox-window-7.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-slot/-/react-slot-1.5.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/xlsx/-/xlsx-0.18.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/html2canvas/-/html2canvas-1.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-day-picker/-/react-day-picker-8.10.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-tabs/-/react-tabs-1.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-checkbox/-/react-checkbox-1.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/vite/-/vite-5.4.19.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@tanstack/react-virtual/-/react-virtual-3.14.21.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/eslint-plugin-react-hooks/-/eslint-plugin-react-hooks-5.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jspdf/-/jspdf-4.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/sonner/-/sonner-1.7.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@dnd-kit/sortable/-/sortable-10.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/vite-plugin-pwa/-/vite-plugin-pwa-1.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jspdf-autotable/-/jspdf-autotable-5.0.9.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-dom/-/react-dom-18.3.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jszip/-/jszip-3.10.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/typescript-eslint/-/typescript-eslint-8.71.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-select/-/react-select-2.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lovable-tagger/-/lovable-tagger-1.3.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tailwindcss-animate/-/tailwindcss-animate-1.0.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/vitest/-/vitest-3.2.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-accordion/-/react-accordion-1.3.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@tanstack/react-query/-/react-query-5.104.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@testing-library/react/-/react-16.3.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-avatar/-/react-avatar-1.3.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-id/-/react-id-1.1.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-presence/-/react-presence-1.1.11.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/aria-hidden/-/aria-hidden-1.2.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-focus-scope/-/react-focus-scope-1.3.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-compose-refs/-/react-compose-refs-1.1.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/primitive/-/primitive-1.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-use-controllable-state/-/react-use-controllable-state-1.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-remove-scroll/-/react-remove-scroll-2.7.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-portal/-/react-portal-1.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-dismissable-layer/-/react-dismissable-layer-1.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-focus-guards/-/react-focus-guards-1.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-use-layout-effect/-/react-use-layout-effect-1.1.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@supabase/storage-js/-/storage-js-2.118.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@supabase/functions-js/-/functions-js-2.118.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@supabase/auth-js/-/auth-js-2.118.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@supabase/postgrest-js/-/postgrest-js-2.118.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@supabase/realtime-js/-/realtime-js-2.118.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-popper/-/react-popper-1.4.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild-kit/esm-loader/-/esm-loader-2.6.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@drizzle-team/brocli/-/brocli-0.10.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tsx/-/tsx-4.23.15.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/esbuild/-/esbuild-0.25.12.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@tanstack/table-core/-/table-core-8.21.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/eslint-visitor-keys/-/eslint-visitor-keys-4.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@eslint/eslintrc/-/eslintrc-3.3.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ajv/-/ajv-6.15.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@eslint-community/eslint-utils/-/eslint-utils-4.10.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-glob/-/is-glob-4.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/natural-compare/-/natural-compare-1.4.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@eslint-community/regexpp/-/regexpp-4.12.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/chalk/-/chalk-4.1.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/json-stable-stringify-without-jsonify/-/json-stable-stringify-without-jsonify-1.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/esquery/-/esquery-1.7.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@eslint/core/-/core-0.17.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/cross-spawn/-/cross-spawn-7.0.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/escape-string-regexp/-/escape-string-regexp-4.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/debug/-/debug-4.4.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fast-deep-equal/-/fast-deep-equal-3.1.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@humanwhocodes/module-importer/-/module-importer-1.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/file-entry-cache/-/file-entry-cache-8.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/eslint-scope/-/eslint-scope-8.4.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/glob-parent/-/glob-parent-6.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/find-up/-/find-up-5.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@humanfs/node/-/node-0.16.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/minimatch/-/minimatch-3.1.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/optionator/-/optionator-0.9.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/espree/-/espree-10.4.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/estree/-/estree-1.0.9.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/esutils/-/esutils-2.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@humanwhocodes/retry/-/retry-0.4.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ignore/-/ignore-5.3.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.merge/-/lodash.merge-4.6.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@eslint/config-helpers/-/config-helpers-0.4.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@eslint/plugin-kit/-/plugin-kit-0.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@eslint/config-array/-/config-array-0.21.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/imurmurhash/-/imurmurhash-0.1.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-menu/-/react-menu-2.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-direction/-/react-direction-1.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-collection/-/react-collection-1.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-roving-focus/-/react-roving-focus-1.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-use-callback-ref/-/react-use-callback-ref-1.1.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-visually-hidden/-/react-visually-hidden-1.2.13.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/embla-carousel/-/embla-carousel-8.6.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/embla-carousel-reactive-utils/-/embla-carousel-reactive-utils-8.6.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-use-size/-/react-use-size-1.1.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unified/-/unified-11.0.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/html-url-attributes/-/html-url-attributes-3.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/mdast/-/mdast-4.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/hast-util-to-jsx-runtime/-/hast-util-to-jsx-runtime-2.3.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/remark-rehype/-/remark-rehype-11.1.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/hast/-/hast-3.0.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/devlop/-/devlop-1.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-to-hast/-/mdast-util-to-hast-13.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/remark-parse/-/remark-parse-11.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unist-util-visit/-/unist-util-visit-5.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/vfile/-/vfile-6.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/source-map-js/-/source-map-js-1.2.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/nanoid/-/nanoid-3.3.20.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/picocolors/-/picocolors-1.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/prop-types/-/prop-types-15.7.15.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/csstype/-/csstype-3.2.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@napi-rs/canvas/-/canvas-0.1.100.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tslib/-/tslib-2.8.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@dnd-kit/accessibility/-/accessibility-3.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/dlv/-/dlv-1.1.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/postcss-load-config/-/postcss-load-config-6.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/sucrase/-/sucrase-3.35.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jiti/-/jiti-1.21.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/object-hash/-/object-hash-3.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@alloc/quick-lru/-/quick-lru-5.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/arg/-/arg-5.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fast-glob/-/fast-glob-3.3.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromatch/-/micromatch-4.0.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/postcss-js/-/postcss-js-4.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/postcss-nested/-/postcss-nested-6.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lilconfig/-/lilconfig-3.1.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/postcss-import/-/postcss-import-15.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/normalize-path/-/normalize-path-3.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/didyoumean/-/didyoumean-1.2.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/postcss-selector-parser/-/postcss-selector-parser-6.1.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/resolve/-/resolve-1.22.13.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/chokidar/-/chokidar-3.6.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-use-previous/-/react-use-previous-1.1.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-react-jsx-self/-/plugin-transform-react-jsx-self-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-react-jsx-source/-/plugin-transform-react-jsx-source-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/core/-/core-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rolldown/pluginutils/-/pluginutils-1.0.0-beta.27.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-refresh/-/react-refresh-0.17.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/babel__core/-/babel__core-7.20.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/escodegen/-/escodegen-2.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/data-urls/-/data-urls-3.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/nwsapi/-/nwsapi-2.2.28.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/acorn-globals/-/acorn-globals-7.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/parse5/-/parse5-7.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/w3c-xmlserializer/-/w3c-xmlserializer-4.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/whatwg-mimetype/-/whatwg-mimetype-3.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/acorn/-/acorn-8.19.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/saxes/-/saxes-6.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/decimal.js/-/decimal.js-10.6.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ws/-/ws-8.22.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/http-proxy-agent/-/http-proxy-agent-5.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/xml-name-validator/-/xml-name-validator-4.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/webidl-conversions/-/webidl-conversions-7.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/abab/-/abab-2.0.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/cssstyle/-/cssstyle-2.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/domexception/-/domexception-4.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/form-data/-/form-data-4.0.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/whatwg-url/-/whatwg-url-11.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/symbol-tree/-/symbol-tree-3.2.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/whatwg-encoding/-/whatwg-encoding-2.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/html-encoding-sniffer/-/html-encoding-sniffer-3.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/cssom/-/cssom-0.5.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tough-cookie/-/tough-cookie-4.1.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-potential-custom-element-name/-/is-potential-custom-element-name-1.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/https-proxy-agent/-/https-proxy-agent-5.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fraction.js/-/fraction.js-5.3.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/postcss-value-parser/-/postcss-value-parser-4.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/browserslist/-/browserslist-4.29.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/caniuse-lite/-/caniuse-lite-1.0.30001816.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/runtime/-/runtime-7.29.10.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/aria-query/-/aria-query-5.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/dom-accessibility-api/-/dom-accessibility-api-0.5.16.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lz-string/-/lz-string-1.5.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/code-frame/-/code-frame-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/pretty-format/-/pretty-format-27.5.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/aria-query/-/aria-query-5.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/number/-/number-1.1.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/uuid/-/uuid-8.3.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tmp/-/tmp-0.2.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/saxes/-/saxes-5.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/dayjs/-/dayjs-1.11.23.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/readable-stream/-/readable-stream-3.6.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unzipper/-/unzipper-0.10.14.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fast-csv/-/fast-csv-4.3.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/archiver/-/archiver-5.3.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/remark-stringify/-/remark-stringify-11.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-extension-gfm/-/micromark-extension-gfm-3.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-gfm/-/mdast-util-gfm-3.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/victory-vendor/-/victory-vendor-36.9.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash/-/lodash-4.18.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-is/-/react-is-18.3.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-smooth/-/react-smooth-4.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tiny-invariant/-/tiny-invariant-1.3.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/recharts-scale/-/recharts-scale-0.4.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/eventemitter3/-/eventemitter3-4.0.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/loose-envify/-/loose-envify-1.4.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/postcss-selector-parser/-/postcss-selector-parser-6.0.10.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/dom-accessibility-api/-/dom-accessibility-api-0.6.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@adobe/css-tools/-/css-tools-4.5.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/css.escape/-/css.escape-1.5.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/redent/-/redent-3.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/undici-types/-/undici-types-6.21.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/chevrotain/-/chevrotain-6.5.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tiny-emitter/-/tiny-emitter-2.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@remix-run/router/-/router-1.23.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-router/-/react-router-6.30.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/playwright/-/playwright-1.64.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/trusted-types/-/trusted-types-2.0.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-core/-/workbox-core-7.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/codepage/-/codepage-1.15.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/word/-/word-0.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/cfb/-/cfb-1.2.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/crc-32/-/crc-32-1.2.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/adler-32/-/adler-32-1.3.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ssf/-/ssf-0.11.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/wmf/-/wmf-1.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/text-segmentation/-/text-segmentation-1.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/css-line-break/-/css-line-break-2.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/rollup/-/rollup-4.64.9.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/esbuild/-/esbuild-0.21.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@tanstack/virtual-core/-/virtual-core-3.19.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/canvg/-/canvg-3.0.11.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/core-js/-/core-js-3.50.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fast-png/-/fast-png-6.4.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fflate/-/fflate-0.8.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/dompurify/-/dompurify-3.4.17.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tinyglobby/-/tinyglobby-0.2.17.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-build/-/workbox-build-7.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/pretty-bytes/-/pretty-bytes-6.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/scheduler/-/scheduler-0.23.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/pako/-/pako-1.0.11.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/setimmediate/-/setimmediate-1.0.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lie/-/lie-3.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/readable-stream/-/readable-stream-2.3.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint/eslint-plugin/-/eslint-plugin-8.71.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint/typescript-estree/-/typescript-estree-8.71.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint/parser/-/parser-8.71.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint/utils/-/utils-8.71.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vitest/pretty-format/-/pretty-format-3.2.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vitest/snapshot/-/snapshot-3.2.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vitest/utils/-/utils-3.2.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/expect-type/-/expect-type-1.4.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/std-env/-/std-env-3.10.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tinyexec/-/tinyexec-0.3.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vitest/spy/-/spy-3.2.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tinypool/-/tinypool-1.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tinyrainbow/-/tinyrainbow-2.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/vite-node/-/vite-node-3.2.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vitest/mocker/-/mocker-3.2.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tinybench/-/tinybench-2.9.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/why-is-node-running/-/why-is-node-running-2.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/chai/-/chai-5.3.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vitest/expect/-/expect-3.2.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@vitest/runner/-/runner-3.2.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/picomatch/-/picomatch-4.0.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/magic-string/-/magic-string-0.30.21.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/pathe/-/pathe-2.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/chai/-/chai-5.2.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@tanstack/query-core/-/query-core-5.104.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-use-is-hydrated/-/react-use-is-hydrated-0.1.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-use-effect-event/-/react-use-effect-event-0.0.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-style-singleton/-/react-style-singleton-2.2.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-remove-scroll-bar/-/react-remove-scroll-bar-2.3.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/use-callback-ref/-/use-callback-ref-1.3.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/use-sidecar/-/use-sidecar-1.1.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/iceberg-js/-/iceberg-js-0.8.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@supabase/phoenix/-/phoenix-0.4.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@floating-ui/react-dom/-/react-dom-2.1.9.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-arrow/-/react-arrow-1.1.17.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/react-use-rect/-/react-use-rect-1.1.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@radix-ui/rect/-/rect-1.1.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild-kit/core-utils/-/core-utils-3.3.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/get-tsconfig/-/get-tsconfig-4.14.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/esbuild/-/esbuild-0.28.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild/linux-x64/-/linux-x64-0.25.12.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/strip-json-comments/-/strip-json-comments-3.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/js-yaml/-/js-yaml-4.3.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/globals/-/globals-14.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/import-fresh/-/import-fresh-3.3.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fast-json-stable-stringify/-/fast-json-stable-stringify-2.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/uri-js/-/uri-js-4.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/json-schema-traverse/-/json-schema-traverse-0.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/eslint-visitor-keys/-/eslint-visitor-keys-3.4.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-extglob/-/is-extglob-2.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/supports-color/-/supports-color-7.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ansi-styles/-/ansi-styles-4.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/estraverse/-/estraverse-5.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/json-schema/-/json-schema-7.0.15.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/which/-/which-2.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/shebang-command/-/shebang-command-2.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/path-key/-/path-key-3.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ms/-/ms-2.1.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/flat-cache/-/flat-cache-4.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/esrecurse/-/esrecurse-4.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/locate-path/-/locate-path-6.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/path-exists/-/path-exists-4.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@humanfs/core/-/core-0.19.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@humanfs/types/-/types-0.15.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/brace-expansion/-/brace-expansion-1.1.21.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/levn/-/levn-0.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/word-wrap/-/word-wrap-1.2.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/type-check/-/type-check-0.4.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/prelude-ls/-/prelude-ls-1.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fast-levenshtein/-/fast-levenshtein-2.0.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/deep-is/-/deep-is-0.1.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/acorn-jsx/-/acorn-jsx-5.3.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@eslint/object-schema/-/object-schema-2.1.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/trough/-/trough-2.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/bail/-/bail-2.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-plain-obj/-/is-plain-obj-4.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/extend/-/extend-3.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/unist/-/unist-3.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unist-util-position/-/unist-util-position-5.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/hast-util-whitespace/-/hast-util-whitespace-3.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/vfile-message/-/vfile-message-4.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/estree-util-is-identifier-name/-/estree-util-is-identifier-name-3.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/property-information/-/property-information-7.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/style-to-js/-/style-to-js-1.1.21.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-mdxjs-esm/-/mdast-util-mdxjs-esm-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/space-separated-tokens/-/space-separated-tokens-2.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/comma-separated-tokens/-/comma-separated-tokens-2.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-mdx-expression/-/mdast-util-mdx-expression-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-mdx-jsx/-/mdast-util-mdx-jsx-3.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/dequal/-/dequal-2.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@ungap/structured-clone/-/structured-clone-1.4.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/trim-lines/-/trim-lines-3.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-sanitize-uri/-/micromark-util-sanitize-uri-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-from-markdown/-/mdast-util-from-markdown-2.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-types/-/micromark-util-types-2.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unist-util-visit-parents/-/unist-util-visit-parents-6.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unist-util-is/-/unist-util-is-6.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@napi-rs/canvas-linux-x64-gnu/-/canvas-linux-x64-gnu-0.1.100.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@napi-rs/canvas-linux-x64-musl/-/canvas-linux-x64-musl-0.1.100.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/commander/-/commander-4.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@jridgewell/gen-mapping/-/gen-mapping-0.3.13.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lines-and-columns/-/lines-and-columns-1.2.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/pirates/-/pirates-4.0.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mz/-/mz-2.7.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ts-interface-checker/-/ts-interface-checker-0.1.13.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@nodelib/fs.walk/-/fs.walk-1.2.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/merge2/-/merge2-1.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@nodelib/fs.stat/-/fs.stat-2.0.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/glob-parent/-/glob-parent-5.1.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/picomatch/-/picomatch-2.3.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/braces/-/braces-3.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/camelcase-css/-/camelcase-css-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/read-cache/-/read-cache-1.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/util-deprecate/-/util-deprecate-1.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/cssesc/-/cssesc-3.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/path-parse/-/path-parse-1.0.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-core-module/-/is-core-module-2.17.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/es-errors/-/es-errors-1.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/supports-preserve-symlinks-flag/-/supports-preserve-symlinks-flag-1.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/readdirp/-/readdirp-3.6.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-binary-path/-/is-binary-path-2.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/anymatch/-/anymatch-3.1.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helper-plugin-utils/-/helper-plugin-utils-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helper-compilation-targets/-/helper-compilation-targets-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helper-module-transforms/-/helper-module-transforms-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/gensync/-/gensync-1.0.0-beta.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/json5/-/json5-2.2.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/generator/-/generator-7.29.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/convert-source-map/-/convert-source-map-2.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/types/-/types-7.29.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helpers/-/helpers-7.29.10.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@jridgewell/remapping/-/remapping-2.3.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/semver/-/semver-6.3.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/parser/-/parser-7.29.9.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/template/-/template-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/traverse/-/traverse-7.29.10.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/babel__generator/-/babel__generator-7.27.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/babel__template/-/babel__template-7.4.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/babel__traverse/-/babel__traverse-7.28.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/source-map/-/source-map-0.6.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/esprima/-/esprima-4.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/acorn-walk/-/acorn-walk-8.3.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/entities/-/entities-6.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/xmlchars/-/xmlchars-2.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@tootallnate/once/-/once-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/agent-base/-/agent-base-6.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/cssom/-/cssom-0.3.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/es-set-tostringtag/-/es-set-tostringtag-2.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mime-types/-/mime-types-2.1.35.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/combined-stream/-/combined-stream-1.0.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/asynckit/-/asynckit-0.4.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/hasown/-/hasown-2.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tr46/-/tr46-3.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/iconv-lite/-/iconv-lite-0.6.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/universalify/-/universalify-0.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/punycode/-/punycode-2.3.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/url-parse/-/url-parse-1.5.10.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/psl/-/psl-1.15.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/baseline-browser-mapping/-/baseline-browser-mapping-2.11.29.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/update-browserslist-db/-/update-browserslist-db-1.3.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/electron-to-chromium/-/electron-to-chromium-1.5.459.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/node-releases/-/node-releases-2.0.59.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/js-tokens/-/js-tokens-4.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helper-validator-identifier/-/helper-validator-identifier-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-is/-/react-is-17.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ansi-regex/-/ansi-regex-5.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ansi-styles/-/ansi-styles-5.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/inherits/-/inherits-2.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/string_decoder/-/string_decoder-1.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/bluebird/-/bluebird-3.4.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/binary/-/binary-0.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fstream/-/fstream-1.0.12.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/buffer-indexof-polyfill/-/buffer-indexof-polyfill-1.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/graceful-fs/-/graceful-fs-4.2.11.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/listenercount/-/listenercount-1.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/duplexer2/-/duplexer2-0.1.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/big-integer/-/big-integer-1.6.52.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@fast-csv/format/-/format-4.3.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@fast-csv/parse/-/parse-4.3.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/archiver-utils/-/archiver-utils-2.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/async/-/async-3.2.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/readdir-glob/-/readdir-glob-1.1.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/buffer-crc32/-/buffer-crc32-0.2.13.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tar-stream/-/tar-stream-2.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/zip-stream/-/zip-stream-4.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-to-markdown/-/mdast-util-to-markdown-2.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-extension-gfm-strikethrough/-/micromark-extension-gfm-strikethrough-2.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-combine-extensions/-/micromark-util-combine-extensions-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-extension-gfm-footnote/-/micromark-extension-gfm-footnote-2.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-extension-gfm-autolink-literal/-/micromark-extension-gfm-autolink-literal-2.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-extension-gfm-table/-/micromark-extension-gfm-table-2.1.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-extension-gfm-task-list-item/-/micromark-extension-gfm-task-list-item-2.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-extension-gfm-tagfilter/-/micromark-extension-gfm-tagfilter-2.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-gfm-footnote/-/mdast-util-gfm-footnote-2.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-gfm-strikethrough/-/mdast-util-gfm-strikethrough-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-gfm-table/-/mdast-util-gfm-table-2.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-gfm-autolink-literal/-/mdast-util-gfm-autolink-literal-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-gfm-task-list-item/-/mdast-util-gfm-task-list-item-2.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-time/-/d3-time-3.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/d3-time/-/d3-time-3.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-interpolate/-/d3-interpolate-3.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/d3-timer/-/d3-timer-3.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/d3-array/-/d3-array-3.2.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/d3-shape/-/d3-shape-3.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/d3-interpolate/-/d3-interpolate-3.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-array/-/d3-array-3.2.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-scale/-/d3-scale-4.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-shape/-/d3-shape-3.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-ease/-/d3-ease-3.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-timer/-/d3-timer-3.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/d3-ease/-/d3-ease-3.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/d3-scale/-/d3-scale-4.0.9.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fast-equals/-/fast-equals-5.4.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-transition-group/-/react-transition-group-4.4.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/prop-types/-/prop-types-15.8.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/decimal.js-light/-/decimal.js-light-2.5.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/indent-string/-/indent-string-4.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/strip-indent/-/strip-indent-3.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/regexp-to-ast/-/regexp-to-ast-0.4.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/playwright-core/-/playwright-core-1.64.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/frac/-/frac-1.1.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/utrie/-/utrie-1.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup/rollup-linux-x64-gnu/-/rollup-linux-x64-gnu-4.64.9.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@napi-rs/lzma-linux-x64-gnu/-/lzma-linux-x64-gnu-1.5.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup/rollup-linux-x64-musl/-/rollup-linux-x64-musl-4.64.9.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild/linux-x64/-/linux-x64-0.21.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/stackblur-canvas/-/stackblur-canvas-2.7.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/raf/-/raf-3.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/svg-pathdata/-/svg-pathdata-6.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/rgbcolor/-/rgbcolor-1.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/raf/-/raf-3.4.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/regenerator-runtime/-/regenerator-runtime-0.13.11.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/iobuffer/-/iobuffer-5.4.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/pako/-/pako-2.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/pako/-/pako-2.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fdir/-/fdir-6.5.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-strategies/-/workbox-strategies-7.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/strip-comments/-/strip-comments-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-navigation-preload/-/workbox-navigation-preload-7.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-background-sync/-/workbox-background-sync-7.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-streams/-/workbox-streams-7.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-precaching/-/workbox-precaching-7.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup/plugin-terser/-/plugin-terser-1.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ajv/-/ajv-8.20.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@apideck/better-ajv-errors/-/better-ajv-errors-0.3.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/eta/-/eta-4.6.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-sw/-/workbox-sw-7.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-broadcast-update/-/workbox-broadcast-update-7.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup/plugin-node-resolve/-/plugin-node-resolve-16.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/pretty-bytes/-/pretty-bytes-5.6.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tempy/-/tempy-0.6.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/common-tags/-/common-tags-1.8.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-recipes/-/workbox-recipes-7.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-routing/-/workbox-routing-7.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@trickfilm400/rollup-plugin-off-main-thread/-/rollup-plugin-off-main-thread-3.0.0-pre1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/upath/-/upath-1.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-expiration/-/workbox-expiration-7.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/source-map/-/source-map-0.8.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fs-extra/-/fs-extra-9.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/glob/-/glob-11.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/preset-env/-/preset-env-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-range-requests/-/workbox-range-requests-7.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-google-analytics/-/workbox-google-analytics-7.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/workbox-cacheable-response/-/workbox-cacheable-response-7.4.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/stringify-object/-/stringify-object-3.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup/plugin-replace/-/plugin-replace-6.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup/plugin-babel/-/plugin-babel-6.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/immediate/-/immediate-3.0.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/process-nextick-args/-/process-nextick-args-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/core-util-is/-/core-util-is-1.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/safe-buffer/-/safe-buffer-5.1.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/isarray/-/isarray-1.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint/visitor-keys/-/visitor-keys-8.71.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint/scope-manager/-/scope-manager-8.71.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ignore/-/ignore-7.0.12.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ts-api-utils/-/ts-api-utils-2.5.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint/type-utils/-/type-utils-8.71.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint/project-service/-/project-service-8.71.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint/tsconfig-utils/-/tsconfig-utils-8.71.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@typescript-eslint/types/-/types-8.71.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/semver/-/semver-7.8.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/minimatch/-/minimatch-10.2.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/loupe/-/loupe-3.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/tinyspy/-/tinyspy-4.0.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/cac/-/cac-6.7.14.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/es-module-lexer/-/es-module-lexer-1.7.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/estree-walker/-/estree-walker-3.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/stackback/-/stackback-0.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/siginfo/-/siginfo-2.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/assertion-error/-/assertion-error-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/deep-eql/-/deep-eql-5.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/pathval/-/pathval-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/check-error/-/check-error-2.1.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/strip-literal/-/strip-literal-3.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.6.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/deep-eql/-/deep-eql-4.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/get-nonce/-/get-nonce-1.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/detect-node-es/-/detect-node-es-1.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@floating-ui/dom/-/dom-1.8.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/source-map-support/-/source-map-support-0.5.21.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/esbuild/-/esbuild-0.18.20.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/resolve-pkg-maps/-/resolve-pkg-maps-1.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild/linux-x64/-/linux-x64-0.28.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/argparse/-/argparse-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/parent-module/-/parent-module-1.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/resolve-from/-/resolve-from-4.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/has-flag/-/has-flag-4.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/color-convert/-/color-convert-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/isexe/-/isexe-2.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/shebang-regex/-/shebang-regex-3.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/flatted/-/flatted-3.4.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/keyv/-/keyv-4.5.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/p-locate/-/p-locate-5.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/concat-map/-/concat-map-0.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/balanced-match/-/balanced-match-1.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unist-util-stringify-position/-/unist-util-stringify-position-4.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/style-to-object/-/style-to-object-1.0.14.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/estree-jsx/-/estree-jsx-1.0.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/stringify-entities/-/stringify-entities-4.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/parse-entities/-/parse-entities-4.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ccount/-/ccount-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-character/-/micromark-util-character-2.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-symbol/-/micromark-util-symbol-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-encode/-/micromark-util-encode-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-decode-numeric-character-reference/-/micromark-util-decode-numeric-character-reference-2.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-to-string/-/mdast-util-to-string-4.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/decode-named-character-reference/-/decode-named-character-reference-1.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark/-/micromark-4.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-decode-string/-/micromark-util-decode-string-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-normalize-identifier/-/micromark-util-normalize-identifier-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@jridgewell/trace-mapping/-/trace-mapping-0.3.31.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/any-promise/-/any-promise-1.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/thenify-all/-/thenify-all-1.6.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/object-assign/-/object-assign-4.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fastq/-/fastq-1.20.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@nodelib/fs.scandir/-/fs.scandir-2.1.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fill-range/-/fill-range-7.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/binary-extensions/-/binary-extensions-2.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helper-validator-option/-/helper-validator-option-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lru-cache/-/lru-cache-5.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/compat-data/-/compat-data-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helper-module-imports/-/helper-module-imports-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jsesc/-/jsesc-3.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helper-string-parser/-/helper-string-parser-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helper-globals/-/helper-globals-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/has-tostringtag/-/has-tostringtag-1.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/get-intrinsic/-/get-intrinsic-1.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mime-db/-/mime-db-1.52.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/delayed-stream/-/delayed-stream-1.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/function-bind/-/function-bind-1.1.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/safer-buffer/-/safer-buffer-2.1.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/requires-port/-/requires-port-1.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/querystringify/-/querystringify-2.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/escalade/-/escalade-3.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/buffers/-/buffers-0.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/chainsaw/-/chainsaw-0.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/rimraf/-/rimraf-2.7.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mkdirp/-/mkdirp-0.5.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/node/-/node-14.18.63.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.isboolean/-/lodash.isboolean-3.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.isequal/-/lodash.isequal-4.5.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.isfunction/-/lodash.isfunction-3.0.9.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.isnil/-/lodash.isnil-4.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.escaperegexp/-/lodash.escaperegexp-4.1.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.isundefined/-/lodash.isundefined-3.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.groupby/-/lodash.groupby-4.6.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.uniq/-/lodash.uniq-4.5.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lazystream/-/lazystream-1.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.defaults/-/lodash.defaults-4.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.flatten/-/lodash.flatten-4.4.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/glob/-/glob-7.2.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.union/-/lodash.union-4.6.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.difference/-/lodash.difference-4.5.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.isplainobject/-/lodash.isplainobject-4.0.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/minimatch/-/minimatch-5.1.9.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/bl/-/bl-4.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/end-of-stream/-/end-of-stream-1.4.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fs-constants/-/fs-constants-1.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/archiver-utils/-/archiver-utils-3.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/compress-commons/-/compress-commons-4.1.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-html-tag-name/-/micromark-util-html-tag-name-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-phrasing/-/mdast-util-phrasing-4.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/longest-streak/-/longest-streak-3.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-classify-character/-/micromark-util-classify-character-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/zwitch/-/zwitch-2.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-resolve-all/-/micromark-util-resolve-all-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-chunked/-/micromark-util-chunked-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-factory-space/-/micromark-factory-space-2.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-core-commonmark/-/micromark-core-commonmark-2.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/markdown-table/-/markdown-table-3.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/mdast-util-find-and-replace/-/mdast-util-find-and-replace-3.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-color/-/d3-color-3.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/d3-path/-/d3-path-3.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/d3-color/-/d3-color-3.1.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/internmap/-/internmap-2.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-time-format/-/d3-time-format-4.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-format/-/d3-format-3.1.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/d3-path/-/d3-path-3.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/dom-helpers/-/dom-helpers-5.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-is/-/react-is-16.13.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/min-indent/-/min-indent-1.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/base64-arraybuffer/-/base64-arraybuffer-1.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/performance-now/-/performance-now-2.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/idb/-/idb-7.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/serialize-javascript/-/serialize-javascript-7.1.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/smob/-/smob-1.6.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/terser/-/terser-5.51.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/json-schema-traverse/-/json-schema-traverse-1.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/require-from-string/-/require-from-string-2.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fast-uri/-/fast-uri-3.1.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jsonpointer/-/jsonpointer-5.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/leven/-/leven-3.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-module/-/is-module-1.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@rollup/pluginutils/-/pluginutils-5.4.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/deepmerge/-/deepmerge-4.3.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/resolve/-/resolve-1.20.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-stream/-/is-stream-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/temp-dir/-/temp-dir-2.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unique-string/-/unique-string-2.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/type-fest/-/type-fest-0.16.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/string.prototype.matchall/-/string.prototype.matchall-4.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ejs/-/ejs-3.1.10.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/universalify/-/universalify-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jsonfile/-/jsonfile-6.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/at-least-node/-/at-least-node-1.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/package-json-from-dist/-/package-json-from-dist-1.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/foreground-child/-/foreground-child-3.3.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jackspeak/-/jackspeak-4.2.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/minipass/-/minipass-7.1.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/path-scurry/-/path-scurry-2.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/preset-modules/-/preset-modules-0.1.6-no-external-plugins.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-private-methods/-/plugin-transform-private-methods-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-destructuring/-/plugin-transform-destructuring-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-class-properties/-/plugin-transform-class-properties-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-json-strings/-/plugin-transform-json-strings-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-template-literals/-/plugin-transform-template-literals-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-bugfix-safari-rest-destructuring-rhs-array/-/plugin-bugfix-safari-rest-destructuring-rhs-array-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-logical-assignment-operators/-/plugin-transform-logical-assignment-operators-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-syntax-unicode-sets-regex/-/plugin-syntax-unicode-sets-regex-7.18.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-reserved-words/-/plugin-transform-reserved-words-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-bugfix-v8-static-class-fields-redefine-readonly/-/plugin-bugfix-v8-static-class-fields-redefine-readonly-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-private-property-in-object/-/plugin-transform-private-property-in-object-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-numeric-separator/-/plugin-transform-numeric-separator-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-exponentiation-operator/-/plugin-transform-exponentiation-operator-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-computed-properties/-/plugin-transform-computed-properties-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-modules-commonjs/-/plugin-transform-modules-commonjs-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-modules-systemjs/-/plugin-transform-modules-systemjs-7.29.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-block-scoping/-/plugin-transform-block-scoping-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-dynamic-import/-/plugin-transform-dynamic-import-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-duplicate-keys/-/plugin-transform-duplicate-keys-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-parameters/-/plugin-transform-parameters-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-unicode-escapes/-/plugin-transform-unicode-escapes-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-function-name/-/plugin-transform-function-name-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-bugfix-safari-id-destructuring-collision-in-function-expression/-/plugin-bugfix-safari-id-destructuring-collision-in-function-expression-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-named-capturing-groups-regex/-/plugin-transform-named-capturing-groups-regex-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-regenerator/-/plugin-transform-regenerator-7.29.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-regexp-modifiers/-/plugin-transform-regexp-modifiers-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-shorthand-properties/-/plugin-transform-shorthand-properties-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-sticky-regex/-/plugin-transform-sticky-regex-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-bugfix-safari-class-field-initializer-scope/-/plugin-bugfix-safari-class-field-initializer-scope-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-object-rest-spread/-/plugin-transform-object-rest-spread-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-object-super/-/plugin-transform-object-super-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-proposal-private-property-in-object/-/plugin-proposal-private-property-in-object-7.21.0-placeholder-for-preset-env.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-optional-catch-binding/-/plugin-transform-optional-catch-binding-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-unicode-sets-regex/-/plugin-transform-unicode-sets-regex-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/babel-plugin-polyfill-corejs3/-/babel-plugin-polyfill-corejs3-0.14.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/core-js-compat/-/core-js-compat-3.50.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-modules-amd/-/plugin-transform-modules-amd-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-member-expression-literals/-/plugin-transform-member-expression-literals-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-async-generator-functions/-/plugin-transform-async-generator-functions-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-for-of/-/plugin-transform-for-of-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-dotall-regex/-/plugin-transform-dotall-regex-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-syntax-import-attributes/-/plugin-syntax-import-attributes-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-literals/-/plugin-transform-literals-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-new-target/-/plugin-transform-new-target-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-bugfix-firefox-class-in-computed-class-key/-/plugin-bugfix-firefox-class-in-computed-class-key-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-optional-chaining/-/plugin-transform-optional-chaining-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-explicit-resource-management/-/plugin-transform-explicit-resource-management-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-nullish-coalescing-operator/-/plugin-transform-nullish-coalescing-operator-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-unicode-property-regex/-/plugin-transform-unicode-property-regex-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-export-namespace-from/-/plugin-transform-export-namespace-from-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/babel-plugin-polyfill-corejs2/-/babel-plugin-polyfill-corejs2-0.4.17.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-async-to-generator/-/plugin-transform-async-to-generator-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-duplicate-named-capturing-groups-regex/-/plugin-transform-duplicate-named-capturing-groups-regex-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-arrow-functions/-/plugin-transform-arrow-functions-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-modules-umd/-/plugin-transform-modules-umd-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-unicode-regex/-/plugin-transform-unicode-regex-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-bugfix-v8-spread-parameters-in-optional-chaining/-/plugin-bugfix-v8-spread-parameters-in-optional-chaining-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-syntax-import-assertions/-/plugin-syntax-import-assertions-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-classes/-/plugin-transform-classes-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-spread/-/plugin-transform-spread-7.29.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/babel-plugin-polyfill-regenerator/-/babel-plugin-polyfill-regenerator-0.6.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-property-literals/-/plugin-transform-property-literals-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-block-scoped-functions/-/plugin-transform-block-scoped-functions-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-typeof-symbol/-/plugin-transform-typeof-symbol-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/plugin-transform-class-static-block/-/plugin-transform-class-static-block-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/get-own-enumerable-property-symbols/-/get-own-enumerable-property-symbols-3.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-obj/-/is-obj-1.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-regexp/-/is-regexp-1.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/eslint-visitor-keys/-/eslint-visitor-keys-5.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/brace-expansion/-/brace-expansion-5.0.12.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/js-tokens/-/js-tokens-9.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@floating-ui/utils/-/utils-0.2.12.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@floating-ui/core/-/core-1.8.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/buffer-from/-/buffer-from-1.1.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@esbuild/linux-x64/-/linux-x64-0.18.20.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/callsites/-/callsites-3.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/color-name/-/color-name-1.1.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/json-buffer/-/json-buffer-3.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/p-limit/-/p-limit-3.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/inline-style-parser/-/inline-style-parser-0.2.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/character-entities-legacy/-/character-entities-legacy-3.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/character-entities-html4/-/character-entities-html4-2.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-decimal/-/is-decimal-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/character-reference-invalid/-/character-reference-invalid-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-alphanumerical/-/is-alphanumerical-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/unist/-/unist-2.0.11.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-hexadecimal/-/is-hexadecimal-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/character-entities/-/character-entities-2.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/debug/-/debug-4.1.13.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-subtokenize/-/micromark-util-subtokenize-2.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-util-edit-map/-/micromark-util-edit-map-1.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@jridgewell/resolve-uri/-/resolve-uri-3.1.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/thenify/-/thenify-3.3.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/reusify/-/reusify-1.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/run-parallel/-/run-parallel-1.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/to-regex-range/-/to-regex-range-5.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/yallist/-/yallist-3.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/has-symbols/-/has-symbols-1.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/math-intrinsics/-/math-intrinsics-1.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/call-bind-apply-helpers/-/call-bind-apply-helpers-1.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/gopd/-/gopd-1.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/get-proto/-/get-proto-1.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/es-define-property/-/es-define-property-1.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/es-object-atoms/-/es-object-atoms-1.1.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/traverse/-/traverse-0.3.10.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/minimist/-/minimist-1.2.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/once/-/once-1.4.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/fs.realpath/-/fs.realpath-1.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/inflight/-/inflight-1.0.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/path-is-absolute/-/path-is-absolute-1.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/brace-expansion/-/brace-expansion-2.1.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/buffer/-/buffer-5.7.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/crc32-stream/-/crc32-stream-4.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-factory-destination/-/micromark-factory-destination-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-factory-label/-/micromark-factory-label-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-factory-whitespace/-/micromark-factory-whitespace-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/micromark-factory-title/-/micromark-factory-title-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/escape-string-regexp/-/escape-string-regexp-5.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/commander/-/commander-2.20.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@jridgewell/source-map/-/source-map-0.3.11.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/estree-walker/-/estree-walker-2.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/crypto-random-string/-/crypto-random-string-2.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/set-function-name/-/set-function-name-2.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/call-bind/-/call-bind-1.0.9.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/es-abstract/-/es-abstract-1.24.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/side-channel/-/side-channel-1.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/define-properties/-/define-properties-1.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/call-bound/-/call-bound-1.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/internal-slot/-/internal-slot-1.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/regexp.prototype.flags/-/regexp.prototype.flags-1.5.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/jake/-/jake-10.9.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/signal-exit/-/signal-exit-4.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@isaacs/cliui/-/cliui-9.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lru-cache/-/lru-cache-11.5.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helper-create-class-features-plugin/-/helper-create-class-features-plugin-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helper-skip-transparent-expression-wrappers/-/helper-skip-transparent-expression-wrappers-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helper-create-regexp-features-plugin/-/helper-create-regexp-features-plugin-7.29.10.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helper-annotate-as-pure/-/helper-annotate-as-pure-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helper-replace-supers/-/helper-replace-supers-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helper-define-polyfill-provider/-/helper-define-polyfill-provider-0.6.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helper-remap-async-to-generator/-/helper-remap-async-to-generator-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/balanced-match/-/balanced-match-4.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/yocto-queue/-/yocto-queue-0.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-alphabetical/-/is-alphabetical-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/ms/-/ms-2.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/queue-microtask/-/queue-microtask-1.2.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-number/-/is-number-7.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/dunder-proto/-/dunder-proto-1.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/define-data-property/-/define-data-property-1.1.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/which-typed-array/-/which-typed-array-1.1.24.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/typedarray.prototype.slice/-/typedarray.prototype.slice-1.0.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/es-to-primitive/-/es-to-primitive-1.3.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/wrappy/-/wrappy-1.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/base64-js/-/base64-js-1.5.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/ieee754/-/ieee754-1.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/functions-have-names/-/functions-have-names-1.2.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/has-property-descriptors/-/has-property-descriptors-1.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/set-function-length/-/set-function-length-1.2.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-shared-array-buffer/-/is-shared-array-buffer-1.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/object.assign/-/object.assign-4.1.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/typed-array-buffer/-/typed-array-buffer-1.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/data-view-byte-offset/-/data-view-byte-offset-1.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/string.prototype.trim/-/string.prototype.trim-1.2.11.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/has-proto/-/has-proto-1.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-array-buffer/-/is-array-buffer-3.0.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/own-keys/-/own-keys-1.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/set-proto/-/set-proto-1.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-typed-array/-/is-typed-array-1.1.15.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/safe-regex-test/-/safe-regex-test-1.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-regex/-/is-regex-1.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/available-typed-arrays/-/available-typed-arrays-1.0.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/array-buffer-byte-length/-/array-buffer-byte-length-1.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unbox-primitive/-/unbox-primitive-1.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/data-view-byte-length/-/data-view-byte-length-1.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-weakref/-/is-weakref-1.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-callable/-/is-callable-1.2.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-negative-zero/-/is-negative-zero-2.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/globalthis/-/globalthis-1.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/object-inspect/-/object-inspect-1.13.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-set/-/is-set-2.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/object-keys/-/object-keys-1.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/safe-array-concat/-/safe-array-concat-1.1.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/safe-push-apply/-/safe-push-apply-1.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/string.prototype.trimstart/-/string.prototype.trimstart-1.0.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/data-view-buffer/-/data-view-buffer-1.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/typed-array-byte-length/-/typed-array-byte-length-1.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/typed-array-byte-offset/-/typed-array-byte-offset-1.0.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/stop-iteration-iterator/-/stop-iteration-iterator-1.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/get-symbol-description/-/get-symbol-description-1.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/string.prototype.trimend/-/string.prototype.trimend-1.0.10.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/typed-array-length/-/typed-array-length-1.0.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/arraybuffer.prototype.slice/-/arraybuffer.prototype.slice-1.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/function.prototype.name/-/function.prototype.name-1.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-string/-/is-string-1.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-data-view/-/is-data-view-1.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/side-channel-list/-/side-channel-list-1.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/side-channel-map/-/side-channel-map-1.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/side-channel-weakmap/-/side-channel-weakmap-1.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/filelist/-/filelist-1.0.6.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helper-member-expression-to-functions/-/helper-member-expression-to-functions-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helper-optimise-call-expression/-/helper-optimise-call-expression-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/regexpu-core/-/regexpu-core-6.5.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/lodash.debounce/-/lodash.debounce-4.0.8.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@babel/helper-wrap-function/-/helper-wrap-function-7.29.7.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/for-each/-/for-each-0.3.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-symbol/-/is-symbol-1.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-date-object/-/is-date-object-1.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/es-abstract-get/-/es-abstract-get-1.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/possible-typed-array-names/-/possible-typed-array-names-1.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/which-boxed-primitive/-/which-boxed-primitive-1.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/has-bigints/-/has-bigints-1.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/isarray/-/isarray-2.0.5.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/reflect.getprototypeof/-/reflect.getprototypeof-1.0.10.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-document.all/-/is-document.all-1.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/regjsgen/-/regjsgen-0.8.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/regjsparser/-/regjsparser-0.13.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unicode-match-property-value-ecmascript/-/unicode-match-property-value-ecmascript-2.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unicode-match-property-ecmascript/-/unicode-match-property-ecmascript-2.0.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/regenerate/-/regenerate-1.5.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/regenerate-unicode-properties/-/regenerate-unicode-properties-10.3.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-number-object/-/is-number-object-1.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-bigint/-/is-bigint-1.1.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-boolean-object/-/is-boolean-object-1.2.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/which-builtin-type/-/which-builtin-type-1.2.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unicode-canonical-property-names-ecmascript/-/unicode-canonical-property-names-ecmascript-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/unicode-property-aliases-ecmascript/-/unicode-property-aliases-ecmascript-2.2.0.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/which-collection/-/which-collection-1.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-finalizationregistry/-/is-finalizationregistry-1.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-generator-function/-/is-generator-function-1.1.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-async-function/-/is-async-function-2.1.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-map/-/is-map-2.0.3.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-weakmap/-/is-weakmap-2.0.2.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/is-weakset/-/is-weakset-2.0.4.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/generator-function/-/generator-function-2.0.1.tgz
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/async-function/-/async-function-1.0.0.tgz
+[0m[32mInitialize[0m @radix-ui/react-dialog@1.3.1
+[0m[32mInitialize[0m @radix-ui/react-label@2.1.17
+[0m[32mInitialize[0m @radix-ui/react-separator@1.2.0
+[0m[32mInitialize[0m @radix-ui/react-context@1.3.0
+[0m[32mInitialize[0m @radix-ui/react-hover-card@1.2.1
+[0m[32mInitialize[0m @radix-ui/react-toggle@1.2.1
+[0m[32mInitialize[0m @radix-ui/react-aspect-ratio@1.2.0
+[0m[32mInitialize[0m @radix-ui/react-menubar@1.2.1
+[0m[32mInitialize[0m @radix-ui/react-popover@1.3.1
+[0m[32mInitialize[0m @radix-ui/react-toast@1.3.1
+[0m[32mInitialize[0m @radix-ui/react-collapsible@1.2.1
+[0m[32mInitialize[0m @radix-ui/react-navigation-menu@1.4.1
+[0m[32mInitialize[0m postcss@8.5.30
+[0m[32mInitialize[0m @radix-ui/react-alert-dialog@1.2.1
+[0m[32mInitialize[0m @radix-ui/react-tooltip@1.4.1
+[0m[32mInitialize[0m @radix-ui/react-radio-group@1.5.1
+[0m[32mInitialize[0m @radix-ui/react-toggle-group@1.2.1
+[0m[32mInitialize[0m input-otp@1.5.0
+[0m[32mInitialize[0m @radix-ui/react-scroll-area@1.4.0
+[0m[32mInitialize[0m @radix-ui/react-switch@1.4.1
+[0m[32mInitialize[0m @radix-ui/react-slider@1.6.1
+[0m[32mInitialize[0m @radix-ui/react-dropdown-menu@2.2.1
+[0m[32mInitialize[0m @playwright/test@1.64.1
+[0m[32mInitialize[0m @radix-ui/react-primitive@2.2.0
+[0m[32mInitialize[0m @tailwindcss/typography@0.5.20
+[0m[32mInitialize[0m @radix-ui/react-progress@1.2.1
+[0m[32mInitialize[0m @radix-ui/react-context-menu@2.4.1
+[0m[32mInitialize[0m @radix-ui/react-checkbox@1.4.1
+[0m[32mInitialize[0m postgres@3.4.9
+[0m[32mInitialize[0m autoprefixer@10.6.1
+[0m[32mInitialize[0m @radix-ui/react-accordion@1.3.1
+[0m[32mInitialize[0m @radix-ui/react-tabs@1.2.1
+[0m[32mInitialize[0m lovable-tagger@1.3.5
+[0m[32mInitialize[0m @tanstack/react-virtual@3.14.21
+[0m[32mInitialize[0m ibantools@4.5.4
+[0m[32mInitialize[0m @radix-ui/react-presence@1.1.11
+[0m[32mInitialize[0m @radix-ui/react-avatar@1.3.1
+[0m[32mInitialize[0m @radix-ui/react-use-controllable-state@1.3.0
+[0m[32mInitialize[0m @radix-ui/react-focus-scope@1.3.1
+[0m[32mInitialize[0m @testing-library/jest-dom@6.10.0
+[0m[32mInitialize[0m @radix-ui/react-portal@1.2.0
+[0m[32mInitialize[0m @radix-ui/react-use-layout-effect@1.1.4
+[0m[32mInitialize[0m vite-plugin-pwa@1.3.0
+[0m[32mInitialize[0m @radix-ui/react-focus-guards@1.2.0
+[0m[32mInitialize[0m @radix-ui/react-compose-refs@1.1.5
+[0m[32mInitialize[0m @radix-ui/react-dismissable-layer@1.2.1
+[0m[32mInitialize[0m typescript-eslint@8.71.2
+[0m[32mInitialize[0m @radix-ui/react-popper@1.4.0
+[0m[32mInitialize[0m @radix-ui/react-id@1.1.4
+[0m[32mInitialize[0m @testing-library/react@16.3.3
+[0m[32mInitialize[0m @radix-ui/primitive@1.2.0
+[0m[32mInitialize[0m @humanfs/node@0.16.8
+[0m[32mInitialize[0m @radix-ui/react-collection@1.2.0
+[0m[32mInitialize[0m @radix-ui/react-use-size@1.1.5
+[0m[32mInitialize[0m @radix-ui/react-roving-focus@1.2.1
+[0m[32mInitialize[0m @radix-ui/react-use-callback-ref@1.1.5
+[0m[32mInitialize[0m @radix-ui/react-direction@1.2.0
+[0m[32mInitialize[0m @radix-ui/react-visually-hidden@1.2.13
+[0m[32mInitialize[0m @types/hast@3.0.5
+[0m[32mInitialize[0m source-map-js@1.2.2
+[0m[32mInitialize[0m @napi-rs/canvas@0.1.100
+[0m[32mInitialize[0m @radix-ui/react-use-previous@1.1.4
+[0m[32mInitialize[0m @babel/plugin-transform-react-jsx-self@7.29.7
+[0m[32mInitialize[0m @alloc/quick-lru@5.3.0
+[0m[32mInitialize[0m lilconfig@3.1.4
+[0m[32mInitialize[0m @babel/plugin-transform-react-jsx-source@7.29.7
+[0m[32mInitialize[0m @radix-ui/react-menu@2.2.1
+[0m[32mInitialize[0m nwsapi@2.2.28
+[0m[32mInitialize[0m ws@8.22.0
+[0m[32mInitialize[0m postcss-selector-parser@6.1.4
+[0m[32mInitialize[0m form-data@4.0.6
+[0m[32mInitialize[0m @babel/code-frame@7.29.7
+[0m[32mInitialize[0m browserslist@4.29.3
+[0m[32mInitialize[0m @radix-ui/number@1.1.3
+[0m[32mInitialize[0m tmp@0.2.7
+[0m[32mInitialize[0m resolve@1.22.13
+[0m[32mInitialize[0m @adobe/css-tools@4.5.0
+[0m[32mInitialize[0m @babel/runtime@7.29.10
+[0m[32mInitialize[0m tinyglobby@0.2.17
+[0m[32mInitialize[0m @typescript-eslint/parser@8.71.2
+[0m[32mInitialize[0m @vitest/pretty-format@3.2.7
+[0m[32mInitialize[0m @vitest/spy@3.2.7
+[0m[32mInitialize[0m expect-type@1.4.0
+[0m[32mInitialize[0m @vitest/snapshot@3.2.7
+[0m[32mInitialize[0m picomatch@4.0.7
+[0m[32mInitialize[0m @vitest/utils@3.2.7
+[0m[32mInitialize[0m @vitest/expect@3.2.7
+[0m[32mInitialize[0m @radix-ui/react-use-is-hydrated@0.1.3
+[0m[32mInitialize[0m @vitest/runner@3.2.7
+[0m[32mInitialize[0m @radix-ui/react-use-effect-event@0.0.5
+[0m[32mInitialize[0m @radix-ui/react-arrow@1.1.17
+[0m[32mInitialize[0m @vitest/mocker@3.2.7
+[0m[32mInitialize[0m @floating-ui/react-dom@2.1.9
+[0m[32mInitialize[0m @radix-ui/rect@1.1.3
+[0m[32mInitialize[0m @radix-ui/react-use-rect@1.1.4
+[0m[32mInitialize[0m esbuild@0.28.2
+[0m[32mInitialize[0m get-tsconfig@4.14.3
+[0m[32mInitialize[0m @typescript-eslint/utils@8.71.2
+[0m[32mInitialize[0m brace-expansion@1.1.21
+[0m[32mInitialize[0m @humanfs/core@0.19.2
+[0m[32mInitialize[0m @humanfs/types@0.15.0
+[0m[32mInitialize[0m property-information@7.2.0
+[0m[32mInitialize[0m @ungap/structured-clone@1.4.0
+[0m[32mInitialize[0m mdast-util-from-markdown@2.1.0
+[0m[32mInitialize[0m micromark-util-types@2.0.3
+[0m[32mInitialize[0m read-cache@1.0.2
+[0m[32mInitialize[0m is-core-module@2.17.0
+[0m[32mInitialize[0m @babel/helper-compilation-targets@7.29.7
+[0m[32mInitialize[0m @babel/helper-plugin-utils@7.29.7
+[0m[32mInitialize[0m @babel/helper-module-transforms@7.29.7
+[0m[32mInitialize[0m @babel/template@7.29.7
+[0m[32mInitialize[0m @tootallnate/once@2.0.1
+[0m[32mInitialize[0m hasown@2.0.4
+[0m[32mInitialize[0m update-browserslist-db@1.3.4
+[0m[32mInitialize[0m node-releases@2.0.59
+[0m[32mInitialize[0m electron-to-chromium@1.5.459
+[0m[32mInitialize[0m @babel/helper-validator-identifier@7.29.7
+[0m[32mInitialize[0m jspdf-autotable@5.0.9
+[0m[32mInitialize[0m mdast-util-gfm-strikethrough@2.0.1
+[0m[32mInitialize[0m micromark-extension-gfm-table@2.1.2
+[0m[32mInitialize[0m @types/d3-shape@3.2.0
+[0m[32mInitialize[0m mdast-util-to-markdown@2.2.0
+[0m[32mInitialize[0m workbox-navigation-preload@7.4.1
+[0m[32mInitialize[0m workbox-streams@7.4.1
+[0m[32mInitialize[0m workbox-broadcast-update@7.4.1
+[0m[32mInitialize[0m eta@4.6.0
+[0m[32mInitialize[0m @typescript-eslint/tsconfig-utils@8.71.2
+[0m[32mInitialize[0m workbox-recipes@7.4.1
+[0m[32mInitialize[0m workbox-google-analytics@7.4.1
+[0m[32mInitialize[0m tinyspy@4.0.6
+[0m[32mInitialize[0m workbox-range-requests@7.4.1
+[0m[32mInitialize[0m @typescript-eslint/project-service@8.71.2
+[0m[32mInitialize[0m @typescript-eslint/types@8.71.2
+[0m[32mInitialize[0m source-map@0.8.0
+[0m[32mInitialize[0m workbox-cacheable-response@7.4.1
+[0m[32mInitialize[0m ignore@7.0.12
+[0m[32mInitialize[0m @typescript-eslint/visitor-keys@8.71.2
+[0m[32mInitialize[0m workbox-expiration@7.4.1
+[0m[32mInitialize[0m @rollup/plugin-babel@6.1.0
+[0m[32mInitialize[0m workbox-routing@7.4.1
+[0m[32mInitialize[0m @babel/preset-env@7.29.7
+[0m[32mInitialize[0m @typescript-eslint/type-utils@8.71.2
+[0m[32mInitialize[0m @floating-ui/dom@1.8.0
+[0m[32mInitialize[0m @babel/helper-validator-option@7.29.7
+[0m[32mInitialize[0m fastq@1.20.3
+[0m[32mInitialize[0m @babel/helper-string-parser@7.29.7
+[0m[32mInitialize[0m @babel/helper-module-imports@7.29.7
+[0m[32mInitialize[0m @babel/helper-globals@7.29.7
+[0m[32mInitialize[0m @babel/compat-data@7.29.7
+[0m[32mInitialize[0m nanoid@3.3.20
+[0m[32mInitialize[0m @eslint/js@9.39.5
+[0m[32mInitialize[0m semver@7.8.5
+[0m[32mInitialize[0m mdast-util-find-and-replace@3.0.3
+[0m[32mInitialize[0m serialize-javascript@7.1.2
+[0m[32mInitialize[0m smob@1.6.2
+[0m[32mInitialize[0m micromark@4.0.3
+[0m[32mInitialize[0m string.prototype.matchall@4.1.0
+[0m[32mInitialize[0m @babel/plugin-transform-private-methods@7.29.7
+[0m[32mInitialize[0m micromark-factory-space@2.1.0
+[0m[32mInitialize[0m jsonfile@6.2.1
+[0m[32mInitialize[0m @rollup/pluginutils@5.4.0
+[0m[32mInitialize[0m @babel/plugin-transform-class-properties@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-reserved-words@7.29.7
+[0m[32mInitialize[0m @types/estree@1.0.9
+[0m[32mInitialize[0m @babel/plugin-transform-destructuring@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-logical-assignment-operators@7.29.7
+[0m[32mInitialize[0m @babel/plugin-bugfix-v8-static-class-fields-redefine-readonly@7.29.7
+[0m[32mInitialize[0m fast-uri@3.1.8
+[0m[32mInitialize[0m @babel/plugin-transform-computed-properties@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-duplicate-keys@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-json-strings@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-numeric-separator@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-private-property-in-object@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-dotall-regex@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-unicode-escapes@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-modules-systemjs@7.29.8
+[0m[32mInitialize[0m @babel/plugin-transform-dynamic-import@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-regexp-modifiers@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-exponentiation-operator@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-function-name@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-modules-commonjs@7.29.7
+[0m[32mInitialize[0m @babel/plugin-bugfix-safari-class-field-initializer-scope@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-sticky-regex@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-named-capturing-groups-regex@7.29.7
+[0m[32mInitialize[0m @babel/plugin-bugfix-safari-id-destructuring-collision-in-function-expression@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-shorthand-properties@7.29.7
+[0m[32mInitialize[0m @babel/plugin-bugfix-safari-rest-destructuring-rhs-array@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-object-super@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-block-scoping@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-object-rest-spread@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-unicode-sets-regex@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-optional-catch-binding@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-unicode-property-regex@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-async-generator-functions@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-for-of@7.29.7
+[0m[32mInitialize[0m @babel/plugin-syntax-import-attributes@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-member-expression-literals@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-modules-amd@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-new-target@7.29.7
+[0m[32mInitialize[0m @babel/plugin-bugfix-firefox-class-in-computed-class-key@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-explicit-resource-management@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-export-namespace-from@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-literals@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-regenerator@7.29.8
+[0m[32mInitialize[0m @babel/plugin-transform-optional-chaining@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-block-scoped-functions@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-async-to-generator@7.29.7
+[0m[32mInitialize[0m micromark-core-commonmark@2.0.4
+[0m[32mInitialize[0m @babel/plugin-transform-nullish-coalescing-operator@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-spread@7.29.8
+[0m[32mInitialize[0m @babel/plugin-syntax-import-assertions@7.29.7
+[0m[32mInitialize[0m @trickfilm400/rollup-plugin-off-main-thread@3.0.0-pre1
+[0m[32mInitialize[0m @babel/plugin-transform-modules-umd@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-class-static-block@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-unicode-regex@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-classes@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-arrow-functions@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-property-literals@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-duplicate-named-capturing-groups-regex@7.29.7
+[0m[32mInitialize[0m @babel/plugin-bugfix-v8-spread-parameters-in-optional-chaining@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-typeof-symbol@7.29.7
+[0m[32mInitialize[0m @floating-ui/core@1.8.0
+[0m[32mInitialize[0m baseline-browser-mapping@2.11.29
+[0m[32mInitialize[0m brace-expansion@5.0.12
+[0m[32mInitialize[0m brace-expansion@2.1.7
+[0m[32mInitialize[0m traverse@0.3.10
+[0m[32mInitialize[0m @floating-ui/utils@0.2.12
+[0m[32mInitialize[0m micromark-util-edit-map@1.0.0
+[0m[32mInitialize[0m es-object-atoms@1.1.2
+[0m[32mInitialize[0m side-channel@1.1.1
+[0m[32mInitialize[0m call-bind@1.0.9
+[0m[32mInitialize[0m @babel/helper-annotate-as-pure@7.29.7
+[0m[32mInitialize[0m @babel/helper-create-regexp-features-plugin@7.29.10
+[0m[32mInitialize[0m @babel/helper-remap-async-to-generator@7.29.7
+[0m[32mInitialize[0m @babel/helper-skip-transparent-expression-wrappers@7.29.7
+[0m[32mInitialize[0m @babel/helper-replace-supers@7.29.7
+[0m[32mInitialize[0m @babel/plugin-transform-template-literals@7.29.7
+[0m[32mInitialize[0m workbox-sw@7.4.1
+[0m[32mInitialize[0m es-to-primitive@1.3.4
+[0m[32mInitialize[0m which-typed-array@1.1.24
+[0m[32mInitialize[0m typedarray.prototype.slice@1.0.6
+[0m[32mInitialize[0m string.prototype.trim@1.2.11
+[0m[32mInitialize[0m own-keys@1.0.2
+[0m[32mInitialize[0m typed-array-byte-offset@1.0.5
+[0m[32mInitialize[0m string.prototype.trimend@1.0.10
+[0m[32mInitialize[0m typed-array-length@1.0.8
+[0m[32mInitialize[0m side-channel-list@1.0.1
+[0m[32mInitialize[0m @babel/helper-wrap-function@7.29.7
+[0m[32mInitialize[0m @babel/helper-member-expression-to-functions@7.29.7
+[0m[32mInitialize[0m function.prototype.name@1.2.0
+[0m[32mInitialize[0m @babel/helper-optimise-call-expression@7.29.7
+[0m[32mInitialize[0m is-document.all@1.0.0
+[0m[32mInitialize[0m es-abstract-get@1.0.0
+[0m[32mInitialize[0m regexpu-core@6.5.3
+[0m[32mInitialize[0m regenerate@1.5.0
+[0m[32mInitialize[0m regjsparser@0.13.4
+[0m[32mInitialize[0m @jridgewell/sourcemap-codec@1.6.0
+[0m[32mInitialize[0m cmdk@1.1.1
+[0m[32mInitialize[0m clsx@2.1.1
+[0m[32mInitialize[0m react-markdown@10.1.0
+[0m[32mInitialize[0m eslint-plugin-react-refresh@0.4.26
+[0m[32mInitialize[0m next-themes@0.3.0
+[0m[32mInitialize[0m class-variance-authority@0.7.1
+[0m[32mInitialize[0m remark-gfm@4.0.1
+[0m[32mInitialize[0m @types/testing-library__jest-dom@6.0.0
+[0m[32mInitialize[0m vaul@0.9.9
+[0m[32mInitialize[0m embla-carousel-react@8.6.0
+[0m[32mInitialize[0m @vitejs/plugin-react@4.7.0
+[0m[32mInitialize[0m @types/react-dom@18.3.7
+[0m[32mInitialize[0m marked@18.1.1
+[0m[32mInitialize[0m globals@15.15.0
+[0m[32mInitialize[0m @dnd-kit/utilities@3.2.2
+[0m[32mInitialize[0m @babel/plugin-transform-parameters@7.29.7
+[0m[32mInitialize[0m tailwindcss-animate@1.0.7
+[0m[32mInitialize[0m react-remove-scroll@2.7.2
+[0m[32mInitialize[0m eslint-plugin-react-hooks@5.2.0
+[0m[32mInitialize[0m aria-hidden@1.2.6
+[0m[32mInitialize[0m is-glob@4.0.3
+[0m[32mInitialize[0m @esbuild-kit/esm-loader@2.6.5
+[0m[32mInitialize[0m react@18.3.1
+[0m[32mInitialize[0m @eslint/core@0.17.0
+[0m[32mInitialize[0m @radix-ui/react-select@2.4.1
+[0m[32mInitialize[0m safe-array-concat@1.1.4
+[0m[32mInitialize[0m sonner@1.7.4
+[0m[32mInitialize[0m cross-spawn@7.0.6
+[0m[32mInitialize[0m eslint-visitor-keys@4.2.1
+[0m[32mInitialize[0m file-entry-cache@8.0.0
+[0m[32mInitialize[0m glob-parent@6.0.2
+[0m[32mInitialize[0m json-stable-stringify-without-jsonify@1.0.1
+[0m[32mInitialize[0m escape-string-regexp@4.0.0
+[0m[32mInitialize[0m natural-compare@1.4.0
+[0m[32mInitialize[0m fast-deep-equal@3.1.3
+[0m[32mInitialize[0m chalk@4.1.2
+[0m[32mInitialize[0m minimatch@3.1.5
+[0m[32mInitialize[0m optionator@0.9.4
+[0m[32mInitialize[0m debug@4.4.3
+[0m[32mInitialize[0m find-up@5.0.0
+[0m[32mInitialize[0m espree@10.4.0
+[0m[32mInitialize[0m esbuild@0.25.12
+[0m[32mInitialize[0m ignore@5.3.2
+[0m[32mInitialize[0m esutils@2.0.3
+[0m[32mInitialize[0m @humanwhocodes/module-importer@1.0.1
+[0m[32mInitialize[0m @drizzle-team/brocli@0.10.2
+[0m[32mInitialize[0m tailwind-merge@2.6.1
+[0m[32mInitialize[0m eslint-scope@8.4.0
+[0m[32mInitialize[0m remark-parse@11.0.0
+[0m[32mInitialize[0m remark-rehype@11.1.2
+[0m[32mInitialize[0m lodash.merge@4.6.2
+[0m[32mInitialize[0m workbox-window@7.4.1
+[0m[32mInitialize[0m @eslint-community/regexpp@4.12.2
+[0m[32mInitialize[0m html-url-attributes@3.0.1
+[0m[32mInitialize[0m tslib@2.8.1
+[0m[32mInitialize[0m picocolors@1.1.1
+[0m[32mInitialize[0m devlop@1.1.0
+[0m[32mInitialize[0m hast-util-to-jsx-runtime@2.3.6
+[0m[32mInitialize[0m @supabase/functions-js@2.118.0
+[0m[32mInitialize[0m @eslint-community/eslint-utils@4.10.1
+[0m[32mInitialize[0m unified@11.0.5
+[0m[32mInitialize[0m @tanstack/react-table@8.21.3
+[0m[32mInitialize[0m didyoumean@1.2.2
+[0m[32mInitialize[0m postcss-nested@6.2.0
+[0m[32mInitialize[0m @types/prop-types@15.7.15
+[0m[32mInitialize[0m postcss-load-config@6.0.1
+[0m[32mInitialize[0m react-resizable-panels@2.1.9
+[0m[32mInitialize[0m arg@5.0.2
+[0m[32mInitialize[0m normalize-path@3.0.0
+[0m[32mInitialize[0m imurmurhash@0.1.4
+[0m[32mInitialize[0m acorn-globals@7.0.1
+[0m[32mInitialize[0m @rolldown/pluginutils@1.0.0-beta.27
+[0m[32mInitialize[0m embla-carousel-reactive-utils@8.6.0
+[0m[32mInitialize[0m micromatch@4.0.8
+[0m[32mInitialize[0m @eslint/plugin-kit@0.4.1
+[0m[32mInitialize[0m unist-util-visit@5.1.0
+[0m[32mInitialize[0m @eslint/config-helpers@0.4.2
+[0m[32mInitialize[0m object-hash@3.0.0
+[0m[32mInitialize[0m @types/babel__core@7.20.5
+[0m[32mInitialize[0m postcss-js@4.1.0
+[0m[32mInitialize[0m @types/mdast@4.0.4
+[0m[32mInitialize[0m data-urls@3.0.2
+[0m[32mInitialize[0m react-refresh@0.17.0
+[0m[32mInitialize[0m postcss-import@15.1.0
+[0m[32mInitialize[0m w3c-xmlserializer@4.0.0
+[0m[32mInitialize[0m saxes@6.0.0
+[0m[32mInitialize[0m @types/react@18.3.31
+[0m[32mInitialize[0m vfile@6.0.3
+[0m[32mInitialize[0m domexception@4.0.0
+[0m[32mInitialize[0m @dnd-kit/accessibility@3.1.1
+[0m[32mInitialize[0m @eslint/config-array@0.21.2
+[0m[32mInitialize[0m chokidar@3.6.0
+[0m[32mInitialize[0m escodegen@2.1.0
+[0m[32mInitialize[0m react-router-dom@6.30.6
+[0m[32mInitialize[0m whatwg-mimetype@3.0.0
+[0m[32mInitialize[0m @eslint/eslintrc@3.3.7
+[0m[32mInitialize[0m esquery@1.7.0
+[0m[32mInitialize[0m @handsontable/react-wrapper@18.1.2
+[0m[32mInitialize[0m xml-name-validator@4.0.0
+[0m[32mInitialize[0m tsx@4.23.15
+[0m[32mInitialize[0m decimal.js@10.6.0
+[0m[32mInitialize[0m @humanwhocodes/retry@0.4.3
+[0m[32mInitialize[0m csstype@3.2.3
+[0m[32mInitialize[0m is-potential-custom-element-name@1.0.1
+[0m[32mInitialize[0m abab@2.0.6
+[0m[32mInitialize[0m @types/aria-query@5.0.4
+[0m[32mInitialize[0m symbol-tree@3.2.4
+[0m[32mInitialize[0m html-encoding-sniffer@3.0.0
+[0m[32mInitialize[0m jszip@3.10.2
+[0m[32mInitialize[0m http-proxy-agent@5.0.0
+[0m[32mInitialize[0m whatwg-encoding@2.0.0
+[0m[32mInitialize[0m tough-cookie@4.1.4
+[0m[32mInitialize[0m remark-stringify@11.0.0
+[0m[32mInitialize[0m whatwg-url@11.0.0
+[0m[32mInitialize[0m fast-csv@4.3.6
+[0m[32mInitialize[0m https-proxy-agent@5.0.1
+[0m[32mInitialize[0m pretty-format@27.5.1
+[0m[32mInitialize[0m tiny-invariant@1.3.3
+[0m[32mInitialize[0m fast-glob@3.3.3
+[0m[32mInitialize[0m fraction.js@5.3.4
+[0m[32mInitialize[0m archiver@5.3.2
+[0m[32mInitialize[0m loose-envify@1.4.0
+[0m[32mInitialize[0m webidl-conversions@7.0.0
+[0m[32mInitialize[0m @supabase/storage-js@2.118.0
+[0m[32mInitialize[0m word@0.3.0
+[0m[32mInitialize[0m postcss-value-parser@4.2.0
+[0m[32mInitialize[0m react-is@18.3.1
+[0m[32mInitialize[0m css.escape@1.5.1
+[0m[32mInitialize[0m @types/trusted-types@2.0.7
+[0m[32mInitialize[0m adler-32@1.3.1
+[0m[32mInitialize[0m tiny-emitter@2.1.0
+[0m[32mInitialize[0m redent@3.0.0
+[0m[32mInitialize[0m saxes@5.0.1
+[0m[32mInitialize[0m eventemitter3@4.0.7
+[0m[32mInitialize[0m ajv@6.15.0
+[0m[32mInitialize[0m unzipper@0.10.14
+[0m[32mInitialize[0m lz-string@1.5.0
+[0m[32mInitialize[0m ssf@0.11.2
+[0m[32mInitialize[0m pretty-bytes@6.1.1
+[0m[32mInitialize[0m acorn@8.19.0
+[0m[32mInitialize[0m cssom@0.5.0
+[0m[32mInitialize[0m mdast-util-to-hast@13.2.1
+[0m[32mInitialize[0m readable-stream@3.6.2
+[0m[32mInitialize[0m recharts-scale@0.4.5
+[0m[32mInitialize[0m tinyexec@0.3.2
+[0m[32mInitialize[0m embla-carousel@8.6.0
+[0m[32mInitialize[0m uuid@8.3.2
+[0m[32mInitialize[0m react-smooth@4.0.4
+[0m[32mInitialize[0m std-env@3.10.0
+[0m[32mInitialize[0m wmf@1.0.2
+[0m[32mInitialize[0m text-segmentation@1.0.3
+[0m[32mInitialize[0m setimmediate@1.0.5
+[0m[32mInitialize[0m postcss-selector-parser@6.0.10
+[0m[32mInitialize[0m scheduler@0.23.2
+[0m[32mInitialize[0m undici-types@6.21.0
+[0m[32mInitialize[0m iceberg-js@0.8.1
+[0m[32mInitialize[0m @types/chai@5.2.3
+[0m[32mInitialize[0m cssstyle@2.3.0
+[0m[32mInitialize[0m esbuild@0.21.5
+[0m[32mInitialize[0m readable-stream@2.3.8
+[0m[32mInitialize[0m tinybench@2.9.0
+[0m[32mInitialize[0m tinyrainbow@2.0.0
+[0m[32mInitialize[0m dom-accessibility-api@0.5.16
+[0m[32mInitialize[0m pathe@2.0.3
+[0m[32mInitialize[0m @supabase/realtime-js@2.118.0
+[0m[32mInitialize[0m @esbuild-kit/core-utils@3.3.2
+[0m[32mInitialize[0m @testing-library/dom@10.4.2
+[0m[32mInitialize[0m globals@14.0.0
+[0m[32mInitialize[0m dom-accessibility-api@0.6.3
+[0m[32mInitialize[0m import-fresh@3.3.1
+[0m[32mInitialize[0m css-line-break@2.1.0
+[0m[32mInitialize[0m is-extglob@2.1.1
+[0m[32mInitialize[0m vitest@3.2.7
+[0m[32mInitialize[0m cfb@1.2.2
+[0m[32mInitialize[0m eslint-visitor-keys@3.4.3
+[0m[32mInitialize[0m supports-color@7.2.0
+[0m[32mInitialize[0m shebang-command@2.0.0
+[0m[32mInitialize[0m tinypool@1.1.1
+[0m[32mInitialize[0m strip-json-comments@3.1.1
+[0m[32mInitialize[0m react-style-singleton@2.2.3
+[0m[32mInitialize[0m path-exists@4.0.0
+[0m[32mInitialize[0m micromark-extension-gfm@3.0.0
+[0m[32mInitialize[0m json-schema-traverse@0.4.1
+[0m[32mInitialize[0m flat-cache@4.0.1
+[0m[32mInitialize[0m react-remove-scroll-bar@2.3.8
+[0m[32mInitialize[0m fast-png@6.4.0
+[0m[32mInitialize[0m magic-string@0.30.21
+[0m[32mInitialize[0m vite-node@3.2.4
+[0m[32mInitialize[0m use-callback-ref@1.3.3
+[0m[32mInitialize[0m esrecurse@4.3.0
+[0m[32mInitialize[0m react-hook-form@7.90.0
+[0m[32mInitialize[0m chai@5.3.3
+[0m[32mInitialize[0m levn@0.4.1
+[0m[32mInitialize[0m use-sidecar@1.1.3
+[0m[32mInitialize[0m aria-query@5.3.0
+[0m[32mInitialize[0m @types/node@22.20.5
+[0m[32mInitialize[0m locate-path@6.0.0
+[0m[32mInitialize[0m is-plain-obj@4.1.0
+[0m[32mInitialize[0m ansi-styles@4.3.0
+[0m[32mInitialize[0m prelude-ls@1.2.1
+[0m[32mInitialize[0m heic2any@0.0.4
+[0m[32mInitialize[0m bail@2.0.2
+[0m[32mInitialize[0m estraverse@5.3.0
+[0m[32mInitialize[0m which@2.0.2
+[0m[32mInitialize[0m type-check@0.4.0
+[0m[32mInitialize[0m fflate@0.8.3
+[0m[32mInitialize[0m @tanstack/virtual-core@3.19.6
+[0m[32mInitialize[0m @typescript-eslint/typescript-estree@8.71.2
+[0m[32mInitialize[0m react-router@6.30.6
+[0m[32mInitialize[0m fast-json-stable-stringify@2.1.0
+[0m[32mInitialize[0m @types/unist@3.0.3
+[0m[32mInitialize[0m extend@3.0.2
+[0m[32mInitialize[0m fast-levenshtein@2.0.6
+[0m[32mInitialize[0m mdast-util-mdx-expression@2.0.1
+[0m[32mInitialize[0m micromark-util-sanitize-uri@2.0.1
+[0m[32mInitialize[0m trough@2.2.0
+[0m[32mInitialize[0m hast-util-whitespace@3.0.0
+[0m[32mInitialize[0m acorn-jsx@5.3.2
+[0m[32mInitialize[0m jiti@1.21.7
+[0m[32mInitialize[0m mdast-util-mdxjs-esm@2.0.1
+[0m[32mInitialize[0m style-to-js@1.1.21
+[0m[32mInitialize[0m workbox-core@7.4.1
+[0m[32mInitialize[0m @babel/core@7.29.7
+[0m[32mInitialize[0m comma-separated-tokens@2.0.3
+[0m[32mInitialize[0m @dnd-kit/core@6.3.1
+[0m[32mInitialize[0m path-parse@1.0.7
+[0m[32mInitialize[0m pako@1.0.11
+[0m[32mInitialize[0m unist-util-visit-parents@6.0.2
+[0m[32mInitialize[0m dequal@2.0.3
+[0m[32mInitialize[0m @supabase/phoenix@0.4.5
+[0m[32mInitialize[0m mz@2.7.0
+[0m[32mInitialize[0m pirates@4.0.7
+[0m[32mInitialize[0m estree-util-is-identifier-name@3.0.0
+[0m[32mInitialize[0m uri-js@4.4.1
+[0m[32mInitialize[0m merge2@1.4.1
+[0m[32mInitialize[0m lines-and-columns@1.2.4
+[0m[32mInitialize[0m workbox-build@7.4.1
+[0m[32mInitialize[0m trim-lines@3.0.1
+[0m[32mInitialize[0m vfile-message@4.0.3
+[0m[32mInitialize[0m js-yaml@4.3.2
+[0m[32mInitialize[0m word-wrap@1.2.5
+[0m[32mInitialize[0m ts-interface-checker@0.1.13
+[0m[32mInitialize[0m space-separated-tokens@2.0.2
+[0m[32mInitialize[0m dompurify@3.4.17
+[0m[32mInitialize[0m commander@4.1.1
+[0m[32mInitialize[0m cssesc@3.0.0
+[0m[32mInitialize[0m @nodelib/fs.walk@1.2.8
+[0m[32mInitialize[0m @types/json-schema@7.0.15
+[0m[32mInitialize[0m braces@3.0.3
+[0m[32mInitialize[0m unist-util-position@5.0.0
+[0m[32mInitialize[0m glob-parent@5.1.2
+[0m[32mInitialize[0m deep-is@0.1.4
+[0m[32mInitialize[0m is-binary-path@2.1.0
+[0m[32mInitialize[0m @nodelib/fs.stat@2.0.5
+[0m[32mInitialize[0m es-errors@1.3.0
+[0m[32mInitialize[0m camelcase-css@2.0.1
+[0m[32mInitialize[0m unist-util-is@6.0.1
+[0m[32mInitialize[0m convert-source-map@2.0.0
+[0m[32mInitialize[0m anymatch@3.1.3
+[0m[32mInitialize[0m @jridgewell/gen-mapping@0.3.13
+[0m[32mInitialize[0m readdirp@3.6.0
+[0m[32mInitialize[0m supports-preserve-symlinks-flag@1.0.0
+[0m[32mInitialize[0m agent-base@6.0.2
+[0m[32mInitialize[0m @types/babel__generator@7.27.0
+[0m[32mInitialize[0m semver@6.3.1
+[0m[32mInitialize[0m gensync@1.0.0-beta.2
+[0m[32mInitialize[0m acorn-walk@8.3.5
+[0m[32mInitialize[0m mdast-util-mdx-jsx@3.2.0
+[0m[32mInitialize[0m mime-types@2.1.35
+[0m[32mInitialize[0m vite@5.4.19
+[0m[32mInitialize[0m js-tokens@4.0.0
+[0m[32mInitialize[0m es-set-tostringtag@2.1.0
+[0m[32mInitialize[0m url-parse@1.5.10
+[0m[32mInitialize[0m @types/babel__traverse@7.28.0
+[0m[32mInitialize[0m inherits@2.0.4
+[0m[32mInitialize[0m @jridgewell/remapping@2.3.5
+[0m[32mInitialize[0m asynckit@0.4.0
+[0m[32mInitialize[0m graceful-fs@4.2.11
+[0m[32mInitialize[0m @tanstack/react-query@5.104.4
+[0m[32mInitialize[0m json5@2.2.3
+[0m[32mInitialize[0m xmlchars@2.2.0
+[0m[32mInitialize[0m buffer-crc32@0.2.13
+[0m[32mInitialize[0m string_decoder@1.1.1
+[0m[32mInitialize[0m punycode@2.3.1
+[0m[32mInitialize[0m duplexer2@0.1.4
+[0m[32mInitialize[0m react-is@17.0.2
+[0m[32mInitialize[0m esprima@4.0.1
+[0m[32mInitialize[0m @supabase/auth-js@2.118.0
+[0m[32mInitialize[0m ansi-regex@5.0.1
+[0m[32mInitialize[0m buffer-indexof-polyfill@1.0.2
+[0m[32mInitialize[0m zip-stream@4.1.1
+[0m[32mInitialize[0m cssom@0.3.8
+[0m[32mInitialize[0m util-deprecate@1.0.2
+[0m[32mInitialize[0m tr46@3.0.0
+[0m[32mInitialize[0m readdir-glob@1.1.3
+[0m[32mInitialize[0m tar-stream@2.2.0
+[0m[32mInitialize[0m universalify@0.2.0
+[0m[32mInitialize[0m archiver-utils@2.1.0
+[0m[32mInitialize[0m mdast-util-gfm-task-list-item@2.0.0
+[0m[32mInitialize[0m listenercount@1.0.1
+[0m[32mInitialize[0m fstream@1.0.12
+[0m[32mInitialize[0m @fast-csv/format@4.3.5
+[0m[32mInitialize[0m micromark-extension-gfm-strikethrough@2.1.0
+[0m[32mInitialize[0m mdast-util-gfm-table@2.0.0
+[0m[32mInitialize[0m react-day-picker@8.10.2
+[0m[32mInitialize[0m @types/d3-timer@3.0.2
+[0m[32mInitialize[0m big-integer@1.6.52
+[0m[32mInitialize[0m @tanstack/table-core@8.21.3
+[0m[32mInitialize[0m canvg@3.0.11
+[0m[32mInitialize[0m @types/d3-interpolate@3.0.4
+[0m[32mInitialize[0m mdast-util-gfm-autolink-literal@2.0.1
+[0m[32mInitialize[0m micromark-extension-gfm-footnote@2.1.0
+[0m[32mInitialize[0m d3-time@3.1.0
+[0m[32mInitialize[0m d3-scale@4.0.2
+[0m[32mInitialize[0m @types/d3-time@3.0.4
+[0m[32mInitialize[0m @fast-csv/parse@4.3.6
+[0m[32mInitialize[0m binary@0.3.0
+[0m[32mInitialize[0m @types/d3-array@3.2.2
+[0m[32mInitialize[0m micromark-extension-gfm-tagfilter@2.0.0
+[0m[32mInitialize[0m micromark-extension-gfm-autolink-literal@2.1.0
+[0m[32mInitialize[0m @types/d3-scale@4.0.9
+[0m[32mInitialize[0m regenerator-runtime@0.13.11
+[0m[32mInitialize[0m rollup@4.64.9
+[0m[32mInitialize[0m @types/d3-ease@3.0.2
+[0m[32mInitialize[0m victory-vendor@36.9.2
+[0m[32mInitialize[0m micromark-extension-gfm-task-list-item@2.1.0
+[0m[32mInitialize[0m indent-string@4.0.0
+[0m[32mInitialize[0m chevrotain@6.5.0
+[0m[32mInitialize[0m d3-ease@3.0.1
+[0m[32mInitialize[0m micromark-util-combine-extensions@2.0.1
+[0m[32mInitialize[0m mdast-util-gfm-footnote@2.1.0
+[0m[32mInitialize[0m frac@1.1.2
+[0m[32mInitialize[0m prop-types@15.8.1
+[0m[32mInitialize[0m d3-interpolate@3.0.1
+[0m[32mInitialize[0m @babel/generator@7.29.8
+[0m[32mInitialize[0m regexp-to-ast@0.4.0
+[0m[32mInitialize[0m fdir@6.5.0
+[0m[32mInitialize[0m @types/raf@3.4.3
+[0m[32mInitialize[0m psl@1.15.0
+[0m[32mInitialize[0m rgbcolor@1.0.1
+[0m[32mInitialize[0m strip-indent@3.0.0
+[0m[32mInitialize[0m strip-comments@2.0.1
+[0m[32mInitialize[0m decimal.js-light@2.5.1
+[0m[32mInitialize[0m @remix-run/router@1.23.4
+[0m[32mInitialize[0m iobuffer@5.4.0
+[0m[32mInitialize[0m @types/pako@2.0.4
+[0m[32mInitialize[0m fast-equals@5.4.5
+[0m[32mInitialize[0m mdast-util-gfm@3.1.0
+[0m[32mInitialize[0m pretty-bytes@5.6.0
+[0m[32mInitialize[0m raf@3.4.1
+[0m[32mInitialize[0m @babel/traverse@7.29.10
+[0m[32mInitialize[0m tempy@0.6.0
+[0m[32mInitialize[0m stackblur-canvas@2.7.0
+[0m[32mInitialize[0m isarray@1.0.0
+[0m[32mInitialize[0m d3-shape@3.2.0
+[0m[32mInitialize[0m process-nextick-args@2.0.1
+[0m[32mInitialize[0m react-dom@18.3.1
+[0m[32mInitialize[0m bluebird@3.4.7
+[0m[32mInitialize[0m stringify-object@3.3.0
+[0m[32mInitialize[0m core-util-is@1.0.3
+[0m[32mInitialize[0m @rollup/plugin-terser@1.0.0
+[0m[32mInitialize[0m @apideck/better-ajv-errors@0.3.7
+[0m[32mInitialize[0m iconv-lite@0.6.3
+[0m[32mInitialize[0m svg-pathdata@6.0.3
+[0m[32mInitialize[0m entities@6.0.1
+[0m[32mInitialize[0m siginfo@2.0.0
+[0m[32mInitialize[0m assertion-error@2.0.1
+[0m[32mInitialize[0m immediate@3.0.6
+[0m[32mInitialize[0m check-error@2.1.3
+[0m[32mInitialize[0m stackback@0.0.2
+[0m[32mInitialize[0m react-transition-group@4.4.5
+[0m[32mInitialize[0m @rollup/plugin-node-resolve@16.0.3
+[0m[32mInitialize[0m @rollup/plugin-replace@6.0.3
+[0m[32mInitialize[0m detect-node-es@1.1.0
+[0m[32mInitialize[0m source-map-support@0.5.21
+[0m[32mInitialize[0m workbox-background-sync@7.4.1
+[0m[32mInitialize[0m @types/deep-eql@4.0.2
+[0m[32mInitialize[0m d3-array@3.2.4
+[0m[32mInitialize[0m pathval@2.0.1
+[0m[32mInitialize[0m strip-literal@3.1.0
+[0m[32mInitialize[0m deep-eql@5.0.2
+[0m[32mInitialize[0m jsdom@20.0.3
+[0m[32mInitialize[0m resolve-from@4.0.0
+[0m[32mInitialize[0m get-nonce@1.0.1
+[0m[32mInitialize[0m ts-api-utils@2.5.0
+[0m[32mInitialize[0m es-module-lexer@1.7.0
+[0m[32mInitialize[0m fs-extra@9.1.0
+[0m[32mInitialize[0m estree-walker@3.0.3
+[0m[32mInitialize[0m p-locate@5.0.0
+[0m[32mInitialize[0m concat-map@0.0.1
+[0m[32mInitialize[0m micromark-util-character@2.1.1
+[0m[32mInitialize[0m eslint@9.39.5
+[0m[32mInitialize[0m esbuild@0.18.20
+[0m[32mInitialize[0m loupe@3.2.1
+[0m[32mInitialize[0m has-flag@4.0.0
+[0m[32mInitialize[0m resolve-pkg-maps@1.0.0
+[0m[32mInitialize[0m balanced-match@1.0.2
+[0m[32mInitialize[0m micromark-util-encode@2.0.1
+[0m[32mInitialize[0m shebang-regex@3.0.0
+[0m[32mInitialize[0m workbox-strategies@7.4.1
+[0m[32mInitialize[0m isexe@2.0.0
+[0m[32mInitialize[0m color-convert@2.0.1
+[0m[32mInitialize[0m keyv@4.5.4
+[0m[32mInitialize[0m style-to-object@1.0.14
+[0m[32mInitialize[0m parse-entities@4.0.2
+[0m[32mInitialize[0m unist-util-stringify-position@4.0.0
+[0m[32mInitialize[0m micromark-util-symbol@2.0.1
+[0m[32mInitialize[0m glob@11.1.0
+[0m[32mInitialize[0m decode-named-character-reference@1.3.0
+[0m[32mInitialize[0m micromark-util-normalize-identifier@2.0.1
+[0m[32mInitialize[0m ccount@2.0.1
+[0m[32mInitialize[0m cac@6.7.14
+[0m[32mInitialize[0m fill-range@7.1.1
+[0m[32mInitialize[0m micromark-util-decode-numeric-character-reference@2.0.2
+[0m[32mInitialize[0m @babel/parser@7.29.9
+[0m[32mInitialize[0m mdast-util-to-string@4.0.0
+[0m[32mInitialize[0m workbox-precaching@7.4.1
+[0m[32mInitialize[0m lru-cache@5.1.1
+[0m[32mInitialize[0m requires-port@1.0.0
+[0m[32mInitialize[0m binary-extensions@2.3.0
+[0m[32mInitialize[0m jsesc@3.1.0
+[0m[32mInitialize[0m has-tostringtag@1.0.2
+[0m[32mInitialize[0m minimatch@10.2.6
+[0m[32mInitialize[0m stringify-entities@4.0.4
+[0m[32mInitialize[0m object-assign@4.1.1
+[0m[32mInitialize[0m querystringify@2.2.0
+[0m[32mInitialize[0m get-intrinsic@1.3.0
+[0m[32mInitialize[0m safer-buffer@2.1.2
+[0m[32mInitialize[0m escalade@3.2.0
+[0m[32mInitialize[0m lodash.isnil@4.0.0
+[0m[32mInitialize[0m mime-db@1.52.0
+[0m[32mInitialize[0m chainsaw@0.1.0
+[0m[32mInitialize[0m delayed-stream@1.0.0
+[0m[32mInitialize[0m any-promise@1.3.0
+[0m[32mInitialize[0m lodash.defaults@4.2.0
+[0m[32mInitialize[0m mkdirp@0.5.6
+[0m[32mInitialize[0m lodash.isfunction@3.0.9
+[0m[32mInitialize[0m tailwindcss@3.4.19
+[0m[32mInitialize[0m argparse@2.0.1
+[0m[32mInitialize[0m lodash.isplainobject@4.0.6
+[0m[32mInitialize[0m lodash.escaperegexp@4.1.2
+[0m[32mInitialize[0m lodash.flatten@4.4.0
+[0m[32mInitialize[0m end-of-stream@1.4.5
+[0m[32mInitialize[0m lodash.uniq@4.5.0
+[0m[32mInitialize[0m lodash.isequal@4.5.0
+[0m[32mInitialize[0m buffers@0.1.1
+[0m[32mInitialize[0m fs-constants@1.0.0
+[0m[32mInitialize[0m micromark-util-html-tag-name@2.0.1
+[0m[32mInitialize[0m lodash.groupby@4.6.0
+[0m[32mInitialize[0m glob@7.2.3
+[0m[32mInitialize[0m @nodelib/fs.scandir@2.1.5
+[0m[32mInitialize[0m minimatch@5.1.9
+[0m[32mInitialize[0m lazystream@1.0.1
+[0m[32mInitialize[0m mdast-util-phrasing@4.1.0
+[0m[32mInitialize[0m @jridgewell/trace-mapping@0.3.31
+[0m[32mInitialize[0m markdown-table@3.0.4
+[0m[32mInitialize[0m zwitch@2.0.4
+[0m[32mInitialize[0m micromark-util-resolve-all@2.0.1
+[0m[32mInitialize[0m dayjs@1.11.23
+[0m[32mInitialize[0m internmap@2.0.3
+[0m[32mInitialize[0m longest-streak@3.1.0
+[0m[32mInitialize[0m micromark-util-classify-character@2.0.1
+[0m[32mInitialize[0m playwright@1.64.1
+[0m[32mInitialize[0m @types/d3-path@3.1.1
+[0m[32mInitialize[0m @types/d3-color@3.1.3
+[0m[32mInitialize[0m lodash.difference@4.5.0
+[0m[32mInitialize[0m jsonpointer@5.0.1
+[0m[32mInitialize[0m @babel/helpers@7.29.10
+[0m[32mInitialize[0m bl@4.1.0
+[0m[32mInitialize[0m require-from-string@2.0.2
+[0m[32mInitialize[0m compress-commons@4.1.2
+[0m[32mInitialize[0m pako@2.2.0
+[0m[32mInitialize[0m micromark-util-decode-string@2.0.1
+[0m[32mInitialize[0m d3-color@3.1.0
+[0m[32mInitialize[0m react-is@16.13.1
+[0m[32mInitialize[0m @typescript-eslint/eslint-plugin@8.71.2
+[0m[32mInitialize[0m parent-module@1.0.1
+[0m[32mInitialize[0m d3-path@3.1.0
+[0m[32mInitialize[0m lie@3.3.0
+[0m[32mInitialize[0m micromark-util-chunked@2.0.1
+[0m[32mInitialize[0m lodash.isundefined@3.0.1
+[0m[32mInitialize[0m min-indent@1.0.1
+[0m[32mInitialize[0m is-module@1.0.0
+[0m[32mInitialize[0m is-stream@2.0.1
+[0m[32mInitialize[0m lodash.union@4.6.0
+[0m[32mInitialize[0m leven@3.1.0
+[0m[32mInitialize[0m universalify@2.0.1
+[0m[32mInitialize[0m deepmerge@4.3.1
+[0m[32mInitialize[0m function-bind@1.1.2
+[0m[32mInitialize[0m at-least-node@1.0.0
+[0m[32mInitialize[0m package-json-from-dist@1.0.1
+[0m[32mInitialize[0m json-schema-traverse@1.0.0
+[0m[32mInitialize[0m temp-dir@2.0.0
+[0m[32mInitialize[0m @babel/plugin-syntax-unicode-sets-regex@7.18.6
+[0m[32mInitialize[0m d3-time-format@4.1.0
+[0m[32mInitialize[0m type-fest@0.16.0
+[0m[32mInitialize[0m base64-arraybuffer@1.0.2
+[0m[32mInitialize[0m performance-now@2.1.0
+[0m[32mInitialize[0m @napi-rs/lzma-linux-x64-gnu@1.5.1
+[0m[32mInitialize[0m get-own-enumerable-property-symbols@3.0.2
+[0m[32mInitialize[0m js-tokens@9.0.1
+[0m[32mInitialize[0m recharts@2.15.4
+[0m[32mInitialize[0m buffer-from@1.1.2
+[0m[32mInitialize[0m is-obj@1.0.1
+[0m[32mInitialize[0m d3-format@3.1.2
+[0m[32mInitialize[0m @babel/plugin-proposal-private-property-in-object@7.21.0-placeholder-for-preset-env.2
+[0m[32mInitialize[0m ejs@3.1.10
+[0m[32mInitialize[0m json-buffer@3.0.1
+[0m[32mInitialize[0m thenify-all@1.6.0
+[0m[32mInitialize[0m character-entities-legacy@3.0.0
+[0m[32mInitialize[0m babel-plugin-polyfill-corejs2@0.4.17
+[0m[32mInitialize[0m core-js-compat@3.50.0
+[0m[32mInitialize[0m character-reference-invalid@2.0.1
+[0m[32mInitialize[0m is-regexp@1.0.0
+[0m[32mInitialize[0m minipass@7.1.3
+[0m[32mInitialize[0m upath@1.2.0
+[0m[32mInitialize[0m eslint-visitor-keys@5.0.1
+[0m[32mInitialize[0m foreground-child@3.3.1
+[0m[32mInitialize[0m babel-plugin-polyfill-corejs3@0.14.2
+[0m[32mInitialize[0m p-limit@3.1.0
+[0m[32mInitialize[0m character-entities-html4@2.1.0
+[0m[32mInitialize[0m @types/unist@2.0.11
+[0m[32mInitialize[0m html2canvas@1.4.1
+[0m[32mInitialize[0m is-alphanumerical@2.0.1
+[0m[32mInitialize[0m thenify@3.3.1
+[0m[32mInitialize[0m inline-style-parser@0.2.7
+[0m[32mInitialize[0m is-decimal@2.0.1
+[0m[32mInitialize[0m is-hexadecimal@2.0.1
+[0m[32mInitialize[0m character-entities@2.0.2
+[0m[32mInitialize[0m @jridgewell/resolve-uri@3.1.2
+[0m[32mInitialize[0m ansi-styles@5.2.0
+[0m[32mInitialize[0m babel-plugin-polyfill-regenerator@0.6.8
+[0m[32mInitialize[0m path-scurry@2.0.2
+[0m[32mInitialize[0m @types/debug@4.1.13
+[0m[32mInitialize[0m run-parallel@1.2.0
+[0m[32mInitialize[0m has-symbols@1.1.0
+[0m[32mInitialize[0m path-is-absolute@1.0.1
+[0m[32mInitialize[0m to-regex-range@5.0.1
+[0m[32mInitialize[0m @babel/types@7.29.8
+[0m[32mInitialize[0m @babel/preset-modules@0.1.6-no-external-plugins
+[0m[32mInitialize[0m es-define-property@1.0.1
+[0m[32mInitialize[0m yallist@3.1.1
+[0m[32mInitialize[0m reusify@1.1.0
+[0m[32mInitialize[0m math-intrinsics@1.1.0
+[0m[32mInitialize[0m gopd@1.2.0
+[0m[32mInitialize[0m once@1.4.0
+[0m[32mInitialize[0m inflight@1.0.6
+[0m[32mInitialize[0m source-map@0.6.1
+[0m[32mInitialize[0m call-bind-apply-helpers@1.0.2
+[0m[32mInitialize[0m zod@3.25.76
+[0m[32mInitialize[0m micromark-util-subtokenize@2.1.0
+[0m[32mInitialize[0m define-properties@1.2.1
+[0m[32mInitialize[0m micromark-factory-destination@2.0.1
+[0m[32mInitialize[0m @rollup/rollup-linux-x64-gnu@4.64.9
+[0m[32mInitialize[0m micromark-factory-whitespace@2.0.1
+[0m[32mInitialize[0m commander@2.20.3
+[0m[32mInitialize[0m minimist@1.2.8
+[0m[32mInitialize[0m @rollup/rollup-linux-x64-musl@4.64.9
+[0m[32mInitialize[0m crc-32@1.2.2
+[0m[32mInitialize[0m set-function-name@2.0.2
+[0m[32mInitialize[0m escape-string-regexp@5.0.0
+[0m[32mInitialize[0m @eslint/object-schema@2.1.7
+[0m[32mInitialize[0m micromark-factory-label@2.0.1
+[0m[32mInitialize[0m @typescript-eslint/scope-manager@8.71.2
+[0m[32mInitialize[0m unique-string@2.0.0
+[0m[32mInitialize[0m @types/ms@2.1.0
+[0m[32mInitialize[0m micromark-factory-title@2.0.1
+[0m[32mInitialize[0m call-bound@1.0.4
+[0m[32mInitialize[0m dunder-proto@1.0.1
+[0m[32mInitialize[0m yocto-queue@0.1.0
+[0m[32mInitialize[0m @hookform/resolvers@3.10.0
+[0m[32mInitialize[0m is-alphabetical@2.0.1
+[0m[32mInitialize[0m internal-slot@1.1.0
+[0m[32mInitialize[0m balanced-match@4.0.4
+[0m[32mInitialize[0m @types/node@14.18.63
+[0m[32mInitialize[0m common-tags@1.8.2
+[0m[32mInitialize[0m crypto-random-string@2.0.0
+[0m[32mInitialize[0m base64-js@1.5.1
+[0m[32mInitialize[0m queue-microtask@1.2.3
+[0m[32mInitialize[0m @jridgewell/source-map@0.3.11
+[0m[32mInitialize[0m is-number@7.0.0
+[0m[32mInitialize[0m regexp.prototype.flags@1.5.4
+[0m[32mInitialize[0m wrappy@1.0.2
+[0m[32mInitialize[0m archiver-utils@3.0.4
+[0m[32mInitialize[0m estree-walker@2.0.2
+[0m[32mInitialize[0m ieee754@1.2.1
+[0m[32mInitialize[0m combined-stream@1.0.8
+[0m[32mInitialize[0m functions-have-names@1.2.3
+[0m[32mInitialize[0m safe-buffer@5.1.2
+[0m[32mInitialize[0m lodash.isboolean@3.0.3
+[0m[32mInitialize[0m buffer@5.7.1
+[0m[32mInitialize[0m data-view-byte-offset@1.0.1
+[0m[32mInitialize[0m is-weakref@1.1.1
+[0m[32mInitialize[0m set-proto@1.0.0
+[0m[32mInitialize[0m safe-regex-test@1.1.0
+[0m[32mInitialize[0m is-array-buffer@3.0.5
+[0m[32mInitialize[0m is-typed-array@1.1.15
+[0m[32mInitialize[0m is-negative-zero@2.0.3
+[0m[32mInitialize[0m @babel/helper-create-class-features-plugin@7.29.7
+[0m[32mInitialize[0m available-typed-arrays@1.0.7
+[0m[32mInitialize[0m has-proto@1.2.0
+[0m[32mInitialize[0m object.assign@4.1.7
+[0m[32mInitialize[0m rimraf@2.7.1
+[0m[32mInitialize[0m is-regex@1.2.1
+[0m[32mInitialize[0m string.prototype.trimstart@1.0.8
+[0m[32mInitialize[0m array-buffer-byte-length@1.0.2
+[0m[32mInitialize[0m is-set@2.0.3
+[0m[32mInitialize[0m typed-array-byte-length@1.0.3
+[0m[32mInitialize[0m has-property-descriptors@1.0.2
+[0m[32mInitialize[0m @babel/helper-define-polyfill-provider@0.6.8
+[0m[32mInitialize[0m is-callable@1.2.7
+[0m[32mInitialize[0m side-channel-map@1.0.1
+[0m[32mInitialize[0m callsites@3.1.0
+[0m[32mInitialize[0m unbox-primitive@1.1.0
+[0m[32mInitialize[0m terser@5.51.2
+[0m[32mInitialize[0m is-data-view@1.0.2
+[0m[32mInitialize[0m globalthis@1.0.4
+[0m[32mInitialize[0m filelist@1.0.6
+[0m[32mInitialize[0m data-view-byte-length@1.0.2
+[0m[32mInitialize[0m isarray@2.0.5
+[0m[32mInitialize[0m has-bigints@1.1.0
+[0m[32mInitialize[0m get-symbol-description@1.1.0
+[0m[32mInitialize[0m fs.realpath@1.0.0
+[0m[32mInitialize[0m safe-push-apply@1.0.0
+[0m[32mInitialize[0m regjsgen@0.8.0
+[0m[32mInitialize[0m typed-array-buffer@1.0.3
+[0m[32mInitialize[0m stop-iteration-iterator@1.1.0
+[0m[32mInitialize[0m jake@10.9.4
+[0m[32mInitialize[0m data-view-buffer@1.0.2
+[0m[32mInitialize[0m arraybuffer.prototype.slice@1.0.4
+[0m[32mInitialize[0m possible-typed-array-names@1.1.0
+[0m[32mInitialize[0m is-string@1.1.1
+[0m[32mInitialize[0m side-channel-weakmap@1.0.2
+[0m[32mInitialize[0m caniuse-lite@1.0.30001816
+[0m[32mInitialize[0m unicode-match-property-ecmascript@2.0.0
+[0m[32mInitialize[0m is-boolean-object@1.2.2
+[0m[32mInitialize[0m is-date-object@1.1.0
+[0m[32mInitialize[0m object-keys@1.1.1
+[0m[32mInitialize[0m lodash.debounce@4.0.8
+[0m[32mInitialize[0m is-symbol@1.1.1
+[0m[32mInitialize[0m which-builtin-type@1.2.1
+[0m[32mInitialize[0m is-bigint@1.1.0
+[0m[32mInitialize[0m for-each@0.3.5
+[0m[32mInitialize[0m which-boxed-primitive@1.1.1
+[0m[32mInitialize[0m unicode-property-aliases-ecmascript@2.2.0
+[0m[32mInitialize[0m signal-exit@4.1.0
+[0m[32mInitialize[0m unicode-match-property-value-ecmascript@2.2.1
+[0m[32mInitialize[0m set-function-length@1.2.2
+[0m[32mInitialize[0m is-finalizationregistry@1.1.1
+[0m[32mInitialize[0m @supabase/supabase-js@2.118.0
+[0m[32mInitialize[0m is-shared-array-buffer@1.0.4
+[0m[32mInitialize[0m reflect.getprototypeof@1.0.10
+[0m[32mInitialize[0m is-async-function@2.1.1
+[0m[32mInitialize[0m crc32-stream@4.0.3
+[0m[32mInitialize[0m is-weakset@2.0.4
+[0m[32mInitialize[0m async-function@1.0.0
+[0m[32mInitialize[0m generator-function@2.0.1
+[0m[32mInitialize[0m is-weakmap@2.0.2
+[0m[32mInitialize[0m is-map@2.0.3
+[0m[32mInitialize[0m is-number-object@1.1.1
+[0m[32mInitialize[0m d3-timer@3.0.1
+[0m[32mInitialize[0m get-proto@1.0.1
+[0m[32mInitialize[0m ms@2.1.3
+[0m[32mInitialize[0m xlsx@0.18.5
+[0m[32mInitialize[0m @types/resolve@1.20.2
+[0m[32mInitialize[0m picomatch@2.3.2
+[0m[32mInitialize[0m parse5@7.3.0
+[0m[32mInitialize[0m async@3.2.6
+[0m[32mInitialize[0m @radix-ui/react-slot@1.5.0
+[0m[32mInitialize[0m jackspeak@4.2.3
+[0m[32mInitialize[0m is-generator-function@1.1.2
+[0m[32mInitialize[0m flatted@3.4.4
+[0m[32mInitialize[0m codepage@1.15.0
+[0m[32mInitialize[0m dlv@1.1.3
+[0m[32mInitialize[0m color-name@1.1.4
+[0m[32mInitialize[0m @types/babel__template@7.4.4
+[0m[32mInitialize[0m lodash@4.18.1
+[0m[32mInitialize[0m idb@7.1.1
+[0m[32mInitialize[0m which-collection@1.0.2
+[0m[32mInitialize[0m drizzle-kit@0.31.11
+[0m[32mInitialize[0m why-is-node-running@2.3.0
+[0m[32mInitialize[0m dom-helpers@5.2.1
+[0m[32mInitialize[0m @supabase/postgrest-js@2.118.0
+[0m[32mInitialize[0m lru-cache@11.5.3
+[0m[32mInitialize[0m utrie@1.0.2
+[0m[32mInitialize[0m @dnd-kit/sortable@10.0.0
+[0m[32mInitialize[0m jspdf@4.2.1
+[0m[32mInitialize[0m @types/estree-jsx@1.0.5
+[0m[32mInitialize[0m ajv@8.20.0
+[0m[32mInitialize[0m @esbuild/linux-x64@0.21.5
+[0m[32mInitialize[0m @esbuild/linux-x64@0.18.20
+[0m[32mInitialize[0m path-key@3.1.1
+[0m[32mInitialize[0m @esbuild/linux-x64@0.28.2
+[0m[32mInitialize[0m playwright-core@1.64.1
+[0m[32mInitialize[0m unicode-canonical-property-names-ecmascript@2.0.1
+[0m[32mInitialize[0m object-inspect@1.13.4
+[0m[32mInitialize[0m define-data-property@1.1.4
+[0m[32mInitialize[0m sucrase@3.35.1
+[0m[32mInitialize[0m regenerate-unicode-properties@10.3.0
+[0m[32mInitialize[0m @esbuild/linux-x64@0.25.12
+[0m[32mInitialize[0m @tanstack/query-core@5.104.4
+[0m[32mInitialize[0m @isaacs/cliui@9.0.0
+[0m[32mInitialize[0m typescript@5.9.3
+[0m[32mInitialize[0m heic-to@1.6.6
+[0m[32mInitialize[0m @napi-rs/canvas-linux-x64-musl@0.1.100
+[0m[32mInitialize[0m @napi-rs/canvas-linux-x64-gnu@0.1.100
+[0m[32mInitialize[0m exceljs@4.4.0
+[0m[32mInitialize[0m @electric-sql/pglite@0.5.10
+[0m[32mInitialize[0m hyperformula@3.5.0
+[0m[32mInitialize[0m pdfjs-dist@5.7.284
+[0m[32mInitialize[0m drizzle-orm@0.45.4
+[0m[32mInitialize[0m es-abstract@1.24.2
+[0m[32mInitialize[0m core-js@3.50.0
+[0m[32mInitialize[0m lucide-react@0.577.0
+[0m[32mInitialize[0m handsontable@18.1.2
+[0m[32mInitialize[0m date-fns@3.6.0
+[0m[33mWarning[0m The following packages are deprecated:
+┠─ [0m[38;5;245mnpm:@testing-library/jest-dom@6.10.0 (Incorrect minor release with breaking changes (Node >=22 and required @testing-library/dom peer). Use 6.9.1 for the 6.x line, or upgrade to 7.0.0.)[0m
+┠─ [0m[38;5;245mnpm:@types/testing-library__jest-dom@6.0.0 (This is a stub types definition. @testing-library/jest-dom provides its own type definitions, so you do not need this installed.)[0m
+┠─ [0m[38;5;245mnpm:@esbuild-kit/esm-loader@2.6.5 (Merged into tsx: https://tsx.hirok.io)[0m
+┠─ [0m[38;5;245mnpm:domexception@4.0.0 (Use your platform's native DOMException instead)[0m
+┠─ [0m[38;5;245mnpm:abab@2.0.6 (Use your platform's native atob() and btoa() methods instead)[0m
+┠─ [0m[38;5;245mnpm:whatwg-encoding@2.0.0 (Use @exodus/bytes instead for a more spec-conformant and faster implementation)[0m
+┠─ [0m[38;5;245mnpm:uuid@8.3.2 (uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).)[0m
+┠─ [0m[38;5;245mnpm:@esbuild-kit/core-utils@3.3.2 (Merged into tsx: https://tsx.hirok.io)[0m
+┠─ [0m[38;5;245mnpm:fstream@1.0.12 (This package is no longer supported.)[0m
+┠─ [0m[38;5;245mnpm:lodash.isequal@4.5.0 (This package is deprecated. Use require('node:util').isDeepStrictEqual instead.)[0m
+┠─ [0m[38;5;245mnpm:glob@7.2.3 (Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me)[0m
+┠─ [0m[38;5;245mnpm:glob@11.1.0 (Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me)[0m
+┠─ [0m[38;5;245mnpm:inflight@1.0.6 (This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.)[0m
+┠─ [0m[38;5;245mnpm:rimraf@2.7.1 (Rimraf versions prior to v4 are no longer supported)[0m
+┠─ [0m[38;5;245mnpm:recharts@2.15.4 (1.x and 2.x branches are no longer active. Bump to Recharts v3 to receive latest features and bugfixes. See https://github.com/recharts/recharts/wiki/3.0-migration-guide)[0m
+┖─ [0m[38;5;245mnpm:eslint@9.39.5 (This version is no longer supported. Please see https://eslint.org/version-support for other options.)[0m
+[0m[33m╭[0m [0m[1m[33mWarning[0m
+[0m[33m│[0m
+[0m[33m│[0m  Ignored build scripts for packages:
+[0m[33m│[0m  [0m[3mnpm:core-js@3.50.0[0m
+[0m[33m│[0m
+[0m[33m│[0m  Run "[0m[1mdeno approve-scripts[0m" to run build scripts.
+[0m[33m╰─[0m
+[0m[32mDownload[0m https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/zod/-/zod-3.23.8.tgz
+[0m[32mInitialize[0m zod@3.23.8
+[0m[32mCheck[0m ../tmp/issue333-proof34/deno/functions/standalone-attempt-333/index.ts
+[0m[1mTS2589 [0m[ERROR]: Type instantiation is excessively deep and possibly infinite.
+ snapshot:(user,company,operation,id,hash)=>readSnapshot(admin,user,company,operation,id,hash),
+[0m[31m                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    at [0m[36mfile:///tmp/issue333-proof34/deno/functions/standalone-attempt-333/index.ts[0m:[0m[33m16[0m:[0m[33m45[0m
+
+[0m[1mTS2339 [0m[ERROR]: Property 'error' does not exist on type 'StorageError'.
+    at [0m[36mfile:///tmp/issue333-proof34/deno/functions/standalone-attempt-333/index.ts[0m:[0m[33m20[0m:[0m[33m207[0m
+
+Found 2 errors.
+
+[0m[1m[31merror[0m: Type checking failed.
+
+Stack backtrace:
+   0: anyhow::error::<impl core::convert::From<E> for anyhow::Error>::from
+   1: <core::result::Result<T,F> as core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible,E>>>::from_residual
+   2: deno::graph_container::MainModuleGraphContainer::check_specifiers::{{closure}}
+   3: deno::spawn_subcommand::{{closure}}
+   4: tokio::runtime::task::raw::poll
+   5: deno::main
+   6: std::sys::backtrace::__rust_begin_short_backtrace
+   7: main
+   8: __libc_start_call_main
+   9: __libc_start_main@@GLIBC_2.34
+  10: _start
+
+```
+
+## deno-final-pass.log
+```text
+[0m[32mCheck[0m ../tmp/issue333-proof34/deno/functions/standalone-attempt-333/index.ts
+
+```
+
+## final-tests.log
+```text
+
+ RUN  v3.2.7 /dev-server
+
+ ✓ src/lib/__tests__/standalone-snapshot.test.ts (4 tests) 13ms
+ ✓ src/lib/__tests__/standalone-attempt-routing.test.ts (13 tests) 21ms
+ ✓ src/lib/__tests__/standalone-capabilities.test.ts (9 tests) 26ms
+ ✓ src/components/standalone/__tests__/StandaloneReservedExecution.test.tsx (9 tests) 336ms
+
+ Test Files  4 passed (4)
+      Tests  35 passed (35)
+   Start at  01:14:25
+   Duration  4.66s (transform 499ms, setup 1.65s, collect 914ms, tests 396ms, environment 7.43s, prepare 1.71s)
+
+
+```
+
+## live-output.log
+```text
+PASS ownerA canonical company/manager 200 matched
+PASS peerA canonical company/manager 200 matched
+PASS ownerB canonical company/manager 200 matched
+PASS ownerA technical prepare seeded 201 no object/no invoice
+PASS ownerB technical prepare seeded 201 no object/no invoice
+PASS owner populated snapshot bound/pending 200 snapshot matched, record_ok false/current null
+PASS peer same-company denied 409 no snapshot
+PASS other company denied 409 no snapshot
+CLEANUP 3 new accounts banned; sessions zero; no fixtures deleted
+Traceback (most recent call last):
+  File "/nix/store/zccmygwl3jqyv571gxx7pnghrp1fs8xh-sandbox-python-env/lib/python3.13/site-packages/urllib3/connectionpool.py", line 534, in _make_request
+    response = conn.getresponse()
+  File "/nix/store/zccmygwl3jqyv571gxx7pnghrp1fs8xh-sandbox-python-env/lib/python3.13/site-packages/urllib3/connection.py", line 571, in getresponse
+    httplib_response = super().getresponse()
+  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/http/client.py", line 1450, in getresponse
+    response.begin()
+    ~~~~~~~~~~~~~~^^
+  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/http/client.py", line 336, in begin
+    version, status, reason = self._read_status()
+                              ~~~~~~~~~~~~~~~~~^^
+  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/http/client.py", line 297, in _read_status
+    line = str(self.fp.readline(_MAXLINE + 1), "iso-8859-1")
+               ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/socket.py", line 719, in readinto
+    return self._sock.recv_into(b)
+           ~~~~~~~~~~~~~~~~~~~~^^^
+  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/ssl.py", line 1304, in recv_into
+    return self.read(nbytes, buffer)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/ssl.py", line 1138, in read
+    return self._sslobj.read(len, buffer)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+TimeoutError: The read operation timed out
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/nix/store/zccmygwl3jqyv571gxx7pnghrp1fs8xh-sandbox-python-env/lib/python3.13/site-packages/requests/adapters.py", line 644, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "/nix/store/zccmygwl3jqyv571gxx7pnghrp1fs8xh-sandbox-python-env/lib/python3.13/site-packages/urllib3/connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "/nix/store/zccmygwl3jqyv571gxx7pnghrp1fs8xh-sandbox-python-env/lib/python3.13/site-packages/urllib3/util/retry.py", line 490, in increment
+    raise reraise(type(error), error, _stacktrace)
+          ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/nix/store/zccmygwl3jqyv571gxx7pnghrp1fs8xh-sandbox-python-env/lib/python3.13/site-packages/urllib3/util/util.py", line 39, in reraise
+    raise value
+  File "/nix/store/zccmygwl3jqyv571gxx7pnghrp1fs8xh-sandbox-python-env/lib/python3.13/site-packages/urllib3/connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "/nix/store/zccmygwl3jqyv571gxx7pnghrp1fs8xh-sandbox-python-env/lib/python3.13/site-packages/urllib3/connectionpool.py", line 536, in _make_request
+    self._raise_timeout(err=e, url=url, timeout_value=read_timeout)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/nix/store/zccmygwl3jqyv571gxx7pnghrp1fs8xh-sandbox-python-env/lib/python3.13/site-packages/urllib3/connectionpool.py", line 367, in _raise_timeout
+    raise ReadTimeoutError(
+        self, url, f"Read timed out. (read timeout={timeout_value})"
+    ) from err
+urllib3.exceptions.ReadTimeoutError: HTTPSConnectionPool(host='[HOST_CLOUD_REDACTED]', port=443): Read timed out. (read timeout=40)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/issue333-proof34/live-test.py", line 38, in <module>
+    code,b=edge(bb,user);must(code,409,label);assert 'snapshot' not in b;record(label,'409 no snapshot')
+           ~~~~^^^^^^^^^
+  File "/tmp/issue333-proof34/live-test.py", line 19, in edge
+    h.update(headers or {});r=s.post(U+'/functions/v1/standalone-attempt-333',json=body,headers=h,timeout=40)
+                              ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/nix/store/zccmygwl3jqyv571gxx7pnghrp1fs8xh-sandbox-python-env/lib/python3.13/site-packages/requests/sessions.py", line 637, in post
+    return self.request("POST", url, data=data, json=json, **kwargs)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/nix/store/zccmygwl3jqyv571gxx7pnghrp1fs8xh-sandbox-python-env/lib/python3.13/site-packages/requests/sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+  File "/nix/store/zccmygwl3jqyv571gxx7pnghrp1fs8xh-sandbox-python-env/lib/python3.13/site-packages/requests/sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+  File "/nix/store/zccmygwl3jqyv571gxx7pnghrp1fs8xh-sandbox-python-env/lib/python3.13/site-packages/requests/adapters.py", line 690, in send
+    raise ReadTimeout(e, request=request)
+requests.exceptions.ReadTimeout: HTTPSConnectionPool(host='[HOST_CLOUD_REDACTED]', port=443): Read timed out. (read timeout=40)
+
+```
+
+## final-readonly.log
+```text
+BASELINES {"transactions": true, "transaction_payments": true, "event_forecasts": true, "standalone_invoices": true, "financial_accounts": true, "data_entry_settings": true, "standalone_attempt_settings_333": true, "standalone_attempts_333": true, "standalone_attempt_audit_333": true, "data_entry_sessions": true, "data_entry_documents": true, "data_entry_previews": true, "data_entry_results": true, "data_entry_storage_receipts": true, "storage_objects": true, "storage_buckets": true, "helpers_acl": true, "policies": true, "rls_acl": true, "previous_auth": true}
+no auth HTTP401
+anon HTTP401
+invalid HTTP401
+OPTIONS HTTP200 custom headers retained
+service real capabilities false/false
+synthetic prepare fixture unchanged; no destination created
+synthetic prepare fixture unchanged; no destination created
+No account reopened; authenticated remaining cases NOT run after finally.
+
+```
+
+## cleanup.json
+```text
+[
+  "ownerA global signOut confirmed",
+  "ownerA banned confirmed",
+  "peerA global signOut confirmed",
+  "peerA banned confirmed",
+  "ownerB global signOut confirmed",
+  "ownerB banned confirmed",
+  "new account auth.sessions zero"
+]
+```
+
+## baseline-attestations.json
+```text
+{
+  "transactions": true,
+  "transaction_payments": true,
+  "event_forecasts": true,
+  "standalone_invoices": true,
+  "financial_accounts": true,
+  "data_entry_settings": true,
+  "standalone_attempt_settings_333": true,
+  "standalone_attempts_333": true,
+  "standalone_attempt_audit_333": true,
+  "data_entry_sessions": true,
+  "data_entry_documents": true,
+  "data_entry_previews": true,
+  "data_entry_results": true,
+  "data_entry_storage_receipts": true,
+  "storage_objects": true,
+  "storage_buckets": true,
+  "helpers_acl": true,
+  "policies": true,
+  "rls_acl": true,
+  "previous_auth": true
+}
+```
+
+## final-source-manifest.json
+```text
+{
+  "supabase/functions/standalone-attempt-333/index.ts": "46fd1aa6e7c57babb6af3f9ca14f429679fc7e1aca153c91d466e6c6d674fc9e",
+  "supabase/functions/standalone-attempt-333/snapshot.ts": "796c7fbb1c0db2e7e77a881be8eae99afcbe54319e79ffe49358ef8fca007ade",
+  "supabase/functions/standalone-attempt-333/handler.ts": "29637a9e2300b196880b0c00e23913a532c41906390811397fc192b6f071b4fa",
+  "supabase/functions/_shared/standalone-attempt.ts": "caf78fc512bd5de5904b634dc81366f07a45979d08c2cff8ecf92c97e4911e9b",
+  "supabase/config.toml": "d06f66b98c5462248d081239cb478635efbe89e3374f2653be5d40824abeb847",
+  "drizzle/migrations/0190_issue333_core_v2_closed_structure.sql": "b60f9360599f3204ce64c0eebd46350c73f07051ae3365e1dc043c14a3c1248e",
+  "drizzle/migrations/0191_issue333_attempts_closed_structure.sql": "d4c8029637361010c24d48801a0176181e7e5684706f3123436da0a04822b2e0",
+  "drizzle/migrations/0192_issue333_service_only_capability_reader.sql": "d2689cd635972292a93fd5abb4017f4ddd979760ccb0b7a56c6898580ab1c422"
+}
+```
+
+## change.diff
+```text
+
+```
+
+## Diff final complet
+```diff
+diff --git a/src/lib/__tests__/standalone-snapshot.test.ts b/src/lib/__tests__/standalone-snapshot.test.ts
+new file mode 100644
+index 000000000..270373223
+--- /dev/null
++++ b/src/lib/__tests__/standalone-snapshot.test.ts
+@@ -0,0 +1,13 @@
++import {describe,it,expect} from 'vitest';
++import {readSnapshot} from '../../../supabase/functions/standalone-attempt-333/snapshot';
++function fixture(member=false,optionalError=false,missing=false){
++ const calls:Array<{table:string;filters:Record<string,string>}> = [];
++ const admin={from(table:string){const filters:Record<string,string>={};const chain={select(){return chain},eq(k:string,v:string){filters[k]=v;return chain},limit(){return chain},async maybeSingle(){calls.push({table,filters});if(table==='standalone_attempts_333')return {data:missing?null:{id:'a',principal:'owner',company_id:'co',operation:'scanner_create',envelope_hash:'hash',envelope:{payload:{paid_by_partner_id:'foreign'}}},error:null};if(table==='user_roles')return {data:member?{user_id:'foreign'}:null,error:null};return {data:optionalError?null:{full_name:'allowed',display_name:'company'},error:optionalError?Error('column unavailable'):null}}};return chain}};
++ return {admin,calls};
++}
++describe('#333 read-only snapshot privacy',()=>{
++ it('foreign payer cannot cause a profile read or disclose a name',async()=>{const f=fixture();const s=await readSnapshot(f.admin,'owner','co','scanner_create','a','hash');expect(s?.payer_name).toBe(null);expect(f.calls.filter(c=>c.table==='profiles').map(c=>c.filters.id)).toEqual(['owner']);expect(f.calls.find(c=>c.table==='user_roles')?.filters).toEqual({user_id:'foreign',company_id:'co'});expect(f.calls[0].filters).toEqual({id:'a',company_id:'co',principal:'owner',operation:'scanner_create',envelope_hash:'hash'});});
++ it('same-company canonical membership permits the optional payer label',async()=>{const f=fixture(true);expect((await readSnapshot(f.admin,'owner','co','scanner_create','a','hash'))?.payer_name).toBe('allowed');});
++ it('optional missing columns or label errors do not lose the immutable snapshot',async()=>{const f=fixture(true,true);const s=await readSnapshot(f.admin,'owner','co','scanner_create','a','hash');expect(s?.envelope.payload.paid_by_partner_id).toBe('foreign');expect([s?.company_name,s?.actor_name,s?.payer_name]).toEqual([null,null,null]);});
++ it('absent checked reservation reads no profiles or company labels',async()=>{const f=fixture(false,false,true);expect(await readSnapshot(f.admin,'owner','co','scanner_create','a','hash')).toBe(null);expect(f.calls.map(c=>c.table)).toEqual(['standalone_attempts_333']);});
++});
+\ No newline at end of file
+diff --git a/supabase/functions/standalone-attempt-333/AGENTS.md b/supabase/functions/standalone-attempt-333/AGENTS.md
+index b9c61dd60..40be2dca5 100644
+--- a/supabase/functions/standalone-attempt-333/AGENTS.md
++++ b/supabase/functions/standalone-attempt-333/AGENTS.md
+@@ -1,3 +1,4 @@
+ # Standalone attempt endpoint
+ - Read capabilities only through the service-only canonical RPC using the existing admin client; this preserves settings/internal-gate ACLs and fails closed on unavailable data.
+-- Authenticate and resolve canonical company context before returning capabilities; capability reads never authorize or execute a mutation.
+\ No newline at end of file
++- Authenticate and resolve canonical company context before returning capabilities; capability reads never authorize or execute a mutation.
++- Snapshot labels fail independently; resolve a payer name only after canonical user_roles membership in the checked company, preventing cross-tenant profile disclosure.
+\ No newline at end of file
+diff --git a/supabase/functions/standalone-attempt-333/index.ts b/supabase/functions/standalone-attempt-333/index.ts
+index 62a5e60ea..aba7e0123 100644
+--- a/supabase/functions/standalone-attempt-333/index.ts
++++ b/supabase/functions/standalone-attempt-333/index.ts
+@@ -3,6 +3,7 @@ import {createClient} from 'npm:@supabase/supabase-js@2';
+ import {corsHeaders} from 'npm:@supabase/supabase-js@2/cors';
+ import {createAttemptHandler} from './handler.ts';
+ import {readCapabilities} from './capabilities.ts';
++import {readSnapshot,type SnapshotReader} from './snapshot.ts';
+ export const attemptCors = {...corsHeaders, 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-attempt-user, x-attempt-company', 'Access-Control-Allow-Methods': 'POST, OPTIONS'};
+ import {documentHash,type Attempt} from '../_shared/standalone-attempt.ts';
+ const url=Deno.env.get('SUPABASE_URL')??'',key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')??'',anon=Deno.env.get('SUPABASE_ANON_KEY')??'';
+@@ -12,11 +13,11 @@ Deno.serve(createAttemptHandler({cors:attemptCors,
+   capabilities:()=>readCapabilities(admin),
+  user:async token=>{const {data,error}=await userClient(token).auth.getUser();return error?null:data.user},
+  context:async token=>{const {data,error}=await userClient(token).rpc('my_effective_permissions',{p_universe:[]});return error?null:data},
+- snapshot:async(user,company,operation,id,hash)=>{const {data,error}=await admin.from('standalone_attempts_333').select('id,company_id,principal,operation,envelope_hash,envelope').eq('id',id).eq('company_id',company).eq('principal',user).eq('operation',operation).eq('envelope_hash',hash).maybeSingle();if(error||!data)return null;const [companyResult,actorResult,payerResult]=await Promise.all([admin.from('companies').select('display_name').eq('id',company).maybeSingle(),admin.from('profiles').select('full_name').eq('id',user).maybeSingle(),data.envelope?.payload?.paid_by_partner_id?admin.from('profiles').select('full_name').eq('id',data.envelope.payload.paid_by_partner_id).maybeSingle():Promise.resolve({data:null})]);return {company_name:companyResult.data?.display_name??null,actor_name:actorResult.data?.full_name??null,payer_name:payerResult.data?.full_name??null,id:data.id,user_id:data.principal,company_id:data.company_id,operation:data.operation,hash:data.envelope_hash,envelope:data.envelope};},
++ snapshot:(user,company,operation,id,hash)=>readSnapshot(admin as unknown as SnapshotReader,user,company,operation,id,hash),
+  list:async(token,operation,after)=>{const {data,error}=await userClient(token).rpc('standalone_attempt_list_333',{p_operation:operation,p_after:after});if(error)throw Error('Consulta recusada');return data},
+  transport:(token,operation)=>({
+   rpc:async(action,id,envelope,hash)=>{const {data,error}=await userClient(token).rpc('standalone_attempt_333',{p_action:action,p_id:id,p_operation:operation,p_envelope:envelope,p_hash:hash});if(error)throw Error('RPC recusado');return data as Attempt},
+-  upload:async(p,b,mime)=>{const {error}=await admin.storage.from('standalone-invoices').upload(p,b,{contentType:mime,upsert:false});if(error && !['409','Duplicate'].includes(String(error.statusCode??error.error)))throw Error('Upload não conferido')},
++  upload:async(p,b,mime)=>{const {error}=await admin.storage.from('standalone-invoices').upload(p,b,{contentType:mime,upsert:false});if(error && !['409','Duplicate'].includes(String(error.statusCode??('error' in error?error.error:undefined))))throw Error('Upload não conferido')},
+   read:async p=>{const {data,error}=await admin.storage.from('standalone-invoices').download(p);if(error||!data||data.size>20971520)return null;return new Uint8Array(await data.arrayBuffer())},
+   verifyReceipt:async(p,b,mime)=>{const {data,error}=await admin.storage.from('standalone-invoices').download(p);if(error||!data||data.size!==b.length)throw Error('Readback pendente');const actual=new Uint8Array(await data.arrayBuffer());const hash=await documentHash(b);if(await documentHash(actual)!==hash)throw Error('Readback divergente');const r=await admin.rpc('data_entry_record_receipt',{p_bucket:'standalone-invoices',p_path:p,p_sha:hash,p_size:b.length,p_mime:mime});if(r.error)throw Error('Recibo recusado')},
+  })
+diff --git a/supabase/functions/standalone-attempt-333/snapshot.ts b/supabase/functions/standalone-attempt-333/snapshot.ts
+new file mode 100644
+index 000000000..6cfea0a1e
+--- /dev/null
++++ b/supabase/functions/standalone-attempt-333/snapshot.ts
+@@ -0,0 +1,14 @@
++/** Called only after canonical check; labels are optional and never authorize effects. */
++type Row = Record<string, any>;
++type Chain = { eq(column:string,value:string):Chain; limit(n:number):Chain; maybeSingle():PromiseLike<{data:Row|null;error:unknown}> };
++export type SnapshotReader = {from(table:string):{select(columns:string):Chain}};
++export async function readSnapshot(admin:SnapshotReader,user:string,company:string,operation:string,id:string,hash:string) {
++ const {data,error}=await admin.from('standalone_attempts_333').select('id,company_id,principal,operation,envelope_hash,envelope').eq('id',id).eq('company_id',company).eq('principal',user).eq('operation',operation).eq('envelope_hash',hash).maybeSingle();
++ if(error||!data)return null;
++ const label=async(table:string,column:string,key:string,value:string)=>{try{const r=await admin.from(table).select(column).eq(key,value).maybeSingle();return !r.error&&typeof r.data?.[column]==='string'?r.data[column]:null}catch{return null}};
++ const payer=async()=>{const payerId=data.envelope?.payload?.paid_by_partner_id;if(typeof payerId!=='string')return null;
++  try{const membership=await admin.from('user_roles').select('user_id').eq('user_id',payerId).eq('company_id',company).limit(1).maybeSingle();if(membership.error||!membership.data)return null;return await label('profiles','full_name','id',payerId)}catch{return null}
++ };
++ const [companyName,actorName,payerName]=await Promise.all([label('companies','display_name','id',company),label('profiles','full_name','id',user),payer()]);
++ return {company_name:companyName,actor_name:actorName,payer_name:payerName,id:data.id,user_id:data.principal,company_id:data.company_id,operation:data.operation,hash:data.envelope_hash,envelope:data.envelope};
++}
+\ No newline at end of file
+
+```
+
+## Tests finaux mémoire/index inclus
+```text
+
+ RUN  v3.2.7 /dev-server
+
+ ✓ src/lib/__tests__/standalone-snapshot.test.ts (4 tests) 5ms
+ ✓ src/test/memory-index.test.ts (3 tests) 6ms
+ ✓ src/lib/__tests__/standalone-capabilities.test.ts (9 tests) 31ms
+ ✓ src/lib/__tests__/standalone-attempt-routing.test.ts (13 tests) 22ms
+ ✓ src/components/standalone/__tests__/StandaloneReservedExecution.test.tsx (9 tests) 420ms
+
+ Test Files  5 passed (5)
+      Tests  38 passed (38)
+   Start at  01:18:08
+   Duration  4.26s (transform 467ms, setup 1.88s, collect 1.08s, tests 485ms, environment 8.14s, prepare 3.49s)
+
+
+```
+
+## Préservation
+```text
+Protected source/config/SQL/#323 documentation byte-identical to received HEAD.
+Memory index regenerated:193files;38testsPASS;latest automatic buildOK.
+```
