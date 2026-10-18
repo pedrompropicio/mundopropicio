@@ -1,4 +1,5 @@
-# AJ16 / AJ14 — leituras deduplicadas e sinal app_open
+# AJ16 / AJ14 / AJ19 — leituras deduplicadas e sinal app_open
+- [ ] AJ19: complementar proposta AJ14 com ListenClick único entre choice/open, comparação DDL A/B e volume semanal por plataforma; só SELECT/documentação, sem aplicar/deploy.
 - [x] AJ16 primeiro SELECT: Fortaleza136905/106068, diferente do auditor; ttclid sem UA cru, in_appNULL não prova Pangle; percentagens candidatas por dia guardadas em docs/questoes-aj16-aj14-20261018.md.
 - [ ] AJ16: criar/testar vista security_invoker sem mudar tabelas, grants base ou consumidores; inventário iniciado. Aguarda resposta ao primeiro passo conforme protocolo do Pedro.
 - [ ] AJ14: entregar apenas proposta, DDL exato inerte e falsos positivos/medição; sem aplicação/deploy/envios.
