@@ -12,7 +12,7 @@ const financial=['transactions','event_forecasts','financial_accounts','transact
 const protectedTables=['data_entry_sessions','data_entry_documents','data_entry_previews','data_entry_results','standalone_invoices','standalone_attempts_333','standalone_attempt_audit_333','data_entry_storage_receipts'];
 function baselineSQL(owner?:string) {
  const scope=owner?q(owner):"'00000000-0000-0000-0000-000000000000'";
- const filters:Record<string,string>={data_entry_sessions:`owner_id<>${scope}::uuid`,data_entry_documents:`session_id NOT IN (SELECT id FROM public.data_entry_sessions WHERE owner_id=${scope}::uuid)`,data_entry_previews:`session_id NOT IN (SELECT id FROM public.data_entry_sessions WHERE owner_id=${scope}::uuid)`,data_entry_results:`approved_by<>${scope}::uuid`,standalone_invoices:`created_by IS DISTINCT FROM ${scope}::uuid`,standalone_attempts_333:`principal<>${scope}`,standalone_attempt_audit_333:`attempt_id NOT IN (SELECT id FROM public.standalone_attempts_333 WHERE principal=${scope})`,data_entry_storage_receipts:`storage_path NOT IN (SELECT storage_path FROM public.data_entry_documents WHERE session_id IN (SELECT id FROM public.data_entry_sessions WHERE owner_id=${scope}::uuid)) AND storage_path NOT IN (SELECT storage_path FROM public.standalone_invoices WHERE created_by=${scope}::uuid)`};
+ const filters:Record<string,string>={data_entry_sessions:`owner_id<>${scope}::uuid`,data_entry_documents:`session_id NOT IN (SELECT id FROM public.data_entry_sessions WHERE owner_id=${scope}::uuid)`,data_entry_previews:`session_id NOT IN (SELECT id FROM public.data_entry_sessions WHERE owner_id=${scope}::uuid)`,data_entry_results:`approved_by<>${scope}::uuid`,standalone_invoices:`created_by IS DISTINCT FROM ${scope}::uuid`,standalone_attempts_333:`principal<>${scope}`,standalone_attempt_audit_333:`attempt_id NOT IN (SELECT id FROM public.standalone_attempts_333 WHERE principal=${scope})`,data_entry_storage_receipts:`path NOT IN (SELECT path FROM public.data_entry_documents WHERE session_id IN (SELECT id FROM public.data_entry_sessions WHERE owner_id=${scope}::uuid)) AND path NOT IN (SELECT storage_path FROM public.standalone_invoices WHERE created_by=${scope}::uuid)`};
  const branches=[...financial,...protectedTables].map(t=>`SELECT '${t}' name,count(*) n,md5(coalesce(string_agg(to_jsonb(t)::text,E'\\n' ORDER BY to_jsonb(t)::text),'')) h FROM public.${t} t${filters[t]?' WHERE '+filters[t]:''}`);
  return `SELECT jsonb_build_object('data',(SELECT jsonb_agg(x ORDER BY name) FROM (${branches.join(' UNION ALL ')}) x),'config',(SELECT jsonb_agg(x ORDER BY signature) FROM (SELECT oid::regprocedure::text signature,md5(prosrc) source,proacl::text,proconfig,proowner FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname LIKE 'data_entry%') x),'core_open',(SELECT count(*) FROM data_entry_settings WHERE preparation_validated OR execute_validated),'attempt_open',(SELECT count(*) FROM standalone_attempt_settings_333 WHERE enabled)) baseline`;
 }
@@ -24,7 +24,7 @@ async function main() {
  const auth=new AuthAdmin57(url,service,pub);let session:any;let before:any;let identity:string|undefined;let last:any;
  await auth.readProbe();
  await chromiumDriver57('docs/testes/issue333/pilot8/cloud-browser57.py',{mode:'probe',output:DIR,cloud_url:url});
- if(!process.argv.includes('--authorized-single-pilot57')){console.log(JSON.stringify({ready:'AuthAdmin/read-only/PDF/Chromium probe',accountCreated:false}));return;}
+ if(!process.argv.includes('--authorized-single-pilot57')&&!process.argv.includes('--preflight-only')){console.log(JSON.stringify({ready:'AuthAdmin/read-only/PDF/Chromium probe',accountCreated:false}));return;}
  const driver:PilotDriver={
   validatePdf:async()=>{await exactPdf57(DIR+'/pilot8-fiction.pdf')},
   preflightReadOnly:async()=>{
@@ -60,6 +60,7 @@ async function main() {
   finalBaselines:async owner=>{const after=(await select(baselineSQL(owner.id))).baseline;await writeFile(DIR+'/after.json',JSON.stringify(after),{mode:0o600});return {financialUnchanged:JSON.stringify(before.data.filter((x:any)=>financial.includes(x.name)))===JSON.stringify(after.data.filter((x:any)=>financial.includes(x.name))),priorCandidatesPreserved:JSON.stringify(before.data)===JSON.stringify(after.data),globalsClosed:after.core_open===0&&after.attempt_open===0&&JSON.stringify(before.config)===JSON.stringify(after.config)};},
   now:()=>Date.now(),wait:ms=>new Promise(r=>setTimeout(r,ms)),secret:privateSecret57,
  };
+ if(process.argv.includes('--preflight-only')){console.log(JSON.stringify({preflight:await driver.preflightReadOnly(artifact),accountCreated:false}));return;}
  const result=await runFuturePilot(driver,artifact,'PEDRO_AUTHORIZED_SINGLE_PILOT8');console.log(JSON.stringify(result));
 }
 main().catch(()=>{console.log(JSON.stringify({pilot_stopped:true,repeat_forbidden:true,see_sanitized_evidence:true}));process.exitCode=1});
