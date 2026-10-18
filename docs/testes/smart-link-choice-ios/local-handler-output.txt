@@ -4,6 +4,8 @@ PASS headerless linked duplicate 200
 PASS headerless arrival rejected 403
 [song-link-event] req {"slug":"rs-meta","via":"browser","event":"choice","outcome":"403:forbidden_origin","ua":"vazio","os":null,"origin_hdr":"nao","referer_hdr":"nao"}
 PASS headerless unlinked choice rejected 403
+[song-link-event] req {"slug":"rs-meta","via":"browser","event":"choice","outcome":"400:invalid_choice","ua":"vazio","os":null,"origin_hdr":"sim","referer_hdr":"nao"}
+PASS allowed origin also requires arrival 400
 [song-link-event] req {"slug":"rs-meta","via":"browser","event":"choice","outcome":"403:forbidden_origin","ua":"vazio","os":null,"origin_hdr":"sim","referer_hdr":"nao"}
 PASS untrusted Origin cannot fallback 403
 [song-link-event] req {"slug":"rs-meta","via":"browser","event":"choice","outcome":"403:forbidden_origin","ua":"vazio","os":null,"origin_hdr":"nao","referer_hdr":"sim"}
@@ -12,4 +14,4 @@ PASS untrusted Referer cannot fallback 403
 PASS bad UUID rejected 400
 [song-link-event] req {"slug":"rs-meta","via":"browser","event":"choice","outcome":"403:invalid_arrival","ua":"vazio","os":null,"origin_hdr":"nao","referer_hdr":"nao"}
 PASS missing or expired arrival maps to403 403
-7 handler tests PASS; no external calls; no Live
+8 handler tests PASS; no external calls; no Live
