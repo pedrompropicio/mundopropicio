@@ -36,7 +36,8 @@
 - [x] Prova39: execute negativo com PDF válido1499B/preflight handler exato PASS;13LivePASS409/42501/zeroefeitos/23baselines iguais;conta única nova banida/sessions0. Timeout continua separado;sem fase6 inteira concluída.
 - [x] Comportamento atual hash-check comprovado50; causa histórica não demonstrada permanece limite de conhecimento, NÃO bloqueio fase6.
 - [x] CI39092652776 success; matriz52 fases6/7 e piloto8 candidatoINERTE/11PGPASS entregues.
-- [ ] Fase7 revisão/aplicação autorizadas; CI39102377304 success/HEAD3addc012 e manifesto/fontes conferem. Bloqueio54: ferramenta oficial não aceita BEGIN/COMMIT do ficheiro byte-exato; aguarda autorização retirar só2linhas externas na submissão, sem substituir executor. Nenhuma aplicação/deploy/piloto.
+- [x] Fase7 estrutura0195 oficial aplicada/cmp payload exato após retirada autorizada só2wrappers; deploy exclusivo data-entry, allowlist0/ACL/fontes/baselines iguais/401/OPTIONS200, prova55. CI39102834214/e38900fc success; sem ativação/conta/piloto8.
+- [ ] Controlador verificar prova55 e decidir fecho fase7; reserva mantida. Piloto8 requer autorização própria/PDF válido antes conta, nenhuma ativação nesta entrega.
 - [x] Validar SQL exata do leitor em PostgreSQL descartável real;0192 aplicada oficialmente/registry194/hash exato.
 - [x] Integrar/testar leitor service-only; deploy só standalone-attempt-333, versão7 observada, gates fechados.
 - [x] Conferir registry/corpo/ACL/baselines separados/negativas Live e entregar prova26/27, estado e pendências.
