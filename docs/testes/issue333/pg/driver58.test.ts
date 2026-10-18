@@ -97,6 +97,8 @@ it('connected AuthHTTP + official SELECT spool + same Chromium probe/preflight/e
  expect((await checkpoint66('prepare',driver,artifact,store)).checkpoint).toBe('await_activation');
  // Local controller writes BETWEEN completed invocations, never while a SELECT is waiting.
  await db`update user_roles set role='manager' where id=${roleId}`;await notify({controller_prepare:true});
+ // Local-only diagnostics: no credentials in these SELECT/gate errors.
+ const validate=driver.validateCheckpoint;driver.validateCheckpoint=async(...args)=>{try{await validate(...args)}catch(e){console.error('LOCAL66 gate:',e);throw e}};
  expect((await checkpoint66('execute',driver,artifact,new PrivateStore66(store.directory))).checkpoint).toBe('await_revocation');
  await notify({controller_revoke_exact_two:true});
  expect((await checkpoint66('finish',driver,artifact,new PrivateStore66(store.directory))).checkpoint).toBe('complete');
