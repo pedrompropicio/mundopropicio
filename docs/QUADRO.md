@@ -25,7 +25,6 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | fases6/7/piloto8INERTE;#323/DECISIONSexcluídas | 2026-10-17 16:26 | 2026-10-18 03:24UTC — matriz52 recomenda fecho6técnica;7allowlist/upload ausentes;8SQL/patchINERTE+11PGPASS;semconta/Cloudwrites;revisão/CI/aplicação pendentes;reserva mantida |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)
@@ -181,3 +180,6 @@ _(sem pedidos)_
 _(sem pedidos)_
 
 - [x] 17/10/2026 14:53 UTC — #332 cidade/lista: 0186–0189 aplicadas e correções CAOP verificadas, coletor estrito/deploys/prova Live concluídos. Corro2 limpeza executado: zero nas19 tabelas; membros64→63 (reais63 intactos), pontos58/5250 antes=depois. Backfill NÃO autorizado/NÃO executado. Cidades agrupadas por caixa/acento inclusive sem país na apresentação; localidades desconhecidas preservadas. Reservas cidade/lista libertadas; #323 intacta. Estado reescrito; prova claude-outputs/20261017-1453-issue332-limpeza-leituras.md.
+
+
+- [x] 18/10/2026 03:30 UTC — #333 PAUSADA por pedido de Pedro após revisão da tarefa atual. Fase6 técnica gates-fechados concluída (provas50–52; CI39093643839 success/e860c44e). Fase7 aberta; piloto8 candidato INERTE,57 testes locais,sem aplicação/deploy/Publish/contas nesta entrega. Ponto de retoma: docs/testes/issue333/52-fases6-7-piloto8.md e pilot8/. Reserva333 LIBERTADA; agente ERP disponível para outra tarefa. Não iniciar continuação automática até retoma expressa. #323 e outras frentes preservadas.
