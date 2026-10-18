@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { prepareLegacyAttempt, executeLegacyAttempt, checkLegacyAttempt, resumeLegacyAttempt, resolveAttemptRoute, assertAttemptContext, reviewMessage } from "@/lib/standalone-attempt-client";
 import { StandaloneAttemptsPanel } from "@/components/standalone/StandaloneAttemptsPanel";
+import { StandaloneReservedExecution } from "@/components/standalone/StandaloneReservedExecution";
 import type { Attempt } from "@shared/standalone-attempt";
 import { lookupStandalone, standaloneWriteError } from "@/lib/standalone-identity-lookup";
 import { onActiveCompanyChanged } from "@/lib/permissions";
@@ -411,6 +412,9 @@ export default function StandaloneInvoiceScanner() {
           onBlocked={(blocked)=>{if(blocked){reservation.current=true;setWritePending(true);}}}
           onSelect={(a) => { generation.current++; if(a){reservation.current=true;setWritePending(true);sessionStorage.setItem(pendingKey,JSON.stringify({id:a.id,hash:a.hash}));} setAttempt(null); setResumeId(a?.id ?? ""); setResumeHash(a?.hash ?? ""); }} />}
         <Button variant="outline" onClick={reconcile} disabled={busy!==null || (!attempt && (!resumeId || !resumeHash))}>Consultar tentativa</Button>
+        {user && companyId && resumeId && resumeHash && <StandaloneReservedExecution key={`${scope}:${resumeId}:${resumeHash}`}
+          id={resumeId} hash={resumeHash} context={{user_id:user.id,company_id:companyId}}
+          onChecked={() => { setSaved(true); setWritePending(false); sessionStorage.removeItem(pendingKey); }} />}
       </div>
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="w-full">

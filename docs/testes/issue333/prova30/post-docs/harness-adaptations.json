@@ -1,0 +1,27 @@
+[
+  {
+    "path": "docs/testes/issue333/pg/attempts-pg.test.ts",
+    "old": "--reuid=65534",
+    "new": "--reuid=1000"
+  },
+  {
+    "path": "docs/testes/issue333/pg/attempts-pg.test.ts",
+    "old": "--regid=65534",
+    "new": "--regid=1000"
+  },
+  {
+    "path": "docs/testes/issue333/pg/attempts-pg.test.ts",
+    "old": "['65534:65534',dir]",
+    "new": "['1000:1000',dir]"
+  },
+  {
+    "path": "docs/testes/issue333/pg/attempts-pg.test.ts",
+    "old": "'supabase/manual/20261017_issue333_core.PENDENTE.sql'",
+    "new": "'drizzle/migrations/0190_issue333_core_v2_closed_structure.sql'"
+  },
+  {
+    "path": "docs/testes/issue333/pg/attempts-pg.test.ts",
+    "old": "'supabase/manual/20261017_issue333_attempts.PENDENTE.sql'",
+    "new": "'drizzle/migrations/0191_issue333_attempts_closed_structure.sql','drizzle/migrations/0192_issue333_service_only_capability_reader.sql'"
+  }
+]
