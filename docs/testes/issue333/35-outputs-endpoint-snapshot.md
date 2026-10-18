@@ -3300,3 +3300,112 @@ No account reopened; authenticated remaining cases NOT run after finally.
 ```text
 
 ```
+
+## Diff final complet
+```diff
+diff --git a/src/lib/__tests__/standalone-snapshot.test.ts b/src/lib/__tests__/standalone-snapshot.test.ts
+new file mode 100644
+index 000000000..270373223
+--- /dev/null
++++ b/src/lib/__tests__/standalone-snapshot.test.ts
+@@ -0,0 +1,13 @@
++import {describe,it,expect} from 'vitest';
++import {readSnapshot} from '../../../supabase/functions/standalone-attempt-333/snapshot';
++function fixture(member=false,optionalError=false,missing=false){
++ const calls:Array<{table:string;filters:Record<string,string>}> = [];
++ const admin={from(table:string){const filters:Record<string,string>={};const chain={select(){return chain},eq(k:string,v:string){filters[k]=v;return chain},limit(){return chain},async maybeSingle(){calls.push({table,filters});if(table==='standalone_attempts_333')return {data:missing?null:{id:'a',principal:'owner',company_id:'co',operation:'scanner_create',envelope_hash:'hash',envelope:{payload:{paid_by_partner_id:'foreign'}}},error:null};if(table==='user_roles')return {data:member?{user_id:'foreign'}:null,error:null};return {data:optionalError?null:{full_name:'allowed',display_name:'company'},error:optionalError?Error('column unavailable'):null}}};return chain}};
++ return {admin,calls};
++}
++describe('#333 read-only snapshot privacy',()=>{
++ it('foreign payer cannot cause a profile read or disclose a name',async()=>{const f=fixture();const s=await readSnapshot(f.admin,'owner','co','scanner_create','a','hash');expect(s?.payer_name).toBe(null);expect(f.calls.filter(c=>c.table==='profiles').map(c=>c.filters.id)).toEqual(['owner']);expect(f.calls.find(c=>c.table==='user_roles')?.filters).toEqual({user_id:'foreign',company_id:'co'});expect(f.calls[0].filters).toEqual({id:'a',company_id:'co',principal:'owner',operation:'scanner_create',envelope_hash:'hash'});});
++ it('same-company canonical membership permits the optional payer label',async()=>{const f=fixture(true);expect((await readSnapshot(f.admin,'owner','co','scanner_create','a','hash'))?.payer_name).toBe('allowed');});
++ it('optional missing columns or label errors do not lose the immutable snapshot',async()=>{const f=fixture(true,true);const s=await readSnapshot(f.admin,'owner','co','scanner_create','a','hash');expect(s?.envelope.payload.paid_by_partner_id).toBe('foreign');expect([s?.company_name,s?.actor_name,s?.payer_name]).toEqual([null,null,null]);});
++ it('absent checked reservation reads no profiles or company labels',async()=>{const f=fixture(false,false,true);expect(await readSnapshot(f.admin,'owner','co','scanner_create','a','hash')).toBe(null);expect(f.calls.map(c=>c.table)).toEqual(['standalone_attempts_333']);});
++});
+\ No newline at end of file
+diff --git a/supabase/functions/standalone-attempt-333/AGENTS.md b/supabase/functions/standalone-attempt-333/AGENTS.md
+index b9c61dd60..40be2dca5 100644
+--- a/supabase/functions/standalone-attempt-333/AGENTS.md
++++ b/supabase/functions/standalone-attempt-333/AGENTS.md
+@@ -1,3 +1,4 @@
+ # Standalone attempt endpoint
+ - Read capabilities only through the service-only canonical RPC using the existing admin client; this preserves settings/internal-gate ACLs and fails closed on unavailable data.
+-- Authenticate and resolve canonical company context before returning capabilities; capability reads never authorize or execute a mutation.
+\ No newline at end of file
++- Authenticate and resolve canonical company context before returning capabilities; capability reads never authorize or execute a mutation.
++- Snapshot labels fail independently; resolve a payer name only after canonical user_roles membership in the checked company, preventing cross-tenant profile disclosure.
+\ No newline at end of file
+diff --git a/supabase/functions/standalone-attempt-333/index.ts b/supabase/functions/standalone-attempt-333/index.ts
+index 62a5e60ea..aba7e0123 100644
+--- a/supabase/functions/standalone-attempt-333/index.ts
++++ b/supabase/functions/standalone-attempt-333/index.ts
+@@ -3,6 +3,7 @@ import {createClient} from 'npm:@supabase/supabase-js@2';
+ import {corsHeaders} from 'npm:@supabase/supabase-js@2/cors';
+ import {createAttemptHandler} from './handler.ts';
+ import {readCapabilities} from './capabilities.ts';
++import {readSnapshot,type SnapshotReader} from './snapshot.ts';
+ export const attemptCors = {...corsHeaders, 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-attempt-user, x-attempt-company', 'Access-Control-Allow-Methods': 'POST, OPTIONS'};
+ import {documentHash,type Attempt} from '../_shared/standalone-attempt.ts';
+ const url=Deno.env.get('SUPABASE_URL')??'',key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')??'',anon=Deno.env.get('SUPABASE_ANON_KEY')??'';
+@@ -12,11 +13,11 @@ Deno.serve(createAttemptHandler({cors:attemptCors,
+   capabilities:()=>readCapabilities(admin),
+  user:async token=>{const {data,error}=await userClient(token).auth.getUser();return error?null:data.user},
+  context:async token=>{const {data,error}=await userClient(token).rpc('my_effective_permissions',{p_universe:[]});return error?null:data},
+- snapshot:async(user,company,operation,id,hash)=>{const {data,error}=await admin.from('standalone_attempts_333').select('id,company_id,principal,operation,envelope_hash,envelope').eq('id',id).eq('company_id',company).eq('principal',user).eq('operation',operation).eq('envelope_hash',hash).maybeSingle();if(error||!data)return null;const [companyResult,actorResult,payerResult]=await Promise.all([admin.from('companies').select('display_name').eq('id',company).maybeSingle(),admin.from('profiles').select('full_name').eq('id',user).maybeSingle(),data.envelope?.payload?.paid_by_partner_id?admin.from('profiles').select('full_name').eq('id',data.envelope.payload.paid_by_partner_id).maybeSingle():Promise.resolve({data:null})]);return {company_name:companyResult.data?.display_name??null,actor_name:actorResult.data?.full_name??null,payer_name:payerResult.data?.full_name??null,id:data.id,user_id:data.principal,company_id:data.company_id,operation:data.operation,hash:data.envelope_hash,envelope:data.envelope};},
++ snapshot:(user,company,operation,id,hash)=>readSnapshot(admin as unknown as SnapshotReader,user,company,operation,id,hash),
+  list:async(token,operation,after)=>{const {data,error}=await userClient(token).rpc('standalone_attempt_list_333',{p_operation:operation,p_after:after});if(error)throw Error('Consulta recusada');return data},
+  transport:(token,operation)=>({
+   rpc:async(action,id,envelope,hash)=>{const {data,error}=await userClient(token).rpc('standalone_attempt_333',{p_action:action,p_id:id,p_operation:operation,p_envelope:envelope,p_hash:hash});if(error)throw Error('RPC recusado');return data as Attempt},
+-  upload:async(p,b,mime)=>{const {error}=await admin.storage.from('standalone-invoices').upload(p,b,{contentType:mime,upsert:false});if(error && !['409','Duplicate'].includes(String(error.statusCode??error.error)))throw Error('Upload não conferido')},
++  upload:async(p,b,mime)=>{const {error}=await admin.storage.from('standalone-invoices').upload(p,b,{contentType:mime,upsert:false});if(error && !['409','Duplicate'].includes(String(error.statusCode??('error' in error?error.error:undefined))))throw Error('Upload não conferido')},
+   read:async p=>{const {data,error}=await admin.storage.from('standalone-invoices').download(p);if(error||!data||data.size>20971520)return null;return new Uint8Array(await data.arrayBuffer())},
+   verifyReceipt:async(p,b,mime)=>{const {data,error}=await admin.storage.from('standalone-invoices').download(p);if(error||!data||data.size!==b.length)throw Error('Readback pendente');const actual=new Uint8Array(await data.arrayBuffer());const hash=await documentHash(b);if(await documentHash(actual)!==hash)throw Error('Readback divergente');const r=await admin.rpc('data_entry_record_receipt',{p_bucket:'standalone-invoices',p_path:p,p_sha:hash,p_size:b.length,p_mime:mime});if(r.error)throw Error('Recibo recusado')},
+  })
+diff --git a/supabase/functions/standalone-attempt-333/snapshot.ts b/supabase/functions/standalone-attempt-333/snapshot.ts
+new file mode 100644
+index 000000000..6cfea0a1e
+--- /dev/null
++++ b/supabase/functions/standalone-attempt-333/snapshot.ts
+@@ -0,0 +1,14 @@
++/** Called only after canonical check; labels are optional and never authorize effects. */
++type Row = Record<string, any>;
++type Chain = { eq(column:string,value:string):Chain; limit(n:number):Chain; maybeSingle():PromiseLike<{data:Row|null;error:unknown}> };
++export type SnapshotReader = {from(table:string):{select(columns:string):Chain}};
++export async function readSnapshot(admin:SnapshotReader,user:string,company:string,operation:string,id:string,hash:string) {
++ const {data,error}=await admin.from('standalone_attempts_333').select('id,company_id,principal,operation,envelope_hash,envelope').eq('id',id).eq('company_id',company).eq('principal',user).eq('operation',operation).eq('envelope_hash',hash).maybeSingle();
++ if(error||!data)return null;
++ const label=async(table:string,column:string,key:string,value:string)=>{try{const r=await admin.from(table).select(column).eq(key,value).maybeSingle();return !r.error&&typeof r.data?.[column]==='string'?r.data[column]:null}catch{return null}};
++ const payer=async()=>{const payerId=data.envelope?.payload?.paid_by_partner_id;if(typeof payerId!=='string')return null;
++  try{const membership=await admin.from('user_roles').select('user_id').eq('user_id',payerId).eq('company_id',company).limit(1).maybeSingle();if(membership.error||!membership.data)return null;return await label('profiles','full_name','id',payerId)}catch{return null}
++ };
++ const [companyName,actorName,payerName]=await Promise.all([label('companies','display_name','id',company),label('profiles','full_name','id',user),payer()]);
++ return {company_name:companyName,actor_name:actorName,payer_name:payerName,id:data.id,user_id:data.principal,company_id:data.company_id,operation:data.operation,hash:data.envelope_hash,envelope:data.envelope};
++}
+\ No newline at end of file
+
+```
+
+## Tests finaux mémoire/index inclus
+```text
+
+ RUN  v3.2.7 /dev-server
+
+ ✓ src/lib/__tests__/standalone-snapshot.test.ts (4 tests) 5ms
+ ✓ src/test/memory-index.test.ts (3 tests) 6ms
+ ✓ src/lib/__tests__/standalone-capabilities.test.ts (9 tests) 31ms
+ ✓ src/lib/__tests__/standalone-attempt-routing.test.ts (13 tests) 22ms
+ ✓ src/components/standalone/__tests__/StandaloneReservedExecution.test.tsx (9 tests) 420ms
+
+ Test Files  5 passed (5)
+      Tests  38 passed (38)
+   Start at  01:18:08
+   Duration  4.26s (transform 467ms, setup 1.88s, collect 1.08s, tests 485ms, environment 8.14s, prepare 3.49s)
+
+
+```
+
+## Préservation
+```text
+Protected source/config/SQL/#323 documentation byte-identical to received HEAD.
+Memory index regenerated:193files;38testsPASS;latest automatic buildOK.
+```
