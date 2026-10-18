@@ -1,3 +1,7 @@
+# Smart link — diagnóstico de toque iOS
+- [ ] Alargar constraint sem retirar kinds existentes; adaptar e testar portal-track.
+- [ ] Deploy portal-track, dois POST teste_chat2, leitura e limpeza seletiva; adenda D-ERP234; sem Publish.
+
 # #332 — cidade/lista
 - [x] 0186–0189 aplicadas; CAOP308/278+19+11 sem divergências.
 - [x] Coletor estrito e deploy apenas newgang-portal + crm-meta-audience-sync; sem Meta manual.
