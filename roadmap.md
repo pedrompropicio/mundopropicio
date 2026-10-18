@@ -8,6 +8,8 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
+- [ ] Preparar candidato mínimo hash-check42501, manifesto/diff/rollback e PG17 real antes/depois/duas conexões/ACL/dados + handler real simulado; sem aplicação Live.
+- [ ] Entregar prova consolidada e plano Live finito ao controlador para revisão concreta; não criar contas nem repetir hash Cloud nesta entrega.
 - [x] Executar runner HEAD isolado:23/44/31/7 PASS,geral1373,tsgo/Deno/build0;provas30/31,0Live; NÃO aceitação completa.
 - [x] Completar casos locais bloqueantes: React Chromium Assistant/scanner/editor/reserva, authorize/begin/confirm-recovery/Auth/empresa;prova32. Cloud não testado.
 - [x] CI39083572592 anterior success/HEAD41ecefab recebidos pelo controlador; janela cumprida.
