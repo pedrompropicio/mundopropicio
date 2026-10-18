@@ -6,8 +6,9 @@ export class AwaitController71 extends Error {
  constructor(readonly request:Request69){super('Finite controller response required');this.name='AwaitController71'}
 }
 export type Schema71={type:'object';properties:Record<string,SchemaNode71>};
-export type SchemaNode71={type:'object';properties:Record<string,SchemaNode71>}|{type:'array';items:SchemaNode71}|{type:'string'|'number'|'boolean'|'null';pattern?:string;integer?:boolean;minimum?:number};
+export type SchemaNode71={type:'union';options:SchemaNode71[]}|{type:'object';properties:Record<string,SchemaNode71>}|{type:'array';items:SchemaNode71}|{type:'string'|'number'|'boolean'|'null';pattern?:string;integer?:boolean;minimum?:number};
 export function validate71(value:unknown,s:SchemaNode71):void {
+ if(s.type==='union'){for(const option of s.options){try{validate71(value,option);return}catch{}}throw Error('Union type refused')}
  if(s.type==='null'){if(value!==null)throw Error('Null required');return}
  if(s.type==='array'){if(!Array.isArray(value))throw Error('Array required');value.forEach(v=>validate71(v,s.items));return}
  if(s.type==='object'){
