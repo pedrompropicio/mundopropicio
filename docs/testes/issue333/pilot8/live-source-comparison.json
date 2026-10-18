@@ -1,0 +1,25 @@
+{
+  "read_only_observed_utc": "2026-10-18T03:22:21Z",
+  "changed_functions": {
+    "data_entry_preparation_gate": {
+      "source_md5": "c5da8e899cc40981052eb49dff25a1df",
+      "live_equal": true
+    },
+    "data_entry_session": {
+      "source_md5": "1e53066070f9af824100b3093b613a06",
+      "live_equal": true
+    },
+    "data_entry_commit": {
+      "source_md5": "2d8adf45d14f6a6f29b182678dc5e507",
+      "live_equal": true
+    },
+    "standalone_attempt_gate_333": {
+      "source_md5": "bf40deac999b96d6f755a1d7aac37a8f",
+      "live_equal": true
+    }
+  },
+  "internal_md5": "b748a720b4cb1f988a927b5577e511dd",
+  "core_open": 0,
+  "attempt_open": 0,
+  "allowlist_present": false
+}

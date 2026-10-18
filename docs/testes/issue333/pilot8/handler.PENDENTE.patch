@@ -1,0 +1,81 @@
+--- a/supabase/functions/data-entry/handler.ts
++++ b/supabase/functions/data-entry/handler.ts
+@@ -24,6 +24,8 @@
+   };
+   /** Upload stays closed until the technical tables/buckets are applied and reviewed. */
+   uploadEnabled: boolean;
++  /** Pilot candidate only: canonical caller JWT capability, never request flags. */
++  pilotScoped?: boolean;
+   cors: Record<string, string>;
+ }
+ 
+@@ -71,13 +73,15 @@
+     new Response(JSON.stringify(body), { status, headers: { ...d.cors, "Content-Type": "application/json" } });
+ 
+   /** Puts bytes at a deterministic path; an existing object is accepted only with identical bytes. */
+-  async function putVerified(bucket: Bucket, path: string, bytes: Uint8Array, mime: DocumentType, hash: string) {
++  async function putVerified(bucket: Bucket, path: string, bytes: Uint8Array, mime: DocumentType, hash: string, guard?: () => Promise<void>) {
++    if (guard) await guard();
+     const up = await d.storage.upload(bucket, path, bytes, mime);
+     if (up.error && !up.error.conflict) throw new SafeError("Armazenamento não conferido; nada foi registado.", 409);
+     // HTTP success is not evidence of stored bytes. Read back success AND conflict.
+     const existing = await d.storage.download(bucket, path);
+     if (!existing || existing.length !== bytes.length || (await sha256(existing)) !== hash)
+       throw new SafeError("Armazenamento não conferido; nada foi registado.", 409);
++    if (guard) await guard();
+     const r = await d.recordReceipt(bucket, path, hash, bytes.length, mime);
+     if (r.error) throw fromDb(r.error);
+   }
+@@ -104,9 +108,20 @@
+         || (req.headers.has("X-Data-Entry-Company") && req.headers.get("X-Data-Entry-Company") !== company))
+         throw new SafeError("Contexto alterado; reabre o assistente na empresa atual.", 409);
+       const load = (session: string) => rpc<State>("data_entry_session", { p_session: session, p_event: null });
++      const pilot = d.pilotScoped ? await rpc<{preparation:boolean;execute:boolean}>("data_entry_pilot8_capabilities", {}) : null;
++      const uploadEnabled = d.pilotScoped ? pilot?.preparation === true : d.uploadEnabled;
++      const revalidateStorage = async (bucket: Bucket) => {
++        if (!d.pilotScoped) return;
++        const current = await rpc<{preparation:boolean;execute:boolean}>("data_entry_pilot8_capabilities", {});
++        if (!(bucket === "data-entry-staging" ? current.preparation : current.execute)) throw new SafeError("Piloto indisponível; candidato preservado.",403);
++      };
++      const putScoped = async (bucket: Bucket, path: string, bytes: Uint8Array, mime: DocumentType, hash: string) => {
++        await revalidateStorage(bucket);
++        await putVerified(bucket,path,bytes,mime,hash,()=>revalidateStorage(bucket));
++      };
+ 
+       if (req.headers.get("Content-Type")?.startsWith("multipart/form-data")) {
+-        if (!d.uploadEnabled) throw new SafeError("Envio de documentos ainda não ativado neste ambiente. Nada foi guardado.", 503);
++        if (!uploadEnabled) throw new SafeError("Envio de documentos ainda não ativado neste ambiente. Nada foi guardado.", 503);
+         let raw: Uint8Array;
+         try { raw = await readCapped(req.body, MAX_UPLOAD_BODY_BYTES); }
+         catch (e) { throw new SafeError(e instanceof RangeError ? e.message : "Pedido inválido", 413); }
+@@ -124,7 +139,7 @@
+         try { mime = validateDocument(bytes, file.type); } catch (e) { throw new SafeError((e as Error).message, 422); }
+         const hash = await sha256(bytes);
+         const path = stagingPath(company, sessionId, hash);
+-        await putVerified("data-entry-staging", path, bytes, mime, hash);
++        await putScoped("data-entry-staging", path, bytes, mime, hash);
+         const name = file.name.replace(/[\x00-\x1f\x7f]/g, "").trim().slice(0, 255) || "documento";
+         return reply(await rpc("data_entry_add_document", { p_session: sessionId, p_name: name, p_sha: hash, p_size: bytes.length, p_mime: mime }));
+       }
+@@ -134,9 +149,9 @@
+       const text = new TextDecoder().decode(await readCapped(req.body, 16000).catch(() => { throw new SafeError("Pedido demasiado grande", 413); }));
+       const body = commandSchema.parse(JSON.parse(text));
+       if (body.action === "status") {
+-        return reply({ user_id: user.id, role: eff.role, company_id: company, capabilities: { upload: d.uploadEnabled, analysis: false, gmail: false, drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
+-      }
+-      if (!d.uploadEnabled) throw new SafeError("Assistente ainda não ativado neste ambiente. Nada foi guardado.", 503);
++        return reply({ user_id: user.id, role: eff.role, company_id: company, capabilities: { upload: uploadEnabled, analysis: false, gmail: false, drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
++      }
++      if (!uploadEnabled && !(d.pilotScoped && (body.action === "check" || body.action === "document" || (body.action === "session" && body.session_id)))) throw new SafeError("Assistente ainda não ativado neste ambiente. Nada foi guardado.", 503);
+       if (body.action === "session") return reply(await rpc("data_entry_session", { p_session: body.session_id ?? null, p_event: body.event_id ?? null }));
+       const state = await load(body.session_id);
+       if (state.company.id !== company) throw new SafeError("Lote de outra empresa", 403);
+@@ -181,7 +196,7 @@
+       await rpc("data_entry_attempt_333", {p_action:"prepare",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
+       await rpc("data_entry_attempt_333", {p_action:"authorize",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
+       await rpc("data_entry_attempt_333", {p_action:"begin",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
+-      await putVerified("standalone-invoices", finalPath, bytes, doc.mime, hash);
++      await putScoped("standalone-invoices", finalPath, bytes, doc.mime, hash);
+       const commit = await d.userRpc(token, "data_entry_attempt_333", {p_action:"commit",p_preview:preview.id,p_snapshot_hash:body.snapshot_hash});
+       if (commit.error) {
+         if (DEFINITIVE.has(String(commit.error.code))) {

@@ -20,8 +20,9 @@
 - [x] Deploy só standalone-attempt-333/snapshot seguro;35 testes/Deno PASS;prova34/35, gates fechados.
 - [x] Tentar todos os grupos independentes Live antes dos timeouts; prova37:36PASS/1FAILfixtureexecute422/2INCONCLUSIVO;uma conta nova banida/sessions0,22baselines iguais.
 - [x] Prova39: execute negativo com PDF válido1499B/preflight handler exato PASS;13LivePASS409/42501/zeroefeitos/23baselines iguais;conta única nova banida/sessions0. Timeout continua separado;sem fase6 inteira concluída.
-- [ ] Causa timeout Cloud40001 não demonstrada;PG17local imediato/fonte igual. Trace infraestrutura indisponível, proposta INERTE na prova37.
-- [ ] CI nova e sincronização final ao controlador.
+- [x] Comportamento atual hash-check comprovado50; causa histórica não demonstrada permanece limite de conhecimento, NÃO bloqueio fase6.
+- [x] CI39092652776 success; matriz52 fases6/7 e piloto8 candidatoINERTE/11PGPASS entregues.
+- [ ] Controlador rever/aplicar candidato piloto8 e conferir CI nova; bloqueio: revisão/autorização de aplicação/deploy não executadas nesta preparação.
 - [x] Validar SQL exata do leitor em PostgreSQL descartável real;0192 aplicada oficialmente/registry194/hash exato.
 - [x] Integrar/testar leitor service-only; deploy só standalone-attempt-333, versão7 observada, gates fechados.
 - [x] Conferir registry/corpo/ACL/baselines separados/negativas Live e entregar prova26/27, estado e pendências.

@@ -1,0 +1,11 @@
+{
+  "source-manifest.json": "a68ebd21cd529737b72fa928ca741fb1171c9bf28cb2afc799c6fe7106cee03d",
+  "source-original.sql": "a8939e17d5b3c5cbc2da7ad200bcfd94347bcb67b5961e06850d455e668d7842",
+  "allowlist.INERTE.sql": "2f00278ea56edcb02369a6e160330183c206e95f90ecfefcc783d5bc910543bf",
+  "rollback.INERTE.sql": "03203cc36c8b1eb90e32357cd565c8c8586ea280c8c4270a22be81962244d921",
+  "handler.candidate.ts": "dafcba82854129259e98956e5fbb33932083ad8fa13c78903ddfac380dfa47e1",
+  "handler.PENDENTE.patch": "5bad0ea086911a7659953539c0b422b3e1a204803725f2c287f25a933bcfbb1a",
+  "index.PENDENTE.patch": "c4b9dafd1e13445f22e1ee11558e5aa4eb5f47cbfb39bf44392f9c55ec65b27b",
+  "activation.INERTE.sql": "435fba9b5c7d706f86244d0cd1e50392d7ced4240ce462f2d3593252dd202ed4",
+  "live-source-comparison.json": "af0b98760538db1a664ddbdf8a1dd38867e2e716c7902cebb00fe0c3ad978182"
+}
