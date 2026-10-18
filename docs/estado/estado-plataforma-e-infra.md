@@ -1,5 +1,8 @@
 # ESTADO — Plataforma & Infra
 
+## #333 — prova69 constante JSON oficial validada localmente (18/10/2026)
+705 bytes exatos0600, SHA256/query fingerprint e tipos via JSON.parse; numeric string preservado. Adaptador controller-message isolado,15 testes dinâmicos locais PASS/typecheck explícito0; não ligado ao piloto. Constante sem hash upstream: integridade upstream/tamanho grande/chunks ainda por validar. Próximo SELECT sintético controller proposto em69-controller-message-json-local.md, não executado. Sem Cloud/CLI/psql/contas/escritas; fases1–7feitas,8PARCIAL,9–18pendentes; #323/DECISIONS intactos.
+
 ## #333 — prova68 CLI existe; validação bloqueada por canal (18/10/2026)
 Help oficial instalado confirma upstream readonly/SELECT/stdout JSON integral e sessão gateway provisionada; documentação capturada0600 automaticamente. Nenhuma consulta CLI: instrução superior vigente exige ferramentas read_query para inspeção da base. Não alegar CLI inexistente nem recusa runtime. Constante/sintético/metadados por CLI não validados; sem código/produto/writes/piloto. Contas59/63 encerradas; fases1–7feitas,8PARCIAL,9–18pendentes. Ver docs/testes/issue333/68-cli-oficial-capacidade-e-restricao.md. #323/DECISIONS preservados.
 

@@ -21,6 +21,7 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
+- [x] Prova69 local:705bytes JSON/tipos/hash, adaptador isolado,15 testes/typecheck0; sem Cloud/piloto. Grande/hash upstream pendentes de novo sintético controller.
 - [ ] Prova68 BLOQUEADA por regra de canal: CLI oficial documenta readonly/stdoutJSON; nenhuma consulta CLI executada. Prova67 read_query textual; sem piloto.
 - [x] Prova66: checkpoints duráveis e SELECT integral; testes locais/PG/Chromium, zero Cloud/piloto; fase8 parcial.
 - [x] Retoma18/10: pilot8 integrado após PASS isolado;17PG+46PG+26Chromium+1406Vitest, tipos/buildOK; gates/receipt/expiração/ACL concretos. Prova53; SQL/rollback PENDENTES, zero Cloud/deploy/contas. Fase6 concluída,7 aberta,8 não executada.
