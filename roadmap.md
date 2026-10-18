@@ -21,6 +21,7 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
+- [ ] PRIORIDADE CI main: corrigir somente dependências locais70/worker60, validar suite default sem artefacto/browser; controller confirmar `CI / quality` verde no SHA atual e registar run na333 ANTES próximo dispatch não corretivo/Publish. Inventário80/limpeza/release PAUSADOS; reserva333 para correçãoCI.
 - [x] Tarefa80 inventário/plano entregue:18candidatosAuth14origemcorroborada/4excluídosclasse28;2faturas59+76/11objetos/4lotes/29roles/8attempts/4receipts/6disabled;38systemaudit+2attemptauditpreservados;paid_by50manual76corroborado. Manifesto privado/checksums/SELECT-only/SQLINERTE guardado;zeroexclusão.79/releasePAUSADOS;8PARCIAL;#323/DECISIONS/AGENTSintactos.
 - [ ] Limpeza333 aguardarevisãoconcretacontroller: exceçãopontualimutabilidade/FK eexecutorAuth/Storagepermitido;4mapeamentosclasse28excluídosatérevisão. Parcela mutável6permissões+1lote23prontapararevisão,NÃOautorizadaexecutar. Semmais testes/pilotos/release.
 - [x] Tarefa77/78: investigação cancelada (campos funcionais); teste manual76 operacional APROVADO, produto intacto. Divergência expires esclarecida: controller renovou mesmas duas permissões e revogou-as; não retry. Comparação automática financeira/configuração preservada; prova78/checklist/estado atualizados, reserva libertada.
