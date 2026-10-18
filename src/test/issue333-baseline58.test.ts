@@ -19,7 +19,7 @@ it('relay unwraps official row arrays, refuses mismatched IDs, and has a finite 
 });
 it('Auth HTTP timeout terminates without a retry or second request',async()=>{
  let requests=0;
- const transport:typeof fetch=async(_url,options)=>{requests++;return new Promise((_resolve,reject)=>options?.signal?.addEventListener('abort',()=>reject(Error('finite timeout'))))};
+ const transport:typeof fetch=async(_url,options)=>{requests++;return new Promise<Response>((_resolve,reject)=>options?.signal?.addEventListener('abort',()=>reject(Error('finite timeout'))))};
  const auth=new AuthAdmin57('http://local','local-service','local-public',transport,20);
  await expect(auth.readProbe()).rejects.toThrow('finite timeout');expect(requests).toBe(1);
 });

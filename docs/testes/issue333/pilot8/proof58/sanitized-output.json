@@ -1,0 +1,56 @@
+{
+  "head_received": "99bf1ffc7473688f29496533d7cd9ea3083ba05e",
+  "metadata_incompatibilities": [],
+  "live_baselines": {
+    "reads_utc": [
+      "2026-10-18T13:10:42Z",
+      "2026-10-18T13:11:21Z"
+    ],
+    "relations": 15,
+    "equal": true,
+    "concurrent_changes": [],
+    "reimbursement_notes": {
+      "count": 44,
+      "md5": "e40349ec169b75224dca0710ee898dfb"
+    },
+    "reimbursement_note_items": {
+      "count": 180,
+      "md5": "6490b4bf0dc630da6f25e5f635ed4316"
+    }
+  },
+  "local_modes": [
+    "probe",
+    "preflight",
+    "execute"
+  ],
+  "local_connected_driver_pass": true,
+  "pdf": {
+    "bytes": 1517,
+    "sha256": "8ae66f6a452934a1f43a5d9fb2c5f22fef7e407e4d2f1b8db53f03d75794798f",
+    "mime": "application/pdf",
+    "mode": "0600",
+    "pdfinfo": "PASS",
+    "validateDocument_HEAD": "PASS"
+  },
+  "tests": {
+    "vitest_pass": 1418,
+    "skipped": 1,
+    "todo": 11,
+    "connected_pg_chromium_pass": 1
+  },
+  "final_live": {
+    "marker_absent": true,
+    "reference_absent": true,
+    "allowlist_count": 0,
+    "core_open": 0,
+    "attempt_open": 0,
+    "five_sources_equal": true
+  },
+  "ci_received": {
+    "id": 39125583006,
+    "conclusion": "success"
+  },
+  "ci_new_code": "not_observed",
+  "cloud_account_created": false,
+  "cloud_pilot_executed": false
+}

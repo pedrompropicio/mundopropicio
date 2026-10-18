@@ -1,0 +1,9 @@
+{
+  "docs/testes/issue333/pilot8/run-cloud57.ts": "6e688d5dd80430275b0ca6f5e9f578c292ef46c2f02366bcd416051406b55520",
+  "docs/testes/issue333/pilot8/private-cloud57.ts": "a04e2a62116bcdc0b4d7f96e64a1a08a92430201c987626a85cf8f3de7de3bf7",
+  "docs/testes/issue333/pilot8/cloud-browser57.py": "6350bad3c0bcb191675b5d87c6ee4a04f7ce8240e0667f2d362c663b943fd519",
+  "docs/testes/issue333/pilot8/baseline58.ts": "c51b64463e80c9662bf4d7ea631979c89b0b10ff1d5c988af5c1807aca5419b1",
+  "docs/testes/issue333/pilot8/financial-schema58.LOCAL.sql": "cd2e3661e4838e40fe314b6b2ff23cef7af2f062ae76e5d2bf8d9570c0438844",
+  "docs/testes/issue333/pg/driver58.test.ts": "90cf4262fd95e7d0974099b7c08773b95a78e4aca405ed61467ad0698c38cc66",
+  "src/test/issue333-baseline58.test.ts": "a0a2c9bc9b3b43ddd2bb593d447986658b767f9b47a4252423f433eec46bbab2"
+}
