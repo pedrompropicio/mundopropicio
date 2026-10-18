@@ -1,7 +1,7 @@
 /** Read-only inventory shared by the official relay and disposable driver tests. */
 export const financial = ['transactions','event_forecasts','financial_accounts','transaction_payments','reimbursement_notes','reimbursement_note_items','payment_lists'];
 export const protectedTables = ['data_entry_sessions','data_entry_documents','data_entry_previews','data_entry_results','standalone_invoices','standalone_attempts_333','standalone_attempt_audit_333','data_entry_storage_receipts'];
-export const quote = (v:string) => "'"+v.replaceAll("'","''")+"'";
+export const quote = (v:string) => "'"+v.replace(/'/g,"''")+"'";
 // Every explicit column read by baseline, readiness, facts and final checks is inventoried.
 export const columns:Record<string,string[]> = {
  'auth.users':['id','email','raw_user_meta_data','last_sign_in_at','banned_until','created_at'], 'auth.sessions':['user_id'],
