@@ -21,11 +21,11 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
-- [ ] Tarefa75: preparar modo existing-user isolado, guardas de papel/empresa e cleanup que preserva histórico/sessões; testar localmente. SELECT inicial único confirmou conta na MP com papel accountant: execução bloqueada sem alterar permissões de negócio. Zero login/escritas Cloud.
+- [x] Tarefa75: modo existing-user isolado/cleanup exato/histórico e sessões preservados;22testesPASS/tipos0/buildOK. SELECT único: conta MP accountant, piloto bloqueado sem promover. Zero login/escritasCloud. Prova75.
 - [x] Prova73: manifesto sanitizado, SQL novo inerte/renderer/30PG,9bundles por etapa/39testes/tipos0; zero piloto/escritas Cloud.
 - [ ] Piloto existing-user75: cenário73 de criação/AuthAdmin substituído; conta escolhida sem autoridade atual (accountant), preservar papel; acesso autêntico e autorização de execução pendentes.
 - [x] Prova72:3envelopes reais consumidos em ordem, bytes/hash exatos e snapshots iguais; manifesto privado novo sem conta e plano condicional,51testesPASS.
-- [ ] Piloto após72: aguarda autorização própria, mecanismo oficial AuthAdmin e SQL novo para identidade futura; NÃO reutilizar render64/marcador63 diretamente.
+- [x] Cenário criação/AuthAdmin após72 substituído explicitamente pelo existing-user75; artefactos anteriores preservados, contas59/63 não reutilizáveis.
 - [x] Prova71: transporte finito integrado;58 seletivos+1PG/React/Chromium PASS, tipos0; bundle real sem identidade entregue, zero Cloud, fase8 PARCIAL.
 - [x] Prova71 próximo cumprido em72: bundle real recebido/validado; prontidão/plano de UM piloto condicional, sem execução.
 - [x] Prova69 local:705bytes JSON/tipos/hash, adaptador isolado,15 testes/typecheck0; sem Cloud/piloto. Grande/hash upstream pendentes de novo sintético controller.

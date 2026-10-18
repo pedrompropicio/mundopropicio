@@ -26,7 +26,7 @@ Sessão disponibilizada: signed_out. Não houve mint/restauração/login, probe 
 Nesta tarefa: um SELECT mínimo, mudanças só locais, zero login/Cloud writes/ativação/fatura/DDL/deploy/Publish. Fases1–7done/8PARCIAL/9–18pendentes. Root AGENTS/DECISIONS/#323 preservados. Testes locais não substituem acesso autêntico nem piloto.
 
 ## Validação
-22 testes locais PASS: accountant recusado, sete drifts, histórico/sessões preexistentes, revogação exata/falha/expiração, repetição, sessão reutilizada, TTL600s, exclusão indevida de histórico, autorização nova e efeito incerto não repetido. PDF aprovado lido em teste sem Cloud. Um erro de compatibilidade Object.hasOwn foi identificado e corrigido para hasOwnProperty; validação final registada no fecho.
+22 testes locais PASS: accountant recusado, sete drifts, histórico/sessões preexistentes, revogação exata/falha/expiração, repetição, sessão reutilizada, TTL600s, exclusão indevida de histórico, autorização nova e efeito incerto não repetido. PDF aprovado lido em teste sem Cloud. Um erro de compatibilidade Object.hasOwn foi identificado e corrigido para hasOwnProperty. Reexecução22PASS, tsgo explícito0, último log19:48:39buildOK. Reserva333 libertada no fecho; rootAGENTS/DECISIONS preservados, regra estrutural no AGENTS local. Sem alegar commit/CI remoto.
 
 ## Próximo passo único
 Pedro indicar uma conta existente que já tenha admin/platform_admin/manager na MP. A conta escolhida permanece intacta; nenhum suporte/AuthAdmin necessário para este cenário, nenhuma promoção implícita.
