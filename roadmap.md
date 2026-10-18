@@ -21,6 +21,7 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
+- [ ] Tarefa80 PRIORIDADE: pausar79/release; inventariar UUIDs/proveniência/dependências/FK/triggers/storage de todos os resíduos333, preservar registo sanitizado e preparar manifesto privado + scripts INERTES SELECT-only/dry-run/exclusão guardada. Nenhuma limpeza autorizada nesta preparação; conta real/testePedro e #323 preservados; fase8PARCIAL. Inventário em curso, revisão do controller antes de qualquer execução.
 - [x] Tarefa77/78: investigação cancelada (campos funcionais); teste manual76 operacional APROVADO, produto intacto. Divergência expires esclarecida: controller renovou mesmas duas permissões e revogou-as; não retry. Comparação automática financeira/configuração preservada; prova78/checklist/estado atualizados, reserva libertada.
 - [x] Tarefa75: modo existing-user isolado/cleanup exato/histórico e sessões preservados;22testesPASS/tipos0/buildOK. Diagnóstico corrigido: Pedro alterou pessoalmente para manager, revalidado oficialmente; sem promoção pelo agente.
 - [x] Prova73: manifesto sanitizado, SQL novo inerte/renderer/30PG,9bundles por etapa/39testes/tipos0; zero piloto/escritas Cloud.
