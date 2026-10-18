@@ -1352,6 +1352,13 @@
       "when": 1792277634936,
       "tag": "0192_issue333_service_only_capability_reader",
       "breakpoints": true
+    },
+    {
+      "idx": 193,
+      "version": "7",
+      "when": 1792290976157,
+      "tag": "0193_issue333_hash_check_validation_classification",
+      "breakpoints": true
     }
   ]
 }
