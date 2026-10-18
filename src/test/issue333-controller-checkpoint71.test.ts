@@ -54,7 +54,8 @@ it.each(['success','expired','worker','logout','ban'])('executor + receiver + fi
     logoutGlobal:async()=>{logout++;if(failure==='logout')throw Error('logout');sessions=0},banOnlyCreatedUser:async()=>{bans++;if(failure==='ban')throw Error('ban');sessions=0},
     readSessionCount:async()=>{await select('sessions');return sessions},finalBaselines:async()=>{await select('final');return {financialUnchanged:true,priorCandidatesPreserved:true,globalsClosed:true}},now:()=>now,wait:async()=>{throw Error('No polling')},secret:()=>{throw Error('No generation')},
    };
-   const result=await checkpoint66(action,durableDriver71(d,dir,action,t),a,store);
+   const storedState=await store.load();
+   const result=await checkpoint66(storedState.phase==='aborted'?'cleanup':action,durableDriver71(d,dir,action,t),a,store);
    if(!result.pending.includes('controller_select'))return result;
    const beforeCalls=[...calls];now+=900001;expect(calls).toEqual(beforeCalls); // no activity while controller absent
    // Activation lifetime starts separately, not from request age. Keep finite test snapshots valid except expired case.

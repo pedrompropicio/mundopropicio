@@ -35,9 +35,11 @@ export async function checkpoint66(action:'prepare'|'execute'|'finish'|'cleanup'
    s.context=d.exportContext();s.phase='await_activation';await store.save(s);return {checkpoint:s.phase,pending:['controller_activation'],noPendingSelect:true};
   }
   if(action==='execute'){
+   if(s.phase!=='executing'){
    await d.validateCheckpoint(s.identity,a,'activated'); // NOT preflightResume: role manager and two active rows now.
    const ready=await d.readReady(s.identity,a);require66(ready&&ready.owner===s.identity.id&&ready.company===a.company&&ready.marker===a.marker&&ready.role==='manager'&&ready.sessionCount===0&&!ready.globalOpen&&ready.canonicalCompany===a.company&&ready.preparation&&ready.assistantCreate&&ready.expiresAt>d.now(),'Activated readiness refused');
    s.phase='executing';await store.save(s); // before any login/HTTP; crash cannot repeat.
+   }
    const login=await d.login(a.marker+'@fixture.invalid',await store.getSecret('password'));token=login.token;await store.putToken(token);require66(login.owner===s.identity.id,'Login identity drift');
    const r=await d.chromium(s.identity,token,a);
    require66(r.sessions===1&&r.documents===1&&r.previews===1&&r.executeRequests===2&&r.invoices===1&&r.results===1&&r.financialEffects===0&&r.downloadedSha===a.sha256&&r.approvedOwner===s.identity.id&&r.approvedNameFromServer&&r.reopenedCheckOk,'Single-preview evidence mismatch');
