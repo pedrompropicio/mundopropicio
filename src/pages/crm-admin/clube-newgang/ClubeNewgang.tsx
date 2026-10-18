@@ -108,7 +108,7 @@ export default function ClubeNewgang() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0 w-full">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Clube Newgang</h1>
@@ -124,12 +124,12 @@ export default function ClubeNewgang() {
 
       <div className="grid gap-4 md:grid-cols-4">
         {[["Total de inscritos", total], ["Hoje", s?.today ?? 0], ["Últimos 7 dias", s?.last7 ?? 0]].map(([l, v]) => (
-          <Card key={l as string}><CardContent className="pt-6">
+          <Card key={l as string} className="min-w-0"><CardContent className="pt-6">
             <p className="text-xs text-muted-foreground">{l}</p>
             <p className="text-3xl font-bold tabular-nums">{summary.isLoading ? "…" : n(v as number)}</p>
           </CardContent></Card>
         ))}
-        <Card><CardContent className="pt-6 space-y-2">
+        <Card className="min-w-0"><CardContent className="pt-6 space-y-2">
           <p className="text-xs text-muted-foreground">Meta {n(META)} até {META_DATA}</p>
           <p className="text-xl font-bold tabular-nums">{n(total)} / {n(META)}</p>
           <Progress value={Math.min(100, (total / META) * 100)} />
@@ -159,7 +159,7 @@ export default function ClubeNewgang() {
         <Ranked title="Por faixa etária" items={s?.by_age ?? []} />
       </div>
 
-      <Card>
+      <Card className="min-w-0">
         <CardHeader className="flex flex-row items-center justify-between gap-3 pb-2">
           <CardTitle className="text-sm">Inscritos ({n(total)})</CardTitle>
           <div className="relative w-64">
@@ -167,7 +167,7 @@ export default function ClubeNewgang() {
             <Input className="pl-8" placeholder="Pesquisar nome ou email" value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} />
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="min-w-0 overflow-x-auto">
           <Table>
             <TableHeader><TableRow>
               <TableHead>Nome</TableHead><TableHead>Email</TableHead><TableHead>Telemóvel</TableHead>

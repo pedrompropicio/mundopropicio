@@ -119,8 +119,9 @@ function applySingleAll(q: any, f: CriterionFilter): any {
       return value ? q.not("email", "is", null) : q.is("email", null);
     case "has_phone":
       return value ? q.not("phone_e164", "is", null) : q.is("phone_e164", null);
-    case "consent_email":
     case "consent_whatsapp":
+      return q.eq("whatsapp_eligible", Boolean(value));
+    case "consent_email":
     case "is_active":
       return q.eq(field, Boolean(value));
     case "source":
@@ -145,8 +146,9 @@ function toOrParts(f: CriterionFilter): string[] {
       return [value ? "email.not.is.null" : "email.is.null"];
     case "has_phone":
       return [value ? "phone_e164.not.is.null" : "phone_e164.is.null"];
-    case "consent_email":
     case "consent_whatsapp":
+      return [`whatsapp_eligible.eq.${Boolean(value)}`];
+    case "consent_email":
     case "is_active":
       return [`${field}.eq.${Boolean(value)}`];
     case "source":

@@ -4,7 +4,7 @@ import { applyCriterion, type Criterion } from "./audienceCriterion";
 
 export async function previewCount(criterion: Criterion, companyId: string): Promise<number> {
   let q = (supabase as any)
-    .from("contacts")
+    .from("crm_contacts_whatsapp_state")
     .select("*", { count: "exact", head: true })
     .eq("company_id", companyId);
   q = applyCriterion(q, criterion);
@@ -20,7 +20,7 @@ export async function createSnapshot(
 ): Promise<{ snapshot_id: string; member_count: number }> {
   // 1. Fetch matching contact ids
   let q = (supabase as any)
-    .from("contacts")
+    .from("crm_contacts_whatsapp_state")
     .select("id, company_id")
     .eq("company_id", companyId)
     .limit(50000);
