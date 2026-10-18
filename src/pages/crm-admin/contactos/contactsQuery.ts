@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPagedQuery } from "@/lib/supabase-paging";
 
+import { eligibleWhatsappIds } from "@/lib/crm/whatsapp";
+
 export type TriState = "all" | "yes" | "no";
 
 export interface ContactFilters {
@@ -14,7 +16,7 @@ export interface ContactFilters {
 }
 
 export const CONTACTS_PAGE_SIZE = 50;
-const COLS = "id, name, email, phone_e164, source, consent_email, consent_whatsapp, is_active, last_activity_at";
+const COLS = "id, name, email, phone_e164, source, consent_email, consent_whatsapp, consent_whatsapp_source, is_active, last_activity_at";
 
 /** Remove caracteres que partem a sintaxe de `.or()` do PostgREST. */
 export function sanitizeSearch(s: string): string {
@@ -63,10 +65,11 @@ export async function exportContactsCsv(f: ContactFilters, fileLabel: string, au
     if (error) throw error;
     rows = (data ?? []) as any[];
   }
-  const header = ["nome", "email", "telefone", "source", "consent_email", "consent_whatsapp", "estado", "ultima_actividade"];
+  const eligible = await eligibleWhatsappIds();
+  const header = ["nome", "email", "telefone", "source", "consent_email", "consent_whatsapp", "estado", "ultima_actividade", "origem_whatsapp"];
   const lines = rows.map((c) =>
-    [c.name, c.email, c.phone_e164, c.source, c.consent_email ? "sim" : "não", c.consent_whatsapp ? "sim" : "não",
-      c.is_active ? "activo" : "inactivo", c.last_activity_at].map(csvCell).join(","),
+    [c.name, c.email, eligible.has(c.id) ? c.phone_e164 : null, c.source, c.consent_email ? "sim" : "não", c.consent_whatsapp ? "sim" : "não",
+      c.is_active ? "activo" : "inactivo", c.last_activity_at, c.consent_whatsapp_source].map(csvCell).join(","),
   );
   const blob = new Blob(["\uFEFF" + [header.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);

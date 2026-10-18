@@ -1,9 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
+import { eligibleWhatsappIds } from "@/lib/crm/whatsapp";
 import { applyCriterion, type Criterion } from "./audienceCriterion";
 
 export async function previewCount(criterion: Criterion, companyId: string): Promise<number> {
   let q = (supabase as any)
-    .from("contacts")
+    .from("crm_contacts_whatsapp_state")
     .select("*", { count: "exact", head: true })
     .eq("company_id", companyId);
   q = applyCriterion(q, criterion);
@@ -19,7 +20,7 @@ export async function createSnapshot(
 ): Promise<{ snapshot_id: string; member_count: number }> {
   // 1. Fetch matching contact ids
   let q = (supabase as any)
-    .from("contacts")
+    .from("crm_contacts_whatsapp_state")
     .select("id, company_id")
     .eq("company_id", companyId)
     .limit(50000);
@@ -83,11 +84,12 @@ export async function exportSnapshotCSV(
 ): Promise<number> {
   const { data, error } = await (supabase as any)
     .from("audience_members")
-    .select("contact:contacts(email, phone_e164, name)")
+    .select("contact:contacts(id, email, phone_e164, name)")
     .eq("snapshot_id", snapshotId);
   if (error) throw error;
   const rows = ((data ?? []) as any[]).map((r) => r.contact).filter(Boolean);
 
+  const eligible = await eligibleWhatsappIds();
   const header = "email,phone,fn,ln";
   const lines = rows.map((c: any) => {
     const name = (c.name ?? "").trim();
@@ -96,7 +98,7 @@ export async function exportSnapshotCSV(
     const ln = parts.slice(1).join(" ");
     return [
       csvEscape(c.email ?? ""),
-      csvEscape(c.phone_e164 ?? ""),
+      csvEscape(eligible.has(c.id) ? c.phone_e164 ?? "" : ""),
       csvEscape(fn),
       csvEscape(ln),
     ].join(",");

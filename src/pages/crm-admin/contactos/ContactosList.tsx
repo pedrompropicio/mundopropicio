@@ -48,6 +48,8 @@ import {
 // pt-PT não agrupa 4 algarismos (6829); o pedido é "6.829" / "16.123".
 const fmt = (n: number) => String(Math.trunc(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 
+import { whatsappSourceLabel } from "@/lib/crm/whatsapp";
+
 export default function ContactosList() {
   const qc = useQueryClient();
   const { companyId } = useCompany();
@@ -338,6 +340,7 @@ export default function ContactosList() {
                     <Mail className={`h-4 w-4 ${c.consent_email ? "text-emerald-600" : "text-muted-foreground/40"}`} />
                     <MessageCircle className={`h-4 w-4 ${c.consent_whatsapp ? "text-emerald-600" : "text-muted-foreground/40"}`} />
                   </div>
+                  <div className="text-xs text-muted-foreground mt-1">{whatsappSourceLabel(c.consent_whatsapp_source)}</div>
                 </TableCell>
                 <TableCell>
                   <Badge className={c.is_active ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/30" : "bg-muted text-muted-foreground"}>
