@@ -12,9 +12,9 @@
 - Statement summaries aggregate existing signed lines by type without changing financial records; the display must not create settlement movements.
 - Smart-link events use a service-role-only atomic claim RPC before external delivery; the partial unique index prevents concurrent browser/SSR duplicates without removing historical records.
 - Authenticated smart-link SSR treats unusable visitor IP as absent, never falls back to infrastructure IP or a shared no-IP rate quota; arrivals must survive missing metadata without inventing attribution.
-- Growth summaries delegate omitted comparison periods to the private legacy implementation to preserve the complete prior JSON contract.
+- Growth summaries delegate omitted comparison periods to the private legacy implementation, preserving the prior JSON contract.
 - Investment source projections reuse the canonical report's spend/classification CTEs without modifying that report; any future canonical change must regenerate and regression-test the projection to prevent drift.
-- Campaign projections join by platform, account and external campaign ID, never nonunique names.
+- Campaign joins use platform, account and external ID, never nonunique names.
 - Manual modals separate their header from the scrolling body and use shared viewport/safe-area styles; this keeps dismissal accessible without changing the overlay stack.
 - Arrival geo uses local DB-IP before paid APIs; monthly Range+inflate parts avoid edge CPU limits. Never store visitor IPs.
 - Camarim cash cards, integration previews and session PDFs share the pure session cash helper; this keeps amounts and reimbursement labels consistent without changing financial records.
@@ -26,7 +26,7 @@
 - Coala confirmation-page state reads use estado_convite and the canonical coala_list_members view, never confirmar_lista; separating read-only state from confirmation prevents page loads from writing consent or joining the list.
 - Marketing proof stays in the service-role ledger, ordered by server revision, never client clocks. Client subject tokens use Origin-derived company+portal scope and per-decision receipts; capture triggers revalidate under subject locks, stripping Meta identifiers without proof. Stale retries, legacy and direct inserts never become CAPI-eligible.
 - Person advertising consent links session-resolved Club members to the existing marketing ledger through immutable references, with separate purpose subjects and an independent email history; unsubscribe commits revocation, suppression and token claim together to avoid partial withdrawal.
-- Edge fns share code only via `_shared/` (no cross-function imports).
+- Edge functions share only via `_shared/`; no cross-function imports.
 
 
 - CRM WhatsApp exports and audience filters use crm_whatsapp_eligible and its security-invoker projections; canonical member decisions override legacy ingestion so revocation and phone changes cannot leak delivery numbers.
