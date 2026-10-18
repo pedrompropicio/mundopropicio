@@ -25,7 +25,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Fase8 parcial: checkpoint63 (identidade única criada, sem login) + prova64 correção temporal do SQL de ativação do complemento (created_at exato e <= window_start; janela só para o momento da ativação, <=10 min; permissões 10 min inalteradas), PG local 20/20, retoma da MESMA identidade sem createUser; aguarda ativação pelo controller | 2026-10-18 17:22 UTC | Pedro autorizou avanço após checkpoint63; HEAD igual 0853bbb3; zero Cloud writes nesta entrega; #323/DECISIONS intactos |
+| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Fase8 parcial: retoma ÚNICA --resume-identity63 iniciada; preflight oficial aprovado, baseline novo 2x igual; executor aguarda SQL64 de ativação EXCLUSIVO controller desde 17:41:47 UTC (readiness até 17:46:47 UTC); mesma identidade63, sem nova conta/retry | 2026-10-18 17:39 UTC | HEAD recebido 50378464; estado/secret/PDF íntegros; ainda sem login/allowlist/fatura pelo executor; relay privado ativo; #323/DECISIONS intactos |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)
