@@ -22,7 +22,7 @@ export async function checkAttempt(t: AttemptTransport, a: Attempt): Promise<{st
 /** No automatic retries. Same-ID recovery goes through SQL proof under the attempt lock. */
 export async function executeAttempt(t: AttemptTransport, a: Attempt, bytes: Uint8Array) {
   if(bytes.length!==a.document.size_bytes || await documentHash(bytes)!==a.document.sha256) throw new Error('Documento divergente');
-  if(a.state==='completed') return checkAttempt(t,a);
+  if(['completed','authorized','inprogress'].includes(a.state)) return checkAttempt(t,a);
   if(a.state==='review') return {status:'pendente' as const,attempt:a};
   try {
     let claim=await t.rpc('authorize',a.id,null,a.hash);

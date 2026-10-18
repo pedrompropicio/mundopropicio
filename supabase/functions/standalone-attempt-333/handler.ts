@@ -16,6 +16,8 @@ export type HandlerDeps = {
  context(token:string):Promise<{company_id:string}|null>;
  transport(token:string,operation:string):AttemptTransport;
  cors:Record<string,string>;
+ /** Service boundary reads only after canonical owner RPC; never accepts a browser envelope. */
+ snapshot?(user:string,company:string,operation:string,id:string,hash:string):Promise<Record<string,unknown>|null>;
  list?(token:string,operation:string,after:string|null):Promise<unknown>;
  /** Server-side canonical capability; absent => closed. Never client-controlled. */
  capabilities?():Promise<Record<'scanner_create'|'accountant_edit',boolean>>;
@@ -44,7 +46,7 @@ export function createAttemptHandler(d:HandlerDeps) {
    if(body.action==='confirm_new_intent')return reply(await t.rpc('confirm_new_intent',body.id,null,body.hash));
    const a:Attempt=await t.rpc('check',body.id,null,body.hash);
    if(a.hash!==body.hash || a.id!==body.id)return reply({error:'Tentativa divergente'},409);
-   if(body.action==='check')return reply(await checkAttempt(t,a));
+   if(body.action==='check'){const checked=await checkAttempt(t,a);const snapshot=d.snapshot?await d.snapshot(user.id,context.company_id,body.operation,a.id,a.hash):null;return reply({...checked,snapshot});}
    if(body.conteudo_base64.length>4*Math.ceil(MAX_DOCUMENT_BYTES/3))return reply({error:'Documento demasiado grande'},413);
    const binary=atob(body.conteudo_base64);
    if(binary.length>MAX_DOCUMENT_BYTES)return reply({error:'Documento demasiado grande'},413);

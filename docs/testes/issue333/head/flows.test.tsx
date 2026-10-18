@@ -94,6 +94,7 @@ const envelope = (over:any={}) => ({payload:{file_name:"synthetic.pdf",created_b
 const transport = (op="scanner_create",uid=U):AttemptTransport => ({rpc:async(action,id,e,h)=>{try{return await attempt(c2,action,id,e,h,op,uid)}catch(error){console.log('SQL diagnostic',action,String(error));throw error}},upload:async(p,b)=>{const f=objectPath("standalone-invoices",p);mkdirSync(f.slice(0,f.lastIndexOf('/')),{recursive:true});if(!existsSync(f))writeFileSync(f,b);},read:p=>read("standalone-invoices",p),verifyReceipt:async(p,b,m)=>{expect(Array.from((await read("standalone-invoices",p)) ?? [])).toEqual(Array.from(b));await receipt("standalone-invoices",p,b,m);}});
 const attemptsHandler=createAttemptHandler({user:async token=>token==='local-owner'?{id:U}:null,
   context:async()=>({company_id:C}),transport:(_token,op)=>transport(op),
+  snapshot:async(user,company,op,id,h)=>{const row=(await db`select * from standalone_attempts_333 where id=${id} and principal=${user} and company_id=${company} and operation=${op} and envelope_hash=${h}`)[0];return row?{id:row.id,hash:row.envelope_hash,user_id:row.principal,company_id:row.company_id,operation:row.operation,envelope:row.envelope}:null},
   capabilities:async()=>({scanner_create:true,accountant_edit:true}),
   list:(_token,op,after)=>as(c1,U,async tx=>(await tx`select standalone_attempt_list_333(${op},${after}) j`)[0].j),
   cors:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization,content-type,x-attempt-user,x-attempt-company'}});
@@ -209,7 +210,7 @@ it('prepared-reservation UI rejects altered bytes; inprogress reservation is rea
   cleanup();const a=await attempt(c1,'prepare',null,envelope());const before=Number((await db`select count(*) n from standalone_invoices`)[0].n);
   render(<StandaloneReservedExecution id={a.id} hash={a.hash} context={{user_id:U,company_id:C}} onChecked={()=>{throw Error('false success')}}/>);
   fireEvent.change(screen.getByLabelText('Documento original da reserva'),{target:{files:[new NodeFile([pdfFixture('changed')],'synthetic.pdf',{type:'application/pdf'})]}});
-  fireEvent.click(screen.getByRole('button',{name:'Autorizar execução da reserva preparada'}));await screen.findByText('Documento divergente');
+  await screen.findByRole('region',{name:'Dados confirmados da reserva'});fireEvent.click(screen.getByRole('button',{name:'Autorizar execução da reserva preparada'}));await screen.findByText('Documento divergente');
   await attempt(c1,'authorize',a.id,null,a.hash);await attempt(c1,'begin',a.id,null,a.hash);
   fireEvent.change(screen.getByLabelText('Documento original da reserva'),{target:{files:[new NodeFile([bytes],'synthetic.pdf',{type:'application/pdf'})]}});
   fireEvent.click(screen.getByRole('button',{name:'Autorizar execução da reserva preparada'}));await screen.findByText('Consulta o resultado; esta reserva não permite uma nova execução.');
@@ -360,4 +361,62 @@ it('actual accountant editor UI -> client -> attempt endpoint -> SQL updates onl
     expect(Number((await db`select count(*) n from standalone_attempt_audit_333 where result->>'notes'='metadata edit via real UI'`)[0].n)).toBe(1);
     expect(sha((await read('standalone-invoices',a.path))??new Uint8Array())).toBe(hash);
   }finally{cleanup();client.clear();boundary.query=originalQuery}
+});
+it('Proof32 React Chromium journeys through production pages/clients/handlers/PG and owner recovery',async()=>{
+  cleanup(); const nativeFetch=globalThis.fetch;
+  const nodeUint8=(new TextEncoder().encode('')).constructor;
+  vi.stubGlobal('Uint8Array',nodeUint8);
+  const {createServer:createVite}=await import('vite');
+  const {resolve}=await import('node:path');
+  const fault={action:'',lost:false,paused:false,entered:false,release:null as null|(()=>void)};
+  const calls:Array<Record<string,unknown>>=[];
+  const localTransport=(op:string):AttemptTransport=>{const t=transport(op);return {...t,rpc:async(action,id,e,h)=>{
+    calls.push({kind:'rpc',action,id,operation:op});const result=await t.rpc(action,id,e,h);
+    if(action===fault.action&&!fault.lost){fault.lost=true;fault.entered=true;if(fault.paused)await new Promise<void>(r=>fault.release=r);throw Error('Proof32 lost after '+action)}return result;
+  }}};
+  const snapshot=async(user:string,company:string,op:string,id:string,h:string)=>{const row=(await db`select id,company_id,principal,operation,envelope_hash,envelope from standalone_attempts_333 where id=${id} and company_id=${company} and principal=${user} and operation=${op} and envelope_hash=${h}`)[0];return row?{id:row.id,user_id:row.principal,company_id:row.company_id,operation:row.operation,hash:row.envelope_hash,envelope:row.envelope}:null};
+  const ah=createAttemptHandler({user:async t=>t==='local-owner'?{id:U}:null,context:async()=>({company_id:C}),transport:(_t,op)=>localTransport(op),snapshot,capabilities:async()=>({scanner_create:true,accountant_edit:true}),list:(_t,op,after)=>as(c1,U,async tx=>(await tx`select standalone_attempt_list_333(${op},${after}) j`)[0].j),cors:{}});
+  const ch=createHandler({cors:{},uploadEnabled:true,getUser:async t=>t==='local-owner'?{id:U}:null,userRpc:async(_t,name,args)=>{try{calls.push({kind:'core',name,action:args.p_action,preview:args.p_preview});const data=await core(name,args);if(name==='data_entry_attempt_333'&&args.p_action===fault.action&&!fault.lost){fault.lost=true;fault.entered=true;if(fault.paused)await new Promise<void>(r=>fault.release=r);throw Error('Proof32 core lost '+args.p_action)}return {data,error:null}}catch(e){return {data:null,error:{code:(e as any).code??'08006',message:String(e)}}}},recordReceipt:async(b,p,h,n,m)=>{const stored=await read(b,p);if(!stored||sha(stored)!==h||stored.length!==n)return {data:null,error:{message:'Readback mismatch'}};await receipt(b,p,stored,m);return {data:null,error:null}},storage:{upload:async(b,p,value)=>{const f=objectPath(b,p);if(existsSync(f))return {error:{conflict:true}};mkdirSync(f.slice(0,f.lastIndexOf('/')),{recursive:true});writeFileSync(f,value);calls.push({kind:'upload',path:p,sha256:sha(value)});return {error:null}},download:read}});
+  const localCss=resolve('src/index.css');const originalCss=readFileSync(localCss,'utf8');writeFileSync(localCss,originalCss.split('\n').filter(line=>!line.startsWith('@import url(')).join('\n'));
+  const vite=await createVite({configFile:false,cacheDir:dir+'/vite-cache',root:process.cwd(),plugins:[(await import('@vitejs/plugin-react')).default()],server:{middlewareMode:true},resolve:{alias:[...['@/integrations/supabase/client','@/contexts/AuthContext','@/hooks/useCompany','@/hooks/use-toast','@/lib/invoice-ocr-prepare'].map(find=>({find,replacement:resolve('docs/testes/issue333/head/react-boundary.tsx')})),{find:'@',replacement:resolve('src')},{find:'@shared',replacement:resolve('supabase/functions/_shared')}]},define:{'import.meta.env.VITE_SUPABASE_URL':JSON.stringify(''),'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY':JSON.stringify('local-fixture')}});
+  const server=createServer(async(req,res)=>{try{
+    if(req.url?.startsWith('/local/')||req.url?.startsWith('/functions/')){
+      const chunks:Buffer[]=[];for await(const part of req)chunks.push(part);const body=Buffer.concat(chunks);const json=()=>JSON.parse(body.toString());
+      if(req.url==='/local/control'){const b=json();if(b.release){fault.release?.();fault.release=null}else{fault.action=b.action??'';fault.lost=false;fault.entered=false;fault.paused=b.paused===true}res.setHeader('Content-Type','application/json');res.end(JSON.stringify({entered:fault.entered,calls}));return;}
+      if(req.url==='/local/observed'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({entered:fault.entered,calls}));return;}
+      if(req.url==='/local/rpc'){const b=json();const data=b.name==='my_effective_permissions'?{...(await core(b.name,b.args,b.user)),company_id:b.company}:await core(b.name,b.args,b.user);res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));return;}
+      if(req.url==='/local/query'){const b=json();if(b.table==='user_roles'){res.end('[]');return}if(b.table!=='standalone_invoices')throw Error('Forbidden browser query '+b.table);const rows=await db`select to_jsonb(i) j from standalone_invoices i where company_id=${b.company} order by created_at desc`;res.setHeader('Content-Type','application/json');res.end(JSON.stringify(rows.map(r=>r.j)));return;}
+      if(req.url==='/local/storage'){const b=json();const value=await read(b.bucket,b.path);res.setHeader('Content-Type','application/pdf');res.end(value?Buffer.from(value):undefined);return;}
+      const request=new Request('http://local.fixture'+req.url,{method:req.method,headers:req.headers as Record<string,string>,body});const response=await (req.url.endsWith('data-entry')?ch:ah)(request);res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));return;
+    }
+    if(['/entry','/scanner-faturas','/edit'].includes(req.url??'')){res.setHeader('Content-Type','text/html');res.end(await vite.transformIndexHtml('/index.html',`<html><head></head><body><div id="root"></div><script type="module" src="/docs/testes/issue333/head/react-main.tsx"></script></body></html>`));return}
+    if(req.url?.startsWith('/src/index.css')){const transformed=await vite.transformRequest('/src/index.css');if(!transformed)throw Error('CSS transform absent');res.setHeader('Content-Type','application/javascript');res.end(transformed.code);return}
+    vite.middlewares(req,res);
+  }catch(e){res.statusCode=500;res.end(JSON.stringify({error:String(e)}))}});
+  await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));const addr=server.address();if(!addr||typeof addr==='string')throw Error('Local server absent');
+  const prior=await attempt(c1,'prepare',null,envelope({supplier_name:'Proof32 original owner envelope',notes:'confirmed reserved data'}));await executeAttempt(transport(),prior,bytes);
+  const baseInvoiceCount=Number((await db`select count(*) n from standalone_invoices`)[0].n);
+  writeFileSync(process.env.ISSUE333_EVIDENCE+'/browser-fixture.pdf',bytes);
+  try{vi.stubGlobal('fetch',nativeFetch);
+    const output=await promisify(execFile)(process.env.ISSUE333_PYTHON??'python3',['docs/testes/issue333/head/react-journeys.py',String(addr.port),prior.id,process.env.ISSUE333_EVIDENCE??'/tmp'],{env:{PATH:'/bin:/usr/bin',HOME:'/tmp',PLAYWRIGHT_BROWSERS_PATH:process.env.PLAYWRIGHT_BROWSERS_PATH},timeout:220000,maxBuffer:2000000});
+    writeFileSync(process.env.ISSUE333_EVIDENCE+'/react-chromium.log',output.stdout+output.stderr);console.log(output.stdout);
+    expect(Number((await db`select count(*) n from standalone_invoices`)[0].n)).toBe(baseInvoiceCount+3);
+    const family=await db`select id,state,prior_attempt_id from standalone_attempts_333 where envelope_hash=${prior.hash}`;expect(family.length).toBe(2);expect(family.every(a=>a.state==='completed')).toBe(true);
+    expect(calls.filter(c=>c.action==='confirm_new_intent').length).toBe(1);
+    expect(Number((await db`select count(*) n from standalone_attempt_audit_333 where result->>'notes'='Proof32 metadata changed'`)[0].n)).toBe(1);
+    for(const row of await db`select path,envelope from standalone_attempts_333 where envelope->'payload'->>'supplier_name' like 'Proof32%' and id in (select attempt_id from standalone_attempt_audit_333)`){const actual=await read('standalone-invoices',row.path);if(actual)expect(sha(actual)).toBe(row.envelope.document.sha256)}
+    expect(Number((await db`select (select count(*) from transactions)+(select count(*) from event_forecasts)+(select count(*) from transaction_payments)+(select count(*) from financial_accounts)+(select count(*) from reimbursements) n`)[0].n)).toBe(0);
+  }catch(e){writeFileSync(process.env.ISSUE333_EVIDENCE+'/react-first-failure.log',String(e)+(e as any).stdout+(e as any).stderr);throw e}
+  finally{writeFileSync(process.env.ISSUE333_EVIDENCE+'/react-calls.json',JSON.stringify(calls,null,2));fault.release?.();await vite.close();writeFileSync(localCss,originalCss);await new Promise<void>(r=>server.close(()=>r()));}
+},240000);
+
+it.each(['authorize','begin'])('lost %s attempt response then explicit execution request remains read-only',async action=>{
+ const a=await attempt(c1,'prepare',null,envelope()),t=transport();let lost=false;const actions:string[]=[];
+ const wrapped:AttemptTransport={...t,rpc:async(op,id,e,h)=>{actions.push(op);const out=await t.rpc(op,id,e,h);if(op===action&&!lost){lost=true;throw Error('lost '+op)}return out}};
+ const out=await executeAttempt(wrapped,a,bytes);expect(lost).toBe(true);expect(out.status).toBe('pendente');
+ const stored=await attempt(c1,'check',a.id,null,a.hash),before=uploads;const recoveryActions:string[]=[];
+ await executeAttempt({...t,rpc:async(op,id,e,h)=>{recoveryActions.push(op);return t.rpc(op,id,e,h)}},stored,bytes);
+ expect(recoveryActions).toEqual(['check']);expect(uploads).toBe(before);
+ expect(Number((await db`select count(*) n from standalone_invoices where id=${a.destination_id}`)[0].n)).toBe(0);
+ if(action==='begin')expect(sha((await read('standalone-invoices',a.path))??new Uint8Array())).toBe(hash);
 });
