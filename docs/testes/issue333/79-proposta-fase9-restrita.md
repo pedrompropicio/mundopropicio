@@ -95,11 +95,11 @@ ORDER BY operation;
 COMMIT;
 ```
 
-MD5 ci-dessus sont ceux revus76, pas une affirmation de fraîcheur Live79. Avant application: controller doit confronter les18signatures/ACL/source/owner à une capture actuelle approuvée, fournir exactement les paramètres privés/ancienne note/expiry et conserver les deux clés retournées. Si différences ou contexte changé: STOP, aucune réécriture improvisée. SQL est une proposition non exécutée/non testée dans79; source identique ne certifie pas ce nouveau DML.
+Os MD5 acima são os revistos76, não uma confirmação de atualidade Live79. Antes de aplicar: controller deve comparar as18assinaturas/ACL/source/owner com captura atual aprovada, fornecer parâmetros privados/nota e expiry anteriores exatos e conservar as duas chaves retornadas. Diferenças ou contexto alterado: PARAR, sem reescrita improvisada. SQL proposto, não executado/testado na79; fonte idêntica não certifica este novo DML.
 
 ## Rollback exact proposé
 
-Fermer les deux opérations par compositekeys+note release+expiry RETOURNÉ. Pas de ban/logoutglobal, pas d'effacement de candidats/factures/audits, pas de restauration de lignes enabled. Retour aux paramètres produit inchangés; puisque diff produit vide, aucun retour de fonction edge n'est nécessaire. Une publication future aura son propre manifeste/retour de version revu, jamais restauration aveugle d'autres fronts.
+Fechar as duas operações por compositekeys+nota release+expiry RETORNADO. Sem ban/logoutglobal, apagar candidatos/faturas/audits ou restaurar linhas enabled. Parâmetros do produto permanecem iguais; como diff do produto é vazio, não é necessário rollback de função edge. Publicação futura terá manifesto/retorno de versão revistos próprios, nunca restauração cega de outras frentes.
 
 ```sql
 -- INERTE; meme owner/company et EXACT expiry retourne par release9.
@@ -125,22 +125,22 @@ END $close9$;
 COMMIT;
 ```
 
-Rollback conserve note/expiry release pour traçabilité et garde l'ancien snapshot chez controller; pas de restauration d'ancienne activation. Expiration seule ferme les nouveaux effets mais ne remplace pas la révocation explicite. Transaction déjà en cours peut terminer avant la révocation sous locks; ne promettre ni annulation rétroactive ni suppression du résultat.
+Rollback conserva nota/expiry release para rastreabilidade e snapshot anterior no controller; não restaura ativação antiga. Expiração fecha novos efeitos, mas não substitui revogação explícita. Transação já em curso pode concluir antes da revogação sob locks; não prometer cancelamento retroativo ou eliminação do resultado.
 
 ## Critères8: couverture et décision
 
-1. Check authentifié commencé APRÈS révocation: couverture locale PG/handler/React32/52/66; Live50 lecture protégée d'une réserve, PAS preuve de ce résultat terminé76 après révocation. Request nouvellement initié/read-only sur résultat76 peut combler cette lacune via session authentique permise, sans accès sandbox présumé.
-2. Deux executeHTTP simultanés MÊME prévia: couverture locale deux connexions/locks,1résultat/facture52 et suites53/66; manual76 une exécution, pas preuve HTTP simultanée Live. Ce critère est non-read-only par nature: exige authorization spécifique d'une vérification finie sur intention existante, sans nouveau lote/compte et sans adapter/transporte interdit. Si chemin sûr indisponible, rester explicite/bloqué, pas duplo clique ni replay improvisé.
-3. Download séparé bytes/SHA: lecture/hash internes handler et essais locaux; manual76 SHA document observé et UI conferido, mais PAS download séparé certifié. Peut être vérifié sur objet existant, sans nouvel insert, par accès authentique permis.
+1. Check autenticado iniciado APÓS revogação: cobertura local PG/handler/React32/52/66; Live50 leitura protegida de reserva, NÃO prova deste resultado76 concluído após revogação. Request novo/read-only sobre resultado76 pode preencher a lacuna via sessão autêntica permitida, sem presumir acesso no sandbox.
+2. Dois executeHTTP simultâneos da MESMA prévia: cobertura local duas conexões/locks,1resultado/fatura52 e suites53/66; manual76 uma execução, sem prova HTTP simultânea Live. Critério não-read-only por natureza: exige autorização específica de verificação finita sobre intenção existente, sem novo lote/conta ou adaptador/transporte proibido. Caminho seguro indisponível: manter bloqueio explícito, não duplo clique ou replay improvisado.
+3. Download separado bytes/SHA: leitura/hash internos no handler e ensaios locais; manual76 SHA documento observado e UI conferido, mas NÃO download separado certificado. Verificável no objeto existente, sem insert, por acesso autêntico permitido.
 
-Les trois restent gates d'acceptation du release selon le plan ORIGINAL tant que Pedro n'a pas explicitement différé ces critères. Ce ne sont pas trois bugs démontrés; ils sont des preuves manquantes avec couverture locale/Live partielle. La limite legacy normalisation universelle52 reste également hors promesse: ne pas proposer accès universel ou concurrence avec writerslegacy d'une même identité; version restrita ne corrige pas cette limite par configuration.
+Os três permanecem gates de aceitação do release no plano ORIGINAL até Pedro adiar expressamente esses critérios. Não são três bugs demonstrados, são evidências faltantes com cobertura local/Live parcial. Normalização universal legada52 também permanece fora da promessa: não propor acesso universal ou concorrência com writerslegacy da mesma identidade; configuração restrita não corrige essa limitação.
 
-Décision humaine, AVANT toute phase9 exécutée:
-A — Accepter manual76 comme suffisant pour clôturer8 et reporter EXPRESSÉMENT les trois critères à une acceptation ultérieure identifiée; puis revoir/autoriser séparément fenêtre/release9.
-B — Maintenir8PARCIAL et autoriser uniquement les vérifications manquantes par chemin permis (recommandation technique). Commencer par les deux lectures sur artefact existant; traiter HTTP concurrent séparément, sans nouvelle batterie/pilote/compte. Proportionné: une release de documents réels mérite les preuves restantes, mais pas répétition des négatifs déjà PASS.
+Decisão humana ANTES de executar fase9:
+A — Aceitar manual76 como suficiente para encerrar8 e adiar EXPRESSAMENTE os três critérios para aceitação posterior identificada; depois rever/autorizar separadamente janela/release9.
+B — Manter8PARCIAL e autorizar somente verificações faltantes por caminho permitido (recomendação técnica). Começar pelas duas leituras do artefacto existente; tratar HTTP concorrente separadamente, sem nova bateria/piloto/conta. Proporcional: release de documentos reais merece as evidências restantes, não repetição dos negativos já PASS.
 
-Cette décision ne vaut pas activation ni Publish, quel que soit le choix. Aucun soutienAuthAdmin requis; compte existant suffit quand un accès authentique autorisé est disponible.
+Nenhuma opção autoriza ativação ou Publish. Sem suporteAuthAdmin; conta existente basta quando houver acesso autêntico autorizado.
 
 ## Fecho79
 
-Proposition9 préparée;1–7done/8PARCIAL/9–18NON exécutées. #323/DECISIONS/AGENTS préservés. Réserve333 libérée après registre. Checklist/texte pour Issue333 local; Issue distante non éditée par agent. Aucun secret/ID personnel, marqueurfixture de produit, Cloudwrite, test, nouvelle facture ou Publish.
+Proposta9 preparada;1–7done/8PARCIAL/9–18NÃO executadas. #323/DECISIONS/AGENTS preservados; reserva333 libertada no fecho. Checklist/texto para Issue333 local; Issue remota não editada pelo agente. Nenhum segredo/ID pessoal publicado, markerfixture no produto, Cloudwrite, teste, nova fatura ou Publish.

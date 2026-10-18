@@ -34,6 +34,8 @@ Sucesso manual aprovado NÃO equivale à certificação automatizada ampliada. F
 
 ## Próximo produto útil
 
+**Correção79 — ordem original confirmada por Pedro:** fase9 é disponibilização/publicação inicial restrita; análise documental/OpenAI pertence à10. A sugestão abaixo permanece como histórico78 com rótulo incorreto, não como alteração do plano. Ver `79-proposta-fase9-restrita.md`.
+
 Proposta para fase9, ainda não executada: análise do PDF para sugerir campos e apresentar proveniência na prévia, sempre sujeita a revisão e autorização humana, sem lançamento automático ou efeitos financeiros. Não afirmar que esta proposta redefine a numeração do checklist externo. Implementação/integrações e Publish continuam dependentes de autorização própria.
 
 ## Fecho
