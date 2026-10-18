@@ -16,7 +16,7 @@ export class PrivateStore66 implements Store66 {
  async save(s:State66){await mkdir(this.directory,{recursive:true,mode:0o700});await atomicPrivate66(this.directory+'/checkpoint.json',s)}
  async lock(){await mkdir(this.directory,{recursive:true,mode:0o700});const p=this.directory+'/invocation.lock';const f=await open(p,'wx',0o600);return async()=>{await f.close();await unlink(p)}}
  async getSecret(k:'password'|'token'){const p=this.directory+'/'+k;require66(((await stat(p)).mode&0o777)===0o600,'Secret permissions');return readFile(p,'utf8')}
- async putToken(token:string){await writeFile(this.directory+'/token',token,{mode:0o600,flag:'wx'})}
+ async putToken(token:string){try{await writeFile(this.directory+'/token',token,{mode:0o600,flag:'wx'})}catch(e){if((e as NodeJS.ErrnoException).code!=='EEXIST'||await this.getSecret('token')!==token)throw e}}
  async eraseSecrets(){for(const n of ['password','token'])try{await unlink(this.directory+'/'+n)}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e}}
 }
 /** Each invocation completes its own SELECTs. Human/controller pauses have no timers. */
