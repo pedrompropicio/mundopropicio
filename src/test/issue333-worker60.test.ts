@@ -3,7 +3,6 @@ import {spawn,type ChildProcess} from 'node:child_process';
 import {mkdtemp,readFile,stat} from 'node:fs/promises';
 import {chromiumDriver57} from '../../docs/testes/issue333/pilot8/private-cloud57';
 
-const OWNER='11111111-1111-4111-8111-811111111111'.replace('8111-811111111111','4111-8111-111111111111');
 const OWNER_ID='11111111-1111-4111-8111-111111111111';
 const PDF='docs/testes/issue333/pilot8/preflight56/evidence/pilot8-fiction.pdf';
 const SECRET='SECRET-TOKEN-NEVER-IN-EVIDENCE';

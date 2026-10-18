@@ -57,3 +57,17 @@ it('browser worker asserts pair statuses captured before read-only check',async(
  const iCheck=src.indexOf("STAGE='read-only-check'");
  expect(iPair).toBeGreaterThan(-1);expect(iPair).toBeLessThan(iCheck);
 });
+
+it('relay rejects stale (out-of-order) and duplicate responses',async()=>{
+ const dir=await mkdtemp('/tmp/issue333-bridge60-');const b=new OfficialSelectBridge(dir,600);
+ const q1='SELECT 1 AS n',q2='SELECT 2 AS n';
+ const p1=b.select(q1,['n']);const p2=b.select(q2,['n']);
+ await new Promise(r=>setTimeout(r,30));
+ // out-of-order: response for 0002 arrives first, carrying 0001's id content is fine,
+ // but a response addressed to 0001 with 0002's fingerprint must fail
+ await respond(dir,'0001',{id:'0001',fingerprint:fp(q2),data:[{n:1}]});
+ await expect(p1).rejects.toThrow('fingerprint mismatch');
+ // duplicate id on the second request's file is rejected by identity check
+ await respond(dir,'0002',{id:'0001',fingerprint:fp(q2),data:[{n:2}]});
+ await expect(p2).rejects.toThrow('identity mismatch');
+});
