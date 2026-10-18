@@ -250,6 +250,8 @@ async function handle(req: Request, ctx: { slug: string | null; event: string | 
   if (!isSsr && !browserOk && !(noBrowserHeaders && linkedChoice && uuid.test(arrivalEventId ?? "") && body.prefetch !== true)) {
     return json({ ok: false, error: "forbidden_origin" }, 403, origin);
   }
+  // Final Portal contract: every choice is linked, including allowed-origin requests.
+  if (event === "choice" && !linkedChoice) return json({ ok: false, error: "invalid_choice" }, 400, origin);
   if (linkedChoice && (!uuid.test(arrivalEventId ?? "") || !uuid.test(body.event_id ?? ""))) {
     return json({ ok: false, error: "invalid_choice" }, 400, origin);
   }
