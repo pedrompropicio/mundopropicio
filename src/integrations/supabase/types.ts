@@ -23444,21 +23444,34 @@ export type Database = {
         Returns: boolean
       }
       clube_newgang_list: {
-        Args: { p_limit?: number; p_offset?: number; p_search?: string }
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_profile_complete?: boolean
+          p_search?: string
+        }
         Returns: {
+          birth_country: string
           birth_date: string
           city: string
+          city_source: string
           confirmed_at: string
           consent_email: boolean
           consent_whatsapp: boolean
           consent_whatsapp_source: string
           created_at: string
           email: string
+          estimated_city: string
+          estimated_country: string
+          estimated_region: string
           id: string
           member_no: number
           name: string
           phone: string
           postal_code: string
+          profile_complete: boolean
+          profile_completed_at: string
+          residence_country: string
           submissions: number
           total_count: number
           utm_campaign: string
