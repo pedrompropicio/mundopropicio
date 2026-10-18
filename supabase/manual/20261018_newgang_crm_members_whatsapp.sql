@@ -9,6 +9,9 @@ DO $$ BEGIN
 END $$;
 ALTER TABLE public.contacts ADD COLUMN consent_whatsapp_source text
  CHECK (consent_whatsapp_source IN ('club_profile_whatsapp-v1','form_legacy_sem_prova'));
+-- Additive provenance only: never changes consent boolean/date or projects historical decisions.
+UPDATE public.contacts SET consent_whatsapp_source='form_legacy_sem_prova'
+ WHERE consent_whatsapp=true AND consent_whatsapp_source IS NULL;
 
 CREATE FUNCTION public._crm_whatsapp_latest(p_contact uuid,p_company uuid)
 RETURNS TABLE(decision text,decided_at timestamptz,phone text,phone_fp text)
