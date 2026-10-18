@@ -56,8 +56,13 @@ it('connected AuthHTTP + official SELECT spool + same Chromium probe/preflight/e
  const artifact=await exactPdf57(out+'/pilot8-fiction.pdf');artifact.company=C;
  const sources=await db`select oid::regprocedure::text signature,md5(prosrc) hash from pg_proc where oid in ('current_company_id()'::regprocedure,'log_table_change()'::regprocedure,'set_company_id_on_insert()'::regprocedure,'auth.uid()'::regprocedure,'data_entry_pilot8_gate(text)'::regprocedure)`;
  const expectedSources=Object.fromEntries(sources.map(x=>[x.signature,x.hash]));
- const spool=await mkdtemp('/tmp/issue333-select-local58-');const bridge=new OfficialSelectBridge(spool,20000);let stopped=false;const served=new Set<string>();
- const relay=(async()=>{while(!stopped){for(const name of await readdir(spool)){if(!name.endsWith('.request.json')||served.has(name))continue;served.add(name);const r=JSON.parse(readFileSync(spool+'/'+name,'utf8'));try{const data=await db.unsafe(r.query);await writeAsync(spool+'/'+name.replace('.request.','.response.'),JSON.stringify({id:r.id,fingerprint:r.fingerprint,data}),{mode:0o600})}catch{await writeAsync(spool+'/'+name.replace('.request.','.response.'),JSON.stringify({id:r.id,error:'local SELECT refused'}))}}await new Promise(r=>setTimeout(r,20));}})();
+ const {bundle71}=await import('../pilot8/select-bundle71');
+ const {validate71}=await import('../pilot8/controller-checkpoint71');
+ for(const contract of bundle71){const rows=await db.unsafe(contract.query);expect(rows).toHaveLength(1);validate71(rows[0],contract.schema);const bytes=Buffer.byteLength(JSON.stringify({version:1,id:contract.id,query:contract.query,fingerprint:contract.fingerprint,source:'SIMULATED local PG',data:rows,rowCount:1}));expect(bytes).toBeLessThan(contract.maxBytes)}
+ const spool=await mkdtemp('/tmp/issue333-select-local58-');
+ const {ControllerCheckpoint71,durableDriver71}=await import('../pilot8/controller-checkpoint71');
+ const {driverSchema71}=await import('../pilot8/select-bundle71');
+ let bridge=new ControllerCheckpoint71(spool,'prepare',driverSchema71);
  const {createServer:createVite}=await import('vite');
  const vite=await createVite({configFile:false,optimizeDeps:{entries:['docs/testes/issue333/head/react-main.tsx']},cacheDir:dir+'/vite',root:process.cwd(),plugins:[(await import('@vitejs/plugin-react')).default()],server:{middlewareMode:true},resolve:{alias:[...['@/integrations/supabase/client','@/contexts/AuthContext','@/hooks/useCompany','@/hooks/use-toast','@/lib/invoice-ocr-prepare'].map(find=>({find,replacement:resolve('docs/testes/issue333/head/react-boundary.tsx')})),{find:'@',replacement:resolve('src')},{find:'@shared',replacement:resolve('supabase/functions/_shared')}]}});
  const authCalls:string[]=[];let base='';
@@ -86,26 +91,38 @@ it('connected AuthHTTP + official SELECT spool + same Chromium probe/preflight/e
  vi.stubGlobal('fetch',transport);
  let controllerWrites=0;
  const notify=async(message:any)=>{if(message.controller_prepare){controllerWrites++;await db`insert into data_entry_pilot8_allowlist select ${U},${C},op,true,clock_timestamp()+interval '10 minutes',${'FICTITIOUS one PDF; '+artifact.marker+'; SHA256='+artifact.sha256} from unnest(array['preparation','assistant_create']) op`}if(message.controller_revoke_exact_two){controllerWrites++;await db`update data_entry_pilot8_allowlist set enabled=false where owner_id=${U} and company_id=${C}`}};
- const newDriver=()=>connectedDriver58({artifact,auth:httpAuth,select:(q,keys)=>bridge.select(q,keys),url:base,service:'local-service',pub:'local-public',directory:out,expectedSources,browserOptions:{isolated:true,app_url:base,start_path:'/entry',entry_path:'/entry',dialog_open:true},notify});
+ const newDriver=()=>durableDriver71(connectedDriver58({artifact,auth:httpAuth,select:(q,keys)=>bridge.select(q,keys),url:base,service:'local-service',pub:'local-public',directory:out,expectedSources,browserOptions:{isolated:true,app_url:base,start_path:'/entry',entry_path:'/entry',dialog_open:true},notify}),out,bridge.scope,bridge);
  const driver=newDriver();
  try{
- expect((await bridge.select(metadataSQL())).incompatibilities).toEqual([]);
- const first=(await bridge.select(baselineSQL())).baseline;expect((await bridge.select(baselineSQL())).baseline).toEqual(first);
+ async function stage(action:'prepare'|'execute'|'finish'){
+  for(let step=0;step<60;step++){
+   bridge=new ControllerCheckpoint71(spool,action,driverSchema71);
+   const result=await checkpoint66(action,newDriver(),artifact,new PrivateStore66(store.directory));
+   if(!result.pending.includes('controller_select'))return result;
+   const active=JSON.parse(readFileSync(spool+'/active.json','utf8'));
+   const request=JSON.parse(readFileSync(spool+'/'+active.id+'.request.json','utf8'));
+   const rows=await db.unsafe(request.query);
+   const raw=Buffer.from(JSON.stringify({version:1,id:request.id,query:request.query,fingerprint:request.fingerprint,source:'SIMULATED official structuredContent.rows / local PG',data:rows,rowCount:rows.length}));
+   await bridge.receive(request.id,raw,{bytes:raw.length,sha256:createHash('sha256').update(raw).digest('hex')});
+  }throw Error('finite step bound');
+ }
  await httpAuth.readProbe();
  for(const mode of ['probe','preflight']){const result=await chromiumDriver57('docs/testes/issue333/pilot8/cloud-browser57.py',{mode,isolated:true,app_url:base,cloud_url:base,start_path:'/entry',output:out});expect(result.page_loaded).toBe(true);expect(result.errors).toEqual([]);expect(authCalls.filter(x=>x.startsWith('POST'))).toHaveLength(0);}
  const fullName='Autorizador Fictício';const createdAt='2026-10-18T17:00:00.000Z';const roleId=(await db`select id from user_roles where user_id=${U}`)[0].id;
  await db`update user_roles set role='user' where user_id=${U}`;
  await db`update auth.users set email=${artifact.marker+'@fixture.invalid'},created_at=${createdAt},email_confirmed_at=${createdAt},raw_user_meta_data=${db.json({fixture_marker:artifact.marker,company_id:C,full_name:fullName,pilot_pdf_sha256:artifact.sha256,pilot_pdf_size:artifact.size,pilot_pdf_mime:artifact.mime})} where id=${U}`;
  const store=new PrivateStore66(out+'/checkpoint66');await store.save({version:1,phase:'identity_reviewed',identity:{id:U,createdAt,roleId,fullName},artifactHash:artifactHash66(artifact),pending:[],actions:{}});writeFileSync(store.directory+'/password','local-password-only-12345',{mode:0o600});
- expect((await checkpoint66('prepare',driver,artifact,store)).checkpoint).toBe('await_activation');
+ expect((await stage('prepare')).checkpoint).toBe('await_activation');
  // Local controller writes BETWEEN completed invocations, never while a SELECT is waiting.
  await db`update user_roles set role='manager' where id=${roleId}`;await notify({controller_prepare:true});
- expect((await checkpoint66('execute',newDriver(),artifact,new PrivateStore66(store.directory))).checkpoint).toBe('await_revocation');
+ expect((await stage('execute')).checkpoint).toBe('await_revocation');
  await notify({controller_revoke_exact_two:true});
- expect((await checkpoint66('finish',newDriver(),artifact,new PrivateStore66(store.directory))).checkpoint).toBe('complete');
+ expect((await stage('finish')).checkpoint).toBe('complete');
+ expect(authCalls.filter(x=>x==='POST /auth/v1/token?grant_type=password')).toHaveLength(1);
+ expect(JSON.parse(readFileSync(out+'/browser.json','utf8')).executeRequests).toBe(2);
  expect(authCalls.filter(x=>x==='POST /auth/v1/admin/users')).toHaveLength(0);expect(controllerWrites).toBe(2);
  expect((await db`select count(*)::int n from auth.sessions`)[0].n).toBe(0);
  for(const t of ['reimbursement_notes','reimbursement_note_items','transactions','event_forecasts','financial_accounts','transaction_payments','payment_lists'])expect((await db.unsafe('select count(*)::int n from '+t))[0].n).toBe(0);
  writeFileSync(out+'/connected58.json',JSON.stringify({local_only:true,modes:['probe','preflight','execute'],authCalls,controllerWrites,cloud_executed:false}));
- }finally{vi.stubGlobal('fetch',originalFetch);stopped=true;await relay;await vite.close();await new Promise<void>(r=>server.close(()=>r()));}
+ }finally{vi.stubGlobal('fetch',originalFetch);await vite.close();await new Promise<void>(r=>server.close(()=>r()));}
 },180000);
