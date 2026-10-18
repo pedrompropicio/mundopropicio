@@ -1,5 +1,5 @@
-import {it,expect,afterAll} from 'vitest';
-import {spawn,type ChildProcess} from 'node:child_process';
+import {it,expect,afterAll,beforeAll,describe} from 'vitest';
+import {spawn,spawnSync,type ChildProcess} from 'node:child_process';
 import {mkdtemp,readFile,stat} from 'node:fs/promises';
 import {chromiumDriver57} from '../../docs/testes/issue333/pilot8/private-cloud57';
 
@@ -7,6 +7,7 @@ const OWNER_ID='11111111-1111-4111-8111-111111111111';
 const PDF='docs/testes/issue333/pilot8/preflight56/evidence/pilot8-fiction.pdf';
 const SECRET='SECRET-TOKEN-NEVER-IN-EVIDENCE';
 const children:ChildProcess[]=[];
+const localProof=process.env.ISSUE333_LOCAL_PROOF==='1';
 afterAll(()=>{for(const c of children)c.kill('SIGKILL')});
 
 async function startDouble(scenario:string):Promise<number>{
@@ -14,7 +15,9 @@ async function startDouble(scenario:string):Promise<number>{
  children.push(child);
  return new Promise((resolve,reject)=>{
   let buf='';const t=setTimeout(()=>reject(Error('double server no port')),15000);
-  child.stdout!.on('data',d=>{buf+=d;const m=buf.match(/PORT=(\d+)/);if(m){clearTimeout(t);resolve(Number(m[1]))}});
+  const stdout=child.stdout;
+  if(!stdout){clearTimeout(t);reject(Error('double server stdout unavailable'));return;}
+  stdout.on('data',d=>{buf+=d;const m=buf.match(/PORT=(\d+)/);if(m){clearTimeout(t);resolve(Number(m[1]))}});
   child.on('exit',()=>{clearTimeout(t);reject(Error('double server exited'))});
  });
 }
@@ -34,6 +37,14 @@ async function runWorker(scenario:string){
  try{evidence=JSON.parse(await readFile(out+'/browser.json','utf8'));}catch{}
  return {result,error,evidence,out};
 }
+
+describe.skipIf(!localProof)('worker60 Chromium real — opt-in ISSUE333_LOCAL_PROOF=1',()=>{
+beforeAll(()=>{
+ const check=spawnSync('python3',['-c',
+  'import asyncio\nfrom playwright.async_api import async_playwright\nasync def check():\n async with async_playwright() as p:\n  browser=await p.chromium.launch(headless=True)\n  await browser.close()\nasyncio.run(check())'],
+  {env:{PATH:process.env.PATH,HOME:'/tmp',PLAYWRIGHT_BROWSERS_PATH:process.env.PLAYWRIGHT_BROWSERS_PATH},timeout:30000,stdio:'pipe'});
+ if(check.error||check.status!==0)throw Error('ISSUE333_LOCAL_PROOF=1 requires Python Playwright and runnable Chromium in the worker environment; no browser proof was executed');
+},35000);
 
 it('worker real Chromium: par execute 200/200 persiste browser.json sem tokens',async()=>{
  const {result,evidence,out}=await runWorker('ok');
@@ -80,3 +91,4 @@ it('falha DEPOIS do par HTTP (pedido bloqueado): evidência preserva o par e reg
  expect(evidence.blocked.length).toBeGreaterThan(0);
  expect(evidence.failure).toBeTruthy();
 },120000);
+});
