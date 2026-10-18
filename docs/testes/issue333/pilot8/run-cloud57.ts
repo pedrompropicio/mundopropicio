@@ -9,7 +9,7 @@ import {AuthAdmin57,OfficialSelectBridge,exactPdf57,chromiumDriver57,privateSecr
 
 const DIR='/tmp/browser/issue333-pilot57';
 let bridge:OfficialSelectBridge;
-const q=(v:string)=>"'"+v.replaceAll("'","''")+"'";
+const q=(v:string)=>"'"+v.replace(/'/g,"''")+"'";
 async function select(query:string){const x=await bridge.select(query);return x;}
 export function connectedDriver58(options:{artifact:Awaited<ReturnType<typeof exactPdf57>>;auth:AuthAdmin57;select:(query:string)=>Promise<any>;url:string;service:string;pub:string;directory:string;notify?:(message:unknown)=>void;browserOptions?:Record<string,unknown>;expectedSources?:Record<string,string>}) {
  const {artifact,auth,select,url,service,pub,directory:DIR,browserOptions={},expectedSources}=options;
@@ -61,6 +61,7 @@ export function connectedDriver58(options:{artifact:Awaited<ReturnType<typeof ex
 }
 async function main() {
  bridge=await OfficialSelectBridge.fresh();
+ console.log(JSON.stringify({official_select_directory:bridge.relayDirectory,response_contract:'{id, data: official row array}',controller_writes:'separate reviewed query_database; never this relay'}));
  const artifact=await exactPdf57(DIR+'/pilot8-fiction.pdf');
  const url=process.env.SUPABASE_URL,service=process.env.SUPABASE_SERVICE_ROLE_KEY,pub=process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
  if(!url||!service||!pub)throw Error('Private AuthAdmin environment absent');
@@ -72,4 +73,4 @@ async function main() {
  if(process.argv.includes('--preflight-only')){console.log(JSON.stringify({preflight:await driver.preflightReadOnly(artifact),accountCreated:false}));return;}
  const result=await runFuturePilot(driver,artifact,'PEDRO_AUTHORIZED_SINGLE_PILOT8');console.log(JSON.stringify(result));
 }
-if(import.meta.main) main().catch(()=>{console.log(JSON.stringify({pilot_stopped:true,repeat_forbidden:true,see_sanitized_evidence:true}));process.exitCode=1});
+if(import.meta.main) main().catch(async(error)=>{await mkdir(DIR,{recursive:true,mode:0o700});const reason=error instanceof Error&&(/schema incompatibilities|Concurrent baseline|environment absent|PDF|Official SELECT|Chromium private/.test(error.message))?error.message:'Private driver stopped; read-only recovery only';await writeFile(DIR+'/stopped.json',JSON.stringify({reason}),{mode:0o600});console.log(JSON.stringify({pilot_stopped:true,repeat_forbidden:true,see_sanitized_evidence:true}));process.exitCode=1});
