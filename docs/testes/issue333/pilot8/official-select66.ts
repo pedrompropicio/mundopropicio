@@ -1,14 +1,10 @@
 /** Official read-only CLI transport: capture complete JSON, never transcribe ACL/baseline. */
-import {execFile} from 'node:child_process';
-import {promisify} from 'node:util';
 import {createHash,randomUUID} from 'node:crypto';
 import {mkdir,readFile,writeFile,open,unlink} from 'node:fs/promises';
 import {atomicPrivate66} from './checkpoint66';
 export type Request66={id:string;fingerprint:string;query:string;expectedKeys:string[];status:'pending'|'consumed'|'failed'};
 export type Capture66=(query:string)=>Promise<string>;
-export const cliCapture66:Capture66=async query=>{
- const {stdout}=await promisify(execFile)('lovable',['supabase','query',query,'--json'],{timeout:60000,maxBuffer:32*1024*1024});return stdout;
-};
+export const cliCapture66:Capture66=async()=>{throw Error('Retired CLI transport; inject a local double or use finite controller-message71')};
 export class OfficialSelect66 {
  constructor(private directory:string,private capture:Capture66=cliCapture66){if(!directory.startsWith('/tmp/'))throw Error('Private transport requires /tmp')}
  async select(query:string,expectedKeys:string[]=[]){

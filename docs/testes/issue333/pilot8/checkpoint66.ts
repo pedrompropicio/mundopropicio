@@ -25,7 +25,7 @@ export async function checkpoint66(action:'prepare'|'execute'|'finish'|'cleanup'
  try {
   s=await store.load();require66(s.version===1&&s.artifactHash===artifactHash66(a),'Checkpoint artifact/version drift');
   const allowed={prepare:'identity_reviewed',execute:'await_activation',finish:'await_revocation',cleanup:'aborted'};
-  require66(s.phase===allowed[action]||(action==='cleanup'&&['executing','checking'].includes(s.phase)),'Checkpoint phase refused; never retry execution');
+  require66(s.phase===allowed[action]||(s.actions['controller_resume']===action&&['executing','checking'].includes(s.phase))||(action==='cleanup'&&['executing','checking'].includes(s.phase)),'Checkpoint phase refused; never retry execution');
   d.bindIdentity(s.identity);if(s.context)d.importContext(s.context);
   await d.validatePdf(a);
   if(action==='prepare'){
@@ -52,6 +52,10 @@ export async function checkpoint66(action:'prepare'|'execute'|'finish'|'cleanup'
   if(action==='cleanup'){try{token=await store.getSecret('token')}catch{}}
   await cleanup66(d,a,store,s,token);s.phase=s.pending.length?'aborted':'complete';await store.save(s);return {checkpoint:s.phase,pending:s.pending,actions:s.actions,noPendingSelect:true};
  } catch(e){
+  if(e instanceof Error&&e.name==='AwaitController71'&&s){
+   s.context=d.exportContext();s.actions['controller_resume']=action;await store.save(s);
+   return {checkpoint:s.phase,pending:['controller_select'],noPendingSelect:true};
+  }
   if(!s)throw e;
   // Retain type and safe stage, never raw messages containing credentials/headers.
   s.failure=`${e instanceof Error?e.name:'Error'} during ${action}/${s.phase}`;s.phase='aborted';
@@ -62,7 +66,7 @@ export async function checkpoint66(action:'prepare'|'execute'|'finish'|'cleanup'
 }
 async function cleanup66(d:Driver66,a:Artifact,store:Store66,s:State66,token:string){
  const pending=new Set<string>();
- async function attempt(name:string,fn:()=>Promise<unknown>){pending.add(name);s.pending=[...pending];await store.save(s);try{await fn();s.actions[name]='confirmed';pending.delete(name)}catch(e){s.actions[name]=`failed:${e instanceof Error?e.name:'Error'}`}s.pending=[...pending];await store.save(s)}
+ async function attempt(name:string,fn:()=>Promise<unknown>){pending.add(name);s.pending=[...pending];await store.save(s);try{await fn();s.actions[name]='confirmed';pending.delete(name)}catch(e){if(e instanceof Error&&e.name==='AwaitController71')throw e;s.actions[name]=`failed:${e instanceof Error?e.name:'Error'}`}s.pending=[...pending];await store.save(s)}
  await attempt('controller_revoke_exact_two',async()=>{const r=await d.readRevoked(s.identity,a);require66(r.count===0||r.count===2&&r.disabled===2,'Revocation pending')});
  if(token)await attempt('logout_global',()=>d.logoutGlobal(token));
  await attempt('ban_reviewed_identity',()=>d.banOnlyCreatedUser(s.identity.id));

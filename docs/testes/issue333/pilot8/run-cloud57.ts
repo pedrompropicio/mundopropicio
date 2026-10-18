@@ -6,7 +6,8 @@ import {createHash} from 'node:crypto';
 import {financial,baselineSQL,metadataSQL,compareBaselines} from './baseline58';
 import {AuthAdmin57,exactPdf57,chromiumDriver57,privateSecret57} from './private-cloud57';
 import {checkpoint66,PrivateStore66,type Driver66} from './checkpoint66';
-import {OfficialSelect66} from './official-select66';
+import {ControllerCheckpoint71,durableDriver71,effect71} from './controller-checkpoint71';
+import {driverSchema71} from './select-bundle71';
 
 const DIR='/tmp/browser/issue333-pilot57';
 const q=(v:string)=>"'"+v.replace(/'/g,"''")+"'";
@@ -17,8 +18,8 @@ export function connectedDriver58(options:{artifact:Awaited<ReturnType<typeof ex
  let session:any,before:any,identity:string|undefined,last:any;
  const driver:Driver66={
   bindIdentity:owner=>{identity=owner.id},
-  exportContext:()=>({before,last}),
-  importContext:context=>{const c=context as {before:unknown;last:unknown};before=c.before;last=c.last;},
+  exportContext:()=>({before,last,session}),
+  importContext:context=>{const c=context as {before:unknown;last:unknown;session?:unknown};before=c.before;last=c.last;session=c.session;},
   validateCheckpoint:async(owner,a,phase)=>{
    const md=await select(metadataSQL(),['incompatibilities']);if(md.incompatibilities.length)throw Error('Checkpoint schema drift');
    const sources=(await select(`SELECT jsonb_object_agg(oid::regprocedure::text,md5(prosrc)) sources FROM pg_proc WHERE oid IN ('current_company_id()'::regprocedure,'log_table_change()'::regprocedure,'set_company_id_on_insert()'::regprocedure,'auth.uid()'::regprocedure,'data_entry_pilot8_gate(text)'::regprocedure)`,['sources'])).sources;
@@ -64,7 +65,7 @@ export function connectedDriver58(options:{artifact:Awaited<ReturnType<typeof ex
   },
   login:async(email,password)=>{session=await auth.login(email,password);return {owner:session.user.id,token:session.access_token}},
   chromium:async(owner)=>{
-   const result=await chromiumDriver57('docs/testes/issue333/pilot8/cloud-browser57.py',{...browserOptions,mode:'execute',output:DIR,cloud_url:url,public_key:pub,owner:owner.id,company:COMPANY57,reference:artifact.reference,pdf:DIR+'/pilot8-fiction.pdf',storage_key:'sb-'+new URL(url).hostname.split('.')[0]+'-auth-token',session,actor_name:last.actor_name,tax_id:last.tax_id});last={...last,...result};
+   const result=await effect71(DIR,'single-browser-pair',()=>chromiumDriver57('docs/testes/issue333/pilot8/cloud-browser57.py',{...browserOptions,mode:'execute',output:DIR,cloud_url:url,public_key:pub,owner:owner.id,company:COMPANY57,reference:artifact.reference,pdf:DIR+'/pilot8-fiction.pdf',storage_key:'sb-'+new URL(url).hostname.split('.')[0]+'-auth-token',session,actor_name:last.actor_name,tax_id:last.tax_id}));last={...last,...result};
    const fact=(await select(`SELECT jsonb_build_object('sessions',(SELECT count(*) FROM data_entry_sessions WHERE owner_id=${q(owner.id)}::uuid),'documents',(SELECT count(*) FROM data_entry_documents WHERE session_id IN (SELECT id FROM data_entry_sessions WHERE owner_id=${q(owner.id)}::uuid)),'previews',(SELECT count(*) FROM data_entry_previews WHERE session_id IN (SELECT id FROM data_entry_sessions WHERE owner_id=${q(owner.id)}::uuid)),'invoices',(SELECT count(*) FROM standalone_invoices WHERE created_by=${q(owner.id)}::uuid),'results',(SELECT count(*) FROM data_entry_results WHERE approved_by=${q(owner.id)}::uuid),'audits',(SELECT count(*) FROM standalone_attempt_audit_333 WHERE attempt_id IN (SELECT id FROM standalone_attempts_333 WHERE principal=${q(owner.id)})),'invoice',(SELECT to_jsonb(i) FROM standalone_invoices i WHERE created_by=${q(owner.id)}::uuid LIMIT 1)) fact`,['fact'])).fact;
    const i=fact.invoice;if(fact.audits>1)throw Error('Fixture audit multiplicity');if(!i||i.currency!=='EUR'||Number(i.total_amount)!==0||Number(i.iva_amount)!==0||i.invoice_number!==artifact.reference||i.paid_by_partner_id!==owner.id||i.created_by!==owner.id||!i.notes.includes('Feito por LLM com autorização de '+last.actor_name))throw Error('Fixture invoice metadata mismatch');
    const download=await fetch(url+'/storage/v1/object/authenticated/standalone-invoices/'+i.storage_path,{headers:{apikey:pub,Authorization:'Bearer '+service}});if(!download.ok)throw Error('Fixture download failed');const bytes=new Uint8Array(await download.arrayBuffer());if(bytes.length!==artifact.size)throw Error('Fixture download size mismatch');
@@ -74,7 +75,7 @@ export function connectedDriver58(options:{artifact:Awaited<ReturnType<typeof ex
   },
   requestRevocation:async owner=>{notify({controller_revoke_exact_two:true,identity_discovery:'controller SELECT by reviewed marker',sha256:SHA57});},
   readRevoked:async owner=>{const r=await select(`SELECT jsonb_build_object('count',count(*),'disabled',count(*) FILTER(WHERE NOT enabled)) revoked FROM data_entry_pilot8_allowlist WHERE owner_id=${q(owner.id)}::uuid AND company_id=${q(COMPANY57)}::uuid AND reviewed_note=${q(`FICTITIOUS one PDF; ${MARKER57}; SHA256=${SHA57}`)}`,['revoked']);return r.revoked;},
-  checkReadOnly:async(owner,token)=>{const prior=(await select(baselineSQL(),['baseline'])).baseline;const r=await fetch(url+'/functions/v1/data-entry',{method:'POST',headers:{apikey:pub,Authorization:'Bearer '+token,'Content-Type':'application/json','X-Data-Entry-User':owner.id,'X-Data-Entry-Company':COMPANY57},body:JSON.stringify({action:'check',session_id:last.latest.session_id,preview_id:last.latest.preview_id})});const body=await r.json();await writeFile(DIR+'/revoked-check.json',JSON.stringify({http:r.status,body}),{mode:0o600});const after=(await select(baselineSQL(),['baseline'])).baseline;const diff=compareBaselines(prior,after);return {ok:r.status===200&&body.status==='conferido',extraWrites:diff.changedRelations.length+(diff.configChanged?1:0)};},
+  checkReadOnly:async(owner,token)=>{const prior=(await select(baselineSQL(),['baseline'])).baseline;const observed=await effect71(DIR,'own-lot-check',async()=>{const r=await fetch(url+'/functions/v1/data-entry',{method:'POST',headers:{apikey:pub,Authorization:'Bearer '+token,'Content-Type':'application/json','X-Data-Entry-User':owner.id,'X-Data-Entry-Company':COMPANY57},body:JSON.stringify({action:'check',session_id:last.latest.session_id,preview_id:last.latest.preview_id})});return {http:r.status,body:await r.json()}});await writeFile(DIR+'/revoked-check.json',JSON.stringify(observed),{mode:0o600});const after=(await select(baselineSQL(),['baseline'])).baseline;const diff=compareBaselines(prior,after);return {ok:observed.http===200&&observed.body.status==='conferido',extraWrites:diff.changedRelations.length+(diff.configChanged?1:0)};},
   logoutGlobal:async token=>{await auth.logout(token)},banOnlyCreatedUser:async owner=>{if(owner!==identity)throw Error('Ban identity drift');await auth.ban(owner)},
   readSessionCount:async owner=>(await select(`SELECT count(*)::int n FROM auth.sessions WHERE user_id=${q(owner)}::uuid`,['n'])).n,
   finalBaselines:async owner=>{const after=(await select(baselineSQL(owner.id),['baseline'])).baseline;await writeFile(DIR+'/after.json',JSON.stringify(after),{mode:0o600});return {financialUnchanged:JSON.stringify(before.data.filter((x:any)=>financial.includes(x.name)))===JSON.stringify(after.data.filter((x:any)=>financial.includes(x.name))),priorCandidatesPreserved:JSON.stringify(before.data)===JSON.stringify(after.data),globalsClosed:after.core_open===0&&after.attempt_open===0&&JSON.stringify(before.config)===JSON.stringify(after.config)};},
@@ -88,12 +89,12 @@ async function main() {
  if(process.env.PILOT8_AUTHORIZATION!==`PEDRO_AUTHORIZED_CHECKPOINT66_${mode.toUpperCase()}`)throw Error('Separate reviewed authorization for exact checkpoint stage required');
  const directory=process.env.PILOT8_PRIVATE_DIRECTORY;
  if(!directory?.startsWith('/tmp/'))throw Error('Reviewed private checkpoint directory required');
- const official=new OfficialSelect66(directory+'/select');
+ const official=new ControllerCheckpoint71(directory+'/select',mode,driverSchema71);
  const artifact=await exactPdf57(directory+'/pilot8-fiction.pdf');
  const url=process.env.SUPABASE_URL,service=process.env.SUPABASE_SERVICE_ROLE_KEY,pub=process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
  if(!url||!service||!pub)throw Error('Private AuthAdmin environment absent');
  const auth=new AuthAdmin57(url,service,pub);
- const driver=connectedDriver58({artifact,auth,select:(query,keys)=>official.select(query,keys),url,service,pub,directory});
+ const driver=durableDriver71(connectedDriver58({artifact,auth,select:(query,keys)=>official.select(query,keys),url,service,pub,directory}),directory,mode);
  const result=await checkpoint66(mode as 'prepare'|'execute'|'finish'|'cleanup',driver,artifact,new PrivateStore66(directory));console.log(JSON.stringify(result));
 }
 if(import.meta.main) main().catch(async(error)=>{await mkdir(DIR,{recursive:true,mode:0o700});const reason=error instanceof Error&&(/schema incompatibilities|Concurrent baseline|environment absent|PDF|Official SELECT|Chromium private/.test(error.message))?error.message:'Private driver stopped; read-only recovery only';await writeFile(DIR+'/stopped.json',JSON.stringify({reason}),{mode:0o600});console.log(JSON.stringify({pilot_stopped:true,repeat_forbidden:true,see_sanitized_evidence:true}));process.exitCode=1});
