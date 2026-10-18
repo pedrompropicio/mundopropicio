@@ -25,7 +25,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Endpoint snapshot implantado; prova36 negativos 9/11 PASS, timeout hash errado reproduzido (defeito, proposta INERTE); gates fechados/sem faturas/Publish; #323 excluída | 2026-10-17 16:26 | 2026-10-18 01:45 UTC — prova36: conta nova banida/sessions0, baselines iguais; pendentes listagem/prepare/execute/confirm/tabelas (precisa 1 conta extra autorizada); reserva aberta |
+| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Provas37/38:39Live=36PASS/1FAILfixtureexecute422/2timeouts;PG17local6PASS;causaCloudnão demonstrada;22baselines iguais;#323 excluída | 2026-10-17 16:26 | 2026-10-18 01:50:46 UTC — uma conta nova banida/logout/sessions0;gatesfalse/false;semfaturas/SQL/config/deploy/Publish;revisão/executePDFválido/traceinfra pendentes;reserva aberta |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)
