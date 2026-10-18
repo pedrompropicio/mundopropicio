@@ -60,11 +60,13 @@ it('expiry while commit waits on identity lock aborts invoice/result/audit with 
  const fields={supplier_name:'FICTÍCIO',supplier_nif:'PT000000000',invoice_number:'EXPIRY-LOCK',invoice_date:'2026-10-18',currency:'EUR',total_amount:0,iva_amount:0,customer_nif:'PT500000001',paid_by_partner_id:U,notes:'FICTÍCIO'};
  const pr=await command({action:'preview',session_id:session,document_id:document,fields});const pv=await pr.json();
  const before=await db`select (select count(*) from standalone_invoices) invoices,(select count(*) from data_entry_results) results,(select count(*) from standalone_attempt_audit_333) audits`;
- await db`update data_entry_pilot8_allowlist set expires_at=clock_timestamp()+interval '500 milliseconds' WHERE operation='assistant_create'`;
+ const snapshot=(await db`select snapshot from data_entry_previews where id=${pv.id}`)[0].snapshot;
+ const lockKey=C+'|'+snapshot.fields.supplier_nif+'|'+snapshot.fields.invoice_number;
+ await db`update data_entry_pilot8_allowlist set expires_at=clock_timestamp()+interval '2 seconds' WHERE operation='assistant_create'`;
  let release=()=>{},ready=()=>{};const held=new Promise<void>(r=>release=r),entered=new Promise<void>(r=>ready=r);
- const lock=db.begin(async tx=>{await tx`select pg_advisory_xact_lock(hashtextextended(${C}||'|'||'PT000000000'||'|'||'EXPIRY-LOCK',333))`;ready();await held;});await entered;
+ const lock=db.begin(async tx=>{await tx`select pg_advisory_xact_lock(hashtextextended(${lockKey},333))`;ready();await held;});await entered;
  const executing=command({action:'execute',session_id:session,preview_id:pv.id,snapshot_hash:pv.snapshot_hash,authorize:true},U,c2);
- try{let waiting=false;for(let i=0;i<20;i++){waiting=(await c1`select exists(select 1 from pg_locks where locktype='advisory' and not granted) b`)[0].b;if(waiting)break;await new Promise(r=>setTimeout(r,10));}expect(waiting).toBe(true);await new Promise(r=>setTimeout(r,750));}finally{release();await lock;}
+ try{let waiting=false;for(let i=0;i<20;i++){waiting=(await c1`select exists(select 1 from pg_locks where locktype='advisory' and not granted) b`)[0].b;if(waiting)break;await new Promise(r=>setTimeout(r,10));}expect(waiting).toBe(true);await new Promise(r=>setTimeout(r,2200));}finally{release();await lock;}
  expect((await executing).status).toBe(403);expect(await db`select (select count(*) from standalone_invoices) invoices,(select count(*) from data_entry_results) results,(select count(*) from standalone_attempt_audit_333) audits`).toEqual(before);
 });
 it('canonical role downgrade blocks effects and service receipt cannot impersonate foreign owner',async()=>{
