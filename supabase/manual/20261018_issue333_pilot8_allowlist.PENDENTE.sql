@@ -16,6 +16,11 @@ CREATE TABLE public.data_entry_pilot8_allowlist (
 -- Owner-managed only; no Data API actor (including service) manages activation.
 GRANT ALL ON public.data_entry_pilot8_allowlist TO postgres;
 REVOKE ALL ON public.data_entry_pilot8_allowlist FROM PUBLIC,anon,authenticated,service_role;
+DO $acl$ DECLARE g text; BEGIN
+ FOR g IN SELECT DISTINCT r.rolname FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a JOIN pg_roles r ON r.oid=a.grantee WHERE c.oid='public.data_entry_pilot8_allowlist'::regclass AND a.grantee<>c.relowner LOOP
+  EXECUTE format('REVOKE ALL ON TABLE public.data_entry_pilot8_allowlist FROM %I',g);
+ END LOOP;
+END $acl$;
 ALTER TABLE public.data_entry_pilot8_allowlist ENABLE ROW LEVEL SECURITY;
 -- No policies: no browser/service access, same as existing settings.
 CREATE FUNCTION public.data_entry_pilot8_gate(p_operation text) RETURNS boolean
@@ -161,5 +166,15 @@ BEGIN
  PERFORM public.data_entry_record_receipt(p_bucket,p_path,p_sha,p_size,p_mime);
 END $$;
 REVOKE ALL ON FUNCTION public.data_entry_pilot8_receipt(uuid,uuid,uuid,text,text,text,integer,text) FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.data_entry_pilot8_receipt(uuid,uuid,uuid,text,text,text,integer,text) TO service_role;
+-- New objects must not inherit executor/default grants; existing functions keep actual ACL intact.
+DO $acl$ DECLARE f record; g text; BEGIN
+ FOR f IN SELECT oid,oid::regprocedure::text signature,proowner FROM pg_proc WHERE oid IN ('public.data_entry_pilot8_gate(text)'::regprocedure,'public.data_entry_pilot8_capabilities()'::regprocedure,'public.data_entry_pilot8_receipt(uuid,uuid,uuid,text,text,text,integer,text)'::regprocedure) LOOP
+  FOR g IN SELECT DISTINCT r.rolname FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a JOIN pg_roles r ON r.oid=a.grantee WHERE p.oid=f.oid AND a.grantee<>f.proowner LOOP
+   EXECUTE format('REVOKE ALL ON FUNCTION %s FROM %I',f.signature,g);
+  END LOOP;
+ END LOOP;
+END $acl$;
+GRANT EXECUTE ON FUNCTION public.data_entry_pilot8_capabilities() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.data_entry_pilot8_receipt(uuid,uuid,uuid,text,text,text,integer,text) TO service_role;
 COMMIT;
