@@ -1,5 +1,18 @@
 # #333 — Prova47: preparação integral LOCAL/INERTE para o controlador
 
+## Correção após revisão concreta — 2026-10-18 03:02 UTC
+
+A prova47 original NÃO reproduzia a fonte Live de auditoria: usou MD5 `68eb6557eb78e71984b5fb65fae9752e`; Live tem `9509fe109550c9e0367fcbe4ffc661c5`. A guarda original abortaria55000 antes da conta. Corrigido somente artefacto inerte/testes; fontes atuais obtidas por SELECT e guardadas em `preparation47/sources/`, com manifesto e diff. Nenhuma função Live/trigger/grant alterado.
+
+Mudança semântica encontrada: Live acrescenta validação de existência da empresa; empresa já removida produz company_idNULL para auditoria. Auth.uid→system, resolução current_company→rowcompany, metadata schema/op, defesa not_null_violation e OLD/NEW já existiam no corpo anterior. Diferenças de formatação fora do corpo não explicam o MD5.
+
+24/24PGPASS:19 casos preservados + antes47 recusa55000 + fonte divergente continua55000 + hashes helpers/FK + auditoria system/rowcompany + contexto autenticado local. Atual: UPDATE1/INSERT1/audit+1; falhas dão rollback integral. SQL exige também hashes auth.uid/current_company e verifica company/changed_by/metadata do audit. Tabela audit local tem colunas/defaults/nullability/FK reais lidos; RLS/Auth hosted não alegados como reproduzidos. Fontes3330190–0193 intactas.
+
+SELECT agora: internalMD5b748a720b4cb1f988a927b5577e511dd; EXECUTE anon/auth/servicefalse; wrapperMD52516160137090ca2061f6dab482abe19; guardMD5ad7fa13bc8918b0acbacf4910ede9b39; settings CORE/attempt0; triggerauditAFTER INSERT/DELETE/UPDATE e guardattemptBEFORE DELETE/UPDATE preservados. User_rolescompanyNOTNULL/defaultcurrent_company, triggerBEFOREINSERTset_company atuais explicitados localmente. Profile/Auth campos usados confirmados via metadados, sem consultar contas ou segredos. Isto não garante que futuras pré-condições não mudem: controlador deve reler fonte/baselines antes da execução única.
+
+SQL corrigido SHA256: `d9a01baee51fe0d210877a976bcc931795a33d2fbafbe220d7081a68b3fef9e5`. Histórico abaixo refere-se à entrega original quando indicar19PASS/fonte rastreada antiga; não é igualdadeLive. Coordenação futura permanece parametrizada e não executada.
+
+
 Base autorizada `ac1321ad7dac64d71e5041fe45bab66f704eddab`; ancestralidade exit0. Início UTC2026-10-18T02:51:46Z. INDEX/QUADRO/estado/memória/0191/provas39/41/45/46 lidos. Sem subagentes, produto, AGENTS, regras, DECISIONS ou outra frente alterada. #333/reserva mantidas; #323 preservada.
 
 ## Canal e atribuição corrigidos

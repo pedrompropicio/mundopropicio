@@ -1,0 +1,32 @@
+--- tracked-audit-used47
++++ Live-SELECT-20261018
+@@ -1,8 +1,8 @@
+ CREATE OR REPLACE FUNCTION public.log_table_change()
+-RETURNS trigger
+-LANGUAGE plpgsql
+-SECURITY DEFINER
+-SET search_path TO 'public'
++ RETURNS trigger
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public'
+ AS $function$
+ DECLARE
+   v_action text;
+@@ -60,6 +60,11 @@
+     END IF;
+   END IF;
+ 
++  -- D-ERP170: empresa já apagada (DELETE de companies ou cascata) → company_id NULL; o id fica em entity_id/old_data.
++  IF v_company IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.companies c WHERE c.id = v_company) THEN
++    v_company := NULL;
++  END IF;
++
+   BEGIN
+     INSERT INTO public.system_audit_log (
+       entity_type, entity_id, action, changed_by, old_data, new_data, metadata, company_id
+@@ -84,4 +89,4 @@
+     RETURN NEW;
+   END IF;
+ END;
+-$function$;+$function$;
