@@ -1,0 +1,60 @@
+/** LOCAL disposable PG only. Exact migrations and current Live SELECT audit body; no Cloud clients. */
+import {beforeAll,afterAll,it,expect,vi} from 'vitest';
+import postgres from 'postgres';
+import {execFileSync} from 'node:child_process';
+import {mkdtempSync,readFileSync} from 'node:fs';
+import {randomUUID} from 'node:crypto';
+vi.stubGlobal('fetch',()=>{throw Error('egress prohibited')});
+const dir=mkdtempSync('/tmp/issue333-activation64-'),port=55464;
+const pg=(cmd:string,args:string[])=>execFileSync('setpriv',['--reuid=1000','--regid=1000','--clear-groups',cmd,...args]);
+let db:postgres.Sql;
+const sql=readFileSync('docs/testes/issue333/pilot8-complement/activation.INERTE.sql','utf8');
+const sources='docs/testes/issue333/pilot8/preflight56/sources/';
+const audit=readFileSync(sources+'log_table_change.live.sql','utf8');
+
+const C=randomUUID();
+async function make(){const u=randomUUID(),r=randomUUID(),a=randomUUID(),d=randomUUID();const [clock]=await db`select now() t`;const now=new Date(clock.t);const t=new Date(now.getTime()-30*60000);const p={company_id:C,owner_id:u,role_id:r,email:`issue333-pilot8-${u.replaceAll('-','')}@fixture.invalid`,created_at:t.toISOString(),window_start:new Date(now.getTime()-60000).toISOString(),window_end:new Date(now.getTime()+540000).toISOString(),fixture_marker:`issue333-pilot8-${u.replaceAll('-','')}`,document_sha256:'8ae66f6a452934a1f43a5d9fb2c5f22fef7e407e4d2f1b8db53f03d75794798f',document_size:'1517',document_mime:'application/pdf',invoice_number:`FICTICIO-issue333-pilot8-${u.replaceAll('-','')}`};await db`insert into auth.users(id,email,created_at,email_confirmed_at,raw_user_meta_data) values(${u},${p.email},${p.created_at},${p.created_at},${db.json({fixture_marker:p.fixture_marker,company_id:C})})`;await db`insert into profiles values(${u},'Synthetic',${C},null)`;await db`insert into user_roles(id,user_id,company_id,role) values(${r},${u},${C},'user')`;return p;}
+const LINE=/ p jsonb := '\{[^\n]*\}'::jsonb;/;function render(p:unknown){if((sql.match(new RegExp(LINE,'g'))||[]).length!==1)throw Error('exact DECLARE');return sql.replace(LINE,` p jsonb := '${JSON.stringify(p).replaceAll("'","''")}'::jsonb;`)}
+async function snap(){const o:Record<string,unknown>={};for(const t of ['data_entry_pilot8_allowlist','user_roles','profiles','standalone_attempts_333','standalone_attempt_audit_333','system_audit_log','standalone_invoices','data_entry_storage_receipts','data_entry_settings','standalone_attempt_settings_333'])o[t]=await db.unsafe(`select coalesce(jsonb_agg(to_jsonb(x) order by to_jsonb(x)::text),'[]') j from public.${t} x`);return o;}
+async function denied(p:unknown,template=sql){const before=await snap();let code='SUCCESS';try{await db.unsafe(render(p));}catch(e){code=(e as {code:string}).code;await db.unsafe('ROLLBACK');}expect(code).not.toBe('SUCCESS');expect(await snap()).toEqual(before);return code;}
+beforeAll(async()=>{execFileSync('chown',['1000:1000',dir]);pg('initdb',['-D',dir+'/data','-U','postgres','--auth=trust','-E','UTF8','--no-locale']);pg('pg_ctl',['-D',dir+'/data','-w','-l',dir+'/log','-o',`-k ${dir} -p ${port} -c listen_addresses=''`,'start']);db=postgres({host:dir,port,user:'postgres',database:'postgres',max:1,onnotice:()=>{}});
+let fixture=readFileSync('docs/testes/issue333/pg/fixture.sql','utf8').replace('CREATE TABLE auth.users(id uuid PRIMARY KEY);',`CREATE TABLE auth.users(id uuid PRIMARY KEY,email text,created_at timestamptz,email_confirmed_at timestamptz,last_sign_in_at timestamptz,banned_until timestamptz,raw_user_meta_data jsonb); CREATE TABLE auth.sessions(id uuid primary key,user_id uuid);`).replace('id serial PRIMARY KEY, user_id','id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id');await db.unsafe(fixture);
+for(const f of ['0190_issue333_core_v2_closed_structure.sql','0191_issue333_attempts_closed_structure.sql','0192_issue333_service_only_capability_reader.sql','0193_issue333_hash_check_validation_classification.sql'])await db.unsafe(readFileSync('drizzle/migrations/'+f,'utf8'));
+for(const f of ['auth_uid.live.sql','current_company_id.live.sql','set_company_id_on_insert.live.sql','system_audit_log.local-schema.sql'])await db.unsafe(readFileSync(sources+f,'utf8'));
+await db.unsafe(`ALTER TABLE user_roles ALTER COLUMN company_id SET NOT NULL, ALTER COLUMN company_id SET DEFAULT current_company_id(); CREATE TRIGGER trg_set_company_id BEFORE INSERT ON user_roles FOR EACH ROW EXECUTE FUNCTION set_company_id_on_insert(); CREATE SCHEMA storage; CREATE TABLE storage.objects(id uuid primary key,bucket_id text,name text);`);await db.unsafe(audit);await db.unsafe('CREATE TRIGGER audit_user_roles_changes AFTER INSERT OR UPDATE OR DELETE ON public.user_roles FOR EACH ROW EXECUTE FUNCTION public.log_table_change()');await db`insert into companies values(${C},'Synthetic','PT000','active')`;await db.unsafe(readFileSync('drizzle/migrations/0195_issue333_pilot8_scoped_closed_structure.sql','utf8'));
+},60000);
+afterAll(async()=>{await db?.end();pg('pg_ctl',['-D',dir+'/data','-m','immediate','stop'])});
+
+
+async function clear(){await db`truncate data_entry_pilot8_allowlist`;await db`truncate standalone_attempt_settings_333`;}
+it('prova64: identidade criada 30 min antes, revista, ativa na janela atual; 2 permissões 10 min; revogadas preservadas não bloqueiam',async()=>{
+await clear();await db`insert into data_entry_pilot8_allowlist values(${randomUUID()},${C},'preparation',false,now(),'piloto59 revogada')`;
+const p=await make();await db.unsafe(render(p));
+expect((await db`select role from user_roles where id=${p.role_id}`)[0].role).toBe('manager');
+const rows=await db`select *,extract(epoch from expires_at-clock_timestamp()) rem from data_entry_pilot8_allowlist where enabled`;
+expect(rows).toHaveLength(2);for(const x of rows){expect(x.owner_id).toBe(p.owner_id);expect(Number(x.rem)).toBeGreaterThan(595);expect(Number(x.rem)).toBeLessThanOrEqual(600);}
+expect((await db`select count(*)::int n from data_entry_pilot8_allowlist where not enabled`)[0].n).toBe(1);
+expect((await db`select count(*)::int n from auth.sessions`)[0].n).toBe(0);await clear();});
+it.each(['future-identity','created-swapped','owner-swapped','role-swapped','email-swapped','meta-swapped','company-swapped','signed-in','session','banned','invoice-exists','global-open','settings-open','active-allowlist','window-expired','window-future','window-over-10min','window-inverted'])('prova64 rejeita %s com rollback total',async k=>{
+await clear();const p=await make(),w:Record<string,string>={...p};const [{t}]=await db`select clock_timestamp() t`;const now=new Date(t).getTime();
+if(k==='future-identity'){await db`update auth.users set created_at=${new Date(now+5*60000)} where id=${p.owner_id}`;w.created_at=new Date(now+5*60000).toISOString();w.window_start=new Date(now-60000).toISOString();}
+if(k==='created-swapped')w.created_at=new Date(new Date(p.created_at).getTime()-1).toISOString();
+if(k==='owner-swapped')w.owner_id=randomUUID();if(k==='role-swapped')w.role_id=randomUUID();if(k==='email-swapped')w.email='issue333-pilot8-'+'0'.repeat(32)+'@fixture.invalid';
+if(k==='meta-swapped')await db`update auth.users set raw_user_meta_data=raw_user_meta_data||'{"fixture_marker":"issue333-pilot8-00000000000000000000000000000000"}' where id=${p.owner_id}`;
+if(k==='company-swapped')w.company_id=randomUUID();
+if(k==='signed-in')await db`update auth.users set last_sign_in_at=now() where id=${p.owner_id}`;
+if(k==='session')await db`insert into auth.sessions values(${randomUUID()},${p.owner_id})`;
+if(k==='banned')await db`update auth.users set banned_until=now()+interval '1 day' where id=${p.owner_id}`;
+if(k==='invoice-exists')await db.unsafe(`insert into standalone_invoices(company_id,invoice_number) values('${C}','${p.invoice_number}')`).catch(async()=>{await db.unsafe(`insert into data_entry_sessions(owner_id,company_id) values('${p.owner_id}','${C}')`)});
+if(k==='global-open')await db`insert into standalone_attempt_settings_333(operation,enabled) values('assistant_create',true)`;
+if(k==='settings-open')await db`update data_entry_settings set execute_validated=true`.then(async r=>{if(r.count===0)await db`insert into standalone_attempt_settings_333(operation,enabled) values('scanner_create',true)`});
+if(k==='active-allowlist')await db`insert into data_entry_pilot8_allowlist values(${randomUUID()},${C},'preparation',true,now()+interval '5 min','outra ativa')`;
+if(k==='window-expired'){w.window_start=new Date(now-11*60000).toISOString();w.window_end=new Date(now-60000).toISOString();}
+if(k==='window-future'){w.window_start=new Date(now+60000).toISOString();w.window_end=new Date(now+300000).toISOString();}
+if(k==='window-over-10min'){w.window_start=new Date(now-60000).toISOString();w.window_end=new Date(now+600000).toISOString();}
+if(k==='window-inverted'){w.window_start=new Date(now+60000).toISOString();w.window_end=new Date(now-60000).toISOString();}
+await denied(w);await db`update data_entry_settings set execute_validated=false`;await clear();});
+it('prova64: diff mínimo vs SQL62 — só a linha created_at muda nos guards; permissões 10 min inalteradas',()=>{
+expect(sql).toContain("au.created_at > (p->>'window_start')::timestamptz OR");expect(sql).not.toContain("au.created_at NOT BETWEEN");
+expect(sql).toContain("au.created_at IS DISTINCT FROM (p->>'created_at')::timestamptz");expect(sql).toContain("clock_timestamp() NOT BETWEEN (p->>'window_start')::timestamptz AND (p->>'window_end')::timestamptz");
+expect(sql.match(/interval '10 minutes'/g)).toHaveLength(2);});
