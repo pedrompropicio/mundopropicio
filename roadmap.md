@@ -21,6 +21,8 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
+- [x] Prova73: manifesto sanitizado, SQL novo inerte/renderer/30PG,9bundles por etapa/39testes/tipos0; zero piloto/escritas Cloud.
+- [ ] Piloto73 bloqueado: confirmar meio AuthAdmin oficial permitido; depois autorização única/revisão identidade e baselines atuais; não pedir chaves.
 - [x] Prova72:3envelopes reais consumidos em ordem, bytes/hash exatos e snapshots iguais; manifesto privado novo sem conta e plano condicional,51testesPASS.
 - [ ] Piloto após72: aguarda autorização própria, mecanismo oficial AuthAdmin e SQL novo para identidade futura; NÃO reutilizar render64/marcador63 diretamente.
 - [x] Prova71: transporte finito integrado;58 seletivos+1PG/React/Chromium PASS, tipos0; bundle real sem identidade entregue, zero Cloud, fase8 PARCIAL.

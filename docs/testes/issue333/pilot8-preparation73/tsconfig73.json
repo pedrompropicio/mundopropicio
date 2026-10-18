@@ -1,0 +1,4 @@
+{
+ "extends":"../pilot8/tsconfig66.json",
+ "include":["../pilot8/controller-message69.ts","../pilot8/controller-checkpoint71.ts","../pilot8/select-bundle71.ts","../pilot8/checkpoint66.ts","../pilot8/run-cloud57.ts","../pilot8/private-cloud57.ts","../pilot8/future-runner.ts","../pilot8/baseline58.ts","bundle73.ts"]
+}
