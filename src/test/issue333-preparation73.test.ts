@@ -1,0 +1,11 @@
+import {it,expect} from 'vitest';
+import {stageBundles73} from '../../docs/testes/issue333/pilot8-preparation73/bundle73';
+import {sha69} from '../../docs/testes/issue333/pilot8/controller-message69';
+const m={marker:'issue333-pilot8-'+'a'.repeat(32),email:'issue333-pilot8-'+'a'.repeat(32)+'@fixture.invalid',reference:'FICTICIO-issue333-pilot8-'+'a'.repeat(32),company:'7c858982-6ccd-47ca-bd65-e0dd3eebf01c',full_name:'Membro Fictício Piloto8',sha256:'8ae66f6a452934a1f43a5d9fb2c5f22fef7e407e4d2f1b8db53f03d75794798f',size:1517,mime:'application/pdf'};
+it('nine finite SELECT contracts preserve fingerprints, 64KiB ceiling and separate independent baselines',()=>{
+ const b=stageBundles73(m);expect(b).toHaveLength(9);expect(b[2].query).toBe(b[3].query);expect(b[2].id).not.toBe(b[3].id);
+ for(const c of b){expect(c.fingerprint).toBe(sha69(Buffer.from(c.query)));expect(c.maxBytes).toBe(65536);expect(c.estimatedEnvelopeBytes).toBeLessThanOrEqual(65536);expect(c.queryBytes).toBe(Buffer.byteLength(c.query));}
+});
+it.each([32,64])('marker suffix rule length %s',n=>{const marker='issue333-pilot8-'+'a'.repeat(n);const call=()=>stageBundles73({...m,marker,email:marker+'@fixture.invalid',reference:'FICTICIO-'+marker});if(n===32)expect(call()).toHaveLength(9);else expect(call).toThrow()});
+it.each(['issue333-pilot8-916bd3976502472ab18f39ea0adf7589','issue333-pilot8-11af044ae28127538fe8cc06be67541a'])('retired %s is never rendered',marker=>expect(()=>stageBundles73({...m,marker,email:marker+'@fixture.invalid',reference:'FICTICIO-'+marker})).toThrow());
+it('identity-bound templates remain inert until exact reviewed UUIDs/timestamp; scoped baseline excludes only fixture',()=>{const b=stageBundles73(m,{owner_id:'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',role_id:'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',created_at:'2026-10-18T01:00:00Z'});expect(b[4].query).not.toContain('PLACEHOLDER');expect(b[8].query).toContain("owner_id IS DISTINCT FROM 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid");expect(()=>stageBundles73(m,{owner_id:'invalid',role_id:'invalid',created_at:'invalid'})).toThrow()});
