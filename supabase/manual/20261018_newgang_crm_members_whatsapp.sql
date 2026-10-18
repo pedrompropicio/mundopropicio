@@ -131,79 +131,19 @@ DO $$ DECLARE a record; owner_name text; role_name text; BEGIN
  EXECUTE 'GRANT EXECUTE ON FUNCTION public.clube_newgang_list(text,int,int) TO '||role_name||CASE WHEN a.is_grantable THEN ' WITH GRANT OPTION' ELSE '' END;
  END LOOP;
 END $$;
-CREATE OR REPLACE FUNCTION public.clube_newgang_summary() RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public AS $$
-DECLARE v jsonb; v_today date:=(now() AT TIME ZONE 'Europe/Lisbon')::date; BEGIN
- PERFORM public._clube_newgang_assert_access();
- WITH first_capture AS (SELECT DISTINCT ON (lower(btrim(email))) * FROM public.lead_capture WHERE source='clube_newgang' AND public.row_belongs_to_current_company(company_id) AND email IS NOT NULL ORDER BY lower(btrim(email)),created_at,id), b AS (SELECT (created_at AT TIME ZONE 'Europe/Lisbon')::date AS d,public.club_city_display(raw->>'residence_country',raw->>'city') AS city,coalesce(nullif(utm_source,''),'(direto)')||' / '||coalesce(nullif(utm_medium,''),'—')||' / '||coalesce(nullif(utm_campaign,''),'—') AS utm,public._clube_newgang_birth(raw) AS bd FROM first_capture),a AS (SELECT *,CASE WHEN bd IS NULL THEN 'sem data' ELSE CASE WHEN extract(year FROM age(v_today,bd))<18 THEN '<18' WHEN extract(year FROM age(v_today,bd))<25 THEN '18–24' WHEN extract(year FROM age(v_today,bd))<35 THEN '25–34' WHEN extract(year FROM age(v_today,bd))<45 THEN '35–44' ELSE '45+' END END AS faixa FROM b)
- SELECT jsonb_build_object('total',(SELECT count(*) FROM a),'today',(SELECT count(*) FROM a WHERE d=v_today),'last7',(SELECT count(*) FROM a WHERE d>v_today-7),'by_day',coalesce((SELECT jsonb_agg(jsonb_build_object('d',d,'n',n) ORDER BY d) FROM (SELECT d,count(*) n FROM a GROUP BY d)x),'[]'::jsonb),'by_city',coalesce((SELECT jsonb_agg(jsonb_build_object('k',k,'n',n) ORDER BY n DESC,k) FROM (SELECT coalesce(min(city),'(sem cidade)') k,count(*) n FROM a GROUP BY public.club_city_key(city) ORDER BY 2 DESC,1 LIMIT 10)x),'[]'::jsonb),'by_utm',coalesce((SELECT jsonb_agg(jsonb_build_object('k',utm,'n',n) ORDER BY n DESC,utm) FROM (SELECT utm,count(*) n FROM a GROUP BY 1 ORDER BY 2 DESC,1 LIMIT 20)x),'[]'::jsonb),'by_age',(SELECT jsonb_agg(jsonb_build_object('k',f,'n',(SELECT count(*) FROM a WHERE faixa=f)) ORDER BY o) FROM unnest(ARRAY['<18','18–24','25–34','35–44','45+','sem data']) WITH ORDINALITY AS t(f,o))) INTO v; RETURN v;
+DO $$ DECLARE definition text; BEGIN
+ definition:=pg_get_functiondef('public.clube_newgang_summary()'::regprocedure);
+ definition:=replace(definition,'WITH b AS (','WITH first_capture AS (SELECT DISTINCT ON (lower(btrim(email))) * FROM public.lead_capture WHERE source=''clube_newgang'' AND public.row_belongs_to_current_company(company_id) AND email IS NOT NULL ORDER BY lower(btrim(email)),created_at,id), b AS (');
+ definition:=replace(definition,'FROM public.lead_capture WHERE source=''clube_newgang'' AND public.row_belongs_to_current_company(company_id)),a AS','FROM first_capture),a AS');
+ EXECUTE definition;
+ definition:=pg_get_functiondef('public.crm_filter_match(public.contacts,jsonb,jsonb)'::regprocedure);
+ definition:=replace(definition,'c.consent_whatsapp = (f->>''value'')::boolean','public.crm_whatsapp_eligible(c.id) = (f->>''value'')::boolean');
+ EXECUTE definition;
+ definition:=pg_get_functiondef('public.crm_contacts_by_audience(uuid,text,text,text,text,text,int,int)'::regprocedure);
+ definition:=replace(definition,'c.consent_whatsapp, c.is_active','c.consent_whatsapp, c.consent_whatsapp_source, public.crm_whatsapp_eligible(c.id) AS whatsapp_eligible, c.is_active');
+ definition:=replace(definition,'c.consent_whatsapp = (p_wa = ''yes'')','public.crm_whatsapp_eligible(c.id) = (p_wa = ''yes'')');
+ EXECUTE definition;
 END $$;
-
-CREATE OR REPLACE FUNCTION public.crm_filter_match(c public.contacts, f jsonb, p_coala jsonb)
- RETURNS boolean LANGUAGE sql STABLE SECURITY INVOKER SET search_path TO 'public'
-AS $$
-  SELECT COALESCE(CASE f->>'field'
-    WHEN 'has_email' THEN (c.email IS NOT NULL) = (f->>'value')::boolean
-    WHEN 'has_phone' THEN (c.phone_e164 IS NOT NULL) = (f->>'value')::boolean
-    WHEN 'consent_email' THEN c.consent_email = (f->>'value')::boolean
-    WHEN 'consent_whatsapp' THEN public.crm_whatsapp_eligible(c.id) = (f->>'value')::boolean
-    WHEN 'is_active' THEN c.is_active = (f->>'value')::boolean
-    WHEN 'source' THEN CASE f->>'op'
-        WHEN 'eq' THEN c.source = f->>'value'
-        WHEN 'neq' THEN c.source <> f->>'value'
-        WHEN 'in' THEN c.source IN (SELECT jsonb_array_elements_text(CASE WHEN jsonb_typeof(f->'value')='array' THEN f->'value' ELSE '[]'::jsonb END))
-      END
-    WHEN 'created_at' THEN CASE f->>'op'
-        WHEN 'gte' THEN c.created_at >= (f->>'value')::date
-        WHEN 'lte' THEN c.created_at <= (f->>'value')::date
-        WHEN 'last_n_days' THEN c.created_at >= now() - make_interval(days => COALESCE((f->>'value')::int, 0))
-      END
-    WHEN 'last_activity_at' THEN CASE f->>'op'
-        WHEN 'gte' THEN c.last_activity_at >= (f->>'value')::date
-        WHEN 'lte' THEN c.last_activity_at <= (f->>'value')::date
-        WHEN 'last_n_days' THEN c.last_activity_at >= now() - make_interval(days => COALESCE((f->>'value')::int, 0))
-      END
-    WHEN 'coala_list' THEN
-      f->>'value' = 'eb2027'
-      AND c.company_id = '7d831e59-6e82-427b-95a0-64904aae5dd2'::uuid
-      AND c.email IS NOT NULL
-      AND p_coala ? lower(btrim(c.email))
-  END, false)
-$$;
-
-CREATE OR REPLACE FUNCTION public.crm_contacts_by_audience(
-  p_audience_id uuid, p_search text DEFAULT NULL, p_email text DEFAULT 'all', p_wa text DEFAULT 'all',
-  p_active text DEFAULT 'all', p_source text DEFAULT 'all', p_offset integer DEFAULT 0, p_limit integer DEFAULT 50)
- RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path TO 'public'
-AS $$
-declare v_set jsonb := public.crm_coala_list_set(); v jsonb;
-begin
-  WITH a AS (
-    SELECT * FROM public.audiences
-     WHERE id = p_audience_id AND company_id = public.current_company_id()
-       AND public.crm_audience_is_visible(criterion)
-  ), base AS (
-    SELECT c.id, c.name, c.email, c.phone_e164, c.source, c.consent_email, c.consent_whatsapp, c.consent_whatsapp_source, public.crm_whatsapp_eligible(c.id) AS whatsapp_eligible, c.is_active, c.last_activity_at
-      FROM public.contacts c, a
-     WHERE c.company_id = a.company_id
-       AND public.crm_criterion_match(c, a.criterion, v_set)
-       AND (COALESCE(btrim(p_search),'') = '' OR c.name ILIKE '%'||btrim(p_search)||'%'
-            OR c.email ILIKE '%'||btrim(p_search)||'%' OR c.phone_e164 ILIKE '%'||btrim(p_search)||'%')
-       AND (p_email = 'all' OR c.consent_email = (p_email = 'yes'))
-       AND (p_wa = 'all' OR public.crm_whatsapp_eligible(c.id) = (p_wa = 'yes'))
-       AND (p_active = 'all' OR c.is_active = (p_active = 'yes'))
-       AND (p_source = 'all' OR (p_source = '__none__' AND c.source IS NULL) OR c.source = p_source)
-  )
-  SELECT jsonb_build_object(
-    'total', (SELECT count(*) FROM base),
-    'rows', COALESCE((SELECT jsonb_agg(to_jsonb(p)) FROM (
-        SELECT * FROM base ORDER BY last_activity_at DESC NULLS LAST, id
-         OFFSET GREATEST(p_offset,0) LIMIT LEAST(GREATEST(p_limit,1),1000)) p), '[]'::jsonb))
-    INTO v;
-  RETURN v;
-end
-$$;
-
-
 CREATE OR REPLACE VIEW public.crm_contactos WITH (security_invoker=true) AS
  SELECT c.id AS contact_id,c.company_id,c.name,c.email,c.phone_e164,c.consent_email,c.consent_email_at,
  c.consent_whatsapp,c.consent_whatsapp_at,c.is_active,c.source,
