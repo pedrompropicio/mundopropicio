@@ -6,5 +6,5 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "paths": {"npm:zod@3": ["../../../../node_modules/zod"]}
   },
-  "include": ["controller-message69.ts", "controller-checkpoint71.ts", "select-bundle71.ts", "checkpoint66.ts", "official-select66.ts", "run-cloud57.ts", "private-cloud57.ts", "future-runner.ts", "baseline58.ts"]
+  "include": ["controller-message69.ts", "controller-checkpoint71.ts", "select-bundle71.ts", "bundle71-cli.ts", "checkpoint66.ts", "official-select66.ts", "run-cloud57.ts", "private-cloud57.ts", "future-runner.ts", "baseline58.ts"]
 }
