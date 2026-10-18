@@ -105,5 +105,5 @@ class S(socketserver.ThreadingTCPServer):
     allow_reuse_address=True;daemon_threads=True
 
 srv=S(('127.0.0.1',0),H)
-print(f'PORT={srv.server_port}',flush=True)
+print(f'PORT={srv.server_address[1]}',flush=True)
 srv.serve_forever()
