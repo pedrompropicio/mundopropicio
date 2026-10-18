@@ -1,8 +1,8 @@
 # AJ16 / AJ14 / AJ19 — leituras deduplicadas e sinal app_open
-- [ ] AJ19: complementar proposta AJ14 com ListenClick único entre choice/open, comparação DDL A/B e volume semanal por plataforma; só SELECT/documentação, sem aplicar/deploy.
+- [x] AJ19: adenda inerte entregue em docs/testes/smart-link-aj14-aj19-20261018.PROPOSTA.md; ListenClick único choice/open, checks A/B e cenários por plataforma; zero aplicação/deploy.
 - [x] AJ16 primeiro SELECT: Fortaleza136905/106068, diferente do auditor; ttclid sem UA cru, in_appNULL não prova Pangle; percentagens candidatas por dia guardadas em docs/questoes-aj16-aj14-20261018.md.
 - [ ] AJ16: criar/testar vista security_invoker sem mudar tabelas, grants base ou consumidores; inventário iniciado. Aguarda resposta ao primeiro passo conforme protocolo do Pedro.
-- [ ] AJ14: entregar apenas proposta, DDL exato inerte e falsos positivos/medição; sem aplicação/deploy/envios.
+- [x] AJ14/AJ19: proposta/DDL checks/falsos positivos/medição entregues; implementação completa e diff conjunto aguardam OK do Pedro, sem aplicação/deploy/envios.
 - [ ] Choice anterior continua à espera de autorização DDL/diff e códigos de teste; não repetir nem aplicar implicitamente.
 
 # Smart link — diagnóstico de toque iOS
