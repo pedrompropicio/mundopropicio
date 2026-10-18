@@ -1,5 +1,8 @@
 # ESTADO — Plataforma & Infra
 
+## #333 — coordenação local prova66 (18/10/2026)
+Checkpoints prepare/await_activation/execute/await_revocation/finish/cleanup privados persistentes substituem entrada CLI contínua; sem SELECT/timer pendentes entre turnos. Transporte oficial JSON integral com id/fingerprint/schema, testado só localmente; revisão CLI Cloud read-only pendente. PG/React/Chromium+doubles locais PASS, tipos explícitos PASS; produto/Cloud intactos. Contas59/63 banidas/revogadas; fases1–7done,8PARCIAL,9–18pendentes. Ver docs/testes/issue333/66-coordenacao-checkpoints-locais.md. #323/DECISIONS preservados.
+
 Atualizado 2026-10-10 · Issues #256, #269, #213, #265, #268, #186, #202, #204, #206, #83, #57 · a-seguir #96, #61. Fechadas a 18/09: #211, #203, #15. Fechada a 10/10: #254 (geo por IP — ver secção própria no fim).
 Última verificação deste lote: 09/10/2026 — #244 sem falhas herdadas; #231 splitting já existente e prova de SHA acrescentada; #61 bloqueada por falta dos ficheiros reais para comparação. Sem Publish.
 Suite final: 834 passed | 1 skipped | 11 todo; build automático OK. Índice regenerado e teste do índice aprovado. CI remoto e tsgo isolado não confirmados nesta sessão; tamanho do novo artefacto não disponível no sandbox, medição reportada é a produção actual.

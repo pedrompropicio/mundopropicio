@@ -2,7 +2,7 @@
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {createHash,randomUUID} from 'node:crypto';
-import {mkdir,readFile,writeFile} from 'node:fs/promises';
+import {mkdir,readFile,writeFile,open,unlink} from 'node:fs/promises';
 import {atomicPrivate66} from './checkpoint66';
 export type Request66={id:string;fingerprint:string;query:string;expectedKeys:string[];status:'pending'|'consumed'|'failed'};
 export type Capture66=(query:string)=>Promise<string>;
@@ -24,11 +24,14 @@ export class OfficialSelect66 {
  }
  async accept(id:string,envelope:{id:string;fingerprint:string;data:unknown}){
   if(!/^[a-f0-9-]{36}$/.test(id))throw Error('Invalid request identity');
-  const p=this.directory+'/'+id+'.request.json';const r=JSON.parse(await readFile(p,'utf8')) as Request66;
+  const p=this.directory+'/'+id+'.request.json';const lockPath=p+'.lock';const lock=await open(lockPath,'wx',0o600);
+  try {
+  const r=JSON.parse(await readFile(p,'utf8')) as Request66;
   if(r.status!=='pending')throw Error('Stale/late/duplicate official response');
   if(envelope.id!==r.id||envelope.fingerprint!==r.fingerprint)throw Error('Official response identity/fingerprint mismatch');
   const data=envelope.data;if(!Array.isArray(data)||data.length!==1||!data[0]||typeof data[0]!=='object'||Array.isArray(data[0]))throw Error('Official response schema refused');
   for(const k of r.expectedKeys)if(!(k in data[0]))throw Error('Official response missing '+k);
   await atomicPrivate66(this.directory+'/'+id+'.response.json',envelope);await atomicPrivate66(p,{...r,status:'consumed'});return data[0];
+  } finally {await lock.close();await unlink(lockPath)}
  }
 }
