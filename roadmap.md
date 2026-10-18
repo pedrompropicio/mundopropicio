@@ -69,5 +69,5 @@
 - [x] Lista/summary por email, submissões e vínculo do membro.
 - [x] Projeção canónica WhatsApp, origem e elegibilidade; consumidores CRM.
 - [x] Testes SQL/UI, migrações oficiais0196/0197 e verificações Live.
-- [ ] Backfill perfil→CRM: preview62ativações/65ajustes; aguarda Sim específico de Pedro, renovar preview antes.
+- [x] Backfill autorizado18/10:67decisões/62ativações/65ajustes;telefone62copiados/65elegíveis/2conflitos;0198/1444testesPASS.
 - [x] Fecho estado/provas e libertação da reserva.
