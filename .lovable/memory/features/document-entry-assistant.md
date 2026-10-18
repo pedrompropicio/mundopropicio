@@ -1,6 +1,6 @@
 ---
 name: Assistente de Entrada de Dados
-description: Gates fechados, autorização explícita de reserva preparada e aceitação local parcial
+description: Gates fechados, prévia de reserva vinculada e recuperação estritamente read-only
 type: feature
 ---
 
@@ -14,3 +14,6 @@ Matriz 37/37 PASS com 4 contas fictícias .invalid (banidas no fim) e 1 sessão 
 
 ## Limite de aceitação e reserva preparada
 Ensaios locais autorizados não abrem operações Live. Reserva preparada só executa com ação explícita do owner/contexto canónico e bytes originais verificados; nova intenção ou seleção não autorizam efeitos. Resultado incerto exige conferência read-only, nunca writer legado. Integração DOM não é Chromium React completo; relatório parcial ou CI geral verde não aprovam aceitação integral.
+
+
+A autorização da reserva mostra dados legíveis do envelope confirmado no servidor, vinculados ao owner/empresa/operação/hash; não usa o formulário antigo. Tentativas authorized/inprogress só permitem conferência read-only, nunca novo upload/begin/commit. Provas locais Chromium não autorizam deploy/ativação/piloto/Publish e não substituem Cloud.

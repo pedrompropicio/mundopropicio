@@ -3,3 +3,4 @@
 - Persist confirmation uncertainty before sending; recover by read-only server checks and never resend automatically, because lost responses can have committed technical intentions.
 - Discovery never executes or reuses previous form fields. Prepared scanner reservations use a separate explicit execution control through the typed attempt client, checking prepared state and original bytes; discovery/new intent cannot authorize effects, and uncertain states remain read-only.
 - Invalidate asynchronous results on principal/company/operation changes; existing reservations never fall back to legacy writers, because capability failure is not authorization.
+- Prepared reservation authorization displays an owner/company/operation/hash-bound server snapshot before execution; service-only reads follow canonical owner checks, because old form fields cannot describe authorized effects.
