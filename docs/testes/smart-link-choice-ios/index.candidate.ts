@@ -225,7 +225,7 @@ async function handle(req: Request, ctx: { slug: string | null; event: string | 
   const browserOk = (!!origin && ALLOWED_ORIGINS.has(origin)) || (!origin && !!refOrigin && ALLOWED_ORIGINS.has(refOrigin));
   const noBrowserHeaders = !req.headers.has("origin") && !req.headers.has("referer");
   // Defer only truly headerless POSTs; an invalid present header never gets a fallback.
-  if (!isSsr && !browserOk && !noBrowserHeaders) return json({ ok: false, error: "forbidden_origin" }, 403, origin);
+  // Validate POST body before logging event; origin denial still precedes any database access.
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405, origin);
 
   let body: any;
@@ -243,6 +243,7 @@ async function handle(req: Request, ctx: { slug: string | null; event: string | 
   const event = body?.event;
   ctx.slug = slug;
   ctx.event = event === "arrival" || event === "choice" ? event : null;
+  if (!isSsr && !browserOk && !noBrowserHeaders) return json({ ok: false, error: "forbidden_origin" }, 403, origin);
   const arrivalEventId = s(body.arrival_event_id, 120)?.toLowerCase() ?? null;
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const linkedChoice = event === "choice" && arrivalEventId !== null;
