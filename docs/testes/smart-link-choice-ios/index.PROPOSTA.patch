@@ -32,21 +32,24 @@
 -  if (!isSsr && !browserOk) return json({ ok: false, error: "forbidden_origin" }, 403, origin);
 +  const noBrowserHeaders = !req.headers.has("origin") && !req.headers.has("referer");
 +  // Defer only truly headerless POSTs; an invalid present header never gets a fallback.
-+  if (!isSsr && !browserOk && !noBrowserHeaders) return json({ ok: false, error: "forbidden_origin" }, 403, origin);
++  // Validate POST body before logging event; origin denial still precedes any database access.
    if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405, origin);
  
    let body: any;
-@@ -239,6 +242,19 @@
+@@ -239,6 +242,22 @@
    const slug = s(body?.slug, 120)?.toLowerCase() ?? null;
    const event = body?.event;
    ctx.slug = slug;
 +  ctx.event = event === "arrival" || event === "choice" ? event : null;
++  if (!isSsr && !browserOk && !noBrowserHeaders) return json({ ok: false, error: "forbidden_origin" }, 403, origin);
 +  const arrivalEventId = s(body.arrival_event_id, 120)?.toLowerCase() ?? null;
 +  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 +  const linkedChoice = event === "choice" && arrivalEventId !== null;
 +  if (!isSsr && !browserOk && !(noBrowserHeaders && linkedChoice && uuid.test(arrivalEventId ?? "") && body.prefetch !== true)) {
 +    return json({ ok: false, error: "forbidden_origin" }, 403, origin);
 +  }
++  // Final Portal contract: every choice is linked, including allowed-origin requests.
++  if (event === "choice" && !linkedChoice) return json({ ok: false, error: "invalid_choice" }, 400, origin);
 +  if (linkedChoice && (!uuid.test(arrivalEventId ?? "") || !uuid.test(body.event_id ?? ""))) {
 +    return json({ ok: false, error: "invalid_choice" }, 400, origin);
 +  }
@@ -56,7 +59,7 @@
    if (!slug || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) return json({ ok: false, error: "slug_invalido" }, 400, origin);
    if (event !== "arrival" && event !== "choice") return json({ ok: false, error: "event_invalido" }, 400, origin);
    const opened = body?.opened === "app" || body?.opened === "web" ? body.opened : null;
-@@ -288,7 +304,8 @@
+@@ -288,7 +307,8 @@
    const ttTest = typeof body?.tiktok_test_event_code === "string" && TEST_CODE_RE.test(body.tiktok_test_event_code) ? body.tiktok_test_event_code : null;
  
    // D-ERP234: atomic INSERT ON CONFLICT happens before any external delivery.
@@ -66,7 +69,7 @@
      link_id: link.id, company_id: link.company_id, artist_id: link.artist_id, song_id: link.song_id,
      event, mode: s(body.mode, 30), destination, opened, event_id: eventId,
      utm_source: s(body.utm_source, 200), utm_medium: s(body.utm_medium, 200),
-@@ -298,10 +315,14 @@
+@@ -298,10 +318,14 @@
      ip_hash: ipHash, origin: isSsr ? "ssr" : "browser",
    }});
    if (claimError) {

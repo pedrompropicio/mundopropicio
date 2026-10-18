@@ -1,5 +1,7 @@
 {
   "active_source_sha256": "a13939af7a2c3154be92632092e9ec1e178db3e4f0f9e5591f234beb57a07ab1",
   "canonical_live_md5": "0fa7ff7255cf58ace770d21abfabe2e1",
-  "status": "INERTE; no deploy / no migration applied"
+  "status": "INERTE; no deploy / no migration applied",
+  "candidate_sha256": "9fe30f08647475176ec2bafa58b2403fdb84d761c7c59672ee71cfd5346ff5b6",
+  "sql_sha256": "2f9469be061846de2154a143ba29fd5d05bc36a8897db18c6699bd6a16a41767"
 }
