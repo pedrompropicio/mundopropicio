@@ -33,8 +33,11 @@ export class OfficialSelectBridge {
 export class AuthAdmin57 {
   constructor(private base:string,private service:string,private publicKey:string,private transport:typeof fetch=fetch){}
   private async request(path:string,method:string,body:unknown,key=this.service) {
-    const response=await this.transport(this.base+path,{method,headers:{apikey:this.publicKey,Authorization:'Bearer '+key,'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(20000)});
-    if(!response.ok)throw Error(`Auth ${method} refused ${response.status}`);return response.status===204?{}:await response.json();
+    const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),20000);
+    try {
+      const response=await this.transport(this.base+path,{method,headers:{apikey:this.publicKey,Authorization:'Bearer '+key,'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:controller.signal});
+      if(!response.ok)throw Error(`Auth ${method} refused ${response.status}`);return response.status===204?{}:await response.json();
+    } finally {clearTimeout(timer);}
   }
   readProbe(){return this.request('/auth/v1/admin/users?page=1&per_page=1','GET',undefined);}
   create(input:Parameters<PilotDriver['createUser']>[0]) {
