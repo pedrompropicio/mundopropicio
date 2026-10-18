@@ -20,14 +20,30 @@ export class OfficialSelectBridge {
     return new OfficialSelectBridge(await mkdtemp(root),deadlineMs);
   }
   get relayDirectory(){return this.directory;}
-  async select(query:string):Promise<any> {
+  /** expectedKeys: schema contract of the single result row. A response missing any
+   * expected key is REJECTED — an absent field never degrades into a PASS. */
+  async select(query:string, expectedKeys?:string[]):Promise<any> {
     if(!/^SELECT\b/i.test(query.trim()) || /\b(INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|GRANT|REVOKE|set_config|pg_sleep)\b/i.test(query)) throw Error('SELECT-only bridge refused');
     await mkdir(this.directory,{recursive:true,mode:0o700});
     const id=String(++this.sequence).padStart(4,'0');
-    await writeFile(`${this.directory}/${id}.request.json`,JSON.stringify({id,query}),{mode:0o600,flag:'wx'});
+    const fingerprint=createHash('sha256').update(query).digest('hex');
+    await writeFile(`${this.directory}/${id}.request.json`,JSON.stringify({id,query,fingerprint}),{mode:0o600,flag:'wx'});
     const end=Date.now()+this.deadlineMs;
     while(Date.now()<end) {
-      try { const data=JSON.parse(await readFile(`${this.directory}/${id}.response.json`,'utf8'));if(data.error)throw Error('Official SELECT refused');if(data.id!==undefined&&data.id!==id)throw Error('Official SELECT response identity mismatch');const payload=data.data??data;return Array.isArray(payload)?payload[0]:payload; }
+      try {
+        const raw=await readFile(`${this.directory}/${id}.response.json`,'utf8');
+        const data=JSON.parse(raw);
+        if(data.error)throw Error('Official SELECT refused');
+        // Identity: id must match exactly; a response without id is never accepted.
+        if(data.id!==id)throw Error('Official SELECT response identity mismatch');
+        // Fingerprint: the relay must echo the hash of the query it actually ran.
+        if(data.fingerprint!==fingerprint)throw Error('Official SELECT query fingerprint mismatch');
+        const payload=data.data??null;
+        const row=Array.isArray(payload)?payload[0]:payload;
+        if(row===null||typeof row!=='object'||Array.isArray(row))throw Error('Official SELECT response shape invalid');
+        if(expectedKeys) for(const k of expectedKeys) if(!(k in row)) throw Error('Official SELECT response missing expected field: '+k);
+        return row;
+      }
       catch(e) { if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e; }
       await new Promise(r=>setTimeout(r,200));
     }
