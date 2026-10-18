@@ -1,0 +1,2 @@
+import {defineConfig} from 'vitest/config';
+export default defineConfig({resolve:{alias:{'npm:zod@3':'zod'}},test:{environment:'node',include:['docs/testes/issue333/pg/driver58.test.ts'],testTimeout:180000,hookTimeout:60000,fileParallelism:false}});
