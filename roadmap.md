@@ -40,7 +40,8 @@
 - [x] Controlador concluiu fase7: prova55/CI39103374138/SELECT allowlist0/RLS/policies/grants/globals0; checklist6244398679 atualizada.
 - [x] Fase8 preflight56 local: PDF validado exato1517B/0600, SQL user→manager+2rows10min/canonizaçãoNULLactive,23PG+17PG+1Chromium e1411Vitest PASS; zero conta/ativação Cloud.
 - [x] Controlador reviu56 e autorizou único piloto8; CI39104225310/626fc682 success. Drivers privados57 adicionados/8testes PASS/probes sem writes.
-- [ ] Correção58 autorizada: validar inventário completo Live, corrigir baseline para notes+items, executar duas leituras iguais e testar drivers integrais isolados antes conta. Piloto8 não executado; reserva mantida.
+- [x] Correção58: metadata Live sem incompatibilidades/15baselines duas leituras iguais; notes+items canónicos; driverintegralHTTP/SELECTspool/Chromium3modosPGPASS;1418VitestPASS. SemcontaCloud.
+- [ ] Piloto8 único já autorizado: aguarda controlador pronto para coordenação SQL; nenhuma execução automática nesta entrega;CI novo código não observado.
 - [x] Validar SQL exata do leitor em PostgreSQL descartável real;0192 aplicada oficialmente/registry194/hash exato.
 - [x] Integrar/testar leitor service-only; deploy só standalone-attempt-333, versão7 observada, gates fechados.
 - [x] Conferir registry/corpo/ACL/baselines separados/negativas Live e entregar prova26/27, estado e pendências.
