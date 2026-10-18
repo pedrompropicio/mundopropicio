@@ -64,7 +64,7 @@ async def main():
    if not await more.count(): break
    count=await page.get_by_label('Tentativa a consultar').locator('option').count()
    await more.click()
-   await page.wait_for_function('(n)=>document.querySelectorAll("select[aria-label=\"Tentativa a consultar\"] option").length>n',arg=count)
+   await page.wait_for_function('(n)=>Array.from(document.querySelectorAll("select")).find(e=>e.getAttribute("aria-label")==="Tentativa a consultar").options.length>n',arg=count)
   else: raise AssertionError('pagination did not finish')
   await page.get_by_label('Tentativa a consultar',exact=True).select_option(prior)
   await page.get_by_role('button',name='Registar outra fatura com os mesmos dados…',exact=True).click();await control('confirm_new_intent',True)
@@ -79,7 +79,7 @@ async def main():
    if not await more.count(): break
    count=await page.get_by_label('Tentativa a consultar').locator('option').count()
    await more.click()
-   await page.wait_for_function('(n)=>document.querySelectorAll("select[aria-label=\"Tentativa a consultar\"] option").length>n',arg=count)
+   await page.wait_for_function('(n)=>Array.from(document.querySelectorAll("select")).find(e=>e.getAttribute("aria-label")==="Tentativa a consultar").options.length>n',arg=count)
   else: raise AssertionError('pagination did not finish')
   await page.get_by_role('button',name='Conferir intenção pendente',exact=True).click();await page.get_by_text('Intenção técnica encontrada e conferida. Nenhuma execução foi iniciada.',exact=True).wait_for()
   snapshot=page.get_by_role('region',name='Dados confirmados da reserva');await snapshot.wait_for();assert 'Proof32 original owner envelope' in await snapshot.inner_text();assert '123' in await snapshot.inner_text();assert 'Sem transação' in await snapshot.inner_text();await shot('32-reserved-envelope')
