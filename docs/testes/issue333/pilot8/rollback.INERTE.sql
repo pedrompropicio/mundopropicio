@@ -1,6 +1,16 @@
 -- INERTE rollback: disable allowlist FIRST via reviewed owner DML; never DROP evidence. Restore original functions/volatility with ACL preserved. Global settings MUST still be empty/false.
 BEGIN;
 DO $$ BEGIN IF EXISTS(SELECT 1 FROM data_entry_settings WHERE execute_validated OR preparation_validated) OR EXISTS(SELECT 1 FROM standalone_attempt_settings_333 WHERE enabled) THEN RAISE EXCEPTION 'global flags not closed' USING ERRCODE='55000'; END IF; END $$;
+DO $guard$ BEGIN
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='data_entry_pilot8_gate') IS DISTINCT FROM '1e066a6df3637c8d5c8f99f00a255d33' THEN RAISE EXCEPTION 'pilot8 rollback source changed: data_entry_pilot8_gate' USING ERRCODE='55000'; END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='data_entry_pilot8_capabilities') IS DISTINCT FROM 'bb4ba4bef75c97ad61564868cfe534d0' THEN RAISE EXCEPTION 'pilot8 rollback source changed: data_entry_pilot8_capabilities' USING ERRCODE='55000'; END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='data_entry_preparation_gate') IS DISTINCT FROM 'ae3012613f345731917f629ebfe93a74' THEN RAISE EXCEPTION 'pilot8 rollback source changed: data_entry_preparation_gate' USING ERRCODE='55000'; END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='data_entry_session') IS DISTINCT FROM '9be714ee0ad4f8df6aa36f3c8e480979' THEN RAISE EXCEPTION 'pilot8 rollback source changed: data_entry_session' USING ERRCODE='55000'; END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='data_entry_commit') IS DISTINCT FROM '3e47099b39581940ef7f6e6203b1dddd' THEN RAISE EXCEPTION 'pilot8 rollback source changed: data_entry_commit' USING ERRCODE='55000'; END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='standalone_attempt_gate_333') IS DISTINCT FROM 'a74836149d3a2eba12b5d5619222f9ab' THEN RAISE EXCEPTION 'pilot8 rollback source changed: standalone_attempt_gate_333' USING ERRCODE='55000'; END IF;
+ IF (SELECT md5(prosrc) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='data_entry_pilot8_receipt') IS DISTINCT FROM 'ec5f67dc0d9dfa973d2b78a45b010619' THEN RAISE EXCEPTION 'pilot8 rollback source changed: data_entry_pilot8_receipt' USING ERRCODE='55000'; END IF;
+ IF EXISTS(SELECT 1 FROM public.data_entry_pilot8_allowlist WHERE enabled) THEN RAISE EXCEPTION 'disable exact pilot rows before rollback' USING ERRCODE='55000'; END IF;
+END $guard$;
 CREATE OR REPLACE FUNCTION public.data_entry_preparation_gate() RETURNS void
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=public,pg_temp AS $$
 BEGIN
