@@ -48,7 +48,7 @@ if(k==='banned')await db`update auth.users set banned_until=now()-interval '1 da
 if(k==='signed-in')await db`update auth.users set last_sign_in_at=now() where id=${p.owner_id}`;
 if(k==='session')await db`insert into auth.sessions values(${randomUUID()},${p.owner_id})`;
 if(k==='history')await db`insert into data_entry_sessions(owner_id,company_id) values(${p.owner_id},${C})`;
-if(k==='global')await db`insert into standalone_attempt_settings_333 values(true)`;
+if(k==='global')await db`insert into standalone_attempt_settings_333(operation,enabled) values('assistant_create',true)`;
 if(k==='existing-allowlist')await db`insert into data_entry_pilot8_allowlist values(${p.owner_id},${C},'preparation',false,now(),'past')`;
 await denied(wrong);await db`truncate standalone_attempt_settings_333`;await clearAllowlist();});
 it('second allowlist INSERT failure rolls role and real audit back',async()=>{const p=await make();await db.unsafe(`CREATE FUNCTION local_fail56() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.operation='assistant_create' THEN RAISE EXCEPTION 'injected'; END IF; RETURN NEW; END $$;CREATE TRIGGER local_fail56 BEFORE INSERT ON data_entry_pilot8_allowlist FOR EACH ROW EXECUTE FUNCTION local_fail56()`);try{await denied(p)}finally{await db.unsafe('DROP TRIGGER local_fail56 ON data_entry_pilot8_allowlist; DROP FUNCTION local_fail56()')}});
