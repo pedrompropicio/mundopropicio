@@ -1,6 +1,6 @@
 {
-  "exit": null,
+  "exit": 0,
   "base": "f7b16fbd3ca2e72a8abe71c70cd55ddccf205286",
   "cloud_tested": false,
-  "status": "running"
+  "scope": "first-release local integrated and React Chromium journeys; Cloud not tested"
 }

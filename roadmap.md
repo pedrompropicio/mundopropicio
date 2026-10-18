@@ -28,7 +28,7 @@
 - [x] #333 corrigir/congelar CORE v2 e provar PG73/73; preparação/execução separadas; ATTEMPTS intacto.
 - [x] #333 COREv2/ATTEMPTS aplicados por registry oficial192/193, bucket privado20MiB; hashes/corpos/ACL/baselines e HTTP service conferidos. Prova22.
 - [x] #333 negativas authenticated/owner RPC etapa2 reportadas; não aceitação E2E/isolamento alheio; prova23 retificada.
-- [ ] Implementar núcleo upload privado, conversa documental, prévia servidor, autorização e execução tipada idempotente apenas para adapters validados.
+- [x] Primeiro release local Fatura Avulsa:upload/prévia/autorização/conferência/UIReact/SQL/bytes e recovery comprovados; conversa documental/IA e restantes adapters fora do release.
 - [ ] Ativação/piloto/índice global/Publish aguardam autorização própria; leitor seguro aplicado sem ativação. Aceitação autenticada Cloud e CI desta entrega pendentes; não criar sessão sem autorização. Trava sessionStorage não prova exatamente-um global.
 - [x] Documentar efeitos Live inexistentes e limitações; manter Issue/reserva abertas para verificação.
 - [ ] Gmail/Drive/OAuth, conciliação, bilheteiras e demais adapters: bloqueados até validação/configuração próprias; sem Publish.
