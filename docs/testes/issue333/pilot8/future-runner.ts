@@ -33,7 +33,7 @@ export async function runFuturePilot(driver: PilotDriver, artifact: Artifact, au
   await driver.validatePdf(artifact); // BEFORE password generation / the sole account.
   const pre = await driver.preflightReadOnly(artifact);
   assert(pre.markerAbsent && pre.referenceAbsent && pre.sourcesExact && pre.globalsClosed && pre.allowlistCount === 0, 'Read-only preflight refused');
-  let password = driver.secret(), token = '', owner: Identity | undefined;
+  let password = driver.secret(), token = '', owner: Identity | undefined, revocationProven=false;
   const cleanupErrors: string[] = [];
   try {
     owner = await driver.createUser({ email: artifact.marker+'@fixture.invalid', password, email_confirm: true,
@@ -58,11 +58,18 @@ export async function runFuturePilot(driver: PilotDriver, artifact: Artifact, au
     const result=await driver.chromium(owner,token,artifact);
     assert(result.sessions===1 && result.documents===1 && result.previews===1 && result.executeRequests===2 && result.invoices===1 && result.results===1 && result.financialEffects===0 && result.downloadedSha===artifact.sha256 && result.approvedOwner===owner.id && result.approvedNameFromServer && result.reopenedCheckOk,'Single-preview pilot evidence mismatch; read-only recovery only');
     await driver.requestRevocation(owner,artifact);
-    const revoked=await driver.readRevoked(owner,artifact);assert(revoked.count===2 && revoked.disabled===2,'Exclusive two-row revocation not proven');
+    const revoked=await driver.readRevoked(owner,artifact);assert(revoked.count===2 && revoked.disabled===2,'Exclusive two-row revocation not proven');revocationProven=true;
     const check=await driver.checkReadOnly(owner,token,artifact);assert(check.ok && check.extraWrites===0,'Revoked read-only check failed');
     return { status: 'verified', cloudPilot: true };
   } finally {
     if(owner) {
+      if(!revocationProven) try {
+        // Read first: uncertainty never repeats a mutation already committed.
+        const state=await driver.readRevoked(owner,artifact);
+        if(state.count===2 && state.disabled!==2) await driver.requestRevocation(owner,artifact);
+        const after=await driver.readRevoked(owner,artifact);
+        assert(after.count===0 || (after.count===2 && after.disabled===2),'revocation unresolved');
+      } catch { cleanupErrors.push('scoped_revocation'); }
       // Independent cleanup attempts: logout failure never suppresses ban or sessions proof.
       if(token) try { await driver.logoutGlobal(token); } catch { cleanupErrors.push('global_logout'); }
       try { await driver.banOnlyCreatedUser(owner.id); } catch { cleanupErrors.push('ban_created_user'); }
