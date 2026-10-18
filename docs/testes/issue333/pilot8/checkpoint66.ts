@@ -60,7 +60,10 @@ export async function checkpoint66(action:'prepare'|'execute'|'finish'|'cleanup'
   // Retain type and safe stage, never raw messages containing credentials/headers.
   s.failure=`${e instanceof Error?e.name:'Error'} during ${action}/${s.phase}`;s.phase='aborted';
   try{if(!token)token=await store.getSecret('token')}catch{}
-  await cleanup66(d,a,store,s,token);await store.save(s);
+  try{await cleanup66(d,a,store,s,token)}catch(cleanupError){
+   if(cleanupError instanceof Error&&cleanupError.name==='AwaitController71'){s.context=d.exportContext();s.actions['controller_resume']='cleanup';await store.save(s);return {checkpoint:s.phase,pending:s.pending,noPendingSelect:true}}
+   throw cleanupError;
+  }await store.save(s);
   return {checkpoint:'aborted',failure:s.failure,pending:s.pending,actions:s.actions,noPendingSelect:true};
  } finally {token='';await unlock()}
 }

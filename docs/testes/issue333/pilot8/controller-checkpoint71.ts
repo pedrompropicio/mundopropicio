@@ -70,7 +70,7 @@ export function durableDriver71(d:Driver66,directory:string,scope:string,transpo
  const effectMethods=new Set(['login','chromium','checkReadOnly','logoutGlobal','banOnlyCreatedUser']);
  return new Proxy(d,{get(target,key){
   const original=Reflect.get(target,key);
-  if(typeof original!=='function'||['bindIdentity','importContext','exportContext','now','wait','secret'].includes(String(key)))return typeof original==='function'?original.bind(target):original;
+  if(typeof original!=='function'||['bindIdentity','importContext','exportContext','validatePdf','now','wait','secret'].includes(String(key)))return typeof original==='function'?original.bind(target):original;
   return async(...args:unknown[])=>{
    transport.begin(String(key));
    const path=`${directory}/${scope}-${String(key)}.method.json`;
