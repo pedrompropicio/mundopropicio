@@ -184,7 +184,8 @@ return async (req: Request): Promise<Response> => {
     const p = body.payload && typeof body.payload === "object" ? body.payload : {};
     const slug = typeof p.slug === "string" ? p.slug.trim().slice(0, 80) : "";
     if (!slug || !DIAG_KINDS.has(p.kind) ||
-        (p.ms != null && (!Number.isInteger(p.ms) || p.ms < 0 || p.ms > 2147483647)) ||
+        (p.ms != null && (!Number.isInteger(p.ms) || p.ms < 0 || p.ms > 86400000)) ||
+        (p.in_app != null && !["tiktok", "instagram", "facebook", "other"].includes(p.in_app)) ||
         (p.arrival_event_id != null && (typeof p.arrival_event_id !== "string" || !UUID_RE.test(p.arrival_event_id)))) {
       return json({ ok: false, error: "invalid_payload" }, 400, origin);
     }
