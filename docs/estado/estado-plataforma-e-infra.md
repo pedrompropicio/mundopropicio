@@ -1,5 +1,8 @@
 # ESTADO — Plataforma & Infra
 
+## #333 — prova70 envelope sintético 1024 repetições validado (18/10/2026)
+Envelope oficial query_database de 18942 bytes gravado0600; bytes e SHA256 (`3be41a3c…fd130`) iguais aos metadados upstream ANTES de consumir; QUERY_SHA256 `9c1588cc…6042f` confirmado. Receiver estrito69 validou versão/id/query/fingerprint/chaves, rowCount1, n=1024 number, payload `ação — 東京|` exatamente 1024×, nested {items,nullable}; fluxo completo persiste raw0600 e consome uma vez; adulterações rejeitadas. 5 testes PASS, tsgo exit0, build OK. Lacunas: limite real upstream não medido (64 KiB é limite LOCAL conservador), chunks não implementados, hash não é assinatura, driver Cloud não integrado, sem piloto. Próximo mínimo proposto: 1 SELECT sintético ~150 KiB para medir limite real. Sem Cloud/CLI/psql/contas/escritas; fases1–7feitas,8PARCIAL,9–18pendentes; #323/DECISIONS intactos. Ver docs/testes/issue333/70-envelope-sintetico-1024-receiver-estrito.md.
+
 ## #333 — prova69 constante JSON oficial validada localmente (18/10/2026)
 705 bytes exatos0600, SHA256/query fingerprint e tipos via JSON.parse; numeric string preservado. Adaptador controller-message isolado,15 testes dinâmicos locais PASS/typecheck explícito0; não ligado ao piloto. Constante sem hash upstream: integridade upstream/tamanho grande/chunks ainda por validar. Próximo SELECT sintético controller proposto em69-controller-message-json-local.md, não executado. Sem Cloud/CLI/psql/contas/escritas; fases1–7feitas,8PARCIAL,9–18pendentes; #323/DECISIONS intactos.
 
