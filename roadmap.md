@@ -21,12 +21,12 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
-- [ ] Tarefa85: preparar plano específico e implementar análise documental/conversa fase10 com revisão humana, gates fechados e testes herméticos locais; sem liberar9/concluir8/Cloudwrites.
+- [x] Tarefa85: código análise/conversa fase10 preparado;52testes locaisPASS, harnessbuildOK, dois gates fechados.10não concluída: SDK/configuração externa/pausa durável pendentes; sem liberar9/concluir8/Cloudwrites. Prova própria85 sanitizada.
 - [x] Pedro confirmou CI401 quality SUCCESS no HEAD c23ad739 antes do dispatch85; testes corrigidos70/worker60 e gate preservados.
 - [x] Controller concluiu limpeza81/83; Auth/Storage restantes adiados para exclusão manual. Proibido ao agente criar dados/ficheiros fictícios no ERP; não repetir limpeza.
-- [ ] PRIORIDADE CI main: corrigir somente dependências locais70/worker60, validar suite default sem artefacto/browser; controller confirmar `CI / quality` verde no SHA atual e registar run na333 ANTES próximo dispatch não corretivo/Publish. Inventário80/limpeza/release PAUSADOS; reserva333 para correçãoCI.
+- [x] PRIORIDADE CI anterior resolvida segundo Pedro: CI401qualitySUCCESS no HEAD inicialc23ad739. Gate permanece obrigatório no NOVO SHA antes próximo dispatch não corretivo/Publish; testes70/worker60 preservados em85.
 - [x] Tarefa80 inventário/plano entregue:18candidatosAuth14origemcorroborada/4excluídosclasse28;2faturas59+76/11objetos/4lotes/29roles/8attempts/4receipts/6disabled;38systemaudit+2attemptauditpreservados;paid_by50manual76corroborado. Manifesto privado/checksums/SELECT-only/SQLINERTE guardado;zeroexclusão.79/releasePAUSADOS;8PARCIAL;#323/DECISIONS/AGENTSintactos.
-- [ ] Limpeza333 aguardarevisãoconcretacontroller: exceçãopontualimutabilidade/FK eexecutorAuth/Storagepermitido;4mapeamentosclasse28excluídosatérevisão. Parcela mutável6permissões+1lote23prontapararevisão,NÃOautorizadaexecutar. Semmais testes/pilotos/release.
+- [x] Estado limpeza anterior superado pelo relato controller81/83: parcela mutável e duas cadeiasMP concluídas; não repetir. ResíduosAuth/StorageADIADOS para exclusão manual; ambíguas/deferred/auditoria/contaPedro preservados.
 - [x] Tarefa77/78: investigação cancelada (campos funcionais); teste manual76 operacional APROVADO, produto intacto. Divergência expires esclarecida: controller renovou mesmas duas permissões e revogou-as; não retry. Comparação automática financeira/configuração preservada; prova78/checklist/estado atualizados, reserva libertada.
 - [x] Tarefa75: modo existing-user isolado/cleanup exato/histórico e sessões preservados;22testesPASS/tipos0/buildOK. Diagnóstico corrigido: Pedro alterou pessoalmente para manager, revalidado oficialmente; sem promoção pelo agente.
 - [x] Prova73: manifesto sanitizado, SQL novo inerte/renderer/30PG,9bundles por etapa/39testes/tipos0; zero piloto/escritas Cloud.
