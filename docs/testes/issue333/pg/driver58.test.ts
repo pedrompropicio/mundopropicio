@@ -86,7 +86,8 @@ it('connected AuthHTTP + official SELECT spool + same Chromium probe/preflight/e
  vi.stubGlobal('fetch',transport);
  let controllerWrites=0;
  const notify=async(message:any)=>{if(message.controller_prepare){controllerWrites++;await db`insert into data_entry_pilot8_allowlist select ${U},${C},op,true,clock_timestamp()+interval '10 minutes',${'FICTITIOUS one PDF; '+artifact.marker+'; SHA256='+artifact.sha256} from unnest(array['preparation','assistant_create']) op`}if(message.controller_revoke_exact_two){controllerWrites++;await db`update data_entry_pilot8_allowlist set enabled=false where owner_id=${U} and company_id=${C}`}};
- const driver=connectedDriver58({artifact,auth:httpAuth,select:(q,keys)=>bridge.select(q,keys),url:base,service:'local-service',pub:'local-public',directory:out,expectedSources,browserOptions:{isolated:true,app_url:base,start_path:'/entry',entry_path:'/entry',dialog_open:true},notify});
+ const newDriver=()=>connectedDriver58({artifact,auth:httpAuth,select:(q,keys)=>bridge.select(q,keys),url:base,service:'local-service',pub:'local-public',directory:out,expectedSources,browserOptions:{isolated:true,app_url:base,start_path:'/entry',entry_path:'/entry',dialog_open:true},notify});
+ const driver=newDriver();
  try{
  expect((await bridge.select(metadataSQL())).incompatibilities).toEqual([]);
  const first=(await bridge.select(baselineSQL())).baseline;expect((await bridge.select(baselineSQL())).baseline).toEqual(first);
@@ -99,9 +100,9 @@ it('connected AuthHTTP + official SELECT spool + same Chromium probe/preflight/e
  expect((await checkpoint66('prepare',driver,artifact,store)).checkpoint).toBe('await_activation');
  // Local controller writes BETWEEN completed invocations, never while a SELECT is waiting.
  await db`update user_roles set role='manager' where id=${roleId}`;await notify({controller_prepare:true});
- expect((await checkpoint66('execute',driver,artifact,new PrivateStore66(store.directory))).checkpoint).toBe('await_revocation');
+ expect((await checkpoint66('execute',newDriver(),artifact,new PrivateStore66(store.directory))).checkpoint).toBe('await_revocation');
  await notify({controller_revoke_exact_two:true});
- expect((await checkpoint66('finish',driver,artifact,new PrivateStore66(store.directory))).checkpoint).toBe('complete');
+ expect((await checkpoint66('finish',newDriver(),artifact,new PrivateStore66(store.directory))).checkpoint).toBe('complete');
  expect(authCalls.filter(x=>x==='POST /auth/v1/admin/users')).toHaveLength(0);expect(controllerWrites).toBe(2);
  expect((await db`select count(*)::int n from auth.sessions`)[0].n).toBe(0);
  for(const t of ['reimbursement_notes','reimbursement_note_items','transactions','event_forecasts','financial_accounts','transaction_payments','payment_lists'])expect((await db.unsafe('select count(*)::int n from '+t))[0].n).toBe(0);

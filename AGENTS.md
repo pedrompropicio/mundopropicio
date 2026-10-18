@@ -1,5 +1,5 @@
 # Architecture rules
-- Read nested AGENTS.md. Entry closed pending storage/uniqueness proofs. Preserve candidates; compare SQL+bytes/context. Test inert patches credential-free. Strong keys retain separators; broad matches prove no reuse. Unapproved SQL stays inert; approved #333 SQL uses official migrations with source guards preserving actual ACL.
+- Read nested AGENTS.md. Entry closed pending storage/uniqueness proof; preserve candidates/SQL/bytes/context. Test inert patches credential-free. Strong keys retain separators; broad matches prove no reuse. Unapproved SQL inert; official #333 migrations guard ACL. Pilot tests persist private checkpoints and exact SELECT captures: no pending reads across controller turns, no retries.
 
 - Meta audience replacement uses complete paginated canonical data and one ordered replacement session; failed batches stop before finalization; dry runs never resolve tokens or deliver externally.
 - Audience branches preserve legacy behavior; person ads use current proof and email-only, numeric-only delivery to avoid leakage. Inert SQL stays in supabase/manual pending authorization.
