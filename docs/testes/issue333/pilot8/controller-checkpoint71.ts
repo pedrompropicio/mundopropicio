@@ -29,12 +29,14 @@ export function contract71(id:string,query:string,schema:Schema71,estimatedEnvel
 }
 export class ControllerCheckpoint71 {
  private cursor=0;
+ private method='query';
+ begin(method:string){this.method=method;this.cursor=0}
  constructor(readonly directory:string,readonly scope:string,private schemas:(query:string,keys:string[])=>Schema71){
   if(!/^[A-Za-z0-9_-]{1,40}$/.test(scope))throw Error('Scope refused');
  }
  async select(query:string,keys:string[]=[]):Promise<Record<string,any>> {
   if(!keys.length)throw Error('Reviewed schema keys required');
-  const id=`${this.scope}-${String(++this.cursor).padStart(4,'0')}`;
+  const id=`${this.scope}-${this.method}-${String(++this.cursor).padStart(4,'0')}`;
   const r=request69(id,query,keys),receiver=new ControllerMessage69(this.directory);
   const schema=this.schemas(query,keys),contract=contract71(id,query,schema);
   const path=`${this.directory}/${id}.request.json`;
@@ -63,12 +65,13 @@ export class ControllerCheckpoint71 {
 }
 /** Completed methods are replayed, not repeated; started effects are uncertain and stop.
  * Private journal may contain a session: it is never exported as evidence. */
-export function durableDriver71(d:Driver66,directory:string,scope:string):Driver66 {
+export function durableDriver71(d:Driver66,directory:string,scope:string,transport:ControllerCheckpoint71):Driver66 {
  const effectMethods=new Set(['login','chromium','checkReadOnly','logoutGlobal','banOnlyCreatedUser']);
  return new Proxy(d,{get(target,key){
   const original=Reflect.get(target,key);
   if(typeof original!=='function'||['bindIdentity','importContext','exportContext','now','wait','secret'].includes(String(key)))return typeof original==='function'?original.bind(target):original;
   return async(...args:unknown[])=>{
+   transport.begin(String(key));
    const path=`${directory}/${scope}-${String(key)}.method.json`;
    let cached:any;try{cached=JSON.parse(await readFile(path,'utf8'))}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e}
    if(cached?.status==='complete'){target.importContext(cached.context);return cached.value}

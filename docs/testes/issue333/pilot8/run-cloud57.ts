@@ -94,7 +94,7 @@ async function main() {
  const url=process.env.SUPABASE_URL,service=process.env.SUPABASE_SERVICE_ROLE_KEY,pub=process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
  if(!url||!service||!pub)throw Error('Private AuthAdmin environment absent');
  const auth=new AuthAdmin57(url,service,pub);
- const driver=durableDriver71(connectedDriver58({artifact,auth,select:(query,keys)=>official.select(query,keys),url,service,pub,directory}),directory,mode);
+ const driver=durableDriver71(connectedDriver58({artifact,auth,select:(query,keys)=>official.select(query,keys),url,service,pub,directory}),directory,mode,official);
  const result=await checkpoint66(mode as 'prepare'|'execute'|'finish'|'cleanup',driver,artifact,new PrivateStore66(directory));console.log(JSON.stringify(result));
 }
 if(import.meta.main) main().catch(async(error)=>{await mkdir(DIR,{recursive:true,mode:0o700});const reason=error instanceof Error&&(/schema incompatibilities|Concurrent baseline|environment absent|PDF|Official SELECT|Chromium private/.test(error.message))?error.message:'Private driver stopped; read-only recovery only';await writeFile(DIR+'/stopped.json',JSON.stringify({reason}),{mode:0o600});console.log(JSON.stringify({pilot_stopped:true,repeat_forbidden:true,see_sanitized_evidence:true}));process.exitCode=1});
