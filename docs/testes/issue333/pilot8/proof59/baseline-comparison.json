@@ -1,0 +1,500 @@
+{
+  "before": {
+    "allowlist_count": 0,
+    "attempt_open": 0,
+    "core_open": 0,
+    "config": [
+      {
+        "proacl": "{postgres=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_actor()",
+        "source": "1c5c5b52c9bb7c88d230d93d0bc18a0c"
+      },
+      {
+        "proacl": "{postgres=X/postgres,authenticated=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_add_document(uuid,text,text,integer,text)",
+        "source": "9f1b7633c21d66b9f25ec3f6f9e94f42"
+      },
+      {
+        "proacl": "{postgres=X/postgres,managed_executor=X/postgres,authenticated=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_attempt_333(text,uuid,text)",
+        "source": "a58400577f77c6902ab739ecbc34040e"
+      },
+      {
+        "proacl": "{postgres=X/postgres,authenticated=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_commit(uuid,text)",
+        "source": "3e47099b39581940ef7f6e6203b1dddd"
+      },
+      {
+        "proacl": "{postgres=X/postgres,service_role=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_identity(text)",
+        "source": "740d615b2e68d2fff6bd757965f573fa"
+      },
+      {
+        "proacl": "{postgres=X/postgres,service_role=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_immutable()",
+        "source": "223ea21682fdb683294532a82c414b6c"
+      },
+      {
+        "proacl": "{postgres=X/postgres,service_role=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_norm(text)",
+        "source": "50779715eb740af4104dfb4d8744a954"
+      },
+      {
+        "proacl": "{postgres=X/postgres,authenticated=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_note(uuid,text)",
+        "source": "87617aaa30736aeffe893cdc677afc11"
+      },
+      {
+        "proacl": "{postgres=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_own_session(uuid,boolean)",
+        "source": "2fddd453b560e4d3380ad9ade4e13960"
+      },
+      {
+        "proacl": "{postgres=X/postgres,authenticated=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_pilot8_capabilities()",
+        "source": "bb4ba4bef75c97ad61564868cfe534d0"
+      },
+      {
+        "proacl": "{postgres=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_pilot8_gate(text)",
+        "source": "1e066a6df3637c8d5c8f99f00a255d33"
+      },
+      {
+        "proacl": "{postgres=X/postgres,service_role=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_pilot8_receipt(uuid,uuid,uuid,text,text,text,integer,text)",
+        "source": "ec5f67dc0d9dfa973d2b78a45b010619"
+      },
+      {
+        "proacl": "{postgres=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_preparation_gate()",
+        "source": "ae3012613f345731917f629ebfe93a74"
+      },
+      {
+        "proacl": "{postgres=X/postgres,authenticated=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_prepare(uuid,uuid,jsonb)",
+        "source": "4687df2d1f8fdcbdf84a10eb64826bf9"
+      },
+      {
+        "proacl": "{postgres=X/postgres,service_role=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_record_receipt(text,text,text,integer,text)",
+        "source": "f7c560f3f7c22ffca897101b1d96c5d5"
+      },
+      {
+        "proacl": "{postgres=X/postgres,authenticated=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_result_check(uuid)",
+        "source": "7c72903c09f772e0a000196d8e568288"
+      },
+      {
+        "proacl": "{postgres=X/postgres,authenticated=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_session(uuid,uuid)",
+        "source": "9be714ee0ad4f8df6aa36f3c8e480979"
+      },
+      {
+        "proacl": "{postgres=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "standalone_attempt_gate_333(text)",
+        "source": "a74836149d3a2eba12b5d5619222f9ab"
+      }
+    ],
+    "data": [
+      {
+        "h": "d41d8cd98f00b204e9800998ecf8427e",
+        "n": 0,
+        "name": "data_entry_documents"
+      },
+      {
+        "h": "d41d8cd98f00b204e9800998ecf8427e",
+        "n": 0,
+        "name": "data_entry_previews"
+      },
+      {
+        "h": "d41d8cd98f00b204e9800998ecf8427e",
+        "n": 0,
+        "name": "data_entry_results"
+      },
+      {
+        "h": "306c129f9783ae55078c4e186590b332",
+        "n": 2,
+        "name": "data_entry_sessions"
+      },
+      {
+        "h": "d41d8cd98f00b204e9800998ecf8427e",
+        "n": 0,
+        "name": "data_entry_storage_receipts"
+      },
+      {
+        "h": "9cccc21e6e932e1096b6f204a058f026",
+        "n": 2300,
+        "name": "event_forecasts"
+      },
+      {
+        "h": "2c12a0c8a521fe1ff4da1f2077babfc1",
+        "n": 27,
+        "name": "financial_accounts"
+      },
+      {
+        "h": "97fc33ff047f2b4a7980da01253ea07d",
+        "n": 80,
+        "name": "payment_lists"
+      },
+      {
+        "h": "6490b4bf0dc630da6f25e5f635ed4316",
+        "n": 180,
+        "name": "reimbursement_note_items"
+      },
+      {
+        "h": "e40349ec169b75224dca0710ee898dfb",
+        "n": 44,
+        "name": "reimbursement_notes"
+      },
+      {
+        "h": "d41d8cd98f00b204e9800998ecf8427e",
+        "n": 0,
+        "name": "standalone_attempt_audit_333"
+      },
+      {
+        "h": "3cce741062c6caddd461c71d012772d1",
+        "n": 6,
+        "name": "standalone_attempts_333"
+      },
+      {
+        "h": "f3c9803ac9514fa85723f97433f1e988",
+        "n": 98,
+        "name": "standalone_invoices"
+      },
+      {
+        "h": "829ade474fd3d249f6900a9229230353",
+        "n": 1417,
+        "name": "transaction_payments"
+      },
+      {
+        "h": "642943741f0f66da4218b4b551470a9b",
+        "n": 1966,
+        "name": "transactions"
+      }
+    ]
+  },
+  "after": {
+    "allowlist_count": 2,
+    "attempt_open": 0,
+    "core_open": 0,
+    "config": [
+      {
+        "proacl": "{postgres=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_actor()",
+        "source": "1c5c5b52c9bb7c88d230d93d0bc18a0c"
+      },
+      {
+        "proacl": "{postgres=X/postgres,authenticated=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_add_document(uuid,text,text,integer,text)",
+        "source": "9f1b7633c21d66b9f25ec3f6f9e94f42"
+      },
+      {
+        "proacl": "{postgres=X/postgres,managed_executor=X/postgres,authenticated=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_attempt_333(text,uuid,text)",
+        "source": "a58400577f77c6902ab739ecbc34040e"
+      },
+      {
+        "proacl": "{postgres=X/postgres,authenticated=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_commit(uuid,text)",
+        "source": "3e47099b39581940ef7f6e6203b1dddd"
+      },
+      {
+        "proacl": "{postgres=X/postgres,service_role=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_identity(text)",
+        "source": "740d615b2e68d2fff6bd757965f573fa"
+      },
+      {
+        "proacl": "{postgres=X/postgres,service_role=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_immutable()",
+        "source": "223ea21682fdb683294532a82c414b6c"
+      },
+      {
+        "proacl": "{postgres=X/postgres,service_role=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_norm(text)",
+        "source": "50779715eb740af4104dfb4d8744a954"
+      },
+      {
+        "proacl": "{postgres=X/postgres,authenticated=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_note(uuid,text)",
+        "source": "87617aaa30736aeffe893cdc677afc11"
+      },
+      {
+        "proacl": "{postgres=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_own_session(uuid,boolean)",
+        "source": "2fddd453b560e4d3380ad9ade4e13960"
+      },
+      {
+        "proacl": "{postgres=X/postgres,authenticated=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_pilot8_capabilities()",
+        "source": "bb4ba4bef75c97ad61564868cfe534d0"
+      },
+      {
+        "proacl": "{postgres=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_pilot8_gate(text)",
+        "source": "1e066a6df3637c8d5c8f99f00a255d33"
+      },
+      {
+        "proacl": "{postgres=X/postgres,service_role=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_pilot8_receipt(uuid,uuid,uuid,text,text,text,integer,text)",
+        "source": "ec5f67dc0d9dfa973d2b78a45b010619"
+      },
+      {
+        "proacl": "{postgres=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_preparation_gate()",
+        "source": "ae3012613f345731917f629ebfe93a74"
+      },
+      {
+        "proacl": "{postgres=X/postgres,authenticated=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_prepare(uuid,uuid,jsonb)",
+        "source": "4687df2d1f8fdcbdf84a10eb64826bf9"
+      },
+      {
+        "proacl": "{postgres=X/postgres,service_role=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_record_receipt(text,text,text,integer,text)",
+        "source": "f7c560f3f7c22ffca897101b1d96c5d5"
+      },
+      {
+        "proacl": "{postgres=X/postgres,authenticated=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_result_check(uuid)",
+        "source": "7c72903c09f772e0a000196d8e568288"
+      },
+      {
+        "proacl": "{postgres=X/postgres,authenticated=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "data_entry_session(uuid,uuid)",
+        "source": "9be714ee0ad4f8df6aa36f3c8e480979"
+      },
+      {
+        "proacl": "{postgres=X/postgres,managed_executor=X/postgres}",
+        "proconfig": [
+          "search_path=public, pg_temp"
+        ],
+        "proowner": 16388,
+        "signature": "standalone_attempt_gate_333(text)",
+        "source": "a74836149d3a2eba12b5d5619222f9ab"
+      }
+    ],
+    "data": [
+      {
+        "h": "d41d8cd98f00b204e9800998ecf8427e",
+        "n": 0,
+        "name": "data_entry_documents"
+      },
+      {
+        "h": "d41d8cd98f00b204e9800998ecf8427e",
+        "n": 0,
+        "name": "data_entry_previews"
+      },
+      {
+        "h": "d41d8cd98f00b204e9800998ecf8427e",
+        "n": 0,
+        "name": "data_entry_results"
+      },
+      {
+        "h": "306c129f9783ae55078c4e186590b332",
+        "n": 2,
+        "name": "data_entry_sessions"
+      },
+      {
+        "h": "d41d8cd98f00b204e9800998ecf8427e",
+        "n": 0,
+        "name": "data_entry_storage_receipts"
+      },
+      {
+        "h": "9cccc21e6e932e1096b6f204a058f026",
+        "n": 2300,
+        "name": "event_forecasts"
+      },
+      {
+        "h": "2c12a0c8a521fe1ff4da1f2077babfc1",
+        "n": 27,
+        "name": "financial_accounts"
+      },
+      {
+        "h": "97fc33ff047f2b4a7980da01253ea07d",
+        "n": 80,
+        "name": "payment_lists"
+      },
+      {
+        "h": "6490b4bf0dc630da6f25e5f635ed4316",
+        "n": 180,
+        "name": "reimbursement_note_items"
+      },
+      {
+        "h": "e40349ec169b75224dca0710ee898dfb",
+        "n": 44,
+        "name": "reimbursement_notes"
+      },
+      {
+        "h": "d41d8cd98f00b204e9800998ecf8427e",
+        "n": 0,
+        "name": "standalone_attempt_audit_333"
+      },
+      {
+        "h": "3cce741062c6caddd461c71d012772d1",
+        "n": 6,
+        "name": "standalone_attempts_333"
+      },
+      {
+        "h": "f3c9803ac9514fa85723f97433f1e988",
+        "n": 98,
+        "name": "standalone_invoices"
+      },
+      {
+        "h": "829ade474fd3d249f6900a9229230353",
+        "n": 1417,
+        "name": "transaction_payments"
+      },
+      {
+        "h": "642943741f0f66da4218b4b551470a9b",
+        "n": 1966,
+        "name": "transactions"
+      }
+    ]
+  },
+  "data_equal": true,
+  "config_equal": true,
+  "only_allowlist_count_change": [
+    0,
+    2
+  ]
+}
