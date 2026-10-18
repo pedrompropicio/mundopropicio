@@ -1,5 +1,8 @@
 -- INERTE. Controller query_database ONLY after independent review/future authorization.
 -- DIFF vs pilot8/activation.INERTE.sql: guarda de allowlist vazia passa a 'WHERE enabled' — as 2 linhas REVOGADAS do piloto59 sao prova preservada (nunca DELETE); a semantica 'allowlist VAZIA sempre' = zero permissoes ATIVAS, inalterada.
+-- DIFF prova64: identidade = a EXATA revista no checkpoint63 + SELECT independente do controller (created_at por igualdade exata);
+--   'au.created_at NOT BETWEEN window' passa a 'au.created_at > window_start' (nunca identidade futura). A janela (<=10 min, clock dentro)
+--   aplica-se SO ao momento da ativacao; permissoes continuam a expirar em 10 min. Nenhum outro guard alterado.
 -- Render ONLY the JSON literal assigned to p in DECLARE. No credentials in parameters.
 BEGIN;
 DO $pilot$ DECLARE
@@ -38,7 +41,7 @@ BEGIN
  PERFORM 1 FROM public.companies WHERE id=c AND status='active' FOR SHARE;
  IF NOT FOUND OR au.id IS NULL OR pr.id IS NULL OR ur.id IS NULL OR
  au.email IS DISTINCT FROM p->>'email' OR au.created_at IS DISTINCT FROM (p->>'created_at')::timestamptz OR
- au.created_at NOT BETWEEN (p->>'window_start')::timestamptz AND (p->>'window_end')::timestamptz OR
+ au.created_at > (p->>'window_start')::timestamptz OR
  au.email_confirmed_at IS NULL OR au.last_sign_in_at IS NOT NULL OR au.banned_until IS NOT NULL OR
  au.raw_user_meta_data->>'fixture_marker' IS DISTINCT FROM p->>'fixture_marker' OR
  au.raw_user_meta_data->>'company_id' IS DISTINCT FROM c::text OR

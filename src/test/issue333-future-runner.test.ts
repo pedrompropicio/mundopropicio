@@ -1,5 +1,5 @@
 import {it,expect} from 'vitest';
-import {runFuturePilot,type PilotDriver,type Artifact} from '../../docs/testes/issue333/pilot8/future-runner';
+import {runFuturePilot,resumeExistingPilot,type PilotDriver,type Artifact} from '../../docs/testes/issue333/pilot8/future-runner';
 const artifact:Artifact={bytes:new Uint8Array(64),size:64,mime:'application/pdf',sha256:'a'.repeat(64),reference:'FICTICIO-one',marker:'issue333-pilot8-'+'1'.repeat(32),company:'company'};
 function harness(){let now=0;const calls:string[]=[];const driver:PilotDriver={
  validatePdf:async()=>{calls.push('pdf')},preflightReadOnly:async()=>({markerAbsent:true,referenceAbsent:true,sourcesExact:true,globalsClosed:true,allowlistCount:0}),
@@ -23,3 +23,6 @@ it('sessions verification failure alone blocks completion even with clean logout
  h.driver.readSessionCount=async()=>{h.calls.push('sessions');return 1};
  await expect(runFuturePilot(h.driver,artifact,'PEDRO_AUTHORIZED_SINGLE_PILOT8')).rejects.toThrow('Cleanup proof incomplete: sessions_zero');
 });
+it('prova64 resume: never createUser, same identity, full cleanup order',async()=>{const h=harness();h.driver.preflightResume=async o=>{expect(o.id).toBe('owner');h.calls.push('resume-pre');return {identityExact:true,referenceAbsent:true,sourcesExact:true,globalsClosed:true,activeAllowlist:0,sessions:0,neverSignedIn:true}};h.driver.createUser=async()=>{throw Error('createUser forbidden')};await resumeExistingPilot(h.driver,artifact,{id:'owner',createdAt:'date'},'x'.repeat(32),'PEDRO_AUTHORIZED_SINGLE_PILOT8_RESUME63');expect(h.calls).toEqual(['pdf','resume-pre','notify','login','revoke','logout','ban','sessions'])});
+it.each([['identityExact',false],['activeAllowlist',1],['sessions',1],['neverSignedIn',false],['globalsClosed',false]])('prova64 resume refuses %s drift before login, no create',async(k,v)=>{const h=harness();h.driver.preflightResume=async()=>({identityExact:true,referenceAbsent:true,sourcesExact:true,globalsClosed:true,activeAllowlist:0,sessions:0,neverSignedIn:true,[k]:v} as any);await expect(resumeExistingPilot(h.driver,artifact,{id:'owner',createdAt:'date'},'x'.repeat(32),'PEDRO_AUTHORIZED_SINGLE_PILOT8_RESUME63')).rejects.toThrow('Resume preflight refused');expect(h.calls).not.toContain('create');expect(h.calls).not.toContain('login')});
+it('prova64 resume without secret or authorization does nothing',async()=>{const h=harness();await expect(resumeExistingPilot(h.driver,artifact,{id:'owner',createdAt:'d'},'','PEDRO_AUTHORIZED_SINGLE_PILOT8_RESUME63')).rejects.toThrow('secret');await expect(resumeExistingPilot(h.driver,artifact,{id:'owner',createdAt:'d'},'x'.repeat(32),'PEDRO_AUTHORIZED_SINGLE_PILOT8')).rejects.toThrow('authorization');expect(h.calls).toEqual([])});

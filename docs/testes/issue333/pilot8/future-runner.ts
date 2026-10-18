@@ -26,6 +26,8 @@ export interface PilotDriver {
   readSessionCount(owner: string): Promise<number>;
   finalBaselines(identity: Identity, artifact: Artifact): Promise<{ financialUnchanged: boolean; priorCandidatesPreserved: boolean; globalsClosed: boolean }>;
   now(): number; wait(ms: number): Promise<void>; secret(): string;
+  /** prova64 resume: exact reviewed identity already exists (count 1), never created here. */
+  preflightResume?(owner: Identity, artifact: Artifact): Promise<{ identityExact: boolean; referenceAbsent: boolean; sourcesExact: boolean; globalsClosed: boolean; activeAllowlist: number; sessions: number; neverSignedIn: boolean }>;
 }
 function assert(value: boolean, message: string): asserts value { if (!value) throw Error(message); }
 export async function runFuturePilot(driver: PilotDriver, artifact: Artifact, authorization: string) {
@@ -33,11 +35,28 @@ export async function runFuturePilot(driver: PilotDriver, artifact: Artifact, au
   await driver.validatePdf(artifact); // BEFORE password generation / the sole account.
   const pre = await driver.preflightReadOnly(artifact);
   assert(pre.markerAbsent && pre.referenceAbsent && pre.sourcesExact && pre.globalsClosed && pre.allowlistCount === 0, 'Read-only preflight refused');
-  let password = driver.secret(), token = '', owner: Identity | undefined, revocationProven=false;
+  const password = driver.secret();
+  return continuePilot(driver, artifact, password, async (pw) => {
+    const created = await driver.createUser({ email: artifact.marker+'@fixture.invalid', password: pw, email_confirm: true,
+      metadata: { fixture_marker: artifact.marker, company_id: artifact.company, full_name: 'Membro Fictício Piloto8', pilot_pdf_sha256:artifact.sha256,pilot_pdf_size:artifact.size,pilot_pdf_mime:artifact.mime } });
+    return created;
+  });
+}
+/** prova64: resume the SAME reviewed identity (checkpoint63). Never calls createUser; never a second account. */
+export async function resumeExistingPilot(driver: PilotDriver, artifact: Artifact, existing: Identity, password: string, authorization: string) {
+  assert(authorization === 'PEDRO_AUTHORIZED_SINGLE_PILOT8_RESUME63', 'Separate resume authorization required');
+  assert(typeof password === 'string' && password.length >= 16, 'Private secret absent; ban only and stop');
+  assert(!!driver.preflightResume, 'Resume preflight driver absent');
+  await driver.validatePdf(artifact);
+  const pre = await driver.preflightResume!(existing, artifact);
+  assert(pre.identityExact && pre.referenceAbsent && pre.sourcesExact && pre.globalsClosed && pre.activeAllowlist === 0 && pre.sessions === 0 && pre.neverSignedIn, 'Resume preflight refused');
+  return continuePilot(driver, artifact, password, async () => existing);
+}
+async function continuePilot(driver: PilotDriver, artifact: Artifact, initialPassword: string, obtain: (pw: string) => Promise<Identity>) {
+  let password = initialPassword, token = '', owner: Identity | undefined, revocationProven=false;
   const cleanupErrors: string[] = [];
   try {
-    owner = await driver.createUser({ email: artifact.marker+'@fixture.invalid', password, email_confirm: true,
-      metadata: { fixture_marker: artifact.marker, company_id: artifact.company, full_name: 'Membro Fictício Piloto8', pilot_pdf_sha256:artifact.sha256,pilot_pdf_size:artifact.size,pilot_pdf_mime:artifact.mime } });
+    owner = await obtain(password);
     await driver.notifyController(owner, artifact); // IDs/created_at only; never password/JWT.
     const deadline=driver.now()+300_000;
     let ready=false;
