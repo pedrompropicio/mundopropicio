@@ -42,7 +42,7 @@ try:
  for name,params in [('unknown arrival',payload(aid='00000000-0000-4000-8000-000000000098')),('unknown destination',payload(dest='spam')),('malformed ID',payload(aid='bad'))]:
   check(name,sql(call(params),False).returncode!=0)
  for name,change in [('browser not SSR',"origin='browser'"),('two hour boundary',"created_at=now()-interval '2 hours'"),('future arrival',"created_at=now()+interval '1 hour'"),('other company',"company_id='00000000-0000-4000-8000-000000000099'"),('other link',"link_id='00000000-0000-4000-8000-000000000099'")]:
-  sql('BEGIN; UPDATE song_link_events SET '+change+" WHERE event='arrival';")
+  sql('UPDATE song_link_events SET '+change+" WHERE event='arrival';")
   check(name,sql(call(payload()),False).returncode!=0)
   sql(f"UPDATE song_link_events SET origin='ssr',created_at=now(),company_id='{company}',link_id='{link}' WHERE event='arrival'")
  check('anon cannot execute',sql("SET ROLE anon; SELECT song_link_choice_claim('{}')",False).returncode!=0)
