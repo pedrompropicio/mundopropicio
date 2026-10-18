@@ -7869,6 +7869,48 @@ export type Database = {
           },
         ]
       }
+      data_entry_pilot8_allowlist: {
+        Row: {
+          company_id: string
+          enabled: boolean
+          expires_at: string
+          operation: string
+          owner_id: string
+          reviewed_note: string
+        }
+        Insert: {
+          company_id: string
+          enabled?: boolean
+          expires_at: string
+          operation: string
+          owner_id: string
+          reviewed_note: string
+        }
+        Update: {
+          company_id?: string
+          enabled?: boolean
+          expires_at?: string
+          operation?: string
+          owner_id?: string
+          reviewed_note?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_entry_pilot8_allowlist_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_entry_pilot8_allowlist_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       data_entry_previews: {
         Row: {
           company_id: string
@@ -23655,6 +23697,24 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      data_entry_pilot8_capabilities: { Args: never; Returns: Json }
+      data_entry_pilot8_gate: {
+        Args: { p_operation: string }
+        Returns: boolean
+      }
+      data_entry_pilot8_receipt: {
+        Args: {
+          p_bucket: string
+          p_company: string
+          p_mime: string
+          p_owner: string
+          p_path: string
+          p_session: string
+          p_sha: string
+          p_size: number
+        }
+        Returns: undefined
       }
       data_entry_preparation_gate: { Args: never; Returns: undefined }
       data_entry_prepare: {

@@ -1366,6 +1366,13 @@
       "when": 1792294698188,
       "tag": "0194_derp234_ios_touch_diagnostic_kinds",
       "breakpoints": true
+    },
+    {
+      "idx": 195,
+      "version": "7",
+      "when": 1792303959108,
+      "tag": "0195_issue333_pilot8_scoped_closed_structure",
+      "breakpoints": true
     }
   ]
 }
