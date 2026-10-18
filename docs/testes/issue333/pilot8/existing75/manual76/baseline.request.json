@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "id": "manual76-baseline-0001",
+  "query": "SELECT jsonb_build_object('data',(SELECT jsonb_agg(x ORDER BY name) FROM (SELECT 'transactions' name,count(*) n,md5(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY to_jsonb(t)::text),'')) h FROM public.transactions t UNION ALL SELECT 'event_forecasts' name,count(*) n,md5(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY to_jsonb(t)::text),'')) h FROM public.event_forecasts t UNION ALL SELECT 'financial_accounts' name,count(*) n,md5(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY to_jsonb(t)::text),'')) h FROM public.financial_accounts t UNION ALL SELECT 'transaction_payments' name,count(*) n,md5(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY to_jsonb(t)::text),'')) h FROM public.transaction_payments t UNION ALL SELECT 'reimbursement_notes' name,count(*) n,md5(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY to_jsonb(t)::text),'')) h FROM public.reimbursement_notes t UNION ALL SELECT 'reimbursement_note_items' name,count(*) n,md5(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY to_jsonb(t)::text),'')) h FROM public.reimbursement_note_items t UNION ALL SELECT 'payment_lists' name,count(*) n,md5(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY to_jsonb(t)::text),'')) h FROM public.payment_lists t UNION ALL SELECT 'data_entry_sessions' name,count(*) n,md5(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY to_jsonb(t)::text),'')) h FROM public.data_entry_sessions t UNION ALL SELECT 'data_entry_documents' name,count(*) n,md5(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY to_jsonb(t)::text),'')) h FROM public.data_entry_documents t UNION ALL SELECT 'data_entry_previews' name,count(*) n,md5(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY to_jsonb(t)::text),'')) h FROM public.data_entry_previews t UNION ALL SELECT 'data_entry_results' name,count(*) n,md5(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY to_jsonb(t)::text),'')) h FROM public.data_entry_results t UNION ALL SELECT 'standalone_invoices' name,count(*) n,md5(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY to_jsonb(t)::text),'')) h FROM public.standalone_invoices t UNION ALL SELECT 'standalone_attempts_333' name,count(*) n,md5(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY to_jsonb(t)::text),'')) h FROM public.standalone_attempts_333 t UNION ALL SELECT 'standalone_attempt_audit_333' name,count(*) n,md5(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY to_jsonb(t)::text),'')) h FROM public.standalone_attempt_audit_333 t UNION ALL SELECT 'data_entry_storage_receipts' name,count(*) n,md5(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY to_jsonb(t)::text),'')) h FROM public.data_entry_storage_receipts t) x),'config',(SELECT coalesce(jsonb_agg(x ORDER BY signature),'[]'::jsonb) FROM (SELECT oid::regprocedure::text signature,md5(prosrc) source,coalesce(proacl::text,'DEFAULT') proacl,coalesce(proconfig,ARRAY[]::text[]) proconfig,proowner FROM pg_proc WHERE pronamespace='public'::regnamespace AND (proname LIKE 'data_entry%' OR proname IN ('standalone_attempt_gate_333','standalone_attempts_333_internal'))) x),'core_open',(SELECT count(*) FROM public.data_entry_settings WHERE preparation_validated OR execute_validated),'attempt_open',(SELECT count(*) FROM public.standalone_attempt_settings_333 WHERE enabled),'allowlist_count',(SELECT count(*) FROM public.data_entry_pilot8_allowlist)) baseline",
+  "fingerprint": "c32cca4b733fccfdef7ab46cd8257ce1359b03abecb1091fa72fca97bd33d34f",
+  "maxBytes": 65536,
+  "expectedKeys": [
+    "baseline"
+  ],
+  "status": "pending",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "baseline": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "n": {
+                  "type": "number",
+                  "integer": true,
+                  "minimum": 0
+                },
+                "h": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
+              }
+            }
+          },
+          "config": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "signature": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                },
+                "proacl": {
+                  "type": "union",
+                  "options": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "proconfig": {
+                  "type": "union",
+                  "options": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "proowner": {
+                  "type": "union",
+                  "options": [
+                    {
+                      "type": "number",
+                      "integer": true,
+                      "minimum": 0
+                    },
+                    {
+                      "type": "string",
+                      "pattern": "^[0-9]+$"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "core_open": {
+            "type": "number",
+            "integer": true,
+            "minimum": 0
+          },
+          "attempt_open": {
+            "type": "number",
+            "integer": true,
+            "minimum": 0
+          },
+          "allowlist_count": {
+            "type": "number",
+            "integer": true,
+            "minimum": 0
+          }
+        }
+      }
+    }
+  },
+  "estimatedEnvelopeBytes": 32768,
+  "queryBytes": 3343
+}
