@@ -28,3 +28,5 @@
 - Person advertising consent links session-resolved Club members to the existing marketing ledger through immutable references, with separate purpose subjects and an independent email history; unsubscribe commits revocation, suppression and token claim together to avoid partial withdrawal.
 - Edge fns share code only via `_shared/` (no cross-function imports).
 
+
+- CRM WhatsApp exports and audience filters use crm_whatsapp_eligible and its security-invoker projections; canonical member decisions override legacy ingestion so revocation and phone changes cannot leak delivery numbers.

@@ -108,7 +108,7 @@ export default function ClubeNewgang() {
   };
 
   return (
-    <div className="space-y-6 min-w-0 w-full">
+    <div className="space-y-6 min-w-0 w-full [contain:inline-size]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Clube Newgang</h1>
