@@ -56,6 +56,9 @@ it('connected AuthHTTP + official SELECT spool + same Chromium probe/preflight/e
  const artifact=await exactPdf57(out+'/pilot8-fiction.pdf');artifact.company=C;
  const sources=await db`select oid::regprocedure::text signature,md5(prosrc) hash from pg_proc where oid in ('current_company_id()'::regprocedure,'log_table_change()'::regprocedure,'set_company_id_on_insert()'::regprocedure,'auth.uid()'::regprocedure,'data_entry_pilot8_gate(text)'::regprocedure)`;
  const expectedSources=Object.fromEntries(sources.map(x=>[x.signature,x.hash]));
+ const {bundle71}=await import('../pilot8/select-bundle71');
+ const {validate71}=await import('../pilot8/controller-checkpoint71');
+ for(const contract of bundle71){const rows=await db.unsafe(contract.query);expect(rows).toHaveLength(1);validate71(rows[0],contract.schema);const bytes=Buffer.byteLength(JSON.stringify({version:1,id:contract.id,query:contract.query,fingerprint:contract.fingerprint,source:'SIMULATED local PG',data:rows,rowCount:1}));expect(bytes).toBeLessThan(contract.maxBytes)}
  const spool=await mkdtemp('/tmp/issue333-select-local58-');
  const {ControllerCheckpoint71,durableDriver71}=await import('../pilot8/controller-checkpoint71');
  const {driverSchema71}=await import('../pilot8/select-bundle71');
@@ -115,6 +118,8 @@ it('connected AuthHTTP + official SELECT spool + same Chromium probe/preflight/e
  expect((await stage('execute')).checkpoint).toBe('await_revocation');
  await notify({controller_revoke_exact_two:true});
  expect((await stage('finish')).checkpoint).toBe('complete');
+ expect(authCalls.filter(x=>x==='POST /auth/v1/token?grant_type=password')).toHaveLength(1);
+ expect(JSON.parse(readFileSync(out+'/browser.json','utf8')).executeRequests).toBe(2);
  expect(authCalls.filter(x=>x==='POST /auth/v1/admin/users')).toHaveLength(0);expect(controllerWrites).toBe(2);
  expect((await db`select count(*)::int n from auth.sessions`)[0].n).toBe(0);
  for(const t of ['reimbursement_notes','reimbursement_note_items','transactions','event_forecasts','financial_accounts','transaction_payments','payment_lists'])expect((await db.unsafe('select count(*)::int n from '+t))[0].n).toBe(0);
