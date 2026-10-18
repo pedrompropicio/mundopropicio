@@ -1,0 +1,28 @@
+{
+  "base_head": "5baa8ebeedba0027b42b38410c4cf2740b8d2051",
+  "cloud_pilot_executed": false,
+  "phase7": "controller_completed",
+  "sha256": {
+    "docs/testes/issue333/pilot8/activation.INERTE.sql": "97e4695c38d23cb9e85d1c710e3db7efa23c594fa995f856bcaa815c0c994e1f",
+    "docs/testes/issue333/pilot8/render-private.py": "8a03f390eb6455cb207225d5c31783a4dcb7938c0671bb6b53258908af05198b",
+    "docs/testes/issue333/pilot8/revoke.INERTE.sql": "efa924b731b7e6f3576d2f636d23e4bb0e17edcac2a3e79a2c09f40ea6c25bac",
+    "docs/testes/issue333/pilot8/pdf-preflight.py": "0978d46c325deadf791c7b865407d9badf25c42137e05b51dee6ca072d62d91a",
+    "docs/testes/issue333/pilot8/browser-flow.py": "df345f04a75f660419f7d33a5f183371ec833f455dbd48ac532d90c91aef6909",
+    "docs/testes/issue333/pilot8/run-preflight.py": "899888de2b7b9656aef7548eaf7794f1117ab93adf06cac4effddf96b4285bc8",
+    "docs/testes/issue333/pilot8/future-runner.ts": "58a6e4aeb1422a36aa8000a017226bcba87b44f5737af5a9c6d94574f0ee0780",
+    "docs/testes/issue333/pilot8/preflight56/sources/auth_uid.live.sql": "5cb314dc07c6a52c212687e6a3f78c790bb263e5457187b194b63d362e9179ce",
+    "docs/testes/issue333/pilot8/preflight56/sources/current_company_id.live.sql": "907c8164f7ee60d72de2927ab6785b6d1186d3455f6a73449f92513327280667",
+    "docs/testes/issue333/pilot8/preflight56/sources/log_table_change.live.sql": "5ccf716009ec94aa9d1fbbfa8e10598663e64ba107d37e1b121d9e05f6490215",
+    "docs/testes/issue333/pilot8/preflight56/sources/set_company_id_on_insert.live.sql": "e0ab77d5f015ad281419fae54d569f6cea1620e6822cb8edeb578673a61c787b",
+    "docs/testes/issue333/pilot8/preflight56/sources/system_audit_log.local-schema.sql": "7813024bfd9f40db3c01c2013abcc92513240114362204f6e940cf69187005ec",
+    "docs/testes/issue333/pilot8/preflight56/sources/manifest.json": "0728ea026109073e9de3c824dc32121ac705ef875f5489c912da04f7fb24e95f",
+    "docs/testes/issue333/pilot8/preflight56/evidence/tests.log": "d58597a732966954d86f0868e880e9684003736d4fde1953896cdb2e08988ce6",
+    "docs/testes/issue333/pilot8/preflight56/evidence/result.json": "9a1922e06acffefd4588fced327e6201bdc04d82c0fadd41f4e58d2d159d5d1b",
+    "docs/testes/issue333/pilot8/preflight56/evidence/browser-evidence.json": "56fb2029a8e5925da67e927b2511c665a770fe4bef2ddf0946bf277645cb325f",
+    "docs/testes/issue333/pilot8/preflight56/evidence/calls.json": "c03d541f857cbcad56847e8d47e181bc80e511911b09d91d4a599af5f1307bdf",
+    "docs/testes/issue333/pilot8/preflight56/evidence/preview.png": "fd0b629eb6e27bceedd14c1f6eee16716e6a8705b60d2afb3c84f03e838adf79",
+    "docs/testes/issue333/pilot8/preflight56/evidence/checked.png": "d16025223e57dd406f2457e03d835b8fc6f4eefabbe7cf0be7c73b493647f9a7",
+    "docs/testes/issue333/pilot8/preflight56/evidence/revoked-readonly.png": "d16025223e57dd406f2457e03d835b8fc6f4eefabbe7cf0be7c73b493647f9a7",
+    "docs/testes/issue333/pilot8/preflight56/evidence/pilot8-fiction.pdf": "8ae66f6a452934a1f43a5d9fb2c5f22fef7e407e4d2f1b8db53f03d75794798f"
+  }
+}
