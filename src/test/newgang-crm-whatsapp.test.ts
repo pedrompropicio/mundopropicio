@@ -33,6 +33,11 @@ beforeAll(async()=>{
  CREATE FUNCTION clube_newgang_list(text DEFAULT NULL,int DEFAULT 50,int DEFAULT 0) RETURNS int LANGUAGE sql AS $$ SELECT 0 $$;
  REVOKE ALL ON FUNCTION clube_newgang_list(text,int,int) FROM PUBLIC; GRANT EXECUTE ON FUNCTION clube_newgang_list(text,int,int) TO authenticated;
  `);
+ const citySql=readFileSync('drizzle/migrations/0186_issue332_city_contract.sql','utf8');
+ await db.exec(citySql.slice(citySql.indexOf('CREATE OR REPLACE FUNCTION public.clube_newgang_summary()'),citySql.indexOf('REVOKE EXECUTE ON FUNCTION public.clube_newgang_summary()')));
+ const crmSql=readFileSync('drizzle/migrations/0161_derp277_crm_criterion_perf.sql','utf8');
+ await db.exec(crmSql.slice(crmSql.indexOf('CREATE OR REPLACE FUNCTION public.crm_filter_match'),crmSql.indexOf('CREATE OR REPLACE FUNCTION public.crm_criterion_match')));
+ await db.exec(crmSql.slice(crmSql.indexOf('CREATE OR REPLACE FUNCTION public.crm_contacts_by_audience'),crmSql.indexOf('DROP FUNCTION IF EXISTS public.crm_criterion_match')));
  // Live MD5 precondition is independently checked via official SELECT; isolated schema has stub helpers.
  const sql=readFileSync('supabase/manual/20261018_newgang_crm_members_whatsapp.sql','utf8').replace(/DO \$\$ BEGIN[\s\S]*?END \$\$;/,'');
  await db.exec('BEGIN;'+sql+'COMMIT;');
