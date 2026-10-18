@@ -15,6 +15,8 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { downloadCsv } from "@/lib/crm/csv-export";
 
+import { whatsappSourceLabel } from "@/lib/crm/whatsapp";
+
 const META = 15000;
 const META_DATA = "02/11/2026";
 const PAGE = 50;
@@ -24,7 +26,7 @@ type Summary = { total: number; today: number; last7: number; by_day: { d: strin
 type Row = {
   id: string; name: string | null; email: string | null; phone: string | null; birth_date: string | null;
   city: string | null; postal_code: string | null; consent_email: boolean | null; consent_whatsapp: boolean | null;
-  utm_source: string | null; utm_medium: string | null; utm_campaign: string | null; created_at: string; total_count: number;
+  utm_source: string | null; utm_medium: string | null; utm_campaign: string | null; created_at: string; total_count: number; submissions: number; member_no: number | null; confirmed_at: string | null; consent_whatsapp_source: string | null; whatsapp_eligible: boolean;
 };
 
 const n = (v: number) => v.toLocaleString("pt-PT");
@@ -89,11 +91,12 @@ export default function ClubeNewgang() {
     try {
       const all = await fetchAllPaged<Row>((from, to) =>
         rpc("clube_newgang_list", { p_search: null, p_limit: to - from + 1, p_offset: from }), { maxRows: 200000 });
-      const header = ["Nome", "Email", "Telemóvel", "Data de nascimento", "Cidade", "Código postal", "Consentimento email", "Consentimento WhatsApp", "Data de inscrição"];
+      const header = ["Nome", "Email", "Telemóvel", "Data de nascimento", "Cidade", "Código postal", "Consentimento email", "Consentimento WhatsApp", "Data de inscrição", "Submissões", "Nº de membro", "Confirmado", "Origem WhatsApp"];
       const lines = [header.join(","), ...all.map((r) => [
-        r.name, r.email, r.phone, r.birth_date, r.city, r.postal_code,
+        r.name, r.email, r.whatsapp_eligible ? r.phone : null, r.birth_date, r.city, r.postal_code,
         r.consent_email ? "sim" : "não", r.consent_whatsapp ? "sim" : "não",
         new Date(r.created_at).toLocaleString("pt-PT", { timeZone: "Europe/Lisbon" }),
+        r.submissions, r.member_no, r.confirmed_at, whatsappSourceLabel(r.consent_whatsapp_source),
       ].map(csvCell).join(","))];
       downloadCsv(lines.join("\r\n"), `clube-newgang-fever-${new Date().toISOString().slice(0, 10)}.csv`);
       toast.success(`${n(all.length)} inscritos exportados`);
@@ -139,7 +142,7 @@ export default function ClubeNewgang() {
         <CardContent className="h-56">
           {(s?.by_day.length ?? 0) === 0 ? <p className="text-sm text-muted-foreground">0 inscritos</p> : (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={s!.by_day}>
+              <BarChart data={s?.by_day ?? []}>
                 <XAxis dataKey="d" tick={{ fontSize: 11 }} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                 <Tooltip />
@@ -158,7 +161,7 @@ export default function ClubeNewgang() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3 pb-2">
-          <CardTitle className="text-sm">Inscritos ({n(count)})</CardTitle>
+          <CardTitle className="text-sm">Inscritos ({n(total)})</CardTitle>
           <div className="relative w-64">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input className="pl-8" placeholder="Pesquisar nome ou email" value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} />
@@ -169,18 +172,20 @@ export default function ClubeNewgang() {
             <TableHeader><TableRow>
               <TableHead>Nome</TableHead><TableHead>Email</TableHead><TableHead>Telemóvel</TableHead>
               <TableHead>Cidade</TableHead><TableHead>Nascimento</TableHead><TableHead>Email ok</TableHead>
-              <TableHead>WhatsApp ok</TableHead><TableHead>Inscrição</TableHead>
+              <TableHead>WhatsApp ok / origem</TableHead><TableHead>Submissões</TableHead><TableHead>Membro</TableHead><TableHead>Inscrição</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {rows.length === 0 && (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">{list.isLoading ? "A carregar…" : "0 inscritos"}</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">{list.isLoading ? "A carregar…" : "0 inscritos"}</TableCell></TableRow>
               )}
               {rows.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell>{r.name ?? "—"}</TableCell><TableCell>{r.email ?? "—"}</TableCell><TableCell>{r.phone ?? "—"}</TableCell>
                   <TableCell>{r.city ?? "—"}</TableCell><TableCell>{r.birth_date ?? "—"}</TableCell>
                   <TableCell><Badge variant={r.consent_email ? "default" : "outline"}>{r.consent_email ? "sim" : "não"}</Badge></TableCell>
-                  <TableCell><Badge variant={r.consent_whatsapp ? "default" : "outline"}>{r.consent_whatsapp ? "sim" : "não"}</Badge></TableCell>
+                  <TableCell><Badge variant={r.consent_whatsapp ? "default" : "outline"}>{r.consent_whatsapp ? "sim" : "não"}</Badge><div className="text-xs text-muted-foreground mt-1">{whatsappSourceLabel(r.consent_whatsapp_source)}</div></TableCell>
+                  <TableCell><Badge variant="outline" className={r.submissions > 1 ? "text-primary border-primary/40" : "text-muted-foreground"}>{r.submissions}</Badge></TableCell>
+                  <TableCell>{r.member_no ?? "—"}{r.confirmed_at && <span className="block text-xs text-muted-foreground">Confirmado</span>}</TableCell>
                   <TableCell>{new Date(r.created_at).toLocaleString("pt-PT", { timeZone: "Europe/Lisbon" })}</TableCell>
                 </TableRow>
               ))}

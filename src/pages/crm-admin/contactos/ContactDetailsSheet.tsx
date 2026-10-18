@@ -16,6 +16,8 @@ import { Card } from "@/components/ui/card";
 import { relativeFromNow, formatDateTime } from "../lib/relativeTime";
 import { contactPrimaryLabel } from "../lib/contactDisplay";
 
+import { whatsappSourceLabel } from "@/lib/crm/whatsapp";
+
 interface Props {
   contactId: string | null;
   open: boolean;
@@ -97,7 +99,7 @@ export default function ContactDetailsSheet({ contactId, open, onOpenChange }: P
     if (!contact) return;
     const next = !contact[field];
     const atField = field === "consent_email" ? "consent_email_at" : "consent_whatsapp_at";
-    updateMut.mutate({ [field]: next, [atField]: next ? new Date().toISOString() : contact[atField] });
+    updateMut.mutate({ [field]: next, [atField]: next ? new Date().toISOString() : null });
   };
 
   const toggleActive = () => {
@@ -161,10 +163,11 @@ export default function ContactDetailsSheet({ contactId, open, onOpenChange }: P
                       <span className="text-muted-foreground">{formatDateTime(contact.consent_whatsapp_at)}</span>
                     )}
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => toggleConsent("consent_whatsapp")} disabled={updateMut.isPending}>
+                  <Button size="sm" variant="outline" onClick={() => toggleConsent("consent_whatsapp")} disabled={updateMut.isPending || contact.consent_whatsapp_source === "club_profile_whatsapp-v1"}>
                     {contact.consent_whatsapp ? "Revogar" : "Reactivar"}
                   </Button>
                 </div>
+                <p className="text-muted-foreground">{whatsappSourceLabel(contact.consent_whatsapp_source)}</p>
                 <div className="pt-2 border-t">
                   <Button size="sm" variant={contact.is_active ? "outline" : "default"} onClick={toggleActive} disabled={updateMut.isPending}>
                     {contact.is_active ? "Marcar inactivo" : "Reactivar contacto"}
