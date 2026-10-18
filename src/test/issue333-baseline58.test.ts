@@ -13,7 +13,8 @@ it('reports concurrent relation changes separately from global configuration',()
 });
 it('relay unwraps official row arrays, refuses mismatched IDs, and has a finite timeout',async()=>{
  const dir=await mkdtemp('/tmp/issue333-relay58-');const b=new OfficialSelectBridge(dir,300);
- const read=b.select('SELECT 1 n');await new Promise(r=>setTimeout(r,40));await writeFile(dir+'/0001.response.json',JSON.stringify({id:'0001',data:[{n:1}]}));expect(await read).toEqual({n:1});
+ const {createHash}=await import('node:crypto');const fp=(q:string)=>createHash('sha256').update(q).digest('hex');
+ const read=b.select('SELECT 1 n');await new Promise(r=>setTimeout(r,40));await writeFile(dir+'/0001.response.json',JSON.stringify({id:'0001',fingerprint:fp('SELECT 1 n'),data:[{n:1}]}));expect(await read).toEqual({n:1});
  const bad=b.select('SELECT 2 n');await new Promise(r=>setTimeout(r,40));await writeFile(dir+'/0002.response.json',JSON.stringify({id:'wrong',data:[{n:2}]}));await expect(bad).rejects.toThrow('identity mismatch');
  await expect(b.select('SELECT 3 n')).rejects.toThrow('deadline');
 });
