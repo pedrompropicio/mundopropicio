@@ -13,6 +13,7 @@ async function check(name:string,b:any,headers:any,status:number,rpc:boolean){ca
 await check('headerless linked duplicate',body,{},200,true);
 await check('headerless arrival rejected',{...body,event:'arrival'},{},403,false);
 await check('headerless unlinked choice rejected',{...body,arrival_event_id:null},{},403,false);
+await check('allowed origin also requires arrival',{...body,arrival_event_id:null},{origin:'https://www.mundopropicio.com'},400,false);
 await check('untrusted Origin cannot fallback',body,{origin:'https://evil.invalid'},403,false);
 await check('untrusted Referer cannot fallback',body,{referer:'https://evil.invalid/'},403,false);
 await check('bad UUID rejected', {...body,event_id:'bad'},{origin:'https://www.mundopropicio.com'},400,false);
