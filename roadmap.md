@@ -74,3 +74,4 @@
 - [x] Testes SQL/UI, migrações oficiais0196/0197 e verificações Live.
 - [x] Backfill autorizado18/10:67decisões/62ativações/65ajustes;telefone62copiados/65elegíveis/2conflitos;0198/1444testesPASS.
 - [x] Fecho estado/provas e libertação da reserva.
+- [x] Prova70: envelope sintético 1024× validado pelo receiver estrito69 (bytes/SHA256 = upstream; 5 testes/typecheck/build OK); limite real e chunks pendentes.
