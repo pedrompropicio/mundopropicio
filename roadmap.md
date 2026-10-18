@@ -21,6 +21,9 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
+- [ ] Tarefa85: preparar plano específico e implementar análise documental/conversa fase10 com revisão humana, gates fechados e testes herméticos locais; sem liberar9/concluir8/Cloudwrites.
+- [x] Pedro confirmou CI401 quality SUCCESS no HEAD c23ad739 antes do dispatch85; testes corrigidos70/worker60 e gate preservados.
+- [x] Controller concluiu limpeza81/83; Auth/Storage restantes adiados para exclusão manual. Proibido ao agente criar dados/ficheiros fictícios no ERP; não repetir limpeza.
 - [ ] PRIORIDADE CI main: corrigir somente dependências locais70/worker60, validar suite default sem artefacto/browser; controller confirmar `CI / quality` verde no SHA atual e registar run na333 ANTES próximo dispatch não corretivo/Publish. Inventário80/limpeza/release PAUSADOS; reserva333 para correçãoCI.
 - [x] Tarefa80 inventário/plano entregue:18candidatosAuth14origemcorroborada/4excluídosclasse28;2faturas59+76/11objetos/4lotes/29roles/8attempts/4receipts/6disabled;38systemaudit+2attemptauditpreservados;paid_by50manual76corroborado. Manifesto privado/checksums/SELECT-only/SQLINERTE guardado;zeroexclusão.79/releasePAUSADOS;8PARCIAL;#323/DECISIONS/AGENTSintactos.
 - [ ] Limpeza333 aguardarevisãoconcretacontroller: exceçãopontualimutabilidade/FK eexecutorAuth/Storagepermitido;4mapeamentosclasse28excluídosatérevisão. Parcela mutável6permissões+1lote23prontapararevisão,NÃOautorizadaexecutar. Semmais testes/pilotos/release.
