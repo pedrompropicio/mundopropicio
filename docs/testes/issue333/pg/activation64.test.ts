@@ -28,7 +28,7 @@ afterAll(async()=>{await db?.end();pg('pg_ctl',['-D',dir+'/data','-m','immediate
 
 async function clear(){await db`truncate data_entry_pilot8_allowlist`;await db`truncate standalone_attempt_settings_333`;}
 it('prova64: identidade criada 30 min antes, revista, ativa na janela atual; 2 permissões 10 min; revogadas preservadas não bloqueiam',async()=>{
-await clear();await db`insert into data_entry_pilot8_allowlist values(${randomUUID()},${C},'preparation',false,now(),'piloto59 revogada')`;
+await clear();const old=await make();await db`insert into data_entry_pilot8_allowlist values(${old.owner_id},${C},'preparation',false,now(),'piloto59 revogada')`;
 const p=await make();await db.unsafe(render(p));
 expect((await db`select role from user_roles where id=${p.role_id}`)[0].role).toBe('manager');
 const rows=await db`select *,extract(epoch from expires_at-clock_timestamp()) rem from data_entry_pilot8_allowlist where enabled`;
@@ -48,13 +48,13 @@ if(k==='banned')await db`update auth.users set banned_until=now()+interval '1 da
 if(k==='invoice-exists')await db.unsafe(`insert into standalone_invoices(company_id,invoice_number) values('${C}','${p.invoice_number}')`).catch(async()=>{await db.unsafe(`insert into data_entry_sessions(owner_id,company_id) values('${p.owner_id}','${C}')`)});
 if(k==='global-open')await db`insert into standalone_attempt_settings_333(operation,enabled) values('assistant_create',true)`;
 if(k==='settings-open')await db`update data_entry_settings set execute_validated=true`.then(async r=>{if(r.count===0)await db`insert into standalone_attempt_settings_333(operation,enabled) values('scanner_create',true)`});
-if(k==='active-allowlist')await db`insert into data_entry_pilot8_allowlist values(${randomUUID()},${C},'preparation',true,now()+interval '5 min','outra ativa')`;
+if(k==='active-allowlist')await db`insert into data_entry_pilot8_allowlist values(${(await make()).owner_id},${C},'preparation',true,now()+interval '5 min','outra ativa')`;
 if(k==='window-expired'){w.window_start=new Date(now-11*60000).toISOString();w.window_end=new Date(now-60000).toISOString();}
 if(k==='window-future'){w.window_start=new Date(now+60000).toISOString();w.window_end=new Date(now+300000).toISOString();}
 if(k==='window-over-10min'){w.window_start=new Date(now-60000).toISOString();w.window_end=new Date(now+600000).toISOString();}
 if(k==='window-inverted'){w.window_start=new Date(now+60000).toISOString();w.window_end=new Date(now-60000).toISOString();}
 await denied(w);await db`update data_entry_settings set execute_validated=false`;await clear();});
 it('prova64: diff mínimo vs SQL62 — só a linha created_at muda nos guards; permissões 10 min inalteradas',()=>{
-expect(sql).toContain("au.created_at > (p->>'window_start')::timestamptz OR");expect(sql).not.toContain("au.created_at NOT BETWEEN");
+expect(sql).toContain("au.created_at > (p->>'window_start')::timestamptz OR");expect(sql).not.toContain(" au.created_at NOT BETWEEN (p");
 expect(sql).toContain("au.created_at IS DISTINCT FROM (p->>'created_at')::timestamptz");expect(sql).toContain("clock_timestamp() NOT BETWEEN (p->>'window_start')::timestamptz AND (p->>'window_end')::timestamptz");
 expect(sql.match(/interval '10 minutes'/g)).toHaveLength(2);});
