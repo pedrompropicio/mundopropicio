@@ -1,8 +1,8 @@
 /** Called only after canonical check; labels are optional and never authorize effects. */
 type Row = Record<string, any>;
 type Chain = { eq(column:string,value:string):Chain; limit(n:number):Chain; maybeSingle():PromiseLike<{data:Row|null;error:unknown}> };
-type Reader = {from(table:string):{select(columns:string):Chain}};
-export async function readSnapshot(admin:Reader,user:string,company:string,operation:string,id:string,hash:string) {
+export type SnapshotReader = {from(table:string):{select(columns:string):Chain}};
+export async function readSnapshot(admin:SnapshotReader,user:string,company:string,operation:string,id:string,hash:string) {
  const {data,error}=await admin.from('standalone_attempts_333').select('id,company_id,principal,operation,envelope_hash,envelope').eq('id',id).eq('company_id',company).eq('principal',user).eq('operation',operation).eq('envelope_hash',hash).maybeSingle();
  if(error||!data)return null;
  const label=async(table:string,column:string,key:string,value:string)=>{try{const r=await admin.from(table).select(column).eq(key,value).maybeSingle();return !r.error&&typeof r.data?.[column]==='string'?r.data[column]:null}catch{return null}};
