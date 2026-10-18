@@ -40,13 +40,13 @@ afterAll(async()=>{await Promise.all([db?.end(),c1?.end(),c2?.end()]);pg('pg_ctl
 
 it('connected AuthHTTP + official SELECT spool + same Chromium probe/preflight/execute worker, sole orchestration and finally against disposable PG',async()=>{
  await db.unsafe(readFileSync('docs/testes/issue333/pilot8/financial-schema58.LOCAL.sql','utf8'));
- await db`alter table auth.users add column email text, add column raw_user_meta_data jsonb, add column last_sign_in_at timestamptz, add column banned_until timestamptz, add column created_at timestamptz`;
+ await db`alter table auth.users add column email text, add column raw_user_meta_data jsonb, add column last_sign_in_at timestamptz, add column banned_until timestamptz, add column created_at timestamptz, add column email_confirmed_at timestamptz`;
  await db`create table auth.sessions(user_id uuid)`;
  for(const f of ['log_table_change.live.sql','set_company_id_on_insert.live.sql'])await db.unsafe(readFileSync('docs/testes/issue333/pilot8/preflight56/sources/'+f,'utf8'));
  await db`delete from user_roles where user_id<>${U}`;
  const {AuthAdmin57,OfficialSelectBridge,exactPdf57,chromiumDriver57}=await import('../pilot8/private-cloud57');
  const {connectedDriver58}=await import('../pilot8/run-cloud57');
- const {runFuturePilot}=await import('../pilot8/future-runner');
+ const {checkpoint66,PrivateStore66,artifactHash66}=await import('../pilot8/checkpoint66');
  const {metadataSQL,baselineSQL}=await import('../pilot8/baseline58');
  const {readdir,writeFile:writeAsync,mkdtemp}=await import('node:fs/promises');
  const out=process.env.ISSUE333_EVIDENCE??dir;mkdirSync(out,{recursive:true});
@@ -55,7 +55,7 @@ it('connected AuthHTTP + official SELECT spool + same Chromium probe/preflight/e
  const sources=await db`select oid::regprocedure::text signature,md5(prosrc) hash from pg_proc where oid in ('current_company_id()'::regprocedure,'log_table_change()'::regprocedure,'set_company_id_on_insert()'::regprocedure,'auth.uid()'::regprocedure,'data_entry_pilot8_gate(text)'::regprocedure)`;
  const expectedSources=Object.fromEntries(sources.map(x=>[x.signature,x.hash]));
  const spool=await mkdtemp('/tmp/issue333-select-local58-');const bridge=new OfficialSelectBridge(spool,20000);let stopped=false;const served=new Set<string>();
- const relay=(async()=>{while(!stopped){for(const name of await readdir(spool)){if(!name.endsWith('.request.json')||served.has(name))continue;served.add(name);const r=JSON.parse(readFileSync(spool+'/'+name,'utf8'));try{const data=await db.unsafe(r.query);await writeAsync(spool+'/'+name.replace('.request.','.response.'),JSON.stringify({id:r.id,data}),{mode:0o600})}catch{await writeAsync(spool+'/'+name.replace('.request.','.response.'),JSON.stringify({id:r.id,error:'local SELECT refused'}))}}await new Promise(r=>setTimeout(r,20));}})();
+ const relay=(async()=>{while(!stopped){for(const name of await readdir(spool)){if(!name.endsWith('.request.json')||served.has(name))continue;served.add(name);const r=JSON.parse(readFileSync(spool+'/'+name,'utf8'));try{const data=await db.unsafe(r.query);await writeAsync(spool+'/'+name.replace('.request.','.response.'),JSON.stringify({id:r.id,fingerprint:r.fingerprint,data}),{mode:0o600})}catch{await writeAsync(spool+'/'+name.replace('.request.','.response.'),JSON.stringify({id:r.id,error:'local SELECT refused'}))}}await new Promise(r=>setTimeout(r,20));}})();
  const {createServer:createVite}=await import('vite');
  const vite=await createVite({configFile:false,optimizeDeps:{entries:['docs/testes/issue333/head/react-main.tsx']},cacheDir:dir+'/vite',root:process.cwd(),plugins:[(await import('@vitejs/plugin-react')).default()],server:{middlewareMode:true},resolve:{alias:[...['@/integrations/supabase/client','@/contexts/AuthContext','@/hooks/useCompany','@/hooks/use-toast','@/lib/invoice-ocr-prepare'].map(find=>({find,replacement:resolve('docs/testes/issue333/head/react-boundary.tsx')})),{find:'@',replacement:resolve('src')},{find:'@shared',replacement:resolve('supabase/functions/_shared')}]}});
  const authCalls:string[]=[];let base='';
@@ -84,14 +84,23 @@ it('connected AuthHTTP + official SELECT spool + same Chromium probe/preflight/e
  vi.stubGlobal('fetch',transport);
  let controllerWrites=0;
  const notify=async(message:any)=>{if(message.controller_prepare){controllerWrites++;await db`insert into data_entry_pilot8_allowlist select ${U},${C},op,true,clock_timestamp()+interval '10 minutes',${'FICTITIOUS one PDF; '+artifact.marker+'; SHA256='+artifact.sha256} from unnest(array['preparation','assistant_create']) op`}if(message.controller_revoke_exact_two){controllerWrites++;await db`update data_entry_pilot8_allowlist set enabled=false where owner_id=${U} and company_id=${C}`}};
- const driver=connectedDriver58({artifact,auth:httpAuth,select:q=>bridge.select(q),url:base,service:'local-service',pub:'local-public',directory:out,expectedSources,browserOptions:{isolated:true,app_url:base,start_path:'/entry',entry_path:'/entry',dialog_open:true},notify});
+ const driver=connectedDriver58({artifact,auth:httpAuth,select:(q,keys)=>bridge.select(q,keys),url:base,service:'local-service',pub:'local-public',directory:out,expectedSources,browserOptions:{isolated:true,app_url:base,start_path:'/entry',entry_path:'/entry',dialog_open:true},notify});
  try{
  expect((await bridge.select(metadataSQL())).incompatibilities).toEqual([]);
  const first=(await bridge.select(baselineSQL())).baseline;expect((await bridge.select(baselineSQL())).baseline).toEqual(first);
  await httpAuth.readProbe();
  for(const mode of ['probe','preflight']){const result=await chromiumDriver57('docs/testes/issue333/pilot8/cloud-browser57.py',{mode,isolated:true,app_url:base,cloud_url:base,start_path:'/entry',output:out});expect(result.page_loaded).toBe(true);expect(result.errors).toEqual([]);expect(authCalls.filter(x=>x.startsWith('POST'))).toHaveLength(0);}
- expect(await runFuturePilot(driver,artifact,'PEDRO_AUTHORIZED_SINGLE_PILOT8')).toEqual({status:'verified',cloudPilot:true});
- expect(authCalls.filter(x=>x==='POST /auth/v1/admin/users')).toHaveLength(1);expect(controllerWrites).toBe(2);
+ const fullName='Autorizador Fictício';const createdAt='2026-10-18T17:00:00.000Z';const roleId=(await db`select id from user_roles where user_id=${U}`)[0].id;
+ await db`update user_roles set role='user' where user_id=${U}`;
+ await db`update auth.users set email=${artifact.marker+'@fixture.invalid'},created_at=${createdAt},email_confirmed_at=${createdAt},raw_user_meta_data=${db.json({fixture_marker:artifact.marker,company_id:C,full_name:fullName,pilot_pdf_sha256:artifact.sha256,pilot_pdf_size:artifact.size,pilot_pdf_mime:artifact.mime})} where id=${U}`;
+ const store=new PrivateStore66(out+'/checkpoint66');await store.save({version:1,phase:'identity_reviewed',identity:{id:U,createdAt,roleId,fullName},artifactHash:artifactHash66(artifact),pending:[],actions:{}});writeFileSync(store.directory+'/password','local-password-only-12345',{mode:0o600});
+ expect((await checkpoint66('prepare',driver,artifact,store)).checkpoint).toBe('await_activation');
+ // Local controller writes BETWEEN completed invocations, never while a SELECT is waiting.
+ await db`update user_roles set role='manager' where id=${roleId}`;await notify({controller_prepare:true});
+ expect((await checkpoint66('execute',driver,artifact,new PrivateStore66(store.directory))).checkpoint).toBe('await_revocation');
+ await notify({controller_revoke_exact_two:true});
+ expect((await checkpoint66('finish',driver,artifact,new PrivateStore66(store.directory))).checkpoint).toBe('complete');
+ expect(authCalls.filter(x=>x==='POST /auth/v1/admin/users')).toHaveLength(0);expect(controllerWrites).toBe(2);
  expect((await db`select count(*)::int n from auth.sessions`)[0].n).toBe(0);
  for(const t of ['reimbursement_notes','reimbursement_note_items','transactions','event_forecasts','financial_accounts','transaction_payments','payment_lists'])expect((await db.unsafe('select count(*)::int n from '+t))[0].n).toBe(0);
  writeFileSync(out+'/connected58.json',JSON.stringify({local_only:true,modes:['probe','preflight','execute'],authCalls,controllerWrites,cloud_executed:false}));

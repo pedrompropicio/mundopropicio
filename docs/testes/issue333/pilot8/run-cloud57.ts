@@ -1,18 +1,15 @@
 /** Authorized sole pilot CLI. No effects unless --authorized-single-pilot57 supplied.
  * Official read_query relay requires the executing agent; no SQL executed from shell.
  */
-import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {writeFile,mkdir} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
-import {runFuturePilot,resumeExistingPilot,type PilotDriver} from './future-runner';
 import {financial,baselineSQL,metadataSQL,compareBaselines} from './baseline58';
-import {AuthAdmin57,OfficialSelectBridge,exactPdf57,chromiumDriver57,privateSecret57,MARKER57,COMPANY57,SHA57} from './private-cloud57';
+import {AuthAdmin57,exactPdf57,chromiumDriver57,privateSecret57} from './private-cloud57';
 import {checkpoint66,PrivateStore66,type Driver66} from './checkpoint66';
 import {OfficialSelect66} from './official-select66';
 
 const DIR='/tmp/browser/issue333-pilot57';
-let bridge:OfficialSelectBridge;
 const q=(v:string)=>"'"+v.replace(/'/g,"''")+"'";
-async function select(query:string,expectedKeys?:string[]){const x=await bridge.select(query,expectedKeys);return x;}
 export function connectedDriver58(options:{artifact:Awaited<ReturnType<typeof exactPdf57>>;auth:AuthAdmin57;select:(query:string,expectedKeys?:string[])=>Promise<any>;url:string;service:string;pub:string;directory:string;notify?:(message:unknown)=>void;browserOptions?:Record<string,unknown>;expectedSources?:Record<string,string>}) {
  const {artifact,auth,select,url,service,pub,directory:DIR,browserOptions={},expectedSources}=options;
  const MARKER57=artifact.marker,COMPANY57=artifact.company,SHA57=artifact.sha256;
