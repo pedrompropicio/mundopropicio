@@ -1,0 +1,10 @@
+--- a/supabase/functions/data-entry/index.ts
++++ b/supabase/functions/data-entry/index.ts
+@@ -12,6 +12,7 @@
+ Deno.serve(createHandler({
+   cors: { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"]}, x-data-entry-user, x-data-entry-company` },
+   // Closed until the #333 technical migration, private bucket and proofs are reviewed.
++  pilotScoped: true, // Exact owner/company capability; SQL gates revalidate effects.
+   uploadEnabled: false, // Reviewed activation required; no environment flag bypass.
+   async getUser(token) {
+     const { data, error } = await admin.auth.getUser(token);
