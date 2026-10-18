@@ -21,8 +21,9 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
+- [ ] Tarefa75: preparar modo existing-user isolado, guardas de papel/empresa e cleanup que preserva histórico/sessões; testar localmente. SELECT inicial único confirmou conta na MP com papel accountant: execução bloqueada sem alterar permissões de negócio. Zero login/escritas Cloud.
 - [x] Prova73: manifesto sanitizado, SQL novo inerte/renderer/30PG,9bundles por etapa/39testes/tipos0; zero piloto/escritas Cloud.
-- [ ] Piloto73 bloqueado: confirmar meio AuthAdmin oficial permitido; depois autorização única/revisão identidade e baselines atuais; não pedir chaves.
+- [ ] Piloto existing-user75: cenário73 de criação/AuthAdmin substituído; conta escolhida sem autoridade atual (accountant), preservar papel; acesso autêntico e autorização de execução pendentes.
 - [x] Prova72:3envelopes reais consumidos em ordem, bytes/hash exatos e snapshots iguais; manifesto privado novo sem conta e plano condicional,51testesPASS.
 - [ ] Piloto após72: aguarda autorização própria, mecanismo oficial AuthAdmin e SQL novo para identidade futura; NÃO reutilizar render64/marcador63 diretamente.
 - [x] Prova71: transporte finito integrado;58 seletivos+1PG/React/Chromium PASS, tipos0; bundle real sem identidade entregue, zero Cloud, fase8 PARCIAL.
