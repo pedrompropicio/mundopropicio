@@ -25,6 +25,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
+| CRM Newgang · lista/WhatsApp | ERP · Lovable | Agente Lovable ERP | clube_newgang_list/summary; acesso/ingestão clube (revisão); contacts/ligação crm_contactos; club_member_whatsapp_consents/trigger de projeção; elegibilidade WhatsApp; ecrãs Clube Newgang/contactos; testes SQL e preview de backfill INERTE. Exclui portal/inscrição/club_points/crons/envios/Meta/Publish | 2026-10-18 13:40 UTC | Reserva inicial: HEAD GitHub=Lovable 86d8fca20e11375bfad0c2435dd6e648957b2895, árvore limpa. DDL autorizado; backfill NÃO autorizado até Pedro dizer Sim. #323 preservada |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)
