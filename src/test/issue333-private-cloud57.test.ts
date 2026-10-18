@@ -1,4 +1,5 @@
 import {it,expect} from 'vitest';
+process.env.PILOT8_MARKER='issue333-pilot8-22bb33cc44dd55ee66ff770011223344';
 import {mkdtemp,writeFile,chmod} from 'node:fs/promises';
 import {AuthAdmin57,OfficialSelectBridge,exactPdf57} from '../../docs/testes/issue333/pilot8/private-cloud57';
 it('real HTTP AuthAdmin driver makes exact sole create metadata, logout global and ban only supplied identity without emails',async()=>{

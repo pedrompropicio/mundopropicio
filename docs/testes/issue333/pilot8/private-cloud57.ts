@@ -8,7 +8,16 @@ import { spawn } from 'node:child_process';
 import type { Artifact, PilotDriver } from './future-runner';
 import { validateDocument } from '../../../../supabase/functions/_shared/data-entry-core';
 
-export const MARKER57='issue333-pilot8-916bd3976502472ab18f39ea0adf7589';
+/** Fixture identity is parameterized: a fresh exclusive marker per pilot run, never reused.
+ * PILOT8_MARKER must match ^issue333-pilot8-[a-f0-9]{32}$; the old pilot59 marker is refused. */
+const RETIRED_MARKERS=new Set(['issue333-pilot8-916bd3976502472ab18f39ea0adf7589']);
+export function resolveMarker57():string {
+  const m=process.env.PILOT8_MARKER??'';
+  if(!/^issue333-pilot8-[a-f0-9]{32}$/.test(m)) throw Error('PILOT8_MARKER missing or malformed; stop before account');
+  if(RETIRED_MARKERS.has(m)) throw Error('Retired fixture marker refused; never reuse fixture59');
+  return m;
+}
+export const MARKER57=process.env.PILOT8_MARKER&&/^issue333-pilot8-[a-f0-9]{32}$/.test(process.env.PILOT8_MARKER)&&!RETIRED_MARKERS.has(process.env.PILOT8_MARKER)?process.env.PILOT8_MARKER:'issue333-pilot8-00000000000000000000000000000000';
 export const COMPANY57='7c858982-6ccd-47ca-bd65-e0dd3eebf01c';
 export const SHA57='8ae66f6a452934a1f43a5d9fb2c5f22fef7e407e4d2f1b8db53f03d75794798f';
 export class OfficialSelectBridge {
@@ -61,17 +70,19 @@ export class AuthAdmin57 {
   }
   readProbe(){return this.request('/auth/v1/admin/users?page=1&per_page=1','GET',undefined);}
   create(input:Parameters<PilotDriver['createUser']>[0]) {
-    return this.request('/auth/v1/admin/users','POST',{email:input.email,password:input.password,email_confirm:true,user_metadata:{...input.metadata,pilot_pdf_sha256:SHA57,pilot_pdf_size:1517,pilot_pdf_mime:'application/pdf'}});
+    return this.request('/auth/v1/admin/users','POST',{email:input.email,password:input.password,email_confirm:true,user_metadata:{...input.metadata,fixture_marker:resolveMarker57(),pilot_pdf_sha256:SHA57,pilot_pdf_size:1517,pilot_pdf_mime:'application/pdf'}});
   }
   login(email:string,password:string){return this.request('/auth/v1/token?grant_type=password','POST',{email,password},this.publicKey);}
   logout(token:string){return this.request('/auth/v1/logout?scope=global','POST',undefined,token);}
   ban(owner:string){if(!/^[a-f0-9-]{36}$/.test(owner))throw Error('Invalid sole identity');return this.request('/auth/v1/admin/users/'+owner,'PUT',{ban_duration:'876000h'});}
 }
 export async function exactPdf57(path:string):Promise<Artifact> {
+  const marker=resolveMarker57();
   const bytes=new Uint8Array(await readFile(path));validateDocument(bytes,'application/pdf');
-  if(bytes.length!==1517 || createHash('sha256').update(bytes).digest('hex')!==SHA57)throw Error('Reviewed PDF bytes unavailable; stop before account');
+  const sha256=createHash('sha256').update(bytes).digest('hex');
+  if(bytes.length!==1517 || sha256!==SHA57)throw Error('Reviewed PDF bytes unavailable; stop before account');
   const mode=(await stat(path)).mode&0o777;if(mode!==0o600)throw Error('Private PDF mode must be 0600');
-  return {bytes,size:1517,mime:'application/pdf',sha256:SHA57,reference:'FICTICIO-'+MARKER57,marker:MARKER57,company:COMPANY57};
+  return {bytes,size:bytes.length,mime:'application/pdf',sha256,reference:'FICTICIO-'+marker,marker,company:COMPANY57};
 }
 /** Persistent Chromium worker receives credentials ONLY through stdin, never arguments/evidence.
  * Browser implementation must be separately present and verified before any account creation.

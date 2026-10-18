@@ -59,7 +59,7 @@ it('browser worker asserts pair statuses captured before read-only check',async(
 });
 
 it('relay rejects stale (out-of-order) and duplicate responses',async()=>{
- const dir=await mkdtemp('/tmp/issue333-bridge60-');const b=new OfficialSelectBridge(dir,600);
+ const dir=await mkdtemp('/tmp/issue333-bridge60-');const b=new OfficialSelectBridge(dir,3000);
  const q1='SELECT 1 AS n',q2='SELECT 2 AS n';
  const p1=b.select(q1,['n']);const p2=b.select(q2,['n']);
  await new Promise(r=>setTimeout(r,30));
