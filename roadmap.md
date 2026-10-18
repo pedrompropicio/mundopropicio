@@ -21,6 +21,7 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
+- [ ] Retoma18/10: integrar pilot8 no HEAD e50cb449 em cópia isolada, reforçar gates/receipt/expiração e testar duas conexões; integrar só após PASS; SQL PENDENTE sem Cloud/deploy/contas. Fase6 concluída,7 aberta,8 não executada.
 - [x] Preparar candidato mínimo hash-check42501, manifesto/diff/rollback e PG17 real antes/depois/duas conexões/ACL/dados + handler real simulado; sem aplicação Live.
 - [x] Entregar prova41 consolidada/diff/manifesto/rollback e planoLive finito;22PG/3handler/6HTTPlocalPASS,zeroCloud.
 - [x] 0193hashcheckoficial aplicada/MD5candidato/ACLbaselineiguais.
