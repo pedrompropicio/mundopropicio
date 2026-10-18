@@ -2572,6 +2572,13 @@ export type Database = {
             foreignKeyName: "audience_members_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
+            referencedRelation: "crm_contacts_whatsapp_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audience_members_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
             referencedRelation: "crm_whatsapp_eligible_contacts"
             referencedColumns: ["id"]
           },
@@ -5771,6 +5778,13 @@ export type Database = {
             foreignKeyName: "club_members_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
+            referencedRelation: "crm_contacts_whatsapp_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_members_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
             referencedRelation: "crm_whatsapp_eligible_contacts"
             referencedColumns: ["id"]
           },
@@ -7510,6 +7524,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "crm_contactos"
             referencedColumns: ["contact_id"]
+          },
+          {
+            foreignKeyName: "communication_log_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contacts_whatsapp_state"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "communication_log_contact_id_fkey"
@@ -13311,6 +13332,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "crm_contactos"
             referencedColumns: ["contact_id"]
+          },
+          {
+            foreignKeyName: "leads_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contacts_whatsapp_state"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "leads_contact_id_fkey"
@@ -19681,6 +19709,80 @@ export type Database = {
           phone_e164: string | null
           source: string | null
           updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_contacts_whatsapp_state: {
+        Row: {
+          company_id: string | null
+          consent_email: boolean | null
+          consent_email_at: string | null
+          consent_whatsapp: boolean | null
+          consent_whatsapp_at: string | null
+          consent_whatsapp_source: string | null
+          created_at: string | null
+          email: string | null
+          email_hash_sha256: string | null
+          first_seen_at: string | null
+          id: string | null
+          is_active: boolean | null
+          last_activity_at: string | null
+          name: string | null
+          phone_e164: string | null
+          phone_hash_sha256: string | null
+          source: string | null
+          updated_at: string | null
+          whatsapp_eligible: boolean | null
+        }
+        Insert: {
+          company_id?: string | null
+          consent_email?: boolean | null
+          consent_email_at?: string | null
+          consent_whatsapp?: boolean | null
+          consent_whatsapp_at?: string | null
+          consent_whatsapp_source?: string | null
+          created_at?: string | null
+          email?: string | null
+          email_hash_sha256?: string | null
+          first_seen_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          last_activity_at?: string | null
+          name?: string | null
+          phone_e164?: string | null
+          phone_hash_sha256?: string | null
+          source?: string | null
+          updated_at?: string | null
+          whatsapp_eligible?: never
+        }
+        Update: {
+          company_id?: string | null
+          consent_email?: boolean | null
+          consent_email_at?: string | null
+          consent_whatsapp?: boolean | null
+          consent_whatsapp_at?: string | null
+          consent_whatsapp_source?: string | null
+          created_at?: string | null
+          email?: string | null
+          email_hash_sha256?: string | null
+          first_seen_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          last_activity_at?: string | null
+          name?: string | null
+          phone_e164?: string | null
+          phone_hash_sha256?: string | null
+          source?: string | null
+          updated_at?: string | null
+          whatsapp_eligible?: never
         }
         Relationships: [
           {

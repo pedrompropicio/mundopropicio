@@ -1380,6 +1380,13 @@
       "when": 1792331450577,
       "tag": "0196_newgang_crm_members_whatsapp",
       "breakpoints": true
+    },
+    {
+      "idx": 197,
+      "version": "7",
+      "when": 1792331592642,
+      "tag": "0197_newgang_crm_eligibility_projection",
+      "breakpoints": true
     }
   ]
 }
