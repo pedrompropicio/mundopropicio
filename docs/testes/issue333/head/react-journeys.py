@@ -1,7 +1,7 @@
 import asyncio,json,sys
 from pathlib import Path
 from playwright.async_api import async_playwright
-port,prior,evidence=sys.argv[1:]; root=Path(evidence); url='http://127.0.0.1:'+port
+port,prior,evidence=sys.argv[1:4]; root=Path(evidence); url='http://127.0.0.1:'+port
 async def main():
  async with async_playwright() as p:
   browser=await p.chromium.launch(headless=True)
