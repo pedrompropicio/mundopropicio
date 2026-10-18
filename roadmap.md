@@ -21,9 +21,9 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
-- [x] Tarefa75: modo existing-user isolado/cleanup exato/histórico e sessões preservados;22testesPASS/tipos0/buildOK. SELECT único: conta MP accountant, piloto bloqueado sem promover. Zero login/escritasCloud. Prova75.
+- [x] Tarefa75: modo existing-user isolado/cleanup exato/histórico e sessões preservados;22testesPASS/tipos0/buildOK. Diagnóstico corrigido: Pedro alterou pessoalmente para manager, revalidado oficialmente; sem promoção pelo agente.
 - [x] Prova73: manifesto sanitizado, SQL novo inerte/renderer/30PG,9bundles por etapa/39testes/tipos0; zero piloto/escritas Cloud.
-- [ ] Piloto existing-user75: cenário73 de criação/AuthAdmin substituído; conta escolhida sem autoridade atual (accountant), preservar papel; acesso autêntico e autorização de execução pendentes.
+- [ ] Piloto existing-user75: manager MP revalidado; Pedro confirmou login no próprio preview. manual76: SQL inertes + PDF exato + baseline.request.json entregues; controller deve capturar baseline oficial integral antes da ativação. Zero Cloudwrites. UI não suporta segunda execução da mesma prévia; fase8 PARCIAL.
 - [x] Prova72:3envelopes reais consumidos em ordem, bytes/hash exatos e snapshots iguais; manifesto privado novo sem conta e plano condicional,51testesPASS.
 - [x] Cenário criação/AuthAdmin após72 substituído explicitamente pelo existing-user75; artefactos anteriores preservados, contas59/63 não reutilizáveis.
 - [x] Prova71: transporte finito integrado;58 seletivos+1PG/React/Chromium PASS, tipos0; bundle real sem identidade entregue, zero Cloud, fase8 PARCIAL.
