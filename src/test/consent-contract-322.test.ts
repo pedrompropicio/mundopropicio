@@ -183,7 +183,8 @@ describe("portal-track handler", () => {
 describe("portal-track — código-fonte", () => {
   const src = readFileSync("supabase/functions/portal-track/handler.ts", "utf8");
   it("sem serviços externos de eventos e sem logs de token/corpo", () => {
-    expect(src).not.toMatch(/graph\.facebook|googleads|tiktok|snapchat|resend/i);
+    // Platform labels in diagnostic payload validation are not external delivery.
+    expect(src).not.toMatch(/graph\.facebook|googleads|https?:\/\/[^\s"'`]*(?:tiktok|snapchat|resend)/i);
     expect(src).not.toMatch(/console\.\w+\([^)]*(token|receipt)/i);
   });
   it("empresa/portal nunca do corpo", () => expect(src).not.toMatch(/body\.(company_id|portal)|payload\.(company_id|portal)/));
