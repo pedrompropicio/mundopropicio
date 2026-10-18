@@ -116,6 +116,8 @@ _(sem pedidos)_
 
 ## 9 · CRM, Portal e Leads
 
+- [x] 18/10/2026 14:42 UTC — CRM Newgang cidade estimada antigas (opção A, DB-IP Lite City 2026-10 local, CC BY 4.0): 382 capturas preenchidas; 355 pessoas=membros, 141 declarada, 197 só estimada, 17 sem cidade; atribuição no ecrã/CSV. Reserva libertada. Sem Publish/crons/envios/Meta/portal.
+
 - [x] 18/10/2026 — CRM Newgang perfil na lista + cidade estimada (Lovable ERP, Pedro autorizou): 0199 aplicada; 353 pessoas=membros; 140 cidade declarada, 1 só estimada, 212 sem cidade; trigger geo local DB-IP para novas capturas. Antigas aguardam decisão (prova docs/testes/newgang-crm-whatsapp/perfil-e-cidade-estimada.md). Reserva libertada. Sem Publish/crons/envios/Meta/portal.
 
 - [x] 18/10/2026 — ERP backfill/telefone autorizado:0198aplicada;67perfiltrue/0revogadostrue;62telefonescopiados/65elegíveis/2conflitos preservados(membros56,283);1444VitestPASS/buildOK. Prova telefone-backfill-entrega.md. Reserva libertada;semPublish/portal/pontos/envios. CI final/sincronização pendentes.

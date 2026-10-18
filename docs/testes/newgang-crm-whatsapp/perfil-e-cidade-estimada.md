@@ -19,3 +19,8 @@ pessoas/emails únicos 353 = membros Newgang 353; cidade declarada 140 (perfil 1
 DB-IP local já casa 384 dos 395 IPs. Opções: A) DB-IP Lite local (grátis, CC BY 4.0 com atribuição, cidade ~aproximada, sem envio externo) — recomendada; B) ipinfo pago (token existente, quota/custo, envia IP a terceiro); C) não preencher.
 
 Testes: src/test/newgang-crm-profile-fields.test.ts (11).
+
+## Opção A aplicada (18/10 14:41 UTC, Pedro: Decisão 1=A, 2=sim)
+Base: DB-IP Lite City, versão mensal 2026-10 (source_month 2026-10-01), só PT/BR. Licença CC BY 4.0; atribuição exigida: "IP Geolocation by DB-IP" com ligação https://db-ip.com — no rodapé da tabela, tooltip do selo "estimada (IP)" e cabeçalho da coluna no CSV.
+Pré-visualização: 393 capturas com IP sem geo; 382 a preencher (322 pessoas); 11 sem resultado (IP fora de PT/BR ou fora das faixas). Executado UPDATE só onde geo_* vazio; cidade declarada intacta; zero chamadas externas.
+Depois (SELECT): 355 pessoas = 355 membros; declarada 141; só estimada 197; sem cidade 17; capturas com geo 387, sem IP 24, sem resultado 11.
