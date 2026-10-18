@@ -11,7 +11,7 @@
 - [x] Preparar candidato mínimo hash-check42501, manifesto/diff/rollback e PG17 real antes/depois/duas conexões/ACL/dados + handler real simulado; sem aplicação Live.
 - [x] Entregar prova41 consolidada/diff/manifesto/rollback e planoLive finito;22PG/3handler/6HTTPlocalPASS,zeroCloud.
 - [x] 0193hashcheckoficial aplicada/MD5candidato/ACLbaselineiguais.
-- [ ] ProvaRPC/endpoint: SQL integral INERTE47 pronto/19PGPASS; controlador revê e confirma pausa/passagem privada antes de futura única conta. Canal query_database preflight comunicado pelo controlador;semnova rodada automática.
+- [x] Prova50RPC/endpointLive:40342501/0.148s e409pendente/0.858s;UMAconta coordenada/logout204/ban200/sessions0;16baselinesiguais/zeroefeitos. Revisão documental pendente,nãofase6inteira.
 - [x] Prova47: SQL parametrizado completo/rowcounts/audit/rollback19PGPASS/renderizador privado;atribuição46 corrigida,zeroCloud/contas/novainvestigação canal.
 - [x] Prova46: verificar contrato run_sql/CI39090966400success; parar sem invocaçãoSQL/escrita/conta, conforme pedido;documentar limite sem substituir canal.
 - [x] Executar runner HEAD isolado:23/44/31/7 PASS,geral1373,tsgo/Deno/build0;provas30/31,0Live; NÃO aceitação completa.
