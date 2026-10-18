@@ -127,7 +127,7 @@ COMMIT;
 
 Rollback conserva nota/expiry release para rastreabilidade e snapshot anterior no controller; não restaura ativação antiga. Expiração fecha novos efeitos, mas não substitui revogação explícita. Transação já em curso pode concluir antes da revogação sob locks; não prometer cancelamento retroativo ou eliminação do resultado.
 
-## Critères8: couverture et décision
+## Critérios8: cobertura e decisão
 
 1. Check autenticado iniciado APÓS revogação: cobertura local PG/handler/React32/52/66; Live50 leitura protegida de reserva, NÃO prova deste resultado76 concluído após revogação. Request novo/read-only sobre resultado76 pode preencher a lacuna via sessão autêntica permitida, sem presumir acesso no sandbox.
 2. Dois executeHTTP simultâneos da MESMA prévia: cobertura local duas conexões/locks,1resultado/fatura52 e suites53/66; manual76 uma execução, sem prova HTTP simultânea Live. Critério não-read-only por natureza: exige autorização específica de verificação finita sobre intenção existente, sem novo lote/conta ou adaptador/transporte proibido. Caminho seguro indisponível: manter bloqueio explícito, não duplo clique ou replay improvisado.
