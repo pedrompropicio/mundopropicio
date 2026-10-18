@@ -24,7 +24,7 @@ async def main():
             req=r.request;url=req.url
             if (url.startswith(local+'/') and not url.startswith(endpoint)) or url.startswith(('blob:','data:')):
                 await r.continue_();return
-            if args['mode']=='probe':
+            if args['mode'] in ('probe','preflight'):
                 blocked.append('external');await r.abort();return
             if url==endpoint and req.method=='POST':
                 if 'application/json' in req.headers.get('content-type',''):
