@@ -10,7 +10,9 @@ it('real HTTP AuthAdmin driver makes exact sole create metadata, logout global a
 });
 it('official SELECT spool is executable without credentials and rejects every write before transport',async()=>{
  const dir=await mkdtemp('/tmp/issue333-bridge57-');const driver=new OfficialSelectBridge(dir,1000);
- const response=driver.select('SELECT 1 AS n');await new Promise(r=>setTimeout(r,50));await writeFile(dir+'/0001.response.json',JSON.stringify({n:1}),{mode:0o600});expect(await response).toEqual({n:1});
+ const q='SELECT 1 AS n';const response=driver.select(q,['n']);await new Promise(r=>setTimeout(r,50));
+ const {createHash}=await import('node:crypto');
+ await writeFile(dir+'/0001.response.json',JSON.stringify({id:'0001',fingerprint:createHash('sha256').update(q).digest('hex'),data:[{n:1}]}),{mode:0o600});expect(await response).toEqual({n:1});
  await expect(driver.select('UPDATE user_roles SET role=\'manager\'')).rejects.toThrow('SELECT-only');
 });
 it('exact HEAD PDF is checked before account and private permission is enforced',async()=>{
