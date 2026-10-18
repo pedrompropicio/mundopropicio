@@ -2,7 +2,7 @@ import {describe,it,expect} from 'vitest';
 import {readSnapshot} from '../../../supabase/functions/standalone-attempt-333/snapshot';
 function fixture(member=false,optionalError=false,missing=false){
  const calls:Array<{table:string;filters:Record<string,string>}> = [];
- const admin={from(table:string){const filters:Record<string,string>={};const chain={select(){return chain},eq(k:string,v:string){filters[k]=v;return chain},limit(){return chain},async maybeSingle(){calls.push({table,filters});if(table==='standalone_attempts_333')return {data:missing?null:{id:'a',principal:'owner',company_id:'co',operation:'scanner_create',envelope_hash:'hash',envelope:{payload:{paid_by_partner_id:'foreign'}}},error:null};if(table==='user_roles')return {data:member?{user_id:'foreign'}:null,error:null};return {data:optionalError?null:{full_name:'allowed',display_name:'company'},error:optionalError?Error('column unavailable'):null}};return chain}};
+ const admin={from(table:string){const filters:Record<string,string>={};const chain={select(){return chain},eq(k:string,v:string){filters[k]=v;return chain},limit(){return chain},async maybeSingle(){calls.push({table,filters});if(table==='standalone_attempts_333')return {data:missing?null:{id:'a',principal:'owner',company_id:'co',operation:'scanner_create',envelope_hash:'hash',envelope:{payload:{paid_by_partner_id:'foreign'}}},error:null};if(table==='user_roles')return {data:member?{user_id:'foreign'}:null,error:null};return {data:optionalError?null:{full_name:'allowed',display_name:'company'},error:optionalError?Error('column unavailable'):null}}};return chain}};
  return {admin,calls};
 }
 describe('#333 read-only snapshot privacy',()=>{
