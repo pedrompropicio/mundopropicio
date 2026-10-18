@@ -1,0 +1,35 @@
+{
+  "purpose": "issue333 fase8 complemento unico Cloud — preparacao (SEM execucao)",
+  "prepared_at": "2026-10-18T16:38:00Z",
+  "head": "826b177ccac42b99f7aab6f692d3736834d2fdb5",
+  "fixture_marker": "issue333-pilot8-11af044ae28127538fe8cc06be67541a",
+  "fixture_email": "issue333-pilot8-11af044ae28127538fe8cc06be67541a@fixture.invalid",
+  "invoice_number": "FICTICIO-issue333-pilot8-11af044ae28127538fe8cc06be67541a",
+  "company_id": "7c858982-6ccd-47ca-bd65-e0dd3eebf01c",
+  "pdf": {
+    "path": "docs/testes/issue333/pilot8/preflight56/evidence/pilot8-fiction.pdf",
+    "sha256": "8ae66f6a452934a1f43a5d9fb2c5f22fef7e407e4d2f1b8db53f03d75794798f",
+    "size_bytes": 1517,
+    "mime": "application/pdf",
+    "content": "fatura FICTICIA EUR0/IVA0, mesma dos preflights 56-61"
+  },
+  "identity": {
+    "owner_id": "PLACEHOLDER-UUID-A-CRIAR-PELO-AUTHADMIN",
+    "role_id": "PLACEHOLDER-UUID-DA-USER_ROLE-CRIADA",
+    "created_via": "AuthAdmin email_confirm=true, SEM envio de email, senha aleatoria so em memoria/tmp0600",
+    "full_name": "Membro Ficticio Piloto8 Complemento"
+  },
+  "driver": {
+    "parameterization": "PILOT8_MARKER env (validado ^issue333-pilot8-[a-f0-9]{32}$; marcador fixture59 recusado); PDF sha/size derivados dos bytes reais; relay id+fingerprint sha256(query)+expectedKeys",
+    "local_tests": "20/20 PASS com marcador novo (future-runner, proof60, private-cloud57, worker60)",
+    "typecheck": "tsc --noEmit --strict sobre os 4 ficheiros do driver: TSC-OK"
+  },
+  "sql": {
+    "activation": "docs/testes/issue333/pilot8-complement/activation.INERTE.sql (placeholder UUID; controller renderiza __PARAMETERS_JSON__ apos revisar identidade real)",
+    "revocation": "docs/testes/issue333/pilot8-complement/revoke.INERTE.sql (mesmas 2 permissoes, ROW_COUNT!=2 aborta)"
+  },
+  "prohibited_in_this_preparation": [
+    "criar conta/login/sessao Cloud", "allowlist writes", "fatura", "DML/DDL Cloud",
+    "deploy", "Publish", "reutilizar fixture59", "retries"
+  ]
+}
