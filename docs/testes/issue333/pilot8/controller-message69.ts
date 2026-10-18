@@ -8,7 +8,8 @@ export function request69(id:string,query:string,expectedKeys:string[]):Request6
  if(!/^[A-Za-z0-9_-]{1,80}$/.test(id))throw Error('Request id refused');
  if(!Array.isArray(expectedKeys)||expectedKeys.length===0||expectedKeys.some(k=>typeof k!=='string'||!k)||new Set(expectedKeys).size!==expectedKeys.length)throw Error('Expected keys refused');
  // Constant/reviewed single SELECT only; not a general SQL sandbox or proof that arbitrary functions are read-only.
- if(!/^SELECT\s/i.test(query)||/[;\u0000]|--|\/\*|\*\//.test(query))throw Error('Single reviewed SELECT required');
+  const outsideLiterals=query.replace(/'(?:''|[^'])*'/g,"''");
+  if(!/^SELECT\s/i.test(query)||query.includes('\u0000')||/[;]|--|\/\*|\*\//.test(outsideLiterals))throw Error('Single reviewed SELECT required');
  return {version:1,id,query,fingerprint:sha69(query),maxBytes:MAX_MESSAGE69,expectedKeys,status:'pending'};
 }
 type Record69=Record<string,unknown>;
