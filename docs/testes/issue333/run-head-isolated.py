@@ -2,7 +2,7 @@
 import hashlib, json, os, pathlib, shutil, subprocess, sys, tempfile
 repo = pathlib.Path.cwd()
 base = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-authorized = 'a3d3689352790e5684a417d8c1eedeb684c1429f'
+authorized = '3728a702162950e502a1183329cb2868bc76fd91'
 subprocess.run(['git', 'merge-base', '--is-ancestor', authorized, base], check=True)
 changed = subprocess.check_output(['git', 'diff', '--name-only', authorized, base], text=True).splitlines()
 allowed = ['docs/testes/issue333/', 'docs/QUADRO.md', 'roadmap.md']
@@ -15,6 +15,7 @@ def own_change(p):
 if any(not own_change(p) for p in changed):
     raise SystemExit('STOP: unexpected changes since authorized base: ' + base)
 out = pathlib.Path(tempfile.mkdtemp(prefix='issue333-head-'))
+(out/'result.json').write_text(json.dumps({'exit':None,'base':base,'cloud_tested':False,'status':'running'},indent=2))
 root = out / 'tree'
 excluded = {'.git', '.github', 'node_modules', 'dist', 'claude-outputs', '__pycache__', '.lovable', '.workspace', 'test-reset'}
 def ignore(directory, names):
@@ -72,9 +73,10 @@ for name, cmd in commands:
     (out / (name + '.log')).write_text('COMMAND: ' + ' '.join(cmd) + '\n' + result.stdout + result.stderr + '\nEXIT: ' + str(result.returncode) + '\n')
     print(name, 'exit', result.returncode, flush=True)
     if result.returncode:
+        (out/'result.json').write_text(json.dumps({'exit':result.returncode,'base':base,'cloud_tested':False,'failed_suite':name},indent=2))
         print(result.stdout[-14000:] + result.stderr[-3000:])
         sys.exit(result.returncode)
 for p in (root/'drizzle/migrations').glob('019[012]*.sql'):
     if hashlib.sha256(p.read_bytes()).hexdigest()!=manifest[str(p.relative_to(root))]:raise RuntimeError('Applied SQL altered')
-(out/'result.json').write_text(json.dumps({'exit':0,'base':base,'cloud_tested':False,'scope':'selected integrated tests; not complete acceptance'},indent=2))
+(out/'result.json').write_text(json.dumps({'exit':0,'base':base,'cloud_tested':False,'scope':'first-release local integrated and React Chromium journeys; Cloud not tested'},indent=2))
 print('PASS executed suites only; coverage limitations remain; Cloud not exercised')
