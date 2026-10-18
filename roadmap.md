@@ -64,3 +64,10 @@
 - [ ] Aceitação integral fase8 aguarda verificação do controlador das lacunas59,sem nova execução autorizada nesta entrega. Índice global/Publish fora do âmbito.
 - [x] Documentar efeitos Live inexistentes e limitações; manter Issue/reserva abertas para verificação.
 - [ ] Gmail/Drive/OAuth, conciliação, bilheteiras e demais adapters: bloqueados até validação/configuração próprias; sem Publish.
+
+# CRM Newgang — membros e WhatsApp (18/10/2026)
+- [ ] Lista/summary por email, submissões e vínculo do membro.
+- [ ] Projeção canónica WhatsApp, origem e elegibilidade; consumidores CRM.
+- [ ] Testes SQL/UI, migração oficial e verificações Live.
+- [ ] Pré-visualização e UPDATE inerte do backfill (aguarda Sim de Pedro).
+- [ ] Fecho do estado, provas e libertação da reserva.
