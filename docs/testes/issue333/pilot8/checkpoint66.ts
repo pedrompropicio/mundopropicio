@@ -1,5 +1,5 @@
 /** Local/test-only phase runner. No Cloud transport or account creation here. */
-import {mkdir,readFile,writeFile,rename,stat,open,unlink} from 'node:fs/promises';
+import {mkdir,readFile,writeFile,rename,stat,open,unlink,readdir} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import type {Artifact,PilotDriver} from './future-runner';
 export type Identity66={id:string;createdAt:string;roleId:string;fullName:string};
@@ -17,7 +17,7 @@ export class PrivateStore66 implements Store66 {
  async lock(){await mkdir(this.directory,{recursive:true,mode:0o700});const p=this.directory+'/invocation.lock';const f=await open(p,'wx',0o600);return async()=>{await f.close();await unlink(p)}}
  async getSecret(k:'password'|'token'){const p=this.directory+'/'+k;require66(((await stat(p)).mode&0o777)===0o600,'Secret permissions');return readFile(p,'utf8')}
  async putToken(token:string){try{await writeFile(this.directory+'/token',token,{mode:0o600,flag:'wx'})}catch(e){if((e as NodeJS.ErrnoException).code!=='EEXIST'||await this.getSecret('token')!==token)throw e}}
- async eraseSecrets(){for(const n of ['password','token'])try{await unlink(this.directory+'/'+n)}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e}}
+ async eraseSecrets(){for(const n of ['password','token',...(await readdir(this.directory)).filter(n=>n.endsWith('.method.json'))])try{await unlink(this.directory+'/'+n)}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e}}
 }
 /** Each invocation completes its own SELECTs. Human/controller pauses have no timers. */
 export async function checkpoint66(action:'prepare'|'execute'|'finish'|'cleanup',d:Driver66,a:Artifact,store:Store66){
