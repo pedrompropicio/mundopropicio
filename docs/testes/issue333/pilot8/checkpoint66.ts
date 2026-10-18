@@ -50,7 +50,7 @@ export async function checkpoint66(action:'prepare'|'execute'|'finish'|'cleanup'
    const c=await d.checkReadOnly(s.identity,token,a);require66(c.ok&&c.extraWrites===0,'Own-lot check must be 200/conferido without writes');
   }
   if(action==='cleanup'){try{token=await store.getSecret('token')}catch{}}
-  await cleanup66(d,a,store,s,token);s.phase=s.pending.length?'aborted':'complete';await store.save(s);return {checkpoint:s.phase,pending:s.pending,actions:s.actions,noPendingSelect:true};
+  await cleanup66(d,a,store,s,token);s.phase=s.pending.length?'aborted':'complete';if(!s.pending.length)s.context=undefined;await store.save(s);return {checkpoint:s.phase,pending:s.pending,actions:s.actions,noPendingSelect:true};
  } catch(e){
   if(e instanceof Error&&e.name==='AwaitController71'&&s){
    s.context=d.exportContext();s.actions['controller_resume']=action;await store.save(s);

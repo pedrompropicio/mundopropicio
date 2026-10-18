@@ -79,7 +79,7 @@ export function durableDriver71(d:Driver66,directory:string,scope:string,transpo
    if(cached?.status==='started')throw Error('Uncertain effect; cleanup only, never retry');
    // Methods containing SELECT can suspend; their inner effects have their own journal.
    if(effectMethods.has(String(key))&&!['chromium','checkReadOnly'].includes(String(key)))await atomicPrivate66(path,{status:'started'});
-   let value;try{value=await original.apply(target,args)}catch(e){if(process.env.ISSUE333_LOCAL_DEBUG==='1'&&e instanceof Error&&e.name!=='AwaitController71')console.error(String(key),e.message);throw e}
+   const value=await original.apply(target,args);
    await atomicPrivate66(path,{status:'complete',value,context:target.exportContext()});return value;
   };
  }});
