@@ -63,3 +63,19 @@ PASS: exact0190–0192/candidate/rollback, all table count+hash and function ACL
 ```text
 {"capabilities": {"scanner_create": false, "accountant_edit": false}, "sessions": 0, "new_accounts_banned": 1, "new_attempts": 0, "managed_baselines_equal": true}
 ```
+
+## Final focused tests
+```text
+
+ RUN  v3.2.7 /dev-server
+
+ ✓ src/test/memory-index.test.ts (3 tests) 5ms
+ ✓ src/lib/__tests__/standalone-hash-check-pending.test.ts (3 tests) 16ms
+
+ Test Files  2 passed (2)
+      Tests  6 passed (6)
+   Start at  02:40:45
+   Duration  2.26s (transform 123ms, setup 300ms, collect 206ms, tests 21ms, environment 1.53s, prepare 1.04s)
+
+
+```
