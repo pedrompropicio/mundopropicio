@@ -1,0 +1,16 @@
+{
+  "status": "PENDENTE_NOT_APPLIED",
+  "base": "6070edb51798ef19d5e547780d5f6f0ea43dd264",
+  "live_source_confirmed_md5": "91f7e9690436c59666c800fb63eb344c",
+  "candidate_body_md5": "b748a720b4cb1f988a927b5577e511dd",
+  "source_function_sha256": "44326a7199d1338358741df2334452d1d45db865e7f3123cbfad005b7a56cb47",
+  "candidate_function_sha256": "afbadc2afb75585c27e9559a512739edd1a6c407b3278e61e4a0d6010056a126",
+  "sha256": {
+    "drizzle/migrations/0190_issue333_core_v2_closed_structure.sql": "b60f9360599f3204ce64c0eebd46350c73f07051ae3365e1dc043c14a3c1248e",
+    "drizzle/migrations/0191_issue333_attempts_closed_structure.sql": "d4c8029637361010c24d48801a0176181e7e5684706f3123436da0a04822b2e0",
+    "drizzle/migrations/0192_issue333_service_only_capability_reader.sql": "d2689cd635972292a93fd5abb4017f4ddd979760ccb0b7a56c6898580ab1c422",
+    "supabase/manual/20261018_issue333_hash-check.PENDENTE.sql": "fd2e8d8de5e048f791d13079c3b81b6f1555e21c760951b2f7a75166f8480595",
+    "supabase/manual/20261018_issue333_hash-check.ROLLBACK.PENDENTE.sql": "6fc7e53af4d048bf39e0fc202e8af92ebdc781810ab9ecdf0dba0e0dcba7c4c0",
+    "docs/testes/issue333/41-function.diff": "f50010986acf4801ad9acb8d628e354ac43462f2fee0878eaa6d63fa4eb630c3"
+  }
+}

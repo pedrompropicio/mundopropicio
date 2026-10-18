@@ -1,0 +1,11 @@
+--- 0191-source-Live-md5-confirmed
++++ PENDENTE-check42501
+@@ -95,7 +95,7 @@
+  ELSIF p_action<>'confirm_new_intent' THEN
+   SELECT * INTO v FROM public.standalone_attempts_333 WHERE id=p_id FOR UPDATE;
+   IF v.id IS NULL OR v.company_id<>c OR v.principal<>principal_value OR v.operation<>p_operation THEN RAISE EXCEPTION '#333: Tentativa indisponível' USING ERRCODE='42501'; END IF;
+-  IF p_hash IS DISTINCT FROM v.envelope_hash THEN RAISE EXCEPTION '#333: Hash divergente' USING ERRCODE='40001'; END IF;
++  IF p_hash IS DISTINCT FROM v.envelope_hash THEN RAISE EXCEPTION '#333: Hash divergente' USING ERRCODE=CASE WHEN p_action='check' THEN '42501' ELSE '40001' END; END IF;
+   payload:=v.envelope->'payload';
+   IF p_operation='accountant_edit' THEN
+    SELECT * INTO inv FROM public.standalone_invoices WHERE id=v.destination_id AND company_id=c FOR UPDATE;

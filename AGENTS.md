@@ -1,5 +1,5 @@
 # Architecture rules
-- Read subdirectory AGENTS.md before edits. Entry stays closed until storage/uniqueness proofs. Preserve candidates; compare SQL+bytes and canonical context. Keep legacy patches inert until reviewed; test real destinations in a credential-free copy. Strong keys preserve separators; broad matches never prove reuse.
+- Read nested AGENTS.md. Entry closed pending storage/uniqueness proofs. Preserve candidates; compare SQL+bytes/context. Test inert patches credential-free. Strong keys retain separators; broad matches prove no reuse. Pending #333 SQL stays outside registry; hash/branch guards preserve ACL against unintended application/access.
 
 - Meta audience replacement uses complete paginated canonical data and one ordered replacement session; failed batches stop before finalization; dry runs never resolve tokens or deliver externally.
 - Audience branches preserve legacy behavior; person ads use current proof and email-only, numeric-only delivery to avoid leakage. Inert SQL stays in supabase/manual pending authorization.
