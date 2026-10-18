@@ -4,6 +4,8 @@ Estado atual18/10/2026: TESTE MANUAL OPERACIONAL manual76 APROVADO (upload→pr�
 
 Continuação autorizada 17/10/2026 17:46UTC: compatibilidade dos fluxos antigos preparada exclusivamente em `patches/issue333/compatibility.PENDENTE.patch`, NÃO aplicada. Inventário/provas08/09; política forte proposta trim SPACE exterior/caixa ASCII preserva separadores/prefixos/zeros, sinal amplo só revisão. 23505 sem falso reused; equivalência exige metadados/bytes, unknown sem remoção/retry. PostgreSQL36/compat26/handler20/UI13/geral1334. Nenhum escritor Live alterado; revisão/autorizações de aplicação e storage real pendentes.
 
+Ordem original confirmada79:9 disponibilização/publicação restrita;10 OpenAI/análise;11 Gmail;12 Drive;13 transações/anexos;14 BP/Formalidade;15 extratos;16 bilheteiras;17 aceitação integrada;18 final. Proposta restrita em `docs/testes/issue333/79-proposta-fase9-restrita.md`: mesma conta Gestor/MP escolhida, duas operações por pessoa/empresa600s, globals fechados, diff produto vazio, nenhum acesso ativado. Fase8 parcial não ultrapassada; rótulo IA-como9 da78 corrigido sem apagar histórico.
+
 Continuação de validação completa: sete destinos REAIS aplicados somente em cópia descartável, recompilação tsgo/Deno/build exit0; integrados31/PG36/handler20/geral1334. Provas10/11 e prévia12. Unknown bloqueado localmente por user+empresa/ID, sem remoção/retry; trava navegador não prova claim global nem desbloqueio reconciliado. Chave incompleta/retoma legada persistente/StorageACL/runtime versões/CI final continuam pendentes. Nada aplicado à árvore principal/Live.
 
 ## Sincronização e âmbito
