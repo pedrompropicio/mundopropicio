@@ -5,7 +5,7 @@ SELECT c.id FROM public.contacts c WHERE c.company_id='7c858982-6ccd-47ca-bd65-e
  AND EXISTS(SELECT 1 FROM public.club_members m JOIN public.club_member_whatsapp_consents w ON w.member_id=m.id AND w.site_id=m.site_id AND w.company_id=m.company_id WHERE m.contact_id=c.id AND m.company_id=c.company_id) ORDER BY c.id FOR UPDATE;
 WITH desired AS (
  SELECT c.id,w.decision,w.decided_at FROM public.contacts c
- CROSS JOIN LATERAL public._crm_whatsapp_latest(c.id,c.company_id) w
+ CROSS JOIN LATERAL (SELECT w.decision,w.decided_at FROM public.club_members m JOIN public.club_member_whatsapp_consents w ON w.member_id=m.id AND w.site_id=m.site_id AND w.company_id=m.company_id WHERE m.contact_id=c.id AND m.company_id=c.company_id AND w.version='whatsapp-v1' ORDER BY w.id DESC LIMIT 1) w
  WHERE c.company_id='7c858982-6ccd-47ca-bd65-e0dd3eebf01c'
 )
 UPDATE public.contacts c SET consent_whatsapp=d.decision='granted',
