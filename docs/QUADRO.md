@@ -25,7 +25,7 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Fase7 concluída; correção58 do driver/preflight integral antes conta | 2026-10-18 05:36 UTC | 2026-10-18 13:21 UTC — baseline canónica notes+items; inventário Live completo sem incompatibilidades;15COUNT+HASH duas leituras iguais;AuthHTTP/SELECTspool/Chromium probe/preflight/execute integrados PG local PASS;1418Vitest PASS. Nenhuma conta/login/allowlist/upload/fatura Cloud. Reserva mantida/#323 intacta; próxima execução só coordenada com controlador |
+| #333 | 0 · Cowork (ChatGPT) | Agente Lovable ERP | Fase7 concluída; piloto59 único executado, certificação parcial | 2026-10-18 05:36 UTC | 2026-10-18 13:33 UTC — UMAconta banida/sessions0;1doc/prévia/faturaFICTÍCIA EUR0IVA0/resultado/audit;download1517B/SHAigual;15baselines/ACLconfigiguais;controllerrevogou2rows. Chromium retoma antesrevogação observada,contrato integral falhou e check pósrevogação não exercitado. Semretry/DDL/deploy/Publish. Reserva mantida/#323 intacta;fase8 sócontrolador verifica |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
 
 ## 0 · Cowork (Claude)

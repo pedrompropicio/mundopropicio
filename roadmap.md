@@ -41,7 +41,8 @@
 - [x] Fase8 preflight56 local: PDF validado exato1517B/0600, SQL user→manager+2rows10min/canonizaçãoNULLactive,23PG+17PG+1Chromium e1411Vitest PASS; zero conta/ativação Cloud.
 - [x] Controlador reviu56 e autorizou único piloto8; CI39104225310/626fc682 success. Drivers privados57 adicionados/8testes PASS/probes sem writes.
 - [x] Correção58: metadata Live sem incompatibilidades/15baselines duas leituras iguais; notes+items canónicos; driverintegralHTTP/SELECTspool/Chromium3modosPGPASS;1418VitestPASS. SemcontaCloud.
-- [ ] Piloto8 único já autorizado: aguarda controlador pronto para coordenação SQL; nenhuma execução automática nesta entrega;CI novo código não observado.
+- [x] Executar piloto59 único:1faturaFICTÍCIA/resultado/audit,downloadSHAigual/15baselinesiguais,revogação2rows/ban/sessions0 comprovados;CI39131286055success.
+- [ ] Certificação fase8 parcial: worker não entregou browser.json/HTTPpair e check pósrevogação não exercitado;controlador verifica prova59,semretry/novaconta.
 - [x] Validar SQL exata do leitor em PostgreSQL descartável real;0192 aplicada oficialmente/registry194/hash exato.
 - [x] Integrar/testar leitor service-only; deploy só standalone-attempt-333, versão7 observada, gates fechados.
 - [x] Conferir registry/corpo/ACL/baselines separados/negativas Live e entregar prova26/27, estado e pendências.
@@ -60,6 +61,6 @@
 - [x] #333 COREv2/ATTEMPTS aplicados por registry oficial192/193, bucket privado20MiB; hashes/corpos/ACL/baselines e HTTP service conferidos. Prova22.
 - [x] #333 negativas authenticated/owner RPC etapa2 reportadas; não aceitação E2E/isolamento alheio; prova23 retificada.
 - [x] Primeiro release local Fatura Avulsa:upload/prévia/autorização/conferência/UIReact/SQL/bytes e recovery comprovados; conversa documental/IA e restantes adapters fora do release.
-- [ ] Piloto único autorizado aguarda coordenação SQL do controlador; aceitação autenticada Cloud/CI nova pendentes. Índice global/Publish fora do âmbito e sem autorização. Trava sessionStorage não prova exatamente-um global.
+- [ ] Aceitação integral fase8 aguarda verificação do controlador das lacunas59,sem nova execução autorizada nesta entrega. Índice global/Publish fora do âmbito.
 - [x] Documentar efeitos Live inexistentes e limitações; manter Issue/reserva abertas para verificação.
 - [ ] Gmail/Drive/OAuth, conciliação, bilheteiras e demais adapters: bloqueados até validação/configuração próprias; sem Publish.
