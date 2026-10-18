@@ -11,6 +11,10 @@
     "drizzle/migrations/0192_issue333_service_only_capability_reader.sql": "d2689cd635972292a93fd5abb4017f4ddd979760ccb0b7a56c6898580ab1c422",
     "supabase/manual/20261018_issue333_hash-check.PENDENTE.sql": "fd2e8d8de5e048f791d13079c3b81b6f1555e21c760951b2f7a75166f8480595",
     "supabase/manual/20261018_issue333_hash-check.ROLLBACK.PENDENTE.sql": "6fc7e53af4d048bf39e0fc202e8af92ebdc781810ab9ecdf0dba0e0dcba7c4c0",
-    "docs/testes/issue333/41-function.diff": "f50010986acf4801ad9acb8d628e354ac43462f2fee0878eaa6d63fa4eb630c3"
-  }
+    "docs/testes/issue333/41-function.diff": "f50010986acf4801ad9acb8d628e354ac43462f2fee0878eaa6d63fa4eb630c3",
+    "docs/testes/issue333/pg/hash-check-pending.test.ts": "85b303e8f327c263fddda28404ede20e8d553af17b00e7130b8dd0ad6ae77992",
+    "src/lib/__tests__/standalone-hash-check-pending.test.ts": "a7b53324a0df64358a8428d0e0b60cb043556aa885719a0179c7f547b950ab5e"
+  },
+  "prepared_head_observed": "afcf1100218fafe39e3ae83ff4b0cabbadd280a1",
+  "checked_utc": "2026-10-18 02:23:28 UTC"
 }
