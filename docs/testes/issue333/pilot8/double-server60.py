@@ -81,7 +81,7 @@ class H(http.server.BaseHTTPRequestHandler):
         body=PAGE.replace('ENDPOINT',f'http://127.0.0.1:{self.server.server_address[1]}/functions/v1/data-entry')
         body=body.replace("'BLOCKED'",'true' if SCENARIO=='blocked_fail' else 'false')
         b=body.encode()
-        self.send_response(200);self.send_header('Content-Type','text/html')
+        self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8')
         self.send_header('Content-Length',str(len(b)));self.end_headers();self.wfile.write(b)
     def do_POST(self):
         n=int(self.headers.get('Content-Length','0'));raw=self.rfile.read(n)
