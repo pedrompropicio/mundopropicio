@@ -1,3 +1,4 @@
 import { defineConfig } from "vitest/config";
 import path from "node:path";
-export default defineConfig({ resolve: { alias: { "@": path.resolve("src"), "@shared": path.resolve("supabase/functions/_shared"), "npm:zod@3": "zod", "npm:zod@3.23.8": "zod" } }, test: { environment: "jsdom", setupFiles: ["src/test/setup.ts"], include: ["docs/testes/issue333/head/*.test.tsx"], testTimeout: 30000, hookTimeout: 60000, fileParallelism: false } });
+import react from "@vitejs/plugin-react";
+export default defineConfig({ plugins: [react()], resolve: { alias: { "@": path.resolve("src"), "@shared": path.resolve("supabase/functions/_shared"), "npm:@supabase/supabase-js@2": "@supabase/supabase-js", "npm:zod@3": "zod", "npm:zod@3.23.8": "zod" } }, test: { globals: true, environment: "./docs/testes/issue333/head/environment.ts", setupFiles: ["src/test/setup.ts"], include: ["docs/testes/issue333/head/*.test.tsx"], testTimeout: 30000, hookTimeout: 60000, fileParallelism: false } });

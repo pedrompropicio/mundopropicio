@@ -1,0 +1,6 @@
+{
+  "src/pages/StandaloneInvoiceScanner.tsx": "38bdc312179660f91db36d6867466d89b9ddd9acfd5e7e0257b20c74a67e8f61",
+  "src/components/standalone/StandaloneReservedExecution.tsx": "b8a53ea390bd3776caddff41e8d1cca95838852cc741ca887e021401e5f70541",
+  "src/components/standalone/AGENTS.md": "6572e0983502e7e8f04844243db6ae24ace297e39d8218ee3e89513de75afc4f",
+  "src/components/standalone/__tests__/StandaloneReservedExecution.test.tsx": "b550c102d4b8145329794156ac044bf9e6f5686e99d3c902fbeb1fe1b32e9cd5"
+}

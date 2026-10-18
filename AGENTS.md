@@ -27,3 +27,5 @@
 - Marketing-consent proof lives only in the service-role ledger, ordered by server revision (never client clocks), with client-generated subject tokens scoped by Origin-derived company+portal and per-decision receipts on every interaction; capture triggers revalidate under a per-subject lock and strip Meta identifiers otherwise, so stale retries, legacy or direct inserts can never become CAPI-eligible.
 - Person advertising consent links session-resolved Club members to the existing marketing ledger through immutable references, with separate purpose subjects and an independent email history; unsubscribe commits revocation, suppression and token claim together to avoid partial withdrawal.
 - Edge fns share code only via `_shared/` (no cross-function imports).
+
+- Prepared scanner reservations use a separate explicit execution control through the typed attempt client; discovery cannot authorize effects, and uncertain states remain read-only.
