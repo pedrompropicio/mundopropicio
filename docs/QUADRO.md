@@ -26,7 +26,6 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
-| D-ERP234 iOS | Lovable · Plataforma | Lovable, autorização direta Pedro | song_link_diag_kind_check; portal-track; adenda DECISIONS | 2026-10-18 03:38 | Migração/deploy e dois POST autorizados; limpeza só das linhas da prova; sem Publish |
 
 ## 0 · Cowork (Claude)
 
@@ -83,6 +82,8 @@ _(sem pedidos)_
 - [ ] de 5 para 1 (01/10/2026), encaminhar a `fecho-ivete-clareou-2026`: **acerto do Casino Estoril.** A chave `APOIO-CASINO-IVETE-2026` só tem um lado: a receita `b873559f-88a5-4a27-9b32-dc5193a266b2` "Casino Estoril — Apoio (280 bilhetes a 90 EUR)", 1.2.02, 25.200,00 + 23%, `approved`, paid_amount 0. Segundo o Pedro, o apoio foi acertado contra faturas de serviços do Casino ao evento; essas despesas não existem no ERP (0 despesas do fornecedor ESTORIL SOL III `fb35be5d` em qualquer evento). Fazer: (1) lançar as despesas no evento Ivete `4fca2381…`, fornecedor `fb35be5d`, mesma chave, cada uma ligada à sua linha de BP; (2) ligar despesas ↔ receita por compensação (`transaction_offsets`); (3) preencher o NIF do fornecedor a partir da fatura. Nota: `fb35be5d` (MP) e `83dec265` (Coala) não são duplicado — não fundir. Documentos: o Pedro anexa.
 
 ## 2 · Plataforma e Infra
+
+- [x] 18/10/2026 03:40 UTC — D-ERP234 iOS (autorização direta Pedro): 0194 aplicada, deploy portal-track, feedback_shown/tap_repeat_blocked comprovados POST200 + leitura; apagadas só linhas206460/206461, remanescentes0; 80testesPASS/buildOK. Adenda DECISIONS e prova docs/testes/smart-link-ios-20261018.md; sem Publish. Reserva libertada.
 
 - [ ] de 0 para 2 (20/09/2026): **Issue #194 — Manual de Orientação.** Capítulo `docs/manual/fecho-do-evento.md` escrito (commit 83f55d29, 9 blocos ajuda, 2 SVG, 1 ⚠️), não sincronizado nem publicado. AGUARDA PEDRO: ler e responder às 4 dúvidas na Issue; depois Publish → Administração › Sincronizar manual → ligar tooltips → retirar o capítulo antigo.
 
