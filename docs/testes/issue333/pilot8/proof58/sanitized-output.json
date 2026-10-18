@@ -36,7 +36,8 @@
     "vitest_pass": 1418,
     "skipped": 1,
     "todo": 11,
-    "connected_pg_chromium_pass": 1
+    "connected_pg_chromium_pass": 1,
+    "permanent_driver_tests_pass": 12
   },
   "final_live": {
     "marker_absent": true,
@@ -52,5 +53,6 @@
   },
   "ci_new_code": "not_observed",
   "cloud_account_created": false,
-  "cloud_pilot_executed": false
+  "cloud_pilot_executed": false,
+  "automatic_build": "build OK observed 2026-10-18T13:21:49Z"
 }
