@@ -22,3 +22,5 @@ Labels de snapshot são opcionais: erro/coluna ausente nunca perde o envelope ne
 
 ## Recusas e limites de prova
 Timeout sem resposta é inconclusivo, nunca recusa comprovada nem autorização para repetir efeitos. O hash divergente já é validado em0191 e lança40001; não assumir comparação ausente nem alterar ordenação SQL por hipótese. Prova37 distingue recusa SQL local imediata do timeout Cloud sem causa de infraestrutura demonstrada. Fixture inválida422 não prova gate de execute; preservar falha e preparar bytes válidos desde a reserva sem relaxar validação. Baselines ACL/RLS/policies devem ser comparados efetivamente, não inferidos da ausência de DDL. Gates continuam fechados; sem piloto/ativação/Publish.
+
+Preflight técnico obrigatório antes de consumir uma conta: PDF estrutural lido por parser e validateDocument exato, bytes/hash/size preservados desde a reserva, handler real com authorize recusado e espias sem upload/read/receipt/commit. Recusa execute409 com recuperação read-only não abre operações nem resolve timeout40001; fechar a lacuna negativa não equivale a fase6 concluída ou produto ativo.
