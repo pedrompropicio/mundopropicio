@@ -41,7 +41,7 @@ export function permissions75(s:State75,rows:Permission75[],now:number){
  s.permissions=structuredClone(rows);
 }
 export function additions75(s:State75,added:Record<string,string[]>){
- for(const [table,ids] of Object.entries(added))if(!Object.hasOwn(s.baseline.history,table)||new Set(ids).size!==ids.length||ids.some(id=>!uuid.test(id)||s.baseline.history[table].some(x=>x.id===id)))throw Error('Cannot exclude historic/unknown IDs');
+ for(const [table,ids] of Object.entries(added))if(!Object.prototype.hasOwnProperty.call(s.baseline.history,table)||new Set(ids).size!==ids.length||ids.some(id=>!uuid.test(id)||s.baseline.history[table].some(x=>x.id===id)))throw Error('Cannot exclude historic/unknown IDs');
  s.additions=structuredClone(added);
 }
 export function compare75(s:State75,b:Baseline75){
