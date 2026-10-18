@@ -21,7 +21,7 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
-- [ ] Prova67: validar transporte oficial SELECT/captura integral; parar se mecanismo não comprovado, sem piloto.
+- [ ] Prova67 BLOQUEADA: SELECT constante oficial OK; sem JSON cru/ficheiro capturável. Necessário suporte oficial; sem preflight/baseline/piloto.
 - [x] Prova66: checkpoints duráveis e SELECT integral; testes locais/PG/Chromium, zero Cloud/piloto; fase8 parcial.
 - [x] Retoma18/10: pilot8 integrado após PASS isolado;17PG+46PG+26Chromium+1406Vitest, tipos/buildOK; gates/receipt/expiração/ACL concretos. Prova53; SQL/rollback PENDENTES, zero Cloud/deploy/contas. Fase6 concluída,7 aberta,8 não executada.
 - [x] Preparar candidato mínimo hash-check42501, manifesto/diff/rollback e PG17 real antes/depois/duas conexões/ACL/dados + handler real simulado; sem aplicação Live.
