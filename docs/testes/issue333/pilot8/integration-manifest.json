@@ -54,6 +54,15 @@
     "supabase/functions/data-entry/index.ts": "6e437f713feef328faa98d9073c92cad8eb8c37366620b8b8d248b7e10dc1d93",
     "supabase/manual/20261018_issue333_pilot8_allowlist.PENDENTE.sql": "ea2cb6f7a3b5d393cfe514013e1f0ac82e8e2e81f20d79a70335a7f824ec0129",
     "supabase/manual/20261018_issue333_pilot8_rollback.PENDENTE.sql": "41c5e05232422241a6baf698c84b96bb03ff23790e259851f7ede8b8e5e32973",
-    "docs/testes/issue333/pg/pilot8-inert.test.ts": "e3a54ca6bdcff0dad41cf4ab27c5e34646cbad511c9b13bc6547ce0bffea9dbc"
-  }
+    "docs/testes/issue333/pg/pilot8-inert.test.ts": "33edd44a4c047dafb77d72a6b0e2f405da4a231a4334fbf447955f6a9638fe83",
+    "src/test/data-entry-pilot8.test.ts": "2b6aae37d965561b6bd6075d372fdbf8da9368376729f24ad7a3c639e316514a",
+    "src/types/deno-zod.d.ts": "5f02ad54871e7368019400838d4c8fd99a1b9ddd688d205a46baae415e990c2a",
+    "vitest.config.ts": "b00c145313cb0c3bd55727b334c6b2ca7d21291630e1cbc05e35e7d3ac9c83dc"
+  },
+  "receipt_boundary": "service-role-only scoped receipt; verified Auth and canonical context at each storage effect",
+  "local_pg_cases": 17,
+  "phase6": "completed",
+  "phase7": "pending reviewed Cloud application",
+  "phase8": "not executed",
+  "source_snapshot_note": "normalized CREATE header; prosrc bytes verified against current Live SELECT"
 }
