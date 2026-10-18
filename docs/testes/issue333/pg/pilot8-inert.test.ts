@@ -64,7 +64,7 @@ it('expiry while commit waits on identity lock aborts invoice/result/audit with 
  let release=()=>{},ready=()=>{};const held=new Promise<void>(r=>release=r),entered=new Promise<void>(r=>ready=r);
  const lock=db.begin(async tx=>{await tx`select pg_advisory_xact_lock(hashtextextended(${C}||'|'||'PT000000000'||'|'||'EXPIRY-LOCK',333))`;ready();await held;});await entered;
  const executing=command({action:'execute',session_id:session,preview_id:pv.id,snapshot_hash:pv.snapshot_hash,authorize:true},U,c2);
- try{await new Promise(r=>setTimeout(r,750));}finally{release();await lock;}
+ try{let waiting=false;for(let i=0;i<20;i++){waiting=(await c1`select exists(select 1 from pg_locks where locktype='advisory' and not granted) b`)[0].b;if(waiting)break;await new Promise(r=>setTimeout(r,10));}expect(waiting).toBe(true);await new Promise(r=>setTimeout(r,750));}finally{release();await lock;}
  expect((await executing).status).toBe(403);expect(await db`select (select count(*) from standalone_invoices) invoices,(select count(*) from data_entry_results) results,(select count(*) from standalone_attempt_audit_333) audits`).toEqual(before);
 });
 it('canonical role downgrade blocks effects and service receipt cannot impersonate foreign owner',async()=>{
