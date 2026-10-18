@@ -85,6 +85,7 @@ export function connectedDriver58(options:{artifact:Awaited<ReturnType<typeof ex
 async function main() {
  const mode=process.argv.find(x=>x.startsWith('--checkpoint66='))?.split('=')[1];
  if(!mode||!['prepare','execute','finish','cleanup'].includes(mode))throw Error('Continuous pilot retired; explicit checkpoint66 stage required, never resume63');
+ if(process.env.PILOT8_AUTHORIZATION!==`PEDRO_AUTHORIZED_CHECKPOINT66_${mode.toUpperCase()}`)throw Error('Separate reviewed authorization for exact checkpoint stage required');
  const directory=process.env.PILOT8_PRIVATE_DIRECTORY;
  if(!directory?.startsWith('/tmp/'))throw Error('Reviewed private checkpoint directory required');
  const official=new OfficialSelect66(directory+'/select');
