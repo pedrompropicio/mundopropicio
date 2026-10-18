@@ -97,7 +97,7 @@ export default function ClubeNewgang() {
     try {
       const all = await fetchAllPaged<Row>((from, to) =>
         rpc("clube_newgang_list", { p_search: null, p_limit: to - from + 1, p_offset: from }), { maxRows: 200000 });
-      const header = ["Nome", "Email", "Telemóvel", "Data de nascimento", "País de nascimento", "País de residência", "Cidade declarada", "Origem da cidade", "Cidade estimada (IP)", "Região estimada (IP)", "País estimado (IP)", "Perfil completo", "Perfil completo em", "Código postal", "Consentimento email", "Consentimento WhatsApp", "Data de inscrição", "Submissões", "Nº de membro", "Confirmado", "Origem WhatsApp"];
+      const header = ["Nome", "Email", "Telemóvel", "Data de nascimento", "País de nascimento", "País de residência", "Cidade declarada", "Origem da cidade", "Cidade estimada (IP) — IP Geolocation by DB-IP (https://db-ip.com)", "Região estimada (IP)", "País estimado (IP)", "Perfil completo", "Perfil completo em", "Código postal", "Consentimento email", "Consentimento WhatsApp", "Data de inscrição", "Submissões", "Nº de membro", "Confirmado", "Origem WhatsApp"];
       const lines = [header.join(","), ...all.map((r) => [
         r.name, r.email, r.whatsapp_eligible ? r.phone : null, r.birth_date, countryName(r.birth_country), countryName(r.residence_country), r.city, r.city_source, r.estimated_city, r.estimated_region, countryName(r.estimated_country), r.profile_complete ? "sim" : "não", fmtDate(r.profile_completed_at), r.postal_code,
         r.consent_email ? "sim" : "não", r.consent_whatsapp ? "sim" : "não",
@@ -196,7 +196,7 @@ export default function ClubeNewgang() {
                   <TableCell>{r.name ?? "—"}</TableCell><TableCell>{r.email ?? "—"}</TableCell><TableCell>{r.phone ?? "—"}</TableCell>
                   <TableCell>{r.birth_date ?? "—"}</TableCell>
                   <TableCell>{countryName(r.birth_country) ?? "—"}</TableCell><TableCell>{countryName(r.residence_country) ?? "—"}</TableCell>
-                  <TableCell>{(() => { const c = displayCity(r); return c.text ? <>{c.text}{c.estimated && <Badge variant="outline" className="ml-1 text-xs text-muted-foreground">estimada (IP)</Badge>}</> : "—"; })()}</TableCell>
+                  <TableCell>{(() => { const c = displayCity(r); return c.text ? <>{c.text}{c.estimated && <Badge variant="outline" title="IP Geolocation by DB-IP (https://db-ip.com) · CC BY 4.0" className="ml-1 text-xs text-muted-foreground">estimada (IP)</Badge>}</> : "—"; })()}</TableCell>
                   <TableCell><Badge variant={r.profile_complete ? "default" : "outline"}>{r.profile_complete ? "sim" : "não"}</Badge>{r.profile_completed_at && <span className="block text-xs text-muted-foreground">{fmtDate(r.profile_completed_at)}</span>}</TableCell>
                   <TableCell><Badge variant={r.consent_email ? "default" : "outline"}>{r.consent_email ? "sim" : "não"}</Badge></TableCell>
                   <TableCell><Badge variant={r.consent_whatsapp ? "default" : "outline"}>{r.consent_whatsapp ? "sim" : "não"}</Badge><div className="text-xs text-muted-foreground mt-1">{whatsappSourceLabel(r.consent_whatsapp_source)}</div></TableCell>
@@ -207,6 +207,7 @@ export default function ClubeNewgang() {
               ))}
             </TableBody>
           </Table>
+          <p className="mt-3 text-xs text-muted-foreground">Cidade "estimada (IP)": <a href="https://db-ip.com" target="_blank" rel="noreferrer" className="underline">IP Geolocation by DB-IP</a> (DB-IP Lite City, licença CC BY 4.0). Só para análise no CRM.</p>
           <div className="mt-3 flex items-center justify-end gap-2 text-sm">
             <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>Anterior</Button>
             <span>Página {page + 1} de {pages}</span>

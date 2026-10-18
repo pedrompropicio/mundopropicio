@@ -116,7 +116,7 @@ _(sem pedidos)_
 
 ## 9 · CRM, Portal e Leads
 
-- [ ] 18/10/2026 14:40 UTC — RESERVA CRM Newgang · cidade estimada antigas (opção A, DB-IP local). HEAD GitHub=Lovable 0312f4c8. Sem Publish/crons/envios/Meta/portal.
+- [x] 18/10/2026 14:42 UTC — CRM Newgang cidade estimada antigas (opção A, DB-IP Lite City 2026-10 local, CC BY 4.0): 382 capturas preenchidas; 355 pessoas=membros, 141 declarada, 197 só estimada, 17 sem cidade; atribuição no ecrã/CSV. Reserva libertada. Sem Publish/crons/envios/Meta/portal.
 
 - [x] 18/10/2026 — CRM Newgang perfil na lista + cidade estimada (Lovable ERP, Pedro autorizou): 0199 aplicada; 353 pessoas=membros; 140 cidade declarada, 1 só estimada, 212 sem cidade; trigger geo local DB-IP para novas capturas. Antigas aguardam decisão (prova docs/testes/newgang-crm-whatsapp/perfil-e-cidade-estimada.md). Reserva libertada. Sem Publish/crons/envios/Meta/portal.
 
