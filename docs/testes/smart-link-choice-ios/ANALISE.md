@@ -24,6 +24,12 @@ O diag direto por fetch e choice por beacon são caminhos diferentes; tocar não
 
 ## Proposta
 
+Condição Pedro 18/10/2026 03:53 UTC: choice entra SÓ por song-link-event, nunca por INSERT do Portal.
+O Portal já envia fetch keepalive POST text/plain, corpo atual mais arrival_event_id.
+Preservar integralmente o bloco existente de entrega: Meta ListenClick e TikTok ClickButton,
+ambos com o event_id próprio da choice, igual ao dos pixels browser. A RPC é interna à função,
+service-only; não é um caminho alternativo para o Portal. Não alterar consentimento/cookies.
+
 arrival_event_id TEXT nullable, com validação UUID para novas choices; TEXT acompanha o event_id existente sem cast de dados históricos.
 event_id da choice continua UUID próprio, estável por chegada+destino no Portal. arrival_event_id aponta à chegada SSR.
 Não usar o mesmo event_id: o índice atual (event_id,event) permitiria arrival+choice, mas bloquearia um segundo destino legítimo da mesma chegada.
@@ -35,7 +41,7 @@ FOR UPDATE da chegada, revalidação do prazo depois do lock, índice único par
 Máximo um registo/entrega por chegada+destino mesmo com UUID novo ou concorrência. Só vencedor segue para entrega existente.
 Attribution UTMs/identidade derivadas da chegada/link; não aceita company/artist/song do Portal.
 Sem header fallback para Origin/Referer presentes mas inválidos. Headerless apenas choice vinculada e válida; nunca arrival/prefetch/SSR forjada.
-Contrato final exige arrival_event_id em TODA choice, incluindo Origin permitido; coordenar Portal para não deixar clientes antigos a emitir payload sem vínculo.
+Contrato final exige arrival_event_id em TODA choice, incluindo Origin permitido; Pedro confirma que o Portal já o envia. Verificar o payload real na prova após autorização.
 Arrival UUID é uma capacidade efémera, não autenticação da pessoa: quem o obtiver pode consumir no máximo um slot por destino. Não prometer spam zero contra quem cria visitas reais.
 Mantém limite IP existente; não usa IP para ligar pessoa (IP iOS pode mudar).
 
@@ -52,7 +58,7 @@ Corpo mínimo exato (IDs abaixo são apenas exemplos fictícios):
 ```json
 {"event":"choice","slug":"rs-meta","arrival_event_id":"00000000-0000-4000-8000-000000000002","event_id":"00000000-0000-4000-8000-000000000004","destination":"spotify","opened":"app","mode":"choose","page_url":"https://www.mundopropicio.com/m/rs-meta/escolher"}
 ```
-arrival_event_id é o UUID recebido do SSR, já usado no diag; event_id novo gerado UMA vez por chegada+destino e reutilizado em retry.
+arrival_event_id é o UUID recebido do SSR, já usado no diag; event_id novo por escolha, igual ao dos pixels browser (incluindo TikTok), reutilizado em retry do mesmo pedido. UUID novo num segundo toque não contorna unicidade chegada+destino.
 destination é chave exata do link (rs-meta atualmente spotify); opened app/web descreve a tentativa, não comprova que a app abriu.
 Campos opcionais já existentes fbc/fbp/fbclid/ttclid/ttp só conforme comportamento de consentimento existente; não inventar nem enviar IDs de outra pessoa.
 
@@ -68,3 +74,24 @@ Primeiro runner local tinha BEGIN em conexão separada (rollback automático da 
 Handler real candidato com imports substituídos por transportes fake:8 casos negativos/duplicado, zero chamadas externas. Sucesso completo/CAPI não ensaiado.
 Regressões existentes:42 PASS. Sem prova em iPhone real, sem CI remota consultada para esta documentação.
 Só após OK: migração oficial, aplicação e deploy coordenados com Portal, negativos+positivo controlado e teste físico iOS. Não executados nesta tarefa.
+
+## Prova real obrigatória — pendente, não confundir com simulação
+
+Validação local adicional 18/10: check-delivery.ts PASS para sucesso simulado e duplicado,
+com ListenClick/ClickButton, event_id inalterado, arrival_event_id, dois códigos fictícios locais,
+ambos os status enviado no transporte fake e zero nova entrega no duplicado. Oito negativos anteriores PASS.
+Isto comprova o contrato do candidato, NÃO aceitação real Meta/TikTok. Nenhum código da função ativa mudou.
+
+Pré-condições: OK explícito para DDL/diff/deploy; slug real ativo com ambos os pixels e tokens existentes;
+códigos reais de teste Meta e TikTok fornecidos por Pedro, sem inventar códigos; chegada SSR real do mesmo slug com <2 h.
+Não fabricar a chegada por INSERT. Não configurar pixels/tokens nem modificar dados do link para fazer a prova passar.
+Enviar uma choice exclusivamente por song-link-event, corpo atual incluindo arrival_event_id,
+event_id próprio partilhado com os pixels browser, meta_test_event_code e tiktok_test_event_code.
+Observar HTTP200 e depois ler a linha por link+event_id+event=choice, com prazo finito para o trabalho assíncrono.
+Aceitação: arrival_event_id exato, event_id inalterado, capi_status='enviado' E tiktok_status='enviado'.
+HTTP200 sozinho não basta. Guardar respostas sanitizadas dos fornecedores e evidência de eventos/códigos de teste;
+status enviado comprova aceitação pelas APIs, não escuta nem atribuição comercial.
+Repetir o mesmo pedido para verificar duplicate sem nova linha ou entrega; não alterar a chegada.
+Se um status falhar ou faltar configuração/código, reportar o bloqueio e não declarar prova concluída.
+Sem esta autorização/configuração, não enviar agora tráfego de teste aos fornecedores. Limpeza só após decisão explícita,
+com identificação exata da linha de teste; nunca apagar eventos reais do slug.

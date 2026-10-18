@@ -2,7 +2,7 @@
 - [x] 0194 aplicada com os dez kinds; portal-track validado, 80 testes relevantes PASS.
 - [x] Deploy portal-track, dois POST200 teste_chat2, leitura e limpeza só IDs206460/206461; remanescentes0; adenda D-ERP234; sem Publish.
 - [x] Choice iOS: números SQL confirmados; logs sem event/Referer/OS e janela observável curta, suspeita403 inconclusiva; proposta inerte com vínculo2h/índice+lock/contratoPortal e testes locais.
-- [ ] Aplicar DDL/deploy da choice apenas após Pedro rever diff e autorizar; Portal separado precisa adotar o contrato em coordenação.
+- [ ] Aplicar DDL/deploy da choice apenas após Pedro rever diff e autorizar; Portal já envia arrival_event_id segundo Pedro. Prova real bloqueada pelo OK e códigos Meta/TikTok: ambos os status devem ser enviado; caminho exclusivo song-link-event.
 
 # #332 — cidade/lista
 - [x] 0186–0189 aplicadas; CAOP308/278+19+11 sem divergências.
