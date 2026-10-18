@@ -8,7 +8,7 @@ for name in ['package.json','vitest.config.ts','vite.config.ts','tsconfig.json',
     shutil.copy2(repo/name,tree/name)
 (tree/'node_modules').symlink_to(repo/'node_modules',target_is_directory=True)
 pg=next(pathlib.Path('/nix/store').glob('*postgresql-17*/bin/initdb')).parent
-env={'PATH':str(pg)+':/bin:/usr/bin','HOME':'/tmp','TMPDIR':'/tmp','CI':'true','NODE_ENV':'test','ISSUE333_ISOLATED':'1','ISSUE333_EVIDENCE':str(out),'ISSUE333_PYTHON':sys.executable,'PLAYWRIGHT_BROWSERS_PATH':os.environ.get('PLAYWRIGHT_BROWSERS_PATH',''),'VITE_SUPABASE_URL':'http://127.0.0.1:9','VITE_SUPABASE_PUBLISHABLE_KEY':'local-fixture'}
+env={'PATH':str(pg)+':'+str(pathlib.Path(sys.executable).parent)+':/bin:/usr/bin','HOME':'/tmp','TMPDIR':'/tmp','CI':'true','NODE_ENV':'test','ISSUE333_ISOLATED':'1','ISSUE333_EVIDENCE':str(out),'ISSUE333_PYTHON':sys.executable,'PLAYWRIGHT_BROWSERS_PATH':os.environ.get('PLAYWRIGHT_BROWSERS_PATH',''),'VITE_SUPABASE_URL':'http://127.0.0.1:9','VITE_SUPABASE_PUBLISHABLE_KEY':'local-fixture'}
 (tree/'preflight.config.ts').write_text('import {defineConfig} from "vitest/config";export default defineConfig({resolve:{alias:{"npm:zod@3":"zod"}},test:{environment:"node",include:["docs/testes/issue333/pg/activation56.test.ts","docs/testes/issue333/pg/pilot8-browser56.test.ts","docs/testes/issue333/pg/pilot8-inert.test.ts"],testTimeout:160000,hookTimeout:60000,fileParallelism:false}});')
 print('Evidence:',out,flush=True)
 r=subprocess.run(['node',str(tree/'node_modules/vitest/vitest.mjs'),'run','--config','preflight.config.ts'],cwd=tree,env=env,capture_output=True,text=True,timeout=480)
