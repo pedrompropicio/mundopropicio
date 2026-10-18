@@ -16,6 +16,7 @@ import { fetchAllPaged } from "@/lib/supabase-paging";
 import { downloadCsv } from "@/lib/crm/csv-export";
 
 import { whatsappSourceLabel } from "@/lib/crm/whatsapp";
+import { countryName, displayCity } from "@/lib/crm/countries";
 
 const META = 15000;
 const META_DATA = "02/11/2026";
@@ -27,6 +28,8 @@ type Row = {
   id: string; name: string | null; email: string | null; phone: string | null; birth_date: string | null;
   city: string | null; postal_code: string | null; consent_email: boolean | null; consent_whatsapp: boolean | null;
   utm_source: string | null; utm_medium: string | null; utm_campaign: string | null; created_at: string; total_count: number; submissions: number; member_no: number | null; confirmed_at: string | null; consent_whatsapp_source: string | null; whatsapp_eligible: boolean;
+  birth_country: string | null; residence_country: string | null; city_source: string | null; profile_complete: boolean; profile_completed_at: string | null;
+  estimated_city: string | null; estimated_region: string | null; estimated_country: string | null;
 };
 
 const n = (v: number) => v.toLocaleString("pt-PT");
@@ -60,6 +63,9 @@ export default function ClubeNewgang() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [complete, setComplete] = useState<"all" | "yes" | "no">("all");
+  const pc = complete === "all" ? null : complete === "yes";
+  const fmtDate = (v: string | null) => (v ? new Date(v).toLocaleDateString("pt-PT", { timeZone: "Europe/Lisbon" }) : null);
   const q = useDebouncedValue(search, 300);
 
   const summary = useQuery({
@@ -72,9 +78,9 @@ export default function ClubeNewgang() {
   });
 
   const list = useQuery({
-    queryKey: ["clube-newgang-list", companyId, q, page],
+    queryKey: ["clube-newgang-list", companyId, q, page, complete],
     queryFn: async () => {
-      const { data, error } = await rpc("clube_newgang_list", { p_search: q || null, p_limit: PAGE, p_offset: page * PAGE });
+      const { data, error } = await rpc("clube_newgang_list", { p_search: q || null, p_limit: PAGE, p_offset: page * PAGE, p_profile_complete: pc });
       if (error) throw error;
       return (data ?? []) as Row[];
     },
@@ -91,9 +97,9 @@ export default function ClubeNewgang() {
     try {
       const all = await fetchAllPaged<Row>((from, to) =>
         rpc("clube_newgang_list", { p_search: null, p_limit: to - from + 1, p_offset: from }), { maxRows: 200000 });
-      const header = ["Nome", "Email", "Telemóvel", "Data de nascimento", "Cidade", "Código postal", "Consentimento email", "Consentimento WhatsApp", "Data de inscrição", "Submissões", "Nº de membro", "Confirmado", "Origem WhatsApp"];
+      const header = ["Nome", "Email", "Telemóvel", "Data de nascimento", "País de nascimento", "País de residência", "Cidade declarada", "Origem da cidade", "Cidade estimada (IP)", "Região estimada (IP)", "País estimado (IP)", "Perfil completo", "Perfil completo em", "Código postal", "Consentimento email", "Consentimento WhatsApp", "Data de inscrição", "Submissões", "Nº de membro", "Confirmado", "Origem WhatsApp"];
       const lines = [header.join(","), ...all.map((r) => [
-        r.name, r.email, r.whatsapp_eligible ? r.phone : null, r.birth_date, r.city, r.postal_code,
+        r.name, r.email, r.whatsapp_eligible ? r.phone : null, r.birth_date, countryName(r.birth_country), countryName(r.residence_country), r.city, r.city_source, r.estimated_city, r.estimated_region, countryName(r.estimated_country), r.profile_complete ? "sim" : "não", fmtDate(r.profile_completed_at), r.postal_code,
         r.consent_email ? "sim" : "não", r.consent_whatsapp ? "sim" : "não",
         new Date(r.created_at).toLocaleString("pt-PT", { timeZone: "Europe/Lisbon" }),
         r.submissions, r.member_no, r.confirmed_at, whatsappSourceLabel(r.consent_whatsapp_source),
@@ -161,27 +167,37 @@ export default function ClubeNewgang() {
 
       <Card className="min-w-0">
         <CardHeader className="flex flex-row items-center justify-between gap-3 pb-2">
-          <CardTitle className="text-sm">Inscritos ({n(total)})</CardTitle>
+          <CardTitle className="text-sm">Inscritos ({n(total)}){complete !== "all" && <span className="ml-2 text-xs font-normal text-muted-foreground">filtro: {n(count)}</span>}</CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1" role="group" aria-label="Perfil completo">
+            {([["all", "Todos"], ["yes", "Perfil completo: sim"], ["no", "Perfil completo: não"]] as const).map(([v, l]) => (
+              <Button key={v} size="sm" variant={complete === v ? "default" : "outline"} onClick={() => { setComplete(v); setPage(0); }}>{l}</Button>
+            ))}
+          </div>
           <div className="relative w-64">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input className="pl-8" placeholder="Pesquisar nome ou email" value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} />
+          </div>
           </div>
         </CardHeader>
         <CardContent className="min-w-0 overflow-x-auto">
           <Table>
             <TableHeader><TableRow>
               <TableHead>Nome</TableHead><TableHead>Email</TableHead><TableHead>Telemóvel</TableHead>
-              <TableHead>Cidade</TableHead><TableHead>Nascimento</TableHead><TableHead>Email ok</TableHead>
+              <TableHead>Data de nascimento</TableHead><TableHead>País de nascimento</TableHead><TableHead>País de residência</TableHead><TableHead>Cidade</TableHead><TableHead>Perfil completo</TableHead><TableHead>Email ok</TableHead>
               <TableHead>WhatsApp ok / origem</TableHead><TableHead>Submissões</TableHead><TableHead>Membro</TableHead><TableHead>Inscrição</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {rows.length === 0 && (
-                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">{list.isLoading ? "A carregar…" : "0 inscritos"}</TableCell></TableRow>
+                <TableRow><TableCell colSpan={13} className="text-center text-muted-foreground">{list.isLoading ? "A carregar…" : "0 inscritos"}</TableCell></TableRow>
               )}
               {rows.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell>{r.name ?? "—"}</TableCell><TableCell>{r.email ?? "—"}</TableCell><TableCell>{r.phone ?? "—"}</TableCell>
-                  <TableCell>{r.city ?? "—"}</TableCell><TableCell>{r.birth_date ?? "—"}</TableCell>
+                  <TableCell>{r.birth_date ?? "—"}</TableCell>
+                  <TableCell>{countryName(r.birth_country) ?? "—"}</TableCell><TableCell>{countryName(r.residence_country) ?? "—"}</TableCell>
+                  <TableCell>{(() => { const c = displayCity(r); return c.text ? <>{c.text}{c.estimated && <Badge variant="outline" className="ml-1 text-xs text-muted-foreground">estimada (IP)</Badge>}</> : "—"; })()}</TableCell>
+                  <TableCell><Badge variant={r.profile_complete ? "default" : "outline"}>{r.profile_complete ? "sim" : "não"}</Badge>{r.profile_completed_at && <span className="block text-xs text-muted-foreground">{fmtDate(r.profile_completed_at)}</span>}</TableCell>
                   <TableCell><Badge variant={r.consent_email ? "default" : "outline"}>{r.consent_email ? "sim" : "não"}</Badge></TableCell>
                   <TableCell><Badge variant={r.consent_whatsapp ? "default" : "outline"}>{r.consent_whatsapp ? "sim" : "não"}</Badge><div className="text-xs text-muted-foreground mt-1">{whatsappSourceLabel(r.consent_whatsapp_source)}</div></TableCell>
                   <TableCell><Badge variant="outline" className={r.submissions > 1 ? "text-primary border-primary/40" : "text-muted-foreground"}>{r.submissions}</Badge></TableCell>
