@@ -60,7 +60,6 @@ it('worker real Chromium: par execute 200/200 persiste browser.json sem tokens',
  // atomicidade: sem ficheiro .tmp residual
  await expect(stat(out+'/browser.tmp')).rejects.toThrow();
 },120000);
-});
 function error0(r:any){return r&&r.executeRequests===2;}
 
 it('falha parcial do par HTTP: resposta observada preservada, falha registada, nada inventado',async()=>{
@@ -92,3 +91,4 @@ it('falha DEPOIS do par HTTP (pedido bloqueado): evidência preserva o par e reg
  expect(evidence.blocked.length).toBeGreaterThan(0);
  expect(evidence.failure).toBeTruthy();
 },120000);
+});
