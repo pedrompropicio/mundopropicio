@@ -50,5 +50,5 @@ IDs não publicados neste documento.
 - Testes: future-runner/private-cloud57/worker60 21/21 PASS (retoma sem createUser; recusa antes do login por drift);
   typecheck estrito dos drivers OK.
 
-## 6. Comando de retoma (só após ativação pelo controller e nova autorização)
+## 6. Comando de retoma (com nova autorização; correr ANTES da ativação: faz preflight com role=user, avisa o controller e espera <=5 min pela ativação)
 `PILOT8_MARKER=issue333-pilot8-11af044ae28127538fe8cc06be67541a bun docs/testes/issue333/pilot8/run-cloud57.ts --resume-identity63`
