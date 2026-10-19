@@ -91,6 +91,7 @@ type FakeOpts = {
   newgangAdsOk?: boolean;
   graphResponses?: Array<{ status: number; body: any }>;
   graphThrow?: boolean;
+  secrets?: Record<string, string | null>;
 };
 
 function fakeSb(o: FakeOpts) {
@@ -102,7 +103,11 @@ function fakeSb(o: FakeOpts) {
       if (fn === "capi_dispatch_allowed") return { data: o.dispatchAllowed !== false, error: null };
       if (fn === "marketing_consent_binding_valid") return { data: o.bindingValid !== false, error: null };
       if (fn === "capi_v2_newgang_ads_ok") return { data: o.newgangAdsOk === true, error: null };
-      if (fn === "get_vault_secret") return { data: "tok", error: null };
+      if (fn === "get_vault_secret") {
+        const name = String(args?._name ?? "");
+        if (o.secrets && name in o.secrets) return { data: o.secrets[name], error: null };
+        return { data: "tok", error: null };
+      }
       return { data: null, error: null };
     },
     from: (table: string) => {
