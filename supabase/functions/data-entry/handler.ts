@@ -195,6 +195,7 @@ export function createHandler(d: Deps) {
       }
       const gmailReader = async () => {
         if (!d.gmail) throw new SafeError("A ligação ao Gmail ainda não está disponível nesta plataforma. Envia o ficheiro manualmente.", 503);
+        await canonicalStorageContext();
         const reader = await d.gmail.reader(user.id, company);
         if (!reader) throw new SafeError("Ainda não ligaste a tua conta Gmail a esta empresa.", 409);
         return reader;
@@ -211,7 +212,9 @@ export function createHandler(d: Deps) {
         const filters = gmailFilterSchema.safeParse(body.filters);
         if (!filters.success) throw new SafeError(filters.error.issues[0]?.message ?? "Filtros inválidos.", 400);
         const reader = await gmailReader();
-        return reply(await reader.search(filters.data));
+        const result = await reader.search(filters.data);
+        await canonicalStorageContext();
+        return reply(result);
       }
       if (!uploadEnabled && !(d.pilotScoped && (body.action === "check" || body.action === "document" || (body.action === "session" && body.session_id)))) throw new SafeError("Assistente ainda não ativado neste ambiente. Nada foi guardado.", 503);
       if (body.action === "session") return reply(await rpc("data_entry_session", { p_session: body.session_id ?? null, p_event: body.event_id ?? null }));
@@ -225,6 +228,7 @@ export function createHandler(d: Deps) {
         const reader = await gmailReader();
         const { message_id, part_id } = body.selection;
         const att = await reader.attachment(message_id, part_id);
+        await canonicalStorageContext();
         let mime: DocumentType;
         try { mime = validateDocument(att.bytes, att.mime); } catch (e) { throw new SafeError((e as Error).message, 422); }
         const hash = await sha256(att.bytes);

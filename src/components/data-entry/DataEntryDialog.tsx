@@ -141,7 +141,7 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
           }} />
         </label>
       )}
-      {state && !doc && context && <GmailAttachmentPicker adapter={adapter} context={context} sessionId={state.session.id} enabled={gmailEnabled} disabled={!!busy}
+      {state && !doc && context && <GmailAttachmentPicker key={`${context.user_id}:${context.company_id}:${state.session.id}`} adapter={adapter} context={context} sessionId={state.session.id} enabled={gmailEnabled} disabled={!!busy}
         onImported={() => run("anexo do Gmail", async (valid, c) => { const s = await adapter.session(state.session.id, c); if (valid() && s.company.id === c.company_id) setState(s); })} />}
       {doc && (
         <div className="rounded-md border border-border p-2.5 text-xs space-y-1">

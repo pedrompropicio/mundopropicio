@@ -53,7 +53,12 @@ const gmailStore: GmailConnectionStore = {
 const gmailClientKey = Deno.env.get("GOOGLE_MAIL_APP_USER_CONNECTOR_CLIENT_API_KEY") ?? "";
 const gmailSecret = Deno.env.get("APP_USER_CONNECTION_KEY_SECRET") ?? "";
 const gmail = GMAIL_CONNECTION_REVIEWED && gmailClientKey && gmailSecret && Deno.env.get("LOVABLE_API_KEY")
-  ? createGmailConnection({ store: gmailStore, clientApiKey: gmailClientKey, encryptionSecret: gmailSecret }) : undefined;
+  ? createGmailConnection({ store: gmailStore, clientApiKey: gmailClientKey, encryptionSecret: gmailSecret,
+      async resolveAuth(user) {
+        const { data, error } = await admin.auth.admin.getUserById(user);
+        return error ? null : data.user;
+      },
+    }) : undefined;
 
 Deno.serve(createHandler({
   ...(gmail ? { gmail } : {}),
