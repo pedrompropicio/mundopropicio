@@ -21,7 +21,7 @@ const ANALYSIS_PROVIDER_REVIEWED = false; // #333 fecho96: closed after manual w
 
 // #333 fase11b: per-user Gmail (App User Connector google_mail, gmail.readonly only).
 // Closed until the inert SQL is applied, the Google client is linked and Pedro authorizes; see docs/testes/issue333/fase11b-ligacao-gmail.md.
-const GMAIL_CONNECTION_REVIEWED = false;
+const GMAIL_CONNECTION_REVIEWED = true; // #333 fase11d: Pedro "Sim" 19/10 18:55 Fortaleza — só ligação Gmail.
 const gmailStore: GmailConnectionStore = {
   async createPending(user, company, nonceHash, expiresAt) {
     const { error } = await admin.from("data_entry_gmail_pending" as never).insert({ user_id: user, company_id: company, nonce_sha256: nonceHash, expires_at: expiresAt.toISOString() } as never);
