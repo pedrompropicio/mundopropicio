@@ -20,9 +20,15 @@ export function resolveMarker57():string {
 export const MARKER57=process.env.PILOT8_MARKER&&/^issue333-pilot8-[a-f0-9]{32}$/.test(process.env.PILOT8_MARKER)&&!RETIRED_MARKERS.has(process.env.PILOT8_MARKER)?process.env.PILOT8_MARKER:'issue333-pilot8-00000000000000000000000000000000';
 export const COMPANY57='7c858982-6ccd-47ca-bd65-e0dd3eebf01c';
 export const SHA57='8ae66f6a452934a1f43a5d9fb2c5f22fef7e407e4d2f1b8db53f03d75794798f';
+/** Optional local-test scheduler. Existing callers retain wall-clock deadlines and polling. */
+export interface SelectBridgeTiming {
+  now():number;
+  sleep(ms:number):Promise<void>;
+}
+const REAL_BRIDGE_TIMING:SelectBridgeTiming={now:()=>Date.now(),sleep:ms=>new Promise(resolve=>setTimeout(resolve,ms))};
 export class OfficialSelectBridge {
   private sequence=0;
-  constructor(private directory:string, private deadlineMs=20000) {
+  constructor(private directory:string, private deadlineMs=20000, private timing:SelectBridgeTiming=REAL_BRIDGE_TIMING) {
     if(!directory.startsWith('/tmp/')) throw Error('Private bridge requires /tmp');
   }
   static async fresh(root='/tmp/issue333-select58-', deadlineMs=60000) {
@@ -37,8 +43,8 @@ export class OfficialSelectBridge {
     const id=String(++this.sequence).padStart(4,'0');
     const fingerprint=createHash('sha256').update(query).digest('hex');
     await writeFile(`${this.directory}/${id}.request.json`,JSON.stringify({id,query,fingerprint}),{mode:0o600,flag:'wx'});
-    const end=Date.now()+this.deadlineMs;
-    while(Date.now()<end) {
+    const end=this.timing.now()+this.deadlineMs;
+    while(this.timing.now()<end) {
       try {
         const raw=await readFile(`${this.directory}/${id}.response.json`,'utf8');
         const data=JSON.parse(raw);
@@ -54,7 +60,7 @@ export class OfficialSelectBridge {
         return row;
       }
       catch(e) { if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e; }
-      await new Promise(r=>setTimeout(r,200));
+      await this.timing.sleep(200);
     }
     throw Error('Official SELECT bridge response deadline; no account fallback');
   }
