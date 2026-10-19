@@ -182,11 +182,11 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-async function loadCapiToken(env: (k: string) => string | undefined, sb: SbLike): Promise<string | null> {
-  const envTok = env("META_CAPI_ACCESS_TOKEN");
+async function loadCapiToken(env: (k: string) => string | undefined, sb: SbLike, secretName: string): Promise<string | null> {
+  const envTok = env(secretName);
   if (envTok) return envTok;
   try {
-    const { data, error } = await sb.rpc("get_vault_secret", { _name: "META_CAPI_ACCESS_TOKEN" });
+    const { data, error } = await sb.rpc("get_vault_secret", { _name: secretName });
     if (error || data == null) return null;
     return typeof data === "string" ? data : String(data);
   } catch {
