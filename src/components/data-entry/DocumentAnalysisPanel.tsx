@@ -51,10 +51,11 @@ export default function DocumentAnalysisPanel({ adapter, context, sessionId, doc
       {report.warnings.map((w, i) => <p key={i} className="text-warning">{w}</p>)}
       {report.candidates.map((c) => <div key={c.field} className="border-b border-border pb-2 space-y-1">
         <div className="font-medium">{LABELS[c.field]}: {c.value ?? "não encontrado"}</div>
-        <p className="text-muted-foreground">{c.origin === "document" ? "Documento — referência sugerida pelo analista" : "Sugestão, sem trecho documental"}{c.page ? ` · página ${c.page}` : ""} · confiança {c.confidence === "high" ? "alta" : c.confidence === "medium" ? "média" : "baixa"}</p>
+        <p className="text-muted-foreground">{c.origin === "document" ? "Documento — referência sugerida pelo analista" : "Scanner sem trecho documental; confirma no documento"}{c.page ? ` · página ${c.page}` : ""}{c.confidence ? ` · confiança ${c.confidence === "high" ? "alta" : c.confidence === "medium" ? "média" : "baixa"}` : " · sem confiança por campo"}</p>
         {c.quote && <blockquote className="border-l-2 border-border pl-2 break-words">{c.quote}</blockquote>}
         {c.uncertainty && <p className="text-warning">{c.uncertainty}</p>}
-        {c.field !== "currency" && <Button size="sm" variant="ghost" disabled={!c.usable || busy || locked} onClick={() => { onCandidate(c); setReviewed((old) => [...old.filter((key) => key !== c.field), c.field]); }}>Revi e usar {LABELS[c.field].toLowerCase()}</Button>}
+        {c.field !== "currency" && <Button size="sm" variant="ghost" type="button" disabled={!(c.reviewable ?? c.usable) || busy || locked} onClick={() => { onCandidate(c); setReviewed((old) => [...old.filter((key) => key !== c.field), c.field]); }}>Revi e usar {LABELS[c.field].toLowerCase()}</Button>}
+        {c.field !== "currency" && !(c.reviewable ?? c.usable) && <p className="text-warning">Campo ausente ou inválido; preenche e confirma manualmente nos dados da fatura.</p>}
         {reviewed.includes(c.field) && <p className="text-success">Confirmado por ti na revisão; aguarda a prévia.</p>}
       </div>)}
     </div>}
