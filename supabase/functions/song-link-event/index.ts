@@ -483,9 +483,33 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     // CAPI
     // D-ERP171 adenda: destino "instagram" (seguir o artista) não é escuta → sem CAPI nem TikTok.
     const naoAplicavel = event === "choice" && (destination ?? "").toLowerCase() === "instagram";
+    // AJ19: plano de entrega por fornecedor.
+    // Meta: arrival → ViewContent (ID próprio); choice sem chegada → ListenClick
+    // (ID próprio, como hoje); choice com chegada ou app_open → ListenClick com
+    // ID canónico arrival+':open' atrás do slot (meta, ListenClick).
+    // TikTok: arrival → ViewContent; choice → ClickButton (ID próprio, inalterado);
+    // app_open → CompleteRegistration com ID canónico atrás do slot (tiktok, CompleteRegistration).
+    const openId = arrivalEventId ? canonicalOpenId(arrivalEventId) : null;
+    const metaSlot = (appOpen || (event === "choice" && choiceArrivalLinked)) ? "ListenClick" : null;
+    const metaEventName = event === "arrival" ? "ViewContent" : "ListenClick";
+    const metaEventId = metaSlot ? openId! : (eventId ?? undefined);
+    const ttSlot = appOpen ? "CompleteRegistration" : null;
+    const ttEventName = event === "arrival" ? "ViewContent" : appOpen ? "CompleteRegistration" : "ClickButton";
+    const ttEventId = ttSlot ? openId! : (eventId ?? undefined);
+    // AJ19 dedup ViewContent (só chegadas): marca 'duplicate' por fornecedor.
+    let metaDup = false, ttDup = false;
+    if (event === "arrival") {
+      const fbclidIn = s(body?.fbclid, 500);
+      const ttclidIn = s(body?.ttclid, 500);
+      if (fbclidIn) metaDup = await recentDuplicate(admin, link.id, "fbclid", fbclidIn, claimedId!);
+      if (ttclidIn) ttDup = await recentDuplicate(admin, link.id, "ttclid", ttclidIn, claimedId!);
+    }
     let capi_status = naoAplicavel ? "nao_aplicavel" : "sem_pixel";
     let capi_fbc: boolean | null = null, capi_fbp: boolean | null = null, capi_external_id: boolean | null = null;
-    if (!naoAplicavel && link.meta_pixel_id) {
+    if (!naoAplicavel && link.meta_pixel_id && metaDup) capi_status = "duplicate";
+    else if (!naoAplicavel && link.meta_pixel_id && metaSlot &&
+      !(await reserveSlot(admin, arrivalEventId!, "meta", metaSlot, claimedId!))) capi_status = "slot_perdido";
+    else if (!naoAplicavel && link.meta_pixel_id) {
       const token = await getSecret("META_CAPI_TOKEN");
       if (!token) capi_status = "sem_token";
       else {
