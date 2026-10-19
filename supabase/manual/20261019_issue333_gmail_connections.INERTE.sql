@@ -1,8 +1,10 @@
--- #333 fase11b — INERTE. NÃO aplicar sem "Sim" do Pedro. Ligação Gmail por utilizador+empresa.
--- Só o servidor (service_role) lê/escreve. Browser (anon/authenticated) sem qualquer acesso.
+-- #333 fase11b/11c — INERTE. NÃO aplicar sem "Sim" do Pedro. Ligação Gmail por utilizador+empresa.
+-- Só o servidor (service_role) lê/escreve. Browser (anon/authenticated) e roles técnicas sem qualquer acesso.
 -- A chave de ligação é guardada só cifrada (AES-GCM, AAD user:empresa); nunca em claro.
+-- Idempotente: pode ser re-executado sem efeito (IF NOT EXISTS; GRANT/REVOKE são idempotentes).
+-- Nonces expirados ficam inertes (o consumo exige expires_at > now()); limpeza é opcional e manual.
 BEGIN;
-CREATE TABLE public.data_entry_gmail_connections (
+CREATE TABLE IF NOT EXISTS public.data_entry_gmail_connections (
   user_id uuid NOT NULL,
   company_id uuid NOT NULL,
   connection_key_ciphertext text NOT NULL CHECK (length(connection_key_ciphertext) BETWEEN 40 AND 4096),
@@ -11,7 +13,7 @@ CREATE TABLE public.data_entry_gmail_connections (
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, company_id)
 );
-CREATE TABLE public.data_entry_gmail_pending (
+CREATE TABLE IF NOT EXISTS public.data_entry_gmail_pending (
   user_id uuid NOT NULL,
   company_id uuid NOT NULL,
   nonce_sha256 text NOT NULL CHECK (nonce_sha256 ~ '^[a-f0-9]{64}$'),
@@ -20,11 +22,25 @@ CREATE TABLE public.data_entry_gmail_pending (
   PRIMARY KEY (nonce_sha256),
   CHECK (expires_at <= created_at + interval '15 minutes')
 );
-CREATE INDEX data_entry_gmail_pending_owner ON public.data_entry_gmail_pending (user_id, company_id);
+CREATE INDEX IF NOT EXISTS data_entry_gmail_pending_owner ON public.data_entry_gmail_pending (user_id, company_id);
 ALTER TABLE public.data_entry_gmail_connections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.data_entry_gmail_pending ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.data_entry_gmail_connections, public.data_entry_gmail_pending FROM PUBLIC, anon, authenticated, service_role;
+-- ACL real: revogar de PUBLIC e de TODAS as roles técnicas que o PostgREST/gateway usam,
+-- não só anon/authenticated (lição do incidente ACL da #333).
+REVOKE ALL ON public.data_entry_gmail_connections, public.data_entry_gmail_pending FROM PUBLIC, anon, authenticated, service_role, authenticator;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.data_entry_gmail_connections TO service_role;
 GRANT INSERT, DELETE ON public.data_entry_gmail_pending TO service_role;
 GRANT SELECT (nonce_sha256, expires_at, user_id, company_id) ON public.data_entry_gmail_pending TO service_role;
+-- Guarda de ACL: falha a transação se sobrar qualquer grant para além de service_role e do dono.
+DO $$
+DECLARE extra text;
+BEGIN
+  SELECT string_agg(grantee || ':' || privilege_type, ',') INTO extra
+  FROM information_schema.role_table_grants
+  WHERE table_schema = 'public' AND table_name LIKE 'data_entry_gmail%'
+    AND grantee IN ('anon', 'authenticated', 'authenticator', 'PUBLIC');
+  IF extra IS NOT NULL THEN
+    RAISE EXCEPTION 'ACL inesperada em data_entry_gmail_*: %', extra;
+  END IF;
+END $$;
 COMMIT;
