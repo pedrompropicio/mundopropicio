@@ -7895,6 +7895,78 @@ export type Database = {
           },
         ]
       }
+      data_entry_analysis_audit_333: {
+        Row: {
+          admin_action: string | null
+          claim: string | null
+          reason_code: string
+          recorded_at: string
+          review_sha256: string | null
+          revision: number
+          stage: string
+          upstream_status: number | null
+        }
+        Insert: {
+          admin_action?: string | null
+          claim?: string | null
+          reason_code: string
+          recorded_at?: string
+          review_sha256?: string | null
+          revision: number
+          stage: string
+          upstream_status?: number | null
+        }
+        Update: {
+          admin_action?: string | null
+          claim?: string | null
+          reason_code?: string
+          recorded_at?: string
+          review_sha256?: string | null
+          revision?: number
+          stage?: string
+          upstream_status?: number | null
+        }
+        Relationships: []
+      }
+      data_entry_analysis_control_333: {
+        Row: {
+          active_claim: string | null
+          changed_at: string
+          enabled: boolean
+          reason_code: string
+          reviewed: boolean
+          revision: number
+          singleton: boolean
+          stage: string
+          state: string
+          upstream_status: number | null
+        }
+        Insert: {
+          active_claim?: string | null
+          changed_at?: string
+          enabled?: boolean
+          reason_code?: string
+          reviewed?: boolean
+          revision?: number
+          singleton?: boolean
+          stage?: string
+          state?: string
+          upstream_status?: number | null
+        }
+        Update: {
+          active_claim?: string | null
+          changed_at?: string
+          enabled?: boolean
+          reason_code?: string
+          reviewed?: boolean
+          revision?: number
+          singleton?: boolean
+          stage?: string
+          state?: string
+          upstream_status?: number | null
+        }
+        Relationships: []
+      }
       data_entry_documents: {
         Row: {
           company_id: string
@@ -23936,6 +24008,25 @@ export type Database = {
           p_session: string
           p_sha: string
           p_size: number
+        }
+        Returns: Json
+      }
+      data_entry_analysis_responsible_333: {
+        Args: {
+          p_action: string
+          p_claim: string
+          p_review_sha256: string
+          p_revision: number
+        }
+        Returns: Json
+      }
+      data_entry_analysis_transition_333: {
+        Args: {
+          p_claim?: string
+          p_operation: string
+          p_outcome?: string
+          p_revision?: number
+          p_status?: number
         }
         Returns: Json
       }
