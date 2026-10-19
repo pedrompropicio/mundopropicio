@@ -110,4 +110,14 @@ describe("#333 scanner94 local integration", () => {
     await expect(durableProviderControl(c.store).run(caller.signal, async () => {}, t => generateScannerAnalysis(data, "local-mock", t, send))).rejects.toMatchObject({ status: 499 });
     expect(c.state().stage).toBe("uncertain"); expect(c.state().claim).not.toBeNull(); expect(send).toHaveBeenCalledTimes(1);
   });
+  it("Stop before POST does not create headers or call the model", async () => {
+    const caller = new AbortController(); caller.abort(); const t = transport(), send = vi.fn();
+    await expect(generateScannerAnalysis({ ...await input(), signal: caller.signal }, "local-mock", t, send)).rejects.toMatchObject({ status: 499 });
+    expect(t.beforePost).not.toHaveBeenCalled(); expect(send).not.toHaveBeenCalled();
+  });
+  it("malformed NIF and date remain editable manually, never transferable", () => {
+    const report = validateAnalysisReport(scannerAnalysisWire({ ...extracted, supplier_nif: "<sql>", document_date: "2026-02-30" }), context);
+    expect(report.candidates.find(c => c.field === "supplier_nif")?.reviewable).toBe(false);
+    expect(report.candidates.find(c => c.field === "invoice_date")?.reviewable).toBe(false);
+  });
 });
