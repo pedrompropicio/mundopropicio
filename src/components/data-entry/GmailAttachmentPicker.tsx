@@ -85,6 +85,7 @@ function GmailPickerSession({ adapter, context, sessionId, enabled, disabled, on
         {notice && <p role="status" className="text-xs">{notice}</p>}
         {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
         <Button size="sm" variant="outline" disabled={disabled || busy || !conn} onClick={() => void connect()}>{conn?.reconnect_required ? "Voltar a ligar o Gmail" : "Ligar Gmail"}</Button>
+        {conn?.reconnect_required && adapter.gmailDisconnect && <Button size="sm" variant="ghost" disabled={disabled || busy} onClick={() => void disconnect()}>Desligar Gmail</Button>}
       </section>
     );
   }
