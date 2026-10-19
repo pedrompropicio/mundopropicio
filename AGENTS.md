@@ -10,10 +10,10 @@
 
 - Ticket-office cards use canonical balance RPC for retained funds, existing sales RPC plus canonical per-event balance helper for unapportioned events; avoid gross-sales/receivable confusion and truncated reads.
 - Statements aggregate signed lines by type without changing financial records or creating settlement movements.
-- Smart-link events use a service-role-only atomic claim RPC before external delivery; the partial unique index prevents concurrent browser/SSR duplicates without removing historical records.
+- Smart-link delivery claims atomically via service-role RPC; a partial unique index prevents browser/SSR duplicates, retaining history.
 - Authenticated smart-link SSR treats unusable visitor IP as absent, never falls back to infrastructure IP or a shared no-IP rate quota; arrivals must survive missing metadata without inventing attribution.
 - Growth summaries use legacy comparisons.
-- Smart-link test markers propagate from arrivals; suppression precedes slots/tokens; Meta logs only allowlisted receipt fields.
+- Smart-link test markers inherit arrivals; suppress before slots/tokens; log only allowlisted Meta receipts.
 - Investment source projections reuse the canonical report's spend/classification CTEs without modifying that report; any future canonical change must regenerate and regression-test the projection to prevent drift.
 - Campaign joins: platform/account/external ID, never names.
 - Manual modals separate their header from the scrolling body and use shared viewport/safe-area styles; this keeps dismissal accessible without changing the overlay stack.
