@@ -5,7 +5,6 @@ import { analysisWireSchema, ANALYSIS_LIMITS } from "../data-entry-analysis.ts";
 import {
   createLovableAiGatewayRunIdFetch,
   getLovableAiGatewayRunId,
-  withLovableAiGatewayRunIdHeader,
 } from "./run-id.ts";
 
 export function createResponsesCall(
@@ -45,9 +44,6 @@ export function createResponsesCall(
       },
     },
   });
-  return {
-    result,
-    response: () =>
-      withLovableAiGatewayRunIdHeader(result.toUIMessageStreamResponse({ sendReasoning: true }), runIdFetch),
-  };
+  // Server-only result. No UI response factory: reasoning/metadata cannot be forwarded accidentally.
+  return { result };
 }

@@ -21,6 +21,7 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
+- [ ] Tarefa86: revisão Deno/SDK offline, mensagens públicas e saída final exclusiva; gates fechados, desenho pausa durável, prova finita e CI final controller pendentes.
 - [x] Tarefa85: código análise/conversa fase10 preparado;52testes locaisPASS, harnessbuildOK, dois gates fechados.10não concluída: SDK/configuração externa/pausa durável pendentes; sem liberar9/concluir8/Cloudwrites. Prova própria85 sanitizada.
 - [x] Pedro confirmou CI401 quality SUCCESS no HEAD c23ad739 antes do dispatch85; testes corrigidos70/worker60 e gate preservados.
 - [x] Controller concluiu limpeza81/83; Auth/Storage restantes adiados para exclusão manual. Proibido ao agente criar dados/ficheiros fictícios no ERP; não repetir limpeza.

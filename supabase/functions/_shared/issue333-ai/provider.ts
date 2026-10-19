@@ -15,9 +15,16 @@ export function safeProviderError(error: unknown): AnalysisError {
   if (error instanceof Error && error.name === "AbortError") return new AnalysisError("Análise cancelada.", 499);
   if (APICallError.isInstance(error)) {
     const status = error.statusCode ?? 503;
-    // The gateway's `message` is the public remedy. Never return response bodies or request metadata.
-    let message = "Serviço de análise indisponível. A revisão manual permanece disponível.";
-    try { const data = JSON.parse(error.responseBody ?? "{}"); if (typeof data.message === "string") message = data.message.slice(0, 1000); } catch { /* no raw provider body */ }
+    // Upstream text is untrusted, even JSON.message. Never expose bodies/URLs/tokens/metadata.
+    const publicMessages: Record<number, string> = {
+      400: "Pedido de análise inválido. Revê o documento manualmente.",
+      401: "Análise indisponível: configuração do serviço pendente.",
+      402: "Análise pausada por créditos. O responsável deve verificar Planos e créditos.",
+      403: "Acesso ao serviço de análise bloqueado. É necessária revisão pelo responsável.",
+      404: "Serviço de análise indisponível. É necessária revisão da configuração.",
+      429: "Limite temporário do serviço de análise. Nenhum reenvio automático foi efetuado.",
+    };
+    const message = publicMessages[status] ?? "Serviço de análise indisponível. A revisão manual permanece disponível.";
     return new AnalysisError(message, status);
   }
   return new AnalysisError("Não foi possível validar a análise. Nenhum campo foi confirmado.", 503);
@@ -35,8 +42,13 @@ export async function generateDocumentAnalysis(request: Request, input: { bytes:
     ] },
   ];
   const call = createResponsesCall(request, { baseURL: "https://ai.gateway.lovable.dev/v1", apiKey, model: "openai/gpt-6-astra" }, messages, DOCUMENT_INSTRUCTIONS);
-  try { return await call.result.output; }
+  try {
+    const output = await call.result.output;
+    if (request.signal.aborted) throw new AnalysisError("Análise cancelada.", 499);
+    return output;
+  }
   catch (error) {
+    if (request.signal.aborted) throw new AnalysisError("Análise cancelada.", 499);
     if (NoObjectGeneratedError.isInstance(error)) {
       // A malformed successful response must not crash or become a billed retry.
       try { return JSON.parse(error.text ?? ""); } catch { throw new AnalysisError("A análise não devolveu campos válidos. Revê manualmente."); }

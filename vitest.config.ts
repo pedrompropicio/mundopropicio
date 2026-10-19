@@ -16,6 +16,8 @@ export default defineConfig({
       "@shared": path.resolve(__dirname, "./supabase/functions/_shared"),
       "npm:zod@3.23.8": "zod",
       "npm:zod@3": "zod",
+      "npm:ai@6": "ai",
+      "npm:@ai-sdk/openai@3": "@ai-sdk/openai",
     },
   },
 });
