@@ -36,12 +36,18 @@ Stop propaga AbortSignal, não garante zero cobrança.6000tokens limita saída, 
 5. Suite default 1:1648PASS/1FAIL/6SKIP/11TODO,exit1 (deadlineproof60). Suite default 2:1651PASS/1FAIL/6SKIP/11TODO,exit1 (timeoutcheckpoint66). Não alterados esses testes/limites nem CI.
 6. Isoladosproof60+checkpoint66:23PASS/1FAIL deadlineproof60; execução anteriorproof60 dentro dos pertinentes6PASS. Flutuação registrada, não ocultada.
 7. Mesma suite completa com `--maxWorkers=2`:1652PASS/6SKIP/11TODO,193ficheirosPASS+2skip,exit0. Opção só no comando local, configuraçãoCI intacta. Isto NÃO certifica CI GitHub.
-8. Harness automático: buildOK nos registos posteriores às alterações de código. TypecheckTS/Deno reportado pelo harness/check; não executar build/tsgo manual em paralelo ao harness. CItypes no novoSHA ainda depende controller.
+8. Harness automático: buildOK nos registos posteriores às alterações de código; Deno checkexit0 concreto. Não há output tsgo separado nesta entrega: não foi executado manualmente por regra do harness. TypecheckTS/CItypes no novoSHA permanece por confirmar pelo controller; não alegar typesPASS sem esse sinal.
 
 PostgreSQL cobre backendPIDs distintos, um vencedorclaim, dois adapters concorrentes/uma chamada, closed/ausente, pausas402/403/404 noutra conexão, revision/finalização tardia, cancelamento antes/depois, crash/reconexão, ausência de lease, códigos inválidos, ACL/RLS/owner/search_path, troca de contexto, análise real→reporthash e rollback. Cluster socketUnix exclusivamente local criado/removido; opt-inISSUE333_LOCAL_PROOF=1, requisito ausente falha, sem PGexterno/browser/tmpbrowser obrigatórioCIdefault.
 
 ## Checklist18 — sem reexecutar provas anteriores
-- [x]1–7 concluídas pelo controller anteriormente; esta tarefa não as repete.
+- [x]1 concluída anteriormente pelo controller; não repetida nesta tarefa.
+- [x]2 concluída anteriormente pelo controller; não repetida nesta tarefa.
+- [x]3 concluída anteriormente pelo controller; não repetida nesta tarefa.
+- [x]4 concluída anteriormente pelo controller; não repetida nesta tarefa.
+- [x]5 concluída anteriormente pelo controller; não repetida nesta tarefa.
+- [x]6 concluída anteriormente pelo controller; não repetida nesta tarefa.
+- [x]7 concluída anteriormente pelo controller; não repetida nesta tarefa.
 - [ ]8PARCIAL: checkapósrevogação, HTTPsimultâneo mesma prévia, download separado/SHA continuam pendentes e não dispensados.
 - [ ]9release restrito NÃO liberado.
 - [ ]10PARCIAL: análise+controle durável local entregues; SQLaplicado/configuração/provider/runtimehospedado/provaexterna/conferência/reabertura pendentes.
