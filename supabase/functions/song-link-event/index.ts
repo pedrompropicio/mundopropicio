@@ -536,9 +536,9 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               data: [{
-                event_name: event === "arrival" ? "ViewContent" : "ListenClick",
+                event_name: metaEventName,
                 event_time: Math.floor(Date.now() / 1000),
-                event_id: eventId ?? undefined,
+                event_id: metaEventId,
                 action_source: "website",
                 event_source_url: pageUrl ?? undefined,
                 user_data,
