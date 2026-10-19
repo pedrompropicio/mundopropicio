@@ -6,14 +6,14 @@ const today = () => new Date().toISOString().slice(0, 10);
 const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
 const PAGE = 10;
 
-type Props = { adapter: DataEntryAdapter; context: DataEntryContext; sessionId: string; enabled: boolean; disabled: boolean; onImported: () => void };
+type Props = { adapter: DataEntryAdapter; context: DataEntryContext; sessionId: string; enabled: boolean; disabled: boolean; onImported: () => void; connectionOnly?: boolean };
 
 /** #333 fase11 — escolha humana de um anexo do Gmail. Nada é descarregado antes da escolha. */
-export default function GmailAttachmentPicker({ adapter, context, sessionId, enabled, disabled, onImported }: Props) {
-  return <GmailPickerSession key={`${context.user_id}:${context.company_id}:${sessionId}`} adapter={adapter} context={context} sessionId={sessionId} enabled={enabled} disabled={disabled} onImported={onImported} />;
+export default function GmailAttachmentPicker(props: Props) {
+  return <GmailPickerSession key={`${props.context.user_id}:${props.context.company_id}:${props.sessionId}`} {...props} />;
 }
 
-function GmailPickerSession({ adapter, context, sessionId, enabled, disabled, onImported }: Props) {
+function GmailPickerSession({ adapter, context, sessionId, enabled, disabled, onImported, connectionOnly }: Props) {
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [from, setFrom] = useState(daysAgo(30));
