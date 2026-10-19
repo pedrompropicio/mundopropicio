@@ -38,7 +38,13 @@ Para avançar diretamente à liberaçãorestrita9 semnovoensaio, recomendação:
 
 ## Checklist18 honesta
 
-- [x] 1–7 — concluídas anteriormente, sem reexecução90 (sete fases preservadas).
+- [x] 1 — concluída anteriormente, sem reexecução90.
+- [x] 2 — concluída anteriormente, sem reexecução90.
+- [x] 3 — concluída anteriormente, sem reexecução90.
+- [x] 4 — concluída anteriormente, sem reexecução90.
+- [x] 5 — concluída anteriormente, sem reexecução90.
+- [x] 6 — concluída anteriormente, sem reexecução90.
+- [x] 7 — concluída anteriormente, sem reexecução90.
 - [ ] 8 — PARCIAL; três critérios acima, não dispensados hoje.
 - [ ] 9 — release restrito NÃO liberado; patchnominal pronto,identidadeprivada/adiamento8/autorização aplicação necessários.
 - [ ] 10 — PARCIAL: análise/adaptador/controle/deadline locais validados;SQL90/deploy/ready/availabilitycustos não autorizados/aplicados.
