@@ -10,6 +10,9 @@ declare module 'npm:zod@3' {
 declare module 'npm:ai@6' {
  export * from 'ai';
 }
+declare module 'npm:pdf-lib@1.17.1' {
+ export { PDFDocument } from 'pdf-lib';
+}
 declare module 'npm:@ai-sdk/openai@3' {
  export * from '@ai-sdk/openai';
 }

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useIsMobile } from "@/hooks/use-mobile";
 import DocumentAnalysisPanel from "./DocumentAnalysisPanel";
+import { prepareDataEntryScannerFile } from "@/lib/data-entry-scanner-file";
 import { applyAnalysisCandidate } from "@/lib/data-entry-analysis";
 import {
   edgeDataEntryAdapter, parseAmount, DataEntryError,
@@ -16,7 +17,7 @@ import {
 } from "@/lib/data-entry-client";
 
 const PENDING = ["Análise automática do documento (IA)", "Gmail e Google Drive", "Transações e grupos de fatura", "Linhas do BP e Formalidade", "Pagamentos já efetuados", "Extratos e conciliação", "Fechos de bilheteira"];
-const ACCEPT = "application/pdf,image/jpeg,image/png";
+const ACCEPT = "application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif";
 const lastKey = (c: DataEntryContext) => `de333:last:${c.user_id}:${c.company_id}`;
 const pendingKey = (c: DataEntryContext, session: string) => `de333:pending:${c.user_id}:${c.company_id}:${session}`;
 type Form = { supplier_name: string; supplier_nif: string; invoice_number: string; invoice_date: string; total: string; iva: string; customer_nif: string; payer: string; notes: string };
@@ -133,7 +134,7 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
           <span className="sr-only">Escolher documento</span>
           <input type="file" accept={ACCEPT} disabled={!!busy} className="text-sm" onChange={(e) => {
             const file = e.target.files?.[0]; if (!file) return;
-            void run("envio", async (valid, c) => { await adapter.upload(state.session.id, file, c); if (!valid()) return; const s = await adapter.session(state.session.id, c); if (valid() && s.company.id === c.company_id) setState(s); });
+            void run("envio", async (valid, c) => { const prepared = await prepareDataEntryScannerFile(file); if (!valid()) return; await adapter.upload(state.session.id, prepared, c); if (!valid()) return; const s = await adapter.session(state.session.id, c); if (valid() && s.company.id === c.company_id) setState(s); });
           }} />
         </label>
       )}
@@ -145,7 +146,7 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
         </div>
       )}
       {doc && state && context && <DocumentAnalysisPanel key={`${state.session.id}:${doc.id}:${doc.sha256}`} adapter={adapter} context={context} sessionId={state.session.id} doc={doc} enabled={analysisEnabled} locked={!!busy || !!outcome || executed} onBusy={setAnalysisBusy} onCandidate={(candidate) => {
-        setForm((f) => applyAnalysisCandidate(f, candidate)); setConfirmed(false); setPreviewValid(false);
+        setForm((f) => applyAnalysisCandidate(f, candidate, true)); setConfirmed(false); setPreviewValid(false);
       }} />}
     </section>
   );
@@ -246,7 +247,7 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
   const stateLabel = !context && !unavailable ? "A resolver sessão e empresa" : unavailable ? "Indisponível" : executed ? "Concluído" : busy ? `A tratar: ${busy}` : preview ? "Prévia pronta" : state ? "Lote aberto" : "Pronto";
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl">
+      <DialogContent className="max-w-5xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Assistente de Entrada de Dados</DialogTitle>
           <DialogDescription>Documento → dados confirmados → prévia → autorização expressa → conferência.</DialogDescription>

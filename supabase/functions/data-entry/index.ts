@@ -3,7 +3,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createHandler, type Bucket } from "./handler.ts";
 import { analyzeDocument, type AnalysisState } from "./analysis-service.ts";
 import { analysisStream } from "./analysis-stream.ts";
-import { generateDocumentAnalysis } from "../_shared/issue333-ai/provider.ts";
+import { generateScannerAnalysis } from "../_shared/scanner-analysis.ts";
 import { AnalysisError } from "../_shared/data-entry-analysis.ts";
 import { assertProviderControlAvailable, durableProviderControl, rpcControlStore } from "../_shared/issue333-ai/control.ts";
 import { boundedAnalysis } from "./analysis-deadline.ts";
@@ -51,7 +51,7 @@ Deno.serve(createHandler({
         return response.data as AnalysisState;
       },
       async download(path) { const r = await admin.storage.from("data-entry-staging").download(path); return r.error || !r.data ? null : new Uint8Array(await r.data.arrayBuffer()); },
-      generate: (data, transport) => generateDocumentAnalysis(new Request(req.url, { method: "POST", headers: req.headers, signal }), data, Deno.env.get("LOVABLE_API_KEY") ?? "", transport),
+      generate: (data, transport) => generateScannerAnalysis(data, Deno.env.get("LOVABLE_API_KEY") ?? "", transport),
     }, { ...input, signal })));
   },
   async getUser(token) {

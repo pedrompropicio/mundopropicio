@@ -9,11 +9,11 @@ export const ANALYSIS_LIMITS = { documentBytes: 5 * 1024 * 1024, messageBytes: 2
 /** Small strict wire schema: constraints are checked locally, not sent to the model. */
 export const analysisWireSchema = z.object({
   answer: z.string(),
-  fields: z.array(z.object({ field: z.string(), value: z.string().nullable(), quote: z.string().nullable(), page: z.number().nullable(), confidence: z.string(), uncertainty: z.string().nullable() }).strict()),
+  fields: z.array(z.object({ field: z.string(), value: z.string().nullable(), quote: z.string().nullable(), page: z.number().nullable(), confidence: z.string().nullable(), uncertainty: z.string().nullable() }).strict()),
   warnings: z.array(z.string()),
 }).strict();
 export type AnalysisWire = z.infer<typeof analysisWireSchema>;
-export type AnalysisCandidate = { field: AnalysisField; value: string | null; quote: string | null; page: number | null; confidence: "high" | "medium" | "low"; uncertainty: string | null; origin: "document" | "suggestion"; usable: boolean };
+export type AnalysisCandidate = { field: AnalysisField; value: string | null; quote: string | null; page: number | null; confidence: "high" | "medium" | "low" | null; uncertainty: string | null; origin: "document" | "suggestion"; usable: boolean; reviewable?: boolean };
 export type AnalysisReport = { document_id: string; document_sha256: string; company_id: string; answer: string; candidates: AnalysisCandidate[]; warnings: string[]; erp: { company_tax: string | null }; };
 export type AnalysisTurn = { role: "user" | "assistant"; text: string };
 
@@ -31,7 +31,7 @@ export function validateAnalysisReport(raw: unknown, context: { document_id: str
   if (!v.answer.trim() || v.answer.length > ANALYSIS_LIMITS.answerChars || v.fields.length > ANALYSIS_FIELDS.length || v.warnings.length > ANALYSIS_LIMITS.warnings || v.warnings.some((s) => s.length > 500)) throw new AnalysisError("A resposta excedeu os limites da análise.");
   const seen = new Set<string>();
   const candidates = v.fields.map((f): AnalysisCandidate => {
-    if (!ANALYSIS_FIELDS.some((key) => key === f.field) || seen.has(f.field) || !["high", "medium", "low"].includes(f.confidence) || (f.page !== null && (!Number.isInteger(f.page) || f.page < 1 || f.page > 10000)) || (f.quote?.length ?? 0) > ANALYSIS_LIMITS.quoteChars || (f.value?.length ?? 0) > 200 || (f.uncertainty?.length ?? 0) > 500) throw new AnalysisError("A análise contém campos ou referências inválidos.");
+    if (!ANALYSIS_FIELDS.some((key) => key === f.field) || seen.has(f.field) || !(f.confidence === null || ["high", "medium", "low"].includes(f.confidence)) || (f.page !== null && (!Number.isInteger(f.page) || f.page < 1 || f.page > 10000)) || (f.quote?.length ?? 0) > ANALYSIS_LIMITS.quoteChars || (f.value?.length ?? 0) > 200 || (f.uncertainty?.length ?? 0) > 500) throw new AnalysisError("A análise contém campos ou referências inválidos.");
     seen.add(f.field);
     const field = f.field as AnalysisField;
     const value = f.value?.trim() || null;
@@ -40,18 +40,24 @@ export function validateAnalysisReport(raw: unknown, context: { document_id: str
     if (field === "invoice_date" && value !== null && !validCivilDate(value)) usable = false;
     if (["total_amount", "iva_amount"].includes(field) && value !== null && (!/^\d+(\.\d{1,2})?$/.test(value) || !validMoney(Number(value)))) usable = false;
     if (field === "currency" && value !== "EUR") usable = false;
-    return { field, value, quote, page: f.page, confidence: f.confidence as AnalysisCandidate["confidence"], uncertainty: f.uncertainty, origin: quote ? "document" : "suggestion", usable };
+    let reviewable = value !== null;
+    if (field === "invoice_date" && value !== null && !validCivilDate(value)) reviewable = false;
+    if (["supplier_nif", "customer_nif"].includes(field) && value !== null && !/^[A-Za-z0-9 .\-/]{5,40}$/.test(value)) { reviewable = false; usable = false; }
+    if (field === "invoice_number" && value !== null && /[\x00-\x1f\x7f]/.test(value)) { reviewable = false; usable = false; }
+    if (["total_amount", "iva_amount"].includes(field) && value !== null && (!/^\d+(\.\d{1,2})?$/.test(value) || !validMoney(Number(value)))) reviewable = false;
+    if (field === "currency" && value !== "EUR") reviewable = false;
+    return { field, value, quote, page: f.page, confidence: f.confidence as AnalysisCandidate["confidence"], uncertainty: f.uncertainty, origin: quote ? "document" : "suggestion", usable, reviewable };
   });
   const total = candidates.find((c) => c.field === "total_amount");
   const iva = candidates.find((c) => c.field === "iva_amount");
   const currency = candidates.find((c) => c.field === "currency");
   const warnings = [...v.warnings];
-  if (!currency?.usable) {
+  if (!currency?.reviewable) {
     warnings.push("Moeda ausente, incerta ou diferente de EUR: confirma manualmente; os montantes não podem ser transferidos.");
-    for (const c of candidates) if (["total_amount", "iva_amount"].includes(c.field)) c.usable = false;
+    for (const c of candidates) if (["total_amount", "iva_amount"].includes(c.field)) { c.usable = false; c.reviewable = false; }
   }
   if (total?.value && iva?.value && Number(iva.value) > Number(total.value)) {
-    total.usable = false; iva.usable = false;
+    total.usable = false; iva.usable = false; total.reviewable = false; iva.reviewable = false;
     warnings.push("IVA superior ao total: revisão obrigatória, sem correção automática.");
   }
   return { document_id: context.document_id, document_sha256: context.document_sha256, company_id: context.company_id, answer: v.answer, candidates, warnings, erp: { company_tax: context.company_tax } };

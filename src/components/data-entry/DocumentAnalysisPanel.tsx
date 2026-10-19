@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { UIMessage } from "ai";
-import { FileSearch } from "lucide-react";
+import { FileSearch, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Conversation, ConversationContent } from "@/components/ai-elements/conversation";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
-import { PromptInput, PromptInputFooter, PromptInputTextarea, PromptInputSubmit } from "@/components/ai-elements/prompt-input";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import type { DataEntryAdapter, DataEntryContext, DataEntryDocument } from "@/lib/data-entry-client";
 import { parseAnalysisReport, type AnalysisReport, type AnalysisCandidate, type AnalysisTurn } from "@/lib/data-entry-analysis";
@@ -15,20 +14,18 @@ export default function DocumentAnalysisPanel({ adapter, context, sessionId, doc
   const [report, setReport] = useState<AnalysisReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [text, setText] = useState("");
   const [reviewed, setReviewed] = useState<string[]>([]);
   const controller = useRef<AbortController | null>(null);
   const alive = useRef(true);
   const section = useRef<HTMLElement | null>(null);
   useEffect(() => { alive.current = true; return () => { alive.current = false; controller.current?.abort(); }; }, []);
-  useEffect(() => { if (!busy && enabled && !locked) section.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus(); }, [busy, enabled, locked]);
   const analyze = async (question: string) => {
     if (!enabled || locked || controller.current || !adapter.analyze) return;
     const history: AnalysisTurn[] = messages.map((m) => ({ role: m.role === "user" ? "user" : "assistant", text: m.parts.filter((p) => p.type === "text").map((p) => p.type === "text" ? p.text : "").join("") }));
     if (history.length > 8) { setError("Limite desta conversa atingido. Continua pela revisão manual."); return; }
     const abort = new AbortController(); controller.current = abort;
     setBusy(true); onBusy(true); setError(null); setReport(null); setReviewed([]);
-    setMessages((old) => [...old, { id: crypto.randomUUID(), role: "user", parts: [{ type: "text", text: question }] }]); setText("");
+    setMessages((old) => [...old, { id: crypto.randomUUID(), role: "user", parts: [{ type: "text", text: question }] }]);
     try {
       const result = parseAnalysisReport(await adapter.analyze(sessionId, doc.id, question, history, context, abort.signal));
       if (!alive.current || abort.signal.aborted) return;
@@ -51,16 +48,14 @@ export default function DocumentAnalysisPanel({ adapter, context, sessionId, doc
       {report.warnings.map((w, i) => <p key={i} className="text-warning">{w}</p>)}
       {report.candidates.map((c) => <div key={c.field} className="border-b border-border pb-2 space-y-1">
         <div className="font-medium">{LABELS[c.field]}: {c.value ?? "não encontrado"}</div>
-        <p className="text-muted-foreground">{c.origin === "document" ? "Documento — referência sugerida pelo analista" : "Sugestão, sem trecho documental"}{c.page ? ` · página ${c.page}` : ""} · confiança {c.confidence === "high" ? "alta" : c.confidence === "medium" ? "média" : "baixa"}</p>
+        <p className="text-muted-foreground">{c.origin === "document" ? "Documento — referência sugerida pelo analista" : "Scanner sem trecho documental; confirma no documento"}{c.page ? ` · página ${c.page}` : ""}{c.confidence ? ` · confiança ${c.confidence === "high" ? "alta" : c.confidence === "medium" ? "média" : "baixa"}` : " · sem confiança por campo"}</p>
         {c.quote && <blockquote className="border-l-2 border-border pl-2 break-words">{c.quote}</blockquote>}
         {c.uncertainty && <p className="text-warning">{c.uncertainty}</p>}
-        {c.field !== "currency" && <Button size="sm" variant="ghost" disabled={!c.usable || busy || locked} onClick={() => { onCandidate(c); setReviewed((old) => [...old.filter((key) => key !== c.field), c.field]); }}>Revi e usar {LABELS[c.field].toLowerCase()}</Button>}
+        {c.field !== "currency" && <Button size="sm" variant="ghost" type="button" disabled={!(c.reviewable ?? c.usable) || busy || locked} onClick={() => { onCandidate(c); setReviewed((old) => [...old.filter((key) => key !== c.field), c.field]); }}>Revi e usar {LABELS[c.field].toLowerCase()}</Button>}
+        {c.field !== "currency" && !(c.reviewable ?? c.usable) && <p className="text-warning">Campo ausente ou inválido; preenche e confirma manualmente nos dados da fatura.</p>}
         {reviewed.includes(c.field) && <p className="text-success">Confirmado por ti na revisão; aguarda a prévia.</p>}
       </div>)}
     </div>}
-    {enabled && <PromptInput onSubmit={({ text: value }) => analyze(value)}>
-      <PromptInputTextarea value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} placeholder="Pergunta sobre este documento…" aria-label="Pergunta documental" disabled={locked || busy} />
-      <PromptInputFooter className="justify-end"><PromptInputSubmit aria-label={busy ? "Parar análise" : "Enviar pergunta"} status={busy ? "streaming" : "ready"} disabled={!busy && (!text.trim() || locked)} onStop={() => controller.current?.abort()} /></PromptInputFooter>
-    </PromptInput>}
+    {busy && <Button type="button" size="sm" variant="outline" onClick={() => controller.current?.abort()}><Square className="size-4" />Parar análise</Button>}
   </section>;
 }

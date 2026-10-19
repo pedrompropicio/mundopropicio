@@ -1,7 +1,7 @@
 # #333 phase10
-- Read-only analysis uses analysis-service/analysis-stream, a pure validated candidate contract and server-only SDK6 Responses helpers; human review alone feeds the existing preview writer, so model output cannot authorize effects.
+- Read-only analysis uses analysis-service/analysis-stream, the shared scanner extraction adapter and pure candidate contract; human review alone feeds the existing preview writer, so model output cannot authorize effects.
 - Analysis and provider readiness remain independently closed until durable provider denial/pause handling and external availability are reviewed; preparation/execute capability never activates analysis.
-- Session-only conversation uses SDK streams and AI Elements; there is no new thread storage or model tool catalog.
-- The analysis provider has no UI response factory and captures SDK errors privately into fixed public status messages; this prevents reasoning and raw request metadata leakage through SDK defaults.
+- Session-only scanner results use SDK UI streams and AI Elements; there is no new thread storage or model tool catalog.
+- The scanner adapter returns only validated candidates and fixed public errors; citations, pages and field confidence absent from the engine stay absent. Historical Responses helpers are not on the active entry path.
 - Provider calls require the singleton PostgreSQL control adapter; exact claim/revision fence transport and completion across isolates, while uncertain POST outcomes remain blocked without lease expiry. The candidate SQL remains inert until separately reviewed and applied.
 - Analysis has a server-owned bounded abort signal forwarded to SDK and durable control; deadline or Stop after POST remains uncertain, never a zero-cost promise or automatic retry.
