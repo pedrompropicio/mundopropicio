@@ -1,3 +1,4 @@
+// @vitest-environment node
 // capi-v2-send (#322 opção A) — testes herméticos, sem rede real nem Cloud.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
