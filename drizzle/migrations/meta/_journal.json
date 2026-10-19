@@ -1408,6 +1408,13 @@
       "when": 1792376020195,
       "tag": "0200_capi_v2_consent_events",
       "breakpoints": true
+    },
+    {
+      "idx": 201,
+      "version": "7",
+      "when": 1792378799016,
+      "tag": "0201_capi_v2_coala_lead_only",
+      "breakpoints": true
     }
   ]
 }
