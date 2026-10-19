@@ -7,6 +7,10 @@ export const BACKOFF_MINUTES = [1, 5, 15, 60, 180];
 export const MAX_ATTEMPTS = 5;
 export const MAX_AGE_DAYS = 6;
 export const BATCH_SIZE = 100;
+export const DEFAULT_TOKEN_SECRET = "META_CAPI_ACCESS_TOKEN";
+// Erros de configuração/permissão da Graph: os eventos NÃO são queimados —
+// ficam em retry daqui a 60 min sem consumir tentativas e o pixel pára nessa execução.
+export const CONFIG_RETRY_MINUTES = 60;
 
 export type CapiV2Row = {
   id: string;
@@ -72,7 +76,17 @@ export function nextBackoff(attemptsAfterFail: number, now: Date): string | null
 export type GraphOutcome =
   | { kind: "ok"; fbtrace_id: string | null }
   | { kind: "transient"; http_status: number | null; error_code: string }
-  | { kind: "terminal"; http_status: number; error_code: string; fbtrace_id: string | null };
+  | { kind: "config"; http_status: number; error_code: string; error_subcode: string | null; message: string | null; fbtrace_id: string | null }
+  | { kind: "terminal"; http_status: number; error_code: string; error_subcode: string | null; message: string | null; fbtrace_id: string | null };
+
+/** Erros de configuração/permissão da Graph (não queimam eventos). */
+export function isConfigError(code: number | null, subcode: number | null): boolean {
+  if (code == null) return false;
+  if (code === 100 && subcode === 33) return true; // objeto inexistente/sem permissões (token sem acesso ao pixel)
+  if (code === 190 || code === 10) return true; // token inválido/expirado; permissão insuficiente
+  if (code >= 200 && code <= 299) return true; // permissões
+  return false;
+}
 
 /** Classifica a resposta SÍNCRONA do Graph. events_received tem de igualar o nº enviado. */
 export function classifyGraphResponse(status: number, parsed: any, sentCount: number): GraphOutcome {
@@ -81,15 +95,23 @@ export function classifyGraphResponse(status: number, parsed: any, sentCount: nu
     if (parsed && Number(parsed.events_received) === sentCount && !parsed.error) {
       return { kind: "ok", fbtrace_id: fbtrace };
     }
-    return { kind: "terminal", http_status: status, error_code: "events_received_mismatch", fbtrace_id: fbtrace };
+    return { kind: "terminal", http_status: status, error_code: "events_received_mismatch", error_subcode: null, message: null, fbtrace_id: fbtrace };
   }
   const err = parsed?.error;
+  const codeNum = err?.code != null ? Number(err.code) : null;
+  const subNum = err?.error_subcode != null ? Number(err.error_subcode) : null;
   const code = err?.code != null ? String(err.code) : `http_${status}`;
+  const subcode = subNum != null && Number.isFinite(subNum) ? String(subNum) : null;
+  const message = typeof err?.message === "string" ? err.message.slice(0, 200) : null;
   if (status === 429 || status >= 500) {
     return { kind: "transient", http_status: status, error_code: code };
   }
-  // 4xx de validação/permissão (inclui token sem acesso ao pixel) → terminal, com alerta.
-  return { kind: "terminal", http_status: status, error_code: code, fbtrace_id: fbtrace };
+  // Configuração/permissão (ex.: token sem acesso ao pixel) → NÃO terminal: retry sem consumir tentativas.
+  if (isConfigError(codeNum, subNum)) {
+    return { kind: "config", http_status: status, error_code: code, error_subcode: subcode, message, fbtrace_id: fbtrace };
+  }
+  // Restantes 4xx de validação do payload → terminal, com alerta.
+  return { kind: "terminal", http_status: status, error_code: code, error_subcode: subcode, message, fbtrace_id: fbtrace };
 }
 
 /** user_data SEM PII: em/ph já vêm hasheados; Newgang sem anuncios-v1 chega sem em/ph. */
@@ -160,11 +182,11 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-async function loadCapiToken(env: (k: string) => string | undefined, sb: SbLike): Promise<string | null> {
-  const envTok = env("META_CAPI_ACCESS_TOKEN");
+async function loadCapiToken(env: (k: string) => string | undefined, sb: SbLike, secretName: string): Promise<string | null> {
+  const envTok = env(secretName);
   if (envTok) return envTok;
   try {
-    const { data, error } = await sb.rpc("get_vault_secret", { _name: "META_CAPI_ACCESS_TOKEN" });
+    const { data, error } = await sb.rpc("get_vault_secret", { _name: secretName });
     if (error || data == null) return null;
     return typeof data === "string" ? data : String(data);
   } catch {
@@ -299,26 +321,30 @@ export function createHandler(deps: Deps) {
     // ---- health: valida configuração sem enviar nada ----
     if (action === "health") {
       const { data: targets } = await sb.from("capi_v2_targets").select("*");
-      const token = await loadCapiToken(env, sb);
       const counts: Record<string, number> = {};
       for (const st of ["pending", "sent", "retry", "failed_terminal", "expired", "skipped_no_consent"]) {
         const { count } = await sb.from("capi_v2_events").select("id", { count: "exact", head: true }).eq("status", st);
         counts[st] = count ?? 0;
       }
-      return json({
-        ok: true,
-        suspended,
-        token_present: token != null,
-        targets: (targets ?? []).map((t: any) => ({
+      const targetOut: unknown[] = [];
+      let defaultPresent = false;
+      for (const t of targets ?? []) {
+        const secretName = typeof t.token_secret_name === "string" && t.token_secret_name.trim()
+          ? t.token_secret_name.trim() : DEFAULT_TOKEN_SECRET;
+        const tok = await loadCapiToken(env, sb, secretName);
+        if (secretName === DEFAULT_TOKEN_SECRET) defaultPresent = tok != null;
+        targetOut.push({
           event_slug: t.event_slug, portal: t.portal, pixel_id: t.pixel_id,
           enabled: t.enabled === true, start_at_set: t.start_at != null,
+          token_secret: secretName === DEFAULT_TOKEN_SECRET ? "default" : "custom",
+          token_present: tok != null,
           // Os dois pixels estão em Business Managers diferentes (Coala BM 309116999253914,
-          // Newgang BM 661222725105902): o token pode não ter acesso aos dois; uma recusa
-          // 4xx por pixel é terminal só para esse pixel e não afeta o outro.
+          // Newgang BM 661222725105902): o token pode não ter acesso aos dois; erros de
+          // configuração/permissão param só esse pixel e não afetam o outro.
           note: "pixel_access_verified_only_on_send",
-        })),
-        counts,
-      });
+        });
+      }
+      return json({ ok: true, suspended, token_present: defaultPresent, targets: targetOut, counts });
     }
 
     // ---- dry_run: payloads que SERIAM enviados; NUNCA chama o Graph ----
@@ -348,9 +374,6 @@ export function createHandler(deps: Deps) {
       testEventCode = body.test_event_code.trim().slice(0, 50);
     }
 
-    const token = await loadCapiToken(env, sb);
-    if (!token) return json({ error: "missing_capi_token" }, 500);
-
     const limit = Math.min(Math.max(Number(body?.limit) || 50, 1), 200);
     const { data: targets } = await sb.from("capi_v2_targets").select("*");
     const targetByPixel = new Map<string, any>();
@@ -361,7 +384,15 @@ export function createHandler(deps: Deps) {
       .or(`next_attempt_at.is.null,next_attempt_at.lte.${now().toISOString()}`)
       .order("created_at", { ascending: true }).limit(limit);
 
-    const result = { sent: 0, retry: 0, failed_terminal: 0, expired: 0, skipped_no_consent: 0, refused_targets: 0, alerts: 0, batches: 0 };
+    const result = { sent: 0, retry: 0, failed_terminal: 0, expired: 0, skipped_no_consent: 0, refused_targets: 0, config_blocked: 0, alerts: 0, batches: 0 };
+    const pixels: Record<string, { last_error: { code: string; subcode: string | null; message: string | null } | null }> = {};
+    const tokenCache = new Map<string, string | null>();
+    const tokenFor = async (t: any): Promise<string | null> => {
+      const name = typeof t?.token_secret_name === "string" && t.token_secret_name.trim()
+        ? t.token_secret_name.trim() : DEFAULT_TOKEN_SECRET;
+      if (!tokenCache.has(name)) tokenCache.set(name, await loadCapiToken(env, sb, name));
+      return tokenCache.get(name) ?? null;
+    };
 
     // Agrupa por pixel: 1 pixel por pedido, lotes ≤ 100.
     const byPixel = new Map<string, { row: CapiV2Row; event: Record<string, unknown> }[]>();
@@ -383,7 +414,17 @@ export function createHandler(deps: Deps) {
     }
 
     for (const [pixelId, items] of byPixel) {
-      for (let i = 0; i < items.length; i += BATCH_SIZE) {
+      const t = targetByPixel.get(pixelId);
+      const token = await tokenFor(t);
+      if (!token) {
+        // Segredo em falta (por target ou por omissão): recusa o pixel SEM queimar eventos nem chamar a Graph.
+        result.config_blocked += items.length;
+        pixels[pixelId] = { last_error: { code: "missing_capi_token_for_target", subcode: null, message: null } };
+        continue;
+      }
+      pixels[pixelId] = { last_error: null };
+      let pixelStopped = false;
+      for (let i = 0; i < items.length && !pixelStopped; i += BATCH_SIZE) {
         const batch = items.slice(i, i + BATCH_SIZE);
         result.batches++;
         const metaBody: Record<string, unknown> = {
@@ -405,6 +446,29 @@ export function createHandler(deps: Deps) {
           outcome = classifyGraphResponse(resp.status, parsed, batch.length);
         } catch (e) {
           outcome = { kind: "transient", http_status: null, error_code: "network" };
+        }
+
+        if (outcome.kind === "config") {
+          // Configuração/permissão: eventos ficam em retry daqui a 60 min SEM consumir tentativas;
+          // UM alerta por pixel e por execução; o processamento deste pixel pára nesta execução.
+          result.config_blocked += batch.length;
+          pixels[pixelId] = { last_error: { code: outcome.error_code, subcode: outcome.error_subcode, message: outcome.message } };
+          const retryAt = new Date(now().getTime() + CONFIG_RETRY_MINUTES * 60_000).toISOString();
+          for (const b of batch) {
+            await sb.from("capi_v2_events").update({
+              status: "retry", next_attempt_at: retryAt,
+              http_status: outcome.http_status, error_code: outcome.error_code,
+            }).eq("id", b.row.id).in("status", ["pending", "retry"]);
+          }
+          const a = await sb.from("capi_alerts").insert({
+            source: "capi-v2-send", lead_id: null, kind: "capi_v2_config",
+            meta_code: outcome.http_status,
+            meta_subcode: outcome.error_subcode != null ? Number(outcome.error_subcode) : null,
+            detail: `pixel=${pixelId} code=${outcome.error_code} subcode=${outcome.error_subcode ?? "n/a"} msg=${outcome.message ?? "n/a"} fbtrace=${outcome.fbtrace_id ?? "n/a"}`.slice(0, 300),
+          });
+          if (!a?.error) result.alerts++;
+          pixelStopped = true;
+          continue;
         }
 
         for (const b of batch) {
@@ -430,15 +494,17 @@ export function createHandler(deps: Deps) {
             }
           } else {
             result.failed_terminal++;
+            pixels[pixelId] = { last_error: { code: outcome.error_code, subcode: outcome.error_subcode, message: outcome.message } };
             await sb.from("capi_v2_events").update({
               status: "failed_terminal", attempts: b.row.attempts + 1,
               http_status: outcome.http_status, error_code: outcome.error_code, fbtrace_id: outcome.fbtrace_id,
             }).eq("id", b.row.id).in("status", ["pending", "retry"]);
-            // Alerta sem PII: pixel, código e fbtrace apenas.
+            // Alerta sem PII: pixel, código, subcódigo, mensagem truncada e fbtrace.
             const a = await sb.from("capi_alerts").insert({
               source: "capi-v2-send", lead_id: null, kind: "capi_v2_terminal",
-              meta_code: outcome.http_status, meta_subcode: null,
-              detail: `pixel=${pixelId} code=${outcome.error_code} fbtrace=${outcome.fbtrace_id ?? "n/a"}`.slice(0, 300),
+              meta_code: outcome.http_status,
+              meta_subcode: outcome.error_subcode != null ? Number(outcome.error_subcode) : null,
+              detail: `pixel=${pixelId} code=${outcome.error_code} subcode=${outcome.error_subcode ?? "n/a"} msg=${outcome.message ?? "n/a"} fbtrace=${outcome.fbtrace_id ?? "n/a"}`.slice(0, 300),
             });
             if (!a?.error) result.alerts++;
           }
@@ -446,6 +512,6 @@ export function createHandler(deps: Deps) {
       }
     }
 
-    return json({ ok: true, suspended, test_mode: testEventCode != null, ...result });
+    return json({ ok: true, suspended, test_mode: testEventCode != null, ...result, pixels });
   };
 }

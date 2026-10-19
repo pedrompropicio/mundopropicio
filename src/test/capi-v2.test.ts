@@ -91,6 +91,7 @@ type FakeOpts = {
   newgangAdsOk?: boolean;
   graphResponses?: Array<{ status: number; body: any }>;
   graphThrow?: boolean;
+  secrets?: Record<string, string | null>;
 };
 
 function fakeSb(o: FakeOpts) {
@@ -102,7 +103,11 @@ function fakeSb(o: FakeOpts) {
       if (fn === "capi_dispatch_allowed") return { data: o.dispatchAllowed !== false, error: null };
       if (fn === "marketing_consent_binding_valid") return { data: o.bindingValid !== false, error: null };
       if (fn === "capi_v2_newgang_ads_ok") return { data: o.newgangAdsOk === true, error: null };
-      if (fn === "get_vault_secret") return { data: "tok", error: null };
+      if (fn === "get_vault_secret") {
+        const name = String(args?._name ?? "");
+        if (o.secrets && name in o.secrets) return { data: o.secrets[name], error: null };
+        return { data: "tok", error: null };
+      }
       return { data: null, error: null };
     },
     from: (table: string) => {
@@ -189,13 +194,22 @@ describe("helpers puros", () => {
     expect(isOlderThanMaxAge("2026-10-12T01:59:00Z", NOW)).toBe(true);
     expect(isOlderThanMaxAge("2026-10-18T00:00:00Z", NOW)).toBe(false);
   });
-  it("classifica 200 ok, 200 mismatch terminal, 429/5xx transient, 4xx terminal", () => {
+  it("classifica 200 ok, 200 mismatch terminal, 429/5xx transient, 4xx validação terminal", () => {
     expect(classifyGraphResponse(200, { events_received: 2, fbtrace_id: "f" }, 2)).toEqual({ kind: "ok", fbtrace_id: "f" });
     expect(classifyGraphResponse(200, { events_received: 1 }, 2).kind).toBe("terminal");
     expect(classifyGraphResponse(429, { error: { code: 17 } }, 1).kind).toBe("transient");
     expect(classifyGraphResponse(500, null, 1).kind).toBe("transient");
-    const t = classifyGraphResponse(403, { error: { code: 200 }, fbtrace_id: "fx" }, 1);
-    expect(t).toEqual({ kind: "terminal", http_status: 403, error_code: "200", fbtrace_id: "fx" });
+    const t = classifyGraphResponse(400, { error: { code: 100, error_subcode: 99, message: "bad field" }, fbtrace_id: "fx" }, 1);
+    expect(t).toEqual({ kind: "terminal", http_status: 400, error_code: "100", error_subcode: "99", message: "bad field", fbtrace_id: "fx" });
+  });
+  it("erros de configuração/permissão (100/33, 190, 10, 200–299) → config, nunca terminal", () => {
+    for (const [code, sub] of [[100, 33], [190, null], [10, null], [200, null], [250, null], [299, null]] as const) {
+      const o = classifyGraphResponse(400, { error: { code, error_subcode: sub, message: "m", fbtrace_id: "f" } }, 1);
+      expect(o.kind).toBe("config");
+    }
+    // 100 sem subcode 33 continua terminal (validação de payload).
+    expect(classifyGraphResponse(400, { error: { code: 100, error_subcode: 1 } }, 1).kind).toBe("terminal");
+    expect(classifyGraphResponse(400, { error: { code: 100 } }, 1).kind).toBe("terminal");
   });
 });
 
@@ -321,18 +335,69 @@ describe("handler", () => {
     expect(j2.failed_terminal).toBe(1);
     expect(f2.updates[0].patch.status).toBe("failed_terminal");
   });
-  it("403 (token sem acesso ao pixel) → failed_terminal + alerta sem PII", async () => {
+  it("400 validação de payload (100 sem subcode 33) → failed_terminal + alerta com subcode e msg truncada", async () => {
     const { h, updates, alerts } = makeHandler({
       events: [row()], leads: { l1: leadCapture() },
       targets: [{ event_slug: "s", pixel_id: PIXEL_COALA, enabled: true, start_at: "2026-09-01" }],
-      graphResponses: [{ status: 403, body: { error: { code: 200 }, fbtrace_id: "fx" } }],
+      graphResponses: [{ status: 400, body: { error: { code: 100, error_subcode: 99, message: "x".repeat(500) }, fbtrace_id: "fx" } }],
     });
     const j = await (await h(post({ action: "send" }))).json();
     expect(j.failed_terminal).toBe(1);
     expect(j.alerts).toBe(1);
     expect(updates[0].patch.status).toBe("failed_terminal");
-    expect(alerts[0].detail).toContain("pixel=");
+    expect(alerts[0].meta_subcode).toBe(99);
+    expect(alerts[0].detail).toContain("subcode=99");
+    expect(alerts[0].detail.length).toBeLessThanOrEqual(300);
+    expect(alerts[0].detail).not.toContain("x".repeat(201)); // msg truncada a 200
     expect(JSON.stringify(alerts)).not.toContain("Ana@Example.com");
+    expect(j.pixels[PIXEL_COALA].last_error).toEqual({ code: "100", subcode: "99", message: "x".repeat(200) });
+  });
+  it("Graph 400 code 100 subcode 33 (token sem acesso ao pixel) → retry a 60 min SEM consumir tentativas, 1 alerta, pixel pára", async () => {
+    const { h, updates, alerts, graphCalls } = makeHandler({
+      events: [row({ id: "r1" }), row({ id: "r2", event_id: "evt-2" })], leads: { l1: leadCapture() },
+      targets: [{ event_slug: "s", pixel_id: PIXEL_COALA, enabled: true, start_at: "2026-09-01" }],
+      graphResponses: [{ status: 400, body: { error: { code: 100, error_subcode: 33, message: "Object does not exist, cannot be loaded due to missing permissions" }, fbtrace_id: "fx" } }],
+    });
+    const j = await (await h(post({ action: "send" }))).json();
+    expect(j.failed_terminal).toBe(0);
+    expect(j.config_blocked).toBe(2);
+    expect(j.alerts).toBe(1); // UM alerta por pixel e por execução
+    expect(alerts[0].kind).toBe("capi_v2_config");
+    expect(alerts[0].meta_subcode).toBe(33);
+    expect(alerts[0].detail).toContain("subcode=33");
+    expect(alerts[0].detail).toContain("missing permissions");
+    for (const u of updates) {
+      expect(u.patch.status).toBe("retry");
+      expect(u.patch.attempts).toBeUndefined(); // não consome tentativas
+      expect(u.patch.next_attempt_at).toBe("2026-10-19T03:00:00.000Z"); // now + 60 min
+    }
+    expect(graphCalls).toHaveLength(1); // pixel pára após o 1.º lote
+    expect(j.pixels[PIXEL_COALA].last_error.code).toBe("100");
+    expect(j.pixels[PIXEL_COALA].last_error.subcode).toBe("33");
+  });
+  it("token por target: token_secret_name definido usa esse segredo, não o por omissão", async () => {
+    const { h, graphCalls } = makeHandler({
+      events: [row()], leads: { l1: leadCapture() },
+      targets: [{ event_slug: "s", pixel_id: PIXEL_COALA, enabled: true, start_at: "2026-09-01", token_secret_name: "META_CAPI_TOKEN_COALA" }],
+      secrets: { META_CAPI_TOKEN_COALA: "tok-coala", META_CAPI_ACCESS_TOKEN: "tok-default" },
+    });
+    const j = await (await h(post({ action: "send" }))).json();
+    expect(j.sent).toBe(1);
+    expect(graphCalls[0].body.access_token).toBe("tok-coala");
+  });
+  it("token_secret_name definido mas segredo em falta → recusa o pixel SEM queimar eventos nem chamar a Graph", async () => {
+    const { h, updates, graphCalls } = makeHandler({
+      events: [row()], leads: { l1: leadCapture() },
+      targets: [{ event_slug: "s", pixel_id: PIXEL_COALA, enabled: true, start_at: "2026-09-01", token_secret_name: "META_CAPI_TOKEN_COALA" }],
+      secrets: { META_CAPI_TOKEN_COALA: null, META_CAPI_ACCESS_TOKEN: "tok-default" },
+    });
+    const j = await (await h(post({ action: "send" }))).json();
+    expect(j.config_blocked).toBe(1);
+    expect(j.sent).toBe(0);
+    expect(j.failed_terminal).toBe(0);
+    expect(graphCalls).toHaveLength(0); // nunca cai no token por omissão
+    expect(updates).toHaveLength(0); // evento intacto (pending)
+    expect(j.pixels[PIXEL_COALA].last_error.code).toBe("missing_capi_token_for_target");
   });
   it("200 com events_received === enviados → sent com fbtrace_id", async () => {
     const { h, updates, graphCalls } = makeHandler({
