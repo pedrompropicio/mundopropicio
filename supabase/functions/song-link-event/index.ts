@@ -186,6 +186,44 @@ function parseUA(ua: string) {
 const s = (v: unknown, max = 500): string | null =>
   typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null;
 
+// AJ19: reserva atómica do slot de entrega (INSERT ... ON CONFLICT DO NOTHING
+// RETURNING via upsert ignoreDuplicates). Quem não ganha o slot não entrega.
+// deno-lint-ignore no-explicit-any
+async function reserveSlot(admin: any, arrivalId: string, provider: string, eventName: string, rowId: string): Promise<boolean> {
+  const { data, error } = await admin.from("song_link_delivery_slots")
+    .upsert({ arrival_event_id: arrivalId, provider, event_name: eventName, reserved_by: rowId },
+      { onConflict: "arrival_event_id,provider,event_name", ignoreDuplicates: true })
+    .select("arrival_event_id");
+  if (error) {
+    console.warn("[song-link-event] slot falhou", error.message);
+    return false; // falha fechada: sem prova de slot, não entrega
+  }
+  return Array.isArray(data) && data.length > 0;
+}
+// Resultado da entrega no mesmo slot; nunca gera um ID novo.
+// deno-lint-ignore no-explicit-any
+async function finishSlot(admin: any, arrivalId: string, provider: string, eventName: string, status: "delivered" | "failed" | "unknown") {
+  const { error } = await admin.from("song_link_delivery_slots")
+    .update({ status, delivered_at: status === "delivered" ? new Date().toISOString() : null })
+    .eq("arrival_event_id", arrivalId).eq("provider", provider).eq("event_name", eventName);
+  if (error) console.warn("[song-link-event] slot update falhou", error.message);
+}
+// AJ19 dedup ViewContent: outra chegada do mesmo link com a mesma chave nos
+// últimos 30 min (lag). Falha na consulta não bloqueia o envio.
+// deno-lint-ignore no-explicit-any
+async function recentDuplicate(admin: any, linkId: string, col: "fbclid" | "ttclid", val: string, excludeId: string): Promise<boolean> {
+  const since = new Date(Date.now() - VIEWCONTENT_DEDUP_WINDOW_MS).toISOString();
+  const { data, error } = await admin.from("song_link_events").select("created_at")
+    .eq("link_id", linkId).eq("event", "arrival").eq(col, val)
+    .gte("created_at", since).neq("id", excludeId)
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (error) {
+    console.warn("[song-link-event] dedup falhou", error.message);
+    return false;
+  }
+  return isDuplicateArrival(data?.created_at ?? null, Date.now());
+}
+
 // D-ERP234 adenda 3: uma linha estruturada por pedido (slug, ssr/browser, resultado,
 // família de UA) para contar perdas; sem IP nem tokens.
 function uaFamily(ua: string): string {
