@@ -822,3 +822,6 @@ verify_jwt = true
 
 [functions.capi-v2-send]
 verify_jwt = true
+
+[functions.ugc-ios-reading-watchdog]
+verify_jwt = true
