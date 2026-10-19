@@ -1,6 +1,7 @@
 import { createOpenAI } from "npm:@ai-sdk/openai@3";
 import { streamText, Output, type ModelMessage } from "npm:ai@6";
 import { analysisWireSchema, ANALYSIS_LIMITS } from "../data-entry-analysis.ts";
+import type { TransportLifecycle } from "./control.ts";
 
 import {
   createLovableAiGatewayRunIdFetch,
@@ -12,13 +13,20 @@ export function createResponsesCall(
   config: { baseURL: string; apiKey: string; model: string },
   messages: ModelMessage[],
   instructions?: string,
+  transport?: TransportLifecycle,
 ) {
   const runIdFetch = createLovableAiGatewayRunIdFetch(getLovableAiGatewayRunId(request));
   const provider = createOpenAI({
     baseURL: `${config.baseURL.replace(/\/+$/, "").replace(/\/v1$/, "")}/v1`,
     apiKey: config.apiKey,
     headers: { "Lovable-API-Key": config.apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
-    fetch: runIdFetch.fetch,
+    fetch: async (input, init) => {
+      // Await durable fencing before any external POST. No retry/fallback path.
+      if (transport) await transport.beforePost();
+      const response = await runIdFetch.fetch(input, init);
+      transport?.received(response.status);
+      return response;
+    },
   });
   const reasoning = config.model !== "openai/chat-latest";
   let upstreamError: unknown;

@@ -5,6 +5,7 @@ import { analyzeDocument, type AnalysisState } from "./analysis-service.ts";
 import { analysisStream } from "./analysis-stream.ts";
 import { generateDocumentAnalysis } from "../_shared/issue333-ai/provider.ts";
 import { AnalysisError } from "../_shared/data-entry-analysis.ts";
+import { durableProviderControl, rpcControlStore } from "../_shared/issue333-ai/control.ts";
 
 const url = Deno.env.get("SUPABASE_URL") ?? "";
 const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -13,7 +14,7 @@ const opts = { auth: { persistSession: false, autoRefreshToken: false } };
 const admin = createClient(url, service, opts);
 const asUser = (token: string) => createClient(url, anon, { ...opts, global: { headers: { Authorization: `Bearer ${token}` } } });
 const ANALYSIS_ENABLED = false;
-// No durable provider-denial/pause ledger configured for #333 yet. Never infer readiness from a key.
+// Task87 candidate is local/inert, not applied or reviewed in Cloud. Key presence never activates it.
 const ANALYSIS_PROVIDER_REVIEWED = false;
 
 Deno.serve(createHandler({
@@ -28,6 +29,10 @@ Deno.serve(createHandler({
     const client = asUser(token);
     return analysisStream(req, corsHeaders, () => analyzeDocument({
       enabled: ANALYSIS_ENABLED, providerReady: ANALYSIS_PROVIDER_REVIEWED,
+      control: durableProviderControl(rpcControlStore(async (name, args) => {
+        const result = await admin.rpc(name, args);
+        return { data: result.data, error: result.error };
+      })),
       async scope() {
         const verified = await admin.auth.getUser(token);
         const effective = await client.rpc("my_effective_permissions", { p_universe: [] });
@@ -41,7 +46,7 @@ Deno.serve(createHandler({
         return response.data as AnalysisState;
       },
       async download(path) { const r = await admin.storage.from("data-entry-staging").download(path); return r.error || !r.data ? null : new Uint8Array(await r.data.arrayBuffer()); },
-      generate: (data) => generateDocumentAnalysis(req, data, Deno.env.get("LOVABLE_API_KEY") ?? ""),
+      generate: (data, transport) => generateDocumentAnalysis(req, data, Deno.env.get("LOVABLE_API_KEY") ?? "", transport),
     }, { ...input, signal: req.signal }));
   },
   async getUser(token) {
