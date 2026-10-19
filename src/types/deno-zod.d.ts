@@ -6,3 +6,10 @@ declare module 'npm:zod@3.23.8' {
 declare module 'npm:zod@3' {
  export { z } from 'zod';
 }
+// Real SDK types for server modules exercised by local tests; no any shims.
+declare module 'npm:ai@6' {
+ export * from 'ai';
+}
+declare module 'npm:@ai-sdk/openai@3' {
+ export * from '@ai-sdk/openai';
+}

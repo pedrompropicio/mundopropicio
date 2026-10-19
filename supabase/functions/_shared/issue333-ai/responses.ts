@@ -21,6 +21,7 @@ export function createResponsesCall(
     fetch: runIdFetch.fetch,
   });
   const reasoning = config.model !== "openai/chat-latest";
+  let upstreamError: unknown;
   const result = streamText({
     model: provider.responses(config.model),
     // AI SDK 6 lacks `instructions`: rename this key to `system` there.
@@ -28,6 +29,9 @@ export function createResponsesCall(
     messages,
     abortSignal: request.signal,
     maxRetries: 0,
+    // SDK defaults to console.error(raw error) and output may reject with NoOutputGeneratedError.
+    // Retain original status privately; never log request bodies or provider errors.
+    onError: ({ error }) => { upstreamError = error; },
     maxOutputTokens: ANALYSIS_LIMITS.outputTokens,
     output: Output.object({ schema: analysisWireSchema }),
     providerOptions: {
@@ -45,5 +49,5 @@ export function createResponsesCall(
     },
   });
   // Server-only result. No UI response factory: reasoning/metadata cannot be forwarded accidentally.
-  return { result };
+  return { result, getUpstreamError: () => upstreamError };
 }

@@ -49,6 +49,8 @@ export async function generateDocumentAnalysis(request: Request, input: { bytes:
   }
   catch (error) {
     if (request.signal.aborted) throw new AnalysisError("Análise cancelada.", 499);
+    const upstream = call.getUpstreamError();
+    if (upstream !== undefined) throw safeProviderError(upstream);
     if (NoObjectGeneratedError.isInstance(error)) {
       // A malformed successful response must not crash or become a billed retry.
       try { return JSON.parse(error.text ?? ""); } catch { throw new AnalysisError("A análise não devolveu campos válidos. Revê manualmente."); }
