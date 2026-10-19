@@ -1,5 +1,7 @@
 // capi-v2-send (#322 opção A) — testes herméticos, sem rede real nem Cloud.
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { PGlite } from "@electric-sql/pglite";
 import {
   buildGraphEvent, buildUserData, classifyGraphResponse, createHandler,
   isOlderThanMaxAge, nextBackoff, normEmail, normPhone, sha256Hex, sourceUrl,
@@ -9,6 +11,55 @@ import {
 const NOW = new Date("2026-10-19T02:00:00Z");
 const PIXEL_COALA = "1142136723579970";
 const PIXEL_NG = "1158654246468410";
+
+describe("0201 — enfileiramento PostgreSQL offline", () => {
+  const db = new PGlite();
+  type Queued = { source_table: string; pixel_id: string; event_name: string; event_id: string };
+  let queued: Queued[] = [];
+  beforeAll(async () => {
+    // Base exclusivamente em memória: não usa cliente Cloud, credenciais ou rede.
+    await db.exec(`
+      CREATE TABLE capi_v2_targets (event_slug text, portal text, pixel_id text, enabled boolean, start_at timestamptz);
+      CREATE TABLE lead_capture (id uuid, client_event_id uuid, event_slug text, consent_event_id bigint, created_at timestamptz, email text);
+      CREATE TABLE club_members (id uuid, member_no integer, email text, confirmed_at timestamptz);
+      CREATE TABLE capi_v2_events (source_table text, source_id text, pixel_id text, event_name text, event_id text,
+        UNIQUE (pixel_id, event_name, event_id));
+      INSERT INTO capi_v2_targets VALUES
+        ('coala', 'coala', '${PIXEL_COALA}', true, now() - interval '2 days'),
+        ('newgang', 'newgang', '${PIXEL_NG}', true, now() - interval '2 days');
+      INSERT INTO lead_capture VALUES
+        ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000011', 'coala', 1, now() - interval '1 hour', 'coala@example.invalid'),
+        ('00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000012', 'newgang', 2, now() - interval '1 hour', 'newgang@example.invalid');
+      INSERT INTO club_members VALUES
+        ('00000000-0000-4000-8000-000000000003', 7, 'newgang@example.invalid', now() - interval '30 minutes');
+    `);
+    await db.exec(readFileSync(new URL("../../drizzle/migrations/0201_capi_v2_coala_lead_only.sql", import.meta.url), "utf8"));
+    await db.query("SELECT capi_v2_enqueue(100)");
+    queued = (await db.query<Queued>("SELECT source_table, pixel_id, event_name, event_id FROM capi_v2_events ORDER BY event_name")).rows;
+  }, 30_000);
+  afterAll(async () => { await db.close(); });
+
+  it("Coala enfileira só Lead com o client_event_id, nunca CompleteRegistration", () => {
+    expect(queued.filter((e) => e.pixel_id === PIXEL_COALA)).toEqual([
+      { source_table: "lead_capture", pixel_id: PIXEL_COALA, event_name: "Lead", event_id: "00000000-0000-4000-8000-000000000011" },
+    ]);
+  });
+  it("Newgang mantém Lead + CompleteRegistration no cadastro, com o mesmo client_event_id", () => {
+    expect(queued.filter((e) => e.pixel_id === PIXEL_NG && e.source_table === "lead_capture")).toEqual([
+      { source_table: "lead_capture", pixel_id: PIXEL_NG, event_name: "CompleteRegistration", event_id: "00000000-0000-4000-8000-000000000012" },
+      { source_table: "lead_capture", pixel_id: PIXEL_NG, event_name: "Lead", event_id: "00000000-0000-4000-8000-000000000012" },
+    ]);
+  });
+  it("ClubeConfirmado mantém o event_id clube_confirmado_<member_no>", () => {
+    expect(queued.filter((e) => e.source_table === "club_members")).toEqual([
+      { source_table: "club_members", pixel_id: PIXEL_NG, event_name: "ClubeConfirmado", event_id: "clube_confirmado_7" },
+    ]);
+  });
+  it("segunda execução não duplica os quatro eventos", async () => {
+    expect((await db.query<{ added: number }>("SELECT capi_v2_enqueue(100) AS added")).rows).toEqual([{ added: 0 }]);
+    expect((await db.query<{ total: number }>("SELECT count(*)::integer AS total FROM capi_v2_events")).rows).toEqual([{ total: 4 }]);
+  });
+});
 
 function row(over: Partial<CapiV2Row> = {}): CapiV2Row {
   return {
