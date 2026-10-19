@@ -1,2 +1,3 @@
-- [ ] #333 fase11c: validar identidade Gmail própria no adapter real e isolar resultados por sessão/empresa.
-- [ ] Testes herméticos, documentação de ativação e fecho da reserva; sem deploy/DDL/ativação.
+- [x] #333 fase11c: identidade própria no adapter e isolamento de resultados por sessão/empresa.
+- [x] Testes herméticos, documentação de ativação e reserva libertada; sem deploy/DDL/ativação.
+- [ ] Ativação real bloqueada: cliente Google/Lovable ainda não configurado; SQL/gate/deploy e consentimento dependem de autorização própria.
