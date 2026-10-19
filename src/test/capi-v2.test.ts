@@ -194,13 +194,22 @@ describe("helpers puros", () => {
     expect(isOlderThanMaxAge("2026-10-12T01:59:00Z", NOW)).toBe(true);
     expect(isOlderThanMaxAge("2026-10-18T00:00:00Z", NOW)).toBe(false);
   });
-  it("classifica 200 ok, 200 mismatch terminal, 429/5xx transient, 4xx terminal", () => {
+  it("classifica 200 ok, 200 mismatch terminal, 429/5xx transient, 4xx validação terminal", () => {
     expect(classifyGraphResponse(200, { events_received: 2, fbtrace_id: "f" }, 2)).toEqual({ kind: "ok", fbtrace_id: "f" });
     expect(classifyGraphResponse(200, { events_received: 1 }, 2).kind).toBe("terminal");
     expect(classifyGraphResponse(429, { error: { code: 17 } }, 1).kind).toBe("transient");
     expect(classifyGraphResponse(500, null, 1).kind).toBe("transient");
-    const t = classifyGraphResponse(403, { error: { code: 200 }, fbtrace_id: "fx" }, 1);
-    expect(t).toEqual({ kind: "terminal", http_status: 403, error_code: "200", fbtrace_id: "fx" });
+    const t = classifyGraphResponse(400, { error: { code: 100, error_subcode: 99, message: "bad field" }, fbtrace_id: "fx" }, 1);
+    expect(t).toEqual({ kind: "terminal", http_status: 400, error_code: "100", error_subcode: "99", message: "bad field", fbtrace_id: "fx" });
+  });
+  it("erros de configuração/permissão (100/33, 190, 10, 200–299) → config, nunca terminal", () => {
+    for (const [code, sub] of [[100, 33], [190, null], [10, null], [200, null], [250, null], [299, null]] as const) {
+      const o = classifyGraphResponse(400, { error: { code, error_subcode: sub, message: "m", fbtrace_id: "f" } }, 1);
+      expect(o.kind).toBe("config");
+    }
+    // 100 sem subcode 33 continua terminal (validação de payload).
+    expect(classifyGraphResponse(400, { error: { code: 100, error_subcode: 1 } }, 1).kind).toBe("terminal");
+    expect(classifyGraphResponse(400, { error: { code: 100 } }, 1).kind).toBe("terminal");
   });
 });
 
