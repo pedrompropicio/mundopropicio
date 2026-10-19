@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useIsMobile } from "@/hooks/use-mobile";
 import DocumentAnalysisPanel from "./DocumentAnalysisPanel";
+import GmailAttachmentPicker from "./GmailAttachmentPicker";
 import { prepareDataEntryScannerFile } from "@/lib/data-entry-scanner-file";
 import { applyAnalysisCandidate } from "@/lib/data-entry-analysis";
 import {
@@ -16,7 +17,7 @@ import {
   type DataEntryContext, type DataEntryAdapter, type DataEntryFields, type DataEntryState, type ExecuteOutcome,
 } from "@/lib/data-entry-client";
 
-const PENDING = ["Análise automática do documento (IA)", "Gmail e Google Drive", "Transações e grupos de fatura", "Linhas do BP e Formalidade", "Pagamentos já efetuados", "Extratos e conciliação", "Fechos de bilheteira"];
+const PENDING = ["Análise automática do documento (IA)", "Google Drive", "Transações e grupos de fatura", "Linhas do BP e Formalidade", "Pagamentos já efetuados", "Extratos e conciliação", "Fechos de bilheteira"];
 const ACCEPT = "application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif";
 const lastKey = (c: DataEntryContext) => `de333:last:${c.user_id}:${c.company_id}`;
 const pendingKey = (c: DataEntryContext, session: string) => `de333:pending:${c.user_id}:${c.company_id}:${session}`;
@@ -47,6 +48,7 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
   const [outcome, setOutcome] = useState<ExecuteOutcome | null>(null);
   const [analysisEnabled, setAnalysisEnabled] = useState(false);
   const [analysisBusy, setAnalysisBusy] = useState(false);
+  const [gmailEnabled, setGmailEnabled] = useState(false);
   const generation = useRef(0);
   const inFlight = useRef(false);
   useLayoutEffect(() => () => { generation.current += 1; }, []);
@@ -60,6 +62,7 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
       if (!s.capabilities.upload) { setUnavailable("O envio de documentos ainda não foi ativado neste ambiente. Nada foi guardado nem lançado."); return; }
       const c = { user_id: s.user_id, company_id: s.company_id };
       setAnalysisEnabled(s.capabilities.analysis === true);
+      setGmailEnabled(s.capabilities.gmail === true);
       setContext(c); setResumeId(localStorage.getItem(lastKey(c)));
     }).catch((e) => { if (gen === generation.current) setUnavailable(e instanceof DataEntryError ? e.message : "O assistente está indisponível."); });
     return () => { generation.current += 1; };
@@ -138,6 +141,8 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
           }} />
         </label>
       )}
+      {state && !doc && context && <GmailAttachmentPicker adapter={adapter} context={context} sessionId={state.session.id} enabled={gmailEnabled} disabled={!!busy}
+        onImported={() => run("anexo do Gmail", async (valid, c) => { const s = await adapter.session(state.session.id, c); if (valid() && s.company.id === c.company_id) setState(s); })} />}
       {doc && (
         <div className="rounded-md border border-border p-2.5 text-xs space-y-1">
           <div className="font-medium break-all">{doc.name}</div>
