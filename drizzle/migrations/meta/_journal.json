@@ -1450,6 +1450,13 @@
       "when": 1792447005919,
       "tag": "0206_issue333_gmail_connections",
       "breakpoints": true
+    },
+    {
+      "idx": 207,
+      "version": "7",
+      "when": 1792447508030,
+      "tag": "0207_issue333_gmail_acl_fix",
+      "breakpoints": true
     }
   ]
 }
