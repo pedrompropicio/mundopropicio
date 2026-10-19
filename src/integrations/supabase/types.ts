@@ -16504,6 +16504,36 @@ export type Database = {
           },
         ]
       }
+      song_link_delivery_slots: {
+        Row: {
+          arrival_event_id: string
+          delivered_at: string | null
+          event_name: string
+          provider: string
+          reserved_at: string
+          reserved_by: string | null
+          status: string
+        }
+        Insert: {
+          arrival_event_id: string
+          delivered_at?: string | null
+          event_name: string
+          provider: string
+          reserved_at?: string
+          reserved_by?: string | null
+          status?: string
+        }
+        Update: {
+          arrival_event_id?: string
+          delivered_at?: string | null
+          event_name?: string
+          provider?: string
+          reserved_at?: string
+          reserved_by?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       song_link_diag: {
         Row: {
           arrival_event_id: string | null
@@ -16539,6 +16569,7 @@ export type Database = {
       }
       song_link_events: {
         Row: {
+          arrival_event_id: string | null
           artist_id: string | null
           capi_external_id: boolean | null
           capi_fbc: boolean | null
@@ -16572,6 +16603,7 @@ export type Database = {
           utm_term: string | null
         }
         Insert: {
+          arrival_event_id?: string | null
           artist_id?: string | null
           capi_external_id?: boolean | null
           capi_fbc?: boolean | null
@@ -16605,6 +16637,7 @@ export type Database = {
           utm_term?: string | null
         }
         Update: {
+          arrival_event_id?: string | null
           artist_id?: string | null
           capi_external_id?: boolean | null
           capi_fbc?: boolean | null
