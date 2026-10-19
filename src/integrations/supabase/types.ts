@@ -19500,6 +19500,107 @@ export type Database = {
           },
         ]
       }
+      ugc_watchdog_config: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          label: string
+          recipient_phone: string
+          song_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label: string
+          recipient_phone: string
+          song_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label?: string
+          recipient_phone?: string
+          song_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ugc_watchdog_config_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: true
+            referencedRelation: "artist_songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ugc_watchdog_config_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: true
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "ugc_watchdog_config_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: true
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["song_id"]
+          },
+        ]
+      }
+      ugc_watchdog_log: {
+        Row: {
+          check_date: string
+          created_at: string
+          id: string
+          sent_at: string | null
+          song_id: string
+          status: string
+        }
+        Insert: {
+          check_date: string
+          created_at?: string
+          id?: string
+          sent_at?: string | null
+          song_id: string
+          status: string
+        }
+        Update: {
+          check_date?: string
+          created_at?: string
+          id?: string
+          sent_at?: string | null
+          song_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ugc_watchdog_log_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "artist_songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ugc_watchdog_log_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_content"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "ugc_watchdog_log_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "v_song_ugc_benchmark"
+            referencedColumns: ["song_id"]
+          },
+        ]
+      }
       undo_actions: {
         Row: {
           action_type: string
