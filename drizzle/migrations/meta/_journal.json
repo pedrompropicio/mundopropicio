@@ -1415,6 +1415,13 @@
       "when": 1792378799016,
       "tag": "0201_capi_v2_coala_lead_only",
       "breakpoints": true
+    },
+    {
+      "idx": 202,
+      "version": "7",
+      "when": 1792380946184,
+      "tag": "0202_capi_v2_target_token",
+      "breakpoints": true
     }
   ]
 }

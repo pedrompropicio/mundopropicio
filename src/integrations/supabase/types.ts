@@ -4479,6 +4479,7 @@ export type Database = {
           pixel_id: string
           portal: string
           start_at: string | null
+          token_secret_name: string | null
         }
         Insert: {
           created_at?: string
@@ -4487,6 +4488,7 @@ export type Database = {
           pixel_id: string
           portal: string
           start_at?: string | null
+          token_secret_name?: string | null
         }
         Update: {
           created_at?: string
@@ -4495,6 +4497,7 @@ export type Database = {
           pixel_id?: string
           portal?: string
           start_at?: string | null
+          token_secret_name?: string | null
         }
         Relationships: []
       }
