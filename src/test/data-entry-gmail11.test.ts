@@ -66,6 +66,16 @@ describe("#333 fase11 Gmail contratos", () => {
 });
 
 describe("#333 fase11 Gmail no assistente", () => {
+  it("sessão trocada durante importação recusa antes de escrever bytes", async () => {
+    const gmail = fakeGmail(); const h = harness(gmail.reader);
+    let user = owner;
+    h.deps.getUser = async () => ({ id: user });
+    const original = gmail.reader.attachment;
+    gmail.reader.attachment = async (...args) => { const result = await original(...args); user = "44444444-4444-4444-8444-444444444444"; return result; };
+    const response = await h.send({ action: "gmail_import", session_id: session, selection: { message_id: "msgLOCAL01", part_id: "1" } });
+    expect(response.status).toBe(401);
+    expect(h.upload).not.toHaveBeenCalled();
+  });
   it("sem ligação configurada: indisponível, capability false e nenhum efeito", async () => {
     const h = harness();
     expect((await (await h.send({ action: "status" })).json()).capabilities.gmail).toBe(false);

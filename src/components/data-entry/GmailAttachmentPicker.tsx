@@ -10,6 +10,10 @@ type Props = { adapter: DataEntryAdapter; context: DataEntryContext; sessionId: 
 
 /** #333 fase11 — escolha humana de um anexo do Gmail. Nada é descarregado antes da escolha. */
 export default function GmailAttachmentPicker({ adapter, context, sessionId, enabled, disabled, onImported }: Props) {
+  return <GmailPickerSession key={`${context.user_id}:${context.company_id}:${sessionId}`} adapter={adapter} context={context} sessionId={sessionId} enabled={enabled} disabled={disabled} onImported={onImported} />;
+}
+
+function GmailPickerSession({ adapter, context, sessionId, enabled, disabled, onImported }: Props) {
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [from, setFrom] = useState(daysAgo(30));
