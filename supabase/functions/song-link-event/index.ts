@@ -17,6 +17,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { lookupIpGeo, type Geo } from "../_shared/geo.ts";
 import { validSsrKey, prefetchDetail, ssrClientIp, ssrClientGeo } from "./ssr.ts";
+import {
+  canonicalOpenId, destinationConfigured, isDuplicateArrival, isUuid,
+  parseAppOpenBody, validateArrivalForAppOpen, VIEWCONTENT_DEDUP_WINDOW_MS,
+  type AppOpenParsed,
+} from "./app-open.ts";
 
 const ALLOWED_ORIGINS = new Set<string>([
   "https://www.mundopropicio.com",
@@ -240,7 +245,7 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
   const event = body?.event;
   ctx.slug = slug;
   if (!slug || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) return json({ ok: false, error: "slug_invalido" }, 400, origin);
-  if (event !== "arrival" && event !== "choice") return json({ ok: false, error: "event_invalido" }, 400, origin);
+  if (event !== "arrival" && event !== "choice" && event !== "app_open") return json({ ok: false, error: "event_invalido" }, 400, origin);
   const opened = body?.opened === "app" || body?.opened === "web" ? body.opened : null;
 
   const ssrIp = isSsr ? ssrClientIp(body.client_ip) : null;
