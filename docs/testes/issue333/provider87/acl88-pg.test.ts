@@ -29,7 +29,7 @@ beforeAll(async () => {
   pg("initdb",["-D",path.join(dir,"data"),"-U","postgres","--auth=trust","-E","UTF8","--no-locale"]);
   pg("pg_ctl",["-D",path.join(dir,"data"),"-w","-l",path.join(dir,"log"),"-o",`-k ${dir} -p 55488 -c listen_addresses=''`,"start"]); started=true;
   db=postgres({host:dir,port:55488,user:"postgres",database:"postgres",max:1,onnotice:()=>{}});
-  await db.unsafe("CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE public_probe; CREATE ROLE service_role BYPASSRLS INHERIT; CREATE ROLE inherited_writer; GRANT USAGE ON SCHEMA public TO anon,authenticated,service_role,public_probe; ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO service_role;");
+  await db.unsafe("CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE public_probe; CREATE ROLE service_role BYPASSRLS INHERIT; CREATE ROLE inherited_writer; GRANT USAGE ON SCHEMA public TO anon,authenticated,service_role,public_probe; ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO PUBLIC,anon,authenticated,service_role;");
 });
 afterAll(async()=>{await db?.end();if(dir){try{if(started)pg("pg_ctl",["-D",path.join(dir,"data"),"-m","immediate","stop"]);}finally{rmSync(dir,{recursive:true,force:true});}}});
 beforeEach(async()=>{await cleanup();await db.unsafe(schema());});
@@ -43,6 +43,9 @@ it("88 catalog rejects service_role writes inherited from creator default ALL",a
     expect(r.rd).toBe(true);
     for(const privilege of writes){const [r]=await db`select has_table_privilege('service_role',${'public.'+table},${privilege}) allowed`;expect(r.allowed,table+':'+privilege).toBe(false);}
   }
+  const [defaults]=await db`select defaclacl::text acl from pg_default_acl where defaclrole='postgres'::regrole and defaclnamespace='public'::regnamespace and defaclobjtype='r'`;
+  console.log("DEFAULT_ACL88_UNCHANGED",defaults.acl);
+  for(const role of ["anon","authenticated","service_role"]){expect(defaults.acl).toContain(role+'=');}
 });
 it("88 actual DML/TRUNCATE/reopen/audit delete denied; legitimate SELECT/RPC works",async()=>{
   for(const table of tables){
@@ -69,9 +72,23 @@ it("88 anon/authenticated/PUBLIC have no table or function rights; catalog owner
 });
 it("88 inherited write grants remain effective: guard must reject rather than claim REVOKE removes inheritance",async()=>{
   await cleanup();await db.unsafe("GRANT inherited_writer TO service_role; ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT UPDATE ON TABLES TO inherited_writer;");
-  try {await expect(db.unsafe(schema())).rejects.toThrow("analysis_control_acl");await db`rollback`;
+  try {
+    // Same revocations without final catalog barrier prove inherited authority remains.
+    await db.unsafe(schema().replace(/DO \$acl\$[\s\S]*?END \$acl\$;/,""));
+    const [effective]=await db`select has_table_privilege('service_role','public.data_entry_analysis_control_333','UPDATE') allowed`;
+    expect(effective.allowed).toBe(true);
+    await asRole("service_role","UPDATE public.data_entry_analysis_control_333 SET state='ready',enabled=true,reviewed=true");
+    const [reopened]=await asRole("service_role","SELECT state FROM public.data_entry_analysis_control_333");expect(reopened.state).toBe("ready");
+    await cleanup();
+    await expect(db.unsafe(schema())).rejects.toThrow("analysis_control_acl");await db`rollback`;
     const [r]=await db`select to_regclass('public.data_entry_analysis_control_333') obj`;expect(r.obj).toBeNull();
   }finally{await db.unsafe("REVOKE inherited_writer FROM service_role; ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE UPDATE ON TABLES FROM inherited_writer;");}
+});
+it("88 owner-role membership is rejected; owner privileges are not claimed to be revoked",async()=>{
+  await cleanup();await db.unsafe("GRANT postgres TO service_role");
+  try{const [r]=await db`select pg_has_role('service_role','postgres','USAGE') owner_authority`;expect(r.owner_authority).toBe(true);
+    await expect(db.unsafe(schema())).rejects.toThrow("analysis_control_acl_owner_authority");await db`rollback`;
+  }finally{await db.unsafe("REVOKE postgres FROM service_role");}
 });
 it("88 rollback retains audit bytes and appends closed revision; RPC/control removed",async()=>{
   const before=await db`select * from public.data_entry_analysis_audit_333 order by revision`;
