@@ -26,7 +26,8 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
-- [ ] Tarefa88: revogar ACL herdada de defaults nas duas relações novas, verificar catálogo/negativas PG com defaultALL e preservar audit no rollback INERTE; prova/hash/diff próprios88 sem regenerar87, fecho só333.
+- [x] Tarefa88: REVOKEALL explícito nas duas relações/RPC e barreira ACL/owner/searchpath/heranças; antigo falhaINSERTexit1, corrigido6PG+2regressõesPASSexit0; rollback retém audit+closed, histórico87 preservado; prova/diff/hashes88, reserva própria libertada.
+- [ ] Controller88: rever SQLINERTE/rollbackaudit/ACLalvo e númeroLive antes autorização própria; confirmar integração/CIquality/types novoSHA. SemCloud/ativação;8PARCIAL/9não liberada/10PARCIAL.
 - [x] Tarefa87 local: controlo singleton durável+claim global, SQL/rollback INERTES fora migrations, adapter gatesfalse;20PGreal/60pertinentes/Deno2runtimePASS/checkbundle0; suitecompleta2workers1652PASS. Dois runsdefault flutuaçõesdeadline/timeout não alterados; provas/diff/hashes/fecho próprios. ZeroCloudwrites/deploy/ativação.
 - [ ] Controller tarefa87: confirmar HEADintegrado/CIqualitySUCCESS e rever SQL/rollback/númeroLive; aplicação/ativação/reabertura/runtimehospedado/provaexterna exigem autorização própria.8PARCIAL/9não liberada/10PARCIAL.
 - [x] Controller confirmou CI411 quality SUCCESS no HEAD integrado460cb2e antes do dispatch87; correção322 encerrada, reservaClaude/#323 preservadas. Novo HEAD exige nova confirmação CI antes próximo dispatch não corretivo/Publish.
