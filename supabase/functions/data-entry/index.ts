@@ -14,9 +14,9 @@ const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const opts = { auth: { persistSession: false, autoRefreshToken: false } };
 const admin = createClient(url, service, opts);
 const asUser = (token: string) => createClient(url, anon, { ...opts, global: { headers: { Authorization: `Bearer ${token}` } } });
-const ANALYSIS_ENABLED = false;
+const ANALYSIS_ENABLED = true; // #333 tarefa93: single restricted window; control + pilot8 preparation remain the gates. Revert to false at close.
 // Task87 candidate is local/inert, not applied or reviewed in Cloud. Key presence never activates it.
-const ANALYSIS_PROVIDER_REVIEWED = false;
+const ANALYSIS_PROVIDER_REVIEWED = true; // #333 tarefa93: revert to false at close.
 
 Deno.serve(createHandler({
   cors: { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"]}, x-data-entry-user, x-data-entry-company` },

@@ -39,7 +39,7 @@ export default function DocumentAnalysisPanel({ adapter, context, sessionId, doc
   };
   return <section ref={section} aria-label="Análise documental" className="space-y-3 border-t border-border pt-3">
     <h4 className="text-sm font-semibold">Análise documental</h4>
-    <Button size="sm" variant="outline" disabled={!enabled || locked || busy || !adapter.analyze} onClick={() => void analyze("Extrai os campos da fatura e identifica ausências ou incertezas, sem confirmar nem executar nada.")}><FileSearch className="size-4" />Analisar documento</Button>
+    <Button size="sm" variant="outline" disabled={!enabled || locked || busy || !adapter.analyze} onClick={() => void analyze("Extrai os campos da fatura, indicando origem e incertezas; não inferir pagamento, IVA ausente ou NIF do destinatário; não lançar nada.")}><FileSearch className="size-4" />Analisar documento</Button>
     {!enabled && <p role="status" className="text-xs text-muted-foreground">Análise ainda não ativada. Configuração e validação do serviço pendentes.</p>}
     {messages.length > 0 && <Conversation className="h-48 min-h-0"><ConversationContent className="gap-3 p-1">
       {messages.map((m) => <Message key={m.id} from={m.role}><MessageContent className={m.role === "user" ? "group-[.is-user]:bg-primary group-[.is-user]:text-primary-foreground" : ""}>{m.parts.map((p, i) => p.type === "text" ? <MessageResponse key={i}>{p.text}</MessageResponse> : null)}</MessageContent></Message>)}
