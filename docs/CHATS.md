@@ -36,6 +36,8 @@ A operação corre em paralelo no Claude e no ChatGPT, com a mesma numeração e
 
 "Pesado / intermédio / leve" mapeia para o selector de cada ferramenta (Claude: Opus ou Fable / Sonnet / Haiku). Decisão de 14/10/2026: o trabalho pesado é do agente Lovable; o chat lê docs, prepara prompts e verifica. Subir ao pesado só para desenho de arquitectura ou decisão com números grandes. Quando a ferramenta expõe o modelo em execução, o chat compara-o com esta tabela no arranque e avisa se estiver acima; quando não expõe, não se exige.
 
+A frente 2 pode executar demandas de infra quando designada na Issue (D-ERP287).
+
 Mensagens de arranque: `procedimentos/PROC-arranque-chat.md` e `docs/prompts/`. O 8 funde os antigos `audience-meta` e `audience-google` e inclui o TikTok; os dois ficheiros de estado continuam separados até ao primeiro fecho autorizado do 8.
 
 ## Tipos e regras
