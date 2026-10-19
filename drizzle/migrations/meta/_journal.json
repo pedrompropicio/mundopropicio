@@ -1464,6 +1464,13 @@
       "when": 1792448320857,
       "tag": "0208_ugc_watchdog_config_recipient_profile_company",
       "breakpoints": true
+    },
+    {
+      "idx": 209,
+      "version": "7",
+      "when": 1792450355583,
+      "tag": "0209_aj19_app_open_delivery_slots",
+      "breakpoints": true
     }
   ]
 }
