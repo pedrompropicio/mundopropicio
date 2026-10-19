@@ -36,4 +36,4 @@ Estado: código + migração aplicados e função deployada, tudo INERTE. Nenhum
 `capi_dispatch_control`, `process-leads-capi`, `process_leads_capi_batch`, fila antiga `public.leads`, crons, audiências Meta, #332. Sem Publish de frontend.
 
 ## Testes
-`src/test/capi-v2.test.ts` — 25 testes herméticos (sem rede nem Cloud): os 21 testes do remetente com fetch simulado e quatro regressões da função SQL 0201 executada em PostgreSQL local em memória (PGlite): Coala só Lead, Newgang Lead + CompleteRegistration com client_event_id, ClubeConfirmado inalterado e segunda execução sem duplicação.
+`src/test/capi-v2.test.ts` — 29 testes herméticos (sem rede nem Cloud): os 25 testes do remetente com fetch simulado (incluindo token por target, segredo em falta sem queimar eventos, 100/33 → retry a 60 min sem consumir tentativas com alerta único com subcode) e quatro regressões da função SQL 0201 executada em PostgreSQL local em memória (PGlite): Coala só Lead, Newgang Lead + CompleteRegistration com client_event_id, ClubeConfirmado inalterado e segunda execução sem duplicação.
