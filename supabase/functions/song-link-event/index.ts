@@ -586,9 +586,9 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
               event_source_id: link.tiktok_pixel_id,
               ...(ttTest ? { test_event_code: ttTest } : {}),
               data: [{
-                event: event === "arrival" ? "ViewContent" : "ClickButton",
+                event: ttEventName,
                 event_time: Math.floor(Date.now() / 1000),
-                event_id: eventId ?? undefined,
+                event_id: ttEventId,
                 user,
                 page: { url: pageUrl ?? undefined },
                 properties: {
