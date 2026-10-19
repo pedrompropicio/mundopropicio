@@ -19554,32 +19554,52 @@ export type Database = {
       ugc_watchdog_config: {
         Row: {
           active: boolean
+          company_id: string
           created_at: string
           id: string
           label: string
           recipient_phone: string
+          recipient_profile_id: string
           song_id: string
           updated_at: string
         }
         Insert: {
           active?: boolean
+          company_id: string
           created_at?: string
           id?: string
           label: string
           recipient_phone: string
+          recipient_profile_id: string
           song_id: string
           updated_at?: string
         }
         Update: {
           active?: boolean
+          company_id?: string
           created_at?: string
           id?: string
           label?: string
           recipient_phone?: string
+          recipient_profile_id?: string
           song_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ugc_watchdog_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ugc_watchdog_config_recipient_profile_id_fkey"
+            columns: ["recipient_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ugc_watchdog_config_song_id_fkey"
             columns: ["song_id"]
