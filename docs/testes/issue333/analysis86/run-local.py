@@ -1,4 +1,4 @@
-"""Task86 finite Deno harness; no Cloud, env permissions, tests requiring browser, or build restart.
+"""Task86 finite Deno harness; no Cloud, secret values, browser, or build restart.
 Run from project root: python3 docs/testes/issue333/analysis86/run-local.py
 """
 from pathlib import Path
@@ -10,8 +10,9 @@ base = ["--no-config", "--no-lock", "--node-modules-dir=manual", "--no-remote"]
 commands = [
     ["deno", "check", *base, "supabase/functions/_shared/issue333-ai/provider.ts", "supabase/functions/data-entry/analysis-stream.ts", "supabase/functions/data-entry/analysis-service.ts", "supabase/functions/data-entry/index.ts"],
     # SDK transitively imports @vercel/oidc, which reads hostname at module initialization.
-    # Narrow sys permission only; no --allow-env, --allow-net, or --allow-read.
-    ["deno", "test", *base, "--cached-only", "--allow-sys=hostname", "docs/testes/issue333/analysis86/runtime.test.ts"],
+    # OpenAI exports initialize their default provider and read OPENAI_BASE_URL.
+    # Only that absent variable in the sanitized env is allowed; no real secrets or network/read.
+    ["deno", "test", *base, "--cached-only", "--allow-sys=hostname", "--allow-env=OPENAI_BASE_URL", "docs/testes/issue333/analysis86/runtime.test.ts"],
     ["deno", "bundle", *base, "--platform", "deno", "supabase/functions/data-entry/index.ts", "-o", str(out / "entry.bundle.js")],
 ]
 for i, command in enumerate(commands):
