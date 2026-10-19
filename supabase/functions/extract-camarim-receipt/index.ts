@@ -23,8 +23,6 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
 
-    const dataUrl = `data:${mime_type ?? "image/jpeg"};base64,${image_base64}`;
-
     const response = await fetch(SCANNER_GATEWAY, {
       method: "POST",
       headers: {

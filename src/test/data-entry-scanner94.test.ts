@@ -81,16 +81,17 @@ describe("#333 scanner94 local integration", () => {
     await expect(assertScannerDocument(await pdf(), "application/pdf")).resolves.toBeUndefined();
   });
   it("end-to-end service uses actual scanner adapter and control with mocks, hash-bound output and one POST", async () => {
-    const i = await input(), c = control(), hash = await sha256(i.bytes), send = vi.fn(async () => success());
-    const state = { session: { id: "s", owner_id: "u", company_id: "c" }, company: { id: "c", tax_id: "PT500000001" }, documents: [{ id: "d", sha256: hash, path: stagingPath("c", "s", hash), size_bytes: i.bytes.length, mime: i.mime, name: "local.pdf" }] };
-    const deps = { enabled: true, providerReady: true, control: durableProviderControl(c.store), scope: async () => ({ user: "u", company: "c", role: "manager", preparation: true }), load: async () => state, download: async () => i.bytes, generate: (data, lifecycle) => generateScannerAnalysis(data, "local-mock", lifecycle, send) };
-    const report = await analyzeDocument(deps, { session: "s", document: "d", message: "Extrai", history: [], signal: i.signal });
-    expect(report.document_sha256).toBe(hash); expect(report.company_id).toBe("c"); expect(send).toHaveBeenCalledTimes(1);
+    const i = await input(), c = control(), hash = await sha256(i.bytes), send = vi.fn<typeof fetch>(async () => success());
+    const company = "11111111-1111-4111-8111-111111111111", session = "22222222-2222-4222-8222-222222222222";
+    const state = { session: { id: session, owner_id: "u", company_id: company }, company: { id: company, tax_id: "PT500000001" }, documents: [{ id: "d", sha256: hash, path: stagingPath(company, session, hash), size_bytes: i.bytes.length, mime: i.mime, name: "local.pdf" }] };
+    const deps = { enabled: true, providerReady: true, control: durableProviderControl(c.store), scope: async () => ({ user: "u", company, role: "manager", preparation: true }), load: async () => state, download: async () => i.bytes, generate: (data, lifecycle) => generateScannerAnalysis(data, "local-mock", lifecycle, send) };
+    const report = await analyzeDocument(deps, { session, document: "d", message: "Extrai", history: [], signal: i.signal });
+    expect(report.document_sha256).toBe(hash); expect(report.company_id).toBe(company); expect(send).toHaveBeenCalledTimes(1);
     expect(c.state().reason).toBe("success"); expect(c.state().claim).toBeNull();
     expect(JSON.stringify(report)).not.toContain("private");
     const request = JSON.parse(String(send.mock.calls[0]?.[1]?.body));
     expect(request.max_tokens).toBe(6000); expect(request.model).toBe(SCANNER_MODEL); expect(request).not.toHaveProperty("tools");
-    deps.enabled = false; await expect(analyzeDocument(deps, { session: "s", document: "d", message: "Extrai", history: [], signal: i.signal })).rejects.toMatchObject({ status: 503 });
+    deps.enabled = false; await expect(analyzeDocument(deps, { session, document: "d", message: "Extrai", history: [], signal: i.signal })).rejects.toMatchObject({ status: 503 });
     expect(send).toHaveBeenCalledTimes(1);
   });
   it.each([[402, "credit_denied"], [403, "provider_denied"], [404, "provider_unavailable"], [429, "http_failure"]])("HTTP%s is sanitized, audited and never retried", async (status, reason) => {
