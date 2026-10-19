@@ -44,6 +44,24 @@ async function fillAndPreview(a: DataEntryAdapter) {
 }
 
 describe("#333 DataEntryDialog", () => {
+  it("reviewing scanner AB-0001 changes only the literal field and invalidates prior authorization", async () => {
+    const a = fakeAdapter(true);
+    a.status = vi.fn(async () => ({ user_id: "u1", role: "manager", company_id: C, capabilities: { upload: true, analysis: true } }));
+    a.analyze = vi.fn(async () => ({ document_id: "d1", document_sha256: "a".repeat(64), company_id: C,
+      answer: "Scanner local", warnings: [], erp: { company_tax: "PT500000001" },
+      candidates: [{ field: "invoice_number", value: "AB-0001", quote: null, page: null, confidence: null, uncertainty: "Revisão obrigatória", origin: "suggestion", usable: false, reviewable: true }] }));
+    await fillAndPreview(a);
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(screen.getByRole("button", { name: "Autorizar e executar este lote" })).not.toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Analisar documento" }));
+    const use = await screen.findByRole("button", { name: "Revi e usar número da fatura" });
+    expect(screen.getByLabelText("Número da fatura")).toHaveValue("FT 1");
+    fireEvent.click(use);
+    expect(screen.getByLabelText("Número da fatura")).toHaveValue("AB-0001");
+    expect(screen.getByLabelText("Quem pagou")).toHaveValue("p1");
+    expect(screen.getByRole("button", { name: "Autorizar e executar este lote" })).toBeDisabled();
+    expect(a.execute).not.toHaveBeenCalled();
+  });
   beforeEach(() => { localStorage.clear(); auth.id = "u1"; auth.loading = false; });
   it("endpoint ausente: mostra indisponível e não oferece ações", async () => {
     const a = fakeAdapter(false); a.status = vi.fn(async () => { throw new DataEntryError("O assistente ainda não está ativo neste ambiente. Nada foi guardado nem lançado.", 404); });
