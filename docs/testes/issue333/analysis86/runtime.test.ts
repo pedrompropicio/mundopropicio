@@ -9,7 +9,7 @@ Deno.test("86 real Deno SDK Responses → validation → final-only SSE, zero eg
   let calls = 0;
   globalThis.fetch = async (_url, init) => {
     calls++;
-    const body = JSON.parse(String(init?.body));
+    const body = JSON.parse(String(init && "body" in init ? init.body : undefined));
     assert(body.stream === true && body.store === false && body.max_output_tokens === 6000, "request limits");
     assert(body.text.format.type === "json_schema" && body.text.format.strict === true, "strict schema");
     const raw = { answer: "Revisão humana.", fields: [], warnings: [] };
