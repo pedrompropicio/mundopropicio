@@ -49,6 +49,8 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
   const [analysisEnabled, setAnalysisEnabled] = useState(false);
   const [analysisBusy, setAnalysisBusy] = useState(false);
   const [gmailEnabled, setGmailEnabled] = useState(false);
+  // #333 fase11d: com o envio fechado, só ligar/estado/desligar do Gmail (sem lote, pesquisa ou importação).
+  const [gmailOnly, setGmailOnly] = useState<DataEntryContext | null>(null);
   const generation = useRef(0);
   const inFlight = useRef(false);
   useLayoutEffect(() => () => { generation.current += 1; }, []);
@@ -59,7 +61,10 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
     adapter.status().then((s) => {
       if (gen !== generation.current) return;
       if (s.user_id !== userId) { setUnavailable("Sessão alterada; reabre o assistente."); return; }
-      if (!s.capabilities.upload) { setUnavailable("O envio de documentos ainda não foi ativado neste ambiente. Nada foi guardado nem lançado."); return; }
+      if (!s.capabilities.upload) {
+        setGmailOnly(s.capabilities.gmail === true ? { user_id: s.user_id, company_id: s.company_id } : null);
+        setUnavailable("O envio de documentos ainda não foi ativado neste ambiente. Nada foi guardado nem lançado."); return;
+      }
       const c = { user_id: s.user_id, company_id: s.company_id };
       setAnalysisEnabled(s.capabilities.analysis === true);
       setGmailEnabled(s.capabilities.gmail === true);
@@ -266,6 +271,7 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
         {unavailable ? (
           <div className="space-y-3 text-sm">
             <p role="alert">{unavailable}</p>
+            {gmailOnly && <GmailAttachmentPicker key={`${gmailOnly.user_id}:${gmailOnly.company_id}:ligacao`} adapter={adapter} context={gmailOnly} sessionId="" enabled connectionOnly disabled={false} onImported={() => undefined} />}
             <div><h4 className="text-xs font-semibold">Ainda não disponível</h4><ul className="list-disc pl-4 text-xs text-muted-foreground">{PENDING.map((p) => <li key={p}>{p}</li>)}</ul></div>
           </div>
         ) : (

@@ -1443,6 +1443,13 @@
       "when": 1792444434894,
       "tag": "0205_ugc_ios_watchdog",
       "breakpoints": true
+    },
+    {
+      "idx": 206,
+      "version": "7",
+      "when": 1792447005919,
+      "tag": "0206_issue333_gmail_connections",
+      "breakpoints": true
     }
   ]
 }

@@ -6,14 +6,14 @@ const today = () => new Date().toISOString().slice(0, 10);
 const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
 const PAGE = 10;
 
-type Props = { adapter: DataEntryAdapter; context: DataEntryContext; sessionId: string; enabled: boolean; disabled: boolean; onImported: () => void };
+type Props = { adapter: DataEntryAdapter; context: DataEntryContext; sessionId: string; enabled: boolean; disabled: boolean; onImported: () => void; connectionOnly?: boolean };
 
 /** #333 fase11 — escolha humana de um anexo do Gmail. Nada é descarregado antes da escolha. */
-export default function GmailAttachmentPicker({ adapter, context, sessionId, enabled, disabled, onImported }: Props) {
-  return <GmailPickerSession key={`${context.user_id}:${context.company_id}:${sessionId}`} adapter={adapter} context={context} sessionId={sessionId} enabled={enabled} disabled={disabled} onImported={onImported} />;
+export default function GmailAttachmentPicker(props: Props) {
+  return <GmailPickerSession key={`${props.context.user_id}:${props.context.company_id}:${props.sessionId}`} {...props} />;
 }
 
-function GmailPickerSession({ adapter, context, sessionId, enabled, disabled, onImported }: Props) {
+function GmailPickerSession({ adapter, context, sessionId, enabled, disabled, onImported, connectionOnly }: Props) {
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [from, setFrom] = useState(daysAgo(30));
@@ -73,8 +73,20 @@ function GmailPickerSession({ adapter, context, sessionId, enabled, disabled, on
   };
   const input = "w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm";
 
-  if (!enabled || !adapter.gmailSearch || !adapter.gmailImport) {
+  if (!enabled || (!connectionOnly && (!adapter.gmailSearch || !adapter.gmailImport))) {
     return <p role="status" className="text-xs text-muted-foreground">Importar do Gmail ainda não está disponível. Envia o ficheiro manualmente.</p>;
+  }
+  if (connectionOnly && conn?.linked && !conn.reconnect_required) {
+    return (
+      <section aria-label="Ligação Gmail" className="space-y-2 rounded-md border border-border p-2.5">
+        <h4 className="text-xs font-semibold">O teu Gmail</h4>
+        <div className="flex flex-wrap items-center gap-2 text-xs"><span>Conta Gmail ligada (só leitura): {conn.mailbox_email}</span>
+          {adapter.gmailDisconnect && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void disconnect()}>Desligar Gmail</Button>}</div>
+        {notice && <p role="status" className="text-xs">{notice}</p>}
+        {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+        <p className="text-xs text-muted-foreground">Escolher anexos fica disponível quando o envio de documentos for ativado.</p>
+      </section>
+    );
   }
   if (adapter.gmailConnection && (!conn || !conn.linked || conn.reconnect_required)) {
     return (
