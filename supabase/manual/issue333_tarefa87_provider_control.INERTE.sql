@@ -15,8 +15,8 @@ CREATE TABLE public.data_entry_analysis_control_333 (
  CHECK ((active_claim IS NULL) = (stage = 'idle')),
  CHECK (state <> 'ready' OR (enabled AND reviewed))
 );
+REVOKE ALL ON public.data_entry_analysis_control_333 FROM PUBLIC, anon, authenticated, service_role;
 GRANT SELECT ON public.data_entry_analysis_control_333 TO service_role;
-REVOKE ALL ON public.data_entry_analysis_control_333 FROM PUBLIC, anon, authenticated;
 ALTER TABLE public.data_entry_analysis_control_333 ENABLE ROW LEVEL SECURITY;
 CREATE POLICY analysis_control_service_read_333 ON public.data_entry_analysis_control_333 FOR SELECT TO service_role USING (true);
 ALTER TABLE public.data_entry_analysis_control_333 OWNER TO postgres;
@@ -29,8 +29,8 @@ CREATE TABLE public.data_entry_analysis_audit_333 (
  upstream_status integer CHECK (upstream_status BETWEEN 100 AND 599),
  recorded_at timestamptz NOT NULL DEFAULT clock_timestamp()
 );
+REVOKE ALL ON public.data_entry_analysis_audit_333 FROM PUBLIC, anon, authenticated, service_role;
 GRANT SELECT ON public.data_entry_analysis_audit_333 TO service_role;
-REVOKE ALL ON public.data_entry_analysis_audit_333 FROM PUBLIC, anon, authenticated;
 ALTER TABLE public.data_entry_analysis_audit_333 ENABLE ROW LEVEL SECURITY;
 CREATE POLICY analysis_audit_service_read_333 ON public.data_entry_analysis_audit_333 FOR SELECT TO service_role USING (true);
 ALTER TABLE public.data_entry_analysis_audit_333 OWNER TO postgres;
@@ -80,6 +80,31 @@ BEGIN
  RETURN jsonb_build_object('revision',c.revision::text,'state',c.state,'enabled',c.enabled,'reviewed',c.reviewed,'claim',c.active_claim,'stage',c.stage,'reason',c.reason_code,'status',c.upstream_status);
 END $fn$;
 ALTER FUNCTION public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer) OWNER TO postgres;
-REVOKE ALL ON FUNCTION public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer) TO service_role;
+-- Fail closed on unexpected grants/memberships; REVOKE does not remove owner or inherited authority.
+DO $acl$
+DECLARE t oid; r text; privilege text;
+BEGIN
+ IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname IN ('anon','authenticated','service_role') AND rolsuper)
+ OR pg_has_role('service_role','postgres','USAGE') OR pg_has_role('anon','postgres','USAGE') OR pg_has_role('authenticated','postgres','USAGE')
+ THEN RAISE EXCEPTION 'analysis_control_acl_owner_authority'; END IF;
+ FOR t IN SELECT oid FROM pg_class WHERE oid IN ('public.data_entry_analysis_control_333'::regclass,'public.data_entry_analysis_audit_333'::regclass) LOOP
+   IF NOT EXISTS(SELECT 1 FROM pg_class WHERE oid=t AND relowner='postgres'::regrole AND relrowsecurity)
+   OR EXISTS(SELECT 1 FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE c.oid=t AND a.grantee<>'postgres'::regrole AND (a.grantee<>'service_role'::regrole OR a.privilege_type<>'SELECT' OR a.is_grantable))
+   THEN RAISE EXCEPTION 'analysis_control_acl_catalog'; END IF;
+   IF NOT has_table_privilege('service_role',t,'SELECT') THEN RAISE EXCEPTION 'analysis_control_acl_select'; END IF;
+   FOREACH r IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
+     FOREACH privilege IN ARRAY ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER'] LOOP
+       IF NOT (r='service_role' AND privilege='SELECT') AND has_table_privilege(r,t,privilege) THEN RAISE EXCEPTION 'analysis_control_acl_effective'; END IF;
+     END LOOP;
+   END LOOP;
+ END LOOP;
+ IF NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid='public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer)'::regprocedure AND proowner='postgres'::regrole AND prosecdef AND proconfig=ARRAY['search_path=pg_catalog, public'])
+ OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a WHERE p.oid='public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer)'::regprocedure AND a.grantee<>'postgres'::regrole AND (a.grantee<>'service_role'::regrole OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
+ OR NOT has_function_privilege('service_role','public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer)','EXECUTE')
+ OR has_function_privilege('anon','public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer)','EXECUTE')
+ OR has_function_privilege('authenticated','public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer)','EXECUTE')
+ THEN RAISE EXCEPTION 'analysis_control_acl_function'; END IF;
+END $acl$;
 COMMIT;
