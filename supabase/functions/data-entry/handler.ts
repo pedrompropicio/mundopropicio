@@ -9,7 +9,8 @@ import {
   MAX_UPLOAD_BODY_BYTES, allowedRole, finalDocumentPath, readCapped, sha256, stagingPath,
   validCivilDate, validMoney, validateDocument, type DocumentType,
 } from "./core.ts";
-import { GmailUnavailable, gmailFilterSchema, gmailOrigin, gmailSelectionSchema, type GmailReader } from "../_shared/gmail-readonly.ts";
+import { GmailConnectError, type GmailConnection } from "../_shared/gmail-app-user.ts";
+import { GmailUnavailable, gmailFilterSchema, gmailOrigin, gmailSelectionSchema, type GmailReader as _GmailReader } from "../_shared/gmail-readonly.ts";
 
 export type RpcResult = { data: unknown; error: { code?: string; message?: string } | null };
 export type Bucket = "data-entry-staging" | "standalone-invoices";
@@ -33,7 +34,7 @@ export interface Deps {
   analysis?(req: Request, input: { session: string; document: string; message: string; history: { role: "user" | "assistant"; text: string }[] }, scope: { user: string; company: string; role: string }): Promise<Response>;
   /** #333 fase11: Gmail só leitura pela ligação PRÓPRIA do utilizador nesta empresa.
    * Ausente = infraestrutura de ligação ainda não configurada; null = utilizador sem ligação. */
-  gmail?: { reader(user: string, company: string): Promise<GmailReader | null> };
+  gmail?: Pick<GmailConnection, "reader"> & Partial<Omit<GmailConnection, "reader">>;
   cors: Record<string, string>;
 }
 
@@ -60,6 +61,10 @@ export const commandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("check"), session_id: id, preview_id: id }).strict(),
   z.object({ action: z.literal("document"), session_id: id, document_id: id }).strict(),
   z.object({ action: z.literal("gmail_search"), filters: z.unknown() }).strict(),
+  z.object({ action: z.literal("gmail_connection") }).strict(),
+  z.object({ action: z.literal("gmail_connect_start"), origin: z.string().url().max(200) }).strict(),
+  z.object({ action: z.literal("gmail_connect_complete"), binding: z.string().regex(/^[A-Za-z0-9_-]{43}$/), code: z.string().min(1).max(4096).regex(/^[\x21-\x7e]+$/) }).strict(),
+  z.object({ action: z.literal("gmail_disconnect") }).strict(),
   z.object({ action: z.literal("gmail_import"), session_id: id, selection: gmailSelectionSchema }).strict(),
   z.object({ action: z.literal("analyze"), session_id: id, document_id: id, message: z.string(), history: z.array(z.object({ role: z.enum(["user", "assistant"]), text: z.string() }).strict()) }).strict(),
 ]);
@@ -194,6 +199,14 @@ export function createHandler(d: Deps) {
         if (!reader) throw new SafeError("Ainda não ligaste a tua conta Gmail a esta empresa.", 409);
         return reader;
       };
+      if (body.action === "gmail_connection" || body.action === "gmail_connect_start" || body.action === "gmail_connect_complete" || body.action === "gmail_disconnect") {
+        const g = d.gmail;
+        if (!g?.status || !g.start || !g.complete || !g.disconnect) throw new SafeError("A ligação ao Gmail ainda não está disponível nesta plataforma. Envia o ficheiro manualmente.", 503);
+        if (body.action === "gmail_connection") return reply(await g.status(user.id, company));
+        if (body.action === "gmail_connect_start") return reply(await g.start(user.id, company, new URL(body.origin).origin));
+        if (body.action === "gmail_connect_complete") return reply(await g.complete(user.id, company, body.binding, body.code));
+        return reply(await g.disconnect(user.id, company));
+      }
       if (body.action === "gmail_search") {
         const filters = gmailFilterSchema.safeParse(body.filters);
         if (!filters.success) throw new SafeError(filters.error.issues[0]?.message ?? "Filtros inválidos.", 400);
@@ -280,6 +293,7 @@ export function createHandler(d: Deps) {
       }
       return await conferir(preview.id);
     } catch (error) {
+      if (error instanceof GmailConnectError) return reply({ error: error.message }, error.status);
       if (error instanceof GmailUnavailable) return reply({ error: error.message }, 503);
       if (error instanceof SafeError) return reply({ error: error.message }, error.status);
       if (error instanceof z.ZodError || error instanceof SyntaxError) return reply({ error: "Pedido inválido; confirma os campos." }, 400);

@@ -7,6 +7,7 @@ import { generateScannerAnalysis } from "../_shared/scanner-analysis.ts";
 import { AnalysisError } from "../_shared/data-entry-analysis.ts";
 import { assertProviderControlAvailable, durableProviderControl, rpcControlStore } from "../_shared/issue333-ai/control.ts";
 import { boundedAnalysis } from "./analysis-deadline.ts";
+import { createGmailConnection, type GmailConnectionStore } from "../_shared/gmail-app-user.ts";
 
 const url = Deno.env.get("SUPABASE_URL") ?? "";
 const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -18,9 +19,44 @@ const ANALYSIS_ENABLED = false; // #333 fecho96: closed after manual window96.
 // Durable control stays closed until the controller opens the single 600s window with Pedro in the modal.
 const ANALYSIS_PROVIDER_REVIEWED = false; // #333 fecho96: closed after manual window96.
 
-// #333 fase11: `gmail` deliberately absent — no per-user read-only Gmail connection exists in this platform yet.
-// Activation needs a reviewed per-user consent (scope gmail.readonly only) bound to user+company; see docs/testes/issue333/fase11-gmail.md.
+// #333 fase11b: per-user Gmail (App User Connector google_mail, gmail.readonly only).
+// Closed until the inert SQL is applied, the Google client is linked and Pedro authorizes; see docs/testes/issue333/fase11b-ligacao-gmail.md.
+const GMAIL_CONNECTION_REVIEWED = false;
+const gmailStore: GmailConnectionStore = {
+  async createPending(user, company, nonceHash, expiresAt) {
+    const { error } = await admin.from("data_entry_gmail_pending" as never).insert({ user_id: user, company_id: company, nonce_sha256: nonceHash, expires_at: expiresAt.toISOString() } as never);
+    if (error) throw new Error("pending");
+  },
+  async consumePending(user, company, nonceHash, now) {
+    const { data, error } = await admin.from("data_entry_gmail_pending" as never).delete().eq("user_id", user).eq("company_id", company).eq("nonce_sha256", nonceHash).gt("expires_at", now.toISOString()).select("nonce_sha256");
+    if (error) throw new Error("pending");
+    return Array.isArray(data) && data.length === 1;
+  },
+  async save(user, company, ciphertext) {
+    const { error } = await admin.from("data_entry_gmail_connections" as never).upsert({ user_id: user, company_id: company, connection_key_ciphertext: ciphertext, reconnect_required: false, updated_at: new Date().toISOString() } as never, { onConflict: "user_id,company_id" });
+    if (error) throw new Error("save");
+  },
+  async load(user, company) {
+    const { data, error } = await admin.from("data_entry_gmail_connections" as never).select("connection_key_ciphertext, reconnect_required").eq("user_id", user).eq("company_id", company).maybeSingle();
+    if (error) throw new Error("load");
+    const row = data as { connection_key_ciphertext: string; reconnect_required: boolean } | null;
+    return row ? { ciphertext: row.connection_key_ciphertext, reconnect_required: row.reconnect_required } : null;
+  },
+  async markReconnect(user, company) {
+    await admin.from("data_entry_gmail_connections" as never).update({ reconnect_required: true, updated_at: new Date().toISOString() } as never).eq("user_id", user).eq("company_id", company);
+  },
+  async remove(user, company) {
+    const { error } = await admin.from("data_entry_gmail_connections" as never).delete().eq("user_id", user).eq("company_id", company);
+    if (error) throw new Error("remove");
+  },
+};
+const gmailClientKey = Deno.env.get("GOOGLE_MAIL_APP_USER_CONNECTOR_CLIENT_API_KEY") ?? "";
+const gmailSecret = Deno.env.get("APP_USER_CONNECTION_KEY_SECRET") ?? "";
+const gmail = GMAIL_CONNECTION_REVIEWED && gmailClientKey && gmailSecret && Deno.env.get("LOVABLE_API_KEY")
+  ? createGmailConnection({ store: gmailStore, clientApiKey: gmailClientKey, encryptionSecret: gmailSecret }) : undefined;
+
 Deno.serve(createHandler({
+  ...(gmail ? { gmail } : {}),
   cors: { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"]}, x-data-entry-user, x-data-entry-company` },
   // Closed until the #333 technical migration, private bucket and proofs are reviewed.
   pilotScoped: true, // Exact owner/company capability; SQL gates revalidate effects.

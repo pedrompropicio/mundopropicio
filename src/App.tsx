@@ -66,6 +66,7 @@ const EventDetail = lazy(() => import("./pages/EventDetail"));
 const EventSimulator = lazy(() => import("./pages/EventSimulator"));
 const EventSimulatorDemo = lazy(() => import("./pages/EventSimulatorDemo"));
 const Transactions = lazy(() => import("./pages/Transactions"));
+const GmailOAuthReturn = lazy(() => import("./pages/GmailOAuthReturn"));
 const IvaManagement = lazy(() => import("./pages/IvaManagement"));
 const Suppliers = lazy(() => import("./pages/Suppliers"));
 const Quotations = lazy(() => import("./pages/Quotations"));
@@ -689,6 +690,7 @@ function App() {
                 <Routes>
                   <Route path="/login" element={<AuthRoute />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/oauth/gmail/return" element={<GmailOAuthReturn />} />
                   <Route path="/privacy" element={<LegalPrivacy />} />
                   <Route path="/terms" element={<LegalTerms />} />
                   <Route path="/about" element={<LegalAbout />} />
