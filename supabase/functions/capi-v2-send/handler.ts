@@ -329,7 +329,7 @@ export function createHandler(deps: Deps) {
       const out: unknown[] = [];
       for (const r of (rows ?? []) as CapiV2Row[]) {
         const p = await buildPayloadForRow(sb, r);
-        out.push(p.ok
+        out.push(p.ok === true
           ? { id: r.id, pixel_id: r.pixel_id, event: p.event } // em/ph já são hashes; sem token
           : { id: r.id, pixel_id: r.pixel_id, would_skip: p.reason });
       }
@@ -369,7 +369,7 @@ export function createHandler(deps: Deps) {
       const t = targetByPixel.get(r.pixel_id);
       if (!t || t.enabled !== true || t.start_at == null) { result.refused_targets++; continue; }
       const p = await buildPayloadForRow(sb, r);
-      if (!p.ok) {
+      if (p.ok === false) {
         const st = p.reason === "expired" ? "expired" : p.reason === "skipped_no_consent" ? "skipped_no_consent" : "failed_terminal";
         await sb.from("capi_v2_events").update({ status: st, error_code: p.reason }).eq("id", r.id).in("status", ["pending", "retry"]);
         if (st === "expired") result.expired++;
