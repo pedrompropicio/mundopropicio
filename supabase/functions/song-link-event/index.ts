@@ -555,8 +555,10 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
           let er: unknown = null;
           try { er = JSON.parse(rt)?.events_received ?? null; } catch { /* */ }
           console.log("[song-link-event] capi", JSON.stringify({ status: r.status, events_received: er, user_data_keys: Object.keys(user_data), test: !!metaTest }));
+          if (metaSlot) await finishSlot(admin, arrivalEventId!, "meta", metaSlot, r.ok ? "delivered" : "failed");
         } catch {
           capi_status = "erro:rede";
+          if (metaSlot) await finishSlot(admin, arrivalEventId!, "meta", metaSlot, "unknown");
         }
       }
     }
