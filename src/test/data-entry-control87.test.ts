@@ -93,4 +93,22 @@ describe("task87 durable control contract and SDK doubles", () => {
     const h = harness(); await expect(h.control.run(new AbortController().signal, async () => {}, async (t) => { await t.beforePost(); t.received(503); t.completed(); throw Error("unavailable"); })).rejects.toThrow();
     expect(h.outcomes).toEqual(["transport_uncertain"]); expect(h.row.claim).not.toBeNull(); expect(h.row.state).toBe("unavailable");
   });
+  it("real SDK HTTP200 refusal releases request only; no raw refusal reaches error", async () => {
+    const h = harness(); const events = [
+      { type: "response.created", response: { id: "private-response", created_at: 1, model: "openai/gpt-6-astra" } },
+      { type: "response.output_item.added", output_index: 0, item: { type: "message", id: "m1" } },
+      { type: "response.refusal.delta", item_id: "m1", output_index: 0, content_index: 0, delta: "private-refusal-marker" },
+      { type: "response.completed", response: {} },
+    ];
+    const fetch = vi.fn(async () => new Response(events.map(e => `data: ${JSON.stringify(e)}\n\n`).join(""), { headers: { "Content-Type": "text/event-stream" } })); vi.stubGlobal("fetch", fetch);
+    const request = new Request("http://local.invalid/analysis");
+    await expect(h.control.run(request.signal, async () => {}, t => generateDocumentAnalysis(request, { bytes: new Uint8Array([1]), mime: "application/pdf", message: "local", history: [] }, "local-placeholder", t))).rejects.toThrow();
+    expect(fetch).toHaveBeenCalledTimes(1); expect(h.row.state).toBe("ready"); expect(h.row.claim).toBeNull(); expect(h.outcomes).toEqual(["invalid_response"]);
+  });
+  it("real SDK EOF without response.completed remains uncertain even with HTTP200", async () => {
+    const h = harness(); vi.stubGlobal("fetch", vi.fn(async () => new Response('data: {"type":"response.created","response":{"id":"local","created_at":1,"model":"openai/gpt-6-astra"}}\n\n', { headers: { "Content-Type": "text/event-stream" } })));
+    const request = new Request("http://local.invalid/analysis");
+    await expect(h.control.run(request.signal, async () => {}, t => generateDocumentAnalysis(request, { bytes: new Uint8Array([1]), mime: "application/pdf", message: "local", history: [] }, "local-placeholder", t))).rejects.toThrow();
+    expect(h.outcomes).toEqual(["transport_uncertain"]); expect(h.row.claim).not.toBeNull();
+  });
 });

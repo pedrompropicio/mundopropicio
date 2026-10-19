@@ -29,12 +29,19 @@ export function createResponsesCall(
       if (!response.body) { transport.completed(); return response; }
       // HTTP200 headers are not evidence that a streaming provider request completed.
       const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let protocolTail = "", terminal = response.status >= 400;
       const body = new ReadableStream<Uint8Array>({
         async pull(controller) {
           try {
             const chunk = await reader.read();
-            if (chunk.done) { transport.completed(); controller.close(); }
-            else controller.enqueue(chunk.value);
+            if (chunk.done) { if (terminal) transport.completed(); controller.close(); }
+            else {
+              // Bounded transient parser only, never persisted/logged or returned to the browser.
+              protocolTail = (protocolTail + decoder.decode(chunk.value, { stream: true })).slice(-8192);
+              if (/"type"\s*:\s*"response.completed"/.test(protocolTail)) terminal = true;
+              controller.enqueue(chunk.value);
+            }
           } catch (error) { controller.error(error); }
         },
         cancel: (reason) => reader.cancel(reason),
