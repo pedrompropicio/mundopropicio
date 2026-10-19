@@ -4420,6 +4420,84 @@ export type Database = {
         }
         Relationships: []
       }
+      capi_v2_events: {
+        Row: {
+          attempts: number
+          created_at: string
+          error_code: string | null
+          event_id: string
+          event_name: string
+          fbtrace_id: string | null
+          http_status: number | null
+          id: string
+          next_attempt_at: string | null
+          pixel_id: string
+          sent_at: string | null
+          source_id: string
+          source_table: string
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          error_code?: string | null
+          event_id: string
+          event_name: string
+          fbtrace_id?: string | null
+          http_status?: number | null
+          id?: string
+          next_attempt_at?: string | null
+          pixel_id: string
+          sent_at?: string | null
+          source_id: string
+          source_table: string
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          error_code?: string | null
+          event_id?: string
+          event_name?: string
+          fbtrace_id?: string | null
+          http_status?: number | null
+          id?: string
+          next_attempt_at?: string | null
+          pixel_id?: string
+          sent_at?: string | null
+          source_id?: string
+          source_table?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      capi_v2_targets: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          event_slug: string
+          pixel_id: string
+          portal: string
+          start_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          event_slug: string
+          pixel_id: string
+          portal: string
+          start_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          event_slug?: string
+          pixel_id?: string
+          portal?: string
+          start_at?: string | null
+        }
+        Relationships: []
+      }
       card_integrations: {
         Row: {
           company_id: string
@@ -23156,6 +23234,8 @@ export type Database = {
         Args: { p_older_than_minutes?: number }
         Returns: Json
       }
+      capi_v2_enqueue: { Args: { p_limit?: number }; Returns: number }
+      capi_v2_newgang_ads_ok: { Args: { p_email: string }; Returns: boolean }
       check_admin_windows_contiguous: {
         Args: { p_company_id: string }
         Returns: undefined
