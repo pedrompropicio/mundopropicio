@@ -4,3 +4,4 @@
 - Session-only conversation uses SDK streams and AI Elements; there is no new thread storage or model tool catalog.
 - The analysis provider has no UI response factory and captures SDK errors privately into fixed public status messages; this prevents reasoning and raw request metadata leakage through SDK defaults.
 - Provider calls require the singleton PostgreSQL control adapter; exact claim/revision fence transport and completion across isolates, while uncertain POST outcomes remain blocked without lease expiry. The candidate SQL remains inert until separately reviewed and applied.
+- Analysis has a server-owned bounded abort signal forwarded to SDK and durable control; deadline or Stop after POST remains uncertain, never a zero-cost promise or automatic retry.

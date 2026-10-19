@@ -6,6 +6,7 @@ import { analysisStream } from "./analysis-stream.ts";
 import { generateDocumentAnalysis } from "../_shared/issue333-ai/provider.ts";
 import { AnalysisError } from "../_shared/data-entry-analysis.ts";
 import { assertProviderControlAvailable, durableProviderControl, rpcControlStore } from "../_shared/issue333-ai/control.ts";
+import { boundedAnalysis } from "./analysis-deadline.ts";
 
 const url = Deno.env.get("SUPABASE_URL") ?? "";
 const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -34,7 +35,7 @@ Deno.serve(createHandler({
     // Configuration failure must be a plain refusal, never an already-open SSE success header.
     try { await assertProviderControlAvailable(store); }
     catch { return new Response(JSON.stringify({ error: "Análise indisponível: controlo do serviço pendente de conferência pelo responsável." }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
-    return analysisStream(req, corsHeaders, () => analyzeDocument({
+    return analysisStream(req, corsHeaders, () => boundedAnalysis(req.signal, signal => analyzeDocument({
       enabled: ANALYSIS_ENABLED, providerReady: ANALYSIS_PROVIDER_REVIEWED,
       control: durableProviderControl(store),
       async scope() {
@@ -50,8 +51,8 @@ Deno.serve(createHandler({
         return response.data as AnalysisState;
       },
       async download(path) { const r = await admin.storage.from("data-entry-staging").download(path); return r.error || !r.data ? null : new Uint8Array(await r.data.arrayBuffer()); },
-      generate: (data, transport) => generateDocumentAnalysis(req, data, Deno.env.get("LOVABLE_API_KEY") ?? "", transport),
-    }, { ...input, signal: req.signal }));
+      generate: (data, transport) => generateDocumentAnalysis(new Request(req.url, { method: "POST", headers: req.headers, signal }), data, Deno.env.get("LOVABLE_API_KEY") ?? "", transport),
+    }, { ...input, signal })));
   },
   async getUser(token) {
     const { data, error } = await admin.auth.getUser(token);
