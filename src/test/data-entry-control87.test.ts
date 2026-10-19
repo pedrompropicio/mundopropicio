@@ -89,4 +89,8 @@ describe("task87 durable control contract and SDK doubles", () => {
     const h = harness(); await expect(h.control.run(new AbortController().signal, async () => {}, async (t) => { await t.beforePost(); t.received(200); throw Error("stream disconnected"); })).rejects.toThrow();
     expect(h.outcomes).toEqual(["transport_uncertain"]); expect(h.row.stage).toBe("uncertain");
   });
+  it("HTTP503 is uncertain, never a released claim or automatic retry", async () => {
+    const h = harness(); await expect(h.control.run(new AbortController().signal, async () => {}, async (t) => { await t.beforePost(); t.received(503); t.completed(); throw Error("unavailable"); })).rejects.toThrow();
+    expect(h.outcomes).toEqual(["transport_uncertain"]); expect(h.row.claim).not.toBeNull(); expect(h.row.state).toBe("unavailable");
+  });
 });

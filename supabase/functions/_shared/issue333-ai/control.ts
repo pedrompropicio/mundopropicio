@@ -73,7 +73,7 @@ export function durableProviderControl(store: ControlStore): ProviderControl {
     } catch (error) {
       // A failed finalization is not retried; its commit may be unknown.
       if (!finalizing) {
-        const outcome: ControlOutcome = status === 402 ? "credit_denied" : status === 403 ? "provider_denied" : status === 404 ? "provider_unavailable" : !post ? (signal.aborted ? "cancelled_before_post" : "before_post_failure") : signal.aborted ? "cancelled_after_post" : status !== undefined && status >= 400 ? "http_failure" : !completed ? "transport_uncertain" : "invalid_response";
+        const outcome: ControlOutcome = status === 402 ? "credit_denied" : status === 403 ? "provider_denied" : status === 404 ? "provider_unavailable" : !post ? (signal.aborted ? "cancelled_before_post" : "before_post_failure") : signal.aborted ? "cancelled_after_post" : status !== undefined && status >= 500 ? "transport_uncertain" : status !== undefined && status >= 400 ? "http_failure" : !completed ? "transport_uncertain" : "invalid_response";
         try { await store.transition("finish", id, held.revision, outcome, status); }
         catch { throw unavailable(); } // durable failure outranks a false clean cancellation
       }
