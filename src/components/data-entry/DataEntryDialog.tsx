@@ -247,8 +247,8 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
   const stateLabel = !context && !unavailable ? "A resolver sessão e empresa" : unavailable ? "Indisponível" : executed ? "Concluído" : busy ? `A tratar: ${busy}` : preview ? "Prévia pronta" : state ? "Lote aberto" : "Pronto";
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90dvh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-5xl max-h-[90dvh] flex flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 border-b border-border px-6 pt-6 pb-3 pr-14">
           <DialogTitle>Assistente de Entrada de Dados</DialogTitle>
           <DialogDescription>Documento → dados confirmados → prévia → autorização expressa → conferência.</DialogDescription>
           <div className="flex flex-wrap gap-1.5 pt-1">
@@ -257,6 +257,7 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
             <Badge variant={unavailable ? "destructive" : "secondary"}>Estado: {stateLabel}</Badge>
           </div>
         </DialogHeader>
+        <div data-testid="data-entry-body" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4">
         {unavailable ? (
           <div className="space-y-3 text-sm">
             <p role="alert">{unavailable}</p>
@@ -277,6 +278,7 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
             )}
           </div>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   );
