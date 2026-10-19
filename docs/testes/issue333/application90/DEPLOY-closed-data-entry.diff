@@ -1,0 +1,63 @@
+diff --git a/supabase/functions/data-entry/AGENTS.md b/supabase/functions/data-entry/AGENTS.md
+index d34407957..28d1c39c1 100644
+--- a/supabase/functions/data-entry/AGENTS.md
++++ b/supabase/functions/data-entry/AGENTS.md
+@@ -3,4 +3,5 @@
+ - Analysis and provider readiness remain independently closed until durable provider denial/pause handling and external availability are reviewed; preparation/execute capability never activates analysis.
+ - Session-only conversation uses SDK streams and AI Elements; there is no new thread storage or model tool catalog.
+ - The analysis provider has no UI response factory and captures SDK errors privately into fixed public status messages; this prevents reasoning and raw request metadata leakage through SDK defaults.
+-- Provider calls require the singleton PostgreSQL control adapter; exact claim/revision fence transport and completion across isolates, while uncertain POST outcomes remain blocked without lease expiry. The candidate SQL remains inert until separately reviewed and applied.
+\ No newline at end of file
++- Provider calls require the singleton PostgreSQL control adapter; exact claim/revision fence transport and completion across isolates, while uncertain POST outcomes remain blocked without lease expiry. The candidate SQL remains inert until separately reviewed and applied.
++- Analysis has a server-owned bounded abort signal forwarded to SDK and durable control; deadline or Stop after POST remains uncertain, never a zero-cost promise or automatic retry.
+\ No newline at end of file
+diff --git a/supabase/functions/data-entry/analysis-deadline.ts b/supabase/functions/data-entry/analysis-deadline.ts
+new file mode 100644
+index 000000000..0f0759f54
+--- /dev/null
++++ b/supabase/functions/data-entry/analysis-deadline.ts
+@@ -0,0 +1,11 @@
++/** Server-owned finite deadline; abort after POST remains uncertain in durable control. */
++export const ANALYSIS_TIMEOUT_MS = 60_000;
++export async function boundedAnalysis<T>(caller: AbortSignal, execute: (signal: AbortSignal) => Promise<T>): Promise<T> {
++  const controller = new AbortController();
++  const cancel = () => controller.abort();
++  caller.addEventListener("abort", cancel, { once: true });
++  if (caller.aborted) cancel();
++  const timer = setTimeout(cancel, ANALYSIS_TIMEOUT_MS);
++  try { return await execute(controller.signal); }
++  finally { clearTimeout(timer); caller.removeEventListener("abort", cancel); }
++}
+\ No newline at end of file
+diff --git a/supabase/functions/data-entry/index.ts b/supabase/functions/data-entry/index.ts
+index 76f9fc7d3..36ae14d8a 100644
+--- a/supabase/functions/data-entry/index.ts
++++ b/supabase/functions/data-entry/index.ts
+@@ -6,6 +6,7 @@ import { analysisStream } from "./analysis-stream.ts";
+ import { generateDocumentAnalysis } from "../_shared/issue333-ai/provider.ts";
+ import { AnalysisError } from "../_shared/data-entry-analysis.ts";
+ import { assertProviderControlAvailable, durableProviderControl, rpcControlStore } from "../_shared/issue333-ai/control.ts";
++import { boundedAnalysis } from "./analysis-deadline.ts";
+ 
+ const url = Deno.env.get("SUPABASE_URL") ?? "";
+ const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+@@ -34,7 +35,7 @@ Deno.serve(createHandler({
+     // Configuration failure must be a plain refusal, never an already-open SSE success header.
+     try { await assertProviderControlAvailable(store); }
+     catch { return new Response(JSON.stringify({ error: "Análise indisponível: controlo do serviço pendente de conferência pelo responsável." }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
+-    return analysisStream(req, corsHeaders, () => analyzeDocument({
++    return analysisStream(req, corsHeaders, () => boundedAnalysis(req.signal, signal => analyzeDocument({
+       enabled: ANALYSIS_ENABLED, providerReady: ANALYSIS_PROVIDER_REVIEWED,
+       control: durableProviderControl(store),
+       async scope() {
+@@ -50,8 +51,8 @@ Deno.serve(createHandler({
+         return response.data as AnalysisState;
+       },
+       async download(path) { const r = await admin.storage.from("data-entry-staging").download(path); return r.error || !r.data ? null : new Uint8Array(await r.data.arrayBuffer()); },
+-      generate: (data, transport) => generateDocumentAnalysis(req, data, Deno.env.get("LOVABLE_API_KEY") ?? "", transport),
+-    }, { ...input, signal: req.signal }));
++      generate: (data, transport) => generateDocumentAnalysis(new Request(req.url, { method: "POST", headers: req.headers, signal }), data, Deno.env.get("LOVABLE_API_KEY") ?? "", transport),
++    }, { ...input, signal })));
+   },
+   async getUser(token) {
+     const { data, error } = await admin.auth.getUser(token);
