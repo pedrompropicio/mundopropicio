@@ -15,6 +15,15 @@ const setup = (enabled = true) => {
   return { analyze, onCandidate, onBusy, mounted };
 };
 describe("#333 local analysis review UI", () => {
+  it("scanner candidate without quote only transfers after explicit human review and keeps literal reference", async () => {
+    const h = setup();
+    const candidate = { field: "invoice_number" as const, value: "AB-0001", quote: null, page: null, confidence: null, uncertainty: "Revisão obrigatória", origin: "suggestion" as const, usable: false, reviewable: true };
+    h.analyze.mockResolvedValue({ ...response, candidates: [candidate] });
+    fireEvent.click(screen.getByRole("button", { name: "Analisar documento" }));
+    const use = await screen.findByRole("button", { name: "Revi e usar número da fatura" });
+    expect(use).not.toBeDisabled(); expect(h.onCandidate).not.toHaveBeenCalled();
+    fireEvent.click(use); expect(h.onCandidate).toHaveBeenCalledWith(candidate);
+  });
   it("closed analysis never invokes provider", () => { const h = setup(false); expect(screen.getByRole("button", { name: "Analisar documento" })).toBeDisabled(); expect(h.analyze).not.toHaveBeenCalled(); });
   it("candidate does not populate fields until explicit human review", async () => { const h = setup(); fireEvent.click(screen.getByRole("button", { name: "Analisar documento" })); const use = await screen.findByRole("button", { name: "Revi e usar fornecedor" }); expect(h.onCandidate).not.toHaveBeenCalled(); fireEvent.click(use); expect(h.onCandidate).toHaveBeenCalledWith(response.candidates[0]); expect(h.analyze).toHaveBeenCalledTimes(1); });
   it("rejects response for another company before review", async () => { const h = setup(); h.analyze.mockResolvedValue({ ...response, company_id: "other" }); fireEvent.click(screen.getByRole("button", { name: "Analisar documento" })); expect(await screen.findByRole("alert")).toHaveTextContent("Resposta descartada"); expect(h.onCandidate).not.toHaveBeenCalled(); expect(screen.queryByRole("button", { name: "Revi e usar fornecedor" })).toBeNull(); });
