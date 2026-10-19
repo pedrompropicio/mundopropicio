@@ -564,7 +564,10 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     }
     // TikTok Events API (nunca faz falhar o pedido; IP não fica guardado)
     let tiktok_status = naoAplicavel ? "nao_aplicavel" : "sem_pixel";
-    if (!naoAplicavel && link.tiktok_pixel_id) {
+    if (!naoAplicavel && link.tiktok_pixel_id && ttDup) tiktok_status = "duplicate";
+    else if (!naoAplicavel && link.tiktok_pixel_id && ttSlot &&
+      !(await reserveSlot(admin, arrivalEventId!, "tiktok", ttSlot, claimedId!))) tiktok_status = "slot_perdido";
+    else if (!naoAplicavel && link.tiktok_pixel_id) {
       const ttToken = await getSecret("TIKTOK_EVENTS_ACCESS_TOKEN");
       if (!ttToken) tiktok_status = "sem_token";
       else {
