@@ -97,7 +97,7 @@ describe("#333 fase11 Gmail no assistente", () => {
     expect(h.upload.mock.calls[0][0]).toBe("data-entry-staging");
   });
   it("mesmo anexo já no lote é reaproveitado sem nova escrita", async () => {
-    const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", PDF))).map((x) => x.toString(16).padStart(2, "0")).join("");
+    const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(PDF)))).map((x) => x.toString(16).padStart(2, "0")).join("");
     const h = harness(fakeGmail().reader, [{ sha256: hash, id: "doc-old" }]);
     const body = await (await h.send({ action: "gmail_import", session_id: session, selection: { message_id: "msgLOCAL01", part_id: "1" } })).json();
     expect(body).toMatchObject({ id: "doc-old", reused: true });
