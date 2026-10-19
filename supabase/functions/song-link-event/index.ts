@@ -410,6 +410,18 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     }
     return json({ ok: true, duplicate: true, enriched, delivery: "ja_enviada_pelo_ssr" }, 200, origin);
   }
+  }
+
+  // AJ19: choice COM arrival_event_id — vincula a linha à chegada. Se outra
+  // choice já ocupa (link, chegada, destino), o vínculo falha e o ListenClick
+  // Meta não é entregue por esta linha (sem slot → sem envio duplicado).
+  let choiceArrivalLinked = false;
+  if (!appOpen && event === "choice" && arrivalEventId && claimedId) {
+    const { error } = await admin.from("song_link_events")
+      .update({ arrival_event_id: arrivalEventId }).eq("id", claimedId);
+    choiceArrivalLinked = !error;
+    if (error) console.warn("[song-link-event] choice arrival link falhou", error.message);
+  }
 
   const work = (async () => {
     // Geo: CDN/cabeçalhos primeiro; depois cache ip_hash 24 h; depois ipinfo (limite). Nunca atrasa a resposta.
