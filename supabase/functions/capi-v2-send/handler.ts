@@ -321,26 +321,30 @@ export function createHandler(deps: Deps) {
     // ---- health: valida configuração sem enviar nada ----
     if (action === "health") {
       const { data: targets } = await sb.from("capi_v2_targets").select("*");
-      const token = await loadCapiToken(env, sb);
       const counts: Record<string, number> = {};
       for (const st of ["pending", "sent", "retry", "failed_terminal", "expired", "skipped_no_consent"]) {
         const { count } = await sb.from("capi_v2_events").select("id", { count: "exact", head: true }).eq("status", st);
         counts[st] = count ?? 0;
       }
-      return json({
-        ok: true,
-        suspended,
-        token_present: token != null,
-        targets: (targets ?? []).map((t: any) => ({
+      const targetOut: unknown[] = [];
+      let defaultPresent = false;
+      for (const t of targets ?? []) {
+        const secretName = typeof t.token_secret_name === "string" && t.token_secret_name.trim()
+          ? t.token_secret_name.trim() : DEFAULT_TOKEN_SECRET;
+        const tok = await loadCapiToken(env, sb, secretName);
+        if (secretName === DEFAULT_TOKEN_SECRET) defaultPresent = tok != null;
+        targetOut.push({
           event_slug: t.event_slug, portal: t.portal, pixel_id: t.pixel_id,
           enabled: t.enabled === true, start_at_set: t.start_at != null,
+          token_secret: secretName === DEFAULT_TOKEN_SECRET ? "default" : "custom",
+          token_present: tok != null,
           // Os dois pixels estão em Business Managers diferentes (Coala BM 309116999253914,
-          // Newgang BM 661222725105902): o token pode não ter acesso aos dois; uma recusa
-          // 4xx por pixel é terminal só para esse pixel e não afeta o outro.
+          // Newgang BM 661222725105902): o token pode não ter acesso aos dois; erros de
+          // configuração/permissão param só esse pixel e não afetam o outro.
           note: "pixel_access_verified_only_on_send",
-        })),
-        counts,
-      });
+        });
+      }
+      return json({ ok: true, suspended, token_present: defaultPresent, targets: targetOut, counts });
     }
 
     // ---- dry_run: payloads que SERIAM enviados; NUNCA chama o Graph ----
