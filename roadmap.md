@@ -1,3 +1,4 @@
 - [x] #333 fase11c: identidade própria no adapter e isolamento de resultados por sessão/empresa.
 - [x] Testes herméticos, documentação de ativação e reserva libertada; sem deploy/DDL/ativação.
 - [ ] Ativação real bloqueada: cliente Google/Lovable ainda não configurado; SQL/gate/deploy e consentimento dependem de autorização própria.
+- [ ] AJ19: isolamento teste, testes/deploy song-link-event, prova Meta marcada, monitorização SQL 15 min e libertar reserva.

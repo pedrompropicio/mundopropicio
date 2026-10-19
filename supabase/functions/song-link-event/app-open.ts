@@ -87,3 +87,19 @@ export function isDuplicateArrival(previousCreatedAt: string | null, now: number
   const t = Date.parse(previousCreatedAt);
   return Number.isFinite(t) && t <= now && now - t <= VIEWCONTENT_DEDUP_WINDOW_MS;
 }
+
+export function testDeliveryPolicy(mode: string | null, arrivalMode: string | null, metaTest: string | null, ttTest: string | null) {
+  const marked = mode === "teste_aj19" || arrivalMode === "teste_aj19";
+  return { mode: marked ? "teste_aj19" : mode, suppressMeta: marked && !metaTest,
+    suppressTikTok: (marked || !!metaTest) && !ttTest };
+}
+
+export function metaReceipt(raw: string) {
+  let value: unknown;
+  try { value = JSON.parse(raw); } catch { return { events_received: null, fbtrace_id: null }; }
+  const obj = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  return {
+    events_received: typeof obj.events_received === "number" && Number.isInteger(obj.events_received) && obj.events_received >= 0 ? obj.events_received : null,
+    fbtrace_id: typeof obj.fbtrace_id === "string" && /^[A-Za-z0-9_-]{1,200}$/.test(obj.fbtrace_id) ? obj.fbtrace_id : null,
+  };
+}

@@ -20,7 +20,7 @@ import { validSsrKey, prefetchDetail, ssrClientIp, ssrClientGeo } from "./ssr.ts
 import {
   canonicalOpenId, destinationConfigured, isDuplicateArrival, isUuid,
   parseAppOpenBody, validateArrivalForAppOpen, VIEWCONTENT_DEDUP_WINDOW_MS,
-  type AppOpenParsed,
+  type AppOpenParsed, testDeliveryPolicy, metaReceipt,
 } from "./app-open.ts";
 
 const ALLOWED_ORIGINS = new Set<string>([
@@ -333,6 +333,7 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
   // AJ19/AJ14: app_open — validações da secção 2.1 da proposta (antes de gravar).
   let appOpen: AppOpenParsed | null = null;
   let arrivalEventId: string | null = null;
+  let arrivalMode: string | null = null;
   if (event === "app_open") {
     const parsed = parseAppOpenBody(body);
     if (!parsed.ok) return json({ ok: false, error: parsed.error }, 400, origin);
@@ -342,17 +343,25 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     appOpen = parsed.value;
     arrivalEventId = parsed.value.arrival_event_id;
     const { data: arr, error: arrErr } = await admin.from("song_link_events")
-      .select("id, origin, created_at")
+      .select("id, origin, created_at, mode")
       .eq("event_id", arrivalEventId).eq("event", "arrival").eq("link_id", link.id)
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (arrErr) return json({ ok: false, error: "erro_interno" }, 500, origin);
     const va = validateArrivalForAppOpen(arr, Date.now());
     if (!va.ok) return json({ ok: false, error: va.error }, 403, origin);
+    arrivalMode = arr?.mode ?? null;
   } else if (event === "choice" && isUuid(body?.arrival_event_id) && destination) {
     // Choice COM arrival_event_id (Portal novo): partilha o slot ListenClick Meta.
     // Choice SEM arrival_event_id (Portal atual): comportamento inalterado, sem slot.
     arrivalEventId = String(body.arrival_event_id).trim().toLowerCase();
+    const { data: arr, error: arrErr } = await admin.from("song_link_events")
+      .select("mode").eq("event_id", arrivalEventId).eq("event", "arrival").eq("link_id", link.id)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (arrErr) return json({ ok: false, error: "erro_interno" }, 500, origin);
+    arrivalMode = arr?.mode ?? null;
   }
+
+  const testPolicy = testDeliveryPolicy(s(body.mode, 30), arrivalMode, metaTest, ttTest);
 
   // D-ERP234: atomic INSERT ON CONFLICT happens before any external delivery.
   // AJ19: app_open não usa a claim (a claim não mapeia arrival_event_id); o
@@ -361,7 +370,7 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
   if (appOpen) {
     const { data: ins, error: insErr } = await admin.from("song_link_events").insert({
       link_id: link.id, company_id: link.company_id, artist_id: link.artist_id, song_id: link.song_id,
-      event: "app_open", mode: s(body.mode, 30), destination: appOpen.destination, opened: "app",
+      event: "app_open", mode: testPolicy.mode, destination: appOpen.destination, opened: "app",
       event_id: appOpen.event_id, arrival_event_id: appOpen.arrival_event_id,
       utm_source: s(body.utm_source, 200), utm_medium: s(body.utm_medium, 200),
       utm_campaign: s(body.utm_campaign, 200), utm_content: s(body.utm_content, 200), utm_term: s(body.utm_term, 200),
@@ -381,7 +390,7 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
   } else {
   const { data: claimed, error: claimError } = await admin.rpc("song_link_event_claim", { p_payload: {
     link_id: link.id, company_id: link.company_id, artist_id: link.artist_id, song_id: link.song_id,
-    event, mode: s(body.mode, 30), destination, opened, event_id: eventId,
+    event, mode: testPolicy.mode, destination, opened, event_id: eventId,
     utm_source: s(body.utm_source, 200), utm_medium: s(body.utm_medium, 200),
     utm_campaign: s(body.utm_campaign, 200), utm_content: s(body.utm_content, 200), utm_term: s(body.utm_term, 200),
     fbclid: s(body.fbclid, 500), ttclid: s(body.ttclid, 500),
@@ -506,7 +515,8 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     }
     let capi_status = naoAplicavel ? "nao_aplicavel" : "sem_pixel";
     let capi_fbc: boolean | null = null, capi_fbp: boolean | null = null, capi_external_id: boolean | null = null;
-    if (!naoAplicavel && link.meta_pixel_id && metaDup) capi_status = "duplicate";
+    if (testPolicy.suppressMeta) capi_status = "suprimido_teste";
+    else if (!naoAplicavel && link.meta_pixel_id && metaDup) capi_status = "duplicate";
     else if (!naoAplicavel && link.meta_pixel_id && metaSlot &&
       !(await reserveSlot(admin, arrivalEventId!, "meta", metaSlot, claimedId!))) capi_status = "slot_perdido";
     else if (!naoAplicavel && link.meta_pixel_id) {
@@ -552,9 +562,9 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
           const rt = await r.text();
           capi_status = r.ok ? "enviado" : `erro:${r.status}`;
           capi_fbc = !!user_data.fbc; capi_fbp = !!user_data.fbp; capi_external_id = !!user_data.external_id;
-          let er: unknown = null;
-          try { er = JSON.parse(rt)?.events_received ?? null; } catch { /* */ }
-          console.log("[song-link-event] capi", JSON.stringify({ status: r.status, events_received: er, user_data_keys: Object.keys(user_data), test: !!metaTest }));
+          console.log("[song-link-event] capi", JSON.stringify({ status: r.status, row_id: claimedId,
+            event_name: metaEventName, event_id: metaEventId, ...metaReceipt(rt),
+            user_data_keys: Object.keys(user_data), test: !!metaTest }));
           if (metaSlot) await finishSlot(admin, arrivalEventId!, "meta", metaSlot, r.ok ? "delivered" : "failed");
         } catch {
           capi_status = "erro:rede";
@@ -564,7 +574,8 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     }
     // TikTok Events API (nunca faz falhar o pedido; IP não fica guardado)
     let tiktok_status = naoAplicavel ? "nao_aplicavel" : "sem_pixel";
-    if (!naoAplicavel && link.tiktok_pixel_id && ttDup) tiktok_status = "duplicate";
+    if (testPolicy.suppressTikTok) tiktok_status = "suprimido_teste";
+    else if (!naoAplicavel && link.tiktok_pixel_id && ttDup) tiktok_status = "duplicate";
     else if (!naoAplicavel && link.tiktok_pixel_id && ttSlot &&
       !(await reserveSlot(admin, arrivalEventId!, "tiktok", ttSlot, claimedId!))) tiktok_status = "slot_perdido";
     else if (!naoAplicavel && link.tiktok_pixel_id) {
