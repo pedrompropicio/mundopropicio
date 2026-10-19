@@ -335,18 +335,69 @@ describe("handler", () => {
     expect(j2.failed_terminal).toBe(1);
     expect(f2.updates[0].patch.status).toBe("failed_terminal");
   });
-  it("403 (token sem acesso ao pixel) → failed_terminal + alerta sem PII", async () => {
+  it("400 validação de payload (100 sem subcode 33) → failed_terminal + alerta com subcode e msg truncada", async () => {
     const { h, updates, alerts } = makeHandler({
       events: [row()], leads: { l1: leadCapture() },
       targets: [{ event_slug: "s", pixel_id: PIXEL_COALA, enabled: true, start_at: "2026-09-01" }],
-      graphResponses: [{ status: 403, body: { error: { code: 200 }, fbtrace_id: "fx" } }],
+      graphResponses: [{ status: 400, body: { error: { code: 100, error_subcode: 99, message: "x".repeat(500) }, fbtrace_id: "fx" } }],
     });
     const j = await (await h(post({ action: "send" }))).json();
     expect(j.failed_terminal).toBe(1);
     expect(j.alerts).toBe(1);
     expect(updates[0].patch.status).toBe("failed_terminal");
-    expect(alerts[0].detail).toContain("pixel=");
+    expect(alerts[0].meta_subcode).toBe(99);
+    expect(alerts[0].detail).toContain("subcode=99");
+    expect(alerts[0].detail.length).toBeLessThanOrEqual(300);
+    expect(alerts[0].detail).not.toContain("x".repeat(201)); // msg truncada a 200
     expect(JSON.stringify(alerts)).not.toContain("Ana@Example.com");
+    expect(j.pixels[PIXEL_COALA].last_error).toEqual({ code: "100", subcode: "99", message: "x".repeat(200) });
+  });
+  it("Graph 400 code 100 subcode 33 (token sem acesso ao pixel) → retry a 60 min SEM consumir tentativas, 1 alerta, pixel pára", async () => {
+    const { h, updates, alerts, graphCalls } = makeHandler({
+      events: [row({ id: "r1" }), row({ id: "r2", event_id: "evt-2" })], leads: { l1: leadCapture() },
+      targets: [{ event_slug: "s", pixel_id: PIXEL_COALA, enabled: true, start_at: "2026-09-01" }],
+      graphResponses: [{ status: 400, body: { error: { code: 100, error_subcode: 33, message: "Object does not exist, cannot be loaded due to missing permissions" }, fbtrace_id: "fx" } }],
+    });
+    const j = await (await h(post({ action: "send" }))).json();
+    expect(j.failed_terminal).toBe(0);
+    expect(j.config_blocked).toBe(2);
+    expect(j.alerts).toBe(1); // UM alerta por pixel e por execução
+    expect(alerts[0].kind).toBe("capi_v2_config");
+    expect(alerts[0].meta_subcode).toBe(33);
+    expect(alerts[0].detail).toContain("subcode=33");
+    expect(alerts[0].detail).toContain("missing permissions");
+    for (const u of updates) {
+      expect(u.patch.status).toBe("retry");
+      expect(u.patch.attempts).toBeUndefined(); // não consome tentativas
+      expect(u.patch.next_attempt_at).toBe("2026-10-19T03:00:00.000Z"); // now + 60 min
+    }
+    expect(graphCalls).toHaveLength(1); // pixel pára após o 1.º lote
+    expect(j.pixels[PIXEL_COALA].last_error.code).toBe("100");
+    expect(j.pixels[PIXEL_COALA].last_error.subcode).toBe("33");
+  });
+  it("token por target: token_secret_name definido usa esse segredo, não o por omissão", async () => {
+    const { h, graphCalls } = makeHandler({
+      events: [row()], leads: { l1: leadCapture() },
+      targets: [{ event_slug: "s", pixel_id: PIXEL_COALA, enabled: true, start_at: "2026-09-01", token_secret_name: "META_CAPI_TOKEN_COALA" }],
+      secrets: { META_CAPI_TOKEN_COALA: "tok-coala", META_CAPI_ACCESS_TOKEN: "tok-default" },
+    });
+    const j = await (await h(post({ action: "send" }))).json();
+    expect(j.sent).toBe(1);
+    expect(graphCalls[0].body.access_token).toBe("tok-coala");
+  });
+  it("token_secret_name definido mas segredo em falta → recusa o pixel SEM queimar eventos nem chamar a Graph", async () => {
+    const { h, updates, graphCalls } = makeHandler({
+      events: [row()], leads: { l1: leadCapture() },
+      targets: [{ event_slug: "s", pixel_id: PIXEL_COALA, enabled: true, start_at: "2026-09-01", token_secret_name: "META_CAPI_TOKEN_COALA" }],
+      secrets: { META_CAPI_TOKEN_COALA: null, META_CAPI_ACCESS_TOKEN: "tok-default" },
+    });
+    const j = await (await h(post({ action: "send" }))).json();
+    expect(j.config_blocked).toBe(1);
+    expect(j.sent).toBe(0);
+    expect(j.failed_terminal).toBe(0);
+    expect(graphCalls).toHaveLength(0); // nunca cai no token por omissão
+    expect(updates).toHaveLength(0); // evento intacto (pending)
+    expect(j.pixels[PIXEL_COALA].last_error.code).toBe("missing_capi_token_for_target");
   });
   it("200 com events_received === enviados → sent com fbtrace_id", async () => {
     const { h, updates, graphCalls } = makeHandler({
