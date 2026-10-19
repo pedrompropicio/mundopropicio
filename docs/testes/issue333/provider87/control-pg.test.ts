@@ -103,6 +103,29 @@ describe("task87 PostgreSQL disposable two-connection authority", () => {
     await expect(adapter(c1).run(new AbortController().signal,async()=>{if(tenant!=="A")throw Error("context_changed");},async(t)=>{await t.beforePost();t.received(200);t.completed();tenant="B";return "stale";})).rejects.toThrow("context_changed");
     expect((await call(c2,"read")).state).toBe("ready");expect((await call(c2,"read")).claim).toBeNull();
   });
+  it("two adapter isolates execute at most one provider call",async()=>{
+    let calls=0;let release:()=>void=()=>{};
+    const wait=new Promise<void>(r=>{release=r;});
+    let entered:()=>void=()=>{};const begun=new Promise<void>(r=>{entered=r;});
+    const first=adapter(c1).run(new AbortController().signal,async()=>{},async(t)=>{await t.beforePost();calls++;entered();await wait;t.received(200);t.completed();return "validated";});
+    await begun;
+    await expect(adapter(c2).run(new AbortController().signal,async()=>{},async()=>{calls++;return "forbidden";})).rejects.toMatchObject({status:503});
+    release();expect(await first).toBe("validated");expect(calls).toBe(1);
+  });
+  it("adapter cancellation after POST leaves durable unknown for another isolate",async()=>{
+    const controller=new AbortController();
+    await expect(adapter(c1).run(controller.signal,async()=>{},async(t)=>{await t.beforePost();controller.abort();throw Error("stop");})).rejects.toThrow("stop");
+    const row=await call(c2,"read");expect(row.stage).toBe("uncertain");expect(row.reason).toBe("cancelled_after_post");
+  });
+  it("adapter cancellation before POST clears only known unsubmitted claim",async()=>{
+    const controller=new AbortController();
+    await expect(adapter(c1).run(controller.signal,async()=>{},async(t)=>{controller.abort();await t.beforePost();})).rejects.toMatchObject({status:499});
+    const row=await call(c2,"read");expect(row.claim).toBeNull();expect(row.reason).toBe("cancelled_before_post");
+  });
+  it("adapter late finalization cannot clear a pause applied by second connection",async()=>{
+    await expect(adapter(c1).run(new AbortController().signal,async()=>{},async(t)=>{await t.beforePost();const row=await call(c2,"read");await call(c2,"pause",row.claim,row.revision,"credit_denied",402);t.received(200);t.completed();return "stale";})).rejects.toMatchObject({status:503});
+    const row=await call(c2,"read");expect(row.state).toBe("paused_credit");expect(row.claim).not.toBeNull();
+  });
   it("rollback refuses outstanding claim and removes only new objects after known completion",async()=>{
     const rollback=readFileSync("supabase/manual/issue333_tarefa87_provider_control.ROLLBACK-INERTE.sql","utf8");
     const id=randomUUID();await call(c1,"claim",id,"1");await expect(db.unsafe(rollback)).rejects.toThrow("confer_claim_before_rollback");await db`rollback`;
