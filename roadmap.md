@@ -1,3 +1,8 @@
+# #333 — tarefa90 entrega consolidada
+- [ ] Preflight oficial somente metadados/roles/defaultACL/membership/registry/gates/presença chave; compatibilidade real e ajustes locais comprovados.
+- [ ] Pacote final INERTE aplicação/rollback seguro/readback/hash/recuperação responsável/diff futuro/budget/checklist18; testes somente novos defeitos.
+- [ ] Fecho próprio90, uma autorização proposta e liberação subreserva; CI novoSHA ao controller antes de próximo dispatch.
+
 # #333 — tarefa89 corretiva CI414
 - [x] Reproduzir deadline em vez de fingerprint (exit1); sincronizar relay local com relógio/scheduler controlados, preservando default e negativa real + fronteira expiry.
 - [x] Testes pertinentes28PASS e UMA suite default1653PASS (exit0); diff/prova89 e só subreserva89 libertada; harnessbuildOK.
