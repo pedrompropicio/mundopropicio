@@ -1,0 +1,222 @@
+diff --git a/docs/testes/issue333/provider87/acl88-pg.test.ts b/docs/testes/issue333/provider87/acl88-pg.test.ts
+new file mode 100644
+index 000000000..65ca3afca
+--- /dev/null
++++ b/docs/testes/issue333/provider87/acl88-pg.test.ts
+@@ -0,0 +1,101 @@
++/** Opt-in disposable PostgreSQL only; no Cloud, provider or ERP fixtures. */
++import { beforeAll, afterAll, beforeEach, it, expect } from "vitest";
++import { execFileSync } from "node:child_process";
++import { mkdtempSync, readFileSync, rmSync } from "node:fs";
++import { tmpdir } from "node:os";
++import path from "node:path";
++import postgres from "postgres";
++
++let dir: string, db: postgres.Sql, started = false;
++const pg = (cmd: string, args: string[]) => process.getuid?.() === 0
++  ? execFileSync("setpriv", ["--reuid=1000", "--regid=1000", "--clear-groups", cmd, ...args], { stdio: "pipe" })
++  : execFileSync(cmd, args, { stdio: "pipe" });
++const tables = ["data_entry_analysis_control_333", "data_entry_analysis_audit_333"];
++const writes = ["INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"];
++const schema = () => readFileSync("supabase/manual/issue333_tarefa87_provider_control.INERTE.sql", "utf8");
++const asRole = (role: string, sql: string) => db.begin(async tx => {
++  await tx.unsafe(`set local role ${role}`); return tx.unsafe(sql);
++});
++const cleanup = () => db.unsafe("DROP FUNCTION IF EXISTS public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer); DROP TABLE IF EXISTS public.data_entry_analysis_control_333; DROP TABLE IF EXISTS public.data_entry_analysis_audit_333;");
++async function catalog() {
++  return db`select c.relname,pg_get_userbyid(c.relowner) owner,c.relrowsecurity,
++    (select jsonb_agg(jsonb_build_object('grantee',case when a.grantee=0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end,'privilege',a.privilege_type,'grantable',a.is_grantable) order by a.grantee,a.privilege_type) from aclexplode(c.relacl) a) acl
++    from pg_class c where c.oid in ('public.data_entry_analysis_control_333'::regclass,'public.data_entry_analysis_audit_333'::regclass) order by c.relname`;
++}
++beforeAll(async () => {
++  if (process.env.ISSUE333_LOCAL_PROOF !== "1") throw Error("Requires ISSUE333_LOCAL_PROOF=1, no silent skip");
++  dir=mkdtempSync(path.join(tmpdir(),"acl88-"));
++  if(process.getuid?.()===0)execFileSync("chown",["1000:1000",dir]);
++  pg("initdb",["-D",path.join(dir,"data"),"-U","postgres","--auth=trust","-E","UTF8","--no-locale"]);
++  pg("pg_ctl",["-D",path.join(dir,"data"),"-w","-l",path.join(dir,"log"),"-o",`-k ${dir} -p 55488 -c listen_addresses=''`,"start"]); started=true;
++  db=postgres({host:dir,port:55488,user:"postgres",database:"postgres",max:1,onnotice:()=>{}});
++  await db.unsafe("CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE public_probe; CREATE ROLE service_role BYPASSRLS INHERIT; CREATE ROLE inherited_writer; GRANT USAGE ON SCHEMA public TO anon,authenticated,service_role,public_probe; ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO PUBLIC,anon,authenticated,service_role;");
++});
++afterAll(async()=>{await db?.end();if(dir){try{if(started)pg("pg_ctl",["-D",path.join(dir,"data"),"-m","immediate","stop"]);}finally{rmSync(dir,{recursive:true,force:true});}}});
++beforeEach(async()=>{await cleanup();await db.unsafe(schema());});
++
++it("88 catalog rejects service_role writes inherited from creator default ALL",async()=>{
++  console.log("CATALOG88",JSON.stringify(await catalog()));
++  const [role]=await db`select rolsuper,rolbypassrls from pg_roles where rolname='service_role'`;
++  expect(role.rolsuper).toBe(false);expect(role.rolbypassrls).toBe(true);
++  for(const table of tables){
++    const [r]=await db`select has_table_privilege('service_role',${'public.'+table},'SELECT') rd`;
++    expect(r.rd).toBe(true);
++    for(const privilege of writes){const [r]=await db`select has_table_privilege('service_role',${'public.'+table},${privilege}) allowed`;expect(r.allowed,table+':'+privilege).toBe(false);}
++  }
++  const [defaults]=await db`select defaclacl::text acl from pg_default_acl where defaclrole='postgres'::regrole and defaclnamespace='public'::regnamespace and defaclobjtype='r'`;
++  console.log("DEFAULT_ACL88_UNCHANGED",defaults.acl);
++  for(const role of ["anon","authenticated","service_role"]){expect(defaults.acl).toContain(role+'=');}
++});
++it("88 actual DML/TRUNCATE/reopen/audit delete denied; legitimate SELECT/RPC works",async()=>{
++  for(const table of tables){
++    for(const sql of [`INSERT INTO public.${table} SELECT * FROM public.${table} WHERE false`,`UPDATE public.${table} SET revision=revision`,`DELETE FROM public.${table}`,`TRUNCATE public.${table}`])
++      await expect(asRole("service_role",sql)).rejects.toMatchObject({code:"42501"});
++  }
++  await expect(asRole("service_role","UPDATE public.data_entry_analysis_control_333 SET state='ready',enabled=true,reviewed=true")).rejects.toMatchObject({code:"42501"});
++  expect((await asRole("service_role","SELECT * FROM public.data_entry_analysis_audit_333"))).toHaveLength(1);
++  const [read]=await asRole("service_role","SELECT public.data_entry_analysis_transition_333('read') j");expect(read.j.state).toBe("closed");
++  await asRole("service_role","SELECT public.data_entry_analysis_transition_333('pause',NULL,1,'provider_denied',403)");
++  const [paused]=await asRole("service_role","SELECT public.data_entry_analysis_transition_333('read') j");expect(paused.j.state).toBe("denied_provider");expect(paused.j.revision).toBe("2");
++  expect((await asRole("service_role","SELECT * FROM public.data_entry_analysis_audit_333"))).toHaveLength(2);
++});
++it("88 anon/authenticated/PUBLIC have no table or function rights; catalog owner/searchpath",async()=>{
++  for(const role of ["anon","authenticated","public_probe"]){
++    for(const table of tables){for(const privilege of ["SELECT",...writes]){const [r]=await db`select has_table_privilege(${role},${'public.'+table},${privilege}) allowed`;expect(r.allowed).toBe(false);}
++      await expect(asRole(role,`SELECT * FROM public.${table}`)).rejects.toMatchObject({code:"42501"});}
++    await expect(asRole(role,"SELECT public.data_entry_analysis_transition_333('read')")).rejects.toMatchObject({code:"42501"});
++  }
++  const [p]=await db`select p.prosecdef,p.proconfig,pg_get_userbyid(p.proowner) owner,p.proacl::text acl from pg_proc p where p.oid='public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer)'::regprocedure`;
++  console.log("FUNCTION88",JSON.stringify(p));expect(p.owner).toBe("postgres");expect(p.prosecdef).toBe(true);expect(p.proconfig).toEqual(["search_path=pg_catalog, public"]);
++  expect((await catalog()).every(r=>r.owner==="postgres"&&r.relrowsecurity)).toBe(true);
++  const [members]=await db`select count(*)::int n from pg_auth_members m join pg_roles r on r.oid=m.member where r.rolname='service_role'`;expect(members.n).toBe(0);
++});
++it("88 inherited write grants remain effective: guard must reject rather than claim REVOKE removes inheritance",async()=>{
++  await cleanup();await db.unsafe("GRANT inherited_writer TO service_role; ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT UPDATE ON TABLES TO inherited_writer;");
++  try {
++    // Same revocations without final catalog barrier prove inherited authority remains.
++    await db.unsafe(schema().replace(/DO \$acl\$[\s\S]*?END \$acl\$;/,""));
++    const [effective]=await db`select has_table_privilege('service_role','public.data_entry_analysis_control_333','UPDATE') allowed`;
++    expect(effective.allowed).toBe(true);
++    await asRole("service_role","UPDATE public.data_entry_analysis_control_333 SET state='ready',enabled=true,reviewed=true");
++    const [reopened]=await asRole("service_role","SELECT state FROM public.data_entry_analysis_control_333");expect(reopened.state).toBe("ready");
++    await cleanup();
++    await expect(db.unsafe(schema())).rejects.toThrow("analysis_control_acl");await db`rollback`;
++    const [r]=await db`select to_regclass('public.data_entry_analysis_control_333') obj`;expect(r.obj).toBeNull();
++  }finally{await db.unsafe("REVOKE inherited_writer FROM service_role; ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE UPDATE ON TABLES FROM inherited_writer;");}
++});
++it("88 owner-role membership is rejected; owner privileges are not claimed to be revoked",async()=>{
++  await cleanup();await db.unsafe("GRANT postgres TO service_role");
++  try{const [r]=await db`select pg_has_role('service_role','postgres','USAGE') owner_authority`;expect(r.owner_authority).toBe(true);
++    await expect(db.unsafe(schema())).rejects.toThrow("analysis_control_acl_owner_authority");await db`rollback`;
++  }finally{await db.unsafe("REVOKE postgres FROM service_role");}
++});
++it("88 rollback retains audit bytes and appends closed revision; RPC/control removed",async()=>{
++  const before=await db`select * from public.data_entry_analysis_audit_333 order by revision`;
++  await db.unsafe(readFileSync("supabase/manual/issue333_tarefa87_provider_control.ROLLBACK-INERTE.sql","utf8"));
++  const rows=await db`select * from public.data_entry_analysis_audit_333 order by revision`;
++  expect(rows.slice(0,before.length)).toEqual(before);expect(rows).toHaveLength(before.length+1);expect(rows.at(-1)?.reason_code).toBe("closed");
++  const [r]=await db`select to_regclass('public.data_entry_analysis_control_333') control,to_regprocedure('public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer)') fn`;
++  expect(r.control).toBeNull();expect(r.fn).toBeNull();
++  await expect(asRole("service_role","DELETE FROM public.data_entry_analysis_audit_333")).rejects.toMatchObject({code:"42501"});
++});
+\ No newline at end of file
+diff --git a/docs/testes/issue333/provider87/control-pg.test.ts b/docs/testes/issue333/provider87/control-pg.test.ts
+index a85f3e60b..0ef94d7f3 100644
+--- a/docs/testes/issue333/provider87/control-pg.test.ts
++++ b/docs/testes/issue333/provider87/control-pg.test.ts
+@@ -138,11 +138,14 @@ describe("task87 PostgreSQL disposable two-connection authority", () => {
+     expect(report.document_sha256).toBe(hash);expect(report.company_id).toBe(company);expect(calls).toBe(1);
+     const row=await call(c2,"read");expect(row.claim).toBeNull();expect(row.reason).toBe("success");expect(row.revision).toBe("4");
+   });
+-  it("rollback refuses outstanding claim and removes only new objects after known completion",async()=>{
++  it("rollback refuses outstanding claim and preserves audit after known completion",async()=>{
+     const rollback=readFileSync("supabase/manual/issue333_tarefa87_provider_control.ROLLBACK-INERTE.sql","utf8");
+     const id=randomUUID();await call(c1,"claim",id,"1");await expect(db.unsafe(rollback)).rejects.toThrow("confer_claim_before_rollback");await db`rollback`;
+     await call(c1,"finish",id,"2","before_post_failure");await db.unsafe(rollback);
+     const [r]=await db`select to_regclass('public.data_entry_analysis_control_333') obj`;expect(r.obj).toBeNull();
++    const [audit]=await db`select count(*)::int n from public.data_entry_analysis_audit_333`;expect(audit.n).toBe(3);
++    // Explicit disposable-cluster reset, not part of the rollback candidate.
++    await db`drop table public.data_entry_analysis_audit_333`;
+     await db.unsafe(readFileSync("supabase/manual/issue333_tarefa87_provider_control.INERTE.sql","utf8"));
+   });
+ });
+\ No newline at end of file
+diff --git a/docs/testes/issue333/provider87/vitest.acl88.config.ts b/docs/testes/issue333/provider87/vitest.acl88.config.ts
+new file mode 100644
+index 000000000..57996aab2
+--- /dev/null
++++ b/docs/testes/issue333/provider87/vitest.acl88.config.ts
+@@ -0,0 +1,2 @@
++import { defineConfig } from "vitest/config";
++export default defineConfig({test:{environment:"node",include:["docs/testes/issue333/provider87/acl88-pg.test.ts"],fileParallelism:false,testTimeout:30000,hookTimeout:60000}});
+\ No newline at end of file
+diff --git a/supabase/manual/issue333_tarefa87_provider_control.INERTE.sql b/supabase/manual/issue333_tarefa87_provider_control.INERTE.sql
+index acc89987b..9d471a8e9 100644
+--- a/supabase/manual/issue333_tarefa87_provider_control.INERTE.sql
++++ b/supabase/manual/issue333_tarefa87_provider_control.INERTE.sql
+@@ -15,8 +15,8 @@ CREATE TABLE public.data_entry_analysis_control_333 (
+  CHECK ((active_claim IS NULL) = (stage = 'idle')),
+  CHECK (state <> 'ready' OR (enabled AND reviewed))
+ );
++REVOKE ALL ON public.data_entry_analysis_control_333 FROM PUBLIC, anon, authenticated, service_role;
+ GRANT SELECT ON public.data_entry_analysis_control_333 TO service_role;
+-REVOKE ALL ON public.data_entry_analysis_control_333 FROM PUBLIC, anon, authenticated;
+ ALTER TABLE public.data_entry_analysis_control_333 ENABLE ROW LEVEL SECURITY;
+ CREATE POLICY analysis_control_service_read_333 ON public.data_entry_analysis_control_333 FOR SELECT TO service_role USING (true);
+ ALTER TABLE public.data_entry_analysis_control_333 OWNER TO postgres;
+@@ -29,8 +29,8 @@ CREATE TABLE public.data_entry_analysis_audit_333 (
+  upstream_status integer CHECK (upstream_status BETWEEN 100 AND 599),
+  recorded_at timestamptz NOT NULL DEFAULT clock_timestamp()
+ );
++REVOKE ALL ON public.data_entry_analysis_audit_333 FROM PUBLIC, anon, authenticated, service_role;
+ GRANT SELECT ON public.data_entry_analysis_audit_333 TO service_role;
+-REVOKE ALL ON public.data_entry_analysis_audit_333 FROM PUBLIC, anon, authenticated;
+ ALTER TABLE public.data_entry_analysis_audit_333 ENABLE ROW LEVEL SECURITY;
+ CREATE POLICY analysis_audit_service_read_333 ON public.data_entry_analysis_audit_333 FOR SELECT TO service_role USING (true);
+ ALTER TABLE public.data_entry_analysis_audit_333 OWNER TO postgres;
+@@ -80,6 +80,31 @@ BEGIN
+  RETURN jsonb_build_object('revision',c.revision::text,'state',c.state,'enabled',c.enabled,'reviewed',c.reviewed,'claim',c.active_claim,'stage',c.stage,'reason',c.reason_code,'status',c.upstream_status);
+ END $fn$;
+ ALTER FUNCTION public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer) OWNER TO postgres;
+-REVOKE ALL ON FUNCTION public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer) FROM PUBLIC, anon, authenticated;
++REVOKE ALL ON FUNCTION public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer) FROM PUBLIC, anon, authenticated, service_role;
+ GRANT EXECUTE ON FUNCTION public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer) TO service_role;
++-- Fail closed on unexpected grants/memberships; REVOKE does not remove owner or inherited authority.
++DO $acl$
++DECLARE t oid; r text; privilege text;
++BEGIN
++ IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname IN ('anon','authenticated','service_role') AND rolsuper)
++ OR pg_has_role('service_role','postgres','USAGE') OR pg_has_role('anon','postgres','USAGE') OR pg_has_role('authenticated','postgres','USAGE')
++ THEN RAISE EXCEPTION 'analysis_control_acl_owner_authority'; END IF;
++ FOR t IN SELECT oid FROM pg_class WHERE oid IN ('public.data_entry_analysis_control_333'::regclass,'public.data_entry_analysis_audit_333'::regclass) LOOP
++   IF NOT EXISTS(SELECT 1 FROM pg_class WHERE oid=t AND relowner='postgres'::regrole AND relrowsecurity)
++   OR EXISTS(SELECT 1 FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE c.oid=t AND a.grantee<>'postgres'::regrole AND (a.grantee<>'service_role'::regrole OR a.privilege_type<>'SELECT' OR a.is_grantable))
++   THEN RAISE EXCEPTION 'analysis_control_acl_catalog'; END IF;
++   IF NOT has_table_privilege('service_role',t,'SELECT') THEN RAISE EXCEPTION 'analysis_control_acl_select'; END IF;
++   FOREACH r IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
++     FOREACH privilege IN ARRAY ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER'] LOOP
++       IF NOT (r='service_role' AND privilege='SELECT') AND has_table_privilege(r,t,privilege) THEN RAISE EXCEPTION 'analysis_control_acl_effective'; END IF;
++     END LOOP;
++   END LOOP;
++ END LOOP;
++ IF NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid='public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer)'::regprocedure AND proowner='postgres'::regrole AND prosecdef AND proconfig=ARRAY['search_path=pg_catalog, public'])
++ OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a WHERE p.oid='public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer)'::regprocedure AND a.grantee<>'postgres'::regrole AND (a.grantee<>'service_role'::regrole OR a.privilege_type<>'EXECUTE' OR a.is_grantable))
++ OR NOT has_function_privilege('service_role','public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer)','EXECUTE')
++ OR has_function_privilege('anon','public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer)','EXECUTE')
++ OR has_function_privilege('authenticated','public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer)','EXECUTE')
++ THEN RAISE EXCEPTION 'analysis_control_acl_function'; END IF;
++END $acl$;
+ COMMIT;
+\ No newline at end of file
+diff --git a/supabase/manual/issue333_tarefa87_provider_control.ROLLBACK-INERTE.sql b/supabase/manual/issue333_tarefa87_provider_control.ROLLBACK-INERTE.sql
+index 0f6747615..27f075582 100644
+--- a/supabase/manual/issue333_tarefa87_provider_control.ROLLBACK-INERTE.sql
++++ b/supabase/manual/issue333_tarefa87_provider_control.ROLLBACK-INERTE.sql
+@@ -1,12 +1,18 @@
+ -- LOCAL REVIEW ONLY. Do not apply to Cloud. No CASCADE or legacy objects.
++-- Retain audit in place, including all prior rows; no export assumption authorizes DROP.
+ BEGIN;
+ -- Keep the lock until rollback completes; an in-flight/uncertain claim blocks removal.
+ DO $$ BEGIN
+  PERFORM 1 FROM public.data_entry_analysis_control_333 WHERE singleton FOR UPDATE;
+  IF EXISTS(SELECT 1 FROM public.data_entry_analysis_control_333 WHERE active_claim IS NOT NULL) THEN RAISE EXCEPTION 'confer_claim_before_rollback'; END IF;
+ END $$;
+-UPDATE public.data_entry_analysis_control_333 SET enabled=false,reviewed=false,state='closed',revision=revision+1;
++WITH closed AS (
++ UPDATE public.data_entry_analysis_control_333 SET enabled=false,reviewed=false,state='closed',revision=revision+1,reason_code='closed',upstream_status=NULL,changed_at=clock_timestamp()
++ RETURNING revision,active_claim,stage
++)
++INSERT INTO public.data_entry_analysis_audit_333(revision,claim,stage,reason_code)
++SELECT revision,active_claim,stage,'closed' FROM closed;
+ DROP FUNCTION public.data_entry_analysis_transition_333(text,uuid,bigint,text,integer);
+-DROP TABLE public.data_entry_analysis_audit_333;
+ DROP TABLE public.data_entry_analysis_control_333;
++COMMENT ON TABLE public.data_entry_analysis_audit_333 IS 'Retained technical audit after inert provider-control rollback; do not drop as rollback cleanup.';
+ COMMIT;
+\ No newline at end of file
