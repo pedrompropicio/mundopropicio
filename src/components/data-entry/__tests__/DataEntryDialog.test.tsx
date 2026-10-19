@@ -56,8 +56,10 @@ describe("#333 DataEntryDialog", () => {
     fireEvent.click(screen.getByRole("checkbox"));
     expect(screen.getByRole("button", { name: "Autorizar e executar este lote" })).not.toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Analisar documento" }));
-    const use = await screen.findByRole("button", { name: "Revi e usar número da fatura" });
+    const use = await screen.findByRole("button", { name: "Passar para os dados da fatura" });
     expect(screen.getByLabelText("Número da fatura")).toHaveValue("FT 1");
+    expect(use).toBeDisabled();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Confirmei estes valores no documento." }));
     fireEvent.click(use);
     expect(screen.getByLabelText("Número da fatura")).toHaveValue("AB-0001");
     expect(screen.getByLabelText("Quem pagou")).toHaveValue("p1");
@@ -65,6 +67,13 @@ describe("#333 DataEntryDialog", () => {
     expect(a.execute).not.toHaveBeenCalled();
   });
   beforeEach(() => { localStorage.clear(); auth.id = "u1"; auth.loading = false; });
+  it("header stays outside the scrolling body so close remains reachable", async () => {
+    const a = fakeAdapter(false); ui(a);
+    const body = await screen.findByTestId("data-entry-body");
+    expect(body.className).toMatch(/overflow-y-auto/);
+    expect(body.contains(screen.getByText("Assistente de Entrada de Dados"))).toBe(false);
+    expect(screen.getByRole("button", { name: /close|fechar/i })).toBeInTheDocument();
+  });
   it("endpoint ausente: mostra indisponível e não oferece ações", async () => {
     const a = fakeAdapter(false); a.status = vi.fn(async () => { throw new DataEntryError("O assistente ainda não está ativo neste ambiente. Nada foi guardado nem lançado.", 404); });
     ui(a);

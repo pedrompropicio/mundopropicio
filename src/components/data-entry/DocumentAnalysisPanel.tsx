@@ -58,9 +58,9 @@ export default function DocumentAnalysisPanel({ adapter, context, sessionId, doc
           const editable = c.field !== "currency" && (c.reviewable ?? c.usable);
           const id = `analysis-${c.field}`;
           return <div key={c.field} className="grid grid-cols-[8rem_1fr] items-center gap-2">
-            <label htmlFor={id} className="text-muted-foreground">{LABELS[c.field]}</label>
+            <span className="text-muted-foreground">{LABELS[c.field]}</span>
             {editable
-              ? <Input id={id} className="h-8 text-xs" value={values[c.field] ?? ""} onChange={(e) => { setValues((v) => ({ ...v, [c.field]: e.target.value })); setApplied(false); }} />
+              ? <Input id={id} aria-label={`${LABELS[c.field]} lido no documento`} className="h-8 text-xs" value={values[c.field] ?? ""} onChange={(e) => { setValues((v) => ({ ...v, [c.field]: e.target.value })); setApplied(false); }} />
               : <span id={id} className="text-muted-foreground">{c.field === "currency" ? (c.value ?? "não indicada") : c.value ? `${c.value} — introduz manualmente` : "não encontrado — preenche manualmente"}</span>}
           </div>;
         })}

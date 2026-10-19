@@ -121,3 +121,42 @@ describe("#333 scanner94 local integration", () => {
     expect(report.candidates.find(c => c.field === "invoice_date")?.reviewable).toBe(false);
   });
 });
+import { normalizeScannerDate, normalizeScannerCurrency, SCANNER333_INSTRUCTIONS } from "../../supabase/functions/_shared/scanner-analysis";
+describe("#333 fecho95 adapter corrections (synthetic)", () => {
+  const base = { supplier_name: "Fornecedor sintético", supplier_nif: "GB-AB001234", invoice_number: "AB-0001", total_amount: 100, iva_amount: 23 };
+  const report = (v: Record<string, unknown>) => validateAnalysisReport(scannerAnalysisWire(v), context);
+  const get = (r: ReturnType<typeof report>, f: string) => r.candidates.find((c) => c.field === f)!;
+  it("asks explicitly for currency and literal identifiers without assuming EUR; legacy default untouched", () => {
+    expect(SCANNER333_INSTRUCTIONS).toMatch(/Nunca assumir EUR/);
+    expect(SCANNER333_INSTRUCTIONS).toMatch(/hífens/);
+    expect(scannerRequest("x", "image/png").messages[0].content).toBe(SCANNER_SYSTEM_PROMPT);
+  });
+  it("explicit EUR (code or €) keeps amounts reviewable", () => {
+    for (const currency of ["EUR", "€", "euros"]) { const r = report({ ...base, currency, document_date: "2026-10-16" }); expect(get(r, "currency").value).toBe("EUR"); expect(get(r, "total_amount").reviewable).toBe(true); expect(r.warnings).toHaveLength(0); }
+  });
+  it("absent or ambiguous currency blocks amounts with one clear notice", () => {
+    for (const currency of [null, "$"]) { const r = report({ ...base, currency }); expect(get(r, "currency").value).toBeNull(); expect(get(r, "total_amount").reviewable).toBe(false); expect(get(r, "iva_amount").reviewable).toBe(false); expect(r.warnings).toEqual(["A moeda não aparece claramente no documento. Confirma e introduz o total e o IVA manualmente."]); }
+  });
+  it("non-EUR currency is shown, never converted, and amounts stay manual", () => {
+    const r = report({ ...base, currency: "USD" });
+    expect(get(r, "currency").value).toBe("USD"); expect(get(r, "currency").reviewable).toBe(true);
+    expect(get(r, "total_amount").reviewable).toBe(false); expect(r.warnings[0]).toMatch(/USD/);
+  });
+  it("keeps the reference literal, with or without hyphen", () => {
+    expect(get(report({ ...base, currency: "EUR" }), "invoice_number").value).toBe("AB-0001");
+    expect(get(report({ ...base, invoice_number: "AB 0001", currency: "EUR" }), "invoice_number").value).toBe("AB 0001");
+  });
+  it("converts textual dates deterministically; ambiguous ones stay for manual review", () => {
+    expect(normalizeScannerDate("October 16, 2026")).toBe("2026-10-16");
+    expect(normalizeScannerDate("16 de outubro de 2026")).toBe("2026-10-16");
+    expect(normalizeScannerDate("Oct 16th 2026")).toBe("2026-10-16");
+    expect(normalizeScannerDate("16/10/2026")).toBe("2026-10-16");
+    expect(normalizeScannerDate("05/10/2026")).toBeNull();
+    expect(normalizeScannerDate("February 30, 2026")).toBeNull();
+    expect(normalizeScannerDate("next friday")).toBeNull();
+    const r = report({ ...base, currency: "EUR", document_date: "October 16, 2026" });
+    expect(get(r, "invoice_date").value).toBe("2026-10-16"); expect(get(r, "invoice_date").reviewable).toBe(true);
+    expect(get(report({ ...base, currency: "EUR", document_date: "05/10/2026" }), "invoice_date").value).toBeNull();
+    expect(normalizeScannerCurrency("gbp")).toBe("GBP");
+  });
+});
