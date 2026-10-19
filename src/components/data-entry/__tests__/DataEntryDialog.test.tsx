@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import DataEntryDialog from "../DataEntryDialog";
@@ -6,6 +6,8 @@ import { DataEntryError, parseAmount, type DataEntryAdapter, type DataEntryState
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => false }));
+beforeAll(() => vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} }));
+afterAll(() => vi.unstubAllGlobals());
 
 const C = "c1";
 const auth = vi.hoisted(() => ({ id: "u1", loading: false }));
@@ -47,7 +49,7 @@ describe("#333 DataEntryDialog", () => {
   it("reviewing scanner AB-0001 changes only the literal field and invalidates prior authorization", async () => {
     const a = fakeAdapter(true);
     a.status = vi.fn(async () => ({ user_id: "u1", role: "manager", company_id: C, capabilities: { upload: true, analysis: true } }));
-    a.analyze = vi.fn(async () => ({ document_id: "d1", document_sha256: "a".repeat(64), company_id: C,
+    a.analyze = vi.fn<NonNullable<DataEntryAdapter["analyze"]>>(async () => ({ document_id: "d1", document_sha256: "a".repeat(64), company_id: C,
       answer: "Scanner local", warnings: [], erp: { company_tax: "PT500000001" },
       candidates: [{ field: "invoice_number", value: "AB-0001", quote: null, page: null, confidence: null, uncertainty: "Revisão obrigatória", origin: "suggestion", usable: false, reviewable: true }] }));
     await fillAndPreview(a);
