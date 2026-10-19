@@ -36,6 +36,7 @@ export type ExecuteOutcome = { status: "conferido" | "conferencia_pendente" | "p
 export type GmailFilters = { from_date: string; to_date: string; sender?: string; subject?: string; page_size: number; page_token?: string };
 export type GmailAttachment = { part_id: string; filename: string; mime: string; size_bytes: number };
 export type GmailMessage = { message_id: string; from: string; subject: string; date: string; attachments: GmailAttachment[] };
+export type GmailConnectionStatus = { linked: boolean; reconnect_required: boolean };
 export type GmailSearchResult = { messages: GmailMessage[]; next_page_token: string | null };
 
 export class DataEntryError extends Error { constructor(message: string, readonly status: number) { super(message); } }
@@ -48,6 +49,9 @@ export interface DataEntryAdapter {
   execute(sessionId: string, previewId: string, snapshotHash: string, context?: DataEntryContext): Promise<ExecuteOutcome>;
   check(sessionId: string, previewId: string, context?: DataEntryContext): Promise<ExecuteOutcome>;
   gmailSearch?(filters: GmailFilters, context: DataEntryContext): Promise<GmailSearchResult>;
+  gmailConnection?(context: DataEntryContext): Promise<GmailConnectionStatus>;
+  gmailConnectStart?(context: DataEntryContext): Promise<{ authorization_url: string }>;
+  gmailDisconnect?(context: DataEntryContext): Promise<{ revoked_at_google: boolean }>;
   gmailImport?(sessionId: string, selection: { message_id: string; part_id: string }, context: DataEntryContext): Promise<{ id: string; reused: boolean; origin: string }>;
   analyze?(sessionId: string, documentId: string, message: string, history: AnalysisTurn[], context: DataEntryContext, signal: AbortSignal): Promise<AnalysisReport>;
 }
@@ -83,6 +87,9 @@ export const edgeDataEntryAdapter: DataEntryAdapter = {
   execute: (sessionId, previewId, snapshotHash, context) => call(JSON.stringify({ action: "execute", session_id: sessionId, preview_id: previewId, snapshot_hash: snapshotHash, authorize: true }), true, context),
   check: (sessionId, previewId, context) => call(JSON.stringify({ action: "check", session_id: sessionId, preview_id: previewId }), true, context),
   gmailSearch: (filters, context) => call(JSON.stringify({ action: "gmail_search", filters }), true, context),
+  gmailConnection: (context) => call(JSON.stringify({ action: "gmail_connection" }), true, context),
+  gmailConnectStart: (context) => call(JSON.stringify({ action: "gmail_connect_start", origin: window.location.origin }), true, context),
+  gmailDisconnect: (context) => call(JSON.stringify({ action: "gmail_disconnect" }), true, context),
   gmailImport: (sessionId, selection, context) => call(JSON.stringify({ action: "gmail_import", session_id: sessionId, selection }), true, context),
   async analyze(sessionId, documentId, message, history, context, signal) {
     const { data } = await supabase.auth.getSession();
@@ -119,3 +126,7 @@ export function parseAmount(text: string): number | null {
   const n = Number(t.includes(",") ? t.replace(/\./g, "").replace(",", ".") : t);
   return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
 }
+
+/** Página de retorno: só reencaminha o código de uso único ao servidor; nunca recebe a chave. */
+export const completeGmailConnection = (binding: string, code: string) =>
+  call<GmailConnectionStatus>(JSON.stringify({ action: "gmail_connect_complete", binding, code }), true);
