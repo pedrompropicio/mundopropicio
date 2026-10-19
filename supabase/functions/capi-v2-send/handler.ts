@@ -7,6 +7,10 @@ export const BACKOFF_MINUTES = [1, 5, 15, 60, 180];
 export const MAX_ATTEMPTS = 5;
 export const MAX_AGE_DAYS = 6;
 export const BATCH_SIZE = 100;
+export const DEFAULT_TOKEN_SECRET = "META_CAPI_ACCESS_TOKEN";
+// Erros de configuração/permissão da Graph: os eventos NÃO são queimados —
+// ficam em retry daqui a 60 min sem consumir tentativas e o pixel pára nessa execução.
+export const CONFIG_RETRY_MINUTES = 60;
 
 export type CapiV2Row = {
   id: string;
@@ -72,7 +76,17 @@ export function nextBackoff(attemptsAfterFail: number, now: Date): string | null
 export type GraphOutcome =
   | { kind: "ok"; fbtrace_id: string | null }
   | { kind: "transient"; http_status: number | null; error_code: string }
-  | { kind: "terminal"; http_status: number; error_code: string; fbtrace_id: string | null };
+  | { kind: "config"; http_status: number; error_code: string; error_subcode: string | null; message: string | null; fbtrace_id: string | null }
+  | { kind: "terminal"; http_status: number; error_code: string; error_subcode: string | null; message: string | null; fbtrace_id: string | null };
+
+/** Erros de configuração/permissão da Graph (não queimam eventos). */
+export function isConfigError(code: number | null, subcode: number | null): boolean {
+  if (code == null) return false;
+  if (code === 100 && subcode === 33) return true; // objeto inexistente/sem permissões (token sem acesso ao pixel)
+  if (code === 190 || code === 10) return true; // token inválido/expirado; permissão insuficiente
+  if (code >= 200 && code <= 299) return true; // permissões
+  return false;
+}
 
 /** Classifica a resposta SÍNCRONA do Graph. events_received tem de igualar o nº enviado. */
 export function classifyGraphResponse(status: number, parsed: any, sentCount: number): GraphOutcome {
@@ -81,15 +95,23 @@ export function classifyGraphResponse(status: number, parsed: any, sentCount: nu
     if (parsed && Number(parsed.events_received) === sentCount && !parsed.error) {
       return { kind: "ok", fbtrace_id: fbtrace };
     }
-    return { kind: "terminal", http_status: status, error_code: "events_received_mismatch", fbtrace_id: fbtrace };
+    return { kind: "terminal", http_status: status, error_code: "events_received_mismatch", error_subcode: null, message: null, fbtrace_id: fbtrace };
   }
   const err = parsed?.error;
+  const codeNum = err?.code != null ? Number(err.code) : null;
+  const subNum = err?.error_subcode != null ? Number(err.error_subcode) : null;
   const code = err?.code != null ? String(err.code) : `http_${status}`;
+  const subcode = subNum != null && Number.isFinite(subNum) ? String(subNum) : null;
+  const message = typeof err?.message === "string" ? err.message.slice(0, 200) : null;
   if (status === 429 || status >= 500) {
     return { kind: "transient", http_status: status, error_code: code };
   }
-  // 4xx de validação/permissão (inclui token sem acesso ao pixel) → terminal, com alerta.
-  return { kind: "terminal", http_status: status, error_code: code, fbtrace_id: fbtrace };
+  // Configuração/permissão (ex.: token sem acesso ao pixel) → NÃO terminal: retry sem consumir tentativas.
+  if (isConfigError(codeNum, subNum)) {
+    return { kind: "config", http_status: status, error_code: code, error_subcode: subcode, message, fbtrace_id: fbtrace };
+  }
+  // Restantes 4xx de validação do payload → terminal, com alerta.
+  return { kind: "terminal", http_status: status, error_code: code, error_subcode: subcode, message, fbtrace_id: fbtrace };
 }
 
 /** user_data SEM PII: em/ph já vêm hasheados; Newgang sem anuncios-v1 chega sem em/ph. */
