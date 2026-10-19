@@ -7,6 +7,9 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { durableProviderControl, rpcControlStore } from "../../../../supabase/functions/_shared/issue333-ai/control";
+import { analyzeDocument } from "../../../../supabase/functions/data-entry/analysis-service";
+import { sha256, stagingPath } from "../../../../supabase/functions/_shared/data-entry-core";
+import { pdfFixture } from "../../../../src/test/fixtures/documents333";
 
 let dir: string, db: postgres.Sql, c1: postgres.Sql, c2: postgres.Sql;
 let started = false;
@@ -125,6 +128,15 @@ describe("task87 PostgreSQL disposable two-connection authority", () => {
   it("adapter late finalization cannot clear a pause applied by second connection",async()=>{
     await expect(adapter(c1).run(new AbortController().signal,async()=>{},async(t)=>{await t.beforePost();const row=await call(c2,"read");await call(c2,"pause",row.claim,row.revision,"credit_denied",402);t.received(200);t.completed();return "stale";})).rejects.toMatchObject({status:503});
     const row=await call(c2,"read");expect(row.state).toBe("paused_credit");expect(row.claim).not.toBeNull();
+  });
+  it("analysis existing flow with real SQL claim returns validated hash-bound report",async()=>{
+    const company=randomUUID(),user=randomUUID(),session=randomUUID(),document=randomUUID();
+    const bytes=pdfFixture("local-provider87"),hash=await sha256(bytes);
+    const state={session:{id:session,owner_id:user,company_id:company},company:{id:company,tax_id:null},documents:[{id:document,sha256:hash,size_bytes:bytes.length,mime:"application/pdf" as const,path:stagingPath(company,session,hash),name:"local.pdf"}]};
+    let calls=0;
+    const report=await analyzeDocument({enabled:true,providerReady:true,control:adapter(c1),scope:async()=>({user,company,role:"manager",preparation:true}),load:async()=>state,download:async()=>bytes,generate:async(_input,t)=>{await t.beforePost();calls++;t.received(200);t.completed();return {answer:"Revisão necessária.",fields:[],warnings:[]};}}, {session,document,message:"Analisa",history:[],signal:new AbortController().signal});
+    expect(report.document_sha256).toBe(hash);expect(report.company_id).toBe(company);expect(calls).toBe(1);
+    const row=await call(c2,"read");expect(row.claim).toBeNull();expect(row.reason).toBe("success");expect(row.revision).toBe("4");
   });
   it("rollback refuses outstanding claim and removes only new objects after known completion",async()=>{
     const rollback=readFileSync("supabase/manual/issue333_tarefa87_provider_control.ROLLBACK-INERTE.sql","utf8");

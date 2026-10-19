@@ -1,2 +1,2 @@
 import { defineConfig } from "vitest/config";
-export default defineConfig({ resolve: { alias: { "npm:zod@3": "zod", "npm:ai@6": "ai", "npm:@ai-sdk/openai@3": "@ai-sdk/openai" } }, test: { environment: "node", include: ["docs/testes/issue333/provider87/*.test.ts"], fileParallelism: false, testTimeout: 30000, hookTimeout: 60000 } });
+export default defineConfig({ resolve: { alias: { "npm:zod@3": "zod", "npm:ai@6": "ai", "npm:@ai-sdk/openai@3": "@ai-sdk/openai" } }, test: { environment: "node", include: ["docs/testes/issue333/provider87/control-pg.test.ts"], fileParallelism: false, testTimeout: 30000, hookTimeout: 60000 } });
