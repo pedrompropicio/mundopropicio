@@ -15745,6 +15745,27 @@ export type Database = {
           },
         ]
       }
+      portugal_municipalities_ref: {
+        Row: {
+          city_key: string | null
+          code: string
+          name: string
+          region: string | null
+        }
+        Insert: {
+          city_key?: string | null
+          code: string
+          name: string
+          region?: string | null
+        }
+        Update: {
+          city_key?: string | null
+          code?: string
+          name?: string
+          region?: string | null
+        }
+        Relationships: []
+      }
       press_clippings: {
         Row: {
           company_id: string
@@ -20332,6 +20353,16 @@ export type Database = {
           code: string | null
           name: string | null
           region: string | null
+        }
+        Insert: {
+          code?: string | null
+          name?: string | null
+          region?: string | null
+        }
+        Update: {
+          code?: string | null
+          name?: string | null
+          region?: string | null
         }
         Relationships: []
       }
