@@ -374,9 +374,6 @@ export function createHandler(deps: Deps) {
       testEventCode = body.test_event_code.trim().slice(0, 50);
     }
 
-    const token = await loadCapiToken(env, sb);
-    if (!token) return json({ error: "missing_capi_token" }, 500);
-
     const limit = Math.min(Math.max(Number(body?.limit) || 50, 1), 200);
     const { data: targets } = await sb.from("capi_v2_targets").select("*");
     const targetByPixel = new Map<string, any>();
@@ -387,7 +384,15 @@ export function createHandler(deps: Deps) {
       .or(`next_attempt_at.is.null,next_attempt_at.lte.${now().toISOString()}`)
       .order("created_at", { ascending: true }).limit(limit);
 
-    const result = { sent: 0, retry: 0, failed_terminal: 0, expired: 0, skipped_no_consent: 0, refused_targets: 0, alerts: 0, batches: 0 };
+    const result = { sent: 0, retry: 0, failed_terminal: 0, expired: 0, skipped_no_consent: 0, refused_targets: 0, config_blocked: 0, alerts: 0, batches: 0 };
+    const pixels: Record<string, { last_error: { code: string; subcode: string | null; message: string | null } | null }> = {};
+    const tokenCache = new Map<string, string | null>();
+    const tokenFor = async (t: any): Promise<string | null> => {
+      const name = typeof t?.token_secret_name === "string" && t.token_secret_name.trim()
+        ? t.token_secret_name.trim() : DEFAULT_TOKEN_SECRET;
+      if (!tokenCache.has(name)) tokenCache.set(name, await loadCapiToken(env, sb, name));
+      return tokenCache.get(name) ?? null;
+    };
 
     // Agrupa por pixel: 1 pixel por pedido, lotes ≤ 100.
     const byPixel = new Map<string, { row: CapiV2Row; event: Record<string, unknown> }[]>();
@@ -409,7 +414,17 @@ export function createHandler(deps: Deps) {
     }
 
     for (const [pixelId, items] of byPixel) {
-      for (let i = 0; i < items.length; i += BATCH_SIZE) {
+      const t = targetByPixel.get(pixelId);
+      const token = await tokenFor(t);
+      if (!token) {
+        // Segredo em falta (por target ou por omissão): recusa o pixel SEM queimar eventos nem chamar a Graph.
+        result.config_blocked += items.length;
+        pixels[pixelId] = { last_error: { code: "missing_capi_token_for_target", subcode: null, message: null } };
+        continue;
+      }
+      pixels[pixelId] = { last_error: null };
+      let pixelStopped = false;
+      for (let i = 0; i < items.length && !pixelStopped; i += BATCH_SIZE) {
         const batch = items.slice(i, i + BATCH_SIZE);
         result.batches++;
         const metaBody: Record<string, unknown> = {
@@ -431,6 +446,29 @@ export function createHandler(deps: Deps) {
           outcome = classifyGraphResponse(resp.status, parsed, batch.length);
         } catch (e) {
           outcome = { kind: "transient", http_status: null, error_code: "network" };
+        }
+
+        if (outcome.kind === "config") {
+          // Configuração/permissão: eventos ficam em retry daqui a 60 min SEM consumir tentativas;
+          // UM alerta por pixel e por execução; o processamento deste pixel pára nesta execução.
+          result.config_blocked += batch.length;
+          pixels[pixelId] = { last_error: { code: outcome.error_code, subcode: outcome.error_subcode, message: outcome.message } };
+          const retryAt = new Date(now().getTime() + CONFIG_RETRY_MINUTES * 60_000).toISOString();
+          for (const b of batch) {
+            await sb.from("capi_v2_events").update({
+              status: "retry", next_attempt_at: retryAt,
+              http_status: outcome.http_status, error_code: outcome.error_code,
+            }).eq("id", b.row.id).in("status", ["pending", "retry"]);
+          }
+          const a = await sb.from("capi_alerts").insert({
+            source: "capi-v2-send", lead_id: null, kind: "capi_v2_config",
+            meta_code: outcome.http_status,
+            meta_subcode: outcome.error_subcode != null ? Number(outcome.error_subcode) : null,
+            detail: `pixel=${pixelId} code=${outcome.error_code} subcode=${outcome.error_subcode ?? "n/a"} msg=${outcome.message ?? "n/a"} fbtrace=${outcome.fbtrace_id ?? "n/a"}`.slice(0, 300),
+          });
+          if (!a?.error) result.alerts++;
+          pixelStopped = true;
+          continue;
         }
 
         for (const b of batch) {
@@ -456,15 +494,17 @@ export function createHandler(deps: Deps) {
             }
           } else {
             result.failed_terminal++;
+            pixels[pixelId] = { last_error: { code: outcome.error_code, subcode: outcome.error_subcode, message: outcome.message } };
             await sb.from("capi_v2_events").update({
               status: "failed_terminal", attempts: b.row.attempts + 1,
               http_status: outcome.http_status, error_code: outcome.error_code, fbtrace_id: outcome.fbtrace_id,
             }).eq("id", b.row.id).in("status", ["pending", "retry"]);
-            // Alerta sem PII: pixel, código e fbtrace apenas.
+            // Alerta sem PII: pixel, código, subcódigo, mensagem truncada e fbtrace.
             const a = await sb.from("capi_alerts").insert({
               source: "capi-v2-send", lead_id: null, kind: "capi_v2_terminal",
-              meta_code: outcome.http_status, meta_subcode: null,
-              detail: `pixel=${pixelId} code=${outcome.error_code} fbtrace=${outcome.fbtrace_id ?? "n/a"}`.slice(0, 300),
+              meta_code: outcome.http_status,
+              meta_subcode: outcome.error_subcode != null ? Number(outcome.error_subcode) : null,
+              detail: `pixel=${pixelId} code=${outcome.error_code} subcode=${outcome.error_subcode ?? "n/a"} msg=${outcome.message ?? "n/a"} fbtrace=${outcome.fbtrace_id ?? "n/a"}`.slice(0, 300),
             });
             if (!a?.error) result.alerts++;
           }
@@ -472,6 +512,6 @@ export function createHandler(deps: Deps) {
       }
     }
 
-    return json({ ok: true, suspended, test_mode: testEventCode != null, ...result });
+    return json({ ok: true, suspended, test_mode: testEventCode != null, ...result, pixels });
   };
 }
