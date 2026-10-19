@@ -26,6 +26,8 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
+- [ ] Tarefa87: implementar controlo singleton durável e claim global; SQL/rollback INERTES fora migrations, adapter integrado com gatesfalse, provas PostgreSQL real duas conexões e SDK doubles, documentação/hash/fecho próprios. Sem Cloudwrites/deploy/ativação; plano aguarda aprovação.
+- [x] Controller confirmou CI411 quality SUCCESS no HEAD integrado460cb2e antes do dispatch87; correção322 encerrada, reservaClaude/#323 preservadas. Novo HEAD exige nova confirmação CI antes próximo dispatch não corretivo/Publish.
 - [x] Tarefa86: Deno check0/runtime1PASS/bundle190módulos0, SDK9testes86PASS+30regressões85PASS, harness tipos/buildOK. Mensagens públicas/status403/429 preservados, zero log bruto/factory reasoning; configuração names-only, desenho pausa durável entregue sem implementação/DDL. Gatesfalse,8PARCIAL/9não liberada; CI novo SHA e runtime hospedado/prova externa/claim durável aguardam controller.
 - [x] Tarefa85: código análise/conversa fase10 preparado;52testes locaisPASS, harnessbuildOK, dois gates fechados.10não concluída: SDK/configuração externa/pausa durável pendentes; sem liberar9/concluir8/Cloudwrites. Prova própria85 sanitizada.
 - [x] Pedro confirmou CI401 quality SUCCESS no HEAD c23ad739 antes do dispatch85; testes corrigidos70/worker60 e gate preservados.
