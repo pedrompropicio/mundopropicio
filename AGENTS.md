@@ -30,3 +30,5 @@
 
 
 - CRM WhatsApp uses crm_whatsapp_eligible/invoker views. Ledger/member-phone triggers share a contact-locked projection; matching-fingerprint phones only fill empty contacts, preventing revocation leaks and overwrites.
+
+- Entry Gmail compares live Google users/me/profile with confirmed current Auth email before storage and every read; encrypted envelopes bind the verified email and user/company, so changed identities and legacy keys fail closed.

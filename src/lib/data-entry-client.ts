@@ -36,7 +36,7 @@ export type ExecuteOutcome = { status: "conferido" | "conferencia_pendente" | "p
 export type GmailFilters = { from_date: string; to_date: string; sender?: string; subject?: string; page_size: number; page_token?: string };
 export type GmailAttachment = { part_id: string; filename: string; mime: string; size_bytes: number };
 export type GmailMessage = { message_id: string; from: string; subject: string; date: string; attachments: GmailAttachment[] };
-export type GmailConnectionStatus = { linked: boolean; reconnect_required: boolean };
+export type GmailConnectionStatus = { linked: boolean; reconnect_required: boolean; mailbox_email?: string };
 export type GmailSearchResult = { messages: GmailMessage[]; next_page_token: string | null };
 
 export class DataEntryError extends Error { constructor(message: string, readonly status: number) { super(message); } }
@@ -63,6 +63,7 @@ async function call<T>(body: BodyInit, json: boolean, context?: DataEntryContext
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) throw new DataEntryError("Inicia sessão para continuar.", 401);
+  if (context && data.session?.user.id !== context.user_id) throw new DataEntryError("Sessão alterada; reabre o assistente.", 409);
   let res: Response;
   try {
     res = await fetch(endpoint(), {
@@ -72,6 +73,11 @@ async function call<T>(body: BodyInit, json: boolean, context?: DataEntryContext
     });
   } catch { throw new DataEntryError(UNAVAILABLE, 503); }
   const payload = await res.json().catch(() => null);
+  if (context) {
+    const current = await supabase.auth.getSession();
+    if (current.data.session?.access_token !== token || current.data.session?.user.id !== context.user_id)
+      throw new DataEntryError("Sessão alterada; reabre o assistente.", 409);
+  }
   if (res.status === 404) throw new DataEntryError(UNAVAILABLE, 404);
   // Execute returns structured outcomes on 409/503 that the UI must show, not hide.
   if (payload && typeof payload === "object" && "status" in payload && !res.ok) return payload as T;
