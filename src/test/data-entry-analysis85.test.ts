@@ -13,7 +13,7 @@ async function harness() {
   const generate = vi.fn(async () => wire()); const download = vi.fn(async () => bytes);
   const scope = vi.fn(async () => ({ user, company, role: "manager", preparation: true }));
   // Context regressions use a control double; task87 separately proves real durable SQL authority.
-  const deps: AnalysisDependencies = { enabled: true, providerReady: true, control: { run: async (_signal, validate, execute) => { const result = await execute({ beforePost: validate, received: () => {} }); await validate(); return result; } }, scope, load: async () => state, download, generate };
+  const deps: AnalysisDependencies = { enabled: true, providerReady: true, control: { run: async (_signal, validate, execute) => { const result = await execute({ beforePost: validate, received: () => {}, completed: () => {} }); await validate(); return result; } }, scope, load: async () => state, download, generate };
   const request = { session, document, message: "Extrai os campos", history: [], signal: new AbortController().signal };
   return { deps, request, state, generate, download, scope };
 }

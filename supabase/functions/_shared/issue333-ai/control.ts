@@ -5,7 +5,7 @@ export type ControlRecord = { revision: string; state: "closed" | "ready" | "pau
 export type ControlOperation = "read" | "claim" | "post" | "finish";
 export type ControlOutcome = "success" | "request_refused" | "invalid_response" | "before_post_failure" | "cancelled_before_post" | "cancelled_after_post" | "transport_uncertain" | "credit_denied" | "provider_denied" | "provider_unavailable" | "http_failure";
 export interface ControlStore { transition(operation: ControlOperation, claim?: string, revision?: string, outcome?: ControlOutcome, status?: number): Promise<ControlRecord>; }
-export interface TransportLifecycle { beforePost(): Promise<void>; received(status: number): void; }
+export interface TransportLifecycle { beforePost(): Promise<void>; received(status: number): void; completed(): void; }
 export interface ProviderControl { run<T>(signal: AbortSignal, validateContext: () => Promise<void>, execute: (transport: TransportLifecycle) => Promise<T>): Promise<T>; }
 const unavailable = () => new AnalysisError("Análise indisponível: controlo do serviço pendente de conferência pelo responsável.", 503);
 
@@ -40,7 +40,7 @@ export function durableProviderControl(store: ControlStore): ProviderControl {
     const id = crypto.randomUUID();
     let held = await store.transition("claim", id, initial.revision);
     if (!ready(held) || held.claim !== id || held.stage !== "claimed") throw unavailable();
-    let post = false, status: number | undefined;
+    let post = false, status: number | undefined, completed = false;
     let finalizing = false;
     const check = async () => {
       const current = await store.transition("read");
@@ -59,7 +59,9 @@ export function durableProviderControl(store: ControlStore): ProviderControl {
           await check();
         },
         received(code) { if (Number.isInteger(code) && code >= 100 && code <= 599) status = code; },
+        completed() { completed = true; },
       });
+      if (!post || !completed || status === undefined || status < 200 || status > 299) throw unavailable();
       await check();
       finalizing = true;
       const finished = await store.transition("finish", id, held.revision, "success", status);
@@ -71,7 +73,7 @@ export function durableProviderControl(store: ControlStore): ProviderControl {
     } catch (error) {
       // A failed finalization is not retried; its commit may be unknown.
       if (!finalizing) {
-        const outcome: ControlOutcome = status === 402 ? "credit_denied" : status === 403 ? "provider_denied" : status === 404 ? "provider_unavailable" : !post ? (signal.aborted ? "cancelled_before_post" : "before_post_failure") : signal.aborted ? "cancelled_after_post" : status === undefined ? "transport_uncertain" : status >= 400 ? "http_failure" : "invalid_response";
+        const outcome: ControlOutcome = status === 402 ? "credit_denied" : status === 403 ? "provider_denied" : status === 404 ? "provider_unavailable" : !post ? (signal.aborted ? "cancelled_before_post" : "before_post_failure") : signal.aborted ? "cancelled_after_post" : status !== undefined && status >= 400 ? "http_failure" : !completed ? "transport_uncertain" : "invalid_response";
         try { await store.transition("finish", id, held.revision, outcome, status); }
         catch { throw unavailable(); } // durable failure outranks a false clean cancellation
       }

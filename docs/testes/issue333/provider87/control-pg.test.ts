@@ -100,7 +100,7 @@ describe("task87 PostgreSQL disposable two-connection authority", () => {
   });
   it("real adapter revalidates tenant context and discards output",async()=>{
     let tenant="A";
-    await expect(adapter(c1).run(new AbortController().signal,async()=>{if(tenant!=="A")throw Error("context_changed");},async(t)=>{await t.beforePost();t.received(200);tenant="B";return "stale";})).rejects.toThrow("context_changed");
+    await expect(adapter(c1).run(new AbortController().signal,async()=>{if(tenant!=="A")throw Error("context_changed");},async(t)=>{await t.beforePost();t.received(200);t.completed();tenant="B";return "stale";})).rejects.toThrow("context_changed");
     expect((await call(c2,"read")).state).toBe("ready");expect((await call(c2,"read")).claim).toBeNull();
   });
   it("rollback refuses outstanding claim and removes only new objects after known completion",async()=>{

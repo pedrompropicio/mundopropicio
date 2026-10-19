@@ -25,7 +25,21 @@ export function createResponsesCall(
       if (transport) await transport.beforePost();
       const response = await runIdFetch.fetch(input, init);
       transport?.received(response.status);
-      return response;
+      if (!transport) return response;
+      if (!response.body) { transport.completed(); return response; }
+      // HTTP200 headers are not evidence that a streaming provider request completed.
+      const reader = response.body.getReader();
+      const body = new ReadableStream<Uint8Array>({
+        async pull(controller) {
+          try {
+            const chunk = await reader.read();
+            if (chunk.done) { transport.completed(); controller.close(); }
+            else controller.enqueue(chunk.value);
+          } catch (error) { controller.error(error); }
+        },
+        cancel: (reason) => reader.cancel(reason),
+      });
+      return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
     },
   });
   const reasoning = config.model !== "openai/chat-latest";

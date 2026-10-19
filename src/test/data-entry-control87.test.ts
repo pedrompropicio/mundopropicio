@@ -42,7 +42,7 @@ describe("task87 durable control contract and SDK doubles", () => {
   it("bigint revisions remain exact strings", () => { const h = harness(); expect(parseControl({ ...h.row, revision: "9007199254740993" }).revision).toBe("9007199254740993"); });
   it("success requires claim, POST fencing, context and exact final revision", async () => {
     const h = harness(); const context = vi.fn(async () => {});
-    expect(await h.control.run(new AbortController().signal, context, async (t) => { await t.beforePost(); t.received(200); return "validated"; })).toBe("validated");
+    expect(await h.control.run(new AbortController().signal, context, async (t) => { await t.beforePost(); t.received(200); t.completed(); return "validated"; })).toBe("validated");
     expect(h.row.claim).toBeNull(); expect(h.row.revision).toBe("4"); expect(context.mock.calls.length).toBeGreaterThanOrEqual(3); expect(h.outcomes).toEqual(["success"]);
   });
   it("failure before POST releases only known unsubmitted claim", async () => {
@@ -73,16 +73,20 @@ describe("task87 durable control contract and SDK doubles", () => {
     await expect(h.control.run(request.signal, async () => {}, vi.fn())).rejects.toMatchObject({ status: 503 }); expect(fetch).toHaveBeenCalledTimes(1);
   });
   it("HTTP200 refusal/invalid response does not pause workspace", async () => {
-    const h = harness(); await expect(h.control.run(new AbortController().signal, async () => {}, async (t) => { await t.beforePost(); t.received(200); throw Error("refusal"); })).rejects.toThrow();
+    const h = harness(); await expect(h.control.run(new AbortController().signal, async () => {}, async (t) => { await t.beforePost(); t.received(200); t.completed(); throw Error("refusal"); })).rejects.toThrow();
     expect(h.row.state).toBe("ready"); expect(h.row.claim).toBeNull(); expect(h.outcomes).toEqual(["invalid_response"]);
   });
   it("revision changed during flight discards response and cannot clear foreign pause", async () => {
-    const h = harness(); await expect(h.control.run(new AbortController().signal, async () => {}, async (t) => { await t.beforePost(); t.received(200); h.row.revision = "9"; h.row.state = "denied_provider"; return "stale"; })).rejects.toMatchObject({ status: 503 });
+    const h = harness(); await expect(h.control.run(new AbortController().signal, async () => {}, async (t) => { await t.beforePost(); t.received(200); t.completed(); h.row.revision = "9"; h.row.state = "denied_provider"; return "stale"; })).rejects.toMatchObject({ status: 503 });
     expect(h.row.claim).not.toBeNull(); expect(h.row.state).toBe("denied_provider");
   });
   it("lost finalization response is not retried", async () => {
     const h = harness(); const original = h.transition.getMockImplementation(); h.transition.mockImplementation(async (...args) => { if (!original) throw Error("missing"); const result = await original(...args); if (args[0] === "finish") throw Error("response lost"); return result; });
-    await expect(h.control.run(new AbortController().signal, async () => {}, async (t) => { await t.beforePost(); t.received(200); return "output"; })).rejects.toThrow();
+    await expect(h.control.run(new AbortController().signal, async () => {}, async (t) => { await t.beforePost(); t.received(200); t.completed(); return "output"; })).rejects.toThrow();
     expect(h.transition.mock.calls.filter(([op]) => op === "finish")).toHaveLength(1);
+  });
+  it("HTTP200 headers followed by broken stream retain uncertain claim", async () => {
+    const h = harness(); await expect(h.control.run(new AbortController().signal, async () => {}, async (t) => { await t.beforePost(); t.received(200); throw Error("stream disconnected"); })).rejects.toThrow();
+    expect(h.outcomes).toEqual(["transport_uncertain"]); expect(h.row.stage).toBe("uncertain");
   });
 });
