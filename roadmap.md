@@ -1,3 +1,9 @@
+# #333 — fecho93 e comparação READONLY
+- [x] Reverter analysis/provider false e deploy exclusivamente data-entry, preservando uploadfalse/pilotScopedtrue; readback rev6closed, preparationdisabled/assistant_create0, um ciclo auditado.
+- [x] Conferência agregada empresa/janela: documento1, prévias/faturas/TX/BP/fornecedores novos0; candidatos não persistem, hash autorizado não corroborado nesta leitura.
+- [x] Comparar leitores existentes somente leitura; documentar reuso do núcleo genérico sob guardas333, sem implementação/chamada/deleção/Publish; reserva própria libertada.
+- [ ] Controller: confirmar CI do SHA integrado novo; qualidade do resultado não verificável sem sessão do Pedro. Sem nova decisão necessária para fecho.
+
 # #333 — tarefa90 entrega consolidada
 - [x] Preflight oficial somente metadados: ACL técnica extra incompatível88 corrigida somente novos objetos; registry204/0202/0203livre, gates0/keynomepresente.
 - [x] Pacote final INERTE aplicação/rollbackaudit/readback/hash/ownerconferreopen/diff/budget/checklist18;PG90quatroPASS,deadline90+afetados58PASS,Deno check/runtime2/bundle192exit0,harnessbuildOK.
