@@ -1,0 +1,280 @@
+diff --git a/docs/QUADRO.md b/docs/QUADRO.md
+index e4838c095..db851c0b2 100644
+--- a/docs/QUADRO.md
++++ b/docs/QUADRO.md
+@@ -38,6 +38,8 @@ _(sem pedidos)_
+ 
+ ## 0 · Cowork (ChatGPT)
+ 
++  - **19/10/2026 04:20 UTC — subescopo corretivo CI410 entregue, só a sua subreserva libertada:** falso positivo por callback sem chamada literal; wrapper explícito chama o mesmo `isServiceRoleRequest`, scanner/referência/allowlist intactos. 67 testes pertinentes PASS incluindo seis de autenticação real com assinaturas efémeras locais; tipos/build OK pelo harness. Suite default executada duas vezes: timeouts em testes de outras frentes (27 PASS isolados), terceira falha de deadline proof60 na segunda execução; nenhum desses ficheiros alterado. Prova/diff próprios em docs/testes/issue322/ci410-correcao.md. Reserva #322 Claude e linha #323 preservadas; nenhuma funcionalidade #333 retomada. Zero Cloudwrites/DDL/Meta/deploy/Publish/cron; CI GitHub do novo SHA NÃO confirmada, controller confirma antes próximo dispatch não corretivo/Publish.
++  - **19/10/2026 04:10 UTC — subreserva corretiva CI410 autorizada:** somente falha `capi-v2-send: sem_identidade`; CI vermelho permite esta correção, não dispatch funcional #333. HEAD GitHub/local iguais ecce9e0e0440a6e9e9bd5695b5930857b46a9b92; falha reproduzida localmente (1 falha/3 PASS, exit1). Reserva #322 Claude e linha #323 preservadas; sem assumir outras frentes.
+   - **19/10/2026 — tarefa86 revisão LOCAL entregue:** base d23c38c/CI403SUCCESS recebidos do controller; Deno2.6.10 check0/runtime1PASS/bundle190módulos0;9SDK86PASS+30regressões85PASS/harness tiposbuildOK. Corrigidos ResponseInit, status403/429 perdido no SDK, log bruto default e JSON.message não seguro; removida factory UI reasoning. Names-only confirma chave configurada, NÃO modelo disponível; pausa/claim duráveis só desenhoINERTE sem DDL. Upload/analysis/providerfalse; zeroCloudwrites/modelo real/segredos/deploy/Publish;8PARCIAL/9não liberada/10durável+hosted+externa pendentes. Reserva333 libertada;323/AGENTSraiz/DECISIONS/testes70/worker60 intactos. Controller confirma CIquality do novo SHA integrado antes próximo dispatch não corretivo/Publish. Prova86 própria e decisões em docs/questoes-issue333-tarefa86.md.
+   - **18/10/2026 — tarefa85 entregue, NÃO disponibilização:** código análise/conversa/revisão humana fase10 preparado;52testes locaisPASS e harnessbuildOK; upload/analysis/provider fechados, zeroCloudwrites/chamadaspagas/deploy/Publish.1–7done/8PARCIAL/9não liberada/10configuração+validação externa+pausa durável pendentes/11–18pendentes. RegraPedro: agente não cria dados/arquivos fictíciosERP; limpeza81/83 concluída pelo controller, resíduosAuth/Storage adiados manualmente. Prova85 sanitizada própria, sem UUID/PII;#323/DECISIONS e testes70/worker60 preservados. Reserva333 libertada; controller confirmaCIqualityVERDE do SHA integrado atual ANTES próximo dispatch não corretivo/Publish, CI401 inicial não certifica esta entrega.
+   - **17/10/2026 18:29 UTC — validação isolada entregue, NÃO ativação:** provas10/11, próxima fase12; destinos reais juntos, patch corrigido, integrados31/PG36/handler20/geral1334, tsgo/Deno/build OK. SHA técnico observado4916e71a; remoto ainda base12dd324e ancestral, CI final pendente. Retoma global legada/StorageACL bloqueiam; #333 aberta/reservada e #323 intacta.
+diff --git a/docs/testes/issue322/ci410-correcao.md b/docs/testes/issue322/ci410-correcao.md
+new file mode 100644
+index 000000000..a1d4342ef
+--- /dev/null
++++ b/docs/testes/issue322/ci410-correcao.md
+@@ -0,0 +1,98 @@
++# #322 — CI410: subescopo corretivo, 19/10/2026
++
++Autorização expressa Pedro 01:09 Fortaleza, agente livre confirmado pelo controller.
++Base local e GitHub confirmados iguais: `ecce9e0e0440a6e9e9bd5695b5930857b46a9b92`.
++Exceção somente corretiva; reserva Claude #322 e linha #323 preservadas.
++
++## Causa e correção mínima
++
++O scanner reconhece `isServiceRoleRequest(`, não a atribuição
++`isServiceRole: isServiceRoleRequest`. O handler já invocava essa dependência
++antes de ler o corpo, configurar CAPI, ler/escrever dados ou enviar eventos.
++Substituição sem mudança de autorização/comportamento:
++
++```diff
++-  isServiceRole: isServiceRoleRequest,
+++  isServiceRole: (req) => isServiceRoleRequest(req),
++```
++
++Não se modificou scanner, POR_DESENHO, referência, configuração JWT, handler,
++helper multiTenant, tabelas, consentimento, regras de envio ou suspensão.
++O diff completo da entrega encontra-se em `ci410-correcao.diff`.
++
++## Trust boundary comprovada localmente
++
++`_shared/multiTenant.ts:isServiceRoleRequest` aceita a chave exata do runtime
++(segredo confiável do servidor), ou exige claim service_role E aceitação pelo
++endpoint administrativo Auth. O claim não constitui autorização sozinho.
++Guards assertCallerRoleOnRow/InCompany são para utilizadores; este remetente
++é exclusivamente máquina/service-role, não passa a autorizar utilizadores.
++
++`src/test/capi-v2-auth.test.ts` importa o helper e handler reais. Uma chave
++HMAC efémera é gerada localmente: o Auth simulado valida criptograficamente
++a assinatura, nunca aceita apenas o claim. Nenhuma chave/credencial Cloud é
++lida. Ausência de token, anon/user assinados, token inválido e service-role
++forjado → 401 service_role_only em health/dry_run/send ANTES de corpo/RPC/
++tabelas/configuração/efeitos. Controlo positivo assinado → aceito após Auth;
++chave exata local → aceita sem fetch; Auth 403/indisponível → false.
++
++Alias Vitest e declaração ambiental usam os tipos reais do SDK, sem any shim;
++contrato Deno limitado a env.get para os testes do helper já existente.
++Não há promessa de prova hospedada: nenhuma chamada Auth/Graph real nem deploy.
++
++## Comandos e resultados reais
++
++```text
++bunx vitest run src/test/edge-fn-guard.test.ts
++ANTES: Test Files 1 failed (1); Tests 1 failed | 3 passed (4); exit=1
++Falha: capi-v2-send: sem_identidade, src/test/edge-fn-guard.test.ts:34
++
++bunx vitest run src/test/edge-fn-guard.test.ts src/test/capi-v2-auth.test.ts src/test/capi-v2.test.ts src/test/capi-p1-guard.test.ts src/test/capi-diag-no-secrets.test.ts
++DEPOIS: Test Files 5 passed (5); Tests 67 passed (67); exit=0
++
++bunx vitest run
++Execução 1: Test Files 2 failed | 190 passed | 2 skipped (194)
++Tests 1 failed | 1621 passed | 15 skipped | 11 todo (1648); exit=1
++newgang-crm-profile-fields: hook timeout 10000ms
++issue333-checkpoint66: test timeout 5000ms
++
++bunx vitest run src/test/issue333-checkpoint66.test.ts src/test/newgang-crm-profile-fields.test.ts
++Test Files 2 passed (2); Tests 27 passed (27); exit=0
++
++bunx vitest run
++Execução 2: Test Files 3 failed | 189 passed | 2 skipped (194)
++Tests 2 failed | 1620 passed | 15 skipped | 11 todo (1648); exit=1
++Mesmos timeouts e issue333-proof60: deadline em vez de fingerprint mismatch.
++Não alterados; CI410 reportada pelo controller tinha estes testes PASS.
++
++git diff --check
++exit=0
++
++Harness automático (não executado manualmente):
++2026-10-19T04:13:21Z — build OK (tipos/compilação sem erros).
++Entrada anterior 04:12:01 teve erros de resolução npm/Deno no novo teste,
++resolvidos com alias para SDK real e declaração env.get.
++```
++
++Suite padrão local NÃO verde; canário de rede não executado (limites zero
++chamadas reais). CI GitHub final depende do controller; suite isolada e
++harness não certificam CI verde nem autorizam retoma #333/Publish.
++
++## Ficheiros consultados
++
++docs/INDEX.md; docs/QUADRO.md (incluindo #329); AGENTS.md (não alterado);
++docs/estado/estado-crm-portal-e-leads.md; docs/features/capi-p1-erp.md;
++docs/features/capi-v2-consentimento.md; docs/testes/issue322/capi-v2.md;
++.lovable/memory/security/multi-tenant-edge-functions-audit.md;
++.lovable/memory/security/edge-functions-verify-jwt.md;
++capi-v2-send/index.ts e handler.ts; _shared/multiTenant.ts;
++scripts/edge-fn-guard-lib.mjs; edge-fn-guard.test.ts; capi-v2.test.ts;
++vitest.config.ts; src/types/deno-zod.d.ts; roadmap.md.
++
++## Limites e próxima ação
++
++Zero Cloudwrites/DDL/migrações/deploy/Publish/crons/Meta/provedor real/
++segredos/documentos reais. Não repetir limpeza81/83; resíduos manuais adiados.
++Libertada somente subreserva corretiva ChatGPT; restante #322 não assumida,
++#323/#333 e AGENTS raiz preservados. Controller confirma novo HEAD integrado
++e CI quality antes de próximo dispatch não corretivo ou Publish.
+\ No newline at end of file
+diff --git a/roadmap.md b/roadmap.md
+index 8368988ac..157debb19 100644
+--- a/roadmap.md
++++ b/roadmap.md
+@@ -1,3 +1,8 @@
++# #322 — CI410 subescopo corretivo autorizado
++- [x] Reproduzir sem_identidade, comprovar guarda canónica, tornar a chamada explícita sem relaxar scanner/autenticação; seis testes criptográficos locais e regressões pertinentes (67 PASS).
++- [x] Executar suite default duas vezes e preservar ficheiros alheios: timeouts/deadlines fora do subescopo; 27 testes de dois ficheiros passaram isolados. Harness tipos/build OK; documentação própria e subreserva libertada sem remover #322 Claude/#323.
++- [ ] Controller: confirmar sincronização e CI quality no SHA final antes de dispatch não corretivo/Publish. Nenhuma funcionalidade #333 autorizada nesta correção.
++
+ # AJ16 / AJ14 / AJ19 — leituras deduplicadas e sinal app_open
+ - [x] AJ19: adenda inerte entregue em docs/testes/smart-link-aj14-aj19-20261018.PROPOSTA.md; ListenClick único choice/open, checks A/B e cenários por plataforma; zero aplicação/deploy.
+ - [x] AJ16 primeiro SELECT: Fortaleza136905/106068, diferente do auditor; ttclid sem UA cru, in_appNULL não prova Pangle; percentagens candidatas por dia guardadas em docs/questoes-aj16-aj14-20261018.md.
+diff --git a/src/test/capi-v2-auth.test.ts b/src/test/capi-v2-auth.test.ts
+new file mode 100644
+index 000000000..530d25b37
+--- /dev/null
++++ b/src/test/capi-v2-auth.test.ts
+@@ -0,0 +1,101 @@
++// @vitest-environment node
++// CI410: real canonical guard + real handler; all tokens/signatures are local.
++import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
++import { isServiceRoleRequest } from "../../supabase/functions/_shared/multiTenant";
++import { createHandler } from "../../supabase/functions/capi-v2-send/handler";
++
++const AUTH_ORIGIN = "https://auth.example.invalid";
++const enc = new TextEncoder();
++const b64 = (s: string | Uint8Array) => Buffer.from(s).toString("base64url");
++
++describe("CI410 — canonical service-role trust boundary, offline", () => {
++  let key: CryptoKey;
++  let serviceToken: string;
++  let anonToken: string;
++  let userToken: string;
++  let authFetch: ReturnType<typeof vi.fn>;
++  let runtimeKey: string | undefined;
++
++  async function sign(role: string) {
++    const unsigned = `${b64(JSON.stringify({ alg: "HS256", typ: "JWT" }))}.${b64(JSON.stringify({ role, exp: 4102444800 }))}`;
++    const signature = await crypto.subtle.sign("HMAC", key, enc.encode(unsigned));
++    return `${unsigned}.${b64(new Uint8Array(signature))}`;
++  }
++
++  beforeEach(async () => {
++    key = await crypto.subtle.generateKey({ name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
++    serviceToken = await sign("service_role");
++    anonToken = await sign("anon");
++    userToken = await sign("authenticated");
++    runtimeKey = undefined;
++    vi.stubGlobal("Deno", { env: { get: (name: string) => {
++      if (name === "SUPABASE_URL") return AUTH_ORIGIN;
++      if (name === "SUPABASE_SERVICE_ROLE_KEY") return runtimeKey;
++      return undefined;
++    } } });
++    authFetch = vi.fn(async (url: string, init: RequestInit) => {
++      // Never use the real Auth/Graph network. Simulated Auth verifies signature,
++      // not merely the untrusted role claim, against an ephemeral local key.
++      expect(url).toBe(`${AUTH_ORIGIN}/auth/v1/admin/users?per_page=1`);
++      const headers = new Headers(init.headers);
++      const token = headers.get("apikey") ?? "";
++      expect(headers.get("Authorization")).toBe(`Bearer ${token}`);
++      const [header, payload, signature] = token.split(".");
++      if (!header || !payload || !signature) return new Response("{}", { status: 401 });
++      const valid = await crypto.subtle.verify("HMAC", key, Buffer.from(signature, "base64url"), enc.encode(`${header}.${payload}`));
++      const role = JSON.parse(Buffer.from(payload, "base64url").toString()).role;
++      return new Response("{}", { status: valid && role === "service_role" ? 200 : 401 });
++    });
++    vi.stubGlobal("fetch", authFetch);
++  });
++  afterEach(() => { vi.unstubAllGlobals(); });
++
++  const request = (token?: string, action = "health") => new Request("https://local.example.invalid/capi-v2-send", {
++    method: "POST",
++    headers: token ? { Authorization: `Bearer ${token}` } : {},
++    body: JSON.stringify({ action, confirm_test: true, override_suspension_for_test: true }),
++  });
++
++  it.each(["health", "dry_run", "send"])("%s rejects missing/anon/user/forged tokens before body, data, config or effects", async (action) => {
++    const forged = `${serviceToken.split(".").slice(0, 2).join(".")}.${b64(new Uint8Array(32))}`;
++    const rpc = vi.fn();
++    const from = vi.fn();
++    const graph = vi.fn();
++    const env = vi.fn();
++    const now = vi.fn();
++    const handle = createHandler({ sb: { rpc, from }, fetchFn: graph, env, now, isServiceRole: isServiceRoleRequest });
++    for (const token of [undefined, anonToken, userToken, "invalid-token", forged]) {
++      const req = request(token, action);
++      const readBody = vi.spyOn(req, "text");
++      const response = await handle(req);
++      expect(response.status).toBe(401);
++      expect(await response.json()).toEqual({ error: "service_role_only" });
++      expect(readBody).not.toHaveBeenCalled();
++    }
++    expect(rpc).not.toHaveBeenCalled();
++    expect(from).not.toHaveBeenCalled();
++    expect(graph).not.toHaveBeenCalled();
++    expect(env).not.toHaveBeenCalled();
++    expect(now).not.toHaveBeenCalled();
++    expect(authFetch).toHaveBeenCalledTimes(1); // Only forged service claim reaches Auth.
++  });
++
++  it("accepts service-role only after simulated Auth cryptographically verifies it", async () => {
++    expect(await isServiceRoleRequest(request(serviceToken))).toBe(true);
++    expect(authFetch).toHaveBeenCalledTimes(1);
++  });
++
++  it("accepts exact runtime service key but not a different signed token", async () => {
++    runtimeKey = serviceToken;
++    expect(await isServiceRoleRequest(request(serviceToken))).toBe(true);
++    expect(await isServiceRoleRequest(request(userToken))).toBe(false);
++    expect(authFetch).not.toHaveBeenCalled();
++  });
++
++  it("fails closed when Auth refuses or is unavailable", async () => {
++    authFetch.mockResolvedValueOnce(new Response("{}", { status: 403 }));
++    expect(await isServiceRoleRequest(request(serviceToken))).toBe(false);
++    authFetch.mockRejectedValueOnce(new Error("offline auth unavailable"));
++    expect(await isServiceRoleRequest(request(serviceToken))).toBe(false);
++  });
++});
+\ No newline at end of file
+diff --git a/src/types/deno-multi-tenant-test.d.ts b/src/types/deno-multi-tenant-test.d.ts
+new file mode 100644
+index 000000000..d4f31494a
+--- /dev/null
++++ b/src/types/deno-multi-tenant-test.d.ts
+@@ -0,0 +1,9 @@
++// Canonical server guard imported by hermetic tests: preserve actual SDK types.
++declare module "npm:@supabase/supabase-js@2" {
++  export * from "@supabase/supabase-js";
++}
++
++// Only the environment contract used by multiTenant.ts; tests stub it locally.
++declare const Deno: {
++  env: { get(name: string): string | undefined };
++};
+\ No newline at end of file
+diff --git a/supabase/functions/capi-v2-send/index.ts b/supabase/functions/capi-v2-send/index.ts
+index d62ee8ecf..5f6ddaa91 100644
+--- a/supabase/functions/capi-v2-send/index.ts
++++ b/supabase/functions/capi-v2-send/index.ts
+@@ -16,7 +16,7 @@ const handle = createHandler({
+   fetchFn: fetch,
+   env: (k) => Deno.env.get(k),
+   now: () => new Date(),
+-  isServiceRole: isServiceRoleRequest,
++  isServiceRole: (req) => isServiceRoleRequest(req),
+ });
+ 
+ Deno.serve(handle);
+diff --git a/vitest.config.ts b/vitest.config.ts
+index 1229d173a..2d7b7115d 100644
+--- a/vitest.config.ts
++++ b/vitest.config.ts
+@@ -18,6 +18,7 @@ export default defineConfig({
+       "npm:zod@3": "zod",
+       "npm:ai@6": "ai",
+       "npm:@ai-sdk/openai@3": "@ai-sdk/openai",
++      "npm:@supabase/supabase-js@2": "@supabase/supabase-js",
+     },
+   },
+ });
