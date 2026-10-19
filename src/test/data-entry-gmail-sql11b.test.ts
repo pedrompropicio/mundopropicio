@@ -20,6 +20,7 @@ describe("#333 fase11b/11c SQL inerte (PGlite local)", () => {
     // Rollback com ligação existente: RECUSADO (não apaga ligações).
     await db.exec("insert into data_entry_gmail_connections(user_id,company_id,connection_key_ciphertext) values (gen_random_uuid(),gen_random_uuid(),repeat('b',64))");
     await expect(db.exec(down)).rejects.toBeTruthy();
+    await db.exec("rollback").catch(() => {}); // limpa estado de transação abortada no PGlite
     expect((await db.query<{ n: number }>("select count(*)::int n from data_entry_gmail_connections")).rows[0].n).toBe(1);
     // Rollback sem ligações: limpo.
     await db.exec("delete from data_entry_gmail_connections");
