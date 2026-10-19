@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
 
   const { data: configs, error: cfgErr } = await supabase
     .from("ugc_watchdog_config")
-    .select("song_id, label, recipient_phone")
+    .select("song_id, label, recipient_phone, recipient_profile_id, company_id")
     .eq("active", true);
   if (cfgErr) {
     return new Response(JSON.stringify({ error: cfgErr.message }), {
@@ -148,6 +148,8 @@ Deno.serve(async (req) => {
       const { error: qErr } = await supabase.from("notification_queue").insert({
         template_id: tpl.id,
         recipient_phone: cfg.recipient_phone,
+        recipient_profile_id: cfg.recipient_profile_id,
+        company_id: cfg.company_id,
         params: [cfg.label, lastLabel],
         status: "queued",
         scheduled_at: new Date().toISOString(),

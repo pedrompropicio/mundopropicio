@@ -1,6 +1,6 @@
 # Proposta — Watchdog UGC iOS (alerta WhatsApp diário)
 
-Pedido do quadro (chat 6 → chat 2, 19/10/2026). **Só proposta: nada aplicado.**
+Pedido do quadro (chat 6 → chat 2, 19/10/2026). **Estado: ATIVO desde 19/10/2026** — template aprovado, envio de teste `sent` (22:2x UTC), crons 14:00/20:00 UTC criados em Live. Destinatário com `recipient_profile_id` + `company_id` em `ugc_watchdog_config` (migration 0208).
 
 ## Desenho
 
@@ -24,9 +24,11 @@ Pedido do quadro (chat 6 → chat 2, 19/10/2026). **Só proposta: nada aplicado.
 5. **Template Meta**: a janela de 24 h estará quase sempre fechada (alerta é iniciativa do sistema), logo **é preciso template aprovado**.
    - Verificado em 19/10: `notification_templates` tem 6 templates; os aprovados (`chamado_ocorrencia`→hello_world, `fase_evento_avancou`→hello_world, `subscricao_confirmada`) **não servem**.
    - Registar na Meta: nome `ugc_leitura_em_falta`, categoria **UTILITY**, idioma **pt_PT**, corpo:
-     `Falta a leitura do UGC TikTok do {{1}} de hoje. Faz o atalho no telemóvel. Última leitura: {{2}}.`
+     `Alerta da sua conta Mundo Propício: a leitura diária do UGC TikTok do {{1}} está pendente. Última leitura registada: {{2}} vídeos.`
+     (texto final aprovado pela Meta em 19/10; WABA 1454120833108603, phone_number_id 1183687074822342)
      (2 variáveis; exemplo para a revisão: `{{1}}`="Litto", `{{2}}`="18/10 = 16.800").
-   - Enquanto não estiver aprovado, o dispatcher falha o envio (template pendente) — o watchdog continua a registar `missing_alerted` no log.
+   - Estado: **approved** em `notification_templates`.
+   - (Histórico) Enquanto não estava aprovado, o dispatcher falha o envio (template pendente) — o watchdog continua a registar `missing_alerted` no log.
 
 6. **Não toca** no atalho iOS nem em leituras existentes. Só lê `artist_song_metrics_daily`.
 
