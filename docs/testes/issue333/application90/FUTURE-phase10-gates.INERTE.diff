@@ -1,0 +1,14 @@
+--- a/supabase/functions/data-entry/index.ts
++++ b/supabase/functions/data-entry/index.ts
+@@ -14,9 +14,9 @@
+ const opts = { auth: { persistSession: false, autoRefreshToken: false } };
+ const admin = createClient(url, service, opts);
+ const asUser = (token: string) => createClient(url, anon, { ...opts, global: { headers: { Authorization: `Bearer ${token}` } } });
+-const ANALYSIS_ENABLED = false;
++const ANALYSIS_ENABLED = true;
+ // Task87 candidate is local/inert, not applied or reviewed in Cloud. Key presence never activates it.
+-const ANALYSIS_PROVIDER_REVIEWED = false;
++const ANALYSIS_PROVIDER_REVIEWED = true;
+ 
+ Deno.serve(createHandler({
+   cors: { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"]}, x-data-entry-user, x-data-entry-company` },

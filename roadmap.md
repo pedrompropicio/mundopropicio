@@ -1,3 +1,9 @@
+# #333 — tarefa90 entrega consolidada
+- [x] Preflight oficial somente metadados: ACL técnica extra incompatível88 corrigida somente novos objetos; registry204/0202/0203livre, gates0/keynomepresente.
+- [x] Pacote final INERTE aplicação/rollbackaudit/readback/hash/ownerconferreopen/diff/budget/checklist18;PG90quatroPASS,deadline90+afetados58PASS,Deno check/runtime2/bundle192exit0,harnessbuildOK.
+- [x] Fecho próprio90, uma autorização proposta e subreserva libertada; nenhuma Cloudwrite/deploy/ativação.
+- [ ] Controller confirma CIquality novoSHA e Pedro aprova pacote concreto/aplicação; identidade privada e decisão critérios8 para9, disponibilidade/custo para10.
+
 # #333 — tarefa89 corretiva CI414
 - [x] Reproduzir deadline em vez de fingerprint (exit1); sincronizar relay local com relógio/scheduler controlados, preservando default e negativa real + fronteira expiry.
 - [x] Testes pertinentes28PASS e UMA suite default1653PASS (exit0); diff/prova89 e só subreserva89 libertada; harnessbuildOK.
