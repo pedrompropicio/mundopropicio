@@ -138,11 +138,14 @@ describe("task87 PostgreSQL disposable two-connection authority", () => {
     expect(report.document_sha256).toBe(hash);expect(report.company_id).toBe(company);expect(calls).toBe(1);
     const row=await call(c2,"read");expect(row.claim).toBeNull();expect(row.reason).toBe("success");expect(row.revision).toBe("4");
   });
-  it("rollback refuses outstanding claim and removes only new objects after known completion",async()=>{
+  it("rollback refuses outstanding claim and preserves audit after known completion",async()=>{
     const rollback=readFileSync("supabase/manual/issue333_tarefa87_provider_control.ROLLBACK-INERTE.sql","utf8");
     const id=randomUUID();await call(c1,"claim",id,"1");await expect(db.unsafe(rollback)).rejects.toThrow("confer_claim_before_rollback");await db`rollback`;
     await call(c1,"finish",id,"2","before_post_failure");await db.unsafe(rollback);
     const [r]=await db`select to_regclass('public.data_entry_analysis_control_333') obj`;expect(r.obj).toBeNull();
+    const [audit]=await db`select count(*)::int n from public.data_entry_analysis_audit_333`;expect(audit.n).toBe(3);
+    // Explicit disposable-cluster reset, not part of the rollback candidate.
+    await db`drop table public.data_entry_analysis_audit_333`;
     await db.unsafe(readFileSync("supabase/manual/issue333_tarefa87_provider_control.INERTE.sql","utf8"));
   });
 });
