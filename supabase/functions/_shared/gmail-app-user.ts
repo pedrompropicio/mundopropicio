@@ -138,8 +138,8 @@ export function createGmailConnection(cfg: GmailConnectionConfig): GmailConnecti
       const n = nonce();
       await cfg.store.createPending(user, company, await hashNonce(n), new Date(now().getTime() + BINDING_TTL_MS));
       const existing = await key(user, company);
-      // Never send an unverified old handle to reconnect.
-      if (existing) await verify(user, company, existing);
+      // Ownership email must still match even when the grant needs renewal.
+      if (existing && existing.email !== await authEmail(user)) throw new GmailConnectError(OWN_MAILBOX, 403);
       const returnUrl = new URL(RETURN_PATH, origin); returnUrl.searchParams.set("binding", n);
       const { authorizationUrl } = await authorizeAppUserOAuth({
         gatewayBaseUrl: GATEWAY_BASE_URL, connectorId: GMAIL_CONNECTOR_ID, appUserId: user, clientAPIKey: cfg.clientApiKey,

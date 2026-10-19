@@ -31,12 +31,13 @@ beforeEach(() => {
   vi.stubGlobal("Deno", { env: { get: (n: string) => n === "LOVABLE_API_KEY" ? "local-only-not-a-key" : undefined } });
   gateway = (url) => url.endsWith("/oauth2/authorize") ? Response.json({ authorization_url: "https://accounts.google.invalid/consent" })
     : url.endsWith("/oauth2/exchange") ? Response.json({ api_key: "lovack_local_fixture_key", connector_id: "google_mail" })
+    : url.includes("/users/me/profile") ? Response.json({ emailAddress: "own@example.invalid" })
     : url.endsWith("/app-users/connection") ? new Response("{}") : Response.json({ messages: [] });
   vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => { calls.push({ url, init }); return gateway(url, init); }));
 });
 afterEach(() => vi.unstubAllGlobals());
 let now = new Date("2026-10-19T20:00:00Z");
-const conn = (s = memStore()) => ({ s, g: createGmailConnection({ store: s.store, clientApiKey: "client-local", encryptionSecret: SECRET, now: () => now, nonce: () => NONCE }) });
+const conn = (s = memStore()) => ({ s, g: createGmailConnection({ store: s.store, clientApiKey: "client-local", encryptionSecret: SECRET, resolveAuth: async () => ({ email: "own@example.invalid", email_confirmed_at: "2026-10-01" }), now: () => now, nonce: () => NONCE }) });
 const linked = async () => { const x = conn(); await x.g.start(A, C1, ORIGIN); await x.g.complete(A, C1, NONCE, "code-1"); return x; };
 
 describe("#333 fase11b ligação Gmail por utilizador+empresa", () => {
@@ -91,10 +92,11 @@ describe("#333 fase11b ligação Gmail por utilizador+empresa", () => {
   });
   it("renovação falhada/escopo antigo marca reconexão e bloqueia leituras seguintes", async () => {
     const x = await linked();
+    const reader = await x.g.reader(A, C1);
     gateway = () => Response.json({ type: "credential_refresh_token_expired" }, { status: 401 });
-    const reader = (await x.g.reader(A, C1))!;
+    if (!reader) throw new Error("missing reader");
     await expect(reader.search({ from_date: "2026-10-01", to_date: "2026-10-19", subject: "x", page_size: 5 })).rejects.toThrow(/renovada/);
-    expect(await x.g.status(A, C1)).toEqual({ linked: true, reconnect_required: true });
+    expect(await x.g.status(A, C1)).toEqual({ linked: false, reconnect_required: true });
     await expect(x.g.reader(A, C1)).rejects.toThrow(/renovada/);
   });
   it("desligar apaga a chave local antes de revogar e impede leituras, mesmo se a revogação falhar", async () => {

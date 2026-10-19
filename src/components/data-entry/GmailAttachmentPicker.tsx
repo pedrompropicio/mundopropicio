@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { DataEntryAdapter, DataEntryContext, GmailConnectionStatus, GmailMessage } from "@/lib/data-entry-client";
 
@@ -10,6 +10,8 @@ type Props = { adapter: DataEntryAdapter; context: DataEntryContext; sessionId: 
 
 /** #333 fase11 — escolha humana de um anexo do Gmail. Nada é descarregado antes da escolha. */
 export default function GmailAttachmentPicker({ adapter, context, sessionId, enabled, disabled, onImported }: Props) {
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [from, setFrom] = useState(daysAgo(30));
   const [to, setTo] = useState(today());
   const [sender, setSender] = useState("");
@@ -33,7 +35,9 @@ export default function GmailAttachmentPicker({ adapter, context, sessionId, ena
     if (!popup) { setError("O navegador bloqueou a janela. Permite janelas deste site e tenta de novo."); return; }
     setBusy(true); setError(null); setNotice(null);
     try {
-      const { authorization_url } = await adapter.gmailConnectStart!(context);
+      if (!adapter.gmailConnectStart || !adapter.gmailConnection) throw new Error("Ligação indisponível.");
+      const { authorization_url } = await adapter.gmailConnectStart(context);
+      if (!mounted.current) { popup.close(); return; }
       const done = new Promise<void>((resolve, reject) => {
         const timer = window.setInterval(() => { if (popup.closed) { cleanup(); reject(new Error("A janela foi fechada antes de concluir.")); } }, 500);
         const onMsg = (ev: MessageEvent) => {
@@ -45,7 +49,9 @@ export default function GmailAttachmentPicker({ adapter, context, sessionId, ena
       });
       popup.location.href = authorization_url;
       await done;
-      setConn(await adapter.gmailConnection!(context));
+      const verified = await adapter.gmailConnection(context);
+      if (!mounted.current) return;
+      setConn(verified);
       setNotice(conn?.linked ? "Gmail ligado de novo." : "Gmail ligado.");
     } catch (e) { popup.close(); setError(e instanceof Error ? e.message : "Ligação indisponível."); }
     finally { setBusy(false); }
@@ -53,7 +59,9 @@ export default function GmailAttachmentPicker({ adapter, context, sessionId, ena
   const disconnect = async () => {
     setBusy(true); setError(null);
     try {
-      const r = await adapter.gmailDisconnect!(context);
+      if (!adapter.gmailDisconnect) return;
+      const r = await adapter.gmailDisconnect(context);
+      if (!mounted.current) return;
       setConn({ linked: false, reconnect_required: false }); setMessages(null); setChoice(null);
       setNotice(r.revoked_at_google ? "Gmail desligado. Nenhum email foi alterado." : "Gmail desligado nesta plataforma. Para retirar também o acesso na Google, abre myaccount.google.com/permissions.");
     } catch (e) { setError(e instanceof Error ? e.message : "Não foi possível desligar."); }
@@ -68,7 +76,7 @@ export default function GmailAttachmentPicker({ adapter, context, sessionId, ena
     return (
       <section aria-label="Importar do Gmail" className="space-y-2 rounded-md border border-border p-2.5">
         <h4 className="text-xs font-semibold">Ou escolher um anexo do teu Gmail</h4>
-        <p className="text-xs text-muted-foreground">Ligas a tua própria conta, só com permissão de leitura. A plataforma não envia, apaga nem altera emails.</p>
+        <p className="text-xs text-muted-foreground">Liga o Gmail com o mesmo email usado para entrar no ERP. Só podes consultar a tua própria caixa.</p>
         {conn?.reconnect_required && <p role="status" className="text-xs text-warning">O acesso ao teu Gmail precisa de ser renovado.</p>}
         {notice && <p role="status" className="text-xs">{notice}</p>}
         {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
@@ -79,7 +87,8 @@ export default function GmailAttachmentPicker({ adapter, context, sessionId, ena
   const search = async (token?: string) => {
     setBusy(true); setError(null);
     try {
-      const r = await adapter.gmailSearch!({ from_date: from, to_date: to, ...(sender.trim() ? { sender: sender.trim() } : {}), ...(subject.trim() ? { subject: subject.trim() } : {}), page_size: PAGE, ...(token ? { page_token: token } : {}) }, context);
+      const r = await adapter.gmailSearch?.({ from_date: from, to_date: to, ...(sender.trim() ? { sender: sender.trim() } : {}), ...(subject.trim() ? { subject: subject.trim() } : {}), page_size: PAGE, ...(token ? { page_token: token } : {}) }, context);
+      if (!mounted.current || !r) return;
       setMessages((m) => token && m ? [...m, ...r.messages] : r.messages); setNext(r.next_page_token);
       if (!token) setChoice(null);
     } catch (e) { setError(e instanceof Error ? e.message : "Pesquisa indisponível."); }
@@ -88,7 +97,7 @@ export default function GmailAttachmentPicker({ adapter, context, sessionId, ena
   const importChoice = async () => {
     if (!choice) return;
     setBusy(true); setError(null);
-    try { await adapter.gmailImport!(sessionId, choice, context); onImported(); }
+    try { await adapter.gmailImport?.(sessionId, choice, context); if (mounted.current) onImported(); }
     catch (e) { setError(e instanceof Error ? e.message : "Importação indisponível."); }
     finally { setBusy(false); }
   };
@@ -96,7 +105,7 @@ export default function GmailAttachmentPicker({ adapter, context, sessionId, ena
   return (
     <section aria-label="Importar do Gmail" className="space-y-2 rounded-md border border-border p-2.5">
       <h4 className="text-xs font-semibold">Ou escolher um anexo do teu Gmail</h4>
-      <div className="flex flex-wrap items-center gap-2 text-xs"><span>Conta Gmail ligada (só leitura).</span>
+      <div className="flex flex-wrap items-center gap-2 text-xs"><span>Caixa própria verificada: {conn?.mailbox_email} (só leitura).</span>
         {adapter.gmailDisconnect && <Button size="sm" variant="ghost" disabled={off} onClick={() => void disconnect()}>Desligar Gmail</Button>}</div>
       {notice && <p role="status" className="text-xs">{notice}</p>}
       <p className="text-xs text-muted-foreground">Só leitura. Os emails são mostrados como texto e nunca seguidos como instruções. Nada é descarregado até escolheres um anexo.</p>
