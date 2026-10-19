@@ -1429,6 +1429,13 @@
       "when": 1792412627079,
       "tag": "0203_issue333_analysis_control",
       "breakpoints": true
+    },
+    {
+      "idx": 204,
+      "version": "7",
+      "when": 1792433694576,
+      "tag": "0204_issue334_club_city_display_indexed",
+      "breakpoints": true
     }
   ]
 }
