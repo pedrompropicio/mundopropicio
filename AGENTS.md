@@ -12,7 +12,7 @@
 - Statements aggregate signed lines by type without changing financial records or creating settlement movements.
 - Smart-link events use a service-role-only atomic claim RPC before external delivery; the partial unique index prevents concurrent browser/SSR duplicates without removing historical records.
 - Authenticated smart-link SSR treats unusable visitor IP as absent, never falls back to infrastructure IP or a shared no-IP rate quota; arrivals must survive missing metadata without inventing attribution.
-- Growth summaries preserve JSON via private legacy comparisons.
+- Growth summaries use legacy comparisons.
 - Smart-link test markers propagate from arrivals; suppression precedes slots/tokens; Meta logs only allowlisted receipt fields.
 - Investment source projections reuse the canonical report's spend/classification CTEs without modifying that report; any future canonical change must regenerate and regression-test the projection to prevent drift.
 - Campaign joins: platform/account/external ID, never names.

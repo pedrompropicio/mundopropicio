@@ -27,7 +27,6 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
-| AJ19/AJ14 | 0 · Cowork (ChatGPT) | Lovable ERP, autorização Pedro 23:31 UTC | song-link-event/testes; prova Meta marcada; SQL 15 min; sem DDL/TikTok real/Publish | 2026-10-19 23:31 | Em execução; #322/#323 preservadas. |
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322; 2026-10-19 — Pedro libertou CHATS/DECISIONS/PROC-arranque/prompts10 desta reserva (parada desde 16/10); resto mantém-se. |
 | #322 | 0 · Cowork (Claude) | Claude, por demanda designada por Pedro (19/10/2026), via agentes Lovable dos três projetos | Componentes: Coala Portal (bef9c59c) e Newgang Portal (1a915f50) — consentimento/banner, captação do lead, eventos do pixel; ERP — remetente CAPI (nova edge function + tabela/estado de envio) e portal-track só se for preciso; docs/QUADRO.md, docs/estado/estado-crm-portal-e-leads.md. NÃO toca: interruptor capi_dispatch_control (suspensão #320 só levanta com "Sim" do Pedro), listas Meta/crons de audiência, #332, #323. | 2026-10-19 01:18 | 2026-10-19 — Agente Lovable (ERP, Coala Portal, Newgang Portal) LIBERTADO para o ChatGPT por ordem do Pedro. Trabalho #322 em pausa: aguarda token CAPI do pixel Coala (aprovação do 2.º administrador do BM, até ~26/10). Componentes continuam reservados por leitura: ninguém toca em capi-v2-send, capi_v2_targets, capi_dispatch_control (suspenso, #320), consentimento/pixel dos portais Coala e Newgang. Retoma só com "Sim" do Pedro (ver claude/capi-v2-coala-token-pendente-2026-10-19.md). |
 
@@ -38,6 +37,9 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 _(sem pedidos)_
 
 ## 0 · Cowork (ChatGPT)
+
+  - **19/10/2026 23:49 UTC — AJ19 prova Meta concluída, reserva libertada:** base9aa1376d igual main; deploy só song-link-event source f10e9cd3…8e9c. Isolamento teste por marca da chegada/códigos, receipt Meta allowlist; 83/83 PASS/Deno0/buildOK. Chegada marcada retida sem ViewContent; app_open ListenClick HTTP200/events_received1/slotdelivered; choice slot_perdido; TikTok suprimido nas provas. Janela23:34:05–23:49:05:196 chegadas reais, Meta45duplicate/151enviado, TikTok10duplicate/186enviado;99app_open reais (55android_inline/44android_retry), ambos enviado. Ver docs/testes/aj19-prova-meta-20261019.md. Sem DDL/Publish/apagarlinhas; #322/#323 preservadas. Código de teste não gravado.
+
 
   - **19/10/2026 — fase11c Gmail caixa própria LOCAL/FECHADO, reserva333 libertada:** Google profile comparado no servidor com email Auth atual confirmado; chave+identidade cifradas por user/empresa; mismatch/email alterado/legado negados; leituras/importação e troca sessão/empresa protegidas. 31/31 Gmail PASS; suite completa1713PASS/6skip/11todo antes de dois testes adicionais PASS; Deno check0/harnessbuildOK. Sem cliente Google configurado; sem OAuth/inbox/DDL/deploy/Publish/ativação; gates false/control intacto; corpo email NÃO entregue. Prova docs/testes/issue333/fase11c-identidade-gmail.md. CI final ao controller; #322/#323 preservadas.
 
