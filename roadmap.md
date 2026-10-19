@@ -1,3 +1,8 @@
+# #322 — CI410 subescopo corretivo autorizado
+- [x] Reproduzir sem_identidade, comprovar guarda canónica, tornar a chamada explícita sem relaxar scanner/autenticação; seis testes criptográficos locais e regressões pertinentes (67 PASS).
+- [x] Executar suite default duas vezes e preservar ficheiros alheios: timeouts/deadlines fora do subescopo; 27 testes de dois ficheiros passaram isolados. Harness tipos/build OK; documentação própria e subreserva libertada sem remover #322 Claude/#323.
+- [ ] Controller: confirmar sincronização e CI quality no SHA final antes de dispatch não corretivo/Publish. Nenhuma funcionalidade #333 autorizada nesta correção.
+
 # AJ16 / AJ14 / AJ19 — leituras deduplicadas e sinal app_open
 - [x] AJ19: adenda inerte entregue em docs/testes/smart-link-aj14-aj19-20261018.PROPOSTA.md; ListenClick único choice/open, checks A/B e cenários por plataforma; zero aplicação/deploy.
 - [x] AJ16 primeiro SELECT: Fortaleza136905/106068, diferente do auditor; ttclid sem UA cru, in_appNULL não prova Pangle; percentagens candidatas por dia guardadas em docs/questoes-aj16-aj14-20261018.md.
