@@ -1,3 +1,9 @@
+# #333 — scanner94 implementação local
+- [x] CI419/basecd911f28/reserva própria333 sanitizados; motor scanner partilhado e adapter protegido sem OpenAIativo/writers/endpointlegado.
+- [x] Revisão humana/AB-0001/VAT literal, imagens normalizadas e PDFmulti recusado; gatesfalse/tenant/claim/audit/prévia/autorização intactos.
+- [x] 75testesPASS, Deno check0 e harnessbuildOK; documentação/limitações reais entregues, reserva própria libertada.
+- [ ] Controller confirma CI no novoSHA; modelo deprecated/disponibilidade hospedada e qualidade real não verificados sem autorização futura.
+
 # #333 — fecho93 e comparação READONLY
 - [x] Reverter analysis/provider false e deploy exclusivamente data-entry, preservando uploadfalse/pilotScopedtrue; readback rev6closed, preparationdisabled/assistant_create0, um ciclo auditado.
 - [x] Conferência agregada empresa/janela: documento1, prévias/faturas/TX/BP/fornecedores novos0; candidatos não persistem, hash autorizado não corroborado nesta leitura.
