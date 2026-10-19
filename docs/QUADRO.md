@@ -28,8 +28,11 @@ Uma linha por demanda em curso. O executor designado pelo Pedro escreve-a **ante
 | Issue | Lado · chat | Executor | Componentes (tabelas, funções, ficheiros, ecrãs) | Desde (UTC) | Última actualização |
 |---|---|---|---|---|---|
 | #323 | 10 · Entrada de Dados (ChatGPT) | ChatGPT, direto pelos fluxos existentes | CHATS/DECISIONS/PROC-arranque/prompts10; suppliers/DNS.PT; event_forecasts Newgang2027/domínio; transactions+transaction_payments lote DNS/TAP/TikTok; transaction_documents; standalone_invoices Lovable | 2026-10-16 02:09 | 2026-10-16 02:09 — documentação e pré-verificação; sem agente Lovable; exclui CAPI #322 |
+| #322 | 0 · Cowork (Claude) | Claude, por demanda designada por Pedro (19/10/2026), via agentes Lovable dos três projetos | Componentes: Coala Portal (bef9c59c) e Newgang Portal (1a915f50) — consentimento/banner, captação do lead, eventos do pixel; ERP — remetente CAPI (nova edge function + tabela/estado de envio) e portal-track só se for preciso; docs/QUADRO.md, docs/estado/estado-crm-portal-e-leads.md. NÃO toca: interruptor capi_dispatch_control (suspensão #320 só levanta com "Sim" do Pedro), listas Meta/crons de audiência, #332, #323. | 2026-10-19 01:18 | 2026-10-19 01:18 |
 
 ## 0 · Cowork (Claude)
+
+  - **19/10/2026 — Reserva #322 opção A registada.** Passos: (a) Coala Portal e Newgang Portal integram #322 (sem Publish até "Faz Publish" do Pedro); (b) ERP: remetente CAPI com teste em modo teste; (c) verificação em Live. Gate CI #333 por confirmar antes do trabalho no ERP/Publish.
 
 _(sem pedidos)_
 
