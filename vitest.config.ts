@@ -17,6 +17,7 @@ export default defineConfig({
       "npm:zod@3.23.8": "zod",
       "npm:zod@3": "zod",
       "npm:ai@6": "ai",
+      "npm:pdf-lib@1.17.1": "pdf-lib",
       "npm:@ai-sdk/openai@3": "@ai-sdk/openai",
       "npm:@supabase/supabase-js@2": "@supabase/supabase-js",
     },

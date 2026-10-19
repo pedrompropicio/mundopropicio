@@ -145,7 +145,7 @@ function DataEntrySession({ open, onOpenChange, adapter = edgeDataEntryAdapter, 
         </div>
       )}
       {doc && state && context && <DocumentAnalysisPanel key={`${state.session.id}:${doc.id}:${doc.sha256}`} adapter={adapter} context={context} sessionId={state.session.id} doc={doc} enabled={analysisEnabled} locked={!!busy || !!outcome || executed} onBusy={setAnalysisBusy} onCandidate={(candidate) => {
-        setForm((f) => applyAnalysisCandidate(f, candidate)); setConfirmed(false); setPreviewValid(false);
+        setForm((f) => applyAnalysisCandidate(f, candidate, true)); setConfirmed(false); setPreviewValid(false);
       }} />}
     </section>
   );
