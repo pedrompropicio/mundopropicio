@@ -354,6 +354,7 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
     console.warn("[song-link-event] claim falhou", claimError.message);
     return json({ ok: false, error: "erro_interno" }, 500, origin);
   }
+  claimedId = claimed ?? null;
   if (!claimedId) {
     // D-ERP234 adenda 2: browser após SSR enriquece a linha SSR (opened, destination,
     // in_app_browser, device, os, mode). Nunca mexe em event_id, origin, created_at,
