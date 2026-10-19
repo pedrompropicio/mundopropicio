@@ -819,3 +819,6 @@ verify_jwt = true
 # #333 candidate only; applied exclusively in disposable integration.
 [functions.standalone-attempt-333]
 verify_jwt = true
+
+[functions.capi-v2-send]
+verify_jwt = true
