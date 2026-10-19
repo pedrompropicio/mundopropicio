@@ -11,6 +11,7 @@ const schema=readFileSync('supabase/manual/issue333_tarefa90_application.INERTE.
 const hash='a'.repeat(64),claim='11111111-1111-4111-8111-111111111111';
 const role=(name:string,sql:string)=>db.begin(async tx=>{await tx.unsafe(`SET LOCAL ROLE ${name}`);return tx.unsafe(sql);});
 const responsible=(action:string,revision:string,id:string|null)=>db`SELECT public.data_entry_analysis_responsible_333(${action},${revision}::bigint,${id}::uuid,${hash}) j`;
+const apply=(sql:string)=>db.begin(tx=>tx.unsafe(sql.replace(/^BEGIN;$/m,'').replace(/^COMMIT;$/m,'')));
 beforeAll(async()=>{
  if(process.env.ISSUE333_LOCAL_PROOF!=='1')throw Error('Requires ISSUE333_LOCAL_PROOF=1');
  dir=mkdtempSync(path.join(tmpdir(),'application90-'));
@@ -24,8 +25,8 @@ beforeAll(async()=>{
 afterAll(async()=>{await db?.end();if(dir){try{if(started)pg('pg_ctl',['-D',path.join(dir,'data'),'-m','immediate','stop']);}finally{rmSync(dir,{recursive:true,force:true});}}});
 it('90 reproduces reviewed88 abort under actual technical defaults, then90 applies without global changes',async()=>{
  const defaults=await db`SELECT defaclobjtype,defaclacl::text acl FROM pg_default_acl WHERE defaclrole='postgres'::regrole ORDER BY defaclobjtype`;
- await expect(db.unsafe(readFileSync('supabase/manual/issue333_tarefa87_provider_control.INERTE.sql','utf8'))).rejects.toThrow('analysis_control_acl_catalog');await db`ROLLBACK`;
- await db.unsafe(schema);
+ await expect(apply(readFileSync('supabase/manual/issue333_tarefa87_provider_control.INERTE.sql','utf8'))).rejects.toThrow('analysis_control_acl_catalog');
+ await apply(schema);
  expect(await db`SELECT defaclobjtype,defaclacl::text acl FROM pg_default_acl WHERE defaclrole='postgres'::regrole ORDER BY defaclobjtype`).toEqual(defaults);
  const [r]=await db`SELECT rolsuper FROM pg_roles WHERE rolname='postgres'`;expect(r.rolsuper).toBe(false);
  console.log('90_HOSTED_DEFAULTS_COMPATIBLE_NON_SUPER_OWNER',JSON.stringify(defaults));
@@ -60,7 +61,7 @@ it('90 responsible concurrent revisions permit one action, preserve audit on rol
  const results=await Promise.allSettled([responsible('close','7',null),responsible('close','7',null)]);
  expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);expect(results.filter(r=>r.status==='rejected')).toHaveLength(1);
  const before=await db`SELECT * FROM public.data_entry_analysis_audit_333 ORDER BY revision`;
- await db.unsafe(readFileSync('supabase/manual/issue333_tarefa90_application.ROLLBACK-INERTE.sql','utf8'));
+ await apply(readFileSync('supabase/manual/issue333_tarefa90_application.ROLLBACK-INERTE.sql','utf8'));
  const after=await db`SELECT * FROM public.data_entry_analysis_audit_333 ORDER BY revision`;
  expect(after.slice(0,before.length)).toEqual(before);expect(after).toHaveLength(before.length+1);
  const [r]=await db`SELECT to_regprocedure('public.data_entry_analysis_responsible_333(text,bigint,uuid,text)') f`;expect(r.f).toBeNull();
