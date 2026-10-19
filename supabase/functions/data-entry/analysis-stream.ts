@@ -23,5 +23,9 @@ export function analysisStream(request: Request, cors: Record<string, string>, e
     onFinish: () => { /* Session-only conversation: no DB writes by analysis. */ },
     onError: () => "Análise interrompida. Nenhum dado foi confirmado.",
   });
-  return createUIMessageStreamResponse({ stream, headers: { ...cors, "Cache-Control": "no-store" } });
+  // SDK's Node ResponseInit conflicts with Deno's ambient types; set native headers afterwards.
+  const response = createUIMessageStreamResponse({ stream });
+  for (const [name, value] of Object.entries(cors)) response.headers.set(name, value);
+  response.headers.set("Cache-Control", "no-store");
+  return response;
 }
