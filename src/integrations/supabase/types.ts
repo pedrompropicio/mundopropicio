@@ -8018,6 +8018,57 @@ export type Database = {
           },
         ]
       }
+      data_entry_gmail_connections: {
+        Row: {
+          company_id: string
+          connection_key_ciphertext: string
+          created_at: string
+          reconnect_required: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          connection_key_ciphertext: string
+          created_at?: string
+          reconnect_required?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          connection_key_ciphertext?: string
+          created_at?: string
+          reconnect_required?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      data_entry_gmail_pending: {
+        Row: {
+          company_id: string
+          created_at: string
+          expires_at: string
+          nonce_sha256: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          expires_at: string
+          nonce_sha256: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          expires_at?: string
+          nonce_sha256?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       data_entry_messages: {
         Row: {
           author_id: string
