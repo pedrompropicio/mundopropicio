@@ -9,7 +9,10 @@ import postgres from "postgres";
 import { durableProviderControl, rpcControlStore } from "../../../../supabase/functions/_shared/issue333-ai/control";
 
 let dir: string, db: postgres.Sql, c1: postgres.Sql, c2: postgres.Sql;
-const pg = (cmd: string, args: string[]) => process.getuid?.() === 0 ? execFileSync("setpriv", ["--reuid=65534", "--regid=65534", "--clear-groups", cmd, ...args], { stdio: "pipe" }) : execFileSync(cmd, args, { stdio: "pipe" });
+let started = false;
+// Existing sandbox OS user only; do not create an Auth or operating-system account.
+const localUid = 1000;
+const pg = (cmd: string, args: string[]) => process.getuid?.() === 0 ? execFileSync("setpriv", [`--reuid=${localUid}`, `--regid=${localUid}`, "--clear-groups", cmd, ...args], { stdio: "pipe" }) : execFileSync(cmd, args, { stdio: "pipe" });
 const connect = () => postgres({ host: dir, port: 55487, user: "postgres", database: "postgres", max: 1, onnotice: () => {} });
 const call = (conn: postgres.Sql, operation: string, claim: string | null = null, revision: string | null = null, outcome: string | null = null, status: number | null = null) => conn.begin(async (tx) => {
   await tx`set local role service_role`;
@@ -20,16 +23,17 @@ const adapter = (conn: postgres.Sql) => durableProviderControl(rpcControlStore(a
 beforeAll(async () => {
   if (process.env.ISSUE333_LOCAL_PROOF !== "1") throw Error("Requires explicit ISSUE333_LOCAL_PROOF=1; never silently skip PostgreSQL proof");
   dir = mkdtempSync(path.join(tmpdir(), "provider87-"));
-  if (process.getuid?.() === 0) execFileSync("chown", ["65534:65534", dir]);
+  if (process.getuid?.() === 0) execFileSync("chown", [`${localUid}:${localUid}`, dir]);
   pg("initdb", ["-D", path.join(dir, "data"), "-U", "postgres", "--auth=trust", "-E", "UTF8", "--no-locale"]);
   pg("pg_ctl", ["-D", path.join(dir, "data"), "-w", "-l", path.join(dir, "log"), "-o", `-k ${dir} -p 55487 -c listen_addresses=''`, "start"]);
+  started = true;
   db = connect(); c1 = connect(); c2 = connect();
   await db.unsafe("CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role; GRANT USAGE ON SCHEMA public TO anon,authenticated,service_role;");
   await db.unsafe(readFileSync("supabase/manual/issue333_tarefa87_provider_control.INERTE.sql", "utf8"));
 });
 afterAll(async () => {
   await Promise.all([db?.end(), c1?.end(), c2?.end()]);
-  if (dir) { try { pg("pg_ctl", ["-D", path.join(dir, "data"), "-m", "immediate", "stop"]); } finally { rmSync(dir, { recursive: true, force: true }); } }
+  if (dir) { try { if (started) pg("pg_ctl", ["-D", path.join(dir, "data"), "-m", "immediate", "stop"]); } finally { rmSync(dir, { recursive: true, force: true }); } }
 });
 beforeEach(async () => {
   // Disposable test setup only. No production reopening operation is provided.

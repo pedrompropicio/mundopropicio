@@ -5,7 +5,7 @@ import { analyzeDocument, type AnalysisState } from "./analysis-service.ts";
 import { analysisStream } from "./analysis-stream.ts";
 import { generateDocumentAnalysis } from "../_shared/issue333-ai/provider.ts";
 import { AnalysisError } from "../_shared/data-entry-analysis.ts";
-import { durableProviderControl, rpcControlStore } from "../_shared/issue333-ai/control.ts";
+import { assertProviderControlAvailable, durableProviderControl, rpcControlStore } from "../_shared/issue333-ai/control.ts";
 
 const url = Deno.env.get("SUPABASE_URL") ?? "";
 const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -27,12 +27,16 @@ Deno.serve(createHandler({
     if (!ANALYSIS_ENABLED || !ANALYSIS_PROVIDER_REVIEWED) return new Response(JSON.stringify({ error: "Análise indisponível: configuração e validação pendentes." }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     const token = req.headers.get("Authorization")?.slice(7) ?? "";
     const client = asUser(token);
+    const store = rpcControlStore(async (name, args) => {
+      const result = await admin.rpc(name, args);
+      return { data: result.data, error: result.error };
+    });
+    // Configuration failure must be a plain refusal, never an already-open SSE success header.
+    try { await assertProviderControlAvailable(store); }
+    catch { return new Response(JSON.stringify({ error: "Análise indisponível: controlo do serviço pendente de conferência pelo responsável." }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
     return analysisStream(req, corsHeaders, () => analyzeDocument({
       enabled: ANALYSIS_ENABLED, providerReady: ANALYSIS_PROVIDER_REVIEWED,
-      control: durableProviderControl(rpcControlStore(async (name, args) => {
-        const result = await admin.rpc(name, args);
-        return { data: result.data, error: result.error };
-      })),
+      control: durableProviderControl(store),
       async scope() {
         const verified = await admin.auth.getUser(token);
         const effective = await client.rpc("my_effective_permissions", { p_universe: [] });

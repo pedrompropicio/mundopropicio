@@ -26,6 +26,10 @@ export function rpcControlStore(rpc: (name: string, args: Record<string, unknown
   } };
 }
 const ready = (r: ControlRecord) => r.state === "ready" && r.enabled && r.reviewed;
+export async function assertProviderControlAvailable(store: ControlStore): Promise<void> {
+  const current = await store.transition("read");
+  if (!ready(current) || current.claim !== null) throw unavailable();
+}
 
 export function durableProviderControl(store: ControlStore): ProviderControl {
   return { async run(signal, validateContext, execute) {
