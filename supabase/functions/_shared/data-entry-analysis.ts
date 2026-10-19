@@ -45,15 +45,17 @@ export function validateAnalysisReport(raw: unknown, context: { document_id: str
     if (["supplier_nif", "customer_nif"].includes(field) && value !== null && !/^[A-Za-z0-9 .\-/]{5,40}$/.test(value)) { reviewable = false; usable = false; }
     if (field === "invoice_number" && value !== null && /[\x00-\x1f\x7f]/.test(value)) { reviewable = false; usable = false; }
     if (["total_amount", "iva_amount"].includes(field) && value !== null && (!/^\d+(\.\d{1,2})?$/.test(value) || !validMoney(Number(value)))) reviewable = false;
-    if (field === "currency" && value !== "EUR") reviewable = false;
+    if (field === "currency" && value !== null && !/^[A-Z]{3}$/.test(value)) reviewable = false;
     return { field, value, quote, page: f.page, confidence: f.confidence as AnalysisCandidate["confidence"], uncertainty: f.uncertainty, origin: quote ? "document" : "suggestion", usable, reviewable };
   });
   const total = candidates.find((c) => c.field === "total_amount");
   const iva = candidates.find((c) => c.field === "iva_amount");
   const currency = candidates.find((c) => c.field === "currency");
   const warnings = [...v.warnings];
-  if (!currency?.reviewable) {
-    warnings.push("Moeda ausente, incerta ou diferente de EUR: confirma manualmente; os montantes não podem ser transferidos.");
+  if (!currency?.reviewable || currency.value !== "EUR") {
+    warnings.push(currency?.reviewable && currency.value
+      ? `Documento em ${currency.value}: este lançamento só aceita euros. Introduz o total e o IVA em EUR manualmente.`
+      : "A moeda não aparece claramente no documento. Confirma e introduz o total e o IVA manualmente.");
     for (const c of candidates) if (["total_amount", "iva_amount"].includes(c.field)) { c.usable = false; c.reviewable = false; }
   }
   if (total?.value && iva?.value && Number(iva.value) > Number(total.value)) {

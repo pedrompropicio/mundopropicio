@@ -14,9 +14,9 @@ const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const opts = { auth: { persistSession: false, autoRefreshToken: false } };
 const admin = createClient(url, service, opts);
 const asUser = (token: string) => createClient(url, anon, { ...opts, global: { headers: { Authorization: `Bearer ${token}` } } });
-const ANALYSIS_ENABLED = true; // #333 tarefa95: scanner94 deployed; effectively closed by durable control rev6 closed + pilot8 preparation disabled.
+const ANALYSIS_ENABLED = false; // #333 fecho95: window closed by controller (rev11); reopen needs separate authorization.
 // Task87 candidate is local/inert, not applied or reviewed in Cloud. Key presence never activates it.
-const ANALYSIS_PROVIDER_REVIEWED = true; // #333 tarefa95: provider calls still require responsible reopen of the closed control.
+const ANALYSIS_PROVIDER_REVIEWED = false; // #333 fecho95: provider calls blocked.
 
 Deno.serve(createHandler({
   cors: { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"]}, x-data-entry-user, x-data-entry-company` },
