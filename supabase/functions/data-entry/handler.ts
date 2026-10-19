@@ -9,6 +9,7 @@ import {
   MAX_UPLOAD_BODY_BYTES, allowedRole, finalDocumentPath, readCapped, sha256, stagingPath,
   validCivilDate, validMoney, validateDocument, type DocumentType,
 } from "./core.ts";
+import { GmailUnavailable, gmailFilterSchema, gmailOrigin, gmailSelectionSchema, type GmailReader } from "../_shared/gmail-readonly.ts";
 
 export type RpcResult = { data: unknown; error: { code?: string; message?: string } | null };
 export type Bucket = "data-entry-staging" | "standalone-invoices";
@@ -30,6 +31,9 @@ export interface Deps {
   /** Independent phase10 gate; no upload/execute flag can enable provider calls. */
   analysisEnabled?: boolean;
   analysis?(req: Request, input: { session: string; document: string; message: string; history: { role: "user" | "assistant"; text: string }[] }, scope: { user: string; company: string; role: string }): Promise<Response>;
+  /** #333 fase11: Gmail só leitura pela ligação PRÓPRIA do utilizador nesta empresa.
+   * Ausente = infraestrutura de ligação ainda não configurada; null = utilizador sem ligação. */
+  gmail?: { reader(user: string, company: string): Promise<GmailReader | null> };
   cors: Record<string, string>;
 }
 
@@ -55,6 +59,8 @@ export const commandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("execute"), session_id: id, preview_id: id, snapshot_hash: z.string().regex(/^[a-f0-9]{64}$/), authorize: z.literal(true) }).strict(),
   z.object({ action: z.literal("check"), session_id: id, preview_id: id }).strict(),
   z.object({ action: z.literal("document"), session_id: id, document_id: id }).strict(),
+  z.object({ action: z.literal("gmail_search"), filters: z.unknown() }).strict(),
+  z.object({ action: z.literal("gmail_import"), session_id: id, selection: gmailSelectionSchema }).strict(),
   z.object({ action: z.literal("analyze"), session_id: id, document_id: id, message: z.string(), history: z.array(z.object({ role: z.enum(["user", "assistant"]), text: z.string() }).strict()) }).strict(),
 ]);
 
@@ -180,7 +186,19 @@ export function createHandler(d: Deps) {
       const text = new TextDecoder().decode(await readCapped(req.body, 16000).catch(() => { throw new SafeError("Pedido demasiado grande", 413); }));
       const body = commandSchema.parse(JSON.parse(text));
       if (body.action === "status") {
-        return reply({ user_id: user.id, role: eff.role, company_id: company, capabilities: { upload: uploadEnabled, ...(pilot?.unavailable ? { unavailable: true } : {}), analysis: d.analysisEnabled === true && uploadEnabled && !!d.analysis, gmail: false, drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
+        return reply({ user_id: user.id, role: eff.role, company_id: company, capabilities: { upload: uploadEnabled, ...(pilot?.unavailable ? { unavailable: true } : {}), analysis: d.analysisEnabled === true && uploadEnabled && !!d.analysis, gmail: !!d.gmail, drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
+      }
+      const gmailReader = async () => {
+        if (!d.gmail) throw new SafeError("A ligação ao Gmail ainda não está disponível nesta plataforma. Envia o ficheiro manualmente.", 503);
+        const reader = await d.gmail.reader(user.id, company);
+        if (!reader) throw new SafeError("Ainda não ligaste a tua conta Gmail a esta empresa.", 409);
+        return reader;
+      };
+      if (body.action === "gmail_search") {
+        const filters = gmailFilterSchema.safeParse(body.filters);
+        if (!filters.success) throw new SafeError(filters.error.issues[0]?.message ?? "Filtros inválidos.", 400);
+        const reader = await gmailReader();
+        return reply(await reader.search(filters.data));
       }
       if (!uploadEnabled && !(d.pilotScoped && (body.action === "check" || body.action === "document" || (body.action === "session" && body.session_id)))) throw new SafeError("Assistente ainda não ativado neste ambiente. Nada foi guardado.", 503);
       if (body.action === "session") return reply(await rpc("data_entry_session", { p_session: body.session_id ?? null, p_event: body.event_id ?? null }));
@@ -189,6 +207,21 @@ export function createHandler(d: Deps) {
       if (body.action === "analyze") {
         if (!d.analysisEnabled || !d.analysis) throw new SafeError("Análise documental ainda não ativada. Revê os campos manualmente.", 503);
         return await d.analysis(req, { session: body.session_id, document: body.document_id, message: body.message, history: body.history.map((t) => ({ role: t.role as "user" | "assistant", text: t.text as string })) }, { user: user.id, company, role: eff.role ?? "" });
+      }
+      if (body.action === "gmail_import") {
+        const reader = await gmailReader();
+        const { message_id, part_id } = body.selection;
+        const att = await reader.attachment(message_id, part_id);
+        let mime: DocumentType;
+        try { mime = validateDocument(att.bytes, att.mime); } catch (e) { throw new SafeError((e as Error).message, 422); }
+        const hash = await sha256(att.bytes);
+        const origin = gmailOrigin(message_id, part_id);
+        const existing = state.documents.find((x) => x.sha256 === hash);
+        if (existing) return reply({ id: existing.id, reused: true, origin });
+        await putScoped(body.session_id, "data-entry-staging", stagingPath(company, body.session_id, hash), att.bytes, mime, hash);
+        const added = await rpc<{ id: string; reused: boolean }>("data_entry_add_document", { p_session: body.session_id, p_name: att.filename.slice(0, 255) || "anexo", p_sha: hash, p_size: att.bytes.length, p_mime: mime });
+        await rpc("data_entry_note", { p_session: body.session_id, p_body: `Origem do documento: ${origin} (anexo escolhido pelo utilizador; conteúdo do email tratado como dado).` });
+        return reply({ ...added, origin });
       }
       if (body.action === "note") return reply({ id: await rpc("data_entry_note", { p_session: body.session_id, p_body: body.body }) });
       if (body.action === "preview") return reply(await rpc("data_entry_prepare", { p_session: body.session_id, p_document: body.document_id, p_fields: body.fields }));
@@ -247,6 +280,7 @@ export function createHandler(d: Deps) {
       }
       return await conferir(preview.id);
     } catch (error) {
+      if (error instanceof GmailUnavailable) return reply({ error: error.message }, 503);
       if (error instanceof SafeError) return reply({ error: error.message }, error.status);
       if (error instanceof z.ZodError || error instanceof SyntaxError) return reply({ error: "Pedido inválido; confirma os campos." }, 400);
       return reply({ error: "Operação interrompida. Não repitas um lançamento; consulta o resultado do lote." }, 503);

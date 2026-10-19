@@ -18,6 +18,8 @@ const ANALYSIS_ENABLED = false; // #333 fecho96: closed after manual window96.
 // Durable control stays closed until the controller opens the single 600s window with Pedro in the modal.
 const ANALYSIS_PROVIDER_REVIEWED = false; // #333 fecho96: closed after manual window96.
 
+// #333 fase11: `gmail` deliberately absent — no per-user read-only Gmail connection exists in this platform yet.
+// Activation needs a reviewed per-user consent (scope gmail.readonly only) bound to user+company; see docs/testes/issue333/fase11-gmail.md.
 Deno.serve(createHandler({
   cors: { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"]}, x-data-entry-user, x-data-entry-company` },
   // Closed until the #333 technical migration, private bucket and proofs are reviewed.
