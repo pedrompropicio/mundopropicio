@@ -1,3 +1,8 @@
+# #333 — tarefa89 corretiva CI414
+- [ ] Reproduzir deadline em vez de fingerprint; sincronizar relay local com relógio/scheduler controlados, preservando default e negativa de expiry.
+- [ ] Executar testes pertinentes e suite default uma vez; guardar diff/prova89 e libertar só subreserva89.
+- [ ] Controller confirma CI no SHA novo; próximo passo depois de verde: revisão final SQL88 para aplicação própria, sem ativação.
+
 # #322 — CI410 subescopo corretivo autorizado
 - [x] Reproduzir sem_identidade, comprovar guarda canónica, tornar a chamada explícita sem relaxar scanner/autenticação; seis testes criptográficos locais e regressões pertinentes (67 PASS).
 - [x] Executar suite default duas vezes e preservar ficheiros alheios: timeouts/deadlines fora do subescopo; 27 testes de dois ficheiros passaram isolados. Harness tipos/build OK; documentação própria e subreserva libertada sem remover #322 Claude/#323.
