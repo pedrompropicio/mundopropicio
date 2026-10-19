@@ -267,7 +267,7 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
   });
   const { data: link, error: linkErr } = await admin
     .from("song_links")
-    .select("id, company_id, artist_id, song_id, link_type, title, meta_pixel_id, tiktok_pixel_id, active")
+    .select("id, company_id, artist_id, song_id, link_type, title, meta_pixel_id, tiktok_pixel_id, active, destinations")
     .eq("slug", slug)
     .maybeSingle();
   if (linkErr) return json({ ok: false, error: "erro_interno" }, 500, origin);
