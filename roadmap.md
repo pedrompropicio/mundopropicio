@@ -26,7 +26,8 @@
 - [ ] Backfill NÃO autorizado por Pedro; permanece inerte, aguarda autorização separada.
 
 # #333 — Assistente de Entrada de Dados
-- [ ] Tarefa87: implementar controlo singleton durável e claim global; SQL/rollback INERTES fora migrations, adapter integrado com gatesfalse, provas PostgreSQL real duas conexões e SDK doubles, documentação/hash/fecho próprios. Sem Cloudwrites/deploy/ativação; plano aguarda aprovação.
+- [x] Tarefa87 local: controlo singleton durável+claim global, SQL/rollback INERTES fora migrations, adapter gatesfalse;20PGreal/60pertinentes/Deno2runtimePASS/checkbundle0; suitecompleta2workers1652PASS. Dois runsdefault flutuaçõesdeadline/timeout não alterados; provas/diff/hashes/fecho próprios. ZeroCloudwrites/deploy/ativação.
+- [ ] Controller tarefa87: confirmar HEADintegrado/CIqualitySUCCESS e rever SQL/rollback/númeroLive; aplicação/ativação/reabertura/runtimehospedado/provaexterna exigem autorização própria.8PARCIAL/9não liberada/10PARCIAL.
 - [x] Controller confirmou CI411 quality SUCCESS no HEAD integrado460cb2e antes do dispatch87; correção322 encerrada, reservaClaude/#323 preservadas. Novo HEAD exige nova confirmação CI antes próximo dispatch não corretivo/Publish.
 - [x] Tarefa86: Deno check0/runtime1PASS/bundle190módulos0, SDK9testes86PASS+30regressões85PASS, harness tipos/buildOK. Mensagens públicas/status403/429 preservados, zero log bruto/factory reasoning; configuração names-only, desenho pausa durável entregue sem implementação/DDL. Gatesfalse,8PARCIAL/9não liberada; CI novo SHA e runtime hospedado/prova externa/claim durável aguardam controller.
 - [x] Tarefa85: código análise/conversa fase10 preparado;52testes locaisPASS, harnessbuildOK, dois gates fechados.10não concluída: SDK/configuração externa/pausa durável pendentes; sem liberar9/concluir8/Cloudwrites. Prova própria85 sanitizada.

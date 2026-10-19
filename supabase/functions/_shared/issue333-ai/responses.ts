@@ -1,6 +1,7 @@
 import { createOpenAI } from "npm:@ai-sdk/openai@3";
 import { streamText, Output, type ModelMessage } from "npm:ai@6";
 import { analysisWireSchema, ANALYSIS_LIMITS } from "../data-entry-analysis.ts";
+import type { TransportLifecycle } from "./control.ts";
 
 import {
   createLovableAiGatewayRunIdFetch,
@@ -12,13 +13,41 @@ export function createResponsesCall(
   config: { baseURL: string; apiKey: string; model: string },
   messages: ModelMessage[],
   instructions?: string,
+  transport?: TransportLifecycle,
 ) {
   const runIdFetch = createLovableAiGatewayRunIdFetch(getLovableAiGatewayRunId(request));
   const provider = createOpenAI({
     baseURL: `${config.baseURL.replace(/\/+$/, "").replace(/\/v1$/, "")}/v1`,
     apiKey: config.apiKey,
     headers: { "Lovable-API-Key": config.apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
-    fetch: runIdFetch.fetch,
+    fetch: async (input, init) => {
+      // Await durable fencing before any external POST. No retry/fallback path.
+      if (transport) await transport.beforePost();
+      const response = await runIdFetch.fetch(input, init);
+      transport?.received(response.status);
+      if (!transport) return response;
+      if (!response.body) { transport.completed(); return response; }
+      // HTTP200 headers are not evidence that a streaming provider request completed.
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let protocolTail = "", terminal = response.status >= 400;
+      const body = new ReadableStream<Uint8Array>({
+        async pull(controller) {
+          try {
+            const chunk = await reader.read();
+            if (chunk.done) { if (terminal) transport.completed(); controller.close(); }
+            else {
+              // Bounded transient parser only, never persisted/logged or returned to the browser.
+              protocolTail = (protocolTail + decoder.decode(chunk.value, { stream: true })).slice(-8192);
+              if (/"type"\s*:\s*"response.completed"/.test(protocolTail)) terminal = true;
+              controller.enqueue(chunk.value);
+            }
+          } catch (error) { controller.error(error); }
+        },
+        cancel: (reason) => reader.cancel(reason),
+      });
+      return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
+    },
   });
   const reasoning = config.model !== "openai/chat-latest";
   let upstreamError: unknown;
