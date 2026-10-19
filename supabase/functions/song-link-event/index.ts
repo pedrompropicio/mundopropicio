@@ -292,8 +292,56 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
   const metaTest = typeof body?.meta_test_event_code === "string" && TEST_CODE_RE.test(body.meta_test_event_code) ? body.meta_test_event_code : null;
   const ttTest = typeof body?.tiktok_test_event_code === "string" && TEST_CODE_RE.test(body.tiktok_test_event_code) ? body.tiktok_test_event_code : null;
 
+  // AJ19/AJ14: app_open — validações da secção 2.1 da proposta (antes de gravar).
+  let appOpen: AppOpenParsed | null = null;
+  let arrivalEventId: string | null = null;
+  if (event === "app_open") {
+    const parsed = parseAppOpenBody(body);
+    if (!parsed.ok) return json({ ok: false, error: parsed.error }, 400, origin);
+    if (!destinationConfigured(link.destinations, parsed.value.destination)) {
+      return json({ ok: false, error: "destino_nao_configurado" }, 400, origin);
+    }
+    appOpen = parsed.value;
+    arrivalEventId = parsed.value.arrival_event_id;
+    const { data: arr, error: arrErr } = await admin.from("song_link_events")
+      .select("id, origin, created_at")
+      .eq("event_id", arrivalEventId).eq("event", "arrival").eq("link_id", link.id)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (arrErr) return json({ ok: false, error: "erro_interno" }, 500, origin);
+    const va = validateArrivalForAppOpen(arr, Date.now());
+    if (!va.ok) return json({ ok: false, error: va.error }, 403, origin);
+  } else if (event === "choice" && isUuid(body?.arrival_event_id) && destination) {
+    // Choice COM arrival_event_id (Portal novo): partilha o slot ListenClick Meta.
+    // Choice SEM arrival_event_id (Portal atual): comportamento inalterado, sem slot.
+    arrivalEventId = String(body.arrival_event_id).trim().toLowerCase();
+  }
+
   // D-ERP234: atomic INSERT ON CONFLICT happens before any external delivery.
-  const { data: claimedId, error: claimError } = await admin.rpc("song_link_event_claim", { p_payload: {
+  // AJ19: app_open não usa a claim (a claim não mapeia arrival_event_id); o
+  // índice único song_link_app_open_arrival_uidx garante no máximo 1 por chegada.
+  let claimedId: string | null = null;
+  if (appOpen) {
+    const { data: ins, error: insErr } = await admin.from("song_link_events").insert({
+      link_id: link.id, company_id: link.company_id, artist_id: link.artist_id, song_id: link.song_id,
+      event: "app_open", mode: s(body.mode, 30), destination: appOpen.destination, opened: "app",
+      event_id: appOpen.event_id, arrival_event_id: appOpen.arrival_event_id,
+      utm_source: s(body.utm_source, 200), utm_medium: s(body.utm_medium, 200),
+      utm_campaign: s(body.utm_campaign, 200), utm_content: s(body.utm_content, 200), utm_term: s(body.utm_term, 200),
+      fbclid: s(body.fbclid, 500), ttclid: s(body.ttclid, 500),
+      country: hdrCountry, region: hdrRegion, city: hdrCity, device, os, in_app_browser,
+      ip_hash: ipHash, origin: "browser", capi_status: "pendente", tiktok_status: "pendente",
+    }).select("id").maybeSingle();
+    if (insErr) {
+      if (insErr.code === "23505") {
+        return json({ ok: true, duplicate: true, delivery: "app_open_ja_registado" }, 200, origin);
+      }
+      console.warn("[song-link-event] app_open insert falhou", insErr.message);
+      return json({ ok: false, error: "erro_interno" }, 500, origin);
+    }
+    claimedId = ins?.id ?? null;
+    if (!claimedId) return json({ ok: true, duplicate: true }, 200, origin);
+  } else {
+  const { data: claimed, error: claimError } = await admin.rpc("song_link_event_claim", { p_payload: {
     link_id: link.id, company_id: link.company_id, artist_id: link.artist_id, song_id: link.song_id,
     event, mode: s(body.mode, 30), destination, opened, event_id: eventId,
     utm_source: s(body.utm_source, 200), utm_medium: s(body.utm_medium, 200),
