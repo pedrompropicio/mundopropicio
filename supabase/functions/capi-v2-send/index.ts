@@ -16,7 +16,7 @@ const handle = createHandler({
   fetchFn: fetch,
   env: (k) => Deno.env.get(k),
   now: () => new Date(),
-  isServiceRole: isServiceRoleRequest,
+  isServiceRole: (req) => isServiceRoleRequest(req),
 });
 
 Deno.serve(handle);

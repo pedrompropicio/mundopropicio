@@ -18,6 +18,7 @@ export default defineConfig({
       "npm:zod@3": "zod",
       "npm:ai@6": "ai",
       "npm:@ai-sdk/openai@3": "@ai-sdk/openai",
+      "npm:@supabase/supabase-js@2": "@supabase/supabase-js",
     },
   },
 });
