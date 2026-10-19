@@ -9,7 +9,9 @@ env = {"PATH": os.environ.get("PATH", "/bin:/usr/bin"), "HOME": os.environ.get("
 base = ["--no-config", "--no-lock", "--node-modules-dir=manual", "--no-remote"]
 commands = [
     ["deno", "check", *base, "supabase/functions/_shared/issue333-ai/provider.ts", "supabase/functions/data-entry/analysis-stream.ts", "supabase/functions/data-entry/analysis-service.ts", "supabase/functions/data-entry/index.ts"],
-    ["deno", "test", *base, "--cached-only", "docs/testes/issue333/analysis86/runtime.test.ts"],
+    # SDK transitively imports @vercel/oidc, which reads hostname at module initialization.
+    # Narrow sys permission only; no --allow-env, --allow-net, or --allow-read.
+    ["deno", "test", *base, "--cached-only", "--allow-sys=hostname", "docs/testes/issue333/analysis86/runtime.test.ts"],
     ["deno", "bundle", *base, "--platform", "deno", "supabase/functions/data-entry/index.ts", "-o", str(out / "entry.bundle.js")],
 ]
 for i, command in enumerate(commands):
