@@ -54,38 +54,37 @@ function fakeSb(o: FakeOpts) {
       return { data: null, error: null };
     },
     from: (table: string) => {
+      const filters: any[] = [];
+      const execute = async () => {
+        if (table === "capi_v2_targets") return { data: o.targets ?? [], error: null, count: null };
+        if (table === "capi_v2_events") {
+          const st = filters.find(([c]: [string]) => c === "status");
+          let rows = o.events ?? [];
+          if (st) rows = rows.filter((r) => (st[1] as string[]).includes(r.status));
+          return { data: rows, error: null, count: rows.length };
+        }
+        if (table === "lead_capture") return { data: Object.values(o.leads ?? {}), error: null, count: null };
+        return { data: [], error: null, count: 0 };
+      };
       const q: any = {
-        _table: table, _filters: [] as any[],
-        select: () => q, eq: (c: string, v: unknown) => { q._filters.push([c, v]); return q; },
-        in: () => q, or: () => q, not: () => q, ilike: () => q,
+        select: () => q,
+        eq: (c: string, v: unknown) => { filters.push([c, v]); return q; },
+        in: (c: string, v: unknown) => { filters.push([c, v]); return q; },
+        or: () => q, not: () => q, ilike: () => q,
         order: () => q, limit: () => q,
         maybeSingle: async () => {
-          const id = q._filters.find(([c]: [string]) => c === "id")?.[1];
+          const id = filters.find(([c]) => c === "id")?.[1];
           if (table === "lead_capture") return { data: o.leads?.[String(id)] ?? null, error: null };
           if (table === "club_members") return { data: o.members?.[String(id)] ?? null, error: null };
           return { data: null, error: null };
         },
-        then: undefined,
+        update: (patch: any) => ({
+          eq: () => ({ in: () => { updates.push({ table, patch }); return Promise.resolve({ error: null }); } }),
+        }),
+        insert: (rec: any) => { alerts.push(rec); return Promise.resolve({ error: null }); },
+        then: (res: any, rej: any) => execute().then(res, rej),
       };
-      // execução terminal para select em cadeia (await da query)
-      q.execute = async () => {
-        if (table === "capi_v2_targets") return { data: o.targets ?? [], error: null, count: null };
-        if (table === "capi_v2_events") return { data: o.events ?? [], error: null, count: 0 };
-        if (table === "lead_capture") return { data: Object.values(o.leads ?? {}), error: null, count: null };
-        return { data: [], error: null, count: 0 };
-      };
-      q.update = (patch: any) => ({
-        eq: () => ({ in: () => { updates.push({ table, patch }); return Promise.resolve({ error: null }); } }),
-      }),
-      q.insert = (rec: any) => { alerts.push(rec); return Promise.resolve({ error: null }); };
-      // tornar thenable
-      const p = {
-        select: q.select, eq: q.eq, in: q.in, or: q.or, not: q.not, ilike: q.ilike,
-        order: q.order, limit: q.limit, maybeSingle: q.maybeSingle,
-        update: q.update, insert: q.insert,
-        then: (res: any, rej: any) => q.execute().then(res, rej),
-      };
-      return p;
+      return q;
     },
   };
   const fetchFn = (async (url: any, init: any) => {
