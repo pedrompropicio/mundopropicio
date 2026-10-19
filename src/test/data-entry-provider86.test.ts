@@ -20,7 +20,7 @@ const events = (text: string) => [
   { type: "response.output_text.delta", item_id: "m1", delta: text },
   { type: "response.completed", response: {} },
 ];
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 describe("#333 real server SDK offline86", () => {
   it("emits strict Responses schema, configured limits and only validated final UI data", async () => {
     let body: Record<string, any> = {};
@@ -41,10 +41,12 @@ describe("#333 real server SDK offline86", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store"); expect(response.headers.get("X-Request-ID")).toBeNull();
   });
   it.each([403, 429])("HTTP%s is terminal, safe and never retried", async (status) => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const fetch = vi.fn(async () => new Response(JSON.stringify({ message: "Bearer local-sensitive-marker https://private.invalid/path?key=local-sensitive-marker", error: { message: "local-sensitive-marker" } }), { status }));
     vi.stubGlobal("fetch", fetch);
     const ui = await analysisStream(request(), {}, async () => validateAnalysisReport(await generateDocumentAnalysis(request(), input, "local-placeholder"), context)).text();
     expect(ui).toContain(`"status":${status}`); expect(ui).not.toContain("local-sensitive-marker"); expect(ui).not.toContain("private.invalid"); expect(ui).not.toContain('"type":"data-analysis"'); expect(fetch).toHaveBeenCalledTimes(1);
+    expect(log).not.toHaveBeenCalled();
   });
   it("maps arbitrary JSON.message without trusting upstream text", () => {
     const e = new APICallError({ message: "local-sensitive-marker", url: "https://private.invalid", requestBodyValues: {}, statusCode: 403, responseBody: '{"message":"local-sensitive-marker"}' });
