@@ -72,6 +72,6 @@ describe("#333 real server SDK offline86", () => {
     const controller = new AbortController(); controller.abort();
     const call = createResponsesCall(request(controller.signal), { baseURL: "http://local.invalid/v1", apiKey: "local-placeholder", model: "openai/gpt-6-astra" }, [{ role: "user", content: "local" }]);
     expect("response" in call).toBe(false);
-    void call.result.output.catch(() => {});
+    void Promise.resolve(call.result.output).catch(() => {});
   });
 });
