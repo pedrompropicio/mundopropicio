@@ -604,8 +604,10 @@ async function handle(req: Request, ctx: { slug: string | null; ua: string }): P
           });
           const tj: any = await r.json().catch(() => null);
           tiktok_status = r.ok && tj?.code === 0 ? "enviado" : `erro:${tj?.code ?? r.status}`;
+          if (ttSlot) await finishSlot(admin, arrivalEventId!, "tiktok", ttSlot, tiktok_status === "enviado" ? "delivered" : "failed");
         } catch {
           tiktok_status = "erro:rede";
+          if (ttSlot) await finishSlot(admin, arrivalEventId!, "tiktok", ttSlot, "unknown");
         }
       }
     }
