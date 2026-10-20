@@ -87,7 +87,7 @@ export function compareWithCanonical(s: SettlementEvidence, c: CanonicalSettleme
   const diffs: string[] = [];
   if (!c.transfer_account_id) diffs.push("O fecho não regista transferência: o líquido ficou retido na bilheteira.");
   else if (c.transfer_account_id !== s.financial_account_id) diffs.push("A conta indicada difere da conta de transferência do fecho.");
-  if (c.net_transferred_cents !== s.amount_cents) diffs.push(`Valor recebido difere do líquido transferido do fecho em ${((s.amount_cents - c.net_transferred_cents) / 100).toFixed(2)} €.`);
+  if (c.net_transferred_cents !== s.amount_cents) diffs.push(`Valor recebido difere do líquido transferido do fecho em ${((s.amount_cents - c.net_transferred_cents) / 100).toFixed(2).replace(".", ",")} €.`);
   if (s.date < c.settlement_date) diffs.push("Data do recebimento anterior à data do fecho.");
   return { ok: diffs.length === 0, diffs };
 }
@@ -101,7 +101,7 @@ export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpCon
   const ints = x.lines.length > 0 && x.lines.every((l) => Number.isSafeInteger(l.amount_cents) && Math.abs(l.amount_cents) <= 1000000000 && LINE_TYPES.includes(l.line_type)) && (x.document_total_cents == null || Number.isSafeInteger(x.document_total_cents));
   checks.push({ code: "cents", ok: ints, message: ints ? "Valores ao cêntimo." : "Sem linhas ou valores com frações de cêntimo: rever o documento." });
   if (x.document_total_cents == null) { checks.push({ code: "total", ok: false, message: "Falta o total do documento." }); needs.push("Total do documento"); }
-  else checks.push({ code: "sum", ok: diff === 0, message: diff === 0 ? "Σ linhas = total do documento." : `Σ linhas difere do total em ${((diff ?? 0) / 100).toFixed(2)} €.` });
+  else checks.push({ code: "sum", ok: diff === 0, message: diff === 0 ? "Σ linhas = total do documento." : `Σ linhas difere do total em ${((diff ?? 0) / 100).toFixed(2).replace(".", ",")} €.` });
   if (!x.number) needs.push("Número do apuramento");
   const number = x.number;
   const dup = number ? erp.existing_statements.find((s) => s.number.trim().toUpperCase() === number.trim().toUpperCase()) : undefined;

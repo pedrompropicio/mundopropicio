@@ -43,7 +43,7 @@ describe("#333 fase12d preparar vs liquidar", () => {
     // Σ do apuramento (579,50 €) ≠ líquido transferido (500,00 €): valor da posição não liquida.
     const sum = await buildTicketlineProposal(st, sealed, { human_reviewed: true, settlement: ev(57950) });
     expect(sum.actions.find(a => a.id === "a5")?.blocked_reason).toMatch(/diverge/);
-    expect(sum.needs.join(" ")).toMatch(/Pendente: Valor recebido difere do líquido transferido do fecho em 79.50/);
+    expect(sum.needs.join(" ")).toMatch(/Pendente: Valor recebido difere do líquido transferido do fecho em 79,50/);
     expect(compareWithCanonical(ev(50000, other), canonical).diffs.join(" ")).toMatch(/conta indicada difere/);
     expect(compareWithCanonical(ev(50000, account, "2026-10-11"), canonical).diffs.join(" ")).toMatch(/anterior/);
     expect(compareWithCanonical(ev(50000), { ...canonical, transfer_account_id: null }).diffs.join(" ")).toMatch(/retido/);
