@@ -49,7 +49,7 @@ export interface Deps {
   companyName?(company: string): Promise<string | null>;
   /** #333 fase12: orquestrador conversacional. Ausente = não ativado (503). Modelo e leitor ERP injetados. */
   assistantEnabled?: boolean;
-  assistantScopeAllowed?(user: string, company: string): boolean;
+  assistantScopeAllowed?(user: string, company: string): boolean | Promise<boolean>;
   assistant?: { model: AssistantModel; erpContext(token: string, company: string, text: string, signal?: AbortSignal, number?: string): Promise<ErpContext> };
   assistantFactory?(req: Request, scope: { user: string; company: string }, revalidate: () => Promise<void>): Promise<NonNullable<Deps["assistant"]>>;
   continuationSecret?: string;
@@ -241,7 +241,7 @@ export function createHandler(d: Deps) {
       if (body.action === "status") {
         let companyName: string | null = null;
         try { companyName = d.companyName ? await d.companyName(company) : null; } catch { companyName = null; }
-        return reply({ user_id: user.id, role: eff.role, company_id: company, company_name: companyName, capabilities: { upload: uploadEnabled, ...(pilot?.unavailable ? { unavailable: true } : {}), analysis: d.analysisEnabled === true && uploadEnabled && !!d.analysis, gmail: !!d.gmail, assistant: d.assistantEnabled !== false && (!d.assistantScopeAllowed || d.assistantScopeAllowed(user.id, company)) && (!!d.assistant || d.assistantEnabled === true && !!d.assistantFactory), drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
+        return reply({ user_id: user.id, role: eff.role, company_id: company, company_name: companyName, capabilities: { upload: uploadEnabled, ...(pilot?.unavailable ? { unavailable: true } : {}), analysis: d.analysisEnabled === true && uploadEnabled && !!d.analysis, gmail: !!d.gmail, assistant: d.assistantEnabled !== false && (!d.assistantScopeAllowed || await d.assistantScopeAllowed(user.id, company)) && (!!d.assistant || d.assistantEnabled === true && !!d.assistantFactory), drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
       }
       const gmailReader = async () => {
         if (!d.gmail) throw new SafeError("A ligação ao Gmail ainda não está disponível nesta plataforma. Envia o ficheiro manualmente.", 503);
@@ -267,7 +267,7 @@ export function createHandler(d: Deps) {
         return reply(result);
       }
       if (body.action === "assistant_turn") {
-        if (d.assistantScopeAllowed && !d.assistantScopeAllowed(user.id, company)) throw new SafeError("Assistente fora da janela autorizada para este utilizador e empresa.", 503);
+        if (d.assistantScopeAllowed && !(await d.assistantScopeAllowed(user.id, company))) throw new SafeError("Assistente fora da janela autorizada para este utilizador e empresa.", 503);
         if (d.assistantEnabled === false || !d.assistant && !(d.assistantEnabled === true && d.assistantFactory)) throw new SafeError("O assistente conversacional ainda não está ativado. Podes usar a pesquisa do Gmail abaixo.", 503);
         await canonicalStorageContext();
         if (body.selection && (!body.continuation || !d.continuationSecret)) throw new SafeError("Seleção sem prova do servidor; repete a pesquisa.", 409);
@@ -298,7 +298,7 @@ export function createHandler(d: Deps) {
       }
       if (body.action.startsWith("ticketline_")) {
         // Review actions share the assistant activation and nominal scope; closed gates never fall back to memory.
-        if (d.assistantScopeAllowed && !d.assistantScopeAllowed(user.id, company)) throw new SafeError("Revisão fora da janela autorizada para este utilizador e empresa.", 503);
+        if (d.assistantScopeAllowed && !(await d.assistantScopeAllowed(user.id, company))) throw new SafeError("Revisão fora da janela autorizada para este utilizador e empresa.", 503);
         if (d.assistantEnabled === false) throw new SafeError("Revisão do assistente ainda não ativada. Nada foi guardado.", 503);
       }
       if (body.action === "ticketline_candidate") {
@@ -318,7 +318,7 @@ export function createHandler(d: Deps) {
           let prov;
           try { prov = await verifyAttachmentSource({ message_id: body.message_id, part_id: body.part_id, bytes: att.bytes, mime, listed: listed.map(a => ({ part_id: a.part_id, size_bytes: a.size_bytes })), expected_sha256: body.expected_sha256 }); }
           catch (e) { throw new SafeError((e as Error).message, 409); }
-          if (!d.scanAttachment || !d.analysisEnabled) cand = { ...cand, sources: [...cand.sources, prov], incomplete: [...cand.incomplete, "Anexo verificado (origem e hash), mas o scanner está fechado: confirmar número, data e total no documento."] };
+          if (!d.scanAttachment) cand = { ...cand, sources: [...cand.sources, prov], incomplete: [...cand.incomplete, "Anexo verificado (origem e hash), mas o scanner está fechado: confirmar número, data e total no documento."] };
           else {
             const wire = await boundedAnalysis(req.signal, signal => d.scanAttachment!(att.bytes, mime, signal));
             await canonicalStorageContext();
