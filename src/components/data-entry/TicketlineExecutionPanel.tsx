@@ -31,7 +31,10 @@ export default function TicketlineExecutionPanel({ adapter, context, authorizati
       setDone(d => ({ ...d, [id]: r }));
     } catch (e) {
       const text = e instanceof Error ? e.message : "Indisponível.";
-      if (/incerto/i.test(text) || e instanceof TypeError || !(e instanceof Error)) setUncertain(u => new Set(u).add(id));
+      const st = (e as { status?: number }).status;
+      // Recusas definitivas (403/409/422, executor fechado) não gravaram nada; transporte/servidor desconhecido = incerto.
+      const definitive = (st !== undefined && st >= 400 && st < 499) || /indisponível neste ambiente|fechada/i.test(text);
+      if (!definitive) setUncertain(u => new Set(u).add(id));
       setMsg(m => ({ ...m, [id]: text }));
     } finally { setBusy(null); }
   };
