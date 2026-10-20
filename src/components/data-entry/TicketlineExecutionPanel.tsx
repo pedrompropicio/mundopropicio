@@ -5,7 +5,7 @@ import type { DataEntryAdapter, DataEntryContext, TicketlineExecution } from "@/
 
 type Action = { id: string; label: string; depends_on: string[]; kind?: string };
 /**
- * #333 fase12e — execução por ação autorizada. Só mostra resultados devolvidos pelo servidor depois de conferidos;
+ * #333 fase12f — execução por ação autorizada. Só mostra resultados devolvidos pelo servidor depois de conferidos;
  * resultado incerto bloqueia a repetição até se ler o estado gravado (retoma só leitura).
  */
 export default function TicketlineExecutionPanel({ adapter, context, authorizationId, actions, available }: {
@@ -53,7 +53,6 @@ export default function TicketlineExecutionPanel({ adapter, context, authorizati
         {actions.map(a => {
           const r = done[a.id];
           const depsOk = a.depends_on.every(d => done[d]);
-          const human = a.id === "a3";
           return (
             <li key={a.id} className="min-w-0 space-y-1 rounded border border-border/60 p-1.5">
               <div className="break-words">{a.label}</div>
@@ -64,10 +63,9 @@ export default function TicketlineExecutionPanel({ adapter, context, authorizati
                 </div>
               ) : available ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  {human && <span className="text-muted-foreground">Passo humano: confirme o fecho em <Link to="/bilheteiras" className="underline">Bilheteiras → Fechos</Link>; depois confira aqui.</span>}
                   {uncertain.has(a.id)
                     ? <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => verify(a.id)}>Verificar resultado</Button>
-                    : <Button size="sm" variant="outline" disabled={busy !== null || !depsOk} onClick={() => execute(a.id)}>{human ? "Conferir fecho" : a.id === "a4" ? "Conferir pendentes" : "Executar"}</Button>}
+                    : <Button size="sm" variant="outline" disabled={busy !== null || !depsOk} onClick={() => execute(a.id)}>{a.id === "a4" ? "Conferir deduções" : "Executar"}</Button>}
                   {!depsOk && <span className="text-muted-foreground">Aguarda: {a.depends_on.filter(d => !done[d]).join(", ")}</span>}
                 </div>
               ) : null}
@@ -82,8 +80,8 @@ export default function TicketlineExecutionPanel({ adapter, context, authorizati
 function summary(id: string, r: Record<string, unknown>): string {
   if (id === "a1") return ` · ${r.lines ?? "?"} linha(s) em rascunho`;
   if (id === "a2") return " · apuramento confirmado";
-  if (id === "a4") return ` · ${r.pending_expenses ?? 0} despesa(s) pendente(s), nada criado`;
-  if (id === "a3") return " · fecho confirmado no modal";
-  if (id === "a5") return r.already_liquidated ? " · já estava liquidado, nada alterado" : " · transferência do fecho liquidada";
+  if (id === "a4") return ` · ${r.deductions ?? 0} dedução(ões) conferidas, nada escrito`;
+  if (id === "a3") return ` · fecho gravado, ${typeof r.net_cents === "number" ? (r.net_cents / 100).toFixed(2).replace(".", ",") + " €" : "?"} a receber`;
+  if (id === "a5") return r.already_liquidated ? " · já estava liquidado, nada alterado" : " · transferência do fecho liquidada (1 pagamento por perna)";
   return "";
 }

@@ -28,6 +28,8 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
   const [form, setForm] = useState({ number: "", date: "", total: "", event_id: "", office: "" });
   const [lines, setLines] = useState<Line[]>([]);
   const [settle, setSettle] = useState({ account: "", date: "", amount: "", confirm: false });
+  // #333 fase12f: escolhas humanas do fecho (deduções da lista elegível do servidor, data e conta de destino).
+  const [close, setClose] = useState<{ ids: string[]; date: string; to: string }>({ ids: [], date: "", to: "" });
   const [confirmed, setConfirmed] = useState(false);
   const [attachments, setAttachments] = useState<TicketlineAttachment[] | null>(null);
   const [part, setPart] = useState(partId ?? "");
@@ -65,7 +67,8 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
     if (parsed.some(l => l.amount_cents === null)) throw new Error("Valor de linha inválido.");
     const total = form.total ? toCents(form.total) : null;
     if (form.total && total === null) throw new Error("Total inválido.");
-    return { number: form.number.trim() || null, date: form.date || null, total_cents: total, event_id: form.event_id || null, office_account_id: form.office || null,
+    const closing = close.date && close.to ? { deduction_ids: close.ids, settlement_date: close.date, transfer_account_id: close.to } : null;
+    return { number: form.number.trim() || null, date: form.date || null, total_cents: total, event_id: form.event_id || null, office_account_id: form.office || null, closing,
       lines: parsed as NonNullable<TicketlineEdits["lines"]>, confirm_review: confirmed };
   };
   const settlement = () => {
@@ -164,9 +167,30 @@ export default function TicketlineReviewPanel({ adapter, context, messageId, par
         ))}
         <Button size="sm" variant="outline" onClick={() => edit(() => setLines([...lines, { line_type: "event_right", description: "", amount: "0,00", event_hint: null }]))}>Adicionar linha</Button>
       </div>
+      {preview?.closing_options ? (
+        <fieldset className="min-w-0 space-y-1 rounded border border-border p-1.5">
+          <legend className="px-1 font-semibold">Fecho do evento (regras do modal de fecho)</legend>
+          <p className="break-words text-muted-foreground">Receita da bilheteira (vendas registadas): {eur(preview.closing_options.gross_cents)} · {preview.closing_options.sales} registo(s). Escolha as despesas a deduzir; o líquido fica a receber na conta escolhida.</p>
+          {preview.closing_options.eligible.length === 0 ? <p className="text-muted-foreground">Sem despesas elegíveis para deduzir.</p> : (
+            <ul className="space-y-0.5">{preview.closing_options.eligible.map(t => (
+              <li key={t.id}><label className="flex min-w-0 items-start gap-1.5">
+                <input type="checkbox" className="mt-0.5" aria-label={`Deduzir ${t.description}`} checked={close.ids.includes(t.id)}
+                  onChange={() => edit(() => setClose({ ...close, ids: close.ids.includes(t.id) ? close.ids.filter(x => x !== t.id) : [...close.ids, t.id] }))} />
+                <span className="min-w-0 break-words">{t.description || "Despesa"} · {eur(t.gross_cents)} c/IVA</span></label></li>))}</ul>)}
+          <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+            <label className="min-w-0 space-y-0.5"><span className="block">Data do fecho</span>
+              <input aria-label="Data do fecho" type="date" className={input} value={close.date} onChange={e => edit(() => setClose({ ...close, date: e.target.value }))} /></label>
+            <label className="min-w-0 space-y-0.5"><span className="block">Conta que recebe o líquido</span>
+              <select aria-label="Conta de destino do fecho" className={input} value={close.to} onChange={e => edit(() => setClose({ ...close, to: e.target.value }))}>
+                <option value="">Escolher conta</option>{preview.closing_options.transfer_accounts.map(a => <option key={a.id} value={a.id}>{a.name}{a.withholds_revenue ? " (retém receita)" : ""}</option>)}
+              </select></label>
+          </div>
+          <p className="text-muted-foreground">Venda retida pela sala, saldo de fatura e ajustes manuais continuam no modal de fecho.</p>
+        </fieldset>
+      ) : form.office && form.event_id ? <p className="text-muted-foreground">Recalcule a prévia para ver o fecho do evento.</p> : null}
       <fieldset className="min-w-0 space-y-1 rounded border border-border p-1.5">
         <legend className="px-1 font-semibold">Recebimento bancário (opcional, confirmado por si)</legend>
-        <p className="text-muted-foreground">O fecho recebido não prova o recebimento. Indica só o que verificaste no banco; é conferido com o fecho confirmado no modal.</p>
+        <p className="text-muted-foreground">O fecho recebido não prova o recebimento. Indica só o que verificaste no banco; é conferido com o líquido e a conta do fecho.</p>
         <div className="grid grid-cols-1 gap-1 sm:grid-cols-3">
           <select aria-label="Conta" className={input} value={settle.account} onChange={e => edit(() => setSettle({ ...settle, account: e.target.value }))}>
             <option value="">{accounts === null ? "A carregar contas…" : accounts.length ? "Escolher conta" : "Sem contas disponíveis"}</option>
