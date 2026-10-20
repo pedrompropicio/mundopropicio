@@ -92,7 +92,7 @@ export function compareWithCanonical(s: SettlementEvidence, c: CanonicalSettleme
   return { ok: diffs.length === 0, diffs };
 }
 
-export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpContext, opts: { event_id?: string | null; settlement?: SettlementEvidence; human_reviewed?: boolean }): Promise<Proposal> {
+export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpContext, opts: { event_id?: string | null; settlement?: SettlementEvidence; human_reviewed?: boolean; office_account_id?: string | null }): Promise<Proposal> {
   const checks: Check[] = []; const needs: string[] = [];
   const mapped = statementTypeTotals(x.lines.map(l => ({ line_type: l.line_type, amount: l.amount_cents / 100 })));
   const totals = Object.fromEntries(Object.entries(mapped).map(([type, amount]) => [type, Math.round(amount * 100)])) as Partial<Record<LineType, number>>;
@@ -110,6 +110,8 @@ export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpCon
   if (!ev.match) needs.push(ev.candidates.length > 1 ? `Escolher o evento (${ev.candidates.length} possíveis)` : "Indicar o evento");
   const sealed = !!ev.match?.sealed;
   checks.push({ code: "sealed", ok: true, message: sealed ? "Evento já tem fecho confirmado: só a liquidação pode ser avaliada." : "Evento sem fecho confirmado." });
+  const office = opts.office_account_id ?? null;
+  if (!office) needs.push("Escolher a bilheteira (conta) do apuramento.");
   if (!opts.human_reviewed) needs.push("Confirmar a revisão dos campos e linhas (o candidato da IA/email não é aceite sozinho).");
   const settlement = opts.settlement ?? null;
   const canonical = compareWithCanonical(settlement, ev.match?.canonical);
@@ -119,7 +121,7 @@ export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpCon
   needs.push("Repasses/transitado entram só na posição; o direito do evento é calculado no modal canónico.");
 
   const hard = checks.some((c) => !c.ok && c.code !== "liquidation_amount");
-  const prep = hard ? "Resolver verificações antes." : !ev.match ? "Escolher o evento." : !x.number ? "Indicar o número do apuramento."
+  const prep = hard ? "Resolver verificações antes." : !ev.match ? "Escolher o evento." : !x.number ? "Indicar o número do apuramento." : !office ? "Escolher a bilheteira do apuramento."
     : sealed ? "Evento já fechado: preparação não se repete." : !opts.human_reviewed ? "Falta a sua confirmação da revisão." : null;
   const liq = !settlement ? "Sem recebimento confirmado por si." : !opts.human_reviewed ? "Falta a sua confirmação da revisão." : hard ? "Resolver verificações antes."
     : !sealed ? "Depende do fecho confirmado no modal (saldo canónico)." : canonical.ok ? null : "Recebimento diverge do fecho canónico.";
@@ -130,7 +132,7 @@ export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpCon
     { id: "a3", stage: "prepare", kind: "settlement_in_modal", label: `Preparar fecho do evento ${ev.match?.name ?? "?"} no modal de fecho`, existing_flow: "TicketOfficeSettlementModal → ticket_office_settlements", depends_on: ["a4"], blocked_reason: prep },
     { id: "a5", stage: "liquidate", kind: "register_liquidation", label: "Liquidar com a entrada bancária confirmada", existing_flow: "transaction_payments (Registar pagamento)", depends_on: sealed ? [] : ["a3"], blocked_reason: liq },
   ];
-  const effects = { company: erp.company_id, source: x.source_message_id, source_content_hash: x.source_content_hash ?? null, number: x.number, date: x.statement_date, total: x.document_total_cents, lines: x.lines, event: ev.match?.id ?? null,
+  const effects = { company: erp.company_id, source: x.source_message_id, source_content_hash: x.source_content_hash ?? null, number: x.number, date: x.statement_date, total: x.document_total_cents, lines: x.lines, event: ev.match?.id ?? null, office,
     human_reviewed: !!opts.human_reviewed, canonical: ev.match?.canonical ?? null,
     settlement: settlement?.server_validated ? { account: settlement.financial_account_id, date: settlement.date, amount_cents: settlement.amount_cents, by: settlement.confirmed_by_user_id ?? null } : null };
   return {
@@ -158,9 +160,9 @@ export async function authorizationMatches(a: Authorization, p: Proposal, ctx: {
     && a.version === p.version && a.effects_hash === p.effects_hash
     && a.action_ids.every((id) => p.actions.some((x) => x.id === id && !x.blocked_reason && x.depends_on.every(dep => selected.has(dep))));
 }
-/** Nesta entrega não há executor integrado: lacunas específicas, nunca execução fingida. */
+/** Executor: SQL INERTE (supabase/manual/20261020_issue333_assistant_executor.*) e gate próprio fechado. */
 export const EXECUTION_GAPS = [
-  "Executor tipado ainda não ligado aos fluxos existentes (apuramento, fecho, transações, liquidações).",
-  "Persistência da revisão/autorização preparada (RPC revista), mas o esquema não está aplicado nem o gate aberto.",
+  "Executor SQL preparado e provado localmente, mas não aplicado no Cloud e com gate fechado.",
+  "Fecho no modal (a3) continua humano: o executor só confere o fecho confirmado, não calcula receita/deduções.",
   "Adaptador de IA implementado, ativação fechada e disponibilidade real ainda não validada.",
 ] as const;
