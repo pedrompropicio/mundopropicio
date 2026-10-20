@@ -13,7 +13,7 @@ import { GmailConnectError, type GmailConnection } from "../_shared/gmail-app-us
 import { runAssistantTurn, type AssistantModel, type TurnInput } from "../_shared/assistant-orchestrator.ts";
 import type { ErpContext } from "../_shared/assistant-ticketline-proposal.ts";
 import { signContinuation, verifyContinuation, requestHash, signServerPayload, verifyServerPayload, type AssistantContinuation } from "../_shared/assistant-continuation.ts";
-import { candidateFromBody, verifyAttachmentSource, mergeScanner, applyHumanEdits, candidateToStatement, validateSettlementConfirmation, type TicketlineCandidate, type AccountReader } from "../_shared/assistant-ticketline-candidate.ts";
+import { candidateFromBody, verifyAttachmentSource, mergeScanner, applyHumanEdits, candidateToStatement, validateSettlementConfirmation, type TicketlineCandidate, type ReviewEdits, type AccountReader } from "../_shared/assistant-ticketline-candidate.ts";
 import { buildTicketlineProposal, LINE_TYPES, type Proposal } from "../_shared/assistant-ticketline-proposal.ts";
 import { ReviewUnavailable, ReviewConflict, type ReviewStore } from "../_shared/assistant-review-store.ts";
 import type { AnalysisWire } from "../_shared/data-entry-analysis.ts";
@@ -306,7 +306,7 @@ export function createHandler(d: Deps) {
         try { cand = await verifyServerPayload<TicketlineCandidate>("ticketline_candidate", body.candidate_token, d.continuationSecret, { user: user.id, company }); }
         catch { throw new SafeError("Candidato expirado ou de outro contexto; volta a ler o email.", 409); }
         let reviewed: TicketlineCandidate;
-        try { reviewed = applyHumanEdits(cand, body.edits, user.id); } catch (e) { throw new SafeError((e as Error).message, 422); }
+        try { reviewed = applyHumanEdits(cand, body.edits as ReviewEdits, user.id); } catch (e) { throw new SafeError((e as Error).message, 422); }
         const st = await candidateToStatement(reviewed);
         const erp = await d.ticketlineErp.context(token, company, st.lines.find(l => l.event_hint)?.event_hint ?? st.number ?? "ticketline", req.signal, st.number ?? undefined);
         await canonicalStorageContext();
@@ -314,20 +314,20 @@ export function createHandler(d: Deps) {
         const eventId = reviewed.event_id?.value ?? null;
         if (eventId && !erp.events.some(e => e.id === eventId)) throw new SafeError("Evento indisponível para esta empresa.", 403);
         let settlement;
-        try { settlement = await validateSettlementConfirmation(body.settlement, { user_id: user.id, company_id: company, today: d.today?.() ?? new Date().toISOString().slice(0, 10), origin: "human_request" }, d.ticketlineErp.account(token)); }
+        try { settlement = await validateSettlementConfirmation(body.settlement as Parameters<typeof validateSettlementConfirmation>[0], { user_id: user.id, company_id: company, today: d.today?.() ?? new Date().toISOString().slice(0, 10), origin: "human_request" }, d.ticketlineErp.account(token)); }
         catch (e) { throw new SafeError((e as Error).message, 422); }
         await canonicalStorageContext();
         const proposal: Proposal = await buildTicketlineProposal(st, erp, { event_id: eventId, settlement });
         if (!body.save) return reply({ candidate: reviewed, proposal, persisted: false, notice: "Prévia calculada no servidor, não guardada." });
         if (!d.reviewStore) throw new ReviewUnavailable();
-        const saved = await d.reviewStore.save(token, { review_id: body.save.review_id, expected_version: body.save.expected_version, proposal });
+        const saved = await d.reviewStore.save(token, { review_id: body.save.review_id ?? null, expected_version: body.save.expected_version ?? null, proposal });
         return reply({ candidate: reviewed, proposal, persisted: true, review: saved });
       }
       if (body.action === "ticketline_authorize") {
         if (!d.reviewStore) throw new ReviewUnavailable();
         await canonicalStorageContext();
         if (new Set(body.action_ids).size !== body.action_ids.length) throw new SafeError("Ações repetidas.", 422);
-        const rec = await d.reviewStore.authorize(token, body);
+        const rec = await d.reviewStore.authorize(token, { review_id: body.review_id!, version: body.version!, effects_hash: body.effects_hash!, action_ids: body.action_ids!, replay_key: body.replay_key! });
         return reply({ ...rec, executor: "indisponível", notice: "Autorização registada sem execução: executor financeiro desativado." });
       }
       // Leitura do corpo da mensagem escolhida: só leitura, independente do envio documental fechado.
