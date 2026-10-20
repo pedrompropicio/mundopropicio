@@ -1,5 +1,7 @@
 // @vitest-environment node
-import {it,expect} from 'vitest';
+import {it,expect,vi} from 'vitest';
+// Só tempo: PGlite pode demorar mais de 5 s sob carga da suite completa (sem mudar a lógica).
+vi.setConfig({testTimeout:30000});
 import {mkdtemp,readFile,writeFile,readdir} from 'node:fs/promises';
 import {checkpoint66,PrivateStore66,artifactHash66,type Driver66} from '../../docs/testes/issue333/pilot8/checkpoint66';
 import {OfficialSelect66} from '../../docs/testes/issue333/pilot8/official-select66';
