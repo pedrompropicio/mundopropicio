@@ -48,8 +48,9 @@ export function rpcExecutor(rpc: CallerRpc): Executor {
       const code = Object.keys(REFUSALS).find(k => r.error!.message?.includes(`#333: ${k}`));
       if (code) { const [m, s] = REFUSALS[code]; throw new ExecutionRefused(m, s, code); }
       if (r.error.code === "42883" || r.error.code === "PGRST202" || r.error.code === "42501") throw new ExecutorUnavailable();
-      // Erro SQL com SQLSTATE = a transação foi anulada pela base (writer/trigger canónico recusou): definitivo, nada gravado.
-      if (typeof r.error.code === "string" && /^[0-9A-Z]{5}$/.test(r.error.code) && r.error.message)
+      // Recusa lógica de writer/trigger canónico (dados 22, integridade 23, PL/pgSQL P0, permissões 42, serialização 40):
+      // a transação foi anulada pela base, nada gravado. Cancelamento/ligação/recursos (57/08/53/XX) continuam incertos.
+      if (typeof r.error.code === "string" && /^(22|23|P0|42|40)[0-9A-Z]{3}$/.test(r.error.code) && r.error.message)
         throw new ExecutionRefused(`Recusado pela base (nada gravado): ${r.error.message.replace(/[\x00-\x1f]/g, " ").slice(0, 200)}`, 409, "sql_refused");
       if (uncertainOnUnknown) throw new ExecutionUncertain();
       throw new ExecutorUnavailable();
