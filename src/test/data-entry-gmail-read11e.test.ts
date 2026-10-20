@@ -52,7 +52,9 @@ describe("#333 fase11e leitura de corpo Gmail (puro)", () => {
     const d = decodeBase64UrlCapped(big, GMAIL_READ_MAX_BYTES);
     expect(d.truncated).toBe(true);
     expect(d.bytes.length).toBeLessThanOrEqual(GMAIL_READ_MAX_BYTES);
-    expect(decodeBase64UrlCapped(b64("curto"), 1024)).toEqual({ bytes: new TextEncoder().encode("curto"), truncated: false });
+    const short = decodeBase64UrlCapped(b64("curto"), 1024);
+    expect(short.truncated).toBe(false);
+    expect(new TextDecoder().decode(short.bytes)).toBe("curto");
   });
   it("HTML malicioso vira texto: sem script, sem tags, sem recursos remotos, entidades decodificadas", () => {
     const html = `<p>Ol&aacute; &amp; bem-vindo</p><script>alert(document.cookie)</script><style>body{display:none}</style><img src="https://evil.invalid/x.png" onerror="steal()"><a href="https://x.invalid">liga&ccedil;&atilde;o</a><div>linha dois</div>`;
