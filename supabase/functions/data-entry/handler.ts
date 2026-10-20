@@ -43,6 +43,7 @@ export interface Deps {
   companyName?(company: string): Promise<string | null>;
   /** #333 fase12: orquestrador conversacional. Ausente = não ativado (503). Modelo e leitor ERP injetados. */
   assistantEnabled?: boolean;
+  assistantScopeAllowed?(user: string, company: string): boolean;
   assistant?: { model: AssistantModel; erpContext(token: string, company: string, text: string, signal?: AbortSignal, number?: string): Promise<ErpContext> };
   assistantFactory?(req: Request, scope: { user: string; company: string }, revalidate: () => Promise<void>): Promise<NonNullable<Deps["assistant"]>>;
   continuationSecret?: string;
@@ -209,7 +210,7 @@ export function createHandler(d: Deps) {
       if (body.action === "status") {
         let companyName: string | null = null;
         try { companyName = d.companyName ? await d.companyName(company) : null; } catch { companyName = null; }
-        return reply({ user_id: user.id, role: eff.role, company_id: company, company_name: companyName, capabilities: { upload: uploadEnabled, ...(pilot?.unavailable ? { unavailable: true } : {}), analysis: d.analysisEnabled === true && uploadEnabled && !!d.analysis, gmail: !!d.gmail, assistant: d.assistantEnabled !== false && (!!d.assistant || d.assistantEnabled === true && !!d.assistantFactory), drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
+        return reply({ user_id: user.id, role: eff.role, company_id: company, company_name: companyName, capabilities: { upload: uploadEnabled, ...(pilot?.unavailable ? { unavailable: true } : {}), analysis: d.analysisEnabled === true && uploadEnabled && !!d.analysis, gmail: !!d.gmail, assistant: d.assistantEnabled !== false && (!d.assistantScopeAllowed || d.assistantScopeAllowed(user.id, company)) && (!!d.assistant || d.assistantEnabled === true && !!d.assistantFactory), drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
       }
       const gmailReader = async () => {
         if (!d.gmail) throw new SafeError("A ligação ao Gmail ainda não está disponível nesta plataforma. Envia o ficheiro manualmente.", 503);
@@ -235,6 +236,7 @@ export function createHandler(d: Deps) {
         return reply(result);
       }
       if (body.action === "assistant_turn") {
+        if (d.assistantScopeAllowed && !d.assistantScopeAllowed(user.id, company)) throw new SafeError("Assistente fora da janela autorizada para este utilizador e empresa.", 503);
         if (d.assistantEnabled === false || !d.assistant && !(d.assistantEnabled === true && d.assistantFactory)) throw new SafeError("O assistente conversacional ainda não está ativado. Podes usar a pesquisa do Gmail abaixo.", 503);
         await canonicalStorageContext();
         if (body.selection && (!body.continuation || !d.continuationSecret)) throw new SafeError("Seleção sem prova do servidor; repete a pesquisa.", 409);

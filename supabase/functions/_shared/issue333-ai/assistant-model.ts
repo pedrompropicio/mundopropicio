@@ -2,7 +2,7 @@
 import { createOpenAI } from "npm:@ai-sdk/openai@3";
 import { streamText, Output, APICallError } from "npm:ai@6";
 import { z } from "npm:zod@3";
-import { ModelDenied, ASSISTANT_LIMITS, TOOL_SCHEMAS, type AssistantModel, type ModelStep } from "../assistant-orchestrator.ts";
+import { ModelDenied, ModelLimit, ASSISTANT_LIMITS, TOOL_SCHEMAS, type AssistantModel, type ModelStep } from "../assistant-orchestrator.ts";
 import { createLovableAiGatewayRunIdFetch } from "./run-id.ts";
 import type { ProviderControl } from "./control.ts";
 const wire = z.object({ type: z.enum(["tool", "clarify", "final"]), name: z.string().nullable(), args_json: z.string().nullable(), text: z.string().nullable() }).strict();
@@ -26,7 +26,7 @@ export function createAssistantModel(config: { apiKey: string; control: Provider
     // UTF-8 bytes conservatively bound input tokens, including JSON and protocol overhead.
     const inputBudget = new TextEncoder().encode(JSON.stringify(transcript) + instructions).length + 2048;
     const outputBudget = Math.min(6000, ASSISTANT_LIMITS.maxTokens - reserved - inputBudget);
-    if (outputBudget < 512) throw new Error("Limite de processamento atingido.");
+    if (outputBudget < 512) throw new ModelLimit("Limite de processamento atingido. Nada foi gravado.");
     reserved += inputBudget + outputBudget;
     if (!config.apiKey || input.signal.aborted) throw new Error("Assistente indisponível ou cancelado.");
     return config.control.run(input.signal, config.validateContext, async transport => {

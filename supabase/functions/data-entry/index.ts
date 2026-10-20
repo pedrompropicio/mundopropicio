@@ -20,6 +20,7 @@ const asUser = (token: string) => createClient(url, anon, { ...opts, global: { h
 const ANALYSIS_ENABLED = false; // #333 fecho96: closed after manual window96.
 // Durable control stays closed until the controller opens the single 600s window with Pedro in the modal.
 const ASSISTANT_ENABLED = false; // #333 fase12b: local implementation, activation not authorized.
+const ASSISTANT_REVIEWED_SCOPES = new Set<string>(); // Empty; future controlled authorization names owner+company explicitly.
 const ANALYSIS_PROVIDER_REVIEWED = false; // #333 fecho96: closed after manual window96.
 
 // #333 fase11b: per-user Gmail (App User Connector google_mail, gmail.readonly only).
@@ -71,6 +72,7 @@ Deno.serve(createHandler({
   uploadEnabled: false, // Reviewed activation required; no environment flag bypass.
   analysisEnabled: ANALYSIS_ENABLED && ANALYSIS_PROVIDER_REVIEWED,
   assistantEnabled: ASSISTANT_ENABLED,
+  assistantScopeAllowed: (user, company) => ASSISTANT_REVIEWED_SCOPES.has(`${user}:${company}`),
   continuationSecret: Deno.env.get("APP_USER_CONNECTION_KEY_SECRET") ?? "",
   async assistantFactory(req, _scope, revalidate) {
     if (!ASSISTANT_ENABLED) throw new AnalysisError("Assistente ainda não ativado.", 503);

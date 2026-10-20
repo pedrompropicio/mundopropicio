@@ -42,6 +42,7 @@ export type ModelStep =
   | { type: "final"; text: string };
 export type ModelMessage = { role: "user" | "assistant" | "tool"; content: string; tool?: string };
 export class ModelDenied extends Error { constructor(readonly status: number, message: string) { super(message); } }
+export class ModelLimit extends Error {}
 /** Adaptador do fornecedor (injetado). Nesta entrega só existe a versão simulada nos testes. */
 export interface AssistantModel {
   next(input: { contract: string; tools: ToolName[]; messages: ModelMessage[]; signal: AbortSignal }): Promise<{ step: ModelStep; tokens: number }>;
@@ -115,6 +116,7 @@ export async function runAssistantTurn(model: AssistantModel, tools: AssistantTo
     try { out = await model.next({ contract: ASSISTANT_CONTRACT, tools: TOOL_NAMES, messages, signal }); }
     catch (e) {
       if (signal.aborted) return done({ status: "stopped", text: "Parado a pedido. Nada foi gravado." });
+      if (e instanceof ModelLimit) return done({ status: "limit", text: e.message });
       if (e instanceof ModelDenied) return done({ status: "denied", text: e.message });
       return done({ status: "error", text: "O assistente não respondeu. Nada foi gravado." });
     }
