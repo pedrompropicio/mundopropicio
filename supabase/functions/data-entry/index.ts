@@ -26,9 +26,9 @@ const ASSISTANT_REVIEWED_SCOPES = new Set<string>(); // Empty; future controlled
 const ANALYSIS_PROVIDER_REVIEWED = false; // #333 fecho96: closed after manual window96.
 // #333 fase12d: review persistence wired but closed until the INERTE SQL (schema '333-12f', âmbito nominal com expiração no SQL) is reviewed/applied with Pedro's "Sim".
 // Even when true, every call probes schema+gate in SQL and answers 503 on absence/mismatch.
-const REVIEW_SCHEMA_REVIEWED = false;
+const REVIEW_SCHEMA_REVIEWED = true; // #333 12h pacote A: 0211 aplicada + readback conferido 20/10/2026.
 /** #333 fase12f: executor SQL INERTE (a1–a5 sobre writers canónicos) por aplicar; só com revisão e "Sim" do Pedro. */
-const EXECUTOR_SCHEMA_REVIEWED = false;
+const EXECUTOR_SCHEMA_REVIEWED = true; // #333 12h pacote A: 0212 aplicada FECHADA (gate SQL false, âmbito vazio).
 const erpReader = (token: string): ErpReader => {
   const client = asUser(token); // Caller JWT/RLS; never privileged financial reads.
   return async query => {
