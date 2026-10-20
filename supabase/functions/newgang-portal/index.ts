@@ -13,6 +13,7 @@ import { consentMe, consentPreferences } from "./person-consent.ts";
 import { publicEditions } from "./videos.ts";
 import { CREW_LINK, crewErrorStatus, crewView } from "./crews.ts";
 import { crewPendingAction, memberByEmail, mePendingCrew, PENDING_OPS } from "./pending.ts";
+import { readPendingInvites } from "./pending-invites.ts";
 import { requestAccessAction } from "./request-access.ts";
 import { createCitiesReader } from "./cities.ts";
 import * as GW from "./wallet-google.ts";
@@ -617,11 +618,14 @@ Deno.serve(async (req) => {
         if(profileView.profile_status === "no_session") return json({error:"no_session"},401);
         const consentView = member.confirmed_at && body.token ? await consentMe(rpc, site.id, await sha256(body.token)) : {consents:null,consents_status:"not_confirmed"};
         if(consentView.consents_status === "no_session") return json({error:"no_session"},401);
+        const crew = await myCrew(site.id, member.id);
+        const pendingInvites = await readPendingInvites(() => sb.from("club_members") as any,
+          { siteId: site.id, companyId: site.company_id, memberId: member.id }, crew?.code ?? null);
         return json({
           first_name: member.first_name, member_no: member.member_no,
           points: cl.points, level: cl.level, rank: me?.rank_pos ?? null,
           level_protected: cl.protected, next_level: cl.next_level, next_level_min: cl.next_level_min,
-          referrals: await referralProgress(rpc, member.id),
+          referrals: { ...await referralProgress(rpc, member.id), ...pendingInvites.referrals },
           ...profileView,
           ...consentView,
           levels: lv ?? [],
@@ -630,7 +634,7 @@ Deno.serve(async (req) => {
           instagram_handle: member.instagram_handle ?? null, tiktok_handle: member.tiktok_handle ?? null,
           submissions: await mySubmissions(member.id),
           history: await myHistory(site.id, member.id),
-          crew: await myCrew(site.id, member.id),
+          crew: crew ? { ...crew, ...pendingInvites.crew } : null,
           ...(member.confirmed_at ? await mePendingCrew((fn, a) => sb.rpc(fn, a) as any, member.id) : { pending_crew: null }),
         });
       }
