@@ -14,7 +14,7 @@
 - Authenticated smart-link SSR treats unusable visitor IP as absent, never falls back to infrastructure IP or a shared no-IP rate quota; arrivals must survive missing metadata without inventing attribution.
 - Growth summaries use legacy comparisons; campaign joins use platform/account/external ID, never names.
 - Smart-link test markers inherit arrivals, suppress before slots/tokens, log allowlisted Meta receipts.
-- Investment projections reuse the canonical report's spend/classification CTEs unchanged; canonical changes must regenerate and regression-test them to prevent drift.
+- Investment projections reuse the canonical report's spend/classification CTEs unchanged; canonical changes must regenerate and regression-test them; avoids drift.
 - Manual modals: header apart from scrolling body, shared viewport/safe-area styles, so dismissal stays reachable.
 - Arrival geo uses local DB-IP before paid APIs; monthly Range+inflate parts avoid edge CPU limits. Never store visitor IPs.
 - Camarim cash cards, previews and session PDFs share the pure session cash helper, keeping amounts/labels consistent.
