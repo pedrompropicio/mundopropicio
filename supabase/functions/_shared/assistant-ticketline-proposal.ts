@@ -29,7 +29,7 @@ export type ErpContext = {
   existing_statements: { id: string; number: string; status: string }[];
 };
 /** Evidência de liquidação: só confirmação humana explícita; nunca inferida do email. */
-export type SettlementEvidence = { financial_account_id: string; date: string; amount_cents: number; confirmed_by_user: true } | null;
+export type SettlementEvidence = { financial_account_id: string; date: string; amount_cents: number; confirmed_by_user: true; confirmed_by_user_id?: string; server_validated?: boolean } | null;
 
 export type Check = { code: string; ok: boolean; message: string };
 export type ProposedAction = {
@@ -98,7 +98,7 @@ export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpCon
   if (!settlement) needs.push("Conta, data e valor da liquidação (o email não prova o recebimento)");
   // Σ includes repasses/transitado only for position reconciliation, never as event net or payment authority.
   needs.push("Rever linhas/documentos e cálculo do direito no modal canónico; repasses/transitado não são deduções do fecho.");
-  if (settlement) checks.push({ code: "liquidation_amount", ok: false, message: "Evidência ainda não vinculada pelo servidor ao recebimento e ao saldo canónico; liquidação bloqueada." });
+  if (settlement) checks.push({ code: "liquidation_amount", ok: false, message: settlement.server_validated ? "Recebimento confirmado pela pessoa e conta validada; conferência com o saldo canónico do fecho e executor ainda indisponíveis, liquidação bloqueada." : "Evidência ainda não vinculada pelo servidor ao recebimento e ao saldo canónico; liquidação bloqueada." });
 
   const hard = checks.some((c) => !c.ok);
   const base = hard || !ev.match || !x.number ? "Resolver verificações/pendências antes." : "Extração sugerida pela IA; linhas, origem e documentos exigem revisão humana vinculada no servidor.";
@@ -109,7 +109,7 @@ export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpCon
     { id: "a3", kind: "settlement_in_modal", label: `Preparar fecho do evento ${ev.match?.name ?? "?"} no modal de fecho`, existing_flow: "TicketOfficeSettlementModal → ticket_office_settlements", depends_on: ["a4"], blocked_reason: base ?? (sealed ? "Evento selado." : null) },
     { id: "a5", kind: "register_liquidation", label: "Liquidar com a entrada bancária confirmada", existing_flow: "transaction_payments (Registar pagamento)", depends_on: ["a3"], blocked_reason: "Sem evidência de recebimento vinculada no servidor: conta/data/valor por confirmar." },
   ];
-  const effects = { company: erp.company_id, source: x.source_message_id, source_content_hash: x.source_content_hash ?? null, number: x.number, date: x.statement_date, total: x.document_total_cents, lines: x.lines, event: ev.match?.id ?? null, settlement: null };
+  const effects = { company: erp.company_id, source: x.source_message_id, source_content_hash: x.source_content_hash ?? null, number: x.number, date: x.statement_date, total: x.document_total_cents, lines: x.lines, event: ev.match?.id ?? null, settlement: settlement?.server_validated ? { account: settlement.financial_account_id, date: settlement.date, amount_cents: settlement.amount_cents, by: settlement.confirmed_by_user_id ?? null } : null };
   return {
     version: 1, company_id: erp.company_id, source_message_id: x.source_message_id, statement_number: x.number,
     event: ev.match ? { id: ev.match.id, name: ev.match.name } : null, totals_cents: totals, sum_cents: sum,
