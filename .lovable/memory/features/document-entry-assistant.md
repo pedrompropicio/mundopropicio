@@ -29,3 +29,6 @@ Hash-check é semântica sócheck,semconcluir causatimeoutantigo. Autorização 
 
 ## Fase11e (20/10/2026)
 Pesquisa/leitura Gmail própria ativa no modal com upload fechado: gmail_read lê só a mensagem escolhida, texto simples ou HTML→texto sanitizado (200KB/4000 chars/profundidade 6/15s, truncagem sinalizada), nunca marca lido nem escreve. Importação de anexo continua bloqueada pelo envio documental fechado. Gates análise/upload false e control rev16 closed preservados; deploy só data-entry.
+
+## Fase11f (20/10/2026)
+Pesquisa de assunto flexível por omissão (variações explicáveis, exato primeiro), opção só-exata; recuperação limitada ≤4 consultas fixas em AND com período/remetente, cobertura incompleta sempre sinalizada, nunca "todos". Gmail não tem fuzzy nativo: não prometer. Gates/control inalterados.

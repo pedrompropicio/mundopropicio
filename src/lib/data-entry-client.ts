@@ -29,15 +29,17 @@ export type DataEntryState = {
   payers: { id: string; name: string }[];
   capabilities: { execute: boolean };
 };
-export type DataEntryStatus = { user_id: string; role: string; company_id: string; capabilities: Record<string, boolean> };
+export type DataEntryStatus = { user_id: string; role: string; company_id: string; company_name?: string | null; capabilities: Record<string, boolean> };
 export type DataEntryContext = { user_id: string; company_id: string };
 export type ExecuteOutcome = { status: "conferido" | "conferencia_pendente" | "por_confirmar"; result?: DataEntryResult; persisted?: { id: string; status: string; total_amount: number; invoice_date: string; storage_path: string } | null; error?: string };
 
-export type GmailFilters = { from_date: string; to_date: string; sender?: string; subject?: string; page_size: number; page_token?: string; attachments_only?: boolean };
+export type GmailFilters = { from_date: string; to_date: string; sender?: string; subject?: string; page_size: number; page_token?: string; attachments_only?: boolean; match?: "flexible" | "exact" };
 export type GmailAttachment = { part_id: string; filename: string; mime: string; size_bytes: number };
-export type GmailMessage = { message_id: string; from: string; subject: string; date: string; attachments: GmailAttachment[] };
+export type GmailMatchKind = "exact" | "words" | "spacing" | "spelling" | "sound";
+export type GmailMessage = { message_id: string; from: string; subject: string; date: string; attachments: GmailAttachment[]; match?: { kind: GmailMatchKind; label: string } };
+export type GmailSearchInfo = { mode: "exact" | "flexible"; searched: string[]; candidates: number; coverage_complete: boolean; note?: string };
 export type GmailConnectionStatus = { linked: boolean; reconnect_required: boolean; mailbox_email?: string };
-export type GmailSearchResult = { messages: GmailMessage[]; next_page_token: string | null };
+export type GmailSearchResult = { messages: GmailMessage[]; next_page_token: string | null; search_info?: GmailSearchInfo };
 export type GmailMessageBody = { message_id: string; from: string; subject: string; date: string; kind: "plain" | "html" | "none"; body_text: string; truncated: boolean };
 
 export class DataEntryError extends Error { constructor(message: string, readonly status: number) { super(message); } }
