@@ -44,7 +44,7 @@ q "delete from data_entry_assistant_scope_333"; ex $AA a1; open_scope
 echo "5 service_role / anon sem EXECUTE:"
 $P -c "SET ROLE service_role; select public.data_entry_assistant_execute_333('execute','$AA','a1')" 2>&1 | grep -o "permission denied[^\"]*" | head -1
 $P -c "SET ROLE anon; select public.data_entry_assistant_execute_333('execute','$AA','a1')" 2>&1 | grep -o "permission denied[^\"]*" | head -1
-echo "6 viewer da empresa / manager de outra empresa / sem sessão:"; ex $AA a1 execute $U3; ex $AA a1 execute $U2; $P -c "SET ROLE authenticated; select public.data_entry_assistant_execute_333('execute','$AA','a1')" 2>&1 | clean
+echo "6 viewer da empresa (context) / manager de outra empresa (sem âmbito) / sem sessão:"; ex $AA a1 execute $U3; ex $AA a1 execute $U2; $P -c "SET ROLE authenticated; select public.data_entry_assistant_execute_333('execute','$AA','a1')" 2>&1 | clean
 echo "7 a3 antes de a4 (dependência):"; ex $AA a3
 echo "8 fluxo integral E1 — a1 apuramento, a2 confirmar, a4 conferir deduções (0 escritas), a3 fecho pelo RPC do modal:"
 ok $AA a1; ok $AA a2; ok $AA a4; ok $AA a3
@@ -55,7 +55,7 @@ echo "9 replay a3 (resposta perdida → mesmo resultado, 1 fecho):"; ok $AA a3; 
 echo "10 a5 liquidação (evidência humana = plano: conta B1, 877,00 €, 16/10): triggers reais materializam 1 pagamento por perna:"; ok $AA a5; legs 1
 echo "11 replay a5 → sem pagamentos novos:"; ok $AA a5; q "select count(*) from transaction_payments p join transactions t on t.id=p.transaction_id where t.operation_key like 'TRF-FECHO-%' and t.event_id='e0000000-0000-4000-8000-000000000001'"
 echo "12 evidência com valor diferente do plano → a5 bloqueada; autorizar a5 recusado:"
-RX=$(save pa_diff null null); authz $RX 1 pa_diff '{a1,a2,a4,a3,a5}' 00000000-aaaa-0000-0000-00000000000x
+RX=$(save pa_diff null null); authz $RX 1 pa_diff '{a1,a2,a4,a3,a5}' 00000000-aaaa-0000-0000-0000000000aa
 echo "13 E2 dados alterados após autorização (dedução editada / venda nova) → a4 recusa, nada escrito:"
 RB=$(save pb null null); AB=$(authz $RB 1 pb '{a1,a2,a4,a3}' 00000000-aaaa-0000-0000-000000000002); ok $AB a1 >/dev/null; ok $AB a2 >/dev/null
 q "update transactions set amount=110 where id='d0000000-0000-4000-8000-000000000002'"; ex $AB a4
