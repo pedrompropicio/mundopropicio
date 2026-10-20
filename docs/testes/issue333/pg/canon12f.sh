@@ -158,6 +158,26 @@ printf "   pagamento da perna estornado: "; tx "update transaction_payments set 
 printf "   pagamento duplicado na perna: "; tx "insert into transaction_payments(transaction_id,amount,payment_date,account_id,status,company_id,created_by) select transaction_id,0.01,payment_date,account_id,'planned',company_id,'local' from transaction_payments where $P9" $AN a5 | head -1
 printf "   controlo exato (ROLLBACK): "; tx "select 1" $AN a5 | head -1
 legs 9; q "select count(*) from data_entry_assistant_executions_333 where authorization_id in ('$AM','$AN')"
+echo "24f 12h — concorrência real (2 ligações): nova versão da revisão vs executor:"
+mk pq pb "p['effects']['number']='AP-2Q'"; RQ=$(save pq null null); AQ=$(authz $RQ 1 pq '{a1}' 00000000-aaaa-0000-0000-0000000000c1)
+mk pq2 pb "p['effects']['number']='AP-2R'"
+( $P -c "BEGIN; SET ROLE service_role; select ($F('save','$U1','$C1','$RQ',1,'$(H pq2)',\$j\$$(J pq2)\$j\$::jsonb,null,null))->>'version'; select pg_sleep(3); COMMIT;" 2>&1 | clean | sed 's/^/   A(save v2): /' ) &
+sleep 1; ex $AQ a1 | sed 's/^/   B(executor v1): /'; wait
+q "select count(*) from ticket_office_statements where number='AP-2Q'"
+echo "24g 12h — concorrência real: linha nova (FK statement_id real do Cloud) vs a2:"
+q "alter table ticket_office_statement_lines add constraint ticket_office_statement_lines_statement_id_fkey foreign key (statement_id) references ticket_office_statements(id) on delete cascade" 2>&1 | grep -v '^ALTER'
+mk ps pb "p['effects']['number']='AP-2S'"; RS=$(save ps null null); AS=$(authz $RS 1 ps '{a1,a2}' 00000000-aaaa-0000-0000-0000000000c2); ok $AS a1 >/dev/null
+SS="(select (result->>'statement_id')::uuid from data_entry_assistant_executions_333 where authorization_id='$AS' and action_id='a1')"
+echo "  ordem 1: INSERT de linha por outro caminho em curso (não confirmado) → a2 espera pelo lock e depois recusa:"
+( $P -c "BEGIN; insert into ticket_office_statement_lines(statement_id,company_id,line_type,position,description,amount,event_id) select $SS,'$C1','ticketline_invoice',9,'concorrente',0,'e0000000-0000-4000-8000-000000000002'; select pg_sleep(3); COMMIT;" 2>&1 | clean | grep -v INSERT | sed 's/^/   B(insert): /' ) &
+sleep 1; ex $AS a2 | sed 's/^/   A(a2): /'; wait; q "select status, (select count(*) from ticket_office_statement_lines where statement_id=s.id) from ticket_office_statements s where id=$SS"
+q "delete from ticket_office_statement_lines where description='concorrente'" >/dev/null
+mk pt pb "p['effects']['number']='AP-2T2'"; RT2=$(save pt null null); AT2=$(authz $RT2 1 pt '{a1,a2}' 00000000-aaaa-0000-0000-0000000000c3); ok $AT2 a1 >/dev/null
+ST="(select (result->>'statement_id')::uuid from data_entry_assistant_executions_333 where authorization_id='$AT2' and action_id='a1')"
+echo "  ordem 2: a2 em curso (lock FOR UPDATE no cabeçalho) → INSERT concorrente espera; depois corre contra apuramento já confirmado:"
+( $P -c "BEGIN; SET ROLE authenticated; $(claims) select (public.data_entry_assistant_execute_333('execute','$AT2','a2'))->'result'->>'status'; select pg_sleep(3); COMMIT;" 2>&1 | clean | sed 's/^/   A(a2): /' ) &
+sleep 1; $P -c "insert into ticket_office_statement_lines(statement_id,company_id,line_type,position,description,amount,event_id) select $ST,'$C1','ticketline_invoice',9,'concorrente',0,'e0000000-0000-4000-8000-000000000002'" 2>&1 | clean | sed 's/^/   B(insert): /'; wait
+q "select status, (select count(*) from ticket_office_statement_lines where statement_id=s.id) from ticket_office_statements s where id=$ST"
 echo "25 imutabilidade das execuções (dono):"
 $P -c "update data_entry_assistant_executions_333 set result='{}'" 2>&1 | grep -o "immutable_record" | head -1; $P -c "delete from data_entry_assistant_executions_333" 2>&1 | grep -o "immutable_record" | head -1
 echo "26 readback (ACL/defaultACL/SECDEF):"
