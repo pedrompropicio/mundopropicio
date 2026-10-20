@@ -3,7 +3,7 @@ import { readAssistantErp, ERP_LIMITS, type ErpRead } from "../../supabase/funct
 import { signContinuation, verifyContinuation, requestHash } from "../../supabase/functions/_shared/assistant-continuation";
 import { createAssistantModel, parseModelStep } from "../../supabase/functions/_shared/issue333-ai/assistant-model";
 import { durableProviderControl, type ControlStore, type ControlRecord } from "../../supabase/functions/_shared/issue333-ai/control";
-import { buildTicketlineProposal, authorizationMatches } from "../../supabase/functions/_shared/assistant-ticketline-proposal";
+import { buildTicketlineProposal, authorizationMatches, proposalEffectsHash } from "../../supabase/functions/_shared/assistant-ticketline-proposal";
 import { runAssistantTurn, ASSISTANT_CONTRACT, TOOL_NAMES } from "../../supabase/functions/_shared/assistant-orchestrator";
 const company = "11111111-1111-4111-8111-111111111111", user = "22222222-2222-4222-8222-222222222222", event = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const secret = "synthetic-local-secret-32bytes-only-no-credentials";
@@ -53,7 +53,7 @@ describe("#333 real adapters with synthetic HTTP only", () => {
   });
   it("Stop propagates to provider fetch and classifies uncertain after POST", async () => {
     const c = control(); const ac = new AbortController(); let reached: () => void = () => {}; const ready = new Promise<void>(r => reached = r);
-    const f: typeof fetch = async (_url, init) => new Promise((_resolve, reject) => { reached(); init?.signal?.addEventListener("abort", () => reject(new DOMException("stop", "AbortError")), { once: true }); });
+    const f: typeof fetch = async (_url, init) => new Promise<Response>((_resolve, reject) => { reached(); init?.signal?.addEventListener("abort", () => reject(new DOMException("stop", "AbortError")), { once: true }); });
     const m = createAssistantModel({ apiKey: "local-not-a-key", control: c.control, validateContext: async () => {}, fetch: f });
     const pending = m.next({ contract: "local", tools: TOOL_NAMES, messages: [{ role: "user", content: "pedido" }], signal: ac.signal });
     await ready; ac.abort(); await expect(pending).rejects.toBeDefined(); expect(c.outcomes).toEqual(["cancelled_after_post"]);
@@ -95,8 +95,11 @@ describe("#333 real adapters with synthetic HTTP only", () => {
     const a = { user_id: user, company_id: company, version: 1 as const, effects_hash: p.effects_hash, action_ids: [] };
     expect(await authorizationMatches(a, p, { user_id: user, company_id: company })).toBe(false);
     const reviewed = { ...p, actions: p.actions.map(a => ({ ...a, blocked_reason: null })) };
-    const full = { ...a, action_ids: ["a1", "a2", "a3", "a4", "a5"] };
-    expect(await authorizationMatches(full, reviewed, { user_id: user, company_id: company })).toBe(false); // mutated action set does not retain the original hash
+    const old = { ...a, action_ids: ["a1", "a2", "a3", "a4", "a5"] };
+    expect(await authorizationMatches(old, reviewed, { user_id: user, company_id: company })).toBe(false);
+    reviewed.effects_hash = await proposalEffectsHash(reviewed.effects, reviewed.actions);
+    const full = { ...old, effects_hash: reviewed.effects_hash };
+    expect(await authorizationMatches(full, reviewed, { user_id: user, company_id: company })).toBe(true);
     for (const ids of [[], ["unknown"], ["a1", "a1"], ["a2"], ["a1", "a2"]]) expect(await authorizationMatches({ ...full, action_ids: ids }, reviewed, { user_id: user, company_id: company })).toBe(false);
     expect(await authorizationMatches(full, { ...reviewed, actions: reviewed.actions.map(a => a.id === "a2" ? { ...a, depends_on: [] } : a) }, { user_id: user, company_id: company })).toBe(false);
   });

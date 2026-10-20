@@ -18,7 +18,7 @@ export function parseModelStep(value: unknown): ModelStep {
 }
 export function createAssistantModel(config: { apiKey: string; control: ProviderControl; validateContext(): Promise<void>; fetch?: typeof fetch }): AssistantModel {
   // Created per incoming request; reused only for the closed orchestrator's follow-up steps.
-  const run = createLovableAiGatewayRunIdFetch();
+  const run = createLovableAiGatewayRunIdFetch(undefined, config.fetch ?? fetch);
   let reserved = 0;
   return { async next(input) {
     const transcript = input.messages.map(m => ({ role: "user" as const, content: JSON.stringify({ untrusted_context: m.role, tool: m.tool ?? null, content: m.content }) }));
@@ -35,9 +35,10 @@ export function createAssistantModel(config: { apiKey: string; control: Provider
         headers: { "Lovable-API-Key": config.apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
         fetch: async (url, init) => {
           await transport.beforePost();
-          const headers = new Headers(init?.headers);
+          const requestInit = init as RequestInit | undefined;
+          const headers = new Headers(requestInit?.headers);
           const id = run.getRunId(); if (id) headers.set("X-Lovable-AIG-Run-ID", id);
-          const response = config.fetch ? await config.fetch(url, { ...init, headers, signal: input.signal }) : await run.fetch(url, { ...init, headers, signal: input.signal });
+          const response = await run.fetch(url, { ...requestInit, headers, signal: input.signal });
           transport.received(response.status);
           if (!response.body) return response;
           const reader = response.body.getReader(); const decoder = new TextDecoder(); let pending = "", terminal = response.status >= 400;

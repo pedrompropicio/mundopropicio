@@ -65,6 +65,7 @@ export async function sha256Hex(s: string): Promise<string> {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
+export const proposalEffectsHash = (effects: Record<string, unknown>, actions: ProposedAction[]) => sha256Hex(canon({ effects, actions }));
 const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
 /** Resolve o evento SEM adivinhar: 0 ou >1 candidatos = pendência explícita. */
@@ -113,7 +114,7 @@ export async function buildTicketlineProposal(x: ExtractedStatement, erp: ErpCon
     version: 1, company_id: erp.company_id, source_message_id: x.source_message_id, statement_number: x.number,
     event: ev.match ? { id: ev.match.id, name: ev.match.name } : null, totals_cents: totals, sum_cents: sum,
     document_total_cents: x.document_total_cents, difference_cents: diff, checks, actions, needs,
-    effects, effects_hash: await sha256Hex(canon({ effects, actions })),
+    effects, effects_hash: await proposalEffectsHash(effects, actions),
   };
 }
 
@@ -127,7 +128,7 @@ export async function authorizationMatches(a: Authorization, p: Proposal, ctx: {
   if (!a.action_ids.length || new Set(a.action_ids).size !== a.action_ids.length || new Set(p.actions.map(x => x.id)).size !== p.actions.length || p.actions.length !== 5) return false;
   if (p.actions.some(x => !expected[x.id] || x.kind !== expected[x.id].kind || canon(x.depends_on) !== canon(expected[x.id].deps))) return false;
   const selected = new Set(a.action_ids);
-  if (p.effects_hash !== await sha256Hex(canon({ effects: p.effects, actions: p.actions }))) return false;
+  if (p.effects_hash !== await proposalEffectsHash(p.effects, p.actions)) return false;
   return a.user_id === ctx.user_id && a.company_id === ctx.company_id && a.company_id === p.company_id
     && a.version === p.version && a.effects_hash === p.effects_hash
     && a.action_ids.every((id) => p.actions.some((x) => x.id === id && !x.blocked_reason && x.depends_on.every(dep => selected.has(dep))))

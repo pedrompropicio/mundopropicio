@@ -12,7 +12,7 @@ import {
 import { GmailConnectError, type GmailConnection } from "../_shared/gmail-app-user.ts";
 import { runAssistantTurn, type AssistantModel, type TurnInput } from "../_shared/assistant-orchestrator.ts";
 import type { ErpContext } from "../_shared/assistant-ticketline-proposal.ts";
-import { signContinuation, verifyContinuation, requestHash } from "../_shared/assistant-continuation.ts";
+import { signContinuation, verifyContinuation, requestHash, type AssistantContinuation } from "../_shared/assistant-continuation.ts";
 import { boundedAnalysis } from "./analysis-deadline.ts";
 import { GmailUnavailable, gmailFilterSchema, gmailOrigin, gmailSelectionSchema, type GmailReader as _GmailReader } from "../_shared/gmail-readonly.ts";
 
@@ -238,7 +238,7 @@ export function createHandler(d: Deps) {
         if (d.assistantEnabled === false || !d.assistant && !(d.assistantEnabled === true && d.assistantFactory)) throw new SafeError("O assistente conversacional ainda não está ativado. Podes usar a pesquisa do Gmail abaixo.", 503);
         await canonicalStorageContext();
         if (body.selection && (!body.continuation || !d.continuationSecret)) throw new SafeError("Seleção sem prova do servidor; repete a pesquisa.", 409);
-        let resume;
+        let resume: AssistantContinuation | undefined;
         if (body.continuation) {
           try { resume = await verifyContinuation(body.continuation, d.continuationSecret ?? "", { user: user.id, company }, body.text); }
           catch { throw new SafeError("Seleção expirada ou contexto alterado; repete a pesquisa.", 409); }
