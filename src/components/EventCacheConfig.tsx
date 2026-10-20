@@ -16,6 +16,7 @@ import { sortByHierarchicalCode } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { CacheExtrasPanel } from "@/components/CacheExtrasPanel";
 import { CacheSettlementPanel } from "@/components/CacheSettlementPanel";
+import { CacheContractsPanel } from "@/components/CacheContractsPanel";
 import { CityCacheSettlementsPanel } from "@/components/CityCacheSettlementsPanel";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 import { useRealCacheCalculation } from "@/hooks/useRealCacheCalculation";
@@ -1206,6 +1207,11 @@ function EventCacheConfigInner({ eventId, childEventIds, eventStatus, cityViewOf
                     canEdit={canEdit}
                     eventStatus={eventStatus}
                   />
+                )}
+
+                {/* Contratos de pagamento (revê D15): um painel por cachê, ao nível do evento/turnê */}
+                {(eventStatus === "active" || eventStatus === "completed") && (
+                  <CacheContractsPanel eventId={eventId} config={config} canEdit={canEdit} />
                 )}
 
                 {/* Settlement por cidade — Tours (Master com sub-eventos) */}

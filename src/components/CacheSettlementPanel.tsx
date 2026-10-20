@@ -58,7 +58,6 @@ export function CacheSettlementPanel({
   );
   const [adjustmentNotesInput, setAdjustmentNotesInput] = useState(sourceRow.agreement_notes ?? "");
   const [showBreakdown, setShowBreakdown] = useState(false);
-  const [showTxModal, setShowTxModal] = useState(false);
 
   // Effective event for advances/transactions: city if turnê, master otherwise
   const effectiveEventId = cityEventId ?? eventId;
