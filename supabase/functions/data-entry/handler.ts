@@ -13,6 +13,7 @@ import { GmailConnectError, type GmailConnection } from "../_shared/gmail-app-us
 import { runAssistantTurn, type AssistantModel, type TurnInput } from "../_shared/assistant-orchestrator.ts";
 import type { ErpContext } from "../_shared/assistant-ticketline-proposal.ts";
 import { signContinuation, verifyContinuation, requestHash, signServerPayload, verifyServerPayload, type AssistantContinuation } from "../_shared/assistant-continuation.ts";
+import { buildClosingPlan, type ClosingReads, type ClosingPlan, type ClosingOptions } from "../_shared/assistant-settlement-plan.ts";
 import { candidateFromBody, candidateFromModel, verifyAttachmentSource, mergeScanner, applyHumanEdits, candidateToStatement, validateSettlementConfirmation, type TicketlineCandidate, type ReviewEdits, type AccountReader } from "../_shared/assistant-ticketline-candidate.ts";
 import { buildTicketlineProposal, LINE_TYPES, type Proposal } from "../_shared/assistant-ticketline-proposal.ts";
 import { ReviewUnavailable, ReviewConflict, type ReviewStore } from "../_shared/assistant-review-store.ts";
@@ -56,7 +57,9 @@ export interface Deps {
   scanAttachment?(bytes: Uint8Array, mime: DocumentType, signal: AbortSignal): Promise<AnalysisWire>;
   /** Leitura ERP com o JWT do chamador (eventos/selagem/apuramentos e contas). Ausente = indisponível. */
   ticketlineErp?: { context(token: string, company: string, text: string, signal: AbortSignal, number?: string, eventId?: string): Promise<ErpContext>; account(token: string): AccountReader;
-    accounts(token: string, company: string, signal: AbortSignal): Promise<{ id: string; name: string; type?: string | null }[]> };
+    accounts(token: string, company: string, signal: AbortSignal): Promise<{ id: string; name: string; type?: string | null }[]>;
+    /** #333 fase12f: leituras do plano de fecho (modal canónico). Ausente = fecho só no modal. */
+    closing?(token: string, company: string, office: string, event: string, signal: AbortSignal): Promise<ClosingReads> };
   /** #333 fase12e: executor SQL com o JWT do chamador. Ausente = 503; nunca simulado. */
   executor?: Executor;
   /** Persistência revista (RPC). Ausente = 503 explícito; nunca memória. */
@@ -96,7 +99,8 @@ export const commandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("ticketline_preview"), candidate_token: z.string().max(120000),
     edits: z.object({ number: z.string().max(60).nullable().optional(), date: z.string().max(10).nullable().optional(), total_cents: z.number().int().nullable().optional(), event_id: z.string().uuid().nullable().optional(),
       lines: z.array(z.object({ line_type: z.enum(LINE_TYPES), description: z.string().max(160), amount_cents: z.number().int().min(-1000000000).max(1000000000), event_hint: z.string().max(120).nullable() }).strict()).max(40).optional(),
-      confirm_review: z.boolean().optional(), office_account_id: z.string().uuid().nullable().optional() }).strict(),
+      confirm_review: z.boolean().optional(), office_account_id: z.string().uuid().nullable().optional(),
+      closing: z.object({ deduction_ids: z.array(z.string().uuid()).max(200), settlement_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), transfer_account_id: z.string().uuid() }).strict().nullable().optional() }).strict(),
     settlement: z.object({ financial_account_id: z.string().uuid(), date: z.string().max(10), amount_cents: z.number().int(), confirm: z.literal(true) }).strict().optional(),
     save: z.object({ review_id: z.string().uuid().nullable(), expected_version: z.number().int().positive().nullable() }).strict().optional() }).strict(),
   z.object({ action: z.literal("ticketline_authorize"), review_id: z.string().uuid(), version: z.number().int().positive(), effects_hash: z.string().regex(/^[a-f0-9]{64}$/), action_ids: z.array(z.string().regex(/^a[1-5]$/)).min(1).max(5), replay_key: z.string().uuid() }).strict(),
@@ -340,7 +344,7 @@ export function createHandler(d: Deps) {
         try { cand = await verifyServerPayload<TicketlineCandidate>("ticketline_candidate", body.candidate_token, d.continuationSecret, { user: user.id, company }); }
         catch { throw new SafeError("Candidato expirado ou de outro contexto; volta a ler o email.", 409); }
         let reviewed: TicketlineCandidate;
-        const { office_account_id: officeChoice, ...humanEdits } = body.edits;
+        const { office_account_id: officeChoice, closing: closingChoice, ...humanEdits } = body.edits;
         try { reviewed = applyHumanEdits(cand, humanEdits as ReviewEdits, user.id); } catch (e) { throw new SafeError((e as Error).message, 422); }
         const st = await candidateToStatement(reviewed);
         const eventChoice = reviewed.event_id?.value ?? undefined;
@@ -362,14 +366,25 @@ export function createHandler(d: Deps) {
           if (!offices.some(a => a.id === officeChoice && a.type === "ticket_office")) throw new SafeError("Bilheteira indisponível para esta empresa.", 403);
           office = officeChoice;
         }
-        const proposal: Proposal = await buildTicketlineProposal(st, erp, { event_id: eventId, settlement, human_reviewed: body.edits.confirm_review === true, office_account_id: office });
+        // Plano de fecho (a3/a4): leituras do modal com o JWT do chamador; escolhas humanas validadas contra a lista elegível.
+        let closing: ClosingPlan | null = null; let closingOptions: ClosingOptions | null = null; let closingIssues: string[] = [];
+        const chosenEvent = eventId ? erp.events.find(e => e.id === eventId) : undefined;
+        if (office && chosenEvent && !chosenEvent.sealed && d.ticketlineErp.closing) {
+          const reads = await d.ticketlineErp.closing(token, company, office, chosenEvent.id, req.signal);
+          await canonicalStorageContext();
+          if (reads.company !== company || reads.office !== office || reads.event !== chosenEvent.id) throw new SafeError("Contexto alterado.", 403);
+          const right = st.lines.filter(l => l.line_type === "event_right").reduce((a, l) => a + l.amount_cents, 0);
+          const built = buildClosingPlan(reads, closingChoice ?? null, st.lines.some(l => l.line_type === "event_right") ? right : null, d.today?.() ?? new Date().toISOString().slice(0, 10));
+          closing = built.plan; closingOptions = built.options; closingIssues = built.issues;
+        } else if (office && chosenEvent && !chosenEvent.sealed) closingIssues = ["Leitura do fecho por ativar neste ambiente: fecho só no modal."];
+        const proposal: Proposal = await buildTicketlineProposal(st, erp, { event_id: eventId, settlement, human_reviewed: body.edits.confirm_review === true, office_account_id: office, closing, closing_issues: closingIssues });
         const events = erp.events.map(e => ({ id: e.id, label: `${e.name}${e.date ? ` · ${e.date}` : ""}${e.sealed ? " · fechado" : ""}` }));
-        if (!body.save) return reply({ candidate: reviewed, proposal, events, persisted: false, notice: "Prévia calculada no servidor, não guardada." });
+        if (!body.save) return reply({ candidate: reviewed, proposal, events, closing_options: closingOptions, persisted: false, notice: "Prévia calculada no servidor, não guardada." });
         if (!d.reviewStore) throw new ReviewUnavailable();
         await d.reviewStore.probe();
         await canonicalStorageContext();
         const saved = await d.reviewStore.save({ user: user.id, company }, { review_id: body.save.review_id ?? null, expected_version: body.save.expected_version ?? null, proposal });
-        return reply({ candidate: reviewed, proposal, events, persisted: true, review: saved });
+        return reply({ candidate: reviewed, proposal, events, closing_options: closingOptions, persisted: true, review: saved });
       }
       if (body.action === "ticketline_authorize") {
         if (!d.reviewStore) throw new ReviewUnavailable();
