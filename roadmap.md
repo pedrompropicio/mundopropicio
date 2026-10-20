@@ -2,4 +2,4 @@
 - [x] Testes herméticos, documentação de ativação e reserva libertada; sem deploy/DDL/ativação.
 - [ ] Ativação real bloqueada: cliente Google/Lovable ainda não configurado; SQL/gate/deploy e consentimento dependem de autorização própria.
 - [x] AJ19: isolamento teste, testes/deploy song-link-event, prova Meta marcada, monitorização SQL 15 min e libertar reserva.
-- [ ] Newgang: listas privadas de convites pendentes, testes locais e relatório; sem deploy nem alterações de dados.
+- [x] Newgang: listas privadas de convites pendentes, 17 testes Deno + 9 Vitest e relatório; sem deploy nem alterações de dados.

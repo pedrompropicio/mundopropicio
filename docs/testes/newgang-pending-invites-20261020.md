@@ -25,4 +25,5 @@ SELECT agregado em 20/10/2026, 02:13 UTC: **67** pessoas com `pending_crew_code`
 
 ## Testes e pendências
 Testes locais Deno, sem rede/base/env: limites 50/20, ordem, ausência de nome, duplicados, projeção sem dados privados, contagens exatas, escopo e ausência de leitura da crew para não membros; falhas opcionais sinalizadas.
+Resultado: **17/17 Deno** (7 novos + 10 `pending_test.ts`) e **9/9 Vitest** (history/crews). Novo módulo passa `deno check`; preview `build OK`. A verificação Deno completa da função mantém o erro preexistente TS2783/TS2785 em `wallet_sync` (`ok` duplicado), confirmado também no index da base `e1a3855` em cópia temporária; não alterado por ser alheio ao pedido. Nenhum novo erro de tipos encontrado.
 Sem DDL, DML, migrações, deploy ou Publish. Validação do novo contrato em produção e apresentação pelo Portal dependem de autorização posterior; não foram executadas.
