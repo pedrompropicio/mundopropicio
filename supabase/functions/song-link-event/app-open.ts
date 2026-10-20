@@ -103,3 +103,13 @@ export function metaReceipt(raw: string) {
     fbtrace_id: typeof obj.fbtrace_id === "string" && /^[A-Za-z0-9_-]{1,200}$/.test(obj.fbtrace_id) ? obj.fbtrace_id : null,
   };
 }
+
+/** Allowlisted TikTok Events API receipt: code, message, request_id only; never codes/tokens. */
+export function tiktokReceipt(value: unknown, testCode: string | null = null) {
+  const obj = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const code = typeof obj.code === "number" && Number.isInteger(obj.code) ? obj.code : null;
+  let message = typeof obj.message === "string" && /^[\p{L}\p{N} .,:;_()'\/-]{0,200}$/u.test(obj.message) ? obj.message : null;
+  if (message && testCode && message.includes(testCode)) message = null;
+  const request_id = typeof obj.request_id === "string" && /^[A-Za-z0-9_-]{1,100}$/.test(obj.request_id) ? obj.request_id : null;
+  return { code, message, request_id };
+}
