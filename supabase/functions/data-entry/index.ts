@@ -8,6 +8,8 @@ import { AnalysisError } from "../_shared/data-entry-analysis.ts";
 import { assertProviderControlAvailable, durableProviderControl, rpcControlStore } from "../_shared/issue333-ai/control.ts";
 import { boundedAnalysis } from "./analysis-deadline.ts";
 import { createGmailConnection, type GmailConnectionStore } from "../_shared/gmail-app-user.ts";
+import { createAssistantModel } from "../_shared/issue333-ai/assistant-model.ts";
+import { readAssistantErp } from "../_shared/assistant-erp.ts";
 
 const url = Deno.env.get("SUPABASE_URL") ?? "";
 const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -17,6 +19,7 @@ const admin = createClient(url, service, opts);
 const asUser = (token: string) => createClient(url, anon, { ...opts, global: { headers: { Authorization: `Bearer ${token}` } } });
 const ANALYSIS_ENABLED = false; // #333 fecho96: closed after manual window96.
 // Durable control stays closed until the controller opens the single 600s window with Pedro in the modal.
+const ASSISTANT_ENABLED = false; // #333 fase12b: local implementation, activation not authorized.
 const ANALYSIS_PROVIDER_REVIEWED = false; // #333 fecho96: closed after manual window96.
 
 // #333 fase11b: per-user Gmail (App User Connector google_mail, gmail.readonly only).
@@ -67,6 +70,28 @@ Deno.serve(createHandler({
   pilotScoped: true, // Exact owner/company capability; SQL gates revalidate effects.
   uploadEnabled: false, // Reviewed activation required; no environment flag bypass.
   analysisEnabled: ANALYSIS_ENABLED && ANALYSIS_PROVIDER_REVIEWED,
+  assistantEnabled: ASSISTANT_ENABLED,
+  continuationSecret: Deno.env.get("APP_USER_CONNECTION_KEY_SECRET") ?? "",
+  async assistantFactory(req, _scope, revalidate) {
+    if (!ASSISTANT_ENABLED) throw new AnalysisError("Assistente ainda não ativado.", 503);
+    const store = rpcControlStore(async (name, args) => { const r = await admin.rpc(name, args); return { data: r.data, error: r.error }; });
+    await assertProviderControlAvailable(store);
+    return {
+      model: createAssistantModel({ apiKey: Deno.env.get("LOVABLE_API_KEY") ?? "", control: durableProviderControl(store), validateContext: revalidate }),
+      async erpContext(token, company, text, signal = req.signal, number) {
+        const client = asUser(token); // Caller JWT/RLS; never privileged financial reads.
+        return readAssistantErp(async query => {
+          let q = client.from(query.table).select(query.columns).eq("company_id", query.company).order("id").limit(query.limit);
+          if (query.text) q = q.ilike("name", `%${query.text}%`);
+          if (query.eventIds) q = q.in("event_id", query.eventIds);
+          if (query.number) q = q.eq("number", query.number);
+          const r = await q.abortSignal(query.signal);
+          if (r.error) throw new AnalysisError("Leitura ERP recusada ou indisponível.", 403);
+          return r.data;
+        }, company, text, signal, number);
+      },
+    };
+  },
   async analysis(req, input) {
     if (!ANALYSIS_ENABLED || !ANALYSIS_PROVIDER_REVIEWED) return new Response(JSON.stringify({ error: "Análise indisponível: configuração e validação pendentes." }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     const token = req.headers.get("Authorization")?.slice(7) ?? "";
