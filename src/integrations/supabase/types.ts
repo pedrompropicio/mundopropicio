@@ -7967,6 +7967,219 @@ export type Database = {
         }
         Relationships: []
       }
+      data_entry_assistant_authorizations_333: {
+        Row: {
+          action_ids: string[]
+          company_id: string
+          created_at: string
+          effects_hash: string
+          id: string
+          owner_id: string
+          replay_key: string
+          review_id: string
+          status: string
+          version: number
+        }
+        Insert: {
+          action_ids: string[]
+          company_id: string
+          created_at?: string
+          effects_hash: string
+          id?: string
+          owner_id: string
+          replay_key: string
+          review_id: string
+          status?: string
+          version: number
+        }
+        Update: {
+          action_ids?: string[]
+          company_id?: string
+          created_at?: string
+          effects_hash?: string
+          id?: string
+          owner_id?: string
+          replay_key?: string
+          review_id?: string
+          status?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_entry_assistant_authorizations_333_review_id_version_fkey"
+            columns: ["review_id", "version"]
+            isOneToOne: true
+            referencedRelation: "data_entry_assistant_review_versions_333"
+            referencedColumns: ["review_id", "version"]
+          },
+        ]
+      }
+      data_entry_assistant_executions_333: {
+        Row: {
+          action_id: string
+          authorization_id: string
+          company_id: string
+          created_at: string
+          effects_hash: string
+          id: string
+          owner_id: string
+          result: Json
+          status: string
+        }
+        Insert: {
+          action_id: string
+          authorization_id: string
+          company_id: string
+          created_at?: string
+          effects_hash: string
+          id?: string
+          owner_id: string
+          result: Json
+          status?: string
+        }
+        Update: {
+          action_id?: string
+          authorization_id?: string
+          company_id?: string
+          created_at?: string
+          effects_hash?: string
+          id?: string
+          owner_id?: string
+          result?: Json
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_entry_assistant_executions_333_authorization_id_fkey"
+            columns: ["authorization_id"]
+            isOneToOne: false
+            referencedRelation: "data_entry_assistant_authorizations_333"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_entry_assistant_executor_settings_333: {
+        Row: {
+          changed_at: string
+          enabled: boolean
+          singleton: boolean
+        }
+        Insert: {
+          changed_at?: string
+          enabled?: boolean
+          singleton?: boolean
+        }
+        Update: {
+          changed_at?: string
+          enabled?: boolean
+          singleton?: boolean
+        }
+        Relationships: []
+      }
+      data_entry_assistant_review_settings_333: {
+        Row: {
+          changed_at: string
+          enabled: boolean
+          singleton: boolean
+        }
+        Insert: {
+          changed_at?: string
+          enabled?: boolean
+          singleton?: boolean
+        }
+        Update: {
+          changed_at?: string
+          enabled?: boolean
+          singleton?: boolean
+        }
+        Relationships: []
+      }
+      data_entry_assistant_review_versions_333: {
+        Row: {
+          created_at: string
+          created_by: string
+          effects_hash: string
+          proposal: Json
+          review_id: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          effects_hash: string
+          proposal: Json
+          review_id: string
+          version: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          effects_hash?: string
+          proposal?: Json
+          review_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_entry_assistant_review_versions_333_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "data_entry_assistant_reviews_333"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_entry_assistant_reviews_333: {
+        Row: {
+          company_id: string
+          created_at: string
+          effects_hash: string
+          id: string
+          owner_id: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          effects_hash: string
+          id?: string
+          owner_id: string
+          updated_at?: string
+          version: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          effects_hash?: string
+          id?: string
+          owner_id?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      data_entry_assistant_scope_333: {
+        Row: {
+          company_id: string
+          created_at: string
+          expires_at: string
+          owner_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          expires_at: string
+          owner_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          expires_at?: string
+          owner_id?: string
+        }
+        Relationships: []
+      }
       data_entry_documents: {
         Row: {
           company_id: string
@@ -22097,6 +22310,13 @@ export type Database = {
           phone_fp: string
         }[]
       }
+      _de333_canon: { Args: { j: Json }; Returns: string }
+      _de333_cents: { Args: { j: Json; p_min: number }; Returns: number }
+      _de333_closing_check: {
+        Args: { c: Json; p_company: string }
+        Returns: number
+      }
+      _de333_req: { Args: { j: Json; k: string }; Returns: string }
       _derive_paid_amount: { Args: { p_tx_id: string }; Returns: undefined }
       _effective_permissions_for: {
         Args: { _company_id: string; _universe?: string[]; _user_id: string }
@@ -24263,6 +24483,24 @@ export type Database = {
           p_outcome?: string
           p_revision?: number
           p_status?: number
+        }
+        Returns: Json
+      }
+      data_entry_assistant_execute_333: {
+        Args: { p_action: string; p_authorization: string; p_mode: string }
+        Returns: Json
+      }
+      data_entry_assistant_review_333: {
+        Args: {
+          p_action: string
+          p_action_ids: string[]
+          p_actor: string
+          p_company: string
+          p_expected_version: number
+          p_hash: string
+          p_proposal: Json
+          p_replay: string
+          p_review: string
         }
         Returns: Json
       }
