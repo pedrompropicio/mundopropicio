@@ -16,7 +16,7 @@ const SECRET = "s".repeat(40);
 describe("#333 fase12c candidato Ticketline", () => {
   it("corpo → candidato com proveniência; injeção e linhas desconhecidas não viram dados", async () => {
     const c = await candidateFromBody({ message_id: "msg000001", text: BODY, truncated: false });
-    expect(c.number?.value).toBe("AP-77"); expect(c.date?.value).toBe(null ?? c.date?.value);
+    expect(c.number?.value).toBe("AP-77"); expect(c.date?.value).toBe("2026-10-10");
     expect(c.total_cents?.value).toBe(57950);
     expect(c.lines.map(l => [l.line_type, l.amount_cents])).toEqual([["event_right", 100000], ["ticketline_invoice", -12050], ["advance", -30000]]);
     expect(c.lines[0].prov).toMatchObject({ source: "email_body", line: 3, body_sha256: await sha256Hex(BODY) });

@@ -11,11 +11,11 @@ const proposal = { version: 1 as const, statement_number: "AP-77", event: null, 
 
 describe("#333 fase12c painel de revisão", () => {
   it("edição invalida a prévia; guardar mostra indisponível; autorizar desativado", async () => {
-    const preview = vi.fn(async () => ({ candidate, proposal, persisted: false, notice: "Prévia calculada no servidor, não guardada." }));
+    const preview = vi.fn(async (_input: unknown) => ({ candidate, proposal, persisted: false, notice: "Prévia calculada no servidor, não guardada." }));
     const adapter: DataEntryAdapter = { ticketlineCandidate: async () => ({ candidate, candidate_token: "tok" }), ticketlinePreview: preview } as unknown as DataEntryAdapter;
     render(<TicketlineReviewPanel adapter={adapter} context={{ user_id: "u", company_id: "c" }} messageId="msg000001" />);
     fireEvent.click(screen.getByRole("button", { name: "Rever fecho deste email" }));
-    await screen.findByText("email · linha 3", { exact: false });
+    await screen.findByLabelText("Número");
     expect(screen.getByText("Data em falta")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Recalcular prévia" }));
     await screen.findByText(/não guardada/);
