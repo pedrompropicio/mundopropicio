@@ -1,89 +1,187 @@
-# Desdobramentos do cachê com retenção na fonte (revê a D15)
+# Desdobramentos do cachê com retenção na fonte (revê a D15) — plano revisto
 
 ## Documentação lida
 docs/INDEX.md; docs/estado/estado-financeiro-e-tesouraria.md; docs/DECISIONS.md (DR-2026-09-03-D15, D-ERP145, D-ERP148, D-ERP265 e as adendas de 13 e 14/10); .lovable/memory/features/tax-withholding.md, transaction-installments.md, payment-amount-invariants.md, cache-deductions-bp-first.md, tour-cache-in-cost-card.md, payment-account-ownership.md e invariant-monitor.md.
 
-## 1. Sítios onde se pagam cachês (mapa)
-O único sítio que **cria** transações de cachê é `src/components/CacheTransactionModal.tsx`. É aberto a partir de `src/components/CacheSettlementPanel.tsx`, que serve três casos:
-- fecho do cachê de um evento simples (lê e grava `event_cache_configs`);
-- fecho por cidade da turnê (lê e grava `event_cache_city_settlements`, com o `cityEventId`);
-- fecho da cidade a partir da configuração do Master (D-ERP265, `resolveCacheScope`).
+## 0. O que confirmei no código (factos de Live)
+- `resolveCacheScope` (src/lib/cache-scope.ts):
+  - `master` = subevento cujo Master tem configuração;
+  - `children` = Master com configurações nos subeventos;
+  - `own` = evento simples, ou Master com configuração própria. É o caso das 3 turnês em Live.
+- `CacheSettlementPanel` passa ao modal `effectiveEventId = cityEventId ?? eventId`.
+  - Aberto a partir do "Fecho por Cidade" (`CityCacheSettlementsPanel`), o modal recebe a cidade e encontra a linha `cache_module` dela.
+  - Aberto a partir do painel do Master (`EventCacheConfig` l.1201), recebe o Master. Aí `ensureCacheModuleForecast` procura por (event_id, cache_config_id), não encontra a linha e **insere uma linha `cache_module` no Master**. Isso conta o cachê a dobrar face às linhas das cidades. **Bug confirmado.**
 
-Não encontrei outro sítio que insira transações de cachê no frontend nem nas edge functions. A procura por `CacheTransactionModal`, pela categoria 2.1.01 e por inserts com `cache_config_id` só deu o modal.
-- O "Fechar cachê" (`finalizeMutation`) só congela o valor; não cria transações.
+## 1. Sítios onde se pagam cachês
+- O único sítio que cria transações é `CacheTransactionModal.tsx`, aberto por `CacheSettlementPanel.tsx`. Este painel serve:
+  - o evento simples;
+  - o Master de turnê (painel principal);
+  - cada cidade dentro de `CityCacheSettlementsPanel`;
+  - o cenário `master`/`children` de D-ERP265.
+- "Fechar cachê" só congela o valor; não cria transações.
 - `useSyncCacheForecasts` só escreve linhas de BP.
-
-Na implementação volto a confirmar com uma procura por inserts em `transactions` com a categoria do cachê, incluindo `ImplBPTab` e as gerações a partir do BP. Se aparecer outro caminho, passa a usar a mesma chamada ao servidor.
-
-Pagamento depois de criadas as transações: listas de pagamento e `BatchPaymentModal`/`TransactionPaymentModal`, que já exigem conta. Não mudam.
+- Na implementação confirmo de novo que nada mais insere transações 2.1.01 (`ImplBPTab`, geração a partir do BP). O que aparecer passa a usar a mesma chamada ao servidor.
+- O pagamento continua pelos fluxos normais (listas, `BatchPaymentModal`, `TransactionPaymentModal`), sempre com conta obrigatória.
 
 ## 2. Onde o "pago do cachê" é somado hoje
-- `CacheSettlementPanel` ("pago"): soma `paid_amount` das transações 2.1.01 do evento com `supplier_id` = artista. **Com retenção, a transação da AT ficaria de fora**, porque o fornecedor é outro.
-- `useEventCacheImpact` (`paidCacheTransactionsTotal`): soma `amount` das 2.1.01 aprovadas ou pagas, sem filtrar fornecedor. A retenção entra no total, o que está certo.
-- `cacheImpactOnTopOfCost` (`event-cost-basis.ts`, D-ERP145): é usado pelo card de Custos (`useEventFinancialCardData`), pelo Lucro (`useEventContractResult`) e pela lista de eventos (`events-list-financials`).
-- Fecho e DRE (`computeEventSettlementTotals`): contam as transações pela categoria e pela linha de BP. A retenção entra uma única vez.
-- `events-list-cache-impact.ts` e `ReportArtistCache` leem os acertos por cidade.
-- Portal do Sócio (`get_partner_settlement_summary`): na implementação confirmo que soma por categoria e não por fornecedor.
+- `CacheSettlementPanel` ("pago"): soma `paid_amount` das 2.1.01 do evento **filtradas pelo fornecedor do artista**. A retenção, que tem a AT como fornecedor, ficaria de fora. Tem de mudar.
+- `useEventCacheImpact` (`paidCacheTransactionsTotal`): soma `amount` das 2.1.01 aprovadas ou pagas, sem filtro de fornecedor. Já soma o Master e as cidades. Está certo.
+- `cacheImpactOnTopOfCost`: card de Custos, Lucro e lista de eventos (D-ERP145).
+- Fecho, DRE e Portal do Sócio: somam por categoria e linha. A retenção entra uma vez. No Portal confirmo `get_partner_settlement_summary` na implementação.
+- `events-list-cache-impact.ts` e `ReportArtistCache`: leem os acertos por cidade.
 
-## 3. Desenho
+## 3. Onde vive o desdobramento numa turnê
 
-### Estrutura: reaproveitar `event_cache_payments` como "desdobramento"
-A tabela já tem `cache_config_id`, `event_id`, `company_id`, `amount`, `transaction_id` e `withholding_transaction_id`. Tem 0 linhas, o que permite acrescentar campos sem backfill. Migração só aditiva:
-- `event_cache_payments`: + `gross_amount numeric`, + `withholding_answered boolean NOT NULL DEFAULT false`, + `has_withholding boolean`, + `withholding_rate numeric`, + `withholding_due_date date`, + `created_by uuid`. As colunas antigas `amount` e `description` são preenchidas pela chamada ao servidor.
-- `transactions`: + `cache_payment_id uuid NULL` (FK para `event_cache_payments`) e + `cache_payment_role text NULL`, com CHECK em ('advance','artist','withholding'). Índice único parcial em (`cache_payment_id`, `cache_payment_role`) para o artista e para a retenção. Os adiantamentos podem ser vários.
-- A ligação faz-se só por estas duas colunas. Nunca por descrição, fornecedor ou nome.
+### Opções
+| | A. Desdobramento no Master, transações directas por cidade (proposta) | B. Transação-mãe no Master com rateio às cidades |
+|---|---|---|
+| BP | cada transação liga à linha `cache_module` da sua cidade, que já existe | a mãe precisaria de uma linha no Master, que não existe e não pode existir (dupla contagem) |
+| Pagamento e conta | cada transação é paga por si; segue o padrão dos pagamentos que já existem | só a mãe tem conta; as filhas são analíticas (payment-account-ownership) |
+| Fecho por cidade | certo de imediato | depende do rateio estar bem propagado |
+| D-ERP148 (1/N do Master nas deduções) | não é afectado: o cachê não é rubrica de dedução | o rateio do Master por 1/N iria contra a quota proporcional |
+| Adiantamentos existentes | já estão nas cidades, sem mãe: encaixam | teriam de ser convertidos em filhas: é DML, proibido |
 
-### RPC `create_cache_payment_breakdown(...)` (SECURITY DEFINER, atómica)
-Recebe: `cache_config_id`, `event_id` (a cidade, quando é turnê), bruto, beneficiário, resposta Sim/Não, taxa, vencimento do artista, vencimento da retenção, conta e método opcionais, e a lista dos adiantamentos.
+**Proposta: A.** O desdobramento (bruto, Sim/Não, taxa) define-se sobre o cachê **total** do Master. A chamada ao servidor reparte-o pelas cidades e cria as transações directamente em cada cidade. Não há transação no Master.
 
-Valida no servidor, dentro da mesma transação e com lock da configuração:
-- papel admin/manager e empresa (`row_belongs_to_current_company`);
-- resposta obrigatória;
-- taxa entre 0 e 100;
-- vencimento da retenção obrigatório quando a resposta é Sim;
-- cada adiantamento é 2.1.01, do mesmo evento, da mesma empresa, ainda sem desdobramento, não está estornado e não é filha de rateio;
-- o adiantamento conta pelo bruto pago (`paid_amount`);
-- adiantamentos acima do líquido (com retenção) ou do bruto (sem retenção) → erro;
-- soma dos brutos de todos os desdobramentos do cachê, incluindo o novo, acima do cachê efectivo → erro. Ver a nota sobre o valor efectivo a seguir.
+Evento simples: uma só "cidade", que é o próprio evento. O comportamento fica igual ao de hoje.
 
-Cria o desdobramento e as transações:
-- a do saldo ao artista;
-- com Sim, também a da retenção, com o fornecedor "MINISTERIO DAS FINANCAS - IRS" resolvido pelo `company_id` da sessão. Se não existir nessa empresa, dá erro.
-- Todas com a mesma `forecast_id` (linha do módulo de cachê ou linha escolhida no cachê fixo), categoria 2.1.01 e IVA 0.
-- `declared_withholding_*` e `withholding_amount` ficam sempre a 0.
+### Repartição por cidade
+- Quota de cada cidade = bruto × peso da cidade.
+- Peso = cachê efectivo da cidade ÷ total das cidades. É a mesma fonte das linhas `cache_module` e do `computeTourCityCacheAmount`: acerto da cidade > configuração > valor calculado.
+- O cliente envia o peso de cada cidade. O servidor confere-o com as linhas `cache_module` vivas das cidades, com tolerância de 0,01 €. Não há segunda fórmula.
+- Retenção da cidade = quota × r, na mesma proporção.
+- Arredondamento ao cêntimo (meio para cima) em todas as cidades menos uma. A diferença vai para a **cidade com maior quota**; em empate, a primeira por data e depois por id. Assim, a soma das quotas dá o bruto ao cêntimo, e a soma das retenções dá bruto × r ao cêntimo.
+- O utilizador vê a tabela por cidade antes de gravar.
 
-Liga os adiantamentos escolhidos (`cache_payment_role='advance'`) e devolve os ids criados.
+### Adiantamento numa cidade acima do líquido da quota (total OK)
+**Proposta: bloquear**, com mensagem que diz a cidade e o excesso.
+- Realocar um adiantamento para outra cidade obrigaria a mudar o `event_id` de uma transação já lançada, ou a criar compensações. Isso mexe no fecho dessa cidade e é DML implícito sobre dados existentes.
+- Saída prevista: o utilizador ajusta o bruto do desdobramento, ou associa o adiantamento a outro desdobramento.
+- A realocação fica como decisão do Pedro, se for precisa.
 
-Permissões: REVOKE a anon e PUBLIC, GRANT a authenticated e service_role. Verificação em Live com `has_function_privilege`.
+### Tectos
+- Soma dos brutos de todos os desdobramentos ≤ cachê efectivo total do Master.
+- Soma das quotas de cada cidade em todos os desdobramentos ≤ cachê efectivo dessa cidade.
+- Ambos verificados no servidor, com lock da configuração.
 
-**Valor efectivo no servidor:** `getCacheEffectiveAmount` é uma função do frontend. A chamada recebe esse valor e confere-o com o que está na base. Se houver acerto da cidade (`event_cache_city_settlements`), `adjusted_amount` ou `real_amount`, é esse o tecto. Sem cachê congelado, o tecto é a linha de BP do módulo. Não há uma segunda fórmula.
+## 4. Estrutura e RPC
 
-### Ficheiros a alterar
-- Migração nova pelo agente (colunas, índice e RPC).
-- `CacheTransactionModal.tsx`: o fluxo passa a ser "Novo desdobramento". Tem a pergunta Sim/Não sem nada pré-marcado, a taxa pré-preenchida com `withholding_rate` (25 se não houver), o resumo (bruto, adiantamentos, retenção, líquido, saldo) e a data da retenção (sugere a do artista, mas é obrigatório confirmá-la). Grava com uma única chamada à RPC. "Dividir pagamento" passa a ser criar vários desdobramentos.
-- `src/lib/cache-breakdown.ts` (novo, puro): contas em cêntimos e validações, partilhadas pela interface e pelos testes. O servidor repete-as.
-- `CacheSettlementPanel.tsx`: o "pago" deixa de filtrar pelo fornecedor e passa a filtrar pela categoria e pela configuração. A soma passa para uma RPC/vista na base, `cache_paid_summary(config, event)`, que devolve adiantamentos, artista, retenção e total.
-- Aba Cachê e `ReportArtistCache`: mostram a decomposição pelo papel.
-- Testes: `src/lib/__tests__/cache-breakdown.test.ts` (casos pedidos) e `supabase/tests/cache_payment_breakdown.sql` (atomicidade, recusas e o invariante, com ROLLBACK).
-- Invariante novo `cache_desdobramento_nao_soma` em `_run_invariant_checks_extra`: por desdobramento, adiantamentos + artista + retenção = bruto (±0,01). Referência 0.
-- Documentação: `.lovable/memory/features/cache-payment-breakdown.md` (nota nova) e remissão em `tax-withholding.md`; nova decisão em `docs/DECISIONS.md` que revê a D15; atualizar o estado da frente.
+### Base (migração aditiva, sem backfill)
+- `event_cache_payments` passa a ser o **desdobramento**. Tem 0 linhas. Fica com `event_id` = evento da configuração (o Master na turnê). Colunas novas:
+  - `gross_amount`;
+  - `withholding_answered` (NOT NULL DEFAULT false);
+  - `has_withholding`;
+  - `withholding_rate`;
+  - `withholding_due_date`;
+  - `created_by`.
+- Tabela nova `event_cache_payment_cities`:
+  - colunas: id, cache_payment_id, event_id (cidade), company_id, weight, gross_quota, withholding_quota, advances_total, artist_balance;
+  - UNIQUE (cache_payment_id, event_id);
+  - GRANT SELECT a authenticated e ALL a service_role; RLS por empresa; escrita só pela RPC.
+- `transactions`: + `cache_payment_id` (FK), + `cache_payment_city_id` (FK) e + `cache_payment_role`, com CHECK em ('advance','artist','withholding').
+  - Índice único parcial em (cache_payment_city_id, role) para o artista e para a retenção.
+  - A ligação é sempre estrutural. Nunca por descrição, fornecedor ou nome.
 
-## 4. Riscos de dupla contagem
-- **Saldo da conta:** a transação do artista nunca leva `withholding_amount`. Se levasse, `computeAccountBalance` descontava a retenção duas vezes. A RPC grava sempre 0.
-- **Card de Custos:** com o módulo no BP, o cachê não soma (D-ERP145). Sem módulo, `max(0, calculado − pago)` já inclui a retenção, porque não filtra o fornecedor. Fica coberto por um teste.
-- **"Pago" no painel:** hoje filtra pelo fornecedor e deixaria a retenção de fora, o que mostraria o cachê por pagar. É corrigido no ponto 3.
-- **Adiantamento:** conta uma vez, como transação própria. O saldo já vem com o adiantamento descontado. Não se cria transação nova para o adiantamento.
-- **Linha de BP:** as três transações ligam à mesma linha. O realizado é igual ao bruto, que fica dentro da verba. A verba não sobe.
-- **Rateio Master→cidade:** os adiantamentos de filhas de rateio são recusados, para o mesmo valor não contar no Master e na cidade.
+### RPC `create_cache_payment_breakdown` (SECURITY DEFINER, atómica)
+Faz tudo numa única operação: se falhar, nada fica gravado.
+- **Entrada:** configuração; bruto; beneficiário; resposta Sim/Não; taxa; vencimento do artista; vencimento da retenção (obrigatório com Sim); lista de cidades com o peso; lista dos adiantamentos.
+- **Validações:**
+  - papel admin/manager e empresa (`row_belongs_to_current_company`);
+  - resposta dada;
+  - taxa entre 0 e 100;
+  - pesos conferidos com as linhas da base, como em 3;
+  - adiantamentos: 2.1.01, de uma cidade do desdobramento, da mesma empresa, sem `cache_payment_id`, não estornados, não filhas de rateio;
+  - os adiantamentos contam pelo **`amount`** (IVA 0), não pelo `paid_amount`: um adiantamento aprovado e ainda por pagar tem `paid_amount` 0;
+  - adiantamentos da cidade acima do líquido da cidade (ou do bruto da cidade, sem retenção) → erro;
+  - tectos da secção 3.
+- **Criação por cidade:**
+  - a transação do saldo ao artista;
+  - com Sim, a da retenção, com o fornecedor "MINISTERIO DAS FINANCAS - IRS" resolvido pelo `company_id` da sessão; se não existir, dá erro;
+  - ambas com `forecast_id` = linha `cache_module` **da própria cidade** (no cachê fixo, a linha escolhida para essa cidade), rubrica 2.1.01, IVA 0 e `declared_withholding_*` a 0;
+  - um saldo de 0 não gera transação.
+- **Liga** os adiantamentos (role `advance`), escrevendo só as duas colunas estruturais.
+- **Permissões:** REVOKE a PUBLIC e anon; GRANT a authenticated e service_role; verificação em Live com `has_function_privilege`.
 
-## 5. Adiantamentos existentes num desdobramento criado depois
-- O modal lista as transações 2.1.01 do evento (e da cidade) ainda sem `cache_payment_id`, de qualquer fornecedor. Aparecem marcadas como sugestão as que são do fornecedor do artista. O utilizador escolhe.
-- Ao gravar, a RPC preenche nessas transações `cache_payment_id` e `cache_payment_role='advance'`. Só são escritas essas duas colunas; valor, estado e conta ficam intactos.
-- Pagamentos antigos ficam como estão: nenhum backfill nem DML. Só passam a fazer parte de um desdobramento se o utilizador os escolher num desdobramento novo.
+### Linha de BP no Master (correcção do bug)
+- Numa turnê (configuração no Master com cidades), a RPC **nunca** cria linha de módulo. Se faltar a linha `cache_module` de uma cidade, dá erro claro. Quem cria essa linha continua a ser `useSyncCacheForecasts`.
+- `ensureCacheModuleForecast` deixa de inserir quando o `eventId` é o Master com subeventos. Fica só para o evento simples.
+- Teste: Master de turnê sem linha própria, chamada → 0 linhas novas no Master.
+
+### Interface
+- `CacheTransactionModal` passa a "Novo desdobramento". Inclui:
+  - a pergunta Sim/Não sem nada pré-marcado;
+  - a taxa pré-preenchida com `withholding_rate` (25 se não houver);
+  - a tabela por cidade: quota, adiantamentos, retenção, líquido e saldo;
+  - a data da retenção, que sugere a do artista mas é obrigatório confirmar.
+- Grava com uma única chamada à RPC.
+- `CacheSettlementPanel`:
+  - **`own` no Master de turnê:** o botão abre o desdobramento sobre o total.
+  - **Painel de cada cidade (`cityEventId`):** mostra a parte da cidade nos desdobramentos e não cria desdobramentos soltos por cidade. Assim fica um só fluxo.
+  - **`children`** (configuração nas cidades): cada cidade é um evento com configuração própria e segue o caso simples.
+  - **`master`** (subevento que mostra a configuração do Master): igual ao painel da cidade.
+  - O "pago" passa para uma RPC de leitura `cache_paid_summary(config, event)`, que soma na base por configuração e papel e devolve adiantamentos, artista, retenção e total. Deixa de filtrar pelo fornecedor e respeita a barreira dos 1.000.
+- `src/lib/cache-breakdown.ts` (puro): repartição, arredondamento e validações, para a interface e os testes. O servidor repete tudo.
+
+### Invariante
+`cache_desdobramento_nao_soma` (error, referência 0) em `_run_invariant_checks_extra`, com duas verificações (±0,01):
+- por cidade: adiantamentos + saldo + retenção = quota;
+- por desdobramento: soma das quotas = bruto.
+
+## 5. Riscos de dupla contagem
+- **Linha `cache_module` no Master:** corrigida no ponto 4.
+- **Saldo da conta:** a transação do artista nunca leva `withholding_amount`.
+- **Card de Custos:** sem módulo no BP, `max(0, calculado − pago)` já inclui a retenção. Com módulo, não soma (D-ERP145).
+- **"Pago" no painel:** deixa de filtrar pelo fornecedor.
+- **Adiantamento:** conta uma vez, como transação própria; o saldo já vem com ele descontado.
+- **BP:** a linha de cada cidade recebe adiantamentos + saldo + retenção = quota, que fica dentro da linha. A verba não sobe.
+- **Rateio:** filhas de rateio não entram como adiantamento.
+
+## 6. Adiantamentos existentes num desdobramento criado depois
+- O modal lista as 2.1.01 do Master e das cidades ainda sem `cache_payment_id`, agrupadas por cidade. As do fornecedor do artista aparecem marcadas como sugestão.
+- Um adiantamento lançado no Master de uma turnê não tem linha onde caber: é recusado com mensagem.
+- Ao gravar, só se escrevem `cache_payment_id`, `cache_payment_city_id` e o papel. Valor, estado e conta ficam intactos.
+- Nenhum backfill: os dados antigos só entram se o utilizador os escolher.
+
+## 7. Caso de teste: turnê com 2 cidades
+Bruto 20.000,00; peso A 1/3 e B 2/3; retenção 25%; adiantamento de 3.000,00 em A.
+
+| Cidade | Quota | Retenção (AT) | Líquido | Adiantamento | Saldo ao artista | Soma |
+|---|---|---|---|---|---|---|
+| A (1/3) | 6.666,67 | 1.666,67 | 5.000,00 | 3.000,00 (existe) | 2.000,00 | 6.666,67 |
+| B (2/3, absorve a diferença) | 13.333,33 | 3.333,33 | 10.000,00 | — | 10.000,00 | 13.333,33 |
+| Total | 20.000,00 | 5.000,00 | 15.000,00 | 3.000,00 | 12.000,00 | 20.000,00 |
+
+Transações novas: A-artista 2.000,00; A-AT 1.666,67; B-artista 10.000,00; B-AT 3.333,33. O adiantamento de A fica ligado como `advance`. Não há nada no Master.
+
+Variante: o mesmo caso com adiantamento de 5.500 em A. O total passa (5.500 ≤ 15.000), mas A só tem 5.000 de líquido → **recusa** "Cidade A: adiantamentos 5.500,00 excedem o líquido 5.000,00".
+
+Os outros testes pedidos mantêm-se:
+- evento simples: 10.000 com 25% sem adiantamentos; com adiantamento de 5.000; sem retenção;
+- dois desdobramentos com respostas diferentes;
+- recusas: adiantamentos acima do líquido, tecto total, tecto por cidade;
+- atomicidade;
+- nenhuma linha nova no Master;
+- invariante por cidade e por desdobramento.
+
+Ficheiros de teste: `src/lib/__tests__/cache-breakdown.test.ts` e `supabase/tests/cache_payment_breakdown.sql` (com ROLLBACK).
+
+## 8. Cancelar desdobramento (só estimativa)
+`cancel_cache_payment_breakdown(id)` atómica, só quando nada está pago:
+- verifica que nenhuma transação do desdobramento tem `paid_amount` > 0, linhas em `transaction_payments` nem está numa lista de pagamento aprovada;
+- envia as transações de artista e retenção para o Lixo (30 dias);
+- desliga os adiantamentos (as colunas voltam a NULL);
+- marca o desdobramento como cancelado (coluna `cancelled_at`).
+
+Custo: cerca de 1 migração, ~80 linhas de SQL, 1 teste SQL e 1 botão; meio dia.
+Risco: baixo, porque o "nada pago" é verificado sob lock.
 
 ## Decisões para o Pedro (não implemento)
-- Configuração futura da data da retenção (por exemplo, dia 20 do mês seguinte ao pagamento, definido por empresa). Recomendação: adiar, e a data continua manual.
-- Desfazer um desdobramento: por agora, só por estorno das transações, sem apagar. Proposta para depois: uma RPC `cancel_cache_payment_breakdown` que desliga os adiantamentos e só funciona se nada estiver pago.
+- Regra configurável para a data da retenção. Recomendação: adiar; a data continua manual.
+- Realocar um adiantamento entre cidades. Recomendação: não, fica bloqueado.
+- Cancelar desdobramento (secção 8). Recomendação: fazer numa segunda fase.
 
-## Fora de âmbito
-Backfill, Publish, alterações a `declared_withholding_*`, lógica de `transaction_payments` e regras das listas de pagamento.
+## Documentação no fim
+- `.lovable/memory/features/cache-payment-breakdown.md` (nota nova) e remissão em `tax-withholding.md`.
+- Entrada em DECISIONS.md que revê a D15.
+- Estado da frente actualizado.
+- Sem Publish e sem backfill.
