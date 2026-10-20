@@ -13,11 +13,11 @@
 - Smart-link delivery claims atomically via service-role RPC; a partial unique index prevents browser/SSR duplicates, retaining history.
 - Authenticated smart-link SSR treats unusable visitor IP as absent, never falls back to infrastructure IP or a shared no-IP rate quota; arrivals must survive missing metadata without inventing attribution.
 - Growth summaries use legacy comparisons; campaign joins use platform/account/external ID, never names.
-- Smart-link test markers inherit arrivals; suppress before slots/tokens; log allowlisted Meta receipts.
+- Smart-link test markers inherit arrivals, suppress before slots/tokens, log allowlisted Meta receipts.
 - Investment source projections reuse the canonical report's spend/classification CTEs without modifying that report; any future canonical change must regenerate and regression-test the projection to prevent drift.
-- Manual modals separate their header from the scrolling body and use shared viewport/safe-area styles; this keeps dismissal accessible without changing the overlay stack.
+- Manual modals separate their header from the scrolling body and use shared viewport/safe-area styles; this keeps dismissal accessible.
 - Arrival geo uses local DB-IP before paid APIs; monthly Range+inflate parts avoid edge CPU limits. Never store visitor IPs.
-- Camarim cash cards, integration previews and session PDFs share the pure session cash helper; this keeps amounts and reimbursement labels consistent without changing financial records.
+- Camarim cash cards, integration previews and session PDFs share the pure session cash helper; this keeps amounts and reimbursement labels consistent.
 - Calculated cards refresh through the central event-financials invalidation helper plus debounced Realtime subscriptions; panel-local invalidation misses the keys the cards actually read.
 - Brand-exclusive menus and routes are gated by company_features keys (RequireFeature + sidebar filter), never by company name; keeps one codebase for every tenant.
 - Google Wallet artwork is resolved by the shared object builder; class-logo updates use a separate PATCH-only helper with UNDER_REVIEW. LoyaltyObject ignores hexBackgroundColor, so never claim per-object colors are applied or duplicate the established class without authorization.
