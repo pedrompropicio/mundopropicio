@@ -11,6 +11,11 @@ export const GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.reado
 export const GMAIL_MAX_RANGE_DAYS = 92;
 export const GMAIL_MAX_PAGE = 20;
 export const GMAIL_MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+/** Limites explícitos da leitura do corpo da mensagem escolhida. */
+export const GMAIL_READ_MAX_BYTES = 200 * 1024;
+export const GMAIL_READ_MAX_CHARS = 4000;
+export const GMAIL_READ_MAX_DEPTH = 6;
+export const GMAIL_READ_TIMEOUT_MS = 15000;
 const ACCEPTED = new Set(["application/pdf", "image/jpeg", "image/png"]);
 
 const civil = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((d) => {
@@ -23,6 +28,8 @@ export const gmailFilterSchema = z.object({
   subject: z.string().trim().max(120).optional(),
   page_size: z.number().int().min(1).max(GMAIL_MAX_PAGE),
   page_token: z.string().regex(/^[A-Za-z0-9_-]{1,256}$/).optional(),
+  /** Por omissão só mensagens com anexo (fluxo de importação); false = pesquisa para leitura. */
+  attachments_only: z.boolean().optional(),
 }).strict().superRefine((f, ctx) => {
   const a = Date.parse(`${f.from_date}T00:00:00Z`), b = Date.parse(`${f.to_date}T00:00:00Z`);
   if (b < a) ctx.addIssue({ code: "custom", message: "A data final é anterior à inicial." });
@@ -42,7 +49,7 @@ export function sanitizeSubjectTerm(s: string): string {
   return s.replace(/[\u0000-\u001f\u007f"(){}\[\]:\\]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
 }
 export function buildGmailQuery(f: GmailFilter): string {
-  const parts = [`after:${slash(f.from_date)}`, `before:${slash(nextDay(f.to_date))}`, "has:attachment"];
+  const parts = [`after:${slash(f.from_date)}`, `before:${slash(nextDay(f.to_date))}`, ...(f.attachments_only === false ? [] : ["has:attachment"])];
   if (f.sender) parts.push(`from:${f.sender}`);
   const subject = f.subject ? sanitizeSubjectTerm(f.subject) : "";
   if (subject) parts.push(`subject:"${subject}"`);
