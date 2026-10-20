@@ -194,7 +194,8 @@ export async function fetchEventsListCacheImpact(
             (t.status === "approved" || t.status === "paid") &&
             !t.is_transitory &&
             t.is_hidden !== true &&
-            !(t.parent_transaction_id && t.split_percentage !== null),
+            // Filhas de contrato de cachê contam na cidade (mãe sem evento).
+            (!!t.cache_role || !(t.parent_transaction_id && t.split_percentage !== null)),
         )
         .reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
     }
