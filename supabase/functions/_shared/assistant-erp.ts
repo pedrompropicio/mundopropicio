@@ -64,8 +64,9 @@ export async function readAssistantClosing(read: ClosingReader, company: string,
   bounded(adv, CLOSING_LIMITS.misc); bounded(stl, CLOSING_LIMITS.misc);
   if ([...direct, ...masters, ...sets, ...accounts].some(r => r.company_id !== company)) throw new Error("Contexto alterado durante a leitura do fecho.");
   if (signal.aborted) throw new DOMException("Cancelado", "AbortError");
-  return { company, office, event, assigned: assigned.length > 0, open_settlement: sets.length > 0, sales, direct, masters, split_children: children,
+  // zod valida em runtime todos os campos como obrigatórios; o shim de tipos local infere-os opcionais.
+  return { company, office, event, assigned: assigned.length > 0, open_settlement: sets.length > 0, sales: sales as SaleRow[], direct: direct as TxRow[], masters: masters as TxRow[], split_children: children,
     advance_tx_ids: adv.map(a => a.transaction_id).filter((x): x is string => !!x),
     statement_tx_ids: stl.filter(l => l.line_type === "advance" || l.line_type === "carry_over").map(l => l.transaction_id).filter((x): x is string => !!x),
-    transfer_accounts: accounts };
+    transfer_accounts: accounts as ClosingReads["transfer_accounts"] };
 }

@@ -374,7 +374,7 @@ export function createHandler(d: Deps) {
           await canonicalStorageContext();
           if (reads.company !== company || reads.office !== office || reads.event !== chosenEvent.id) throw new SafeError("Contexto alterado.", 403);
           const right = st.lines.filter(l => l.line_type === "event_right").reduce((a, l) => a + l.amount_cents, 0);
-          const built = buildClosingPlan(reads, closingChoice ?? null, st.lines.some(l => l.line_type === "event_right") ? right : null, d.today?.() ?? new Date().toISOString().slice(0, 10));
+          const built = buildClosingPlan(reads, (closingChoice as ClosingChoice | null | undefined) ?? null, st.lines.some(l => l.line_type === "event_right") ? right : null, d.today?.() ?? new Date().toISOString().slice(0, 10));
           closing = built.plan; closingOptions = built.options; closingIssues = built.issues;
         } else if (office && chosenEvent && !chosenEvent.sealed) closingIssues = ["Leitura do fecho por ativar neste ambiente: fecho só no modal."];
         const proposal: Proposal = await buildTicketlineProposal(st, erp, { event_id: eventId, settlement, human_reviewed: body.edits.confirm_review === true, office_account_id: office, closing, closing_issues: closingIssues });
