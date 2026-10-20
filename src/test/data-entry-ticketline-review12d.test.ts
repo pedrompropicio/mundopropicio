@@ -24,17 +24,20 @@ describe("#333 fase12d preparar vs liquidar", () => {
   it("revisão confirmada: subconjunto de preparação fechado por dependências; liquidação continua bloqueada", async () => {
     // fase12e: a bilheteira do apuramento passa a ser escolha humana obrigatória para preparar.
     const p = await buildTicketlineProposal(st, open, { human_reviewed: true, office_account_id: account });
-    expect(p.actions.filter(a => !a.blocked_reason).map(a => a.id).sort()).toEqual(["a1", "a2", "a3", "a4"]);
+    // fase12f: sem plano de fecho revisto, a4/a3 ficam bloqueadas (o fecho deixou de ser passo manual implícito).
+    expect(p.actions.filter(a => !a.blocked_reason).map(a => a.id).sort()).toEqual(["a1", "a2"]);
+    expect(p.actions.find(a => a.id === "a3")?.blocked_reason).toMatch(/Plano de fecho/);
     expect(p.actions.find(a => a.id === "a5")).toMatchObject({ stage: "liquidate", depends_on: ["a3"] });
     expect(await authorizationMatches(auth(p, ["a1"]), p, ctx)).toBe(true);
-    expect(await authorizationMatches(auth(p, ["a1", "a2", "a4", "a3"]), p, ctx)).toBe(true);
+    expect(await authorizationMatches(auth(p, ["a1", "a2"]), p, ctx)).toBe(true);
+    expect(await authorizationMatches(auth(p, ["a1", "a2", "a4", "a3"]), p, ctx)).toBe(false);
     expect(await authorizationMatches(auth(p, ["a2"]), p, ctx)).toBe(false); // dependência omitida
     expect(await authorizationMatches(auth(p, ["a1", "a2", "a3"]), p, ctx)).toBe(false); // a3 sem a4
     expect(await authorizationMatches(auth(p, ["a1", "a2", "a3", "a4", "a5"]), p, ctx)).toBe(false); // a5 bloqueada
   });
   it("recebimento antes do fecho confirmado: depende do saldo canónico, não da soma do apuramento", async () => {
     const p = await buildTicketlineProposal(st, open, { human_reviewed: true, settlement: ev(57950) });
-    expect(p.actions.find(a => a.id === "a5")?.blocked_reason).toMatch(/fecho confirmado/);
+    expect(p.actions.find(a => a.id === "a5")?.blocked_reason).toMatch(/Depende do fecho/);
   });
   it("fecho canónico confirmado: liquidar só se conta, valor e data coincidem", async () => {
     const ok = await buildTicketlineProposal(st, sealed, { human_reviewed: true, settlement: ev(50000) });
