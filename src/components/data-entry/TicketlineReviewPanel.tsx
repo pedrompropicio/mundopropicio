@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { DataEntryAdapter, DataEntryContext, TicketlineCandidate, TicketlineEdits, TicketlineLineType, TicketlinePreviewResult, CandidateProvenance, TicketlineAttachment, TicketlineExecution } from "@/lib/data-entry-client";
+import type { DataEntryAdapter, DataEntryContext, TicketlineCandidate, TicketlineEdits, TicketlineLineType, TicketlinePreviewResult, CandidateProvenance, TicketlineAttachment } from "@/lib/data-entry-client";
 import TicketlineExecutionPanel from "./TicketlineExecutionPanel";
 
 const TYPES: [TicketlineLineType, string][] = [["event_right", "Direito do evento"], ["ticketline_invoice", "Fatura Ticketline"], ["venue_settlement", "Acerto da sala"], ["advance", "Repasse"], ["carry_over", "Transitado"]];

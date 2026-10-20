@@ -31,7 +31,7 @@ export default function TicketlineExecutionPanel({ adapter, context, authorizati
       setDone(d => ({ ...d, [id]: r }));
     } catch (e) {
       const text = e instanceof Error ? e.message : "Indisponível.";
-      if (/incerto/i.test(text) || !(e instanceof Error)) setUncertain(u => new Set(u).add(id));
+      if (/incerto/i.test(text) || e instanceof TypeError || !(e instanceof Error)) setUncertain(u => new Set(u).add(id));
       setMsg(m => ({ ...m, [id]: text }));
     } finally { setBusy(null); }
   };
