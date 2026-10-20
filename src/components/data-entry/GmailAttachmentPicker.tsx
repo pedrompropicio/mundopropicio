@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import type { DataEntryAdapter, DataEntryContext, GmailConnectionStatus, GmailMessage, GmailMessageBody } from "@/lib/data-entry-client";
+import type { DataEntryAdapter, DataEntryContext, GmailConnectionStatus, GmailMessage, GmailMessageBody, GmailSearchInfo } from "@/lib/data-entry-client";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
@@ -28,6 +28,8 @@ function GmailPickerSession({ adapter, context, sessionId, enabled, disabled, on
   const [conn, setConn] = useState<GmailConnectionStatus | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [openBody, setOpenBody] = useState<GmailMessageBody | null>(null);
+  const [exact, setExact] = useState(false);
+  const [info, setInfo] = useState<GmailSearchInfo | null>(null);
   useEffect(() => {
     if (!enabled || !adapter.gmailConnection) return;
     let live = true;
@@ -94,9 +96,14 @@ function GmailPickerSession({ adapter, context, sessionId, enabled, disabled, on
   const search = async (token?: string) => {
     setBusy(true); setError(null);
     try {
-      const r = await adapter.gmailSearch?.({ from_date: from, to_date: to, ...(sender.trim() ? { sender: sender.trim() } : {}), ...(subject.trim() ? { subject: subject.trim() } : {}), page_size: PAGE, ...(readOnly ? { attachments_only: false } : {}), ...(token ? { page_token: token } : {}) }, context);
+      const r = await adapter.gmailSearch?.({ from_date: from, to_date: to, ...(sender.trim() ? { sender: sender.trim() } : {}), ...(subject.trim() ? { subject: subject.trim() } : {}), page_size: PAGE, ...(readOnly ? { attachments_only: false } : {}), match: exact ? "exact" : "flexible", ...(token ? { page_token: token } : {}) }, context);
       if (!mounted.current || !r) return;
-      setMessages((m) => token && m ? [...m, ...r.messages] : r.messages); setNext(r.next_page_token);
+      setMessages((m) => {
+        if (!(token && m)) return r.messages;
+        const ids = new Set(m.map((x) => x.message_id));
+        return [...m, ...r.messages.filter((x) => !ids.has(x.message_id))];
+      });
+      setNext(r.next_page_token); setInfo(r.search_info ?? null);
       if (!token) { setChoice(null); setOpenBody(null); }
     } catch (e) { setError(e instanceof Error ? e.message : "Pesquisa indisponível."); }
     finally { setBusy(false); }
@@ -135,14 +142,24 @@ function GmailPickerSession({ adapter, context, sessionId, enabled, disabled, on
         <label className="text-xs space-y-1"><span>Remetente (email ou domínio)</span><input className={input} value={sender} maxLength={120} onChange={(e) => setSender(e.target.value)} disabled={off} /></label>
         <label className="text-xs space-y-1"><span>Assunto contém</span><input className={input} value={subject} maxLength={120} onChange={(e) => setSubject(e.target.value)} disabled={off} /></label>
       </div>
+      <label className="flex items-start gap-2 text-xs"><input type="checkbox" className="mt-0.5" checked={exact} onChange={(e) => setExact(e.target.checked)} disabled={off} />
+        <span>Só a expressão exata do assunto (por omissão também procura variações: espaços, pontuação, acentos, "&"/"e", ordem das palavras e pequenos erros).</span></label>
       <Button size="sm" variant="outline" disabled={off || (!sender.trim() && !subject.trim())} onClick={() => void search()}>Procurar emails</Button>
       {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
-      {messages && messages.length === 0 && <p className="text-xs text-muted-foreground">Nenhum email com anexos neste período.</p>}
+      {info && messages && (
+        <div role="status" className="space-y-0.5 text-xs text-muted-foreground break-words">
+          <p>Procurei: {info.searched.join("; ")}, no período e remetente indicados.</p>
+          {info.mode === "flexible" && <p>{info.candidates} {info.candidates === 1 ? "email corresponde" : "emails correspondem"}; os exatos aparecem primeiro.</p>}
+          {!info.coverage_complete && <p className="text-warning">{info.note ?? "A pesquisa foi limitada: podem existir mais emails."}</p>}
+        </div>
+      )}
+      {messages && messages.length === 0 && <p className="text-xs text-muted-foreground">{readOnly ? "Nenhum email encontrado neste período." : "Nenhum email com anexos neste período."}</p>}
       {messages && messages.length > 0 && (
         <ul className="space-y-2" aria-label="Emails encontrados">
           {messages.map((m) => (
             <li key={m.message_id} className="rounded border border-border p-2 text-xs">
               <div className="font-medium break-words">{m.subject || "(sem assunto)"}</div>
+              {m.match && m.match.kind !== "exact" && <div className="text-muted-foreground break-words">{m.match.label}</div>}
               <div className="text-muted-foreground break-words">{m.from} · {m.date ? new Date(m.date).toLocaleDateString("pt-PT") : "—"}</div>
               {!readOnly && (m.attachments.length === 0 ? <div className="text-muted-foreground">Sem anexos PDF/JPEG/PNG.</div> : m.attachments.map((a) => (
                 <label key={a.part_id} className="flex items-center gap-2 pt-1">
