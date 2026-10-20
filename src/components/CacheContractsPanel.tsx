@@ -80,7 +80,7 @@ export function CacheContractsPanel({ eventId, config, canEdit, initialLineChoic
   const freeAdv = ctx.free_advances.reduce((s, a) => s + Number(a.amount), 0);
   const remaining = remainingToContract({ totalCap, otherContractsGross: contracted, freeAdvancesNotChosen: freeAdv });
   const atLimit = ctx.contracts.length >= MAX_CACHE_CONTRACTS;
-  const cityName = (id: string) => ctx.cities.find((c) => c.event_id === id)?.name ?? "Cidade";
+  const cityName = (id: string) => ctxCities.find((c) => c.event_id === id)?.name ?? "Cidade";
 
   return (
     <div className="mx-3 mb-3 rounded-lg border border-border bg-background">
