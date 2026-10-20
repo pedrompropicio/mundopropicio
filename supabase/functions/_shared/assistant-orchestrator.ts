@@ -23,9 +23,9 @@ export const ASSISTANT_CONTRACT = [
 
 const statementSchema = z.object({
   number: z.string().trim().max(60).nullable(),
-  statement_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
-  document_total_cents: z.number().int().nullable(),
-  lines: z.array(z.object({ line_type: z.enum(LINE_TYPES), description: z.string().max(200), amount_cents: z.number().int(), event_hint: z.string().max(120).nullable() }).strict()).max(60),
+  statement_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(s => { const d = new Date(`${s}T12:00:00Z`); return Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === s; }).nullable(),
+  document_total_cents: z.number().int().min(-1000000000).max(1000000000).nullable(),
+  lines: z.array(z.object({ line_type: z.enum(LINE_TYPES), description: z.string().max(200), amount_cents: z.number().int().min(-1000000000).max(1000000000), event_hint: z.string().max(120).nullable() }).strict()).min(1).max(60),
 }).strict();
 export const TOOL_SCHEMAS = {
   gmail_search: gmailFilterSchema,

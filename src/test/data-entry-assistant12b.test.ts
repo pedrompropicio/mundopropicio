@@ -5,6 +5,7 @@ import { createAssistantModel, parseModelStep } from "../../supabase/functions/_
 import { durableProviderControl, type ControlStore, type ControlRecord } from "../../supabase/functions/_shared/issue333-ai/control";
 import { buildTicketlineProposal, authorizationMatches, proposalEffectsHash } from "../../supabase/functions/_shared/assistant-ticketline-proposal";
 import { runAssistantTurn, ASSISTANT_CONTRACT, TOOL_NAMES } from "../../supabase/functions/_shared/assistant-orchestrator";
+import { createHandler, type Deps } from "../../supabase/functions/data-entry/handler";
 const company = "11111111-1111-4111-8111-111111111111", user = "22222222-2222-4222-8222-222222222222", event = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const secret = "synthetic-local-secret-32bytes-only-no-credentials";
 const filters = { from_date: "2026-10-01", to_date: "2026-10-19", sender: "exemplo.invalid", page_size: 10 };
@@ -43,6 +44,21 @@ describe("#333 real adapters with synthetic HTTP only", () => {
     expect(bodies[0].text.format.schema.additionalProperties).toBe(false);
     expect(bodies[0].max_output_tokens).toBeLessThanOrEqual(6000);
     expect(c.outcomes).toEqual(["success"]);
+  });
+  it("real handler → SDK HTTP → own Gmail → caller-scoped ERP → blocked proposal", async () => {
+    const c = control(); let current = 0; const requests: RequestInit[] = [];
+    const st = { number: "AP-01", statement_date: "2026-10-10", document_total_cents: 1000, lines: [{ line_type: "event_right", description: "Direito Evento", amount_cents: 1000, event_hint: "Evento" }] };
+    const steps = [{ type: "tool", name: "gmail_search", args_json: JSON.stringify(filters), text: null }, { type: "tool", name: "gmail_read", args_json: JSON.stringify({ message_id: "msg000001" }), text: null }, { type: "tool", name: "prepare_ticketline_proposal", args_json: JSON.stringify({ message_id: "msg000001", statement: st }), text: null }];
+    const model = createAssistantModel({ apiKey: "local", control: c.control, validateContext: async () => {}, fetch: async (_url, init) => { requests.push(init ?? {}); return response(JSON.stringify(steps[current++])); } });
+    const read = vi.fn(async () => ({ message_id: "msg000001", from: "x@exemplo.invalid", subject: "Fecho Evento", date: "2026-10-10", kind: "plain" as const, body_text: "Apuramento AP-01, Evento, direito 10.00 EUR", truncated: false }));
+    const erp = vi.fn(async (token, comp) => { expect(token).toBe("local-jwt-not-real"); expect(comp).toBe(company); return { company_id: company, events: [{ id: event, name: "Evento", date: null, sealed: false }], existing_statements: [] }; });
+    const deps: Deps = { uploadEnabled: false, pilotScoped: true, cors: {}, getUser: async () => ({ id: user }), userRpc: async (_token, name) => ({ data: name === "my_effective_permissions" ? { role: "manager", company_id: company } : { preparation: false, execute: false }, error: null }), recordReceipt: vi.fn(), storage: { upload: vi.fn(), download: vi.fn() },
+      assistantEnabled: true, assistant: { model, erpContext: erp }, gmail: { reader: async () => ({ search: async () => ({ messages: [{ message_id: "msg000001", from: "x", subject: "Fecho", date: "2026-10-10", attachments: [] }], next_page_token: null }), read, attachment: vi.fn() }) } };
+    const r = await createHandler(deps)(new Request("http://local.invalid", { method: "POST", headers: { Authorization: "Bearer local-jwt-not-real", "Content-Type": "application/json" }, body: JSON.stringify({ action: "assistant_turn", text: "Lê o fecho", history: [] }) }));
+    const body = await r.json(); expect(body.status).toBe("proposal"); expect(body.proposal.event.id).toBe(event); expect(body.proposal.effects.source_content_hash).toMatch(/^[a-f0-9]{64}$/);
+    expect(body.proposal.actions.every((a: { blocked_reason: string }) => !!a.blocked_reason)).toBe(true);
+    expect(requests).toHaveLength(3); expect(new Headers(requests[1].headers).get("X-Lovable-AIG-Run-ID")).toBe("server-issued-mock-run"); expect(c.outcomes).toEqual(["success", "success", "success"]);
+    expect(deps.storage.upload).not.toHaveBeenCalled(); expect(deps.recordReceipt).not.toHaveBeenCalled();
   });
   it.each([402, 403, 404])("terminal HTTP %i is not retried and denial persists", async status => {
     const c = control(); const f = vi.fn(async () => new Response(JSON.stringify({ error: { message: "mock-denied", type: "provider_denial" } }), { status, headers: { "Content-Type": "application/json" } }));

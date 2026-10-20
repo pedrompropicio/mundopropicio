@@ -84,7 +84,7 @@ Deno.serve(createHandler({
           let q = client.from(query.table).select(query.columns).eq("company_id", query.company).order("id").limit(query.limit);
           if (query.text) q = q.ilike("name", `%${query.text}%`);
           if (query.eventIds) q = q.in("event_id", query.eventIds);
-          if (query.number) q = q.eq("number", query.number);
+          if (query.number) q = q.ilike("number", `%${query.number.replace(/[\\%_]/g, "\\$&")}%`); // bounded candidates; identity still checked with separators intact
           const r = await q.abortSignal(query.signal);
           if (r.error) throw new AnalysisError("Leitura ERP recusada ou indisponível.", 403);
           return r.data;
