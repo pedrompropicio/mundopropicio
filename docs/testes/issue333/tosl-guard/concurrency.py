@@ -55,6 +55,8 @@ print('PASS identity/ACL/SECDEF/search_path unchanged')
 s=parent(2); race('INSERT pending then confirm revalidates',ins(s,True),confirm(s),'pendente(s)')
 q.execute('SELECT status FROM ticket_office_statements WHERE id=%s',(s,)); assert q.fetchone()[0]=='draft'
 s=parent(3); race('confirm then INSERT denies after wait',confirm(s),ins(s),'as linhas não se alteram')
+s=parent(60); race('valid INSERT then confirm includes committed line',ins(s),confirm(s))
+q.execute('SELECT status,(SELECT count(*) FROM ticket_office_statement_lines WHERE statement_id=s.id) FROM ticket_office_statements s WHERE id=%s',(s,)); assert q.fetchone()==('confirmed',1)
 for i,op in enumerate(['UPDATE','DELETE'],4):
  s=parent(i); execute(q,ins(s))
  stmt=("UPDATE ticket_office_statement_lines SET description='changed' WHERE statement_id=%s" if op=='UPDATE' else 'DELETE FROM ticket_office_statement_lines WHERE statement_id=%s',(s,))
@@ -69,6 +71,8 @@ s=parent(22); denied((ins(s)[0],(s,'44444444-4444-4444-4444-444444444444',0,Fals
 a=parent(30); b=parent(31); execute(q,ins(a)); execute(q,confirm(a)); denied(('UPDATE ticket_office_statement_lines SET statement_id=%s WHERE statement_id=%s',(b,a)),'as linhas não se alteram'); print('PASS move checks confirmed OLD parent')
 a=parent(32); b=parent(33); execute(q,ins(a)); race('destination confirm then move',confirm(b),('UPDATE ticket_office_statement_lines SET statement_id=%s WHERE statement_id=%s',(b,a)),'as linhas não se alteram')
 a=parent(34); b=parent(35); execute(q,ins(a)); race('move then source confirm',('UPDATE ticket_office_statement_lines SET statement_id=%s WHERE statement_id=%s',(b,a)),confirm(a))
+a=parent(36); b=parent(37); execute(q,ins(a)); race('source confirm then move',confirm(a),('UPDATE ticket_office_statement_lines SET statement_id=%s WHERE statement_id=%s',(b,a)),'as linhas não se alteram')
+s=parent(61); execute(q,ins(s)); race('UPDATE pending then confirm revalidates',('UPDATE ticket_office_statement_lines SET amount=NULL,pending_document=true WHERE statement_id=%s',(s,)),confirm(s),'pendente(s)')
 # Opposite moves acquire both parents in UUID order, no parent-lock cycle.
 a=parent(40); b=parent(41); execute(q,ins(a)); execute(q,ins(b))
 q.execute('SELECT id FROM ticket_office_statement_lines WHERE statement_id=%s',(a,)); la=q.fetchone()[0]
