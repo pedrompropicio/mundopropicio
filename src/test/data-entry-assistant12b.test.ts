@@ -82,6 +82,16 @@ describe("#333 real adapters with synthetic HTTP only", () => {
     expect(() => parseModelStep({ type: "tool", name: "register_payment", args_json: "{}", text: null })).toThrow();
     expect(() => parseModelStep({ type: "final", name: null, args_json: null, text: "", confirmed_by_user: true })).toThrow();
   });
+  it("HTTP 200 with an invalid tool is terminal without retry", async () => {
+    const c = control(); const f = vi.fn(async () => response(JSON.stringify({ type: "tool", name: "register_payment", args_json: "{}", text: null })));
+    const m = createAssistantModel({ apiKey: "local", control: c.control, validateContext: async () => {}, fetch: f });
+    await expect(m.next({ contract: "local", tools: TOOL_NAMES, messages: [{ role: "user", content: "Pedido" }], signal: signal() })).rejects.toThrow(/Ferramenta/);
+    expect(f).toHaveBeenCalledTimes(1); expect(c.outcomes).toEqual(["invalid_response"]);
+  });
+  it("signed candidates disappearing from a fresh search cannot be read", async () => {
+    const read = vi.fn(); const r = await runAssistantTurn({ next: vi.fn() }, { resume: { user, company, expires: Date.now() + 10000, requestHash: "local", filters, messages: ["msg000001"], events: [], message: null }, gmailRead: read, gmailSearch: async () => ({ messages: [], next_page_token: null }), erpContext: vi.fn() }, { text: "Pedido", history: [], selection: { message_id: "msg000001" } }, signal());
+    expect(r.status).toBe("error"); expect(read).not.toHaveBeenCalled();
+  });
   it("ERP read scope and exact duplicate lookup; confirmed settlement seals event", async () => {
     const queries: ErpRead[] = []; const read = async (q: ErpRead) => { queries.push(q); return q.table === "events" ? [{ id: event, name: "Evento sintético", company_id: company, date: "2026-10-10" }] : q.table === "ticket_office_settlements" ? [{ event_id: event, company_id: company, status: "confirmed" }] : [{ id: user, company_id: company, number: "AP-01", status: "draft" }]; };
     const r = await readAssistantErp(read, company, "Evento%_sintético", signal(), "AP-01");
