@@ -4,6 +4,9 @@ Atualizado: 09/10/2026 (ritual de fecho da frente; inclui o trabalho do chat fin
 
 ## Em que pé está
 
+### Contratos de pagamento do cachê (20/10/2026)
+- D-ERP288 revê D15: até 4 contratos por cachê, retenção IRS opcional por contrato (mãe própria para a AT), vencimento manual, adiantamentos indivisíveis. Migrações 0214/0215; painel "Contratos de pagamento" no cachê; o antigo botão "Gerar Transação de Pagamento" foi retirado. Testes: `supabase/tests/cache_contracts/run.sh` (PG local, 49 verificações) e `src/lib/__tests__/cache-contracts.test.ts`. Por verificar pelo Pedro em Live: ver relatório da tarefa.
+
 ### Resolvido a 10/10/2026
 
 - **#305 — invariante `conta_cash_saldo_negativo` (D-ERP238).** Qualquer conta `type = 'cash'` com saldo negativo acusa erro (referência 0). Saldo = `_account_true_balance_asof_raw(id, NULL)`, o mesmo do Dashboard. Caso de origem: Conta Caixa a −6.120,00 (`initial_balance_date = 2026-08-31` com `initial_balance = 0,00`), corrigida a 10/10/2026, saldo agora 0,00. Hoje: 0, conforme. Disparo provado numa transacção anulada.
