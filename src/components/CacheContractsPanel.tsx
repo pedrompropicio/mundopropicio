@@ -230,7 +230,7 @@ function ContractDialog({ ctx, eventId, config, edit, onClose, onDone }: {
     queryKey: ["cache-contract-advances", edit?.id],
     enabled: !!edit && edit.advance_ids.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase.from("transactions").select("id, description, amount, event_id").in("id", edit!.advance_ids);
+      const { data, error } = await supabase.from("transactions").select("id, description, amount, event_id").in("id", edit!.advance_ids).limit(500);
       if (error) throw error;
       return data ?? [];
     },
@@ -239,7 +239,7 @@ function ContractDialog({ ctx, eventId, config, edit, onClose, onDone }: {
     queryKey: ["cache-contract-advance-children", edit?.id],
     enabled: !!edit && edit.advance_ids.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase.from("transactions").select("parent_transaction_id, event_id, amount").in("parent_transaction_id", edit!.advance_ids);
+      const { data, error } = await supabase.from("transactions").select("parent_transaction_id, event_id, amount").in("parent_transaction_id", edit!.advance_ids).limit(1000);
       if (error) throw error;
       return data ?? [];
     },
