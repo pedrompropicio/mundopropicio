@@ -26,9 +26,7 @@ $function$;
 
 CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated, service_role;
-DO $p$ BEGIN
--- 1.ª passagem: funções que não dependem de tipos de linha
-END $p$;
+-- 1.ª passagem de funções (defaults das tabelas usam current_company_id/auth.uid); 2.ª após as tabelas.
 CREATE OR REPLACE FUNCTION public._apply_transaction_offset(p_offset_id uuid, p_origin_payment_id uuid)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -136,17 +134,7 @@ BEGIN
   END IF;
 END;
 $function$;
--- (2.ª passagem) _paid_guard_is_exempt
-CREATE OR REPLACE FUNCTION public.__skip_paid_guard(p transactions)
- RETURNS boolean
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  SELECT COALESCE(p.is_reimbursement, false)
-      OR (p.parent_transaction_id IS NOT NULL AND p.split_percentage IS NOT NULL)
-      OR EXISTS (SELECT 1 FROM public.partner_paid_expenses e WHERE e.transaction_id = p.id);
-$function$;
+-- _paid_guard_is_exempt(transactions) só na 2.ª passagem (depende do tipo de linha)
 CREATE OR REPLACE FUNCTION public._reverse_transaction_offsets_for(p_tx_id uuid)
  RETURNS void
  LANGUAGE plpgsql
@@ -4670,7 +4658,6 @@ BEGIN
 
   RETURN NULL;
 END $function$;
-DROP FUNCTION IF EXISTS public.__skip_paid_guard(transactions);
 CREATE TRIGGER trg_set_company_id BEFORE INSERT ON public.ticket_office_settlements FOR EACH ROW EXECUTE FUNCTION set_company_id_on_insert();
 CREATE TRIGGER trg_settlements_updated_at BEFORE UPDATE ON public.ticket_office_settlements FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER trg_tosl_guard BEFORE INSERT OR DELETE OR UPDATE ON public.ticket_office_statement_lines FOR EACH ROW EXECUTE FUNCTION tosl_guard();
