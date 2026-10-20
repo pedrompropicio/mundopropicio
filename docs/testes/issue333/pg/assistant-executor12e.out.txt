@@ -1,514 +1,91 @@
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+NOTICE:  database "x12e" does not exist, skipping
+0a review12d OK
+0b executor12e OK
 1 probe:
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-cat: /tmp/pg333t/connection.json: No such file or directory
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;print(json.load(sys.stdin)["effects_hash"])
-                          ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+{"schema": "333-12e", "enabled": false}
 2 gate do executor fechado:
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+ERROR:  #333: executor_closed
 3 service_role / anon não executam (identidade só da sessão):
+permission denied for function data_entry_assistant_execute_333
+permission denied for function data_entry_assistant_execute_333
 4 sem sessão / outro utilizador / outra empresa:
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+ERROR:  #333: context_mismatch
+ERROR:  #333: context_mismatch
+ERROR:  #333: context_mismatch
 5 a2 antes de a1 (dependência):
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+ERROR:  #333: dependency_pending
 6 a3 não autorizada (subconjunto {a1,a2}):
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+ERROR:  #333: action_not_authorized
 7 a1 executa (writer de apuramento):
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;r=json.load(sys.stdin);print(r["status"],r["replayed"],r["result"]["lines"],r["result"]["sum_cents"])
-                      ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+succeeded False 2 57950
+AP-1|draft|579.5000000000000000|2
 8 replay a1 (resposta perdida → mesma execução, sem duplicar):
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;r=json.load(sys.stdin);print(r["status"],r["replayed"])
-                      ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+succeeded True
+1
 9 a2 executa confirm_ticket_office_statement real:
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;r=json.load(sys.stdin);print(r["status"],r["result"]["status"])
-                      ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+succeeded confirmed
+confirmed|t
 10 status (recuperação só leitura):
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;r=json.load(sys.stdin);print([e["action_id"] for e in r["executions"]])
-                      ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+['a1', 'a2']
 11 dados alterados após a1 (linha editada) → a2 recusada, nada confirmado:
-cat: /tmp/pg333t/connection.json: No such file or directory
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;print(json.load(sys.stdin)["effects_hash"])
-                          ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+ERROR:  #333: data_changed
+draft
 12 a4 só leitura; a3 aguarda modal humano (sem registo):
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;r=json.load(sys.stdin);print(r["result"]["writes"])
-                      ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+0
+ERROR:  #333: awaiting_human_modal
+0
 13 a3 depois do fecho confirmado no modal (simulado como gravação humana):
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;r=json.load(sys.stdin);print(r["status"],r["result"]["transfer_transaction_id"])
-                      ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+succeeded None
 14 evento fechado depois da autorização → a1 recusada:
-cat: /tmp/pg333t/connection.json: No such file or directory
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;print(json.load(sys.stdin)["effects_hash"])
-                          ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+ERROR:  #333: event_sealed
+0
 15 duplicado criado por outro caminho após a autorização:
-cat: /tmp/pg333t/connection.json: No such file or directory
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;print(json.load(sys.stdin)["effects_hash"])
-                          ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+ERROR:  #333: duplicate_statement
 16 versão nova invalida a autorização anterior:
-cat: /tmp/pg333t/connection.json: No such file or directory
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;print(json.load(sys.stdin)["effects_hash"])
-                          ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+ERROR:  #333: stale_version
 17 hash adulterado na versão persistida:
-cat: /tmp/pg333t/connection.json: No such file or directory
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;print(json.load(sys.stdin)["effects_hash"])
-                          ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+ERROR:  #333: hash_mismatch
 18 resultado perdido antes do commit (crash) → nada gravado; status vazio; reexecução segura:
-cat: /tmp/pg333t/connection.json: No such file or directory
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;print(json.load(sys.stdin)["effects_hash"])
-                          ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;print(len(json.load(sys.stdin)["executions"]))
-                              ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+succeeded
+0
+0
 19 concorrência (2 ligações na mesma ação):
-   A: psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-   A: 	Is the server running locally and accepting connections on that socket?
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;print("   B:",json.load(sys.stdin)["replayed"])
-                                  ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+   A: false
+   A: 
+   B: True
+1
 20 a5 liquidação (fecho confirmado com transferência a receber):
-cat: /tmp/pg333t/connection.json: No such file or directory
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;print(json.load(sys.stdin)["effects_hash"])
-                          ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;r=json.load(sys.stdin)["result"];print(r["already_liquidated"],r["writes"])
-                      ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+False 2
+expense|paid|579.50|2026-10-16
+income|paid|579.50|2026-10-16
 21 replay a5 → sem segunda liquidação:
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;print(json.load(sys.stdin)["replayed"])
-                          ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+True
+4
 22 a5 já creditado → conferência, 0 escritas:
-cat: /tmp/pg333t/connection.json: No such file or directory
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;print(json.load(sys.stdin)["effects_hash"])
-                          ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;r=json.load(sys.stdin)["result"];print(r["already_liquidated"],r["writes"])
-                      ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+True 0
 23 a5 com fecho alterado após autorização (valor transferido) → recusa:
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-cat: /tmp/pg333t/connection.json: No such file or directory
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import json,sys;print(json.load(sys.stdin)["effects_hash"])
-                          ~~~~~~~~~^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 298, in load
-    return loads(fp.read(),
-        cls=cls, object_hook=object_hook,
-        parse_float=parse_float, parse_int=parse_int,
-        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/__init__.py", line 352, in loads
-    return _default_decoder.decode(s)
-           ~~~~~~~~~~~~~~~~~~~~~~~^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 345, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/json/decoder.py", line 363, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+ERROR:  #333: data_changed
+pending,pending
 24 imutabilidade das execuções (dono):
+immutable_record
+immutable_record
 25 readback:
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+t
+a1|3
+a2|2
+a3|1
+a4|1
+a5|2
+data_entry_assistant_executions_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f|f
+data_entry_assistant_executor_settings_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f|f
+data_entry_assistant_execute_333(text,uuid,text)|t|{"search_path=public, pg_temp"}|{postgres=X/postgres,authenticated=X/postgres}|6abdf666f9df85bf0fbffb481620bcfe|f|t|f
+de333_exec_immutable
+de333_exec_no_truncate
+2e868bc2a28ec291581028f6dc579c6a
 26 rollback com execuções:
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+executions_present_retain_before_rollback
+27 rollback OK
 28 esquema/ACL igual ao anterior ao executor
 29 reaplicar / deriva:
-psql: error: connection to server on socket "/tmp/pg333/.s.PGSQL.55433" failed: No such file or directory
-	Is the server running locally and accepting connections on that socket?
+OK
+executor_absent_objects_drift
