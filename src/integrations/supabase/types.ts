@@ -22373,6 +22373,10 @@ export type Database = {
         Returns: number[]
       }
       _cache_assert_actor: { Args: never; Returns: string }
+      _cache_assert_lines: {
+        Args: { p_artist: string; p_choices?: Json; p_root: string }
+        Returns: undefined
+      }
       _cache_cancel_contract: {
         Args: { p_contract: string; p_reason: string; p_uid: string }
         Returns: undefined
@@ -22388,6 +22392,21 @@ export type Database = {
           forecast_id: string
           idx: number
           is_absorber: boolean
+        }[]
+      }
+      _cache_cities_x: {
+        Args: { p_artist: string; p_choices?: Json; p_root: string }
+        Returns: {
+          cache_config_id: string
+          cap: number
+          event_date: string
+          event_id: string
+          event_name: string
+          forecast_id: string
+          frozen: boolean
+          idx: number
+          is_absorber: boolean
+          source: string
         }[]
       }
       _cache_create_contract: {
@@ -22407,6 +22426,7 @@ export type Database = {
         }
         Returns: string
       }
+      _cache_event_in_closing: { Args: { p_root: string }; Returns: boolean }
       _cache_free_advances: {
         Args: { p_artist: string; p_root: string }
         Returns: {
@@ -22414,6 +22434,30 @@ export type Database = {
           event_id: string
           legacy: boolean
           tx_id: string
+        }[]
+      }
+      _cache_free_advances_x: {
+        Args: { p_artist: string; p_choices?: Json; p_root: string }
+        Returns: {
+          amount: number
+          event_id: string
+          legacy: boolean
+          tx_id: string
+        }[]
+      }
+      _cache_guc_choices: { Args: never; Returns: Json }
+      _cache_resolve_lines: {
+        Args: { p_artist: string; p_choices?: Json; p_root: string }
+        Returns: {
+          cache_config_id: string
+          candidates: Json
+          cap: number
+          event_date: string
+          event_id: string
+          event_name: string
+          forecast_id: string
+          frozen: boolean
+          source: string
         }[]
       }
       _camarim_fund_move_legs: {
@@ -23951,6 +23995,14 @@ export type Database = {
         Args: { p_artist_supplier_id: string; p_event_id: string }
         Returns: Json
       }
+      cache_contract_status: {
+        Args: {
+          p_artist_supplier_id: string
+          p_event_id: string
+          p_line_choices?: Json
+        }
+        Returns: Json
+      }
       cache_max_contracts: { Args: never; Returns: number }
       calibrate_forecast_boost: {
         Args: { p_event_id: string; p_window_days?: number }
@@ -24471,6 +24523,7 @@ export type Database = {
           p_due_date: string
           p_event_id: string
           p_idempotency_key?: string
+          p_line_choices?: Json
           p_supplier_id: string
         }
         Returns: string
@@ -24485,6 +24538,7 @@ export type Database = {
           p_gross: number
           p_idempotency_key?: string
           p_label?: string
+          p_line_choices?: Json
           p_withholding_applies: boolean
           p_withholding_due_date: string
           p_withholding_rate: number

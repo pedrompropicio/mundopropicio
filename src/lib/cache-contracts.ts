@@ -94,3 +94,36 @@ export function splitPostContractAdvance(amount: number, artistChildren: number[
   const absorber = order[0]?.i ?? 0;
   return allocateCents(amount, artistChildren, absorber);
 }
+
+/** Mensagens pt-PT dos códigos devolvidos pelas RPCs de pagamento do cachê. */
+export const CACHE_ERROR_MESSAGES: Record<string, string> = {
+  cache_nao_congelado: "Congele primeiro o cachê no modal; só depois pode criar o contrato de pagamento.",
+  cache_ja_congelado: "O cachê já está congelado: lance o adiantamento dentro de um contrato.",
+  sem_linha_cache: "Não há linha de cachê (2.1.01) no BP desta cidade. Crie-a no BP ou configure o cachê.",
+  linha_cache_por_escolher: "Escolha a linha de cachê do artista nas cidades com várias linhas 2.1.01.",
+  linha_cache_invalida: "A linha escolhida não é uma linha de cachê (2.1.01) ativa desta cidade.",
+};
+
+export function cacheErrorMessage(e: unknown): string {
+  const raw = String((e as any)?.message ?? e ?? "");
+  const m = raw.match(/^([a-z_]+):\s*(.*)$/s);
+  if (!m) return raw;
+  return CACHE_ERROR_MESSAGES[m[1]] ?? m[2];
+}
+
+export interface CacheStatusCity {
+  event_id: string; name: string; forecast_id: string | null; cap: number | null; source: "config" | "bp"; frozen: boolean;
+  candidates: { forecast_id: string; description: string | null; amount: number }[] | null;
+}
+export interface CacheStatus { root_event_id: string; in_closing: boolean; has_config: boolean; frozen: boolean; cities: CacheStatusCity[] }
+
+/** Regras de interface: contrato só com o cachê configurado congelado; adiantamento livre só antes de congelar. */
+export function cachePaymentGates(s: Pick<CacheStatus, "has_config" | "frozen" | "cities">) {
+  const pending = s.cities.filter((c) => !c.forecast_id && (c.candidates?.length ?? 0) > 1);
+  return {
+    pending,
+    canCreateContract: (!s.has_config || s.frozen) && pending.length === 0,
+    canFreeAdvance: !(s.has_config && s.frozen) && pending.length === 0,
+    needsFreeze: s.has_config && !s.frozen,
+  };
+}

@@ -9,11 +9,12 @@ CREATE FUNCTION public.current_company_id() RETURNS uuid LANGUAGE sql STABLE AS 
 CREATE FUNCTION public.is_platform_admin() RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT false $$;
 CREATE FUNCTION public.has_role(u uuid, r app_role) RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT EXISTS(SELECT 1 FROM public.user_roles WHERE user_id=u AND role=r) $$;
 CREATE FUNCTION public.has_permission(u uuid, p text) RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT false $$;
-CREATE TABLE public.events(id uuid PRIMARY KEY, name text, date date, parent_event_id uuid, company_id uuid);
+CREATE TABLE public.events(id uuid PRIMARY KEY, name text, date date, parent_event_id uuid, company_id uuid, status text DEFAULT 'active');
 CREATE TABLE public.suppliers(id uuid PRIMARY KEY, name text, company_id uuid);
 CREATE TABLE public.account_categories(id uuid PRIMARY KEY, code text, company_id uuid);
-CREATE TABLE public.event_cache_configs(id uuid PRIMARY KEY, event_id uuid, supplier_id uuid);
-CREATE TABLE public.event_forecasts(id uuid PRIMARY KEY, event_id uuid, amount numeric, formula_type text, cache_config_id uuid, version_id uuid);
+CREATE TABLE public.event_cache_configs(id uuid PRIMARY KEY, event_id uuid, supplier_id uuid, is_finalized boolean DEFAULT false);
+CREATE TABLE public.event_cache_city_settlements(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), cache_config_id uuid, event_id uuid, is_finalized boolean DEFAULT false);
+CREATE TABLE public.event_forecasts(id uuid PRIMARY KEY, event_id uuid, amount numeric, formula_type text, cache_config_id uuid, version_id uuid, category_id uuid, description text);
 CREATE TABLE public.transactions(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), description text, type text, amount numeric, iva_rate int, event_id uuid,
   category_id uuid, forecast_id uuid, supplier_id uuid, account_id uuid, date date, due_date date, status text,

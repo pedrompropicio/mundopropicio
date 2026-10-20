@@ -13,3 +13,5 @@
 - [x] Cachê contratos: UI (painel, modal contrato, adiantamento, cancelar/alterar), totais "pago" e impacto.
 - [x] Cachê contratos: testes numéricos (TS) + SQL; docs DECISIONS/memória/estado; libertar reserva QUADRO.
 - [ ] Cachê contratos: verificação em Live pelo Pedro (migração, privilégios, cenários, #323 intocada) e CI.
+- [x] Ajuste D-ERP288: linha BP 2.1.01 como tecto, congelar, adiantamentos, UI modal+BP, testes, docs (migração 0216).
+- [ ] Ajuste D-ERP288: verificação em Live pelo Pedro e CI do commit.

@@ -76,3 +76,32 @@ describe("contratos de cachê", () => {
     expect(remainingToContract({ totalCap: 30000, otherContractsGross: 30000, freeAdvancesNotChosen: 0 })).toBe(0);
   });
 });
+
+import { cacheErrorMessage, cachePaymentGates } from "@/lib/cache-contracts";
+
+describe("ajuste D-ERP288: congelar e linha de BP", () => {
+  const city = (o: any = {}) => ({ event_id: "L", name: "Lisboa", forecast_id: "f", cap: 1000, source: "config", frozen: false, candidates: null, ...o });
+  it("cachê configurado por congelar bloqueia contrato e permite adiantamento livre", () => {
+    const g = cachePaymentGates({ has_config: true, frozen: false, cities: [city()] as any });
+    expect([g.canCreateContract, g.canFreeAdvance, g.needsFreeze]).toEqual([false, true, true]);
+  });
+  it("cachê congelado permite contrato e bloqueia adiantamento livre", () => {
+    const g = cachePaymentGates({ has_config: true, frozen: true, cities: [city({ frozen: true })] as any });
+    expect([g.canCreateContract, g.canFreeAdvance]).toEqual([true, false]);
+  });
+  it("sem configuração: contrato pela linha de BP sem congelar", () => {
+    const g = cachePaymentGates({ has_config: false, frozen: false, cities: [city({ source: "bp" })] as any });
+    expect([g.canCreateContract, g.canFreeAdvance]).toEqual([true, true]);
+  });
+  it("várias linhas 2.1.01 sem escolha bloqueiam até escolher", () => {
+    const cands = [{ forecast_id: "a", description: "A", amount: 1 }, { forecast_id: "b", description: "B", amount: 2 }];
+    const g = cachePaymentGates({ has_config: false, frozen: false, cities: [city({ source: "bp", forecast_id: null, candidates: cands })] as any });
+    expect(g.pending).toHaveLength(1);
+    expect(g.canCreateContract).toBe(false);
+  });
+  it("códigos novos com mensagem pt-PT", () => {
+    expect(cacheErrorMessage({ message: "cache_nao_congelado: x" })).toBe("Congele primeiro o cachê no modal; só depois pode criar o contrato de pagamento.");
+    expect(cacheErrorMessage({ message: "cache_ja_congelado: x" })).toBe("O cachê já está congelado: lance o adiantamento dentro de um contrato.");
+    expect(cacheErrorMessage({ message: "teto_excedido: bruto 5" })).toBe("bruto 5");
+  });
+});

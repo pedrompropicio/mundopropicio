@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllPaged } from "@/lib/supabase-paging";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { useAuth } from "@/contexts/AuthContext";
+import { CachePaymentDialog } from "@/components/CachePaymentDialog";
 import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip, Sparkles, CalendarPlus, Wallet } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
@@ -3547,6 +3548,8 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   const canSeeOverhead = isAdminAuth || isManagerAuth;
   const rowHouseLabel = useEventHouseLabel(item.event_id ?? eventId);
   const [showAuditLog, setShowAuditLog] = useState(false);
+  const [showCachePayment, setShowCachePayment] = useState(false);
+  const isCacheLine = isExpense && item.account_categories?.code === "2.1.01" && !item.version_id;
   const [showPayments, setShowPayments] = useState(false);
   const [showPartnerPopover, setShowPartnerPopover] = useState(false);
   const [viewingTransaction, setViewingTransaction] = useState<any>(null);
@@ -4054,6 +4057,17 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <Pencil className="h-3.5 w-3.5 text-primary" />
                 </button>
               )}
+              {isCacheLine && isAdmin && (
+                <button
+                  onClick={() => setShowCachePayment(true)}
+                  className="rounded p-1 hover:bg-primary/20"
+                  title="Pagamento do cachê"
+                  aria-label="Pagamento do cachê"
+                >
+                  <Wallet className="h-3.5 w-3.5 text-primary" />
+                </button>
+              )}
+              {showCachePayment && <CachePaymentDialog forecast={item} canEdit={isAdmin} onClose={() => setShowCachePayment(false)} />}
               {(!readOnly || formalidadeEditable) && <FormalidadeHistoryPopover forecastId={item.id} />}
               {isApproved && !readOnly && (
                 <button

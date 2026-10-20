@@ -491,7 +491,7 @@ export function CacheSettlementPanel({
           )}
           <div>
             <span className="text-xs font-medium">
-              {isFinalized ? "Cachê Fechado" : "Fechar Cachê"}
+              {isFinalized ? "Cachê congelado" : "Congelar cachê"}
             </span>
             {isFinalized && sourceRow.finalized_at && (
               <p className="text-[10px] text-muted-foreground">
