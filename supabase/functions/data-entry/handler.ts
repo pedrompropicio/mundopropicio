@@ -280,7 +280,7 @@ export function createHandler(d: Deps) {
         const cs = result.candidate_state; delete result.candidate_state;
         let candidateOut: { candidate: TicketlineCandidate; candidate_token: string } | undefined;
         if (cs && d.continuationSecret) {
-          const cand = await candidateFromModel({ message_id: cs.body.message_id, text: cs.body.body_text, truncated: cs.body.truncated }, cs.statement);
+          const cand = await candidateFromModel({ message_id: cs.body.message_id, text: cs.body.body_text, truncated: cs.body.truncated }, cs.statement as Parameters<typeof candidateFromModel>[1]); // zod-parsed in the orchestrator
           candidateOut = { candidate: cand, candidate_token: await signServerPayload("ticketline_candidate", { user: user.id, company }, cand, d.continuationSecret) };
         }
         if (metadata && d.continuationSecret && (result.status === "select_message" || result.status === "select_event")) result.continuation = await signContinuation({ ...metadata, user: user.id, company, requestHash: await requestHash(body.text), expires: Date.now() + 10 * 60 * 1000 }, d.continuationSecret);
