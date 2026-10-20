@@ -1,0 +1,31 @@
+# #333 fase12b — adaptadores reais, ativação FECHADA
+
+Base verificada: local/main `6f2e3b4df9fcc6233c87b3aab1991f31880146d7`. Controller: agentFinished=true; CI run39418307078 / quality118612643250 SUCCESS. Nova CI e commit de integração são responsabilidade do controller/plataforma; o agente não faz git commit/push.
+
+## Implementado, não validado contra serviços reais
+- AssistantModel servidor: SDK ai@6 + openai@3, Responses streaming interno, `openai/gpt-6-astra` conforme configuração atual. `store:false`, reasoning low/summary/encrypted, schema raiz estrito; quatro ferramentas fechadas, argumentos validados localmente. Sem ferramentas financeiras/administrativas.
+- Cada passo tem claim/POST/completion do controlo durável existente. 402/403/404 terminam; 403 persiste bloqueio; sem retry/fallback. EOF sem response.completed é incerto. Run-ID emitido pelo servidor reaproveitado nos passos seguintes; nenhuma criação de ID no cliente.
+- Budget conservador: bytes UTF-8 + 2048 de margem por entrada; reserva entrada+até6000tokens de saída por chamada, soma ≤40000 por turno; insuficiência recusa antes de HTTP. Uso real validado. Não é teto monetário. Limites existentes:8passos/6ferramentas/2pesquisas/2leituras/60s. Mantido deadline já autorizado/existente; sem novos temporizadores de retry.
+- ERP: cliente com JWT do próprio utilizador, RLS e `my_effective_permissions` canónicos. SELECT apenas eventos(id/nome/data), fechos(evento/status), apuramentos(id/número/status); empresa sempre filtrada. Até20eventos/40fechos/100apuramentos, +1 detecta overflow e bloqueia. Duplicados têm pesquisa limitada por número; comparação preserva separadores. Sem service-role financeiro, novo RPC ou DDL.
+- Gmail usa reader próprio existente e revalida contexto após cada resultado. Histórico/known_message_ids cliente não provam seleção nem conteúdo. Continuação HMAC10min vincula owner/empresa/hash do pedido/filtros/candidatos; reconsulta Gmail e ERP. Não persiste corpos. Mensagem truncada não gera proposta; proposta exige corpo relido no turno e inclui hash do conteúdo fonte.
+- Stop: AbortController da conversa → fetch cliente → Request.signal/deadline existente → SDK/provider. Troca/desmontagem também aborta. Não promete evitar cobrança; propagação Cloud efetiva ainda não validada.
+- Totais por tipo reutilizam helper puro canónico extraído sem alterar fórmula. Σ é posição do apuramento, não direito do evento nem recebimento. Repasses/transitado não viram deduções do modal. Nenhuma liquidação aceita `confirmed_by_user` do modelo. Todos os candidatos permanecem bloqueados até revisão humana persistida. Modal vincula despesas existentes; não é criador automático de despesas.
+- authorizationMatches assíncrono recomputa hash de efeitos+ações. Recusa conjunto vazio/parcial/desconhecido/duplicado, dependências omitidas, tipos trocados, ações ou valores alterados. Vincula conjunto exato. Helper não é endpoint de autorização e não ativa executor.
+
+## Estado operacional
+Validação local: suite completa 1837 PASS /6skip/11todo (210 ficheiros PASS), Deno check index.ts sem erros; harness tipos/build OK. Inclui HTTP→SDK real simulado→Gmail→ERP→proposta, 402/403/404, run-ID seguinte, cancelamento cliente/provider, invalid output, overflow/isolamento e hash/ações exatas. Nenhuma dessas provas é inbox/modelo Cloud real.
+
+Gmail11e/f previamente operacional fica preservado, sem leitura real nesta tarefa. Assistente: código integrado, ASSISTANT_ENABLED=false, scopes vazios. Analysis/upload=false mantidos. Nenhuma configuração/controlo de produção alterada; sem deploy, Publish, Cloud SELECT/DML/DDL, OAuth, inbox ou fornecedor real, nem resíduos ERP/Storage/Auth. #322/#323 preservadas.
+
+## Lacunas exatas
+1. Disponibilidade do modelo/schema/limites hospedados e cancelamento ponta-a-ponta não comprovados por HTTP simulado.
+2. PDF→scanner→statement Ticketline tipado ainda não integrado. Corpo de email gera apenas candidatos não confirmados; não é prova documental nem execução.
+3. UI de revisão tipada Ticketline e evidência bancária server-bound não implementadas.
+4. Prévia/autorização/replay financeiro persistentes e executor ainda inexistentes. Nada será lançado neste código.
+5. Endpoint browser ainda devolve JSON final; streaming do gateway é consumido no servidor. Janela controlada deve verificar comportamento do limite hospedado antes de generalizar.
+
+## Desenho mínimo de persistência/replay — INERTE, sem DDL
+Uma futura operação ticketline_v1 usa prévia server-owned com owner/company/source hash/versão/efeitos completos/ações-dependências/estado; nenhuma prévia reenviada pelo cliente é autoridade. Revisão humana tipada produz nova versão/hash. Autorização autenticada reclama exatamente esse conjunto de ações sob lock; alteração invalida. Tentativa+resultado+auditoria na mesma transação por ação existente; dependências exigem resultado persistido. Perda da resposta/crash/unknown bloqueiam novas mutações e retomam só leitura; novo UUID não cria nova intenção. Replay de conclusão retorna resultado conferido sem repetir writer. Fluxos de fecho não atómicos atuais exigem proposta de integração própria, nunca cobertura fingida por lock em memória. Nenhum SQL preparado/aplicado nesta entrega.
+
+## Pacote único posterior de ativação controlada
+Após nova CI verde, Pedro autoriza: uma conta/empresa reais existentes designadas, janela600s, UMA primeira chamada real para validar contrato/modelo; sem inbox ou pagamentos nessa primeira prova. Revisar scope nominal e habilitar apenas ASSISTANT_ENABLED+scope, controlo durável pelo fluxo existente; sem abrir análise/upload/execução. Deploy SOMENTE data-entry pelo chat0 autorizado. Se modelo/conta/denial falhar, parar e fechar sem fallback. Só após sucesso e autorização adicional de Pedro, testar Gmail próprio→ERP→proposta com seletor e fecho real, ainda sem gravação. Último passo humano: Pedro verifica proposta na /transacoes. Finally: fechar controlo, retirar scope, false e deploy só data-entry; comparar readback. Executor financeiro continua fora até pacote de persistência/revisão/evidência próprio aprovado. Não repetir OAuth.

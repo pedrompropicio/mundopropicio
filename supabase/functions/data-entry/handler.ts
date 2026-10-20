@@ -12,6 +12,8 @@ import {
 import { GmailConnectError, type GmailConnection } from "../_shared/gmail-app-user.ts";
 import { runAssistantTurn, type AssistantModel, type TurnInput } from "../_shared/assistant-orchestrator.ts";
 import type { ErpContext } from "../_shared/assistant-ticketline-proposal.ts";
+import { signContinuation, verifyContinuation, requestHash, type AssistantContinuation } from "../_shared/assistant-continuation.ts";
+import { boundedAnalysis } from "./analysis-deadline.ts";
 import { GmailUnavailable, gmailFilterSchema, gmailOrigin, gmailSelectionSchema, type GmailReader as _GmailReader } from "../_shared/gmail-readonly.ts";
 
 export type RpcResult = { data: unknown; error: { code?: string; message?: string } | null };
@@ -40,7 +42,11 @@ export interface Deps {
   /** Nome canónico da empresa já resolvida no servidor; null/erro = não mostrar (nunca inventar). */
   companyName?(company: string): Promise<string | null>;
   /** #333 fase12: orquestrador conversacional. Ausente = não ativado (503). Modelo e leitor ERP injetados. */
-  assistant?: { model: AssistantModel; erpContext(token: string, company: string, text: string): Promise<ErpContext> };
+  assistantEnabled?: boolean;
+  assistantScopeAllowed?(user: string, company: string): boolean;
+  assistant?: { model: AssistantModel; erpContext(token: string, company: string, text: string, signal?: AbortSignal, number?: string): Promise<ErpContext> };
+  assistantFactory?(req: Request, scope: { user: string; company: string }, revalidate: () => Promise<void>): Promise<NonNullable<Deps["assistant"]>>;
+  continuationSecret?: string;
   cors: Record<string, string>;
 }
 
@@ -70,7 +76,7 @@ export const commandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("assistant_turn"), text: z.string().max(2000),
     history: z.array(z.object({ role: z.enum(["user", "assistant"]), text: z.string().max(4000) }).strict()).max(20),
     selection: z.object({ message_id: z.string().regex(/^[A-Za-z0-9]{6,64}$/).optional(), event_id: z.string().uuid().optional() }).strict().optional(),
-    known_message_ids: z.array(z.string().regex(/^[A-Za-z0-9]{6,64}$/)).max(50).optional() }).strict(),
+    known_message_ids: z.array(z.string().regex(/^[A-Za-z0-9]{6,64}$/)).max(50).optional(), continuation: z.string().max(8000).optional() }).strict(),
   z.object({ action: z.literal("gmail_read"), message_id: z.string().regex(/^[A-Za-z0-9]{6,64}$/) }).strict(),
   z.object({ action: z.literal("gmail_connection") }).strict(),
   z.object({ action: z.literal("gmail_connect_start"), origin: z.string().url().max(200) }).strict(),
@@ -204,7 +210,7 @@ export function createHandler(d: Deps) {
       if (body.action === "status") {
         let companyName: string | null = null;
         try { companyName = d.companyName ? await d.companyName(company) : null; } catch { companyName = null; }
-        return reply({ user_id: user.id, role: eff.role, company_id: company, company_name: companyName, capabilities: { upload: uploadEnabled, ...(pilot?.unavailable ? { unavailable: true } : {}), analysis: d.analysisEnabled === true && uploadEnabled && !!d.analysis, gmail: !!d.gmail, assistant: !!d.assistant, drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
+        return reply({ user_id: user.id, role: eff.role, company_id: company, company_name: companyName, capabilities: { upload: uploadEnabled, ...(pilot?.unavailable ? { unavailable: true } : {}), analysis: d.analysisEnabled === true && uploadEnabled && !!d.analysis, gmail: !!d.gmail, assistant: d.assistantEnabled !== false && (!d.assistantScopeAllowed || d.assistantScopeAllowed(user.id, company)) && (!!d.assistant || d.assistantEnabled === true && !!d.assistantFactory), drive: false, transactions: false, payments: false, bp: false, bank: false, ticket_office: false } });
       }
       const gmailReader = async () => {
         if (!d.gmail) throw new SafeError("A ligação ao Gmail ainda não está disponível nesta plataforma. Envia o ficheiro manualmente.", 503);
@@ -230,15 +236,27 @@ export function createHandler(d: Deps) {
         return reply(result);
       }
       if (body.action === "assistant_turn") {
-        if (!d.assistant) throw new SafeError("O assistente conversacional ainda não está ativado. Podes usar a pesquisa do Gmail abaixo.", 503);
+        if (d.assistantScopeAllowed && !d.assistantScopeAllowed(user.id, company)) throw new SafeError("Assistente fora da janela autorizada para este utilizador e empresa.", 503);
+        if (d.assistantEnabled === false || !d.assistant && !(d.assistantEnabled === true && d.assistantFactory)) throw new SafeError("O assistente conversacional ainda não está ativado. Podes usar a pesquisa do Gmail abaixo.", 503);
         await canonicalStorageContext();
-        const a = d.assistant;
-        const result = await runAssistantTurn(a.model, {
-          gmailSearch: async (f) => (await gmailReader()).search(f),
-          gmailRead: async (id) => (await gmailReader()).read(id),
-          erpContext: async (text) => { const c = await a.erpContext(token, company, text); if (c.company_id !== company) throw new SafeError("Contexto alterado.", 403); return c; },
-        }, { text: body.text, history: body.history as TurnInput["history"], selection: body.selection, known_message_ids: body.known_message_ids }, req.signal);
+        if (body.selection && (!body.continuation || !d.continuationSecret)) throw new SafeError("Seleção sem prova do servidor; repete a pesquisa.", 409);
+        let resume: AssistantContinuation | undefined;
+        if (body.continuation) {
+          try { resume = await verifyContinuation(body.continuation, d.continuationSecret ?? "", { user: user.id, company }, body.text); }
+          catch { throw new SafeError("Seleção expirada ou contexto alterado; repete a pesquisa.", 409); }
+        }
+        const a = d.assistantFactory ? await d.assistantFactory(req, { user: user.id, company }, canonicalStorageContext) : d.assistant;
+        if (!a) throw new SafeError("Assistente indisponível.", 503);
+        const result = await boundedAnalysis(req.signal, signal => runAssistantTurn(a.model, {
+          resume,
+          gmailSearch: async (f) => { const r = await (await gmailReader()).search(f); await canonicalStorageContext(); return r; },
+          gmailRead: async (id) => { const r = await (await gmailReader()).read(id); await canonicalStorageContext(); return r; },
+          erpContext: async (text, number) => { await canonicalStorageContext(); const c = await a.erpContext(token, company, text, signal, number); await canonicalStorageContext(); if (c.company_id !== company) throw new SafeError("Contexto alterado.", 403); return c; },
+        }, { text: body.text, history: body.history as TurnInput["history"], selection: body.selection }, signal));
         await canonicalStorageContext();
+        const metadata = result.continuation_state; delete result.continuation_state;
+        if (metadata && d.continuationSecret && (result.status === "select_message" || result.status === "select_event")) result.continuation = await signContinuation({ ...metadata, user: user.id, company, requestHash: await requestHash(body.text), expires: Date.now() + 10 * 60 * 1000 }, d.continuationSecret);
+        if (req.signal.aborted) return reply({ error: "Pedido cancelado." }, 499);
         return reply(result);
       }
       // Leitura do corpo da mensagem escolhida: só leitura, independente do envio documental fechado.

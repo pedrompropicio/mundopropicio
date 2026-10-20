@@ -6,3 +6,5 @@
 - Provider calls require the singleton PostgreSQL control adapter; exact claim/revision fence transport and completion across isolates, while uncertain POST outcomes remain blocked without lease expiry. The candidate SQL remains inert until separately reviewed and applied.
 - Analysis has a server-owned bounded abort signal forwarded to SDK and durable control; deadline or Stop after POST remains uncertain, never a zero-cost promise or automatic retry.
 - Entry Gmail compares live Google users/me/profile with confirmed current Auth email before storage and every read; encrypted envelopes bind the verified email and user/company, so changed identities and legacy keys fail closed.
+- Conversational activation is independently closed. Request-scoped Responses steps use durable claims and caller-JWT ERP reads; signed short-lived selectors revalidate candidates, preventing browser history from becoming authority.
+- Statement totals reuse the server-safe canonical pure helper. Signed position is never event net or bank proof; all model candidates remain blocked pending human review and persisted authorization.

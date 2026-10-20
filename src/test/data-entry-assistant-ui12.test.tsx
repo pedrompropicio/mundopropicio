@@ -32,4 +32,18 @@ describe("Assistente conversacional (UI)", () => {
     render(<AssistantConversation adapter={{ assistantTurn: vi.fn() } as unknown as DataEntryAdapter} context={{ user_id: "user-a", company_id: "company-b" }} />);
     expect(screen.queryByText("segredo da empresa A")).toBeNull();
   });
+  it("Parar aborta o pedido e desmontar aborta após troca de contexto", async () => {
+    const signals: AbortSignal[] = [];
+    const assistantTurn = vi.fn((_input, _ctx, signal: AbortSignal) => { signals.push(signal); return new Promise(() => {}); });
+    const view = render(<AssistantConversation adapter={{ assistantTurn } as unknown as DataEntryAdapter} context={ctx} />);
+    fireEvent.change(screen.getByLabelText("O que pretende fazer?"), { target: { value: "Pedido" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+    await waitFor(() => expect(signals.length).toBe(1));
+    fireEvent.click(screen.getByRole("button", { name: "Parar" }));
+    expect(signals[0].aborted).toBe(true);
+    fireEvent.change(screen.getByLabelText("O que pretende fazer?"), { target: { value: "Outro pedido" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+    await waitFor(() => expect(signals.length).toBe(2));
+    view.unmount(); expect(signals[1].aborted).toBe(true);
+  });
 });
