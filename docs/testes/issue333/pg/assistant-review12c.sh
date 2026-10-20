@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # #333 fase12d — prova local em PostgreSQL descartável (socket /tmp/pg333:55433). Sem Cloud.
-# Propostas P1/P2 geradas pelo código do servidor (buildTicketlineProposal) em /tmp/pg333t/p{1,2}.json.
+# Propostas P1/P2 geradas pelo código do servidor: bun docs/testes/issue333/pg/assistant-review12d-gen.ts (escreve /tmp/pg333t/p{1,2}.json).
 set -u
 P="env -i PATH=$PATH psql -h /tmp/pg333 -p 55433 -U postgres -qAt"
 M=${M:-/dev-server/supabase/manual/20261020_issue333_assistant_review}
