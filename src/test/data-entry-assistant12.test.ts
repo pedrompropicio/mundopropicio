@@ -121,10 +121,10 @@ describe("#333 fase12 proposta Ticketline (inerte)", () => {
   it("variação da prévia invalida a autorização; outra empresa/utilizador também", async () => {
     const p = await buildTicketlineProposal({ source_message_id: "m", ...statement() }, erp(), {});
     const a = { user_id: owner, company_id: company, version: 1 as const, effects_hash: p.effects_hash, action_ids: ["a1", "a2"] };
-    expect(authorizationMatches(a, p, { user_id: owner, company_id: company })).toBe(false); // model candidates are not human-reviewed
+    expect(await authorizationMatches(a, p, { user_id: owner, company_id: company })).toBe(false); // model candidates are not human-reviewed
     const p2 = await buildTicketlineProposal({ source_message_id: "m", ...statement({ document_total_cents: 1000001 }) }, erp(), {});
-    expect(authorizationMatches(a, p2, { user_id: owner, company_id: company })).toBe(false);
-    expect(authorizationMatches(a, p, { user_id: "outro", company_id: company })).toBe(false);
+    expect(await authorizationMatches(a, p2, { user_id: owner, company_id: company })).toBe(false);
+    expect(await authorizationMatches(a, p, { user_id: "outro", company_id: company })).toBe(false);
   });
 });
 

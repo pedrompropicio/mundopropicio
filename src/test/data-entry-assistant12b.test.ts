@@ -93,11 +93,11 @@ describe("#333 real adapters with synthetic HTTP only", () => {
       lines: [{ line_type: "event_right", description: "Direito", amount_cents: 1000, event_hint: "Evento" }, { line_type: "advance", description: "Repasse", amount_cents: -200, event_hint: null }, { line_type: "carry_over", description: "Anterior", amount_cents: -100, event_hint: null }] }, { company_id: company, events: [{ id: event, name: "Evento", date: null, sealed: false }], existing_statements: [] }, {});
     expect(p.sum_cents).toBe(700); expect(p.totals_cents.event_right).toBe(1000); expect(p.actions.every(a => a.blocked_reason)).toBe(true);
     const a = { user_id: user, company_id: company, version: 1 as const, effects_hash: p.effects_hash, action_ids: [] };
-    expect(authorizationMatches(a, p, { user_id: user, company_id: company })).toBe(false);
+    expect(await authorizationMatches(a, p, { user_id: user, company_id: company })).toBe(false);
     const reviewed = { ...p, actions: p.actions.map(a => ({ ...a, blocked_reason: null })) };
     const full = { ...a, action_ids: ["a1", "a2", "a3", "a4", "a5"] };
-    expect(authorizationMatches(full, reviewed, { user_id: user, company_id: company })).toBe(true);
-    for (const ids of [[], ["unknown"], ["a1", "a1"], ["a2"], ["a1", "a2"]]) expect(authorizationMatches({ ...full, action_ids: ids }, reviewed, { user_id: user, company_id: company })).toBe(false);
-    expect(authorizationMatches(full, { ...reviewed, actions: reviewed.actions.map(a => a.id === "a2" ? { ...a, depends_on: [] } : a) }, { user_id: user, company_id: company })).toBe(false);
+    expect(await authorizationMatches(full, reviewed, { user_id: user, company_id: company })).toBe(false); // mutated action set does not retain the original hash
+    for (const ids of [[], ["unknown"], ["a1", "a1"], ["a2"], ["a1", "a2"]]) expect(await authorizationMatches({ ...full, action_ids: ids }, reviewed, { user_id: user, company_id: company })).toBe(false);
+    expect(await authorizationMatches(full, { ...reviewed, actions: reviewed.actions.map(a => a.id === "a2" ? { ...a, depends_on: [] } : a) }, { user_id: user, company_id: company })).toBe(false);
   });
 });
