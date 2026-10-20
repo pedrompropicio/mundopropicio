@@ -18,7 +18,7 @@ describe("#333 fase12c painel de revisão", () => {
     await screen.findByLabelText("Número");
     expect(screen.getByText("Data em falta")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Recalcular prévia" }));
-    await screen.findByText(/não guardada/);
+    await screen.findByText(/calculada no servidor/);
     expect(preview.mock.calls[0][0]).toMatchObject({ candidate_token: "tok", edits: { number: "AP-77", lines: [{ amount_cents: 1000 }] } });
     expect((screen.getByRole("button", { name: "Autorizar" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(screen.getByLabelText("Número"), { target: { value: "AP-78" } });
