@@ -54,7 +54,7 @@ legs 1
 echo "9 replay a3 (resposta perdida → mesmo resultado, 1 fecho):"; ok $AA a3; q "select count(*) from ticket_office_settlements where event_id='e0000000-0000-4000-8000-000000000001'"
 echo "10 a5 liquidação (evidência humana = plano: conta B1, 877,00 €, 16/10): triggers reais materializam 1 pagamento por perna:"; ok $AA a5; legs 1
 echo "11 replay a5 → sem pagamentos novos:"; ok $AA a5; q "select count(*) from transaction_payments p join transactions t on t.id=p.transaction_id where t.operation_key like 'TRF-FECHO-%' and t.event_id='e0000000-0000-4000-8000-000000000001'"
-echo "12 evidência com valor diferente do plano → a5 bloqueada; autorizar a5 recusado:"
+echo "12 evidência com valor diferente do plano → proposta marca a5 bloqueada; autorização que a inclua é recusada (actions_blocked). Recusa na execução: ver 23a:"
 RX=$(save pa_diff null null); authz $RX 1 pa_diff '{a1,a2,a4,a3,a5}' 00000000-aaaa-0000-0000-0000000000aa
 echo "13 E2 dados alterados após autorização (dedução editada / venda nova) → a4 recusa, nada escrito:"
 RB=$(save pb null null); AB=$(authz $RB 1 pb '{a1,a2,a4,a3}' 00000000-aaaa-0000-0000-000000000002); ok $AB a1 >/dev/null; ok $AB a2 >/dev/null
@@ -94,6 +94,10 @@ echo "22 E7 fecho confirmado no modal (a receber) + evidência humana → a5 liq
 modal 7 >/dev/null; RG=$(save pg null null); AG=$(authz $RG 1 pg '{a5}' 00000000-aaaa-0000-0000-000000000007); ok $AG a5; legs 7
 echo "23 E8 par TRF-FECHO adulterado (perna de entrada noutra conta) → recusa:"
 modal 8 >/dev/null; RH=$(save ph null null); AH=$(authz $RH 1 ph '{a5}' 00000000-aaaa-0000-0000-000000000008)
+echo "23a fecho canónico alterado após autorização (líquido 876 ≠ evidência 877) → a5 recusa na execução, nada pago:"
+q "update ticket_office_settlements set net_transferred=876 where event_id='e0000000-0000-4000-8000-000000000008'" >/dev/null; ex $AH a5; legs 8
+q "update ticket_office_settlements set net_transferred=877 where event_id='e0000000-0000-4000-8000-000000000008'" >/dev/null
+echo "23b perna de entrada noutra conta:"
 q "update transactions set account_id='$B2' where event_id='e0000000-0000-4000-8000-000000000008' and operation_key like 'TRF-FECHO-%' and type='income'"; ex $AH a5; legs 8
 echo "24 E9 já creditado no painel → conferência, 0 escritas:"
 modal 9 >/dev/null; $P -c "SET ROLE authenticated; $(claims) update transactions set status='paid', payment_date='2026-10-16', paid_amount=amount where event_id='e0000000-0000-4000-8000-000000000009' and operation_key like 'TRF-FECHO-%'" >/dev/null

@@ -38,7 +38,7 @@ income:paid:877.00:2026-10-16:false:pag=1:paid/877.00/2026-10-16/true/transfer
 11 replay a5 → sem pagamentos novos:
 succeeded replay {"already_liquidated": false, "payments": 2, "writes": 2}
 2
-12 evidência com valor diferente do plano → a5 bloqueada; autorizar a5 recusado:
+12 evidência com valor diferente do plano → proposta marca a5 bloqueada; autorização que a inclua é recusada (actions_blocked). Recusa na execução: ver 23a:
 ERROR:  #333: actions_blocked
 13 E2 dados alterados após autorização (dedução editada / venda nova) → a4 recusa, nada escrito:
 ERROR:  #333: data_changed
@@ -54,8 +54,8 @@ ERROR:  #333: hash_mismatch
 17 contrato de ações é do servidor (dependência a3→a4 removida, hash recalculado): recusa:
 ERROR:  #333: actions_blocked
 18 E4 concorrência (2 ligações no mesmo a3) → 1 fecho, 1 execução:
-   A: succeeded novo {"deductions": 1, "net_cents": 87700}
-   B: succeeded replay {"deductions": 1, "net_cents": 87700}
+   B: succeeded novo {"deductions": 1, "net_cents": 87700}
+   A: succeeded replay {"deductions": 1, "net_cents": 87700}
 1
 1
 19 E5 estado parcial (pagamento planeado numa perna) → a5 recusa, não adivinha:
@@ -79,6 +79,11 @@ succeeded novo {"already_liquidated": false, "payments": 2, "writes": 2}
 expense:paid:877.00:2026-10-16:true:pag=1:paid/877.00/2026-10-16/true/transfer
 income:paid:877.00:2026-10-16:false:pag=1:paid/877.00/2026-10-16/true/transfer
 23 E8 par TRF-FECHO adulterado (perna de entrada noutra conta) → recusa:
+23a fecho canónico alterado após autorização (líquido 876 ≠ evidência 877) → a5 recusa na execução, nada pago:
+ERROR:  #333: data_changed
+expense:pending:0:-:true:pag=0:
+income:pending:0:-:false:pag=0:
+23b perna de entrada noutra conta:
 ERROR:  #333: data_changed
 expense:pending:0:-:true:pag=0:
 income:pending:0:-:false:pag=0:

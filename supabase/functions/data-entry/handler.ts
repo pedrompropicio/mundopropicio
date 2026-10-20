@@ -13,7 +13,7 @@ import { GmailConnectError, type GmailConnection } from "../_shared/gmail-app-us
 import { runAssistantTurn, type AssistantModel, type TurnInput } from "../_shared/assistant-orchestrator.ts";
 import type { ErpContext } from "../_shared/assistant-ticketline-proposal.ts";
 import { signContinuation, verifyContinuation, requestHash, signServerPayload, verifyServerPayload, type AssistantContinuation } from "../_shared/assistant-continuation.ts";
-import { buildClosingPlan, type ClosingReads, type ClosingPlan, type ClosingOptions } from "../_shared/assistant-settlement-plan.ts";
+import { buildClosingPlan, type ClosingReads, type ClosingChoice, type ClosingPlan, type ClosingOptions } from "../_shared/assistant-settlement-plan.ts";
 import { candidateFromBody, candidateFromModel, verifyAttachmentSource, mergeScanner, applyHumanEdits, candidateToStatement, validateSettlementConfirmation, type TicketlineCandidate, type ReviewEdits, type AccountReader } from "../_shared/assistant-ticketline-candidate.ts";
 import { buildTicketlineProposal, LINE_TYPES, type Proposal } from "../_shared/assistant-ticketline-proposal.ts";
 import { ReviewUnavailable, ReviewConflict, type ReviewStore } from "../_shared/assistant-review-store.ts";
@@ -374,7 +374,7 @@ export function createHandler(d: Deps) {
           await canonicalStorageContext();
           if (reads.company !== company || reads.office !== office || reads.event !== chosenEvent.id) throw new SafeError("Contexto alterado.", 403);
           const right = st.lines.filter(l => l.line_type === "event_right").reduce((a, l) => a + l.amount_cents, 0);
-          const built = buildClosingPlan(reads, closingChoice ?? null, st.lines.some(l => l.line_type === "event_right") ? right : null, d.today?.() ?? new Date().toISOString().slice(0, 10));
+          const built = buildClosingPlan(reads, (closingChoice as ClosingChoice | null | undefined) ?? null, st.lines.some(l => l.line_type === "event_right") ? right : null, d.today?.() ?? new Date().toISOString().slice(0, 10));
           closing = built.plan; closingOptions = built.options; closingIssues = built.issues;
         } else if (office && chosenEvent && !chosenEvent.sealed) closingIssues = ["Leitura do fecho por ativar neste ambiente: fecho só no modal."];
         const proposal: Proposal = await buildTicketlineProposal(st, erp, { event_id: eventId, settlement, human_reviewed: body.edits.confirm_review === true, office_account_id: office, closing, closing_issues: closingIssues });
