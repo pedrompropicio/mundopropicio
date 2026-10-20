@@ -248,6 +248,11 @@ export function gmailReadOnly(transport: GmailFetch, opts?: { readTimeoutMs?: nu
         },
       };
     },
+    /** Metadados dos anexos da mensagem escolhida (sem bytes, sem attachment_id), para o seletor humano. */
+    async attachments(messageId: string): Promise<GmailAttachment[]> {
+      const msg = await withTimeout(get(`/users/me/messages/${messageId}`, { format: "full", fields: MESSAGE_FIELDS }));
+      return listAttachments((msg as { payload?: Part }).payload).map(({ part_id, filename, mime, size_bytes }) => ({ part_id, filename: untrustedText(filename, 120), mime, size_bytes }));
+    },
     /** Só depois da escolha humana: relê a mensagem, encontra a parte e descarrega esse anexo. */
     async attachment(messageId: string, partId: string): Promise<{ bytes: Uint8Array; filename: string; mime: string }> {
       const msg = await get(`/users/me/messages/${messageId}`, { format: "full", fields: MESSAGE_FIELDS });

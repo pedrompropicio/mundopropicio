@@ -25,8 +25,9 @@ describe("#333 fase12c painel de revisão", () => {
     expect(screen.getByRole("status").textContent).toMatch(/deixaram de valer/);
     expect((screen.getByRole("button", { name: "Guardar revisão" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(screen.getByLabelText("Valor recebido"), { target: { value: "10,00" } });
+    fireEvent.change(screen.getByLabelText("Data do recebimento"), { target: { value: "2026-10-15" } });
     fireEvent.click(screen.getByRole("button", { name: "Recalcular prévia" }));
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/verificaste o recebimento/));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/(conta|verificaste o recebimento)/));
     expect(preview).toHaveBeenCalledTimes(1);
   });
 });

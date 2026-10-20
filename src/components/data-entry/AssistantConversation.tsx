@@ -105,7 +105,7 @@ function Conversation({ adapter, context }: Props) {
           </div>
           <ul className="space-y-0.5">{p.checks.map((c) => <li key={c.code} className={c.ok ? "" : "text-destructive"}>{c.ok ? "✓" : "✗"} {c.message}</li>)}</ul>
           {p.needs.length > 0 && <div><div className="font-semibold">Pendências</div><ul className="list-disc pl-4">{p.needs.map((n) => <li key={n}>{n}</li>)}</ul></div>}
-          {p.source_message_id && adapter.ticketlineCandidate && <TicketlineReviewPanel key={p.source_message_id} adapter={adapter} context={context} messageId={p.source_message_id} events={p.event ? [{ id: p.event.id, label: p.event.name }] : []} />}
+          {p.source_message_id && adapter.ticketlineCandidate && <TicketlineReviewPanel key={`${p.source_message_id}:${p.effects_hash}`} adapter={adapter} context={context} messageId={p.source_message_id} initial={last?.candidate && last.candidate_token ? { candidate: last.candidate, candidate_token: last.candidate_token } : undefined} events={[...(p.event ? [{ id: p.event.id, label: p.event.name }] : []), ...(last?.status === "select_event" ? last.options ?? [] : [])]} />}
           <div className="font-semibold">Ações propostas (pelos fluxos existentes)</div>
           <ol className="space-y-1">{p.actions.map((a) => (
             <li key={a.id} className="break-words"><span className="font-medium">{a.id}. {a.label}</span>

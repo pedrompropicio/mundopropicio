@@ -13,7 +13,7 @@ import { GmailConnectError, type GmailConnection } from "../_shared/gmail-app-us
 import { runAssistantTurn, type AssistantModel, type TurnInput } from "../_shared/assistant-orchestrator.ts";
 import type { ErpContext } from "../_shared/assistant-ticketline-proposal.ts";
 import { signContinuation, verifyContinuation, requestHash, signServerPayload, verifyServerPayload, type AssistantContinuation } from "../_shared/assistant-continuation.ts";
-import { candidateFromBody, verifyAttachmentSource, mergeScanner, applyHumanEdits, candidateToStatement, validateSettlementConfirmation, type TicketlineCandidate, type ReviewEdits, type AccountReader } from "../_shared/assistant-ticketline-candidate.ts";
+import { candidateFromBody, candidateFromModel, verifyAttachmentSource, mergeScanner, applyHumanEdits, candidateToStatement, validateSettlementConfirmation, type TicketlineCandidate, type ReviewEdits, type AccountReader } from "../_shared/assistant-ticketline-candidate.ts";
 import { buildTicketlineProposal, LINE_TYPES, type Proposal } from "../_shared/assistant-ticketline-proposal.ts";
 import { ReviewUnavailable, ReviewConflict, type ReviewStore } from "../_shared/assistant-review-store.ts";
 import type { AnalysisWire } from "../_shared/data-entry-analysis.ts";
@@ -54,7 +54,8 @@ export interface Deps {
   /** #333 fase12c: scanner existente sobre o anexo escolhido (controlo durável). Ausente = fechado. */
   scanAttachment?(bytes: Uint8Array, mime: DocumentType, signal: AbortSignal): Promise<AnalysisWire>;
   /** Leitura ERP com o JWT do chamador (eventos/selagem/apuramentos e contas). Ausente = indisponível. */
-  ticketlineErp?: { context(token: string, company: string, text: string, signal: AbortSignal, number?: string): Promise<ErpContext>; account(token: string): AccountReader };
+  ticketlineErp?: { context(token: string, company: string, text: string, signal: AbortSignal, number?: string, eventId?: string): Promise<ErpContext>; account(token: string): AccountReader;
+    accounts(token: string, company: string, signal: AbortSignal): Promise<{ id: string; name: string }[]> };
   /** Persistência revista (RPC). Ausente = 503 explícito; nunca memória. */
   reviewStore?: ReviewStore;
   today?(): string;
@@ -91,10 +92,13 @@ export const commandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("ticketline_candidate"), message_id: z.string().regex(/^[A-Za-z0-9]{6,64}$/), part_id: z.string().regex(/^[A-Za-z0-9.]{1,32}$/).optional(), expected_sha256: z.string().regex(/^[a-f0-9]{64}$/).optional() }).strict(),
   z.object({ action: z.literal("ticketline_preview"), candidate_token: z.string().max(120000),
     edits: z.object({ number: z.string().max(60).nullable().optional(), date: z.string().max(10).nullable().optional(), total_cents: z.number().int().nullable().optional(), event_id: z.string().uuid().nullable().optional(),
-      lines: z.array(z.object({ line_type: z.enum(LINE_TYPES), description: z.string().max(160), amount_cents: z.number().int().min(-1000000000).max(1000000000), event_hint: z.string().max(120).nullable() }).strict()).max(40).optional() }).strict(),
+      lines: z.array(z.object({ line_type: z.enum(LINE_TYPES), description: z.string().max(160), amount_cents: z.number().int().min(-1000000000).max(1000000000), event_hint: z.string().max(120).nullable() }).strict()).max(40).optional(),
+      confirm_review: z.boolean().optional() }).strict(),
     settlement: z.object({ financial_account_id: z.string().uuid(), date: z.string().max(10), amount_cents: z.number().int(), confirm: z.literal(true) }).strict().optional(),
     save: z.object({ review_id: z.string().uuid().nullable(), expected_version: z.number().int().positive().nullable() }).strict().optional() }).strict(),
   z.object({ action: z.literal("ticketline_authorize"), review_id: z.string().uuid(), version: z.number().int().positive(), effects_hash: z.string().regex(/^[a-f0-9]{64}$/), action_ids: z.array(z.string().regex(/^a[1-5]$/)).min(1).max(5), replay_key: z.string().uuid() }).strict(),
+  z.object({ action: z.literal("ticketline_accounts") }).strict(),
+  z.object({ action: z.literal("ticketline_attachments"), message_id: z.string().regex(/^[A-Za-z0-9]{6,64}$/) }).strict(),
   z.object({ action: z.literal("gmail_read"), message_id: z.string().regex(/^[A-Za-z0-9]{6,64}$/) }).strict(),
   z.object({ action: z.literal("gmail_connection") }).strict(),
   z.object({ action: z.literal("gmail_connect_start"), origin: z.string().url().max(200) }).strict(),
@@ -273,9 +277,20 @@ export function createHandler(d: Deps) {
         }, { text: body.text, history: body.history as TurnInput["history"], selection: body.selection }, signal));
         await canonicalStorageContext();
         const metadata = result.continuation_state; delete result.continuation_state;
+        const cs = result.candidate_state; delete result.candidate_state;
+        let candidateOut: { candidate: TicketlineCandidate; candidate_token: string } | undefined;
+        if (cs && d.continuationSecret) {
+          const cand = await candidateFromModel({ message_id: cs.body.message_id, text: cs.body.body_text, truncated: cs.body.truncated }, cs.statement as Parameters<typeof candidateFromModel>[1]); // zod-parsed in the orchestrator
+          candidateOut = { candidate: cand, candidate_token: await signServerPayload("ticketline_candidate", { user: user.id, company }, cand, d.continuationSecret) };
+        }
         if (metadata && d.continuationSecret && (result.status === "select_message" || result.status === "select_event")) result.continuation = await signContinuation({ ...metadata, user: user.id, company, requestHash: await requestHash(body.text), expires: Date.now() + 10 * 60 * 1000 }, d.continuationSecret);
         if (req.signal.aborted) return reply({ error: "Pedido cancelado." }, 499);
-        return reply(result);
+        return reply(candidateOut ? { ...result, ...candidateOut } : result);
+      }
+      if (body.action.startsWith("ticketline_")) {
+        // Review actions share the assistant activation and nominal scope; closed gates never fall back to memory.
+        if (d.assistantScopeAllowed && !d.assistantScopeAllowed(user.id, company)) throw new SafeError("Revisão fora da janela autorizada para este utilizador e empresa.", 503);
+        if (d.assistantEnabled === false) throw new SafeError("Revisão do assistente ainda não ativada. Nada foi guardado.", 503);
       }
       if (body.action === "ticketline_candidate") {
         if (!d.continuationSecret) throw new SafeError("Candidatos indisponíveis: controlo de assinatura não configurado.", 503);
@@ -284,12 +299,15 @@ export function createHandler(d: Deps) {
         await canonicalStorageContext();
         let cand: TicketlineCandidate = await candidateFromBody({ message_id: read.message_id, text: read.body_text, truncated: read.truncated });
         if (body.part_id) {
+          const listed = await reader.attachments(body.message_id);
+          await canonicalStorageContext();
+          if (!listed.some(a => a.part_id === body.part_id)) throw new SafeError("Anexo não pertence à mensagem escolhida.", 409);
           const att = await reader.attachment(body.message_id, body.part_id);
           await canonicalStorageContext();
           let mime: DocumentType;
           try { mime = validateDocument(att.bytes, att.mime); } catch (e) { throw new SafeError((e as Error).message, 422); }
           let prov;
-          try { prov = await verifyAttachmentSource({ message_id: body.message_id, part_id: body.part_id, bytes: att.bytes, mime, listed: [{ part_id: body.part_id, size_bytes: att.bytes.length }], expected_sha256: body.expected_sha256 }); }
+          try { prov = await verifyAttachmentSource({ message_id: body.message_id, part_id: body.part_id, bytes: att.bytes, mime, listed: listed.map(a => ({ part_id: a.part_id, size_bytes: a.size_bytes })), expected_sha256: body.expected_sha256 }); }
           catch (e) { throw new SafeError((e as Error).message, 409); }
           if (!d.scanAttachment || !d.analysisEnabled) cand = { ...cand, sources: [...cand.sources, prov], incomplete: [...cand.incomplete, "Anexo verificado (origem e hash), mas o scanner está fechado: confirmar número, data e total no documento."] };
           else {
@@ -300,6 +318,17 @@ export function createHandler(d: Deps) {
         }
         return reply({ candidate: cand, candidate_token: await signServerPayload("ticketline_candidate", { user: user.id, company }, cand, d.continuationSecret) });
       }
+      if (body.action === "ticketline_attachments") {
+        const listed = await (await gmailReader()).attachments(body.message_id);
+        await canonicalStorageContext();
+        return reply({ attachments: listed.map(({ part_id, filename, mime, size_bytes }) => ({ part_id, filename, mime, size_bytes })) });
+      }
+      if (body.action === "ticketline_accounts") {
+        if (!d.ticketlineErp) throw new SafeError("Contas indisponíveis: leitura do ERP por ativar.", 503);
+        const accounts = await d.ticketlineErp.accounts(token, company, req.signal);
+        await canonicalStorageContext();
+        return reply({ accounts });
+      }
       if (body.action === "ticketline_preview") {
         if (!d.continuationSecret || !d.ticketlineErp) throw new SafeError("Revisão Ticketline indisponível: leitura do ERP por ativar. Nada foi guardado.", 503);
         let cand: TicketlineCandidate;
@@ -308,7 +337,8 @@ export function createHandler(d: Deps) {
         let reviewed: TicketlineCandidate;
         try { reviewed = applyHumanEdits(cand, body.edits as ReviewEdits, user.id); } catch (e) { throw new SafeError((e as Error).message, 422); }
         const st = await candidateToStatement(reviewed);
-        const erp = await d.ticketlineErp.context(token, company, st.lines.find(l => l.event_hint)?.event_hint ?? st.number ?? "ticketline", req.signal, st.number ?? undefined);
+        const eventChoice = reviewed.event_id?.value ?? undefined;
+        const erp = await d.ticketlineErp.context(token, company, st.lines.find(l => l.event_hint)?.event_hint ?? st.number ?? "ticketline", req.signal, st.number ?? undefined, eventChoice);
         await canonicalStorageContext();
         if (erp.company_id !== company) throw new SafeError("Contexto alterado.", 403);
         const eventId = reviewed.event_id?.value ?? null;
@@ -317,17 +347,22 @@ export function createHandler(d: Deps) {
         try { settlement = await validateSettlementConfirmation(body.settlement as Parameters<typeof validateSettlementConfirmation>[0], { user_id: user.id, company_id: company, today: d.today?.() ?? new Date().toISOString().slice(0, 10), origin: "human_request" }, d.ticketlineErp.account(token)); }
         catch (e) { throw new SafeError((e as Error).message, 422); }
         await canonicalStorageContext();
-        const proposal: Proposal = await buildTicketlineProposal(st, erp, { event_id: eventId, settlement });
-        if (!body.save) return reply({ candidate: reviewed, proposal, persisted: false, notice: "Prévia calculada no servidor, não guardada." });
+        // confirm_review comes only from the authenticated human request; the model can never set it.
+        const proposal: Proposal = await buildTicketlineProposal(st, erp, { event_id: eventId, settlement, human_reviewed: body.edits.confirm_review === true });
+        const events = erp.events.map(e => ({ id: e.id, label: `${e.name}${e.date ? ` · ${e.date}` : ""}${e.sealed ? " · fechado" : ""}` }));
+        if (!body.save) return reply({ candidate: reviewed, proposal, events, persisted: false, notice: "Prévia calculada no servidor, não guardada." });
         if (!d.reviewStore) throw new ReviewUnavailable();
-        const saved = await d.reviewStore.save(token, { review_id: body.save.review_id ?? null, expected_version: body.save.expected_version ?? null, proposal });
-        return reply({ candidate: reviewed, proposal, persisted: true, review: saved });
+        await d.reviewStore.probe();
+        await canonicalStorageContext();
+        const saved = await d.reviewStore.save({ user: user.id, company }, { review_id: body.save.review_id ?? null, expected_version: body.save.expected_version ?? null, proposal });
+        return reply({ candidate: reviewed, proposal, events, persisted: true, review: saved });
       }
       if (body.action === "ticketline_authorize") {
         if (!d.reviewStore) throw new ReviewUnavailable();
+        await d.reviewStore.probe();
         await canonicalStorageContext();
         if (new Set(body.action_ids).size !== body.action_ids.length) throw new SafeError("Ações repetidas.", 422);
-        const rec = await d.reviewStore.authorize(token, { review_id: body.review_id!, version: body.version!, effects_hash: body.effects_hash!, action_ids: body.action_ids!, replay_key: body.replay_key! });
+        const rec = await d.reviewStore.authorize({ user: user.id, company }, { review_id: body.review_id!, version: body.version!, effects_hash: body.effects_hash!, action_ids: body.action_ids!, replay_key: body.replay_key! });
         return reply({ ...rec, executor: "indisponível", notice: "Autorização registada sem execução: executor financeiro desativado." });
       }
       // Leitura do corpo da mensagem escolhida: só leitura, independente do envio documental fechado.

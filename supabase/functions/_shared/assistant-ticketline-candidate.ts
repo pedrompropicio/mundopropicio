@@ -13,6 +13,7 @@ export const CANDIDATE_LIMITS = { attachmentBytes: 20 * 1024 * 1024, bodyChars: 
 export type Provenance =
   | { source: "email_body"; message_id: string; body_sha256: string; line: number; truncated: boolean }
   | { source: "attachment"; origin: string; sha256: string; size_bytes: number; mime: string }
+  | { source: "model"; message_id: string; body_sha256: string }
   | { source: "human"; user_id: string };
 export type Field<T> = { value: T; prov: Provenance } | null;
 export type CandidateLine = { line_type: LineType; description: string; amount_cents: number; event_hint: string | null; prov: Provenance };
@@ -79,6 +80,18 @@ export async function candidateFromBody(read: { message_id: string; text: string
   return c;
 }
 
+/** Extração conduzida pela IA sobre o corpo lido no servidor: candidato completo, nunca confirmado. */
+export async function candidateFromModel(read: { message_id: string; text: string; truncated: boolean }, st: Omit<ExtractedStatement, "source_message_id" | "source_content_hash">): Promise<TicketlineCandidate> {
+  const body_sha256 = await sha256Hex(read.text.slice(0, CANDIDATE_LIMITS.bodyChars));
+  const prov: Provenance = { source: "model", message_id: read.message_id, body_sha256 };
+  const lines = st.lines.slice(0, CANDIDATE_LIMITS.lines).map(l => ({ ...l, description: l.description.slice(0, CANDIDATE_LIMITS.description), prov }));
+  const incomplete = ["Extraído pela IA a partir do email: confirma cada campo e linha antes de guardar."];
+  if (read.truncated) incomplete.push("Corpo do email truncado: confirmar linhas e total no documento original.");
+  if (st.lines.length > CANDIDATE_LIMITS.lines) incomplete.push(`Mais de ${CANDIDATE_LIMITS.lines} linhas: cobertura incompleta.`);
+  return { message_id: read.message_id, number: st.number ? { value: st.number, prov } : null, date: st.statement_date ? { value: st.statement_date, prov } : null,
+    total_cents: st.document_total_cents == null ? null : { value: st.document_total_cents, prov }, event_id: null, lines, sources: [prov], incomplete };
+}
+
 /** Anexo escolhido: tem de pertencer à mensagem lida no servidor; hash/tamanho calculados aqui. */
 export async function verifyAttachmentSource(x: { message_id: string; part_id: string; bytes: Uint8Array; mime: string; listed: { part_id: string; size_bytes: number }[]; expected_sha256?: string }) {
   if (!x.listed.some(a => a.part_id === x.part_id)) throw new Error("Anexo não pertence à mensagem escolhida.");
@@ -105,7 +118,7 @@ export function mergeScanner(c: TicketlineCandidate, wire: AnalysisWire, prov: E
 }
 
 export const reviewEditsSchemaShape = ["number", "date", "total_cents", "event_id", "lines"] as const;
-export type ReviewEdits = Partial<{ number: string | null; date: string | null; total_cents: number | null; event_id: string | null; lines: Omit<CandidateLine, "prov">[] }>;
+export type ReviewEdits = Partial<{ confirm_review: boolean; number: string | null; date: string | null; total_cents: number | null; event_id: string | null; lines: Omit<CandidateLine, "prov">[] }>;
 
 /** Edição humana autenticada: user_id vem da sessão no servidor, nunca do corpo do pedido. */
 export function applyHumanEdits(c: TicketlineCandidate, edits: ReviewEdits, user_id: string): TicketlineCandidate {
@@ -138,7 +151,7 @@ export async function candidateToStatement(c: TicketlineCandidate): Promise<Extr
 }
 
 /** Confirmação de recebimento: pedido humano explícito + conta da empresa canónica, ativa; data não futura. */
-export type AccountReader = (account_id: string) => Promise<{ id: string; company_id: string; is_active: boolean } | null>;
+export type AccountReader = (account_id: string) => Promise<{ id: string; company_id: string; is_active: boolean; is_hidden?: boolean } | null>;
 export async function validateSettlementConfirmation(
   input: { financial_account_id: string; date: string; amount_cents: number; confirm: true } | undefined,
   ctx: { user_id: string; company_id: string; today: string; origin: "human_request" | "model" },
@@ -149,6 +162,6 @@ export async function validateSettlementConfirmation(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || input.date > ctx.today) throw new Error("Data de recebimento inválida ou futura.");
   if (!Number.isSafeInteger(input.amount_cents) || input.amount_cents <= 0) throw new Error("Valor de recebimento inválido.");
   const acc = await readAccount(input.financial_account_id);
-  if (!acc || acc.company_id !== ctx.company_id || !acc.is_active) throw new Error("Conta indisponível para esta empresa.");
+  if (!acc || acc.company_id !== ctx.company_id || !acc.is_active || acc.is_hidden) throw new Error("Conta indisponível para esta empresa.");
   return { financial_account_id: acc.id, date: input.date, amount_cents: input.amount_cents, confirmed_by_user: true, confirmed_by_user_id: ctx.user_id, server_validated: true };
 }

@@ -9,7 +9,8 @@ import { assertProviderControlAvailable, durableProviderControl, rpcControlStore
 import { boundedAnalysis } from "./analysis-deadline.ts";
 import { createGmailConnection, type GmailConnectionStore } from "../_shared/gmail-app-user.ts";
 import { createAssistantModel } from "../_shared/issue333-ai/assistant-model.ts";
-import { readAssistantErp } from "../_shared/assistant-erp.ts";
+import { readAssistantErp, readAssistantAccounts, type ErpReader } from "../_shared/assistant-erp.ts";
+import { rpcReviewStore } from "../_shared/assistant-review-store.ts";
 
 const url = Deno.env.get("SUPABASE_URL") ?? "";
 const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -22,6 +23,23 @@ const ANALYSIS_ENABLED = false; // #333 fecho96: closed after manual window96.
 const ASSISTANT_ENABLED = false; // #333 fase12b: local implementation, activation not authorized.
 const ASSISTANT_REVIEWED_SCOPES = new Set<string>(); // Empty; future controlled authorization names owner+company explicitly.
 const ANALYSIS_PROVIDER_REVIEWED = false; // #333 fecho96: closed after manual window96.
+// #333 fase12d: review persistence wired but closed until the INERTE SQL (schema '333-12d') is reviewed/applied with Pedro's "Sim".
+// Even when true, every call probes schema+gate in SQL and answers 503 on absence/mismatch.
+const REVIEW_SCHEMA_REVIEWED = false;
+const erpReader = (token: string): ErpReader => {
+  const client = asUser(token); // Caller JWT/RLS; never privileged financial reads.
+  return async query => {
+    let q = client.from(query.table).select(query.columns).eq("company_id", query.company).order("id").limit(query.limit);
+    if (query.text) q = q.ilike("name", `%${query.text}%`);
+    if (query.ids) q = q.in("id", query.ids);
+    if (query.eventIds) q = q.in("event_id", query.eventIds);
+    if (query.active) q = q.eq("is_active", true);
+    if (query.number) q = q.ilike("number", `%${query.number.replace(/[\\%_]/g, "\\$&")}%`); // bounded candidates; identity still checked with separators intact
+    const r = await q.abortSignal(query.signal);
+    if (r.error) throw new AnalysisError("Leitura ERP recusada ou indisponível.", 403);
+    return r.data;
+  };
+};
 
 // #333 fase11b: per-user Gmail (App User Connector google_mail, gmail.readonly only).
 // Closed until the inert SQL is applied, the Google client is linked and Pedro authorizes; see docs/testes/issue333/fase11b-ligacao-gmail.md.
@@ -74,24 +92,29 @@ Deno.serve(createHandler({
   assistantEnabled: ASSISTANT_ENABLED,
   assistantScopeAllowed: (user, company) => ASSISTANT_REVIEWED_SCOPES.has(`${user}:${company}`),
   continuationSecret: Deno.env.get("APP_USER_CONNECTION_KEY_SECRET") ?? "",
+  ticketlineErp: {
+    context: (token, company, text, signal, number, eventId) => readAssistantErp(erpReader(token), company, text, signal, number, eventId),
+    accounts: (token, company, signal) => readAssistantAccounts(erpReader(token), company, signal),
+    account: (token) => async (id) => {
+      const { data, error } = await asUser(token).from("financial_accounts").select("id,company_id,is_active,is_hidden").eq("id", id).maybeSingle();
+      return error || !data ? null : data as { id: string; company_id: string; is_active: boolean; is_hidden: boolean };
+    },
+  },
+  ...(REVIEW_SCHEMA_REVIEWED ? { reviewStore: rpcReviewStore(async (name, args) => { const r = await admin.rpc(name, args); return { data: r.data, error: r.error }; }) } : {}),
+  // Existing scanner (scanner-analysis + durable provider control); only reachable when analysisEnabled is true.
+  ...(ANALYSIS_ENABLED && ANALYSIS_PROVIDER_REVIEWED ? { async scanAttachment(bytes: Uint8Array, mime: Parameters<typeof generateScannerAnalysis>[0]["mime"], signal: AbortSignal) {
+    const store = rpcControlStore(async (name, args) => { const r = await admin.rpc(name, args); return { data: r.data, error: r.error }; });
+    await assertProviderControlAvailable(store);
+    const control = durableProviderControl(store);
+    return await control.run(signal, async () => {}, transport => /* handler revalidates context after the scan */ generateScannerAnalysis({ bytes, mime, message: "Extrai número, data e total deste fecho Ticketline.", history: [], signal }, Deno.env.get("LOVABLE_API_KEY") ?? "", transport));
+  } } : {}),
   async assistantFactory(req, _scope, revalidate) {
     if (!ASSISTANT_ENABLED) throw new AnalysisError("Assistente ainda não ativado.", 503);
     const store = rpcControlStore(async (name, args) => { const r = await admin.rpc(name, args); return { data: r.data, error: r.error }; });
     await assertProviderControlAvailable(store);
     return {
       model: createAssistantModel({ apiKey: Deno.env.get("LOVABLE_API_KEY") ?? "", control: durableProviderControl(store), validateContext: revalidate }),
-      async erpContext(token, company, text, signal = req.signal, number) {
-        const client = asUser(token); // Caller JWT/RLS; never privileged financial reads.
-        return readAssistantErp(async query => {
-          let q = client.from(query.table).select(query.columns).eq("company_id", query.company).order("id").limit(query.limit);
-          if (query.text) q = q.ilike("name", `%${query.text}%`);
-          if (query.eventIds) q = q.in("event_id", query.eventIds);
-          if (query.number) q = q.ilike("number", `%${query.number.replace(/[\\%_]/g, "\\$&")}%`); // bounded candidates; identity still checked with separators intact
-          const r = await q.abortSignal(query.signal);
-          if (r.error) throw new AnalysisError("Leitura ERP recusada ou indisponível.", 403);
-          return r.data;
-        }, company, text, signal, number);
-      },
+      erpContext: (token, company, text, signal = req.signal, number) => readAssistantErp(erpReader(token), company, text, signal, number),
     };
   },
   async analysis(req, input) {

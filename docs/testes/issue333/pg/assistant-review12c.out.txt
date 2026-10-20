@@ -1,67 +1,75 @@
 apply OK
-1 gate fechado:
+1 probe com gate fechado:
+{"schema": "333-12d", "enabled": false}
+2 gate fechado:
 ERROR:  #333: review_closed
-CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 6 at RAISE
-2 select direto authenticated:
-ERROR:  permission denied for table data_entry_assistant_reviews_333
-3 anon execute:
+3 authenticated execute (cliente direto):
 permission denied for function data_entry_assistant_review_333
-4 viewer recusado:
+4 sandbox_exec_x execute (default ACL):
+permission denied for function data_entry_assistant_review_333
+5 service_role escrita direta:
+permission denied for table data_entry_assistant_reviews_333
+6 sandbox_exec select:
+permission denied for table data_entry_assistant_reviews_333
+7 viewer / banido / empresa inativa / outra empresa na proposta:
 ERROR:  #333: context_mismatch
-CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 7 at RAISE
-5 empresa da proposta diferente:
 ERROR:  #333: context_mismatch
-CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 10 at RAISE
-6 v1 criada
-7 autorizar com ações bloqueadas:
+ERROR:  #333: context_mismatch
+ERROR:  #333: context_mismatch
+8 hash do cliente divergente do conteúdo:
+ERROR:  #333: hash_mismatch
+9 conteúdo adulterado (mesmo hash):
+ERROR:  #333: hash_mismatch
+10 v1 (hash do servidor TS = hash SQL): 36
+11 autorizar dependência omitida (a2 sem a1):
 ERROR:  #333: actions_blocked
-CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 35 at RAISE
-8 outro utilizador/empresa:
+12 autorizar a5 bloqueada:
+ERROR:  #333: actions_blocked
+13 duplicadas / vazio:
+ERROR:  #333: actions_blocked
+ERROR:  #333: actions_blocked
+14 outro utilizador:
 ERROR:  #333: context_mismatch
-CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 15 at RAISE
-9 edição -> v2:
+15 edição -> v2:
 2
-10 versão antiga (stale):
+16 autorizar v1 (stale):
 ERROR:  #333: stale_version
-CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 16 at RAISE
-11 autorizar v1/hash antigo:
-ERROR:  #333: stale_version
-CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 30 at RAISE
-12 subconjunto de ações:
-ERROR:  #333: actions_blocked
-CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 35 at RAISE
-13 duplicadas:
-ERROR:  #333: actions_blocked
-CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 35 at RAISE
-14 autorização exata:
+17 subconjunto admissível {a1,a2}:
 false
-15 replay igual:
+18 replay igual:
 true
-16 replay com outra chave mesma versão:
+19 outra chave mesma versão:
 ERROR:  #333: replay_conflict
-CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 37 at RAISE
-17 mesma chave, outros efeitos:
+20 mesma chave outros efeitos:
 ERROR:  #333: replay_conflict
-CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 28 at RAISE
-18 concorrência (2 ligações, mesma versão esperada 2):
+21 imutabilidade (dono postgres):
+immutable_record
+immutable_record
+immutable_record
+22 concorrência (2 ligações, versão esperada 2):
    A: 3
    A: 
    B: ERROR:  #333: stale_version
-   B: CONTEXT:  PL/pgSQL function data_entry_assistant_review_333(text,uuid,integer,text,jsonb,text[],uuid) line 16 at RAISE
-19 contagens:
+23 contagens versões|autorizações|versão:
 3|1|3
-20 rollback com linhas:
+24 rollback com linhas:
 reviews_present_retain_before_rollback
-21 readback:
+25 readback:
 t
 1|1
-data_entry_assistant_authorizations_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f
-data_entry_assistant_review_settings_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f
-data_entry_assistant_review_versions_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f
-data_entry_assistant_reviews_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f
-data_entry_assistant_review_333|t|{"search_path=public, pg_temp"}|{postgres=X/postgres,authenticated=X/postgres}|4842187f3a56594ffac883e923595e5a|f|t
-22 rollback OK
-23 esquema/ACL igual ao inicial
-24 reaplicar:
+data_entry_assistant_authorizations_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f|f
+data_entry_assistant_review_settings_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f|f
+data_entry_assistant_review_versions_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f|f
+data_entry_assistant_reviews_333|t|{postgres=arwdDxtm/postgres,service_role=r/postgres}|f|f|f
+_de333_immutable()|f|{"search_path=public, pg_temp"}|{postgres=X/postgres}|8e31b7bc52905a0e46b1814bc3aa2f81|f|f
+_de333_canon(jsonb)|f|{"search_path=public, pg_temp"}|{postgres=X/postgres}|d4a7d83ec0f654672c3f2b9f427a15a0|f|f
+data_entry_assistant_review_333(text,uuid,uuid,uuid,integer,text,jsonb,text[],uuid)|t|{"search_path=public, pg_temp"}|{postgres=X/postgres,service_role=X/postgres}|5cea89f4763dfb293e7c7db4ea94dc11|f|f
+de333_auth_immutable|data_entry_assistant_authorizations_333
+de333_auth_no_truncate|data_entry_assistant_authorizations_333
+de333_versions_immutable|data_entry_assistant_review_versions_333
+de333_versions_no_truncate|data_entry_assistant_review_versions_333
+26 rollback OK
+27 esquema/ACL igual ao inicial
+28 reaplicar:
 OK
 reviewed_absent_objects_drift

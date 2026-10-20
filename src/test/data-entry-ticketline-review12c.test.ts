@@ -72,11 +72,11 @@ describe("#333 fase12c candidato Ticketline", () => {
 
 describe("#333 fase12c persistência", () => {
   it("sem migração: indisponível, sem memória; RPC mapeia conflitos", async () => {
-    await expect(unavailableReviewStore.save("t", { review_id: null, expected_version: null, proposal: {} as never })).rejects.toBeInstanceOf(ReviewUnavailable);
+    await expect(unavailableReviewStore.save({ user, company }, { review_id: null, expected_version: null, proposal: {} as never })).rejects.toBeInstanceOf(ReviewUnavailable);
     const missing = rpcReviewStore(async () => ({ data: null, error: { code: "42883", message: "function does not exist" } }));
-    await expect(missing.save("t", { review_id: null, expected_version: null, proposal: { effects_hash: "a" } as never })).rejects.toBeInstanceOf(ReviewUnavailable);
+    await expect(missing.save({ user, company }, { review_id: null, expected_version: null, proposal: { effects_hash: "a" } as never })).rejects.toBeInstanceOf(ReviewUnavailable);
     const stale = rpcReviewStore(async () => ({ data: null, error: { code: "40001", message: "#333: stale_version" } }));
-    await expect(stale.authorize("t", { review_id: event, version: 1, effects_hash: "a".repeat(64), action_ids: ["a1"], replay_key: account })).rejects.toThrow(/mudou/);
+    await expect(stale.authorize({ user, company }, { review_id: event, version: 1, effects_hash: "a".repeat(64), action_ids: ["a1"], replay_key: account })).rejects.toThrow(/mudou/);
   });
 });
 
@@ -85,8 +85,8 @@ function deps(over: Partial<Deps> = {}) {
   const d: Deps = { uploadEnabled: false, cors: {}, continuationSecret: SECRET, today: () => "2026-10-20",
     getUser: async (t) => ({ id: t === "jwt-other" ? other : user }),
     userRpc: async () => ({ data: { role: "manager", company_id: company }, error: null }), recordReceipt: vi.fn(), storage: { upload: vi.fn(), download: vi.fn() },
-    gmail: { reader: async () => ({ search: vi.fn(), read: async (id: string) => ({ message_id: id, from: "x@exemplo.invalid", subject: "Fecho", date: "2026-10-10", kind: "plain" as const, body_text: BODY, truncated: false }), attachment }) } as never,
-    ticketlineErp: { context: async () => erp, account: () => async (id) => ({ id, company_id: company, is_active: true }) }, ...over };
+    gmail: { reader: async () => ({ search: vi.fn(), read: async (id: string) => ({ message_id: id, from: "x@exemplo.invalid", subject: "Fecho", date: "2026-10-10", kind: "plain" as const, body_text: BODY, truncated: false }), attachment, attachments: async () => [{ part_id: "1", filename: "fecho.pdf", mime: "application/pdf", size_bytes: PDF.length }] }) } as never,
+    ticketlineErp: { context: async () => erp, accounts: async () => [], account: () => async (id) => ({ id, company_id: company, is_active: true }) }, ...over };
   return { d, attachment };
 }
 const post = (h: ReturnType<typeof createHandler>, body: unknown, jwt = "local-jwt-not-real") => h(new Request("http://local.invalid", { method: "POST", headers: { Authorization: `Bearer ${jwt}`, "Content-Type": "application/json" }, body: JSON.stringify(body) }));
@@ -116,7 +116,7 @@ describe("#333 fase12c handler", () => {
     expect((await post(h, { action: "ticketline_candidate", message_id: "msg000001", part_id: "1", expected_sha256: "0".repeat(64) })).status).toBe(409);
   });
   it("evento de fora do ERP da empresa e recebimento numa conta alheia recusados", async () => {
-    const { d } = deps({ ticketlineErp: { context: async () => erp, account: () => async (id) => ({ id, company_id: other, is_active: true }) } }); const h = createHandler(d);
+    const { d } = deps({ ticketlineErp: { context: async () => erp, accounts: async () => [], account: () => async (id) => ({ id, company_id: other, is_active: true }) } }); const h = createHandler(d);
     const c = await (await post(h, { action: "ticketline_candidate", message_id: "msg000001" })).json();
     expect((await post(h, { action: "ticketline_preview", candidate_token: c.candidate_token, edits: { event_id: other } })).status).toBe(403);
     const r = await post(h, { action: "ticketline_preview", candidate_token: c.candidate_token, edits: {}, settlement: { financial_account_id: account, date: "2026-10-15", amount_cents: 100, confirm: true } });

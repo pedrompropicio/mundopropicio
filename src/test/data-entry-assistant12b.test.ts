@@ -53,7 +53,7 @@ describe("#333 real adapters with synthetic HTTP only", () => {
     const read = vi.fn(async () => ({ message_id: "msg000001", from: "x@exemplo.invalid", subject: "Fecho Evento", date: "2026-10-10", kind: "plain" as const, body_text: "Apuramento AP-01, Evento, direito 10.00 EUR", truncated: false }));
     const erp = vi.fn(async (token, comp) => { expect(token).toBe("local-jwt-not-real"); expect(comp).toBe(company); return { company_id: company, events: [{ id: event, name: "Evento", date: null, sealed: false }], existing_statements: [] }; });
     const deps: Deps = { uploadEnabled: false, pilotScoped: true, cors: {}, getUser: async () => ({ id: user }), userRpc: async (_token, name) => ({ data: name === "my_effective_permissions" ? { role: "manager", company_id: company } : { preparation: false, execute: false }, error: null }), recordReceipt: vi.fn(), storage: { upload: vi.fn(), download: vi.fn() },
-      assistantEnabled: true, assistant: { model, erpContext: erp }, gmail: { reader: async () => ({ search: async () => ({ messages: [{ message_id: "msg000001", from: "x", subject: "Fecho", date: "2026-10-10", attachments: [] }], next_page_token: null }), read, attachment: vi.fn() }) } };
+      assistantEnabled: true, assistant: { model, erpContext: erp }, gmail: { reader: async () => ({ search: async () => ({ messages: [{ message_id: "msg000001", from: "x", subject: "Fecho", date: "2026-10-10", attachments: [] }], next_page_token: null }), read, attachment: vi.fn(), attachments: vi.fn(async () => []) }) } };
     const r = await createHandler(deps)(new Request("http://local.invalid", { method: "POST", headers: { Authorization: "Bearer local-jwt-not-real", "Content-Type": "application/json" }, body: JSON.stringify({ action: "assistant_turn", text: "Lê o fecho", history: [] }) }));
     const body = await r.json(); expect(body.status).toBe("proposal"); expect(body.proposal.event.id).toBe(event); expect(body.proposal.effects.source_content_hash).toMatch(/^[a-f0-9]{64}$/);
     expect(body.proposal.actions.every((a: { blocked_reason: string }) => !!a.blocked_reason)).toBe(true);
@@ -93,7 +93,7 @@ describe("#333 real adapters with synthetic HTTP only", () => {
     expect(r.status).toBe("error"); expect(read).not.toHaveBeenCalled();
   });
   it("ERP read scope and exact duplicate lookup; confirmed settlement seals event", async () => {
-    const queries: ErpRead[] = []; const read = async (q: ErpRead) => { queries.push(q); return q.table === "events" ? [{ id: event, name: "Evento sintético", company_id: company, date: "2026-10-10" }] : q.table === "ticket_office_settlements" ? [{ event_id: event, company_id: company, status: "confirmed" }] : [{ id: user, company_id: company, number: "AP-01", status: "draft" }]; };
+    const queries: ErpRead[] = []; const read = async (q: ErpRead) => { queries.push(q); return q.table === "events" ? [{ id: event, name: "Evento sintético", company_id: company, date: "2026-10-10" }] : q.table === "ticket_office_settlements" ? [{ event_id: event, company_id: company, status: "confirmed", settlement_date: "2026-10-12", net_transferred: 579.5, transfer_account_id: null }] : [{ id: user, company_id: company, number: "AP-01", status: "draft" }]; };
     const r = await readAssistantErp(read, company, "Evento%_sintético", signal(), "AP-01");
     expect(r.events[0].sealed).toBe(true); expect(queries.every(q => q.company === company)).toBe(true); expect(queries[0].text).toBe("Evento sintético"); expect(queries[2].number).toBe("AP-01");
   });
@@ -126,7 +126,8 @@ describe("#333 real adapters with synthetic HTTP only", () => {
     reviewed.effects_hash = await proposalEffectsHash(reviewed.effects, reviewed.actions);
     const full = { ...old, effects_hash: reviewed.effects_hash };
     expect(await authorizationMatches(full, reviewed, { user_id: user, company_id: company })).toBe(true);
-    for (const ids of [[], ["unknown"], ["a1", "a1"], ["a2"], ["a1", "a2"]]) expect(await authorizationMatches({ ...full, action_ids: ids }, reviewed, { user_id: user, company_id: company })).toBe(false);
+    expect(await authorizationMatches({ ...full, action_ids: ["a1", "a2"] }, reviewed, { user_id: user, company_id: company })).toBe(true); // dependency-closed subset
+    for (const ids of [[], ["unknown"], ["a1", "a1"], ["a2"], ["a1", "a3"]]) expect(await authorizationMatches({ ...full, action_ids: ids }, reviewed, { user_id: user, company_id: company })).toBe(false);
     expect(await authorizationMatches(full, { ...reviewed, actions: reviewed.actions.map(a => a.id === "a2" ? { ...a, depends_on: [] } : a) }, { user_id: user, company_id: company })).toBe(false);
   });
 });

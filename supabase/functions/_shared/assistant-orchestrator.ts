@@ -76,6 +76,8 @@ export type TurnResult = {
   tokens: number;
   continuation?: string;
   /** Ephemeral server metadata stripped and signed by handler before delivery. */
+  /** Ephemeral: model-led extraction + server-read body; handler converts it to a signed candidate and strips it. */
+  candidate_state?: { body: GmailMessageBody; statement: z.infer<typeof statementSchema> };
   continuation_state?: { filters: z.infer<typeof gmailFilterSchema>; messages: string[]; events: string[]; message: string | null };
 };
 
@@ -166,9 +168,9 @@ export async function runAssistantTurn(model: AssistantModel, tools: AssistantTo
           if (!p.event) {
             const cands = resolveEvent(st.lines.map((l) => l.event_hint), erp.events).candidates;
             eventIds = cands.map(e => e.id);
-            if (cands.length > 1) return done({ status: "select_event", text: "Há mais de um evento possível. Escolhe o evento deste fecho.", options: cands.map((e) => ({ id: e.id, label: `${e.name}${e.date ? ` · ${e.date}` : ""}` })), proposal: p });
+            if (cands.length > 1) return done({ status: "select_event", text: "Há mais de um evento possível. Escolhe o evento deste fecho.", options: cands.map((e) => ({ id: e.id, label: `${e.name}${e.date ? ` · ${e.date}` : ""}` })), proposal: p, candidate_state: { body: source, statement: st } });
           }
-          return done({ status: "proposal", text: "Preparei uma proposta para revisão. Nada foi gravado: a execução exige autorização expressa e ainda não está disponível.", proposal: p });
+          return done({ status: "proposal", text: "Preparei uma proposta para revisão. Nada foi gravado: a execução exige autorização expressa e ainda não está disponível.", proposal: p, candidate_state: { body: source, statement: st } });
         }
       } else {
         const erp = await tools.erpContext((parsed.data as { text: string }).text);
