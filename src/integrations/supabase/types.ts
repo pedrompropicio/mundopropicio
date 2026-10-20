@@ -3696,6 +3696,167 @@ export type Database = {
         }
         Relationships: []
       }
+      cache_payment_contract_cities: {
+        Row: {
+          advances: number
+          artist_balance: number
+          cap: number
+          company_id: string
+          contract_id: string
+          event_id: string
+          forecast_id: string
+          id: string
+          is_absorber: boolean
+          quota: number
+          withholding: number
+        }
+        Insert: {
+          advances?: number
+          artist_balance: number
+          cap: number
+          company_id: string
+          contract_id: string
+          event_id: string
+          forecast_id: string
+          id?: string
+          is_absorber?: boolean
+          quota: number
+          withholding?: number
+        }
+        Update: {
+          advances?: number
+          artist_balance?: number
+          cap?: number
+          company_id?: string
+          contract_id?: string
+          event_id?: string
+          forecast_id?: string
+          id?: string
+          is_absorber?: boolean
+          quota?: number
+          withholding?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cache_payment_contract_cities_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "cache_payment_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cache_payment_contract_cities_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cache_payment_contracts: {
+        Row: {
+          advances_amount: number
+          artist_due_date: string | null
+          artist_mother_id: string | null
+          artist_supplier_id: string
+          beneficiary_supplier_id: string
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          gross: number
+          id: string
+          idempotency_key: string | null
+          label: string | null
+          replaced_by: string | null
+          root_event_id: string
+          withholding_amount: number
+          withholding_applies: boolean
+          withholding_due_date: string | null
+          withholding_mother_id: string | null
+          withholding_rate: number | null
+        }
+        Insert: {
+          advances_amount?: number
+          artist_due_date?: string | null
+          artist_mother_id?: string | null
+          artist_supplier_id: string
+          beneficiary_supplier_id: string
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          gross: number
+          id?: string
+          idempotency_key?: string | null
+          label?: string | null
+          replaced_by?: string | null
+          root_event_id: string
+          withholding_amount?: number
+          withholding_applies: boolean
+          withholding_due_date?: string | null
+          withholding_mother_id?: string | null
+          withholding_rate?: number | null
+        }
+        Update: {
+          advances_amount?: number
+          artist_due_date?: string | null
+          artist_mother_id?: string | null
+          artist_supplier_id?: string
+          beneficiary_supplier_id?: string
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          gross?: number
+          id?: string
+          idempotency_key?: string | null
+          label?: string | null
+          replaced_by?: string | null
+          root_event_id?: string
+          withholding_amount?: number
+          withholding_applies?: boolean
+          withholding_due_date?: string | null
+          withholding_mother_id?: string | null
+          withholding_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cache_payment_contracts_artist_supplier_id_fkey"
+            columns: ["artist_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cache_payment_contracts_beneficiary_supplier_id_fkey"
+            columns: ["beneficiary_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cache_payment_contracts_replaced_by_fkey"
+            columns: ["replaced_by"]
+            isOneToOne: false
+            referencedRelation: "cache_payment_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cache_payment_contracts_root_event_id_fkey"
+            columns: ["root_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       camarim_fund_moves: {
         Row: {
           amount: number
@@ -19452,6 +19613,10 @@ export type Database = {
         Row: {
           account_id: string | null
           amount: number
+          cache_artist_supplier_id: string | null
+          cache_contract_id: string | null
+          cache_role: string | null
+          cache_root_event_id: string | null
           card_session_id: string | null
           category_id: string | null
           company_id: string
@@ -19514,6 +19679,10 @@ export type Database = {
         Insert: {
           account_id?: string | null
           amount: number
+          cache_artist_supplier_id?: string | null
+          cache_contract_id?: string | null
+          cache_role?: string | null
+          cache_root_event_id?: string | null
           card_session_id?: string | null
           category_id?: string | null
           company_id?: string
@@ -19576,6 +19745,10 @@ export type Database = {
         Update: {
           account_id?: string | null
           amount?: number
+          cache_artist_supplier_id?: string | null
+          cache_contract_id?: string | null
+          cache_role?: string | null
+          cache_root_event_id?: string | null
           card_session_id?: string | null
           category_id?: string | null
           company_id?: string
@@ -19641,6 +19814,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_cache_contract_id_fkey"
+            columns: ["cache_contract_id"]
+            isOneToOne: false
+            referencedRelation: "cache_payment_contracts"
             referencedColumns: ["id"]
           },
           {
@@ -22188,6 +22368,54 @@ export type Database = {
         Args: { _company_id: string; _ctx: string }
         Returns: undefined
       }
+      _cache_alloc: {
+        Args: { p_absorber: number; p_total: number; p_weights: number[] }
+        Returns: number[]
+      }
+      _cache_assert_actor: { Args: never; Returns: string }
+      _cache_cancel_contract: {
+        Args: { p_contract: string; p_reason: string; p_uid: string }
+        Returns: undefined
+      }
+      _cache_category: { Args: { p_company: string }; Returns: string }
+      _cache_cities: {
+        Args: { p_artist: string; p_root: string }
+        Returns: {
+          cap: number
+          event_date: string
+          event_id: string
+          event_name: string
+          forecast_id: string
+          idx: number
+          is_absorber: boolean
+        }[]
+      }
+      _cache_create_contract: {
+        Args: {
+          p_advance_ids: string[]
+          p_artist: string
+          p_artist_due: string
+          p_beneficiary: string
+          p_gross: number
+          p_key: string
+          p_label: string
+          p_root: string
+          p_uid: string
+          p_wh_applies: boolean
+          p_wh_due: string
+          p_wh_rate: number
+        }
+        Returns: string
+      }
+      _cache_free_advances: {
+        Args: { p_artist: string; p_root: string }
+        Returns: {
+          amount: number
+          event_id: string
+          legacy: boolean
+          tx_id: string
+        }[]
+      }
       _camarim_fund_move_legs: {
         Args: { p_move_id: string }
         Returns: {
@@ -22345,6 +22573,20 @@ export type Database = {
         Returns: undefined
       }
       _run_invariant_checks_all: {
+        Args: never
+        Returns: {
+          conforme: boolean
+          current_count: number
+          description: string
+          name: string
+          notes: string
+          reference_count: number
+          sample: Json
+          scope: string
+          severity: string
+        }[]
+      }
+      _run_invariant_checks_cache_contracts: {
         Args: never
         Returns: {
           conforme: boolean
@@ -22731,6 +22973,16 @@ export type Database = {
           account_id: string
           balance: number
         }[]
+      }
+      add_cache_contract_advance: {
+        Args: {
+          p_amount: number
+          p_contract_id: string
+          p_description?: string
+          p_due_date: string
+          p_idempotency_key?: string
+        }
+        Returns: string
       }
       admin_cost_override_write: {
         Args: { p_reason: string; p_row: Json; p_transaction_id?: string }
@@ -23695,6 +23947,11 @@ export type Database = {
         Args: { _event_id: string }
         Returns: number
       }
+      cache_contract_context: {
+        Args: { p_artist_supplier_id: string; p_event_id: string }
+        Returns: Json
+      }
+      cache_max_contracts: { Args: never; Returns: number }
       calibrate_forecast_boost: {
         Args: { p_event_id: string; p_window_days?: number }
         Returns: {
@@ -23737,6 +23994,10 @@ export type Database = {
         Returns: boolean
       }
       can_view_supplier_bank_data: { Args: never; Returns: boolean }
+      cancel_cache_payment_breakdown: {
+        Args: { p_contract_id: string; p_reason?: string }
+        Returns: undefined
+      }
       capi_classify_pending_blocked: {
         Args: { p_limit?: number }
         Returns: Json
@@ -24199,6 +24460,34 @@ export type Database = {
           _is_pinned_scenario?: boolean
           _scenario_assumptions?: Json
           _scenario_label?: string
+        }
+        Returns: string
+      }
+      create_cache_advance: {
+        Args: {
+          p_amount: number
+          p_artist_supplier_id: string
+          p_description?: string
+          p_due_date: string
+          p_event_id: string
+          p_idempotency_key?: string
+          p_supplier_id: string
+        }
+        Returns: string
+      }
+      create_cache_payment_contract: {
+        Args: {
+          p_advance_ids?: string[]
+          p_artist_due_date: string
+          p_artist_supplier_id: string
+          p_beneficiary_supplier_id: string
+          p_event_id: string
+          p_gross: number
+          p_idempotency_key?: string
+          p_label?: string
+          p_withholding_applies: boolean
+          p_withholding_due_date: string
+          p_withholding_rate: number
         }
         Returns: string
       }
@@ -26040,6 +26329,20 @@ export type Database = {
       }
       unset_partner_portal_user: {
         Args: { _profile_id: string }
+        Returns: string
+      }
+      update_cache_payment_contract: {
+        Args: {
+          p_advance_ids?: string[]
+          p_artist_due_date: string
+          p_beneficiary_supplier_id: string
+          p_contract_id: string
+          p_gross: number
+          p_label?: string
+          p_withholding_applies: boolean
+          p_withholding_due_date: string
+          p_withholding_rate: number
+        }
         Returns: string
       }
       update_planned_installments: {
