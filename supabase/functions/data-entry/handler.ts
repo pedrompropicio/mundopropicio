@@ -61,6 +61,7 @@ export const commandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("check"), session_id: id, preview_id: id }).strict(),
   z.object({ action: z.literal("document"), session_id: id, document_id: id }).strict(),
   z.object({ action: z.literal("gmail_search"), filters: z.unknown() }).strict(),
+  z.object({ action: z.literal("gmail_read"), message_id: z.string().regex(/^[A-Za-z0-9]{6,64}$/) }).strict(),
   z.object({ action: z.literal("gmail_connection") }).strict(),
   z.object({ action: z.literal("gmail_connect_start"), origin: z.string().url().max(200) }).strict(),
   z.object({ action: z.literal("gmail_connect_complete"), binding: z.string().regex(/^[A-Za-z0-9_-]{43}$/), code: z.string().min(1).max(4096).regex(/^[\x21-\x7e]+$/) }).strict(),
@@ -213,6 +214,13 @@ export function createHandler(d: Deps) {
         if (!filters.success) throw new SafeError(filters.error.issues[0]?.message ?? "Filtros inválidos.", 400);
         const reader = await gmailReader();
         const result = await reader.search(filters.data);
+        await canonicalStorageContext();
+        return reply(result);
+      }
+      // Leitura do corpo da mensagem escolhida: só leitura, independente do envio documental fechado.
+      if (body.action === "gmail_read") {
+        const reader = await gmailReader();
+        const result = await reader.read(body.message_id);
         await canonicalStorageContext();
         return reply(result);
       }

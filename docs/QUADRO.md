@@ -38,6 +38,9 @@ _(sem pedidos)_
 
 ## 0 · Cowork (ChatGPT)
 
+  - **20/10/2026 ~11:15 UTC — #333 fase11e pesquisa/leitura Gmail entregue, reserva libertada:** base fafa8c80 = main, CI run39358192442 SUCCESS (controller). Pesquisa da caixa própria sem exigir anexo (modo leitura) e nova ação `gmail_read` com corpo só da mensagem escolhida: texto simples ou HTML→texto sanitizado, limites 200KB/4000 chars/profundidade 6/15s, truncagem sinalizada, sem marcar lido nem escrever. UI no modal funciona com upload fechado; importação de anexo continua indisponível enquanto o envio documental estiver fechado. Deploy SÓ data-entry (source 7c295e72…f156); OPTIONS 200, sem sessão 401, anon 401. Read-only agregado: control rev16 closed/sem claim, audit 16, ligação Gmail existente NÃO consumida, 2 nonces inertes. Vitest Gmail 48/48, suite 1705 PASS/6 skip/11 todo; Deno check limpo. Sem inbox real/OAuth/DDL/Publish/LLM/fixtures; #322/#323/AJ19 preservados. Prova: docs/testes/issue333/fase11e-leitura-gmail.md. CI do novo SHA ao controller.
+
+
   - **19/10/2026 23:49 UTC — AJ19 prova Meta concluída, reserva libertada:** base9aa1376d igual main; deploy só song-link-event source f10e9cd3…8e9c. Isolamento teste por marca da chegada/códigos, receipt Meta allowlist; 83/83 PASS/Deno0/buildOK. Chegada marcada retida sem ViewContent; app_open ListenClick HTTP200/events_received1/slotdelivered; choice slot_perdido; TikTok suprimido nas provas. Janela23:34:05–23:49:05:196 chegadas reais, Meta45duplicate/151enviado, TikTok10duplicate/186enviado;99app_open reais (55android_inline/44android_retry), ambos enviado. Ver docs/testes/aj19-prova-meta-20261019.md. Sem DDL/Publish/apagarlinhas; #322/#323 preservadas. Código de teste não gravado.
 
 

@@ -33,11 +33,12 @@ export type DataEntryStatus = { user_id: string; role: string; company_id: strin
 export type DataEntryContext = { user_id: string; company_id: string };
 export type ExecuteOutcome = { status: "conferido" | "conferencia_pendente" | "por_confirmar"; result?: DataEntryResult; persisted?: { id: string; status: string; total_amount: number; invoice_date: string; storage_path: string } | null; error?: string };
 
-export type GmailFilters = { from_date: string; to_date: string; sender?: string; subject?: string; page_size: number; page_token?: string };
+export type GmailFilters = { from_date: string; to_date: string; sender?: string; subject?: string; page_size: number; page_token?: string; attachments_only?: boolean };
 export type GmailAttachment = { part_id: string; filename: string; mime: string; size_bytes: number };
 export type GmailMessage = { message_id: string; from: string; subject: string; date: string; attachments: GmailAttachment[] };
 export type GmailConnectionStatus = { linked: boolean; reconnect_required: boolean; mailbox_email?: string };
 export type GmailSearchResult = { messages: GmailMessage[]; next_page_token: string | null };
+export type GmailMessageBody = { message_id: string; from: string; subject: string; date: string; kind: "plain" | "html" | "none"; body_text: string; truncated: boolean };
 
 export class DataEntryError extends Error { constructor(message: string, readonly status: number) { super(message); } }
 
@@ -53,6 +54,7 @@ export interface DataEntryAdapter {
   gmailConnectStart?(context: DataEntryContext): Promise<{ authorization_url: string }>;
   gmailDisconnect?(context: DataEntryContext): Promise<{ revoked_at_google: boolean }>;
   gmailImport?(sessionId: string, selection: { message_id: string; part_id: string }, context: DataEntryContext): Promise<{ id: string; reused: boolean; origin: string }>;
+  gmailRead?(messageId: string, context: DataEntryContext): Promise<GmailMessageBody>;
   analyze?(sessionId: string, documentId: string, message: string, history: AnalysisTurn[], context: DataEntryContext, signal: AbortSignal): Promise<AnalysisReport>;
 }
 
@@ -97,6 +99,7 @@ export const edgeDataEntryAdapter: DataEntryAdapter = {
   gmailConnectStart: (context) => call(JSON.stringify({ action: "gmail_connect_start", origin: window.location.origin }), true, context),
   gmailDisconnect: (context) => call(JSON.stringify({ action: "gmail_disconnect" }), true, context),
   gmailImport: (sessionId, selection, context) => call(JSON.stringify({ action: "gmail_import", session_id: sessionId, selection }), true, context),
+  gmailRead: (messageId, context) => call(JSON.stringify({ action: "gmail_read", message_id: messageId }), true, context),
   async analyze(sessionId, documentId, message, history, context, signal) {
     const { data } = await supabase.auth.getSession();
     if (!data.session?.access_token) throw new DataEntryError("Inicia sessão para continuar.", 401);

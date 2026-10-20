@@ -3,3 +3,5 @@
 - [ ] Ativação real bloqueada: cliente Google/Lovable ainda não configurado; SQL/gate/deploy e consentimento dependem de autorização própria.
 - [x] AJ19: isolamento teste, testes/deploy song-link-event, prova Meta marcada, monitorização SQL 15 min e libertar reserva.
 - [x] Newgang: listas privadas de convites pendentes, 17 testes Deno + 9 Vitest e relatório; sem deploy nem alterações de dados.
+- [x] #333 fase11e: pesquisa/leitura Gmail própria no modal (só leitura), deploy só data-entry; gates fechados preservados.
+- [ ] CI do novo SHA #333 fase11e por confirmar pelo controller; prova real de leitura é acionada pelo próprio Pedro no preview.
