@@ -42,6 +42,18 @@ export type GmailConnectionStatus = { linked: boolean; reconnect_required: boole
 export type GmailSearchResult = { messages: GmailMessage[]; next_page_token: string | null; search_info?: GmailSearchInfo };
 export type GmailMessageBody = { message_id: string; from: string; subject: string; date: string; kind: "plain" | "html" | "none"; body_text: string; truncated: boolean };
 
+export type AssistantTurnInput = { text: string; history: { role: "user" | "assistant"; text: string }[]; selection?: { message_id?: string; event_id?: string }; known_message_ids?: string[] };
+export type AssistantProposal = {
+  version: 1; statement_number: string | null; event: { id: string; name: string } | null; sum_cents: number; document_total_cents: number | null; difference_cents: number | null;
+  totals_cents: Record<string, number>; checks: { code: string; ok: boolean; message: string }[];
+  actions: { id: string; kind: string; label: string; existing_flow: string; depends_on: string[]; blocked_reason: string | null }[]; needs: string[]; effects_hash: string;
+};
+export type AssistantTurnResult = {
+  status: "answer" | "clarify" | "select_message" | "select_event" | "proposal" | "limit" | "denied" | "stopped" | "error";
+  text: string; trace: { tool: string; ok: boolean; summary: string }[]; options?: { id: string; label: string }[];
+  proposal?: AssistantProposal; execution: { available: false; gaps: string[] }; known_message_ids: string[];
+};
+
 export class DataEntryError extends Error { constructor(message: string, readonly status: number) { super(message); } }
 
 export interface DataEntryAdapter {
@@ -57,6 +69,7 @@ export interface DataEntryAdapter {
   gmailDisconnect?(context: DataEntryContext): Promise<{ revoked_at_google: boolean }>;
   gmailImport?(sessionId: string, selection: { message_id: string; part_id: string }, context: DataEntryContext): Promise<{ id: string; reused: boolean; origin: string }>;
   gmailRead?(messageId: string, context: DataEntryContext): Promise<GmailMessageBody>;
+  assistantTurn?(input: AssistantTurnInput, context: DataEntryContext): Promise<AssistantTurnResult>;
   analyze?(sessionId: string, documentId: string, message: string, history: AnalysisTurn[], context: DataEntryContext, signal: AbortSignal): Promise<AnalysisReport>;
 }
 
@@ -97,6 +110,7 @@ export const edgeDataEntryAdapter: DataEntryAdapter = {
   execute: (sessionId, previewId, snapshotHash, context) => call(JSON.stringify({ action: "execute", session_id: sessionId, preview_id: previewId, snapshot_hash: snapshotHash, authorize: true }), true, context),
   check: (sessionId, previewId, context) => call(JSON.stringify({ action: "check", session_id: sessionId, preview_id: previewId }), true, context),
   gmailSearch: (filters, context) => call(JSON.stringify({ action: "gmail_search", filters }), true, context),
+  assistantTurn: (input, context) => call(JSON.stringify({ action: "assistant_turn", ...input }), true, context),
   gmailConnection: (context) => call(JSON.stringify({ action: "gmail_connection" }), true, context),
   gmailConnectStart: (context) => call(JSON.stringify({ action: "gmail_connect_start", origin: window.location.origin }), true, context),
   gmailDisconnect: (context) => call(JSON.stringify({ action: "gmail_disconnect" }), true, context),

@@ -10,6 +10,8 @@ import {
   validCivilDate, validMoney, validateDocument, type DocumentType,
 } from "./core.ts";
 import { GmailConnectError, type GmailConnection } from "../_shared/gmail-app-user.ts";
+import { runAssistantTurn, type AssistantModel } from "../_shared/assistant-orchestrator.ts";
+import type { ErpContext } from "../_shared/assistant-ticketline-proposal.ts";
 import { GmailUnavailable, gmailFilterSchema, gmailOrigin, gmailSelectionSchema, type GmailReader as _GmailReader } from "../_shared/gmail-readonly.ts";
 
 export type RpcResult = { data: unknown; error: { code?: string; message?: string } | null };
