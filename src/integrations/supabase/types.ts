@@ -8014,6 +8014,68 @@ export type Database = {
           },
         ]
       }
+      data_entry_assistant_executions_333: {
+        Row: {
+          action_id: string
+          authorization_id: string
+          company_id: string
+          created_at: string
+          effects_hash: string
+          id: string
+          owner_id: string
+          result: Json
+          status: string
+        }
+        Insert: {
+          action_id: string
+          authorization_id: string
+          company_id: string
+          created_at?: string
+          effects_hash: string
+          id?: string
+          owner_id: string
+          result: Json
+          status?: string
+        }
+        Update: {
+          action_id?: string
+          authorization_id?: string
+          company_id?: string
+          created_at?: string
+          effects_hash?: string
+          id?: string
+          owner_id?: string
+          result?: Json
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_entry_assistant_executions_333_authorization_id_fkey"
+            columns: ["authorization_id"]
+            isOneToOne: false
+            referencedRelation: "data_entry_assistant_authorizations_333"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_entry_assistant_executor_settings_333: {
+        Row: {
+          changed_at: string
+          enabled: boolean
+          singleton: boolean
+        }
+        Insert: {
+          changed_at?: string
+          enabled?: boolean
+          singleton?: boolean
+        }
+        Update: {
+          changed_at?: string
+          enabled?: boolean
+          singleton?: boolean
+        }
+        Relationships: []
+      }
       data_entry_assistant_review_settings_333: {
         Row: {
           changed_at: string
@@ -22249,6 +22311,12 @@ export type Database = {
         }[]
       }
       _de333_canon: { Args: { j: Json }; Returns: string }
+      _de333_cents: { Args: { j: Json; p_min: number }; Returns: number }
+      _de333_closing_check: {
+        Args: { c: Json; p_company: string }
+        Returns: number
+      }
+      _de333_req: { Args: { j: Json; k: string }; Returns: string }
       _derive_paid_amount: { Args: { p_tx_id: string }; Returns: undefined }
       _effective_permissions_for: {
         Args: { _company_id: string; _universe?: string[]; _user_id: string }
@@ -24416,6 +24484,10 @@ export type Database = {
           p_revision?: number
           p_status?: number
         }
+        Returns: Json
+      }
+      data_entry_assistant_execute_333: {
+        Args: { p_action: string; p_authorization: string; p_mode: string }
         Returns: Json
       }
       data_entry_assistant_review_333: {
